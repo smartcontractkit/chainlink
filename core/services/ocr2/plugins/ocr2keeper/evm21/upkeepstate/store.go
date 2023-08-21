@@ -3,6 +3,8 @@ package upkeepstate
 import (
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"math/big"
 	"sync"
 	"time"
@@ -10,6 +12,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -21,11 +24,6 @@ const (
 	GCInterval = 2 * time.Hour
 )
 
-// UpkeepStateReader is the interface for reading the current state of upkeeps.
-type UpkeepStateReader interface {
-	SelectByWorkIDsInRange(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error)
-}
-
 type ORM interface {
 	InsertUpkeepState(persistedStateRecord, ...pg.QOpt) error
 	SelectStatesByWorkIDs([]string, ...pg.QOpt) ([]persistedStateRecord, error)
@@ -35,7 +33,9 @@ type ORM interface {
 // UpkeepStateStore is the interface for managing upkeeps final state in a local store.
 type UpkeepStateStore interface {
 	ocr2keepers.UpkeepStateUpdater
-	UpkeepStateReader
+	core.UpkeepStateReader
+	Start(context.Context) error
+	io.Closer
 }
 
 var (
@@ -44,16 +44,17 @@ var (
 
 // upkeepStateRecord is a record that we save in a local cache.
 type upkeepStateRecord struct {
-	WorkID          string
-	CompletionState ocr2keepers.UpkeepState
-	BlockNumber     uint64
+	workID      string
+	state       ocr2keepers.UpkeepState
+	blockNumber uint64
 
-	AddedAt time.Time
+	addedAt time.Time
 }
 
 // upkeepStateStore implements UpkeepStateStore.
-// It stores the state of ineligible upkeeps in a local, in-memory cache (TODO: save in DB).
+// It stores the state of ineligible upkeeps in a local, in-memory cache.
 // In addition, performed events are fetched by the scanner on demand.
+// TODO: Add DB persistence
 type upkeepStateStore struct {
 	// dependencies
 	orm     ORM
@@ -90,39 +91,59 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 		return errors.New("pruneDepth must be greater than zero")
 	}
 
-	ctx, cancel := context.WithCancel(pctx)
-	defer cancel()
-
 	u.mu.Lock()
+	if u.cancel != nil {
+		u.mu.Unlock()
+		return fmt.Errorf("already started")
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+
 	u.cancel = cancel
 	u.mu.Unlock()
 
+	if err := u.scanner.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start scanner")
+	}
+
 	u.lggr.Debug("Starting upkeep state store")
 
-	ticker := time.NewTicker(u.cleanCadence)
+	{
+		go func(ctx context.Context) {
+			ticker := time.NewTicker(GCInterval)
+			defer ticker.Stop()
 
-	for {
-		select {
-		case <-ctx.Done():
-			return nil
-		case <-ticker.C:
-			if err := u.cleanup(ctx); err != nil {
-				u.lggr.Errorw("unable to clean old state values", "err", err)
+			for {
+				select {
+				case <-ticker.C:
+					if err := u.cleanup(ctx); err != nil {
+						u.lggr.Errorw("unable to clean old state values", "err", err)
+					}
+
+					ticker.Reset(utils.WithJitter(u.cleanCadence))
+				case <-ctx.Done():
+
+				}
 			}
-
-			ticker.Reset(utils.WithJitter(u.cleanCadence))
-		}
+		}(ctx)
 	}
+
+	return nil
 }
 
 // Close stops the service of pruning stale data; implements io.Closer
 func (u *upkeepStateStore) Close() error {
 	u.mu.Lock()
-	cancel := u.cancel
-	u.mu.Unlock()
+	defer u.mu.Unlock()
 
-	if cancel != nil {
+	if cancel := u.cancel; cancel != nil {
+		u.cancel = nil
 		cancel()
+	} else {
+		return fmt.Errorf("already stopped")
+	}
+	if err := u.scanner.Close(); err != nil {
+		return fmt.Errorf("failed to start scanner")
 	}
 
 	return nil
@@ -176,23 +197,23 @@ func (u *upkeepStateStore) upsertStateRecord(ctx context.Context, workID string,
 	record, ok := u.cache[workID]
 	if !ok {
 		record = &upkeepStateRecord{
-			WorkID:  workID,
-			AddedAt: time.Now(),
+			workID:  workID,
+			addedAt: time.Now(),
 		}
 	}
 
-	record.CompletionState = s
-	record.BlockNumber = b
+	record.blockNumber = b
+	record.state = s
 
 	u.cache[workID] = record
 
 	return u.orm.InsertUpkeepState(persistedStateRecord{
 		UpkeepID:            utils.NewBig(upkeepID),
-		WorkID:              record.WorkID,
-		CompletionState:     uint8(record.CompletionState),
-		BlockNumber:         int64(record.BlockNumber),
+		WorkID:              record.workID,
+		CompletionState:     uint8(record.state),
+		BlockNumber:         int64(record.blockNumber),
 		IneligibilityReason: reason,
-		InsertedAt:          record.AddedAt,
+		InsertedAt:          record.addedAt,
 	}, pg.WithParentCtx(ctx))
 }
 
@@ -209,10 +230,10 @@ func (u *upkeepStateStore) fetchPerformed(ctx context.Context, start, end int64,
 	for _, workID := range performed {
 		if _, ok := u.cache[workID]; !ok {
 			s := &upkeepStateRecord{
-				WorkID:          workID,
-				CompletionState: ocr2keepers.Performed,
-				AddedAt:         time.Now(),
-				BlockNumber:     uint64(end),
+				workID:      workID,
+				state:       ocr2keepers.Performed,
+				addedAt:     time.Now(),
+				blockNumber: uint64(end),
 			}
 
 			u.cache[workID] = s
@@ -247,10 +268,10 @@ func (u *upkeepStateStore) fetchFromDB(ctx context.Context, workIDs []string, st
 	for _, state := range dbStates {
 		if _, ok := u.cache[state.WorkID]; !ok {
 			u.cache[state.WorkID] = &upkeepStateRecord{
-				WorkID:          state.WorkID,
-				CompletionState: ocr2keepers.UpkeepState(state.CompletionState),
-				BlockNumber:     uint64(state.BlockNumber),
-				AddedAt:         state.InsertedAt,
+				workID:      state.WorkID,
+				state:       ocr2keepers.UpkeepState(state.CompletionState),
+				blockNumber: uint64(state.BlockNumber),
+				addedAt:     state.InsertedAt,
 			}
 		}
 	}
@@ -269,7 +290,7 @@ func (u *upkeepStateStore) selectFromCache(workIDs ...string) ([]ocr2keepers.Upk
 	states := make([]ocr2keepers.UpkeepState, len(workIDs))
 	for i, workID := range workIDs {
 		if state, ok := u.cache[workID]; ok {
-			states[i] = state.CompletionState
+			states[i] = state.state
 		} else {
 			hasMisses = true
 			states[i] = ocr2keepers.UnknownState
@@ -299,7 +320,7 @@ func (u *upkeepStateStore) cleanCache() {
 	defer u.mu.Unlock()
 
 	for id, state := range u.cache {
-		if time.Since(state.AddedAt) > u.retention {
+		if time.Since(state.addedAt) > u.retention {
 			delete(u.cache, id)
 		}
 	}

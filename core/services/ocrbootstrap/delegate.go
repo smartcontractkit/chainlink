@@ -23,7 +23,7 @@ import (
 )
 
 type RelayGetter interface {
-	Get(relay.Identifier) (loop.Relayer, error)
+	Get(relay.ID) (loop.Relayer, error)
 }
 
 // Delegate creates Bootstrap jobs
@@ -87,14 +87,14 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job, qopts ...pg.QOpt) (services 
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
 	s := spec.AsOCR2Spec()
-	chainID, err := (&s).GetChainID()
+	rid, err := s.RelayID()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("ServicesForSpec: could not get relayer: %w", err)
 	}
-	relayID := relay.Identifier{Network: spec.Relay, ChainID: chainID}
-	relayer, err := d.RelayGetter.Get(relayID)
+
+	relayer, err := d.RelayGetter.Get(rid)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get relay %s is it enabled?: %w", spec.Relay, err)
+		return nil, fmt.Errorf("ServiceForSpec: failed to get relay %s is it enabled?: %w", rid.Name(), err)
 	}
 	if spec.FeedID != nil {
 		spec.RelayConfig["feedID"] = *spec.FeedID
