@@ -46,6 +46,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     address transmitter,
     FunctionsResponse.FulfillResult resultCode,
     bytes response,
+    bytes error,
     bytes returnData
   );
 
@@ -348,8 +349,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     );
 
     resultCode = result.success
-      ? FunctionsResponse.FulfillResult.USER_SUCCESS
-      : FunctionsResponse.FulfillResult.USER_ERROR;
+      ? FunctionsResponse.FulfillResult.USER_CALLBACK_SUCCESS
+      : FunctionsResponse.FulfillResult.USER_CALLBACK_ERROR;
 
     Receipt memory receipt = _pay(
       commitment.subscriptionId,
@@ -367,7 +368,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       totalCostJuels: receipt.totalCostJuels,
       transmitter: transmitter,
       resultCode: resultCode,
-      response: result.success ? response : err,
+      response: response,
+      error: err,
       returnData: result.returnData
     });
 
