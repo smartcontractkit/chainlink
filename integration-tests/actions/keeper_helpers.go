@@ -142,14 +142,12 @@ func DeployKeeperContracts(
 	}
 	registrar := DeployKeeperRegistrar(t, registryVersion, linkToken, registrarSettings, contractDeployer, client, registry)
 
-	upkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfUpkeeps)
+	upkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfUpkeeps, false)
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
-	upkeepIds := RegisterUpkeepContracts(
-		t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses,
-	)
+	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, false)
 	err = client.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
@@ -212,9 +210,7 @@ func DeployPerformanceKeeperContracts(
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
 
-	upkeepIds := RegisterUpkeepContracts(
-		t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfContracts, upkeepsAddresses,
-	)
+	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfContracts, upkeepsAddresses, false)
 
 	return registry, registrar, upkeeps, upkeepIds
 }
@@ -270,9 +266,7 @@ func DeployPerformDataCheckerContracts(
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
 
-	upkeepIds := RegisterUpkeepContracts(
-		t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfContracts, upkeepsAddresses,
-	)
+	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfContracts, upkeepsAddresses, false)
 
 	return registry, registrar, upkeeps, upkeepIds
 }
@@ -330,38 +324,17 @@ func DeployUpkeepTranscoder(
 	return transcoder
 }
 
-func RegisterUpkeepContracts(
-	t *testing.T,
-	linkToken contracts.LinkToken,
-	linkFunds *big.Int,
-	client blockchain.EVMClient,
-	upkeepGasLimit uint32,
-	registry contracts.KeeperRegistry,
-	registrar contracts.KeeperRegistrar,
-	numberOfContracts int,
-	upkeepAddresses []string,
-) []*big.Int {
+func RegisterUpkeepContracts(t *testing.T, linkToken contracts.LinkToken, linkFunds *big.Int, client blockchain.EVMClient, upkeepGasLimit uint32, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, numberOfContracts int, upkeepAddresses []string, isLogTrigger bool) []*big.Int {
 	checkData := make([][]byte, 0)
 	for i := 0; i < numberOfContracts; i++ {
 		checkData = append(checkData, []byte("0"))
 	}
 	return RegisterUpkeepContractsWithCheckData(
 		t, linkToken, linkFunds, client, upkeepGasLimit, registry, registrar,
-		numberOfContracts, upkeepAddresses, checkData)
+		numberOfContracts, upkeepAddresses, checkData, isLogTrigger)
 }
 
-func RegisterUpkeepContractsWithCheckData(
-	t *testing.T,
-	linkToken contracts.LinkToken,
-	linkFunds *big.Int,
-	client blockchain.EVMClient,
-	upkeepGasLimit uint32,
-	registry contracts.KeeperRegistry,
-	registrar contracts.KeeperRegistrar,
-	numberOfContracts int,
-	upkeepAddresses []string,
-	checkData [][]byte,
-) []*big.Int {
+func RegisterUpkeepContractsWithCheckData(t *testing.T, linkToken contracts.LinkToken, linkFunds *big.Int, client blockchain.EVMClient, upkeepGasLimit uint32, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, numberOfContracts int, upkeepAddresses []string, checkData [][]byte, isLogTrigger bool) []*big.Int {
 	l := utils.GetTestLogger(t)
 	registrationTxHashes := make([]common.Hash, 0)
 	upkeepIds := make([]*big.Int, 0)
@@ -376,6 +349,7 @@ func RegisterUpkeepContractsWithCheckData(
 			linkFunds,
 			0,
 			client.GetDefaultWallet().Address(),
+			isLogTrigger,
 		)
 		require.NoError(t, err, "Encoding the register request shouldn't fail")
 		tx, err := linkToken.TransferAndCall(registrar.Address(), linkFunds, req)
@@ -419,19 +393,22 @@ func RegisterUpkeepContractsWithCheckData(
 	return upkeepIds
 }
 
-func DeployKeeperConsumers(
-	t *testing.T,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
-	numberOfContracts int,
-) []contracts.KeeperConsumer {
+func DeployKeeperConsumers(t *testing.T, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfContracts int, isLogTrigger bool) []contracts.KeeperConsumer {
 	l := utils.GetTestLogger(t)
 	keeperConsumerContracts := make([]contracts.KeeperConsumer, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
 		// Deploy consumer
-		keeperConsumerInstance, err := contractDeployer.DeployKeeperConsumer(big.NewInt(5))
-		require.NoError(t, err, "Deploying KeeperConsumer instance %d shouldn't fail", contractCount+1)
+		var keeperConsumerInstance contracts.KeeperConsumer
+		var err error
+
+		if isLogTrigger {
+			keeperConsumerInstance, err = contractDeployer.DeployAutomationLogTriggerConsumer(big.NewInt(1000)) // 1000 block test range
+		} else {
+			keeperConsumerInstance, err = contractDeployer.DeployKeeperConsumer(big.NewInt(5))
+		}
+
+		require.NoError(t, err, "Deploying Consumer instance %d shouldn't fail", contractCount+1)
 		keeperConsumerContracts = append(keeperConsumerContracts, keeperConsumerInstance)
 		l.Debug().
 			Str("Contract Address", keeperConsumerInstance.Address()).
@@ -439,7 +416,7 @@ func DeployKeeperConsumers(
 			Int("Out Of", numberOfContracts).
 			Msg("Deployed Keeper Consumer Contract")
 		if (contractCount+1)%ContractDeploymentInterval == 0 { // For large amounts of contract deployments, space things out some
-			err = client.WaitForEvents()
+			err := client.WaitForEvents()
 			require.NoError(t, err, "Failed to wait for KeeperConsumer deployments")
 		}
 	}
@@ -600,15 +577,14 @@ func RegisterNewUpkeeps(
 	upkeepGasLimit uint32,
 	numberOfNewUpkeeps int,
 ) ([]contracts.KeeperConsumer, []*big.Int) {
-	newlyDeployedUpkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfNewUpkeeps)
+	newlyDeployedUpkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfNewUpkeeps, false)
 
 	var addressesOfNewUpkeeps []string
 	for _, upkeep := range newlyDeployedUpkeeps {
 		addressesOfNewUpkeeps = append(addressesOfNewUpkeeps, upkeep.Address())
 	}
 
-	newUpkeepIDs := RegisterUpkeepContracts(t, linkToken, big.NewInt(9e18), client, upkeepGasLimit,
-		registry, registrar, numberOfNewUpkeeps, addressesOfNewUpkeeps)
+	newUpkeepIDs := RegisterUpkeepContracts(t, linkToken, big.NewInt(9e18), client, upkeepGasLimit, registry, registrar, numberOfNewUpkeeps, addressesOfNewUpkeeps, false)
 
 	return newlyDeployedUpkeeps, newUpkeepIDs
 }
