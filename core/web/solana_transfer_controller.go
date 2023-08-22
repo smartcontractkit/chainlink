@@ -48,7 +48,7 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 	}
 
 	amount := new(big.Int).SetUint64(tr.Amount)
-	relayerID := relay.Identifier{Network: relay.Solana, ChainID: relay.ChainID(tr.SolanaChainID)}
+	relayerID := relay.ID{Network: relay.Solana, ChainID: relay.ChainID(tr.SolanaChainID)}
 	relayer, err := relayers.Get(relayerID)
 	if err != nil {
 		if errors.Is(err, chainlink.ErrNoSuchRelayer) {

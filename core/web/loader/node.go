@@ -23,12 +23,12 @@ func (b *nodeBatcher) loadByChainIDs(ctx context.Context, keys dataloader.Keys) 
 	var evmrelayIdStrs []string
 
 	for ix, key := range keys {
-		rid := relay.Identifier{Network: relay.EVM, ChainID: relay.ChainID(key.String())}
+		rid := relay.ID{Network: relay.EVM, ChainID: relay.ChainID(key.String())}
 		evmrelayIdStrs = append(evmrelayIdStrs, rid.String())
 		keyOrder[key.String()] = ix
 	}
 
-	allNodes, _, err := b.app.GetRelayers().NodeStatuses(ctx, 0, 1, evmrelayIdStrs...)
+	allNodes, _, err := b.app.GetRelayers().NodeStatuses(ctx, 0, -1, evmrelayIdStrs...)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}
