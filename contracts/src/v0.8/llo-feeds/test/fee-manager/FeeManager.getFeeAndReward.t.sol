@@ -467,10 +467,10 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_getBaseRewardWithLinkQuote() public {
     //get the fee required by the feeManager
-    Common.Asset memory fee = getReward(getV2Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
+    Common.Asset memory reward = getReward(getV2Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
 
     //the reward should equal the base fee
-    assertEq(fee.amount, DEFAULT_REPORT_LINK_FEE);
+    assertEq(reward.amount, DEFAULT_REPORT_LINK_FEE);
   }
 
   function test_getRewardWithLinkQuoteAndLinkDiscount() public {
@@ -478,18 +478,18 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, getLinkAddress(), FEE_SCALAR / 2, ADMIN);
 
     //get the fee required by the feeManager
-    Common.Asset memory fee = getReward(getV2Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
+    Common.Asset memory reward = getReward(getV2Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
 
     //the reward should equal the discounted base fee
-    assertEq(fee.amount, DEFAULT_REPORT_LINK_FEE / 2);
+    assertEq(reward.amount, DEFAULT_REPORT_LINK_FEE / 2);
   }
 
   function test_getRewardWithNativeQuote() public {
     //get the fee required by the feeManager
-    Common.Asset memory fee = getReward(getV2Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
+    Common.Asset memory reward = getReward(getV2Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //the reward should equal the base fee in link
-    assertEq(fee.amount, DEFAULT_REPORT_LINK_FEE);
+    assertEq(reward.amount, DEFAULT_REPORT_LINK_FEE);
   }
 
   function test_getRewardWithNativeQuoteAndSurcharge() public {
@@ -497,10 +497,10 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     setNativeSurcharge(FEE_SCALAR / 2, ADMIN);
 
     //get the fee required by the feeManager
-    Common.Asset memory fee = getReward(getV2Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
+    Common.Asset memory reward = getReward(getV2Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //the reward should equal the base fee in link regardless of the surcharge
-    assertEq(fee.amount, DEFAULT_REPORT_LINK_FEE);
+    assertEq(reward.amount, DEFAULT_REPORT_LINK_FEE);
   }
 
   function test_getRewardWithLinkDiscount() public {
@@ -508,10 +508,10 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, getLinkAddress(), FEE_SCALAR / 2, ADMIN);
 
     //get the fee required by the feeManager
-    Common.Asset memory fee = getReward(getV2Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
+    Common.Asset memory reward = getReward(getV2Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
 
     //the reward should equal the discounted base fee
-    assertEq(fee.amount, DEFAULT_REPORT_LINK_FEE / 2);
+    assertEq(reward.amount, DEFAULT_REPORT_LINK_FEE / 2);
   }
 
   function test_getLinkFeeIsRoundedUp() public {
@@ -530,10 +530,10 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, getLinkAddress(), FEE_SCALAR / 3, ADMIN);
 
     //get the fee required by the feeManager
-    Common.Asset memory fee = getReward(getV2Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
+    Common.Asset memory reward = getReward(getV2Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
+    Common.Asset memory fee = getFee(getV2Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
 
-    //the reward should equal .66% of the base fee due to a 33% discount rounded down
-    assertEq(fee.amount, (DEFAULT_REPORT_LINK_FEE * 2) / 3);
+    assertEq(fee.amount, reward.amount);
   }
 
   function test_getLinkRewardWithNativeQuoteAndSurchargeWithLinkDiscount() public {
@@ -544,10 +544,10 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, getLinkAddress(), FEE_SCALAR / 3, ADMIN);
 
     //get the fee required by the feeManager
-    Common.Asset memory fee = getReward(getV2Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
+    Common.Asset memory reward = getReward(getV2Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
 
     //the reward should equal the base fee in link regardless of the surcharge
-    assertEq(fee.amount, DEFAULT_REPORT_LINK_FEE);
+    assertEq(reward.amount, DEFAULT_REPORT_LINK_FEE);
   }
 
   function test_testRevertIfReportHasExpired() public {
