@@ -21,6 +21,10 @@ exit_code=$?
 
 echo "Test exit code: ${exit_code}"
 
+if [ $exit_code -eq 2 ]; then # 2 is the code for an interrupted test, we only want to restart the test when the test is interrupted
+  exit 1  # Exiting with non-zero status to trigger pod restart
+fi
+
 # Sleep for the amount of time provided by the POST_RUN_SLEEP env var
 upload_to_slack() {
     curl -F file=@$1 -F "initial_comment=$2" -F channels=${SLACK_CHANNEL} -H "Authorization: Bearer ${SLACK_API_KEY}" https://slack.com/api/files.upload

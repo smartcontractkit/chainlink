@@ -184,8 +184,6 @@ func (o *OCRSoakTest) Setup() {
 		network = networks.SelectedNetwork
 	)
 
-	// DEBUG: Intentional fail
-	o.t.FailNow()
 	// Environment currently being used to soak test on
 	// Make connections to soak test resources
 	o.chainClient, err = blockchain.NewEVMClient(network, o.testEnvironment)
@@ -482,7 +480,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 				o.log.Error().Err(err).Msg("Error saving state")
 			}
 			log.Warn().Str("Time Taken", time.Since(saveStart).String()).Msg("Saved state")
-			os.Exit(1)
+			os.Exit(2) // Exit with code 2 to indicate test was interrupted, not just a normal failure
 		case <-endTest:
 			return
 		case <-newRoundTrigger.C:
