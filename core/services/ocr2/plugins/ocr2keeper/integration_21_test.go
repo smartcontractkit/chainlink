@@ -226,10 +226,11 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
 	done()
 
-	runs := checkPipelineRuns(t, nodes, 1*len(nodes)) // TODO: TBD
+	runs := checkPipelineRuns(t, nodes, 1) // TODO: TBD
 
 	t.Run("recover logs", func(t *testing.T) {
 		t.Skip() // TODO: fix test (fails in CI)
+
 		addr, contract := addrs[0], contracts[0]
 		upkeepID := registerUpkeep(t, registry, addr, carrol, steve, backend)
 		backend.Commit()
@@ -237,7 +238,14 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 		// blockBeforeEmits := backend.Blockchain().CurrentBlock().Number.Uint64()
 		// Emit 100 logs in a burst
 		emits := 100
-		emitEvents(testutils.Context(t), t, 100, []*log_upkeep_counter_wrapper.LogUpkeepCounter{contract}, carrol, func() {})
+		i := 0
+		emitEvents(testutils.Context(t), t, 100, []*log_upkeep_counter_wrapper.LogUpkeepCounter{contract}, carrol, func() {
+			i++
+			if i%(emits/4) == 0 {
+				backend.Commit()
+				time.Sleep(time.Millisecond * 250) // otherwise we get "invalid transaction nonce" errors
+			}
+		})
 		// Mine enough blocks to ensre these logs don't fall into log provider range
 		dummyBlocks := 500
 		for i := 0; i < dummyBlocks; i++ {
@@ -537,6 +545,7 @@ func registerUpkeep(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, u
 
 	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, 1, []byte{}, logTriggerConfig, []byte{})
 	require.NoError(t, err)
+	backend.Commit()
 	upkeepID := getUpkeepIdFromTx21(t, registry, registrationTx, backend)
 
 	return upkeepID
