@@ -62,7 +62,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 	n := 10
 
-	_, _, contracts := deployUpkeepCounter(t, n, backend, carrol, logProvider)
+	_, _, contracts := deployUpkeepCounter(t, n, ethClient, backend, carrol, logProvider)
 	lp.PollAndSaveLogs(ctx, int64(n))
 
 	go func() {
@@ -116,6 +116,82 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 	})
 }
 
+func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+
+	backend, stopMining, accounts := setupBackend(t)
+	defer stopMining()
+	carrol := accounts[2]
+
+	db := setupDB(t)
+	defer db.Close()
+
+	opts := &logprovider.LogEventProviderOptions{
+		ReadInterval: time.Second / 2,
+	}
+	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
+	filterStore := logprovider.NewUpkeepFilterStore()
+	provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
+	logProvider := provider.(logprovider.LogEventProviderTest)
+
+	_, addrs, contracts := deployUpkeepCounter(t, 1, ethClient, backend, carrol, logProvider)
+	lp.PollAndSaveLogs(ctx, int64(5))
+	require.Equal(t, 1, len(contracts))
+	require.Equal(t, 1, len(addrs))
+
+	t.Run("update filter config", func(t *testing.T) {
+		upkeepID := kevmcore.GenUpkeepID(ocr2keepers.LogTrigger, "111")
+		id := upkeepID.BigInt()
+		cfg := newPlainLogTriggerConfig(addrs[0])
+		b, err := ethClient.BlockByHash(ctx, backend.Commit())
+		require.NoError(t, err)
+		bn := b.Number()
+		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+			UpkeepID:            id,
+			TriggerConfig:       cfg,
+			ConfigUpdateBlock:   bn.Uint64(),
+			UpkeepCreationBlock: bn.Uint64(),
+		})
+		require.NoError(t, err)
+		// old block
+		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+			UpkeepID:            id,
+			TriggerConfig:       cfg,
+			ConfigUpdateBlock:   bn.Uint64() - 1,
+			UpkeepCreationBlock: bn.Uint64(),
+		})
+		require.Error(t, err)
+		// new block
+		b, err = ethClient.BlockByHash(ctx, backend.Commit())
+		require.NoError(t, err)
+		bn = b.Number()
+		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+			UpkeepID:            id,
+			TriggerConfig:       cfg,
+			ConfigUpdateBlock:   bn.Uint64(),
+			UpkeepCreationBlock: 0,
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("register same log filter", func(t *testing.T) {
+		upkeepID := kevmcore.GenUpkeepID(ocr2keepers.LogTrigger, "222")
+		id := upkeepID.BigInt()
+		cfg := newPlainLogTriggerConfig(addrs[0])
+		b, err := ethClient.BlockByHash(ctx, backend.Commit())
+		require.NoError(t, err)
+		bn := b.Number()
+		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+			UpkeepID:            id,
+			TriggerConfig:       cfg,
+			ConfigUpdateBlock:   bn.Uint64(),
+			UpkeepCreationBlock: bn.Uint64(),
+		})
+		require.NoError(t, err)
+	})
+}
+
 func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*60)
 	defer cancel()
@@ -137,7 +213,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 
 	n := 10
 
-	_, _, contracts := deployUpkeepCounter(t, n, backend, carrol, logProvider)
+	_, _, contracts := deployUpkeepCounter(t, n, ethClient, backend, carrol, logProvider)
 
 	poll := pollFn(ctx, t, lp, ethClient)
 
@@ -200,6 +276,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 		ids, _, contracts := deployUpkeepCounter(
 			t,
 			numberOfUserContracts,
+			ethClient,
 			backend,
 			userContractAccount,
 			logProvider)
@@ -393,7 +470,7 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 
 	n := 10
 
-	_, _, contracts := deployUpkeepCounter(t, n, backend, carrol, logProvider)
+	_, _, contracts := deployUpkeepCounter(t, n, ethClient, backend, carrol, logProvider)
 
 	poll := pollFn(ctx, t, lp, ethClient)
 
@@ -520,6 +597,7 @@ func triggerEvents(
 func deployUpkeepCounter(
 	t *testing.T,
 	n int,
+	ethClient *evmclient.SimulatedBackendClient,
 	backend *backends.SimulatedBackend,
 	account *bind.TransactOpts,
 	logProvider logprovider.LogEventProvider,
@@ -542,7 +620,16 @@ func deployUpkeepCounter(
 		upkeepID := ocr2keepers.UpkeepIdentifier(append(common.LeftPadBytes([]byte{1}, 16), upkeepAddr[:16]...))
 		id := upkeepID.BigInt()
 		ids = append(ids, id)
-		err = logProvider.RegisterFilter(id, newPlainLogTriggerConfig(upkeepAddr))
+		b, err := ethClient.BlockByHash(context.Background(), backend.Commit())
+		require.NoError(t, err)
+		bn := b.Number()
+		// old block
+		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+			UpkeepID:            id,
+			TriggerConfig:       newPlainLogTriggerConfig(upkeepAddr),
+			ConfigUpdateBlock:   bn.Uint64(),
+			UpkeepCreationBlock: bn.Uint64(),
+		})
 		require.NoError(t, err)
 	}
 	return ids, contractsAddrs, contracts

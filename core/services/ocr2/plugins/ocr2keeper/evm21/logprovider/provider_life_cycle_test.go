@@ -14,11 +14,13 @@ import (
 
 func TestLogEventProvider_LifeCycle(t *testing.T) {
 	tests := []struct {
-		name       string
-		errored    bool
-		upkeepID   *big.Int
-		upkeepCfg  LogTriggerConfig
-		mockPoller bool
+		name           string
+		errored        bool
+		upkeepID       *big.Int
+		upkeepCfg      LogTriggerConfig
+		cfgUpdateBlock uint64
+		mockPoller     bool
+		unregister     bool
 	}{
 		{
 			"new upkeep",
@@ -28,13 +30,17 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 				ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{1, 2, 3, 4}, 20)),
 				Topic0:          common.BytesToHash(common.LeftPadBytes([]byte{1, 2, 3, 4}, 32)),
 			},
+			uint64(1),
 			true,
+			false,
 		},
 		{
 			"empty config",
 			true,
 			big.NewInt(111),
 			LogTriggerConfig{},
+			uint64(0),
+			false,
 			false,
 		},
 		{
@@ -45,24 +51,56 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 				ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{}, 20)),
 				Topic0:          common.BytesToHash(common.LeftPadBytes([]byte{}, 32)),
 			},
+			uint64(2),
 			false,
+			false,
+		},
+		{
+			"existing config",
+			true,
+			big.NewInt(111),
+			LogTriggerConfig{
+				ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{1, 2, 3, 4}, 20)),
+				Topic0:          common.BytesToHash(common.LeftPadBytes([]byte{1, 2, 3, 4}, 32)),
+			},
+			uint64(0),
+			true,
+			false,
+		},
+		{
+			"existing config with newer block",
+			false,
+			big.NewInt(111),
+			LogTriggerConfig{
+				ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{1, 2, 3, 4}, 20)),
+				Topic0:          common.BytesToHash(common.LeftPadBytes([]byte{1, 2, 3, 4}, 32)),
+			},
+			uint64(2),
+			true,
+			true,
 		},
 	}
 
+	mp := new(mocks.LogPoller)
+	mp.On("RegisterFilter", mock.Anything).Return(nil)
+	mp.On("UnregisterFilter", mock.Anything).Return(nil)
+	mp.On("ReplayAsync", mock.Anything).Return(nil)
+	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), nil)
+
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mp := new(mocks.LogPoller)
-			if tc.mockPoller {
-				mp.On("RegisterFilter", mock.Anything).Return(nil)
-				mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
-			}
-			p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), nil)
-			err := p.RegisterFilter(tc.upkeepID, tc.upkeepCfg)
+			err := p.RegisterFilter(FilterOptions{
+				UpkeepID:          tc.upkeepID,
+				TriggerConfig:     tc.upkeepCfg,
+				ConfigUpdateBlock: tc.cfgUpdateBlock,
+			})
 			if tc.errored {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				require.NoError(t, p.UnregisterFilter(tc.upkeepID))
+				if tc.unregister {
+					require.NoError(t, p.UnregisterFilter(tc.upkeepID))
+				}
 			}
 		})
 	}
