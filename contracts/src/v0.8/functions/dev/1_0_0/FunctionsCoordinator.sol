@@ -197,7 +197,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       // In these two fulfillment results the user has been charged
       // Otherwise, the DON will re-try
       if (
-        result == FunctionsResponse.FulfillResult.USER_CALLBACK_FULFILLED ||
+        result == FunctionsResponse.FulfillResult.FULFILLED ||
         result == FunctionsResponse.FulfillResult.USER_CALLBACK_ERROR
       ) {
         emit OracleResponse(requestIds[i], msg.sender);
