@@ -30,6 +30,9 @@ var (
 
 	// AllowedLogsPerUpkeep is the maximum number of logs allowed per upkeep every single call.
 	AllowedLogsPerUpkeep = 5
+
+	readJobQueueSize = 64
+	readLogsTimeout  = 5 * time.Second
 )
 
 // LogTriggerConfig is an alias for log trigger config.
@@ -105,7 +108,7 @@ func (p *logEventProvider) Start(context.Context) error {
 	p.cancel = cancel
 	p.lock.Unlock()
 
-	readQ := make(chan []*big.Int, 32)
+	readQ := make(chan []*big.Int, readJobQueueSize)
 
 	p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", p.opts.ReadBatchSize, "readers", p.opts.Readers)
 
@@ -188,7 +191,10 @@ func (p *logEventProvider) GetLatestPayloads(context.Context) ([]ocr2keepers.Upk
 }
 
 // ReadLogs fetches the logs for the given upkeeps.
-func (p *logEventProvider) ReadLogs(ctx context.Context, force bool, ids ...*big.Int) error {
+func (p *logEventProvider) ReadLogs(pctx context.Context, force bool, ids ...*big.Int) error {
+	ctx, cancel := context.WithTimeout(pctx, readLogsTimeout)
+	defer cancel()
+
 	latest, err := p.poller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
