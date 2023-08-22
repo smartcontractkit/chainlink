@@ -7,8 +7,8 @@ CREATE TABLE evm_upkeep_states (
   upkeep_id NUMERIC(78) NOT NULL, -- upkeep id is an evm word (uint256) which has a max size of precision 78
   completion_state SMALLINT NOT NULL,
   ineligibility_reason SMALLINT NOT NULL,
-  block_number BIGINT,
-  inserted_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+  block_number BIGINT DEFAULT 0 NOT NULL,
+  inserted_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP NOT NULL,
   CONSTRAINT work_id_len_chk CHECK (
     length(work_id) > 0 AND length(work_id) < 255
   )

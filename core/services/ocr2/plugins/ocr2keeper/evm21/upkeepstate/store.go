@@ -53,7 +53,6 @@ type upkeepStateRecord struct {
 // upkeepStateStore implements UpkeepStateStore.
 // It stores the state of ineligible upkeeps in a local, in-memory cache.
 // In addition, performed events are fetched by the scanner on demand.
-// TODO: Add DB persistence
 type upkeepStateStore struct {
 	// dependencies
 	orm     ORM
@@ -109,7 +108,7 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 
 	{
 		go func(ctx context.Context) {
-			ticker := time.NewTicker(u.cleanCadence)
+			ticker := time.NewTicker(utils.WithJitter(u.cleanCadence))
 			defer ticker.Stop()
 
 			for {
