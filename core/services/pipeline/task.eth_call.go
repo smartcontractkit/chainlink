@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -34,7 +35,7 @@ type ETHCallTask struct {
 	EVMChainID          string `json:"evmChainID" mapstructure:"evmChainID"`
 
 	specGasLimit *uint32
-	chainSet     evm.ChainSet
+	legacyChains evm.LegacyChainContainer
 	config       Config
 	jobType      string
 }
@@ -88,10 +89,12 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		return Result{Error: errors.Wrapf(ErrBadInput, "data param must not be empty")}, runInfo
 	}
 
-	chain, err := getChainByString(t.chainSet, string(chainID))
+	chain, err := t.legacyChains.Get(string(chainID))
 	if err != nil {
+		err = fmt.Errorf("%w: %s: %w", ErrInvalidEVMChainID, chainID, err)
 		return Result{Error: err}, runInfo
 	}
+
 	var selectedGas uint32
 	if gasUnlimited {
 		if gas > 0 {
@@ -101,7 +104,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		if gas > 0 {
 			selectedGas = uint32(gas)
 		} else {
-			selectedGas = SelectGasLimit(chain.Config(), t.jobType, t.specGasLimit)
+			selectedGas = SelectGasLimit(chain.Config().EVM().GasEstimator(), t.jobType, t.specGasLimit)
 		}
 	}
 

@@ -2865,6 +2865,18 @@ describe('KeeperRegistry2_1', () => {
       )
     })
 
+    describe('after the registration is paused, then cancelled', () => {
+      it('allows the admin to withdraw', async () => {
+        const balance = await registry.getBalance(upkeepId)
+        const payee = await payee1.getAddress()
+        await registry.connect(admin).pauseUpkeep(upkeepId)
+        await registry.connect(owner).cancelUpkeep(upkeepId)
+        await expect(() =>
+          registry.connect(admin).withdrawFunds(upkeepId, payee),
+        ).to.changeTokenBalance(linkToken, payee1, balance)
+      })
+    })
+
     describe('after the registration is cancelled', () => {
       beforeEach(async () => {
         await registry.connect(owner).cancelUpkeep(upkeepId)
@@ -3540,6 +3552,46 @@ describe('KeeperRegistry2_1', () => {
             offchainBytes,
           ),
         'Only callable by owner',
+      )
+    })
+
+    it('reverts if signers or transmitters are the zero address', async () => {
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfigTypeSafe(
+            [randomAddress(), randomAddress(), randomAddress(), zeroAddress],
+            [
+              randomAddress(),
+              randomAddress(),
+              randomAddress(),
+              randomAddress(),
+            ],
+            f,
+            newConfig,
+            offchainVersion,
+            offchainBytes,
+          ),
+        'InvalidSigner()',
+      )
+
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfigTypeSafe(
+            [
+              randomAddress(),
+              randomAddress(),
+              randomAddress(),
+              randomAddress(),
+            ],
+            [randomAddress(), randomAddress(), randomAddress(), zeroAddress],
+            f,
+            newConfig,
+            offchainVersion,
+            offchainBytes,
+          ),
+        'InvalidTransmitter()',
       )
     })
 

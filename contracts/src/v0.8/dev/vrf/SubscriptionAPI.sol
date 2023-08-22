@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../../shared/access/ConfirmedOwner.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
@@ -8,6 +9,8 @@ import "../../shared/interfaces/IERC677Receiver.sol";
 import "../interfaces/IVRFSubscriptionV2Plus.sol";
 
 abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscriptionV2Plus {
+  using EnumerableSet for EnumerableSet.UintSet;
+
   /// @dev may not be provided upon construction on some chains due to lack of availability
   LinkTokenInterface public LINK;
   /// @dev may not be provided upon construction on some chains due to lack of availability
@@ -31,6 +34,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   event EthFundsRecovered(address to, uint256 amount);
   error LinkAlreadySet();
   error FailedToSendEther();
+  error IndexOutOfRange();
 
   // We use the subscription struct (1 word)
   // at fulfillment time.
@@ -60,6 +64,13 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   mapping(uint256 => Subscription) /* subId */ /* subscription */ internal s_subscriptions;
   // subscription nonce used to construct subID. Rises monotonically
   uint64 public s_currentSubNonce;
+  // track all subscription id's that were created by this contract
+  // note: access should be through the getActiveSubscriptionIds() view function
+  // which takes a starting index and a max number to fetch in order to allow
+  // "pagination" of the subscription ids. in the event a very large number of
+  // subscription id's are stored in this set, they cannot be retrieved in a
+  // single RPC call without violating various size limits.
+  EnumerableSet.UintSet internal s_subIds;
   // s_totalBalance tracks the total link sent to/from
   // this contract through onTokenTransfer, cancelSubscription and oracleWithdraw.
   // A discrepancy with this contract's link balance indicates someone
@@ -276,11 +287,32 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   /**
    * @inheritdoc IVRFSubscriptionV2Plus
    */
+  function getActiveSubscriptionIds(
+    uint256 startIndex,
+    uint256 maxCount
+  ) external view override returns (uint256[] memory) {
+    uint256 numSubs = s_subIds.length();
+    if (startIndex >= numSubs) revert IndexOutOfRange();
+    uint256 endIndex = startIndex + maxCount;
+    endIndex = endIndex > numSubs || maxCount == 0 ? numSubs : endIndex;
+    uint256[] memory ids = new uint256[](endIndex - startIndex);
+    for (uint256 idx = 0; idx < ids.length; idx++) {
+      ids[idx] = s_subIds.at(idx + startIndex);
+    }
+    return ids;
+  }
+
+  /**
+   * @inheritdoc IVRFSubscriptionV2Plus
+   */
   function createSubscription() external override nonReentrant returns (uint256) {
+    // Generate a subscription id that is globally unique.
     uint256 subId = uint256(
       keccak256(abi.encodePacked(msg.sender, blockhash(block.number - 1), address(this), s_currentSubNonce))
     );
+    // Increment the subscription nonce counter.
     s_currentSubNonce++;
+    // Initialize storage variables.
     address[] memory consumers = new address[](0);
     s_subscriptions[subId] = Subscription({balance: 0, ethBalance: 0, reqCount: 0});
     s_subscriptionConfigs[subId] = SubscriptionConfig({
@@ -288,6 +320,8 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
       requestedOwner: address(0),
       consumers: consumers
     });
+    // Update the s_subIds set, which tracks all subscription ids created in this contract.
+    s_subIds.add(subId);
 
     emit SubscriptionCreated(subId, msg.sender);
     return subId;
@@ -355,6 +389,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     }
     delete s_subscriptionConfigs[subId];
     delete s_subscriptions[subId];
+    s_subIds.remove(subId);
     s_totalBalance -= balance;
     s_totalEthBalance -= ethBalance;
     return (balance, ethBalance);
