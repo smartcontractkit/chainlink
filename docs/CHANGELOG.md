@@ -93,8 +93,6 @@ Node operators may wish to add alerting based around these metrics.
 - Legacy chain types Optimism and Optimism2. OptimismBedrock is now used to handle Optimism's special cases.
 - Optimism Kovan configurations along with legacy error messages.
 
-<!-- unreleasedstop -->
-
 # 2.2.0 - 2023-06-12
 
 ### Added
