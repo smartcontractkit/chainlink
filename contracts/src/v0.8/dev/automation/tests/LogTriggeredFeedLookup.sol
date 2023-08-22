@@ -83,7 +83,7 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
     (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
     (uint256 orderId, uint256 amount, address exchange) = abi.decode(extraData, (uint256, uint256, address));
 
-    bytes memory verifiedResponse;
+    bytes memory verifiedResponse = "";
     if (verify) {
       verifiedResponse = VERIFIER.verify(values[0]);
     }
