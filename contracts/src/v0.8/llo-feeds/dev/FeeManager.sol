@@ -263,27 +263,32 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       revert ExpiredReport();
     }
 
+    //get the discount being applied
+    uint256 discount = s_subscriberDiscounts[subscriber][feedId][quote.quoteAddress];
+
     //the reward is always set in LINK
     reward.assetAddress = i_linkAddress;
     reward.amount = linkQuantity;
 
     //calculate either the LINK fee or native fee if it's within the report
     if (quote.quoteAddress == i_linkAddress) {
-      fee.assetAddress = reward.assetAddress;
-      fee.amount = reward.amount;
+      //fee
+      fee.assetAddress = i_linkAddress;
+      fee.amount = linkQuantity - ((linkQuantity * discount) / PERCENTAGE_SCALAR);
+
+      //reward
+      reward.assetAddress = i_linkAddress;
+      reward.amount = fee.amount;
     } else {
+      //fee
+      uint256 surchargedFee = Math.ceilDiv(nativeQuantity * (PERCENTAGE_SCALAR + s_nativeSurcharge), PERCENTAGE_SCALAR);
       fee.assetAddress = i_nativeAddress;
-      fee.amount = Math.ceilDiv(nativeQuantity * (PERCENTAGE_SCALAR + s_nativeSurcharge), PERCENTAGE_SCALAR);
+      fee.amount = surchargedFee - ((surchargedFee * discount) / PERCENTAGE_SCALAR);
+
+      //reward
+      reward.assetAddress = i_linkAddress;
+      reward.amount = reward.amount - Math.ceilDiv(reward.amount * discount, PERCENTAGE_SCALAR);
     }
-
-    //get the discount being applied
-    uint256 discount = s_subscriberDiscounts[subscriber][feedId][quote.quoteAddress];
-
-    //apply the discount to the fee, rounding up
-    fee.amount = fee.amount - ((fee.amount * discount) / PERCENTAGE_SCALAR);
-
-    //apply the discount to the reward, rounding down
-    reward.amount = reward.amount - Math.ceilDiv(reward.amount * discount, PERCENTAGE_SCALAR);
 
     //return the fee
     return (fee, reward);
