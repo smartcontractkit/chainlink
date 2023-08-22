@@ -15,12 +15,12 @@ contract FunctionsRouterSetup is BaseTest {
   TermsOfServiceAllowList internal s_termsOfServiceAllowList;
 
   uint16 internal s_maxConsumersPerSubscription = 100;
-  uint72 internal s_adminFee = 561724823;
+  uint72 internal s_adminFee = 100;
   bytes4 internal s_handleOracleFulfillmentSelector = 0x0ca76175;
 
   address internal s_linkToken = 0x01BE23585060835E02B77ef475b0Cc51aA1e0709;
 
-  int256 internal LINK_ETH_RATE = 5021530000000000;
+  int256 internal LINK_ETH_RATE = 6000000000000000;
 
   uint256 internal TOS_SIGNER_PRIVATE_KEY = 0x3;
   address internal TOS_SIGNER = vm.addr(TOS_SIGNER_PRIVATE_KEY);
@@ -38,8 +38,10 @@ contract FunctionsRouterSetup is BaseTest {
   }
 
   function getRouterConfig() public view returns (FunctionsRouter.Config memory) {
-    uint32[] memory maxCallbackGasLimits = new uint32[](1);
-    maxCallbackGasLimits[0] = type(uint32).max;
+    uint32[] memory maxCallbackGasLimits = new uint32[](3);
+    maxCallbackGasLimits[0] = 300_000;
+    maxCallbackGasLimits[1] = 500_000;
+    maxCallbackGasLimits[2] = 1_000_000;
 
     return
       FunctionsRouter.Config({
@@ -54,15 +56,15 @@ contract FunctionsRouterSetup is BaseTest {
   function getCoordinatorConfig() public pure returns (FunctionsBilling.Config memory) {
     return
       FunctionsBilling.Config({
-        maxCallbackGasLimit: 5,
-        feedStalenessSeconds: 5,
-        gasOverheadAfterCallback: 5,
-        gasOverheadBeforeCallback: 5,
-        requestTimeoutSeconds: 1,
-        donFee: 5,
-        maxSupportedRequestDataVersion: 5,
-        fulfillmentGasPriceOverEstimationBP: 5,
-        fallbackNativePerUnitLink: 2874
+        maxCallbackGasLimit: 0, // NOTE: unused , TODO: remove
+        feedStalenessSeconds: 24 * 60 * 60, // 1 day
+        gasOverheadAfterCallback: 44_615, // TODO: update
+        gasOverheadBeforeCallback: 44_615, // TODO: update
+        requestTimeoutSeconds: 60 * 5, // 5 minutes
+        donFee: 100,
+        maxSupportedRequestDataVersion: 1,
+        fulfillmentGasPriceOverEstimationBP: 5000,
+        fallbackNativePerUnitLink: 5000000000000000
       });
   }
 

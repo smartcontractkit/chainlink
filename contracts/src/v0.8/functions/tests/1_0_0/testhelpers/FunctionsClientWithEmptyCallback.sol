@@ -26,6 +26,6 @@ contract FunctionsClientWithEmptyCallback is FunctionsClient {
   }
 
   function fulfillRequest(bytes32 /*requestId*/, bytes memory /*response*/, bytes memory /*err*/) internal override {
-    // NOP
+    // Do nothing
   }
 }
