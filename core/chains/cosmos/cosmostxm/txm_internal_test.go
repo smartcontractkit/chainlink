@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -79,7 +80,9 @@ func TestTxm(t *testing.T) {
 	gpe := cosmosclient.NewMustGasPriceEstimator([]cosmosclient.GasPricesEstimator{
 		cosmosclient.NewFixedGasPriceEstimator(map[string]cosmostypes.DecCoin{
 			"uatom": cosmostypes.NewDecCoinFromDec("uatom", cosmostypes.MustNewDecFromStr("0.01")),
-		}),
+		},
+			lggr.(logger.SugaredLogger),
+		),
 	}, lggr)
 
 	t.Run("single msg", func(t *testing.T) {

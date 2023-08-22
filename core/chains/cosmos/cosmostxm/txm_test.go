@@ -48,6 +48,7 @@ func TestTxm_Integration(t *testing.T) {
 	gpe := cosmosclient.NewMustGasPriceEstimator([]cosmosclient.GasPricesEstimator{
 		cosmosclient.NewFixedGasPriceEstimator(map[string]sdk.DecCoin{
 			"uatom": fallbackGasPrice,
+			lggr.(logger.SugaredLogger),
 		}),
 	}, lggr)
 	orm := cosmostxm.NewORM(chainID, db, lggr, logCfg)
