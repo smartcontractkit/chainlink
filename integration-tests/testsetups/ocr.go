@@ -536,7 +536,7 @@ func (o *OCRSoakTest) observeOCREvents() error {
 		timeout        = time.Second * 15
 	)
 	for err == nil {
-		log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
+		log.Debug().Interface("Filter Query", o.filterQuery).Int64("Last block number", o.filterQuery.ToBlock.Int64()).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 		latestBlockNum, err := o.chainClient.LatestBlockNumber(ctx)
