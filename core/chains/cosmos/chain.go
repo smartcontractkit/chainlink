@@ -25,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -43,18 +44,18 @@ var _ adapters.Chain = (*chain)(nil)
 type chain struct {
 	utils.StartStopOnce
 	id   string
-	cfg  coscfg.Config
+	cfg  *CosmosConfig //coscfg.Config
 	txm  *cosmostxm.Txm
 	cfgs types.Configs
 	lggr logger.Logger
 }
 
-func newChain(id string, cfg coscfg.Config, db *sqlx.DB, ks keystore.Cosmos, logCfg pg.QConfig, eb pg.EventBroadcaster, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg *CosmosConfig, db *sqlx.DB, ks keystore.Cosmos, logCfg pg.QConfig, eb pg.EventBroadcaster, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
 	lggr = logger.With(lggr, "cosmosChainID", id)
 	var ch = chain{
-		id:   id,
-		cfg:  cfg,
-		cfgs: cfgs,
+		id:  id,
+		cfg: cfg,
+		//cfgs: cfgs,
 		lggr: logger.Named(lggr, "Chain"),
 	}
 	tc := func() (cosmosclient.ReaderWriter, error) {
@@ -157,13 +158,12 @@ func (c *chain) HealthReport() map[string]error {
 }
 
 // ChainService interface
-func (c *chain) Status(ctx context.Context) (relaytypes.ChainStatus, error) {
+func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
 	panic("cosmos status unimplemented")
 }
-func (c *chain) Nodes(ctx context.Context, nodeIDs ...string) ([]relaytypes.NodeStatus, error) {
-	panic("cosmos nodes unimplemented")
+func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error) {
+	return internal.ListNodeStatuses(int(page_size), page_token, c.cfg.ListNodeStatuses)
 }
-
 func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return chains.ErrLOOPPUnsupported
 }

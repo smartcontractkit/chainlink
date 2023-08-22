@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	gotoml "github.com/pelletier/go-toml/v2"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
@@ -28,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -370,7 +372,16 @@ func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, ba
 	return chains.ErrLOOPPUnsupported
 }
 
-func (c *chain) Status(ctx context.Context) (types.ChainStatus, error) {
+/*
+	func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
+		panic("cosmos status unimplemented")
+	}
+
+	func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error) {
+		panic("cosmos nodes unimplemented")
+	}
+*/
+func (c *chain) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
 	toml, err := c.cfg.TOMLString()
 	if err != nil {
 		return types.ChainStatus{}, err
@@ -382,39 +393,49 @@ func (c *chain) Status(ctx context.Context) (types.ChainStatus, error) {
 	}, nil
 }
 
-func (c *chain) Nodes(ctx context.Context, nodeIDs ...string) ([]types.NodeStatus, error) {
-
+func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error) {
 	nodes := c.cfg.Nodes()
-	result := make([]types.NodeStatus, len(nodes))
-	states := c.Client().NodeStates()
-	toml, err := c.cfg.TOMLString() // TODO is this the right value??
-	if err != nil {
-		return nil, err
+	total := len(nodes)
+	if start >= total {
+		return nil, total, internal.ErrOutOfRange
 	}
-	for i := range nodes {
+	if end > total {
+		end = total
+	}
+	stats := make([]types.NodeStatus, 0)
+
+	states := c.Client().NodeStates()
+	for _, n := range nodes[start:end] {
 		var (
 			nodeState string
 			exists    bool
-			nodeName  = *nodes[i].Name
 		)
+		toml, err := gotoml.Marshal(n)
+		if err != nil {
+			return nil, total, err
+		}
 		if states == nil {
 			nodeState = "Unknown"
 		} else {
-			nodeState, exists = states[nodeName]
+			nodeState, exists = states[*n.Name]
 			if !exists {
 				// The node is in the DB and the chain is enabled but it's not running
 				nodeState = "NotLoaded"
 			}
 		}
-		result = append(result, types.NodeStatus{
+		stats = append(stats, types.NodeStatus{
 			ChainID: c.ID().String(),
-			Name:    nodeName,
-			Config:  toml, //TODO what is this supposed to be? i haven't found any toml definition of a node
+			Name:    *n.Name,
+			Config:  string(toml), //TODO what is this supposed to be? i haven't found any toml definition of a node
 			State:   nodeState,
 		})
 	}
+	return stats, total, nil
+}
 
-	return result, nil
+func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []types.NodeStatus, next_page_token string, err error) {
+
+	return internal.ListNodeStatuses(int(page_size), page_token, c.listNodeStatuses)
 }
 
 func (c *chain) ID() *big.Int                             { return c.id }

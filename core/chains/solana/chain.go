@@ -189,10 +189,10 @@ func newChain(id string, cfg config.Config, ks loop.Keystore, cfgs Configs, lggr
 	ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, ks, ch.Reader)
 	return &ch, nil
 }
-func (c *chain) Status(ctx context.Context) (types.ChainStatus, error) {
+func (c *chain) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
 	panic("solana status unimplemented")
 }
-func (c *chain) Nodes(ctx context.Context, nodeIDs ...string) ([]types.NodeStatus, error) {
+func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []types.NodeStatus, next_page_token string, err error) {
 	panic("solan nodes unimplemented")
 }
 

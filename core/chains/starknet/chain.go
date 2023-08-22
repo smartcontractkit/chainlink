@@ -129,12 +129,13 @@ func (c *chain) HealthReport() map[string]error {
 }
 
 // ChainService interface
-func (c *chain) Status(ctx context.Context) (relaytypes.ChainStatus, error) {
-	panic("cosmos status unimplemented")
+func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
+	panic("starknet status unimplemented")
 }
-func (c *chain) Nodes(ctx context.Context, nodeIDs ...string) ([]relaytypes.NodeStatus, error) {
-	panic("cosmos nodes unimplemented")
+func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error) {
+	panic("starknet nodes unimplemented")
 }
+
 func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return chains.ErrLOOPPUnsupported
 }

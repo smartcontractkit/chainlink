@@ -88,10 +88,10 @@ func (s *testChainService) Ready() error {
 func (s *testChainService) HealthReport() map[string]error {
 	return map[string]error{}
 }
-func (c *testChainService) Status(ctx context.Context) (s types.ChainStatus, err error) {
+func (c *testChainService) GetChainStatus(ctx context.Context) (s types.ChainStatus, err error) {
 	return
 }
-func (c *testChainService) Nodes(ctx context.Context, nodeIDs ...string) (s []types.NodeStatus, err error) {
+func (c *testChainService) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []types.NodeStatus, next_page_token string, err error) {
 	return
 }
 
