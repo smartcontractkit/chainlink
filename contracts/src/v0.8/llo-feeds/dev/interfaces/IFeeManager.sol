@@ -71,9 +71,9 @@ interface IFeeManager is IERC165, IVerifierFeeManager {
 
   /**
    * @notice The structure to hold a fee and reward to verify a report
-   * digest the digest linked to the fee and reward
-   * fee the fee paid to verify the report
-   * reward the reward paid upon verification
+   * @param digest the digest linked to the fee and reward
+   * @param fee the fee paid to verify the report
+   * @param reward the reward paid upon verification
    */
   struct FeeAndReward {
     bytes32 configDigest;
