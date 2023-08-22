@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -268,7 +269,7 @@ func TestResolver_Job(t *testing.T) {
 					PipelineSpec: &pipeline.Spec{
 						DotDagSource: "ds1 [type=bridge name=voter_turnout];",
 					},
-				}, errors.New("failed to get chain with id xxx"))
+				}, chains.ErrNoSuchChainID)
 				f.Mocks.jobORM.
 					On("FindPipelineRunIDsByJobID", int32(1), 0, 50).
 					Return([]int64{200}, nil)

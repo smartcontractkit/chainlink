@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"fmt"
 	"sort"
-	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/graph-gophers/graphql-go"
@@ -157,7 +156,7 @@ func (r *Resolver) Job(ctx context.Context, args struct{ ID graphql.ID }) (*JobP
 		}
 
 		//We still need to show the job in UI/CLI even if the chain id is disabled
-		if strings.Contains(err.Error(), "failed to get chain with id") {
+		if errors.Is(err, chains.ErrNoSuchChainID) {
 			return NewJobPayload(r.App, &j, err), nil
 		}
 
