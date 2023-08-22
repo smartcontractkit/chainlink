@@ -21,6 +21,9 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @notice list of subscribers and their discounts subscriberDiscounts[subscriber][feedId][token]
   mapping(address => mapping(bytes32 => mapping(address => uint256))) public s_subscriberDiscounts;
 
+  /// @notice keep track of any subsidised link that is owed to the reward manager.
+  mapping(bytes32 => uint256) public s_linkDeficit;
+
   /// @notice the total discount that can be applied to a fee, 1e18 = 100% discount
   uint256 private constant PERCENTAGE_SCALAR = 1e18;
 
@@ -96,6 +99,11 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @param quantity Amount of the asset withdrawn
   event Withdraw(address adminAddress, address assetAddress, uint256 quantity);
 
+  /// @notice Emits when a deficit has been cleared for a particular config digest
+  /// @param configDigest Config digest of the deficit cleared
+  /// @param linkQuantity Amount of LINK required to pay the deficit
+  event LinkDeficitCleared(bytes32 indexed configDigest, uint256 linkQuantity);
+
   /**
    * @notice Construct the FeeManager contract
    * @param _linkAddress The address of the LINK token
@@ -151,7 +159,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
     //v2 doesn't need a quote payload, so skip the decoding if the report is a v1 report
     Quote memory quote;
-    if (getReportVersion(feedId) != REPORT_V1) {
+    if (_getReportVersion(feedId) != REPORT_V1) {
       //all reports greater than v1 should have a quote payload
       (, , , , , bytes memory quoteBytes) = abi.decode(
         payload,
@@ -200,8 +208,10 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
         //check that the contract has enough LINK before paying the fee
         if (reward.amount > IERC20(i_linkAddress).balanceOf(address(this))) {
-          // If not enough LINK on this contract to forward for rewards, fire this event and
-          // call onFeePaid out-of-band to pay out rewards
+          // If not enough LINK on this contract to forward for rewards, tally the deficit to be paid by out-of-band LINK
+          unchecked {
+            s_linkDeficit[configDigest] += reward.amount;
+          }
           emit InsufficientLink(configDigest, reward.amount, fee.amount);
         } else {
           //bill the payee and distribute the fee using the config digest as the key
@@ -229,7 +239,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     bytes32 feedId = bytes32(report);
 
     //the report needs to be a support version
-    bytes32 reportVersion = getReportVersion(feedId);
+    bytes32 reportVersion = _getReportVersion(feedId);
 
     //version 1 of the reports don't require quotes, so the fee will be 0
     if (reportVersion == REPORT_V1) {
@@ -341,6 +351,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     emit Withdraw(msg.sender, assetAddress, quantity);
   }
 
+  /// @inheritdoc IFeeManager
   function linkAvailableForPayment() external view returns (uint256) {
     //return the amount of LINK this contact has available to pay rewards
     return IERC20(i_linkAddress).balanceOf(address(this));
@@ -350,7 +361,17 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
    * @notice Gets the current version of the report that is encoded as the last two bytes of the feed
    * @param feedId feed id to get the report version for
    */
-  function getReportVersion(bytes32 feedId) internal pure returns (bytes32) {
+  function _getReportVersion(bytes32 feedId) internal pure returns (bytes32) {
     return REPORT_VERSION_MASK & feedId;
+  }
+
+  /// @inheritdoc IFeeManager
+  function payLinkDeficit(bytes32 configDigest) external onlyOwner {
+    uint256 deficit = s_linkDeficit[configDigest];
+
+    delete s_linkDeficit[configDigest];
+    i_rewardManager.onFeePaid(configDigest, address(this), deficit);
+
+    emit LinkDeficitCleared(configDigest, deficit);
   }
 }

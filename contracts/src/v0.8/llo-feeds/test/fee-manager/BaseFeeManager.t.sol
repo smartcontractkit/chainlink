@@ -73,6 +73,7 @@ contract BaseFeeManagerTest is Test {
   event NativeSurchargeUpdated(uint256 newSurcharge);
   event InsufficientLink(bytes32 indexed configDigest, uint256 linkQuantity, uint256 nativeQuantity);
   event Withdraw(address adminAddress, address assetAddress, uint256 quantity);
+  event LinkDeficitCleared(bytes32 indexed configDigest, uint256 linkQuantity);
 
   function setUp() public virtual {
     //change to admin user
@@ -183,7 +184,7 @@ contract BaseFeeManagerTest is Test {
     uint256 expiry,
     uint256 linkFee,
     uint256 nativeFee
-  ) public view returns (bytes memory) {
+  ) public pure returns (bytes memory) {
     return abi.encode(feedId, uint32(0), int192(0), uint32(0), uint32(expiry), linkFee, nativeFee);
   }
 
@@ -340,5 +341,21 @@ contract BaseFeeManagerTest is Test {
 
   function getNativeAddress() public view returns (address) {
     return address(native);
+  }
+
+  function payLinkDeficit(bytes32 configDigest, address sender) public {
+    //record the current address and switch to the recipient
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    //approve the link to be transferred
+    feeManager.payLinkDeficit(configDigest);
+
+    //change back to the original address
+    changePrank(originalAddr);
+  }
+
+  function getLinkDeficit(bytes32 configDigest) public view returns (uint256) {
+    return feeManager.s_linkDeficit(configDigest);
   }
 }
