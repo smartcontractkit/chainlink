@@ -99,36 +99,49 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, checkResults []ocr2keepers
 
 		// Try to decode the revert error into feed lookup format. User upkeeps can revert with any reason, see if they
 		// tried to call mercury
-		lggr.Infof("upkeep %s block %d trying to decodeFeedLookup performData=%s", upkeepId, block, hexutil.Encode(checkResults[i].PerformData))
-		lookup, err := r.decodeFeedLookup(res.PerformData)
+		lggr.Infof("at block %d upkeep %s trying to decodeFeedLookup performData=%s", block, upkeepId, hexutil.Encode(checkResults[i].PerformData))
+		l, err := r.decodeFeedLookup(res.PerformData)
 		if err != nil {
 			lggr.Warnf("upkeep %s block %d decodeFeedLookup failed: %v", upkeepId, block, err)
 			// Not feed lookup error, nothing to do here
 			continue
 		}
 
-		opts := r.buildCallOpts(ctx, block)
-		// TODO: Remove allowlist for v0.3
-		state, retryable, allowed, err := r.allowedToUseMercury(opts, upkeepId.BigInt())
-		if err != nil {
-			lggr.Warnf("upkeep %s block %d failed to query mercury allow list: %s", upkeepId, block, err)
-			checkResults[i].PipelineExecutionState = uint8(state)
-			checkResults[i].Retryable = retryable
+		if len(l.feeds) == 0 {
+			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
+			lggr.Warnf("at block %s upkeep %s has empty feeds array", block, upkeepId)
+			continue
+		}
+		// mercury permission checking for v0.3 is done by mercury server
+		if l.feedParamKey == feedIdHex && l.timeParamKey == blockNumber {
+			// check permission on the registry for mercury v0.2
+			opts := r.buildCallOpts(ctx, block)
+			state, retryable, allowed, err := r.allowedToUseMercury(opts, upkeepId.BigInt())
+			if err != nil {
+				lggr.Warnf("at block %s upkeep %s failed to query mercury allow list: %s", block, upkeepId, err)
+				checkResults[i].PipelineExecutionState = uint8(state)
+				checkResults[i].Retryable = retryable
+				continue
+			}
+
+			if !allowed {
+				lggr.Warnf("at block %d upkeep %s NOT allowed to query Mercury server", block, upkeepId)
+				checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryAccessNotAllowed)
+				continue
+			}
+		} else if l.feedParamKey != feedIDs || l.timeParamKey != timestamp {
+			// if mercury version cannot be determined, set failure reason
+			lggr.Warnf("at block %d upkeep %s NOT allowed to query Mercury server", block, upkeepId)
+			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
 			continue
 		}
 
-		if !allowed {
-			lggr.Warnf("upkeep %s block %d NOT allowed to query Mercury server", upkeepId, block)
-			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryAccessNotAllowed)
-			continue
-		}
-
-		lookup.upkeepId = upkeepId.BigInt()
+		l.upkeepId = upkeepId.BigInt()
 		// the block here is exclusively used to call checkCallback at this block, not to be confused with the block number
 		// in the revert for mercury v0.2, which is denoted by time in the struct bc starting from v0.3, only timestamp will be supported
-		lookup.block = uint64(block.Int64())
-		lggr.Infof("upkeep %s block %d decodeFeedLookup feedKey=%s timeKey=%s feeds=%v time=%s extraData=%s", upkeepId, block, lookup.feedParamKey, lookup.timeParamKey, lookup.feeds, lookup.time, hexutil.Encode(lookup.extraData))
-		lookups[i] = lookup
+		l.block = uint64(block.Int64())
+		lggr.Infof("at block %d upkeep %s decodeFeedLookup feedKey=%s timeKey=%s feeds=%v time=%s extraData=%s", block, upkeepId, l.feedParamKey, l.timeParamKey, l.feeds, l.time, hexutil.Encode(l.extraData))
+		lookups[i] = l
 	}
 
 	var wg sync.WaitGroup
@@ -256,9 +269,6 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, lggr
 	var isMercuryV03 bool
 	resultLen := len(ml.feeds)
 	ch := make(chan MercuryData, resultLen)
-	if len(ml.feeds) == 0 {
-		return encoding.NoPipelineError, encoding.UpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", ml.feedParamKey, ml.timeParamKey, ml.feeds)
-	}
 	if ml.feedParamKey == feedIdHex && ml.timeParamKey == blockNumber {
 		// only mercury v0.2
 		for i := range ml.feeds {
