@@ -536,12 +536,24 @@ func (o *OCRSoakTest) observeOCREvents() error {
 		timeout        = time.Second * 15
 	)
 	for err == nil {
-		// log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
+		log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 		latestBlockNum, err := o.chainClient.LatestBlockNumber(ctx)
+		if err != nil {
+			log.Warn().
+				Err(err).
+				Int64("Last block number", o.filterQuery.ToBlock.Int64()).
+				Msg("Error getting latest block number")
+		}
 		if latestBlockNum > o.filterQuery.FromBlock.Uint64() {
 			contractEvents, err = o.chainClient.FilterLogs(ctx, o.filterQuery)
+			if err != nil {
+				log.Warn().
+					Err(err).
+					Int64("Last block number", o.filterQuery.ToBlock.Int64()).
+					Msg("Cannot get the contract events")
+			}
 			o.filterQuery.FromBlock.Add(o.filterQuery.FromBlock, big.NewInt(1))
 			o.filterQuery.ToBlock.Add(o.filterQuery.ToBlock, big.NewInt(1))
 		} else {
