@@ -6,7 +6,6 @@ import (
 	big "math/big"
 
 	bind "github.com/ethereum/go-ethereum/accounts/abi/bind"
-	common "github.com/ethereum/go-ethereum/common"
 
 	generated "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 
@@ -74,32 +73,6 @@ func (_m *Registry) GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int,
 	return r0, r1
 }
 
-// GetAdminPrivilegeConfig provides a mock function with given fields: opts, admin
-func (_m *Registry) GetAdminPrivilegeConfig(opts *bind.CallOpts, admin common.Address) ([]byte, error) {
-	ret := _m.Called(opts, admin)
-
-	var r0 []byte
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, common.Address) ([]byte, error)); ok {
-		return rf(opts, admin)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, common.Address) []byte); ok {
-		r0 = rf(opts, admin)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]byte)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts, common.Address) error); ok {
-		r1 = rf(opts, admin)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // GetState provides a mock function with given fields: opts
 func (_m *Registry) GetState(opts *bind.CallOpts) (i_keeper_registry_master_wrapper_2_1.GetState, error) {
 	ret := _m.Called(opts)
@@ -141,6 +114,32 @@ func (_m *Registry) GetUpkeep(opts *bind.CallOpts, id *big.Int) (i_keeper_regist
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int) error); ok {
 		r1 = rf(opts, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// GetUpkeepPrivilegeConfig provides a mock function with given fields: opts, upkeepId
+func (_m *Registry) GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+	ret := _m.Called(opts, upkeepId)
+
+	var r0 []byte
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) ([]byte, error)); ok {
+		return rf(opts, upkeepId)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, *big.Int) []byte); ok {
+		r0 = rf(opts, upkeepId)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, *big.Int) error); ok {
+		r1 = rf(opts, upkeepId)
 	} else {
 		r1 = ret.Error(1)
 	}

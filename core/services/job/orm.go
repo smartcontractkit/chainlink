@@ -38,6 +38,7 @@ import (
 var (
 	ErrNoSuchKeyBundle      = errors.New("no such key bundle exists")
 	ErrNoSuchTransmitterKey = errors.New("no such transmitter key exists")
+	ErrNoSuchSendingKey     = errors.New("no such sending key exists")
 	ErrNoSuchPublicKey      = errors.New("no such public key exists")
 )
 
@@ -82,20 +83,20 @@ type ORMConfig interface {
 }
 
 type orm struct {
-	q           pg.Q
-	chainSet    evm.ChainSet
-	keyStore    keystore.Master
-	pipelineORM pipeline.ORM
-	lggr        logger.SugaredLogger
-	cfg         pg.QConfig
-	bridgeORM   bridges.ORM
+	q            pg.Q
+	legacyChains evm.LegacyChainContainer
+	keyStore     keystore.Master
+	pipelineORM  pipeline.ORM
+	lggr         logger.SugaredLogger
+	cfg          pg.QConfig
+	bridgeORM    bridges.ORM
 }
 
 var _ ORM = (*orm)(nil)
 
 func NewORM(
 	db *sqlx.DB,
-	chainSet evm.ChainSet,
+	legacyChains evm.LegacyChainContainer,
 	pipelineORM pipeline.ORM,
 	bridgeORM bridges.ORM,
 	keyStore keystore.Master, // needed to validation key properties on new job creation
@@ -104,13 +105,13 @@ func NewORM(
 ) *orm {
 	namedLogger := logger.Sugared(lggr.Named("JobORM"))
 	return &orm{
-		q:           pg.NewQ(db, namedLogger, cfg),
-		chainSet:    chainSet,
-		keyStore:    keyStore,
-		pipelineORM: pipelineORM,
-		bridgeORM:   bridgeORM,
-		lggr:        namedLogger,
-		cfg:         cfg,
+		q:            pg.NewQ(db, namedLogger, cfg),
+		legacyChains: legacyChains,
+		keyStore:     keyStore,
+		pipelineORM:  pipelineORM,
+		bridgeORM:    bridgeORM,
+		lggr:         namedLogger,
+		cfg:          cfg,
 	}
 }
 func (o *orm) Close() error {
@@ -199,7 +200,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 			if jb.OCROracleSpec.EVMChainID == nil {
 				// If unspecified, assume we're creating a job intended to run on default chain id
-				newChain, err := o.chainSet.Default()
+				newChain, err := o.legacyChains.Default()
 				if err != nil {
 					return err
 				}
@@ -242,6 +243,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
+			if jb.OCR2OracleSpec.RelayConfig["sendingKeys"] != nil && jb.OCR2OracleSpec.TransmitterID.Valid {
+				return errors.New("sending keys and transmitter ID can't both be defined")
+			}
+
 			// checks if they are present and if they are valid
 			sendingKeysDefined, err := areSendingKeysDefined(jb, o.keyStore)
 			if err != nil {
@@ -252,13 +257,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.New("neither sending keys nor transmitter ID is defined")
 			}
 
-			if sendingKeysDefined && jb.OCR2OracleSpec.TransmitterID.Valid {
-				return errors.New("sending keys and transmitter ID can't both be defined")
-			}
-
 			if !sendingKeysDefined {
-				if err = validateKeyStoreMatch(jb.OCR2OracleSpec, o.keyStore, jb.OCR2OracleSpec.TransmitterID.String); err != nil {
-					return err
+				if err = ValidateKeyStoreMatch(jb.OCR2OracleSpec, o.keyStore, jb.OCR2OracleSpec.TransmitterID.String); err != nil {
+					return errors.Wrap(ErrNoSuchTransmitterKey, err.Error())
 				}
 			}
 
@@ -374,8 +375,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 		case BlockhashStore:
 			var specID int32
-			sql := `INSERT INTO blockhash_store_specs (coordinator_v1_address, coordinator_v2_address, coordinator_v2_plus_address, wait_blocks, lookback_blocks, blockhash_store_address, poll_period, run_timeout, evm_chain_id, from_addresses, created_at, updated_at)
-			VALUES (:coordinator_v1_address, :coordinator_v2_address, :coordinator_v2_plus_address, :wait_blocks, :lookback_blocks, :blockhash_store_address, :poll_period, :run_timeout, :evm_chain_id, :from_addresses, NOW(), NOW())
+			sql := `INSERT INTO blockhash_store_specs (coordinator_v1_address, coordinator_v2_address, coordinator_v2_plus_address, trusted_blockhash_store_address, trusted_blockhash_store_batch_size, wait_blocks, lookback_blocks, blockhash_store_address, poll_period, run_timeout, evm_chain_id, from_addresses, created_at, updated_at)
+			VALUES (:coordinator_v1_address, :coordinator_v2_address, :coordinator_v2_plus_address, :trusted_blockhash_store_address, :trusted_blockhash_store_batch_size, :wait_blocks, :lookback_blocks, :blockhash_store_address, :poll_period, :run_timeout, :evm_chain_id, :from_addresses, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, toBlockhashStoreSpecRow(jb.BlockhashStoreSpec)); err != nil {
 				return errors.Wrap(err, "failed to create BlockhashStore spec")
@@ -452,34 +453,34 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 	return o.findJob(jb, "id", jobID, qopts...)
 }
 
-// validateKeyStoreMatch confirms that the key has a valid match in the keystore
-func validateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key string) error {
+// ValidateKeyStoreMatch confirms that the key has a valid match in the keystore
+func ValidateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key string) error {
 	if spec.PluginType == Mercury {
 		_, err := keyStore.CSA().Get(key)
 		if err != nil {
-			return errors.Wrapf(ErrNoSuchTransmitterKey, "no CSA key matching: %q", key)
+			return errors.Errorf("no CSA key matching: %q", key)
 		}
 	} else {
 		switch spec.Relay {
 		case relay.EVM:
 			_, err := keyStore.Eth().Get(key)
 			if err != nil {
-				return errors.Wrapf(ErrNoSuchTransmitterKey, "no EVM key matching: %q", key)
+				return errors.Errorf("no EVM key matching: %q", key)
 			}
 		case relay.Cosmos:
 			_, err := keyStore.Cosmos().Get(key)
 			if err != nil {
-				return errors.Wrapf(ErrNoSuchTransmitterKey, "no Cosmos key matching %q", key)
+				return errors.Errorf("no Cosmos key matching: %q", key)
 			}
 		case relay.Solana:
 			_, err := keyStore.Solana().Get(key)
 			if err != nil {
-				return errors.Wrapf(ErrNoSuchTransmitterKey, "no Solana key matching: %q", key)
+				return errors.Errorf("no Solana key matching: %q", key)
 			}
 		case relay.StarkNet:
 			_, err := keyStore.StarkNet().Get(key)
 			if err != nil {
-				return errors.Wrapf(ErrNoSuchTransmitterKey, "no Starknet key matching %q", key)
+				return errors.Errorf("no Starknet key matching: %q", key)
 			}
 		}
 	}
@@ -494,8 +495,8 @@ func areSendingKeysDefined(jb *Job, keystore keystore.Master) (bool, error) {
 		}
 
 		for _, sendingKey := range sendingKeys {
-			if err = validateKeyStoreMatch(jb.OCR2OracleSpec, keystore, sendingKey); err != nil {
-				return false, err
+			if err = ValidateKeyStoreMatch(jb.OCR2OracleSpec, keystore, sendingKey); err != nil {
+				return false, errors.Wrap(ErrNoSuchSendingKey, err.Error())
 			}
 		}
 
@@ -695,7 +696,7 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 
 func (o *orm) LoadEnvConfigVars(jb *Job) error {
 	if jb.OCROracleSpec != nil {
-		ch, err := o.chainSet.Get(jb.OCROracleSpec.EVMChainID.ToInt())
+		ch, err := o.legacyChains.Get(jb.OCROracleSpec.EVMChainID.String())
 		if err != nil {
 			return err
 		}
@@ -705,13 +706,13 @@ func (o *orm) LoadEnvConfigVars(jb *Job) error {
 		}
 		jb.OCROracleSpec = newSpec
 	} else if jb.VRFSpec != nil {
-		ch, err := o.chainSet.Get(jb.VRFSpec.EVMChainID.ToInt())
+		ch, err := o.legacyChains.Get(jb.VRFSpec.EVMChainID.String())
 		if err != nil {
 			return err
 		}
 		jb.VRFSpec = LoadEnvConfigVarsVRF(ch.Config().EVM(), *jb.VRFSpec)
 	} else if jb.DirectRequestSpec != nil {
-		ch, err := o.chainSet.Get(jb.DirectRequestSpec.EVMChainID.ToInt())
+		ch, err := o.legacyChains.Get(jb.DirectRequestSpec.EVMChainID.String())
 		if err != nil {
 			return err
 		}

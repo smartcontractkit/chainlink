@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -59,6 +60,7 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       10000,
+		DefaultGasLimit:           6000000,
 	}
 
 	// SimulatedEVM_NON_DEV_2 represents a simulated network with chain id 2337 which can be used to deploy a non-dev geth node
@@ -69,7 +71,7 @@ var (
 		ClientImplementation: blockchain.EthereumClientImplementation,
 		ChainID:              2337,
 		PrivateKeys: []string{
-			"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+			"59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
 		},
 		URLs:                      []string{"ws://dest-chain-ethereum-geth:8546"},
 		HTTPURLs:                  []string{"http://dest-chain-ethereum-geth:8544"},
@@ -77,6 +79,7 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       10000,
+		DefaultGasLimit:           6000000,
 	}
 
 	SimulatedEVMNonDev = blockchain.EVMNetwork{
@@ -106,6 +109,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: 5 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
+		FinalityTag:               true,
+		DefaultGasLimit:           6000000,
 	}
 
 	// sepoliaTestnet https://sepolia.dev/
@@ -119,6 +124,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
+		FinalityTag:               true,
+		DefaultGasLimit:           6000000,
 	}
 
 	// goerliTestnet https://goerli.net/
@@ -132,6 +139,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: 5 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
+		FinalityTag:               true,
+		DefaultGasLimit:           6000000,
 	}
 
 	KlaytnMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
@@ -194,6 +203,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
 		MinimumConfirmations:      0,
 		GasEstimationBuffer:       0,
+		FinalityTag:               true,
+		DefaultGasLimit:           100000000,
 	}
 
 	// arbitrumGoerli https://developer.offchainlabs.com/docs/public_chains
@@ -207,6 +218,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      0,
 		GasEstimationBuffer:       0,
+		FinalityTag:               true,
+		DefaultGasLimit:           100000000,
 	}
 
 	OptimismMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
@@ -219,6 +232,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
+		FinalityTag:               true,
+		DefaultGasLimit:           6000000,
 	}
 
 	// optimismGoerli https://dev.optimism.io/kovan-to-goerli/
@@ -232,6 +247,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
+		FinalityTag:               true,
+		DefaultGasLimit:           6000000,
 	}
 
 	RSKMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
@@ -269,6 +286,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
+		FinalityDepth:             550,
+		DefaultGasLimit:           6000000,
 	}
 
 	// PolygonMumbai https://mumbai.polygonscan.com/
@@ -282,6 +301,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
+		FinalityDepth:             550,
+		DefaultGasLimit:           6000000,
 	}
 
 	AvalancheMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
@@ -294,6 +315,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
+		FinalityDepth:             35,
+		DefaultGasLimit:           6000000,
 	}
 
 	AvalancheFuji = blockchain.EVMNetwork{
@@ -306,6 +329,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
+		FinalityDepth:             35,
+		DefaultGasLimit:           6000000,
 	}
 
 	Quorum = blockchain.EVMNetwork{
@@ -344,6 +369,28 @@ var (
 		GasEstimationBuffer:       1000,
 	}
 
+	ScrollSepolia = blockchain.EVMNetwork{
+		Name:                      "Scroll Sepolia",
+		ClientImplementation:      blockchain.ScrollClientImplementation,
+		ChainID:                   534351,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
+	}
+
+	ScrollMainnet = blockchain.EVMNetwork{
+		Name:                      "Scroll Mainnet",
+		ClientImplementation:      blockchain.ScrollClientImplementation,
+		ChainID:                   534352,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
+	}
+
 	CeloMainnet = blockchain.EVMNetwork{
 		Name:                      "Celo",
 		ClientImplementation:      blockchain.CeloClientImplementation,
@@ -364,6 +411,30 @@ var (
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      0,
+		GasEstimationBuffer:       0,
+	}
+
+	BSCTestnet blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "BSC Testnet",
+		SupportsEIP1559:           true,
+		ClientImplementation:      blockchain.BSCClientImplementation,
+		ChainID:                   97,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      3,
+		GasEstimationBuffer:       0,
+	}
+
+	BSCMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "BSC Mainnet",
+		SupportsEIP1559:           true,
+		ClientImplementation:      blockchain.BSCClientImplementation,
+		ChainID:                   56,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      3,
 		GasEstimationBuffer:       0,
 	}
 
@@ -393,7 +464,11 @@ var (
 		"AVALANCHE_FUJI":    AvalancheFuji,
 		"AVALANCHE_MAINNET": AvalancheMainnet,
 		"QUORUM":            Quorum,
+		"SCROLL_SEPOLIA":    ScrollSepolia,
+		"SCROLL_MAINNET":    ScrollMainnet,
 		"BASE_MAINNET":      BaseMainnet,
+		"BSC_TESTNET":       BSCTestnet,
+		"BSC_MAINNET":       BSCMainnet,
 	}
 )
 

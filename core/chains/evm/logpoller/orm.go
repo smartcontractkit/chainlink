@@ -308,7 +308,7 @@ func (o *ORM) SelectLatestLogEventSigsAddrsWithConfs(fromBlock int64, addresses 
 				    event_sig = ANY($2) AND
 					address = ANY($3) AND
 		   			block_number > $4 AND
-					(block_number + $5) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+					block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $5
 			GROUP BY event_sig, address
 		)
 		ORDER BY block_number ASC
@@ -320,7 +320,7 @@ func (o *ORM) SelectLatestLogEventSigsAddrsWithConfs(fromBlock int64, addresses 
 }
 
 // SelectLatestBlockNumberEventSigsAddrsWithConfs finds the latest block number that matches a list of Addresses and list of events. It returns 0 if there is no matching block
-func (o *ORM) SelectLatestBlockNumberEventSigsAddrsWithConfs(eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
+func (o *ORM) SelectLatestBlockNumberEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
 	var blockNumber int64
 	sigs := concatBytes(eventSigs)
 	addrs := concatBytes(addresses)
@@ -331,8 +331,9 @@ func (o *ORM) SelectLatestBlockNumberEventSigsAddrsWithConfs(eventSigs []common.
 				WHERE evm_chain_id = $1 AND
 				    event_sig = ANY($2) AND
 					address = ANY($3) AND
-					(block_number + $4) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)`,
-		o.chainID.Int64(), sigs, addrs, confs)
+					block_number > $4 AND
+					block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $5`,
+		o.chainID.Int64(), sigs, addrs, fromBlock, confs)
 	if err != nil {
 		return 0, err
 	}
@@ -348,7 +349,7 @@ func (o *ORM) SelectDataWordRange(address common.Address, eventSig common.Hash, 
 			AND address = $2 AND event_sig = $3
 			AND substring(data from 32*$4+1 for 32) >= $5
 			AND substring(data from 32*$4+1 for 32) <= $6
-			AND (block_number + $7) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $7
 			ORDER BY (evm_logs.block_number, evm_logs.log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), wordIndex, wordValueMin.Bytes(), wordValueMax.Bytes(), confs)
 	if err != nil {
 		return nil, err
@@ -364,7 +365,7 @@ func (o *ORM) SelectDataWordGreaterThan(address common.Address, eventSig common.
 			WHERE evm_logs.evm_chain_id = $1
 			AND address = $2 AND event_sig = $3
 			AND substring(data from 32*$4+1 for 32) >= $5
-			AND (block_number + $6) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $6
 			ORDER BY (evm_logs.block_number, evm_logs.log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), wordIndex, wordValueMin.Bytes(), confs)
 	if err != nil {
 		return nil, err
@@ -384,7 +385,7 @@ func (o *ORM) SelectIndexLogsTopicGreaterThan(address common.Address, eventSig c
 			WHERE evm_logs.evm_chain_id = $1
 			AND address = $2 AND event_sig = $3
 			AND topics[$4] >= $5
-			AND (block_number + $6) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $6
 			ORDER BY (evm_logs.block_number, evm_logs.log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, topicValueMin.Bytes(), confs)
 	if err != nil {
 		return nil, err
@@ -405,7 +406,7 @@ func (o *ORM) SelectIndexLogsTopicRange(address common.Address, eventSig common.
 			AND address = $2 AND event_sig = $3
 			AND topics[$4] >= $5
 			AND topics[$4] <= $6
-			AND (block_number + $7) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $7
 			ORDER BY (evm_logs.block_number, evm_logs.log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, topicValueMin.Bytes(), topicValueMax.Bytes(), confs)
 	if err != nil {
 		return nil, err
@@ -427,7 +428,7 @@ func (o *ORM) SelectIndexedLogs(address common.Address, eventSig common.Hash, to
 			WHERE evm_logs.evm_chain_id = $1
 			AND address = $2 AND event_sig = $3
 			AND topics[$4] = ANY($5)
-			AND (block_number + $6) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $6
 			ORDER BY (evm_logs.block_number, evm_logs.log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, topicValuesBytes, confs)
 	if err != nil {
 		return nil, err
@@ -475,7 +476,7 @@ func (o *ORM) SelectIndexedLogsCreatedAfter(address common.Address, eventSig com
 			AND address = $2 AND event_sig = $3
 			AND topics[$4] = ANY($5)
 			AND created_at > $6
-			AND (block_number + $7) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $7
 			ORDER BY created_at ASC`, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, topicValuesBytes, after, confs)
 	if err != nil {
 		return nil, err
@@ -499,7 +500,7 @@ func (o *ORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIn
 		AND    address = $2
 		AND    event_sig = $3
 		AND block_number BETWEEN $6 AND $7
-		AND (block_number + $8) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+		AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $8
 		
 		EXCEPT
 		
@@ -512,7 +513,7 @@ func (o *ORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIn
 		AND        a.event_sig = $3
 		AND        b.event_sig = $4
 	    AND 	   b.block_number BETWEEN $6 AND $7
-		AND (b.block_number + $8) <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
+		AND		   b.block_number <= (SELECT COALESCE(block_number, 0) FROM evm_log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $8
 
 		ORDER BY block_number,log_index ASC
 			`, utils.NewBig(o.chainID), address, sigA.Bytes(), sigB.Bytes(), topicIndex+1, startBlock, endBlock, confs)

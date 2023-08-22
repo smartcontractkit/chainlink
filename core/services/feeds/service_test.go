@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -147,7 +148,7 @@ type TestService struct {
 	p2pKeystore  *ksmocks.P2P
 	ocr1Keystore *ksmocks.OCR
 	ocr2Keystore *ksmocks.OCR2
-	cc           evm.ChainSet
+	legacyChains evm.LegacyChainContainer
 }
 
 func setupTestService(t *testing.T) *TestService {
@@ -178,14 +179,15 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	keyStore := new(ksmocks.Master)
 	scopedConfig := evmtest.NewChainScopedConfig(t, gcfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, gcfg.Database()).Eth()
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg,
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{GeneralConfig: gcfg,
 		HeadTracker: headtracker.NullTracker, KeyStore: ethKeyStore})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	keyStore.On("Eth").Return(ethKeyStore)
 	keyStore.On("CSA").Return(csaKeystore)
 	keyStore.On("P2P").Return(p2pKeystore)
 	keyStore.On("OCR").Return(ocr1Keystore)
 	keyStore.On("OCR2").Return(ocr2Keystore)
-	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, scopedConfig.Insecure(), scopedConfig.JobPipeline(), scopedConfig.OCR(), scopedConfig.OCR2(), scopedConfig.Database(), cc, lggr, "1.0.0")
+	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, scopedConfig.Insecure(), scopedConfig.JobPipeline(), scopedConfig.OCR(), scopedConfig.OCR2(), scopedConfig.Database(), legacyChains, lggr, "1.0.0")
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
@@ -199,7 +201,7 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 		p2pKeystore:  p2pKeystore,
 		ocr1Keystore: ocr1Keystore,
 		ocr2Keystore: ocr2Keystore,
-		cc:           cc,
+		legacyChains: legacyChains,
 	}
 }
 

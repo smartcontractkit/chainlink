@@ -55,7 +55,7 @@ func TestContractTransmitter(t *testing.T) {
 
 	// scanLogs = true
 	digestAndEpochScanLogs, _ := hex.DecodeString(
-		"0000000000000000000000000000000000000000000000000000000000000001" + // false
+		"0000000000000000000000000000000000000000000000000000000000000001" + // true
 			"000130da6b9315bd59af6b0a3f5463c0d0a39e92eaa34cbcbdbace7b3bfcc776" + // config digest
 			"0000000000000000000000000000000000000000000000000000000000000002") // epoch
 	c.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(digestAndEpochScanLogs, nil).Once()

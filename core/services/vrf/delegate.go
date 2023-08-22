@@ -34,13 +34,13 @@ import (
 )
 
 type Delegate struct {
-	q       pg.Q
-	pr      pipeline.Runner
-	porm    pipeline.ORM
-	ks      keystore.Master
-	cc      evm.ChainSet
-	lggr    logger.Logger
-	mailMon *utils.MailboxMonitor
+	q            pg.Q
+	pr           pipeline.Runner
+	porm         pipeline.ORM
+	ks           keystore.Master
+	legacyChains evm.LegacyChainContainer
+	lggr         logger.Logger
+	mailMon      *utils.MailboxMonitor
 }
 
 func NewDelegate(
@@ -48,18 +48,18 @@ func NewDelegate(
 	ks keystore.Master,
 	pr pipeline.Runner,
 	porm pipeline.ORM,
-	chainSet evm.ChainSet,
+	legacyChains evm.LegacyChainContainer,
 	lggr logger.Logger,
 	cfg pg.QConfig,
 	mailMon *utils.MailboxMonitor) *Delegate {
 	return &Delegate{
-		q:       pg.NewQ(db, lggr, cfg),
-		ks:      ks,
-		pr:      pr,
-		porm:    porm,
-		cc:      chainSet,
-		lggr:    lggr,
-		mailMon: mailMon,
+		q:            pg.NewQ(db, lggr, cfg),
+		ks:           ks,
+		pr:           pr,
+		porm:         porm,
+		legacyChains: legacyChains,
+		lggr:         lggr,
+		mailMon:      mailMon,
 	}
 }
 
@@ -73,7 +73,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
 func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
 	if jb.VRFSpec == nil || jb.PipelineSpec == nil {
 		return nil, errors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
 	}
@@ -81,7 +81,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if err != nil {
 		return nil, err
 	}
-	chain, err := d.cc.Get(jb.VRFSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(jb.VRFSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -126,10 +126,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	)
 	lV1 := l.Named("VRFListener")
 	lV2 := l.Named("VRFListenerV2")
-
-	if vrfOwner == nil {
-		lV2.Infow("Running without VRFOwnerAddress set on the spec")
-	}
+	lV2Plus := l.Named("VRFListenerV2Plus")
 
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2Plus); ok {
@@ -144,7 +141,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
 				return nil, err
 			}
-
+			if vrfOwner != nil {
+				return nil, errors.New("VRF Owner is not supported for VRF V2 Plus")
+			}
 			linkEthFeedAddress, err := coordinatorV2Plus.LINKETHFEED(nil)
 			if err != nil {
 				return nil, errors.Wrap(err, "LINKETHFEED")
@@ -157,7 +156,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			return []job.ServiceCtx{v2.New(
 				chain.Config().EVM(),
 				chain.Config().EVM().GasEstimator(),
-				lV2,
+				lV2Plus,
 				chain.Client(),
 				chain.ID(),
 				chain.LogBroadcaster(),
@@ -173,7 +172,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				d.mailMon,
 				utils.NewHighCapacityMailbox[log.Broadcast](),
 				func() {},
-				GetStartingResponseCountsV2(d.q, lV2, chainId.Uint64(), chain.Config().EVM().FinalityDepth()),
+				GetStartingResponseCountsV2(d.q, lV2Plus, chainId.Uint64(), chain.Config().EVM().FinalityDepth()),
 				chain.HeadBroadcaster(),
 				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
 		}
@@ -197,6 +196,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
 			if err != nil {
 				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
+			}
+			if vrfOwner == nil {
+				lV2.Infow("Running without VRFOwnerAddress set on the spec")
 			}
 
 			return []job.ServiceCtx{v2.New(

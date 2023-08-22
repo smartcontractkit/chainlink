@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/ocr2keepers/pkg/config"
+	"github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -447,7 +447,7 @@ func setupForwarderForNode(
 	_, err = forwarderORM.CreateForwarder(faddr, chainID)
 	require.NoError(t, err)
 
-	chain, err := app.GetChains().EVM.Get((*big.Int)(&chainID))
+	chain, err := app.GetRelayers().LegacyEVMChains().Get((*big.Int)(&chainID).String())
 	require.NoError(t, err)
 	fwdr, err := chain.TxManager().GetForwarderForEOA(recipient)
 	require.NoError(t, err)

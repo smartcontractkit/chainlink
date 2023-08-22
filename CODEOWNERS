@@ -9,6 +9,7 @@
 /core/internal @samsondav @jmank88
 
 # Chains
+/common @smartcontractkit/integrations
 /core/chains/evm @samsondav @prashantkumar1982
 /core/chains/evm/headtracker @pinebit @samsondav @prashantkumar1982
 /core/chains/evm/client @samsondav @prashantkumar1982
@@ -63,11 +64,13 @@ core/services/ocr2/plugins/functions @bolekk @justinkaseman @KuphJr @pinebit
 /contracts/**/*Upkeep* @smartcontractkit/keepers
 /contracts/**/*Functions* @bolekk @justinkaseman @KuphJr @pinebit
 /contracts/src/v0.8/functions @bolekk @justinkaseman @KuphJr @pinebit
+/contracts/src/v0.8/llo-feeds @austinborn @Fletch153
 
 # Tests
 /integration-tests/ @smartcontractkit/test-tooling-team
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
+
 
 # CI/CD
 /.github/** @chainchad @javuto @jkongie @jmank88 @samsondav
@@ -95,3 +98,6 @@ flake.lock @smartcontractkit/prodsec-public
 ./core/config @samsondav @jmank88
 ./docs/CONFIG.md @samsondav @jmank88 @dwightjl
 ./internal/config/docs.toml @samsondav @jmank88 @dwightjl
+
+# LOOP Plugins
+/plugins @jmank88 @krehermann

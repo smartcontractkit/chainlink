@@ -799,6 +799,20 @@ func (b *BlockhashStoreSpecResolver) BlockhashStoreAddress() string {
 	return b.spec.BlockhashStoreAddress.String()
 }
 
+// TrustedBlockhashStoreAddress returns the address of the job's TrustedBlockhashStoreAddress, if any.
+func (b *BlockhashStoreSpecResolver) TrustedBlockhashStoreAddress() *string {
+	if b.spec.TrustedBlockhashStoreAddress == nil {
+		return nil
+	}
+	addr := b.spec.TrustedBlockhashStoreAddress.String()
+	return &addr
+}
+
+// BatchBlockhashStoreAddress returns the job's BatchBlockhashStoreAddress param.
+func (b *BlockhashStoreSpecResolver) TrustedBlockhashStoreBatchSize() int32 {
+	return b.spec.TrustedBlockhashStoreBatchSize
+}
+
 // PollPeriod return's the job's PollPeriod param.
 func (b *BlockhashStoreSpecResolver) PollPeriod() string {
 	return b.spec.PollPeriod.String()

@@ -3,7 +3,6 @@ package headtracker
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"sync"
 	"time"
 
@@ -334,7 +333,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 			head = existingHead
 			continue
 		}
-		head, err = ht.fetchAndSaveHead(ctx, i)
+		head, err = ht.fetchAndSaveHead(ctx, i, head.GetParentHash())
 		fetched++
 		if ctx.Err() != nil {
 			ht.log.Debugw("context canceled, aborting backfill", "err", err, "ctx.Err", ctx.Err())
@@ -346,9 +345,9 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) backfill(ctx context.Context, hea
 	return
 }
 
-func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) fetchAndSaveHead(ctx context.Context, n int64) (HTH, error) {
-	ht.log.Debugw("Fetching head", "blockHeight", n)
-	head, err := ht.client.HeadByNumber(ctx, big.NewInt(n))
+func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) fetchAndSaveHead(ctx context.Context, n int64, hash BLOCK_HASH) (HTH, error) {
+	ht.log.Debugw("Fetching head", "blockHeight", n, "blockHash", hash)
+	head, err := ht.client.HeadByHash(ctx, hash)
 	if err != nil {
 		return ht.getNilHead(), err
 	} else if !head.IsValid() {

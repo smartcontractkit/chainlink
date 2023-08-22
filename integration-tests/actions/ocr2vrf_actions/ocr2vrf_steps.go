@@ -72,7 +72,7 @@ func SetAndWaitForDKGProcessToFinish(t *testing.T, ocr2VRFPluginConfig *OCR2VRFP
 
 func SetAndGetOCR2VRFPluginConfig(
 	t *testing.T,
-	nonBootstrapNodes []*client.Chainlink,
+	nonBootstrapNodes []*client.ChainlinkK8sClient,
 	dkg contracts.DKG,
 	vrfBeacon contracts.VRFBeacon,
 	coordinator contracts.VRFCoordinatorV3,
@@ -292,7 +292,7 @@ func SetupOCR2VRFUniverse(
 	contractDeployer contracts.ContractDeployer,
 	chainClient blockchain.EVMClient,
 	nodeAddresses []common.Address,
-	chainlinkNodes []*client.Chainlink,
+	chainlinkNodes []*client.ChainlinkK8sClient,
 	testNetwork blockchain.EVMNetwork,
 ) (contracts.DKG, contracts.VRFCoordinatorV3, contracts.VRFBeacon, contracts.VRFBeaconConsumer, *big.Int) {
 

@@ -60,12 +60,25 @@ interface IVRFSubscriptionV2Plus {
    * @param subId - ID of the subscription
    * @return balance - LINK balance of the subscription in juels.
    * @return ethBalance - ETH balance of the subscription in wei.
+   * @return reqCount - Requests count of subscription.
    * @return owner - owner of the subscription.
    * @return consumers - list of consumer address which are able to use this subscription.
    */
   function getSubscription(
     uint256 subId
-  ) external view returns (uint96 balance, uint96 ethBalance, address owner, address[] memory consumers);
+  )
+    external
+    view
+    returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers);
+
+  /**
+   * @notice Paginate through all active VRF subscriptions.
+   * @param startIndex index of the subscription to start from
+   * @param maxCount maximum number of subscriptions to return, 0 to return all
+   * @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
+   * @dev should consider keeping the blockheight constant to ensure a holistic picture of the contract state
+   */
+  function getActiveSubscriptionIds(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory);
 
   /**
    * @notice Fund a subscription with ETH.

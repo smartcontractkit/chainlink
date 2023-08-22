@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
-import "../../vendor/entrypoint/interfaces/IAccount.sol";
+import "../../../vendor/entrypoint/interfaces/IAccount.sol";
 import "./SCALibrary.sol";
-import "../../vendor/entrypoint/core/Helpers.sol";
+import "../../../vendor/entrypoint/core/Helpers.sol";
 
 /// TODO: decide on a compiler version. Must not be dynamic, and must be > 0.8.12.
 pragma solidity 0.8.15;

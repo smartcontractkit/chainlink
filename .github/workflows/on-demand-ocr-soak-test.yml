@@ -14,6 +14,10 @@ on:
           - "CELO_MAINNET"
           - "BASE_GOERLI"
           - "BASE_MAINNET"
+          - "BSC_MAINNET"
+          - "BSC_TESTNET"
+          - "SCROLL_SEPOLIA"
+          - "SCROLL_MAINNET"   
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
@@ -77,7 +81,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@90fcbaac8ebf86da9c4d55dba24f6fe3029f0e0b
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -117,7 +121,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35 # v2.2.9
         env:
           DETACH_RUNNER: true
           TEST_SUITE: soak

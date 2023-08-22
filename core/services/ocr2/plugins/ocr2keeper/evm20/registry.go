@@ -15,7 +15,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"

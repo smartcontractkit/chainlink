@@ -44,8 +44,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     s_consumer = new VRFV2PlusWrapperConsumerExample(address(s_linkToken), address(s_wrapper));
 
     // Configure the coordinator.
-    s_testCoordinator.setLINK(address(s_linkToken));
-    s_testCoordinator.setLinkEthFeed(address(s_linkEthFeed));
+    s_testCoordinator.setLINKAndLINKETHFeed(address(s_linkToken), address(s_linkEthFeed));
     setConfigCoordinator(basicFeeConfig);
     setConfigWrapper();
 

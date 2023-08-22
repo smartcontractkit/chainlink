@@ -19,20 +19,22 @@ import (
 )
 
 type FunctionsReportingPluginFactory struct {
-	Logger    commontypes.Logger
-	PluginORM functions.ORM
-	JobID     uuid.UUID
+	Logger          commontypes.Logger
+	PluginORM       functions.ORM
+	JobID           uuid.UUID
+	ContractVersion uint32
 }
 
 var _ types.ReportingPluginFactory = (*FunctionsReportingPluginFactory)(nil)
 
 type functionsReporting struct {
-	logger         commontypes.Logger
-	pluginORM      functions.ORM
-	jobID          uuid.UUID
-	reportCodec    *encoding.ReportCodec
-	genericConfig  *types.ReportingPluginConfig
-	specificConfig *config.ReportingPluginConfigWrapper
+	logger          commontypes.Logger
+	pluginORM       functions.ORM
+	jobID           uuid.UUID
+	reportCodec     encoding.ReportCodec
+	genericConfig   *types.ReportingPluginConfig
+	specificConfig  *config.ReportingPluginConfigWrapper
+	contractVersion uint32
 }
 
 var _ types.ReportingPlugin = &functionsReporting{}
@@ -88,7 +90,7 @@ func (f FunctionsReportingPluginFactory) NewReportingPlugin(rpConfig types.Repor
 		})
 		return nil, types.ReportingPluginInfo{}, err
 	}
-	codec, err := encoding.NewReportCodec()
+	codec, err := encoding.NewReportCodec(f.ContractVersion)
 	if err != nil {
 		f.Logger.Error("unable to create a report codec object", commontypes.LogFields{})
 		return nil, types.ReportingPluginInfo{}, err
@@ -103,12 +105,13 @@ func (f FunctionsReportingPluginFactory) NewReportingPlugin(rpConfig types.Repor
 		},
 	}
 	plugin := functionsReporting{
-		logger:         f.Logger,
-		pluginORM:      f.PluginORM,
-		jobID:          f.JobID,
-		reportCodec:    codec,
-		genericConfig:  &rpConfig,
-		specificConfig: pluginConfig,
+		logger:          f.Logger,
+		pluginORM:       f.PluginORM,
+		jobID:           f.JobID,
+		reportCodec:     codec,
+		genericConfig:   &rpConfig,
+		specificConfig:  pluginConfig,
+		contractVersion: f.ContractVersion,
 	}
 	promReportingPlugins.WithLabelValues(f.JobID.String()).Inc()
 	return &plugin, info, nil
@@ -193,12 +196,20 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 		// NOTE: ignoring TIMED_OUT requests, which potentially had ready results
 		if localResult.State == functions.RESULT_READY {
 			resultProto := encoding.ProcessedRequest{
-				RequestID: localResult.RequestID[:],
-				Result:    localResult.Result,
-				Error:     localResult.Error,
+				RequestID:       localResult.RequestID[:],
+				Result:          localResult.Result,
+				Error:           localResult.Error,
+				OnchainMetadata: localResult.OnchainMetadata,
 			}
-			if localResult.CallbackGasLimit != nil {
+			if r.contractVersion == 1 {
+				if localResult.CallbackGasLimit == nil || localResult.CoordinatorContractAddress == nil {
+					r.logger.Error("FunctionsReporting Observation missing required v1 fields", commontypes.LogFields{
+						"requestID": formatRequestId(id[:]),
+					})
+					continue
+				}
 				resultProto.CallbackGasLimit = *localResult.CallbackGasLimit
+				resultProto.CoordinatorContract = localResult.CoordinatorContractAddress[:]
 			}
 			observationProto.ProcessedRequests = append(observationProto.ProcessedRequests, &resultProto)
 			idStrs = append(idStrs, formatRequestId(localResult.RequestID[:]))
@@ -428,12 +439,12 @@ func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, t
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)
 			continue
 		}
-		if request.State == functions.TIMED_OUT || request.State == functions.CONFIRMED {
-			r.logger.Debug("FunctionsReporting ShouldTransmitAcceptedReport: request is not FINALIZED any more. Not transmitting.",
-				commontypes.LogFields{
-					"requestID": reqIdStr,
-					"state":     request.State.String(),
-				})
+		if request.State == functions.CONFIRMED {
+			r.logger.Debug("FunctionsReporting ShouldTransmitAcceptedReport: request already CONFIRMED. Not transmitting.", commontypes.LogFields{"requestID": reqIdStr})
+			continue
+		}
+		if request.State == functions.TIMED_OUT {
+			r.logger.Debug("FunctionsReporting ShouldTransmitAcceptedReport: request already TIMED_OUT. Not transmitting.", commontypes.LogFields{"requestID": reqIdStr})
 			continue
 		}
 		if request.State == functions.IN_PROGRESS || request.State == functions.RESULT_READY {

@@ -15,8 +15,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     Mode mode,
     address link,
     address linkNativeFeed,
-    address fastGasFeed
-  ) KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed) {}
+    address fastGasFeed,
+    address automationForwarderLogic
+  ) KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed, automationForwarderLogic) {}
 
   ///////////////////////
   // UPKEEP MANAGEMENT //
@@ -166,7 +167,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   /////////////////////////////
 
   /**
-   * @notice sets the privledge config for an upkeep
+   * @notice sets the privilege config for an upkeep
    */
   function setUpkeepPrivilegeConfig(uint256 upkeepId, bytes calldata newPrivilegeConfig) external {
     if (msg.sender != s_storage.upkeepPrivilegeManager) {
@@ -188,7 +189,7 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   }
 
   /**
-   * @notice allows the owner to withdraw any LINK accidentially sent to the contract
+   * @notice allows the owner to withdraw any LINK accidentally sent to the contract
    */
   function recoverFunds() external onlyOwner {
     uint256 total = i_link.balanceOf(address(this));
@@ -239,8 +240,8 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   }
 
   /**
-   * @notice sets a generic bytes field used to indicate the privledges that this admin address had
-   * @param admin the address to set privledges for
+   * @notice sets a generic bytes field used to indicate the privilege that this admin address had
+   * @param admin the address to set privilege for
    * @param newPrivilegeConfig the privileges that this admin has
    */
   function setAdminPrivilegeConfig(address admin, bytes calldata newPrivilegeConfig) external {
@@ -254,14 +255,6 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   /////////////
   // GETTERS //
   /////////////
-
-  function getTransmitGasOverhead() external pure returns (uint256) {
-    return TRANSMIT_GAS_OVERHEAD;
-  }
-
-  function getCheckGasOverhead() external pure returns (uint256) {
-    return CHECK_GAS_OVERHEAD;
-  }
 
   function getConditionalGasOverhead() external pure returns (uint256) {
     return REGISTRY_CONDITIONAL_OVERHEAD;
@@ -299,6 +292,10 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     return address(i_fastGasFeed);
   }
 
+  function getAutomationForwarderLogic() external view returns (address) {
+    return i_automationForwarderLogic;
+  }
+
   function upkeepTranscoderVersion() public pure returns (UpkeepFormat) {
     return UPKEEP_TRANSCODER_VERSION_BASE;
   }
@@ -314,8 +311,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
    */
   function getUpkeep(uint256 id) external view returns (UpkeepInfo memory upkeepInfo) {
     Upkeep memory reg = s_upkeep[id];
+    address target = address(reg.forwarder) == address(0) ? address(0) : reg.forwarder.getTarget();
     upkeepInfo = UpkeepInfo({
-      target: reg.target,
+      target: target,
       performGas: reg.performGas,
       checkData: s_checkData[id],
       balance: reg.balance,
@@ -501,7 +499,14 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   /**
    * @notice returns the upkeep's forwarder contract
    */
-  function getForwarder(uint256 upkeepID) external view returns (AutomationForwarder) {
+  function getForwarder(uint256 upkeepID) external view returns (IAutomationForwarder) {
     return s_upkeep[upkeepID].forwarder;
+  }
+
+  /**
+   * @notice returns the upkeep's forwarder contract
+   */
+  function hasDedupKey(bytes32 dedupKey) external view returns (bool) {
+    return s_dedupKeys[dedupKey];
   }
 }
