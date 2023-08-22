@@ -183,6 +183,9 @@ func (o *OCRSoakTest) Setup() {
 		err     error
 		network = networks.SelectedNetwork
 	)
+
+	// DEBUG: Intentional fail
+	o.t.FailNow()
 	// Environment currently being used to soak test on
 	// Make connections to soak test resources
 	o.chainClient, err = blockchain.NewEVMClient(network, o.testEnvironment)
