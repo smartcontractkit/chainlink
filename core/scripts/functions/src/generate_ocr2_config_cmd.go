@@ -102,23 +102,14 @@ func (g *generateOCR2Config) Name() string {
 }
 
 func mustParseJSONConfigFile(fileName string) (output TopLevelConfigSource) {
-	jsonFile, err := os.Open(fileName)
-	if err != nil {
-		panic(err)
-	}
-	defer jsonFile.Close()
-	bytes, err := io.ReadAll(jsonFile)
-	if err != nil {
-		panic(err)
-	}
-	err = json.Unmarshal(bytes, &output)
-	if err != nil {
-		panic(err)
-	}
-	return
+	return mustParseJSON[TopLevelConfigSource](fileName)
 }
 
 func mustParseKeysFile(fileName string) (output []NodeKeys) {
+	return mustParseJSON[[]NodeKeys](fileName)
+}
+
+func mustParseJSON[T any](fileName string) (output T) {
 	jsonFile, err := os.Open(fileName)
 	if err != nil {
 		panic(err)

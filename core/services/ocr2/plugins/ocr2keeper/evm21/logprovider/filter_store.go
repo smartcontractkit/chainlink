@@ -19,6 +19,11 @@ type UpkeepFilterStore interface {
 	Size() int
 }
 
+type UpkeepFilterStoreTest interface {
+	UpkeepFilterStore
+	ResetLastPollBlock()
+}
+
 var _ UpkeepFilterStore = &upkeepFilterStore{}
 
 type upkeepFilter struct {
@@ -34,6 +39,21 @@ type upkeepFilter struct {
 	// lastRePollBlock is the last block number the logs were recovered for this upkeep
 	// used by log recoverer.
 	lastRePollBlock int64
+}
+
+func (f upkeepFilter) Clone() upkeepFilter {
+	topics := make([]common.Hash, len(f.topics))
+	copy(topics, f.topics)
+	addr := make([]byte, len(f.addr))
+	copy(addr, f.addr)
+	return upkeepFilter{
+		upkeepID:        f.upkeepID,
+		topics:          topics,
+		addr:            addr,
+		lastPollBlock:   f.lastPollBlock,
+		lastRePollBlock: f.lastRePollBlock,
+		blockLimiter:    f.blockLimiter,
+	}
 }
 
 type upkeepFilterStore struct {
@@ -130,7 +150,7 @@ func (s *upkeepFilterStore) GetFilters(selector func(upkeepFilter) bool) []upkee
 	var filters []upkeepFilter
 	for _, f := range s.filters {
 		if selector(f) {
-			filters = append(filters, f)
+			filters = append(filters, f.Clone())
 		}
 	}
 	return filters
@@ -160,4 +180,14 @@ func (s *upkeepFilterStore) Size() int {
 	defer s.lock.RUnlock()
 
 	return len(s.filters)
+}
+
+func (s *upkeepFilterStore) ResetLastPollBlock() {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	for k, f := range s.filters {
+		f.lastPollBlock = 0
+		s.filters[k] = f
+	}
 }

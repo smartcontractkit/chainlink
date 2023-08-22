@@ -28,7 +28,7 @@ type CosmosTransfersController struct {
 
 // Create sends Atom and other native coins from the Chainlink's account to a specified address.
 func (tc *CosmosTransfersController) Create(c *gin.Context) {
-	cosmosChains := tc.App.GetChains().Cosmos
+	cosmosChains := tc.App.GetRelayers().LegacyCosmosChains()
 	if cosmosChains == nil {
 		jsonAPIError(c, http.StatusBadRequest, ErrCosmosNotEnabled)
 		return
@@ -43,7 +43,9 @@ func (tc *CosmosTransfersController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusBadRequest, errors.New("missing cosmosChainID"))
 		return
 	}
-	chain, err := cosmosChains.Chain(c.Request.Context(), tr.CosmosChainID)
+	// TODO what about ctx in Get? ctx was used here but not in ETH calls. maybe better to make the interface require ctx and
+	// put in TODOs in ETH...
+	chain, err := cosmosChains.Get(tr.CosmosChainID) //cosmosChains.Chain(c.Request.Context(), tr.CosmosChainID)
 	if errors.Is(err, cosmos.ErrChainIDInvalid) || errors.Is(err, cosmos.ErrChainIDEmpty) {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return

@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate/migrations" // Invoke init() functions within migrations pkg.
 )
 
-//go:embed migrations/*.sql
+//go:embed migrations/*.sql migrations/*.go
 var embedMigrations embed.FS
 
 const MIGRATIONS_DIR string = "migrations"
