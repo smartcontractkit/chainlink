@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
@@ -18,12 +19,12 @@ import (
 )
 
 type batchBHSConfig interface {
-	EvmGasLimitDefault() uint32
+	LimitDefault() uint32
 }
 
 type BatchBlockhashStore struct {
 	config   batchBHSConfig
-	txm      txmgr.EvmTxManager
+	txm      txmgr.TxManager
 	abi      *abi.ABI
 	batchbhs batch_blockhash_store.BatchBlockhashStoreInterface
 	lggr     logger.Logger
@@ -32,7 +33,7 @@ type BatchBlockhashStore struct {
 func NewBatchBHS(
 	config batchBHSConfig,
 	fromAddresses []ethkey.EIP55Address,
-	txm txmgr.EvmTxManager,
+	txm txmgr.TxManager,
 	batchbhs batch_blockhash_store.BatchBlockhashStoreInterface,
 	chainID *big.Int,
 	gethks keystore.Eth,
@@ -65,11 +66,11 @@ func (b *BatchBlockhashStore) StoreVerifyHeader(ctx context.Context, blockNumber
 		return errors.Wrap(err, "packing args")
 	}
 
-	_, err = b.txm.CreateTransaction(txmgr.EvmTxRequest{
+	_, err = b.txm.CreateTransaction(txmgr.TxRequest{
 		FromAddress:    fromAddress,
 		ToAddress:      b.batchbhs.Address(),
 		EncodedPayload: payload,
-		FeeLimit:       b.config.EvmGasLimitDefault(),
+		FeeLimit:       b.config.LimitDefault(),
 		Strategy:       txmgrcommon.NewSendEveryStrategy(),
 	}, pg.WithParentCtx(ctx))
 

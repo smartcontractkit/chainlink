@@ -46,7 +46,7 @@ Enabled = true
 BlockRate = '6s'
 BlocksUntilTxTimeout = 30
 ConfirmPollPeriod = '1s'
-FallbackGasPriceUAtom = '9.999'
+FallbackGasPrice = '9.999'
 FCDURL = ''
 GasLimitMultiplier = '1.55555'
 MaxMsgsPerBatch = 100
@@ -79,8 +79,8 @@ Nodes = []
 				ChainID: ptr(validId),
 				Enabled: ptr(true),
 				Chain: coscfg.Chain{
-					FallbackGasPriceUAtom: ptr(decimal.RequireFromString("9.999")),
-					GasLimitMultiplier:    ptr(decimal.RequireFromString("1.55555")),
+					FallbackGasPrice:   ptr(decimal.RequireFromString("9.999")),
+					GasLimitMultiplier: ptr(decimal.RequireFromString("1.55555")),
 				}})
 
 			wantedResult := tc.want(t, controller.app)
@@ -106,14 +106,15 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 	t.Parallel()
 
 	chainA := &cosmos.CosmosConfig{
-		ChainID: ptr(cosmostest.RandomChainID()),
+		ChainID: ptr("a" + cosmostest.RandomChainID()),
 		Enabled: ptr(true),
 		Chain: coscfg.Chain{
-			FallbackGasPriceUAtom: ptr(decimal.RequireFromString("9.999")),
+			FallbackGasPrice: ptr(decimal.RequireFromString("9.999")),
 		},
 	}
+
 	chainB := &cosmos.CosmosConfig{
-		ChainID: ptr(cosmostest.RandomChainID()),
+		ChainID: ptr("b" + cosmostest.RandomChainID()),
 		Enabled: ptr(true),
 		Chain: coscfg.Chain{
 			GasLimitMultiplier: ptr(decimal.RequireFromString("1.55555")),
@@ -164,6 +165,7 @@ func Test_CosmosChainsController_Index(t *testing.T) {
 	tomlB, err := chainB.TOMLString()
 	require.NoError(t, err)
 	assert.Equal(t, tomlB, chains[0].Config)
+
 }
 
 type TestCosmosChainsController struct {

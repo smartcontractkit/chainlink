@@ -223,6 +223,29 @@ func initLocalSubCmds(s *Shell, safe bool) []cli.Command {
 						},
 					},
 				},
+				{
+					Name:    "delete-chain",
+					Aliases: []string{},
+					Usage:   "Commands for cleaning up chain specific db tables. WARNING: This will ERASE ALL chain specific data referred to by --type and --id options for the specified database, referred to by CL_DATABASE_URL env variable or by the Database.URL field in a secrets TOML config.",
+					Action:  s.CleanupChainTables,
+					Before:  s.validateDB,
+					Flags: []cli.Flag{
+						cli.StringFlag{
+							Name:     "id",
+							Usage:    "chain id based on which chain specific table cleanup will be done",
+							Required: true,
+						},
+						cli.StringFlag{
+							Name:     "type",
+							Usage:    "chain type based on which table cleanup will be done, eg. EVM",
+							Required: true,
+						},
+						cli.BoolFlag{
+							Name:  "danger",
+							Usage: "set to true to enable dropping non-test databases",
+						},
+					},
+				},
 			},
 		},
 	}
@@ -271,7 +294,10 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	err := s.Config.Validate()
 	if err != nil {
-		return errors.Wrap(err, "config validation failed")
+		if err.Error() != "invalid secrets: Database.AllowSimplePasswords: invalid value (true): insecure configs are not allowed on secure builds" {
+			return errors.Wrap(err, "config validation failed")
+		}
+		lggr.Errorf("Notification for upcoming configuration change: %v", err)
 	}
 
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
@@ -347,12 +373,13 @@ func (s *Shell) runNode(c *cli.Context) error {
 		return errors.Wrap(err, "error authenticating keystore")
 	}
 
-	evmChainSet := app.GetChains().EVM
+	legacyEVMChains := app.GetRelayers().LegacyEVMChains()
+
 	// By passing in a function we can be lazy trying to look up a default
 	// chain - if there are no existing keys, there is no need to check for
 	// a chain ID
 	DefaultEVMChainIDFunc := func() (*big.Int, error) {
-		def, err2 := evmChainSet.Default()
+		def, err2 := legacyEVMChains.Default()
 		if err2 != nil {
 			return nil, errors.Wrap(err2, "cannot get default EVM chain ID; no default EVM chain available")
 		}
@@ -364,9 +391,12 @@ func (s *Shell) runNode(c *cli.Context) error {
 		if err != nil {
 			return errors.Wrap(err, "error migrating keystore")
 		}
-
-		for _, ch := range evmChainSet.Chains() {
-			if ch.Config().AutoCreateKey() {
+		chainList, err := legacyEVMChains.List()
+		if err != nil {
+			return fmt.Errorf("error listing legacy evm chains: %w", err)
+		}
+		for _, ch := range chainList {
+			if ch.Config().EVM().AutoCreateKey() {
 				lggr.Debugf("AutoCreateKey=true, will ensure EVM key for chain %s", ch.ID())
 				err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
 				if err2 != nil {
@@ -581,7 +611,10 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
-	chain, err := app.GetChains().EVM.Get(chainID)
+	// TODO: BCF-2511 once the dust settles on BCF-2440/1 evaluate how the
+	// [loop.Relayer] interface needs to be extended to support programming similar to
+	// this pattern but in a chain-agnostic way
+	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -604,7 +637,10 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	err = s.Config.Validate()
 	if err != nil {
-		return s.errorOut(fmt.Errorf("error validating configuration: %+v", err))
+		if err.Error() != "invalid secrets: Database.AllowSimplePasswords: invalid value (true): insecure configs are not allowed on secure builds" {
+			return s.errorOut(fmt.Errorf("error validating configuration: %+v", err))
+		}
+		lggr.Errorf("Notification for required upcoming configuration change: %v", err)
 	}
 
 	err = keyStore.Unlock(s.Config.Password().Keystore())
@@ -619,9 +655,10 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	s.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
 	orm := txmgr.NewTxStore(app.GetSqlxDB(), lggr, s.Config.Database())
-	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config(), keyStore.Eth(), nil)
-	cfg := txmgr.NewEvmTxmConfig(chain.Config())
-	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient), cfg, chain.Config().EVM().Transactions(), chain.Config().Database(), keyStore.Eth(), txBuilder, chain.Logger())
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config().EVM().GasEstimator(), keyStore.Eth(), nil)
+	cfg := txmgr.NewEvmTxmConfig(chain.Config().EVM())
+	feeCfg := txmgr.NewEvmTxmFeeConfig(chain.Config().EVM().GasEstimator())
+	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient), cfg, feeCfg, chain.Config().EVM().Transactions(), chain.Config().Database(), keyStore.Eth(), txBuilder, chain.Logger())
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)
 	for i := int64(0); i < totalNonces; i++ {
@@ -895,6 +932,48 @@ func (s *Shell) CreateMigration(c *cli.Context) error {
 
 	if err = migrate.Create(db.DB, c.Args().First(), migrationType); err != nil {
 		return fmt.Errorf("Status failed: %v", err)
+	}
+	return nil
+}
+
+// CleanupChainTables deletes database table rows based on chain type and chain id input.
+func (s *Shell) CleanupChainTables(c *cli.Context) error {
+	cfg := s.Config.Database()
+	parsed := cfg.URL()
+	if parsed.String() == "" {
+		return s.errorOut(errDBURLMissing)
+	}
+
+	dbname := parsed.Path[1:]
+	if !c.Bool("danger") && !strings.HasSuffix(dbname, "_test") {
+		return s.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you really want to delete chain specific data from this database, pass in the --danger option", dbname))
+	}
+
+	db, err := newConnection(cfg)
+	if err != nil {
+		return s.errorOut(errors.Wrap(err, "error connecting to the database"))
+	}
+
+	defer db.Close()
+
+	tablesToDeleteFromQuery := `SELECT table_name FROM information_schema.columns WHERE "column_name"=$1;`
+	// Delete rows from each table based on the chain_id.
+	if strings.EqualFold("EVM", c.String("type")) {
+		var tables []string
+		if err = db.Select(&tables, tablesToDeleteFromQuery, "evm_chain_id"); err != nil {
+			return err
+		}
+		for _, tableName := range tables {
+			query := fmt.Sprintf(`DELETE FROM %s WHERE "evm_chain_id"=$1;`, tableName)
+			_, err = db.Exec(query, c.String("id"))
+			if err != nil {
+				fmt.Printf("Error deleting rows from %s: %v\n", tableName, err)
+			} else {
+				fmt.Printf("Rows with chain_id %s deleted from %s.\n", c.String("id"), tableName)
+			}
+		}
+	} else {
+		return s.errorOut(errors.New("unknown chain type"))
 	}
 	return nil
 }

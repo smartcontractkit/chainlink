@@ -86,7 +86,7 @@ func TestHead_NextInt(t *testing.T) {
 }
 
 func TestEthTx_GetID(t *testing.T) {
-	tx := txmgr.EvmTx{ID: math.MinInt64}
+	tx := txmgr.Tx{ID: math.MinInt64}
 	assert.Equal(t, "-9223372036854775808", tx.GetID())
 }
 
@@ -105,7 +105,7 @@ func TestEthTxAttempt_GetSignedTx(t *testing.T) {
 	rlp := new(bytes.Buffer)
 	require.NoError(t, signedTx.EncodeRLP(rlp))
 
-	attempt := txmgr.EvmTxAttempt{SignedRawTx: rlp.Bytes()}
+	attempt := txmgr.TxAttempt{SignedRawTx: rlp.Bytes()}
 
 	gotSignedTx, err := txmgr.GetGethSignedTx(attempt.SignedRawTx)
 	require.NoError(t, err)

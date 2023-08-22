@@ -41,7 +41,7 @@ type Delegate struct {
 	pipelineRunner        pipeline.Runner
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
-	chainSet              evm.ChainSet
+	legacyChains          evm.LegacyChainContainer
 	lggr                  logger.Logger
 	cfg                   Config
 	mailMon               *utils.MailboxMonitor
@@ -58,22 +58,22 @@ func NewDelegate(
 	pipelineRunner pipeline.Runner,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
-	chainSet evm.ChainSet,
+	legacyChains evm.LegacyChainContainer,
 	lggr logger.Logger,
 	cfg Config,
 	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
-		db,
-		jobORM,
-		keyStore,
-		pipelineRunner,
-		peerWrapper,
-		monitoringEndpointGen,
-		chainSet,
-		lggr.Named("OCR"),
-		cfg,
-		mailMon,
+		db:                    db,
+		jobORM:                jobORM,
+		keyStore:              keyStore,
+		pipelineRunner:        pipelineRunner,
+		peerWrapper:           peerWrapper,
+		monitoringEndpointGen: monitoringEndpointGen,
+		legacyChains:          legacyChains,
+		lggr:                  lggr.Named("OCR"),
+		cfg:                   cfg,
+		mailMon:               mailMon,
 	}
 }
 
@@ -87,11 +87,11 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
 func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec returns the OCR services that need to run for this job
-func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err error) {
+func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) (services []job.ServiceCtx, err error) {
 	if jb.OCROracleSpec == nil {
 		return nil, errors.Errorf("offchainreporting.Delegate expects an *job.OffchainreportingOracleSpec to be present, got %v", jb)
 	}
-	chain, err := d.chainSet.Get(jb.OCROracleSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(jb.OCROracleSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}
@@ -132,7 +132,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		lggr,
 		d.db,
 		ocrDB,
-		chain.Config(),
+		chain.Config().EVM(),
 		chain.Config().Database(),
 		chain.HeadBroadcaster(),
 		d.mailMon,
@@ -171,7 +171,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		d.jobORM.TryRecordError(jb.ID, msg)
 	})
 
-	lc := toLocalConfig(chain.Config(), chain.Config().EVM().OCR(), chain.Config().Insecure(), *concreteSpec, chain.Config().OCR())
+	lc := toLocalConfig(chain.Config().EVM(), chain.Config().EVM().OCR(), chain.Config().Insecure(), *concreteSpec, chain.Config().OCR())
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
@@ -222,7 +222,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		cfg := chain.Config()
 		strategy := txmgrcommon.NewQueueingTxStrategy(jb.ExternalJobID, cfg.OCR().DefaultTransactionQueueDepth(), cfg.Database().DefaultQueryTimeout())
 
-		var checker txmgr.EvmTransmitCheckerSpec
+		var checker txmgr.TransmitCheckerSpec
 		if chain.Config().OCR().SimulateTransactions() {
 			checker.CheckerType = txmgr.TransmitCheckerTypeSimulate
 		}
@@ -235,7 +235,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 		if jb.GasLimit.Valid {
 			jsGasLimit = &jb.GasLimit.Uint32
 		}
-		gasLimit := pipeline.SelectGasLimit(chain.Config(), jb.Type.String(), jsGasLimit)
+		gasLimit := pipeline.SelectGasLimit(chain.Config().EVM().GasEstimator(), jb.Type.String(), jsGasLimit)
 
 		// effectiveTransmitterAddress is the transmitter address registered on the ocr contract. This is by default the EOA account on the node.
 		// In the case of forwarding, the transmitter address is the forwarder contract deployed onchain between EOA and OCR contract.
@@ -344,7 +344,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) (services []job.ServiceCtx, err e
 }
 
 func (d *Delegate) maybeCreateConfigOverrider(logger logger.Logger, chain evm.Chain, contractAddress ethkey.EIP55Address) (*ConfigOverriderImpl, error) {
-	flagsContractAddress := chain.Config().FlagsContractAddress()
+	flagsContractAddress := chain.Config().EVM().FlagsContractAddress()
 	if flagsContractAddress != "" {
 		flags, err := NewFlags(flagsContractAddress, chain.Client())
 		if err != nil {

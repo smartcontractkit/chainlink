@@ -1,0 +1,27 @@
+# testing one product (jobs + contracts) by varying RPS
+[Soak]
+rps = 1
+duration = "3m"
+
+[Load]
+rps_from = 1
+rps_increase = 1
+rps_steps = 10
+duration = "3m"
+
+# testing multiple products (jobs + contracts) by varying instances, deploying more of the same type with stable RPS for each product
+[SoakVolume]
+products = 5
+pace = "1s"
+duration = "3m"
+
+[LoadVolume]
+products_from = 1
+products_increase = 1
+products_steps = 10
+pace = "1s"
+duration = "3m"
+
+[Common]
+node_funds = 10
+sub_funds = 100

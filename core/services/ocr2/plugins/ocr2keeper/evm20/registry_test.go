@@ -8,13 +8,14 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
+	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -44,7 +45,7 @@ func TestGetActiveUpkeepKeys(t *testing.T) {
 				actives[id] = activeUpkeep{ID: idNum}
 			}
 
-			mht := htmocks.NewHeadTracker(t)
+			mht := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
 
 			rg := &EvmRegistry{
 				HeadProvider: HeadProvider{

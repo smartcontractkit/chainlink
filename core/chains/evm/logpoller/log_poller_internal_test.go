@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -61,20 +60,11 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 	lp := NewLogPoller(orm, nil, lggr, time.Hour, 1, 1, 2, 1000)
 
-	filter := Filter{"test Filter", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}, 0}
-	err := lp.RegisterFilter(filter)
-	require.Error(t, err, "RegisterFilter failed to save Filter to db")
-	require.Equal(t, 1, observedLogs.Len())
-	assertForeignConstraintError(t, observedLogs.TakeAll()[0], "evm_log_poller_filters", "evm_log_poller_filters_evm_chain_id_fkey")
-
 	db.Close()
 	db = pgtest.NewSqlxDB(t)
 	orm = NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 
-	// disable check that chain id exists for rest of tests
-	require.NoError(t, utils.JustError(db.Exec(`SET CONSTRAINTS evm_log_poller_filters_evm_chain_id_fkey DEFERRED`)))
 	// Set up a test chain with a log emitting contract deployed.
-
 	lp = NewLogPoller(orm, nil, lggr, time.Hour, 1, 1, 2, 1000)
 
 	// We expect a zero Filter if nothing registered yet.
@@ -82,7 +72,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	require.Equal(t, 1, len(f.Addresses))
 	assert.Equal(t, common.HexToAddress("0x0000000000000000000000000000000000000000"), f.Addresses[0])
 
-	err = lp.RegisterFilter(Filter{"Emitter Log 1", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}, 0})
+	err := lp.RegisterFilter(Filter{"Emitter Log 1", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{a1}, 0})
 	require.NoError(t, err)
 	assert.Equal(t, []common.Address{a1}, lp.Filter(nil, nil, nil).Addresses)
 	assert.Equal(t, [][]common.Hash{{EmitterABI.Events["Log1"].ID}}, lp.Filter(nil, nil, nil).Topics)
@@ -111,7 +101,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	validateFiltersTable(t, lp, orm)
 
 	// Removing non-existence Filter should log error but return nil
-	err = lp.UnregisterFilter("Filter doesn't exist", nil)
+	err = lp.UnregisterFilter("Filter doesn't exist")
 	require.NoError(t, err)
 	require.Equal(t, observedLogs.Len(), 1)
 	require.Contains(t, observedLogs.TakeAll()[0].Entry.Message, "not found")
@@ -125,16 +115,16 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	require.True(t, ok, "'Emitter Log 1 + 2 dupe' Filter missing")
 
 	// Removing an existing Filter should remove it from both memory and db
-	err = lp.UnregisterFilter("Emitter Log 1 + 2", nil)
+	err = lp.UnregisterFilter("Emitter Log 1 + 2")
 	require.NoError(t, err)
 	_, ok = lp.filters["Emitter Log 1 + 2"]
 	require.False(t, ok, "'Emitter Log 1 Filter' should have been removed by UnregisterFilter()")
 	require.Len(t, lp.filters, 2)
 	validateFiltersTable(t, lp, orm)
 
-	err = lp.UnregisterFilter("Emitter Log 1 + 2 dupe", nil)
+	err = lp.UnregisterFilter("Emitter Log 1 + 2 dupe")
 	require.NoError(t, err)
-	err = lp.UnregisterFilter("Emitter Log 1", nil)
+	err = lp.UnregisterFilter("Emitter Log 1")
 	require.NoError(t, err)
 	assert.Len(t, lp.filters, 0)
 	filters, err := lp.orm.LoadFilters()

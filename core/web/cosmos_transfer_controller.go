@@ -9,9 +9,9 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/denom"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/denom"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	cosmosmodels "github.com/smartcontractkit/chainlink/v2/core/store/models/cosmos"
@@ -28,7 +28,7 @@ type CosmosTransfersController struct {
 
 // Create sends Atom and other native coins from the Chainlink's account to a specified address.
 func (tc *CosmosTransfersController) Create(c *gin.Context) {
-	cosmosChains := tc.App.GetChains().Cosmos
+	cosmosChains := tc.App.GetRelayers().LegacyCosmosChains()
 	if cosmosChains == nil {
 		jsonAPIError(c, http.StatusBadRequest, ErrCosmosNotEnabled)
 		return
@@ -43,7 +43,9 @@ func (tc *CosmosTransfersController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusBadRequest, errors.New("missing cosmosChainID"))
 		return
 	}
-	chain, err := cosmosChains.Chain(c.Request.Context(), tr.CosmosChainID)
+	// TODO what about ctx in Get? ctx was used here but not in ETH calls. maybe better to make the interface require ctx and
+	// put in TODOs in ETH...
+	chain, err := cosmosChains.Get(tr.CosmosChainID) //cosmosChains.Chain(c.Request.Context(), tr.CosmosChainID)
 	if errors.Is(err, cosmos.ErrChainIDInvalid) || errors.Is(err, cosmos.ErrChainIDEmpty) {
 		jsonAPIError(c, http.StatusBadRequest, err)
 		return
@@ -57,7 +59,7 @@ func (tc *CosmosTransfersController) Create(c *gin.Context) {
 		return
 	}
 
-	coin, err := denom.DecCoinToUAtom(sdk.NewDecCoinFromDec("atom", tr.Amount))
+	coin, err := denom.ConvertDecCoinToDenom(sdk.NewDecCoinFromDec("atom", tr.Amount), "uatom")
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("unable to convert to uatom: %v", err))
 		return

@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -32,12 +31,21 @@ func (h *headTrackerConfig) MaxBufferSize() uint32 {
 	return uint32(0)
 }
 
+type config struct {
+	finalityDepth                     uint32
+	blockEmissionIdleWarningThreshold time.Duration
+}
+
+func (c *config) FinalityDepth() uint32 { return c.finalityDepth }
+func (c *config) BlockEmissionIdleWarningThreshold() time.Duration {
+	return c.blockEmissionIdleWarningThreshold
+}
+
 func configureSaver(t *testing.T) (httypes.HeadSaver, headtracker.ORM) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	htCfg := htmocks.NewConfig(t)
-	htCfg.On("EvmFinalityDepth").Return(uint32(1))
+	htCfg := &config{finalityDepth: uint32(1)}
 	orm := headtracker.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
 	saver := headtracker.NewHeadSaver(lggr, orm, htCfg, &headTrackerConfig{historyDepth: 6})
 	return saver, orm

@@ -29,13 +29,13 @@ type (
 		pipelineRunner pipeline.Runner
 		pipelineORM    pipeline.ORM
 		chHeads        chan *evmtypes.Head
-		chainSet       evm.ChainSet
+		legacyChains   evm.LegacyChainContainer
 		mailMon        *utils.MailboxMonitor
 	}
 
 	Config interface {
 		MinIncomingConfirmations() uint32
-		MinimumContractPayment() *assets.Link
+		MinContractPayment() *assets.Link
 	}
 )
 
@@ -45,16 +45,16 @@ func NewDelegate(
 	logger logger.Logger,
 	pipelineRunner pipeline.Runner,
 	pipelineORM pipeline.ORM,
-	chainSet evm.ChainSet,
+	legacyChains evm.LegacyChainContainer,
 	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
-		logger.Named("DirectRequest"),
-		pipelineRunner,
-		pipelineORM,
-		make(chan *evmtypes.Head, 1),
-		chainSet,
-		mailMon,
+		logger:         logger.Named("DirectRequest"),
+		pipelineRunner: pipelineRunner,
+		pipelineORM:    pipelineORM,
+		chHeads:        make(chan *evmtypes.Head, 1),
+		legacyChains:   legacyChains,
+		mailMon:        mailMon,
 	}
 }
 
@@ -68,15 +68,15 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
 func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec returns the log listener service for a direct request job
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
 	if jb.DirectRequestSpec == nil {
 		return nil, errors.Errorf("DirectRequest: directrequest.Delegate expects a *job.DirectRequestSpec to be present, got %v", jb)
 	}
-	chain, err := d.chainSet.Get(jb.DirectRequestSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(jb.DirectRequestSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}
-	concreteSpec := job.LoadEnvConfigVarsDR(chain.Config(), *jb.DirectRequestSpec)
+	concreteSpec := job.LoadEnvConfigVarsDR(chain.Config().EVM(), *jb.DirectRequestSpec)
 
 	oracle, err := operator_wrapper.NewOperator(concreteSpec.ContractAddress.Address(), chain.Client())
 	if err != nil {
@@ -93,7 +93,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	logListener := &listener{
 		logger:                   svcLogger.Named("DirectRequest"),
-		config:                   chain.Config(),
+		config:                   chain.Config().EVM(),
 		logBroadcaster:           chain.LogBroadcaster(),
 		oracle:                   oracle,
 		pipelineRunner:           d.pipelineRunner,
@@ -244,7 +244,7 @@ func (l *listener) handleReceivedLogs(mailbox *utils.Mailbox[log.Broadcast]) {
 		}
 		was, err := l.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {
-			l.logger.Errorw("Could not determine if log was already consumed", "error", err)
+			l.logger.Errorw("Could not determine if log was already consumed", "err", err)
 			continue
 		} else if was {
 			continue
@@ -314,7 +314,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	if l.minContractPayment != nil {
 		minContractPayment = l.minContractPayment
 	} else {
-		minContractPayment = l.config.MinimumContractPayment()
+		minContractPayment = l.config.MinContractPayment()
 	}
 	if minContractPayment != nil && request.Payment != nil {
 		requestPayment := assets.Link(*request.Payment)

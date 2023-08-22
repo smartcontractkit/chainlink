@@ -1,5 +1,5 @@
-import {IInbox} from "../dev/vendor/arb-bridge-eth/v0.8.0-custom/contracts/bridge/interfaces/IInbox.sol";
-import {IBridge} from "../dev/vendor/arb-bridge-eth/v0.8.0-custom/contracts/bridge/interfaces/IBridge.sol";
+import {IInbox} from "../vendor/arb-bridge-eth/v0.8.0-custom/contracts/bridge/interfaces/IInbox.sol";
+import {IBridge} from "../vendor/arb-bridge-eth/v0.8.0-custom/contracts/bridge/interfaces/IBridge.sol";
 
 contract MockArbitrumInbox is IInbox {
   event RetryableTicketNoRefundAliasRewriteCreated(

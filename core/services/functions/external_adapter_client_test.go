@@ -51,7 +51,7 @@ func runRequestTest(t *testing.T, adapterJSONResponse, expectedUserResult, expec
 	assert.NoError(t, err, "Unexpected error")
 
 	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000)
-	userResult, userError, domains, err := ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, "", &functions.RequestData{})
+	userResult, userError, domains, err := ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "", &functions.RequestData{})
 
 	if expectedError != nil {
 		assert.Equal(t, expectedError.Error(), err.Error(), "Unexpected error")
@@ -166,8 +166,8 @@ func TestRunComputation_CorrectAdapterRequest(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
-		expectedData := `{"source":"abcd","language":0,"codeLocation":42,"secrets":"","secretsLocation":0,"args":["arg1","arg2"]}`
-		expectedBody := fmt.Sprintf(`{"endpoint":"lambda","requestId":"requestID1234","jobName":"TestJob","subscriptionOwner":"SubOwner","subscriptionId":1,"nodeProvidedSecrets":"secRETS","data":%s}`, expectedData)
+		expectedData := `{"source":"abcd","language":7,"codeLocation":42,"secrets":"qrvM","secretsLocation":88,"args":["arg1","arg2"]}`
+		expectedBody := fmt.Sprintf(`{"endpoint":"lambda","requestId":"requestID1234","jobName":"TestJob","subscriptionOwner":"SubOwner","subscriptionId":1,"flags":[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],"nodeProvidedSecrets":"secRETS","data":%s}`, expectedData)
 		assert.Equal(t, expectedBody, string(body))
 
 		fmt.Fprintln(w, "}}invalidJSON")
@@ -179,11 +179,14 @@ func TestRunComputation_CorrectAdapterRequest(t *testing.T) {
 
 	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000)
 	reqData := &functions.RequestData{
-		Source:       "abcd",
-		CodeLocation: 42,
-		Args:         []string{"arg1", "arg2"},
+		Source:          "abcd",
+		Language:        7,
+		CodeLocation:    42,
+		Secrets:         []byte{0xaa, 0xbb, 0xcc}, // "qrvM" base64 encoded
+		SecretsLocation: 88,
+		Args:            []string{"arg1", "arg2"},
 	}
-	_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, "secRETS", reqData)
+	_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", reqData)
 	assert.Error(t, err)
 }
 
@@ -197,7 +200,7 @@ func TestRunComputation_HTTP500(t *testing.T) {
 	assert.NoError(t, err)
 
 	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000)
-	_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, "secRETS", &functions.RequestData{})
+	_, _, _, err = ea.RunComputation(testutils.Context(t), "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
 	assert.Error(t, err)
 }
 
@@ -214,7 +217,7 @@ func TestRunComputation_ContextRespected(t *testing.T) {
 	ea := functions.NewExternalAdapterClient(*adapterUrl, 100_000)
 	ctx, cancel := context.WithTimeout(testutils.Context(t), 10*time.Millisecond)
 	defer cancel()
-	_, _, _, err = ea.RunComputation(ctx, "requestID1234", "TestJob", "SubOwner", 1, "secRETS", &functions.RequestData{})
+	_, _, _, err = ea.RunComputation(ctx, "requestID1234", "TestJob", "SubOwner", 1, functions.RequestFlags{}, "secRETS", &functions.RequestData{})
 	assert.Error(t, err)
 	close(done)
 }

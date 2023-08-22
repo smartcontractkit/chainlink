@@ -312,6 +312,37 @@ func (_m *LogPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
 	return r0, r1
 }
 
+// LatestBlockByEventSigsAddrsWithConfs provides a mock function with given fields: fromBlock, eventSigs, addresses, confs, qopts
+func (_m *LogPoller) LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, fromBlock, eventSigs, addresses, confs)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(int64, []common.Hash, []common.Address, int, ...pg.QOpt) (int64, error)); ok {
+		return rf(fromBlock, eventSigs, addresses, confs, qopts...)
+	}
+	if rf, ok := ret.Get(0).(func(int64, []common.Hash, []common.Address, int, ...pg.QOpt) int64); ok {
+		r0 = rf(fromBlock, eventSigs, addresses, confs, qopts...)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(int64, []common.Hash, []common.Address, int, ...pg.QOpt) error); ok {
+		r1 = rf(fromBlock, eventSigs, addresses, confs, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // LatestLogByEventSigWithConfs provides a mock function with given fields: eventSig, address, confs, qopts
 func (_m *LogPoller) LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*logpoller.Log, error) {
 	_va := make([]interface{}, len(qopts))
@@ -571,13 +602,20 @@ func (_m *LogPoller) Ready() error {
 	return r0
 }
 
-// RegisterFilter provides a mock function with given fields: filter
-func (_m *LogPoller) RegisterFilter(filter logpoller.Filter) error {
-	ret := _m.Called(filter)
+// RegisterFilter provides a mock function with given fields: filter, qopts
+func (_m *LogPoller) RegisterFilter(filter logpoller.Filter, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, filter)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(logpoller.Filter) error); ok {
-		r0 = rf(filter)
+	if rf, ok := ret.Get(0).(func(logpoller.Filter, ...pg.QOpt) error); ok {
+		r0 = rf(filter, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -618,13 +656,20 @@ func (_m *LogPoller) Start(_a0 context.Context) error {
 	return r0
 }
 
-// UnregisterFilter provides a mock function with given fields: name, q
-func (_m *LogPoller) UnregisterFilter(name string, q pg.Queryer) error {
-	ret := _m.Called(name, q)
+// UnregisterFilter provides a mock function with given fields: name, qopts
+func (_m *LogPoller) UnregisterFilter(name string, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, name)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, pg.Queryer) error); ok {
-		r0 = rf(name, q)
+	if rf, ok := ret.Get(0).(func(string, ...pg.QOpt) error); ok {
+		r0 = rf(name, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}

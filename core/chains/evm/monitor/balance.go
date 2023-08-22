@@ -197,12 +197,12 @@ func (w *worker) checkAccountBalance(ctx context.Context, address gethCommon.Add
 	bal, err := w.bm.ethClient.BalanceAt(ctx, address, nil)
 	if err != nil {
 		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s", address.Hex()),
-			"error", err,
+			"err", err,
 			"address", address,
 		)
 	} else if bal == nil {
 		w.bm.logger.Errorw(fmt.Sprintf("BalanceMonitor: error getting balance for key %s: invariant violation, bal may not be nil", address.Hex()),
-			"error", err,
+			"err", err,
 			"address", address,
 		)
 	} else {

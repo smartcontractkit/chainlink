@@ -8,7 +8,7 @@ pragma solidity ^0.8.4;
  * @dev Functions can be added to this interface, but not removed.
  */
 interface IAutomationRegistryConsumer {
-  function getBalance(uint256 id) external view returns (uint256 balance);
+  function getBalance(uint256 id) external view returns (uint96 balance);
 
   function getMinBalance(uint256 id) external view returns (uint96 minBalance);
 
@@ -17,8 +17,6 @@ interface IAutomationRegistryConsumer {
   function pauseUpkeep(uint256 id) external;
 
   function unpauseUpkeep(uint256 id) external;
-
-  function updateCheckData(uint256 id, bytes calldata newCheckData) external;
 
   function addFunds(uint256 id, uint96 amount) external;
 

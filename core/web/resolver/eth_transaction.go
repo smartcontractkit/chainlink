@@ -13,14 +13,14 @@ import (
 )
 
 type EthTransactionResolver struct {
-	tx txmgr.EvmTx
+	tx txmgr.Tx
 }
 
-func NewEthTransaction(tx txmgr.EvmTx) *EthTransactionResolver {
+func NewEthTransaction(tx txmgr.Tx) *EthTransactionResolver {
 	return &EthTransactionResolver{tx: tx}
 }
 
-func NewEthTransactions(results []txmgr.EvmTx) []*EthTransactionResolver {
+func NewEthTransactions(results []txmgr.Tx) []*EthTransactionResolver {
 	var resolver []*EthTransactionResolver
 
 	for _, tx := range results {
@@ -128,11 +128,11 @@ func (r *EthTransactionResolver) SentAt(ctx context.Context) *string {
 // -- EthTransaction Query --
 
 type EthTransactionPayloadResolver struct {
-	tx *txmgr.EvmTx
+	tx *txmgr.Tx
 	NotFoundErrorUnionType
 }
 
-func NewEthTransactionPayload(tx *txmgr.EvmTx, err error) *EthTransactionPayloadResolver {
+func NewEthTransactionPayload(tx *txmgr.Tx, err error) *EthTransactionPayloadResolver {
 	e := NotFoundErrorUnionType{err: err, message: "transaction not found", isExpectedErrorFn: nil}
 
 	return &EthTransactionPayloadResolver{tx: tx, NotFoundErrorUnionType: e}
@@ -149,11 +149,11 @@ func (r *EthTransactionPayloadResolver) ToEthTransaction() (*EthTransactionResol
 // -- EthTransactions Query --
 
 type EthTransactionsPayloadResolver struct {
-	results []txmgr.EvmTx
+	results []txmgr.Tx
 	total   int32
 }
 
-func NewEthTransactionsPayload(results []txmgr.EvmTx, total int32) *EthTransactionsPayloadResolver {
+func NewEthTransactionsPayload(results []txmgr.Tx, total int32) *EthTransactionsPayloadResolver {
 	return &EthTransactionsPayloadResolver{results: results, total: total}
 }
 

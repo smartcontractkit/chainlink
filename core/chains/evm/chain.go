@@ -2,19 +2,24 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/url"
+	"time"
 
-	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/sqlx"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -22,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -32,30 +38,93 @@ import (
 
 //go:generate mockery --quiet --name Chain --output ./mocks/ --case=underscore
 type Chain interface {
-	services.ServiceCtx
+	types.ChainService
+
 	ID() *big.Int
 	Client() evmclient.Client
 	Config() evmconfig.ChainScopedConfig
 	LogBroadcaster() log.Broadcaster
 	HeadBroadcaster() httypes.HeadBroadcaster
-	TxManager() txmgr.EvmTxManager
+	TxManager() txmgr.TxManager
 	HeadTracker() httypes.HeadTracker
 	Logger() logger.Logger
 	BalanceMonitor() monitor.BalanceMonitor
 	LogPoller() logpoller.LogPoller
 	GasEstimator() gas.EvmFeeEstimator
-
-	SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
-var _ Chain = &chain{}
+var (
+	_           Chain = &chain{}
+	nilBigInt   *big.Int
+	emptyString string
+)
+
+// LegacyChains implements [LegacyChainContainer]
+type LegacyChains struct {
+	*chains.ChainsKV[Chain]
+	dflt Chain
+
+	cfgs evmtypes.Configs
+}
+
+// LegacyChainContainer is container for EVM chains.
+//
+//go:generate mockery --quiet --name LegacyChainContainer --output ./mocks/ --case=underscore
+type LegacyChainContainer interface {
+	SetDefault(Chain)
+	Default() (Chain, error)
+	Get(id string) (Chain, error)
+	Len() int
+	List(ids ...string) ([]Chain, error)
+	Slice() []Chain
+
+	ChainNodeConfigs() evmtypes.Configs
+}
+
+var _ LegacyChainContainer = &LegacyChains{}
+
+func NewLegacyChains(c evmtypes.Configs, m map[string]Chain) *LegacyChains {
+	return &LegacyChains{
+		ChainsKV: chains.NewChainsKV[Chain](m),
+		cfgs:     c,
+	}
+}
+
+func (c *LegacyChains) ChainNodeConfigs() evmtypes.Configs {
+	return c.cfgs
+}
+
+// TODO BCR-2510 this may not be needed if EVM is not enabled by default
+func (c *LegacyChains) SetDefault(dflt Chain) {
+	c.dflt = dflt
+}
+
+func (c *LegacyChains) Default() (Chain, error) {
+	if c.dflt == nil {
+		return nil, fmt.Errorf("no default chain specified")
+	}
+	return c.dflt, nil
+}
+
+// backward compatibility.
+// eth keys are represented as multiple types in the code base;
+// *big.Int, string, and int64. this lead to special 'default' handling
+// of nil big.Int and empty string.
+//
+// TODO BCF-2507 unify the type system
+func (c *LegacyChains) Get(id string) (Chain, error) {
+	if id == nilBigInt.String() || id == emptyString {
+		return c.Default()
+	}
+	return c.ChainsKV.Get(id)
+}
 
 type chain struct {
 	utils.StartStopOnce
 	id              *big.Int
 	cfg             evmconfig.ChainScopedConfig
 	client          evmclient.Client
-	txm             txmgr.EvmTxManager
+	txm             txmgr.TxManager
 	logger          logger.Logger
 	headBroadcaster httypes.HeadBroadcaster
 	headTracker     httypes.HeadTracker
@@ -74,43 +143,78 @@ func (e errChainDisabled) Error() string {
 	return fmt.Sprintf("cannot create new chain with ID %s, the chain is disabled", e.ChainID.String())
 }
 
-func newTOMLChain(ctx context.Context, chain *v2.EVMConfig, opts ChainSetOpts) (*chain, error) {
+// TODO BCF-2509 what is this and does it need the entire app config?
+type AppConfig interface {
+	config.AppConfig
+	toml.HasEVMConfigs
+}
+
+type ChainRelayExtenderConfig struct {
+	Logger   logger.Logger
+	DB       *sqlx.DB
+	KeyStore keystore.Eth
+	RelayerConfig
+}
+
+// options for the relayer factory.
+// TODO BCF-2508 clean up configuration of chain and relayer after BCF-2440
+// the factory wants to own the logger and db
+// the factory creates extenders, which need the same and more opts
+type RelayerConfig struct {
+	GeneralConfig AppConfig
+
+	EventBroadcaster   pg.EventBroadcaster
+	MailMon            *utils.MailboxMonitor
+	GasEstimator       gas.EvmFeeEstimator
+	OperationalConfigs evmtypes.Configs
+
+	// TODO BCF-2513 remove test code from the API
+	// Gen-functions are useful for dependency injection by tests
+	GenEthClient      func(*big.Int) client.Client
+	GenLogBroadcaster func(*big.Int) log.Broadcaster
+	GenLogPoller      func(*big.Int) logpoller.LogPoller
+	GenHeadTracker    func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker
+	GenTxManager      func(*big.Int) txmgr.TxManager
+	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
+}
+
+func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExtenderConfig) (Chain, error) {
 	chainID := chain.ChainID
 	l := opts.Logger.With("evmChainID", chainID.String())
 	if !chain.IsEnabled() {
 		return nil, errChainDisabled{ChainID: chainID}
 	}
-	cfg := v2.NewTOMLChainScopedConfig(opts.Config, chain, l)
-	// note: per-chain validation is not ncessary at this point since everything is checked earlier on boot.
+	cfg := evmconfig.NewTOMLChainScopedConfig(opts.GeneralConfig, chain, l)
+	// note: per-chain validation is not necessary at this point since everything is checked earlier on boot.
 	return newChain(ctx, cfg, chain.Nodes, opts)
 }
 
-func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.Node, opts ChainSetOpts) (*chain, error) {
-	chainID := cfg.ChainID()
+func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*toml.Node, opts ChainRelayExtenderConfig) (*chain, error) {
+	chainID, chainType := cfg.EVM().ChainID(), cfg.EVM().ChainType()
 	l := opts.Logger.Named(chainID.String()).With("evmChainID", chainID.String())
 	var client evmclient.Client
 	if !cfg.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
 	} else if opts.GenEthClient == nil {
 		var err2 error
-		client, err2 = newEthClientFromChain(cfg, l, cfg.ChainID(), cfg.ChainType(), nodes)
+		client, err2 = newEthClientFromChain(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
 		if err2 != nil {
-			return nil, errors.Wrapf(err2, "failed to instantiate eth client for chain with ID %s", cfg.ChainID().String())
+			return nil, fmt.Errorf("failed to instantiate eth client for chain with ID %s: %w", cfg.EVM().ChainID().String(), err2)
 		}
 	} else {
 		client = opts.GenEthClient(chainID)
 	}
 
 	db := opts.DB
-	headBroadcaster := headtracker.NewEVMHeadBroadcaster(l)
+	headBroadcaster := headtracker.NewHeadBroadcaster(l)
 	headSaver := headtracker.NullSaver
 	var headTracker httypes.HeadTracker
 	if !cfg.EVMRPCEnabled() {
 		headTracker = headtracker.NullTracker
 	} else if opts.GenHeadTracker == nil {
 		orm := headtracker.NewORM(db, l, cfg.Database(), *chainID)
-		headSaver = headtracker.NewHeadSaver(l, orm, cfg, cfg.EVM().HeadTracker())
-		headTracker = headtracker.NewEVMHeadTracker(l, client, headtracker.NewWrappedConfig(cfg), cfg.EVM().HeadTracker(), headBroadcaster, headSaver, opts.MailMon)
+		headSaver = headtracker.NewHeadSaver(l, orm, cfg.EVM(), cfg.EVM().HeadTracker())
+		headTracker = headtracker.NewHeadTracker(l, client, cfg.EVM(), cfg.EVM().HeadTracker(), headBroadcaster, headSaver, opts.MailMon)
 	} else {
 		headTracker = opts.GenHeadTracker(chainID, headBroadcaster)
 	}
@@ -120,14 +224,14 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		if opts.GenLogPoller != nil {
 			logPoller = opts.GenLogPoller(chainID)
 		} else {
-			logPoller = logpoller.NewObservedLogPoller(logpoller.NewORM(chainID, db, l, cfg.Database()), client, l, cfg.EvmLogPollInterval(), int64(cfg.EvmFinalityDepth()), int64(cfg.EvmLogBackfillBatchSize()), int64(cfg.EvmRPCDefaultBatchSize()), int64(cfg.EvmLogKeepBlocksDepth()))
+			logPoller = logpoller.NewObservedLogPoller(logpoller.NewORM(chainID, db, l, cfg.Database()), client, l, cfg.EVM().LogPollInterval(), int64(cfg.EVM().FinalityDepth()), int64(cfg.EVM().LogBackfillBatchSize()), int64(cfg.EVM().RPCDefaultBatchSize()), int64(cfg.EVM().LogKeepBlocksDepth()))
 		}
 	}
 
 	// note: gas estimator is started as a part of the txm
-	txm, gasEstimator, err := newEvmTxm(db, cfg, client, l, logPoller, opts)
+	txm, gasEstimator, err := newEvmTxm(db, cfg.EVM(), cfg.EVMRPCEnabled(), cfg.Database(), cfg.Database().Listener(), client, l, logPoller, opts)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to instantiate EvmTxm for chain with ID %s", cfg.ChainID().String())
+		return nil, fmt.Errorf("failed to instantiate EvmTxm for chain with ID %s: %w", chainID.String(), err)
 	}
 
 	headBroadcaster.Subscribe(txm)
@@ -149,7 +253,7 @@ func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*v2.
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
 	} else if opts.GenLogBroadcaster == nil {
 		logORM := log.NewORM(db, l, cfg.Database(), *chainID)
-		logBroadcaster = log.NewBroadcaster(logORM, client, cfg, l, highestSeenHead, opts.MailMon)
+		logBroadcaster = log.NewBroadcaster(logORM, client, cfg.EVM(), l, highestSeenHead, opts.MailMon)
 	} else {
 		logBroadcaster = opts.GenLogBroadcaster(chainID)
 	}
@@ -183,7 +287,7 @@ func (c *chain) Start(ctx context.Context) error {
 		// Must ensure that EthClient is dialed first because subsequent
 		// services may make eth calls on startup
 		if err := c.client.Dial(ctx); err != nil {
-			return errors.Wrap(err, "failed to dial ethclient")
+			return fmt.Errorf("failed to dial ethclient: %w", err)
 		}
 		// Services should be able to handle a non-functional eth client and
 		// not block start in this case, instead retrying in a background loop
@@ -272,13 +376,13 @@ func (c *chain) Config() evmconfig.ChainScopedConfig      { return c.cfg }
 func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
 func (c *chain) LogPoller() logpoller.LogPoller           { return c.logPoller }
 func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
-func (c *chain) TxManager() txmgr.EvmTxManager            { return c.txm }
+func (c *chain) TxManager() txmgr.TxManager               { return c.txm }
 func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker }
 func (c *chain) Logger() logger.Logger                    { return c.logger }
 func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
 func (c *chain) GasEstimator() gas.EvmFeeEstimator        { return c.gasEstimator }
 
-func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chainID *big.Int, chainType config.ChainType, nodes []*v2.Node) (evmclient.Client, error) {
+func newEthClientFromChain(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, chainID *big.Int, chainType config.ChainType, nodes []*toml.Node) (evmclient.Client, error) {
 	var primaries []evmclient.Node
 	var sendonlys []evmclient.SendOnlyNode
 	for i, node := range nodes {
@@ -286,25 +390,32 @@ func newEthClientFromChain(cfg evmclient.NodeConfig, lggr logger.Logger, chainID
 			sendonly := evmclient.NewSendOnlyNode(lggr, (url.URL)(*node.HTTPURL), *node.Name, chainID)
 			sendonlys = append(sendonlys, sendonly)
 		} else {
-			primary, err := newPrimary(cfg, lggr, node, int32(i), chainID)
+			primary, err := newPrimary(cfg, noNewHeadsThreshold, lggr, node, int32(i), chainID)
 			if err != nil {
 				return nil, err
 			}
 			primaries = append(primaries, primary)
 		}
 	}
-	return evmclient.NewClientWithNodes(lggr, cfg, primaries, sendonlys, chainID, chainType)
+	return evmclient.NewClientWithNodes(lggr, cfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
 }
 
-func newPrimary(cfg evmclient.NodeConfig, lggr logger.Logger, n *v2.Node, id int32, chainID *big.Int) (evmclient.Node, error) {
+func newPrimary(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr logger.Logger, n *toml.Node, id int32, chainID *big.Int) (evmclient.Node, error) {
 	if n.SendOnly != nil && *n.SendOnly {
 		return nil, errors.New("cannot cast send-only node to primary")
 	}
 
-	return evmclient.NewNode(cfg, lggr, (url.URL)(*n.WSURL), (*url.URL)(n.HTTPURL), *n.Name, id, chainID, *n.Order), nil
+	return evmclient.NewNode(cfg, noNewHeadsThreshold, lggr, (url.URL)(*n.WSURL), (*url.URL)(n.HTTPURL), *n.Name, id, chainID, *n.Order), nil
 }
 
-func EnsureChains(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, ids []utils.Big) error {
-	q := pg.NewQ(db, lggr.Named("Ensure"), cfg)
-	return chains.EnsureChains[utils.Big](q, "evm", ids)
+func (opts *ChainRelayExtenderConfig) Check() error {
+	if opts.Logger == nil {
+		return errors.New("logger must be non-nil")
+	}
+	if opts.GeneralConfig == nil {
+		return errors.New("config must be non-nil")
+	}
+
+	opts.OperationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](opts.GeneralConfig.EVMConfigs())
+	return nil
 }

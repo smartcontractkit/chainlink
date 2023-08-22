@@ -1,9 +1,12 @@
 package common
 
 import (
+	"crypto/ecdsa"
 	"encoding/binary"
 
 	"golang.org/x/exp/slices"
+
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Uint32ToBytes(val uint32) []byte {
@@ -26,4 +29,24 @@ func StringToAlignedBytes(input string, size int) []byte {
 func AlignedBytesToString(data []byte) string {
 	idx := slices.IndexFunc(data, func(b byte) bool { return b == 0 })
 	return string(data[:idx])
+}
+
+func flatten(data ...[]byte) []byte {
+	var result []byte
+	for _, d := range data {
+		result = append(result, d...)
+	}
+	return result
+}
+
+func SignData(privateKey *ecdsa.PrivateKey, data ...[]byte) ([]byte, error) {
+	return utils.GenerateEthSignature(privateKey, flatten(data...))
+}
+
+func ExtractSigner(signature []byte, data ...[]byte) (signerAddress []byte, err error) {
+	addr, err := utils.GetSignersEthAddress(flatten(data...), signature)
+	if err != nil {
+		return nil, err
+	}
+	return addr.Bytes(), nil
 }

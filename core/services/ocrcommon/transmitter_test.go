@@ -45,13 +45,13 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txmgr.EvmTransmitCheckerSpec{},
+		txmgr.TransmitCheckerSpec{},
 		chainID,
 		ethKeyStore,
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateTransaction", txmgr.EvmTxRequest{
+	txm.On("CreateTransaction", txmgr.TxRequest{
 		FromAddress:      fromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
@@ -59,7 +59,7 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 		ForwarderAddress: common.Address{},
 		Meta:             nil,
 		Strategy:         strategy,
-	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
+	}, mock.Anything).Return(txmgr.Tx{}, nil).Once()
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 }
 
@@ -87,13 +87,13 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txmgr.EvmTransmitCheckerSpec{},
+		txmgr.TransmitCheckerSpec{},
 		chainID,
 		ethKeyStore,
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateTransaction", txmgr.EvmTxRequest{
+	txm.On("CreateTransaction", txmgr.TxRequest{
 		FromAddress:      fromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
@@ -101,8 +101,8 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 		ForwarderAddress: common.Address{},
 		Meta:             nil,
 		Strategy:         strategy,
-	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
-	txm.On("CreateTransaction", txmgr.EvmTxRequest{
+	}, mock.Anything).Return(txmgr.Tx{}, nil).Once()
+	txm.On("CreateTransaction", txmgr.TxRequest{
 		FromAddress:      fromAddress2,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
@@ -110,7 +110,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 		ForwarderAddress: common.Address{},
 		Meta:             nil,
 		Strategy:         strategy,
-	}, mock.Anything).Return(txmgr.EvmTx{}, nil).Once()
+	}, mock.Anything).Return(txmgr.Tx{}, nil).Once()
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 }
@@ -138,7 +138,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txmgr.EvmTransmitCheckerSpec{},
+		txmgr.TransmitCheckerSpec{},
 		chainID,
 		ethKeyStore,
 	)
@@ -168,7 +168,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore
 		gasLimit,
 		effectiveTransmitterAddress,
 		strategy,
-		txmgr.EvmTransmitCheckerSpec{},
+		txmgr.TransmitCheckerSpec{},
 		chainID,
 		nil,
 	)

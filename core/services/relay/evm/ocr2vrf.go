@@ -142,7 +142,7 @@ func newOCR2VRFConfigProvider(lggr logger.Logger, chain evm.Chain, rargs relayty
 	}
 
 	offchainConfigDigester := evmutil.EVMOffchainConfigDigester{
-		ChainID:         chain.Config().ChainID().Uint64(),
+		ChainID:         chain.Config().EVM().ChainID().Uint64(),
 		ContractAddress: contractAddress,
 	}
 

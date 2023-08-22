@@ -76,6 +76,11 @@ func NewWeiI[T constraints.Signed](i T) *Wei {
 	return NewWei(big.NewInt(int64(i)))
 }
 
+// Returns input big.Int in Wei string format.
+func FormatWei(i *big.Int) string {
+	return NewWei(i).String()
+}
+
 func (w *Wei) Text(suffix string) string {
 	switch suffix {
 	default: // empty or unknown

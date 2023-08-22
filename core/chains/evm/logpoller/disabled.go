@@ -33,9 +33,9 @@ func (disabled) Replay(ctx context.Context, fromBlock int64) error { return ErrD
 
 func (disabled) ReplayAsync(fromBlock int64) {}
 
-func (disabled) RegisterFilter(filter Filter) error { return ErrDisabled }
+func (disabled) RegisterFilter(filter Filter, qopts ...pg.QOpt) error { return ErrDisabled }
 
-func (disabled) UnregisterFilter(name string, q pg.Queryer) error { return ErrDisabled }
+func (disabled) UnregisterFilter(name string, qopts ...pg.QOpt) error { return ErrDisabled }
 
 func (disabled) LatestBlock(qopts ...pg.QOpt) (int64, error) { return -1, ErrDisabled }
 
@@ -89,9 +89,12 @@ func (d disabled) IndexedLogsWithSigsExcluding(address common.Address, eventSigA
 
 func (d disabled) LogsCreatedAfter(eventSig common.Hash, address common.Address, time time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return nil, ErrDisabled
-
 }
 
 func (d disabled) IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return nil, ErrDisabled
+}
+
+func (d disabled) LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
+	return 0, ErrDisabled
 }

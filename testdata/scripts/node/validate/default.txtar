@@ -4,6 +4,8 @@ cmp stdout out.txt
 
 -- out.txt --
 # Secrets:
+[Database]
+AllowSimplePasswords = false
 
 # Input Configuration:
 
@@ -82,6 +84,7 @@ SessionTimeout = '15m0s'
 SessionReaperExpiration = '240h0m0s'
 HTTPMaxSize = '32.77kb'
 StartTimeout = '15s'
+ListenIP = '0.0.0.0'
 
 [WebServer.MFA]
 RPID = ''
@@ -99,6 +102,7 @@ ForceRedirect = false
 Host = ''
 HTTPSPort = 6689
 KeyPath = ''
+ListenIP = '0.0.0.0'
 
 [JobPipeline]
 ExternalInitiatorsEnabled = false
@@ -126,6 +130,7 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
+CaptureAutomationCustomTelemetry = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false

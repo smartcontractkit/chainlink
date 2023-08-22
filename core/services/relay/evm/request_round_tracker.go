@@ -109,7 +109,7 @@ func (t *RequestRoundTracker) Close() error {
 func (t *RequestRoundTracker) HandleLog(lb log.Broadcast) {
 	was, err := t.logBroadcaster.WasAlreadyConsumed(lb)
 	if err != nil {
-		t.lggr.Errorw("OCRContract: could not determine if log was already consumed", "error", err)
+		t.lggr.Errorw("OCRContract: could not determine if log was already consumed", "err", err)
 		return
 	} else if was {
 		return

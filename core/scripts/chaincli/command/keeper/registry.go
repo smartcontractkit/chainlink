@@ -70,7 +70,7 @@ var withdrawFromRegistryCmd = &cobra.Command{
 }
 
 func init() {
-	deployRegistryCmd.Flags().BoolP("verify", "v", true, "Specify if contracts should be verified on Etherscan")
+	deployRegistryCmd.Flags().BoolP("verify", "v", false, "Specify if contracts should be verified on Etherscan")
 	registryCmd.AddCommand(deployRegistryCmd)
 	registryCmd.AddCommand(verifyRegistryCmd)
 	registryCmd.AddCommand(updateRegistryCmd)

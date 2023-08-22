@@ -41,8 +41,8 @@ var (
 // state change in case we have to force a state transition due to no available
 // nodes.
 // NOTE: This only applies to out-of-sync nodes if they are the last available node
-func zombieNodeCheckInterval(cfg NodeConfig) time.Duration {
-	interval := cfg.NodeNoNewHeadsThreshold()
+func zombieNodeCheckInterval(noNewHeadsThreshold time.Duration) time.Duration {
+	interval := noNewHeadsThreshold
 	if interval <= 0 || interval > queryTimeout {
 		interval = queryTimeout
 	}
@@ -83,9 +83,9 @@ func (n *node) aliveLoop() {
 		}
 	}
 
-	noNewHeadsTimeoutThreshold := n.cfg.NodeNoNewHeadsThreshold()
-	pollFailureThreshold := n.cfg.NodePollFailureThreshold()
-	pollInterval := n.cfg.NodePollInterval()
+	noNewHeadsTimeoutThreshold := n.noNewHeadsThreshold
+	pollFailureThreshold := n.nodePoolCfg.PollFailureThreshold()
+	pollInterval := n.nodePoolCfg.PollInterval()
 
 	lggr := n.lfcLog.Named("Alive").With("noNewHeadsTimeoutThreshold", noNewHeadsTimeoutThreshold, "pollInterval", pollInterval, "pollFailureThreshold", pollFailureThreshold)
 	lggr.Tracew("Alive loop starting", "nodeState", n.State())
@@ -208,7 +208,7 @@ func (n *node) aliveLoop() {
 					lggr.Criticalf("RPC endpoint detected out of sync; %s %s", msgCannotDisable, msgDegradedState)
 					// We don't necessarily want to wait the full timeout to check again, we should
 					// check regularly and log noisily in this state
-					outOfSyncT.Reset(zombieNodeCheckInterval(n.cfg))
+					outOfSyncT.Reset(zombieNodeCheckInterval(n.noNewHeadsThreshold))
 					continue
 				}
 			}
@@ -230,13 +230,13 @@ func (n *node) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes i
 	if n.nLiveNodes == nil {
 		return // skip for tests
 	}
-	threshold := n.cfg.NodeSyncThreshold()
+	threshold := n.nodePoolCfg.SyncThreshold()
 	if threshold == 0 {
 		return // disabled
 	}
 	// Check against best node
 	ln, highest, greatest := n.nLiveNodes()
-	mode := n.cfg.NodeSelectionMode()
+	mode := n.nodePoolCfg.SelectionMode()
 	switch mode {
 	case NodeSelectionMode_HighestHead, NodeSelectionMode_RoundRobin, NodeSelectionMode_PriorityLevel:
 		return num < highest-int64(threshold), ln
@@ -320,7 +320,7 @@ func (n *node) outOfSyncLoop(isOutOfSync func(num int64, td *utils.Big) bool) {
 				return
 			}
 			lggr.Debugw(msgReceivedBlock, "blockNumber", head.Number, "totalDifficulty", head.TotalDifficulty, "nodeState", n.State())
-		case <-time.After(zombieNodeCheckInterval(n.cfg)):
+		case <-time.After(zombieNodeCheckInterval(n.noNewHeadsThreshold)):
 			if n.nLiveNodes != nil {
 				if l, _, _ := n.nLiveNodes(); l < 1 {
 					lggr.Critical("RPC endpoint is still out of sync, but there are no other available nodes. This RPC node will be forcibly moved back into the live pool in a degraded state")

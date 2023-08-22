@@ -20,6 +20,7 @@ import (
 	"github.com/pkg/errors"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -33,8 +34,8 @@ type LogPoller interface {
 	services.ServiceCtx
 	Replay(ctx context.Context, fromBlock int64) error
 	ReplayAsync(fromBlock int64)
-	RegisterFilter(filter Filter) error
-	UnregisterFilter(name string, q pg.Queryer) error
+	RegisterFilter(filter Filter, qopts ...pg.QOpt) error
+	UnregisterFilter(name string, qopts ...pg.QOpt) error
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 
@@ -44,6 +45,7 @@ type LogPoller interface {
 	LogsCreatedAfter(eventSig common.Hash, address common.Address, time time.Time, confs int, qopts ...pg.QOpt) ([]Log, error)
 	LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*Log, error)
 	LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) ([]Log, error)
+	LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error)
 
 	// Content based querying
 	IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error)
@@ -120,7 +122,7 @@ func NewLogPoller(orm *ORM, ec Client, lggr logger.Logger, pollPeriod time.Durat
 	return &logPoller{
 		ec:                ec,
 		orm:               orm,
-		lggr:              lggr,
+		lggr:              lggr.Named("LogPoller"),
 		replayStart:       make(chan int64),
 		replayComplete:    make(chan error),
 		pollPeriod:        pollPeriod,
@@ -198,7 +200,7 @@ func (filter *Filter) Contains(other *Filter) bool {
 // Generally speaking this is harmless. We enforce that EventSigs and Addresses are non-empty,
 // which means that anonymous events are not supported and log.Topics >= 1 always (log.Topics[0] is the event signature).
 // The filter may be unregistered later by Filter.Name
-func (lp *logPoller) RegisterFilter(filter Filter) error {
+func (lp *logPoller) RegisterFilter(filter Filter, qopts ...pg.QOpt) error {
 	if len(filter.Addresses) == 0 {
 		return errors.Errorf("at least one address must be specified")
 	}
@@ -230,7 +232,7 @@ func (lp *logPoller) RegisterFilter(filter Filter) error {
 		lp.lggr.Debugw("Creating new filter", "filter", filter)
 	}
 
-	if err := lp.orm.InsertFilter(filter); err != nil {
+	if err := lp.orm.InsertFilter(filter, qopts...); err != nil {
 		return errors.Wrap(err, "RegisterFilter failed to save filter to db")
 	}
 	lp.filters[filter.Name] = filter
@@ -238,7 +240,7 @@ func (lp *logPoller) RegisterFilter(filter Filter) error {
 	return nil
 }
 
-func (lp *logPoller) UnregisterFilter(name string, q pg.Queryer) error {
+func (lp *logPoller) UnregisterFilter(name string, qopts ...pg.QOpt) error {
 	lp.filterMu.Lock()
 	defer lp.filterMu.Unlock()
 
@@ -248,7 +250,7 @@ func (lp *logPoller) UnregisterFilter(name string, q pg.Queryer) error {
 		return nil
 	}
 
-	if err := lp.orm.DeleteFilter(name, pg.WithQueryer(q)); err != nil {
+	if err := lp.orm.DeleteFilter(name, qopts...); err != nil {
 		return errors.Wrapf(err, "Failed to delete filter %s", name)
 	}
 	delete(lp.filters, name)
@@ -442,7 +444,8 @@ func (lp *logPoller) run() {
 					if err = loadFilters(); err != nil {
 						lp.lggr.Errorw("Failed loading filters during Replay", "err", err, "fromBlock", fromBlock)
 					}
-				} else {
+				}
+				if err == nil {
 					// Serially process replay requests.
 					lp.lggr.Infow("Executing replay", "fromBlock", fromBlock, "requested", fromBlockReq)
 					lp.PollAndSaveLogs(lp.ctx, fromBlock)
@@ -482,7 +485,7 @@ func (lp *logPoller) run() {
 				// Only safe thing to do is to start at the first finalized block.
 				latest, err := lp.ec.HeadByNumber(lp.ctx, nil)
 				if err != nil {
-					lp.lggr.Warnw("unable to get latest for first poll", "err", err)
+					lp.lggr.Warnw("Unable to get latest for first poll", "err", err)
 					continue
 				}
 				latestNum := latest.Number
@@ -490,7 +493,7 @@ func (lp *logPoller) run() {
 				// Could conceivably support this but not worth the effort.
 				// Need finality depth + 1, no block 0.
 				if latestNum <= lp.finalityDepth {
-					lp.lggr.Warnw("insufficient number of blocks on chain, waiting for finality depth", "err", err, "latest", latestNum, "finality", lp.finalityDepth)
+					lp.lggr.Warnw("Insufficient number of blocks on chain, waiting for finality depth", "err", err, "latest", latestNum, "finality", lp.finalityDepth)
 					continue
 				}
 				// Starting at the first finalized block. We do not backfill the first finalized block.
@@ -512,14 +515,14 @@ func (lp *logPoller) run() {
 
 			backupLogPollTick = time.After(utils.WithJitter(backupPollerBlockDelay * lp.pollPeriod))
 			if !filtersLoaded {
-				lp.lggr.Warnw("backup log poller ran before filters loaded, skipping")
+				lp.lggr.Warnw("Backup log poller ran before filters loaded, skipping")
 				continue
 			}
 			lp.BackupPollAndSaveLogs(lp.ctx, backupPollerBlockDelay)
 		case <-blockPruneTick:
 			blockPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 1000))
 			if err := lp.pruneOldBlocks(lp.ctx); err != nil {
-				lp.lggr.Errorw("unable to prune old blocks", "err", err)
+				lp.lggr.Errorw("Unable to prune old blocks", "err", err)
 			}
 		case <-logPruneTick:
 			logPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 2401)) // = 7^5 avoids common factors with 1000
@@ -624,17 +627,33 @@ func (lp *logPoller) blocksFromLogs(ctx context.Context, logs []types.Log) (bloc
 	return lp.GetBlocksRange(ctx, numbers)
 }
 
+const jsonRpcLimitExceeded = -32005 // See https://github.com/ethereum/EIPs/blob/master/EIPS/eip-1474.md
+
 // backfill will query FilterLogs in batches for logs in the
 // block range [start, end] and save them to the db.
 // Retries until ctx cancelled. Will return an error if cancelled
 // or if there is an error backfilling.
 func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
-	for from := start; from <= end; from += lp.backfillBatchSize {
-		to := mathutil.Min(from+lp.backfillBatchSize-1, end)
+	batchSize := lp.backfillBatchSize
+	for from := start; from <= end; from += batchSize {
+		to := mathutil.Min(from+batchSize-1, end)
 		gethLogs, err := lp.ec.FilterLogs(ctx, lp.Filter(big.NewInt(from), big.NewInt(to), nil))
 		if err != nil {
-			lp.lggr.Warnw("Unable query for logs, retrying", "err", err, "from", from, "to", to)
-			return err
+			var rpcErr client.JsonError
+			if errors.As(err, &rpcErr) {
+				if rpcErr.Code != jsonRpcLimitExceeded {
+					lp.lggr.Errorw("Unable to query for logs", "err", err, "from", from, "to", to)
+					return err
+				}
+			}
+			if batchSize == 1 {
+				lp.lggr.Criticalw("Too many log results in a single block, failed to retrieve logs! Node may run in a degraded state unless LogBackfillBatchSize is increased", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
+				return err
+			}
+			batchSize /= 2
+			lp.lggr.Warnw("Too many log results, halving block range batch size.  Consider increasing LogBackfillBatchSize if this happens frequently", "err", err, "from", from, "to", to, "newBatchSize", batchSize, "LogBackfillBatchSize", lp.backfillBatchSize)
+			from -= batchSize // counteract +=batchSize on next loop iteration, so starting block does not change
+			continue
 		}
 		if len(gethLogs) == 0 {
 			continue
@@ -975,6 +994,10 @@ func (lp *logPoller) LatestLogEventSigsAddrsWithConfs(fromBlock int64, eventSigs
 	return lp.orm.SelectLatestLogEventSigsAddrsWithConfs(fromBlock, addresses, eventSigs, confs, qopts...)
 }
 
+func (lp *logPoller) LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
+	return lp.orm.SelectLatestBlockNumberEventSigsAddrsWithConfs(fromBlock, eventSigs, addresses, confs, qopts...)
+}
+
 // GetBlocksRange tries to get the specified block numbers from the log pollers
 // blocks table. It falls back to the RPC for any unfulfilled requested blocks.
 func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error) {
@@ -1054,7 +1077,7 @@ func (lp *logPoller) fillRemainingBlocksFromRPC(
 	}
 
 	if len(remainingBlocks) > 0 {
-		lp.lggr.Debugw("falling back to RPC for blocks not found in log poller blocks table",
+		lp.lggr.Debugw("Falling back to RPC for blocks not found in log poller blocks table",
 			"remainingBlocks", remainingBlocks)
 	}
 

@@ -70,6 +70,6 @@ type config struct {
 	max uint32
 }
 
-func (c *config) EvmGasLimitMax() uint32 {
+func (c *config) LimitMax() uint32 {
 	return c.max
 }

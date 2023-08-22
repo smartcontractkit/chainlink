@@ -2,6 +2,7 @@ package client
 
 import (
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/stretchr/testify/assert"
@@ -42,7 +43,7 @@ func TestUnit_Node_StateTransitions(t *testing.T) {
 	t.Parallel()
 
 	s := testutils.NewWSServer(t, testutils.FixtureChainID, nil)
-	iN := NewNode(TestNodeConfig{}, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, nil, 1)
+	iN := NewNode(TestNodePoolConfig{}, time.Second*0, logger.TestLogger(t), *s.WSURL(), nil, "test node", 42, nil, 1)
 	n := iN.(*node)
 
 	assert.Equal(t, NodeStateUndialed, n.State())

@@ -6,6 +6,7 @@ import (
 	"crypto/ed25519"
 	"errors"
 	"fmt"
+	"math/big"
 	"sync"
 	"time"
 
@@ -18,18 +19,25 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/smartcontractkit/sqlx"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/reportcodec"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-const MaxTransmitQueueSize = 10_000
+var (
+	maxTransmitQueueSize = 10_000
+	transmitTimeout      = 5 * time.Second
+)
+
 const (
 	// Mercury server error codes
 	DuplicateReport = 2
@@ -78,10 +86,9 @@ type mercuryTransmitter struct {
 	lggr               logger.Logger
 	rpcClient          wsrpc.Client
 	cfgTracker         ConfigTracker
-	initialBlockNumber int64
+	persistenceManager *PersistenceManager
 
-	feedID      [32]byte
-	feedIDHex   string
+	feedID      types.FeedID
 	fromAccount string
 
 	stopCh utils.StopChan
@@ -112,19 +119,19 @@ func getPayloadTypes() abi.Arguments {
 	})
 }
 
-func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, feedID [32]byte, initialBlockNumber int64) *mercuryTransmitter {
+func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, feedID [32]byte, db *sqlx.DB, cfg pg.QConfig) *mercuryTransmitter {
 	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
+	persistenceManager := NewPersistenceManager(lggr, NewORM(db, lggr, cfg))
 	return &mercuryTransmitter{
 		utils.StartStopOnce{},
 		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
 		rpcClient,
 		cfgTracker,
-		initialBlockNumber,
+		persistenceManager,
 		feedID,
-		feedIDHex,
 		fmt.Sprintf("%x", fromAccount),
 		make(chan (struct{})),
-		NewTransmitQueue(lggr, feedIDHex, MaxTransmitQueueSize),
+		NewTransmitQueue(lggr, feedIDHex, maxTransmitQueueSize, nil, persistenceManager),
 		sync.WaitGroup{},
 		transmitSuccessCount.WithLabelValues(feedIDHex),
 		transmitDuplicateCount.WithLabelValues(feedIDHex),
@@ -134,6 +141,16 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 
 func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 	return mt.StartOnce("MercuryTransmitter", func() error {
+		mt.lggr.Debugw("Loading transmit requests from database")
+		if err := mt.persistenceManager.Start(ctx); err != nil {
+			return err
+		}
+		transmissions, err := mt.persistenceManager.Load(ctx)
+		if err != nil {
+			return err
+		}
+		mt.queue = NewTransmitQueue(mt.lggr, mt.feedID.String(), maxTransmitQueueSize, transmissions, mt.persistenceManager)
+
 		if err := mt.rpcClient.Start(ctx); err != nil {
 			return err
 		}
@@ -141,20 +158,27 @@ func (mt *mercuryTransmitter) Start(ctx context.Context) (err error) {
 			return err
 		}
 		mt.wg.Add(1)
-		go mt.runloop()
+		go mt.runQueueLoop()
 		return nil
 	})
 }
 
 func (mt *mercuryTransmitter) Close() error {
 	return mt.StopOnce("MercuryTransmitter", func() error {
-		mt.queue.Close()
+		if err := mt.queue.Close(); err != nil {
+			return err
+		}
+		if err := mt.persistenceManager.Close(); err != nil {
+			return err
+		}
 		close(mt.stopCh)
 		mt.wg.Wait()
 		return mt.rpcClient.Close()
 	})
 }
+
 func (mt *mercuryTransmitter) Ready() error { return mt.StartStopOnce.Ready() }
+
 func (mt *mercuryTransmitter) Name() string { return mt.lggr.Name() }
 
 func (mt *mercuryTransmitter) HealthReport() map[string]error {
@@ -164,7 +188,7 @@ func (mt *mercuryTransmitter) HealthReport() map[string]error {
 	return report
 }
 
-func (mt *mercuryTransmitter) runloop() {
+func (mt *mercuryTransmitter) runQueueLoop() {
 	defer mt.wg.Done()
 	// Exponential backoff with very short retry interval (since latency is a priority)
 	// 5ms, 10ms, 20ms, 40ms etc
@@ -174,7 +198,7 @@ func (mt *mercuryTransmitter) runloop() {
 		Factor: 2,
 		Jitter: true,
 	}
-	ctx, cancel := mt.stopCh.Ctx(context.Background())
+	runloopCtx, cancel := mt.stopCh.Ctx(context.Background())
 	defer cancel()
 	for {
 		t := mt.queue.BlockingPop()
@@ -182,14 +206,16 @@ func (mt *mercuryTransmitter) runloop() {
 			// queue was closed
 			return
 		}
+		ctx, cancel := context.WithTimeout(runloopCtx, utils.WithJitter(transmitTimeout))
 		res, err := mt.rpcClient.Transmit(ctx, t.Req)
-		if ctx.Err() != nil {
-			// context only canceled on transmitter close so we can exit
-			// the runloop here
+		cancel()
+		if runloopCtx.Err() != nil {
+			// runloop context is only canceled on transmitter close so we can
+			// exit the runloop here
 			return
 		} else if err != nil {
 			mt.transmitConnectionErrorCount.Inc()
-			mt.lggr.Errorw("Transmit report failed", "req", t.Req, "error", err, "reportCtx", t.ReportCtx)
+			mt.lggr.Errorw("Transmit report failed", "err", err, "reportCtx", t.ReportCtx)
 			if ok := mt.queue.Push(t.Req, t.ReportCtx); !ok {
 				mt.lggr.Error("Failed to push report to transmit queue; queue is closed")
 				return
@@ -218,26 +244,14 @@ func (mt *mercuryTransmitter) runloop() {
 				mt.transmitDuplicateCount.Inc()
 				mt.lggr.Tracew("Transmit report succeeded; duplicate report", "code", res.Code)
 			default:
-				elems := map[string]interface{}{}
-				var validFrom int64
-				var currentBlock int64
-				var unpackErr error
-				if err = PayloadTypes.UnpackIntoMap(elems, t.Req.Payload); err != nil {
-					unpackErr = err
-				} else {
-					report := elems["report"].([]byte)
-					validFrom, err = (&reportcodec.EVMReportCodec{}).ValidFromBlockNumFromReport(report)
-					if err != nil {
-						unpackErr = err
-					}
-					currentBlock, err = (&reportcodec.EVMReportCodec{}).CurrentBlockNumFromReport(report)
-					if err != nil {
-						unpackErr = errors.Join(unpackErr, err)
-					}
-				}
-				transmitServerErrorCount.WithLabelValues(mt.feedIDHex, fmt.Sprintf("%d", res.Code)).Inc()
-				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "unpackErr", unpackErr, "validFromBlock", validFrom, "currentBlock", currentBlock, "req", t.Req, "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
+				transmitServerErrorCount.WithLabelValues(mt.feedID.String(), fmt.Sprintf("%d", res.Code)).Inc()
+				mt.lggr.Errorw("Transmit report failed; mercury server returned error", "response", res, "reportCtx", t.ReportCtx, "err", res.Error, "code", res.Code)
 			}
+		}
+
+		if err := mt.persistenceManager.Delete(runloopCtx, t.Req); err != nil {
+			mt.lggr.Errorw("Failed to delete transmit request record", "error", err, "reportCtx", t.ReportCtx)
+			return
 		}
 	}
 }
@@ -267,8 +281,11 @@ func (mt *mercuryTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.R
 		Payload: payload,
 	}
 
-	mt.lggr.Debugw("Transmit enqueue", "req", req, "report", report, "reportCtx", reportCtx, "signatures", signatures)
+	mt.lggr.Tracew("Transmit enqueue", "req", req, "report", report, "reportCtx", reportCtx, "signatures", signatures)
 
+	if err := mt.persistenceManager.Insert(ctx, req, reportCtx); err != nil {
+		return err
+	}
 	if ok := mt.queue.Push(req, reportCtx); !ok {
 		return errors.New("transmit queue is closed")
 	}
@@ -285,39 +302,88 @@ func (mt *mercuryTransmitter) LatestConfigDigestAndEpoch(ctx context.Context) (c
 	panic("not needed for OCR3")
 }
 
-func (mt *mercuryTransmitter) FetchInitialMaxFinalizedBlockNumber(ctx context.Context) (int64, error) {
-	mt.lggr.Debug("FetchInitialMaxFinalizedBlockNumber")
+func (mt *mercuryTransmitter) FetchInitialMaxFinalizedBlockNumber(ctx context.Context) (*int64, error) {
+	mt.lggr.Trace("FetchInitialMaxFinalizedBlockNumber")
+
+	report, err := mt.latestReport(ctx, mt.feedID)
+	if err != nil {
+		return nil, err
+	}
+
+	if report == nil {
+		mt.lggr.Debugw("FetchInitialMaxFinalizedBlockNumber success; got nil report")
+		return nil, nil
+	}
+
+	mt.lggr.Debugw("FetchInitialMaxFinalizedBlockNumber success", "currentBlockNum", report.CurrentBlockNumber)
+
+	return &report.CurrentBlockNumber, nil
+}
+
+func (mt *mercuryTransmitter) LatestPrice(ctx context.Context, feedID [32]byte) (*big.Int, error) {
+	mt.lggr.Trace("LatestPrice")
+
+	report, err := mt.latestReport(ctx, feedID)
+	if err != nil {
+		return nil, err
+	}
+	if report == nil {
+		return nil, nil
+	}
+	price, err := relaymercury.DecodeValueInt192(report.Price)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to decode report.Price as *big.Int")
+	}
+	return price, nil
+}
+
+func (mt *mercuryTransmitter) LatestTimestamp(ctx context.Context) (uint32, error) {
+	mt.lggr.Trace("LatestTimestamp")
+
+	report, err := mt.latestReport(ctx, mt.feedID)
+	if err != nil {
+		return 0, err
+	}
+
+	if report == nil {
+		mt.lggr.Debugw("LatestTimestamp success; got nil report")
+		return 0, nil
+	}
+
+	mt.lggr.Debugw("LatestTimestamp success", "timestamp", report.ObservationsTimestamp)
+
+	return uint32(report.ObservationsTimestamp), nil
+}
+
+func (mt *mercuryTransmitter) latestReport(ctx context.Context, feedID [32]byte) (*pb.Report, error) {
+	mt.lggr.Trace("latestReport")
+
 	req := &pb.LatestReportRequest{
-		FeedId: mt.feedID[:],
+		FeedId: feedID[:],
 	}
 	resp, err := mt.rpcClient.LatestReport(ctx, req)
 	if err != nil {
-		mt.lggr.Errorw("FetchInitialMaxFinalizedBlockNumber failed", "err", err)
-		return 0, pkgerrors.Wrap(err, "FetchInitialMaxFinalizedBlockNumber failed to fetch LatestReport")
+		mt.lggr.Warnw("latestReport failed", "err", err)
+		return nil, pkgerrors.Wrap(err, "latestReport failed")
 	}
 	if resp == nil {
-		return 0, errors.New("FetchInitialMaxFinalizedBlockNumber expected LatestReport to return non-nil response")
+		return nil, errors.New("latestReport expected non-nil response")
 	}
 	if resp.Error != "" {
 		err = errors.New(resp.Error)
-		mt.lggr.Errorw("FetchInitialMaxFinalizedBlockNumber failed; mercury server returned error", "err", err)
-		return 0, err
+		mt.lggr.Warnw("latestReport failed; mercury server returned error", "err", err)
+		return nil, err
 	}
 	if resp.Report == nil {
-		maxFinalizedBlockNumber := mt.initialBlockNumber - 1
-		mt.lggr.Infof("FetchInitialMaxFinalizedBlockNumber returned empty LatestReport; this is a new feed so maxFinalizedBlockNumber=%d (initialBlockNumber=%d)", maxFinalizedBlockNumber, mt.initialBlockNumber)
-		// NOTE: It's important to return -1 if the server is missing any past
-		// report (brand new feed) since we will add 1 to the
-		// maxFinalizedBlockNumber to get the first validFromBlockNum, which
-		// ought to be zero.
-		//
-		// If "initialBlockNumber" is unset, this will give a starting block of zero.
-		return maxFinalizedBlockNumber, nil
-	} else if !bytes.Equal(resp.Report.FeedId, mt.feedID[:]) {
-		return 0, fmt.Errorf("FetchInitialMaxFinalizedBlockNumber failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID, resp.Report.FeedId)
+		mt.lggr.Tracew("latestReport success: returned nil")
+		return nil, nil
+	} else if !bytes.Equal(resp.Report.FeedId, feedID[:]) {
+		err = fmt.Errorf("latestReport failed; mismatched feed IDs, expected: 0x%x, got: 0x%x", mt.feedID[:], resp.Report.FeedId[:])
+		mt.lggr.Errorw("latestReport failed", "err", err)
+		return nil, err
 	}
 
-	mt.lggr.Debugw("FetchInitialMaxFinalizedBlockNumber success", "currentBlockNum", resp.Report.CurrentBlockNumber)
+	mt.lggr.Tracew("latestReport success", "currentBlockNum", resp.Report.CurrentBlockNumber)
 
-	return resp.Report.CurrentBlockNumber, nil
+	return resp.Report, nil
 }

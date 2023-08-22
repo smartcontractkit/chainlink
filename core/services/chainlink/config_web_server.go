@@ -1,6 +1,7 @@
 package chainlink
 
 import (
+	"net"
 	"net/http"
 	"net/url"
 	"path/filepath"
@@ -9,14 +10,14 @@ import (
 	"github.com/gin-contrib/sessions"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var _ config.WebServer = (*webServerConfig)(nil)
 
 type tlsConfig struct {
-	c       v2.WebServerTLS
+	c       toml.WebServerTLS
 	rootDir func() string
 }
 
@@ -59,8 +60,12 @@ func (t *tlsConfig) KeyFile() string {
 	return t.keyPath()
 }
 
+func (t *tlsConfig) ListenIP() net.IP {
+	return *t.c.ListenIP
+}
+
 type rateLimitConfig struct {
-	c v2.WebServerRateLimit
+	c toml.WebServerRateLimit
 }
 
 func (r *rateLimitConfig) Authenticated() int64 {
@@ -80,7 +85,7 @@ func (r *rateLimitConfig) UnauthenticatedPeriod() time.Duration {
 }
 
 type mfaConfig struct {
-	c v2.WebServerMFA
+	c toml.WebServerMFA
 }
 
 func (m *mfaConfig) RPID() string {
@@ -92,7 +97,7 @@ func (m *mfaConfig) RPOrigin() string {
 }
 
 type webServerConfig struct {
-	c       v2.WebServer
+	c       toml.WebServer
 	rootDir func() string
 }
 
@@ -158,4 +163,8 @@ func (w *webServerConfig) SessionOptions() sessions.Options {
 
 func (w *webServerConfig) SessionTimeout() models.Duration {
 	return models.MustMakeDuration(w.c.SessionTimeout.Duration())
+}
+
+func (w *webServerConfig) ListenIP() net.IP {
+	return *w.c.ListenIP
 }

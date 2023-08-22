@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 
+//go:generate mockery --quiet --name Decryptor --output ./mocks/ --case=underscore
 type Decryptor interface {
 	Decrypt(ctx context.Context, ciphertextId decryptionPlugin.CiphertextId, ciphertext []byte) ([]byte, error)
 }
@@ -104,7 +105,7 @@ func (dq *decryptionQueue) getResult(ciphertextId decryptionPlugin.CiphertextId,
 
 	req, ok := dq.completedRequests[string(ciphertextId)]
 	if ok {
-		dq.lggr.Debugf("ciphertextId %s was already decrypted by the DON", ciphertextId)
+		dq.lggr.Debugf("ciphertextId %s was already decrypted by the DON", string(ciphertextId))
 		chPlaintext <- req.plaintext
 		req.timer.Stop()
 		delete(dq.completedRequests, string(ciphertextId))
@@ -125,7 +126,7 @@ func (dq *decryptionQueue) getResult(ciphertextId decryptionPlugin.CiphertextId,
 		chPlaintext,
 		ciphertext,
 	}
-	dq.lggr.Debugf("ciphertextId %s added to pendingRequestQueue")
+	dq.lggr.Debugf("ciphertextId %s added to pendingRequestQueue", string(ciphertextId))
 
 	return chPlaintext, nil
 }
@@ -147,7 +148,7 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit in
 		pendingRequest, exists := dq.pendingRequests[string(requestId)]
 
 		if !exists {
-			dq.lggr.Debugf("pending decryption request for ciphertextId %s expired", requestId)
+			dq.lggr.Debugf("pending decryption request for ciphertextId %s expired", string(requestId))
 			indicesToRemove[i] = struct{}{}
 			continue
 		}
@@ -170,7 +171,7 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit in
 
 	dq.pendingRequestQueue = removeMultipleIndices(dq.pendingRequestQueue, indicesToRemove)
 
-	dq.lggr.Debug("returing %d of %d total requests awaiting decryption", requestCountLimit, len(dq.pendingRequestQueue))
+	dq.lggr.Debugf("returning first %d of %d total requests awaiting decryption", len(requests), len(dq.pendingRequestQueue))
 
 	return requests
 }
@@ -199,26 +200,41 @@ func (dq *decryptionQueue) GetCiphertext(ciphertextId decryptionPlugin.Ciphertex
 	return req.ciphertext, nil
 }
 
-func (dq *decryptionQueue) SetResult(ciphertextId decryptionPlugin.CiphertextId, plaintext []byte) {
+func (dq *decryptionQueue) SetResult(ciphertextId decryptionPlugin.CiphertextId, plaintext []byte, err error) {
 	dq.mu.Lock()
 	defer dq.mu.Unlock()
 
+	if err == nil && plaintext == nil {
+		dq.lggr.Errorf("received nil error and nil plaintext for ciphertextId %s", string(ciphertextId))
+		return
+	}
+
 	req, ok := dq.pendingRequests[string(ciphertextId)]
 	if ok {
-		dq.lggr.Debugf("responding with result for pending decryption request ciphertextId %s", ciphertextId)
-		req.chPlaintext <- plaintext
+		if err != nil {
+			dq.lggr.Debugf("decryption error for ciphertextId %s", string(ciphertextId))
+		} else {
+			dq.lggr.Debugf("responding with result for pending decryption request ciphertextId %s", string(ciphertextId))
+			req.chPlaintext <- plaintext
+		}
 		close(req.chPlaintext)
 		delete(dq.pendingRequests, string(ciphertextId))
 	} else {
+		if err != nil {
+			// This is currently possible only for ErrAggregation, encountered during Report() phase.
+			dq.lggr.Debugf("received decryption error for ciphertextId %s which doesn't exist locally", string(ciphertextId))
+			return
+		}
+
 		// Cache plaintext result in completedRequests map for cacheTimeoutMs to account for delayed Decrypt() calls
 		timer := time.AfterFunc(dq.completedRequestsCacheTimeout, func() {
-			dq.lggr.Debugf("expired decryption result for ciphertextId %s from completedRequests cache", ciphertextId)
+			dq.lggr.Debugf("expired decryption result for ciphertextId %s from completedRequests cache", string(ciphertextId))
 			dq.mu.Lock()
 			delete(dq.completedRequests, string(ciphertextId))
 			dq.mu.Unlock()
 		})
 
-		dq.lggr.Debugf("adding decryption result for ciphertextId %s to completedRequests cache", ciphertextId)
+		dq.lggr.Debugf("adding decryption result for ciphertextId %s to completedRequests cache", string(ciphertextId))
 		dq.completedRequests[string(ciphertextId)] = completedRequest{
 			plaintext,
 			timer,

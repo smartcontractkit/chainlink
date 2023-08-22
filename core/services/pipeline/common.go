@@ -20,7 +20,6 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/v2/core/null"
@@ -393,6 +392,7 @@ const (
 	TaskTypeUppercase        TaskType = "uppercase"
 	TaskTypeVRF              TaskType = "vrf"
 	TaskTypeVRFV2            TaskType = "vrfv2"
+	TaskTypeVRFV2Plus        TaskType = "vrfv2plus"
 
 	// Testing only.
 	TaskTypePanic TaskType = "panic"
@@ -449,6 +449,8 @@ func UnmarshalTaskFromMap(taskType TaskType, taskMap interface{}, ID int, dotID 
 		task = &VRFTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeVRFV2:
 		task = &VRFTaskV2{BaseTask: BaseTask{id: ID, dotID: dotID}}
+	case TaskTypeVRFV2Plus:
+		task = &VRFTaskV2Plus{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeEstimateGasLimit:
 		task = &EstimateGasLimitTask{BaseTask: BaseTask{id: ID, dotID: dotID}}
 	case TaskTypeETHCall:
@@ -543,42 +545,34 @@ func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{},
 	return vals, nil
 }
 
-func getChainByString(chainSet evm.ChainSet, str string) (evm.Chain, error) {
-	if str == "" {
-		return chainSet.Default()
-	}
-	id, ok := new(big.Int).SetString(str, 10)
-	if !ok {
-		return nil, pkgerrors.Errorf("invalid EVM chain ID: %s", str)
-	}
-	return chainSet.Get(id)
-}
+var ErrInvalidEVMChainID = errors.New("invalid EVM chain ID")
 
-func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *uint32) uint32 {
+func SelectGasLimit(ge config.GasEstimator, jobType string, specGasLimit *uint32) uint32 {
 	if specGasLimit != nil {
 		return *specGasLimit
 	}
 
+	jt := ge.LimitJobType()
 	var jobTypeGasLimit *uint32
 	switch jobType {
 	case DirectRequestJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitDRJobType()
+		jobTypeGasLimit = jt.DR()
 	case FluxMonitorJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitFMJobType()
+		jobTypeGasLimit = jt.FM()
 	case OffchainReportingJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitOCRJobType()
+		jobTypeGasLimit = jt.OCR()
 	case OffchainReporting2JobType:
-		jobTypeGasLimit = cfg.EvmGasLimitOCR2JobType()
+		jobTypeGasLimit = jt.OCR2()
 	case KeeperJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitKeeperJobType()
+		jobTypeGasLimit = jt.Keeper()
 	case VRFJobType:
-		jobTypeGasLimit = cfg.EvmGasLimitVRFJobType()
+		jobTypeGasLimit = jt.VRF()
 	}
 
 	if jobTypeGasLimit != nil {
 		return *jobTypeGasLimit
 	}
-	return cfg.EvmGasLimitDefault()
+	return ge.LimitDefault()
 }
 
 // replaceBytesWithHex replaces all []byte with hex-encoded strings

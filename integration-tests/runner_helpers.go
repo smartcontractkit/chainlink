@@ -124,7 +124,15 @@ func collectBranchesAndTags(results chan []string, errChan chan error) {
 		if err != nil {
 			errChan <- fmt.Errorf("%v: %s", err, stdErr.String())
 		}
-		branchChan <- strings.Split(stdOut.String(), "\n")
+		branches := strings.Split(stdOut.String(), "\n")
+		cleanBranches := []string{}
+		for _, branch := range branches {
+			trimmed := strings.TrimSpace(branch)
+			if branch != "" {
+				cleanBranches = append(cleanBranches, trimmed)
+			}
+		}
+		branchChan <- cleanBranches
 	}()
 
 	// tags
@@ -133,12 +141,29 @@ func collectBranchesAndTags(results chan []string, errChan chan error) {
 		if err != nil {
 			errChan <- fmt.Errorf("%v: %s", err, stdErr.String())
 		}
-		tagChan <- strings.Split(stdOut.String(), "\n")
+		tags := strings.Split(stdOut.String(), "\n")
+		cleanTags := []string{}
+		for _, tag := range tags {
+			trimmed := strings.TrimSpace(tag)
+			if tag != "" {
+				cleanTags = append(cleanTags, trimmed)
+			}
+		}
+		tagChan <- cleanTags
 	}()
 
 	// combine results
 	branches, tags := <-branchChan, <-tagChan
-	results <- append(branches, tags...)
+	combined := append(branches, tags...)
+	sort.Slice(combined, func(i, j int) bool {
+		if combined[i] == "develop" {
+			return true
+		} else if combined[j] == "develop" {
+			return false
+		}
+		return strings.Compare(combined[i], combined[j]) < 0
+	})
+	results <- combined
 }
 
 const helpDirectoryText = `Smoke tests are designed to be quick checks on basic functionality. 
@@ -206,8 +231,10 @@ func testNames(directory string) []string {
 			return err
 		}
 
-		// Skip directories
-		if info.IsDir() {
+		if info.IsDir() { // Skip directories
+			return nil
+		}
+		if !strings.HasSuffix(info.Name(), "_test.go") { // Skip non-test files
 			return nil
 		}
 
@@ -228,6 +255,9 @@ func testNames(directory string) []string {
 			}
 		}
 
+		if scanner.Err() != nil {
+			log.Error().Str("File", info.Name()).Msg("Error scanning file")
+		}
 		return scanner.Err()
 	})
 
@@ -245,7 +275,14 @@ func getNetwork() (networkName, networkWs, networkHTTP, fundingKey string, err e
 		validNetworks[i] = network
 		i++
 	}
-	sort.Strings(validNetworks) // Get in alphabetical order
+	sort.Slice(validNetworks, func(i, j int) bool { // Get in (mostly) alphabetical order
+		if validNetworks[i] == "SIMULATED" {
+			return true
+		} else if validNetworks[j] == "SIMULATED" {
+			return false
+		}
+		return strings.Compare(validNetworks[i], validNetworks[j]) < 0
+	})
 
 	networkPrompt := promptui.Select{
 		Label: "Network",

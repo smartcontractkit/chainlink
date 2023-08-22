@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
@@ -93,10 +94,11 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db, lggr, cfg.Database())
 
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db, KeyStore: keyStore.Eth()})
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(db, cc, pipelineORM, bridgeORM, keyStore, lggr, cfg.Database())
+	jobORM := job.NewORM(db, legacyChains, pipelineORM, bridgeORM, keyStore, lggr, cfg.Database())
 	orm := newORM(t, db, cfg.Database(), nil)
 
 	address := testutils.NewAddress()
@@ -175,7 +177,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 
 	var (
 		txm = txmmocks.NewMockEvmTxManager(t)
-		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.EvmTransmitCheckerSpec{})
+		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.TransmitCheckerSpec{})
 
 		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 		to       = testutils.NewAddress()
@@ -183,14 +185,14 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		gasLimit = uint32(21000)
 	)
 
-	txm.On("CreateTransaction", txmgr.EvmTxRequest{
+	txm.On("CreateTransaction", txmgr.TxRequest{
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: payload,
 		FeeLimit:       gasLimit,
 		Meta:           nil,
 		Strategy:       strategy,
-	}).Return(txmgr.EvmTx{}, nil).Once()
+	}).Return(txmgr.Tx{}, nil).Once()
 
 	require.NoError(t, orm.CreateEthTransaction(from, to, payload, gasLimit))
 }

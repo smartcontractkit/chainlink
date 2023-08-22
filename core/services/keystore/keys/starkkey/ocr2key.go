@@ -8,6 +8,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/caigo"
+	caigotypes "github.com/smartcontractkit/caigo/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
@@ -25,7 +26,7 @@ func NewOCR2Key(material io.Reader) (*OCR2Key, error) {
 }
 
 func (sk *OCR2Key) PublicKey() types.OnchainPublicKey {
-	return PubKeyToStarkKey(sk.pub)
+	return caigotypes.BigToFelt(sk.pub.X).Bytes()
 }
 
 func ReportToSigData(reportCtx types.ReportContext, report types.Report) (*big.Int, error) {

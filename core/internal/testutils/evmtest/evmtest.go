@@ -22,35 +22,35 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	evmtoml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func NewChainScopedConfig(t testing.TB, cfg evm.GeneralConfig) evmconfig.ChainScopedConfig {
-	var evmCfg *v2.EVMConfig
+func NewChainScopedConfig(t testing.TB, cfg evm.AppConfig) evmconfig.ChainScopedConfig {
+	var evmCfg *evmtoml.EVMConfig
 	if len(cfg.EVMConfigs()) > 0 {
 		evmCfg = cfg.EVMConfigs()[0]
 	} else {
 		chainID := utils.NewBigI(0)
-		evmCfg = &v2.EVMConfig{
+		evmCfg = &evmtoml.EVMConfig{
 			ChainID: chainID,
-			Chain:   v2.Defaults(chainID),
+			Chain:   evmtoml.Defaults(chainID),
 		}
 	}
 
-	return v2.NewTOMLChainScopedConfig(cfg, evmCfg, logger.TestLogger(t))
+	return evmconfig.NewTOMLChainScopedConfig(cfg, evmCfg, logger.TestLogger(t))
 
 }
 
@@ -58,41 +58,36 @@ type TestChainOpts struct {
 	Client         evmclient.Client
 	LogBroadcaster log.Broadcaster
 	LogPoller      logpoller.LogPoller
-	GeneralConfig  evm.GeneralConfig
+	GeneralConfig  evm.AppConfig
 	HeadTracker    httypes.HeadTracker
 	DB             *sqlx.DB
-	TxManager      txmgr.EvmTxManager
+	TxManager      txmgr.TxManager
 	KeyStore       keystore.Eth
 	MailMon        *utils.MailboxMonitor
 	GasEstimator   gas.EvmFeeEstimator
 }
 
-// NewChainSet returns a simple chain collection with one chain and
+// NewChainRelayExtenders returns a simple chain collection with one chain and
 // allows to mock client/config on that chain
-func NewChainSet(t testing.TB, testopts TestChainOpts) evm.ChainSet {
-	opts := NewChainSetOpts(t, testopts)
-	cc, err := evm.NewTOMLChainSet(testutils.Context(t), opts)
+func NewChainRelayExtenders(t testing.TB, testopts TestChainOpts) *evmrelay.ChainRelayerExtenders {
+	opts := NewChainRelayExtOpts(t, testopts)
+	cc, err := evmrelay.NewChainRelayerExtenders(testutils.Context(t), opts)
 	require.NoError(t, err)
 	return cc
 }
 
-// NewMockChainSetWithChain returns a mock chainset with one chain
-func NewMockChainSetWithChain(t testing.TB, ch evm.Chain) *evmmocks.ChainSet {
-	cc := evmmocks.NewChainSet(t)
-	cc.On("Default").Return(ch, nil)
-	return cc
-}
-
-func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
+func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayExtenderConfig {
 	require.NotNil(t, testopts.KeyStore)
-	opts := evm.ChainSetOpts{
-		Config:           testopts.GeneralConfig,
-		Logger:           logger.TestLogger(t),
-		DB:               testopts.DB,
-		KeyStore:         testopts.KeyStore,
-		EventBroadcaster: pg.NewNullEventBroadcaster(),
-		MailMon:          testopts.MailMon,
-		GasEstimator:     testopts.GasEstimator,
+	opts := evm.ChainRelayExtenderConfig{
+		Logger:   logger.TestLogger(t),
+		DB:       testopts.DB,
+		KeyStore: testopts.KeyStore,
+		RelayerConfig: evm.RelayerConfig{
+			GeneralConfig:    testopts.GeneralConfig,
+			EventBroadcaster: pg.NewNullEventBroadcaster(),
+			MailMon:          testopts.MailMon,
+			GasEstimator:     testopts.GasEstimator,
+		},
 	}
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
 		if testopts.Client != nil {
@@ -116,7 +111,7 @@ func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
 		}
 	}
 	if testopts.TxManager != nil {
-		opts.GenTxManager = func(*big.Int) txmgr.EvmTxManager {
+		opts.GenTxManager = func(*big.Int) txmgr.TxManager {
 			return testopts.TxManager
 		}
 	}
@@ -132,7 +127,7 @@ func NewChainSetOpts(t testing.TB, testopts TestChainOpts) evm.ChainSetOpts {
 	return opts
 }
 
-func MustGetDefaultChain(t testing.TB, cc evm.ChainSet) evm.Chain {
+func MustGetDefaultChain(t testing.TB, cc evm.LegacyChainContainer) evm.Chain {
 	chain, err := cc.Default()
 	require.NoError(t, err)
 	return chain
@@ -140,16 +135,16 @@ func MustGetDefaultChain(t testing.TB, cc evm.ChainSet) evm.Chain {
 
 type TestConfigs struct {
 	mu sync.RWMutex
-	v2.EVMConfigs
+	evmtoml.EVMConfigs
 }
 
 var _ evmtypes.Configs = &TestConfigs{}
 
-func NewTestConfigs(cs ...*v2.EVMConfig) *TestConfigs {
-	return &TestConfigs{EVMConfigs: v2.EVMConfigs(cs)}
+func NewTestConfigs(cs ...*evmtoml.EVMConfig) *TestConfigs {
+	return &TestConfigs{EVMConfigs: evmtoml.EVMConfigs(cs)}
 }
 
-func (mo *TestConfigs) PutChains(cs ...v2.EVMConfig) {
+func (mo *TestConfigs) PutChains(cs ...evmtoml.EVMConfig) {
 	mo.mu.Lock()
 	defer mo.mu.Unlock()
 chains:
@@ -258,7 +253,7 @@ func (mo *TestConfigs) NodeStatusesPaged(offset int, limit int, chainIDs ...stri
 	return
 }
 
-func legacyNode(n *v2.Node, chainID *utils.Big) (v2 evmtypes.Node) {
+func legacyNode(n *evmtoml.Node, chainID *utils.Big) (v2 evmtypes.Node) {
 	v2.Name = *n.Name
 	v2.EVMChainID = *chainID
 	if n.HTTPURL != nil {
@@ -273,7 +268,7 @@ func legacyNode(n *v2.Node, chainID *utils.Big) (v2 evmtypes.Node) {
 	return
 }
 
-func nodeStatus(n *v2.Node, chainID string) (types.NodeStatus, error) {
+func nodeStatus(n *evmtoml.Node, chainID string) (types.NodeStatus, error) {
 	var s types.NodeStatus
 	s.ChainID = chainID
 	s.Name = *n.Name

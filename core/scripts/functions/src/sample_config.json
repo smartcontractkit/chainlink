@@ -6,6 +6,7 @@
     "MaxRequestBatchSize": 10,
     "DefaultAggregationMethod": 0,
     "UniqueReports": true,
+    "MaxReportTotalCallbackGas": 2000000,
 
     "ThresholdOffchainConfig": {
       "MaxQueryLengthBytes": 10000,
@@ -14,6 +15,16 @@
       "RequestCountLimit": 100,
       "RequestTotalBytesLimit": 100000,
       "RequireLocalRequestCheck": true
+    },
+
+    "S4ReportingPluginConfig": {
+      "MaxQueryLengthBytes": 50000,
+      "MaxObservationLengthBytes": 50000,
+      "MaxReportLengthBytes": 50000,
+      "NSnapshotShards": 1,
+      "MaxObservationEntries": 1000,
+      "MaxReportEntries": 1000,
+      "MaxDeleteExpiredEntries": 1000
     },
 
     "DeltaProgressMillis": 30000,

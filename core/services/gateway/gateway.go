@@ -2,6 +2,7 @@ package gateway
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 
 	"go.uber.org/multierr"
@@ -18,6 +19,15 @@ import (
 type Gateway interface {
 	job.ServiceCtx
 	gw_net.HTTPRequestHandler
+
+	GetUserPort() int
+	GetNodePort() int
+}
+
+type HandlerType = string
+
+type HandlerFactory interface {
+	NewHandler(handlerType HandlerType, handlerConfig json.RawMessage, donConfig *config.DONConfig, don handlers.DON) (handlers.Handler, error)
 }
 
 type gateway struct {
@@ -30,7 +40,7 @@ type gateway struct {
 	lggr       logger.Logger
 }
 
-func NewGatewayFromConfig(config *config.GatewayConfig, lggr logger.Logger) (Gateway, error) {
+func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFactory, lggr logger.Logger) (Gateway, error) {
 	codec := &api.JsonRPCCodec{}
 	httpServer := gw_net.NewHttpServer(&config.UserServerConfig, lggr)
 	connMgr, err := NewConnectionManager(config, utils.NewRealClock(), lggr)
@@ -49,7 +59,7 @@ func NewGatewayFromConfig(config *config.GatewayConfig, lggr logger.Logger) (Gat
 		if donConnMgr == nil {
 			return nil, fmt.Errorf("connection manager ID %s not found", donConfig.DonId)
 		}
-		handler, err := handlers.NewHandler(donConfig.HandlerName, &donConfig, donConnMgr)
+		handler, err := handlerFactory.NewHandler(donConfig.HandlerName, donConfig.HandlerConfig, &donConfig, donConnMgr)
 		if err != nil {
 			return nil, err
 		}
@@ -105,6 +115,9 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte) (rawRes
 	if err != nil {
 		return newError(g.codec, "", api.UserMessageParseError, err.Error())
 	}
+	if err = msg.Validate(); err != nil {
+		return newError(g.codec, msg.Body.MessageId, api.UserMessageParseError, err.Error())
+	}
 	// find correct handler
 	handler, ok := g.handlers[msg.Body.DonId]
 	if !ok {
@@ -142,4 +155,12 @@ func newError(codec api.Codec, id string, errCode api.ErrorCode, errMsg string) 
 		return []byte("fatal error"), api.ToHttpErrorCode(api.FatalError)
 	}
 	return rawResponse, api.ToHttpErrorCode(errCode)
+}
+
+func (g *gateway) GetUserPort() int {
+	return g.httpServer.GetPort()
+}
+
+func (g *gateway) GetNodePort() int {
+	return g.connMgr.GetPort()
 }

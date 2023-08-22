@@ -21,6 +21,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -46,7 +47,7 @@ func newTestChainScopedConfig(t *testing.T) evmconfig.ChainScopedConfig {
 	return evmtest.NewChainScopedConfig(t, cfg)
 }
 
-func newBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) txmgr.EvmTxAttempt {
+func newBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) txmgr.TxAttempt {
 	attempt := cltest.NewLegacyEthTxAttempt(t, etxID)
 	attempt.State = txmgrtypes.TxAttemptBroadcast
 	if len(gasPrice) > 0 {
@@ -56,7 +57,7 @@ func newBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64
 	return attempt
 }
 
-func mustTxBeInState(t *testing.T, txStore txmgr.TestEvmTxStore, tx txmgr.EvmTx, expectedState txmgrtypes.TxState) {
+func mustTxBeInState(t *testing.T, txStore txmgr.TestEvmTxStore, tx txmgr.Tx, expectedState txmgrtypes.TxState) {
 	etx, err := txStore.FindTxWithAttempts(tx.ID)
 	require.NoError(t, err)
 	require.Equal(t, expectedState, etx.State)
@@ -72,7 +73,7 @@ func newTxReceipt(hash gethCommon.Hash, blockNumber int, txIndex uint) evmtypes.
 	}
 }
 
-func newInProgressLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) txmgr.EvmTxAttempt {
+func newInProgressLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) txmgr.TxAttempt {
 	attempt := cltest.NewLegacyEthTxAttempt(t, etxID)
 	attempt.State = txmgrtypes.TxAttemptInProgress
 	if len(gasPrice) > 0 {
@@ -82,7 +83,7 @@ func newInProgressLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int6
 	return attempt
 }
 
-func mustInsertInProgressEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress gethCommon.Address) txmgr.EvmTx {
+func mustInsertInProgressEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress gethCommon.Address) txmgr.Tx {
 	etx := cltest.NewEthTx(t, fromAddress)
 	etx.State = txmgrcommon.TxInProgress
 	n := evmtypes.Nonce(nonce)
@@ -92,7 +93,7 @@ func mustInsertInProgressEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce
 	return etx
 }
 
-func mustInsertConfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress gethCommon.Address) txmgr.EvmTx {
+func mustInsertConfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress gethCommon.Address) txmgr.Tx {
 	etx := cltest.NewEthTx(t, fromAddress)
 	etx.State = txmgrcommon.TxConfirmed
 	n := evmtypes.Nonce(nonce)
@@ -120,9 +121,10 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 	estimator := gasmocks.NewEvmEstimator(t)
 	lggr := logger.TestLogger(t)
-	feeEstimator := gas.NewWrappedEvmEstimator(estimator, config.EvmEIP1559DynamicFees())
-	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), config, ethKeyStore, feeEstimator)
-	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config), config.EVM().Transactions(), config.Database(), ethKeyStore, txBuilder, lggr)
+	ge := config.EVM().GasEstimator()
+	feeEstimator := gas.NewWrappedEvmEstimator(estimator, ge.EIP1559DynamicFees())
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
+	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), config.Database(), ethKeyStore, txBuilder, lggr)
 	ctx := testutils.Context(t)
 
 	// Can't close unstarted instance
@@ -200,7 +202,7 @@ func TestEthConfirmer_CheckForReceipts(t *testing.T) {
 		nonce++
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, nonce, fromAddress)
 		nonce++
-		cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, config.ChainID())
+		cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, config.EVM().ChainID())
 
 		// Do the thing
 		require.NoError(t, ec.CheckForReceipts(ctx, blockNum))
@@ -609,7 +611,7 @@ func TestEthConfirmer_CheckForReceipts_batching(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, 0, fromAddress)
-	var attempts []txmgr.EvmTxAttempt
+	var attempts []txmgr.TxAttempt
 
 	// Total of 5 attempts should lead to 3 batched fetches (2, 2, 1)
 	for i := 0; i < 5; i++ {
@@ -724,7 +726,7 @@ func TestEthConfirmer_CheckForReceipts_only_likely_confirmed(t *testing.T) {
 
 	ctx := testutils.Context(t)
 
-	var attempts []txmgr.EvmTxAttempt
+	var attempts []txmgr.TxAttempt
 	// inserting in DESC nonce order to test DB ASC ordering
 	etx2 := cltest.MustInsertUnconfirmedEthTx(t, txStore, 1, fromAddress)
 	for i := 0; i < 4; i++ {
@@ -1570,14 +1572,14 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	})
 
 	attempt0_1 := newBroadcastLegacyEthTxAttempt(t, etxWithoutAttempts.ID)
-	attempt0_1.State = txmgrtypes.TxAttemptInsufficientEth
+	attempt0_1.State = txmgrtypes.TxAttemptInsufficientFunds
 	require.NoError(t, txStore.InsertTxAttempt(&attempt0_1))
 
 	// This attempt has insufficient_eth, but there is also another attempt4_1
 	// which is old enough, so this will be caught by both queries and should
 	// not be duplicated
 	attempt4_2 := cltest.NewLegacyEthTxAttempt(t, etx4.ID)
-	attempt4_2.State = txmgrtypes.TxAttemptInsufficientEth
+	attempt4_2.State = txmgrtypes.TxAttemptInsufficientFunds
 	attempt4_2.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(40000)}
 	require.NoError(t, txStore.InsertTxAttempt(&attempt4_2))
 
@@ -1634,7 +1636,6 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 			c.EVM[0].GasEstimator.BlockHistory.CheckInclusionBlocks = ptr[uint16](4)
 		})
 		ccfg := evmtest.NewChainScopedConfig(t, cfg)
-		evmcfg := txmgr.NewEvmTxmConfig(ccfg)
 
 		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
@@ -1642,13 +1643,14 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		kst := ksmocks.NewEth(t)
 
 		estimator := gasmocks.NewEvmEstimator(t)
-		estimator.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, uint32(0), pkgerrors.Wrapf(gas.ErrConnectivity, "transaction..."))
-		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg.EvmEIP1559DynamicFees())
-		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg, kst, feeEstimator)
+		estimator.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, uint32(0), pkgerrors.Wrapf(commonfee.ErrConnectivity, "transaction..."))
+		ge := ccfg.EVM().GasEstimator()
+		feeEstimator := gas.NewWrappedEvmEstimator(estimator, ge.EIP1559DynamicFees())
+		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 		// Create confirmer with necessary state
-		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), evmcfg, ccfg.EVM().Transactions(), cfg.Database(), kst, txBuilder, lggr)
+		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), ccfg.EVM(), txmgr.NewEvmTxmFeeConfig(ccfg.EVM().GasEstimator()), ccfg.EVM().Transactions(), cfg.Database(), kst, txBuilder, lggr)
 		require.NoError(t, ec.Start(testutils.Context(t)))
 		currentHead := int64(30)
 		oldEnough := int64(15)
@@ -1678,7 +1680,6 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 			c.EVM[0].GasEstimator.BlockHistory.CheckInclusionBlocks = ptr[uint16](4)
 		})
 		ccfg := evmtest.NewChainScopedConfig(t, cfg)
-		evmcfg := txmgr.NewEvmTxmConfig(ccfg)
 
 		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
@@ -1686,13 +1687,14 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		kst := ksmocks.NewEth(t)
 
 		estimator := gasmocks.NewEvmEstimator(t)
-		estimator.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.DynamicFee{}, uint32(0), pkgerrors.Wrapf(gas.ErrConnectivity, "transaction..."))
+		estimator.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.DynamicFee{}, uint32(0), pkgerrors.Wrapf(commonfee.ErrConnectivity, "transaction..."))
 		// Create confirmer with necessary state
-		feeEstimator := gas.NewWrappedEvmEstimator(estimator, evmcfg.EvmEIP1559DynamicFees())
-		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg, kst, feeEstimator)
+		ge := ccfg.EVM().GasEstimator()
+		feeEstimator := gas.NewWrappedEvmEstimator(estimator, ge.EIP1559DynamicFees())
+		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
-		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), evmcfg, ccfg.EVM().Transactions(), cfg.Database(), kst, txBuilder, lggr)
+		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), ccfg.EVM(), txmgr.NewEvmTxmFeeConfig(ccfg.EVM().GasEstimator()), ccfg.EVM().Transactions(), cfg.Database(), kst, txBuilder, lggr)
 		require.NoError(t, ec.Start(testutils.Context(t)))
 		currentHead := int64(30)
 		oldEnough := int64(15)
@@ -1720,9 +1722,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-	var config *chainlink.Config
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		config = c // DO NOT COPY - major hack
 		c.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(assets.GWei(500))
 	})
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
@@ -1788,7 +1788,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 				return true
 			}),
 			mock.MatchedBy(func(chainID *big.Int) bool {
-				return chainID.Cmp(evmcfg.ChainID()) == 0
+				return chainID.Cmp(evmcfg.EVM().ChainID()) == 0
 			})).Return(&ethTx, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return tx.Nonce() == uint64(*etx.Sequence)
@@ -1818,7 +1818,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 				return true
 			}),
 			mock.MatchedBy(func(chainID *big.Int) bool {
-				return chainID.Cmp(evmcfg.ChainID()) == 0
+				return chainID.Cmp(evmcfg.EVM().ChainID()) == 0
 			})).Return(&ethTx, nil).Once()
 
 		// Once for the bumped attempt which exceeds limit
@@ -1840,7 +1840,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		require.Equal(t, etx.InitialBroadcastAt.Unix(), originalBroadcastAt.Unix())
 	})
 
-	var attempt1_2 txmgr.EvmTxAttempt
+	var attempt1_2 txmgr.TxAttempt
 	ethClient = evmtest.NewEthClientMockWithDefaultChain(t)
 	ec.XXXTestSetClient(txmgr.NewEvmTxmClient(ethClient))
 
@@ -1859,7 +1859,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 				return true
 			}),
 			mock.MatchedBy(func(chainID *big.Int) bool {
-				return chainID.Cmp(evmcfg.ChainID()) == 0
+				return chainID.Cmp(evmcfg.EVM().ChainID()) == 0
 			})).Return(&ethTx, nil).Once()
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return expectedBumpedGasPrice.Cmp(tx.GasPrice()) == 0
@@ -1890,7 +1890,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		require.Len(t, etx.TxAttempts, 2)
 	})
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_2.ID))
-	var attempt1_3 txmgr.EvmTxAttempt
+	var attempt1_3 txmgr.TxAttempt
 
 	t.Run("creates new attempt with higher gas price if transaction is already in mempool (e.g. due to previous crash before we could save the new attempt)", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(25000000000)
@@ -1928,7 +1928,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_3.ID))
-	var attempt1_4 txmgr.EvmTxAttempt
+	var attempt1_4 txmgr.TxAttempt
 
 	t.Run("saves new attempt even for transaction that has already been confirmed (nonce already used)", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(30000000000)
@@ -1981,7 +1981,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	nonce++
 	attempt2_1 := etx2.TxAttempts[0]
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt2_1.ID))
-	var attempt2_2 txmgr.EvmTxAttempt
+	var attempt2_2 txmgr.TxAttempt
 
 	t.Run("saves in_progress attempt on temporary error and returns error", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(20000000000)
@@ -2089,7 +2089,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	attempt3_1 := etx3.TxAttempts[0]
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1, gas_price=$2 WHERE id=$3 RETURNING *`, oldEnough, assets.NewWeiI(35000000000), attempt3_1.ID))
 
-	var attempt3_2 txmgr.EvmTxAttempt
+	var attempt3_2 txmgr.TxAttempt
 
 	t.Run("saves attempt anyway if replacement transaction is underpriced because the bumped gas price is insufficiently higher than the previous one", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(42000000000)
@@ -2126,7 +2126,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_2.ID))
-	var attempt3_3 txmgr.EvmTxAttempt
+	var attempt3_3 txmgr.TxAttempt
 
 	t.Run("handles case where transaction is already known somehow", func(t *testing.T) {
 		expectedBumpedGasPrice := big.NewInt(50400000000)
@@ -2161,7 +2161,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	})
 
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_3.ID))
-	var attempt3_4 txmgr.EvmTxAttempt
+	var attempt3_4 txmgr.TxAttempt
 
 	t.Run("pretends it was accepted and continues the cycle if rejected for being temporarily underpriced", func(t *testing.T) {
 		// This happens if parity is rejecting transactions that are not priced high enough to even get into the mempool at all
@@ -2205,14 +2205,19 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		// Set price such that the next bump will exceed EVM.GasEstimator.PriceMax
 		// Existing gas price is: 60480000000
 		gasPrice := attempt3_4.TxFee.Legacy.ToInt()
-		config.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(assets.NewWeiI(60500000000))
+		gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].GasEstimator.PriceMax = assets.NewWeiI(60500000000)
+		})
+		newCfg := evmtest.NewChainScopedConfig(t, gcfg)
+		ec2, err := cltest.NewEthConfirmer(t, txStore, ethClient, newCfg, ethKeyStore, nil)
+		require.NoError(t, err)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == *etx3.Sequence && gasPrice.Cmp(tx.GasPrice()) == 0
 		}), fromAddress).Return(clienttypes.Successful, errors.New("already known")).Once() // we already submitted at this price, now its time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
 
 		// Do the thing
-		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
+		require.NoError(t, ec2.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
 
 		etx3, err = txStore.FindTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
@@ -2231,14 +2236,19 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		// Set price such that the current price is already at EVM.GasEstimator.PriceMax
 		// Existing gas price is: 60480000000
 		gasPrice := attempt3_4.TxFee.Legacy.ToInt()
-		config.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(assets.NewWeiI(60480000000))
+		gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].GasEstimator.PriceMax = assets.NewWeiI(60480000000)
+		})
+		newCfg := evmtest.NewChainScopedConfig(t, gcfg)
+		ec2, err := cltest.NewEthConfirmer(t, txStore, ethClient, newCfg, ethKeyStore, nil)
+		require.NoError(t, err)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == *etx3.Sequence && gasPrice.Cmp(tx.GasPrice()) == 0
 		}), fromAddress).Return(clienttypes.Successful, errors.New("already known")).Once() // we already submitted at this price, now its time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
 
 		// Do the thing
-		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
+		require.NoError(t, ec2.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
 
 		etx3, err = txStore.FindTxWithAttempts(etx3.ID)
 		require.NoError(t, err)
@@ -2256,10 +2266,9 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 	attempt4_1 := etx4.TxAttempts[0]
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1, gas_tip_cap=$2, gas_fee_cap=$3 WHERE id=$4 RETURNING *`,
 		oldEnough, assets.GWei(35), assets.GWei(100), attempt4_1.ID))
-	var attempt4_2 txmgr.EvmTxAttempt
+	var attempt4_2 txmgr.TxAttempt
 
 	t.Run("EIP-1559: bumps using EIP-1559 rules when existing attempts are of type 0x2", func(t *testing.T) {
-		config.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(assets.GWei(1000))
 		ethTx := *types.NewTx(&types.DynamicFeeTx{})
 		kst.On("SignTx",
 			fromAddress,
@@ -2296,14 +2305,19 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		oldEnough, assets.GWei(999), assets.GWei(1000), attempt4_2.ID))
 
 	t.Run("EIP-1559: resubmits at the old price and does not create a new attempt if one of the bumped EIP-1559 transactions would have its tip cap exceed EVM.GasEstimator.PriceMax", func(t *testing.T) {
-		config.EVM[0].GasEstimator.PriceMax = (*assets.Wei)(assets.GWei(1000))
+		gcfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].GasEstimator.PriceMax = assets.GWei(1000)
+		})
+		newCfg := evmtest.NewChainScopedConfig(t, gcfg)
+		ec2, err := cltest.NewEthConfirmer(t, txStore, ethClient, newCfg, ethKeyStore, nil)
+		require.NoError(t, err)
 
 		// Third attempt failed to bump, resubmits old one instead
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == *etx4.Sequence && attempt4_2.Hash.String() == tx.Hash().String()
 		}), fromAddress).Return(clienttypes.Successful, nil).Once()
 
-		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
+		require.NoError(t, ec2.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
 
 		etx4, err = txStore.FindTxWithAttempts(etx4.ID)
 		require.NoError(t, err)
@@ -2501,7 +2515,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	attempt1_1 := etx.TxAttempts[0]
 	dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt1_1)
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE eth_tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
-	var attempt1_2 txmgr.EvmTxAttempt
+	var attempt1_2 txmgr.TxAttempt
 
 	insufficientEthError := errors.New("insufficient funds for gas * price + value")
 
@@ -2528,7 +2542,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		// Got the new attempt
 		attempt1_2 = etx.TxAttempts[0]
 		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt1_2.TxFee.Legacy.ToInt().Int64())
-		assert.Equal(t, txmgrtypes.TxAttemptInsufficientEth, attempt1_2.State)
+		assert.Equal(t, txmgrtypes.TxAttemptInsufficientFunds, attempt1_2.State)
 		assert.Nil(t, attempt1_2.BroadcastBeforeBlockNum)
 	})
 
@@ -2555,7 +2569,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 		// The attempt is still "out of eth"
 		attempt1_2 = etx.TxAttempts[0]
 		assert.Equal(t, expectedBumpedGasPrice.Int64(), attempt1_2.TxFee.Legacy.ToInt().Int64())
-		assert.Equal(t, txmgrtypes.TxAttemptInsufficientEth, attempt1_2.State)
+		assert.Equal(t, txmgrtypes.TxAttemptInsufficientFunds, attempt1_2.State)
 	})
 
 	t.Run("saves the attempt as broadcast after node wallet has been topped up with sufficient balance", func(t *testing.T) {
@@ -2800,7 +2814,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	config := newTestChainScopedConfig(t)
-	cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, config.ChainID())
+	cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, config.EVM().ChainID())
 	mustInsertInProgressEthTx(t, txStore, 0, fromAddress)
 	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress)
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
@@ -2888,7 +2902,7 @@ func TestEthConfirmer_ForceRebroadcast(t *testing.T) {
 		require.NoError(t, err)
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
-			return tx.Nonce() == uint64(0) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && uint32(tx.Gas()) == config.EvmGasLimitDefault()
+			return tx.Nonce() == uint64(0) && tx.GasPrice().Int64() == gasPriceWei.Legacy.Int64() && uint32(tx.Gas()) == config.EVM().GasEstimator().LimitDefault()
 		}), mock.Anything).Return(clienttypes.Successful, nil).Once()
 
 		require.NoError(t, ec.ForceRebroadcast([]evmtypes.Nonce{(0)}, gasPriceWei, fromAddress, 0))

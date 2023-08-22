@@ -6,6 +6,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
+// HeadTracker holds and stores the block experienced by a particular node in a thread safe manner.
+// Reconstitutes the last block number on reboot.
+//
 //go:generate mockery --quiet --name HeadTracker --output ../mocks/ --case=underscore
 type HeadTracker[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 	services.ServiceCtx
@@ -21,6 +24,10 @@ type HeadTracker[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 //
 //go:generate mockery --quiet --name HeadTrackable --output ./mocks/ --case=underscore
 type HeadTrackable[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
+	// OnNewLongestChain sends a new head when it becomes available. Subscribers can recursively trace the parent
+	// of the head to the finality depth back. If this is not possible (e.g. due to recent boot, backfill not complete
+	// etc), users may get a shorter linked list. If there is a re-org, older blocks won't be sent to this function again.
+	// But the new blocks from the re-org will be available in later blocks' parent linked list.
 	OnNewLongestChain(ctx context.Context, head H)
 }
 
@@ -57,12 +64,16 @@ type HeadListener[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 // NewHeadHandler is a callback that handles incoming heads
 type NewHeadHandler[H Head[BLOCK_HASH], BLOCK_HASH Hashable] func(ctx context.Context, header H) error
 
+// HeadBroadcaster relays new Heads to all subscribers.
+//
+//go:generate mockery --quiet --name HeadBroadcaster --output ../mocks/ --case=underscore
 type HeadBroadcaster[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 	services.ServiceCtx
 	BroadcastNewLongestChain(H)
 	HeadBroadcasterRegistry[H, BLOCK_HASH]
 }
 
+//go:generate mockery --quiet --name HeadBroadcaster --output ../mocks/ --case=underscore
 type HeadBroadcasterRegistry[H Head[BLOCK_HASH], BLOCK_HASH Hashable] interface {
 	Subscribe(callback HeadTrackable[H, BLOCK_HASH]) (currentLongestChain H, unsubscribe func())
 }

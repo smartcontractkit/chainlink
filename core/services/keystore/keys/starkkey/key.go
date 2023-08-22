@@ -2,12 +2,12 @@ package starkkey
 
 import (
 	crypto_rand "crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"io"
 	"math/big"
 
 	"github.com/smartcontractkit/caigo"
+	caigotypes "github.com/smartcontractkit/caigo/types"
 )
 
 // Raw represents the Stark private key
@@ -75,7 +75,7 @@ func (key Key) ID() string {
 // it is the X component of the ECDSA pubkey and used in the deployment of the account contract
 // this func is used in exporting it via CLI and API
 func (key Key) StarkKeyStr() string {
-	return "0x" + hex.EncodeToString(PubKeyToStarkKey(key.pub))
+	return caigotypes.BigToFelt(key.pub.X).String()
 }
 
 // Raw from private key

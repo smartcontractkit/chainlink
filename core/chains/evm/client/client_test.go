@@ -35,10 +35,10 @@ func mustNewClient(t *testing.T, wsURL string, sendonlys ...url.URL) evmclient.C
 }
 
 func mustNewClientWithChainID(t *testing.T, wsURL string, chainID *big.Int, sendonlys ...url.URL) evmclient.Client {
-	cfg := evmclient.TestNodeConfig{
-		SelectionMode: evmclient.NodeSelectionMode_RoundRobin,
+	cfg := evmclient.TestNodePoolConfig{
+		NodeSelectionMode: evmclient.NodeSelectionMode_RoundRobin,
 	}
-	c, err := evmclient.NewClientWithTestNode(t, cfg, wsURL, nil, sendonlys, 42, chainID)
+	c, err := evmclient.NewClientWithTestNode(t, cfg, time.Second*0, wsURL, nil, sendonlys, 42, chainID)
 	require.NoError(t, err)
 	return c
 }
@@ -200,6 +200,35 @@ func TestEthClient_BalanceAt(t *testing.T) {
 	}
 }
 
+func TestEthClient_LatestBlockHeight(t *testing.T) {
+	t.Parallel()
+
+	wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		switch method {
+		case "eth_subscribe":
+			resp.Result = `"0x00"`
+			resp.Notify = headResult
+			return
+		case "eth_unsubscribe":
+			resp.Result = "true"
+			return
+		}
+		if !assert.Equal(t, "eth_blockNumber", method) {
+			return
+		}
+		resp.Result = `"0x100"`
+		return
+	})
+
+	ethClient := mustNewClient(t, wsURL)
+	err := ethClient.Dial(testutils.Context(t))
+	require.NoError(t, err)
+
+	result, err := ethClient.LatestBlockHeight(testutils.Context(t))
+	require.NoError(t, err)
+	require.Equal(t, big.NewInt(256), result)
+}
+
 func TestEthClient_GetERC20Balance(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
@@ -219,7 +248,7 @@ func TestEthClient_GetERC20Balance(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			contractAddress := testutils.NewAddress()
 			userAddress := testutils.NewAddress()
-			functionSelector := evmtypes.HexToFunctionSelector("0x70a08231") // balanceOf(address)
+			functionSelector := evmtypes.HexToFunctionSelector(evmclient.BALANCE_OF_ADDRESS_FUNCTION_SELECTOR) // balanceOf(address)
 			txData := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(userAddress.Bytes(), utils.EVMWordByteLen))
 
 			wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {

@@ -2,12 +2,13 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
+
+//go:generate mockery --quiet --name Handler --output ./mocks/ --case=underscore
+//go:generate mockery --quiet --name DON --output ./mocks/ --case=underscore
 
 // UserCallbackPayload is a response to user request sent to HandleUserMessage().
 // Each message needs to receive at most one response on the provided channel.
@@ -25,8 +26,6 @@ type UserCallbackPayload struct {
 //   - a series of HandleUserMessage/HandleNodeMessage calls, executed in parallel
 //     (Handler needs to guarantee thread safety)
 //   - Close() call
-//go:generate mockery --quiet --name Handler --output ./mocks/ --case=underscore
-
 type Handler interface {
 	job.ServiceCtx
 
@@ -43,19 +42,4 @@ type Handler interface {
 type DON interface {
 	// Thread-safe
 	SendToNode(ctx context.Context, nodeAddress string, msg *api.Message) error
-}
-
-type HandlerType = string
-
-const (
-	Dummy HandlerType = "dummy"
-)
-
-func NewHandler(handlerType HandlerType, donConfig *config.DONConfig, don DON) (Handler, error) {
-	switch handlerType {
-	case Dummy:
-		return NewDummyHandler(donConfig, don)
-	default:
-		return nil, fmt.Errorf("unsupported handler type %s", handlerType)
-	}
 }

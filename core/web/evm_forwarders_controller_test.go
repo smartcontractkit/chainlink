@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -69,7 +69,7 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 
 	assert.Equal(t, resource.Address, address)
 
-	require.Len(t, controller.app.Chains.EVM.Chains(), 1)
+	require.Len(t, controller.app.GetRelayers().LegacyEVMChains().Slice(), 1)
 
 	resp, cleanup = controller.client.Delete("/v2/nodes/evm/forwarders/" + resource.ID)
 	t.Cleanup(cleanup)

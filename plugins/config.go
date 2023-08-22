@@ -67,6 +67,7 @@ func GetEnvConfig() (EnvConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CL_PROMETHEUS_PORT = %q: %w", promPortStr, err)
 	}
+
 	return NewEnvConfig(promPort), nil
 }
 

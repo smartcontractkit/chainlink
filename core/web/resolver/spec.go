@@ -614,8 +614,12 @@ func (r *OCR2SpecResolver) TransmitterID() *string {
 }
 
 // FeedID resolves the spec's feed ID
-func (r *OCR2SpecResolver) FeedID() string {
-	return r.spec.FeedID.String()
+func (r *OCR2SpecResolver) FeedID() *string {
+	if r.spec.FeedID == nil {
+		return nil
+	}
+	feedID := r.spec.FeedID.String()
+	return &feedID
 }
 
 type VRFSpecResolver struct {
@@ -771,6 +775,15 @@ func (b *BlockhashStoreSpecResolver) CoordinatorV2Address() *string {
 	return &addr
 }
 
+// CoordinatorV2PlusAddress returns the address of the V2Plus Coordinator, if any.
+func (b *BlockhashStoreSpecResolver) CoordinatorV2PlusAddress() *string {
+	if b.spec.CoordinatorV2PlusAddress == nil {
+		return nil
+	}
+	addr := b.spec.CoordinatorV2PlusAddress.String()
+	return &addr
+}
+
 // WaitBlocks returns the job's WaitBlocks param.
 func (b *BlockhashStoreSpecResolver) WaitBlocks() int32 {
 	return b.spec.WaitBlocks
@@ -784,6 +797,20 @@ func (b *BlockhashStoreSpecResolver) LookbackBlocks() int32 {
 // BlockhashStoreAddress returns the job's BlockhashStoreAddress param.
 func (b *BlockhashStoreSpecResolver) BlockhashStoreAddress() string {
 	return b.spec.BlockhashStoreAddress.String()
+}
+
+// TrustedBlockhashStoreAddress returns the address of the job's TrustedBlockhashStoreAddress, if any.
+func (b *BlockhashStoreSpecResolver) TrustedBlockhashStoreAddress() *string {
+	if b.spec.TrustedBlockhashStoreAddress == nil {
+		return nil
+	}
+	addr := b.spec.TrustedBlockhashStoreAddress.String()
+	return &addr
+}
+
+// BatchBlockhashStoreAddress returns the job's BatchBlockhashStoreAddress param.
+func (b *BlockhashStoreSpecResolver) TrustedBlockhashStoreBatchSize() int32 {
+	return b.spec.TrustedBlockhashStoreBatchSize
 }
 
 // PollPeriod return's the job's PollPeriod param.
@@ -839,6 +866,15 @@ func (b *BlockHeaderFeederSpecResolver) CoordinatorV2Address() *string {
 		return nil
 	}
 	addr := b.spec.CoordinatorV2Address.String()
+	return &addr
+}
+
+// CoordinatorV2PlusAddress returns the address of the V2 Coordinator Plus, if any.
+func (b *BlockHeaderFeederSpecResolver) CoordinatorV2PlusAddress() *string {
+	if b.spec.CoordinatorV2PlusAddress == nil {
+		return nil
+	}
+	addr := b.spec.CoordinatorV2PlusAddress.String()
 	return &addr
 }
 

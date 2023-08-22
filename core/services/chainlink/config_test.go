@@ -23,17 +23,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
-	config "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 var (
@@ -43,9 +44,9 @@ var (
 	multiChainTOML string
 
 	multiChain = Config{
-		Core: config.Core{
+		Core: toml.Core{
 			RootDir: ptr("my/root/dir"),
-			AuditLogger: config.AuditLogger{
+			AuditLogger: toml.AuditLogger{
 				Enabled:      ptr(true),
 				ForwardToUrl: mustURL("http://localhost:9898"),
 				Headers: ptr([]models.ServiceHeader{
@@ -60,35 +61,35 @@ var (
 				}),
 				JsonWrapperKey: ptr("event"),
 			},
-			Database: config.Database{
-				Listener: config.DatabaseListener{
+			Database: toml.Database{
+				Listener: toml.DatabaseListener{
 					FallbackPollInterval: models.MustNewDuration(2 * time.Minute),
 				},
 			},
-			Log: config.Log{
-				Level:       ptr(config.LogLevel(zapcore.PanicLevel)),
+			Log: toml.Log{
+				Level:       ptr(toml.LogLevel(zapcore.PanicLevel)),
 				JSONConsole: ptr(true),
 			},
-			JobPipeline: config.JobPipeline{
-				HTTPRequest: config.JobPipelineHTTPRequest{
+			JobPipeline: toml.JobPipeline{
+				HTTPRequest: toml.JobPipelineHTTPRequest{
 					DefaultTimeout: models.MustNewDuration(30 * time.Second),
 				},
 			},
-			OCR2: config.OCR2{
+			OCR2: toml.OCR2{
 				Enabled:         ptr(true),
 				DatabaseTimeout: models.MustNewDuration(20 * time.Second),
 			},
-			OCR: config.OCR{
+			OCR: toml.OCR{
 				Enabled:           ptr(true),
 				BlockchainTimeout: models.MustNewDuration(5 * time.Second),
 			},
-			P2P: config.P2P{
+			P2P: toml.P2P{
 				IncomingMessageBufferSize: ptr[int64](999),
 			},
-			Keeper: config.Keeper{
+			Keeper: toml.Keeper{
 				GasPriceBufferPercent: ptr[uint16](10),
 			},
-			AutoPprof: config.AutoPprof{
+			AutoPprof: toml.AutoPprof{
 				CPUProfileRate: ptr[int64](7),
 			},
 		},
@@ -96,7 +97,8 @@ var (
 			{
 				ChainID: utils.NewBigI(1),
 				Chain: evmcfg.Chain{
-					FinalityDepth: ptr[uint32](26),
+					FinalityDepth:      ptr[uint32](26),
+					FinalityTagEnabled: ptr[bool](false),
 				},
 				Nodes: []*evmcfg.Node{
 					{
@@ -210,12 +212,12 @@ func TestConfig_Marshal(t *testing.T) {
 	selectionMode := client.NodeSelectionMode_HighestHead
 
 	global := Config{
-		Core: config.Core{
+		Core: toml.Core{
 			ExplorerURL:         mustURL("http://explorer.url"),
 			InsecureFastScrypt:  ptr(true),
 			RootDir:             ptr("test/root/dir"),
 			ShutdownGracePeriod: models.MustNewDuration(10 * time.Second),
-			Insecure: config.Insecure{
+			Insecure: toml.Insecure{
 				DevWebServer:         ptr(false),
 				OCRDevelopmentMode:   ptr(false),
 				InfiniteDepthQueries: ptr(false),
@@ -230,19 +232,19 @@ func TestConfig_Marshal(t *testing.T) {
 		{Header: "Authorization", Value: "token"},
 		{Header: "X-SomeOther-Header", Value: "value with spaces | and a bar+*"},
 	}
-	full.AuditLogger = config.AuditLogger{
+	full.AuditLogger = toml.AuditLogger{
 		Enabled:        ptr(true),
 		ForwardToUrl:   mustURL("http://localhost:9898"),
 		Headers:        ptr(serviceHeaders),
 		JsonWrapperKey: ptr("event"),
 	}
 
-	full.Feature = config.Feature{
+	full.Feature = toml.Feature{
 		FeedsManager: ptr(true),
 		LogPoller:    ptr(true),
 		UICSAKeys:    ptr(true),
 	}
-	full.Database = config.Database{
+	full.Database = toml.Database{
 		DefaultIdleInTxSessionTimeout: models.MustNewDuration(time.Minute),
 		DefaultLockTimeout:            models.MustNewDuration(time.Hour),
 		DefaultQueryTimeout:           models.MustNewDuration(time.Second),
@@ -250,24 +252,24 @@ func TestConfig_Marshal(t *testing.T) {
 		MigrateOnStartup:              ptr(true),
 		MaxIdleConns:                  ptr[int64](7),
 		MaxOpenConns:                  ptr[int64](13),
-		Listener: config.DatabaseListener{
+		Listener: toml.DatabaseListener{
 			MaxReconnectDuration: models.MustNewDuration(time.Minute),
 			MinReconnectInterval: models.MustNewDuration(5 * time.Minute),
 			FallbackPollInterval: models.MustNewDuration(2 * time.Minute),
 		},
-		Lock: config.DatabaseLock{
+		Lock: toml.DatabaseLock{
 			Enabled:              ptr(false),
 			LeaseDuration:        &minute,
 			LeaseRefreshInterval: &second,
 		},
-		Backup: config.DatabaseBackup{
+		Backup: toml.DatabaseBackup{
 			Dir:              ptr("test/backup/dir"),
 			Frequency:        &hour,
 			Mode:             &legacy.DatabaseBackupModeFull,
 			OnVersionUpgrade: ptr(true),
 		},
 	}
-	full.TelemetryIngress = config.TelemetryIngress{
+	full.TelemetryIngress = toml.TelemetryIngress{
 		UniConn:      ptr(true),
 		Logging:      ptr(true),
 		ServerPubKey: ptr("test-pub-key"),
@@ -278,18 +280,18 @@ func TestConfig_Marshal(t *testing.T) {
 		SendTimeout:  models.MustNewDuration(5 * time.Second),
 		UseBatchSend: ptr(true),
 	}
-	full.Log = config.Log{
-		Level:       ptr(config.LogLevel(zapcore.DPanicLevel)),
+	full.Log = toml.Log{
+		Level:       ptr(toml.LogLevel(zapcore.DPanicLevel)),
 		JSONConsole: ptr(true),
 		UnixTS:      ptr(true),
-		File: config.LogFile{
+		File: toml.LogFile{
 			Dir:        ptr("log/file/dir"),
 			MaxSize:    ptr[utils.FileSize](100 * utils.GB),
 			MaxAgeDays: ptr[int64](17),
 			MaxBackups: ptr[int64](9),
 		},
 	}
-	full.WebServer = config.WebServer{
+	full.WebServer = toml.WebServer{
 		AllowOrigins:            ptr("*"),
 		BridgeResponseURL:       mustURL("https://bridge.response"),
 		BridgeCacheTTL:          models.MustNewDuration(10 * time.Second),
@@ -300,41 +302,43 @@ func TestConfig_Marshal(t *testing.T) {
 		SessionReaperExpiration: models.MustNewDuration(7 * 24 * time.Hour),
 		HTTPMaxSize:             ptr(utils.FileSize(uint64(32770))),
 		StartTimeout:            models.MustNewDuration(15 * time.Second),
-		MFA: config.WebServerMFA{
+		ListenIP:                mustIP("192.158.1.37"),
+		MFA: toml.WebServerMFA{
 			RPID:     ptr("test-rpid"),
 			RPOrigin: ptr("test-rp-origin"),
 		},
-		RateLimit: config.WebServerRateLimit{
+		RateLimit: toml.WebServerRateLimit{
 			Authenticated:         ptr[int64](42),
 			AuthenticatedPeriod:   models.MustNewDuration(time.Second),
 			Unauthenticated:       ptr[int64](7),
 			UnauthenticatedPeriod: models.MustNewDuration(time.Minute),
 		},
-		TLS: config.WebServerTLS{
+		TLS: toml.WebServerTLS{
 			CertPath:      ptr("tls/cert/path"),
 			Host:          ptr("tls-host"),
 			KeyPath:       ptr("tls/key/path"),
 			HTTPSPort:     ptr[uint16](6789),
 			ForceRedirect: ptr(true),
+			ListenIP:      mustIP("192.158.1.38"),
 		},
 	}
-	full.JobPipeline = config.JobPipeline{
+	full.JobPipeline = toml.JobPipeline{
 		ExternalInitiatorsEnabled: ptr(true),
 		MaxRunDuration:            models.MustNewDuration(time.Hour),
 		MaxSuccessfulRuns:         ptr[uint64](123456),
 		ReaperInterval:            models.MustNewDuration(4 * time.Hour),
 		ReaperThreshold:           models.MustNewDuration(7 * 24 * time.Hour),
 		ResultWriteQueueDepth:     ptr[uint32](10),
-		HTTPRequest: config.JobPipelineHTTPRequest{
+		HTTPRequest: toml.JobPipelineHTTPRequest{
 			MaxSize:        ptr[utils.FileSize](100 * utils.MB),
 			DefaultTimeout: models.MustNewDuration(time.Minute),
 		},
 	}
-	full.FluxMonitor = config.FluxMonitor{
+	full.FluxMonitor = toml.FluxMonitor{
 		DefaultTransactionQueueDepth: ptr[uint32](100),
 		SimulateTransactions:         ptr(true),
 	}
-	full.OCR2 = config.OCR2{
+	full.OCR2 = toml.OCR2{
 		Enabled:                            ptr(true),
 		ContractConfirmations:              ptr[uint32](11),
 		BlockchainTimeout:                  models.MustNewDuration(3 * time.Second),
@@ -344,11 +348,12 @@ func TestConfig_Marshal(t *testing.T) {
 		DatabaseTimeout:                    models.MustNewDuration(8 * time.Second),
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 ptr(false),
+		CaptureAutomationCustomTelemetry:   ptr(false),
 		DefaultTransactionQueueDepth:       ptr[uint32](1),
 		SimulateTransactions:               ptr(false),
 		TraceLogging:                       ptr(false),
 	}
-	full.OCR = config.OCR{
+	full.OCR = toml.OCR{
 		Enabled:                      ptr(true),
 		ObservationTimeout:           models.MustNewDuration(11 * time.Second),
 		BlockchainTimeout:            models.MustNewDuration(3 * time.Second),
@@ -361,12 +366,12 @@ func TestConfig_Marshal(t *testing.T) {
 		CaptureEATelemetry:           ptr(false),
 		TraceLogging:                 ptr(false),
 	}
-	full.P2P = config.P2P{
+	full.P2P = toml.P2P{
 		IncomingMessageBufferSize: ptr[int64](13),
 		OutgoingMessageBufferSize: ptr[int64](17),
 		PeerID:                    mustPeerID("12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw"),
 		TraceLogging:              ptr(true),
-		V1: config.P2PV1{
+		V1: toml.P2PV1{
 			Enabled:                          ptr(false),
 			AnnounceIP:                       mustIP("1.2.3.4"),
 			AnnouncePort:                     ptr[uint16](1234),
@@ -379,7 +384,7 @@ func TestConfig_Marshal(t *testing.T) {
 			NewStreamTimeout:                 models.MustNewDuration(time.Second),
 			PeerstoreWriteInterval:           models.MustNewDuration(time.Minute),
 		},
-		V2: config.P2PV2{
+		V2: toml.P2PV2{
 			Enabled:           ptr(true),
 			AnnounceAddresses: &[]string{"a", "b", "c"},
 			DefaultBootstrappers: &[]ocrcommontypes.BootstrapperLocator{
@@ -391,14 +396,14 @@ func TestConfig_Marshal(t *testing.T) {
 			ListenAddresses: &[]string{"foo", "bar"},
 		},
 	}
-	full.Keeper = config.Keeper{
+	full.Keeper = toml.Keeper{
 		DefaultTransactionQueueDepth: ptr[uint32](17),
 		GasPriceBufferPercent:        ptr[uint16](12),
 		GasTipCapBufferPercent:       ptr[uint16](43),
 		BaseFeeBufferPercent:         ptr[uint16](89),
 		MaxGracePeriod:               ptr[int64](31),
 		TurnLookBack:                 ptr[int64](91),
-		Registry: config.KeeperRegistry{
+		Registry: toml.KeeperRegistry{
 			CheckGasOverhead:    ptr[uint32](90),
 			PerformGasOverhead:  ptr[uint32](math.MaxUint32),
 			SyncInterval:        models.MustNewDuration(time.Hour),
@@ -406,7 +411,7 @@ func TestConfig_Marshal(t *testing.T) {
 			MaxPerformDataSize:  ptr[uint32](5000),
 		},
 	}
-	full.AutoPprof = config.AutoPprof{
+	full.AutoPprof = toml.AutoPprof{
 		Enabled:              ptr(true),
 		ProfileRoot:          ptr("prof/root"),
 		PollInterval:         models.MustNewDuration(time.Minute),
@@ -420,11 +425,11 @@ func TestConfig_Marshal(t *testing.T) {
 		MemThreshold:         ptr[utils.FileSize](utils.GB),
 		GoroutineThreshold:   ptr[int64](999),
 	}
-	full.Pyroscope = config.Pyroscope{
+	full.Pyroscope = toml.Pyroscope{
 		ServerAddress: ptr("http://localhost:4040"),
 		Environment:   ptr("tests"),
 	}
-	full.Sentry = config.Sentry{
+	full.Sentry = toml.Sentry{
 		Debug:       ptr(true),
 		DSN:         ptr("sentry-dsn"),
 		Environment: ptr("dev"),
@@ -443,6 +448,7 @@ func TestConfig_Marshal(t *testing.T) {
 				BlockBackfillSkip:    ptr(true),
 				ChainType:            ptr("Optimism"),
 				FinalityDepth:        ptr[uint32](42),
+				FinalityTagEnabled:   ptr[bool](false),
 				FlagsContractAddress: mustAddress("0xae4E781a6218A8031764928E88d457937A954fC3"),
 
 				GasEstimator: evmcfg.GasEstimator{
@@ -603,16 +609,16 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: ptr("Malaga-420"),
 			Enabled: ptr(true),
 			Chain: coscfg.Chain{
-				BlockRate:             relayutils.MustNewDuration(time.Minute),
-				BlocksUntilTxTimeout:  ptr[int64](12),
-				ConfirmPollPeriod:     relayutils.MustNewDuration(time.Second),
-				FallbackGasPriceUAtom: mustDecimal("0.001"),
-				FCDURL:                relayutils.MustParseURL("http://cosmos.com"),
-				GasLimitMultiplier:    mustDecimal("1.2"),
-				MaxMsgsPerBatch:       ptr[int64](17),
-				OCR2CachePollPeriod:   relayutils.MustNewDuration(time.Minute),
-				OCR2CacheTTL:          relayutils.MustNewDuration(time.Hour),
-				TxMsgTimeout:          relayutils.MustNewDuration(time.Second),
+				BlockRate:            relayutils.MustNewDuration(time.Minute),
+				BlocksUntilTxTimeout: ptr[int64](12),
+				ConfirmPollPeriod:    relayutils.MustNewDuration(time.Second),
+				FallbackGasPrice:     mustDecimal("0.001"),
+				FCDURL:               relayutils.MustParseURL("http://cosmos.com"),
+				GasLimitMultiplier:   mustDecimal("1.2"),
+				MaxMsgsPerBatch:      ptr[int64](17),
+				OCR2CachePollPeriod:  relayutils.MustNewDuration(time.Minute),
+				OCR2CacheTTL:         relayutils.MustNewDuration(time.Hour),
+				TxMsgTimeout:         relayutils.MustNewDuration(time.Second),
 			},
 			Nodes: []*coscfg.Node{
 				{Name: ptr("primary"), TendermintURL: relayutils.MustParseURL("http://tender.mint")},
@@ -639,18 +645,18 @@ OCRDevelopmentMode = false
 InfiniteDepthQueries = false
 DisableRateLimiting = false
 `},
-		{"AuditLogger", Config{Core: config.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
+		{"AuditLogger", Config{Core: toml.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
 Enabled = true
 ForwardToUrl = 'http://localhost:9898'
 JsonWrapperKey = 'event'
 Headers = ['Authorization: token', 'X-SomeOther-Header: value with spaces | and a bar+*']
 `},
-		{"Feature", Config{Core: config.Core{Feature: full.Feature}}, `[Feature]
+		{"Feature", Config{Core: toml.Core{Feature: full.Feature}}, `[Feature]
 FeedsManager = true
 LogPoller = true
 UICSAKeys = true
 `},
-		{"Database", Config{Core: config.Core{Database: full.Database}}, `[Database]
+		{"Database", Config{Core: toml.Core{Database: full.Database}}, `[Database]
 DefaultIdleInTxSessionTimeout = '1m0s'
 DefaultLockTimeout = '1h0m0s'
 DefaultQueryTimeout = '1s'
@@ -675,7 +681,7 @@ Enabled = false
 LeaseDuration = '1m0s'
 LeaseRefreshInterval = '1s'
 `},
-		{"TelemetryIngress", Config{Core: config.Core{TelemetryIngress: full.TelemetryIngress}}, `[TelemetryIngress]
+		{"TelemetryIngress", Config{Core: toml.Core{TelemetryIngress: full.TelemetryIngress}}, `[TelemetryIngress]
 UniConn = true
 Logging = true
 ServerPubKey = 'test-pub-key'
@@ -686,7 +692,7 @@ SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
 `},
-		{"Log", Config{Core: config.Core{Log: full.Log}}, `[Log]
+		{"Log", Config{Core: toml.Core{Log: full.Log}}, `[Log]
 Level = 'crit'
 JSONConsole = true
 UnixTS = true
@@ -697,7 +703,7 @@ MaxSize = '100.00gb'
 MaxAgeDays = 17
 MaxBackups = 9
 `},
-		{"WebServer", Config{Core: config.Core{WebServer: full.WebServer}}, `[WebServer]
+		{"WebServer", Config{Core: toml.Core{WebServer: full.WebServer}}, `[WebServer]
 AllowOrigins = '*'
 BridgeResponseURL = 'https://bridge.response'
 BridgeCacheTTL = '10s'
@@ -708,6 +714,7 @@ SessionTimeout = '1h0m0s'
 SessionReaperExpiration = '168h0m0s'
 HTTPMaxSize = '32.77kb'
 StartTimeout = '15s'
+ListenIP = '192.158.1.37'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
@@ -725,12 +732,13 @@ ForceRedirect = true
 Host = 'tls-host'
 HTTPSPort = 6789
 KeyPath = 'tls/key/path'
+ListenIP = '192.158.1.38'
 `},
-		{"FluxMonitor", Config{Core: config.Core{FluxMonitor: full.FluxMonitor}}, `[FluxMonitor]
+		{"FluxMonitor", Config{Core: toml.Core{FluxMonitor: full.FluxMonitor}}, `[FluxMonitor]
 DefaultTransactionQueueDepth = 100
 SimulateTransactions = true
 `},
-		{"JobPipeline", Config{Core: config.Core{JobPipeline: full.JobPipeline}}, `[JobPipeline]
+		{"JobPipeline", Config{Core: toml.Core{JobPipeline: full.JobPipeline}}, `[JobPipeline]
 ExternalInitiatorsEnabled = true
 MaxRunDuration = '1h0m0s'
 MaxSuccessfulRuns = 123456
@@ -742,7 +750,7 @@ ResultWriteQueueDepth = 10
 DefaultTimeout = '1m0s'
 MaxSize = '100.00mb'
 `},
-		{"OCR", Config{Core: config.Core{OCR: full.OCR}}, `[OCR]
+		{"OCR", Config{Core: toml.Core{OCR: full.OCR}}, `[OCR]
 Enabled = true
 ObservationTimeout = '11s'
 BlockchainTimeout = '3s'
@@ -755,7 +763,7 @@ TransmitterAddress = '0xa0788FC17B1dEe36f057c42B6F373A34B014687e'
 CaptureEATelemetry = false
 TraceLogging = false
 `},
-		{"OCR2", Config{Core: config.Core{OCR2: full.OCR2}}, `[OCR2]
+		{"OCR2", Config{Core: toml.Core{OCR2: full.OCR2}}, `[OCR2]
 Enabled = true
 ContractConfirmations = 11
 BlockchainTimeout = '3s'
@@ -765,11 +773,12 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
+CaptureAutomationCustomTelemetry = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
 `},
-		{"P2P", Config{Core: config.Core{P2P: full.P2P}}, `[P2P]
+		{"P2P", Config{Core: toml.Core{P2P: full.P2P}}, `[P2P]
 IncomingMessageBufferSize = 13
 OutgoingMessageBufferSize = 17
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw'
@@ -796,7 +805,7 @@ DeltaDial = '1m0s'
 DeltaReconcile = '1s'
 ListenAddresses = ['foo', 'bar']
 `},
-		{"Keeper", Config{Core: config.Core{Keeper: full.Keeper}}, `[Keeper]
+		{"Keeper", Config{Core: toml.Core{Keeper: full.Keeper}}, `[Keeper]
 DefaultTransactionQueueDepth = 17
 GasPriceBufferPercent = 12
 GasTipCapBufferPercent = 43
@@ -811,7 +820,7 @@ MaxPerformDataSize = 5000
 SyncInterval = '1h0m0s'
 SyncUpkeepQueueSize = 31
 `},
-		{"AutoPprof", Config{Core: config.Core{AutoPprof: full.AutoPprof}}, `[AutoPprof]
+		{"AutoPprof", Config{Core: toml.Core{AutoPprof: full.AutoPprof}}, `[AutoPprof]
 Enabled = true
 ProfileRoot = 'prof/root'
 PollInterval = '1m0s'
@@ -825,11 +834,11 @@ MutexProfileFraction = 2
 MemThreshold = '1.00gb'
 GoroutineThreshold = 999
 `},
-		{"Pyroscope", Config{Core: config.Core{Pyroscope: full.Pyroscope}}, `[Pyroscope]
+		{"Pyroscope", Config{Core: toml.Core{Pyroscope: full.Pyroscope}}, `[Pyroscope]
 ServerAddress = 'http://localhost:4040'
 Environment = 'tests'
 `},
-		{"Sentry", Config{Core: config.Core{Sentry: full.Sentry}}, `[Sentry]
+		{"Sentry", Config{Core: toml.Core{Sentry: full.Sentry}}, `[Sentry]
 Debug = true
 DSN = 'sentry-dsn'
 Environment = 'dev'
@@ -843,6 +852,7 @@ BlockBackfillDepth = 100
 BlockBackfillSkip = true
 ChainType = 'Optimism'
 FinalityDepth = 42
+FinalityTagEnabled = false
 FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3'
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e'
 LogBackfillBatchSize = 17
@@ -949,7 +959,7 @@ Enabled = true
 BlockRate = '1m0s'
 BlocksUntilTxTimeout = 12
 ConfirmPollPeriod = '1s'
-FallbackGasPriceUAtom = '0.001'
+FallbackGasPrice = '0.001'
 FCDURL = 'http://cosmos.com'
 GasLimitMultiplier = '1.2'
 MaxMsgsPerBatch = 17
@@ -1167,6 +1177,8 @@ func mustIP(s string) *net.IP {
 }
 
 var (
+	//go:embed testdata/secrets-empty-effective.toml
+	emptyEffectiveSecretsTOML string
 	//go:embed testdata/config-empty-effective.toml
 	emptyEffectiveTOML string
 	//go:embed testdata/config-multi-chain-effective.toml
@@ -1198,7 +1210,7 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 		wantEffective string
 		wantSecrets   string
 	}{
-		{name: "empty", wantEffective: emptyEffectiveTOML},
+		{name: "empty", wantEffective: emptyEffectiveTOML, wantSecrets: emptyEffectiveSecretsTOML},
 		{name: "full", inputSecrets: secretsFullTOML, inputConfig: fullTOML,
 			wantConfig: fullTOML, wantEffective: fullTOML, wantSecrets: secretsFullRedactedTOML},
 		{name: "multi-chain", inputSecrets: secretsMultiTOML, inputConfig: multiChainTOML,
@@ -1208,9 +1220,9 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 			opts := GeneralConfigOpts{
-				SkipEnv:       true,
-				ConfigStrings: []string{tt.inputConfig},
-				SecretsString: tt.inputSecrets,
+				SkipEnv:        true,
+				ConfigStrings:  []string{tt.inputConfig},
+				SecretsStrings: []string{tt.inputSecrets},
 			}
 			c, err := opts.New()
 			require.NoError(t, err)
@@ -1243,8 +1255,8 @@ func Test_generalConfig_LogConfiguration(t *testing.T) {
 func TestNewGeneralConfig_ParsingError_InvalidSyntax(t *testing.T) {
 	invalidTOML := "{ bad syntax {"
 	opts := GeneralConfigOpts{
-		ConfigStrings: []string{invalidTOML},
-		SecretsString: secretsFullTOML,
+		ConfigStrings:  []string{invalidTOML},
+		SecretsStrings: []string{secretsFullTOML},
 	}
 	_, err := opts.New()
 	assert.EqualError(t, err, "failed to decode config TOML: toml: invalid character at start of key: {")
@@ -1254,8 +1266,8 @@ func TestNewGeneralConfig_ParsingError_DuplicateField(t *testing.T) {
 	invalidTOML := `Dev = false
 Dev = true`
 	opts := GeneralConfigOpts{
-		ConfigStrings: []string{invalidTOML},
-		SecretsString: secretsFullTOML,
+		ConfigStrings:  []string{invalidTOML},
+		SecretsStrings: []string{secretsFullTOML},
 	}
 	_, err := opts.New()
 	assert.EqualError(t, err, "failed to decode config TOML: toml: key Dev is already defined")
@@ -1270,8 +1282,8 @@ func TestNewGeneralConfig_SecretsOverrides(t *testing.T) {
 
 	// Check for two overrides
 	opts := GeneralConfigOpts{
-		ConfigStrings: []string{fullTOML},
-		SecretsString: secretsFullTOML,
+		ConfigStrings:  []string{fullTOML},
+		SecretsStrings: []string{secretsFullTOML},
 	}
 	c, err := opts.New()
 	assert.NoError(t, err)
@@ -1288,7 +1300,9 @@ func TestSecrets_Validate(t *testing.T) {
 		exp  string
 	}{
 		{name: "partial",
-			toml: `Explorer.AccessKey = "access_key"
+			toml: `
+Database.AllowSimplePasswords = true
+Explorer.AccessKey = "access_key"
 Explorer.Secret = "secret"`,
 			exp: `invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
@@ -1297,7 +1311,8 @@ Explorer.Secret = "secret"`,
 		{name: "invalid-urls",
 			toml: `[Database]
 URL = "postgresql://user:passlocalhost:5432/asdf"
-BackupURL = "foo-bar?password=asdf"`,
+BackupURL = "foo-bar?password=asdf"
+AllowSimplePasswords = false`,
 			exp: `invalid secrets: 2 errors:
 	- Database: 2 errors:
 		- URL: invalid value (*****): missing or insufficiently complex password: DB URL must be authenticated; plaintext URLs are not allowed. Database should be secured by a password matching the following complexity requirements: 

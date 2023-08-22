@@ -73,7 +73,7 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 	return NewApplicationWithConfigAndKey(t, cfg, flagsAndDeps...)
 }
 
-// Mine forces the simulated backend to produce a new block every 2 seconds
+// Mine forces the simulated backend to produce a new block every X seconds
 func Mine(backend *backends.SimulatedBackend, blockTime time.Duration) (stopMining func()) {
 	timer := time.NewTicker(blockTime)
 	chStop := make(chan struct{})

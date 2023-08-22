@@ -17,9 +17,9 @@ import (
 
 	time "time"
 
-	uuid "github.com/google/uuid"
+	toml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	uuid "github.com/google/uuid"
 
 	zapcore "go.uber.org/zap/zapcore"
 )
@@ -164,15 +164,15 @@ func (_m *GeneralConfig) DefaultChainID() *big.Int {
 }
 
 // EVMConfigs provides a mock function with given fields:
-func (_m *GeneralConfig) EVMConfigs() v2.EVMConfigs {
+func (_m *GeneralConfig) EVMConfigs() toml.EVMConfigs {
 	ret := _m.Called()
 
-	var r0 v2.EVMConfigs
-	if rf, ok := ret.Get(0).(func() v2.EVMConfigs); ok {
+	var r0 toml.EVMConfigs
+	if rf, ok := ret.Get(0).(func() toml.EVMConfigs); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(v2.EVMConfigs)
+			r0 = ret.Get(0).(toml.EVMConfigs)
 		}
 	}
 

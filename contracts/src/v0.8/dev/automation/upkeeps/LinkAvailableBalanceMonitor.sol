@@ -2,8 +2,8 @@
 
 pragma solidity 0.8.6;
 
-import "../../../ConfirmedOwner.sol";
-import "../../../interfaces/automation/KeeperCompatibleInterface.sol";
+import "../../../shared/access/ConfirmedOwner.sol";
+import "../../../automation/interfaces/KeeperCompatibleInterface.sol";
 import "../../../vendor/openzeppelin-solidity/v4.7.0/contracts/security/Pausable.sol";
 import "../../../vendor/openzeppelin-solidity/v4.7.0/contracts/token/ERC20/IERC20.sol";
 import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableMap.sol";
@@ -47,8 +47,8 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
   error InvalidWatchList();
   error DuplicateAddress(address duplicate);
 
-  uint256 public constant MAX_PERFORM = 30; // max number to addresses to top up in a single batch
-  uint256 public constant MAX_CHECK = 130; // max number of upkeeps to check (need to fit in 5M gas limit)
+  uint256 public constant MAX_PERFORM = 5; // max number to addresses to top up in a single batch
+  uint256 public constant MAX_CHECK = 20; // max number of upkeeps to check (need to fit in 5M gas limit)
   IERC20 public immutable LINK_TOKEN;
 
   EnumerableMap.AddressToUintMap private s_watchList;

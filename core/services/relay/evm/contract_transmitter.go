@@ -30,13 +30,13 @@ type ContractTransmitter interface {
 var _ ContractTransmitter = &contractTransmitter{}
 
 type Transmitter interface {
-	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.EvmTxMeta) error
+	CreateEthTransaction(ctx context.Context, toAddress gethcommon.Address, payload []byte, txMeta *txmgr.TxMeta) error
 	FromAddress() gethcommon.Address
 }
 
-type ReportToEthMetadata func([]byte) (*txmgr.EvmTxMeta, error)
+type ReportToEthMetadata func([]byte) (*txmgr.TxMeta, error)
 
-func reportToEvmTxMetaNoop([]byte) (*txmgr.EvmTxMeta, error) {
+func reportToEvmTxMetaNoop([]byte) (*txmgr.TxMeta, error) {
 	return nil, nil
 }
 

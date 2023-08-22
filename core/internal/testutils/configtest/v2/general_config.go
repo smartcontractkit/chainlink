@@ -1,6 +1,7 @@
 package v2
 
 import (
+	"net"
 	"testing"
 	"time"
 
@@ -8,7 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
@@ -57,12 +58,23 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 
 	c.WebServer.SessionTimeout = models.MustNewDuration(2 * time.Minute)
 	c.WebServer.BridgeResponseURL = models.MustParseURL("http://localhost:6688")
+	testIP := net.ParseIP("127.0.0.1")
+	c.WebServer.ListenIP = &testIP
+	c.WebServer.TLS.ListenIP = &testIP
 
 	chainID := utils.NewBigI(evmclient.NullClientChainID)
 	c.EVM = append(c.EVM, &evmcfg.EVMConfig{
 		ChainID: chainID,
 		Chain:   evmcfg.Defaults(chainID),
-		Nodes:   evmcfg.EVMNodes{{Name: ptr("test")}},
+		Nodes: evmcfg.EVMNodes{
+			&evmcfg.Node{
+				Name:     ptr("test"),
+				WSURL:    &models.URL{},
+				HTTPURL:  &models.URL{},
+				SendOnly: new(bool),
+				Order:    ptr[int32](100),
+			},
+		},
 	})
 }
 
@@ -87,13 +99,21 @@ func simulated(c *chainlink.Config, s *chainlink.Secrets) {
 		ChainID: chainID,
 		Chain:   evmcfg.Defaults(chainID),
 		Enabled: &enabled,
-		Nodes:   evmcfg.EVMNodes{{}},
+		Nodes:   evmcfg.EVMNodes{&validTestNode},
 	}
 	if len(c.EVM) == 1 && c.EVM[0].ChainID.Cmp(utils.NewBigI(client.NullClientChainID)) == 0 {
 		c.EVM[0] = &cfg // replace null, if only entry
 	} else {
 		c.EVM = append(c.EVM, &cfg)
 	}
+}
+
+var validTestNode = evmcfg.Node{
+	Name:     ptr("simulated-node"),
+	WSURL:    models.MustParseURL("WSS://simulated-wss.com/ws"),
+	HTTPURL:  models.MustParseURL("http://simulated.com"),
+	SendOnly: nil,
+	Order:    ptr(int32(1)),
 }
 
 func ptr[T any](v T) *T { return &v }

@@ -4,6 +4,8 @@ import (
 	"errors"
 	"sort"
 	"sync"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 )
 
 const (
@@ -22,26 +24,35 @@ type RegisteredLoop struct {
 type LoopRegistry struct {
 	mu       sync.Mutex
 	registry map[string]*RegisteredLoop
+
+	lggr logger.Logger
 }
 
-func NewLoopRegistry() *LoopRegistry {
+func NewLoopRegistry(lggr logger.Logger) *LoopRegistry {
 	return &LoopRegistry{
 		registry: map[string]*RegisteredLoop{},
+		lggr:     lggr,
 	}
 }
 
-// Register creates a port of the plugin. It is idempotent. Duplicate calls to Register will return the same port
+// Register creates a port of the plugin. It is not idempotent. Duplicate calls to Register will return [ErrExists]
+// Safe for concurrent use.
 func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	p, ok := m.get(id)
-	if !ok {
-		return m.create(id)
+	if _, exists := m.registry[id]; exists {
+		return nil, ErrExists
 	}
-	return p, nil
+	nextPort := pluginDefaultPort + len(m.registry)
+	envCfg := NewEnvConfig(nextPort)
+
+	m.registry[id] = &RegisteredLoop{Name: id, EnvCfg: envCfg}
+	m.lggr.Debug("Registered loopp %q with config %v, port %d", id, envCfg, envCfg.PrometheusPort())
+	return m.registry[id], nil
 }
 
+// Return slice sorted by plugin name. Safe for concurrent use.
 func (m *LoopRegistry) List() []*RegisteredLoop {
 	var registeredLoops []*RegisteredLoop
 	m.mu.Lock()
@@ -56,29 +67,11 @@ func (m *LoopRegistry) List() []*RegisteredLoop {
 	return registeredLoops
 }
 
+// Get plugin by id. Safe for concurrent use.
 func (m *LoopRegistry) Get(id string) (*RegisteredLoop, bool) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	return m.get(id)
-}
-
-// create returns a port number for the given plugin to use for prometheus handler.
-// NOT safe for concurrent use.
-func (m *LoopRegistry) create(pluginName string) (*RegisteredLoop, error) {
-	if _, exists := m.registry[pluginName]; exists {
-		return nil, ErrExists
-	}
-	nextPort := pluginDefaultPort + len(m.registry)
-	envCfg := NewEnvConfig(nextPort)
-
-	m.registry[pluginName] = &RegisteredLoop{Name: pluginName, EnvCfg: envCfg}
-	return m.registry[pluginName], nil
-}
-
-// get is a helper to return the port assigned to the plugin, if any
-// NOT safe for concurrent use.
-func (m *LoopRegistry) get(pluginName string) (*RegisteredLoop, bool) {
-	p, exists := m.registry[pluginName]
+	p, exists := m.registry[id]
 	return p, exists
 }

@@ -57,13 +57,14 @@ type PoolConfig interface {
 // It is responsible for liveness checking and balancing queries across live nodes
 type Pool struct {
 	utils.StartStopOnce
-	nodes        []Node
-	sendonlys    []SendOnlyNode
-	chainID      *big.Int
-	chainType    config.ChainType
-	logger       logger.Logger
-	config       PoolConfig
-	nodeSelector NodeSelector
+	nodes               []Node
+	sendonlys           []SendOnlyNode
+	chainID             *big.Int
+	chainType           config.ChainType
+	logger              logger.Logger
+	selectionMode       string
+	noNewHeadsThreshold time.Duration
+	nodeSelector        NodeSelector
 
 	activeMu   sync.RWMutex
 	activeNode Node
@@ -72,13 +73,13 @@ type Pool struct {
 	wg     sync.WaitGroup
 }
 
-func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
+func NewPool(logger logger.Logger, selectionMode string, noNewHeadsTreshold time.Duration, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
 	if chainID == nil {
 		panic("chainID is required")
 	}
 
 	nodeSelector := func() NodeSelector {
-		switch cfg.NodeSelectionMode() {
+		switch selectionMode {
 		case NodeSelectionMode_HighestHead:
 			return NewHighestHeadNodeSelector(nodes)
 		case NodeSelectionMode_RoundRobin:
@@ -88,24 +89,25 @@ func NewPool(logger logger.Logger, cfg PoolConfig, nodes []Node, sendonlys []Sen
 		case NodeSelectionMode_PriorityLevel:
 			return NewPriorityLevelNodeSelector(nodes)
 		default:
-			panic(fmt.Sprintf("unsupported NodeSelectionMode: %s", cfg.NodeSelectionMode()))
+			panic(fmt.Sprintf("unsupported NodeSelectionMode: %s", selectionMode))
 		}
 	}()
 
 	lggr := logger.Named("Pool").With("evmChainID", chainID.String())
 
 	p := &Pool{
-		nodes:        nodes,
-		sendonlys:    sendonlys,
-		chainID:      chainID,
-		chainType:    chainType,
-		logger:       lggr,
-		config:       cfg,
-		nodeSelector: nodeSelector,
-		chStop:       make(chan struct{}),
+		nodes:               nodes,
+		sendonlys:           sendonlys,
+		chainID:             chainID,
+		chainType:           chainType,
+		logger:              lggr,
+		selectionMode:       selectionMode,
+		noNewHeadsThreshold: noNewHeadsTreshold,
+		nodeSelector:        nodeSelector,
+		chStop:              make(chan struct{}),
 	}
 
-	p.logger.Debugf("The pool is configured to use NodeSelectionMode: %s", cfg.NodeSelectionMode())
+	p.logger.Debugf("The pool is configured to use NodeSelectionMode: %s", selectionMode)
 
 	return p
 }

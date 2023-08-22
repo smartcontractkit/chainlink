@@ -32,7 +32,7 @@ func Test_decryptionQueue_Decrypt_ReturnResultAfterCallingDecrypt(t *testing.T) 
 
 	go func() {
 		waitForPendingRequestToBeAdded(t, dq, []byte("1"))
-		dq.SetResult([]byte("1"), []byte("decrypted"))
+		dq.SetResult([]byte("1"), []byte("decrypted"), nil)
 	}()
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
@@ -207,7 +207,7 @@ func Test_decryptionQueue_Decrypt_DecryptCalledAfterReadyResult(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(2, 1000, 64, testutils.WaitTimeout(t), lggr)
 
-	dq.SetResult([]byte("9"), []byte("decrypted"))
+	dq.SetResult([]byte("9"), []byte("decrypted"), nil)
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
@@ -223,7 +223,7 @@ func Test_decryptionQueue_ReadyResult_ExpireRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(2, 1000, 64, 100, lggr)
 
-	dq.SetResult([]byte("9"), []byte("decrypted"))
+	dq.SetResult([]byte("9"), []byte("decrypted"), nil)
 
 	waitForCompletedRequestToBeAdded(t, dq, []byte("9"))
 
@@ -238,7 +238,7 @@ func Test_decryptionQueue_Decrypt_CleanupSuccessfulRequest(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(2, 1000, 64, testutils.WaitTimeout(t), lggr)
 
-	dq.SetResult([]byte("10"), []byte("decrypted"))
+	dq.SetResult([]byte("10"), []byte("decrypted"), nil)
 
 	ctx1, cancel1 := context.WithCancel(testutils.Context(t))
 	defer cancel1()
@@ -251,6 +251,23 @@ func Test_decryptionQueue_Decrypt_CleanupSuccessfulRequest(t *testing.T) {
 
 	_, err2 := dq.Decrypt(ctx2, []byte("10"), []byte("encrypted"))
 	assert.Equal(t, err2.Error(), "context provided by caller was cancelled")
+}
+
+func Test_decryptionQueue_Decrypt_UserErrorDuringDecryption(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	dq := NewDecryptionQueue(5, 1000, 64, testutils.WaitTimeout(t), lggr)
+	ciphertextId := []byte("1")
+
+	go func() {
+		waitForPendingRequestToBeAdded(t, dq, ciphertextId)
+		dq.SetResult(ciphertextId, nil, decryptionPlugin.ErrAggregation)
+	}()
+
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+
+	_, err := dq.Decrypt(ctx, ciphertextId, []byte("encrypted"))
+	assert.Equal(t, err.Error(), "pending decryption request for ciphertextId 1 was closed without a response")
 }
 
 func Test_decryptionQueue_Decrypt_HandleClosedChannelWithoutPlaintextResponse(t *testing.T) {
@@ -418,7 +435,7 @@ func Test_decryptionQueue_Close(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(4, 1000, 64, testutils.WaitTimeout(t), lggr)
 
-	dq.SetResult([]byte("14"), []byte("decrypted"))
+	dq.SetResult([]byte("14"), []byte("decrypted"), nil)
 
 	err := dq.Close()
 

@@ -21,7 +21,7 @@ import (
 )
 
 type ArbConfig interface {
-	EvmGasLimitMax() uint32
+	LimitMax() uint32
 }
 
 //go:generate mockery --quiet --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
@@ -138,7 +138,7 @@ func (a *arbitrumEstimator) GetLegacyGas(ctx context.Context, calldata []byte, l
 	} else if err != nil {
 		return
 	}
-	if max := a.cfg.EvmGasLimitMax(); chainSpecificGasLimit > max {
+	if max := a.cfg.LimitMax(); chainSpecificGasLimit > max {
 		err = fmt.Errorf("estimated gas limit: %d is greater than the maximum gas limit configured: %d", chainSpecificGasLimit, max)
 		return
 	}

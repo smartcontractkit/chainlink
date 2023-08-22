@@ -36,8 +36,8 @@ Enabled = true
 [P2P]
 [P2P.V2]
 Enabled = true
-AnnounceAddresses = ["0.0.0.0:8090"]
-ListenAddresses = ["0.0.0.0:8090"]`
+AnnounceAddresses = ["0.0.0.0:6690"]
+ListenAddresses = ["0.0.0.0:6690"]`
 	networkTOML = `Enabled = true
 FinalityDepth = 200
 LogPollInterval = '1s'
@@ -178,7 +178,7 @@ func TestAutomationReorg(t *testing.T) {
 		chainClient,
 	)
 
-	actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0)
+	actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, ethereum.RegistryVersion_2_0)
 	nodesWithoutBootstrap := chainlinkNodes[1:]
 	ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second)
 	require.NoError(t, err, "OCR2 config should be built successfully")
@@ -186,17 +186,7 @@ func TestAutomationReorg(t *testing.T) {
 	require.NoError(t, err, "Registry config should be be set successfully")
 	require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 
-	consumers, upkeepIDs := actions.DeployConsumers(
-		t,
-		registry,
-		registrar,
-		linkToken,
-		contractDeployer,
-		chainClient,
-		numberOfUpkeeps,
-		big.NewInt(defaultLinkFunds),
-		defaultUpkeepGasLimit,
-	)
+	consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false)
 
 	l.Info().Msg("Waiting for all upkeeps to be performed")
 

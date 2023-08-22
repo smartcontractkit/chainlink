@@ -9,6 +9,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/pelletier/go-toml"
 	pkgerrors "github.com/pkg/errors"
+
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -83,7 +84,10 @@ var (
 )
 
 func validateTimingParameters(ocr2Conf OCR2Config, insConf InsecureConfig, spec job.OCR2OracleSpec) error {
-	lc := ToLocalConfig(ocr2Conf, insConf, spec)
+	lc, err := ToLocalConfig(ocr2Conf, insConf, spec)
+	if err != nil {
+		return err
+	}
 	return libocr2.SanityCheckLocalConfig(lc)
 }
 
@@ -108,7 +112,7 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 		// TODO validator for DR-OCR spec: https://app.shortcut.com/chainlinklabs/story/54054/ocr-plugin-for-directrequest-ocr
 		return nil
 	case job.Mercury:
-		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig)
+		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig, *spec.OCR2OracleSpec.FeedID)
 	case "":
 		return errors.New("no plugin specified")
 	default:
@@ -184,11 +188,11 @@ func validateOCR2KeeperSpec(jsonConfig job.JSONConfig) error {
 	return nil
 }
 
-func validateOCR2MercurySpec(jsonConfig job.JSONConfig) error {
+func validateOCR2MercurySpec(jsonConfig job.JSONConfig, feedId [32]byte) error {
 	var pluginConfig mercuryconfig.PluginConfig
 	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
 	if err != nil {
 		return pkgerrors.Wrap(err, "error while unmarshaling plugin config")
 	}
-	return pkgerrors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig), "Mercury PluginConfig is invalid")
+	return pkgerrors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig, feedId), "Mercury PluginConfig is invalid")
 }

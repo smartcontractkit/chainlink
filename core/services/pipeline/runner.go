@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -55,7 +56,7 @@ type runner struct {
 	btORM                  bridges.ORM
 	config                 Config
 	bridgeConfig           BridgeConfig
-	chainSet               evm.ChainSet
+	legacyEVMChains        evm.LegacyChainContainer
 	ethKeyStore            ETHKeyStore
 	vrfKeyStore            VRFKeyStore
 	runReaperWorker        utils.SleeperTask
@@ -101,13 +102,13 @@ var (
 	)
 )
 
-func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, chainSet evm.ChainSet, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
+func NewRunner(orm ORM, btORM bridges.ORM, cfg Config, bridgeCfg BridgeConfig, legacyChains evm.LegacyChainContainer, ethks ETHKeyStore, vrfks VRFKeyStore, lggr logger.Logger, httpClient, unrestrictedHTTPClient *http.Client) *runner {
 	r := &runner{
 		orm:                    orm,
 		btORM:                  btORM,
 		config:                 cfg,
 		bridgeConfig:           bridgeCfg,
-		chainSet:               chainSet,
+		legacyEVMChains:        legacyChains,
 		ethKeyStore:            ethks,
 		vrfKeyStore:            vrfks,
 		chStop:                 make(chan struct{}),
@@ -260,7 +261,7 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			// may run external adapters on their own hardware
 			task.(*BridgeTask).httpClient = r.unrestrictedHTTPClient
 		case TaskTypeETHCall:
-			task.(*ETHCallTask).chainSet = r.chainSet
+			task.(*ETHCallTask).legacyChains = r.legacyEVMChains
 			task.(*ETHCallTask).config = r.config
 			task.(*ETHCallTask).specGasLimit = run.PipelineSpec.GasLimit
 			task.(*ETHCallTask).jobType = run.PipelineSpec.JobType
@@ -268,13 +269,15 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeVRFV2:
 			task.(*VRFTaskV2).keyStore = r.vrfKeyStore
+		case TaskTypeVRFV2Plus:
+			task.(*VRFTaskV2Plus).keyStore = r.vrfKeyStore
 		case TaskTypeEstimateGasLimit:
-			task.(*EstimateGasLimitTask).chainSet = r.chainSet
+			task.(*EstimateGasLimitTask).legacyChains = r.legacyEVMChains
 			task.(*EstimateGasLimitTask).specGasLimit = run.PipelineSpec.GasLimit
 			task.(*EstimateGasLimitTask).jobType = run.PipelineSpec.JobType
 		case TaskTypeETHTx:
 			task.(*ETHTxTask).keyStore = r.ethKeyStore
-			task.(*ETHTxTask).chainSet = r.chainSet
+			task.(*ETHTxTask).legacyChains = r.legacyEVMChains
 			task.(*ETHTxTask).specGasLimit = run.PipelineSpec.GasLimit
 			task.(*ETHTxTask).jobType = run.PipelineSpec.JobType
 			task.(*ETHTxTask).forwardingAllowed = run.PipelineSpec.ForwardingAllowed
@@ -632,7 +635,7 @@ func (r *runner) runReaper() {
 
 	err := r.orm.DeleteRunsOlderThan(ctx, r.config.ReaperThreshold())
 	if err != nil {
-		r.lggr.Errorw("Pipeline run reaper failed", "error", err)
+		r.lggr.Errorw("Pipeline run reaper failed", "err", err)
 		r.SvcErrBuffer.Append(err)
 	} else {
 		r.lggr.Debugw("Pipeline run reaper completed successfully")
@@ -666,7 +669,7 @@ func (r *runner) scheduleUnfinishedRuns() {
 			if ctx.Err() != nil {
 				return
 			} else if err != nil {
-				r.lggr.Errorw("Pipeline run init job resumption failed", "error", err)
+				r.lggr.Errorw("Pipeline run init job resumption failed", "err", err)
 			}
 		}()
 
@@ -678,6 +681,6 @@ func (r *runner) scheduleUnfinishedRuns() {
 	if ctx.Err() != nil {
 		return
 	} else if err != nil {
-		r.lggr.Errorw("Pipeline run init job failed", "error", err)
+		r.lggr.Errorw("Pipeline run init job failed", "err", err)
 	}
 }

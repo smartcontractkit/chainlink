@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	gethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -42,22 +43,23 @@ import (
 )
 
 func makeTestEvmTxm(
-	t *testing.T, db *sqlx.DB, ethClient evmclient.Client, cfg txmgr.Config, estimator gas.EvmFeeEstimator, txConfig evmconfig.Transactions, dbConfig txmgr.DatabaseConfig, listenerConfig txmgr.ListenerConfig, keyStore keystore.Eth, eventBroadcaster pg.EventBroadcaster) (txmgr.EvmTxManager, error) {
+	t *testing.T, db *sqlx.DB, ethClient evmclient.Client, estimator gas.EvmFeeEstimator, ccfg txmgr.ChainConfig, fcfg txmgr.FeeConfig, txConfig evmconfig.Transactions, dbConfig txmgr.DatabaseConfig, listenerConfig txmgr.ListenerConfig, keyStore keystore.Eth, eventBroadcaster pg.EventBroadcaster) (txmgr.TxManager, error) {
 	lggr := logger.TestLogger(t)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
 
 	// logic for building components (from evm/evm_txm.go) -------
 	lggr.Infow("Initializing EVM transaction manager",
-		"gasBumpTxDepth", cfg.EvmGasBumpTxDepth(),
+		"bumpTxDepth", fcfg.BumpTxDepth(),
 		"maxInFlightTransactions", txConfig.MaxInFlight(),
 		"maxQueuedTransactions", txConfig.MaxQueued(),
-		"nonceAutoSync", cfg.EvmNonceAutoSync(),
-		"gasLimitDefault", cfg.EvmGasLimitDefault(),
+		"nonceAutoSync", ccfg.NonceAutoSync(),
+		"limitDefault", fcfg.LimitDefault(),
 	)
 
 	return txmgr.NewTxm(
 		db,
-		cfg,
+		ccfg,
+		fcfg,
 		txConfig,
 		dbConfig,
 		listenerConfig,
@@ -82,7 +84,7 @@ func TestTxm_SendNativeToken_DoesNotSendToZero(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db, dbConfig).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
-	txm, err := makeTestEvmTxm(t, db, ethClient, config, estimator, evmConfig.Transactions(), dbConfig, dbConfig.Listener(), keyStore, nil)
+	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), keyStore, nil)
 	require.NoError(t, err)
 
 	_, err = txm.SendNativeToken(big.NewInt(0), from, to, *value, 21000)
@@ -108,7 +110,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
-	txm, err := makeTestEvmTxm(t, db, ethClient, config, estimator, evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth(), nil)
+	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth(), nil)
 	require.NoError(t, err)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
@@ -117,7 +119,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 		evmConfig.maxQueued = uint64(1)
-		etx, err := txm.CreateTransaction(txmgr.EvmTxRequest{
+		etx, err := txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -153,7 +155,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 	t.Run("with queue at capacity does not insert eth_tx", func(t *testing.T) {
 		evmConfig.maxQueued = uint64(1)
-		_, err := txm.CreateTransaction(txmgr.EvmTxRequest{
+		_, err := txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
@@ -168,7 +170,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	t.Run("doesn't insert eth_tx if a matching tx already exists for that pipeline_task_run_id", func(t *testing.T) {
 		evmConfig.maxQueued = uint64(3)
 		id := uuid.New()
-		tx1, err := txm.CreateTransaction(txmgr.EvmTxRequest{
+		tx1, err := txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
@@ -178,7 +180,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		tx2, err := txm.CreateTransaction(txmgr.EvmTxRequest{
+		tx2, err := txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
@@ -193,7 +195,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 	t.Run("returns error if eth key state is missing or doesn't match chain ID", func(t *testing.T) {
 		rndAddr := testutils.NewAddress()
-		_, err := txm.CreateTransaction(txmgr.EvmTxRequest{
+		_, err := txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:    rndAddr,
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
@@ -205,7 +207,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 		_, otherAddress := cltest.MustInsertRandomKey(t, kst.Eth(), *utils.NewBigI(1337))
 
-		_, err = txm.CreateTransaction(txmgr.EvmTxRequest{
+		_, err = txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:    otherAddress,
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
@@ -219,11 +221,11 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	t.Run("simulate transmit checker", func(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
 
-		checker := txmgr.EvmTransmitCheckerSpec{
+		checker := txmgr.TransmitCheckerSpec{
 			CheckerType: txmgr.TransmitCheckerTypeSimulate,
 		}
 		evmConfig.maxQueued = uint64(1)
-		etx, err := txm.CreateTransaction(txmgr.EvmTxRequest{
+		etx, err := txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -236,7 +238,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		var dbEtx txmgr.DbEthTx
 		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
 
-		var c txmgr.EvmTransmitCheckerSpec
+		var c txmgr.TransmitCheckerSpec
 		require.NotNil(t, etx.TransmitChecker)
 		require.NoError(t, json.Unmarshal(*etx.TransmitChecker, &c))
 		require.Equal(t, checker, c)
@@ -246,22 +248,27 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
 		testDefaultSubID := uint64(2)
 		testDefaultMaxLink := "1000000000000000000"
+		testDefaultMaxEth := "2000000000000000000"
+		// max uint256 is 1.1579209e+77
+		testDefaultGlobalSubID := crypto.Keccak256Hash([]byte("sub id")).String()
 		jobID := int32(25)
 		requestID := gethcommon.HexToHash("abcd")
 		requestTxHash := gethcommon.HexToHash("dcba")
-		meta := &txmgr.EvmTxMeta{
+		meta := &txmgr.TxMeta{
 			JobID:         &jobID,
 			RequestID:     &requestID,
 			RequestTxHash: &requestTxHash,
 			MaxLink:       &testDefaultMaxLink, // 1e18
+			MaxEth:        &testDefaultMaxEth,  // 2e18
 			SubID:         &testDefaultSubID,
+			GlobalSubID:   &testDefaultGlobalSubID,
 		}
 		evmConfig.maxQueued = uint64(1)
-		checker := txmgr.EvmTransmitCheckerSpec{
+		checker := txmgr.TransmitCheckerSpec{
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 		}
-		etx, err := txm.CreateTransaction(txmgr.EvmTxRequest{
+		etx, err := txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -279,7 +286,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, meta, m)
 
-		var c txmgr.EvmTransmitCheckerSpec
+		var c txmgr.TransmitCheckerSpec
 		require.NotNil(t, etx.TransmitChecker)
 		require.NoError(t, json.Unmarshal(*etx.TransmitChecker, &c))
 		require.Equal(t, checker, c)
@@ -297,7 +304,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, fwdr.Address, fwdrAddr)
 
-		etx, err := txm.CreateTransaction(txmgr.EvmTxRequest{
+		etx, err := txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:      fromAddress,
 			ToAddress:        toAddress,
 			EncodedPayload:   payload,
@@ -353,6 +360,7 @@ type evmConfig struct {
 	reaperInterval       time.Duration
 	reaperThreshold      time.Duration
 	resendAfterThreshold time.Duration
+	bumpThreshold        uint64
 	maxQueued            uint64
 }
 
@@ -361,15 +369,51 @@ func (e *evmConfig) Transactions() evmconfig.Transactions {
 }
 
 func (e *evmConfig) GasEstimator() evmconfig.GasEstimator {
-	return &gasEstimatorConfig{}
+	return &gasEstimatorConfig{bumpThreshold: e.bumpThreshold}
 }
 
+func (e *evmConfig) NonceAutoSync() bool { return true }
+
+func (e *evmConfig) FinalityDepth() uint32 { return 42 }
+
 type gasEstimatorConfig struct {
+	bumpThreshold uint64
 }
 
 func (g *gasEstimatorConfig) BlockHistory() evmconfig.BlockHistory {
 	return &blockHistoryConfig{}
 }
+
+func (g *gasEstimatorConfig) EIP1559DynamicFees() bool             { return false }
+func (g *gasEstimatorConfig) LimitDefault() uint32                 { return 42 }
+func (g *gasEstimatorConfig) BumpPercent() uint16                  { return 42 }
+func (g *gasEstimatorConfig) BumpThreshold() uint64                { return g.bumpThreshold }
+func (g *gasEstimatorConfig) BumpMin() *assets.Wei                 { return assets.NewWeiI(42) }
+func (g *gasEstimatorConfig) FeeCapDefault() *assets.Wei           { return assets.NewWeiI(42) }
+func (g *gasEstimatorConfig) PriceDefault() *assets.Wei            { return assets.NewWeiI(42) }
+func (g *gasEstimatorConfig) TipCapDefault() *assets.Wei           { return assets.NewWeiI(42) }
+func (g *gasEstimatorConfig) TipCapMin() *assets.Wei               { return assets.NewWeiI(42) }
+func (g *gasEstimatorConfig) LimitMax() uint32                     { return 0 }
+func (g *gasEstimatorConfig) LimitMultiplier() float32             { return 0 }
+func (g *gasEstimatorConfig) BumpTxDepth() uint32                  { return 42 }
+func (g *gasEstimatorConfig) LimitTransfer() uint32                { return 42 }
+func (g *gasEstimatorConfig) PriceMax() *assets.Wei                { return assets.NewWeiI(42) }
+func (g *gasEstimatorConfig) PriceMin() *assets.Wei                { return assets.NewWeiI(42) }
+func (g *gasEstimatorConfig) Mode() string                         { return "FixedPrice" }
+func (g *gasEstimatorConfig) LimitJobType() evmconfig.LimitJobType { return &limitJobTypeConfig{} }
+func (e *gasEstimatorConfig) PriceMaxKey(addr common.Address) *assets.Wei {
+	return assets.NewWeiI(42)
+}
+
+type limitJobTypeConfig struct {
+}
+
+func (l *limitJobTypeConfig) OCR() *uint32    { return ptr(uint32(0)) }
+func (l *limitJobTypeConfig) OCR2() *uint32   { return ptr(uint32(0)) }
+func (l *limitJobTypeConfig) DR() *uint32     { return ptr(uint32(0)) }
+func (l *limitJobTypeConfig) FM() *uint32     { return ptr(uint32(0)) }
+func (l *limitJobTypeConfig) Keeper() *uint32 { return ptr(uint32(0)) }
+func (l *limitJobTypeConfig) VRF() *uint32    { return ptr(uint32(0)) }
 
 type blockHistoryConfig struct {
 	evmconfig.BlockHistory
@@ -394,48 +438,26 @@ func (t *transactionsConfig) ReaperThreshold() time.Duration      { return t.e.r
 func (t *transactionsConfig) ResendAfterThreshold() time.Duration { return t.e.resendAfterThreshold }
 
 type mockConfig struct {
-	evmConfig              *evmConfig
-	evmRPCDefaultBatchSize uint32
-	evmFinalityDepth       uint32
-	evmGasBumpThreshold    uint64
+	evmConfig           *evmConfig
+	rpcDefaultBatchSize uint32
+	finalityDepth       uint32
+	finalityTagEnabled  bool
 }
 
 func (c *mockConfig) EVM() evmconfig.EVM {
 	return c.evmConfig
 }
 
-func (c *mockConfig) EvmGasBumpTxDepth() uint32                            { return 42 }
-func (c *mockConfig) EvmNonceAutoSync() bool                               { return true }
-func (c *mockConfig) EvmGasLimitDefault() uint32                           { return 42 }
-func (c *mockConfig) EvmEIP1559DynamicFees() bool                          { return false }
-func (c *mockConfig) EvmGasBumpPercent() uint16                            { return 42 }
-func (c *mockConfig) EvmGasBumpThreshold() uint64                          { return c.evmGasBumpThreshold }
-func (c *mockConfig) EvmGasBumpWei() *assets.Wei                           { return assets.NewWeiI(42) }
-func (c *mockConfig) EvmGasFeeCapDefault() *assets.Wei                     { return assets.NewWeiI(42) }
-func (c *mockConfig) EvmGasPriceDefault() *assets.Wei                      { return assets.NewWeiI(42) }
-func (c *mockConfig) EvmGasTipCapDefault() *assets.Wei                     { return assets.NewWeiI(42) }
-func (c *mockConfig) EvmGasTipCapMinimum() *assets.Wei                     { return assets.NewWeiI(42) }
-func (c *mockConfig) EvmGasLimitMax() uint32                               { return 0 }
-func (c *mockConfig) EvmGasLimitMultiplier() float32                       { return 0 }
-func (c *mockConfig) EvmRPCDefaultBatchSize() uint32                       { return c.evmRPCDefaultBatchSize }
-func (c *mockConfig) EvmMaxGasPriceWei() *assets.Wei                       { return assets.NewWeiI(42) }
-func (c *mockConfig) EvmMinGasPriceWei() *assets.Wei                       { return assets.NewWeiI(42) }
-func (c *mockConfig) GasEstimatorMode() string                             { return "FixedPrice" }
-func (c *mockConfig) ChainType() config.ChainType                          { return "" }
-func (c *mockConfig) EvmFinalityDepth() uint32                             { return c.evmFinalityDepth }
-func (c *mockConfig) KeySpecificMaxGasPriceWei(common.Address) *assets.Wei { return assets.NewWeiI(0) }
-
-type testConfig interface {
-	txmgr.Config
-	gas.Config
-}
-
-var _ testConfig = (*mockConfig)(nil)
+func (c *mockConfig) NonceAutoSync() bool         { return true }
+func (c *mockConfig) ChainType() config.ChainType { return "" }
+func (c *mockConfig) FinalityDepth() uint32       { return c.finalityDepth }
+func (c *mockConfig) FinalityTagEnabled() bool    { return c.finalityTagEnabled }
+func (c *mockConfig) RPCDefaultBatchSize() uint32 { return c.rpcDefaultBatchSize }
 
 func makeConfigs(t *testing.T) (*mockConfig, *databaseConfig, *evmConfig) {
 	db := &databaseConfig{defaultQueryTimeout: pg.DefaultQueryTimeout}
-	ec := &evmConfig{maxInFlight: uint32(42), maxQueued: uint64(0), reaperInterval: time.Duration(0), reaperThreshold: time.Duration(0)}
-	config := &mockConfig{evmConfig: ec, evmGasBumpThreshold: 42}
+	ec := &evmConfig{bumpThreshold: 42, maxInFlight: uint32(42), maxQueued: uint64(0), reaperInterval: time.Duration(0), reaperThreshold: time.Duration(0)}
+	config := &mockConfig{evmConfig: ec}
 	return config, db, ec
 }
 
@@ -458,7 +480,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	kst := cltest.NewKeyStore(t, db, dbConfig)
 	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
-	txm, err := makeTestEvmTxm(t, db, ethClient, config, estimator, evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth(), nil)
+	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth(), nil)
 	require.NoError(t, err)
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
@@ -470,7 +492,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 
-		etx, err := txm.CreateTransaction(txmgr.EvmTxRequest{
+		etx, err := txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -494,7 +516,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		strategy.On("Subject").Return(uuid.NullUUID{})
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 
-		etx, err := txm.CreateTransaction(txmgr.EvmTxRequest{
+		etx, err := txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -516,7 +538,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
 
 		evmConfig.maxQueued = uint64(1)
-		etx, err := txm.CreateTransaction(txmgr.EvmTxRequest{
+		etx, err := txm.CreateTransaction(txmgr.TxRequest{
 			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -537,8 +559,8 @@ func TestTxm_Lifecycle(t *testing.T) {
 	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
 
 	config, dbConfig, evmConfig := makeConfigs(t)
-	config.evmFinalityDepth = uint32(42)
-	config.evmRPCDefaultBatchSize = uint32(4)
+	config.finalityDepth = uint32(42)
+	config.rpcDefaultBatchSize = uint32(4)
 
 	evmConfig.resendAfterThreshold = 1 * time.Hour
 	evmConfig.reaperThreshold = 1 * time.Hour
@@ -550,7 +572,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 	unsub := cltest.NewAwaiter()
 	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
 	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
-	txm, err := makeTestEvmTxm(t, db, ethClient, config, estimator, evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst, eventBroadcaster)
+	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst, eventBroadcaster)
 	require.NoError(t, err)
 
 	head := cltest.Head(42)
@@ -560,7 +582,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 	sub := pgmocks.NewSubscription(t)
 	sub.On("Events").Return(make(<-chan pg.Event))
 	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
-	config.evmGasBumpThreshold = uint64(1)
+	evmConfig.bumpThreshold = uint64(1)
 
 	require.NoError(t, txm.Start(testutils.Context(t)))
 
@@ -630,8 +652,8 @@ func TestTxm_Reset(t *testing.T) {
 	sub.On("Close")
 	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
 
-	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, cfg, cfg.EVM().GasEstimator())
-	txm, err := makeTestEvmTxm(t, db, ethClient, cfg, estimator, cfg.EVM().Transactions(), cfg.Database(), cfg.Database().Listener(), kst.Eth(), eventBroadcaster)
+	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, cfg.EVM(), cfg.EVM().GasEstimator())
+	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), cfg.Database(), cfg.Database().Listener(), kst.Eth(), eventBroadcaster)
 	require.NoError(t, err)
 
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, addr2)

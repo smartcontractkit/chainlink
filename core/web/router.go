@@ -537,6 +537,7 @@ func loggerFunc(lggr logger.Logger) gin.HandlerFunc {
 			"method", c.Request.Method,
 			"status", c.Writer.Status(),
 			"path", c.Request.URL.Path,
+			"ginPath", c.FullPath(),
 			"query", redact(c.Request.URL.Query()),
 			"body", readBody(rdr, lggr),
 			"clientIP", c.ClientIP(),

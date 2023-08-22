@@ -6,6 +6,7 @@ import (
 
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 )
@@ -16,6 +17,7 @@ type dummyHandler struct {
 	don            DON
 	savedCallbacks map[string]*savedCallback
 	mu             sync.Mutex
+	lggr           logger.Logger
 }
 
 type savedCallback struct {
@@ -25,11 +27,12 @@ type savedCallback struct {
 
 var _ Handler = (*dummyHandler)(nil)
 
-func NewDummyHandler(donConfig *config.DONConfig, don DON) (Handler, error) {
+func NewDummyHandler(donConfig *config.DONConfig, don DON, lggr logger.Logger) (Handler, error) {
 	return &dummyHandler{
 		donConfig:      donConfig,
 		don:            don,
 		savedCallbacks: make(map[string]*savedCallback),
+		lggr:           lggr,
 	}, nil
 }
 

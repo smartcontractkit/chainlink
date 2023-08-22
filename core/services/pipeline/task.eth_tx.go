@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"reflect"
 	"strconv"
@@ -41,7 +42,7 @@ type ETHTxTask struct {
 	forwardingAllowed bool
 	specGasLimit      *uint32
 	keyStore          ETHKeyStore
-	chainSet          evm.ChainSet
+	legacyChains      evm.LegacyChainContainer
 	jobType           string
 }
 
@@ -62,18 +63,20 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		return Result{Error: err}, runInfo
 	}
 
-	chain, err := getChainByString(t.chainSet, string(chainID))
+	chain, err := t.legacyChains.Get(string(chainID))
 	if err != nil {
-		return Result{Error: errors.Wrapf(err, "failed to get chain by id: %v", t.EVMChainID)}, retryableRunInfo()
+		err = fmt.Errorf("%w: %s: %w", ErrInvalidEVMChainID, chainID, err)
+		return Result{Error: err}, retryableRunInfo()
 	}
-	cfg := chain.Config()
+
+	cfg := chain.Config().EVM()
 	txManager := chain.TxManager()
 	_, err = CheckInputs(inputs, -1, -1, 0)
 	if err != nil {
 		return Result{Error: errors.Wrap(err, "task inputs")}, runInfo
 	}
 
-	maximumGasLimit := SelectGasLimit(cfg, t.jobType, t.specGasLimit)
+	maximumGasLimit := SelectGasLimit(cfg.GasEstimator(), t.jobType, t.specGasLimit)
 
 	var (
 		fromAddrs             AddressSliceParam
@@ -102,7 +105,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	if min, isSet := maybeMinConfirmations.Uint64(); isSet {
 		minOutgoingConfirmations = min
 	} else {
-		minOutgoingConfirmations = uint64(cfg.EvmFinalityDepth())
+		minOutgoingConfirmations = uint64(cfg.FinalityDepth())
 	}
 
 	txMeta, err := decodeMeta(txMetaMap)
@@ -136,7 +139,7 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 		}
 	}
 
-	txRequest := txmgr.EvmTxRequest{
+	txRequest := txmgr.TxRequest{
 		FromAddress:      fromAddr,
 		ToAddress:        common.Address(toAddr),
 		EncodedPayload:   []byte(data),
@@ -165,8 +168,8 @@ func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs
 	return Result{Value: nil}, runInfo
 }
 
-func decodeMeta(metaMap MapParam) (*txmgr.EvmTxMeta, error) {
-	var txMeta txmgr.EvmTxMeta
+func decodeMeta(metaMap MapParam) (*txmgr.TxMeta, error) {
+	var txMeta txmgr.TxMeta
 	metaDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:      &txMeta,
 		ErrorUnused: true,
@@ -199,8 +202,8 @@ func decodeMeta(metaMap MapParam) (*txmgr.EvmTxMeta, error) {
 	return &txMeta, nil
 }
 
-func decodeTransmitChecker(checkerMap MapParam) (txmgr.EvmTransmitCheckerSpec, error) {
-	var transmitChecker txmgr.EvmTransmitCheckerSpec
+func decodeTransmitChecker(checkerMap MapParam) (txmgr.TransmitCheckerSpec, error) {
+	var transmitChecker txmgr.TransmitCheckerSpec
 	checkerDecoder, err := mapstructure.NewDecoder(&mapstructure.DecoderConfig{
 		Result:      &transmitChecker,
 		ErrorUnused: true,
@@ -231,7 +234,7 @@ func decodeTransmitChecker(checkerMap MapParam) (txmgr.EvmTransmitCheckerSpec, e
 }
 
 // txMeta is really only used for logging, so this is best-effort
-func setJobIDOnMeta(lggr logger.Logger, vars Vars, meta *txmgr.EvmTxMeta) {
+func setJobIDOnMeta(lggr logger.Logger, vars Vars, meta *txmgr.TxMeta) {
 	jobID, err := vars.Get("jobSpec.databaseID")
 	if err != nil {
 		return

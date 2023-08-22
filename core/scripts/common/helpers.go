@@ -20,6 +20,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/rlp"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -29,6 +31,8 @@ import (
 type Environment struct {
 	Owner *bind.TransactOpts
 	Ec    *ethclient.Client
+
+	Jc *rpc.Client
 
 	// AvaxEc is appropriately set if the environment is configured to interact with an avalanche
 	// chain. It should be used instead of the regular Ec field because avalanche calculates
@@ -74,6 +78,9 @@ func SetupEnv(overrideNonce bool) Environment {
 	ec, err := ethclient.Dial(ethURL)
 	PanicErr(err)
 
+	jsonRPCClient, err := rpc.Dial(ethURL)
+	PanicErr(err)
+
 	chainID, err := strconv.ParseInt(chainIDEnv, 10, 64)
 	PanicErr(err)
 
@@ -102,6 +109,7 @@ func SetupEnv(overrideNonce bool) Environment {
 	// Explicitly set gas price to ensure non-eip 1559
 	gp, err := ec.SuggestGasPrice(context.Background())
 	PanicErr(err)
+	fmt.Println("Suggested Gas Price:", gp, "wei")
 	owner.GasPrice = gp
 	gasLimit, set := os.LookupEnv("GAS_LIMIT")
 	if set {
@@ -120,13 +128,14 @@ func SetupEnv(overrideNonce bool) Environment {
 		PanicErr(err)
 
 		owner.Nonce = big.NewInt(int64(nonce))
-		owner.GasPrice = gp.Mul(gp, big.NewInt(2))
 	}
-
+	owner.GasPrice = gp.Mul(gp, big.NewInt(2))
+	fmt.Println("Modified Gas Price that will be set:", owner.GasPrice, "wei")
 	// the execution environment for the scripts
 	return Environment{
 		Owner:   owner,
 		Ec:      ec,
+		Jc:      jsonRPCClient,
 		AvaxEc:  avaxClient,
 		ChainID: chainID,
 	}
@@ -326,43 +335,192 @@ func ParseHexSlice(arg string) (ret [][]byte) {
 }
 
 func FundNodes(e Environment, transmitters []string, fundingAmount *big.Int) {
+	for _, transmitter := range transmitters {
+		FundNode(e, transmitter, fundingAmount)
+	}
+}
+
+func FundNode(e Environment, address string, fundingAmount *big.Int) {
 	block, err := e.Ec.BlockNumber(context.Background())
 	PanicErr(err)
 
 	nonce, err := e.Ec.NonceAt(context.Background(), e.Owner.From, big.NewInt(int64(block)))
 	PanicErr(err)
+	// Special case for Arbitrum since gas estimation there is different.
 
-	for i := 0; i < len(transmitters); i++ {
-		// Special case for Arbitrum since gas estimation there is different.
-		var gasLimit uint64
-		if IsArbitrumChainID(e.ChainID) {
-			to := common.HexToAddress(transmitters[i])
-			estimated, err := e.Ec.EstimateGas(context.Background(), ethereum.CallMsg{
-				From:  e.Owner.From,
-				To:    &to,
-				Value: fundingAmount,
-			})
-			PanicErr(err)
-			gasLimit = estimated
+	var gasLimit uint64
+	if IsArbitrumChainID(e.ChainID) {
+		to := common.HexToAddress(address)
+		estimated, err := e.Ec.EstimateGas(context.Background(), ethereum.CallMsg{
+			From:  e.Owner.From,
+			To:    &to,
+			Value: fundingAmount,
+		})
+		PanicErr(err)
+		gasLimit = estimated
+	} else {
+		gasLimit = uint64(21_000)
+	}
+	toAddress := common.HexToAddress(address)
+
+	tx := types.NewTx(
+		&types.LegacyTx{
+			Nonce:    nonce,
+			GasPrice: e.Owner.GasPrice,
+			Gas:      gasLimit,
+			To:       &toAddress,
+			Value:    fundingAmount,
+			Data:     nil,
+		})
+
+	signedTx, err := e.Owner.Signer(e.Owner.From, tx)
+	PanicErr(err)
+	err = e.Ec.SendTransaction(context.Background(), signedTx)
+	PanicErr(err)
+	fmt.Printf("Sending to %s: %s\n", address, ExplorerLink(e.ChainID, signedTx.Hash()))
+	PanicErr(err)
+	_, err = bind.WaitMined(context.Background(), e.Ec, signedTx)
+	PanicErr(err)
+}
+
+// binarySearch finds the highest value within the range bottom-top at which the test function is
+// true.
+func BinarySearch(top, bottom *big.Int, test func(amount *big.Int) bool) *big.Int {
+	var runs int
+	// While the difference between top and bottom is > 1
+	for new(big.Int).Sub(top, bottom).Cmp(big.NewInt(1)) > 0 {
+		// Calculate midpoint between top and bottom
+		midpoint := new(big.Int).Sub(top, bottom)
+		midpoint.Div(midpoint, big.NewInt(2))
+		midpoint.Add(midpoint, bottom)
+
+		// Check if the midpoint amount is withdrawable
+		if test(midpoint) {
+			bottom = midpoint
 		} else {
-			gasLimit = uint64(21_000)
+			top = midpoint
 		}
 
-		tx := types.NewTransaction(
-			nonce+uint64(i),
-			common.HexToAddress(transmitters[i]),
-			fundingAmount,
-			gasLimit,
-			e.Owner.GasPrice,
-			nil,
-		)
-		signedTx, err := e.Owner.Signer(e.Owner.From, tx)
-		PanicErr(err)
-		err = e.Ec.SendTransaction(context.Background(), signedTx)
-		PanicErr(err)
-
-		fmt.Printf("Sending to %s: %s\n", transmitters[i], ExplorerLink(e.ChainID, signedTx.Hash()))
+		runs++
+		if runs%10 == 0 {
+			fmt.Printf("Searching... current range %s-%s\n", bottom.String(), top.String())
+		}
 	}
+
+	return bottom
+}
+
+// Get RLP encoded headers of a list of block numbers
+// Makes RPC network call eth_getBlockByNumber to blockchain RPC node
+// to fetch header info
+func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks bool) (headers [][]byte, hashes []string, err error) {
+
+	hashes = make([]string, 0)
+
+	var offset *big.Int = big.NewInt(0)
+	if getParentBlocks {
+		offset = big.NewInt(1)
+	}
+
+	headers = [][]byte{}
+	var rlpHeader []byte
+	for _, blockNum := range blockNumbers {
+		// Avalanche block headers are special, handle them by using the avalanche rpc client
+		// rather than the regular go-ethereum ethclient.
+		if IsAvaxNetwork(env.ChainID) {
+			// Get child block since it's the one that has the parent hash in its header.
+			h, err := env.AvaxEc.HeaderByNumber(
+				context.Background(),
+				new(big.Int).Set(blockNum).Add(blockNum, offset),
+			)
+			if err != nil {
+				return nil, hashes, fmt.Errorf("failed to get header: %+v", err)
+			}
+			// We can still use vanilla go-ethereum rlp.EncodeToBytes, see e.g
+			// https://github.com/ava-labs/coreth/blob/e3ca41bf5295a9a7ca1aeaf29d541fcbb94f79b1/core/types/hashing.go#L49-L57.
+			rlpHeader, err = rlp.EncodeToBytes(h)
+			if err != nil {
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err)
+			}
+
+			hashes = append(hashes, h.Hash().String())
+
+			// Sanity check - can be un-commented if storeVerifyHeader is failing due to unexpected
+			// blockhash.
+			//bh := crypto.Keccak256Hash(rlpHeader)
+			//fmt.Println("Calculated BH:", bh.String(),
+			//	"fetched BH:", h.Hash(),
+			//	"block number:", new(big.Int).Set(blockNum).Add(blockNum, offset).String())
+
+		} else if IsPolygonEdgeNetwork(env.ChainID) {
+
+			// Get child block since it's the one that has the parent hash in its header.
+			nextBlockNum := new(big.Int).Set(blockNum).Add(blockNum, offset)
+			var hash string
+			rlpHeader, hash, err = GetPolygonEdgeRLPHeader(env.Jc, nextBlockNum)
+			if err != nil {
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err)
+			}
+
+			hashes = append(hashes, hash)
+
+		} else {
+			// Get child block since it's the one that has the parent hash in its header.
+			h, err := env.Ec.HeaderByNumber(
+				context.Background(),
+				new(big.Int).Set(blockNum).Add(blockNum, offset),
+			)
+			if err != nil {
+				return nil, hashes, fmt.Errorf("failed to get header: %+v", err)
+			}
+			rlpHeader, err = rlp.EncodeToBytes(h)
+			if err != nil {
+				return nil, hashes, fmt.Errorf("failed to encode rlp: %+v", err)
+			}
+
+			hashes = append(hashes, h.Hash().String())
+		}
+
+		headers = append(headers, rlpHeader)
+	}
+	return
+}
+
+// IsPolygonEdgeNetwork returns true if the given chain ID corresponds to an Pologyon Edge network.
+func IsPolygonEdgeNetwork(chainID int64) bool {
+	return chainID == 100 || // Nexon test supernet
+		chainID == 500 // Nexon test supernet
+}
+
+func CalculateLatestBlockHeader(env Environment, blockNumberInput int) (err error) {
+	blockNumber := uint64(blockNumberInput)
+	if blockNumberInput == -1 {
+		blockNumber, err = env.Ec.BlockNumber(context.Background())
+		if err != nil {
+			return fmt.Errorf("failed to fetch latest block: %+v", err)
+		}
+	}
+
+	// GetRLPHeaders method increments the blockNum sent by 1 and then fetches
+	// block headers for the child block.
+	blockNumber = blockNumber - 1
+
+	blockNumberBigInts := []*big.Int{big.NewInt(int64(blockNumber))}
+	headers, hashes, err := GetRlpHeaders(env, blockNumberBigInts, true)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+
+	rlpHeader := headers[0]
+	bh := crypto.Keccak256Hash(rlpHeader)
+	fmt.Println("Calculated BH:", bh.String(),
+		"\nfetched BH:", hashes[0],
+		"\nRLP encoding of header: ", hex.EncodeToString(rlpHeader), ", len: ", len(rlpHeader),
+		"\nblock number:", new(big.Int).Set(blockNumberBigInts[0]).Add(blockNumberBigInts[0], big.NewInt(1)).String(),
+		fmt.Sprintf("\nblock number hex: 0x%x\n", blockNumber+1))
+
+	return err
 }
 
 // IsAvaxNetwork returns true if the given chain ID corresponds to an avalanche network or subnet.

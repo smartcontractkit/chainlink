@@ -1,10 +1,15 @@
 package api
 
 import (
+	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
+	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+
+	gw_common "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -13,8 +18,7 @@ const (
 	MessageIdMaxLen               = 128
 	MessageMethodMaxLen           = 64
 	MessageDonIdMaxLen            = 64
-	MessageSenderLen              = 20
-	MessageSenderHexEncodedLen    = 2 + 2*MessageSenderLen
+	MessageReceiverLen            = 2 + 2*20
 )
 
 /*
@@ -22,7 +26,7 @@ const (
  *   - universal fields identifying the request, the sender and the target DON/service
  *   - product-specific payload
  *
- * Signature and Sender are hex-encoded with a "0x" prefix.
+ * Signature, Receiver and Sender are hex-encoded with a "0x" prefix.
  */
 type Message struct {
 	Signature string      `json:"signature"`
@@ -33,10 +37,12 @@ type MessageBody struct {
 	MessageId string `json:"message_id"`
 	Method    string `json:"method"`
 	DonId     string `json:"don_id"`
-	Sender    string `json:"sender"`
-
+	Receiver  string `json:"receiver"`
 	// Service-specific payload, decoded inside the Handler.
 	Payload json.RawMessage `json:"payload,omitempty"`
+
+	// Fields only used locally for convenience. Not serialized.
+	Sender string `json:"-"`
 }
 
 func (m *Message) Validate() error {
@@ -55,8 +61,57 @@ func (m *Message) Validate() error {
 	if len(m.Body.DonId) == 0 || len(m.Body.DonId) > MessageDonIdMaxLen {
 		return errors.New("invalid DON ID length")
 	}
-	if len(m.Body.Sender) != MessageSenderHexEncodedLen || !common.IsHexAddress(m.Body.Sender) {
-		return errors.New("invalid hex-encoded sender address")
+	if len(m.Body.Receiver) != 0 && len(m.Body.Receiver) != MessageReceiverLen {
+		return errors.New("invalid Receiver length")
 	}
+	signerBytes, err := m.ExtractSigner()
+	if err != nil {
+		return err
+	}
+	m.Body.Sender = utils.StringToHex(string(signerBytes))
 	return nil
+}
+
+// Message signatures are over the following data:
+//  1. MessageId aligned to 128 bytes
+//  2. Method aligned to 64 bytes
+//  3. DonId aligned to 64 bytes
+//  4. Receiver (in hex) aligned to 42 bytes
+//  5. Payload (raw bytes before parsing)
+func (m *Message) Sign(privateKey *ecdsa.PrivateKey) error {
+	if m == nil {
+		return errors.New("nil message")
+	}
+	rawData := getRawMessageBody(&m.Body)
+	signature, err := gw_common.SignData(privateKey, rawData...)
+	if err != nil {
+		return err
+	}
+	m.Signature = utils.StringToHex(string(signature))
+	m.Body.Sender = strings.ToLower(crypto.PubkeyToAddress(privateKey.PublicKey).Hex())
+	return nil
+}
+
+func (m *Message) ExtractSigner() (signerAddress []byte, err error) {
+	if m == nil {
+		return nil, errors.New("nil message")
+	}
+	rawData := getRawMessageBody(&m.Body)
+	signatureBytes, err := utils.TryParseHex(m.Signature)
+	if err != nil {
+		return nil, err
+	}
+	return gw_common.ExtractSigner(signatureBytes, rawData...)
+}
+
+func getRawMessageBody(msgBody *MessageBody) [][]byte {
+	alignedMessageId := make([]byte, MessageIdMaxLen)
+	copy(alignedMessageId, msgBody.MessageId)
+	alignedMethod := make([]byte, MessageMethodMaxLen)
+	copy(alignedMethod, msgBody.Method)
+	alignedDonId := make([]byte, MessageDonIdMaxLen)
+	copy(alignedDonId, msgBody.DonId)
+	alignedReceiver := make([]byte, MessageReceiverLen)
+	copy(alignedReceiver, msgBody.Receiver)
+	return [][]byte{alignedMessageId, alignedMethod, alignedDonId, alignedReceiver, msgBody.Payload}
 }

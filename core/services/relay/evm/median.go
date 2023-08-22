@@ -55,7 +55,7 @@ func newMedianContract(configTracker types.ContractConfigTracker, contractAddres
 			lggr,
 			db,
 			NewRoundRequestedDB(db.DB, specID, lggr),
-			chain.Config(),
+			chain.Config().EVM(),
 			chain.Config().Database(),
 		),
 	}, nil

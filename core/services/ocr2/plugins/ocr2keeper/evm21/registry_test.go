@@ -1,153 +1,20 @@
 package evm
 
 import (
-	"context"
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	htmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
-
-func TestGetActiveUpkeepIDs(t *testing.T) {
-	tests := []struct {
-		Name         string
-		LatestHead   int64
-		ActiveIDs    []string
-		ExpectedErr  error
-		ExpectedKeys []ocr2keepers.UpkeepIdentifier
-	}{
-		{Name: "NoActiveIDs", LatestHead: 1, ActiveIDs: []string{}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{}},
-		{Name: "AvailableActiveIDs", LatestHead: 1, ActiveIDs: []string{"8", "9", "3", "1"}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-			ocr2keepers.UpkeepIdentifier("8"),
-			ocr2keepers.UpkeepIdentifier("9"),
-			ocr2keepers.UpkeepIdentifier("3"),
-			ocr2keepers.UpkeepIdentifier("1"),
-		}},
-	}
-
-	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
-			actives := make(map[string]activeUpkeep)
-			for _, id := range test.ActiveIDs {
-				idNum := big.NewInt(0)
-				idNum.SetString(id, 10)
-				actives[id] = activeUpkeep{ID: idNum}
-			}
-
-			mht := htmocks.NewHeadTracker(t)
-
-			rg := &EvmRegistry{
-				HeadProvider: HeadProvider{
-					ht: mht,
-				},
-				active: actives,
-			}
-
-			keys, err := rg.GetActiveUpkeepIDs(context.Background())
-
-			if test.ExpectedErr != nil {
-				assert.ErrorIs(t, err, test.ExpectedErr)
-			} else {
-				assert.Nil(t, err)
-			}
-
-			if len(test.ExpectedKeys) > 0 {
-				for _, key := range keys {
-					assert.Contains(t, test.ExpectedKeys, key)
-				}
-			} else {
-				assert.Equal(t, test.ExpectedKeys, keys)
-			}
-		})
-	}
-}
-
-func TestGetActiveUpkeepIDsByType(t *testing.T) {
-	tests := []struct {
-		Name         string
-		LatestHead   int64
-		ActiveIDs    []string
-		ExpectedErr  error
-		ExpectedKeys []ocr2keepers.UpkeepIdentifier
-		Triggers     []uint8
-	}{
-		{Name: "no active ids", LatestHead: 1, ActiveIDs: []string{}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{}},
-		{
-			Name:       "get log upkeeps",
-			LatestHead: 1,
-			ActiveIDs:  []string{"8", "32329108151019397958065800113404894502874153543356521479058624064899121404671"},
-			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-				ocr2keepers.UpkeepIdentifier("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
-			},
-			Triggers: []uint8{uint8(logTrigger)},
-		},
-		{
-			Name:       "get conditional upkeeps",
-			LatestHead: 1,
-			ActiveIDs:  []string{"8", "32329108151019397958065800113404894502874153543356521479058624064899121404671"},
-			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-				ocr2keepers.UpkeepIdentifier("8"),
-			},
-			Triggers: []uint8{uint8(conditionTrigger)},
-		},
-		{
-			Name:       "get multiple types of upkeeps",
-			LatestHead: 1,
-			ActiveIDs:  []string{"8", "32329108151019397958065800113404894502874153543356521479058624064899121404671"},
-			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-				ocr2keepers.UpkeepIdentifier("8"),
-				ocr2keepers.UpkeepIdentifier("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
-			},
-			Triggers: []uint8{uint8(logTrigger), uint8(conditionTrigger)},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
-			actives := make(map[string]activeUpkeep)
-			for _, id := range test.ActiveIDs {
-				idNum := big.NewInt(0)
-				idNum.SetString(id, 10)
-				actives[id] = activeUpkeep{ID: idNum}
-			}
-
-			mht := htmocks.NewHeadTracker(t)
-
-			rg := &EvmRegistry{
-				HeadProvider: HeadProvider{
-					ht: mht,
-				},
-				active: actives,
-			}
-
-			keys, err := rg.GetActiveUpkeepIDsByType(context.Background(), test.Triggers...)
-
-			if test.ExpectedErr != nil {
-				assert.ErrorIs(t, err, test.ExpectedErr)
-			} else {
-				assert.Nil(t, err)
-			}
-
-			if len(test.ExpectedKeys) > 0 {
-				for _, key := range keys {
-					assert.Contains(t, test.ExpectedKeys, key)
-				}
-			} else {
-				assert.Equal(t, test.ExpectedKeys, keys)
-			}
-		})
-	}
-}
 
 func TestPollLogs(t *testing.T) {
 	tests := []struct {
@@ -280,7 +147,7 @@ func TestPollLogs(t *testing.T) {
 				chLog:         make(chan logpoller.Log, 10),
 			}
 
-			err := rg.pollLogs()
+			err := rg.pollUpkeepStateLogs()
 
 			assert.Equal(t, test.ExpectedLastPoll, rg.lastPollBlock)
 			if test.ExpectedErr != nil {

@@ -62,8 +62,8 @@ func (hs *headSaver) LatestChain() *evmtypes.Head {
 	if head == nil {
 		return nil
 	}
-	if head.ChainLength() < hs.config.EvmFinalityDepth() {
-		hs.logger.Debugw("chain shorter than EvmFinalityDepth", "chainLen", head.ChainLength(), "evmFinalityDepth", hs.config.EvmFinalityDepth())
+	if head.ChainLength() < hs.config.FinalityDepth() {
+		hs.logger.Debugw("chain shorter than FinalityDepth", "chainLen", head.ChainLength(), "evmFinalityDepth", hs.config.FinalityDepth())
 	}
 	return head
 }

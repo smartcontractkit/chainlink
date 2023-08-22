@@ -112,7 +112,7 @@ blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 evmChainID = "4"
 fromAddresses = ["0x469aA2CD13e037DC5236320783dCfd0e641c0559"]`,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.EqualError(t, err, `at least one of "coordinatorV1Address" and "coordinatorV2Address" must be set`)
+				require.EqualError(t, err, `at least one of "coordinatorV1Address", "coordinatorV2Address" and "coordinatorV2PlusAddress" must be set`)
 			},
 		},
 		{
@@ -181,6 +181,22 @@ blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
 evmChainID = "4"`,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.EqualError(t, err, `"waitBlocks" must be less than "lookbackBlocks"`)
+			},
+		},
+		{
+			name: "invalid waitBlocks higher than lookbackBlocks",
+			toml: `
+type = "blockhashstore"
+name = "valid-test"
+coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
+coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
+waitBlocks = 10
+lookbackBlocks = 100
+blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
+trustedBlockhashStoreAddress = "0x469aA2CD13e037DC5236320783dCfd0e641c0559"
+evmChainID = "4"`,
+			assertion: func(t *testing.T, os job.Job, err error) {
+				require.EqualError(t, err, `"trustedBlockhashStoreBatchSize" must be set`)
 			},
 		},
 		{

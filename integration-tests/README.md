@@ -52,6 +52,35 @@ increase minikube's resources significantly, or get a more substantial cluster.
 This is necessary to deploy ephemeral testing environments, which include external adapters, chainlink nodes and their DBs,
 as well as some simulated blockchains, all depending on the types of tests and networks being used.
 
+### Setup Kubernetes Cluster using k3d
+
+[k3d](https://k3d.io/) is a lightweight wrapper to run k3s (a lightweight kubernetes distribution) in docker. It's a great way to run a local kubernetes cluster for testing.
+To create a new cluster you can run:
+
+```sh
+k3d cluster create test-k8s --registry-create test-k8s-registry:0.0.0.0:5000
+```
+
+This will create a cluster with a local registry running on port 5000. You can then use the registry to push images to and pull images from.
+
+To build and push chainlink image to the registry you can run:
+
+```sh
+make build_push_docker_image
+````
+
+To stop the cluster you can run:
+
+```sh
+k3d cluster stop test-k8s
+```
+
+To start an existing cluster you can run:
+
+```sh
+k3d cluster start test-k8s
+```
+
 ## Configure Environment
 
 See the [example.env](./example.env) file and use it as a template for your own `.env` file. This allows you to configure general settings like what name to associate with your tests, and which Chainlink version to use when running them.
@@ -129,9 +158,25 @@ make test_soak_keeper
 
 Soak tests will pull all their network information from the env vars that you can set in the `.env` file. *Reminder to run `source .env` for changes to take effect.*
 
-To configure specific parameters of how the soak tests run (e.g. test length, number of contracts), see the [./soak/tests](./soak/tests/) test specifications.
+To configure specific parameters of how the soak tests run (e.g. test length, number of contracts), adjust the values in your `.env` file, you can use `example.env` as reference
 
-See the [soak_runner](./soak/soak_runner_test.go) for more info on how the tests are run and configured.
+
+#### Running with custom image
+On each PR navigate to the `integration-tests` job, here you will find the images for both chainlink-tests and core. In your env file you need to replace:
+
+`ENV_JOB_IMAGE="image-location/chainlink-tests:<IMAGE_SHA>"`
+
+`CHAINLINK_IMAGE="public.ecr.aws/chainlink/chainlink"`
+
+`export CHAINLINK_VERSION="<IMAGE_SHA>"`
+
+After all the env vars are exported, run the tests. This will kick off a remote runner that will be in charge of running the tests. Locally the test should pass quickly and a namespace will be displayed in the output e.g
+`INF Creating new namespace Namespace=soak-ocr-goerli-testnet-957b2`
+
+#### Logs and monitoring
+- Pod logs: `kubectl logs -n soak-ocr-goerli-testnet-957b2 -c node -f chainlink-0-1`
+- Remote runner logs: `kubectl logs -n soak-ocr-goerli-testnet-957b2 -f remote-runner-cs2as`
+- Navigate to Grafana chainlink testing insights for all logs
 
 ### Performance
 
@@ -143,7 +188,9 @@ make test_perf
 
 ## Common Issues
 
-When upgrading to a new version, it's possible the helm charts have changed. There are a myriad of errors that can result from this, so it's best to just try running `helm repo update` when encountering an error you're unsure of.
+- When upgrading to a new version, it's possible the helm charts have changed. There are a myriad of errors that can result from this, so it's best to just try running `helm repo update` when encountering an error you're unsure of.
+- Docker failing to pull image, make sure you are referencing the correct ECR repo in AWS since develop images are not pushed to the public one.
+  - If tests hang for some time this is usually the case, so make sure to check the logs each time tests are failing to start
 
 </details>
 
@@ -155,5 +202,5 @@ If you're making changes to chainlink code, or just want to run some tests witho
 1. [Install Go](https://go.dev/doc/install)
 2. [Install GitHub CLI](https://cli.github.com/)
 3. Authenticate with GitHub CLI: `gh auth login`
-4. `go run .`
+4. `make run`
 5. Follow the setup wizard and watch your tests run in the GitHub Action.

@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -37,11 +38,11 @@ func TestDelegate_JobType(t *testing.T) {
 }
 
 type testData struct {
-	ethClient   *mocks.Client
-	ethKeyStore keystore.Eth
-	chainSet    evm.ChainSet
-	sendingKey  ethkey.KeyV2
-	logs        *observer.ObservedLogs
+	ethClient    *mocks.Client
+	ethKeyStore  keystore.Eth
+	legacyChains evm.LegacyChainContainer
+	sendingKey   ethkey.KeyV2
+	logs         *observer.ObservedLogs
 }
 
 func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
@@ -57,7 +58,9 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	sendingKey, _ := cltest.MustAddRandomKeyToKeystore(t, kst)
 	lp := &mocklp.LogPoller{}
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
-	chainSet := evmtest.NewChainSet(
+	lp.On("LatestBlock", mock.Anything, mock.Anything).Return(int64(0), nil)
+
+	relayExtenders := evmtest.NewChainRelayExtenders(
 		t,
 		evmtest.TestChainOpts{
 			DB:            db,
@@ -67,13 +70,13 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 			LogPoller:     lp,
 		},
 	)
-
-	return blockhashstore.NewDelegate(lggr, chainSet, kst), &testData{
-		ethClient:   ethClient,
-		ethKeyStore: kst,
-		chainSet:    chainSet,
-		sendingKey:  sendingKey,
-		logs:        logs,
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	return blockhashstore.NewDelegate(lggr, legacyChains, kst), &testData{
+		ethClient:    ethClient,
+		ethKeyStore:  kst,
+		legacyChains: legacyChains,
+		sendingKey:   sendingKey,
+		logs:         logs,
 	}
 }
 
@@ -82,8 +85,8 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 
 	delegate, testData := createTestDelegate(t)
 
-	require.NotEmpty(t, testData.chainSet.Chains())
-	defaultWaitBlocks := (int32)(testData.chainSet.Chains()[0].Config().EvmFinalityDepth())
+	require.NotEmpty(t, testData.legacyChains.Slice())
+	defaultWaitBlocks := (int32)(testData.legacyChains.Slice()[0].Config().EVM().FinalityDepth())
 
 	t.Run("happy", func(t *testing.T) {
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks}}
@@ -96,11 +99,13 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	t.Run("happy with coordinators", func(t *testing.T) {
 		coordinatorV1 := cltest.NewEIP55Address()
 		coordinatorV2 := cltest.NewEIP55Address()
+		coordinatorV2Plus := cltest.NewEIP55Address()
 
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
-			WaitBlocks:           defaultWaitBlocks,
-			CoordinatorV1Address: &coordinatorV1,
-			CoordinatorV2Address: &coordinatorV2,
+			WaitBlocks:               defaultWaitBlocks,
+			CoordinatorV1Address:     &coordinatorV1,
+			CoordinatorV2Address:     &coordinatorV2,
+			CoordinatorV2PlusAddress: &coordinatorV2Plus,
 		}}
 		services, err := delegate.ServicesForSpec(spec)
 
@@ -147,8 +152,8 @@ func TestDelegate_StartStop(t *testing.T) {
 
 	delegate, testData := createTestDelegate(t)
 
-	require.NotEmpty(t, testData.chainSet.Chains())
-	defaultWaitBlocks := (int32)(testData.chainSet.Chains()[0].Config().EvmFinalityDepth())
+	require.NotEmpty(t, testData.legacyChains.Slice())
+	defaultWaitBlocks := (int32)(testData.legacyChains.Slice()[0].Config().EVM().FinalityDepth())
 	spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
 		WaitBlocks: defaultWaitBlocks,
 		PollPeriod: time.Second,
@@ -159,8 +164,6 @@ func TestDelegate_StartStop(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, services, 1)
 
-	blocks := cltest.NewBlocks(t, 1)
-	testData.ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(blocks.Head(0), nil)
 	err = services[0].Start(testutils.Context(t))
 	require.NoError(t, err)
 

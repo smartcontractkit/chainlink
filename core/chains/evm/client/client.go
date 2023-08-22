@@ -8,7 +8,6 @@ import (
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	htrktypes "github.com/smartcontractkit/chainlink/v2/common/headtracker/types"
-	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -24,21 +23,29 @@ import (
 )
 
 const queryTimeout = 10 * time.Second
+const BALANCE_OF_ADDRESS_FUNCTION_SELECTOR = "0x70a08231"
 
 //go:generate mockery --quiet --name Client --output ./mocks/ --case=underscore
 
 // Client is the interface used to interact with an ethereum node.
 type Client interface {
-	txmgrtypes.Client[*big.Int, evmtypes.Nonce, common.Address, types.Block, common.Hash, types.Transaction, common.Hash, types.Receipt, types.Log, ethereum.FilterQuery]
-
 	Dial(ctx context.Context) error
 	Close()
+	// ChainID locally stored for quick access
+	ConfiguredChainID() *big.Int
+	// ChainID RPC call
+	ChainID() (*big.Int, error)
 
 	// NodeStates returns a map of node Name->node state
 	// It might be nil or empty, e.g. for mock clients etc
 	NodeStates() map[string]string
 
+	TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error)
+	BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error)
+	LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error)
+
 	// Wrapped RPC methods
+	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
 	// BatchCallContextAll calls BatchCallContext for every single node including
 	// sendonlys.
@@ -57,21 +64,28 @@ type Client interface {
 	SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error)
 
 	// Wrapped Geth client methods
+	// blockNumber can be specified as `nil` to imply latest block
+	// if blocks, transactions, or receipts are not found - a nil result and an error are returned
+	// these methods may not be compatible with non Ethereum chains as return types may follow different formats
+	// suggested options: use HeadByNumber/HeadByHash (above) or CallContext and parse with custom types
+	SendTransaction(ctx context.Context, tx *types.Transaction) error
 	CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error)
 	PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error)
 	PendingNonceAt(ctx context.Context, account common.Address) (uint64, error)
-
+	SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error)
+	TransactionByHash(ctx context.Context, txHash common.Hash) (*types.Transaction, error)
+	TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error)
+	BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error)
 	FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error)
 	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error)
-
 	EstimateGas(ctx context.Context, call ethereum.CallMsg) (uint64, error)
 	SuggestGasPrice(ctx context.Context) (*big.Int, error)
 	SuggestGasTipCap(ctx context.Context) (*big.Int, error)
+	LatestBlockHeight(ctx context.Context) (*big.Int, error)
 
 	HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error)
 	HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error)
-
-	LINKBalance(ctx context.Context, address common.Address, linkAddress common.Address) (*assets.Link, error)
 
 	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
 
@@ -94,8 +108,8 @@ var _ htrktypes.Client[*evmtypes.Head, ethereum.Subscription, *big.Int, common.H
 
 // NewClientWithNodes instantiates a client from a list of nodes
 // Currently only supports one primary
-func NewClientWithNodes(logger logger.Logger, cfg PoolConfig, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int, chainType config.ChainType) (*client, error) {
-	pool := NewPool(logger, cfg, primaryNodes, sendOnlyNodes, chainID, chainType)
+func NewClientWithNodes(logger logger.Logger, selectionMode string, noNewHeadsThreshold time.Duration, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int, chainType config.ChainType) (*client, error) {
+	pool := NewPool(logger, selectionMode, noNewHeadsThreshold, primaryNodes, sendOnlyNodes, chainID, chainType)
 	return &client{
 		logger: logger,
 		pool:   pool,
@@ -139,7 +153,7 @@ type CallArgs struct {
 func (client *client) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
 	result := ""
 	numLinkBigInt := new(big.Int)
-	functionSelector := evmtypes.HexToFunctionSelector("0x70a08231") // balanceOf(address)
+	functionSelector := evmtypes.HexToFunctionSelector(BALANCE_OF_ADDRESS_FUNCTION_SELECTOR) // balanceOf(address)
 	data := utils.ConcatBytes(functionSelector.Bytes(), common.LeftPadBytes(address.Bytes(), utils.EVMWordByteLen))
 	args := CallArgs{
 		To:   contractAddress,
@@ -207,11 +221,6 @@ func (client *client) SendTransaction(ctx context.Context, tx *types.Transaction
 	return client.pool.SendTransaction(ctx, tx)
 }
 
-func (client *client) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
-	// todo: implement if used
-	return errors.New("SimulateTransaction not implemented")
-}
-
 func (client *client) PendingNonceAt(ctx context.Context, account common.Address) (uint64, error) {
 	return client.pool.PendingNonceAt(ctx, account)
 }
@@ -256,7 +265,7 @@ func (client *client) BlockByHash(ctx context.Context, hash common.Hash) (*types
 }
 
 func (client *client) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
-	var height *big.Int
+	var height big.Int
 	h, err := client.pool.BlockNumber(ctx)
 	return height.SetUint64(h), err
 }
@@ -293,10 +302,6 @@ func ToBlockNumArg(number *big.Int) string {
 		return "latest"
 	}
 	return hexutil.EncodeBig(number)
-}
-
-func (client *client) FilterEvents(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
-	return client.FilterLogs(ctx, q)
 }
 
 func (client *client) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {

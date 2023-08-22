@@ -39,7 +39,7 @@ before(async () => {
     owner,
   )
   multisendFactory = await ethers.getContractFactory(
-    'src/v0.8/tests/vendor/MultiSend.sol:MultiSend',
+    'src/v0.8/vendor/MultiSend.sol:MultiSend',
     owner,
   )
 })

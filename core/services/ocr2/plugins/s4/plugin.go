@@ -4,17 +4,17 @@ import (
 	"context"
 	"time"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 type plugin struct {
-	logger       logger.Logger
+	logger       commontypes.Logger
 	config       *PluginConfig
 	orm          s4.ORM
 	addressRange *s4.AddressRange
@@ -27,7 +27,7 @@ type key struct {
 
 var _ types.ReportingPlugin = (*plugin)(nil)
 
-func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) (types.ReportingPlugin, error) {
+func NewReportingPlugin(logger commontypes.Logger, config *PluginConfig, orm s4.ORM) (types.ReportingPlugin, error) {
 	if config.MaxObservationEntries == 0 {
 		return nil, errors.New("max number of observation entries cannot be zero")
 	}
@@ -44,14 +44,14 @@ func NewReportingPlugin(logger logger.Logger, config *PluginConfig, orm s4.ORM) 
 	}
 
 	return &plugin{
-		logger:       logger.Named("OCR2-S4").With("product", config.ProductName),
+		logger:       logger,
 		config:       config,
 		orm:          orm,
 		addressRange: addressRange,
 	}, nil
 }
 
-func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Query, error) {
+func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Query, error) {
 	promReportingPluginQuery.WithLabelValues(c.config.ProductName).Inc()
 
 	snapshot, err := c.orm.GetSnapshot(c.addressRange, pg.WithParentCtx(ctx))
@@ -78,10 +78,16 @@ func (c *plugin) Query(ctx context.Context, _ types.ReportTimestamp) (types.Quer
 
 	c.addressRange.Advance()
 
+	c.logger.Debug("S4StorageReporting Query", commontypes.LogFields{
+		"epoch": ts.Epoch,
+		"round": ts.Round,
+		"nRows": len(rows),
+	})
+
 	return queryBytes, err
 }
 
-func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query types.Query) (types.Observation, error) {
+func (c *plugin) Observation(ctx context.Context, ts types.ReportTimestamp, query types.Query) (types.Observation, error) {
 	promReportingPluginObservation.WithLabelValues(c.config.ProductName).Inc()
 
 	now := time.Now().UTC()
@@ -110,11 +116,11 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 
 	queryRows, addressRange, err := UnmarshalQuery(query)
 	if err != nil {
-		c.logger.Errorw("Failed to unmarshal query (likely malformed)", "err", err)
+		c.logger.Error("Failed to unmarshal query (likely malformed)", commontypes.LogFields{"err": err})
 	} else {
 		snapshot, err := c.orm.GetSnapshot(addressRange, pg.WithParentCtx(ctx))
 		if err != nil {
-			c.logger.Errorw("ORM GetSnapshot error", "err", err)
+			c.logger.Error("ORM GetSnapshot error", commontypes.LogFields{"err": err})
 		} else {
 			type rkey struct {
 				address *utils.Big
@@ -154,16 +160,23 @@ func (c *plugin) Observation(ctx context.Context, _ types.ReportTimestamp, query
 				if err == nil {
 					remainingRows = append(remainingRows, row)
 				} else if !errors.Is(err, s4.ErrNotFound) {
-					c.logger.Errorw("ORM Get error", "err", err)
+					c.logger.Error("ORM Get error", commontypes.LogFields{"err": err})
 				}
 			}
 		}
 	}
 
+	c.logger.Debug("S4StorageReporting Observation", commontypes.LogFields{
+		"epoch":            ts.Epoch,
+		"round":            ts.Round,
+		"nUnconfirmedRows": len(unconfirmedRows),
+		"nRemainingRows":   len(remainingRows),
+	})
+
 	return returnObservation(append(unconfirmedRows, remainingRows...))
 }
 
-func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Query, aos []types.AttributedObservation) (bool, types.Report, error) {
+func (c *plugin) Report(_ context.Context, ts types.ReportTimestamp, _ types.Query, aos []types.AttributedObservation) (bool, types.Report, error) {
 	promReportingPluginReport.WithLabelValues(c.config.ProductName).Inc()
 
 	reportMap := make(map[key]*Row)
@@ -177,7 +190,7 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 		for _, row := range observationRows {
 			if err := row.VerifySignature(); err != nil {
 				promReportingPluginWrongSigCount.WithLabelValues(c.config.ProductName).Inc()
-				c.logger.Errorw("Report detected invalid signature", "err", err, "oracleID", ao.Observer)
+				c.logger.Error("Report detected invalid signature", commontypes.LogFields{"err": err, "oracleID": ao.Observer})
 				continue
 			}
 			mkey := key{
@@ -207,11 +220,16 @@ func (c *plugin) Report(_ context.Context, _ types.ReportTimestamp, _ types.Quer
 	}
 
 	promReportingPluginsReportRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(reportRows)))
+	c.logger.Debug("S4StorageReporting Report", commontypes.LogFields{
+		"epoch":       ts.Epoch,
+		"round":       ts.Round,
+		"nReportRows": len(reportRows),
+	})
 
 	return true, report, nil
 }
 
-func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, _ types.ReportTimestamp, report types.Report) (bool, error) {
+func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, ts types.ReportTimestamp, report types.Report) (bool, error) {
 	promReportingPluginShouldAccept.WithLabelValues(c.config.ProductName).Inc()
 
 	reportRows, err := UnmarshalRows(report)
@@ -231,10 +249,16 @@ func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, _ types.Report
 		}
 		err = c.orm.Update(ormRow, pg.WithParentCtx(ctx))
 		if err != nil && !errors.Is(err, s4.ErrVersionTooLow) {
-			c.logger.Errorw("Failed to Update a row in ShouldAcceptFinalizedReport()", "err", err)
+			c.logger.Error("Failed to Update a row in ShouldAcceptFinalizedReport()", commontypes.LogFields{"err": err})
 			continue
 		}
 	}
+
+	c.logger.Debug("S4StorageReporting ShouldAcceptFinalizedReport", commontypes.LogFields{
+		"epoch":       ts.Epoch,
+		"round":       ts.Round,
+		"nReportRows": len(reportRows),
+	})
 
 	// If ShouldAcceptFinalizedReport returns false, ShouldTransmitAcceptedReport will not be called.
 	return false, nil

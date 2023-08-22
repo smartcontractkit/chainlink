@@ -51,10 +51,10 @@ var _ txmgr.SequenceSyncer[common.Address, common.Hash, common.Hash] = &nonceSyn
 
 type nonceSyncerImpl struct {
 	txStore EvmTxStore
-	client  EvmTxmClient
+	client  TxmClient
 	chainID *big.Int
 	logger  logger.Logger
-	kst     EvmKeyStore
+	kst     KeyStore
 }
 
 // NewNonceSyncer returns a new syncer
@@ -62,8 +62,8 @@ func NewNonceSyncer(
 	txStore EvmTxStore,
 	lggr logger.Logger,
 	ethClient evmclient.Client,
-	kst EvmKeyStore,
-) EvmNonceSyncer {
+	kst KeyStore,
+) NonceSyncer {
 	lggr = lggr.Named("NonceSyncer")
 	return &nonceSyncerImpl{
 		txStore: txStore,

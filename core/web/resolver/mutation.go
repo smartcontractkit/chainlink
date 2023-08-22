@@ -36,7 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
-	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -1011,7 +1011,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	config := r.App.GetConfig()
 	switch jbt {
 	case job.OffchainReporting:
-		jb, err = ocr.ValidatedOracleSpecToml(r.App.GetChains().EVM, args.Input.TOML)
+		jb, err = ocr.ValidatedOracleSpecToml(r.App.GetRelayers().LegacyEVMChains(), args.Input.TOML)
 		if !config.OCR().Enabled() {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}
@@ -1029,7 +1029,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	case job.Cron:
 		jb, err = cron.ValidatedCronSpec(args.Input.TOML)
 	case job.VRF:
-		jb, err = vrf.ValidatedVRFSpec(args.Input.TOML)
+		jb, err = vrfcommon.ValidatedVRFSpec(args.Input.TOML)
 	case job.Webhook:
 		jb, err = webhook.ValidatedWebhookSpec(args.Input.TOML, r.App.GetExternalInitiatorManager())
 	case job.BlockhashStore:
