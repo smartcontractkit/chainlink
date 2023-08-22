@@ -17,11 +17,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
-
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
 )
 
-func TestPluginMedian(t *testing.T, p internal.PluginMedian) {
+func TestPluginMedian(t *testing.T, p types.PluginMedian) {
 	PluginMedianTest{&StaticMedianProvider{}}.TestPluginMedian(t, p)
 }
 
@@ -29,7 +27,7 @@ type PluginMedianTest struct {
 	types.MedianProvider
 }
 
-func (m PluginMedianTest) TestPluginMedian(t *testing.T, p internal.PluginMedian) {
+func (m PluginMedianTest) TestPluginMedian(t *testing.T, p types.PluginMedian) {
 	t.Run("PluginMedian", func(t *testing.T) {
 		ctx := utils.Context(t)
 		factory, err := p.NewMedianFactory(ctx, m.MedianProvider, &staticDataSource{value}, &staticDataSource{juelsPerFeeCoin}, &StaticErrorLog{})
@@ -39,7 +37,7 @@ func (m PluginMedianTest) TestPluginMedian(t *testing.T, p internal.PluginMedian
 	})
 }
 
-func TestReportingPluginFactory(t *testing.T, factory internal.ReportingPluginFactory) {
+func TestReportingPluginFactory(t *testing.T, factory types.ReportingPluginFactory) {
 	t.Run("ReportingPluginFactory", func(t *testing.T) {
 		rp, gotRPI, err := factory.NewReportingPlugin(reportingPluginConfig)
 		require.NoError(t, err)
@@ -70,7 +68,7 @@ func TestReportingPluginFactory(t *testing.T, factory internal.ReportingPluginFa
 
 type StaticPluginMedian struct{}
 
-func (s StaticPluginMedian) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoinDataSource median.DataSource, errorLog internal.ErrorLog) (internal.ReportingPluginFactory, error) {
+func (s StaticPluginMedian) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoinDataSource median.DataSource, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
 	ocd := provider.OffchainConfigDigester()
 	gotDigestPrefix, err := ocd.ConfigDigestPrefix()
 	if err != nil {

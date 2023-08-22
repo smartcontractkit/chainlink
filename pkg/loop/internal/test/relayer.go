@@ -12,10 +12,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
-
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
 )
 
 type StaticKeystore struct{}
@@ -36,7 +35,7 @@ func (s StaticKeystore) Sign(ctx context.Context, id string, data []byte) ([]byt
 
 type StaticPluginRelayer struct{}
 
-func (s StaticPluginRelayer) NewRelayer(ctx context.Context, config string, keystore internal.Keystore) (internal.Relayer, error) {
+func (s StaticPluginRelayer) NewRelayer(ctx context.Context, config string, keystore types.Keystore) (internal.Relayer, error) {
 	if config != ConfigTOML {
 		return nil, fmt.Errorf("expected config %q but got %q", ConfigTOML, config)
 	}

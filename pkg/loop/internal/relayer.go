@@ -29,7 +29,7 @@ func NewPluginRelayerClient(broker Broker, brokerCfg BrokerConfig, conn *grpc.Cl
 	return &PluginRelayerClient{pluginClient: pc, grpc: pb.NewPluginRelayerClient(pc)}
 }
 
-func (p *PluginRelayerClient) NewRelayer(ctx context.Context, config string, keystore Keystore) (Relayer, error) {
+func (p *PluginRelayerClient) NewRelayer(ctx context.Context, config string, keystore types.Keystore) (Relayer, error) {
 	cc := p.newClientConn("Relayer", func(ctx context.Context) (id uint32, deps resources, err error) {
 		var ksRes resource
 		id, ksRes, err = p.serveNew("Keystore", func(s *grpc.Server) {
@@ -100,7 +100,7 @@ func (p *pluginRelayerServer) NewRelayer(ctx context.Context, request *pb.NewRel
 	return &pb.NewRelayerReply{RelayerID: id}, nil
 }
 
-var _ Keystore = (*keystoreClient)(nil)
+var _ types.Keystore = (*keystoreClient)(nil)
 
 type keystoreClient struct {
 	grpc pb.KeystoreClient
@@ -131,7 +131,7 @@ var _ pb.KeystoreServer = (*keystoreServer)(nil)
 type keystoreServer struct {
 	pb.UnimplementedKeystoreServer
 
-	impl Keystore
+	impl types.Keystore
 }
 
 func (k *keystoreServer) Accounts(ctx context.Context, _ *emptypb.Empty) (*pb.AccountsReply, error) {
@@ -285,7 +285,7 @@ func (r *relayerClient) SendTx(ctx context.Context, chainID, from, to string, am
 
 var _ pb.RelayerServer = (*relayerServer)(nil)
 
-// relayerServer exposes [types.Relayer] as a GRPC [pb.RelayerServer].
+// relayerServer exposes [Relayer] as a GRPC [pb.RelayerServer].
 type relayerServer struct {
 	pb.UnimplementedRelayerServer
 

@@ -15,16 +15,16 @@ import (
 
 var _ ocrtypes.ReportingPluginFactory = (*MedianService)(nil)
 
-// MedianService is a [types.Service] that maintains an internal [PluginMedian].
+// MedianService is a [types.Service] that maintains an internal [types.PluginMedian].
 type MedianService struct {
-	pluginService[*GRPCPluginMedian, ReportingPluginFactory]
+	pluginService[*GRPCPluginMedian, types.ReportingPluginFactory]
 }
 
 // NewMedianService returns a new [*MedianService].
 // cmd must return a new exec.Cmd each time it is called.
-func NewMedianService(lggr logger.Logger, grpcOpts GRPCOpts, cmd func() *exec.Cmd, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog ErrorLog) *MedianService {
-	newService := func(ctx context.Context, instance any) (ReportingPluginFactory, error) {
-		plug, ok := instance.(PluginMedian)
+func NewMedianService(lggr logger.Logger, grpcOpts GRPCOpts, cmd func() *exec.Cmd, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog types.ErrorLog) *MedianService {
+	newService := func(ctx context.Context, instance any) (types.ReportingPluginFactory, error) {
+		plug, ok := instance.(types.PluginMedian)
 		if !ok {
 			return nil, fmt.Errorf("expected PluginMedian but got %T", instance)
 		}

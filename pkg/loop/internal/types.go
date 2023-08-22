@@ -4,21 +4,11 @@ import (
 	"context"
 	"math/big"
 
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
-type Keystore interface {
-	Accounts(ctx context.Context) (accounts []string, err error)
-	// Sign returns data signed by account.
-	// nil data can be used as a no-op to check for account existence.
-	Sign(ctx context.Context, account string, data []byte) (signed []byte, err error)
-}
-
 type PluginRelayer interface {
-	NewRelayer(ctx context.Context, config string, keystore Keystore) (Relayer, error)
+	NewRelayer(ctx context.Context, config string, keystore types.Keystore) (Relayer, error)
 }
 
 // Relayer extends [types.Relayer] and includes [context.Context]s.
@@ -36,18 +26,4 @@ type Relayer interface {
 	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error)
 
 	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
-}
-
-type ErrorLog interface {
-	SaveError(ctx context.Context, msg string) error
-}
-
-type PluginMedian interface {
-	// NewMedianFactory returns a new ReportingPluginFactory. If provider implements GRPCClientConn, it can be forwarded efficiently via proxy.
-	NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog ErrorLog) (ReportingPluginFactory, error)
-}
-
-type ReportingPluginFactory interface {
-	types.Service
-	libocr.ReportingPluginFactory
 }

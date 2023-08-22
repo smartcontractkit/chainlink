@@ -4,10 +4,10 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
-var _ internal.ErrorLog = (*StaticErrorLog)(nil)
+var _ types.ErrorLog = (*StaticErrorLog)(nil)
 
 type StaticErrorLog struct{}
 

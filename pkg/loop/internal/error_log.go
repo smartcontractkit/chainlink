@@ -7,9 +7,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
-var _ ErrorLog = (*errorLogClient)(nil)
+var _ types.ErrorLog = (*errorLogClient)(nil)
 
 type errorLogClient struct {
 	grpc pb.ErrorLogClient
@@ -29,7 +30,7 @@ var _ pb.ErrorLogServer = (*errorLogServer)(nil)
 type errorLogServer struct {
 	pb.UnimplementedErrorLogServer
 
-	impl ErrorLog
+	impl types.ErrorLog
 }
 
 func (e *errorLogServer) SaveError(ctx context.Context, request *pb.SaveErrorRequest) (*emptypb.Empty, error) {

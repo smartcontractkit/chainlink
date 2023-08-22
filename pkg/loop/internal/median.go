@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
-var _ PluginMedian = (*PluginMedianClient)(nil)
+var _ types.PluginMedian = (*PluginMedianClient)(nil)
 
 type PluginMedianClient struct {
 	*pluginClient
@@ -35,7 +35,7 @@ func NewPluginMedianClient(broker Broker, brokerCfg BrokerConfig, conn *grpc.Cli
 	return &PluginMedianClient{pluginClient: pc, median: pb.NewPluginMedianClient(pc), serviceClient: newServiceClient(pc.brokerExt, pc)}
 }
 
-func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog ErrorLog) (ReportingPluginFactory, error) {
+func (m *PluginMedianClient) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog types.ErrorLog) (types.ReportingPluginFactory, error) {
 	cc := m.newClientConn("MedianPluginFactory", func(ctx context.Context) (id uint32, deps resources, err error) {
 		dataSourceID, dsRes, err := m.serveNew("DataSource", func(s *grpc.Server) {
 			pb.RegisterDataSourceServer(s, &dataSourceServer{impl: dataSource})
@@ -103,15 +103,15 @@ type pluginMedianServer struct {
 	pb.UnimplementedPluginMedianServer
 
 	*brokerExt
-	impl PluginMedian
+	impl types.PluginMedian
 }
 
-func RegisterPluginMedianServer(server *grpc.Server, broker Broker, brokerCfg BrokerConfig, impl PluginMedian) error {
+func RegisterPluginMedianServer(server *grpc.Server, broker Broker, brokerCfg BrokerConfig, impl types.PluginMedian) error {
 	pb.RegisterPluginMedianServer(server, newPluginMedianServer(&brokerExt{broker, brokerCfg}, impl))
 	return nil
 }
 
-func newPluginMedianServer(b *brokerExt, mp PluginMedian) *pluginMedianServer {
+func newPluginMedianServer(b *brokerExt, mp types.PluginMedian) *pluginMedianServer {
 	return &pluginMedianServer{brokerExt: b.withName("PluginMedian"), impl: mp}
 }
 

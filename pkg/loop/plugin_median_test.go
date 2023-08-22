@@ -45,13 +45,13 @@ func TestPluginMedianExec(t *testing.T) {
 	i, err := client.Dispense(loop.PluginMedianName)
 	require.NoError(t, err)
 
-	test.TestPluginMedian(t, i.(loop.PluginMedian))
+	test.TestPluginMedian(t, i.(types.PluginMedian))
 
 	t.Run("proxy", func(t *testing.T) {
 		pr := newPluginRelayerExec(t, stopCh)
 		p := newMedianProvider(t, pr)
 		pm := test.PluginMedianTest{MedianProvider: p}
-		pm.TestPluginMedian(t, i.(loop.PluginMedian))
+		pm.TestPluginMedian(t, i.(types.PluginMedian))
 	})
 }
 

@@ -7,14 +7,17 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
-// PluginMedianName is the name for [PluginMedian]/[NewGRPCPluginMedian].
+// PluginMedianName is the name for [types.PluginMedian]/[NewGRPCPluginMedian].
 const PluginMedianName = "median"
 
-type PluginMedian = internal.PluginMedian
+// Deprecated
+type PluginMedian = types.PluginMedian
 
-type ErrorLog = internal.ErrorLog
+// Deprecated
+type ErrorLog = types.ErrorLog
 
 func PluginMedianHandshakeConfig() plugin.HandshakeConfig {
 	return plugin.HandshakeConfig{
@@ -23,14 +26,15 @@ func PluginMedianHandshakeConfig() plugin.HandshakeConfig {
 	}
 }
 
-type ReportingPluginFactory = internal.ReportingPluginFactory
+// Deprecated
+type ReportingPluginFactory = types.ReportingPluginFactory
 
 type GRPCPluginMedian struct {
 	plugin.NetRPCUnsupportedPlugin
 
 	BrokerConfig
 
-	PluginServer PluginMedian
+	PluginServer types.PluginMedian
 
 	pluginClient *internal.PluginMedianClient
 }
@@ -39,7 +43,7 @@ func (p *GRPCPluginMedian) GRPCServer(broker *plugin.GRPCBroker, server *grpc.Se
 	return internal.RegisterPluginMedianServer(server, broker, p.BrokerConfig, p.PluginServer)
 }
 
-// GRPCClient implements [plugin.GRPCPlugin] and returns the pluginClient [PluginMedian], updated with the new broker and conn.
+// GRPCClient implements [plugin.GRPCPlugin] and returns the pluginClient [types.PluginMedian], updated with the new broker and conn.
 func (p *GRPCPluginMedian) GRPCClient(_ context.Context, broker *plugin.GRPCBroker, conn *grpc.ClientConn) (interface{}, error) {
 	if p.pluginClient == nil {
 		p.pluginClient = internal.NewPluginMedianClient(broker, p.BrokerConfig, conn)
@@ -47,7 +51,7 @@ func (p *GRPCPluginMedian) GRPCClient(_ context.Context, broker *plugin.GRPCBrok
 		p.pluginClient.Refresh(broker, conn)
 	}
 
-	return PluginMedian(p.pluginClient), nil
+	return types.PluginMedian(p.pluginClient), nil
 }
 
 func (p *GRPCPluginMedian) ClientConfig() *plugin.ClientConfig {
