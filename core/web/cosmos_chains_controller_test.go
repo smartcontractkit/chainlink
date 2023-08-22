@@ -52,6 +52,8 @@ MaxMsgsPerBatch = 100
 OCR2CachePollPeriod = '4s'
 OCR2CacheTTL = '1m0s'
 TxMsgTimeout = '10m0s'
+Bech32Prefix = 'wasm'
+FeeToken = 'ucosm'
 Nodes = []
 `,
 				}
