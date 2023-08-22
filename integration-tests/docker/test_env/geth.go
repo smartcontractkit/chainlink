@@ -4,17 +4,19 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
-	"time"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
 )
 
 const (
@@ -154,12 +156,13 @@ func (g *Geth) getGethContainerRequest(networks []string) (*tc.ContainerRequest,
 	}
 
 	return &tc.ContainerRequest{
-		Name:         g.ContainerName,
-		Image:        "ethereum/client-go:stable",
-		ExposedPorts: []string{"8544/tcp", "8545/tcp"},
-		Networks:     networks,
-		WaitingFor: tcwait.ForListeningPort("8545/tcp").
-			WithStartupTimeout(60 * time.Second).
+		Name:            g.ContainerName,
+		AlwaysPullImage: true,
+		Image:           "ethereum/client-go:stable",
+		ExposedPorts:    []string{"8544/tcp", "8545/tcp"},
+		Networks:        networks,
+		WaitingFor: tcwait.ForLog("Chain head was updated").
+			WithStartupTimeout(120 * time.Second).
 			WithPollInterval(1 * time.Second),
 		Entrypoint: []string{"sh", "./root/init.sh",
 			"--dev",

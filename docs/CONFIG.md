@@ -4018,7 +4018,7 @@ BlockBackfillSkip = false
 FinalityDepth = 1
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
-LogPollInterval = '3s'
+LogPollInterval = '30s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
@@ -4033,7 +4033,7 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
+ResendAfterThreshold = '2m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -4095,7 +4095,7 @@ BlockBackfillSkip = false
 FinalityDepth = 1
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
-LogPollInterval = '3s'
+LogPollInterval = '30s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
@@ -4110,7 +4110,7 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '1m0s'
+ResendAfterThreshold = '2m0s'
 
 [BalanceMonitor]
 Enabled = true

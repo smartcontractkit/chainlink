@@ -41,8 +41,7 @@ import (
 	"github.com/tidwall/gjson"
 	"github.com/urfave/cli"
 
-	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
@@ -50,7 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -59,8 +57,6 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -86,7 +82,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	clsessions "github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
@@ -196,12 +191,12 @@ type JobPipelineConfig interface {
 	MaxSuccessfulRuns() uint64
 }
 
-func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipelineConfig, dbCfg pg.QConfig, cc evm.ChainSet, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
+func NewJobPipelineV2(t testing.TB, cfg pipeline.BridgeConfig, jpcfg JobPipelineConfig, dbCfg pg.QConfig, legacyChains evm.LegacyChainContainer, db *sqlx.DB, keyStore keystore.Master, restrictedHTTPClient, unrestrictedHTTPClient *http.Client) JobPipelineV2TestHelper {
 	lggr := logger.TestLogger(t)
 	prm := pipeline.NewORM(db, lggr, dbCfg, jpcfg.MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, dbCfg)
-	jrm := job.NewORM(db, cc, prm, btORM, keyStore, lggr, dbCfg)
-	pr := pipeline.NewRunner(prm, btORM, jpcfg, cfg, cc, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
+	jrm := job.NewORM(db, legacyChains, prm, btORM, keyStore, lggr, dbCfg)
+	pr := pipeline.NewRunner(prm, btORM, jpcfg, cfg, legacyChains, keyStore.Eth(), keyStore.VRF(), lggr, restrictedHTTPClient, unrestrictedHTTPClient)
 	return JobPipelineV2TestHelper{
 		prm,
 		jrm,
@@ -366,7 +361,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	var externalInitiatorManager webhook.ExternalInitiatorManager
 	externalInitiatorManager = &webhook.NullExternalInitiatorManager{}
 	var useRealExternalInitiatorManager bool
-	var chainCfgs evmtypes.Configs
+
 	for _, flag := range flagsAndDeps {
 		switch dep := flag.(type) {
 		case evmclient.Client:
@@ -388,110 +383,81 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
-	var ids []utils.Big
-	for _, c := range cfg.EVMConfigs() {
-		ids = append(ids, *c.ChainID)
-	}
 
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
-	var chains chainlink.Chains
-	chainId := ethClient.ConfiguredChainID()
-	chains.EVM, err = evm.NewTOMLChainSet(testutils.Context(t), evm.ChainSetOpts{
-		Configs:          chainCfgs,
-		Config:           cfg,
-		Logger:           lggr,
-		DB:               db,
-		KeyStore:         keyStore.Eth(),
-		EventBroadcaster: eventBroadcaster,
-		GenEthClient: func(_ *big.Int) evmclient.Client {
-			if chainId.Cmp(cfg.DefaultChainID()) != 0 {
-				t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", chainId, cfg.DefaultChainID())
-			}
-			return ethClient
-		},
-		MailMon: mailMon,
-	})
-	if err != nil {
-		lggr.Fatal(err)
+	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"))
+
+	relayerFactory := chainlink.RelayerFactory{
+		Logger:       lggr,
+		DB:           db,
+		QConfig:      cfg.Database(),
+		LoopRegistry: loopRegistry,
+		GRPCOpts:     loop.GRPCOpts{},
 	}
+
+	chainId := ethClient.ConfiguredChainID()
+	evmOpts := chainlink.EVMFactoryConfig{
+		RelayerConfig: evm.RelayerConfig{
+			GeneralConfig:    cfg,
+			EventBroadcaster: eventBroadcaster,
+			MailMon:          mailMon,
+			GenEthClient: func(_ *big.Int) evmclient.Client {
+				if chainId.Cmp(cfg.DefaultChainID()) != 0 {
+					t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", chainId, cfg.DefaultChainID())
+				}
+				return ethClient
+			},
+		},
+		CSAETHKeystore: keyStore,
+	}
+
+	testCtx := testutils.Context(t)
+	// evm alway enabled for backward compatibility
+	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(testCtx, relayerFactory, evmOpts)}
+
 	if cfg.CosmosEnabled() {
-		cosmosLggr := lggr.Named("Cosmos")
-		opts := cosmos.ChainSetOpts{
-			Config:           cfg,
-			Logger:           cosmosLggr,
-			DB:               db,
-			KeyStore:         keyStore.Cosmos(),
+		cosmosCfg := chainlink.CosmosFactoryConfig{
+			Keystore:         keyStore.Cosmos(),
+			CosmosConfigs:    cfg.CosmosConfigs(),
 			EventBroadcaster: eventBroadcaster,
 		}
-		cfgs := cfg.CosmosConfigs()
-		opts.Configs = cosmos.NewConfigs(cfgs)
-		chains.Cosmos, err = cosmos.NewChainSet(opts, cfgs)
-		if err != nil {
-			lggr.Fatal(err)
-		}
+		initOps = append(initOps, chainlink.InitCosmos(testCtx, relayerFactory, cosmosCfg))
 	}
 	if cfg.SolanaEnabled() {
-		solLggr := lggr.Named("Solana")
-		cfgs := cfg.SolanaConfigs()
-		var ids []string
-		for _, c := range cfgs {
-			ids = append(ids, *c.ChainID)
+		solanaCfg := chainlink.SolanaFactoryConfig{
+			Keystore:      keyStore.Solana(),
+			SolanaConfigs: cfg.SolanaConfigs(),
 		}
-
-		opts := solana.ChainSetOpts{
-			Logger:   solLggr,
-			KeyStore: &keystore.SolanaSigner{keyStore.Solana()},
-			Configs:  solana.NewConfigs(cfgs),
-		}
-		chainSet, err := solana.NewChainSet(opts, cfgs)
-		if err != nil {
-			lggr.Fatal(err)
-		}
-
-		chains.Solana = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, chainSet), chainSet)
+		initOps = append(initOps, chainlink.InitSolana(testCtx, relayerFactory, solanaCfg))
 	}
 	if cfg.StarkNetEnabled() {
-		starkLggr := lggr.Named("StarkNet")
-		cfgs := cfg.StarknetConfigs()
-
-		var ids []string
-		for _, c := range cfgs {
-			ids = append(ids, *c.ChainID)
+		starkCfg := chainlink.StarkNetFactoryConfig{
+			Keystore:        keyStore.StarkNet(),
+			StarknetConfigs: cfg.StarknetConfigs(),
 		}
+		initOps = append(initOps, chainlink.InitStarknet(testCtx, relayerFactory, starkCfg))
 
-		if err != nil {
-			lggr.Fatal(err)
-		}
-
-		opts := starknet.ChainSetOpts{
-			Logger:   starkLggr,
-			KeyStore: &keystore.StarknetLooppSigner{StarkNet: keyStore.StarkNet()},
-			Configs:  starknet.NewConfigs(cfgs),
-		}
-
-		chainSet, err := starknet.NewChainSet(opts, cfgs)
-		if err != nil {
-			lggr.Fatal(err)
-		}
-
-		chains.StarkNet = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chainSet), chainSet)
+	}
+	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
+	if err != nil {
+		t.Fatal(err)
 	}
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
-		Config:                   cfg,
-		EventBroadcaster:         eventBroadcaster,
-		MailMon:                  mailMon,
-		SqlxDB:                   db,
-		KeyStore:                 keyStore,
-		Chains:                   chains,
-		Logger:                   lggr,
-		AuditLogger:              auditLogger,
-		CloseLogger:              lggr.Sync,
-		ExternalInitiatorManager: externalInitiatorManager,
-		RestrictedHTTPClient:     c,
-		UnrestrictedHTTPClient:   c,
-		SecretGenerator:          MockSecretGenerator{},
-		LoopRegistry:             plugins.NewLoopRegistry(lggr),
+		Config:                     cfg,
+		EventBroadcaster:           eventBroadcaster,
+		MailMon:                    mailMon,
+		SqlxDB:                     db,
+		KeyStore:                   keyStore,
+		RelayerChainInteroperators: relayChainInterops,
+		Logger:                     lggr,
+		AuditLogger:                auditLogger,
+		CloseLogger:                lggr.Sync,
+		ExternalInitiatorManager:   externalInitiatorManager,
+		RestrictedHTTPClient:       c,
+		UnrestrictedHTTPClient:     c,
+		SecretGenerator:            MockSecretGenerator{},
+		LoopRegistry:               plugins.NewLoopRegistry(lggr),
 	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)

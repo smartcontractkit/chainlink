@@ -2,6 +2,7 @@ package pipeline
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"strconv"
 
@@ -29,7 +30,7 @@ type EstimateGasLimitTask struct {
 	EVMChainID string `json:"evmChainID" mapstructure:"evmChainID"`
 
 	specGasLimit *uint32
-	chainSet     evm.ChainSet
+	legacyChains evm.LegacyChainContainer
 	jobType      string
 }
 
@@ -64,11 +65,13 @@ func (t *EstimateGasLimitTask) Run(ctx context.Context, lggr logger.Logger, vars
 		return Result{Error: err}, runInfo
 	}
 
-	chain, err := getChainByString(t.chainSet, t.EVMChainID)
+	chain, err := t.legacyChains.Get(t.EVMChainID)
 	if err != nil {
-		return Result{Error: err}, retryableRunInfo()
+		err = fmt.Errorf("%w: %s: %w", ErrInvalidEVMChainID, t.EVMChainID, err)
+		return Result{Error: err}, runInfo
 	}
-	maximumGasLimit := SelectGasLimit(chain.Config(), t.jobType, t.specGasLimit)
+
+	maximumGasLimit := SelectGasLimit(chain.Config().EVM().GasEstimator(), t.jobType, t.specGasLimit)
 	to := common.Address(toAddr)
 	gasLimit, err := chain.Client().EstimateGas(ctx, ethereum.CallMsg{
 		From: common.Address(fromAddr),

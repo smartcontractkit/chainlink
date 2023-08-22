@@ -18,9 +18,9 @@ import (
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	cosmosdb "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/denom"
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/params"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/params"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -33,10 +33,12 @@ import (
 )
 
 func TestMain(m *testing.M) {
+
 	params.InitCosmosSdk(
 		/* bech32Prefix= */ "wasm",
 		/* token= */ "atom",
 	)
+
 	code := m.Run()
 	os.Exit(code)
 }
@@ -60,7 +62,7 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 	from := accounts[0]
 	to := accounts[1]
 	require.NoError(t, app.GetKeyStore().Cosmos().Add(cosmoskey.Raw(from.PrivateKey.Bytes()).Key()))
-	chain, err := app.GetChains().Cosmos.Chain(testutils.Context(t), chainID)
+	chain, err := app.GetRelayers().LegacyCosmosChains().Get(chainID)
 	require.NoError(t, err)
 
 	reader, err := chain.Reader("")

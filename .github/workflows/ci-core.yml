@@ -153,8 +153,6 @@ jobs:
           prod: "true"
       - name: Setup Go
         uses: ./.github/actions/setup-go
-        with:
-          matrix-id: ${{ matrix.cmd }}-${{ matrix.split.id }}
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
       - name: Setup wasmd
@@ -182,7 +180,7 @@ jobs:
         run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.split.pkgs }}"
       - name: Print Filtered Test Results
         if: failure()
-        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@9a48ff0869aa6cb2753125301f744d5372d669f6 # v2.2.5
+        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35 # v2.2.9
         with:
           results-file: ./output.txt
           output-file: ./output-short.txt
@@ -319,7 +317,7 @@ jobs:
           echo "sonarqube_tests_report_paths=$(find go_core_tests_*_logs -name output.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
           echo "sonarqube_coverage_report_paths=$(find go_core_tests_*_logs -name coverage.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
       - name: SonarQube Scan
-        uses: sonarsource/sonarqube-scan-action@a6ba0aafc293e03de5437af7edbc97f7d3ebc91a # v1.2.0
+        uses: sonarsource/sonarqube-scan-action@4b0bfc149f5e285930eeb5e917327e66660c6e92 # v2.0.0
         with:
           args: >
             -Dsonar.go.tests.reportPaths=${{ steps.sonarqube_report_paths.outputs.sonarqube_tests_report_paths }}
