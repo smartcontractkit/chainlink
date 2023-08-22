@@ -4,7 +4,7 @@ description: A composite action that allows building and publishing the test rem
 inputs:
   repository:
     description: The docker repository for the image
-    default: chainlink-tests
+    default: chainlink-ccip-tests
     required: false
   tag:
     description: The tag to use by default and to use for checking image existance

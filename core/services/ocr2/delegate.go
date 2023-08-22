@@ -287,13 +287,13 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
 		}
 	case job.CCIPCommit:
-		err = ccip.UnregisterCommitPluginLpFilters(context.Background(), q, spec, d.chainSet)
+		err = ccip.UnregisterCommitPluginLpFilters(context.Background(), q, spec, d.legacyChains)
 		if err != nil {
 			d.lggr.Errorw("failed to unregister ccip commit plugin filters", "err", err, "spec", spec)
 		}
 		return nil
 	case job.CCIPExecution:
-		err = ccip.UnregisterExecPluginLpFilters(context.Background(), q, spec, d.chainSet)
+		err = ccip.UnregisterExecPluginLpFilters(context.Background(), q, spec, d.legacyChains)
 		if err != nil {
 			d.lggr.Errorw("failed to unregister ccip exec plugin filters", "err", err, "spec", spec)
 		}
@@ -440,9 +440,18 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		if spec.Relay != relay.EVM {
 			return nil, errors.New("Non evm chains are not supported for CCIP commit")
 		}
+		rid, err := spec.RelayID()
+		if err != nil {
+			return nil, fmt.Errorf("ccip services: %w: %w", ErrJobSpecNoRelayer, err)
+		}
+
+		chain, err := d.legacyChains.Get(rid.ChainID.String())
+		if err != nil {
+			return nil, fmt.Errorf("ccip services; failed to get chain %s: %w", rid.ChainID, err)
+		}
 		ccipProvider, err2 := evmrelay.NewCCIPCommitProvider(
 			lggr.Named("CCIPCommit"),
-			d.chainSet,
+			chain,
 			types.RelayArgs{
 				ExternalJobID: jb.ExternalJobID,
 				JobID:         spec.ID,
@@ -469,14 +478,23 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
 		}
-		return ccip.NewCommitServices(lggr, jb, d.chainSet, d.isNewlyCreatedJob, d.pipelineRunner, oracleArgsNoPlugin, logError)
+		return ccip.NewCommitServices(lggr, jb, d.legacyChains, d.isNewlyCreatedJob, d.pipelineRunner, oracleArgsNoPlugin, logError)
 	case job.CCIPExecution:
 		if spec.Relay != relay.EVM {
 			return nil, errors.New("Non evm chains are not supported for CCIP execution")
 		}
+		rid, err := spec.RelayID()
+		if err != nil {
+			return nil, fmt.Errorf("ccip services: %w: %w", ErrJobSpecNoRelayer, err)
+		}
+
+		chain, err := d.legacyChains.Get(rid.ChainID.String())
+		if err != nil {
+			return nil, fmt.Errorf("ccip services; failed to get chain %s: %w", rid.ChainID, err)
+		}
 		ccipProvider, err2 := evmrelay.NewCCIPExecutionProvider(
 			lggr.Named("CCIPExec"),
-			d.chainSet,
+			chain,
 			types.RelayArgs{
 				ExternalJobID: jb.ExternalJobID,
 				JobID:         spec.ID,
@@ -503,7 +521,8 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 			OffchainKeyring:              kb,
 			OnchainKeyring:               kb,
 		}
-		return ccip.NewExecutionServices(lggr, jb, d.chainSet, d.isNewlyCreatedJob, oracleArgsNoPlugin, logError)
+
+		return ccip.NewExecutionServices(lggr, jb, d.legacyChains, d.isNewlyCreatedJob, oracleArgsNoPlugin, logError)
 	case job.OCR2Functions:
 		const (
 			_ int32 = iota
