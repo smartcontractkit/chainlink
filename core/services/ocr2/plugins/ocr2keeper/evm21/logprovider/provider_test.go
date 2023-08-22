@@ -239,6 +239,7 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 	mp := new(mocks.LogPoller)
 
 	mp.On("RegisterFilter", mock.Anything).Return(nil)
+	mp.On("ReplayAsync", mock.Anything).Return()
 	mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
 	mp.On("LatestBlock", mock.Anything).Return(int64(1), nil)
 	mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{
