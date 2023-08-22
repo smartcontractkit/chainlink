@@ -38,9 +38,16 @@ var (
 // LogTriggerConfig is an alias for log trigger config.
 type LogTriggerConfig automation_utils_2_1.LogTriggerConfig
 
+type FilterOptions struct {
+	UpkeepID            *big.Int
+	TriggerConfig       LogTriggerConfig
+	UpkeepCreationBlock uint64
+	ConfigUpdateBlock   uint64
+}
+
 type LogTriggersLifeCycle interface {
 	// RegisterFilter registers the filter (if valid) for the given upkeepID.
-	RegisterFilter(upkeepID *big.Int, cfg LogTriggerConfig) error
+	RegisterFilter(opts FilterOptions) error
 	// UnregisterFilter removes the filter for the given upkeepID.
 	UnregisterFilter(upkeepID *big.Int) error
 }
@@ -70,7 +77,8 @@ type logEventProvider struct {
 
 	packer LogDataPacker
 
-	lock sync.RWMutex
+	lock         sync.RWMutex
+	registerLock sync.Mutex
 
 	filterStore UpkeepFilterStore
 	buffer      *logEventBuffer
@@ -86,13 +94,14 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDa
 	}
 	opts.Defaults()
 	return &logEventProvider{
-		packer:      packer,
-		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
-		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), BufferMaxBlockSize, AllowedLogsPerBlock),
-		poller:      poller,
-		lock:        sync.RWMutex{},
-		opts:        opts,
-		filterStore: filterStore,
+		packer:       packer,
+		lggr:         lggr.Named("KeepersRegistry.LogEventProvider"),
+		buffer:       newLogEventBuffer(lggr, int(opts.LookbackBlocks), BufferMaxBlockSize, AllowedLogsPerBlock),
+		poller:       poller,
+		lock:         sync.RWMutex{},
+		registerLock: sync.Mutex{},
+		opts:         opts,
+		filterStore:  filterStore,
 	}
 }
 
@@ -198,6 +207,9 @@ func (p *logEventProvider) ReadLogs(pctx context.Context, force bool, ids ...*bi
 	latest, err := p.poller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+	}
+	if latest == 0 {
+		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, "latest block is 0")
 	}
 	filters := p.getFilters(latest, force, ids...)
 
@@ -337,8 +349,8 @@ func (p *logEventProvider) getFilters(latestBlock int64, force bool, ids ...*big
 func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters []upkeepFilter) (merr error) {
 	lookbackBlocks := p.opts.LookbackBlocks
 	if latest < lookbackBlocks {
-		// special case of an empty or new blockchain (e.g. simulated chain)
-		lookbackBlocks = latest
+		// special case of a new blockchain (e.g. simulated chain)
+		lookbackBlocks = latest - 1
 	}
 	// maxBurst will be used to increase the burst limit to allow a long range scan
 	maxBurst := int(lookbackBlocks + 1)
@@ -347,10 +359,13 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		if len(filter.addr) == 0 {
 			continue
 		}
-		// start should either be the last block polled for the filter or the
-		// lookback range in the case this is the first time the filter is polled
+		// first time polling, use creation block as a starting point of the range
 		start := filter.lastPollBlock
-		if start == 0 || start < latest-lookbackBlocks {
+		if start == 0 {
+			start = int64(filter.upkeepCreationBlock)
+		}
+		// range should not exceed lookbackBlocks
+		if start < latest-lookbackBlocks {
 			start = latest - lookbackBlocks
 			filter.blockLimiter.SetBurst(maxBurst)
 		}

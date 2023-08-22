@@ -12,6 +12,7 @@ type UpkeepFilterStore interface {
 	GetIDs(selector func(upkeepFilter) bool) []*big.Int
 	UpdateFilters(updater func(upkeepFilter, upkeepFilter) upkeepFilter, filters ...upkeepFilter)
 	Has(id *big.Int) bool
+	Get(id *big.Int) *upkeepFilter
 	RangeFiltersByIDs(iterator func(int, upkeepFilter), ids ...*big.Int)
 	GetFilters(selector func(upkeepFilter) bool) []upkeepFilter
 	AddActiveUpkeeps(filters ...upkeepFilter)
@@ -30,6 +31,10 @@ type upkeepFilter struct {
 	addr     []byte
 	topics   []common.Hash
 	upkeepID *big.Int
+	// upkeepCreationBlock is the block number the filter was created at
+	upkeepCreationBlock uint64
+	// configUpdateBlock is the block number the filter was last updated at
+	configUpdateBlock uint64
 	// lastPollBlock is the last block number the logs were fetched for this upkeep
 	// used by log event provider.
 	lastPollBlock int64
@@ -47,12 +52,14 @@ func (f upkeepFilter) Clone() upkeepFilter {
 	addr := make([]byte, len(f.addr))
 	copy(addr, f.addr)
 	return upkeepFilter{
-		upkeepID:        f.upkeepID,
-		topics:          topics,
-		addr:            addr,
-		lastPollBlock:   f.lastPollBlock,
-		lastRePollBlock: f.lastRePollBlock,
-		blockLimiter:    f.blockLimiter,
+		upkeepID:            f.upkeepID,
+		topics:              topics,
+		addr:                addr,
+		upkeepCreationBlock: f.upkeepCreationBlock,
+		configUpdateBlock:   f.configUpdateBlock,
+		lastPollBlock:       f.lastPollBlock,
+		lastRePollBlock:     f.lastRePollBlock,
+		blockLimiter:        f.blockLimiter,
 	}
 }
 
@@ -115,6 +122,18 @@ func (s *upkeepFilterStore) Has(id *big.Int) bool {
 
 	_, ok := s.filters[id.String()]
 	return ok
+}
+
+func (s *upkeepFilterStore) Get(id *big.Int) *upkeepFilter {
+	s.lock.RLock()
+	defer s.lock.RUnlock()
+
+	f, ok := s.filters[id.String()]
+	if !ok {
+		return nil
+	}
+	fp := f.Clone()
+	return &fp
 }
 
 func (s *upkeepFilterStore) RangeFiltersByIDs(iterator func(int, upkeepFilter), ids ...*big.Int) {

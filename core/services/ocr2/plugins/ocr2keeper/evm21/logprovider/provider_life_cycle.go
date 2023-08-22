@@ -17,30 +17,63 @@ var (
 	LogRetention = 24 * time.Hour
 )
 
-func (p *logEventProvider) RegisterFilter(upkeepID *big.Int, cfg LogTriggerConfig) error {
+func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
+	upkeepID, cfg := opts.UpkeepID, opts.TriggerConfig
 	if err := p.validateLogTriggerConfig(cfg); err != nil {
 		return errors.Wrap(err, "invalid log trigger config")
 	}
-	filter := p.newLogFilter(upkeepID, cfg)
+	lpFilter := p.newLogFilter(upkeepID, cfg)
 
-	if p.filterStore.Has(upkeepID) {
-		// TODO: check if filter was updated, if so unregister previous filter and register new one
-		return errors.Errorf("filter for upkeep with id %s already registered", upkeepID.String())
+	// using lock to facilitate multiple events causing filter registration
+	// at the same time.
+	// TODO: consider using a q to handle registration requests
+	p.registerLock.Lock()
+	defer p.registerLock.Unlock()
+
+	var filter upkeepFilter
+	currentFilter := p.filterStore.Get(upkeepID)
+	if currentFilter != nil {
+		if currentFilter.configUpdateBlock > opts.ConfigUpdateBlock {
+			// already registered with a config from a higher block number
+			return errors.Errorf("filter for upkeep with id %s already registered with newer config", upkeepID.String())
+		} else if currentFilter.configUpdateBlock == opts.ConfigUpdateBlock {
+			// already registered with the same config
+			p.lggr.Debugf("filter for upkeep with id %s already registered with the same config", upkeepID.String())
+			return nil
+		}
+		// removing filter so we can recreate it with updated values
+		err := p.UnregisterFilter(currentFilter.upkeepID)
+		if err != nil {
+			return errors.Wrap(err, "failed to unregister upkeep filter for update")
+		}
+		filter = *currentFilter
+	} else { // new filter
+		filter = upkeepFilter{
+			upkeepID:            upkeepID,
+			blockLimiter:        rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
+			upkeepCreationBlock: opts.UpkeepCreationBlock,
+			lastPollBlock:       0,
+			lastRePollBlock:     0,
+		}
 	}
-	// TODO: ReplayAsync logs for the upkeep from creation block
-	// TODO: Verify handling of different upkeeps using same filter
-	if err := p.poller.RegisterFilter(filter); err != nil {
+	filter.configUpdateBlock = opts.ConfigUpdateBlock
+	filter.addr = lpFilter.Addresses[0].Bytes()
+	filter.topics = make([]common.Hash, len(lpFilter.EventSigs))
+	copy(filter.topics, lpFilter.EventSigs)
+
+	if err := p.register(lpFilter, filter); err != nil {
 		return errors.Wrap(err, "failed to register upkeep filter")
 	}
-	topics := make([]common.Hash, len(filter.EventSigs))
-	copy(topics, filter.EventSigs)
-	p.filterStore.AddActiveUpkeeps(upkeepFilter{
-		upkeepID:      upkeepID,
-		addr:          filter.Addresses[0].Bytes(),
-		topics:        topics,
-		blockLimiter:  rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
-		lastPollBlock: 0, // TODO: Start from filter creation block
-	})
+
+	return nil
+}
+
+func (p *logEventProvider) register(lpFilter logpoller.Filter, ufilter upkeepFilter) error {
+	if err := p.poller.RegisterFilter(lpFilter); err != nil {
+		return errors.Wrap(err, "failed to register upkeep filter")
+	}
+	p.filterStore.AddActiveUpkeeps(ufilter)
+	p.poller.ReplayAsync(int64(ufilter.upkeepCreationBlock))
 
 	return nil
 }
