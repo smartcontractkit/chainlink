@@ -209,9 +209,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
         //check that the contract has enough LINK before paying the fee
         if (reward.amount > IERC20(i_linkAddress).balanceOf(address(this))) {
           // If not enough LINK on this contract to forward for rewards, tally the deficit to be paid by out-of-band LINK
-          unchecked {
-            s_linkDeficit[configDigest] += reward.amount;
-          }
+          s_linkDeficit[configDigest] += reward.amount;
           emit InsufficientLink(configDigest, reward.amount, fee.amount);
         } else {
           //bill the payee and distribute the fee using the config digest as the key
