@@ -81,7 +81,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 			10*time.Second,        // deltaProgress time.Duration,
 			15*time.Second,        // deltaResend time.Duration,
 			500*time.Millisecond,  // deltaInitial time.Duration,
-			3000*time.Millisecond, // deltaRound time.Duration,
+			1000*time.Millisecond, // deltaRound time.Duration,
 			200*time.Millisecond,  // deltaGrace time.Duration,
 			300*time.Millisecond,  // deltaCertifiedCommitRequest time.Duration
 			deltaStage,            // deltaStage time.Duration,
@@ -266,24 +266,14 @@ func DeployAutoOCRRegistryAndRegistrar(
 	return registry, registrar
 }
 
-func DeployConsumers(
-	t *testing.T,
-	registry contracts.KeeperRegistry,
-	registrar contracts.KeeperRegistrar,
-	linkToken contracts.LinkToken,
-	contractDeployer contracts.ContractDeployer,
-	client blockchain.EVMClient,
-	numberOfUpkeeps int,
-	linkFundsForEachUpkeep *big.Int,
-	upkeepGasLimit uint32,
-) ([]contracts.KeeperConsumer, []*big.Int) {
-	upkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfUpkeeps)
+func DeployConsumers(t *testing.T, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32, isLogTrigger bool) ([]contracts.KeeperConsumer, []*big.Int) {
+	upkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfUpkeeps, isLogTrigger)
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
 	upkeepIds := RegisterUpkeepContracts(
-		t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses,
+		t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, isLogTrigger,
 	)
 	return upkeeps, upkeepIds
 }
@@ -310,9 +300,7 @@ func DeployPerformanceConsumers(
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
-	upkeepIds := RegisterUpkeepContracts(
-		t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses,
-	)
+	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, false)
 	return upkeeps, upkeepIds
 }
 
@@ -333,9 +321,7 @@ func DeployPerformDataCheckerConsumers(
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
-	upkeepIds := RegisterUpkeepContracts(
-		t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses,
-	)
+	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, false)
 	return upkeeps, upkeepIds
 }
 
