@@ -3,6 +3,7 @@ package ocrbootstrap
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/pkg/errors"
 
@@ -21,15 +22,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
+type RelayGetter interface {
+	Get(relay.ID) (loop.Relayer, error)
+}
+
 // Delegate creates Bootstrap jobs
 type Delegate struct {
-	db                *sqlx.DB
-	jobORM            job.ORM
-	peerWrapper       *ocrcommon.SingletonPeerWrapper
-	ocr2Cfg           validate.OCR2Config
-	insecureCfg       validate.InsecureConfig
-	lggr              logger.SugaredLogger
-	relayers          map[relay.Network]loop.Relayer
+	db          *sqlx.DB
+	jobORM      job.ORM
+	peerWrapper *ocrcommon.SingletonPeerWrapper
+	ocr2Cfg     validate.OCR2Config
+	insecureCfg validate.InsecureConfig
+	lggr        logger.SugaredLogger
+	RelayGetter
 	isNewlyCreatedJob bool
 }
 
@@ -48,7 +53,7 @@ func NewDelegateBootstrap(
 	lggr logger.Logger,
 	ocr2Cfg validate.OCR2Config,
 	insecureCfg validate.InsecureConfig,
-	relayers map[relay.Network]loop.Relayer,
+	relayers RelayGetter,
 ) *Delegate {
 	return &Delegate{
 		db:          db,
@@ -57,7 +62,7 @@ func NewDelegateBootstrap(
 		lggr:        logger.Sugared(lggr),
 		ocr2Cfg:     ocr2Cfg,
 		insecureCfg: insecureCfg,
-		relayers:    relayers,
+		RelayGetter: relayers,
 	}
 }
 
@@ -81,9 +86,15 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job, qopts ...pg.QOpt) (services 
 	} else if !d.peerWrapper.IsStarted() {
 		return nil, errors.New("peerWrapper is not started. OCR2 jobs require a started and running p2p v2 peer")
 	}
-	relayer, exists := d.relayers[spec.Relay]
-	if !exists {
-		return nil, errors.Errorf("%s relay does not exist is it enabled?", spec.Relay)
+	s := spec.AsOCR2Spec()
+	rid, err := s.RelayID()
+	if err != nil {
+		return nil, fmt.Errorf("ServicesForSpec: could not get relayer: %w", err)
+	}
+
+	relayer, err := d.RelayGetter.Get(rid)
+	if err != nil {
+		return nil, fmt.Errorf("ServiceForSpec: failed to get relay %s is it enabled?: %w", rid.Name(), err)
 	}
 	if spec.FeedID != nil {
 		spec.RelayConfig["feedID"] = *spec.FeedID

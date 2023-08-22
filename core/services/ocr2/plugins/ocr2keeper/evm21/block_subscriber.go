@@ -25,8 +25,8 @@ const (
 	channelSize = 100
 	// lookbackDepth decides valid trigger block lookback range
 	lookbackDepth = 1024
-	// blockHistorySize decides the block history size
-	blockHistorySize = int64(128)
+	// blockHistorySize decides the block history size sent to subscribers
+	blockHistorySize = int64(256)
 )
 
 type BlockSubscriber struct {
@@ -43,11 +43,13 @@ type BlockSubscriber struct {
 	maxSubId         int
 	lastClearedBlock int64
 	lastSentBlock    int64
-	latestBlock      atomic.Int64
+	latestBlock      atomic.Pointer[ocr2keepers.BlockKey]
 	blockHistorySize int64
 	blockSize        int64
 	lggr             logger.Logger
 }
+
+var _ ocr2keepers.BlockSubscriber = &BlockSubscriber{}
 
 func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, lggr logger.Logger) *BlockSubscriber {
 	return &BlockSubscriber{
@@ -58,7 +60,7 @@ func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, lggr
 		blocks:           map[int64]string{},
 		blockHistorySize: blockHistorySize,
 		blockSize:        lookbackDepth,
-		latestBlock:      atomic.Int64{},
+		latestBlock:      atomic.Pointer[ocr2keepers.BlockKey]{},
 		lggr:             lggr.Named("BlockSubscriber"),
 	}
 }
@@ -130,7 +132,6 @@ func (bs *BlockSubscriber) Start(ctx context.Context) error {
 	return bs.sync.StartOnce("BlockSubscriber", func() error {
 		bs.mu.Lock()
 		defer bs.mu.Unlock()
-		// TODO: we should use ctx instead of context.Background())
 		bs.ctx, bs.cancel = context.WithCancel(context.Background())
 		// initialize the blocks map with the recent blockSize blocks
 		blocks, err := bs.getBlockRange(bs.ctx)
@@ -239,8 +240,11 @@ func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
 	bs.lggr.Debugf("blocks block %d hash is %s", h.Number, h.Hash.Hex())
 
 	history := bs.buildHistory(h.Number)
-
-	bs.latestBlock.Store(h.Number)
+	block := &ocr2keepers.BlockKey{
+		Number: ocr2keepers.BlockNumber(h.Number),
+	}
+	copy(block.Hash[:], h.Hash[:])
+	bs.latestBlock.Store(block)
 	bs.lastSentBlock = h.Number
 	// send history to all subscribers
 	for _, subC := range bs.subscribers {

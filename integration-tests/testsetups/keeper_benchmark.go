@@ -542,10 +542,7 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(
 
 	linkFunds = big.NewInt(0).Add(linkFunds, minLinkBalance)
 
-	upkeepIds := actions.RegisterUpkeepContractsWithCheckData(
-		t, k.linkToken, linkFunds, k.chainClient, uint32(upkeep.UpkeepGasLimit), registry,
-		registrar, upkeep.NumberOfUpkeeps, upkeepAddresses, checkData,
-	)
+	upkeepIds := actions.RegisterUpkeepContractsWithCheckData(t, k.linkToken, linkFunds, k.chainClient, uint32(upkeep.UpkeepGasLimit), registry, registrar, upkeep.NumberOfUpkeeps, upkeepAddresses, checkData, false)
 
 	k.keeperRegistries[index] = registry
 	k.keeperRegistrars[index] = registrar

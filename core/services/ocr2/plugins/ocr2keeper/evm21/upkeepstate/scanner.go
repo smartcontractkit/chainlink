@@ -3,6 +3,7 @@ package upkeepstate
 import (
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -15,6 +16,9 @@ import (
 
 type PerformedLogsScanner interface {
 	WorkIDsInRange(ctx context.Context, start, end int64) ([]string, error)
+
+	Start(context.Context) error
+	io.Closer
 }
 
 type performedEventsScanner struct {

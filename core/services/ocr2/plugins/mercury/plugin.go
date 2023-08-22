@@ -7,7 +7,9 @@ import (
 
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
+	relaymercuryv2 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
+	relaymercuryv3 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v3"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -15,7 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	mercuryv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1"
+	mercuryv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2"
+	mercuryv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3"
 )
 
 type Config interface {
@@ -31,42 +36,89 @@ func NewServices(
 	argsNoPlugin libocr2.MercuryOracleArgs,
 	cfg Config,
 	chEnhancedTelem chan ocrcommon.EnhancedTelemetryMercuryData,
-	chainHeadTracker mercury.ChainHeadTracker,
-	orm mercury.DataSourceORM,
-	feedID [32]byte,
+	chainHeadTracker types.ChainHeadTracker,
+	orm types.DataSourceORM,
+	feedID types.FeedID,
 ) ([]job.ServiceCtx, error) {
 	if jb.PipelineSpec == nil {
 		return nil, errors.New("expected job to have a non-nil PipelineSpec")
 	}
+
 	var pluginConfig config.PluginConfig
 	err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-	err = config.ValidatePluginConfig(pluginConfig)
+	err = config.ValidatePluginConfig(pluginConfig, feedID)
 	if err != nil {
 		return nil, err
 	}
 	lggr = lggr.Named("MercuryPlugin").With("jobID", jb.ID, "jobName", jb.Name.ValueOrZero())
-	ds := mercury.NewDataSource(
-		orm,
-		pipelineRunner,
-		jb,
-		*jb.PipelineSpec,
-		lggr,
-		runResults,
-		chEnhancedTelem,
-		chainHeadTracker,
-		ocr2Provider.ContractTransmitter(),
-		pluginConfig.InitialBlockNumber.Ptr(),
-		feedID,
-	)
-	argsNoPlugin.MercuryPluginFactory = relaymercury.NewFactory(
-		ds,
-		lggr,
-		ocr2Provider.OnchainConfigCodec(),
-		ocr2Provider.ReportCodec(),
-	)
+
+	switch feedID.Version() {
+	case 1:
+		ds := mercuryv1.NewDataSource(
+			orm,
+			pipelineRunner,
+			jb,
+			*jb.PipelineSpec,
+			lggr,
+			runResults,
+			chEnhancedTelem,
+			chainHeadTracker,
+			ocr2Provider.ContractTransmitter(),
+			pluginConfig.InitialBlockNumber.Ptr(),
+			feedID,
+		)
+		argsNoPlugin.MercuryPluginFactory = relaymercuryv1.NewFactory(
+			ds,
+			lggr,
+			ocr2Provider.OnchainConfigCodec(),
+			ocr2Provider.ReportCodecV1(),
+		)
+	case 2:
+		ds := mercuryv2.NewDataSource(
+			// TODO: Needs ORM to carry timestamps over
+			pipelineRunner,
+			jb,
+			*jb.PipelineSpec,
+			feedID,
+			lggr,
+			runResults,
+			chEnhancedTelem,
+			ocr2Provider.ContractTransmitter(),
+			*pluginConfig.LinkFeedID,
+			*pluginConfig.NativeFeedID,
+		)
+		argsNoPlugin.MercuryPluginFactory = relaymercuryv2.NewFactory(
+			ds,
+			lggr,
+			ocr2Provider.OnchainConfigCodec(),
+			ocr2Provider.ReportCodecV2(),
+		)
+	case 3:
+		ds := mercuryv3.NewDataSource(
+			pipelineRunner,
+			jb,
+			*jb.PipelineSpec,
+			feedID,
+			lggr,
+			runResults,
+			chEnhancedTelem,
+			ocr2Provider.ContractTransmitter(),
+			*pluginConfig.LinkFeedID,
+			*pluginConfig.NativeFeedID,
+		)
+		argsNoPlugin.MercuryPluginFactory = relaymercuryv3.NewFactory(
+			ds,
+			lggr,
+			ocr2Provider.OnchainConfigCodec(),
+			ocr2Provider.ReportCodecV3(),
+		)
+	default:
+		return nil, errors.Errorf("unknown Mercury report schema version: %d", feedID.Version())
+	}
+
 	oracle, err := libocr2.NewOracle(argsNoPlugin)
 	if err != nil {
 		return nil, errors.WithStack(err)
