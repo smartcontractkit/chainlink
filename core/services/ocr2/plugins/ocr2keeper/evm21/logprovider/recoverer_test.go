@@ -235,6 +235,54 @@ func TestLogRecoverer_SelectFilterBatch(t *testing.T) {
 	require.Equal(t, recoveryBatchSize/2, len(batch))
 }
 
+func TestLogRecoverer_getFilterBatch(t *testing.T) {
+	tests := []struct {
+		name        string
+		offsetBlock int64
+		filters     []upkeepFilter
+		want        int
+	}{
+		{
+			"empty",
+			2,
+			[]upkeepFilter{},
+			0,
+		},
+		{
+			"filter out of range",
+			100,
+			[]upkeepFilter{
+				{
+					upkeepID:        big.NewInt(1),
+					addr:            common.HexToAddress("0x1").Bytes(),
+					lastRePollBlock: 50,
+				},
+				{
+					upkeepID:          big.NewInt(2),
+					addr:              common.HexToAddress("0x2").Bytes(),
+					lastRePollBlock:   50,
+					configUpdateBlock: 101, // out of range
+				},
+				{
+					upkeepID:          big.NewInt(3),
+					addr:              common.HexToAddress("0x3").Bytes(),
+					configUpdateBlock: 99,
+				},
+			},
+			2,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			recoverer, filterStore, _, _ := setupTestRecoverer(t, time.Millisecond*50, int64(100))
+			filterStore.AddActiveUpkeeps(tc.filters...)
+			batch := recoverer.getFilterBatch(tc.offsetBlock)
+			require.Equal(t, tc.want, len(batch))
+		})
+	}
+}
+
 func TestLogRecoverer_FilterFinalizedStates(t *testing.T) {
 	tests := []struct {
 		name   string
