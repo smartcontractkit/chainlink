@@ -351,11 +351,11 @@ func (c *CosmosConfig) TxMsgTimeout() time.Duration {
 }
 
 func (c *CosmosConfig) Bech32Prefix() string {
-	return c.Chain.Bech32Prefix
+	return *c.Chain.Bech32Prefix
 }
 
 func (c *CosmosConfig) FeeToken() string {
-	return c.Chain.FeeToken
+	return *c.Chain.FeeToken
 }
 
 func sdkDecFromDecimal(d *decimal.Decimal) sdk.Dec {
