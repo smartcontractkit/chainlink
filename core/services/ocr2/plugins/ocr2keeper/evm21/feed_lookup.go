@@ -116,10 +116,11 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, checkResults []ocr2keepers
 		if l.feedParamKey == feedIdHex && l.timeParamKey == blockNumber {
 			// check permission on the registry for mercury v0.2
 			opts := r.buildCallOpts(ctx, block)
-			state, retryable, allowed, err := r.allowedToUseMercury(opts, upkeepId.BigInt())
+			state, reason, retryable, allowed, err := r.allowedToUseMercury(opts, upkeepId.BigInt())
 			if err != nil {
 				lggr.Warnf("at block %s upkeep %s failed to query mercury allow list: %s", block, upkeepId, err)
 				checkResults[i].PipelineExecutionState = uint8(state)
+				checkResults[i].IneligibilityReason = uint8(reason)
 				checkResults[i].Retryable = retryable
 				continue
 			}
@@ -206,24 +207,28 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 
 // allowedToUseMercury retrieves upkeep's administrative offchain config and decode a mercuryEnabled bool to indicate if
 // this upkeep is allowed to use Mercury service.
-func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (state encoding.PipelineExecutionState, retryable bool, allow bool, err error) {
+func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (state encoding.PipelineExecutionState, reason encoding.UpkeepFailureReason, retryable bool, allow bool, err error) {
 	allowed, ok := r.mercury.allowListCache.Get(upkeepId.String())
 	if ok {
-		return encoding.NoPipelineError, false, allowed.(bool), nil
+		return encoding.NoPipelineError, encoding.UpkeepFailureReasonNone, false, allowed.(bool), nil
 	}
 
 	cfg, err := r.registry.GetUpkeepPrivilegeConfig(opts, upkeepId)
 	if err != nil {
-		return encoding.RpcFlakyFailure, true, false, fmt.Errorf("failed to get upkeep privilege config for upkeep ID %s: %v", upkeepId, err)
+		if strings.Contains(err.Error(), "execution reverted") {
+			r.mercury.allowListCache.Set(upkeepId.String(), false, cache.DefaultExpiration)
+			return encoding.NoPipelineError, encoding.UpkeepFailureReasonMercuryAccessNotAllowed, false, false, err
+		}
+		return encoding.RpcFlakyFailure, encoding.UpkeepFailureReasonNone, true, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
 	}
 
 	var a UpkeepPrivilegeConfig
 	err = json.Unmarshal(cfg, &a)
 	if err != nil {
-		return encoding.MercuryUnmarshalError, false, false, fmt.Errorf("failed to unmarshal privilege config for upkeep ID %s: %v", upkeepId, err)
+		return encoding.MercuryUnmarshalError, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to unmarshal privilege config: %v", err)
 	}
 	r.mercury.allowListCache.Set(upkeepId.String(), a.MercuryEnabled, cache.DefaultExpiration)
-	return encoding.NoPipelineError, false, a.MercuryEnabled, nil
+	return encoding.NoPipelineError, encoding.UpkeepFailureReasonNone, false, a.MercuryEnabled, nil
 }
 
 // decodeFeedLookup decodes the revert error FeedLookup(string feedParamKey, string[] feeds, string feedParamKey, uint256 time, byte[] extraData)
@@ -269,6 +274,9 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, lggr
 	var isMercuryV03 bool
 	resultLen := len(ml.feeds)
 	ch := make(chan MercuryData, resultLen)
+	if len(ml.feeds) == 0 {
+		return encoding.NoPipelineError, encoding.UpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", ml.feedParamKey, ml.timeParamKey, ml.feeds)
+	}
 	if ml.feedParamKey == feedIdHex && ml.timeParamKey == blockNumber {
 		// only mercury v0.2
 		for i := range ml.feeds {
