@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -35,7 +35,7 @@ const (
 	COMMIT_CCIP_SENDS    = "Commit ccip sends"
 )
 
-func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.ChainSet, new bool, pr pipeline.Runner, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string)) ([]job.ServiceCtx, error) {
+func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainContainer, new bool, pr pipeline.Runner, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string)) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 
 	var pluginConfig ccipconfig.CommitPluginConfig
@@ -48,7 +48,7 @@ func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.ChainSet, ne
 		return nil, errors.New("chainID must be provided in relay config")
 	}
 	destChainID := int64(chainIDInterface.(float64))
-	destChain, err := chainSet.Get(big.NewInt(destChainID))
+	destChain, err := chainSet.Get(strconv.FormatInt(destChainID, 10))
 	if err != nil {
 		return nil, errors.Wrap(err, "get chainset")
 	}
@@ -64,7 +64,7 @@ func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.ChainSet, ne
 	if err != nil {
 		return nil, err
 	}
-	sourceChain, err := chainSet.Get(big.NewInt(0).SetUint64(chainId))
+	sourceChain, err := chainSet.Get(strconv.FormatUint(chainId, 10))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open source chain")
 	}
@@ -216,7 +216,7 @@ func getCommitPluginDestLpFilters(priceRegistry common.Address, offRamp common.A
 }
 
 // UnregisterCommitPluginLpFilters unregisters all the registered filters for both source and dest chains.
-func UnregisterCommitPluginLpFilters(ctx context.Context, q pg.Queryer, spec *job.OCR2OracleSpec, chainSet evm.ChainSet) error {
+func UnregisterCommitPluginLpFilters(ctx context.Context, q pg.Queryer, spec *job.OCR2OracleSpec, chainSet evm.LegacyChainContainer) error {
 	if spec == nil {
 		return errors.New("spec is nil")
 	}
@@ -239,7 +239,7 @@ func UnregisterCommitPluginLpFilters(ctx context.Context, q pg.Queryer, spec *jo
 		return fmt.Errorf("chain id '%v' is not float64", destChainIDInterface)
 	}
 	destChainID := int64(destChainIDf64)
-	destChain, err := chainSet.Get(big.NewInt(destChainID))
+	destChain, err := chainSet.Get(strconv.FormatInt(destChainID, 10))
 	if err != nil {
 		return err
 	}
@@ -255,7 +255,7 @@ func UnregisterCommitPluginLpFilters(ctx context.Context, q pg.Queryer, spec *jo
 	if err != nil {
 		return err
 	}
-	sourceChain, err := chainSet.Get(big.NewInt(0).SetUint64(chainId))
+	sourceChain, err := chainSet.Get(strconv.FormatUint(chainId, 10))
 	if err != nil {
 		return err
 	}

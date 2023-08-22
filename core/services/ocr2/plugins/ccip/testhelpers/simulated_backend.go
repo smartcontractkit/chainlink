@@ -29,19 +29,28 @@ func SetupChain(t *testing.T) (*backends.SimulatedBackend, *bind.TransactOpts) {
 }
 
 type EthKeyStoreSim struct {
-	keystore.Eth
+	ETHKS keystore.Eth
+	CSAKS keystore.CSA
+}
+
+func (ks EthKeyStoreSim) CSA() keystore.CSA {
+	return ks.CSAKS
+}
+
+func (ks EthKeyStoreSim) Eth() keystore.Eth {
+	return ks.ETHKS
 }
 
 func (ks EthKeyStoreSim) SignTx(address common.Address, tx *ethtypes.Transaction, chainID *big.Int) (*ethtypes.Transaction, error) {
 	if chainID.String() == "1000" {
 		// A terrible hack, just for the multichain test. All simulation clients run on chainID 1337.
 		// We let the DestChain actually use 1337 to make sure the offchainConfig digests are properly generated.
-		return ks.Eth.SignTx(address, tx, big.NewInt(1337))
+		return ks.ETHKS.SignTx(address, tx, big.NewInt(1337))
 	}
-	return ks.Eth.SignTx(address, tx, chainID)
+	return ks.ETHKS.SignTx(address, tx, chainID)
 }
 
-var _ keystore.Eth = EthKeyStoreSim{}
+var _ keystore.Eth = EthKeyStoreSim{}.ETHKS
 
 func ConfirmTxs(t *testing.T, txs []*ethtypes.Transaction, chain *backends.SimulatedBackend) {
 	chain.Commit()

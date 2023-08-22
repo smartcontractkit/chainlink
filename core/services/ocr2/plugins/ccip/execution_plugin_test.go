@@ -53,7 +53,7 @@ func TestGetExecutionPluginFilterNamesFromSpec(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		chainSet := &mocks.ChainSet{}
+		chainSet := &mocks.LegacyChainContainer{}
 		t.Run(tc.description, func(t *testing.T) {
 			err := UnregisterExecPluginLpFilters(context.Background(), nilQueryer, tc.spec, chainSet)
 			if tc.expectingErr {
