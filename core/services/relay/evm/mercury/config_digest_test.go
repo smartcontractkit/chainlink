@@ -51,9 +51,10 @@ func TestConfigCalculationMatches(t *testing.T) {
 			offchainConfigVersion uint64,
 			offchainConfig []byte,
 		) bool {
+			chainIDBig := new(big.Int).SetUint64(chainID)
 			golangDigest := configDigest(
 				feedID,
-				chainID,
+				chainIDBig,
 				contractAddress,
 				configCount,
 				oracles,

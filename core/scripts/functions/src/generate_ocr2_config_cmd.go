@@ -34,6 +34,16 @@ type ThresholdOffchainConfig struct {
 	RequireLocalRequestCheck  bool
 }
 
+type S4ReportingPluginConfig struct {
+	MaxQueryLengthBytes       uint32
+	MaxObservationLengthBytes uint32
+	MaxReportLengthBytes      uint32
+	NSnapshotShards           uint32
+	MaxObservationEntries     uint32
+	MaxReportEntries          uint32
+	MaxDeleteExpiredEntries   uint32
+}
+
 type OracleConfigSource struct {
 	MaxQueryLengthBytes       uint32
 	MaxObservationLengthBytes uint32
@@ -41,8 +51,9 @@ type OracleConfigSource struct {
 	MaxRequestBatchSize       uint32
 	DefaultAggregationMethod  int32
 	UniqueReports             bool
-
-	ThresholdOffchainConfig ThresholdOffchainConfig
+	ThresholdOffchainConfig   ThresholdOffchainConfig
+	S4ReportingPluginConfig   S4ReportingPluginConfig
+	MaxReportTotalCallbackGas uint32
 
 	DeltaProgressMillis  uint32
 	DeltaResendMillis    uint32
@@ -203,13 +214,23 @@ func (g *generateOCR2Config) Run(args []string) {
 			DefaultAggregationMethod:  config.AggregationMethod(cfg.DefaultAggregationMethod),
 			UniqueReports:             cfg.UniqueReports,
 			ThresholdPluginConfig: &config.ThresholdReportingPluginConfig{
-				MaxQueryLengthBytes:       cfg.ThresholdOffchainConfig.MaxObservationLengthBytes,
+				MaxQueryLengthBytes:       cfg.ThresholdOffchainConfig.MaxQueryLengthBytes,
 				MaxObservationLengthBytes: cfg.ThresholdOffchainConfig.MaxObservationLengthBytes,
 				MaxReportLengthBytes:      cfg.ThresholdOffchainConfig.MaxReportLengthBytes,
 				RequestCountLimit:         cfg.ThresholdOffchainConfig.RequestCountLimit,
 				RequestTotalBytesLimit:    cfg.ThresholdOffchainConfig.RequestTotalBytesLimit,
 				RequireLocalRequestCheck:  cfg.ThresholdOffchainConfig.RequireLocalRequestCheck,
 			},
+			S4PluginConfig: &config.S4ReportingPluginConfig{
+				MaxQueryLengthBytes:       cfg.S4ReportingPluginConfig.MaxQueryLengthBytes,
+				MaxObservationLengthBytes: cfg.S4ReportingPluginConfig.MaxObservationLengthBytes,
+				MaxReportLengthBytes:      cfg.S4ReportingPluginConfig.MaxReportLengthBytes,
+				NSnapshotShards:           cfg.S4ReportingPluginConfig.NSnapshotShards,
+				MaxObservationEntries:     cfg.S4ReportingPluginConfig.MaxObservationEntries,
+				MaxReportEntries:          cfg.S4ReportingPluginConfig.MaxReportEntries,
+				MaxDeleteExpiredEntries:   cfg.S4ReportingPluginConfig.MaxDeleteExpiredEntries,
+			},
+			MaxReportTotalCallbackGas: cfg.MaxReportTotalCallbackGas,
 		},
 	})
 	if err != nil {

@@ -16,6 +16,16 @@
       "RequireLocalRequestCheck": true
     },
 
+    "S4ReportingPluginConfig": {
+      "MaxQueryLengthBytes": 50000,
+      "MaxObservationLengthBytes": 50000,
+      "MaxReportLengthBytes": 50000,
+      "NSnapshotShards": 1,
+      "MaxObservationEntries": 1000,
+      "MaxReportEntries": 1000,
+      "MaxDeleteExpiredEntries": 1000
+    },
+
     "DeltaProgressMillis": 30000,
     "DeltaResendMillis": 10000,
     "DeltaRoundMillis": 10000,

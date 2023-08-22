@@ -32,9 +32,10 @@ contract AutomationForwarder is TypeAndVersionInterface {
    * @param data is the 4 bytes function selector + arbitrary function data
    * @return success indicating whether the target call succeeded or failed
    */
-  function forward(uint256 gasAmount, bytes memory data) external returns (bool success) {
+  function forward(uint256 gasAmount, bytes memory data) external returns (bool success, uint256 gasUsed) {
     if (msg.sender != address(s_registry)) revert NotAuthorized();
     address target = i_target;
+    gasUsed = gasleft();
     assembly {
       let g := gas()
       // Compute g -= PERFORM_GAS_CUSHION and check for underflow
@@ -54,6 +55,8 @@ contract AutomationForwarder is TypeAndVersionInterface {
       // call with exact gas
       success := call(gasAmount, target, 0, add(data, 0x20), mload(data), 0, 0)
     }
+    gasUsed = gasUsed - gasleft();
+    return (success, gasUsed);
   }
 
   /**

@@ -2,12 +2,12 @@ package chainlink
 
 import (
 	"github.com/smartcontractkit/chainlink/v2/core/build"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 type auditLoggerConfig struct {
-	c v2.AuditLogger
+	c toml.AuditLogger
 }
 
 func (a auditLoggerConfig) Enabled() bool {

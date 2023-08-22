@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -28,7 +28,7 @@ func TestChainSet(t *testing.T) {
 		one := uint32(1)
 		c.EVM[0].MinIncomingConfirmations = &one
 		t := true
-		c.EVM = append(c.EVM, &v2.EVMConfig{ChainID: utils.NewBig(newId), Enabled: &t, Chain: v2.Defaults(nil)})
+		c.EVM = append(c.EVM, &toml.EVMConfig{ChainID: utils.NewBig(newId), Enabled: &t, Chain: toml.Defaults(nil)})
 	})
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())

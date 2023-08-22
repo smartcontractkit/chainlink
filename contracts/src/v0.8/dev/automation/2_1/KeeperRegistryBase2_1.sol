@@ -19,6 +19,7 @@ import "../../../interfaces/automation/UpkeepTranscoderInterface.sol";
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
  * KeeperRegistry and KeeperRegistryLogic
+ * @dev all errors, events, and internal functions should live here
  */
 abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   using Address for address;
@@ -45,13 +46,15 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * UPKEEP_VERSION_BASE and MigratableKeeperRegistryInterfaceV2
    */
   UpkeepFormat internal constant UPKEEP_TRANSCODER_VERSION_BASE = UpkeepFormat.V1;
-  uint8 internal constant UPKEEP_VERSION_BASE = uint8(UpkeepFormat.V3);
+  uint8 internal constant UPKEEP_VERSION_BASE = 3;
   // L1_FEE_DATA_PADDING includes 35 bytes for L1 data padding for Optimism
   bytes internal constant L1_FEE_DATA_PADDING =
     "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff";
 
-  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 80_000; // Used in maxPayment estimation, and in capping overheads during actual payment
-  uint256 internal constant REGISTRY_LOG_OVERHEAD = 100_000; // Used only in maxPayment estimation, and in capping overheads during actual payment.
+  uint256 internal constant TRANSMIT_GAS_OVERHEAD = 1_000_000; // Used only by offchain caller
+  uint256 internal constant CHECK_GAS_OVERHEAD = 400_000; // Used only by offchain caller
+  uint256 internal constant REGISTRY_CONDITIONAL_OVERHEAD = 90_000; // Used in maxPayment estimation, and in capping overheads during actual payment
+  uint256 internal constant REGISTRY_LOG_OVERHEAD = 110_000; // Used only in maxPayment estimation, and in capping overheads during actual payment.
   uint256 internal constant REGISTRY_PER_PERFORM_BYTE_GAS_OVERHEAD = 20; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with performData length.
   uint256 internal constant REGISTRY_PER_SIGNER_GAS_OVERHEAD = 7_500; // Used only in maxPayment estimation, and in capping overheads during actual payment. Value scales with f.
 
@@ -68,15 +71,18 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   AggregatorV3Interface internal immutable i_fastGasFeed;
   Mode internal immutable i_mode;
 
-  // @dev - The storage is gas optimised for one and only function - transmit. All the storage accessed in transmit
-  // is stored compactly. Rest of the storage layout is not of much concern as transmit is the only hot path
+  /**
+   * @dev - The storage is gas optimised for one and only one function - transmit. All the storage accessed in transmit
+   * is stored compactly. Rest of the storage layout is not of much concern as transmit is the only hot path
+   */
+
   // Upkeep storage
   EnumerableSet.UintSet internal s_upkeepIDs;
   mapping(uint256 => Upkeep) internal s_upkeep; // accessed during transmit
   mapping(uint256 => address) internal s_upkeepAdmin;
   mapping(uint256 => address) internal s_proposedAdmin;
   mapping(uint256 => bytes) internal s_checkData;
-  mapping(bytes32 => bool) internal s_observedLogTriggers;
+  mapping(bytes32 => bool) internal s_dedupKeys;
   // Registry config and state
   EnumerableSet.AddressSet internal s_registrars;
   mapping(address => Transmitter) internal s_transmitters;
@@ -94,7 +100,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   mapping(address => MigrationPermission) internal s_peerRegistryMigrationPermission; // Permissions for migration to and fro
   mapping(uint256 => bytes) internal s_upkeepTriggerConfig; // upkeep triggers
   mapping(uint256 => bytes) internal s_upkeepOffchainConfig; // general config set by users for each upkeep
-  mapping(uint256 => bytes) internal s_upkeepPrivilegeConfig; // general config set by an administrative role
+  mapping(uint256 => bytes) internal s_upkeepPrivilegeConfig; // general config set by an administrative role for an upkeep
+  mapping(address => bytes) internal s_adminPrivilegeConfig; // general config set by an administrative role for an admin
 
   error ArrayHasNoEntries();
   error CannotCancel();
@@ -191,15 +198,15 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @member gasCeilingMultiplier multiplier to apply to the fast gas feed price
    * when calculating the payment ceiling for keepers
    * @member minUpkeepSpend minimum LINK that an upkeep must spend before cancelling
-   * @member maxPerformGas max executeGas allowed for an upkeep on this registry
+   * @member maxPerformGas max performGas allowed for an upkeep on this registry
    * @member maxCheckDataSize max length of checkData bytes
    * @member maxPerformDataSize max length of performData bytes
    * @member maxRevertDataSize max length of revertData bytes
    * @member fallbackGasPrice gas price used if the gas price feed is stale
    * @member fallbackLinkPrice LINK price used if the LINK price feed is stale
    * @member transcoder address of the transcoder contract
-   * @member registrar address of the registrar contract
-   * @member address which can set privilege for upkeeps
+   * @member registrars addresses of the registrar contracts
+   * @member upkeepPrivilegeManager address which can set privilege for upkeeps
    */
   struct OnchainConfig {
     uint32 paymentPremiumPPB;
@@ -222,6 +229,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   /**
    * @notice state of the registry
    * @dev only used in params and return values
+   * @dev this will likely be deprecated in a future version of the registry in favor of individual getters
    * @member nonce used for ID generation
    * @member ownerLinkBalance withdrawable balance of LINK by contract owner
    * @member expectedLinkBalance the expected balance of LINK of the registry
@@ -247,39 +255,11 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @notice all information about an upkeep
-   * @dev only used in return values
-   * @member target the contract which needs to be serviced
-   * @member executeGas the gas limit of upkeep execution
-   * @member checkData the checkData bytes for this upkeep
-   * @member balance the balance of this upkeep
-   * @member admin for this upkeep
-   * @member maxValidBlocknumber until which block this upkeep is valid
-   * @member lastPerformedBlockNumber the last block number when this upkeep was performed
-   * @member amountSpent the amount this upkeep has spent
-   * @member paused if this upkeep has been paused
-   * @member skipSigVerification skip signature verification in transmit for a low security low cost model
-   */
-  struct UpkeepInfo {
-    address target;
-    address forwarder;
-    uint32 executeGas;
-    bytes checkData;
-    uint96 balance;
-    address admin;
-    uint64 maxValidBlocknumber;
-    uint32 lastPerformedBlockNumber;
-    uint96 amountSpent;
-    bool paused;
-    bytes offchainConfig;
-  }
-
-  /**
    * @notice relevant state of an upkeep which is used in transmit function
-   * @member executeGas the gas limit of upkeep execution
+   * @member paused if this upkeep has been paused
+   * @member performGas the gas limit of upkeep execution
    * @member maxValidBlocknumber until which block this upkeep is valid
    * @member forwarder the forwarder contract to use for this upkeep
-   * @member paused if this upkeep has been paused
    * @member amountSpent the amount this upkeep has spent
    * @member balance the balance of this upkeep
    * @member lastPerformedBlockNumber the last block number when this upkeep was performed
@@ -287,7 +267,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    */
   struct Upkeep {
     bool paused;
-    uint32 executeGas;
+    uint32 performGas;
     uint32 maxValidBlocknumber;
     AutomationForwarder forwarder;
     // 0 bytes left in 1st EVM word - not written to in transmit
@@ -299,7 +279,35 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     // 12 bytes left in 3rd EVM word - neither written to nor read in transmit
   }
 
-  // Config + State storage struct which is on hot transmit path
+  /**
+   * @notice all information about an upkeep
+   * @dev only used in return values
+   * @dev this will likely be deprecated in a future version of the registry
+   * @member target the contract which needs to be serviced
+   * @member performGas the gas limit of upkeep execution
+   * @member checkData the checkData bytes for this upkeep
+   * @member balance the balance of this upkeep
+   * @member admin for this upkeep
+   * @member maxValidBlocknumber until which block this upkeep is valid
+   * @member lastPerformedBlockNumber the last block number when this upkeep was performed
+   * @member amountSpent the amount this upkeep has spent
+   * @member paused if this upkeep has been paused
+   * @member offchainConfig the off-chain config of this upkeep
+   */
+  struct UpkeepInfo {
+    address target;
+    uint32 performGas;
+    bytes checkData;
+    uint96 balance;
+    address admin;
+    uint64 maxValidBlocknumber;
+    uint32 lastPerformedBlockNumber;
+    uint96 amountSpent;
+    bool paused;
+    bytes offchainConfig;
+  }
+
+  /// @dev Config + State storage struct which is on hot transmit path
   struct HotVars {
     uint8 f; // maximum number of faulty oracles
     uint32 paymentPremiumPPB; // premium percentage charged to user over tx cost
@@ -313,7 +321,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     // 1 EVM word full
   }
 
-  // Config + State storage struct which is not on hot transmit path
+  /// @dev Config + State storage struct which is not on hot transmit path
   struct Storage {
     uint96 minUpkeepSpend; // Minimum amount an upkeep must spend
     address transcoder; // Address of transcoder contract used in migrations
@@ -333,7 +341,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     // 3 EVM word full
   }
 
-  // Report transmitted by OCR to transmit function
+  /// @dev Report transmitted by OCR to transmit function
   struct Report {
     uint256 fastGasWei;
     uint256 linkNative;
@@ -347,9 +355,13 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * @dev This struct is used to maintain run time information about an upkeep in transmit function
    * @member upkeep the upkeep struct
    * @member earlyChecksPassed whether the upkeep passed early checks before perform
-   * @member paymentParams the paymentParams for this upkeep
+   * @member maxLinkPayment the max amount this upkeep could pay for work
    * @member performSuccess whether the perform was successful
+   * @member triggerType the type of trigger
    * @member gasUsed gasUsed by this upkeep in perform
+   * @member gasOverhead gasOverhead for this upkeep
+   * @member upkeepTriggerID unique ID used to identify an upkeep/trigger combo
+   * @member dedupID unique ID used to dedup an upkeep/trigger combo
    */
   struct UpkeepTransmitInfo {
     Upkeep upkeep;
@@ -359,6 +371,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     Trigger triggerType;
     uint256 gasUsed;
     uint256 gasOverhead;
+    bytes32 upkeepTriggerID;
+    bytes32 dedupID;
   }
 
   struct Transmitter {
@@ -372,22 +386,6 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     bool active;
     // Index of oracle in s_signersList/s_transmittersList
     uint8 index;
-  }
-
-  struct ConditionalTriggerConfig {
-    uint32 checkCadance; // how often to check in blocks
-  }
-
-  /**
-   * @notice structure of trigger for log triggers
-   */
-  struct LogTriggerConfig {
-    address contractAddress;
-    uint8 filterSelector; // denotes which topics apply to filter ex 000, 101, 111...only last 3 bits apply
-    bytes32 topic0;
-    bytes32 topic1;
-    bytes32 topic2;
-    bytes32 topic3;
   }
 
   /**
@@ -410,6 +408,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     bytes32 blockHash;
   }
 
+  event AdminPrivilegeConfigSet(address indexed admin, bytes privilegeConfig);
   event FundsAdded(uint256 indexed id, address indexed from, uint96 amount);
   event FundsWithdrawn(uint256 indexed id, uint256 amount, address to);
   event OwnerFundsWithdrawn(uint96 amount);
@@ -433,15 +432,15 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint96 totalPayment,
     uint256 gasUsed,
     uint256 gasOverhead,
-    bytes trigger
+    bytes32 upkeepTriggerID
   );
   event UpkeepReceived(uint256 indexed id, uint256 startingBalance, address importedFrom);
   event UpkeepUnpaused(uint256 indexed id);
-  event UpkeepRegistered(uint256 indexed id, uint32 executeGas, address admin);
-  event StaleUpkeepReport(uint256 indexed id, bytes trigger);
-  event ReorgedUpkeepReport(uint256 indexed id, bytes trigger);
-  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes trigger);
-  event CancelledUpkeepReport(uint256 indexed id, bytes trigger);
+  event UpkeepRegistered(uint256 indexed id, uint32 performGas, address admin);
+  event StaleUpkeepReport(uint256 indexed id, bytes32 upkeepTriggerID);
+  event ReorgedUpkeepReport(uint256 indexed id, bytes32 upkeepTriggerID);
+  event InsufficientFundsUpkeepReport(uint256 indexed id, bytes32 upkeepTriggerID);
+  event CancelledUpkeepReport(uint256 indexed id, bytes32 upkeepTriggerID);
   event Paused(address account);
   event Unpaused(address account);
 
@@ -458,32 +457,12 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     i_fastGasFeed = AggregatorV3Interface(fastGasFeed);
   }
 
-  /////////////
-  // GETTERS //
-  /////////////
-
-  function getMode() external view returns (Mode) {
-    return i_mode;
-  }
-
-  function getLinkAddress() external view returns (address) {
-    return address(i_link);
-  }
-
-  function getLinkNativeFeedAddress() external view returns (address) {
-    return address(i_linkNativeFeed);
-  }
-
-  function getFastGasFeedAddress() external view returns (address) {
-    return address(i_fastGasFeed);
-  }
-
-  //////////////
-  // INTERNAL //
-  //////////////
+  ///////////////////////////////////////////////////////////////////////////////////////
+  /////////////////////////////// INTERNAL FUNCTIONS ONLY ///////////////////////////////
+  ///////////////////////////////////////////////////////////////////////////////////////
 
   /**
-   * @notice creates a new upkeep with the given fields
+   * @dev creates a new upkeep with the given fields
    * @param id the id of the upkeep
    * @param upkeep the upkeep to create
    * @param admin address to cancel upkeep and withdraw remaining funds
@@ -502,7 +481,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     if (s_hotVars.paused) revert RegistryPaused();
     if (!upkeep.target.isContract()) revert NotAContract();
     if (checkData.length > s_storage.maxCheckDataSize) revert CheckDataExceedsLimit();
-    if (upkeep.executeGas < PERFORM_GAS_MIN || upkeep.executeGas > s_storage.maxPerformGas)
+    if (upkeep.performGas < PERFORM_GAS_MIN || upkeep.performGas > s_storage.maxPerformGas)
       revert GasLimitOutsideRange();
     if (s_upkeep[id].target != ZERO_ADDRESS) revert UpkeepAlreadyExists();
     s_upkeep[id] = upkeep;
@@ -512,6 +491,30 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     s_upkeepTriggerConfig[id] = triggerConfig;
     s_upkeepOffchainConfig[id] = offchainConfig;
     s_upkeepIDs.add(id);
+  }
+
+  /**
+   * @dev creates an ID for the upkeep based on the upkeep's type
+   * @dev the format of the ID looks like this:
+   * ****00000000000X****************
+   * 4 bytes of entropy
+   * 11 bytes of zeros
+   * 1 identifying byte for the trigger type
+   * 16 bytes of entropy
+   * @dev this maintains the same level of entropy as eth addresses, so IDs will still be unique
+   * @dev we add the "identifying" part in the middle so that it is mostly hidden from users who usually only
+   * see the first 4 and last 4 hex values ex 0x1234...ABCD
+   */
+  function _createID(Trigger triggerType) internal view returns (uint256) {
+    bytes1 empty;
+    bytes memory idBytes = abi.encodePacked(
+      keccak256(abi.encode(_blockHash(_blockNum() - 1), address(this), s_storage.nonce))
+    );
+    for (uint256 idx = 4; idx < 15; idx++) {
+      idBytes[idx] = empty;
+    }
+    idBytes[15] = bytes1(uint8(triggerType));
+    return uint256(bytes32(idBytes));
   }
 
   /**
@@ -574,14 +577,21 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
       if (isExecution) {
         txCallData = bytes.concat(msg.data, L1_FEE_DATA_PADDING);
       } else {
-        // @dev fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have
+        // fee is 4 per 0 byte, 16 per non-zero byte. Worst case we can have
         // s_storage.maxPerformDataSize non zero-bytes. Instead of setting bytes to non-zero
         // we initialize 'new bytes' of length 4*maxPerformDataSize to cover for zero bytes.
         txCallData = new bytes(4 * s_storage.maxPerformDataSize);
       }
       l1CostWei = OPTIMISM_ORACLE.getL1Fee(txCallData);
     } else if (i_mode == Mode.ARBITRUM) {
-      l1CostWei = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
+      if (isExecution) {
+        l1CostWei = ARB_NITRO_ORACLE.getCurrentTxL1GasFees();
+      } else {
+        // fee is 4 per 0 byte, 16 per non-zero byte - we assume all non-zero and
+        // max data size to calculate max payment
+        (, uint256 perL1CalldataUnit, , , , ) = ARB_NITRO_ORACLE.getPricesInWei();
+        l1CostWei = perL1CalldataUnit * s_storage.maxPerformDataSize * 16;
+      }
     }
     // if it's not performing upkeeps, use gas ceiling multiplier to estimate the upper bound
     if (!isExecution) {
@@ -601,12 +611,12 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @dev generates the max link payment for an upkeep
+   * @dev calculates the max LINK payment for an upkeep
    */
   function _getMaxLinkPayment(
     HotVars memory hotVars,
     Trigger triggerType,
-    uint32 executeGas,
+    uint32 performGas,
     uint32 performDataLength,
     uint256 fastGasWei,
     uint256 linkNative,
@@ -615,7 +625,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     uint256 gasOverhead = _getMaxGasOverhead(triggerType, performDataLength, hotVars.f);
     (uint96 reimbursement, uint96 premium) = _calculatePaymentAmount(
       hotVars,
-      executeGas,
+      performGas,
       gasOverhead,
       fastGasWei,
       linkNative,
@@ -666,7 +676,10 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     return transmitter.balance;
   }
 
-  function getTriggerType(uint256 upkeepId) public pure returns (Trigger) {
+  /**
+   * @dev gets the trigger type from an upkeepID (trigger type is encoded in the middle of the ID)
+   */
+  function _getTriggerType(uint256 upkeepId) internal pure returns (Trigger) {
     bytes32 rawID = bytes32(upkeepId);
     bytes1 empty = bytes1(0);
     for (uint256 idx = 4; idx < 15; idx++) {
@@ -679,6 +692,209 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
+   * @dev _decodeReport decodes a serialized report into a Report struct
+   */
+  function _decodeReport(bytes calldata rawReport) internal pure returns (Report memory) {
+    Report memory report = abi.decode(rawReport, (Report));
+    uint256 expectedLength = report.upkeepIds.length;
+    if (
+      report.gasLimits.length != expectedLength ||
+      report.triggers.length != expectedLength ||
+      report.performDatas.length != expectedLength
+    ) {
+      revert InvalidReport();
+    }
+    return report;
+  }
+
+  /**
+   * @dev Does some early sanity checks before actually performing an upkeep
+   * @return bool whether the upkeep should be performed
+   * @return bytes32 dedupID for preventing duplicate performances of this trigger
+   */
+  function _prePerformChecks(
+    uint256 upkeepId,
+    bytes memory rawTrigger,
+    UpkeepTransmitInfo memory transmitInfo
+  ) internal returns (bool, bytes32) {
+    bytes32 dedupID;
+    if (transmitInfo.triggerType == Trigger.CONDITION) {
+      if (!_validateConditionalTrigger(upkeepId, rawTrigger, transmitInfo)) return (false, dedupID);
+    } else if (transmitInfo.triggerType == Trigger.LOG) {
+      bool valid;
+      (valid, dedupID) = _validateLogTrigger(upkeepId, rawTrigger, transmitInfo);
+      if (!valid) return (false, dedupID);
+    } else {
+      revert InvalidTriggerType();
+    }
+    if (transmitInfo.upkeep.maxValidBlocknumber <= _blockNum()) {
+      // Can happen when an upkeep got cancelled after report was generated.
+      // However we have a CANCELLATION_DELAY of 50 blocks so shouldn't happen in practice
+      emit CancelledUpkeepReport(upkeepId, transmitInfo.upkeepTriggerID);
+      return (false, dedupID);
+    }
+
+    if (transmitInfo.upkeep.balance < transmitInfo.maxLinkPayment) {
+      // Can happen due to flucutations in gas / link prices
+      emit InsufficientFundsUpkeepReport(upkeepId, transmitInfo.upkeepTriggerID);
+      return (false, dedupID);
+    }
+
+    return (true, dedupID);
+  }
+
+  /**
+   * @dev Does some early sanity checks before actually performing an upkeep
+   */
+  function _validateConditionalTrigger(
+    uint256 upkeepId,
+    bytes memory rawTrigger,
+    UpkeepTransmitInfo memory transmitInfo
+  ) internal returns (bool) {
+    ConditionalTrigger memory trigger = abi.decode(rawTrigger, (ConditionalTrigger));
+    if (trigger.blockNum < transmitInfo.upkeep.lastPerformedBlockNumber) {
+      // Can happen when another report performed this upkeep after this report was generated
+      emit StaleUpkeepReport(upkeepId, transmitInfo.upkeepTriggerID);
+      return false;
+    }
+    if (
+      (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
+      trigger.blockNum >= _blockNum()
+    ) {
+      // There are two cases of reorged report
+      // 1. trigger block number is in future: this is an edge case during extreme deep reorgs of chain
+      // which is always protected against
+      // 2. blockHash at trigger block number was same as trigger time. This is an optional check which is
+      // applied if DON sends non empty trigger.blockHash. Note: It only works for last 256 blocks on chain
+      // when it is sent
+      emit ReorgedUpkeepReport(upkeepId, transmitInfo.upkeepTriggerID);
+      return false;
+    }
+    return true;
+  }
+
+  function _validateLogTrigger(
+    uint256 upkeepId,
+    bytes memory rawTrigger,
+    UpkeepTransmitInfo memory transmitInfo
+  ) internal returns (bool, bytes32) {
+    LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
+    bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.txHash, trigger.logIndex));
+    if (
+      (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
+      trigger.blockNum >= _blockNum()
+    ) {
+      // Reorg protection is same as conditional trigger upkeeps
+      emit ReorgedUpkeepReport(upkeepId, transmitInfo.upkeepTriggerID);
+      return (false, dedupID);
+    }
+    if (s_dedupKeys[dedupID]) {
+      emit StaleUpkeepReport(upkeepId, transmitInfo.upkeepTriggerID);
+      return (false, dedupID);
+    }
+    return (true, dedupID);
+  }
+
+  /**
+   * @dev Verify signatures attached to report
+   */
+  function _verifyReportSignature(
+    bytes32[3] calldata reportContext,
+    bytes calldata report,
+    bytes32[] calldata rs,
+    bytes32[] calldata ss,
+    bytes32 rawVs
+  ) internal view {
+    bytes32 h = keccak256(abi.encode(keccak256(report), reportContext));
+    // i-th byte counts number of sigs made by i-th signer
+    uint256 signedCount = 0;
+
+    Signer memory signer;
+    address signerAddress;
+    for (uint256 i = 0; i < rs.length; i++) {
+      signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
+      signer = s_signers[signerAddress];
+      if (!signer.active) revert OnlyActiveSigners();
+      unchecked {
+        signedCount += 1 << (8 * signer.index);
+      }
+    }
+
+    if (signedCount & ORACLE_MASK != signedCount) revert DuplicateSigners();
+  }
+
+  /**
+   * @dev updates a storage marker for this upkeep to prevent duplicate and out of order performances
+   * @dev for conditional triggers we set the latest block number, for log triggers we store a dedupID
+   */
+  function _updateTriggerMarker(uint256 upkeepID, UpkeepTransmitInfo memory upkeepTransmitInfo) internal {
+    if (upkeepTransmitInfo.triggerType == Trigger.CONDITION) {
+      s_upkeep[upkeepID].lastPerformedBlockNumber = uint32(_blockNum());
+    } else if (upkeepTransmitInfo.triggerType == Trigger.LOG) {
+      s_dedupKeys[upkeepTransmitInfo.dedupID] = true;
+    }
+  }
+
+  /**
+   * @dev calls the Upkeep target with the performData param passed in by the
+   * transmitter and the exact gas required by the Upkeep
+   */
+  function _performUpkeep(
+    AutomationForwarder forwarder,
+    uint256 performGas,
+    bytes memory performData
+  ) internal nonReentrant returns (bool success, uint256 gasUsed) {
+    performData = abi.encodeWithSelector(PERFORM_SELECTOR, performData);
+    return forwarder.forward(performGas, performData);
+  }
+
+  /**
+   * @dev does postPerform payment processing for an upkeep. Deducts upkeep's balance and increases
+   * amount spent.
+   */
+  function _postPerformPayment(
+    HotVars memory hotVars,
+    uint256 upkeepId,
+    UpkeepTransmitInfo memory upkeepTransmitInfo,
+    uint256 fastGasWei,
+    uint256 linkNative,
+    uint16 numBatchedUpkeeps
+  ) internal returns (uint96 gasReimbursement, uint96 premium) {
+    (gasReimbursement, premium) = _calculatePaymentAmount(
+      hotVars,
+      upkeepTransmitInfo.gasUsed,
+      upkeepTransmitInfo.gasOverhead,
+      fastGasWei,
+      linkNative,
+      numBatchedUpkeeps,
+      true
+    );
+
+    uint96 payment = gasReimbursement + premium;
+    s_upkeep[upkeepId].balance -= payment;
+    s_upkeep[upkeepId].amountSpent += payment;
+
+    return (gasReimbursement, premium);
+  }
+
+  /**
+   * @dev Caps the gas overhead by the constant overhead used within initial payment checks in order to
+   * prevent a revert in payment processing.
+   */
+  function _getCappedGasOverhead(
+    uint256 calculatedGasOverhead,
+    Trigger triggerType,
+    uint32 performDataLength,
+    uint8 f
+  ) internal pure returns (uint256 cappedGasOverhead) {
+    cappedGasOverhead = _getMaxGasOverhead(triggerType, performDataLength, f);
+    if (calculatedGasOverhead < cappedGasOverhead) {
+      return calculatedGasOverhead;
+    }
+    return cappedGasOverhead;
+  }
+
+  /**
    * @dev ensures the upkeep is not cancelled and the caller is the upkeep admin
    */
   function _requireAdminAndNotCancelled(uint256 upkeepId) internal view {
@@ -687,7 +903,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @notice returns the current block number in a chain agnostic manner
+   * @dev returns the current block number in a chain agnostic manner
    */
   function _blockNum() internal view returns (uint256) {
     if (i_mode == Mode.ARBITRUM) {
@@ -698,7 +914,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @notice returns the blockhash of the provided block number in a chain agnostic manner
+   * @dev returns the blockhash of the provided block number in a chain agnostic manner
    * @param n the blocknumber to retrieve the blockhash for
    * @return blockhash the blockhash of block number n, or 0 if n is out queryable of range
    */
@@ -715,7 +931,17 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   }
 
   /**
-   * @notice replicates Open Zeppelin's ReentrancyGuard but optimized to fit our storage
+   * @dev returns a unique identifier for an upkeep/trigger combo
+   * @param upkeepID the upkeep id
+   * @param trigger the raw trigger bytes
+   * @return upkeepTriggerID the unique identifier for the upkeep/trigger combo
+   */
+  function _upkeepTriggerID(uint256 upkeepID, bytes memory trigger) internal pure returns (bytes32 upkeepTriggerID) {
+    return keccak256(abi.encodePacked(upkeepID, trigger));
+  }
+
+  /**
+   * @dev replicates Open Zeppelin's ReentrancyGuard but optimized to fit our storage
    */
   modifier nonReentrant() {
     if (s_hotVars.reentrancyGuard) revert ReentrantCall();

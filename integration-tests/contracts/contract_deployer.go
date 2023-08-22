@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_oracle_events_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic1_3"
@@ -91,6 +92,7 @@ type ContractDeployer interface {
 	DeployFunctionsBillingRegistryEventsMock() (FunctionsBillingRegistryEventsMock, error)
 	DeployMockAggregatorProxy(aggregatorAddr string) (MockAggregatorProxy, error)
 	DeployOffchainAggregatorV2(linkAddr string, offchainOptions OffchainOptions) (OffchainAggregatorV2, error)
+	DeployKeeperRegistryCheckUpkeepGasUsageWrapper(keeperRegistryAddr string) (KeeperRegistryCheckUpkeepGasUsageWrapper, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -1036,6 +1038,23 @@ func (e *EthereumContractDeployer) DeployMockAggregatorProxy(aggregatorAddr stri
 		address:             addr,
 		client:              e.client,
 		mockAggregatorProxy: instance.(*mock_aggregator_proxy.MockAggregatorProxy),
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployKeeperRegistryCheckUpkeepGasUsageWrapper(keeperRegistryAddr string) (KeeperRegistryCheckUpkeepGasUsageWrapper, error) {
+	addr, _, instance, err := e.client.DeployContract("KeeperRegistryCheckUpkeepGasUsageWrapper", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return gas_wrapper.DeployKeeperRegistryCheckUpkeepGasUsageWrapper(auth, backend, common.HexToAddress(keeperRegistryAddr))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumKeeperRegistryCheckUpkeepGasUsageWrapper{
+		address:         addr,
+		client:          e.client,
+		gasUsageWrapper: instance.(*gas_wrapper.KeeperRegistryCheckUpkeepGasUsageWrapper),
 	}, err
 }
 

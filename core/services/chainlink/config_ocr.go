@@ -6,14 +6,14 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
 
 var _ config.OCR = (*ocrConfig)(nil)
 
 type ocrConfig struct {
-	c v2.OCR
+	c toml.OCR
 }
 
 func (o *ocrConfig) Enabled() bool {

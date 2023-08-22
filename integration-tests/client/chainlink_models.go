@@ -6,7 +6,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -19,12 +18,13 @@ type EIServiceConfig struct {
 
 // ChainlinkConfig represents the variables needed to connect to a Chainlink node
 type ChainlinkConfig struct {
-	URL        string
-	Email      string
-	Password   string
-	InternalIP string // Can change if the node is restarted. Prefer RemoteURL if possible
-	ChartName  string
-	PodName    string
+	URL         string
+	Email       string
+	Password    string
+	InternalIP  string // Can change if the node is restarted. Prefer RemoteURL if possible
+	ChartName   string
+	PodName     string
+	HTTPTimeout *time.Duration
 }
 
 // ResponseSlice is the generic model that can be used for all Chainlink API responses that are an slice
@@ -976,7 +976,7 @@ func (o *OCR2TaskJobSpec) Type() string { return o.JobType }
 // String representation of the job
 func (o *OCR2TaskJobSpec) String() (string, error) {
 	var feedID string
-	if o.OCR2OracleSpec.FeedID != (common.Hash{}) {
+	if o.OCR2OracleSpec.FeedID != nil {
 		feedID = o.OCR2OracleSpec.FeedID.Hex()
 	}
 	specWrap := struct {

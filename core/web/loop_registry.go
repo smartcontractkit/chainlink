@@ -13,7 +13,7 @@ import (
 	"github.com/prometheus/common/model"
 	"github.com/prometheus/prometheus/discovery/targetgroup"
 
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -112,7 +112,7 @@ func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
 
 func initHostNames() (discoveryHost, loopHost string) {
 	var exists bool
-	discoveryHost, exists = v2.EnvPrometheusDiscoveryHostName.Lookup()
+	discoveryHost, exists = env.PrometheusDiscoveryHostName.Lookup()
 	if !exists {
 		var err error
 		discoveryHost, err = os.Hostname()
@@ -121,7 +121,7 @@ func initHostNames() (discoveryHost, loopHost string) {
 		}
 	}
 
-	loopHost, exists = v2.EnvLooppHostName.Lookup()
+	loopHost, exists = env.LOOPPHostName.Lookup()
 	if !exists {
 		// this is the expected case; no known uses for the env var other than
 		// as an escape hatch.

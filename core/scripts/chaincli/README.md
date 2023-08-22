@@ -9,6 +9,7 @@ Before starting, you will need:
 4. The private key of an account funded with LINK, and the chain's native token (to pay transaction fees)
    - Steps for exporting your private key from Metamask can be found [here](https://metamask.zendesk.com/hc/en-us/articles/360015289632-How-to-Export-an-Account-Private-Key)
 5. The LINK address, LINK-ETH feed address, fast gas feed address for your chain
+6. Install [docker](https://docs.docker.com/get-docker/) for CLI and GUI (optional)
 
 The example .env in this repo is for the Polygon Mumbai testnet. You can use [this faucet](https://faucets.chain.link/mumbai) to send testnet LINK 
 to your wallet ahead of executing the next steps
@@ -100,6 +101,7 @@ You can also combine the `bootstrap` and `launch-and-test` commands into a singl
 ```shell
 ./chaincli keeper launch-and-test --bootstrap
 ```
+In the output of this command, you will see the http address of the nodes, e.g. `http://localhost:6688`. This is the Chainlink Operator GUI. You can use the default username `notreal@fakeemail.ch` and password `fj293fbBnlQ!f9vNs~#` to log in.
 
 ### Logs
 Now that the nodes are running, you can use the `logs` subcommand to stream the output of the containers to your local terminal:

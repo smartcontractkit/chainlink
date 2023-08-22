@@ -4,6 +4,8 @@ cmp stdout out.txt
 
 -- out.txt --
 # Secrets:
+[Database]
+AllowSimplePasswords = false
 
 # Input Configuration:
 

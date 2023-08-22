@@ -99,7 +99,10 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job) (services []job.ServiceCtx, 
 	if err != nil {
 		return nil, errors.Wrap(err, "error calling 'relayer.NewConfigWatcher'")
 	}
-	lc := validate.ToLocalConfig(d.ocr2Cfg, d.insecureCfg, spec.AsOCR2Spec())
+	lc, err := validate.ToLocalConfig(d.ocr2Cfg, d.insecureCfg, spec.AsOCR2Spec())
+	if err != nil {
+		return nil, err
+	}
 	if err = ocr.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}

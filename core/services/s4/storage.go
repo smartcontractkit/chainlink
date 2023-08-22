@@ -12,8 +12,8 @@ import (
 
 // Constraints specifies the global storage constraints.
 type Constraints struct {
-	MaxPayloadSizeBytes uint
-	MaxSlotsPerUser     uint
+	MaxPayloadSizeBytes uint `json:"maxPayloadSizeBytes"`
+	MaxSlotsPerUser     uint `json:"maxSlotsPerUser"`
 }
 
 // Key identifies a versioned user record.

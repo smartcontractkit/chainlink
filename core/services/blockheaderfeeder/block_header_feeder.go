@@ -94,7 +94,7 @@ type BlockHeaderFeeder struct {
 func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 	latestBlockNumber, err := f.latestBlock(ctx)
 	if err != nil {
-		f.lggr.Errorw("Failed to fetch current block number", "error", err)
+		f.lggr.Errorw("Failed to fetch current block number", "err", err)
 		return errors.Wrap(err, "fetching block number")
 	}
 
@@ -204,7 +204,7 @@ func (f *BlockHeaderFeeder) findLowestBlockNumberWithoutBlockhash(ctx context.Co
 		stored, err := f.bhs.IsStored(ctx, block)
 		if err != nil {
 			lggr.Warnw("Failed to check if block is already stored",
-				"error", err,
+				"err", err,
 				"block", block)
 			continue
 		} else if stored {

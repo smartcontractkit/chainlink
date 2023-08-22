@@ -22,5 +22,5 @@ interface MigratableKeeperRegistryInterface {
   /**
    * @notice Specifies the version of upkeep data that this registry requires in order to import
    */
-  function upkeepTranscoderVersion() external returns (UpkeepFormat version);
+  function upkeepTranscoderVersion() external view returns (UpkeepFormat version);
 }

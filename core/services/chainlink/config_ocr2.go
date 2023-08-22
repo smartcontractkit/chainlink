@@ -4,13 +4,13 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 )
 
 var _ config.OCR2 = (*ocr2Config)(nil)
 
 type ocr2Config struct {
-	c v2.OCR2
+	c toml.OCR2
 }
 
 func (o *ocr2Config) Enabled() bool {

@@ -207,7 +207,7 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 			if err != nil {
 				log.Fatal("Registry failed: ", err)
 			}
-			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), utils.MaxUint256)
+			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), big.NewInt(0))
 			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
 				log.Fatal("Failed to cancel upkeeps: ", err)
 			}

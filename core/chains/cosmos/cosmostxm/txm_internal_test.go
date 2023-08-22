@@ -6,6 +6,7 @@ import (
 	"time"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	tmtypes "github.com/cometbft/cometbft/proto/tendermint/types"
 	tmservicetypes "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
 	cosmostypes "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
@@ -13,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	tmtypes "github.com/tendermint/tendermint/proto/tendermint/types"
 	"go.uber.org/zap/zapcore"
 
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"

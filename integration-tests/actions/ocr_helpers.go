@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
@@ -187,7 +187,7 @@ func CreateOCRJobs(
 	mockValue int,
 	mockserver *ctfClient.MockserverClient,
 ) error {
-	for i, ocrInstance := range ocrInstances {
+	for _, ocrInstance := range ocrInstances {
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 		if err != nil {
 			return fmt.Errorf("reading P2P keys from bootstrap node have failed: %w", err)
@@ -228,16 +228,13 @@ func CreateOCRJobs(
 				Name: nodeContractPairID,
 				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, strings.TrimPrefix(nodeContractPairID, "/")),
 			}
-			// only create the bridge on the first loop of the nodes
-			if i < 1 {
-				err = SetAdapterResponse(mockValue, ocrInstance, node, mockserver)
-				if err != nil {
-					return fmt.Errorf("setting adapter response for OCR node failed: %w", err)
-				}
-				err = node.MustCreateBridge(bta)
-				if err != nil {
-					return fmt.Errorf("creating bridge job have failed: %w", err)
-				}
+			err = SetAdapterResponse(mockValue, ocrInstance, node, mockserver)
+			if err != nil {
+				return fmt.Errorf("setting adapter response for OCR node failed: %w", err)
+			}
+			err = node.MustCreateBridge(bta)
+			if err != nil {
+				return fmt.Errorf("creating bridge job have failed: %w", err)
 			}
 
 			ocrSpec := &client.OCRTaskJobSpec{
@@ -267,7 +264,7 @@ func CreateOCRJobsWithForwarder(
 	mockValue int,
 	mockserver *ctfClient.MockserverClient,
 ) {
-	for i, ocrInstance := range ocrInstances {
+	for _, ocrInstance := range ocrInstances {
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 		require.NoError(t, err, "Shouldn't fail reading P2P keys from bootstrap node")
 		bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
@@ -296,13 +293,10 @@ func CreateOCRJobsWithForwarder(
 				Name: nodeContractPairID,
 				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, strings.TrimPrefix(nodeContractPairID, "/")),
 			}
-			// only create the bridge on the first loop of the nodes
-			if i < 1 {
-				err = SetAdapterResponse(mockValue, ocrInstance, node, mockserver)
-				require.NoError(t, err, "Failed setting adapter responses for node %d", nodeIndex+1)
-				err = node.MustCreateBridge(bta)
-				require.NoError(t, err, "Failed creating bridge on OCR node %d", nodeIndex+1)
-			}
+			err = SetAdapterResponse(mockValue, ocrInstance, node, mockserver)
+			require.NoError(t, err, "Failed setting adapter responses for node %d", nodeIndex+1)
+			err = node.MustCreateBridge(bta)
+			require.NoError(t, err, "Failed creating bridge on OCR node %d", nodeIndex+1)
 
 			ocrSpec := &client.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
@@ -330,7 +324,7 @@ func StartNewRound(
 		if err != nil {
 			return fmt.Errorf("requesting new OCR round %d have failed: %w", i+1, err)
 		}
-		ocrRound := contracts.NewOffchainAggregatorRoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), client.GetNetworkConfig().Timeout.Duration, nil)
+		ocrRound := contracts.NewOffchainAggregatorRoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), client.GetNetworkConfig().Timeout.Duration)
 		client.AddHeaderEventSubscription(ocrInstances[i].Address(), ocrRound)
 		err = client.WaitForEvents()
 		if err != nil {
@@ -367,24 +361,17 @@ func SetAllAdapterResponsesToTheSameValue(
 	chainlinkNodes []*client.Chainlink,
 	mockserver *ctfClient.MockserverClient,
 ) error {
-	var adapterVals sync.WaitGroup
-	var err error
+	eg := &errgroup.Group{}
 	for _, o := range ocrInstances {
 		ocrInstance := o
 		for _, n := range chainlinkNodes {
 			node := n
-			adapterVals.Add(1)
-			go func() {
-				defer adapterVals.Done()
-				err = SetAdapterResponse(response, ocrInstance, node, mockserver)
-			}()
+			eg.Go(func() error {
+				return SetAdapterResponse(response, ocrInstance, node, mockserver)
+			})
 		}
 	}
-	if err != nil {
-		return err
-	}
-	adapterVals.Wait()
-	return nil
+	return eg.Wait()
 }
 
 // SetAllAdapterResponsesToDifferentValues sets the mock responses in mockserver that are read by chainlink nodes

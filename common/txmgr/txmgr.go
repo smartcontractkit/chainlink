@@ -223,7 +223,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reset(call
 // this must not be run while Broadcaster or Confirmer are running
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abandon(addr ADDR) (err error) {
 	err = b.txStore.Abandon(b.chainID, addr)
-	return errors.Wrapf(err, "abandon failed to update eth_txes for key %s", addr.String())
+	return errors.Wrapf(err, "abandon failed to update txes for key %s", addr.String())
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Close() (merr error) {
@@ -469,7 +469,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 // Calls forwarderMgr to get a proper forwarder for a given EOA.
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) GetForwarderForEOA(eoa ADDR) (forwarder ADDR, err error) {
 	if !b.txConfig.ForwardersEnabled() {
-		return forwarder, errors.Errorf("Forwarding is not enabled, to enable set EVM.Transactions.ForwardersEnabled =true")
+		return forwarder, errors.Errorf("Forwarding is not enabled, to enable set Transactions.ForwardersEnabled =true")
 	}
 	forwarder, err = b.fwdMgr.ForwarderFor(eoa)
 	return
@@ -480,7 +480,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) checkEnabl
 	return errors.Wrapf(err, "cannot send transaction from %s on chain ID %s", addr, b.chainID.String())
 }
 
-// SendNativeToken creates a transaction that transfers the given value of ether
+// SendNativeToken creates a transaction that transfers the given value of native tokens
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNativeToken(chainID CHAIN_ID, from, to ADDR, value big.Int, gasLimit uint32) (etx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
 	if utils.IsZero(to) {
 		return etx, errors.New("cannot send native token to zero address")
@@ -494,7 +494,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) SendNative
 		Strategy:       NewSendEveryStrategy(),
 	}
 	etx, err = b.txStore.CreateTransaction(txRequest, chainID)
-	return etx, errors.Wrap(err, "SendNativeToken failed to insert eth_tx")
+	return etx, errors.Wrap(err, "SendNativeToken failed to insert tx")
 }
 
 type NullTxManager[

@@ -4,14 +4,14 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var _ config.JobPipeline = (*jobPipelineConfig)(nil)
 
 type jobPipelineConfig struct {
-	c v2.JobPipeline
+	c toml.JobPipeline
 }
 
 func (j *jobPipelineConfig) DefaultHTTPLimit() int64 {

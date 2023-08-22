@@ -497,7 +497,7 @@ func (b *broadcaster) onReplayRequest(replayReq replayRequest) {
 		err := b.orm.MarkBroadcastsUnconsumed(replayReq.fromBlock, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout())
 		if err != nil {
 			b.logger.Errorw("Error marking broadcasts as unconsumed",
-				"error", err, "fromBlock", replayReq.fromBlock)
+				"err", err, "fromBlock", replayReq.fromBlock)
 		}
 	}
 	b.logger.Debugw(

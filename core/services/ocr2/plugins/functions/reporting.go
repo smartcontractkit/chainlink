@@ -134,6 +134,10 @@ func (r *functionsReporting) Query(ctx context.Context, ts types.ReportTimestamp
 		queryProto.RequestIDs = append(queryProto.RequestIDs, result.RequestID[:])
 		idStrs = append(idStrs, formatRequestId(result.RequestID[:]))
 	}
+	// The ID batch built in Query can exceed maxReportTotalCallbackGas. This is done
+	// on purpose as some requests may (repeatedly) fail aggregation and we don't want
+	// them to block processing of other requests. Final total callback gas limit
+	// is enforced in the Report() phase.
 	r.logger.Debug("FunctionsReporting Query end", commontypes.LogFields{
 		"epoch":      ts.Epoch,
 		"round":      ts.Round,
@@ -192,6 +196,9 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 				RequestID: localResult.RequestID[:],
 				Result:    localResult.Result,
 				Error:     localResult.Error,
+			}
+			if localResult.CallbackGasLimit != nil {
+				resultProto.CallbackGasLimit = *localResult.CallbackGasLimit
 			}
 			observationProto.ProcessedRequests = append(observationProto.ProcessedRequests, &resultProto)
 			idStrs = append(idStrs, formatRequestId(localResult.RequestID[:]))
@@ -269,6 +276,7 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 	defaultAggMethod := r.specificConfig.Config.GetDefaultAggregationMethod()
 	var allAggregated []*encoding.ProcessedRequest
 	var allIdStrs []string
+	var totalCallbackGas uint32
 	for _, reqId := range uniqueQueryIds {
 		observations := reqIdToObservationList[reqId]
 		if !CanAggregate(r.genericConfig.N, r.genericConfig.F, observations) {
@@ -293,6 +301,18 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 			})
 			continue
 		}
+		if totalCallbackGas+aggregated.CallbackGasLimit > r.specificConfig.Config.GetMaxReportTotalCallbackGas() {
+			r.logger.Warn("FunctionsReporting Report: total callback gas limit exceeded", commontypes.LogFields{
+				"epoch":                ts.Epoch,
+				"round":                ts.Round,
+				"requestID":            reqId,
+				"requestCallbackGas":   aggregated.CallbackGasLimit,
+				"totalCallbackGas":     totalCallbackGas,
+				"maxReportCallbackGas": r.specificConfig.Config.GetMaxReportTotalCallbackGas(),
+			})
+			continue
+		}
+		totalCallbackGas += aggregated.CallbackGasLimit
 		r.logger.Debug("FunctionsReporting Report: aggregated successfully", commontypes.LogFields{
 			"epoch":         ts.Epoch,
 			"round":         ts.Round,
@@ -310,6 +330,7 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 		"nAggregatedRequests": len(allAggregated),
 		"reporting":           len(allAggregated) > 0,
 		"requestIDs":          allIdStrs,
+		"totalCallbackGas":    totalCallbackGas,
 	})
 	if len(allAggregated) == 0 {
 		return false, nil, nil

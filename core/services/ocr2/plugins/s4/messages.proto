@@ -2,7 +2,7 @@ syntax = "proto3";
 
 option go_package = "core/services/ocr2/plugins/s4";
 
-package types;
+package s4_types;
 
 message SnapshotRow {
     bytes address    = 1;

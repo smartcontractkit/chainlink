@@ -312,6 +312,37 @@ func (_m *LogPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
 	return r0, r1
 }
 
+// LatestBlockByEventSigsAddrsWithConfs provides a mock function with given fields: eventSigs, addresses, confs, qopts
+func (_m *LogPoller) LatestBlockByEventSigsAddrsWithConfs(eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, eventSigs, addresses, confs)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func([]common.Hash, []common.Address, int, ...pg.QOpt) (int64, error)); ok {
+		return rf(eventSigs, addresses, confs, qopts...)
+	}
+	if rf, ok := ret.Get(0).(func([]common.Hash, []common.Address, int, ...pg.QOpt) int64); ok {
+		r0 = rf(eventSigs, addresses, confs, qopts...)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func([]common.Hash, []common.Address, int, ...pg.QOpt) error); ok {
+		r1 = rf(eventSigs, addresses, confs, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // LatestLogByEventSigWithConfs provides a mock function with given fields: eventSig, address, confs, qopts
 func (_m *LogPoller) LatestLogByEventSigWithConfs(eventSig common.Hash, address common.Address, confs int, qopts ...pg.QOpt) (*logpoller.Log, error) {
 	_va := make([]interface{}, len(qopts))

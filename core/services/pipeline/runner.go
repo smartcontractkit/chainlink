@@ -268,6 +268,8 @@ func (r *runner) initializePipeline(run *Run) (*Pipeline, error) {
 			task.(*VRFTask).keyStore = r.vrfKeyStore
 		case TaskTypeVRFV2:
 			task.(*VRFTaskV2).keyStore = r.vrfKeyStore
+		case TaskTypeVRFV2Plus:
+			task.(*VRFTaskV2Plus).keyStore = r.vrfKeyStore
 		case TaskTypeEstimateGasLimit:
 			task.(*EstimateGasLimitTask).chainSet = r.chainSet
 			task.(*EstimateGasLimitTask).specGasLimit = run.PipelineSpec.GasLimit
@@ -632,7 +634,7 @@ func (r *runner) runReaper() {
 
 	err := r.orm.DeleteRunsOlderThan(ctx, r.config.ReaperThreshold())
 	if err != nil {
-		r.lggr.Errorw("Pipeline run reaper failed", "error", err)
+		r.lggr.Errorw("Pipeline run reaper failed", "err", err)
 		r.SvcErrBuffer.Append(err)
 	} else {
 		r.lggr.Debugw("Pipeline run reaper completed successfully")
@@ -666,7 +668,7 @@ func (r *runner) scheduleUnfinishedRuns() {
 			if ctx.Err() != nil {
 				return
 			} else if err != nil {
-				r.lggr.Errorw("Pipeline run init job resumption failed", "error", err)
+				r.lggr.Errorw("Pipeline run init job resumption failed", "err", err)
 			}
 		}()
 
@@ -678,6 +680,6 @@ func (r *runner) scheduleUnfinishedRuns() {
 	if ctx.Err() != nil {
 		return
 	} else if err != nil {
-		r.lggr.Errorw("Pipeline run init job failed", "error", err)
+		r.lggr.Errorw("Pipeline run init job failed", "err", err)
 	}
 }

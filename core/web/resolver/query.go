@@ -230,7 +230,7 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 		if errors.Is(err, chains.ErrNotFound) {
 			npr, warn := NewNodePayloadResolver(nil, err)
 			if warn != nil {
-				r.App.GetLogger().Warnw("Error creating NodePayloadResolver", "name", name, "error", warn)
+				r.App.GetLogger().Warnw("Error creating NodePayloadResolver", "name", name, "err", warn)
 			}
 			return npr, nil
 		}
@@ -239,7 +239,7 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 
 	npr, warn := NewNodePayloadResolver(&node, nil)
 	if warn != nil {
-		r.App.GetLogger().Warnw("Error creating NodePayloadResolver", "name", name, "error", warn)
+		r.App.GetLogger().Warnw("Error creating NodePayloadResolver", "name", name, "err", warn)
 	}
 	return npr, nil
 }
@@ -334,7 +334,7 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 
 	npr, warn := NewNodesPayload(nodes, int32(count))
 	if warn != nil {
-		r.App.GetLogger().Warnw("Error creating NodesPayloadResolver", "error", warn)
+		r.App.GetLogger().Warnw("Error creating NodesPayloadResolver", "err", warn)
 	}
 	return npr, nil
 }

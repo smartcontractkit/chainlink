@@ -13,25 +13,25 @@ type ConnectionInitiator struct {
 	mock.Mock
 }
 
-// ChallengeResponse provides a mock function with given fields: challenge
-func (_m *ConnectionInitiator) ChallengeResponse(challenge []byte) ([]byte, error) {
-	ret := _m.Called(challenge)
+// ChallengeResponse provides a mock function with given fields: _a0, challenge
+func (_m *ConnectionInitiator) ChallengeResponse(_a0 *url.URL, challenge []byte) ([]byte, error) {
+	ret := _m.Called(_a0, challenge)
 
 	var r0 []byte
 	var r1 error
-	if rf, ok := ret.Get(0).(func([]byte) ([]byte, error)); ok {
-		return rf(challenge)
+	if rf, ok := ret.Get(0).(func(*url.URL, []byte) ([]byte, error)); ok {
+		return rf(_a0, challenge)
 	}
-	if rf, ok := ret.Get(0).(func([]byte) []byte); ok {
-		r0 = rf(challenge)
+	if rf, ok := ret.Get(0).(func(*url.URL, []byte) []byte); ok {
+		r0 = rf(_a0, challenge)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]byte)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func([]byte) error); ok {
-		r1 = rf(challenge)
+	if rf, ok := ret.Get(1).(func(*url.URL, []byte) error); ok {
+		r1 = rf(_a0, challenge)
 	} else {
 		r1 = ret.Error(1)
 	}

@@ -28,7 +28,7 @@ var configDigestArgs = makeConfigDigestArgs()
 
 func configDigest(
 	feedID common.Hash,
-	chainID uint64,
+	chainID *big.Int,
 	contractAddress common.Address,
 	configCount uint64,
 	oracles []common.Address,
@@ -38,11 +38,9 @@ func configDigest(
 	offchainConfigVersion uint64,
 	offchainConfig []byte,
 ) types.ConfigDigest {
-	chainIDBig := new(big.Int)
-	chainIDBig.SetUint64(chainID)
 	msg, err := configDigestArgs.Pack(
 		feedID,
-		chainIDBig,
+		chainID,
 		contractAddress,
 		configCount,
 		oracles,

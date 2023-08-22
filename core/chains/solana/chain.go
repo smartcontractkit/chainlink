@@ -228,7 +228,7 @@ func (c *chain) getClient() (client.ReaderWriter, error) {
 		client, err = c.verifiedClient(node)
 		// if error, try another node
 		if err != nil {
-			c.lggr.Warnw("failed to create node", "name", node.Name, "solana-url", node.SolanaURL, "error", err.Error())
+			c.lggr.Warnw("failed to create node", "name", node.Name, "solana-url", node.SolanaURL, "err", err.Error())
 			continue
 		}
 		// if all checks passed, mark found and break loop

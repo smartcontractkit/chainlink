@@ -35,6 +35,7 @@ func TestUtils_BytesSignAndValidate(t *testing.T) {
 	t.Parallel()
 
 	data := []byte("data_data")
+	incorrectData := []byte("some_other_data")
 
 	privateKey, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -44,7 +45,17 @@ func TestUtils_BytesSignAndValidate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 65, len(signature))
 
-	signer, err := common.ValidateSignature(signature, data)
+	// valid
+	signer, err := common.ExtractSigner(signature, data)
 	require.NoError(t, err)
 	require.True(t, bytes.Equal(signer, address))
+
+	// invalid
+	signer, err = common.ExtractSigner(signature, incorrectData)
+	require.NoError(t, err)
+	require.False(t, bytes.Equal(signer, address))
+
+	// invalid format
+	_, err = common.ExtractSigner([]byte{0xaa, 0xbb}, data)
+	require.Error(t, err)
 }

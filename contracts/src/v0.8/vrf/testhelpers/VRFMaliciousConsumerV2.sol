@@ -19,10 +19,6 @@ contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
     LINKTOKEN = LinkTokenInterface(link);
   }
 
-  function setKeyHash(bytes32 keyHash) public {
-    s_keyHash = keyHash;
-  }
-
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
     s_gasAvailable = gasleft();
     s_randomWords = randomWords;
@@ -47,7 +43,8 @@ contract VRFMaliciousConsumerV2 is VRFConsumerBaseV2 {
     }
   }
 
-  function requestRandomness() external returns (uint256) {
-    return COORDINATOR.requestRandomWords(s_keyHash, s_subId, 1, 500000, 1);
+  function requestRandomness(bytes32 keyHash) external returns (uint256) {
+    s_keyHash = keyHash;
+    return COORDINATOR.requestRandomWords(keyHash, s_subId, 1, 500000, 1);
   }
 }

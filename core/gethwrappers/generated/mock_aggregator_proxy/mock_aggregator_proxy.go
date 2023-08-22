@@ -29,7 +29,7 @@ var (
 )
 
 var MockAggregatorProxyMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"aggregator\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"aggregator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"aggregator\",\"type\":\"address\"}],\"name\":\"updateAggregator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_aggregator\",\"type\":\"address\"}],\"stateMutability\":\"nonpayable\",\"type\":\"constructor\"},{\"inputs\":[],\"name\":\"aggregator\",\"outputs\":[{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"stateMutability\":\"view\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"address\",\"name\":\"_aggregator\",\"type\":\"address\"}],\"name\":\"updateAggregator\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 	Bin: "0x608060405234801561001057600080fd5b5060405161019138038061019183398101604081905261002f91610054565b600080546001600160a01b0319166001600160a01b0392909216919091179055610084565b60006020828403121561006657600080fd5b81516001600160a01b038116811461007d57600080fd5b9392505050565b60ff806100926000396000f3fe6080604052348015600f57600080fd5b506004361060325760003560e01c8063245a7bfc1460375780639fe4ee47146063575b600080fd5b6000546040805173ffffffffffffffffffffffffffffffffffffffff9092168252519081900360200190f35b60b5606e36600460b7565b600080547fffffffffffffffffffffffff00000000000000000000000000000000000000001673ffffffffffffffffffffffffffffffffffffffff92909216919091179055565b005b60006020828403121560c857600080fd5b813573ffffffffffffffffffffffffffffffffffffffff8116811460eb57600080fd5b939250505056fea164736f6c6343000806000a",
 }
 
@@ -37,7 +37,7 @@ var MockAggregatorProxyABI = MockAggregatorProxyMetaData.ABI
 
 var MockAggregatorProxyBin = MockAggregatorProxyMetaData.Bin
 
-func DeployMockAggregatorProxy(auth *bind.TransactOpts, backend bind.ContractBackend, aggregator common.Address) (common.Address, *types.Transaction, *MockAggregatorProxy, error) {
+func DeployMockAggregatorProxy(auth *bind.TransactOpts, backend bind.ContractBackend, _aggregator common.Address) (common.Address, *types.Transaction, *MockAggregatorProxy, error) {
 	parsed, err := MockAggregatorProxyMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, nil, nil, err
@@ -46,7 +46,7 @@ func DeployMockAggregatorProxy(auth *bind.TransactOpts, backend bind.ContractBac
 		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
 	}
 
-	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(MockAggregatorProxyBin), backend, aggregator)
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(MockAggregatorProxyBin), backend, _aggregator)
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
@@ -191,16 +191,16 @@ func (_MockAggregatorProxy *MockAggregatorProxyCallerSession) Aggregator() (comm
 	return _MockAggregatorProxy.Contract.Aggregator(&_MockAggregatorProxy.CallOpts)
 }
 
-func (_MockAggregatorProxy *MockAggregatorProxyTransactor) UpdateAggregator(opts *bind.TransactOpts, aggregator common.Address) (*types.Transaction, error) {
-	return _MockAggregatorProxy.contract.Transact(opts, "updateAggregator", aggregator)
+func (_MockAggregatorProxy *MockAggregatorProxyTransactor) UpdateAggregator(opts *bind.TransactOpts, _aggregator common.Address) (*types.Transaction, error) {
+	return _MockAggregatorProxy.contract.Transact(opts, "updateAggregator", _aggregator)
 }
 
-func (_MockAggregatorProxy *MockAggregatorProxySession) UpdateAggregator(aggregator common.Address) (*types.Transaction, error) {
-	return _MockAggregatorProxy.Contract.UpdateAggregator(&_MockAggregatorProxy.TransactOpts, aggregator)
+func (_MockAggregatorProxy *MockAggregatorProxySession) UpdateAggregator(_aggregator common.Address) (*types.Transaction, error) {
+	return _MockAggregatorProxy.Contract.UpdateAggregator(&_MockAggregatorProxy.TransactOpts, _aggregator)
 }
 
-func (_MockAggregatorProxy *MockAggregatorProxyTransactorSession) UpdateAggregator(aggregator common.Address) (*types.Transaction, error) {
-	return _MockAggregatorProxy.Contract.UpdateAggregator(&_MockAggregatorProxy.TransactOpts, aggregator)
+func (_MockAggregatorProxy *MockAggregatorProxyTransactorSession) UpdateAggregator(_aggregator common.Address) (*types.Transaction, error) {
+	return _MockAggregatorProxy.Contract.UpdateAggregator(&_MockAggregatorProxy.TransactOpts, _aggregator)
 }
 
 func (_MockAggregatorProxy *MockAggregatorProxy) Address() common.Address {
@@ -210,7 +210,7 @@ func (_MockAggregatorProxy *MockAggregatorProxy) Address() common.Address {
 type MockAggregatorProxyInterface interface {
 	Aggregator(opts *bind.CallOpts) (common.Address, error)
 
-	UpdateAggregator(opts *bind.TransactOpts, aggregator common.Address) (*types.Transaction, error)
+	UpdateAggregator(opts *bind.TransactOpts, _aggregator common.Address) (*types.Transaction, error)
 
 	Address() common.Address
 }

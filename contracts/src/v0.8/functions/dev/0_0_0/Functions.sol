@@ -13,7 +13,8 @@ library Functions {
 
   enum Location {
     Inline,
-    Remote
+    Remote,
+    DONHosted
   }
 
   enum CodeLanguage {
@@ -25,8 +26,8 @@ library Functions {
     Location codeLocation;
     Location secretsLocation;
     CodeLanguage language;
-    string source; // Source code for Location.Inline or url for Location.Remote
-    bytes secrets; // Encrypted secrets blob for Location.Inline or url for Location.Remote
+    string source; // Source code for Location.Inline, url for Location.Remote or slot decimal number for Location.DONHosted
+    bytes secrets; // Encrypted urls for Location.Remote or CBOR encoded slotid+version for Location.DONHosted, use addDONHostedSecrets()
     string[] args;
   }
 
@@ -117,6 +118,25 @@ library Functions {
 
     self.secretsLocation = Location.Remote;
     self.secrets = encryptedSecretsURLs;
+  }
+
+  /**
+   * @notice Adds DON-hosted secrets reference to a Request
+   * @param self The initialized request
+   * @param slotID Slot ID of the user's secrets hosted on DON
+   * @param version User data version (for the slotID)
+   */
+  function addDONHostedSecrets(Request memory self, uint8 slotID, uint64 version) internal pure {
+    CBOR.CBORBuffer memory buffer;
+    Buffer.init(buffer.buf, DEFAULT_BUFFER_SIZE);
+
+    CBOR.writeString(buffer, "slotID");
+    CBOR.writeUInt64(buffer, slotID);
+    CBOR.writeString(buffer, "version");
+    CBOR.writeUInt64(buffer, version);
+
+    self.secretsLocation = Location.DONHosted;
+    self.secrets = buffer.buf.buf;
   }
 
   /**

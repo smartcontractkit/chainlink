@@ -19,6 +19,9 @@ import (
 type Gateway interface {
 	job.ServiceCtx
 	gw_net.HTTPRequestHandler
+
+	GetUserPort() int
+	GetNodePort() int
 }
 
 type HandlerType = string
@@ -112,6 +115,9 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte) (rawRes
 	if err != nil {
 		return newError(g.codec, "", api.UserMessageParseError, err.Error())
 	}
+	if err = msg.Validate(); err != nil {
+		return newError(g.codec, msg.Body.MessageId, api.UserMessageParseError, err.Error())
+	}
 	// find correct handler
 	handler, ok := g.handlers[msg.Body.DonId]
 	if !ok {
@@ -149,4 +155,12 @@ func newError(codec api.Codec, id string, errCode api.ErrorCode, errMsg string) 
 		return []byte("fatal error"), api.ToHttpErrorCode(api.FatalError)
 	}
 	return rawResponse, api.ToHttpErrorCode(errCode)
+}
+
+func (g *gateway) GetUserPort() int {
+	return g.httpServer.GetPort()
+}
+
+func (g *gateway) GetNodePort() int {
+	return g.connMgr.GetPort()
 }

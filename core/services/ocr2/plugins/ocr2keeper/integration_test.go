@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/ocr2keepers/pkg/config"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
@@ -31,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
@@ -130,7 +131,7 @@ func setupNode(
 
 		c.EVM[0].Transactions.ForwardersEnabled = ptr(true)
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
-		s.Mercury.Credentials = map[string]v2.MercuryCredentials{
+		s.Mercury.Credentials = map[string]toml.MercuryCredentials{
 			MercuryCredName: {
 				URL:      models.MustSecretURL("https://mercury.chain.link"),
 				Username: models.NewSecret("username1"),
@@ -720,31 +721,5 @@ func TestFilterNamesFromSpec20(t *testing.T) {
 		ContractID: "0x5431", // invalid contract addr
 	}
 	_, err = ocr2keeper.FilterNamesFromSpec20(spec)
-	require.ErrorContains(t, err, "not a valid EIP55 formatted address")
-}
-
-func TestFilterNamesFromSpec21(t *testing.T) {
-	b := make([]byte, 20)
-	_, err := rand.Read(b)
-	require.NoError(t, err)
-	address := common.HexToAddress(hexutil.Encode(b))
-
-	spec := &job.OCR2OracleSpec{
-		PluginType: job.OCR2Keeper,
-		ContractID: address.String(), // valid contract addr
-	}
-
-	names, err := ocr2keeper.FilterNamesFromSpec21(spec)
-	require.NoError(t, err)
-
-	assert.Len(t, names, 2)
-	assert.Equal(t, logpoller.FilterName("OCR2KeeperRegistry - LogProvider", address), names[0])
-	assert.Equal(t, logpoller.FilterName("EvmRegistry - Upkeep events for", address), names[1])
-
-	spec = &job.OCR2OracleSpec{
-		PluginType: job.OCR2Keeper,
-		ContractID: "0x5431", // invalid contract addr
-	}
-	_, err = ocr2keeper.FilterNamesFromSpec21(spec)
 	require.ErrorContains(t, err, "not a valid EIP55 formatted address")
 }

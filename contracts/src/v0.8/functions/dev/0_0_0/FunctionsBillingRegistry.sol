@@ -3,9 +3,9 @@ pragma solidity ^0.8.6;
 
 import {LinkTokenInterface} from "../../../interfaces/LinkTokenInterface.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
-import {IFunctionsBillingRegistry} from "../interfaces/IFunctionsBillingRegistry.sol";
-import {IFunctionsOracle} from "../interfaces/IFunctionsOracle.sol";
-import {IFunctionsClient} from "../interfaces/IFunctionsClient.sol";
+import {IFunctionsBillingRegistry} from "./interfaces/IFunctionsBillingRegistry.sol";
+import {IFunctionsOracle} from "./interfaces/IFunctionsOracle.sol";
+import {IFunctionsClient} from "./interfaces/IFunctionsClient.sol";
 import {ERC677ReceiverInterface} from "../../../interfaces/ERC677ReceiverInterface.sol";
 import {IAuthorizedOriginReceiver} from "./accessControl/interfaces/IAuthorizedOriginReceiver.sol";
 import {ConfirmedOwnerUpgradeable} from "./accessControl/ConfirmedOwnerUpgradeable.sol";

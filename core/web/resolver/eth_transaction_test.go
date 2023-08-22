@@ -11,7 +11,7 @@ import (
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -84,7 +84,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					},
 				}, nil)
 				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
-				f.Mocks.evmORM.PutChains(v2.EVMConfig{ChainID: &chainID})
+				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
 			query:     query,
@@ -141,7 +141,7 @@ func TestResolver_EthTransaction(t *testing.T) {
 					},
 				}, nil)
 				f.App.On("TxmStorageService").Return(f.Mocks.txmStore)
-				f.Mocks.evmORM.PutChains(v2.EVMConfig{ChainID: &chainID})
+				f.Mocks.evmORM.PutChains(toml.EVMConfig{ChainID: &chainID})
 				f.App.On("EVMORM").Return(f.Mocks.evmORM)
 			},
 			query:     query,

@@ -743,6 +743,9 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 	coordinatorV2Address, err := ethkey.NewEIP55Address("0x2fcA960AF066cAc46085588a66dA2D614c7Cd337")
 	require.NoError(t, err)
 
+	coordinatorV2PlusAddress, err := ethkey.NewEIP55Address("0x92B5e28Ac583812874e4271380c7d070C5FB6E6b")
+	require.NoError(t, err)
+
 	fromAddress1, err := ethkey.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	require.NoError(t, err)
 
@@ -761,16 +764,17 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
 					Type: job.BlockhashStore,
 					BlockhashStoreSpec: &job.BlockhashStoreSpec{
-						CoordinatorV1Address:  &coordinatorV1Address,
-						CoordinatorV2Address:  &coordinatorV2Address,
-						CreatedAt:             f.Timestamp(),
-						EVMChainID:            utils.NewBigI(42),
-						FromAddresses:         []ethkey.EIP55Address{fromAddress1, fromAddress2},
-						PollPeriod:            1 * time.Minute,
-						RunTimeout:            37 * time.Second,
-						WaitBlocks:            100,
-						LookbackBlocks:        200,
-						BlockhashStoreAddress: blockhashStoreAddress,
+						CoordinatorV1Address:     &coordinatorV1Address,
+						CoordinatorV2Address:     &coordinatorV2Address,
+						CoordinatorV2PlusAddress: &coordinatorV2PlusAddress,
+						CreatedAt:                f.Timestamp(),
+						EVMChainID:               utils.NewBigI(42),
+						FromAddresses:            []ethkey.EIP55Address{fromAddress1, fromAddress2},
+						PollPeriod:               1 * time.Minute,
+						RunTimeout:               37 * time.Second,
+						WaitBlocks:               100,
+						LookbackBlocks:           200,
+						BlockhashStoreAddress:    blockhashStoreAddress,
 					},
 				}, nil)
 			},
@@ -783,6 +787,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 								... on BlockhashStoreSpec {
 									coordinatorV1Address
 									coordinatorV2Address
+									coordinatorV2PlusAddress
 									createdAt
 									evmChainID
 									fromAddresses
@@ -804,6 +809,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 							"__typename": "BlockhashStoreSpec",
 							"coordinatorV1Address": "0x613a38AC1659769640aaE063C651F48E0250454C",
 							"coordinatorV2Address": "0x2fcA960AF066cAc46085588a66dA2D614c7Cd337",
+							"coordinatorV2PlusAddress": "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b",
 							"createdAt": "2021-01-01T00:00:00Z",
 							"evmChainID": "42",
 							"fromAddresses": ["0x3cCad4715152693fE3BC4460591e3D3Fbd071b42", "0xD479d7c994D298cA05bF270136ED9627b7E684D3"],
@@ -832,6 +838,9 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 	coordinatorV2Address, err := ethkey.NewEIP55Address("0x2fcA960AF066cAc46085588a66dA2D614c7Cd337")
 	require.NoError(t, err)
 
+	coordinatorV2PlusAddress, err := ethkey.NewEIP55Address("0x92B5e28Ac583812874e4271380c7d070C5FB6E6b")
+	require.NoError(t, err)
+
 	fromAddress, err := ethkey.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
 	require.NoError(t, err)
 
@@ -852,6 +861,7 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 					BlockHeaderFeederSpec: &job.BlockHeaderFeederSpec{
 						CoordinatorV1Address:       &coordinatorV1Address,
 						CoordinatorV2Address:       &coordinatorV2Address,
+						CoordinatorV2PlusAddress:   &coordinatorV2PlusAddress,
 						CreatedAt:                  f.Timestamp(),
 						EVMChainID:                 utils.NewBigI(42),
 						FromAddresses:              []ethkey.EIP55Address{fromAddress},
@@ -875,6 +885,7 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 								... on BlockHeaderFeederSpec {
 									coordinatorV1Address
 									coordinatorV2Address
+									coordinatorV2PlusAddress
 									createdAt
 									evmChainID
 									fromAddresses
@@ -899,6 +910,7 @@ func TestResolver_BlockHeaderFeederSpec(t *testing.T) {
 							"__typename": "BlockHeaderFeederSpec",
 							"coordinatorV1Address": "0x613a38AC1659769640aaE063C651F48E0250454C",
 							"coordinatorV2Address": "0x2fcA960AF066cAc46085588a66dA2D614c7Cd337",
+							"coordinatorV2PlusAddress": "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b",
 							"createdAt": "2021-01-01T00:00:00Z",
 							"evmChainID": "42",
 							"fromAddresses": ["0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"],

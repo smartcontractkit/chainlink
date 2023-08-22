@@ -19,7 +19,7 @@ contract VRFV2RevertingExample is VRFConsumerBaseV2 {
     LINKTOKEN = LinkTokenInterface(link);
   }
 
-  function fulfillRandomWords(uint256, uint256[] memory) internal override {
+  function fulfillRandomWords(uint256, uint256[] memory) internal pure override {
     revert();
   }
 

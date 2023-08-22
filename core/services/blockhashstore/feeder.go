@@ -48,7 +48,7 @@ type Feeder struct {
 func (f *Feeder) Run(ctx context.Context) error {
 	latestBlock, err := f.latestBlock(ctx)
 	if err != nil {
-		f.lggr.Errorw("Failed to fetch current block number", "error", err)
+		f.lggr.Errorw("Failed to fetch current block number", "err", err)
 		return errors.Wrap(err, "fetching block number")
 	}
 
@@ -76,7 +76,7 @@ func (f *Feeder) Run(ctx context.Context) error {
 		stored, err := f.bhs.IsStored(ctx, block)
 		if err != nil {
 			f.lggr.Errorw("Failed to check if block is already stored, attempting to store anyway",
-				"error", err,
+				"err", err,
 				"block", block)
 			errs = multierr.Append(errs, errors.Wrap(err, "checking if stored"))
 		} else if stored {
@@ -90,7 +90,7 @@ func (f *Feeder) Run(ctx context.Context) error {
 		// Block needs to be stored
 		err = f.bhs.Store(ctx, block)
 		if err != nil {
-			f.lggr.Errorw("Failed to store block", "error", err, "block", block)
+			f.lggr.Errorw("Failed to store block", "err", err, "block", block)
 			errs = multierr.Append(errs, errors.Wrap(err, "storing block"))
 			continue
 		}

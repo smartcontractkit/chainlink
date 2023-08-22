@@ -56,7 +56,7 @@ func GetUnfulfilledBlocksAndRequests(
 	reqs, err := coordinator.Requests(ctx, uint64(fromBlock), uint64(toBlock))
 	if err != nil {
 		lggr.Errorw("Failed to fetch VRF requests",
-			"error", err)
+			"err", err)
 		return nil, errors.Wrap(err, "fetching VRF requests")
 	}
 	for _, req := range reqs {
@@ -70,7 +70,7 @@ func GetUnfulfilledBlocksAndRequests(
 	fuls, err := coordinator.Fulfillments(ctx, uint64(fromBlock))
 	if err != nil {
 		lggr.Errorw("Failed to fetch VRF fulfillments",
-			"error", err)
+			"err", err)
 		return nil, errors.Wrap(err, "fetching VRF fulfillments")
 	}
 	for _, ful := range fuls {

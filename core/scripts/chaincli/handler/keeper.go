@@ -636,24 +636,21 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 
 	var err error
 	var upkeepGetter activeUpkeepGetter
-	var endIdxOrMaxCount *big.Int // second arg in GetActiveUpkeepIds (on registry) - breaking change in v2.1 changes from "count" to "end index"
+	upkeepCount := big.NewInt(k.cfg.UpkeepCount) // second arg in GetActiveUpkeepIds (on registry)
 	switch k.cfg.RegistryVersion {
 	case keeper.RegistryVersion_1_1:
 		panic("not supported 1.1 registry")
 	case keeper.RegistryVersion_1_2:
-		endIdxOrMaxCount = big.NewInt(k.cfg.UpkeepCount) // max count = same number we just registered
 		upkeepGetter, err = registry12.NewKeeperRegistry(
 			registryAddr,
 			k.client,
 		)
 	case keeper.RegistryVersion_2_0:
-		endIdxOrMaxCount = big.NewInt(k.cfg.UpkeepCount) // max count = same number we just registered
 		upkeepGetter, err = registry20.NewKeeperRegistry(
 			registryAddr,
 			k.client,
 		)
 	case keeper.RegistryVersion_2_1:
-		endIdxOrMaxCount = big.NewInt(0).Add(big.NewInt(existingCount), big.NewInt(k.cfg.UpkeepCount)) // end index = num existing + num we just registered
 		upkeepGetter, err = iregistry21.NewIKeeperRegistryMaster(
 			registryAddr,
 			k.client,
@@ -665,7 +662,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		log.Fatal("Registry failed: ", err)
 	}
 
-	activeUpkeepIds := k.getActiveUpkeepIds(ctx, upkeepGetter, big.NewInt(existingCount), endIdxOrMaxCount)
+	activeUpkeepIds := k.getActiveUpkeepIds(ctx, upkeepGetter, big.NewInt(existingCount), upkeepCount)
 
 	for index, upkeepAddr := range upkeepAddrs {
 		// Approve

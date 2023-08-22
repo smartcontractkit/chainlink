@@ -219,7 +219,7 @@ func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient
 	lggr := logger.TestLogger(t)
 	ge := config.EVM().GasEstimator()
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(ge, ge.BlockHistory(), lggr), ge.EIP1559DynamicFees())
-	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), config.EVM(), ge, ks, estimator)
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ks, estimator)
 	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), config.Database(), ks, txBuilder, lggr)
 	ec.SetResumeCallback(fn)
 	require.NoError(t, ec.Start(testutils.Context(t)))
@@ -392,14 +392,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	for _, c := range cfg.EVMConfigs() {
 		ids = append(ids, *c.ChainID)
 	}
-	if len(ids) > 0 {
-		o := chainCfgs
-		if o == nil {
-			if err = evm.EnsureChains(db, lggr, cfg.Database(), ids); err != nil {
-				t.Fatal(err)
-			}
-		}
-	}
+
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 	var chains chainlink.Chains
 	chainId := ethClient.ConfiguredChainID()
@@ -444,11 +437,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		for _, c := range cfgs {
 			ids = append(ids, *c.ChainID)
 		}
-		if len(ids) > 0 {
-			if err = solana.EnsureChains(db, solLggr, cfg.Database(), ids); err != nil {
-				t.Fatal(err)
-			}
-		}
 
 		opts := solana.ChainSetOpts{
 			Logger:   solLggr,
@@ -470,11 +458,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		for _, c := range cfgs {
 			ids = append(ids, *c.ChainID)
 		}
-		if len(ids) > 0 {
-			if err = starknet.EnsureChains(db, starkLggr, cfg.Database(), ids); err != nil {
-				t.Fatal(err)
-			}
-		}
+
 		if err != nil {
 			lggr.Fatal(err)
 		}
@@ -507,7 +491,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		RestrictedHTTPClient:     c,
 		UnrestrictedHTTPClient:   c,
 		SecretGenerator:          MockSecretGenerator{},
-		LoopRegistry:             plugins.NewLoopRegistry(),
+		LoopRegistry:             plugins.NewLoopRegistry(lggr),
 	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
