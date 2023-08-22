@@ -186,17 +186,7 @@ func TestAutomationReorg(t *testing.T) {
 	require.NoError(t, err, "Registry config should be be set successfully")
 	require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 
-	consumers, upkeepIDs := actions.DeployConsumers(
-		t,
-		registry,
-		registrar,
-		linkToken,
-		contractDeployer,
-		chainClient,
-		numberOfUpkeeps,
-		big.NewInt(defaultLinkFunds),
-		defaultUpkeepGasLimit,
-	)
+	consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false)
 
 	l.Info().Msg("Waiting for all upkeeps to be performed")
 
