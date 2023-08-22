@@ -618,6 +618,8 @@ func TestConfig_Marshal(t *testing.T) {
 				OCR2CachePollPeriod:  relayutils.MustNewDuration(time.Minute),
 				OCR2CacheTTL:         relayutils.MustNewDuration(time.Hour),
 				TxMsgTimeout:         relayutils.MustNewDuration(time.Second),
+				Bech32Prefix:         ptr("wasm"),
+				FeeToken:             ptr("ucosm"),
 			},
 			Nodes: []*coscfg.Node{
 				{Name: ptr("primary"), TendermintURL: relayutils.MustParseURL("http://tender.mint")},
@@ -964,6 +966,8 @@ MaxMsgsPerBatch = 17
 OCR2CachePollPeriod = '1m0s'
 OCR2CacheTTL = '1h0m0s'
 TxMsgTimeout = '1s'
+Bech32Prefix = 'wasm'
+FeeToken = 'ucosm'
 
 [[Cosmos.Nodes]]
 Name = 'primary'
