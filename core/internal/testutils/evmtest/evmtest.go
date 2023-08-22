@@ -83,7 +83,7 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayEx
 		DB:       testopts.DB,
 		KeyStore: testopts.KeyStore,
 		RelayerConfig: evm.RelayerConfig{
-			GeneralConfig:    testopts.GeneralConfig,
+			AppConfig:        testopts.GeneralConfig,
 			EventBroadcaster: pg.NewNullEventBroadcaster(),
 			MailMon:          testopts.MailMon,
 			GasEstimator:     testopts.GasEstimator,
