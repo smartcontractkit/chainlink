@@ -282,6 +282,9 @@ func setFromChain(c, f *coscfg.Chain) {
 	if f.TxMsgTimeout != nil {
 		c.TxMsgTimeout = f.TxMsgTimeout
 	}
+	if f.Bech32Prefix != nil {
+		c.Bech32Prefix = f.Bech32Prefix
+	}
 	if f.FeeToken != nil {
 		c.FeeToken = f.FeeToken
 	}
@@ -345,6 +348,10 @@ func (c *CosmosConfig) OCR2CacheTTL() time.Duration {
 
 func (c *CosmosConfig) TxMsgTimeout() time.Duration {
 	return c.Chain.TxMsgTimeout.Duration()
+}
+
+func (c *CosmosConfig) Bech32Prefix() string {
+	return c.Chain.Bech32Prefix
 }
 
 func (c *CosmosConfig) FeeToken() string {
