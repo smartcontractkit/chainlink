@@ -32,7 +32,7 @@ var (
 	AllowedLogsPerUpkeep = 5
 
 	readJobQueueSize = 64
-	readLogsTimeout  = 5 * time.Second
+	readLogsTimeout  = 10 * time.Second
 )
 
 // LogTriggerConfig is an alias for log trigger config.
