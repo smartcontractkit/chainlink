@@ -11,9 +11,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
 
 	"go.uber.org/zap/zapcore"
 
@@ -37,6 +38,9 @@ var (
 			Log: toml.Log{
 				Level:       ptr(toml.LogLevel(zapcore.DebugLevel)),
 				JSONConsole: ptr(true),
+				File: toml.LogFile{
+					MaxSize: ptr(utils.FileSize(0)),
+				},
 			},
 			WebServer: toml.WebServer{
 				AllowOrigins:   ptr("*"),
