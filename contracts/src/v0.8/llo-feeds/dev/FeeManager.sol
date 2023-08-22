@@ -41,8 +41,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
   // @notice the different report versions
   bytes32 private constant REPORT_V1 = 0x0001000000000000000000000000000000000000000000000000000000000000;
-  bytes32 private constant REPORT_V2 = 0x0002000000000000000000000000000000000000000000000000000000000000;
-  bytes32 private constant REPORT_V3 = 0x0003000000000000000000000000000000000000000000000000000000000000;
 
   /// @notice the surcharge fee to be paid if paying in native
   uint256 public s_nativeSurcharge;
@@ -247,19 +245,10 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     uint256 linkQuantity;
     uint256 nativeQuantity;
     uint256 expiresAt;
-    if (reportVersion == REPORT_V2) {
-      (, , , , expiresAt, linkQuantity, nativeQuantity) = abi.decode(
-        report,
-        (bytes32, uint32, int192, uint32, uint32, uint192, uint192)
-      );
-    } else if (reportVersion == REPORT_V3) {
-      (, , , , , , expiresAt, linkQuantity, nativeQuantity) = abi.decode(
-        report,
-        (bytes32, uint32, int192, int192, int192, uint32, uint32, uint192, uint192)
-      );
-    } else {
-      revert InvalidReportVersion();
-    }
+    (, , , , linkQuantity, nativeQuantity, expiresAt) = abi.decode(
+      report,
+      (bytes32, uint32, uint32, int192, uint192, uint192, uint32)
+    );
 
     //read the timestamp bytes from the report data and verify it has not expired
     if (expiresAt < block.timestamp) {
