@@ -14,8 +14,12 @@ cd "$SCRIPT_DIR"/../ || exit 1
 # SUITE=${SUITE:=} the suite of tests you want to run
 # TEST_NAME=${TEST_NAME:=} The specific test to run
 
+echo "Can you see me?"
+
 # run the tests
 ./${SUITE}.test -test.v -test.count 1 ${ARGS} -test.run ^${TEST_NAME}$
+
+echo "What about me?"
 
 exit_code=$?
 
