@@ -40,6 +40,11 @@ const (
 	DEST_GAS_PER_PAYLOAD_BYTE         = 16
 	DEFAULT_GAS_LIMIT                 = 200_000
 	MAX_NOP_FEES_LINK                 = 100_000_000
+	// Token transfer fee ratio defaults to 5 bps, in multiples of 0.1bps
+	TOKEN_BPS = 5_0
+	// Approx token transfer gas usage on destination chain for given pool types
+	LOCK_RELEASE_DEST_GAS_OVERHEAD = 34_000
+	BURN_MINT_DEST_GAS_OVERHEAD    = 29_000
 )
 
 // DeployLanes will deploy all source and Destination chain contracts using the
@@ -225,9 +230,20 @@ func deployOnRamp(t *testing.T, client EvmConfig, laneConfig *EVMLaneConfig, des
 			Token: tokenConfig.Token,
 			Pool:  tokenConfig.Pool,
 		})
+
+		var DestGasOverhead uint32
+		switch tokenConfig.TokenPoolType {
+		case LockRelease:
+			DestGasOverhead = LOCK_RELEASE_DEST_GAS_OVERHEAD
+		case BurnMint:
+			DestGasOverhead = BURN_MINT_DEST_GAS_OVERHEAD
+		default:
+			DestGasOverhead = 0
+		}
 		tokenTransferFeeConfig = append(tokenTransferFeeConfig, evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
-			Token: tokenConfig.Token,
-			Ratio: 5_0, // 5 bps
+			Token:           tokenConfig.Token,
+			Ratio:           TOKEN_BPS,
+			DestGasOverhead: DestGasOverhead,
 		})
 	}
 

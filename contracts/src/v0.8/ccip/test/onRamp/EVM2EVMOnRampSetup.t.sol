@@ -62,19 +62,22 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
     s_tokenTransferFeeConfigArgs.push(
       EVM2EVMOnRamp.TokenTransferFeeConfigArgs({
         token: s_sourceFeeToken,
-        ratio: 2_5 // 2.5 bps, or 0.025%
+        ratio: 2_5, // 2.5 bps, or 0.025%
+        destGasOverhead: 40_000
       })
     );
     s_tokenTransferFeeConfigArgs.push(
       EVM2EVMOnRamp.TokenTransferFeeConfigArgs({
         token: s_sourceRouter.getWrappedNative(),
-        ratio: 5_0 // 5 bps, or 0.05%
+        ratio: 5_0, // 5 bps, or 0.05%
+        destGasOverhead: 10_000
       })
     );
     s_tokenTransferFeeConfigArgs.push(
       EVM2EVMOnRamp.TokenTransferFeeConfigArgs({
         token: CUSTOM_TOKEN,
-        ratio: 10_0 // 10 bps, or 0.1%
+        ratio: 10_0, // 10 bps, or 0.1%
+        destGasOverhead: 1
       })
     );
 
