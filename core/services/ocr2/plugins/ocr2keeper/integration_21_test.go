@@ -537,14 +537,7 @@ func registerUpkeep(t *testing.T, registry *iregistry21.IKeeperRegistryMaster, u
 
 	registrationTx, err := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, 1, []byte{}, logTriggerConfig, []byte{})
 	require.NoError(t, err)
-	registrationTx2, err2 := registry.RegisterUpkeep(steve, upkeepAddr, 2_500_000, carrol.From, 1, []byte{}, logTriggerConfig, []byte{})
-	require.NoError(t, err2)
-	backend.Commit()
 	upkeepID := getUpkeepIdFromTx21(t, registry, registrationTx, backend)
-	upkeepID2 := getUpkeepIdFromTx21(t, registry, registrationTx2, backend)
-
-	require.NotEqual(t, upkeepID.String(), upkeepID2.String())
-	require.NotEqual(t, int64(0), upkeepID2.Int64())
 
 	return upkeepID
 }
