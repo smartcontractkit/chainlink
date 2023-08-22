@@ -9,21 +9,19 @@ import (
 	"path/filepath"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
-
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
 )
 
 var (
@@ -137,7 +135,7 @@ func SetChainConfig(
 ) {
 	if cfg.EVM == nil {
 		var nodes []*evmcfg.Node
-		for i, _ := range wsUrls {
+		for i := range wsUrls {
 			node := evmcfg.Node{
 				Name:     ptr(fmt.Sprintf("node_%d_%s", i, chain.Name)),
 				WSURL:    mustURL(wsUrls[i]),
