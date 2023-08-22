@@ -33,10 +33,10 @@ func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
 	var filter upkeepFilter
 	currentFilter := p.filterStore.Get(upkeepID)
 	if currentFilter != nil {
-		if currentFilter.configUpdateBlock > opts.ConfigUpdateBlock {
+		if currentFilter.configUpdateBlock > opts.UpdateBlock {
 			// already registered with a config from a higher block number
 			return errors.Errorf("filter for upkeep with id %s already registered with newer config", upkeepID.String())
-		} else if currentFilter.configUpdateBlock == opts.ConfigUpdateBlock {
+		} else if currentFilter.configUpdateBlock == opts.UpdateBlock {
 			// already registered with the same config
 			p.lggr.Debugf("filter for upkeep with id %s already registered with the same config", upkeepID.String())
 			return nil
@@ -49,14 +49,13 @@ func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
 		filter = *currentFilter
 	} else { // new filter
 		filter = upkeepFilter{
-			upkeepID:            upkeepID,
-			blockLimiter:        rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
-			upkeepCreationBlock: opts.UpkeepCreationBlock,
-			lastPollBlock:       0,
-			lastRePollBlock:     0,
+			upkeepID:        upkeepID,
+			blockLimiter:    rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
+			lastPollBlock:   0,
+			lastRePollBlock: 0,
 		}
 	}
-	filter.configUpdateBlock = opts.ConfigUpdateBlock
+	filter.configUpdateBlock = opts.UpdateBlock
 	filter.addr = lpFilter.Addresses[0].Bytes()
 	filter.topics = make([]common.Hash, len(lpFilter.EventSigs))
 	copy(filter.topics, lpFilter.EventSigs)
@@ -73,7 +72,7 @@ func (p *logEventProvider) register(lpFilter logpoller.Filter, ufilter upkeepFil
 		return errors.Wrap(err, "failed to register upkeep filter")
 	}
 	p.filterStore.AddActiveUpkeeps(ufilter)
-	p.poller.ReplayAsync(int64(ufilter.upkeepCreationBlock))
+	p.poller.ReplayAsync(int64(ufilter.configUpdateBlock))
 
 	return nil
 }

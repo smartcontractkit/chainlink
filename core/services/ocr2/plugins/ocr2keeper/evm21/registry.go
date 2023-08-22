@@ -279,7 +279,7 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
 			// in refresh scenario, we are using zero blocks to avoid redundant updates of filters
-			if err := r.updateTriggerConfig(id, nil, 0, 0); err != nil {
+			if err := r.updateTriggerConfig(id, nil, 0); err != nil {
 				r.lggr.Warnf("failed to update trigger config for upkeep ID %s: %s", id.String(), err)
 			}
 		default:
@@ -357,7 +357,7 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 		r.lggr.Debugf("KeeperRegistryUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
 		// in update config scenario, we are using zero creation block as we expect the upkeep
 		// to be already active (i.e. creation block won't change)
-		if err := r.updateTriggerConfig(l.Id, l.TriggerConfig, 0, rawLog.BlockNumber); err != nil {
+		if err := r.updateTriggerConfig(l.Id, l.TriggerConfig, rawLog.BlockNumber); err != nil {
 			r.lggr.Warnf("failed to update trigger config upon KeeperRegistryMasterUpkeepTriggerConfigSet for upkeep ID %s: %s", l.Id.String(), err)
 		}
 	case *iregistry21.IKeeperRegistryMasterUpkeepRegistered:
@@ -366,19 +366,19 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 		trigger := core.GetUpkeepType(*uid)
 		r.lggr.Debugf("KeeperRegistryUpkeepRegistered log detected for upkeep ID %s (trigger=%d) in transaction %s", l.Id.String(), trigger, txHash)
 		r.active.Add(l.Id)
-		if err := r.updateTriggerConfig(l.Id, nil, rawLog.BlockNumber, rawLog.BlockNumber); err != nil {
+		if err := r.updateTriggerConfig(l.Id, nil, rawLog.BlockNumber); err != nil {
 			r.lggr.Warnf("failed to update trigger config upon KeeperRegistryMasterUpkeepRegistered for upkeep ID %s: %s", err)
 		}
 	case *iregistry21.IKeeperRegistryMasterUpkeepReceived:
 		r.lggr.Debugf("KeeperRegistryUpkeepReceived log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
 		r.active.Add(l.Id)
-		if err := r.updateTriggerConfig(l.Id, nil, rawLog.BlockNumber, rawLog.BlockNumber); err != nil {
+		if err := r.updateTriggerConfig(l.Id, nil, rawLog.BlockNumber); err != nil {
 			r.lggr.Warnf("failed to update trigger config upon KeeperRegistryMasterUpkeepReceived for upkeep ID %s: %s", err)
 		}
 	case *iregistry21.IKeeperRegistryMasterUpkeepUnpaused:
 		r.lggr.Debugf("KeeperRegistryUpkeepUnpaused log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
 		r.active.Add(l.Id)
-		if err := r.updateTriggerConfig(l.Id, nil, rawLog.BlockNumber, rawLog.BlockNumber); err != nil {
+		if err := r.updateTriggerConfig(l.Id, nil, rawLog.BlockNumber); err != nil {
 			r.lggr.Warnf("failed to update trigger config upon KeeperRegistryMasterUpkeepUnpaused for upkeep ID %s: %s", err)
 		}
 	default:
@@ -473,7 +473,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 	return ids, nil
 }
 
-func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte, creationBlock, configUpdateBlock uint64) error {
+func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte, logBlock uint64) error {
 	uid := &ocr2keepers.UpkeepIdentifier{}
 	uid.FromBigInt(id)
 	switch core.GetUpkeepType(*uid) {
@@ -490,10 +490,9 @@ func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte, creationBlock
 			return errors.Wrap(err, "failed to unpack log upkeep config")
 		}
 		if err := r.logEventProvider.RegisterFilter(logprovider.FilterOptions{
-			TriggerConfig:       logprovider.LogTriggerConfig(parsed),
-			UpkeepID:            id,
-			UpkeepCreationBlock: creationBlock,
-			ConfigUpdateBlock:   configUpdateBlock,
+			TriggerConfig: logprovider.LogTriggerConfig(parsed),
+			UpkeepID:      id,
+			UpdateBlock:   logBlock,
 		}); err != nil {
 			return errors.Wrap(err, "failed to register log filter")
 		}

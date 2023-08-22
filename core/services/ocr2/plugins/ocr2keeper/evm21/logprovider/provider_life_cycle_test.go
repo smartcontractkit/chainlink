@@ -90,9 +90,9 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			err := p.RegisterFilter(FilterOptions{
-				UpkeepID:          tc.upkeepID,
-				TriggerConfig:     tc.upkeepCfg,
-				ConfigUpdateBlock: tc.cfgUpdateBlock,
+				UpkeepID:      tc.upkeepID,
+				TriggerConfig: tc.upkeepCfg,
+				UpdateBlock:   tc.cfgUpdateBlock,
 			})
 			if tc.errored {
 				require.Error(t, err)

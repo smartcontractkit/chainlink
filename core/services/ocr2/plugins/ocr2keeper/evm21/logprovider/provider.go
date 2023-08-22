@@ -39,10 +39,9 @@ var (
 type LogTriggerConfig automation_utils_2_1.LogTriggerConfig
 
 type FilterOptions struct {
-	UpkeepID            *big.Int
-	TriggerConfig       LogTriggerConfig
-	UpkeepCreationBlock uint64
-	ConfigUpdateBlock   uint64
+	UpkeepID      *big.Int
+	TriggerConfig LogTriggerConfig
+	UpdateBlock   uint64
 }
 
 type LogTriggersLifeCycle interface {
@@ -359,12 +358,12 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		if len(filter.addr) == 0 {
 			continue
 		}
-		// first time polling, use creation block as a starting point of the range
+		// first time polling, use filter.configUpdateBlock as a starting point of the range
 		start := filter.lastPollBlock
 		if start == 0 {
-			start = int64(filter.upkeepCreationBlock)
+			start = int64(filter.configUpdateBlock)
 		}
-		// range should not exceed lookbackBlocks
+		// range should not exceed [lookbackBlocks, latest]
 		if start < latest-lookbackBlocks {
 			start = latest - lookbackBlocks
 			filter.blockLimiter.SetBurst(maxBurst)

@@ -31,8 +31,6 @@ type upkeepFilter struct {
 	addr     []byte
 	topics   []common.Hash
 	upkeepID *big.Int
-	// upkeepCreationBlock is the block number the filter was created at
-	upkeepCreationBlock uint64
 	// configUpdateBlock is the block number the filter was last updated at
 	configUpdateBlock uint64
 	// lastPollBlock is the last block number the logs were fetched for this upkeep
@@ -52,14 +50,13 @@ func (f upkeepFilter) Clone() upkeepFilter {
 	addr := make([]byte, len(f.addr))
 	copy(addr, f.addr)
 	return upkeepFilter{
-		upkeepID:            f.upkeepID,
-		topics:              topics,
-		addr:                addr,
-		upkeepCreationBlock: f.upkeepCreationBlock,
-		configUpdateBlock:   f.configUpdateBlock,
-		lastPollBlock:       f.lastPollBlock,
-		lastRePollBlock:     f.lastRePollBlock,
-		blockLimiter:        f.blockLimiter,
+		upkeepID:          f.upkeepID,
+		topics:            topics,
+		addr:              addr,
+		configUpdateBlock: f.configUpdateBlock,
+		lastPollBlock:     f.lastPollBlock,
+		lastRePollBlock:   f.lastRePollBlock,
+		blockLimiter:      f.blockLimiter,
 	}
 }
 

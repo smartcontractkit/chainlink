@@ -148,18 +148,16 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 		require.NoError(t, err)
 		bn := b.Number()
 		err = logProvider.RegisterFilter(logprovider.FilterOptions{
-			UpkeepID:            id,
-			TriggerConfig:       cfg,
-			ConfigUpdateBlock:   bn.Uint64(),
-			UpkeepCreationBlock: bn.Uint64(),
+			UpkeepID:      id,
+			TriggerConfig: cfg,
+			UpdateBlock:   bn.Uint64(),
 		})
 		require.NoError(t, err)
 		// old block
 		err = logProvider.RegisterFilter(logprovider.FilterOptions{
-			UpkeepID:            id,
-			TriggerConfig:       cfg,
-			ConfigUpdateBlock:   bn.Uint64() - 1,
-			UpkeepCreationBlock: bn.Uint64(),
+			UpkeepID:      id,
+			TriggerConfig: cfg,
+			UpdateBlock:   bn.Uint64() - 1,
 		})
 		require.Error(t, err)
 		// new block
@@ -167,10 +165,9 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 		require.NoError(t, err)
 		bn = b.Number()
 		err = logProvider.RegisterFilter(logprovider.FilterOptions{
-			UpkeepID:            id,
-			TriggerConfig:       cfg,
-			ConfigUpdateBlock:   bn.Uint64(),
-			UpkeepCreationBlock: 0,
+			UpkeepID:      id,
+			TriggerConfig: cfg,
+			UpdateBlock:   bn.Uint64(),
 		})
 		require.NoError(t, err)
 	})
@@ -183,10 +180,9 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 		require.NoError(t, err)
 		bn := b.Number()
 		err = logProvider.RegisterFilter(logprovider.FilterOptions{
-			UpkeepID:            id,
-			TriggerConfig:       cfg,
-			ConfigUpdateBlock:   bn.Uint64(),
-			UpkeepCreationBlock: bn.Uint64(),
+			UpkeepID:      id,
+			TriggerConfig: cfg,
+			UpdateBlock:   bn.Uint64(),
 		})
 		require.NoError(t, err)
 	})
@@ -625,10 +621,9 @@ func deployUpkeepCounter(
 		bn := b.Number()
 		// old block
 		err = logProvider.RegisterFilter(logprovider.FilterOptions{
-			UpkeepID:            id,
-			TriggerConfig:       newPlainLogTriggerConfig(upkeepAddr),
-			ConfigUpdateBlock:   bn.Uint64(),
-			UpkeepCreationBlock: bn.Uint64(),
+			UpkeepID:      id,
+			TriggerConfig: newPlainLogTriggerConfig(upkeepAddr),
+			UpdateBlock:   bn.Uint64(),
 		})
 		require.NoError(t, err)
 	}
