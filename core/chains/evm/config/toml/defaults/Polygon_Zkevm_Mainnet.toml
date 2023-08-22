@@ -1,4 +1,4 @@
-ChainID = '1442'
+ChainID = '1101'
 FinalityDepth = 1
 NoNewHeadsThreshold = '6m'
 RPCBlockQueryDelay = 10
@@ -6,7 +6,6 @@ MinIncomingConfirmations = 1
 OCR.ContractConfirmations = 1
 
 [GasEstimator]
-PriceMin = '50 mwei'
 BumpMin = '2 gwei'
 
 [GasEstimator.BlockHistory]
