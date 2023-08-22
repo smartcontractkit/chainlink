@@ -349,7 +349,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     );
 
     resultCode = result.success
-      ? FunctionsResponse.FulfillResult.USER_CALLBACK_SUCCESS
+      ? FunctionsResponse.FulfillResult.USER_CALLBACK_FULFILLED
       : FunctionsResponse.FulfillResult.USER_CALLBACK_ERROR;
 
     Receipt memory receipt = _pay(

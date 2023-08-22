@@ -21,7 +21,7 @@ library FunctionsResponse {
   }
 
   enum FulfillResult {
-    USER_CALLBACK_SUCCESS, // 0
+    USER_CALLBACK_FULFILLED, // 0
     USER_CALLBACK_ERROR, // 1
     INVALID_REQUEST_ID, // 2
     COST_EXCEEDS_COMMITMENT, // 3

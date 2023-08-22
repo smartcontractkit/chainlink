@@ -288,7 +288,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     // In these two fulfillment results the user has been charged
     // Otherwise, the Coordinator should hold on to the request commitment
     if (
-      resultCode == FunctionsResponse.FulfillResult.USER_CALLBACK_SUCCESS ||
+      resultCode == FunctionsResponse.FulfillResult.USER_CALLBACK_FULFILLED ||
       resultCode == FunctionsResponse.FulfillResult.USER_CALLBACK_ERROR
     ) {
       delete s_requestCommitments[requestId];
