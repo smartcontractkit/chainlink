@@ -66,9 +66,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @notice thrown if a report has no quote
   error InvalidQuote();
 
-  /// @notice thrown if a report has an invalid version
-  error InvalidReportVersion();
-
   // @notice Thrown when the caller is not authorized
   error Unauthorized();
 
