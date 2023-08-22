@@ -53,8 +53,8 @@ interface IRewardManager is IERC165 {
 
   /**
    * @notice The structure to hold a fee payment notice
-   * poolId the poolId receiving the payment
-   * amount the amount being paid
+   * @param poolId the poolId receiving the payment
+   * @param amount the amount being paid
    */
   struct FeePayment {
     bytes32 poolId;
