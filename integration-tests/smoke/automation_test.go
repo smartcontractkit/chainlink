@@ -445,50 +445,60 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 func TestAutomationPauseRegistry(t *testing.T) {
 	t.Parallel()
 
-	chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
-		t, "pause-registry", ethereum.RegistryVersion_2_0, defaultOCRRegistryConfig, false,
-	)
-	if onlyStartRunner {
-		return
+	registryVersions := map[string]ethereum.KeeperRegistryVersion{
+		"registry_2_0": ethereum.RegistryVersion_2_0,
+		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
-	gom := gomega.NewGomegaWithT(t)
+	for name, registryVersion := range registryVersions {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
+				t, "pause-registry", registryVersion, defaultOCRRegistryConfig, false,
+			)
+			if onlyStartRunner {
+				return
+			}
 
-	// Observe that the upkeeps which are initially registered are performing
-	gom.Eventually(func(g gomega.Gomega) {
-		for i := 0; i < len(upkeepIDs); i++ {
-			counter, err := consumers[i].Counter(context.Background())
-			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
-			g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
-				"Expected consumer counter to be greater than 0, but got %d")
-		}
-	}, "4m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
+			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
+			gom := gomega.NewGomegaWithT(t)
 
-	// Pause the registry
-	err := registry.Pause()
-	require.NoError(t, err, "Error pausing registry")
-	err = chainClient.WaitForEvents()
-	require.NoError(t, err, "Error waiting for registry to pause")
+			// Observe that the upkeeps which are initially registered are performing
+			gom.Eventually(func(g gomega.Gomega) {
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(context.Background())
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
+					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(0)),
+						"Expected consumer counter to be greater than 0, but got %d")
+				}
+			}, "4m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~1m for performing each upkeep once, ~2m buffer
 
-	// Store how many times each upkeep performed once the registry was successfully paused
-	var countersAfterPause = make([]*big.Int, len(upkeepIDs))
-	for i := 0; i < len(upkeepIDs); i++ {
-		countersAfterPause[i], err = consumers[i].Counter(context.Background())
-		require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+			// Pause the registry
+			err := registry.Pause()
+			require.NoError(t, err, "Error pausing registry")
+			err = chainClient.WaitForEvents()
+			require.NoError(t, err, "Error waiting for registry to pause")
+
+			// Store how many times each upkeep performed once the registry was successfully paused
+			var countersAfterPause = make([]*big.Int, len(upkeepIDs))
+			for i := 0; i < len(upkeepIDs); i++ {
+				countersAfterPause[i], err = consumers[i].Counter(context.Background())
+				require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
+			}
+
+			// After we paused the registry, the counters of all the upkeeps should stay constant
+			// because they are no longer getting serviced
+			gom.Consistently(func(g gomega.Gomega) {
+				for i := 0; i < len(upkeepIDs); i++ {
+					latestCounter, err := consumers[i].Counter(context.Background())
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
+					g.Expect(latestCounter.Int64()).Should(gomega.Equal(countersAfterPause[i].Int64()),
+						"Expected consumer counter to remain constant at %d, but got %d",
+						countersAfterPause[i].Int64(), latestCounter.Int64())
+				}
+			}, "1m", "1s").Should(gomega.Succeed())
+		})
 	}
-
-	// After we paused the registry, the counters of all the upkeeps should stay constant
-	// because they are no longer getting serviced
-	gom.Consistently(func(g gomega.Gomega) {
-		for i := 0; i < len(upkeepIDs); i++ {
-			latestCounter, err := consumers[i].Counter(context.Background())
-			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
-			g.Expect(latestCounter.Int64()).Should(gomega.Equal(countersAfterPause[i].Int64()),
-				"Expected consumer counter to remain constant at %d, but got %d",
-				countersAfterPause[i].Int64(), latestCounter.Int64())
-		}
-	}, "1m", "1s").Should(gomega.Succeed())
 }
 
 func TestAutomationKeeperNodesDown(t *testing.T) {

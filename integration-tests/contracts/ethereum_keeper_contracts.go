@@ -396,6 +396,12 @@ func (v *EthereumKeeperRegistry) Pause() error {
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		tx, err = v.registry2_1.Pause(txOpts)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
 	}
 
 	return fmt.Errorf("keeper registry version %d is not supported", v.version)
