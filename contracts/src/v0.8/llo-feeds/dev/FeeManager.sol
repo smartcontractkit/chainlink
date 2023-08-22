@@ -350,6 +350,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       //all reports greater than v1 should have a quote payload
       (, , , , , bytes memory quoteBytes) = abi.decode(
         payload,
+        // reportContext, report, rs, ss, raw, quote
         (bytes32[3], bytes, bytes32[], bytes32[], bytes32, bytes)
       );
 
