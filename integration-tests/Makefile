@@ -232,13 +232,6 @@ test_soak_ccip: ## Run ccip load tests with verbose logging
 	go test -timeout 24h -count=1 -v $(args) -v -run ^TestLoadCCIPStableRPS$$ ./load
 
 
-# image: the name for the chainlink image being built, example: image=chainlink
-# tag: the tag for the chainlink image being built, example: tag=latest
-# example usage: make build_docker_image image=chainlink tag=latest
-.PHONY:
-build_docker_image:
-	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t $(image):$(tag) ../
-
 # example usage: make test_smoke_ccip_simulated_local image=chainlink tag=latest
 .PHONY: test_smoke_ccip_simulated_local
 test_smoke_ccip_simulated_local:
