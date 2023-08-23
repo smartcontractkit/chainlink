@@ -56,7 +56,7 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 				mp.On("RegisterFilter", mock.Anything).Return(nil)
 				mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
 			}
-			p := New(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), nil)
+			p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), nil)
 			err := p.RegisterFilter(tc.upkeepID, tc.upkeepCfg)
 			if tc.errored {
 				require.Error(t, err)
@@ -183,7 +183,7 @@ func TestLogEventProvider_GetFiltersBySelector(t *testing.T) {
 		},
 	}
 
-	p := New(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), nil)
+	p := NewLogProvider(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), nil)
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
