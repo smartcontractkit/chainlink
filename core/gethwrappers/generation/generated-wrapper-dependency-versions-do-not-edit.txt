@@ -24,11 +24,11 @@ cron_upkeep_factory_wrapper: ../../contracts/solc/v0.8.6/CronUpkeepFactory.abi -
 cron_upkeep_wrapper: ../../contracts/solc/v0.8.6/CronUpkeep.abi - 362fcfcf30a6ab3acff83095ea4b2b9056dd5e9dcb94bc5411aae58995d22709
 custom_token_pool: ../../contracts/solc/v0.8.19/CustomTokenPool.abi ../../contracts/solc/v0.8.19/CustomTokenPool.bin 79ab937aa4493bf31fb0e57affd00555aad75205c90268e89674c28ea9e5e48f
 derived_price_feed_wrapper: ../../contracts/solc/v0.8.6/DerivedPriceFeed.abi ../../contracts/solc/v0.8.6/DerivedPriceFeed.bin c8542e6c850c2d0fffb79a7f7213dc927ec64e6ddd54e1224cb2fb4a13aabdd0
+dummy_protocol_wrapper: ../../contracts/solc/v0.8.16/DummyProtocol.abi ../../contracts/solc/v0.8.16/DummyProtocol.bin 583a448170b13abf7ed64e406e8177d78c9e55ab44efd141eee60de23a71ee3b
 erc20: ../../contracts/solc/v0.8.19/ERC20.abi ../../contracts/solc/v0.8.19/ERC20.bin 5b1a93d9b24f250e49a730c96335a8113c3f7010365cba578f313b483001d4fc
 evm_2_evm_offramp: ../../contracts/solc/v0.8.19/EVM2EVMOffRamp.abi ../../contracts/solc/v0.8.19/EVM2EVMOffRamp.bin 5452908d8bfad22926646dd27449ba93a31bede3d9186466807954d1b8f25c2d
 evm_2_evm_offramp_helper: ../../contracts/solc/v0.8.19/EVM2EVMOffRampHelper.abi ../../contracts/solc/v0.8.19/EVM2EVMOffRampHelper.bin 6dd3e28c4dccd18682ab39149c0ca7b1571e657a4bfddc93c26ec03d67b64d23
 evm_2_evm_onramp: ../../contracts/solc/v0.8.19/EVM2EVMOnRamp.abi ../../contracts/solc/v0.8.19/EVM2EVMOnRamp.bin 9bbe2b8fa54043a9c93b9c23ee6e7aca6d7189b427674d64f84180a7183c1665
-dummy_protocol_wrapper: ../../contracts/solc/v0.8.16/DummyProtocol.abi ../../contracts/solc/v0.8.16/DummyProtocol.bin 583a448170b13abf7ed64e406e8177d78c9e55ab44efd141eee60de23a71ee3b
 feed_lookup_compatible_interface: ../../contracts/solc/v0.8.16/FeedLookupCompatibleInterface.abi ../../contracts/solc/v0.8.16/FeedLookupCompatibleInterface.bin 2c5c2cb669a666ab6f14e7fdbd11ea019997e3860f56ccfaf112156e412f1b15
 flags_wrapper: ../../contracts/solc/v0.6/Flags.abi ../../contracts/solc/v0.6/Flags.bin 2034d1b562ca37a63068851915e3703980276e8d5f7db6db8a3351a49d69fc4a
 flux_aggregator_wrapper: ../../contracts/solc/v0.6/FluxAggregator.abi ../../contracts/solc/v0.6/FluxAggregator.bin a3b0a6396c4aa3b5ee39b3c4bd45efc89789d4859379a8a92caca3a0496c5794
