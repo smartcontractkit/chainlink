@@ -9,7 +9,7 @@ automation_consumer_benchmark: ../../contracts/solc/v0.8.16/AutomationConsumerBe
 automation_forwarder_logic: ../../contracts/solc/v0.8.16/AutomationForwarderLogic.abi ../../contracts/solc/v0.8.16/AutomationForwarderLogic.bin 15ae0c367297955fdab4b552dbb10e1f2be80a8fde0efec4a4d398693e9d72b5
 automation_registrar_wrapper2_1: ../../contracts/solc/v0.8.16/AutomationRegistrar2_1.abi ../../contracts/solc/v0.8.16/AutomationRegistrar2_1.bin eb06d853aab39d3196c593b03e555851cbe8386e0fe54a74c2479f62d14b3c42
 automation_utils_2_1: ../../contracts/solc/v0.8.16/AutomationUtils2_1.abi ../../contracts/solc/v0.8.16/AutomationUtils2_1.bin 0b3006a2a1588916d22bf1ae5429bd3bce24a58904588d5ed3fe1026d64616cf
-bank_erc20: ../../contracts/solc/v0.8.15/BankERC20.abi ../../contracts/solc/v0.8.15/BankERC20.bin 78e2a83289e79614ec17e8fdb144e2b80edeca77dd8cfe0fdf152ba9d6a69627
+bank_erc20: ../../contracts/solc/v0.8.15/BankERC20.abi ../../contracts/solc/v0.8.15/BankERC20.bin 544cd578927f8e4f3259c01f79e448760f0110b46bb023686f00453960bc2f4e
 batch_blockhash_store: ../../contracts/solc/v0.8.6/BatchBlockhashStore.abi ../../contracts/solc/v0.8.6/BatchBlockhashStore.bin c5ab26709a01050402615659403f32d5cd1b85f3ad6bb6bfe021692f4233cf19
 batch_vrf_coordinator_v2: ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2.abi ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2.bin d0a54963260d8c1f1bbd984b758285e6027cfb5a7e42701bcb562ab123219332
 batch_vrf_coordinator_v2plus: ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2Plus.abi ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2Plus.bin 7bb76ae241cf1b37b41920830b836cb99f1ad33efd7435ca2398ff6cd2fe5d48
