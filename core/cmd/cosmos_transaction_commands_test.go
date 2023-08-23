@@ -36,7 +36,7 @@ func TestMain(m *testing.M) {
 
 	params.InitCosmosSdk(
 		/* bech32Prefix= */ "wasm",
-		/* token= */ "atom",
+		/* token= */ "cosm",
 	)
 
 	code := m.Run()
