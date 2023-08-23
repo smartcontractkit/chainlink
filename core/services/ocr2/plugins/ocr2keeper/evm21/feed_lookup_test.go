@@ -559,7 +559,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			retryNumber:    1,
 			statusCode:     http.StatusNotFound,
 			lastStatusCode: http.StatusBadGateway,
-			errorMessage:   "All attempts fail:\n#1: 404\n#2: FeedLookup upkeep 123456789 block 123456 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+			errorMessage:   "All attempts fail:\n#1: 404\n#2: at block 123456 upkeep 123456789 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
 		},
 		{
 			name:  "failure - returns not retryable",
@@ -573,7 +573,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			},
 			blob:         "0xab2123dc",
 			statusCode:   http.StatusBadGateway,
-			errorMessage: "All attempts fail:\n#1: FeedLookup upkeep 123456789 block 123456 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+			errorMessage: "All attempts fail:\n#1: at block 123456 upkeep 123456789 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
 		},
 	}
 
