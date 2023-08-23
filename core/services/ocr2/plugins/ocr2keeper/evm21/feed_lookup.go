@@ -45,8 +45,6 @@ const (
 	totalAttempt        = 3
 )
 
-type MercuryVersion string
-
 type FeedLookup struct {
 	feedParamKey string
 	feeds        []string
