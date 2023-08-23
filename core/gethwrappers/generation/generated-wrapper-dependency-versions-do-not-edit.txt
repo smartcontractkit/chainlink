@@ -24,6 +24,7 @@ cron_upkeep_factory_wrapper: ../../contracts/solc/v0.8.6/CronUpkeepFactory.abi -
 cron_upkeep_wrapper: ../../contracts/solc/v0.8.6/CronUpkeep.abi - 362fcfcf30a6ab3acff83095ea4b2b9056dd5e9dcb94bc5411aae58995d22709
 custom_token_pool: ../../contracts/solc/v0.8.19/CustomTokenPool.abi ../../contracts/solc/v0.8.19/CustomTokenPool.bin 79ab937aa4493bf31fb0e57affd00555aad75205c90268e89674c28ea9e5e48f
 derived_price_feed_wrapper: ../../contracts/solc/v0.8.6/DerivedPriceFeed.abi ../../contracts/solc/v0.8.6/DerivedPriceFeed.bin c8542e6c850c2d0fffb79a7f7213dc927ec64e6ddd54e1224cb2fb4a13aabdd0
+dummy_protocol_wrapper: ../../contracts/solc/v0.8.16/DummyProtocol.abi ../../contracts/solc/v0.8.16/DummyProtocol.bin 583a448170b13abf7ed64e406e8177d78c9e55ab44efd141eee60de23a71ee3b
 erc20: ../../contracts/solc/v0.8.19/ERC20.abi ../../contracts/solc/v0.8.19/ERC20.bin 5b1a93d9b24f250e49a730c96335a8113c3f7010365cba578f313b483001d4fc
 evm_2_evm_offramp: ../../contracts/solc/v0.8.19/EVM2EVMOffRamp.abi ../../contracts/solc/v0.8.19/EVM2EVMOffRamp.bin 5452908d8bfad22926646dd27449ba93a31bede3d9186466807954d1b8f25c2d
 evm_2_evm_offramp_helper: ../../contracts/solc/v0.8.19/EVM2EVMOffRampHelper.abi ../../contracts/solc/v0.8.19/EVM2EVMOffRampHelper.bin 6dd3e28c4dccd18682ab39149c0ca7b1571e657a4bfddc93c26ec03d67b64d23
@@ -56,10 +57,10 @@ llo_feeds: ../../contracts/solc/v0.8.16/VerifierProxy.abi ../../contracts/solc/v
 llo_feeds_test: ../../contracts/solc/v0.8.16/ExposedVerifier.abi ../../contracts/solc/v0.8.16/ExposedVerifier.bin 6932cea8f2738e874d3ec9e1a4231d2421704030c071d9e15dd2f7f08482c246
 lock_release_token_pool: ../../contracts/solc/v0.8.19/LockReleaseTokenPool.abi ../../contracts/solc/v0.8.19/LockReleaseTokenPool.bin b2eb5bee167f94e76a8b392b85f22fe312957c099d05c1403c42c3a03fbff278
 log_emitter: ../../contracts/solc/v0.8.19/LogEmitter.abi ../../contracts/solc/v0.8.19/LogEmitter.bin 244ba13730c036de0b02beef4e3d9c9a96946ce353c27f366baecc7f5be5a6fd
-log_triggered_feed_lookup_wrapper: ../../contracts/solc/v0.8.16/LogTriggeredFeedLookup.abi ../../contracts/solc/v0.8.16/LogTriggeredFeedLookup.bin b16d9cafc51d85c4cd0b32fe0f53e37243b769585c5473c6f0e2c5db7dafc817
+log_triggered_feed_lookup_wrapper: ../../contracts/solc/v0.8.16/LogTriggeredFeedLookup.abi ../../contracts/solc/v0.8.16/LogTriggeredFeedLookup.bin 9678fec51a491bf3f4bfeb582211bf8ab0328b58b2710e45b51be0dde1155933
 log_upkeep_counter_wrapper: ../../contracts/solc/v0.8.6/LogUpkeepCounter.abi ../../contracts/solc/v0.8.6/LogUpkeepCounter.bin 13d6543329f89d06cbf3901d7f9ecdc42acc1a84d8c61db291fcbfdbe1138eb1
 maybe_revert_message_receiver: ../../contracts/solc/v0.8.19/MaybeRevertMessageReceiver.abi ../../contracts/solc/v0.8.19/MaybeRevertMessageReceiver.bin aaa90eac8cc555ee4b0fbe57d1fb8d72d6689b29510b238177c97ab9b7979ac5
-mercury_upkeep_wrapper: ../../contracts/solc/v0.8.16/MercuryUpkeep.abi ../../contracts/solc/v0.8.16/MercuryUpkeep.bin f19fbcaf789578996cf7d5dc3c2adbad33b661c2d8bb71daf1b87b57a0678564
+mercury_upkeep_wrapper: ../../contracts/solc/v0.8.16/MercuryUpkeep.abi ../../contracts/solc/v0.8.16/MercuryUpkeep.bin 27a33050249b6c7de7236772d7960f29c69e6f8167cc736409312d0e965508a3
 mock_aggregator_proxy: ../../contracts/solc/v0.8.6/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy.bin b16c108f3dd384c342ddff5e94da7c0a8d39d1be5e3d8f2cf61ecc7f0e50ff42
 mock_arm_contract: ../../contracts/solc/v0.8.19/MockARM.abi ../../contracts/solc/v0.8.19/MockARM.bin efcf4cb260a2b6a6e189639f62bb50ab650a135715c1fcd42c92dfa9d04aa0e3
 mock_ethlink_aggregator_wrapper: ../../contracts/solc/v0.6/MockETHLINKAggregator.abi ../../contracts/solc/v0.6/MockETHLINKAggregator.bin 1c52c24f797b8482aa12b8251dcea1c072827bd5b3426b822621261944b99ca0

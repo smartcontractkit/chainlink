@@ -232,13 +232,6 @@ test_soak_ccip: ## Run ccip load tests with verbose logging
 	go test -timeout 24h -count=1 -v $(args) -v -run ^TestLoadCCIPStableRPS$$ ./load
 
 
-# image: the name for the chainlink image being built, example: image=chainlink
-# tag: the tag for the chainlink image being built, example: tag=latest
-# example usage: make build_docker_image image=chainlink tag=latest
-.PHONY:
-build_docker_image:
-	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t $(image):$(tag) ../
-
 # example usage: make test_smoke_ccip_simulated_local image=chainlink tag=latest
 .PHONY: test_smoke_ccip_simulated_local
 test_smoke_ccip_simulated_local:
@@ -254,3 +247,24 @@ test_smoke_ccip_simulated_local:
 	go test -timeout 24h -count=1 -v -run ^TestSmokeCCIPForBidirectionalLane$$ ./smoke
 
 
+# image: the name for the chainlink image being built, example: image=chainlink
+# tag: the tag for the chainlink image being built, example: tag=latest
+# example usage: make build_docker_image image=chainlink tag=latest
+.PHONY: build_docker_image
+build_docker_image:
+	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t $(image):$(tag) ../
+
+
+# image: the name for the chainlink image being built, example: image=chainlink
+# tag: the tag for the chainlink image being built, example: tag=latest
+# args: the args to pass to the test runner, example: args="--focus @cron -p"
+# product: the product to run tests for, example: product=cron
+# example usage: make run_test_with_local_image image=chainlink tag=latest-dev product=cron
+.PHONY: run_test_with_local_image
+run_test_with_local_image: build_docker_image
+	CHAINLINK_IMAGE=$(image) \
+	CHAINLINK_VERSION=$(tag) \
+	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2"  \
+	ARGS="$(args)" \
+	PRODUCT=$(product) 	\
+	./scripts/run_product_tests

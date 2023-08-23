@@ -655,6 +655,7 @@ describe('Functions Router - Subscriptions', () => {
           0, // Result code for callback failing
           () => true,
           () => true,
+          () => true,
         )
         .to.emit(contracts.client, 'FulfillRequestInvoked')
         .withArgs(requestId, response, error)
@@ -739,6 +740,7 @@ describe('Functions Router - Subscriptions', () => {
           () => true,
           () => true,
           1, // Result code for callback failing
+          () => true,
           () => true,
           () => true,
         )
@@ -846,6 +848,7 @@ describe('Functions Router - Subscriptions', () => {
           () => true,
           () => true,
           1, // Result code for callback failing
+          () => true,
           () => true,
           () => true,
         )

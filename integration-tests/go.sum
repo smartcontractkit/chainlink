@@ -2285,10 +2285,10 @@ github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687 h1:NwC3SO
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687/go.mod h1:YYZq52t4wcHoMQeITksYsorD+tZcOyuVU5+lvot3VFM=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb/go.mod h1:HNUu4cJekUdsJbwRBCiOybtkPJEfGRELQPe2tkoDEyk=
-github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230808152300-d34f9201db27 h1:AQsTWhkwF/a9Dbv2Y4U4Xi5Go1sflttB0rHL6+8TD6c=
-github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230808152300-d34f9201db27/go.mod h1:q6f4fe39oZPdsh1i57WznEZgxd8siidMaSFq3wdPmVg=
-github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230808152300-d34f9201db27 h1:azEVb1iB0gClMoakc3DMlWXM6j/hgzH2gWUCB8H16VA=
-github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230808152300-d34f9201db27/go.mod h1:G5Sd/yzHWf26rQ+X0nG9E0buKPqRGPMJAfk2gwCzOOw=
+github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230823081604-f2a0e6b108bb h1:xNLGJcARfz9HCUKla6wH0gmwsG1/FTAWWeOplW2J72A=
+github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230823081604-f2a0e6b108bb/go.mod h1:q6f4fe39oZPdsh1i57WznEZgxd8siidMaSFq3wdPmVg=
+github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230823081604-f2a0e6b108bb h1:jyhgdafuZsex+kEHDIgq8o8wuVoPTr9wsGmuBtcFbEk=
+github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230823081604-f2a0e6b108bb/go.mod h1:G5Sd/yzHWf26rQ+X0nG9E0buKPqRGPMJAfk2gwCzOOw=
 github.com/smartcontractkit/wasp v0.3.0 h1:mueeLvpb6HyGNwILxCOKShDR6q18plQn7Gb1j3G/Qkk=
 github.com/smartcontractkit/wasp v0.3.0/go.mod h1:skquNdMbKxIrHi5O8Kyukf66AaaXuEpEEaSTxfHbhak=
 github.com/smartcontractkit/wsrpc v0.7.2 h1:iBXzMeg7vc5YoezIQBq896y25BARw7OKbhrb6vPbtRQ=
