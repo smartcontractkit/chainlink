@@ -121,6 +121,8 @@ func (p *logEventProvider) register(lpFilter logpoller.Filter, ufilter upkeepFil
 func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
 	err := p.poller.UnregisterFilter(p.filterName(upkeepID))
 	if err != nil {
+		// TODO: mark as removed in filter store, so we'll
+		// automatically retry on next refresh
 		return fmt.Errorf("failed to unregister upkeep filter %s: %w", upkeepID.String(), err)
 	}
 	p.filterStore.RemoveActiveUpkeeps(upkeepFilter{
