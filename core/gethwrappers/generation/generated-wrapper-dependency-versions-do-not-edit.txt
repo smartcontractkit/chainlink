@@ -42,7 +42,7 @@ keepers_vrf_consumer: ../../contracts/solc/v0.8.6/KeepersVRFConsumer.abi ../../c
 log_emitter: ../../contracts/solc/v0.8.19/LogEmitter.abi ../../contracts/solc/v0.8.19/LogEmitter.bin 244ba13730c036de0b02beef4e3d9c9a96946ce353c27f366baecc7f5be5a6fd
 log_triggered_feed_lookup_wrapper: ../../contracts/solc/v0.8.16/LogTriggeredFeedLookup.abi ../../contracts/solc/v0.8.16/LogTriggeredFeedLookup.bin 9678fec51a491bf3f4bfeb582211bf8ab0328b58b2710e45b51be0dde1155933
 log_upkeep_counter_wrapper: ../../contracts/solc/v0.8.6/LogUpkeepCounter.abi ../../contracts/solc/v0.8.6/LogUpkeepCounter.bin 13d6543329f89d06cbf3901d7f9ecdc42acc1a84d8c61db291fcbfdbe1138eb1
-mercury_upkeep_wrapper: ../../contracts/solc/v0.8.16/MercuryUpkeep.abi ../../contracts/solc/v0.8.16/MercuryUpkeep.bin 27a33050249b6c7de7236772d7960f29c69e6f8167cc736409312d0e965508a3
+mercury_upkeep_wrapper: ../../contracts/solc/v0.8.16/MercuryUpkeep.abi ../../contracts/solc/v0.8.16/MercuryUpkeep.bin 93f3f640a56d3d80252b2f27efdc84cbd004d115b4c61c9d49f83920373fdc7f
 mock_aggregator_proxy: ../../contracts/solc/v0.8.6/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy.bin b16c108f3dd384c342ddff5e94da7c0a8d39d1be5e3d8f2cf61ecc7f0e50ff42
 mock_ethlink_aggregator_wrapper: ../../contracts/solc/v0.6/MockETHLINKAggregator.abi ../../contracts/solc/v0.6/MockETHLINKAggregator.bin 1c52c24f797b8482aa12b8251dcea1c072827bd5b3426b822621261944b99ca0
 mock_gas_aggregator_wrapper: ../../contracts/solc/v0.6/MockGASAggregator.abi ../../contracts/solc/v0.6/MockGASAggregator.bin bacbb1ea4dc6beac0db8a13ca5c75e2fd61b903d70feea9b3b1c8b10fe8df4f3
