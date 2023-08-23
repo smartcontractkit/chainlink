@@ -215,11 +215,11 @@ func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int
 
 	cfg, err := r.registry.GetUpkeepPrivilegeConfig(opts, upkeepId)
 	if err != nil {
-		if strings.Contains(err.Error(), "execution reverted") {
-			r.mercury.allowListCache.Set(upkeepId.String(), false, cache.DefaultExpiration)
-			return encoding.NoPipelineError, encoding.UpkeepFailureReasonMercuryAccessNotAllowed, false, false, err
-		}
 		return encoding.RpcFlakyFailure, encoding.UpkeepFailureReasonNone, true, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
+	}
+	if len(cfg) == 0 {
+		r.mercury.allowListCache.Set(upkeepId.String(), false, cache.DefaultExpiration)
+		return encoding.NoPipelineError, encoding.UpkeepFailureReasonMercuryAccessNotAllowed, false, false, fmt.Errorf("upkeep privilege config is empty")
 	}
 
 	var a UpkeepPrivilegeConfig
