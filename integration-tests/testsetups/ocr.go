@@ -558,9 +558,10 @@ func (o *OCRSoakTest) observeOCREvents(ctx context.Context, cancel context.Cance
 
 		if err == nil {
 			if len(contractEvents) > 0 {
+				// need to check if we get multiple events at one go. If yes how count is incremented needs to be adjusted
 				event := contractEvents[0]
 				answerUpdated, err := o.ocrInstances[0].ParseEventAnswerUpdated(event)
-				if err == nil {
+				if err != nil {
 					log.Warn().
 						Err(err).
 						Str("Address", event.Address.Hex()).
