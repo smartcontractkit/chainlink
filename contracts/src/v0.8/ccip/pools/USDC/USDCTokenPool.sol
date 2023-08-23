@@ -112,7 +112,8 @@ contract USDCTokenPool is TokenPool {
     bytes memory extraData
   ) external override onlyOffRamp {
     _consumeOffRampRateLimit(amount);
-    MessageAndAttestation memory msgAndAttestation = abi.decode(extraData, (MessageAndAttestation));
+    (bytes memory offchainTokenData, ) = abi.decode(extraData, (bytes, bytes));
+    MessageAndAttestation memory msgAndAttestation = abi.decode(offchainTokenData, (MessageAndAttestation));
     if (
       !IMessageReceiver(s_config.messageTransmitter).receiveMessage(
         msgAndAttestation.message,

@@ -974,6 +974,7 @@ contract EVM2EVMOffRamp_manuallyExecute is EVM2EVMOffRampSetup {
     Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages();
     messages[0].tokenAmounts = new Client.EVMTokenAmount[](1);
     messages[0].tokenAmounts[0] = Client.EVMTokenAmount({token: s_sourceFeeToken, amount: tokenAmount});
+    messages[0].sourceTokenData = new bytes[](1);
     messages[0].receiver = address(receiver);
     messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash());
 
@@ -1154,7 +1155,13 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
     uint256 amount1 = 100;
     srcTokenAmounts[0].amount = amount1;
 
-    s_offRamp.releaseOrMintTokens(srcTokenAmounts, abi.encode(OWNER), OWNER, new bytes[](srcTokenAmounts.length));
+    s_offRamp.releaseOrMintTokens(
+      srcTokenAmounts,
+      abi.encode(OWNER),
+      OWNER,
+      new bytes[](srcTokenAmounts.length),
+      new bytes[](srcTokenAmounts.length)
+    );
     assertEq(startingBalance + amount1, dstToken1.balanceOf(OWNER));
   }
 
@@ -1168,7 +1175,13 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
 
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.TokenHandlingError.selector, unknownError));
 
-    s_offRamp.releaseOrMintTokens(srcTokenAmounts, abi.encode(OWNER), OWNER, new bytes[](srcTokenAmounts.length));
+    s_offRamp.releaseOrMintTokens(
+      srcTokenAmounts,
+      abi.encode(OWNER),
+      OWNER,
+      new bytes[](srcTokenAmounts.length),
+      new bytes[](srcTokenAmounts.length)
+    );
   }
 
   function testRateLimitErrorsReverts() public {
@@ -1205,7 +1218,13 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
 
       vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.TokenRateLimitError.selector, rateLimitErrors[i]));
 
-      s_offRamp.releaseOrMintTokens(srcTokenAmounts, abi.encode(OWNER), OWNER, new bytes[](srcTokenAmounts.length));
+      s_offRamp.releaseOrMintTokens(
+        srcTokenAmounts,
+        abi.encode(OWNER),
+        OWNER,
+        new bytes[](srcTokenAmounts.length),
+        new bytes[](srcTokenAmounts.length)
+      );
     }
   }
 
@@ -1213,7 +1232,7 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
 
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.UnsupportedToken.selector, address(0)));
-    s_offRamp.releaseOrMintTokens(tokenAmounts, bytes(""), OWNER, new bytes[](0));
+    s_offRamp.releaseOrMintTokens(tokenAmounts, bytes(""), OWNER, new bytes[](0), new bytes[](0));
   }
 }
 

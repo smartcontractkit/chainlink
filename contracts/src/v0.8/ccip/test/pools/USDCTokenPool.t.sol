@@ -211,9 +211,11 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     bytes memory message = bytes("message bytes");
     bytes memory attestation = bytes("attestation bytes");
 
-    bytes memory extraData = abi.encode(
+    bytes memory offchainTokenData = abi.encode(
       USDCTokenPool.MessageAndAttestation({message: message, attestation: attestation})
     );
+    bytes memory sourceTokenData = abi.encode(2000);
+    bytes memory extraData = abi.encode(offchainTokenData, sourceTokenData);
 
     vm.expectEmit();
     emit Minted(s_routerAllowedOffRamp, receiver, amount);
@@ -228,9 +230,12 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     changePrank(s_routerAllowedOffRamp);
     s_mockUSDC.setShouldSucceed(false);
 
-    bytes memory extraData = abi.encode(
+    bytes memory offchainTokenData = abi.encode(
       USDCTokenPool.MessageAndAttestation({message: bytes(""), attestation: bytes("")})
     );
+
+    bytes memory sourceTokenData = abi.encode(2000);
+    bytes memory extraData = abi.encode(offchainTokenData, sourceTokenData);
 
     vm.expectRevert(USDCTokenPool.UnlockingUSDCFailed.selector);
 
