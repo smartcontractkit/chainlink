@@ -17,8 +17,6 @@ func TestLogEventBuffer_GetBlocksInRange(t *testing.T) {
 	buf := newLogEventBuffer(logger.TestLogger(t), size, 10, 10)
 
 	buf.enqueue(big.NewInt(1),
-		logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
-		logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 1},
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0},
 		logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3"), LogIndex: 0},
 	)
@@ -26,6 +24,8 @@ func TestLogEventBuffer_GetBlocksInRange(t *testing.T) {
 	buf.enqueue(big.NewInt(2),
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 2},
 		logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3"), LogIndex: 2},
+		logpoller.Log{BlockNumber: 4, TxHash: common.HexToHash("0x1"), LogIndex: 0},
+		logpoller.Log{BlockNumber: 4, TxHash: common.HexToHash("0x1"), LogIndex: 1},
 	)
 
 	tests := []struct {
@@ -36,21 +36,21 @@ func TestLogEventBuffer_GetBlocksInRange(t *testing.T) {
 	}{
 		{
 			name: "all",
-			from: 1,
-			to:   3,
+			from: 2,
+			to:   4,
 			want: 3,
 		},
 		{
 			name: "partial",
-			from: 1,
-			to:   2,
+			from: 2,
+			to:   3,
 			want: 2,
 		},
 		{
 			name: "circular",
-			from: 2,
+			from: 3,
 			to:   4,
-			want: 3,
+			want: 2,
 		},
 		{
 			name: "zero start",
@@ -67,6 +67,17 @@ func TestLogEventBuffer_GetBlocksInRange(t *testing.T) {
 			from: 4,
 			to:   2,
 		},
+		{
+			name: "outside max last seen",
+			from: 5,
+			to:   10,
+		},
+		{
+			name: "limited by max last seen",
+			from: 2,
+			to:   5,
+			want: 3,
+		},
 	}
 
 	for _, tc := range tests {
@@ -75,15 +86,10 @@ func TestLogEventBuffer_GetBlocksInRange(t *testing.T) {
 			require.Equal(t, tc.want, len(blocks))
 			if tc.want > 0 {
 				from := tc.from
-				if from == 0 {
-					from++
-				}
 				require.Equal(t, from, blocks[0].blockNumber)
 				to := tc.to
-				if to == 0 {
-					to++
-				} else if to > int64(size) {
-					to = to % int64(size)
+				if to >= 4 {
+					to = 4
 				}
 				require.Equal(t, to, blocks[len(blocks)-1].blockNumber)
 			}

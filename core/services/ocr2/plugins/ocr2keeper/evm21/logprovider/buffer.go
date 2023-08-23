@@ -191,9 +191,8 @@ func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit int) []fetch
 	blocksInRange := b.getBlocksInRange(int(start), int(end))
 
 	logsCount := map[string]int{}
-
 	var results []fetchedLog
-	for i, block := range blocksInRange {
+	for _, block := range blocksInRange {
 		// double checking that we don't have any gaps in the range
 		if block.blockNumber < start || block.blockNumber > end {
 			continue
@@ -213,7 +212,7 @@ func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit int) []fetch
 		block.visited = append(block.visited, blockResults...)
 		results = append(results, blockResults...)
 		block.logs = remainingLogs
-		b.blocks[i] = block
+		b.blocks[b.blockNumberIndex(block.blockNumber)] = block
 	}
 
 	sort.SliceStable(results, func(i, j int) bool {
@@ -242,14 +241,14 @@ func (b *logEventBuffer) getBlocksInRange(start, end int) []fetchedBlock {
 	}
 	// in case we get circular range such as [0, 1, end, ... , start, ..., size-1]
 	// we need to return the blocks in two ranges: [0, end](inclusive) and [start, size-1]
-	blocksInRange = append(blocksInRange, b.blocks[:end+1]...)
 	blocksInRange = append(blocksInRange, b.blocks[start:]...)
+	blocksInRange = append(blocksInRange, b.blocks[:end+1]...)
 
 	return blocksInRange
 }
 
-// blockRangeToIndices returns the normalized range of start and end,
-// aligned with buffer size. Note that start and end are inclusive indices.
+// blockRangeToIndices returns the normalized range of start to end block range,
+// to indices aligned with buffer size. Note ranges inclusive of start, end indices.
 func (b *logEventBuffer) blockRangeToIndices(start, end int) (int, int) {
 	latest := b.latestBlockSeen()
 	if end > int(latest) {
@@ -262,8 +261,8 @@ func (b *logEventBuffer) blockRangeToIndices(start, end int) (int, int) {
 	}
 	size := b.bufferSize()
 	if end-start >= size {
-		// If range requires more than buffer size blocks, only try to return
-		// last size blocks.
+		// If range requires more than buffer size blocks, only to return
+		// last size blocks as that's the max the buffer stores.
 		start = (end - size) + 1
 	}
 	return b.blockNumberIndex(int64(start)), b.blockNumberIndex(int64(end))
