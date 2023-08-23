@@ -45,7 +45,7 @@ contract MercuryUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInt
     previousPerformBlock = 0;
     initialBlock = 0;
     counter = 0;
-    feedParamKey = "feedIDHex"; // feedIDStr is deprecated
+    feedParamKey = "feedIdHex"; // feedIDStr is deprecated
     feeds = [
       "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
       "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"

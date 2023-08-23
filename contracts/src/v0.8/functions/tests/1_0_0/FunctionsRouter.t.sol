@@ -1,110 +1,179 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.19;
 
-import {IFunctionsRouter} from "../../dev/1_0_0/interfaces/IFunctionsRouter.sol";
-import {IFunctionsBilling} from "../../dev/1_0_0/interfaces/IFunctionsBilling.sol";
-import {ITermsOfServiceAllowList} from "../../dev/1_0_0/accessControl/interfaces/ITermsOfServiceAllowList.sol";
-
-import {BaseTest} from "./BaseTest.t.sol";
 import {FunctionsRouter} from "../../dev/1_0_0/FunctionsRouter.sol";
-import {FunctionsCoordinator} from "../../dev/1_0_0/FunctionsCoordinator.sol";
-import {FunctionsBilling} from "../../dev/1_0_0/FunctionsBilling.sol";
-import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
-import {TermsOfServiceAllowList} from "../../dev/1_0_0/accessControl/TermsOfServiceAllowList.sol";
+import {FunctionsSubscriptions} from "../../dev/1_0_0/FunctionsSubscriptions.sol";
 
-contract FunctionsRouterSetup is BaseTest {
-  FunctionsRouter internal s_functionsRouter;
-  FunctionsCoordinator internal s_functionsCoordinator;
-  MockV3Aggregator internal s_linkEthFeed;
-  TermsOfServiceAllowList internal s_termsOfServiceAllowList;
+import {FunctionsRouterSetup, FunctionsOwnerAcceptTermsOfService} from "./Setup.t.sol";
 
-  uint16 internal s_maxConsumersPerSubscription = 100;
-  uint72 internal s_adminFee = 561724823;
-  bytes4 internal s_handleOracleFulfillmentSelector = 0x0ca76175;
+// ================================================================
+// |                        Functions Router                      |
+// ================================================================
 
-  address internal s_linkToken = 0x01BE23585060835E02B77ef475b0Cc51aA1e0709;
+/// @notice #constructor
+contract FunctionsRouter_Constructor {
 
-  int256 internal LINK_ETH_RATE = 5021530000000000;
-
-  function setUp() public virtual override {
-    BaseTest.setUp();
-    s_functionsRouter = new FunctionsRouter(s_linkToken, getRouterConfig());
-    s_linkEthFeed = new MockV3Aggregator(0, LINK_ETH_RATE);
-
-    s_termsOfServiceAllowList = new TermsOfServiceAllowList(getTermsOfServiceConfig());
-  }
-
-  function getRouterConfig() public view returns (FunctionsRouter.Config memory) {
-    uint32[] memory maxCallbackGasLimits = new uint32[](1);
-    maxCallbackGasLimits[0] = type(uint32).max;
-
-    return
-      FunctionsRouter.Config({
-        maxConsumersPerSubscription: s_maxConsumersPerSubscription,
-        adminFee: s_adminFee,
-        handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
-        maxCallbackGasLimits: maxCallbackGasLimits,
-        gasForCallExactCheck: 5000
-      });
-  }
-
-  function getCoordinatorConfig() public pure returns (FunctionsBilling.Config memory) {
-    return
-      FunctionsBilling.Config({
-        maxCallbackGasLimit: 5,
-        feedStalenessSeconds: 5,
-        gasOverheadAfterCallback: 5,
-        gasOverheadBeforeCallback: 5,
-        requestTimeoutSeconds: 1,
-        donFee: 5,
-        maxSupportedRequestDataVersion: 5,
-        fulfillmentGasPriceOverEstimationBP: 5,
-        fallbackNativePerUnitLink: 2874
-      });
-  }
-
-  function getTermsOfServiceConfig() public pure returns (TermsOfServiceAllowList.Config memory) {
-    return TermsOfServiceAllowList.Config({enabled: false, signerPublicKey: address(132)});
-  }
 }
 
-contract FunctionsSetRoutes is FunctionsRouterSetup {
+/// @notice #getConfig
+contract FunctionsRouter_GetConfig {
+
+}
+
+/// @notice #updateConfig
+contract FunctionsRouter_UpdateConfig {
+
+}
+
+/// @notice #isValidCallbackGasLimit
+contract FunctionsRouter_IsValidCallbackGasLimit {
+
+}
+
+/// @notice #getAdminFee
+contract FunctionsRouter_GetAdminFee {
+
+}
+
+/// @notice #getAllowListId
+contract FunctionsRouter_GetAllowListId {
+
+}
+
+/// @notice #setAllowListId
+contract FunctionsRouter_SetAllowListId {
+
+}
+
+/// @notice #_getMaxConsumers
+contract FunctionsRouter__GetMaxConsumers {
+
+}
+
+/// @notice #sendRequest
+contract FunctionsRouter_SendRequest {
+
+}
+
+/// @notice #sendRequestToProposed
+contract FunctionsRouter_SendRequestToProposed {
+
+}
+
+/// @notice #_sendRequest
+contract FunctionsRouter__SendRequest {
+
+}
+
+/// @notice #fulfill
+contract FunctionsRouter_Fulfill {
+
+}
+
+/// @notice #_callback
+contract FunctionsRouter__Callback {
+
+}
+
+/// @notice #getContractById
+contract FunctionsRouter_GetContractById {
+
+}
+
+/// @notice #getProposedContractById
+contract FunctionsRouter_GetProposedContractById {
+
+}
+
+/// @notice #getProposedContractSet
+contract FunctionsRouter_GetProposedContractSet {
+
+}
+
+/// @notice #proposeContractsUpdate
+contract FunctionsRouter_ProposeContractsUpdate {
+
+}
+
+/// @notice #updateContracts
+contract FunctionsRouter_UpdateContracts {
+
+}
+
+/// @notice #_whenNotPaused
+contract FunctionsRouter__WhenNotPaused {
+
+}
+
+/// @notice #_onlyRouterOwner
+contract FunctionsRouter__OnlyRouterOwner {
+
+}
+
+/// @notice #_onlySenderThatAcceptedToS
+contract FunctionsRouter__OnlySenderThatAcceptedToS {
+
+}
+
+/// @notice #pause
+contract FunctionsRouter_Pause is FunctionsRouterSetup {
   function setUp() public virtual override {
     FunctionsRouterSetup.setUp();
-    s_functionsCoordinator = new FunctionsCoordinator(
-      address(s_functionsRouter),
-      getCoordinatorConfig(),
-      address(s_linkEthFeed)
-    );
+  }
 
-    bytes32 allowListId = s_functionsRouter.getAllowListId();
-    bytes32[] memory proposedContractSetIds = new bytes32[](2);
-    proposedContractSetIds[0] = bytes32("1");
-    proposedContractSetIds[1] = allowListId;
-    address[] memory proposedContractSetAddresses = new address[](2);
-    proposedContractSetAddresses[0] = address(s_functionsCoordinator);
-    proposedContractSetAddresses[1] = address(s_termsOfServiceAllowList);
+  event Paused(address account);
 
-    s_functionsRouter.proposeContractsUpdate(proposedContractSetIds, proposedContractSetAddresses);
-    s_functionsRouter.updateContracts();
+  function test_Pause_RevertIfNotOwner() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    vm.expectRevert("Only callable by owner");
+    s_functionsRouter.pause();
+  }
+
+  function test_Pause_Success() public {
+    // topic0 (always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
+    vm.expectEmit(false, false, false, true);
+    emit Paused(OWNER_ADDRESS);
+
+    s_functionsRouter.pause();
+
+    bool isPaused = s_functionsRouter.paused();
+    assertEq(isPaused, true);
+
+    vm.expectRevert("Pausable: paused");
+    s_functionsRouter.createSubscription();
   }
 }
 
-contract FunctionsRouter_createSubscription is FunctionsSetRoutes {
+/// @notice #unpause
+contract FunctionsRouter_Unpause is FunctionsRouterSetup {
   function setUp() public virtual override {
-    FunctionsSetRoutes.setUp();
+    FunctionsRouterSetup.setUp();
+    s_functionsRouter.pause();
   }
 
-  event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
+  event Unpaused(address account);
 
-  function testCreateSubscriptionSuccess() public {
-    vm.expectEmit();
-    emit SubscriptionCreated(1, OWNER);
+  function test_Unpause_RevertIfNotOwner() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
 
-    s_functionsRouter.createSubscription();
+    vm.expectRevert("Only callable by owner");
+    s_functionsRouter.unpause();
+  }
 
-    vm.expectEmit();
-    emit SubscriptionCreated(2, OWNER);
+  function test_Unpause_Success() public {
+    // topic0 (always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
+    vm.expectEmit(false, false, false, true);
+    emit Unpaused(OWNER_ADDRESS);
+
+    s_functionsRouter.unpause();
+
+    bool isPaused = s_functionsRouter.paused();
+    assertEq(isPaused, false);
 
     s_functionsRouter.createSubscription();
   }

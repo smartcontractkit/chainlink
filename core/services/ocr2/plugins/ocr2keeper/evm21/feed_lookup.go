@@ -145,11 +145,12 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, checkResults []ocr2keepers
 func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *FeedLookup, i int, checkResults []ocr2keepers.CheckResult, lggr logger.Logger) {
 	defer wg.Done()
 
-	state, values, retryable, err := r.doMercuryRequest(ctx, lookup, lggr)
+	state, reason, values, retryable, err := r.doMercuryRequest(ctx, lookup, lggr)
 	if err != nil {
 		lggr.Errorf("upkeep %s retryable %v doMercuryRequest: %v", lookup.upkeepId, retryable, err)
 		checkResults[i].Retryable = retryable
 		checkResults[i].PipelineExecutionState = uint8(state)
+		checkResults[i].IneligibilityReason = uint8(reason)
 		return
 	}
 	for j, v := range values {
@@ -250,11 +251,14 @@ func (r *EvmRegistry) checkCallback(ctx context.Context, values [][]byte, lookup
 	return encoding.NoPipelineError, false, b, nil
 }
 
-// doMercuryRequest sends requests to Mercury API to retrieve ChainlinkBlob.
-func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, lggr logger.Logger) (encoding.PipelineExecutionState, [][]byte, bool, error) {
+// doMercuryRequest sends requests to Mercury API to retrieve mercury data.
+func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, lggr logger.Logger) (encoding.PipelineExecutionState, encoding.UpkeepFailureReason, [][]byte, bool, error) {
 	var isMercuryV03 bool
 	resultLen := len(ml.feeds)
 	ch := make(chan MercuryData, resultLen)
+	if len(ml.feeds) == 0 {
+		return encoding.NoPipelineError, encoding.UpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", ml.feedParamKey, ml.timeParamKey, ml.feeds)
+	}
 	if ml.feedParamKey == feedIdHex && ml.timeParamKey == blockNumber {
 		// only mercury v0.2
 		for i := range ml.feeds {
@@ -267,8 +271,7 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, lggr
 		ch = make(chan MercuryData, resultLen)
 		go r.multiFeedsRequest(ctx, ch, ml, lggr)
 	} else {
-		// TODO: This should result in upkeep ineligible since upkeep gave a wrong mercury input
-		return encoding.InvalidRevertDataInput, nil, false, fmt.Errorf("invalid label combination: feed param key %s and time param key %s", ml.feedParamKey, ml.timeParamKey)
+		return encoding.NoPipelineError, encoding.UpkeepFailureReasonInvalidRevertDataInput, [][]byte{}, false, fmt.Errorf("invalid revert data input: feed param key %s, time param key %s, feeds %s", ml.feedParamKey, ml.timeParamKey, ml.feeds)
 	}
 
 	var reqErr error
@@ -296,7 +299,7 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, ml *FeedLookup, lggr
 	}
 	lggr.Debugf("upkeep %s retryable %s reqErr %w", ml.upkeepId.String(), retryable && !allSuccess, reqErr)
 	// only retry when not all successful AND none are not retryable
-	return state, results, retryable && !allSuccess, reqErr
+	return state, encoding.UpkeepFailureReasonNone, results, retryable && !allSuccess, reqErr
 }
 
 // singleFeedRequest sends a v0.2 Mercury request for a single feed report.

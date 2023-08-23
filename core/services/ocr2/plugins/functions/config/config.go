@@ -113,6 +113,7 @@ func (ThresholdConfigParser) ParseConfig(config []byte) (*decryptionPluginConfig
 			RequestCountLimit:         thresholdPluginConfig.RequestCountLimit,
 			RequestTotalBytesLimit:    thresholdPluginConfig.RequestTotalBytesLimit,
 			RequireLocalRequestCheck:  thresholdPluginConfig.RequireLocalRequestCheck,
+			K:                         thresholdPluginConfig.K,
 		},
 	}, nil
 }
