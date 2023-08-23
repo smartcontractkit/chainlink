@@ -388,7 +388,7 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
   return parsedLogs
 }
 
-describe.only('KeeperRegistry2_1', () => {
+describe('KeeperRegistry2_1', () => {
   let owner: Signer
   let keeper1: Signer
   let keeper2: Signer
