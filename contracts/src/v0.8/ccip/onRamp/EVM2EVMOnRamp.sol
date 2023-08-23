@@ -311,25 +311,25 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     // We need the next available sequence number so we increment before we use the value
     Internal.EVM2EVMMessage memory newMessage = Internal.EVM2EVMMessage({
       sourceChainSelector: i_chainSelector,
-      sequenceNumber: ++s_sequenceNumber,
-      feeTokenAmount: feeTokenAmount,
       sender: originalSender,
-      nonce: ++s_senderNonce[originalSender],
+      receiver: address(uint160(decodedReceiver)),
+      sequenceNumber: ++s_sequenceNumber,
       gasLimit: extraArgs.gasLimit,
       strict: false,
-      receiver: address(uint160(decodedReceiver)),
+      nonce: ++s_senderNonce[originalSender],
+      feeToken: message.feeToken,
+      feeTokenAmount: feeTokenAmount,
       data: message.data,
       tokenAmounts: message.tokenAmounts,
-      feeToken: message.feeToken,
+      sourceTokenData: new bytes[](message.tokenAmounts.length), // will be filled in later
       messageId: ""
     });
-    newMessage.messageId = Internal._hash(newMessage, i_metadataHash);
 
     // Lock the tokens as last step. TokenPools may not always be trusted.
     // There should be no state changes after external call to TokenPools.
     for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
       Client.EVMTokenAmount memory tokenAndAmount = message.tokenAmounts[i];
-      getPoolBySourceToken(IERC20(tokenAndAmount.token)).lockOrBurn(
+      newMessage.sourceTokenData[i] = getPoolBySourceToken(IERC20(tokenAndAmount.token)).lockOrBurn(
         originalSender,
         message.receiver,
         tokenAndAmount.amount,
@@ -337,6 +337,9 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
         bytes("") // any future extraArgs component would be added here
       );
     }
+
+    // Hash only after the sourceTokenData has been set
+    newMessage.messageId = Internal._hash(newMessage, i_metadataHash);
 
     // Emit message request
     emit CCIPSendRequested(newMessage);

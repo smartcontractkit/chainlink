@@ -56,6 +56,7 @@ contract PingPong_startPingPong is PingPongDappSetup {
       nonce: 1,
       data: data,
       tokenAmounts: sentMessage.tokenAmounts,
+      sourceTokenData: new bytes[](sentMessage.tokenAmounts.length),
       gasLimit: 2e5,
       feeToken: sentMessage.feeToken,
       strict: false,

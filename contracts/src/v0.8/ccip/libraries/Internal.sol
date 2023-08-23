@@ -39,17 +39,17 @@ library Internal {
   // @notice The cross chain message that gets committed to EVM chains
   struct EVM2EVMMessage {
     uint64 sourceChainSelector;
-    uint64 sequenceNumber;
-    uint256 feeTokenAmount;
     address sender;
-    uint64 nonce;
+    address receiver;
+    uint64 sequenceNumber;
     uint256 gasLimit;
     bool strict;
-    // User fields
-    address receiver;
+    uint64 nonce;
+    address feeToken;
+    uint256 feeTokenAmount;
     bytes data;
     Client.EVMTokenAmount[] tokenAmounts;
-    address feeToken;
+    bytes[] sourceTokenData;
     bytes32 messageId;
   }
 
@@ -80,6 +80,7 @@ library Internal {
           original.receiver,
           keccak256(original.data),
           keccak256(abi.encode(original.tokenAmounts)),
+          keccak256(abi.encode(original.sourceTokenData)),
           original.gasLimit,
           original.strict,
           original.feeToken,
