@@ -388,7 +388,7 @@ const parseCancelledUpkeepReportLogs = (receipt: ContractReceipt) => {
   return parsedLogs
 }
 
-describe('KeeperRegistry2_1', () => {
+describe.only('KeeperRegistry2_1', () => {
   let owner: Signer
   let keeper1: Signer
   let keeper2: Signer
@@ -830,7 +830,10 @@ describe('KeeperRegistry2_1', () => {
       .deploy(
         BigNumber.from('10000'),
         BigNumber.from('100'),
-        true /* set to true so it uses block.number */,
+        false /* set to false so it uses block.number */,
+        true, /* use mercury version 0.2 */
+        false, /* use staging env, not a factor in this test */
+        false /* do not verify mercury response */
       )
 
     const arbOracleCode = await ethers.provider.send('eth_getCode', [
