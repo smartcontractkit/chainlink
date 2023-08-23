@@ -120,6 +120,8 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
   error InvalidPayee();
   error InvalidRecipient();
   error InvalidReport();
+  error InvalidSigner();
+  error InvalidTransmitter();
   error InvalidTriggerType();
   error MaxCheckDataSizeCanOnlyIncrease();
   error MaxPerformDataSizeCanOnlyIncrease();

@@ -104,12 +104,11 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
-		//"registry_2_1": ethereum.RegistryVersion_2_1,
+		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
+		"registry_2_1_logtrigger": ethereum.RegistryVersion_2_1,
 	}
 
-	for n, rv := range registryVersions {
-		name := n
-		registryVersion := rv
+	for name, registryVersion := range registryVersions {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -133,6 +132,9 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				return
 			}
 
+			// Use the name to determine if this is a log trigger or not
+			isLogTrigger := name == "registry_2_1_logtrigger"
+
 			consumers, upkeepIDs := actions.DeployConsumers(
 				t,
 				registry,
@@ -143,12 +145,25 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				defaultAmountOfUpkeeps,
 				big.NewInt(automationDefaultLinkFunds),
 				automationDefaultUpkeepGasLimit,
+				isLogTrigger,
 			)
 
 			l.Info().Msg("Waiting for all upkeeps to be performed")
 			gom := gomega.NewGomegaWithT(t)
+
+			// Wait for 30 seconds to allow everything to be ready before emitting logs
+			time.Sleep(30 * time.Second)
+			for i := 0; i < len(upkeepIDs); i++ {
+				err := consumers[i].Start()
+				if err != nil {
+					return
+				}
+			}
+
+			startTime := time.Now()
+			// TODO Tune this timeout window after stress testing
 			gom.Eventually(func(g gomega.Gomega) {
-				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
+				// Check if the upkeeps are performing multiple times by analyzing their counters
 				for i := 0; i < len(upkeepIDs); i++ {
 					counter, err := consumers[i].Counter(context.Background())
 					require.NoError(t, err, "Failed to retrieve consumer counter for upkeep at index %d", i)
@@ -158,6 +173,8 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}
 			}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
+
+			l.Info().Msgf("Total time taken to get 5 performs for each upkeep: %s", time.Since(startTime))
 
 			if nodeUpgrade {
 				expect := 5
@@ -222,17 +239,7 @@ func TestAutomationAddFunds(t *testing.T) {
 		return
 	}
 
-	consumers, upkeepIDs := actions.DeployConsumers(
-		t,
-		registry,
-		registrar,
-		linkToken,
-		contractDeployer,
-		chainClient,
-		defaultAmountOfUpkeeps,
-		big.NewInt(1),
-		automationDefaultUpkeepGasLimit,
-	)
+	consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(1), automationDefaultUpkeepGasLimit, false)
 
 	gom := gomega.NewGomegaWithT(t)
 	// Since the upkeep is currently underfunded, check that it doesn't get executed
@@ -275,17 +282,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 		return
 	}
 
-	consumers, upkeepIDs := actions.DeployConsumers(
-		t,
-		registry,
-		registrar,
-		linkToken,
-		contractDeployer,
-		chainClient,
-		defaultAmountOfUpkeeps,
-		big.NewInt(automationDefaultLinkFunds),
-		automationDefaultUpkeepGasLimit,
-	)
+	consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
 
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
@@ -359,17 +356,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 		return
 	}
 
-	consumers, upkeepIDs := actions.DeployConsumers(
-		t,
-		registry,
-		registrar,
-		linkToken,
-		contractDeployer,
-		chainClient,
-		defaultAmountOfUpkeeps,
-		big.NewInt(automationDefaultLinkFunds),
-		automationDefaultUpkeepGasLimit,
-	)
+	consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
 
 	var initialCounters = make([]*big.Int, len(upkeepIDs))
 	gom := gomega.NewGomegaWithT(t)
@@ -432,17 +419,7 @@ func TestAutomationPauseRegistry(t *testing.T) {
 		return
 	}
 
-	consumers, upkeepIDs := actions.DeployConsumers(
-		t,
-		registry,
-		registrar,
-		linkToken,
-		contractDeployer,
-		chainClient,
-		defaultAmountOfUpkeeps,
-		big.NewInt(automationDefaultLinkFunds),
-		automationDefaultUpkeepGasLimit,
-	)
+	consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
 	gom := gomega.NewGomegaWithT(t)
 
 	// Observe that the upkeeps which are initially registered are performing
@@ -491,17 +468,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 		return
 	}
 
-	consumers, upkeepIDs := actions.DeployConsumers(
-		t,
-		registry,
-		registrar,
-		linkToken,
-		contractDeployer,
-		chainClient,
-		defaultAmountOfUpkeeps,
-		big.NewInt(automationDefaultLinkFunds),
-		automationDefaultUpkeepGasLimit,
-	)
+	consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
 	gom := gomega.NewGomegaWithT(t)
 	nodesWithoutBootstrap := chainlinkNodes[1:]
 
