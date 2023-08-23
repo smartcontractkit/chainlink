@@ -35,19 +35,13 @@ type NodesStatuser interface {
 	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error)
 }
 
-// ChainService is a live, runtime chain instance, with supporting services.
-type ChainService interface {
-	services.ServiceCtx
-	SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
-}
-
 // ChainSetOpts holds options for configuring a ChainSet via NewChainSet.
 type ChainSetOpts[I ID, N Node] interface {
 	Validate() error
 	ConfigsAndLogger() (Configs[I, N], logger.Logger)
 }
 
-type chainSet[N Node, S ChainService] struct {
+type chainSet[N Node, S types.ChainService] struct {
 	utils.StartStopOnce
 	opts    ChainSetOpts[string, N]
 	configs Configs[string, N]
@@ -56,7 +50,7 @@ type chainSet[N Node, S ChainService] struct {
 }
 
 // NewChainSet returns a new immutable ChainSet for the given ChainSetOpts.
-func NewChainSet[N Node, S ChainService](
+func NewChainSet[N Node, S types.ChainService](
 	chains map[string]S,
 	opts ChainSetOpts[string, N],
 ) (types.ChainSet[string, S], error) {
@@ -86,6 +80,13 @@ func (c *chainSet[N, S]) Chain(ctx context.Context, id string) (s S, err error) 
 	return ch, nil
 }
 
+func (c *chainSet[N, S]) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
+	panic("should not be used")
+}
+
+func (c *chainSet[N, S]) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []types.NodeStatus, next_page_token string, err error) {
+	panic("unimplemented")
+}
 func (c *chainSet[N, S]) ChainStatus(ctx context.Context, id string) (cfg types.ChainStatus, err error) {
 	var cs []types.ChainStatus
 	cs, _, err = c.configs.Chains(0, -1, id)

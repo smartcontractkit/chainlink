@@ -49,3 +49,23 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *SolanaConfig) (solana.Chain, error) {
 	}
 	return c, nil
 }
+
+func NewChainSet(opts ChainSetOpts, cfgs SolanaConfigs) (solana.ChainSet, error) {
+	solChains := map[string]solana.Chain{}
+	var err error
+	for _, chain := range cfgs {
+		if !chain.IsEnabled() {
+			continue
+		}
+		var err2 error
+		solChains[*chain.ChainID], err2 = opts.NewTOMLChain(chain)
+		if err2 != nil {
+			err = multierr.Combine(err, err2)
+			continue
+		}
+	}
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to load some Solana chains")
+	}
+	return chains.NewChainSet[db.Node, solana.Chain](solChains, &opts)
+}

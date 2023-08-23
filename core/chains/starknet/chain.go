@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -28,13 +29,13 @@ var _ starkChain.Chain = (*chain)(nil)
 type chain struct {
 	utils.StartStopOnce
 	id   string
-	cfg  config.Config
+	cfg  *StarknetConfig
 	cfgs types.Configs
 	lggr logger.Logger
 	txm  txm.StarkTXM
 }
 
-func newChain(id string, cfg config.Config, loopKs loop.Keystore, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg *StarknetConfig, loopKs loop.Keystore, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
 	lggr = logger.With(lggr, "starknetChainID", id)
 	ch := &chain{
 		id:   id,
@@ -130,10 +131,19 @@ func (c *chain) HealthReport() map[string]error {
 
 // ChainService interface
 func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
-	panic("starknet status unimplemented")
+	toml, err := c.cfg.TOMLString()
+	if err != nil {
+		return relaytypes.ChainStatus{}, err
+	}
+	return relaytypes.ChainStatus{
+		ID:      c.id,
+		Enabled: *c.cfg.Enabled,
+		Config:  toml,
+	}, nil
 }
+
 func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error) {
-	panic("starknet nodes unimplemented")
+	return internal.ListNodeStatuses(int(page_size), page_token, c.cfg.ListNodeStatuses)
 }
 
 func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {

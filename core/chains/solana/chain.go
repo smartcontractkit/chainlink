@@ -18,7 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/txm"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana/monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -39,7 +40,7 @@ var _ solana.Chain = (*chain)(nil)
 type chain struct {
 	utils.StartStopOnce
 	id             string
-	cfg            config.Config
+	cfg            *SolanaConfig
 	txm            *txm.Txm
 	balanceMonitor services.ServiceCtx
 	nodes          func(chainID string) (nodes []db.Node, err error)
@@ -173,7 +174,7 @@ func (v *verifiedCachedClient) GetAccountInfoWithOpts(ctx context.Context, addr 
 	return v.ReaderWriter.GetAccountInfoWithOpts(ctx, addr, opts)
 }
 
-func newChain(id string, cfg config.Config, ks loop.Keystore, cfgs Configs, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg *SolanaConfig, ks loop.Keystore, cfgs Configs, lggr logger.Logger) (*chain, error) {
 	lggr = logger.With(lggr, "chainID", id, "chainSet", "solana")
 	var ch = chain{
 		id:          id,
@@ -189,13 +190,31 @@ func newChain(id string, cfg config.Config, ks loop.Keystore, cfgs Configs, lggr
 	ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, ks, ch.Reader)
 	return &ch, nil
 }
+
+/*
 func (c *chain) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
 	panic("solana status unimplemented")
 }
 func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []types.NodeStatus, next_page_token string, err error) {
 	panic("solan nodes unimplemented")
 }
+*/
+// ChainService interface
+func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
+	toml, err := c.cfg.TOMLString()
+	if err != nil {
+		return relaytypes.ChainStatus{}, err
+	}
+	return relaytypes.ChainStatus{
+		ID:      c.id,
+		Enabled: *c.cfg.Enabled,
+		Config:  toml,
+	}, nil
+}
 
+func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error) {
+	return internal.ListNodeStatuses(int(page_size), page_token, c.cfg.ListNodeStatuses)
+}
 func (c *chain) Name() string {
 	return c.lggr.Name()
 }

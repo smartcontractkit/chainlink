@@ -159,11 +159,20 @@ func (c *chain) HealthReport() map[string]error {
 
 // ChainService interface
 func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
-	panic("cosmos status unimplemented")
+	toml, err := c.cfg.TOMLString()
+	if err != nil {
+		return relaytypes.ChainStatus{}, err
+	}
+	return relaytypes.ChainStatus{
+		ID:      c.id,
+		Enabled: *c.cfg.Enabled,
+		Config:  toml,
+	}, nil
 }
 func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error) {
 	return internal.ListNodeStatuses(int(page_size), page_token, c.cfg.ListNodeStatuses)
 }
+
 func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return chains.ErrLOOPPUnsupported
 }
