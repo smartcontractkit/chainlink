@@ -677,6 +677,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 					},
 				},
 			},
+			statusCode: http.StatusOK,
 		},
 		{
 			name: "success - retry for 404",
@@ -808,20 +809,12 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			assert.Nil(t, err)
 
 			if tt.retryNumber == 0 {
-				if tt.errorMessage != "" {
-					resp := &http.Response{
-						StatusCode: tt.statusCode,
-						Body:       io.NopCloser(bytes.NewReader(b)),
-					}
-					hc.On("Do", mock.Anything).Return(resp, nil).Once()
-				} else {
-					resp := &http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewReader(b)),
-					}
-					hc.On("Do", mock.Anything).Return(resp, nil).Once()
+				resp := &http.Response{
+					StatusCode: tt.statusCode,
+					Body:       io.NopCloser(bytes.NewReader(b)),
 				}
-			} else if tt.retryNumber > 0 && tt.retryNumber < totalAttempt {
+				hc.On("Do", mock.Anything).Return(resp, nil).Once()
+			} else if tt.retryNumber < totalAttempt {
 				retryResp := &http.Response{
 					StatusCode: tt.statusCode,
 					Body:       io.NopCloser(bytes.NewReader(b)),
