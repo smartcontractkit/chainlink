@@ -274,6 +274,11 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 	return r.refreshLogTriggerUpkeeps(ids)
 }
 
+// refreshLogTriggerUpkeeps refreshes the active upkeep ids for log trigger upkeeps
+//
+// TODO: manage reorgs, one idea is to pull the last ConfigSet event for each upkeep,
+// and to call updateTriggerConfig with latest config and block number.
+// Calling the log provider with newer block will update the filter accordingly.
 func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 	logTriggerIDs := make([]*big.Int, 0)
 	for _, id := range ids {
