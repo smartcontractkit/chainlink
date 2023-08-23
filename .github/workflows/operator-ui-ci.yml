@@ -25,7 +25,7 @@ jobs:
       - name: Assume role capable of dispatching action
         uses: aws-actions/configure-aws-credentials@5fd3084fc36e372ff1fff382a39b10d03659f355 # v2.2.0
         with:
-          role-to-assume: ${{ secrets.AWS_OIDC_CHAINLINK_CROSS_CI_OPERATOR_UI_TOKEN_ISSUER_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_OIDC_CHAINLINK_CI_OPERATOR_UI_ACCESS_TOKEN_ISSUER_ROLE_ARN }}
           role-duration-seconds: 3600
           role-session-name: operator-ui-ci.check-gql
           aws-region: ${{ secrets.AWS_REGION }}
