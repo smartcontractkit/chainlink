@@ -13,9 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  - Unauthenticated users executing CLI commands previously generated a confusing error log, which is now removed:
 ```[ERROR] Error in transaction, rolling back: session missing or expired, please login again pg/transaction.go:118 ```
  - Fixed a bug that was preventing job runs to be displayed when the job `chainID` was disabled.
-- `chainlink txs evm create` returns a transaction hash for the attempted transaction in the CLI. Previously only the sender, receipient and `unstarted` state were returned.
+- `chainlink txs evm create` returns a transaction hash for the attempted transaction in the CLI. Previously only the sender, recipient and `unstarted` state were returned.
+- Fixed a bug when when `evmChainId` is requested instead of `id` or `evm-chain-id` in CLI error verbatim
 
-...
 ## 2.5.0 - UNRELEASED
 
 ### Upcoming Required Configuration Change
