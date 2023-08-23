@@ -17,7 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	ccipselectors "github.com/smartcontractkit/ccip-chain-selectors"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"go.uber.org/multierr"
 
 	"manual-execution/helpers"
@@ -421,7 +421,7 @@ func (args *execArgs) approxDestStartBlock() error {
 }
 
 func GetCCIPChainSelector(chainId uint64) uint64 {
-	selector, err := ccipselectors.SelectorFromChainId(chainId)
+	selector, err := chainselectors.SelectorFromChainId(chainId)
 	if err != nil {
 		panic(fmt.Sprintf("no chain selector for %d", chainId))
 	}
