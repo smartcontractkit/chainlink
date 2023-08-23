@@ -291,7 +291,7 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0},
 			logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3"), LogIndex: 0},
 		), 2)
-		results := buf.peekRange(int64(0), int64(5))
+		results := buf.peekRange(int64(1), int64(5))
 		fmt.Println(results)
 		verifyBlockNumbers(t, results, 2, 3, 4, 4)
 	})
