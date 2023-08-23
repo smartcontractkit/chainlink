@@ -1870,13 +1870,6 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 
 }
 
-func checkerToJson(t *testing.T, checker txmgr.TransmitCheckerSpec) *datatypes.JSON {
-	b, err := json.Marshal(checker)
-	require.NoError(t, err)
-	j := datatypes.JSON(b)
-	return &j
-}
-
 type testCheckerFactory struct {
 	err error
 }
