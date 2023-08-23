@@ -230,6 +230,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 
 	t.Run("recover logs", func(t *testing.T) {
 		t.Skip() // TODO: fix test (fails in CI)
+
 		addr, contract := addrs[0], contracts[0]
 		upkeepID := registerUpkeep(t, registry, addr, carrol, steve, backend)
 		backend.Commit()
@@ -237,7 +238,14 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 		// blockBeforeEmits := backend.Blockchain().CurrentBlock().Number.Uint64()
 		// Emit 100 logs in a burst
 		emits := 100
-		emitEvents(testutils.Context(t), t, 100, []*log_upkeep_counter_wrapper.LogUpkeepCounter{contract}, carrol, func() {})
+		i := 0
+		emitEvents(testutils.Context(t), t, 100, []*log_upkeep_counter_wrapper.LogUpkeepCounter{contract}, carrol, func() {
+			i++
+			if i%(emits/4) == 0 {
+				backend.Commit()
+				time.Sleep(time.Millisecond * 250) // otherwise we get "invalid transaction nonce" errors
+			}
+		})
 		// Mine enough blocks to ensre these logs don't fall into log provider range
 		dummyBlocks := 500
 		for i := 0; i < dummyBlocks; i++ {
