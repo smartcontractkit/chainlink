@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	goerrors "errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -13,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
-	"go.uber.org/multierr"
 
 	"github.com/patrickmn/go-cache"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
@@ -299,7 +299,7 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 		// TODO: find the ConfigSet/UpkeepUnpaused events for this upkeep and pass cfg and block number
 		// block number should be taken from UpkeepUnpaused if it's block is higher than ConfigSet
 		if err := r.updateTriggerConfig(id, nil, 0); err != nil {
-			merr = multierr.Append(merr, fmt.Errorf("failed to update trigger config for upkeep id %s: %w", id.String(), err))
+			merr = goerrors.Join(merr, fmt.Errorf("failed to update trigger config for upkeep id %s: %w", id.String(), err))
 		}
 	}
 

@@ -96,14 +96,12 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDa
 	}
 	opts.Defaults()
 	return &logEventProvider{
-		packer:       packer,
-		lggr:         lggr.Named("KeepersRegistry.LogEventProvider"),
-		buffer:       newLogEventBuffer(lggr, int(opts.LookbackBlocks), BufferMaxBlockSize, AllowedLogsPerBlock),
-		poller:       poller,
-		lock:         sync.RWMutex{},
-		registerLock: sync.Mutex{},
-		opts:         opts,
-		filterStore:  filterStore,
+		packer:      packer,
+		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
+		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), BufferMaxBlockSize, AllowedLogsPerBlock),
+		poller:      poller,
+		opts:        opts,
+		filterStore: filterStore,
 	}
 }
 
