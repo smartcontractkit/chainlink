@@ -95,7 +95,6 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 		// we should be able to backfill old logs and fetch new ones
 		logDataABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
 		require.NoError(t, err)
-		// filterStore.ResetLastPollBlock()
 		filterStore := logprovider.NewUpkeepFilterStore()
 		logProvider2 := logprovider.NewLogProvider(logger.TestLogger(t), lp, logprovider.NewLogEventsPacker(logDataABI), filterStore, opts)
 
