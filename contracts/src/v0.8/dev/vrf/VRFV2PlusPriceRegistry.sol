@@ -8,7 +8,7 @@ import "../../ChainSpecificUtil.sol";
 
 contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
   /// @dev may not be provided upon construction on some chains due to lack of availability
-  AggregatorV3Interface public s_linkEthFeed;
+  AggregatorV3Interface public s_linkETHFeed;
   /// @dev may not be provided upon construction on some chains due to lack of availability
   AggregatorV3Interface public s_linkUSDFeed;
   /// @dev may not be provided upon construction on some chains due to lack of availability
@@ -23,6 +23,7 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
   error InvalidLinkUSDPrice(int256 linkUSD);
   error InvalidUSDPrice(address feed, int256 price);
   error PaymentTooLarge();
+  error InvalidInput(address got, address expected1, address expected2);
 
   struct Config {
     // stalenessSeconds is how long before we consider the feed price to be stale
@@ -81,7 +82,7 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
   constructor(address linkEthFeed, address linkUSDFeed, address ethUSDFeed) ConfirmedOwner(msg.sender) {
     /// @dev no zero address checks since the provided addresses can legitimately
     /// @dev be zero if there are no feeds on a particular chain
-    s_linkEthFeed = AggregatorV3Interface(linkEthFeed);
+    s_linkETHFeed = AggregatorV3Interface(linkEthFeed);
     s_linkUSDFeed = AggregatorV3Interface(linkUSDFeed);
     s_ethUSDFeed = AggregatorV3Interface(ethUSDFeed);
   }
@@ -91,8 +92,8 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
    * @param linkEthFeed the address of the link-eth feed
   */
   function setLINKETHFeed(address linkEthFeed) external onlyOwner {
-    address oldFeed = address(s_linkEthFeed);
-    s_linkEthFeed = AggregatorV3Interface(linkEthFeed);
+    address oldFeed = address(s_linkETHFeed);
+    s_linkETHFeed = AggregatorV3Interface(linkEthFeed);
     emit LinkEthFeedSet(oldFeed, linkEthFeed);
   }
 
@@ -110,7 +111,7 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
    * @notice Set the eth-usd feed to be used by the price registry
    * @param ethUsdFeed the address of the eth-usd feed
   */
-  function setEthUsdFeed(address ethUsdFeed) external onlyOwner {
+  function setETHUSDFeed(address ethUsdFeed) external onlyOwner {
     address oldFeed = address(s_ethUSDFeed);
     s_ethUSDFeed = AggregatorV3Interface(ethUsdFeed);
     emit EthUSDFeedSet(oldFeed, ethUsdFeed);
@@ -268,19 +269,19 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
     // (1e18 juels/link) ((wei/gas * gas) + l1wei) / (wei/link) = juels
     uint256 paymentNoFee = (1e18 * (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft()) + l1CostWei)) /
       uint256(weiPerUnitLink);
-    uint256 fee = calculateFlatFeeFromUSD(fulfillmentFlatFeeLinkUSD, s_linkEthFeed);
+    uint256 fee = calculateFlatFeeFromUSD(fulfillmentFlatFeeLinkUSD, s_linkETHFeed);
     if (paymentNoFee > (1e27 - fee)) {
       revert PaymentTooLarge(); // Payment + fee cannot be more than all of the link in existence.
     }
     return uint96(paymentNoFee + fee);
   }
 
-  function getLINKEthFeedData() private view returns (int256) {
+  function getLINKEthFeedData() internal view returns (int256) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
     int256 weiPerUnitLink;
-    (, weiPerUnitLink, , timestamp, ) = s_linkEthFeed.latestRoundData();
+    (, weiPerUnitLink, , timestamp, ) = s_linkETHFeed.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
     if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
@@ -288,19 +289,23 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
     return weiPerUnitLink;
   }
 
-  function getUSDFeedData(AggregatorV3Interface feed) private view returns (int256 answer, uint8 decimals) {
+  function getUSDFeedData(AggregatorV3Interface feed) internal view returns (int256 answer, uint8 decimals) {
+    if (address(feed) != address(s_linkUSDFeed) && address(feed) != address(s_ethUSDFeed)) {
+      revert InvalidInput(address(feed), address(s_linkUSDFeed), address(s_ethUSDFeed));
+    }
     uint32 stalenessSeconds = s_config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
     (, answer, , timestamp, ) = feed.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
     if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
-      if (feed == s_ethUSDFeed) {
+      if (address(feed) == address(s_ethUSDFeed)) {
         answer = s_fallbackUSDPerUnitEth;
-      } else if (feed == s_linkEthFeed) {
-        answer = s_fallbackWeiPerUnitLink;
+      } else if (address(feed) == address(s_linkUSDFeed)) {
+        answer = s_fallbackUSDPerUnitLink;
       } else {
-        revert(); // Should never happen
+        // should be impossible to reach but ¯\_(ツ)_/¯
+        revert InvalidInput(address(feed), address(s_linkUSDFeed), address(s_ethUSDFeed));
       }
     }
     decimals = feed.decimals();
