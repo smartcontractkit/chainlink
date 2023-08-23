@@ -276,9 +276,7 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 
 // refreshLogTriggerUpkeeps refreshes the active upkeep ids for log trigger upkeeps
 //
-// TODO: manage reorgs, one idea is to pull the last ConfigSet event for each upkeep,
-// and to call updateTriggerConfig with latest config and block number.
-// Calling the log provider with newer block will update the filter accordingly.
+// TODO: check for updated config for log trigger upkeeps and update it, currently we ignore them.
 func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 	logTriggerIDs := make([]*big.Int, 0)
 	for _, id := range ids {
@@ -298,6 +296,8 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 	}
 	var merr error
 	for _, id := range newUpkeeps {
+		// TODO: find the ConfigSet/UpkeepUnpaused events for this upkeep and pass cfg and block number
+		// block number should be taken from UpkeepUnpaused if it's block is higher than ConfigSet
 		if err := r.updateTriggerConfig(id, nil, 0); err != nil {
 			merr = multierr.Append(merr, fmt.Errorf("failed to update trigger config for upkeep id %s: %w", id.String(), err))
 		}
@@ -372,8 +372,6 @@ func (r *EvmRegistry) processUpkeepStateLog(l logpoller.Log) error {
 		r.removeFromActive(l.Id)
 	case *iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet:
 		r.lggr.Debugf("KeeperRegistryUpkeepTriggerConfigSet log detected for upkeep ID %s in transaction %s", l.Id.String(), txHash)
-		// in update config scenario, we are using zero creation block as we expect the upkeep
-		// to be already active (i.e. creation block won't change)
 		if err := r.updateTriggerConfig(l.Id, l.TriggerConfig, rawLog.BlockNumber); err != nil {
 			r.lggr.Warnf("failed to update trigger config upon KeeperRegistryMasterUpkeepTriggerConfigSet for upkeep ID %s: %s", l.Id.String(), err)
 		}

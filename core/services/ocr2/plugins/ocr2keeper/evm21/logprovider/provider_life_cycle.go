@@ -45,11 +45,7 @@ func (p *logEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, er
 	var newIDs []*big.Int
 	for id, ok := range visited {
 		if !ok {
-			uid, ok := new(big.Int).SetString(id, 10)
-			if !ok {
-				// should not happen, we just converted them from big.Int
-				continue
-			}
+			uid, _ := new(big.Int).SetString(id, 10)
 			newIDs = append(newIDs, uid)
 		}
 	}
@@ -89,12 +85,12 @@ func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
 		filter = *currentFilter
 	} else { // new filter
 		filter = upkeepFilter{
-			upkeepID:        upkeepID,
-			blockLimiter:    rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
-			lastPollBlock:   0,
-			lastRePollBlock: 0,
+			upkeepID:     upkeepID,
+			blockLimiter: rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
 		}
 	}
+	filter.lastPollBlock = 0
+	filter.lastRePollBlock = 0
 	filter.configUpdateBlock = opts.UpdateBlock
 	filter.addr = lpFilter.Addresses[0].Bytes()
 	filter.topics = make([]common.Hash, len(lpFilter.EventSigs))

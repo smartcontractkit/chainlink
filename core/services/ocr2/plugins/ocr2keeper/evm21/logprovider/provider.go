@@ -326,7 +326,6 @@ func (p *logEventProvider) updateFiltersLastPoll(entries []upkeepFilter) {
 
 // getFilters returns the filters for the given upkeepIDs,
 // returns empty filter for inactive upkeeps.
-// TODO: Cleanup force variable as it is always passed as true.
 func (p *logEventProvider) getFilters(latestBlock int64, ids ...*big.Int) []upkeepFilter {
 	var filters []upkeepFilter
 	p.filterStore.RangeFiltersByIDs(func(i int, f upkeepFilter) {
@@ -336,7 +335,7 @@ func (p *logEventProvider) getFilters(latestBlock int64, ids ...*big.Int) []upke
 			return
 		}
 		if f.configUpdateBlock > uint64(latestBlock) {
-			p.lggr.Debugw("upkeep config update block is in the future", "upkeep", f.upkeepID.String(), "configUpdateBlock", f.configUpdateBlock, "latestBlock", latestBlock)
+			p.lggr.Debugw("upkeep config update block was created after latestBlock", "upkeep", f.upkeepID.String(), "configUpdateBlock", f.configUpdateBlock, "latestBlock", latestBlock)
 			filters = append(filters, upkeepFilter{upkeepID: f.upkeepID})
 			return
 		}
