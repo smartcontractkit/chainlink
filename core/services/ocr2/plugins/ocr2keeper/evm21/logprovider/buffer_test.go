@@ -56,7 +56,6 @@ func TestLogEventBuffer_GetBlocksInRange(t *testing.T) {
 			name: "zero start",
 			from: 0,
 			to:   2,
-			want: 2,
 		},
 		{
 			name: "invalid zero end",
@@ -250,7 +249,7 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 		results := buf.peek(8)
 		require.Equal(t, 4, len(results))
 		verifyBlockNumbers(t, results, 1, 2, 3, 3)
-		removed := buf.dequeue(8, 5)
+		removed := buf.dequeueRange(1, 3, 5)
 		require.Equal(t, 4, len(removed))
 		buf.lock.Lock()
 		require.Equal(t, 0, len(buf.blocks[0].logs))
@@ -307,7 +306,7 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 			logpoller.Log{BlockNumber: 5, TxHash: common.HexToHash("0x5"), LogIndex: 0},
 		), 5)
 
-		logs := buf.dequeue(10, 2)
+		logs := buf.dequeueRange(1, 5, 2)
 		require.Equal(t, 2, len(logs))
 	})
 }

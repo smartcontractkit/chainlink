@@ -237,11 +237,11 @@ func (b *logEventBuffer) getBlocksInRange(start, end int) []fetchedBlock {
 		return blocksInRange
 	}
 	if start <= end {
-		// Normal range, need to return indices from start to end
+		// Normal range, need to return indices from start to end(inclusive)
 		return b.blocks[start : end+1]
 	}
 	// in case we get circular range such as [0, 1, end, ... , start, ..., size-1]
-	// we need to return the blocks in two ranges: [0, end] and [start, size-1]
+	// we need to return the blocks in two ranges: [0, end](inclusive) and [start, size-1]
 	blocksInRange = append(blocksInRange, b.blocks[:end+1]...)
 	blocksInRange = append(blocksInRange, b.blocks[start:]...)
 
@@ -258,7 +258,8 @@ func (b *logEventBuffer) blockRangeToIndices(start, end int) (int, int) {
 	size := b.bufferSize()
 	if end-start >= size {
 		// If range requires more than buffer size blocks, only try to return
-		// last size blocks.
+		// last size blocks. NOTE: We might technically have blocks in the buffer within the given range
+		// which are not towards the end, here we assume the called only cares about the latest blocks.
 		start = (end - size) + 1
 	}
 	return b.blockNumberIndex(int64(start)), b.blockNumberIndex(int64(end))
