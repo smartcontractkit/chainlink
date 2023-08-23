@@ -191,3 +191,25 @@ test_benchmark_automation: ## Run the automation benchmark tests
 .PHONY: test_reorg_automation
 test_reorg_automation: ## Run the automation reorg tests
 	go test -timeout 300m -v -run ^TestAutomationReorg$$ ./reorg -count=1 | tee automation_reorg_run_`date +"%Y%m%d-%H%M%S"`.log
+
+# image: the name for the chainlink image being built, example: image=chainlink
+# tag: the tag for the chainlink image being built, example: tag=latest
+# example usage: make build_docker_image image=chainlink tag=latest
+.PHONY: build_docker_image
+build_docker_image:
+	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t $(image):$(tag) ../
+
+
+# image: the name for the chainlink image being built, example: image=chainlink
+# tag: the tag for the chainlink image being built, example: tag=latest
+# args: the args to pass to the test runner, example: args="--focus @cron -p"
+# product: the product to run tests for, example: product=cron
+# example usage: make run_test_with_local_image image=chainlink tag=latest-dev product=cron
+.PHONY: run_test_with_local_image
+run_test_with_local_image: build_docker_image
+	CHAINLINK_IMAGE=$(image) \
+	CHAINLINK_VERSION=$(tag) \
+	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2"  \
+	ARGS="$(args)" \
+	PRODUCT=$(product) 	\
+	./scripts/run_product_tests
