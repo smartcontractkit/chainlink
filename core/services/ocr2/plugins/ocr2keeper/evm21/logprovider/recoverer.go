@@ -318,8 +318,9 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startBlock, offsetBlock int64) error {
 	start := f.lastRePollBlock
 	// ensure we don't recover logs from before the filter was created
-	if start < int64(f.configUpdateBlock) {
-		start = int64(f.configUpdateBlock)
+	// NOTE: we expect that filter with configUpdateBlock > offsetBlock were already filtered out.
+	if configUpdateBlock := int64(f.configUpdateBlock); start < configUpdateBlock {
+		start = configUpdateBlock
 	}
 	if start < startBlock {
 		start = startBlock

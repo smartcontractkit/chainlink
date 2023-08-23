@@ -106,6 +106,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 		latestBlockErr   error
 		active           []upkeepFilter
 		states           []ocr2keepers.UpkeepState
+		statesErr        error
 		logs             []logpoller.Log
 		logsErr          error
 		recoverErr       error
@@ -118,6 +119,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			nil,
 			[]upkeepFilter{},
 			[]ocr2keepers.UpkeepState{},
+			nil,
 			[]logpoller.Log{},
 			nil,
 			nil,
@@ -130,9 +132,38 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			fmt.Errorf("test error"),
 			[]upkeepFilter{},
 			[]ocr2keepers.UpkeepState{},
+			nil,
 			[]logpoller.Log{},
 			nil,
 			fmt.Errorf("test error"),
+			[]string{},
+		},
+		{
+			"states error",
+			100,
+			200,
+			nil,
+			[]upkeepFilter{
+				{
+					upkeepID: big.NewInt(1),
+					addr:     common.HexToAddress("0x1").Bytes(),
+					topics: []common.Hash{
+						common.HexToHash("0x1"),
+					},
+				},
+			},
+			nil,
+			fmt.Errorf("test error"),
+			[]logpoller.Log{
+				{
+					BlockNumber: 2,
+					TxHash:      common.HexToHash("0x111"),
+					LogIndex:    1,
+					BlockHash:   common.HexToHash("0x2"),
+				},
+			},
+			nil,
+			nil,
 			[]string{},
 		},
 		{
@@ -147,10 +178,10 @@ func TestLogRecoverer_Recover(t *testing.T) {
 					topics: []common.Hash{
 						common.HexToHash("0x1"),
 					},
-					lastPollBlock: 0,
 				},
 			},
 			[]ocr2keepers.UpkeepState{},
+			nil,
 			[]logpoller.Log{},
 			fmt.Errorf("test error"),
 			nil,
@@ -168,10 +199,18 @@ func TestLogRecoverer_Recover(t *testing.T) {
 					topics: []common.Hash{
 						common.HexToHash("0x1"),
 					},
-					lastPollBlock: 0,
+				},
+				{
+					upkeepID: big.NewInt(2),
+					addr:     common.HexToAddress("0x2").Bytes(),
+					topics: []common.Hash{
+						common.HexToHash("0x2"),
+					},
+					configUpdateBlock: 150, // should be filtered out
 				},
 			},
 			[]ocr2keepers.UpkeepState{ocr2keepers.UnknownState},
+			nil,
 			[]logpoller.Log{
 				{
 					BlockNumber: 2,
@@ -194,7 +233,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			filterStore.AddActiveUpkeeps(tc.active...)
 			lp.On("LatestBlock", mock.Anything).Return(tc.latestBlock, tc.latestBlockErr)
 			lp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.logs, tc.logsErr)
-			statesReader.On("SelectByWorkIDsInRange", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, nil)
+			statesReader.On("SelectByWorkIDsInRange", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, tc.statesErr)
 
 			err := recoverer.recover(ctx)
 			if tc.recoverErr != nil {
