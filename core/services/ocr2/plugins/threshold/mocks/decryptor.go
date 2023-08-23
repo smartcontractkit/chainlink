@@ -5,6 +5,7 @@ package mocks
 import (
 	context "context"
 
+	decryptionplugin "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -14,15 +15,15 @@ type Decryptor struct {
 }
 
 // Decrypt provides a mock function with given fields: ctx, ciphertextId, ciphertext
-func (_m *Decryptor) Decrypt(ctx context.Context, ciphertextId []byte, ciphertext []byte) ([]byte, error) {
+func (_m *Decryptor) Decrypt(ctx context.Context, ciphertextId decryptionplugin.CiphertextId, ciphertext []byte) ([]byte, error) {
 	ret := _m.Called(ctx, ciphertextId, ciphertext)
 
 	var r0 []byte
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []byte, []byte) ([]byte, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, decryptionplugin.CiphertextId, []byte) ([]byte, error)); ok {
 		return rf(ctx, ciphertextId, ciphertext)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []byte, []byte) []byte); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, decryptionplugin.CiphertextId, []byte) []byte); ok {
 		r0 = rf(ctx, ciphertextId, ciphertext)
 	} else {
 		if ret.Get(0) != nil {
@@ -30,7 +31,7 @@ func (_m *Decryptor) Decrypt(ctx context.Context, ciphertextId []byte, ciphertex
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, []byte, []byte) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, decryptionplugin.CiphertextId, []byte) error); ok {
 		r1 = rf(ctx, ciphertextId, ciphertext)
 	} else {
 		r1 = ret.Error(1)
