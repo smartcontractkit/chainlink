@@ -227,7 +227,7 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 	r.App.GetLogger().Debug("resolver Node name %s", name)
 	node, err := r.App.EVMORM().NodeStatus(name)
 	if err != nil {
-		r.App.GetLogger().Errorf("resolver error: %s", err)
+		r.App.GetLogger().Errorw("resolver getting node status", "err", err)
 
 		if errors.Is(err, chains.ErrNotFound) {
 			npr, warn := NewNodePayloadResolver(nil, err)
@@ -328,7 +328,9 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
+	r.App.GetLogger().Debugw("resolver Nodes query", "offset", offset, "limit", limit)
 	allNodes, total, err := r.App.GetRelayers().NodeStatuses(ctx, offset, limit)
+	r.App.GetLogger().Debugw("resolver Nodes query result", "nodes", allNodes, "total", total, "err", err)
 
 	if err != nil {
 		r.App.GetLogger().Errorw("Error creating get nodes status from app", "err", err)
