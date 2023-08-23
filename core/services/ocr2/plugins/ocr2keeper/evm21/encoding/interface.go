@@ -31,15 +31,15 @@ const (
 	UpkeepFailureReasonInvalidRevertDataInput  UpkeepFailureReason = 34
 
 	// pipeline execution error
-	NoPipelineError               PipelineExecutionState = 0
-	CheckBlockTooOld              PipelineExecutionState = 1
-	CheckBlockInvalid             PipelineExecutionState = 2
-	RpcFlakyFailure               PipelineExecutionState = 3
-	MercuryFlakyFailure           PipelineExecutionState = 4
-	PackUnpackDecodeFailed        PipelineExecutionState = 5
-	MercuryUnmarshalError         PipelineExecutionState = 6
-	InvalidMercuryRequest         PipelineExecutionState = 7
-	FailedToDecodeMercuryResponse PipelineExecutionState = 8
+	NoPipelineError        PipelineExecutionState = 0
+	CheckBlockTooOld       PipelineExecutionState = 1
+	CheckBlockInvalid      PipelineExecutionState = 2
+	RpcFlakyFailure        PipelineExecutionState = 3
+	MercuryFlakyFailure    PipelineExecutionState = 4
+	PackUnpackDecodeFailed PipelineExecutionState = 5
+	MercuryUnmarshalError  PipelineExecutionState = 6
+	InvalidMercuryRequest  PipelineExecutionState = 7
+	InvalidMercuryResponse PipelineExecutionState = 8 // this will only happen if Mercury server sends bad responses
 )
 
 type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo
