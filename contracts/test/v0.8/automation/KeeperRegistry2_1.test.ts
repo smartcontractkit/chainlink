@@ -4,15 +4,15 @@ import { assert, expect } from 'chai'
 import {
   BigNumber,
   BigNumberish,
-  Signer,
-  Wallet,
-  ContractTransaction,
   BytesLike,
   ContractReceipt,
+  ContractTransaction,
+  Signer,
+  Wallet,
 } from 'ethers'
 import { evmRevert } from '../../test-helpers/matchers'
 import { getUsers, Personas } from '../../test-helpers/setup'
-import { toWei, randomAddress } from '../../test-helpers/helpers'
+import { randomAddress, toWei } from '../../test-helpers/helpers'
 import { LinkToken__factory as LinkTokenFactory } from '../../../typechain/factories/LinkToken__factory'
 import { MercuryUpkeep__factory as MercuryUpkeepFactory } from '../../../typechain/factories/MercuryUpkeep__factory'
 import { MockV3Aggregator__factory as MockV3AggregatorFactory } from '../../../typechain/factories/MockV3Aggregator__factory'
@@ -33,12 +33,12 @@ import { MockOVMGasPriceOracle } from '../../../typechain/MockOVMGasPriceOracle'
 import { UpkeepTranscoder } from '../../../typechain/UpkeepTranscoder'
 import { UpkeepAutoFunder } from '../../../typechain'
 import {
+  CancelledUpkeepReportEvent,
   IKeeperRegistryMaster as IKeeperRegistry,
-  UpkeepPerformedEvent,
+  InsufficientFundsUpkeepReportEvent,
   ReorgedUpkeepReportEvent,
   StaleUpkeepReportEvent,
-  InsufficientFundsUpkeepReportEvent,
-  CancelledUpkeepReportEvent,
+  UpkeepPerformedEvent,
 } from '../../../typechain/IKeeperRegistryMaster'
 import {
   deployMockContract,
@@ -427,7 +427,9 @@ describe('KeeperRegistry2_1', () => {
     const utilsFactory = await ethers.getContractFactory('AutomationUtils2_1')
     automationUtils = await utilsFactory.deploy()
 
-    linkTokenFactory = await ethers.getContractFactory('LinkToken')
+    linkTokenFactory = await ethers.getContractFactory(
+      'src/v0.4/LinkToken.sol:LinkToken',
+    )
     // need full path because there are two contracts with name MockV3Aggregator
     mockV3AggregatorFactory = (await ethers.getContractFactory(
       'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
@@ -2863,6 +2865,18 @@ describe('KeeperRegistry2_1', () => {
       )
     })
 
+    describe('after the registration is paused, then cancelled', () => {
+      it('allows the admin to withdraw', async () => {
+        const balance = await registry.getBalance(upkeepId)
+        const payee = await payee1.getAddress()
+        await registry.connect(admin).pauseUpkeep(upkeepId)
+        await registry.connect(owner).cancelUpkeep(upkeepId)
+        await expect(() =>
+          registry.connect(admin).withdrawFunds(upkeepId, payee),
+        ).to.changeTokenBalance(linkToken, payee1, balance)
+      })
+    })
+
     describe('after the registration is cancelled', () => {
       beforeEach(async () => {
         await registry.connect(owner).cancelUpkeep(upkeepId)
@@ -3538,6 +3552,46 @@ describe('KeeperRegistry2_1', () => {
             offchainBytes,
           ),
         'Only callable by owner',
+      )
+    })
+
+    it('reverts if signers or transmitters are the zero address', async () => {
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfigTypeSafe(
+            [randomAddress(), randomAddress(), randomAddress(), zeroAddress],
+            [
+              randomAddress(),
+              randomAddress(),
+              randomAddress(),
+              randomAddress(),
+            ],
+            f,
+            newConfig,
+            offchainVersion,
+            offchainBytes,
+          ),
+        'InvalidSigner()',
+      )
+
+      await evmRevert(
+        registry
+          .connect(owner)
+          .setConfigTypeSafe(
+            [
+              randomAddress(),
+              randomAddress(),
+              randomAddress(),
+              randomAddress(),
+            ],
+            [randomAddress(), randomAddress(), randomAddress(), zeroAddress],
+            f,
+            newConfig,
+            offchainVersion,
+            offchainBytes,
+          ),
+        'InvalidTransmitter()',
       )
     })
 

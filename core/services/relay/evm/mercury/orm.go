@@ -16,7 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
@@ -28,7 +28,7 @@ type ORM interface {
 	LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error)
 }
 
-func FeedIDFromReport(report ocrtypes.Report) (feedID types.FeedID, err error) {
+func FeedIDFromReport(report ocrtypes.Report) (feedID utils.FeedID, err error) {
 	if n := copy(feedID[:], report); n != 32 {
 		return feedID, pkgerrors.Errorf("invalid length for report: %d", len(report))
 	}
