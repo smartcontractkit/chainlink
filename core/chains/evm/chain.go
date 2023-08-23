@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"sync"
 	"time"
 
 	"go.uber.org/multierr"
@@ -166,9 +167,11 @@ type ChainRelayExtenderConfig struct {
 type RelayerConfig struct {
 	AppConfig AppConfig
 
-	EventBroadcaster   pg.EventBroadcaster
-	MailMon            *utils.MailboxMonitor
-	GasEstimator       gas.EvmFeeEstimator
+	EventBroadcaster pg.EventBroadcaster
+	MailMon          *utils.MailboxMonitor
+	GasEstimator     gas.EvmFeeEstimator
+
+	init               sync.Once
 	operationalConfigs evmtypes.Configs
 
 	// TODO BCF-2513 remove test code from the API
@@ -183,7 +186,9 @@ type RelayerConfig struct {
 
 func (r *RelayerConfig) EVMConfigs() evmtypes.Configs {
 	if r.operationalConfigs == nil {
-		r.operationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](r.AppConfig.EVMConfigs())
+		r.init.Do(func() {
+			r.operationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](r.AppConfig.EVMConfigs())
+		})
 	}
 	return r.operationalConfigs
 }
