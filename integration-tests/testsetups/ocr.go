@@ -548,6 +548,7 @@ func (o *OCRSoakTest) observeOCREvents(ctx context.Context, cancel context.Cance
 		// ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 		latestBlockNum, err := o.chainClient.LatestBlockNumber(ctx)
+		require.NoError(o.t, err, "Error getting current block number")
 		if latestBlockNum >= o.filterQuery.FromBlock.Uint64() {
 			contractEvents, err = o.chainClient.FilterLogs(ctx, o.filterQuery)
 			o.filterQuery.FromBlock.Add(o.filterQuery.FromBlock, big.NewInt(1))
