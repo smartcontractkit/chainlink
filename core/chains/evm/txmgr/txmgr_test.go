@@ -430,7 +430,7 @@ type transactionsConfig struct {
 	e *evmConfig
 }
 
-func (_ *transactionsConfig) ForwardersEnabled() bool             { return true }
+func (*transactionsConfig) ForwardersEnabled() bool               { return true }
 func (t *transactionsConfig) MaxInFlight() uint32                 { return t.e.maxInFlight }
 func (t *transactionsConfig) MaxQueued() uint64                   { return t.e.maxQueued }
 func (t *transactionsConfig) ReaperInterval() time.Duration       { return t.e.reaperInterval }
