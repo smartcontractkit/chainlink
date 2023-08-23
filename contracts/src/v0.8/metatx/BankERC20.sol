@@ -29,25 +29,25 @@ contract BankERC20 is IERC20, IERC20Metadata, AbstractCrossChainMetaTransactor {
   string private _name;
   string private _symbol;
 
-  /// @param name Name of the token contract
-  /// @param symbol Symbol of the token contract
-  /// @param totalSupply Total supply for the token contract. Minted to the contract deployer address
+  /// @param name_ Name of the token contract
+  /// @param symbol_ Symbol of the token contract
+  /// @param totalSupply_ Total supply for the token contract. Minted to the contract deployer address
   /// @param forwarder address of EIP2771 forwarder that verifies signatures and forwards calls to the target contract
   /// @param ccipRouter address of the CCIP router that is responsible for cross-chain token delivery
   /// @param ccipFeeProvider address of the funding account that pre-funds the contract for CCIP fee
   /// @param ccipChainId CCIP chain ID
   constructor(
-    string memory name,
-    string memory symbol,
-    uint256 totalSupply,
+    string memory name_,
+    string memory symbol_,
+    uint256 totalSupply_,
     address forwarder,
     address ccipRouter,
     address ccipFeeProvider,
     uint64 ccipChainId
   ) AbstractCrossChainMetaTransactor(forwarder, ccipRouter, ccipFeeProvider, ccipChainId) {
-    _name = name;
-    _symbol = symbol;
-    _mint(owner(), totalSupply);
+    _name = name_;
+    _symbol = symbol_;
+    _mint(owner(), totalSupply_);
   }
 
   /// @dev Returns the name of the token.

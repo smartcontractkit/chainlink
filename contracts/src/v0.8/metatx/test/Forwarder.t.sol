@@ -56,13 +56,7 @@ contract ForwarderTest is BaseTest {
   function testExecuteRevertsOnUnavailableNonce() public {
     (IForwarder.ForwardRequest memory req, bytes memory signature) = _generateRequestAndSig(FROM_PKEY, FROM);
 
-    (bool success, bytes memory ret) = s_forwarder.execute(
-      req,
-      s_domainSeparatorHash,
-      s_requestTypeHash,
-      "",
-      signature
-    );
+    (bool success, ) = s_forwarder.execute(req, s_domainSeparatorHash, s_requestTypeHash, "", signature);
     assertTrue(success);
 
     vm.expectRevert(abi.encodeWithSelector(Forwarder.NonceAlreadyUsed.selector, s_nonce));
