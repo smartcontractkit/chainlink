@@ -1098,8 +1098,6 @@ func TestTooManyLogResults(t *testing.T) {
 			return []types.Log{}, nil // succeed when single block requested
 		}
 		return []types.Log{}, &clientErr // return "too many results" error if block range spans 4 or more blocks
-
-		return logs, err
 	})
 
 	lp.PollAndSaveLogs(ctx, 298)
