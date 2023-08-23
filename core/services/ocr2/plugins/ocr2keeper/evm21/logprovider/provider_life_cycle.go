@@ -66,7 +66,7 @@ func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
 
 	// using lock to facilitate multiple events causing filter registration
 	// at the same time.
-	// TODO: consider using a q to handle registration requests
+	// Exploratory: consider using a q to handle registration requests
 	p.registerLock.Lock()
 	defer p.registerLock.Unlock()
 
