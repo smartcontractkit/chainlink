@@ -226,7 +226,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
 	done()
 
-	runs := checkPipelineRuns(t, nodes, 1) // TODO: TBD
+	runs := checkPipelineRuns(t, nodes, 1*len(nodes)) // TODO: TBD
 
 	t.Run("recover logs", func(t *testing.T) {
 		t.Skip() // TODO: fix test (fails in CI)
