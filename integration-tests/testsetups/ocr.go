@@ -463,8 +463,9 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	lastValue := 0
 	newRoundTrigger := time.NewTimer(0) // Want to trigger a new round ASAP
 	defer newRoundTrigger.Stop()
-	go o.observeOCREvents()
 	//require.NoError(o.t, err, "Error subscribing to OCR events")
+	timeout := time.Second * 15
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 	for {
 		select {
@@ -483,7 +484,12 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 		case <-endTest:
 			return
 		case <-newRoundTrigger.C:
-			err := o.triggerNewRound(newValue)
+			cancel()
+			ctx, cancel = context.WithTimeout(context.Background(), timeout)
+			latestBlockNum, err := o.chainClient.LatestBlockNumber(ctx)
+			require.NoError(o.t, err, "Error getting current block number")
+
+			err = o.triggerNewRound(newValue)
 			timerReset := o.Inputs.TimeBetweenRounds
 			if err != nil {
 				timerReset = time.Second * 5
@@ -499,6 +505,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 				newValue = rand.Intn(256) + 1 // #nosec G404 - kudos to you if you actually find a way to exploit this
 			}
 			lastValue = newValue
+			go o.observeOCREvents(ctx, cancel, latestBlockNum)
 		case t := <-o.chainClient.ConnectionIssue():
 			o.testIssues = append(o.testIssues, &testreporters.TestIssue{
 				StartTime: t,
@@ -515,7 +522,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 
 // observeOCREvents subscribes to OCR events and logs them to the test logger
 // WARNING: Should only be used for observation and logging. This is not a reliable way to collect events.
-func (o *OCRSoakTest) observeOCREvents() error {
+func (o *OCRSoakTest) observeOCREvents(ctx context.Context, cancel context.CancelFunc, fromBlockNumber uint64) error {
 	// set the filter query to listen for AnswerUpdated events on all OCR contracts
 	ocrAddresses := make([]common.Address, len(o.ocrInstances))
 	for i, ocrInstance := range o.ocrInstances {
@@ -527,34 +534,33 @@ func (o *OCRSoakTest) observeOCREvents() error {
 	o.filterQuery = geth.FilterQuery{
 		Addresses: ocrAddresses,
 		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
-		FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
-		ToBlock:   big.NewInt(0).SetUint64(o.startingBlockNum),
+		FromBlock: big.NewInt(0).SetUint64(fromBlockNumber - 1),
+		ToBlock:   big.NewInt(0).SetUint64(fromBlockNumber - 1),
 	}
 
 	var (
 		contractEvents []types.Log
 		timeout        = time.Second * 15
 	)
+	count := 0
 	for err == nil {
 		// log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		// ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 		latestBlockNum, err := o.chainClient.LatestBlockNumber(ctx)
-		if latestBlockNum > o.filterQuery.FromBlock.Uint64() {
+		if latestBlockNum >= o.filterQuery.FromBlock.Uint64() {
 			contractEvents, err = o.chainClient.FilterLogs(ctx, o.filterQuery)
 			o.filterQuery.FromBlock.Add(o.filterQuery.FromBlock, big.NewInt(1))
 			o.filterQuery.ToBlock.Add(o.filterQuery.ToBlock, big.NewInt(1))
 		} else {
-			cancel()
 			continue
 		}
 
-		cancel()
 		if err == nil {
 			if len(contractEvents) > 0 {
 				event := contractEvents[0]
 				answerUpdated, err := o.ocrInstances[0].ParseEventAnswerUpdated(event)
-				if err != nil {
+				if err == nil {
 					log.Warn().
 						Err(err).
 						Str("Address", event.Address.Hex()).
@@ -562,6 +568,7 @@ func (o *OCRSoakTest) observeOCREvents() error {
 						Msg("Error parsing event as AnswerUpdated")
 					continue
 				}
+				count++
 				o.log.Info().
 					Str("Address", event.Address.Hex()).
 					Uint64("Block Number", event.BlockNumber).
@@ -569,6 +576,10 @@ func (o *OCRSoakTest) observeOCREvents() error {
 					Int64("Answer", answerUpdated.Current.Int64()).
 					Msg("Answer Updated Event")
 				timeout *= 2
+			}
+			if count > 1 {
+				cancel()
+				break
 			}
 			// if latestBlockNum > o.filterQuery.FromBlock.Uint64() {
 			// 	o.filterQuery.FromBlock.Add(o.filterQuery.FromBlock, big.NewInt(1))
