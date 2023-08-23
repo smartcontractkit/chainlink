@@ -74,8 +74,11 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @notice thrown if a report has an invalid version
   error InvalidReportVersion();
 
-  // @notice Thrown when the caller is not authorized
+  // @notice thrown when the caller is not authorized
   error Unauthorized();
+
+  // @notice thrown when trying to clear a zero deficit
+  error ZeroDeficit();
 
   /// @notice Emitted whenever a subscriber's discount is updated
   /// @param subscriber address of the subscriber to update discounts for
@@ -366,6 +369,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @inheritdoc IFeeManager
   function payLinkDeficit(bytes32 configDigest) external onlyOwner {
     uint256 deficit = s_linkDeficit[configDigest];
+    if (deficit == 0) revert ZeroDeficit();
 
     delete s_linkDeficit[configDigest];
     i_rewardManager.onFeePaid(configDigest, address(this), deficit);

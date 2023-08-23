@@ -164,6 +164,40 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
   }
 
+  function test_payLinkDeficitTwice() public {
+    //get the default payload
+    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+
+    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+
+    //not enough funds in the reward pool should trigger an insufficient link event
+    vm.expectEmit();
+    emit InsufficientLink(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE, DEFAULT_REPORT_NATIVE_FEE);
+
+    //process the fee
+    processFee(payload, USER, 0, ADMIN);
+
+    //double check the rewardManager balance is 0
+    assertEq(getLinkBalance(address(rewardManager)), 0);
+
+    //simulate a deposit of link to cover the deficit
+    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+
+    vm.expectEmit();
+    emit LinkDeficitCleared(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE);
+
+    //pay the deficit which will transfer link from the rewardManager to the rewardManager
+    payLinkDeficit(DEFAULT_CONFIG_DIGEST, ADMIN);
+
+    //check the rewardManager received the link
+    assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
+
+    //paying again should revert with 0
+    vm.expectRevert(ZERO_DEFICIT);
+
+    payLinkDeficit(DEFAULT_CONFIG_DIGEST, ADMIN);
+  }
+
   function test_payLinkDeficitPaysAllFeesProcessed() public {
     //get the default payload
     bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
