@@ -21,39 +21,45 @@ import (
 	"golang.org/x/time/rate"
 )
 
-func TestLogEventProvider_GetEntries(t *testing.T) {
+func TestLogEventProvider_GetFilters(t *testing.T) {
 	p := NewLogProvider(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), nil)
 
 	_, f := newEntry(p, 1)
 	p.filterStore.AddActiveUpkeeps(f)
 
-	t.Run("no entries", func(t *testing.T) {
-		entries := p.getFilters(0, false, big.NewInt(0))
-		require.Len(t, entries, 1)
-		require.Equal(t, len(entries[0].addr), 0)
+	t.Run("no filters", func(t *testing.T) {
+		filters := p.getFilters(0, big.NewInt(0))
+		require.Len(t, filters, 1)
+		require.Equal(t, len(filters[0].addr), 0)
 	})
 
-	t.Run("has entry with lower lastPollBlock", func(t *testing.T) {
-		entries := p.getFilters(0, false, f.upkeepID)
-		require.Len(t, entries, 1)
-		require.Greater(t, len(entries[0].addr), 0)
-		entries = p.getFilters(10, false, f.upkeepID)
-		require.Len(t, entries, 1)
-		require.Greater(t, len(entries[0].addr), 0)
+	t.Run("has filter with lower lastPollBlock", func(t *testing.T) {
+		filters := p.getFilters(0, f.upkeepID)
+		require.Len(t, filters, 1)
+		require.Greater(t, len(filters[0].addr), 0)
+		filters = p.getFilters(10, f.upkeepID)
+		require.Len(t, filters, 1)
+		require.Greater(t, len(filters[0].addr), 0)
 	})
 
-	t.Run("has entry with higher lastPollBlock", func(t *testing.T) {
+	t.Run("has filter with higher lastPollBlock", func(t *testing.T) {
 		_, f := newEntry(p, 2)
 		f.lastPollBlock = 3
 		p.filterStore.AddActiveUpkeeps(f)
 
-		entries := p.getFilters(1, false, f.upkeepID)
-		require.Len(t, entries, 1)
-		require.Equal(t, len(entries[0].addr), 0)
+		filters := p.getFilters(1, f.upkeepID)
+		require.Len(t, filters, 1)
+		require.Equal(t, len(filters[0].addr), 0)
+	})
 
-		entries = p.getFilters(1, true, f.upkeepID)
-		require.Len(t, entries, 1)
-		require.Greater(t, len(entries[0].addr), 0)
+	t.Run("has filter with higher configUpdateBlock", func(t *testing.T) {
+		_, f := newEntry(p, 2)
+		f.configUpdateBlock = 3
+		p.filterStore.AddActiveUpkeeps(f)
+
+		filters := p.getFilters(1, f.upkeepID)
+		require.Len(t, filters, 1)
+		require.Equal(t, len(filters[0].addr), 0)
 	})
 }
 
@@ -262,13 +268,13 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 	}
 
 	t.Run("no entries", func(t *testing.T) {
-		require.NoError(t, p.ReadLogs(ctx, false, big.NewInt(999999)))
+		require.NoError(t, p.ReadLogs(ctx, big.NewInt(999999)))
 		logs := p.buffer.peek(10)
 		require.Len(t, logs, 0)
 	})
 
 	t.Run("has entries", func(t *testing.T) {
-		require.NoError(t, p.ReadLogs(ctx, true, ids[:2]...))
+		require.NoError(t, p.ReadLogs(ctx, ids[:2]...))
 		logs := p.buffer.peek(10)
 		require.Len(t, logs, 2)
 	})

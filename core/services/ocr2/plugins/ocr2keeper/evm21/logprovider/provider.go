@@ -62,7 +62,7 @@ type LogEventProvider interface {
 
 type LogEventProviderTest interface {
 	LogEventProvider
-	ReadLogs(ctx context.Context, force bool, ids ...*big.Int) error
+	ReadLogs(ctx context.Context, ids ...*big.Int) error
 	CurrentPartitionIdx() uint64
 }
 
@@ -204,7 +204,7 @@ func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers
 }
 
 // ReadLogs fetches the logs for the given upkeeps.
-func (p *logEventProvider) ReadLogs(pctx context.Context, force bool, ids ...*big.Int) error {
+func (p *logEventProvider) ReadLogs(pctx context.Context, ids ...*big.Int) error {
 	ctx, cancel := context.WithTimeout(pctx, readLogsTimeout)
 	defer cancel()
 
@@ -215,7 +215,7 @@ func (p *logEventProvider) ReadLogs(pctx context.Context, force bool, ids ...*bi
 	if latest == 0 {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, "latest block is 0")
 	}
-	filters := p.getFilters(latest, force, ids...)
+	filters := p.getFilters(latest, ids...)
 
 	err = p.readLogs(ctx, latest, filters)
 	p.updateFiltersLastPoll(filters)
@@ -275,7 +275,7 @@ func (p *logEventProvider) startReader(pctx context.Context, readQ <-chan []*big
 	for {
 		select {
 		case batch := <-readQ:
-			if err := p.ReadLogs(ctx, true, batch...); err != nil {
+			if err := p.ReadLogs(ctx, batch...); err != nil {
 				if ctx.Err() != nil {
 					return
 				}
@@ -327,7 +327,7 @@ func (p *logEventProvider) updateFiltersLastPoll(entries []upkeepFilter) {
 // getFilters returns the filters for the given upkeepIDs,
 // returns empty filter for inactive upkeeps.
 // TODO: Cleanup force variable as it is always passed as true.
-func (p *logEventProvider) getFilters(latestBlock int64, force bool, ids ...*big.Int) []upkeepFilter {
+func (p *logEventProvider) getFilters(latestBlock int64, ids ...*big.Int) []upkeepFilter {
 	var filters []upkeepFilter
 	p.filterStore.RangeFiltersByIDs(func(i int, f upkeepFilter) {
 		if len(f.addr) == 0 { // not found
@@ -335,7 +335,12 @@ func (p *logEventProvider) getFilters(latestBlock int64, force bool, ids ...*big
 			filters = append(filters, f)
 			return
 		}
-		if !force && f.lastPollBlock > latestBlock {
+		if f.configUpdateBlock > uint64(latestBlock) {
+			p.lggr.Debugw("upkeep config update block is in the future", "upkeep", f.upkeepID.String(), "configUpdateBlock", f.configUpdateBlock, "latestBlock", latestBlock)
+			filters = append(filters, upkeepFilter{upkeepID: f.upkeepID})
+			return
+		}
+		if f.lastPollBlock > latestBlock {
 			p.lggr.Debugw("already polled latest block", "entry.lastPollBlock", f.lastPollBlock, "latestBlock", latestBlock, "upkeep", f.upkeepID.String())
 			filters = append(filters, upkeepFilter{upkeepID: f.upkeepID})
 			return
@@ -363,11 +368,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		if len(filter.addr) == 0 {
 			continue
 		}
-		// first time polling, use filter.configUpdateBlock as a starting point of the range
 		start := filter.lastPollBlock
-		if start == 0 {
-			start = int64(filter.configUpdateBlock)
-		}
 		// range should not exceed [lookbackBlocks, latest]
 		if start < latest-lookbackBlocks {
 			start = latest - lookbackBlocks
@@ -381,10 +382,10 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		}
 		// adding a buffer to check for reorged logs.
 		start = start - p.opts.ReorgBuffer
-		if start < 0 {
-			start = 0
+		// make sure start of the range is not before the config update block
+		if configUpdateBlock := int64(filter.configUpdateBlock); start < configUpdateBlock {
+			start = configUpdateBlock
 		}
-
 		logs, err := p.poller.LogsWithSigs(start, latest, filter.topics, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
 		if err != nil {
 			// cancel limit reservation as we failed to get logs

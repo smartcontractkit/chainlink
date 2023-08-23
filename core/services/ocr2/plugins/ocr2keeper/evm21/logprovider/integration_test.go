@@ -317,7 +317,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			assert.GreaterOrEqual(t, latestBlock, minimumBlockCount, "to ensure the integrety of the test, the minimum block count before the test should be %d but got %d", minimumBlockCount, latestBlock)
 		}
 
-		require.NoError(t, logProvider.ReadLogs(ctx, true, ids...))
+		require.NoError(t, logProvider.ReadLogs(ctx, ids...))
 
 		return ctx, backend, poll, logProvider, ids, deferFunc
 	}
@@ -345,7 +345,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			// advance 1 block for every read
 			poll(backend.Commit())
 
-			err := logProvider.ReadLogs(ctx, true, ids...)
+			err := logProvider.ReadLogs(ctx, ids...)
 			if err != nil {
 				assert.False(t, errors.Is(err, logprovider.ErrBlockLimitExceeded), "error should not contain block limit exceeded")
 			}
@@ -383,7 +383,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 				poll(backend.Commit())
 			}
 
-			err := logProvider.ReadLogs(ctx, true, ids...)
+			err := logProvider.ReadLogs(ctx, ids...)
 			if err != nil {
 				assert.True(t, errors.Is(err, logprovider.ErrBlockLimitExceeded), "error should not contain block limit exceeded")
 			}
@@ -421,7 +421,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 
 		// all entries should error at this point because there are too many
 		// blocks to processes
-		err := logProvider.ReadLogs(ctx, true, ids...)
+		err := logProvider.ReadLogs(ctx, ids...)
 		if err != nil {
 			assert.True(t, errors.Is(err, logprovider.ErrBlockLimitExceeded), "error should not contain block limit exceeded")
 		}
@@ -436,7 +436,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 
 		// all entries should reset to the maxBurst because they are beyond
 		// the log lookback
-		err = logProvider.ReadLogs(ctx, true, ids...)
+		err = logProvider.ReadLogs(ctx, ids...)
 		if err != nil {
 			assert.True(t, errors.Is(err, logprovider.ErrBlockLimitExceeded), "error should not contain block limit exceeded")
 		}
