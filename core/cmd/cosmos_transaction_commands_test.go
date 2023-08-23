@@ -32,11 +32,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
 
+var nativeToken := "cosm"
+
 func TestMain(m *testing.M) {
 
 	params.InitCosmosSdk(
 		/* bech32Prefix= */ "wasm",
-		/* token= */ "cosm",
+		/* token= */ nativeToken,
 	)
 
 	code := m.Run()
@@ -99,13 +101,13 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 			require.NoError(t, err)
 
 			set := flag.NewFlagSet("sendcosmoscoins", 0)
-			cltest.FlagSetApplyFromAction(client.CosmosSendAtom, set, "cosmos")
+			cltest.FlagSetApplyFromAction(client.CosmosSendNativeToken, set, "cosmos")
 
 			require.NoError(t, set.Set("id", chainID))
-			require.NoError(t, set.Parse([]string{tt.amount, from.Address.String(), to.Address.String()}))
+			require.NoError(t, set.Parse([]string{nativeToken, tt.amount, from.Address.String(), to.Address.String()}))
 
 			c := cli.NewContext(cliapp, set, nil)
-			err = client.CosmosSendAtom(c)
+			err = client.CosmosSendNativeToken(c)
 			if tt.expErr == "" {
 				require.NoError(t, err)
 			} else {
@@ -158,7 +160,7 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 			require.NoError(t, err)
 			if assert.NotNil(t, startBal) && assert.NotNil(t, endBal) {
 				diff := startBal.Sub(*endBal).Amount
-				sent, err := denom.ConvertDecCoinToDenom(sdk.NewDecCoinFromDec("atom", sdk.MustNewDecFromStr(tt.amount)), *cosmosChain.FeeToken)
+				sent, err := denom.ConvertDecCoinToDenom(sdk.NewDecCoinFromDec(nativeToken, sdk.MustNewDecFromStr(tt.amount)), *cosmosChain.FeeToken)
 				require.NoError(t, err)
 				if assert.True(t, diff.IsInt64()) && assert.True(t, sent.Amount.IsInt64()) {
 					require.Greater(t, diff.Int64(), sent.Amount.Int64())
