@@ -331,11 +331,11 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     return abi.encode(reportContext, reportBytes, rs, ss, rawVs, quote);
   }
 
-  function _generateQuote(address billingAddress) internal returns (bytes memory) {
+  function _generateQuote(address billingAddress) internal pure returns (bytes memory) {
     return abi.encode(billingAddress);
   }
 
-  function _generateV2Report() internal returns (V2Report memory) {
+  function _generateV2Report() internal view returns (V2Report memory) {
     return
       V2Report({
         feedId: FEED_ID_V3,

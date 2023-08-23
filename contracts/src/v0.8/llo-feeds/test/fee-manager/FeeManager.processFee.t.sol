@@ -211,10 +211,9 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //get the default payload
     bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3), getQuotePayload(getLinkAddress()));
 
-    //expect a revert as not enough funds
-    vm.expectRevert(INVALID_DEPOSIT_ERROR);
+    vm.expectRevert(INSUFFICIENT_ALLOWANCE_ERROR);
 
-    //only the proxy or admin can call processFee, they will pass in the native value on the users behalf
+    //the change will be returned and the user will attempted to be billed in LINK
     processFee(payload, USER, DEFAULT_REPORT_NATIVE_FEE - 1);
   }
 
@@ -326,5 +325,90 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
     //processing the fee will not withdraw anything as there is no fee to collect
     processFee(payload, USER, 0);
+  }
+
+  function test_processFeeWithZeroNativeNonZeroLinkWithNativeQuote() public {
+    //get the default payload
+    bytes memory payload = getPayload(
+      getV2ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, DEFAULT_REPORT_LINK_FEE, 0),
+      getQuotePayload(getNativeAddress())
+    );
+
+    //call processFee should not revert as the fee is 0
+    processFee(payload, PROXY, 0);
+  }
+
+  function test_processFeeWithZeroNativeNonZeroLinkWithLinkQuote() public {
+    //get the default payload
+    bytes memory payload = getPayload(
+      getV2ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, DEFAULT_REPORT_LINK_FEE, 0),
+      getQuotePayload(getLinkAddress())
+    );
+
+    //approve the link to be transferred from the from the subscriber to the rewardManager
+    approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
+
+    //processing the fee will transfer the link to the rewardManager from the user
+    processFee(payload, USER, 0);
+
+    //check the link has been transferred
+    assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
+
+    //check the user has had the link fee deducted
+    assertEq(getLinkBalance(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE);
+  }
+
+  function test_processFeeWithZeroLinkNonZeroNativeWithNativeQuote() public {
+    //simulate a deposit of link for the conversion pool
+    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+
+    //get the default payload
+    bytes memory payload = getPayload(
+      getV2ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, 0, DEFAULT_REPORT_NATIVE_FEE),
+      getQuotePayload(getNativeAddress())
+    );
+
+    //approve the native to be transferred from the user
+    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+
+    //processing the fee will transfer the native from the user to the feeManager
+    processFee(payload, USER, 0);
+
+    //check the native has been transferred
+    assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE);
+
+    //check no link has been transferred to the rewardManager
+    assertEq(getLinkBalance(address(rewardManager)), 0);
+
+    //check the feeManager has had no link deducted
+    assertEq(getLinkBalance(address(feeManager)), DEFAULT_REPORT_LINK_FEE);
+
+    //check the subscriber has had the native deducted
+    assertEq(getNativeBalance(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE);
+  }
+
+  function test_processFeeWithZeroLinkNonZeroNativeWithLinkQuote() public {
+    //get the default payload
+    bytes memory payload = getPayload(
+      getV2ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, 0, DEFAULT_REPORT_NATIVE_FEE),
+      getQuotePayload(getLinkAddress())
+    );
+
+    //call processFee should not revert as the fee is 0
+    processFee(payload, USER, 0);
+  }
+
+  function test_processFeeWithZeroNativeNonZeroLinkReturnsChange() public {
+    //get the default payload
+    bytes memory payload = getPayload(
+      getV2ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, 0, DEFAULT_REPORT_NATIVE_FEE),
+      getQuotePayload(getLinkAddress())
+    );
+
+    //call processFee should not revert as the fee is 0
+    processFee(payload, USER, DEFAULT_REPORT_NATIVE_FEE);
+
+    //check the change has been returned
+    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY);
   }
 }

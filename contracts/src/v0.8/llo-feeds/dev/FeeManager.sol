@@ -163,46 +163,48 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     (Common.Asset memory fee, Common.Asset memory reward) = getFeeAndReward(subscriber, report, quote);
 
     //keep track of change in case of any over payment
-    uint256 change;
-
-    //wrap the amount required to pay the fee
-    if (msg.value != 0) {
-      //quote must be in native with enough to cover the fee
-      if (fee.assetAddress != i_nativeAddress) revert InvalidDeposit();
-      if (fee.amount > msg.value) revert InvalidDeposit();
-
-      //wrap the amount required to pay the fee & approve
-      IWERC20(i_nativeAddress).deposit{value: fee.amount}();
-
-      unchecked {
-        //msg.value is always >= to fee.amount
-        change = msg.value - fee.amount;
-      }
-    }
-
-    //get the config digest which is the first 32 bytes of the payload
-    bytes32 configDigest = bytes32(payload);
+    uint256 change = msg.value;
 
     //some users might not be billed
     if (fee.amount != 0) {
-      //if the fee is in LINK, transfer directly from the subscriber to the reward manager
-      if (fee.assetAddress == i_linkAddress) {
-        //distributes the fee
-        i_rewardManager.onFeePaid(configDigest, subscriber, reward.amount);
-      } else {
-        //if the fee is in native wrapped, transfer to this contract in exchange for the equivalent amount of LINK excluding the surcharge
-        if (msg.value == 0) {
+      //wrap the amount required to pay the fee if the user has paid in  unswapped native
+      if (fee.assetAddress == i_nativeAddress) {
+        if (msg.value != 0) {
+          //quote must be in native with enough to cover the fee
+          if (fee.amount > msg.value) revert InvalidDeposit();
+
+          //wrap the amount required to pay the fee & approve
+          IWERC20(i_nativeAddress).deposit{value: fee.amount}();
+
+          unchecked {
+            //msg.value is always >= to fee.amount
+            change -= fee.amount;
+          }
+        } else {
+          //if the user has not paid in native, they must have approved unwrapped native to be transferred
           IERC20(fee.assetAddress).transferFrom(subscriber, address(this), fee.amount);
         }
+      }
 
-        //check that the contract has enough LINK before paying the fee
-        if (reward.amount > IERC20(i_linkAddress).balanceOf(address(this))) {
-          // If not enough LINK on this contract to forward for rewards, fire this event and
-          // call onFeePaid out-of-band to pay out rewards
-          emit InsufficientLink(configDigest, reward.amount, fee.amount);
+      //get the config digest which is the first 32 bytes of the payload
+      bytes32 configDigest = bytes32(payload);
+
+      //although unlikely, the reward could potentially be 0
+      if (reward.amount != 0) {
+        //if the fee is in LINK, transfer directly from the subscriber to the reward manager
+        if (fee.assetAddress == i_linkAddress) {
+          //distributes the fee
+          i_rewardManager.onFeePaid(configDigest, subscriber, reward.amount);
         } else {
-          //bill the payee and distribute the fee using the config digest as the key
-          i_rewardManager.onFeePaid(configDigest, address(this), reward.amount);
+          //check that the contract has enough LINK before paying the fee
+          if (reward.amount > IERC20(i_linkAddress).balanceOf(address(this))) {
+            // If not enough LINK on this contract to forward for rewards, fire this event and
+            // call onFeePaid out-of-band to pay out rewards
+            emit InsufficientLink(configDigest, reward.amount, fee.amount);
+          } else {
+            //bill the payee and distribute the fee using the config digest as the key
+            i_rewardManager.onFeePaid(configDigest, address(this), reward.amount);
+          }
         }
       }
     }
