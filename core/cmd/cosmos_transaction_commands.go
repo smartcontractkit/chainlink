@@ -67,8 +67,8 @@ func (s *Shell) CosmosSendNativeToken(c *cli.Context) (err error) {
 		return s.errorOut(errors.New("four arguments expected: token, amount, fromAddress and toAddress"))
 	}
 
-	token, ok := sdk.GetDenomUnit(c.Args().Get(0))
-	if !ok {
+	err = sdk.ValidateDenom(c.Args().Get(0))
+	if err != nil {
 		return s.errorOut(fmt.Errorf("invalid native token: %w", err))
 	}
 
@@ -104,7 +104,7 @@ func (s *Shell) CosmosSendNativeToken(c *cli.Context) (err error) {
 		FromAddress:        fromAddress,
 		Amount:             amount,
 		CosmosChainID:      chainID,
-		Token:              token.String(),
+		Token:              c.Args().Get(0),
 		AllowHigherAmounts: c.IsSet("force"),
 	}
 
