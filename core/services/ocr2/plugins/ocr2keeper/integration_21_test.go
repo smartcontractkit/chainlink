@@ -200,19 +200,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	nodes := setupNodes(t, nodeKeys, registry, backend, steve)
 	// wait for nodes to start
 	// TODO: find a better way to do this
-	gBlock := backend.Blockchain().CurrentBlock()
-
-	bump := 0
-	for {
-		cBlock := backend.Blockchain().CurrentBlock()
-		if cBlock.Number.Int64() > gBlock.Number.Int64() {
-			gBlock = cBlock
-			bump++
-		}
-		if bump == 10 {
-			break
-		}
-	}
+	blockWait(10, backend)
 
 	upkeeps := 1
 
@@ -266,6 +254,22 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 		waitPipelineRuns(t, nodes, expectedPostRecover, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 
 	})
+}
+
+func blockWait(blockCount int, backend *backends.SimulatedBackend) {
+	currentBlock := backend.Blockchain().CurrentBlock()
+
+	count := 0
+	for {
+		nextBlock := backend.Blockchain().CurrentBlock()
+		if nextBlock.Number.Int64() > currentBlock.Number.Int64() {
+			currentBlock = nextBlock
+			count++
+		}
+		if count == blockCount {
+			break
+		}
+	}
 }
 
 func waitPipelineRuns(t *testing.T, nodes []Node, n int, timeout, interval time.Duration) {
