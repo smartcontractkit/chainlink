@@ -22,7 +22,6 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/WETH9.abi ../../contracts/solc/v0.8.19/WETH9.bin WETH9 weth9
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/BurnMintERC677.abi ../../contracts/solc/v0.8.19/BurnMintERC677.bin BurnMintERC677 burn_mint_erc677
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/BurnMintERC677Helper.abi ../../contracts/solc/v0.8.19/BurnMintERC677Helper.bin BurnMintERC677Helper burn_mint_erc677_helper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/ERC20.abi ../../contracts/solc/v0.8.19/ERC20.bin ERC20 erc20
 
 // Customer contracts
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/USDCTokenPool.abi ../../contracts/solc/v0.8.19/USDCTokenPool.bin USDCTokenPool usdc_token_pool
