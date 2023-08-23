@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
+	ccipselectors "github.com/smartcontractkit/ccip-chain-selectors"
 	"go.uber.org/multierr"
 
 	"manual-execution/helpers"
@@ -419,26 +420,10 @@ func (args *execArgs) approxDestStartBlock() error {
 	return nil
 }
 
-var evmChainIdToChainSelector = map[uint64]uint64{
-	// Testnets
-	420:      2664363617261496610,  // Optimism Goerli
-	1337:     3379446385462418246,  // Quorem
-	43113:    14767482510784806043, // Avax Fuji
-	80001:    12532609583862916517, // Polygon Mumbai
-	421613:   6101244977088475029,  // Arbitrum Goerli
-	11155111: 16015286601757825753, // Sepolia
-	// Mainnets
-	1:     5009297550715157269, // Ethereum
-	10:    3734403246176062136, // Optimism
-	137:   4051577828743386545, // Polygon
-	42161: 4949039107694359620, // Arbitrum
-	43114: 6433500567565415381, // Avalanche
-}
-
-func GetCCIPChainSelector(EVMChainId uint64) uint64 {
-	selector, ok := evmChainIdToChainSelector[EVMChainId]
-	if !ok {
-		panic(fmt.Sprintf("no chain selector for %d", EVMChainId))
+func GetCCIPChainSelector(chainId uint64) uint64 {
+	selector, err := ccipselectors.SelectorFromChainId(chainId)
+	if err != nil {
+		panic(fmt.Sprintf("no chain selector for %d", chainId))
 	}
 	return selector
 }
