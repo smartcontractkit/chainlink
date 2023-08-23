@@ -158,11 +158,11 @@ func (p *logEventProvider) Name() string {
 func (p *logEventProvider) GetLatestPayloads(context.Context) ([]ocr2keepers.UpkeepPayload, error) {
 	// TODO: Fitler logs below upkeep creation block here
 	latest := p.buffer.latestBlockSeen()
-	diff := latest - p.opts.LookbackBlocks
-	if diff < 0 {
-		diff = latest
+	start := latest - p.opts.LookbackBlocks
+	if start <= 0 {
+		start = 1
 	}
-	logs := p.buffer.dequeue(int(diff), AllowedLogsPerUpkeep)
+	logs := p.buffer.dequeueRange(start, latest, AllowedLogsPerUpkeep)
 
 	// p.lggr.Debugw("got latest logs from buffer", "latest", latest, "diff", diff, "logs", len(logs))
 
