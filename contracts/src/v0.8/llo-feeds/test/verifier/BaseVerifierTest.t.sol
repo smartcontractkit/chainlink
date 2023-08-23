@@ -350,7 +350,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
       });
   }
 
-  function _generateReportContext(bytes32 feedId) internal returns (bytes32[3] memory) {
+  function _generateReportContext(bytes32 feedId) internal view returns (bytes32[3] memory) {
     (, , bytes32 latestConfigDigest) = s_verifier.latestConfigDetails(feedId);
     bytes32[3] memory reportContext;
     reportContext[0] = latestConfigDigest;
