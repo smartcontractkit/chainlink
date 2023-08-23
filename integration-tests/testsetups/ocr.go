@@ -184,8 +184,6 @@ func (o *OCRSoakTest) Setup() {
 		network = networks.SelectedNetwork
 	)
 
-	// DEBUG: Intentional Fail
-	o.t.FailNow()
 	// Environment currently being used to soak test on
 	// Make connections to soak test resources
 	o.chainClient, err = blockchain.NewEVMClient(network, o.testEnvironment)
@@ -468,6 +466,11 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	defer newRoundTrigger.Stop()
 	err := o.observeOCREvents()
 	require.NoError(o.t, err, "Error subscribing to OCR events")
+
+	go func() {
+		time.Sleep(time.Minute * 5)
+		interruption <- syscall.SIGTERM
+	}()
 
 	for {
 		select {
