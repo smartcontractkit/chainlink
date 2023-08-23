@@ -7,7 +7,7 @@ import {FacadeClient} from "./FacadeClient.sol";
 import {ReentrantMaliciousTokenPool} from "./ReentrantMaliciousTokenPool.sol";
 import {EVM2EVMOnRampSetup} from "../../onRamp/EVM2EVMOnRampSetup.t.sol";
 
-import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.0/token/ERC20/IERC20.sol";
+import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
 
 /// @title OnRampTokenPoolReentrancy
 /// Attempts to perform a reentrancy exploit on Onramp with a malicious TokenPool

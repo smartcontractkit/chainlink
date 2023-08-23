@@ -4,7 +4,7 @@ pragma solidity 0.8.19;
 import {TokenPool} from "../../pools/TokenPool.sol";
 import {RateLimiter} from "../../libraries/RateLimiter.sol";
 
-import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.0/token/ERC20/IERC20.sol";
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
 
 contract CustomTokenPool is TokenPool {
   event SynthBurned(uint256 amount);

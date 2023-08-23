@@ -7,7 +7,7 @@ import {OwnerIsCreator} from "../../../../shared/access/OwnerIsCreator.sol";
 import {Client} from "../../../libraries/Client.sol";
 import {CCIPReceiver} from "../../../applications/CCIPReceiver.sol";
 
-import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.0/token/ERC20/IERC20.sol";
+import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
 
 /// @title FacadeClient - A simple proxy for calling Router
 contract FacadeClient {

@@ -7,7 +7,7 @@ import {IARM} from "../interfaces/IARM.sol";
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
 
-import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/token/ERC20/IERC20.sol";
+import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
 import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.0/utils/introspection/IERC165.sol";
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.0/utils/structs/EnumerableSet.sol";
 

@@ -13,8 +13,8 @@ import {Client} from "./libraries/Client.sol";
 import {OwnerIsCreator} from "./../shared/access/OwnerIsCreator.sol";
 
 import {EnumerableMap} from "../vendor/openzeppelin-solidity/v4.8.0/utils/structs/EnumerableMap.sol";
-import {SafeERC20} from "../vendor/openzeppelin-solidity/v4.8.0/token/ERC20/utils/SafeERC20.sol";
-import {IERC20} from "../vendor/openzeppelin-solidity/v4.8.0/token/ERC20/IERC20.sol";
+import {SafeERC20} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
 
 /// @title Router
 /// @notice This is the entry point for the end user wishing to send data across chains.
