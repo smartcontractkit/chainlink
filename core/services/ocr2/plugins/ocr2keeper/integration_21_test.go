@@ -165,7 +165,7 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
-	t.Skip() // TODO: fix test (fails in CI)
+	//t.Skip() // TODO: fix test (fails in CI)
 	g := gomega.NewWithT(t)
 
 	// setup blockchain
@@ -200,7 +200,19 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	nodes := setupNodes(t, nodeKeys, registry, backend, steve)
 	// wait for nodes to start
 	// TODO: find a better way to do this
-	<-time.After(time.Second * 10)
+	gBlock := backend.Blockchain().CurrentBlock()
+
+	bump := 0
+	for {
+		cBlock := backend.Blockchain().CurrentBlock()
+		if cBlock.Number.Int64() > gBlock.Number.Int64() {
+			gBlock = cBlock
+			bump++
+		}
+		if bump == 10 {
+			break
+		}
+	}
 
 	upkeeps := 1
 
@@ -229,7 +241,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	runs := checkPipelineRuns(t, nodes, 1*len(nodes)) // TODO: TBD
 
 	t.Run("recover logs", func(t *testing.T) {
-		t.Skip() // TODO: fix test (fails in CI)
+		//t.Skip() // TODO: fix test (fails in CI)
 		addr, contract := addrs[0], contracts[0]
 		upkeepID := registerUpkeep(t, registry, addr, carrol, steve, backend)
 		backend.Commit()
