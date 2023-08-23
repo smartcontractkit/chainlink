@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/big"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -42,7 +42,7 @@ const (
 	FEE_TOKEN_REMOVED            = "Fee token removed"
 )
 
-func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet evm.ChainSet, new bool, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string)) ([]job.ServiceCtx, error) {
+func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainContainer, new bool, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string)) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 	var pluginConfig ccipconfig.ExecutionPluginConfig
 	err := json.Unmarshal(spec.PluginConfig.Bytes(), &pluginConfig)
@@ -55,7 +55,7 @@ func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet evm.ChainSet,
 		return nil, errors.New("chainID must be provided in relay config")
 	}
 	destChainID := int64(chainIDInterface.(float64))
-	destChain, err := chainSet.Get(big.NewInt(destChainID))
+	destChain, err := chainSet.Get(strconv.FormatInt(destChainID, 10))
 	if err != nil {
 		return nil, errors.Wrap(err, "get chainset")
 	}
@@ -71,7 +71,7 @@ func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet evm.ChainSet,
 	if err != nil {
 		return nil, err
 	}
-	sourceChain, err := chainSet.Get(big.NewInt(0).SetUint64(chainId))
+	sourceChain, err := chainSet.Get(strconv.FormatUint(chainId, 10))
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to open source chain")
 	}
@@ -208,7 +208,7 @@ func getExecutionPluginDestLpChainFilters(commitStore, offRamp, priceRegistry co
 }
 
 // UnregisterExecPluginLpFilters unregisters all the registered filters for both source and dest chains.
-func UnregisterExecPluginLpFilters(ctx context.Context, q pg.Queryer, spec *job.OCR2OracleSpec, chainSet evm.ChainSet) error {
+func UnregisterExecPluginLpFilters(ctx context.Context, q pg.Queryer, spec *job.OCR2OracleSpec, chainSet evm.LegacyChainContainer) error {
 	if spec == nil {
 		return errors.New("spec is nil")
 	}
@@ -227,7 +227,7 @@ func UnregisterExecPluginLpFilters(ctx context.Context, q pg.Queryer, spec *job.
 	if !is {
 		return fmt.Errorf("chain id '%v' is not float64", destChainIDInterface)
 	}
-	destChain, err := chainSet.Get(big.NewInt(int64(destChainIDf64)))
+	destChain, err := chainSet.Get(strconv.FormatInt(int64(destChainIDf64), 10))
 	if err != nil {
 		return err
 	}
@@ -246,7 +246,7 @@ func UnregisterExecPluginLpFilters(ctx context.Context, q pg.Queryer, spec *job.
 	if err != nil {
 		return err
 	}
-	sourceChain, err := chainSet.Get(big.NewInt(0).SetUint64(chainId))
+	sourceChain, err := chainSet.Get(strconv.FormatUint(chainId, 10))
 	if err != nil {
 		return errors.Wrap(err, "unable to open source chain")
 	}

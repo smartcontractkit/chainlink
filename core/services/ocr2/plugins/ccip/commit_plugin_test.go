@@ -3,7 +3,7 @@ package ccip
 import (
 	"context"
 	"fmt"
-	"math/big"
+	"strconv"
 	"sync"
 	"testing"
 
@@ -60,12 +60,12 @@ func TestGetCommitPluginFilterNamesFromSpec(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
-			chainSet := &evmmocks.ChainSet{}
+			chainSet := &evmmocks.LegacyChainContainer{}
 
 			if tc.spec != nil {
 				if chainID, ok := tc.spec.RelayConfig["chainID"]; ok {
-					chainIdBigInt := big.NewInt(int64(chainID.(float64)))
-					chainSet.On("Get", chainIdBigInt).
+					chainIdStr := strconv.FormatInt(int64(chainID.(float64)), 10)
+					chainSet.On("Get", chainIdStr).
 						Return(nil, fmt.Errorf("chain %d not found", chainID))
 				}
 			}
