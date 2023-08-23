@@ -110,9 +110,11 @@ func (c *CCIPE2ELoad) BeforeAllCall(msgType string) {
 	if msgType == actions.TokenTransfer {
 		c.msg.TokenAmounts = tokenAndAmounts
 	}
-	dCfg, err := sourceCCIP.OnRamp.Instance.GetDynamicConfig(nil)
-	require.NoError(c.t, err, "failed to fetch dynamic config")
-	c.MaxDataSize = dCfg.MaxDataSize
+	if c.SendMaxDataIntermittently {
+		dCfg, err := sourceCCIP.OnRamp.Instance.GetDynamicConfig(nil)
+		require.NoError(c.t, err, "failed to fetch dynamic config")
+		c.MaxDataSize = dCfg.MaxDataSize
+	}
 
 	// wait for any pending txs before moving on
 	err = sourceCCIP.Common.ChainClient.WaitForEvents()
