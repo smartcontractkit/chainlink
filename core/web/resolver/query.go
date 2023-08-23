@@ -328,11 +328,10 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
-	r.App.GetLogger().Debugf("resolver Nodes: %v ", args)
 	allNodes, total, err := r.App.GetRelayers().NodeStatuses(ctx, offset, limit)
-	r.App.GetLogger().Debugf("resolver Nodes statuses: %v, %d, %v ", allNodes, total, err)
 
 	if err != nil {
+		r.App.GetLogger().Errorw("Error creating get nodes status from app", "err", err)
 		return nil, err
 	}
 	npr, warn := NewNodesPayload(allNodes, int32(total))
