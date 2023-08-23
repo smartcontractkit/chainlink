@@ -6,8 +6,8 @@ pragma abicoder v2;
 import "./IForwarder.sol";
 import {OwnerIsCreator} from "../shared/access/OwnerIsCreator.sol";
 
-import {ECDSA} from "../vendor/openzeppelin-solidity/v4.8.0/utils/cryptography/ECDSA.sol";
-import {ERC165} from "../vendor/openzeppelin-solidity/v4.8.0/utils/introspection/ERC165.sol";
+import {ECDSA} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/cryptography/ECDSA.sol";
+import {ERC165} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/introspection/ERC165.sol";
 import {ExcessivelySafeCall} from "../vendor/nomad-xyz/ExcessivelySafeCall.sol";
 
 /// @title The Forwarder Implementation
@@ -66,6 +66,7 @@ contract Forwarder is IForwarder, ERC165, OwnerIsCreator {
   }
 
   error ForwardFailed(bytes reason);
+
   event ForwardSucceeded(
     address indexed from,
     address indexed target,

@@ -3,7 +3,7 @@ pragma solidity 0.8.19;
 
 import "../../../interfaces/IAny2EVMMessageReceiver.sol";
 
-import "../../../../vendor/openzeppelin-solidity/v4.8.0/utils/introspection/IERC165.sol";
+import "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/introspection/IERC165.sol";
 
 contract MaybeRevertMessageReceiver is IAny2EVMMessageReceiver, IERC165 {
   error ReceiveRevert();
