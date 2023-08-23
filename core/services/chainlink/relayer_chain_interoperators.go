@@ -269,7 +269,7 @@ func (rs *CoreRelayerChainInteroperators) Node(ctx context.Context, name string)
 			return stat, nil
 		}
 	}
-	return types.NodeStatus{}, chains.ErrNotFound
+	return types.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 }
 
 // ids must be a string representation of relay.Identifier

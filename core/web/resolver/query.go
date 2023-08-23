@@ -222,10 +222,13 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
-
+	r.App.GetLogger().Debug("resolver Node args %v", args)
 	name := string(args.ID)
+	r.App.GetLogger().Debug("resolver Node name %s", name)
 	node, err := r.App.EVMORM().NodeStatus(name)
 	if err != nil {
+		r.App.GetLogger().Errorf("resolver error: %s", err)
+
 		if errors.Is(err, chains.ErrNotFound) {
 			npr, warn := NewNodePayloadResolver(nil, err)
 			if warn != nil {
@@ -325,8 +328,10 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
-
+	r.App.GetLogger().Debugf("resolver Nodes: %v ", args)
 	allNodes, total, err := r.App.GetRelayers().NodeStatuses(ctx, offset, limit)
+	r.App.GetLogger().Debugf("resolver Nodes statuses: %v, %d, %v ", allNodes, total, err)
+
 	if err != nil {
 		return nil, err
 	}

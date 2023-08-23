@@ -1,6 +1,7 @@
 package evmtest
 
 import (
+	"fmt"
 	"math/big"
 	"sync"
 	"sync/atomic"
@@ -211,7 +212,7 @@ func (mo *TestConfigs) Nodes(chainID utils.Big) (nodes []evmtypes.Node, err erro
 			}
 		}
 	}
-	err = chains.ErrNotFound
+	err = fmt.Errorf("no nodes: chain %s: %w", chainID.String(), chains.ErrNotFound)
 	return
 }
 
@@ -227,7 +228,7 @@ func (mo *TestConfigs) Node(name string) (evmtypes.Node, error) {
 			}
 		}
 	}
-	return evmtypes.Node{}, chains.ErrNotFound
+	return evmtypes.Node{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 }
 
 func (mo *TestConfigs) NodeStatusesPaged(offset int, limit int, chainIDs ...string) (nodes []types.NodeStatus, cnt int, err error) {

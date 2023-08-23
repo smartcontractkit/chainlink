@@ -279,7 +279,7 @@ func (cll *chainSet) ChainStatus(ctx context.Context, id string) (cfg relaytypes
 	}
 	l := len(cs)
 	if l == 0 {
-		err = chains.ErrNotFound
+		err = fmt.Errorf("chain %s: %w", id, chains.ErrNotFound)
 		return
 	}
 	if l > 1 {

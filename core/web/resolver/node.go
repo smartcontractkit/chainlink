@@ -3,6 +3,7 @@ package resolver
 import (
 	"context"
 	"errors"
+	"log"
 
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pelletier/go-toml/v2"
@@ -20,8 +21,10 @@ type NodeResolver struct {
 }
 
 func NewNode(status types.NodeStatus) (nr *NodeResolver, warn error) {
+	log.Printf("NewNode %v", status)
 	nr = &NodeResolver{status: status}
 	warn = toml.Unmarshal([]byte(status.Config), &nr.node)
+	log.Printf("NewNode %v", nr)
 	return
 }
 
