@@ -112,7 +112,7 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 		// TODO validator for DR-OCR spec: https://app.shortcut.com/chainlinklabs/story/54054/ocr-plugin-for-directrequest-ocr
 		return nil
 	case job.Mercury:
-		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig)
+		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig, *spec.OCR2OracleSpec.FeedID)
 	case job.CCIPExecution, job.CCIPCommit:
 	case "":
 		return errors.New("no plugin specified")
@@ -189,11 +189,11 @@ func validateOCR2KeeperSpec(jsonConfig job.JSONConfig) error {
 	return nil
 }
 
-func validateOCR2MercurySpec(jsonConfig job.JSONConfig) error {
+func validateOCR2MercurySpec(jsonConfig job.JSONConfig, feedId [32]byte) error {
 	var pluginConfig mercuryconfig.PluginConfig
 	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
 	if err != nil {
 		return pkgerrors.Wrap(err, "error while unmarshaling plugin config")
 	}
-	return pkgerrors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig), "Mercury PluginConfig is invalid")
+	return pkgerrors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig, feedId), "Mercury PluginConfig is invalid")
 }

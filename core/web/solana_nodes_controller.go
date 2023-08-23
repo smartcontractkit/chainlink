@@ -2,6 +2,7 @@ package web
 
 import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
 
@@ -10,5 +11,5 @@ var ErrSolanaNotEnabled = errChainDisabled{name: "Solana", tomlKey: "Solana.Enab
 
 func NewSolanaNodesController(app chainlink.Application) NodesController {
 	return newNodesController[presenters.SolanaNodeResource](
-		app.GetChains().Solana, ErrSolanaNotEnabled, presenters.NewSolanaNodeResource, app.GetAuditLogger())
+		app.GetRelayers().List(chainlink.FilterRelayersByType(relay.Solana)), ErrSolanaNotEnabled, presenters.NewSolanaNodeResource, app.GetAuditLogger())
 }

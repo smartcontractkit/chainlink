@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"regexp"
+	"strconv"
 
 	"golang.org/x/exp/maps"
 
@@ -28,6 +30,78 @@ var (
 		StarkNet: {},
 	}
 )
+
+// ID uniquely identifies a relayer by network and chain id
+type ID struct {
+	Network Network
+	ChainID ChainID
+}
+
+func (i *ID) Name() string {
+	return fmt.Sprintf("%s.%s", i.Network, i.ChainID.String())
+}
+
+func (i *ID) String() string {
+	return i.Name()
+}
+func NewID(n Network, c ChainID) (ID, error) {
+	id := ID{Network: n, ChainID: c}
+	err := id.validate()
+	if err != nil {
+		return ID{}, err
+	}
+	return id, nil
+}
+func (i *ID) validate() error {
+	// the only validation is to ensure that EVM chain ids are compatible with int64
+	if i.Network == EVM {
+		_, err := i.ChainID.Int64()
+		if err != nil {
+			return fmt.Errorf("RelayIdentifier invalid: EVM relayer must have integer-compatible chain ID: %w", err)
+		}
+	}
+	return nil
+}
+
+var idRegex = regexp.MustCompile(
+	fmt.Sprintf("^((%s)|(%s)|(%s)|(%s))\\.", EVM, Cosmos, Solana, StarkNet),
+)
+
+func (i *ID) UnmarshalString(s string) error {
+	idxs := idRegex.FindStringIndex(s)
+	if idxs == nil {
+		return fmt.Errorf("error unmarshaling Identifier. %q does not match expected pattern", s)
+	}
+	// ignore the `.` in the match by dropping last rune
+	network := s[idxs[0] : idxs[1]-1]
+	chainID := s[idxs[1]:]
+	newID := &ID{ChainID: ChainID(chainID)}
+	for n := range SupportedRelays {
+		if Network(network) == n {
+			newID.Network = n
+			break
+		}
+	}
+	if newID.Network == "" {
+		return fmt.Errorf("error unmarshaling identifier: did not find network in supported list %q", network)
+	}
+	i.ChainID = newID.ChainID
+	i.Network = newID.Network
+	return nil
+}
+
+type ChainID string
+
+func (c ChainID) String() string {
+	return string(c)
+}
+func (c ChainID) Int64() (int64, error) {
+	i, err := strconv.Atoi(c.String())
+	if err != nil {
+		return int64(0), err
+	}
+	return int64(i), nil
+}
 
 // RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a ChainSet. See [relayerAdapter].
 type RelayerExt interface {

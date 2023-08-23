@@ -16,12 +16,12 @@ import (
 var _ job.Delegate = (*Delegate)(nil)
 
 type Delegate struct {
-	logger   logger.Logger
-	db       *sqlx.DB
-	jrm      job.ORM
-	pr       pipeline.Runner
-	chainSet evm.ChainSet
-	mailMon  *utils.MailboxMonitor
+	logger       logger.Logger
+	db           *sqlx.DB
+	jrm          job.ORM
+	pr           pipeline.Runner
+	legacyChains evm.LegacyChainContainer
+	mailMon      *utils.MailboxMonitor
 }
 
 // NewDelegate is the constructor of Delegate
@@ -30,16 +30,16 @@ func NewDelegate(
 	jrm job.ORM,
 	pr pipeline.Runner,
 	logger logger.Logger,
-	chainSet evm.ChainSet,
+	legacyChains evm.LegacyChainContainer,
 	mailMon *utils.MailboxMonitor,
 ) *Delegate {
 	return &Delegate{
-		logger:   logger,
-		db:       db,
-		jrm:      jrm,
-		pr:       pr,
-		chainSet: chainSet,
-		mailMon:  mailMon,
+		logger:       logger,
+		db:           db,
+		jrm:          jrm,
+		pr:           pr,
+		legacyChains: legacyChains,
+		mailMon:      mailMon,
 	}
 }
 
@@ -58,7 +58,7 @@ func (d *Delegate) ServicesForSpec(spec job.Job, qopts ...pg.QOpt) (services []j
 	if spec.KeeperSpec == nil {
 		return nil, errors.Errorf("Delegate expects a *job.KeeperSpec to be present, got %v", spec)
 	}
-	chain, err := d.chainSet.Get(spec.KeeperSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(spec.KeeperSpec.EVMChainID.String())
 	if err != nil {
 		return nil, err
 	}

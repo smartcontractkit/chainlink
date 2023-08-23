@@ -8,6 +8,7 @@
 #  workflow_dispatch:
 #
 #
+#
 #env:
 #  CHAINLINK_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
 #  ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
@@ -31,7 +32,7 @@
 #        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
 #      - name: Check if image exists
 #        id: check-image
-#        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+#        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35 # v2.2.9
 #        with:
 #          repository: chainlink
 #          tag: ${{ github.sha }}
@@ -39,7 +40,7 @@
 #          AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 #      - name: Build Image
 #        if: steps.check-image.outputs.exists == 'false'
-#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35 # v2.2.9
 #        with:
 #          cl_repo: smartcontractkit/chainlink
 #          cl_ref: ${{ github.sha }}
@@ -110,7 +111,7 @@
 #      - name: Checkout the repo
 #        uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
 #      - name: Run Tests
-#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35 # v2.2.9
 #        with:
 #          test_command_to_run: make test_need_operator_assets && cd integration-tests && go test -timeout 1h -count=1 -json -test.parallel 11 ./chaos 2>&1 | tee /tmp/gotest.log | gotestfmt
 #          test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -130,4 +131,4 @@
 #          name: Test Results Log
 #          path: /tmp/gotest.log
 #          retention-days: 7
-
+#

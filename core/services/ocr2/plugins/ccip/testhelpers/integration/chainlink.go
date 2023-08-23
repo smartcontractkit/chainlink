@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 
 	ctfClient "github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -52,6 +54,7 @@ import (
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 type Node struct {
@@ -73,7 +76,7 @@ func (node *Node) FindJobIDForContract(t *testing.T, addr common.Address) int32 
 }
 
 func (node *Node) EventuallyNodeUsesUpdatedPriceRegistry(t *testing.T, ccipContracts CCIPIntegrationTestHarness) logpoller.Log {
-	c, err := node.App.GetChains().EVM.Get(big.NewInt(0).SetUint64(ccipContracts.Dest.ChainID))
+	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
 	var log logpoller.Log
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -95,7 +98,7 @@ func (node *Node) EventuallyNodeUsesUpdatedPriceRegistry(t *testing.T, ccipContr
 }
 
 func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts CCIPIntegrationTestHarness, commitCfg ccipconfig.CommitOnchainConfig) logpoller.Log {
-	c, err := node.App.GetChains().EVM.Get(big.NewInt(0).SetUint64(ccipContracts.Dest.ChainID))
+	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
 	var log logpoller.Log
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -120,7 +123,7 @@ func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts 
 }
 
 func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CCIPIntegrationTestHarness, execCfg ccipconfig.ExecOnchainConfig) logpoller.Log {
-	c, err := node.App.GetChains().EVM.Get(big.NewInt(0).SetUint64(ccipContracts.Dest.ChainID))
+	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
 	var log logpoller.Log
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -145,7 +148,7 @@ func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CC
 }
 
 func (node *Node) EventuallyHasReqSeqNum(t *testing.T, ccipContracts *CCIPIntegrationTestHarness, onRamp common.Address, seqNum int) logpoller.Log {
-	c, err := node.App.GetChains().EVM.Get(big.NewInt(0).SetUint64(ccipContracts.Source.ChainID))
+	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Source.ChainID, 10))
 	require.NoError(t, err)
 	var log logpoller.Log
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -172,7 +175,7 @@ func (node *Node) EventuallyHasReqSeqNum(t *testing.T, ccipContracts *CCIPIntegr
 }
 
 func (node *Node) EventuallyHasExecutedSeqNums(t *testing.T, ccipContracts *CCIPIntegrationTestHarness, offRamp common.Address, minSeqNum int, maxSeqNum int) []logpoller.Log {
-	c, err := node.App.GetChains().EVM.Get(big.NewInt(0).SetUint64(ccipContracts.Dest.ChainID))
+	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
 	var logs []logpoller.Log
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
@@ -200,7 +203,7 @@ func (node *Node) EventuallyHasExecutedSeqNums(t *testing.T, ccipContracts *CCIP
 }
 
 func (node *Node) ConsistentlySeqNumHasNotBeenExecuted(t *testing.T, ccipContracts *CCIPIntegrationTestHarness, offRamp common.Address, seqNum int) logpoller.Log {
-	c, err := node.App.GetChains().EVM.Get(big.NewInt(0).SetUint64(ccipContracts.Dest.ChainID))
+	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
 	var log logpoller.Log
 	gomega.NewGomegaWithT(t).Consistently(func() bool {
@@ -308,40 +311,53 @@ func setupNodeCCIP(
 	sourceClient := client.NewSimulatedBackendClient(t, sourceChain, sourceChainID)
 	destClient := client.NewSimulatedBackendClient(t, destChain, destChainID)
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, config.Database())
-	simEthKeyStore := testhelpers.EthKeyStoreSim{Eth: keyStore.Eth()}
+	simEthKeyStore := testhelpers.EthKeyStoreSim{
+		ETHKS: keyStore.Eth(),
+		CSAKS: keyStore.CSA(),
+	}
 	mailMon := utils.NewMailboxMonitor("CCIP")
-
-	evmChain, err := evm.NewTOMLChainSet(context.Background(), evm.ChainSetOpts{
-		Config:           config,
-		Logger:           lggr,
-		DB:               db,
-		KeyStore:         simEthKeyStore,
-		EventBroadcaster: eventBroadcaster,
-		GenEthClient: func(chainID *big.Int) client.Client {
-			if chainID.String() == sourceChainID.String() {
-				return sourceClient
-			} else if chainID.String() == destChainID.String() {
-				return destClient
-			}
-			t.Fatalf("invalid chain ID %v", chainID.String())
-			return nil
+	evmOpts := chainlink.EVMFactoryConfig{
+		RelayerConfig: evm.RelayerConfig{
+			GeneralConfig:    config,
+			EventBroadcaster: eventBroadcaster,
+			GenEthClient: func(chainID *big.Int) client.Client {
+				if chainID.String() == sourceChainID.String() {
+					return sourceClient
+				} else if chainID.String() == destChainID.String() {
+					return destClient
+				}
+				t.Fatalf("invalid chain ID %v", chainID.String())
+				return nil
+			},
+			MailMon: mailMon,
 		},
-		MailMon: mailMon,
-	})
+		CSAETHKeystore: simEthKeyStore,
+	}
+	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"))
+	relayerFactory := chainlink.RelayerFactory{
+		Logger:       lggr,
+		DB:           db,
+		QConfig:      config.Database(),
+		LoopRegistry: loopRegistry,
+		GRPCOpts:     loop.GRPCOpts{},
+	}
+	testCtx := testutils.Context(t)
+	// evm alway enabled for backward compatibility
+	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitEVM(testCtx, relayerFactory, evmOpts)}
+
+	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
 	if err != nil {
-		lggr.Fatal(err)
+		t.Fatal(err)
 	}
 
 	app, err := chainlink.NewApplication(chainlink.ApplicationOpts{
-		Config:           config,
-		EventBroadcaster: eventBroadcaster,
-		SqlxDB:           db,
-		KeyStore:         keyStore,
-		Chains: chainlink.Chains{
-			EVM: evmChain,
-		},
-		Logger:                   lggr,
-		ExternalInitiatorManager: nil,
+		Config:                     config,
+		EventBroadcaster:           eventBroadcaster,
+		SqlxDB:                     db,
+		KeyStore:                   keyStore,
+		RelayerChainInteroperators: relayChainInterops,
+		Logger:                     lggr,
+		ExternalInitiatorManager:   nil,
 		CloseLogger: func() error {
 			return nil
 		},
@@ -682,7 +698,7 @@ func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeli
 	c.AddAllJobs(t, jobParams)
 
 	// Replay for bootstrap.
-	bc, err := bootstrapNode.App.GetChains().EVM.Get(big.NewInt(0).SetUint64(c.Dest.ChainID))
+	bc, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(c.Dest.ChainID, 10))
 	require.NoError(t, err)
 	require.NoError(t, bc.LogPoller().Replay(context.Background(), configBlock))
 	c.Dest.Chain.Commit()

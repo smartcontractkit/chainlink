@@ -1,0 +1,6 @@
+// Package gethwrappers provides tools for wrapping solidity contracts with
+// golang packages, using abigen.
+package gethwrappers
+
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/BurnMintERC677.abi ../../../contracts/solc/v0.8.19/BurnMintERC677.bin BurnMintERC677 burn_mint_erc677
+//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.19/LinkToken.abi ../../../contracts/solc/v0.8.19/LinkToken.bin LinkToken link_token

@@ -22,7 +22,7 @@ jobs:
             src:
               - 'contracts/src/v0.8/**/*'
               - '.github/workflows/solidity-foundry.yml'
-              - 'contacts/foundry.toml'
+              - 'contracts/foundry.toml'
 
   solhint:
     needs: [changes]

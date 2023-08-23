@@ -9,30 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
-### Changed
-- Simple passwords are no longer allowed for production builds
+<!-- unreleasedstop -->
 
-## 2.4.0 - UNRELEASED
+## 2.4.0 - 2023-08-21
+
 ### Fixed
-- Updated `v2/keys/evm` and `v2/keys/eth` routes to return 400 and 404 status codes where appropriate. Previously 500s were returned when requested resources were not found or client requests could not be parsed. 
+
+- Updated `v2/keys/evm` and `v2/keys/eth` routes to return 400 and 404 status codes where appropriate. Previously 500s were returned when requested resources were not found or client requests could not be parsed.
+- Fixed withdrawing ETH from CL node for EIP1559 enabled chains. Previously would error out unless validation was overridden with `allowHigherAmounts`.
 
 ### Added
+
 - Added the ability to specify and merge fields from multiple secrets files. Overrides of fields and keys are not allowed.
 
-### Upcoming Breaking Change
-- Starting in 2.5.0, chainlink nodes will no longer allow insecure configuration for production builds. Any TOML configuration that sets the following line will fail validation checks in `node start` or `node validate`:
+### Upcoming Required Configuration Change
+
+- Starting in 2.6.0, chainlink nodes will no longer allow insecure configuration for production builds. Any TOML configuration that sets the following line will fail validation checks in `node start` or `node validate`:
+
 ```
 AllowSimplePasswords=true
 ```
-- To migrate on production builds, update the database password set in Database.URL to be 16 - 50 characters without leading or trailing whitespace. URI parsing rules apply to the chosen password - refer to RFC 3986 for special character escape rules. 
 
-<!-- unreleasedstop -->
+- To migrate on production builds, update the database password set in Database.URL to be 16 - 50 characters without leading or trailing whitespace. URI parsing rules apply to the chosen password - refer to [RFC 3986](https://datatracker.ietf.org/doc/html/rfc3986) for special character escape rules.
 
 ## 2.3.0 - 2023-07-28
 
 ### Added
+
 - Add a new field called `Order` (range from 1 to 100) to `EVM.Nodes` that is used for the `PriorityLevel` node selector and also as a tie-breaker for `HighestHead` and `TotalDifficulty`. `Order` levels are considered in ascending order. If not defined it will default to `Order = 100` (last level).
 - Added new node selection mode called `PriorityLevel` for EVM, it is a tiered round-robin in ascending order of the`Order` field. Example:
+
 ```
 [EVM.NodePool]
 SelectionMode = 'PriorityLevel'
@@ -41,8 +47,9 @@ SelectionMode = 'PriorityLevel'
 Name = '...'
 WSURL = '...'
 HTTPURL = '...'
-Order = 5 
+Order = 5
 ```
+
 - The config keys `WebServer.StartTimeout` and `WebServer.HTTPMaxSize`. These keys respectively set a timeout for the node server to
   start and set the max request size for HTTP requests. Previously these attributes were set by
   `JobPipeline.DefaultHTTPLimit`/`JobPipeline.DefaultHTTPTimeout`. To migrate to these new fields, set their values to be identical to
@@ -61,18 +68,20 @@ Order = 5
 
 - Add two new config parameters `WebServer.ListenIP` and `WebServer.TLS.ListenIP` which allows binding Chainlink HTTP/HTTPS servers to a particular IP. The default is '0.0.0.0' which listens to all IP addresses (same behavior as before). Set to '127.0.0.1' to only allow connections from the local machine (this can be handy for local development).
 - Add several new metrics for mercury feeds, related to WSRPC connections:
-    - `mercury_transmit_timeout_count`
-    - `mercury_dial_count`
-    - `mercury_dial_success_count`
-    - `mercury_dial_error_count`
-    - `mercury_connection_reset_count`
+  - `mercury_transmit_timeout_count`
+  - `mercury_dial_count`
+  - `mercury_dial_success_count`
+  - `mercury_dial_error_count`
+  - `mercury_connection_reset_count`
 
 Node operators may wish to add alerting based around these metrics.
 
 ### Fixed
+
 - Fixed a bug in the `nodes xxx list` command that caused results to not be displayed correctly
 
 ### Changed
+
 - Assumption violations for MaxFeePerGas >= BaseFeePerGas and MaxFeePerGas >= MaxPriorityFeePerGas in EIP-1559 effective gas price calculation will now use a gas price if specified
 - Config validation now enforces protection against duplicate chain ids and node fields per provided TOML file. Duplicates accross multiple configuration files are still valid. If you have specified duplicate chain ids or nodes in a given configuration file, this change will error out of all `node` subcommands.
 - Restricted scope of the `Evm.GasEstimator.LimitJobType.OCR`, `OCR.DefaultTransactionQueueDepth`, and `OCR.SimulateTransactions` settings so they
@@ -80,6 +89,7 @@ Node operators may wish to add alerting based around these metrics.
   want your settings to apply to OCR2.
 
 ### Removed
+
 - Legacy chain types Optimism and Optimism2. OptimismBedrock is now used to handle Optimism's special cases.
 - Optimism Kovan configurations along with legacy error messages.
 
@@ -90,16 +100,18 @@ Node operators may wish to add alerting based around these metrics.
 - New prometheus metric for mercury transmit queue: `mercury_transmit_queue_load`. This is a gauge, scoped by feed ID, that measures how many pending transmissions are in the queue. This should generally speaking be small (< 10 or so). Nops may wish to add alerting if this exceeds some amount.
 - Experimental support of runtime process isolation for Solana data feeds. Requires plugin binaries to be installed and
   configured via the env vars `CL_SOLANA_CMD` and `CL_MEDIAN_CMD`. See [plugins/README.md](../plugins/README.md).
+
 ### Fixed
 
 - Fixed a bug which made it impossible to re-send the same transaction after abandoning it while manually changing the nonce.
 
 ### Changed
+
 - Set default for EVM.GasEstimator.BumpTxDepth to EVM.Transactions.MaxInFlight.
 - Bumped batch size defaults for EVM specific configuration. If you are overriding any of these fields in your local config, please consider if it is necessary:
-	- `LogBackfillBatchSize = 1000`
-	- `RPCDefaultBatchSize = 250`
-	- `GasEstimator.BatchSize = 25`
+  - `LogBackfillBatchSize = 1000`
+  - `RPCDefaultBatchSize = 250`
+  - `GasEstimator.BatchSize = 25`
 - Dropped support for Development Mode configuration. `CL_DEV` is now ignored on production builds.
 - Updated Docker image's PostgreSQL client (used for backups) to v15 in order to support PostgreSQL v15 servers.
 
@@ -1870,8 +1882,7 @@ transactions that started hitting this limit and instead continue to resubmit
 at the highest price that worked.
 
 Node operators should check their geth nodes and remove this cap if configured,
-you can do this by running your geth node with `--rpc.gascap=0
---rpc.txfeecap=0` or setting these values in your config toml.
+you can do this by running your geth node with `--rpc.gascap=0 --rpc.txfeecap=0` or setting these values in your config toml.
 
 - Make head backfill asynchronous. This should eliminate some harmless but
   annoying errors related to backfilling heads, logged on startup and

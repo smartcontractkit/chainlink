@@ -13,13 +13,13 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
-
 	tc "github.com/testcontainers/testcontainers-go"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 var (
@@ -76,18 +76,18 @@ func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
 	te.EVMClient.ParallelTransactions(enabled)
 }
 
-func (m *CLClusterTestEnv) WithPrivateGethChain(evmNetworks []blockchain.EVMNetwork) *CLClusterTestEnv {
+func (te *CLClusterTestEnv) WithPrivateGethChain(evmNetworks []blockchain.EVMNetwork) *CLClusterTestEnv {
 	var chains []test_env.PrivateGethChain
 	for _, evmNetwork := range evmNetworks {
 		n := evmNetwork
-		chains = append(chains, test_env.NewPrivateGethChain(&n, []string{m.Network.Name}))
+		chains = append(chains, test_env.NewPrivateGethChain(&n, []string{te.Network.Name}))
 	}
-	m.PrivateGethChain = chains
-	return m
+	te.PrivateGethChain = chains
+	return te
 }
 
-func (m *CLClusterTestEnv) StartPrivateGethChain() error {
-	for _, chain := range m.PrivateGethChain {
+func (te *CLClusterTestEnv) StartPrivateGethChain() error {
+	for _, chain := range te.PrivateGethChain {
 		err := chain.PrimaryNode.Start()
 		if err != nil {
 			return err
@@ -191,7 +191,7 @@ func (te *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
 }
 
 func (te *CLClusterTestEnv) Terminate() error {
-	// TESTCONTAINERS_RYUK_DISABLED=false by defualt so ryuk will remove all
+	// TESTCONTAINERS_RYUK_DISABLED=false by default so ryuk will remove all
 	// the containers and the Network
 	return nil
 }

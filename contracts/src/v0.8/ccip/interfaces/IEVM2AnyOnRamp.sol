@@ -6,7 +6,7 @@ import {IPool} from "./pools/IPool.sol";
 import {Client} from "../libraries/Client.sol";
 import {Internal} from "../libraries/Internal.sol";
 
-import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/token/ERC20/IERC20.sol";
+import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
 
 interface IEVM2AnyOnRamp {
   /// @notice Get the fee for a given ccip message

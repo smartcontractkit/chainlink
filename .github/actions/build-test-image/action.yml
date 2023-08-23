@@ -15,7 +15,7 @@ inputs:
     required: false
   suites:
     description: The test suites to build into the image
-    default: chaos migration performance reorg smoke soak benchmark load
+    default: chaos migration performance reorg smoke soak benchmark
     required: false
   QA_AWS_ROLE_TO_ASSUME:
     description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action
@@ -32,7 +32,7 @@ runs:
   steps:
     - name: Check if image exists
       id: check-image
-      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+      uses: smartcontractkit/chainlink-github-actions/docker/image-exists@395ee22f09f3e975690fa150343ce1e0c9e908c3 # v2.2.10
       with:
         repository: ${{ inputs.repository }}
         tag: ${{ inputs.tag }}
@@ -40,7 +40,7 @@ runs:
         AWS_ROLE_TO_ASSUME: ${{ inputs.QA_AWS_ROLE_TO_ASSUME }}
     - name: Build and Publish Test Runner
       if: steps.check-image.outputs.exists == 'false'
-      uses: smartcontractkit/chainlink-github-actions/docker/build-push@ad22fbd6f4d108b82aaf49b527bcf40f32babea8 # v2.2.1
+      uses: smartcontractkit/chainlink-github-actions/docker/build-push@395ee22f09f3e975690fa150343ce1e0c9e908c3 # v2.2.10
       with:
         tags: |
           ${{ inputs.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ inputs.QA_AWS_REGION }}.amazonaws.com/${{ inputs.repository }}:${{ inputs.tag }}

@@ -17,7 +17,7 @@ import {OCR2BaseNoChecks} from "../ocr/OCR2BaseNoChecks.sol";
 import {AggregateRateLimiter} from "../AggregateRateLimiter.sol";
 import {EnumerableMapAddresses} from "../../shared/enumerable/EnumerableMapAddresses.sol";
 
-import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/token/ERC20/IERC20.sol";
+import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
 import {Address} from "../../vendor/openzeppelin-solidity/v4.8.0/utils/Address.sol";
 import {ERC165Checker} from "../../vendor/openzeppelin-solidity/v4.8.0/utils/introspection/ERC165Checker.sol";
 

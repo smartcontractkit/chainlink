@@ -7,7 +7,7 @@ import {Client} from "../libraries/Client.sol";
 import {CCIPReceiver} from "./CCIPReceiver.sol";
 import {OwnerIsCreator} from "../../shared/access/OwnerIsCreator.sol";
 
-import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/token/ERC20/IERC20.sol";
+import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
 
 // @notice Example of a client which supports EVM/non-EVM chains
 // @dev If chain specific logic is required for different chain families (e.g. particular

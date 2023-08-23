@@ -5,17 +5,16 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/networks"
-
-	"github.com/rs/zerolog/log"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 type CLTestEnvBuilder struct {
@@ -70,9 +69,9 @@ func (b *CLTestEnvBuilder) WithGeth() *CLTestEnvBuilder {
 	return b
 }
 
-func (m *CLTestEnvBuilder) WithPrivateGethChains(evmNetworks []blockchain.EVMNetwork) *CLTestEnvBuilder {
-	m.nonDevGethNetworks = evmNetworks
-	return m
+func (b *CLTestEnvBuilder) WithPrivateGethChains(evmNetworks []blockchain.EVMNetwork) *CLTestEnvBuilder {
+	b.nonDevGethNetworks = evmNetworks
+	return b
 }
 
 func (b *CLTestEnvBuilder) WithCLNodeConfig(cfg *chainlink.Config) *CLTestEnvBuilder {
