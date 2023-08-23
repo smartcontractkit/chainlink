@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 )
 
 var _ relaymercury.MercuryServerFetcher = &mockFetcher{}
@@ -30,9 +30,9 @@ type mockFetcher struct {
 	nativePriceErr error
 }
 
-var feedId types.FeedID = [32]byte{1}
-var linkFeedId types.FeedID = [32]byte{2}
-var nativeFeedId types.FeedID = [32]byte{3}
+var feedId utils.FeedID = [32]byte{1}
+var linkFeedId utils.FeedID = [32]byte{2}
+var nativeFeedId utils.FeedID = [32]byte{3}
 
 func (m *mockFetcher) FetchInitialMaxFinalizedBlockNumber(context.Context) (*int64, error) {
 	return nil, nil
@@ -207,7 +207,7 @@ func Test_Datasource(t *testing.T) {
 					ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, linkFeedId, nativeFeedId
 				})
 
-				var feedId types.FeedID = [32]byte{1}
+				var feedId utils.FeedID = [32]byte{1}
 				ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, feedId, feedId
 
 				obs, err := ds.Observe(ctx, repts, false)
