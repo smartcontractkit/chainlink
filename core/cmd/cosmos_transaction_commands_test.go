@@ -32,7 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
 
-var nativeToken := "cosm"
+var nativeToken = "cosm"
 
 func TestMain(m *testing.M) {
 

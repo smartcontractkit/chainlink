@@ -21,7 +21,7 @@ func initCosmosTxSubCmd(s *Shell) cli.Command {
 		Subcommands: []cli.Command{
 			{
 				Name:   "create",
-				Usage:  "Send <amount> <token> from node Cosmos account <fromAddress> to destination <toAddress>.",
+				Usage:  "Send <amount> of <token> from node Cosmos account <fromAddress> to destination <toAddress>.",
 				Action: s.CosmosSendNativeToken,
 				Flags: []cli.Flag{
 					cli.BoolFlag{

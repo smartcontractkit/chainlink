@@ -5144,8 +5144,8 @@ MaxMsgsPerBatch = 100 # Default
 OCR2CachePollPeriod = '4s' # Default
 OCR2CacheTTL = '1m' # Default
 TxMsgTimeout = '10m' # Default
-Bech32Prefix = 'wasm' # Example
-FeeToken = 'uatom' # Example
+Bech32Prefix = 'wasm' # Default
+FeeToken = 'ucosm' # Default
 ```
 
 
@@ -5217,13 +5217,13 @@ TxMsgTimeout is the maximum age for resending transaction before they expire.
 
 ### Bech32Prefix
 ```toml
-Bech32Prefix = 'wasm' # Example
+Bech32Prefix = 'wasm' # Default
 ```
 Bech32Prefix is the human-readable prefix for addresses on this Cosmos chain. See https://docs.cosmos.network/v0.47/spec/addresses/bech32.
 
 ### FeeToken
 ```toml
-FeeToken = 'uatom' # Example
+FeeToken = 'ucosm' # Default
 ```
 FeeToken is the token denomination which is being used to pay gas fees on this chain.
 
