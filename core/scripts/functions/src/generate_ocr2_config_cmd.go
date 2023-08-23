@@ -32,6 +32,7 @@ type ThresholdOffchainConfig struct {
 	RequestCountLimit         uint32
 	RequestTotalBytesLimit    uint32
 	RequireLocalRequestCheck  bool
+	K                         uint32
 }
 
 type S4ReportingPluginConfig struct {
@@ -222,6 +223,7 @@ func (g *generateOCR2Config) Run(args []string) {
 				RequestCountLimit:         cfg.ThresholdOffchainConfig.RequestCountLimit,
 				RequestTotalBytesLimit:    cfg.ThresholdOffchainConfig.RequestTotalBytesLimit,
 				RequireLocalRequestCheck:  cfg.ThresholdOffchainConfig.RequireLocalRequestCheck,
+				K:                         cfg.ThresholdOffchainConfig.K,
 			},
 			S4PluginConfig: &config.S4ReportingPluginConfig{
 				MaxQueryLengthBytes:       cfg.S4ReportingPluginConfig.MaxQueryLengthBytes,

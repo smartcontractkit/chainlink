@@ -14,7 +14,8 @@
       "MaxReportLengthBytes": 10000,
       "RequestCountLimit": 100,
       "RequestTotalBytesLimit": 100000,
-      "RequireLocalRequestCheck": true
+      "RequireLocalRequestCheck": true,
+      "K": 3
     },
 
     "S4ReportingPluginConfig": {
