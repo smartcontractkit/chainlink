@@ -10,8 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	ccipselectors "github.com/smartcontractkit/ccip-chain-selectors"
 	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
-
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -60,7 +60,7 @@ func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainC
 	if err != nil {
 		return nil, errors.Wrap(err, "failed getting the static config from the commitStore")
 	}
-	chainId, err := ccipconfig.ChainIdFromSelector(staticConfig.SourceChainSelector)
+	chainId, err := ccipselectors.ChainIdFromSelector(staticConfig.SourceChainSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +251,7 @@ func UnregisterCommitPluginLpFilters(ctx context.Context, q pg.Queryer, spec *jo
 	if err != nil {
 		return err
 	}
-	chainId, err := ccipconfig.ChainIdFromSelector(staticConfig.SourceChainSelector)
+	chainId, err := ccipselectors.ChainIdFromSelector(staticConfig.SourceChainSelector)
 	if err != nil {
 		return err
 	}
