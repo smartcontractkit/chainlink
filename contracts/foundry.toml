@@ -21,12 +21,14 @@ solc_version = '0.8.19'
 src = 'src/v0.8/ccip'
 test = 'src/v0.8/ccip/test'
 optimizer_runs = 26_000
+deny_warnings = true
 
 [profile.metatx]
 solc_version = '0.8.15'
 src = 'src/v0.8/metatx'
 test = 'src/v0.8/metatx/test'
 optimizer_runs = 26_000
+deny_warnings = true
 
 [profile.functions]
 solc_version = '0.8.19'
