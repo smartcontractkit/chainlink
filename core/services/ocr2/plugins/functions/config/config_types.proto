@@ -11,6 +11,7 @@ enum AggregationMethod {
     AGGREGATION_MEDIAN = 1;
 }
 
+// Has to match the corresponding proto in tdh2.
 message ThresholdReportingPluginConfig {
     uint32 max_query_length_bytes = 1;
     uint32 max_observation_length_bytes = 2;
@@ -18,6 +19,7 @@ message ThresholdReportingPluginConfig {
     uint32 request_count_limit = 4;
     uint32 request_total_bytes_limit = 5;
     bool require_local_request_check = 6;
+    uint32 k = 7; // Number of decryption shares required for assembling plaintext.
 }
 
 message S4ReportingPluginConfig {
