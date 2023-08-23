@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {EnumerableMap} from "../../vendor/openzeppelin-solidity/v4.8.0/utils/structs/EnumerableMap.sol";
+import {EnumerableMap} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableMap.sol";
 
 library EnumerableMapAddresses {
   using EnumerableMap for EnumerableMap.UintToAddressMap;

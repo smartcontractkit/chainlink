@@ -10,7 +10,7 @@ import {USDCTokenPool} from "../../pools/USDC/USDCTokenPool.sol";
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
 
-import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.0/utils/introspection/IERC165.sol";
+import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/introspection/IERC165.sol";
 
 contract USDCTokenPoolSetup is BaseTest {
   IBurnMintERC20 internal s_token;
@@ -88,6 +88,7 @@ contract USDCTokenPoolSetup is BaseTest {
 
 contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
   error SenderNotAllowed(address sender);
+
   event DepositForBurn(
     uint64 indexed nonce,
     address indexed burnToken,

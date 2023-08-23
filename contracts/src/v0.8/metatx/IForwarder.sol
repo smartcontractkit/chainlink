@@ -2,7 +2,7 @@
 pragma solidity ^0.8.15;
 pragma abicoder v2;
 
-import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.0/utils/introspection/IERC165.sol";
+import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/introspection/IERC165.sol";
 
 /// @title The Forwarder Interface
 /// @notice The contracts implementing this interface take a role of authorization, authentication and replay protection

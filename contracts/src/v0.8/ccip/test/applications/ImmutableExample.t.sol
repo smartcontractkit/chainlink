@@ -2,7 +2,7 @@ pragma solidity ^0.8.0;
 
 import "../onRamp/EVM2EVMOnRampSetup.t.sol";
 import "../../applications/CCIPClientExample.sol";
-import {ERC165Checker} from "../../../vendor/openzeppelin-solidity/v4.8.0/utils/introspection/ERC165Checker.sol";
+import {ERC165Checker} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/introspection/ERC165Checker.sol";
 
 contract CCIPClientExample_sanity is EVM2EVMOnRampSetup {
   function testExamples() public {
