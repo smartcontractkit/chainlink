@@ -249,8 +249,13 @@ func (b *logEventBuffer) getBlocksInRange(start, end int) []fetchedBlock {
 }
 
 // blockRangeToIndices returns the normalized range of start and end,
-// aligned with buffer size. Not start and end are inclusive indices.
+// aligned with buffer size. Note that start and end are inclusive indices.
 func (b *logEventBuffer) blockRangeToIndices(start, end int) (int, int) {
+	latest := b.latestBlockSeen()
+	if end > int(latest) {
+		// Limit end of range to latest block seen
+		end = int(latest)
+	}
 	if end < start || start == 0 || end == 0 {
 		// invalid range
 		return -1, -1
@@ -258,8 +263,7 @@ func (b *logEventBuffer) blockRangeToIndices(start, end int) (int, int) {
 	size := b.bufferSize()
 	if end-start >= size {
 		// If range requires more than buffer size blocks, only try to return
-		// last size blocks. NOTE: We might technically have blocks in the buffer within the given range
-		// which are not towards the end, here we assume the called only cares about the latest blocks.
+		// last size blocks.
 		start = (end - size) + 1
 	}
 	return b.blockNumberIndex(int64(start)), b.blockNumberIndex(int64(end))
