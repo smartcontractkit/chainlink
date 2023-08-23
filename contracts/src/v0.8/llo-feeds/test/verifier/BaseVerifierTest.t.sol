@@ -164,6 +164,7 @@ contract BaseTest is Test {
 
   function _configDigestFromConfigData(
     bytes32 feedId,
+    uint256 chainId,
     address verifierAddr,
     uint64 configCount,
     address[] memory signers,
@@ -177,7 +178,7 @@ contract BaseTest is Test {
       keccak256(
         abi.encode(
           feedId,
-          block.chainid,
+          chainId,
           verifierAddr,
           configCount,
           signers,
