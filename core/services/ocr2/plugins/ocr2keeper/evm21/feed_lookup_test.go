@@ -350,6 +350,7 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 		expectedRetryable  bool
 		expectedError      error
 		state              encoding.PipelineExecutionState
+		reason             encoding.UpkeepFailureReason
 	}{
 		{
 			name: "success",
@@ -401,6 +402,32 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 			expectedError:      errors.New("All attempts fail:\n#1: FeedLookup upkeep 88786950015966611018675766524283132478093844178961698330929478019253453382042 block 25880526 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
 			state:              encoding.InvalidMercuryRequest,
 		},
+		{
+			name: "failure - no feeds",
+			lookup: &FeedLookup{
+				feedParamKey: feedIdHex,
+				feeds:        []string{},
+				timeParamKey: blockNumber,
+				time:         big.NewInt(25880526),
+				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				upkeepId:     upkeepId,
+			},
+			expectedValues: [][]byte{},
+			reason:         encoding.UpkeepFailureReasonInvalidRevertDataInput,
+		},
+		{
+			name: "failure - invalid revert data",
+			lookup: &FeedLookup{
+				feedParamKey: feedIDs,
+				feeds:        []string{},
+				timeParamKey: blockNumber,
+				time:         big.NewInt(25880526),
+				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				upkeepId:     upkeepId,
+			},
+			expectedValues: [][]byte{},
+			reason:         encoding.UpkeepFailureReasonInvalidRevertDataInput,
+		},
 	}
 
 	for _, tt := range tests {
@@ -425,10 +452,11 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 			}
 			r.hc = hc
 
-			state, values, retryable, reqErr := r.doMercuryRequest(context.Background(), tt.lookup, r.lggr)
+			state, reason, values, retryable, reqErr := r.doMercuryRequest(context.Background(), tt.lookup, r.lggr)
 			assert.Equal(t, tt.expectedValues, values)
 			assert.Equal(t, tt.expectedRetryable, retryable)
 			assert.Equal(t, tt.state, state)
+			assert.Equal(t, tt.reason, reason)
 			if tt.expectedError != nil {
 				assert.Equal(t, tt.expectedError.Error(), reqErr.Error())
 			}
