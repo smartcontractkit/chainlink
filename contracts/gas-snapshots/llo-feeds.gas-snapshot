@@ -56,7 +56,7 @@ FeeManagerProcessFeeTest:test_processFeeWithWithCorruptQuotePayload() (gas: 2540
 FeeManagerProcessFeeTest:test_processFeeWithWithEmptyQuotePayload() (gas: 25874)
 FeeManagerProcessFeeTest:test_processFeeWithWithZeroQuotePayload() (gas: 26824)
 FeeManagerProcessFeeTest:test_processFeeWithZeroLinkNonZeroNativeWithLinkQuote() (gas: 32454)
-FeeManagerProcessFeeTest:test_processFeeWithZeroLinkNonZeroNativeWithNativeQuote() (gas: 124393)
+FeeManagerProcessFeeTest:test_processFeeWithZeroLinkNonZeroNativeWithNativeQuote() (gas: 124307)
 FeeManagerProcessFeeTest:test_processFeeWithZeroNativeNonZeroLinkReturnsChange() (gas: 52863)
 FeeManagerProcessFeeTest:test_processFeeWithZeroNativeNonZeroLinkWithLinkQuote() (gas: 110500)
 FeeManagerProcessFeeTest:test_processFeeWithZeroNativeNonZeroLinkWithNativeQuote() (gas: 34991)

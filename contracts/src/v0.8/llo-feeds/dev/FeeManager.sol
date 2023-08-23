@@ -186,11 +186,10 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
         }
       }
 
-      //get the config digest which is the first 32 bytes of the payload
-      bytes32 configDigest = bytes32(payload);
-
       //although unlikely, the reward could potentially be 0
       if (reward.amount != 0) {
+        //get the config digest which is the first 32 bytes of the payload
+        bytes32 configDigest = bytes32(payload);
         //if the fee is in LINK, transfer directly from the subscriber to the reward manager
         if (fee.assetAddress == i_linkAddress) {
           //distributes the fee
