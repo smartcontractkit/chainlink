@@ -53,6 +53,9 @@ type LogTriggersLifeCycle interface {
 type LogEventProvider interface {
 	ocr2keepers.LogEventProvider
 	LogTriggersLifeCycle
+
+	RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, error)
+
 	Start(context.Context) error
 	io.Closer
 }
@@ -166,9 +169,11 @@ func (p *logEventProvider) Name() string {
 	return p.lggr.Name()
 }
 
-func (p *logEventProvider) GetLatestPayloads(context.Context) ([]ocr2keepers.UpkeepPayload, error) {
-	// TODO: Fitler logs below upkeep creation block here
-	latest := p.buffer.latestBlockSeen()
+func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
+	latest, err := p.poller.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+	}
 	diff := latest - p.opts.LookbackBlocks
 	if diff < 0 {
 		diff = latest

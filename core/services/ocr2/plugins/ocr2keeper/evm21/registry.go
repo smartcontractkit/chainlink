@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"go.uber.org/multierr"
 
 	"github.com/patrickmn/go-cache"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
@@ -270,23 +271,34 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 	}
 	r.active.Reset(ids...)
 
-	// refresh trigger config log upkeeps
-	// Note: We only update the trigger config for current active upkeeps and do not remove configs
-	// for any upkeeps that might have been removed. We depend upon state events to remove the configs
+	return r.refreshLogTriggerUpkeeps(ids)
+}
+
+func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
+	logTriggerIDs := make([]*big.Int, 0)
 	for _, id := range ids {
 		uid := &ocr2keepers.UpkeepIdentifier{}
-		uid.FromBigInt(id)
+		if ok := uid.FromBigInt(id); !ok {
+			r.lggr.Warnf("failed to parse upkeep id %s", id.String())
+		}
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
-			// in refresh scenario, we are using zero blocks to avoid redundant updates of filters
-			if err := r.updateTriggerConfig(id, nil, 0); err != nil {
-				r.lggr.Warnf("failed to update trigger config for upkeep ID %s: %s", id.String(), err)
-			}
+			logTriggerIDs = append(logTriggerIDs, id)
 		default:
 		}
 	}
+	newUpkeeps, err := r.logEventProvider.RefreshActiveUpkeeps(logTriggerIDs...)
+	if err != nil {
+		return fmt.Errorf("failed to refresh active upkeep ids in log event provider: %w", err)
+	}
+	var merr error
+	for _, id := range newUpkeeps {
+		if err := r.updateTriggerConfig(id, nil, 0); err != nil {
+			merr = multierr.Append(merr, fmt.Errorf("failed to update trigger config for upkeep id %s: %w", id.String(), err))
+		}
+	}
 
-	return nil
+	return merr
 }
 
 func (r *EvmRegistry) pollUpkeepStateLogs() error {

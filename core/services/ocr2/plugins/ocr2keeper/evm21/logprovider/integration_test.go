@@ -62,7 +62,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 	n := 10
 
-	_, _, contracts := deployUpkeepCounter(t, n, ethClient, backend, carrol, logProvider)
+	ids, addrs, contracts := deployUpkeepCounter(t, n, ethClient, backend, carrol, logProvider)
 	lp.PollAndSaveLogs(ctx, int64(n))
 
 	go func() {
@@ -95,7 +95,8 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 		// we should be able to backfill old logs and fetch new ones
 		logDataABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
 		require.NoError(t, err)
-		filterStore.ResetLastPollBlock()
+		// filterStore.ResetLastPollBlock()
+		filterStore := logprovider.NewUpkeepFilterStore()
 		logProvider2 := logprovider.NewLogProvider(logger.TestLogger(t), lp, logprovider.NewLogEventsPacker(logDataABI), filterStore, opts)
 
 		poll(backend.Commit())
@@ -106,6 +107,18 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 			}
 		}()
 		defer logProvider2.Close()
+
+		// re-register filters
+		for i, id := range ids {
+			err = logProvider2.RegisterFilter(logprovider.FilterOptions{
+				UpkeepID:      id,
+				TriggerConfig: newPlainLogTriggerConfig(addrs[i]),
+				// using block number at which the upkeep was registered,
+				// before we emitted any logs
+				UpdateBlock: uint64(n),
+			})
+			require.NoError(t, err)
+		}
 
 		waitLogProvider(ctx, t, logProvider2, 2)
 
@@ -619,7 +632,6 @@ func deployUpkeepCounter(
 		b, err := ethClient.BlockByHash(context.Background(), backend.Commit())
 		require.NoError(t, err)
 		bn := b.Number()
-		// old block
 		err = logProvider.RegisterFilter(logprovider.FilterOptions{
 			UpkeepID:      id,
 			TriggerConfig: newPlainLogTriggerConfig(upkeepAddr),

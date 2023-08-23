@@ -10,6 +10,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 )
 
 func TestLogEventProvider_LifeCycle(t *testing.T) {
@@ -104,6 +106,44 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
+	mp := new(mocks.LogPoller)
+	mp.On("RegisterFilter", mock.Anything).Return(nil)
+	mp.On("UnregisterFilter", mock.Anything).Return(nil)
+	mp.On("ReplayAsync", mock.Anything).Return(nil)
+
+	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), nil)
+
+	require.NoError(t, p.RegisterFilter(FilterOptions{
+		UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1111").BigInt(),
+		TriggerConfig: LogTriggerConfig{
+			ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{1, 2, 3, 4}, 20)),
+			Topic0:          common.BytesToHash(common.LeftPadBytes([]byte{1, 2, 3, 4}, 32)),
+		},
+		UpdateBlock: uint64(0),
+	}))
+	require.NoError(t, p.RegisterFilter(FilterOptions{
+		UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2222").BigInt(),
+		TriggerConfig: LogTriggerConfig{
+			ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{1, 2, 3, 4}, 20)),
+			Topic0:          common.BytesToHash(common.LeftPadBytes([]byte{1, 2, 3, 4}, 32)),
+		},
+		UpdateBlock: uint64(0),
+	}))
+	require.Equal(t, 2, p.filterStore.Size())
+
+	newIds, err := p.RefreshActiveUpkeeps()
+	require.NoError(t, err)
+	require.Len(t, newIds, 0)
+	newIds, err = p.RefreshActiveUpkeeps(
+		core.GenUpkeepID(ocr2keepers.LogTrigger, "2222").BigInt(),
+		core.GenUpkeepID(ocr2keepers.LogTrigger, "1234").BigInt(),
+		core.GenUpkeepID(ocr2keepers.LogTrigger, "123").BigInt())
+	require.NoError(t, err)
+	require.Len(t, newIds, 2)
+	require.Equal(t, 1, p.filterStore.Size())
 }
 
 func TestLogEventProvider_GetFiltersBySelector(t *testing.T) {
