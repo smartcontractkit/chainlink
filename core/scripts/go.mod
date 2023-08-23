@@ -301,8 +301,8 @@ require (
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230817164916-93440e96411d // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230802143301-165000751a85 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230802150127-d2c95679d61a // indirect
-	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230808152300-d34f9201db27 // indirect
-	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230808152300-d34f9201db27 // indirect
+	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230823081604-f2a0e6b108bb // indirect
+	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230823081604-f2a0e6b108bb // indirect
 	github.com/smartcontractkit/wsrpc v0.7.2 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect

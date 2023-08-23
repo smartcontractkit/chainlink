@@ -27,3 +27,4 @@ compileContract () {
 
 compileContract shared/token/ERC677/BurnMintERC677.sol
 compileContract shared/token/ERC677/LinkToken.sol
+compileContract vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/ERC20.sol

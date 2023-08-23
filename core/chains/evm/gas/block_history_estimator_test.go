@@ -83,8 +83,8 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2a" && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x29" && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == "0x2a" && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == "0x29" && b[1].Args[1].(bool) && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &evmtypes.Block{
@@ -129,7 +129,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		// First succeeds (42)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(42) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(42) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &evmtypes.Block{
@@ -140,7 +140,7 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 		// Second fails (41)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(41) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(41) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Return(errors.Wrap(context.DeadlineExceeded, "some error message")).Once()
 
 		err := bhe.Start(testutils.Context(t))
@@ -382,8 +382,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(43) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(42) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(43) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(42) && b[1].Args[1].(bool) && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Once().Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &b43
@@ -392,7 +392,7 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		})
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 1 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(41) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(41) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Once().Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &b41
@@ -420,8 +420,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 		// 43 is skipped because it was already in the history
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(44) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(42) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(44) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(42) && b[1].Args[1].(bool) && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Once().Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &b44
@@ -484,8 +484,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(3) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(2) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(3) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(2) && b[1].Args[1].(bool) && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Once().Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &b3
@@ -551,8 +551,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(3) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(2) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(3) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(2) && b[1].Args[1].(bool) && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Once().Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			b2New := b2
@@ -663,8 +663,8 @@ func TestBlockHistoryEstimator_FetchBlocks(t *testing.T) {
 
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 2 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(43) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(42) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(43) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(42) && b[1].Args[1].(bool) && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Once().Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &b43
@@ -1816,9 +1816,9 @@ func TestBlockHistoryEstimator_UseDefaultPriceAsFallback(t *testing.T) {
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 3 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(42) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(41) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[2].Method == "eth_getBlockByNumber" && b[2].Args[0] == gas.Int64ToHex(40) && b[1].Args[1] == true && reflect.TypeOf(b[2].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(42) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(41) && b[1].Args[1].(bool) && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[2].Method == "eth_getBlockByNumber" && b[2].Args[0] == gas.Int64ToHex(40) && b[1].Args[1].(bool) && reflect.TypeOf(b[2].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &evmtypes.Block{
@@ -1868,9 +1868,9 @@ func TestBlockHistoryEstimator_UseDefaultPriceAsFallback(t *testing.T) {
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
 		ethClient.On("BatchCallContext", mock.Anything, mock.MatchedBy(func(b []rpc.BatchElem) bool {
 			return len(b) == 3 &&
-				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(42) && b[0].Args[1] == true && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(41) && b[1].Args[1] == true && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
-				b[2].Method == "eth_getBlockByNumber" && b[2].Args[0] == gas.Int64ToHex(40) && b[1].Args[1] == true && reflect.TypeOf(b[2].Result) == reflect.TypeOf(&evmtypes.Block{})
+				b[0].Method == "eth_getBlockByNumber" && b[0].Args[0] == gas.Int64ToHex(42) && b[0].Args[1].(bool) && reflect.TypeOf(b[0].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[1].Method == "eth_getBlockByNumber" && b[1].Args[0] == gas.Int64ToHex(41) && b[1].Args[1].(bool) && reflect.TypeOf(b[1].Result) == reflect.TypeOf(&evmtypes.Block{}) &&
+				b[2].Method == "eth_getBlockByNumber" && b[2].Args[0] == gas.Int64ToHex(40) && b[1].Args[1].(bool) && reflect.TypeOf(b[2].Result) == reflect.TypeOf(&evmtypes.Block{})
 		})).Return(nil).Run(func(args mock.Arguments) {
 			elems := args.Get(1).([]rpc.BatchElem)
 			elems[0].Result = &evmtypes.Block{
