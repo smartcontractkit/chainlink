@@ -533,59 +533,66 @@ func (o *OCRSoakTest) observeOCREvents() error {
 
 	var (
 		contractEvents []types.Log
-		timeout        = time.Second * 15
+		timeout        = time.Second * 30
 	)
-	for err == nil {
-		log.Debug().Interface("Filter Query", o.filterQuery).Int64("Last block number", o.filterQuery.ToBlock.Int64()).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
 
-		latestBlockNum, err := o.chainClient.LatestBlockNumber(ctx)
-		if err != nil {
-			log.Warn().
-				Err(err).
-				Int64("Last block number", o.filterQuery.ToBlock.Int64()).
-				Msg("Error getting latest block number")
-		}
-		if latestBlockNum > o.filterQuery.FromBlock.Uint64() {
-			contractEvents, err = o.chainClient.FilterLogs(ctx, o.filterQuery)
+	for err == nil {
+		select {
+		case <-ticker.C:
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+
+			latestBlockNum, err := o.chainClient.LatestBlockNumber(ctx)
 			if err != nil {
 				log.Warn().
 					Err(err).
 					Int64("Last block number", o.filterQuery.ToBlock.Int64()).
-					Msg("Cannot get the contract events")
+					Msg("Error getting latest block number")
+				cancel()
+				continue
 			}
-			o.filterQuery.FromBlock.Add(o.filterQuery.FromBlock, big.NewInt(1))
-			o.filterQuery.ToBlock.Add(o.filterQuery.ToBlock, big.NewInt(1))
-		} else {
-			cancel()
-			continue
-		}
-
-		cancel()
-		if err == nil {
-			if len(contractEvents) > 0 {
-				event := contractEvents[0]
-				answerUpdated, err := o.ocrInstances[0].ParseEventAnswerUpdated(event)
+			//log.Debug().Interface("Filter Query", o.filterQuery).Uint64("Lastest block number", latestBlockNum).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
+			if latestBlockNum > o.filterQuery.FromBlock.Uint64() {
+				contractEvents, err = o.chainClient.FilterLogs(ctx, o.filterQuery)
 				if err != nil {
 					log.Warn().
 						Err(err).
-						Str("Address", event.Address.Hex()).
-						Uint64("Block Number", event.BlockNumber).
-						Msg("Error parsing event as AnswerUpdated")
+						Int64("Last block number", o.filterQuery.ToBlock.Int64()).
+						Msg("Cannot get the contract events")
+					cancel()
 					continue
 				}
-				o.log.Info().
-					Str("Address", event.Address.Hex()).
-					Uint64("Block Number", event.BlockNumber).
-					Uint64("Round ID", answerUpdated.RoundId.Uint64()).
-					Int64("Answer", answerUpdated.Current.Int64()).
-					Msg("Answer Updated Event")
-				timeout *= 2
+				o.filterQuery.FromBlock.Add(o.filterQuery.FromBlock, big.NewInt(1))
+				o.filterQuery.ToBlock.Add(o.filterQuery.ToBlock, big.NewInt(1))
+			} else {
+				cancel()
+				continue
 			}
-			// if latestBlockNum > o.filterQuery.FromBlock.Uint64() {
-			// 	o.filterQuery.FromBlock.Add(o.filterQuery.FromBlock, big.NewInt(1))
-			// 	o.filterQuery.ToBlock.Add(o.filterQuery.ToBlock, big.NewInt(1))
-			// }
+
+			if err == nil {
+				if len(contractEvents) > 0 {
+					event := contractEvents[0]
+					answerUpdated, err := o.ocrInstances[0].ParseEventAnswerUpdated(event)
+					if err != nil {
+						log.Warn().
+							Err(err).
+							Str("Address", event.Address.Hex()).
+							Uint64("Block Number", event.BlockNumber).
+							Msg("Error parsing event as AnswerUpdated")
+						cancel()
+						continue
+					}
+					o.log.Info().
+						Str("Address", event.Address.Hex()).
+						Uint64("Block Number", event.BlockNumber).
+						Uint64("Round ID", answerUpdated.RoundId.Uint64()).
+						Int64("Answer", answerUpdated.Current.Int64()).
+						Msg("Answer Updated Event")
+					timeout *= 2
+				}
+			}
+			cancel()
 		}
 	}
 	return nil
