@@ -10,6 +10,7 @@ import {VRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/VRFCoordinatorV
 import {VRFV2PlusWrapper} from "../../../../src/v0.8/dev/vrf/VRFV2PlusWrapper.sol";
 import {VRFV2PlusClient} from "../../../../src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
 import {console} from "forge-std/console.sol";
+import "../../../../src/v0.8/dev/vrf/VRFV2PlusPriceRegistry.sol";
 
 contract VRFV2PlusWrapperTest is BaseTest {
   address internal constant LINK_WHALE = 0xD883a6A1C22fC4AbFE938a5aDF9B2Cc31b1BF18B;
@@ -22,9 +23,9 @@ contract VRFV2PlusWrapperTest is BaseTest {
   MockV3Aggregator s_linkEthFeed;
   VRFV2PlusWrapper s_wrapper;
   VRFV2PlusWrapperConsumerExample s_consumer;
-
-  VRFCoordinatorV2Plus.FeeConfig basicFeeConfig =
-    VRFCoordinatorV2Plus.FeeConfig({fulfillmentFlatFeeLinkPPM: 0, fulfillmentFlatFeeEthPPM: 0});
+  MockV3Aggregator s_linkUsdFeed;
+  MockV3Aggregator s_ethUsdFeed;
+  VRFV2PlusPriceRegistry s_registry;
 
   function setUp() public override {
     BaseTest.setUp();
@@ -37,28 +38,33 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Deploy link token and link/eth feed.
     s_linkToken = new MockLinkToken();
     s_linkEthFeed = new MockV3Aggregator(18, 500000000000000000); // .5 ETH (good for testing)
-
+    // 1 LINK == 10 USD
+    s_linkUsdFeed = new MockV3Aggregator(
+      8, 10e8);
+    // 1 ETH == 1000 USD
+    s_ethUsdFeed = new MockV3Aggregator(
+      8, 1000e8);
+    s_registry = new VRFV2PlusPriceRegistry(
+      address(s_linkEthFeed),
+      address(s_linkUsdFeed),
+      address(s_ethUsdFeed));
     // Deploy coordinator and consumer.
-    s_testCoordinator = new ExposedVRFCoordinatorV2Plus(address(0));
+    s_testCoordinator = new ExposedVRFCoordinatorV2Plus(address(0), address(s_registry));
     s_wrapper = new VRFV2PlusWrapper(address(s_linkToken), address(s_linkEthFeed), address(s_testCoordinator));
     s_consumer = new VRFV2PlusWrapperConsumerExample(address(s_linkToken), address(s_wrapper));
 
     // Configure the coordinator.
-    s_testCoordinator.setLINKAndLINKETHFeed(address(s_linkToken), address(s_linkEthFeed));
-    setConfigCoordinator(basicFeeConfig);
+    s_testCoordinator.setLINK(address(s_linkToken));
+    setConfigCoordinator();
     setConfigWrapper();
 
     s_testCoordinator.s_config();
   }
 
-  function setConfigCoordinator(VRFCoordinatorV2Plus.FeeConfig memory feeConfig) internal {
+  function setConfigCoordinator() internal {
     s_testCoordinator.setConfig(
       0, // minRequestConfirmations
-      2_500_000, // maxGasLimit
-      1, // stalenessSeconds
-      50_000, // gasAfterPaymentCalculation
-      50000000000000000, // fallbackWeiPerUnitLink
-      feeConfig
+      2_500_000 // maxGasLimit
     );
   }
 

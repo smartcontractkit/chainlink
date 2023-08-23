@@ -12,6 +12,7 @@ import {VRFV2PlusClient} from "../../../../src/v0.8/dev/vrf/libraries/VRFV2PlusC
 import {console} from "forge-std/console.sol";
 import {VmSafe} from "forge-std/Vm.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol"; // for Math.ceilDiv
+import "../../../../src/v0.8/dev/vrf/VRFV2PlusPriceRegistry.sol";
 
 /*
  * USAGE INSTRUCTIONS:
@@ -34,9 +35,9 @@ contract VRFV2Plus is BaseTest {
   VRFV2PlusConsumerExample s_testConsumer;
   MockLinkToken s_linkToken;
   MockV3Aggregator s_linkEthFeed;
-
-  VRFCoordinatorV2Plus.FeeConfig basicFeeConfig =
-    VRFCoordinatorV2Plus.FeeConfig({fulfillmentFlatFeeLinkPPM: 0, fulfillmentFlatFeeEthPPM: 0});
+  MockV3Aggregator s_linkUsdFeed;
+  MockV3Aggregator s_ethUsdFeed;
+  VRFV2PlusPriceRegistry s_registry;
 
   // VRF KeyV2 generated from a node; not sensitive information.
   // The secret key used to generate this key is: 10.
@@ -56,12 +57,22 @@ contract VRFV2Plus is BaseTest {
     // Instantiate BHS.
     s_bhs = new BlockhashStore();
 
-    // Deploy coordinator and consumer.
-    s_testCoordinator = new ExposedVRFCoordinatorV2Plus(address(s_bhs));
-
     // Deploy link token and link/eth feed.
     s_linkToken = new MockLinkToken();
     s_linkEthFeed = new MockV3Aggregator(18, 500000000000000000); // .5 ETH (good for testing)
+    // 1 LINK == 10 USD
+    s_linkUsdFeed = new MockV3Aggregator(
+      8, 10e8);
+    // 1 ETH == 1000 USD
+    s_ethUsdFeed = new MockV3Aggregator(
+      8, 1000e8);
+    s_registry = new VRFV2PlusPriceRegistry(
+      address(s_linkEthFeed),
+      address(s_linkUsdFeed),
+      address(s_ethUsdFeed));
+
+    // Deploy coordinator and consumer.
+    s_testCoordinator = new ExposedVRFCoordinatorV2Plus(address(s_bhs), address(s_registry));
 
     // Use create2 to deploy our consumer, so that its address is always the same
     // and surrounding changes do not alter our generated proofs.
@@ -82,34 +93,26 @@ contract VRFV2Plus is BaseTest {
     s_testConsumer = VRFV2PlusConsumerExample(consumerCreate2Address);
 
     // Configure the coordinator.
-    s_testCoordinator.setLINKAndLINKETHFeed(address(s_linkToken), address(s_linkEthFeed));
+    s_testCoordinator.setLINK(address(s_linkToken));
   }
 
-  function setConfig(VRFCoordinatorV2Plus.FeeConfig memory feeConfig) internal {
+  function setConfig() internal {
     s_testCoordinator.setConfig(
       0, // minRequestConfirmations
-      2_500_000, // maxGasLimit
-      1, // stalenessSeconds
-      50_000, // gasAfterPaymentCalculation
-      50000000000000000, // fallbackWeiPerUnitLink
-      feeConfig
+      2_500_000 // maxGasLimit
     );
   }
 
   function testSetConfig() public {
     // Should setConfig successfully.
-    setConfig(basicFeeConfig);
+    setConfig();
     (uint16 minConfs, uint32 gasLimit, ) = s_testCoordinator.getRequestConfig();
     assertEq(minConfs, 0);
     assertEq(gasLimit, 2_500_000);
 
     // Test that setting requestConfirmations above MAX_REQUEST_CONFIRMATIONS reverts.
     vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2Plus.InvalidRequestConfirmations.selector, 500, 500, 200));
-    s_testCoordinator.setConfig(500, 2_500_000, 1, 50_000, 50000000000000000, basicFeeConfig);
-
-    // Test that setting fallbackWeiPerUnitLink to zero reverts.
-    vm.expectRevert(abi.encodeWithSelector(VRFCoordinatorV2Plus.InvalidLinkWeiPrice.selector, 0));
-    s_testCoordinator.setConfig(0, 2_500_000, 1, 50_000, 0, basicFeeConfig);
+    s_testCoordinator.setConfig(500, 2_500_000);
   }
 
   function testRegisterProvingKey() public {
@@ -232,7 +235,7 @@ contract VRFV2Plus is BaseTest {
     s_testCoordinator.fundSubscriptionWithEth{value: 10 ether}(subId);
 
     // Apply basic configs to contract.
-    setConfig(basicFeeConfig);
+    setConfig();
     registerProvingKey();
 
     // Request random words.
@@ -349,7 +352,7 @@ contract VRFV2Plus is BaseTest {
     uint256 subId = s_testConsumer.s_subId();
 
     // Apply basic configs to contract.
-    setConfig(basicFeeConfig);
+    setConfig();
     registerProvingKey();
 
     // Request random words.

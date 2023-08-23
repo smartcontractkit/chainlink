@@ -916,11 +916,11 @@ func (c *v2PlusConfig) MaxGasLimit() uint32 {
 }
 
 func (c *v2PlusConfig) GasAfterPaymentCalculation() uint32 {
-	return c.config.GasAfterPaymentCalculation
+	panic("not implemented")
 }
 
 func (c *v2PlusConfig) StalenessSeconds() uint32 {
-	return c.config.StalenessSeconds
+	panic("not implemented")
 }
 
 type VRFProof struct {

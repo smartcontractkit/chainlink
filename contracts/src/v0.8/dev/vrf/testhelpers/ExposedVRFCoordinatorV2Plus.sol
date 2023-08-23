@@ -8,7 +8,7 @@ import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/Enu
 contract ExposedVRFCoordinatorV2Plus is VRFCoordinatorV2Plus {
   using EnumerableSet for EnumerableSet.UintSet;
 
-  constructor(address blockhashStore) VRFCoordinatorV2Plus(blockhashStore) {}
+  constructor(address blockhashStore, address priceRegistry) VRFCoordinatorV2Plus(blockhashStore, priceRegistry) {}
 
   function computeRequestIdExternal(
     bytes32 keyHash,

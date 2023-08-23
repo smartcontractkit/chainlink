@@ -13,12 +13,6 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
 
   /// @dev may not be provided upon construction on some chains due to lack of availability
   LinkTokenInterface public LINK;
-  /// @dev may not be provided upon construction on some chains due to lack of availability
-  AggregatorV3Interface public LINK_ETH_FEED;
-  /// @dev may not be provided upon construction on some chains due to lack of availability
-  AggregatorV3Interface public LINK_USD_FEED;
-  /// @dev may not be provided upon construction on some chains due to lack of availability
-  AggregatorV3Interface public ETH_USD_FEED;
 
   // We need to maintain a list of consuming addresses.
   // This bound ensures we are able to loop over them as needed.
@@ -102,20 +96,6 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     uint32 maxGasLimit;
     // Reentrancy protection.
     bool reentrancyLock;
-    // stalenessSeconds is how long before we consider the feed price to be stale
-    // and fallback to fallbackWeiPerUnitLink.
-    uint32 stalenessSeconds;
-    // Gas to cover oracle payment after we calculate the payment.
-    // We make it configurable in case those operations are repriced.
-    // The recommended number is below, though it may vary slightly
-    // if certain chains do not implement certain EIP's.
-    // 21000 + // base cost of the transaction
-    // 100 + 5000 + // warm subscription balance read and update. See https://eips.ethereum.org/EIPS/eip-2929
-    // 2*2100 + 5000 - // cold read oracle address and oracle balance and first time oracle balance update, note first time will be 20k, but 5k subsequently
-    // 4800 + // request delete refund (refunds happen after execution), note pre-london fork was 15k. See https://eips.ethereum.org/EIPS/eip-3529
-    // 6685 + // Positive static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
-    // Total: 37,185 gas.
-    uint32 gasAfterPaymentCalculation;
   }
   Config public s_config;
 
@@ -133,17 +113,13 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    * @notice set the LINK token contract and link eth feed to be
    * used by this coordinator
    * @param link - address of link token
-   * @param linkEthFeed address of the link eth feed
-   * @param ethUSDFeed address of the eth usd feed
    */
-  function setLINKAndFeeds(address link, address linkEthFeed, address ethUSDFeed) external onlyOwner {
+  function setLINK(address link) external onlyOwner {
     // Disallow re-setting link token because the logic wouldn't really make sense
     if (address(LINK) != address(0)) {
       revert LinkAlreadySet();
     }
     LINK = LinkTokenInterface(link);
-    LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
-    ETH_USD_FEED = AggregatorV3Interface(ethUSDFeed);
   }
 
   /**

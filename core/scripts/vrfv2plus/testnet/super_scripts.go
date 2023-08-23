@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 )
 
@@ -66,6 +67,8 @@ func deployUniverse(e helpers.Environment) {
 	// required flags
 	linkAddress := deployCmd.String("link-address", "", "address of link token")
 	linkEthAddress := deployCmd.String("link-eth-feed", "", "address of link eth feed")
+	linkUSDAddress := deployCmd.String("link-usd-feed", "", "address of link usd feed")
+	ethUSDAddress := deployCmd.String("eth-usd-feed", "", "address of eth usd feed")
 	subscriptionBalanceString := deployCmd.String("subscription-balance", "1e19", "amount to fund subscription")
 
 	// optional flags
@@ -77,14 +80,18 @@ func deployUniverse(e helpers.Environment) {
 	maxGasLimit := deployCmd.Int64("max-gas-limit", 2.5e6, "max gas limit")
 	stalenessSeconds := deployCmd.Int64("staleness-seconds", 86400, "staleness in seconds")
 	gasAfterPayment := deployCmd.Int64("gas-after-payment", 33285, "gas after payment calculation")
-	flatFeeLinkPPM := deployCmd.Int64("flat-fee-link-ppm", 500, "fulfillment flat fee LINK ppm")
-	flatFeeEthPPM := deployCmd.Int64("flat-fee-eth-ppm", 500, "fulfillment flat fee ETH ppm")
+	fallbackUSDPerUnitEthString := deployCmd.String("fallback-usd-per-unit-eth", "100000000000", "fallback usd per unit eth")  // 1000 USD
+	fallbackUSDPerUnitLinkString := deployCmd.String("fallback-usd-per-unit-link", "1000000000", "fallback usd per unit link") // 10 USD
+	flatFeeLinkUSD := deployCmd.String("flat-fee-link-usd", "10000000", "flat fee link usd")                                   // 10 cents
+	flatFeeEthUSD := deployCmd.String("flat-fee-eth-usd", "10000000", "flat fee eth usd")
 
 	helpers.ParseArgs(
 		deployCmd, os.Args[2:], "uncompressed-pub-key", "oracle-address",
 	)
 
 	fallbackWeiPerUnitLink := decimal.RequireFromString(*fallbackWeiPerUnitLinkString).BigInt()
+	fallbackUSDPerUnitLink := decimal.RequireFromString(*fallbackUSDPerUnitLinkString).BigInt()
+	fallbackUSDPerUnitEth := decimal.RequireFromString(*fallbackUSDPerUnitEthString).BigInt()
 	subscriptionBalance := decimal.RequireFromString(*subscriptionBalanceString).BigInt()
 
 	// Put key in ECDSA format
@@ -122,6 +129,18 @@ func deployUniverse(e helpers.Environment) {
 		linkEthAddress = &address
 	}
 
+	if len(*linkUSDAddress) == 0 {
+		fmt.Println("\nDeploying LINK/USD Feed...")
+		address := helpers.DeployLinkUSDFeed(e, fallbackUSDPerUnitLink).String()
+		linkUSDAddress = &address
+	}
+
+	if len(*ethUSDAddress) == 0 {
+		fmt.Println("\nDeploying ETH/USD Feed...")
+		address := helpers.DeployEthUSDFeed(e, fallbackUSDPerUnitEth).String()
+		ethUSDAddress = &address
+	}
+
 	fmt.Println("\nDeploying BHS...")
 	bhsContractAddress := deployBHS(e)
 
@@ -129,32 +148,44 @@ func deployUniverse(e helpers.Environment) {
 	batchBHSAddress := deployBatchBHS(e, bhsContractAddress)
 
 	var coordinatorAddress common.Address
-	fmt.Println("\nDeploying Coordinator...")
-	coordinatorAddress = deployCoordinator(e, *linkAddress, bhsContractAddress.String(), *linkEthAddress)
+	var priceRegistryAddress common.Address
+	fmt.Println("\nDeploying Coordinator and Price Registry...")
+	coordinatorAddress, priceRegistryAddress = deployCoordinator(
+		e,
+		*linkAddress,
+		bhsContractAddress.String(),
+		*linkEthAddress,
+		*linkUSDAddress,
+		*ethUSDAddress,
+	)
 
 	coordinator, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(coordinatorAddress, e.Ec)
+	helpers.PanicErr(err)
+
+	registry, err := vrfv2plus_price_registry.NewVRFV2PlusPriceRegistry(priceRegistryAddress, e.Ec)
 	helpers.PanicErr(err)
 
 	fmt.Println("\nDeploying Batch Coordinator...")
 	batchCoordinatorAddress := deployBatchCoordinatorV2(e, coordinatorAddress)
 
 	fmt.Println("\nSetting Coordinator Config...")
-	setCoordinatorConfig(
+	setConfig(
 		e,
-		*coordinator,
+		coordinator,
+		registry,
 		uint16(*minConfs),
 		uint32(*maxGasLimit),
 		uint32(*stalenessSeconds),
 		uint32(*gasAfterPayment),
 		fallbackWeiPerUnitLink,
-		vrf_coordinator_v2plus.VRFCoordinatorV2PlusFeeConfig{
-			FulfillmentFlatFeeLinkPPM: uint32(*flatFeeLinkPPM),
-			FulfillmentFlatFeeEthPPM:  uint32(*flatFeeEthPPM),
-		},
+		fallbackUSDPerUnitEth,
+		fallbackUSDPerUnitLink,
+		decimal.RequireFromString(*flatFeeLinkUSD).BigInt(),
+		decimal.RequireFromString(*flatFeeEthUSD).BigInt(),
 	)
 
 	fmt.Println("\nConfig set, getting current config from deployed contract...")
-	printCoordinatorConfig(coordinator)
+	printCoordinatorConfig(coordinator, registry)
 
 	if len(*registerKeyUncompressedPubKey) > 0 && len(*registerKeyOracleAddress) > 0 {
 		fmt.Println("\nRegistering proving key...")
@@ -214,9 +245,12 @@ func deployUniverse(e helpers.Environment) {
 		"\nDeployment complete.",
 		"\nLINK Token contract address:", *linkAddress,
 		"\nLINK/ETH Feed contract address:", *linkEthAddress,
+		"\nLINK/USD Feed contract address:", *linkUSDAddress,
+		"\nETH/USD Feed contract address:", *ethUSDAddress,
 		"\nBlockhash Store contract address:", bhsContractAddress,
 		"\nBatch Blockhash Store contract address:", batchBHSAddress,
 		"\nVRF Coordinator Address:", coordinatorAddress,
+		"\nPrice Registry Address:", priceRegistryAddress,
 		"\nBatch VRF Coordinator Address:", batchCoordinatorAddress,
 		"\nVRF Consumer Address:", consumerAddress,
 		"\nVRF Subscription Id:", subID,

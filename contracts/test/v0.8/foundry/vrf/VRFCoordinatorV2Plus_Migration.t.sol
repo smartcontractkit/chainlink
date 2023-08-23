@@ -8,6 +8,7 @@ import {SubscriptionAPI} from "../../../../src/v0.8/dev/vrf/SubscriptionAPI.sol"
 import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol";
 import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
+import "../../../../src/v0.8/dev/vrf/VRFV2PlusPriceRegistry.sol";
 
 contract VRFCoordinatorV2Plus_Migration is BaseTest {
   uint256 internal constant DEFAULT_LINK_FUNDING = 10 ether; // 10 LINK
@@ -41,11 +42,12 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
     BaseTest.setUp();
     vm.deal(OWNER, 100 ether);
     address bhs = makeAddr("bhs");
-    v1Coordinator = new ExposedVRFCoordinatorV2Plus(bhs);
+    address registry = makeAddr("registry");
+    v1Coordinator = new ExposedVRFCoordinatorV2Plus(bhs, registry);
     subId = v1Coordinator.createSubscription();
     linkToken = new MockLinkToken();
     linkEthFeed = new MockV3Aggregator(18, 500000000000000000); // .5 ETH (good for testing)
-    v1Coordinator.setLINKAndLINKETHFeed(address(linkToken), address(linkEthFeed));
+    v1Coordinator.setLINK(address(linkToken));
     linkTokenAddr = address(linkToken);
     v2Coordinator = new VRFCoordinatorV2Plus_V2Example(address(linkToken), address(v1Coordinator));
     v1CoordinatorAddr = address(v1Coordinator);
@@ -64,11 +66,7 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
     testConsumer = new VRFV2PlusConsumerExample(address(v1Coordinator), address(linkToken));
     v1Coordinator.setConfig(
       DEFAULT_REQUEST_CONFIRMATIONS,
-      DEFAULT_CALLBACK_GAS_LIMIT,
-      600,
-      10_000,
-      20_000,
-      VRFCoordinatorV2Plus.FeeConfig({fulfillmentFlatFeeLinkPPM: 200, fulfillmentFlatFeeEthPPM: 100})
+      DEFAULT_CALLBACK_GAS_LIMIT
     );
     registerProvingKey();
     testConsumer.setCoordinator(v1CoordinatorAddr);

@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -144,9 +145,17 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 			if vrfOwner != nil {
 				return nil, errors.New("VRF Owner is not supported for VRF V2 Plus")
 			}
-			linkEthFeedAddress, err := coordinatorV2Plus.LINKETHFEED(nil)
+			registryAddress, err := coordinatorV2Plus.PRICEREGISTRY(nil)
 			if err != nil {
-				return nil, errors.Wrap(err, "LINKETHFEED")
+				return nil, errors.Wrap(err, "Unable to fetch price registry from vrf coordinator")
+			}
+			registry, err := vrfv2plus_price_registry.NewVRFV2PlusPriceRegistry(registryAddress, chain.Client())
+			if err != nil {
+				return nil, errors.Wrap(err, "Unable to create price registry wrapper")
+			}
+			linkEthFeedAddress, err := registry.SLinkEthFeed(nil)
+			if err != nil {
+				return nil, errors.Wrap(err, "Unable to fetch link/eth feed from price registry")
 			}
 			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
 			if err != nil {

@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_sub_owner"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -36,26 +37,40 @@ func deployBatchBHS(e helpers.Environment, bhsAddress common.Address) (batchBHSA
 
 func deployCoordinator(
 	e helpers.Environment,
-	linkAddress string,
-	bhsAddress string,
-	linkEthAddress string,
-) (coordinatorAddress common.Address) {
-	_, tx, _, err := vrf_coordinator_v2plus.DeployVRFCoordinatorV2Plus(
+	linkAddress,
+	bhsAddress,
+	linkEthAddress,
+	linkUSDAddress,
+	ethUSDAddress string,
+) (coordinatorAddress common.Address, priceRegistryAddress common.Address) {
+	// deploy vrf price registry first
+	_, tx, _, err := vrfv2plus_price_registry.DeployVRFV2PlusPriceRegistry(
 		e.Owner,
 		e.Ec,
-		common.HexToAddress(bhsAddress))
+		common.HexToAddress(linkEthAddress),
+		common.HexToAddress(linkUSDAddress),
+		common.HexToAddress(ethUSDAddress),
+	)
+	helpers.PanicErr(err)
+	priceRegistryAddress = helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+	_, tx, _, err = vrf_coordinator_v2plus.DeployVRFCoordinatorV2Plus(
+		e.Owner,
+		e.Ec,
+		common.HexToAddress(bhsAddress),
+		priceRegistryAddress,
+	)
 	helpers.PanicErr(err)
 	coordinatorAddress = helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 
-	// Set LINK and LINK ETH
+	// Set LINK address on the coordinator
 	coordinator, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 
-	linkTx, err := coordinator.SetLINKAndLINKETHFeed(e.Owner,
-		common.HexToAddress(linkAddress), common.HexToAddress(linkEthAddress))
+	linkTx, err := coordinator.SetLINK(e.Owner, common.HexToAddress(linkAddress))
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, linkTx, e.ChainID)
-	return coordinatorAddress
+
+	return
 }
 
 func deployBatchCoordinatorV2(e helpers.Environment, coordinatorAddress common.Address) (batchCoordinatorAddress common.Address) {
@@ -122,38 +137,51 @@ func eoaFundSubscription(e helpers.Environment,
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("sub ID: %d", subID))
 }
 
-func printCoordinatorConfig(coordinator *vrf_coordinator_v2plus.VRFCoordinatorV2Plus) {
+func printCoordinatorConfig(coordinator *vrf_coordinator_v2plus.VRFCoordinatorV2Plus, registry *vrfv2plus_price_registry.VRFV2PlusPriceRegistry) {
 	cfg, err := coordinator.SConfig(nil)
 	helpers.PanicErr(err)
 
-	feeConfig, err := coordinator.SFeeConfig(nil)
+	registryCfg, err := registry.SConfig(nil)
 	helpers.PanicErr(err)
 
 	fmt.Printf("Coordinator config: %+v\n", cfg)
-	fmt.Printf("Coordinator fee config: %+v\n", feeConfig)
+	fmt.Printf("Coordinator fee config: %+v\n", registryCfg)
 }
 
-func setCoordinatorConfig(
+func setConfig(
 	e helpers.Environment,
-	coordinator vrf_coordinator_v2plus.VRFCoordinatorV2Plus,
+	coordinator *vrf_coordinator_v2plus.VRFCoordinatorV2Plus,
+	registry *vrfv2plus_price_registry.VRFV2PlusPriceRegistry,
 	minConfs uint16,
 	maxGasLimit uint32,
 	stalenessSeconds uint32,
 	gasAfterPayment uint32,
 	fallbackWeiPerUnitLink *big.Int,
-	feeConfig vrf_coordinator_v2plus.VRFCoordinatorV2PlusFeeConfig,
+	fallbackUSDPerUnitEth *big.Int,
+	fallbackUSDPerUnitLink *big.Int,
+	fulfillmentFlatFeeLinkUSD *big.Int,
+	fulfillmentFlatFeeEthUSD *big.Int,
 ) {
 	tx, err := coordinator.SetConfig(
 		e.Owner,
-		minConfs,               // minRequestConfirmations
-		maxGasLimit,            // max gas limit
-		stalenessSeconds,       // stalenessSeconds
-		gasAfterPayment,        // gasAfterPaymentCalculation
-		fallbackWeiPerUnitLink, // 0.01 eth per link fallbackLinkPrice
-		feeConfig,
+		minConfs,    // minRequestConfirmations
+		maxGasLimit, // max gas limit
 	)
 	helpers.PanicErr(err)
-	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "setting coordinator config")
+
+	tx, err = registry.SetConfig(
+		e.Owner,
+		stalenessSeconds,
+		gasAfterPayment,
+		fallbackWeiPerUnitLink,
+		fallbackUSDPerUnitEth,
+		fallbackUSDPerUnitLink,
+		fulfillmentFlatFeeLinkUSD,
+		fulfillmentFlatFeeEthUSD,
+	)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "setting price registry config")
 }
 
 func registerCoordinatorProvingKey(e helpers.Environment,

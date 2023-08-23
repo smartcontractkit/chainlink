@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_single_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_sub_owner"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -462,12 +463,14 @@ func main() {
 	case "bhs-deploy":
 		deployBHS(e)
 	case "coordinator-deploy":
-		coordinatorDeployCmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
-		coordinatorDeployLinkAddress := coordinatorDeployCmd.String("link-address", "", "address of link token")
-		coordinatorDeployBHSAddress := coordinatorDeployCmd.String("bhs-address", "", "address of bhs")
-		coordinatorDeployLinkEthFeedAddress := coordinatorDeployCmd.String("link-eth-feed", "", "address of link-eth-feed")
-		helpers.ParseArgs(coordinatorDeployCmd, os.Args[2:], "link-address", "bhs-address", "link-eth-feed")
-		deployCoordinator(e, *coordinatorDeployLinkAddress, *coordinatorDeployBHSAddress, *coordinatorDeployLinkEthFeedAddress)
+		cmd := flag.NewFlagSet("coordinator-deploy", flag.ExitOnError)
+		linkAddress := cmd.String("link-address", "", "address of link token")
+		bhsAddress := cmd.String("bhs-address", "", "address of bhs")
+		linkEthFeedAddress := cmd.String("link-eth-feed", "0x0", "address of link-eth-feed")
+		linkUSDFeedAddress := cmd.String("link-usd-feed", "0x0", "address of link-usd-feed")
+		ethUSDFeedAddress := cmd.String("eth-usd-feed", "0x0", "address of eth-usd-feed")
+		helpers.ParseArgs(cmd, os.Args[2:], "bhs-address")
+		deployCoordinator(e, *linkAddress, *bhsAddress, *linkEthFeedAddress, *linkUSDFeedAddress, *ethUSDFeedAddress)
 	case "coordinator-get-config":
 		cmd := flag.NewFlagSet("coordinator-get-config", flag.ExitOnError)
 		coordinatorAddress := cmd.String("coordinator-address", "", "coordinator address")
@@ -476,7 +479,13 @@ func main() {
 		coordinator, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(common.HexToAddress(*coordinatorAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		printCoordinatorConfig(coordinator)
+		registryAddress, err := coordinator.PRICEREGISTRY(nil)
+		helpers.PanicErr(err)
+
+		registry, err := vrfv2plus_price_registry.NewVRFV2PlusPriceRegistry(registryAddress, e.Ec)
+		helpers.PanicErr(err)
+
+		printCoordinatorConfig(coordinator, registry)
 	case "coordinator-set-config":
 		cmd := flag.NewFlagSet("coordinator-set-config", flag.ExitOnError)
 		setConfigAddress := cmd.String("coordinator-address", "", "coordinator address")
@@ -485,25 +494,34 @@ func main() {
 		stalenessSeconds := cmd.Int64("staleness-seconds", 86400, "staleness in seconds")
 		gasAfterPayment := cmd.Int64("gas-after-payment", 33285, "gas after payment calculation")
 		fallbackWeiPerUnitLink := cmd.String("fallback-wei-per-unit-link", "", "fallback wei per unit link")
-		flatFeeLinkPPM := cmd.Int64("flat-fee-link-ppm", 500, "fulfillment flat fee LINK ppm")
-		flatFeeEthPPM := cmd.Int64("flat-fee-eth-ppm", 500, "fulfillment flat fee ETH ppm")
+		fallbackUSDPerUnitEth := cmd.String("fallback-usd-per-unit-eth", "100000000000", "fallback usd per unit eth")  // 1000 USD
+		fallbackUSDPerUnitLink := cmd.String("fallback-usd-per-unit-link", "1000000000", "fallback usd per unit link") // 10 USD
+		flatFeeLinkUSD := cmd.String("flat-fee-link-usd", "10000000", "flat fee link usd")                             // 10 cents
+		flatFeeEthUSD := cmd.String("flat-fee-eth-usd", "10000000", "flat fee eth usd")                                // 10 cents
 
 		helpers.ParseArgs(cmd, os.Args[2:], "coordinator-address", "fallback-wei-per-unit-link")
 		coordinator, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(common.HexToAddress(*setConfigAddress), e.Ec)
 		helpers.PanicErr(err)
 
-		setCoordinatorConfig(
+		registryAddress, err := coordinator.PRICEREGISTRY(nil)
+		helpers.PanicErr(err)
+
+		registry, err := vrfv2plus_price_registry.NewVRFV2PlusPriceRegistry(registryAddress, e.Ec)
+		helpers.PanicErr(err)
+
+		setConfig(
 			e,
-			*coordinator,
+			coordinator,
+			registry,
 			uint16(*minConfs),
 			uint32(*maxGasLimit),
 			uint32(*stalenessSeconds),
 			uint32(*gasAfterPayment),
 			decimal.RequireFromString(*fallbackWeiPerUnitLink).BigInt(),
-			vrf_coordinator_v2plus.VRFCoordinatorV2PlusFeeConfig{
-				FulfillmentFlatFeeLinkPPM: uint32(*flatFeeLinkPPM),
-				FulfillmentFlatFeeEthPPM:  uint32(*flatFeeEthPPM),
-			},
+			decimal.RequireFromString(*fallbackUSDPerUnitEth).BigInt(),
+			decimal.RequireFromString(*fallbackUSDPerUnitLink).BigInt(),
+			decimal.RequireFromString(*flatFeeLinkUSD).BigInt(),
+			decimal.RequireFromString(*flatFeeEthUSD).BigInt(),
 		)
 	case "coordinator-register-key":
 		coordinatorRegisterKey := flag.NewFlagSet("coordinator-register-key", flag.ExitOnError)

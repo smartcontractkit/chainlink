@@ -56,6 +56,22 @@ func DeployLinkEthFeed(e Environment, linkAddress string, weiPerUnitLink *big.In
 	return ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
 }
 
+func DeployLinkUSDFeed(e Environment, usdPerUnitLink *big.Int) common.Address {
+	_, tx, _, err :=
+		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+			e.Owner, e.Ec, 8, usdPerUnitLink)
+	PanicErr(err)
+	return ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func DeployEthUSDFeed(e Environment, usdPerUnitEth *big.Int) common.Address {
+	_, tx, _, err :=
+		mock_v3_aggregator_contract.DeployMockV3AggregatorContract(
+			e.Owner, e.Ec, 8, usdPerUnitEth)
+	PanicErr(err)
+	return ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
 // SetupEnv returns an Environment object populated from environment variables.
 // If overrideNonce is set to true, the nonce will be set to what is returned
 // by NonceAt (rather than the typical PendingNonceAt).
