@@ -46,7 +46,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     address transmitter,
     FunctionsResponse.FulfillResult resultCode,
     bytes response,
-    bytes returnData
+    bytes err,
+    bytes callbackReturnData
   );
 
   event RequestNotProcessed(
@@ -348,8 +349,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     );
 
     resultCode = result.success
-      ? FunctionsResponse.FulfillResult.USER_SUCCESS
-      : FunctionsResponse.FulfillResult.USER_ERROR;
+      ? FunctionsResponse.FulfillResult.FULFILLED
+      : FunctionsResponse.FulfillResult.USER_CALLBACK_ERROR;
 
     Receipt memory receipt = _pay(
       commitment.subscriptionId,
@@ -367,8 +368,9 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       totalCostJuels: receipt.totalCostJuels,
       transmitter: transmitter,
       resultCode: resultCode,
-      response: result.success ? response : err,
-      returnData: result.returnData
+      response: response,
+      err: err,
+      callbackReturnData: result.returnData
     });
 
     return (resultCode, receipt.callbackGasCostJuels);

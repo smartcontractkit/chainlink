@@ -76,8 +76,8 @@ require (
 	github.com/smartcontractkit/ocr2keepers v0.7.16
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
-	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230808152300-d34f9201db27
-	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230808152300-d34f9201db27
+	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230823081604-f2a0e6b108bb
+	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230823081604-f2a0e6b108bb
 	github.com/smartcontractkit/wsrpc v0.7.2
 	github.com/spf13/cast v1.5.1
 	github.com/stretchr/testify v1.8.4

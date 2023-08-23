@@ -63,6 +63,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationForwarderLogic.abi ../../contracts/solc/v0.8.16/AutomationForwarderLogic.bin AutomationForwarderLogic automation_forwarder_logic
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/LogUpkeepCounter.abi ../../contracts/solc/v0.8.6/LogUpkeepCounter.bin LogUpkeepCounter log_upkeep_counter_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/LogTriggeredFeedLookup.abi ../../contracts/solc/v0.8.16/LogTriggeredFeedLookup.bin LogTriggeredFeedLookup log_triggered_feed_lookup_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/DummyProtocol.abi ../../contracts/solc/v0.8.16/DummyProtocol.bin DummyProtocol dummy_protocol_wrapper
 
 // v0.8.6 VRFConsumer
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFCoordinatorMock.abi ../../contracts/solc/v0.8.6/VRFCoordinatorMock.bin VRFCoordinatorMock vrf_coordinator_mock
