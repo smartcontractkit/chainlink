@@ -337,7 +337,8 @@ func (mt *mercuryTransmitter) LatestPrice(ctx context.Context, feedID [32]byte) 
 	return price, nil
 }
 
-func (mt *mercuryTransmitter) LatestTimestamp(ctx context.Context) (uint32, error) {
+// LatestTimestamp will return -1, nil if the feed is missing
+func (mt *mercuryTransmitter) LatestTimestamp(ctx context.Context) (int64, error) {
 	mt.lggr.Trace("LatestTimestamp")
 
 	report, err := mt.latestReport(ctx, mt.feedID)
@@ -347,12 +348,12 @@ func (mt *mercuryTransmitter) LatestTimestamp(ctx context.Context) (uint32, erro
 
 	if report == nil {
 		mt.lggr.Debugw("LatestTimestamp success; got nil report")
-		return 0, nil
+		return -1, nil
 	}
 
 	mt.lggr.Debugw("LatestTimestamp success", "timestamp", report.ObservationsTimestamp)
 
-	return uint32(report.ObservationsTimestamp), nil
+	return report.ObservationsTimestamp, nil
 }
 
 func (mt *mercuryTransmitter) latestReport(ctx context.Context, feedID [32]byte) (*pb.Report, error) {

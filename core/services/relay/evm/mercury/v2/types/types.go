@@ -38,6 +38,7 @@ type Report struct {
 	NativeFee             *big.Int
 }
 
+// Decode is made available to external users (i.e. mercury server)
 func Decode(report []byte) (*Report, error) {
 	values, err := schema.Unpack(report)
 	if err != nil {
