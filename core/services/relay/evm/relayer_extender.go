@@ -110,6 +110,22 @@ type ChainRelayerExt struct {
 
 var _ EVMChainRelayerExtender = &ChainRelayerExt{}
 
+func (s *ChainRelayerExt) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
+	return s.chain.GetChainStatus(ctx)
+}
+
+func (s *ChainRelayerExt) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error) {
+	return s.ListNodeStatuses(ctx, page_size, page_token)
+}
+
+func (s *ChainRelayerExt) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	return s.chain.Transact(ctx, from, to, amount, balanceCheck)
+}
+
+func (s *ChainRelayerExt) ID() string {
+	return s.chain.ID().String()
+}
+
 func (s *ChainRelayerExt) Chain() evmchain.Chain {
 	return s.chain
 }
@@ -147,10 +163,8 @@ func (s *ChainRelayerExt) Ready() (err error) {
 
 var ErrInconsistentChainRelayerExtender = errors.New("inconsistent evm chain relayer extender")
 
+// Chainset interface remove after BFC-2441
 func (s *ChainRelayerExt) ChainStatus(ctx context.Context, id string) (relaytypes.ChainStatus, error) {
-	// TODO BCF-2441: update relayer interface
-	// we need to implement the interface, but passing id doesn't really make sense because there is only
-	// one chain here. check the id here to provide clear error reporting.
 	if s.chain.ID().String() != id {
 		return relaytypes.ChainStatus{}, fmt.Errorf("%w: given id %q does not match expected id %q", ErrInconsistentChainRelayerExtender, id, s.chain.ID())
 	}
@@ -365,7 +379,7 @@ func (cll *chainSet) SendTx(ctx context.Context, chainID, from, to string, amoun
 		return err
 	}
 
-	return chain.SendTx(ctx, from, to, amount, balanceCheck)
+	return chain.Transact(ctx, from, to, amount, balanceCheck)
 }
 
 func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExtenderConfig) (*ChainRelayerExtenders, error) {

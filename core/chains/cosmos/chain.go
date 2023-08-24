@@ -173,6 +173,6 @@ func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_toke
 	return internal.ListNodeStatuses(int(page_size), page_token, c.cfg.ListNodeStatuses)
 }
 
-func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return chains.ErrLOOPPUnsupported
 }

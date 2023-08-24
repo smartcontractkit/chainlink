@@ -120,7 +120,7 @@ func (c *chainSet[N, S]) SendTx(ctx context.Context, chainID, from, to string, a
 		return err
 	}
 
-	return chain.SendTx(ctx, from, to, amount, balanceCheck)
+	return chain.Transact(ctx, from, to, amount, balanceCheck)
 }
 
 func (c *chainSet[N, S]) Start(ctx context.Context) error {

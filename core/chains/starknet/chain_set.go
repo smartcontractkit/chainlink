@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet/types"
 )
 
+// TODO rename to ChainOpts
 type ChainSetOpts struct {
 	Logger logger.Logger
 	// the implementation used here needs to be co-ordinated with the starknet transaction manager keystore adapter
@@ -49,6 +50,17 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *StarknetConfig) (starkchain.Chain, erro
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
 	c, err := newChain(*cfg.ChainID, cfg, o.KeyStore, o.Configs, o.Logger)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func NewStarknetChain(cfg *StarknetConfig, opts ChainSetOpts) (starkchain.Chain, error) {
+	if !cfg.IsEnabled() {
+		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
+	}
+	c, err := newChain(*cfg.ChainID, cfg, opts.KeyStore, opts.Configs, opts.Logger)
 	if err != nil {
 		return nil, err
 	}

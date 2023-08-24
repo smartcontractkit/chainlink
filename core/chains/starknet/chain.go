@@ -129,6 +129,10 @@ func (c *chain) HealthReport() map[string]error {
 	return report
 }
 
+func (c *chain) ID() string {
+	return c.id
+}
+
 // ChainService interface
 func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
 	toml, err := c.cfg.TOMLString()
@@ -146,6 +150,6 @@ func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_toke
 	return internal.ListNodeStatuses(int(page_size), page_token, c.cfg.ListNodeStatuses)
 }
 
-func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return chains.ErrLOOPPUnsupported
 }

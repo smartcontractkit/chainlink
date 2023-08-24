@@ -44,7 +44,6 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 
 	// override some common opts with the factory values. this seems weird... maybe other signatures should change, or this should take a different type...
 	ccOpts := evm.ChainRelayExtenderConfig{
-
 		Logger:        r.Logger,
 		DB:            r.DB,
 		KeyStore:      config.CSAETHKeystore.Eth(),
@@ -104,6 +103,7 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 			if err != nil {
 				return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
 			}
+			// TODO change the solana loop toml deserializer so we can get rid of the singleChainCfg
 			solanaRelayers[relayId] = loop.NewRelayerService(solLggr, r.GRPCOpts, solCmdFn, string(tomls), signer)
 
 		} else {
@@ -117,7 +117,12 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 			if err != nil {
 				return nil, fmt.Errorf("failed to load Solana chainset: %w", err)
 			}
-			solanaRelayers[relayId] = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, chainSet), chainSet)
+			//TODO construct the chain directly and remove Chainset
+			chain, err := chainSet.Chain(context.Background(), relayId.ChainID.String())
+			if err != nil {
+				return nil, err
+			}
+			solanaRelayers[relayId] = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, chainSet), chain)
 		}
 	}
 	return solanaRelayers, nil
@@ -168,11 +173,12 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 				KeyStore: loopKs,
 				Configs:  starknet.NewConfigs(singleChainCfg),
 			}
-			chainSet, err := starknet.NewChainSet(opts, singleChainCfg)
+			chain, err := starknet.NewStarknetChain(chainCfg, opts)
+
 			if err != nil {
-				return nil, fmt.Errorf("failed to load StarkNet chainset: %w", err)
+				return nil, fmt.Errorf("failed to load StarkNet chain: %w", err)
 			}
-			starknetRelayers[relayId] = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chainSet), chainSet)
+			starknetRelayers[relayId] = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chain), chain)
 		}
 	}
 	return starknetRelayers, nil
@@ -204,12 +210,13 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 			EventBroadcaster: config.EventBroadcaster,
 		}
 		opts.Configs = cosmos.NewConfigs(cosmos.CosmosConfigs{chainCfg})
-		singleChainChainSet, err := cosmos.NewSingleChainSet(opts, chainCfg)
+		chain, err := cosmos.NewChain(chainCfg, opts)
+
 		if err != nil {
 			return nil, fmt.Errorf("failed to load Cosmos chain %q: %w", relayId, err)
 		}
 
-		relayers[relayId] = cosmos.NewLoopRelayerSingleChain(pkgcosmos.NewRelayer(lggr, singleChainChainSet), singleChainChainSet)
+		relayers[relayId] = cosmos.NewLoopRelayerSingleChain(pkgcosmos.NewRelayer(lggr, chain), chain)
 
 	}
 	return relayers, nil

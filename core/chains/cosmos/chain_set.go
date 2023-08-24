@@ -83,6 +83,17 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *CosmosConfig) (adapters.Chain, error) {
 	return c, nil
 }
 
+func NewChain(cfg *CosmosConfig, opts ChainSetOpts) (adapters.Chain, error) {
+	if !cfg.IsEnabled() {
+		return nil, fmt.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
+	}
+	c, err := newChain(*cfg.ChainID, cfg, opts.DB, opts.KeyStore, opts.QueryConfig, opts.EventBroadcaster, opts.Configs, opts.Logger)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
 // LegacyChainContainer is container interface for Cosmos chains
 type LegacyChainContainer interface {
 	Get(id string) (adapters.Chain, error)
@@ -106,10 +117,10 @@ type LoopRelayerChainer interface {
 
 type LoopRelayerSingleChain struct {
 	loop.Relayer
-	singleChain *SingleChainSet
+	singleChain adapters.Chain
 }
 
-func NewLoopRelayerSingleChain(r *pkgcosmos.Relayer, s *SingleChainSet) *LoopRelayerSingleChain {
+func NewLoopRelayerSingleChain(r *pkgcosmos.Relayer, s adapters.Chain) *LoopRelayerSingleChain {
 	ra := relay.NewRelayerAdapter(r, s)
 	return &LoopRelayerSingleChain{
 		Relayer:     ra,
@@ -117,7 +128,7 @@ func NewLoopRelayerSingleChain(r *pkgcosmos.Relayer, s *SingleChainSet) *LoopRel
 	}
 }
 func (r *LoopRelayerSingleChain) Chain() adapters.Chain {
-	return r.singleChain.chain
+	return r.singleChain
 }
 
 var _ LoopRelayerChainer = &LoopRelayerSingleChain{}

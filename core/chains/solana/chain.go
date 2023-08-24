@@ -191,14 +191,6 @@ func newChain(id string, cfg *SolanaConfig, ks loop.Keystore, cfgs Configs, lggr
 	return &ch, nil
 }
 
-/*
-func (c *chain) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
-	panic("solana status unimplemented")
-}
-func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []types.NodeStatus, next_page_token string, err error) {
-	panic("solan nodes unimplemented")
-}
-*/
 // ChainService interface
 func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
 	toml, err := c.cfg.TOMLString()
@@ -215,12 +207,17 @@ func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, err
 func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error) {
 	return internal.ListNodeStatuses(int(page_size), page_token, c.cfg.ListNodeStatuses)
 }
-func (c *chain) Name() string {
-	return c.lggr.Name()
+
+func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	panic("unimplmented")
 }
 
 func (c *chain) ID() string {
 	return c.id
+}
+
+func (c *chain) Name() string {
+	return c.lggr.Name()
 }
 
 func (c *chain) Config() config.Config {
