@@ -126,7 +126,7 @@ func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 				"blockHash", log.BlockHash, "txHash", log.TxHash, "logIndex", log.LogIndex)
 			continue
 		}
-		lggr.Debugw("Adding log", "i", i, "blockBlock", currentBlock.blockNumber, "logBlock", log.BlockNumber, "id", id)
+		//lggr.Debugw("Adding log", "i", i, "blockBlock", currentBlock.blockNumber, "logBlock", log.BlockNumber, "id", id)
 		currentBlock.logs = append(currentBlock.logs, fetchedLog{upkeepID: id, log: log})
 		b.blocks[i] = currentBlock
 		added++
