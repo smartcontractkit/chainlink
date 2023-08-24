@@ -182,10 +182,6 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 			opts.ReadInterval = readInterval
 
 			p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), opts)
-			// &LogTriggersOptions{
-			// 	readBatchSize: tc.maxBatchSize,
-			// 	ReadInterval:  readInterval,
-			// })
 
 			var ids []*big.Int
 			for i, id := range tc.ids {

@@ -45,7 +45,7 @@ func NewOptions(finalityDepth int64) LogTriggersOptions {
 }
 
 // Defaults sets the default values for the options.
-// NOTE: if o.LookbackBlocks was not set, it will be set to lookbackBlocks.
+// NOTE: o.LookbackBlocks should be set only from within tests
 func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
 	if o.LookbackBlocks == 0 {
 		lookbackBlocks := int64(200)
