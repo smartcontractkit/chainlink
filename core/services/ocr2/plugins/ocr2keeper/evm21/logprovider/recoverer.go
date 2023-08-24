@@ -23,11 +23,11 @@ import (
 )
 
 var (
-	ErrNotFound             = errors.New("not found")
+	ErrNotFound = errors.New("not found")
+
 	DefaultRecoveryInterval = 5 * time.Second
-	// TODO: Reduce these intervals to allow sending same proposals again if they were not fulfilled
-	RecoveryCacheTTL = 10*time.Minute - time.Second
-	GCInterval       = RecoveryCacheTTL
+	RecoveryCacheTTL        = 10*time.Minute - time.Second
+	GCInterval              = RecoveryCacheTTL
 
 	recoveryBatchSize    = 10
 	recoveryLogsBuffer   = int64(50)
@@ -175,7 +175,6 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 		return nil, err
 	}
 
-	// TODO: Ensure start block is above upkeep creation block
 	start, offsetBlock := r.getRecoveryWindow(latest)
 	if proposal.Trigger.LogTriggerExtension == nil {
 		return nil, errors.New("missing log trigger extension")
