@@ -22,7 +22,7 @@ import (
 var _ relaymercury.MercuryServerFetcher = &mockFetcher{}
 
 type mockFetcher struct {
-	ts             uint32
+	ts             int64
 	tsErr          error
 	linkPrice      *big.Int
 	linkPriceErr   error
@@ -47,7 +47,7 @@ func (m *mockFetcher) LatestPrice(ctx context.Context, fId [32]byte) (*big.Int, 
 	return nil, nil
 }
 
-func (m *mockFetcher) LatestTimestamp(context.Context) (uint32, error) {
+func (m *mockFetcher) LatestTimestamp(context.Context) (int64, error) {
 	return m.ts, m.tsErr
 }
 
@@ -102,7 +102,7 @@ func Test_Datasource(t *testing.T) {
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.NoError(t, err)
 
-			assert.Equal(t, uint32(123), obs.MaxFinalizedTimestamp.Val)
+			assert.Equal(t, int64(123), obs.MaxFinalizedTimestamp.Val)
 			assert.NoError(t, obs.MaxFinalizedTimestamp.Err)
 		})
 
@@ -137,7 +137,7 @@ func Test_Datasource(t *testing.T) {
 				assert.NoError(t, obs.Bid.Err)
 				assert.Equal(t, big.NewInt(123), obs.Ask.Val)
 				assert.NoError(t, obs.Ask.Err)
-				assert.Equal(t, uint32(123123), obs.MaxFinalizedTimestamp.Val)
+				assert.Equal(t, int64(123123), obs.MaxFinalizedTimestamp.Val)
 				assert.NoError(t, obs.MaxFinalizedTimestamp.Err)
 				assert.Equal(t, big.NewInt(122), obs.LinkPrice.Val)
 				assert.NoError(t, obs.LinkPrice.Err)
@@ -219,7 +219,7 @@ func Test_Datasource(t *testing.T) {
 				assert.NoError(t, obs.Bid.Err)
 				assert.Equal(t, big.NewInt(123), obs.Ask.Val)
 				assert.NoError(t, obs.Ask.Err)
-				assert.Equal(t, uint32(0), obs.MaxFinalizedTimestamp.Val)
+				assert.Equal(t, int64(0), obs.MaxFinalizedTimestamp.Val)
 				assert.NoError(t, obs.MaxFinalizedTimestamp.Err)
 				assert.Equal(t, big.NewInt(122), obs.LinkPrice.Val)
 				assert.NoError(t, obs.LinkPrice.Err)
@@ -249,9 +249,9 @@ func Test_Datasource(t *testing.T) {
 				obs, err := ds.Observe(ctx, repts, false)
 				assert.NoError(t, err)
 
-				assert.Equal(t, obs.LinkPrice.Val, maxInt192)
+				assert.Equal(t, obs.LinkPrice.Val, relaymercury.MaxInt192)
 				assert.Nil(t, obs.LinkPrice.Err)
-				assert.Equal(t, obs.NativePrice.Val, maxInt192)
+				assert.Equal(t, obs.NativePrice.Val, relaymercury.MaxInt192)
 				assert.Nil(t, obs.NativePrice.Err)
 			})
 		})

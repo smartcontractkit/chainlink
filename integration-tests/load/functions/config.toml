@@ -1,0 +1,34 @@
+[Soak]
+rps = 1
+duration = "1h"
+
+[Load]
+rps_from = 1
+rps_increase = 1
+rps_steps = 10
+duration = "3m"
+
+[SoakVolume]
+products = 5
+pace = "1s"
+duration = "3m"
+
+[LoadVolume]
+products_from = 1
+products_increase = 1
+products_steps = 10
+pace = "1s"
+duration = "3m"
+
+[Common]
+# Polygon Mumbai only for now
+link_token_addr = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
+coordinator_addr = "0x69b4C680209737B877c93327fC2144ec39eaC423"
+router_addr = "0xa4Ac8b863A6b4fB064B6bdF87aD61d389d97748d"
+client_example_addr = "0x2720cC3a112d33B5C1D40270f7c7BE7CADec1690"
+don_id = "functions_staging_mumbai"
+# comment it to automatically create and fund a new one
+subscription_id = 48
+# not used until we have full DON setup
+# node_funds = 10
+sub_funds = 7
