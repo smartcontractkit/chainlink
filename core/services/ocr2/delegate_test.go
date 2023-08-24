@@ -43,9 +43,10 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	txManager := txmmocks.NewMockEvmTxManager(t)
-	relayerExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth(), TxManager: txManager})
-	require.True(t, relayerExtenders.Len() > 0)
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayerExtenders)
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth(), TxManager: txManager})
+	require.True(t, relayExtenders.Len() > 0)
+	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	require.NoError(t, err)
 
 	type testCase struct {
 		name                  string
