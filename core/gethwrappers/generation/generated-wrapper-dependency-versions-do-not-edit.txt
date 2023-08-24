@@ -96,5 +96,5 @@ vrfv2_wrapper_interface: ../../contracts/solc/v0.8.6/VRFV2WrapperInterface.abi .
 vrfv2plus_client: ../../contracts/solc/v0.8.6/VRFV2PlusClient.abi ../../contracts/solc/v0.8.6/VRFV2PlusClient.bin 3ffbfa4971a7e5f46051a26b1722613f265d89ea1867547ecec58500953a9501
 vrfv2plus_consumer_example: ../../contracts/solc/v0.8.6/VRFV2PlusConsumerExample.abi ../../contracts/solc/v0.8.6/VRFV2PlusConsumerExample.bin 5cfc2977029d558dc6363a5d4953bb165d94932d248ea003dbb7ebf4b8b938bf
 vrfv2plus_reverting_example: ../../contracts/solc/v0.8.6/VRFV2PlusRevertingExample.abi ../../contracts/solc/v0.8.6/VRFV2PlusRevertingExample.bin 93e8af756ad31107224560baf3472445af56300a7ad11cb8304c77707a73e082
-vrfv2plus_wrapper: ../../contracts/solc/v0.8.6/VRFV2PlusWrapper.abi ../../contracts/solc/v0.8.6/VRFV2PlusWrapper.bin 06f705f62d5f94c8315dbd680c1eb9ad0e650bfa0292de8eb5757b2fd21edb04
+vrfv2plus_wrapper: ../../contracts/solc/v0.8.6/VRFV2PlusWrapper.abi ../../contracts/solc/v0.8.6/VRFV2PlusWrapper.bin 07060c74f3577d3c00b18f0101448a941617b959546bf9aeda272770327abd2a
 vrfv2plus_wrapper_consumer_example: ../../contracts/solc/v0.8.6/VRFV2PlusWrapperConsumerExample.abi ../../contracts/solc/v0.8.6/VRFV2PlusWrapperConsumerExample.bin d4ddf86da21b87c013f551b2563ab68712ea9d4724894664d5778f6b124f4e78
