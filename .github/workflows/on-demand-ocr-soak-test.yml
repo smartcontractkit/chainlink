@@ -30,6 +30,8 @@ on:
           - "KROMA_SEPOLIA"
           - "WEMIX_TESTNET"
           - "WEMIX_MAINNET"
+          - "POLYGON_ZKEVM_GOERLI"
+          - "POLYGON_ZKEVM_MAINNET" 
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
