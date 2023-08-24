@@ -507,19 +507,24 @@ func logToTrigger(log logpoller.Log) ocr2keepers.Trigger {
 
 func (r *logRecoverer) clean(ctx context.Context) {
 	r.lock.RLock()
-	var ids []string
+	var expired []string
 	for id, t := range r.visited {
 		if time.Since(t.visitedAt) > RecoveryCacheTTL {
-			ids = append(ids, id)
+			expired = append(expired, id)
 		}
 	}
 	r.lock.RUnlock()
-	cleaned, err := r.tryExpire(ctx, ids...)
-	if err != nil {
-		r.lggr.Warnw("failed to clean visited upkeeps", "err", err)
+	lggr := r.lggr.With("where", "clean")
+	if len(expired) == 0 {
+		lggr.Debug("no expired upkeeps")
+		return
 	}
-	if cleaned > 0 {
-		r.lggr.Debugw("gc: cleaned visited upkeeps", "cleaned", cleaned)
+	cleaned, err := r.tryExpire(ctx, expired...)
+	if err != nil {
+		lggr.Warnw("failed to clean visited upkeeps", "err", err)
+	}
+	if len(expired) > 0 {
+		lggr.Debugw("expired upkeeps", "expired", len(expired), "cleaned", cleaned)
 	}
 }
 
@@ -532,7 +537,8 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) (int, error
 	if err != nil {
 		return 0, fmt.Errorf("failed to get states: %w", err)
 	}
-
+	lggr := r.lggr.With("where", "clean")
+	start, _ := r.getRecoveryWindow(latestBlock)
 	r.lock.Lock()
 	defer r.lock.Unlock()
 	var removed int
@@ -543,6 +549,14 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) (int, error
 			// so we push it back to the pending list
 			rec, ok := r.visited[ids[i]]
 			if !ok {
+				continue
+			}
+			if logBlock := rec.payload.Trigger.LogTriggerExtension.BlockNumber; int64(logBlock) < start {
+				// we can't recover this log anymore, so we remove it from the visited list
+				lggr.Debugw("removing expired log: old block", "upkeepID", rec.payload.UpkeepID,
+					"logBlock", logBlock, "start", start)
+				delete(r.visited, ids[i])
+				removed++
 				continue
 			}
 			r.pending = append(r.pending, rec.payload)

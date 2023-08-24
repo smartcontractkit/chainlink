@@ -124,15 +124,35 @@ func TestLogRecoverer_Clean(t *testing.T) {
 			map[string]visitedRecord{
 				"1": visitedRecord{time.Now(), ocr2keepers.UpkeepPayload{
 					WorkID: "1",
+					Trigger: ocr2keepers.Trigger{
+						LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+							BlockNumber: 50,
+						},
+					},
 				}},
 				"2": visitedRecord{time.Now(), ocr2keepers.UpkeepPayload{
 					WorkID: "2",
+					Trigger: ocr2keepers.Trigger{
+						LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+							BlockNumber: 50,
+						},
+					},
 				}},
 				"3": visitedRecord{time.Now().Add(-time.Hour), ocr2keepers.UpkeepPayload{
 					WorkID: "3",
+					Trigger: ocr2keepers.Trigger{
+						LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+							BlockNumber: 50,
+						},
+					},
 				}},
 				"4": visitedRecord{time.Now().Add(-time.Hour), ocr2keepers.UpkeepPayload{
 					WorkID: "4",
+					Trigger: ocr2keepers.Trigger{
+						LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+							BlockNumber: 50,
+						},
+					},
 				}},
 			},
 			200,
