@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
@@ -79,7 +80,7 @@ func TestTxm(t *testing.T) {
 	gpe := cosmosclient.NewMustGasPriceEstimator([]cosmosclient.GasPricesEstimator{
 		cosmosclient.NewFixedGasPriceEstimator(map[string]cosmostypes.DecCoin{
 			"uatom": cosmostypes.NewDecCoinFromDec("uatom", cosmostypes.MustNewDecFromStr("0.01")),
-		}),
+		}, logger.Sugared(lggr)),
 	}, lggr)
 
 	t.Run("single msg", func(t *testing.T) {

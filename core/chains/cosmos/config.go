@@ -267,9 +267,6 @@ func setFromChain(c, f *coscfg.Chain) {
 	if f.FallbackGasPrice != nil {
 		c.FallbackGasPrice = f.FallbackGasPrice
 	}
-	if f.FCDURL != nil {
-		c.FCDURL = f.FCDURL
-	}
 	if f.GasLimitMultiplier != nil {
 		c.GasLimitMultiplier = f.GasLimitMultiplier
 	}
@@ -327,10 +324,6 @@ func (c *CosmosConfig) FallbackGasPrice() sdk.Dec {
 	return sdkDecFromDecimal(c.Chain.FallbackGasPrice)
 }
 
-func (c *CosmosConfig) FCDURL() url.URL {
-	return (url.URL)(*c.Chain.FCDURL)
-}
-
 func (c *CosmosConfig) GasLimitMultiplier() float64 {
 	return c.Chain.GasLimitMultiplier.InexactFloat64()
 }
@@ -349,6 +342,14 @@ func (c *CosmosConfig) OCR2CacheTTL() time.Duration {
 
 func (c *CosmosConfig) TxMsgTimeout() time.Duration {
 	return c.Chain.TxMsgTimeout.Duration()
+}
+
+func (c *CosmosConfig) Bech32Prefix() string {
+	return *c.Chain.Bech32Prefix
+}
+
+func (c *CosmosConfig) FeeToken() string {
+	return *c.Chain.FeeToken
 }
 
 func sdkDecFromDecimal(d *decimal.Decimal) sdk.Dec {
