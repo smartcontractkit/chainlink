@@ -29,7 +29,6 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
     // stalenessSeconds is how long before we consider the feed price to be stale
     // and fallback to fallbackWeiPerUnitLink.
     uint32 stalenessSeconds;
-
     // Gas to cover oracle payment after we calculate the payment.
     // We make it configurable in case those operations are repriced.
     // The recommended number is below, though it may vary slightly
@@ -41,7 +40,6 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
     // 6685 + // Positive static costs of argument encoding etc. note that it varies by +/- x*12 for every x bytes of non-zero data in the proof.
     // Total: 37,185 gas.
     uint32 gasAfterPaymentCalculation;
-
     // Flat fee charged per fulfillment in 1e-8 of USD
     // i.e 1 USD == 100000000 "USD-8"
     // in other words, this is USD with 8 decimals rather than 2.
@@ -49,7 +47,6 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
     // max(uint40) * 1e-8 USD == 1099511627775 * 1e-8 ~= 10,995 USD
     // which should be more than enough.
     uint40 fulfillmentFlatFeeLinkUSD;
-
     // Flat fee charged per fulfillment in 1e-8 of USD.
     // i.e 1 USD == 100000000 "USD-8"
     // in other words, this is USD with 8 decimals rather than 2.
@@ -66,6 +63,34 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
     int256 fallbackUSDPerUnitLink,
     uint40 fulfillmentFlatFeeLinkUSD,
     uint40 fulfillmentFlatFeeEthUSD
+  );
+
+  struct WrapperConfig {
+    // wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
+    // function. The cost for this gas is passed to the user.
+    uint32 wrapperGasOverhead;
+    // coordinatorGasOverhead reflects the gas overhead of the coordinator's fulfillRandomWords
+    // function. The cost for this gas is billed to the subscription, and must therefor be included
+    // in the pricing for wrapped requests. This includes the gas costs of proof verification and
+    // payment calculation in the coordinator.
+    uint32 coordinatorGasOverhead;
+    // wrapperPremiumPercentage is the premium ratio in percentage. For example, a value of 0
+    // indicates no premium. A value of 15 indicates a 15 percent premium.
+    uint8 wrapperPremiumPercentage;
+    /// @dev this is the size of a VRF v2 fulfillment's calldata abi-encoded in bytes.
+    /// @dev proofSize = 13 words = 13 * 256 = 3328 bits
+    /// @dev commitmentSize = 5 words = 5 * 256 = 1280 bits
+    /// @dev dataSize = proofSize + commitmentSize = 4608 bits
+    /// @dev selector = 32 bits
+    /// @dev total data size = 4608 bits + 32 bits = 4640 bits = 580 bytes
+    uint32 fulfillmentTxSizeBytes;
+  }
+  WrapperConfig public s_wrapperConfig;
+  event WrapperConfigSet(
+    uint32 wrapperGasOverhead,
+    uint32 coordinatorGasOverhead,
+    uint8 wrapperPremiumPercentage,
+    uint32 fulfillmentTxSizeBytes
   );
 
   /// @notice fallback link/eth price used when respective feed is stale
@@ -90,7 +115,7 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
   /**
    * @notice Set the link-eth feed to be used by the price registry
    * @param linkEthFeed the address of the link-eth feed
-  */
+   */
   function setLINKETHFeed(address linkEthFeed) external onlyOwner {
     address oldFeed = address(s_linkETHFeed);
     s_linkETHFeed = AggregatorV3Interface(linkEthFeed);
@@ -98,9 +123,9 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
   }
 
   /**
-    * @notice Set the link-usd feed to be used by the price registry
-    * @param linkUsdFeed the address of the link-usd feed
-  */
+   * @notice Set the link-usd feed to be used by the price registry
+   * @param linkUsdFeed the address of the link-usd feed
+   */
   function setLINKUSDFeed(address linkUsdFeed) external onlyOwner {
     address oldFeed = address(s_linkUSDFeed);
     s_linkUSDFeed = AggregatorV3Interface(linkUsdFeed);
@@ -110,7 +135,7 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
   /**
    * @notice Set the eth-usd feed to be used by the price registry
    * @param ethUsdFeed the address of the eth-usd feed
-  */
+   */
   function setETHUSDFeed(address ethUsdFeed) external onlyOwner {
     address oldFeed = address(s_ethUSDFeed);
     s_ethUSDFeed = AggregatorV3Interface(ethUsdFeed);
@@ -126,7 +151,7 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
    * @param fallbackUSDPerUnitLink fallback link/usd price in the case of a stale feed
    * @param fulfillmentFlatFeeLinkUSD fulfillment flat fee for LINK fulfillments in USD, denominated in 8 decimals
    * @param fulfillmentFlatFeeEthUSD fulfillment flat fee for ETH (native) fulfillments in USD, denominated in 8 decimals
-  */
+   */
   function setConfig(
     uint32 stalenessSeconds,
     uint32 gasAfterPaymentCalculation,
@@ -165,8 +190,29 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
   }
 
   /**
+   * @notice Set the wrapper config to be used by the price registry
+   * @param wrapperGasOverhead gas overhead of the wrapper's fulfillRandomWords function
+   * @param coordinatorGasOverhead gas overhead of the coordinator's fulfillRandomWords function
+   * @param wrapperPremiumPercentage percentage premium to add to the base fee
+   */
+  function setWrapperConfig(
+    uint32 wrapperGasOverhead,
+    uint32 coordinatorGasOverhead,
+    uint8 wrapperPremiumPercentage,
+    uint32 fulfillmentTxSizeBytes
+  ) external onlyOwner {
+    s_wrapperConfig = WrapperConfig({
+      wrapperGasOverhead: wrapperGasOverhead,
+      coordinatorGasOverhead: coordinatorGasOverhead,
+      wrapperPremiumPercentage: wrapperPremiumPercentage,
+      fulfillmentTxSizeBytes: fulfillmentTxSizeBytes
+    });
+    emit WrapperConfigSet(wrapperGasOverhead, coordinatorGasOverhead, wrapperPremiumPercentage, fulfillmentTxSizeBytes);
+  }
+
+  /**
    * @inheritdoc IVRFV2PlusPriceRegistry
-  */
+   */
   function calculatePaymentAmount(
     uint256 startGas,
     uint256 weiPerUnitGas,
@@ -212,8 +258,12 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
    * @notice this is done because there would be unnecessary code duplication and bloat otherwise.
    * @param fulfillmentFlatFeeUSD the flat fee in USD, this is either s_config.fulfillmentFlatFeeEthUSD or s_config.fulfillmentFlatFeeLinkUSD
    * @param feed the feed to use to calculate the fee, this is either ETH_USD_FEED or LINK_ETH_FEED
-  */
-  function calculateFlatFeeFromUSD(uint40 fulfillmentFlatFeeUSD, AggregatorV3Interface feed) internal view returns (uint256 fee) {
+   * @return fee the flat fee in wei or in juels depending on the feed provided
+   */
+  function calculateFlatFeeFromUSD(
+    uint40 fulfillmentFlatFeeUSD,
+    AggregatorV3Interface feed
+  ) internal view returns (uint256 fee) {
     // if the fee is zero return zero.
     // this is likely the situation where we don't have a feed, therefore the code below would
     // revert due to zero addresses on the feed fields.
@@ -236,7 +286,7 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
       // USD / (USD / {ETH|LINK}) = USD * ({ETH|LINK} / USD) = USD * ((1e18 {wei|juels}/{ETH|LINK}) / USD) = {wei|juels}
       // divide additionally by the decimal difference since the premium denomination is
       // in more decimals than the aggregator contract.
-      fee = (uint256(fulfillmentFlatFeeUSD) * 1 ether) / (uint256(usdPerUnitCrypto) * uint256(10**decimalDiff));
+      fee = (uint256(fulfillmentFlatFeeUSD) * 1 ether) / (uint256(usdPerUnitCrypto) * uint256(10 ** decimalDiff));
     } else if (decimals > USD_FEE_DECIMALS) {
       // because our representation has less decimals, we need to multiply by
       // the difference to match the number of decimals in the aggregator contract.
@@ -244,7 +294,7 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
       // USD / (USD / {ETH|LINK}) = USD * ({ETH|LINK} / USD) = USD * ((1e18 {wei|juels}/{ETH|LINK}) / USD) = {wei|juels}
       // multiply additionally by the decimal difference since the premium denomination is
       // in less decimals than the aggregator contract.
-      fee = (uint256(fulfillmentFlatFeeUSD) * 1 ether * uint256(10**decimalDiff)) / uint256(usdPerUnitCrypto);
+      fee = (uint256(fulfillmentFlatFeeUSD) * 1 ether * uint256(10 ** decimalDiff)) / uint256(usdPerUnitCrypto);
     } else {
       // our representation is the same as the one in the aggregator contract,
       // so we can just do the conversion right away.
@@ -276,6 +326,89 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
     return uint96(paymentNoFee + fee);
   }
 
+  /**
+   * @inheritdoc IVRFV2PlusPriceRegistry
+   */
+  function calculateRequestPriceWrapper(uint32 _callbackGasLimit) external view override returns (uint256) {
+    return
+      calculateRequestPriceWrapperInternal(
+        _callbackGasLimit,
+        tx.gasprice,
+        getLINKEthFeedData(), // wei per unit link
+        s_wrapperConfig.wrapperGasOverhead,
+        s_wrapperConfig.coordinatorGasOverhead,
+        s_wrapperConfig.fulfillmentTxSizeBytes,
+        s_wrapperConfig.wrapperPremiumPercentage
+      );
+  }
+
+  /**
+   * @inheritdoc IVRFV2PlusPriceRegistry
+   */
+  function calculateRequestPriceNativeWrapper(uint32 _callbackGasLimit) external view override returns (uint256) {
+    return
+      calculateRequestPriceNativeWrapperInternal(
+        _callbackGasLimit,
+        tx.gasprice,
+        s_wrapperConfig.wrapperGasOverhead,
+        s_wrapperConfig.coordinatorGasOverhead,
+        s_wrapperConfig.fulfillmentTxSizeBytes,
+        s_wrapperConfig.wrapperPremiumPercentage
+      );
+  }
+
+  function calculateRequestPriceWrapperInternal(
+    uint256 _gas,
+    uint256 _requestGasPrice,
+    int256 _weiPerUnitLink,
+    uint32 _wrapperGasOverhead,
+    uint32 _coordinatorGasOverhead,
+    uint32 _fulfillmentTxSizeBytes,
+    uint8 _wrapperPremiumPercentage
+  ) internal view returns (uint256) {
+    // costWei is the base fee denominated in wei (native)
+    // costWei takes into account the L1 posting costs of the VRF fulfillment
+    // transaction, if we are on an L2.
+    uint256 costWei = (_requestGasPrice *
+      (_gas + _wrapperGasOverhead + _coordinatorGasOverhead) +
+      ChainSpecificUtil.getL1CalldataGasCost(_fulfillmentTxSizeBytes));
+    // (1e18 juels/link) * ((wei/gas * (gas)) + l1wei) / (wei/link) == 1e18 juels * wei/link / (wei/link) == 1e18 juels * wei/link * link/wei == juels
+    // baseFee is the base fee denominated in juels (link)
+    uint256 baseFee = (1e18 * costWei) / uint256(_weiPerUnitLink);
+    // feeWithPremium is the fee after the percentage premium is applied
+    uint256 feeWithPremium = (baseFee * (_wrapperPremiumPercentage + 100)) / 100;
+    // feeWithFlatFee is the fee after the flat fee is applied on top of the premium
+    uint256 feeWithFlatFee = feeWithPremium +
+      calculateFlatFeeFromUSD(s_config.fulfillmentFlatFeeLinkUSD, s_linkUSDFeed);
+
+    return feeWithFlatFee;
+  }
+
+  function calculateRequestPriceNativeWrapperInternal(
+    uint256 _gas,
+    uint256 _requestGasPrice,
+    uint32 _wrapperGasOverhead,
+    uint32 _coordinatorGasOverhead,
+    uint32 _fulfillmentTxSizeBytes,
+    uint8 _wrapperPremiumPercentage
+  ) internal view returns (uint256) {
+    // costWei is the base fee denominated in wei (native)
+    // costWei takes into account the L1 posting costs of the VRF fulfillment
+    // transaction, if we are on an L2.
+    uint256 costWei = (_requestGasPrice *
+      (_gas + _wrapperGasOverhead + _coordinatorGasOverhead) +
+      ChainSpecificUtil.getL1CalldataGasCost(_fulfillmentTxSizeBytes));
+    // (1e18 juels/link) * ((wei/gas * (gas)) + l1wei) / (wei/link) == 1e18 juels * wei/link / (wei/link) == 1e18 juels * wei/link * link/wei == juels
+    // baseFee is the base fee denominated in juels (link)
+    uint256 baseFee = costWei;
+    // feeWithPremium is the fee after the percentage premium is applied
+    uint256 feeWithPremium = (baseFee * (_wrapperPremiumPercentage + 100)) / 100;
+    // feeWithFlatFee is the fee after the flat fee is applied on top of the premium
+    uint256 feeWithFlatFee = feeWithPremium + calculateFlatFeeFromUSD(s_config.fulfillmentFlatFeeLinkUSD, s_ethUSDFeed);
+
+    return feeWithFlatFee;
+  }
+
   function getLINKEthFeedData() internal view returns (int256) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
@@ -287,6 +420,40 @@ contract VRFV2PlusPriceRegistry is ConfirmedOwner, IVRFV2PlusPriceRegistry {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
     }
     return weiPerUnitLink;
+  }
+
+  function estimateRequestPriceWrapper(
+    uint32 _callbackGasLimit,
+    uint256 _requestGasPriceWei
+  ) external view override returns (uint256) {
+    return
+      calculateRequestPriceWrapperInternal(
+        _callbackGasLimit,
+        _requestGasPriceWei,
+        getLINKEthFeedData(), // wei per unit link
+        s_wrapperConfig.wrapperGasOverhead,
+        s_wrapperConfig.coordinatorGasOverhead,
+        s_wrapperConfig.fulfillmentTxSizeBytes,
+        s_wrapperConfig.wrapperPremiumPercentage
+      );
+  }
+
+  /**
+   * @inheritdoc IVRFV2PlusPriceRegistry
+   */
+  function estimateRequestPriceNativeWrapper(
+    uint32 _callbackGasLimit,
+    uint256 _requestGasPriceWei
+  ) external view override returns (uint256) {
+    return
+      calculateRequestPriceNativeWrapperInternal(
+        _callbackGasLimit,
+        _requestGasPriceWei,
+        s_wrapperConfig.wrapperGasOverhead,
+        s_wrapperConfig.coordinatorGasOverhead,
+        s_wrapperConfig.fulfillmentTxSizeBytes,
+        s_wrapperConfig.wrapperPremiumPercentage
+      );
   }
 
   function getUSDFeedData(AggregatorV3Interface feed) internal view returns (int256 answer, uint8 decimals) {

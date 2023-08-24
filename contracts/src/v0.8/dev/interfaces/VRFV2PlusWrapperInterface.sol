@@ -9,53 +9,6 @@ interface VRFV2PlusWrapperInterface {
   function lastRequestId() external view returns (uint256);
 
   /**
-   * @notice Calculates the price of a VRF request with the given callbackGasLimit at the current
-   * @notice block.
-   *
-   * @dev This function relies on the transaction gas price which is not automatically set during
-   * @dev simulation. To estimate the price at a specific gas price, use the estimatePrice function.
-   *
-   * @param _callbackGasLimit is the gas limit used to estimate the price.
-   */
-  function calculateRequestPrice(uint32 _callbackGasLimit) external view returns (uint256);
-
-  /**
-   * @notice Calculates the price of a VRF request in native with the given callbackGasLimit at the current
-   * @notice block.
-   *
-   * @dev This function relies on the transaction gas price which is not automatically set during
-   * @dev simulation. To estimate the price at a specific gas price, use the estimatePrice function.
-   *
-   * @param _callbackGasLimit is the gas limit used to estimate the price.
-   */
-  function calculateRequestPriceNative(uint32 _callbackGasLimit) external view returns (uint256);
-
-  /**
-   * @notice Estimates the price of a VRF request with a specific gas limit and gas price.
-   *
-   * @dev This is a convenience function that can be called in simulation to better understand
-   * @dev pricing.
-   *
-   * @param _callbackGasLimit is the gas limit used to estimate the price.
-   * @param _requestGasPriceWei is the gas price in wei used for the estimation.
-   */
-  function estimateRequestPrice(uint32 _callbackGasLimit, uint256 _requestGasPriceWei) external view returns (uint256);
-
-  /**
-   * @notice Estimates the price of a VRF request in native with a specific gas limit and gas price.
-   *
-   * @dev This is a convenience function that can be called in simulation to better understand
-   * @dev pricing.
-   *
-   * @param _callbackGasLimit is the gas limit used to estimate the price.
-   * @param _requestGasPriceWei is the gas price in wei used for the estimation.
-   */
-  function estimateRequestPriceNative(
-    uint32 _callbackGasLimit,
-    uint256 _requestGasPriceWei
-  ) external view returns (uint256);
-
-  /**
    * @notice Requests randomness from the VRF V2 wrapper, paying in native token.
    *
    * @param _callbackGasLimit is the gas limit for the request.
@@ -67,4 +20,9 @@ interface VRFV2PlusWrapperInterface {
     uint16 _requestConfirmations,
     uint32 _numWords
   ) external payable returns (uint256 requestId);
+
+  /**
+   * @notice Returns the price registry being used by this wrapper.
+  */
+  function getPriceRegistry() external view returns (address);
 }

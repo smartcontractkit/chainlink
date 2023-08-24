@@ -50,15 +50,13 @@ contract VRFV2PlusWrapperTest is BaseTest {
       address(s_ethUsdFeed));
     // Deploy coordinator and consumer.
     s_testCoordinator = new ExposedVRFCoordinatorV2Plus(address(0), address(s_registry));
-    s_wrapper = new VRFV2PlusWrapper(address(s_linkToken), address(s_linkEthFeed), address(s_testCoordinator));
+    s_wrapper = new VRFV2PlusWrapper(address(s_linkToken), address(s_testCoordinator));
     s_consumer = new VRFV2PlusWrapperConsumerExample(address(s_linkToken), address(s_wrapper));
 
     // Configure the coordinator.
     s_testCoordinator.setLINK(address(s_linkToken));
     setConfigCoordinator();
     setConfigWrapper();
-
-    s_testCoordinator.s_config();
   }
 
   function setConfigCoordinator() internal {
@@ -71,8 +69,6 @@ contract VRFV2PlusWrapperTest is BaseTest {
   function setConfigWrapper() internal {
     s_wrapper.setConfig(
       wrapperGasOverhead, // wrapper gas overhead
-      coordinatorGasOverhead, // coordinator gas overhead
-      0, // premium percentage
       vrfKeyHash, // keyHash
       10 // max number of words
     );
@@ -120,10 +116,10 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
     (uint256 paid, bool fulfilled, bool native) = s_consumer.s_requests(requestId);
     uint32 expectedPaid = callbackGasLimit + wrapperGasOverhead + coordinatorGasOverhead;
-    assertEq(paid, expectedPaid);
-    assertEq(fulfilled, false);
-    assertEq(native, true);
-    assertEq(address(s_consumer).balance, 10 ether - expectedPaid);
+    assertEq(paid, expectedPaid, "paid");
+    assertEq(fulfilled, false, "fulfilled");
+    assertEq(native, true, "native");
+    assertEq(address(s_consumer).balance, 10 ether - expectedPaid, "balance");
 
     (, uint256 gasLimit, ) = s_wrapper.s_callbacks(requestId);
     assertEq(gasLimit, callbackGasLimit);

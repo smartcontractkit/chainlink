@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../interfaces/VRFV2PlusWrapperInterface.sol";
+import "../interfaces/IVRFV2PlusPriceRegistry.sol";
 
 /**
  *
@@ -33,6 +34,7 @@ abstract contract VRFV2PlusWrapperConsumerBase {
 
   LinkTokenInterface internal LINK;
   VRFV2PlusWrapperInterface internal VRF_V2_PLUS_WRAPPER;
+  IVRFV2PlusPriceRegistry internal VRF_V2_PLUS_PRICE_REGISTRY;
 
   /**
    * @param _link is the address of LinkToken
@@ -44,6 +46,9 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     }
 
     VRF_V2_PLUS_WRAPPER = VRFV2PlusWrapperInterface(_vrfV2PlusWrapper);
+    VRF_V2_PLUS_PRICE_REGISTRY = IVRFV2PlusPriceRegistry(
+      VRF_V2_PLUS_WRAPPER.getPriceRegistry()
+    );
   }
 
   /**
@@ -77,7 +82,7 @@ abstract contract VRFV2PlusWrapperConsumerBase {
   ) internal returns (uint256 requestId) {
     LINK.transferAndCall(
       address(VRF_V2_PLUS_WRAPPER),
-      VRF_V2_PLUS_WRAPPER.calculateRequestPrice(_callbackGasLimit),
+      VRF_V2_PLUS_PRICE_REGISTRY.calculateRequestPriceWrapper(_callbackGasLimit),
       abi.encode(_callbackGasLimit, _requestConfirmations, _numWords)
     );
     return VRF_V2_PLUS_WRAPPER.lastRequestId();
@@ -88,7 +93,7 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     uint16 _requestConfirmations,
     uint32 _numWords
   ) internal returns (uint256 requestId) {
-    uint256 requestPrice = VRF_V2_PLUS_WRAPPER.calculateRequestPriceNative(_callbackGasLimit);
+    uint256 requestPrice = VRF_V2_PLUS_PRICE_REGISTRY.calculateRequestPriceNativeWrapper(_callbackGasLimit);
     return
       VRF_V2_PLUS_WRAPPER.requestRandomWordsInNative{value: requestPrice}(
         _callbackGasLimit,

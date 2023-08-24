@@ -95,7 +95,7 @@ vrfv2_wrapper_consumer_example: ../../contracts/solc/v0.8.6/VRFV2WrapperConsumer
 vrfv2_wrapper_interface: ../../contracts/solc/v0.8.6/VRFV2WrapperInterface.abi ../../contracts/solc/v0.8.6/VRFV2WrapperInterface.bin ff8560169de171a68b360b7438d13863682d07040d984fd0fb096b2379421003
 vrfv2plus_client: ../../contracts/solc/v0.8.6/VRFV2PlusClient.abi ../../contracts/solc/v0.8.6/VRFV2PlusClient.bin 3ffbfa4971a7e5f46051a26b1722613f265d89ea1867547ecec58500953a9501
 vrfv2plus_consumer_example: ../../contracts/solc/v0.8.6/VRFV2PlusConsumerExample.abi ../../contracts/solc/v0.8.6/VRFV2PlusConsumerExample.bin 5cfc2977029d558dc6363a5d4953bb165d94932d248ea003dbb7ebf4b8b938bf
-vrfv2plus_price_registry: ../../contracts/solc/v0.8.6/VRFV2PlusPriceRegistry.abi ../../contracts/solc/v0.8.6/VRFV2PlusPriceRegistry.bin 501123555bd5b90408b80f0c6619e2ffb127e7726286dbf1d8a959e34ede2893
+vrfv2plus_price_registry: ../../contracts/solc/v0.8.6/VRFV2PlusPriceRegistry.abi ../../contracts/solc/v0.8.6/VRFV2PlusPriceRegistry.bin eaad1316263834c97be9fa9c5ca315676c3f451f1fb94cecde003a0d687c83a9
 vrfv2plus_reverting_example: ../../contracts/solc/v0.8.6/VRFV2PlusRevertingExample.abi ../../contracts/solc/v0.8.6/VRFV2PlusRevertingExample.bin 93e8af756ad31107224560baf3472445af56300a7ad11cb8304c77707a73e082
-vrfv2plus_wrapper: ../../contracts/solc/v0.8.6/VRFV2PlusWrapper.abi ../../contracts/solc/v0.8.6/VRFV2PlusWrapper.bin 06f705f62d5f94c8315dbd680c1eb9ad0e650bfa0292de8eb5757b2fd21edb04
-vrfv2plus_wrapper_consumer_example: ../../contracts/solc/v0.8.6/VRFV2PlusWrapperConsumerExample.abi ../../contracts/solc/v0.8.6/VRFV2PlusWrapperConsumerExample.bin d4ddf86da21b87c013f551b2563ab68712ea9d4724894664d5778f6b124f4e78
+vrfv2plus_wrapper: ../../contracts/solc/v0.8.6/VRFV2PlusWrapper.abi ../../contracts/solc/v0.8.6/VRFV2PlusWrapper.bin 8a2a8a4ea5fb4cb67fc02cd79831e93f5673f90581dab90d046e32108916ab82
+vrfv2plus_wrapper_consumer_example: ../../contracts/solc/v0.8.6/VRFV2PlusWrapperConsumerExample.abi ../../contracts/solc/v0.8.6/VRFV2PlusWrapperConsumerExample.bin e2a155786d0f0fd11adaea168965cbe1864b2f3955b4f1f8a7c7dbd79d5ccfdb

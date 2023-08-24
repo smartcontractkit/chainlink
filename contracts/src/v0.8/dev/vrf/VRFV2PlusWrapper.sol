@@ -10,6 +10,7 @@ import "../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../interfaces/VRFV2PlusWrapperInterface.sol";
 import "./VRFV2PlusWrapperConsumerBase.sol";
 import "../../ChainSpecificUtil.sol";
+import "../interfaces/IVRFV2PlusPriceRegistry.sol";
 
 /**
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
@@ -21,16 +22,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   error LinkAlreadySet();
 
   LinkTokenInterface public s_link;
-  AggregatorV3Interface public s_linkEthFeed;
   ExtendedVRFCoordinatorV2PlusInterface public immutable COORDINATOR;
+  IVRFV2PlusPriceRegistry public immutable PRICE_REGISTRY;
   uint256 public immutable SUBSCRIPTION_ID;
-  /// @dev this is the size of a VRF v2 fulfillment's calldata abi-encoded in bytes.
-  /// @dev proofSize = 13 words = 13 * 256 = 3328 bits
-  /// @dev commitmentSize = 5 words = 5 * 256 = 1280 bits
-  /// @dev dataSize = proofSize + commitmentSize = 4608 bits
-  /// @dev selector = 32 bits
-  /// @dev total data size = 4608 bits + 32 bits = 4640 bits = 580 bytes
-  uint32 public s_fulfillmentTxSizeBytes = 580;
 
   // 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100)
   // and some arithmetic operations.
@@ -50,37 +44,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // but existing ones can still be fulfilled.
   bool public s_disabled;
 
-  // s_fallbackWeiPerUnitLink is the backup LINK exchange rate used when the LINK/NATIVE feed is
-  // stale.
-  int256 private s_fallbackWeiPerUnitLink;
-
-  // s_stalenessSeconds is the number of seconds before we consider the feed price to be stale and
-  // fallback to fallbackWeiPerUnitLink.
-  uint32 private s_stalenessSeconds;
-
-  // s_fulfillmentFlatFeeLinkPPM is the flat fee in millionths of LINK that VRFCoordinatorV2
-  // charges.
-  uint32 private s_fulfillmentFlatFeeLinkPPM;
-
-  // s_fulfillmentFlatFeeLinkPPM is the flat fee in millionths of LINK that VRFCoordinatorV2
-  // charges.
-  uint32 private s_fulfillmentFlatFeeEthPPM;
-
   // Other configuration
-
   // s_wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
   // function. The cost for this gas is passed to the user.
-  uint32 private s_wrapperGasOverhead;
-
-  // s_coordinatorGasOverhead reflects the gas overhead of the coordinator's fulfillRandomWords
-  // function. The cost for this gas is billed to the subscription, and must therefor be included
-  // in the pricing for wrapped requests. This includes the gas costs of proof verification and
-  // payment calculation in the coordinator.
-  uint32 private s_coordinatorGasOverhead;
-
-  // s_wrapperPremiumPercentage is the premium ratio in percentage. For example, a value of 0
-  // indicates no premium. A value of 15 indicates a 15 percent premium.
-  uint8 private s_wrapperPremiumPercentage;
+  uint32 s_wrapperGasOverhead;
 
   // s_keyHash is the key hash to use when requesting randomness. Fees are paid based on current gas
   // fees, so this should be set to the highest gas lane on the network.
@@ -96,19 +63,25 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   }
   mapping(uint256 => Callback) /* requestID */ /* callback */ public s_callbacks;
 
-  constructor(address _link, address _linkEthFeed, address _coordinator) VRFConsumerBaseV2Plus(_coordinator) {
+  constructor(address _link, address _coordinator) VRFConsumerBaseV2Plus(_coordinator) {
     if (_link != address(0)) {
       s_link = LinkTokenInterface(_link);
     }
-    if (_linkEthFeed != address(0)) {
-      s_linkEthFeed = AggregatorV3Interface(_linkEthFeed);
-    }
+
     COORDINATOR = ExtendedVRFCoordinatorV2PlusInterface(_coordinator);
+    PRICE_REGISTRY = IVRFV2PlusPriceRegistry(ExtendedVRFCoordinatorV2PlusInterface(_coordinator).PRICE_REGISTRY());
 
     // Create this wrapper's subscription and add itself as a consumer.
     uint256 subId = ExtendedVRFCoordinatorV2PlusInterface(_coordinator).createSubscription();
     SUBSCRIPTION_ID = subId;
     ExtendedVRFCoordinatorV2PlusInterface(_coordinator).addConsumer(subId, address(this));
+  }
+
+  /**
+   * @inheritdoc VRFV2PlusWrapperInterface
+   */
+  function getPriceRegistry() external view override returns (address) {
+    return address(PRICE_REGISTRY);
   }
 
   /**
@@ -124,77 +97,24 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   }
 
   /**
-   * @notice set the link eth feed to be used by this wrapper
-   * @param linkEthFeed address of the link eth feed
-   */
-  function setLinkEthFeed(address linkEthFeed) external onlyOwner {
-    s_linkEthFeed = AggregatorV3Interface(linkEthFeed);
-  }
-
-  /**
-   * @notice setFulfillmentTxSize sets the size of the fulfillment transaction in bytes.
-   * @param size is the size of the fulfillment transaction in bytes.
-   */
-  function setFulfillmentTxSize(uint32 size) external onlyOwner {
-    s_fulfillmentTxSizeBytes = size;
-  }
-
-  /**
    * @notice setConfig configures VRFV2Wrapper.
    *
    * @dev Sets wrapper-specific configuration based on the given parameters, and fetches any needed
    * @dev VRFCoordinatorV2 configuration from the coordinator.
    *
    * @param _wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
-   *        function.
-   *
-   * @param _coordinatorGasOverhead reflects the gas overhead of the coordinator's
-   *        fulfillRandomWords function.
-   *
-   * @param _wrapperPremiumPercentage is the premium ratio in percentage for wrapper requests.
-   *
    * @param _keyHash to use for requesting randomness.
+   * @param _maxNumWords is the max number of words that can be requested in a single wrapped VRF request
    */
-  function setConfig(
-    uint32 _wrapperGasOverhead,
-    uint32 _coordinatorGasOverhead,
-    uint8 _wrapperPremiumPercentage,
-    bytes32 _keyHash,
-    uint8 _maxNumWords
-  ) external onlyOwner {
+  function setConfig(uint32 _wrapperGasOverhead, bytes32 _keyHash, uint8 _maxNumWords) external onlyOwner {
     s_wrapperGasOverhead = _wrapperGasOverhead;
-    s_coordinatorGasOverhead = _coordinatorGasOverhead;
-    s_wrapperPremiumPercentage = _wrapperPremiumPercentage;
     s_keyHash = _keyHash;
     s_maxNumWords = _maxNumWords;
     s_configured = true;
-
-    // Get other configuration from coordinator
-    (, , s_stalenessSeconds, ) = COORDINATOR.s_config();
-    s_fallbackWeiPerUnitLink = COORDINATOR.s_fallbackWeiPerUnitLink();
-    (s_fulfillmentFlatFeeLinkPPM, s_fulfillmentFlatFeeEthPPM) = COORDINATOR.s_feeConfig();
   }
 
   /**
    * @notice getConfig returns the current VRFV2Wrapper configuration.
-   *
-   * @return fallbackWeiPerUnitLink is the backup LINK exchange rate used when the LINK/NATIVE feed
-   *         is stale.
-   *
-   * @return stalenessSeconds is the number of seconds before we consider the feed price to be stale
-   *         and fallback to fallbackWeiPerUnitLink.
-   *
-   * @return fulfillmentFlatFeeLinkPPM is the flat fee in millionths of LINK that VRFCoordinatorV2Plus
-   *         charges.
-   *
-   * @return wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
-   *         function. The cost for this gas is passed to the user.
-   *
-   * @return coordinatorGasOverhead reflects the gas overhead of the coordinator's
-   *         fulfillRandomWords function.
-   *
-   * @return wrapperPremiumPercentage is the premium ratio in percentage. For example, a value of 0
-   *         indicates no premium. A value of 15 indicates a 15 percent premium.
    *
    * @return keyHash is the key hash to use when requesting randomness. Fees are paid based on
    *         current gas fees, so this should be set to the highest gas lane on the network.
@@ -202,116 +122,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @return maxNumWords is the max number of words that can be requested in a single wrapped VRF
    *         request.
    */
-  function getConfig()
-    external
-    view
-    returns (
-      int256 fallbackWeiPerUnitLink,
-      uint32 stalenessSeconds,
-      uint32 fulfillmentFlatFeeLinkPPM,
-      uint32 wrapperGasOverhead,
-      uint32 coordinatorGasOverhead,
-      uint8 wrapperPremiumPercentage,
-      bytes32 keyHash,
-      uint8 maxNumWords
-    )
-  {
-    return (
-      s_fallbackWeiPerUnitLink,
-      s_stalenessSeconds,
-      s_fulfillmentFlatFeeLinkPPM,
-      s_wrapperGasOverhead,
-      s_coordinatorGasOverhead,
-      s_wrapperPremiumPercentage,
-      s_keyHash,
-      s_maxNumWords
-    );
-  }
-
-  /**
-   * @notice Calculates the price of a VRF request with the given callbackGasLimit at the current
-   * @notice block.
-   *
-   * @dev This function relies on the transaction gas price which is not automatically set during
-   * @dev simulation. To estimate the price at a specific gas price, use the estimatePrice function.
-   *
-   * @param _callbackGasLimit is the gas limit used to estimate the price.
-   */
-  function calculateRequestPrice(
-    uint32 _callbackGasLimit
-  ) external view override onlyConfiguredNotDisabled returns (uint256) {
-    int256 weiPerUnitLink = getFeedData();
-    return calculateRequestPriceInternal(_callbackGasLimit, tx.gasprice, weiPerUnitLink);
-  }
-
-  function calculateRequestPriceNative(
-    uint32 _callbackGasLimit
-  ) external view override onlyConfiguredNotDisabled returns (uint256) {
-    return calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);
-  }
-
-  /**
-   * @notice Estimates the price of a VRF request with a specific gas limit and gas price.
-   *
-   * @dev This is a convenience function that can be called in simulation to better understand
-   * @dev pricing.
-   *
-   * @param _callbackGasLimit is the gas limit used to estimate the price.
-   * @param _requestGasPriceWei is the gas price in wei used for the estimation.
-   */
-  function estimateRequestPrice(
-    uint32 _callbackGasLimit,
-    uint256 _requestGasPriceWei
-  ) external view override onlyConfiguredNotDisabled returns (uint256) {
-    int256 weiPerUnitLink = getFeedData();
-    return calculateRequestPriceInternal(_callbackGasLimit, _requestGasPriceWei, weiPerUnitLink);
-  }
-
-  function estimateRequestPriceNative(
-    uint32 _callbackGasLimit,
-    uint256 _requestGasPriceWei
-  ) external view override onlyConfiguredNotDisabled returns (uint256) {
-    return calculateRequestPriceNativeInternal(_callbackGasLimit, _requestGasPriceWei);
-  }
-
-  function calculateRequestPriceNativeInternal(uint256 _gas, uint256 _requestGasPrice) internal view returns (uint256) {
-    // costWei is the base fee denominated in wei (native)
-    // costWei takes into account the L1 posting costs of the VRF fulfillment
-    // transaction, if we are on an L2.
-    uint256 costWei = (_requestGasPrice *
-      (_gas + s_wrapperGasOverhead + s_coordinatorGasOverhead) +
-      ChainSpecificUtil.getL1CalldataGasCost(s_fulfillmentTxSizeBytes));
-    // ((wei/gas * (gas)) + l1wei)
-    // baseFee is the base fee denominated in wei
-    uint256 baseFee = costWei;
-    // feeWithPremium is the fee after the percentage premium is applied
-    uint256 feeWithPremium = (baseFee * (s_wrapperPremiumPercentage + 100)) / 100;
-    // feeWithFlatFee is the fee after the flat fee is applied on top of the premium
-    uint256 feeWithFlatFee = feeWithPremium + (1e12 * uint256(s_fulfillmentFlatFeeEthPPM));
-
-    return feeWithFlatFee;
-  }
-
-  function calculateRequestPriceInternal(
-    uint256 _gas,
-    uint256 _requestGasPrice,
-    int256 _weiPerUnitLink
-  ) internal view returns (uint256) {
-    // costWei is the base fee denominated in wei (native)
-    // costWei takes into account the L1 posting costs of the VRF fulfillment
-    // transaction, if we are on an L2.
-    uint256 costWei = (_requestGasPrice *
-      (_gas + s_wrapperGasOverhead + s_coordinatorGasOverhead) +
-      ChainSpecificUtil.getL1CalldataGasCost(s_fulfillmentTxSizeBytes));
-    // (1e18 juels/link) * ((wei/gas * (gas)) + l1wei) / (wei/link) == 1e18 juels * wei/link / (wei/link) == 1e18 juels * wei/link * link/wei == juels
-    // baseFee is the base fee denominated in juels (link)
-    uint256 baseFee = (1e18 * costWei) / uint256(_weiPerUnitLink);
-    // feeWithPremium is the fee after the percentage premium is applied
-    uint256 feeWithPremium = (baseFee * (s_wrapperPremiumPercentage + 100)) / 100;
-    // feeWithFlatFee is the fee after the flat fee is applied on top of the premium
-    uint256 feeWithFlatFee = feeWithPremium + (1e12 * uint256(s_fulfillmentFlatFeeLinkPPM));
-
-    return feeWithFlatFee;
+  function getConfig() external view returns (bytes32 keyHash, uint8 maxNumWords) {
+    return (s_keyHash, s_maxNumWords);
   }
 
   /**
@@ -335,8 +147,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       (uint32, uint16, uint32)
     );
     uint32 eip150Overhead = getEIP150Overhead(callbackGasLimit);
-    int256 weiPerUnitLink = getFeedData();
-    uint256 price = calculateRequestPriceInternal(callbackGasLimit, tx.gasprice, weiPerUnitLink);
+    uint256 price = PRICE_REGISTRY.calculateRequestPriceWrapper(callbackGasLimit);
     require(_amount >= price, "fee too low");
     require(numWords <= s_maxNumWords, "numWords too high");
     VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
@@ -362,7 +173,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     uint32 _numWords
   ) external payable override returns (uint256 requestId) {
     uint32 eip150Overhead = getEIP150Overhead(_callbackGasLimit);
-    uint256 price = calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);
+    uint256 price = PRICE_REGISTRY.calculateRequestPriceNativeWrapper(_callbackGasLimit);
     require(msg.value >= price, "fee too low");
     require(_numWords <= s_maxNumWords, "numWords too high");
     VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
@@ -435,19 +246,6 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     }
   }
 
-  function getFeedData() private view returns (int256) {
-    bool staleFallback = s_stalenessSeconds > 0;
-    uint256 timestamp;
-    int256 weiPerUnitLink;
-    (, weiPerUnitLink, , timestamp, ) = s_linkEthFeed.latestRoundData();
-    // solhint-disable-next-line not-rely-on-time
-    if (staleFallback && s_stalenessSeconds < block.timestamp - timestamp) {
-      weiPerUnitLink = s_fallbackWeiPerUnitLink;
-    }
-    require(weiPerUnitLink >= 0, "Invalid LINK wei price");
-    return weiPerUnitLink;
-  }
-
   /**
    * @dev Calculates extra amount of gas required for running an assembly call() post-EIP150.
    */
@@ -501,17 +299,5 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 }
 
 interface ExtendedVRFCoordinatorV2PlusInterface is IVRFCoordinatorV2Plus {
-  function s_config()
-    external
-    view
-    returns (
-      uint16 minimumRequestConfirmations,
-      uint32 maxGasLimit,
-      uint32 stalenessSeconds,
-      uint32 gasAfterPaymentCalculation
-    );
-
-  function s_fallbackWeiPerUnitLink() external view returns (int256);
-
-  function s_feeConfig() external view returns (uint32 fulfillmentFlatFeeLinkPPM, uint32 fulfillmentFlatFeeEthPPM);
+  function PRICE_REGISTRY() external view returns (address);
 }
