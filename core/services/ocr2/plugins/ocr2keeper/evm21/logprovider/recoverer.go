@@ -282,11 +282,14 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
-	// TODO: Ensure start block is above upkeep creation block
+
 	start, offsetBlock := r.getRecoveryWindow(latest)
 	if offsetBlock < 0 {
 		// too soon to recover, we don't have enough blocks
 		return nil
+	}
+	if start < 0 {
+		start = 0
 	}
 
 	filters := r.getFilterBatch(offsetBlock)
@@ -314,11 +317,13 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 // recoverFilter recovers logs for a single upkeep filter.
 func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startBlock, offsetBlock int64) error {
 	start := f.lastRePollBlock
+	// ensure we don't recover logs from before the filter was created
+	// NOTE: we expect that filter with configUpdateBlock > offsetBlock were already filtered out.
+	if configUpdateBlock := int64(f.configUpdateBlock); start < configUpdateBlock {
+		start = configUpdateBlock
+	}
 	if start < startBlock {
 		start = startBlock
-	}
-	if start < 0 {
-		start = 0
 	}
 	end := start + recoveryLogsBuffer
 	if end > offsetBlock {
@@ -431,7 +436,9 @@ func (r *logRecoverer) getRecoveryWindow(latest int64) (int64, int64) {
 // getFilterBatch returns a batch of filters that are ready to be recovered.
 func (r *logRecoverer) getFilterBatch(offsetBlock int64) []upkeepFilter {
 	filters := r.filterStore.GetFilters(func(f upkeepFilter) bool {
-		return f.lastRePollBlock <= offsetBlock
+		// ensure we work only on filters that are ready to be recovered
+		// no need to recover in case f.configUpdateBlock is after offsetBlock
+		return f.lastRePollBlock <= offsetBlock && int64(f.configUpdateBlock) <= offsetBlock
 	})
 
 	sort.Slice(filters, func(i, j int) bool {

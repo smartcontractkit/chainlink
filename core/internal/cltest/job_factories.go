@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/smartcontractkit/sqlx"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -65,7 +66,9 @@ func getORMs(t *testing.T, db *sqlx.DB) (jobORM job.ORM, pipelineORM pipeline.OR
 	pipelineORM = pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db, lggr, config.Database())
 	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	jobORM = job.NewORM(db, evmrelay.NewLegacyChainsFromRelayerExtenders(cc), pipelineORM, bridgeORM, keyStore, lggr, config.Database())
+	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
+	assert.NoError(t, err)
+	jobORM = job.NewORM(db, legacyChains, pipelineORM, bridgeORM, keyStore, lggr, config.Database())
 	t.Cleanup(func() { jobORM.Close() })
 	return
 }

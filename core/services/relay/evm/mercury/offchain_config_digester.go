@@ -10,7 +10,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 )
 
 // Originally sourced from: https://github.com/smartcontractkit/offchain-reporting/blob/991ebe1462fd56826a1ddfb34287d542acb2baee/lib/offchainreporting2/chains/evmutil/offchain_config_digester.go
@@ -22,7 +22,7 @@ func NewOffchainConfigDigester(feedID [32]byte, chainID *big.Int, contractAddres
 }
 
 type OffchainConfigDigester struct {
-	FeedID          types.FeedID
+	FeedID          utils.FeedID
 	ChainID         *big.Int
 	ContractAddress common.Address
 }

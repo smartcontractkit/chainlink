@@ -116,7 +116,11 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 			}
 
 		}
-		op.legacyChains.EVMChains = evm.NewLegacyChains(config.OperationalConfigs, legacyMap)
+		legacy, err := evm.NewLegacyChains(config.AppConfig, legacyMap)
+		if err != nil {
+			return err
+		}
+		op.legacyChains.EVMChains = legacy
 		// TODO BCF-2510 this may not be necessary if EVM is not enabled by default
 		if defaultChain != nil {
 			op.legacyChains.EVMChains.SetDefault(defaultChain)
@@ -265,7 +269,7 @@ func (rs *CoreRelayerChainInteroperators) Node(ctx context.Context, name string)
 			return stat, nil
 		}
 	}
-	return types.NodeStatus{}, chains.ErrNotFound
+	return types.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 }
 
 // ids must be a string representation of relay.Identifier

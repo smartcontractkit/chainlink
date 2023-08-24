@@ -22,12 +22,12 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -88,7 +88,7 @@ type mercuryTransmitter struct {
 	cfgTracker         ConfigTracker
 	persistenceManager *PersistenceManager
 
-	feedID      types.FeedID
+	feedID      mercuryutils.FeedID
 	fromAccount string
 
 	stopCh utils.StopChan
