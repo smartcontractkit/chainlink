@@ -396,6 +396,12 @@ func (v *EthereumKeeperRegistry) Pause() error {
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		tx, err = v.registry2_1.Pause(txOpts)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
 	}
 
 	return fmt.Errorf("keeper registry version %d is not supported", v.version)
@@ -777,6 +783,11 @@ func (v *EthereumKeeperRegistry) SetUpkeepGasLimit(id *big.Int, gas uint32) erro
 		}
 	case ethereum.RegistryVersion_2_0:
 		tx, err = v.registry2_0.SetUpkeepGasLimit(opts, id, gas)
+		if err != nil {
+			return err
+		}
+	case ethereum.RegistryVersion_2_1:
+		tx, err = v.registry2_1.SetUpkeepGasLimit(opts, id, gas)
 		if err != nil {
 			return err
 		}
