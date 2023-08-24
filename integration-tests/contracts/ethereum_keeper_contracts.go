@@ -786,6 +786,11 @@ func (v *EthereumKeeperRegistry) SetUpkeepGasLimit(id *big.Int, gas uint32) erro
 		if err != nil {
 			return err
 		}
+	case ethereum.RegistryVersion_2_1:
+		tx, err = v.registry2_1.SetUpkeepGasLimit(opts, id, gas)
+		if err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("keeper registry version %d is not supported for SetUpkeepGasLimit", v.version)
 	}
