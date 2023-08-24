@@ -29,10 +29,6 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   error NumWordsTooBig(uint32 have, uint32 want);
   error ProvingKeyAlreadyRegistered(bytes32 keyHash);
   error NoSuchProvingKey(bytes32 keyHash);
-  error InvalidLinkWeiPrice(int256 linkWei);
-  error InvalidEthUSDPrice(int256 ethUSD);
-  error InvalidLinkUSDPrice(int256 linkUSD);
-  error InvalidUSDPrice(address feed, int256 price);
   error InsufficientGasForConsumer(uint256 have, uint256 want);
   error NoCorrespondingRequest();
   error IncorrectCommitment();
