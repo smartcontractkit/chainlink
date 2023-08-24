@@ -152,7 +152,8 @@ func TestPipelineORM_Integration(t *testing.T) {
 		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		btORM := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
 		relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{Client: evmtest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config, KeyStore: ethKeyStore})
-		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+		legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+		require.NoError(t, err)
 		runner := pipeline.NewRunner(orm, btORM, config.JobPipeline(), cfg.WebServer(), legacyChains, nil, nil, lggr, nil, nil)
 
 		jobORM := NewTestORM(t, db, legacyChains, orm, btORM, keyStore, cfg.Database())
@@ -160,7 +161,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 		dbSpec := makeVoterTurnoutOCRJobSpec(t, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
 
 		// Need a job in order to create a run
-		err := jobORM.CreateJob(dbSpec)
+		err = jobORM.CreateJob(dbSpec)
 		require.NoError(t, err)
 
 		var pipelineSpecs []pipeline.Spec
