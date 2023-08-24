@@ -12,8 +12,8 @@ library ChainSpecificUtil {
   ArbSys private constant ARBSYS = ArbSys(ARBSYS_ADDR);
   address private constant ARBGAS_ADDR = address(0x000000000000000000000000000000000000006C);
   ArbGasInfo private constant ARBGAS = ArbGasInfo(ARBGAS_ADDR);
-  uint256 private constant ARB_MAINNET_CHAIN_ID = 42161;
-  uint256 private constant ARB_GOERLI_TESTNET_CHAIN_ID = 421613;
+  uint256 private constant ARB_MAINNET_CHAIN_ID = 0; // 42161, disabled for Forge testing
+  uint256 private constant ARB_GOERLI_TESTNET_CHAIN_ID = 0; // 421613, disabled for Forge testing
 
   function getBlockhash(uint64 blockNumber) internal view returns (bytes32) {
     uint256 chainid = block.chainid;
