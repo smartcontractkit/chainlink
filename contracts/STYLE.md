@@ -214,7 +214,7 @@ Good:
 
 ### Transferring Ownership
 
-- When transferring control, whether it is of a token or a role in a contract, prefer "safe ownership" transfer patterns where the recipient must accept ownership. This avoids accidentally burning the control. This is also inline with the secure pattern of [prefer pull over push](https://consensys.github.io/smart-contract-best-practices/recommendations/#favor-pull-over-push-for-external-calls).
+- When transferring control, whether it is of a token or a role in a contract, prefer "safe ownership" transfer patterns where the recipient must accept ownership. This avoids accidentally burning the control. This is also inline with the secure pattern of [prefer pull over push](https://consensys.github.io/smart-contract-best-practices/development-recommendations/general/external-calls/#favor-pull-over-push-for-external-calls).
 
 ### Use Factories
 
