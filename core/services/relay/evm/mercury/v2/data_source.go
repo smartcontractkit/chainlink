@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -34,13 +34,13 @@ type datasource struct {
 	pipelineRunner Runner
 	jb             job.Job
 	spec           pipeline.Spec
-	feedID         types.FeedID
+	feedID         mercuryutils.FeedID
 	lggr           logger.Logger
 	runResults     chan<- pipeline.Run
 
 	fetcher      LatestReportFetcher
-	linkFeedID   types.FeedID
-	nativeFeedID types.FeedID
+	linkFeedID   mercuryutils.FeedID
+	nativeFeedID mercuryutils.FeedID
 
 	mu sync.RWMutex
 
@@ -51,7 +51,7 @@ var _ relaymercuryv2.DataSource = &datasource{}
 
 var maxInt192 = new(big.Int).Exp(big.NewInt(2), big.NewInt(191), nil)
 
-func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID types.FeedID, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID types.FeedID) *datasource {
+func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID mercuryutils.FeedID, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID mercuryutils.FeedID) *datasource {
 	return &datasource{pr, jb, spec, feedID, lggr, rr, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
 }
 
