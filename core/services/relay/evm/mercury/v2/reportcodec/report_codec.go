@@ -1,12 +1,13 @@
 package reportcodec
 
 import (
-	"math"
+	"errors"
+	"fmt"
+	"math/big"
 
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	reportcodec "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -16,6 +17,7 @@ import (
 
 var ReportTypes = reporttypes.GetSchema()
 var maxReportLength = 32 * len(ReportTypes) // each arg is 256 bit EVM word
+var zero = big.NewInt(0)
 
 var _ reportcodec.ReportCodec = &ReportCodec{}
 
@@ -28,31 +30,26 @@ func NewReportCodec(feedID [32]byte, lggr logger.Logger) *ReportCodec {
 	return &ReportCodec{lggr, feedID}
 }
 
-func (r *ReportCodec) BuildReport(paos []reportcodec.ParsedAttributedObservation, f int, validFromTimestamp, expiresAt uint32) (ocrtypes.Report, error) {
-	if len(paos) == 0 {
-		return nil, errors.Errorf("cannot build report from empty attributed observations")
+func (r *ReportCodec) BuildReport(rf reportcodec.ReportFields) (ocrtypes.Report, error) {
+	var merr error
+	if rf.BenchmarkPrice == nil {
+		merr = errors.Join(merr, errors.New("benchmarkPrice may not be nil"))
 	}
-
-	mPaos := reportcodec.Convert(paos)
-
-	timestamp := relaymercury.GetConsensusTimestamp(mPaos)
-
-	benchmarkPrice, err := relaymercury.GetConsensusBenchmarkPrice(mPaos, f)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetConsensusBenchmarkPrice failed")
+	if rf.LinkFee == nil {
+		merr = errors.Join(merr, errors.New("linkFee may not be nil"))
+	} else if rf.LinkFee.Cmp(zero) < 0 {
+		merr = errors.Join(merr, fmt.Errorf("linkFee may not be negative (got: %s)", rf.LinkFee))
 	}
-
-	linkFee, err := relaymercury.GetConsensusLinkFee(mPaos, f)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetConsensusLinkFee failed")
+	if rf.NativeFee == nil {
+		merr = errors.Join(merr, errors.New("nativeFee may not be nil"))
+	} else if rf.NativeFee.Cmp(zero) < 0 {
+		merr = errors.Join(merr, fmt.Errorf("nativeFee may not be negative (got: %s)", rf.NativeFee))
 	}
-	nativeFee, err := relaymercury.GetConsensusNativeFee(mPaos, f)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetConsensusNativeFee failed")
+	if merr != nil {
+		return nil, merr
 	}
-
-	reportBytes, err := ReportTypes.Pack(r.feedID, validFromTimestamp, timestamp, nativeFee, linkFee, expiresAt, benchmarkPrice)
-	return ocrtypes.Report(reportBytes), errors.Wrap(err, "failed to pack report blob")
+	reportBytes, err := ReportTypes.Pack(r.feedID, rf.ValidFromTimestamp, rf.Timestamp, rf.NativeFee, rf.LinkFee, rf.ExpiresAt, rf.BenchmarkPrice)
+	return ocrtypes.Report(reportBytes), pkgerrors.Wrap(err, "failed to pack report blob")
 }
 
 func (r *ReportCodec) MaxReportLength(n int) (int, error) {
@@ -60,29 +57,13 @@ func (r *ReportCodec) MaxReportLength(n int) (int, error) {
 }
 
 func (r *ReportCodec) ObservationTimestampFromReport(report ocrtypes.Report) (uint32, error) {
-	reportElems := map[string]interface{}{}
-	if err := ReportTypes.UnpackIntoMap(reportElems, report); err != nil {
-		return 0, errors.Errorf("error during unpack: %v", err)
+	decoded, err := r.Decode(report)
+	if err != nil {
+		return 0, err
 	}
-
-	timestampIface, ok := reportElems["observationsTimestamp"]
-	if !ok {
-		return 0, errors.Errorf("unpacked report has no 'observationTimestamp' field")
-	}
-
-	timestamp, ok := timestampIface.(uint32)
-	if !ok {
-		return 0, errors.Errorf("cannot cast timestamp to uint32, type is %T", timestampIface)
-	}
-
-	if timestamp > math.MaxInt32 {
-		return 0, errors.Errorf("timestamp overflows max uint32, got: %d", timestamp)
-	}
-
-	return timestamp, nil
+	return decoded.ObservationsTimestamp, nil
 }
 
-// Decode is made available to external users (i.e. mercury server)
 func (r *ReportCodec) Decode(report ocrtypes.Report) (*reporttypes.Report, error) {
 	return reporttypes.Decode(report)
 }

@@ -428,7 +428,6 @@ type CosmosChainConfig struct {
 type CosmosChainAttributes struct {
 	ChainID string            `json:"chainID"`
 	Config  CosmosChainConfig `json:"config"`
-	FCDURL  string            `json:"fcdURL" db:"fcd_url"`
 }
 
 // CosmosChain is the model that represents the terra chain when read

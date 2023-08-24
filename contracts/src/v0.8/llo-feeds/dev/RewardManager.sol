@@ -7,6 +7,7 @@ import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/interf
 import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
 import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
 import {Common} from "../../libraries/Common.sol";
+import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title FeeManager
@@ -15,6 +16,8 @@ import {Common} from "../../libraries/Common.sol";
  * @notice This contract will be used to reward any configured recipients within a pool. Recipients will receive a share of their pool relative to their configured weight.
  */
 contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterface {
+  using SafeERC20 for IERC20;
+
   // @dev The mapping of total fees collected for a particular pot: s_totalRewardRecipientFees[poolId]
   mapping(bytes32 => uint256) public s_totalRewardRecipientFees;
 
@@ -97,7 +100,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     }
 
     //transfer the fee to this contract
-    IERC20(i_linkAddress).transferFrom(payee, address(this), amount);
+    IERC20(i_linkAddress).safeTransferFrom(payee, address(this), amount);
 
     emit FeePaid(poolId, payee, amount);
   }
@@ -144,7 +147,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     //check if there's any rewards to claim in the given poolId
     if (claimAmount != 0) {
       //transfer the reward to the recipient
-      IERC20(i_linkAddress).transfer(recipient, claimAmount);
+      IERC20(i_linkAddress).safeTransfer(recipient, claimAmount);
     }
 
     return claimAmount;

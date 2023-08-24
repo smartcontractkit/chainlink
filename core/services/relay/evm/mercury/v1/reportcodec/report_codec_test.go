@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
@@ -18,28 +17,37 @@ import (
 )
 
 var hash = hexutil.MustDecode("0x552c2cea3ab43bae137d89ee6142a01db3ae2b5678bc3c9bd5f509f537bea57b")
-var paos = []relaymercuryv1.ParsedAttributedObservation{
-	relaymercuryv1.NewParsedAttributedObservation(42, commontypes.OracleID(49), big.NewInt(43), big.NewInt(44), big.NewInt(45), true, 248, hash, 123, true, 10, true),
-	relaymercuryv1.NewParsedAttributedObservation(142, commontypes.OracleID(149), big.NewInt(143), big.NewInt(144), big.NewInt(145), true, 248, hash, 123, true, 11, true),
-	relaymercuryv1.NewParsedAttributedObservation(242, commontypes.OracleID(249), big.NewInt(243), big.NewInt(244), big.NewInt(245), true, 248, hash, 123, true, 12, true),
-	relaymercuryv1.NewParsedAttributedObservation(342, commontypes.OracleID(250), big.NewInt(343), big.NewInt(344), big.NewInt(345), true, 842, hash, 456, true, 13, true),
+
+func newValidReportFields() relaymercuryv1.ReportFields {
+	return relaymercuryv1.ReportFields{
+		Timestamp:             242,
+		BenchmarkPrice:        big.NewInt(243),
+		Bid:                   big.NewInt(244),
+		Ask:                   big.NewInt(245),
+		CurrentBlockNum:       248,
+		CurrentBlockHash:      hash,
+		ValidFromBlockNum:     46,
+		CurrentBlockTimestamp: 123,
+	}
 }
 
 func Test_ReportCodec(t *testing.T) {
 	r := ReportCodec{}
-	f := 1
 
-	t.Run("BuildReport errors if observations are empty", func(t *testing.T) {
-		ps := []relaymercuryv1.ParsedAttributedObservation{}
-		_, err := r.BuildReport(ps, f, 1)
+	t.Run("BuildReport errors on zero fields", func(t *testing.T) {
+		_, err := r.BuildReport(relaymercuryv1.ReportFields{})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "cannot build report from empty attributed observation")
+		assert.Contains(t, err.Error(), "benchmarkPrice may not be nil")
+		assert.Contains(t, err.Error(), "bid may not be nil")
+		assert.Contains(t, err.Error(), "ask may not be nil")
+		assert.Contains(t, err.Error(), "invalid length for currentBlockHash, expected: 32, got: 0")
 	})
 
 	t.Run("BuildReport constructs a report from observations", func(t *testing.T) {
+		rf := newValidReportFields()
 		// only need to test happy path since validations are done in relaymercury
 
-		report, err := r.BuildReport(paos, f, 46)
+		report, err := r.BuildReport(rf)
 		require.NoError(t, err)
 
 		reportElems := make(map[string]interface{})
@@ -91,7 +99,7 @@ func Test_ReportCodec(t *testing.T) {
 	})
 }
 
-func buildSampleReport(bn int64, feedID [32]byte) []byte {
+func buildSampleReport(bn, validFromBn int64, feedID [32]byte) []byte {
 	timestamp := uint32(42)
 	bp := big.NewInt(242)
 	bid := big.NewInt(243)
@@ -99,9 +107,9 @@ func buildSampleReport(bn int64, feedID [32]byte) []byte {
 	currentBlockNumber := uint64(bn)
 	currentBlockHash := utils.NewHash()
 	currentBlockTimestamp := uint64(123)
-	validFromBlockNum := uint64(143)
+	validFromBlockNum := uint64(validFromBn)
 
-	b, err := ReportTypes.Pack(feedID, timestamp, bp, bid, ask, currentBlockNumber, currentBlockHash, currentBlockTimestamp, validFromBlockNum)
+	b, err := ReportTypes.Pack(feedID, timestamp, bp, bid, ask, currentBlockNumber, currentBlockHash, validFromBlockNum, currentBlockTimestamp)
 	if err != nil {
 		panic(err)
 	}
@@ -116,7 +124,7 @@ func Test_ReportCodec_CurrentBlockNumFromReport(t *testing.T) {
 	var invalidBn int64 = -1
 
 	t.Run("CurrentBlockNumFromReport extracts the current block number from a valid report", func(t *testing.T) {
-		report := buildSampleReport(validBn, feedID)
+		report := buildSampleReport(validBn, 143, feedID)
 
 		bn, err := r.CurrentBlockNumFromReport(report)
 		require.NoError(t, err)
@@ -124,11 +132,32 @@ func Test_ReportCodec_CurrentBlockNumFromReport(t *testing.T) {
 		assert.Equal(t, validBn, bn)
 	})
 	t.Run("CurrentBlockNumFromReport returns error if block num is too large", func(t *testing.T) {
-		report := buildSampleReport(invalidBn, feedID)
+		report := buildSampleReport(invalidBn, 143, feedID)
 
 		_, err := r.CurrentBlockNumFromReport(report)
 		require.Error(t, err)
 
-		assert.Contains(t, err.Error(), "blockNum overflows max int64, got: 18446744073709551615")
+		assert.Contains(t, err.Error(), "CurrentBlockNum=18446744073709551615 overflows max int64")
+	})
+}
+func Test_ReportCodec_ValidFromBlockNumFromReport(t *testing.T) {
+	r := ReportCodec{}
+	feedID := utils.NewHash()
+
+	t.Run("ValidFromBlockNumFromReport extracts the valid from block number from a valid report", func(t *testing.T) {
+		report := buildSampleReport(42, 999, feedID)
+
+		bn, err := r.ValidFromBlockNumFromReport(report)
+		require.NoError(t, err)
+
+		assert.Equal(t, int64(999), bn)
+	})
+	t.Run("ValidFromBlockNumFromReport returns error if valid from block number is too large", func(t *testing.T) {
+		report := buildSampleReport(42, -1, feedID)
+
+		_, err := r.ValidFromBlockNumFromReport(report)
+		require.Error(t, err)
+
+		assert.Contains(t, err.Error(), "ValidFromBlockNum=18446744073709551615 overflows max int64")
 	})
 }
