@@ -6,7 +6,7 @@ import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
 
 contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatibleInterface {
   string[] public feedsHex = [
-    "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+  "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
     "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
     "0x555344432d5553442d415242495452554d2d544553544e455400000000000000"
   ];
@@ -19,10 +19,7 @@ contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatible
     feedsHex = newFeeds;
   }
 
-  function checkCallback(
-    bytes[] memory values,
-    bytes memory extraData
-  ) external pure override returns (bool, bytes memory) {
+  function checkCallback(bytes[] memory values, bytes memory extraData) external pure override returns (bool, bytes memory) {
     // do sth about the chainlinkBlob data in values and extraData
     bytes memory performData = abi.encode(values, extraData);
     return (true, performData);
