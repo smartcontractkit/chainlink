@@ -4,6 +4,10 @@ NoNewHeadsThreshold = '12m'
 RPCBlockQueryDelay = 10
 MinIncomingConfirmations = 1
 OCR.ContractConfirmations = 1
+LogPollInterval = '30s'
+
+[Transactions]
+ResendAfterThreshold = '2m'
 
 [GasEstimator]
 PriceMin = '50 mwei'
