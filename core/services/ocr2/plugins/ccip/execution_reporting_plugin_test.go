@@ -42,7 +42,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-var MaxPayloadLength = 100_000
+var (
+	MaxTokensPerMessage = 5
+	MaxPayloadLength    = 100_000
+)
 
 type execTestHarness = struct {
 	plugintesthelpers.CCIPPluginTestHarness

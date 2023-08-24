@@ -95,8 +95,6 @@ func NewExecutionReportingPluginFactory(config ExecutionPluginConfig) *Execution
 }
 
 func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.ReportingPluginConfig) (types.ReportingPlugin, types.ReportingPluginInfo, error) {
-	ctx := context.TODO()
-
 	onchainConfig, err := abihelpers.DecodeAbiStruct[ccipconfig.ExecOnchainConfig](config.OnchainConfig)
 	if err != nil {
 		return nil, types.ReportingPluginInfo{}, err
@@ -113,7 +111,7 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPlugin(config types.Repor
 	if err != nil {
 		return nil, types.ReportingPluginInfo{}, err
 	}
-	destWrappedNative, err := destRouter.GetWrappedNative(&bind.CallOpts{Context: ctx})
+	destWrappedNative, err := destRouter.GetWrappedNative(nil)
 	if err != nil {
 		return nil, types.ReportingPluginInfo{}, err
 	}
@@ -166,7 +164,7 @@ func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp ty
 	inFlight := r.inflightReports.getAll()
 
 	observationBuildStart := time.Now()
-	// IMPORTANT: We build executable set based on the leaders token prices, ensuring consistency across followers.
+
 	executableObservations, err := r.getExecutableObservations(ctx, lggr, timestamp, inFlight)
 	measureObservationBuildDuration(timestamp, time.Since(observationBuildStart))
 	if err != nil {

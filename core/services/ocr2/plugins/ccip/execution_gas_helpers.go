@@ -66,7 +66,7 @@ func maxGasOverHeadGas(numMsgs, dataLength, numTokens int) uint64 {
 // computeExecCost calculates the costs for next execution, and converts to USD value scaled by 1e18 (e.g. 5$ = 5e18).
 func computeExecCost(gasLimit *big.Int, execGasPriceEstimate, tokenPriceUSD *big.Int) *big.Int {
 	execGasEstimate := new(big.Int).Add(big.NewInt(FEE_BOOSTING_OVERHEAD_GAS), gasLimit)
-	execGasEstimate = new(big.Int).Mul(execGasEstimate, execGasPriceEstimate)
+	execGasEstimate.Mul(execGasEstimate, execGasPriceEstimate)
 
 	return calculateUsdPerUnitGas(execGasEstimate, tokenPriceUSD)
 }
