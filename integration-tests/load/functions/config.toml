@@ -1,6 +1,6 @@
 [Soak]
-rps = 5
-duration = "3m"
+rps = 1
+duration = "1h"
 
 [Load]
 rps_from = 1

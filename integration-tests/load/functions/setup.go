@@ -2,6 +2,7 @@ package loadfunctions
 
 import (
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -39,6 +40,7 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, 
 		return env, nil, err
 	}
 	if cfg.Common.SubscriptionID == 0 {
+		log.Info().Msg("Creating new subscription")
 		subID, err := router.CreateSubscriptionWithConsumer(loadTestClient.Address())
 		if err != nil {
 			return env, nil, errors.Wrap(err, "failed to create a new subscription")

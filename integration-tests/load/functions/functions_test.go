@@ -10,9 +10,9 @@ import (
 func TestFunctionsLoad(t *testing.T) {
 	cfg, err := ReadConfig()
 	require.NoError(t, err)
-	_, functionContracts, err := SetupLocalLoadTestEnv(cfg)
+	env, functionContracts, err := SetupLocalLoadTestEnv(cfg)
 	require.NoError(t, err)
-	//env.ParallelTransactions(true)
+	env.ParallelTransactions(true)
 
 	labels := map[string]string{
 		"branch": "functions_healthcheck",
@@ -26,7 +26,7 @@ func TestFunctionsLoad(t *testing.T) {
 		CallTimeout: 2 * time.Minute,
 		Gun: NewSingleFunctionCallGun(
 			functionContracts,
-			"return Functions.encodeUint256(1)",
+			"const response = await Functions.makeHttpRequest({ url: 'http://dummyjson.com/products/1' }); return Functions.encodeUint256(response.data.id)",
 			[]byte{},
 			[]string{},
 			cfg.Common.SubscriptionID,
