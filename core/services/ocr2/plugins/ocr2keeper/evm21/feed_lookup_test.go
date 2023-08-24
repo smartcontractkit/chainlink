@@ -267,12 +267,15 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 	upkeepId, ok := new(big.Int).SetString("71022726777042968814359024671382968091267501884371696415772139504780367423725", 10)
 	assert.True(t, ok, t.Name())
 	tests := []struct {
-		name         string
-		cached       bool
-		allowed      bool
-		errorMessage string
-		state        encoding.PipelineExecutionState
-		retryable    bool
+		name       string
+		cached     bool
+		allowed    bool
+		ethCallErr error
+		err        error
+		state      encoding.PipelineExecutionState
+		reason     encoding.UpkeepFailureReason
+		retryable  bool
+		config     []byte
 	}{
 		{
 			name:    "success - allowed via cache",
@@ -281,7 +284,6 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 		},
 		{
 			name:    "success - allowed via fetching privilege config",
-			cached:  false,
 			allowed: true,
 		},
 		{
@@ -291,14 +293,26 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 		},
 		{
 			name:    "success - not allowed via fetching privilege config",
-			cached:  false,
 			allowed: false,
 		},
 		{
-			name:         "failure - cannot unmarshal privilege config",
-			cached:       false,
-			errorMessage: "failed to unmarshal privilege config for upkeep ID 71022726777042968814359024671382968091267501884371696415772139504780367423725: invalid character '\\x00' looking for beginning of value",
-			state:        encoding.MercuryUnmarshalError,
+			name:   "failure - cannot unmarshal privilege config",
+			err:    fmt.Errorf("failed to unmarshal privilege config: invalid character '\\x00' looking for beginning of value"),
+			state:  encoding.MercuryUnmarshalError,
+			config: []byte{0, 1},
+		},
+		{
+			name:       "failure - flaky RPC",
+			retryable:  true,
+			err:        fmt.Errorf("failed to get upkeep privilege config: flaky RPC"),
+			state:      encoding.RpcFlakyFailure,
+			ethCallErr: fmt.Errorf("flaky RPC"),
+		},
+		{
+			name:   "failure - empty upkeep privilege config",
+			err:    fmt.Errorf("upkeep privilege config is empty"),
+			reason: encoding.UpkeepFailureReasonMercuryAccessNotAllowed,
+			config: []byte{},
 		},
 	}
 
@@ -306,13 +320,13 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
 
-			if tt.errorMessage != "" {
-				mockRegistry := mocks.NewRegistry(t)
-				mockRegistry.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return([]byte{0, 1}, nil)
-				r.registry = mockRegistry
+			if tt.cached {
+				r.mercury.allowListCache.Set(upkeepId.String(), tt.allowed, cache.DefaultExpiration)
 			} else {
-				if tt.cached {
-					r.mercury.allowListCache.Set(upkeepId.String(), tt.allowed, cache.DefaultExpiration)
+				if tt.err != nil {
+					mockRegistry := mocks.NewRegistry(t)
+					mockRegistry.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return(tt.config, tt.ethCallErr)
+					r.registry = mockRegistry
 				} else {
 					mockRegistry := mocks.NewRegistry(t)
 					cfg := UpkeepPrivilegeConfig{MercuryEnabled: tt.allowed}
@@ -323,15 +337,11 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 				}
 			}
 
-			state, retryable, allowed, err := r.allowedToUseMercury(nil, upkeepId)
-			if tt.errorMessage != "" {
-				assert.NotNil(t, err)
-				assert.Equal(t, tt.errorMessage, err.Error())
-			} else {
-				assert.Nil(t, err)
-				assert.Equal(t, tt.allowed, allowed)
-			}
+			state, reason, retryable, allowed, err := r.allowedToUseMercury(nil, upkeepId)
+			assert.Equal(t, tt.err, err)
+			assert.Equal(t, tt.allowed, allowed)
 			assert.Equal(t, tt.state, state)
+			assert.Equal(t, tt.reason, reason)
 			assert.Equal(t, tt.retryable, retryable)
 		})
 	}
@@ -350,6 +360,7 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 		expectedRetryable  bool
 		expectedError      error
 		state              encoding.PipelineExecutionState
+		reason             encoding.UpkeepFailureReason
 	}{
 		{
 			name: "success",
@@ -398,8 +409,34 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 			mockChainlinkBlobs: []string{"0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000081401000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000289ad8d367000000000000000000000000000000000000000000000000000000289acf0b38000000000000000000000000000000000000000000000000000000289b3da40000000000000000000000000000000000000000000000000000000000018ae7ce74d9fa252a8983976eab600dc7590c778d04813430841bc6e765c34cd81a168d00000000000000000000000000000000000000000000000000000000018ae7cb0000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000000000000260412b94e525ca6cedc9f544fd86f77606d52fe731a5d069dbe836a8bfc0fb8c911963b0ae7a14971f3b4621bffb802ef0605392b9a6c89c7fab1df8633a5ade00000000000000000000000000000000000000000000000000000000000000024500c2f521f83fba5efc2bf3effaaedde43d0a4adff785c1213b712a3aed0d8157642a84324db0cf9695ebd27708d4608eb0337e0dd87b0e43f0fa70c700d911"},
 			expectedValues:     [][]byte{nil},
 			expectedRetryable:  false,
-			expectedError:      errors.New("All attempts fail:\n#1: FeedLookup upkeep 88786950015966611018675766524283132478093844178961698330929478019253453382042 block 25880526 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
+			expectedError:      errors.New("All attempts fail:\n#1: at block 25880526 upkeep 88786950015966611018675766524283132478093844178961698330929478019253453382042 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
 			state:              encoding.InvalidMercuryRequest,
+		},
+		{
+			name: "failure - no feeds",
+			lookup: &FeedLookup{
+				feedParamKey: feedIdHex,
+				feeds:        []string{},
+				timeParamKey: blockNumber,
+				time:         big.NewInt(25880526),
+				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				upkeepId:     upkeepId,
+			},
+			expectedValues: [][]byte{},
+			reason:         encoding.UpkeepFailureReasonInvalidRevertDataInput,
+		},
+		{
+			name: "failure - invalid revert data",
+			lookup: &FeedLookup{
+				feedParamKey: feedIDs,
+				feeds:        []string{},
+				timeParamKey: blockNumber,
+				time:         big.NewInt(25880526),
+				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				upkeepId:     upkeepId,
+			},
+			expectedValues: [][]byte{},
+			reason:         encoding.UpkeepFailureReasonInvalidRevertDataInput,
 		},
 	}
 
@@ -425,10 +462,11 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 			}
 			r.hc = hc
 
-			state, values, retryable, reqErr := r.doMercuryRequest(context.Background(), tt.lookup, r.lggr)
+			state, reason, values, retryable, reqErr := r.doMercuryRequest(context.Background(), tt.lookup, r.lggr)
 			assert.Equal(t, tt.expectedValues, values)
 			assert.Equal(t, tt.expectedRetryable, retryable)
 			assert.Equal(t, tt.state, state)
+			assert.Equal(t, tt.reason, reason)
 			if tt.expectedError != nil {
 				assert.Equal(t, tt.expectedError.Error(), reqErr.Error())
 			}
@@ -521,7 +559,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			retryNumber:    1,
 			statusCode:     http.StatusNotFound,
 			lastStatusCode: http.StatusBadGateway,
-			errorMessage:   "All attempts fail:\n#1: 404\n#2: FeedLookup upkeep 123456789 block 123456 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+			errorMessage:   "All attempts fail:\n#1: 404\n#2: at block 123456 upkeep 123456789 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
 		},
 		{
 			name:  "failure - returns not retryable",
@@ -535,7 +573,7 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			},
 			blob:         "0xab2123dc",
 			statusCode:   http.StatusBadGateway,
-			errorMessage: "All attempts fail:\n#1: FeedLookup upkeep 123456789 block 123456 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+			errorMessage: "All attempts fail:\n#1: at block 123456 upkeep 123456789 received status code 502 for feed 0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
 		},
 	}
 
@@ -612,7 +650,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		retryNumber    int
 		retryable      bool
 		errorMessage   string
-		responses      []MercuryV03Response
+		response       MercuryV03Response
 	}{
 		{
 			name: "success - mercury responds in the first try",
@@ -623,20 +661,23 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 				time:         big.NewInt(123456),
 				upkeepId:     upkeepId,
 			},
-			responses: []MercuryV03Response{
-				{
-					FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
-					ValidFromTimestamp:    "123456",
-					ObservationsTimestamp: "123456",
-					FullReport:            "0xab2123dc00000012",
-				},
-				{
-					FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
-					ValidFromTimestamp:    "123458",
-					ObservationsTimestamp: "123458",
-					FullReport:            "0xab2123dc00000016",
+			response: MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    "123456",
+						ObservationsTimestamp: "123456",
+						FullReport:            "0xab2123dc00000012",
+					},
+					{
+						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    "123458",
+						ObservationsTimestamp: "123458",
+						FullReport:            "0xab2123dc00000016",
+					},
 				},
 			},
+			statusCode: http.StatusOK,
 		},
 		{
 			name: "success - retry for 404",
@@ -650,18 +691,20 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			retryNumber:    1,
 			statusCode:     http.StatusNotFound,
 			lastStatusCode: http.StatusOK,
-			responses: []MercuryV03Response{
-				{
-					FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
-					ValidFromTimestamp:    "123456",
-					ObservationsTimestamp: "123456",
-					FullReport:            "0xab2123dc00000012",
-				},
-				{
-					FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
-					ValidFromTimestamp:    "123458",
-					ObservationsTimestamp: "123458",
-					FullReport:            "0xab2123dc00000012",
+			response: MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    "123456",
+						ObservationsTimestamp: "123456",
+						FullReport:            "0xab2123dc00000012",
+					},
+					{
+						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    "123458",
+						ObservationsTimestamp: "123458",
+						FullReport:            "0xab2123dc00000012",
+					},
 				},
 			},
 		},
@@ -677,18 +720,20 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			retryNumber:    2,
 			statusCode:     http.StatusInternalServerError,
 			lastStatusCode: http.StatusOK,
-			responses: []MercuryV03Response{
-				{
-					FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
-					ValidFromTimestamp:    "123456",
-					ObservationsTimestamp: "123456",
-					FullReport:            "0xab2123dc00000012",
-				},
-				{
-					FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
-					ValidFromTimestamp:    "123458",
-					ObservationsTimestamp: "123458",
-					FullReport:            "0xab2123dc00000019",
+			response: MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    "123456",
+						ObservationsTimestamp: "123456",
+						FullReport:            "0xab2123dc00000012",
+					},
+					{
+						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    "123458",
+						ObservationsTimestamp: "123458",
+						FullReport:            "0xab2123dc00000019",
+					},
 				},
 			},
 		},
@@ -718,7 +763,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			retryNumber:    1,
 			statusCode:     http.StatusNotFound,
 			lastStatusCode: http.StatusBadGateway,
-			errorMessage:   "All attempts fail:\n#1: 404\n#2: FeedLookup upkeep 123456789 block 123456 received status code 502 for multi feed",
+			errorMessage:   "All attempts fail:\n#1: 404\n#2: at block 123456 upkeep 123456789 received status code 502 from mercury v0.3",
 		},
 		{
 			name: "failure - returns not retryable",
@@ -730,7 +775,29 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 				upkeepId:     upkeepId,
 			},
 			statusCode:   http.StatusBadGateway,
-			errorMessage: "All attempts fail:\n#1: FeedLookup upkeep 123456789 block 123456 received status code 502 for multi feed",
+			errorMessage: "All attempts fail:\n#1: at block 123456 upkeep 123456789 received status code 502 from mercury v0.3",
+		},
+		{
+			name: "failure - reports length does not match feeds length",
+			lookup: &FeedLookup{
+				feedParamKey: feedIDs,
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: timestamp,
+				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
+			},
+			response: MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    "123456",
+						ObservationsTimestamp: "123456",
+						FullReport:            "0xab2123dc00000012",
+					},
+				},
+			},
+			statusCode:   http.StatusOK,
+			errorMessage: "All attempts fail:\n#1: at block 123456 upkeep 123456789 requested 2 feeds but received 1 reports from mercury v0.3",
 		},
 	}
 
@@ -738,25 +805,16 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
 			hc := mocks.NewHttpClient(t)
-
-			b, err := json.Marshal(tt.responses)
+			b, err := json.Marshal(tt.response)
 			assert.Nil(t, err)
 
 			if tt.retryNumber == 0 {
-				if tt.errorMessage != "" {
-					resp := &http.Response{
-						StatusCode: tt.statusCode,
-						Body:       io.NopCloser(bytes.NewReader(b)),
-					}
-					hc.On("Do", mock.Anything).Return(resp, nil).Once()
-				} else {
-					resp := &http.Response{
-						StatusCode: http.StatusOK,
-						Body:       io.NopCloser(bytes.NewReader(b)),
-					}
-					hc.On("Do", mock.Anything).Return(resp, nil).Once()
+				resp := &http.Response{
+					StatusCode: tt.statusCode,
+					Body:       io.NopCloser(bytes.NewReader(b)),
 				}
-			} else if tt.retryNumber > 0 && tt.retryNumber < totalAttempt {
+				hc.On("Do", mock.Anything).Return(resp, nil).Once()
+			} else if tt.retryNumber < totalAttempt {
 				retryResp := &http.Response{
 					StatusCode: tt.statusCode,
 					Body:       io.NopCloser(bytes.NewReader(b)),
@@ -790,7 +848,7 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 				assert.Nil(t, m.Error)
 				var reports [][]byte
 				var report []byte
-				for _, rsp := range tt.responses {
+				for _, rsp := range tt.response.Reports {
 					report, err = hexutil.Decode(rsp.FullReport)
 					assert.Nil(t, err)
 					reports = append(reports, report)
