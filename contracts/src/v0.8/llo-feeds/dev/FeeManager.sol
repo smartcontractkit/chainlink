@@ -10,6 +10,7 @@ import {IRewardManager} from "./interfaces/IRewardManager.sol";
 import {IWERC20} from "../../shared/interfaces/IWERC20.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC20.sol";
 import {Math} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/Math.sol";
+import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title FeeManager
@@ -18,6 +19,8 @@ import {Math} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/ma
  * @notice This contract is used for the handling of fees required for users verifying reports.
  */
 contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
+  using SafeERC20 for IERC20;
+
   /// @notice list of subscribers and their discounts subscriberDiscounts[subscriber][feedId][token]
   mapping(address => mapping(bytes32 => mapping(address => uint256))) public s_subscriberDiscounts;
 
@@ -201,7 +204,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       } else {
         //if the fee is in native wrapped, transfer to this contract in exchange for the equivalent amount of LINK excluding the surcharge
         if (msg.value == 0) {
-          IERC20(fee.assetAddress).transferFrom(subscriber, address(this), fee.amount);
+          IERC20(fee.assetAddress).safeTransferFrom(subscriber, address(this), fee.amount);
         }
 
         //check that the contract has enough LINK before paying the fee
@@ -332,7 +335,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     }
 
     //withdraw the requested asset
-    IERC20(assetAddress).transfer(owner(), quantity);
+    IERC20(assetAddress).safeTransfer(owner(), quantity);
 
     //emit event when funds are withdrawn
     emit Withdraw(msg.sender, assetAddress, quantity);
