@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -108,9 +109,15 @@ func (s *Shell) errorOut(err error) cli.ExitCoder {
 func (s *Shell) configExitErr(validateFn func() error) cli.ExitCoder {
 	err := validateFn()
 	if err != nil {
-		fmt.Println("Invalid configuration:", err)
-		fmt.Println()
-		return s.errorOut(errors.New("invalid configuration"))
+		if err.Error() != "invalid secrets: Database.AllowSimplePasswords: invalid value (true): insecure configs are not allowed on secure builds" {
+			fmt.Println("Invalid configuration:", err)
+			fmt.Println()
+			return s.errorOut(errors.New("invalid configuration"))
+		} else {
+			fmt.Printf("Notification for upcoming configuration change: %v\n", err)
+			fmt.Println("This configuration will be disallowed in future production releases.")
+			fmt.Println()
+		}
 	}
 	return nil
 }
@@ -149,8 +156,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 
 	evmFactoryCfg := chainlink.EVMFactoryConfig{
-		RelayerConfig:  evm.RelayerConfig{GeneralConfig: cfg, EventBroadcaster: eventBroadcaster, MailMon: mailMon},
 		CSAETHKeystore: keyStore,
+		RelayerConfig:  evm.RelayerConfig{AppConfig: cfg, EventBroadcaster: eventBroadcaster, MailMon: mailMon},
 	}
 	// evm always enabled for backward compatibility
 	// TODO BCF-2510 this needs to change in order to clear the path for EVM extraction

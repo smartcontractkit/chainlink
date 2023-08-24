@@ -1,4 +1,4 @@
-package evm
+package encoding
 
 import (
 	"fmt"
@@ -10,81 +10,47 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-)
-
-type UpkeepFailureReason uint8
-type PipelineExecutionState uint8
-
-const (
-	// upkeep failure onchain reasons
-	UpkeepFailureReasonNone                    UpkeepFailureReason = 0
-	UpkeepFailureReasonUpkeepCancelled         UpkeepFailureReason = 1
-	UpkeepFailureReasonUpkeepPaused            UpkeepFailureReason = 2
-	UpkeepFailureReasonTargetCheckReverted     UpkeepFailureReason = 3
-	UpkeepFailureReasonUpkeepNotNeeded         UpkeepFailureReason = 4
-	UpkeepFailureReasonPerformDataExceedsLimit UpkeepFailureReason = 5
-	UpkeepFailureReasonInsufficientBalance     UpkeepFailureReason = 6
-	UpkeepFailureReasonMercuryCallbackReverted UpkeepFailureReason = 7
-	UpkeepFailureReasonRevertDataExceedsLimit  UpkeepFailureReason = 8
-	UpkeepFailureReasonRegistryPaused          UpkeepFailureReason = 9
-	// leaving a gap here for more onchain failure reasons in the future
-	// upkeep failure offchain reasons
-	UpkeepFailureReasonMercuryAccessNotAllowed UpkeepFailureReason = 32
-	UpkeepFailureReasonLogBlockNoLongerExists  UpkeepFailureReason = 31
-	UpkeepFailureReasonLogBlockInvalid         UpkeepFailureReason = 32
-	UpkeepFailureReasonTxHashNoLongerExists    UpkeepFailureReason = 33
-
-	// pipeline execution error
-	NoPipelineError               PipelineExecutionState = 0
-	CheckBlockTooOld              PipelineExecutionState = 1
-	CheckBlockInvalid             PipelineExecutionState = 2
-	RpcFlakyFailure               PipelineExecutionState = 3
-	MercuryFlakyFailure           PipelineExecutionState = 4
-	PackUnpackDecodeFailed        PipelineExecutionState = 5
-	MercuryUnmarshalError         PipelineExecutionState = 6
-	InvalidMercuryRequest         PipelineExecutionState = 7
-	FailedToDecodeMercuryResponse PipelineExecutionState = 8
-	InvalidRevertDataInput        PipelineExecutionState = 9
 )
 
 var utilsABI = types.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
-
-type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo
 
 // triggerWrapper is a wrapper for the different trigger types (log and condition triggers).
 // NOTE: we use log trigger because it extends condition trigger,
 type triggerWrapper = automation_utils_2_1.KeeperRegistryBase21LogTrigger
 
-type evmRegistryPackerV2_1 struct {
+type abiPacker struct {
 	abi      abi.ABI
 	utilsAbi abi.ABI
 }
 
-func NewEvmRegistryPackerV2_1(abi abi.ABI, utilsAbi abi.ABI) *evmRegistryPackerV2_1 {
-	return &evmRegistryPackerV2_1{abi: abi, utilsAbi: utilsAbi}
+var _ Packer = (*abiPacker)(nil)
+
+func NewAbiPacker(abi abi.ABI, utilsAbi abi.ABI) *abiPacker {
+	return &abiPacker{abi: abi, utilsAbi: utilsAbi}
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackCheckResult(p ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
+func (p *abiPacker) UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		// decode failed, not retryable
-		return getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false), fmt.Errorf("upkeepId %s failed to decode checkUpkeep result %s: %s", p.UpkeepID.String(), raw, err)
+		return GetIneligibleCheckResultWithoutPerformData(payload, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false),
+			fmt.Errorf("upkeepId %s failed to decode checkUpkeep result %s: %s", payload.UpkeepID.String(), raw, err)
 	}
 
-	out, err := rp.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
+	out, err := p.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		// unpack failed, not retryable
-		return getIneligibleCheckResultWithoutPerformData(p, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false), fmt.Errorf("upkeepId %s failed to unpack checkUpkeep result %s: %s", p.UpkeepID.String(), raw, err)
+		return GetIneligibleCheckResultWithoutPerformData(payload, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false),
+			fmt.Errorf("upkeepId %s failed to unpack checkUpkeep result %s: %s", payload.UpkeepID.String(), raw, err)
 	}
 
 	result := ocr2keepers.CheckResult{
 		Eligible:            *abi.ConvertType(out[0], new(bool)).(*bool),
 		Retryable:           false,
 		GasAllocated:        uint64((*abi.ConvertType(out[4], new(*big.Int)).(**big.Int)).Int64()),
-		UpkeepID:            p.UpkeepID,
-		Trigger:             p.Trigger,
-		WorkID:              p.WorkID,
+		UpkeepID:            payload.UpkeepID,
+		Trigger:             payload.Trigger,
+		WorkID:              payload.WorkID,
 		FastGasWei:          *abi.ConvertType(out[5], new(*big.Int)).(**big.Int),
 		LinkNative:          *abi.ConvertType(out[6], new(*big.Int)).(**big.Int),
 		IneligibilityReason: *abi.ConvertType(out[2], new(uint8)).(*uint8),
@@ -100,8 +66,8 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckResult(p ocr2keepers.UpkeepPayload, 
 	return result, nil
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackCheckCallbackResult(callbackResp []byte) (PipelineExecutionState, bool, []byte, uint8, *big.Int, error) {
-	out, err := rp.abi.Methods["checkCallback"].Outputs.UnpackValues(callbackResp)
+func (p *abiPacker) UnpackCheckCallbackResult(callbackResp []byte) (PipelineExecutionState, bool, []byte, uint8, *big.Int, error) {
+	out, err := p.abi.Methods["checkCallback"].Outputs.UnpackValues(callbackResp)
 	if err != nil {
 		return PackUnpackDecodeFailed, false, nil, 0, nil, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, hexutil.Encode(callbackResp))
 	}
@@ -110,16 +76,17 @@ func (rp *evmRegistryPackerV2_1) UnpackCheckCallbackResult(callbackResp []byte) 
 	rawPerformData := *abi.ConvertType(out[1], new([]byte)).(*[]byte)
 	failureReason := *abi.ConvertType(out[2], new(uint8)).(*uint8)
 	gasUsed := *abi.ConvertType(out[3], new(*big.Int)).(**big.Int)
+
 	return NoPipelineError, upkeepNeeded, rawPerformData, failureReason, gasUsed, nil
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackPerformResult(raw string) (PipelineExecutionState, bool, error) {
+func (p *abiPacker) UnpackPerformResult(raw string) (PipelineExecutionState, bool, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		return PackUnpackDecodeFailed, false, err
 	}
 
-	out, err := rp.abi.Methods["simulatePerformUpkeep"].Outputs.UnpackValues(b)
+	out, err := p.abi.Methods["simulatePerformUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		return PackUnpackDecodeFailed, false, err
 	}
@@ -127,13 +94,13 @@ func (rp *evmRegistryPackerV2_1) UnpackPerformResult(raw string) (PipelineExecut
 	return NoPipelineError, *abi.ConvertType(out[0], new(bool)).(*bool), nil
 }
 
-func (rp *evmRegistryPackerV2_1) UnpackUpkeepInfo(id *big.Int, raw string) (UpkeepInfo, error) {
+func (p *abiPacker) UnpackUpkeepInfo(id *big.Int, raw string) (UpkeepInfo, error) {
 	b, err := hexutil.Decode(raw)
 	if err != nil {
 		return UpkeepInfo{}, err
 	}
 
-	out, err := rp.abi.Methods["getUpkeep"].Outputs.UnpackValues(b)
+	out, err := p.abi.Methods["getUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		return UpkeepInfo{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
 	}
@@ -144,7 +111,7 @@ func (rp *evmRegistryPackerV2_1) UnpackUpkeepInfo(id *big.Int, raw string) (Upke
 }
 
 // UnpackLogTriggerConfig unpacks the log trigger config from the given raw data
-func (rp *evmRegistryPackerV2_1) UnpackLogTriggerConfig(raw []byte) (automation_utils_2_1.LogTriggerConfig, error) {
+func (p *abiPacker) UnpackLogTriggerConfig(raw []byte) (automation_utils_2_1.LogTriggerConfig, error) {
 	var cfg automation_utils_2_1.LogTriggerConfig
 
 	out, err := utilsABI.Methods["_logTriggerConfig"].Inputs.UnpackValues(raw)
@@ -154,24 +121,23 @@ func (rp *evmRegistryPackerV2_1) UnpackLogTriggerConfig(raw []byte) (automation_
 
 	converted, ok := abi.ConvertType(out[0], new(automation_utils_2_1.LogTriggerConfig)).(*automation_utils_2_1.LogTriggerConfig)
 	if !ok {
-		return cfg, fmt.Errorf("failed to convert type")
+		return cfg, fmt.Errorf("failed to convert type during UnpackLogTriggerConfig")
 	}
 	return *converted, nil
 }
 
 // PackReport packs the report with abi definitions from the contract.
-func (rp *evmRegistryPackerV2_1) PackReport(report automation_utils_2_1.KeeperRegistryBase21Report) ([]byte, error) {
-	bts, err := rp.utilsAbi.Pack("_report", &report)
+func (p *abiPacker) PackReport(report automation_utils_2_1.KeeperRegistryBase21Report) ([]byte, error) {
+	bts, err := p.utilsAbi.Methods["_report"].Inputs.Pack(&report)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to pack report", err)
 	}
-
-	return bts[4:], nil
+	return bts, nil
 }
 
 // UnpackReport unpacks the report from the given raw data.
-func (rp *evmRegistryPackerV2_1) UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistryBase21Report, error) {
-	unpacked, err := rp.utilsAbi.Methods["_report"].Inputs.Unpack(raw)
+func (p *abiPacker) UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistryBase21Report, error) {
+	unpacked, err := p.utilsAbi.Methods["_report"].Inputs.Unpack(raw)
 	if err != nil {
 		return automation_utils_2_1.KeeperRegistryBase21Report{}, fmt.Errorf("%w: failed to unpack report", err)
 	}
@@ -195,4 +161,18 @@ func (rp *evmRegistryPackerV2_1) UnpackReport(raw []byte) (automation_utils_2_1.
 	}
 
 	return report, nil
+}
+
+// GetIneligibleCheckResultWithoutPerformData returns an ineligible check result with ineligibility reason and pipeline execution state but without perform data
+func GetIneligibleCheckResultWithoutPerformData(p ocr2keepers.UpkeepPayload, reason UpkeepFailureReason, state PipelineExecutionState, retryable bool) ocr2keepers.CheckResult {
+	return ocr2keepers.CheckResult{
+		IneligibilityReason:    uint8(reason),
+		PipelineExecutionState: uint8(state),
+		Retryable:              retryable,
+		UpkeepID:               p.UpkeepID,
+		Trigger:                p.Trigger,
+		WorkID:                 p.WorkID,
+		FastGasWei:             big.NewInt(0),
+		LinkNative:             big.NewInt(0),
+	}
 }

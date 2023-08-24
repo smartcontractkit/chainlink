@@ -114,7 +114,7 @@ func (cs SolanaConfigs) Node(name string) (soldb.Node, error) {
 			}
 		}
 	}
-	return soldb.Node{}, chains.ErrNotFound
+	return soldb.Node{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 }
 
 func (cs SolanaConfigs) nodes(chainID string) (ns SolanaNodes) {
@@ -129,7 +129,7 @@ func (cs SolanaConfigs) nodes(chainID string) (ns SolanaNodes) {
 func (cs SolanaConfigs) Nodes(chainID string) (ns []soldb.Node, err error) {
 	nodes := cs.nodes(chainID)
 	if nodes == nil {
-		err = chains.ErrNotFound
+		err = fmt.Errorf("no nodes: chain %s: %w", chainID, chains.ErrNotFound)
 		return
 	}
 	for _, n := range nodes {
@@ -149,7 +149,7 @@ func (cs SolanaConfigs) NodeStatus(name string) (relaytypes.NodeStatus, error) {
 			}
 		}
 	}
-	return relaytypes.NodeStatus{}, chains.ErrNotFound
+	return relaytypes.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 }
 
 func (cs SolanaConfigs) NodeStatuses(chainIDs ...string) (ns []relaytypes.NodeStatus, err error) {

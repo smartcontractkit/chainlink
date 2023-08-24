@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -27,20 +27,20 @@ type Runner interface {
 
 type LatestReportFetcher interface {
 	LatestPrice(ctx context.Context, feedID [32]byte) (*big.Int, error)
-	LatestTimestamp(context.Context) (uint32, error)
+	LatestTimestamp(context.Context) (int64, error)
 }
 
 type datasource struct {
 	pipelineRunner Runner
 	jb             job.Job
 	spec           pipeline.Spec
-	feedID         types.FeedID
+	feedID         mercuryutils.FeedID
 	lggr           logger.Logger
 	runResults     chan<- pipeline.Run
 
 	fetcher      LatestReportFetcher
-	linkFeedID   types.FeedID
-	nativeFeedID types.FeedID
+	linkFeedID   mercuryutils.FeedID
+	nativeFeedID mercuryutils.FeedID
 
 	mu sync.RWMutex
 
@@ -49,9 +49,7 @@ type datasource struct {
 
 var _ relaymercuryv2.DataSource = &datasource{}
 
-var maxInt192 = new(big.Int).Exp(big.NewInt(2), big.NewInt(191), nil)
-
-func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID types.FeedID, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID types.FeedID) *datasource {
+func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID mercuryutils.FeedID, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID mercuryutils.FeedID) *datasource {
 	return &datasource{pr, jb, spec, feedID, lggr, rr, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
 }
 
@@ -106,7 +104,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			obs.LinkPrice.Val, obs.LinkPrice.Err = ds.fetcher.LatestPrice(ctx, ds.linkFeedID)
 			if obs.LinkPrice.Val == nil && obs.LinkPrice.Err == nil {
 				ds.lggr.Warnw("Mercury server was missing LINK feed, falling back to max int192", "linkFeedID", ds.linkFeedID)
-				obs.LinkPrice.Val = maxInt192
+				obs.LinkPrice.Val = relaymercury.MaxInt192
 			}
 		}()
 	}
@@ -120,7 +118,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			obs.NativePrice.Val, obs.NativePrice.Err = ds.fetcher.LatestPrice(ctx, ds.nativeFeedID)
 			if obs.NativePrice.Val == nil && obs.NativePrice.Err == nil {
 				ds.lggr.Warnw("Mercury server was missing native feed, falling back to max int192", "nativeFeedID", ds.nativeFeedID)
-				obs.NativePrice.Val = maxInt192
+				obs.NativePrice.Val = relaymercury.MaxInt192
 			}
 		}()
 	}

@@ -333,3 +333,17 @@ type AuthorizedForwarder interface {
 	Owner(ctx context.Context) (string, error)
 	GetAuthorizedSenders(ctx context.Context) ([]string, error)
 }
+
+type FunctionsCoordinator interface {
+	Address() string
+}
+
+type FunctionsRouter interface {
+	Address() string
+	CreateSubscriptionWithConsumer(consumer string) (uint64, error)
+}
+
+type FunctionsLoadTestClient interface {
+	Address() string
+	SendRequest(source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error
+}

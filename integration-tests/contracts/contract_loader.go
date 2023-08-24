@@ -6,14 +6,24 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 )
 
 // ContractLoader is an interface for abstracting the contract loading methods across network implementations
 type ContractLoader interface {
+	LoadLINKToken(address string) (LinkToken, error)
 	LoadOperatorContract(address common.Address) (Operator, error)
 	LoadAuthorizedForwarder(address common.Address) (AuthorizedForwarder, error)
+
+	/* functions 1_0_0 */
+	LoadFunctionsCoordinator(addr string) (FunctionsCoordinator, error)
+	LoadFunctionsRouter(addr string) (FunctionsRouter, error)
+	LoadFunctionsLoadTestClient(addr string) (FunctionsLoadTestClient, error)
 }
 
 // NewContractLoader returns an instance of a contract Loader based on the client type
@@ -70,6 +80,78 @@ func NewEthereumContractLoader(ethClient blockchain.EVMClient) *EthereumContract
 	return &EthereumContractLoader{
 		client: ethClient,
 	}
+}
+
+// LoadLINKToken returns deployed on given address LINK Token contract instance
+func (e *EthereumContractLoader) LoadLINKToken(addr string) (LinkToken, error) {
+	instance, err := e.client.LoadContract("LINK Token", common.HexToAddress(addr), func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return link_token_interface.NewLinkToken(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumLinkToken{
+		client:   e.client,
+		instance: instance.(*link_token_interface.LinkToken),
+		address:  common.HexToAddress(addr),
+	}, err
+}
+
+// LoadFunctionsCoordinator returns deployed on given address FunctionsCoordinator contract instance
+func (e *EthereumContractLoader) LoadFunctionsCoordinator(addr string) (FunctionsCoordinator, error) {
+	instance, err := e.client.LoadContract("Functions Coordinator", common.HexToAddress(addr), func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return functions_coordinator.NewFunctionsCoordinator(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumFunctionsCoordinator{
+		client:   e.client,
+		instance: instance.(*functions_coordinator.FunctionsCoordinator),
+		address:  common.HexToAddress(addr),
+	}, err
+}
+
+// LoadFunctionsRouter returns deployed on given address FunctionsRouter contract instance
+func (e *EthereumContractLoader) LoadFunctionsRouter(addr string) (FunctionsRouter, error) {
+	instance, err := e.client.LoadContract("Functions Router", common.HexToAddress(addr), func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return functions_router.NewFunctionsRouter(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumFunctionsRouter{
+		client:   e.client,
+		instance: instance.(*functions_router.FunctionsRouter),
+		address:  common.HexToAddress(addr),
+	}, err
+}
+
+// LoadFunctionsLoadTestClient returns deployed on given address FunctionsLoadTestClient contract instance
+func (e *EthereumContractLoader) LoadFunctionsLoadTestClient(addr string) (FunctionsLoadTestClient, error) {
+	instance, err := e.client.LoadContract("FunctionsLoadTestClient", common.HexToAddress(addr), func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return functions_load_test_client.NewFunctionsLoadTestClient(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumFunctionsLoadTestClient{
+		client:   e.client,
+		instance: instance.(*functions_load_test_client.FunctionsLoadTestClient),
+		address:  common.HexToAddress(addr),
+	}, err
 }
 
 // LoadOperatorContract returns deployed on given address Operator contract instance

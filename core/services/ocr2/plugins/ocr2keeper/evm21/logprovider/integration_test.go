@@ -25,6 +25,7 @@ import (
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
@@ -35,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	kevmcore "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -53,11 +55,14 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 	opts := &logprovider.LogEventProviderOptions{
 		ReadInterval: time.Second / 2,
 	}
-	logProvider, _, lp, ethClient := setupLogProvider(t, db, backend, opts)
+	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
+	filterStore := logprovider.NewUpkeepFilterStore()
+	provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
+	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	n := 10
 
-	_, _, contracts := deployUpkeepCounter(t, n, backend, carrol, logProvider)
+	ids, addrs, contracts := deployUpkeepCounter(t, n, ethClient, backend, carrol, logProvider)
 	lp.PollAndSaveLogs(ctx, int64(n))
 
 	go func() {
@@ -69,50 +74,179 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 	defer logProvider.Close()
 
 	logsRounds := 10
-	pollerTimeout := time.Second * 5
 
 	poll := pollFn(ctx, t, lp, ethClient)
 
 	triggerEvents(ctx, t, backend, carrol, logsRounds, poll, contracts...)
 
 	poll(backend.Commit())
-	// let it time to poll
-	<-time.After(pollerTimeout)
 
-	logs, _ := logProvider.GetLatestPayloads(ctx)
-	require.NoError(t, logProvider.Close())
+	waitLogPoller(ctx, t, backend, lp, ethClient)
 
-	require.GreaterOrEqual(t, len(logs), n, "failed to get all logs")
+	waitLogProvider(ctx, t, logProvider, 3)
+
+	allPayloads := collectPayloads(ctx, t, logProvider, n, 5)
+	require.GreaterOrEqual(t, len(allPayloads), n,
+		"failed to get logs after restart")
+
 	t.Run("Restart", func(t *testing.T) {
+		t.Log("restarting log provider")
 		// assuming that our service was closed and restarted,
 		// we should be able to backfill old logs and fetch new ones
-		require.NoError(t, logProvider.Close())
+		logDataABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
+		require.NoError(t, err)
+		filterStore := logprovider.NewUpkeepFilterStore()
+		logProvider2 := logprovider.NewLogProvider(logger.TestLogger(t), lp, logprovider.NewLogEventsPacker(logDataABI), filterStore, opts)
 
 		poll(backend.Commit())
-
 		go func() {
-			if err := logProvider.Start(ctx); err != nil {
-				t.Logf("error starting log provider: %s", err)
+			if err2 := logProvider2.Start(ctx); err2 != nil {
+				t.Logf("error starting log provider: %s", err2)
 				t.Fail()
 			}
 		}()
-		defer logProvider.Close()
+		defer logProvider2.Close()
 
-		logsAfterRestart, _ := logProvider.GetLatestPayloads(ctx)
-		require.GreaterOrEqual(t, len(logsAfterRestart), 0,
-			"logs should have been marked visited")
+		// re-register filters
+		for i, id := range ids {
+			err = logProvider2.RegisterFilter(logprovider.FilterOptions{
+				UpkeepID:      id,
+				TriggerConfig: newPlainLogTriggerConfig(addrs[i]),
+				// using block number at which the upkeep was registered,
+				// before we emitted any logs
+				UpdateBlock: uint64(n),
+			})
+			require.NoError(t, err)
+		}
 
-		triggerEvents(ctx, t, backend, carrol, logsRounds, poll, contracts...)
-		// let it time to poll
-		poll(backend.Commit())
+		waitLogProvider(ctx, t, logProvider2, 2)
 
-		<-time.After(pollerTimeout)
-
-		logsAfterRestart, _ = logProvider.GetLatestPayloads(ctx)
-		require.NoError(t, logProvider.Close())
+		t.Log("getting logs after restart")
+		logsAfterRestart := collectPayloads(ctx, t, logProvider2, n, 5)
 		require.GreaterOrEqual(t, len(logsAfterRestart), n,
 			"failed to get logs after restart")
 	})
+}
+
+func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+
+	backend, stopMining, accounts := setupBackend(t)
+	defer stopMining()
+	carrol := accounts[2]
+
+	db := setupDB(t)
+	defer db.Close()
+
+	opts := &logprovider.LogEventProviderOptions{
+		ReadInterval: time.Second / 2,
+	}
+	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
+	filterStore := logprovider.NewUpkeepFilterStore()
+	provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
+	logProvider := provider.(logprovider.LogEventProviderTest)
+
+	_, addrs, contracts := deployUpkeepCounter(t, 1, ethClient, backend, carrol, logProvider)
+	lp.PollAndSaveLogs(ctx, int64(5))
+	require.Equal(t, 1, len(contracts))
+	require.Equal(t, 1, len(addrs))
+
+	t.Run("update filter config", func(t *testing.T) {
+		upkeepID := kevmcore.GenUpkeepID(ocr2keepers.LogTrigger, "111")
+		id := upkeepID.BigInt()
+		cfg := newPlainLogTriggerConfig(addrs[0])
+		b, err := ethClient.BlockByHash(ctx, backend.Commit())
+		require.NoError(t, err)
+		bn := b.Number()
+		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+			UpkeepID:      id,
+			TriggerConfig: cfg,
+			UpdateBlock:   bn.Uint64(),
+		})
+		require.NoError(t, err)
+		// old block
+		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+			UpkeepID:      id,
+			TriggerConfig: cfg,
+			UpdateBlock:   bn.Uint64() - 1,
+		})
+		require.Error(t, err)
+		// new block
+		b, err = ethClient.BlockByHash(ctx, backend.Commit())
+		require.NoError(t, err)
+		bn = b.Number()
+		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+			UpkeepID:      id,
+			TriggerConfig: cfg,
+			UpdateBlock:   bn.Uint64(),
+		})
+		require.NoError(t, err)
+	})
+
+	t.Run("register same log filter", func(t *testing.T) {
+		upkeepID := kevmcore.GenUpkeepID(ocr2keepers.LogTrigger, "222")
+		id := upkeepID.BigInt()
+		cfg := newPlainLogTriggerConfig(addrs[0])
+		b, err := ethClient.BlockByHash(ctx, backend.Commit())
+		require.NoError(t, err)
+		bn := b.Number()
+		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+			UpkeepID:      id,
+			TriggerConfig: cfg,
+			UpdateBlock:   bn.Uint64(),
+		})
+		require.NoError(t, err)
+	})
+}
+
+func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
+	ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*60)
+	defer cancel()
+
+	backend, stopMining, accounts := setupBackend(t)
+	defer stopMining()
+	carrol := accounts[2]
+
+	db := setupDB(t)
+	defer db.Close()
+
+	opts := &logprovider.LogEventProviderOptions{
+		ReadInterval: time.Second / 4,
+	}
+	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
+	filterStore := logprovider.NewUpkeepFilterStore()
+	provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
+	logProvider := provider.(logprovider.LogEventProviderTest)
+
+	n := 10
+
+	_, _, contracts := deployUpkeepCounter(t, n, ethClient, backend, carrol, logProvider)
+
+	poll := pollFn(ctx, t, lp, ethClient)
+
+	rounds := 8
+	for i := 0; i < rounds; i++ {
+		poll(backend.Commit())
+		triggerEvents(ctx, t, backend, carrol, n, poll, contracts...)
+		poll(backend.Commit())
+	}
+
+	waitLogPoller(ctx, t, backend, lp, ethClient)
+
+	// starting the log provider should backfill logs
+	go func() {
+		if startErr := logProvider.Start(ctx); startErr != nil {
+			t.Logf("error starting log provider: %s", startErr)
+			t.Fail()
+		}
+	}()
+	defer logProvider.Close()
+
+	waitLogProvider(ctx, t, logProvider, 3)
+
+	allPayloads := collectPayloads(ctx, t, logProvider, n, 5)
+	require.GreaterOrEqual(t, len(allPayloads), len(contracts), "failed to backfill logs")
 }
 
 func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
@@ -137,8 +271,10 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			stopMining()
 			_ = db.Close()
 		}
-
-		logProvider, _, lp, ethClient := setupLogProvider(t, db, backend, opts)
+		lp, ethClient, utilsABI := setupDependencies(t, db, backend)
+		filterStore := logprovider.NewUpkeepFilterStore()
+		provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
+		logProvider := provider.(logprovider.LogEventProviderTest)
 
 		rounds := 5
 		numberOfUserContracts := 10
@@ -148,6 +284,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 		ids, _, contracts := deployUpkeepCounter(
 			t,
 			numberOfUserContracts,
+			ethClient,
 			backend,
 			userContractAccount,
 			logProvider)
@@ -180,7 +317,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			assert.GreaterOrEqual(t, latestBlock, minimumBlockCount, "to ensure the integrety of the test, the minimum block count before the test should be %d but got %d", minimumBlockCount, latestBlock)
 		}
 
-		require.NoError(t, logProvider.ReadLogs(ctx, true, ids...))
+		require.NoError(t, logProvider.ReadLogs(ctx, ids...))
 
 		return ctx, backend, poll, logProvider, ids, deferFunc
 	}
@@ -208,7 +345,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			// advance 1 block for every read
 			poll(backend.Commit())
 
-			err := logProvider.ReadLogs(ctx, true, ids...)
+			err := logProvider.ReadLogs(ctx, ids...)
 			if err != nil {
 				assert.False(t, errors.Is(err, logprovider.ErrBlockLimitExceeded), "error should not contain block limit exceeded")
 			}
@@ -221,7 +358,6 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 		_, err := logProvider.GetLatestPayloads(ctx)
 
 		require.NoError(t, err)
-		require.NoError(t, logProvider.Close())
 	})
 
 	t.Run("should produce a rate limit error for over burst limit", func(t *testing.T) {
@@ -247,7 +383,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 				poll(backend.Commit())
 			}
 
-			err := logProvider.ReadLogs(ctx, true, ids...)
+			err := logProvider.ReadLogs(ctx, ids...)
 			if err != nil {
 				assert.True(t, errors.Is(err, logprovider.ErrBlockLimitExceeded), "error should not contain block limit exceeded")
 			}
@@ -260,7 +396,6 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 		_, err := logProvider.GetLatestPayloads(ctx)
 
 		require.NoError(t, err)
-		require.NoError(t, logProvider.Close())
 	})
 
 	t.Run("should allow polling after lookback number of blocks have passed", func(t *testing.T) {
@@ -272,7 +407,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 			BlockLimitBurst: 5,
 			// LogBlocksLookback is set low to reduce the number of blocks required
 			// to reset the block limiter to maxBurst
-			LogBlocksLookback: 50,
+			LookbackBlocks: 50,
 		})
 
 		defer deferFunc()
@@ -286,7 +421,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 
 		// all entries should error at this point because there are too many
 		// blocks to processes
-		err := logProvider.ReadLogs(ctx, true, ids...)
+		err := logProvider.ReadLogs(ctx, ids...)
 		if err != nil {
 			assert.True(t, errors.Is(err, logprovider.ErrBlockLimitExceeded), "error should not contain block limit exceeded")
 		}
@@ -301,7 +436,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 
 		// all entries should reset to the maxBurst because they are beyond
 		// the log lookback
-		err = logProvider.ReadLogs(ctx, true, ids...)
+		err = logProvider.ReadLogs(ctx, ids...)
 		if err != nil {
 			assert.True(t, errors.Is(err, logprovider.ErrBlockLimitExceeded), "error should not contain block limit exceeded")
 		}
@@ -311,11 +446,11 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 		_, err = logProvider.GetLatestPayloads(ctx)
 
 		require.NoError(t, err)
-		require.NoError(t, logProvider.Close())
 	})
 }
 
-func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
+func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
+	t.Skip() // TODO: remove skip after removing constant timeouts
 	ctx, cancel := context.WithTimeout(testutils.Context(t), time.Second*60)
 	defer cancel()
 
@@ -326,26 +461,100 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	db := setupDB(t)
 	defer db.Close()
 
-	logProvider, _, lp, ethClient := setupLogProvider(t, db, backend, &logprovider.LogEventProviderOptions{
-		ReadInterval: time.Second / 4,
-	})
+	lookbackBlocks := int64(200)
+	opts := &logprovider.LogEventProviderOptions{
+		ReadInterval:   time.Second / 4,
+		LookbackBlocks: lookbackBlocks,
+	}
+	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
+	filterStore := logprovider.NewUpkeepFilterStore()
+	origDefaultRecoveryInterval := logprovider.DefaultRecoveryInterval
+	logprovider.DefaultRecoveryInterval = time.Millisecond * 200
+	defer func() {
+		logprovider.DefaultRecoveryInterval = origDefaultRecoveryInterval
+	}()
+	provider, recoverer := setup(logger.TestLogger(t), lp, nil, utilsABI, &mockUpkeepStateStore{}, filterStore, opts)
+	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	n := 10
 
-	_, _, contracts := deployUpkeepCounter(t, n, backend, carrol, logProvider)
+	_, _, contracts := deployUpkeepCounter(t, n, ethClient, backend, carrol, logProvider)
 
 	poll := pollFn(ctx, t, lp, ethClient)
 
 	rounds := 8
 	for i := 0; i < rounds; i++ {
-		poll(backend.Commit())
 		triggerEvents(ctx, t, backend, carrol, n, poll, contracts...)
 		poll(backend.Commit())
 	}
+	poll(backend.Commit())
 
+	waitLogPoller(ctx, t, backend, lp, ethClient)
+
+	// create dummy blocks
+	var blockNumber int64
+	for blockNumber < lookbackBlocks*4 {
+		b, err := ethClient.BlockByHash(ctx, backend.Commit())
+		require.NoError(t, err)
+		bn := b.Number()
+		blockNumber = bn.Int64()
+	}
+	// starting the log recoverer should backfill logs
+	go func() {
+		if startErr := recoverer.Start(ctx); startErr != nil {
+			t.Logf("error starting log provider: %s", startErr)
+			t.Fail()
+		}
+	}()
+	defer recoverer.Close()
+
+	lctx, lcancel := context.WithTimeout(ctx, time.Second*15)
+	defer lcancel()
+	var allProposals []ocr2keepers.UpkeepPayload
+	for lctx.Err() == nil {
+		poll(backend.Commit())
+		proposals, err := recoverer.GetRecoveryProposals(ctx)
+		require.NoError(t, err)
+		allProposals = append(allProposals, proposals...)
+		if len(allProposals) < n {
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+		break
+	}
+	require.NoError(t, lctx.Err(), "could not recover logs before timeout")
+}
+
+func collectPayloads(ctx context.Context, t *testing.T, logProvider logprovider.LogEventProvider, n, rounds int) []ocr2keepers.UpkeepPayload {
+	allPayloads := make([]ocr2keepers.UpkeepPayload, 0)
+	for ctx.Err() == nil && len(allPayloads) < n && rounds > 0 {
+		logs, err := logProvider.GetLatestPayloads(ctx)
+		require.NoError(t, err)
+		require.LessOrEqual(t, len(logs), logprovider.AllowedLogsPerUpkeep, "failed to get all logs")
+		allPayloads = append(allPayloads, logs...)
+		rounds--
+	}
+	return allPayloads
+}
+
+// waitLogProvider waits until the provider reaches the given partition
+func waitLogProvider(ctx context.Context, t *testing.T, logProvider logprovider.LogEventProviderTest, partition int) {
+	t.Logf("waiting for log provider to reach partition %d", partition)
+	for ctx.Err() == nil {
+		currentPartition := logProvider.CurrentPartitionIdx()
+		if currentPartition > uint64(partition) { // make sure we went over all items
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+}
+
+// waitLogPoller waits until the log poller is familiar with the given block
+func waitLogPoller(ctx context.Context, t *testing.T, backend *backends.SimulatedBackend, lp logpoller.LogPollerTest, ethClient *evmclient.SimulatedBackendClient) {
 	t.Log("waiting for log poller to get updated")
 	// let the log poller work
 	b, err := ethClient.BlockByHash(ctx, backend.Commit())
+	require.NoError(t, err)
 	latestBlock := b.Number().Int64()
 	for {
 		latestPolled, lberr := lp.LatestBlock(pg.WithParentCtx(ctx))
@@ -355,29 +564,6 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 		}
 		lp.PollAndSaveLogs(ctx, latestBlock)
 	}
-
-	// starting the log provider should backfill logs
-	go func() {
-		if startErr := logProvider.Start(ctx); err != nil {
-			t.Logf("error starting log provider: %s", startErr)
-			t.Fail()
-		}
-	}()
-	defer logProvider.Close()
-
-	t.Log("waiting for log provider to do some backfilling")
-	for ctx.Err() == nil {
-		currentPartition := logProvider.CurrentPartitionIdx()
-		if currentPartition > 2 { // make sure we went over all items
-			break
-		}
-	}
-
-	logs, err := logProvider.GetLatestPayloads(ctx)
-	require.NoError(t, err)
-	require.NoError(t, logProvider.Close())
-
-	require.GreaterOrEqual(t, len(logs), len(contracts), "failed to backfill logs")
 }
 
 func pollFn(ctx context.Context, t *testing.T, lp logpoller.LogPollerTest, ethClient *evmclient.SimulatedBackendClient) func(blockHash common.Hash) {
@@ -419,6 +605,7 @@ func triggerEvents(
 func deployUpkeepCounter(
 	t *testing.T,
 	n int,
+	ethClient *evmclient.SimulatedBackendClient,
 	backend *backends.SimulatedBackend,
 	account *bind.TransactOpts,
 	logProvider logprovider.LogEventProvider,
@@ -441,7 +628,14 @@ func deployUpkeepCounter(
 		upkeepID := ocr2keepers.UpkeepIdentifier(append(common.LeftPadBytes([]byte{1}, 16), upkeepAddr[:16]...))
 		id := upkeepID.BigInt()
 		ids = append(ids, id)
-		err = logProvider.RegisterFilter(id, newPlainLogTriggerConfig(upkeepAddr))
+		b, err := ethClient.BlockByHash(context.Background(), backend.Commit())
+		require.NoError(t, err)
+		bn := b.Number()
+		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+			UpkeepID:      id,
+			TriggerConfig: newPlainLogTriggerConfig(upkeepAddr),
+			UpdateBlock:   bn.Uint64(),
+		})
 		require.NoError(t, err)
 	}
 	return ids, contractsAddrs, contracts
@@ -455,20 +649,29 @@ func newPlainLogTriggerConfig(upkeepAddr common.Address) logprovider.LogTriggerC
 	}
 }
 
-func setupLogProvider(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBackend, opts *logprovider.LogEventProviderOptions) (logprovider.LogEventProviderTest, logprovider.UpkeepFilterStore, logpoller.LogPollerTest, *evmclient.SimulatedBackendClient) {
+func setupDependencies(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBackend) (logpoller.LogPollerTest, *evmclient.SimulatedBackendClient, abi.ABI) {
 	ethClient := evmclient.NewSimulatedBackendClient(t, backend, big.NewInt(1337))
 	pollerLggr := logger.TestLogger(t)
 	pollerLggr.SetLogLevel(zapcore.WarnLevel)
 	lorm := logpoller.NewORM(big.NewInt(1337), db, pollerLggr, pgtest.NewQConfig(false))
 	lp := logpoller.NewLogPoller(lorm, ethClient, pollerLggr, 100*time.Millisecond, 1, 2, 2, 1000)
 
-	lggr := logger.TestLogger(t)
-	logDataABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
+	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
 	require.NoError(t, err)
-	filterStore := logprovider.NewUpkeepFilterStore()
-	logProvider := logprovider.New(lggr, lp, logprovider.NewLogEventsPacker(logDataABI), filterStore, opts)
 
-	return logProvider, filterStore, lp, ethClient
+	return lp, ethClient, utilsABI
+}
+
+func setup(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, utilsABI abi.ABI, stateStore kevmcore.UpkeepStateReader, filterStore logprovider.UpkeepFilterStore, opts *logprovider.LogEventProviderOptions) (logprovider.LogEventProvider, logprovider.LogRecoverer) {
+	packer := logprovider.NewLogEventsPacker(utilsABI)
+	if opts == nil {
+		opts = new(logprovider.LogEventProviderOptions)
+		opts.Defaults()
+	}
+	provider := logprovider.NewLogProvider(lggr, poller, packer, filterStore, opts)
+	recoverer := logprovider.NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, 0, opts.LookbackBlocks)
+
+	return provider, recoverer
 }
 
 func setupBackend(t *testing.T) (*backends.SimulatedBackend, func(), []*bind.TransactOpts) {
@@ -498,4 +701,15 @@ func setupDB(t *testing.T) *sqlx.DB {
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
 	})
 	return db
+}
+
+type mockUpkeepStateStore struct {
+}
+
+func (m *mockUpkeepStateStore) SelectByWorkIDsInRange(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+	states := make([]ocr2keepers.UpkeepState, len(workIDs))
+	for i := range workIDs {
+		states[i] = ocr2keepers.UnknownState
+	}
+	return states, nil
 }

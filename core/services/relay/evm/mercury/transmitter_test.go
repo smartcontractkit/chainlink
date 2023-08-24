@@ -97,10 +97,10 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 		ts, err := mt.LatestTimestamp(testutils.Context(t))
 		require.NoError(t, err)
 
-		assert.Equal(t, ts, uint32(42))
+		assert.Equal(t, int64(42), ts)
 	})
 
-	t.Run("successful query returning nil report (new feed)", func(t *testing.T) {
+	t.Run("successful query returning nil report (new feed) gives latest timestamp = -1", func(t *testing.T) {
 		c := mocks.MockWSRPCClient{
 			LatestReportF: func(ctx context.Context, in *pb.LatestReportRequest) (out *pb.LatestReportResponse, err error) {
 				out = new(pb.LatestReportResponse)
@@ -112,7 +112,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 		ts, err := mt.LatestTimestamp(testutils.Context(t))
 		require.NoError(t, err)
 
-		assert.Zero(t, ts)
+		assert.Equal(t, int64(-1), ts)
 	})
 
 	t.Run("failing query", func(t *testing.T) {

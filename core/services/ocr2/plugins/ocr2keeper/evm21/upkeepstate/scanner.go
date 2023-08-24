@@ -2,10 +2,11 @@ package upkeepstate
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
+	"io"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -15,6 +16,9 @@ import (
 
 type PerformedLogsScanner interface {
 	WorkIDsInRange(ctx context.Context, start, end int64) ([]string, error)
+
+	Start(context.Context) error
+	io.Closer
 }
 
 type performedEventsScanner struct {
@@ -76,7 +80,7 @@ func (s *performedEventsScanner) logsToWorkIDs(logs []logpoller.Log) []string {
 			s.lggr.Debugw("unexpected log topics", "topics", topics)
 			continue
 		}
-		workIDs = append(workIDs, hexutil.Encode(topics[1].Bytes()))
+		workIDs = append(workIDs, hex.EncodeToString(topics[1].Bytes()))
 	}
 	return workIDs
 }

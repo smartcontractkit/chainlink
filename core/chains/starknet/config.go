@@ -113,7 +113,7 @@ func (cs StarknetConfigs) Node(name string) (n db.Node, err error) {
 			}
 		}
 	}
-	err = chains.ErrNotFound
+	err = fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 	return
 }
 
@@ -129,7 +129,7 @@ func (cs StarknetConfigs) nodes(chainID string) (ns StarknetNodes) {
 func (cs StarknetConfigs) Nodes(chainID string) (ns []db.Node, err error) {
 	nodes := cs.nodes(chainID)
 	if nodes == nil {
-		err = chains.ErrNotFound
+		err = fmt.Errorf("no nodes: chain %s: %w", chainID, chains.ErrNotFound)
 		return
 	}
 	for _, n := range nodes {
@@ -149,7 +149,7 @@ func (cs StarknetConfigs) NodeStatus(name string) (n types.NodeStatus, err error
 			}
 		}
 	}
-	err = chains.ErrNotFound
+	err = fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 	return
 }
 

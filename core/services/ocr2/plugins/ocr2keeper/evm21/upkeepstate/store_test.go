@@ -159,11 +159,9 @@ func TestUpkeepStateStore_Upsert(t *testing.T) {
 
 	store.mu.Lock()
 	addedAt := store.cache["0x1"].addedAt
-	block := store.cache["0x1"].block
 	store.mu.Unlock()
 
 	require.True(t, now.After(addedAt))
-	require.Equal(t, uint64(2), block)
 }
 
 func createUpkeepIDForTest(v int64) ocr2keepers.UpkeepIdentifier {
@@ -200,4 +198,12 @@ func (s *mockScanner) WorkIDsInRange(ctx context.Context, start, end int64) ([]s
 	res := s.workIDs[:]
 	s.workIDs = nil
 	return res, s.err
+}
+
+func (s *mockScanner) Start(context.Context) error {
+	return nil
+}
+
+func (s *mockScanner) Close() error {
+	return nil
 }
