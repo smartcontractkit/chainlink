@@ -4,6 +4,7 @@ import (
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 )
 
 func TestFunctionsLoad(t *testing.T) {
@@ -11,6 +12,7 @@ func TestFunctionsLoad(t *testing.T) {
 	require.NoError(t, err)
 	_, functionContracts, err := SetupLocalLoadTestEnv(cfg)
 	require.NoError(t, err)
+	//env.ParallelTransactions(true)
 
 	labels := map[string]string{
 		"branch": "functions_healthcheck",
@@ -18,9 +20,10 @@ func TestFunctionsLoad(t *testing.T) {
 	}
 
 	singleFeedConfig := &wasp.Config{
-		T:        t,
-		LoadType: wasp.RPS,
-		GenName:  "gun",
+		T:           t,
+		LoadType:    wasp.RPS,
+		GenName:     "gun",
+		CallTimeout: 2 * time.Minute,
 		Gun: NewSingleFunctionCallGun(
 			functionContracts,
 			"return Functions.encodeUint256(1)",

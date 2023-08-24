@@ -6,8 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_client_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -23,7 +23,7 @@ type ContractLoader interface {
 	/* functions 1_0_0 */
 	LoadFunctionsCoordinator(addr string) (FunctionsCoordinator, error)
 	LoadFunctionsRouter(addr string) (FunctionsRouter, error)
-	LoadFunctionsClientExample(addr string) (FunctionsClientExample, error)
+	LoadFunctionsLoadTestClient(addr string) (FunctionsLoadTestClient, error)
 }
 
 // NewContractLoader returns an instance of a contract Loader based on the client type
@@ -136,20 +136,20 @@ func (e *EthereumContractLoader) LoadFunctionsRouter(addr string) (FunctionsRout
 	}, err
 }
 
-// LoadFunctionsClientExample returns deployed on given address FunctionsClientExample contract instance
-func (e *EthereumContractLoader) LoadFunctionsClientExample(addr string) (FunctionsClientExample, error) {
-	instance, err := e.client.LoadContract("Functions Client Example", common.HexToAddress(addr), func(
+// LoadFunctionsLoadTestClient returns deployed on given address FunctionsLoadTestClient contract instance
+func (e *EthereumContractLoader) LoadFunctionsLoadTestClient(addr string) (FunctionsLoadTestClient, error) {
+	instance, err := e.client.LoadContract("FunctionsLoadTestClient", common.HexToAddress(addr), func(
 		address common.Address,
 		backend bind.ContractBackend,
 	) (interface{}, error) {
-		return functions_client_example.NewFunctionsClientExample(address, backend)
+		return functions_load_test_client.NewFunctionsLoadTestClient(address, backend)
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumFunctionsClientExample{
+	return &EthereumFunctionsLoadTestClient{
 		client:   e.client,
-		instance: instance.(*functions_client_example.FunctionsClientExample),
+		instance: instance.(*functions_load_test_client.FunctionsLoadTestClient),
 		address:  common.HexToAddress(addr),
 	}, err
 }

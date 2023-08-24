@@ -343,7 +343,7 @@ type FunctionsRouter interface {
 	CreateSubscriptionWithConsumer(consumer string) (uint64, error)
 }
 
-type FunctionsClientExample interface {
+type FunctionsLoadTestClient interface {
 	Address() string
 	SendRequest(source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error
 }

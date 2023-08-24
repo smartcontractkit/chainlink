@@ -9,10 +9,10 @@ import (
 )
 
 type Contracts struct {
-	LinkToken     contracts.LinkToken
-	Coordinator   contracts.FunctionsCoordinator
-	Router        contracts.FunctionsRouter
-	ClientExample contracts.FunctionsClientExample
+	LinkToken      contracts.LinkToken
+	Coordinator    contracts.FunctionsCoordinator
+	Router         contracts.FunctionsRouter
+	LoadTestClient contracts.FunctionsLoadTestClient
 }
 
 func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, *Contracts, error) {
@@ -21,6 +21,7 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, 
 	if err != nil {
 		return env, nil, err
 	}
+	env.EVMClient.GetNonceSetting()
 	lt, err := env.ContractLoader.LoadLINKToken(cfg.Common.LINKTokenAddr)
 	if err != nil {
 		return env, nil, err
@@ -33,12 +34,12 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, 
 	if err != nil {
 		return env, nil, err
 	}
-	clientExample, err := env.ContractLoader.LoadFunctionsClientExample(cfg.Common.ClientExample)
+	loadTestClient, err := env.ContractLoader.LoadFunctionsLoadTestClient(cfg.Common.LoadTestClient)
 	if err != nil {
 		return env, nil, err
 	}
 	if cfg.Common.SubscriptionID == 0 {
-		subID, err := router.CreateSubscriptionWithConsumer(clientExample.Address())
+		subID, err := router.CreateSubscriptionWithConsumer(loadTestClient.Address())
 		if err != nil {
 			return env, nil, errors.Wrap(err, "failed to create a new subscription")
 		}
@@ -53,9 +54,9 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, 
 		cfg.Common.SubscriptionID = subID
 	}
 	return env, &Contracts{
-		LinkToken:     lt,
-		Coordinator:   coord,
-		Router:        router,
-		ClientExample: clientExample,
+		LinkToken:      lt,
+		Coordinator:    coord,
+		Router:         router,
+		LoadTestClient: loadTestClient,
 	}, nil
 }

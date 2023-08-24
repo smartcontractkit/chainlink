@@ -16,7 +16,7 @@ import (
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_client_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
 	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
@@ -98,7 +98,7 @@ type ContractDeployer interface {
 	DeployOperatorFactory(linkAddr string) (OperatorFactory, error)
 	DeployStaking(params eth_contracts.StakingPoolConstructorParams) (Staking, error)
 	DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error)
-	DeployFunctionsExampleClient(router string) (FunctionsClientExample, error)
+	DeployFunctionsLoadTestClient(router string) (FunctionsLoadTestClient, error)
 	DeployFunctionsOracleEventsMock() (FunctionsOracleEventsMock, error)
 	DeployFunctionsBillingRegistryEventsMock() (FunctionsBillingRegistryEventsMock, error)
 	DeployStakingEventsMock() (StakingEventsMock, error)
@@ -278,19 +278,19 @@ func (e *EthereumContractDeployer) DeployStaking(params eth_contracts.StakingPoo
 	}, nil
 }
 
-func (e *EthereumContractDeployer) DeployFunctionsExampleClient(router string) (FunctionsClientExample, error) {
-	address, _, instance, err := e.client.DeployContract("FunctionsClientExample", func(
+func (e *EthereumContractDeployer) DeployFunctionsLoadTestClient(router string) (FunctionsLoadTestClient, error) {
+	address, _, instance, err := e.client.DeployContract("FunctionsLoadTestClient", func(
 		auth *bind.TransactOpts,
 		backend bind.ContractBackend,
 	) (common.Address, *types.Transaction, interface{}, error) {
-		return functions_client_example.DeployFunctionsClientExample(auth, backend, common.HexToAddress(router))
+		return functions_load_test_client.DeployFunctionsLoadTestClient(auth, backend, common.HexToAddress(router))
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &EthereumFunctionsClientExample{
+	return &EthereumFunctionsLoadTestClient{
 		client:   e.client,
-		instance: instance.(*functions_client_example.FunctionsClientExample),
+		instance: instance.(*functions_load_test_client.FunctionsLoadTestClient),
 		address:  *address,
 	}, nil
 }

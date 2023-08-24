@@ -28,7 +28,7 @@ func NewSingleFunctionCallGun(contracts *Contracts, source string, encryptedSecr
 
 // Call implements example gun call, assertions on response bodies should be done here
 func (m *SingleFunctionCallGun) Call(l *wasp.Generator) *wasp.CallResult {
-	err := m.contracts.ClientExample.SendRequest(m.source, m.encryptedSecretsReferences, m.args, m.subscriptionId, m.jobId)
+	err := m.contracts.LoadTestClient.SendRequest(m.source, m.encryptedSecretsReferences, m.args, m.subscriptionId, m.jobId)
 	if err != nil {
 		return &wasp.CallResult{Error: err.Error(), Failed: true}
 	}
