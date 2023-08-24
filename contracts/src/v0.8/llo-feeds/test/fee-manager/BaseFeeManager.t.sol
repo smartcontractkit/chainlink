@@ -64,7 +64,6 @@ contract BaseFeeManagerTest is Test {
   bytes4 internal immutable INVALID_DEPOSIT_ERROR = FeeManager.InvalidDeposit.selector;
   bytes4 internal immutable INVALID_QUOTE_ERROR = FeeManager.InvalidQuote.selector;
   bytes4 internal immutable UNAUTHORIZED_ERROR = FeeManager.Unauthorized.selector;
-  bytes4 internal immutable INVALID_REPORT_VERSION_ERROR = FeeManager.InvalidReportVersion.selector;
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
   bytes internal constant INSUFFICIENT_ALLOWANCE_ERROR = "ERC20: insufficient allowance";
 
@@ -170,11 +169,11 @@ contract BaseFeeManagerTest is Test {
       abi.encode(
         feedId,
         uint32(0),
-        int192(0),
         uint32(0),
-        uint32(block.timestamp),
-        DEFAULT_REPORT_LINK_FEE,
-        DEFAULT_REPORT_NATIVE_FEE
+        int192(0),
+        uint192(DEFAULT_REPORT_LINK_FEE),
+        uint192(DEFAULT_REPORT_NATIVE_FEE),
+        uint32(block.timestamp)
       );
   }
 
@@ -183,8 +182,8 @@ contract BaseFeeManagerTest is Test {
     uint256 expiry,
     uint256 linkFee,
     uint256 nativeFee
-  ) public view returns (bytes memory) {
-    return abi.encode(feedId, uint32(0), int192(0), uint32(0), uint32(expiry), linkFee, nativeFee);
+  ) public pure returns (bytes memory) {
+    return abi.encode(feedId, uint32(0), uint32(0), int192(0), uint192(linkFee), uint192(nativeFee), uint32(expiry));
   }
 
   function getV2Report(bytes32 feedId) public view returns (bytes memory) {
@@ -192,13 +191,13 @@ contract BaseFeeManagerTest is Test {
       abi.encode(
         feedId,
         uint32(0),
-        int192(0),
-        int192(0),
-        int192(0),
         uint32(0),
-        uint32(block.timestamp),
+        int192(0),
         uint192(DEFAULT_REPORT_LINK_FEE),
-        uint192(DEFAULT_REPORT_NATIVE_FEE)
+        uint192(DEFAULT_REPORT_NATIVE_FEE),
+        uint32(block.timestamp),
+        int192(0),
+        int192(0)
       );
   }
 
@@ -212,13 +211,13 @@ contract BaseFeeManagerTest is Test {
       abi.encode(
         feedId,
         uint32(0),
-        int192(0),
-        int192(0),
-        int192(0),
         uint32(0),
-        uint32(expiry),
+        int192(0),
         uint192(linkFee),
-        uint192(nativeFee)
+        uint192(nativeFee),
+        uint32(expiry),
+        int192(0),
+        int192(0)
       );
   }
 

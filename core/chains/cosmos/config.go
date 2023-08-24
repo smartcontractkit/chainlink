@@ -115,7 +115,7 @@ func (cs CosmosConfigs) Node(name string) (n db.Node, err error) {
 			}
 		}
 	}
-	err = chains.ErrNotFound
+	err = fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 	return
 }
 
@@ -131,7 +131,7 @@ func (cs CosmosConfigs) nodes(chainID string) (ns CosmosNodes) {
 func (cs CosmosConfigs) Nodes(chainID string) (ns []db.Node, err error) {
 	nodes := cs.nodes(chainID)
 	if nodes == nil {
-		err = chains.ErrNotFound
+		err = fmt.Errorf("no nodes: chain %s: %w", chainID, chains.ErrNotFound)
 		return
 	}
 	for _, n := range nodes {
@@ -152,7 +152,7 @@ func (cs CosmosConfigs) NodeStatus(name string) (n relaytypes.NodeStatus, err er
 			}
 		}
 	}
-	err = chains.ErrNotFound
+	err = fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 	return
 }
 

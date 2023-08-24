@@ -94,7 +94,8 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		Return(nil).Maybe()
 
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	require.NoError(t, err)
 	t.Run("should respect its dependents", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		orm := NewTestORM(t, db, legacyChains, pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db, lggr, config.Database()), keyStore, config.Database())
@@ -279,7 +280,8 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		relayExtenders := evmtest.NewChainRelayExtenders(t, testopts)
 		assert.Equal(t, relayExtenders.Len(), 1)
-		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+		legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+		require.NoError(t, err)
 		chain := evmtest.MustGetDefaultChain(t, legacyChains)
 
 		evmRelayer := evmrelayer.NewRelayer(testopts.DB, chain, testopts.GeneralConfig.Database(), lggr, keyStore, pg.NewNullEventBroadcaster())
@@ -304,7 +306,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			jobOCR2VRF.Type: delegateOCR2,
 		}, db, lggr, nil)
 
-		err := spawner.CreateJob(jobOCR2VRF)
+		err = spawner.CreateJob(jobOCR2VRF)
 		require.NoError(t, err)
 		jobSpecID := jobOCR2VRF.ID
 		delegateOCR2.jobID = jobOCR2VRF.ID
