@@ -12,9 +12,8 @@ import (
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/null"
+	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 )
 
 type PluginConfig struct {
@@ -26,11 +25,11 @@ type PluginConfig struct {
 	// effectively sets the "first" validFromBlockNumber.
 	InitialBlockNumber null.Int64 `json:"initialBlockNumber" toml:"initialBlockNumber"`
 
-	LinkFeedID   *types.FeedID `json:"linkFeedID" toml:"linkFeedID"`
-	NativeFeedID *types.FeedID `json:"nativeFeedID" toml:"nativeFeedID"`
+	LinkFeedID   *mercuryutils.FeedID `json:"linkFeedID" toml:"linkFeedID"`
+	NativeFeedID *mercuryutils.FeedID `json:"nativeFeedID" toml:"nativeFeedID"`
 }
 
-func ValidatePluginConfig(config PluginConfig, feedID types.FeedID) (merr error) {
+func ValidatePluginConfig(config PluginConfig, feedID mercuryutils.FeedID) (merr error) {
 	if config.RawServerURL == "" {
 		merr = errors.New("mercury: ServerURL must be specified")
 	} else {

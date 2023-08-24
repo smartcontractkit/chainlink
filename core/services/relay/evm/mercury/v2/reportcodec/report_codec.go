@@ -1,11 +1,8 @@
 package reportcodec
 
 import (
-	"fmt"
 	"math"
-	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -13,46 +10,18 @@ import (
 	reportcodec "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
+	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/types"
 )
 
-var ReportTypes = getReportTypes()
+var ReportTypes = reporttypes.GetSchema()
 var maxReportLength = 32 * len(ReportTypes) // each arg is 256 bit EVM word
-
-func getReportTypes() abi.Arguments {
-	mustNewType := func(t string) abi.Type {
-		result, err := abi.NewType(t, "", []abi.ArgumentMarshaling{})
-		if err != nil {
-			panic(fmt.Sprintf("Unexpected error during abi.NewType: %s", err))
-		}
-		return result
-	}
-	return abi.Arguments([]abi.Argument{
-		{Name: "feedId", Type: mustNewType("bytes32")},
-		{Name: "validFromTimestamp", Type: mustNewType("uint32")},
-		{Name: "observationsTimestamp", Type: mustNewType("uint32")},
-		{Name: "nativeFee", Type: mustNewType("int192")},
-		{Name: "linkFee", Type: mustNewType("int192")},
-		{Name: "expiresAt", Type: mustNewType("uint32")},
-		{Name: "benchmarkPrice", Type: mustNewType("int192")},
-	})
-}
-
-type Report struct {
-	FeedId                [32]byte
-	ObservationsTimestamp uint32
-	BenchmarkPrice        *big.Int
-	ValidFromTimestamp    uint32
-	ExpiresAt             uint32
-	LinkFee               *big.Int
-	NativeFee             *big.Int
-}
 
 var _ reportcodec.ReportCodec = &ReportCodec{}
 
 type ReportCodec struct {
 	logger logger.Logger
-	feedID types.FeedID
+	feedID utils.FeedID
 }
 
 func NewReportCodec(feedID [32]byte, lggr logger.Logger) *ReportCodec {
@@ -114,14 +83,6 @@ func (r *ReportCodec) ObservationTimestampFromReport(report ocrtypes.Report) (ui
 }
 
 // Decode is made available to external users (i.e. mercury server)
-func (r *ReportCodec) Decode(report ocrtypes.Report) (*Report, error) {
-	values, err := ReportTypes.Unpack(report)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode report: %w", err)
-	}
-	decoded := new(Report)
-	if err = ReportTypes.Copy(decoded, values); err != nil {
-		return nil, fmt.Errorf("failed to copy report values to struct: %w", err)
-	}
-	return decoded, nil
+func (r *ReportCodec) Decode(report ocrtypes.Report) (*reporttypes.Report, error) {
+	return reporttypes.Decode(report)
 }
