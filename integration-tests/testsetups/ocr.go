@@ -649,8 +649,9 @@ func (o *OCRSoakTest) collectEvents() error {
 			BlockNumber: event.BlockNumber,
 		})
 		// DEBUG: Events
-		log.Warn().Interface("Found Events", sortedFoundEvents).Msg("DEBUG")
 	}
+	// DEBUG: Events
+	log.Warn().Interface("Found Events", sortedFoundEvents).Msg("DEBUG")
 
 	// Sort our events by time to make sure they are in order (don't trust RPCs)
 	sort.Slice(sortedFoundEvents, func(i, j int) bool {
