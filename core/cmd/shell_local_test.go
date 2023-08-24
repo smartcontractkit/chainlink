@@ -43,7 +43,7 @@ func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtenderConfig, ks evmr
 	f := chainlink.RelayerFactory{
 		Logger:       opts.Logger,
 		DB:           opts.DB,
-		QConfig:      opts.GeneralConfig.Database(),
+		QConfig:      opts.AppConfig.Database(),
 		LoopRegistry: plugins.NewLoopRegistry(opts.Logger),
 	}
 
@@ -90,7 +90,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				DB:       db,
 				KeyStore: keyStore.Eth(),
 				RelayerConfig: evm.RelayerConfig{
-					GeneralConfig:    cfg,
+					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					MailMon:          &utils.MailboxMonitor{},
 				},
@@ -197,7 +197,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 				DB:       db,
 				KeyStore: keyStore.Eth(),
 				RelayerConfig: evm.RelayerConfig{
-					GeneralConfig:    cfg,
+					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 
 					MailMon: &utils.MailboxMonitor{},

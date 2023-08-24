@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"fmt"
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
@@ -27,6 +28,9 @@ func NewUpkeepProvider(activeUpkeeps ActiveUpkeepList, bs *BlockSubscriber, lp l
 
 func (p *upkeepProvider) GetActiveUpkeeps(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
 	latestBlock := p.bs.latestBlock.Load()
+	if latestBlock == nil {
+		return nil, fmt.Errorf("no latest block found when fetching active upkeeps")
+	}
 	var payloads []ocr2keepers.UpkeepPayload
 	for _, uid := range p.activeUpkeeps.View(ocr2keepers.ConditionTrigger) {
 		payload, err := core.NewUpkeepPayload(
