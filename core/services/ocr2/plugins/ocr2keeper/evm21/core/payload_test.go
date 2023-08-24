@@ -47,7 +47,7 @@ func TestWorkID(t *testing.T) {
 			expected: "db0e245ff4e7551d6c862d9a0eb5466624e1439ad1db262a7a3d6137d892d0a3",
 		},
 		{
-			name:     "happy path example froma actual tx",
+			name:     "happy path example from an actual tx",
 			upkeepID: "57755329819103678328139927896464733492677608573736038892412245689671711489918",
 			trigger: ocr2keepers.Trigger{
 				BlockNumber: 39344455,

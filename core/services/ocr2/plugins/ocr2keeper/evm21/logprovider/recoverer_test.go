@@ -221,7 +221,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			},
 			nil,
 			nil,
-			[]string{"ef1833ce5eb633189430bf52332ef8a1263ae20b9243f77be2809acb58966616"},
+			[]string{"84c83c79c2be2c3eabd8d35986a2a798d9187564d7f4f8f96c5a0f40f50bed3f"},
 		},
 	}
 
