@@ -14,7 +14,7 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	price_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/price_registry"
+	price_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 
 	types "github.com/ethereum/go-ethereum/core/types"
 )

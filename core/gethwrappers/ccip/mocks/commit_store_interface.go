@@ -6,9 +6,8 @@ import (
 	big "math/big"
 
 	bind "github.com/ethereum/go-ethereum/accounts/abi/bind"
-	commit_store "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/commit_store"
-
 	common "github.com/ethereum/go-ethereum/common"
+	commit_store "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 
 	event "github.com/ethereum/go-ethereum/event"
 

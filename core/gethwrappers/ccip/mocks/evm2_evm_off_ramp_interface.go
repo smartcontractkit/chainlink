@@ -10,7 +10,7 @@ import (
 
 	event "github.com/ethereum/go-ethereum/event"
 
-	evm_2_evm_offramp "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/evm_2_evm_offramp"
+	evm_2_evm_offramp "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 
 	generated "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 
