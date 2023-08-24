@@ -80,7 +80,7 @@ func (s *performedEventsScanner) logsToWorkIDs(logs []logpoller.Log) []string {
 			s.lggr.Debugw("unexpected log topics", "topics", topics)
 			continue
 		}
-		workIDs = append(workIDs, hexutil.Encode(topics[1].Bytes()))
+		workIDs = append(workIDs, hexutil.Encode(topics[1].Bytes())[2:]) // remove 0x prefix
 	}
 	return workIDs
 }
