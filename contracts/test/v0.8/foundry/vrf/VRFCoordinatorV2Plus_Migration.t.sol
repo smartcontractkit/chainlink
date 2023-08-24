@@ -220,9 +220,7 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
     v1Coordinator.addConsumer(maliciousSubId, address(prankster));
 
     // try to migrate malicious subscription, should fail
-    vm.expectRevert(
-      abi.encodeWithSelector(SubscriptionAPI.Reentrant.selector)
-    );
+    vm.expectRevert(abi.encodeWithSelector(SubscriptionAPI.Reentrant.selector));
     v1Coordinator.migrate(maliciousSubId, v2CoordinatorAddr);
   }
 
