@@ -435,8 +435,8 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				TransactionReceiptFn: func(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-					return nil, errors.New("tx receipt boom")
+				CallContextFn: func(ctx context.Context, receipt interface{}, method string, args ...interface{}) error {
+					return errors.New("tx receipt boom")
 				},
 			},
 			expectErr: true,
@@ -463,8 +463,9 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				TransactionReceiptFn: func(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-					return &types.Receipt{}, nil
+				CallContextFn: func(ctx context.Context, receipt interface{}, method string, args ...interface{}) error {
+					receipt = &types.Receipt{}
+					return nil
 				},
 			},
 			expectErr: true,
@@ -491,10 +492,12 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				TransactionReceiptFn: func(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-					return &types.Receipt{
+				CallContextFn: func(ctx context.Context, receipt interface{}, method string, args ...interface{}) error {
+					receipt = &types.Receipt{
+						Status:      1,
 						BlockNumber: big.NewInt(200),
-					}, nil
+					}
+					return nil
 				},
 			},
 			expectErr: true,
@@ -830,11 +833,17 @@ func (p *mockLogPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
 
 type mockClient struct {
 	client.Client
-	TransactionReceiptFn func(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	//TransactionReceiptFn func(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	CallContextFn func(ctx context.Context, receipt interface{}, method string, args ...interface{}) error
 }
 
-func (c *mockClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	return c.TransactionReceiptFn(ctx, txHash)
+//
+//func (c *mockClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
+//	return c.TransactionReceiptFn(ctx, txHash)
+//}
+
+func (c *mockClient) CallContext(ctx context.Context, receipt interface{}, method string, args ...interface{}) error {
+	return c.CallContextFn(ctx, receipt, method, args)
 }
 
 type mockStateReader struct {
