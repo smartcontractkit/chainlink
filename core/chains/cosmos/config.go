@@ -255,11 +255,11 @@ func (c *CosmosConfig) SetFrom(f *CosmosConfig) {
 }
 
 func setFromChain(c, f *coscfg.Chain) {
-	if f.BlockRate != nil {
-		c.BlockRate = f.BlockRate
-	}
 	if f.Bech32Prefix != nil {
 		c.Bech32Prefix = f.Bech32Prefix
+	}
+	if f.BlockRate != nil {
+		c.BlockRate = f.BlockRate
 	}
 	if f.BlocksUntilTxTimeout != nil {
 		c.BlocksUntilTxTimeout = f.BlocksUntilTxTimeout
