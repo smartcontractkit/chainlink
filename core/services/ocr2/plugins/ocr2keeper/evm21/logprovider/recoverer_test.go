@@ -106,6 +106,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 		latestBlockErr   error
 		active           []upkeepFilter
 		states           []ocr2keepers.UpkeepState
+		statesErr        error
 		logs             []logpoller.Log
 		logsErr          error
 		recoverErr       error
@@ -118,6 +119,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			nil,
 			[]upkeepFilter{},
 			[]ocr2keepers.UpkeepState{},
+			nil,
 			[]logpoller.Log{},
 			nil,
 			nil,
@@ -130,9 +132,38 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			fmt.Errorf("test error"),
 			[]upkeepFilter{},
 			[]ocr2keepers.UpkeepState{},
+			nil,
 			[]logpoller.Log{},
 			nil,
 			fmt.Errorf("test error"),
+			[]string{},
+		},
+		{
+			"states error",
+			100,
+			200,
+			nil,
+			[]upkeepFilter{
+				{
+					upkeepID: big.NewInt(1),
+					addr:     common.HexToAddress("0x1").Bytes(),
+					topics: []common.Hash{
+						common.HexToHash("0x1"),
+					},
+				},
+			},
+			nil,
+			fmt.Errorf("test error"),
+			[]logpoller.Log{
+				{
+					BlockNumber: 2,
+					TxHash:      common.HexToHash("0x111"),
+					LogIndex:    1,
+					BlockHash:   common.HexToHash("0x2"),
+				},
+			},
+			nil,
+			nil,
 			[]string{},
 		},
 		{
@@ -147,10 +178,10 @@ func TestLogRecoverer_Recover(t *testing.T) {
 					topics: []common.Hash{
 						common.HexToHash("0x1"),
 					},
-					lastPollBlock: 0,
 				},
 			},
 			[]ocr2keepers.UpkeepState{},
+			nil,
 			[]logpoller.Log{},
 			fmt.Errorf("test error"),
 			nil,
@@ -168,10 +199,18 @@ func TestLogRecoverer_Recover(t *testing.T) {
 					topics: []common.Hash{
 						common.HexToHash("0x1"),
 					},
-					lastPollBlock: 0,
+				},
+				{
+					upkeepID: big.NewInt(2),
+					addr:     common.HexToAddress("0x2").Bytes(),
+					topics: []common.Hash{
+						common.HexToHash("0x2"),
+					},
+					configUpdateBlock: 150, // should be filtered out
 				},
 			},
 			[]ocr2keepers.UpkeepState{ocr2keepers.UnknownState},
+			nil,
 			[]logpoller.Log{
 				{
 					BlockNumber: 2,
@@ -182,7 +221,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			},
 			nil,
 			nil,
-			[]string{"ef1833ce5eb633189430bf52332ef8a1263ae20b9243f77be2809acb58966616"},
+			[]string{"84c83c79c2be2c3eabd8d35986a2a798d9187564d7f4f8f96c5a0f40f50bed3f"},
 		},
 	}
 
@@ -194,7 +233,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			filterStore.AddActiveUpkeeps(tc.active...)
 			lp.On("LatestBlock", mock.Anything).Return(tc.latestBlock, tc.latestBlockErr)
 			lp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.logs, tc.logsErr)
-			statesReader.On("SelectByWorkIDsInRange", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, nil)
+			statesReader.On("SelectByWorkIDsInRange", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, tc.statesErr)
 
 			err := recoverer.recover(ctx)
 			if tc.recoverErr != nil {
@@ -233,6 +272,54 @@ func TestLogRecoverer_SelectFilterBatch(t *testing.T) {
 
 	batch = recoverer.selectFilterBatch(filters[:recoveryBatchSize/2])
 	require.Equal(t, recoveryBatchSize/2, len(batch))
+}
+
+func TestLogRecoverer_getFilterBatch(t *testing.T) {
+	tests := []struct {
+		name        string
+		offsetBlock int64
+		filters     []upkeepFilter
+		want        int
+	}{
+		{
+			"empty",
+			2,
+			[]upkeepFilter{},
+			0,
+		},
+		{
+			"filter out of range",
+			100,
+			[]upkeepFilter{
+				{
+					upkeepID:        big.NewInt(1),
+					addr:            common.HexToAddress("0x1").Bytes(),
+					lastRePollBlock: 50,
+				},
+				{
+					upkeepID:          big.NewInt(2),
+					addr:              common.HexToAddress("0x2").Bytes(),
+					lastRePollBlock:   50,
+					configUpdateBlock: 101, // out of range
+				},
+				{
+					upkeepID:          big.NewInt(3),
+					addr:              common.HexToAddress("0x3").Bytes(),
+					configUpdateBlock: 99,
+				},
+			},
+			2,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			recoverer, filterStore, _, _ := setupTestRecoverer(t, time.Millisecond*50, int64(100))
+			filterStore.AddActiveUpkeeps(tc.filters...)
+			batch := recoverer.getFilterBatch(tc.offsetBlock)
+			require.Equal(t, tc.want, len(batch))
+		})
+	}
 }
 
 func TestLogRecoverer_FilterFinalizedStates(t *testing.T) {
@@ -604,7 +691,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					}
 					return t
 				}(),
-				WorkID: "476453e1b49fc73fa6f97cb77272a07b57f2414a39b0267e58df8cb006d9c491",
+				WorkID: "d91c6f090b8477f434cf775182e4ff12c90618ba4da5b8ec06aa719768b7743a",
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
@@ -647,7 +734,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					}
 					return t
 				}(),
-				WorkID: "476453e1b49fc73fa6f97cb77272a07b57f2414a39b0267e58df8cb006d9c491",
+				WorkID: "d91c6f090b8477f434cf775182e4ff12c90618ba4da5b8ec06aa719768b7743a",
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {

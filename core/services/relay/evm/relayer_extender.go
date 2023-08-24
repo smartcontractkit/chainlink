@@ -13,6 +13,7 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmchain "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -51,17 +52,17 @@ type EVMChainRelayerExtender interface {
 type EVMChainRelayerExtenderSlicer interface {
 	Slice() []EVMChainRelayerExtender
 	Len() int
-	ChainNodeConfigs() evmtypes.Configs
+	AppConfig() evmchain.AppConfig
 }
 
 type ChainRelayerExtenders struct {
 	exts []EVMChainRelayerExtender
-	cfgs evmtypes.Configs
+	cfg  evmchain.AppConfig
 }
 
 var _ EVMChainRelayerExtenderSlicer = &ChainRelayerExtenders{}
 
-func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) *evmchain.LegacyChains {
+func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) (*evmchain.LegacyChains, error) {
 
 	m := make(map[string]evmchain.Chain)
 	var dflt evmchain.Chain
@@ -71,25 +72,29 @@ func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) *ev
 			dflt = r.Chain()
 		}
 	}
-	l := evmchain.NewLegacyChains(exts.ChainNodeConfigs(), m)
+	l, err := evmchain.NewLegacyChains(exts.AppConfig(), m)
+	if err != nil {
+		return nil, err
+	}
 	if dflt != nil {
 		l.SetDefault(dflt)
 	}
-	return l
+	return l, nil
 }
 
-func newChainRelayerExtsFromSlice(exts []*ChainRelayerExt) *ChainRelayerExtenders {
+func newChainRelayerExtsFromSlice(exts []*ChainRelayerExt, appConfig evm.AppConfig) *ChainRelayerExtenders {
 	temp := make([]EVMChainRelayerExtender, len(exts))
 	for i := range exts {
 		temp[i] = exts[i]
 	}
 	return &ChainRelayerExtenders{
 		exts: temp,
+		cfg:  appConfig,
 	}
 }
 
-func (c *ChainRelayerExtenders) ChainNodeConfigs() evmtypes.Configs {
-	return c.cfgs
+func (c *ChainRelayerExtenders) AppConfig() evmchain.AppConfig {
+	return c.cfg
 }
 
 func (c *ChainRelayerExtenders) Slice() []EVMChainRelayerExtender {
@@ -191,11 +196,11 @@ type chainSet struct {
 }
 
 func (cll *chainSet) Start(ctx context.Context) error {
-	if !cll.opts.GeneralConfig.EVMEnabled() {
+	if !cll.opts.AppConfig.EVMEnabled() {
 		cll.logger.Warn("EVM is disabled, no EVM-based chains will be started")
 		return nil
 	}
-	if !cll.opts.GeneralConfig.EVMRPCEnabled() {
+	if !cll.opts.AppConfig.EVMRPCEnabled() {
 		cll.logger.Warn("EVM RPC connections are disabled. Chainlink will not connect to any EVM RPC node.")
 	}
 	var ms services.MultiStart
@@ -268,13 +273,13 @@ func (cll *chainSet) get(id string) (evmchain.Chain, error) {
 
 func (cll *chainSet) ChainStatus(ctx context.Context, id string) (cfg relaytypes.ChainStatus, err error) {
 	var cs []relaytypes.ChainStatus
-	cs, _, err = cll.opts.OperationalConfigs.Chains(0, -1, id)
+	cs, _, err = cll.opts.EVMConfigs().Chains(0, -1, id)
 	if err != nil {
 		return
 	}
 	l := len(cs)
 	if l == 0 {
-		err = chains.ErrNotFound
+		err = fmt.Errorf("chain %s: %w", id, chains.ErrNotFound)
 		return
 	}
 	if l > 1 {
@@ -286,7 +291,7 @@ func (cll *chainSet) ChainStatus(ctx context.Context, id string) (cfg relaytypes
 }
 
 func (cll *chainSet) ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error) {
-	return cll.opts.OperationalConfigs.Chains(offset, limit)
+	return cll.opts.EVMConfigs().Chains(offset, limit)
 }
 
 func (cll *chainSet) Default() (evmchain.Chain, error) {
@@ -321,11 +326,11 @@ func (cll *chainSet) ChainCount() int {
 }
 
 func (cll *chainSet) Configs() evmtypes.Configs {
-	return cll.opts.OperationalConfigs
+	return cll.opts.EVMConfigs()
 }
 
 func (cll *chainSet) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, count int, err error) {
-	nodes, count, err = cll.opts.OperationalConfigs.NodeStatusesPaged(offset, limit, chainIDs...)
+	nodes, count, err = cll.opts.EVMConfigs().NodeStatusesPaged(offset, limit, chainIDs...)
 	if err != nil {
 		err = errors.Wrap(err, "GetNodesForChain failed to load nodes from DB")
 		return
@@ -372,7 +377,7 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 	if err := opts.Check(); err != nil {
 		return nil, err
 	}
-	evmConfigs := opts.GeneralConfig.EVMConfigs()
+	evmConfigs := opts.AppConfig.EVMConfigs()
 	var enabled []*toml.EVMConfig
 	for i := range evmConfigs {
 		if evmConfigs[i].IsEnabled() {
@@ -380,7 +385,7 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 		}
 	}
 
-	defaultChainID := opts.GeneralConfig.DefaultChainID()
+	defaultChainID := opts.AppConfig.DefaultChainID()
 	if defaultChainID == nil && len(enabled) >= 1 {
 		defaultChainID = enabled[0].ChainID.ToInt()
 		if len(enabled) > 1 {
@@ -419,7 +424,7 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 		}
 		result = append(result, s)
 	}
-	return newChainRelayerExtsFromSlice(result), nil
+	return newChainRelayerExtsFromSlice(result, opts.AppConfig), nil
 }
 
 func newChainSet(opts evmchain.ChainRelayExtenderConfig) *chainSet {
