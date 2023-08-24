@@ -65,6 +65,7 @@ compileContract dev/vrf/testhelpers/VRFV2PlusSingleConsumerExample.sol
 compileContract dev/vrf/testhelpers/VRFV2PlusWrapperConsumerExample.sol
 compileContract dev/vrf/testhelpers/VRFV2PlusRevertingExample.sol
 compileContract dev/vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
+compileContract dev/vrf/testhelpers/VRFV2PlusMaliciousMigrator.sol
 compileContract dev/vrf/libraries/VRFV2PlusClient.sol
 compileContract dev/vrf/testhelpers/VRFCoordinatorV2Plus_V2Example.sol
 compileContract dev/vrf/TrustedBlockhashStore.sol
