@@ -172,11 +172,11 @@ func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
 	}
-	diff := latest - p.opts.LookbackBlocks
-	if diff < 0 {
-		diff = latest
+	start := latest - p.opts.LookbackBlocks
+	if start <= 0 {
+		start = 1
 	}
-	logs := p.buffer.dequeue(int(diff), AllowedLogsPerUpkeep)
+	logs := p.buffer.dequeueRange(start, latest, AllowedLogsPerUpkeep)
 
 	// p.lggr.Debugw("got latest logs from buffer", "latest", latest, "diff", diff, "logs", len(logs))
 

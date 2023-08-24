@@ -126,7 +126,7 @@ func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 				"blockHash", log.BlockHash, "txHash", log.TxHash, "logIndex", log.LogIndex)
 			continue
 		}
-		// lggr.Debugw("Adding log", "i", i, "blockBlock", block.blockNumber, "logBlock", log.BlockNumber, "id", id)
+		// lggr.Debugw("Adding log", "i", i, "blockBlock", currentBlock.blockNumber, "logBlock", log.BlockNumber, "id", id)
 		currentBlock.logs = append(currentBlock.logs, fetchedLog{upkeepID: id, log: log})
 		b.blocks[i] = currentBlock
 		added++
@@ -183,18 +183,6 @@ func (b *logEventBuffer) peekRange(start, end int64) []fetchedLog {
 	return results
 }
 
-// peek returns the logs in range [latestBlock-blocks, latestBlock]
-func (b *logEventBuffer) dequeue(blocks, upkeepLimit int) []fetchedLog {
-	latestBlock := b.latestBlockSeen()
-	if latestBlock == 0 {
-		return nil
-	}
-	if blocks > int(latestBlock) {
-		blocks = int(latestBlock) - 1
-	}
-	return b.dequeueRange(latestBlock-int64(blocks), latestBlock, upkeepLimit)
-}
-
 // dequeueRange returns the logs between start and end inclusive.
 func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit int) []fetchedLog {
 	b.lock.Lock()
@@ -203,9 +191,8 @@ func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit int) []fetch
 	blocksInRange := b.getBlocksInRange(int(start), int(end))
 
 	logsCount := map[string]int{}
-
 	var results []fetchedLog
-	for i, block := range blocksInRange {
+	for _, block := range blocksInRange {
 		// double checking that we don't have any gaps in the range
 		if block.blockNumber < start || block.blockNumber > end {
 			continue
@@ -225,7 +212,7 @@ func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit int) []fetch
 		block.visited = append(block.visited, blockResults...)
 		results = append(results, blockResults...)
 		block.logs = remainingLogs
-		b.blocks[i] = block
+		b.blocks[b.blockNumberIndex(block.blockNumber)] = block
 	}
 
 	sort.SliceStable(results, func(i, j int) bool {
@@ -243,49 +230,42 @@ func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit int) []fetch
 // NOTE: this function should be called with the lock held
 func (b *logEventBuffer) getBlocksInRange(start, end int) []fetchedBlock {
 	var blocksInRange []fetchedBlock
-	start, end = b.normalRange(start, end)
+	start, end = b.blockRangeToIndices(start, end)
 	if start == -1 || end == -1 {
 		// invalid range
 		return blocksInRange
 	}
-	if start < end {
-		return b.blocks[start:end]
+	if start <= end {
+		// Normal range, need to return indices from start to end(inclusive)
+		return b.blocks[start : end+1]
 	}
 	// in case we get circular range such as [0, 1, end, ... , start, ..., size-1]
-	// we need to return the blocks in two ranges: [start, size-1] and [0, end]
+	// we need to return the blocks in two ranges: [0, end](inclusive) and [start, size-1]
 	blocksInRange = append(blocksInRange, b.blocks[start:]...)
-	blocksInRange = append(blocksInRange, b.blocks[:end]...)
+	blocksInRange = append(blocksInRange, b.blocks[:end+1]...)
 
 	return blocksInRange
 }
 
-// normalRange returns the normalized range of start and end,
-// aligned with buffer sizes.
-func (b *logEventBuffer) normalRange(start, end int) (int, int) {
-	if end < start || end == 0 {
+// blockRangeToIndices returns the normalized range of start to end block range,
+// to indices aligned with buffer size. Note ranges inclusive of start, end indices.
+func (b *logEventBuffer) blockRangeToIndices(start, end int) (int, int) {
+	latest := b.latestBlockSeen()
+	if end > int(latest) {
+		// Limit end of range to latest block seen
+		end = int(latest)
+	}
+	if end < start || start == 0 || end == 0 {
 		// invalid range
 		return -1, -1
 	}
 	size := b.bufferSize()
-	if start == 0 {
-		// we reduce start by 1 to make it easier to calculate the index,
-		// but we need to ensure we don't go below 0.
-		start++
-	}
-	if start == end {
-		// ensure we have at least one block in range as end is exclusive
-		// TODO: verify if we really need to do this here or if this can be removed safely
-		// as start is aligned in line 285
-		end++
-	}
-	if end-start > size {
-		// ensure we don't have more than the buffer size
+	if end-start >= size {
+		// If range requires more than buffer size blocks, only to return
+		// last size blocks as that's the max the buffer stores.
 		start = (end - size) + 1
 	}
-	start = (start - 1) % size
-	end = end % size
-
-	return start, end
+	return b.blockNumberIndex(int64(start)), b.blockNumberIndex(int64(end))
 }
 
 // blockNumberIndex returns the index of the block in the buffer
