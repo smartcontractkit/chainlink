@@ -1,89 +1,55 @@
 package reportcodec
 
 import (
+	"errors"
 	"fmt"
-	"math"
 	"math/big"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	reportcodec "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
+	reporttypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/types"
 )
 
-var ReportTypes = getReportTypes()
+var ReportTypes = reporttypes.GetSchema()
 var maxReportLength = 32 * len(ReportTypes) // each arg is 256 bit EVM word
-
-func getReportTypes() abi.Arguments {
-	mustNewType := func(t string) abi.Type {
-		result, err := abi.NewType(t, "", []abi.ArgumentMarshaling{})
-		if err != nil {
-			panic(fmt.Sprintf("Unexpected error during abi.NewType: %s", err))
-		}
-		return result
-	}
-	return abi.Arguments([]abi.Argument{
-		{Name: "feedId", Type: mustNewType("bytes32")},
-		{Name: "validFromTimestamp", Type: mustNewType("uint32")},
-		{Name: "observationsTimestamp", Type: mustNewType("uint32")},
-		{Name: "nativeFee", Type: mustNewType("int192")},
-		{Name: "linkFee", Type: mustNewType("int192")},
-		{Name: "expiresAt", Type: mustNewType("uint32")},
-		{Name: "benchmarkPrice", Type: mustNewType("int192")},
-	})
-}
-
-type Report struct {
-	FeedId                [32]byte
-	ObservationsTimestamp uint32
-	BenchmarkPrice        *big.Int
-	ValidFromTimestamp    uint32
-	ExpiresAt             uint32
-	LinkFee               *big.Int
-	NativeFee             *big.Int
-}
+var zero = big.NewInt(0)
 
 var _ reportcodec.ReportCodec = &ReportCodec{}
 
 type ReportCodec struct {
 	logger logger.Logger
-	feedID types.FeedID
+	feedID utils.FeedID
 }
 
 func NewReportCodec(feedID [32]byte, lggr logger.Logger) *ReportCodec {
 	return &ReportCodec{lggr, feedID}
 }
 
-func (r *ReportCodec) BuildReport(paos []reportcodec.ParsedAttributedObservation, f int, validFromTimestamp, expiresAt uint32) (ocrtypes.Report, error) {
-	if len(paos) == 0 {
-		return nil, errors.Errorf("cannot build report from empty attributed observations")
+func (r *ReportCodec) BuildReport(rf reportcodec.ReportFields) (ocrtypes.Report, error) {
+	var merr error
+	if rf.BenchmarkPrice == nil {
+		merr = errors.Join(merr, errors.New("benchmarkPrice may not be nil"))
 	}
-
-	mPaos := reportcodec.Convert(paos)
-
-	timestamp := relaymercury.GetConsensusTimestamp(mPaos)
-
-	benchmarkPrice, err := relaymercury.GetConsensusBenchmarkPrice(mPaos, f)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetConsensusBenchmarkPrice failed")
+	if rf.LinkFee == nil {
+		merr = errors.Join(merr, errors.New("linkFee may not be nil"))
+	} else if rf.LinkFee.Cmp(zero) < 0 {
+		merr = errors.Join(merr, fmt.Errorf("linkFee may not be negative (got: %s)", rf.LinkFee))
 	}
-
-	linkFee, err := relaymercury.GetConsensusLinkFee(mPaos, f)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetConsensusLinkFee failed")
+	if rf.NativeFee == nil {
+		merr = errors.Join(merr, errors.New("nativeFee may not be nil"))
+	} else if rf.NativeFee.Cmp(zero) < 0 {
+		merr = errors.Join(merr, fmt.Errorf("nativeFee may not be negative (got: %s)", rf.NativeFee))
 	}
-	nativeFee, err := relaymercury.GetConsensusNativeFee(mPaos, f)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetConsensusNativeFee failed")
+	if merr != nil {
+		return nil, merr
 	}
-
-	reportBytes, err := ReportTypes.Pack(r.feedID, validFromTimestamp, timestamp, nativeFee, linkFee, expiresAt, benchmarkPrice)
-	return ocrtypes.Report(reportBytes), errors.Wrap(err, "failed to pack report blob")
+	reportBytes, err := ReportTypes.Pack(r.feedID, rf.ValidFromTimestamp, rf.Timestamp, rf.NativeFee, rf.LinkFee, rf.ExpiresAt, rf.BenchmarkPrice)
+	return ocrtypes.Report(reportBytes), pkgerrors.Wrap(err, "failed to pack report blob")
 }
 
 func (r *ReportCodec) MaxReportLength(n int) (int, error) {
@@ -91,37 +57,13 @@ func (r *ReportCodec) MaxReportLength(n int) (int, error) {
 }
 
 func (r *ReportCodec) ObservationTimestampFromReport(report ocrtypes.Report) (uint32, error) {
-	reportElems := map[string]interface{}{}
-	if err := ReportTypes.UnpackIntoMap(reportElems, report); err != nil {
-		return 0, errors.Errorf("error during unpack: %v", err)
+	decoded, err := r.Decode(report)
+	if err != nil {
+		return 0, err
 	}
-
-	timestampIface, ok := reportElems["observationsTimestamp"]
-	if !ok {
-		return 0, errors.Errorf("unpacked report has no 'observationTimestamp' field")
-	}
-
-	timestamp, ok := timestampIface.(uint32)
-	if !ok {
-		return 0, errors.Errorf("cannot cast timestamp to uint32, type is %T", timestampIface)
-	}
-
-	if timestamp > math.MaxInt32 {
-		return 0, errors.Errorf("timestamp overflows max uint32, got: %d", timestamp)
-	}
-
-	return timestamp, nil
+	return decoded.ObservationsTimestamp, nil
 }
 
-// Decode is made available to external users (i.e. mercury server)
-func (r *ReportCodec) Decode(report ocrtypes.Report) (*Report, error) {
-	values, err := ReportTypes.Unpack(report)
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode report: %w", err)
-	}
-	decoded := new(Report)
-	if err = ReportTypes.Copy(decoded, values); err != nil {
-		return nil, fmt.Errorf("failed to copy report values to struct: %w", err)
-	}
-	return decoded, nil
+func (r *ReportCodec) Decode(report ocrtypes.Report) (*reporttypes.Report, error) {
+	return reporttypes.Decode(report)
 }

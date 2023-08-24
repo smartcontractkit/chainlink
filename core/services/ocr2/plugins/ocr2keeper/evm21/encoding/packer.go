@@ -128,12 +128,11 @@ func (p *abiPacker) UnpackLogTriggerConfig(raw []byte) (automation_utils_2_1.Log
 
 // PackReport packs the report with abi definitions from the contract.
 func (p *abiPacker) PackReport(report automation_utils_2_1.KeeperRegistryBase21Report) ([]byte, error) {
-	bts, err := p.utilsAbi.Pack("_report", &report)
+	bts, err := p.utilsAbi.Methods["_report"].Inputs.Pack(&report)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to pack report", err)
 	}
-
-	return bts[4:], nil
+	return bts, nil
 }
 
 // UnpackReport unpacks the report from the given raw data.

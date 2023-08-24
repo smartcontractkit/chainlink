@@ -104,8 +104,8 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
-		//"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
-		//"registry_2_1_logtrigger": ethereum.RegistryVersion_2_1,
+		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
+		"registry_2_1_logtrigger": ethereum.RegistryVersion_2_1,
 	}
 
 	for name, registryVersion := range registryVersions {

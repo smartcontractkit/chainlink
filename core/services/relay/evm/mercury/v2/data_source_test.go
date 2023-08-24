@@ -16,13 +16,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 )
 
 var _ relaymercury.MercuryServerFetcher = &mockFetcher{}
 
 type mockFetcher struct {
-	ts             uint32
+	ts             int64
 	tsErr          error
 	linkPrice      *big.Int
 	linkPriceErr   error
@@ -30,9 +30,9 @@ type mockFetcher struct {
 	nativePriceErr error
 }
 
-var feedId types.FeedID = [32]byte{1}
-var linkFeedId types.FeedID = [32]byte{2}
-var nativeFeedId types.FeedID = [32]byte{3}
+var feedId utils.FeedID = [32]byte{1}
+var linkFeedId utils.FeedID = [32]byte{2}
+var nativeFeedId utils.FeedID = [32]byte{3}
 
 func (m *mockFetcher) FetchInitialMaxFinalizedBlockNumber(context.Context) (*int64, error) {
 	return nil, nil
@@ -47,7 +47,7 @@ func (m *mockFetcher) LatestPrice(ctx context.Context, fId [32]byte) (*big.Int, 
 	return nil, nil
 }
 
-func (m *mockFetcher) LatestTimestamp(context.Context) (uint32, error) {
+func (m *mockFetcher) LatestTimestamp(context.Context) (int64, error) {
 	return m.ts, m.tsErr
 }
 
@@ -92,7 +92,7 @@ func Test_Datasource(t *testing.T) {
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.NoError(t, err)
 
-			assert.Equal(t, uint32(123), obs.MaxFinalizedTimestamp.Val)
+			assert.Equal(t, int64(123), obs.MaxFinalizedTimestamp.Val)
 			assert.NoError(t, obs.MaxFinalizedTimestamp.Err)
 		})
 
@@ -123,7 +123,7 @@ func Test_Datasource(t *testing.T) {
 
 				assert.Equal(t, big.NewInt(122), obs.BenchmarkPrice.Val)
 				assert.NoError(t, obs.BenchmarkPrice.Err)
-				assert.Equal(t, uint32(123123), obs.MaxFinalizedTimestamp.Val)
+				assert.Equal(t, int64(123123), obs.MaxFinalizedTimestamp.Val)
 				assert.NoError(t, obs.MaxFinalizedTimestamp.Err)
 				assert.Equal(t, big.NewInt(122), obs.LinkPrice.Val)
 				assert.NoError(t, obs.LinkPrice.Err)
@@ -183,7 +183,7 @@ func Test_Datasource(t *testing.T) {
 					ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, linkFeedId, nativeFeedId
 				})
 
-				var feedId types.FeedID = [32]byte{1}
+				var feedId utils.FeedID = [32]byte{1}
 				ds.feedID, ds.linkFeedID, ds.nativeFeedID = feedId, feedId, feedId
 
 				obs, err := ds.Observe(ctx, repts, false)
@@ -191,7 +191,7 @@ func Test_Datasource(t *testing.T) {
 
 				assert.Equal(t, big.NewInt(122), obs.BenchmarkPrice.Val)
 				assert.NoError(t, obs.BenchmarkPrice.Err)
-				assert.Equal(t, uint32(0), obs.MaxFinalizedTimestamp.Val)
+				assert.Equal(t, int64(0), obs.MaxFinalizedTimestamp.Val)
 				assert.NoError(t, obs.MaxFinalizedTimestamp.Err)
 				assert.Equal(t, big.NewInt(122), obs.LinkPrice.Val)
 				assert.NoError(t, obs.LinkPrice.Err)
@@ -221,9 +221,9 @@ func Test_Datasource(t *testing.T) {
 				obs, err := ds.Observe(ctx, repts, false)
 				assert.NoError(t, err)
 
-				assert.Equal(t, obs.LinkPrice.Val, maxInt192)
+				assert.Equal(t, obs.LinkPrice.Val, relaymercury.MaxInt192)
 				assert.Nil(t, obs.LinkPrice.Err)
-				assert.Equal(t, obs.NativePrice.Val, maxInt192)
+				assert.Equal(t, obs.NativePrice.Val, relaymercury.MaxInt192)
 				assert.Nil(t, obs.NativePrice.Err)
 			})
 		})

@@ -546,7 +546,7 @@ func setURLs(prefix string, network *blockchain.EVMNetwork) {
 	httpURLs := strings.Split(httpEnvURLs, ",")
 	network.URLs = wsURLs
 	network.HTTPURLs = httpURLs
-	log.Info().Interface(wsEnvVar, wsURLs).Interface(httpEnvVar, httpURLs).Msg("Read network URLs")
+	log.Info().Msg("Read network URLs")
 }
 
 // setKeys sets a network's private key(s) based on env vars
@@ -573,5 +573,5 @@ func setKeys(prefix string, network *blockchain.EVMNetwork) {
 	}
 	keys := strings.Split(keysEnv, ",")
 	network.PrivateKeys = keys
-	log.Info().Interface(envVar, keys).Msg("Read network Keys")
+	log.Info().Msg("Read network Keys")
 }
