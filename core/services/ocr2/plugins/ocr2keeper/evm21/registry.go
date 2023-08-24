@@ -40,13 +40,12 @@ const (
 )
 
 var (
-	ErrLogReadFailure                = fmt.Errorf("failure reading logs")
-	ErrHeadNotAvailable              = fmt.Errorf("head not available")
-	ErrInitializationFailure         = fmt.Errorf("failed to initialize registry")
-	ErrContextCancelled              = fmt.Errorf("context was cancelled")
-	ErrABINotParsable                = fmt.Errorf("error parsing abi")
-	ActiveUpkeepIDBatchSize    int64 = 1000
-	FetchUpkeepConfigBatchSize       = 10
+	ErrLogReadFailure              = fmt.Errorf("failure reading logs")
+	ErrHeadNotAvailable            = fmt.Errorf("head not available")
+	ErrInitializationFailure       = fmt.Errorf("failed to initialize registry")
+	ErrContextCancelled            = fmt.Errorf("context was cancelled")
+	ErrABINotParsable              = fmt.Errorf("error parsing abi")
+	ActiveUpkeepIDBatchSize  int64 = 1000
 	// This is the interval at which active upkeep list is fully refreshed from chain
 	refreshInterval = 15 * time.Minute
 	// This is the lookback for polling upkeep state event logs from latest block

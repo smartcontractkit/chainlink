@@ -97,16 +97,6 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 	return blocks[0].BlockHash, nil
 }
 
-func (r *EvmRegistry) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, error) {
-	// TODO: do manual eth_getTransactionReceipt call to get block number and hash
-	txr, err := r.client.TransactionReceipt(r.ctx, txHash)
-	if err != nil {
-		return nil, common.Hash{}, err
-	}
-
-	return txr.BlockNumber, txr.BlockHash, nil
-}
-
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
 func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
 	// verify check block number is not too old
@@ -153,7 +143,7 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 		r.lggr.Debugf("log block not provided, querying eth client for tx hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 	}
 	// query eth client as a fallback
-	bn, _, err := r.getTxBlock(p.Trigger.LogTriggerExtension.TxHash)
+	bn, _, err := core.GetTxBlock(r.client, p.Trigger.LogTriggerExtension.TxHash)
 	if err != nil {
 		// primitive way of checking errors
 		if strings.Contains(err.Error(), "missing required field") || strings.Contains(err.Error(), "not found") {

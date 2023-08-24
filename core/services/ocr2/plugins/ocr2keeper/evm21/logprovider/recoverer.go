@@ -17,14 +17,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
-	ErrNotFound             = errors.New("not found")
 	DefaultRecoveryInterval = 5 * time.Second
 	// TODO: Reduce these intervals to allow sending same proposals again if they were not fulfilled
 	RecoveryCacheTTL = 24*time.Hour - time.Second
@@ -183,7 +181,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 	logBlock := int64(proposal.Trigger.LogTriggerExtension.BlockNumber)
 	if logBlock == 0 {
 		var number *big.Int
-		number, _, err = r.getTxBlock(proposal.Trigger.LogTriggerExtension.TxHash)
+		number, _, err = core.GetTxBlock(r.client, proposal.Trigger.LogTriggerExtension.TxHash)
 		if err != nil {
 			return nil, err
 		}
@@ -239,26 +237,6 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 		}
 	}
 	return nil, fmt.Errorf("no log found for upkeepID %v and trigger %+v", proposal.UpkeepID, proposal.Trigger)
-}
-
-// getTxBlock calls eth_getTransactionReceipt on the eth client to obtain a tx receipt
-func (r *logRecoverer) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, error) {
-	var result interface{}
-	err := r.client.CallContext(context.Background(), &result, "eth_getTransactionReceipt", txHash.Bytes())
-	if err != nil {
-		return nil, common.Hash{}, err
-	}
-
-	var ok bool
-	var receipt *types.Receipt
-	if receipt, ok = result.(*types.Receipt); !ok {
-		return nil, common.Hash{}, fmt.Errorf("failed to cast eth_getTransactionReceipt response to *evmtypes.Receipt, got type %T", result)
-	}
-	if receipt.Status != 1 {
-		return nil, common.Hash{}, fmt.Errorf("eth_getTransactionReceipt returns unsuccessful status %d", receipt.Status)
-	}
-
-	return receipt.GetBlockNumber(), receipt.GetBlockHash(), nil
 }
 
 func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
