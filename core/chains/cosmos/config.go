@@ -258,6 +258,9 @@ func setFromChain(c, f *coscfg.Chain) {
 	if f.BlockRate != nil {
 		c.BlockRate = f.BlockRate
 	}
+	if f.Bech32Prefix != nil {
+		c.Bech32Prefix = f.Bech32Prefix
+	}
 	if f.BlocksUntilTxTimeout != nil {
 		c.BlocksUntilTxTimeout = f.BlocksUntilTxTimeout
 	}
@@ -266,6 +269,9 @@ func setFromChain(c, f *coscfg.Chain) {
 	}
 	if f.FallbackGasPrice != nil {
 		c.FallbackGasPrice = f.FallbackGasPrice
+	}
+	if f.FeeToken != nil {
+		c.FeeToken = f.FeeToken
 	}
 	if f.GasLimitMultiplier != nil {
 		c.GasLimitMultiplier = f.GasLimitMultiplier
@@ -281,12 +287,6 @@ func setFromChain(c, f *coscfg.Chain) {
 	}
 	if f.TxMsgTimeout != nil {
 		c.TxMsgTimeout = f.TxMsgTimeout
-	}
-	if f.Bech32Prefix != nil {
-		c.Bech32Prefix = f.Bech32Prefix
-	}
-	if f.FeeToken != nil {
-		c.FeeToken = f.FeeToken
 	}
 }
 
@@ -314,6 +314,10 @@ func (c *CosmosConfig) TOMLString() (string, error) {
 
 var _ coscfg.Config = &CosmosConfig{}
 
+func (c *CosmosConfig) Bech32Prefix() string {
+	return *c.Chain.Bech32Prefix
+}
+
 func (c *CosmosConfig) BlockRate() time.Duration {
 	return c.Chain.BlockRate.Duration()
 }
@@ -328,6 +332,10 @@ func (c *CosmosConfig) ConfirmPollPeriod() time.Duration {
 
 func (c *CosmosConfig) FallbackGasPrice() sdk.Dec {
 	return sdkDecFromDecimal(c.Chain.FallbackGasPrice)
+}
+
+func (c *CosmosConfig) FeeToken() string {
+	return *c.Chain.FeeToken
 }
 
 func (c *CosmosConfig) GasLimitMultiplier() float64 {
@@ -348,14 +356,6 @@ func (c *CosmosConfig) OCR2CacheTTL() time.Duration {
 
 func (c *CosmosConfig) TxMsgTimeout() time.Duration {
 	return c.Chain.TxMsgTimeout.Duration()
-}
-
-func (c *CosmosConfig) Bech32Prefix() string {
-	return *c.Chain.Bech32Prefix
-}
-
-func (c *CosmosConfig) FeeToken() string {
-	return *c.Chain.FeeToken
 }
 
 func sdkDecFromDecimal(d *decimal.Decimal) sdk.Dec {
