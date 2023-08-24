@@ -2,6 +2,7 @@ package chainlink
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/pelletier/go-toml/v2"
@@ -11,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
@@ -83,9 +85,23 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 		signer  = &keystore.SolanaSigner{Solana: ks}
 	)
 
+	unique := make(map[string]struct{})
 	// create one relayer per chain id
 	for _, chainCfg := range chainCfgs {
+
 		relayId := relay.ID{Network: relay.Solana, ChainID: relay.ChainID(*chainCfg.ChainID)}
+		_, alreadyExists := unique[relayId.Name()]
+		if alreadyExists {
+			return nil, fmt.Errorf("duplicate chain definitions for %s", relayId.Name())
+		}
+		unique[relayId.Name()] = struct{}{}
+
+		// skip disabled chains from further processing
+		if !*chainCfg.Enabled {
+			solLggr.Warnw("Skipping disabled chain", "id", chainCfg.ChainID)
+			continue
+		}
+
 		// all the lower level APIs expect chainsets. create a single valued set per id
 		singleChainCfg := solana.SolanaConfigs{chainCfg}
 
@@ -100,7 +116,7 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 			}
 
 			solCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
-				ID:  solLggr.Name(),
+				ID:  relayId.Name(),
 				Cmd: cmdName,
 			})
 			if err != nil {
@@ -110,22 +126,22 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 			solanaRelayers[relayId] = loop.NewRelayerService(solLggr, r.GRPCOpts, solCmdFn, string(tomls), signer)
 
 		} else {
-			// fallback to embedded chainset
+			// fallback to embedded chain
 			opts := solana.ChainSetOpts{
 				Logger:   solLggr,
 				KeyStore: signer,
 				Configs:  solana.NewConfigs(singleChainCfg),
 			}
-			chainSet, err := solana.NewChainSet(opts, singleChainCfg)
-			if err != nil {
-				return nil, fmt.Errorf("failed to load Solana chainset: %w", err)
-			}
-			//TODO construct the chain directly and remove Chainset
-			chain, err := chainSet.Chain(context.Background(), relayId.ChainID.String())
-			if err != nil {
+
+			chain, err := solana.NewChain(chainCfg, opts)
+			if errors.Is(err, chains.ErrChainDisabled) {
+				// this should not happen because the driving loop is supposed to skip disabled chains
+				solLggr.Warnw("Skipping disabled chain", "err", err)
+				continue
+			} else if err != nil {
 				return nil, err
 			}
-			solanaRelayers[relayId] = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, chainSet), chain)
+			solanaRelayers[relayId] = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, chain), chain)
 		}
 	}
 	return solanaRelayers, nil
@@ -136,6 +152,8 @@ type StarkNetFactoryConfig struct {
 	starknet.StarknetConfigs
 }
 
+// TODO consider consolidating the driving logic with that of NewSolana above via generics
+// perhaps when we implement a Cosmos LOOP
 func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.StarknetConfigs) (map[relay.ID]loop.Relayer, error) {
 	starknetRelayers := make(map[relay.ID]loop.Relayer)
 
@@ -144,9 +162,22 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 		loopKs    = &keystore.StarknetLooppSigner{StarkNet: ks}
 	)
 
+	unique := make(map[string]struct{})
 	// create one relayer per chain id
 	for _, chainCfg := range chainCfgs {
-		relayId := relay.ID{Network: relay.StarkNet, ChainID: relay.ChainID(*chainCfg.ChainID)}
+		relayId := relay.ID{Network: relay.Solana, ChainID: relay.ChainID(*chainCfg.ChainID)}
+		_, alreadyExists := unique[relayId.Name()]
+		if alreadyExists {
+			return nil, fmt.Errorf("duplicate chain definitions for %s", relayId.Name())
+		}
+		unique[relayId.Name()] = struct{}{}
+
+		// skip disabled chains from further processing
+		if !*chainCfg.Enabled {
+			starkLggr.Warnw("Skipping disabled chain", "id", chainCfg.ChainID)
+			continue
+		}
+
 		// all the lower level APIs expect chainsets. create a single valued set per id
 		singleChainCfg := starknet.StarknetConfigs{chainCfg}
 
@@ -160,7 +191,7 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 			}
 
 			starknetCmdFn, err := plugins.NewCmdFactory(r.Register, plugins.CmdConfig{
-				ID:  starkLggr.Name(),
+				ID:  relayId.Name(),
 				Cmd: cmdName,
 			})
 			if err != nil {
@@ -176,11 +207,16 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 				KeyStore: loopKs,
 				Configs:  starknet.NewConfigs(singleChainCfg),
 			}
-			chain, err := starknet.NewStarknetChain(chainCfg, opts)
 
-			if err != nil {
-				return nil, fmt.Errorf("failed to load StarkNet chain: %w", err)
+			chain, err := starknet.NewChain(chainCfg, opts)
+			if errors.Is(err, chains.ErrChainDisabled) {
+				// this should not happen because the driving loop is supposed to skip disabled chains
+				starkLggr.Warnw("Skipping disabled chain", "err", err)
+				continue
+			} else if err != nil {
+				return nil, err
 			}
+
 			starknetRelayers[relayId] = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chain), chain)
 		}
 	}

@@ -29,7 +29,6 @@ func solanaStartNewApplication(t *testing.T, cfgs ...*solana.SolanaConfig) *clte
 	})
 }
 
-// TODO fix https://smartcontract-it.atlassian.net/browse/BCF-2114
 func TestShell_IndexSolanaNodes(t *testing.T) {
 	t.Parallel()
 
@@ -45,6 +44,7 @@ func TestShell_IndexSolanaNodes(t *testing.T) {
 	chain := solana.SolanaConfig{
 		ChainID: &id,
 		Nodes:   solana.SolanaNodes{&node1, &node2},
+		Enabled: ptr(true),
 	}
 	app := solanaStartNewApplication(t, &chain)
 	client, r := app.NewShellAndRenderer()

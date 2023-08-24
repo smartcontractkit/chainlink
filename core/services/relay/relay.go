@@ -206,7 +206,9 @@ func (r *relayerAdapter) NodeStatuses(ctx context.Context, offset, limit int, ch
 	if len(nodes) < offset {
 		return []types.NodeStatus{}, 0, fmt.Errorf("out of range")
 	}
-	if len(nodes) < limit {
+	if limit <= 0 {
+		limit = len(nodes)
+	} else if len(nodes) < limit {
 		limit = len(nodes)
 	}
 	return nodes[offset:limit], 0, nil
@@ -216,5 +218,9 @@ func (r *relayerAdapter) SendTx(ctx context.Context, chainID, from, to string, a
 	if chainID != r.ext.ID() {
 		return fmt.Errorf("send tx unexpected chain id. got %s want %s", chainID, r.ext.ID())
 	}
-	return r.ext.SendTx(ctx, from, to, amount, balanceCheck)
+	return r.ext.Transact(ctx, from, to, amount, balanceCheck)
+}
+
+func (r *relayerAdapter) ID() string {
+	return "TODO"
 }

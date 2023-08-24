@@ -1,6 +1,8 @@
 package solana
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
@@ -44,6 +46,17 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *SolanaConfig) (solana.Chain, error) {
 		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
 	c, err := newChain(*cfg.ChainID, cfg, o.KeyStore, o.Configs, o.Logger)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
+func NewChain(cfg *SolanaConfig, opts ChainSetOpts) (solana.Chain, error) {
+	if !cfg.IsEnabled() {
+		return nil, fmt.Errorf("cannot create new chain with ID %s: %w", *cfg.ChainID, chains.ErrChainDisabled)
+	}
+	c, err := newChain(*cfg.ChainID, cfg, opts.KeyStore, opts.Configs, opts.Logger)
 	if err != nil {
 		return nil, err
 	}

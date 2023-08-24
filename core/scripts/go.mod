@@ -297,9 +297,9 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.12 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 // indirect
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230824124058-9b063c470048 // indirect
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230824145305-c6541b2b0070 // indirect
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230824125819-215fd09979a2 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230802143301-165000751a85 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230824141217-c3b72b2683b9 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230802150127-d2c95679d61a // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230823081604-f2a0e6b108bb // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230823081604-f2a0e6b108bb // indirect

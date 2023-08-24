@@ -88,6 +88,9 @@ func (s *testChainService) Ready() error {
 func (s *testChainService) HealthReport() map[string]error {
 	return map[string]error{}
 }
+
+// Implement updated [loop.Relay] interface funcs in preparation for BCF-2441
+// TODO update this comment after BCF-2441 is done
 func (c *testChainService) GetChainStatus(ctx context.Context) (s types.ChainStatus, err error) {
 	return
 }
@@ -95,6 +98,6 @@ func (c *testChainService) ListNodeStatuses(ctx context.Context, page_size int32
 	return
 }
 
-func (s *testChainService) SendTx(ctx context.Context, from string, to string, amount *big.Int, balanceCheck bool) error {
+func (s *testChainService) Transact(ctx context.Context, from string, to string, amount *big.Int, balanceCheck bool) error {
 	return nil
 }

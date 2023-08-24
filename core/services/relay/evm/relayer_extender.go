@@ -47,6 +47,11 @@ type EVMChainRelayerExtender interface {
 	relay.RelayerExt
 	Chain() evmchain.Chain
 	Default() bool
+	// compatibility remove after BCF-2441
+	ChainStatus(ctx context.Context, id string) (relaytypes.ChainStatus, error)
+	ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error)
+	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, count int, err error)
+	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
 type EVMChainRelayerExtenderSlicer interface {
@@ -120,7 +125,7 @@ func (s *ChainRelayerExt) GetChainStatus(ctx context.Context) (relaytypes.ChainS
 }
 
 func (s *ChainRelayerExt) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error) {
-	return s.ListNodeStatuses(ctx, page_size, page_token)
+	return s.chain.ListNodeStatuses(ctx, page_size, page_token)
 }
 
 func (s *ChainRelayerExt) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {

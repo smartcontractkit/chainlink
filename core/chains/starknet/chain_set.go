@@ -1,6 +1,8 @@
 package starknet
 
 import (
+	"fmt"
+
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
@@ -56,9 +58,9 @@ func (o *ChainSetOpts) NewTOMLChain(cfg *StarknetConfig) (starkchain.Chain, erro
 	return c, nil
 }
 
-func NewStarknetChain(cfg *StarknetConfig, opts ChainSetOpts) (starkchain.Chain, error) {
+func NewChain(cfg *StarknetConfig, opts ChainSetOpts) (starkchain.Chain, error) {
 	if !cfg.IsEnabled() {
-		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
+		return nil, fmt.Errorf("cannot create new chain with ID %s: %w", *cfg.ChainID, chains.ErrChainDisabled)
 	}
 	c, err := newChain(*cfg.ChainID, cfg, opts.KeyStore, opts.Configs, opts.Logger)
 	if err != nil {

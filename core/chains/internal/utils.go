@@ -10,6 +10,10 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
+// PageToken is simple internal representation for coordination requests and responses in a paginated API
+// It is inspired by the Google API Design patterns
+// https://cloud.google.com/apis/design/design_patterns#list_pagination
+// https://google.aip.dev/158
 type PageToken struct {
 	Page int
 	Size int
@@ -18,26 +22,32 @@ type PageToken struct {
 var (
 	ErrInvalidToken = errors.New("invalid page token")
 	ErrOutOfRange   = errors.New("out of range")
+	defaultSize     = 100
 )
 
+// Encode the token in base64 for transmission for the wire
 func (pr *PageToken) Encode() string {
-	// TODO something more sophisicated
+	if pr.Size == 0 {
+		pr.Size = defaultSize
+	}
+	// this is a simple minded implementation and may benefit from something fancier
+	// note that this is a valid url.Query string, which we leverage in decoding
 	s := fmt.Sprintf("page=%d&size=%d", pr.Page, pr.Size)
 	return base64.RawStdEncoding.EncodeToString([]byte(s))
 }
 
-// enc is base64 encoded token string
-func NewPageToken(enc string) (*PageToken, error) {
+// b64enc must be the base64 encoded token string, corresponding to [PageToken.Encode()]
+func NewPageToken(b64enc string) (*PageToken, error) {
 	// empty is valid
-	if enc == "" {
-		return &PageToken{}, nil
+	if b64enc == "" {
+		return &PageToken{Page: 0, Size: defaultSize}, nil
 	}
 
-	b, err := base64.RawStdEncoding.DecodeString(enc)
+	b, err := base64.RawStdEncoding.DecodeString(b64enc)
 	if err != nil {
 		return nil, err
 	}
-	// todo regex check
+	// here too, this is simple minded and could be fancier
 
 	vals, err := url.ParseQuery(string(b))
 	if err != nil {
@@ -48,11 +58,11 @@ func NewPageToken(enc string) (*PageToken, error) {
 	}
 	page, err := strconv.Atoi(vals.Get("page"))
 	if err != nil {
-		return nil, fmt.Errorf("%w: bad page", &ErrInvalidToken)
+		return nil, fmt.Errorf("%w: bad page", ErrInvalidToken)
 	}
 	size, err := strconv.Atoi(vals.Get("size"))
 	if err != nil {
-		return nil, fmt.Errorf("%w: bad size", &ErrInvalidToken)
+		return nil, fmt.Errorf("%w: bad size", ErrInvalidToken)
 	}
 	return &PageToken{
 		Page: page,
@@ -60,27 +70,40 @@ func NewPageToken(enc string) (*PageToken, error) {
 	}, err
 }
 
-func ValidatePageToken(token string) (page int, err error) {
+func ValidatePageToken(page_size int, token string) (page int, err error) {
 
-	return -1, fmt.Errorf("validate page token unimplemented")
+	if token == "" {
+		return 0, nil
+	}
+	t, err := NewPageToken(token)
+	if err != nil {
+		return -1, err
+	}
+	return t.Page, nil
 }
 
 // if start is out of range, must return ErrOutOfRange
 type ListNodeStatusFn = func(start, end int) (stats []types.NodeStatus, total int, err error)
 
 func ListNodeStatuses(page_size int, page_token string, listFn ListNodeStatusFn) (stats []types.NodeStatus, next_page_token string, err error) {
-	page, err := ValidatePageToken(page_token)
-	if err != nil {
-		return nil, "", err
+	if page_size == 0 {
+		page_size = defaultSize
 	}
-	start, end := page*page_size, (page+1)*page_size
+	t := &PageToken{Page: 0, Size: page_size}
+	if page_token == "" {
+		t, err = NewPageToken(page_token)
+		if err != nil {
+			return nil, "", err
+		}
+	}
+	start, end := t.Page*t.Size, (t.Page+1)*t.Size
 	stats, total, err := listFn(start, end)
 	if err != nil {
 		return stats, "", err
 	}
 	if total > end {
-		t := &PageToken{Page: page + 1, Size: page_size}
-		next_page_token = t.Encode()
+		next_token := &PageToken{Page: t.Page + 1, Size: t.Size}
+		next_page_token = next_token.Encode()
 	}
 	return stats, next_page_token, nil
 }

@@ -56,21 +56,26 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, keystore 
 	d := toml.NewDecoder(strings.NewReader(config))
 	d.DisallowUnknownFields()
 	var cfg struct {
-		Solana solana.SolanaConfigs
+		Solana solana.SolanaConfig
 	}
+
 	if err := d.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to decode config toml: %w", err)
 	}
 
-	chainSet, err := solana.NewChainSet(solana.ChainSetOpts{
+	// TODO clean this up when the internal details of Solana Chain construction
+	// doesn't need `Configs`
+	cfgAdapter := solana.SolanaConfigs{&cfg.Solana}
+	opts := solana.ChainSetOpts{
 		Logger:   c.Logger,
 		KeyStore: keystore,
-		Configs:  solana.NewConfigs(cfg.Solana),
-	}, cfg.Solana)
+		Configs:  solana.NewConfigs(cfgAdapter),
+	}
+	chain, err := solana.NewChain(&cfg.Solana, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain: %w", err)
 	}
-	ra := relay.NewRelayerAdapter(pkgsol.NewRelayer(c.Logger, chainSet), chainSet)
+	ra := relay.NewRelayerAdapter(pkgsol.NewRelayer(c.Logger, chain), chain)
 
 	c.SubService(ra)
 

@@ -43,6 +43,7 @@ func TestShell_IndexStarkNetNodes(t *testing.T) {
 	chain := starknet.StarknetConfig{
 		ChainID: &id,
 		Nodes:   starknet.StarknetNodes{&node1, &node2},
+		Enabled: ptr(true),
 	}
 	app := starknetStartNewApplication(t, &chain)
 	client, r := app.NewShellAndRenderer()
