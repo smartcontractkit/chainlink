@@ -22,7 +22,7 @@ import (
 type Observation struct {
 	BenchmarkPrice mercury.ObsResult[*big.Int]
 
-	MaxFinalizedTimestamp mercury.ObsResult[uint32]
+	MaxFinalizedTimestamp mercury.ObsResult[int64]
 
 	LinkPrice   mercury.ObsResult[*big.Int]
 	NativePrice mercury.ObsResult[*big.Int]
@@ -202,7 +202,7 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 	return proto.Marshal(&p)
 }
 
-func parseAttributedObservation(ao ocrtypes.AttributedObservation) (ParsedAttributedObservation, error) {
+func parseAttributedObservation(ao ocrtypes.AttributedObservation) (PAO, error) {
 	var pao parsedAttributedObservation
 	var obs MercuryObservationProto
 	if err := proto.Unmarshal(ao.Observation, &obs); err != nil {
@@ -246,8 +246,8 @@ func parseAttributedObservation(ao ocrtypes.AttributedObservation) (ParsedAttrib
 	return pao, nil
 }
 
-func parseAttributedObservations(lggr logger.Logger, aos []ocrtypes.AttributedObservation) []ParsedAttributedObservation {
-	paos := make([]ParsedAttributedObservation, 0, len(aos))
+func parseAttributedObservations(lggr logger.Logger, aos []ocrtypes.AttributedObservation) []PAO {
+	paos := make([]PAO, 0, len(aos))
 	for i, ao := range aos {
 		pao, err := parseAttributedObservation(ao)
 		if err != nil {
@@ -266,46 +266,32 @@ func parseAttributedObservations(lggr logger.Logger, aos []ocrtypes.AttributedOb
 func (rp *reportingPlugin) Report(repts ocrtypes.ReportTimestamp, previousReport ocrtypes.Report, aos []ocrtypes.AttributedObservation) (shouldReport bool, report ocrtypes.Report, err error) {
 	paos := parseAttributedObservations(rp.logger, aos)
 
+	if len(paos) == 0 {
+		return false, nil, errors.New("got zero valid attributed observations")
+	}
+
 	// By assumption, we have at most f malicious oracles, so there should be at least f+1 valid paos
 	if !(rp.f+1 <= len(paos)) {
 		return false, nil, pkgerrors.Errorf("only received %v valid attributed observations, but need at least f+1 (%v)", len(paos), rp.f+1)
 	}
 
-	observationTimestamp := mercury.GetConsensusTimestamp(Convert(paos))
-
-	var validFromTimestamp uint32
-	if previousReport != nil {
-		validFromTimestamp, err = rp.reportCodec.ObservationTimestampFromReport(previousReport)
-		if err != nil {
-			return false, nil, err
-		}
-	} else {
-		validFromTimestamp, err = mercury.GetConsensusMaxFinalizedTimestamp(Convert(paos), rp.f)
-		if err != nil {
-			return false, nil, err
-		}
-
-		// no previous observation timestamp available, e.g. in case of new feed
-		if validFromTimestamp == 0 {
-			validFromTimestamp = observationTimestamp
-		}
-	}
-
-	should, err := rp.shouldReport(paos, observationTimestamp, validFromTimestamp)
-	if err != nil || !should {
-		rp.logger.Debugw("shouldReport: no", "err", err)
+	rf, err := rp.buildReportFields(previousReport, paos)
+	if err != nil {
+		rp.logger.Debugw("failed to build report fields", "paos", paos, "f", rp.f, "reportFields", rf, "repts", repts)
 		return false, nil, err
 	}
 
+	if err = rp.validateReport(rf); err != nil {
+		rp.logger.Debugw("shouldReport: no (validation error)", "err", err, "timestamp", repts)
+		return false, nil, err
+	}
 	rp.logger.Debugw("shouldReport: yes",
 		"timestamp", repts,
 	)
 
-	expiresAt := observationTimestamp + rp.offchainConfig.ExpirationWindow
-
-	report, err = rp.reportCodec.BuildReport(paos, rp.f, validFromTimestamp, expiresAt)
+	report, err = rp.reportCodec.BuildReport(rf)
 	if err != nil {
-		rp.logger.Debugw("failed to BuildReport", "paos", paos, "f", rp.f, "validFromTimestamp", validFromTimestamp, "repts", repts)
+		rp.logger.Debugw("failed to BuildReport", "paos", paos, "f", rp.f, "reportFields", rf, "repts", repts)
 		return false, nil, err
 	}
 
@@ -318,29 +304,56 @@ func (rp *reportingPlugin) Report(repts ocrtypes.ReportTimestamp, previousReport
 	return true, report, nil
 }
 
-func (rp *reportingPlugin) shouldReport(paos []ParsedAttributedObservation, observationTimestamp uint32, validFromTimestamp uint32) (bool, error) {
-	if err := errors.Join(
-		rp.checkBenchmarkPrice(paos),
-		rp.checkValidFromTimestamp(observationTimestamp, validFromTimestamp),
-		rp.checkExpiresAt(observationTimestamp, rp.offchainConfig.ExpirationWindow),
-	); err != nil {
-		return false, err
+func (rp *reportingPlugin) buildReportFields(previousReport ocrtypes.Report, paos []PAO) (rf ReportFields, merr error) {
+	mPaos := convert(paos)
+	rf.Timestamp = mercury.GetConsensusTimestamp(mPaos)
+
+	var err error
+	if previousReport != nil {
+		rf.ValidFromTimestamp, err = rp.reportCodec.ObservationTimestampFromReport(previousReport)
+		merr = errors.Join(merr, err)
+	} else {
+		var maxFinalizedTimestamp int64
+		maxFinalizedTimestamp, err = mercury.GetConsensusMaxFinalizedTimestamp(convertMaxFinalizedTimestamp(paos), rp.f)
+		if err != nil {
+			merr = errors.Join(merr, err)
+		} else if maxFinalizedTimestamp < 0 {
+			// no previous observation timestamp available, e.g. in case of new
+			// feed; use current timestamp as start of range
+			rf.ValidFromTimestamp = rf.Timestamp
+		} else if maxFinalizedTimestamp+1 > math.MaxUint32 {
+			merr = errors.Join(err, fmt.Errorf("maxFinalizedTimestamp is too large, got: %d", maxFinalizedTimestamp))
+		} else {
+			rf.ValidFromTimestamp = uint32(maxFinalizedTimestamp + 1)
+		}
 	}
 
-	return true, nil
+	rf.BenchmarkPrice, err = mercury.GetConsensusBenchmarkPrice(mPaos, rp.f)
+	merr = errors.Join(merr, pkgerrors.Wrap(err, "GetConsensusBenchmarkPrice failed"))
+
+	rf.LinkFee, err = mercury.GetConsensusLinkFee(convertLinkFee(paos), rp.f)
+	merr = errors.Join(merr, pkgerrors.Wrap(err, "GetConsensusLinkFee failed"))
+
+	rf.NativeFee, err = mercury.GetConsensusNativeFee(convertNativeFee(paos), rp.f)
+	merr = errors.Join(merr, pkgerrors.Wrap(err, "GetConsensusNativeFee failed"))
+
+	if int64(rf.Timestamp)+int64(rp.offchainConfig.ExpirationWindow) > math.MaxUint32 {
+		merr = errors.Join(merr, fmt.Errorf("timestamp %d + expiration window %d overflows uint32", rf.Timestamp, rp.offchainConfig.ExpirationWindow))
+	} else {
+		rf.ExpiresAt = rf.Timestamp + rp.offchainConfig.ExpirationWindow
+	}
+
+	return rf, merr
 }
 
-func (rp *reportingPlugin) checkBenchmarkPrice(paos []ParsedAttributedObservation) error {
-	mPaos := Convert(paos)
-	return mercury.ValidateBenchmarkPrice(mPaos, rp.f, rp.onchainConfig.Min, rp.onchainConfig.Max)
-}
-
-func (rp *reportingPlugin) checkValidFromTimestamp(observationTimestamp uint32, validFromTimestamp uint32) error {
-	return mercury.ValidateValidFromTimestamp(observationTimestamp, validFromTimestamp)
-}
-
-func (rp *reportingPlugin) checkExpiresAt(observationTimestamp uint32, expirationWindow uint32) error {
-	return mercury.ValidateExpiresAt(observationTimestamp, expirationWindow)
+func (rp *reportingPlugin) validateReport(rf ReportFields) error {
+	return errors.Join(
+		mercury.ValidateBetween("median benchmark price", rf.BenchmarkPrice, rp.onchainConfig.Min, rp.onchainConfig.Max),
+		mercury.ValidateFee("median link fee", rf.LinkFee),
+		mercury.ValidateFee("median native fee", rf.NativeFee),
+		mercury.ValidateValidFromTimestamp(rf.Timestamp, rf.ValidFromTimestamp),
+		mercury.ValidateExpiresAt(rf.Timestamp, rf.ExpiresAt),
+	)
 }
 
 func (rp *reportingPlugin) ShouldAcceptFinalizedReport(ctx context.Context, repts ocrtypes.ReportTimestamp, report ocrtypes.Report) (bool, error) {
@@ -378,4 +391,31 @@ func (rp *reportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, rep
 
 func (rp *reportingPlugin) Close() error {
 	return nil
+}
+
+// convert funcs are necessary because go is not smart enough to cast
+// []interface1 to []interface2 even if interface1 is a superset of interface2
+func convert(pao []PAO) (ret []mercury.PAO) {
+	for _, v := range pao {
+		ret = append(ret, v)
+	}
+	return ret
+}
+func convertMaxFinalizedTimestamp(pao []PAO) (ret []mercury.PAOMaxFinalizedTimestamp) {
+	for _, v := range pao {
+		ret = append(ret, v)
+	}
+	return ret
+}
+func convertLinkFee(pao []PAO) (ret []mercury.PAOLinkFee) {
+	for _, v := range pao {
+		ret = append(ret, v)
+	}
+	return ret
+}
+func convertNativeFee(pao []PAO) (ret []mercury.PAONativeFee) {
+	for _, v := range pao {
+		ret = append(ret, v)
+	}
+	return ret
 }

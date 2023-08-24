@@ -9,7 +9,7 @@ message MercuryObservationProto {
     bytes benchmarkPrice = 2;
     bool pricesValid = 3;
 
-    uint32 maxFinalizedTimestamp = 4;
+    int64 maxFinalizedTimestamp = 4;
     bool maxFinalizedTimestampValid = 5;
 
     bytes linkFee = 6;

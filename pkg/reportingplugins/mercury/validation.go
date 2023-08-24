@@ -1,7 +1,7 @@
 package mercury
 
 import (
-	"math"
+	"fmt"
 	"math/big"
 
 	pkgerrors "github.com/pkg/errors"
@@ -10,43 +10,13 @@ import (
 // NOTE: hardcoded for now, this may need to change if we support block range on chains other than eth
 const EvmHashLen = 32
 
-// ValidateBenchmarkPrice checks that value is between min and max
-func ValidateBenchmarkPrice(paos []ParsedAttributedObservation, f int, min, max *big.Int) error {
-	answer, err := GetConsensusBenchmarkPrice(paos, f)
-	if err != nil {
-		return err
+// ValidateBetween checks that value is between min and max
+func ValidateBetween(name string, answer *big.Int, min, max *big.Int) error {
+	if answer == nil {
+		return fmt.Errorf("%s: got nil value", name)
 	}
-
 	if !(min.Cmp(answer) <= 0 && answer.Cmp(max) <= 0) {
-		return pkgerrors.Errorf("median benchmark price %s is outside of allowable range (Min: %s, Max: %s)", answer, min, max)
-	}
-
-	return nil
-}
-
-// ValidateBid checks that value is between min and max
-func ValidateBid(paos []ParsedAttributedObservation, f int, min, max *big.Int) error {
-	answer, err := GetConsensusBid(paos, f)
-	if err != nil {
-		return err
-	}
-
-	if !(min.Cmp(answer) <= 0 && answer.Cmp(max) <= 0) {
-		return pkgerrors.Errorf("median bid price %s is outside of allowable range (Min: %s, Max: %s)", answer, min, max)
-	}
-
-	return nil
-}
-
-// ValidateAsk checks that value is between min and max
-func ValidateAsk(paos []ParsedAttributedObservation, f int, min, max *big.Int) error {
-	answer, err := GetConsensusAsk(paos, f)
-	if err != nil {
-		return err
-	}
-
-	if !(min.Cmp(answer) <= 0 && answer.Cmp(max) <= 0) {
-		return pkgerrors.Errorf("median ask price %s is outside of allowable range (Min: %s, Max: %s)", answer, min, max)
+		return pkgerrors.Errorf("%s (Value: %s) is outside of allowable range (Min: %s, Max: %s)", name, answer, min, max)
 	}
 
 	return nil
@@ -54,16 +24,20 @@ func ValidateAsk(paos []ParsedAttributedObservation, f int, min, max *big.Int) e
 
 func ValidateValidFromTimestamp(observationTimestamp uint32, validFromTimestamp uint32) error {
 	if observationTimestamp < validFromTimestamp {
-		return pkgerrors.Errorf("observationTimestamp (%d) must be >= validFromTimestamp (%d)", observationTimestamp, validFromTimestamp)
+		return pkgerrors.Errorf("observationTimestamp (Value: %d) must be >= validFromTimestamp (Value: %d)", observationTimestamp, validFromTimestamp)
 	}
 
 	return nil
 }
 
-func ValidateExpiresAt(observationTimestamp uint32, expirationWindow uint32) error {
-	if int64(observationTimestamp)+int64(expirationWindow) > math.MaxUint32 {
-		return pkgerrors.Errorf("timestamp %d + expiration window %d overflows uint32", observationTimestamp, expirationWindow)
+func ValidateExpiresAt(observationTimestamp uint32, expiresAt uint32) error {
+	if observationTimestamp > expiresAt {
+		return pkgerrors.Errorf("expiresAt (Value: %d) must be ahead of observation timestamp (Value: %d)", expiresAt, observationTimestamp)
 	}
 
 	return nil
+}
+
+func ValidateFee(name string, answer *big.Int) error {
+	return ValidateBetween(name, answer, big.NewInt(0), MaxInt192)
 }

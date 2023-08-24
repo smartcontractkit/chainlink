@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 )
 
-var _ ParsedAttributedObservation = parsedAttributedObservation{}
+var _ PAO = parsedAttributedObservation{}
 
 type parsedAttributedObservation struct {
 	Timestamp uint32
@@ -34,7 +34,7 @@ type parsedAttributedObservation struct {
 
 func NewParsedAttributedObservation(ts uint32, observer commontypes.OracleID, bp *big.Int, bid *big.Int, ask *big.Int, pricesValid bool,
 	currentBlockNum int64, currentBlockHash []byte, currentBlockTimestamp uint64, currentBlockValid bool,
-	maxFinalizedBlockNumber int64, maxFinalizedBlockNumberValid bool) ParsedAttributedObservation {
+	maxFinalizedBlockNumber int64, maxFinalizedBlockNumberValid bool) PAO {
 	return parsedAttributedObservation{
 		Timestamp: ts,
 		Observer:  observer,

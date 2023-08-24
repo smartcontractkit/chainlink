@@ -221,7 +221,7 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 	return proto.Marshal(&p)
 }
 
-func parseAttributedObservation(ao ocrtypes.AttributedObservation) (ParsedAttributedObservation, error) {
+func parseAttributedObservation(ao ocrtypes.AttributedObservation) (PAO, error) {
 	var pao parsedAttributedObservation
 	var obs MercuryObservationProto
 	if err := proto.Unmarshal(ao.Observation, &obs); err != nil {
@@ -269,8 +269,8 @@ func parseAttributedObservation(ao ocrtypes.AttributedObservation) (ParsedAttrib
 	return pao, nil
 }
 
-func parseAttributedObservations(lggr logger.Logger, aos []ocrtypes.AttributedObservation) []ParsedAttributedObservation {
-	paos := make([]ParsedAttributedObservation, 0, len(aos))
+func parseAttributedObservations(lggr logger.Logger, aos []ocrtypes.AttributedObservation) []PAO {
+	paos := make([]PAO, 0, len(aos))
 	for i, ao := range aos {
 		pao, err := parseAttributedObservation(ao)
 		if err != nil {
@@ -289,37 +289,32 @@ func parseAttributedObservations(lggr logger.Logger, aos []ocrtypes.AttributedOb
 func (rp *reportingPlugin) Report(repts types.ReportTimestamp, previousReport types.Report, aos []types.AttributedObservation) (shouldReport bool, report types.Report, err error) {
 	paos := parseAttributedObservations(rp.logger, aos)
 
+	if len(paos) == 0 {
+		return false, nil, errors.New("got zero valid attributed observations")
+	}
+
 	// By assumption, we have at most f malicious oracles, so there should be at least f+1 valid paos
 	if !(rp.f+1 <= len(paos)) {
 		return false, nil, pkgerrors.Errorf("only received %v valid attributed observations, but need at least f+1 (%v)", len(paos), rp.f+1)
 	}
 
-	var validFromBlockNum int64
-	if previousReport != nil {
-		var currentBlockNum int64
-		currentBlockNum, err = rp.reportCodec.CurrentBlockNumFromReport(previousReport)
-		if err != nil {
-			return false, nil, err
-		}
-		validFromBlockNum = currentBlockNum + 1
-	} else {
-		var maxFinalizedBlockNumber int64
-		maxFinalizedBlockNumber, err = GetConsensusMaxFinalizedBlockNum(paos, rp.f)
-		if err != nil {
-			return false, nil, err
-		}
-		validFromBlockNum = maxFinalizedBlockNumber + 1
-	}
-	should, err := rp.shouldReport(validFromBlockNum, repts, paos)
+	rf, err := rp.buildReportFields(previousReport, paos)
 	if err != nil {
+		rp.logger.Debugw("failed to build report fields", "paos", paos, "f", rp.f, "reportFields", rf, "repts", repts)
 		return false, nil, err
 	}
-	if !should {
-		return false, nil, nil
+
+	if err = rp.validateReport(rf); err != nil {
+		rp.logger.Debugw("shouldReport: no (validation error)", "err", err, "timestamp", repts)
+		return false, nil, err
 	}
-	report, err = rp.reportCodec.BuildReport(paos, rp.f, validFromBlockNum)
+	rp.logger.Debugw("shouldReport: yes",
+		"timestamp", repts,
+	)
+
+	report, err = rp.reportCodec.BuildReport(rf)
 	if err != nil {
-		rp.logger.Debugw("failed to BuildReport", "paos", paos, "f", rp.f, "validFromBlockNum", validFromBlockNum, "repts", repts)
+		rp.logger.Debugw("failed to BuildReport", "paos", paos, "f", rp.f, "reportFields", rf, "repts", repts)
 		return false, nil, err
 	}
 	if !(len(report) <= rp.maxReportLength) {
@@ -331,44 +326,51 @@ func (rp *reportingPlugin) Report(repts types.ReportTimestamp, previousReport ty
 	return true, report, nil
 }
 
-func (rp *reportingPlugin) shouldReport(validFromBlockNum int64, repts types.ReportTimestamp, paos []ParsedAttributedObservation) (bool, error) {
-	if !(rp.f+1 <= len(paos)) {
-		return false, pkgerrors.Errorf("only received %v valid attributed observations, but need at least f+1 (%v)", len(paos), rp.f+1)
+func (rp *reportingPlugin) buildReportFields(previousReport types.Report, paos []PAO) (rf ReportFields, merr error) {
+	var err error
+	if previousReport != nil {
+		rf.CurrentBlockNum, err = rp.reportCodec.CurrentBlockNumFromReport(previousReport)
+		if err != nil {
+			merr = errors.Join(merr, err)
+		} else {
+			rf.ValidFromBlockNum = rf.CurrentBlockNum + 1
+		}
+	} else {
+		var maxFinalizedBlockNumber int64
+		maxFinalizedBlockNumber, err = GetConsensusMaxFinalizedBlockNum(paos, rp.f)
+		if err != nil {
+			merr = errors.Join(merr, err)
+		} else {
+			rf.ValidFromBlockNum = maxFinalizedBlockNumber + 1
+		}
 	}
 
-	if err := errors.Join(
-		rp.checkBenchmarkPrice(paos),
-		rp.checkBid(paos),
-		rp.checkAsk(paos),
-		rp.checkCurrentBlock(paos, validFromBlockNum),
-	); err != nil {
-		rp.logger.Debugw("shouldReport: no", "err", err)
-		return false, nil
-	}
+	mPaos := convert(paos)
 
-	rp.logger.Debugw("shouldReport: yes",
-		"timestamp", repts,
+	rf.Timestamp = mercury.GetConsensusTimestamp(mPaos)
+
+	rf.BenchmarkPrice, err = mercury.GetConsensusBenchmarkPrice(mPaos, rp.f)
+	merr = errors.Join(merr, pkgerrors.Wrap(err, "GetConsensusBenchmarkPrice failed"))
+
+	rf.Bid, err = mercury.GetConsensusBid(convertBid(paos), rp.f)
+	merr = errors.Join(merr, pkgerrors.Wrap(err, "GetConsensusBid failed"))
+
+	rf.Ask, err = mercury.GetConsensusAsk(convertAsk(paos), rp.f)
+	merr = errors.Join(merr, pkgerrors.Wrap(err, "GetConsensusAsk failed"))
+
+	rf.CurrentBlockHash, rf.CurrentBlockNum, rf.CurrentBlockTimestamp, err = GetConsensusCurrentBlock(paos, rp.f)
+	merr = errors.Join(merr, pkgerrors.Wrap(err, "GetConsensusCurrentBlock failed"))
+
+	return rf, merr
+}
+
+func (rp *reportingPlugin) validateReport(rf ReportFields) error {
+	return errors.Join(
+		mercury.ValidateBetween("median benchmark price", rf.BenchmarkPrice, rp.onchainConfig.Min, rp.onchainConfig.Max),
+		mercury.ValidateBetween("median bid", rf.Bid, rp.onchainConfig.Min, rp.onchainConfig.Max),
+		mercury.ValidateBetween("median ask", rf.Ask, rp.onchainConfig.Min, rp.onchainConfig.Max),
+		ValidateCurrentBlock(rf),
 	)
-	return true, nil
-}
-
-func (rp *reportingPlugin) checkBenchmarkPrice(paos []ParsedAttributedObservation) error {
-	mPaos := Convert(paos)
-	return mercury.ValidateBenchmarkPrice(mPaos, rp.f, rp.onchainConfig.Min, rp.onchainConfig.Max)
-}
-
-func (rp *reportingPlugin) checkBid(paos []ParsedAttributedObservation) error {
-	mPaos := Convert(paos)
-	return mercury.ValidateBid(mPaos, rp.f, rp.onchainConfig.Min, rp.onchainConfig.Max)
-}
-
-func (rp *reportingPlugin) checkAsk(paos []ParsedAttributedObservation) error {
-	mPaos := Convert(paos)
-	return mercury.ValidateAsk(mPaos, rp.f, rp.onchainConfig.Min, rp.onchainConfig.Max)
-}
-
-func (rp *reportingPlugin) checkCurrentBlock(paos []ParsedAttributedObservation, validFromBlockNum int64) error {
-	return ValidateCurrentBlock(paos, rp.f, validFromBlockNum)
 }
 
 func (rp *reportingPlugin) ShouldAcceptFinalizedReport(ctx context.Context, repts types.ReportTimestamp, report types.Report) (bool, error) {
@@ -406,4 +408,25 @@ func (rp *reportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, rep
 
 func (rp *reportingPlugin) Close() error {
 	return nil
+}
+
+// convert funcs are necessary because go is not smart enough to cast
+// []interface1 to []interface2 even if interface1 is a superset of interface2
+func convert(pao []PAO) (ret []mercury.PAO) {
+	for _, v := range pao {
+		ret = append(ret, v)
+	}
+	return ret
+}
+func convertBid(pao []PAO) (ret []mercury.PAOBid) {
+	for _, v := range pao {
+		ret = append(ret, v)
+	}
+	return ret
+}
+func convertAsk(pao []PAO) (ret []mercury.PAOAsk) {
+	for _, v := range pao {
+		ret = append(ret, v)
+	}
+	return ret
 }

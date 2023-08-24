@@ -1,27 +1,34 @@
 package mercury_v1
 
 import (
+	"math/big"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 )
 
-type ParsedAttributedObservation interface {
-	mercury.ParsedAttributedObservation
+type PAO interface {
+	mercury.PAO
 
+	GetBid() (*big.Int, bool)
+	GetAsk() (*big.Int, bool)
 	GetCurrentBlockNum() (int64, bool)
 	GetCurrentBlockHash() ([]byte, bool)
 	GetCurrentBlockTimestamp() (uint64, bool)
 	GetMaxFinalizedBlockNumber() (int64, bool)
 }
 
-func Convert(pao []ParsedAttributedObservation) []mercury.ParsedAttributedObservation {
-	var ret []mercury.ParsedAttributedObservation
-	for _, v := range pao {
-		ret = append(ret, v)
-	}
-	return ret
+type ReportFields struct {
+	Timestamp             uint32
+	BenchmarkPrice        *big.Int
+	Bid                   *big.Int
+	Ask                   *big.Int
+	CurrentBlockNum       int64
+	CurrentBlockHash      []byte
+	ValidFromBlockNum     int64
+	CurrentBlockTimestamp uint64
 }
 
 // ReportCodec All functions on ReportCodec should be pure and thread-safe.
@@ -31,7 +38,7 @@ type ReportCodec interface {
 	// ParsedAttributedObservation per observer, and that all observers are
 	// valid. However, observation values, timestamps, etc... should all be
 	// treated as untrusted.
-	BuildReport(paos []ParsedAttributedObservation, f int, validFromBlockNum int64) (ocrtypes.Report, error)
+	BuildReport(fields ReportFields) (ocrtypes.Report, error)
 
 	// MaxReportLength Returns the maximum length of a report based on n, the number of oracles.
 	// The output of BuildReport must respect this maximum length.

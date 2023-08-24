@@ -3,8 +3,6 @@ package mercury_v1
 import (
 	"fmt"
 	"sort"
-
-	"github.com/pkg/errors"
 )
 
 type block struct {
@@ -28,33 +26,39 @@ func (b1 block) less(b2 block) bool {
 
 // GetConsensusCurrentBlock gets the most common (mode) block hash/number/timestamps.
 // In the event of a tie, use the lowest numerical value
-func GetConsensusCurrentBlock(paos []ParsedAttributedObservation, f int) (hash []byte, num int64, ts uint64, err error) {
-	var validPaos []ParsedAttributedObservation
-	for _, pao := range paos {
-		_, valid := pao.GetCurrentBlockHash()
-		if valid {
-			validPaos = append(validPaos, pao)
-		}
-	}
-	if len(validPaos) < f+1 {
-		return nil, 0, 0, fmt.Errorf("fewer than f+1 observations have a valid current block (got: %d/%d)", len(validPaos), len(paos))
-	}
-
+func GetConsensusCurrentBlock(paos []PAO, f int) (hash []byte, num int64, ts uint64, err error) {
 	m := map[block]int{}
 	maxCnt := 0
-	for _, pao := range validPaos {
-		blockHash, _ := pao.GetCurrentBlockHash()
-		blockNum, _ := pao.GetCurrentBlockNum()
-		blockTs, _ := pao.GetCurrentBlockTimestamp()
-		b := block{string(blockHash), blockNum, blockTs}
-		m[b]++
-		if cnt := m[b]; cnt > maxCnt {
-			maxCnt = cnt
+	var validObsCnt int
+	for _, pao := range paos {
+		blockHash, valid := pao.GetCurrentBlockHash()
+		if !valid {
+			continue
 		}
+		blockNum, valid := pao.GetCurrentBlockNum()
+		if !valid {
+			continue
+		}
+		blockTs, valid := pao.GetCurrentBlockTimestamp()
+		if !valid {
+			continue
+		}
+		if valid {
+			validObsCnt++
+			b := block{string(blockHash), blockNum, blockTs}
+			m[b]++
+			if cnt := m[b]; cnt > maxCnt {
+				maxCnt = cnt
+			}
+		}
+	}
+
+	if validObsCnt < f+1 {
+		return nil, 0, 0, fmt.Errorf("fewer than f+1 observations have a valid current block (got: %d/%d, f=%d)", validObsCnt, len(paos), f)
 	}
 
 	if maxCnt < f+1 {
-		return nil, 0, 0, errors.New("no unique block with at least f+1 votes")
+		return nil, 0, 0, fmt.Errorf("no unique valid block observation with at least f+1 votes (got %d/%d, f=%d)", maxCnt, len(paos), f)
 	}
 
 	var blocks []block
@@ -73,8 +77,8 @@ func GetConsensusCurrentBlock(paos []ParsedAttributedObservation, f int) (hash [
 // GetConsensusMaxFinalizedBlockNum gets the most common (mode)
 // ConsensusMaxFinalizedBlockNum In the event of a tie, the lower number is
 // chosen
-func GetConsensusMaxFinalizedBlockNum(paos []ParsedAttributedObservation, f int) (int64, error) {
-	var validPaos []ParsedAttributedObservation
+func GetConsensusMaxFinalizedBlockNum(paos []PAO, f int) (int64, error) {
+	var validPaos []PAO
 	for _, pao := range paos {
 		_, valid := pao.GetMaxFinalizedBlockNumber()
 		if valid {
@@ -82,7 +86,7 @@ func GetConsensusMaxFinalizedBlockNum(paos []ParsedAttributedObservation, f int)
 		}
 	}
 	if len(validPaos) < f+1 {
-		return 0, fmt.Errorf("fewer than f+1 observations have a valid maxFinalizedBlockNumber (got: %d/%d)", len(validPaos), len(paos))
+		return 0, fmt.Errorf("fewer than f+1 observations have a valid maxFinalizedBlockNumber (got: %d/%d, f=%d)", len(validPaos), len(paos), f)
 	}
 	// pick the most common block number with at least f+1 votes
 	m := map[int64]int{}
@@ -103,7 +107,7 @@ func GetConsensusMaxFinalizedBlockNum(paos []ParsedAttributedObservation, f int)
 	}
 
 	if maxCnt < f+1 {
-		return 0, fmt.Errorf("no valid maxFinalizedBlockNumber with at least f+1 votes (got counts: %v)", m)
+		return 0, fmt.Errorf("no valid maxFinalizedBlockNumber with at least f+1 votes (got counts: %v, f=%d)", m, f)
 	}
 	// guaranteed to be at least one num after this
 

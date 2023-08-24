@@ -8,17 +8,11 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
-type ParsedAttributedObservation interface {
+type PAO interface {
+	// These fields are common to all observations
 	GetTimestamp() uint32
 	GetObserver() commontypes.OracleID
 	GetBenchmarkPrice() (*big.Int, bool)
-	GetBid() (*big.Int, bool)
-	GetAsk() (*big.Int, bool)
-
-	GetMaxFinalizedTimestamp() (uint32, bool)
-
-	GetLinkFee() (*big.Int, bool)
-	GetNativeFee() (*big.Int, bool)
 }
 
 type ObsResult[T any] struct {
@@ -35,7 +29,7 @@ type MercuryServerFetcher interface {
 	// FetchInitialMaxFinalizedBlockNumber should fetch the initial max finalized block number
 	FetchInitialMaxFinalizedBlockNumber(context.Context) (*int64, error)
 	LatestPrice(ctx context.Context, feedID [32]byte) (*big.Int, error)
-	LatestTimestamp(context.Context) (uint32, error)
+	LatestTimestamp(context.Context) (int64, error)
 }
 
 type Transmitter interface {

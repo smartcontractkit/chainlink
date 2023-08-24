@@ -6,6 +6,16 @@ import (
 	"github.com/smartcontractkit/libocr/bigbigendian"
 )
 
+var MaxInt192 *big.Int
+
+func init() {
+	one := big.NewInt(1)
+	// Compute the maximum value of int192
+	// 1<<192 - 1
+	MaxInt192 = new(big.Int).Lsh(one, 191)
+	MaxInt192.Sub(MaxInt192, one)
+}
+
 // Bounds on an int192
 const ByteWidthInt192 = 24
 

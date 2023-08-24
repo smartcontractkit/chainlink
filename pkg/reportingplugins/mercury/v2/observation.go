@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 )
 
-var _ ParsedAttributedObservation = parsedAttributedObservation{}
+var _ PAO = parsedAttributedObservation{}
 
 type parsedAttributedObservation struct {
 	Timestamp uint32
@@ -15,7 +15,7 @@ type parsedAttributedObservation struct {
 	BenchmarkPrice *big.Int
 	PricesValid    bool
 
-	MaxFinalizedTimestamp      uint32
+	MaxFinalizedTimestamp      int64
 	MaxFinalizedTimestampValid bool
 
 	LinkFee      *big.Int
@@ -26,8 +26,8 @@ type parsedAttributedObservation struct {
 }
 
 func NewParsedAttributedObservation(ts uint32, observer commontypes.OracleID,
-	bp *big.Int, pricesValid bool, mfts uint32,
-	mftsValid bool, linkFee *big.Int, linkFeeValid bool, nativeFee *big.Int, nativeFeeValid bool) ParsedAttributedObservation {
+	bp *big.Int, pricesValid bool, mfts int64,
+	mftsValid bool, linkFee *big.Int, linkFeeValid bool, nativeFee *big.Int, nativeFeeValid bool) PAO {
 	return parsedAttributedObservation{
 		Timestamp: ts,
 		Observer:  observer,
@@ -66,7 +66,7 @@ func (pao parsedAttributedObservation) GetAsk() (*big.Int, bool) {
 	panic("current observation doesn't contain the field")
 }
 
-func (pao parsedAttributedObservation) GetMaxFinalizedTimestamp() (uint32, bool) {
+func (pao parsedAttributedObservation) GetMaxFinalizedTimestamp() (int64, bool) {
 	return pao.MaxFinalizedTimestamp, pao.MaxFinalizedTimestampValid
 }
 

@@ -5,8 +5,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,8 +18,8 @@ func mustDecodeHex(s string) []byte {
 	return b
 }
 
-func NewValidParsedAttributedObservations() []ParsedAttributedObservation {
-	return []ParsedAttributedObservation{
+func NewValidParsedAttributedObservations() []PAO {
+	return []PAO{
 		parsedAttributedObservation{
 			Timestamp: 1676484822,
 			Observer:  commontypes.OracleID(1),
@@ -93,8 +91,8 @@ func NewValidParsedAttributedObservations() []ParsedAttributedObservation {
 	}
 }
 
-func NewInvalidParsedAttributedObservations() []ParsedAttributedObservation {
-	return []ParsedAttributedObservation{
+func NewInvalidParsedAttributedObservations() []PAO {
+	return []PAO{
 		parsedAttributedObservation{
 			Timestamp: 1676484822,
 			Observer:  commontypes.OracleID(1),
@@ -171,55 +169,6 @@ func Test_AggregateFunctions(t *testing.T) {
 	validPaos := NewValidParsedAttributedObservations()
 	invalidPaos := NewInvalidParsedAttributedObservations()
 
-	t.Run("GetConsensusTimestamp", func(t *testing.T) {
-		validMPaos := Convert(validPaos)
-		ts := mercury.GetConsensusTimestamp(validMPaos)
-
-		assert.Equal(t, 1676484828, int(ts))
-	})
-	t.Run("GetConsensusBenchmarkPrice", func(t *testing.T) {
-		t.Run("when prices valid, gets median price", func(t *testing.T) {
-			validMPaos := Convert(validPaos)
-			bp, err := mercury.GetConsensusBenchmarkPrice(validMPaos, f)
-			require.NoError(t, err)
-			assert.Equal(t, "346", bp.String())
-		})
-
-		t.Run("if more than f+1 are invalid, fails", func(t *testing.T) {
-			invalidMPaos := Convert(invalidPaos)
-			_, err := mercury.GetConsensusBenchmarkPrice(invalidMPaos, f)
-			assert.EqualError(t, err, "fewer than f+1 observations have a valid price (got: 0/4)")
-		})
-	})
-	t.Run("GetConsensusBid", func(t *testing.T) {
-		t.Run("when prices valid, gets median bid", func(t *testing.T) {
-			validMPaos := Convert(validPaos)
-			bid, err := mercury.GetConsensusBid(validMPaos, f)
-			require.NoError(t, err)
-			assert.Equal(t, "345", bid.String())
-		})
-
-		t.Run("if more than f+1 are invalid, fails", func(t *testing.T) {
-			invalidMPaos := Convert(invalidPaos)
-			_, err := mercury.GetConsensusBid(invalidMPaos, f)
-			assert.EqualError(t, err, "fewer than f+1 observations have a valid price (got: 0/4)")
-		})
-	})
-	t.Run("GetConsensusAsk", func(t *testing.T) {
-		t.Run("when prices valid, gets median bid", func(t *testing.T) {
-			valiMPaos := Convert(validPaos)
-			ask, err := mercury.GetConsensusAsk(valiMPaos, f)
-			require.NoError(t, err)
-			assert.Equal(t, "350", ask.String())
-		})
-
-		t.Run("if invalid, fails", func(t *testing.T) {
-			invalidMPaos := Convert(invalidPaos)
-			_, err := mercury.GetConsensusAsk(invalidMPaos, f)
-			assert.EqualError(t, err, "fewer than f+1 observations have a valid price (got: 0/4)")
-		})
-	})
-
 	t.Run("GetConsensusCurrentBlock", func(t *testing.T) {
 		t.Run("succeeds in the valid case", func(t *testing.T) {
 			hash, num, ts, err := GetConsensusCurrentBlock(validPaos, f)
@@ -232,14 +181,16 @@ func Test_AggregateFunctions(t *testing.T) {
 
 		t.Run("if invalid, fails", func(t *testing.T) {
 			_, _, _, err := GetConsensusCurrentBlock(invalidPaos, f)
-			assert.EqualError(t, err, "fewer than f+1 observations have a valid current block (got: 0/4)")
+			assert.EqualError(t, err, "fewer than f+1 observations have a valid current block (got: 0/4, f=1)")
 		})
 		t.Run("if there are not at least f+1 in consensus about hash", func(t *testing.T) {
-			_, _, _, err := GetConsensusCurrentBlock(validPaos, 3)
-			assert.EqualError(t, err, "no unique block with at least f+1 votes")
+			_, _, _, err := GetConsensusCurrentBlock(validPaos, 2)
+			assert.EqualError(t, err, "no unique valid block observation with at least f+1 votes (got 2/4, f=2)")
+			_, _, _, err = GetConsensusCurrentBlock(validPaos, 3)
+			assert.EqualError(t, err, "no unique valid block observation with at least f+1 votes (got 2/4, f=3)")
 		})
 		t.Run("if there are not at least f+1 in consensus about block number", func(t *testing.T) {
-			badPaos := []ParsedAttributedObservation{
+			badPaos := []PAO{
 				parsedAttributedObservation{
 					CurrentBlockNum:   100,
 					CurrentBlockValid: true,
@@ -258,10 +209,10 @@ func Test_AggregateFunctions(t *testing.T) {
 				},
 			}
 			_, _, _, err := GetConsensusCurrentBlock(badPaos, f)
-			assert.EqualError(t, err, "no unique block with at least f+1 votes")
+			assert.EqualError(t, err, "no unique valid block observation with at least f+1 votes (got 1/4, f=1)")
 		})
 		t.Run("if there are not at least f+1 in consensus about timestamp", func(t *testing.T) {
-			badPaos := []ParsedAttributedObservation{
+			badPaos := []PAO{
 				parsedAttributedObservation{
 					CurrentBlockTimestamp: 100,
 					CurrentBlockValid:     true,
@@ -280,12 +231,12 @@ func Test_AggregateFunctions(t *testing.T) {
 				},
 			}
 			_, _, _, err := GetConsensusCurrentBlock(badPaos, f)
-			assert.EqualError(t, err, "no unique block with at least f+1 votes")
+			assert.EqualError(t, err, "no unique valid block observation with at least f+1 votes (got 1/4, f=1)")
 		})
 		t.Run("in the event of an even split for block number/hash, take the higher block number", func(t *testing.T) {
 			validFrom := int64(26014056)
 			// values below are from a real observed case of this happening in the wild
-			paos := []ParsedAttributedObservation{
+			paos := []PAO{
 				parsedAttributedObservation{
 					Timestamp:                    1686759784,
 					Observer:                     commontypes.OracleID(2),
@@ -343,18 +294,17 @@ func Test_AggregateFunctions(t *testing.T) {
 					MaxFinalizedBlockNumberValid: false,
 				},
 			}
-			assert.NoError(t, ValidateCurrentBlock(paos, f, validFrom))
 			hash, num, _, err := GetConsensusCurrentBlock(paos, f)
 			assert.NoError(t, err)
 			assert.Equal(t, mustDecodeHex("bdeb0181416f88812028c4e1ee9e049296c909c1ee15d57cf67d4ce869ed6518"), hash)
 			assert.Equal(t, int64(26014056), num)
 			assert.GreaterOrEqual(t, num, validFrom)
 		})
-		pao := func(num int64, hash string, ts uint64) ParsedAttributedObservation {
+		pao := func(num int64, hash string, ts uint64) PAO {
 			return parsedAttributedObservation{CurrentBlockNum: num, CurrentBlockHash: mustDecodeHex(hash), CurrentBlockTimestamp: ts, CurrentBlockValid: true}
 		}
 		t.Run("when there are multiple possible blocks meeting > f+1 hashes, takes the hash with the most block numbers in agreement", func(t *testing.T) {
-			paos := []ParsedAttributedObservation{
+			paos := []PAO{
 				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
 				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
 				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
@@ -368,7 +318,6 @@ func Test_AggregateFunctions(t *testing.T) {
 				pao(42, "2222222222222222222222222222222222222222222222222222222222222222", 1),
 				pao(42, "2222222222222222222222222222222222222222222222222222222222222222", 1),
 			}
-			assert.NoError(t, ValidateCurrentBlock(paos, f, 41))
 			hash, num, ts, err := GetConsensusCurrentBlock(paos, f)
 			assert.NoError(t, err)
 			assert.Equal(t, mustDecodeHex("3333333333333333333333333333333333333333333333333333333333333333"), hash)
@@ -376,7 +325,7 @@ func Test_AggregateFunctions(t *testing.T) {
 			assert.Equal(t, uint64(1), ts)
 		})
 		t.Run("in the event of an even split of numbers/hashes, takes the hash with the highest block number", func(t *testing.T) {
-			paos := []ParsedAttributedObservation{
+			paos := []PAO{
 				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
 				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
 				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
@@ -384,7 +333,6 @@ func Test_AggregateFunctions(t *testing.T) {
 				pao(41, "2222222222222222222222222222222222222222222222222222222222222222", 1),
 				pao(41, "2222222222222222222222222222222222222222222222222222222222222222", 1),
 			}
-			assert.NoError(t, ValidateCurrentBlock(paos, f, 41))
 			hash, num, ts, err := GetConsensusCurrentBlock(paos, f)
 			assert.NoError(t, err)
 			assert.Equal(t, mustDecodeHex("3333333333333333333333333333333333333333333333333333333333333333"), hash)
@@ -392,7 +340,7 @@ func Test_AggregateFunctions(t *testing.T) {
 			assert.Equal(t, uint64(1), ts)
 		})
 		t.Run("in the case where all block numbers are equal but timestamps differ, tie-breaks on latest timestamp", func(t *testing.T) {
-			paos := []ParsedAttributedObservation{
+			paos := []PAO{
 				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 2),
 				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 2),
 				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 2),
@@ -400,7 +348,6 @@ func Test_AggregateFunctions(t *testing.T) {
 				pao(42, "2222222222222222222222222222222222222222222222222222222222222222", 1),
 				pao(42, "2222222222222222222222222222222222222222222222222222222222222222", 1),
 			}
-			assert.NoError(t, ValidateCurrentBlock(paos, f, 41))
 			hash, num, ts, err := GetConsensusCurrentBlock(paos, f)
 			assert.NoError(t, err)
 			assert.Equal(t, mustDecodeHex("3333333333333333333333333333333333333333333333333333333333333333"), hash)
@@ -408,7 +355,7 @@ func Test_AggregateFunctions(t *testing.T) {
 			assert.Equal(t, uint64(2), ts)
 		})
 		t.Run("in the case where all block numbers and timestamps are equal, tie-breaks by taking the 'lowest' hash", func(t *testing.T) {
-			paos := []ParsedAttributedObservation{
+			paos := []PAO{
 				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
 				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
 				pao(42, "3333333333333333333333333333333333333333333333333333333333333333", 1),
@@ -416,7 +363,6 @@ func Test_AggregateFunctions(t *testing.T) {
 				pao(42, "2222222222222222222222222222222222222222222222222222222222222222", 1),
 				pao(42, "2222222222222222222222222222222222222222222222222222222222222222", 1),
 			}
-			assert.NoError(t, ValidateCurrentBlock(paos, f, 41))
 			hash, num, ts, err := GetConsensusCurrentBlock(paos, f)
 			assert.NoError(t, err)
 			assert.Equal(t, mustDecodeHex("2222222222222222222222222222222222222222222222222222222222222222"), hash)
@@ -435,11 +381,11 @@ func Test_AggregateFunctions(t *testing.T) {
 
 		t.Run("errors if there are not at least f+1 valid", func(t *testing.T) {
 			_, err := GetConsensusMaxFinalizedBlockNum(invalidPaos, f)
-			assert.EqualError(t, err, "fewer than f+1 observations have a valid maxFinalizedBlockNumber (got: 0/4)")
+			assert.EqualError(t, err, "fewer than f+1 observations have a valid maxFinalizedBlockNumber (got: 0/4, f=1)")
 		})
 
 		t.Run("errors if there are not at least f+1 in consensus about number", func(t *testing.T) {
-			badPaos := []ParsedAttributedObservation{
+			badPaos := []PAO{
 				parsedAttributedObservation{
 					MaxFinalizedBlockNumber:      100,
 					MaxFinalizedBlockNumberValid: true,
@@ -459,7 +405,7 @@ func Test_AggregateFunctions(t *testing.T) {
 			}
 
 			_, err := GetConsensusMaxFinalizedBlockNum(badPaos, f)
-			assert.EqualError(t, err, "no valid maxFinalizedBlockNumber with at least f+1 votes (got counts: map[100:1 200:1 300:1 400:1])")
+			assert.EqualError(t, err, "no valid maxFinalizedBlockNumber with at least f+1 votes (got counts: map[100:1 200:1 300:1 400:1], f=1)")
 		})
 	})
 }

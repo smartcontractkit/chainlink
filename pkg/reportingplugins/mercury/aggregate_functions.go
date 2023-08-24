@@ -10,7 +10,7 @@ import (
 // The passed slice might be mutated (sorted)
 
 // GetConsensusTimestamp gets the median timestamp
-func GetConsensusTimestamp(paos []ParsedAttributedObservation) uint32 {
+func GetConsensusTimestamp(paos []PAO) uint32 {
 	sort.Slice(paos, func(i, j int) bool {
 		return paos[i].GetTimestamp() < paos[j].GetTimestamp()
 	})
@@ -18,7 +18,7 @@ func GetConsensusTimestamp(paos []ParsedAttributedObservation) uint32 {
 }
 
 // GetConsensusBenchmarkPrice gets the median benchmark price
-func GetConsensusBenchmarkPrice(paos []ParsedAttributedObservation, f int) (*big.Int, error) {
+func GetConsensusBenchmarkPrice(paos []PAO, f int) (*big.Int, error) {
 	var validBenchmarkPrices []*big.Int
 	for _, pao := range paos {
 		bmPrice, valid := pao.GetBenchmarkPrice()
@@ -37,8 +37,12 @@ func GetConsensusBenchmarkPrice(paos []ParsedAttributedObservation, f int) (*big
 	return validBenchmarkPrices[len(validBenchmarkPrices)/2], nil
 }
 
+type PAOBid interface {
+	GetBid() (*big.Int, bool)
+}
+
 // GetConsensusBid gets the median bid
-func GetConsensusBid(paos []ParsedAttributedObservation, f int) (*big.Int, error) {
+func GetConsensusBid(paos []PAOBid, f int) (*big.Int, error) {
 	var validBids []*big.Int
 	for _, pao := range paos {
 		bid, valid := pao.GetBid()
@@ -56,8 +60,12 @@ func GetConsensusBid(paos []ParsedAttributedObservation, f int) (*big.Int, error
 	return validBids[len(validBids)/2], nil
 }
 
+type PAOAsk interface {
+	GetAsk() (*big.Int, bool)
+}
+
 // GetConsensusAsk gets the median ask
-func GetConsensusAsk(paos []ParsedAttributedObservation, f int) (*big.Int, error) {
+func GetConsensusAsk(paos []PAOAsk, f int) (*big.Int, error) {
 	var validAsks []*big.Int
 	for _, pao := range paos {
 		ask, valid := pao.GetAsk()
@@ -75,9 +83,14 @@ func GetConsensusAsk(paos []ParsedAttributedObservation, f int) (*big.Int, error
 	return validAsks[len(validAsks)/2], nil
 }
 
-func GetConsensusMaxFinalizedTimestamp(paos []ParsedAttributedObservation, f int) (uint32, error) {
+type PAOMaxFinalizedTimestamp interface {
+	GetMaxFinalizedTimestamp() (int64, bool)
+}
+
+// GetConsensusMaxFinalizedTimestamp returns the highest count with > f observations
+func GetConsensusMaxFinalizedTimestamp(paos []PAOMaxFinalizedTimestamp, f int) (int64, error) {
 	var validTimestampCount int
-	timestampFrequencyMap := map[uint32]int{}
+	timestampFrequencyMap := map[int64]int{}
 	for _, pao := range paos {
 		ts, valid := pao.GetMaxFinalizedTimestamp()
 		if valid {
@@ -86,40 +99,32 @@ func GetConsensusMaxFinalizedTimestamp(paos []ParsedAttributedObservation, f int
 		}
 	}
 
-	// check if we have enough valid timestamps
+	// check if we have enough valid timestamps at all
 	if validTimestampCount < f+1 {
 		return 0, fmt.Errorf("fewer than f+1 observations have a valid maxFinalizedTimestamp (got: %d/%d)", validTimestampCount, len(paos))
 	}
 
-	var timestampFrequencyMaxCnt int
-	for _, cnt := range timestampFrequencyMap {
-		if cnt > timestampFrequencyMaxCnt {
-			timestampFrequencyMaxCnt = cnt
+	var maxTs int64 = -2 // -1 is smallest valid amount
+	for ts, cnt := range timestampFrequencyMap {
+		// ignore any timestamps with <= f observations
+		if cnt > f && ts > maxTs {
+			maxTs = ts
 		}
 	}
 
-	// check if we have enough valid timestamps with the max frequency
-	if timestampFrequencyMaxCnt < f+1 {
+	if maxTs < -1 {
 		return 0, fmt.Errorf("no valid maxFinalizedTimestamp with at least f+1 votes (got counts: %v)", timestampFrequencyMap)
 	}
 
-	// select timestamps with the max frequency (in case there are more than one)
-	// sort them deterministically
-	var validTimestampsWithMaxFrequency []uint32
-	for ts, cnt := range timestampFrequencyMap {
-		if cnt == timestampFrequencyMaxCnt {
-			validTimestampsWithMaxFrequency = append(validTimestampsWithMaxFrequency, ts)
-		}
-	}
-	sort.Slice(validTimestampsWithMaxFrequency, func(i, j int) bool {
-		return validTimestampsWithMaxFrequency[i] < validTimestampsWithMaxFrequency[j]
-	})
+	return maxTs, nil
+}
 
-	return validTimestampsWithMaxFrequency[0], nil
+type PAOLinkFee interface {
+	GetLinkFee() (*big.Int, bool)
 }
 
 // GetConsensusLinkFee gets the median link fee
-func GetConsensusLinkFee(paos []ParsedAttributedObservation, f int) (*big.Int, error) {
+func GetConsensusLinkFee(paos []PAOLinkFee, f int) (*big.Int, error) {
 	var validLinkFees []*big.Int
 	for _, pao := range paos {
 		fee, valid := pao.GetLinkFee()
@@ -137,8 +142,12 @@ func GetConsensusLinkFee(paos []ParsedAttributedObservation, f int) (*big.Int, e
 	return validLinkFees[len(validLinkFees)/2], nil
 }
 
+type PAONativeFee interface {
+	GetNativeFee() (*big.Int, bool)
+}
+
 // GetConsensusNativeFee gets the median native fee
-func GetConsensusNativeFee(paos []ParsedAttributedObservation, f int) (*big.Int, error) {
+func GetConsensusNativeFee(paos []PAONativeFee, f int) (*big.Int, error) {
 	var validNativeFees []*big.Int
 	for _, pao := range paos {
 		fee, valid := pao.GetNativeFee()
