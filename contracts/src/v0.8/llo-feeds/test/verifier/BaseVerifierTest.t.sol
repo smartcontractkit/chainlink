@@ -164,6 +164,7 @@ contract BaseTest is Test {
 
   function _configDigestFromConfigData(
     bytes32 feedId,
+    uint256 chainId,
     address verifierAddr,
     uint64 configCount,
     address[] memory signers,
@@ -177,7 +178,7 @@ contract BaseTest is Test {
       keccak256(
         abi.encode(
           feedId,
-          block.chainid,
+          chainId,
           verifierAddr,
           configCount,
           signers,
@@ -247,20 +248,20 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     bytes32 feedId;
     // The time the median value was observed on
     uint32 observationsTimestamp;
-    // The median value agreed in an OCR round
-    int192 benchmarkPrice;
-    // The best bid value agreed in an OCR round
-    int192 bid;
-    // The best ask value agreed in an OCR round
-    int192 ask;
     // The timestamp the report is valid from
     uint32 validFromTimestamp;
-    // The expiry of the report
-    uint32 expiresAt;
+    // The median value agreed in an OCR round
+    int192 benchmarkPrice;
     // The link fee
     uint192 linkFee;
     // The native fee
     uint192 nativeFee;
+    // The expiry of the report
+    uint32 expiresAt;
+    // The best bid value agreed in an OCR round
+    int192 bid;
+    // The best ask value agreed in an OCR round
+    int192 ask;
   }
 
   function setUp() public virtual override {
@@ -305,13 +306,13 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
       abi.encode(
         report.feedId,
         report.observationsTimestamp,
-        report.benchmarkPrice,
-        report.bid,
-        report.ask,
         report.validFromTimestamp,
-        report.expiresAt,
+        report.benchmarkPrice,
         report.linkFee,
-        report.nativeFee
+        report.nativeFee,
+        report.expiresAt,
+        report.bid,
+        report.ask
       );
   }
 
@@ -331,26 +332,26 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     return abi.encode(reportContext, reportBytes, rs, ss, rawVs, quote);
   }
 
-  function _generateQuote(address billingAddress) internal returns (bytes memory) {
+  function _generateQuote(address billingAddress) internal pure returns (bytes memory) {
     return abi.encode(billingAddress);
   }
 
-  function _generateV2Report() internal returns (V2Report memory) {
+  function _generateV2Report() internal view returns (V2Report memory) {
     return
       V2Report({
         feedId: FEED_ID_V3,
         observationsTimestamp: OBSERVATIONS_TIMESTAMP,
-        benchmarkPrice: MEDIAN,
-        bid: BID,
-        ask: ASK,
         validFromTimestamp: uint32(block.timestamp),
-        expiresAt: uint32(block.timestamp),
+        benchmarkPrice: MEDIAN,
         linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
-        nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE)
+        nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
+        expiresAt: uint32(block.timestamp),
+        bid: BID,
+        ask: ASK
       });
   }
 
-  function _generateReportContext(bytes32 feedId) internal returns (bytes32[3] memory) {
+  function _generateReportContext(bytes32 feedId) internal view returns (bytes32[3] memory) {
     (, , bytes32 latestConfigDigest) = s_verifier.latestConfigDetails(feedId);
     bytes32[3] memory reportContext;
     reportContext[0] = latestConfigDigest;
