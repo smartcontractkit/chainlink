@@ -691,7 +691,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					}
 					return t
 				}(),
-				WorkID: "476453e1b49fc73fa6f97cb77272a07b57f2414a39b0267e58df8cb006d9c491",
+				WorkID: "d91c6f090b8477f434cf775182e4ff12c90618ba4da5b8ec06aa719768b7743a",
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
@@ -734,7 +734,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					}
 					return t
 				}(),
-				WorkID: "476453e1b49fc73fa6f97cb77272a07b57f2414a39b0267e58df8cb006d9c491",
+				WorkID: "d91c6f090b8477f434cf775182e4ff12c90618ba4da5b8ec06aa719768b7743a",
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
