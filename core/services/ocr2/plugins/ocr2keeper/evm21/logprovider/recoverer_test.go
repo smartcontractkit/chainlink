@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core/mocks"
@@ -91,6 +92,97 @@ func TestLogRecoverer_GetRecoverables(t *testing.T) {
 				require.NoError(t, err)
 			}
 			require.Len(t, got, len(tc.want))
+		})
+	}
+}
+
+func TestLogRecoverer_Clean(t *testing.T) {
+	tests := []struct {
+		name        string
+		pending     []ocr2keepers.UpkeepPayload
+		visited     map[string]visitedRecord
+		latestBlock int64
+		states      []ocr2keepers.UpkeepState
+		wantPending []ocr2keepers.UpkeepPayload
+		wantVisited []string
+	}{
+		{
+			"empty",
+			[]ocr2keepers.UpkeepPayload{},
+			map[string]visitedRecord{},
+			0,
+			[]ocr2keepers.UpkeepState{},
+			[]ocr2keepers.UpkeepPayload{},
+			[]string{},
+		},
+		{
+			"clean expired",
+			[]ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+			},
+			map[string]visitedRecord{
+				"1": visitedRecord{time.Now(), ocr2keepers.UpkeepPayload{
+					WorkID: "1",
+				}},
+				"2": visitedRecord{time.Now(), ocr2keepers.UpkeepPayload{
+					WorkID: "2",
+				}},
+				"3": visitedRecord{time.Now().Add(-time.Hour), ocr2keepers.UpkeepPayload{
+					WorkID: "3",
+				}},
+				"4": visitedRecord{time.Now().Add(-time.Hour), ocr2keepers.UpkeepPayload{
+					WorkID: "4",
+				}},
+			},
+			200,
+			[]ocr2keepers.UpkeepState{
+				ocr2keepers.Ineligible,
+				ocr2keepers.UnknownState,
+			},
+			[]ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+				{WorkID: "4", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "4")},
+			},
+			[]string{"1", "2", "4"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(testutils.Context(t))
+			defer cancel()
+
+			lookbackBlocks := int64(100)
+			r, _, lp, statesReader := setupTestRecoverer(t, time.Millisecond*50, lookbackBlocks)
+
+			lp.On("LatestBlock", mock.Anything).Return(tc.latestBlock, nil)
+			statesReader.On("SelectByWorkIDsInRange", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, nil)
+
+			r.lock.Lock()
+			r.pending = tc.pending
+			r.visited = tc.visited
+			r.lock.Unlock()
+
+			r.clean(ctx)
+
+			r.lock.RLock()
+			defer r.lock.RUnlock()
+
+			pending := r.pending
+			require.Equal(t, len(tc.wantPending), len(pending))
+			sort.Slice(pending, func(i, j int) bool {
+				return pending[i].WorkID < pending[j].WorkID
+			})
+			for i := range pending {
+				require.Equal(t, tc.wantPending[i].WorkID, pending[i].WorkID)
+			}
+			require.Equal(t, len(tc.wantVisited), len(r.visited))
+			for _, id := range tc.wantVisited {
+				_, ok := r.visited[id]
+				require.True(t, ok)
+			}
 		})
 	}
 }

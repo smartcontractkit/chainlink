@@ -26,11 +26,12 @@ var (
 	ErrNotFound             = errors.New("not found")
 	DefaultRecoveryInterval = 5 * time.Second
 	// TODO: Reduce these intervals to allow sending same proposals again if they were not fulfilled
-	RecoveryCacheTTL = 24*time.Hour - time.Second
-	GCInterval       = time.Hour
+	RecoveryCacheTTL = 10*time.Minute - time.Second
+	GCInterval       = RecoveryCacheTTL
 
-	recoveryBatchSize  = 10
-	recoveryLogsBuffer = int64(50)
+	recoveryBatchSize    = 10
+	recoveryLogsBuffer   = int64(50)
+	recoveryRescanBuffer = int64(100)
 )
 
 type LogRecoverer interface {
@@ -41,7 +42,11 @@ type LogRecoverer interface {
 	io.Closer
 }
 
-// TODO: Ensure that the logs enqueued into pending reach a final state
+type visitedRecord struct {
+	visitedAt time.Time
+	payload   ocr2keepers.UpkeepPayload
+}
+
 type logRecoverer struct {
 	lggr logger.Logger
 
@@ -54,7 +59,7 @@ type logRecoverer struct {
 	lock     sync.RWMutex
 
 	pending []ocr2keepers.UpkeepPayload
-	visited map[string]time.Time
+	visited map[string]visitedRecord
 
 	filterStore UpkeepFilterStore
 	states      core.UpkeepStateReader
@@ -74,7 +79,7 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 		interval:       opts.ReadInterval * 5,
 
 		pending:     make([]ocr2keepers.UpkeepPayload, 0),
-		visited:     make(map[string]time.Time),
+		visited:     make(map[string]visitedRecord),
 		poller:      poller,
 		filterStore: filterStore,
 		states:      stateStore,
@@ -400,7 +405,10 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 			continue
 		}
 		// r.lggr.Debugw("adding a payload to pending", "payload", payload)
-		r.visited[wid] = time.Now()
+		r.visited[wid] = visitedRecord{
+			visitedAt: time.Now(),
+			payload:   payload,
+		}
 		r.pending = append(r.pending, payload)
 	}
 	return len(r.pending) - pendingSizeBefore, alreadyPending
@@ -499,18 +507,53 @@ func logToTrigger(log logpoller.Log) ocr2keepers.Trigger {
 }
 
 func (r *logRecoverer) clean(ctx context.Context) {
-	r.lock.Lock()
-	defer r.lock.Unlock()
-
-	cleaned := 0
+	r.lock.RLock()
+	var ids []string
 	for id, t := range r.visited {
-		if time.Since(t) > RecoveryCacheTTL {
-			delete(r.visited, id)
-			cleaned++
+		if time.Since(t.visitedAt) > RecoveryCacheTTL {
+			ids = append(ids, id)
 		}
 	}
-
+	r.lock.RUnlock()
+	cleaned, err := r.tryExpire(ctx, ids...)
+	if err != nil {
+		r.lggr.Warnw("failed to clean visited upkeeps", "err", err)
+	}
 	if cleaned > 0 {
 		r.lggr.Debugw("gc: cleaned visited upkeeps", "cleaned", cleaned)
 	}
+}
+
+func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) (int, error) {
+	latestBlock, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return 0, fmt.Errorf("failed to get latest block: %w", err)
+	}
+	states, err := r.states.SelectByWorkIDsInRange(ctx, latestBlock-recoveryRescanBuffer, latestBlock, ids...)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get states: %w", err)
+	}
+
+	r.lock.Lock()
+	defer r.lock.Unlock()
+	var removed int
+	for i, state := range states {
+		switch state {
+		case ocr2keepers.UnknownState:
+			// in case the state is unknown, we can't be sure if the upkeep was performed or not
+			// so we push it back to the pending list
+			rec, ok := r.visited[ids[i]]
+			if !ok {
+				continue
+			}
+			r.pending = append(r.pending, rec.payload)
+			rec.visitedAt = time.Now()
+			r.visited[ids[i]] = rec
+		default:
+			delete(r.visited, ids[i])
+			removed++
+		}
+	}
+
+	return removed, nil
 }
