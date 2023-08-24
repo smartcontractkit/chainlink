@@ -275,6 +275,17 @@ func (o *OCRSoakTest) Run() {
 		Msg("Starting OCR Soak Test")
 
 	o.testLoop(o.Inputs.TestDuration, startingValue)
+	o.complete()
+}
+
+func (o *OCRSoakTest) complete() {
+	o.log.Info().Msg("Test Complete, collecting on-chain events")
+
+	err := o.collectEvents()
+	if err != nil {
+		log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
+	}
+	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
 }
 
 // Networks returns the networks that the test is running on
@@ -439,14 +450,7 @@ func (o *OCRSoakTest) Resume() {
 
 	startingValue := 5
 	o.testLoop(o.timeLeft, startingValue)
-
-	o.log.Info().Msg("Test Complete, collecting on-chain events")
-
-	err = o.collectEvents()
-	if err != nil {
-		log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
-	}
-	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
+	o.complete()
 }
 
 // Interrupted indicates whether the test was interrupted by something like a K8s rebalance or not
@@ -648,7 +652,6 @@ func (o *OCRSoakTest) collectEvents() error {
 			RoundID:     answerUpdated.RoundId.Uint64(),
 			BlockNumber: event.BlockNumber,
 		})
-		// DEBUG: Events
 	}
 	// DEBUG: Events
 	log.Warn().Interface("Found Events", sortedFoundEvents).Msg("DEBUG")
