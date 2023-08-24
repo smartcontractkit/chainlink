@@ -117,8 +117,8 @@ type RelayerExt interface {
 	types.ChainService
 	// TODO remove after BFC-2441
 	ID() string
-	GetChainStatus(ctx context.Context) (ChainStatus, error)
-	ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []NodeStatus, next_page_token string, err error)
+	GetChainStatus(ctx context.Context) (types.ChainStatus, error)
+	ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []types.NodeStatus, next_page_token string, err error)
 	// choose different name than SendTx to avoid collison during refactor.
 	Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
@@ -227,4 +227,17 @@ func (r *relayerAdapter) SendTx(ctx context.Context, chainID, from, to string, a
 
 func (r *relayerAdapter) ID() string {
 	return "TODO"
+}
+
+func (r *relayerAdapter) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
+	return r.ext.GetChainStatus(ctx)
+}
+
+func (r *relayerAdapter) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []types.NodeStatus, next_page_token string, err error) {
+	return r.ext.ListNodeStatuses(ctx, page_size, page_token)
+}
+
+// choose different name than SendTx to avoid collison during refactor.
+func (r *relayerAdapter) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	return r.ext.Transact(ctx, from, to, amount, balanceCheck)
 }

@@ -133,7 +133,7 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 				Configs:  solana.NewConfigs(singleChainCfg),
 			}
 
-			chain, err := solana.NewChain(chainCfg, opts)
+			relayExt, err := solana.NewRelayExtender(chainCfg, opts)
 			if errors.Is(err, chains.ErrChainDisabled) {
 				// this should not happen because the driving loop is supposed to skip disabled chains
 				solLggr.Warnw("Skipping disabled chain", "err", err)
@@ -141,7 +141,7 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 			} else if err != nil {
 				return nil, err
 			}
-			solanaRelayers[relayId] = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, chain), chain)
+			solanaRelayers[relayId] = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, relayExt), relayExt)
 		}
 	}
 	return solanaRelayers, nil
@@ -208,7 +208,7 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 				Configs:  starknet.NewConfigs(singleChainCfg),
 			}
 
-			chain, err := starknet.NewChain(chainCfg, opts)
+			relayExt, err := starknet.NewRelayExtender(chainCfg, opts)
 			if errors.Is(err, chains.ErrChainDisabled) {
 				// this should not happen because the driving loop is supposed to skip disabled chains
 				starkLggr.Warnw("Skipping disabled chain", "err", err)
@@ -217,7 +217,7 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 				return nil, err
 			}
 
-			starknetRelayers[relayId] = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, chain), chain)
+			starknetRelayers[relayId] = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, relayExt), relayExt)
 		}
 	}
 	return starknetRelayers, nil
@@ -249,13 +249,13 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 			EventBroadcaster: config.EventBroadcaster,
 		}
 		opts.Configs = cosmos.NewConfigs(cosmos.CosmosConfigs{chainCfg})
-		chain, err := cosmos.NewChain(chainCfg, opts)
+		relayExt, err := cosmos.NewRelayExtender(chainCfg, opts)
 
 		if err != nil {
 			return nil, fmt.Errorf("failed to load Cosmos chain %q: %w", relayId, err)
 		}
 
-		relayers[relayId] = cosmos.NewLoopRelayerChain(pkgcosmos.NewRelayer(lggr, chain), chain)
+		relayers[relayId] = cosmos.NewLoopRelayerChain(pkgcosmos.NewRelayer(lggr, relayExt), relayExt)
 
 	}
 	return relayers, nil

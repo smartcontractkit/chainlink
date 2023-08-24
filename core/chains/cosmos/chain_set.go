@@ -1,8 +1,10 @@
 package cosmos
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"go.uber.org/multierr"
 
@@ -13,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
@@ -119,7 +122,8 @@ type LoopRelayerChain struct {
 	chain adapters.Chain
 }
 
-func NewLoopRelayerChain(r *pkgcosmos.Relayer, s adapters.Chain) *LoopRelayerChain {
+func NewLoopRelayerChain(r *pkgcosmos.Relayer, s *RelayExtender) *LoopRelayerChain {
+
 	ra := relay.NewRelayerAdapter(r, s)
 	return &LoopRelayerChain{
 		Relayer: ra,
@@ -131,3 +135,32 @@ func (r *LoopRelayerChain) Chain() adapters.Chain {
 }
 
 var _ LoopRelayerChainer = &LoopRelayerChain{}
+
+// TODO remove these wrappers after BCF-2441
+type RelayExtender struct {
+	adapters.Chain
+	chainImpl *chain
+}
+
+var _ relay.RelayerExt = &RelayExtender{}
+
+func NewRelayExtender(cfg *CosmosConfig, opts ChainSetOpts) (*RelayExtender, error) {
+	c, err := NewChain(cfg, opts)
+	if err != nil {
+		return nil, err
+	}
+	chainImpl, ok := (c).(*chain)
+	if !ok {
+		return nil, fmt.Errorf("internal error: cosmos relay extender got wrong type %t", c)
+	}
+	return &RelayExtender{Chain: chainImpl, chainImpl: chainImpl}, nil
+}
+func (r *RelayExtender) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
+	return r.chainImpl.GetChainStatus(ctx)
+}
+func (r *RelayExtender) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error) {
+	return r.chainImpl.ListNodeStatuses(ctx, page_size, page_token)
+}
+func (r *RelayExtender) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	return chains.ErrLOOPPUnsupported
+}

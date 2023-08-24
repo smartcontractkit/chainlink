@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana/monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -400,4 +401,33 @@ func solanaValidateBalance(reader client.Reader, from solanago.PublicKey, amount
 		return fmt.Errorf("balance %d is too low for this transaction to be executed: amount %d + fee %d", balance, amount, fee)
 	}
 	return nil
+}
+
+// TODO remove these wrappers after BCF-2441
+type RelayExtender struct {
+	solana.Chain
+	chainImpl *chain
+}
+
+var _ relay.RelayerExt = &RelayExtender{}
+
+func NewRelayExtender(cfg *SolanaConfig, opts ChainSetOpts) (*RelayExtender, error) {
+	c, err := NewChain(cfg, opts)
+	if err != nil {
+		return nil, err
+	}
+	chainImpl, ok := (c).(*chain)
+	if !ok {
+		return nil, fmt.Errorf("internal error: cosmos relay extender got wrong type %t", c)
+	}
+	return &RelayExtender{Chain: chainImpl, chainImpl: chainImpl}, nil
+}
+func (r *RelayExtender) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
+	return r.chainImpl.GetChainStatus(ctx)
+}
+func (r *RelayExtender) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error) {
+	return r.chainImpl.ListNodeStatuses(ctx, page_size, page_token)
+}
+func (r *RelayExtender) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	return r.chainImpl.SendTx(ctx, from, to, amount, balanceCheck)
 }

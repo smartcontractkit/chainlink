@@ -17,6 +17,7 @@ import (
 	gotoml "github.com/pelletier/go-toml/v2"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -54,6 +55,12 @@ type Chain interface {
 	BalanceMonitor() monitor.BalanceMonitor
 	LogPoller() logpoller.LogPoller
 	GasEstimator() gas.EvmFeeEstimator
+
+	// TODO remove after BCF-2441
+
+	GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error)
+	ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error)
+	Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
 var (
