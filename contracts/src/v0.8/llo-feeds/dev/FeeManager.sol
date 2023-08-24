@@ -278,7 +278,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       fee.amount = linkQuantity - ((linkQuantity * discount) / PERCENTAGE_SCALAR);
 
       //reward
-      reward.assetAddress = i_linkAddress;
       reward.amount = fee.amount;
     } else {
       //fee
@@ -287,8 +286,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       fee.amount = surchargedFee - ((surchargedFee * discount) / PERCENTAGE_SCALAR);
 
       //reward
-      reward.assetAddress = i_linkAddress;
-      reward.amount = reward.amount - Math.ceilDiv(reward.amount * discount, PERCENTAGE_SCALAR);
+      reward.amount = linkQuantity - Math.ceilDiv(linkQuantity * discount, PERCENTAGE_SCALAR);
     }
 
     //return the fee
