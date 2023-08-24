@@ -443,7 +443,9 @@ func (o *OCRSoakTest) Resume() {
 	o.log.Info().Msg("Test Complete, collecting on-chain events")
 
 	err = o.collectEvents()
-	log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
+	if err != nil {
+		log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
+	}
 	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
 }
 
@@ -646,6 +648,8 @@ func (o *OCRSoakTest) collectEvents() error {
 			RoundID:     answerUpdated.RoundId.Uint64(),
 			BlockNumber: event.BlockNumber,
 		})
+		// DEBUG: Events
+		log.Warn().Interface("Found Events", sortedFoundEvents).Msg("DEBUG")
 	}
 
 	// Sort our events by time to make sure they are in order (don't trust RPCs)
