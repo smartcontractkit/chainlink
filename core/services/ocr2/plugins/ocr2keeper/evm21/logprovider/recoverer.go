@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -241,13 +242,22 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 }
 
 func (r *logRecoverer) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, error) {
-	// TODO: do manual eth_getTransactionReceipt call to get block number and hash
-	txr, err := r.client.TransactionReceipt(context.Background(), txHash)
+	var result interface{}
+	err := r.client.CallContext(context.Background(), &result, "eth_getTransactionReceipt", txHash.Bytes())
 	if err != nil {
 		return nil, common.Hash{}, err
 	}
 
-	return txr.BlockNumber, txr.BlockHash, nil
+	var ok bool
+	var receipt *evmtypes.Receipt
+	if receipt, ok = result.(*evmtypes.Receipt); !ok {
+		return nil, common.Hash{}, fmt.Errorf("failed to cast eth_getTransactionReceipt response to *evmtypes.Receipt, got type %T", result)
+	}
+	if receipt.Status != 1 {
+		return nil, common.Hash{}, fmt.Errorf("eth_getTransactionReceipt returns unsuccessful status %d", receipt.Status)
+	}
+
+	return receipt.GetBlockNumber(), receipt.GetBlockHash(), nil
 }
 
 func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
