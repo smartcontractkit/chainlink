@@ -26,7 +26,7 @@ type CosmosTransfersController struct {
 	App chainlink.Application
 }
 
-// Create sends Atom and other native coins from the Chainlink's account to a specified address.
+// Create sends native coins from the Chainlink's account to a specified address.
 func (tc *CosmosTransfersController) Create(c *gin.Context) {
 	cosmosChains := tc.App.GetRelayers().LegacyCosmosChains()
 	if cosmosChains == nil {
@@ -58,10 +58,9 @@ func (tc *CosmosTransfersController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, errors.Errorf("withdrawal source address is missing: %v", tr.FromAddress))
 		return
 	}
-
-	coin, err := denom.ConvertDecCoinToDenom(sdk.NewDecCoinFromDec("atom", tr.Amount), "uatom")
+	coin, err := denom.ConvertDecCoinToDenom(sdk.NewDecCoinFromDec(tr.Token, tr.Amount), chain.Config().FeeToken())
 	if err != nil {
-		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("unable to convert to uatom: %v", err))
+		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("unable to convert %s to %s: %v", tr.Token, chain.Config().FeeToken(), err))
 		return
 	} else if !coin.Amount.IsPositive() {
 		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("amount must be greater than zero: %s", coin.Amount))
@@ -118,17 +117,8 @@ func (tc *CosmosTransfersController) Create(c *gin.Context) {
 }
 
 // cosmosValidateBalance validates that fromAddr's balance can cover coin, including fees at gasPrice.
-// Note: This is currently limited to uatom only, for both gasPrice and coin.
 func cosmosValidateBalance(reader client.Reader, gasPrice sdk.DecCoin, fromAddr sdk.AccAddress, coin sdk.Coin) error {
-	const denom = "uatom"
-	if gasPrice.Denom != denom {
-		return errors.Errorf("unsupported gas price denom: %s", gasPrice.Denom)
-	}
-	if coin.Denom != denom {
-		return errors.Errorf("unsupported coin denom: %s", gasPrice.Denom)
-	}
-
-	balance, err := reader.Balance(fromAddr, denom)
+	balance, err := reader.Balance(fromAddr, coin.GetDenom())
 	if err != nil {
 		return err
 	}

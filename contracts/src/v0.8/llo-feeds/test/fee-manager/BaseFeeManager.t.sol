@@ -66,12 +66,14 @@ contract BaseFeeManagerTest is Test {
   bytes4 internal immutable UNAUTHORIZED_ERROR = FeeManager.Unauthorized.selector;
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
   bytes internal constant INSUFFICIENT_ALLOWANCE_ERROR = "ERC20: insufficient allowance";
+  bytes4 internal immutable ZERO_DEFICIT = FeeManager.ZeroDeficit.selector;
 
   //events emitted
   event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint256 discount);
   event NativeSurchargeUpdated(uint256 newSurcharge);
   event InsufficientLink(bytes32 indexed configDigest, uint256 linkQuantity, uint256 nativeQuantity);
   event Withdraw(address adminAddress, address assetAddress, uint256 quantity);
+  event LinkDeficitCleared(bytes32 indexed configDigest, uint256 linkQuantity);
 
   function setUp() public virtual {
     //change to admin user
@@ -339,5 +341,21 @@ contract BaseFeeManagerTest is Test {
 
   function getNativeAddress() public view returns (address) {
     return address(native);
+  }
+
+  function payLinkDeficit(bytes32 configDigest, address sender) public {
+    //record the current address and switch to the recipient
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    //approve the link to be transferred
+    feeManager.payLinkDeficit(configDigest);
+
+    //change back to the original address
+    changePrank(originalAddr);
+  }
+
+  function getLinkDeficit(bytes32 configDigest) public view returns (uint256) {
+    return feeManager.s_linkDeficit(configDigest);
   }
 }

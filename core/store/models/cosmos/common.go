@@ -8,5 +8,6 @@ type SendRequest struct {
 	FromAddress        sdk.AccAddress `json:"from"`
 	Amount             sdk.Dec        `json:"amount"`
 	CosmosChainID      string         `json:"cosmosChainID"`
+	Token              string         `json:"token"`
 	AllowHigherAmounts bool           `json:"allowHigherAmounts"`
 }
