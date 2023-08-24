@@ -20,7 +20,7 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@c85c95e3d7251135ab7dc9ce3241c5835cc595a9 # v3.5.3
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@5fd3084fc36e372ff1fff382a39b10d03659f355 # v2.2.0
+        uses: aws-actions/configure-aws-credentials@ef93a73b1313f148011965ef7361f667f371f58b # v3.0.0
         with:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           role-to-assume: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
