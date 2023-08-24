@@ -315,14 +315,14 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     processFee(payload, USER, 0, ADMIN);
   }
 
-  function test_processFeeWithInvalidReportVersion() public {
+  function test_processFeeWithInvalidReportVersionFailsToDecode() public {
     bytes memory data = abi.encode(0x0000100000000000000000000000000000000000000000000000000000000000);
 
     //get the default payload
     bytes memory payload = getPayload(data, getQuotePayload(getLinkAddress()));
 
-    //version is invalid as feedId is 0
-    vm.expectRevert(INVALID_REPORT_VERSION_ERROR);
+    //serialization will fail as there is no report to decode
+    vm.expectRevert();
 
     //processing the fee will not withdraw anything as there is no fee to collect
     processFee(payload, USER, 0, ADMIN);
