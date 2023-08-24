@@ -319,7 +319,7 @@ func (c *StarknetConfig) ListNodeStatuses(start, end int) ([]types.NodeStatus, i
 	if start >= total {
 		return stats, total, internal.ErrOutOfRange
 	}
-	if end > total {
+	if end <= 0 || end > total {
 		end = total
 	}
 	nodes := c.Nodes[start:end]

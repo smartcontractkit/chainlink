@@ -1,7 +1,6 @@
 package cosmos
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -115,76 +114,20 @@ type LoopRelayerChainer interface {
 	Chain() adapters.Chain
 }
 
-type LoopRelayerSingleChain struct {
+type LoopRelayerChain struct {
 	loop.Relayer
-	singleChain adapters.Chain
-}
-
-func NewLoopRelayerSingleChain(r *pkgcosmos.Relayer, s adapters.Chain) *LoopRelayerSingleChain {
-	ra := relay.NewRelayerAdapter(r, s)
-	return &LoopRelayerSingleChain{
-		Relayer:     ra,
-		singleChain: s,
-	}
-}
-func (r *LoopRelayerSingleChain) Chain() adapters.Chain {
-	return r.singleChain
-}
-
-var _ LoopRelayerChainer = &LoopRelayerSingleChain{}
-
-func newChainSet(opts ChainSetOpts, cfgs CosmosConfigs) (adapters.ChainSet, map[string]adapters.Chain, error) {
-	cosmosChains := map[string]adapters.Chain{}
-	var err error
-	for _, chain := range cfgs {
-		if !chain.IsEnabled() {
-			continue
-		}
-		var err2 error
-		cosmosChains[*chain.ChainID], err2 = opts.NewTOMLChain(chain)
-		if err2 != nil {
-			err = multierr.Combine(err, err2)
-			continue
-		}
-	}
-	if err != nil {
-		return nil, nil, fmt.Errorf("failed to load some Cosmos chains: %w", err)
-	}
-
-	cs, err := chains.NewChainSet[db.Node, adapters.Chain](cosmosChains, &opts)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return cs, cosmosChains, nil
-}
-
-// SingleChainSet is a chainset with 1 chain. TODO remove when relayer interface is updated
-type SingleChainSet struct {
-	adapters.ChainSet
-	ID    string
 	chain adapters.Chain
 }
 
-func (s *SingleChainSet) Chain(ctx context.Context, id string) (adapters.Chain, error) {
-	return s.chain, nil
+func NewLoopRelayerChain(r *pkgcosmos.Relayer, s adapters.Chain) *LoopRelayerChain {
+	ra := relay.NewRelayerAdapter(r, s)
+	return &LoopRelayerChain{
+		Relayer: ra,
+		chain:   s,
+	}
+}
+func (r *LoopRelayerChain) Chain() adapters.Chain {
+	return r.chain
 }
 
-func NewSingleChainSet(opts ChainSetOpts, cfg *CosmosConfig) (*SingleChainSet, error) {
-	cs, m, err := newChainSet(opts, CosmosConfigs{cfg})
-	if err != nil {
-		return nil, err
-	}
-	if len(m) != 1 {
-		return nil, fmt.Errorf("invalid Single chain: more than one chain %d", len(m))
-	}
-	var chain adapters.Chain
-	for _, ch := range m {
-		chain = ch
-	}
-	return &SingleChainSet{
-		ChainSet: cs,
-		ID:       *cfg.ChainID,
-		chain:    chain,
-	}, nil
-}
+var _ LoopRelayerChainer = &LoopRelayerChain{}

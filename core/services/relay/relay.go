@@ -117,6 +117,10 @@ type RelayerExt interface {
 	types.ChainService
 	// TODO remove after BFC-2441
 	ID() string
+	GetChainStatus(ctx context.Context) (ChainStatus, error)
+	ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []NodeStatus, next_page_token string, err error)
+	// choose different name than SendTx to avoid collison during refactor.
+	Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
 var _ loop.Relayer = (*relayerAdapter)(nil)

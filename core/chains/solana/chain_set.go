@@ -41,17 +41,6 @@ func (o *ChainSetOpts) ConfigsAndLogger() (chains.Configs[string, db.Node], logg
 	return o.Configs, o.Logger
 }
 
-func (o *ChainSetOpts) NewTOMLChain(cfg *SolanaConfig) (solana.Chain, error) {
-	if !cfg.IsEnabled() {
-		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
-	}
-	c, err := newChain(*cfg.ChainID, cfg, o.KeyStore, o.Configs, o.Logger)
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
 func NewChain(cfg *SolanaConfig, opts ChainSetOpts) (solana.Chain, error) {
 	if !cfg.IsEnabled() {
 		return nil, fmt.Errorf("cannot create new chain with ID %s: %w", *cfg.ChainID, chains.ErrChainDisabled)
@@ -61,24 +50,4 @@ func NewChain(cfg *SolanaConfig, opts ChainSetOpts) (solana.Chain, error) {
 		return nil, err
 	}
 	return c, nil
-}
-
-func NewChainSet(opts ChainSetOpts, cfgs SolanaConfigs) (solana.ChainSet, error) {
-	solChains := map[string]solana.Chain{}
-	var err error
-	for _, chain := range cfgs {
-		if !chain.IsEnabled() {
-			continue
-		}
-		var err2 error
-		solChains[*chain.ChainID], err2 = opts.NewTOMLChain(chain)
-		if err2 != nil {
-			err = multierr.Combine(err, err2)
-			continue
-		}
-	}
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to load some Solana chains")
-	}
-	return chains.NewChainSet[db.Node, solana.Chain](solChains, &opts)
 }

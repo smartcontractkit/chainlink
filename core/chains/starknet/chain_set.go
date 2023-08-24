@@ -47,17 +47,6 @@ func (o *ChainSetOpts) ConfigsAndLogger() (chains.Configs[string, db.Node], logg
 	return o.Configs, o.Logger
 }
 
-func (o *ChainSetOpts) NewTOMLChain(cfg *StarknetConfig) (starkchain.Chain, error) {
-	if !cfg.IsEnabled() {
-		return nil, errors.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
-	}
-	c, err := newChain(*cfg.ChainID, cfg, o.KeyStore, o.Configs, o.Logger)
-	if err != nil {
-		return nil, err
-	}
-	return c, nil
-}
-
 func NewChain(cfg *StarknetConfig, opts ChainSetOpts) (starkchain.Chain, error) {
 	if !cfg.IsEnabled() {
 		return nil, fmt.Errorf("cannot create new chain with ID %s: %w", *cfg.ChainID, chains.ErrChainDisabled)
@@ -67,24 +56,4 @@ func NewChain(cfg *StarknetConfig, opts ChainSetOpts) (starkchain.Chain, error) 
 		return nil, err
 	}
 	return c, nil
-}
-
-func NewChainSet(opts ChainSetOpts, cfgs StarknetConfigs) (starkchain.ChainSet, error) {
-	stkChains := map[string]starkchain.Chain{}
-	var err error
-	for _, chain := range cfgs {
-		if !chain.IsEnabled() {
-			continue
-		}
-		var err2 error
-		stkChains[*chain.ChainID], err2 = opts.NewTOMLChain(chain)
-		if err2 != nil {
-			err = multierr.Combine(err, err2)
-			continue
-		}
-	}
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to load some Solana chains")
-	}
-	return chains.NewChainSet[db.Node, starkchain.Chain](stkChains, &opts)
 }

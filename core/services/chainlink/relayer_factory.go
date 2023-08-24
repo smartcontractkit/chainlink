@@ -165,7 +165,7 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 	unique := make(map[string]struct{})
 	// create one relayer per chain id
 	for _, chainCfg := range chainCfgs {
-		relayId := relay.ID{Network: relay.Solana, ChainID: relay.ChainID(*chainCfg.ChainID)}
+		relayId := relay.ID{Network: relay.StarkNet, ChainID: relay.ChainID(*chainCfg.ChainID)}
 		_, alreadyExists := unique[relayId.Name()]
 		if alreadyExists {
 			return nil, fmt.Errorf("duplicate chain definitions for %s", relayId.Name())
@@ -255,7 +255,7 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 			return nil, fmt.Errorf("failed to load Cosmos chain %q: %w", relayId, err)
 		}
 
-		relayers[relayId] = cosmos.NewLoopRelayerSingleChain(pkgcosmos.NewRelayer(lggr, chain), chain)
+		relayers[relayId] = cosmos.NewLoopRelayerChain(pkgcosmos.NewRelayer(lggr, chain), chain)
 
 	}
 	return relayers, nil
