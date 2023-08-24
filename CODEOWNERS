@@ -78,7 +78,7 @@ contracts/test/v0.8/functions @smartcontractkit/functions
 /contracts/src/v0.8/llo-feeds @austinborn @Fletch153
 
 # Tests
-/integration-tests/ @smartcontractkit/test-tooling-team
+/integration-tests/**/*ccip* @smartcontractkit/test-tooling-team
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
 
