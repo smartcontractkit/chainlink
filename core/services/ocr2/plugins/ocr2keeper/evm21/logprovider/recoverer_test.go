@@ -435,7 +435,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				CallContextFn: func(ctx context.Context, receipt interface{}, method string, args ...interface{}) error {
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
 					return errors.New("tx receipt boom")
 				},
 			},
@@ -463,8 +463,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				CallContextFn: func(ctx context.Context, receipt interface{}, method string, args ...interface{}) error {
-					receipt = &types.Receipt{}
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
 					return nil
 				},
 			},
@@ -492,11 +491,9 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				CallContextFn: func(ctx context.Context, receipt interface{}, method string, args ...interface{}) error {
-					receipt = &types.Receipt{
-						Status:      1,
-						BlockNumber: big.NewInt(200),
-					}
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(200)
 					return nil
 				},
 			},
@@ -834,7 +831,7 @@ func (p *mockLogPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
 type mockClient struct {
 	client.Client
 	//TransactionReceiptFn func(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
-	CallContextFn func(ctx context.Context, receipt interface{}, method string, args ...interface{}) error
+	CallContextFn func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error
 }
 
 //
@@ -842,7 +839,8 @@ type mockClient struct {
 //	return c.TransactionReceiptFn(ctx, txHash)
 //}
 
-func (c *mockClient) CallContext(ctx context.Context, receipt interface{}, method string, args ...interface{}) error {
+func (c *mockClient) CallContext(ctx context.Context, r interface{}, method string, args ...interface{}) error {
+	receipt := r.(*types.Receipt)
 	return c.CallContextFn(ctx, receipt, method, args)
 }
 
