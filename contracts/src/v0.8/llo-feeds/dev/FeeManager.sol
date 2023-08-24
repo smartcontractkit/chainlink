@@ -254,9 +254,9 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     uint256 linkQuantity;
     uint256 nativeQuantity;
     uint256 expiresAt;
-    (, , , , linkQuantity, nativeQuantity, expiresAt) = abi.decode(
+    (, , , linkQuantity, nativeQuantity, expiresAt) = abi.decode(
       report,
-      (bytes32, uint32, uint32, int192, uint192, uint192, uint32)
+      (bytes32, uint32, uint32, uint192, uint192, uint32)
     );
 
     //read the timestamp bytes from the report data and verify it has not expired

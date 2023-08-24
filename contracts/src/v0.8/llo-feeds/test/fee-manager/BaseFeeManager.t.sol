@@ -178,10 +178,10 @@ contract BaseFeeManagerTest is Test {
         feedId,
         uint32(0),
         uint32(0),
-        int192(0),
         uint192(DEFAULT_REPORT_LINK_FEE),
         uint192(DEFAULT_REPORT_NATIVE_FEE),
-        uint32(block.timestamp)
+        uint32(block.timestamp),
+        int192(0)
       );
   }
 
@@ -191,7 +191,7 @@ contract BaseFeeManagerTest is Test {
     uint256 linkFee,
     uint256 nativeFee
   ) public pure returns (bytes memory) {
-    return abi.encode(feedId, uint32(0), uint32(0), int192(0), uint192(linkFee), uint192(nativeFee), uint32(expiry));
+    return abi.encode(feedId, uint32(0), uint32(0), uint192(linkFee), uint192(nativeFee), uint32(expiry), int192(0));
   }
 
   function getV2Report(bytes32 feedId) public view returns (bytes memory) {
@@ -200,10 +200,10 @@ contract BaseFeeManagerTest is Test {
         feedId,
         uint32(0),
         uint32(0),
-        int192(0),
         uint192(DEFAULT_REPORT_LINK_FEE),
         uint192(DEFAULT_REPORT_NATIVE_FEE),
         uint32(block.timestamp),
+        int192(0),
         int192(0),
         int192(0)
       );
@@ -220,10 +220,10 @@ contract BaseFeeManagerTest is Test {
         feedId,
         uint32(0),
         uint32(0),
-        int192(0),
         uint192(linkFee),
         uint192(nativeFee),
         uint32(expiry),
+        int192(0),
         int192(0),
         int192(0)
       );
