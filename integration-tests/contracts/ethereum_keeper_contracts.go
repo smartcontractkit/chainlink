@@ -507,6 +507,8 @@ func (v *EthereumKeeperRegistry) AddUpkeepFunds(id *big.Int, amount *big.Int) er
 		tx, err = v.registry1_3.AddFunds(opts, id, amount)
 	case ethereum.RegistryVersion_2_0:
 		tx, err = v.registry2_0.AddFunds(opts, id, amount)
+	case ethereum.RegistryVersion_2_1:
+		tx, err = v.registry2_1.AddFunds(opts, id, amount)
 	}
 
 	if err != nil {
@@ -882,6 +884,17 @@ func (v *EthereumKeeperRegistry) PauseUpkeep(id *big.Int) error {
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry2_1.PauseUpkeep(opts, id)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
 	default:
 		return fmt.Errorf("PauseUpkeep is not supported by keeper registry version %d", v.version)
 	}
@@ -908,6 +921,17 @@ func (v *EthereumKeeperRegistry) UnpauseUpkeep(id *big.Int) error {
 		}
 
 		tx, err := v.registry2_0.UnpauseUpkeep(opts, id)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry2_1.UnpauseUpkeep(opts, id)
 		if err != nil {
 			return err
 		}
