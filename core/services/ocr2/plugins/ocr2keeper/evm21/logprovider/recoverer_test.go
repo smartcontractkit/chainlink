@@ -258,7 +258,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 }
 
 func TestLogRecoverer_SelectFilterBatch(t *testing.T) {
-	n := (recoveryBatchSize*2 + 2)
+	n := recoveryBatchSize*2 + 2
 	filters := []upkeepFilter{}
 	for i := 0; i < n; i++ {
 		filters = append(filters, upkeepFilter{

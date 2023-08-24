@@ -449,12 +449,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			ethCalls: map[string]bool{
 				uid1.String(): true,
 			},
-			receipts: map[string]*types.Receipt{
-				//uid1.String(): {
-				//	BlockNumber: big.NewInt(550),
-				//	BlockHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
-				//},
-			},
+			receipts: map[string]*types.Receipt{},
 			ethCallErrors: map[string]error{
 				uid1.String(): fmt.Errorf("error"),
 			},
@@ -476,8 +471,19 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			for _, i := range tc.inputs {
 				uid := i.UpkeepID.String()
 				if tc.ethCalls[uid] {
-					client.On("TransactionReceipt", mock.Anything, common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651")).
-						Return(tc.receipts[uid], tc.ethCallErrors[uid])
+					var h [32]byte
+					copy(h[:], common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651").Bytes())
+					client.On("CallContext", mock.Anything, mock.Anything, "eth_getTransactionReceipt", h).
+						Return(tc.ethCallErrors[uid]).Run(func(args mock.Arguments) {
+						receipt := tc.receipts[uid]
+						if receipt != nil {
+							res := args.Get(1).(*types.Receipt)
+							res.Status = receipt.Status
+							res.TxHash = receipt.TxHash
+							res.BlockNumber = receipt.BlockNumber
+							res.BlockHash = receipt.BlockHash
+						}
+					})
 				}
 			}
 			e.client = client
