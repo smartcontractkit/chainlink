@@ -26,8 +26,6 @@ import (
 )
 
 const (
-	MaxTokensPerMessage  = 5
-	MaxMessagesPerBatch  = 256     // merkle proof bits need to fit in a uint256
 	MaxQueryLength       = 0       // empty for both plugins
 	MaxObservationLength = 250_000 // plugins's Observation should make sure to cap to this limit
 	CommitPluginLabel    = "commit"
@@ -45,7 +43,7 @@ func LoadOnRamp(onRampAddress common.Address, pluginName string, client client.C
 	if err != nil {
 		return nil, errors.Wrap(err, "Invalid onRamp contract")
 	}
-	return observability.NewObservedEVM2EVMnRamp(onRampAddress, pluginName, client)
+	return observability.NewObservedEvm2EvmOnRamp(onRampAddress, pluginName, client)
 }
 
 func LoadOnRampDynamicConfig(onRamp evm_2_evm_onramp.EVM2EVMOnRampInterface, client client.Client) (evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig, error) {
@@ -95,7 +93,7 @@ func LoadOffRamp(offRampAddress common.Address, pluginName string, client client
 	if err != nil {
 		return nil, errors.Wrap(err, "Invalid offRamp contract")
 	}
-	return observability.NewObservedEVM2EVMOffRamp(offRampAddress, pluginName, client)
+	return observability.NewObservedEvm2EvmOffRamp(offRampAddress, pluginName, client)
 }
 
 func LoadCommitStore(commitStoreAddress common.Address, pluginName string, client client.Client) (commit_store.CommitStoreInterface, error) {

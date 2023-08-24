@@ -70,13 +70,12 @@ func (d *priceGetter) TokenPricesUSD(ctx context.Context, tokens []common.Addres
 	}
 
 	priceMap := make(map[common.Address]*big.Int)
-	for addr, rawPrice := range prices {
-		addr := common.HexToAddress(addr)
+	for tokenAddress, rawPrice := range prices {
 		castedPrice, err := parseBigInt(rawPrice)
 		if err != nil {
 			return nil, err
 		}
-		priceMap[addr] = castedPrice
+		priceMap[common.HexToAddress(tokenAddress)] = castedPrice
 	}
 	// The mapping of token address to source of token price has to live offchain.
 	// Best we can do is sanity check that the token price spec covers all our desired execution token prices.
