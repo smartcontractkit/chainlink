@@ -13,7 +13,7 @@ type ObservedEVM2EVMOfframp struct {
 	metric metricDetails
 }
 
-func NewObservedEVM2EVMOffRamp(address common.Address, pluginName string, client client.Client) (*ObservedEVM2EVMOfframp, error) {
+func NewObservedEvm2EvmOffRamp(address common.Address, pluginName string, client client.Client) (*ObservedEVM2EVMOfframp, error) {
 	offRamp, err := evm_2_evm_offramp.NewEVM2EVMOffRamp(address, client)
 	if err != nil {
 		return nil, err

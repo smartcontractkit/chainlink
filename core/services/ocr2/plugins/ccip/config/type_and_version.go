@@ -17,7 +17,6 @@ var (
 	EVM2EVMOnRamp  ContractType = "EVM2EVMOnRamp"
 	EVM2EVMOffRamp ContractType = "EVM2EVMOffRamp"
 	CommitStore    ContractType = "CommitStore"
-	Router         ContractType = "Router"
 	ContractTypes               = map[ContractType]struct{}{
 		EVM2EVMOffRamp: {},
 		EVM2EVMOnRamp:  {},
