@@ -316,6 +316,70 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     bytes memory offchainConfig,
     Common.AddressAndWeight[] memory recipientAddressesAndWeights
   ) external override checkConfigValid(signers.length, f) onlyOwner {
+    _setConfig(
+      feedId,
+      block.chainid,
+      address(this),
+      signers,
+      offchainTransmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig,
+      recipientAddressesAndWeights
+    );
+  }
+
+  /// @inheritdoc IVerifier
+  function setConfigFromSource(
+    bytes32 feedId,
+    uint256 sourceChainId,
+    address sourceAddress,
+    address[] memory signers,
+    bytes32[] memory offchainTransmitters,
+    uint8 f,
+    bytes memory onchainConfig,
+    uint64 offchainConfigVersion,
+    bytes memory offchainConfig,
+    Common.AddressAndWeight[] memory recipientAddressesAndWeights
+  ) external override checkConfigValid(signers.length, f) onlyOwner {
+    _setConfig(
+      feedId,
+      sourceChainId,
+      sourceAddress,
+      signers,
+      offchainTransmitters,
+      f,
+      onchainConfig,
+      offchainConfigVersion,
+      offchainConfig,
+      recipientAddressesAndWeights
+    );
+  }
+
+  /// @notice Sets config based on the given arguments
+  /// @param feedId Feed ID to set config for
+  /// @param sourceChainId Chain ID of source config
+  /// @param sourceAddress Address of source config Verifier
+  /// @param signers addresses with which oracles sign the reports
+  /// @param offchainTransmitters CSA key for the ith Oracle
+  /// @param f number of faulty oracles the system can tolerate
+  /// @param onchainConfig serialized configuration used by the contract (and possibly oracles)
+  /// @param offchainConfigVersion version number for offchainEncoding schema
+  /// @param offchainConfig serialized configuration used by the oracles exclusively and only passed through the contract
+  /// @param recipientAddressesAndWeights the addresses and weights of all the recipients to receive rewards
+  function _setConfig(
+    bytes32 feedId,
+    uint256 sourceChainId,
+    address sourceAddress,
+    address[] memory signers,
+    bytes32[] memory offchainTransmitters,
+    uint8 f,
+    bytes memory onchainConfig,
+    uint64 offchainConfigVersion,
+    bytes memory offchainConfig,
+    Common.AddressAndWeight[] memory recipientAddressesAndWeights
+  ) internal {
     VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
 
     // Increment the number of times a config has been set first
@@ -323,6 +387,8 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
     bytes32 configDigest = _configDigestFromConfigData(
       feedId,
+      sourceChainId,
+      sourceAddress,
       feedVerifierState.configCount,
       signers,
       offchainTransmitters,
@@ -376,6 +442,9 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @notice Generates the config digest from config data
+  /// @param feedId Feed ID to set config for
+  /// @param sourceChainId Chain ID of source config
+  /// @param sourceAddress Address of source config Verifier
   /// @param configCount ordinal number of this config setting among all config settings over the life of this contract
   /// @param signers ith element is address ith oracle uses to sign a report
   /// @param offchainTransmitters ith element is address ith oracle used to transmit reports (in this case used for flexible additional field, such as CSA pub keys)
@@ -386,6 +455,8 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   /// @dev This function is a modified version of the method from OCR2Abstract
   function _configDigestFromConfigData(
     bytes32 feedId,
+    uint256 sourceChainId,
+    address sourceAddress,
     uint64 configCount,
     address[] memory signers,
     bytes32[] memory offchainTransmitters,
@@ -393,13 +464,13 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     bytes memory onchainConfig,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
-  ) internal view returns (bytes32) {
+  ) internal pure returns (bytes32) {
     uint256 h = uint256(
       keccak256(
         abi.encode(
           feedId,
-          block.chainid, // chainId
-          address(this), // contractAddress
+          sourceChainId,
+          sourceAddress,
           configCount,
           signers,
           offchainTransmitters,

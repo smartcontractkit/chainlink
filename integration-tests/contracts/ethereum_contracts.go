@@ -18,8 +18,14 @@ import (
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_client_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
@@ -37,6 +43,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
+	"strings"
 )
 
 // EthereumOracle oracle for "directrequest" job tests
@@ -1929,4 +1936,93 @@ type EthereumKeeperRegistryCheckUpkeepGasUsageWrapper struct {
 
 func (e *EthereumKeeperRegistryCheckUpkeepGasUsageWrapper) Address() string {
 	return e.address.Hex()
+}
+
+/* Functions 1_0_0 */
+
+type EthereumFunctionsRouter struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *functions_router.FunctionsRouter
+}
+
+func (e *EthereumFunctionsRouter) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string) (uint64, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return 0, err
+	}
+	tx, err := e.instance.CreateSubscriptionWithConsumer(opts, common.HexToAddress(consumer))
+	if err != nil {
+		return 0, err
+	}
+	if err := e.client.ProcessTransaction(tx); err != nil {
+		return 0, err
+	}
+	r, err := e.client.GetTxReceipt(tx.Hash())
+	if err != nil {
+		return 0, err
+	}
+	for _, l := range r.Logs {
+		log.Warn().Interface("Log", common.Bytes2Hex(l.Data)).Send()
+	}
+	topicsMap := map[string]interface{}{}
+
+	fabi, err := abi.JSON(strings.NewReader(functions_router.FunctionsRouterABI))
+	if err != nil {
+		return 0, err
+	}
+	for _, ev := range fabi.Events {
+		log.Warn().Str("EventName", ev.Name).Send()
+	}
+	topicOneInputs := abi.Arguments{fabi.Events["SubscriptionCreated"].Inputs[0]}
+	topicOneHash := []common.Hash{r.Logs[0].Topics[1:][0]}
+	if err := abi.ParseTopicsIntoMap(topicsMap, topicOneInputs, topicOneHash); err != nil {
+		return 0, errors.Wrap(err, "failed to decode topic value")
+	}
+	log.Warn().Interface("NewTopicsDecoded", topicsMap).Send()
+	if topicsMap["subscriptionId"] == 0 {
+		return 0, errors.New("failed to decode subscription ID after creation")
+	}
+	return topicsMap["subscriptionId"].(uint64), nil
+}
+
+type EthereumFunctionsCoordinator struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *functions_coordinator.FunctionsCoordinator
+}
+
+func (e *EthereumFunctionsCoordinator) Address() string {
+	return e.address.Hex()
+}
+
+type EthereumFunctionsLoadTestClient struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *functions_load_test_client.FunctionsLoadTestClient
+}
+
+func (e *EthereumFunctionsLoadTestClient) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumFunctionsLoadTestClient) SendRequest(source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := e.instance.SendRequest(opts, source, encryptedSecretsReferences, args, subscriptionId, jobId)
+	if err != nil {
+		return err
+	}
+	if err := e.client.ProcessTransaction(tx); err != nil {
+		return err
+	}
+	revertReason, _, _ := e.client.RevertReasonFromTx(tx.Hash(), functions_client_example.FunctionsClientExampleABI)
+	log.Debug().Str("RevertReason", revertReason).Send()
+	return nil
 }

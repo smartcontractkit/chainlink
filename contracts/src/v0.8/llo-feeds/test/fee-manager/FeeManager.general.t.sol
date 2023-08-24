@@ -134,4 +134,103 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //check the link available for payment is the link balance
     assertEq(feeManager.linkAvailableForPayment(), getLinkBalance(address(feeManager)));
   }
+
+  function test_payLinkDeficit() public {
+    //get the default payload
+    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+
+    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+
+    //not enough funds in the reward pool should trigger an insufficient link event
+    vm.expectEmit();
+    emit InsufficientLink(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE, DEFAULT_REPORT_NATIVE_FEE);
+
+    //process the fee
+    processFee(payload, USER, 0, ADMIN);
+
+    //double check the rewardManager balance is 0
+    assertEq(getLinkBalance(address(rewardManager)), 0);
+
+    //simulate a deposit of link to cover the deficit
+    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+
+    vm.expectEmit();
+    emit LinkDeficitCleared(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE);
+
+    //pay the deficit which will transfer link from the rewardManager to the rewardManager
+    payLinkDeficit(DEFAULT_CONFIG_DIGEST, ADMIN);
+
+    //check the rewardManager received the link
+    assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
+  }
+
+  function test_payLinkDeficitTwice() public {
+    //get the default payload
+    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+
+    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+
+    //not enough funds in the reward pool should trigger an insufficient link event
+    vm.expectEmit();
+    emit InsufficientLink(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE, DEFAULT_REPORT_NATIVE_FEE);
+
+    //process the fee
+    processFee(payload, USER, 0, ADMIN);
+
+    //double check the rewardManager balance is 0
+    assertEq(getLinkBalance(address(rewardManager)), 0);
+
+    //simulate a deposit of link to cover the deficit
+    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+
+    vm.expectEmit();
+    emit LinkDeficitCleared(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE);
+
+    //pay the deficit which will transfer link from the rewardManager to the rewardManager
+    payLinkDeficit(DEFAULT_CONFIG_DIGEST, ADMIN);
+
+    //check the rewardManager received the link
+    assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
+
+    //paying again should revert with 0
+    vm.expectRevert(ZERO_DEFICIT);
+
+    payLinkDeficit(DEFAULT_CONFIG_DIGEST, ADMIN);
+  }
+
+  function test_payLinkDeficitPaysAllFeesProcessed() public {
+    //get the default payload
+    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+
+    //approve the native to be transferred from the user
+    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * 2, USER);
+
+    //processing the fee will transfer the native from the user to the feeManager
+    processFee(payload, USER, 0, ADMIN);
+    processFee(payload, USER, 0, ADMIN);
+
+    //check the deficit has been increased twice
+    assertEq(getLinkDeficit(DEFAULT_CONFIG_DIGEST), DEFAULT_REPORT_LINK_FEE * 2);
+
+    //double check the rewardManager balance is 0
+    assertEq(getLinkBalance(address(rewardManager)), 0);
+
+    //simulate a deposit of link to cover the deficit
+    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE * 2);
+
+    vm.expectEmit();
+    emit LinkDeficitCleared(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE * 2);
+
+    //pay the deficit which will transfer link from the rewardManager to the rewardManager
+    payLinkDeficit(DEFAULT_CONFIG_DIGEST, ADMIN);
+
+    //check the rewardManager received the link
+    assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * 2);
+  }
+
+  function test_payLinkDeficitOnlyCallableByAdmin() public {
+    vm.expectRevert(ONLY_CALLABLE_BY_OWNER_ERROR);
+
+    payLinkDeficit(DEFAULT_CONFIG_DIGEST, USER);
+  }
 }

@@ -43,11 +43,12 @@ func Test_CosmosChainsController_Show(t *testing.T) {
 					Enabled: true,
 					Config: `ChainID = 'Chainlink-12'
 Enabled = true
+Bech32Prefix = 'wasm'
 BlockRate = '6s'
 BlocksUntilTxTimeout = 30
 ConfirmPollPeriod = '1s'
 FallbackGasPrice = '9.999'
-FCDURL = ''
+FeeToken = 'ucosm'
 GasLimitMultiplier = '1.55555'
 MaxMsgsPerBatch = 100
 OCR2CachePollPeriod = '4s'

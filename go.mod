@@ -67,13 +67,13 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
 	github.com/smartcontractkit/chain-selectors v1.0.1
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230811192642-2299ce672665
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230817164916-93440e96411d
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230824124058-9b063c470048 // TODO: update when https://github.com/smartcontractkit/chainlink-cosmos/pull/356 is merged
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230824125819-215fd09979a2
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230802143301-165000751a85
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230802150127-d2c95679d61a
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20230814135816-51632e392c47
 	github.com/smartcontractkit/libocr v0.0.0-20230816220705-665e93233ae5
-	github.com/smartcontractkit/ocr2keepers v0.7.16
+	github.com/smartcontractkit/ocr2keepers v0.7.17
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230823081604-f2a0e6b108bb
