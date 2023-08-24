@@ -7,10 +7,10 @@ OCR.ContractConfirmations = 1
 LogPollInterval = '30s'
 
 [Transactions]
-ResendAfterThreshold = '2m'
+ResendAfterThreshold = '3m'
 
 [GasEstimator]
-PriceMin = '50 mwei'
+PriceMin = '1 gwei'
 BumpMin = '2 gwei'
 
 [GasEstimator.BlockHistory]
