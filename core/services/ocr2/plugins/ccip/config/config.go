@@ -1,8 +1,8 @@
 package config
 
-// CommitPluginConfig contains the plugin specific variables for the ccip.CCIPCommit plugin.
+// CommitPluginJobSpecConfig contains the plugin specific variables for the ccip.CCIPCommit plugin.
 // We use ID here to keep it as general as possible, e.g. abstracting for chains which don't have an address concept.
-type CommitPluginConfig struct {
+type CommitPluginJobSpecConfig struct {
 	SourceStartBlock, DestStartBlock int64  // Only for first time job add.
 	OffRamp                          string `json:"offRamp"`
 	// TokenPricesUSDPipeline should contain a token price pipeline for the following tokens:
@@ -11,7 +11,7 @@ type CommitPluginConfig struct {
 	TokenPricesUSDPipeline string `json:"tokenPricesUSDPipeline"`
 }
 
-// ExecutionPluginConfig contains the plugin specific variables for the ccip.CCIPExecution plugin.
-type ExecutionPluginConfig struct {
+// ExecutionPluginJobSpecConfig contains the plugin specific variables for the ccip.CCIPExecution plugin.
+type ExecutionPluginJobSpecConfig struct {
 	SourceStartBlock, DestStartBlock int64 // Only for first time job add.
 }

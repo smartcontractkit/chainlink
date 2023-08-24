@@ -51,7 +51,7 @@ func TestMetricsSendFromContractDirectly(t *testing.T) {
 	evmClient.On("ConfiguredChainID").Return(big.NewInt(420), nil)
 	evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return([]byte{}, fmt.Errorf("error"))
 
-	ramp, err := NewObservedEVM2EVMOffRamp(common.HexToAddress("0xa"), "plugin", evmClient)
+	ramp, err := NewObservedEvm2EvmOffRamp(common.HexToAddress("0xa"), "plugin", evmClient)
 	require.NoError(t, err)
 
 	for i := 0; i < expectedCounter; i++ {

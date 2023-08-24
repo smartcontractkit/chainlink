@@ -8,7 +8,7 @@ import (
 )
 
 func TestCommitConfig(t *testing.T) {
-	exampleConfig := CommitPluginConfig{
+	exampleConfig := CommitPluginJobSpecConfig{
 		SourceStartBlock:       222,
 		DestStartBlock:         333,
 		OffRamp:                "0x123",
@@ -18,14 +18,14 @@ func TestCommitConfig(t *testing.T) {
 	bts, err := json.Marshal(exampleConfig)
 	require.NoError(t, err)
 
-	parsedConfig := CommitPluginConfig{}
+	parsedConfig := CommitPluginJobSpecConfig{}
 	require.NoError(t, json.Unmarshal(bts, &parsedConfig))
 
 	require.Equal(t, exampleConfig, parsedConfig)
 }
 
 func TestExecutionConfig(t *testing.T) {
-	exampleConfig := ExecutionPluginConfig{
+	exampleConfig := ExecutionPluginJobSpecConfig{
 		SourceStartBlock: 222,
 		DestStartBlock:   333,
 	}
@@ -33,7 +33,7 @@ func TestExecutionConfig(t *testing.T) {
 	bts, err := json.Marshal(exampleConfig)
 	require.NoError(t, err)
 
-	parsedConfig := ExecutionPluginConfig{}
+	parsedConfig := ExecutionPluginJobSpecConfig{}
 	require.NoError(t, json.Unmarshal(bts, &parsedConfig))
 
 	require.Equal(t, exampleConfig, parsedConfig)
