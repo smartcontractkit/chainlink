@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+...
+
+## 2.5.0 - UNRELEASED
+
 ### Upcoming Required Configuration Change
 
 - Starting in 2.6.0, chainlink nodes will no longer allow insecure configuration for production builds. Any TOML configuration that sets the following line will fail validation checks in `node start` or `node validate`:
