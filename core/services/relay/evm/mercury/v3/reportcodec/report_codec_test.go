@@ -1,41 +1,46 @@
 package reportcodec
 
 import (
-	"math"
 	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	relaymercuryv3 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v3"
 )
 
-var paos = []relaymercuryv3.ParsedAttributedObservation{
-	relaymercuryv3.NewParsedAttributedObservation(42, commontypes.OracleID(49), big.NewInt(43), big.NewInt(44), big.NewInt(45), true, 123, true, big.NewInt(143), true, big.NewInt(457), true),
-	relaymercuryv3.NewParsedAttributedObservation(142, commontypes.OracleID(149), big.NewInt(143), big.NewInt(144), big.NewInt(145), true, 455, true, big.NewInt(456), true, big.NewInt(345), true),
-	relaymercuryv3.NewParsedAttributedObservation(242, commontypes.OracleID(249), big.NewInt(243), big.NewInt(244), big.NewInt(245), true, 789, true, big.NewInt(764), true, big.NewInt(167), true),
-	relaymercuryv3.NewParsedAttributedObservation(342, commontypes.OracleID(250), big.NewInt(343), big.NewInt(344), big.NewInt(345), true, 123, true, big.NewInt(378), true, big.NewInt(643), true),
+func newValidReportFields() relaymercuryv3.ReportFields {
+	return relaymercuryv3.ReportFields{
+		Timestamp:          242,
+		BenchmarkPrice:     big.NewInt(243),
+		Bid:                big.NewInt(244),
+		Ask:                big.NewInt(245),
+		ValidFromTimestamp: 123,
+		ExpiresAt:          20,
+		LinkFee:            big.NewInt(456),
+		NativeFee:          big.NewInt(457),
+	}
 }
 
 func Test_ReportCodec_BuildReport(t *testing.T) {
 	r := ReportCodec{}
-	f := 1
 
-	t.Run("BuildReport errors if observations are empty", func(t *testing.T) {
-		ps := []relaymercuryv3.ParsedAttributedObservation{}
-		_, err := r.BuildReport(ps, f, 123, 10)
+	t.Run("BuildReport errors on zero values", func(t *testing.T) {
+		_, err := r.BuildReport(relaymercuryv3.ReportFields{})
 		require.Error(t, err)
-		assert.Contains(t, err.Error(), "cannot build report from empty attributed observation")
+		assert.Contains(t, err.Error(), "benchmarkPrice may not be nil")
+		assert.Contains(t, err.Error(), "linkFee may not be nil")
+		assert.Contains(t, err.Error(), "nativeFee may not be nil")
 	})
 
 	t.Run("BuildReport constructs a report from observations", func(t *testing.T) {
+		rf := newValidReportFields()
 		// only need to test happy path since validations are done in relaymercury
 
-		report, err := r.BuildReport(paos, f, 123, 20)
+		report, err := r.BuildReport(rf)
 		require.NoError(t, err)
 
 		reportElems := make(map[string]interface{})
@@ -71,6 +76,17 @@ func Test_ReportCodec_BuildReport(t *testing.T) {
 			assert.Equal(t, big.NewInt(456), decoded.LinkFee)
 			assert.Equal(t, big.NewInt(457), decoded.NativeFee)
 		})
+	})
+
+	t.Run("errors on negative fee", func(t *testing.T) {
+		rf := newValidReportFields()
+		rf.LinkFee = big.NewInt(-1)
+		rf.NativeFee = big.NewInt(-1)
+		_, err := r.BuildReport(rf)
+		require.Error(t, err)
+
+		assert.Contains(t, err.Error(), "linkFee may not be negative (got: -1)")
+		assert.Contains(t, err.Error(), "nativeFee may not be negative (got: -1)")
 	})
 
 	t.Run("Decode errors on invalid report", func(t *testing.T) {
@@ -115,12 +131,12 @@ func Test_ReportCodec_ObservationTimestampFromReport(t *testing.T) {
 
 		assert.Equal(t, ts, uint32(123))
 	})
-	t.Run("ObservationTimestampFromReport returns error when timestamp is too big", func(t *testing.T) {
-		report := buildSampleReport(math.MaxInt32 + 1)
+	t.Run("ObservationTimestampFromReport returns error when report is invalid", func(t *testing.T) {
+		report := []byte{1, 2, 3}
 
 		_, err := r.ObservationTimestampFromReport(report)
 		require.Error(t, err)
 
-		assert.EqualError(t, err, "timestamp overflows max uint32, got: 2147483648")
+		assert.EqualError(t, err, "failed to decode report: abi: cannot marshal in to go type: length insufficient 3 require 32")
 	})
 }
