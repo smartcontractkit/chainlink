@@ -502,6 +502,9 @@ func (opts *ChainRelayExtenderConfig) Check() error {
 		return errors.New("config must be non-nil")
 	}
 
-	opts.operationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](opts.AppConfig.EVMConfigs())
+	opts.init.Do(func() {
+		opts.operationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](opts.AppConfig.EVMConfigs())
+	})
+
 	return nil
 }

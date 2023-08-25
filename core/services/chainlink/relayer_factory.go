@@ -108,9 +108,10 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 		if cmdName := env.SolanaPluginCmd.Get(); cmdName != "" {
 
 			// setup the solana relayer to be a LOOP
-			tomls, err := toml.Marshal(struct {
-				Solana solana.SolanaConfigs
-			}{Solana: singleChainCfg})
+			cfgTOML, err := toml.Marshal(struct {
+				Solana solana.SolanaConfig
+			}{Solana: *chainCfg})
+
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal Solana configs: %w", err)
 			}
@@ -123,7 +124,7 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 				return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
 			}
 			// TODO change the solana loop toml deserializer so we can get rid of the singleChainCfg
-			solanaRelayers[relayId] = loop.NewRelayerService(solLggr, r.GRPCOpts, solCmdFn, string(tomls), signer)
+			solanaRelayers[relayId] = loop.NewRelayerService(solLggr, r.GRPCOpts, solCmdFn, string(cfgTOML), signer)
 
 		} else {
 			// fallback to embedded chain
@@ -183,9 +184,9 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 
 		if cmdName := env.StarknetPluginCmd.Get(); cmdName != "" {
 			// setup the starknet relayer to be a LOOP
-			tomls, err := toml.Marshal(struct {
-				Starknet starknet.StarknetConfigs
-			}{Starknet: singleChainCfg})
+			cfgTOML, err := toml.Marshal(struct {
+				Starknet starknet.StarknetConfig
+			}{Starknet: *chainCfg})
 			if err != nil {
 				return nil, fmt.Errorf("failed to marshal StarkNet configs: %w", err)
 			}
@@ -199,7 +200,7 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 			}
 			// the starknet relayer service has a delicate keystore dependency. the value that is passed to NewRelayerService must
 			// be compatible with instantiating a starknet transaction manager KeystoreAdapter within the LOOPp executable.
-			starknetRelayers[relayId] = loop.NewRelayerService(starkLggr, r.GRPCOpts, starknetCmdFn, string(tomls), loopKs)
+			starknetRelayers[relayId] = loop.NewRelayerService(starkLggr, r.GRPCOpts, starknetCmdFn, string(cfgTOML), loopKs)
 		} else {
 			// fallback to embedded chainset
 			opts := starknet.ChainSetOpts{

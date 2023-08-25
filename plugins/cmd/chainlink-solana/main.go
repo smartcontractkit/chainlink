@@ -60,7 +60,7 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, keystore 
 	}
 
 	if err := d.Decode(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to decode config toml: %w", err)
+		return nil, fmt.Errorf("failed to decode config toml [%q]: %w", config, err)
 	}
 
 	// TODO clean this up when the internal details of Solana Chain construction
