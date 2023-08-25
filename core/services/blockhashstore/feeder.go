@@ -92,7 +92,7 @@ func (f *Feeder) Run(ctx context.Context) error {
 		if len(unfulfilledReqs) == 0 {
 			continue
 		} else {
-			lggr.Infow("found unfulfilled requests", "block", block, "numUnfulfilled", len(unfulfilledReqs))
+			lggr.Debugw("found unfulfilled requests", "block", block, "numUnfulfilled", len(unfulfilledReqs))
 		}
 		if _, ok := f.stored[block]; ok {
 			// Already stored
