@@ -14,12 +14,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
 
-func TestUtil_GetTxBlock(t *testing.T) {
+func TestUtils_GetTxBlock(t *testing.T) {
 	tests := []struct {
 		name         string
 		txHash       common.Hash
 		ethCallError error
 		receipt      *types.Receipt
+		status       uint64
 	}{
 		{
 			name:   "success",
@@ -28,11 +29,20 @@ func TestUtil_GetTxBlock(t *testing.T) {
 				Status:      1,
 				BlockNumber: big.NewInt(2000),
 			},
+			status: 1,
 		},
 		{
 			name:         "failure - eth call error",
 			txHash:       common.HexToHash("0xc48fbf05edaf18f6aaa7de24de28528546b874bb03728d624ca407b8fed582a3"),
 			ethCallError: fmt.Errorf("eth call failed"),
+		},
+		{
+			name:   "failure - tx does not exist",
+			txHash: common.HexToHash("0xc48fbf05edaf18f6aaa7de24de28528546b874bb03728d624ca407b8fed582a3"),
+			receipt: &types.Receipt{
+				Status: 0,
+			},
+			status: 0,
 		},
 	}
 
@@ -56,6 +66,7 @@ func TestUtil_GetTxBlock(t *testing.T) {
 		if tt.ethCallError != nil {
 			assert.Equal(t, tt.ethCallError, err)
 		} else {
+			assert.Equal(t, tt.status, tt.receipt.Status)
 			assert.Equal(t, tt.receipt.BlockNumber, bn)
 			assert.Equal(t, tt.receipt.BlockHash, bh)
 		}
