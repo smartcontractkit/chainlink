@@ -98,7 +98,7 @@ func (s *ChainRelayerExt) GetChainStatus(ctx context.Context) (relaytypes.ChainS
 	return s.chain.GetChainStatus(ctx)
 }
 
-func (s *ChainRelayerExt) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error) {
+func (s *ChainRelayerExt) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, total int, err error) {
 	return s.chain.ListNodeStatuses(ctx, page_size, page_token)
 }
 
@@ -165,19 +165,19 @@ func (s *ChainRelayerExt) ChainStatuses(ctx context.Context, offset, limit int) 
 
 }
 
-func (s *ChainRelayerExt) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, count int, err error) {
+func (s *ChainRelayerExt) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, total int, err error) {
 	if len(chainIDs) > 1 {
-		return nil, -1, fmt.Errorf("single chain chain set only support one chain id. got %v", chainIDs)
+		return nil, 0, fmt.Errorf("single chain chain set only support one chain id. got %v", chainIDs)
 	}
 	cid := chainIDs[0]
 	if cid != s.chain.ID().String() {
-		return nil, -1, fmt.Errorf("unknown chain id %s. expected %s", cid, s.chain.ID())
+		return nil, 0, fmt.Errorf("unknown chain id %s. expected %s", cid, s.chain.ID())
 	}
 	// TODO implement count properly
 	// TODO need to get the count
-	nodes, _, err = s.ListNodeStatuses(ctx, int32(limit), "")
+	nodes, _, total, err = s.ListNodeStatuses(ctx, int32(limit), "")
 	if err != nil {
-		return nil, -1, err
+		return nil, 0, err
 	}
 	if len(nodes) < offset {
 		return []relaytypes.NodeStatus{}, 0, fmt.Errorf("out of range")
@@ -187,7 +187,7 @@ func (s *ChainRelayerExt) NodeStatuses(ctx context.Context, offset, limit int, c
 	} else if len(nodes) < limit {
 		limit = len(nodes)
 	}
-	return nodes[offset:limit], 0, nil
+	return nodes[offset:limit], total, nil
 
 }
 

@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -357,26 +356,6 @@ func (c *CosmosConfig) OCR2CacheTTL() time.Duration {
 
 func (c *CosmosConfig) TxMsgTimeout() time.Duration {
 	return c.Chain.TxMsgTimeout.Duration()
-}
-
-func (c *CosmosConfig) ListNodeStatuses(start, end int) ([]relaytypes.NodeStatus, int, error) {
-	stats := make([]relaytypes.NodeStatus, 0)
-	total := len(c.Nodes)
-	if start >= total {
-		return stats, total, internal.ErrOutOfRange
-	}
-	if end > total {
-		end = total
-	}
-	nodes := c.Nodes[start:end]
-	for _, node := range nodes {
-		stat, err := nodeStatus(node, *c.ChainID)
-		if err != nil {
-			return stats, total, err
-		}
-		stats = append(stats, stat)
-	}
-	return stats, total, nil
 }
 
 func sdkDecFromDecimal(d *decimal.Decimal) sdk.Dec {

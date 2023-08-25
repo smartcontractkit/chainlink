@@ -85,7 +85,7 @@ func NewRelayExtender(cfg *StarknetConfig, opts ChainSetOpts) (*RelayExtender, e
 func (r *RelayExtender) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
 	return r.chainImpl.GetChainStatus(ctx)
 }
-func (r *RelayExtender) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error) {
+func (r *RelayExtender) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, total int, err error) {
 	return r.chainImpl.ListNodeStatuses(ctx, page_size, page_token)
 }
 func (r *RelayExtender) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {

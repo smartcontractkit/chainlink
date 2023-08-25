@@ -104,21 +104,11 @@ func (c ChainID) Int64() (int64, error) {
 
 // RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a ChainSet. See [relayerAdapter].
 type RelayerExt interface {
-	/*
-		services.ServiceCtx
-
-		ChainStatus(ctx context.Context, id string) (types.ChainStatus, error)
-		ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
-
-		NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error)
-
-		SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
-	*/
 	types.ChainService
 	// TODO remove after BFC-2441
 	ID() string
 	GetChainStatus(ctx context.Context) (types.ChainStatus, error)
-	ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []types.NodeStatus, next_page_token string, err error)
+	ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []types.NodeStatus, next_page_token string, total int, err error)
 	// choose different name than SendTx to avoid collison during refactor.
 	Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
@@ -195,17 +185,17 @@ func (r *relayerAdapter) ChainStatuses(ctx context.Context, offset, limit int) (
 	return []types.ChainStatus{stat}, 1, nil
 }
 
-func (r *relayerAdapter) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error) {
+func (r *relayerAdapter) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, total int, err error) {
 	if len(chainIDs) > 1 {
-		return nil, -1, fmt.Errorf("internal error: node statuses expects at most one chain id got %v", chainIDs)
+		return nil, 0, fmt.Errorf("internal error: node statuses expects at most one chain id got %v", chainIDs)
 	}
 	if len(chainIDs) == 1 && chainIDs[0] != r.ext.ID() {
-		return nil, -1, fmt.Errorf("node statuses unexpected chain id got %s want %s", chainIDs[0], r.ID())
+		return nil, 0, fmt.Errorf("node statuses unexpected chain id got %s want %s", chainIDs[0], r.ID())
 	}
-	// TODO need to get the count
-	nodes, _, err = r.ext.ListNodeStatuses(ctx, int32(limit), "")
+
+	nodes, _, total, err = r.ext.ListNodeStatuses(ctx, int32(limit), "")
 	if err != nil {
-		return nil, -1, err
+		return nil, 0, err
 	}
 	if len(nodes) < offset {
 		return []types.NodeStatus{}, 0, fmt.Errorf("out of range")
@@ -215,7 +205,7 @@ func (r *relayerAdapter) NodeStatuses(ctx context.Context, offset, limit int, ch
 	} else if len(nodes) < limit {
 		limit = len(nodes)
 	}
-	return nodes[offset:limit], 0, nil
+	return nodes[offset:limit], total, nil
 }
 
 func (r *relayerAdapter) SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error {
@@ -226,14 +216,14 @@ func (r *relayerAdapter) SendTx(ctx context.Context, chainID, from, to string, a
 }
 
 func (r *relayerAdapter) ID() string {
-	return "TODO"
+	return r.ext.ID()
 }
 
 func (r *relayerAdapter) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
 	return r.ext.GetChainStatus(ctx)
 }
 
-func (r *relayerAdapter) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []types.NodeStatus, next_page_token string, err error) {
+func (r *relayerAdapter) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []types.NodeStatus, next_page_token string, total int, err error) {
 	return r.ext.ListNodeStatuses(ctx, page_size, page_token)
 }
 

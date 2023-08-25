@@ -97,7 +97,7 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 		unique[relayId.Name()] = struct{}{}
 
 		// skip disabled chains from further processing
-		if chainCfg.IsEnabled() {
+		if !chainCfg.IsEnabled() {
 			solLggr.Warnw("Skipping disabled chain", "id", chainCfg.ChainID)
 			continue
 		}
@@ -173,7 +173,7 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 		unique[relayId.Name()] = struct{}{}
 
 		// skip disabled chains from further processing
-		if chainCfg.IsEnabled() {
+		if !chainCfg.IsEnabled() {
 			starkLggr.Warnw("Skipping disabled chain", "id", chainCfg.ChainID)
 			continue
 		}

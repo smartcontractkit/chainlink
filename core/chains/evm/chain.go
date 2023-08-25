@@ -58,9 +58,10 @@ type Chain interface {
 	GasEstimator() gas.EvmFeeEstimator
 
 	// TODO remove after BCF-2441
-
+	// This funcs are implemented now in preparation the interface change, which is expected
+	// to absorb these definitions into [types.ChainService]
 	GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error)
-	ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error)
+	ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, total int, err error)
 	Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
@@ -136,7 +137,7 @@ func (c *LegacyChains) Get(id string) (Chain, error) {
 type chain struct {
 	utils.StartStopOnce
 	id              *big.Int
-	cfg             *evmconfig.ChainScoped //evmconfig.ChainScopedConfig
+	cfg             *evmconfig.ChainScoped
 	client          evmclient.Client
 	txm             txmgr.TxManager
 	logger          logger.Logger
@@ -405,11 +406,12 @@ func (c *chain) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
 	}
 	return types.ChainStatus{
 		ID:      c.ID().String(),
-		Enabled: c.cfg.EVMEnabled(), // TODO is this the correct check? given that we have 1:1 relayer: chain can there be a disabled chain? or only non-existent relayer?
+		Enabled: c.cfg.EVMEnabled(),
 		Config:  toml,
 	}, nil
 }
 
+// TODO BCF-2602 statuses are static for non-evm chain and should be dynamic
 func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error) {
 	nodes := c.cfg.Nodes()
 	total := len(nodes)
@@ -443,15 +445,14 @@ func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error
 		stats = append(stats, types.NodeStatus{
 			ChainID: c.ID().String(),
 			Name:    *n.Name,
-			Config:  string(toml), //TODO what is this supposed to be? i haven't found any toml definition of a node
+			Config:  string(toml),
 			State:   nodeState,
 		})
 	}
 	return stats, total, nil
 }
 
-func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []types.NodeStatus, next_page_token string, err error) {
-
+func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []types.NodeStatus, next_page_token string, total int, err error) {
 	return internal.ListNodeStatuses(int(page_size), page_token, c.listNodeStatuses)
 }
 

@@ -46,7 +46,8 @@ type chain struct {
 	id  string
 	cfg *CosmosConfig
 	txm *cosmostxm.Txm
-	// TODO remove this dep
+	// TODO remove this dep after BCF-2441
+	// cfs implements the loop.Relayer interface that will be removed
 	cfgs types.Configs
 	lggr logger.Logger
 }
@@ -170,8 +171,8 @@ func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, err
 		Config:  toml,
 	}, nil
 }
-func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error) {
-	return internal.ListNodeStatuses(int(page_size), page_token, c.cfg.ListNodeStatuses)
+func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, total int, err error) {
+	return internal.ListNodeStatuses(int(page_size), page_token, c.listNodeStatuses)
 }
 
 func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
@@ -180,4 +181,25 @@ func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, 
 
 func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return c.Transact(ctx, from, to, amount, balanceCheck)
+}
+
+// TODO BCF-2602 statuses are static for non-evm chain and should be dynamic
+func (c *chain) listNodeStatuses(start, end int) ([]relaytypes.NodeStatus, int, error) {
+	stats := make([]relaytypes.NodeStatus, 0)
+	total := len(c.cfg.Nodes)
+	if start >= total {
+		return stats, total, internal.ErrOutOfRange
+	}
+	if end > total {
+		end = total
+	}
+	nodes := c.cfg.Nodes[start:end]
+	for _, node := range nodes {
+		stat, err := nodeStatus(node, c.id)
+		if err != nil {
+			return stats, total, err
+		}
+		stats = append(stats, stat)
+	}
+	return stats, total, nil
 }

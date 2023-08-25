@@ -205,20 +205,40 @@ func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, err
 	}, nil
 }
 
-func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error) {
-	return internal.ListNodeStatuses(int(page_size), page_token, c.cfg.ListNodeStatuses)
+func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, total int, err error) {
+	return internal.ListNodeStatuses(int(page_size), page_token, c.listNodeStatuses)
 }
 
 func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	panic("unimplmented")
 }
 
-func (c *chain) ID() string {
-	return c.id
+func (c *chain) listNodeStatuses(start, end int) ([]relaytypes.NodeStatus, int, error) {
+	stats := make([]relaytypes.NodeStatus, 0)
+	total := len(c.cfg.Nodes)
+	if start >= total {
+		return stats, total, internal.ErrOutOfRange
+	}
+	if end > total {
+		end = total
+	}
+	nodes := c.cfg.Nodes[start:end]
+	for _, node := range nodes {
+		stat, err := nodeStatus(node, c.id)
+		if err != nil {
+			return stats, total, err
+		}
+		stats = append(stats, stat)
+	}
+	return stats, total, nil
 }
 
 func (c *chain) Name() string {
 	return c.lggr.Name()
+}
+
+func (c *chain) ID() string {
+	return c.id
 }
 
 func (c *chain) Config() config.Config {
@@ -425,7 +445,7 @@ func NewRelayExtender(cfg *SolanaConfig, opts ChainSetOpts) (*RelayExtender, err
 func (r *RelayExtender) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
 	return r.chainImpl.GetChainStatus(ctx)
 }
-func (r *RelayExtender) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, err error) {
+func (r *RelayExtender) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, total int, err error) {
 	return r.chainImpl.ListNodeStatuses(ctx, page_size, page_token)
 }
 func (r *RelayExtender) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {

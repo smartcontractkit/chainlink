@@ -205,13 +205,14 @@ func (_m *Chain) ID() *big.Int {
 }
 
 // ListNodeStatuses provides a mock function with given fields: ctx, page_size, page_token
-func (_m *Chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) ([]types.NodeStatus, string, error) {
+func (_m *Chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) ([]types.NodeStatus, string, int, error) {
 	ret := _m.Called(ctx, page_size, page_token)
 
 	var r0 []types.NodeStatus
 	var r1 string
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, int32, string) ([]types.NodeStatus, string, error)); ok {
+	var r2 int
+	var r3 error
+	if rf, ok := ret.Get(0).(func(context.Context, int32, string) ([]types.NodeStatus, string, int, error)); ok {
 		return rf(ctx, page_size, page_token)
 	}
 	if rf, ok := ret.Get(0).(func(context.Context, int32, string) []types.NodeStatus); ok {
@@ -228,13 +229,19 @@ func (_m *Chain) ListNodeStatuses(ctx context.Context, page_size int32, page_tok
 		r1 = ret.Get(1).(string)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, int32, string) error); ok {
+	if rf, ok := ret.Get(2).(func(context.Context, int32, string) int); ok {
 		r2 = rf(ctx, page_size, page_token)
 	} else {
-		r2 = ret.Error(2)
+		r2 = ret.Get(2).(int)
 	}
 
-	return r0, r1, r2
+	if rf, ok := ret.Get(3).(func(context.Context, int32, string) error); ok {
+		r3 = rf(ctx, page_size, page_token)
+	} else {
+		r3 = ret.Error(3)
+	}
+
+	return r0, r1, r2, r3
 }
 
 // LogBroadcaster provides a mock function with given fields:

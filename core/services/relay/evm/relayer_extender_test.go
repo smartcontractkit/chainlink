@@ -79,11 +79,11 @@ func TestChainRelayExtenders(t *testing.T) {
 	nstats, cnt, err := relayExt.NodeStatuses(testutils.Context(t), 0, 0, cltest.FixtureChainID.String(), "error, only one chain supported")
 	assert.Error(t, err)
 	assert.Nil(t, nstats)
-	assert.Equal(t, -1, cnt)
+	assert.Equal(t, 0, cnt)
 
 	nstats, cnt, err = relayExt.NodeStatuses(testutils.Context(t), 0, 0, "not the chain id")
 	assert.Error(t, err)
 	assert.Nil(t, nstats)
-	assert.Equal(t, -1, cnt)
+	assert.Equal(t, 0, cnt)
 
 }

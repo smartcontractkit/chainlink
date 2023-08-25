@@ -16,7 +16,6 @@ import (
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -369,26 +368,6 @@ func (c *SolanaConfig) ComputeUnitPriceDefault() uint64 {
 
 func (c *SolanaConfig) FeeBumpPeriod() time.Duration {
 	return c.Chain.FeeBumpPeriod.Duration()
-}
-
-func (c *SolanaConfig) ListNodeStatuses(start, end int) ([]relaytypes.NodeStatus, int, error) {
-	stats := make([]relaytypes.NodeStatus, 0)
-	total := len(c.Nodes)
-	if start >= total {
-		return stats, total, internal.ErrOutOfRange
-	}
-	if end > total {
-		end = total
-	}
-	nodes := c.Nodes[start:end]
-	for _, node := range nodes {
-		stat, err := nodeStatus(node, *c.ChainID)
-		if err != nil {
-			return stats, total, err
-		}
-		stats = append(stats, stat)
-	}
-	return stats, total, nil
 }
 
 // Configs manages solana chains and nodes.
