@@ -19,13 +19,13 @@ var (
 	ErrCreatingProvingKey     = "error creating a keyHash from the proving key"
 	ErrRegisterProvingKey     = "error registering proving keys"
 	ErrEncodingProvingKey     = "error encoding proving key"
-	ErrCreatingVRFv2Key       = "error creating VRFv2 key"
+	ErrCreatingVRFv2PlusKey       = "error creating VRFv2Plus key"
 	ErrDeployBlockHashStore   = "error deploying blockhash store"
-	ErrDeployCoordinator      = "error deploying VRFv2 CoordinatorV2"
-	ErrAdvancedConsumer       = "error deploying VRFv2 Advanced Consumer"
+	ErrDeployCoordinator      = "error deploying VRF CoordinatorV2Plus"
+	ErrAdvancedConsumer       = "error deploying VRFv2Plus Advanced Consumer"
 	ErrABIEncodingFunding     = "error Abi encoding subscriptionID"
 	ErrSendingLinkToken       = "error sending Link token"
-	ErrCreatingVRFv2Job       = "error creating VRFv2 job"
+	ErrCreatingVRFv2PlusJob       = "error creating VRFv2Plus job"
 	ErrParseJob               = "error parsing job definition"
 )
 
