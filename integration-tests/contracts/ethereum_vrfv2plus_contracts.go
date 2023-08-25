@@ -18,14 +18,14 @@ type EthereumVRFCoordinatorV2Plus struct {
 	coordinator *vrf_coordinator_v2plus.VRFCoordinatorV2Plus
 }
 
-// EthereumVRFv2LoadTestConsumer represents VRFv2 consumer contract for performing Load Tests
+// EthereumVRFv2PlusLoadTestConsumer represents VRFv2Plus consumer contract for performing Load Tests
 type EthereumVRFv2PlusLoadTestConsumer struct {
 	address  *common.Address
 	client   blockchain.EVMClient
 	consumer *vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetrics
 }
 
-// DeployVRFCoordinatorV2 deploys VRFV2 coordinator contract
+// DeployVRFCoordinatorV2Plus deploys VRFV2Plus coordinator contract
 func (e *EthereumContractDeployer) DeployVRFCoordinatorV2Plus(bhsAddr string) (VRFCoordinatorV2Plus, error) {
 	address, _, instance, err := e.client.DeployContract("VRFCoordinatorV2Plus", func(
 		auth *bind.TransactOpts,
