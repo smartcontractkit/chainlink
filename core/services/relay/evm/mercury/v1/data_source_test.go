@@ -49,7 +49,7 @@ func (m *mockFetcher) LatestPrice(ctx context.Context, feedID [32]byte) (*big.In
 	return nil, nil
 }
 
-func (m *mockFetcher) LatestTimestamp(context.Context) (uint32, error) {
+func (m *mockFetcher) LatestTimestamp(context.Context) (int64, error) {
 	return 0, nil
 }
 
