@@ -250,14 +250,14 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     uint32 observationsTimestamp;
     // The timestamp the report is valid from
     uint32 validFromTimestamp;
-    // The median value agreed in an OCR round
-    int192 benchmarkPrice;
     // The link fee
     uint192 linkFee;
     // The native fee
     uint192 nativeFee;
     // The expiry of the report
     uint32 expiresAt;
+    // The median value agreed in an OCR round
+    int192 benchmarkPrice;
     // The best bid value agreed in an OCR round
     int192 bid;
     // The best ask value agreed in an OCR round
@@ -307,10 +307,10 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
         report.feedId,
         report.observationsTimestamp,
         report.validFromTimestamp,
-        report.benchmarkPrice,
         report.linkFee,
         report.nativeFee,
         report.expiresAt,
+        report.benchmarkPrice,
         report.bid,
         report.ask
       );
@@ -342,10 +342,10 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
         feedId: FEED_ID_V3,
         observationsTimestamp: OBSERVATIONS_TIMESTAMP,
         validFromTimestamp: uint32(block.timestamp),
-        benchmarkPrice: MEDIAN,
         linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
         nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
         expiresAt: uint32(block.timestamp),
+        benchmarkPrice: MEDIAN,
         bid: BID,
         ask: ASK
       });
