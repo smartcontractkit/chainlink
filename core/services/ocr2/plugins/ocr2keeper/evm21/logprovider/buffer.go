@@ -237,10 +237,6 @@ func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit int) []fetch
 		b.blocks[b.blockNumberIndex(block.blockNumber)] = block
 	}
 
-	sort.SliceStable(results, func(i, j int) bool {
-		return results[i].log.BlockNumber < results[j].log.BlockNumber
-	})
-
 	if len(results) > 0 {
 		b.lggr.Debugw("Dequeued logs", "results", len(results), "start", start, "end", end)
 	}
