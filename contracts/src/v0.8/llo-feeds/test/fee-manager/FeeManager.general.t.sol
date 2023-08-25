@@ -146,7 +146,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     emit InsufficientLink(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE, DEFAULT_REPORT_NATIVE_FEE);
 
     //process the fee
-    processFee(payload, USER, 0, ADMIN);
+    processFee(payload, USER, 0);
 
     //double check the rewardManager balance is 0
     assertEq(getLinkBalance(address(rewardManager)), 0);
@@ -175,7 +175,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     emit InsufficientLink(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE, DEFAULT_REPORT_NATIVE_FEE);
 
     //process the fee
-    processFee(payload, USER, 0, ADMIN);
+    processFee(payload, USER, 0);
 
     //double check the rewardManager balance is 0
     assertEq(getLinkBalance(address(rewardManager)), 0);
@@ -206,8 +206,8 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * 2, USER);
 
     //processing the fee will transfer the native from the user to the feeManager
-    processFee(payload, USER, 0, ADMIN);
-    processFee(payload, USER, 0, ADMIN);
+    processFee(payload, USER, 0);
+    processFee(payload, USER, 0);
 
     //check the deficit has been increased twice
     assertEq(getLinkDeficit(DEFAULT_CONFIG_DIGEST), DEFAULT_REPORT_LINK_FEE * 2);
