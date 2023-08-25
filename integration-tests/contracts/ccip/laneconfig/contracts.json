@@ -2,7 +2,6 @@
   "lane_configs": {
     "Ethereum Mainnet": {
       "fee_token": "0x514910771AF9Ca656af840dff83E8264EcF986CA",
-      "fee_token_pool": "0xC2291992A08eBFDfedfE248F2CCD34Da63570DF4",
       "bridge_tokens": [
         "0x514910771AF9Ca656af840dff83E8264EcF986CA"
       ],
@@ -57,7 +56,6 @@
     },
     "Optimism Mainnet": {
       "fee_token": "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6",
-      "fee_token_pool": "0x841b32B5309ba30cFbf4534667fC3D99EdF05B7A",
       "bridge_tokens": [
         "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6"
       ],
@@ -85,7 +83,6 @@
     },
     "Arbitrum Mainnet": {
       "fee_token": "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
-      "fee_token_pool": "",
       "bridge_tokens": [
         "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4"
       ],
@@ -112,7 +109,6 @@
     },
     "Polygon Mainnet": {
       "fee_token": "0xb0897686c545045aFc77CF20eC7A532E3120E0F1",
-      "fee_token_pool": "0x086892015567fb8764d02c6845C85C25C8FcA389",
       "bridge_tokens": [
         "0xb0897686c545045aFc77CF20eC7A532E3120E0F1"
       ],
@@ -149,7 +145,6 @@
     },
     "Avalanche Mainnet": {
       "fee_token": "0x5947BB275c521040051D82396192181b413227A3",
-      "fee_token_pool": "0x8A3e8D8614189d7ad0CF3f1a0D787Da79eBCEc17",
       "bridge_tokens": [
         "0x5947BB275c521040051D82396192181b413227A3"
       ],
@@ -186,7 +181,6 @@
     },
     "Avalanche Fuji": {
       "fee_token": "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846",
-      "fee_token_pool": "0x658af0d8ecbb13c5fd5b545ac7316e50cc07cf6e",
       "bridge_tokens": [
         "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
       ],
@@ -232,7 +226,6 @@
     },
     "Sepolia Testnet": {
       "fee_token": "0x779877A7B0D9E8603169DdbD7836e478b4624789",
-      "fee_token_pool": "0x5344b4bf5ae39038a591866d2853b2b1db622911",
       "bridge_tokens": [
         "0x779877A7B0D9E8603169DdbD7836e478b4624789"
       ],
@@ -287,7 +280,6 @@
     },
     "Optimism Goerli": {
       "fee_token": "0xdc2CC710e42857672E7907CF474a69B63B93089f",
-      "fee_token_pool": "0xdecfaf632175915bdf38c00d9d9746e8a90a56c4",
       "bridge_tokens": [
         "0xdc2CC710e42857672E7907CF474a69B63B93089f"
       ],
@@ -333,7 +325,6 @@
     },
     "Arbitrum Goerli" : {
       "fee_token": "0xd14838A68E8AFBAdE5efb411d5871ea0011AFd28",
-      "fee_token_pool": "0x044a6b4b561af69d2319a2f4be5ec327a6975d0a",
       "bridge_tokens": [
         "0xd14838A68E8AFBAdE5efb411d5871ea0011AFd28"
       ],
@@ -370,7 +361,6 @@
     },
     "Polygon Mumbai" : {
       "fee_token": "0x326C977E6efc84E512bB9C30f76E30c160eD06FB",
-      "fee_token_pool": "0x6fce09b2e74f649a4494a1844219cb0d86cfe8b7",
       "bridge_tokens": [
         "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
       ],

@@ -91,7 +91,6 @@ type CCIPCommon struct {
 	ChainClient        blockchain.EVMClient
 	Deployer           *ccip.CCIPContractsDeployer
 	FeeToken           *ccip.LinkToken
-	FeeTokenPool       *ccip.LockReleaseTokenPool
 	BridgeTokens       []*ccip.ERC20Token // as of now considering the bridge token is same as link token
 	TokenPrices        []*big.Int
 	BridgeTokenPools   []*ccip.LockReleaseTokenPool
@@ -126,14 +125,11 @@ func (ccipModule *CCIPCommon) CopyAddresses(ctx context.Context, chainClient blo
 			EthAddress: ccipModule.FeeToken.EthAddress,
 		},
 		ExistingDeployment: existingDeployment,
-		FeeTokenPool: &ccip.LockReleaseTokenPool{
-			EthAddress: ccipModule.FeeTokenPool.EthAddress,
-		},
-		BridgeTokens:      tokens,
-		TokenPrices:       ccipModule.TokenPrices,
-		BridgeTokenPools:  pools,
-		RateLimiterConfig: ccipModule.RateLimiterConfig,
-		ARMContract:       ccipModule.ARMContract,
+		BridgeTokens:       tokens,
+		TokenPrices:        ccipModule.TokenPrices,
+		BridgeTokenPools:   pools,
+		RateLimiterConfig:  ccipModule.RateLimiterConfig,
+		ARMContract:        ccipModule.ARMContract,
 		Router: &ccip.Router{
 			EthAddress: ccipModule.Router.EthAddress,
 		},
@@ -161,11 +157,7 @@ func (ccipModule *CCIPCommon) LoadContractAddresses(conf *laneconfig.LaneConfig)
 				EthAddress: common.HexToAddress("0x0"),
 			}
 		}
-		if common.IsHexAddress(conf.FeeTokenPool) {
-			ccipModule.FeeTokenPool = &ccip.LockReleaseTokenPool{
-				EthAddress: common.HexToAddress(conf.FeeTokenPool),
-			}
-		}
+
 		if common.IsHexAddress(conf.Router) {
 			ccipModule.Router = &ccip.Router{
 				EthAddress: common.HexToAddress(conf.Router),
@@ -308,19 +300,6 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 			return fmt.Errorf("getting fee token contract shouldn't fail %+v", err)
 		}
 		ccipModule.FeeToken = token
-	}
-	if ccipModule.FeeTokenPool == nil {
-		// token pool for fee token
-		ccipModule.FeeTokenPool, err = cd.DeployLockReleaseTokenPoolContract(ccipModule.FeeToken.Address(), *ccipModule.ARMContract)
-		if err != nil {
-			return fmt.Errorf("deploying fee Token pool shouldn't fail %+v", err)
-		}
-	} else {
-		pool, err := cd.NewLockReleaseTokenPoolContract(ccipModule.FeeTokenPool.EthAddress)
-		if err != nil {
-			return fmt.Errorf("getting new fee token pool contract shouldn't fail %+v", err)
-		}
-		ccipModule.FeeTokenPool = pool
 	}
 
 	if len(ccipModule.BridgeTokens) == 0 {
@@ -567,15 +546,6 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 				DestGasOverhead: 34_000,
 			})
 		}
-		tokensAndPools = append(tokensAndPools, evm_2_evm_onramp.InternalPoolUpdate{
-			Token: common.HexToAddress(sourceCCIP.Common.FeeToken.Address()),
-			Pool:  sourceCCIP.Common.FeeTokenPool.EthAddress,
-		})
-		tokenTransferFeeConfig = append(tokenTransferFeeConfig, evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
-			Token:           common.HexToAddress(sourceCCIP.Common.FeeToken.Address()),
-			Ratio:           1,
-			DestGasOverhead: 34_000,
-		})
 
 		sourceCCIP.SrcStartBlock, err = sourceCCIP.Common.ChainClient.LatestBlockNumber(context.Background())
 		if err != nil {
@@ -641,10 +611,6 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 			if err != nil {
 				return fmt.Errorf("setting OnRamp on the bridge token pool shouldn't fail %+v", err)
 			}
-		}
-		err = sourceCCIP.Common.FeeTokenPool.SetOnRamp(sourceCCIP.OnRamp.EthAddress)
-		if err != nil {
-			return fmt.Errorf("setting OnRamp on the fee token pool shouldn't fail %+v", err)
 		}
 
 		err = sourceCCIP.Common.ChainClient.WaitForEvents()
@@ -1054,7 +1020,6 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 	for _, token := range sourceCCIP.Common.BridgeTokens {
 		sourceTokens = append(sourceTokens, common.HexToAddress(token.Address()))
 	}
-	sourceTokens = append(sourceTokens, common.HexToAddress(sourceCCIP.Common.FeeToken.Address()))
 
 	for i, token := range destCCIP.Common.BridgeTokens {
 		destTokens = append(destTokens, common.HexToAddress(token.Address()))
@@ -1076,8 +1041,6 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 			}
 		}
 	}
-
-	pools = append(pools, destCCIP.Common.FeeTokenPool.EthAddress)
 
 	if destCCIP.OffRamp == nil {
 		destCCIP.OffRamp, err = contractDeployer.DeployOffRamp(
@@ -1108,11 +1071,6 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 			if err != nil {
 				return fmt.Errorf("setting offramp on the bridge token pool shouldn't fail %+v", err)
 			}
-		}
-
-		err = destCCIP.Common.FeeTokenPool.SetOffRamp(destCCIP.OffRamp.EthAddress)
-		if err != nil {
-			return fmt.Errorf("setting offramp on the fee token pool shouldn't fail %+v", err)
 		}
 
 		err = destCCIP.Common.ChainClient.WaitForEvents()
@@ -1171,11 +1129,6 @@ func (destCCIP *DestCCIPModule) CollectBalanceRequirements() []testhelpers.Balan
 			Addr:   destCCIP.OffRamp.EthAddress,
 			Getter: GetterForLinkToken(destCCIP.Common.FeeToken.BalanceOf, destCCIP.OffRamp.Address()),
 		})
-		destBalancesReq = append(destBalancesReq, testhelpers.BalanceReq{
-			Name:   fmt.Sprintf("FeeToken-%s-FeeTokenPool-%s", destCCIP.Common.FeeToken.Address(), destCCIP.Common.FeeTokenPool.Address()),
-			Addr:   destCCIP.Common.FeeTokenPool.EthAddress,
-			Getter: GetterForLinkToken(destCCIP.Common.FeeToken.BalanceOf, destCCIP.Common.FeeTokenPool.Address()),
-		})
 	}
 	return destBalancesReq
 }
@@ -1206,11 +1159,6 @@ func (destCCIP *DestCCIPModule) UpdateBalance(
 		balance.Update(name, BalanceItem{
 			Address: destCCIP.OffRamp.EthAddress,
 			Getter:  GetterForLinkToken(destCCIP.Common.FeeToken.BalanceOf, destCCIP.OffRamp.Address()),
-		})
-		name = fmt.Sprintf("FeeToken-%s-FeeTokenPool-%s", destCCIP.Common.FeeToken.Address(), destCCIP.Common.FeeTokenPool.Address())
-		balance.Update(name, BalanceItem{
-			Address: destCCIP.Common.FeeTokenPool.EthAddress,
-			Getter:  GetterForLinkToken(destCCIP.Common.FeeToken.BalanceOf, destCCIP.Common.FeeTokenPool.Address()),
 		})
 
 		name = fmt.Sprintf("FeeToken-%s-Address-%s", destCCIP.Common.FeeToken.Address(), destCCIP.ReceiverDapp.Address())
@@ -1495,7 +1443,6 @@ func (lane *CCIPLane) UpdateLaneConfig() {
 	}
 	lane.SrcNetworkLaneCfg.CommonContracts = laneconfig.CommonContracts{
 		FeeToken:         lane.Source.Common.FeeToken.Address(),
-		FeeTokenPool:     lane.Source.Common.FeeTokenPool.Address(),
 		BridgeTokens:     btAddresses,
 		BridgeTokenPools: btpAddresses,
 		ARM:              lane.Source.Common.ARMContract.Hex(),
@@ -1526,7 +1473,6 @@ func (lane *CCIPLane) UpdateLaneConfig() {
 	}
 	lane.DstNetworkLaneCfg.CommonContracts = laneconfig.CommonContracts{
 		FeeToken:         lane.Dest.Common.FeeToken.Address(),
-		FeeTokenPool:     lane.Dest.Common.FeeTokenPool.Address(),
 		BridgeTokens:     btAddresses,
 		BridgeTokenPools: btpAddresses,
 		ARM:              lane.Dest.Common.ARMContract.Hex(),

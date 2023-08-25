@@ -21,7 +21,6 @@ type CommonContracts struct {
 	IsNativeFeeToken bool     `json:"is_native_fee_token,omitempty"`
 	IsMockARM        bool     `json:"is_mock_arm,omitempty"`
 	FeeToken         string   `json:"fee_token"`
-	FeeTokenPool     string   `json:"fee_token_pool"`
 	BridgeTokens     []string `json:"bridge_tokens"`
 	BridgeTokenPools []string `json:"bridge_tokens_pools"`
 	ARM              string   `json:"arm"`
@@ -53,9 +52,7 @@ func (l *LaneConfig) Validate() error {
 	if l.ARM == "" || !common.IsHexAddress(l.ARM) {
 		laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for arm"))
 	}
-	if l.FeeTokenPool == "" || !common.IsHexAddress(l.FeeTokenPool) {
-		laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for fee_token_pool"))
-	}
+
 	if l.FeeToken == "" || !common.IsHexAddress(l.FeeToken) {
 		laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for fee_token"))
 	}
