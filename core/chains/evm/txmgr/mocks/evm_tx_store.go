@@ -428,6 +428,32 @@ func (_m *EvmTxStore) FindTxWithAttempts(etxID int64) (types.Tx[*big.Int, common
 	return r0, r1
 }
 
+// FindTxWithRequestID provides a mock function with given fields: requestID
+func (_m *EvmTxStore) FindTxWithRequestID(requestID common.Hash) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(requestID)
+
+	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(common.Hash) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(requestID)
+	}
+	if rf, ok := ret.Get(0).(func(common.Hash) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(requestID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(common.Hash) error); ok {
+		r1 = rf(requestID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindTxWithSequence provides a mock function with given fields: fromAddress, seq
 func (_m *EvmTxStore) FindTxWithSequence(fromAddress common.Address, seq evmtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(fromAddress, seq)

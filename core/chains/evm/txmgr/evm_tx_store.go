@@ -152,6 +152,7 @@ func toOnchainReceipt(rs []*evmtypes.Receipt) []rawOnchainReceipt {
 // This is exported, as tests and other external code still directly reads DB using this schema.
 type DbEthTx struct {
 	ID             int64
+	RequestID      *common.Hash
 	Nonce          *int64
 	FromAddress    common.Address
 	ToAddress      common.Address
@@ -218,6 +219,7 @@ func DbEthTxToEthTx(dbEthTx DbEthTx, evmEthTx *Tx) {
 		n := evmtypes.Nonce(*dbEthTx.Nonce)
 		evmEthTx.Sequence = &n
 	}
+	evmEthTx.RequestID = dbEthTx.RequestID
 	evmEthTx.FromAddress = dbEthTx.FromAddress
 	evmEthTx.ToAddress = dbEthTx.ToAddress
 	evmEthTx.EncodedPayload = dbEthTx.EncodedPayload
@@ -906,6 +908,28 @@ func (o *evmTxStore) FindReceiptsPendingConfirmation(ctx context.Context, blockN
 	return
 }
 
+// FindTxWithRequestID returns any broadcast ethtx with the given requestID
+func (o *evmTxStore) FindTxWithRequestID(requestID common.Hash) (etx *Tx, err error) {
+	etx = new(Tx)
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		var dbEtx DbEthTx
+		err = tx.Get(&dbEtx, `SELECT * FROM eth_txes WHERE request_id = $1`, requestID)
+		if err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				return pkgerrors.Wrap(err, "FindTxWithRequestID failed to load eth_txes")
+			}
+			return nil
+		}	
+		DbEthTxToEthTx(dbEtx, etx)
+		err = o.LoadTxAttempts(etx, pg.WithQueryer(tx))
+		return pkgerrors.Wrap(err, "FindTxWithRequestID failed to load eth_tx_attempts")
+	}, pg.OptReadOnlyTx())
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	return
+}
+
 // FindTxWithSequence returns any broadcast ethtx with the given nonce
 func (o *evmTxStore) FindTxWithSequence(fromAddress common.Address, nonce evmtypes.Nonce) (etx *Tx, err error) {
 	etx = new(Tx)
@@ -1501,12 +1525,12 @@ func (o *evmTxStore) CreateTransaction(txRequest TxRequest, chainID *big.Int, qo
 			}
 		}
 		err = tx.Get(&dbEtx, `
-INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker)
+INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker, request_id)
 VALUES (
-$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11
+$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11,$12
 )
 RETURNING "eth_txes".*
-`, txRequest.FromAddress, txRequest.ToAddress, txRequest.EncodedPayload, assets.Eth(txRequest.Value), txRequest.FeeLimit, txRequest.Meta, txRequest.Strategy.Subject(), chainID.String(), txRequest.MinConfirmations, txRequest.PipelineTaskRunID, txRequest.Checker)
+`, txRequest.FromAddress, txRequest.ToAddress, txRequest.EncodedPayload, assets.Eth(txRequest.Value), txRequest.FeeLimit, txRequest.Meta, txRequest.Strategy.Subject(), chainID.String(), txRequest.MinConfirmations, txRequest.PipelineTaskRunID, txRequest.Checker, txRequest.RequestID)
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to insert eth_tx")
 		}

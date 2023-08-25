@@ -66,6 +66,7 @@ func (s TxAttemptState) String() (str string) {
 }
 
 type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
+	RequestID        *TX_HASH
 	FromAddress      ADDR
 	ToAddress        ADDR
 	EncodedPayload   []byte
@@ -178,6 +179,7 @@ type Tx[
 	FEE feetypes.Fee,
 ] struct {
 	ID             int64
+	RequestID      *TX_HASH
 	Sequence       *SEQ
 	FromAddress    ADDR
 	ToAddress      ADDR

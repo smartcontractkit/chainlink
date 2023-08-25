@@ -462,6 +462,18 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 		return tx, errors.Wrap(err, "Txm#CreateTransaction")
 	}
 
+	// Check for existing Tx with RequestID. If found, return the Tx and do nothing
+	// Skipping CreateTransaction to avoid double send
+	if txRequest.RequestID != nil {
+		etx, err := b.txStore.FindTxWithRequestID(*txRequest.RequestID)
+		if err != nil {
+			return tx, errors.Wrap(err, "Failed to search for transaction with RequestID")
+		}
+		if (etx != nil) {
+			return *etx, nil
+		}
+	}
+
 	tx, err = b.txStore.CreateTransaction(txRequest, b.chainID, qs...)
 	return
 }

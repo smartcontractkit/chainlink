@@ -323,6 +323,51 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		require.NotNil(t, m.FwdrDestAddress)
 		require.Equal(t, etx.ToAddress.String(), fwdrAddr.String())
 	})
+
+	t.Run("insert Tx successfully with a RequestID", func(t *testing.T) {
+		evmConfig.maxQueued = uint64(3)
+		id := uuid.New()
+		requestId := common.BytesToHash(big.NewInt(1).Bytes())
+		_, err := txm.CreateTransaction(txmgr.TxRequest{
+			RequestID:         &requestId,
+			FromAddress:       fromAddress,
+			ToAddress:         testutils.NewAddress(),
+			EncodedPayload:    []byte{1, 2, 3},
+			FeeLimit:          21000,
+			PipelineTaskRunID: &id,
+			Strategy:          txmgrcommon.NewSendEveryStrategy(),
+		})
+		assert.NoError(t, err)
+	})
+
+	t.Run("doesn't insert eth_tx if a matching tx already exists for that RequestID", func(t *testing.T) {
+		evmConfig.maxQueued = uint64(3)
+		id := uuid.New()
+		requestId := common.BytesToHash(big.NewInt(2).Bytes())
+		tx1, err := txm.CreateTransaction(txmgr.TxRequest{
+			RequestID:         &requestId,
+			FromAddress:       fromAddress,
+			ToAddress:         testutils.NewAddress(),
+			EncodedPayload:    []byte{1, 2, 3},
+			FeeLimit:          21000,
+			PipelineTaskRunID: &id,
+			Strategy:          txmgrcommon.NewSendEveryStrategy(),
+		})
+		assert.NoError(t, err)
+
+		tx2, err := txm.CreateTransaction(txmgr.TxRequest{
+			RequestID:         &requestId,
+			FromAddress:       fromAddress,
+			ToAddress:         testutils.NewAddress(),
+			EncodedPayload:    []byte{1, 2, 3},
+			FeeLimit:          21000,
+			PipelineTaskRunID: &id,
+			Strategy:          txmgrcommon.NewSendEveryStrategy(),
+		})
+		assert.NoError(t, err)
+
+		assert.Equal(t, tx1.GetID(), tx2.GetID())
+	})
 }
 
 func newMockTxStrategy(t *testing.T) *commontxmmocks.TxStrategy {
