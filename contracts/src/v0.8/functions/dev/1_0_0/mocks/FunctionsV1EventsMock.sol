@@ -3,7 +3,6 @@
 pragma solidity ^0.8.19;
 
 contract FunctionsV1EventsMock {
-  // FunctionsRouter
   struct Config {
     uint16 maxConsumersPerSubscription;
     uint72 adminFee;
@@ -30,7 +29,8 @@ contract FunctionsV1EventsMock {
     address transmitter,
     uint8 resultCode,
     bytes response,
-    bytes returnData
+    bytes err,
+    bytes callbackReturnData
   );
   event RequestStart(
     bytes32 indexed requestId,
@@ -102,9 +102,19 @@ contract FunctionsV1EventsMock {
     address transmitter,
     uint8 resultCode,
     bytes memory response,
-    bytes memory returnData
+    bytes memory err,
+    bytes memory callbackReturnData
   ) public {
-    emit RequestProcessed(requestId, subscriptionId, totalCostJuels, transmitter, resultCode, response, returnData);
+    emit RequestProcessed(
+      requestId,
+      subscriptionId,
+      totalCostJuels,
+      transmitter,
+      resultCode,
+      response,
+      err,
+      callbackReturnData
+    );
   }
 
   function emitRequestStart(
@@ -169,3 +179,4 @@ contract FunctionsV1EventsMock {
     emit Unpaused(account);
   }
 }
+
