@@ -203,6 +203,7 @@ func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit int) []fetch
 	blocksInRange := b.getBlocksInRange(int(start), int(end))
 	fetchedBlocks := make([]fetchedBlock, 0, len(blocksInRange))
 	for _, block := range blocksInRange {
+		// Create clone of the blocks as they get processed and update underlying b.blocks
 		fetchedBlocks = append(fetchedBlocks, block.Clone())
 	}
 
