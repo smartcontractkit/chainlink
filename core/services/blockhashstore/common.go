@@ -63,6 +63,7 @@ func GetUnfulfilledBlocksAndRequests(
 			"err", err)
 		return nil, errors.Wrap(err, "fetching VRF requests")
 	}
+	lggr.Debugw("retrieved requests", "numRequests", len(reqs))
 	for _, req := range reqs {
 		if _, ok := blockToRequests[req.Block]; !ok {
 			blockToRequests[req.Block] = make(map[string]struct{})
@@ -72,6 +73,7 @@ func GetUnfulfilledBlocksAndRequests(
 	}
 
 	fuls, err := coordinator.Fulfillments(ctx, uint64(fromBlock))
+	lggr.Debugw("retrieved fulfillments", "numFulfillments", len(fuls))
 	if err != nil {
 		lggr.Errorw("Failed to fetch VRF fulfillments",
 			"err", err)
