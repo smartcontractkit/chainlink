@@ -66,7 +66,7 @@ func (s *performedEventsScanner) ScanWorkIDs(ctx context.Context, workID ...stri
 	for _, id := range workID {
 		ids = append(ids, common.HexToHash(id))
 	}
-	logs, err := s.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(), s.registryAddress, 0, ids, int(s.finalityDepth), pg.WithParentCtx(ctx))
+	logs, err := s.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(), s.registryAddress, 1, ids, int(s.finalityDepth), pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("error fetching logs: %w", err)
 	}
