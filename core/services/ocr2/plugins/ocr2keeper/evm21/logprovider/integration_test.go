@@ -646,6 +646,7 @@ func newPlainLogTriggerConfig(upkeepAddr common.Address) logprovider.LogTriggerC
 		ContractAddress: upkeepAddr,
 		FilterSelector:  0,
 		Topic0:          common.HexToHash("0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d"),
+		Topic1:          common.HexToHash("0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d"),
 	}
 }
 

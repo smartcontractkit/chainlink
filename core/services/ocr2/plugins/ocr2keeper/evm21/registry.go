@@ -503,7 +503,7 @@ func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte, logBlock uint
 		parsed, err := r.packer.UnpackLogTriggerConfig(cfg)
 		if err != nil {
 			// Upkeep has been setup with improper config. Log a warning and ignore the upkeep.
-			r.lggr.Warnw("failed to unpack log upkeep config", "upkeepID", id.String(), "cfg", cfg)
+			r.lggr.Warnw("failed to unpack log upkeep config", "upkeepID", id.String(), "err", err)
 			return nil
 		}
 		if err := r.logEventProvider.RegisterFilter(logprovider.FilterOptions{
