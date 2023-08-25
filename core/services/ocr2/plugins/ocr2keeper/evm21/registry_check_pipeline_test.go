@@ -323,7 +323,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 
 			if tc.makeEthCall {
 				client := new(evmClientMocks.Client)
-				client.On("CallContext", mock.Anything, mock.Anything, "eth_getTransactionReceipt", tc.payload.Trigger.LogTriggerExtension.TxHash).
+				client.On("CallContext", mock.Anything, mock.Anything, "eth_getTransactionReceipt", common.BytesToHash(tc.payload.Trigger.LogTriggerExtension.TxHash[:])).
 					Return(tc.ethCallErr).Run(func(args mock.Arguments) {
 					if tc.receipt != nil {
 						res := args.Get(1).(*types.Receipt)

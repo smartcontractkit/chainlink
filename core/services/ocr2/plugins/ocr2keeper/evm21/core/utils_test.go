@@ -48,9 +48,9 @@ func TestUtils_GetTxBlock(t *testing.T) {
 
 	for _, tt := range tests {
 		client := new(evmClientMocks.Client)
-		var h [32]byte
-		copy(h[:], tt.txHash.Bytes())
-		client.On("CallContext", mock.Anything, mock.Anything, "eth_getTransactionReceipt", h).
+		//var h [32]byte
+		//copy(h[:], tt.txHash.Bytes())
+		client.On("CallContext", mock.Anything, mock.Anything, "eth_getTransactionReceipt", tt.txHash).
 			Return(tt.ethCallError).Run(func(args mock.Arguments) {
 			receipt := tt.receipt
 			if receipt != nil {
