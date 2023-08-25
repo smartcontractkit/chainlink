@@ -43,9 +43,10 @@ var _ adapters.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
-	id   string
-	cfg  *CosmosConfig //coscfg.Config
-	txm  *cosmostxm.Txm
+	id  string
+	cfg *CosmosConfig
+	txm *cosmostxm.Txm
+	// TODO remove this dep
 	cfgs types.Configs
 	lggr logger.Logger
 }
@@ -53,9 +54,9 @@ type chain struct {
 func newChain(id string, cfg *CosmosConfig, db *sqlx.DB, ks keystore.Cosmos, logCfg pg.QConfig, eb pg.EventBroadcaster, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
 	lggr = logger.With(lggr, "cosmosChainID", id)
 	var ch = chain{
-		id:  id,
-		cfg: cfg,
-		//cfgs: cfgs,
+		id:   id,
+		cfg:  cfg,
+		cfgs: cfgs,
 		lggr: logger.Named(lggr, "Chain"),
 	}
 	tc := func() (cosmosclient.ReaderWriter, error) {

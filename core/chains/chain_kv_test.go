@@ -98,6 +98,10 @@ func (c *testChainService) ListNodeStatuses(ctx context.Context, page_size int32
 	return
 }
 
-func (s *testChainService) Transact(ctx context.Context, from string, to string, amount *big.Int, balanceCheck bool) error {
+func (c *testChainService) Transact(ctx context.Context, from string, to string, amount *big.Int, balanceCheck bool) error {
+	return nil
+}
+
+func (c *testChainService) SendTx(ctx context.Context, from string, to string, amount *big.Int, balanceCheck bool) error {
 	return nil
 }

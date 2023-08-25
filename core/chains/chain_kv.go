@@ -4,8 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
 type ChainsKV[T types.ChainService] struct {

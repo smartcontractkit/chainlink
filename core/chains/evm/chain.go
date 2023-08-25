@@ -167,7 +167,7 @@ type ChainRelayExtenderConfig struct {
 	Logger   logger.Logger
 	DB       *sqlx.DB
 	KeyStore keystore.Eth
-	RelayerConfig
+	*RelayerConfig
 }
 
 // options for the relayer factory.

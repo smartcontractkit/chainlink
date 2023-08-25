@@ -141,7 +141,7 @@ func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, err
 	}
 	return relaytypes.ChainStatus{
 		ID:      c.id,
-		Enabled: *c.cfg.Enabled,
+		Enabled: c.cfg.IsEnabled(),
 		Config:  toml,
 	}, nil
 }
