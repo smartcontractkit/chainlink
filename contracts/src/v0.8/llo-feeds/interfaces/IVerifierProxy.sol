@@ -11,9 +11,9 @@ interface IVerifierProxy {
    * correctly by routing to the correct verifier, and bills the user if applicable.
    * @param payload The encoded data to be verified, including the signed
    * report and any metadata for billing.
-   * @return verifiedReport The encoded report from the verifier.
+   * @return verifierResponse The encoded report from the verifier.
    */
-  function verify(bytes calldata payload) external payable returns (bytes memory verifiedReport);
+  function verify(bytes calldata payload) external payable returns (bytes memory verifierResponse);
 
   /**
    * @notice Bulk verifies that the data encoded has been signed

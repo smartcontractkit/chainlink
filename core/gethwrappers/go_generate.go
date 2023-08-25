@@ -134,6 +134,9 @@ package gethwrappers
 // Mercury
 //go:generate go generate ./llo-feeds
 
+// Shared
+//go:generate go generate ./shared
+
 // Mocks that contain only events and functions to emit them
 // These contracts are used in testing Atlas flows. The contracts contain no logic, only events, structures, and functions to emit them.
 // The flow is as follows:

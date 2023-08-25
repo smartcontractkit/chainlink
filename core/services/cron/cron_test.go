@@ -32,7 +32,8 @@ func TestCronV2Pipeline(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	orm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, cfg.Database())
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayerExtenders)
+	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayerExtenders)
+	require.NoError(t, err)
 	jobORM := job.NewORM(db, legacyChains, orm, btORM, keyStore, lggr, cfg.Database())
 
 	jb := &job.Job{
@@ -44,7 +45,7 @@ func TestCronV2Pipeline(t *testing.T) {
 	}
 	delegate := cron.NewDelegate(runner, lggr)
 
-	err := jobORM.CreateJob(jb)
+	err = jobORM.CreateJob(jb)
 	require.NoError(t, err)
 	serviceArray, err := delegate.ServicesForSpec(*jb)
 	require.NoError(t, err)

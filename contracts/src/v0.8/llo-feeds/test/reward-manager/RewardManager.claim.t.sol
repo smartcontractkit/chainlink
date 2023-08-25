@@ -574,6 +574,26 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
     assertEq(poolIds[0], ZERO_POOL_ID);
     assertEq(poolIds[1], ZERO_POOL_ID);
   }
+
+  function test_getRewardsAvailableToRecipientInBothPoolsWhereAlreadyClaimed() public {
+    //get index 0 as this recipient is in both default pools
+    bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(getPrimaryRecipients()[0].addr);
+
+    //check the recipient is in both pools
+    assertEq(poolIds[0], PRIMARY_POOL_ID);
+    assertEq(poolIds[1], SECONDARY_POOL_ID);
+
+    //claim the rewards for each pool
+    claimRewards(PRIMARY_POOL_ARRAY, getPrimaryRecipients()[0].addr);
+    claimRewards(SECONDARY_POOL_ARRAY, getSecondaryRecipients()[0].addr);
+
+    //get the available pools again
+    poolIds = rewardManager.getAvailableRewardPoolIds(getPrimaryRecipients()[0].addr);
+
+    //user should not be in any pool
+    assertEq(poolIds[0], ZERO_POOL_ID);
+    assertEq(poolIds[1], ZERO_POOL_ID);
+  }
 }
 
 contract RewardManagerRecipientClaimDifferentWeightsTest is BaseRewardManagerTest {

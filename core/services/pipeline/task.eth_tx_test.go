@@ -575,7 +575,8 @@ func TestETHTxTask(t *testing.T) {
 
 			relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg,
 				TxManager: txManager, KeyStore: keyStore})
-			legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+			legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+			require.NoError(t, err)
 
 			test.setupClientMocks(keyStore, txManager)
 			task.HelperSetDependencies(legacyChains, keyStore, test.specGasLimit, pipeline.DirectRequestJobType)

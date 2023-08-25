@@ -7,7 +7,7 @@ import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/interf
 import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
 import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
 import {Common} from "../../libraries/Common.sol";
-import "./interfaces/IFeeManager.sol";
+import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title FeeManager
@@ -16,17 +16,19 @@ import "./interfaces/IFeeManager.sol";
  * @notice This contract will be used to reward any configured recipients within a pool. Recipients will receive a share of their pool relative to their configured weight.
  */
 contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterface {
+  using SafeERC20 for IERC20;
+
   // @dev The mapping of total fees collected for a particular pot: s_totalRewardRecipientFees[poolId]
   mapping(bytes32 => uint256) public s_totalRewardRecipientFees;
 
   // @dev The mapping of fee balances for each pot last time the recipient claimed: s_totalRewardRecipientFeesLastClaimedAmounts[poolId][recipient]
-  mapping(bytes32 => mapping(address => uint256)) private s_totalRewardRecipientFeesLastClaimedAmounts;
+  mapping(bytes32 => mapping(address => uint256)) public s_totalRewardRecipientFeesLastClaimedAmounts;
 
   // @dev The mapping of RewardRecipient weights for a particular poolId: s_rewardRecipientWeights[poolId][rewardRecipient].
   mapping(bytes32 => mapping(address => uint256)) public s_rewardRecipientWeights;
 
   // @dev Keep track of the reward recipient weights that have been set to prevent duplicates
-  mapping(bytes32 => bool) private s_rewardRecipientWeightsSet;
+  mapping(bytes32 => bool) public s_rewardRecipientWeightsSet;
 
   // @dev Store a list of pool ids that have been registered, to make off chain lookups easier
   bytes32[] public s_registeredPoolIds;
@@ -103,7 +105,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     }
 
     //transfer the fees to this contract
-    IERC20(i_linkAddress).transferFrom(payee, address(this), totalFeeAmount);
+    IERC20(i_linkAddress).safeTransferFrom(payee, address(this), totalFeeAmount);
 
     emit FeePaid(payments, payee);
   }
@@ -127,6 +129,9 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
       uint256 totalFeesInPot = s_totalRewardRecipientFees[poolId];
 
       unchecked {
+        //avoid unnecessary storage reads if there's no fees in the pot
+        if (totalFeesInPot == 0) continue;
+
         //get the claimable amount for this recipient, this calculation will never exceed the amount in the pot
         uint256 claimableAmount = totalFeesInPot - s_totalRewardRecipientFeesLastClaimedAmounts[poolId][recipient];
 
@@ -150,7 +155,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     //check if there's any rewards to claim in the given poolId
     if (claimAmount != 0) {
       //transfer the reward to the recipient
-      IERC20(i_linkAddress).transfer(recipient, claimAmount);
+      IERC20(i_linkAddress).safeTransfer(recipient, claimAmount);
     }
 
     return claimAmount;
@@ -224,7 +229,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
     //loop all the reward recipients and claim their rewards before updating their weights
     uint256 existingTotalWeight;
-    for (uint256 i; i < newRewardRecipients.length; ) {
+    for (uint256 i; i < newRewardRecipients.length; ++i) {
       //get the address
       address recipientAddress = newRewardRecipients[i].addr;
       //get the existing weight
@@ -239,8 +244,6 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
       unchecked {
         //keep tally of the weights so that the expected collective weight is known
         existingTotalWeight += existingWeight;
-        //there will never be enough reward recipients for i to overflow
-        ++i;
       }
     }
 
@@ -258,13 +261,8 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     poolIdsArray[0] = poolId;
 
     //loop each recipient and claim the rewards for each of the pools and assets
-    for (uint256 i; i < recipients.length; ) {
+    for (uint256 i; i < recipients.length; ++i) {
       _claimRewards(recipients[i], poolIdsArray);
-
-      unchecked {
-        //there will never be enough recipients for i to overflow
-        ++i;
-      }
     }
   }
 
@@ -288,24 +286,20 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     uint256 poolIdArrayIndex;
 
     //loop all the pool ids, and check if the recipient has a registered weight and a claimable amount
-    for (uint256 i; i < registeredPoolIdsLength; ) {
+    for (uint256 i; i < registeredPoolIdsLength; ++i) {
       //get the poolId
       bytes32 poolId = s_registeredPoolIds[i];
       //if the recipient has a weight, they are a recipient of this poolId
       if (s_rewardRecipientWeights[poolId][recipient] != 0) {
+        //get the total in this pool
+        uint256 totalPoolAmount = s_totalRewardRecipientFees[poolId];
         //if the recipient has any LINK, then add the poolId to the array
-        if (s_totalRewardRecipientFees[poolId] != 0) {
-          claimablePoolIds[poolIdArrayIndex] = poolId;
-          unchecked {
-            //there will never be enough pool ids for i to overflow
-            ++poolIdArrayIndex;
+        unchecked {
+          //s_totalRewardRecipientFeesLastClaimedAmounts can never exceed total pool amount, and the number of pools can't exceed the max array length
+          if (totalPoolAmount - s_totalRewardRecipientFeesLastClaimedAmounts[poolId][recipient] != 0) {
+            claimablePoolIds[poolIdArrayIndex++] = poolId;
           }
         }
-      }
-
-      unchecked {
-        //there will never be enough poolIds for i to overflow
-        ++i;
       }
     }
 
