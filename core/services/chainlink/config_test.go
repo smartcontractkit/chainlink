@@ -610,11 +610,12 @@ func TestConfig_Marshal(t *testing.T) {
 			ChainID: ptr("Malaga-420"),
 			Enabled: ptr(true),
 			Chain: coscfg.Chain{
+				Bech32Prefix:         ptr("wasm"),
 				BlockRate:            relayutils.MustNewDuration(time.Minute),
 				BlocksUntilTxTimeout: ptr[int64](12),
 				ConfirmPollPeriod:    relayutils.MustNewDuration(time.Second),
 				FallbackGasPrice:     mustDecimal("0.001"),
-				FCDURL:               relayutils.MustParseURL("http://cosmos.com"),
+				FeeToken:             ptr("ucosm"),
 				GasLimitMultiplier:   mustDecimal("1.2"),
 				MaxMsgsPerBatch:      ptr[int64](17),
 				OCR2CachePollPeriod:  relayutils.MustNewDuration(time.Minute),
@@ -958,11 +959,12 @@ SendOnly = true
 		{"Cosmos", Config{Cosmos: full.Cosmos}, `[[Cosmos]]
 ChainID = 'Malaga-420'
 Enabled = true
+Bech32Prefix = 'wasm'
 BlockRate = '1m0s'
 BlocksUntilTxTimeout = 12
 ConfirmPollPeriod = '1s'
 FallbackGasPrice = '0.001'
-FCDURL = 'http://cosmos.com'
+FeeToken = 'ucosm'
 GasLimitMultiplier = '1.2'
 MaxMsgsPerBatch = 17
 OCR2CachePollPeriod = '1m0s'

@@ -20,6 +20,7 @@ env:
   TEST_SUITE: smoke
   TEST_ARGS: -test.timeout 12m
   INTERNAL_DOCKER_REPO: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com
+  MOD_CACHE_VERSION: 2
 
 jobs:
   changes:
@@ -84,7 +85,7 @@ jobs:
       - name: Check if image exists
         if: needs.changes.outputs.src == 'true'
         id: check-image
-        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@395ee22f09f3e975690fa150343ce1e0c9e908c3 # v2.2.10
+        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
         with:
           repository: chainlink
           tag: ${{ github.sha }}${{ matrix.image.tag-suffix }}
@@ -92,7 +93,7 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       - name: Build Image
         if: steps.check-image.outputs.exists == 'false' && needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@395ee22f09f3e975690fa150343ce1e0c9e908c3 # v2.2.10
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/build-image@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
         with:
           cl_repo: smartcontractkit/chainlink
           cl_ref: ${{ github.sha }}
@@ -176,7 +177,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
         env:
           TESTCONTAINERS_RYUK_DISABLED: true
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
@@ -192,7 +193,7 @@ jobs:
           publish_check_name: EVM Smoke Test Results ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: 'true'
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -201,11 +202,11 @@ jobs:
       ## Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: 'true'
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -406,7 +407,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
         env:
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
@@ -421,7 +422,7 @@ jobs:
           publish_check_name: EVM Smoke Test Results ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: 'true'
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -429,11 +430,11 @@ jobs:
       ## Run this step when changes that do not need the test to run are made
       - name: Run Setup
         if: needs.changes.outputs.src == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
         with:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: 'true'
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -484,7 +485,7 @@ jobs:
   eth-smoke-go-mod-cache:
     environment: integration
     needs: [eth-smoke-tests]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-16cores-64GB
     name: ETH Smoke Tests Go Mod Cache
     steps:
       - name: Checkout the repo
@@ -492,11 +493,15 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
       - name: Run Setup
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-go@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
         with:
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          test_download_vendor_packages_command: |
+            cd ./integration-tests
+            go mod download
+            # force download of test dependencies
+            go test -run=NonExistentTest ./smoke/... || echo "ignore expected test failure"
           go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
           cache_restore_only: 'false'
 
   ### Migration tests
@@ -536,7 +541,7 @@ jobs:
         run: |
           echo "Running migration tests from version '${{ steps.get_latest_version.outputs.latest_version }}' to: '${{ github.sha }}'"
       - name: Run Migration Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json ./migration 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
@@ -546,6 +551,8 @@ jobs:
           publish_check_name: Node Migration Test Results
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
+          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+          cache_restore_only: 'true'
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
@@ -634,7 +641,7 @@ jobs:
 #    steps:
 #      - name: Check if image exists
 #        id: check-image
-#        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@395ee22f09f3e975690fa150343ce1e0c9e908c3 # v2.2.10
+#        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
 #        with:
 #          repository: chainlink-solana-tests
 #          tag: ${{ needs.get_solana_sha.outputs.sha }}
@@ -773,7 +780,7 @@ jobs:
 #          ref: ${{ needs.get_solana_sha.outputs.sha }}
 #      - name: Run Tests
 #        if: needs.changes.outputs.src == 'true'
-#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
 #        with:
 #          test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
 #          cl_repo: ${{ env.CHAINLINK_IMAGE }}
@@ -781,7 +788,7 @@ jobs:
 #          artifacts_location: /home/runner/work/chainlink-solana/chainlink-solana/integration-tests/logs
 #          publish_check_name: Solana Smoke Test Results
 #          go_mod_path: ./integration-tests/go.mod
-#          cache_key_id: core-e2e
+#          cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
 #          token: ${{ secrets.GITHUB_TOKEN }}
 #          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 #          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -836,7 +843,7 @@ jobs:
 #          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
 #      ## Only run OCR smoke test for now
 #      - name: Run Tests
-#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
 #        env:
 #          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
 #          PYROSCOPE_ENVIRONMENT: ci-smoke-ocr-evm-${{ matrix.testnet }} # TODO: Only for OCR for now
@@ -851,7 +858,7 @@ jobs:
 #          publish_check_name: ${{ matrix.testnet }} OCR Smoke Test Results
 #          token: ${{ secrets.GITHUB_TOKEN }}
 #          go_mod_path: ./integration-tests/go.mod
-#          cache_key_id: core-e2e
+#          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
 #          cache_restore_only: 'true'
 #          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 #          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -991,4 +998,3 @@ jobs:
 #          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 #
 #  ### End Live Testnet Section
-

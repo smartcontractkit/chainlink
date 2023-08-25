@@ -64,15 +64,16 @@ contract BaseFeeManagerTest is Test {
   bytes4 internal immutable INVALID_DEPOSIT_ERROR = FeeManager.InvalidDeposit.selector;
   bytes4 internal immutable INVALID_QUOTE_ERROR = FeeManager.InvalidQuote.selector;
   bytes4 internal immutable UNAUTHORIZED_ERROR = FeeManager.Unauthorized.selector;
-  bytes4 internal immutable INVALID_REPORT_VERSION_ERROR = FeeManager.InvalidReportVersion.selector;
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
   bytes internal constant INSUFFICIENT_ALLOWANCE_ERROR = "ERC20: insufficient allowance";
+  bytes4 internal immutable ZERO_DEFICIT = FeeManager.ZeroDeficit.selector;
 
   //events emitted
   event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint256 discount);
   event NativeSurchargeUpdated(uint256 newSurcharge);
   event InsufficientLink(bytes32 indexed configDigest, uint256 linkQuantity, uint256 nativeQuantity);
   event Withdraw(address adminAddress, address assetAddress, uint256 quantity);
+  event LinkDeficitCleared(bytes32 indexed configDigest, uint256 linkQuantity);
 
   function setUp() public virtual {
     //change to admin user
@@ -170,11 +171,11 @@ contract BaseFeeManagerTest is Test {
       abi.encode(
         feedId,
         uint32(0),
-        int192(0),
         uint32(0),
-        uint32(block.timestamp),
-        DEFAULT_REPORT_LINK_FEE,
-        DEFAULT_REPORT_NATIVE_FEE
+        int192(0),
+        uint192(DEFAULT_REPORT_LINK_FEE),
+        uint192(DEFAULT_REPORT_NATIVE_FEE),
+        uint32(block.timestamp)
       );
   }
 
@@ -183,8 +184,8 @@ contract BaseFeeManagerTest is Test {
     uint256 expiry,
     uint256 linkFee,
     uint256 nativeFee
-  ) public view returns (bytes memory) {
-    return abi.encode(feedId, uint32(0), int192(0), uint32(0), uint32(expiry), linkFee, nativeFee);
+  ) public pure returns (bytes memory) {
+    return abi.encode(feedId, uint32(0), uint32(0), int192(0), uint192(linkFee), uint192(nativeFee), uint32(expiry));
   }
 
   function getV2Report(bytes32 feedId) public view returns (bytes memory) {
@@ -192,13 +193,13 @@ contract BaseFeeManagerTest is Test {
       abi.encode(
         feedId,
         uint32(0),
-        int192(0),
-        int192(0),
-        int192(0),
         uint32(0),
-        uint32(block.timestamp),
+        int192(0),
         uint192(DEFAULT_REPORT_LINK_FEE),
-        uint192(DEFAULT_REPORT_NATIVE_FEE)
+        uint192(DEFAULT_REPORT_NATIVE_FEE),
+        uint32(block.timestamp),
+        int192(0),
+        int192(0)
       );
   }
 
@@ -212,13 +213,13 @@ contract BaseFeeManagerTest is Test {
       abi.encode(
         feedId,
         uint32(0),
-        int192(0),
-        int192(0),
-        int192(0),
         uint32(0),
-        uint32(expiry),
+        int192(0),
         uint192(linkFee),
-        uint192(nativeFee)
+        uint192(nativeFee),
+        uint32(expiry),
+        int192(0),
+        int192(0)
       );
   }
 
@@ -340,5 +341,21 @@ contract BaseFeeManagerTest is Test {
 
   function getNativeAddress() public view returns (address) {
     return address(native);
+  }
+
+  function payLinkDeficit(bytes32 configDigest, address sender) public {
+    //record the current address and switch to the recipient
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    //approve the link to be transferred
+    feeManager.payLinkDeficit(configDigest);
+
+    //change back to the original address
+    changePrank(originalAddr);
+  }
+
+  function getLinkDeficit(bytes32 configDigest) public view returns (uint256) {
+    return feeManager.s_linkDeficit(configDigest);
   }
 }

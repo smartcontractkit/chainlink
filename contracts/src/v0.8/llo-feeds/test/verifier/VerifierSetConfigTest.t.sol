@@ -129,6 +129,7 @@ contract VerifierSetConfigTest is BaseTest {
 
     bytes32 expectedConfigDigest = _configDigestFromConfigData(
       FEED_ID,
+      block.chainid,
       address(s_verifier),
       1,
       _getSignerAddresses(signers),
@@ -223,6 +224,7 @@ contract VerifierSetConfigWhenThereAreMultipleDigestsTest is BaseTestWithMultipl
 
     bytes32 expectedConfigDigest = _configDigestFromConfigData(
       FEED_ID,
+      block.chainid,
       address(s_verifier),
       s_numConfigsSet + 1,
       _getSignerAddresses(newSigners),

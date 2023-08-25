@@ -1456,12 +1456,12 @@ github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 h1:T3lFWumv
 github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704/go.mod h1:2QuJdEouTWjh5BDy5o/vgGXQtR4Gz8yH1IYB5eT7u4M=
 github.com/smartcontractkit/chain-selectors v1.0.1 h1:NrSTMpxiB0yEi3BDfiiCkKjUVmSV1Ti3ecsvKtwOwHg=
 github.com/smartcontractkit/chain-selectors v1.0.1/go.mod h1:WBhLlODF5b95vvx2tdKK55vGACg1+qZpuBhOGu1UXVo=
-github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230811192642-2299ce672665 h1:gtgDzthL8YLz+0SMfqj0SM6BdTJ/79UuhNbHmL8/3tA=
-github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230811192642-2299ce672665/go.mod h1:FivgQBChVNSUUMKdOtzRJFSto2g40nfOkWVAA65nHOI=
 github.com/smartcontractkit/chainlink-env v0.36.0 h1:CFOjs0c0y3lrHi/fl5qseCH9EQa5W/6CFyOvmhe2VnA=
 github.com/smartcontractkit/chainlink-env v0.36.0/go.mod h1:NbRExHmJGnKSYXmvNuJx5VErSx26GtE1AEN/CRzYOg8=
-github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230817164916-93440e96411d h1:gUaXYfDsXMAjMJj1k1Nm3EGZIfLVigMibi+4aj8az7o=
-github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230817164916-93440e96411d/go.mod h1:gWclxGW7rLkbjXn7FGizYlyKhp/boekto4MEYGyiMG4=
+github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230824124058-9b063c470048 h1:OHj8qzXajBAIT9TBnHN5LVGoCxvso/4JgCeg/l76Tgk=
+github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230824124058-9b063c470048/go.mod h1:xMwqRdj5vqYhCJXgKVqvyAwdcqM6ZAEhnwEQ4Khsop8=
+github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230824125819-215fd09979a2 h1:z9PIgm0klhunwPy+KZYR4E9vCpjgJaMOyQRLCYgfoLk=
+github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230824125819-215fd09979a2/go.mod h1:gWclxGW7rLkbjXn7FGizYlyKhp/boekto4MEYGyiMG4=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230802143301-165000751a85 h1:/fm02hYSUdhbSh7xPn7os9yHj7dnl8aLs2+nFXPiB4g=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230802143301-165000751a85/go.mod h1:H3/j2l84FsxYevCLNERdVasI7FVr+t2mkpv+BCJLSVw=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230802150127-d2c95679d61a h1:b3rjvZLpTV45TmCV+ALX+EDDslf91pnDUugP54Lu9FA=
@@ -1476,8 +1476,8 @@ github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f h1:hgJ
 github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f/go.mod h1:MvMXoufZAtqExNexqi4cjrNYE9MefKddKylxjS+//n0=
 github.com/smartcontractkit/libocr v0.0.0-20230816220705-665e93233ae5 h1:rzbqGoScs9VHGnyCKF7AoQEuUfwJnzcKmGIfaczeanA=
 github.com/smartcontractkit/libocr v0.0.0-20230816220705-665e93233ae5/go.mod h1:2lyRkw/qLQgUWlrWWmq5nj0y90rWeO6Y+v+fCakRgb0=
-github.com/smartcontractkit/ocr2keepers v0.7.16 h1:brSHJIlm2tD8lbxxJOFVhSmXGU8bKoUC/3CEaYCPd/U=
-github.com/smartcontractkit/ocr2keepers v0.7.16/go.mod h1:AjcIEKeNnU7NRlvnuMCTjBIQ1kpW0YHhlFdeDa/3hs0=
+github.com/smartcontractkit/ocr2keepers v0.7.17 h1:847GG2SHyHIPc3yu+dhB+1HfeLRhSjyiKnhw3umpoJw=
+github.com/smartcontractkit/ocr2keepers v0.7.17/go.mod h1:AjcIEKeNnU7NRlvnuMCTjBIQ1kpW0YHhlFdeDa/3hs0=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687 h1:NwC3SOc25noBTe1KUQjt45fyTIuInhoE2UfgcHAdihM=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687/go.mod h1:YYZq52t4wcHoMQeITksYsorD+tZcOyuVU5+lvot3VFM=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=

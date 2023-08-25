@@ -452,11 +452,12 @@ WSURL = 'wss://web.socket/test/bar'
 
 [[Cosmos]]
 ChainID = 'Ibiza-808'
+Bech32Prefix = 'wasm'
 BlockRate = '6s'
 BlocksUntilTxTimeout = 30
 ConfirmPollPeriod = '1s'
 FallbackGasPrice = '0.015'
-FCDURL = ''
+FeeToken = 'ucosm'
 GasLimitMultiplier = '1.5'
 MaxMsgsPerBatch = 13
 OCR2CachePollPeriod = '4s'
@@ -469,11 +470,12 @@ TendermintURL = 'http://columbus.cosmos.com'
 
 [[Cosmos]]
 ChainID = 'Malaga-420'
+Bech32Prefix = 'wasm'
 BlockRate = '6s'
 BlocksUntilTxTimeout = 20
 ConfirmPollPeriod = '1s'
 FallbackGasPrice = '0.015'
-FCDURL = ''
+FeeToken = 'ucosm'
 GasLimitMultiplier = '1.5'
 MaxMsgsPerBatch = 100
 OCR2CachePollPeriod = '4s'

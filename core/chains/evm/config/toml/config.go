@@ -133,7 +133,7 @@ func (cs EVMConfigs) Node(name string) (types.Node, error) {
 			}
 		}
 	}
-	return types.Node{}, chains.ErrNotFound
+	return types.Node{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 }
 
 func (cs EVMConfigs) NodeStatus(name string) (relaytypes.NodeStatus, error) {
@@ -144,7 +144,7 @@ func (cs EVMConfigs) NodeStatus(name string) (relaytypes.NodeStatus, error) {
 			}
 		}
 	}
-	return relaytypes.NodeStatus{}, chains.ErrNotFound
+	return relaytypes.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 }
 
 func legacyNode(n *Node, chainID *utils.Big) (v2 types.Node) {
@@ -190,7 +190,7 @@ func (cs EVMConfigs) Nodes(chainID utils.Big) (ns []types.Node, err error) {
 	id := chainID.String()
 	nodes := cs.nodes(id)
 	if nodes == nil {
-		err = chains.ErrNotFound
+		err = fmt.Errorf("no nodes: chain %s: %w", &chainID, chains.ErrNotFound)
 		return
 	}
 	for _, n := range nodes {

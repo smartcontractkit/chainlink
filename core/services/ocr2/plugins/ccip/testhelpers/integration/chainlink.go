@@ -318,7 +318,7 @@ func setupNodeCCIP(
 	mailMon := utils.NewMailboxMonitor("CCIP")
 	evmOpts := chainlink.EVMFactoryConfig{
 		RelayerConfig: evm.RelayerConfig{
-			GeneralConfig:    config,
+			AppConfig:        config,
 			EventBroadcaster: eventBroadcaster,
 			GenEthClient: func(chainID *big.Int) client.Client {
 				if chainID.String() == sourceChainID.String() {
