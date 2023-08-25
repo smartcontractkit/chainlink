@@ -1,7 +1,6 @@
 ChainID = '1442'
 FinalityDepth = 1
 NoNewHeadsThreshold = '12m'
-RPCBlockQueryDelay = 2
 MinIncomingConfirmations = 1
 OCR.ContractConfirmations = 1
 LogPollInterval = '30s'
