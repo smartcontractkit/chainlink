@@ -170,7 +170,7 @@ contract CommitStore is ICommitStore, TypeAndVersionInterface, OCR2Base {
   }
 
   /// @inheritdoc OCR2Base
-  /// @dev A commitReport can have two distinct parts:
+  /// @dev A commitReport can have two distinct parts (batched together to amortize the cost of checking sigs):
   /// 1. Price updates
   /// 2. A merkle root and sequence number interval
   /// Both have their own, separate, staleness checks, with price updates using the epoch and round

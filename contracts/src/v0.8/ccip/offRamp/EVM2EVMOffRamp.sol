@@ -23,10 +23,11 @@ import {ERC165Checker} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts
 
 /// @notice EVM2EVMOffRamp enables OCR networks to execute multiple messages
 /// in an OffRamp in a single transaction.
-/// @dev We will always deploy an onRamp, commitStore, and offRamp at the same time
-/// and we will never do partial updates where e.g. only an offRamp gets replaced.
-/// If we would replace only the offRamp and connect it with an existing commitStore,
-/// a replay attack would be possible.
+/// @dev The EVM2EVMOnRamp, CommitStore and EVM2EVMOffRamp form an xchain upgradeable unit. Any change to one of them
+/// results an onchain upgrade of all 3.
+/// @dev OCR2BaseNoChecks is used to save gas, signatures are not required as the offramp can only execute
+/// messages which are committed in the commitStore. We still make use of OCR2 as an executor whitelist
+/// and turn-taking mechanism.
 contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersionInterface, OCR2BaseNoChecks {
   using Address for address;
   using ERC165Checker for address;
@@ -96,36 +97,45 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersion
   // STATIC CONFIG
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "EVM2EVMOffRamp 1.1.0";
-  // The minimum amount of gas to perform the call with exact gas
+  /// @dev The minimum amount of gas to perform the call with exact gas.
+  /// We include this in the offramp so that we can redeploy to adjust it
+  /// should a hardfork change the gas costs of relevant opcodes in callWithExactGas.
   uint16 private constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
-  // Commit store address on the destination chain
+  /// @dev Commit store address on the destination chain
   address internal immutable i_commitStore;
-  // ChainSelector of the source chain
+  /// @dev ChainSelector of the source chain
   uint64 internal immutable i_sourceChainSelector;
-  // ChainSelector of this chain
+  /// @dev ChainSelector of this chain
   uint64 internal immutable i_chainSelector;
-  // OnRamp address on the source chain
+  /// @dev OnRamp address on the source chain
   address internal immutable i_onRamp;
-  // metadataHash is a prefix for a message hash preimage to ensure uniqueness.
+  /// @dev metadataHash is a lane-specific prefix for a message hash preimage which ensures global uniqueness.
+  /// Ensures that 2 identical messages sent to 2 different lanes will have a distinct hash.
+  /// Must match the metadataHash used in computing leaf hashes offchain for the root committed in
+  /// the commitStore and i_metadataHash in the onRamp.
   bytes32 internal immutable i_metadataHash;
-  /// @dev The address of previous-version OffRamp for this lane
+  /// @dev The address of previous-version OffRamp for this lane.
+  /// Used to be able to provide sequencing continuity during a zero downtime upgrade.
   address internal immutable i_prevOffRamp;
   /// @dev The address of the arm proxy
   address internal immutable i_armProxy;
 
   // DYNAMIC CONFIG
   DynamicConfig internal s_dynamicConfig;
-  // source token => token pool
+  /// @dev source token => token pool
   EnumerableMapAddresses.AddressToAddressMap private s_poolsBySourceToken;
-  // dest token => token pool
+  /// @dev dest token => token pool
   EnumerableMapAddresses.AddressToAddressMap private s_poolsByDestToken;
 
   // STATE
-  // The expected nonce for a given sender.
+  /// @dev The expected nonce for a given sender.
+  /// Corresponds to s_senderNonce in the OnRamp, used to enforce that messages are
+  /// executed in the same order they are sent (assuming they are DON). Note that re-execution
+  /// of FAILED messages however, can be out of order.
   mapping(address sender => uint64 nonce) internal s_senderNonce;
-  // A mapping of sequence numbers to execution state using a bitmap with each execution
-  // state only taking up 2 bits of the uint256, packing 128 states into a single slot.
-  // This state makes sure we never execute a message twice.
+  /// @dev A mapping of sequence numbers to execution state using a bitmap with each execution
+  /// state only taking up 2 bits of the uint256, packing 128 states into a single slot.
+  /// Message state is tracked to ensure message can only be executed successfully once.
   mapping(uint64 seqNum => uint256 executionStateBitmap) internal s_executionStates;
 
   constructor(
@@ -207,6 +217,9 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersion
 
   /// @notice Manually execute a message.
   /// @param report Internal.ExecutionReport.
+  /// @param gasLimitOverrides New gasLimit for each message in the report.
+  /// @dev We permit gas limit overrides so that users may manually execute messages which failed due to
+  /// insufficient gas provided.
   function manuallyExecute(Internal.ExecutionReport memory report, uint256[] memory gasLimitOverrides) external {
     // We do this here because the other _execute path is already covered OCR2BaseXXX.
     if (i_chainID != block.chainid) revert OCR2BaseNoChecks.ForkedChain(i_chainID, uint64(block.chainid));
@@ -231,8 +244,8 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersion
   /// @notice Executes a report, executing each message in order.
   /// @param report The execution report containing the messages and proofs.
   /// @param manualExecGasLimits An array of gas limits to use for manual execution.
-  /// If called from the DON, this array is always empty.
-  /// If called from manual execution, this array is always same length as messages.
+  /// @dev If called from the DON, this array is always empty.
+  /// @dev If called from manual execution, this array is always same length as messages.
   function _execute(Internal.ExecutionReport memory report, uint256[] memory manualExecGasLimits) internal whenHealthy {
     uint256 numMsgs = report.messages.length;
     if (numMsgs == 0) revert EmptyReport();
@@ -316,6 +329,8 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersion
         }
       }
 
+      // Although we expect only valid messages will be committed, we check again
+      // when executing as a defense in depth measure.
       bytes[] memory offchainTokenData = report.offchainTokenData[i];
       _isWellFormed(message, offchainTokenData.length);
 
@@ -380,8 +395,10 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersion
   /// @notice Execute a single message.
   /// @param message The message that will be executed.
   /// @param offchainTokenData Token transfer data to be passed to TokenPool.
-  /// @dev this can only be called by the contract itself. It is part of
-  /// the Execute call, as we can only try/catch on external calls.
+  /// @dev We make this external and callable by the contract itself, in order to try/catch
+  /// its execution and enforce atomicity among successful message processing and token transfer.
+  /// @dev We use 165 to check for the ccipReceive interface to permit sending tokens to contracts
+  /// (for example smart contract wallets) without an associated message.
   function executeSingleMessage(Internal.EVM2EVMMessage memory message, bytes[] memory offchainTokenData) external {
     if (msg.sender != address(this)) revert CanOnlySelfCall();
     Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](0);

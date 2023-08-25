@@ -12,6 +12,8 @@ import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
 
 /// @notice Base abstract class with common functions for all token pools.
+/// A token pool serves as isolated place for holding tokens and token specific logic
+/// that may execute as tokens move across the bridge.
 abstract contract TokenPool is IPool, OwnerIsCreator, IERC165 {
   using EnumerableSet for EnumerableSet.AddressSet;
   using RateLimiter for RateLimiter.TokenBucket;
@@ -43,20 +45,29 @@ abstract contract TokenPool is IPool, OwnerIsCreator, IERC165 {
     RateLimiter.Config rateLimiterConfig;
   }
 
-  // The immutable token that belongs to this pool.
+  /// @dev The bridgeable token that is managed by this pool.
   IERC20 internal immutable i_token;
+  /// @dev The address of the arm proxy
   address internal immutable i_armProxy;
-  // The immutable flag that indicates if the pool is access-controlled.
+  /// @dev The immutable flag that indicates if the pool is access-controlled.
   bool internal immutable i_allowlistEnabled;
-  // A set of addresses allowed to trigger lockOrBurn as original senders.
+  /// @dev A set of addresses allowed to trigger lockOrBurn as original senders.
+  /// Only takes effect if i_allowlistEnabled is true.
+  /// This can be used to ensure only token-issuer specified addresses can
+  /// move tokens.
   EnumerableSet.AddressSet internal s_allowList;
 
-  // A set of allowed onRamps. We want the whitelist to be enumerable to
-  // be able to quickly determine (without parsing logs) who can access the pool.
+  /// @dev A set of allowed onRamps. We want the whitelist to be enumerable to
+  /// be able to quickly determine (without parsing logs) who can access the pool.
   EnumerableSet.AddressSet internal s_onRamps;
+  /// @dev Inbound rate limits. This allows per destination chain
+  /// token issuer specified rate limiting (e.g. issuers may trust chains to varying
+  /// degress and prefer different limits)
   mapping(address => RateLimiter.TokenBucket) internal s_onRampRateLimits;
-  // A set of allowed offRamps.
+  /// @dev A set of allowed offRamps.
   EnumerableSet.AddressSet internal s_offRamps;
+  /// @dev Outbound rate limits. Corresponds to the inbound rate limit for the pool
+  /// on the remote chain.
   mapping(address => RateLimiter.TokenBucket) internal s_offRampRateLimits;
 
   constructor(IERC20 token, address[] memory allowlist, address armProxy) {
@@ -64,7 +75,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator, IERC165 {
     i_token = token;
     i_armProxy = armProxy;
 
-    // Pool can be set as permissioned or permissionless at deployment time only.
+    // Pool can be set as permissioned or permissionless at deployment time only to save hot-path gas.
     i_allowlistEnabled = allowlist.length > 0;
     if (i_allowlistEnabled) {
       _applyAllowListUpdates(new address[](0), allowlist);

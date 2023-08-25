@@ -27,10 +27,9 @@ contract LockReleaseTokenPool is TokenPool {
   constructor(IERC20 token, address[] memory allowlist, address armProxy) TokenPool(token, allowlist, armProxy) {}
 
   /// @notice Locks the token in the pool
-  /// @dev Locks are not rate limited at per-pool level. Each pool is shared across lanes,
-  /// rate limiting locks does not meaningfully mitigate honeypot risk.
-  /// Benefits of rate limiting here does not justify the extra gas cost.
   /// @param amount Amount to lock
+  /// @dev The whenHealthy check is important to ensure that even if a ramp is compromised
+  /// we're able to stop token movement via ARM.
   function lockOrBurn(
     address originalSender,
     bytes calldata,
@@ -46,6 +45,8 @@ contract LockReleaseTokenPool is TokenPool {
   /// @notice Release tokens from the pool to the recipient
   /// @param receiver Recipient address
   /// @param amount Amount to release
+  /// @dev The whenHealthy check is important to ensure that even if a ramp is compromised
+  /// we're able to stop token movement via ARM.
   function releaseOrMint(
     bytes memory,
     address receiver,

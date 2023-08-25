@@ -8,6 +8,9 @@ import {Client} from "./libraries/Client.sol";
 import {RateLimiter} from "./libraries/RateLimiter.sol";
 import {USDPriceWith18Decimals} from "./libraries/USDPriceWith18Decimals.sol";
 
+/// @notice The aggregate rate limiter is a wrapper of the token bucket rate limiter
+/// which permits rate limiting based on the aggregate value of a group of
+/// token transfers, using a price registry to convert to a numeraire asset (e.g. USD).
 contract AggregateRateLimiter is OwnerIsCreator {
   using RateLimiter for RateLimiter.TokenBucket;
   using USDPriceWith18Decimals for uint192;

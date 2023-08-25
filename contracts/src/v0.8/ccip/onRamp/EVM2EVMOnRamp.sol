@@ -20,13 +20,10 @@ import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/
 import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
 import {EnumerableMap} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableMap.sol";
 
-/// @notice The onRamp is a contract that handles fee logic, NOP payments,
-/// token support and an allowList. It will always be deployed 1:1:1 with a
-/// commitStore and offRamp contract. These three contracts together form a
-/// `lane`. A lane is an upgradable set of contracts within the non-upgradable
-/// routers and are always deployed as complete set, even during upgrades.
-/// This means an upgrade to an onRamp will require redeployment of the
-/// commitStore and offRamp as well.
+/// @notice The onRamp is a contract that handles lane-specific fee logic, NOP payments,
+/// bridegable token support and an allowList.
+/// @dev The EVM2EVMOnRamp, CommitStore and EVM2EVMOffRamp form an xchain upgradeable unit. Any change to one of them
+/// results an onchain upgrade of all 3.
 contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, TypeAndVersionInterface {
   using SafeERC20 for IERC20;
   using EnumerableMap for EnumerableMap.AddressToUintMap;
@@ -140,7 +137,10 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   // STATIC CONFIG
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "EVM2EVMOnRamp 1.1.0";
-  /// @dev The metadata hash for this contract
+  /// @dev metadataHash is a lane-specific prefix for a message hash preimage which ensures global uniqueness
+  /// Ensures that 2 identical messages sent to 2 different lanes will have a distinct hash.
+  /// Must match the metadataHash used in computing leaf hashes offchain for the root committed in
+  /// the commitStore and i_metadataHash in the offRamp.
   bytes32 internal immutable i_metadataHash;
   /// @dev Default gas limit for a transactions that did not specify
   /// a gas limit in the extraArgs.
@@ -154,10 +154,12 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   /// @dev The chain ID of the destination chain
   uint64 internal immutable i_destChainSelector;
   /// @dev The address of previous-version OnRamp for this lane
+  /// Used to be able to provide sequencing continuity during a zero downtime upgrade.
   address internal immutable i_prevOnRamp;
   /// @dev The address of the arm proxy
   address internal immutable i_armProxy;
   /// @dev the maximum number of nops that can be configured at the same time.
+  /// Used to bound gas for loops over nops.
   uint256 private constant MAX_NUMBER_OF_NOPS = 64;
 
   // DYNAMIC CONFIG
@@ -176,7 +178,9 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   mapping(address token => TokenTransferFeeConfig tranferFeeConfig) internal s_tokenTransferFeeConfig;
 
   // STATE
-  /// @dev The current nonce per sender
+  /// @dev The current nonce per sender.
+  /// The offramp has a corresponding s_senderNonce mapping to ensure messages
+  /// are executed in the same order they are sent.
   mapping(address sender => uint64 nonce) internal s_senderNonce;
   /// @dev The amount of LINK available to pay NOPS
   uint96 internal s_nopFeesJuels;
@@ -534,6 +538,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   /// A basis point fee is calculated from the USD value of each token transfer.
   /// Sum of basis point fees is confined within range [minTokenTransferFeeUSD, maxTokenTransferFeeUSD].
   /// @dev Assumes that tokenAmounts are validated to be listed tokens elsewhere.
+  /// @dev Splitting one token transfer into multiple transfers is discouraged,
+  /// as it will result in a transferFee equal or greater than the same amount aggregated/de-duped.
   function _getTokenTransferCost(
     address feeToken,
     uint192 feeTokenPrice,
@@ -673,8 +679,10 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     _setNops(nopsAndWeights);
   }
 
-  /// @dev Clears existing nops, sets new nops and weights
   /// @param nopsAndWeights New set of nops and weights
+  /// @dev Clears existing nops, sets new nops and weights
+  /// @dev We permit fees to accrue before nops are configured, in which case
+  /// they will go to the first set of configured nops.
   function _setNops(NopAndWeight[] memory nopsAndWeights) internal {
     uint256 numberOfNops = nopsAndWeights.length;
     if (numberOfNops > MAX_NUMBER_OF_NOPS) revert TooManyNops();

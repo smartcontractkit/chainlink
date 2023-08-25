@@ -18,9 +18,9 @@ contract BurnMintTokenPool is TokenPool {
   ) TokenPool(token, allowlist, armProxy) {}
 
   /// @notice Burn the token in the pool
-  /// @dev Burn is not rate limited at per-pool level. Burn does not contribute to honey pot risk.
-  /// Benefits of rate limiting here does not justify the extra gas cost.
   /// @param amount Amount to burn
+  /// @dev The whenHealthy check is important to ensure that even if a ramp is compromised
+  /// we're able to stop token movement via ARM.
   function lockOrBurn(
     address originalSender,
     bytes calldata,
@@ -37,6 +37,8 @@ contract BurnMintTokenPool is TokenPool {
   /// @notice Mint tokens from the pool to the recipient
   /// @param receiver Recipient address
   /// @param amount Amount to mint
+  /// @dev The whenHealthy check is important to ensure that even if a ramp is compromised
+  /// we're able to stop token movement via ARM.
   function releaseOrMint(
     bytes memory,
     address receiver,
