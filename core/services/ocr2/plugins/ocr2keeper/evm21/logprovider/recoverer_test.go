@@ -29,7 +29,7 @@ import (
 func TestLogRecoverer_GetRecoverables(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, nil, time.Millisecond*10, 0)
+	r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, nil, NewOptions(200))
 
 	tests := []struct {
 		name    string
@@ -221,7 +221,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			},
 			nil,
 			nil,
-			[]string{"ef1833ce5eb633189430bf52332ef8a1263ae20b9243f77be2809acb58966616"},
+			[]string{"84c83c79c2be2c3eabd8d35986a2a798d9187564d7f4f8f96c5a0f40f50bed3f"},
 		},
 	}
 
@@ -691,7 +691,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					}
 					return t
 				}(),
-				WorkID: "476453e1b49fc73fa6f97cb77272a07b57f2414a39b0267e58df8cb006d9c491",
+				WorkID: "d91c6f090b8477f434cf775182e4ff12c90618ba4da5b8ec06aa719768b7743a",
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
@@ -734,7 +734,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					}
 					return t
 				}(),
-				WorkID: "476453e1b49fc73fa6f97cb77272a07b57f2414a39b0267e58df8cb006d9c491",
+				WorkID: "d91c6f090b8477f434cf775182e4ff12c90618ba4da5b8ec06aa719768b7743a",
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
@@ -849,6 +849,9 @@ func setupTestRecoverer(t *testing.T, interval time.Duration, lookbackBlocks int
 	lp := new(lpmocks.LogPoller)
 	statesReader := new(mocks.UpkeepStateReader)
 	filterStore := NewUpkeepFilterStore()
-	recoverer := NewLogRecoverer(logger.TestLogger(t), lp, nil, statesReader, &mockedPacker{}, filterStore, interval, lookbackBlocks)
+	opts := NewOptions(lookbackBlocks)
+	opts.ReadInterval = interval / 5
+	opts.LookbackBlocks = lookbackBlocks
+	recoverer := NewLogRecoverer(logger.TestLogger(t), lp, nil, statesReader, &mockedPacker{}, filterStore, opts)
 	return recoverer, filterStore, lp, statesReader
 }

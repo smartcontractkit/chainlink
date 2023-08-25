@@ -80,7 +80,7 @@ func (c *chainSet[N, S]) Chain(ctx context.Context, id string) (s S, err error) 
 	}
 	ch, ok := c.chains[id]
 	if !ok {
-		err = ErrNotFound
+		err = fmt.Errorf("chain %s: %w", id, ErrNotFound)
 		return
 	}
 	return ch, nil
@@ -94,7 +94,7 @@ func (c *chainSet[N, S]) ChainStatus(ctx context.Context, id string) (cfg types.
 	}
 	l := len(cs)
 	if l == 0 {
-		err = ErrNotFound
+		err = fmt.Errorf("chain %s: %w", id, ErrNotFound)
 		return
 	}
 	if l > 1 {
