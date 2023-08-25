@@ -433,8 +433,6 @@ contract AutomationRegistrar2_1 is TypeAndVersionInterface, ConfirmedOwner, IERC
    */
   function _approve(RegistrationParams memory params, bytes32 hash) private returns (uint256) {
     IKeeperRegistryMaster keeperRegistry = s_config.keeperRegistry;
-
-    // register upkeep
     uint256 upkeepId = keeperRegistry.registerUpkeep(
       params.upkeepContract,
       params.gasLimit,
@@ -444,14 +442,11 @@ contract AutomationRegistrar2_1 is TypeAndVersionInterface, ConfirmedOwner, IERC
       params.triggerConfig,
       params.offchainConfig
     );
-    // fund upkeep
     bool success = LINK.transferAndCall(address(keeperRegistry), params.amount, abi.encode(upkeepId));
     if (!success) {
       revert LinkTransferFailed(address(keeperRegistry));
     }
-
     emit RegistrationApproved(hash, params.name, upkeepId);
-
     return upkeepId;
   }
 
