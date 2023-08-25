@@ -179,4 +179,3 @@ contract FunctionsV1EventsMock {
     emit Unpaused(account);
   }
 }
-
