@@ -28,13 +28,16 @@ type PersistenceManager struct {
 
 	deleteMu    sync.Mutex
 	deleteQueue []*pb.TransmitRequest
+
+	jobID int32
 }
 
-func NewPersistenceManager(lggr logger.Logger, orm ORM) *PersistenceManager {
+func NewPersistenceManager(lggr logger.Logger, orm ORM, jobID int32) *PersistenceManager {
 	return &PersistenceManager{
 		lggr:   lggr.Named("MercuryPersistenceManager"),
 		orm:    orm,
 		stopCh: make(chan struct{}),
+		jobID:  jobID,
 	}
 }
 
@@ -56,7 +59,7 @@ func (pm *PersistenceManager) Close() error {
 }
 
 func (pm *PersistenceManager) Insert(ctx context.Context, req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) error {
-	return pm.orm.InsertTransmitRequest(req, reportCtx, pg.WithParentCtx(ctx))
+	return pm.orm.InsertTransmitRequest(req, pm.jobID, reportCtx, pg.WithParentCtx(ctx))
 }
 
 func (pm *PersistenceManager) Delete(ctx context.Context, req *pb.TransmitRequest) error {
