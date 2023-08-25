@@ -294,11 +294,61 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 	if err != nil {
 		return fmt.Errorf("failed to refresh active upkeep ids in log event provider: %w", err)
 	}
+
+	var end int64
+	var latest int64
+
+	if end, err = r.poller.LatestBlock(pg.WithParentCtx(r.ctx)); err != nil {
+		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+	}
+
+	latest = r.lastPollBlock
+
+	if latest == 0 || latest == end {
+		return nil
+	}
+
+	var logs []logpoller.Log
+	if logs, err = r.poller.LogsWithSigs(
+		end-logEventLookback,
+		end,
+		[]common.Hash{
+			iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(),
+			iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(),
+		},
+		r.addr,
+		pg.WithParentCtx(r.ctx),
+	); err != nil {
+		return fmt.Errorf("%w: %s", ErrLogReadFailure, err)
+	}
+
+	configSetBlockNumbers := map[*big.Int]uint64{}
+	pausedBlockNumbers := map[*big.Int]uint64{}
+	perUpkeepConfig := map[*big.Int][]byte{}
+
+	for _, l := range logs {
+		rawLog := l.ToGethLog()
+		abilog, err := r.registry.ParseLog(rawLog)
+		if err != nil {
+			return err
+		}
+		switch l := abilog.(type) {
+		case *iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet:
+			configSetBlockNumbers[l.Id] = rawLog.BlockNumber
+			perUpkeepConfig[l.Id] = l.TriggerConfig
+		case *iregistry21.IKeeperRegistryMasterUpkeepUnpaused:
+			pausedBlockNumbers[l.Id] = rawLog.BlockNumber
+		default:
+		}
+	}
+
 	var merr error
 	for _, id := range newUpkeeps {
-		// TODO: find the ConfigSet/UpkeepUnpaused events for this upkeep and pass cfg and block number
-		// block number should be taken from UpkeepUnpaused if it's block is higher than ConfigSet
-		if err := r.updateTriggerConfig(id, nil, 0); err != nil {
+		logBlock := configSetBlockNumbers[id]
+		if pausedBlockNumbers[id] > logBlock {
+			logBlock = pausedBlockNumbers[id]
+		}
+		if err := r.updateTriggerConfig(id, perUpkeepConfig[id], logBlock); err != nil {
 			merr = goerrors.Join(merr, fmt.Errorf("failed to update trigger config for upkeep id %s: %w", id.String(), err))
 		}
 	}
