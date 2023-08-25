@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -121,8 +122,7 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 		go func(ctx context.Context, interval time.Duration) {
 			ticker := time.NewTicker(interval)
 			defer ticker.Stop()
-			// TODO: use jitter
-			gcTicker := time.NewTicker(GCInterval)
+			gcTicker := time.NewTicker(utils.WithJitter(GCInterval))
 			defer gcTicker.Stop()
 
 			for {
@@ -133,6 +133,7 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 					}
 				case <-gcTicker.C:
 					r.clean(ctx)
+					gcTicker.Reset(utils.WithJitter(GCInterval))
 				case <-ctx.Done():
 					return
 				}
