@@ -65,17 +65,13 @@ type logRecoverer struct {
 
 var _ LogRecoverer = &logRecoverer{}
 
-func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client client.Client, stateStore core.UpkeepStateReader, packer LogDataPacker, filterStore UpkeepFilterStore, interval time.Duration, lookbackBlocks int64) *logRecoverer {
-	if interval == 0 {
-		interval = DefaultRecoveryInterval
-	}
-
+func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client client.Client, stateStore core.UpkeepStateReader, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logRecoverer {
 	rec := &logRecoverer{
 		lggr: lggr.Named("LogRecoverer"),
 
 		blockTime:      &atomic.Int64{},
 		lookbackBlocks: &atomic.Int64{},
-		interval:       interval,
+		interval:       opts.ReadInterval * 5,
 
 		pending:     make([]ocr2keepers.UpkeepPayload, 0),
 		visited:     make(map[string]time.Time),
@@ -86,7 +82,7 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 		client:      client,
 	}
 
-	rec.lookbackBlocks.Store(lookbackBlocks)
+	rec.lookbackBlocks.Store(opts.LookbackBlocks)
 	rec.blockTime.Store(int64(defaultBlockTime))
 
 	return rec
