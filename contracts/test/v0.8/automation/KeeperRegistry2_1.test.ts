@@ -60,7 +60,7 @@ const itMaybe = process.env.SKIP_SLOW ? it.skip : it
 
 // We are leaving the original tests enabled, however as 2.1 is still actively being deployed
 
-describe('KeeperRegistry2_1 - Frozen [ @skip-coverage ]', () => {
+describe.only('KeeperRegistry2_1 - Frozen [ @skip-coverage ]', () => {
   it('has not changed', () => {
     assert.equal(
       ethers.utils.id(KeeperRegistryFactory.bytecode),

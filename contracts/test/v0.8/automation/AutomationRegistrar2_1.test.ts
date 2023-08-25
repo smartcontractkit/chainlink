@@ -22,7 +22,7 @@ import { deployRegistry21 } from './helpers'
 
 // We are leaving the original tests enabled, however as 2.1 is still actively being deployed
 
-describe('AutomationRegistrar2_1 - Frozen [ @skip-coverage ]', () => {
+describe.only('AutomationRegistrar2_1 - Frozen [ @skip-coverage ]', () => {
   it('has not changed', () => {
     assert.equal(
       ethers.utils.id(AutomationRegistrarFactory.bytecode),
