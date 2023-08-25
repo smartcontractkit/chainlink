@@ -279,6 +279,7 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 // TODO: check for updated config for log trigger upkeeps and update it, currently we ignore them.
 func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 	logTriggerIDs := make([]*big.Int, 0)
+	logTriggerHashes := make([]common.Hash, 0)
 	for _, id := range ids {
 		uid := &ocr2keepers.UpkeepIdentifier{}
 		if ok := uid.FromBigInt(id); !ok {
@@ -287,6 +288,7 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
 			logTriggerIDs = append(logTriggerIDs, id)
+			logTriggerHashes = append(logTriggerHashes, common.BigToHash(id))
 		default:
 		}
 	}
@@ -308,19 +310,17 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 		return nil
 	}
 
-	var logs []logpoller.Log
-	if logs, err = r.poller.LogsWithSigs(
-		end-logEventLookback,
-		end,
-		[]common.Hash{
-			iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(),
-			iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(),
-		},
-		r.addr,
-		pg.WithParentCtx(r.ctx),
-	); err != nil {
-		return fmt.Errorf("%w: %s", ErrLogReadFailure, err)
+	unpausedLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, int(logEventLookback), pg.WithParentCtx(r.ctx))
+	if err != nil {
+		return err
 	}
+	configSetLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, int(logEventLookback), pg.WithParentCtx(r.ctx))
+	if err != nil {
+		return err
+	}
+
+	var logs []logpoller.Log
+	logs = append(unpausedLogs, configSetLogs...)
 
 	configSetBlockNumbers := map[*big.Int]uint64{}
 	pausedBlockNumbers := map[*big.Int]uint64{}
