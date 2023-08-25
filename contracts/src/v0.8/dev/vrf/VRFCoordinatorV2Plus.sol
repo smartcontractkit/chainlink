@@ -653,7 +653,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     revert CoordinatorNotRegistered(target);
   }
 
-  function migrate(uint256 subId, address newCoordinator) external {
+  function migrate(uint256 subId, address newCoordinator) external nonReentrant {
     if (!isTargetRegistered(newCoordinator)) {
       revert CoordinatorNotRegistered(newCoordinator);
     }
