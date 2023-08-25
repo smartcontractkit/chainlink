@@ -92,9 +92,10 @@ func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
 	filter.lastPollBlock = 0
 	filter.lastRePollBlock = 0
 	filter.configUpdateBlock = opts.UpdateBlock
-	filter.addr = lpFilter.Addresses[0].Bytes()
-	filter.topics = make([]common.Hash, len(lpFilter.EventSigs))
-	copy(filter.topics, lpFilter.EventSigs)
+	filter.selector = cfg.FilterSelector
+	filter.addr = cfg.ContractAddress.Bytes()
+	filter.topics = []common.Hash{cfg.Topic0, cfg.Topic1, cfg.Topic2, cfg.Topic3}
+	//copy(filter.topics, lpFilter.EventSigs)
 
 	if err := p.register(lpFilter, filter); err != nil {
 		return fmt.Errorf("failed to register upkeep filter %s: %w", filter.upkeepID.String(), err)
@@ -129,11 +130,13 @@ func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
 
 // newLogFilter creates logpoller.Filter from the given upkeep config
 func (p *logEventProvider) newLogFilter(upkeepID *big.Int, cfg LogTriggerConfig) logpoller.Filter {
-	topics := p.getFiltersBySelector(cfg.FilterSelector, cfg.Topic1[:], cfg.Topic2[:], cfg.Topic3[:])
-	topics = append([]common.Hash{common.BytesToHash(cfg.Topic0[:])}, topics...)
+	//topics := p.getFiltersBySelector(cfg.FilterSelector, cfg.Topic1[:], cfg.Topic2[:], cfg.Topic3[:])
+	//topics = append([]common.Hash{common.BytesToHash(cfg.Topic0[:])}, topics...)
 	return logpoller.Filter{
-		Name:      p.filterName(upkeepID),
-		EventSigs: topics,
+		Name: p.filterName(upkeepID),
+		// log poller filter treats this event sigs slice as an array of topic0
+		// since we don't support multiple events right now, only put one topic0 here
+		EventSigs: []common.Hash{common.BytesToHash(cfg.Topic0[:])},
 		Addresses: []common.Address{cfg.ContractAddress},
 		Retention: LogRetention,
 	}
@@ -147,6 +150,11 @@ func (p *logEventProvider) validateLogTriggerConfig(cfg LogTriggerConfig) error 
 	}
 	if bytes.Equal(cfg.Topic0[:], zeroBytes[:]) {
 		return errors.New("invalid topic0: zeroed")
+	}
+	s := cfg.FilterSelector
+	if s >= 8 {
+		p.lggr.Error("filter selector %d is invalid", s)
+		return errors.New("invalid filter selector: larger or equal to 8")
 	}
 	return nil
 }

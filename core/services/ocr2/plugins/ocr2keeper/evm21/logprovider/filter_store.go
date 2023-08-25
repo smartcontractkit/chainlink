@@ -23,7 +23,9 @@ type UpkeepFilterStore interface {
 var _ UpkeepFilterStore = &upkeepFilterStore{}
 
 type upkeepFilter struct {
-	addr     []byte
+	addr []byte
+	// selector is the filter selector in log trigger config
+	selector uint8
 	topics   []common.Hash
 	upkeepID *big.Int
 	// configUpdateBlock is the block number the filter was last updated at
@@ -46,6 +48,7 @@ func (f upkeepFilter) Clone() upkeepFilter {
 	copy(addr, f.addr)
 	return upkeepFilter{
 		upkeepID:          f.upkeepID,
+		selector:          f.selector,
 		topics:            topics,
 		addr:              addr,
 		configUpdateBlock: f.configUpdateBlock,

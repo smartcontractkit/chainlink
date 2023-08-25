@@ -384,7 +384,8 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		if configUpdateBlock := int64(filter.configUpdateBlock); start < configUpdateBlock {
 			start = configUpdateBlock
 		}
-		logs, err := p.poller.LogsWithSigs(start, latest, filter.topics, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
+		// query logs based on contract address, event sig, and blocks
+		logs, err := p.poller.LogsWithSigs(start, latest, []common.Hash{filter.topics[0]}, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
 		if err != nil {
 			// cancel limit reservation as we failed to get logs
 			resv.Cancel()
@@ -395,6 +396,27 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 			merr = errors.Join(merr, fmt.Errorf("failed to get logs for upkeep %s: %w", filter.upkeepID.String(), err))
 			continue
 		}
+
+		var filteredLogs []logpoller.Log
+		// filter logs based on filter selector (topic1, topic2, topic3) if it's configured
+		if filter.selector != 0 {
+			checkTopic1 := filter.selector%2 == 1
+			checkTopic2 := (filter.selector>>1)%2 == 1
+			checkTopic3 := (filter.selector>>2)%2 == 1
+			for _, l := range logs {
+				if checkTopic1 && common.Bytes2Hex(l.Topics[1]) != filter.topics[1].Hex() {
+					break
+				}
+				if checkTopic2 && common.Bytes2Hex(l.Topics[2]) != filter.topics[2].Hex() {
+					break
+				}
+				if checkTopic3 && common.Bytes2Hex(l.Topics[3]) != filter.topics[3].Hex() {
+					break
+				}
+				filteredLogs = append(filteredLogs, l)
+			}
+		}
+
 		// if this limiter's burst was set to the max ->
 		// reset it and cancel the reservation to allow further processing
 		if filter.blockLimiter.Burst() == maxBurst {
@@ -402,7 +424,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 			filter.blockLimiter.SetBurst(p.opts.BlockLimitBurst)
 		}
 
-		p.buffer.enqueue(filter.upkeepID, logs...)
+		p.buffer.enqueue(filter.upkeepID, filteredLogs...)
 
 		filter.lastPollBlock = latest
 	}
