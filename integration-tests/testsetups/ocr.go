@@ -279,16 +279,6 @@ func (o *OCRSoakTest) Run() {
 	o.complete()
 }
 
-func (o *OCRSoakTest) complete() {
-	o.log.Info().Msg("Test Complete, collecting on-chain events")
-
-	err := o.collectEvents()
-	if err != nil {
-		log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
-	}
-	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
-}
-
 // Networks returns the networks that the test is running on
 func (o *OCRSoakTest) TearDownVals(t *testing.T) (
 	*testing.T,
@@ -511,6 +501,17 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	}
 }
 
+// completes the test
+func (o *OCRSoakTest) complete() {
+	o.log.Info().Msg("Test Complete, collecting on-chain events")
+
+	err := o.collectEvents()
+	if err != nil {
+		log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
+	}
+	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
+}
+
 // setFilterQuery to look for all events that happened
 func (o *OCRSoakTest) setFilterQuery() {
 	ocrAddresses := make([]common.Address, len(o.ocrInstances))
@@ -524,6 +525,11 @@ func (o *OCRSoakTest) setFilterQuery() {
 		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
 		FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
 	}
+	log.Debug().
+		Interface("Addresses", ocrAddresses).
+		Str("Topic", contractABI.Events["AnswerUpdated"].ID.Hex()).
+		Uint64("Starting Block", o.startingBlockNum).
+		Msg("Filter Query Set")
 }
 
 // observeOCREvents subscribes to OCR events and logs them to the test logger
@@ -658,8 +664,6 @@ func (o *OCRSoakTest) collectEvents() error {
 			BlockNumber: event.BlockNumber,
 		})
 	}
-	// DEBUG: Events
-	log.Warn().Interface("Found Events", sortedFoundEvents).Msg("DEBUG")
 
 	// Sort our events by time to make sure they are in order (don't trust RPCs)
 	sort.Slice(sortedFoundEvents, func(i, j int) bool {
