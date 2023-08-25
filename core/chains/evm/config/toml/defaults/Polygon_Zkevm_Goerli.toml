@@ -10,8 +10,9 @@ LogPollInterval = '30s'
 ResendAfterThreshold = '3m'
 
 [GasEstimator]
-PriceMin = '1 gwei'
-BumpMin = '2 gwei'
+PriceMin = '50 mwei'
+BumpPercent = 40
+BumpMin = '20 mwei'
 
 [GasEstimator.BlockHistory]
 BlockHistorySize = 12
