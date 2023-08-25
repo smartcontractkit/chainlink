@@ -56,8 +56,8 @@ interface IFeeManager is IERC165, IVerifierFeeManager {
   function updateSubscriberDiscount(address subscriber, bytes32 feedId, address token, uint256 discount) external;
 
   /**
-   * @notice Withdraws any native rewards to the owner address
-   * @param quantity quantity of native tokens to withdraw, address(0) is native
+   * @notice Withdraws any native or LINK rewards to the owner address
+   * @param quantity quantity of tokens to withdraw, address(0) is native
    * @param quantity quantity to withdraw
    */
   function withdraw(address assetAddress, uint256 quantity) external;
