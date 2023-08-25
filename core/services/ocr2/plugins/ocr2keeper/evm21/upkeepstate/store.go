@@ -216,6 +216,10 @@ func (u *upkeepStateStore) fetchPerformed(ctx context.Context, workIDs ...string
 		return err
 	}
 
+	if len(performed) > 0 {
+		u.lggr.Debugw("Fetched performed logs", "performed", len(performed))
+	}
+
 	u.mu.Lock()
 	defer u.mu.Unlock()
 

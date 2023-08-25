@@ -37,7 +37,7 @@ func NewPerformedEventsScanner(
 	finalityDepth uint32,
 ) *performedEventsScanner {
 	return &performedEventsScanner{
-		lggr:            lggr,
+		lggr:            lggr.Named("EventsScanner"),
 		poller:          poller,
 		registryAddress: registryAddress,
 		finalityDepth:   finalityDepth,
