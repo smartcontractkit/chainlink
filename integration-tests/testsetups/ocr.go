@@ -269,6 +269,7 @@ func (o *OCRSoakTest) Run() {
 		require.NoError(o.t, err, "Error creating OCR jobs")
 	}
 
+	o.setFilterQuery()
 	o.log.Info().
 		Str("Test Duration", o.Inputs.TestDuration.Truncate(time.Second).String()).
 		Int("Number of OCR Contracts", len(o.ocrInstances)).
@@ -436,18 +437,7 @@ func (o *OCRSoakTest) Resume() {
 	})
 	log.Info().Str("Time Left", o.Inputs.TestDuration.String()).Msg("Resuming OCR Soak Test")
 
-	ocrAddresses := make([]common.Address, len(o.ocrInstances))
-	for i, ocrInstance := range o.ocrInstances {
-		ocrAddresses[i] = common.HexToAddress(ocrInstance.Address())
-	}
-	contractABI, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
-	require.NoError(o.t, err, "Error retrieving OCR contract ABI")
-	o.filterQuery = geth.FilterQuery{
-		Addresses: ocrAddresses,
-		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
-		FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
-	}
-
+	o.setFilterQuery()
 	startingValue := 5
 	o.testLoop(o.timeLeft, startingValue)
 	o.complete()
@@ -518,6 +508,21 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 				Message:   "RPC Connection Restored",
 			})
 		}
+	}
+}
+
+// setFilterQuery to look for all events that happened
+func (o *OCRSoakTest) setFilterQuery() {
+	ocrAddresses := make([]common.Address, len(o.ocrInstances))
+	for i, ocrInstance := range o.ocrInstances {
+		ocrAddresses[i] = common.HexToAddress(ocrInstance.Address())
+	}
+	contractABI, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
+	require.NoError(o.t, err, "Error retrieving OCR contract ABI")
+	o.filterQuery = geth.FilterQuery{
+		Addresses: ocrAddresses,
+		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
+		FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
 	}
 }
 
