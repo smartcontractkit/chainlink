@@ -127,7 +127,7 @@ func (bs *BlockSubscriber) cleanup() {
 	bs.lggr.Infof("lastClearedBlock is set to %d", bs.lastClearedBlock)
 }
 
-func (bs *BlockSubscriber) Start(ctx context.Context) error {
+func (bs *BlockSubscriber) Start(_ context.Context) error {
 	bs.lggr.Info("block subscriber started.")
 	return bs.sync.StartOnce("BlockSubscriber", func() error {
 		bs.mu.Lock()
@@ -231,7 +231,7 @@ func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
 	*cp = *h
 	for ; ; cp = cp.Parent {
 		if cp.Number != h.Number && bs.blocks[cp.Number] != cp.Hash.Hex() {
-			bs.lggr.Warnf("h.Number=%d cp.Number=%d overriding block %d old hash %s with new hash %s due to re-org", h.Number, cp.Number, cp.Number, bs.blocks[cp.Number], cp.Hash.Hex())
+			bs.lggr.Warnf("h.Number=%d cp.Number=%d overriding block %d old hash %s with new hash %s due to re-org or missing previous heads", h.Number, cp.Number, cp.Number, bs.blocks[cp.Number], cp.Hash.Hex())
 		}
 		bs.blocks[cp.Number] = cp.Hash.Hex()
 		i++
