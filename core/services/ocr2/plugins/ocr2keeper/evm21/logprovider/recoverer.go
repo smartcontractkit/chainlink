@@ -122,7 +122,7 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 		go func(ctx context.Context, interval time.Duration) {
 			ticker := time.NewTicker(interval)
 			defer ticker.Stop()
-
+			// TODO: use jitter
 			gcTicker := time.NewTicker(GCInterval)
 			defer gcTicker.Stop()
 
@@ -194,7 +194,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 	if isRecoverable := logBlock < offsetBlock && logBlock > start; !isRecoverable {
 		return nil, errors.New("log block is not recoverable")
 	}
-	upkeepStates, err := r.states.SelectByWorkIDsInRange(ctx, int64(logBlock)-1, offsetBlock, proposal.WorkID)
+	upkeepStates, err := r.states.SelectByWorkIDsInRange(ctx, proposal.WorkID)
 	if err != nil {
 		return nil, err
 	}
@@ -215,6 +215,9 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 
 	if len(filter.addr) == 0 {
 		return nil, fmt.Errorf("invalid filter found for upkeepID %s", proposal.UpkeepID.String())
+	}
+	if filter.configUpdateBlock > uint64(logBlock) {
+		return nil, fmt.Errorf("log block %d is before the filter configUpdateBlock %d for upkeepID %s", logBlock, filter.configUpdateBlock, proposal.UpkeepID.String())
 	}
 
 	logs, err := r.poller.LogsWithSigs(logBlock-1, logBlock+1, filter.topics, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
@@ -347,7 +350,7 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		workIDs = append(workIDs, core.UpkeepWorkID(*upkeepId, trigger))
 	}
 
-	states, err := r.states.SelectByWorkIDsInRange(ctx, start, end, workIDs...)
+	states, err := r.states.SelectByWorkIDsInRange(ctx, workIDs...)
 	if err != nil {
 		return fmt.Errorf("could not read states: %w", err)
 	}
@@ -358,13 +361,12 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 
 	added, alreadyPending := r.populatePending(f, filteredLogs)
 	if added > 0 {
-		r.lggr.Debugw("found missed logs", "count", added, "upkeepID", f.upkeepID)
-	} else if alreadyPending == 0 {
-		r.filterStore.UpdateFilters(func(uf1, uf2 upkeepFilter) upkeepFilter {
-			uf1.lastRePollBlock = end
-			return uf1
-		}, f)
+		r.lggr.Debugw("found missed logs", "added", added, "alreadyPending", alreadyPending, "upkeepID", f.upkeepID)
 	}
+	r.filterStore.UpdateFilters(func(uf1, uf2 upkeepFilter) upkeepFilter {
+		uf1.lastRePollBlock = end
+		return uf1
+	}, f)
 
 	return nil
 }
@@ -533,7 +535,7 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) (int, error
 	if err != nil {
 		return 0, fmt.Errorf("failed to get latest block: %w", err)
 	}
-	states, err := r.states.SelectByWorkIDsInRange(ctx, latestBlock-recoveryRescanBuffer, latestBlock, ids...)
+	states, err := r.states.SelectByWorkIDsInRange(ctx, ids...)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get states: %w", err)
 	}
@@ -549,6 +551,7 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) (int, error
 			// so we push it back to the pending list
 			rec, ok := r.visited[ids[i]]
 			if !ok {
+				// in case it was removed by another thread
 				continue
 			}
 			if logBlock := rec.payload.Trigger.LogTriggerExtension.BlockNumber; int64(logBlock) < start {

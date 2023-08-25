@@ -121,15 +121,16 @@ func (u *upkeepStateStore) Close() error {
 // SelectByWorkIDs returns the current state of the upkeep for the provided ids.
 // If an id is not found, the state is returned as StateUnknown.
 // We first check the cache, and if any ids are missing, we fetch them from the scanner.
-func (u *upkeepStateStore) SelectByWorkIDsInRange(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
-	states, ok := u.selectFromCache(workIDs...)
-	if ok {
+func (u *upkeepStateStore) SelectByWorkIDsInRange(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+	states, missing := u.selectFromCache(workIDs...)
+	if len(missing) == 0 {
 		// all ids were found in the cache
 		return states, nil
 	}
-	if err := u.fetchPerformed(ctx, start, end); err != nil {
+	if err := u.fetchPerformed(ctx, missing...); err != nil {
 		return nil, err
 	}
+
 	states, _ = u.selectFromCache(workIDs...)
 
 	return states, nil
@@ -168,8 +169,8 @@ func (u *upkeepStateStore) upsertStateRecord(workID string, s ocr2keepers.Upkeep
 }
 
 // fetchPerformed fetches all performed logs from the scanner to populate the cache.
-func (u *upkeepStateStore) fetchPerformed(ctx context.Context, start, end int64, workIDs ...string) error {
-	performed, err := u.scanner.WorkIDsInRange(ctx, start, end)
+func (u *upkeepStateStore) fetchPerformed(ctx context.Context, workIDs ...string) error {
+	performed, err := u.scanner.WorkIDsInRange(ctx, workIDs...)
 	if err != nil {
 		return err
 	}
@@ -194,22 +195,21 @@ func (u *upkeepStateStore) fetchPerformed(ctx context.Context, start, end int64,
 // selectFromCache returns all saved state values for the provided ids,
 // returning stateNotFound for any ids that are not found.
 // the second return value is true if all ids were found in the cache.
-func (u *upkeepStateStore) selectFromCache(workIDs ...string) ([]ocr2keepers.UpkeepState, bool) {
+func (u *upkeepStateStore) selectFromCache(workIDs ...string) ([]ocr2keepers.UpkeepState, []string) {
 	u.mu.RLock()
 	defer u.mu.RUnlock()
 
-	var hasMisses bool
+	var missing []string
 	states := make([]ocr2keepers.UpkeepState, len(workIDs))
 	for i, workID := range workIDs {
 		if state, ok := u.cache[workID]; ok {
 			states[i] = state.state
 		} else {
-			hasMisses = true
-			states[i] = ocr2keepers.UnknownState
+			missing = append(missing, workID)
 		}
 	}
 
-	return states, !hasMisses
+	return states, missing
 }
 
 // cleanup removes any records that are older than the TTL from both cache and DB.
