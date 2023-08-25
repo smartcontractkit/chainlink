@@ -29,9 +29,8 @@ var (
 	RecoveryCacheTTL        = 10*time.Minute - time.Second
 	GCInterval              = RecoveryCacheTTL
 
-	recoveryBatchSize    = 10
-	recoveryLogsBuffer   = int64(50)
-	recoveryRescanBuffer = int64(100)
+	recoveryBatchSize  = 10
+	recoveryLogsBuffer = int64(50)
 )
 
 type LogRecoverer interface {
