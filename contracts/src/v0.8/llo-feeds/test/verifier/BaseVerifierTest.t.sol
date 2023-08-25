@@ -173,7 +173,7 @@ contract BaseTest is Test {
     bytes memory onchainConfig,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
-  ) internal view returns (bytes32) {
+  ) internal pure returns (bytes32) {
     uint256 h = uint256(
       keccak256(
         abi.encode(

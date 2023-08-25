@@ -54,9 +54,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @notice the error thrown if the discount or surcharge is invalid
   error InvalidSurcharge();
 
-  /// @notice the error thrown if the token is invalid
-  error InvalidToken();
-
   /// @notice the error thrown if the discount is invalid
   error InvalidDiscount();
 
@@ -172,49 +169,50 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     }
 
     //decode the fee, it will always be native or LINK
-    (Common.Asset memory fee, Common.Asset memory reward) = getFeeAndReward(msg.sender, report, quote);
+    (Common.Asset memory fee, Common.Asset memory reward) = getFeeAndReward(subscriber, report, quote);
 
     //keep track of change in case of any over payment
-    uint256 change;
-
-    //wrap the amount required to pay the fee
-    if (msg.value != 0) {
-      //quote must be in native with enough to cover the fee
-      if (fee.assetAddress != i_nativeAddress) revert InvalidDeposit();
-      if (fee.amount > msg.value) revert InvalidDeposit();
-
-      //wrap the amount required to pay the fee & approve
-      IWERC20(i_nativeAddress).deposit{value: fee.amount}();
-
-      unchecked {
-        //msg.value is always >= to fee.amount
-        change = msg.value - fee.amount;
-      }
-    }
-
-    //get the config digest which is the first 32 bytes of the payload
-    bytes32 configDigest = bytes32(payload);
+    uint256 change = msg.value;
 
     //some users might not be billed
     if (fee.amount != 0) {
-      //if the fee is in LINK, transfer directly from the subscriber to the reward manager
-      if (fee.assetAddress == i_linkAddress) {
-        //distributes the fee
-        i_rewardManager.onFeePaid(configDigest, subscriber, reward.amount);
-      } else {
-        //if the fee is in native wrapped, transfer to this contract in exchange for the equivalent amount of LINK excluding the surcharge
-        if (msg.value == 0) {
+      //wrap the amount required to pay the fee if the user has paid in  unswapped native
+      if (fee.assetAddress == i_nativeAddress) {
+        if (msg.value != 0) {
+          //quote must be in native with enough to cover the fee
+          if (fee.amount > msg.value) revert InvalidDeposit();
+
+          //wrap the amount required to pay the fee & approve
+          IWERC20(i_nativeAddress).deposit{value: fee.amount}();
+
+          unchecked {
+            //msg.value is always >= to fee.amount
+            change -= fee.amount;
+          }
+        } else {
+          //if the user has not paid in native, they must have approved unwrapped native to be transferred
           IERC20(fee.assetAddress).safeTransferFrom(subscriber, address(this), fee.amount);
         }
+      }
 
-        //check that the contract has enough LINK before paying the fee
-        if (reward.amount > IERC20(i_linkAddress).balanceOf(address(this))) {
-          // If not enough LINK on this contract to forward for rewards, tally the deficit to be paid by out-of-band LINK
-          s_linkDeficit[configDigest] += reward.amount;
-          emit InsufficientLink(configDigest, reward.amount, fee.amount);
+      //although unlikely, the reward could potentially be 0
+      if (reward.amount != 0) {
+        //get the config digest which is the first 32 bytes of the payload
+        bytes32 configDigest = bytes32(payload);
+        //if the fee is in LINK, transfer directly from the subscriber to the reward manager
+        if (fee.assetAddress == i_linkAddress) {
+          //distributes the fee
+          i_rewardManager.onFeePaid(configDigest, subscriber, reward.amount);
         } else {
-          //bill the payee and distribute the fee using the config digest as the key
-          i_rewardManager.onFeePaid(configDigest, address(this), reward.amount);
+          //check that the contract has enough LINK before paying the fee
+          if (reward.amount > IERC20(i_linkAddress).balanceOf(address(this))) {
+            // If not enough LINK on this contract to forward for rewards, tally the deficit to be paid by out-of-band LINK
+            s_linkDeficit[configDigest] += reward.amount;
+            emit InsufficientLink(configDigest, reward.amount, fee.amount);
+          } else {
+            //bill the payee and distribute the fee using the config digest as the key
+            i_rewardManager.onFeePaid(configDigest, address(this), reward.amount);
+          }
         }
       }
     }
@@ -266,27 +264,30 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       revert ExpiredReport();
     }
 
+    //get the discount being applied
+    uint256 discount = s_subscriberDiscounts[subscriber][feedId][quote.quoteAddress];
+
     //the reward is always set in LINK
     reward.assetAddress = i_linkAddress;
     reward.amount = linkQuantity;
 
     //calculate either the LINK fee or native fee if it's within the report
     if (quote.quoteAddress == i_linkAddress) {
-      fee.assetAddress = reward.assetAddress;
-      fee.amount = reward.amount;
+      //fee
+      fee.assetAddress = i_linkAddress;
+      fee.amount = linkQuantity - ((linkQuantity * discount) / PERCENTAGE_SCALAR);
+
+      //reward
+      reward.amount = fee.amount;
     } else {
+      //fee
+      uint256 surchargedFee = Math.ceilDiv(nativeQuantity * (PERCENTAGE_SCALAR + s_nativeSurcharge), PERCENTAGE_SCALAR);
       fee.assetAddress = i_nativeAddress;
-      fee.amount = Math.ceilDiv(nativeQuantity * (PERCENTAGE_SCALAR + s_nativeSurcharge), PERCENTAGE_SCALAR);
+      fee.amount = surchargedFee - ((surchargedFee * discount) / PERCENTAGE_SCALAR);
+
+      //reward
+      reward.amount = linkQuantity - Math.ceilDiv(linkQuantity * discount, PERCENTAGE_SCALAR);
     }
-
-    //get the discount being applied
-    uint256 discount = s_subscriberDiscounts[subscriber][feedId][quote.quoteAddress];
-
-    //apply the discount to the fee, rounding up
-    fee.amount = fee.amount - ((fee.amount * discount) / PERCENTAGE_SCALAR);
-
-    //apply the discount to the reward, rounding down
-    reward.amount = reward.amount - Math.ceilDiv(reward.amount * discount, PERCENTAGE_SCALAR);
 
     //return the fee
     return (fee, reward);

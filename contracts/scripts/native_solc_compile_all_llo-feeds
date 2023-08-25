@@ -7,7 +7,7 @@ echo " │    Compiling Low Latency Oracle contracts... │"
 echo " └──────────────────────────────────────────────┘"
 
 SOLC_VERSION="0.8.16"
-OPTIMIZE_RUNS=15000
+OPTIMIZE_RUNS=1000000
 
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
