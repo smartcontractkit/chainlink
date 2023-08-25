@@ -13,15 +13,14 @@ import { KeeperRegistryLogic1_3__factory as KeeperRegistryLogicFactory } from '.
 import { toWei } from '../../test-helpers/helpers'
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers'
 import {
-  LinkToken,
-  MockV3Aggregator,
+  IKeeperRegistryMaster,
   KeeperRegistry1_2,
   KeeperRegistry1_3,
   KeeperRegistry2_0,
-  IKeeperRegistryMaster,
+  LinkToken,
+  MockV3Aggregator,
   UpkeepMock,
 } from '../../../typechain'
-import {} from '../../../typechain'
 import { deployRegistry21 } from './helpers'
 
 let transcoder: UpkeepTranscoder
@@ -310,7 +309,9 @@ const setup = async () => {
   )
   transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
 
-  linkTokenFactory = await ethers.getContractFactory('LinkToken')
+  linkTokenFactory = await ethers.getContractFactory(
+    'src/v0.4/LinkToken.sol:LinkToken',
+  )
   linkToken = await linkTokenFactory.connect(owner).deploy()
   // need full path because there are two contracts with name MockV3Aggregator
   const mockV3AggregatorFactory = (await ethers.getContractFactory(

@@ -398,7 +398,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	chainId := ethClient.ConfiguredChainID()
 	evmOpts := chainlink.EVMFactoryConfig{
 		RelayerConfig: evm.RelayerConfig{
-			GeneralConfig:    cfg,
+			AppConfig:        cfg,
 			EventBroadcaster: eventBroadcaster,
 			MailMon:          mailMon,
 			GenEthClient: func(_ *big.Int) evmclient.Client {

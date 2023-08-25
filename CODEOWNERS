@@ -46,8 +46,16 @@
 
 /core/services/webhook @samsondav
 
-# Chainlink Functions related services
-core/services/ocr2/plugins/functions @bolekk @justinkaseman @KuphJr @pinebit
+# Chainlink Functions
+core/services/functions @smartcontractkit/functions
+core/services/ocr2/plugins/functions @smartcontractkit/functions
+core/services/s4 @pinebit @bolekk
+core/service/ocr2/plugins/s4 @pinebit @bolekk
+core/services/ocr2/plugins/threshold @KuphJr @bolekk
+core/services/relay/evm/functions.go @bolekk @justinkaseman @KuphJr
+core/services/relay/evm/functions @bolekk @justinkaseman @KuphJr
+core/scripts/functions @smartcontractkit/functions
+core/scripts/gateway @bolekk @pinebit
 
 # API
 /core/web @jkongie
@@ -62,15 +70,15 @@ core/services/ocr2/plugins/functions @bolekk @justinkaseman @KuphJr @pinebit
 /contracts/ @se3000 @connorwstein
 /contracts/**/*Keeper* @smartcontractkit/keepers
 /contracts/**/*Upkeep* @smartcontractkit/keepers
-/contracts/**/*Functions* @bolekk @justinkaseman @KuphJr @pinebit
-/contracts/src/v0.8/functions @bolekk @justinkaseman @KuphJr @pinebit
+/contracts/**/*Functions* @smartcontractkit/functions
+/contracts/src/v0.8/functions @smartcontractkit/functions
+contracts/test/v0.8/functions @smartcontractkit/functions
 /contracts/src/v0.8/llo-feeds @austinborn @Fletch153
 
 # Tests
 /integration-tests/ @smartcontractkit/test-tooling-team
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
-
 
 # CI/CD
 /.github/** @chainchad @javuto @jkongie @jmank88 @samsondav
