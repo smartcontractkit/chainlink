@@ -461,9 +461,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     i_automationForwarderLogic = automationForwarderLogic;
   }
 
-  ///////////////////////////////////////////////////////////////////////////////////////
-  /////////////////////////////// INTERNAL FUNCTIONS ONLY ///////////////////////////////
-  ///////////////////////////////////////////////////////////////////////////////////////
+  // ================================================================
+  // |                   INTERNAL FUNCTIONS ONLY                    |
+  // ================================================================
 
   /**
    * @dev creates a new upkeep with the given fields

@@ -57,9 +57,9 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
     Chainable(address(logicA))
   {}
 
-  ////////
-  // ACTIONS
-  ////////
+  // ================================================================
+  // |                           ACTIONS                            |
+  // ================================================================
 
   /**
    * @inheritdoc OCR2Abstract
@@ -217,9 +217,9 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
     emit FundsAdded(id, sender, uint96(amount));
   }
 
-  /////////////
-  // SETTERS //
-  /////////////
+  // ================================================================
+  // |                           SETTERS                            |
+  // ================================================================
 
   /**
    * @inheritdoc OCR2Abstract
@@ -367,9 +367,9 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
     );
   }
 
-  /////////////
-  // GETTERS //
-  /////////////
+  // ================================================================
+  // |                           GETTERS                            |
+  // ================================================================
 
   /**
    * @inheritdoc OCR2Abstract

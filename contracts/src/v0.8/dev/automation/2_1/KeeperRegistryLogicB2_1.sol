@@ -23,9 +23,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     address automationForwarderLogic
   ) KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed, automationForwarderLogic) {}
 
-  ///////////////////////
-  // UPKEEP MANAGEMENT //
-  ///////////////////////
+  // ================================================================
+  // |                      UPKEEP MANAGEMENT                       |
+  // ================================================================
 
   /**
    * @notice transfers the address of an admin for an upkeep
@@ -124,9 +124,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit FundsWithdrawn(id, amountToWithdraw, to);
   }
 
-  /////////////////////
-  // NODE MANAGEMENT //
-  /////////////////////
+  // ================================================================
+  // |                       NODE MANAGEMENT                        |
+  // ================================================================
 
   /**
    * @notice transfers the address of payee for a transmitter
@@ -166,9 +166,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit PaymentWithdrawn(from, balance, to, msg.sender);
   }
 
-  /////////////////////////////
-  // OWNER / MANAGER ACTIONS //
-  /////////////////////////////
+  // ================================================================
+  // |                   OWNER / MANAGER ACTIONS                    |
+  // ================================================================
 
   /**
    * @notice sets the privilege config for an upkeep
@@ -256,9 +256,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit AdminPrivilegeConfigSet(admin, newPrivilegeConfig);
   }
 
-  /////////////
-  // GETTERS //
-  /////////////
+  // ================================================================
+  // |                           GETTERS                            |
+  // ================================================================
 
   function getConditionalGasOverhead() external pure returns (uint256) {
     return REGISTRY_CONDITIONAL_OVERHEAD;

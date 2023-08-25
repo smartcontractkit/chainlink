@@ -379,7 +379,9 @@ contract AutomationRegistrar2_1 is TypeAndVersionInterface, ConfirmedOwner, IERC
     }
   }
 
-  //PRIVATE
+  // ================================================================
+  // |                           PRIVATE                            |
+  // ================================================================
 
   /**
    * @dev verify registration request and emit RegistrationRequested event
@@ -469,7 +471,9 @@ contract AutomationRegistrar2_1 is TypeAndVersionInterface, ConfirmedOwner, IERC
     return false;
   }
 
-  //MODIFIERS
+  // ================================================================
+  // |                          MODIFIERS                           |
+  // ================================================================
 
   /**
    * @dev Reverts if not sent from the LINK token
