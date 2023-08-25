@@ -14,15 +14,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	mercurymocks "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
+	reportcodecv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/reportcodec"
 )
 
 var _ relaymercury.MercuryServerFetcher = &mockFetcher{}
 
 type mockFetcher struct {
-	ts             uint32
+	ts             int64
 	tsErr          error
 	linkPrice      *big.Int
 	linkPriceErr   error
@@ -47,12 +49,22 @@ func (m *mockFetcher) LatestPrice(ctx context.Context, fId [32]byte) (*big.Int, 
 	return nil, nil
 }
 
-func (m *mockFetcher) LatestTimestamp(context.Context) (uint32, error) {
+func (m *mockFetcher) LatestTimestamp(context.Context) (int64, error) {
 	return m.ts, m.tsErr
 }
 
+type mockORM struct {
+	report []byte
+	err    error
+}
+
+func (m *mockORM) LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error) {
+	return m.report, m.err
+}
+
 func Test_Datasource(t *testing.T) {
-	ds := &datasource{lggr: logger.TestLogger(t)}
+	orm := &mockORM{}
+	ds := &datasource{orm: orm, lggr: logger.TestLogger(t)}
 	ctx := testutils.Context(t)
 	repts := ocrtypes.ReportTimestamp{}
 
@@ -75,6 +87,40 @@ func Test_Datasource(t *testing.T) {
 	ds.spec = spec
 
 	t.Run("when fetchMaxFinalizedTimestamp=true", func(t *testing.T) {
+		t.Run("with latest report in database", func(t *testing.T) {
+			orm.report = buildSampleV2Report()
+			orm.err = nil
+
+			obs, err := ds.Observe(ctx, repts, true)
+			assert.NoError(t, err)
+
+			assert.NoError(t, obs.MaxFinalizedTimestamp.Err)
+			assert.Equal(t, int64(124), obs.MaxFinalizedTimestamp.Val)
+		})
+		t.Run("if querying latest report fails", func(t *testing.T) {
+			orm.report = nil
+			orm.err = errors.New("something exploded")
+
+			obs, err := ds.Observe(ctx, repts, true)
+			assert.NoError(t, err)
+
+			assert.EqualError(t, obs.MaxFinalizedTimestamp.Err, "something exploded")
+			assert.Zero(t, obs.MaxFinalizedTimestamp.Val)
+		})
+		t.Run("if codec fails to decode", func(t *testing.T) {
+			orm.report = []byte{1, 2, 3}
+			orm.err = nil
+
+			obs, err := ds.Observe(ctx, repts, true)
+			assert.NoError(t, err)
+
+			assert.EqualError(t, obs.MaxFinalizedTimestamp.Err, "failed to decode report: abi: cannot marshal in to go type: length insufficient 3 require 32")
+			assert.Zero(t, obs.MaxFinalizedTimestamp.Val)
+		})
+
+		orm.report = nil
+		orm.err = nil
+
 		t.Run("if LatestTimestamp returns error", func(t *testing.T) {
 			fetcher.tsErr = errors.New("some error")
 
@@ -92,7 +138,7 @@ func Test_Datasource(t *testing.T) {
 			obs, err := ds.Observe(ctx, repts, true)
 			assert.NoError(t, err)
 
-			assert.Equal(t, uint32(123), obs.MaxFinalizedTimestamp.Val)
+			assert.Equal(t, int64(123), obs.MaxFinalizedTimestamp.Val)
 			assert.NoError(t, obs.MaxFinalizedTimestamp.Err)
 		})
 
@@ -123,7 +169,7 @@ func Test_Datasource(t *testing.T) {
 
 				assert.Equal(t, big.NewInt(122), obs.BenchmarkPrice.Val)
 				assert.NoError(t, obs.BenchmarkPrice.Err)
-				assert.Equal(t, uint32(123123), obs.MaxFinalizedTimestamp.Val)
+				assert.Equal(t, int64(123123), obs.MaxFinalizedTimestamp.Val)
 				assert.NoError(t, obs.MaxFinalizedTimestamp.Err)
 				assert.Equal(t, big.NewInt(122), obs.LinkPrice.Val)
 				assert.NoError(t, obs.LinkPrice.Err)
@@ -191,7 +237,7 @@ func Test_Datasource(t *testing.T) {
 
 				assert.Equal(t, big.NewInt(122), obs.BenchmarkPrice.Val)
 				assert.NoError(t, obs.BenchmarkPrice.Err)
-				assert.Equal(t, uint32(0), obs.MaxFinalizedTimestamp.Val)
+				assert.Equal(t, int64(0), obs.MaxFinalizedTimestamp.Val)
 				assert.NoError(t, obs.MaxFinalizedTimestamp.Err)
 				assert.Equal(t, big.NewInt(122), obs.LinkPrice.Val)
 				assert.NoError(t, obs.LinkPrice.Err)
@@ -221,11 +267,29 @@ func Test_Datasource(t *testing.T) {
 				obs, err := ds.Observe(ctx, repts, false)
 				assert.NoError(t, err)
 
-				assert.Equal(t, obs.LinkPrice.Val, maxInt192)
+				assert.Equal(t, obs.LinkPrice.Val, relaymercury.MaxInt192)
 				assert.Nil(t, obs.LinkPrice.Err)
-				assert.Equal(t, obs.NativePrice.Val, maxInt192)
+				assert.Equal(t, obs.NativePrice.Val, relaymercury.MaxInt192)
 				assert.Nil(t, obs.NativePrice.Err)
 			})
 		})
 	})
+}
+
+var sampleFeedID = [32]uint8{28, 145, 107, 74, 167, 229, 124, 167, 182, 138, 225, 191, 69, 101, 63, 86, 182, 86, 253, 58, 163, 53, 239, 127, 174, 105, 107, 102, 63, 27, 132, 114}
+
+func buildSampleV2Report() []byte {
+	feedID := sampleFeedID
+	timestamp := uint32(124)
+	bp := big.NewInt(242)
+	validFromTimestamp := uint32(123)
+	expiresAt := uint32(456)
+	linkFee := big.NewInt(3334455)
+	nativeFee := big.NewInt(556677)
+
+	b, err := reportcodecv2.ReportTypes.Pack(feedID, validFromTimestamp, timestamp, nativeFee, linkFee, expiresAt, bp)
+	if err != nil {
+		panic(err)
+	}
+	return b
 }

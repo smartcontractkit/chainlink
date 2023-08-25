@@ -18,8 +18,18 @@ import (
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
+	"strings"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_client_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_v1_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
@@ -725,6 +735,149 @@ func (f *EthereumKeeperGasWrapperMock) SetMeasureCheckGasResult(result bool, pay
 		return err
 	}
 	tx, err := f.gasWrapperMock.SetMeasureCheckGasResult(opts, result, payload, gas)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+// EthereumFunctionsV1EventsMock represents the basic functions v1 events mock contract
+type EthereumFunctionsV1EventsMock struct {
+	client     blockchain.EVMClient
+	eventsMock *functions_v1_events_mock.FunctionsV1EventsMock
+	address    *common.Address
+}
+
+func (f *EthereumFunctionsV1EventsMock) Address() string {
+	return f.address.Hex()
+}
+
+func (f *EthereumFunctionsV1EventsMock) EmitRequestProcessed(requestId [32]byte, subscriptionId uint64, totalCostJuels *big.Int, transmitter common.Address, resultCode uint8, response []byte, errByte []byte, callbackReturnData []byte) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitRequestProcessed(opts, requestId, subscriptionId, totalCostJuels, transmitter, resultCode, response, errByte, callbackReturnData)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumFunctionsV1EventsMock) EmitRequestStart(requestId [32]byte, donId [32]byte, subscriptionId uint64, subscriptionOwner common.Address, requestingContract common.Address, requestInitiator common.Address, data []byte, dataVersion uint16, callbackGasLimit uint32, estimatedTotalCostJuels *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitRequestStart(opts, requestId, donId, subscriptionId, subscriptionOwner, requestingContract, requestInitiator, data, dataVersion, callbackGasLimit, estimatedTotalCostJuels)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionCanceled(subscriptionId uint64, fundsRecipient common.Address, fundsAmount *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitSubscriptionCanceled(opts, subscriptionId, fundsRecipient, fundsAmount)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionConsumerAdded(subscriptionId uint64, consumer common.Address) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitSubscriptionConsumerAdded(opts, subscriptionId, consumer)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionConsumerRemoved(subscriptionId uint64, consumer common.Address) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitSubscriptionConsumerRemoved(opts, subscriptionId, consumer)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionCreated(subscriptionId uint64, owner common.Address) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitSubscriptionCreated(opts, subscriptionId, owner)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionFunded(subscriptionId uint64, oldBalance *big.Int, newBalance *big.Int) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitSubscriptionFunded(opts, subscriptionId, oldBalance, newBalance)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionOwnerTransferred(subscriptionId uint64, from common.Address, to common.Address) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitSubscriptionOwnerTransferred(opts, subscriptionId, from, to)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumFunctionsV1EventsMock) EmitSubscriptionOwnerTransferRequested(subscriptionId uint64, from common.Address, to common.Address) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitSubscriptionOwnerTransferRequested(opts, subscriptionId, from, to)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumFunctionsV1EventsMock) EmitRequestNotProcessed(requestId [32]byte, coordinator common.Address, transmitter common.Address, resultCode uint8) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitRequestNotProcessed(opts, requestId, coordinator, transmitter, resultCode)
+	if err != nil {
+		return err
+	}
+	return f.client.ProcessTransaction(tx)
+}
+
+func (f *EthereumFunctionsV1EventsMock) EmitContractUpdated(id [32]byte, from common.Address, to common.Address) error {
+	opts, err := f.client.TransactionOpts(f.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := f.eventsMock.EmitContractUpdated(opts, id, from, to)
 	if err != nil {
 		return err
 	}
@@ -1929,4 +2082,93 @@ type EthereumKeeperRegistryCheckUpkeepGasUsageWrapper struct {
 
 func (e *EthereumKeeperRegistryCheckUpkeepGasUsageWrapper) Address() string {
 	return e.address.Hex()
+}
+
+/* Functions 1_0_0 */
+
+type EthereumFunctionsRouter struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *functions_router.FunctionsRouter
+}
+
+func (e *EthereumFunctionsRouter) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string) (uint64, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return 0, err
+	}
+	tx, err := e.instance.CreateSubscriptionWithConsumer(opts, common.HexToAddress(consumer))
+	if err != nil {
+		return 0, err
+	}
+	if err := e.client.ProcessTransaction(tx); err != nil {
+		return 0, err
+	}
+	r, err := e.client.GetTxReceipt(tx.Hash())
+	if err != nil {
+		return 0, err
+	}
+	for _, l := range r.Logs {
+		log.Warn().Interface("Log", common.Bytes2Hex(l.Data)).Send()
+	}
+	topicsMap := map[string]interface{}{}
+
+	fabi, err := abi.JSON(strings.NewReader(functions_router.FunctionsRouterABI))
+	if err != nil {
+		return 0, err
+	}
+	for _, ev := range fabi.Events {
+		log.Warn().Str("EventName", ev.Name).Send()
+	}
+	topicOneInputs := abi.Arguments{fabi.Events["SubscriptionCreated"].Inputs[0]}
+	topicOneHash := []common.Hash{r.Logs[0].Topics[1:][0]}
+	if err := abi.ParseTopicsIntoMap(topicsMap, topicOneInputs, topicOneHash); err != nil {
+		return 0, errors.Wrap(err, "failed to decode topic value")
+	}
+	log.Warn().Interface("NewTopicsDecoded", topicsMap).Send()
+	if topicsMap["subscriptionId"] == 0 {
+		return 0, errors.New("failed to decode subscription ID after creation")
+	}
+	return topicsMap["subscriptionId"].(uint64), nil
+}
+
+type EthereumFunctionsCoordinator struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *functions_coordinator.FunctionsCoordinator
+}
+
+func (e *EthereumFunctionsCoordinator) Address() string {
+	return e.address.Hex()
+}
+
+type EthereumFunctionsLoadTestClient struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *functions_load_test_client.FunctionsLoadTestClient
+}
+
+func (e *EthereumFunctionsLoadTestClient) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumFunctionsLoadTestClient) SendRequest(source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := e.instance.SendRequest(opts, source, encryptedSecretsReferences, args, subscriptionId, jobId)
+	if err != nil {
+		return err
+	}
+	if err := e.client.ProcessTransaction(tx); err != nil {
+		return err
+	}
+	revertReason, _, _ := e.client.RevertReasonFromTx(tx.Hash(), functions_client_example.FunctionsClientExampleABI)
+	log.Debug().Str("RevertReason", revertReason).Send()
+	return nil
 }
