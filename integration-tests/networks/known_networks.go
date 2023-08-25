@@ -533,10 +533,7 @@ func setURLs(prefix string, network *blockchain.EVMNetwork) {
 		}
 		wsURLs := strings.Split(evmUrls, ",")
 		httpURLs := strings.Split(evmhttpUrls, ",")
-		log.Warn().
-			Interface("EVM_URLS", wsURLs).
-			Interface("EVM_HTTP_URLS", httpURLs).
-			Msgf("No '%s' env var defined, defaulting to 'EVM_URLS'", wsEnvVar)
+		log.Warn().Msgf("No '%s' env var defined, defaulting to 'EVM_URLS'", wsEnvVar)
 		network.URLs = wsURLs
 		network.HTTPURLs = httpURLs
 		return
@@ -565,9 +562,7 @@ func setKeys(prefix string, network *blockchain.EVMNetwork) {
 	}
 	if keysEnv == "" {
 		keys := strings.Split(os.Getenv("EVM_KEYS"), ",")
-		log.Warn().
-			Interface("EVM_KEYS", keys).
-			Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_KEYS'", envVar))
+		log.Warn().Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_KEYS'", envVar))
 		network.PrivateKeys = keys
 		return
 	}
