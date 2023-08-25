@@ -14,9 +14,9 @@ interface IVerifier is IERC165 {
    * @dev Verification is typically only done through the proxy contract so
    * we can't just use msg.sender to log the requester as the msg.sender
    * contract will always be the proxy.
-   * @return response The encoded verified response.
+   * @return verifierResponse The encoded verified response.
    */
-  function verify(bytes calldata signedReport, address sender) external returns (bytes memory response);
+  function verify(bytes calldata signedReport, address sender) external returns (bytes memory verifierResponse);
 
   /**
    * @notice sets offchain reporting protocol configuration incl. participating oracles
