@@ -180,7 +180,7 @@ jobs:
         run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.split.pkgs }}"
       - name: Print Filtered Test Results
         if: failure()
-        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@260e9b8a4c78d8c1fa6693a0e7144b40e41c7a35 # v2.2.9
+        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
         with:
           results-file: ./output.txt
           output-file: ./output-short.txt
@@ -232,7 +232,7 @@ jobs:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
         with:
           channel-id: '#topic-data-races'
-          slack-message: "Race tests failed: ${{ job.html_url }}\n${{ github.event.pull_request.html_url || github.event.head_commit.url }}"
+          slack-message: "Race tests failed: ${{ job.html_url }}\n${{ github.event.pull_request.html_url || github.event.head_commit.url || format('https://github.com/smartcontractkit/chainlink/commit/{0}', github.sha) }}"
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics

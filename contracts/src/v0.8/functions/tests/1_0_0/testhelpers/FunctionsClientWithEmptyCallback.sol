@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {ITermsOfServiceAllowList} from "../../../dev/1_0_0/accessControl/interfaces/ITermsOfServiceAllowList.sol";
-import {IFunctionsSubscriptions} from "../../../dev/1_0_0/interfaces/IFunctionsSubscriptions.sol";
-
 import {FunctionsRequest} from "../../../dev/1_0_0/libraries/FunctionsRequest.sol";
 import {FunctionsClient} from "../../../dev/1_0_0/FunctionsClient.sol";
 
@@ -28,5 +25,7 @@ contract FunctionsClientWithEmptyCallback is FunctionsClient {
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
   }
 
-  function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {}
+  function fulfillRequest(bytes32 /*requestId*/, bytes memory /*response*/, bytes memory /*err*/) internal override {
+    // Do nothing
+  }
 }

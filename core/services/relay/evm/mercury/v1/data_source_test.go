@@ -49,7 +49,7 @@ func (m *mockFetcher) LatestPrice(ctx context.Context, feedID [32]byte) (*big.In
 	return nil, nil
 }
 
-func (m *mockFetcher) LatestTimestamp(context.Context) (uint32, error) {
+func (m *mockFetcher) LatestTimestamp(context.Context) (int64, error) {
 	return 0, nil
 }
 
@@ -141,6 +141,16 @@ func TestMercury_Observe(t *testing.T) {
 			assert.NoError(t, err)
 
 			assert.EqualError(t, obs.MaxFinalizedBlockNumber.Err, "something exploded")
+			assert.Zero(t, obs.MaxFinalizedBlockNumber.Val)
+		})
+		t.Run("if decoding latest report fails", func(t *testing.T) {
+			orm.report = []byte{1, 2, 3}
+			orm.err = nil
+
+			obs, err := ds.Observe(ctx, repts, true)
+			assert.NoError(t, err)
+
+			assert.EqualError(t, obs.MaxFinalizedBlockNumber.Err, "failed to decode report: abi: cannot marshal in to go type: length insufficient 3 require 32")
 			assert.Zero(t, obs.MaxFinalizedBlockNumber.Val)
 		})
 

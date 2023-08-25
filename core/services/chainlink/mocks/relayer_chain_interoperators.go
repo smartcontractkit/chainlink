@@ -30,21 +30,21 @@ type RelayerChainInteroperators struct {
 }
 
 // ChainStatus provides a mock function with given fields: ctx, id
-func (_m *RelayerChainInteroperators) ChainStatus(ctx context.Context, id relay.Identifier) (types.ChainStatus, error) {
+func (_m *RelayerChainInteroperators) ChainStatus(ctx context.Context, id relay.ID) (types.ChainStatus, error) {
 	ret := _m.Called(ctx, id)
 
 	var r0 types.ChainStatus
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, relay.Identifier) (types.ChainStatus, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, relay.ID) (types.ChainStatus, error)); ok {
 		return rf(ctx, id)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, relay.Identifier) types.ChainStatus); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, relay.ID) types.ChainStatus); ok {
 		r0 = rf(ctx, id)
 	} else {
 		r0 = ret.Get(0).(types.ChainStatus)
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, relay.Identifier) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, relay.ID) error); ok {
 		r1 = rf(ctx, id)
 	} else {
 		r1 = ret.Error(1)
@@ -87,15 +87,15 @@ func (_m *RelayerChainInteroperators) ChainStatuses(ctx context.Context, offset 
 }
 
 // Get provides a mock function with given fields: id
-func (_m *RelayerChainInteroperators) Get(id relay.Identifier) (internal.Relayer, error) {
+func (_m *RelayerChainInteroperators) Get(id relay.ID) (internal.Relayer, error) {
 	ret := _m.Called(id)
 
 	var r0 internal.Relayer
 	var r1 error
-	if rf, ok := ret.Get(0).(func(relay.Identifier) (internal.Relayer, error)); ok {
+	if rf, ok := ret.Get(0).(func(relay.ID) (internal.Relayer, error)); ok {
 		return rf(id)
 	}
-	if rf, ok := ret.Get(0).(func(relay.Identifier) internal.Relayer); ok {
+	if rf, ok := ret.Get(0).(func(relay.ID) internal.Relayer); ok {
 		r0 = rf(id)
 	} else {
 		if ret.Get(0) != nil {
@@ -103,7 +103,7 @@ func (_m *RelayerChainInteroperators) Get(id relay.Identifier) (internal.Relayer
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(relay.Identifier) error); ok {
+	if rf, ok := ret.Get(1).(func(relay.ID) error); ok {
 		r1 = rf(id)
 	} else {
 		r1 = ret.Error(1)

@@ -55,7 +55,7 @@ type LegacyChainer interface {
 // Similar to [chains.ChainStatuser] but keyed by relay identifier instead of string
 // TODO BCF-2441 remove this comment when chains.ChainStatus is no longer keyed.
 type ChainStatuser interface {
-	ChainStatus(ctx context.Context, id relay.Identifier) (types.ChainStatus, error)
+	ChainStatus(ctx context.Context, id relay.ID) (types.ChainStatus, error)
 	ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
 }
 
@@ -71,7 +71,7 @@ var _ RelayerChainInteroperators = &CoreRelayerChainInteroperators{}
 // as needed for the core [chainlink.Application]
 type CoreRelayerChainInteroperators struct {
 	mu           sync.Mutex
-	loopRelayers map[relay.Identifier]loop.Relayer
+	loopRelayers map[relay.ID]loop.Relayer
 	legacyChains legacyChains
 
 	// we keep an explicit list of services because the legacy implementations have more than
@@ -81,7 +81,7 @@ type CoreRelayerChainInteroperators struct {
 
 func NewCoreRelayerChainInteroperators(initFuncs ...CoreRelayerChainInitFunc) (*CoreRelayerChainInteroperators, error) {
 	cr := &CoreRelayerChainInteroperators{
-		loopRelayers: make(map[relay.Identifier]loop.Relayer),
+		loopRelayers: make(map[relay.ID]loop.Relayer),
 		srvs:         make([]services.ServiceCtx, 0),
 	}
 	for _, initFn := range initFuncs {
@@ -116,7 +116,11 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 			}
 
 		}
-		op.legacyChains.EVMChains = evm.NewLegacyChains(config.OperationalConfigs, legacyMap)
+		legacy, err := evm.NewLegacyChains(config.AppConfig, legacyMap)
+		if err != nil {
+			return err
+		}
+		op.legacyChains.EVMChains = legacy
 		// TODO BCF-2510 this may not be necessary if EVM is not enabled by default
 		if defaultChain != nil {
 			op.legacyChains.EVMChains.SetDefault(defaultChain)
@@ -176,7 +180,7 @@ func InitStarknet(ctx context.Context, factory RelayerFactory, config StarkNetFa
 }
 
 // Get a [loop.Relayer] by id
-func (rs *CoreRelayerChainInteroperators) Get(id relay.Identifier) (loop.Relayer, error) {
+func (rs *CoreRelayerChainInteroperators) Get(id relay.ID) (loop.Relayer, error) {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	lr, exist := rs.loopRelayers[id]
@@ -203,7 +207,7 @@ func (rs *CoreRelayerChainInteroperators) LegacyCosmosChains() cosmos.LegacyChai
 }
 
 // ChainStatus gets [types.ChainStatus]
-func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id relay.Identifier) (types.ChainStatus, error) {
+func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id relay.ID) (types.ChainStatus, error) {
 
 	lr, err := rs.Get(id)
 	if err != nil {
@@ -225,7 +229,7 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 
-	relayerIds := make([]relay.Identifier, 0)
+	relayerIds := make([]relay.ID, 0)
 	for rid := range rs.loopRelayers {
 		relayerIds = append(relayerIds, rid)
 	}
@@ -265,7 +269,7 @@ func (rs *CoreRelayerChainInteroperators) Node(ctx context.Context, name string)
 			return stat, nil
 		}
 	}
-	return types.NodeStatus{}, chains.ErrNotFound
+	return types.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 }
 
 // ids must be a string representation of relay.Identifier
@@ -287,7 +291,7 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 		}
 	} else {
 		for _, idStr := range relayerIDs {
-			rid := new(relay.Identifier)
+			rid := new(relay.ID)
 			err := rid.UnmarshalString(idStr)
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)
@@ -316,15 +320,15 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 	return result[offset:], len(result[offset:]), nil
 }
 
-type FilterFn func(id relay.Identifier) bool
+type FilterFn func(id relay.ID) bool
 
-var AllRelayers = func(id relay.Identifier) bool {
+var AllRelayers = func(id relay.ID) bool {
 	return true
 }
 
 // Returns true if the given network matches id.Network
-func FilterRelayersByType(network relay.Network) func(id relay.Identifier) bool {
-	return func(id relay.Identifier) bool {
+func FilterRelayersByType(network relay.Network) func(id relay.ID) bool {
+	return func(id relay.ID) bool {
 		return id.Network == network
 	}
 }
@@ -334,7 +338,7 @@ func FilterRelayersByType(network relay.Network) func(id relay.Identifier) bool 
 // for a given chain
 func (rs *CoreRelayerChainInteroperators) List(filter FilterFn) RelayerChainInteroperators {
 
-	matches := make(map[relay.Identifier]loop.Relayer)
+	matches := make(map[relay.ID]loop.Relayer)
 	rs.mu.Lock()
 	for id, relayer := range rs.loopRelayers {
 		if filter(id) {

@@ -19,7 +19,7 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230816220705-665e93233ae5
-	github.com/smartcontractkit/ocr2keepers v0.7.10
+	github.com/smartcontractkit/ocr2keepers v0.7.17
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/spf13/cobra v1.6.1
@@ -192,7 +192,7 @@ require (
 	github.com/jmoiron/sqlx v1.3.5 // indirect
 	github.com/jpillora/backoff v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
-	github.com/klauspost/compress v1.16.3 // indirect
+	github.com/klauspost/compress v1.16.7 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
 	github.com/koron/go-ssdp v0.0.2 // indirect
 	github.com/kr/pretty v0.3.1 // indirect
@@ -269,7 +269,7 @@ require (
 	github.com/mwitkow/grpc-proxy v0.0.0-20230212185441-f345521cb9c9 // indirect
 	github.com/oklog/run v1.1.0 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
-	github.com/opencontainers/image-spec v1.1.0-rc3 // indirect
+	github.com/opencontainers/image-spec v1.1.0-rc4 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
@@ -277,7 +277,7 @@ require (
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
-	github.com/pressly/goose/v3 v3.5.3 // indirect
+	github.com/pressly/goose/v3 v3.15.0 // indirect
 	github.com/prometheus/client_golang v1.16.0 // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect
 	github.com/prometheus/common v0.44.0 // indirect
@@ -297,12 +297,12 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.12 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 // indirect
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230811192642-2299ce672665 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230814175909-17597db0d6fc // indirect
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230824124058-9b063c470048 // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230824125819-215fd09979a2 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230802143301-165000751a85 // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230802150127-d2c95679d61a // indirect
-	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230808152300-d34f9201db27 // indirect
-	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230808152300-d34f9201db27 // indirect
+	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230823081604-f2a0e6b108bb // indirect
+	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230823081604-f2a0e6b108bb // indirect
 	github.com/smartcontractkit/wsrpc v0.7.2 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
