@@ -16,7 +16,7 @@ import (
 )
 
 type PerformedLogsScanner interface {
-	WorkIDsInRange(ctx context.Context, workIDs ...string) ([]string, error)
+	ScanWorkIDs(ctx context.Context, workIDs ...string) ([]string, error)
 
 	Start(context.Context) error
 	io.Closer
@@ -61,7 +61,7 @@ func (s *performedEventsScanner) Close() error {
 	return nil
 }
 
-func (s *performedEventsScanner) WorkIDsInRange(ctx context.Context, workID ...string) ([]string, error) {
+func (s *performedEventsScanner) ScanWorkIDs(ctx context.Context, workID ...string) ([]string, error) {
 	var ids []common.Hash
 	for _, id := range workID {
 		ids = append(ids, common.HexToHash(id))

@@ -180,7 +180,7 @@ func TestUpkeepStateStore(t *testing.T) {
 				assert.NoError(t, store.SetUpkeepState(ctx, insert, ocr2keepers.Performed))
 			}
 
-			states, err := store.SelectByWorkIDsInRange(ctx, 1, 100, tc.workIDsSelect...)
+			states, err := store.SelectByWorkIDs(ctx, tc.workIDsSelect...)
 			if tc.errored {
 				assert.Error(t, err)
 				return
@@ -323,7 +323,7 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			// empty the cache before doing selects to force a db lookup
 			store.cache = make(map[string]*upkeepStateRecord)
 
-			states, err := store.SelectByWorkIDsInRange(ctx, 1, 100, test.queryIDs...)
+			states, err := store.SelectByWorkIDs(ctx, test.queryIDs...)
 
 			require.NoError(t, err, "no error expected from selecting states")
 
@@ -394,7 +394,7 @@ func TestUpkeepStateStore_Service(t *testing.T) {
 	time.Sleep(110 * time.Millisecond)
 
 	// select from store to ensure values still exist
-	values, err := store.SelectByWorkIDsInRange(context.Background(), 1, 100, "0x2")
+	values, err := store.SelectByWorkIDs(context.Background(), "0x2")
 	require.NoError(t, err, "no error from selecting states")
 	require.Equal(t, []ocr2keepers.UpkeepState{ocr2keepers.Ineligible}, values, "selected values should match expected")
 
@@ -402,7 +402,7 @@ func TestUpkeepStateStore_Service(t *testing.T) {
 	time.Sleep(700 * time.Millisecond)
 
 	// select from store to ensure cached values were removed
-	values, err = store.SelectByWorkIDsInRange(context.Background(), 1, 100, "0x2")
+	values, err = store.SelectByWorkIDs(context.Background(), "0x2")
 	require.NoError(t, err, "no error from selecting states")
 	require.Equal(t, []ocr2keepers.UpkeepState{ocr2keepers.UnknownState}, values, "selected values should match expected")
 
@@ -436,7 +436,7 @@ func (s *mockScanner) setErr(err error) {
 	s.err = err
 }
 
-func (s *mockScanner) WorkIDsInRange(ctx context.Context, start, end int64) ([]string, error) {
+func (s *mockScanner) ScanWorkIDs(context.Context, ...string) ([]string, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 

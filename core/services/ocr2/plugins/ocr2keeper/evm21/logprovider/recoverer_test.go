@@ -178,7 +178,7 @@ func TestLogRecoverer_Clean(t *testing.T) {
 			r, _, lp, statesReader := setupTestRecoverer(t, time.Millisecond*50, lookbackBlocks)
 
 			lp.On("LatestBlock", mock.Anything).Return(tc.latestBlock, nil)
-			statesReader.On("SelectByWorkIDsInRange", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, nil)
+			statesReader.On("SelectByWorkIDs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, nil)
 
 			r.lock.Lock()
 			r.pending = tc.pending
@@ -345,7 +345,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			filterStore.AddActiveUpkeeps(tc.active...)
 			lp.On("LatestBlock", mock.Anything).Return(tc.latestBlock, tc.latestBlockErr)
 			lp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.logs, tc.logsErr)
-			statesReader.On("SelectByWorkIDsInRange", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, tc.statesErr)
+			statesReader.On("SelectByWorkIDs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, tc.statesErr)
 
 			err := recoverer.recover(ctx)
 			if tc.recoverErr != nil {
@@ -656,7 +656,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			stateReader: &mockStateReader{
-				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+				SelectByWorkIDsFn: func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 					return nil, errors.New("upkeep state boom")
 				},
 			},
@@ -684,7 +684,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			stateReader: &mockStateReader{
-				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+				SelectByWorkIDsFn: func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 					return []ocr2keepers.UpkeepState{
 						ocr2keepers.Ineligible,
 					}, nil
@@ -717,7 +717,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			stateReader: &mockStateReader{
-				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+				SelectByWorkIDsFn: func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 					return []ocr2keepers.UpkeepState{
 						ocr2keepers.UnknownState,
 					}, nil
@@ -745,7 +745,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			stateReader: &mockStateReader{
-				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+				SelectByWorkIDsFn: func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 					return []ocr2keepers.UpkeepState{
 						ocr2keepers.UnknownState,
 					}, nil
@@ -777,7 +777,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			stateReader: &mockStateReader{
-				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+				SelectByWorkIDsFn: func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 					return []ocr2keepers.UpkeepState{
 						ocr2keepers.UnknownState,
 					}, nil
@@ -821,7 +821,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			stateReader: &mockStateReader{
-				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+				SelectByWorkIDsFn: func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 					return []ocr2keepers.UpkeepState{
 						ocr2keepers.UnknownState,
 					}, nil
@@ -869,7 +869,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			stateReader: &mockStateReader{
-				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+				SelectByWorkIDsFn: func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 					return []ocr2keepers.UpkeepState{
 						ocr2keepers.UnknownState,
 					}, nil
@@ -950,11 +950,11 @@ func (c *mockClient) TransactionReceipt(ctx context.Context, txHash common.Hash)
 }
 
 type mockStateReader struct {
-	SelectByWorkIDsInRangeFn func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error)
+	SelectByWorkIDsFn func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error)
 }
 
-func (r *mockStateReader) SelectByWorkIDsInRange(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
-	return r.SelectByWorkIDsInRangeFn(ctx, start, end, workIDs...)
+func (r *mockStateReader) SelectByWorkIDs(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+	return r.SelectByWorkIDsFn(ctx, workIDs...)
 }
 
 func setupTestRecoverer(t *testing.T, interval time.Duration, lookbackBlocks int64) (*logRecoverer, UpkeepFilterStore, *lpmocks.LogPoller, *mocks.UpkeepStateReader) {

@@ -15,32 +15,32 @@ type UpkeepStateReader struct {
 	mock.Mock
 }
 
-// SelectByWorkIDsInRange provides a mock function with given fields: ctx, start, end, workIDs
-func (_m *UpkeepStateReader) SelectByWorkIDsInRange(ctx context.Context, start int64, end int64, workIDs ...string) ([]types.UpkeepState, error) {
+// SelectByWorkIDs provides a mock function with given fields: ctx, workIDs
+func (_m *UpkeepStateReader) SelectByWorkIDs(ctx context.Context, workIDs ...string) ([]types.UpkeepState, error) {
 	_va := make([]interface{}, len(workIDs))
 	for _i := range workIDs {
 		_va[_i] = workIDs[_i]
 	}
 	var _ca []interface{}
-	_ca = append(_ca, ctx, start, end)
+	_ca = append(_ca, ctx)
 	_ca = append(_ca, _va...)
 	ret := _m.Called(_ca...)
 
 	var r0 []types.UpkeepState
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, ...string) ([]types.UpkeepState, error)); ok {
-		return rf(ctx, start, end, workIDs...)
+	if rf, ok := ret.Get(0).(func(context.Context, ...string) ([]types.UpkeepState, error)); ok {
+		return rf(ctx, workIDs...)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, ...string) []types.UpkeepState); ok {
-		r0 = rf(ctx, start, end, workIDs...)
+	if rf, ok := ret.Get(0).(func(context.Context, ...string) []types.UpkeepState); ok {
+		r0 = rf(ctx, workIDs...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]types.UpkeepState)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, int64, int64, ...string) error); ok {
-		r1 = rf(ctx, start, end, workIDs...)
+	if rf, ok := ret.Get(1).(func(context.Context, ...string) error); ok {
+		r1 = rf(ctx, workIDs...)
 	} else {
 		r1 = ret.Error(1)
 	}

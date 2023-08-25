@@ -194,7 +194,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 	if isRecoverable := logBlock < offsetBlock && logBlock > start; !isRecoverable {
 		return nil, errors.New("log block is not recoverable")
 	}
-	upkeepStates, err := r.states.SelectByWorkIDsInRange(ctx, proposal.WorkID)
+	upkeepStates, err := r.states.SelectByWorkIDs(ctx, proposal.WorkID)
 	if err != nil {
 		return nil, err
 	}
@@ -350,7 +350,7 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		workIDs = append(workIDs, core.UpkeepWorkID(*upkeepId, trigger))
 	}
 
-	states, err := r.states.SelectByWorkIDsInRange(ctx, workIDs...)
+	states, err := r.states.SelectByWorkIDs(ctx, workIDs...)
 	if err != nil {
 		return fmt.Errorf("could not read states: %w", err)
 	}
@@ -535,7 +535,7 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) (int, error
 	if err != nil {
 		return 0, fmt.Errorf("failed to get latest block: %w", err)
 	}
-	states, err := r.states.SelectByWorkIDsInRange(ctx, ids...)
+	states, err := r.states.SelectByWorkIDs(ctx, ids...)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get states: %w", err)
 	}
