@@ -3,7 +3,6 @@ package testsetups
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"math/big"
@@ -269,7 +268,6 @@ func (o *OCRSoakTest) Run() {
 		require.NoError(o.t, err, "Error creating OCR jobs")
 	}
 
-	o.setFilterQuery()
 	o.log.Info().
 		Str("Test Duration", o.Inputs.TestDuration.Truncate(time.Second).String()).
 		Int("Number of OCR Contracts", len(o.ocrInstances)).
@@ -427,7 +425,6 @@ func (o *OCRSoakTest) Resume() {
 	})
 	log.Info().Str("Time Left", o.Inputs.TestDuration.String()).Msg("Resuming OCR Soak Test")
 
-	o.setFilterQuery()
 	startingValue := 5
 	o.testLoop(o.timeLeft, startingValue)
 	o.complete()
@@ -446,6 +443,7 @@ func (o *OCRSoakTest) Interrupted() bool {
 // testLoop is the primary test loop that will trigger new rounds and watch events
 func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	endTest := time.After(testDuration)
+	o.setFilterQuery()
 	interruption := make(chan os.Signal, 1)
 	signal.Notify(interruption, os.Kill, os.Interrupt, syscall.SIGTERM)
 	lastValue := 0
@@ -535,26 +533,6 @@ func (o *OCRSoakTest) setFilterQuery() {
 // observeOCREvents subscribes to OCR events and logs them to the test logger
 // WARNING: Should only be used for observation and logging. This is not a reliable way to collect events.
 func (o *OCRSoakTest) observeOCREvents() error {
-	// set the filter query to listen for AnswerUpdated events on all OCR contracts
-	ocrAddresses := make([]common.Address, len(o.ocrInstances))
-	for i, ocrInstance := range o.ocrInstances {
-		ocrAddresses[i] = common.HexToAddress(ocrInstance.Address())
-	}
-	contractABI, err := offchainaggregator.OffchainAggregatorMetaData.GetAbi()
-	require.NoError(o.t, err, "Error retrieving OCR contract ABI")
-	o.filterQuery = geth.FilterQuery{
-		Addresses: ocrAddresses,
-		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
-	}
-
-	// Convert struct to JSON
-	jsonData, err := json.Marshal(o.filterQuery)
-	if err != nil {
-		fmt.Println(err)
-	} else {
-		o.log.Info().Str("Address", string(jsonData)).Msg("Filter Query")
-	}
-
 	eventLogs := make(chan types.Log)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -634,13 +612,13 @@ func (o *OCRSoakTest) collectEvents() error {
 	o.log.Info().Msg("Collecting on-chain events")
 
 	// We must retrieve the events, use exponential backoff for timeout to retry
-	var (
-		contractEvents []types.Log
-		err            error
-		timeout        = time.Second * 15
-	)
+	timeout := time.Second * 15
+	log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	contractEvents, err := o.chainClient.FilterLogs(ctx, o.filterQuery)
+	cancel()
 	for err != nil {
-		log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		contractEvents, err = o.chainClient.FilterLogs(ctx, o.filterQuery)
 		cancel()
