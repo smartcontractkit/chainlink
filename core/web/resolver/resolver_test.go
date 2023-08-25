@@ -18,6 +18,7 @@ import (
 	coremocks "github.com/smartcontractkit/chainlink/v2/core/internal/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	chainlinkMocks "github.com/smartcontractkit/chainlink/v2/core/services/chainlink/mocks"
 	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
@@ -118,7 +119,9 @@ func setupFramework(t *testing.T) *gqlTestFramework {
 		auditLogger:          &audit.AuditLoggerService{},
 	}
 
+	lggr := logger.TestLogger(t)
 	app.Mock.On("GetAuditLogger", mock.Anything, mock.Anything).Return(audit.NoopLogger).Maybe()
+	app.Mock.On("GetLogger").Return(lggr).Maybe()
 
 	f := &gqlTestFramework{
 		t:          t,

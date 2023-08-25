@@ -139,6 +139,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Enabled: ptr(true),
 				Chain: coscfg.Chain{
 					GasLimitMultiplier: ptr(decimal.RequireFromString("1.55555")),
+					Bech32Prefix:       ptr("wasm"),
+					FeeToken:           ptr("cosm"),
 				},
 				Nodes: cosmos.CosmosNodes{
 					&coscfg.Node{
@@ -152,6 +154,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Enabled: ptr(true),
 				Chain: coscfg.Chain{
 					GasLimitMultiplier: ptr(decimal.RequireFromString("0.777")),
+					Bech32Prefix:       ptr("wasm"),
+					FeeToken:           ptr("cosm"),
 				},
 				Nodes: cosmos.CosmosNodes{
 					&coscfg.Node{
@@ -203,7 +207,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
 					RelayerConfig: evm.RelayerConfig{
-						GeneralConfig:    cfg,
+						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
 						MailMon:          &utils.MailboxMonitor{},
 					},
@@ -265,7 +269,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				SolanaConfigs: cfg.SolanaConfigs()}),
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
 					RelayerConfig: evm.RelayerConfig{
-						GeneralConfig:    cfg,
+						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
 						MailMon:          &utils.MailboxMonitor{},
 					},

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
+	"sync"
 	"time"
 
 	"go.uber.org/multierr"
@@ -83,11 +84,14 @@ type LegacyChainContainer interface {
 
 var _ LegacyChainContainer = &LegacyChains{}
 
-func NewLegacyChains(c evmtypes.Configs, m map[string]Chain) *LegacyChains {
+func NewLegacyChains(cfg AppConfig, m map[string]Chain) (*LegacyChains, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("must provide non-nil app config")
+	}
 	return &LegacyChains{
 		ChainsKV: chains.NewChainsKV[Chain](m),
-		cfgs:     c,
-	}
+		cfgs:     chains.NewConfigs[utils.Big, evmtypes.Node](cfg.EVMConfigs()),
+	}, nil
 }
 
 func (c *LegacyChains) ChainNodeConfigs() evmtypes.Configs {
@@ -161,12 +165,14 @@ type ChainRelayExtenderConfig struct {
 // the factory wants to own the logger and db
 // the factory creates extenders, which need the same and more opts
 type RelayerConfig struct {
-	GeneralConfig AppConfig
+	AppConfig AppConfig
 
-	EventBroadcaster   pg.EventBroadcaster
-	MailMon            *utils.MailboxMonitor
-	GasEstimator       gas.EvmFeeEstimator
-	OperationalConfigs evmtypes.Configs
+	EventBroadcaster pg.EventBroadcaster
+	MailMon          *utils.MailboxMonitor
+	GasEstimator     gas.EvmFeeEstimator
+
+	init               sync.Once
+	operationalConfigs evmtypes.Configs
 
 	// TODO BCF-2513 remove test code from the API
 	// Gen-functions are useful for dependency injection by tests
@@ -178,13 +184,21 @@ type RelayerConfig struct {
 	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
 }
 
+func (r *RelayerConfig) EVMConfigs() evmtypes.Configs {
+	if r.operationalConfigs == nil {
+		r.init.Do(func() {
+			r.operationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](r.AppConfig.EVMConfigs())
+		})
+	}
+	return r.operationalConfigs
+}
 func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExtenderConfig) (Chain, error) {
 	chainID := chain.ChainID
 	l := opts.Logger.With("evmChainID", chainID.String())
 	if !chain.IsEnabled() {
 		return nil, errChainDisabled{ChainID: chainID}
 	}
-	cfg := evmconfig.NewTOMLChainScopedConfig(opts.GeneralConfig, chain, l)
+	cfg := evmconfig.NewTOMLChainScopedConfig(opts.AppConfig, chain, l)
 	// note: per-chain validation is not necessary at this point since everything is checked earlier on boot.
 	return newChain(ctx, cfg, chain.Nodes, opts)
 }
@@ -412,10 +426,10 @@ func (opts *ChainRelayExtenderConfig) Check() error {
 	if opts.Logger == nil {
 		return errors.New("logger must be non-nil")
 	}
-	if opts.GeneralConfig == nil {
+	if opts.AppConfig == nil {
 		return errors.New("config must be non-nil")
 	}
 
-	opts.OperationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](opts.GeneralConfig.EVMConfigs())
+	opts.operationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](opts.AppConfig.EVMConfigs())
 	return nil
 }

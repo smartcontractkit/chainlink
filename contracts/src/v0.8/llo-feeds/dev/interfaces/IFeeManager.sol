@@ -56,9 +56,21 @@ interface IFeeManager is IERC165, IVerifierFeeManager {
   function updateSubscriberDiscount(address subscriber, bytes32 feedId, address token, uint256 discount) external;
 
   /**
-   * @notice Withdraws any native rewards to the owner address
-   * @param quantity quantity of native tokens to withdraw, address(0) is native
+   * @notice Withdraws any native or LINK rewards to the owner address
+   * @param quantity quantity of tokens to withdraw, address(0) is native
    * @param quantity quantity to withdraw
    */
   function withdraw(address assetAddress, uint256 quantity) external;
+
+  /**
+   * @notice Returns the link balance of the fee manager
+   * @return link balance of the fee manager
+   */
+  function linkAvailableForPayment() external returns (uint256);
+
+  /**
+   * @notice Admin function to pay the LINK deficit for a given config digest
+   * @param configDigest the config digest to pay the deficit for
+   */
+  function payLinkDeficit(bytes32 configDigest) external;
 }

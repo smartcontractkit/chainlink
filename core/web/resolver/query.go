@@ -153,7 +153,11 @@ func (r *Resolver) Job(ctx context.Context, args struct{ ID graphql.ID }) (*JobP
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return NewJobPayload(r.App, nil, err), nil
+		}
 
+		//We still need to show the job in UI/CLI even if the chain id is disabled
+		if errors.Is(err, chains.ErrNoSuchChainID) {
+			return NewJobPayload(r.App, &j, err), nil
 		}
 
 		return nil, err
@@ -222,10 +226,13 @@ func (r *Resolver) Node(ctx context.Context, args struct{ ID graphql.ID }) (*Nod
 	if err := authenticateUser(ctx); err != nil {
 		return nil, err
 	}
-
+	r.App.GetLogger().Debug("resolver Node args %v", args)
 	name := string(args.ID)
+	r.App.GetLogger().Debug("resolver Node name %s", name)
 	node, err := r.App.EVMORM().NodeStatus(name)
 	if err != nil {
+		r.App.GetLogger().Errorw("resolver getting node status", "err", err)
+
 		if errors.Is(err, chains.ErrNotFound) {
 			npr, warn := NewNodePayloadResolver(nil, err)
 			if warn != nil {
@@ -325,9 +332,12 @@ func (r *Resolver) Nodes(ctx context.Context, args struct {
 
 	offset := pageOffset(args.Offset)
 	limit := pageLimit(args.Limit)
-
+	r.App.GetLogger().Debugw("resolver Nodes query", "offset", offset, "limit", limit)
 	allNodes, total, err := r.App.GetRelayers().NodeStatuses(ctx, offset, limit)
+	r.App.GetLogger().Debugw("resolver Nodes query result", "nodes", allNodes, "total", total, "err", err)
+
 	if err != nil {
+		r.App.GetLogger().Errorw("Error creating get nodes status from app", "err", err)
 		return nil, err
 	}
 	npr, warn := NewNodesPayload(allNodes, int32(total))
