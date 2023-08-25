@@ -22,6 +22,9 @@ import (
 func Test_MercuryTransmitter_Transmit(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
+	var jobID int32
+	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 
 	t.Run("v1 report transmission successfully enqueued", func(t *testing.T) {
 		report := sampleV1Report
@@ -35,7 +38,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true))
 		err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
 
 		require.NoError(t, err)
@@ -52,7 +55,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true))
 		err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
 
 		require.NoError(t, err)
@@ -69,7 +72,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true))
 		err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
 
 		require.NoError(t, err)
@@ -93,7 +96,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true))
 		ts, err := mt.LatestTimestamp(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -108,7 +111,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true))
 		ts, err := mt.LatestTimestamp(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -121,7 +124,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 				return nil, errors.New("something exploded")
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true))
 		_, err := mt.LatestTimestamp(testutils.Context(t))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
@@ -147,7 +150,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true))
 		price, err := mt.LatestPrice(testutils.Context(t), sampleFeedID)
 		require.NoError(t, err)
 
@@ -162,7 +165,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true))
 		price, err := mt.LatestPrice(testutils.Context(t), sampleFeedID)
 		require.NoError(t, err)
 
@@ -175,7 +178,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 				return nil, errors.New("something exploded")
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true))
 		_, err := mt.LatestPrice(testutils.Context(t), sampleFeedID)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
@@ -200,7 +203,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true))
 		bn, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -215,7 +218,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true))
 		bn, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -227,7 +230,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 				return nil, errors.New("something exploded")
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true))
 		_, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
@@ -244,7 +247,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, sampleFeedID, db, pgtest.NewQConfig(true))
+		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true))
 		_, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "latestReport failed; mismatched feed IDs, expected: 0x1c916b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472, got: 0x")

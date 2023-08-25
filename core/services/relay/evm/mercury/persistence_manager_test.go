@@ -15,9 +15,11 @@ import (
 
 func bootstrapPersistenceManager(t *testing.T) *PersistenceManager {
 	db := pgtest.NewSqlxDB(t)
+	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
+	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 	lggr := logger.TestLogger(t)
 	orm := NewORM(db, lggr, pgtest.NewQConfig(true))
-	return NewPersistenceManager(lggr, orm)
+	return NewPersistenceManager(lggr, orm, 0)
 }
 
 func TestPersistenceManager(t *testing.T) {
