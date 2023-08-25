@@ -471,9 +471,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			for _, i := range tc.inputs {
 				uid := i.UpkeepID.String()
 				if tc.ethCalls[uid] {
-					var h [32]byte
-					copy(h[:], common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651").Bytes())
-					client.On("CallContext", mock.Anything, mock.Anything, "eth_getTransactionReceipt", h).
+					client.On("CallContext", mock.Anything, mock.Anything, "eth_getTransactionReceipt", common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651")).
 						Return(tc.ethCallErrors[uid]).Run(func(args mock.Arguments) {
 						receipt := tc.receipts[uid]
 						if receipt != nil {

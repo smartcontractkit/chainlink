@@ -13,8 +13,6 @@ import (
 // GetTxBlock calls eth_getTransactionReceipt on the eth client to obtain a tx receipt
 func GetTxBlock(client client.Client, txHash common.Hash) (*big.Int, common.Hash, error) {
 	receipt := types.Receipt{}
-	//var h [32]byte
-	//copy(h[:], txHash.Bytes())
 	err := client.CallContext(context.Background(), &receipt, "eth_getTransactionReceipt", txHash)
 	if err != nil {
 		return nil, common.Hash{}, err

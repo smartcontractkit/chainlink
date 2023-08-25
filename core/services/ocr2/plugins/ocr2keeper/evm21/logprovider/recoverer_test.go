@@ -830,14 +830,8 @@ func (p *mockLogPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
 
 type mockClient struct {
 	client.Client
-	//TransactionReceiptFn func(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
 	CallContextFn func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error
 }
-
-//
-//func (c *mockClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-//	return c.TransactionReceiptFn(ctx, txHash)
-//}
 
 func (c *mockClient) CallContext(ctx context.Context, r interface{}, method string, args ...interface{}) error {
 	receipt := r.(*types.Receipt)

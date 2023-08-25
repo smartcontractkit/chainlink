@@ -229,7 +229,7 @@ func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
 	i := int64(0)
 	for cp := h; cp != nil; cp = cp.Parent {
 		if cp != h && bs.blocks[cp.Number] != cp.Hash.Hex() {
-			bs.lggr.Warnf("overriding block %d old hash %s with new hash %s due to re-org", cp.Number, bs.blocks[cp.Number], cp.Hash.Hex())
+			bs.lggr.Warnf("h.ID=%d cp.ID=%d overriding block %d old hash %s with new hash %s due to re-org", h.ID, cp.ID, cp.Number, bs.blocks[cp.Number], cp.Hash.Hex())
 		}
 		bs.blocks[cp.Number] = cp.Hash.Hex()
 		i++
