@@ -592,7 +592,7 @@ func TestBuildBatch(t *testing.T) {
 			expectedSeqNrs:        []ObservedMessage{{SeqNr: uint64(1)}},
 		},
 		{
-			name:                  "unfinalized executed log",
+			name:                  "executed non finalized messages should be skipped",
 			reqs:                  []evm2EVMOnRampCCIPSendRequestedWithMeta{msg2},
 			inflight:              []InflightInternalExecutionReport{},
 			tokenLimit:            big.NewInt(0),
@@ -600,7 +600,7 @@ func TestBuildBatch(t *testing.T) {
 			srcPrices:             map[common.Address]*big.Int{srcNative: big.NewInt(1)},
 			dstPrices:             map[common.Address]*big.Int{destNative: big.NewInt(1)},
 			offRampNoncesBySender: map[common.Address]uint64{sender1: 0},
-			expectedSeqNrs:        []ObservedMessage{{SeqNr: uint64(1)}},
+			expectedSeqNrs:        nil,
 		},
 		{
 			name:                  "finalized executed log",
