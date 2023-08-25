@@ -149,21 +149,17 @@ func (u *upkeepStateStore) Close() error {
 
 // SelectByWorkIDs returns the current state of the upkeep for the provided ids.
 // If an id is not found, the state is returned as StateUnknown.
-// We first check the cache, and if any ids are missing, we fetch them from the scanner.
-func (u *upkeepStateStore) SelectByWorkIDsInRange(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
-	states, ok := u.selectFromCache(workIDs...)
-	if ok {
+// We first check the cache, and if any ids are missing, we fetch them from the scanner and DB.
+func (u *upkeepStateStore) SelectByWorkIDs(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+	states, missing := u.selectFromCache(workIDs...)
+	if len(missing) == 0 {
 		// all ids were found in the cache
 		return states, nil
 	}
-
-	// fetch values from chain to populate the cache with missing values
-	if err := u.fetchPerformed(ctx, start, end); err != nil {
+	if err := u.fetchPerformed(ctx, missing...); err != nil {
 		return nil, err
 	}
-
-	// fetch values from the db to populate the cache with missing values here
-	if err := u.fetchFromDB(ctx, workIDs, states); err != nil {
+	if err := u.fetchFromDB(ctx, missing...); err != nil {
 		return nil, err
 	}
 
@@ -214,10 +210,14 @@ func (u *upkeepStateStore) upsertStateRecord(ctx context.Context, workID string,
 }
 
 // fetchPerformed fetches all performed logs from the scanner to populate the cache.
-func (u *upkeepStateStore) fetchPerformed(ctx context.Context, start, end int64, workIDs ...string) error {
-	performed, err := u.scanner.WorkIDsInRange(ctx, start, end)
+func (u *upkeepStateStore) fetchPerformed(ctx context.Context, workIDs ...string) error {
+	performed, err := u.scanner.ScanWorkIDs(ctx, workIDs...)
 	if err != nil {
 		return err
+	}
+
+	if len(performed) > 0 {
+		u.lggr.Debugw("Fetched performed logs", "performed", len(performed))
 	}
 
 	u.mu.Lock()
@@ -239,20 +239,9 @@ func (u *upkeepStateStore) fetchPerformed(ctx context.Context, start, end int64,
 }
 
 // fetchFromDB fetches all upkeeps indicated as ineligible from the db to
-// populate the cache
-func (u *upkeepStateStore) fetchFromDB(ctx context.Context, workIDs []string, states []ocr2keepers.UpkeepState) error {
-	idsWithUnknownState := []string{}
-	for i, state := range states {
-		if state == ocr2keepers.UnknownState {
-			idsWithUnknownState = append(idsWithUnknownState, workIDs[i])
-		}
-	}
-
-	if len(idsWithUnknownState) == 0 {
-		return nil
-	}
-
-	dbStates, err := u.orm.SelectStatesByWorkIDs(idsWithUnknownState, pg.WithParentCtx(ctx))
+// populate the cache.
+func (u *upkeepStateStore) fetchFromDB(ctx context.Context, workIDs ...string) error {
+	states, err := u.orm.SelectStatesByWorkIDs(workIDs, pg.WithParentCtx(ctx))
 	if err != nil {
 		return err
 	}
@@ -260,7 +249,7 @@ func (u *upkeepStateStore) fetchFromDB(ctx context.Context, workIDs []string, st
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	for _, state := range dbStates {
+	for _, state := range states {
 		if _, ok := u.cache[state.WorkID]; !ok {
 			u.cache[state.WorkID] = &upkeepStateRecord{
 				workID:  state.WorkID,
@@ -276,22 +265,21 @@ func (u *upkeepStateStore) fetchFromDB(ctx context.Context, workIDs []string, st
 // selectFromCache returns all saved state values for the provided ids,
 // returning stateNotFound for any ids that are not found.
 // the second return value is true if all ids were found in the cache.
-func (u *upkeepStateStore) selectFromCache(workIDs ...string) ([]ocr2keepers.UpkeepState, bool) {
+func (u *upkeepStateStore) selectFromCache(workIDs ...string) ([]ocr2keepers.UpkeepState, []string) {
 	u.mu.RLock()
 	defer u.mu.RUnlock()
 
-	var hasMisses bool
+	var missing []string
 	states := make([]ocr2keepers.UpkeepState, len(workIDs))
 	for i, workID := range workIDs {
 		if state, ok := u.cache[workID]; ok {
 			states[i] = state.state
 		} else {
-			hasMisses = true
-			states[i] = ocr2keepers.UnknownState
+			missing = append(missing, workID)
 		}
 	}
 
-	return states, !hasMisses
+	return states, missing
 }
 
 // cleanup removes any records that are older than the TTL from both cache and DB.
