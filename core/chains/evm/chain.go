@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	gotoml "github.com/pelletier/go-toml/v2"
+
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
@@ -391,6 +392,10 @@ func (c *chain) HealthReport() map[string]error {
 
 func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return chains.ErrLOOPPUnsupported
+}
+
+func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	return c.Transact(ctx, from, to, amount, balanceCheck)
 }
 
 func (c *chain) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {

@@ -27,7 +27,7 @@ type EVMChainRelayerExtender interface {
 	ChainStatus(ctx context.Context, id string) (relaytypes.ChainStatus, error)
 	ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error)
 	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, count int, err error)
-	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
+	//SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
 type EVMChainRelayerExtenderSlicer interface {
@@ -144,6 +144,11 @@ func (s *ChainRelayerExt) Ready() (err error) {
 var ErrInconsistentChainRelayerExtender = errors.New("inconsistent evm chain relayer extender")
 
 // Chainset interface remove after BFC-2441
+
+func (s *ChainRelayerExt) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	return s.Transact(ctx, from, to, amount, balanceCheck)
+}
+
 func (s *ChainRelayerExt) ChainStatus(ctx context.Context, id string) (relaytypes.ChainStatus, error) {
 	if s.chain.ID().String() != id {
 		return relaytypes.ChainStatus{}, fmt.Errorf("%w: given id %q does not match expected id %q", ErrInconsistentChainRelayerExtender, id, s.chain.ID())
@@ -184,10 +189,6 @@ func (s *ChainRelayerExt) NodeStatuses(ctx context.Context, offset, limit int, c
 	}
 	return nodes[offset:limit], 0, nil
 
-}
-
-func (s *ChainRelayerExt) SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error {
-	return s.chain.Transact(ctx, from, to, amount, balanceCheck)
 }
 
 func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExtenderConfig) (*ChainRelayerExtenders, error) {
