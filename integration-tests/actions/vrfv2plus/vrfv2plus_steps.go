@@ -16,7 +16,7 @@ import (
 var (
 	ErrNodePrimaryKey         = "error getting node's primary ETH key"
 	ErrCreatingProvingKeyHash = "error creating a keyHash from the proving key"
-	ErrCreatingProvingKey     = "error creating a keyHash from the proving key"
+	ErrRegisteringProvingKey  = "error registering a proving key on Coordinator contract"
 	ErrRegisterProvingKey     = "error registering proving keys"
 	ErrEncodingProvingKey     = "error encoding proving key"
 	ErrCreatingVRFv2Key       = "error creating VRFv2 key"
@@ -93,7 +93,7 @@ func CreateVRFV2PlusJobs(
 		}
 		provingKey, err := VRFV2RegisterProvingKey(vrfKey, nativeTokenPrimaryKeyAddress, coordinator)
 		if err != nil {
-			return nil, errors.Wrap(err, ErrCreatingProvingKey)
+			return nil, errors.Wrap(err, ErrRegisteringProvingKey)
 		}
 		keyHash, err := coordinator.HashOfKey(context.Background(), provingKey)
 		if err != nil {

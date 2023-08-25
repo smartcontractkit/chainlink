@@ -175,7 +175,6 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) RequestRandomness(keyHash [32]byte, 
 	if err != nil {
 		return err
 	}
-	//opts *bind.TransactOpts, _subId *big.Int, _requestConfirmations uint16, _keyHash [32]byte, _callbackGasLimit uint32, _nativePayment bool, _numWords uint32, _requestCount uint16
 	tx, err := v.consumer.RequestRandomWords(opts, subID, requestConfirmations, keyHash, callbackGasLimit, nativePayment, numWords, requestCount)
 	if err != nil {
 		return err
@@ -202,7 +201,7 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 		Context: ctx,
 	})
 	if err != nil {
-		return &VRFLoadTestMetrics{}, err
+		return nil, err
 	}
 	fulfilmentCount, err := v.consumer.SResponseCount(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
@@ -210,14 +209,14 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	})
 
 	if err != nil {
-		return &VRFLoadTestMetrics{}, err
+		return nil, err
 	}
 	averageFulfillmentInMillions, err := v.consumer.SAverageFulfillmentInMillions(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})
 	if err != nil {
-		return &VRFLoadTestMetrics{}, err
+		return nil, err
 	}
 	slowestFulfillment, err := v.consumer.SSlowestFulfillment(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
@@ -225,14 +224,14 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) GetLoadTestMetrics(ctx context.Conte
 	})
 
 	if err != nil {
-		return &VRFLoadTestMetrics{}, err
+		return nil, err
 	}
 	fastestFulfillment, err := v.consumer.SFastestFulfillment(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})
 	if err != nil {
-		return &VRFLoadTestMetrics{}, err
+		return nil, err
 	}
 
 	return &VRFLoadTestMetrics{
