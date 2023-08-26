@@ -310,13 +310,13 @@ contract BaseFeeManagerTest is Test {
     changePrank(originalAddr);
   }
 
-  function processFee(bytes[] memory payloads, address subscriber, uint256 wrappedNativeValue, address sender) public {
+  function processFee(bytes[] memory payloads, address subscriber, uint256 wrappedNativeValue) public {
     //record the current address and switch to the recipient
     address originalAddr = msg.sender;
-    changePrank(sender);
+    changePrank(subscriber);
 
     //process the fee
-    feeManager.processFeeBulk{value: wrappedNativeValue}(payloads, subscriber);
+    feeManagerProxy.processFeeBulk{value: wrappedNativeValue}(payloads);
 
     //change back to the original address
     changePrank(originalAddr);

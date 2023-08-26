@@ -29,7 +29,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
     approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS, USER);
 
-    processFee(payloads, USER, DEFAULT_NATIVE_MINT_QUANTITY, PROXY);
+    processFee(payloads, USER, DEFAULT_NATIVE_MINT_QUANTITY);
 
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS);
     assertEq(getLinkBalance(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS);
@@ -51,7 +51,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS, USER);
 
-    processFee(payloads, USER, 0, PROXY);
+    processFee(payloads, USER, 0);
 
     assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS);
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS);
@@ -69,7 +69,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
       payloads[i] = payload;
     }
 
-    processFee(payloads, USER, DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS * 2, PROXY);
+    processFee(payloads, USER, DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS * 2);
 
     assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS);
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS);
@@ -97,7 +97,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * 2, USER);
     approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * 3, USER);
 
-    processFee(payloads, USER, 0, PROXY);
+    processFee(payloads, USER, 0);
 
     assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE * 2);
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * 5);
@@ -121,14 +121,14 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
     approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * 3, USER);
 
-    processFee(payloads, USER, DEFAULT_REPORT_NATIVE_FEE * 4, PROXY);
+    processFee(payloads, USER, DEFAULT_REPORT_NATIVE_FEE * 4);
 
     assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE * 2);
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * 5);
     assertEq(getLinkBalance(address(feeManager)), 1);
 
-    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY + DEFAULT_REPORT_NATIVE_FEE * 2);
-    assertEq(PROXY.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 4);
+    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 2);
+    assertEq(PROXY.balance, DEFAULT_NATIVE_MINT_QUANTITY);
     assertEq(getLinkBalance(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * 3);
   }
 
@@ -159,7 +159,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * 2, USER);
     approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * 2, USER);
 
-    processFee(payloads, USER, 0, PROXY);
+    processFee(payloads, USER, 0);
 
     assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE * 2);
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * 4);
@@ -195,7 +195,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
     approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * 2, USER);
 
-    processFee(payloads, USER, DEFAULT_REPORT_NATIVE_FEE * 4, PROXY);
+    processFee(payloads, USER, DEFAULT_REPORT_NATIVE_FEE * 4);
 
     assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE * 2);
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * 4);
@@ -220,7 +220,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
       payloads[i] = payload;
     }
 
-    processFee(payloads, USER, DEFAULT_REPORT_NATIVE_FEE * 5, PROXY);
+    processFee(payloads, USER, DEFAULT_REPORT_NATIVE_FEE * 5);
 
     //no fee should be applied, the balances should be transfered between the two users as we're not using a proxy. In reality, this would be returned to the subscriber.
     assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY + DEFAULT_REPORT_NATIVE_FEE * 5);
@@ -249,7 +249,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
     emit InsufficientLink(payments);
 
-    processFee(payloads, USER, 0, PROXY);
+    processFee(payloads, USER, 0);
 
     assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE * 2);
     assertEq(getNativeBalance(USER), DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 2);

@@ -230,7 +230,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(getLinkAddress()));
 
     //call processFee from the proxy to test whether the funds are returned to the subscriber. In reality, the funds would be returned to the caller of the proxy.
-    processFee(payload, PROXY, DEFAULT_REPORT_NATIVE_FEE, PROXY);
+    processFee(payload, PROXY, DEFAULT_REPORT_NATIVE_FEE);
 
     //check the native unwrapped is no longer in the account
     assertEq(getNativeBalance(address(feeManager)), 0);
@@ -359,7 +359,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
   function test_processFeeWithZeroNativeNonZeroLinkWithNativeQuote() public {
     //get the default payload
     bytes memory payload = getPayload(
-      getV2ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, DEFAULT_REPORT_LINK_FEE, 0),
+      getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, DEFAULT_REPORT_LINK_FEE, 0),
       getQuotePayload(getNativeAddress())
     );
 
@@ -370,7 +370,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
   function test_processFeeWithZeroNativeNonZeroLinkWithLinkQuote() public {
     //get the default payload
     bytes memory payload = getPayload(
-      getV2ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, DEFAULT_REPORT_LINK_FEE, 0),
+      getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, DEFAULT_REPORT_LINK_FEE, 0),
       getQuotePayload(getLinkAddress())
     );
 
@@ -393,7 +393,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
     //get the default payload
     bytes memory payload = getPayload(
-      getV2ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, 0, DEFAULT_REPORT_NATIVE_FEE),
+      getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, 0, DEFAULT_REPORT_NATIVE_FEE),
       getQuotePayload(getNativeAddress())
     );
 
@@ -419,7 +419,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
   function test_processFeeWithZeroLinkNonZeroNativeWithLinkQuote() public {
     //get the default payload
     bytes memory payload = getPayload(
-      getV2ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, 0, DEFAULT_REPORT_NATIVE_FEE),
+      getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, 0, DEFAULT_REPORT_NATIVE_FEE),
       getQuotePayload(getLinkAddress())
     );
 
@@ -430,7 +430,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
   function test_processFeeWithZeroNativeNonZeroLinkReturnsChange() public {
     //get the default payload
     bytes memory payload = getPayload(
-      getV2ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, 0, DEFAULT_REPORT_NATIVE_FEE),
+      getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, 0, DEFAULT_REPORT_NATIVE_FEE),
       getQuotePayload(getLinkAddress())
     );
 
@@ -443,21 +443,16 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_V1PayloadVerifiesAndReturnsChange() public {
     //emulate a V1 payload with no quote
-    bytes memory payload = abi.encode(
-      [DEFAULT_CONFIG_DIGEST, 0, 0],
-      getV1Report(DEFAULT_FEED_1_V1),
-      new bytes32[](1),
-      new bytes32[](1),
-      bytes32("")
-    );
+    bytes memory quotePayload;
+    bytes memory payload = getPayload(getV1Report(DEFAULT_FEED_1_V1),quotePayload);
 
-    processFee(payload, USER, DEFAULT_REPORT_NATIVE_FEE, PROXY);
+    processFee(payload, USER, DEFAULT_REPORT_NATIVE_FEE);
 
     //Fee manager should not contain any native
     assertEq(address(feeManager).balance, 0);
     assertEq(getNativeBalance(address(feeManager)), 0);
 
     //check the unused native passed in is returned
-    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY + DEFAULT_REPORT_NATIVE_FEE);
+    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY);
   }
 }
