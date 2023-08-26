@@ -95,7 +95,6 @@ func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
 	filter.selector = cfg.FilterSelector
 	filter.addr = cfg.ContractAddress.Bytes()
 	filter.topics = []common.Hash{cfg.Topic0, cfg.Topic1, cfg.Topic2, cfg.Topic3}
-	//copy(filter.topics, lpFilter.EventSigs)
 
 	if err := p.register(lpFilter, filter); err != nil {
 		return fmt.Errorf("failed to register upkeep filter %s: %w", filter.upkeepID.String(), err)
@@ -130,8 +129,6 @@ func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
 
 // newLogFilter creates logpoller.Filter from the given upkeep config
 func (p *logEventProvider) newLogFilter(upkeepID *big.Int, cfg LogTriggerConfig) logpoller.Filter {
-	//topics := p.getFiltersBySelector(cfg.FilterSelector, cfg.Topic1[:], cfg.Topic2[:], cfg.Topic3[:])
-	//topics = append([]common.Hash{common.BytesToHash(cfg.Topic0[:])}, topics...)
 	return logpoller.Filter{
 		Name: p.filterName(upkeepID),
 		// log poller filter treats this event sigs slice as an array of topic0
@@ -159,23 +156,33 @@ func (p *logEventProvider) validateLogTriggerConfig(cfg LogTriggerConfig) error 
 	return nil
 }
 
-// getFiltersBySelector the filters based on the filterSelector
-func (p *logEventProvider) getFiltersBySelector(filterSelector uint8, filters ...[]byte) []common.Hash {
-	var sigs []common.Hash
-	var zeroBytes [32]byte
-	for i, f := range filters {
-		// bitwise AND the filterSelector with the index to check if the filter is needed
-		mask := uint8(1 << uint8(i))
-		a := filterSelector & mask
-		if a == uint8(0) {
-			continue
-		}
-		if bytes.Equal(f, zeroBytes[:]) {
-			continue
-		}
-		sigs = append(sigs, common.BytesToHash(common.LeftPadBytes(f, 32)))
+// filterLogsByContent filters logs based on the filter selector and topics 1/2/3
+func (p *logEventProvider) filterLogsByContent(filter upkeepFilter, logs []logpoller.Log) []logpoller.Log {
+	if filter.selector == 0 {
+		return logs
 	}
-	return sigs
+	var filteredLogs []logpoller.Log
+	// filter logs based on filter selector (topic1, topic2, topic3) if it's configured
+	checkTopic1 := filter.selector%2 == 1
+	checkTopic2 := (filter.selector>>1)%2 == 1
+	checkTopic3 := (filter.selector>>2)%2 == 1
+	for _, l := range logs {
+		if checkTopic1 && common.BytesToHash(l.Topics[1]).Hex() != filter.topics[1].Hex() {
+			p.lggr.Warnf("upkeep Id %s topics[1] %s does not match log topics[1] %s", filter.upkeepID, filter.topics[1].Hex(), common.BytesToHash(l.Topics[1]).Hex())
+			continue
+		}
+		if checkTopic2 && common.BytesToHash(l.Topics[2]).Hex() != filter.topics[2].Hex() {
+			p.lggr.Warnf("upkeep Id %s topics[2] %s does not match log topics[2] %s", filter.upkeepID, filter.topics[2].Hex(), common.BytesToHash(l.Topics[2]).Hex())
+			continue
+		}
+		if checkTopic3 && common.BytesToHash(l.Topics[3]).Hex() != filter.topics[3].Hex() {
+			p.lggr.Warnf("upkeep Id %s topics[3] %s does not match log topics[3] %s", filter.upkeepID, filter.topics[3].Hex(), common.BytesToHash(l.Topics[3]).Hex())
+			continue
+		}
+		p.lggr.Infof("upkeep Id %s topics matches log %s", filter.upkeepID, l.TxHash.Hex())
+		filteredLogs = append(filteredLogs, l)
+	}
+	return filteredLogs
 }
 
 func (p *logEventProvider) filterName(upkeepID *big.Int) string {

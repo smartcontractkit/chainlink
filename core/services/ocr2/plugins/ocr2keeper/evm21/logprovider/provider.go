@@ -397,27 +397,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 			continue
 		}
 
-		var filteredLogs []logpoller.Log
-		// filter logs based on filter selector (topic1, topic2, topic3) if it's configured
-		if filter.selector != 0 {
-			checkTopic1 := filter.selector%2 == 1
-			checkTopic2 := (filter.selector>>1)%2 == 1
-			checkTopic3 := (filter.selector>>2)%2 == 1
-			for _, l := range logs {
-				if checkTopic1 && common.Bytes2Hex(l.Topics[1]) != filter.topics[1].Hex() {
-					break
-				}
-				if checkTopic2 && common.Bytes2Hex(l.Topics[2]) != filter.topics[2].Hex() {
-					break
-				}
-				if checkTopic3 && common.Bytes2Hex(l.Topics[3]) != filter.topics[3].Hex() {
-					break
-				}
-				filteredLogs = append(filteredLogs, l)
-			}
-		} else {
-			filteredLogs = logs
-		}
+		filteredLogs := p.filterLogsByContent(filter, logs)
 
 		// if this limiter's burst was set to the max ->
 		// reset it and cancel the reservation to allow further processing
