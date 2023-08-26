@@ -10,6 +10,10 @@ contract FeeManagerProxy {
     i_feeManager.processFee{value: msg.value}(payload, msg.sender);
   }
 
+  function processFeeBulk(bytes[] calldata payloads) public payable {
+    i_feeManager.processFeeBulk{value: msg.value}(payloads, msg.sender);
+  }
+
   function setFeeManager(IFeeManager feeManager) public {
     i_feeManager = feeManager;
   }
