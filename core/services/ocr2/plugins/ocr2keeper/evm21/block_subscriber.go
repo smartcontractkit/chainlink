@@ -227,18 +227,21 @@ func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
 	// head parent is a linked list with EVM finality depth
 	// when re-org happens, new heads will have pointers to the new blocks
 	i := int64(0)
-	cp := new(evmtypes.Head)
-	*cp = *h
-	for ; ; cp = cp.Parent {
-		if cp.Number != h.Number && bs.blocks[cp.Number] != cp.Hash.Hex() {
-			bs.lggr.Warnf("h.Number=%d cp.Number=%d overriding block %d old hash %s with new hash %s due to re-org or missing previous heads", h.Number, cp.Number, cp.Number, bs.blocks[cp.Number], cp.Hash.Hex())
+	for cp := h; ; cp = cp.Parent {
+		if cp == nil || bs.blocks[cp.Number] == cp.Hash.Hex() {
+			break
+		}
+		if cp.Number != h.Number {
+			existingHash, ok := bs.blocks[cp.Number]
+			if !ok {
+				bs.lggr.Debugf("filling block %d with new hash %s due to missing previous heads", cp.Number, cp.Hash.Hex())
+			} else if existingHash != cp.Hash.Hex() {
+				bs.lggr.Warnf("overriding block %d old hash %s with new hash %s due to re-org", cp.Number, existingHash, cp.Hash.Hex())
+			}
 		}
 		bs.blocks[cp.Number] = cp.Hash.Hex()
 		i++
 		if i > bs.blockSize {
-			break
-		}
-		if cp.Parent == nil || bs.blocks[cp.Parent.Number] == cp.Parent.BlockHash().Hex() {
 			break
 		}
 	}
