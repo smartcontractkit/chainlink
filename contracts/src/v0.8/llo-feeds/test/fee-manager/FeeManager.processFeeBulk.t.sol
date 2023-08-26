@@ -32,11 +32,12 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     processFee(payloads, USER, DEFAULT_NATIVE_MINT_QUANTITY);
 
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS);
+    assertEq(getLinkBalance(address(feeManager)), 0);
     assertEq(getLinkBalance(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS);
 
     //the subscriber (user) should receive funds back and not the proxy, although when live the proxy will forward the funds sent and not cover it seen here
-    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY * 2);
-    assertEq(PROXY.balance, 0);
+    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY);
+    assertEq(PROXY.balance, DEFAULT_NATIVE_MINT_QUANTITY);
   }
 
   function test_processMultipleWrappedNativeReports() public {
@@ -75,10 +76,8 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS);
     assertEq(getLinkBalance(address(feeManager)), 1);
 
-    //as above, the proxy is acting as a proxy, which under normal circumstances would forward the users from the subscriber.
-    //since we overpaid, the proxy paid the full balance twice over and the subscriber received the change
-    assertEq(PROXY.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS * 2);
-    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY + DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS);
+    assertEq(PROXY.balance, DEFAULT_NATIVE_MINT_QUANTITY);
+    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS);
   }
 
   function test_processMultipleLinkAndNativeWrappedReports() public {
@@ -202,8 +201,8 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     assertEq(getLinkBalance(address(feeManager)), 1);
 
     assertEq(getLinkBalance(USER), DEFAULT_LINK_MINT_QUANTITY - DEFAULT_REPORT_LINK_FEE * 2);
-    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY + DEFAULT_REPORT_NATIVE_FEE * 2);
-    assertEq(PROXY.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 4);
+    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 2);
+    assertEq(PROXY.balance, DEFAULT_NATIVE_MINT_QUANTITY);
   }
 
   function test_processMultipleV1Reports() public {
@@ -222,9 +221,8 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
     processFee(payloads, USER, DEFAULT_REPORT_NATIVE_FEE * 5);
 
-    //no fee should be applied, the balances should be transfered between the two users as we're not using a proxy. In reality, this would be returned to the subscriber.
-    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY + DEFAULT_REPORT_NATIVE_FEE * 5);
-    assertEq(PROXY.balance, DEFAULT_NATIVE_MINT_QUANTITY - DEFAULT_REPORT_NATIVE_FEE * 5);
+    assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY);
+    assertEq(PROXY.balance, DEFAULT_NATIVE_MINT_QUANTITY);
   }
 
   function test_eventIsEmittedIfNotEnoughLink() public {
