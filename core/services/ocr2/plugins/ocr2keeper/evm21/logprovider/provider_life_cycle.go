@@ -168,15 +168,15 @@ func (p *logEventProvider) filterLogsByContent(filter upkeepFilter, logs []logpo
 	checkTopic3 := (filter.selector>>2)%2 == 1
 	for _, l := range logs {
 		if checkTopic1 && common.BytesToHash(l.Topics[1]).Hex() != filter.topics[1].Hex() {
-			p.lggr.Warnf("upkeep Id %s topics[1] %s does not match log topics[1] %s", filter.upkeepID, filter.topics[1].Hex(), common.BytesToHash(l.Topics[1]).Hex())
+			p.lggr.Debugf("upkeep Id %s topics[1] %s does not match log topics[1] %s", filter.upkeepID, filter.topics[1].Hex(), common.BytesToHash(l.Topics[1]).Hex())
 			continue
 		}
 		if checkTopic2 && common.BytesToHash(l.Topics[2]).Hex() != filter.topics[2].Hex() {
-			p.lggr.Warnf("upkeep Id %s topics[2] %s does not match log topics[2] %s", filter.upkeepID, filter.topics[2].Hex(), common.BytesToHash(l.Topics[2]).Hex())
+			p.lggr.Debugf("upkeep Id %s topics[2] %s does not match log topics[2] %s", filter.upkeepID, filter.topics[2].Hex(), common.BytesToHash(l.Topics[2]).Hex())
 			continue
 		}
 		if checkTopic3 && common.BytesToHash(l.Topics[3]).Hex() != filter.topics[3].Hex() {
-			p.lggr.Warnf("upkeep Id %s topics[3] %s does not match log topics[3] %s", filter.upkeepID, filter.topics[3].Hex(), common.BytesToHash(l.Topics[3]).Hex())
+			p.lggr.Debugf("upkeep Id %s topics[3] %s does not match log topics[3] %s", filter.upkeepID, filter.topics[3].Hex(), common.BytesToHash(l.Topics[3]).Hex())
 			continue
 		}
 		p.lggr.Infof("upkeep Id %s topics matches log %s", filter.upkeepID, l.TxHash.Hex())
