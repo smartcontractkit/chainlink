@@ -24,8 +24,6 @@ import (
 )
 
 var (
-	ErrNotFound = errors.New("not found")
-
 	DefaultRecoveryInterval = 5 * time.Second
 	RecoveryCacheTTL        = 10*time.Minute - time.Second
 	GCInterval              = RecoveryCacheTTL
@@ -182,7 +180,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 	logBlock := int64(proposal.Trigger.LogTriggerExtension.BlockNumber)
 	if logBlock == 0 {
 		var number *big.Int
-		number, _, err = r.getTxBlock(proposal.Trigger.LogTriggerExtension.TxHash)
+		number, _, err = core.GetTxBlock(r.client, proposal.Trigger.LogTriggerExtension.TxHash)
 		if err != nil {
 			return nil, err
 		}
@@ -241,16 +239,6 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 		}
 	}
 	return nil, fmt.Errorf("no log found for upkeepID %v and trigger %+v", proposal.UpkeepID, proposal.Trigger)
-}
-
-func (r *logRecoverer) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, error) {
-	// TODO: do manual eth_getTransactionReceipt call to get block number and hash
-	txr, err := r.client.TransactionReceipt(context.Background(), txHash)
-	if err != nil {
-		return nil, common.Hash{}, err
-	}
-
-	return txr.BlockNumber, txr.BlockHash, nil
 }
 
 func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
