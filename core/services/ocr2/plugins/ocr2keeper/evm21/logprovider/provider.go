@@ -415,6 +415,8 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 				}
 				filteredLogs = append(filteredLogs, l)
 			}
+		} else {
+			filteredLogs = logs
 		}
 
 		// if this limiter's burst was set to the max ->
