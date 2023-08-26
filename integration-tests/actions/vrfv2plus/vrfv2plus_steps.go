@@ -19,13 +19,13 @@ var (
 	ErrRegisteringProvingKey  = "error registering a proving key on Coordinator contract"
 	ErrRegisterProvingKey     = "error registering proving keys"
 	ErrEncodingProvingKey     = "error encoding proving key"
-	ErrCreatingVRFv2PlusKey       = "error creating VRFv2Plus key"
+	ErrCreatingVRFv2PlusKey   = "error creating VRFv2Plus key"
 	ErrDeployBlockHashStore   = "error deploying blockhash store"
 	ErrDeployCoordinator      = "error deploying VRF CoordinatorV2Plus"
 	ErrAdvancedConsumer       = "error deploying VRFv2Plus Advanced Consumer"
 	ErrABIEncodingFunding     = "error Abi encoding subscriptionID"
 	ErrSendingLinkToken       = "error sending Link token"
-	ErrCreatingVRFv2PlusJob       = "error creating VRFv2Plus job"
+	ErrCreatingVRFv2PlusJob   = "error creating VRFv2Plus job"
 	ErrParseJob               = "error parsing job definition"
 )
 
@@ -62,7 +62,7 @@ func CreateVRFV2PlusJobs(
 	for _, chainlinkNode := range chainlinkNodes {
 		vrfKey, err := chainlinkNode.MustCreateVRFKey()
 		if err != nil {
-			return nil, errors.Wrap(err, ErrCreatingVRFv2Key)
+			return nil, errors.Wrap(err, ErrCreatingVRFv2PlusKey)
 		}
 		pubKeyCompressed := vrfKey.Data.ID
 		jobUUID := uuid.New()
@@ -89,7 +89,7 @@ func CreateVRFV2PlusJobs(
 			BatchFulfillmentEnabled:  false,
 		})
 		if err != nil {
-			return nil, errors.Wrap(err, ErrCreatingVRFv2Job)
+			return nil, errors.Wrap(err, ErrCreatingVRFv2PlusJob)
 		}
 		provingKey, err := VRFV2RegisterProvingKey(vrfKey, nativeTokenPrimaryKeyAddress, coordinator)
 		if err != nil {
