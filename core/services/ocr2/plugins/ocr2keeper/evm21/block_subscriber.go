@@ -231,13 +231,11 @@ func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
 		if cp == nil || bs.blocks[cp.Number] == cp.Hash.Hex() {
 			break
 		}
-		if cp.Number != h.Number {
-			existingHash, ok := bs.blocks[cp.Number]
-			if !ok {
-				bs.lggr.Debugf("filling block %d with new hash %s due to missing previous heads", cp.Number, cp.Hash.Hex())
-			} else if existingHash != cp.Hash.Hex() {
-				bs.lggr.Warnf("overriding block %d old hash %s with new hash %s due to re-org", cp.Number, existingHash, cp.Hash.Hex())
-			}
+		existingHash, ok := bs.blocks[cp.Number]
+		if !ok {
+			bs.lggr.Debugf("filling block %d with new hash %s", cp.Number, cp.Hash.Hex())
+		} else if existingHash != cp.Hash.Hex() {
+			bs.lggr.Warnf("overriding block %d old hash %s with new hash %s due to re-org", cp.Number, existingHash, cp.Hash.Hex())
 		}
 		bs.blocks[cp.Number] = cp.Hash.Hex()
 		i++

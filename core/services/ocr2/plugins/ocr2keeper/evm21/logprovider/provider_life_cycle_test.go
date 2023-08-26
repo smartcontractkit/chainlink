@@ -87,7 +87,7 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 	mp.On("RegisterFilter", mock.Anything).Return(nil)
 	mp.On("UnregisterFilter", mock.Anything).Return(nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
-	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), nil)
+	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -114,7 +114,7 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	mp.On("UnregisterFilter", mock.Anything).Return(nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
 
-	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), nil)
+	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
 
 	require.NoError(t, p.RegisterFilter(FilterOptions{
 		UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1111").BigInt(),
@@ -261,7 +261,7 @@ func TestLogEventProvider_GetFiltersBySelector(t *testing.T) {
 		},
 	}
 
-	p := NewLogProvider(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), nil)
+	p := NewLogProvider(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

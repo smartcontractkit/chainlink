@@ -81,7 +81,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_eventIsEmittedAfterSurchargeIsSet() public {
     //native surcharge
-    uint256 nativeSurcharge = FEE_SCALAR / 5;
+    uint64 nativeSurcharge = FEE_SCALAR / 5;
 
     //expect an emit
     vm.expectEmit();
@@ -95,7 +95,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_subscriberDiscountEventIsEmittedOnUpdate() public {
     //native surcharge
-    uint256 discount = FEE_SCALAR / 3;
+    uint64 discount = FEE_SCALAR / 3;
 
     //an event should be emitted
     vm.expectEmit();
@@ -112,7 +112,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     mintLink(address(feeManager), DEFAULT_LINK_MINT_QUANTITY);
 
     //the amount to withdraw
-    uint256 withdrawAmount = 1;
+    uint192 withdrawAmount = 1;
 
     //expect an emit
     vm.expectEmit();
@@ -143,10 +143,14 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
     //not enough funds in the reward pool should trigger an insufficient link event
     vm.expectEmit();
-    emit InsufficientLink(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE, DEFAULT_REPORT_NATIVE_FEE);
+
+    IRewardManager.FeePayment[] memory contractFees = new IRewardManager.FeePayment[](1);
+    contractFees[0] = IRewardManager.FeePayment(DEFAULT_CONFIG_DIGEST, uint192(DEFAULT_REPORT_LINK_FEE));
+
+    emit InsufficientLink(contractFees);
 
     //process the fee
-    processFee(payload, USER, 0, ADMIN);
+    processFee(payload, USER, 0);
 
     //double check the rewardManager balance is 0
     assertEq(getLinkBalance(address(rewardManager)), 0);
@@ -172,10 +176,15 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
     //not enough funds in the reward pool should trigger an insufficient link event
     vm.expectEmit();
-    emit InsufficientLink(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE, DEFAULT_REPORT_NATIVE_FEE);
+
+    IRewardManager.FeePayment[] memory contractFees = new IRewardManager.FeePayment[](1);
+    contractFees[0] = IRewardManager.FeePayment(DEFAULT_CONFIG_DIGEST, uint192(DEFAULT_REPORT_LINK_FEE));
+
+    //emit the event that is expected to be emitted
+    emit InsufficientLink(contractFees);
 
     //process the fee
-    processFee(payload, USER, 0, ADMIN);
+    processFee(payload, USER, 0);
 
     //double check the rewardManager balance is 0
     assertEq(getLinkBalance(address(rewardManager)), 0);
@@ -206,8 +215,8 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * 2, USER);
 
     //processing the fee will transfer the native from the user to the feeManager
-    processFee(payload, USER, 0, ADMIN);
-    processFee(payload, USER, 0, ADMIN);
+    processFee(payload, USER, 0);
+    processFee(payload, USER, 0);
 
     //check the deficit has been increased twice
     assertEq(getLinkDeficit(DEFAULT_CONFIG_DIGEST), DEFAULT_REPORT_LINK_FEE * 2);
