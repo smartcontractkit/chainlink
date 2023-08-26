@@ -89,6 +89,7 @@ type mercuryTransmitter struct {
 	persistenceManager *PersistenceManager
 
 	feedID      mercuryutils.FeedID
+	jobID       int32
 	fromAccount string
 
 	stopCh utils.StopChan
@@ -119,9 +120,9 @@ func getPayloadTypes() abi.Arguments {
 	})
 }
 
-func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, feedID [32]byte, db *sqlx.DB, cfg pg.QConfig) *mercuryTransmitter {
+func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, db *sqlx.DB, cfg pg.QConfig) *mercuryTransmitter {
 	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
-	persistenceManager := NewPersistenceManager(lggr, NewORM(db, lggr, cfg))
+	persistenceManager := NewPersistenceManager(lggr, NewORM(db, lggr, cfg), jobID)
 	return &mercuryTransmitter{
 		utils.StartStopOnce{},
 		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
@@ -129,6 +130,7 @@ func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrp
 		cfgTracker,
 		persistenceManager,
 		feedID,
+		jobID,
 		fmt.Sprintf("%x", fromAccount),
 		make(chan (struct{})),
 		NewTransmitQueue(lggr, feedIDHex, maxTransmitQueueSize, nil, persistenceManager),
