@@ -444,7 +444,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
   function test_V1PayloadVerifiesAndReturnsChange() public {
     //emulate a V1 payload with no quote
     bytes memory quotePayload;
-    bytes memory payload = getPayload(getV1Report(DEFAULT_FEED_1_V1),quotePayload);
+    bytes memory payload = getPayload(getV1Report(DEFAULT_FEED_1_V1), quotePayload);
 
     processFee(payload, USER, DEFAULT_REPORT_NATIVE_FEE);
 
