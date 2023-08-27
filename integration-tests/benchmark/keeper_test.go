@@ -217,6 +217,8 @@ func addRegistry(registryToTest string) []eth_contracts.KeeperRegistryVersion {
 		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_1_3}
 	case "2_0":
 		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0}
+	case "2_1":
+		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_1}
 	case "2_0-1_3":
 		return []eth_contracts.KeeperRegistryVersion{eth_contracts.RegistryVersion_2_0, eth_contracts.RegistryVersion_1_3}
 	case "2_0-Multiple":
