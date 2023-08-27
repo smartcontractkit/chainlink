@@ -41,7 +41,9 @@ Enabled = true
 AnnounceAddresses = ["0.0.0.0:6690"]
 ListenAddresses = ["0.0.0.0:6690"]
 [Keeper]
-TurnLookBack = 0`
+TurnLookBack = 0
+[WebServer]
+HTTPWriteTimeout = '1h'`
 
 	simulatedEVMNonDevTOML = `
 [[EVM]]
