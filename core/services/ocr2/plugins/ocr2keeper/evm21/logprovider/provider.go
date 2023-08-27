@@ -397,7 +397,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 			continue
 		}
 
-		filteredLogs := p.filterLogsByContent(filter, logs)
+		filteredLogs := FilterLogsByContent(filter, logs, p.lggr)
 
 		// if this limiter's burst was set to the max ->
 		// reset it and cancel the reservation to allow further processing
