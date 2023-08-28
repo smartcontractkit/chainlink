@@ -298,7 +298,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator, IERC165 {
     }
   }
 
-  /// @notice Ensure that the ARM has not emitted a bad signal, and that the latest heartbeat is not stale.
+  /// @notice Ensure that there is no active curse.
   modifier whenHealthy() {
     if (IARM(i_armProxy).isCursed()) revert BadARMSignal();
     _;
