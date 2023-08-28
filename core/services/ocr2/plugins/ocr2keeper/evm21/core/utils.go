@@ -19,9 +19,9 @@ func GetTxBlock(ctx context.Context, client client.Client, txHash common.Hash) (
 		if strings.Contains(err.Error(), "not yet been implemented") {
 			// workaround for simulated chains
 			// Exploratory: fix this properly (e.g. in the simulated backend)
-			receipt, err := client.TransactionReceipt(ctx, txHash)
-			if err != nil {
-				return nil, common.Hash{}, err
+			receipt, err1 := client.TransactionReceipt(ctx, txHash)
+			if err1 != nil {
+				return nil, common.Hash{}, err1
 			}
 			if receipt.Status != 1 {
 				return nil, common.Hash{}, nil
