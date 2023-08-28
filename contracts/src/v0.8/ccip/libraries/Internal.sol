@@ -8,8 +8,8 @@ import {MerkleMultiProof} from "../libraries/MerkleMultiProof.sol";
 library Internal {
   struct PriceUpdates {
     TokenPriceUpdate[] tokenPriceUpdates;
-    uint64 destChainSelector; // --┐ Destination chain selector
-    uint192 usdPerUnitGas; // -----┘ 1e18 USD per smallest unit (e.g. wei) of destination chain gas
+    uint64 destChainSelector; // ──╮ Destination chain selector
+    uint192 usdPerUnitGas; // ─────╯ 1e18 USD per smallest unit (e.g. wei) of destination chain gas
   }
 
   struct TokenPriceUpdate {
@@ -18,8 +18,8 @@ library Internal {
   }
 
   struct TimestampedUint192Value {
-    uint192 value; // -------┐ The price, in 1e18 USD.
-    uint64 timestamp; // ----┘ Timestamp of the most recent price update.
+    uint192 value; // ───────╮ The price, in 1e18 USD.
+    uint64 timestamp; // ────╯ Timestamp of the most recent price update.
   }
 
   struct PoolUpdate {
@@ -29,8 +29,7 @@ library Internal {
 
   struct ExecutionReport {
     EVM2EVMMessage[] messages;
-    // Contains a bytes array for each message
-    // each inner bytes array contains bytes per transferred token
+    // Contains a bytes array for each message, each inner bytes array contains bytes per transferred token
     bytes[][] offchainTokenData;
     bytes32[] proofs;
     uint256 proofFlagBits;
@@ -38,19 +37,19 @@ library Internal {
 
   // @notice The cross chain message that gets committed to EVM chains
   struct EVM2EVMMessage {
-    uint64 sourceChainSelector;
-    address sender;
-    address receiver;
-    uint64 sequenceNumber;
-    uint256 gasLimit;
-    bool strict;
-    uint64 nonce;
-    address feeToken;
-    uint256 feeTokenAmount;
-    bytes data;
-    Client.EVMTokenAmount[] tokenAmounts;
-    bytes[] sourceTokenData;
-    bytes32 messageId;
+    uint64 sourceChainSelector; // ─────────╮ the chain selector of the source chain, note: not chainId
+    address sender; // ─────────────────────╯ sender address on the source chain
+    address receiver; // ───────────────────╮ receiver address on the destination chain
+    uint64 sequenceNumber; // ──────────────╯ sequence number, not unique across lanes
+    uint256 gasLimit; //                      user supplied maximum gas amount available for dest chain execution
+    bool strict; // ────────────────────────╮ DEPRECATED
+    uint64 nonce; //                        │ nonce for this lane for this sender, not unique across senders/lanes
+    address feeToken; // ───────────────────╯ fee token
+    uint256 feeTokenAmount; //                fee token amount
+    bytes data; //                            arbitrary data payload supplied by the message sender
+    Client.EVMTokenAmount[] tokenAmounts; //  array of tokens and amounts to transfer
+    bytes[] sourceTokenData; //               array of token pool return values, one per token
+    bytes32 messageId; //                     a hash of the message data
   }
 
   function _toAny2EVMMessage(
