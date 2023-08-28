@@ -31,7 +31,7 @@ import { deployRegistry21 } from './helpers'
 
 // We are leaving the original tests enabled, however as automation v2.1 is still actively being deployed
 
-describe.only('UpkeepTranscoder v4.0 - Frozen [ @skip-coverage ]', () => {
+describe('UpkeepTranscoder v4.0 - Frozen [ @skip-coverage ]', () => {
   it('has not changed', () => {
     assert.equal(
       ethers.utils.id(UpkeepTranscoderFactory.bytecode),
