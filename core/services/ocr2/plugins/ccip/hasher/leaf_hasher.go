@@ -1,6 +1,7 @@
 package hasher
 
 import (
+	"bytes"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -57,6 +58,7 @@ func (t *LeafHasher) HashLeaf(log types.Log) ([32]byte, error) {
 {"name": "receiver", "type":"address"},
 {"name": "dataHash", "type":"bytes32"},
 {"name": "tokenAmountsHash", "type":"bytes32"},
+{"name": "sourceTokenDataHash", "type":"bytes32"},
 {"name": "gasLimit", "type":"uint256"},
 {"name": "strict", "type":"bool"},
 {"name": "feeToken","type": "address"},
@@ -70,6 +72,7 @@ func (t *LeafHasher) HashLeaf(log types.Log) ([32]byte, error) {
 		message.Receiver,
 		t.ctx.Hash(message.Data),
 		t.ctx.Hash(encodedTokens),
+		t.ctx.Hash(bytes.Join(message.SourceTokenData, []byte{})),
 		message.GasLimit,
 		message.Strict,
 		message.FeeToken,
