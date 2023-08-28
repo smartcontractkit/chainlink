@@ -149,8 +149,7 @@ contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleI
     (bytes[] memory values /* bytes memory lookupData */, ) = abi.decode(performData, (bytes[], bytes));
     for (uint256 i = 0; i < values.length; i++) {
       // Verify and decode report.
-      i_verifier.verify(values[i]);
-      Report memory report = getReport(values[i]);
+      Report memory report = abi.decode(i_verifier.verify(values[i]), (Report));
       string memory feedId = bytes32ToHextString(abi.encodePacked(report.feedId));
 
       // Feeds that have been removed between checkUpkeep and performUpkeep should not be updated.
