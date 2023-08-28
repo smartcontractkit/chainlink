@@ -6,13 +6,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/stretchr/testify/assert"
-
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/stretchr/testify/assert"
 )
 
-func TestUtils_FilterLogsByContent(t *testing.T) {
+func TestUpkeepFilter_Select(t *testing.T) {
 	var zeroBytes [32]byte
 	emptyTopic := common.BytesToHash(zeroBytes[:])
 	contractAddress := common.HexToAddress("0xB9F3af0c2CbfE108efd0E23F7b0a151Ea42f764E")
@@ -88,7 +86,7 @@ func TestUtils_FilterLogsByContent(t *testing.T) {
 			},
 		},
 		{
-			"selector is 1 - only topics[1] is used to filter logs",
+			"selector is 1 - topics 1 is used to filter logs",
 			upkeepFilter{
 				selector: 1,
 				topics:   []common.Hash{contractAddress.Hash(), common.HexToHash(topic10), emptyTopic, emptyTopic},
@@ -103,7 +101,7 @@ func TestUtils_FilterLogsByContent(t *testing.T) {
 			},
 		},
 		{
-			"selector is 2 - only topics[2] is used to filter logs",
+			"selector is 2 - topic 2 is used to filter logs",
 			upkeepFilter{
 				selector: 2,
 				topics:   []common.Hash{contractAddress.Hash(), emptyTopic, common.HexToHash(topic21), emptyTopic},
@@ -118,7 +116,7 @@ func TestUtils_FilterLogsByContent(t *testing.T) {
 			},
 		},
 		{
-			"selector is 3 - topics[1] and [2] are used to filter logs",
+			"selector is 3 - topics 1 2 are used to filter logs",
 			upkeepFilter{
 				selector: 3,
 				topics:   []common.Hash{contractAddress.Hash(), common.HexToHash(topic10), common.HexToHash(topic21), emptyTopic},
@@ -135,7 +133,7 @@ func TestUtils_FilterLogsByContent(t *testing.T) {
 			},
 		},
 		{
-			"selector is 4 - only topics[3] is used to filter logs",
+			"selector is 4 - topic 3 is used to filter logs",
 			upkeepFilter{
 				selector: 4,
 				topics:   []common.Hash{contractAddress.Hash(), emptyTopic, emptyTopic, common.HexToHash(topic31)},
@@ -150,7 +148,7 @@ func TestUtils_FilterLogsByContent(t *testing.T) {
 			},
 		},
 		{
-			"selector is 5 - both topics[1] and [3] are used to filter logs",
+			"selector is 5 - topics 1 3 are used to filter logs",
 			upkeepFilter{
 				selector: 5,
 				topics:   []common.Hash{contractAddress.Hash(), common.HexToHash(topic11), emptyTopic, common.HexToHash(topic31)},
@@ -168,7 +166,7 @@ func TestUtils_FilterLogsByContent(t *testing.T) {
 			},
 		},
 		{
-			"selector is 7 - topics[1], [2] and [3] are used to filter logs",
+			"selector is 7 - topics 1 2 3 are used to filter logs",
 			upkeepFilter{
 				selector: 7,
 				topics:   []common.Hash{contractAddress.Hash(), common.HexToHash(topic10), common.HexToHash(topic20), common.HexToHash(topic30)},
@@ -190,7 +188,7 @@ func TestUtils_FilterLogsByContent(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			filteredLogs := FilterLogsByContent(tc.filter, tc.logs, logger.TestLogger(t))
+			filteredLogs := tc.filter.Select(tc.logs...)
 			assert.Equal(t, tc.expectedLogs, filteredLogs)
 		})
 	}

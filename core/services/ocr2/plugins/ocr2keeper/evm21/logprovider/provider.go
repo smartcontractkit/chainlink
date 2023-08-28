@@ -396,8 +396,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 			merr = errors.Join(merr, fmt.Errorf("failed to get logs for upkeep %s: %w", filter.upkeepID.String(), err))
 			continue
 		}
-
-		filteredLogs := FilterLogsByContent(filter, logs, p.lggr)
+		filteredLogs := filter.Select(logs...)
 
 		// if this limiter's burst was set to the max ->
 		// reset it and cancel the reservation to allow further processing
