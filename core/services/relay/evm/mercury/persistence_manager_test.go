@@ -91,6 +91,9 @@ func TestPersistenceManagerAsyncDelete(t *testing.T) {
 }
 
 func TestPersistenceManagerPrune(t *testing.T) {
+	maxTransmitQueueSize = 2
+	pruneFrequency = 10 * time.Millisecond
+
 	ctx := context.Background()
 	pm := bootstrapPersistenceManager(t)
 
@@ -103,8 +106,6 @@ func TestPersistenceManagerPrune(t *testing.T) {
 	err = pm.Insert(ctx, &pb.TransmitRequest{Payload: reports[2]}, ocrtypes.ReportContext{ReportTimestamp: ocrtypes.ReportTimestamp{Epoch: 3}})
 	require.NoError(t, err)
 
-	maxTransmitQueueSize = 2
-	pruneFrequency = 10 * time.Millisecond
 	err = pm.Start(ctx)
 	require.NoError(t, err)
 
