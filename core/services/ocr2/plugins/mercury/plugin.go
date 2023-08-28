@@ -79,7 +79,7 @@ func NewServices(
 		)
 	case 2:
 		ds := mercuryv2.NewDataSource(
-			// TODO: Needs ORM to carry timestamps over
+			orm,
 			pipelineRunner,
 			jb,
 			*jb.PipelineSpec,
@@ -99,6 +99,7 @@ func NewServices(
 		)
 	case 3:
 		ds := mercuryv3.NewDataSource(
+			orm,
 			pipelineRunner,
 			jb,
 			*jb.PipelineSpec,

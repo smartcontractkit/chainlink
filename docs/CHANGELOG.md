@@ -35,6 +35,7 @@ AllowSimplePasswords=true
 ### Added
 
 - Added the ability to specify and merge fields from multiple secrets files. Overrides of fields and keys are not allowed.
+- Added new database table `evm_upkeep_states` to persist eligibility state for recently checked upkeeps.
 
 ### Upcoming Required Configuration Change
 

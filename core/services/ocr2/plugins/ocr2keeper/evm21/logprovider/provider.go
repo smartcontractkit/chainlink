@@ -33,6 +33,11 @@ var (
 
 	readJobQueueSize = 64
 	readLogsTimeout  = 10 * time.Second
+
+	readMaxBatchSize = 32
+	// reorgBuffer is the number of blocks to add as a buffer to the block range when reading logs.
+	reorgBuffer   = int64(32)
+	readerThreads = 4
 )
 
 // LogTriggerConfig is an alias for log trigger config.
@@ -85,20 +90,16 @@ type logEventProvider struct {
 	filterStore UpkeepFilterStore
 	buffer      *logEventBuffer
 
-	opts *LogEventProviderOptions
+	opts LogTriggersOptions
 
 	currentPartitionIdx uint64
 }
 
-func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, filterStore UpkeepFilterStore, opts *LogEventProviderOptions) *logEventProvider {
-	if opts == nil {
-		opts = new(LogEventProviderOptions)
-	}
-	opts.Defaults()
+func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
 	return &logEventProvider{
 		packer:      packer,
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
-		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), BufferMaxBlockSize, AllowedLogsPerBlock),
+		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), bufferMaxBlockSize, allowedLogsPerBlock),
 		poller:      poller,
 		opts:        opts,
 		filterStore: filterStore,
@@ -119,11 +120,11 @@ func (p *logEventProvider) Start(context.Context) error {
 
 	readQ := make(chan []*big.Int, readJobQueueSize)
 
-	p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", p.opts.ReadBatchSize, "readers", p.opts.Readers)
+	p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", readMaxBatchSize, "readers", readerThreads)
 
 	{ // start readers
 		go func(ctx context.Context) {
-			for i := 0; i < p.opts.Readers; i++ {
+			for i := 0; i < readerThreads; i++ {
 				go p.startReader(ctx, readQ)
 			}
 		}(ctx)
@@ -246,7 +247,7 @@ func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([
 		case <-ticker.C:
 			ids := p.getPartitionIds(h, int(partitionIdx))
 			if len(ids) > 0 {
-				maxBatchSize := p.opts.ReadBatchSize
+				maxBatchSize := readMaxBatchSize
 				for len(ids) > maxBatchSize {
 					batch := ids[:maxBatchSize]
 					execute(batch)
@@ -288,7 +289,7 @@ func (p *logEventProvider) startReader(pctx context.Context, readQ <-chan []*big
 // getPartitionIds returns the upkeepIDs for the given partition and the number of partitions.
 // Partitioning is done by hashing the upkeepID and taking the modulus of the number of partitions.
 func (p *logEventProvider) getPartitionIds(hashFn hash.Hash, partition int) []*big.Int {
-	numOfPartitions := p.filterStore.Size() / p.opts.ReadBatchSize
+	numOfPartitions := p.filterStore.Size() / readMaxBatchSize
 	if numOfPartitions < 1 {
 		numOfPartitions = 1
 	}
@@ -378,12 +379,13 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 			continue
 		}
 		// adding a buffer to check for reorged logs.
-		start = start - p.opts.ReorgBuffer
+		start = start - reorgBuffer
 		// make sure start of the range is not before the config update block
 		if configUpdateBlock := int64(filter.configUpdateBlock); start < configUpdateBlock {
 			start = configUpdateBlock
 		}
-		logs, err := p.poller.LogsWithSigs(start, latest, filter.topics, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
+		// query logs based on contract address, event sig, and blocks
+		logs, err := p.poller.LogsWithSigs(start, latest, []common.Hash{filter.topics[0]}, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
 		if err != nil {
 			// cancel limit reservation as we failed to get logs
 			resv.Cancel()
@@ -394,6 +396,8 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 			merr = errors.Join(merr, fmt.Errorf("failed to get logs for upkeep %s: %w", filter.upkeepID.String(), err))
 			continue
 		}
+		filteredLogs := filter.Select(logs...)
+
 		// if this limiter's burst was set to the max ->
 		// reset it and cancel the reservation to allow further processing
 		if filter.blockLimiter.Burst() == maxBurst {
@@ -401,7 +405,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 			filter.blockLimiter.SetBurst(p.opts.BlockLimitBurst)
 		}
 
-		p.buffer.enqueue(filter.upkeepID, logs...)
+		p.buffer.enqueue(filter.upkeepID, filteredLogs...)
 
 		filter.lastPollBlock = latest
 	}
