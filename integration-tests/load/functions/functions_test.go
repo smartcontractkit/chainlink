@@ -10,9 +10,9 @@ import (
 func TestFunctionsLoad(t *testing.T) {
 	cfg, err := ReadConfig()
 	require.NoError(t, err)
-	env, functionContracts, err := SetupLocalLoadTestEnv(cfg)
+	env, ft, err := SetupLocalLoadTestEnv(cfg)
 	require.NoError(t, err)
-	env.ParallelTransactions(true)
+	env.ParallelTransactions(false)
 
 	labels := map[string]string{
 		"branch": "functions_healthcheck",
@@ -25,8 +25,8 @@ func TestFunctionsLoad(t *testing.T) {
 		GenName:     "gun",
 		CallTimeout: 2 * time.Minute,
 		Gun: NewSingleFunctionCallGun(
-			functionContracts,
-			"const response = await Functions.makeHttpRequest({ url: 'http://dummyjson.com/products/1' }); return Functions.encodeUint256(response.data.id)",
+			ft,
+			DefaultJSPayload,
 			[]byte{},
 			[]string{},
 			cfg.Common.SubscriptionID,
@@ -35,6 +35,8 @@ func TestFunctionsLoad(t *testing.T) {
 		Labels:     labels,
 		LokiConfig: wasp.NewEnvLokiConfig(),
 	}
+
+	MonitorLoadStats(t, ft, labels)
 
 	t.Run("functions soak test", func(t *testing.T) {
 		singleFeedConfig.Schedule = wasp.Plain(

@@ -2142,6 +2142,22 @@ type EthereumFunctionsCoordinator struct {
 	instance *functions_coordinator.FunctionsCoordinator
 }
 
+func (e *EthereumFunctionsCoordinator) GetThresholdPublicKey() ([]byte, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: context.Background(),
+	}
+	return e.instance.GetThresholdPublicKey(opts)
+}
+
+func (e *EthereumFunctionsCoordinator) GetDONPublicKey() ([]byte, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: context.Background(),
+	}
+	return e.instance.GetDONPublicKey(opts)
+}
+
 func (e *EthereumFunctionsCoordinator) Address() string {
 	return e.address.Hex()
 }
@@ -2154,6 +2170,33 @@ type EthereumFunctionsLoadTestClient struct {
 
 func (e *EthereumFunctionsLoadTestClient) Address() string {
 	return e.address.Hex()
+}
+
+func (e *EthereumFunctionsLoadTestClient) GetStats() (uint32, uint32, uint32, uint32, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: context.Background(),
+	}
+	total, succeeded, errored, empty, err := e.instance.GetStats(opts)
+	if err != nil {
+		return 0, 0, 0, 0, err
+	}
+	return total, succeeded, errored, empty, nil
+}
+
+func (e *EthereumFunctionsLoadTestClient) ResetStats() error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := e.instance.ResetCounters(opts)
+	if err != nil {
+		return err
+	}
+	if err := e.client.ProcessTransaction(tx); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (e *EthereumFunctionsLoadTestClient) SendRequest(source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error {

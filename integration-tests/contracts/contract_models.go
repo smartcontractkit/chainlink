@@ -351,6 +351,8 @@ type AuthorizedForwarder interface {
 
 type FunctionsCoordinator interface {
 	Address() string
+	GetThresholdPublicKey() ([]byte, error)
+	GetDONPublicKey() ([]byte, error)
 }
 
 type FunctionsRouter interface {
@@ -360,5 +362,7 @@ type FunctionsRouter interface {
 
 type FunctionsLoadTestClient interface {
 	Address() string
+	ResetStats() error
+	GetStats() (uint32, uint32, uint32, uint32, error)
 	SendRequest(source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error
 }

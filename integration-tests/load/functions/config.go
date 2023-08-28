@@ -29,7 +29,7 @@ type Common struct {
 	LINKTokenAddr  string `toml:"link_token_addr"`
 	Coordinator    string `toml:"coordinator_addr"`
 	Router         string `toml:"router_addr"`
-	LoadTestClient string `toml:"client_example_addr"`
+	LoadTestClient string `toml:"client_addr"`
 	SubscriptionID uint64 `toml:"subscription_id"`
 	DONID          string `toml:"don_id"`
 }
