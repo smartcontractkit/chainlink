@@ -86,7 +86,7 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 	// wait and retrieve tx attempt matching tx ID
 	attempt, err := FindTxAttempt(c, timeout, etx, tc.App.TxmStorageService().FindTxWithAttempts)
 	if err != nil {
-		jsonAPIError(c, http.StatusGatewayTimeout, errors.Errorf("failed to find transaction within timeout"))
+		jsonAPIError(c, http.StatusGatewayTimeout, fmt.Errorf("failed to find transaction within timeout: %w", err))
 		return
 	}
 	jsonAPIResponse(c, presenters.NewEthTxResourceFromAttempt(attempt), "eth_tx")

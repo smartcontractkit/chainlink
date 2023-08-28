@@ -2,8 +2,10 @@ package cmd_test
 
 import (
 	"flag"
+	"fmt"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -15,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestShell_IndexTransactions(t *testing.T) {
@@ -138,6 +141,10 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+
+		// NOTE: FallbackPollInterval is used in this test to quickly create TxAttempts
+		// Testing triggers requires committing transactions and does not work with transactional tests
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(time.Second)
 	},
 		withKey(),
 		withMocks(ethMock, key),
@@ -167,6 +174,11 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	assert.Equal(t, &dbEvmTx.FromAddress, output.From)
 	assert.Equal(t, &dbEvmTx.ToAddress, output.To)
 	assert.Equal(t, dbEvmTx.Value.String(), output.Value)
+	assert.Equal(t, fmt.Sprintf("%d", *dbEvmTx.Nonce), output.Nonce)
+
+	dbEvmTxAttempt := txmgr.DbEthTxAttempt{}
+	require.NoError(t, db.Get(&dbEvmTxAttempt, `SELECT * FROM eth_tx_attempts`))
+	assert.Equal(t, dbEvmTxAttempt.Hash, output.Hash)
 }
 
 func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
@@ -186,6 +198,10 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 		c.EVM[0].Enabled = ptr(true)
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)
+
+		// NOTE: FallbackPollInterval is used in this test to quickly create TxAttempts
+		// Testing triggers requires committing transactions and does not work with transactional tests
+		c.Database.Listener.FallbackPollInterval = models.MustNewDuration(time.Second)
 	},
 		withKey(),
 		withMocks(ethMock, key),
@@ -221,4 +237,9 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	assert.Equal(t, &dbEvmTx.FromAddress, output.From)
 	assert.Equal(t, &dbEvmTx.ToAddress, output.To)
 	assert.Equal(t, dbEvmTx.Value.String(), output.Value)
+	assert.Equal(t, fmt.Sprintf("%d", *dbEvmTx.Nonce), output.Nonce)
+
+	dbEvmTxAttempt := txmgr.DbEthTxAttempt{}
+	require.NoError(t, db.Get(&dbEvmTxAttempt, `SELECT * FROM eth_tx_attempts`))
+	assert.Equal(t, dbEvmTxAttempt.Hash, output.Hash)
 }
