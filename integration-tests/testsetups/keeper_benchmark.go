@@ -350,6 +350,7 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
 	require.NoError(t, err, "Subscribing to upkeep performed events log shouldn't fail")
 	go func() {
 		var numRevertedUpkeeps int64
+		var numStaleReports int64
 		for {
 			select {
 			case err := <-sub.Err():
@@ -361,32 +362,44 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
 			case vLog := <-eventLogs:
 				eventDetails, err := contractABI.EventByID(vLog.Topics[0])
 				require.NoError(t, err, "Getting event details for subscribed log shouldn't fail")
-				if eventDetails.Name != "UpkeepPerformed" {
+				if eventDetails.Name != "UpkeepPerformed" && eventDetails.Name != "StaleUpkeepReport" {
 					// Skip non upkeepPerformed Logs
 					continue
 				}
-				parsedLog, err := k.keeperRegistries[rIndex].ParseUpkeepPerformedLog(&vLog)
-				require.NoError(t, err, "Parsing upkeep performed log shouldn't fail")
+				if eventDetails.Name == "UpkeepPerformed" {
+					parsedLog, err := k.keeperRegistries[rIndex].ParseUpkeepPerformedLog(&vLog)
+					require.NoError(t, err, "Parsing upkeep performed log shouldn't fail")
 
-				if parsedLog.Success {
-					l.Info().
-						Str("Upkeep ID", parsedLog.Id.String()).
-						Bool("Success", parsedLog.Success).
-						Str("From", parsedLog.From.String()).
-						Str("Registry", k.keeperRegistries[rIndex].Address()).
-						Msg("Got successful Upkeep Performed log on Registry")
+					if parsedLog.Success {
+						l.Info().
+							Str("Upkeep ID", parsedLog.Id.String()).
+							Bool("Success", parsedLog.Success).
+							Str("From", parsedLog.From.String()).
+							Str("Registry", k.keeperRegistries[rIndex].Address()).
+							Msg("Got successful Upkeep Performed log on Registry")
 
-				} else {
+					} else {
+						l.Warn().
+							Str("Upkeep ID", parsedLog.Id.String()).
+							Bool("Success", parsedLog.Success).
+							Str("From", parsedLog.From.String()).
+							Str("Registry", k.keeperRegistries[rIndex].Address()).
+							Msg("Got reverted Upkeep Performed log on Registry")
+						numRevertedUpkeeps++
+					}
+				} else if eventDetails.Name == "StaleUpkeepReport" {
+					parsedLog, err := k.keeperRegistries[rIndex].ParseStaleUpkeepReportLog(&vLog)
+					require.NoError(t, err, "Parsing stale upkeep report log shouldn't fail")
 					l.Warn().
 						Str("Upkeep ID", parsedLog.Id.String()).
-						Bool("Success", parsedLog.Success).
-						Str("From", parsedLog.From.String()).
 						Str("Registry", k.keeperRegistries[rIndex].Address()).
-						Msg("Got reverted Upkeep Performed log on Registry")
-					numRevertedUpkeeps++
+						Msg("Got stale Upkeep report log on Registry")
+					numStaleReports++
 				}
+
 			case <-doneChan:
 				metricsReporter.NumRevertedUpkeeps = numRevertedUpkeeps
+				metricsReporter.NumStaleUpkeepReports = numStaleReports
 				return
 			}
 		}
