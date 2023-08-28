@@ -1,4 +1,4 @@
-package evm
+package encoding
 
 import (
 	"fmt"
@@ -11,13 +11,115 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	automation21Utils "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
-func TestUnpackCheckResults(t *testing.T) {
+func TestPacker_PackReport(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		report     automation21Utils.KeeperRegistryBase21Report
+		expectsErr bool
+		wantErr    error
+		wantBytes  int
+	}{
+		{
+			name: "all non-nil values get encoded to a byte array of a specific length",
+			report: automation21Utils.KeeperRegistryBase21Report{
+				FastGasWei: big.NewInt(0),
+				LinkNative: big.NewInt(0),
+				UpkeepIds:  []*big.Int{big.NewInt(3)},
+				GasLimits:  []*big.Int{big.NewInt(4)},
+				Triggers: [][]byte{
+					{5},
+				},
+				PerformDatas: [][]byte{
+					{6},
+				},
+			},
+			wantBytes: 608,
+		},
+		{
+			name: "if upkeep IDs are nil, the packed report is smaller",
+			report: automation21Utils.KeeperRegistryBase21Report{
+				FastGasWei: big.NewInt(1),
+				LinkNative: big.NewInt(2),
+				UpkeepIds:  nil,
+				GasLimits:  []*big.Int{big.NewInt(4)},
+				Triggers: [][]byte{
+					{5},
+				},
+				PerformDatas: [][]byte{
+					{6},
+				},
+			},
+			wantBytes: 576,
+		},
+		{
+			name: "if gas limits are nil, the packed report is smaller",
+			report: automation21Utils.KeeperRegistryBase21Report{
+				FastGasWei: big.NewInt(1),
+				LinkNative: big.NewInt(2),
+				UpkeepIds:  []*big.Int{big.NewInt(3)},
+				GasLimits:  nil,
+				Triggers: [][]byte{
+					{5},
+				},
+				PerformDatas: [][]byte{
+					{6},
+				},
+			},
+			wantBytes: 576,
+		},
+		{
+			name: "if perform datas are nil, the packed report is smaller",
+			report: automation21Utils.KeeperRegistryBase21Report{
+				FastGasWei: big.NewInt(1),
+				LinkNative: big.NewInt(2),
+				UpkeepIds:  []*big.Int{big.NewInt(3)},
+				GasLimits:  []*big.Int{big.NewInt(4)},
+				Triggers: [][]byte{
+					{5},
+				},
+				PerformDatas: nil,
+			},
+			wantBytes: 512,
+		},
+		{
+			name: "if triggers are nil, the packed report is smaller",
+			report: automation21Utils.KeeperRegistryBase21Report{
+				FastGasWei: big.NewInt(1),
+				LinkNative: big.NewInt(2),
+				UpkeepIds:  []*big.Int{big.NewInt(3)},
+				GasLimits:  []*big.Int{big.NewInt(4)},
+				Triggers:   nil,
+				PerformDatas: [][]byte{
+					{6},
+				},
+			},
+			wantBytes: 512,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			packer, err := newPacker()
+			assert.NoError(t, err)
+			bytes, err := packer.PackReport(tc.report)
+			if tc.expectsErr {
+				assert.Error(t, err)
+				assert.Equal(t, tc.wantErr.Error(), err.Error())
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, tc.wantBytes, len(bytes))
+			}
+		})
+	}
+}
+
+func TestPacker_UnpackCheckResults(t *testing.T) {
 	uid, _ := new(big.Int).SetString("1843548457736589226156809205796175506139185429616502850435279853710366065936", 10)
 	upkeepId := ocr2keepers.UpkeepIdentifier{}
 	upkeepId.FromBigInt(uid)
@@ -233,7 +335,27 @@ func TestPacker_UnpackLogTriggerConfig(t *testing.T) {
 	}
 }
 
-func newPacker() (*evmRegistryPackerV2_1, error) {
+func TestPacker_PackReport_UnpackReport(t *testing.T) {
+	report := automation_utils_2_1.KeeperRegistryBase21Report{
+		FastGasWei:   big.NewInt(1),
+		LinkNative:   big.NewInt(1),
+		UpkeepIds:    []*big.Int{big.NewInt(1), big.NewInt(2)},
+		GasLimits:    []*big.Int{big.NewInt(100), big.NewInt(200)},
+		Triggers:     [][]byte{{1, 2, 3, 4}, {5, 6, 7, 8}},
+		PerformDatas: [][]byte{{5, 6, 7, 8}, {1, 2, 3, 4}},
+	}
+	packer, err := newPacker()
+	require.NoError(t, err)
+	res, err := packer.PackReport(report)
+	require.NoError(t, err)
+	report2, err := packer.UnpackReport(res)
+	require.NoError(t, err)
+	assert.Equal(t, report, report2)
+	expected := "0x00000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000120000000000000000000000000000000000000000000000000000000000000018000000000000000000000000000000000000000000000000000000000000002600000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000006400000000000000000000000000000000000000000000000000000000000000c800000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000040102030400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000405060708000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000800000000000000000000000000000000000000000000000000000000000000004050607080000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000040102030400000000000000000000000000000000000000000000000000000000"
+	assert.Equal(t, hexutil.Encode(res), expected)
+}
+
+func newPacker() (*abiPacker, error) {
 	keepersABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	if err != nil {
 		return nil, err
@@ -242,5 +364,5 @@ func newPacker() (*evmRegistryPackerV2_1, error) {
 	if err != nil {
 		return nil, err
 	}
-	return NewEvmRegistryPackerV2_1(keepersABI, utilsABI), nil
+	return NewAbiPacker(keepersABI, utilsABI), nil
 }

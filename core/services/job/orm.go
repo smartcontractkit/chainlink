@@ -684,10 +684,7 @@ func (o *orm) FindJobs(offset, limit int) (jobs []Job, count int, err error) {
 			return err
 		}
 		for i := range jobs {
-			err = o.LoadEnvConfigVars(&jobs[i])
-			if err != nil {
-				return err
-			}
+			err = multierr.Combine(err, o.LoadEnvConfigVars(&jobs[i]))
 		}
 		return nil
 	})

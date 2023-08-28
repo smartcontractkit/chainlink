@@ -428,7 +428,6 @@ type CosmosChainConfig struct {
 type CosmosChainAttributes struct {
 	ChainID string            `json:"chainID"`
 	Config  CosmosChainConfig `json:"config"`
-	FCDURL  string            `json:"fcdURL" db:"fcd_url"`
 }
 
 // CosmosChain is the model that represents the terra chain when read
@@ -619,6 +618,43 @@ func (d *PipelineSpec) String() (string, error) {
 		parse [type=jsonparse path="{{.DataPath}}"];
 		fetch -> parse;`
 	return MarshallTemplate(d, "API call pipeline template", sourceString)
+}
+
+// VRFV2TxPipelineSpec VRFv2 request with tx callback
+type VRFV2PlusTxPipelineSpec struct {
+	Address string
+}
+
+// Type returns the type of the pipeline
+func (d *VRFV2PlusTxPipelineSpec) Type() string {
+	return "vrf_pipeline_v2plus"
+}
+
+// String representation of the pipeline
+func (d *VRFV2PlusTxPipelineSpec) String() (string, error) {
+	sourceString := `
+decode_log   [type=ethabidecodelog
+             abi="RandomWordsRequested(bytes32 indexed keyHash,uint256 requestId,uint256 preSeed,uint256 indexed subId,uint16 minimumRequestConfirmations,uint32 callbackGasLimit,uint32 numWords,bytes extraArgs,address indexed sender)"
+             data="$(jobRun.logData)"
+             topics="$(jobRun.logTopics)"]
+generate_proof [type=vrfv2plus
+                publicKey="$(jobSpec.publicKey)"
+                requestBlockHash="$(jobRun.logBlockHash)"
+                requestBlockNumber="$(jobRun.logBlockNumber)"
+                topics="$(jobRun.logTopics)"]
+estimate_gas [type=estimategaslimit
+             to="{{ .Address }}"
+             multiplier="1.1"
+             data="$(generate_proof.output)"]
+simulate_fulfillment [type=ethcall
+                      to="{{ .Address }}"
+                      gas="$(estimate_gas)"
+                      gasPrice="$(jobSpec.maxGasPrice)"
+                      extractRevertReason=true
+                      contract="{{ .Address }}"
+                      data="$(generate_proof.output)"]
+decode_log->generate_proof->estimate_gas->simulate_fulfillment`
+	return MarshallTemplate(d, "VRFV2 Plus pipeline template", sourceString)
 }
 
 // VRFV2TxPipelineSpec VRFv2 request with tx callback
@@ -1063,6 +1099,46 @@ observationSource                      = """
 {{$key}} = {{$value}}{{end}}
 `
 	return MarshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
+}
+
+// VRFV2PlusJobSpec represents a VRFV2 job
+type VRFV2PlusJobSpec struct {
+	Name                     string        `toml:"name"`
+	CoordinatorAddress       string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
+	PublicKey                string        `toml:"publicKey"`          // Public key of the proving key
+	ExternalJobID            string        `toml:"externalJobID"`
+	ObservationSource        string        `toml:"observationSource"` // List of commands for the Chainlink node
+	MinIncomingConfirmations int           `toml:"minIncomingConfirmations"`
+	FromAddresses            []string      `toml:"fromAddresses"`
+	EVMChainID               string        `toml:"evmChainID"`
+	BatchFulfillmentEnabled  bool          `toml:"batchFulfillmentEnabled"`
+	BackOffInitialDelay      time.Duration `toml:"backOffInitialDelay"`
+	BackOffMaxDelay          time.Duration `toml:"backOffMaxDelay"`
+}
+
+// Type returns the type of the job
+func (v *VRFV2PlusJobSpec) Type() string { return "vrf" }
+
+// String representation of the job
+func (v *VRFV2PlusJobSpec) String() (string, error) {
+	vrfTemplateString := `
+type                     = "vrf"
+schemaVersion            = 1
+name                     = "{{.Name}}"
+coordinatorAddress       = "{{.CoordinatorAddress}}"
+fromAddresses            = [{{range .FromAddresses}}"{{.}}",{{end}}]
+evmChainID               = "{{.EVMChainID}}"
+minIncomingConfirmations = {{.MinIncomingConfirmations}}
+publicKey                = "{{.PublicKey}}"
+externalJobID            = "{{.ExternalJobID}}"
+batchFulfillmentEnabled = {{.BatchFulfillmentEnabled}}
+backoffInitialDelay     = "{{.BackOffInitialDelay}}"
+backoffMaxDelay         = "{{.BackOffMaxDelay}}"
+observationSource = """
+{{.ObservationSource}}
+"""
+`
+	return MarshallTemplate(v, "VRFV2 PLUS Job", vrfTemplateString)
 }
 
 // VRFV2JobSpec represents a VRFV2 job
