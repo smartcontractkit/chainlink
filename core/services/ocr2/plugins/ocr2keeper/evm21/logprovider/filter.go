@@ -5,8 +5,9 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"golang.org/x/time/rate"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
 
 type upkeepFilter struct {
