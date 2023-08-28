@@ -120,7 +120,7 @@ contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleI
     uint256 count = 0;
     for (uint256 i = 0; i < values.length; i++) {
       Report memory report = getReport(values[i]);
-      string memory feedId = bytes32ToHextString(abi.encodePacked(report.feedId));
+      string memory feedId = bytes32ToHexString(abi.encodePacked(report.feedId));
       Feed memory feed = s_feedMapping[feedId];
       if (
         (report.observationsTimestamp - feed.observationsTimestamp > s_stalenessSeconds) ||
@@ -150,7 +150,7 @@ contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleI
     for (uint256 i = 0; i < values.length; i++) {
       // Verify and decode report.
       Report memory report = abi.decode(i_verifier.verify(values[i]), (Report));
-      string memory feedId = bytes32ToHextString(abi.encodePacked(report.feedId));
+      string memory feedId = bytes32ToHexString(abi.encodePacked(report.feedId));
 
       // Feeds that have been removed between checkUpkeep and performUpkeep should not be updated.
       require(bytes(s_feedMapping[feedId].feedId).length > 0, "feed removed");
@@ -202,7 +202,7 @@ contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleI
   // Helper function to reconcile a difference in formatting:
   // - Automation passes feedId into their off-chain lookup function as a string.
   // - Mercury stores feedId in their reports as a bytes32.
-  function bytes32ToHextString(bytes memory buffer) internal pure returns (string memory) {
+  function bytes32ToHexString(bytes memory buffer) internal pure returns (string memory) {
     bytes memory converted = new bytes(buffer.length * 2);
     bytes memory _base = "0123456789abcdef";
     for (uint256 i = 0; i < buffer.length; i++) {
