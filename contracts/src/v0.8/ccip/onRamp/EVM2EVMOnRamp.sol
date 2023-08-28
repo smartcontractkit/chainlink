@@ -190,8 +190,6 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   /// messages has been sent yet. 0 is not a valid sequence number for any
   /// real transaction.
   uint64 internal s_sequenceNumber;
-  /// @dev Whether this OnRamp is paused or not
-  bool private s_paused = false;
   /// @dev This allowListing will be removed before public launch
   /// @dev Whether s_allowList is enabled or not.
   bool private s_allowlistEnabled;
