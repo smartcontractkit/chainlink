@@ -13,17 +13,15 @@ import "../../../ChainSpecificUtil.sol";
 |     off-chain feed data.                                                                                            |
 |   - Fetch batches of price data. All price feed data is held on the same contract, so a contract that needs         |
 |     multiple sets of feed data can fetch them while paying for only one external call.                              |
-|   - Scalabiliy. Feeds can be added or removed from the contract with a single contract call, and the number of      |
+|   - Scalability. Feeds can be added or removed from the contract with a single contract call, and the number of     |
 |     feeds that the registry can store is unbounded.                                                                 |
 |                                                                                                                     |
 | Key Contracts:                                                                                                      |
 |   - `MercuryRegistry.sol` - stores price feed data and implements core logic.                                       |
 |   - `MercuryRegistryBatchUpkeep.sol` - enables batching for the registry.                                           |
-|   - `MercuryRegistry.t.soll` - contains foundry tests to demonstrate various flows.                                 |
+|   - `MercuryRegistry.t.sol` - contains foundry tests to demonstrate various flows.                                  |
 |                                                                                                                     |
 | TODO:                                                                                                               |
-|   - Convert s_feedIds to an enumerable set.                                                                         |
-|   - Enable an owner to add and remove feeds after the contract is deployed.                                         |
 |   - Access control. Specifically, the the ability to execute `performUpkeep`.                                       |
 |   - Optimize gas consumption.                                                                                       |
 -+---------------------------------------------------------------------------------------------------------------------*/
@@ -88,44 +86,6 @@ contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleI
 
     // Store desired feeds.
     setFeeds(feedIds, feedNames);
-  }
-
-  function setFeeds(string[] memory feedIds, string[] memory feedNames) public {
-    // Ensure correctly formatted constructor arguments.
-    require(feedIds.length == feedNames.length, "incorrectly formatted feeds");
-
-    // Clear prior feeds.
-    for (uint256 i = 0; i < s_feeds.length; i++) {
-      s_feedMapping[s_feeds[i]].active = false;
-    }
-
-    // Assign new feeds.
-    for (uint256 i = 0; i < feedIds.length; i++) {
-      string memory feedId = feedIds[i];
-      if (s_feedMapping[feedId].active) {
-        revert DuplicateFeed(feedId);
-      }
-
-      s_feedMapping[feedId].feedName = feedNames[i];
-      s_feedMapping[feedId].feedId = feedId;
-      s_feedMapping[feedId].active = true;
-    }
-    s_feeds = feedIds;
-  }
-
-  function addFeeds(string[] memory feedIds, string[] memory feedNames) external {
-    for (uint256 i = 0; i < feedIds.length; i++) {
-      string memory feedId = feedIds[i];
-      if (s_feedMapping[feedId].active) {
-        revert DuplicateFeed(feedId);
-      }
-
-      s_feedMapping[feedId].feedName = feedNames[i];
-      s_feedMapping[feedId].feedId = feedId;
-      s_feedMapping[feedId].active = true;
-
-      s_feeds.push(feedId);
-    }
   }
 
   // Returns a user-defined batch of feed data, based on the on-chain state.
@@ -251,6 +211,49 @@ contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleI
       converted[i * 2 + 1] = _base[uint8(buffer[i]) % _base.length];
     }
     return string(abi.encodePacked("0x", converted));
+  }
+
+  function addFeeds(string[] memory feedIds, string[] memory feedNames) external {
+    for (uint256 i = 0; i < feedIds.length; i++) {
+      string memory feedId = feedIds[i];
+      if (s_feedMapping[feedId].active) {
+        revert DuplicateFeed(feedId);
+      }
+
+      s_feedMapping[feedId].feedName = feedNames[i];
+      s_feedMapping[feedId].feedId = feedId;
+      s_feedMapping[feedId].active = true;
+
+      s_feeds.push(feedId);
+    }
+  }
+
+  function setFeeds(string[] memory feedIds, string[] memory feedNames) public {
+    // Ensure correctly formatted constructor arguments.
+    require(feedIds.length == feedNames.length, "incorrectly formatted feeds");
+
+    // Clear prior feeds.
+    for (uint256 i = 0; i < s_feeds.length; i++) {
+      s_feedMapping[s_feeds[i]].active = false;
+    }
+
+    // Assign new feeds.
+    for (uint256 i = 0; i < feedIds.length; i++) {
+      string memory feedId = feedIds[i];
+      if (s_feedMapping[feedId].active) {
+        revert DuplicateFeed(feedId);
+      }
+
+      s_feedMapping[feedId].feedName = feedNames[i];
+      s_feedMapping[feedId].feedId = feedId;
+      s_feedMapping[feedId].active = true;
+    }
+    s_feeds = feedIds;
+  }
+
+  function setConfig(int192 deviationPercentagePPM, uint32 stalenessSeconds) external {
+    s_stalenessSeconds = stalenessSeconds;
+    s_deviationPercentagePPM = deviationPercentagePPM;
   }
 }
 
