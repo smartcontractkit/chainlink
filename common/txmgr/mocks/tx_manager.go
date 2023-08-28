@@ -6,9 +6,8 @@ import (
 	context "context"
 	big "math/big"
 
-	mock "github.com/stretchr/testify/mock"
-
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
+	mock "github.com/stretchr/testify/mock"
 
 	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
