@@ -1,4 +1,4 @@
-module github.com/smartcontractkit/chainlink/integration-tests
+module github.com/smartcontractkit/ccip/integration-tests
 
 go 1.20
 
@@ -22,6 +22,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.1
 	github.com/smartcontractkit/chainlink-env v0.36.0
 	github.com/smartcontractkit/chainlink-testing-framework v1.16.1-0.20230825001100-85c8b45d8005
+	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20230814135816-51632e392c47
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230816220705-665e93233ae5
 	github.com/smartcontractkit/ocr2keepers v0.7.17
@@ -519,6 +520,7 @@ replace (
 
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.43.1-0.20230327151049-211ae4f1f0a2
 	github.com/sercand/kuberesolver v2.4.0+incompatible => github.com/sercand/kuberesolver/v5 v5.1.0
+	github.com/smartcontractkit/chainlink/integration-tests => ../integration-tests
 
 	k8s.io/api => k8s.io/api v0.25.11
 	k8s.io/client-go => k8s.io/client-go v0.25.11
