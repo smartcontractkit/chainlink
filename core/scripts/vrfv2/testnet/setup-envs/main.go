@@ -66,6 +66,8 @@ func main() {
 	maxGasPriceGwei := flag.Int("max-gas-price-gwei", -1, "Max gas price gwei of the eth keys")
 	numVRFKeys := flag.Int("num-vrf-keys", 1, "Number of vrf keys to create")
 
+	deployContracts := flag.Bool("deploy-contracts", true, "whether to deploy contracts and create jobs")
+
 	batchFulfillmentEnabled := flag.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether to enable batch fulfillment on Cl node")
 	minConfs := flag.Int("min-confs", constants.MinConfs, "minimum confirmations")
 
@@ -141,70 +143,74 @@ func main() {
 	}
 	importVRFKeyToNodeIfSet(vrfBackupNodeURL, nodesMap, output, nodesMap[scripts.VRFBackupNodeName].CredsFile)
 	fmt.Println()
-	feeConfig := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
-		FulfillmentFlatFeeLinkPPMTier1: uint32(constants.FlatFeeTier1),
-		FulfillmentFlatFeeLinkPPMTier2: uint32(constants.FlatFeeTier2),
-		FulfillmentFlatFeeLinkPPMTier3: uint32(constants.FlatFeeTier3),
-		FulfillmentFlatFeeLinkPPMTier4: uint32(constants.FlatFeeTier4),
-		FulfillmentFlatFeeLinkPPMTier5: uint32(constants.FlatFeeTier5),
-		ReqsForTier2:                   big.NewInt(constants.ReqsForTier2),
-		ReqsForTier3:                   big.NewInt(constants.ReqsForTier3),
-		ReqsForTier4:                   big.NewInt(constants.ReqsForTier4),
-		ReqsForTier5:                   big.NewInt(constants.ReqsForTier5),
-	}
 
-	contractAddresses := scripts.ContractAddresses{
-		LinkAddress:             *linkAddress,
-		LinkEthAddress:          *linkEthAddress,
-		BhsContractAddress:      common.HexToAddress(*bhsContractAddressString),
-		BatchBHSAddress:         common.HexToAddress(*batchBHSAddressString),
-		CoordinatorAddress:      common.HexToAddress(*coordinatorAddressString),
-		BatchCoordinatorAddress: common.HexToAddress(*batchCoordinatorAddressString),
-	}
-
-	coordinatorConfig := scripts.CoordinatorConfig{
-		MinConfs:               minConfs,
-		MaxGasLimit:            &constants.MaxGasLimit,
-		StalenessSeconds:       &constants.StalenessSeconds,
-		GasAfterPayment:        &constants.GasAfterPayment,
-		FallbackWeiPerUnitLink: constants.FallbackWeiPerUnitLink,
-		FeeConfig:              feeConfig,
-	}
-
-	jobSpecs := scripts.VRFV2DeployUniverse(
-		e,
-		constants.SubscriptionBalanceJuels,
-		&nodesMap[scripts.VRFPrimaryNodeName].VrfKeys[0],
-		contractAddresses,
-		coordinatorConfig,
-		*batchFulfillmentEnabled,
-		nodesMap,
-	)
-
-	for key, node := range nodesMap {
-		client, app := connectToNode(&node.URL, output, node.CredsFile)
-
-		//GET ALL JOBS
-		jobIDs := getAllJobIDs(client, app, output)
-
-		//DELETE ALL EXISTING JOBS
-		for _, jobID := range jobIDs {
-			deleteJob(jobID, client, app, output)
+	if *deployContracts {
+		feeConfig := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
+			FulfillmentFlatFeeLinkPPMTier1: uint32(constants.FlatFeeTier1),
+			FulfillmentFlatFeeLinkPPMTier2: uint32(constants.FlatFeeTier2),
+			FulfillmentFlatFeeLinkPPMTier3: uint32(constants.FlatFeeTier3),
+			FulfillmentFlatFeeLinkPPMTier4: uint32(constants.FlatFeeTier4),
+			FulfillmentFlatFeeLinkPPMTier5: uint32(constants.FlatFeeTier5),
+			ReqsForTier2:                   big.NewInt(constants.ReqsForTier2),
+			ReqsForTier3:                   big.NewInt(constants.ReqsForTier3),
+			ReqsForTier4:                   big.NewInt(constants.ReqsForTier4),
+			ReqsForTier5:                   big.NewInt(constants.ReqsForTier5),
 		}
-		//CREATE JOBS
-		switch key {
-		case scripts.VRFPrimaryNodeName:
-			createJob(jobSpecs.VRFPrimaryNode, client, app, output)
-		case scripts.VRFBackupNodeName:
-			createJob(jobSpecs.VRFBackupyNode, client, app, output)
-		case scripts.BHSNodeName:
-			createJob(jobSpecs.BHSNode, client, app, output)
-		case scripts.BHSBackupNodeName:
-			createJob(jobSpecs.BHSBackupNode, client, app, output)
-		case scripts.BHFNodeName:
-			createJob(jobSpecs.BHFNode, client, app, output)
+
+		contractAddresses := scripts.ContractAddresses{
+			LinkAddress:             *linkAddress,
+			LinkEthAddress:          *linkEthAddress,
+			BhsContractAddress:      common.HexToAddress(*bhsContractAddressString),
+			BatchBHSAddress:         common.HexToAddress(*batchBHSAddressString),
+			CoordinatorAddress:      common.HexToAddress(*coordinatorAddressString),
+			BatchCoordinatorAddress: common.HexToAddress(*batchCoordinatorAddressString),
+		}
+
+		coordinatorConfig := scripts.CoordinatorConfig{
+			MinConfs:               minConfs,
+			MaxGasLimit:            &constants.MaxGasLimit,
+			StalenessSeconds:       &constants.StalenessSeconds,
+			GasAfterPayment:        &constants.GasAfterPayment,
+			FallbackWeiPerUnitLink: constants.FallbackWeiPerUnitLink,
+			FeeConfig:              feeConfig,
+		}
+
+		jobSpecs := scripts.VRFV2DeployUniverse(
+			e,
+			constants.SubscriptionBalanceJuels,
+			&nodesMap[scripts.VRFPrimaryNodeName].VrfKeys[0],
+			contractAddresses,
+			coordinatorConfig,
+			*batchFulfillmentEnabled,
+			nodesMap,
+		)
+
+		for key, node := range nodesMap {
+			client, app := connectToNode(&node.URL, output, node.CredsFile)
+
+			//GET ALL JOBS
+			jobIDs := getAllJobIDs(client, app, output)
+
+			//DELETE ALL EXISTING JOBS
+			for _, jobID := range jobIDs {
+				deleteJob(jobID, client, app, output)
+			}
+			//CREATE JOBS
+			switch key {
+			case scripts.VRFPrimaryNodeName:
+				createJob(jobSpecs.VRFPrimaryNode, client, app, output)
+			case scripts.VRFBackupNodeName:
+				createJob(jobSpecs.VRFBackupyNode, client, app, output)
+			case scripts.BHSNodeName:
+				createJob(jobSpecs.BHSNode, client, app, output)
+			case scripts.BHSBackupNodeName:
+				createJob(jobSpecs.BHSBackupNode, client, app, output)
+			case scripts.BHFNodeName:
+				createJob(jobSpecs.BHFNode, client, app, output)
+			}
 		}
 	}
+
 }
 
 func fundNodesIfNeeded(node scripts.Node, key string, e helpers.Environment) {
