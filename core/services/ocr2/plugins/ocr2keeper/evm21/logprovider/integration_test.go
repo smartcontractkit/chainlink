@@ -706,7 +706,7 @@ func setupDB(t *testing.T) *sqlx.DB {
 type mockUpkeepStateStore struct {
 }
 
-func (m *mockUpkeepStateStore) SelectByWorkIDsInRange(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+func (m *mockUpkeepStateStore) SelectByWorkIDs(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 	states := make([]ocr2keepers.UpkeepState, len(workIDs))
 	for i := range workIDs {
 		states[i] = ocr2keepers.UnknownState

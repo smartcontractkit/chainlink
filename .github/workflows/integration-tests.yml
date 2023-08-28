@@ -157,7 +157,7 @@ jobs:
       matrix:
         product:
           - name: automation
-            nodes: 11
+            nodes: 19
             os: ubuntu-latest
             pyroscope_env: ci-smoke-automation-evm-simulated
           # temporarily disabled
