@@ -5,8 +5,9 @@ package mocks
 import (
 	context "context"
 
-	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	mock "github.com/stretchr/testify/mock"
+
+	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 
 	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
 

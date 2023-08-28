@@ -919,7 +919,7 @@ func (o *evmTxStore) FindTxWithRequestID(requestID common.Hash) (etx *Tx, err er
 				return pkgerrors.Wrap(err, "FindTxWithRequestID failed to load eth_txes")
 			}
 			return nil
-		}	
+		}
 		DbEthTxToEthTx(dbEtx, etx)
 		err = o.LoadTxAttempts(etx, pg.WithQueryer(tx))
 		return pkgerrors.Wrap(err, "FindTxWithRequestID failed to load eth_tx_attempts")

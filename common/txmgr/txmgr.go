@@ -435,6 +435,19 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Trigger(ad
 
 // CreateTransaction inserts a new transaction
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTransaction(txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], qs ...pg.QOpt) (tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+	// Check for existing Tx with RequestID. If found, return the Tx and do nothing
+	// Skipping CreateTransaction to avoid double send
+	if txRequest.RequestID != nil {
+		var etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+		etx, err = b.txStore.FindTxWithRequestID(*txRequest.RequestID)
+		if err != nil {
+			return tx, errors.Wrap(err, "Failed to search for transaction with RequestID")
+		}
+		if etx != nil {
+			return *etx, nil
+		}
+	}
+
 	if err = b.checkEnabled(txRequest.FromAddress); err != nil {
 		return tx, err
 	}
@@ -460,18 +473,6 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 	err = b.txStore.CheckTxQueueCapacity(txRequest.FromAddress, b.txConfig.MaxQueued(), b.chainID, qs...)
 	if err != nil {
 		return tx, errors.Wrap(err, "Txm#CreateTransaction")
-	}
-
-	// Check for existing Tx with RequestID. If found, return the Tx and do nothing
-	// Skipping CreateTransaction to avoid double send
-	if txRequest.RequestID != nil {
-		etx, err := b.txStore.FindTxWithRequestID(*txRequest.RequestID)
-		if err != nil {
-			return tx, errors.Wrap(err, "Failed to search for transaction with RequestID")
-		}
-		if (etx != nil) {
-			return *etx, nil
-		}
 	}
 
 	tx, err = b.txStore.CreateTransaction(txRequest, b.chainID, qs...)
