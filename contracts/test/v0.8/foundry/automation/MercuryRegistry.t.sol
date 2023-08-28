@@ -48,14 +48,30 @@ contract MercuryRegistryTest is Test {
     vm.selectFork(vm.createFork("https://arbitrum-goerli.publicnode.com"));
     vm.rollFork(BLOCK_NUMBER);
 
-    // Create Mercury Registry.
+    // Use a BTC feed and ETH feed.
     feedIds = new string[](2);
     feedIds[0] = s_BTCUSDFeedId;
     feedIds[1] = s_ETHUSDFeedId;
-    string[] memory feedNames = new string[](2);
-    feedNames[0] = "BTC/USD";
-    feedNames[1] = "ETH/USD";
-    s_testRegistry = new MercuryRegistry(feedIds, feedNames, VERIFIER, DEVIATION_THRESHOLD, STALENESS_SECONDS);
+
+    // Initialize with BTC feed.
+    string[] memory initialFeedIds = new string[](1);
+    initialFeedIds[0] = feedIds[0];
+    string[] memory initialFeedNames = new string[](1);
+    initialFeedNames[0] = "BTC/USD";
+    s_testRegistry = new MercuryRegistry(
+      initialFeedIds,
+      initialFeedNames,
+      VERIFIER,
+      DEVIATION_THRESHOLD,
+      STALENESS_SECONDS
+    );
+
+    // Add ETH feed.
+    string[] memory addedFeedIds = new string[](1);
+    addedFeedIds[0] = feedIds[1];
+    string[] memory addedFeedNames = new string[](1);
+    addedFeedNames[0] = "ETH/USD";
+    s_testRegistry.addFeeds(addedFeedIds, addedFeedNames);
   }
 
   function testMercuryRegistry() public {
@@ -92,7 +108,8 @@ contract MercuryRegistryTest is Test {
       int192 bid,
       int192 ask,
       string memory feedName,
-      string memory localFeedId
+      string memory localFeedId,
+      bool active
     ) = s_testRegistry.s_feedMapping(s_BTCUSDFeedId);
     assertEq(observationsTimestamp, 1692732568); // Tuesday, August 22, 2023 7:29:28 PM
     assertEq(bid, 2585674416498); //   $25,856.74416498
@@ -100,6 +117,7 @@ contract MercuryRegistryTest is Test {
     assertEq(ask, 2585747836943); //   $25,857.47836943
     assertEq(feedName, "BTC/USD");
     assertEq(localFeedId, s_BTCUSDFeedId);
+    assertEq(active, true);
 
     // Obtain mercury report off-chain (for August 23 BTC/USD price & ETH/USD price)
     values = new bytes[](2);
@@ -185,7 +203,8 @@ contract MercuryRegistryTest is Test {
       int192 bid,
       int192 ask,
       string memory feedName,
-      string memory localFeedId
+      string memory localFeedId,
+      bool active
     ) = s_testRegistry.s_feedMapping(s_BTCUSDFeedId);
     assertEq(observationsTimestamp, 1692732568); // Tuesday, August 22, 2023 7:29:28 PM
     assertEq(bid, 2585674416498); //   $25,856.74416498
@@ -193,6 +212,7 @@ contract MercuryRegistryTest is Test {
     assertEq(ask, 2585747836943); //   $25,857.47836943
     assertEq(feedName, "BTC/USD");
     assertEq(localFeedId, s_BTCUSDFeedId);
+    assertEq(active, true);
 
     // Obtain mercury report off-chain (for August 23 BTC/USD price & ETH/USD price)
     values = new bytes[](2);

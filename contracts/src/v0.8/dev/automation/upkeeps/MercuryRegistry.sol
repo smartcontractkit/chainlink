@@ -28,6 +28,9 @@ import "../../../ChainSpecificUtil.sol";
 |   - Optimize gas consumption.                                                                                       |
 -+---------------------------------------------------------------------------------------------------------------------*/
 contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleInterface {
+  error DuplicateFeed(string feedId);
+  error FeedNotActive(string feedId);
+
   // Feed object used for storing feed data.
   // not included but contained in reports:
   // - blocknumberUpperBound
@@ -41,6 +44,7 @@ contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleI
     int192 ask; // the current ask price of the feed
     string feedName; // the name of the feed
     string feedId; // the id of the feed (hex encoded)
+    bool active; // true if the feed is being actively updated, otherwise false
   }
 
   // Report object obtained from off-chain Mercury server.
@@ -78,24 +82,49 @@ contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleI
   ) {
     i_verifier = IVerifierProxy(verifier);
 
-    // Ensure correctly formatted constructor arguments.
-    require(feedIds.length == feedNames.length, "incorrect constructor args");
-
     // Store desired deviation threshold and staleness seconds.
     s_deviationPercentagePPM = deviationPercentagePPM;
     s_stalenessSeconds = stalenessSeconds;
 
     // Store desired feeds.
-    s_feeds = feedIds;
+    setFeeds(feedIds, feedNames);
+  }
+
+  function setFeeds(string[] memory feedIds, string[] memory feedNames) public {
+    // Ensure correctly formatted constructor arguments.
+    require(feedIds.length == feedNames.length, "incorrectly formatted feeds");
+
+    // Clear prior feeds.
+    for (uint256 i = 0; i < s_feeds.length; i++) {
+      s_feedMapping[s_feeds[i]].active = false;
+    }
+
+    // Assign new feeds.
     for (uint256 i = 0; i < feedIds.length; i++) {
-      s_feedMapping[s_feeds[i]] = Feed({
-        feedName: feedNames[i],
-        feedId: feedIds[i],
-        price: 0,
-        bid: 0,
-        ask: 0,
-        observationsTimestamp: 0
-      });
+      string memory feedId = feedIds[i];
+      if (s_feedMapping[feedId].active) {
+        revert DuplicateFeed(feedId);
+      }
+
+      s_feedMapping[feedId].feedName = feedNames[i];
+      s_feedMapping[feedId].feedId = feedId;
+      s_feedMapping[feedId].active = true;
+    }
+    s_feeds = feedIds;
+  }
+
+  function addFeeds(string[] memory feedIds, string[] memory feedNames) external {
+    for (uint256 i = 0; i < feedIds.length; i++) {
+      string memory feedId = feedIds[i];
+      if (s_feedMapping[feedId].active) {
+        revert DuplicateFeed(feedId);
+      }
+
+      s_feedMapping[feedId].feedName = feedNames[i];
+      s_feedMapping[feedId].feedId = feedId;
+      s_feedMapping[feedId].active = true;
+
+      s_feeds.push(feedId);
     }
   }
 
