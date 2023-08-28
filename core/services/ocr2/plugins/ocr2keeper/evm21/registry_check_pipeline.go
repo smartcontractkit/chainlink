@@ -143,7 +143,7 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 		r.lggr.Debugf("log block not provided, querying eth client for tx hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 	}
 	// query eth client as a fallback
-	bn, _, err := core.GetTxBlock(r.client, p.Trigger.LogTriggerExtension.TxHash)
+	bn, _, err := core.GetTxBlock(r.ctx, r.client, p.Trigger.LogTriggerExtension.TxHash)
 	if err != nil {
 		// primitive way of checking errors
 		if strings.Contains(err.Error(), "missing required field") || strings.Contains(err.Error(), "not found") {
