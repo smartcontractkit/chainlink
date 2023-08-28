@@ -227,7 +227,10 @@ type CosmosFactoryConfig struct {
 func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConfig) (map[relay.ID]cosmos.LoopRelayerChainer, error) {
 	relayers := make(map[relay.ID]cosmos.LoopRelayerChainer)
 
-	var lggr = r.Logger.Named("Cosmos")
+	var (
+		lggr   = r.Logger.Named("Cosmos")
+		loopKs = &keystore.CosmosLoopKeystore{Cosmos: config.Keystore}
+	)
 
 	// create one relayer per chain id
 	for _, chainCfg := range config.CosmosConfigs {
@@ -237,7 +240,7 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 			QueryConfig:      r.QConfig,
 			Logger:           lggr.Named(relayId.ChainID.String()),
 			DB:               r.DB,
-			KeyStore:         config.Keystore,
+			KeyStore:         loopKs,
 			EventBroadcaster: config.EventBroadcaster,
 		}
 		opts.Configs = cosmos.NewConfigs(cosmos.CosmosConfigs{chainCfg})

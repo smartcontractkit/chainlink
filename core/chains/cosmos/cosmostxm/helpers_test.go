@@ -5,6 +5,7 @@ import (
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"golang.org/x/exp/maps"
 
 	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 )
@@ -27,4 +28,17 @@ func (txm *Txm) MarshalMsg(msg sdk.Msg) (string, []byte, error) {
 
 func (txm *Txm) SendMsgBatch(ctx context.Context) {
 	txm.sendMsgBatch(ctx)
+}
+
+func (ka *KeystoreAdapter) Accounts(ctx context.Context) ([]string, error) {
+	ka.mutex.Lock()
+	err := ka.updateMappingLocked()
+	if err != nil {
+		ka.mutex.Unlock()
+		return nil, err
+	}
+	addresses := maps.Keys(ka.addressToPubKey)
+	ka.mutex.Unlock()
+
+	return addresses, nil
 }
