@@ -910,16 +910,13 @@ func (o *evmTxStore) FindReceiptsPendingConfirmation(ctx context.Context, blockN
 
 // FindTxWithRequestID returns any broadcast ethtx with the given requestID
 func (o *evmTxStore) FindTxWithRequestID(requestID common.Hash) (etx *Tx, err error) {
-	etx = new(Tx)
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		var dbEtx DbEthTx
 		err = tx.Get(&dbEtx, `SELECT * FROM eth_txes WHERE request_id = $1`, requestID)
 		if err != nil {
-			if !errors.Is(err, sql.ErrNoRows) {
-				return pkgerrors.Wrap(err, "FindTxWithRequestID failed to load eth_txes")
-			}
-			return nil
+			return pkgerrors.Wrap(err, "FindTxWithRequestID failed to load eth_txes")
 		}
+		etx = new(Tx)
 		DbEthTxToEthTx(dbEtx, etx)
 		err = o.LoadTxAttempts(etx, pg.WithQueryer(tx))
 		return pkgerrors.Wrap(err, "FindTxWithRequestID failed to load eth_tx_attempts")
