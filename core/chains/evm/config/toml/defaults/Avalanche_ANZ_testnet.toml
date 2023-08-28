@@ -4,7 +4,8 @@ FinalityTagEnabled = false
 LinkContractAddress = '0x779877A7B0D9E8603169DdbD7836e478b4624789'
 LogPollInterval = '3s'
 MinIncomingConfirmations = 1
-NoNewHeadsThreshold = '30s'
+# Avax subnet only emits blocks when a new tx is received, so this method of liveness detection is not useful.
+NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1
 RPCBlockQueryDelay = 2
 
