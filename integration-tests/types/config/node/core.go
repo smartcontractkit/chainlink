@@ -2,16 +2,16 @@ package node
 
 import (
 	"bytes"
-	"embed"
 	"fmt"
 	"math/big"
 	"net"
-	"path/filepath"
+	"os"
 	"time"
 
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -61,8 +61,6 @@ var (
 			P2P: toml.P2P{},
 		},
 	}
-	//go:embed defaults/*.toml
-	defaultsFS embed.FS
 )
 
 type NodeConfigOpt = func(c *chainlink.Config)
@@ -75,20 +73,22 @@ func NewConfig(baseConf *chainlink.Config, opts ...NodeConfigOpt) *chainlink.Con
 }
 
 func NewConfigFromToml(tomlFile string, opts ...NodeConfigOpt) (*chainlink.Config, error) {
-	path := filepath.Join("defaults", tomlFile+".toml")
-	b, err := defaultsFS.ReadFile(path)
+	readFile, err := os.ReadFile(tomlFile)
 	if err != nil {
 		return nil, err
 	}
 	var cfg chainlink.Config
-	err = config.DecodeTOML(bytes.NewReader(b), &cfg)
+	if err != nil {
+		return nil, err
+	}
+	err = config.DecodeTOML(bytes.NewReader(readFile), &cfg)
 	if err != nil {
 		return nil, err
 	}
 	for _, opt := range opts {
 		opt(&cfg)
 	}
-	return &cfg, err
+	return &cfg, nil
 }
 
 func WithOCR1() NodeConfigOpt {
