@@ -151,8 +151,6 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			l.Info().Msg("Waiting for all upkeeps to be performed")
 			gom := gomega.NewGomegaWithT(t)
 
-			// Wait for 30 seconds to allow everything to be ready before emitting logs
-			time.Sleep(30 * time.Second)
 			for i := 0; i < len(upkeepIDs); i++ {
 				err := consumers[i].Start()
 				if err != nil {
