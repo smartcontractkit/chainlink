@@ -180,7 +180,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 	logBlock := int64(proposal.Trigger.LogTriggerExtension.BlockNumber)
 	if logBlock == 0 {
 		var number *big.Int
-		number, _, err = core.GetTxBlock(r.client, proposal.Trigger.LogTriggerExtension.TxHash)
+		number, _, err = core.GetTxBlock(ctx, r.client, proposal.Trigger.LogTriggerExtension.TxHash)
 		if err != nil {
 			return nil, err
 		}
@@ -222,6 +222,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 	if err != nil {
 		return nil, fmt.Errorf("could not read logs: %w", err)
 	}
+	logs = filter.Select(logs...)
 
 	for _, log := range logs {
 		trigger := logToTrigger(log)
@@ -325,6 +326,7 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 	if err != nil {
 		return fmt.Errorf("could not read logs: %w", err)
 	}
+	logs = f.Select(logs...)
 
 	workIDs := make([]string, 0)
 	for _, log := range logs {
@@ -523,6 +525,9 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) (int, error
 	if err != nil {
 		return 0, fmt.Errorf("failed to get latest block: %w", err)
 	}
+	sort.Slice(ids, func(i, j int) bool {
+		return ids[i] < ids[j]
+	})
 	states, err := r.states.SelectByWorkIDs(ctx, ids...)
 	if err != nil {
 		return 0, fmt.Errorf("failed to get states: %w", err)

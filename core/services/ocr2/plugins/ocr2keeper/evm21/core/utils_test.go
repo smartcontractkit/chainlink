@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 )
@@ -60,7 +61,7 @@ func TestUtils_GetTxBlock(t *testing.T) {
 			}
 		})
 
-		bn, bh, err := GetTxBlock(client, tt.txHash)
+		bn, bh, err := GetTxBlock(testutils.Context(t), client, tt.txHash)
 		if tt.ethCallError != nil {
 			assert.Equal(t, tt.ethCallError, err)
 		} else {

@@ -884,6 +884,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 			if !tc.skipFilter {
 				filterStore.AddActiveUpkeeps(upkeepFilter{
 					addr:     []byte("test"),
+					topics:   []common.Hash{common.HexToHash("0x1"), common.HexToHash("0x2"), common.HexToHash("0x3"), common.HexToHash("0x4")},
 					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123").BigInt(),
 				})
 			}
