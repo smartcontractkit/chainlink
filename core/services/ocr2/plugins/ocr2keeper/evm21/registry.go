@@ -14,6 +14,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/patrickmn/go-cache"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
@@ -37,6 +38,9 @@ const (
 	defaultAllowListExpiration = 20 * time.Minute
 	// allowListCleanupInterval decides when the expired items in allowList cache will be deleted.
 	allowListCleanupInterval = 5 * time.Minute
+	// TODO decide on a value for this
+	indexedLogsConfirmations = 10
+	batchSize                = 32
 )
 
 var (
@@ -277,6 +281,24 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 //
 // TODO: check for updated config for log trigger upkeeps and update it, currently we ignore them.
 func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
+	g := new(errgroup.Group)
+
+	for i := 0; i < len(ids); i += batchSize {
+		end := i + batchSize
+		if end > len(ids) {
+			end = len(ids)
+		}
+		batch := ids[i:end]
+
+		g.Go(func() error {
+			return r.refreshLogTriggerUpkeepsBatch(batch)
+		})
+	}
+
+	return g.Wait()
+}
+
+func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(ids []*big.Int) error {
 	var logTriggerIDs []*big.Int
 	var logTriggerHashes []common.Hash
 	for _, id := range ids {
@@ -296,11 +318,11 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 		return fmt.Errorf("failed to refresh active upkeep ids in log event provider: %w", err)
 	}
 
-	unpausedLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, 1, pg.WithParentCtx(r.ctx))
+	unpausedLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, indexedLogsConfirmations, pg.WithParentCtx(r.ctx))
 	if err != nil {
 		return err
 	}
-	configSetLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, 1, pg.WithParentCtx(r.ctx))
+	configSetLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, indexedLogsConfirmations, pg.WithParentCtx(r.ctx))
 	if err != nil {
 		return err
 	}
