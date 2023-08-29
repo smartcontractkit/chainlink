@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
@@ -19,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
@@ -370,7 +370,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 }
 
 func TestLogRecoverer_SelectFilterBatch(t *testing.T) {
-	n := (recoveryBatchSize*2 + 2)
+	n := recoveryBatchSize*2 + 2
 	filters := []upkeepFilter{}
 	for i := 0; i < n; i++ {
 		filters = append(filters, upkeepFilter{
@@ -547,8 +547,8 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				TransactionReceiptFn: func(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-					return nil, errors.New("tx receipt boom")
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					return errors.New("tx receipt boom")
 				},
 			},
 			expectErr: true,
@@ -575,8 +575,8 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				TransactionReceiptFn: func(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-					return &types.Receipt{}, nil
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					return nil
 				},
 			},
 			expectErr: true,
@@ -603,10 +603,10 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				TransactionReceiptFn: func(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-					return &types.Receipt{
-						BlockNumber: big.NewInt(200),
-					}, nil
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(200)
+					return nil
 				},
 			},
 			expectErr: true,
@@ -942,11 +942,12 @@ func (p *mockLogPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
 
 type mockClient struct {
 	client.Client
-	TransactionReceiptFn func(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	CallContextFn func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error
 }
 
-func (c *mockClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	return c.TransactionReceiptFn(ctx, txHash)
+func (c *mockClient) CallContext(ctx context.Context, r interface{}, method string, args ...interface{}) error {
+	receipt := r.(*types.Receipt)
+	return c.CallContextFn(ctx, receipt, method, args)
 }
 
 type mockStateReader struct {
