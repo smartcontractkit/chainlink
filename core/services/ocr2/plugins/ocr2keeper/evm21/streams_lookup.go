@@ -327,7 +327,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 	}
 	mercuryURL := r.mercury.cred.URL
 	reqUrl := fmt.Sprintf("%s%s%s", mercuryURL, mercuryPathV02, q.Encode())
-	lggr.Debugf("request URL: %s", reqUrl)
+	lggr.Debugf("request URL for upkeep %s feed %s: %s", sl.upkeepId.String(), sl.feeds[index], reqUrl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
 	if err != nil {
@@ -418,7 +418,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 			Index:     index,
 			Bytes:     [][]byte{},
 			Retryable: retryable,
-			Error:     retryErr,
+			Error:     fmt.Errorf("failed to request feed for %s: %w", sl.feeds[index], retryErr),
 			State:     state,
 		}
 		ch <- md
@@ -433,7 +433,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 	}
 
 	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV03, q.Encode())
-	lggr.Debugf("request URL: %s", reqUrl)
+	lggr.Debugf("request URL for upkeep %s feed %s: %s", sl.upkeepId.String(), strings.Join(sl.feeds, ","), reqUrl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
 	if err != nil {
