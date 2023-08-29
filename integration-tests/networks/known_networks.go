@@ -2,11 +2,13 @@
 package networks
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
@@ -533,10 +535,7 @@ func setURLs(prefix string, network *blockchain.EVMNetwork) {
 		}
 		wsURLs := strings.Split(evmUrls, ",")
 		httpURLs := strings.Split(evmhttpUrls, ",")
-		log.Warn().
-			Interface("EVM_URLS", wsURLs).
-			Interface("EVM_HTTP_URLS", httpURLs).
-			Msgf("No '%s' env var defined, defaulting to 'EVM_URLS'", wsEnvVar)
+		log.Warn().Msgf("No '%s' env var defined, defaulting to 'EVM_URLS'", wsEnvVar)
 		network.URLs = wsURLs
 		network.HTTPURLs = httpURLs
 		return
@@ -565,13 +564,34 @@ func setKeys(prefix string, network *blockchain.EVMNetwork) {
 	}
 	if keysEnv == "" {
 		keys := strings.Split(os.Getenv("EVM_KEYS"), ",")
-		log.Warn().
-			Interface("EVM_KEYS", keys).
-			Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_KEYS'", envVar))
+		log.Warn().Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_KEYS'", envVar))
 		network.PrivateKeys = keys
 		return
 	}
 	keys := strings.Split(keysEnv, ",")
 	network.PrivateKeys = keys
-	log.Info().Msg("Read network Keys")
+
+	// log public keys for debugging
+	publicKeys := []string{}
+	for _, key := range network.PrivateKeys {
+		publicKey, err := privateKeyToAddress(key)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Error getting public key from private key")
+		}
+		publicKeys = append(publicKeys, publicKey)
+	}
+	log.Info().Interface("Funding Addresses", publicKeys).Msg("Read network Keys")
+}
+
+func privateKeyToAddress(privateKeyString string) (string, error) {
+	privateKey, err := crypto.HexToECDSA(privateKeyString)
+	if err != nil {
+		return "", err
+	}
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return "", fmt.Errorf("error casting private key to public ECDSA key")
+	}
+	return crypto.PubkeyToAddress(*publicKeyECDSA).Hex(), nil
 }

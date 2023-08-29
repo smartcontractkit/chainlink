@@ -34,6 +34,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   event EthFundsRecovered(address to, uint256 amount);
   error LinkAlreadySet();
   error FailedToSendEther();
+  error FailedToTransferLink();
   error IndexOutOfRange();
 
   // We use the subscription struct (1 word)
@@ -164,7 +165,9 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     }
     if (internalBalance < externalBalance) {
       uint256 amount = externalBalance - internalBalance;
-      LINK.transfer(to, amount);
+      if (!LINK.transfer(to, amount)) {
+        revert FailedToTransferLink();
+      }
       emit FundsRecovered(to, amount);
     }
     // If the balances are equal, nothing to be done.
