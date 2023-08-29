@@ -750,7 +750,9 @@ type SimulatedMercuryServer struct {
 
 func NewSimulatedMercuryServer() *SimulatedMercuryServer {
 	srv := &SimulatedMercuryServer{
-		handler: func(w http.ResponseWriter, r *http.Request) {},
+		handler: func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		},
 	}
 
 	srv.server = httptest.NewUnstartedServer(srv)

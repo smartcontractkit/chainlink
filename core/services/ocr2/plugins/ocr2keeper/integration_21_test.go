@@ -258,7 +258,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
-	t.Skip()
+	// t.Skip()
 	/*
 		In trying to create the retry integration test I ran into an issue with
 		the simulated chain not being able to query old blocks:
@@ -924,6 +924,28 @@ func (c *feedLookupUpkeepController) EnableMercury(
 
 			return err
 		}
+
+		callOpts := &bind.CallOpts{
+			Pending: true,
+			From:    registryOwner.From,
+			Context: context.Background(),
+		}
+
+		bts, err := registry.GetUpkeepPrivilegeConfig(callOpts, id)
+		if err != nil {
+			require.NoError(t, err)
+
+			return err
+		}
+
+		var checkBytes evm21.UpkeepPrivilegeConfig
+		if err := json.Unmarshal(bts, &checkBytes); err != nil {
+			require.NoError(t, err)
+
+			return err
+		}
+
+		require.True(t, checkBytes.MercuryEnabled)
 	}
 
 	bl, _ := backend.BlockByHash(testutils.Context(t), backend.Commit())

@@ -220,10 +220,37 @@ func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int
 		return encoding.NoPipelineError, encoding.UpkeepFailureReasonNone, false, allowed.(bool), nil
 	}
 
-	cfg, err := r.registry.GetUpkeepPrivilegeConfig(opts, upkeepId)
+	payload, err := r.abi.Pack("getUpkeepPrivilegeConfig", upkeepId)
+	if err != nil {
+		// pack error, no retryable
+		r.lggr.Warnf("failed to pack getUpkeepPrivilegeConfig data for upkeepId %s: %s", upkeepId, err)
+
+		return encoding.RpcFlakyFailure, encoding.UpkeepFailureReasonNone, true, false, fmt.Errorf("failed to pack upkeepId: %w", err)
+	}
+
+	var b hexutil.Bytes
+	args := map[string]interface{}{
+		"to":   r.addr.Hex(),
+		"data": hexutil.Bytes(payload),
+	}
+
+	// call checkCallback function at the block which OCR3 has agreed upon
+	err = r.client.CallContext(opts.Context, &b, "eth_call", args, opts.BlockNumber)
 	if err != nil {
 		return encoding.RpcFlakyFailure, encoding.UpkeepFailureReasonNone, true, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
 	}
+
+	/*
+		cfg, err := r.registry.GetUpkeepPrivilegeConfig(opts, upkeepId)
+		if err != nil {
+			return encoding.RpcFlakyFailure, encoding.UpkeepFailureReasonNone, true, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
+		}
+	*/
+	cfg, err := r.packer.UnpackGetUpkeepPrivilegeConfig(b)
+	if err != nil {
+		return encoding.RpcFlakyFailure, encoding.UpkeepFailureReasonNone, true, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
+	}
+
 	if len(cfg) == 0 {
 		r.mercury.allowListCache.Set(upkeepId.String(), false, cache.DefaultExpiration)
 		return encoding.NoPipelineError, encoding.UpkeepFailureReasonMercuryAccessNotAllowed, false, false, fmt.Errorf("upkeep privilege config is empty")
