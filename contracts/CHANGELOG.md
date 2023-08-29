@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+...
+
+## 0.7.0 - UNRELEASED
+
 ### Changed
 
 - Add Chainlink Functions v1.0.0 (#9365)
