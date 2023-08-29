@@ -1,7 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import "./KeeperRegistryBase2_1.sol";
+import {KeeperRegistryBase2_1} from "./KeeperRegistryBase2_1.sol";
+import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import {UpkeepFormat} from "../../../automation/interfaces/UpkeepTranscoderInterface.sol";
+import {IAutomationForwarder} from "./interfaces/IAutomationForwarder.sol";
 
 contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   using Address for address;
@@ -19,9 +23,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     address automationForwarderLogic
   ) KeeperRegistryBase2_1(mode, link, linkNativeFeed, fastGasFeed, automationForwarderLogic) {}
 
-  ///////////////////////
-  // UPKEEP MANAGEMENT //
-  ///////////////////////
+  // ================================================================
+  // |                      UPKEEP MANAGEMENT                       |
+  // ================================================================
 
   /**
    * @notice transfers the address of an admin for an upkeep
@@ -120,9 +124,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit FundsWithdrawn(id, amountToWithdraw, to);
   }
 
-  /////////////////////
-  // NODE MANAGEMENT //
-  /////////////////////
+  // ================================================================
+  // |                       NODE MANAGEMENT                        |
+  // ================================================================
 
   /**
    * @notice transfers the address of payee for a transmitter
@@ -162,9 +166,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit PaymentWithdrawn(from, balance, to, msg.sender);
   }
 
-  /////////////////////////////
-  // OWNER / MANAGER ACTIONS //
-  /////////////////////////////
+  // ================================================================
+  // |                   OWNER / MANAGER ACTIONS                    |
+  // ================================================================
 
   /**
    * @notice sets the privilege config for an upkeep
@@ -252,9 +256,9 @@ contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
     emit AdminPrivilegeConfigSet(admin, newPrivilegeConfig);
   }
 
-  /////////////
-  // GETTERS //
-  /////////////
+  // ================================================================
+  // |                           GETTERS                            |
+  // ================================================================
 
   function getConditionalGasOverhead() external pure returns (uint256) {
     return REGISTRY_CONDITIONAL_OVERHEAD;

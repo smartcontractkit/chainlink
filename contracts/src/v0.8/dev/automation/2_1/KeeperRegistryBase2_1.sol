@@ -1,20 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
-import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
-import "../../../vendor/@eth-optimism/contracts/0.8.9/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
-import "../../../automation/ExecutionPrevention.sol";
+import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import {ArbGasInfo} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
+import {OVM_GasPriceOracle} from "../../../vendor/@eth-optimism/contracts/0.8.9/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
+import {ExecutionPrevention} from "../../../automation/ExecutionPrevention.sol";
 import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
-import "./interfaces/FeedLookupCompatibleInterface.sol";
-import "./interfaces/ILogAutomation.sol";
+import {FeedLookupCompatibleInterface} from "./interfaces/FeedLookupCompatibleInterface.sol";
+import {ILogAutomation, Log} from "./interfaces/ILogAutomation.sol";
 import {IAutomationForwarder} from "./interfaces/IAutomationForwarder.sol";
-import "../../../shared/access/ConfirmedOwner.sol";
-import "../../../interfaces/AggregatorV3Interface.sol";
-import "../../../shared/interfaces/LinkTokenInterface.sol";
-import "../../../automation/interfaces/KeeperCompatibleInterface.sol";
-import "../../../automation/interfaces/UpkeepTranscoderInterface.sol";
+import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
+import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
+import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
+import {KeeperCompatibleInterface} from "../../../automation/interfaces/KeeperCompatibleInterface.sol";
+import {UpkeepTranscoderInterface, UpkeepFormat} from "../../../automation/interfaces/UpkeepTranscoderInterface.sol";
 
 /**
  * @notice Base Keeper Registry contract, contains shared logic between
@@ -461,9 +461,9 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     i_automationForwarderLogic = automationForwarderLogic;
   }
 
-  ///////////////////////////////////////////////////////////////////////////////////////
-  /////////////////////////////// INTERNAL FUNCTIONS ONLY ///////////////////////////////
-  ///////////////////////////////////////////////////////////////////////////////////////
+  // ================================================================
+  // |                   INTERNAL FUNCTIONS ONLY                    |
+  // ================================================================
 
   /**
    * @dev creates a new upkeep with the given fields

@@ -69,6 +69,7 @@ compileContract dev/vrf/testhelpers/VRFV2PlusMaliciousMigrator.sol
 compileContract dev/vrf/libraries/VRFV2PlusClient.sol
 compileContract dev/vrf/testhelpers/VRFCoordinatorV2Plus_V2Example.sol
 compileContract dev/vrf/TrustedBlockhashStore.sol
+compileContract dev/vrf/testhelpers/VRFV2PlusLoadTestWithMetrics.sol
 
 # VRF V2 Wrapper
 compileContract vrf/VRFV2Wrapper.sol
