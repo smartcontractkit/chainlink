@@ -57,35 +57,31 @@ func LoadOnRampDynamicConfig(onRamp evm_2_evm_onramp.EVM2EVMOnRampInterface, cli
 		return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, err
 	}
 
-	var versionMapping = map[string]func(opts *bind.CallOpts) (evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig, error){
-		"1.0.0": func(opts *bind.CallOpts) (evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig, error) {
-			legacyOnramp, err := evm_2_evm_onramp_1_0_0.NewEVM2EVMOnRamp(onRamp.Address(), client)
-			if err != nil {
-				return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, err
-			}
-			legacyDynamicConfig, err := legacyOnramp.GetDynamicConfig(opts)
-			if err != nil {
-				return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, err
-			}
+	opts := &bind.CallOpts{}
 
-			return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
-				Router:          legacyDynamicConfig.Router,
-				MaxTokensLength: legacyDynamicConfig.MaxTokensLength,
-				PriceRegistry:   legacyDynamicConfig.PriceRegistry,
-				MaxDataSize:     legacyDynamicConfig.MaxDataSize,
-				MaxGasLimit:     legacyDynamicConfig.MaxGasLimit,
-			}, nil
-		},
-		"1.1.0": func(opts *bind.CallOpts) (evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig, error) {
-			return onRamp.GetDynamicConfig(opts)
-		},
-	}
+	switch version {
+	case "1.0.0":
+		legacyOnramp, err := evm_2_evm_onramp_1_0_0.NewEVM2EVMOnRamp(onRamp.Address(), client)
+		if err != nil {
+			return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, err
+		}
+		legacyDynamicConfig, err := legacyOnramp.GetDynamicConfig(opts)
+		if err != nil {
+			return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, err
+		}
 
-	loadFunc, ok := versionMapping[version]
-	if !ok {
+		return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
+			Router:          legacyDynamicConfig.Router,
+			MaxTokensLength: legacyDynamicConfig.MaxTokensLength,
+			PriceRegistry:   legacyDynamicConfig.PriceRegistry,
+			MaxDataSize:     legacyDynamicConfig.MaxDataSize,
+			MaxGasLimit:     legacyDynamicConfig.MaxGasLimit,
+		}, nil
+	case "1.1.0", "1.2.0":
+		return onRamp.GetDynamicConfig(opts)
+	default:
 		return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, errors.Errorf("Invalid onramp version: %s", version)
 	}
-	return loadFunc(&bind.CallOpts{})
 }
 
 func LoadOffRamp(offRampAddress common.Address, pluginName string, client client.Client) (evm_2_evm_offramp.EVM2EVMOffRampInterface, error) {
