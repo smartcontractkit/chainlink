@@ -111,7 +111,7 @@ func WithP2Pv1() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.P2P.V1 = toml.P2PV1{
 			Enabled:    Ptr(true),
-			ListenIP:   mustIP("0.0.0.0"),
+			ListenIP:   MustIP("0.0.0.0"),
 			ListenPort: Ptr[uint16](6690),
 		}
 	}
@@ -138,8 +138,8 @@ func SetChainConfig(
 		for i := range wsUrls {
 			node := evmcfg.Node{
 				Name:     Ptr(fmt.Sprintf("node_%d_%s", i, chain.Name)),
-				WSURL:    mustURL(wsUrls[i]),
-				HTTPURL:  mustURL(httpUrls[i]),
+				WSURL:    MustURL(wsUrls[i]),
+				HTTPURL:  MustURL(httpUrls[i]),
 				SendOnly: Ptr(false),
 			}
 
@@ -190,8 +190,8 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
 			Nodes: []*evmcfg.Node{
 				{
 					Name:     Ptr(network.Name),
-					WSURL:    mustURL(network.URLs[0]),
-					HTTPURL:  mustURL(network.HTTPURLs[0]),
+					WSURL:    MustURL(network.URLs[0]),
+					HTTPURL:  MustURL(network.HTTPURLs[0]),
 					SendOnly: Ptr(false),
 				},
 			},
@@ -224,7 +224,7 @@ func WithVRFv2EVMEstimator(addr string) NodeConfigOpt {
 
 func Ptr[T any](t T) *T { return &t }
 
-func mustURL(s string) *models.URL {
+func MustURL(s string) *models.URL {
 	var u models.URL
 	if err := u.UnmarshalText([]byte(s)); err != nil {
 		panic(err)
@@ -232,7 +232,7 @@ func mustURL(s string) *models.URL {
 	return &u
 }
 
-func mustIP(s string) *net.IP {
+func MustIP(s string) *net.IP {
 	var ip net.IP
 	if err := ip.UnmarshalText([]byte(s)); err != nil {
 		panic(err)
