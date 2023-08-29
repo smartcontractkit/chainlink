@@ -238,7 +238,6 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 				Pool:  c.Source.Pool.Address(),
 			},
 		},
-		[]common.Address{}, // allow list
 		evm_2_evm_onramp.RateLimiterConfig{
 			IsEnabled: true,
 			Capacity:  LinkUSDValue(100),
@@ -910,7 +909,6 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 				Pool:  sourceWeth9PoolAddress,
 			},
 		},
-		[]common.Address{}, // allow list
 		evm_2_evm_onramp.RateLimiterConfig{
 			IsEnabled: true,
 			Capacity:  LinkUSDValue(100),

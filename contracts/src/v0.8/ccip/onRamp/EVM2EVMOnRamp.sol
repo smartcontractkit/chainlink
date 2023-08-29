@@ -17,18 +17,16 @@ import {EnumerableMapAddresses} from "../../shared/enumerable/EnumerableMapAddre
 
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
-import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
 import {EnumerableMap} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableMap.sol";
 
-/// @notice The onRamp is a contract that handles lane-specific fee logic, NOP payments,
-/// bridegable token support and an allowList.
+/// @notice The onRamp is a contract that handles lane-specific fee logic, NOP payments and
+/// bridegable token support.
 /// @dev The EVM2EVMOnRamp, CommitStore and EVM2EVMOffRamp form an xchain upgradeable unit. Any change to one of them
 /// results an onchain upgrade of all 3.
 contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, TypeAndVersionInterface {
   using SafeERC20 for IERC20;
   using EnumerableMap for EnumerableMap.AddressToUintMap;
   using EnumerableMapAddresses for EnumerableMapAddresses.AddressToAddressMap;
-  using EnumerableSet for EnumerableSet.AddressSet;
   using USDPriceWith18Decimals for uint192;
 
   error InvalidExtraArgsTag();
@@ -50,7 +48,6 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   error PoolAlreadyAdded();
   error PoolDoesNotExist(address token);
   error TokenPoolMismatch();
-  error SenderNotAllowed(address sender);
   error InvalidConfig();
   error InvalidAddress(bytes encodedAddress);
   error BadARMSignal();
@@ -58,9 +55,6 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   error InvalidNopAddress(address nop);
   error NotAFeeToken(address token);
 
-  event AllowListAdd(address sender);
-  event AllowListRemove(address sender);
-  event AllowListEnabledSet(bool enabled);
   event ConfigSet(StaticConfig staticConfig, DynamicConfig dynamicConfig);
   event NopPaid(address indexed nop, uint256 amount);
   event FeeConfigSet(FeeTokenConfigArgs[] feeConfig);
@@ -136,7 +130,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
   // STATIC CONFIG
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "EVM2EVMOnRamp 1.1.0";
+  string public constant override typeAndVersion = "EVM2EVMOnRamp 1.2.0";
   /// @dev metadataHash is a lane-specific prefix for a message hash preimage which ensures global uniqueness
   /// Ensures that 2 identical messages sent to 2 different lanes will have a distinct hash.
   /// Must match the metadataHash used in computing leaf hashes offchain for the root committed in
@@ -170,8 +164,6 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   /// @dev source token => token pool
   EnumerableMapAddresses.AddressToAddressMap private s_poolsBySourceToken;
 
-  /// @dev A set of addresses which can make ccipSend calls.
-  EnumerableSet.AddressSet private s_allowList;
   /// @dev The execution fee token config that can be set by the owner or fee admin
   mapping(address token => FeeTokenConfig feeTokenConfig) internal s_feeTokenConfig;
   /// @dev The token transfer fee config that can be set by the owner or fee admin
@@ -192,15 +184,11 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   uint64 internal s_sequenceNumber;
   /// @dev Whether this OnRamp is paused or not
   bool private s_paused = false;
-  /// @dev This allowListing will be removed before public launch
-  /// @dev Whether s_allowList is enabled or not.
-  bool private s_allowlistEnabled;
 
   constructor(
     StaticConfig memory staticConfig,
     DynamicConfig memory dynamicConfig,
     Internal.PoolUpdate[] memory tokensAndPools,
-    address[] memory allowlist,
     RateLimiter.Config memory rateLimiterConfig,
     FeeTokenConfigArgs[] memory feeTokenConfigs,
     TokenTransferFeeConfigArgs[] memory tokenTransferFeeConfigArgs,
@@ -237,11 +225,6 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
     // Set new tokens and pools
     _applyPoolUpdates(new Internal.PoolUpdate[](0), tokensAndPools);
-
-    if (allowlist.length > 0) {
-      s_allowlistEnabled = true;
-      _applyAllowListUpdates(new address[](0), allowlist);
-    }
   }
 
   // ================================================================
@@ -272,7 +255,6 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   ) external whenHealthy returns (bytes32) {
     // Validate message sender is set and allowed. Not validated in `getFee` since it is not user-driven.
     if (originalSender == address(0)) revert RouterMustSetOriginalSender();
-    if (s_allowlistEnabled && !s_allowList.contains(originalSender)) revert SenderNotAllowed(originalSender);
     // Router address may be zero intentionally to pause.
     if (msg.sender != s_dynamicConfig.router) revert MustBeCalledByRouter();
 
@@ -773,58 +755,6 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   /// @notice Allow keeper to monitor funds available for paying nops
   function linkAvailableForPayment() external view returns (int256) {
     return _linkLeftAfterNopFees();
-  }
-
-  // ================================================================
-  // |                          Allowlist                           |
-  // ================================================================
-
-  /// @notice Gets whether the allowList functionality is enabled.
-  /// @return true is enabled, false if not.
-  function getAllowListEnabled() external view returns (bool) {
-    return s_allowlistEnabled;
-  }
-
-  /// @notice Enables or disabled the allowList functionality.
-  /// @param enabled Signals whether the allowlist should be enabled.
-  function setAllowListEnabled(bool enabled) external onlyOwner {
-    s_allowlistEnabled = enabled;
-    emit AllowListEnabledSet(enabled);
-  }
-
-  /// @notice Gets the allowed addresses.
-  /// @return The allowed addresses.
-  /// @dev May not work if allow list gets too large. Use events in that case to compute the set.
-  function getAllowList() external view returns (address[] memory) {
-    return s_allowList.values();
-  }
-
-  /// @notice Apply updates to the allow list.
-  /// @param removes The addresses to be removed.
-  /// @param adds The addresses to be added.
-  /// @dev allowListing will be removed before public launch
-  function applyAllowListUpdates(address[] memory removes, address[] memory adds) external onlyOwner {
-    _applyAllowListUpdates(removes, adds);
-  }
-
-  /// @notice Internal version of applyAllowListUpdates to allow for reuse in the constructor.
-  /// @dev allowListing will be removed before public launch
-  function _applyAllowListUpdates(address[] memory removes, address[] memory adds) internal {
-    for (uint256 i = 0; i < removes.length; ++i) {
-      address toRemove = removes[i];
-      if (s_allowList.remove(toRemove)) {
-        emit AllowListRemove(toRemove);
-      }
-    }
-    for (uint256 i = 0; i < adds.length; ++i) {
-      address toAdd = adds[i];
-      if (toAdd == address(0)) {
-        continue;
-      }
-      if (s_allowList.add(toAdd)) {
-        emit AllowListAdd(toAdd);
-      }
-    }
   }
 
   // ================================================================
