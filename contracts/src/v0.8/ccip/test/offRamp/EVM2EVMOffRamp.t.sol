@@ -73,7 +73,7 @@ contract EVM2EVMOffRamp_constructor is EVM2EVMOffRampSetup {
     assertEq(block.number, blockNumber);
 
     // OffRamp initial values
-    assertEq("EVM2EVMOffRamp 1.1.0", s_offRamp.typeAndVersion());
+    assertEq("EVM2EVMOffRamp 1.2.0", s_offRamp.typeAndVersion());
     assertEq(OWNER, s_offRamp.owner());
   }
 

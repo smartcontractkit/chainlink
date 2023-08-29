@@ -376,7 +376,6 @@ func (e *CCIPContractsDeployer) NewOnRamp(addr common.Address) (
 
 func (e *CCIPContractsDeployer) DeployOnRamp(
 	sourceChainSelector, destChainSelector uint64,
-	allowList []common.Address,
 	tokensAndPools []evm_2_evm_onramp.InternalPoolUpdate,
 	arm, router, priceRegistry common.Address,
 	opts RateLimiterConfig,
@@ -413,7 +412,6 @@ func (e *CCIPContractsDeployer) DeployOnRamp(
 				MaxGasLimit:           4_000_000,
 			},
 			tokensAndPools,
-			allowList,
 			evm_2_evm_onramp.RateLimiterConfig{
 				Capacity: opts.Capacity,
 				Rate:     opts.Rate,

@@ -32,15 +32,10 @@ contract EVM2EVMOnRamp_constructor is EVM2EVMOnRampSetup {
     vm.expectEmit();
     emit PoolAdded(tokensAndPools[0].token, tokensAndPools[0].pool);
 
-    address[] memory allowList = new address[](2);
-    allowList[0] = OWNER;
-    allowList[1] = STRANGER;
-
     s_onRamp = new EVM2EVMOnRampHelper(
       staticConfig,
       dynamicConfig,
       tokensAndPools,
-      allowList,
       rateLimiterConfig(),
       s_feeTokenConfigArgs,
       s_tokenTransferFeeConfigArgs,
@@ -69,17 +64,9 @@ contract EVM2EVMOnRamp_constructor is EVM2EVMOnRampSetup {
     assertEq(s_sourceTokens, s_onRamp.getSupportedTokens());
 
     // Initial values
-    assertEq("EVM2EVMOnRamp 1.1.0", s_onRamp.typeAndVersion());
+    assertEq("EVM2EVMOnRamp 1.2.0", s_onRamp.typeAndVersion());
     assertEq(OWNER, s_onRamp.owner());
     assertEq(1, s_onRamp.getExpectedNextSequenceNumber());
-
-    assertEq(true, s_onRamp.getAllowListEnabled());
-
-    address[] memory setAllowList = s_onRamp.getAllowList();
-    assertEq(allowList.length, setAllowList.length);
-    for (uint256 i = 0; i < allowList.length; ++i) {
-      assertEq(allowList[i], setAllowList[i]);
-    }
   }
 }
 
@@ -445,15 +432,6 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     s_onRamp.forwardFromRouter(message, 0, STRANGER);
   }
 
-  function testSenderNotAllowedReverts() public {
-    changePrank(OWNER);
-    s_onRamp.setAllowListEnabled(true);
-
-    vm.expectRevert(abi.encodeWithSelector(EVM2EVMOnRamp.SenderNotAllowed.selector, STRANGER));
-    changePrank(address(s_sourceRouter));
-    s_onRamp.forwardFromRouter(_generateEmptyMessage(), 0, STRANGER);
-  }
-
   function testUnsupportedTokenReverts() public {
     address wrongToken = address(1);
 
@@ -577,7 +555,6 @@ contract EVM2EVMOnRamp_forwardFromRouter_upgrade is EVM2EVMOnRampSetup {
       }),
       generateDynamicOnRampConfig(address(s_sourceRouter), address(s_priceRegistry)),
       getTokensAndPools(s_sourceTokens, getCastedSourcePools()),
-      new address[](0),
       rateLimiterConfig(),
       s_feeTokenConfigArgs,
       s_tokenTransferFeeConfigArgs,
@@ -1689,123 +1666,5 @@ contract EVM2EVMOnRamp_setDynamicConfig is EVM2EVMOnRampSetup {
     changePrank(ADMIN);
     vm.expectRevert("Only callable by owner");
     s_onRamp.setDynamicConfig(generateDynamicOnRampConfig(address(1), address(2)));
-  }
-}
-
-contract EVM2EVMOnRampWithAllowListSetup is EVM2EVMOnRampSetup {
-  function setUp() public virtual override(EVM2EVMOnRampSetup) {
-    EVM2EVMOnRampSetup.setUp();
-    address[] memory allowedAddresses = new address[](1);
-    allowedAddresses[0] = OWNER;
-    s_onRamp.applyAllowListUpdates(new address[](0), allowedAddresses);
-    s_onRamp.setAllowListEnabled(true);
-  }
-}
-
-contract EVM2EVMOnRamp_setAllowListEnabled is EVM2EVMOnRampWithAllowListSetup {
-  function testSetAllowListEnabledSuccess() public {
-    assertTrue(s_onRamp.getAllowListEnabled());
-    s_onRamp.setAllowListEnabled(false);
-    assertFalse(s_onRamp.getAllowListEnabled());
-    s_onRamp.setAllowListEnabled(true);
-    assertTrue(s_onRamp.getAllowListEnabled());
-  }
-
-  // Reverts
-
-  function testOnlyOwnerReverts() public {
-    changePrank(STRANGER);
-    vm.expectRevert("Only callable by owner");
-    s_onRamp.setAllowListEnabled(true);
-    changePrank(ADMIN);
-    vm.expectRevert("Only callable by owner");
-    s_onRamp.setAllowListEnabled(true);
-  }
-}
-
-/// @notice #getAllowListEnabled
-contract EVM2EVMOnRamp_getAllowListEnabled is EVM2EVMOnRampWithAllowListSetup {
-  function testGetAllowListEnabledSuccess() public {
-    assertTrue(s_onRamp.getAllowListEnabled());
-    s_onRamp.setAllowListEnabled(false);
-    assertFalse(s_onRamp.getAllowListEnabled());
-    s_onRamp.setAllowListEnabled(true);
-    assertTrue(s_onRamp.getAllowListEnabled());
-  }
-}
-
-/// @notice #setAllowList
-contract EVM2EVMOnRamp_applyAllowListUpdates is EVM2EVMOnRampWithAllowListSetup {
-  event AllowListAdd(address sender);
-  event AllowListRemove(address sender);
-
-  function testSetAllowListSuccess() public {
-    address[] memory newAddresses = new address[](2);
-    newAddresses[0] = address(1);
-    newAddresses[1] = address(2);
-
-    for (uint256 i = 0; i < 2; ++i) {
-      vm.expectEmit();
-      emit AllowListAdd(newAddresses[i]);
-    }
-
-    s_onRamp.applyAllowListUpdates(new address[](0), newAddresses);
-    address[] memory setAddresses = s_onRamp.getAllowList();
-
-    // First address in allowList is owner, set in test setup.
-    assertEq(address(1), setAddresses[1]);
-    assertEq(address(2), setAddresses[2]);
-
-    // Add address(3), remove address(1) from allow list
-    newAddresses = new address[](2);
-    newAddresses[0] = address(2);
-    newAddresses[1] = address(3);
-
-    address[] memory removeAddresses = new address[](1);
-    removeAddresses[0] = address(1);
-
-    vm.expectEmit();
-    emit AllowListRemove(address(1));
-
-    vm.expectEmit();
-    emit AllowListAdd(address(3));
-
-    s_onRamp.applyAllowListUpdates(removeAddresses, newAddresses);
-    setAddresses = s_onRamp.getAllowList();
-
-    assertEq(address(2), setAddresses[1]);
-    assertEq(address(3), setAddresses[2]);
-  }
-
-  function testSetAllowListSkipsZeroSuccess() public {
-    uint256 setAddressesLength = s_onRamp.getAllowList().length;
-
-    address[] memory newAddresses = new address[](1);
-    newAddresses[0] = address(0);
-
-    s_onRamp.applyAllowListUpdates(new address[](0), newAddresses);
-    address[] memory setAddresses = s_onRamp.getAllowList();
-
-    assertEq(setAddresses.length, setAddressesLength);
-  }
-
-  // Reverts
-
-  function testOnlyOwnerReverts() public {
-    changePrank(STRANGER);
-    vm.expectRevert("Only callable by owner");
-    address[] memory newAddresses = new address[](2);
-    s_onRamp.applyAllowListUpdates(new address[](0), newAddresses);
-    changePrank(ADMIN);
-    vm.expectRevert("Only callable by owner");
-    s_onRamp.applyAllowListUpdates(new address[](0), newAddresses);
-  }
-}
-
-/// @notice #getAllowList
-contract EVM2EVMOnRamp_getAllowList is EVM2EVMOnRampWithAllowListSetup {
-  function testGetAllowListSuccess() public {
-    address[] memory setAddresses = s_onRamp.getAllowList();
-    assertEq(OWNER, setAddresses[0]);
   }
 }
