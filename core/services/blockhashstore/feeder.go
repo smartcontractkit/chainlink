@@ -103,10 +103,10 @@ func (f *Feeder) Run(ctx context.Context) error {
 				"block", block)
 			errs = multierr.Append(errs, errors.Wrap(err, "checking if stored"))
 		} else if stored {
+			// IsStored() can be based on unfinalized blocks. Therefore, f.stored mapping is not updated
 			f.lggr.Infow("Blockhash already stored",
 				"block", block, "latestBlock", latestBlock,
 				"unfulfilledReqIDs", LimitReqIDs(unfulfilledReqs, 50))
-			f.stored[block] = struct{}{}
 			continue
 		}
 
@@ -185,9 +185,6 @@ func (f *Feeder) runTrusted(
 				f.lggr.Infow("Blockhash already stored",
 					"block", block, "latestBlock", latestBlock,
 					"unfulfilledReqIDs", LimitReqIDs(unfulfilled, 50))
-				f.storedLock.Lock()
-				f.stored[block] = struct{}{}
-				f.storedLock.Unlock()
 				return
 			}
 
@@ -245,6 +242,9 @@ func (f *Feeder) runTrusted(
 			)
 			errs = multierr.Append(errs, errors.Wrap(err, "checking if stored"))
 			return errs
+		}
+		for _, block := range blocksToStore {
+			f.stored[block] = struct{}{}
 		}
 	}
 

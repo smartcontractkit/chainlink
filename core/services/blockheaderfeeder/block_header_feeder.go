@@ -131,8 +131,6 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 		// store earliest blockhash and return
 		// on next iteration, earliestStoredBlockNumber will be found and
 		// will make progress in storing blockhashes using blockheader.
-		// In this scenario, f.stored is not updated until the next iteration
-		// because we do not know which block number will be stored in the current iteration
 		err = f.bhs.StoreEarliest(ctx)
 		if err != nil {
 			return errors.Wrap(err, "storing earliest")
@@ -210,7 +208,6 @@ func (f *BlockHeaderFeeder) findLowestBlockNumberWithoutBlockhash(ctx context.Co
 		} else if stored {
 			lggr.Infow("Blockhash already stored",
 				"block", block, "unfulfilledReqIDs", blockhashstore.LimitReqIDs(unfulfilledReqs, 50))
-			f.stored[block] = struct{}{}
 			continue
 		}
 		blockNumber := big.NewInt(0).SetUint64(block)
@@ -248,7 +245,6 @@ func (f *BlockHeaderFeeder) findEarliestBlockNumberWithBlockhash(ctx context.Con
 			if !bytes.Equal(bh[:], zeroHash[:]) {
 				earliestBlockNumber := i + uint64(idx)
 				lggr.Infow("found earliest block number with blockhash", "earliestBlockNumber", earliestBlockNumber, "blockhash", hex.EncodeToString(bh[:]))
-				f.stored[blockNumber] = struct{}{}
 				return big.NewInt(0).SetUint64(earliestBlockNumber), nil
 			}
 		}
