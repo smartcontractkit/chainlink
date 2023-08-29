@@ -3,9 +3,6 @@ package logprovider
 import (
 	"math/big"
 	"sync"
-
-	"github.com/ethereum/go-ethereum/common"
-	"golang.org/x/time/rate"
 )
 
 type UpkeepFilterStore interface {
@@ -21,39 +18,6 @@ type UpkeepFilterStore interface {
 }
 
 var _ UpkeepFilterStore = &upkeepFilterStore{}
-
-type upkeepFilter struct {
-	addr     []byte
-	topics   []common.Hash
-	upkeepID *big.Int
-	// configUpdateBlock is the block number the filter was last updated at
-	configUpdateBlock uint64
-	// lastPollBlock is the last block number the logs were fetched for this upkeep
-	// used by log event provider.
-	lastPollBlock int64
-	// blockLimiter is used to limit the number of blocks to fetch logs for an upkeep.
-	// used by log event provider.
-	blockLimiter *rate.Limiter
-	// lastRePollBlock is the last block number the logs were recovered for this upkeep
-	// used by log recoverer.
-	lastRePollBlock int64
-}
-
-func (f upkeepFilter) Clone() upkeepFilter {
-	topics := make([]common.Hash, len(f.topics))
-	copy(topics, f.topics)
-	addr := make([]byte, len(f.addr))
-	copy(addr, f.addr)
-	return upkeepFilter{
-		upkeepID:          f.upkeepID,
-		topics:            topics,
-		addr:              addr,
-		configUpdateBlock: f.configUpdateBlock,
-		lastPollBlock:     f.lastPollBlock,
-		lastRePollBlock:   f.lastRePollBlock,
-		blockLimiter:      f.blockLimiter,
-	}
-}
 
 type upkeepFilterStore struct {
 	lock *sync.RWMutex
