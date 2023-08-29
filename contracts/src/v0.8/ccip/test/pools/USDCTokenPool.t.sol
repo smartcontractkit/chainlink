@@ -16,6 +16,9 @@ contract USDCTokenPoolSetup is BaseTest {
   IBurnMintERC20 internal s_token;
   MockUSDC internal s_mockUSDC;
 
+  uint32 internal constant SOURCE_DOMAIN_IDENTIFIER = 0x02020202;
+  uint32 internal constant DEST_DOMAIN_IDENTIFIER = 0x03030303;
+
   address internal s_routerAllowedOnRamp = address(3456);
   address internal s_routerAllowedOffRamp = address(234);
   Router internal s_router;
@@ -38,10 +41,16 @@ contract USDCTokenPoolSetup is BaseTest {
       messageTransmitter: address(s_mockUSDC)
     });
 
-    s_usdcTokenPool = new USDCTokenPool(config, s_token, new address[](0), address(s_mockARM));
+    s_usdcTokenPool = new USDCTokenPool(config, s_token, new address[](0), address(s_mockARM), DEST_DOMAIN_IDENTIFIER);
 
     s_allowedList.push(USER_1);
-    s_usdcTokenPoolWithAllowList = new USDCTokenPool(config, s_token, s_allowedList, address(s_mockARM));
+    s_usdcTokenPoolWithAllowList = new USDCTokenPool(
+      config,
+      s_token,
+      s_allowedList,
+      address(s_mockARM),
+      DEST_DOMAIN_IDENTIFIER
+    );
 
     TokenPool.RampUpdate[] memory onRamps = new TokenPool.RampUpdate[](1);
     onRamps[0] = TokenPool.RampUpdate({
@@ -87,15 +96,13 @@ contract USDCTokenPoolSetup is BaseTest {
 
   function _generateUSDCMessage(uint64 nonce, address sender, address recipient) internal pure returns (bytes memory) {
     uint32 version = 0x01010101;
-    uint32 sourceDomain = 0x02020202;
-    uint32 destinationDomain = 0x03030303;
     bytes memory body = bytes("body");
 
     return
       abi.encodePacked(
         version,
-        sourceDomain,
-        destinationDomain,
+        SOURCE_DOMAIN_IDENTIFIER,
+        DEST_DOMAIN_IDENTIFIER,
         nonce,
         bytes32(uint256(uint160(sender))),
         bytes32(uint256(uint160(recipient))),

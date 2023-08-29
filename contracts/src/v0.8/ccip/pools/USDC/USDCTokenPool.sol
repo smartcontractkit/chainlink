@@ -19,6 +19,7 @@ contract USDCTokenPool is TokenPool {
   error InvalidNonce(uint64 expected, uint64 got);
   error InvalidSender(bytes32 expected, bytes32 got);
   error InvalidReceiver(bytes32 expected, bytes32 got);
+  error InvalidDomain(uint32 got);
 
   // This data is supplied from offchain and contains everything needed
   // to receive the USDC tokens.
@@ -42,6 +43,8 @@ contract USDCTokenPool is TokenPool {
     address messageTransmitter; // Contract to mint tokens
   }
 
+  uint32 public immutable i_localDomainIdentifier;
+
   // The local USDC config
   USDCConfig private s_config;
 
@@ -62,9 +65,11 @@ contract USDCTokenPool is TokenPool {
     USDCConfig memory config,
     IBurnMintERC20 token,
     address[] memory allowlist,
-    address armProxy
+    address armProxy,
+    uint32 localDomainIdentifier
   ) TokenPool(token, allowlist, armProxy) {
     _setConfig(config);
+    i_localDomainIdentifier = localDomainIdentifier;
   }
 
   /// @notice returns the USDC interface flag used for EIP165 identification.
@@ -118,16 +123,12 @@ contract USDCTokenPool is TokenPool {
     (bytes memory offchainTokenData, bytes memory nonceBytes) = abi.decode(extraData, (bytes, bytes));
     MessageAndAttestation memory msgAndAttestation = abi.decode(offchainTokenData, (MessageAndAttestation));
 
-    (uint64 actualNonce, bytes32 actualSender, bytes32 actualReceiver) = _parseUSDCMessage(msgAndAttestation.message);
-
-    uint64 expectedNonce = abi.decode(nonceBytes, (uint64));
-    if (expectedNonce != actualNonce) revert InvalidNonce(expectedNonce, actualNonce);
-
-    bytes32 expectedReceiver = bytes32(uint256(uint160(receiver)));
-    if (expectedReceiver != actualReceiver) revert InvalidReceiver(expectedReceiver, actualReceiver);
-
-    bytes32 expectedSender = bytes32(originalSender[0:32]);
-    if (expectedSender != actualSender) revert InvalidSender(expectedSender, actualSender);
+    _validateMessage(
+      msgAndAttestation.message,
+      abi.decode(nonceBytes, (uint64)),
+      bytes32(originalSender[0:32]),
+      bytes32(uint256(uint160(receiver)))
+    );
 
     if (
       !IMessageReceiver(s_config.messageTransmitter).receiveMessage(
@@ -138,17 +139,29 @@ contract USDCTokenPool is TokenPool {
     emit Minted(msg.sender, receiver, amount);
   }
 
-  function _parseUSDCMessage(
-    bytes memory usdcMessage
-  ) internal pure returns (uint64 nonce, bytes32 sender, bytes32 receiver) {
+  function _validateMessage(
+    bytes memory usdcMessage,
+    uint64 expectedNonce,
+    bytes32 expectedSender,
+    bytes32 expectedReceiver
+  ) internal view {
+    uint32 destinationDomain;
+    uint64 nonce;
+    bytes32 sender;
+    bytes32 receiver;
+
     // solhint-disable-next-line no-inline-assembly
     assembly {
+      destinationDomain := mload(add(usdcMessage, 12)) // 8 + 4 = 12
       nonce := mload(add(usdcMessage, 20)) // 12 + 8 = 20
       sender := mload(add(usdcMessage, 52)) // 20 + 32 = 52
       receiver := mload(add(usdcMessage, 84)) // 52 + 32 = 84
     }
 
-    return (nonce, sender, receiver);
+    if (i_localDomainIdentifier != destinationDomain) revert InvalidDomain(destinationDomain);
+    if (expectedNonce != nonce) revert InvalidNonce(expectedNonce, nonce);
+    if (expectedSender != sender) revert InvalidSender(expectedSender, sender);
+    if (expectedReceiver != receiver) revert InvalidReceiver(expectedReceiver, receiver);
   }
 
   // ================================================================
