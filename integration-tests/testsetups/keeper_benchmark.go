@@ -485,7 +485,8 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(
 		registrar contracts.KeeperRegistrar
 	)
 
-	if registryVersion <= 3 {
+	// Contract deployment is different for legacy keepers and OCR automation
+	if registryVersion <= ethereum.RegistryVersion_1_3 { // Legacy keeper - v1.X
 		registry = actions.DeployKeeperRegistry(t, k.contractDeployer, k.chainClient,
 			&contracts.KeeperRegistryOpts{
 				RegistryVersion: registryVersion,
@@ -509,7 +510,7 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(
 			MinLinkJuels:          big.NewInt(0),
 		}
 		registrar = actions.DeployKeeperRegistrar(t, registryVersion, k.linkToken, registrarSettings, k.contractDeployer, k.chainClient, registry)
-	} else {
+	} else { // OCR automation - v2.X
 		registry, registrar = actions.DeployAutoOCRRegistryAndRegistrar(
 			t, registryVersion, *k.Inputs.KeeperRegistrySettings, k.Inputs.Upkeeps.NumberOfUpkeeps, k.linkToken, k.contractDeployer, k.chainClient)
 

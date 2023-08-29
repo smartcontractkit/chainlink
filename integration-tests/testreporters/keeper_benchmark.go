@@ -109,8 +109,6 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 	var pctReverted, pctStale float64
 	if totalPerformed > 0 {
 		pctReverted = (float64(totalReverted) / float64(totalPerformed)) * 100
-	}
-	if totalPerformed > 0 {
 		pctStale = (float64(totalStaleReports) / float64(totalPerformed)) * 100
 	}
 
