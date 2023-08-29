@@ -428,25 +428,25 @@ func (_m *EvmTxStore) FindTxWithAttempts(etxID int64) (types.Tx[*big.Int, common
 	return r0, r1
 }
 
-// FindTxWithRequestID provides a mock function with given fields: requestID
-func (_m *EvmTxStore) FindTxWithRequestID(requestID common.Hash) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
-	ret := _m.Called(requestID)
+// FindTxWithRequestID provides a mock function with given fields: requestID, chainID
+func (_m *EvmTxStore) FindTxWithRequestID(requestID string, chainID *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(requestID, chainID)
 
 	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Hash) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
-		return rf(requestID)
+	if rf, ok := ret.Get(0).(func(string, *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(requestID, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(common.Hash) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
-		r0 = rf(requestID)
+	if rf, ok := ret.Get(0).(func(string, *big.Int) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(requestID, chainID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Hash) error); ok {
-		r1 = rf(requestID)
+	if rf, ok := ret.Get(1).(func(string, *big.Int) error); ok {
+		r1 = rf(requestID, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}

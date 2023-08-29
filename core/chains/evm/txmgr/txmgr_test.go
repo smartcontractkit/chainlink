@@ -327,7 +327,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	t.Run("insert Tx successfully with a RequestID", func(t *testing.T) {
 		evmConfig.maxQueued = uint64(3)
 		id := uuid.New()
-		requestId := common.BytesToHash(big.NewInt(1).Bytes())
+		requestId := "1"
 		_, err := txm.CreateTransaction(txmgr.TxRequest{
 			RequestID:         &requestId,
 			FromAddress:       fromAddress,
@@ -343,7 +343,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	t.Run("doesn't insert eth_tx if a matching tx already exists for that RequestID", func(t *testing.T) {
 		evmConfig.maxQueued = uint64(3)
 		id := uuid.New()
-		requestId := common.BytesToHash(big.NewInt(2).Bytes())
+		requestId := "2"
 		tx1, err := txm.CreateTransaction(txmgr.TxRequest{
 			RequestID:         &requestId,
 			FromAddress:       fromAddress,

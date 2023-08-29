@@ -152,7 +152,7 @@ func toOnchainReceipt(rs []*evmtypes.Receipt) []rawOnchainReceipt {
 // This is exported, as tests and other external code still directly reads DB using this schema.
 type DbEthTx struct {
 	ID             int64
-	RequestID      *common.Hash
+	RequestID      *string
 	Nonce          *int64
 	FromAddress    common.Address
 	ToAddress      common.Address
@@ -909,21 +909,17 @@ func (o *evmTxStore) FindReceiptsPendingConfirmation(ctx context.Context, blockN
 }
 
 // FindTxWithRequestID returns any broadcast ethtx with the given requestID
-func (o *evmTxStore) FindTxWithRequestID(requestID common.Hash) (etx *Tx, err error) {
-	err = o.q.Transaction(func(tx pg.Queryer) error {
-		var dbEtx DbEthTx
-		err = tx.Get(&dbEtx, `SELECT * FROM eth_txes WHERE request_id = $1`, requestID)
-		if err != nil {
-			return pkgerrors.Wrap(err, "FindTxWithRequestID failed to load eth_txes")
+func (o *evmTxStore) FindTxWithRequestID(requestID string, chainID *big.Int) (etx *Tx, err error) {
+	var dbEtx DbEthTx
+	err = o.q.Get(&dbEtx, `SELECT * FROM eth_txes WHERE request_id = $1 and evm_chain_id = $2`, requestID, chainID.String())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
 		}
-		etx = new(Tx)
-		DbEthTxToEthTx(dbEtx, etx)
-		err = o.LoadTxAttempts(etx, pg.WithQueryer(tx))
-		return pkgerrors.Wrap(err, "FindTxWithRequestID failed to load eth_tx_attempts")
-	}, pg.OptReadOnlyTx())
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
+		return nil, pkgerrors.Wrap(err, "FindTxWithRequestID failed to load eth_txes")
 	}
+	etx = new(Tx)
+	DbEthTxToEthTx(dbEtx, etx)
 	return
 }
 

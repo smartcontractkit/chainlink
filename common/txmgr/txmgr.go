@@ -2,6 +2,7 @@ package txmgr
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"sync"
@@ -438,13 +439,14 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 	// Check for existing Tx with RequestID. If found, return the Tx and do nothing
 	// Skipping CreateTransaction to avoid double send
 	if txRequest.RequestID != nil {
-		var etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-		etx, err = b.txStore.FindTxWithRequestID(*txRequest.RequestID)
-		if err != nil {
+		var existingTx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+		existingTx, err = b.txStore.FindTxWithRequestID(*txRequest.RequestID, b.chainID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return tx, errors.Wrap(err, "Failed to search for transaction with RequestID")
 		}
-		if etx != nil {
-			return *etx, nil
+		if existingTx != nil {
+			b.logger.Infow("Found a Tx with RequestID. Returning existing Tx without creating a new one.", "RequestID", *txRequest.RequestID)
+			return *existingTx, nil
 		}
 	}
 

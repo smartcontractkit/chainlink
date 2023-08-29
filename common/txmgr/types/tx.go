@@ -66,7 +66,10 @@ func (s TxAttemptState) String() (str string) {
 }
 
 type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
-	RequestID        *TX_HASH
+	// Unique ID set by external components to prevent double send
+	// If present in TxRequest, TXM will search for Tx with ID
+	// If found, it will return the existing Tx, otherwise it will create a new Tx
+	RequestID        *string
 	FromAddress      ADDR
 	ToAddress        ADDR
 	EncodedPayload   []byte
@@ -179,7 +182,7 @@ type Tx[
 	FEE feetypes.Fee,
 ] struct {
 	ID             int64
-	RequestID      *TX_HASH
+	RequestID      *string
 	Sequence       *SEQ
 	FromAddress    ADDR
 	ToAddress      ADDR

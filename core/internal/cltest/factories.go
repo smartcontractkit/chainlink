@@ -348,7 +348,7 @@ func EvmTxRequestWithValue(value big.Int) func(*txmgr.TxRequest) {
 	}
 }
 
-func EvmTxRequestWithRequestID(requestID common.Hash) func(*txmgr.TxRequest) {
+func EvmTxRequestWithRequestID(requestID string) func(*txmgr.TxRequest) {
 	return func(tx *txmgr.TxRequest) {
 		tx.RequestID = &requestID
 	}

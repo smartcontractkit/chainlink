@@ -8,8 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -677,19 +675,20 @@ func Test_FindTxWithRequestId(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	t.Run("returns nil if no results", func(t *testing.T) {
-		requestId := common.BytesToHash(big.NewInt(777).Bytes())
-		etx, err := txStore.FindTxWithRequestID(requestId)
+		requestId := "777"
+		etx, err := txStore.FindTxWithRequestID(requestId, big.NewInt(0))
 		require.NoError(t, err)
 		assert.Nil(t, etx)
 	})
 
 	t.Run("returns transaction if it exists", func(t *testing.T) {
-		requestId := common.BytesToHash(big.NewInt(777).Bytes())
-		etx := cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, &cltest.FixtureChainID,
+		requestId := "777"
+		cfg.EVM().ChainID()
+		etx := cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, big.NewInt(0),
 			cltest.EvmTxRequestWithRequestID(requestId))
 		require.Equal(t, requestId, *etx.RequestID)
 
-		res, err := txStore.FindTxWithRequestID(requestId)
+		res, err := txStore.FindTxWithRequestID(requestId, big.NewInt(0))
 		require.NoError(t, err)
 		assert.Equal(t, etx.Sequence, res.Sequence)
 		require.Equal(t, requestId, *res.RequestID)
