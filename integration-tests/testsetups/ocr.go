@@ -469,6 +469,12 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	err := o.observeOCREvents()
 	require.NoError(o.t, err, "Error subscribing to OCR events")
 
+	go func() {
+		time.Sleep(time.Minute * 15)
+		log.Warn().Msg("I am intentionally killing the test!!!")
+		interruption <- os.Interrupt
+	}()
+
 	for {
 		select {
 		case <-interruption:
