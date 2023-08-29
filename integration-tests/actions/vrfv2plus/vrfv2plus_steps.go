@@ -17,22 +17,20 @@ import (
 )
 
 var (
-	ErrNodePrimaryKey           = "error getting node's primary ETH key"
-	ErrCreatingProvingKeyHash   = "error creating a keyHash from the proving key"
-	ErrRegisteringProvingKey    = "error registering a proving key on Coordinator contract"
-	ErrRegisterProvingKey       = "error registering proving keys"
-	ErrEncodingProvingKey       = "error encoding proving key"
-	ErrCreatingVRFv2PlusKey     = "error creating VRFv2Plus key"
-	ErrDeployBlockHashStore     = "error deploying blockhash store"
-	ErrDeployCoordinator        = "error deploying VRF CoordinatorV2Plus"
-	ErrAdvancedConsumer         = "error deploying VRFv2Plus Advanced Consumer"
-	ErrABIEncodingFunding       = "error Abi encoding subscriptionID"
-	ErrSendingLinkToken         = "error sending Link token"
-	ErrCreatingVRFv2PlusJob     = "error creating VRFv2Plus job"
-	ErrParseJob                 = "error parsing job definition"
-	ErrCreateTestEnv            = "error creating test env"
-	ErrDeployMockETHLINKFeed    = "error deploying mock ETH/LINK feed"
-	ErrDeployLink               = "error deploying LINK contract"
+	ErrNodePrimaryKey         = "error getting node's primary ETH key"
+	ErrCreatingProvingKeyHash = "error creating a keyHash from the proving key"
+	ErrRegisteringProvingKey  = "error registering a proving key on Coordinator contract"
+	ErrRegisterProvingKey     = "error registering proving keys"
+	ErrEncodingProvingKey     = "error encoding proving key"
+	ErrCreatingVRFv2PlusKey   = "error creating VRFv2Plus key"
+	ErrDeployBlockHashStore   = "error deploying blockhash store"
+	ErrDeployCoordinator      = "error deploying VRF CoordinatorV2Plus"
+	ErrAdvancedConsumer       = "error deploying VRFv2Plus Advanced Consumer"
+	ErrABIEncodingFunding     = "error Abi encoding subscriptionID"
+	ErrSendingLinkToken       = "error sending Link token"
+	ErrCreatingVRFv2PlusJob   = "error creating VRFv2Plus job"
+	ErrParseJob               = "error parsing job definition"
+
 	ErrDeployVRFV2PlusContracts = "error deploying VRFV2Plus contracts"
 	ErrSetVRFCoordinatorConfig  = "error setting config for VRF Coordinator contract"
 	ErrCreateVRFSubscription    = "error creating VRF Subscription"
@@ -159,26 +157,13 @@ func FundVRFCoordinatorV2PlusSubscription(linkToken contracts.LinkToken, coordin
 	return chainClient.WaitForEvents()
 }
 
-func SetupVRFV2PlusEnvironment(isNativePayment bool) (*test_env.CLClusterTestEnv, *VRFV2PlusContracts, *big.Int, *VRFV2PlusJobInfo, error) {
-	env, err := test_env.NewCLTestEnvBuilder().
-		WithGeth().
-		WithCLNodes(1).
-		WithFunding(vrfv2plus_constants.ChainlinkNodeFundingAmountEth).
-		Build()
+func SetupVRFV2PlusEnvironment(
+	env *test_env.CLClusterTestEnv,
+	linkAddress contracts.LinkToken,
+	mockETHLinkFeedAddress contracts.MockETHLINKFeed,
+	isNativePayment bool,
+) (*test_env.CLClusterTestEnv, *VRFV2PlusContracts, *big.Int, *VRFV2PlusJobInfo, error) {
 
-	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrCreateTestEnv)
-	}
-	env.ParallelTransactions(true)
-
-	mockETHLinkFeedAddress, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, vrfv2plus_constants.LinkEthFeedResponse)
-	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrDeployMockETHLINKFeed)
-	}
-	linkAddress, err := actions.DeployLINKToken(env.ContractDeployer)
-	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrDeployLink)
-	}
 	vrfv2PlusContracts, err := DeployVRFV2PlusContracts(env.ContractDeployer, env.EVMClient)
 	if err != nil {
 		return nil, nil, nil, nil, errors.Wrap(err, ErrDeployVRFV2PlusContracts)
