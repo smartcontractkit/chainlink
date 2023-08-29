@@ -283,6 +283,7 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 		uid := &ocr2keepers.UpkeepIdentifier{}
 		if ok := uid.FromBigInt(id); !ok {
 			r.lggr.Warnf("failed to parse upkeep id %s", id.String())
+			continue
 		}
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
