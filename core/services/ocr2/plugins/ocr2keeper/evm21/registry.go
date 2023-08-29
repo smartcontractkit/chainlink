@@ -278,8 +278,8 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 //
 // TODO: check for updated config for log trigger upkeeps and update it, currently we ignore them.
 func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
-	logTriggerIDs := make([]*big.Int, 0)
-	logTriggerHashes := make([]common.Hash, 0)
+	var logTriggerIDs []*big.Int
+	var logTriggerHashes []common.Hash
 	for _, id := range ids {
 		uid := &ocr2keepers.UpkeepIdentifier{}
 		if ok := uid.FromBigInt(id); !ok {
@@ -289,7 +289,6 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 		case ocr2keepers.LogTrigger:
 			logTriggerIDs = append(logTriggerIDs, id)
 			logTriggerHashes = append(logTriggerHashes, common.BigToHash(id))
-		default:
 		}
 	}
 	newUpkeeps, err := r.logEventProvider.RefreshActiveUpkeeps(logTriggerIDs...)
@@ -309,9 +308,9 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 	var logs []logpoller.Log
 	logs = append(unpausedLogs, configSetLogs...)
 
-	configSetBlockNumbers := map[*big.Int]uint64{}
-	pausedBlockNumbers := map[*big.Int]uint64{}
-	perUpkeepConfig := map[*big.Int][]byte{}
+	configSetBlockNumbers := map[string]uint64{}
+	pausedBlockNumbers := map[string]uint64{}
+	perUpkeepConfig := map[string][]byte{}
 
 	for _, l := range logs {
 		rawLog := l.ToGethLog()
@@ -321,21 +320,20 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 		}
 		switch l := abilog.(type) {
 		case *iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet:
-			configSetBlockNumbers[l.Id] = rawLog.BlockNumber
-			perUpkeepConfig[l.Id] = l.TriggerConfig
+			configSetBlockNumbers[l.Id.String()] = rawLog.BlockNumber
+			perUpkeepConfig[l.Id.String()] = l.TriggerConfig
 		case *iregistry21.IKeeperRegistryMasterUpkeepUnpaused:
-			pausedBlockNumbers[l.Id] = rawLog.BlockNumber
-		default:
+			pausedBlockNumbers[l.Id.String()] = rawLog.BlockNumber
 		}
 	}
 
 	var merr error
 	for _, id := range newUpkeeps {
-		logBlock := configSetBlockNumbers[id]
-		if pausedBlockNumbers[id] > logBlock {
-			logBlock = pausedBlockNumbers[id]
+		logBlock := configSetBlockNumbers[id.String()]
+		if pausedBlockNumbers[id.String()] > logBlock {
+			logBlock = pausedBlockNumbers[id.String()]
 		}
-		if err := r.updateTriggerConfig(id, perUpkeepConfig[id], logBlock); err != nil {
+		if err := r.updateTriggerConfig(id, perUpkeepConfig[id.String()], logBlock); err != nil {
 			merr = goerrors.Join(merr, fmt.Errorf("failed to update trigger config for upkeep id %s: %w", id.String(), err))
 		}
 	}
