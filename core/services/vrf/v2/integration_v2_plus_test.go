@@ -304,7 +304,6 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment(t *testing.T) {
-	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	t.Run("link payment", func(tt *testing.T) {
@@ -357,7 +356,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment(t *testi
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCallback(t *testing.T) {
-	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	t.Run("link payment", func(tt *testing.T) {
@@ -410,7 +408,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCa
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
-	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	t.Run("link payment", func(tt *testing.T) {
@@ -456,7 +453,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request(t *testing.T) {
-	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	testEoa(
@@ -471,7 +467,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request_Batching_Enabled(t *testing.T) {
-	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	testEoa(
@@ -488,8 +483,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request_Batching_Enabled(t *tes
 func TestVRFV2PlusIntegration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 	// See: https://smartcontract-it.atlassian.net/browse/VRF-589
 	// Temporarily skipping to figure out issue with test
-	t.Skip()
-	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	testSingleConsumerEIP150(
@@ -504,7 +497,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_EIP150_Revert(t *testing.T) {
-	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	testSingleConsumerEIP150Revert(
@@ -519,7 +511,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_EIP150_Revert(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
-	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, false)
 	t.Run("link payment", func(tt *testing.T) {
@@ -557,7 +548,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_NeedsBlockhashStore(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
-	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	t.Run("link payment", func(tt *testing.T) {
@@ -595,7 +585,6 @@ func TestVRFV2PlusIntegration_SingleConsumer_BlockHeaderFeeder(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_NeedsTopUp(t *testing.T) {
-	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	t.Run("link payment", func(tt *testing.T) {
@@ -819,7 +808,6 @@ func TestVRFV2PlusIntegration_SimpleConsumerExample(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_TestMaliciousConsumer(t *testing.T) {
-	t.Parallel()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
 	testMaliciousConsumer(
@@ -1145,7 +1133,6 @@ func setupSubscriptionAndFund(
 }
 
 func TestVRFV2PlusIntegration_Migration(t *testing.T) {
-	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	key1 := cltest.MustGenerateRandomKey(t)
