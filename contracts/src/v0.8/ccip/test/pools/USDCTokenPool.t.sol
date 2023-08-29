@@ -84,6 +84,24 @@ contract USDCTokenPoolSetup is BaseTest {
 
     s_router.applyRampUpdates(onRampUpdates, new Router.OffRamp[](0), offRampUpdates);
   }
+
+  function _generateUSDCMessage(uint64 nonce, address sender, address recipient) internal pure returns (bytes memory) {
+    uint32 version = 0x01010101;
+    uint32 sourceDomain = 0x02020202;
+    uint32 destinationDomain = 0x03030303;
+    bytes memory body = bytes("body");
+
+    return
+      abi.encodePacked(
+        version,
+        sourceDomain,
+        destinationDomain,
+        nonce,
+        bytes32(uint256(uint160(sender))),
+        bytes32(uint256(uint160(recipient))),
+        body
+      );
+  }
 }
 
 contract USDCTokenPool_lockOrBurn is USDCTokenPoolSetup {
@@ -208,13 +226,16 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     amount = bound(amount, 0, rateLimiterConfig().capacity);
     changePrank(s_routerAllowedOffRamp);
 
-    bytes memory message = bytes("message bytes");
+    uint64 nonce = 0x060606060606;
+    address sender = OWNER;
+
+    bytes memory message = _generateUSDCMessage(nonce, sender, receiver);
     bytes memory attestation = bytes("attestation bytes");
 
     bytes memory offchainTokenData = abi.encode(
       USDCTokenPool.MessageAndAttestation({message: message, attestation: attestation})
     );
-    bytes memory sourceTokenData = abi.encode(2000);
+    bytes memory sourceTokenData = abi.encode(nonce);
     bytes memory extraData = abi.encode(offchainTokenData, sourceTokenData);
 
     vm.expectEmit();
@@ -222,7 +243,7 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
 
     vm.expectCall(address(s_mockUSDC), abi.encodeWithSelector(MockUSDC.receiveMessage.selector, message, attestation));
 
-    s_usdcTokenPool.releaseOrMint(abi.encode(OWNER), receiver, amount, SOURCE_CHAIN_ID, extraData);
+    s_usdcTokenPool.releaseOrMint(abi.encode(sender), receiver, amount, SOURCE_CHAIN_ID, extraData);
   }
 
   // Reverts
@@ -230,11 +251,14 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     changePrank(s_routerAllowedOffRamp);
     s_mockUSDC.setShouldSucceed(false);
 
+    uint64 nonce = 0x0606060606060606;
+    bytes memory message = _generateUSDCMessage(nonce, OWNER, OWNER);
+
     bytes memory offchainTokenData = abi.encode(
-      USDCTokenPool.MessageAndAttestation({message: bytes(""), attestation: bytes("")})
+      USDCTokenPool.MessageAndAttestation({message: message, attestation: bytes("")})
     );
 
-    bytes memory sourceTokenData = abi.encode(2000);
+    bytes memory sourceTokenData = abi.encode(nonce);
     bytes memory extraData = abi.encode(offchainTokenData, sourceTokenData);
 
     vm.expectRevert(USDCTokenPool.UnlockingUSDCFailed.selector);

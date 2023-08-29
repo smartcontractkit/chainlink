@@ -136,7 +136,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
   // STATIC CONFIG
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "EVM2EVMOnRamp 1.1.0";
+  string public constant override typeAndVersion = "EVM2EVMOnRamp 1.2.0";
   /// @dev metadataHash is a lane-specific prefix for a message hash preimage which ensures global uniqueness
   /// Ensures that 2 identical messages sent to 2 different lanes will have a distinct hash.
   /// Must match the metadataHash used in computing leaf hashes offchain for the root committed in
