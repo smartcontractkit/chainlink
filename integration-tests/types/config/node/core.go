@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"math/big"
-	"net"
 	"os"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
+	utils2 "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -27,36 +27,36 @@ import (
 var (
 	BaseConf = &chainlink.Config{
 		Core: toml.Core{
-			RootDir: Ptr("/home/chainlink"),
+			RootDir: utils2.Ptr("/home/chainlink"),
 			Database: toml.Database{
-				MaxIdleConns:     Ptr(int64(20)),
-				MaxOpenConns:     Ptr(int64(40)),
-				MigrateOnStartup: Ptr(true),
+				MaxIdleConns:     utils2.Ptr(int64(20)),
+				MaxOpenConns:     utils2.Ptr(int64(40)),
+				MigrateOnStartup: utils2.Ptr(true),
 			},
 			Log: toml.Log{
-				Level:       Ptr(toml.LogLevel(zapcore.DebugLevel)),
-				JSONConsole: Ptr(true),
+				Level:       utils2.Ptr(toml.LogLevel(zapcore.DebugLevel)),
+				JSONConsole: utils2.Ptr(true),
 				File: toml.LogFile{
-					MaxSize: Ptr(utils.FileSize(0)),
+					MaxSize: utils2.Ptr(utils.FileSize(0)),
 				},
 			},
 			WebServer: toml.WebServer{
-				AllowOrigins:   Ptr("*"),
-				HTTPPort:       Ptr[uint16](6688),
-				SecureCookies:  Ptr(false),
+				AllowOrigins:   utils2.Ptr("*"),
+				HTTPPort:       utils2.Ptr[uint16](6688),
+				SecureCookies:  utils2.Ptr(false),
 				SessionTimeout: models.MustNewDuration(time.Hour * 999),
 				TLS: toml.WebServerTLS{
-					HTTPSPort: Ptr[uint16](0),
+					HTTPSPort: utils2.Ptr[uint16](0),
 				},
 				RateLimit: toml.WebServerRateLimit{
-					Authenticated:   Ptr(int64(2000)),
-					Unauthenticated: Ptr(int64(100)),
+					Authenticated:   utils2.Ptr(int64(2000)),
+					Unauthenticated: utils2.Ptr(int64(100)),
 				},
 			},
 			Feature: toml.Feature{
-				LogPoller:    Ptr(true),
-				FeedsManager: Ptr(true),
-				UICSAKeys:    Ptr(true),
+				LogPoller:    utils2.Ptr(true),
+				FeedsManager: utils2.Ptr(true),
+				UICSAKeys:    utils2.Ptr(true),
 			},
 			P2P: toml.P2P{},
 		},
@@ -94,7 +94,7 @@ func NewConfigFromToml(tomlFile string, opts ...NodeConfigOpt) (*chainlink.Confi
 func WithOCR1() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.OCR = toml.OCR{
-			Enabled: Ptr(true),
+			Enabled: utils2.Ptr(true),
 		}
 	}
 }
@@ -102,7 +102,7 @@ func WithOCR1() NodeConfigOpt {
 func WithOCR2() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.OCR2 = toml.OCR2{
-			Enabled: Ptr(true),
+			Enabled: utils2.Ptr(true),
 		}
 	}
 }
@@ -110,9 +110,9 @@ func WithOCR2() NodeConfigOpt {
 func WithP2Pv1() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.P2P.V1 = toml.P2PV1{
-			Enabled:    Ptr(true),
-			ListenIP:   MustIP("0.0.0.0"),
-			ListenPort: Ptr[uint16](6690),
+			Enabled:    utils2.Ptr(true),
+			ListenIP:   utils2.MustIP("0.0.0.0"),
+			ListenPort: utils2.Ptr[uint16](6690),
 		}
 	}
 }
@@ -120,7 +120,7 @@ func WithP2Pv1() NodeConfigOpt {
 func WithP2Pv2() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.P2P.V2 = toml.P2PV2{
-			Enabled:         Ptr(true),
+			Enabled:         utils2.Ptr(true),
 			ListenAddresses: &[]string{"0.0.0.0:6690"},
 		}
 	}
@@ -137,10 +137,10 @@ func SetChainConfig(
 		var nodes []*evmcfg.Node
 		for i := range wsUrls {
 			node := evmcfg.Node{
-				Name:     Ptr(fmt.Sprintf("node_%d_%s", i, chain.Name)),
-				WSURL:    MustURL(wsUrls[i]),
-				HTTPURL:  MustURL(httpUrls[i]),
-				SendOnly: Ptr(false),
+				Name:     utils2.Ptr(fmt.Sprintf("node_%d_%s", i, chain.Name)),
+				WSURL:    utils2.MustURL(wsUrls[i]),
+				HTTPURL:  utils2.MustURL(httpUrls[i]),
+				SendOnly: utils2.Ptr(false),
 			}
 
 			nodes = append(nodes, &node)
@@ -148,8 +148,8 @@ func SetChainConfig(
 		var chainConfig evmcfg.Chain
 		if chain.Simulated {
 			chainConfig = evmcfg.Chain{
-				AutoCreateKey:      Ptr(true),
-				FinalityDepth:      Ptr[uint32](1),
+				AutoCreateKey:      utils2.Ptr(true),
+				FinalityDepth:      utils2.Ptr[uint32](1),
 				MinContractPayment: assets.NewLinkFromJuels(0),
 			}
 		}
@@ -162,7 +162,7 @@ func SetChainConfig(
 		}
 		if forwarders {
 			cfg.EVM[0].Transactions = evmcfg.Transactions{
-				ForwardersEnabled: Ptr(true),
+				ForwardersEnabled: utils2.Ptr(true),
 			}
 		}
 	}
@@ -174,25 +174,25 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork) NodeConfigOpt {
 		evmConfigs = append(evmConfigs, &evmcfg.EVMConfig{
 			ChainID: utils.NewBig(big.NewInt(network.ChainID)),
 			Chain: evmcfg.Chain{
-				AutoCreateKey:      Ptr(true),
-				FinalityDepth:      Ptr[uint32](50),
+				AutoCreateKey:      utils2.Ptr(true),
+				FinalityDepth:      utils2.Ptr[uint32](50),
 				MinContractPayment: assets.NewLinkFromJuels(0),
 				LogPollInterval:    models.MustNewDuration(1 * time.Second),
 				HeadTracker: evmcfg.HeadTracker{
-					HistoryDepth: Ptr(uint32(100)),
+					HistoryDepth: utils2.Ptr(uint32(100)),
 				},
 				GasEstimator: evmcfg.GasEstimator{
-					LimitDefault:  Ptr(uint32(6000000)),
+					LimitDefault:  utils2.Ptr(uint32(6000000)),
 					PriceMax:      assets.GWei(200),
 					FeeCapDefault: assets.GWei(200),
 				},
 			},
 			Nodes: []*evmcfg.Node{
 				{
-					Name:     Ptr(network.Name),
-					WSURL:    MustURL(network.URLs[0]),
-					HTTPURL:  MustURL(network.HTTPURLs[0]),
-					SendOnly: Ptr(false),
+					Name:     utils2.Ptr(network.Name),
+					WSURL:    utils2.MustURL(network.URLs[0]),
+					HTTPURL:  utils2.MustURL(network.HTTPURLs[0]),
+					SendOnly: utils2.Ptr(false),
 				},
 			},
 		})
@@ -207,35 +207,17 @@ func WithVRFv2EVMEstimator(addr string) NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.EVM[0].KeySpecific = evmcfg.KeySpecificConfig{
 			{
-				Key: Ptr(ethkey.EIP55Address(addr)),
+				Key: utils2.Ptr(ethkey.EIP55Address(addr)),
 				GasEstimator: evmcfg.KeySpecificGasEstimator{
 					PriceMax: est,
 				},
 			},
 		}
 		c.EVM[0].Chain.GasEstimator = evmcfg.GasEstimator{
-			LimitDefault: Ptr[uint32](3500000),
+			LimitDefault: utils2.Ptr[uint32](3500000),
 		}
 		c.EVM[0].Chain.Transactions = evmcfg.Transactions{
-			MaxQueued: Ptr[uint32](10000),
+			MaxQueued: utils2.Ptr[uint32](10000),
 		}
 	}
-}
-
-func Ptr[T any](t T) *T { return &t }
-
-func MustURL(s string) *models.URL {
-	var u models.URL
-	if err := u.UnmarshalText([]byte(s)); err != nil {
-		panic(err)
-	}
-	return &u
-}
-
-func MustIP(s string) *net.IP {
-	var ip net.IP
-	if err := ip.UnmarshalText([]byte(s)); err != nil {
-		panic(err)
-	}
-	return &ip
 }
