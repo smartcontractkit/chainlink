@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync"
@@ -26,12 +27,15 @@ type TransmitEventProvider struct {
 	runState int
 	runError error
 
-	logger          logger.Logger
-	logPoller       logpoller.LogPoller
+	logger    logger.Logger
+	logPoller logpoller.LogPoller
+	registry  *iregistry21.IKeeperRegistryMaster
+	client    evmclient.Client
+
 	registryAddress common.Address
 	lookbackBlocks  int64
-	registry        *iregistry21.IKeeperRegistryMaster
-	client          evmclient.Client
+
+	cache transmitEventCache
 }
 
 func TransmitEventProviderFilterName(addr common.Address) string {
@@ -147,70 +151,26 @@ func (c *TransmitEventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keep
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
 	}
 
-	parsed, err := c.parseLogs(logs)
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to parse logs", err)
-	}
-
-	return c.convertToTransmitEvents(parsed, end)
+	return c.processLogs(end, logs...)
 }
 
-func (c *TransmitEventProvider) parseLogs(logs []logpoller.Log) ([]transmitEventLog, error) {
-	results := []transmitEventLog{}
-
-	for _, log := range logs {
-		rawLog := log.ToGethLog()
-		abilog, err := c.registry.ParseLog(rawLog)
-		if err != nil {
-			return nil, fmt.Errorf("%w: failed to parse log", err)
-		}
-
-		switch l := abilog.(type) {
-		case *iregistry21.IKeeperRegistryMasterUpkeepPerformed:
-			if l == nil {
-				continue
-			}
-			results = append(results, transmitEventLog{
-				Log:       log,
-				Performed: l,
-			})
-		case *iregistry21.IKeeperRegistryMasterReorgedUpkeepReport:
-			if l == nil {
-				continue
-			}
-			results = append(results, transmitEventLog{
-				Log:     log,
-				Reorged: l,
-			})
-		case *iregistry21.IKeeperRegistryMasterStaleUpkeepReport:
-			if l == nil {
-				continue
-			}
-			results = append(results, transmitEventLog{
-				Log:   log,
-				Stale: l,
-			})
-		case *iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport:
-			if l == nil {
-				continue
-			}
-			results = append(results, transmitEventLog{
-				Log:               log,
-				InsufficientFunds: l,
-			})
-		default:
-			c.logger.Debugw("skipping unknown log type", "l", l)
-			continue
-		}
-	}
-
-	return results, nil
-}
-
-func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog, latestBlock int64) ([]ocr2keepers.TransmitEvent, error) {
+// processLogs will parse the unseen logs and return the corresponding transmit events.
+// If a log was seen before it will be picked from the cache.
+func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller.Log) ([]ocr2keepers.TransmitEvent, error) {
 	vals := []ocr2keepers.TransmitEvent{}
 
-	for _, l := range logs {
+	for _, log := range logs {
+		k := logKey(log)
+		if e, ok := c.cache.get(k); ok {
+			// used cached value if exist
+			vals = append(vals, e)
+			continue
+		}
+		l, err := c.parseLog(log)
+		if err != nil {
+			c.logger.Debugw("failed to parse log", "err", err)
+			continue
+		}
 		id := l.Id()
 		upkeepId := &ocr2keepers.UpkeepIdentifier{}
 		ok := upkeepId.FromBigInt(id)
@@ -233,7 +193,7 @@ func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog,
 		default:
 		}
 		workID := core.UpkeepWorkID(*upkeepId, trigger)
-		vals = append(vals, ocr2keepers.TransmitEvent{
+		e := ocr2keepers.TransmitEvent{
 			Type:            l.TransmitEventType(),
 			TransmitBlock:   ocr2keepers.BlockNumber(l.BlockNumber),
 			Confirmations:   latestBlock - l.BlockNumber,
@@ -241,10 +201,117 @@ func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog,
 			WorkID:          workID,
 			UpkeepID:        *upkeepId,
 			CheckBlock:      trigger.BlockNumber,
-		})
+		}
+		vals = append(vals, e)
+		c.cache.add(k, e)
 	}
 
 	return vals, nil
+}
+
+// parseLogs will parse the log into a transmitEventLog
+func (c *TransmitEventProvider) parseLog(log logpoller.Log) (transmitEventLog, error) {
+	rawLog := log.ToGethLog()
+	abilog, err := c.registry.ParseLog(rawLog)
+	if err != nil {
+		return transmitEventLog{}, fmt.Errorf("%w: failed to parse log", err)
+	}
+
+	switch l := abilog.(type) {
+	case *iregistry21.IKeeperRegistryMasterUpkeepPerformed:
+		if l == nil {
+			break
+		}
+		return transmitEventLog{
+			Log:       log,
+			Performed: l,
+		}, nil
+	case *iregistry21.IKeeperRegistryMasterReorgedUpkeepReport:
+		if l == nil {
+			break
+		}
+		return transmitEventLog{
+			Log:     log,
+			Reorged: l,
+		}, nil
+	case *iregistry21.IKeeperRegistryMasterStaleUpkeepReport:
+		if l == nil {
+			break
+		}
+		return transmitEventLog{
+			Log:   log,
+			Stale: l,
+		}, nil
+	case *iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport:
+		if l == nil {
+			break
+		}
+		return transmitEventLog{
+			Log:               log,
+			InsufficientFunds: l,
+		}, nil
+	default:
+		c.logger.Debugw("skipping unknown log type", "l", l)
+	}
+
+	return transmitEventLog{}, fmt.Errorf("unknown log type")
+}
+
+func logKey(log logpoller.Log) string {
+	logExt := ocr2keepers.LogTriggerExtension{
+		TxHash: log.TxHash,
+		Index:  uint32(log.LogIndex),
+	}
+	logId := logExt.LogIdentifier()
+	return hex.EncodeToString(logId)
+}
+
+// transmitEventCache holds a ring buffer of the last visited blocks (transmit block),
+// and their corresponding logs (by log id).
+// Using a ring buffer allows us to keep a cache of the last N blocks,
+// without having to iterate over the entire buffer to clean it up.
+type transmitEventCache struct {
+	lock   sync.RWMutex
+	buffer []map[string]ocr2keepers.TransmitEvent
+
+	cap int64
+}
+
+func newTransmitEventCache(cap int) transmitEventCache {
+	return transmitEventCache{
+		buffer: make([]map[string]ocr2keepers.TransmitEvent, cap),
+		cap:    int64(cap),
+	}
+}
+
+func (c *transmitEventCache) get(logID string) (ocr2keepers.TransmitEvent, bool) {
+	c.lock.RLock()
+	defer c.lock.RUnlock()
+
+	for i := range c.buffer {
+		b := c.buffer[i]
+		if len(b) == 0 {
+			continue
+		}
+		e, ok := b[logID]
+		if ok {
+			return e, true
+		}
+	}
+	return ocr2keepers.TransmitEvent{}, false
+}
+
+func (c *transmitEventCache) add(logID string, e ocr2keepers.TransmitEvent) {
+	c.lock.Lock()
+	defer c.lock.Unlock()
+
+	i := int64(e.TransmitBlock) % int64(c.cap)
+	b := c.buffer[i]
+	if len(b) == 0 {
+		b = make(map[string]ocr2keepers.TransmitEvent)
+	}
+	b[logID] = e
+	c.buffer[i] = b
 }
 
 // transmitEventLog is a wrapper around logpoller.Log and the parsed log

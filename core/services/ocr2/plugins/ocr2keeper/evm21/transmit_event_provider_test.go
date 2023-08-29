@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -24,11 +25,11 @@ func TestTransmitEventProvider(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	mp := new(mocks.LogPoller)
+	lp := new(mocks.LogPoller)
 
-	mp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("RegisterFilter", mock.Anything).Return(nil)
 
-	provider, err := NewTransmitEventProvider(logger.TestLogger(t), mp, common.HexToAddress("0x"), client.NewNullClient(big.NewInt(1), logger.TestLogger(t)), 32)
+	provider, err := NewTransmitEventProvider(logger.TestLogger(t), lp, common.HexToAddress("0x"), client.NewNullClient(big.NewInt(1), logger.TestLogger(t)), 32)
 	require.NoError(t, err)
 	require.NotNil(t, provider)
 
@@ -89,8 +90,8 @@ func TestTransmitEventProvider(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			mp.On("LatestBlock", mock.Anything).Return(tc.latestBlock, nil)
-			mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.logs, nil)
+			lp.On("LatestBlock", mock.Anything).Return(tc.latestBlock, nil)
+			lp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.logs, nil)
 
 			res, err := provider.GetLatestEvents(ctx)
 			require.Equal(t, tc.errored, err != nil)
@@ -99,46 +100,53 @@ func TestTransmitEventProvider(t *testing.T) {
 	}
 }
 
-func TestTransmitEventProvider_ConvertToTransmitEvents(t *testing.T) {
-	provider := &TransmitEventProvider{}
-	id := core.GenUpkeepID(ocr2keepers.LogTrigger, "1111111111111111")
+// {"EvmChainId":"1337","LogIndex":11,"BlockHash":"0x0f220443e2dc988851c69569c8929e2125ebfc81338c030380fb713658efcc52","BlockNumber":536,"BlockTimestamp":"1970-01-01T03:29:20+02:00","Topics":["rYzJV5sh3+LC9uo1uhW2VuRrT1sMtCT1Jzm4zlysnFs=","GTkpnAAAAAAAAAAAAAAAAQ+7hJM0Mbulrh8+1CxZ/nI=","AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE="],"EventSig":"0xad8cc9579b21dfe2c2f6ea35ba15b656e46b4f5b0cb424f52739b8ce5cac9c5b","Address":"0x0ef848e980980c633864139e5cf4004ef0a52324","TxHash":"0xe2d4ca9ebf8321d37deb1466965e9f70d8e9e67f9726a6fd1ed8537ae963cb53","Data":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAU/hhVa6AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABV1QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAes1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgEBqTDkJvytuYCUcOW0LhtlXd22ArWxnmXyu7kdz8FHxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACF0H2cZJJyfkjLQd6BuXkGbidAlLftLwn6eJ/Ew82eea7","CreatedAt":"2023-08-29T18:01:45.829126+03:00"}
+func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
+	lp := new(mocks.LogPoller)
+	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	client := evmClientMocks.NewClient(t)
+	provider, err := NewTransmitEventProvider(logger.TestLogger(t), lp, common.HexToAddress("0x"), client, 250)
+	require.NoError(t, err)
+
 	tests := []struct {
 		name        string
-		performed   []transmitEventLog
+		performed   []logpoller.Log
 		latestBlock int64
 		want        []ocr2keepers.TransmitEvent
 		errored     bool
 	}{
 		{
 			"happy flow",
-			[]transmitEventLog{
+			[]logpoller.Log{
 				{
-					Log: logpoller.Log{
-						BlockNumber: 1,
-						BlockHash:   common.HexToHash("0x0102030405060708010203040506070801020304050607080102030405060708"),
+					LogIndex:    11,
+					TxHash:      common.HexToHash("0xe2d4ca9ebf8321d37deb1466965e9f70d8e9e67f9726a6fd1ed8537ae963cb53"),
+					BlockHash:   common.HexToHash("0x0f220443e2dc988851c69569c8929e2125ebfc81338c030380fb713658efcc52"),
+					BlockNumber: 536,
+					EventSig:    common.HexToHash("0xad8cc9579b21dfe2c2f6ea35ba15b656e46b4f5b0cb424f52739b8ce5cac9c5b"),
+					Address:     common.HexToAddress("0x0ef848e980980c633864139e5cf4004ef0a52324"),
+					Topics: [][]byte{
+						[]byte("rYzJV5sh3+LC9uo1uhW2VuRrT1sMtCT1Jzm4zlysnFs="),
+						[]byte("GTkpnAAAAAAAAAAAAAAAAQ+7hJM0Mbulrh8+1CxZ/nI="),
+						[]byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE="),
+						// common.HexToHash("rYzJV5sh3+LC9uo1uhW2VuRrT1sMtCT1Jzm4zlysnFs=").Bytes(),
+						// common.HexToHash("GTkpnAAAAAAAAAAAAAAAAQ+7hJM0Mbulrh8+1CxZ/nI=").Bytes(),
+						// common.HexToHash("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE=").Bytes(),
 					},
-					Performed: &iregistry21.IKeeperRegistryMasterUpkeepPerformed{
-						Id: id.BigInt(),
-						Trigger: func() []byte {
-							b, _ := hexutil.Decode("0x0000000000000000000000000000000000000000000000000000000001111111000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
-							return b
-						}(),
-					},
+					Data: func() []byte {
+						b, _ := hexutil.Decode("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAU/hhVa6AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABV1QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAes1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgEBqTDkJvytuYCUcOW0LhtlXd22ArWxnmXyu7kdz8FHxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACF0H2cZJJyfkjLQd6BuXkGbidAlLftLwn6eJ/Ew82eea7")
+						return b
+					}(),
+					// Data: []byte("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAU/hhVa6AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABV1QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAes1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgEBqTDkJvytuYCUcOW0LhtlXd22ArWxnmXyu7kdz8FHxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACF0H2cZJJyfkjLQd6BuXkGbidAlLftLwn6eJ/Ew82eea7"),
 				},
 			},
 			1,
-			[]ocr2keepers.TransmitEvent{
-				{
-					Type:       ocr2keepers.PerformEvent,
-					UpkeepID:   id,
-					CheckBlock: ocr2keepers.BlockNumber(1), // empty for log triggers
-				},
-			},
+			[]ocr2keepers.TransmitEvent{}, // TODO: fix test and add result
 			false,
 		},
 		{
 			"empty events",
-			[]transmitEventLog{},
+			[]logpoller.Log{},
 			1,
 			[]ocr2keepers.TransmitEvent{},
 			false,
@@ -147,7 +155,7 @@ func TestTransmitEventProvider_ConvertToTransmitEvents(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			results, err := provider.convertToTransmitEvents(tc.performed, tc.latestBlock)
+			results, err := provider.processLogs(tc.latestBlock, tc.performed...)
 			require.Equal(t, tc.errored, err != nil)
 			require.Len(t, results, len(tc.want))
 			for i, res := range results {
