@@ -305,15 +305,14 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 		return err
 	}
 
-	var logs []logpoller.Log
-	logs = append(unpausedLogs, configSetLogs...)
+	logs := append(unpausedLogs, configSetLogs...)
 
 	configSetBlockNumbers := map[string]uint64{}
 	pausedBlockNumbers := map[string]uint64{}
 	perUpkeepConfig := map[string][]byte{}
 
-	for _, l := range logs {
-		rawLog := l.ToGethLog()
+	for _, log := range logs {
+		rawLog := log.ToGethLog()
 		abilog, err := r.registry.ParseLog(rawLog)
 		if err != nil {
 			return err
