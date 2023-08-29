@@ -194,7 +194,7 @@ func (dq *decryptionQueue) GetCiphertext(ciphertextId decryptionPlugin.Ciphertex
 
 	req, ok := dq.pendingRequests[string(ciphertextId)]
 	if !ok {
-		return nil, fmt.Errorf("ciphertextID %s not found", ciphertextId)
+		return nil, decryptionPlugin.ErrNotFound
 	}
 
 	return req.ciphertext, nil
