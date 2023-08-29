@@ -72,7 +72,7 @@ func NewEvmRegistry(
 	lggr logger.Logger,
 	addr common.Address,
 	client evm.Chain,
-	feedLookupCompatibleABI, keeperRegistryABI abi.ABI,
+	streamsLookupCompatibleABI, keeperRegistryABI abi.ABI,
 	registry *iregistry21.IKeeperRegistryMaster,
 	mc *models.MercuryCredentials,
 	al ActiveUpkeepList,
@@ -94,7 +94,7 @@ func NewEvmRegistry(
 		chLog:        make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
 			cred:           mc,
-			abi:            feedLookupCompatibleABI,
+			abi:            streamsLookupCompatibleABI,
 			allowListCache: cache.New(defaultAllowListExpiration, allowListCleanupInterval),
 		},
 		hc:               http.DefaultClient,

@@ -1,7 +1,7 @@
 pragma solidity 0.8.16;
 
 import "../automation/interfaces/AutomationCompatibleInterface.sol";
-import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
+import "../dev/automation/2_1/interfaces/StreamsLookupCompatibleInterface.sol";
 import {ArbSys} from "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 
 //interface IVerifierProxy {
@@ -14,7 +14,7 @@ import {ArbSys} from "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys
 //  function verify(bytes memory signedReport) external returns (bytes memory verifierResponse);
 //}
 
-contract MercuryUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInterface {
+contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupCompatibleInterface {
   event MercuryPerformEvent(
     address indexed origin,
     address indexed sender,
@@ -82,7 +82,7 @@ contract MercuryUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInt
     }
     // encode ARB_SYS as extraData to verify that it is provided to checkCallback correctly.
     // in reality, this can be any data or empty
-    revert FeedLookup(feedParamKey, feeds, timeParamKey, blockNumber, abi.encodePacked(address(ARB_SYS)));
+    revert StreamsLookup(feedParamKey, feeds, timeParamKey, blockNumber, abi.encodePacked(address(ARB_SYS)));
   }
 
   function performUpkeep(bytes calldata performData) external {

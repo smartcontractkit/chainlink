@@ -64,7 +64,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 		return
 	}
 
-	upkeepResults = r.feedLookup(ctx, upkeepResults)
+	upkeepResults = r.streamsLookup(ctx, upkeepResults)
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {

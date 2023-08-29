@@ -3,9 +3,9 @@ pragma solidity 0.8.16;
 
 import "./VerifiableLoadBase.sol";
 import "../dev/automation/2_1/interfaces/ILogAutomation.sol";
-import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
+import "../dev/automation/2_1/interfaces/StreamsLookupCompatibleInterface.sol";
 
-contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompatibleInterface, ILogAutomation {
+contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, StreamsLookupCompatibleInterface, ILogAutomation {
   string[] public feedsHex = [
     "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
     "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"
@@ -60,7 +60,7 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
       }
 
       if (useMercury) {
-        revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId, blockNum));
+        revert StreamsLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId, blockNum));
       }
 
       // if we don't use mercury, create a perform data which resembles the output of checkCallback

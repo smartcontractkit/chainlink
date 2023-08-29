@@ -2,9 +2,9 @@
 pragma solidity 0.8.16;
 
 import "./VerifiableLoadBase.sol";
-import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
+import "../dev/automation/2_1/interfaces/StreamsLookupCompatibleInterface.sol";
 
-contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatibleInterface {
+contract VerifiableLoadStreamsLookupUpkeep is VerifiableLoadBase, StreamsLookupCompatibleInterface {
   string[] public feedsHex = [
     "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
     "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
@@ -46,7 +46,7 @@ contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatible
       return (false, pData);
     }
 
-    revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId));
+    revert StreamsLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId));
   }
 
   function performUpkeep(bytes calldata performData) external {
