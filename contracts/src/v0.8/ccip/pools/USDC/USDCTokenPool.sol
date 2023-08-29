@@ -141,13 +141,11 @@ contract USDCTokenPool is TokenPool {
   function _parseUSDCMessage(
     bytes memory usdcMessage
   ) internal pure returns (uint64 nonce, bytes32 sender, bytes32 receiver) {
+    // solhint-disable-next-line no-inline-assembly
     assembly {
-      // 12 + 8 = 20
-      nonce := mload(add(usdcMessage, 20))
-      // 20 + 32 = 52
-      sender := mload(add(usdcMessage, 52))
-      // 52 + 32 = 84
-      receiver := mload(add(usdcMessage, 84))
+      nonce := mload(add(usdcMessage, 20)) // 12 + 8 = 20
+      sender := mload(add(usdcMessage, 52)) // 20 + 32 = 52
+      receiver := mload(add(usdcMessage, 84)) // 52 + 32 = 84
     }
 
     return (nonce, sender, receiver);
