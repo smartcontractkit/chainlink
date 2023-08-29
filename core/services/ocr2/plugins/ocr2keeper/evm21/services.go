@@ -68,11 +68,13 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 	packer := encoding.NewAbiPacker(keeperRegistryABI, utilsABI)
 	services.encoder = encoding.NewReportEncoder(packer)
 
+	finalityDepth := client.Config().EVM().FinalityDepth()
+
 	orm := upkeepstate.NewORM(client.ID(), db, lggr, dbCfg)
-	scanner := upkeepstate.NewPerformedEventsScanner(lggr, client.LogPoller(), addr)
+	scanner := upkeepstate.NewPerformedEventsScanner(lggr, client.LogPoller(), addr, finalityDepth)
 	services.upkeepState = upkeepstate.NewUpkeepStateStore(orm, lggr, scanner)
 
-	logProvider, logRecoverer := logprovider.New(lggr, client.LogPoller(), client.Client(), utilsABI, services.upkeepState)
+	logProvider, logRecoverer := logprovider.New(lggr, client.LogPoller(), client.Client(), utilsABI, services.upkeepState, finalityDepth)
 	services.logProvider = logProvider
 	services.logRecoverer = logRecoverer
 	services.blockSub = NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), lggr)

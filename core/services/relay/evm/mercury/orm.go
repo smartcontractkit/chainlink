@@ -21,7 +21,7 @@ import (
 )
 
 type ORM interface {
-	InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error
+	InsertTransmitRequest(req *pb.TransmitRequest, jobID int32, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error
 	DeleteTransmitRequests(reqs []*pb.TransmitRequest, qopts ...pg.QOpt) error
 	GetTransmitRequests(qopts ...pg.QOpt) ([]*Transmission, error)
 	PruneTransmitRequests(maxSize int, qopts ...pg.QOpt) error
@@ -48,7 +48,7 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 }
 
 // InsertTransmitRequest inserts one transmit request if the payload does not exist already.
-func (o *orm) InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error {
+func (o *orm) InsertTransmitRequest(req *pb.TransmitRequest, jobID int32, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -57,10 +57,10 @@ func (o *orm) InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.
 	go func() {
 		defer wg.Done()
 		err1 = q.ExecQ(`
-		INSERT INTO mercury_transmit_requests (payload, payload_hash, config_digest, epoch, round, extra_hash)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO mercury_transmit_requests (payload, payload_hash, config_digest, epoch, round, extra_hash, job_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (payload_hash) DO NOTHING
-	`, req.Payload, hashPayload(req.Payload), reportCtx.ConfigDigest[:], reportCtx.Epoch, reportCtx.Round, reportCtx.ExtraHash[:])
+	`, req.Payload, hashPayload(req.Payload), reportCtx.ConfigDigest[:], reportCtx.Epoch, reportCtx.Round, reportCtx.ExtraHash[:], jobID)
 	}()
 
 	feedID, err := FeedIDFromReport(req.Payload)
@@ -70,12 +70,12 @@ func (o *orm) InsertTransmitRequest(req *pb.TransmitRequest, reportCtx ocrtypes.
 	go func() {
 		defer wg.Done()
 		err2 = q.ExecQ(`
-		INSERT INTO feed_latest_reports (feed_id, report, epoch, round, updated_at)
-		VALUES ($1, $2, $3, $4, NOW())
+		INSERT INTO feed_latest_reports (feed_id, report, epoch, round, updated_at, job_id)
+		VALUES ($1, $2, $3, $4, NOW(), $5)
 		ON CONFLICT (feed_id) DO UPDATE
 		SET feed_id=$1, report=$2, epoch=$3, round=$4, updated_at=NOW()
 		WHERE excluded.epoch > feed_latest_reports.epoch OR (excluded.epoch = feed_latest_reports.epoch AND excluded.round > feed_latest_reports.round)
-		`, feedID[:], req.Payload, reportCtx.Epoch, reportCtx.Round)
+		`, feedID[:], req.Payload, reportCtx.Epoch, reportCtx.Round, jobID)
 	}()
 	wg.Wait()
 	return errors.Join(err1, err2)

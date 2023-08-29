@@ -8,6 +8,7 @@ import {SubscriptionAPI} from "../../../../src/v0.8/dev/vrf/SubscriptionAPI.sol"
 import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol";
 import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
+import {VRFV2PlusMaliciousMigrator} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusMaliciousMigrator.sol";
 
 contract VRFCoordinatorV2Plus_Migration is BaseTest {
   uint256 internal constant DEFAULT_LINK_FUNDING = 10 ether; // 10 LINK
@@ -208,6 +209,19 @@ contract VRFCoordinatorV2Plus_Migration is BaseTest {
 
     vm.expectRevert(bytes("Pending request exists"));
     v1Coordinator.migrate(subId, v2CoordinatorAddr);
+  }
+
+  function testMigrateRevertsWhenReentrant() public {
+    // deploy malicious contracts, subscriptions
+    address maliciousUser = makeAddr("maliciousUser");
+    changePrank(maliciousUser);
+    uint256 maliciousSubId = v1Coordinator.createSubscription();
+    VRFV2PlusMaliciousMigrator prankster = new VRFV2PlusMaliciousMigrator(address(v1Coordinator));
+    v1Coordinator.addConsumer(maliciousSubId, address(prankster));
+
+    // try to migrate malicious subscription, should fail
+    vm.expectRevert(abi.encodeWithSelector(SubscriptionAPI.Reentrant.selector));
+    v1Coordinator.migrate(maliciousSubId, v2CoordinatorAddr);
   }
 
   function registerProvingKey() public {

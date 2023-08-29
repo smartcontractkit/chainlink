@@ -18,6 +18,13 @@ interface IFeeManager is IERC165, IVerifierFeeManager {
   function processFee(bytes calldata payload, address subscriber) external payable;
 
   /**
+   * @notice Processes the fees for each report in the payload, billing the subscriber and paying the reward manager
+   * @param payloads reports and quotes to process
+   * @param subscriber address of the user to process fee for
+   */
+  function processFeeBulk(bytes[] calldata payloads, address subscriber) external payable;
+
+  /**
    * @notice Calculate the applied fee and the reward from a report. If the sender is a subscriber, they will receive a discount.
    * @param subscriber address trying to verify
    * @param report report to calculate the fee for
@@ -44,7 +51,7 @@ interface IFeeManager is IERC165, IVerifierFeeManager {
    * @notice Sets the native surcharge
    * @param surcharge surcharge to be paid if paying in native
    */
-  function setNativeSurcharge(uint256 surcharge) external;
+  function setNativeSurcharge(uint64 surcharge) external;
 
   /**
    * @notice Adds a subscriber to the fee manager
@@ -53,14 +60,14 @@ interface IFeeManager is IERC165, IVerifierFeeManager {
    * @param token token to apply the discount to
    * @param discount discount to be applied to the fee
    */
-  function updateSubscriberDiscount(address subscriber, bytes32 feedId, address token, uint256 discount) external;
+  function updateSubscriberDiscount(address subscriber, bytes32 feedId, address token, uint64 discount) external;
 
   /**
-   * @notice Withdraws any native rewards to the owner address
-   * @param quantity quantity of native tokens to withdraw, address(0) is native
+   * @notice Withdraws any native or LINK rewards to the owner address
+   * @param quantity quantity of tokens to withdraw, address(0) is native
    * @param quantity quantity to withdraw
    */
-  function withdraw(address assetAddress, uint256 quantity) external;
+  function withdraw(address assetAddress, uint192 quantity) external;
 
   /**
    * @notice Returns the link balance of the fee manager
@@ -73,4 +80,16 @@ interface IFeeManager is IERC165, IVerifierFeeManager {
    * @param configDigest the config digest to pay the deficit for
    */
   function payLinkDeficit(bytes32 configDigest) external;
+
+  /**
+   * @notice The structure to hold a fee and reward to verify a report
+   * @param digest the digest linked to the fee and reward
+   * @param fee the fee paid to verify the report
+   * @param reward the reward paid upon verification
+   */
+  struct FeeAndReward {
+    bytes32 configDigest;
+    Common.Asset fee;
+    Common.Asset reward;
+  }
 }

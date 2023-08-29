@@ -1,11 +1,13 @@
 package logprovider
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -87,7 +89,7 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 	mp.On("RegisterFilter", mock.Anything).Return(nil)
 	mp.On("UnregisterFilter", mock.Anything).Return(nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
-	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), nil)
+	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -114,7 +116,7 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	mp.On("UnregisterFilter", mock.Anything).Return(nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
 
-	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), nil)
+	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
 
 	require.NoError(t, p.RegisterFilter(FilterOptions{
 		UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1111").BigInt(),
@@ -146,134 +148,56 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	require.Equal(t, 1, p.filterStore.Size())
 }
 
-func TestLogEventProvider_GetFiltersBySelector(t *testing.T) {
-	var zeroBytes [32]byte
+func TestLogEventProvider_ValidateLogTriggerConfig(t *testing.T) {
+	contractAddress := common.HexToAddress("0xB9F3af0c2CbfE108efd0E23F7b0a151Ea42f764E")
+	eventSig := common.HexToHash("0x3bdab8bffae631cfee411525ebae27f3fb61b10c662c09ec2a7dbb5854c87e8c")
 	tests := []struct {
-		name           string
-		filterSelector uint8
-		filters        [][]byte
-		expectedSigs   []common.Hash
+		name        string
+		cfg         LogTriggerConfig
+		expectedErr error
 	}{
 		{
-			"invalid filters",
-			1,
-			[][]byte{
-				zeroBytes[:],
+			"success",
+			LogTriggerConfig{
+				ContractAddress: contractAddress,
+				FilterSelector:  0,
+				Topic0:          eventSig,
 			},
-			[]common.Hash{},
+			nil,
 		},
 		{
-			"selector 000",
-			0,
-			[][]byte{
-				{1},
+			"invalid contract address",
+			LogTriggerConfig{
+				ContractAddress: common.Address{},
+				FilterSelector:  0,
+				Topic0:          eventSig,
 			},
-			[]common.Hash{},
+			fmt.Errorf("invalid contract address: zeroed"),
 		},
 		{
-			"selector 001",
-			1,
-			[][]byte{
-				{1},
-				{2},
-				{3},
+			"invalid topic0",
+			LogTriggerConfig{
+				ContractAddress: contractAddress,
+				FilterSelector:  0,
 			},
-			[]common.Hash{
-				common.BytesToHash(common.LeftPadBytes([]byte{1}, 32)),
-			},
+			fmt.Errorf("invalid topic0: zeroed"),
 		},
 		{
-			"selector 010",
-			2,
-			[][]byte{
-				{1},
-				{2},
-				{3},
+			"success",
+			LogTriggerConfig{
+				ContractAddress: contractAddress,
+				FilterSelector:  8,
+				Topic0:          eventSig,
 			},
-			[]common.Hash{
-				common.BytesToHash(common.LeftPadBytes([]byte{2}, 32)),
-			},
-		},
-		{
-			"selector 011",
-			3,
-			[][]byte{
-				{1},
-				{2},
-				{3},
-			},
-			[]common.Hash{
-				common.BytesToHash(common.LeftPadBytes([]byte{1}, 32)),
-				common.BytesToHash(common.LeftPadBytes([]byte{2}, 32)),
-			},
-		},
-		{
-			"selector 100",
-			4,
-			[][]byte{
-				{1},
-				{2},
-				{3},
-			},
-			[]common.Hash{
-				common.BytesToHash(common.LeftPadBytes([]byte{3}, 32)),
-			},
-		},
-		{
-			"selector 101",
-			5,
-			[][]byte{
-				{1},
-				{2},
-				{3},
-			},
-			[]common.Hash{
-				common.BytesToHash(common.LeftPadBytes([]byte{1}, 32)),
-				common.BytesToHash(common.LeftPadBytes([]byte{3}, 32)),
-			},
-		},
-		{
-			"selector 110",
-			6,
-			[][]byte{
-				{1},
-				{2},
-				{3},
-			},
-			[]common.Hash{
-				common.BytesToHash(common.LeftPadBytes([]byte{2}, 32)),
-				common.BytesToHash(common.LeftPadBytes([]byte{3}, 32)),
-			},
-		},
-		{
-			"selector 111",
-			7,
-			[][]byte{
-				{1},
-				{2},
-				{3},
-			},
-			[]common.Hash{
-				common.BytesToHash(common.LeftPadBytes([]byte{1}, 32)),
-				common.BytesToHash(common.LeftPadBytes([]byte{2}, 32)),
-				common.BytesToHash(common.LeftPadBytes([]byte{3}, 32)),
-			},
+			fmt.Errorf("invalid filter selector: larger or equal to 8"),
 		},
 	}
 
-	p := NewLogProvider(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), nil)
-
+	p := NewLogProvider(logger.TestLogger(t), nil, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			sigs := p.getFiltersBySelector(tc.filterSelector, tc.filters...)
-			if len(sigs) != len(tc.expectedSigs) {
-				t.Fatalf("expected %v, got %v", len(tc.expectedSigs), len(sigs))
-			}
-			for i := range sigs {
-				if sigs[i] != tc.expectedSigs[i] {
-					t.Fatalf("expected %v, got %v", tc.expectedSigs[i], sigs[i])
-				}
-			}
+			err := p.validateLogTriggerConfig(tc.cfg)
+			assert.Equal(t, tc.expectedErr, err)
 		})
 	}
 }
