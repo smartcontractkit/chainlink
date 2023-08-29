@@ -803,7 +803,7 @@ jobs:
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, build-test-image]
+    needs: [build-chainlink]
     env:
       SELECTED_NETWORKS: ${{ matrix.testnet }}
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
