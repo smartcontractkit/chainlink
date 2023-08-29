@@ -423,7 +423,10 @@ func (o *OCRSoakTest) Resume() {
 		StartTime: time.Now(),
 		Message:   "Test Resumed",
 	})
-	log.Info().Str("Time Left", o.Inputs.TestDuration.String()).Msg("Resuming OCR Soak Test")
+	log.Info().
+		Str("Total Duration", o.Inputs.TestDuration.String()).
+		Str("Time Left", o.timeLeft.String()).
+		Msg("Resuming OCR Soak Test")
 
 	ocrAddresses := make([]common.Address, len(o.ocrInstances))
 	for i, ocrInstance := range o.ocrInstances {
@@ -468,6 +471,13 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	o.setFilterQuery()
 	err := o.observeOCREvents()
 	require.NoError(o.t, err, "Error subscribing to OCR events")
+
+	//DEBUG: Check for resume logic
+	go func() {
+		time.Sleep(time.Minute * 5)
+		o.log.Warn().Msg("Killing Test")
+		interruption <- os.Interrupt
+	}()
 
 	for {
 		select {
