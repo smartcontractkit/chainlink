@@ -45,13 +45,11 @@ func TestSolanaChain_GetClient(t *testing.T) {
 	defer mockServer.Close()
 
 	solORM := &mockConfigs{}
-	//lggr := logger.TestLogger(t)
 
 	ch := solcfg.Chain{}
 	ch.SetDefaults()
 	cfg := &SolanaConfig{
 		ChainID: ptr("devnet"),
-		Enabled: ptr(true),
 		Chain:   ch,
 	}
 	testChain := chain{
@@ -151,7 +149,6 @@ func TestSolanaChain_VerifiedClient(t *testing.T) {
 	ch.SetDefaults()
 	cfg := &SolanaConfig{
 		ChainID: ptr("devnet"),
-		Enabled: ptr(true),
 		Chain:   ch,
 	}
 	testChain := chain{

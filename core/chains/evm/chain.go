@@ -400,13 +400,13 @@ func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, ba
 }
 
 func (c *chain) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
-	toml, err := c.cfg.TOMLString()
+	toml, err := c.cfg.EVM().TOMLString()
 	if err != nil {
 		return types.ChainStatus{}, err
 	}
 	return types.ChainStatus{
 		ID:      c.ID().String(),
-		Enabled: c.cfg.EVMEnabled(),
+		Enabled: c.cfg.EVM().IsEnabled(),
 		Config:  toml,
 	}, nil
 }

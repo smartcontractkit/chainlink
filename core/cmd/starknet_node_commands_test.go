@@ -6,10 +6,11 @@ import (
 	"testing"
 
 	"github.com/pelletier/go-toml/v2"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
-	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
@@ -43,7 +44,6 @@ func TestShell_IndexStarkNetNodes(t *testing.T) {
 	chain := starknet.StarknetConfig{
 		ChainID: &id,
 		Nodes:   starknet.StarknetNodes{&node1, &node2},
-		Enabled: ptr(true),
 	}
 	app := starknetStartNewApplication(t, &chain)
 	client, r := app.NewShellAndRenderer()

@@ -34,10 +34,6 @@ func (c *ChainScoped) EVM() EVM {
 	return c.evmConfig
 }
 
-func (c *ChainScoped) TOMLString() (string, error) {
-	return c.evmConfig.c.TOMLString()
-}
-
 func (c *ChainScoped) Nodes() toml.EVMNodes {
 	return c.evmConfig.c.Nodes
 }
@@ -66,6 +62,14 @@ func (c *ChainScoped) Validate() (err error) {
 
 type evmConfig struct {
 	c *toml.EVMConfig
+}
+
+func (e *evmConfig) IsEnabled() bool {
+	return e.c.IsEnabled()
+}
+
+func (e *evmConfig) TOMLString() (string, error) {
+	return e.c.TOMLString()
 }
 
 func (e *evmConfig) BalanceMonitor() BalanceMonitor {

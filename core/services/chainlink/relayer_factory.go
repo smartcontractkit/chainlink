@@ -2,7 +2,6 @@ package chainlink
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/pelletier/go-toml/v2"
@@ -12,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
@@ -123,23 +121,19 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 			if err != nil {
 				return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
 			}
-			// TODO change the solana loop toml deserializer so we can get rid of the singleChainCfg
+
 			solanaRelayers[relayId] = loop.NewRelayerService(solLggr, r.GRPCOpts, solCmdFn, string(cfgTOML), signer)
 
 		} else {
 			// fallback to embedded chain
-			opts := solana.ChainSetOpts{
+			opts := solana.ChainOpts{
 				Logger:   solLggr,
 				KeyStore: signer,
 				Configs:  solana.NewConfigs(singleChainCfg),
 			}
 
 			relayExt, err := solana.NewRelayExtender(chainCfg, opts)
-			if errors.Is(err, chains.ErrChainDisabled) {
-				// this should not happen because the driving loop is supposed to skip disabled chains
-				solLggr.Warnw("Skipping disabled chain", "err", err)
-				continue
-			} else if err != nil {
+			if err != nil {
 				return nil, err
 			}
 			solanaRelayers[relayId] = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, relayExt), relayExt)
@@ -153,7 +147,7 @@ type StarkNetFactoryConfig struct {
 	starknet.StarknetConfigs
 }
 
-// TODO consider consolidating the driving logic with that of NewSolana above via generics
+// TODO BCF-2606 consider consolidating the driving logic with that of NewSolana above via generics
 // perhaps when we implement a Cosmos LOOP
 func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.StarknetConfigs) (map[relay.ID]loop.Relayer, error) {
 	starknetRelayers := make(map[relay.ID]loop.Relayer)
@@ -203,18 +197,14 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 			starknetRelayers[relayId] = loop.NewRelayerService(starkLggr, r.GRPCOpts, starknetCmdFn, string(cfgTOML), loopKs)
 		} else {
 			// fallback to embedded chainset
-			opts := starknet.ChainSetOpts{
+			opts := starknet.ChainOpts{
 				Logger:   starkLggr,
 				KeyStore: loopKs,
 				Configs:  starknet.NewConfigs(singleChainCfg),
 			}
 
 			relayExt, err := starknet.NewRelayExtender(chainCfg, opts)
-			if errors.Is(err, chains.ErrChainDisabled) {
-				// this should not happen because the driving loop is supposed to skip disabled chains
-				starkLggr.Warnw("Skipping disabled chain", "err", err)
-				continue
-			} else if err != nil {
+			if err != nil {
 				return nil, err
 			}
 
@@ -242,7 +232,7 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 		// all the lower level APIs expect chainsets. create a single valued set per id
 		// TODO: Cosmos LOOPp impl. For now, use relayer adapter
 
-		opts := cosmos.ChainSetOpts{
+		opts := cosmos.ChainOpts{
 			QueryConfig:      r.QConfig,
 			Logger:           lggr.Named(relayId.ChainID.String()),
 			DB:               r.DB,

@@ -44,7 +44,6 @@ func TestShell_IndexSolanaNodes(t *testing.T) {
 	chain := solana.SolanaConfig{
 		ChainID: &id,
 		Nodes:   solana.SolanaNodes{&node1, &node2},
-		Enabled: ptr(true),
 	}
 	app := solanaStartNewApplication(t, &chain)
 	client, r := app.NewShellAndRenderer()

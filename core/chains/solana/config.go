@@ -229,7 +229,7 @@ func legacySolNode(n *solcfg.Node, chainID string) soldb.Node {
 
 type SolanaConfig struct {
 	ChainID *string
-	// Do not access directly, use IsEnabled
+	// Do not access directly, use [IsEnabled]
 	Enabled *bool
 	solcfg.Chain
 	Nodes SolanaNodes

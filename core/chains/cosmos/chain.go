@@ -39,6 +39,66 @@ import (
 // TODO(BCI-979): Remove this, or make this configurable with the updated client.
 const DefaultRequestTimeout = 30 * time.Second
 
+var (
+	// ErrChainIDEmpty is returned when chain is required but was empty.
+	ErrChainIDEmpty = errors.New("chain id empty")
+	// ErrChainIDInvalid is returned when a chain id does not match any configured chains.
+	ErrChainIDInvalid = errors.New("chain id does not match any local chains")
+)
+
+// Chain is a wrap for easy use in other places in the core node
+type Chain = adapters.Chain
+
+// ChainOpts holds options for configuring a Chain.
+type ChainOpts struct {
+	QueryConfig      pg.QConfig
+	Logger           logger.Logger
+	DB               *sqlx.DB
+	KeyStore         keystore.Cosmos
+	EventBroadcaster pg.EventBroadcaster
+	Configs          types.Configs
+}
+
+func (o *ChainOpts) Validate() (err error) {
+	required := func(s string) error {
+		return fmt.Errorf("%s is required", s)
+	}
+	if o.QueryConfig == nil {
+		err = multierr.Append(err, required("Config"))
+	}
+	if o.Logger == nil {
+		err = multierr.Append(err, required("Logger'"))
+	}
+	if o.DB == nil {
+		err = multierr.Append(err, required("DB"))
+	}
+	if o.KeyStore == nil {
+		err = multierr.Append(err, required("KeyStore"))
+	}
+	if o.EventBroadcaster == nil {
+		err = multierr.Append(err, required("EventBroadcaster"))
+	}
+	if o.Configs == nil {
+		err = multierr.Append(err, required("Configs"))
+	}
+	return
+}
+
+func (o *ChainOpts) ConfigsAndLogger() (chains.Configs[string, db.Node], logger.Logger) {
+	return o.Configs, o.Logger
+}
+
+func NewChain(cfg *CosmosConfig, opts ChainOpts) (adapters.Chain, error) {
+	if !cfg.IsEnabled() {
+		return nil, fmt.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
+	}
+	c, err := newChain(*cfg.ChainID, cfg, opts.DB, opts.KeyStore, opts.QueryConfig, opts.EventBroadcaster, opts.Configs, opts.Logger)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
 var _ adapters.Chain = (*chain)(nil)
 
 type chain struct {

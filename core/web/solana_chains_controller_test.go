@@ -43,7 +43,6 @@ func Test_SolanaChainsController_Show(t *testing.T) {
 					ID:      validId,
 					Enabled: true,
 					Config: `ChainID = 'Chainlink-12'
-Enabled = true
 BalancePollPeriod = '5s'
 ConfirmPollPeriod = '500ms'
 OCR2CachePollPeriod = '1s'
@@ -87,7 +86,6 @@ Nodes = []
 					SkipPreflight: ptr(false),
 					TxTimeout:     utils.MustNewDuration(time.Hour),
 				},
-				Enabled: ptr(true),
 			})
 
 			wantedResult := tc.want(t, controller.app)
@@ -118,14 +116,12 @@ func Test_SolanaChainsController_Index(t *testing.T) {
 		Chain: config.Chain{
 			TxTimeout: utils.MustNewDuration(time.Hour),
 		},
-		Enabled: ptr(true),
 	}
 	chainB := &solana.SolanaConfig{
 		ChainID: ptr(fmt.Sprintf("ChainlinktestB-%d", rand.Int31n(999999))),
 		Chain: config.Chain{
 			SkipPreflight: ptr(false),
 		},
-		Enabled: ptr(true),
 	}
 	controller := setupSolanaChainsControllerTestV2(t, chainA, chainB)
 
