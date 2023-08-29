@@ -97,23 +97,26 @@ func (o *orm) AuthorizedUserWithSession(sessionID string) (User, error) {
 	}
 
 	var user User
+
+	var foundSession struct {
+		Email string
+		Valid bool
+	}
+
+	if err := o.q.Get(&foundSession, "SELECT email, last_used + $2 >= now() as valid FROM sessions WHERE id = $1 FOR UPDATE", sessionID, o.sessionDuration); err != nil {
+		o.lggr.Infof("query result: %v", foundSession)
+		return User{}, errors.Wrap(err, "no matching user for provided session token")
+	}
+
+	if !foundSession.Valid {
+		return User{}, ErrUserSessionExpired
+	}
+
+	if err := o.q.Get(&user, "SELECT * FROM users WHERE lower(email) = lower($1)", foundSession.Email); err != nil {
+		return User{}, errors.Wrap(err, "no matching user for provided session email")
+	}
+
 	err := o.q.Transaction(func(tx pg.Queryer) error {
-		// First find user based on session token
-		var foundSession struct {
-			Email string
-			Valid bool
-		}
-		if err := tx.Get(&foundSession, "SELECT email, last_used + $2 >= now() as valid FROM sessions WHERE id = $1 FOR UPDATE", sessionID, o.sessionDuration); err != nil {
-			return errors.Wrap(err, "no matching user for provided session token")
-		}
-
-		if !foundSession.Valid {
-			return ErrUserSessionExpired
-		}
-
-		if err := tx.Get(&user, "SELECT * FROM users WHERE lower(email) = lower($1)", foundSession.Email); err != nil {
-			return errors.Wrap(err, "no matching user for provided session email")
-		}
 		// Session valid and tied to user, update last_used
 		_, err := tx.Exec("UPDATE sessions SET last_used = now() WHERE id = $1 AND last_used + $2 >= now()", sessionID, o.sessionDuration)
 		if err != nil {
