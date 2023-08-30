@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "./CrossDomainOwnable.sol";
-import "./interfaces/ForwarderInterface.sol";
+import "../interfaces/ForwarderInterface.sol";
 
 /**
  * @title CrossDomainForwarder - L1 xDomain account representation

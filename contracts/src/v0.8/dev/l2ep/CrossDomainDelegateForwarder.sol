@@ -2,8 +2,8 @@
 pragma solidity ^0.8.0;
 
 import "./CrossDomainForwarder.sol";
-import "./interfaces/ForwarderInterface.sol";
-import "./interfaces/DelegateForwarderInterface.sol";
+import "../interfaces/ForwarderInterface.sol";
+import "../interfaces/DelegateForwarderInterface.sol";
 
 /**
  * @title CrossDomainDelegateForwarder - L1 xDomain account representation (with delegatecall support)
