@@ -4,28 +4,33 @@ import "../automation/interfaces/AutomationCompatibleInterface.sol";
 import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
 import {ArbSys} from "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 
-//interface IVerifierProxy {
-//  /**
-//   * @notice Verifies that the data encoded has been signed
-//   * correctly by routing to the correct verifier.
-//   * @param signedReport The encoded data to be verified.
-//   * @return verifierResponse The encoded response from the verifier.
-//   */
-//  function verify(bytes memory signedReport) external returns (bytes memory verifierResponse);
-//}
+interface IVerifierProxy {
+  /**
+   * @notice Verifies that the data encoded has been signed
+   * correctly by routing to the correct verifier.
+   * @param signedReport The encoded data to be verified.
+   * @return verifierResponse The encoded response from the verifier.
+   */
+  function verify(bytes memory signedReport) external returns (bytes memory verifierResponse);
+}
 
 contract MercuryUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInterface {
   event MercuryPerformEvent(
-    address indexed origin,
     address indexed sender,
     uint256 indexed blockNumber,
     bytes v0,
     bytes v1,
+    bytes verifiedV0,
+    bytes verifiedV1,
     bytes ed
   );
 
   ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
-  //  IVerifierProxy internal constant VERIFIER = IVerifierProxy(0xa4D813064dc6E2eFfaCe02a060324626d4C5667f);
+  // keep these in sync with verifier proxy in RDD
+  IVerifierProxy internal constant PRODUCTION_TESTNET_VERIFIER_PROXY =
+    IVerifierProxy(0x09DFf56A4fF44e0f4436260A04F5CFa65636A481);
+  IVerifierProxy internal constant STAGING_TESTNET_VERIFIER_PROXY =
+    IVerifierProxy(0x60448B880c9f3B501af3f343DA9284148BD7D77C);
 
   uint256 public testRange;
   uint256 public interval;
@@ -35,24 +40,38 @@ contract MercuryUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInt
   string[] public feeds;
   string public feedParamKey;
   string public timeParamKey;
-  bool public immutable useL1BlockNumber;
+  bool public immutable useArbBlock;
+  bool public staging;
+  bool public verify;
   bool public shouldRevertCallback;
   bool public callbackReturnBool;
 
-  constructor(uint256 _testRange, uint256 _interval, bool _useL1BlockNumber) {
+  constructor(uint256 _testRange, uint256 _interval, bool _useArbBlock, bool _staging, bool _verify) {
     testRange = _testRange;
     interval = _interval;
     previousPerformBlock = 0;
     initialBlock = 0;
     counter = 0;
-    feedParamKey = "feedIdHex"; // feedIDStr is deprecated
+    useArbBlock = _useArbBlock;
+    feedParamKey = "feedIdHex"; // feedIDs for v0.3
+    timeParamKey = "blockNumber"; // timestamp
+    // search feeds in notion: "Schema and Feed ID Registry"
     feeds = [
-      "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
-      "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"
+      "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", // ETH / USD in production testnet
+      "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000" // BTC / USD in production testnet
     ];
-    timeParamKey = "blockNumber"; // timestamp not supported yet
-    useL1BlockNumber = _useL1BlockNumber;
+    staging = _staging;
+    verify = _verify;
     callbackReturnBool = true;
+  }
+
+  function setParamKeys(string memory _feedParamKey, string memory _timeParamKey) external {
+    feedParamKey = _feedParamKey;
+    timeParamKey = _timeParamKey;
+  }
+
+  function setFeeds(string[] memory _feeds) external {
+    feeds = _feeds;
   }
 
   function setShouldRevertCallback(bool value) public {
@@ -61,6 +80,12 @@ contract MercuryUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInt
 
   function setCallbackReturnBool(bool value) public {
     callbackReturnBool = value;
+  }
+
+  function reset() public {
+    previousPerformBlock = 0;
+    initialBlock = 0;
+    counter = 0;
   }
 
   function checkCallback(bytes[] memory values, bytes memory extraData) external view returns (bool, bytes memory) {
@@ -75,10 +100,10 @@ contract MercuryUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInt
       return (false, data);
     }
     uint256 blockNumber;
-    if (useL1BlockNumber) {
-      blockNumber = block.number;
-    } else {
+    if (useArbBlock) {
       blockNumber = ARB_SYS.arbBlockNumber();
+    } else {
+      blockNumber = block.number;
     }
     // encode ARB_SYS as extraData to verify that it is provided to checkCallback correctly.
     // in reality, this can be any data or empty
@@ -87,10 +112,10 @@ contract MercuryUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInt
 
   function performUpkeep(bytes calldata performData) external {
     uint256 blockNumber;
-    if (useL1BlockNumber) {
-      blockNumber = block.number;
-    } else {
+    if (useArbBlock) {
       blockNumber = ARB_SYS.arbBlockNumber();
+    } else {
+      blockNumber = block.number;
     }
     if (initialBlock == 0) {
       initialBlock = blockNumber;
@@ -98,9 +123,19 @@ contract MercuryUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInt
     (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
     previousPerformBlock = blockNumber;
     counter = counter + 1;
-    //    bytes memory v0 = VERIFIER.verify(values[0]);
-    //    bytes memory v1 = VERIFIER.verify(values[1]);
-    emit MercuryPerformEvent(tx.origin, msg.sender, blockNumber, values[0], values[1], extraData);
+
+    bytes memory v0 = "";
+    bytes memory v1 = "";
+    if (verify) {
+      if (staging) {
+        v0 = STAGING_TESTNET_VERIFIER_PROXY.verify(values[0]);
+        v1 = STAGING_TESTNET_VERIFIER_PROXY.verify(values[1]);
+      } else {
+        v0 = PRODUCTION_TESTNET_VERIFIER_PROXY.verify(values[0]);
+        v1 = PRODUCTION_TESTNET_VERIFIER_PROXY.verify(values[1]);
+      }
+    }
+    emit MercuryPerformEvent(msg.sender, blockNumber, values[0], values[1], v0, v1, extraData);
   }
 
   function eligible() public view returns (bool) {
@@ -109,10 +144,10 @@ contract MercuryUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInt
     }
 
     uint256 blockNumber;
-    if (useL1BlockNumber) {
-      blockNumber = block.number;
-    } else {
+    if (useArbBlock) {
       blockNumber = ARB_SYS.arbBlockNumber();
+    } else {
+      blockNumber = block.number;
     }
     return (blockNumber - initialBlock) < testRange && (blockNumber - previousPerformBlock) >= interval;
   }
