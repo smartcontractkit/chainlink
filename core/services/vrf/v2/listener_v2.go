@@ -159,6 +159,7 @@ func New(
 		wg:                 &sync.WaitGroup{},
 		aggregator:         aggregator,
 		deduper:            deduper,
+		ffRateLimiter:      vrfcommon.NewForceFulfillRateLimiter(),
 	}
 }
 
@@ -239,6 +240,9 @@ type listenerV2 struct {
 
 	// deduper prevents processing duplicate requests from the log broadcaster.
 	deduper *vrfcommon.LogDeduper
+
+	// ffRateLimiter rate limits force fulfillments
+	ffRateLimiter *vrfcommon.ForceFulfillRateLimiter
 }
 
 // Start starts listenerV2.
@@ -305,6 +309,7 @@ func (lsn *listenerV2) setLatestHead(head *evmtypes.Head) {
 	if num > lsn.latestHeadNumber {
 		lsn.latestHeadNumber = num
 	}
+	lsn.ffRateLimiter.SetLatestHead(num)
 }
 
 // OnNewLongestChain is called by the head broadcaster when a new head is available.
@@ -703,6 +708,7 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 				"consumerAddress", p.req.req.Sender(),
 				"blockNumber", p.req.req.Raw().BlockNumber,
 				"blockHash", p.req.req.Raw().BlockHash,
+				"numForceFulfilled", lsn.ffRateLimiter.NumFulfilled(subID),
 			)
 			fromAddresses := lsn.fromAddresses()
 			fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
@@ -720,19 +726,25 @@ func (lsn *listenerV2) processRequestsPerSubBatchHelper(
 				} else {
 					ll.Errorw("Pipeline error", "err", p.err)
 					if !subIsActive {
-						ll.Warnw("Force-fulfilling a request with insufficient funds on a cancelled sub")
-						etx, err := lsn.enqueueForceFulfillment(ctx, p, fromAddress)
-						if err != nil {
-							ll.Errorw("Error enqueuing force-fulfillment, re-queueing request", "err", err)
-							continue
+						if lsn.ffRateLimiter.ShouldFulfill(subID) {
+							ll.Warnw("Force-fulfilling a request with insufficient funds on a cancelled sub")
+							etx, err := lsn.enqueueForceFulfillment(ctx, p, fromAddress)
+							if err != nil {
+								ll.Errorw("Error enqueuing force-fulfillment, re-queueing request", "err", err)
+								continue
+							}
+							ll.Infow("Successfully enqueued force-fulfillment", "ethTxID", etx.ID)
+							lsn.ffRateLimiter.FulfillmentPerformed(subID)
+						} else {
+							ll.Infow("Reached max number of force fulfills, just marking as processed from now on")
 						}
-						ll.Infow("Successfully enqueued force-fulfillment", "ethTxID", etx.ID)
+
+						// we've reached the maximum number of force fulfillments for this sub
+						// just mark as processed and continue to mark all of them as processed
 						processed[p.req.req.RequestID().String()] = struct{}{}
 
 						// Need to put a continue here, otherwise the next if statement will be hit
 						// and we'd break out of the loop prematurely.
-						// If a sub is canceled, we want to force-fulfill ALL of it's pending requests
-						// before saying we're done with it.
 						continue
 					}
 
@@ -1030,6 +1042,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				"consumerAddress", p.req.req.Sender(),
 				"blockNumber", p.req.req.Raw().BlockNumber,
 				"blockHash", p.req.req.Raw().BlockHash,
+				"numForceFulfilled", lsn.ffRateLimiter.NumFulfilled(subID),
 			)
 			fromAddress, err := lsn.gethks.GetRoundRobinAddress(lsn.chainID, fromAddresses...)
 			if err != nil {
@@ -1047,19 +1060,25 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 					ll.Errorw("Pipeline error", "err", p.err)
 
 					if !subIsActive {
-						lsn.l.Warnw("Force-fulfilling a request with insufficient funds on a cancelled sub")
-						etx, err2 := lsn.enqueueForceFulfillment(ctx, p, fromAddress)
-						if err2 != nil {
-							ll.Errorw("Error enqueuing force-fulfillment, re-queueing request", "err", err2)
-							continue
+						if lsn.ffRateLimiter.ShouldFulfill(subID) {
+							ll.Warnw("Force-fulfilling a request with insufficient funds on a cancelled sub")
+							etx, err2 := lsn.enqueueForceFulfillment(ctx, p, fromAddress)
+							if err2 != nil {
+								ll.Errorw("Error enqueuing force-fulfillment, re-queueing request", "err", err2)
+								continue
+							}
+							ll.Infow("Enqueued force-fulfillment", "ethTxID", etx.ID)
+							lsn.ffRateLimiter.FulfillmentPerformed(subID)
+						} else {
+							ll.Infow("Reached max number of force fulfills, just marking as processed from now on")
 						}
-						ll.Infow("Enqueued force-fulfillment", "ethTxID", etx.ID)
+
+						// we've reached the maximum number of force fulfillments for this sub
+						// just mark as processed and continue to mark all of them as processed
 						processed[p.req.req.RequestID().String()] = struct{}{}
 
 						// Need to put a continue here, otherwise the next if statement will be hit
 						// and we'd break out of the loop prematurely.
-						// If a sub is canceled, we want to force-fulfill ALL of it's pending requests
-						// before saying we're done with it.
 						continue
 					}
 

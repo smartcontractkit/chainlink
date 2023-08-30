@@ -831,6 +831,7 @@ func TestVRFV2Integration_SingleConsumer_ForceFulfillment(t *testing.T) {
 		uni.oldRootContract,
 		uni.oldRootContractAddress,
 		uni.oldBatchCoordinatorContractAddress,
+		12,    // num requests
 		false, // batchEnabled
 		vrfcommon.V2,
 	)
@@ -847,6 +848,7 @@ func TestVRFV2Integration_SingleConsumer_ForceFulfillment_BatchEnabled(t *testin
 		uni.oldRootContract,
 		uni.oldRootContractAddress,
 		uni.oldBatchCoordinatorContractAddress,
+		12,   // num requests
 		true, // batchEnabled
 		vrfcommon.V2,
 	)

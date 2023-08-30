@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/shopspring/decimal"
@@ -37,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
 func testSingleConsumerHappyPath(
@@ -881,6 +881,7 @@ func testSingleConsumerForcedFulfillment(
 	coordinator v22.CoordinatorV2_X,
 	coordinatorAddress common.Address,
 	batchCoordinatorAddress common.Address,
+	numRequests int,
 	batchEnabled bool,
 	vrfVersion vrfcommon.Version,
 ) {
@@ -979,13 +980,12 @@ func testSingleConsumerForcedFulfillment(
 	// Give it a larger number of confs so that we have enough time to remove the consumer
 	// and cause a 0 balance to the sub.
 	numWords := 3
-	confs := 10
-	_, err = eoaConsumer.RequestRandomWords(uni.neil, subID.Uint64(), 500_000, uint16(confs), uint32(numWords), keyHash)
-	require.NoError(t, err, "failed to request randomness from consumer")
-	uni.backend.Commit()
-
-	requestID, err := eoaConsumer.SRequestId(nil)
-	require.NoError(t, err)
+	confs := mathutil.Max(10, numRequests+1)
+	for i := 0; i < numRequests; i++ {
+		_, err = eoaConsumer.RequestRandomWords(uni.neil, subID.Uint64(), 500_000, uint16(confs), uint32(numWords), keyHash)
+		require.NoError(t, err, "failed to request randomness from consumer")
+		uni.backend.Commit()
+	}
 
 	// Remove consumer and cancel the sub before the request can be fulfilled
 	_, err = uni.oldRootContract.RemoveConsumer(uni.neil, subID, eoaConsumerAddr)
@@ -997,45 +997,42 @@ func testSingleConsumerForcedFulfillment(
 	// Wait for force-fulfillment to be queued.
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		uni.backend.Commit()
-		commitment, err := uni.oldRootContract.GetCommitment(nil, requestID)
-		require.NoError(t, err)
-		t.Log("commitment is:", hexutil.Encode(commitment[:]))
-		it, err := uni.vrfOwner.FilterRandomWordsForced(nil, []*big.Int{requestID}, []uint64{subID.Uint64()}, []common.Address{eoaConsumerAddr})
+		it, err := uni.vrfOwner.FilterRandomWordsForced(nil, []*big.Int{}, []uint64{subID.Uint64()}, []common.Address{eoaConsumerAddr})
 		require.NoError(t, err)
 		i := 0
 		for it.Next() {
 			i++
-			require.Equal(t, requestID.String(), it.Event.RequestId.String())
 			require.Equal(t, subID.Uint64(), it.Event.SubId)
 			require.Equal(t, eoaConsumerAddr.String(), it.Event.Sender.String())
 		}
 		t.Log("num RandomWordsForced logs:", i)
-		return utils.IsEmpty(commitment[:])
+		return i == vrfcommon.MaxForceFulfillments
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 
-	// Mine the fulfillment that was queued.
-	mine(t, requestID, subID, uni.backend, db, vrfVersion)
+	var forceFulfilledRequestIDs []*big.Int
+	it, err := uni.vrfOwner.FilterRandomWordsForced(nil, []*big.Int{}, []uint64{subID.Uint64()}, []common.Address{eoaConsumerAddr})
+	require.NoError(t, err)
+	for it.Next() {
+		forceFulfilledRequestIDs = append(forceFulfilledRequestIDs, it.Event.RequestId)
+	}
+	require.GreaterOrEqual(t, len(forceFulfilledRequestIDs), vrfcommon.MaxForceFulfillments)
+
+	// Mine the fulfillments that were queued.
+	for _, requestID := range forceFulfilledRequestIDs {
+		mine(t, requestID, subID, uni.backend, db, vrfVersion)
+	}
 
 	// Assert correct state of RandomWordsFulfilled event.
 	// In this particular case:
-	// * success should be true
 	// * payment should be zero (forced fulfillment)
-	rwfe := assertRandomWordsFulfilled(t, requestID, true, coordinator, false)
-	require.Equal(t, "0", rwfe.Payment().String())
-
-	// Check that the RandomWordsForced event is emitted correctly.
-	it, err := uni.vrfOwner.FilterRandomWordsForced(nil, []*big.Int{requestID}, []uint64{subID.Uint64()}, []common.Address{eoaConsumerAddr})
-	require.NoError(t, err)
-	i := 0
-	for it.Next() {
-		i++
-		require.Equal(t, requestID.String(), it.Event.RequestId.String())
-		require.Equal(t, subID.Uint64(), it.Event.SubId)
-		require.Equal(t, eoaConsumerAddr.String(), it.Event.Sender.String())
+	rwfeIter, err := uni.oldRootContract.FilterRandomWordsFulfilled(nil, nil, nil)
+	count := 0
+	for rwfeIter.Next() {
+		require.Equal(t, "0", rwfeIter.Event().Payment().String())
+		count++
 	}
-	require.Greater(t, i, 0)
-
-	t.Log("Done!")
+	// we should also see the correct number of fulfillments
+	require.Equal(t, len(forceFulfilledRequestIDs), count)
 }
 
 func testSingleConsumerEIP150(
