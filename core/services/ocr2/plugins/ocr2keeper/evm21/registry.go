@@ -289,7 +289,7 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 		batch := ids[i:end]
 
 		if batchErr := r.refreshLogTriggerUpkeepsBatch(batch); batchErr != nil {
-			err = multierr.Append(err, batchErr)
+			multierr.AppendInto(&err, batchErr)
 		}
 
 		time.Sleep(500 * time.Millisecond)
