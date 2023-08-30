@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"testing"
@@ -9,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"

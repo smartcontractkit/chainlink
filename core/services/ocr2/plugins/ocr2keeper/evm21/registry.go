@@ -13,10 +13,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
-
 	"github.com/patrickmn/go-cache"
+	"github.com/pkg/errors"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -281,8 +279,6 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 //
 // TODO: check for updated config for log trigger upkeeps and update it, currently we ignore them.
 func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
-	g := new(errgroup.Group)
-
 	for i := 0; i < len(ids); i += batchSize {
 		end := i + batchSize
 		if end > len(ids) {
@@ -290,12 +286,12 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 		}
 		batch := ids[i:end]
 
-		g.Go(func() error {
-			return r.refreshLogTriggerUpkeepsBatch(batch)
-		})
+		if err := r.refreshLogTriggerUpkeepsBatch(batch); err != nil {
+			return err
+		}
 	}
 
-	return g.Wait()
+	return nil
 }
 
 func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(ids []*big.Int) error {
