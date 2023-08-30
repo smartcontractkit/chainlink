@@ -19,12 +19,6 @@ contract ErroredVerifier is IVerifier {
     external
     pure
     override
-    returns (
-      /**
-       * sender*
-       */
-      bytes memory
-    )
   {
     revert("Failed to verify");
   }
@@ -73,8 +67,8 @@ contract ErroredVerifier is IVerifier {
     revert("Failed to deactivate feed");
   }
 
-  function latestConfigDigestAndEpoch(bytes32) external pure override returns (bool, bytes32, uint32) {
-    revert("Failed to get latest config digest and epoch");
+  function latestConfigDigest(bytes32) external pure override returns (bool, bytes32) {
+    revert("Failed to get latest config digest");
   }
 
   function latestConfigDetails(bytes32) external pure override returns (uint32, uint32, bytes32) {

@@ -14,9 +14,8 @@ interface IVerifier is IERC165 {
    * @dev Verification is typically only done through the proxy contract so
    * we can't just use msg.sender to log the requester as the msg.sender
    * contract will always be the proxy.
-   * @return verifierResponse The encoded verified response.
    */
-  function verify(bytes calldata signedReport, address sender) external returns (bytes memory verifierResponse);
+  function verify(bytes calldata signedReport, address sender) external;
 
   /**
    * @notice sets offchain reporting protocol configuration incl. participating oracles
@@ -102,11 +101,10 @@ interface IVerifier is IERC165 {
    * @return scanLogs indicates whether to rely on the configDigest and epoch
    * returned or whether to scan logs for the Transmitted event instead.
    * @return configDigest
-   * @return epoch
    */
-  function latestConfigDigestAndEpoch(
+  function latestConfigDigest(
     bytes32 feedId
-  ) external view returns (bool scanLogs, bytes32 configDigest, uint32 epoch);
+  ) external view returns (bool scanLogs, bytes32 configDigest);
 
   /**
    * @notice information about current offchain reporting protocol configuration

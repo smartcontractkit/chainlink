@@ -15,10 +15,9 @@ contract VerifierConstructorTest is BaseTest {
     Verifier v = new Verifier(address(s_verifierProxy));
     assertEq(v.owner(), ADMIN);
 
-    (bool scanLogs, bytes32 configDigest, uint32 epoch) = v.latestConfigDigestAndEpoch(FEED_ID);
+    (bool scanLogs, bytes32 configDigest) = v.latestConfigDigest(FEED_ID);
     assertEq(scanLogs, false);
     assertEq(configDigest, EMPTY_BYTES);
-    assertEq(epoch, 0);
 
     (uint32 configCount, uint32 blockNumber, bytes32 configDigestTwo) = v.latestConfigDetails(FEED_ID);
     assertEq(configCount, 0);

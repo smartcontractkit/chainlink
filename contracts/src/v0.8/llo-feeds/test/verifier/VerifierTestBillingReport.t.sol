@@ -326,15 +326,8 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
     _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
     _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
 
-    address originalAddr = msg.sender;
     changePrank(USER);
 
-    bytes[] memory verifierReports = s_verifierProxy.verifyBulk{value: 0}(signedReports);
-
-    changePrank(originalAddr);
-
-    assertEq(verifierReports[0], _encodeReport(_generateV1Report()));
-    assertEq(verifierReports[1], _encodeReport(_generateV3Report()));
-    assertEq(verifierReports[2], _encodeReport(_generateV3Report()));
+    s_verifierProxy.verifyBulk{value: 0}(signedReports);
   }
 }

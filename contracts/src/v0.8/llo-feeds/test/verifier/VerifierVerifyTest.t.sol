@@ -73,8 +73,7 @@ contract VerifierProxyVerifyTest is VerifierVerifyTest {
       _getSigners(FAULT_TOLERANCE + 1)
     );
 
-    bytes memory response = s_verifierProxy.verify(signedReport);
-    assertReportsEqual(response, s_testReportOne);
+    s_verifierProxy.verify(signedReport);
   }
 }
 
@@ -117,8 +116,8 @@ contract VerifierProxyAccessControlledVerificationTest is VerifierVerifyTest {
     );
 
     changePrank(USER);
-    bytes memory response = s_verifierProxy.verify(signedReport);
-    assertReportsEqual(response, s_testReportOne);
+    s_verifierProxy.verify(signedReport);
+
   }
 }
 
@@ -196,31 +195,6 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
     s_verifier.verify(signedReport, msg.sender);
   }
 
-  function test_returnsThePriceAndBlockNumIfReportVerified() public {
-    bytes memory signedReport = _generateEncodedBlob(
-      s_testReportOne,
-      s_reportContext,
-      _getSigners(FAULT_TOLERANCE + 1)
-    );
-    changePrank(address(s_verifierProxy));
-    bytes memory response = s_verifier.verify(signedReport, msg.sender);
-
-    assertReportsEqual(response, s_testReportOne);
-  }
-
-  function test_setsTheCorrectEpoch() public {
-    s_reportContext[1] = bytes32(uint256(5 << 8));
-    bytes memory signedReport = _generateEncodedBlob(
-      s_testReportOne,
-      s_reportContext,
-      _getSigners(FAULT_TOLERANCE + 1)
-    );
-    changePrank(address(s_verifierProxy));
-    s_verifier.verify(signedReport, msg.sender);
-
-    (, , uint32 latestEpoch) = s_verifier.latestConfigDigestAndEpoch(FEED_ID);
-    assertEq(latestEpoch, 5);
-  }
 
   function test_emitsAnEventIfReportVerified() public {
     bytes memory signedReport = _generateEncodedBlob(
@@ -277,8 +251,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
       _getSigners(FAULT_TOLERANCE + 1)
     );
     changePrank(address(s_verifierProxy));
-    bytes memory response = s_verifier.verify(signedReport, msg.sender);
-    assertReportsEqual(response, s_testReportOne);
+    s_verifier.verify(signedReport, msg.sender);
   }
 
   function test_canVerifyNewerReportsWithNewerConfigs() public {
@@ -289,8 +262,7 @@ contract VerifierVerifyMultipleConfigDigestTest is VerifierVerifyTest {
       _getSigners(FAULT_TOLERANCE_TWO + 1)
     );
     changePrank(address(s_verifierProxy));
-    bytes memory response = s_verifier.verify(signedReport, msg.sender);
-    assertReportsEqual(response, s_testReportOne);
+    s_verifier.verify(signedReport, msg.sender);
   }
 
   function test_revertsIfAReportIsVerifiedWithAnExistingButIncorrectDigest() public {

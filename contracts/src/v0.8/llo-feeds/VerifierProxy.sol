@@ -117,7 +117,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   /// @inheritdoc IVerifierProxy
-  function verify(bytes calldata payload) external payable checkAccess returns (bytes memory verifiedReport) {
+  function verify(bytes calldata payload) external payable checkAccess{
     IVerifierFeeManager feeManager = s_feeManager;
 
     // Bill the verifier
@@ -125,11 +125,11 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
       feeManager.processFee{value: msg.value}(payload, msg.sender);
     }
 
-    return _verify(payload);
+    _verify(payload);
   }
 
   /// @inheritdoc IVerifierProxy
-  function verifyBulk(bytes[] calldata payloads) external payable checkAccess returns (bytes[] memory verifiedReports) {
+  function verifyBulk(bytes[] calldata payloads) external payable checkAccess{
     IVerifierFeeManager feeManager = s_feeManager;
 
     // Bill the verifier
@@ -138,21 +138,18 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
     }
 
     //verify the reports
-    verifiedReports = new bytes[](payloads.length);
     for (uint256 i; i < payloads.length; ++i) {
-      verifiedReports[i] = _verify(payloads[i]);
+      _verify(payloads[i]);
     }
-
-    return verifiedReports;
   }
 
-  function _verify(bytes calldata payload) internal returns (bytes memory verifiedReport) {
+  function _verify(bytes calldata payload) internal {
     // First 32 bytes of the signed report is the config digest
     bytes32 configDigest = bytes32(payload);
     address verifierAddress = s_verifiersByConfig[configDigest];
     if (verifierAddress == address(0)) revert VerifierNotFound(configDigest);
 
-    return IVerifier(verifierAddress).verify(payload, msg.sender);
+    IVerifier(verifierAddress).verify(payload, msg.sender);
   }
 
   /// @inheritdoc IVerifierProxy

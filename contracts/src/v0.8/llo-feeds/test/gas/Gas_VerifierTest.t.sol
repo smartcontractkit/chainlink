@@ -56,8 +56,8 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
     link.mint(address(feeManager), DEFAULT_REPORT_LINK_FEE);
 
     //approve funds prior to test
-    _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
-    _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+    _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * 2, USER);
+    _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * 2, USER);
 
     IRewardManager.FeePayment[] memory payments = new IRewardManager.FeePayment[](1);
     payments[0] = IRewardManager.FeePayment(latestConfigDigest, uint192(DEFAULT_REPORT_LINK_FEE));
@@ -69,6 +69,7 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
   }
 
   function testVerifyProxyWithLinkFeeSuccess_gas() public {
+    vm.pauseGasMetering();
     bytes memory signedLinkPayload = _generateEncodedBlobWithQuote(
       _generateV3Report(),
       _generateReportContext(v3ConfigDigest),
@@ -77,9 +78,12 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
     );
 
     s_verifierProxy.verify(signedLinkPayload);
+    vm.resumeGasMetering();
+    s_verifierProxy.verify(signedLinkPayload);
   }
 
   function testVerifyProxyWithNativeFeeSuccess_gas() public {
+    vm.pauseGasMetering();
     bytes memory signedNativePayload = _generateEncodedBlobWithQuote(
       _generateV3Report(),
       _generateReportContext(v3ConfigDigest),
@@ -87,6 +91,8 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
       _generateQuote(address(native))
     );
 
+    s_verifierProxy.verify(signedNativePayload);
+    vm.resumeGasMetering();
     s_verifierProxy.verify(signedNativePayload);
   }
 }
@@ -117,8 +123,8 @@ contract Verifier_bulkVerifyWithFee is BaseTestWithConfiguredVerifierAndFeeManag
     link.mint(address(feeManager), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS_TO_VERIFY);
 
     //approve funds prior to test
-    _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS_TO_VERIFY, USER);
-    _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS_TO_VERIFY, USER);
+    _approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE * NUMBER_OF_REPORTS_TO_VERIFY * 2, USER);
+    _approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * NUMBER_OF_REPORTS_TO_VERIFY * 2, USER);
 
     IRewardManager.FeePayment[] memory payments = new IRewardManager.FeePayment[](1);
     payments[0] = IRewardManager.FeePayment(latestConfigDigest, uint192(DEFAULT_REPORT_LINK_FEE));
@@ -130,6 +136,7 @@ contract Verifier_bulkVerifyWithFee is BaseTestWithConfiguredVerifierAndFeeManag
   }
 
   function testBulkVerifyProxyWithLinkFeeSuccess_gas() public {
+    vm.pauseGasMetering();
     bytes memory signedLinkPayload = _generateEncodedBlobWithQuote(
       _generateV3Report(),
       _generateReportContext(v3ConfigDigest),
@@ -143,9 +150,13 @@ contract Verifier_bulkVerifyWithFee is BaseTestWithConfiguredVerifierAndFeeManag
     }
 
     s_verifierProxy.verifyBulk(signedLinkPayloads);
+    vm.resumeGasMetering();
+    s_verifierProxy.verifyBulk(signedLinkPayloads);
+
   }
 
   function testBulkVerifyProxyWithNativeFeeSuccess_gas() public {
+    vm.pauseGasMetering();
     bytes memory signedNativePayload = _generateEncodedBlobWithQuote(
       _generateV3Report(),
       _generateReportContext(v3ConfigDigest),
@@ -158,6 +169,8 @@ contract Verifier_bulkVerifyWithFee is BaseTestWithConfiguredVerifierAndFeeManag
       signedNativePayloads[i] = signedNativePayload;
     }
 
+    s_verifierProxy.verifyBulk(signedNativePayloads);
+    vm.resumeGasMetering();
     s_verifierProxy.verifyBulk(signedNativePayloads);
   }
 }
@@ -187,13 +200,23 @@ contract Verifier_verify is BaseTestWithConfiguredVerifierAndFeeManager {
   }
 
   function testVerifySuccess_gas() public {
+
+    vm.pauseGasMetering();
     changePrank(address(s_verifierProxy));
 
-    s_verifier.verify(s_signedReport, msg.sender);
+    bytes memory signedReport = s_signedReport;
+    s_verifierProxy.verify(signedReport);
+    vm.resumeGasMetering();
+    s_verifierProxy.verify(signedReport);
   }
 
   function testVerifyProxySuccess_gas() public {
-    s_verifierProxy.verify(s_signedReport);
+    vm.pauseGasMetering();
+    bytes memory signedReport = s_signedReport;
+    s_verifierProxy.verify(signedReport);
+    vm.resumeGasMetering();
+
+    s_verifierProxy.verify(signedReport);
   }
 }
 

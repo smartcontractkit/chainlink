@@ -145,10 +145,9 @@ contract VerifierSetConfigTest is BaseTest {
     assertEq(blockNumber, block.number);
     assertEq(configDigest, expectedConfigDigest);
 
-    (bool scanLogs, bytes32 configDigestTwo, uint32 epoch) = s_verifier.latestConfigDigestAndEpoch(FEED_ID);
+    (bool scanLogs, bytes32 configDigestTwo) = s_verifier.latestConfigDigest(FEED_ID);
     assertEq(scanLogs, false);
     assertEq(configDigestTwo, expectedConfigDigest);
-    assertEq(epoch, 0);
   }
 }
 

@@ -7,6 +7,8 @@ import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
 import {Common} from "../libraries/Common.sol";
+import {SSTORE2Map} from "../vendor/0xsequence/sstore2/SSTORE2Map.sol";
+import {Common} from "../libraries/Common.sol";
 
 // OCR2 standard
 uint256 constant MAX_NUM_ORACLES = 31;
@@ -22,28 +24,12 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   // The first byte of the mask can be 0, because we only ever have 31 oracles
   uint256 internal constant ORACLE_MASK = 0x0001010101010101010101010101010101010101010101010101010101010101;
 
-  enum Role {
-    // Default role for an oracle address.  This means that the oracle address
-    // is not a signer
-    Unset,
-    // Role given to an oracle address that is allowed to sign feed data
-    Signer
-  }
-
-  struct Signer {
-    // Index of oracle in a configuration
-    uint8 index;
-    // The oracle's role
-    Role role;
-  }
 
   struct Config {
     // Fault tolerance
     uint8 f;
     // Marks whether or not a configuration is active
     bool isActive;
-    // Map of signer addresses to oracles
-    mapping(address => Signer) oracles;
   }
 
   struct VerifierState {
@@ -53,8 +39,6 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     // The block number of the block the last time
     /// the configuration was updated.
     uint32 latestConfigBlockNumber;
-    // The latest epoch a report was verified for
-    uint32 latestEpoch;
     // Whether or not the verifier for this feed has been deactivated
     bool isDeactivated;
     /// The latest config digest set
@@ -202,7 +186,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   function verify(
     bytes calldata signedReport,
     address sender
-  ) external override returns (bytes memory verifierResponse) {
+  ) external override {
     if (msg.sender != i_verifierProxyAddr) revert AccessForbidden();
     (
       bytes32[3] memory reportContext,
@@ -227,17 +211,15 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     // reportContext[1]: 27 byte padding, 4-byte epoch and 1-byte round
     // reportContext[2]: ExtraHash
     bytes32 configDigest = reportContext[0];
-    Config storage s_config = feedVerifierState.s_verificationDataConfigs[configDigest];
 
-    _validateReport(feedId, configDigest, rs, ss, s_config);
-    _updateEpoch(reportContext, feedVerifierState);
+    _validateReport(feedId, configDigest, rs, ss, feedVerifierState.s_verificationDataConfigs[configDigest]);
 
     bytes32 hashedReport = keccak256(reportData);
 
-    _verifySignatures(hashedReport, reportContext, rs, ss, rawVs, s_config);
-    emit ReportVerified(feedId, sender);
+    address[] memory signers = _readSigners(configDigest);
 
-    return reportData;
+    _verifySignatures(hashedReport, reportContext, rs, ss, rawVs, signers);
+    emit ReportVerified(feedId, sender);
   }
 
   /// @notice Validates parameters of the report
@@ -260,18 +242,6 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     if (rs.length != ss.length) revert MismatchedSignatures(rs.length, ss.length);
   }
 
-  /**
-   * @notice Conditionally update the epoch for a feed
-   * @param reportContext Report context containing the epoch and round
-   * @param feedVerifierState Feed verifier state to conditionally update
-   */
-  function _updateEpoch(bytes32[3] memory reportContext, VerifierState storage feedVerifierState) private {
-    uint40 epochAndRound = uint40(uint256(reportContext[1]));
-    uint32 epoch = uint32(epochAndRound >> 8);
-    if (epoch > feedVerifierState.latestEpoch) {
-      feedVerifierState.latestEpoch = epoch;
-    }
-  }
 
   /// @notice Verifies that a report has been signed by the correct
   /// signers and that enough signers have signed the reports.
@@ -280,28 +250,33 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   /// @param rs ith element is the R components of the ith signature on report. Must have at most MAX_NUM_ORACLES entries
   /// @param ss ith element is the S components of the ith signature on report. Must have at most MAX_NUM_ORACLES entries
   /// @param rawVs ith element is the the V component of the ith signature
-  /// @param s_config The config digest the report was signed for
   function _verifySignatures(
     bytes32 hashedReport,
     bytes32[3] memory reportContext,
     bytes32[] memory rs,
     bytes32[] memory ss,
     bytes32 rawVs,
-    Config storage s_config
-  ) private view {
+    address[] memory signers
+  ) private pure {
     bytes32 h = keccak256(abi.encodePacked(hashedReport, reportContext));
     // i-th byte counts number of sigs made by i-th signer
     uint256 signedCount;
 
-    Signer memory o;
     address signerAddress;
     uint256 numSigners = rs.length;
     for (uint256 i; i < numSigners; ++i) {
       signerAddress = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
-      o = s_config.oracles[signerAddress];
-      if (o.role != Role.Signer) revert BadVerification();
+
+      if(signerAddress == (address(0))) revert BadVerification();
+
+      (bool containsSigner, uint256 index) = Common.contains(signers, signerAddress);
+
+      if(!containsSigner){
+        revert BadVerification();
+      }
+
       unchecked {
-        signedCount += 1 << (8 * o.index);
+        signedCount += 1 << (8 * index);
       }
     }
 
@@ -403,21 +378,19 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
     feedVerifierState.s_verificationDataConfigs[configDigest].f = f;
     feedVerifierState.s_verificationDataConfigs[configDigest].isActive = true;
-    for (uint8 i; i < signers.length; ++i) {
-      address signerAddr = signers[i];
-      if (signerAddr == address(0)) revert ZeroAddress();
 
-      // All signer roles are unset by default for a new config digest.
-      // Here the contract checks to see if a signer's address has already
-      // been set to ensure that the group of signer addresses that will
-      // sign reports with the config digest are unique.
-      bool isSignerAlreadySet = feedVerifierState.s_verificationDataConfigs[configDigest].oracles[signerAddr].role !=
-        Role.Unset;
-      if (isSignerAlreadySet) revert NonUniqueSignatures();
-      feedVerifierState.s_verificationDataConfigs[configDigest].oracles[signerAddr] = Signer({
-        role: Role.Signer,
-        index: i
-      });
+    // check for invalid address
+    for (uint8 i; i < signers.length; ++i) {
+      if (signers[i] == address(0)) revert ZeroAddress();
+    }
+
+    //check for duplicate addresses
+    if(Common.hasDuplicates(signers)){
+      revert NonUniqueSignatures();
+    }
+
+    if(signers.length != 0) {
+      _writeSigners(configDigest, signers);
     }
 
     IVerifierProxy(i_verifierProxyAddr).setVerifier(
@@ -439,7 +412,6 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       offchainConfig
     );
 
-    feedVerifierState.latestEpoch = 0;
     feedVerifierState.latestConfigBlockNumber = uint32(block.number);
     feedVerifierState.latestConfigDigest = configDigest;
   }
@@ -532,11 +504,11 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifier
-  function latestConfigDigestAndEpoch(
+  function latestConfigDigest(
     bytes32 feedId
-  ) external view override returns (bool scanLogs, bytes32 configDigest, uint32 epoch) {
+  ) external view override returns (bool scanLogs, bytes32 configDigest) {
     VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
-    return (false, feedVerifierState.latestConfigDigest, feedVerifierState.latestEpoch);
+    return (false, feedVerifierState.latestConfigDigest);
   }
 
   /// @inheritdoc IVerifier
@@ -549,5 +521,17 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       feedVerifierState.latestConfigBlockNumber,
       feedVerifierState.latestConfigDigest
     );
+  }
+
+  function _getKey(bytes32 configDigest) internal view returns (bytes32) {
+    return keccak256(abi.encodePacked(address(this), configDigest));
+  }
+
+  function _writeSigners(bytes32 configDigest, address[] memory signers) internal {
+    SSTORE2Map.write(_getKey(configDigest), abi.encode(signers));
+  }
+
+  function _readSigners(bytes32 configDigest) internal view returns (address[] memory) {
+    return abi.decode(SSTORE2Map.read(_getKey(configDigest)), (address[]));
   }
 }
