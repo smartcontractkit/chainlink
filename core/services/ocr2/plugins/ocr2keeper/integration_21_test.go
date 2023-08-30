@@ -258,39 +258,6 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
-	// t.Skip()
-	/*
-		In trying to create the retry integration test I ran into an issue with
-		the simulated chain not being able to query old blocks:
-
-		`simulatedBackend cannot access blocks other than the latest block`
-
-		What I haven't figured out yet is why it only affects parts of the
-		pipeline and not others.
-
-		1. `checkUpkeeps` seems to be unaffected
-		2. `feedLookup` fails when the func `allowedToUseMercury` calls the contract for mercury privileges
-		3. `feedLookup` fails when the func `checkCallback` calls the contract callback function
-		4. `simulatePerformUpkeeps` seems to be unaffected
-
-		I know we ran into this issue early on with conditional upkeeps and I'm
-		guessing that the current integration tests are only ever using check
-		and simulate perform. The only difference that stands out to me is the
-		unaffected ones are using BatchCallContext and the ones that fail use
-		CallContext.
-
-		The difference on the simulated chain is CallContract does a check on
-		the latest block number while PendingCallContract does not. I have not
-		yet made any connections between the client methods and the simulated
-		chain methods.
-
-		I think the functions that currently use CallContext should be updated
-		to use BatchCallContext to stay consistent with the current usages of
-		batching. This would improve the latency of the current pipeline and
-		possibly eliminate this issue with the simulated chain if the assumption
-		above is true.
-	*/
-
 	g := gomega.NewWithT(t)
 
 	// setup blockchain
@@ -368,10 +335,6 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 
 		w.WriteHeader(http.StatusNotFound)
 	})
-
-	// wait for nodes to start
-	// TODO: find a better way to do this
-	<-time.After(10 * time.Second)
 
 	defer mercuryServer.Stop()
 

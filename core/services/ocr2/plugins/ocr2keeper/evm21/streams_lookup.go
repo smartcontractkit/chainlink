@@ -220,7 +220,7 @@ func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int
 		return encoding.NoPipelineError, encoding.UpkeepFailureReasonNone, false, allowed.(bool), nil
 	}
 
-	payload, err := r.abi.Pack("getUpkeepPrivilegeConfig", upkeepId)
+	payload, err := r.packer.PackGetUpkeepPrivilegeConfig(upkeepId)
 	if err != nil {
 		// pack error, no retryable
 		r.lggr.Warnf("failed to pack getUpkeepPrivilegeConfig data for upkeepId %s: %s", upkeepId, err)
@@ -240,12 +240,6 @@ func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int
 		return encoding.RpcFlakyFailure, encoding.UpkeepFailureReasonNone, true, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
 	}
 
-	/*
-		cfg, err := r.registry.GetUpkeepPrivilegeConfig(opts, upkeepId)
-		if err != nil {
-			return encoding.RpcFlakyFailure, encoding.UpkeepFailureReasonNone, true, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
-		}
-	*/
 	cfg, err := r.packer.UnpackGetUpkeepPrivilegeConfig(b)
 	if err != nil {
 		return encoding.RpcFlakyFailure, encoding.UpkeepFailureReasonNone, true, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
@@ -257,11 +251,12 @@ func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int
 	}
 
 	var a UpkeepPrivilegeConfig
-	err = json.Unmarshal(cfg, &a)
-	if err != nil {
+	if err := json.Unmarshal(cfg, &a); err != nil {
 		return encoding.MercuryUnmarshalError, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to unmarshal privilege config: %v", err)
 	}
+
 	r.mercury.allowListCache.Set(upkeepId.String(), a.MercuryEnabled, cache.DefaultExpiration)
+
 	return encoding.NoPipelineError, encoding.UpkeepFailureReasonNone, false, a.MercuryEnabled, nil
 }
 
