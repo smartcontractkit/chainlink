@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface FeedLookupCompatibleInterface {
-  error FeedLookup(string feedParamKey, string[] feeds, string timeParamKey, uint256 time, bytes extraData);
+interface StreamsLookupCompatibleInterface {
+  error StreamsLookup(string feedParamKey, string[] feeds, string timeParamKey, uint256 time, bytes extraData);
 
   /**
    * @notice any contract which wants to utilize FeedLookup feature needs to
