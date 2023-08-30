@@ -10,6 +10,7 @@ import (
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 )
 
+// defaultLogParser parses logs from the registry contract
 func defaultLogParser(registry *iregistry21.IKeeperRegistryMaster, log logpoller.Log) (transmitEventLog, error) {
 	rawLog := log.ToGethLog()
 	abilog, err := registry.ParseLog(rawLog)

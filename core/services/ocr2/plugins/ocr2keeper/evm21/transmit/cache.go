@@ -22,26 +22,26 @@ type transmitEventCache struct {
 
 func newTransmitEventCache(cap int64) transmitEventCache {
 	return transmitEventCache{
-		buffer: make([]cacheBlock, cap+1),
+		buffer: make([]cacheBlock, cap),
 		cap:    cap,
 	}
 }
 
-func (c *transmitEventCache) get(logID string) (ocr2keepers.TransmitEvent, bool) {
+func (c *transmitEventCache) get(block ocr2keepers.BlockNumber, logID string) (ocr2keepers.TransmitEvent, bool) {
 	c.lock.RLock()
 	defer c.lock.RUnlock()
 
-	for i := range c.buffer {
-		b := c.buffer[i]
-		if len(b.records) == 0 {
-			continue
-		}
-		e, ok := b.records[logID]
-		if ok {
-			return e, true
-		}
+	i := int64(block) % int64(c.cap)
+	b := c.buffer[i]
+	if b.block != block {
+		return ocr2keepers.TransmitEvent{}, false
 	}
-	return ocr2keepers.TransmitEvent{}, false
+	if len(b.records) == 0 {
+		return ocr2keepers.TransmitEvent{}, false
+	}
+	e, ok := b.records[logID]
+
+	return e, ok
 }
 
 func (c *transmitEventCache) add(logID string, e ocr2keepers.TransmitEvent) {
@@ -53,7 +53,10 @@ func (c *transmitEventCache) add(logID string, e ocr2keepers.TransmitEvent) {
 	isBlockEmpty := len(b.records) == 0
 	isNewBlock := b.block < e.TransmitBlock
 	if isBlockEmpty || isNewBlock {
-		b = newCacheBlock()
+		b = newCacheBlock(e.TransmitBlock)
+	} else if b.block > e.TransmitBlock {
+		// old log
+		return
 	}
 	b.records[logID] = e
 	c.buffer[i] = b
@@ -73,8 +76,9 @@ type cacheBlock struct {
 	records map[string]ocr2keepers.TransmitEvent
 }
 
-func newCacheBlock() cacheBlock {
+func newCacheBlock(block ocr2keepers.BlockNumber) cacheBlock {
 	return cacheBlock{
+		block:   block,
 		records: make(map[string]ocr2keepers.TransmitEvent),
 	}
 }

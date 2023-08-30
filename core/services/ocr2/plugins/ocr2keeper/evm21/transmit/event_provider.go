@@ -164,7 +164,7 @@ func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller
 
 	for _, log := range logs {
 		k := logKey(log)
-		if e, ok := c.cache.get(k); ok {
+		if e, ok := c.cache.get(ocr2keepers.BlockNumber(log.BlockNumber), k); ok {
 			// used cached value if exist
 			vals = append(vals, e)
 			continue
