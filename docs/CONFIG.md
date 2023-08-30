@@ -4070,8 +4070,8 @@ SamplingInterval = '1s'
 [NodePool]
 PollFailureThreshold = 5
 PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
+SelectionMode = 'TotalDifficulty'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
@@ -4147,8 +4147,8 @@ SamplingInterval = '1s'
 [NodePool]
 PollFailureThreshold = 5
 PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 5
+SelectionMode = 'TotalDifficulty'
+SyncThreshold = 10
 
 [OCR]
 ContractConfirmations = 1
