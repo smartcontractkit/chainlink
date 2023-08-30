@@ -273,14 +273,8 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 	}
 	r.active.Reset(ids...)
 
-	newUpkeeps, err := r.logEventProvider.RefreshActiveUpkeeps(ids...)
-	if err != nil {
-		return fmt.Errorf("failed to refresh active upkeep ids in log event provider: %w", err)
-	}
-
 	var logTriggerIDs []*big.Int
-	var logTriggerHashes []common.Hash
-	for _, id := range newUpkeeps {
+	for _, id := range ids {
 		uid := &ocr2keepers.UpkeepIdentifier{}
 		if ok := uid.FromBigInt(id); !ok {
 			r.lggr.Warnf("failed to parse upkeep id %s", id.String())
@@ -289,17 +283,21 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
 			logTriggerIDs = append(logTriggerIDs, id)
-			logTriggerHashes = append(logTriggerHashes, common.BigToHash(id))
 		}
 	}
 
-	return r.refreshLogTriggerUpkeeps(logTriggerIDs, logTriggerHashes)
+	newUpkeeps, err := r.logEventProvider.RefreshActiveUpkeeps(logTriggerIDs...)
+	if err != nil {
+		return fmt.Errorf("failed to refresh active upkeep ids in log event provider: %w", err)
+	}
+
+	return r.refreshLogTriggerUpkeeps(newUpkeeps)
 }
 
 // refreshLogTriggerUpkeeps refreshes the active upkeep ids for log trigger upkeeps
 //
 // TODO: check for updated config for log trigger upkeeps and update it, currently we ignore them.
-func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int, logTriggerHashes []common.Hash) error {
+func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 	var err error
 	for i := 0; i < len(ids); i += logTriggerRefreshBatchSize {
 		end := i + logTriggerRefreshBatchSize
@@ -307,9 +305,8 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int, logTriggerHashes 
 			end = len(ids)
 		}
 		idBatch := ids[i:end]
-		hashesBatch := logTriggerHashes[i:end]
 
-		if batchErr := r.refreshLogTriggerUpkeepsBatch(idBatch, hashesBatch); batchErr != nil {
+		if batchErr := r.refreshLogTriggerUpkeepsBatch(idBatch); batchErr != nil {
 			multierr.AppendInto(&err, batchErr)
 		}
 
@@ -319,7 +316,12 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int, logTriggerHashes 
 	return err
 }
 
-func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(logTriggerIDs []*big.Int, logTriggerHashes []common.Hash) error {
+func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(logTriggerIDs []*big.Int) error {
+	var logTriggerHashes []common.Hash
+	for _, id := range logTriggerIDs {
+		logTriggerHashes = append(logTriggerHashes, common.BigToHash(id))
+	}
+
 	unpausedLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, indexedLogsConfirmations, pg.WithParentCtx(r.ctx))
 	if err != nil {
 		return err

@@ -513,12 +513,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				lggr:             lggr,
 			}
 
-			hashes := []common.Hash{}
-			for _, id := range tc.ids {
-				hashes = append(hashes, common.BigToHash(id))
-			}
-
-			err := registry.refreshLogTriggerUpkeeps(tc.ids, hashes)
+			err := registry.refreshLogTriggerUpkeeps(tc.ids)
 			if tc.expectsErr {
 				assert.Error(t, err)
 				assert.Equal(t, err.Error(), tc.wantErr.Error())
