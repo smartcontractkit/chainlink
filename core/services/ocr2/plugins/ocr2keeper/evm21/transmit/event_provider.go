@@ -142,6 +142,10 @@ func (c *TransmitEventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keep
 	}
 
 	start := c.lastPollBlock.Load()
+	if start == latestBlock {
+		// skip if we've already processed this block
+		return nil, nil
+	}
 	if start < latestBlock-c.lookbackBlocks {
 		start = latestBlock - c.lookbackBlocks
 	} else {
