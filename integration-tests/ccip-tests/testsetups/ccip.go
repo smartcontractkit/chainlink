@@ -27,7 +27,6 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	ccipnode "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/types/config/node"
 
 	integrationactions "github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -433,7 +432,7 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	networkA, networkB blockchain.EVMNetwork,
 	chainClientA, chainClientB blockchain.EVMClient,
 	transferAmounts []*big.Int,
-	tokenDeployerFns []contracts.ContractDeployerFn,
+	tokenDeployerFns []blockchain.ContractDeployer,
 	numOfCommitNodes int,
 	commitAndExecOnSameDON, bidirectional bool,
 	newBootstrap bool,
@@ -601,7 +600,7 @@ func CCIPDefaultTestSetUp(
 	envName string,
 	numOfCLNodes int64,
 	transferAmounts []*big.Int,
-	tokenDeployerFns []contracts.ContractDeployerFn,
+	tokenDeployerFns []blockchain.ContractDeployer,
 	numOfCommitNodes int, commitAndExecOnSameDON, bidirectional bool,
 	inputs *CCIPTestConfig,
 ) *CCIPTestSetUpOutputs {
