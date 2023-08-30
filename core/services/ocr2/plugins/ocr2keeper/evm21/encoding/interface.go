@@ -24,6 +24,7 @@ const (
 	UpkeepFailureReasonMercuryCallbackReverted UpkeepFailureReason = 7
 	UpkeepFailureReasonRevertDataExceedsLimit  UpkeepFailureReason = 8
 	UpkeepFailureReasonRegistryPaused          UpkeepFailureReason = 9
+	UpkeepFailureReasonSimulationFailed        UpkeepFailureReason = 10
 	// leaving a gap here for more onchain failure reasons in the future
 	// upkeep failure offchain reasons
 	UpkeepFailureReasonMercuryAccessNotAllowed UpkeepFailureReason = 32
