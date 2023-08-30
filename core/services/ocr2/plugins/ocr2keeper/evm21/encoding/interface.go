@@ -24,12 +24,12 @@ const (
 	UpkeepFailureReasonMercuryCallbackReverted UpkeepFailureReason = 7
 	UpkeepFailureReasonRevertDataExceedsLimit  UpkeepFailureReason = 8
 	UpkeepFailureReasonRegistryPaused          UpkeepFailureReason = 9
-	UpkeepFailureReasonSimulationFailed        UpkeepFailureReason = 10
 	// leaving a gap here for more onchain failure reasons in the future
 	// upkeep failure offchain reasons
 	UpkeepFailureReasonMercuryAccessNotAllowed UpkeepFailureReason = 32
 	UpkeepFailureReasonTxHashNoLongerExists    UpkeepFailureReason = 33
 	UpkeepFailureReasonInvalidRevertDataInput  UpkeepFailureReason = 34
+	UpkeepFailureReasonSimulationFailed        UpkeepFailureReason = 35
 
 	// pipeline execution error
 	NoPipelineError        PipelineExecutionState = 0
