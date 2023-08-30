@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
-func TestTransmitEventProvider(t *testing.T) {
+func TestTransmitEventProvider_Sanity(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
@@ -58,7 +58,6 @@ func TestTransmitEventProvider(t *testing.T) {
 		errored     bool
 		resultsLen  int
 	}{
-		// TODO: add more tests
 		{
 			"empty logs",
 			100,
@@ -100,7 +99,6 @@ func TestTransmitEventProvider(t *testing.T) {
 	}
 }
 
-// {"EvmChainId":"1337","LogIndex":11,"BlockHash":"0x0f220443e2dc988851c69569c8929e2125ebfc81338c030380fb713658efcc52","BlockNumber":536,"BlockTimestamp":"1970-01-01T03:29:20+02:00","Topics":["rYzJV5sh3+LC9uo1uhW2VuRrT1sMtCT1Jzm4zlysnFs=","GTkpnAAAAAAAAAAAAAAAAQ+7hJM0Mbulrh8+1CxZ/nI=","AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAE="],"EventSig":"0xad8cc9579b21dfe2c2f6ea35ba15b656e46b4f5b0cb424f52739b8ce5cac9c5b","Address":"0x0ef848e980980c633864139e5cf4004ef0a52324","TxHash":"0xe2d4ca9ebf8321d37deb1466965e9f70d8e9e67f9726a6fd1ed8537ae963cb53","Data":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAU/hhVa6AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABV1QAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAes1AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgEBqTDkJvytuYCUcOW0LhtlXd22ArWxnmXyu7kdz8FHxAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACF0H2cZJJyfkjLQd6BuXkGbidAlLftLwn6eJ/Ew82eea7","CreatedAt":"2023-08-29T18:01:45.829126+03:00"}
 func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 	lp := new(mocks.LogPoller)
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
@@ -152,6 +150,46 @@ func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 			[]ocr2keepers.TransmitEvent{},
 			false,
 		},
+		{
+			"same log twice",
+			[]transmitEventLog{
+				{
+					Log: logpoller.Log{
+						BlockNumber: 1,
+						BlockHash:   common.HexToHash("0x0102030405060708010203040506070801020304050607080102030405060708"),
+					},
+					Performed: &iregistry21.IKeeperRegistryMasterUpkeepPerformed{
+						Id: id.BigInt(),
+						Trigger: func() []byte {
+							b, _ := hexutil.Decode("0x0000000000000000000000000000000000000000000000000000000001111111000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
+							return b
+						}(),
+					},
+				},
+				{
+					Log: logpoller.Log{
+						BlockNumber: 1,
+						BlockHash:   common.HexToHash("0x0102030405060708010203040506070801020304050607080102030405060708"),
+					},
+					Performed: &iregistry21.IKeeperRegistryMasterUpkeepPerformed{
+						Id: id.BigInt(),
+						Trigger: func() []byte {
+							b, _ := hexutil.Decode("0x0000000000000000000000000000000000000000000000000000000001111111000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000001111111")
+							return b
+						}(),
+					},
+				},
+			},
+			1,
+			[]ocr2keepers.TransmitEvent{
+				{
+					Type:       ocr2keepers.PerformEvent,
+					UpkeepID:   id,
+					CheckBlock: ocr2keepers.BlockNumber(1),
+				},
+			},
+			false,
+		},
 	}
 
 	for _, tc := range tests {
@@ -160,9 +198,13 @@ func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 			performedLogs := make([]logpoller.Log, len(tc.parsedPerformed))
 			for i, l := range tc.parsedPerformed {
 				performedLogs[i] = l.Log
+				if _, ok := parseResults[logKey(l.Log)]; ok {
+					continue
+				}
 				parseResults[logKey(l.Log)] = l
 			}
 			provider.mu.Lock()
+			provider.cache = newTransmitEventCache(provider.cache.cap)
 			provider.parseLog = func(registry *iregistry21.IKeeperRegistryMaster, log logpoller.Log) (transmitEventLog, error) {
 				return parseResults[logKey(log)], nil
 			}

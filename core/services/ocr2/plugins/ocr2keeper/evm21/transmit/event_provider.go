@@ -158,15 +158,13 @@ func (c *TransmitEventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keep
 }
 
 // processLogs will parse the unseen logs and return the corresponding transmit events.
-// If a log was seen before it will be picked from the cache.
+// If a log was seen before it won't be returned.
 func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller.Log) ([]ocr2keepers.TransmitEvent, error) {
 	vals := []ocr2keepers.TransmitEvent{}
 
 	for _, log := range logs {
 		k := logKey(log)
-		if e, ok := c.cache.get(ocr2keepers.BlockNumber(log.BlockNumber), k); ok {
-			// used cached value if exist
-			vals = append(vals, e)
+		if _, ok := c.cache.get(ocr2keepers.BlockNumber(log.BlockNumber), k); ok {
 			continue
 		}
 		l, err := c.parseLog(c.registry, log)
