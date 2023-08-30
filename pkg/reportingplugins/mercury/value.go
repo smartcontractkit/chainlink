@@ -7,6 +7,7 @@ import (
 )
 
 var MaxInt192 *big.Int
+var MaxInt192Enc []byte
 
 func init() {
 	one := big.NewInt(1)
@@ -14,6 +15,12 @@ func init() {
 	// 1<<192 - 1
 	MaxInt192 = new(big.Int).Lsh(one, 191)
 	MaxInt192.Sub(MaxInt192, one)
+
+	var err error
+	MaxInt192Enc, err = EncodeValueInt192(MaxInt192)
+	if err != nil {
+		panic(err)
+	}
 }
 
 // Bounds on an int192

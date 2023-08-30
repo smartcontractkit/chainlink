@@ -129,6 +129,8 @@ type reportingPlugin struct {
 	maxReportLength          int
 }
 
+var MissingPrice = big.NewInt(-1)
+
 func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.ReportTimestamp, previousReport ocrtypes.Report) (ocrtypes.Observation, error) {
 	obs, err := rp.dataSource.Observe(ctx, repts, previousReport == nil)
 	if err != nil {
@@ -147,7 +149,7 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 		bpErr = pkgerrors.Wrap(obs.BenchmarkPrice.Err, "failed to observe BenchmarkPrice")
 		obsErrors = append(obsErrors, bpErr)
 	} else if benchmarkPrice, err := mercury.EncodeValueInt192(obs.BenchmarkPrice.Val); err != nil {
-		bpErr = pkgerrors.Wrap(err, "failed to observe BenchmarkPrice; encoding failed")
+		bpErr = pkgerrors.Wrapf(err, "failed to encode BenchmarkPrice; val=%s", obs.BenchmarkPrice.Val)
 		obsErrors = append(obsErrors, bpErr)
 	} else {
 		p.BenchmarkPrice = benchmarkPrice
@@ -157,7 +159,7 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 		bidErr = pkgerrors.Wrap(obs.Bid.Err, "failed to observe Bid")
 		obsErrors = append(obsErrors, bidErr)
 	} else if bid, err := mercury.EncodeValueInt192(obs.Bid.Val); err != nil {
-		bidErr = pkgerrors.Wrap(err, "failed to observe Bid; encoding failed")
+		bidErr = pkgerrors.Wrapf(err, "failed to encode Bid; val=%s", obs.Bid.Val)
 		obsErrors = append(obsErrors, bidErr)
 	} else {
 		p.Bid = bid
@@ -166,11 +168,11 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 	if obs.Ask.Err != nil {
 		askErr = pkgerrors.Wrap(obs.Ask.Err, "failed to observe Ask")
 		obsErrors = append(obsErrors, askErr)
-	} else if bid, err := mercury.EncodeValueInt192(obs.Ask.Val); err != nil {
-		askErr = pkgerrors.Wrap(err, "failed to observe Ask; encoding failed")
+	} else if ask, err := mercury.EncodeValueInt192(obs.Ask.Val); err != nil {
+		askErr = pkgerrors.Wrapf(err, "failed to encode Ask; val=%s", obs.Ask.Val)
 		obsErrors = append(obsErrors, askErr)
 	} else {
-		p.Ask = bid
+		p.Ask = ask
 	}
 
 	if bpErr == nil && bidErr == nil && askErr == nil {
@@ -190,10 +192,12 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 	if obs.LinkPrice.Err != nil {
 		linkErr = pkgerrors.Wrap(obs.LinkPrice.Err, "failed to observe LINK price")
 		obsErrors = append(obsErrors, linkErr)
+	} else if obs.LinkPrice.Val.Cmp(MissingPrice) <= 0 {
+		p.LinkFee = mercury.MaxInt192Enc
 	} else {
 		linkFee := mercury.CalculateFee(obs.LinkPrice.Val, rp.offchainConfig.BaseUSDFeeCents)
 		if linkFeeEncoded, err := mercury.EncodeValueInt192(linkFee); err != nil {
-			linkErr = pkgerrors.Wrap(err, "failed to observe LINK price; encoding failed")
+			linkErr = pkgerrors.Wrapf(err, "failed to encode LINK fee; val=%s", linkFee)
 			obsErrors = append(obsErrors, linkErr)
 		} else {
 			p.LinkFee = linkFeeEncoded
@@ -208,10 +212,12 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 	if obs.NativePrice.Err != nil {
 		nativeErr = pkgerrors.Wrap(obs.NativePrice.Err, "failed to observe native price")
 		obsErrors = append(obsErrors, nativeErr)
+	} else if obs.NativePrice.Val.Cmp(MissingPrice) <= 0 {
+		p.NativeFee = mercury.MaxInt192Enc
 	} else {
 		nativeFee := mercury.CalculateFee(obs.NativePrice.Val, rp.offchainConfig.BaseUSDFeeCents)
 		if nativeFeeEncoded, err := mercury.EncodeValueInt192(nativeFee); err != nil {
-			nativeErr = pkgerrors.Wrap(err, "failed to observe native price; encoding failed")
+			nativeErr = pkgerrors.Wrapf(err, "failed to encode native fee; val=%s", nativeFee)
 			obsErrors = append(obsErrors, nativeErr)
 		} else {
 			p.NativeFee = nativeFeeEncoded

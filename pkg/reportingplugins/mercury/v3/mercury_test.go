@@ -500,6 +500,29 @@ func Test_Plugin_Observation(t *testing.T) {
 		assert.True(t, p.NativeFeeValid)
 	})
 
+	t.Run("negative link/native prices set fee to max int192", func(t *testing.T) {
+		obs := Observation{
+			LinkPrice: mercury.ObsResult[*big.Int]{
+				Val: big.NewInt(-1),
+			},
+			NativePrice: mercury.ObsResult[*big.Int]{
+				Val: big.NewInt(-1),
+			},
+		}
+		dataSource.Obs = obs
+
+		parsedObs, err := rp.Observation(context.Background(), ocrtypes.ReportTimestamp{}, nil)
+		require.NoError(t, err)
+
+		var p MercuryObservationProto
+		require.NoError(t, proto.Unmarshal(parsedObs, &p))
+
+		assert.Equal(t, mercury.MaxInt192, mustDecodeBigInt(p.LinkFee))
+		assert.True(t, p.LinkFeeValid)
+		assert.Equal(t, mercury.MaxInt192, mustDecodeBigInt(p.NativeFee))
+		assert.True(t, p.NativeFeeValid)
+	})
+
 	t.Run("some observations failed", func(t *testing.T) {
 		obs := Observation{
 			BenchmarkPrice: mercury.ObsResult[*big.Int]{
