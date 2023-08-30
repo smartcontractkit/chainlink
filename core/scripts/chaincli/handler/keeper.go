@@ -589,7 +589,9 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 					k.client,
 					big.NewInt(k.cfg.UpkeepTestRange),
 					big.NewInt(k.cfg.UpkeepInterval),
-					false,
+					true,  /* useArbBlock */
+					true,  /* staging */
+					false, /* verify mercury response */
 				)
 			}
 			if err != nil {
@@ -717,7 +719,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		log.Printf("registry version is %s", v)
 		log.Printf("active upkeep ids: %v", activeUpkeepIds)
 
-		adminBytes, err := json.Marshal(evm.AdminOffchainConfig{
+		adminBytes, err := json.Marshal(evm.UpkeepPrivilegeConfig{
 			MercuryEnabled: true,
 		})
 		if err != nil {

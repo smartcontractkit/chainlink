@@ -7,10 +7,6 @@ import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
 contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatibleInterface {
   constructor(AutomationRegistrar2_1 _registrar, bool _useArb) VerifiableLoadBase(_registrar, _useArb) {}
 
-  function setFeedsHex(string[] memory newFeeds) external {
-    feedsHex = newFeeds;
-  }
-
   function checkCallback(
     bytes[] memory values,
     bytes memory extraData
