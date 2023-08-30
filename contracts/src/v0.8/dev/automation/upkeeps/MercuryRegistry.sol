@@ -1,5 +1,6 @@
 pragma solidity 0.8.6;
 
+import "../../../shared/access/ConfirmedOwner.sol";
 import "../../../automation/interfaces/AutomationCompatibleInterface.sol";
 import "../2_1/interfaces/FeedLookupCompatibleInterface.sol";
 import "../../../ChainSpecificUtil.sol";
@@ -22,12 +23,12 @@ import "../../../ChainSpecificUtil.sol";
 |   - `MercuryRegistry.t.sol` - contains foundry tests to demonstrate various flows.                                  |
 |                                                                                                                     |
 | TODO:                                                                                                               |
-|   - Access control. Specifically, the the ability to execute `performUpkeep`.                                       |
 |   - Optimize gas consumption.                                                                                       |
 -+---------------------------------------------------------------------------------------------------------------------*/
-contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleInterface {
+contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, FeedLookupCompatibleInterface {
   error DuplicateFeed(string feedId);
   error FeedNotActive(string feedId);
+  error StaleReport(string feedId, uint32 currentTimestamp, uint32 incomingTimestamp);
 
   // Feed object used for storing feed data.
   // not included but contained in reports:
@@ -60,13 +61,15 @@ contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleI
 
   event FeedUpdated(uint32 observationsTimestamp, int192 price, int192 bid, int192 ask, string feedId);
 
+  uint32 private constant MIN_GAS_FOR_PERFORM = 200_000;
+
   string constant c_feedParamKey = "feedIdHex"; // for Mercury v0.2 - format by which feeds are identified
   string constant c_timeParamKey = "blockNumber"; // for Mercury v0.2 - format by which feeds are filtered to be sufficiently recent
-  IVerifierProxy immutable i_verifier; // for Mercury v0.2 - verifies off-chain reports
+  IVerifierProxy public s_verifier; // for Mercury v0.2 - verifies off-chain reports
 
   int192 constant scale = 1_000_000; // a scalar used for measuring deviation with precision
-  int192 s_deviationPercentagePPM; // acceptable deviatoin threshold - 1.5% = 15_000, 100% = 1_000_000, etc..
-  uint32 s_stalenessSeconds; // acceptable staleness threshold - 60 = 1 minute, 300 = 5 minutes, etc..
+  int192 public s_deviationPercentagePPM; // acceptable deviatoin threshold - 1.5% = 15_000, 100% = 1_000_000, etc..
+  uint32 public s_stalenessSeconds; // acceptable staleness threshold - 60 = 1 minute, 300 = 5 minutes, etc..
 
   string[] public s_feeds; // list of feed Ids
   mapping(string => Feed) public s_feedMapping; // mapping of feed Ids to stored feed data
@@ -77,8 +80,8 @@ contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleI
     address verifier,
     int192 deviationPercentagePPM,
     uint32 stalenessSeconds
-  ) {
-    i_verifier = IVerifierProxy(verifier);
+  ) ConfirmedOwner(msg.sender) {
+    s_verifier = IVerifierProxy(verifier);
 
     // Store desired deviation threshold and staleness seconds.
     s_deviationPercentagePPM = deviationPercentagePPM;
@@ -142,22 +145,22 @@ contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleI
   }
 
   // Use deviated off-chain values to update on-chain state.
-  // TODO:
-  // - The implementation provided here is readable but crude. Remaining gas should be checked between iterations
-  // of the for-loop, and the failure of a single item should not cause the entire batch to revert.
   function performUpkeep(bytes calldata performData) external override {
     (bytes[] memory values /* bytes memory lookupData */, ) = abi.decode(performData, (bytes[], bytes));
     for (uint256 i = 0; i < values.length; i++) {
-      // Verify and decode report.
-      Report memory report = abi.decode(i_verifier.verify(values[i]), (Report));
+      // Verify and decode the Mercury report.
+      Report memory report = abi.decode(s_verifier.verify(values[i]), (Report));
       string memory feedId = bytes32ToHexString(abi.encodePacked(report.feedId));
 
       // Feeds that have been removed between checkUpkeep and performUpkeep should not be updated.
-      require(bytes(s_feedMapping[feedId].feedId).length > 0, "feed removed");
+      if (!s_feedMapping[feedId].active) {
+        revert FeedNotActive(feedId);
+      }
 
-      // Sanity check. Stale reports should not get through, but ensure they do not cause a regression
-      // in the registry.
-      require(s_feedMapping[feedId].observationsTimestamp <= report.observationsTimestamp, "stale report");
+      // Ensure stale reports do not cause a regression in the registry.
+      if (s_feedMapping[feedId].observationsTimestamp > report.observationsTimestamp) {
+        revert StaleReport(feedId, s_feedMapping[feedId].observationsTimestamp, report.observationsTimestamp);
+      }
 
       // Assign new values to state.
       s_feedMapping[feedId].bid = report.bid;
@@ -165,8 +168,13 @@ contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleI
       s_feedMapping[feedId].price = report.price;
       s_feedMapping[feedId].observationsTimestamp = report.observationsTimestamp;
 
-      // Emit log (not gas efficient to do this for each update).
+      // Emit log.
       emit FeedUpdated(report.observationsTimestamp, report.price, report.bid, report.ask, feedId);
+
+      // Ensure enough gas remains for the next iteration. Otherwise, stop here.
+      if (gasleft() < MIN_GAS_FOR_PERFORM) {
+        return;
+      }
     }
   }
 
@@ -212,7 +220,7 @@ contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleI
     return string(abi.encodePacked("0x", converted));
   }
 
-  function addFeeds(string[] memory feedIds, string[] memory feedNames) external {
+  function addFeeds(string[] memory feedIds, string[] memory feedNames) external onlyOwner {
     for (uint256 i = 0; i < feedIds.length; i++) {
       string memory feedId = feedIds[i];
       if (s_feedMapping[feedId].active) {
@@ -227,7 +235,7 @@ contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleI
     }
   }
 
-  function setFeeds(string[] memory feedIds, string[] memory feedNames) public {
+  function setFeeds(string[] memory feedIds, string[] memory feedNames) public onlyOwner {
     // Ensure correctly formatted constructor arguments.
     require(feedIds.length == feedNames.length, "incorrectly formatted feeds");
 
@@ -250,9 +258,13 @@ contract MercuryRegistry is AutomationCompatibleInterface, FeedLookupCompatibleI
     s_feeds = feedIds;
   }
 
-  function setConfig(int192 deviationPercentagePPM, uint32 stalenessSeconds) external {
+  function setConfig(int192 deviationPercentagePPM, uint32 stalenessSeconds) external onlyOwner {
     s_stalenessSeconds = stalenessSeconds;
     s_deviationPercentagePPM = deviationPercentagePPM;
+  }
+
+  function setVerifier(address verifier) external onlyOwner {
+    s_verifier = IVerifierProxy(verifier);
   }
 }
 

@@ -1,9 +1,9 @@
 pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
-import "../../../../src/v0.8/dev/automation/upkeeps/MercuryRegistry.sol";
-import "../../../../src/v0.8/dev/automation/upkeeps/MercuryRegistryBatchUpkeep.sol";
-import "../../../../src/v0.8/dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
+import "../../dev/automation/upkeeps/MercuryRegistry.sol";
+import "../../dev/automation/upkeeps/MercuryRegistryBatchUpkeep.sol";
+import "../../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
 
 contract MercuryRegistryTest is Test {
   address internal constant OWNER = 0x00007e64E1fB0C487F25dd6D3601ff6aF8d32e4e;
@@ -41,12 +41,18 @@ contract MercuryRegistryTest is Test {
   bytes s_august23ETHUSDMercuryReport =
     hex"0006c41ec94138ae62cce3f1a2b852e42fe70359502fa7b6bdbf81207970d88e00000000000000000000000000000000000000000000000000000000016d874d000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000220000000000000000000000000000000000000000000000000000000000000028000010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000120f753e1201d54ac94dfd9334c542562ff7e42993419a661261d010af0cbfd4e340000000000000000000000000000000000000000000000000000000064e66415000000000000000000000000000000000000000000000000000000275dbe6079000000000000000000000000000000000000000000000000000000275c905eba000000000000000000000000000000000000000000000000000000275e5693080000000000000000000000000000000000000000000000000000000002286ce7c44fa27f67f6dd0a8bb40c12f0f050231845789f022a82aa5f4b3fe5bf2068fb0000000000000000000000000000000000000000000000000000000002286ce70000000000000000000000000000000000000000000000000000000064e664150000000000000000000000000000000000000000000000000000000000000002a2b01f7741563cfe305efaec43e56cd85731e3a8e2396f7c625bd16adca7b39c97805b6170adc84d065f9d68c87104c3509aeefef42c0d1711e028ace633888000000000000000000000000000000000000000000000000000000000000000025d984ad476bda9547cf0f90d32732dc5a0d84b0e2fe9795149b786fb05332d4c092e278b4dddeef45c070b818c6e221db2633b573d616ef923c755a145ea099c";
 
+  // Feed: USDC/USD
+  // Date: Wednesday, August 30, 2023 5:05:01 PM
+  // Price: $1.00035464
+  bytes s_august30USDCUSDMercuryReport =
+    hex"0006970c13551e2a390246f5eccb62b9be26848e72026830f4688f49201b5a050000000000000000000000000000000000000000000000000000000001c89843000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e00000000000000000000000000000000000000000000000000000000000000220000000000000000000000000000000000000000000000000000000000000028000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000120a5b07943b89e2c278fc8a2754e2854316e03cb959f6d323c2d5da218fb6b0ff80000000000000000000000000000000000000000000000000000000064ef69fa0000000000000000000000000000000000000000000000000000000005f5da000000000000000000000000000000000000000000000000000000000005f5b0f80000000000000000000000000000000000000000000000000000000005f5f8b0000000000000000000000000000000000000000000000000000000000240057307d0a0421d25328cb6dcfc5d0e211ff0580baaaf104e9877fc52cf2e8ec0aa7d00000000000000000000000000000000000000000000000000000000024005730000000000000000000000000000000000000000000000000000000064ef69fa0000000000000000000000000000000000000000000000000000000000000002b9e7fb46f1e9d22a1156024dc2bbf2bc6d337e0a2d78aaa3fb6e43b880217e5897732b516e39074ef4dcda488733bfee80c0a10714b94621cd93df6842373cf5000000000000000000000000000000000000000000000000000000000000000205ca5f8da9d6ae01ec6d85c681e536043323405b3b8a15e4d2a288e02dac32f10b2294593e270a4bbf53b0c4978b725293e85e49685f1d3ce915ff670ab6612f";
+
   function setUp() public virtual {
     // Set owner, and fork Arbitrum Goerli Testnet (chain ID 421613).
     // A public Arbitrum Goerli RPC url is being used, and the fork should be cached in CI so availability is not an issue for test runs.
     vm.startPrank(OWNER);
-    vm.selectFork(vm.createFork("https://arbitrum-goerli.publicnode.com"));
-    vm.rollFork(BLOCK_NUMBER);
+    vm.selectFork(vm.createFork("https://api.zan.top/node/v1/arb/goerli/public", BLOCK_NUMBER));
+    vm.chainId(31337); // restore chain Id
 
     // Use a BTC feed and ETH feed.
     feedIds = new string[](2);
@@ -61,10 +67,11 @@ contract MercuryRegistryTest is Test {
     s_testRegistry = new MercuryRegistry(
       initialFeedIds,
       initialFeedNames,
-      VERIFIER,
+      address(0), // verifier unset
       DEVIATION_THRESHOLD,
       STALENESS_SECONDS
     );
+    s_testRegistry.setVerifier(VERIFIER); // set verifier
 
     // Add ETH feed.
     string[] memory addedFeedIds = new string[](1);
@@ -119,6 +126,10 @@ contract MercuryRegistryTest is Test {
     assertEq(localFeedId, s_BTCUSDFeedId);
     assertEq(active, true);
 
+    // Save this for later in the test.
+    bytes memory oldPerformData = performData;
+    uint32 oldObservationsTimestamp = observationsTimestamp;
+
     // Obtain mercury report off-chain (for August 23 BTC/USD price & ETH/USD price)
     values = new bytes[](2);
     values[0] = s_august23BTCUSDMercuryReport;
@@ -159,6 +170,29 @@ contract MercuryRegistryTest is Test {
     // Pass the obtained mercury report into checkCallback, to assert that an update is not warranted.
     (shouldPerformUpkeep, performData) = s_testRegistry.checkCallback(values, bytes("LOOKUP_DATA"));
     assertEq(shouldPerformUpkeep, false);
+
+    // Ensure stale reports cannot be included.
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        MercuryRegistry.StaleReport.selector,
+        feedIds[0],
+        feeds[0].observationsTimestamp,
+        oldObservationsTimestamp
+      )
+    );
+    s_testRegistry.performUpkeep(oldPerformData);
+
+    // Ensure reports for inactive feeds cannot be included.
+    bytes[] memory inactiveFeedReports = new bytes[](1);
+    inactiveFeedReports[0] = s_august30USDCUSDMercuryReport;
+    bytes memory lookupData = "";
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        MercuryRegistry.FeedNotActive.selector,
+        "0xa5b07943b89e2c278fc8a2754e2854316e03cb959f6d323c2d5da218fb6b0ff8" // USDC/USD feed id
+      )
+    );
+    s_testRegistry.performUpkeep(abi.encode(inactiveFeedReports, lookupData));
   }
 
   // Below are the same tests as `testMercuryRegistry`, except done via a batching Mercury registry that
@@ -223,8 +257,8 @@ contract MercuryRegistryTest is Test {
     (shouldPerformUpkeep, performData) = batchedRegistry.checkCallback(values, bytes("LOOKUP_DATA"));
     assertEq(shouldPerformUpkeep, true);
 
-    // Perform upkeep to update on-chain state.
-    batchedRegistry.performUpkeep(performData);
+    // Perform upkeep to update on-chain state, but with not enough gas to update both feeds.
+    batchedRegistry.performUpkeep{gas: 250_000}(performData);
 
     // Make a batch request for both the BTC/USD feed data and the ETH/USD feed data.
     MercuryRegistry.Feed[] memory feeds = s_testRegistry.getLatestFeedData(feedIds);
@@ -236,6 +270,18 @@ contract MercuryRegistryTest is Test {
     assertEq(feeds[0].ask, 2672046712275); //   $26,720.46712275
     assertEq(feeds[0].feedName, "BTC/USD");
     assertEq(feeds[0].feedId, s_BTCUSDFeedId);
+
+    // Check state of ETH/USD feed to observe that the update was not propagated.
+    assertEq(feeds[1].observationsTimestamp, 0);
+    assertEq(feeds[1].bid, 0);
+    assertEq(feeds[1].price, 0);
+    assertEq(feeds[1].ask, 0);
+    assertEq(feeds[1].feedName, "ETH/USD");
+    assertEq(feeds[1].feedId, s_ETHUSDFeedId);
+
+    // Try again, with sufficient gas to update both feeds.
+    batchedRegistry.performUpkeep{gas: 2_500_000}(performData);
+    feeds = s_testRegistry.getLatestFeedData(feedIds);
 
     // Check state of ETH/USD feed to ensure update was propagated.
     assertEq(feeds[1].observationsTimestamp, 1692820501); // Wednesday, August 23, 2023 7:55:01 PM
