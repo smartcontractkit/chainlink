@@ -66,32 +66,6 @@ func (_m *EVM2EVMOnRampInterface) Address() common.Address {
 	return r0
 }
 
-// ApplyAllowListUpdates provides a mock function with given fields: opts, removes, adds
-func (_m *EVM2EVMOnRampInterface) ApplyAllowListUpdates(opts *bind.TransactOpts, removes []common.Address, adds []common.Address) (*types.Transaction, error) {
-	ret := _m.Called(opts, removes, adds)
-
-	var r0 *types.Transaction
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []common.Address, []common.Address) (*types.Transaction, error)); ok {
-		return rf(opts, removes, adds)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, []common.Address, []common.Address) *types.Transaction); ok {
-		r0 = rf(opts, removes, adds)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Transaction)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, []common.Address, []common.Address) error); ok {
-		r1 = rf(opts, removes, adds)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // ApplyPoolUpdates provides a mock function with given fields: opts, removes, adds
 func (_m *EVM2EVMOnRampInterface) ApplyPoolUpdates(opts *bind.TransactOpts, removes []evm_2_evm_onramp.InternalPoolUpdate, adds []evm_2_evm_onramp.InternalPoolUpdate) (*types.Transaction, error) {
 	ret := _m.Called(opts, removes, adds)
@@ -156,84 +130,6 @@ func (_m *EVM2EVMOnRampInterface) FilterAdminSet(opts *bind.FilterOpts) (*evm_2_
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*evm_2_evm_onramp.EVM2EVMOnRampAdminSetIterator)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.FilterOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// FilterAllowListAdd provides a mock function with given fields: opts
-func (_m *EVM2EVMOnRampInterface) FilterAllowListAdd(opts *bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampAllowListAddIterator, error) {
-	ret := _m.Called(opts)
-
-	var r0 *evm_2_evm_onramp.EVM2EVMOnRampAllowListAddIterator
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampAllowListAddIterator, error)); ok {
-		return rf(opts)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_onramp.EVM2EVMOnRampAllowListAddIterator); ok {
-		r0 = rf(opts)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_onramp.EVM2EVMOnRampAllowListAddIterator)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.FilterOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// FilterAllowListEnabledSet provides a mock function with given fields: opts
-func (_m *EVM2EVMOnRampInterface) FilterAllowListEnabledSet(opts *bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampAllowListEnabledSetIterator, error) {
-	ret := _m.Called(opts)
-
-	var r0 *evm_2_evm_onramp.EVM2EVMOnRampAllowListEnabledSetIterator
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampAllowListEnabledSetIterator, error)); ok {
-		return rf(opts)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_onramp.EVM2EVMOnRampAllowListEnabledSetIterator); ok {
-		r0 = rf(opts)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_onramp.EVM2EVMOnRampAllowListEnabledSetIterator)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.FilterOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// FilterAllowListRemove provides a mock function with given fields: opts
-func (_m *EVM2EVMOnRampInterface) FilterAllowListRemove(opts *bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampAllowListRemoveIterator, error) {
-	ret := _m.Called(opts)
-
-	var r0 *evm_2_evm_onramp.EVM2EVMOnRampAllowListRemoveIterator
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) (*evm_2_evm_onramp.EVM2EVMOnRampAllowListRemoveIterator, error)); ok {
-		return rf(opts)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.FilterOpts) *evm_2_evm_onramp.EVM2EVMOnRampAllowListRemoveIterator); ok {
-		r0 = rf(opts)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_onramp.EVM2EVMOnRampAllowListRemoveIterator)
 		}
 	}
 
@@ -525,56 +421,6 @@ func (_m *EVM2EVMOnRampInterface) ForwardFromRouter(opts *bind.TransactOpts, mes
 
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, evm_2_evm_onramp.ClientEVM2AnyMessage, *big.Int, common.Address) error); ok {
 		r1 = rf(opts, message, feeTokenAmount, originalSender)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetAllowList provides a mock function with given fields: opts
-func (_m *EVM2EVMOnRampInterface) GetAllowList(opts *bind.CallOpts) ([]common.Address, error) {
-	ret := _m.Called(opts)
-
-	var r0 []common.Address
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) ([]common.Address, error)); ok {
-		return rf(opts)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) []common.Address); ok {
-		r0 = rf(opts)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]common.Address)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetAllowListEnabled provides a mock function with given fields: opts
-func (_m *EVM2EVMOnRampInterface) GetAllowListEnabled(opts *bind.CallOpts) (bool, error) {
-	ret := _m.Called(opts)
-
-	var r0 bool
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (bool, error)); ok {
-		return rf(opts)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) bool); ok {
-		r0 = rf(opts)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
-		r1 = rf(opts)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -958,84 +804,6 @@ func (_m *EVM2EVMOnRampInterface) ParseAdminSet(log types.Log) (*evm_2_evm_onram
 	return r0, r1
 }
 
-// ParseAllowListAdd provides a mock function with given fields: log
-func (_m *EVM2EVMOnRampInterface) ParseAllowListAdd(log types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampAllowListAdd, error) {
-	ret := _m.Called(log)
-
-	var r0 *evm_2_evm_onramp.EVM2EVMOnRampAllowListAdd
-	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampAllowListAdd, error)); ok {
-		return rf(log)
-	}
-	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_onramp.EVM2EVMOnRampAllowListAdd); ok {
-		r0 = rf(log)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_onramp.EVM2EVMOnRampAllowListAdd)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
-		r1 = rf(log)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// ParseAllowListEnabledSet provides a mock function with given fields: log
-func (_m *EVM2EVMOnRampInterface) ParseAllowListEnabledSet(log types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampAllowListEnabledSet, error) {
-	ret := _m.Called(log)
-
-	var r0 *evm_2_evm_onramp.EVM2EVMOnRampAllowListEnabledSet
-	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampAllowListEnabledSet, error)); ok {
-		return rf(log)
-	}
-	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_onramp.EVM2EVMOnRampAllowListEnabledSet); ok {
-		r0 = rf(log)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_onramp.EVM2EVMOnRampAllowListEnabledSet)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
-		r1 = rf(log)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// ParseAllowListRemove provides a mock function with given fields: log
-func (_m *EVM2EVMOnRampInterface) ParseAllowListRemove(log types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampAllowListRemove, error) {
-	ret := _m.Called(log)
-
-	var r0 *evm_2_evm_onramp.EVM2EVMOnRampAllowListRemove
-	var r1 error
-	if rf, ok := ret.Get(0).(func(types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampAllowListRemove, error)); ok {
-		return rf(log)
-	}
-	if rf, ok := ret.Get(0).(func(types.Log) *evm_2_evm_onramp.EVM2EVMOnRampAllowListRemove); ok {
-		r0 = rf(log)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*evm_2_evm_onramp.EVM2EVMOnRampAllowListRemove)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(types.Log) error); ok {
-		r1 = rf(log)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // ParseCCIPSendRequested provides a mock function with given fields: log
 func (_m *EVM2EVMOnRampInterface) ParseCCIPSendRequested(log types.Log) (*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested, error) {
 	ret := _m.Called(log)
@@ -1374,32 +1142,6 @@ func (_m *EVM2EVMOnRampInterface) SetAdmin(opts *bind.TransactOpts, newAdmin com
 	return r0, r1
 }
 
-// SetAllowListEnabled provides a mock function with given fields: opts, enabled
-func (_m *EVM2EVMOnRampInterface) SetAllowListEnabled(opts *bind.TransactOpts, enabled bool) (*types.Transaction, error) {
-	ret := _m.Called(opts, enabled)
-
-	var r0 *types.Transaction
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, bool) (*types.Transaction, error)); ok {
-		return rf(opts, enabled)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, bool) *types.Transaction); ok {
-		r0 = rf(opts, enabled)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*types.Transaction)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, bool) error); ok {
-		r1 = rf(opts, enabled)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // SetDynamicConfig provides a mock function with given fields: opts, dynamicConfig
 func (_m *EVM2EVMOnRampInterface) SetDynamicConfig(opts *bind.TransactOpts, dynamicConfig evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig) (*types.Transaction, error) {
 	ret := _m.Called(opts, dynamicConfig)
@@ -1598,84 +1340,6 @@ func (_m *EVM2EVMOnRampInterface) WatchAdminSet(opts *bind.WatchOpts, sink chan<
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampAdminSet) error); ok {
-		r1 = rf(opts, sink)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// WatchAllowListAdd provides a mock function with given fields: opts, sink
-func (_m *EVM2EVMOnRampInterface) WatchAllowListAdd(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampAllowListAdd) (event.Subscription, error) {
-	ret := _m.Called(opts, sink)
-
-	var r0 event.Subscription
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampAllowListAdd) (event.Subscription, error)); ok {
-		return rf(opts, sink)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampAllowListAdd) event.Subscription); ok {
-		r0 = rf(opts, sink)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(event.Subscription)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampAllowListAdd) error); ok {
-		r1 = rf(opts, sink)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// WatchAllowListEnabledSet provides a mock function with given fields: opts, sink
-func (_m *EVM2EVMOnRampInterface) WatchAllowListEnabledSet(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampAllowListEnabledSet) (event.Subscription, error) {
-	ret := _m.Called(opts, sink)
-
-	var r0 event.Subscription
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampAllowListEnabledSet) (event.Subscription, error)); ok {
-		return rf(opts, sink)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampAllowListEnabledSet) event.Subscription); ok {
-		r0 = rf(opts, sink)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(event.Subscription)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampAllowListEnabledSet) error); ok {
-		r1 = rf(opts, sink)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// WatchAllowListRemove provides a mock function with given fields: opts, sink
-func (_m *EVM2EVMOnRampInterface) WatchAllowListRemove(opts *bind.WatchOpts, sink chan<- *evm_2_evm_onramp.EVM2EVMOnRampAllowListRemove) (event.Subscription, error) {
-	ret := _m.Called(opts, sink)
-
-	var r0 event.Subscription
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampAllowListRemove) (event.Subscription, error)); ok {
-		return rf(opts, sink)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampAllowListRemove) event.Subscription); ok {
-		r0 = rf(opts, sink)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(event.Subscription)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.WatchOpts, chan<- *evm_2_evm_onramp.EVM2EVMOnRampAllowListRemove) error); ok {
 		r1 = rf(opts, sink)
 	} else {
 		r1 = ret.Error(1)

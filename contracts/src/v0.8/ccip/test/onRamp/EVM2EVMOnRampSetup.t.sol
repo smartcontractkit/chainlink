@@ -93,7 +93,6 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
       }),
       generateDynamicOnRampConfig(address(s_sourceRouter), address(s_priceRegistry)),
       getTokensAndPools(s_sourceTokens, getCastedSourcePools()),
-      new address[](0),
       rateLimiterConfig(),
       s_feeTokenConfigArgs,
       s_tokenTransferFeeConfigArgs,
