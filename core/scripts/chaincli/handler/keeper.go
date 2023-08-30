@@ -590,7 +590,6 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 					big.NewInt(k.cfg.UpkeepTestRange),
 					big.NewInt(k.cfg.UpkeepInterval),
 					true,  /* useArbBlock */
-					true,  /* isV02 */
 					true,  /* staging */
 					false, /* verify mercury response */
 				)
