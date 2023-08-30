@@ -110,7 +110,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, FeedL
   // Extracted from `checkUpkeep` for batching purposes.
   function revertForFeedLookup(string[] memory feeds) public view returns (bool, bytes memory) {
     uint256 blockNumber = ChainSpecificUtil.getBlockNumber();
-    revert FeedLookup(c_feedParamKey, feeds, c_timeParamKey, blockNumber, "EXTRA_DATA_FOR_FUTURE_FUNCTIONS_CALLS");
+    revert FeedLookup(c_feedParamKey, feeds, c_timeParamKey, blockNumber, "");
   }
 
   // Filter for feeds that have deviated sufficiently from their respective on-chain values, or where
@@ -134,7 +134,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, FeedL
       }
     }
 
-    // Adjusts the lenght of the filteredValues array to `count` such that it
+    // Adjusts the length of the filteredValues array to `count` such that it
     // does not have extra empty slots, in case some items were filtered.
     assembly {
       mstore(filteredValues, count)

@@ -39,12 +39,12 @@ contract MercuryRegistryBatchUpkeep is ConfirmedOwner, AutomationCompatibleInter
         break;
       }
 
-      // Assign feeed.
-      feeds[i - start] = i_registry.s_feeds(i);
+      // Assign feed.
+      feeds[i - start] = feedId;
       count++;
     }
 
-    // Adjusts the lenght of the batch to `count` such that it does not
+    // Adjusts the length of the batch to `count` such that it does not
     // contain any empty feed Ids.
     assembly {
       mstore(feeds, count)

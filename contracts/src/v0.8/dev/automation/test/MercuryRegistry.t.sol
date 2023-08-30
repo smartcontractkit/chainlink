@@ -92,7 +92,7 @@ contract MercuryRegistryTest is Test {
         feedIds, // feed Ids
         "blockNumber", // timeParamKey
         blockNumber, // block number on which request is occuring
-        "EXTRA_DATA_FOR_FUTURE_FUNCTIONS_CALLS" // extra data
+        "" // extra data
       )
     );
     s_testRegistry.checkUpkeep("");
@@ -214,7 +214,7 @@ contract MercuryRegistryTest is Test {
         feedIds, // feed Ids
         "blockNumber", // timeParamKey
         blockNumber, // block number on which request is occuring
-        "EXTRA_DATA_FOR_FUTURE_FUNCTIONS_CALLS" // extra data
+        "" // extra data
       )
     );
     batchedRegistry.checkUpkeep("");
