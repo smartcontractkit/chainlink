@@ -869,7 +869,7 @@ describe('KeeperRegistry2_1', () => {
       .deploy(
         BigNumber.from('10000'),
         BigNumber.from('100'),
-        true /* useArbBlock */,
+        false /* useArbBlock */,
         true /* staging */,
         false /* verify mercury response */,
       )
