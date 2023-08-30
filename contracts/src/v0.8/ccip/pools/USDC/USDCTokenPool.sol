@@ -16,6 +16,7 @@ contract USDCTokenPool is TokenPool {
   error UnknownDomain(uint64 domain);
   error UnlockingUSDCFailed();
   error InvalidConfig();
+  error InvalidMessageVersion(uint32 version);
   error InvalidNonce(uint64 expected, uint64 got);
   error InvalidSender(bytes32 expected, bytes32 got);
   error InvalidReceiver(bytes32 expected, bytes32 got);
@@ -41,6 +42,11 @@ contract USDCTokenPool is TokenPool {
     uint32 version; // ----------┐ CCTP internal version
     address tokenMessenger; // --┘ Contract to burn tokens
     address messageTransmitter; // Contract to mint tokens
+  }
+
+  struct SourceTokenDataPayload {
+    uint64 nonce;
+    uint32 sourceDomain;
   }
 
   uint32 public immutable i_localDomainIdentifier;
@@ -106,7 +112,7 @@ contract USDCTokenPool is TokenPool {
       domain.allowedCaller
     );
     emit Burned(msg.sender, amount);
-    return abi.encode(nonce);
+    return abi.encode(SourceTokenDataPayload({nonce: nonce, sourceDomain: i_localDomainIdentifier}));
   }
 
   /// @notice Mint tokens from the pool to the recipient
@@ -120,12 +126,14 @@ contract USDCTokenPool is TokenPool {
     bytes memory extraData
   ) external override onlyOffRamp {
     _consumeOffRampRateLimit(amount);
-    (bytes memory offchainTokenData, bytes memory nonceBytes) = abi.decode(extraData, (bytes, bytes));
+    (bytes memory offchainTokenData, bytes memory sourceData) = abi.decode(extraData, (bytes, bytes));
     MessageAndAttestation memory msgAndAttestation = abi.decode(offchainTokenData, (MessageAndAttestation));
+    SourceTokenDataPayload memory sourceTokenData = abi.decode(sourceData, (SourceTokenDataPayload));
 
     _validateMessage(
       msgAndAttestation.message,
-      abi.decode(nonceBytes, (uint64)),
+      sourceTokenData.sourceDomain,
+      sourceTokenData.nonce,
       bytes32(originalSender[0:32]),
       bytes32(uint256(uint160(receiver)))
     );
@@ -141,10 +149,22 @@ contract USDCTokenPool is TokenPool {
 
   function _validateMessage(
     bytes memory usdcMessage,
+    uint32 expectedSourceDomain,
     uint64 expectedNonce,
     bytes32 expectedSender,
     bytes32 expectedReceiver
   ) internal view {
+    uint32 version;
+    // solhint-disable-next-line no-inline-assembly
+    assembly {
+      version := mload(add(usdcMessage, 4)) // 0 + 4 = 4
+    }
+    // This token pool only supports version 1 of the CCTP message format
+    // We check the version prior to loading the rest of the message
+    // to avoid unexpected reverts due to out-of-bounds reads.
+    if (version != 1) revert InvalidMessageVersion(version);
+
+    uint32 sourceDomain;
     uint32 destinationDomain;
     uint64 nonce;
     bytes32 sender;
@@ -152,16 +172,18 @@ contract USDCTokenPool is TokenPool {
 
     // solhint-disable-next-line no-inline-assembly
     assembly {
+      sourceDomain := mload(add(usdcMessage, 8)) // 4 + 4 = 8
       destinationDomain := mload(add(usdcMessage, 12)) // 8 + 4 = 12
       nonce := mload(add(usdcMessage, 20)) // 12 + 8 = 20
       sender := mload(add(usdcMessage, 52)) // 20 + 32 = 52
       receiver := mload(add(usdcMessage, 84)) // 52 + 32 = 84
     }
 
-    if (i_localDomainIdentifier != destinationDomain) revert InvalidDomain(destinationDomain);
-    if (expectedNonce != nonce) revert InvalidNonce(expectedNonce, nonce);
-    if (expectedSender != sender) revert InvalidSender(expectedSender, sender);
-    if (expectedReceiver != receiver) revert InvalidReceiver(expectedReceiver, receiver);
+    if (sourceDomain != expectedSourceDomain) revert InvalidDomain(sourceDomain);
+    if (destinationDomain != i_localDomainIdentifier) revert InvalidDomain(destinationDomain);
+    if (nonce != expectedNonce) revert InvalidNonce(expectedNonce, nonce);
+    if (sender != expectedSender) revert InvalidSender(expectedSender, sender);
+    if (receiver != expectedReceiver) revert InvalidReceiver(expectedReceiver, receiver);
   }
 
   // ================================================================

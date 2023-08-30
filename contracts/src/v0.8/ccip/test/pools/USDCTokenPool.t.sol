@@ -95,7 +95,7 @@ contract USDCTokenPoolSetup is BaseTest {
   }
 
   function _generateUSDCMessage(uint64 nonce, address sender, address recipient) internal pure returns (bytes memory) {
-    uint32 version = 0x01010101;
+    uint32 version = 1;
     bytes memory body = bytes("body");
 
     return
@@ -242,8 +242,10 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     bytes memory offchainTokenData = abi.encode(
       USDCTokenPool.MessageAndAttestation({message: message, attestation: attestation})
     );
-    bytes memory sourceTokenData = abi.encode(nonce);
-    bytes memory extraData = abi.encode(offchainTokenData, sourceTokenData);
+    bytes memory sourceTokenDataPayload = abi.encode(
+      USDCTokenPool.SourceTokenDataPayload({nonce: nonce, sourceDomain: SOURCE_DOMAIN_IDENTIFIER})
+    );
+    bytes memory extraData = abi.encode(offchainTokenData, sourceTokenDataPayload);
 
     vm.expectEmit();
     emit Minted(s_routerAllowedOffRamp, receiver, amount);
@@ -265,8 +267,10 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
       USDCTokenPool.MessageAndAttestation({message: message, attestation: bytes("")})
     );
 
-    bytes memory sourceTokenData = abi.encode(nonce);
-    bytes memory extraData = abi.encode(offchainTokenData, sourceTokenData);
+    bytes memory sourceTokenDataPayload = abi.encode(
+      USDCTokenPool.SourceTokenDataPayload({nonce: nonce, sourceDomain: SOURCE_DOMAIN_IDENTIFIER})
+    );
+    bytes memory extraData = abi.encode(offchainTokenData, sourceTokenDataPayload);
 
     vm.expectRevert(USDCTokenPool.UnlockingUSDCFailed.selector);
 
