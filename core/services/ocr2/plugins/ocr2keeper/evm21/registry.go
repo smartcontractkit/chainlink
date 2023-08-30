@@ -273,7 +273,12 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 	}
 	r.active.Reset(ids...)
 
-	return r.refreshLogTriggerUpkeeps(ids)
+	newUpkeeps, err := r.logEventProvider.RefreshActiveUpkeeps(ids...)
+	if err != nil {
+		return fmt.Errorf("failed to refresh active upkeep ids in log event provider: %w", err)
+	}
+
+	return r.refreshLogTriggerUpkeeps(newUpkeeps)
 }
 
 // refreshLogTriggerUpkeeps refreshes the active upkeep ids for log trigger upkeeps
@@ -313,10 +318,6 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(ids []*big.Int) error {
 			logTriggerHashes = append(logTriggerHashes, common.BigToHash(id))
 		}
 	}
-	newUpkeeps, err := r.logEventProvider.RefreshActiveUpkeeps(logTriggerIDs...)
-	if err != nil {
-		return fmt.Errorf("failed to refresh active upkeep ids in log event provider: %w", err)
-	}
 
 	unpausedLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, indexedLogsConfirmations, pg.WithParentCtx(r.ctx))
 	if err != nil {
@@ -349,7 +350,7 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(ids []*big.Int) error {
 	}
 
 	var merr error
-	for _, id := range newUpkeeps {
+	for _, id := range logTriggerIDs {
 		logBlock, ok := configSetBlockNumbers[id.String()]
 		if !ok {
 			r.lggr.Warnf("unable to find config set block number for %s", id.String())

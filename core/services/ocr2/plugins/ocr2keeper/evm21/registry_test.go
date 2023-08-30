@@ -207,23 +207,6 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 		wantErr          error
 	}{
 		{
-			name: "an error is returned when refreshing active upkeeps returns an error",
-			ids: []*big.Int{
-				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
-				core.GenUpkeepID(types.ConditionTrigger, "abc").BigInt(),
-				big.NewInt(-1),
-			},
-			logEventProvider: &mockLogEventProvider{
-				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
-					// of the ids specified in the test, only one is a valid log trigger upkeep
-					assert.Equal(t, 1, len(ids))
-					return nil, errors.New("refresh active upkeeps boom")
-				},
-			},
-			expectsErr: true,
-			wantErr:    errors.New("failed to refresh active upkeep ids in log event provider: refresh active upkeeps boom"),
-		},
-		{
 			name: "an error is returned when fetching indexed logs for IKeeperRegistryMasterUpkeepUnpaused errors",
 			ids: []*big.Int{
 				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
