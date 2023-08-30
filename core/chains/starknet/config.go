@@ -197,6 +197,7 @@ func nodeStatus(n *stkcfg.Node, chainID string) (types.NodeStatus, error) {
 
 type StarknetConfig struct {
 	ChainID *string
+	// Do not access directly. Use [IsEnabled]
 	Enabled *bool
 	stkcfg.Chain
 	Nodes StarknetNodes

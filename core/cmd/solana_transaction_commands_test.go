@@ -34,6 +34,7 @@ func TestShell_SolanaSendSol(t *testing.T) {
 	cfg := solana.SolanaConfig{
 		ChainID: &chainID,
 		Nodes:   solana.SolanaNodes{&node},
+		Enabled: ptr(true),
 	}
 	app := solanaStartNewApplication(t, &cfg)
 	from, err := app.GetKeyStore().Solana().Create()
