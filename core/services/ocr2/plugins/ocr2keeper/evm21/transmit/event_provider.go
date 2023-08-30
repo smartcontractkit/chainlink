@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
@@ -33,8 +34,10 @@ type TransmitEventProvider struct {
 	registry  *iregistry21.IKeeperRegistryMaster
 	client    evmclient.Client
 
-	registryAddress common.Address
-	lookbackBlocks  int64
+	lastPollBlock atomic.Int64
+
+	registryAddress                common.Address
+	lookbackBlocks, lookbackBuffer int64
 
 	parseLog logParser
 	cache    transmitEventCache
@@ -75,10 +78,11 @@ func NewTransmitEventProvider(
 	}
 
 	return &TransmitEventProvider{
-		logger:          logger,
+		logger:          logger.Named("TransmitEventProvider"),
 		logPoller:       logPoller,
 		registryAddress: registryAddress,
 		lookbackBlocks:  lookbackBlocks,
+		lookbackBuffer:  lookbackBlocks / 2,
 		registry:        contract,
 		client:          client,
 		parseLog:        defaultLogParser,
@@ -101,7 +105,7 @@ func (c *TransmitEventProvider) Start(ctx context.Context) error {
 }
 
 func (c *TransmitEventProvider) Close() error {
-	return c.sync.StopOnce("AutomationRegistry", func() error {
+	return c.sync.StopOnce("AutomationTransmitEventProvider", func() error {
 		c.mu.Lock()
 		defer c.mu.Unlock()
 
@@ -132,16 +136,26 @@ func (c *TransmitEventProvider) HealthReport() map[string]error {
 }
 
 func (c *TransmitEventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keepers.TransmitEvent, error) {
-	end, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
+	latestBlock, err := c.logPoller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to get latest block from log poller", err)
 	}
 
+	start := c.lastPollBlock.Load()
+	if start < latestBlock-c.lookbackBlocks {
+		start = latestBlock - c.lookbackBlocks
+	} else {
+		start -= c.lookbackBuffer
+	}
+	if start < 0 {
+		start = 0
+	}
+	c.logger.Debugw("polling for transmit event logs", "start", start, "end", latestBlock)
 	// always check the last lookback number of blocks and rebroadcast
 	// this allows the plugin to make decisions based on event confirmations
 	logs, err := c.logPoller.LogsWithSigs(
-		end-c.lookbackBlocks,
-		end,
+		start,
+		latestBlock,
 		[]common.Hash{
 			iregistry21.IKeeperRegistryMasterUpkeepPerformed{}.Topic(),
 			iregistry21.IKeeperRegistryMasterStaleUpkeepReport{}.Topic(),
@@ -155,7 +169,7 @@ func (c *TransmitEventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keep
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
 	}
 
-	return c.processLogs(end, logs...)
+	return c.processLogs(latestBlock, logs...)
 }
 
 // processLogs will parse the unseen logs and return the corresponding transmit events.
@@ -218,6 +232,11 @@ func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller
 	// the next time we call processLogs we don't want to return these logs
 	for k, e := range visited {
 		c.cache.add(k, e)
+	}
+
+	if len(visited) > 0 {
+		c.logger.Debugw("processed logs", "count", len(visited))
+		c.lastPollBlock.Store(latestBlock)
 	}
 
 	return vals, nil
