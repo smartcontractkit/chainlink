@@ -22,6 +22,10 @@ import { MockArbGasInfo__factory as MockArbGasInfoFactory } from '../../../typec
 import { MockOVMGasPriceOracle__factory as MockOVMGasPriceOracleFactory } from '../../../typechain/factories/MockOVMGasPriceOracle__factory'
 import { ILogAutomation__factory as ILogAutomationactory } from '../../../typechain/factories/ILogAutomation__factory'
 import { IAutomationForwarder__factory as IAutomationForwarderFactory } from '../../../typechain/factories/IAutomationForwarder__factory'
+import { KeeperRegistry2_1__factory as KeeperRegistryFactory } from '../../../typechain/factories/KeeperRegistry2_1__factory'
+import { KeeperRegistryLogicA2_1__factory as KeeperRegistryLogicAFactory } from '../../../typechain/factories/KeeperRegistryLogicA2_1__factory'
+import { KeeperRegistryLogicB2_1__factory as KeeperRegistryLogicBFactory } from '../../../typechain/factories/KeeperRegistryLogicB2_1__factory'
+import { AutomationForwarderLogic__factory as AutomationForwarderLogicFactory } from '../../../typechain/factories/AutomationForwarderLogic__factory'
 import { MockArbSys__factory as MockArbSysFactory } from '../../../typechain/factories/MockArbSys__factory'
 import { AutomationUtils2_1 as AutomationUtils } from '../../../typechain/AutomationUtils2_1'
 import { MercuryUpkeep } from '../../../typechain/MercuryUpkeep'
@@ -48,6 +52,41 @@ import { deployRegistry21 } from './helpers'
 
 const describeMaybe = process.env.SKIP_SLOW ? describe.skip : describe
 const itMaybe = process.env.SKIP_SLOW ? it.skip : it
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*********************************** REGISTRY v2.1 IS FROZEN ************************************/
+
+// We are leaving the original tests enabled, however as 2.1 is still actively being deployed
+
+describe('KeeperRegistry2_1 - Frozen [ @skip-coverage ]', () => {
+  it('has not changed', () => {
+    assert.equal(
+      ethers.utils.id(KeeperRegistryFactory.bytecode),
+      '0xd94f351a1cd64aa81dd7238301f680f4bfc2a0f84c4b5451525f3f879488f033',
+      'KeeperRegistry bytecode has changed',
+    )
+    assert.equal(
+      ethers.utils.id(KeeperRegistryLogicAFactory.bytecode),
+      '0xe69d334fa75af0d6d8572996d815c93b8be1c8546670510b0d20ef349e57b2df',
+      'KeeperRegistryLogicA bytecode has changed',
+    )
+    assert.equal(
+      ethers.utils.id(KeeperRegistryLogicBFactory.bytecode),
+      '0x891c26ba35b9b13afc9400fac5471d15842828ab717cbdc70ee263210c542563',
+      'KeeperRegistryLogicB bytecode has changed',
+    )
+    assert.equal(
+      ethers.utils.id(AutomationForwarderLogicFactory.bytecode),
+      '0x195e2d7ecc26c75206820a5d3bd16e3a0214dc9764cc335f5d2c457cda90fe84',
+      'AutomationForwarderLogic bytecode has changed',
+    )
+  })
+})
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 // copied from AutomationRegistryInterface2_1.sol
 enum UpkeepFailureReason {

@@ -156,8 +156,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 
 	evmFactoryCfg := chainlink.EVMFactoryConfig{
-		RelayerConfig:  evm.RelayerConfig{GeneralConfig: cfg, EventBroadcaster: eventBroadcaster, MailMon: mailMon},
 		CSAETHKeystore: keyStore,
+		RelayerConfig:  evm.RelayerConfig{AppConfig: cfg, EventBroadcaster: eventBroadcaster, MailMon: mailMon},
 	}
 	// evm always enabled for backward compatibility
 	// TODO BCF-2510 this needs to change in order to clear the path for EVM extraction

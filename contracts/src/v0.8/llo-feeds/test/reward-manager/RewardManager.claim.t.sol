@@ -40,7 +40,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
     }
   }
 
-  function test_claimRewardsWithDuplicatPoolIdsDoesNotPayoutTwice() public {
+  function test_claimRewardsWithDuplicatePoolIdsDoesNotPayoutTwice() public {
     //add funds to a different pool to ensure they're not claimed
     addFundsToPool(SECONDARY_POOL_ID, getAsset(POOL_DEPOSIT_AMOUNT), FEE_MANAGER);
 
@@ -227,7 +227,7 @@ contract RewardManagerClaimTest is BaseRewardManagerTest {
     vm.expectEmit();
 
     //emit the event that is expected to be emitted
-    emit RewardsClaimed(PRIMARY_POOL_ID, recipient.addr, POOL_DEPOSIT_AMOUNT / 4);
+    emit RewardsClaimed(PRIMARY_POOL_ID, recipient.addr, uint192(POOL_DEPOSIT_AMOUNT / 4));
 
     //claim the individual rewards for each recipient
     claimRewards(PRIMARY_POOL_ARRAY, recipient.addr);
@@ -574,6 +574,26 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
     assertEq(poolIds[0], ZERO_POOL_ID);
     assertEq(poolIds[1], ZERO_POOL_ID);
   }
+
+  function test_getRewardsAvailableToRecipientInBothPoolsWhereAlreadyClaimed() public {
+    //get index 0 as this recipient is in both default pools
+    bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(getPrimaryRecipients()[0].addr);
+
+    //check the recipient is in both pools
+    assertEq(poolIds[0], PRIMARY_POOL_ID);
+    assertEq(poolIds[1], SECONDARY_POOL_ID);
+
+    //claim the rewards for each pool
+    claimRewards(PRIMARY_POOL_ARRAY, getPrimaryRecipients()[0].addr);
+    claimRewards(SECONDARY_POOL_ARRAY, getSecondaryRecipients()[0].addr);
+
+    //get the available pools again
+    poolIds = rewardManager.getAvailableRewardPoolIds(getPrimaryRecipients()[0].addr);
+
+    //user should not be in any pool
+    assertEq(poolIds[0], ZERO_POOL_ID);
+    assertEq(poolIds[1], ZERO_POOL_ID);
+  }
 }
 
 contract RewardManagerRecipientClaimDifferentWeightsTest is BaseRewardManagerTest {
@@ -636,7 +656,7 @@ contract RewardManagerRecipientClaimUnevenWeightTest is BaseRewardManagerTest {
     //array of recipients
     Common.AddressAndWeight[] memory recipients = new Common.AddressAndWeight[](2);
 
-    uint256 oneThird = POOL_SCALAR / 3;
+    uint64 oneThird = POOL_SCALAR / 3;
 
     //init each recipient with even weights.
     recipients[0] = Common.AddressAndWeight(DEFAULT_RECIPIENT_1, oneThird);

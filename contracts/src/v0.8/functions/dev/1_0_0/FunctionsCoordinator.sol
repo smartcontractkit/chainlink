@@ -39,7 +39,6 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   error UnauthorizedPublicKeyChange();
 
   bytes private s_donPublicKey;
-  mapping(address signerAddress => bytes publicKey) private s_nodePublicKeys;
   bytes private s_thresholdPublicKey;
 
   constructor(
@@ -90,39 +89,6 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
       }
     }
     return false;
-  }
-
-  // @inheritdoc IFunctionsCoordinator
-  function setNodePublicKey(address node, bytes calldata publicKey) external override {
-    // Owner can set anything. Transmitters can set only their own key.
-    if (!(msg.sender == owner() || (_isTransmitter(msg.sender) && msg.sender == node))) {
-      revert UnauthorizedPublicKeyChange();
-    }
-    s_nodePublicKeys[node] = publicKey;
-  }
-
-  // @inheritdoc IFunctionsCoordinator
-  function deleteNodePublicKey(address node) external override {
-    // Owner can delete anything. Others can delete only their own key.
-    if (msg.sender != owner() && msg.sender != node) {
-      revert UnauthorizedPublicKeyChange();
-    }
-    delete s_nodePublicKeys[node];
-  }
-
-  // @inheritdoc IFunctionsCoordinator
-  function getAllNodePublicKeys() external view override returns (address[] memory, bytes[] memory) {
-    address[] memory nodes = s_transmitters;
-    bytes[] memory keys = new bytes[](nodes.length);
-    // Bounded by "maxNumOracles" on OCR2Abstract.sol
-    for (uint256 i = 0; i < nodes.length; ++i) {
-      bytes memory nodePublicKey = s_nodePublicKeys[nodes[i]];
-      if (nodePublicKey.length == 0) {
-        revert EmptyPublicKey();
-      }
-      keys[i] = nodePublicKey;
-    }
-    return (nodes, keys);
   }
 
   // @inheritdoc IFunctionsCoordinator

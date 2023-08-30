@@ -40,13 +40,12 @@ const (
 )
 
 var (
-	ErrLogReadFailure                = fmt.Errorf("failure reading logs")
-	ErrHeadNotAvailable              = fmt.Errorf("head not available")
-	ErrInitializationFailure         = fmt.Errorf("failed to initialize registry")
-	ErrContextCancelled              = fmt.Errorf("context was cancelled")
-	ErrABINotParsable                = fmt.Errorf("error parsing abi")
-	ActiveUpkeepIDBatchSize    int64 = 1000
-	FetchUpkeepConfigBatchSize       = 10
+	ErrLogReadFailure              = fmt.Errorf("failure reading logs")
+	ErrHeadNotAvailable            = fmt.Errorf("head not available")
+	ErrInitializationFailure       = fmt.Errorf("failed to initialize registry")
+	ErrContextCancelled            = fmt.Errorf("context was cancelled")
+	ErrABINotParsable              = fmt.Errorf("error parsing abi")
+	ActiveUpkeepIDBatchSize  int64 = 1000
 	// This is the interval at which active upkeep list is fully refreshed from chain
 	refreshInterval = 15 * time.Minute
 	// This is the lookback for polling upkeep state event logs from latest block
@@ -502,7 +501,9 @@ func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte, logBlock uint
 		}
 		parsed, err := r.packer.UnpackLogTriggerConfig(cfg)
 		if err != nil {
-			return errors.Wrap(err, "failed to unpack log upkeep config")
+			// Upkeep has been setup with improper config. Log a warning and ignore the upkeep.
+			r.lggr.Warnw("failed to unpack log upkeep config", "upkeepID", id.String(), "err", err)
+			return nil
 		}
 		if err := r.logEventProvider.RegisterFilter(logprovider.FilterOptions{
 			TriggerConfig: logprovider.LogTriggerConfig(parsed),
