@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"net"
-	"os"
 	"time"
 
 	"go.uber.org/zap/zapcore"
@@ -75,16 +74,9 @@ func NewConfig(baseConf *chainlink.Config, opts ...NodeConfigOpt) *chainlink.Con
 	return baseConf
 }
 
-func NewConfigFromToml(tomlFile string, opts ...NodeConfigOpt) (*chainlink.Config, error) {
-	readFile, err := os.ReadFile(tomlFile)
-	if err != nil {
-		return nil, err
-	}
+func NewConfigFromToml(tomlConfig []byte, opts ...NodeConfigOpt) (*chainlink.Config, error) {
 	var cfg chainlink.Config
-	if err != nil {
-		return nil, err
-	}
-	err = config.DecodeTOML(bytes.NewReader(readFile), &cfg)
+	err := config.DecodeTOML(bytes.NewReader(tomlConfig), &cfg)
 	if err != nil {
 		return nil, err
 	}

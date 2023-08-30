@@ -2,7 +2,6 @@ package node
 
 import (
 	_ "embed"
-	"fmt"
 	"math/big"
 	"time"
 
@@ -14,12 +13,12 @@ import (
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
-	localutil "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var CCIPTOML = fmt.Sprintf("%s/%s", localutil.ProjectRoot(), "/types/config/node/tomls/ccip.toml")
+//go:embed tomls/ccip.toml
+var CCIPTOML []byte
 
 func WithPrivateEVMs(networks []blockchain.EVMNetwork) node.NodeConfigOpt {
 	var evmConfigs []*evmcfg.EVMConfig
