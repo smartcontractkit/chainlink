@@ -1,16 +1,16 @@
 pragma solidity ^0.8.0;
 
 import {Test} from "forge-std/Test.sol";
-import "../../dev/automation/upkeeps/MercuryRegistry.sol";
-import "../../dev/automation/upkeeps/MercuryRegistryBatchUpkeep.sol";
-import "../../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
+import "../upkeeps/MercuryRegistry.sol";
+import "../upkeeps/MercuryRegistryBatchUpkeep.sol";
+import "../2_1/interfaces/FeedLookupCompatibleInterface.sol";
 
 contract MercuryRegistryTest is Test {
   address internal constant OWNER = 0x00007e64E1fB0C487F25dd6D3601ff6aF8d32e4e;
   address internal constant VERIFIER = 0x60448B880c9f3B501af3f343DA9284148BD7D77C;
   int192 internal constant DEVIATION_THRESHOLD = 10_000; // 1%
   uint32 internal constant STALENESS_SECONDS = 3600; // 1 hour
-  uint256 internal constant BLOCK_NUMBER = 36209282;
+  uint256 internal constant BLOCK_NUMBER = 37755166;
 
   string[] feedIds;
   string s_BTCUSDFeedId = "0x6962e629c3a0f5b7e3e9294b0c283c9b20f94f1c89c8ba8c1ee4650738f20fb2";
@@ -51,7 +51,7 @@ contract MercuryRegistryTest is Test {
     // Set owner, and fork Arbitrum Goerli Testnet (chain ID 421613).
     // A public Arbitrum Goerli RPC url is being used, and the fork should be cached in CI so availability is not an issue for test runs.
     vm.startPrank(OWNER);
-    vm.selectFork(vm.createFork("https://api.zan.top/node/v1/arb/goerli/public", BLOCK_NUMBER));
+    vm.selectFork(vm.createFork("https://goerli-rollup.arbitrum.io/rpc", BLOCK_NUMBER));
     vm.chainId(31337); // restore chain Id
 
     // Use a BTC feed and ETH feed.
