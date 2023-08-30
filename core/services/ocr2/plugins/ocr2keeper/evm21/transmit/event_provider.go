@@ -161,10 +161,16 @@ func (c *TransmitEventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keep
 // If a log was seen before it won't be returned.
 func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller.Log) ([]ocr2keepers.TransmitEvent, error) {
 	vals := []ocr2keepers.TransmitEvent{}
+	visited := make(map[string]ocr2keepers.TransmitEvent)
 
 	for _, log := range logs {
 		k := logKey(log)
+		if _, ok := visited[k]; ok {
+			// ensure we don't have duplicates
+			continue
+		}
 		if _, ok := c.cache.get(ocr2keepers.BlockNumber(log.BlockNumber), k); ok {
+			// ensure we return only unseen logs
 			continue
 		}
 		l, err := c.parseLog(c.registry, log)
@@ -204,6 +210,12 @@ func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller
 			CheckBlock:      trigger.BlockNumber,
 		}
 		vals = append(vals, e)
+		visited[k] = e
+	}
+
+	// adding to the cache only after we've processed all the logs
+	// the next time we call processLogs we don't want to return these logs
+	for k, e := range visited {
 		c.cache.add(k, e)
 	}
 
