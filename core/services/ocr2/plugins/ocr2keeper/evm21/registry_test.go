@@ -455,14 +455,14 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			name: "log trigger upkeeps are refreshed in batch without error",
 			ids: func() []*big.Int {
 				res := []*big.Int{}
-				for i := 0; i < batchSize*3; i++ {
+				for i := 0; i < logTriggerRefreshBatchSize*3; i++ {
 					res = append(res, core.GenUpkeepID(types.LogTrigger, fmt.Sprintf("%d", i)).BigInt())
 				}
 				return res
 			}(),
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
-					assert.Equal(t, batchSize, len(ids))
+					assert.Equal(t, logTriggerRefreshBatchSize, len(ids))
 					return ids, nil
 				},
 				RegisterFilterFn: func(opts logprovider.FilterOptions) error {
@@ -507,14 +507,14 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			name: "log trigger upkeeps are refreshed in batch, with a partial batch without error",
 			ids: func() []*big.Int {
 				res := []*big.Int{}
-				for i := 0; i < batchSize+3; i++ {
+				for i := 0; i < logTriggerRefreshBatchSize+3; i++ {
 					res = append(res, core.GenUpkeepID(types.LogTrigger, fmt.Sprintf("%d", i)).BigInt())
 				}
 				return res
 			}(),
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
-					if len(ids) != batchSize {
+					if len(ids) != logTriggerRefreshBatchSize {
 						assert.Equal(t, 3, len(ids))
 					}
 					return ids, nil

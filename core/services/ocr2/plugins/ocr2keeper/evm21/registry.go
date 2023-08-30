@@ -16,6 +16,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -37,8 +38,8 @@ const (
 	// allowListCleanupInterval decides when the expired items in allowList cache will be deleted.
 	allowListCleanupInterval = 5 * time.Minute
 	// TODO decide on a value for this
-	indexedLogsConfirmations = 10
-	batchSize                = 32
+	indexedLogsConfirmations   = 10
+	logTriggerRefreshBatchSize = 32
 )
 
 var (
@@ -279,19 +280,22 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 //
 // TODO: check for updated config for log trigger upkeeps and update it, currently we ignore them.
 func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
-	for i := 0; i < len(ids); i += batchSize {
-		end := i + batchSize
+	var err error
+	for i := 0; i < len(ids); i += logTriggerRefreshBatchSize {
+		end := i + logTriggerRefreshBatchSize
 		if end > len(ids) {
 			end = len(ids)
 		}
 		batch := ids[i:end]
 
-		if err := r.refreshLogTriggerUpkeepsBatch(batch); err != nil {
-			return err
+		if batchErr := r.refreshLogTriggerUpkeepsBatch(batch); batchErr != nil {
+			err = multierr.Append(err, batchErr)
 		}
+
+		time.Sleep(500 * time.Millisecond)
 	}
 
-	return nil
+	return err
 }
 
 func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(ids []*big.Int) error {
@@ -326,7 +330,7 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(ids []*big.Int) error {
 	logs := append(unpausedLogs, configSetLogs...)
 
 	configSetBlockNumbers := map[string]uint64{}
-	pausedBlockNumbers := map[string]uint64{}
+	unpausedBlockNumbers := map[string]uint64{}
 	perUpkeepConfig := map[string][]byte{}
 
 	for _, log := range logs {
@@ -340,17 +344,29 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(ids []*big.Int) error {
 			configSetBlockNumbers[l.Id.String()] = rawLog.BlockNumber
 			perUpkeepConfig[l.Id.String()] = l.TriggerConfig
 		case *iregistry21.IKeeperRegistryMasterUpkeepUnpaused:
-			pausedBlockNumbers[l.Id.String()] = rawLog.BlockNumber
+			unpausedBlockNumbers[l.Id.String()] = rawLog.BlockNumber
 		}
 	}
 
 	var merr error
 	for _, id := range newUpkeeps {
-		logBlock := configSetBlockNumbers[id.String()]
-		if pausedBlockNumbers[id.String()] > logBlock {
-			logBlock = pausedBlockNumbers[id.String()]
+		logBlock, ok := configSetBlockNumbers[id.String()]
+		if !ok {
+			r.lggr.Warnf("unable to find config set block number for %s", id.String())
+			continue
 		}
-		if err := r.updateTriggerConfig(id, perUpkeepConfig[id.String()], logBlock); err != nil {
+
+		config, ok := perUpkeepConfig[id.String()]
+		if !ok {
+			r.lggr.Warnf("unable to find per upkeep config for %s", id.String())
+			continue
+		}
+
+		// In case an upkeep was paused then unpaused after a config set event, start the config from the unpaused block number
+		if unpausedBlockNumbers[id.String()] > logBlock {
+			logBlock = unpausedBlockNumbers[id.String()]
+		}
+		if err := r.updateTriggerConfig(id, config, logBlock); err != nil {
 			merr = goerrors.Join(merr, fmt.Errorf("failed to update trigger config for upkeep id %s: %w", id.String(), err))
 		}
 	}
