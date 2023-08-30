@@ -210,8 +210,6 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			name: "an error is returned when fetching indexed logs for IKeeperRegistryMasterUpkeepUnpaused errors",
 			ids: []*big.Int{
 				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
-				core.GenUpkeepID(types.ConditionTrigger, "abc").BigInt(),
-				big.NewInt(-1),
 			},
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
@@ -515,7 +513,12 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 				lggr:             lggr,
 			}
 
-			err := registry.refreshLogTriggerUpkeeps(tc.ids)
+			hashes := []common.Hash{}
+			for _, id := range tc.ids {
+				hashes = append(hashes, common.BigToHash(id))
+			}
+
+			err := registry.refreshLogTriggerUpkeeps(tc.ids, hashes)
 			if tc.expectsErr {
 				assert.Error(t, err)
 				assert.Equal(t, err.Error(), tc.wantErr.Error())
