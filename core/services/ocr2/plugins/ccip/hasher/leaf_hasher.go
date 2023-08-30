@@ -1,9 +1,9 @@
 package hasher
 
 import (
-	"bytes"
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -48,6 +48,16 @@ func (t *LeafHasher) HashLeaf(log types.Log) ([32]byte, error) {
 		return [32]byte{}, err
 	}
 
+	bytesArray, err := abi.NewType("bytes[]", "bytes[]", nil)
+	if err != nil {
+		return [32]byte{}, err
+	}
+
+	encodedSourceTokenData, err := abi.Arguments{abi.Argument{Type: bytesArray}}.PackValues([]interface{}{message.SourceTokenData})
+	if err != nil {
+		return [32]byte{}, err
+	}
+
 	packedValues, err := utils.ABIEncode(
 		`[
 {"name": "leafDomainSeparator","type":"bytes1"},
@@ -72,7 +82,7 @@ func (t *LeafHasher) HashLeaf(log types.Log) ([32]byte, error) {
 		message.Receiver,
 		t.ctx.Hash(message.Data),
 		t.ctx.Hash(encodedTokens),
-		t.ctx.Hash(bytes.Join(message.SourceTokenData, []byte{})),
+		t.ctx.Hash(encodedSourceTokenData),
 		message.GasLimit,
 		message.Strict,
 		message.FeeToken,
