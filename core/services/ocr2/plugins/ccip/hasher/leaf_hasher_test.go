@@ -41,7 +41,7 @@ func TestHasher(t *testing.T) {
 	require.NoError(t, err)
 
 	// NOTE: Must match spec
-	require.Equal(t, "a30aa7e09e589edf13ec68625f93f17dfecc4bedd8c177cb6ce2e398b94dc9b8", hex.EncodeToString(hash[:]))
+	require.Equal(t, "e0f22328cc83d50c2861629eaabcad5b39e8d30ba163228ff3574a0a229f5c9f", hex.EncodeToString(hash[:]))
 
 	message = evm_2_evm_onramp.InternalEVM2EVMMessage{
 		SourceChainSelector: sourceChainSelector,
@@ -58,15 +58,17 @@ func TestHasher(t *testing.T) {
 			{Token: common.HexToAddress("0x4440000000000000000000000000000000000001"), Amount: big.NewInt(12345678900)},
 			{Token: common.HexToAddress("0x6660000000000000000000000000000000000001"), Amount: big.NewInt(4204242)},
 		},
-		SourceTokenData: [][]byte{},
+		SourceTokenData: [][]byte{{0x21}},
 		MessageId:       [32]byte{},
 	}
 
 	hash, err = hasher.HashLeaf(testhelpers.GenerateCCIPSendLog(t, message))
 	require.NoError(t, err)
 
+	stirngd := hex.EncodeToString(hash[:])
+
 	// NOTE: Must match spec
-	require.Equal(t, "7c3bd33a8334652ad311ec65e551c9564b1052cb5f2ad6d896384aef96b2ac1d", hex.EncodeToString(hash[:]))
+	require.Equal(t, "40c17709ed4f16043f62ad1eebd53012781aee3804473299f7e6af0937eb1885", stirngd)
 }
 
 func TestMetaDataHash(t *testing.T) {
