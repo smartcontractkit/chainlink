@@ -87,7 +87,6 @@ contract BaseTest is Test {
   Signer[MAX_ORACLES] internal s_signers;
   bytes32[] internal s_offchaintransmitters;
   bool private s_baseTestInitialized;
-  bool internal persistConfig;
 
   function setUp() public virtual {
     // BaseTest.setUp is often called multiple times from tests' setUp due to inheritance.
@@ -102,8 +101,8 @@ contract BaseTest is Test {
     );
     s_verifierProxy = new VerifierProxy(AccessControllerInterface(address(0)));
 
-    s_verifier = new Verifier(address(s_verifierProxy), persistConfig);
-    s_verifier_2 = new Verifier(address(s_verifierProxy), persistConfig);
+    s_verifier = new Verifier(address(s_verifierProxy));
+    s_verifier_2 = new Verifier(address(s_verifierProxy));
     s_erroredVerifier = new ErroredVerifier();
 
     for (uint256 i; i < MAX_ORACLES; i++) {
