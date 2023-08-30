@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -32,9 +33,9 @@ type CLClusterTestEnv struct {
 
 	/* components */
 	CLNodes          []*ClNode
-	Geth             *Geth                       // for tests using --dev networks
+	Geth             *test_env.Geth              // for tests using --dev networks
 	PrivateGethChain []test_env.PrivateGethChain // for tests using non-dev networks
-	MockServer       *MockServer
+	MockServer       *test_env.MockServer
 	EVMClient        blockchain.EVMClient
 	ContractDeployer contracts.ContractDeployer
 	ContractLoader   contracts.ContractLoader
@@ -49,8 +50,8 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 	networks := []string{network.Name}
 	return &CLClusterTestEnv{
 		Network:    network,
-		Geth:       NewGeth(networks),
-		MockServer: NewMockServer(networks),
+		Geth:       test_env.NewGeth(networks),
+		MockServer: test_env.NewMockServer(networks),
 	}, nil
 }
 
@@ -65,8 +66,8 @@ func NewTestEnvFromCfg(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
 	return &CLClusterTestEnv{
 		Cfg:        cfg,
 		Network:    network,
-		Geth:       NewGeth(networks, WithContainerName(cfg.Geth.ContainerName)),
-		MockServer: NewMockServer(networks, WithContainerName(cfg.MockServer.ContainerName)),
+		Geth:       test_env.NewGeth(networks, test_env.WithContainerName(cfg.Geth.ContainerName)),
+		MockServer: test_env.NewMockServer(networks, test_env.WithContainerName(cfg.MockServer.ContainerName)),
 	}, nil
 }
 
@@ -98,7 +99,7 @@ func (te *CLClusterTestEnv) StartPrivateGethChain() error {
 	return nil
 }
 
-func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, InternalDockerUrls, error) {
+func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, test_env.InternalDockerUrls, error) {
 	return te.Geth.StartContainer()
 }
 
