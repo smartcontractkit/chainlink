@@ -136,7 +136,8 @@ func TestListNodeStatuses(t *testing.T) {
 					return nil, 0, fmt.Errorf("i'm a bad list fn")
 				},
 			},
-			wantErr: true,
+			wantTotal: -1,
+			wantErr:   true,
 		},
 		{
 			name: "invalid token",
@@ -146,7 +147,8 @@ func TestListNodeStatuses(t *testing.T) {
 					return testStats[start:end], len(testStats), nil
 				},
 			},
-			wantErr: true,
+			wantTotal: -1,
+			wantErr:   true,
 		},
 	}
 	for _, tt := range tests {

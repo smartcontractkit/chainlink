@@ -243,7 +243,7 @@ func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, err
 	}, nil
 }
 
-func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []relaytypes.NodeStatus, next_pageToken string, total int, err error) {
+func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []relaytypes.NodeStatus, nextPageToken string, total int, err error) {
 	return internal.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
 }
 

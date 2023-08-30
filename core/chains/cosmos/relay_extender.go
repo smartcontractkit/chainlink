@@ -77,7 +77,7 @@ func NewRelayExtender(cfg *CosmosConfig, opts ChainOpts) (*RelayExtender, error)
 func (r *RelayExtender) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
 	return r.chainImpl.GetChainStatus(ctx)
 }
-func (r *RelayExtender) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []relaytypes.NodeStatus, next_pageToken string, total int, err error) {
+func (r *RelayExtender) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []relaytypes.NodeStatus, nextPageToken string, total int, err error) {
 	return r.chainImpl.ListNodeStatuses(ctx, pageSize, pageToken)
 }
 func (r *RelayExtender) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {

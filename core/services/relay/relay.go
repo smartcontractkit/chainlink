@@ -108,7 +108,7 @@ type RelayerExt interface {
 	// TODO remove after BFC-2441
 	ID() string
 	GetChainStatus(ctx context.Context) (types.ChainStatus, error)
-	ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, next_pageToken string, total int, err error)
+	ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, nextPageToken string, total int, err error)
 	// choose different name than SendTx to avoid collison during refactor.
 	Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
@@ -223,7 +223,7 @@ func (r *relayerAdapter) GetChainStatus(ctx context.Context) (types.ChainStatus,
 	return r.ext.GetChainStatus(ctx)
 }
 
-func (r *relayerAdapter) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, next_pageToken string, total int, err error) {
+func (r *relayerAdapter) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, nextPageToken string, total int, err error) {
 	return r.ext.ListNodeStatuses(ctx, pageSize, pageToken)
 }
 
