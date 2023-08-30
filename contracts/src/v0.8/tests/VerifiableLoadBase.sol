@@ -51,12 +51,13 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   // different sizes of buckets. it's better to redeploy this contract with new values.
   uint16 public immutable BUCKET_SIZE = 100;
 
+  // search feeds in notion: "Schema and Feed ID Registry"
   string[] public feedsHex = [
     "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
     "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"
   ];
-  string public constant feedParamKey = "feedIdHex";
-  string public constant timeParamKey = "blockNumber";
+  string public feedParamKey = "feedIdHex"; // feedIDs for v0.3
+  string public timeParamKey = "blockNumber"; // timestamp for v0.3
 
   /**
    * @param _registrar a automation registrar 2.1 address
@@ -71,6 +72,15 @@ abstract contract VerifiableLoadBase is ConfirmedOwner {
   }
 
   receive() external payable {}
+
+  function setParamKeys(string memory _feedParamKey, string memory _timeParamKey) external {
+    feedParamKey = _feedParamKey;
+    timeParamKey = _timeParamKey;
+  }
+
+  function setFeeds(string[] memory _feeds) external {
+    feedsHex = _feeds;
+  }
 
   /**
    * @notice withdraws LINKs from this contract to msg sender when testing is finished.

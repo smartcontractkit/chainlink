@@ -46,34 +46,32 @@ contract MercuryUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInt
   bool public shouldRevertCallback;
   bool public callbackReturnBool;
 
-  constructor(uint256 _testRange, uint256 _interval, bool _useArbBlock, bool _isV02, bool _staging, bool _verify) {
+  constructor(uint256 _testRange, uint256 _interval, bool _useArbBlock, bool _staging, bool _verify) {
     testRange = _testRange;
     interval = _interval;
     previousPerformBlock = 0;
     initialBlock = 0;
     counter = 0;
     useArbBlock = _useArbBlock;
-    if (_isV02) {
-      feedParamKey = "feedIdHex";
-      timeParamKey = "blockNumber";
-    } else {
-      feedParamKey = "feedIDs";
-      timeParamKey = "timestamp";
-    }
-    if (_staging) {
-      feeds = [
-        "0xf753e1201d54ac94dfd9334c542562ff7e42993419a661261d010af0cbfd4e34", // ETH / USD in staging testnet
-        "0x6962e629c3a0f5b7e3e9294b0c283c9b20f94f1c89c8ba8c1ee4650738f20fb2" // BTC / USD in staging testnet
-      ];
-    } else {
-      feeds = [
-        "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", // ETH / USD in production testnet
-        "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000" // BTC / USD in production testnet
-      ];
-    }
+    feedParamKey = "feedIdHex"; // feedIDs for v0.3
+    timeParamKey = "blockNumber"; // timestamp
+    // search feeds in notion: "Schema and Feed ID Registry"
+    feeds = [
+      "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", // ETH / USD in production testnet
+      "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000" // BTC / USD in production testnet
+    ];
     staging = _staging;
     verify = _verify;
     callbackReturnBool = true;
+  }
+
+  function setParamKeys(string memory _feedParamKey, string memory _timeParamKey) external {
+    feedParamKey = _feedParamKey;
+    timeParamKey = _timeParamKey;
+  }
+
+  function setFeeds(string[] memory _feeds) external {
+    feeds = _feeds;
   }
 
   function setShouldRevertCallback(bool value) public {
