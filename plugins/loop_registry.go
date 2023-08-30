@@ -48,7 +48,7 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 	envCfg := NewEnvConfig(nextPort)
 
 	m.registry[id] = &RegisteredLoop{Name: id, EnvCfg: envCfg}
-	m.lggr.Debug("Registered loopp %q with config %v, port %d", id, envCfg, envCfg.PrometheusPort())
+	m.lggr.Debugf("Registered loopp %q with config %v, port %d", id, envCfg, envCfg.PrometheusPort())
 	return m.registry[id], nil
 }
 
