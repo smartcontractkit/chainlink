@@ -264,7 +264,7 @@ func (ccipModule *CCIPCommon) CleanUp() error {
 // DeployContracts deploys the contracts which are necessary in both source and dest chain
 // This reuses common contracts for bidirectional lanes
 func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
-	tokenDeployerFns []blockchain.ContractDeployer,
+	tokenDeployerFns []contracts.ContractDeployerFn,
 	conf *laneconfig.LaneConfig) error {
 	var err error
 	cd := ccipModule.Deployer
@@ -1724,7 +1724,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	sourceCommon *CCIPCommon,
 	destCommon *CCIPCommon,
 	transferAmounts []*big.Int,
-	tokenDeployerFns []blockchain.ContractDeployer,
+	tokenDeployerFns []contracts.ContractDeployerFn,
 	newBootstrap bool,
 	configureCLNodes bool,
 	existingDeployment bool,

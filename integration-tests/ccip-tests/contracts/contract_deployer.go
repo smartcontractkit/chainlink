@@ -42,6 +42,16 @@ type CCIPContractsDeployer struct {
 	EthDeployer *contracts.EthereumContractDeployer
 }
 
+// ContractDeployer acts as a go-between function for general contract deployment
+type ContractDeployerFn func(auth *bind.TransactOpts,
+	chainClient blockchain.EVMClient,
+	backend bind.ContractBackend) (
+	common.Address,
+	*types.Transaction,
+	interface{},
+	error,
+)
+
 // NewCCIPContractsDeployer returns an instance of a contract deployer for CCIP
 func NewCCIPContractsDeployer(bcClient blockchain.EVMClient) (*CCIPContractsDeployer, error) {
 	return &CCIPContractsDeployer{
@@ -68,8 +78,13 @@ func (e *CCIPContractsDeployer) DeployLinkTokenContract() (*LinkToken, error) {
 	}, err
 }
 
-func (e *CCIPContractsDeployer) DeployERC20TokenContract(deployerFn blockchain.ContractDeployer) (*ERC20Token, error) {
-	address, _, instance, err := e.evmClient.DeployContract("Custom ERC20 Token", deployerFn)
+func (e *CCIPContractsDeployer) DeployERC20TokenContract(deployerFn ContractDeployerFn) (*ERC20Token, error) {
+	address, _, instance, err := e.evmClient.DeployContract("Custom ERC20 Token", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return deployerFn(auth, e.evmClient, backend)
+	})
 	if err != nil {
 		return nil, err
 	}
