@@ -306,7 +306,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 	assert.NoError(t, err)
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer(body))
-	defer t.Cleanup(cleanup)
+	t.Cleanup(cleanup)
 
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 
