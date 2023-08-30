@@ -243,8 +243,8 @@ func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, err
 	}, nil
 }
 
-func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, total int, err error) {
-	return internal.ListNodeStatuses(int(page_size), page_token, c.listNodeStatuses)
+func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []relaytypes.NodeStatus, next_pageToken string, total int, err error) {
+	return internal.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
 }
 
 func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {

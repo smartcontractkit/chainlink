@@ -35,8 +35,8 @@ func NewRelayExtender(cfg *StarknetConfig, opts ChainOpts) (*RelayExtender, erro
 func (r *RelayExtender) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
 	return r.chainImpl.GetChainStatus(ctx)
 }
-func (r *RelayExtender) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, total int, err error) {
-	return r.chainImpl.ListNodeStatuses(ctx, page_size, page_token)
+func (r *RelayExtender) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []relaytypes.NodeStatus, next_pageToken string, total int, err error) {
+	return r.chainImpl.ListNodeStatuses(ctx, pageSize, pageToken)
 }
 func (r *RelayExtender) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return chains.ErrLOOPPUnsupported

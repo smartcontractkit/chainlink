@@ -70,7 +70,7 @@ func NewPageToken(b64enc string) (*PageToken, error) {
 	}, err
 }
 
-func ValidatePageToken(page_size int, token string) (page int, err error) {
+func ValidatePageToken(pageSize int, token string) (page int, err error) {
 
 	if token == "" {
 		return 0, nil
@@ -85,25 +85,25 @@ func ValidatePageToken(page_size int, token string) (page int, err error) {
 // if start is out of range, must return ErrOutOfRange
 type ListNodeStatusFn = func(start, end int) (stats []types.NodeStatus, total int, err error)
 
-func ListNodeStatuses(page_size int, page_token string, listFn ListNodeStatusFn) (stats []types.NodeStatus, next_page_token string, total int, err error) {
-	if page_size == 0 {
-		page_size = defaultSize
+func ListNodeStatuses(pageSize int, pageToken string, listFn ListNodeStatusFn) (stats []types.NodeStatus, next_pageToken string, total int, err error) {
+	if pageSize == 0 {
+		pageSize = defaultSize
 	}
-	t := &PageToken{Page: 0, Size: page_size}
-	if page_token != "" {
-		t, err = NewPageToken(page_token)
+	t := &PageToken{Page: 0, Size: pageSize}
+	if pageToken != "" {
+		t, err = NewPageToken(pageToken)
 		if err != nil {
-			return nil, "", 0, err
+			return nil, "", -1, err
 		}
 	}
 	start, end := t.Page*t.Size, (t.Page+1)*t.Size
 	stats, total, err = listFn(start, end)
 	if err != nil {
-		return stats, "", 0, err
+		return stats, "", -1, err
 	}
 	if total > end {
 		next_token := &PageToken{Page: t.Page + 1, Size: t.Size}
-		next_page_token = next_token.Encode()
+		next_pageToken = next_token.Encode()
 	}
-	return stats, next_page_token, total, nil
+	return stats, next_pageToken, total, nil
 }

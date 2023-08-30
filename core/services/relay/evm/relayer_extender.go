@@ -27,7 +27,6 @@ type EVMChainRelayerExtender interface {
 	ChainStatus(ctx context.Context, id string) (relaytypes.ChainStatus, error)
 	ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error)
 	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, count int, err error)
-	//SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
 type EVMChainRelayerExtenderSlicer interface {
@@ -98,8 +97,8 @@ func (s *ChainRelayerExt) GetChainStatus(ctx context.Context) (relaytypes.ChainS
 	return s.chain.GetChainStatus(ctx)
 }
 
-func (s *ChainRelayerExt) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, total int, err error) {
-	return s.chain.ListNodeStatuses(ctx, page_size, page_token)
+func (s *ChainRelayerExt) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []relaytypes.NodeStatus, next_pageToken string, total int, err error) {
+	return s.chain.ListNodeStatuses(ctx, pageSize, pageToken)
 }
 
 func (s *ChainRelayerExt) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
@@ -167,20 +166,18 @@ func (s *ChainRelayerExt) ChainStatuses(ctx context.Context, offset, limit int) 
 
 func (s *ChainRelayerExt) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, total int, err error) {
 	if len(chainIDs) > 1 {
-		return nil, 0, fmt.Errorf("single chain chain set only support one chain id. got %v", chainIDs)
+		return nil, -1, fmt.Errorf("single chain chain set only support one chain id. got %v", chainIDs)
 	}
 	cid := chainIDs[0]
 	if cid != s.chain.ID().String() {
-		return nil, 0, fmt.Errorf("unknown chain id %s. expected %s", cid, s.chain.ID())
+		return nil, -1, fmt.Errorf("unknown chain id %s. expected %s", cid, s.chain.ID())
 	}
-	// TODO implement count properly
-	// TODO need to get the count
 	nodes, _, total, err = s.ListNodeStatuses(ctx, int32(limit), "")
 	if err != nil {
-		return nil, 0, err
+		return nil, -1, err
 	}
 	if len(nodes) < offset {
-		return []relaytypes.NodeStatus{}, 0, fmt.Errorf("out of range")
+		return []relaytypes.NodeStatus{}, -1, fmt.Errorf("out of range")
 	}
 	if limit <= 0 {
 		limit = len(nodes)

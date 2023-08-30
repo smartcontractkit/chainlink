@@ -74,49 +74,49 @@ func TestListNodeStatuses(t *testing.T) {
 	}
 
 	type args struct {
-		page_size  int
-		page_token string
-		listFn     ListNodeStatusFn
+		pageSize  int
+		pageToken string
+		listFn    ListNodeStatusFn
 	}
 	tests := []struct {
-		name                string
-		args                args
-		wantStats           []types.NodeStatus
-		wantNext_page_token string
-		wantTotal           int
-		wantErr             bool
+		name               string
+		args               args
+		wantStats          []types.NodeStatus
+		wantNext_pageToken string
+		wantTotal          int
+		wantErr            bool
 	}{
 		{
 			name: "all on first page",
 			args: args{
-				page_size:  10, // > length of test stats
-				page_token: "",
+				pageSize:  10, // > length of test stats
+				pageToken: "",
 				listFn: func(start, end int) ([]types.NodeStatus, int, error) {
 					return testStats, len(testStats), nil
 				},
 			},
-			wantNext_page_token: "",
-			wantTotal:           len(testStats),
-			wantStats:           testStats,
+			wantNext_pageToken: "",
+			wantTotal:          len(testStats),
+			wantStats:          testStats,
 		},
 		{
 			name: "small first page",
 			args: args{
-				page_size:  len(testStats) - 1,
-				page_token: "",
+				pageSize:  len(testStats) - 1,
+				pageToken: "",
 				listFn: func(start, end int) ([]types.NodeStatus, int, error) {
 					return testStats[start:end], len(testStats), nil
 				},
 			},
-			wantNext_page_token: base64.RawStdEncoding.EncodeToString([]byte("page=1&size=2")), // hard coded 2 is len(testStats)-1
-			wantTotal:           len(testStats),
-			wantStats:           testStats[0 : len(testStats)-1],
+			wantNext_pageToken: base64.RawStdEncoding.EncodeToString([]byte("page=1&size=2")), // hard coded 2 is len(testStats)-1
+			wantTotal:          len(testStats),
+			wantStats:          testStats[0 : len(testStats)-1],
 		},
 		{
 			name: "second page",
 			args: args{
-				page_size:  len(testStats) - 1,
-				page_token: base64.RawStdEncoding.EncodeToString([]byte("page=1&size=2")), // hard coded 2 is len(testStats)-1
+				pageSize:  len(testStats) - 1,
+				pageToken: base64.RawStdEncoding.EncodeToString([]byte("page=1&size=2")), // hard coded 2 is len(testStats)-1
 				listFn: func(start, end int) ([]types.NodeStatus, int, error) {
 					// note list function must do the start, end bound checking. here we are making it simple
 					if end > len(testStats) {
@@ -125,9 +125,9 @@ func TestListNodeStatuses(t *testing.T) {
 					return testStats[start:end], len(testStats), nil
 				},
 			},
-			wantNext_page_token: "",
-			wantTotal:           len(testStats),
-			wantStats:           testStats[len(testStats)-1:],
+			wantNext_pageToken: "",
+			wantTotal:          len(testStats),
+			wantStats:          testStats[len(testStats)-1:],
 		},
 		{
 			name: "bad list fn",
@@ -141,7 +141,7 @@ func TestListNodeStatuses(t *testing.T) {
 		{
 			name: "invalid token",
 			args: args{
-				page_token: "invalid token",
+				pageToken: "invalid token",
 				listFn: func(start, end int) ([]types.NodeStatus, int, error) {
 					return testStats[start:end], len(testStats), nil
 				},
@@ -151,13 +151,13 @@ func TestListNodeStatuses(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotStats, gotNext_page_token, gotTotal, err := ListNodeStatuses(tt.args.page_size, tt.args.page_token, tt.args.listFn)
+			gotStats, gotNext_pageToken, gotTotal, err := ListNodeStatuses(tt.args.pageSize, tt.args.pageToken, tt.args.listFn)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ListNodeStatuses() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
 			assert.Equal(t, tt.wantStats, gotStats)
-			assert.Equal(t, tt.wantNext_page_token, gotNext_page_token)
+			assert.Equal(t, tt.wantNext_pageToken, gotNext_pageToken)
 			assert.Equal(t, tt.wantTotal, gotTotal)
 		})
 	}

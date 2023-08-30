@@ -63,7 +63,7 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, loopKs lo
 		Starknet starknet.StarknetConfig
 	}
 	if err := d.Decode(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to decode config toml: %w", err)
+		return nil, fmt.Errorf("failed to decode config toml: %w:\n\t%s", err, config)
 	}
 
 	// TODO BCF-2605 clean this up when the internal details of  Chain construction

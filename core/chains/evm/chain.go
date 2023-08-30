@@ -61,7 +61,7 @@ type Chain interface {
 	// This funcs are implemented now in preparation the interface change, which is expected
 	// to absorb these definitions into [types.ChainService]
 	GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error)
-	ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []relaytypes.NodeStatus, next_page_token string, total int, err error)
+	ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []relaytypes.NodeStatus, next_pageToken string, total int, err error)
 	Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
@@ -431,7 +431,7 @@ func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error
 		)
 		toml, err := gotoml.Marshal(n)
 		if err != nil {
-			return nil, total, err
+			return nil, -1, err
 		}
 		if states == nil {
 			nodeState = "Unknown"
@@ -452,8 +452,8 @@ func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error
 	return stats, total, nil
 }
 
-func (c *chain) ListNodeStatuses(ctx context.Context, page_size int32, page_token string) (stats []types.NodeStatus, next_page_token string, total int, err error) {
-	return internal.ListNodeStatuses(int(page_size), page_token, c.listNodeStatuses)
+func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, next_pageToken string, total int, err error) {
+	return internal.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
 }
 
 func (c *chain) ID() *big.Int                             { return c.id }
