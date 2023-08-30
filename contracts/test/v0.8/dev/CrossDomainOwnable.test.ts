@@ -17,7 +17,7 @@ before(async () => {
 
   // Contract factories
   ownableFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/CrossDomainOwnable.sol:CrossDomainOwnable',
+    'src/v0.8/dev/l2ep/CrossDomainOwnable.sol:CrossDomainOwnable',
     owner,
   )
 })

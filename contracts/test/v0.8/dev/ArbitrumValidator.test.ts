@@ -8,9 +8,9 @@ import {
 } from '@ethereum-waffle/mock-contract'
 /// Pick ABIs from compilation
 // @ts-ignore
-import { abi as arbitrumSequencerStatusRecorderAbi } from '../../../artifacts/src/v0.8/dev/ArbitrumSequencerUptimeFeed.sol/ArbitrumSequencerUptimeFeed.json'
+import { abi as arbitrumSequencerStatusRecorderAbi } from '../../../artifacts/src/v0.8/dev/l2ep/ArbitrumSequencerUptimeFeed.sol/ArbitrumSequencerUptimeFeed.json'
 // @ts-ignore
-import { abi as arbitrumInboxAbi } from '../../../artifacts/src/v0.8/dev/vendor/arb-bridge-eth/v0.8.0-custom/contracts/bridge/interfaces/IInbox.sol/IInbox.json'
+import { abi as arbitrumInboxAbi } from '../../../artifacts/src/v0.8/dev/l2ep/vendor/arb-bridge-eth/v0.8.0-custom/contracts/bridge/interfaces/IInbox.sol/IInbox.json'
 // @ts-ignore
 import { abi as aggregatorAbi } from '../../../artifacts/src/v0.8/interfaces/AggregatorV2V3Interface.sol/AggregatorV2V3Interface.json'
 
@@ -57,7 +57,7 @@ describe('ArbitrumValidator', () => {
 
     // Required for building the calldata
     arbitrumSequencerStatusRecorderFactory = await ethers.getContractFactory(
-      'src/v0.8/dev/ArbitrumSequencerUptimeFeed.sol:ArbitrumSequencerUptimeFeed',
+      'src/v0.8/dev/l2ep/ArbitrumSequencerUptimeFeed.sol:ArbitrumSequencerUptimeFeed',
       deployer,
     )
     l1GasFeed = await deployMockContract(deployer as any, aggregatorAbi)
@@ -76,7 +76,7 @@ describe('ArbitrumValidator', () => {
 
     // Contract under test
     const arbitrumValidatorFactory = await ethers.getContractFactory(
-      'src/v0.8/dev/ArbitrumValidator.sol:ArbitrumValidator',
+      'src/v0.8/dev/l2ep/ArbitrumValidator.sol:ArbitrumValidator',
       deployer,
     )
     arbitrumValidator = await arbitrumValidatorFactory.deploy(
