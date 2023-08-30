@@ -64,7 +64,7 @@ func (c *SimulatedBackendClient) checkEthCallArgs(
 			"must be an eth.CallArgs, got %+#v", args[0])
 	}
 	blockNumber, err := c.blockNumber(args[1])
-	if err != nil { // || blockNumber.Cmp(c.currentBlockNumber()) != 0 {
+	if err != nil {
 		return nil, nil, fmt.Errorf("fourth arg to SimulatedBackendClient.Call "+
 			"must be the string \"latest\", or a *big.Int, got %#+v", args[1])
 	}
