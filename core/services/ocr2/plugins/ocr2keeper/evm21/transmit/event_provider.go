@@ -2,6 +2,7 @@ package transmit
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"sync"
 
@@ -164,7 +165,7 @@ func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller
 	visited := make(map[string]ocr2keepers.TransmitEvent)
 
 	for _, log := range logs {
-		k := logKey(log)
+		k := c.logKey(log)
 		if _, ok := visited[k]; ok {
 			// ensure we don't have duplicates
 			continue
@@ -220,4 +221,13 @@ func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller
 	}
 
 	return vals, nil
+}
+
+func (c *TransmitEventProvider) logKey(log logpoller.Log) string {
+	logExt := ocr2keepers.LogTriggerExtension{
+		TxHash: log.TxHash,
+		Index:  uint32(log.LogIndex),
+	}
+	logId := logExt.LogIdentifier()
+	return hex.EncodeToString(logId)
 }

@@ -1,12 +1,9 @@
 package transmit
 
 import (
-	"encoding/hex"
 	"sync"
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
 
 // transmitEventCache holds a ring buffer of the last visited blocks (transmit block),
@@ -60,15 +57,6 @@ func (c *transmitEventCache) add(logID string, e ocr2keepers.TransmitEvent) {
 	}
 	b.records[logID] = e
 	c.buffer[i] = b
-}
-
-func logKey(log logpoller.Log) string {
-	logExt := ocr2keepers.LogTriggerExtension{
-		TxHash: log.TxHash,
-		Index:  uint32(log.LogIndex),
-	}
-	logId := logExt.LogIdentifier()
-	return hex.EncodeToString(logId)
 }
 
 type cacheBlock struct {

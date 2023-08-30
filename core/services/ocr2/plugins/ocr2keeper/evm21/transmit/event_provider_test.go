@@ -198,15 +198,15 @@ func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 			performedLogs := make([]logpoller.Log, len(tc.parsedPerformed))
 			for i, l := range tc.parsedPerformed {
 				performedLogs[i] = l.Log
-				if _, ok := parseResults[logKey(l.Log)]; ok {
+				if _, ok := parseResults[provider.logKey(l.Log)]; ok {
 					continue
 				}
-				parseResults[logKey(l.Log)] = l
+				parseResults[provider.logKey(l.Log)] = l
 			}
 			provider.mu.Lock()
 			provider.cache = newTransmitEventCache(provider.cache.cap)
 			provider.parseLog = func(registry *iregistry21.IKeeperRegistryMaster, log logpoller.Log) (transmitEventLog, error) {
-				return parseResults[logKey(log)], nil
+				return parseResults[provider.logKey(log)], nil
 			}
 			provider.mu.Unlock()
 
