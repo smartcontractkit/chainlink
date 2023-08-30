@@ -13,6 +13,13 @@ interface IVerifierFeeManager is IERC165 {
   function processFee(bytes calldata payload, address subscriber) external payable;
 
   /**
+   * @notice Processes the fees for each report in the payload, billing the subscriber and paying the reward manager
+   * @param payloads reports and quotes to process
+   * @param subscriber address of the user to process fee for
+   */
+  function processFeeBulk(bytes[] calldata payloads, address subscriber) external payable;
+
+  /**
    * @notice Sets the fee recipients according to the fee manager
    * @param configDigest digest of the configuration
    * @param rewardRecipientAndWeights the address and weights of all the recipients to receive rewards

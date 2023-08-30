@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
-import "./KeeperRegistryBase2_1.sol";
-import "./KeeperRegistryLogicB2_1.sol";
-import "./Chainable.sol";
-import "../../../shared/interfaces/IERC677Receiver.sol";
-import "../../../shared/ocr2/OCR2Abstract.sol";
+import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import {Proxy} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
+import {KeeperRegistryBase2_1} from "./KeeperRegistryBase2_1.sol";
+import {KeeperRegistryLogicB2_1} from "./KeeperRegistryLogicB2_1.sol";
+import {Chainable} from "./Chainable.sol";
+import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
+import {OCR2Abstract} from "../../../shared/ocr2/OCR2Abstract.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
@@ -55,9 +57,9 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
     Chainable(address(logicA))
   {}
 
-  ////////
-  // ACTIONS
-  ////////
+  // ================================================================
+  // |                           ACTIONS                            |
+  // ================================================================
 
   /**
    * @inheritdoc OCR2Abstract
@@ -215,9 +217,9 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
     emit FundsAdded(id, sender, uint96(amount));
   }
 
-  /////////////
-  // SETTERS //
-  /////////////
+  // ================================================================
+  // |                           SETTERS                            |
+  // ================================================================
 
   /**
    * @inheritdoc OCR2Abstract
@@ -279,9 +281,11 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
       address temp;
       for (uint256 i = 0; i < signers.length; i++) {
         if (s_signers[signers[i]].active) revert RepeatedSigner();
+        if (signers[i] == ZERO_ADDRESS) revert InvalidSigner();
         s_signers[signers[i]] = Signer({active: true, index: uint8(i)});
 
         temp = transmitters[i];
+        if (temp == ZERO_ADDRESS) revert InvalidTransmitter();
         transmitter = s_transmitters[temp];
         if (transmitter.active) revert RepeatedTransmitter();
         transmitter.active = true;
@@ -363,9 +367,9 @@ contract KeeperRegistry2_1 is KeeperRegistryBase2_1, OCR2Abstract, Chainable, IE
     );
   }
 
-  /////////////
-  // GETTERS //
-  /////////////
+  // ================================================================
+  // |                           GETTERS                            |
+  // ================================================================
 
   /**
    * @inheritdoc OCR2Abstract

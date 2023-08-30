@@ -111,10 +111,6 @@ func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interfa
 	}
 }
 
-func (c *SimulatedBackendClient) FilterEvents(ctx context.Context, q ethereum.FilterQuery) (logs []types.Log, err error) {
-	return c.b.FilterLogs(ctx, q)
-}
-
 // FilterLogs returns all logs that respect the passed filter query.
 func (c *SimulatedBackendClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) (logs []types.Log, err error) {
 	return c.b.FilterLogs(ctx, q)
@@ -403,10 +399,6 @@ func (c *SimulatedBackendClient) SendTransaction(ctx context.Context, tx *types.
 
 	err = c.b.SendTransaction(ctx, tx)
 	return err
-}
-
-func (c *SimulatedBackendClient) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
-	panic("not implemented")
 }
 
 type revertError struct {

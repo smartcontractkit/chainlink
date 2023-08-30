@@ -42,6 +42,8 @@ compileContract dev/automation/tests/LogUpkeepCounter.sol
 # Keepers x VRF v2
 compileContract KeepersVRFConsumer.sol
 
+compileContract automation/mocks/KeeperRegistrar1_2Mock.sol
+compileContract automation/mocks/KeeperRegistryCheckUpkeepGasUsageWrapper1_2Mock.sol
 
 SOLC_VERSION="0.8.16"
 
@@ -59,6 +61,7 @@ compileContract dev/automation/2_1/interfaces/ILogAutomation.sol
 compileContract dev/automation/2_1/AutomationUtils2_1.sol
 compileContract dev/automation/2_1/AutomationForwarderLogic.sol
 compileContract dev/automation/tests/LogTriggeredFeedLookup.sol
+compileContract dev/automation/tests/DummyProtocol.sol
 compileContract dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol
 
 compileContract tests/VerifiableLoadUpkeep.sol

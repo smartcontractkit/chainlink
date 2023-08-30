@@ -113,7 +113,7 @@ type service struct {
 	ocrCfg       OCRConfig
 	ocr2cfg      OCR2Config
 	connMgr      ConnectionsManager
-	chainSet     evm.ChainSet
+	legacyChains evm.LegacyChainContainer
 	lggr         logger.Logger
 	version      string
 }
@@ -130,7 +130,7 @@ func NewService(
 	ocrCfg OCRConfig,
 	ocr2Cfg OCR2Config,
 	dbCfg pg.QConfig,
-	chainSet evm.ChainSet,
+	legacyChains evm.LegacyChainContainer,
 	lggr logger.Logger,
 	version string,
 ) *service {
@@ -149,7 +149,7 @@ func NewService(
 		ocrCfg:       ocrCfg,
 		ocr2cfg:      ocr2Cfg,
 		connMgr:      newConnectionsManager(lggr),
-		chainSet:     chainSet,
+		legacyChains: legacyChains,
 		lggr:         lggr,
 		version:      version,
 	}
@@ -1094,7 +1094,7 @@ func (s *service) generateJob(spec string) (*job.Job, error) {
 		if !s.ocrCfg.Enabled() {
 			return nil, ErrOCRDisabled
 		}
-		js, err = ocr.ValidatedOracleSpecToml(s.chainSet, spec)
+		js, err = ocr.ValidatedOracleSpecToml(s.legacyChains, spec)
 	case job.OffchainReporting2:
 		if !s.ocr2cfg.Enabled() {
 			return nil, ErrOCR2Disabled

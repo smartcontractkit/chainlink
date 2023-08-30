@@ -60,7 +60,7 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, FeedLookupCompati
 
       // if we don't use mercury, create a perform data which resembles the output of checkCallback
       bytes[] memory values = new bytes[](2);
-      bytes memory extraData = abi.encode(upkeepId, blockNum);
+      bytes memory extraData = abi.encode(upkeepId, blockNum, addr);
       return (true, abi.encode(values, extraData));
     }
     revert("unexpected event sig");

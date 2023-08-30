@@ -288,8 +288,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     // In these two fulfillment results the user has been charged
     // Otherwise, the Coordinator should hold on to the request commitment
     if (
-      resultCode == FunctionsResponse.FulfillResult.USER_SUCCESS ||
-      resultCode == FunctionsResponse.FulfillResult.USER_ERROR
+      resultCode == FunctionsResponse.FulfillResult.FULFILLED ||
+      resultCode == FunctionsResponse.FulfillResult.USER_CALLBACK_ERROR
     ) {
       delete s_requestCommitments[requestId];
       // Reimburse the transmitter for the fulfillment gas cost
@@ -347,8 +347,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
     // Bounded by "maxNumOracles" on OCR2Abstract.sol
     for (uint256 i = 0; i < transmitters.length; ++i) {
-      uint96 balance = s_withdrawableTokens[msg.sender];
-      s_withdrawableTokens[msg.sender] = 0;
+      uint96 balance = s_withdrawableTokens[transmitters[i]];
+      s_withdrawableTokens[transmitters[i]] = 0;
       IFunctionsSubscriptions(address(_getRouter())).oracleWithdraw(transmitters[i], balance);
     }
   }

@@ -2,24 +2,23 @@ package test_env
 
 import (
 	"math/big"
-	"sync"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	tc "github.com/testcontainers/testcontainers-go"
-	"go.uber.org/multierr"
+	"golang.org/x/sync/errgroup"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 var (
@@ -34,9 +33,9 @@ type CLClusterTestEnv struct {
 
 	/* components */
 	CLNodes          []*ClNode
-	Geth             *Geth                       // for tests using --dev networks
+	Geth             *test_env.Geth              // for tests using --dev networks
 	PrivateGethChain []test_env.PrivateGethChain // for tests using non-dev networks
-	MockServer       *MockServer
+	MockServer       *test_env.MockServer
 	EVMClient        blockchain.EVMClient
 	ContractDeployer contracts.ContractDeployer
 	ContractLoader   contracts.ContractLoader
@@ -51,8 +50,8 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 	networks := []string{network.Name}
 	return &CLClusterTestEnv{
 		Network:    network,
-		Geth:       NewGeth(networks),
-		MockServer: NewMockServer(networks),
+		Geth:       test_env.NewGeth(networks),
+		MockServer: test_env.NewMockServer(networks),
 	}, nil
 }
 
@@ -67,8 +66,8 @@ func NewTestEnvFromCfg(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
 	return &CLClusterTestEnv{
 		Cfg:        cfg,
 		Network:    network,
-		Geth:       NewGeth(networks, WithContainerName(cfg.Geth.ContainerName)),
-		MockServer: NewMockServer(networks, WithContainerName(cfg.MockServer.ContainerName)),
+		Geth:       test_env.NewGeth(networks, test_env.WithContainerName(cfg.Geth.ContainerName)),
+		MockServer: test_env.NewMockServer(networks, test_env.WithContainerName(cfg.MockServer.ContainerName)),
 	}, nil
 }
 
@@ -76,18 +75,18 @@ func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
 	te.EVMClient.ParallelTransactions(enabled)
 }
 
-func (m *CLClusterTestEnv) WithPrivateGethChain(evmNetworks []blockchain.EVMNetwork) *CLClusterTestEnv {
+func (te *CLClusterTestEnv) WithPrivateGethChain(evmNetworks []blockchain.EVMNetwork) *CLClusterTestEnv {
 	var chains []test_env.PrivateGethChain
 	for _, evmNetwork := range evmNetworks {
 		n := evmNetwork
-		chains = append(chains, test_env.NewPrivateGethChain(&n, []string{m.Network.Name}))
+		chains = append(chains, test_env.NewPrivateGethChain(&n, []string{te.Network.Name}))
 	}
-	m.PrivateGethChain = chains
-	return m
+	te.PrivateGethChain = chains
+	return te
 }
 
-func (m *CLClusterTestEnv) StartPrivateGethChain() error {
-	for _, chain := range m.PrivateGethChain {
+func (te *CLClusterTestEnv) StartPrivateGethChain() error {
+	for _, chain := range te.PrivateGethChain {
 		err := chain.PrimaryNode.Start()
 		if err != nil {
 			return err
@@ -100,7 +99,7 @@ func (m *CLClusterTestEnv) StartPrivateGethChain() error {
 	return nil
 }
 
-func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, InternalDockerUrls, error) {
+func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, test_env.InternalDockerUrls, error) {
 	return te.Geth.StartContainer()
 }
 
@@ -118,20 +117,17 @@ func (te *CLClusterTestEnv) GetAPIs() []*client.ChainlinkClient {
 
 // StartClNodes start one bootstrap node and {count} OCR nodes
 func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int) error {
-	var wg sync.WaitGroup
-	var errs = []error{}
-	var mu sync.Mutex
+	eg := &errgroup.Group{}
+	nodes := make(chan *ClNode, count)
 
 	// Start nodes
 	for i := 0; i < count; i++ {
-		i := i
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
+		nodeIndex := i
+		eg.Go(func() error {
 			var nodeContainerName, dbContainerName string
 			if te.Cfg != nil {
-				nodeContainerName = te.Cfg.Nodes[i].NodeContainerName
-				dbContainerName = te.Cfg.Nodes[i].DbContainerName
+				nodeContainerName = te.Cfg.Nodes[nodeIndex].NodeContainerName
+				dbContainerName = te.Cfg.Nodes[nodeIndex].DbContainerName
 			}
 			n := NewClNode([]string{te.Network.Name}, nodeConfig,
 				WithNodeContainerName(nodeContainerName),
@@ -139,22 +135,22 @@ func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int
 			)
 			err := n.StartContainer()
 			if err != nil {
-				mu.Lock()
-				errs = append(errs, err)
-				mu.Unlock()
-			} else {
-				mu.Lock()
-				te.CLNodes = append(te.CLNodes, n)
-				mu.Unlock()
+				return err
 			}
-		}()
+			nodes <- n
+			return nil
+		})
 	}
 
-	wg.Wait()
-
-	if len(errs) > 0 {
-		return multierr.Combine(errs...)
+	if err := eg.Wait(); err != nil {
+		return err
 	}
+	close(nodes)
+
+	for node := range nodes {
+		te.CLNodes = append(te.CLNodes, node)
+	}
+
 	return nil
 }
 
@@ -194,7 +190,7 @@ func (te *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
 }
 
 func (te *CLClusterTestEnv) Terminate() error {
-	// TESTCONTAINERS_RYUK_DISABLED=false by defualt so ryuk will remove all
+	// TESTCONTAINERS_RYUK_DISABLED=false by default so ryuk will remove all
 	// the containers and the Network
 	return nil
 }

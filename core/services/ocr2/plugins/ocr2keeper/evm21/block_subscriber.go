@@ -25,8 +25,8 @@ const (
 	channelSize = 100
 	// lookbackDepth decides valid trigger block lookback range
 	lookbackDepth = 1024
-	// blockHistorySize decides the block history size
-	blockHistorySize = int64(128)
+	// blockHistorySize decides the block history size sent to subscribers
+	blockHistorySize = int64(256)
 )
 
 type BlockSubscriber struct {
@@ -43,11 +43,13 @@ type BlockSubscriber struct {
 	maxSubId         int
 	lastClearedBlock int64
 	lastSentBlock    int64
-	latestBlock      atomic.Int64
+	latestBlock      atomic.Pointer[ocr2keepers.BlockKey]
 	blockHistorySize int64
 	blockSize        int64
 	lggr             logger.Logger
 }
+
+var _ ocr2keepers.BlockSubscriber = &BlockSubscriber{}
 
 func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, lggr logger.Logger) *BlockSubscriber {
 	return &BlockSubscriber{
@@ -58,7 +60,7 @@ func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, lggr
 		blocks:           map[int64]string{},
 		blockHistorySize: blockHistorySize,
 		blockSize:        lookbackDepth,
-		latestBlock:      atomic.Int64{},
+		latestBlock:      atomic.Pointer[ocr2keepers.BlockKey]{},
 		lggr:             lggr.Named("BlockSubscriber"),
 	}
 }
@@ -125,12 +127,11 @@ func (bs *BlockSubscriber) cleanup() {
 	bs.lggr.Infof("lastClearedBlock is set to %d", bs.lastClearedBlock)
 }
 
-func (bs *BlockSubscriber) Start(ctx context.Context) error {
+func (bs *BlockSubscriber) Start(_ context.Context) error {
 	bs.lggr.Info("block subscriber started.")
 	return bs.sync.StartOnce("BlockSubscriber", func() error {
 		bs.mu.Lock()
 		defer bs.mu.Unlock()
-		// TODO: we should use ctx instead of context.Background())
 		bs.ctx, bs.cancel = context.WithCancel(context.Background())
 		// initialize the blocks map with the recent blockSize blocks
 		blocks, err := bs.getBlockRange(bs.ctx)
@@ -226,9 +227,15 @@ func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
 	// head parent is a linked list with EVM finality depth
 	// when re-org happens, new heads will have pointers to the new blocks
 	i := int64(0)
-	for cp := h; cp != nil; cp = cp.Parent {
-		if cp != h && bs.blocks[cp.Number] != cp.Hash.Hex() {
-			bs.lggr.Warnf("overriding block %d old hash %s with new hash %s due to re-org", cp.Number, bs.blocks[cp.Number], cp.Hash.Hex())
+	for cp := h; ; cp = cp.Parent {
+		if cp == nil || bs.blocks[cp.Number] == cp.Hash.Hex() {
+			break
+		}
+		existingHash, ok := bs.blocks[cp.Number]
+		if !ok {
+			bs.lggr.Debugf("filling block %d with new hash %s", cp.Number, cp.Hash.Hex())
+		} else if existingHash != cp.Hash.Hex() {
+			bs.lggr.Warnf("overriding block %d old hash %s with new hash %s due to re-org", cp.Number, existingHash, cp.Hash.Hex())
 		}
 		bs.blocks[cp.Number] = cp.Hash.Hex()
 		i++
@@ -239,8 +246,11 @@ func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
 	bs.lggr.Debugf("blocks block %d hash is %s", h.Number, h.Hash.Hex())
 
 	history := bs.buildHistory(h.Number)
-
-	bs.latestBlock.Store(h.Number)
+	block := &ocr2keepers.BlockKey{
+		Number: ocr2keepers.BlockNumber(h.Number),
+	}
+	copy(block.Hash[:], h.Hash[:])
+	bs.latestBlock.Store(block)
 	bs.lastSentBlock = h.Number
 	// send history to all subscribers
 	for _, subC := range bs.subscribers {

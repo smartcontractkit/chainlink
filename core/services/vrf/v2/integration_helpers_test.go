@@ -181,14 +181,12 @@ func testMultipleConsumersNeedBHS(
 	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
 
 	// generate n BHS keys to make sure BHS job rotates sending keys
-	var bhsKeys []ethkey.KeyV2
 	var bhsKeyAddresses []string
 	var keySpecificOverrides []toml.KeySpecific
 	var keys []interface{}
 	gasLanePriceWei := assets.GWei(10)
 	for i := 0; i < nConsumers; i++ {
 		bhsKey := cltest.MustGenerateRandomKey(t)
-		bhsKeys = append(bhsKeys, bhsKey)
 		bhsKeyAddresses = append(bhsKeyAddresses, bhsKey.Address.String())
 		keys = append(keys, bhsKey)
 		keySpecificOverrides = append(keySpecificOverrides, toml.KeySpecific{
@@ -245,8 +243,8 @@ func testMultipleConsumersNeedBHS(
 		v2CoordinatorAddress, v2PlusCoordinatorAddress, "", 0, 200)
 
 	// Ensure log poller is ready and has all logs.
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), 1))
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(testutils.Context(t), 1))
 
 	for i := 0; i < nConsumers; i++ {
 		consumer := consumers[i]
@@ -321,7 +319,6 @@ func testMultipleConsumersNeedTrustedBHS(
 	sendEth(t, ownerKey, uni.backend, vrfKey.Address, 10)
 
 	// generate n BHS keys to make sure BHS job rotates sending keys
-	var bhsKeys []ethkey.KeyV2
 	var bhsKeyAddresses []common.Address
 	var bhsKeyAddressesStrings []string
 	var keySpecificOverrides []toml.KeySpecific
@@ -329,7 +326,6 @@ func testMultipleConsumersNeedTrustedBHS(
 	gasLanePriceWei := assets.GWei(10)
 	for i := 0; i < nConsumers; i++ {
 		bhsKey := cltest.MustGenerateRandomKey(t)
-		bhsKeys = append(bhsKeys, bhsKey)
 		bhsKeyAddressesStrings = append(bhsKeyAddressesStrings, bhsKey.Address.String())
 		bhsKeyAddresses = append(bhsKeyAddresses, bhsKey.Address)
 		keys = append(keys, bhsKey)
@@ -392,8 +388,9 @@ func testMultipleConsumersNeedTrustedBHS(
 		v2CoordinatorAddress, v2PlusCoordinatorAddress, uni.trustedBhsContractAddress.String(), 20, 1000)
 
 	// Ensure log poller is ready and has all logs.
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), 1))
+	chain := app.GetRelayers().LegacyEVMChains().Slice()[0]
+	require.NoError(t, chain.LogPoller().Ready())
+	require.NoError(t, chain.LogPoller().Replay(testutils.Context(t), 1))
 
 	for i := 0; i < nConsumers; i++ {
 		consumer := consumers[i]
@@ -778,8 +775,8 @@ func testBlockHeaderFeeder(
 		v2coordinatorAddress, v2plusCoordinatorAddress)
 
 	// Ensure log poller is ready and has all logs.
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Ready())
-	require.NoError(t, app.Chains.EVM.Chains()[0].LogPoller().Replay(testutils.Context(t), 1))
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
+	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Replay(testutils.Context(t), 1))
 
 	for i := 0; i < nConsumers; i++ {
 		consumer := consumers[i]
@@ -1684,7 +1681,7 @@ func testMaliciousConsumer(
 	}, testutils.WaitTimeout(t), 1*time.Second).Should(gomega.BeTrue())
 
 	// The fulfillment tx should succeed
-	ch, err := app.GetChains().EVM.Default()
+	ch, err := app.GetRelayers().LegacyEVMChains().Default()
 	require.NoError(t, err)
 	r, err := ch.Client().TransactionReceipt(testutils.Context(t), attempts[0].Hash)
 	require.NoError(t, err)
