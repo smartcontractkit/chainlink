@@ -34,4 +34,5 @@ ContractTransmitterTransmitTimeout = '2s'
 ObservationGracePeriod = '500ms'
 
 [NodePool]
-SyncThreshold = 10
+SyncThreshold = 20
+SelectionMode = 'TotalDifficulty'
