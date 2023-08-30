@@ -3,6 +3,7 @@ package test_env
 import (
 	"math/big"
 	"os"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
@@ -167,11 +168,18 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 
 	}
 
-	bc, err := blockchain.NewEVMClientFromNetwork(networkConfig)
+	// adding retry logic for geth
+	var bc blockchain.EVMClient
+	for i := 0; i < 5; i++ {
+		bc, err = blockchain.NewEVMClientFromNetwork(networkConfig)
+		if err == nil {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
 	if err != nil {
 		return nil, err
 	}
-
 	te.EVMClient = bc
 
 	cd, err := contracts.NewContractDeployer(bc)
