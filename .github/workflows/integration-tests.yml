@@ -253,9 +253,11 @@ jobs:
             nodes: 1
             os: ubuntu20.04-16cores-64GB
             file: ccip
+            dir: ccip-tests/smoke
             run: -run ^TestSmokeCCIPForBidirectionalLane$
           - name: ccip-smoke-rate-limit
             nodes: 1
+            dir: ccip-tests/smoke
             os: ubuntu20.04-16cores-64GB
             file: ccip
             run: -run ^TestSmokeCCIPRateLimit$
@@ -398,11 +400,17 @@ jobs:
       - name: Build Go Test Command
         id: build-go-test-command
         run: |
+          # if dir is provided use it, otherwise use the smoke dir
+          if [ "${{ matrix.product.dir }}" != "" ]; then
+            dir=${{ matrix.product.dir }} 
+          else
+            dir=smoke
+          fi
           # if the matrix.product.run is set, use it for a different command
           if [ "${{ matrix.product.run }}" != "" ]; then
-            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
+            echo "run_command=${{ matrix.product.run }} ./${dir}/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
           else
-            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
+            echo "run_command=./${dir}/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
           fi
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests

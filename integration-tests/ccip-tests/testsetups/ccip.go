@@ -27,12 +27,17 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ccip/laneconfig"
+	ccipnode "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/types/config/node"
+
+	integrationactions "github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/networks"
-	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts/laneconfig"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testreporters"
 )
 
 const (
@@ -710,7 +715,7 @@ func CCIPDefaultTestSetUp(
 				}
 				return
 			}
-			err = actions.TeardownSuite(t, ccipEnv.K8Env, utils.ProjectRoot, ccipEnv.CLNodes, setUpArgs.Reporter,
+			err = integrationactions.TeardownSuite(t, ccipEnv.K8Env, utils.ProjectRoot, ccipEnv.CLNodes, setUpArgs.Reporter,
 				zapcore.ErrorLevel, chains...)
 			require.NoError(t, err, "Environment teardown shouldn't fail")
 		} else {
@@ -815,7 +820,7 @@ func DeployLocalCluster(
 		if nonDevGethNetworks == nil {
 			return errors.New("cannot create nodes with custom config without nonDevGethNetworks")
 		}
-		toml, err := node.NewConfigFromToml("ccip",
+		toml, err := node.NewConfigFromToml(ccipnode.CCIPTOML,
 			node.WithPrivateEVMs(nonDevGethNetworks))
 		if err != nil {
 			return err
@@ -906,8 +911,7 @@ func DeployEnvironments(
 		*/
 	}
 
-	tomlCfg, err := node.NewConfigFromToml("ccip",
-		node.WithPrivateEVMs(nets))
+	tomlCfg, err := node.NewConfigFromToml(ccipnode.CCIPTOML, ccipnode.WithPrivateEVMs(nets))
 	tomlStr, err := tomlCfg.TOMLString()
 	require.NoError(t, err)
 	clProps["toml"] = tomlStr
