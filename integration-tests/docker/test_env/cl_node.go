@@ -45,6 +45,8 @@ type ClNode struct {
 	NodeSecretsConfigTOML string
 	PostgresDb            *PostgresDb
 	lw                    *logwatch.LogWatch
+	ContainerImage        string
+	ContainerVersion      string
 }
 
 type ClNodeOption = func(c *ClNode)
@@ -98,6 +100,19 @@ func (n *ClNode) Restart(cfg *chainlink.Config) error {
 	}
 	n.NodeConfig = cfg
 	return n.StartContainer()
+}
+
+// Restart restarts only CL node, DB container is reused
+func (n *ClNode) UpgradeVersion(cfg *chainlink.Config, newImage, newVersion string) error {
+	if newVersion == "" {
+		return fmt.Errorf("new version is empty")
+	}
+	if newImage == "" {
+		newImage = os.Getenv("CHAINLINK_IMAGE")
+	}
+	n.ContainerImage = newImage
+	n.ContainerVersion = newVersion
+	return n.Restart(n.NodeConfig)
 }
 
 func (n *ClNode) PrimaryETHAddress() (string, error) {
@@ -202,7 +217,6 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	}
 	return evmClient.Fund(toAddress, amount, gasEstimates)
 }
-
 func (n *ClNode) StartContainer() error {
 	err := n.PostgresDb.StartContainer()
 	if err != nil {
@@ -312,18 +326,24 @@ func (n *ClNode) getContainerRequest() (
 	adminCredsPath := "/home/admin-credentials.txt"
 	apiCredsPath := "/home/api-credentials.txt"
 
-	image, ok := os.LookupEnv("CHAINLINK_IMAGE")
-	if !ok {
-		return nil, errors.New("CHAINLINK_IMAGE env must be set")
+	if n.ContainerImage == "" {
+		image, ok := os.LookupEnv("CHAINLINK_IMAGE")
+		if !ok {
+			return nil, errors.New("CHAINLINK_IMAGE env must be set")
+		}
+		n.ContainerImage = image
 	}
-	tag, ok := os.LookupEnv("CHAINLINK_VERSION")
-	if !ok {
-		return nil, errors.New("CHAINLINK_VERSION env must be set")
+	if n.ContainerVersion == "" {
+		version, ok := os.LookupEnv("CHAINLINK_VERSION")
+		if !ok {
+			return nil, errors.New("CHAINLINK_VERSION env must be set")
+		}
+		n.ContainerVersion = version
 	}
 
 	return &tc.ContainerRequest{
 		Name:         n.ContainerName,
-		Image:        fmt.Sprintf("%s:%s", image, tag),
+		Image:        fmt.Sprintf("%s:%s", n.ContainerImage, n.ContainerVersion),
 		ExposedPorts: []string{"6688/tcp"},
 		Entrypoint: []string{"chainlink",
 			"-c", configPath,
