@@ -408,6 +408,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath_BatchFulfillment_BigGasCa
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	t.Run("link payment", func(tt *testing.T) {
@@ -453,6 +454,7 @@ func TestVRFV2PlusIntegration_SingleConsumer_HappyPath(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_SingleConsumer_EOA_Request(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	testEoa(
@@ -808,6 +810,7 @@ func TestVRFV2PlusIntegration_SimpleConsumerExample(t *testing.T) {
 }
 
 func TestVRFV2PlusIntegration_TestMaliciousConsumer(t *testing.T) {
+	t.Parallel()
 	key := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, key, 1, false)
 	testMaliciousConsumer(
@@ -1133,6 +1136,7 @@ func setupSubscriptionAndFund(
 }
 
 func TestVRFV2PlusIntegration_Migration(t *testing.T) {
+	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 1, false)
 	key1 := cltest.MustGenerateRandomKey(t)
