@@ -10,7 +10,7 @@ contract MercuryRegistryTest is Test {
   address internal constant VERIFIER = 0x60448B880c9f3B501af3f343DA9284148BD7D77C;
   int192 internal constant DEVIATION_THRESHOLD = 10_000; // 1%
   uint32 internal constant STALENESS_SECONDS = 3600; // 1 hour
-  uint256 internal constant BLOCK_NUMBER = 37755166;
+  uint256 internal constant BLOCK_NUMBER = 37761545;
 
   string[] feedIds;
   string s_BTCUSDFeedId = "0x6962e629c3a0f5b7e3e9294b0c283c9b20f94f1c89c8ba8c1ee4650738f20fb2";
@@ -202,7 +202,7 @@ contract MercuryRegistryTest is Test {
     MercuryRegistryBatchUpkeep batchedRegistry = new MercuryRegistryBatchUpkeep(
       address(s_testRegistry), // use the test registry as master registry
       0, // start batch at index 0.
-      feedIds.length // end batch at end of feedIds (take responsibility for all feeds)
+      50 // end batch beyond length of feed Ids (take responsibility for all feeds)
     );
     // Check upkeep, receive Mercury revert.
     uint256 blockNumber = BLOCK_NUMBER;

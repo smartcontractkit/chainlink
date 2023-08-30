@@ -1,10 +1,12 @@
 pragma solidity 0.8.6;
 
+import "../../../shared/access/ConfirmedOwner.sol";
 import "../../../automation/interfaces/AutomationCompatibleInterface.sol";
 import "../2_1/interfaces/FeedLookupCompatibleInterface.sol";
 import "./MercuryRegistry.sol";
 
-contract MercuryRegistryBatchUpkeep is AutomationCompatibleInterface, FeedLookupCompatibleInterface {
+contract MercuryRegistryBatchUpkeep is ConfirmedOwner, AutomationCompatibleInterface, FeedLookupCompatibleInterface {
+  error BatchSizeTooLarge(uint256 batchsize, uint256 maxBatchSize);
   // Use a reasonable maximum batch size. Every Mercury report is ~750 bytes, too many reports
   // passed into a single batch could exceed the calldata or transaction size limit for some blockchains.
   uint256 constant MAX_BATCH_SIZE = 50;
@@ -14,16 +16,10 @@ contract MercuryRegistryBatchUpkeep is AutomationCompatibleInterface, FeedLookup
   uint256 s_batchStart; // starting index of upkeep batch, inclusive
   uint256 s_batchEnd; // ending index of upkeep batch, exclusive
 
-  constructor(address mercuryRegistry, uint256 batchStart, uint256 batchEnd) {
+  constructor(address mercuryRegistry, uint256 batchStart, uint256 batchEnd) ConfirmedOwner(msg.sender) {
     i_registry = MercuryRegistry(mercuryRegistry);
 
-    // Do not allow a batched mercury registry to use an excessive batch size, as to avoid
-    // calldata size limits. If more feeds need to be updated than allowed by the batch size,
-    // deploy another `MercuryRegistryBatchUpkeep` contract and register another upkeep job.
-    require(batchEnd - batchStart <= MAX_BATCH_SIZE, "batch size is too large");
-
-    s_batchStart = batchStart;
-    s_batchEnd = batchEnd;
+    updateBatchingWindow(batchStart, batchEnd);
   }
 
   // Invoke a feed lookup for the feeds this upkeep is responsible for.
@@ -31,9 +27,29 @@ contract MercuryRegistryBatchUpkeep is AutomationCompatibleInterface, FeedLookup
     uint256 start = s_batchStart;
     uint256 end = s_batchEnd;
     string[] memory feeds = new string[](end - start);
+    uint256 count = 0;
     for (uint256 i = start; i < end; i++) {
+      string memory feedId;
+
+      // If the feed doesn't exist, then the batching window exceeds the underlying registry length.
+      // So, the batch will be partially empty.
+      try i_registry.s_feeds(i) returns (string memory f) {
+        feedId = f;
+      } catch (bytes memory /* data */) {
+        break;
+      }
+
+      // Assign feeed.
       feeds[i - start] = i_registry.s_feeds(i);
+      count++;
     }
+
+    // Adjusts the lenght of the batch to `count` such that it does not
+    // contain any empty feed Ids.
+    assembly {
+      mstore(feeds, count)
+    }
+
     return i_registry.revertForFeedLookup(feeds);
   }
 
@@ -48,5 +64,17 @@ contract MercuryRegistryBatchUpkeep is AutomationCompatibleInterface, FeedLookup
   // Use the master registry to update state.
   function performUpkeep(bytes calldata performData) external override {
     i_registry.performUpkeep(performData);
+  }
+
+  function updateBatchingWindow(uint256 batchStart, uint256 batchEnd) public onlyOwner {
+    // Do not allow a batched mercury registry to use an excessive batch size, as to avoid
+    // calldata size limits. If more feeds need to be updated than allowed by the batch size,
+    // deploy another `MercuryRegistryBatchUpkeep` contract and register another upkeep job.
+    if (batchEnd - batchStart > MAX_BATCH_SIZE) {
+      revert BatchSizeTooLarge(batchEnd - batchStart, MAX_BATCH_SIZE);
+    }
+
+    s_batchStart = batchStart;
+    s_batchEnd = batchEnd;
   }
 }
