@@ -6,8 +6,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -18,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2configurationstore"
 	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -57,7 +60,7 @@ func TestConfigPoller(t *testing.T) {
 		accessAddress,
 		9,
 		"TEST",
-		false,
+		common.Address{},
 	)
 	require.NoError(t, err)
 	b.Commit()
@@ -115,7 +118,10 @@ func TestConfigPoller(t *testing.T) {
 		assert.Equal(t, contractConfig.OffchainConfig, newConfig.OffchainConfig)
 	})
 
-	ocrAddressPersistConfigEnabled, _, ocrContractPersistConfigEnabled, err := ocr2aggregator.DeployOCR2Aggregator(
+	configStoreContractAddr, _, configStoreContract, err := ocr2configurationstore.DeployOCR2ConfigurationStore(user, b)
+	require.NoError(t, err)
+
+	ocrAddressWithConfigStore, _, ocrContractWithConfigStore, err := ocr2aggregator.DeployOCR2Aggregator(
 		user,
 		b,
 		linkTokenAddress,
@@ -125,53 +131,56 @@ func TestConfigPoller(t *testing.T) {
 		accessAddress,
 		9,
 		"TEST",
-		true,
+		configStoreContractAddr,
 	)
 	require.NoError(t, err)
 	b.Commit()
 
-	t.Run("callIsConfigPersisted returns false", func(t *testing.T) {
-		t.Run("when contract method missing, does not enable persistConfig", func(t *testing.T) {
+	t.Run("configStore disabled", func(t *testing.T) {
+		t.Run("when contract method missing, returns zero address", func(t *testing.T) {
 			// Latest contract will always have the method, so use a random
 			// unrelated contract (i.e. Link token) that doesn't implement the
 			// method to test
 			cp, err := newConfigPoller(lggr, ethClient, lp, linkTokenAddress)
 			require.NoError(t, err)
 
-			persistConfig, err := cp.callIsConfigPersisted(testutils.Context(t))
+			addr, err := cp.callIConfigStore(testutils.Context(t))
 			require.NoError(t, err)
-			assert.False(t, persistConfig)
+			assert.Equal(t, (common.Address{}), addr)
 		})
-		t.Run("when contract method returns false, does not enable persistConfig", func(t *testing.T) {
+		t.Run("when contract method returns zero address, returns it", func(t *testing.T) {
 			// Deployed test ocr contract has persistConfig=false
 			cp, err := newConfigPoller(lggr, ethClient, lp, ocrAddress)
 			require.NoError(t, err)
 
-			persistConfig, err := cp.callIsConfigPersisted(testutils.Context(t))
+			addr, err := cp.callIConfigStore(testutils.Context(t))
 			require.NoError(t, err)
-			assert.False(t, persistConfig)
+			assert.Equal(t, (common.Address{}), addr)
 		})
 	})
 
-	t.Run("callIsConfigPersisted returns true", func(t *testing.T) {
-		cp, err := newConfigPoller(lggr, ethClient, lp, ocrAddressPersistConfigEnabled)
+	t.Run("callIConfigStore returns the address of the config store contract", func(t *testing.T) {
+		cp, err := newConfigPoller(lggr, ethClient, lp, ocrAddressWithConfigStore)
 		require.NoError(t, err)
 
-		persistConfig, err := cp.callIsConfigPersisted(testutils.Context(t))
+		addr, err := cp.callIConfigStore(testutils.Context(t))
 		require.NoError(t, err)
-		assert.True(t, persistConfig)
+		assert.Equal(t, configStoreContractAddr, addr)
 	})
 
-	t.Run("LatestConfigDetails, when logs have been pruned and persistConfig is true", func(t *testing.T) {
+	t.Run("LatestConfigDetails, when logs have been pruned and config store contract is configured", func(t *testing.T) {
 		// Give it a log poller that will never return logs
 		mp := new(mocks.LogPoller)
 		mp.On("RegisterFilter", mock.Anything).Return(nil)
 		mp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, sql.ErrNoRows)
 
 		t.Run("if callLatestConfigDetails succeeds", func(t *testing.T) {
-			cp, err := newConfigPoller(lggr, ethClient, mp, ocrAddressPersistConfigEnabled)
+			cp, err := newConfigPoller(lggr, ethClient, mp, ocrAddressWithConfigStore)
 			require.NoError(t, err)
-			cp.persistConfig.Store(true)
+
+			// simulate start
+			cp.wg.Add(1)
+			cp.enableConfigStore()
 
 			t.Run("when config has not been set, returns zero values", func(t *testing.T) {
 				changedInBlock, configDigest, err := cp.LatestConfigDetails(testutils.Context(t))
@@ -187,7 +196,7 @@ func TestConfigPoller(t *testing.T) {
 					AlphaAcceptInfinite: true,
 					AlphaAcceptPPB:      0,
 					DeltaC:              10,
-				}, ocrContractPersistConfigEnabled, user)
+				}, ocrContractWithConfigStore, user)
 				b.Commit()
 
 				changedInBlock, configDigest, err := cp.LatestConfigDetails(testutils.Context(t))
@@ -196,7 +205,7 @@ func TestConfigPoller(t *testing.T) {
 				latest, err := b.BlockByNumber(testutils.Context(t), nil)
 				require.NoError(t, err)
 
-				onchainDetails, err := ocrContractPersistConfigEnabled.LatestConfigDetails(nil)
+				onchainDetails, err := ocrContractWithConfigStore.LatestConfigDetails(nil)
 				require.NoError(t, err)
 
 				assert.Equal(t, latest.Number().Int64(), int64(changedInBlock))
@@ -207,9 +216,11 @@ func TestConfigPoller(t *testing.T) {
 			failingClient := new(evmClientMocks.Client)
 			failingClient.On("ConfiguredChainID").Return(big.NewInt(42))
 			failingClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("something exploded!"))
-			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddressPersistConfigEnabled)
+			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddressWithConfigStore)
 			require.NoError(t, err)
-			cp.persistConfig.Store(true)
+
+			cp.configStoreContractAddr = configStoreContractAddr
+			cp.configStoreContract = configStoreContract
 
 			_, _, err = cp.LatestConfigDetails(testutils.Context(t))
 			assert.EqualError(t, err, "something exploded!")
@@ -219,7 +230,7 @@ func TestConfigPoller(t *testing.T) {
 	})
 
 	// deploy it again to reset to empty config
-	ocrAddressPersistConfigEnabled, _, ocrContractPersistConfigEnabled, err = ocr2aggregator.DeployOCR2Aggregator(
+	ocrAddressWithConfigStore, _, ocrContractWithConfigStore, err = ocr2aggregator.DeployOCR2Aggregator(
 		user,
 		b,
 		linkTokenAddress,
@@ -229,21 +240,24 @@ func TestConfigPoller(t *testing.T) {
 		accessAddress,
 		9,
 		"TEST",
-		true,
+		configStoreContractAddr,
 	)
 	require.NoError(t, err)
 	b.Commit()
 
-	t.Run("LatestConfig, when logs have been pruned and persistConfig is true", func(t *testing.T) {
+	t.Run("LatestConfig, when logs have been pruned and config store contract is configured", func(t *testing.T) {
 		// Give it a log poller that will never return logs
 		mp := mocks.NewLogPoller(t)
 		mp.On("RegisterFilter", mock.Anything).Return(nil)
 		mp.On("Logs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, nil)
 
 		t.Run("if callLatestConfig succeeds", func(t *testing.T) {
-			cp, err := newConfigPoller(lggr, ethClient, mp, ocrAddressPersistConfigEnabled)
+			cp, err := newConfigPoller(lggr, ethClient, mp, ocrAddressWithConfigStore)
 			require.NoError(t, err)
-			cp.persistConfig.Store(true)
+
+			// simulate start
+			cp.wg.Add(1)
+			cp.enableConfigStore()
 
 			t.Run("when config has not been set, returns zero values", func(t *testing.T) {
 				contractConfig, err := cp.LatestConfig(testutils.Context(t), 0)
@@ -253,7 +267,7 @@ func TestConfigPoller(t *testing.T) {
 			})
 			t.Run("when config has been set, returns config", func(t *testing.T) {
 				b.Commit()
-				onchainDetails, err := ocrContractPersistConfigEnabled.LatestConfigDetails(nil)
+				onchainDetails, err := ocrContractWithConfigStore.LatestConfigDetails(nil)
 				require.NoError(t, err)
 
 				contractConfig := setConfig(t, median.OffchainConfig{
@@ -262,9 +276,9 @@ func TestConfigPoller(t *testing.T) {
 					AlphaAcceptInfinite: true,
 					AlphaAcceptPPB:      0,
 					DeltaC:              10,
-				}, ocrContractPersistConfigEnabled, user)
+				}, ocrContractWithConfigStore, user)
 				b.Commit()
-				onchainDetails, err = ocrContractPersistConfigEnabled.LatestConfigDetails(nil)
+				onchainDetails, err = ocrContractWithConfigStore.LatestConfigDetails(nil)
 				require.NoError(t, err)
 
 				latest, err := b.BlockByNumber(testutils.Context(t), nil)
@@ -274,7 +288,7 @@ func TestConfigPoller(t *testing.T) {
 				newConfig, err := cp.LatestConfig(testutils.Context(t), blockNum)
 				require.NoError(t, err)
 
-				onchainDetails, err = ocrContractPersistConfigEnabled.LatestConfigDetails(nil)
+				onchainDetails, err = ocrContractWithConfigStore.LatestConfigDetails(nil)
 				require.NoError(t, err)
 
 				assert.Equal(t, onchainDetails.ConfigDigest, [32]byte(newConfig.ConfigDigest))
@@ -284,17 +298,30 @@ func TestConfigPoller(t *testing.T) {
 				assert.Equal(t, contractConfig.OffchainConfigVersion, newConfig.OffchainConfigVersion)
 				assert.Equal(t, contractConfig.OffchainConfig, newConfig.OffchainConfig)
 			})
+
+			t.Run("returns error if block number is wrong", func(t *testing.T) {
+				_, err = cp.LatestConfig(testutils.Context(t), 0)
+				assert.EqualError(t, err, "block number mismatch: expected to find config changed in block 0 but the config was changed in block 9")
+			})
 		})
 		t.Run("returns error if callLatestConfig fails", func(t *testing.T) {
 			failingClient := new(evmClientMocks.Client)
 			failingClient.On("ConfiguredChainID").Return(big.NewInt(42))
-			failingClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("something exploded!"))
-			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddressPersistConfigEnabled)
+			failingClient.On("CallContract", mock.Anything, mock.MatchedBy(func(callArgs ethereum.CallMsg) bool {
+				// initial call to retrieve config store address from aggregator
+				return *callArgs.To == configStoreContractAddr
+			}), mock.Anything).Return(nil, errors.New("something exploded!")).Once()
+			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddressWithConfigStore)
 			require.NoError(t, err)
-			cp.persistConfig.Store(true)
+
+			cp.configStoreContractAddr = configStoreContractAddr
+			cp.configStoreContract, err = ocr2configurationstore.NewOCR2ConfigurationStore(configStoreContractAddr, failingClient)
+			require.NoError(t, err)
 
 			_, err = cp.LatestConfig(testutils.Context(t), 0)
 			assert.EqualError(t, err, "something exploded!")
+
+			failingClient.AssertExpectations(t)
 		})
 	})
 }

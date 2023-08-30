@@ -85,7 +85,7 @@ func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBa
 		accessAddress,
 		9,
 		"TEST",
-		false,
+		common.Address{},
 	)
 	// Ensure we have finality depth worth of blocks to start.
 	for i := 0; i < 20; i++ {
