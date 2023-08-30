@@ -20,7 +20,8 @@ contract USDCTokenPool is TokenPool {
   error InvalidNonce(uint64 expected, uint64 got);
   error InvalidSender(bytes32 expected, bytes32 got);
   error InvalidReceiver(bytes32 expected, bytes32 got);
-  error InvalidDomain(uint32 got);
+  error InvalidSourceDomain(uint32 expected, uint32 got);
+  error InvalidDestinationDomain(uint32 expected, uint32 got);
 
   // This data is supplied from offchain and contains everything needed
   // to receive the USDC tokens.
@@ -116,8 +117,10 @@ contract USDCTokenPool is TokenPool {
   }
 
   /// @notice Mint tokens from the pool to the recipient
+  /// @param originalSender Sender address on the source chain
   /// @param receiver Recipient address
   /// @param amount Amount to mint
+  /// @param extraData Encoded return data from `lockOrBurn` and offchain attestation data
   function releaseOrMint(
     bytes calldata originalSender,
     address receiver,
@@ -147,6 +150,22 @@ contract USDCTokenPool is TokenPool {
     emit Minted(msg.sender, receiver, amount);
   }
 
+  /// @notice Validates the USDC encoded message against the given parameters.
+  /// @param usdcMessage The USDC encoded message
+  /// @param expectedSourceDomain The expected source domain
+  /// @param expectedNonce The expected nonce
+  /// @param expectedSender The expected sender
+  /// @param expectedReceiver The expected receiver
+  /// @dev Only supports version 1 of the CCTP message format
+  /// @dev Message format for USDC:
+  ///     * Field                 Bytes      Type       Index
+  ///     * version               4          uint32     0
+  ///     * sourceDomain          4          uint32     4
+  ///     * destinationDomain     4          uint32     8
+  ///     * nonce                 8          uint64     12
+  ///     * sender                32         bytes32    20
+  ///     * recipient             32         bytes32    52
+  ///     * messageBody           dynamic    bytes      84
   function _validateMessage(
     bytes memory usdcMessage,
     uint32 expectedSourceDomain,
@@ -179,8 +198,9 @@ contract USDCTokenPool is TokenPool {
       receiver := mload(add(usdcMessage, 84)) // 52 + 32 = 84
     }
 
-    if (sourceDomain != expectedSourceDomain) revert InvalidDomain(sourceDomain);
-    if (destinationDomain != i_localDomainIdentifier) revert InvalidDomain(destinationDomain);
+    if (sourceDomain != expectedSourceDomain) revert InvalidSourceDomain(expectedSourceDomain, sourceDomain);
+    if (destinationDomain != i_localDomainIdentifier)
+      revert InvalidDestinationDomain(i_localDomainIdentifier, destinationDomain);
     if (nonce != expectedNonce) revert InvalidNonce(expectedNonce, nonce);
     if (sender != expectedSender) revert InvalidSender(expectedSender, sender);
     if (receiver != expectedReceiver) revert InvalidReceiver(expectedReceiver, receiver);

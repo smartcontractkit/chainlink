@@ -9,6 +9,7 @@ import {Router} from "../../Router.sol";
 import {USDCTokenPool} from "../../pools/USDC/USDCTokenPool.sol";
 import {BurnMintERC677} from "../../../shared/token/ERC677/BurnMintERC677.sol";
 import {MockUSDC} from "../mocks/MockUSDC.sol";
+import {USDCTokenPoolHelper} from "../helpers/USDCTokenPoolHelper.sol";
 
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/introspection/IERC165.sol";
 
@@ -23,8 +24,8 @@ contract USDCTokenPoolSetup is BaseTest {
   address internal s_routerAllowedOffRamp = address(234);
   Router internal s_router;
 
-  USDCTokenPool internal s_usdcTokenPool;
-  USDCTokenPool internal s_usdcTokenPoolWithAllowList;
+  USDCTokenPoolHelper internal s_usdcTokenPool;
+  USDCTokenPoolHelper internal s_usdcTokenPoolWithAllowList;
   address[] internal s_allowedList;
 
   function setUp() public virtual override {
@@ -41,10 +42,16 @@ contract USDCTokenPoolSetup is BaseTest {
       messageTransmitter: address(s_mockUSDC)
     });
 
-    s_usdcTokenPool = new USDCTokenPool(config, s_token, new address[](0), address(s_mockARM), DEST_DOMAIN_IDENTIFIER);
+    s_usdcTokenPool = new USDCTokenPoolHelper(
+      config,
+      s_token,
+      new address[](0),
+      address(s_mockARM),
+      DEST_DOMAIN_IDENTIFIER
+    );
 
     s_allowedList.push(USER_1);
-    s_usdcTokenPoolWithAllowList = new USDCTokenPool(
+    s_usdcTokenPoolWithAllowList = new USDCTokenPoolHelper(
       config,
       s_token,
       s_allowedList,
@@ -412,5 +419,81 @@ contract USDCTokenPool_setConfig is USDCTokenPoolSetup {
     s_usdcTokenPool.setConfig(
       USDCTokenPool.USDCConfig({version: 1, tokenMessenger: address(100), messageTransmitter: address(1)})
     );
+  }
+}
+
+contract USDCTokenPool__validateMessage is USDCTokenPoolSetup {
+  function testFuzz_ValidateMessageSuccess(uint32 sourceDomain, uint64 nonce, bytes32 sender, bytes32 receiver) public {
+    vm.pauseGasMetering();
+    bytes memory usdcMessage = abi.encodePacked(
+      uint32(1),
+      sourceDomain,
+      DEST_DOMAIN_IDENTIFIER,
+      nonce,
+      sender,
+      receiver,
+      bytes("body")
+    );
+    vm.resumeGasMetering();
+    s_usdcTokenPool.validateMessage(usdcMessage, sourceDomain, nonce, sender, receiver);
+  }
+
+  function testValidateInvalidMessageReverts() public {
+    uint32 version = 1;
+    uint32 sourceDomain = 1553252;
+    uint32 destinationDomain = DEST_DOMAIN_IDENTIFIER;
+    uint64 nonce = 387289284924;
+    bytes32 sender = bytes32(uint256(8238942935223));
+    bytes32 receiver = bytes32(uint256(92398429395823));
+
+    bytes memory usdcMessage = abi.encodePacked(
+      version,
+      sourceDomain,
+      destinationDomain,
+      nonce,
+      sender,
+      receiver,
+      bytes("")
+    );
+
+    s_usdcTokenPool.validateMessage(usdcMessage, sourceDomain, nonce, sender, receiver);
+
+    uint32 expectedSourceDomain = sourceDomain + 1;
+
+    vm.expectRevert(
+      abi.encodeWithSelector(USDCTokenPool.InvalidSourceDomain.selector, expectedSourceDomain, sourceDomain)
+    );
+    s_usdcTokenPool.validateMessage(usdcMessage, expectedSourceDomain, nonce, sender, receiver);
+
+    uint64 expectedNonce = nonce + 1;
+
+    vm.expectRevert(abi.encodeWithSelector(USDCTokenPool.InvalidNonce.selector, expectedNonce, nonce));
+    s_usdcTokenPool.validateMessage(usdcMessage, sourceDomain, expectedNonce, sender, receiver);
+
+    bytes32 expectedSender = bytes32(uint256(888));
+
+    vm.expectRevert(abi.encodeWithSelector(USDCTokenPool.InvalidSender.selector, expectedSender, sender));
+    s_usdcTokenPool.validateMessage(usdcMessage, sourceDomain, nonce, expectedSender, receiver);
+
+    bytes32 expectedReceiver = bytes32(uint256(111));
+
+    vm.expectRevert(abi.encodeWithSelector(USDCTokenPool.InvalidReceiver.selector, expectedReceiver, receiver));
+    s_usdcTokenPool.validateMessage(usdcMessage, sourceDomain, nonce, sender, expectedReceiver);
+
+    uint32 wrongVersion = version + 1;
+
+    usdcMessage = abi.encodePacked(wrongVersion, sourceDomain, destinationDomain, nonce, sender, receiver, bytes(""));
+
+    vm.expectRevert(abi.encodeWithSelector(USDCTokenPool.InvalidMessageVersion.selector, wrongVersion));
+    s_usdcTokenPool.validateMessage(usdcMessage, sourceDomain, nonce, sender, receiver);
+
+    uint32 wrongDestinationDomain = destinationDomain + 1;
+
+    usdcMessage = abi.encodePacked(version, sourceDomain, wrongDestinationDomain, nonce, sender, receiver, bytes(""));
+
+    vm.expectRevert(
+      abi.encodeWithSelector(USDCTokenPool.InvalidDestinationDomain.selector, destinationDomain, wrongDestinationDomain)
+    );
+    s_usdcTokenPool.validateMessage(usdcMessage, sourceDomain, nonce, sender, receiver);
   }
 }
