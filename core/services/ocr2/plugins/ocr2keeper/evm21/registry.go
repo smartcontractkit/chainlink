@@ -342,10 +342,14 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(ids []*big.Int) error {
 		}
 		switch l := abilog.(type) {
 		case *iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet:
-			configSetBlockNumbers[l.Id.String()] = rawLog.BlockNumber
-			perUpkeepConfig[l.Id.String()] = l.TriggerConfig
+			if rawLog.BlockNumber > configSetBlockNumbers[l.Id.String()] {
+				configSetBlockNumbers[l.Id.String()] = rawLog.BlockNumber
+				perUpkeepConfig[l.Id.String()] = l.TriggerConfig
+			}
 		case *iregistry21.IKeeperRegistryMasterUpkeepUnpaused:
-			unpausedBlockNumbers[l.Id.String()] = rawLog.BlockNumber
+			if rawLog.BlockNumber > unpausedBlockNumbers[l.Id.String()] {
+				unpausedBlockNumbers[l.Id.String()] = rawLog.BlockNumber
+			}
 		}
 	}
 
