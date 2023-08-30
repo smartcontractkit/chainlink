@@ -1,10 +1,8 @@
-package evm
+package transmit
 
 import (
 	"context"
-	"encoding/hex"
 	"fmt"
-	"math/big"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -21,6 +19,8 @@ import (
 
 var _ ocr2keepers.TransmitEventProvider = &TransmitEventProvider{}
 
+type logParser func(registry *iregistry21.IKeeperRegistryMaster, log logpoller.Log) (transmitEventLog, error)
+
 type TransmitEventProvider struct {
 	sync     utils.StartStopOnce
 	mu       sync.RWMutex
@@ -35,7 +35,8 @@ type TransmitEventProvider struct {
 	registryAddress common.Address
 	lookbackBlocks  int64
 
-	cache transmitEventCache
+	parseLog logParser
+	cache    transmitEventCache
 }
 
 func TransmitEventProviderFilterName(addr common.Address) string {
@@ -79,6 +80,7 @@ func NewTransmitEventProvider(
 		lookbackBlocks:  lookbackBlocks,
 		registry:        contract,
 		client:          client,
+		cache:           newTransmitEventCache(lookbackBlocks),
 	}, nil
 }
 
@@ -166,7 +168,7 @@ func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller
 			vals = append(vals, e)
 			continue
 		}
-		l, err := c.parseLog(log)
+		l, err := c.parseLog(c.registry, log)
 		if err != nil {
 			c.logger.Debugw("failed to parse log", "err", err)
 			continue
@@ -207,163 +209,4 @@ func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller
 	}
 
 	return vals, nil
-}
-
-// parseLogs will parse the log into a transmitEventLog
-func (c *TransmitEventProvider) parseLog(log logpoller.Log) (transmitEventLog, error) {
-	rawLog := log.ToGethLog()
-	abilog, err := c.registry.ParseLog(rawLog)
-	if err != nil {
-		return transmitEventLog{}, fmt.Errorf("%w: failed to parse log", err)
-	}
-
-	switch l := abilog.(type) {
-	case *iregistry21.IKeeperRegistryMasterUpkeepPerformed:
-		if l == nil {
-			break
-		}
-		return transmitEventLog{
-			Log:       log,
-			Performed: l,
-		}, nil
-	case *iregistry21.IKeeperRegistryMasterReorgedUpkeepReport:
-		if l == nil {
-			break
-		}
-		return transmitEventLog{
-			Log:     log,
-			Reorged: l,
-		}, nil
-	case *iregistry21.IKeeperRegistryMasterStaleUpkeepReport:
-		if l == nil {
-			break
-		}
-		return transmitEventLog{
-			Log:   log,
-			Stale: l,
-		}, nil
-	case *iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport:
-		if l == nil {
-			break
-		}
-		return transmitEventLog{
-			Log:               log,
-			InsufficientFunds: l,
-		}, nil
-	default:
-		c.logger.Debugw("skipping unknown log type", "l", l)
-	}
-
-	return transmitEventLog{}, fmt.Errorf("unknown log type")
-}
-
-func logKey(log logpoller.Log) string {
-	logExt := ocr2keepers.LogTriggerExtension{
-		TxHash: log.TxHash,
-		Index:  uint32(log.LogIndex),
-	}
-	logId := logExt.LogIdentifier()
-	return hex.EncodeToString(logId)
-}
-
-// transmitEventCache holds a ring buffer of the last visited blocks (transmit block),
-// and their corresponding logs (by log id).
-// Using a ring buffer allows us to keep a cache of the last N blocks,
-// without having to iterate over the entire buffer to clean it up.
-type transmitEventCache struct {
-	lock   sync.RWMutex
-	buffer []map[string]ocr2keepers.TransmitEvent
-
-	cap int64
-}
-
-func newTransmitEventCache(cap int) transmitEventCache {
-	return transmitEventCache{
-		buffer: make([]map[string]ocr2keepers.TransmitEvent, cap),
-		cap:    int64(cap),
-	}
-}
-
-func (c *transmitEventCache) get(logID string) (ocr2keepers.TransmitEvent, bool) {
-	c.lock.RLock()
-	defer c.lock.RUnlock()
-
-	for i := range c.buffer {
-		b := c.buffer[i]
-		if len(b) == 0 {
-			continue
-		}
-		e, ok := b[logID]
-		if ok {
-			return e, true
-		}
-	}
-	return ocr2keepers.TransmitEvent{}, false
-}
-
-func (c *transmitEventCache) add(logID string, e ocr2keepers.TransmitEvent) {
-	c.lock.Lock()
-	defer c.lock.Unlock()
-
-	i := int64(e.TransmitBlock) % int64(c.cap)
-	b := c.buffer[i]
-	if len(b) == 0 {
-		b = make(map[string]ocr2keepers.TransmitEvent)
-	}
-	b[logID] = e
-	c.buffer[i] = b
-}
-
-// transmitEventLog is a wrapper around logpoller.Log and the parsed log
-type transmitEventLog struct {
-	logpoller.Log
-	Performed         *iregistry21.IKeeperRegistryMasterUpkeepPerformed
-	Stale             *iregistry21.IKeeperRegistryMasterStaleUpkeepReport
-	Reorged           *iregistry21.IKeeperRegistryMasterReorgedUpkeepReport
-	InsufficientFunds *iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport
-}
-
-func (l transmitEventLog) Id() *big.Int {
-	switch {
-	case l.Performed != nil:
-		return l.Performed.Id
-	case l.Stale != nil:
-		return l.Stale.Id
-	case l.Reorged != nil:
-		return l.Reorged.Id
-	case l.InsufficientFunds != nil:
-		return l.InsufficientFunds.Id
-	default:
-		return nil
-	}
-}
-
-func (l transmitEventLog) Trigger() []byte {
-	switch {
-	case l.Performed != nil:
-		return l.Performed.Trigger
-	case l.Stale != nil:
-		return l.Stale.Trigger
-	case l.Reorged != nil:
-		return l.Reorged.Trigger
-	case l.InsufficientFunds != nil:
-		return l.InsufficientFunds.Trigger
-	default:
-		return []byte{}
-	}
-}
-
-func (l transmitEventLog) TransmitEventType() ocr2keepers.TransmitEventType {
-	switch {
-	case l.Performed != nil:
-		return ocr2keepers.PerformEvent
-	case l.Stale != nil:
-		return ocr2keepers.StaleReportEvent
-	case l.Reorged != nil:
-		return ocr2keepers.ReorgReportEvent
-	case l.InsufficientFunds != nil:
-		return ocr2keepers.InsufficientFundsReportEvent
-	default:
-		return ocr2keepers.UnknownEvent
-	}
 }
