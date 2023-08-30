@@ -9,6 +9,8 @@ import "../VRFConsumerBaseV2Plus.sol";
 /// @dev this contract is only meant for testing migration
 /// @dev it is a simplified example of future version (V2) of VRFCoordinatorV2Plus
 contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration, IVRFMigratableCoordinatorV2Plus {
+  error SubscriptionIDCollisionFound();
+
   struct Subscription {
     address owner;
     address[] consumers;
@@ -95,6 +97,18 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration, IVRFM
 
     if (msg.value != uint256(migrationData.ethBalance)) {
       revert InvalidNativeBalance(msg.value, migrationData.ethBalance);
+    }
+
+    // it should be impossible to have a subscription id collision, for two reasons:
+    // 1. the subscription ID is calculated using inputs that cannot be replicated under different
+    // conditions.
+    // 2. once a subscription is migrated it is deleted from the previous coordinator, so it cannot
+    // be migrated again.
+    // however, we should have this check here in case the `migrate` function on
+    // future coordinators "forgets" to delete subscription data allowing re-migration of the same
+    // subscription.
+    if (s_subscriptions[migrationData.subId].owner != address(0)) {
+      revert SubscriptionIDCollisionFound();
     }
 
     s_subscriptions[migrationData.subId] = Subscription({
