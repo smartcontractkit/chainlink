@@ -68,3 +68,7 @@ maxSecretsSizesList = [10_240, 20_480, 51_200, 102_400, 307_200, 512_000, 1_048_
 
     [pluginConfig.gatewayConnectorConfig.WsClientConfig]
     HandshakeTimeoutMillis = 1_000
+
+    [[pluginConfig.gatewayConnectorConfig.Gateways]]
+    Id = "gateway"
+    URL = "wss://"
