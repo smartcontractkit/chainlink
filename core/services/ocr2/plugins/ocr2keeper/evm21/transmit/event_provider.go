@@ -80,6 +80,7 @@ func NewTransmitEventProvider(
 		lookbackBlocks:  lookbackBlocks,
 		registry:        contract,
 		client:          client,
+		parseLog:        defaultLogParser,
 		cache:           newTransmitEventCache(lookbackBlocks),
 	}, nil
 }

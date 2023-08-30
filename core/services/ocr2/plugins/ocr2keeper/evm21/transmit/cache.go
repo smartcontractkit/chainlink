@@ -4,8 +4,9 @@ import (
 	"encoding/hex"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
 
 // transmitEventCache holds a ring buffer of the last visited blocks (transmit block),
