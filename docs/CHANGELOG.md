@@ -9,7 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
-...
+### Fixed
+ - Fixed a bug that was preventing job runs to be displayed when the job `chainID` was disabled.
+
 
 ## 2.5.0 - UNRELEASED
 
