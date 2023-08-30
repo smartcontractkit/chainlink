@@ -70,6 +70,9 @@ func (s *performedEventsScanner) ScanWorkIDs(ctx context.Context, workID ...stri
 	if err != nil {
 		return nil, fmt.Errorf("error fetching logs: %w", err)
 	}
+	if len(logs) > 0 {
+		s.lggr.Debugw("found logs for workIDs", "logs", logs, "ids", len(ids))
+	}
 
 	return s.logsToWorkIDs(logs), nil
 }

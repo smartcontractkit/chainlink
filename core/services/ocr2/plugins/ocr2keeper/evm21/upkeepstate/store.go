@@ -156,6 +156,7 @@ func (u *upkeepStateStore) SelectByWorkIDs(ctx context.Context, workIDs ...strin
 		// all ids were found in the cache
 		return states, nil
 	}
+	u.lggr.Debugw("Fetching states that were not found in cache", "missing", len(missing), "workIDs", len(workIDs))
 	if err := u.fetchPerformed(ctx, missing...); err != nil {
 		return nil, err
 	}
