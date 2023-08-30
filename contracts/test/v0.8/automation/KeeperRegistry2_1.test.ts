@@ -869,9 +869,9 @@ describe('KeeperRegistry2_1', () => {
       .deploy(
         BigNumber.from('10000'),
         BigNumber.from('100'),
-        true,  /* useArbBlock */
-        true,  /* staging */
-        false, /* verify mercury response */
+        true /* useArbBlock */,
+        true /* staging */,
+        false /* verify mercury response */,
       )
 
     const arbOracleCode = await ethers.provider.send('eth_getCode', [
