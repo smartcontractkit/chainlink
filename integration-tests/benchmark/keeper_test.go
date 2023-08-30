@@ -156,7 +156,7 @@ func TestAutomationBenchmark(t *testing.T) {
 	chainClient, err := blockchain.NewEVMClient(benchmarkNetwork, testEnvironment)
 	require.NoError(t, err, "Error connecting to blockchain")
 	registryVersions := addRegistry(RegistryToTest)
-	keeperBenchmarkTest := testsetups.NewKeeperBenchmarkTest(
+	keeperBenchmarkTest := testsetups.NewKeeperBenchmarkTest(t,
 		testsetups.KeeperBenchmarkTestInputs{
 			BlockchainClient: chainClient,
 			RegistryVersions: registryVersions,
@@ -202,8 +202,8 @@ func TestAutomationBenchmark(t *testing.T) {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
 		}
 	})
-	keeperBenchmarkTest.Setup(t, testEnvironment)
-	keeperBenchmarkTest.Run(t)
+	keeperBenchmarkTest.Setup(testEnvironment)
+	keeperBenchmarkTest.Run()
 }
 
 func addRegistry(registryToTest string) []eth_contracts.KeeperRegistryVersion {
