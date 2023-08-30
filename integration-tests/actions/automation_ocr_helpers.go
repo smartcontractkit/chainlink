@@ -71,7 +71,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 			GasLimitPerReport:    5_300_000,
 			GasOverheadPerUpkeep: 300_000,
 			MinConfirmations:     0,
-			MaxUpkeepBatchSize:   1,
+			MaxUpkeepBatchSize:   10,
 		})
 		if err != nil {
 			return contracts.OCRv2Config{}, err
