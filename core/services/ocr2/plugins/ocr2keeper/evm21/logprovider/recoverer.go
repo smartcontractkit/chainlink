@@ -400,7 +400,7 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 			visitedAt: time.Now(),
 			payload:   payload,
 		}
-		r.pending = append(r.pending, payload)
+		r.addPending(payload)
 	}
 	return len(r.pending) - pendingSizeBefore, alreadyPending
 }
@@ -548,18 +548,12 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 				// we can't recover this log anymore, so we remove it from the visited list
 				lggr.Debugw("removing expired log: old block", "upkeepID", rec.payload.UpkeepID,
 					"latestBlock", latestBlock, "logBlock", logBlock, "start", start)
-				pending := make([]ocr2keepers.UpkeepPayload, 0, len(r.pending))
-				for _, p := range r.pending {
-					if p.WorkID != rec.payload.WorkID {
-						pending = append(pending, p)
-					}
-				}
-				r.pending = pending
+				r.removePending(rec.payload.WorkID)
 				delete(r.visited, ids[i])
 				removed++
 				continue
 			}
-			r.pending = append(r.pending, rec.payload)
+			r.addPending(rec.payload)
 			rec.visitedAt = time.Now()
 			r.visited[ids[i]] = rec
 		default:
@@ -573,4 +567,31 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 	}
 
 	return nil
+}
+
+// addPending adds a payload to the pending list if it's not already there.
+// NOTE: the lock must be held before calling this function.
+func (r *logRecoverer) addPending(payload ocr2keepers.UpkeepPayload) {
+	var exist bool
+	pending := r.pending
+	for _, p := range pending {
+		if p.WorkID == payload.WorkID {
+			exist = true
+		}
+	}
+	if !exist {
+		r.pending = append(pending, payload)
+	}
+}
+
+// removePending removes a payload from the pending list.
+// NOTE: the lock must be held before calling this function.
+func (r *logRecoverer) removePending(workID string) {
+	updated := make([]ocr2keepers.UpkeepPayload, 0, len(r.pending))
+	for _, p := range r.pending {
+		if p.WorkID != workID {
+			updated = append(updated, p)
+		}
+	}
+	r.pending = updated
 }

@@ -917,6 +917,57 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 	}
 }
 
+func TestLogRecoverer_pending(t *testing.T) {
+	tests := []struct {
+		name  string
+		exist []ocr2keepers.UpkeepPayload
+		new   []ocr2keepers.UpkeepPayload
+		want  []ocr2keepers.UpkeepPayload
+	}{
+		{
+			"empty",
+			[]ocr2keepers.UpkeepPayload{},
+			[]ocr2keepers.UpkeepPayload{},
+			[]ocr2keepers.UpkeepPayload{},
+		},
+		{
+			"add new and existing",
+			[]ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+			},
+			[]ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+			},
+			[]ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, nil, NewOptions(200))
+			r.lock.Lock()
+			defer r.lock.Unlock()
+			r.pending = tc.exist
+			for _, p := range tc.new {
+				r.addPending(p)
+			}
+			pending := r.pending
+			require.GreaterOrEqual(t, len(pending), len(tc.new))
+			require.Equal(t, len(tc.want), len(pending))
+			sort.Slice(pending, func(i, j int) bool {
+				return pending[i].WorkID < pending[j].WorkID
+			})
+			for i := range pending {
+				require.Equal(t, tc.want[i].WorkID, pending[i].WorkID)
+			}
+		})
+	}
+}
+
 type mockFilterStore struct {
 	UpkeepFilterStore
 	HasFn               func(id *big.Int) bool
