@@ -318,7 +318,7 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, l
 			results[m.Index] = m.Bytes[0]
 		}
 	}
-	lggr.Debugf("upkeep %s retryable %s reqErr %w", sl.upkeepId.String(), retryable && !allSuccess, reqErr)
+	lggr.Debugf("upkeep %s retryable %t reqErr %w", sl.upkeepId.String(), retryable && !allSuccess, reqErr)
 	// only retry when not all successful AND none are not retryable
 	return state, encoding.UpkeepFailureReasonNone, results, retryable && !allSuccess, reqErr
 }
@@ -386,7 +386,6 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 			}
 
 			var m MercuryV02Response
-			lggr.Warnf("BODY=%s", hexutil.Encode(body))
 			err1 = json.Unmarshal(body, &m)
 			if err1 != nil {
 				lggr.Warnf("at block %s upkeep %s failed to unmarshal body to MercuryV02Response for feed %s: %v", sl.time.String(), sl.upkeepId.String(), sl.feeds[index], err1)
