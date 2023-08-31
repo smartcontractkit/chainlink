@@ -55,7 +55,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
 
     const arbitrumSequencerStatusRecorderFactory =
       await ethers.getContractFactory(
-        'src/v0.8/dev/l2ep/ArbitrumSequencerUptimeFeed.sol:ArbitrumSequencerUptimeFeed',
+        'src/v0.8/dev/l2ep/arbitrum/ArbitrumSequencerUptimeFeed.sol:ArbitrumSequencerUptimeFeed',
         deployer,
       )
     arbitrumSequencerUptimeFeed =

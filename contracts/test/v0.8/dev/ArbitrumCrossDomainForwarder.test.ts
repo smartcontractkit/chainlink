@@ -28,7 +28,7 @@ before(async () => {
 
   // Contract factories
   forwarderFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/l2ep/ArbitrumCrossDomainForwarder.sol:ArbitrumCrossDomainForwarder',
+    'src/v0.8/dev/l2ep/arbitrum/ArbitrumCrossDomainForwarder.sol:ArbitrumCrossDomainForwarder',
     owner,
   )
   greeterFactory = await ethers.getContractFactory(
