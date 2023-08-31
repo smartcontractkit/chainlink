@@ -37,6 +37,7 @@ func NewFeeder(
 		lookbackBlocks:      lookbackBlocks,
 		latestBlock:         latestBlock,
 		stored:              make(map[uint64]struct{}),
+		storedTrusted:       make(map[uint64]common.Hash),
 		lastRunBlock:        0,
 		wgStored:            sync.WaitGroup{},
 	}
