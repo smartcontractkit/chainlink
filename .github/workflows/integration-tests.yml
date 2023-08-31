@@ -159,7 +159,7 @@ jobs:
       matrix:
         product:
           - name: automation
-            nodes: 11
+            nodes: 19
             os: ubuntu-latest
             pyroscope_env: ci-smoke-automation-evm-simulated
           # temporarily disabled
@@ -253,9 +253,11 @@ jobs:
             nodes: 1
             os: ubuntu20.04-16cores-64GB
             file: ccip
+            dir: ccip-tests/smoke
             run: -run ^TestSmokeCCIPForBidirectionalLane$
           - name: ccip-smoke-rate-limit
             nodes: 1
+            dir: ccip-tests/smoke
             os: ubuntu20.04-16cores-64GB
             file: ccip
             run: -run ^TestSmokeCCIPRateLimit$
@@ -288,6 +290,10 @@ jobs:
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-vrf2-evm-simulated
+          - name: vrfv2plus
+            nodes: 1
+            os: ubuntu-latest
+            pyroscope_env: ci-smoke-vrf2plus-evm-simulated
           - name: forwarder_ocr
             nodes: 1
             os: ubuntu20.04-8cores-32GB
@@ -398,11 +404,17 @@ jobs:
       - name: Build Go Test Command
         id: build-go-test-command
         run: |
+          # if dir is provided use it, otherwise use the smoke dir
+          if [ "${{ matrix.product.dir }}" != "" ]; then
+            dir=${{ matrix.product.dir }} 
+          else
+            dir=smoke
+          fi
           # if the matrix.product.run is set, use it for a different command
           if [ "${{ matrix.product.run }}" != "" ]; then
-            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
+            echo "run_command=${{ matrix.product.run }} ./${dir}/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
           else
-            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
+            echo "run_command=./${dir}/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
           fi
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
@@ -479,7 +491,7 @@ jobs:
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: ETH Smoke Tests
         continue-on-error: true
-  
+
   # Run the setup if the matrix finishes but this time save the cache if we have a cache hit miss
   # this will also only run if both of the matrix jobs pass
   eth-smoke-go-mod-cache:

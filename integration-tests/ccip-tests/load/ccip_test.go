@@ -10,7 +10,7 @@ import (
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 )
 
 func TestLoadCCIPStableRPS(t *testing.T) {

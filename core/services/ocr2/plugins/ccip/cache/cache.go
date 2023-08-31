@@ -10,6 +10,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
+// AutoSync cache provides only a Get method, the expiration and syncing is a black-box for the caller.
+//
+//go:generate mockery --quiet --name AutoSync --output . --filename cache_mock.go --inpackage --case=underscore
+type AutoSync[T any] interface {
+	Get(ctx context.Context) (T, error)
+}
+
 // CachedChain represents caching on-chain calls based on the events read from logpoller.LogPoller.
 // Instead of directly going to on-chain to fetch data, we start with checking logpoller.LogPoller events (database request).
 // If we discover that change occurred since last update, we perform RPC to the chain using ContractOrigin.CallOrigin function.

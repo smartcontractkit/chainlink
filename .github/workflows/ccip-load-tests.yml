@@ -236,7 +236,7 @@ jobs:
           TEST_LOKI_TOKEN: ${{ secrets.LOKI_TOKEN }}
           TEST_LOKI_URL: ${{ secrets.LOKI_URL }}
         with:
-          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -v -timeout 900h -count=1 -json -run ^TestLoadCCIPStableRPS$ ./load  2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: make test_need_operator_assets && cd ./integration-tests/ccip-tests && go test -v -timeout 900h -count=1 -json -run ^TestLoadCCIPStableRPS$ ./load  2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.INPUT_CHAINLINK_IMAGE }}
           cl_image_tag: ${{ env.INPUT_CHAINLINK_VERSION }}

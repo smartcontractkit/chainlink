@@ -10,6 +10,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
@@ -20,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/upkeepstate"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 type AutomationServices interface {
@@ -35,7 +37,7 @@ type AutomationServices interface {
 	Keyring() ocr3types.OnchainKeyring[plugin.AutomationReportInfo]
 }
 
-func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, keyring ocrtypes.OnchainKeyring, lggr logger.Logger) (AutomationServices, error) {
+func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, keyring ocrtypes.OnchainKeyring, lggr logger.Logger, db *sqlx.DB, dbCfg pg.QConfig) (AutomationServices, error) {
 	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -66,10 +68,13 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 	packer := encoding.NewAbiPacker(keeperRegistryABI, utilsABI)
 	services.encoder = encoding.NewReportEncoder(packer)
 
-	scanner := upkeepstate.NewPerformedEventsScanner(lggr, client.LogPoller(), addr)
-	services.upkeepState = upkeepstate.NewUpkeepStateStore(lggr, scanner)
+	finalityDepth := client.Config().EVM().FinalityDepth()
 
-	logProvider, logRecoverer := logprovider.New(lggr, client.LogPoller(), client.Client(), utilsABI, services.upkeepState)
+	orm := upkeepstate.NewORM(client.ID(), db, lggr, dbCfg)
+	scanner := upkeepstate.NewPerformedEventsScanner(lggr, client.LogPoller(), addr, finalityDepth)
+	services.upkeepState = upkeepstate.NewUpkeepStateStore(orm, lggr, scanner)
+
+	logProvider, logRecoverer := logprovider.New(lggr, client.LogPoller(), client.Client(), utilsABI, services.upkeepState, finalityDepth)
 	services.logProvider = logProvider
 	services.logRecoverer = logRecoverer
 	services.blockSub = NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), lggr)

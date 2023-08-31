@@ -1,4 +1,4 @@
-package ccip
+package contracts
 
 import (
 	"crypto/ed25519"
@@ -69,16 +69,15 @@ func (e *CCIPContractsDeployer) DeployLinkTokenContract() (*LinkToken, error) {
 }
 
 func (e *CCIPContractsDeployer) DeployERC20TokenContract(deployerFn blockchain.ContractDeployer) (*ERC20Token, error) {
-	address, _, instance, err := e.evmClient.DeployContract("Custom ERC20 Token", deployerFn)
+	address, _, _, err := e.evmClient.DeployContract("Custom ERC20 Token", deployerFn)
 	if err != nil {
 		return nil, err
 	}
-
-	return &ERC20Token{
-		client:          e.evmClient,
-		instance:        instance.(*erc20.ERC20),
-		ContractAddress: *address,
-	}, err
+	err = e.evmClient.WaitForEvents()
+	if err != nil {
+		return nil, err
+	}
+	return e.NewERC20TokenContract(*address)
 }
 
 func (e *CCIPContractsDeployer) NewLinkTokenContract(addr common.Address) (*LinkToken, error) {

@@ -27,6 +27,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts/laneconfig"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testreporters"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/arm_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
@@ -40,12 +46,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ccip"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ccip/laneconfig"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
 const (
@@ -89,16 +89,16 @@ var (
 
 type CCIPCommon struct {
 	ChainClient        blockchain.EVMClient
-	Deployer           *ccip.CCIPContractsDeployer
-	FeeToken           *ccip.LinkToken
-	BridgeTokens       []*ccip.ERC20Token // as of now considering the bridge token is same as link token
+	Deployer           *contracts.CCIPContractsDeployer
+	FeeToken           *contracts.LinkToken
+	BridgeTokens       []*contracts.ERC20Token // as of now considering the bridge token is same as link token
 	TokenPrices        []*big.Int
-	BridgeTokenPools   []*ccip.LockReleaseTokenPool
-	RateLimiterConfig  ccip.RateLimiterConfig
+	BridgeTokenPools   []*contracts.LockReleaseTokenPool
+	RateLimiterConfig  contracts.RateLimiterConfig
 	ARMContract        *common.Address
-	ARM                *ccip.ARM // populate only if the ARM contracts is not a mock and can be used to verify various ARM events
-	Router             *ccip.Router
-	PriceRegistry      *ccip.PriceRegistry
+	ARM                *contracts.ARM // populate only if the ARM contracts is not a mock and can be used to verify various ARM events
+	Router             *contracts.Router
+	PriceRegistry      *contracts.PriceRegistry
 	WrappedNative      common.Address
 	ExistingDeployment bool
 	deploy             *errgroup.Group
@@ -106,13 +106,13 @@ type CCIPCommon struct {
 }
 
 func (ccipModule *CCIPCommon) CopyAddresses(ctx context.Context, chainClient blockchain.EVMClient, existingDeployment bool) *CCIPCommon {
-	var pools []*ccip.LockReleaseTokenPool
+	var pools []*contracts.LockReleaseTokenPool
 	for _, pool := range ccipModule.BridgeTokenPools {
-		pools = append(pools, &ccip.LockReleaseTokenPool{EthAddress: pool.EthAddress})
+		pools = append(pools, &contracts.LockReleaseTokenPool{EthAddress: pool.EthAddress})
 	}
-	var tokens []*ccip.ERC20Token
+	var tokens []*contracts.ERC20Token
 	for _, token := range ccipModule.BridgeTokens {
-		tokens = append(tokens, &ccip.ERC20Token{
+		tokens = append(tokens, &contracts.ERC20Token{
 			ContractAddress: token.ContractAddress,
 		})
 	}
@@ -121,7 +121,7 @@ func (ccipModule *CCIPCommon) CopyAddresses(ctx context.Context, chainClient blo
 	c := &CCIPCommon{
 		ChainClient: chainClient,
 		Deployer:    nil,
-		FeeToken: &ccip.LinkToken{
+		FeeToken: &contracts.LinkToken{
 			EthAddress: ccipModule.FeeToken.EthAddress,
 		},
 		ExistingDeployment: existingDeployment,
@@ -130,7 +130,7 @@ func (ccipModule *CCIPCommon) CopyAddresses(ctx context.Context, chainClient blo
 		BridgeTokenPools:   pools,
 		RateLimiterConfig:  ccipModule.RateLimiterConfig,
 		ARMContract:        ccipModule.ARMContract,
-		Router: &ccip.Router{
+		Router: &contracts.Router{
 			EthAddress: ccipModule.Router.EthAddress,
 		},
 		WrappedNative: ccipModule.WrappedNative,
@@ -138,7 +138,7 @@ func (ccipModule *CCIPCommon) CopyAddresses(ctx context.Context, chainClient blo
 		poolFunds:     ccipModule.poolFunds,
 	}
 	if ccipModule.ARM != nil {
-		c.ARM = &ccip.ARM{
+		c.ARM = &contracts.ARM{
 			EthAddress: ccipModule.ARM.EthAddress,
 		}
 	}
@@ -148,18 +148,18 @@ func (ccipModule *CCIPCommon) CopyAddresses(ctx context.Context, chainClient blo
 func (ccipModule *CCIPCommon) LoadContractAddresses(conf *laneconfig.LaneConfig) {
 	if conf != nil {
 		if common.IsHexAddress(conf.FeeToken) {
-			ccipModule.FeeToken = &ccip.LinkToken{
+			ccipModule.FeeToken = &contracts.LinkToken{
 				EthAddress: common.HexToAddress(conf.FeeToken),
 			}
 		}
 		if conf.IsNativeFeeToken {
-			ccipModule.FeeToken = &ccip.LinkToken{
+			ccipModule.FeeToken = &contracts.LinkToken{
 				EthAddress: common.HexToAddress("0x0"),
 			}
 		}
 
 		if common.IsHexAddress(conf.Router) {
-			ccipModule.Router = &ccip.Router{
+			ccipModule.Router = &contracts.Router{
 				EthAddress: common.HexToAddress(conf.Router),
 			}
 		}
@@ -167,13 +167,13 @@ func (ccipModule *CCIPCommon) LoadContractAddresses(conf *laneconfig.LaneConfig)
 			addr := common.HexToAddress(conf.ARM)
 			ccipModule.ARMContract = &addr
 			if !conf.IsMockARM {
-				ccipModule.ARM = &ccip.ARM{
+				ccipModule.ARM = &contracts.ARM{
 					EthAddress: addr,
 				}
 			}
 		}
 		if common.IsHexAddress(conf.PriceRegistry) {
-			ccipModule.PriceRegistry = &ccip.PriceRegistry{
+			ccipModule.PriceRegistry = &contracts.PriceRegistry{
 				EthAddress: common.HexToAddress(conf.PriceRegistry),
 			}
 		}
@@ -181,10 +181,10 @@ func (ccipModule *CCIPCommon) LoadContractAddresses(conf *laneconfig.LaneConfig)
 			ccipModule.WrappedNative = common.HexToAddress(conf.WrappedNative)
 		}
 		if len(conf.BridgeTokens) > 0 {
-			var tokens []*ccip.ERC20Token
+			var tokens []*contracts.ERC20Token
 			for _, token := range conf.BridgeTokens {
 				if common.IsHexAddress(token) {
-					tokens = append(tokens, &ccip.ERC20Token{
+					tokens = append(tokens, &contracts.ERC20Token{
 						ContractAddress: common.HexToAddress(token),
 					})
 				}
@@ -192,10 +192,10 @@ func (ccipModule *CCIPCommon) LoadContractAddresses(conf *laneconfig.LaneConfig)
 			ccipModule.BridgeTokens = tokens
 		}
 		if len(conf.BridgeTokenPools) > 0 {
-			var pools []*ccip.LockReleaseTokenPool
+			var pools []*contracts.LockReleaseTokenPool
 			for _, pool := range conf.BridgeTokenPools {
 				if common.IsHexAddress(pool) {
-					pools = append(pools, &ccip.LockReleaseTokenPool{
+					pools = append(pools, &contracts.LockReleaseTokenPool{
 						EthAddress: common.HexToAddress(pool),
 					})
 				}
@@ -305,7 +305,7 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 	if len(ccipModule.BridgeTokens) == 0 {
 		// deploy bridge token.
 		for i := len(ccipModule.BridgeTokens); i < noOfTokens; i++ {
-			var token *ccip.ERC20Token
+			var token *contracts.ERC20Token
 			var err error
 			if len(tokenDeployerFns) != noOfTokens {
 				// we deploy link token and cast it to ERC20Token
@@ -329,7 +329,7 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 			return fmt.Errorf("error in waiting for bridge token deployment %+v", err)
 		}
 	} else {
-		var tokens []*ccip.ERC20Token
+		var tokens []*contracts.ERC20Token
 		for _, token := range ccipModule.BridgeTokens {
 			newToken, err := cd.NewERC20TokenContract(common.HexToAddress(token.Address()))
 			if err != nil {
@@ -350,7 +350,7 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 			ccipModule.BridgeTokenPools = append(ccipModule.BridgeTokenPools, btp)
 		}
 	} else {
-		var pools []*ccip.LockReleaseTokenPool
+		var pools []*contracts.LockReleaseTokenPool
 		for _, pool := range ccipModule.BridgeTokenPools {
 			newPool, err := cd.NewLockReleaseTokenPoolContract(pool.EthAddress)
 			if err != nil {
@@ -419,9 +419,9 @@ func DefaultCCIPModule(ctx context.Context, chainClient blockchain.EVMClient, ex
 	return &CCIPCommon{
 		ChainClient: chainClient,
 		deploy:      grp,
-		RateLimiterConfig: ccip.RateLimiterConfig{
-			Rate:     ccip.HundredCoins,
-			Capacity: ccip.HundredCoins,
+		RateLimiterConfig: contracts.RateLimiterConfig{
+			Rate:     contracts.HundredCoins,
+			Capacity: contracts.HundredCoins,
 		},
 		ExistingDeployment: existingDeployment,
 		poolFunds:          testhelpers.Link(1000),
@@ -433,7 +433,7 @@ type SourceCCIPModule struct {
 	Sender                     common.Address
 	TransferAmount             []*big.Int
 	DestinationChainId         uint64
-	OnRamp                     *ccip.OnRamp
+	OnRamp                     *contracts.OnRamp
 	SrcStartBlock              uint64
 	CCIPSendRequestedWatcherMu *sync.Mutex
 	CCIPSendRequestedWatcher   map[string]*evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested
@@ -446,7 +446,7 @@ func (sourceCCIP *SourceCCIPModule) LoadContracts(conf *laneconfig.LaneConfig) {
 		cfg, ok := conf.SrcContracts[sourceCCIP.DestinationChainId]
 		if ok {
 			if common.IsHexAddress(cfg.OnRamp) {
-				sourceCCIP.OnRamp = &ccip.OnRamp{
+				sourceCCIP.OnRamp = &contracts.OnRamp{
 					EthAddress: common.HexToAddress(cfg.OnRamp),
 				}
 			}
@@ -474,7 +474,7 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 	sourceCCIP.LoadContracts(lane)
 	// update transfer amount array length to be equal to the number of tokens
 	// each index in TransferAmount array corresponds to the amount to be transferred for the token at the same index in BridgeTokens array
-	if len(sourceCCIP.TransferAmount) != len(sourceCCIP.Common.BridgeTokens) {
+	if len(sourceCCIP.TransferAmount) != len(sourceCCIP.Common.BridgeTokens) && len(sourceCCIP.TransferAmount) > 0 {
 		sourceCCIP.TransferAmount = sourceCCIP.TransferAmount[:len(sourceCCIP.Common.BridgeTokens)]
 	}
 	sourceChainSelector, err := chainselectors.SelectorFromChainId(sourceCCIP.Common.ChainClient.GetChainID().Uint64())
@@ -673,23 +673,24 @@ func (sourceCCIP *SourceCCIPModule) UpdateBalance(
 	totalFee *big.Int,
 	balances *BalanceSheet,
 ) {
-	for i, token := range sourceCCIP.Common.BridgeTokens {
-		name := fmt.Sprintf("BridgeToken-%s-Address-%s", token.Address(), sourceCCIP.Sender.Hex())
-		balances.Update(name, BalanceItem{
-			Address:  sourceCCIP.Sender,
-			Getter:   GetterForLinkToken(token.BalanceOf, sourceCCIP.Sender.Hex()),
-			AmtToSub: bigmath.Mul(big.NewInt(noOfReq), sourceCCIP.TransferAmount[i]),
-		})
+	if len(sourceCCIP.TransferAmount) > 0 {
+		for i, token := range sourceCCIP.Common.BridgeTokens {
+			name := fmt.Sprintf("BridgeToken-%s-Address-%s", token.Address(), sourceCCIP.Sender.Hex())
+			balances.Update(name, BalanceItem{
+				Address:  sourceCCIP.Sender,
+				Getter:   GetterForLinkToken(token.BalanceOf, sourceCCIP.Sender.Hex()),
+				AmtToSub: bigmath.Mul(big.NewInt(noOfReq), sourceCCIP.TransferAmount[i]),
+			})
+		}
+		for i, pool := range sourceCCIP.Common.BridgeTokenPools {
+			name := fmt.Sprintf("BridgeToken-%s-TokenPool-%s", sourceCCIP.Common.BridgeTokens[i].Address(), pool.Address())
+			balances.Update(name, BalanceItem{
+				Address:  pool.EthAddress,
+				Getter:   GetterForLinkToken(sourceCCIP.Common.BridgeTokens[i].BalanceOf, pool.Address()),
+				AmtToAdd: bigmath.Mul(big.NewInt(noOfReq), sourceCCIP.TransferAmount[i]),
+			})
+		}
 	}
-	for i, pool := range sourceCCIP.Common.BridgeTokenPools {
-		name := fmt.Sprintf("BridgeToken-%s-TokenPool-%s", sourceCCIP.Common.BridgeTokens[i].Address(), pool.Address())
-		balances.Update(name, BalanceItem{
-			Address:  pool.EthAddress,
-			Getter:   GetterForLinkToken(sourceCCIP.Common.BridgeTokens[i].BalanceOf, pool.Address()),
-			AmtToAdd: bigmath.Mul(big.NewInt(noOfReq), sourceCCIP.TransferAmount[i]),
-		})
-	}
-
 	if sourceCCIP.Common.FeeToken.Address() != common.HexToAddress("0x0").String() {
 		name := fmt.Sprintf("FeeToken-%s-Address-%s", sourceCCIP.Common.FeeToken.Address(), sourceCCIP.Sender.Hex())
 		balances.Update(name, BalanceItem{
@@ -858,7 +859,7 @@ func DefaultSourceCCIPModule(chainClient blockchain.EVMClient, destChain uint64,
 		CCIPSendRequestedWatcherMu: &sync.Mutex{},
 	}
 	var err error
-	sourceCCIP.Common.Deployer, err = ccip.NewCCIPContractsDeployer(chainClient)
+	sourceCCIP.Common.Deployer, err = contracts.NewCCIPContractsDeployer(chainClient)
 	if err != nil {
 		return nil, fmt.Errorf("contract deployer should be created successfully %+v", err)
 	}
@@ -869,9 +870,9 @@ func DefaultSourceCCIPModule(chainClient blockchain.EVMClient, destChain uint64,
 type DestCCIPModule struct {
 	Common                  *CCIPCommon
 	SourceChainId           uint64
-	CommitStore             *ccip.CommitStore
-	ReceiverDapp            *ccip.ReceiverDapp
-	OffRamp                 *ccip.OffRamp
+	CommitStore             *contracts.CommitStore
+	ReceiverDapp            *contracts.ReceiverDapp
+	OffRamp                 *contracts.OffRamp
 	WrappedNative           common.Address
 	ReportAcceptedWatcherMu *sync.Mutex
 	ReportAcceptedWatcher   map[uint64]*commit_store.CommitStoreReportAccepted
@@ -887,17 +888,17 @@ func (destCCIP *DestCCIPModule) LoadContracts(conf *laneconfig.LaneConfig) {
 		cfg, ok := conf.DestContracts[destCCIP.SourceChainId]
 		if ok {
 			if common.IsHexAddress(cfg.OffRamp) {
-				destCCIP.OffRamp = &ccip.OffRamp{
+				destCCIP.OffRamp = &contracts.OffRamp{
 					EthAddress: common.HexToAddress(cfg.OffRamp),
 				}
 			}
 			if common.IsHexAddress(cfg.CommitStore) {
-				destCCIP.CommitStore = &ccip.CommitStore{
+				destCCIP.CommitStore = &contracts.CommitStore{
 					EthAddress: common.HexToAddress(cfg.CommitStore),
 				}
 			}
 			if common.IsHexAddress(cfg.ReceiverDapp) {
-				destCCIP.ReceiverDapp = &ccip.ReceiverDapp{
+				destCCIP.ReceiverDapp = &contracts.ReceiverDapp{
 					EthAddress: common.HexToAddress(cfg.ReceiverDapp),
 				}
 			}
@@ -1137,21 +1138,23 @@ func (destCCIP *DestCCIPModule) UpdateBalance(
 	noOfReq int64,
 	balance *BalanceSheet,
 ) {
-	for i, token := range destCCIP.Common.BridgeTokens {
-		name := fmt.Sprintf("BridgeToken-%s-Address-%s", token.Address(), destCCIP.ReceiverDapp.Address())
-		balance.Update(name, BalanceItem{
-			Address:  destCCIP.ReceiverDapp.EthAddress,
-			Getter:   GetterForLinkToken(token.BalanceOf, destCCIP.ReceiverDapp.Address()),
-			AmtToAdd: bigmath.Mul(big.NewInt(noOfReq), transferAmount[i]),
-		})
-	}
-	for i, pool := range destCCIP.Common.BridgeTokenPools {
-		name := fmt.Sprintf("BridgeToken-%s-TokenPool-%s", destCCIP.Common.BridgeTokens[i].Address(), pool.Address())
-		balance.Update(name, BalanceItem{
-			Address:  pool.EthAddress,
-			Getter:   GetterForLinkToken(destCCIP.Common.BridgeTokens[i].BalanceOf, pool.Address()),
-			AmtToSub: bigmath.Mul(big.NewInt(noOfReq), transferAmount[i]),
-		})
+	if len(transferAmount) > 0 {
+		for i, token := range destCCIP.Common.BridgeTokens {
+			name := fmt.Sprintf("BridgeToken-%s-Address-%s", token.Address(), destCCIP.ReceiverDapp.Address())
+			balance.Update(name, BalanceItem{
+				Address:  destCCIP.ReceiverDapp.EthAddress,
+				Getter:   GetterForLinkToken(token.BalanceOf, destCCIP.ReceiverDapp.Address()),
+				AmtToAdd: bigmath.Mul(big.NewInt(noOfReq), transferAmount[i]),
+			})
+		}
+		for i, pool := range destCCIP.Common.BridgeTokenPools {
+			name := fmt.Sprintf("BridgeToken-%s-TokenPool-%s", destCCIP.Common.BridgeTokens[i].Address(), pool.Address())
+			balance.Update(name, BalanceItem{
+				Address:  pool.EthAddress,
+				Getter:   GetterForLinkToken(destCCIP.Common.BridgeTokens[i].BalanceOf, pool.Address()),
+				AmtToSub: bigmath.Mul(big.NewInt(noOfReq), transferAmount[i]),
+			})
+		}
 	}
 	if destCCIP.Common.FeeToken.Address() != common.HexToAddress("0x0").String() {
 		name := fmt.Sprintf("FeeToken-%s-OffRamp-%s", destCCIP.Common.FeeToken.Address(), destCCIP.OffRamp.Address())
@@ -1377,7 +1380,7 @@ func DefaultDestinationCCIPModule(chainClient blockchain.EVMClient, sourceChain 
 	}
 
 	var err error
-	destCCIP.Common.Deployer, err = ccip.NewCCIPContractsDeployer(chainClient)
+	destCCIP.Common.Deployer, err = contracts.NewCCIPContractsDeployer(chainClient)
 	if err != nil {
 		return nil, err
 	}
@@ -1580,8 +1583,10 @@ func (lane *CCIPLane) ValidateRequests() {
 	}
 	// Asserting balances reliably work only for simulated private chains. The testnet contract balances might get updated by other transactions
 	// verify the fee amount is deducted from sender, added to receiver token balances and
-	lane.Source.UpdateBalance(int64(lane.NumberOfReq), lane.TotalFee, lane.Balance)
-	lane.Dest.UpdateBalance(lane.Source.TransferAmount, int64(lane.NumberOfReq), lane.Balance)
+	if len(lane.Source.TransferAmount) > 0 {
+		lane.Source.UpdateBalance(int64(lane.NumberOfReq), lane.TotalFee, lane.Balance)
+		lane.Dest.UpdateBalance(lane.Source.TransferAmount, int64(lane.NumberOfReq), lane.Balance)
+	}
 }
 
 func (lane *CCIPLane) ValidateRequestByTxHash(txHash string, txConfirmattion time.Time, reqNo int64) error {
@@ -1917,7 +1922,7 @@ func SetOCR2Configs(commitNodes, execNodes []*client.CLNodesWithKeys, destCCIP D
 		rootSnooze = models.MustMakeDuration(RootSnoozeTimeSimulated)
 		inflightExpiry = models.MustMakeDuration(InflightExpirySimulated)
 	}
-	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := ccip.NewOffChainAggregatorV2Config(commitNodes, ccipConfig.CommitOffchainConfig{
+	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := contracts.NewOffChainAggregatorV2Config(commitNodes, ccipConfig.CommitOffchainConfig{
 		SourceFinalityDepth:   1,
 		DestFinalityDepth:     1,
 		FeeUpdateHeartBeat:    models.MustMakeDuration(24 * time.Hour),
@@ -1942,7 +1947,7 @@ func SetOCR2Configs(commitNodes, execNodes []*client.CLNodesWithKeys, destCCIP D
 		nodes = execNodes
 	}
 	if destCCIP.OffRamp != nil {
-		signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err = ccip.NewOffChainAggregatorV2Config(nodes, ccipConfig.ExecOffchainConfig{
+		signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err = contracts.NewOffChainAggregatorV2Config(nodes, ccipConfig.ExecOffchainConfig{
 			SourceFinalityDepth:         1,
 			DestOptimisticConfirmations: 1,
 			DestFinalityDepth:           1,
@@ -2235,7 +2240,7 @@ func (c *CCIPTestEnv) SetUpNodesAndKeys(
 					c1.Close()
 				}
 			}()
-			err = FundChainlinkNodesAddresses(chainlinkNodes[1:], c1, nodeFund)
+			err = actions.FundChainlinkNodesAddresses(chainlinkNodes[1:], c1, nodeFund)
 			if err != nil {
 				return fmt.Errorf("funding nodes for chain %s %+v", c1.GetNetworkName(), err)
 			}
