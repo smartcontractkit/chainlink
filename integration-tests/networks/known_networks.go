@@ -567,8 +567,8 @@ func setKeys(prefix string, network *blockchain.EVMNetwork) {
 		keysFromEnv = os.Getenv("EVM_KEYS")
 	}
 	keys := strings.Split(keysFromEnv, ",")
-	for _, key := range keys {
-		strings.TrimPrefix(key, "0x")
+	for i, key := range keys {
+		keys[i] = strings.TrimPrefix(key, "0x")
 	}
 	network.PrivateKeys = keys
 
