@@ -1215,9 +1215,10 @@ func (s *service) newOCR2ConfigMsg(cfg OCR2ConfigModel) (*pb.OCR2Config, error) 
 	}
 
 	msg := &pb.OCR2Config{
-		Enabled:     true,
-		IsBootstrap: cfg.IsBootstrap,
-		Multiaddr:   cfg.Multiaddr.ValueOrZero(),
+		Enabled:          true,
+		IsBootstrap:      cfg.IsBootstrap,
+		Multiaddr:        cfg.Multiaddr.ValueOrZero(),
+		ForwarderAddress: cfg.ForwarderAddress.Ptr(),
 		Plugins: &pb.OCR2Config_Plugins{
 			Commit:  cfg.Plugins.Commit,
 			Execute: cfg.Plugins.Execute,
