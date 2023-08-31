@@ -102,7 +102,7 @@ func (c ChainID) Int64() (int64, error) {
 	return int64(i), nil
 }
 
-// RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a ChainSet. See [relayerAdapter].
+// RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a Chain. See [relayerAdapter].
 type RelayerExt interface {
 	types.ChainService
 	// TODO remove after BFC-2441
