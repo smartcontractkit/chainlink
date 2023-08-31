@@ -35,7 +35,7 @@ regarding Chainlink social accounts, news, and networking.
 1. [Install Go 1.20](https://golang.org/doc/install), and add your GOPATH's [bin directory to your PATH](https://golang.org/doc/code.html#GOPATH)
    - Example Path for macOS `export PATH=$GOPATH/bin:$PATH` & `export GOPATH=/Users/$USER/go`
 2. Install [NodeJS v16](https://nodejs.org/en/download/package-manager/) & [pnpm via npm](https://pnpm.io/installation#using-npm).
-   - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming $NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
+   - It might be easier long term to use [nvm](https://nodejs.org/en/download/package-manager/#nvm) to switch between node versions for different projects. For example, assuming \$NODE_VERSION was set to a valid version of NodeJS, you could run: `nvm install $NODE_VERSION && nvm use $NODE_VERSION`
 3. Install [Postgres (>= 11.x and <= 15.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides).
    - You should [configure Postgres](https://www.postgresql.org/docs/12/ssl-tcp.html) to use SSL connection (or for testing you can set `?sslmode=disable` in your Postgres query string).
 4. Ensure you have Python 3 installed (this is required by [solc-select](https://github.com/crytic/solc-select) which is needed to compile solidity contracts)
@@ -232,9 +232,11 @@ flowchart RL
     github.com/smartcontractkit/chainlink/core/scripts --> github.com/smartcontractkit/chainlink/v2
 
 ```
+
 The `integration-tests` and `core/scripts` modules import the root module using a relative replace in their `go.mod` files,
 so dependency changes in the root `go.mod` often require changes in those modules as well. After making a change, `go mod tidy`
 can be run on all three modules using:
+
 ```
 make gomodtidy
 ```
@@ -254,6 +256,7 @@ pnpm i
 ```bash
 pnpm test
 ```
+
 NOTE: Chainlink is currently in the process of migrating to Foundry and contains both Foundry and Hardhat tests in some versions. More information can be found here: [Chainlink Foundry Documentation](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/foundry.md).
 Any 't.sol' files associated with Foundry tests, contained within the src directories will be ignored by Hardhat.
 
@@ -269,7 +272,7 @@ To use it:
 
 1. Install [nix package manager](https://nixos.org/download.html) in your system.
 
-- Optionally, enable [flakes support](https://nixos.wiki/wiki/Flakes#Enable_flakes)
+- Optionally, enable [flakes support](https://nixos.wiki/wiki/Flakes#Enable_flakes).
 
 2. Run `nix-shell`. You will be put in shell containing all the dependencies.
 
