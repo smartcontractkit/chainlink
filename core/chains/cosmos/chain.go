@@ -181,7 +181,7 @@ func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 			return nil, fmt.Errorf("failed to create client for chain %s with node %s: wrong chain id %s", c.id, name, node.CosmosChainID)
 		}
 	}
-	client, err := cosmosclient.NewClient(c.id, node.TendermintURL, DefaultRequestTimeout, logger.Named(c.lggr, "Client-"+name))
+	client, err := cosmosclient.NewClient(c.id, node.TendermintURL, DefaultRequestTimeout, logger.Named(c.lggr, "Client."+name))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create client")
 	}
