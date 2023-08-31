@@ -55,7 +55,7 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, StreamsLookupComp
       }
 
       if (useMercury) {
-        revert StreamsLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId, blockNum));
+        revert StreamsLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId, blockNum, addr));
       }
 
       // if we don't use mercury, create a perform data which resembles the output of checkCallback
