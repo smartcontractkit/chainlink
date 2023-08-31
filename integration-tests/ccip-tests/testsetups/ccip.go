@@ -736,7 +736,9 @@ func CCIPDefaultTestSetUp(
 			return ccipEnv.SetUpNodesAndKeys(ctx, inputs.NodeFunding, chains)
 		})
 	}
-
+	if inputs.MsgType == actions.DataOnlyTransfer {
+		transferAmounts = []*big.Int{}
+	}
 	for i, n := range inputs.NetworkPairs {
 		newBootstrap := false
 		if i == 0 {

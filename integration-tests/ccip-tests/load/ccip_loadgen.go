@@ -223,7 +223,7 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.CallResult {
 	}
 	sentMsg := msgLog.Message
 	seqNum := sentMsg.SequenceNumber
-	lggr = lggr.With().Str("msgId ", string(sentMsg.MessageId[:])).Logger()
+	lggr = lggr.With().Str("msgId ", fmt.Sprintf("0x%x", sentMsg.MessageId[:])).Logger()
 
 	if bytes.Compare(sentMsg.Data, []byte(msgStr)) != 0 {
 		res.Error = fmt.Sprintf("the message byte didnot match expected %s received %s msg ID %d", msgStr, string(sentMsg.Data), msgSerialNo)

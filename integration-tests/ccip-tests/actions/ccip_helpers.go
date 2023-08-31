@@ -474,7 +474,7 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 	sourceCCIP.LoadContracts(lane)
 	// update transfer amount array length to be equal to the number of tokens
 	// each index in TransferAmount array corresponds to the amount to be transferred for the token at the same index in BridgeTokens array
-	if len(sourceCCIP.TransferAmount) != len(sourceCCIP.Common.BridgeTokens) {
+	if len(sourceCCIP.TransferAmount) != len(sourceCCIP.Common.BridgeTokens) && len(sourceCCIP.TransferAmount) > 0 {
 		sourceCCIP.TransferAmount = sourceCCIP.TransferAmount[:len(sourceCCIP.Common.BridgeTokens)]
 	}
 	sourceChainSelector, err := chainselectors.SelectorFromChainId(sourceCCIP.Common.ChainClient.GetChainID().Uint64())
@@ -673,23 +673,24 @@ func (sourceCCIP *SourceCCIPModule) UpdateBalance(
 	totalFee *big.Int,
 	balances *BalanceSheet,
 ) {
-	for i, token := range sourceCCIP.Common.BridgeTokens {
-		name := fmt.Sprintf("BridgeToken-%s-Address-%s", token.Address(), sourceCCIP.Sender.Hex())
-		balances.Update(name, BalanceItem{
-			Address:  sourceCCIP.Sender,
-			Getter:   GetterForLinkToken(token.BalanceOf, sourceCCIP.Sender.Hex()),
-			AmtToSub: bigmath.Mul(big.NewInt(noOfReq), sourceCCIP.TransferAmount[i]),
-		})
+	if len(sourceCCIP.TransferAmount) > 0 {
+		for i, token := range sourceCCIP.Common.BridgeTokens {
+			name := fmt.Sprintf("BridgeToken-%s-Address-%s", token.Address(), sourceCCIP.Sender.Hex())
+			balances.Update(name, BalanceItem{
+				Address:  sourceCCIP.Sender,
+				Getter:   GetterForLinkToken(token.BalanceOf, sourceCCIP.Sender.Hex()),
+				AmtToSub: bigmath.Mul(big.NewInt(noOfReq), sourceCCIP.TransferAmount[i]),
+			})
+		}
+		for i, pool := range sourceCCIP.Common.BridgeTokenPools {
+			name := fmt.Sprintf("BridgeToken-%s-TokenPool-%s", sourceCCIP.Common.BridgeTokens[i].Address(), pool.Address())
+			balances.Update(name, BalanceItem{
+				Address:  pool.EthAddress,
+				Getter:   GetterForLinkToken(sourceCCIP.Common.BridgeTokens[i].BalanceOf, pool.Address()),
+				AmtToAdd: bigmath.Mul(big.NewInt(noOfReq), sourceCCIP.TransferAmount[i]),
+			})
+		}
 	}
-	for i, pool := range sourceCCIP.Common.BridgeTokenPools {
-		name := fmt.Sprintf("BridgeToken-%s-TokenPool-%s", sourceCCIP.Common.BridgeTokens[i].Address(), pool.Address())
-		balances.Update(name, BalanceItem{
-			Address:  pool.EthAddress,
-			Getter:   GetterForLinkToken(sourceCCIP.Common.BridgeTokens[i].BalanceOf, pool.Address()),
-			AmtToAdd: bigmath.Mul(big.NewInt(noOfReq), sourceCCIP.TransferAmount[i]),
-		})
-	}
-
 	if sourceCCIP.Common.FeeToken.Address() != common.HexToAddress("0x0").String() {
 		name := fmt.Sprintf("FeeToken-%s-Address-%s", sourceCCIP.Common.FeeToken.Address(), sourceCCIP.Sender.Hex())
 		balances.Update(name, BalanceItem{
@@ -1137,21 +1138,23 @@ func (destCCIP *DestCCIPModule) UpdateBalance(
 	noOfReq int64,
 	balance *BalanceSheet,
 ) {
-	for i, token := range destCCIP.Common.BridgeTokens {
-		name := fmt.Sprintf("BridgeToken-%s-Address-%s", token.Address(), destCCIP.ReceiverDapp.Address())
-		balance.Update(name, BalanceItem{
-			Address:  destCCIP.ReceiverDapp.EthAddress,
-			Getter:   GetterForLinkToken(token.BalanceOf, destCCIP.ReceiverDapp.Address()),
-			AmtToAdd: bigmath.Mul(big.NewInt(noOfReq), transferAmount[i]),
-		})
-	}
-	for i, pool := range destCCIP.Common.BridgeTokenPools {
-		name := fmt.Sprintf("BridgeToken-%s-TokenPool-%s", destCCIP.Common.BridgeTokens[i].Address(), pool.Address())
-		balance.Update(name, BalanceItem{
-			Address:  pool.EthAddress,
-			Getter:   GetterForLinkToken(destCCIP.Common.BridgeTokens[i].BalanceOf, pool.Address()),
-			AmtToSub: bigmath.Mul(big.NewInt(noOfReq), transferAmount[i]),
-		})
+	if len(transferAmount) > 0 {
+		for i, token := range destCCIP.Common.BridgeTokens {
+			name := fmt.Sprintf("BridgeToken-%s-Address-%s", token.Address(), destCCIP.ReceiverDapp.Address())
+			balance.Update(name, BalanceItem{
+				Address:  destCCIP.ReceiverDapp.EthAddress,
+				Getter:   GetterForLinkToken(token.BalanceOf, destCCIP.ReceiverDapp.Address()),
+				AmtToAdd: bigmath.Mul(big.NewInt(noOfReq), transferAmount[i]),
+			})
+		}
+		for i, pool := range destCCIP.Common.BridgeTokenPools {
+			name := fmt.Sprintf("BridgeToken-%s-TokenPool-%s", destCCIP.Common.BridgeTokens[i].Address(), pool.Address())
+			balance.Update(name, BalanceItem{
+				Address:  pool.EthAddress,
+				Getter:   GetterForLinkToken(destCCIP.Common.BridgeTokens[i].BalanceOf, pool.Address()),
+				AmtToSub: bigmath.Mul(big.NewInt(noOfReq), transferAmount[i]),
+			})
+		}
 	}
 	if destCCIP.Common.FeeToken.Address() != common.HexToAddress("0x0").String() {
 		name := fmt.Sprintf("FeeToken-%s-OffRamp-%s", destCCIP.Common.FeeToken.Address(), destCCIP.OffRamp.Address())
@@ -1580,8 +1583,10 @@ func (lane *CCIPLane) ValidateRequests() {
 	}
 	// Asserting balances reliably work only for simulated private chains. The testnet contract balances might get updated by other transactions
 	// verify the fee amount is deducted from sender, added to receiver token balances and
-	lane.Source.UpdateBalance(int64(lane.NumberOfReq), lane.TotalFee, lane.Balance)
-	lane.Dest.UpdateBalance(lane.Source.TransferAmount, int64(lane.NumberOfReq), lane.Balance)
+	if len(lane.Source.TransferAmount) > 0 {
+		lane.Source.UpdateBalance(int64(lane.NumberOfReq), lane.TotalFee, lane.Balance)
+		lane.Dest.UpdateBalance(lane.Source.TransferAmount, int64(lane.NumberOfReq), lane.Balance)
+	}
 }
 
 func (lane *CCIPLane) ValidateRequestByTxHash(txHash string, txConfirmattion time.Time, reqNo int64) error {

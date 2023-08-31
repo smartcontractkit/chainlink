@@ -355,6 +355,7 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      0,
 		GasEstimationBuffer:       0,
+		FinalityTag:               true,
 	}
 
 	CeloAlfajores = blockchain.EVMNetwork{
@@ -412,6 +413,7 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      0,
 		GasEstimationBuffer:       0,
+		FinalityTag:               true,
 	}
 
 	BSCTestnet blockchain.EVMNetwork = blockchain.EVMNetwork{
@@ -424,6 +426,7 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      3,
 		GasEstimationBuffer:       0,
+		FinalityTag:               true,
 	}
 
 	BSCMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
@@ -436,6 +439,7 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      3,
 		GasEstimationBuffer:       0,
+		FinalityTag:               true,
 	}
 
 	MappedNetworks = map[string]blockchain.EVMNetwork{
