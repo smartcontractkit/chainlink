@@ -54,12 +54,12 @@ type Feeder struct {
 	lookbackBlocks      int
 	latestBlock         func(ctx context.Context) (uint64, error)
 
-	stored       map[uint64]struct{}
-	lastRunBlock uint64
-	wgStored     sync.WaitGroup
-	batchLock    sync.Mutex
-	storedLock   sync.RWMutex
-	errsLock     sync.Mutex
+	stored        map[uint64]struct{}    // used for trustless feeder
+	storedTrusted map[uint64]common.Hash // used for trusted feeder
+	lastRunBlock  uint64
+	wgStored      sync.WaitGroup
+	batchLock     sync.Mutex
+	errsLock      sync.Mutex
 }
 
 // Run the feeder.
@@ -161,13 +161,6 @@ func (f *Feeder) runTrusted(
 			if len(unfulfilled) == 0 {
 				return
 			}
-			f.storedLock.RLock()
-			if _, ok := f.stored[block]; ok {
-				// Already stored
-				f.storedLock.RUnlock()
-				return
-			}
-			f.storedLock.RUnlock()
 
 			// Do not store a block if it has been marked as stored; otherwise, store it even
 			// if the RPC call errors, as to be conservative.
@@ -221,15 +214,22 @@ func (f *Feeder) runTrusted(
 		// append its blockhash to our blockhashes we want to store.
 		// If it is the log poller block pertaining to our recent block number, assig it.
 		for _, b := range lpBlocks {
+			if b.BlockNumber == int64(latestBlock) {
+				latestBlockhash = b.BlockHash
+			}
+			if f.storedTrusted[uint64(b.BlockNumber)] == b.BlockHash {
+				// blockhash is already stored. skip to save gas
+				continue
+			}
 			if _, ok := batch[uint64(b.BlockNumber)]; ok {
 				blocksToStore = append(blocksToStore, uint64(b.BlockNumber))
 				blockhashesToStore = append(blockhashesToStore, b.BlockHash)
 			}
-			if b.BlockNumber == int64(latestBlock) {
-				latestBlockhash = b.BlockHash
-			}
 		}
 
+		if len(blocksToStore) == 0 {
+			return errs
+		}
 		// Store the batch of blocks and their blockhashes.
 		err = f.bhs.StoreTrusted(ctx, blocksToStore, blockhashesToStore, latestBlock, latestBlockhash)
 		if err != nil {
@@ -243,15 +243,15 @@ func (f *Feeder) runTrusted(
 			errs = multierr.Append(errs, errors.Wrap(err, "checking if stored"))
 			return errs
 		}
-		for _, block := range blocksToStore {
-			f.stored[block] = struct{}{}
+		for i, block := range blocksToStore {
+			f.storedTrusted[block] = blockhashesToStore[i]
 		}
 	}
 
-	// Prune stored, anything older than fromBlock can be discarded.
-	for b := range f.stored {
+	// Prune storedTrusted, anything older than fromBlock can be discarded.
+	for b := range f.storedTrusted {
 		if b < fromBlock {
-			delete(f.stored, b)
+			delete(f.storedTrusted, b)
 		}
 	}
 
