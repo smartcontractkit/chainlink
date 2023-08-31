@@ -5,12 +5,15 @@ import "../upkeeps/MercuryRegistry.sol";
 import "../upkeeps/MercuryRegistryBatchUpkeep.sol";
 import "../2_1/interfaces/FeedLookupCompatibleInterface.sol";
 
+// Note: changing this test will cause the Foundry CI cache to change,
+// so test changes in this file need to be accompanied by updating `BLOCK_NUMBER`
+// to a reasonably recent block number on Arbitrum Goerli.
 contract MercuryRegistryTest is Test {
+  uint256 internal constant BLOCK_NUMBER = 37969133;
   address internal constant OWNER = 0x00007e64E1fB0C487F25dd6D3601ff6aF8d32e4e;
   address internal constant VERIFIER = 0x60448B880c9f3B501af3f343DA9284148BD7D77C;
   int192 internal constant DEVIATION_THRESHOLD = 10_000; // 1%
   uint32 internal constant STALENESS_SECONDS = 3600; // 1 hour
-  uint256 internal constant BLOCK_NUMBER = 37761545;
 
   string[] feedIds;
   string s_BTCUSDFeedId = "0x6962e629c3a0f5b7e3e9294b0c283c9b20f94f1c89c8ba8c1ee4650738f20fb2";
