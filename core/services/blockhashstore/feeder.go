@@ -228,6 +228,7 @@ func (f *Feeder) runTrusted(
 		}
 
 		if len(blocksToStore) == 0 {
+			f.lggr.Debugw("no blocks to store", "latestBlock", latestBlock)
 			return errs
 		}
 		// Store the batch of blocks and their blockhashes.
