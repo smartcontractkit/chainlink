@@ -89,7 +89,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				Logger:   lggr,
 				DB:       db,
 				KeyStore: keyStore.Eth(),
-				RelayerConfig: evm.RelayerConfig{
+				RelayerConfig: &evm.RelayerConfig{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					MailMon:          &utils.MailboxMonitor{},
@@ -196,7 +196,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 				Logger:   lggr,
 				DB:       db,
 				KeyStore: keyStore.Eth(),
-				RelayerConfig: evm.RelayerConfig{
+				RelayerConfig: &evm.RelayerConfig{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 

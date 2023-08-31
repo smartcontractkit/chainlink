@@ -222,6 +222,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 	if err != nil {
 		return nil, fmt.Errorf("could not read logs: %w", err)
 	}
+	logs = filter.Select(logs...)
 
 	for _, log := range logs {
 		trigger := logToTrigger(log)
