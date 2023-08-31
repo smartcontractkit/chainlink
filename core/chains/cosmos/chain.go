@@ -239,10 +239,6 @@ func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, 
 	return chains.ErrLOOPPUnsupported
 }
 
-func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
-	return c.Transact(ctx, from, to, amount, balanceCheck)
-}
-
 // TODO BCF-2602 statuses are static for non-evm chain and should be dynamic
 func (c *chain) listNodeStatuses(start, end int) ([]relaytypes.NodeStatus, int, error) {
 	stats := make([]relaytypes.NodeStatus, 0)
