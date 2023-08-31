@@ -101,7 +101,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, FeedL
     return feeds;
   }
 
-  // Invoke a feed lookup through the checkUpkeep function. Expected to run on a chron schedule.
+  // Invoke a feed lookup through the checkUpkeep function. Expected to run on a cron schedule.
   function checkUpkeep(bytes calldata /* data */) external view override returns (bool, bytes memory) {
     string[] memory feeds = s_feeds;
     return revertForFeedLookup(feeds);
