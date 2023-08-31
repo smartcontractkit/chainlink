@@ -52,11 +52,11 @@ type orm struct {
 var _ ORM = (*orm)(nil)
 
 func NewORM(db *sqlx.DB, sd time.Duration, lggr logger.Logger, cfg pg.QConfig, auditLogger audit.AuditLogger) ORM {
-	namedLogger := lggr.Named("SessionsORM")
+	lggr = lggr.Named("SessionsORM")
 	return &orm{
-		q:               pg.NewQ(db, namedLogger, cfg),
+		q:               pg.NewQ(db, lggr, cfg),
 		sessionDuration: sd,
-		lggr:            lggr.Named("SessionsORM"),
+		lggr:            lggr,
 		auditLogger:     auditLogger,
 	}
 }

@@ -342,7 +342,7 @@ func (c *chain) verifiedClient(node db.Node) (client.ReaderWriter, error) {
 			expectedChainID: c.id,
 		}
 		// create client
-		cl.ReaderWriter, err = client.NewClient(url, c.cfg, DefaultRequestTimeout, logger.Named(c.lggr, "Client-"+node.Name))
+		cl.ReaderWriter, err = client.NewClient(url, c.cfg, DefaultRequestTimeout, logger.Named(c.lggr, "Client."+node.Name))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create client")
 		}

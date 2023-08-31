@@ -72,7 +72,7 @@ type nullSubscription struct {
 }
 
 func newNullSubscription(lggr logger.Logger) *nullSubscription {
-	return &nullSubscription{lggr: lggr.Named("nullSubscription")}
+	return &nullSubscription{lggr: lggr.Named("NullSubscription")}
 }
 
 func (ns *nullSubscription) Unsubscribe() {
