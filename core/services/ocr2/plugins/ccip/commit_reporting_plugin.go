@@ -68,14 +68,14 @@ type CommitPluginConfig struct {
 }
 
 type CommitReportingPlugin struct {
-	config                CommitPluginConfig
-	F                     int
-	lggr                  logger.Logger
-	inflightReports       *inflightCommitReportsContainer
-	destPriceRegistry     price_registry.PriceRegistryInterface
-	offchainConfig        ccipconfig.CommitOffchainConfig
-	onchainConfig         ccipconfig.CommitOnchainConfig
-	tokenToDecimalMapping *cache.CachedChain[map[common.Address]uint8]
+	config             CommitPluginConfig
+	F                  int
+	lggr               logger.Logger
+	inflightReports    *inflightCommitReportsContainer
+	destPriceRegistry  price_registry.PriceRegistryInterface
+	offchainConfig     ccipconfig.CommitOffchainConfig
+	onchainConfig      ccipconfig.CommitOnchainConfig
+	tokenDecimalsCache cache.AutoSync[map[common.Address]uint8]
 }
 
 type CommitReportingPluginFactory struct {
@@ -127,7 +127,7 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 			destPriceRegistry: destPriceRegistry,
 			onchainConfig:     onchainConfig,
 			offchainConfig:    offchainConfig,
-			tokenToDecimalMapping: cache.NewTokenToDecimals(
+			tokenDecimalsCache: cache.NewTokenToDecimals(
 				rf.config.lggr,
 				rf.config.destLP,
 				rf.config.offRamp,
@@ -170,7 +170,7 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 		return nil, err
 	}
 
-	tokenDecimals, err := r.tokenToDecimalMapping.Get(ctx)
+	tokenDecimals, err := r.tokenDecimalsCache.Get(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get token decimals: %w", err)
 	}

@@ -92,9 +92,9 @@ func setupCommitTestHarness(t *testing.T) commitTestHarness {
 			FeeUpdateHeartBeat:    models.MustMakeDuration(12 * time.Hour),
 			MaxGasPrice:           200e9,
 		},
-		lggr:                  th.Lggr,
-		destPriceRegistry:     th.Dest.PriceRegistry,
-		tokenToDecimalMapping: cache.NewTokenToDecimals(th.Lggr, th.DestLP, th.Dest.OffRamp, th.Dest.PriceRegistry, backendClient, 0),
+		lggr:               th.Lggr,
+		destPriceRegistry:  th.Dest.PriceRegistry,
+		tokenDecimalsCache: cache.NewTokenToDecimals(th.Lggr, th.DestLP, th.Dest.OffRamp, th.Dest.PriceRegistry, backendClient, 0),
 	}
 
 	priceGetter.On("TokenPricesUSD", mock.Anything, mock.Anything).Return(map[common.Address]*big.Int{
@@ -850,11 +850,11 @@ func TestUpdateTokenToDecimalMapping(t *testing.T) {
 			offRamp:    mockOffRamp,
 			destClient: backendClient,
 		},
-		destPriceRegistry:     mockPriceRegistry,
-		tokenToDecimalMapping: cache.NewTokenToDecimals(th.Lggr, th.DestLP, mockOffRamp, mockPriceRegistry, backendClient, 0),
+		destPriceRegistry:  mockPriceRegistry,
+		tokenDecimalsCache: cache.NewTokenToDecimals(th.Lggr, th.DestLP, mockOffRamp, mockPriceRegistry, backendClient, 0),
 	}
 
-	tokenMapping, err := plugin.tokenToDecimalMapping.Get(testutils.Context(t))
+	tokenMapping, err := plugin.tokenDecimalsCache.Get(testutils.Context(t))
 	require.NoError(t, err)
 	assert.Equal(t, len(tokens), len(tokenMapping))
 	assert.Equal(t, uint8(18), tokenMapping[destToken])

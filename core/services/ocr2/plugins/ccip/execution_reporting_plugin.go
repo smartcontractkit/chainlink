@@ -74,8 +74,8 @@ type ExecutionReportingPlugin struct {
 	destWrappedNative     common.Address
 	onchainConfig         ccipconfig.ExecOnchainConfig
 	offchainConfig        ccipconfig.ExecOffchainConfig
-	cachedSourceFeeTokens *cache.CachedChain[[]common.Address]
-	cachedDestTokens      *cache.CachedChain[cache.CachedTokens]
+	cachedSourceFeeTokens cache.AutoSync[[]common.Address]
+	cachedDestTokens      cache.AutoSync[cache.CachedTokens]
 }
 
 type ExecutionReportingPluginFactory struct {
