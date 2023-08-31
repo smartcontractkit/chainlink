@@ -432,8 +432,8 @@ SamplingInterval = '1s'
 [EVM.NodePool]
 PollFailureThreshold = 5
 PollInterval = '10s'
-SelectionMode = 'HighestHead'
-SyncThreshold = 10
+SelectionMode = 'TotalDifficulty'
+SyncThreshold = 250
 
 [EVM.OCR]
 ContractConfirmations = 4
