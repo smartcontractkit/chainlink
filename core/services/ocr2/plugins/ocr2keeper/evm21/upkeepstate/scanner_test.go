@@ -22,13 +22,15 @@ func TestPerformedEventsScanner(t *testing.T) {
 
 	tests := []struct {
 		name           string
+		workIDs        []string
 		pollerResults  []logpoller.Log
 		scannerResults []string
 		pollerErr      error
 		errored        bool
 	}{
 		{
-			"no logs",
+			"empty",
+			[]string{},
 			[]logpoller.Log{},
 			[]string{},
 			nil,
@@ -36,6 +38,7 @@ func TestPerformedEventsScanner(t *testing.T) {
 		},
 		{
 			"log poller error",
+			[]string{"111"},
 			[]logpoller.Log{},
 			[]string{},
 			fmt.Errorf("test-error"),
@@ -43,6 +46,7 @@ func TestPerformedEventsScanner(t *testing.T) {
 		},
 		{
 			"one result",
+			[]string{"290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"},
 			[]logpoller.Log{
 				{
 					BlockNumber: 1,
@@ -59,6 +63,7 @@ func TestPerformedEventsScanner(t *testing.T) {
 		},
 		{
 			"missing workID",
+			[]string{"290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"},
 			[]logpoller.Log{
 				{
 					BlockNumber: 1,
@@ -79,7 +84,7 @@ func TestPerformedEventsScanner(t *testing.T) {
 			mp := new(mocks.LogPoller)
 			mp.On("RegisterFilter", mock.Anything).Return(nil)
 			mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
-			scanner := NewPerformedEventsScanner(lggr, mp, registryAddr)
+			scanner := NewPerformedEventsScanner(lggr, mp, registryAddr, 100)
 
 			go func() {
 				_ = scanner.Start(ctx)
@@ -88,9 +93,9 @@ func TestPerformedEventsScanner(t *testing.T) {
 				_ = scanner.Close()
 			}()
 
-			mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.pollerResults, tc.pollerErr)
+			mp.On("IndexedLogs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.pollerResults, tc.pollerErr)
 
-			results, err := scanner.WorkIDsInRange(ctx, 0, 100)
+			results, err := scanner.ScanWorkIDs(ctx, tc.workIDs...)
 			if tc.errored {
 				require.Error(t, err)
 				return
@@ -103,21 +108,6 @@ func TestPerformedEventsScanner(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestPerformedEventsScanner_LogPollerErrors(t *testing.T) {
-	ctx := testutils.Context(t)
-	registryAddr := common.HexToAddress("0x12345")
-	lggr := logger.TestLogger(t)
-
-	mp := new(mocks.LogPoller)
-	scanner := NewPerformedEventsScanner(lggr, mp, registryAddr)
-
-	mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, fmt.Errorf("test error"))
-
-	workIDs, err := scanner.WorkIDsInRange(ctx, 0, 100)
-	require.Error(t, err)
-	require.Nil(t, workIDs)
 }
 
 func convertTopics(topics []common.Hash) [][]byte {

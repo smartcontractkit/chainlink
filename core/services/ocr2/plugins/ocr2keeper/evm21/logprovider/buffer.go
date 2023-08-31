@@ -11,10 +11,10 @@ import (
 )
 
 var (
-	// AllowedLogsPerBlock is the maximum number of logs allowed per upkeep in a block.
-	AllowedLogsPerBlock = 128
-	// BufferMaxBlockSize is the maximum number of blocks in the buffer.
-	BufferMaxBlockSize = 1024
+	// allowedLogsPerBlock is the maximum number of logs allowed per upkeep in a block.
+	allowedLogsPerBlock = 128
+	// bufferMaxBlockSize is the maximum number of blocks in the buffer.
+	bufferMaxBlockSize = 1024
 )
 
 // fetchedLog holds the log and the ID of the upkeep
@@ -48,6 +48,18 @@ func (b fetchedBlock) Has(id *big.Int, log logpoller.Log) (bool, int) {
 		}
 	}
 	return false, upkeepLogs
+}
+
+func (b fetchedBlock) Clone() fetchedBlock {
+	logs := make([]fetchedLog, len(b.logs))
+	copy(logs, b.logs)
+	visited := make([]fetchedLog, len(b.visited))
+	copy(visited, b.visited)
+	return fetchedBlock{
+		blockNumber: b.blockNumber,
+		logs:        logs,
+		visited:     visited,
+	}
 }
 
 // logEventBuffer is a circular/ring buffer of fetched logs.
@@ -189,10 +201,21 @@ func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit int) []fetch
 	defer b.lock.Unlock()
 
 	blocksInRange := b.getBlocksInRange(int(start), int(end))
+	fetchedBlocks := make([]fetchedBlock, 0, len(blocksInRange))
+	for _, block := range blocksInRange {
+		// Create clone of the blocks as they get processed and update underlying b.blocks
+		fetchedBlocks = append(fetchedBlocks, block.Clone())
+	}
+
+	// Sort the blocks in reverse order of block number so that latest logs
+	// are preferred while dequeueing.
+	sort.SliceStable(fetchedBlocks, func(i, j int) bool {
+		return fetchedBlocks[i].blockNumber > fetchedBlocks[j].blockNumber
+	})
 
 	logsCount := map[string]int{}
 	var results []fetchedLog
-	for _, block := range blocksInRange {
+	for _, block := range fetchedBlocks {
 		// double checking that we don't have any gaps in the range
 		if block.blockNumber < start || block.blockNumber > end {
 			continue
@@ -209,15 +232,11 @@ func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit int) []fetch
 		if len(blockResults) == 0 {
 			continue
 		}
-		block.visited = append(block.visited, blockResults...)
 		results = append(results, blockResults...)
+		block.visited = append(block.visited, blockResults...)
 		block.logs = remainingLogs
 		b.blocks[b.blockNumberIndex(block.blockNumber)] = block
 	}
-
-	sort.SliceStable(results, func(i, j int) bool {
-		return results[i].log.BlockNumber < results[j].log.BlockNumber
-	})
 
 	if len(results) > 0 {
 		b.lggr.Debugw("Dequeued logs", "results", len(results), "start", start, "end", end)
