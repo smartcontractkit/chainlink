@@ -61,7 +61,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 	n := 10
 
-	ids, addrs, contracts := deployUpkeepCounter(t, n, ethClient, backend, carrol, logProvider)
+	ids, addrs, contracts := deployUpkeepCounter(ctx, t, n, ethClient, backend, carrol, logProvider)
 	lp.PollAndSaveLogs(ctx, int64(n))
 
 	go func() {
@@ -108,7 +108,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 		// re-register filters
 		for i, id := range ids {
-			err = logProvider2.RegisterFilter(logprovider.FilterOptions{
+			err = logProvider2.RegisterFilter(ctx, logprovider.FilterOptions{
 				UpkeepID:      id,
 				TriggerConfig: newPlainLogTriggerConfig(addrs[i]),
 				// using block number at which the upkeep was registered,
@@ -146,7 +146,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
-	_, addrs, contracts := deployUpkeepCounter(t, 1, ethClient, backend, carrol, logProvider)
+	_, addrs, contracts := deployUpkeepCounter(ctx, t, 1, ethClient, backend, carrol, logProvider)
 	lp.PollAndSaveLogs(ctx, int64(5))
 	require.Equal(t, 1, len(contracts))
 	require.Equal(t, 1, len(addrs))
@@ -158,14 +158,14 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 		b, err := ethClient.BlockByHash(ctx, backend.Commit())
 		require.NoError(t, err)
 		bn := b.Number()
-		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+		err = logProvider.RegisterFilter(ctx, logprovider.FilterOptions{
 			UpkeepID:      id,
 			TriggerConfig: cfg,
 			UpdateBlock:   bn.Uint64(),
 		})
 		require.NoError(t, err)
 		// old block
-		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+		err = logProvider.RegisterFilter(ctx, logprovider.FilterOptions{
 			UpkeepID:      id,
 			TriggerConfig: cfg,
 			UpdateBlock:   bn.Uint64() - 1,
@@ -175,7 +175,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 		b, err = ethClient.BlockByHash(ctx, backend.Commit())
 		require.NoError(t, err)
 		bn = b.Number()
-		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+		err = logProvider.RegisterFilter(ctx, logprovider.FilterOptions{
 			UpkeepID:      id,
 			TriggerConfig: cfg,
 			UpdateBlock:   bn.Uint64(),
@@ -190,7 +190,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 		b, err := ethClient.BlockByHash(ctx, backend.Commit())
 		require.NoError(t, err)
 		bn := b.Number()
-		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+		err = logProvider.RegisterFilter(ctx, logprovider.FilterOptions{
 			UpkeepID:      id,
 			TriggerConfig: cfg,
 			UpdateBlock:   bn.Uint64(),
@@ -219,7 +219,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 
 	n := 10
 
-	_, _, contracts := deployUpkeepCounter(t, n, ethClient, backend, carrol, logProvider)
+	_, _, contracts := deployUpkeepCounter(ctx, t, n, ethClient, backend, carrol, logProvider)
 
 	poll := pollFn(ctx, t, lp, ethClient)
 
@@ -280,6 +280,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 
 		// deployUpkeepCounter creates 'n' blocks and 'n' contracts
 		ids, _, contracts := deployUpkeepCounter(
+			ctx,
 			t,
 			numberOfUserContracts,
 			ethClient,
@@ -478,7 +479,7 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 
 	n := 10
 
-	_, _, contracts := deployUpkeepCounter(t, n, ethClient, backend, carrol, logProvider)
+	_, _, contracts := deployUpkeepCounter(ctx, t, n, ethClient, backend, carrol, logProvider)
 
 	poll := pollFn(ctx, t, lp, ethClient)
 
@@ -603,6 +604,7 @@ func triggerEvents(
 }
 
 func deployUpkeepCounter(
+	ctx context.Context,
 	t *testing.T,
 	n int,
 	ethClient *evmclient.SimulatedBackendClient,
@@ -631,7 +633,7 @@ func deployUpkeepCounter(
 		b, err := ethClient.BlockByHash(context.Background(), backend.Commit())
 		require.NoError(t, err)
 		bn := b.Number()
-		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+		err = logProvider.RegisterFilter(ctx, logprovider.FilterOptions{
 			UpkeepID:      id,
 			TriggerConfig: newPlainLogTriggerConfig(upkeepAddr),
 			UpdateBlock:   bn.Uint64(),
