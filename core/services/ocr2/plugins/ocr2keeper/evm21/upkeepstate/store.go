@@ -177,8 +177,9 @@ func (u *upkeepStateStore) SetUpkeepState(ctx context.Context, result ocr2keeper
 	if result.Eligible {
 		return nil
 	}
-
-	return u.upsertStateRecord(ctx, result.WorkID, ocr2keepers.Ineligible, uint64(result.Trigger.BlockNumber), result.UpkeepID.BigInt(), result.IneligibilityReason)
+	return nil
+	// Temporarily disabled upserting DB record to verify load
+	//return u.upsertStateRecord(ctx, result.WorkID, ocr2keepers.Ineligible, uint64(result.Trigger.BlockNumber), result.UpkeepID.BigInt(), result.IneligibilityReason)
 }
 
 // upsertStateRecord inserts or updates a record for the provided
