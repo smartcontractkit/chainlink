@@ -120,8 +120,8 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			defer wg.Done()
 			obs.LinkPrice.Val, obs.LinkPrice.Err = ds.fetcher.LatestPrice(ctx, ds.linkFeedID)
 			if obs.LinkPrice.Val == nil && obs.LinkPrice.Err == nil {
-				ds.lggr.Warnw("Mercury server was missing LINK feed, falling back to max int192", "linkFeedID", ds.linkFeedID)
-				obs.LinkPrice.Val = relaymercury.MaxInt192
+				ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing LINK feed, using sentinel value of %s", relaymercuryv3.MissingPrice), "linkFeedID", ds.linkFeedID)
+				obs.LinkPrice.Val = relaymercuryv3.MissingPrice
 			}
 		}()
 	}
@@ -134,8 +134,8 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			defer wg.Done()
 			obs.NativePrice.Val, obs.NativePrice.Err = ds.fetcher.LatestPrice(ctx, ds.nativeFeedID)
 			if obs.NativePrice.Val == nil && obs.NativePrice.Err == nil {
-				ds.lggr.Warnw("Mercury server was missing native feed, falling back to max int192", "nativeFeedID", ds.nativeFeedID)
-				obs.NativePrice.Val = relaymercury.MaxInt192
+				ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing native feed, using sentinel value of %s", relaymercuryv3.MissingPrice), "nativeFeedID", ds.nativeFeedID)
+				obs.NativePrice.Val = relaymercuryv3.MissingPrice
 			}
 		}()
 	}
