@@ -4,10 +4,12 @@ import (
 	"testing"
 
 	"context"
+	"math/big"
+
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/stretchr/testify/require"
-	"math/big"
 )
 
 func TestOCRBasic(t *testing.T) {
@@ -16,7 +18,7 @@ func TestOCRBasic(t *testing.T) {
 		WithGeth().
 		WithMockServer(1).
 		WithCLNodes(6).
-		WithFunding(big.NewFloat(10)).
+		WithFunding(big.NewFloat(1)).
 		Build()
 	require.NoError(t, err)
 	env.ParallelTransactions(true)
@@ -27,8 +29,8 @@ func TestOCRBasic(t *testing.T) {
 	linkTokenContract, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 
-	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
-	require.NoError(t, err, "Error funding Chainlink nodes")
+	// err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(.05))
+	// require.NoError(t, err, "Error funding Chainlink nodes")
 
 	ocrInstances, err := actions.DeployOCRContractsLocal(1, linkTokenContract, env.ContractDeployer, workerNodes, env.EVMClient)
 	require.NoError(t, err)
