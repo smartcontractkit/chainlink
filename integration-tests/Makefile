@@ -181,7 +181,7 @@ test_soak_automation:
 .PHONY: test_soak_automation_simulated
 test_soak_automation_simulated:
 	SELECTED_NETWORKS="SIMULATED" \
-	TEST_INPUTS="TEST_TYPE=SOAK,NUMBEROFCONTRACTS=50,BLOCKRANGE=1000,BLOCKINTERVAL=50,GRAFANA_DASHBOARD_URL=https://chainlinklabs.grafana.net/d/Q8n6m1unz/chainlink-keepers-qa?orgId=1" \
+	TEST_INPUTS="TEST_TYPE=SOAK,NUMBEROFCONTRACTS=50,BLOCKRANGE=600,BLOCKINTERVAL=60,GRAFANA_DASHBOARD_URL=https://chainlinklabs.grafana.net/d/Q8n6m1unz/chainlink-keepers-qa?orgId=1" \
 	go test -v -run ^TestAutomationBenchmark$$ ./benchmark -count=1
 
 .PHONY: test_benchmark_automation
@@ -213,3 +213,10 @@ run_test_with_local_image: build_docker_image
 	ARGS="$(args)" \
 	PRODUCT=$(product) 	\
 	./scripts/run_product_tests
+
+##DEBUG: Run the automation benchmark tests
+.PHONY: adam_debug
+adam_debug:
+	TEST_SUITE="benchmark" \
+	TEST_INPUTS="REGISTRY=2_1,NUMBEROFNODES=6,NUMBEROFUPKEEPS=10,BLOCKRANGE=3600,BLOCKINTERVAL=60,GRAFANA_DASHBOARD_URL=https://grafana.ops.prod.cldev.sh/d/Q8n6m1unz/chainlink-automation-benchmark-test?orgId=1,PERFORMGASTOBURN=1000" \
+	go test -timeout 300m -v -run ^TestAutomationBenchmark$  ./benchmark -count=1

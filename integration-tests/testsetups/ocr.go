@@ -4,7 +4,6 @@ package testsetups
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"os"
@@ -358,7 +357,7 @@ func (o *OCRSoakTest) LoadState() error {
 	}
 
 	testState := &OCRSoakTestState{}
-	saveData, err := ioutil.ReadFile(saveFileLocation)
+	saveData, err := os.ReadFile(saveFileLocation)
 	if err != nil {
 		return err
 	}
@@ -562,7 +561,6 @@ func (o *OCRSoakTest) observeOCREvents() error {
 	}
 
 	go func() {
-		defer cancel()
 		for {
 			select {
 			case event := <-eventLogs:
@@ -583,7 +581,7 @@ func (o *OCRSoakTest) observeOCREvents() error {
 					Msg("Answer Updated Event")
 			case err = <-eventSub.Err():
 				for err != nil {
-					o.log.Info().
+					o.log.Warn().
 						Err(err).
 						Interface("Query", o.filterQuery).
 						Msg("Error while subscribed to OCR Logs. Resubscribing")

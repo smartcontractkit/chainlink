@@ -163,8 +163,8 @@ func TestAutomationBenchmark(t *testing.T) {
 			KeeperRegistrySettings: &contracts.KeeperRegistrySettings{
 				PaymentPremiumPPB:    uint32(0),
 				BlockCountPerTurn:    big.NewInt(100),
-				CheckGasLimit:        uint32(45000000), //45M
-				StalenessSeconds:     big.NewInt(90000),
+				CheckGasLimit:        uint32(45_000_000), //45M
+				StalenessSeconds:     big.NewInt(90_000),
 				GasCeilingMultiplier: uint16(2),
 				MaxPerformGas:        uint32(MaxPerformGas),
 				MinUpkeepSpend:       big.NewInt(0),
@@ -198,7 +198,7 @@ func TestAutomationBenchmark(t *testing.T) {
 		},
 	)
 	t.Cleanup(func() {
-		if err = actions.TeardownRemoteSuite(keeperBenchmarkTest.TearDownVals(t)); err != nil {
+		if err = actions.TeardownRemoteSuite(keeperBenchmarkTest.TearDownVals()); err != nil {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
 		}
 	})

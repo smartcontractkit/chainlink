@@ -22,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
@@ -49,6 +48,7 @@ type KeeperBenchmarkTest struct {
 	keeperRegistrars        []contracts.KeeperRegistrar
 	keeperConsumerContracts []contracts.AutomationConsumerBenchmark
 	upkeepIDs               [][]*big.Int
+	filterQuery             geth.FilterQuery
 
 	env              *environment.Environment
 	namespace        string
@@ -226,7 +226,6 @@ func (k *KeeperBenchmarkTest) Run() {
 	nodesWithoutBootstrap := k.chainlinkNodes[1:]
 
 	for rIndex := range k.keeperRegistries {
-
 		var txKeyId = rIndex
 		if inputs.ForceSingleTxnKey {
 			txKeyId = 0
@@ -266,6 +265,7 @@ func (k *KeeperBenchmarkTest) Run() {
 			)
 		}
 	}
+
 	defer func() { // Cleanup the subscriptions
 		for rIndex := range k.keeperRegistries {
 			for index := range k.upkeepIDs[rIndex] {
@@ -274,13 +274,11 @@ func (k *KeeperBenchmarkTest) Run() {
 		}
 	}()
 
-	logSubscriptionStop := make(chan bool)
 	for rIndex := range k.keeperRegistries {
-		k.subscribeToUpkeepPerformedEvent(logSubscriptionStop, &k.TestReporter, rIndex)
+		k.observeUpkeepEvents(rIndex)
 	}
 	err := k.chainClient.WaitForEvents()
 	require.NoError(k.t, err, "Error waiting for keeper subscriptions")
-	close(logSubscriptionStop)
 
 	for _, chainlinkNode := range k.chainlinkNodes {
 		txData, err := chainlinkNode.MustReadTransactionAttempts()
@@ -313,57 +311,35 @@ func (k *KeeperBenchmarkTest) Run() {
 	k.log.Info().Str("Run Time", endTime.Sub(startTime).String()).Msg("Finished Keeper Benchmark Test")
 }
 
-// subscribeToUpkeepPerformedEvent subscribes to the event log for UpkeepPerformed event and
-// counts the number of times it was unsuccessful
-func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
-	doneChan chan bool,
-	metricsReporter *testreporters.KeeperBenchmarkTestReporter,
-	rIndex int,
-) {
-	contractABI, err := keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
-	require.NoError(k.t, err, "Error getting ABI")
-	switch k.Inputs.RegistryVersions[rIndex] {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
-		contractABI, err = keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
-	case ethereum.RegistryVersion_1_2:
-		contractABI, err = keeper_registry_wrapper1_2.KeeperRegistryMetaData.GetAbi()
-	case ethereum.RegistryVersion_1_3:
-		contractABI, err = keeper_registry_wrapper1_3.KeeperRegistryMetaData.GetAbi()
-	case ethereum.RegistryVersion_2_0:
-		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
-	case ethereum.RegistryVersion_2_1:
-		contractABI, err = iregistry21.IKeeperRegistryMasterMetaData.GetAbi()
-	default:
-		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
-	}
+// *********************
+// ****** Helpers ******
+// *********************
 
-	require.NoError(k.t, err, "Getting contract abi for registry shouldn't fail")
-	query := geth.FilterQuery{
-		Addresses: []common.Address{common.HexToAddress(k.keeperRegistries[rIndex].Address())},
-	}
+// observeUpkeepEvents subscribes to Upkeep events on deployed registries and logs them
+// WARNING: This should only be used for observation and logging. This isn't a reliable way to build a final report
+// due to how fragile subscriptions can be
+func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
 	eventLogs := make(chan types.Log)
-	sub, err := k.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	sub, err := k.chainClient.SubscribeFilterLogs(ctx, k.filterQuery, eventLogs)
+	cancel()
 	require.NoError(k.t, err, "Subscribing to upkeep performed events log shouldn't fail")
 	go func() {
-		var numRevertedUpkeeps int64
-		var numStaleReports int64
+		contractABI := k.contractABI(rIndex)
 		for {
 			select {
-			case err := <-sub.Err():
-				k.log.Error().Err(err).Msg("Error while subscribing to Keeper Event Logs. Resubscribing...")
-				sub.Unsubscribe()
-
-				sub, err = k.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
-				require.NoError(k.t, err, "Error re-subscribing to event logs")
-			case vLog := <-eventLogs:
-				eventDetails, err := contractABI.EventByID(vLog.Topics[0])
-				require.NoError(k.t, err, "Getting event details for subscribed log shouldn't fail")
+			case event := <-eventLogs:
+				eventDetails, err := contractABI.EventByID(event.Topics[0])
+				if err != nil {
+					k.log.Error().Err(err).Interface("Event", event).Msg("Error getting event details")
+					continue
+				}
 				if eventDetails.Name != "UpkeepPerformed" && eventDetails.Name != "StaleUpkeepReport" {
-					// Skip non upkeepPerformed Logs
+					log.Debug().Str("Name", eventDetails.Name).Msg("Got irrelevant event")
 					continue
 				}
 				if eventDetails.Name == "UpkeepPerformed" {
-					parsedLog, err := k.keeperRegistries[rIndex].ParseUpkeepPerformedLog(&vLog)
+					parsedLog, err := k.keeperRegistries[rIndex].ParseUpkeepPerformedLog(&event)
 					require.NoError(k.t, err, "Parsing upkeep performed log shouldn't fail")
 
 					if parsedLog.Success {
@@ -381,36 +357,72 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
 							Str("From", parsedLog.From.String()).
 							Str("Registry", k.keeperRegistries[rIndex].Address()).
 							Msg("Got reverted Upkeep Performed log on Registry")
-						numRevertedUpkeeps++
 					}
 				} else if eventDetails.Name == "StaleUpkeepReport" {
-					parsedLog, err := k.keeperRegistries[rIndex].ParseStaleUpkeepReportLog(&vLog)
+					parsedLog, err := k.keeperRegistries[rIndex].ParseStaleUpkeepReportLog(&event)
 					require.NoError(k.t, err, "Parsing stale upkeep report log shouldn't fail")
 					k.log.Warn().
 						Str("Upkeep ID", parsedLog.Id.String()).
 						Str("Registry", k.keeperRegistries[rIndex].Address()).
 						Msg("Got stale Upkeep report log on Registry")
-					numStaleReports++
 				}
+			case err := <-sub.Err():
+				for err != nil { // Keep retrying to subscribe to events
+					k.log.Warn().
+						Interface("Query", k.filterQuery).
+						Err(err).
+						Msg("Error while subscribing to Keeper Event Logs. Resubscribing...")
 
-			case <-doneChan:
-				metricsReporter.NumRevertedUpkeeps = numRevertedUpkeeps
-				metricsReporter.NumStaleUpkeepReports = numStaleReports
-				return
+					ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+					sub, err = k.chainClient.SubscribeFilterLogs(ctx, k.filterQuery, eventLogs)
+				}
 			}
 		}
 	}()
 }
 
+// setFilterQuery sets the filter query for the test to check on events
+func (k *KeeperBenchmarkTest) setFilterQuery(rIndex int) {
+	contractABI := k.contractABI(rIndex)
+	k.filterQuery = geth.FilterQuery{
+		Addresses: []common.Address{common.HexToAddress(k.keeperRegistries[rIndex].Address())},
+		Topics:    [][]common.Hash{{contractABI.Events["UpkeepPerformed"].ID}, {contractABI.Events["StaleUpkeepReport"].ID}},
+	}
+}
+
+// getContractABI returns the ABI of the keeper registry contract in use
+func (k *KeeperBenchmarkTest) contractABI(rIndex int) *abi.ABI {
+	var (
+		contractABI *abi.ABI
+		err         error
+	)
+	switch k.Inputs.RegistryVersions[rIndex] {
+	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
+		contractABI, err = keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
+	case ethereum.RegistryVersion_1_2:
+		contractABI, err = keeper_registry_wrapper1_2.KeeperRegistryMetaData.GetAbi()
+	case ethereum.RegistryVersion_1_3:
+		contractABI, err = keeper_registry_wrapper1_3.KeeperRegistryMetaData.GetAbi()
+	case ethereum.RegistryVersion_2_0:
+		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
+	case ethereum.RegistryVersion_2_1:
+		contractABI, err = iregistry21.IKeeperRegistryMasterMetaData.GetAbi()
+	default:
+		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
+	}
+	require.NoError(k.t, err, "Getting contract abi for registry shouldn't fail")
+	return contractABI
+}
+
 // TearDownVals returns the networks that the test is running on
-func (k *KeeperBenchmarkTest) TearDownVals(t *testing.T) (
+func (k *KeeperBenchmarkTest) TearDownVals() (
 	*testing.T,
 	string,
 	[]*client.ChainlinkK8sClient,
 	reportModel.TestReporter,
 	blockchain.EVMClient,
 ) {
-	return t, k.namespace, k.chainlinkNodes, &k.TestReporter, k.chainClient
+	return k.t, k.namespace, k.chainlinkNodes, &k.TestReporter, k.chainClient
 }
 
 // ensureValues ensures that all values needed to run the test are present
