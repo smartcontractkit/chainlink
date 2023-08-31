@@ -156,7 +156,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}
 
-	log := d.logger.Named("BHS Feeder").With("jobID", jb.ID, "externalJobID", jb.ExternalJobID)
+	log := d.logger.Named("BHSFeeder").With("jobID", jb.ID, "externalJobID", jb.ExternalJobID)
 	feeder := NewFeeder(
 		log,
 		NewMultiCoordinator(coordinators...),
