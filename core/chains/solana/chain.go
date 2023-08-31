@@ -214,7 +214,7 @@ func (v *verifiedCachedClient) GetAccountInfoWithOpts(ctx context.Context, addr 
 }
 
 func newChain(id string, cfg *SolanaConfig, ks loop.Keystore, cfgs Configs, lggr logger.Logger) (*chain, error) {
-	lggr = logger.With(lggr, "chainID", id, "chainSet", "solana")
+	lggr = logger.With(lggr, "chainID", id, "chain", "solana")
 	var ch = chain{
 		id:          id,
 		cfg:         cfg,
