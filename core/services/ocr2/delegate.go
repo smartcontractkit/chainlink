@@ -23,7 +23,6 @@ import (
 	ocr2keepers20runner "github.com/smartcontractkit/ocr2keepers/pkg/v2/runner"
 	ocr2keepers21config "github.com/smartcontractkit/ocr2keepers/pkg/v3/config"
 	ocr2keepers21 "github.com/smartcontractkit/ocr2keepers/pkg/v3/plugin"
-	ocr2keepers21types "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/smartcontractkit/ocr2vrf/altbn_128"
 	dkgpkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
@@ -1311,11 +1310,4 @@ func (l *logWriter) Write(p []byte) (n int, err error) {
 	l.log.Debug(string(p), nil)
 	n = len(p)
 	return
-}
-
-type mockRecoverableProvider struct {
-}
-
-func (_m *mockRecoverableProvider) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers21types.UpkeepPayload, error) {
-	return nil, nil
 }
