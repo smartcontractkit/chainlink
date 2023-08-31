@@ -103,6 +103,7 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 		// tried to call mercury
 		lggr.Infof("at block %d upkeep %s trying to decodeStreamsLookup performData=%s", block, upkeepId, hexutil.Encode(checkResults[i].PerformData))
 		l, err := r.decodeStreamsLookup(res.PerformData)
+		lggr.Infof("at block %d upkeep %s finished decodeStreamsLookup feeds=%s, extraData=%s", l.block, l.upkeepId.String(), l.feeds, hexutil.Encode(l.extraData))
 		if err != nil {
 			lggr.Warnf("at block %d upkeep %s decodeStreamsLookup failed: %v", block, upkeepId, err)
 			// user contract did not revert with StreamsLookup error
