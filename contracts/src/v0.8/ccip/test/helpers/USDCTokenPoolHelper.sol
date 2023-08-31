@@ -14,13 +14,7 @@ contract USDCTokenPoolHelper is USDCTokenPool {
     uint32 localDomainIdentifier
   ) USDCTokenPool(config, token, allowlist, armProxy, localDomainIdentifier) {}
 
-  function validateMessage(
-    bytes memory usdcMessage,
-    uint32 expectedSourceDomain,
-    uint64 expectedNonce,
-    bytes32 expectedSender,
-    bytes32 expectedReceiver
-  ) external view {
-    return _validateMessage(usdcMessage, expectedSourceDomain, expectedNonce, expectedSender, expectedReceiver);
+  function validateMessage(bytes memory usdcMessage, SourceTokenDataPayload memory sourceTokenData) external view {
+    return _validateMessage(usdcMessage, sourceTokenData);
   }
 }
