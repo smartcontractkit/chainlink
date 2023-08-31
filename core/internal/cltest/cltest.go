@@ -385,7 +385,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
-	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"))
+	loopRegistry := plugins.NewLoopRegistry(lggr)
 
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:       lggr,

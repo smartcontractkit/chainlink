@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
@@ -44,7 +45,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 
 	// override some common opts with the factory values. this seems weird... maybe other signatures should change, or this should take a different type...
 	ccOpts := evm.ChainRelayExtenderConfig{
-		Logger:        r.Logger,
+		Logger:        r.Logger.Named("EVM"),
 		DB:            r.DB,
 		KeyStore:      config.CSAETHKeystore.Eth(),
 		RelayerConfig: config.RelayerConfig,
