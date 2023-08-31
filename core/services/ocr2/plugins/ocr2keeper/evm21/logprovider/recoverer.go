@@ -511,26 +511,23 @@ func (r *logRecoverer) clean(ctx context.Context) {
 		lggr.Debug("no expired upkeeps")
 		return
 	}
-	cleaned, err := r.tryExpire(ctx, expired...)
+	err := r.tryExpire(ctx, expired...)
 	if err != nil {
 		lggr.Warnw("failed to clean visited upkeeps", "err", err)
 	}
-	if len(expired) > 0 {
-		lggr.Debugw("expired upkeeps", "expired", len(expired), "cleaned", cleaned)
-	}
 }
 
-func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) (int, error) {
+func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 	latestBlock, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
-		return 0, fmt.Errorf("failed to get latest block: %w", err)
+		return fmt.Errorf("failed to get latest block: %w", err)
 	}
 	sort.Slice(ids, func(i, j int) bool {
 		return ids[i] < ids[j]
 	})
 	states, err := r.states.SelectByWorkIDs(ctx, ids...)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get states: %w", err)
+		return fmt.Errorf("failed to get states: %w", err)
 	}
 	lggr := r.lggr.With("where", "clean")
 	start, _ := r.getRecoveryWindow(latestBlock)
@@ -550,7 +547,14 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) (int, error
 			if logBlock := rec.payload.Trigger.LogTriggerExtension.BlockNumber; int64(logBlock) < start {
 				// we can't recover this log anymore, so we remove it from the visited list
 				lggr.Debugw("removing expired log: old block", "upkeepID", rec.payload.UpkeepID,
-					"logBlock", logBlock, "start", start)
+					"latestBlock", latestBlock, "logBlock", logBlock, "start", start)
+				pending := make([]ocr2keepers.UpkeepPayload, 0, len(r.pending))
+				for _, p := range r.pending {
+					if p.WorkID != rec.payload.WorkID {
+						pending = append(pending, p)
+					}
+				}
+				r.pending = pending
 				delete(r.visited, ids[i])
 				removed++
 				continue
@@ -564,5 +568,9 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) (int, error
 		}
 	}
 
-	return removed, nil
+	if removed > 0 {
+		lggr.Debugw("expired upkeeps", "expired", len(ids), "cleaned", removed)
+	}
+
+	return nil
 }
