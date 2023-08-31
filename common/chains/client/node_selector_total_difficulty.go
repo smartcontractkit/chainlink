@@ -3,6 +3,7 @@ package client
 import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
+	nodetypes "github.com/smartcontractkit/chainlink/v2/common/chains/client/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
@@ -11,7 +12,7 @@ type totalDifficultyNodeSelector[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT nodetypes.NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ] []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
 
 func NewTotalDifficultyNodeSelector[
@@ -19,7 +20,7 @@ func NewTotalDifficultyNodeSelector[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT nodetypes.NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ](nodes []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) NodeSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
 	return totalDifficultyNodeSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT](nodes)
 }

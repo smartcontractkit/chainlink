@@ -10,6 +10,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	nodetypes "github.com/smartcontractkit/chainlink/v2/common/chains/client/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -37,7 +38,7 @@ type NodeSelector[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT nodetypes.NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ] interface {
 	// Select returns a Node, or nil if none can be selected.
 	// Implementation must be thread-safe.
@@ -51,12 +52,16 @@ type MultiNodeClient[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT nodetypes.NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	TX any,
 ] interface {
 	Dial(context.Context) error
 	Close() error
 	NodeStates() map[string]string
 	SelectNode() Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
+	NodesAsSendOnlys() []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
+	WrapSendOnlyTransaction(ctx context.Context, lggr logger.Logger, tx TX, n SendOnlyNode[CHAIN_ID, RPC_CLIENT],
+		f func(ctx context.Context, lggr logger.Logger, tx TX, n SendOnlyNode[CHAIN_ID, RPC_CLIENT]))
 
 	runLoop()
 	nLiveNodes() (int, int64, *utils.Big)
@@ -64,7 +69,7 @@ type MultiNodeClient[
 }
 
 func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc) {
-	return context.WithTimeout(context.Background(), queryTimeout)
+	return context.WithTimeout(context.Background(), QueryTimeout)
 }
 
 type multiNodeClient[
@@ -72,11 +77,12 @@ type multiNodeClient[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT nodetypes.NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	TX any,
 ] struct {
 	utils.StartStopOnce
 	nodes               []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
-	sendonlys           []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
+	sendonlys           []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
 	chainID             CHAIN_ID
 	logger              logger.Logger
 	selectionMode       string
@@ -96,16 +102,17 @@ func NewMultiNodeClient[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT nodetypes.NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	TX any,
 ](
 	logger logger.Logger,
 	selectionMode string,
 	noNewHeadsThreshold time.Duration,
 	nodes []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT],
-	sendonlys []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT],
+	sendonlys []SendOnlyNode[CHAIN_ID, RPC_CLIENT],
 	chainID CHAIN_ID,
 	chainFamily string,
-) MultiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
+) MultiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT, TX] {
 	nodeSelector := func() NodeSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
 		switch selectionMode {
 		case NodeSelectionMode_HighestHead:
@@ -123,7 +130,7 @@ func NewMultiNodeClient[
 
 	lggr := logger.Named("MultiNodeClient").With("chainID", chainID.String())
 
-	c := &multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]{
+	c := &multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT, TX]{
 		nodes:               nodes,
 		sendonlys:           sendonlys,
 		chainID:             chainID,
@@ -141,7 +148,7 @@ func NewMultiNodeClient[
 }
 
 // selectNode returns the active Node, if it is still NodeStateAlive, otherwise it selects a new one from the NodeSelector.
-func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) SelectNode() (node Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) {
+func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT, TX]) SelectNode() (node Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) {
 	c.activeMu.RLock()
 	node = c.activeNode
 	c.activeMu.RUnlock()
@@ -169,19 +176,15 @@ func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) SelectNod
 	return c.activeNode
 }
 
-func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Dial(ctx context.Context) error {
-	return c.StartOnce("Client", func() (merr error) {
+func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT, TX]) Dial(ctx context.Context) error {
+	return c.StartOnce("MultiNodeClient", func() (merr error) {
 		if len(c.nodes) == 0 {
 			return errors.Errorf("no available nodes for chain %s", c.chainID.String())
 		}
 		var ms services.MultiStart
 		for _, n := range c.nodes {
-			chainID, err := n.ChainID()
-			if err != nil {
-				return errors.Errorf("Invalid ChainID")
-			}
-			if chainID.String() != c.chainID.String() {
-				return ms.CloseBecause(errors.Errorf("node %s has chain ID %s which does not match client chain ID of %s", n.String(), chainID.String(), c.chainID.String()))
+			if n.ConfiguredChainID().String() != c.chainID.String() {
+				return ms.CloseBecause(errors.Errorf("node %s has chain ID %s which does not match client chain ID of %s", n.String(), n.ConfiguredChainID().String(), c.chainID.String()))
 			}
 			rawNode, ok := n.(*node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT])
 			if ok {
@@ -197,12 +200,8 @@ func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Dial(ctx 
 			}
 		}
 		for _, s := range c.sendonlys {
-			chainID, err := s.ChainID()
-			if err != nil {
-				return errors.Errorf("Invalid ChainID")
-			}
-			if chainID.String() != c.chainID.String() {
-				return ms.CloseBecause(errors.Errorf("sendonly node %s has chain ID %s which does not match client chain ID of %s", s.String(), chainID.String(), c.chainID.String()))
+			if s.ConfiguredChainID().String() != c.chainID.String() {
+				return ms.CloseBecause(errors.Errorf("sendonly node %s has chain ID %s which does not match client chain ID of %s", s.String(), s.ConfiguredChainID().String(), c.chainID.String()))
 			}
 			if err := ms.Start(ctx, s); err != nil {
 				return err
@@ -215,9 +214,17 @@ func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Dial(ctx 
 	})
 }
 
+func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT, TX]) NodesAsSendOnlys() (nodes []SendOnlyNode[CHAIN_ID, RPC_CLIENT]) {
+	for _, n := range c.nodes {
+		nodes = append(nodes, n)
+	}
+	nodes = append(nodes, c.sendonlys...)
+	return
+}
+
 // Close tears down the pool and closes all nodes
-func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Close() error {
-	return c.StopOnce("Client", func() error {
+func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT, TX]) Close() error {
+	return c.StopOnce("MultiNodeClient", func() error {
 		close(c.chStop)
 		c.wg.Wait()
 
@@ -225,7 +232,7 @@ func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Close() e
 	})
 }
 
-func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) NodeStates() (states map[string]string) {
+func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT, TX]) NodeStates() (states map[string]string) {
 	states = make(map[string]string)
 	for _, n := range c.nodes {
 		states[n.Name()] = n.State().String()
@@ -238,7 +245,7 @@ func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) NodeState
 
 // nLiveNodes returns the number of currently alive nodes, as well as the highest block number and greatest total difficulty.
 // totalDifficulty will be 0 if all nodes return nil.
-func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *utils.Big) {
+func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT, TX]) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *utils.Big) {
 	totalDifficulty = utils.NewBigI(0)
 	for _, n := range c.nodes {
 		if s, num, td := n.StateAndLatest(); s == NodeStateAlive {
@@ -254,7 +261,7 @@ func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) nLiveNode
 	return
 }
 
-func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) runLoop() {
+func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT, TX]) runLoop() {
 	defer c.wg.Done()
 
 	c.report()
@@ -275,7 +282,7 @@ func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) runLoop()
 	}
 }
 
-func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) report() {
+func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT, TX]) report() {
 	type nodeWithState struct {
 		Node  string
 		State string
@@ -299,7 +306,7 @@ func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) report() 
 	}
 
 	live := total - dead
-	c.logger.Tracew(fmt.Sprintf("Client state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
+	c.logger.Tracew(fmt.Sprintf("MultiNodeClient state: %d/%d nodes are alive", live, total), "nodeStates", nodeStates)
 	if total == dead {
 		rerr := fmt.Errorf("no primary nodes available: 0/%d nodes are alive", total)
 		c.logger.Criticalw(rerr.Error(), "nodeStates", nodeStates)
@@ -309,178 +316,18 @@ func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) report() 
 	}
 }
 
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) BalanceAt(ctx context.Context, account ADDR, blockNumber *big.Int) (*big.Int, error) {
-// 	return c.selectNode().RPCClient().BalanceAt(ctx, account, blockNumber)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) BatchCallContext(ctx context.Context, b []any) error {
-// 	return c.selectNode().RPCClient().BatchCallContext(ctx, b)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) BatchCallContextAll(ctx context.Context, b []any) error {
-// 	var wg sync.WaitGroup
-// 	defer wg.Wait()
-
-// 	main := c.selectNode()
-// 	var all []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
-// 	all = append(all, c.nodes...)
-// 	all = append(all, c.sendonlys...)
-// 	for _, n := range all {
-// 		if n == main {
-// 			// main node is used at the end for the return value
-// 			continue
-// 		}
-// 		// Parallel call made to all other nodes with ignored return value
-// 		wg.Add(1)
-// 		go func(n Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) {
-// 			defer wg.Done()
-// 			err := n.RPCClient().BatchCallContext(ctx, b)
-// 			if err != nil {
-// 				c.logger.Debugw("Secondary node BatchCallContext failed", "err", err)
-// 			} else {
-// 				c.logger.Trace("Secondary node BatchCallContext success")
-// 			}
-// 		}(n)
-// 	}
-
-// 	return main.RPCClient().BatchCallContext(ctx, b)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) BlockByHash(ctx context.Context, hash BLOCK_HASH) (HEAD, error) {
-// 	return c.selectNode().RPCClient().BlockByHash(ctx, hash)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) BlockByNumber(ctx context.Context, number *big.Int) (HEAD, error) {
-// 	return c.selectNode().RPCClient().BlockByNumber(ctx, number)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-// 	return c.selectNode().RPCClient().CallContext(ctx, result, method, args...)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) CallContract(
-// 	ctx context.Context,
-// 	attempt interface{},
-// 	blockNumber *big.Int,
-// ) (rpcErr []byte, extractErr error) {
-// 	return c.selectNode().RPCClient().CallContract(ctx, attempt, blockNumber)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) ChainID() (CHAIN_ID, error) {
-// 	return c.selectNode().RPCClient().ChainID()
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) CodeAt(ctx context.Context, account ADDR, blockNumber *big.Int) ([]byte, error) {
-// 	return c.selectNode().RPCClient().CodeAt(ctx, account, blockNumber)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) ConfiguredChainID() CHAIN_ID {
-// 	return c.selectNode().RPCClient().ConfiguredChainID()
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) EstimateGas(ctx context.Context, call any) (gas uint64, err error) {
-// 	return c.selectNode().RPCClient().EstimateGas(ctx, call)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) FilterEvents(ctx context.Context, query EVENT_OPS) ([]EVENT, error) {
-// 	return c.selectNode().RPCClient().FilterEvents(ctx, query)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) IsL2() bool {
-// 	return c.ChainType().IsL2()
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
-// 	return c.selectNode().RPCClient().LatestBlockHeight(ctx)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) LINKBalance(ctx context.Context, accountAddress ADDR, linkAddress ADDR) (*assets.Link, error) {
-// 	return c.selectNode().RPCClient().LINKBalance(ctx, accountAddress, linkAddress)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error) {
-// 	return c.selectNode().RPCClient().PendingSequenceAt(ctx, addr)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) SendEmptyTransaction(
-// 	ctx context.Context,
-// 	newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt any, err error),
-// 	seq SEQ,
-// 	gasLimit uint32,
-// 	fee FEE,
-// 	fromAddress ADDR,
-// ) (txhash string, err error) {
-// 	return c.selectNode().RPCClient().SendEmptyTransaction(ctx, newTxAttempt, seq, gasLimit, fee, fromAddress)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) SendTransaction(ctx context.Context, tx *TX) error {
-// 	main := c.selectNode()
-// 	var all []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
-// 	all = append(all, c.nodes...)
-// 	all = append(all, c.sendonlys...)
-// 	for _, n := range all {
-// 		if n == main {
-// 			// main node is used at the end for the return value
-// 			continue
-// 		}
-// 		// Parallel send to all other nodes with ignored return value
-// 		// Async - we do not want to block the main thread with secondary nodes
-// 		// in case they are unreliable/slow.
-// 		// It is purely a "best effort" send.
-// 		// Resource is not unbounded because the default context has a timeout.
-// 		ok := c.IfNotStopped(func() {
-// 			// Must wrap inside IfNotStopped to avoid waitgroup racing with Close
-// 			c.wg.Add(1)
-// 			go func(n Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) {
-// 				defer c.wg.Done()
-
-// 				sendCtx, cancel := c.chStop.CtxCancel(ContextWithDefaultTimeout())
-// 				defer cancel()
-// 				err, _ := n.RPCClient().SendTransactionReturnCode(sendCtx, tx)
-// 				c.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
-// 				if err == TransactionAlreadyKnown || err == Successful {
-// 					// Nonce too low or transaction known errors are expected since
-// 					// the primary SendTransaction may well have succeeded already
-// 					return
-// 				}
-// 				c.logger.Warnw("Eth client returned error", "name", n.String(), "err", err, "tx", tx)
-// 			}(n)
-// 		})
-// 		if !ok {
-// 			c.logger.Debug("Cannot send transaction on sendonly node; pool is stopped", "node", n.String())
-// 		}
-// 	}
-
-// 	return main.RPCClient().SendTransaction(ctx, tx)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) SendTransactionReturnCode(
-// 	ctx context.Context,
-// 	tx *TX,
-// ) (SendTxReturnCode, error) {
-// 	return c.selectNode().RPCClient().SendTransactionReturnCode(ctx, tx)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) SequenceAt(ctx context.Context, account ADDR, blockNumber *big.Int) (SEQ, error) {
-// 	return c.selectNode().RPCClient().SequenceAt(ctx, account, blockNumber)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) SimulateTransaction(ctx context.Context, tx *TX) error {
-// 	return c.selectNode().RPCClient().SimulateTransaction(ctx, tx)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (SUB, error) {
-// 	return c.selectNode().RPCClient().Subscribe(ctx, channel, args)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) TokenBalance(ctx context.Context, account ADDR, tokenAddr ADDR) (*big.Int, error) {
-// 	return c.selectNode().RPCClient().TokenBalance(ctx, account, tokenAddr)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) TransactionByHash(ctx context.Context, txHash TX_HASH) (*TX, error) {
-// 	return c.selectNode().RPCClient().TransactionByHash(ctx, txHash)
-// }
-
-// func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) TransactionReceipt(ctx context.Context, txHash TX_HASH) (TX_RECEIPT, error) {
-// 	return c.selectNode().RPCClient().TransactionReceipt(ctx, txHash)
-// }
+func (c *multiNodeClient[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT, TX]) WrapSendOnlyTransaction(ctx context.Context, lggr logger.Logger, tx TX, n SendOnlyNode[CHAIN_ID, RPC_CLIENT],
+	f func(ctx context.Context, lggr logger.Logger, tx TX, n SendOnlyNode[CHAIN_ID, RPC_CLIENT]),
+) {
+	ok := c.IfNotStopped(func() {
+		// Must wrap inside IfNotStopped to avoid waitgroup racing with Close
+		c.wg.Add(1)
+		go func() {
+			defer c.wg.Done()
+			f(ctx, lggr, tx, n)
+		}()
+	})
+	if !ok {
+		c.logger.Debug("Cannot send transaction on sendonly node; multinodeclient is stopped", "node", n.String())
+	}
+}

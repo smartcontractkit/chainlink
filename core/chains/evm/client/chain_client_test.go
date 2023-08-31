@@ -1,6 +1,7 @@
 package client_test
 
 import (
+	"context"
 	"encoding/json"
 	"math/big"
 	"net/http/httptest"
@@ -15,6 +16,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
+
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -146,8 +149,8 @@ func TestEthChainClient_PendingSequenceAt(t *testing.T) {
 	result, err := chainClient.PendingSequenceAt(testutils.Context(t), address)
 	require.NoError(t, err)
 
-	var expected uint64 = 256
-	require.Equal(t, result, expected)
+	var expected int64 = 256
+	require.Equal(t, result.Int64(), expected)
 }
 
 func TestEthChainClient_BalanceAt(t *testing.T) {
@@ -351,4 +354,284 @@ func TestEthChainClient_SendTransaction_WithSecondaryURLs(t *testing.T) {
 	// Unfortunately it's a bit tricky to test this, since there is no
 	// synchronization. We have to rely on timing instead.
 	require.Eventually(t, func() bool { return service.sentCount.Load() == int32(2) }, testutils.WaitTimeout(t), 500*time.Millisecond)
+}
+
+func TestEthChainClient_SendTransactionReturnCode(t *testing.T) {
+	t.Parallel()
+
+	fromAddress := testutils.NewAddress()
+	tx := types.NewTransaction(uint64(42), testutils.NewAddress(), big.NewInt(142), 242, big.NewInt(342), []byte{1, 2, 3})
+
+	t.Run("returns Fatal error type when error message is fatal", func(t *testing.T) {
+		wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = headResult
+				return
+			case "eth_unsubscribe":
+				resp.Result = "true"
+				return
+			case "eth_sendRawTransaction":
+				resp.Result = `"` + tx.Hash().Hex() + `"`
+				resp.Error.Message = "invalid sender"
+			}
+			return
+		})
+
+		ethClient := mustNewClient(t, wsURL)
+		err := ethClient.Dial(testutils.Context(t))
+		require.NoError(t, err)
+
+		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+		assert.Error(t, err)
+		assert.Equal(t, errType, clienttypes.Fatal)
+	})
+
+	t.Run("returns TransactionAlreadyKnown error type when error message is nonce too low", func(t *testing.T) {
+		wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = headResult
+				return
+			case "eth_unsubscribe":
+				resp.Result = "true"
+				return
+			case "eth_sendRawTransaction":
+				resp.Result = `"` + tx.Hash().Hex() + `"`
+				resp.Error.Message = "nonce too low"
+			}
+			return
+		})
+
+		ethClient := mustNewClient(t, wsURL)
+		err := ethClient.Dial(testutils.Context(t))
+		require.NoError(t, err)
+
+		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+		assert.Error(t, err)
+		assert.Equal(t, errType, clienttypes.TransactionAlreadyKnown)
+	})
+
+	t.Run("returns Successful error type when there is no error message", func(t *testing.T) {
+		wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = headResult
+				return
+			case "eth_unsubscribe":
+				resp.Result = "true"
+				return
+			case "eth_sendRawTransaction":
+				resp.Result = `"` + tx.Hash().Hex() + `"`
+			}
+			return
+		})
+
+		ethClient := mustNewClient(t, wsURL)
+		err := ethClient.Dial(testutils.Context(t))
+		require.NoError(t, err)
+
+		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+		assert.NoError(t, err)
+		assert.Equal(t, errType, clienttypes.Successful)
+	})
+
+	t.Run("returns Underpriced error type when transaction is terminally underpriced", func(t *testing.T) {
+		wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = headResult
+				return
+			case "eth_unsubscribe":
+				resp.Result = "true"
+				return
+			case "eth_sendRawTransaction":
+				resp.Result = `"` + tx.Hash().Hex() + `"`
+				resp.Error.Message = "transaction underpriced"
+			}
+			return
+		})
+
+		ethClient := mustNewClient(t, wsURL)
+		err := ethClient.Dial(testutils.Context(t))
+		require.NoError(t, err)
+
+		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+		assert.Error(t, err)
+		assert.Equal(t, errType, clienttypes.Underpriced)
+	})
+
+	t.Run("returns Unsupported error type when error message is queue full", func(t *testing.T) {
+		wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = headResult
+				return
+			case "eth_unsubscribe":
+				resp.Result = "true"
+				return
+			case "eth_sendRawTransaction":
+				resp.Result = `"` + tx.Hash().Hex() + `"`
+				resp.Error.Message = "queue full"
+			}
+			return
+		})
+
+		ethClient := mustNewClient(t, wsURL)
+		err := ethClient.Dial(testutils.Context(t))
+		require.NoError(t, err)
+
+		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+		assert.Error(t, err)
+		assert.Equal(t, errType, clienttypes.Unsupported)
+	})
+
+	t.Run("returns Retryable error type when there is a transaction gap", func(t *testing.T) {
+		wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = headResult
+				return
+			case "eth_unsubscribe":
+				resp.Result = "true"
+				return
+			case "eth_sendRawTransaction":
+				resp.Result = `"` + tx.Hash().Hex() + `"`
+				resp.Error.Message = "NonceGap"
+			}
+			return
+		})
+
+		ethClient := mustNewClient(t, wsURL)
+		err := ethClient.Dial(testutils.Context(t))
+		require.NoError(t, err)
+
+		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+		assert.Error(t, err)
+		assert.Equal(t, errType, clienttypes.Retryable)
+	})
+
+	t.Run("returns InsufficientFunds error type when the sender address doesn't have enough funds", func(t *testing.T) {
+		wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = headResult
+				return
+			case "eth_unsubscribe":
+				resp.Result = "true"
+				return
+			case "eth_sendRawTransaction":
+				resp.Result = `"` + tx.Hash().Hex() + `"`
+				resp.Error.Message = "insufficient funds for transfer"
+			}
+			return
+		})
+
+		ethClient := mustNewClient(t, wsURL)
+		err := ethClient.Dial(testutils.Context(t))
+		require.NoError(t, err)
+
+		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+		assert.Error(t, err)
+		assert.Equal(t, errType, clienttypes.InsufficientFunds)
+	})
+
+	t.Run("returns ExceedsFeeCap error type when gas price is too high for the node", func(t *testing.T) {
+		wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = headResult
+				return
+			case "eth_unsubscribe":
+				resp.Result = "true"
+				return
+			case "eth_sendRawTransaction":
+				resp.Result = `"` + tx.Hash().Hex() + `"`
+				resp.Error.Message = "Transaction fee cap exceeded"
+			}
+			return
+		})
+
+		ethClient := mustNewClient(t, wsURL)
+		err := ethClient.Dial(testutils.Context(t))
+		require.NoError(t, err)
+
+		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+		assert.Error(t, err)
+		assert.Equal(t, errType, clienttypes.ExceedsMaxFee)
+	})
+
+	t.Run("returns Unknown error type when the error can't be categorized", func(t *testing.T) {
+		wsURL := cltest.NewWSServer(t, &cltest.FixtureChainID, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+			switch method {
+			case "eth_subscribe":
+				resp.Result = `"0x00"`
+				resp.Notify = headResult
+				return
+			case "eth_unsubscribe":
+				resp.Result = "true"
+				return
+			case "eth_sendRawTransaction":
+				resp.Result = `"` + tx.Hash().Hex() + `"`
+				resp.Error.Message = "some random error"
+			}
+			return
+		})
+
+		ethClient := mustNewClient(t, wsURL)
+		err := ethClient.Dial(testutils.Context(t))
+		require.NoError(t, err)
+
+		errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
+		assert.Error(t, err)
+		assert.Equal(t, errType, clienttypes.Unknown)
+	})
+}
+
+func TestEthChainClient_SubscribeNewHead(t *testing.T) {
+	t.Parallel()
+
+	ctx, cancel := context.WithTimeout(testutils.Context(t), testutils.WaitTimeout(t))
+	defer cancel()
+
+	chainId := big.NewInt(123456)
+	wsURL := cltest.NewWSServer(t, chainId, func(method string, params gjson.Result) (resp testutils.JSONRPCResponse) {
+		if method == "eth_unsubscribe" {
+			resp.Result = "true"
+			return
+		}
+		assert.Equal(t, "eth_subscribe", method)
+		if assert.True(t, params.IsArray()) && assert.Equal(t, "newHeads", params.Array()[0].String()) {
+			resp.Result = `"0x00"`
+			resp.Notify = headResult
+		}
+		return
+	})
+
+	ethClient := mustNewClientWithChainID(t, wsURL, chainId)
+	err := ethClient.Dial(testutils.Context(t))
+	require.NoError(t, err)
+
+	headCh := make(chan *evmtypes.Head)
+	sub, err := ethClient.SubscribeNewHead(ctx, headCh)
+	require.NoError(t, err)
+	defer sub.Unsubscribe()
+
+	select {
+	case err := <-sub.Err():
+		t.Fatal(err)
+	case <-ctx.Done():
+		t.Fatal(ctx.Err())
+	case h := <-headCh:
+		require.NotNil(t, h.EVMChainID)
+		require.Zero(t, chainId.Cmp(h.EVMChainID.ToInt()))
+	}
 }

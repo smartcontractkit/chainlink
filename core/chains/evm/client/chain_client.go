@@ -15,26 +15,20 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type ChainClient struct {
-	utils.StartStopOnce
-	nodes     []clienttypes.Node[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient]
-	sendonlys []clienttypes.Node[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient]
-
 	multiNodeClient clienttypes.MultiNodeClient[
 		*big.Int,
 		common.Hash,
 		*evmtypes.Head,
 		ethereum.Subscription,
 		RPCClient,
+		*types.Transaction,
 	]
 
 	chainType config.ChainType
 	logger    logger.Logger
-	chStop    utils.StopChan
-	wg        sync.WaitGroup
 }
 
 func (c *ChainClient) NewClient(
@@ -42,22 +36,19 @@ func (c *ChainClient) NewClient(
 	selectionMode string,
 	noNewHeadsThreshold time.Duration,
 	nodes []clienttypes.Node[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient],
-	sendonlys []clienttypes.Node[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient],
+	sendonlys []clienttypes.SendOnlyNode[*big.Int, RPCClient],
 	chainID *big.Int,
 	chainType config.ChainType,
 ) *ChainClient {
-	multiNodeClient := clienttypes.NewMultiNodeClient[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient](
+	multiNodeClient := clienttypes.NewMultiNodeClient[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient, *types.Transaction](
 		logger, selectionMode, noNewHeadsThreshold, nodes, sendonlys, chainID, "EVM",
 	)
 
 	lggr := logger.Named("Client").With("chainID", chainID.String())
 
 	client := &ChainClient{
-		nodes:           nodes,
-		sendonlys:       sendonlys,
 		multiNodeClient: multiNodeClient,
 		logger:          lggr,
-		chStop:          make(chan struct{}),
 	}
 
 	return client
@@ -83,17 +74,14 @@ func (c *ChainClient) BatchCallContextAll(ctx context.Context, b []any) error {
 	defer wg.Wait()
 
 	main := c.multiNodeClient.SelectNode()
-	var all []clienttypes.Node[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient]
-	all = append(all, c.nodes...)
-	all = append(all, c.sendonlys...)
-	for _, n := range all {
+	for _, n := range c.multiNodeClient.NodesAsSendOnlys() {
 		if n == main {
 			// main node is used at the end for the return value
 			continue
 		}
 		// Parallel call made to all other nodes with ignored return value
 		wg.Add(1)
-		go func(n clienttypes.Node[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient]) {
+		go func(n clienttypes.SendOnlyNode[*big.Int, RPCClient]) {
 			defer wg.Done()
 			err := n.RPCClient().BatchCallContext(ctx, b)
 			if err != nil {
@@ -135,8 +123,10 @@ func (c *ChainClient) CallContract(
 	return c.multiNodeClient.SelectNode().RPCClient().CallContract(ctx, attempt, blockNumber)
 }
 
-func (c *ChainClient) ChainID() (*big.Int, error) {
-	return c.multiNodeClient.SelectNode().RPCClient().ChainID()
+// ChainID makes a direct RPC call. In most cases it should be better to use the configured chain id instead by
+// calling ConfiguredChainID.
+func (c *ChainClient) ChainID(ctx context.Context) (*big.Int, error) {
+	return c.multiNodeClient.SelectNode().RPCClient().ChainID(ctx)
 }
 
 func (c *ChainClient) CodeAt(ctx context.Context, account common.Address, blockNumber *big.Int) ([]byte, error) {
@@ -144,7 +134,7 @@ func (c *ChainClient) CodeAt(ctx context.Context, account common.Address, blockN
 }
 
 func (c *ChainClient) ConfiguredChainID() *big.Int {
-	return c.multiNodeClient.SelectNode().RPCClient().ConfiguredChainID()
+	return c.multiNodeClient.SelectNode().ConfiguredChainID()
 }
 
 func (c *ChainClient) EstimateGas(ctx context.Context, call any) (gas uint64, err error) {
@@ -184,10 +174,7 @@ func (c *ChainClient) SendEmptyTransaction(
 
 func (c *ChainClient) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	main := c.multiNodeClient.SelectNode()
-	var all []clienttypes.Node[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient]
-	all = append(all, c.nodes...)
-	all = append(all, c.sendonlys...)
-	for _, n := range all {
+	for _, n := range c.multiNodeClient.NodesAsSendOnlys() {
 		if n == main {
 			// main node is used at the end for the return value
 			continue
@@ -197,37 +184,24 @@ func (c *ChainClient) SendTransaction(ctx context.Context, tx *types.Transaction
 		// in case they are unreliable/slow.
 		// It is purely a "best effort" send.
 		// Resource is not unbounded because the default context has a timeout.
-		ok := c.IfNotStopped(func() {
-			// Must wrap inside IfNotStopped to avoid waitgroup racing with Close
-			c.wg.Add(1)
-			go func(n clienttypes.Node[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient]) {
-				defer c.wg.Done()
-
-				sendCtx, cancel := c.chStop.CtxCancel(ContextWithDefaultTimeout())
-				defer cancel()
-				err, _ := n.RPCClient().SendTransactionReturnCode(sendCtx, tx)
-				c.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
-				if err == clienttypes.TransactionAlreadyKnown || err == clienttypes.Successful {
-					// Nonce too low or transaction known errors are expected since
-					// the primary SendTransaction may well have succeeded already
-					return
-				}
-				c.logger.Warnw("Eth client returned error", "name", n.String(), "err", err, "tx", tx)
-			}(n)
-		})
-		if !ok {
-			c.logger.Debug("Cannot send transaction on sendonly node; pool is stopped", "node", n.String())
-		}
+		c.multiNodeClient.WrapSendOnlyTransaction(ctx, c.logger, tx, n, sendOnlyTransaction)
 	}
 
 	return main.RPCClient().SendTransaction(ctx, tx)
 }
 
-func (c *ChainClient) SendTransactionReturnCode(
-	ctx context.Context,
-	tx *types.Transaction,
-) (clienttypes.SendTxReturnCode, error) {
-	return c.multiNodeClient.SelectNode().RPCClient().SendTransactionReturnCode(ctx, tx)
+func sendOnlyTransaction(ctx context.Context, lggr logger.Logger, tx *types.Transaction, n clienttypes.SendOnlyNode[*big.Int, RPCClient]) {
+	err := n.RPCClient().SendTransaction(ctx, tx)
+	lggr.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", err)
+	sendOnlyError, err := NewSendOnlyErrorReturnCode(err)
+	if sendOnlyError != clienttypes.Successful {
+		lggr.Warnw("Eth client returned error", "name", n.String(), "err", err, "tx", tx)
+	}
+}
+
+func (c *ChainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (clienttypes.SendTxReturnCode, error) {
+	err := c.SendTransaction(ctx, tx)
+	return NewSendErrorReturnCode(err, c.logger, tx, fromAddress, c.ChainType().IsL2())
 }
 
 func (c *ChainClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {

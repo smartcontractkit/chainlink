@@ -30,6 +30,10 @@ var (
 		Name: "pool_rpc_node_num_transitions_to_invalid_chain_id",
 		Help: transitionString(NodeStateInvalidChainID),
 	}, []string{"chainID", "nodeName"})
+	promPoolRPCNodeTransitionsToUnusable = promauto.NewCounterVec(prometheus.CounterOpts{
+		Name: "pool_rpc_node_num_transitions_to_unusable",
+		Help: transitionString(NodeStateUnusable),
+	}, []string{"chainID", "nodeName"})
 )
 
 // NodeState represents the current state of the node
@@ -119,7 +123,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) StateAndLatest() (No
 func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) setState(s NodeState) {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	n.SetState(s)
+	n.state = s
 }
 
 // declareXXX methods change the state and pass conrol off the new state
@@ -142,7 +146,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) transitionToAlive(fn
 	}
 	switch n.state {
 	case NodeStateDialed, NodeStateInvalidChainID:
-		n.SetState(NodeStateAlive)
+		n.state = NodeStateAlive
 	default:
 		panic(transitionFail(n.state, NodeStateAlive))
 	}
@@ -169,7 +173,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) transitionToInSync(f
 	}
 	switch n.state {
 	case NodeStateOutOfSync:
-		n.SetState(NodeStateAlive)
+		n.state = NodeStateAlive
 	default:
 		panic(transitionFail(n.state, NodeStateAlive))
 	}
@@ -196,7 +200,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) transitionToOutOfSyn
 	switch n.state {
 	case NodeStateAlive:
 		n.disconnectAll()
-		n.SetState(NodeStateOutOfSync)
+		n.state = NodeStateOutOfSync
 	default:
 		panic(transitionFail(n.state, NodeStateOutOfSync))
 	}
@@ -221,7 +225,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) transitionToUnreacha
 	switch n.state {
 	case NodeStateUndialed, NodeStateDialed, NodeStateAlive, NodeStateOutOfSync, NodeStateInvalidChainID:
 		n.disconnectAll()
-		n.SetState(NodeStateUnreachable)
+		n.state = NodeStateUnreachable
 	default:
 		panic(transitionFail(n.state, NodeStateUnreachable))
 	}
@@ -246,7 +250,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) transitionToInvalidC
 	switch n.state {
 	case NodeStateDialed, NodeStateOutOfSync:
 		n.disconnectAll()
-		n.SetState(NodeStateInvalidChainID)
+		n.state = NodeStateInvalidChainID
 	default:
 		panic(transitionFail(n.state, NodeStateInvalidChainID))
 	}

@@ -42,8 +42,8 @@ var (
 // NOTE: This only applies to out-of-sync nodes if they are the last available node
 func zombieNodeCheckInterval(noNewHeadsThreshold time.Duration) time.Duration {
 	interval := noNewHeadsThreshold
-	if interval <= 0 || interval > queryTimeout {
-		interval = queryTimeout
+	if interval <= 0 || interval > QueryTimeout {
+		interval = QueryTimeout
 	}
 	return utils.WithJitter(interval)
 }
@@ -137,9 +137,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) aliveLoop() {
 			promPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
 			lggr.Tracew("Polling for version", "nodeState", n.State(), "pollFailures", pollFailures)
 			ctx, cancel := context.WithTimeout(n.nodeCtx, pollInterval)
-			ctx, cancel2 := n.makeQueryCtx(ctx)
-			_, err := n.RPCClient().ClientVersion(ctx)
-			cancel2()
+			version, err := n.RPCClient().ClientVersion(ctx)
 			cancel()
 			if err != nil {
 				// prevent overflow
@@ -290,10 +288,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) outOfSyncLoop(isOutO
 	lggr.Tracew("Successfully subscribed to heads feed on out-of-sync RPC node", "nodeState", n.State())
 
 	ch := make(chan HEAD)
-	subCtx, cancel := n.makeQueryCtx(n.nodeCtx)
-	// raw call here to bypass node state checking
-	sub, err := n.rpcClient.Subscribe(subCtx, ch, "newHeads")
-	cancel()
+	sub, err := n.rpcClient.Subscribe(n.nodeCtx, ch, "newHeads")
 	if err != nil {
 		lggr.Errorw("Failed to subscribe heads on out-of-sync RPC node", "nodeState", n.State(), "err", err)
 		n.declareUnreachable()

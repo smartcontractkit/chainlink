@@ -1,4 +1,4 @@
-package client
+package types
 
 import (
 	"context"
@@ -18,13 +18,13 @@ type RPCClient[
 	TX_HASH types.Hashable,
 	EVENT any,
 	EVENT_OPS any, // event filter query options
-	TX_RECEIPT any,
+	TX_RECEIPT types.ChainReceipt[TX_HASH, BLOCK_HASH],
 	FEE feetypes.Fee,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
 ] interface {
 	Accounts[ADDR, SEQ]
-	Transactions[ADDR, TX, TX_HASH, TX_RECEIPT, SEQ, FEE]
+	Transactions[ADDR, TX, TX_HASH, BLOCK_HASH, TX_RECEIPT, SEQ, FEE]
 	Events[EVENT, EVENT_OPS]
 	Blocks[HEAD, BLOCK_HASH]
 
@@ -35,9 +35,8 @@ type RPCClient[
 		blockNumber *big.Int,
 	) (rpcErr []byte, extractErr error)
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
-	ChainID() (CHAIN_ID, error)
+	ChainID(ctx context.Context) (CHAIN_ID, error)
 	CodeAt(ctx context.Context, account ADDR, blockNumber *big.Int) ([]byte, error)
-	ConfiguredChainID() CHAIN_ID
 
 	Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (SUB, error)
 }
@@ -55,14 +54,15 @@ type Transactions[
 	ADDR types.Hashable,
 	TX any,
 	TX_HASH types.Hashable,
-	TX_RECEIPT any,
+	BLOCK_HASH types.Hashable,
+	TX_RECEIPT types.ChainReceipt[TX_HASH, BLOCK_HASH],
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
 	SendTransaction(ctx context.Context, tx *TX) error
 	SimulateTransaction(ctx context.Context, tx *TX) error
 	TransactionByHash(ctx context.Context, txHash TX_HASH) (*TX, error)
-	TransactionReceipt(ctx context.Context, txHash TX_HASH) (*TX_RECEIPT, error)
+	TransactionReceipt(ctx context.Context, txHash TX_HASH) (TX_RECEIPT, error)
 	SendEmptyTransaction(
 		ctx context.Context,
 		newTxAttempt func(seq SEQ, feeLimit uint32, fee FEE, fromAddress ADDR) (attempt any, err error),
@@ -71,10 +71,6 @@ type Transactions[
 		fee FEE,
 		fromAddress ADDR,
 	) (txhash string, err error)
-	SendTransactionReturnCode(
-		ctx context.Context,
-		tx *TX,
-	) (SendTxReturnCode, error)
 }
 
 type Blocks[HEAD types.Head[BLOCK_HASH], BLOCK_HASH types.Hashable] interface {

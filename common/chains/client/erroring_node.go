@@ -5,6 +5,7 @@ import (
 
 	"github.com/pkg/errors"
 
+	nodetypes "github.com/smartcontractkit/chainlink/v2/common/chains/client/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -14,13 +15,13 @@ type erroringNode[
 	BLOCK_HASH types.Hashable,
 	HEAD types.Head[BLOCK_HASH],
 	SUB types.Subscription,
-	RPC_CLIENT NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	RPC_CLIENT nodetypes.NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
 ] struct {
 	errMsg string
 }
 
-func (e *erroringNode[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) ChainID() (chainID CHAIN_ID, err error) {
-	return chainID, errors.New(e.errMsg)
+func (e *erroringNode[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) ConfiguredChainID() (chainID CHAIN_ID) {
+	return chainID
 }
 
 func (e *erroringNode[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Start(ctx context.Context) error {
