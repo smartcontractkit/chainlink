@@ -250,6 +250,8 @@ type JobProposalCounts struct {
 	Cancelled int64
 	Approved  int64
 	Rejected  int64
+	Deleted   int64
+	Revoked   int64
 }
 
 // toMetrics transforms JobProposalCounts into a map with float64 values for setting metrics
