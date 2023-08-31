@@ -110,7 +110,8 @@ func (p *logEventProvider) register(lpFilter logpoller.Filter, ufilter upkeepFil
 		return err
 	}
 	p.filterStore.AddActiveUpkeeps(ufilter)
-	p.poller.ReplayAsync(int64(ufilter.configUpdateBlock))
+	// TODO: Only do replay if this is a new filter seen in log poller
+	// p.poller.ReplayAsync(int64(ufilter.configUpdateBlock))
 
 	return nil
 }
