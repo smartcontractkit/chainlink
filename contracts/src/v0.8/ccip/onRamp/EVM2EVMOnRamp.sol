@@ -263,9 +263,9 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     // We want to disallow sending to address(0) and to precompiles, which exist on address(1) through address(9).
     if (decodedReceiver > type(uint160).max || decodedReceiver < 10) revert InvalidAddress(message.receiver);
 
-    Client.EVMExtraArgsV1 memory extraArgs = _fromBytes(message.extraArgs);
+    uint256 gasLimit = _fromBytes(message.extraArgs).gasLimit;
     // Validate the message with various checks
-    _validateMessage(message.data.length, extraArgs.gasLimit, message.tokenAmounts.length);
+    _validateMessage(message.data.length, gasLimit, message.tokenAmounts.length);
 
     // Rate limit on aggregated token value
     _rateLimitValue(message.tokenAmounts, IPriceRegistry(s_dynamicConfig.priceRegistry));
@@ -294,7 +294,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
       sender: originalSender,
       receiver: address(uint160(decodedReceiver)),
       sequenceNumber: ++s_sequenceNumber,
-      gasLimit: extraArgs.gasLimit,
+      gasLimit: gasLimit,
       strict: false,
       nonce: ++s_senderNonce[originalSender],
       feeToken: message.feeToken,
