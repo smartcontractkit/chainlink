@@ -149,6 +149,8 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
+	backend.Commit()
+	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
 	_, addrs, contracts := deployUpkeepCounter(ctx, t, 1, ethClient, backend, carrol, logProvider)
 	lp.PollAndSaveLogs(ctx, int64(5))
 	require.Equal(t, 1, len(contracts))
@@ -222,6 +224,8 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 
 	n := 10
 
+	backend.Commit()
+	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
 	_, _, contracts := deployUpkeepCounter(ctx, t, n, ethClient, backend, carrol, logProvider)
 
 	poll := pollFn(ctx, t, lp, ethClient)
@@ -276,6 +280,8 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 		filterStore := logprovider.NewUpkeepFilterStore()
 		provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
 		logProvider := provider.(logprovider.LogEventProviderTest)
+		backend.Commit()
+		lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
 
 		rounds := 5
 		numberOfUserContracts := 10
@@ -480,8 +486,10 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 	provider, recoverer := setup(logger.TestLogger(t), lp, nil, utilsABI, &mockUpkeepStateStore{}, filterStore, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
-	n := 10
+	backend.Commit()
+	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
 
+	n := 10
 	_, _, contracts := deployUpkeepCounter(ctx, t, n, ethClient, backend, carrol, logProvider)
 
 	poll := pollFn(ctx, t, lp, ethClient)
