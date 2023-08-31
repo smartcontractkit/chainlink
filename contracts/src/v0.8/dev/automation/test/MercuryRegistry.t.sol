@@ -51,7 +51,11 @@ contract MercuryRegistryTest is Test {
     // Set owner, and fork Arbitrum Goerli Testnet (chain ID 421613).
     // A public Arbitrum Goerli RPC url is being used, and the fork should be cached in CI so availability is not an issue for test runs.
     vm.startPrank(OWNER);
-    vm.selectFork(vm.createFork("https://goerli-rollup.arbitrum.io/rpc", BLOCK_NUMBER));
+    try vm.envBool("CI") returns (bool /* ci */) {
+      vm.selectFork(vm.createFork("https://goerli-rollup.arbitrum.io/rpc", BLOCK_NUMBER));
+    } catch {
+      vm.selectFork(vm.createFork("https://goerli-rollup.arbitrum.io/rpc"));
+    }
     vm.chainId(31337); // restore chain Id
 
     // Use a BTC feed and ETH feed.

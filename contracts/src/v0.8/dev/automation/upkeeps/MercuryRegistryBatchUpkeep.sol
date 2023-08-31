@@ -13,8 +13,8 @@ contract MercuryRegistryBatchUpkeep is ConfirmedOwner, AutomationCompatibleInter
 
   MercuryRegistry immutable i_registry; // master registry, where feed data is stored
 
-  uint256 s_batchStart; // starting index of upkeep batch, inclusive
-  uint256 s_batchEnd; // ending index of upkeep batch, exclusive
+  uint256 s_batchStart; // starting index of upkeep batch on the MercuryRegistry's s_feeds array, inclusive
+  uint256 s_batchEnd; // ending index of upkeep batch on the MercuryRegistry's s_feeds array, exclusive
 
   constructor(address mercuryRegistry, uint256 batchStart, uint256 batchEnd) ConfirmedOwner(msg.sender) {
     i_registry = MercuryRegistry(mercuryRegistry);
