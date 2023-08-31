@@ -57,6 +57,7 @@ type TxStoreWebApi interface {
 	TxAttempts(offset, limit int) ([]TxAttempt, int, error)
 	TransactionsWithAttempts(offset, limit int) ([]Tx, int, error)
 	FindTxAttempt(hash common.Hash) (*TxAttempt, error)
+	FindTxWithAttempts(etxID int64) (etx Tx, err error)
 }
 
 type TestEvmTxStore interface {
@@ -66,7 +67,6 @@ type TestEvmTxStore interface {
 	InsertReceipt(receipt *evmtypes.Receipt) (int64, error)
 	InsertTx(etx *Tx) error
 	FindTxAttemptsByTxIDs(ids []int64) ([]TxAttempt, error)
-	FindTxWithAttempts(etxID int64) (etx Tx, err error)
 	InsertTxAttempt(attempt *TxAttempt) error
 	LoadTxesAttempts(etxs []*Tx, qopts ...pg.QOpt) error
 }
