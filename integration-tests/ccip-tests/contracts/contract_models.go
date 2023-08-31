@@ -1,4 +1,4 @@
-package ccip
+package contracts
 
 import (
 	"context"

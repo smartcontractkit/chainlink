@@ -15,7 +15,7 @@ inputs:
     required: false
   suites:
     description: The test suites to build into the image
-    default: chaos migration performance reorg smoke soak benchmark load
+    default: chaos migration performance reorg smoke soak benchmark ccip-tests/load ccip-tests/smoke ccip-tests/chaos
     required: false
   QA_AWS_ROLE_TO_ASSUME:
     description: The AWS role to assume as the CD user, if any. Used in configuring the docker/login-action
