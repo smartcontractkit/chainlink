@@ -450,6 +450,10 @@ func (s *service) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, er
 		return 0, errors.Wrap(err, "DeleteProposal failed")
 	}
 
+	if err = s.observeJobProposalCounts(); err != nil {
+		return 0, err
+	}
+
 	return proposal.ID, nil
 }
 
@@ -492,6 +496,10 @@ func (s *service) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, er
 		s.lggr.Errorw("Failed to revoke the proposal", "err", err)
 
 		return 0, errors.Wrap(err, "RevokeSpec failed")
+	}
+
+	if err = s.observeJobProposalCounts(); err != nil {
+		return 0, err
 	}
 
 	return proposal.ID, nil
