@@ -61,12 +61,13 @@ type CSAETHKeystore interface {
 }
 
 func NewRelayer(db *sqlx.DB, chain evm.Chain, cfg pg.QConfig, lggr logger.Logger, ks CSAETHKeystore, eventBroadcaster pg.EventBroadcaster) *Relayer {
+	lggr = lggr.Named("Relayer")
 	return &Relayer{
 		db:               db,
 		chain:            chain,
-		lggr:             lggr.Named("Relayer"),
+		lggr:             lggr,
 		ks:               ks,
-		mercuryPool:      wsrpc.NewPool(lggr.Named("Mercury.WSRPCPool")),
+		mercuryPool:      wsrpc.NewPool(lggr),
 		eventBroadcaster: eventBroadcaster,
 		pgCfg:            cfg,
 	}

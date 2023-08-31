@@ -1,9 +1,9 @@
-package evm
+package transmit
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
-	"math/big"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -20,18 +20,24 @@ import (
 
 var _ ocr2keepers.TransmitEventProvider = &TransmitEventProvider{}
 
+type logParser func(registry *iregistry21.IKeeperRegistryMaster, log logpoller.Log) (transmitEventLog, error)
+
 type TransmitEventProvider struct {
 	sync     utils.StartStopOnce
 	mu       sync.RWMutex
 	runState int
 	runError error
 
-	logger          logger.Logger
-	logPoller       logpoller.LogPoller
+	logger    logger.Logger
+	logPoller logpoller.LogPoller
+	registry  *iregistry21.IKeeperRegistryMaster
+	client    evmclient.Client
+
 	registryAddress common.Address
 	lookbackBlocks  int64
-	registry        *iregistry21.IKeeperRegistryMaster
-	client          evmclient.Client
+
+	parseLog logParser
+	cache    transmitEventCache
 }
 
 func TransmitEventProviderFilterName(addr common.Address) string {
@@ -75,6 +81,8 @@ func NewTransmitEventProvider(
 		lookbackBlocks:  lookbackBlocks,
 		registry:        contract,
 		client:          client,
+		parseLog:        defaultLogParser,
+		cache:           newTransmitEventCache(lookbackBlocks),
 	}, nil
 }
 
@@ -147,70 +155,30 @@ func (c *TransmitEventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keep
 		return nil, fmt.Errorf("%w: failed to collect logs from log poller", err)
 	}
 
-	parsed, err := c.parseLogs(logs)
-	if err != nil {
-		return nil, fmt.Errorf("%w: failed to parse logs", err)
-	}
-
-	return c.convertToTransmitEvents(parsed, end)
+	return c.processLogs(end, logs...)
 }
 
-func (c *TransmitEventProvider) parseLogs(logs []logpoller.Log) ([]transmitEventLog, error) {
-	results := []transmitEventLog{}
+// processLogs will parse the unseen logs and return the corresponding transmit events.
+// If a log was seen before it won't be returned.
+func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller.Log) ([]ocr2keepers.TransmitEvent, error) {
+	vals := []ocr2keepers.TransmitEvent{}
+	visited := make(map[string]ocr2keepers.TransmitEvent)
 
 	for _, log := range logs {
-		rawLog := log.ToGethLog()
-		abilog, err := c.registry.ParseLog(rawLog)
-		if err != nil {
-			return nil, fmt.Errorf("%w: failed to parse log", err)
-		}
-
-		switch l := abilog.(type) {
-		case *iregistry21.IKeeperRegistryMasterUpkeepPerformed:
-			if l == nil {
-				continue
-			}
-			results = append(results, transmitEventLog{
-				Log:       log,
-				Performed: l,
-			})
-		case *iregistry21.IKeeperRegistryMasterReorgedUpkeepReport:
-			if l == nil {
-				continue
-			}
-			results = append(results, transmitEventLog{
-				Log:     log,
-				Reorged: l,
-			})
-		case *iregistry21.IKeeperRegistryMasterStaleUpkeepReport:
-			if l == nil {
-				continue
-			}
-			results = append(results, transmitEventLog{
-				Log:   log,
-				Stale: l,
-			})
-		case *iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport:
-			if l == nil {
-				continue
-			}
-			results = append(results, transmitEventLog{
-				Log:               log,
-				InsufficientFunds: l,
-			})
-		default:
-			c.logger.Debugw("skipping unknown log type", "l", l)
+		k := c.logKey(log)
+		if _, ok := visited[k]; ok {
+			// ensure we don't have duplicates
 			continue
 		}
-	}
-
-	return results, nil
-}
-
-func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog, latestBlock int64) ([]ocr2keepers.TransmitEvent, error) {
-	vals := []ocr2keepers.TransmitEvent{}
-
-	for _, l := range logs {
+		if _, ok := c.cache.get(ocr2keepers.BlockNumber(log.BlockNumber), k); ok {
+			// ensure we return only unseen logs
+			continue
+		}
+		l, err := c.parseLog(c.registry, log)
+		if err != nil {
+			c.logger.Debugw("failed to parse log", "err", err)
+			continue
+		}
 		id := l.Id()
 		upkeepId := &ocr2keepers.UpkeepIdentifier{}
 		ok := upkeepId.FromBigInt(id)
@@ -233,7 +201,7 @@ func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog,
 		default:
 		}
 		workID := core.UpkeepWorkID(*upkeepId, trigger)
-		vals = append(vals, ocr2keepers.TransmitEvent{
+		e := ocr2keepers.TransmitEvent{
 			Type:            l.TransmitEventType(),
 			TransmitBlock:   ocr2keepers.BlockNumber(l.BlockNumber),
 			Confirmations:   latestBlock - l.BlockNumber,
@@ -241,62 +209,25 @@ func (c *TransmitEventProvider) convertToTransmitEvents(logs []transmitEventLog,
 			WorkID:          workID,
 			UpkeepID:        *upkeepId,
 			CheckBlock:      trigger.BlockNumber,
-		})
+		}
+		vals = append(vals, e)
+		visited[k] = e
+	}
+
+	// adding to the cache only after we've processed all the logs
+	// the next time we call processLogs we don't want to return these logs
+	for k, e := range visited {
+		c.cache.add(k, e)
 	}
 
 	return vals, nil
 }
 
-// transmitEventLog is a wrapper around logpoller.Log and the parsed log
-type transmitEventLog struct {
-	logpoller.Log
-	Performed         *iregistry21.IKeeperRegistryMasterUpkeepPerformed
-	Stale             *iregistry21.IKeeperRegistryMasterStaleUpkeepReport
-	Reorged           *iregistry21.IKeeperRegistryMasterReorgedUpkeepReport
-	InsufficientFunds *iregistry21.IKeeperRegistryMasterInsufficientFundsUpkeepReport
-}
-
-func (l transmitEventLog) Id() *big.Int {
-	switch {
-	case l.Performed != nil:
-		return l.Performed.Id
-	case l.Stale != nil:
-		return l.Stale.Id
-	case l.Reorged != nil:
-		return l.Reorged.Id
-	case l.InsufficientFunds != nil:
-		return l.InsufficientFunds.Id
-	default:
-		return nil
+func (c *TransmitEventProvider) logKey(log logpoller.Log) string {
+	logExt := ocr2keepers.LogTriggerExtension{
+		TxHash: log.TxHash,
+		Index:  uint32(log.LogIndex),
 	}
-}
-
-func (l transmitEventLog) Trigger() []byte {
-	switch {
-	case l.Performed != nil:
-		return l.Performed.Trigger
-	case l.Stale != nil:
-		return l.Stale.Trigger
-	case l.Reorged != nil:
-		return l.Reorged.Trigger
-	case l.InsufficientFunds != nil:
-		return l.InsufficientFunds.Trigger
-	default:
-		return []byte{}
-	}
-}
-
-func (l transmitEventLog) TransmitEventType() ocr2keepers.TransmitEventType {
-	switch {
-	case l.Performed != nil:
-		return ocr2keepers.PerformEvent
-	case l.Stale != nil:
-		return ocr2keepers.StaleReportEvent
-	case l.Reorged != nil:
-		return ocr2keepers.ReorgReportEvent
-	case l.InsufficientFunds != nil:
-		return ocr2keepers.InsufficientFundsReportEvent
-	default:
-		return ocr2keepers.UnknownEvent
-	}
+	logId := logExt.LogIdentifier()
+	return hex.EncodeToString(logId)
 }

@@ -75,7 +75,7 @@ func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[stri
 		httpServer: httpServer,
 		handlers:   handlers,
 		connMgr:    connMgr,
-		lggr:       lggr.Named("gateway"),
+		lggr:       lggr.Named("Gateway"),
 	}
 	httpServer.SetHTTPRequestHandler(gw)
 	return gw
