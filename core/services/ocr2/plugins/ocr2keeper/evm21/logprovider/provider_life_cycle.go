@@ -2,6 +2,7 @@ package logprovider
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -11,14 +12,19 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
 	// LogRetention is the amount of time to retain logs for.
 	LogRetention = 24 * time.Hour
+	// When adding a filter in log poller, backfill is done for this number of blocks
+	// from latest
+	LogBackfillBuffer = 250
 )
 
 func (p *logEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, error) {
+	// Exploratory: investigate how we can batch the refresh
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -53,7 +59,7 @@ func (p *logEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, er
 	return newIDs, merr
 }
 
-func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
+func (p *logEventProvider) RegisterFilter(ctx context.Context, opts FilterOptions) error {
 	upkeepID, cfg := opts.UpkeepID, opts.TriggerConfig
 	if err := p.validateLogTriggerConfig(cfg); err != nil {
 		return fmt.Errorf("invalid log trigger config: %w", err)
@@ -92,11 +98,11 @@ func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
 	filter.lastPollBlock = 0
 	filter.lastRePollBlock = 0
 	filter.configUpdateBlock = opts.UpdateBlock
-	filter.addr = lpFilter.Addresses[0].Bytes()
-	filter.topics = make([]common.Hash, len(lpFilter.EventSigs))
-	copy(filter.topics, lpFilter.EventSigs)
+	filter.selector = cfg.FilterSelector
+	filter.addr = cfg.ContractAddress.Bytes()
+	filter.topics = []common.Hash{cfg.Topic0, cfg.Topic1, cfg.Topic2, cfg.Topic3}
 
-	if err := p.register(lpFilter, filter); err != nil {
+	if err := p.register(ctx, lpFilter, filter); err != nil {
 		return fmt.Errorf("failed to register upkeep filter %s: %w", filter.upkeepID.String(), err)
 	}
 
@@ -104,12 +110,23 @@ func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
 }
 
 // register registers the upkeep filter with the log poller and adds it to the filter store.
-func (p *logEventProvider) register(lpFilter logpoller.Filter, ufilter upkeepFilter) error {
+func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filter, ufilter upkeepFilter) error {
+	latest, err := p.poller.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return fmt.Errorf("failed to get latest block while registering filter: %w", err)
+	}
 	if err := p.poller.RegisterFilter(lpFilter); err != nil {
 		return err
 	}
 	p.filterStore.AddActiveUpkeeps(ufilter)
-	p.poller.ReplayAsync(int64(ufilter.configUpdateBlock))
+	backfillBlock := latest - int64(LogBackfillBuffer)
+	if backfillBlock < 1 {
+		// New chain, backfill from start
+		backfillBlock = 1
+	}
+	// TODO: Optimise to do backfill from ufilter.configUpdateBlock only for new filters
+	// if it is not too old
+	p.poller.ReplayAsync(backfillBlock)
 
 	return nil
 }
@@ -129,11 +146,11 @@ func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
 
 // newLogFilter creates logpoller.Filter from the given upkeep config
 func (p *logEventProvider) newLogFilter(upkeepID *big.Int, cfg LogTriggerConfig) logpoller.Filter {
-	topics := p.getFiltersBySelector(cfg.FilterSelector, cfg.Topic1[:], cfg.Topic2[:], cfg.Topic3[:])
-	topics = append([]common.Hash{common.BytesToHash(cfg.Topic0[:])}, topics...)
 	return logpoller.Filter{
-		Name:      p.filterName(upkeepID),
-		EventSigs: topics,
+		Name: p.filterName(upkeepID),
+		// log poller filter treats this event sigs slice as an array of topic0
+		// since we don't support multiple events right now, only put one topic0 here
+		EventSigs: []common.Hash{common.BytesToHash(cfg.Topic0[:])},
 		Addresses: []common.Address{cfg.ContractAddress},
 		Retention: LogRetention,
 	}
@@ -148,26 +165,12 @@ func (p *logEventProvider) validateLogTriggerConfig(cfg LogTriggerConfig) error 
 	if bytes.Equal(cfg.Topic0[:], zeroBytes[:]) {
 		return errors.New("invalid topic0: zeroed")
 	}
-	return nil
-}
-
-// getFiltersBySelector the filters based on the filterSelector
-func (p *logEventProvider) getFiltersBySelector(filterSelector uint8, filters ...[]byte) []common.Hash {
-	var sigs []common.Hash
-	var zeroBytes [32]byte
-	for i, f := range filters {
-		// bitwise AND the filterSelector with the index to check if the filter is needed
-		mask := uint8(1 << uint8(i))
-		a := filterSelector & mask
-		if a == uint8(0) {
-			continue
-		}
-		if bytes.Equal(f, zeroBytes[:]) {
-			continue
-		}
-		sigs = append(sigs, common.BytesToHash(common.LeftPadBytes(f, 32)))
+	s := cfg.FilterSelector
+	if s >= 8 {
+		p.lggr.Error("filter selector %d is invalid", s)
+		return errors.New("invalid filter selector: larger or equal to 8")
 	}
-	return sigs
+	return nil
 }
 
 func (p *logEventProvider) filterName(upkeepID *big.Int) string {

@@ -51,7 +51,7 @@ type FilterOptions struct {
 
 type LogTriggersLifeCycle interface {
 	// RegisterFilter registers the filter (if valid) for the given upkeepID.
-	RegisterFilter(opts FilterOptions) error
+	RegisterFilter(ctx context.Context, opts FilterOptions) error
 	// UnregisterFilter removes the filter for the given upkeepID.
 	UnregisterFilter(upkeepID *big.Int) error
 }
@@ -384,7 +384,8 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 		if configUpdateBlock := int64(filter.configUpdateBlock); start < configUpdateBlock {
 			start = configUpdateBlock
 		}
-		logs, err := p.poller.LogsWithSigs(start, latest, filter.topics, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
+		// query logs based on contract address, event sig, and blocks
+		logs, err := p.poller.LogsWithSigs(start, latest, []common.Hash{filter.topics[0]}, common.BytesToAddress(filter.addr), pg.WithParentCtx(ctx))
 		if err != nil {
 			// cancel limit reservation as we failed to get logs
 			resv.Cancel()
@@ -395,6 +396,8 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 			merr = errors.Join(merr, fmt.Errorf("failed to get logs for upkeep %s: %w", filter.upkeepID.String(), err))
 			continue
 		}
+		filteredLogs := filter.Select(logs...)
+
 		// if this limiter's burst was set to the max ->
 		// reset it and cancel the reservation to allow further processing
 		if filter.blockLimiter.Burst() == maxBurst {
@@ -402,7 +405,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 			filter.blockLimiter.SetBurst(p.opts.BlockLimitBurst)
 		}
 
-		p.buffer.enqueue(filter.upkeepID, logs...)
+		p.buffer.enqueue(filter.upkeepID, filteredLogs...)
 
 		filter.lastPollBlock = latest
 	}

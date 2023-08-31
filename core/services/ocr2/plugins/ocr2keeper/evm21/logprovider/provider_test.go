@@ -261,7 +261,7 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 	for i := 0; i < 10; i++ {
 		cfg, f := newEntry(p, i+1)
 		ids = append(ids, f.upkeepID)
-		require.NoError(t, p.RegisterFilter(FilterOptions{
+		require.NoError(t, p.RegisterFilter(ctx, FilterOptions{
 			UpkeepID:      f.upkeepID,
 			TriggerConfig: cfg,
 		}))

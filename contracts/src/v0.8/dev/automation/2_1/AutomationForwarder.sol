@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import "../../../interfaces/TypeAndVersionInterface.sol";
 import {IAutomationRegistryConsumer} from "./interfaces/IAutomationRegistryConsumer.sol";
 
 uint256 constant PERFORM_GAS_CUSHION = 5_000;
@@ -13,8 +12,12 @@ uint256 constant PERFORM_GAS_CUSHION = 5_000;
  * want to programatically interact with the registry (ie top up funds) can do so.
  */
 contract AutomationForwarder {
+  /// @notice the user's target contract address
   address private immutable i_target;
+
+  /// @notice the shared logic address
   address private immutable i_logic;
+
   IAutomationRegistryConsumer private s_registry;
 
   constructor(address target, address registry, address logic) {
