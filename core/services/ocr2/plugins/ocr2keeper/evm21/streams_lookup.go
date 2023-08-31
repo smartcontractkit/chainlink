@@ -108,7 +108,6 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 			// user contract did not revert with StreamsLookup error
 			continue
 		}
-		lggr.Infof("at block %d upkeep %s finished decodeStreamsLookup feeds=%s, extraData=%s", l.block, l.upkeepId.String(), l.feeds, hexutil.Encode(l.extraData))
 
 		if len(l.feeds) == 0 {
 			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
@@ -387,6 +386,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 			}
 
 			var m MercuryV02Response
+			lggr.Warnf("BODY=%s", hexutil.Encode(body))
 			err1 = json.Unmarshal(body, &m)
 			if err1 != nil {
 				lggr.Warnf("at block %s upkeep %s failed to unmarshal body to MercuryV02Response for feed %s: %v", sl.time.String(), sl.upkeepId.String(), sl.feeds[index], err1)
