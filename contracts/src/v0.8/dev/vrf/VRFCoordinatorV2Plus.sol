@@ -672,7 +672,12 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     bytes memory encodedData = abi.encode(migrationData);
     deleteSubscription(subId);
     IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: ethBalance}(encodedData);
-    require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
+
+    // Only transfer LINK if the token is active and there is a balance.
+    if (address(LINK) != address(0) && balance != 0) {
+      require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
+    }
+
     for (uint256 i = 0; i < consumers.length; i++) {
       IVRFMigratableConsumerV2Plus(consumers[i]).setCoordinator(newCoordinator);
     }
