@@ -89,6 +89,7 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 	mp := new(mocks.LogPoller)
 	mp.On("RegisterFilter", mock.Anything).Return(nil)
 	mp.On("UnregisterFilter", mock.Anything).Return(nil)
+	mp.On("LatestBlock", mock.Anything).Return(int64(0), nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
 	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
 
@@ -119,6 +120,7 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	mp := new(mocks.LogPoller)
 	mp.On("RegisterFilter", mock.Anything).Return(nil)
 	mp.On("UnregisterFilter", mock.Anything).Return(nil)
+	mp.On("LatestBlock", mock.Anything).Return(int64(0), nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
 
 	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
