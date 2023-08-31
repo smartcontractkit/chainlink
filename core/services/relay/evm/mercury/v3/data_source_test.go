@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	relaymercuryv3 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v3"
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -295,9 +296,9 @@ func Test_Datasource(t *testing.T) {
 				obs, err := ds.Observe(ctx, repts, false)
 				assert.NoError(t, err)
 
-				assert.Equal(t, obs.LinkPrice.Val, relaymercury.MaxInt192)
+				assert.Equal(t, obs.LinkPrice.Val, relaymercuryv3.MissingPrice)
 				assert.Nil(t, obs.LinkPrice.Err)
-				assert.Equal(t, obs.NativePrice.Val, relaymercury.MaxInt192)
+				assert.Equal(t, obs.NativePrice.Val, relaymercuryv3.MissingPrice)
 				assert.Nil(t, obs.NativePrice.Err)
 			})
 		})

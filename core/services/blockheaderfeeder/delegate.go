@@ -156,7 +156,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		return nil, errors.Wrap(err, "building batchBHS")
 	}
 
-	log := d.logger.Named("Block Header Feeder").With(
+	log := d.logger.Named("BlockHeaderFeeder").With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
 		"bhsAddress", bhs.Address(),
