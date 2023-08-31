@@ -196,7 +196,7 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, 
 		Method:                "secrets_set",
 		DonID:                 cfg.Common.DONID,
 		S4SetSlotID:           0,
-		S4SetVersion:          1,
+		S4SetVersion:          uint64(time.Now().UnixNano()),
 		S4SetExpirationPeriod: 60 * 60 * 1000,
 		S4SetPayload:          secrets,
 	}); err != nil {
@@ -229,7 +229,7 @@ func ParseTDH2Key(data []byte) (*tdh2easy.PublicKey, error) {
 	return pk, nil
 }
 
-func EncryptS4Secrets(deployerPk *ecdsa.PrivateKey, tdh2Pk *tdh2easy.PublicKey, donKey []byte, msg string) (string, error) {
+func EncryptS4Secrets(deployerPk *ecdsa.PrivateKey, tdh2Pk *tdh2easy.PublicKey, donKey []byte, msgJSON string) (string, error) {
 	b := make([]byte, 1)
 	b[0] = 0x04
 	donKey = bytes.Join([][]byte{b, donKey}, nil)
@@ -238,16 +238,16 @@ func EncryptS4Secrets(deployerPk *ecdsa.PrivateKey, tdh2Pk *tdh2easy.PublicKey, 
 		return "", errors.Wrap(err, "failed to unmarshal DON key")
 	}
 	eciesDONPubKey := ecies.ImportECDSAPublic(donPubKey)
-	signature, err := deployerPk.Sign(rand.Reader, []byte(msg), nil)
+	signature, err := deployerPk.Sign(rand.Reader, []byte(msgJSON), nil)
 	if err != nil {
 		return "", errors.Wrap(err, "failed to sign the msg with Ethereum key")
 	}
 	signedSecrets, err := json.Marshal(struct {
-		Signature []byte
-		Message   string
+		Signature []byte `json:"signature"`
+		Message   string `json:"message"`
 	}{
 		Signature: signature,
-		Message:   msg,
+		Message:   msgJSON,
 	})
 	if err != nil {
 		return "", errors.Wrap(err, "failed to marshal signed secrets")
