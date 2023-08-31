@@ -222,6 +222,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 	if err != nil {
 		return nil, fmt.Errorf("could not read logs: %w", err)
 	}
+	logs = filter.Select(logs...)
 
 	for _, log := range logs {
 		trigger := logToTrigger(log)
@@ -399,7 +400,7 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 			visitedAt: time.Now(),
 			payload:   payload,
 		}
-		r.pending = append(r.pending, payload)
+		r.addPending(payload)
 	}
 	return len(r.pending) - pendingSizeBefore, alreadyPending
 }
@@ -510,26 +511,23 @@ func (r *logRecoverer) clean(ctx context.Context) {
 		lggr.Debug("no expired upkeeps")
 		return
 	}
-	cleaned, err := r.tryExpire(ctx, expired...)
+	err := r.tryExpire(ctx, expired...)
 	if err != nil {
 		lggr.Warnw("failed to clean visited upkeeps", "err", err)
 	}
-	if len(expired) > 0 {
-		lggr.Debugw("expired upkeeps", "expired", len(expired), "cleaned", cleaned)
-	}
 }
 
-func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) (int, error) {
+func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 	latestBlock, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
-		return 0, fmt.Errorf("failed to get latest block: %w", err)
+		return fmt.Errorf("failed to get latest block: %w", err)
 	}
 	sort.Slice(ids, func(i, j int) bool {
 		return ids[i] < ids[j]
 	})
 	states, err := r.states.SelectByWorkIDs(ctx, ids...)
 	if err != nil {
-		return 0, fmt.Errorf("failed to get states: %w", err)
+		return fmt.Errorf("failed to get states: %w", err)
 	}
 	lggr := r.lggr.With("where", "clean")
 	start, _ := r.getRecoveryWindow(latestBlock)
@@ -549,12 +547,13 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) (int, error
 			if logBlock := rec.payload.Trigger.LogTriggerExtension.BlockNumber; int64(logBlock) < start {
 				// we can't recover this log anymore, so we remove it from the visited list
 				lggr.Debugw("removing expired log: old block", "upkeepID", rec.payload.UpkeepID,
-					"logBlock", logBlock, "start", start)
+					"latestBlock", latestBlock, "logBlock", logBlock, "start", start)
+				r.removePending(rec.payload.WorkID)
 				delete(r.visited, ids[i])
 				removed++
 				continue
 			}
-			r.pending = append(r.pending, rec.payload)
+			r.addPending(rec.payload)
 			rec.visitedAt = time.Now()
 			r.visited[ids[i]] = rec
 		default:
@@ -563,5 +562,36 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) (int, error
 		}
 	}
 
-	return removed, nil
+	if removed > 0 {
+		lggr.Debugw("expired upkeeps", "expired", len(ids), "cleaned", removed)
+	}
+
+	return nil
+}
+
+// addPending adds a payload to the pending list if it's not already there.
+// NOTE: the lock must be held before calling this function.
+func (r *logRecoverer) addPending(payload ocr2keepers.UpkeepPayload) {
+	var exist bool
+	pending := r.pending
+	for _, p := range pending {
+		if p.WorkID == payload.WorkID {
+			exist = true
+		}
+	}
+	if !exist {
+		r.pending = append(pending, payload)
+	}
+}
+
+// removePending removes a payload from the pending list.
+// NOTE: the lock must be held before calling this function.
+func (r *logRecoverer) removePending(workID string) {
+	updated := make([]ocr2keepers.UpkeepPayload, 0, len(r.pending))
+	for _, p := range r.pending {
+		if p.WorkID != workID {
+			updated = append(updated, p)
+		}
+	}
+	r.pending = updated
 }

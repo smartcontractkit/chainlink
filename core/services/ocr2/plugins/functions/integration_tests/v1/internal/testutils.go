@@ -124,7 +124,8 @@ func CreateAndFundSubscriptions(t *testing.T, b *backends.SimulatedBackend, owne
 		var s [32]byte
 		copy(s[:], flatSignature[32:64])
 		v := flatSignature[65]
-		allowListContract.AcceptTermsOfService(owner, owner.From, owner.From, r, s, v)
+		_, err = allowListContract.AcceptTermsOfService(owner, owner.From, owner.From, r, s, v)
+		require.NoError(t, err)
 	}
 
 	_, err = routerContract.CreateSubscription(owner)
