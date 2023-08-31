@@ -3,6 +3,7 @@ package logprovider
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"sort"
 	"testing"
@@ -97,11 +98,12 @@ func TestLogRecoverer_GetRecoverables(t *testing.T) {
 }
 
 func TestLogRecoverer_Clean(t *testing.T) {
+	oldLogsOffset := int64(20)
+
 	tests := []struct {
 		name        string
 		pending     []ocr2keepers.UpkeepPayload
 		visited     map[string]visitedRecord
-		latestBlock int64
 		states      []ocr2keepers.UpkeepState
 		wantPending []ocr2keepers.UpkeepPayload
 		wantVisited []string
@@ -110,7 +112,6 @@ func TestLogRecoverer_Clean(t *testing.T) {
 			"empty",
 			[]ocr2keepers.UpkeepPayload{},
 			map[string]visitedRecord{},
-			0,
 			[]ocr2keepers.UpkeepState{},
 			[]ocr2keepers.UpkeepPayload{},
 			[]string{},
@@ -120,13 +121,14 @@ func TestLogRecoverer_Clean(t *testing.T) {
 			[]ocr2keepers.UpkeepPayload{
 				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
 				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+				{WorkID: "3", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "3")},
 			},
 			map[string]visitedRecord{
 				"1": visitedRecord{time.Now(), ocr2keepers.UpkeepPayload{
 					WorkID: "1",
 					Trigger: ocr2keepers.Trigger{
 						LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
-							BlockNumber: 50,
+							BlockNumber: ocr2keepers.BlockNumber(oldLogsOffset * 2),
 						},
 					},
 				}},
@@ -134,7 +136,7 @@ func TestLogRecoverer_Clean(t *testing.T) {
 					WorkID: "2",
 					Trigger: ocr2keepers.Trigger{
 						LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
-							BlockNumber: 50,
+							BlockNumber: ocr2keepers.BlockNumber(oldLogsOffset * 2),
 						},
 					},
 				}},
@@ -142,7 +144,7 @@ func TestLogRecoverer_Clean(t *testing.T) {
 					WorkID: "3",
 					Trigger: ocr2keepers.Trigger{
 						LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
-							BlockNumber: 50,
+							BlockNumber: ocr2keepers.BlockNumber(oldLogsOffset - 10),
 						},
 					},
 				}},
@@ -150,14 +152,13 @@ func TestLogRecoverer_Clean(t *testing.T) {
 					WorkID: "4",
 					Trigger: ocr2keepers.Trigger{
 						LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
-							BlockNumber: 50,
+							BlockNumber: ocr2keepers.BlockNumber(oldLogsOffset + 10),
 						},
 					},
 				}},
 			},
-			200,
 			[]ocr2keepers.UpkeepState{
-				ocr2keepers.Ineligible,
+				ocr2keepers.UnknownState,
 				ocr2keepers.UnknownState,
 			},
 			[]ocr2keepers.UpkeepPayload{
@@ -176,8 +177,10 @@ func TestLogRecoverer_Clean(t *testing.T) {
 
 			lookbackBlocks := int64(100)
 			r, _, lp, statesReader := setupTestRecoverer(t, time.Millisecond*50, lookbackBlocks)
+			start, _ := r.getRecoveryWindow(0)
+			block24h := int64(math.Abs(float64(start)))
 
-			lp.On("LatestBlock", mock.Anything).Return(tc.latestBlock, nil)
+			lp.On("LatestBlock", mock.Anything).Return(block24h+oldLogsOffset, nil)
 			statesReader.On("SelectByWorkIDs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, nil)
 
 			r.lock.Lock()
@@ -910,6 +913,63 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.wantBytes, b)
 			}
+		})
+	}
+}
+
+func TestLogRecoverer_pending(t *testing.T) {
+	tests := []struct {
+		name  string
+		exist []ocr2keepers.UpkeepPayload
+		new   []ocr2keepers.UpkeepPayload
+		want  []ocr2keepers.UpkeepPayload
+	}{
+		{
+			"empty",
+			[]ocr2keepers.UpkeepPayload{},
+			[]ocr2keepers.UpkeepPayload{},
+			[]ocr2keepers.UpkeepPayload{},
+		},
+		{
+			"add new and existing",
+			[]ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+			},
+			[]ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+			},
+			[]ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, nil, NewOptions(200))
+			r.lock.Lock()
+			r.pending = tc.exist
+			for _, p := range tc.new {
+				r.addPending(p)
+			}
+			pending := r.pending
+			require.GreaterOrEqual(t, len(pending), len(tc.new))
+			require.Equal(t, len(tc.want), len(pending))
+			sort.Slice(pending, func(i, j int) bool {
+				return pending[i].WorkID < pending[j].WorkID
+			})
+			for i := range pending {
+				require.Equal(t, tc.want[i].WorkID, pending[i].WorkID)
+			}
+			r.lock.Unlock()
+			for _, p := range tc.want {
+				r.removePending(p.WorkID)
+			}
+			r.lock.Lock()
+			defer r.lock.Unlock()
+			require.Equal(t, 0, len(r.pending))
 		})
 	}
 }
