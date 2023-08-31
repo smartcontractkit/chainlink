@@ -208,10 +208,10 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 // allowedToUseMercury retrieves upkeep's administrative offchain config and decode a mercuryEnabled bool to indicate if
 // this upkeep is allowed to use Mercury service.
 func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (state encoding.PipelineExecutionState, reason encoding.UpkeepFailureReason, retryable bool, allow bool, err error) {
-	allowed, ok := r.mercury.allowListCache.Get(upkeepId.String())
-	if ok {
-		return encoding.NoPipelineError, encoding.UpkeepFailureReasonNone, false, allowed.(bool), nil
-	}
+	//allowed, ok := r.mercury.allowListCache.Get(upkeepId.String())
+	//if ok {
+	//	return encoding.NoPipelineError, encoding.UpkeepFailureReasonNone, false, allowed.(bool), nil
+	//}
 
 	cfg, err := r.registry.GetUpkeepPrivilegeConfig(opts, upkeepId)
 	if err != nil {

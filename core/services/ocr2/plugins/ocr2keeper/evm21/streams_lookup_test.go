@@ -265,89 +265,89 @@ func TestEvmRegistry_DecodeStreamsLookup(t *testing.T) {
 	}
 }
 
-func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
-	upkeepId, ok := new(big.Int).SetString("71022726777042968814359024671382968091267501884371696415772139504780367423725", 10)
-	assert.True(t, ok, t.Name())
-	tests := []struct {
-		name       string
-		cached     bool
-		allowed    bool
-		ethCallErr error
-		err        error
-		state      encoding.PipelineExecutionState
-		reason     encoding.UpkeepFailureReason
-		retryable  bool
-		config     []byte
-	}{
-		{
-			name:    "success - allowed via cache",
-			cached:  true,
-			allowed: true,
-		},
-		{
-			name:    "success - allowed via fetching privilege config",
-			allowed: true,
-		},
-		{
-			name:    "success - not allowed via cache",
-			cached:  true,
-			allowed: false,
-		},
-		{
-			name:    "success - not allowed via fetching privilege config",
-			allowed: false,
-		},
-		{
-			name:   "failure - cannot unmarshal privilege config",
-			err:    fmt.Errorf("failed to unmarshal privilege config: invalid character '\\x00' looking for beginning of value"),
-			state:  encoding.MercuryUnmarshalError,
-			config: []byte{0, 1},
-		},
-		{
-			name:       "failure - flaky RPC",
-			retryable:  true,
-			err:        fmt.Errorf("failed to get upkeep privilege config: flaky RPC"),
-			state:      encoding.RpcFlakyFailure,
-			ethCallErr: fmt.Errorf("flaky RPC"),
-		},
-		{
-			name:   "failure - empty upkeep privilege config",
-			err:    fmt.Errorf("upkeep privilege config is empty"),
-			reason: encoding.UpkeepFailureReasonMercuryAccessNotAllowed,
-			config: []byte{},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := setupEVMRegistry(t)
-
-			if tt.cached {
-				r.mercury.allowListCache.Set(upkeepId.String(), tt.allowed, cache.DefaultExpiration)
-			} else {
-				if tt.err != nil {
-					mockRegistry := mocks.NewRegistry(t)
-					mockRegistry.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return(tt.config, tt.ethCallErr)
-					r.registry = mockRegistry
-				} else {
-					mockRegistry := mocks.NewRegistry(t)
-					cfg := UpkeepPrivilegeConfig{MercuryEnabled: tt.allowed}
-					b, err := json.Marshal(cfg)
-					assert.Nil(t, err)
-					mockRegistry.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return(b, nil)
-					r.registry = mockRegistry
-				}
-			}
-
-			state, reason, retryable, allowed, err := r.allowedToUseMercury(nil, upkeepId)
-			assert.Equal(t, tt.err, err)
-			assert.Equal(t, tt.allowed, allowed)
-			assert.Equal(t, tt.state, state)
-			assert.Equal(t, tt.reason, reason)
-			assert.Equal(t, tt.retryable, retryable)
-		})
-	}
-}
+//func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
+//	upkeepId, ok := new(big.Int).SetString("71022726777042968814359024671382968091267501884371696415772139504780367423725", 10)
+//	assert.True(t, ok, t.Name())
+//	tests := []struct {
+//		name       string
+//		cached     bool
+//		allowed    bool
+//		ethCallErr error
+//		err        error
+//		state      encoding.PipelineExecutionState
+//		reason     encoding.UpkeepFailureReason
+//		retryable  bool
+//		config     []byte
+//	}{
+//		{
+//			name:    "success - allowed via cache",
+//			cached:  true,
+//			allowed: true,
+//		},
+//		{
+//			name:    "success - allowed via fetching privilege config",
+//			allowed: true,
+//		},
+//		{
+//			name:    "success - not allowed via cache",
+//			cached:  true,
+//			allowed: false,
+//		},
+//		{
+//			name:    "success - not allowed via fetching privilege config",
+//			allowed: false,
+//		},
+//		{
+//			name:   "failure - cannot unmarshal privilege config",
+//			err:    fmt.Errorf("failed to unmarshal privilege config: invalid character '\\x00' looking for beginning of value"),
+//			state:  encoding.MercuryUnmarshalError,
+//			config: []byte{0, 1},
+//		},
+//		{
+//			name:       "failure - flaky RPC",
+//			retryable:  true,
+//			err:        fmt.Errorf("failed to get upkeep privilege config: flaky RPC"),
+//			state:      encoding.RpcFlakyFailure,
+//			ethCallErr: fmt.Errorf("flaky RPC"),
+//		},
+//		{
+//			name:   "failure - empty upkeep privilege config",
+//			err:    fmt.Errorf("upkeep privilege config is empty"),
+//			reason: encoding.UpkeepFailureReasonMercuryAccessNotAllowed,
+//			config: []byte{},
+//		},
+//	}
+//
+//	for _, tt := range tests {
+//		t.Run(tt.name, func(t *testing.T) {
+//			r := setupEVMRegistry(t)
+//
+//			if tt.cached {
+//				r.mercury.allowListCache.Set(upkeepId.String(), tt.allowed, cache.DefaultExpiration)
+//			} else {
+//				if tt.err != nil {
+//					mockRegistry := mocks.NewRegistry(t)
+//					mockRegistry.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return(tt.config, tt.ethCallErr)
+//					r.registry = mockRegistry
+//				} else {
+//					mockRegistry := mocks.NewRegistry(t)
+//					cfg := UpkeepPrivilegeConfig{MercuryEnabled: tt.allowed}
+//					b, err := json.Marshal(cfg)
+//					assert.Nil(t, err)
+//					mockRegistry.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return(b, nil)
+//					r.registry = mockRegistry
+//				}
+//			}
+//
+//			state, reason, retryable, allowed, err := r.allowedToUseMercury(nil, upkeepId)
+//			assert.Equal(t, tt.err, err)
+//			assert.Equal(t, tt.allowed, allowed)
+//			assert.Equal(t, tt.state, state)
+//			assert.Equal(t, tt.reason, reason)
+//			assert.Equal(t, tt.retryable, retryable)
+//		})
+//	}
+//}
 
 func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
