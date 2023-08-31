@@ -113,11 +113,10 @@ func (s *Shell) configExitErr(validateFn func() error) cli.ExitCoder {
 			fmt.Println("Invalid configuration:", err)
 			fmt.Println()
 			return s.errorOut(errors.New("invalid configuration"))
-		} else {
-			fmt.Printf("Notification for upcoming configuration change: %v\n", err)
-			fmt.Println("This configuration will be disallowed in future production releases.")
-			fmt.Println()
 		}
+		fmt.Printf("Notification for upcoming configuration change: %v\n", err)
+		fmt.Println("This configuration will be disallowed in future production releases.")
+		fmt.Println()
 	}
 	return nil
 }
