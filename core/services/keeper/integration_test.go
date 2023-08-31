@@ -538,7 +538,7 @@ func TestMaxPerformDataSize(t *testing.T) {
 		backend.Commit()
 
 		// setup app
-		config, db := heavyweight.FullTestDBV2(t, fmt.Sprintf("keeper_max_perform_data_test"), func(c *chainlink.Config, s *chainlink.Secrets) {
+		config, db := heavyweight.FullTestDBV2(t, "keeper_max_perform_data_test", func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.Keeper.MaxGracePeriod = ptr[int64](0)                                 // avoid waiting to re-submit for upkeeps
 			c.Keeper.Registry.SyncInterval = models.MustNewDuration(24 * time.Hour) // disable full sync ticker for test
 			c.Keeper.Registry.MaxPerformDataSize = ptr(uint32(maxPerformDataSize))  // set the max perform data size

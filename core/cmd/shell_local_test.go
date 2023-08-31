@@ -89,7 +89,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				Logger:   lggr,
 				DB:       db,
 				KeyStore: keyStore.Eth(),
-				RelayerConfig: evm.RelayerConfig{
+				RelayerConfig: &evm.RelayerConfig{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					MailMon:          &utils.MailboxMonitor{},
@@ -136,10 +136,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				if err := cli.Before(c); err != nil {
 					return err
 				}
-				if err := client.RunNode(c); err != nil {
-					return err
-				}
-				return nil
+				return client.RunNode(c)
 			}
 
 			if test.wantUnlocked {
@@ -196,7 +193,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 				Logger:   lggr,
 				DB:       db,
 				KeyStore: keyStore.Eth(),
-				RelayerConfig: evm.RelayerConfig{
+				RelayerConfig: &evm.RelayerConfig{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 

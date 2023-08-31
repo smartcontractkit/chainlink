@@ -105,7 +105,6 @@ func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId
 		r.lggr.Warnf("latest block is %d, check block number %s is too old for upkeepId %s", r.bs.latestBlock.Load(), checkBlock, upkeepId)
 		return encoding.CheckBlockTooOld, false
 	}
-	r.lggr.Warnf("latestBlock=%d checkBlock=%d", r.bs.latestBlock.Load().Number, checkBlock.Int64())
 
 	var h string
 	var ok bool
@@ -331,6 +330,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		if !simulatePerformSuccess {
 			r.lggr.Warnf("upkeepId %s is not eligible after simulation of perform", checkResults[idx].UpkeepID.String())
 			checkResults[performToKeyIdx[i]].Eligible = false
+			checkResults[performToKeyIdx[i]].IneligibilityReason = uint8(encoding.UpkeepFailureReasonSimulationFailed)
 		}
 	}
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -152,6 +153,22 @@ func (v *EthereumVRFCoordinatorV2Plus) AddConsumer(subId *big.Int, consumerAddre
 	return v.client.ProcessTransaction(tx)
 }
 
+func (v *EthereumVRFCoordinatorV2Plus) FundSubscriptionWithEth(subId *big.Int, nativeTokenAmount *big.Int) error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	opts.Value = nativeTokenAmount
+	tx, err := v.coordinator.FundSubscriptionWithEth(
+		opts,
+		subId,
+	)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
 func (v *EthereumVRFCoordinatorV2Plus) FindSubscriptionID() (*big.Int, error) {
 	owner := v.client.GetDefaultWallet().Address()
 	subscriptionIterator, err := v.coordinator.FilterSubscriptionCreated(
@@ -167,6 +184,26 @@ func (v *EthereumVRFCoordinatorV2Plus) FindSubscriptionID() (*big.Int, error) {
 	}
 
 	return subscriptionIterator.Event.SubId, nil
+}
+
+func (v *EthereumVRFCoordinatorV2Plus) WaitForRandomWordsFulfilledEvent(subID []*big.Int, requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled, error) {
+	randomWordsFulfilledEventsChannel := make(chan *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled)
+	subscription, err := v.coordinator.WatchRandomWordsFulfilled(nil, randomWordsFulfilledEventsChannel, requestID, subID)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for RandomWordsFulfilled event")
+		case randomWordsFulfilledEvent := <-randomWordsFulfilledEventsChannel:
+			return randomWordsFulfilledEvent, nil
+		}
+	}
 }
 
 func (v *EthereumVRFv2PlusLoadTestConsumer) Address() string {
