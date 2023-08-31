@@ -56,7 +56,15 @@ contract FunctionsLoadTestClient is FunctionsClient, ConfirmedOwner {
   }
 
   function getStats() public view onlyOwner returns (bytes32, bytes32, bytes32, uint32, uint32, uint32, uint32) {
-    return (lastRequestID, lastResponse, lastError, totalRequests, totalSucceededResponses, totalFailedResponses, totalEmptyResponses);
+    return (
+      lastRequestID,
+      lastResponse,
+      lastError,
+      totalRequests,
+      totalSucceededResponses,
+      totalFailedResponses,
+      totalEmptyResponses
+    );
   }
 
   /**

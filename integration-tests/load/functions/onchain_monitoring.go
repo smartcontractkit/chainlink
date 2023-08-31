@@ -46,7 +46,7 @@ func MonitorLoadStats(t *testing.T, ft *FunctionsTest, labels map[string]string)
 				log.Error().Err(err).Msg(ErrMetrics)
 			}
 			log.Info().
-				Str("LastReqID", stats.LastRequestID).
+				Hex("LastReqID", []byte(stats.LastRequestID)).
 				Str("LastResponse", stats.LastResponse).
 				Str("LastError", stats.LastError).
 				Uint32("Total", stats.Total).

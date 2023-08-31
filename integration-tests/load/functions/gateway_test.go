@@ -4,7 +4,6 @@ import (
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 	"testing"
-	"time"
 )
 
 func TestGatewayLoad(t *testing.T) {
@@ -20,12 +19,12 @@ func TestGatewayLoad(t *testing.T) {
 	}
 
 	gatewayGunConfig := &wasp.Config{
-		T:           t,
-		LoadType:    wasp.RPS,
-		GenName:     "gun",
-		CallTimeout: 2 * time.Minute,
+		T:        t,
+		LoadType: wasp.RPS,
+		GenName:  "gun",
 		Gun: NewGatewaySecretsSetGun(
 			cfg,
+			"secrets_set",
 			ft.EthereumPrivateKey,
 			ft.ThresholdPublicKey,
 			ft.DONPublicKey,

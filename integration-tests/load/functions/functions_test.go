@@ -20,10 +20,11 @@ func TestFunctionsLoad(t *testing.T) {
 	}
 
 	singleFeedConfig := &wasp.Config{
-		T:           t,
-		LoadType:    wasp.RPS,
-		GenName:     "gun",
-		CallTimeout: 2 * time.Minute,
+		T:                     t,
+		LoadType:              wasp.RPS,
+		GenName:               "gun",
+		RateLimitUnitDuration: 5 * time.Second,
+		CallTimeout:           3 * time.Minute,
 		Gun: NewSingleFunctionCallGun(
 			ft,
 			DefaultJSPayload,
