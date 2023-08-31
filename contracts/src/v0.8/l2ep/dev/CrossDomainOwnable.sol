@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "../../shared/access/ConfirmedOwner.sol";
-import "../interfaces/CrossDomainOwnableInterface.sol";
+import "./interfaces/CrossDomainOwnableInterface.sol";
 
 /**
  * @title The CrossDomainOwnable contract

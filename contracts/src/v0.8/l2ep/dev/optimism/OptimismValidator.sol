@@ -7,7 +7,7 @@ import "../../../interfaces/AccessControllerInterface.sol";
 import "../../../interfaces/AggregatorV3Interface.sol";
 import "../../../SimpleWriteAccessController.sol";
 
-import "./../../interfaces/OptimismSequencerUptimeFeedInterface.sol";
+import "./../interfaces/OptimismSequencerUptimeFeedInterface.sol";
 import "@eth-optimism/contracts/L1/messaging/IL1CrossDomainMessenger.sol";
 import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 
