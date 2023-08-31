@@ -775,7 +775,20 @@ contract EVM2EVMOffRamp_executeSingleMessage is EVM2EVMOffRampSetup {
 
   function testTokensSuccess() public {
     Internal.EVM2EVMMessage memory message = _generateMessagesWithTokens()[0];
-    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
+    bytes[] memory offchainTokenData = new bytes[](message.tokenAmounts.length);
+    vm.expectCall(
+      s_destPools[0],
+      abi.encodeWithSelector(
+        LockReleaseTokenPool.releaseOrMint.selector,
+        abi.encode(message.sender),
+        message.receiver,
+        message.tokenAmounts[0].amount,
+        SOURCE_CHAIN_ID,
+        abi.encode(message.sourceTokenData[0], offchainTokenData[0])
+      )
+    );
+
+    s_offRamp.executeSingleMessage(message, offchainTokenData);
   }
 
   function testNonContractSuccess() public {
@@ -797,6 +810,8 @@ contract EVM2EVMOffRamp_executeSingleMessage is EVM2EVMOffRampSetup {
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
   }
 
+  // Reverts
+
   function testTokenHandlingErrorReverts() public {
     uint256[] memory amounts = new uint256[](2);
     amounts[0] = 1000;
@@ -811,8 +826,6 @@ contract EVM2EVMOffRamp_executeSingleMessage is EVM2EVMOffRampSetup {
 
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
   }
-
-  // Reverts
 
   function testZeroGasDONExecutionReverts() public {
     Internal.EVM2EVMMessage memory message = _generateAny2EVMMessageNoTokens(1);

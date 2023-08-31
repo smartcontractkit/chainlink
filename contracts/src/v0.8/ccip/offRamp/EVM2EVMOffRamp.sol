@@ -407,8 +407,8 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersion
         message.tokenAmounts,
         abi.encode(message.sender),
         message.receiver,
-        offchainTokenData,
-        message.sourceTokenData
+        message.sourceTokenData,
+        offchainTokenData
       );
     }
     if (
