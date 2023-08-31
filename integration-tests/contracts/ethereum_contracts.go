@@ -2113,7 +2113,7 @@ func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string
 		return 0, err
 	}
 	for _, l := range r.Logs {
-		log.Warn().Interface("Log", common.Bytes2Hex(l.Data)).Send()
+		log.Info().Interface("Log", common.Bytes2Hex(l.Data)).Send()
 	}
 	topicsMap := map[string]interface{}{}
 
@@ -2122,14 +2122,14 @@ func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string
 		return 0, err
 	}
 	for _, ev := range fabi.Events {
-		log.Warn().Str("EventName", ev.Name).Send()
+		log.Info().Str("EventName", ev.Name).Send()
 	}
 	topicOneInputs := abi.Arguments{fabi.Events["SubscriptionCreated"].Inputs[0]}
 	topicOneHash := []common.Hash{r.Logs[0].Topics[1:][0]}
 	if err := abi.ParseTopicsIntoMap(topicsMap, topicOneInputs, topicOneHash); err != nil {
 		return 0, errors.Wrap(err, "failed to decode topic value")
 	}
-	log.Warn().Interface("NewTopicsDecoded", topicsMap).Send()
+	log.Info().Interface("NewTopicsDecoded", topicsMap).Send()
 	if topicsMap["subscriptionId"] == 0 {
 		return 0, errors.New("failed to decode subscription ID after creation")
 	}
@@ -2192,25 +2192,13 @@ func (e *EthereumFunctionsLoadTestClient) GetStats() (*EthereumFunctionsLoadStat
 		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
 		Context: context.Background(),
 	}
-	total, succeeded, errored, empty, err := e.instance.GetStats(opts)
-	if err != nil {
-		return nil, err
-	}
-	rid, err := e.instance.LastRequestID(opts)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := e.instance.LastResponse(opts)
-	if err != nil {
-		return nil, err
-	}
-	lerr, err := e.instance.LastError(opts)
+	lr, lbody, lerr, total, succeeded, errored, empty, err := e.instance.GetStats(opts)
 	if err != nil {
 		return nil, err
 	}
 	return &EthereumFunctionsLoadStats{
-		LastRequestID: string(Bytes32ToSlice(rid)),
-		LastResponse:  string(Bytes32ToSlice(resp)),
+		LastRequestID: string(Bytes32ToSlice(lr)),
+		LastResponse:  string(Bytes32ToSlice(lbody)),
 		LastError:     string(Bytes32ToSlice(lerr)),
 		Total:         total,
 		Succeeded:     succeeded,
@@ -2224,7 +2212,7 @@ func (e *EthereumFunctionsLoadTestClient) ResetStats() error {
 	if err != nil {
 		return err
 	}
-	tx, err := e.instance.ResetCounters(opts)
+	tx, err := e.instance.ResetStats(opts)
 	if err != nil {
 		return err
 	}

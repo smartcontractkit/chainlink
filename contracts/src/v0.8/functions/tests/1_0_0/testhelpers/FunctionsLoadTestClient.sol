@@ -45,15 +45,18 @@ contract FunctionsLoadTestClient is FunctionsClient, ConfirmedOwner {
     totalRequests += 1;
   }
 
-  function resetCounters() external onlyOwner {
+  function resetStats() external onlyOwner {
+    lastRequestID = "";
+    lastResponse = "";
+    lastError = "";
     totalRequests = 0;
     totalSucceededResponses = 0;
     totalFailedResponses = 0;
     totalEmptyResponses = 0;
   }
 
-  function getStats() public view onlyOwner returns (uint32, uint32, uint32, uint32) {
-    return (totalRequests, totalSucceededResponses, totalFailedResponses, totalEmptyResponses);
+  function getStats() public view onlyOwner returns (bytes32, bytes32, bytes32, uint32, uint32, uint32, uint32) {
+    return (lastRequestID, lastResponse, lastError, totalRequests, totalSucceededResponses, totalFailedResponses, totalEmptyResponses);
   }
 
   /**

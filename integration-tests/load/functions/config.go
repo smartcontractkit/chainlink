@@ -32,6 +32,7 @@ type Common struct {
 	LoadTestClient string `toml:"client_addr"`
 	SubscriptionID uint64 `toml:"subscription_id"`
 	DONID          string `toml:"don_id"`
+	GatewayURL     string `toml:"gateway_url"`
 }
 
 type Funding struct {

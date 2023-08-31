@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/pkg/errors"
@@ -21,8 +22,10 @@ import (
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"io"
 	"math/big"
+	mrand "math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"time"
 )
 
@@ -40,9 +43,9 @@ type FunctionsTest struct {
 	EthereumPrivateKey        *ecdsa.PrivateKey
 	EthereumPublicKey         *ecdsa.PublicKey
 	ThresholdPublicKey        *tdh2easy.PublicKey
+	DONPublicKey              []byte
 	ThresholdPublicKeyBytes   []byte
 	ThresholdEncryptedSecrets string
-	DONPublicKey              []byte
 }
 
 type S4SecretsCfg struct {
@@ -127,6 +130,9 @@ func UploadS4Secrets(s4Cfg *S4SecretsCfg) error {
 		return err
 	}
 	log.Info().Str("Response", string(body)).Msg("S4 Gateway response")
+	if resp.Status != "200 OK" {
+		return fmt.Errorf("response code was: %d", resp.StatusCode)
+	}
 	return nil
 }
 
@@ -148,7 +154,12 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, 
 	if err != nil {
 		return env, nil, err
 	}
-	loadTestClient, err := env.ContractLoader.LoadFunctionsLoadTestClient(cfg.Common.LoadTestClient)
+	var loadTestClient contracts.FunctionsLoadTestClient
+	if cfg.Common.LoadTestClient != "" {
+		loadTestClient, err = env.ContractLoader.LoadFunctionsLoadTestClient(cfg.Common.LoadTestClient)
+	} else {
+		loadTestClient, err = env.ContractDeployer.DeployFunctionsLoadTestClient(cfg.Common.Router)
+	}
 	if err != nil {
 		return env, nil, err
 	}
@@ -176,23 +187,24 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, 
 	if err != nil {
 		return env, nil, errors.Wrap(err, "failed to get Threshold public key")
 	}
-	donKeyOnChain, err := coord.GetDONPublicKey()
+	log.Info().Hex("ThresholdPublicKeyBytesHex", tpk).Msg("Loaded coordinator keys")
+	donPubKey, err := coord.GetDONPublicKey()
 	if err != nil {
 		return env, nil, errors.Wrap(err, "failed to get DON public key")
 	}
-	log.Info().Hex("ThresholdPublicKeyBytesHex", tpk).Msg("Loaded coordinator keys")
+	log.Info().Hex("DONPublicKeyHex", donPubKey).Msg("Loaded coordinator keys")
 	tdh2pk, err := ParseTDH2Key(tpk)
 	if err != nil {
 		return env, nil, errors.Wrap(err, "failed to unmarshal tdh2 public key")
 	}
-	secrets, err := EncryptS4Secrets(pKey, tdh2pk, donKeyOnChain, "{\"ltsecret\": \"1\"}")
+	secrets, err := EncryptS4Secrets(pKey, tdh2pk, donPubKey, "{\"ltsecret\": \"1\"}")
 	if err != nil {
 		return env, nil, errors.Wrap(err, "failed to generate tdh2 secrets")
 	}
 	if err := UploadS4Secrets(&S4SecretsCfg{
-		GatewayURL:            "https://gateway-staging1.main.stage.cldev.sh/user",
+		GatewayURL:            fmt.Sprintf("%s/user", cfg.Common.GatewayURL),
 		PrivateKey:            os.Getenv("MUMBAI_KEYS"),
-		MessageID:             "1",
+		MessageID:             strconv.Itoa(mrand.Intn(100000-1) + 1),
 		Method:                "secrets_set",
 		DonID:                 cfg.Common.DONID,
 		S4SetSlotID:           0,
@@ -202,11 +214,6 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, 
 	}); err != nil {
 		return env, nil, errors.Wrap(err, "failed to upload secrets to S4")
 	}
-	donPk, err := coord.GetDONPublicKey()
-	if err != nil {
-		return env, nil, errors.Wrap(err, "failed to get DON public key")
-	}
-	log.Info().Hex("DONPublicKeyHex", donPk).Msg("Loaded coordinator keys")
 	return env, &FunctionsTest{
 		LinkToken:                 lt,
 		Coordinator:               coord,
@@ -217,7 +224,7 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, 
 		ThresholdPublicKey:        tdh2pk,
 		ThresholdPublicKeyBytes:   tpk,
 		ThresholdEncryptedSecrets: secrets,
-		DONPublicKey:              donPk,
+		DONPublicKey:              donPubKey,
 	}, nil
 }
 

@@ -26,7 +26,7 @@ func TestFunctionsLoad(t *testing.T) {
 		CallTimeout: 2 * time.Minute,
 		Gun: NewSingleFunctionCallGun(
 			ft,
-			JSPayloadWithSecrets,
+			DefaultJSPayload,
 			[]byte{},
 			[]string{},
 			cfg.Common.SubscriptionID,
