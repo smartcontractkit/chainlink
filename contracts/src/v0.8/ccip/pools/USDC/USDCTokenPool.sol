@@ -16,7 +16,9 @@ contract USDCTokenPool is TokenPool {
   error UnknownDomain(uint64 domain);
   error UnlockingUSDCFailed();
   error InvalidConfig();
+  error InvalidDomain(DomainUpdate domain);
   error InvalidMessageVersion(uint32 version);
+  error InvalidTokenMessengerVersion(uint32 version);
   error InvalidNonce(uint64 expected, uint64 got);
   error InvalidSender(bytes32 expected, bytes32 got);
   error InvalidReceiver(bytes32 expected, bytes32 got);
@@ -222,7 +224,11 @@ contract USDCTokenPool is TokenPool {
 
   /// @notice Sets the config
   function _setConfig(USDCConfig memory config) internal {
+    if (config.version != SUPPORTED_USDC_VERSION) revert InvalidMessageVersion(config.version);
     if (config.messageTransmitter == address(0) || config.tokenMessenger == address(0)) revert InvalidConfig();
+    uint32 tokenMessengerVersion = ITokenMessenger(config.tokenMessenger).messageBodyVersion();
+    if (tokenMessengerVersion != SUPPORTED_USDC_VERSION) revert InvalidTokenMessengerVersion(tokenMessengerVersion);
+
     // Revoke approval for previous token messenger
     if (s_config.tokenMessenger != address(0)) i_token.approve(s_config.tokenMessenger, 0);
     // Approve new token messenger
@@ -240,6 +246,9 @@ contract USDCTokenPool is TokenPool {
   function setDomains(DomainUpdate[] calldata domains) external onlyOwner {
     for (uint256 i = 0; i < domains.length; ++i) {
       DomainUpdate memory domain = domains[i];
+      if (domain.allowedCaller == bytes32(0) || domain.domainIdentifier == 0 || domain.destChainSelector == 0)
+        revert InvalidDomain(domain);
+
       s_chainToDomain[domain.destChainSelector] = Domain({
         domainIdentifier: domain.domainIdentifier,
         allowedCaller: domain.allowedCaller,
