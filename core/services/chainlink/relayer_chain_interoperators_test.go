@@ -206,7 +206,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		{name: "2 evm chains with 3 nodes",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
-					RelayerConfig: evm.RelayerConfig{
+					RelayerConfig: &evm.RelayerConfig{
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
 						MailMon:          &utils.MailboxMonitor{},
@@ -221,7 +221,9 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID2.String())},
 			},
 		},
+
 		{name: "2 solana chain with 2 node",
+
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
 					Keystore:      keyStore.Solana(),
@@ -234,7 +236,9 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID2)},
 			},
 		},
+
 		{name: "2 starknet chain with 4 nodes",
+
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitStarknet(testctx, factory, chainlink.StarkNetFactoryConfig{
 					Keystore:        keyStore.StarkNet(),
@@ -247,6 +251,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID2)},
 			},
 		},
+
 		{
 			name: "2 cosmos chains with 2 nodes",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
@@ -264,11 +269,12 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		},
 
 		{name: "all chains",
+
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
 				Keystore:      keyStore.Solana(),
 				SolanaConfigs: cfg.SolanaConfigs()}),
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
-					RelayerConfig: evm.RelayerConfig{
+					RelayerConfig: &evm.RelayerConfig{
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
 						MailMon:          &utils.MailboxMonitor{},

@@ -61,12 +61,13 @@ type CSAETHKeystore interface {
 }
 
 func NewRelayer(db *sqlx.DB, chain evm.Chain, cfg pg.QConfig, lggr logger.Logger, ks CSAETHKeystore, eventBroadcaster pg.EventBroadcaster) *Relayer {
+	lggr = lggr.Named("Relayer")
 	return &Relayer{
 		db:               db,
 		chain:            chain,
-		lggr:             lggr.Named("Relayer"),
+		lggr:             lggr,
 		ks:               ks,
-		mercuryPool:      wsrpc.NewPool(lggr.Named("Mercury.WSRPCPool")),
+		mercuryPool:      wsrpc.NewPool(lggr),
 		eventBroadcaster: eventBroadcaster,
 		pgCfg:            cfg,
 	}
@@ -139,7 +140,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	if err != nil {
 		return nil, err
 	}
-	transmitter := mercury.NewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, *relayConfig.FeedID, r.db, r.pgCfg)
+	transmitter := mercury.NewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.db, r.pgCfg)
 
 	return NewMercuryProvider(configWatcher, transmitter, reportCodecV1, reportCodecV2, reportCodecV3, r.lggr), nil
 }

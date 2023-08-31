@@ -303,7 +303,7 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 		verifyBlockNumbers(t, results, 2, 3, 4, 4)
 	})
 
-	t.Run("dequeue with limits", func(t *testing.T) {
+	t.Run("dequeue with limits returns latest block logs", func(t *testing.T) {
 		buf := newLogEventBuffer(logger.TestLogger(t), 3, 5, 10)
 		require.Equal(t, buf.enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
@@ -315,7 +315,10 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 
 		logs := buf.dequeueRange(1, 5, 2)
 		require.Equal(t, 2, len(logs))
+		require.Equal(t, int64(5), logs[0].log.BlockNumber)
+		require.Equal(t, int64(4), logs[1].log.BlockNumber)
 	})
+
 	t.Run("dequeue doesn't return same logs again", func(t *testing.T) {
 		buf := newLogEventBuffer(logger.TestLogger(t), 3, 5, 10)
 		require.Equal(t, buf.enqueue(big.NewInt(1),

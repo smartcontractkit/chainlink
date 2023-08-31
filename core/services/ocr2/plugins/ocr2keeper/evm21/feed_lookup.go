@@ -45,8 +45,6 @@ const (
 	totalAttempt        = 3
 )
 
-type MercuryVersion string
-
 type FeedLookup struct {
 	feedParamKey string
 	feeds        []string
@@ -106,7 +104,7 @@ func (r *EvmRegistry) feedLookup(ctx context.Context, checkResults []ocr2keepers
 		lggr.Infof("at block %d upkeep %s trying to decodeFeedLookup performData=%s", block, upkeepId, hexutil.Encode(checkResults[i].PerformData))
 		l, err := r.decodeFeedLookup(res.PerformData)
 		if err != nil {
-			lggr.Warnf("upkeep %s block %d decodeFeedLookup failed: %v", upkeepId, block, err)
+			lggr.Warnf("at block %d upkeep %s decodeFeedLookup failed: %v", block, upkeepId, err)
 			// Not feed lookup error, nothing to do here
 			continue
 		}

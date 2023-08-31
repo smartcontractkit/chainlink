@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
@@ -17,6 +16,7 @@ import (
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
@@ -208,10 +208,15 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 type mockLogPoller struct {
 	logpoller.LogPoller
 	GetBlocksRangeFn func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error)
+	IndexedLogsFn    func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error)
 }
 
 func (p *mockLogPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
 	return p.GetBlocksRangeFn(ctx, numbers, qopts...)
+}
+
+func (p *mockLogPoller) IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+	return p.IndexedLogsFn(eventSig, address, topicIndex, topicValues, confs, qopts...)
 }
 
 func TestRegistry_VerifyLogExists(t *testing.T) {
@@ -272,7 +277,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 			blocks: map[int64]string{
 				500: "0xb2173b4b75f23f56b7b2b6b2cc5fa9ed1079b9d1655b12b40fdb4dbf59006419",
 			},
-			receipt: &types.Receipt{},
+			receipt: &types.Receipt{Status: 0},
 		},
 		{
 			name:     "eth client returns a matching block",
@@ -289,6 +294,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 			},
 			makeEthCall: true,
 			receipt: &types.Receipt{
+				Status:      1,
 				BlockNumber: big.NewInt(550),
 				BlockHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
 			},
@@ -322,8 +328,16 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 
 			if tc.makeEthCall {
 				client := new(evmClientMocks.Client)
-				client.On("TransactionReceipt", mock.Anything, common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651")).
-					Return(tc.receipt, tc.ethCallErr)
+				client.On("CallContext", mock.Anything, mock.Anything, "eth_getTransactionReceipt", common.BytesToHash(tc.payload.Trigger.LogTriggerExtension.TxHash[:])).
+					Return(tc.ethCallErr).Run(func(args mock.Arguments) {
+					if tc.receipt != nil {
+						res := args.Get(1).(*types.Receipt)
+						res.Status = tc.receipt.Status
+						res.TxHash = tc.receipt.TxHash
+						res.BlockNumber = tc.receipt.BlockNumber
+						res.BlockHash = tc.receipt.BlockHash
+					}
+				})
 				e.client = client
 			}
 
@@ -440,12 +454,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			ethCalls: map[string]bool{
 				uid1.String(): true,
 			},
-			receipts: map[string]*types.Receipt{
-				//uid1.String(): {
-				//	BlockNumber: big.NewInt(550),
-				//	BlockHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
-				//},
-			},
+			receipts: map[string]*types.Receipt{},
 			ethCallErrors: map[string]error{
 				uid1.String(): fmt.Errorf("error"),
 			},
@@ -467,8 +476,17 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			for _, i := range tc.inputs {
 				uid := i.UpkeepID.String()
 				if tc.ethCalls[uid] {
-					client.On("TransactionReceipt", mock.Anything, common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651")).
-						Return(tc.receipts[uid], tc.ethCallErrors[uid])
+					client.On("CallContext", mock.Anything, mock.Anything, "eth_getTransactionReceipt", common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651")).
+						Return(tc.ethCallErrors[uid]).Run(func(args mock.Arguments) {
+						receipt := tc.receipts[uid]
+						if receipt != nil {
+							res := args.Get(1).(*types.Receipt)
+							res.Status = receipt.Status
+							res.TxHash = receipt.TxHash
+							res.BlockNumber = receipt.BlockNumber
+							res.BlockHash = receipt.BlockHash
+						}
+					})
 				}
 			}
 			e.client = client

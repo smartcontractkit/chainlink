@@ -68,6 +68,7 @@ type KeeperRegistry interface {
 	CancelUpkeep(id *big.Int) error
 	SetUpkeepGasLimit(id *big.Int, gas uint32) error
 	ParseUpkeepPerformedLog(log *types.Log) (*UpkeepPerformedLog, error)
+	ParseStaleUpkeepReportLog(log *types.Log) (*StaleUpkeepReportLog, error)
 	ParseUpkeepIdFromRegisteredLog(log *types.Log) (*big.Int, error)
 	Pause() error
 	Migrate(upkeepIDs []*big.Int, destinationAddress common.Address) error
@@ -128,6 +129,10 @@ type UpkeepPerformedLog struct {
 	Id      *big.Int
 	Success bool
 	From    common.Address
+}
+
+type StaleUpkeepReportLog struct {
+	Id *big.Int
 }
 
 // KeeperRegistryOpts opts to deploy keeper registry version
@@ -396,6 +401,12 @@ func (v *EthereumKeeperRegistry) Pause() error {
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		tx, err = v.registry2_1.Pause(txOpts)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
 	}
 
 	return fmt.Errorf("keeper registry version %d is not supported", v.version)
@@ -580,6 +591,23 @@ func (v *EthereumKeeperRegistry) GetUpkeepInfo(ctx context.Context, id *big.Int)
 			Admin:                  uk.Admin.Hex(),
 			MaxValidBlocknumber:    uk.MaxValidBlocknumber,
 			LastPerformBlockNumber: uk.LastPerformBlockNumber,
+			AmountSpent:            uk.AmountSpent,
+			Paused:                 uk.Paused,
+			OffchainConfig:         uk.OffchainConfig,
+		}, nil
+	case ethereum.RegistryVersion_2_1:
+		uk, err := v.registry2_1.GetUpkeep(opts, id)
+		if err != nil {
+			return nil, err
+		}
+		return &UpkeepInfo{
+			Target:                 uk.Target.Hex(),
+			ExecuteGas:             uk.PerformGas,
+			CheckData:              uk.CheckData,
+			Balance:                uk.Balance,
+			Admin:                  uk.Admin.Hex(),
+			MaxValidBlocknumber:    uk.MaxValidBlocknumber,
+			LastPerformBlockNumber: uk.LastPerformedBlockNumber,
 			AmountSpent:            uk.AmountSpent,
 			Paused:                 uk.Paused,
 			OffchainConfig:         uk.OffchainConfig,
@@ -780,6 +808,11 @@ func (v *EthereumKeeperRegistry) SetUpkeepGasLimit(id *big.Int, gas uint32) erro
 		if err != nil {
 			return err
 		}
+	case ethereum.RegistryVersion_2_1:
+		tx, err = v.registry2_1.SetUpkeepGasLimit(opts, id, gas)
+		if err != nil {
+			return err
+		}
 	default:
 		return fmt.Errorf("keeper registry version %d is not supported for SetUpkeepGasLimit", v.version)
 	}
@@ -850,6 +883,17 @@ func (v *EthereumKeeperRegistry) UpdateCheckData(id *big.Int, newCheckData []byt
 		}
 
 		tx, err := v.registry2_0.UpdateCheckData(opts, id, newCheckData)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry2_1.SetUpkeepCheckData(opts, id, newCheckData)
 		if err != nil {
 			return err
 		}
@@ -984,6 +1028,40 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			Success: parsedLog.Success,
 			From:    utils.ZeroAddress,
 		}, nil
+	case ethereum.RegistryVersion_2_1:
+		parsedLog, err := v.registry2_1.ParseUpkeepPerformed(*log)
+		if err != nil {
+			return nil, err
+		}
+		return &UpkeepPerformedLog{
+			Id:      parsedLog.Id,
+			Success: parsedLog.Success,
+			From:    utils.ZeroAddress,
+		}, nil
+	}
+	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
+}
+
+// ParseStaleUpkeepReportLog Parses Stale upkeep report log
+func (v *EthereumKeeperRegistry) ParseStaleUpkeepReportLog(log *types.Log) (*StaleUpkeepReportLog, error) {
+	switch v.version {
+	case ethereum.RegistryVersion_2_0:
+		parsedLog, err := v.registry2_0.ParseStaleUpkeepReport(*log)
+		if err != nil {
+			return nil, err
+		}
+		return &StaleUpkeepReportLog{
+			Id: parsedLog.Id,
+		}, nil
+	case ethereum.RegistryVersion_2_1:
+		parsedLog, err := v.registry2_1.ParseStaleUpkeepReport(*log)
+		if err != nil {
+			return nil, err
+		}
+		return &StaleUpkeepReportLog{
+			Id: parsedLog.Id,
+		}, nil
+
 	}
 	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
 }

@@ -297,12 +297,8 @@ For more tips on how to build and test Chainlink, see our [development tips page
 
 ### Contributing
 
-Chainlink's source code is [licensed under the MIT License](./LICENSE), and contributions are welcome.
+Contributions are welcome to Chainlink's source code.
 
 Please check out our [contributing guidelines](./docs/CONTRIBUTING.md) for more details.
 
 Thank you!
-
-## License
-
-[MIT](https://choosealicense.com/licenses/mit/)
