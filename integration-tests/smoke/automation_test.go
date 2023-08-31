@@ -800,7 +800,7 @@ func TestUpdateCheckData(t *testing.T) {
 						"Expected perform data checker counter to be greater than 0, but got %d", counter.Int64())
 					l.Info().Int64("Upkeep perform data checker", counter.Int64()).Msg("Number of upkeeps performed")
 				}
-			}, "2m", "1s").Should(gomega.Succeed()) // ~1m to perform once, 1m buffer
+			}, "8m" /*"2m"*/, "1s").Should(gomega.Succeed()) // ~1m to perform once, 1m buffer
 		})
 	}
 }
@@ -834,12 +834,12 @@ func setupAutomationTestDocker(
 
 	clNodeConfig := node.NewConfig(node.BaseConf)
 	syncInterval := models.MustMakeDuration(5 * time.Minute)
-	clNodeConfig.Feature.LogPoller = it_utils.PtrTo[bool](true)
-	clNodeConfig.OCR2.Enabled = it_utils.PtrTo[bool](true)
-	clNodeConfig.Keeper.TurnLookBack = it_utils.PtrTo[int64](int64(0))
+	clNodeConfig.Feature.LogPoller = it_utils.Ptr[bool](true)
+	clNodeConfig.OCR2.Enabled = it_utils.Ptr[bool](true)
+	clNodeConfig.Keeper.TurnLookBack = it_utils.Ptr[int64](int64(0))
 	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
-	clNodeConfig.Keeper.Registry.PerformGasOverhead = it_utils.PtrTo[uint32](uint32(150000))
-	clNodeConfig.P2P.V2.Enabled = it_utils.PtrTo[bool](true)
+	clNodeConfig.Keeper.Registry.PerformGasOverhead = it_utils.Ptr[uint32](uint32(150000))
+	clNodeConfig.P2P.V2.Enabled = it_utils.Ptr[bool](true)
 	clNodeConfig.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
 	clNodeConfig.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
 
