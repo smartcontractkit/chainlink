@@ -3,6 +3,7 @@ package core
 import (
 	"context"
 	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -11,10 +12,22 @@ import (
 )
 
 // GetTxBlock calls eth_getTransactionReceipt on the eth client to obtain a tx receipt
-func GetTxBlock(client client.Client, txHash common.Hash) (*big.Int, common.Hash, error) {
+func GetTxBlock(ctx context.Context, client client.Client, txHash common.Hash) (*big.Int, common.Hash, error) {
 	receipt := types.Receipt{}
-	err := client.CallContext(context.Background(), &receipt, "eth_getTransactionReceipt", txHash)
+	err := client.CallContext(ctx, &receipt, "eth_getTransactionReceipt", txHash)
 	if err != nil {
+		if strings.Contains(err.Error(), "not yet been implemented") {
+			// workaround for simulated chains
+			// Exploratory: fix this properly (e.g. in the simulated backend)
+			receipt, err1 := client.TransactionReceipt(ctx, txHash)
+			if err1 != nil {
+				return nil, common.Hash{}, err1
+			}
+			if receipt.Status != 1 {
+				return nil, common.Hash{}, nil
+			}
+			return receipt.BlockNumber, receipt.BlockHash, nil
+		}
 		return nil, common.Hash{}, err
 	}
 

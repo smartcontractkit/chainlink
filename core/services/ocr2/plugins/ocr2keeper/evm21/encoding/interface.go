@@ -29,6 +29,7 @@ const (
 	UpkeepFailureReasonMercuryAccessNotAllowed UpkeepFailureReason = 32
 	UpkeepFailureReasonTxHashNoLongerExists    UpkeepFailureReason = 33
 	UpkeepFailureReasonInvalidRevertDataInput  UpkeepFailureReason = 34
+	UpkeepFailureReasonSimulationFailed        UpkeepFailureReason = 35
 
 	// pipeline execution error
 	NoPipelineError        PipelineExecutionState = 0
