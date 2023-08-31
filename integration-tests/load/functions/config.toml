@@ -18,6 +18,7 @@ products_from = 1
 products_increase = 1
 products_steps = 10
 pace = "1s"
+
 duration = "3m"
 
 [Common]
@@ -28,8 +29,9 @@ link_token_addr = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
 coordinator_addr = "0x6D6a83BB356b7242E88C1A2b290102fde26590D0"
 router_addr = "0x2673266D3Cd08b53494B5a92B66DEec7F1408E7A"
 # comment both client and sub to automatically create a new pair
-client_addr = "0xDba8Dfd4470E2c0C5FC0eF23Bc2B061023b7e073"
-subscription_id = 20
+client_addr = "0x64a351fbAa61681A5a7e569Cc5A691150c4D73D2"
+subscription_id = 23
 # not used until we have full DON setup
 # node_funds = 10
 sub_funds = 10
+requests_per_call = 1

@@ -26,13 +26,14 @@ type PerformanceConfig struct {
 
 type Common struct {
 	Funding
-	LINKTokenAddr  string `toml:"link_token_addr"`
-	Coordinator    string `toml:"coordinator_addr"`
-	Router         string `toml:"router_addr"`
-	LoadTestClient string `toml:"client_addr"`
-	SubscriptionID uint64 `toml:"subscription_id"`
-	DONID          string `toml:"don_id"`
-	GatewayURL     string `toml:"gateway_url"`
+	LINKTokenAddr   string `toml:"link_token_addr"`
+	Coordinator     string `toml:"coordinator_addr"`
+	Router          string `toml:"router_addr"`
+	LoadTestClient  string `toml:"client_addr"`
+	SubscriptionID  uint64 `toml:"subscription_id"`
+	DONID           string `toml:"don_id"`
+	GatewayURL      string `toml:"gateway_url"`
+	RequestsPerCall uint32 `toml:"requests_per_call"`
 }
 
 type Funding struct {

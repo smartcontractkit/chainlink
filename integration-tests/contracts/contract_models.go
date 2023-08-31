@@ -364,5 +364,5 @@ type FunctionsLoadTestClient interface {
 	Address() string
 	ResetStats() error
 	GetStats() (*EthereumFunctionsLoadStats, error)
-	SendRequest(source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error
+	SendRequest(times uint32, source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error
 }

@@ -25,7 +25,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_client_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
@@ -2222,19 +2221,14 @@ func (e *EthereumFunctionsLoadTestClient) ResetStats() error {
 	return nil
 }
 
-func (e *EthereumFunctionsLoadTestClient) SendRequest(source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error {
+func (e *EthereumFunctionsLoadTestClient) SendRequest(times uint32, source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
-	tx, err := e.instance.SendRequest(opts, source, encryptedSecretsReferences, args, subscriptionId, jobId)
+	tx, err := e.instance.SendRequest(opts, times, source, encryptedSecretsReferences, args, subscriptionId, jobId)
 	if err != nil {
 		return err
 	}
-	if err := e.client.ProcessTransaction(tx); err != nil {
-		return err
-	}
-	revertReason, _, _ := e.client.RevertReasonFromTx(tx.Hash(), functions_client_example.FunctionsClientExampleABI)
-	log.Debug().Str("RevertReason", revertReason).Send()
-	return nil
+	return e.client.ProcessTransaction(tx)
 }

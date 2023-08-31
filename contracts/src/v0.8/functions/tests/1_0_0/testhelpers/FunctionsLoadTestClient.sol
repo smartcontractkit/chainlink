@@ -31,6 +31,7 @@ contract FunctionsLoadTestClient is FunctionsClient, ConfirmedOwner {
    * @param subscriptionId Billing ID
    */
   function sendRequest(
+    uint32 times,
     string calldata source,
     bytes calldata encryptedSecretsReferences,
     string[] calldata args,
@@ -41,8 +42,11 @@ contract FunctionsLoadTestClient is FunctionsClient, ConfirmedOwner {
     req.initializeRequestForInlineJavaScript(source);
     if (encryptedSecretsReferences.length > 0) req.addSecretsReference(encryptedSecretsReferences);
     if (args.length > 0) req.setArgs(args);
-    lastRequestID = _sendRequest(req.encodeCBOR(), subscriptionId, MAX_CALLBACK_GAS, jobId);
-    totalRequests += 1;
+    uint i = 0;
+    for (i = 0; i < times; i++) {
+      lastRequestID = _sendRequest(req.encodeCBOR(), subscriptionId, MAX_CALLBACK_GAS, jobId);
+      totalRequests += 1;
+    }
   }
 
   function resetStats() external onlyOwner {
