@@ -6,7 +6,7 @@ commit_store: ../../../contracts/solc/v0.8.19/CommitStore.abi ../../../contracts
 commit_store_helper: ../../../contracts/solc/v0.8.19/CommitStoreHelper.abi ../../../contracts/solc/v0.8.19/CommitStoreHelper.bin ec45cc8490e0d66e1a3caa700ab9250b73a495cd99972e94be5e6afb06c14530
 custom_token_pool: ../../../contracts/solc/v0.8.19/CustomTokenPool.abi ../../../contracts/solc/v0.8.19/CustomTokenPool.bin 79ab937aa4493bf31fb0e57affd00555aad75205c90268e89674c28ea9e5e48f
 evm_2_evm_offramp: ../../../contracts/solc/v0.8.19/EVM2EVMOffRamp.abi ../../../contracts/solc/v0.8.19/EVM2EVMOffRamp.bin e41830ec545d1bc0bf237bcd1beee75662cfee081f3ec7cc3f786ad04e0694dd
-evm_2_evm_offramp_helper: ../../../contracts/solc/v0.8.19/EVM2EVMOffRampHelper.abi ../../../contracts/solc/v0.8.19/EVM2EVMOffRampHelper.bin 61e12c7482737137edd119270a6c252626213fa11196ca2ba9717656e91865cb
+evm_2_evm_offramp_helper: ../../../contracts/solc/v0.8.19/EVM2EVMOffRampHelper.abi ../../../contracts/solc/v0.8.19/EVM2EVMOffRampHelper.bin 047fcf054fcd96f91f0f8358e208c29516af15ca383a49c7b7169210b71e41c2
 evm_2_evm_onramp: ../../../contracts/solc/v0.8.19/EVM2EVMOnRamp.abi ../../../contracts/solc/v0.8.19/EVM2EVMOnRamp.bin 17b1bbb942cf17d444071ac6924d57b918ce537e69ea62bd00e0a9b6b57efe66
 lock_release_token_pool: ../../../contracts/solc/v0.8.19/LockReleaseTokenPool.abi ../../../contracts/solc/v0.8.19/LockReleaseTokenPool.bin b2eb5bee167f94e76a8b392b85f22fe312957c099d05c1403c42c3a03fbff278
 maybe_revert_message_receiver: ../../../contracts/solc/v0.8.19/MaybeRevertMessageReceiver.abi ../../../contracts/solc/v0.8.19/MaybeRevertMessageReceiver.bin aaa90eac8cc555ee4b0fbe57d1fb8d72d6689b29510b238177c97ab9b7979ac5
@@ -14,5 +14,5 @@ mock_arm_contract: ../../../contracts/solc/v0.8.19/MockARM.abi ../../../contract
 ping_pong_demo: ../../../contracts/solc/v0.8.19/PingPongDemo.abi ../../../contracts/solc/v0.8.19/PingPongDemo.bin f2972aa082cee8b461122f79773ce247d23b551ddc2ca9926ae90624134cfb23
 price_registry: ../../../contracts/solc/v0.8.19/PriceRegistry.abi ../../../contracts/solc/v0.8.19/PriceRegistry.bin 1b6f9628e9a45cf512fd4bd2a4beb6160dc17c5832c4d9beaa2c3aac8430fba1
 router: ../../../contracts/solc/v0.8.19/Router.abi ../../../contracts/solc/v0.8.19/Router.bin 29690cda0fbe8ea7215132d65082c1987a3f27baebcdd8fff8f04df5e3712d00
-usdc_token_pool: ../../../contracts/solc/v0.8.19/USDCTokenPool.abi ../../../contracts/solc/v0.8.19/USDCTokenPool.bin 0d9de2c8cd7fcda44633381a393836503b0052a33d6140ca67f5cd1e009894bd
+usdc_token_pool: ../../../contracts/solc/v0.8.19/USDCTokenPool.abi ../../../contracts/solc/v0.8.19/USDCTokenPool.bin 443cccc851b96b774e931d9bf5644022f6ca32cabba1f88b9b384e93bd701233
 weth9: ../../../contracts/solc/v0.8.19/WETH9.abi ../../../contracts/solc/v0.8.19/WETH9.bin 5a7d64fb19b62ec523c7667ce4c2983295c05f74935b5f994c06a6f70d440f8b

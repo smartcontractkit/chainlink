@@ -268,10 +268,10 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     bytes memory attestation = bytes("attestation bytes");
 
     bytes memory extraData = abi.encode(
-      abi.encode(USDCTokenPool.MessageAndAttestation({message: message, attestation: attestation})),
       abi.encode(
         USDCTokenPool.SourceTokenDataPayload({nonce: usdcMessage.nonce, sourceDomain: SOURCE_DOMAIN_IDENTIFIER})
-      )
+      ),
+      abi.encode(USDCTokenPool.MessageAndAttestation({message: message, attestation: attestation}))
     );
 
     vm.expectEmit();
@@ -293,8 +293,8 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
     uint32 sourceDomain = 3;
 
     bytes memory extraData = abi.encode(
-      abi.encode(USDCTokenPool.MessageAndAttestation({message: encodedUsdcMessage, attestation: attestation})),
-      abi.encode(USDCTokenPool.SourceTokenDataPayload({nonce: nonce, sourceDomain: sourceDomain}))
+      abi.encode(USDCTokenPool.SourceTokenDataPayload({nonce: nonce, sourceDomain: sourceDomain})),
+      abi.encode(USDCTokenPool.MessageAndAttestation({message: encodedUsdcMessage, attestation: attestation}))
     );
 
     vm.expectCall(
@@ -326,10 +326,10 @@ contract USDCTokenPool_releaseOrMint is USDCTokenPoolSetup {
 
     bytes memory extraData = abi.encode(
       abi.encode(
-        USDCTokenPool.MessageAndAttestation({message: _generateUSDCMessage(usdcMessage), attestation: bytes("")})
+        USDCTokenPool.SourceTokenDataPayload({nonce: usdcMessage.nonce, sourceDomain: SOURCE_DOMAIN_IDENTIFIER})
       ),
       abi.encode(
-        USDCTokenPool.SourceTokenDataPayload({nonce: usdcMessage.nonce, sourceDomain: SOURCE_DOMAIN_IDENTIFIER})
+        USDCTokenPool.MessageAndAttestation({message: _generateUSDCMessage(usdcMessage), attestation: bytes("")})
       )
     );
 

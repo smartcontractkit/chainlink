@@ -1155,13 +1155,28 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
     uint256 amount1 = 100;
     srcTokenAmounts[0].amount = amount1;
 
-    s_offRamp.releaseOrMintTokens(
-      srcTokenAmounts,
-      abi.encode(OWNER),
-      OWNER,
-      new bytes[](srcTokenAmounts.length),
-      new bytes[](srcTokenAmounts.length)
+    bytes memory originalSender = abi.encode(OWNER);
+
+    bytes[] memory offchainTokenData = new bytes[](srcTokenAmounts.length);
+    offchainTokenData[0] = abi.encode(0x12345678);
+
+    bytes[] memory sourceTokenData = new bytes[](srcTokenAmounts.length);
+    sourceTokenData[0] = abi.encode(0x87654321);
+
+    vm.expectCall(
+      s_destPools[0],
+      abi.encodeWithSelector(
+        LockReleaseTokenPool.releaseOrMint.selector,
+        originalSender,
+        OWNER,
+        srcTokenAmounts[0].amount,
+        SOURCE_CHAIN_ID,
+        abi.encode(sourceTokenData[0], offchainTokenData[0])
+      )
     );
+
+    s_offRamp.releaseOrMintTokens(srcTokenAmounts, originalSender, OWNER, sourceTokenData, offchainTokenData);
+
     assertEq(startingBalance + amount1, dstToken1.balanceOf(OWNER));
   }
 

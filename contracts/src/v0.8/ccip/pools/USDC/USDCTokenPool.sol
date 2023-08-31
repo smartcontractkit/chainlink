@@ -124,6 +124,16 @@ contract USDCTokenPool is TokenPool {
   /// @param receiver Recipient address
   /// @param amount Amount to mint
   /// @param extraData Encoded return data from `lockOrBurn` and offchain attestation data
+  /// @dev sourceTokenData is part of the verified message and passed directly from
+  /// the offramp so it is guaranteed to be what the lockOrBurn pool released on the
+  /// source chain. It contains (nonce, sourceDomain) which is guaranteed by CCTP
+  /// to be unique.
+  /// offchainTokenData is untrusted (can be supplied by manual execution), but we assert
+  /// that (nonce, sourceDomain) is equal to the message's (nonce, sourceDomain) and
+  /// receiveMessage will assert that Attestation contains a valid attestation signature
+  /// for that message, including its (nonce, sourceDomain). This way, the only
+  /// non-reverting offchainTokenData that can be supplied is a valid attestation for the
+  /// specific message that was sent on source.
   function releaseOrMint(
     bytes memory,
     address receiver,
@@ -132,9 +142,9 @@ contract USDCTokenPool is TokenPool {
     bytes memory extraData
   ) external override onlyOffRamp {
     _consumeOffRampRateLimit(amount);
-    (bytes memory offchainTokenData, bytes memory sourceData) = abi.decode(extraData, (bytes, bytes));
-    MessageAndAttestation memory msgAndAttestation = abi.decode(offchainTokenData, (MessageAndAttestation));
+    (bytes memory sourceData, bytes memory offchainTokenData) = abi.decode(extraData, (bytes, bytes));
     SourceTokenDataPayload memory sourceTokenData = abi.decode(sourceData, (SourceTokenDataPayload));
+    MessageAndAttestation memory msgAndAttestation = abi.decode(offchainTokenData, (MessageAndAttestation));
 
     _validateMessage(msgAndAttestation.message, sourceTokenData);
 
