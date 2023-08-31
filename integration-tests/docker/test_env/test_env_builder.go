@@ -13,8 +13,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
