@@ -74,7 +74,7 @@ contract FunctionsLoadTestClient is FunctionsClient, ConfirmedOwner {
     if (err.length != 0) {
       totalFailedResponses += 1;
     }
-    if (response.length != 0 && err.length != 0) {
+    if (response.length != 0 && err.length == 0) {
       totalSucceededResponses += 1;
     }
   }

@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"context"
 	"crypto/ecdsa"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/crypto/ecies"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -24,8 +27,8 @@ import (
 )
 
 const (
-	SecretJSON           = "{\"num\": \"1\"}"
-	JSPayloadWithSecrets = "return Functions.encodeUint256(BigInt(secrets.num))"
+	SecretJSON           = "{\"ltsecret\": \"1\"}"
+	JSPayloadWithSecrets = "return Functions.encodeUint256(BigInt(secrets.ltsecret))"
 	DefaultJSPayload     = "const response = await Functions.makeHttpRequest({ url: 'http://dummyjson.com/products/1' }); return Functions.encodeUint256(response.data.id)"
 )
 
@@ -171,14 +174,18 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, 
 	}
 	tpk, err := coord.GetThresholdPublicKey()
 	if err != nil {
-		return env, nil, errors.Wrap(err, "failed to get threshold public key")
+		return env, nil, errors.Wrap(err, "failed to get Threshold public key")
+	}
+	donKeyOnChain, err := coord.GetDONPublicKey()
+	if err != nil {
+		return env, nil, errors.Wrap(err, "failed to get DON public key")
 	}
 	log.Info().Hex("ThresholdPublicKeyBytesHex", tpk).Msg("Loaded coordinator keys")
-	tdh2pk, err := parseTDH2Key(tpk)
+	tdh2pk, err := ParseTDH2Key(tpk)
 	if err != nil {
 		return env, nil, errors.Wrap(err, "failed to unmarshal tdh2 public key")
 	}
-	secrets, err := generateSecrets(tdh2pk, "{\"num\": \"1\"}")
+	secrets, err := EncryptS4Secrets(pKey, tdh2pk, donKeyOnChain, "{\"ltsecret\": \"1\"}")
 	if err != nil {
 		return env, nil, errors.Wrap(err, "failed to generate tdh2 secrets")
 	}
@@ -187,9 +194,9 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, 
 		PrivateKey:            os.Getenv("MUMBAI_KEYS"),
 		MessageID:             "1",
 		Method:                "secrets_set",
-		DonID:                 "functions_staging_mumbai",
-		S4SetSlotID:           4,
-		S4SetVersion:          0,
+		DonID:                 cfg.Common.DONID,
+		S4SetSlotID:           0,
+		S4SetVersion:          1,
 		S4SetExpirationPeriod: 60 * 60 * 1000,
 		S4SetPayload:          secrets,
 	}); err != nil {
@@ -214,7 +221,7 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, 
 	}, nil
 }
 
-func parseTDH2Key(data []byte) (*tdh2easy.PublicKey, error) {
+func ParseTDH2Key(data []byte) (*tdh2easy.PublicKey, error) {
 	pk := &tdh2easy.PublicKey{}
 	if err := pk.Unmarshal(data); err != nil {
 		return nil, err
@@ -222,19 +229,96 @@ func parseTDH2Key(data []byte) (*tdh2easy.PublicKey, error) {
 	return pk, nil
 }
 
-func generateSecrets(pk *tdh2easy.PublicKey, msg string) (string, error) {
-	ctxt, err := tdh2easy.Encrypt(pk, []byte(msg))
+func EncryptS4Secrets(deployerPk *ecdsa.PrivateKey, tdh2Pk *tdh2easy.PublicKey, donKey []byte, msg string) (string, error) {
+	b := make([]byte, 1)
+	b[0] = 0x04
+	donKey = bytes.Join([][]byte{b, donKey}, nil)
+	donPubKey, err := crypto.UnmarshalPubkey(donKey)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to encrypt tdh2 encoded secrets")
+		return "", errors.Wrap(err, "failed to unmarshal DON key")
 	}
-	mctxt, err := ctxt.Marshal()
+	eciesDONPubKey := ecies.ImportECDSAPublic(donPubKey)
+	signature, err := deployerPk.Sign(rand.Reader, []byte(msg), nil)
 	if err != nil {
-		return "", errors.Wrap(err, "failed to marshal tdh2 encoded secrets")
+		return "", errors.Wrap(err, "failed to sign the msg with Ethereum key")
 	}
-	log.Info().RawJSON("SecretsJSON", mctxt).Msg("Encrypted secrets")
-	secretsHex := hex.EncodeToString(mctxt)
-	log.Info().Str("SecretsHex", secretsHex).Msg("Encoded tdh2 secrets")
-	return secretsHex, nil
+	signedSecrets, err := json.Marshal(struct {
+		Signature []byte
+		Message   string
+	}{
+		Signature: signature,
+		Message:   msg,
+	})
+	if err != nil {
+		return "", errors.Wrap(err, "failed to marshal signed secrets")
+	}
+	ct, err := ecies.Encrypt(rand.Reader, eciesDONPubKey, signedSecrets, nil, nil)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to encrypt with DON key")
+	}
+	ct0xFormat, err := json.Marshal(map[string]interface{}{"0x0": base64.StdEncoding.EncodeToString(ct)})
+	if err != nil {
+		return "", errors.Wrap(err, "failed to marshal DON key encrypted format")
+	}
+	ctTDH2Format, err := tdh2easy.Encrypt(tdh2Pk, ct0xFormat)
+	if err != nil {
+		return "", errors.Wrap(err, "failed to encrypt with TDH2 public key")
+	}
+	tdh2Message, err := ctTDH2Format.Marshal()
+	if err != nil {
+		return "", errors.Wrap(err, "failed to marshal TDH2 encrypted msg")
+	}
+	finalMsg, err := json.Marshal(map[string]interface{}{
+		"encryptedSecrets": "0x" + hex.EncodeToString(tdh2Message),
+	})
+	if err != nil {
+		return "", errors.Wrap(err, "failed to marshal secrets msg")
+	}
+	return string(finalMsg), nil
+	//  public async buildEncryptedSecrets(
+	//    secrets?: Record<string, string>,
+	//  ): Promise<{ encryptedSecrets: string }> {
+	//    if (!secrets || Object.keys(secrets).length === 0) {
+	//      throw Error('Secrets are empty')
+	//    }
+	//
+	//    if (
+	//      typeof secrets !== 'object' ||
+	//      !Object.values(secrets).every(s => {
+	//        return typeof s === 'string'
+	//      })
+	//    ) {
+	//      throw Error('Secrets are not a string map')
+	//    }
+	//
+	//    const { thresholdPublicKey, donPublicKey } = await this.fetchKeys()
+	//
+	//    const message = JSON.stringify(secrets)
+	//    const signature = await this.signer.signMessage(message)
+	//
+	//    const signedSecrets = JSON.stringify({
+	//      message,
+	//      signature,
+	//    })
+	//
+	//    const encryptedSignedSecrets = EthCrypto.cipher.stringify(
+	//      await EthCrypto.encryptWithPublicKey(donPublicKey, signedSecrets),
+	//    )
+	//
+	//    const donKeyEncryptedSecrets = {
+	//      '0x0': Buffer.from(encryptedSignedSecrets, 'hex').toString('base64'),
+	//    }
+	//
+	//    const encryptedSecretsHexstring =
+	//      '0x' +
+	//      Buffer.from(
+	//        encrypt(thresholdPublicKey, Buffer.from(JSON.stringify(donKeyEncryptedSecrets))),
+	//      ).toString('hex')
+	//
+	//    return {
+	//      encryptedSecrets: encryptedSecretsHexstring,
+	//    }
+	//  }
 }
 
 func parseEthereumPrivateKey(pk string) (*ecdsa.PrivateKey, *ecdsa.PublicKey, error) {

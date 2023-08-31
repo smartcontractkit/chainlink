@@ -2172,16 +2172,51 @@ func (e *EthereumFunctionsLoadTestClient) Address() string {
 	return e.address.Hex()
 }
 
-func (e *EthereumFunctionsLoadTestClient) GetStats() (uint32, uint32, uint32, uint32, error) {
+type EthereumFunctionsLoadStats struct {
+	LastRequestID string
+	LastResponse  string
+	LastError     string
+	Total         uint32
+	Succeeded     uint32
+	Errored       uint32
+	Empty         uint32
+}
+
+func Bytes32ToSlice(a [32]byte) (r []byte) {
+	r = append(r, a[:]...)
+	return
+}
+
+func (e *EthereumFunctionsLoadTestClient) GetStats() (*EthereumFunctionsLoadStats, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
 		Context: context.Background(),
 	}
 	total, succeeded, errored, empty, err := e.instance.GetStats(opts)
 	if err != nil {
-		return 0, 0, 0, 0, err
+		return nil, err
 	}
-	return total, succeeded, errored, empty, nil
+	rid, err := e.instance.LastRequestID(opts)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := e.instance.LastResponse(opts)
+	if err != nil {
+		return nil, err
+	}
+	lerr, err := e.instance.LastError(opts)
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumFunctionsLoadStats{
+		LastRequestID: string(Bytes32ToSlice(rid)),
+		LastResponse:  string(Bytes32ToSlice(resp)),
+		LastError:     string(Bytes32ToSlice(lerr)),
+		Total:         total,
+		Succeeded:     succeeded,
+		Errored:       errored,
+		Empty:         empty,
+	}, nil
 }
 
 func (e *EthereumFunctionsLoadTestClient) ResetStats() error {

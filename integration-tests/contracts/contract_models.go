@@ -363,6 +363,6 @@ type FunctionsRouter interface {
 type FunctionsLoadTestClient interface {
 	Address() string
 	ResetStats() error
-	GetStats() (uint32, uint32, uint32, uint32, error)
+	GetStats() (*EthereumFunctionsLoadStats, error)
 	SendRequest(source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error
 }
