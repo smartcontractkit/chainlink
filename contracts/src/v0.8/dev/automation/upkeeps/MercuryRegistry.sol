@@ -68,7 +68,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, FeedL
   IVerifierProxy public s_verifier; // for Mercury v0.2 - verifies off-chain reports
 
   int192 constant scale = 1_000_000; // a scalar used for measuring deviation with precision
-  int192 public s_deviationPercentagePPM; // acceptable deviatoin threshold - 1.5% = 15_000, 100% = 1_000_000, etc..
+  int192 public s_deviationPercentagePPM; // acceptable deviation threshold - 1.5% = 15_000, 100% = 1_000_000, etc..
   uint32 public s_stalenessSeconds; // acceptable staleness threshold - 60 = 1 minute, 300 = 5 minutes, etc..
 
   string[] public s_feeds; // list of feed Ids
