@@ -50,6 +50,8 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		var isNativeBilling = false
 		subBalanceBeforeRequest := subscription.Balance
 
+		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(job.Job.Data.ID)
+
 		// test and assert
 		err = vrfv2PlusContracts.LoadTestConsumer.RequestRandomness(
 			job.KeyHash,
@@ -81,7 +83,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 
 		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(job.Job.Data.ID)
 		require.NoError(t, err, "error reading job runs")
-		require.Equal(t, 1, len(jobRuns.Data))
+		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 
 		status, err := vrfv2PlusContracts.LoadTestConsumer.GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
@@ -98,6 +100,8 @@ func TestVRFv2PlusBilling(t *testing.T) {
 	t.Run("VRFV2 Plus With Native Billing", func(t *testing.T) {
 		var isNativeBilling = true
 		subNativeTokenBalanceBeforeRequest := subscription.EthBalance
+
+		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(job.Job.Data.ID)
 
 		// test and assert
 		err = vrfv2PlusContracts.LoadTestConsumer.RequestRandomness(
@@ -130,7 +134,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 
 		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(job.Job.Data.ID)
 		require.NoError(t, err, "error reading job runs")
-		require.Equal(t, 1, len(jobRuns.Data))
+		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 
 		status, err := vrfv2PlusContracts.LoadTestConsumer.GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
