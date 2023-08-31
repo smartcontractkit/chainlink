@@ -582,7 +582,7 @@ func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte, logBlock uint
 			r.lggr.Warnw("failed to unpack log upkeep config", "upkeepID", id.String(), "err", err)
 			return nil
 		}
-		if err := r.logEventProvider.RegisterFilter(logprovider.FilterOptions{
+		if err := r.logEventProvider.RegisterFilter(r.ctx, logprovider.FilterOptions{
 			TriggerConfig: logprovider.LogTriggerConfig(parsed),
 			UpkeepID:      id,
 			UpdateBlock:   logBlock,
