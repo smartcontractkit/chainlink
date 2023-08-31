@@ -1,6 +1,7 @@
 package logprovider
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 	"testing"
@@ -88,12 +89,15 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 	mp := new(mocks.LogPoller)
 	mp.On("RegisterFilter", mock.Anything).Return(nil)
 	mp.On("UnregisterFilter", mock.Anything).Return(nil)
+	mp.On("LatestBlock", mock.Anything).Return(int64(0), nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
 	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			err := p.RegisterFilter(FilterOptions{
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			err := p.RegisterFilter(ctx, FilterOptions{
 				UpkeepID:      tc.upkeepID,
 				TriggerConfig: tc.upkeepCfg,
 				UpdateBlock:   tc.cfgUpdateBlock,
@@ -111,14 +115,17 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 }
 
 func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 	mp := new(mocks.LogPoller)
 	mp.On("RegisterFilter", mock.Anything).Return(nil)
 	mp.On("UnregisterFilter", mock.Anything).Return(nil)
+	mp.On("LatestBlock", mock.Anything).Return(int64(0), nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
 
 	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
 
-	require.NoError(t, p.RegisterFilter(FilterOptions{
+	require.NoError(t, p.RegisterFilter(ctx, FilterOptions{
 		UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1111").BigInt(),
 		TriggerConfig: LogTriggerConfig{
 			ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{1, 2, 3, 4}, 20)),
@@ -126,7 +133,7 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 		},
 		UpdateBlock: uint64(0),
 	}))
-	require.NoError(t, p.RegisterFilter(FilterOptions{
+	require.NoError(t, p.RegisterFilter(ctx, FilterOptions{
 		UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2222").BigInt(),
 		TriggerConfig: LogTriggerConfig{
 			ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{1, 2, 3, 4}, 20)),

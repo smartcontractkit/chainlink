@@ -128,7 +128,6 @@ func (s *ChainRelayerExt) Close() (err error) {
 }
 
 func (s *ChainRelayerExt) Name() string {
-	// we set each private chainSet logger to contain the chain id
 	return s.chain.Name()
 }
 
@@ -142,7 +141,7 @@ func (s *ChainRelayerExt) Ready() (err error) {
 
 var ErrInconsistentChainRelayerExtender = errors.New("inconsistent evm chain relayer extender")
 
-// Chainset interface remove after BFC-2441
+// Legacy interface remove after BFC-2441, BCF-2564
 
 func (s *ChainRelayerExt) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return s.Transact(ctx, from, to, amount, balanceCheck)

@@ -431,8 +431,8 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 	err = bootstrapNode.app.Start(testutils.Context(t))
 	require.NoError(t, err)
 
-	chainSet := bootstrapNode.app.GetRelayers().LegacyEVMChains()
-	require.NotNil(t, chainSet)
+	evmChains := bootstrapNode.app.GetRelayers().LegacyEVMChains()
+	require.NotNil(t, evmChains)
 	bootstrapJobSpec := fmt.Sprintf(`
 type				= "bootstrap"
 name				= "bootstrap"
