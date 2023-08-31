@@ -152,7 +152,7 @@ func toOnchainReceipt(rs []*evmtypes.Receipt) []rawOnchainReceipt {
 // This is exported, as tests and other external code still directly reads DB using this schema.
 type DbEthTx struct {
 	ID             int64
-	IdempotencyKey *uuid.UUID
+	IdempotencyKey *string
 	Nonce          *int64
 	FromAddress    common.Address
 	ToAddress      common.Address
@@ -909,7 +909,7 @@ func (o *evmTxStore) FindReceiptsPendingConfirmation(ctx context.Context, blockN
 }
 
 // FindTxWithIdempotencyKey returns any broadcast ethtx with the given idempotencyKey and chainID
-func (o *evmTxStore) FindTxWithIdempotencyKey(idempotencyKey uuid.UUID, chainID *big.Int) (etx *Tx, err error) {
+func (o *evmTxStore) FindTxWithIdempotencyKey(idempotencyKey string, chainID *big.Int) (etx *Tx, err error) {
 	var dbEtx DbEthTx
 	err = o.q.Get(&dbEtx, `SELECT * FROM eth_txes WHERE idempotency_key = $1 and evm_chain_id = $2`, idempotencyKey, chainID.String())
 	if err != nil {

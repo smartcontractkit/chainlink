@@ -327,7 +327,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	t.Run("insert Tx successfully with a IdempotencyKey", func(t *testing.T) {
 		evmConfig.maxQueued = uint64(3)
 		id := uuid.New()
-		idempotencyKey := uuid.New()
+		idempotencyKey := "1"
 		_, err := txm.CreateTransaction(txmgr.TxRequest{
 			IdempotencyKey:    &idempotencyKey,
 			FromAddress:       fromAddress,
@@ -343,7 +343,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	t.Run("doesn't insert eth_tx if a matching tx already exists for that IdempotencyKey", func(t *testing.T) {
 		evmConfig.maxQueued = uint64(3)
 		id := uuid.New()
-		idempotencyKey := uuid.New()
+		idempotencyKey := "2"
 		tx1, err := txm.CreateTransaction(txmgr.TxRequest{
 			IdempotencyKey:    &idempotencyKey,
 			FromAddress:       fromAddress,

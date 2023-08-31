@@ -348,7 +348,7 @@ func EvmTxRequestWithValue(value big.Int) func(*txmgr.TxRequest) {
 	}
 }
 
-func EvmTxRequestWithIdempotencyKey(idempotencyKey uuid.UUID) func(*txmgr.TxRequest) {
+func EvmTxRequestWithIdempotencyKey(idempotencyKey string) func(*txmgr.TxRequest) {
 	return func(tx *txmgr.TxRequest) {
 		tx.IdempotencyKey = &idempotencyKey
 	}

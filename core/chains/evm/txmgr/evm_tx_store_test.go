@@ -675,14 +675,14 @@ func Test_FindTxWithIdempotencyKey(t *testing.T) {
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
 
 	t.Run("returns nil if no results", func(t *testing.T) {
-		idempotencyKey := uuid.New()
+		idempotencyKey := "777"
 		etx, err := txStore.FindTxWithIdempotencyKey(idempotencyKey, big.NewInt(0))
 		require.NoError(t, err)
 		assert.Nil(t, etx)
 	})
 
 	t.Run("returns transaction if it exists", func(t *testing.T) {
-		idempotencyKey := uuid.New()
+		idempotencyKey := "777"
 		cfg.EVM().ChainID()
 		etx := cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, big.NewInt(0),
 			cltest.EvmTxRequestWithIdempotencyKey(idempotencyKey))

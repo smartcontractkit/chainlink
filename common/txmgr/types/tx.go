@@ -71,7 +71,9 @@ type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
 	// If found, it will return the existing Tx, without creating a new one. TXM will not validate or ensure that existing Tx is same as the incoming TxRequest.
 	// If not found, TXM will create a new Tx.
 	// If IdempotencyKey is set to null, TXM will always create a new Tx.
-	IdempotencyKey   *uuid.UUID
+	// Since IdempotencyKey has to be globally unique, consider prepending the service or component's name it is being used by
+	// Such as {service}-{ID}. E.g vrf-12345
+	IdempotencyKey   *string
 	FromAddress      ADDR
 	ToAddress        ADDR
 	EncodedPayload   []byte
@@ -184,7 +186,7 @@ type Tx[
 	FEE feetypes.Fee,
 ] struct {
 	ID             int64
-	IdempotencyKey *uuid.UUID
+	IdempotencyKey *string
 	Sequence       *SEQ
 	FromAddress    ADDR
 	ToAddress      ADDR

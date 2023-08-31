@@ -323,15 +323,15 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxAttem
 }
 
 // FindTxWithIdempotencyKey provides a mock function with given fields: idempotencyKey, chainID
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithIdempotencyKey(idempotencyKey uuid.UUID, chainID CHAIN_ID) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithIdempotencyKey(idempotencyKey string, chainID CHAIN_ID) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
 	ret := _m.Called(idempotencyKey, chainID)
 
 	var r0 *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(uuid.UUID, CHAIN_ID) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
+	if rf, ok := ret.Get(0).(func(string, CHAIN_ID) (*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
 		return rf(idempotencyKey, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(uuid.UUID, CHAIN_ID) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
+	if rf, ok := ret.Get(0).(func(string, CHAIN_ID) *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
 		r0 = rf(idempotencyKey, chainID)
 	} else {
 		if ret.Get(0) != nil {
@@ -339,7 +339,7 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindTxWithI
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(uuid.UUID, CHAIN_ID) error); ok {
+	if rf, ok := ret.Get(1).(func(string, CHAIN_ID) error); ok {
 		r1 = rf(idempotencyKey, chainID)
 	} else {
 		r1 = ret.Error(1)
