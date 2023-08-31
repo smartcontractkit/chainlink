@@ -161,7 +161,6 @@ func SetupVRFV2PlusEnvironment(
 	env *test_env.CLClusterTestEnv,
 	linkAddress contracts.LinkToken,
 	mockETHLinkFeedAddress contracts.MockETHLINKFeed,
-	isNativePayment bool,
 ) (*test_env.CLClusterTestEnv, *VRFV2PlusContracts, *big.Int, *VRFV2PlusJobInfo, error) {
 
 	vrfv2PlusContracts, err := DeployVRFV2PlusContracts(env.ContractDeployer, env.EVMClient)
@@ -209,24 +208,24 @@ func SetupVRFV2PlusEnvironment(
 		return nil, nil, nil, nil, errors.Wrap(err, ErrAddConsumerToSub)
 	}
 
-	if isNativePayment {
-		err = vrfv2PlusContracts.Coordinator.FundSubscriptionWithEth(subID, big.NewInt(0).Mul(vrfv2plus_constants.VRFSubscriptionFundingAmountNativeToken, big.NewInt(1e18)))
-		if err != nil {
-			return nil, nil, nil, nil, errors.Wrap(err, ErrFundSubWithNativeToken)
-		}
-	} else {
-		err = vrfv2PlusContracts.Coordinator.SetLINKAndLINKETHFeed(linkAddress.Address(), mockETHLinkFeedAddress.Address())
-		if err != nil {
-			return nil, nil, nil, nil, errors.Wrap(err, ErrSetLinkETHLinkFeed)
-		}
-		err = env.EVMClient.WaitForEvents()
-		if err != nil {
-			return nil, nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
-		}
-		err = FundVRFCoordinatorV2PlusSubscription(linkAddress, vrfv2PlusContracts.Coordinator, env.EVMClient, subID, vrfv2plus_constants.VRFSubscriptionFundingAmountLink)
-		if err != nil {
-			return nil, nil, nil, nil, errors.Wrap(err, ErrFundSubWithLinkToken)
-		}
+	//Native Billing
+	err = vrfv2PlusContracts.Coordinator.FundSubscriptionWithEth(subID, big.NewInt(0).Mul(vrfv2plus_constants.VRFSubscriptionFundingAmountNativeToken, big.NewInt(1e18)))
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrFundSubWithNativeToken)
+	}
+
+	//Link Billing
+	err = vrfv2PlusContracts.Coordinator.SetLINKAndLINKETHFeed(linkAddress.Address(), mockETHLinkFeedAddress.Address())
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrSetLinkETHLinkFeed)
+	}
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+	}
+	err = FundVRFCoordinatorV2PlusSubscription(linkAddress, vrfv2PlusContracts.Coordinator, env.EVMClient, subID, vrfv2plus_constants.VRFSubscriptionFundingAmountLink)
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrFundSubWithLinkToken)
 	}
 	err = env.EVMClient.WaitForEvents()
 	if err != nil {

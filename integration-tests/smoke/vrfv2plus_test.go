@@ -34,20 +34,20 @@ func TestVRFv2PlusBilling(t *testing.T) {
 	linkAddress, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
+	env, vrfv2PlusContracts, subID, job, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress)
+	require.NoError(t, err, "error setting up VRF v2 Plus env")
+
+	subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
+	require.NoError(t, err, "error getting subscription information")
+
+	l.Debug().
+		Interface("Juels Balance", subscription.Balance).
+		Interface("Native Token Balance", subscription.EthBalance).
+		Interface("Subscription ID", subID).
+		Msg("Subscription Data")
+
 	t.Run("VRFV2 Plus With Link Billing", func(t *testing.T) {
 		var isNativeBilling = false
-		env, vrfv2PlusContracts, subID, job, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress, isNativeBilling)
-		require.NoError(t, err, "error setting up VRF v2 Plus env")
-
-		subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
-		require.NoError(t, err, "error getting subscription information")
-
-		l.Debug().
-			Interface("Juels Balance", subscription.Balance).
-			Interface("Native Token Balance", subscription.EthBalance).
-			Interface("Subscription ID", subID).
-			Msg("Subscription Data")
-
 		subBalanceBeforeRequest := subscription.Balance
 
 		// test and assert
@@ -90,25 +90,13 @@ func TestVRFv2PlusBilling(t *testing.T) {
 
 		require.Equal(t, vrfv2plus_constants.NumberOfWords, uint32(len(status.RandomWords)))
 		for _, w := range status.RandomWords {
-			l.Info().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
-			require.Greater(t, w.Uint64(), uint64(0), "Expected the VRF job give an answer bigger than 0")
+			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
+			require.Equal(t, w.Cmp(big.NewInt(0)), 1, "Expected the VRF job give an answer bigger than 0")
 		}
 	})
 
 	t.Run("VRFV2 Plus With Native Billing", func(t *testing.T) {
 		var isNativeBilling = true
-		env, vrfv2PlusContracts, subID, job, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress, isNativeBilling)
-		require.NoError(t, err, "error setting up VRF v2 Plus env")
-
-		subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
-		require.NoError(t, err, "error getting subscription information")
-
-		l.Debug().
-			Interface("Juels Balance", subscription.Balance).
-			Interface("Native Token Balance", subscription.EthBalance).
-			Interface("Subscription ID", subID).
-			Msg("Subscription Data")
-
 		subNativeTokenBalanceBeforeRequest := subscription.EthBalance
 
 		// test and assert
@@ -151,8 +139,8 @@ func TestVRFv2PlusBilling(t *testing.T) {
 
 		require.Equal(t, vrfv2plus_constants.NumberOfWords, uint32(len(status.RandomWords)))
 		for _, w := range status.RandomWords {
-			l.Info().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
-			require.Greater(t, w.Uint64(), uint64(0), "Expected the VRF job give an answer bigger than 0")
+			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
+			require.Equal(t, w.Cmp(big.NewInt(0)), 1, "Expected the VRF job give an answer bigger than 0")
 		}
 	})
 
