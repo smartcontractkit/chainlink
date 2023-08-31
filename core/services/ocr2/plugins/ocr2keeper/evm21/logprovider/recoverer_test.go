@@ -950,7 +950,6 @@ func TestLogRecoverer_pending(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, nil, NewOptions(200))
 			r.lock.Lock()
-			defer r.lock.Unlock()
 			r.pending = tc.exist
 			for _, p := range tc.new {
 				r.addPending(p)
@@ -964,6 +963,13 @@ func TestLogRecoverer_pending(t *testing.T) {
 			for i := range pending {
 				require.Equal(t, tc.want[i].WorkID, pending[i].WorkID)
 			}
+			r.lock.Unlock()
+			for _, p := range tc.want {
+				r.removePending(p.WorkID)
+			}
+			r.lock.Lock()
+			defer r.lock.Unlock()
+			require.Equal(t, 0, len(r.pending))
 		})
 	}
 }
