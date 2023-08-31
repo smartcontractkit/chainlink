@@ -78,8 +78,9 @@ type Logger interface {
 	With(args ...interface{}) Logger
 	// Named creates a new Logger sub-scoped with name.
 	// Names are inherited and dot-separated.
-	//   a := l.Named("a") // logger=a
-	//   b := a.Named("b") // logger=a.b
+	//   a := l.Named("A") // logger=A
+	//   b := a.Named("A") // logger=A.B
+	// Names are generally `MixedCaps`, without spaces, like Go names.
 	Named(name string) Logger
 
 	// SetLogLevel changes the log level for this and all connected Loggers.

@@ -19,6 +19,7 @@ var (
 )
 
 func (p *logEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, error) {
+	// Exploratory: investigate how we can batch the refresh
 	if len(ids) == 0 {
 		return nil, nil
 	}
