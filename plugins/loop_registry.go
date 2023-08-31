@@ -31,7 +31,7 @@ type LoopRegistry struct {
 func NewLoopRegistry(lggr logger.Logger) *LoopRegistry {
 	return &LoopRegistry{
 		registry: map[string]*RegisteredLoop{},
-		lggr:     lggr,
+		lggr:     logger.Named(lggr, "LoopRegistry"),
 	}
 }
 
