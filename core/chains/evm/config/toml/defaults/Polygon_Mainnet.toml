@@ -37,4 +37,5 @@ HistoryDepth = 2000
 SamplingInterval = '1s'
 
 [NodePool]
-SyncThreshold = 10
+SyncThreshold = 250
+SelectionMode = 'TotalDifficulty'
