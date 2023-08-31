@@ -14,4 +14,14 @@ contract VerifierProxyInitializeVerifierTest is BaseTestWithConfiguredVerifierAn
     vm.expectRevert(abi.encodeWithSelector(VerifierProxy.ZeroAddress.selector));
     s_verifierProxy.setFeeManager(FeeManager(address(0)));
   }
+
+  function test_setFeeManagerWhichDoesntHonourInterface() public {
+    vm.expectRevert(abi.encodeWithSelector(VerifierProxy.FeeManagerInvalid.selector));
+    s_verifierProxy.setFeeManager(FeeManager(address(s_verifier)));
+  }
+
+  function test_setFeeManagerWhichDoesntHonourIERC165Interface() public {
+    vm.expectRevert();
+    s_verifierProxy.setFeeManager(FeeManager(address(1)));
+  }
 }

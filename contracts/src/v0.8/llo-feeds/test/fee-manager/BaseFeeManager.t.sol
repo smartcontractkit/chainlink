@@ -77,6 +77,13 @@ contract BaseFeeManagerTest is Test {
   event InsufficientLink(IRewardManager.FeePayment[] feesAndRewards);
   event Withdraw(address adminAddress, address assetAddress, uint192 quantity);
   event LinkDeficitCleared(bytes32 indexed configDigest, uint256 linkQuantity);
+  event DiscountApplied(
+    bytes32 indexed configDigest,
+    address indexed subscriber,
+    Common.Asset fee,
+    Common.Asset reward,
+    uint256 appliedDiscountQuantity
+  );
 
   function setUp() public virtual {
     //change to admin user
@@ -153,7 +160,7 @@ contract BaseFeeManagerTest is Test {
     address subscriber
   ) public view returns (Common.Asset memory) {
     //get the fee
-    (Common.Asset memory fee, ) = feeManager.getFeeAndReward(subscriber, report, quote);
+    (Common.Asset memory fee, , ) = feeManager.getFeeAndReward(subscriber, report, quote);
 
     return fee;
   }
@@ -164,9 +171,20 @@ contract BaseFeeManagerTest is Test {
     address subscriber
   ) public view returns (Common.Asset memory) {
     //get the reward
-    (, Common.Asset memory reward) = feeManager.getFeeAndReward(subscriber, report, quote);
+    (, Common.Asset memory reward, ) = feeManager.getFeeAndReward(subscriber, report, quote);
 
     return reward;
+  }
+
+  function getAppliedDiscount(
+    bytes memory report,
+    IFeeManager.Quote memory quote,
+    address subscriber
+  ) public view returns (uint256) {
+    //get the reward
+    (, , uint256 appliedDiscount) = feeManager.getFeeAndReward(subscriber, report, quote);
+
+    return appliedDiscount;
   }
 
   function getV1Report(bytes32 feedId) public pure returns (bytes memory) {

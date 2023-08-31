@@ -3,7 +3,7 @@ pragma solidity 0.8.16;
 
 import {Common} from "../../libraries/Common.sol";
 import {AccessControllerInterface} from "../../interfaces/AccessControllerInterface.sol";
-import {IVerifierFeeManager} from "./IVerifierFeeManager.sol";
+import {IVerifierFeeManager} from "../dev/interfaces/IVerifierFeeManager.sol";
 
 interface IVerifierProxy {
   /**

@@ -73,7 +73,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
   // @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "RewardManager 0.0.1";
+    return "RewardManager 1.0.0";
   }
 
   // @inheritdoc IERC165

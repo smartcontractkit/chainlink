@@ -3,49 +3,21 @@ pragma solidity 0.8.16;
 
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
 import {Common} from "../../../libraries/Common.sol";
-import {IVerifierFeeManager} from "../../interfaces/IVerifierFeeManager.sol";
+import {IVerifierFeeManager} from "./IVerifierFeeManager.sol";
 
 interface IFeeManager is IERC165, IVerifierFeeManager {
-  struct Quote {
-    address quoteAddress;
-  }
-
-  /**
-   * @notice Processes the fee for a report, billing the subscriber and paying the reward manager
-   * @param payload report and quote data to process the fee for
-   * @param subscriber address of the user to process fee for
-   */
-  function processFee(bytes calldata payload, address subscriber) external payable;
-
-  /**
-   * @notice Processes the fees for each report in the payload, billing the subscriber and paying the reward manager
-   * @param payloads reports and quotes to process
-   * @param subscriber address of the user to process fee for
-   */
-  function processFeeBulk(bytes[] calldata payloads, address subscriber) external payable;
-
   /**
    * @notice Calculate the applied fee and the reward from a report. If the sender is a subscriber, they will receive a discount.
    * @param subscriber address trying to verify
    * @param report report to calculate the fee for
    * @param quote any metadata required to fetch the fee
-   * @return (fee, reward) fee and the reward data
+   * @return (fee, reward, totalDiscount) fee and the reward data with the discount applied
    */
   function getFeeAndReward(
     address subscriber,
     bytes memory report,
     Quote memory quote
-  ) external returns (Common.Asset memory, Common.Asset memory);
-
-  /**
-   * @notice Sets the fee recipients within the reward manager
-   * @param configDigest digest of the configuration
-   * @param rewardRecipientAndWeights the address and weights of all the recipients to receive rewards
-   */
-  function setFeeRecipients(
-    bytes32 configDigest,
-    Common.AddressAndWeight[] calldata rewardRecipientAndWeights
-  ) external;
+  ) external returns (Common.Asset memory, Common.Asset memory, uint256);
 
   /**
    * @notice Sets the native surcharge
@@ -86,10 +58,20 @@ interface IFeeManager is IERC165, IVerifierFeeManager {
    * @param digest the digest linked to the fee and reward
    * @param fee the fee paid to verify the report
    * @param reward the reward paid upon verification
+   & @param appliedDiscount the discount applied to the reward
    */
   struct FeeAndReward {
     bytes32 configDigest;
     Common.Asset fee;
     Common.Asset reward;
+    uint256 appliedDiscount;
+  }
+
+  /**
+   * @notice The structure to hold quote metadata
+   * @param quoteAddress the address of the quote
+   */
+  struct Quote {
+    address quoteAddress;
   }
 }
