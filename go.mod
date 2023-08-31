@@ -12,6 +12,7 @@ require (
 	github.com/cometbft/cometbft v0.37.2
 	github.com/cosmos/cosmos-sdk v0.47.4
 	github.com/danielkov/gin-helmet v0.0.0-20171108135313-1387e224435e
+	github.com/esote/minmaxheap v1.0.0
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/fatih/color v1.15.0
 	github.com/fxamacker/cbor/v2 v2.4.0
@@ -160,7 +161,6 @@ require (
 	github.com/docker/distribution v2.8.2+incompatible // indirect
 	github.com/dustin/go-humanize v1.0.1 // indirect
 	github.com/dvsekhvalnov/jose2go v1.5.0 // indirect
-	github.com/esote/minmaxheap v1.0.0 // indirect
 	github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
