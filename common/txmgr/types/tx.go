@@ -66,10 +66,12 @@ func (s TxAttemptState) String() (str string) {
 }
 
 type TxRequest[ADDR types.Hashable, TX_HASH types.Hashable] struct {
-	// Unique ID set by external components to prevent double send
-	// If present in TxRequest, TXM will search for Tx with ID
-	// If found, it will return the existing Tx, otherwise it will create a new Tx
-	RequestID        *string
+	// IdempotencyKey is a globally unique ID set by the caller, to prevent accidental creation of duplicated Txs during retries or crash recovery.
+	// If this field is set, the TXM will first search existing Txs with this field.
+	// If found, it will return the existing Tx, without creating a new one. TXM will not validate or ensure that existing Tx is same as the incoming TxRequest.
+	// If not found, TXM will create a new Tx.
+	// If IdempotencyKey is set to null, TXM will always create a new Tx.
+	IdempotencyKey   *uuid.UUID
 	FromAddress      ADDR
 	ToAddress        ADDR
 	EncodedPayload   []byte
@@ -182,7 +184,7 @@ type Tx[
 	FEE feetypes.Fee,
 ] struct {
 	ID             int64
-	RequestID      *string
+	IdempotencyKey *uuid.UUID
 	Sequence       *SEQ
 	FromAddress    ADDR
 	ToAddress      ADDR

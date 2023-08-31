@@ -324,12 +324,12 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		require.Equal(t, etx.ToAddress.String(), fwdrAddr.String())
 	})
 
-	t.Run("insert Tx successfully with a RequestID", func(t *testing.T) {
+	t.Run("insert Tx successfully with a IdempotencyKey", func(t *testing.T) {
 		evmConfig.maxQueued = uint64(3)
 		id := uuid.New()
-		requestId := "1"
+		idempotencyKey := uuid.New()
 		_, err := txm.CreateTransaction(txmgr.TxRequest{
-			RequestID:         &requestId,
+			IdempotencyKey:    &idempotencyKey,
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
@@ -340,12 +340,12 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("doesn't insert eth_tx if a matching tx already exists for that RequestID", func(t *testing.T) {
+	t.Run("doesn't insert eth_tx if a matching tx already exists for that IdempotencyKey", func(t *testing.T) {
 		evmConfig.maxQueued = uint64(3)
 		id := uuid.New()
-		requestId := "2"
+		idempotencyKey := uuid.New()
 		tx1, err := txm.CreateTransaction(txmgr.TxRequest{
-			RequestID:         &requestId,
+			IdempotencyKey:    &idempotencyKey,
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
@@ -356,7 +356,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		assert.NoError(t, err)
 
 		tx2, err := txm.CreateTransaction(txmgr.TxRequest{
-			RequestID:         &requestId,
+			IdempotencyKey:    &idempotencyKey,
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
