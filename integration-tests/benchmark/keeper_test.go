@@ -244,13 +244,13 @@ var networkConfig = map[string]NetworkConfig{
 	"SimulatedGeth": {
 		upkeepSLA:  int64(20),
 		blockTime:  time.Second,
-		deltaStage: 10 * time.Second,
+		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
 	},
 	"geth": {
 		upkeepSLA:  int64(20),
 		blockTime:  time.Second,
-		deltaStage: 10 * time.Second,
+		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
 	},
 	"GoerliTestnet": {
