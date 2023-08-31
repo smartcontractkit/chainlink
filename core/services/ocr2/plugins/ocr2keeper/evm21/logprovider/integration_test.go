@@ -61,6 +61,9 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 	n := 10
 
+	backend.Commit()
+	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
+
 	ids, addrs, contracts := deployUpkeepCounter(ctx, t, n, ethClient, backend, carrol, logProvider)
 	lp.PollAndSaveLogs(ctx, int64(n))
 

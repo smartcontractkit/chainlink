@@ -120,9 +120,9 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 	}
 	p.filterStore.AddActiveUpkeeps(ufilter)
 	backfillBlock := latest - int64(LogBackfillBuffer)
-	if backfillBlock < 0 {
+	if backfillBlock < 1 {
 		// New chain, backfill from start
-		backfillBlock = 0
+		backfillBlock = 1
 	}
 	// TODO: Optimise to do backfill from ufilter.configUpdateBlock only for new filters
 	// if it is not too old
