@@ -2,8 +2,10 @@ ChainID = '1442'
 FinalityDepth = 1
 NoNewHeadsThreshold = '12m'
 MinIncomingConfirmations = 1
-OCR.ContractConfirmations = 1
 LogPollInterval = '30s'
+
+[OCR]
+ContractConfirmations = 1
 
 [Transactions]
 ResendAfterThreshold = '3m'
