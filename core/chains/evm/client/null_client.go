@@ -72,7 +72,7 @@ type nullSubscription struct {
 }
 
 func newNullSubscription(lggr logger.Logger) *nullSubscription {
-	return &nullSubscription{lggr: lggr.Named("nullSubscription")}
+	return &nullSubscription{lggr: lggr.Named("NullSubscription")}
 }
 
 func (ns *nullSubscription) Unsubscribe() {
@@ -131,11 +131,6 @@ func (nc *NullClient) SendTransaction(ctx context.Context, tx *types.Transaction
 	return nil
 }
 
-func (nc *NullClient) SimulateTransaction(ctx context.Context, tx *types.Transaction) error {
-	nc.lggr.Debug("SimulateTransaction")
-	return nil
-}
-
 func (nc *NullClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
 	nc.lggr.Debug("PendingCodeAt")
 	return nil, nil
@@ -179,11 +174,6 @@ func (nc *NullClient) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
 func (nc *NullClient) BalanceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (*big.Int, error) {
 	nc.lggr.Debug("BalanceAt")
 	return big.NewInt(0), nil
-}
-
-func (nc *NullClient) FilterEvents(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {
-	nc.lggr.Debug("FilterEvents")
-	return nil, nil
 }
 
 func (nc *NullClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([]types.Log, error) {

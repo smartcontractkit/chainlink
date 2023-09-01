@@ -118,12 +118,14 @@ func CreateAndFundSubscriptions(t *testing.T, b *backends.SimulatedBackend, owne
 		privateKey, err := crypto.HexToECDSA(allowListPrivateKey[2:])
 		require.NoError(t, err)
 		flatSignature, err := crypto.Sign(message[:], privateKey)
+		require.NoError(t, err)
 		var r [32]byte
 		copy(r[:], flatSignature[:32])
 		var s [32]byte
 		copy(s[:], flatSignature[32:64])
-		v := uint8(flatSignature[65])
-		allowListContract.AcceptTermsOfService(owner, owner.From, owner.From, r, s, v)
+		v := flatSignature[65]
+		_, err = allowListContract.AcceptTermsOfService(owner, owner.From, owner.From, r, s, v)
+		require.NoError(t, err)
 	}
 
 	_, err = routerContract.CreateSubscription(owner)

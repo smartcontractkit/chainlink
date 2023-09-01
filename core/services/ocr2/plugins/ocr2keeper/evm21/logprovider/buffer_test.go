@@ -14,11 +14,10 @@ import (
 
 func TestLogEventBuffer_GetBlocksInRange(t *testing.T) {
 	size := 3
+	maxSeenBlock := int64(4)
 	buf := newLogEventBuffer(logger.TestLogger(t), size, 10, 10)
 
 	buf.enqueue(big.NewInt(1),
-		logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
-		logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 1},
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0},
 		logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3"), LogIndex: 0},
 	)
@@ -26,6 +25,8 @@ func TestLogEventBuffer_GetBlocksInRange(t *testing.T) {
 	buf.enqueue(big.NewInt(2),
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 2},
 		logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3"), LogIndex: 2},
+		logpoller.Log{BlockNumber: 4, TxHash: common.HexToHash("0x1"), LogIndex: 0},
+		logpoller.Log{BlockNumber: 4, TxHash: common.HexToHash("0x1"), LogIndex: 1},
 	)
 
 	tests := []struct {
@@ -36,27 +37,26 @@ func TestLogEventBuffer_GetBlocksInRange(t *testing.T) {
 	}{
 		{
 			name: "all",
-			from: 1,
-			to:   3,
-			want: 3,
-		},
-		{
-			name: "partial",
-			from: 1,
-			to:   2,
-			want: 2,
-		},
-		{
-			name: "circular",
 			from: 2,
 			to:   4,
 			want: 3,
 		},
 		{
+			name: "partial",
+			from: 2,
+			to:   3,
+			want: 2,
+		},
+		{
+			name: "circular",
+			from: 3,
+			to:   4,
+			want: 2,
+		},
+		{
 			name: "zero start",
 			from: 0,
 			to:   2,
-			want: 2,
 		},
 		{
 			name: "invalid zero end",
@@ -68,6 +68,17 @@ func TestLogEventBuffer_GetBlocksInRange(t *testing.T) {
 			from: 4,
 			to:   2,
 		},
+		{
+			name: "outside max last seen",
+			from: 5,
+			to:   10,
+		},
+		{
+			name: "limited by max last seen",
+			from: 2,
+			to:   5,
+			want: 3,
+		},
 	}
 
 	for _, tc := range tests {
@@ -76,15 +87,10 @@ func TestLogEventBuffer_GetBlocksInRange(t *testing.T) {
 			require.Equal(t, tc.want, len(blocks))
 			if tc.want > 0 {
 				from := tc.from
-				if from == 0 {
-					from++
-				}
 				require.Equal(t, from, blocks[0].blockNumber)
 				to := tc.to
-				if to == 0 {
-					to++
-				} else if to > int64(size) {
-					to = to % int64(size)
+				if to >= maxSeenBlock {
+					to = maxSeenBlock
 				}
 				require.Equal(t, to, blocks[len(blocks)-1].blockNumber)
 			}
@@ -175,7 +181,7 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 	})
 
 	t.Run("enqueue logs overflow", func(t *testing.T) {
-		buf := newLogEventBuffer(logger.TestLogger(t), 3, 2, 10)
+		buf := newLogEventBuffer(logger.TestLogger(t), 2, 2, 10)
 
 		require.Equal(t, 2, buf.enqueue(big.NewInt(1),
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
@@ -230,14 +236,14 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 		results := buf.peekRange(int64(1), int64(2))
 		require.Equal(t, 2, len(results))
 		verifyBlockNumbers(t, results, 1, 2)
-		removed := buf.dequeueRange(int64(1), int64(2))
+		removed := buf.dequeueRange(int64(1), int64(2), 2)
 		require.Equal(t, 2, len(removed))
 		results = buf.peekRange(int64(1), int64(2))
 		require.Equal(t, 0, len(results))
 	})
 
 	t.Run("enqueue peek and dequeue", func(t *testing.T) {
-		buf := newLogEventBuffer(logger.TestLogger(t), 3, 10, 10)
+		buf := newLogEventBuffer(logger.TestLogger(t), 4, 10, 10)
 
 		require.Equal(t, buf.enqueue(big.NewInt(10),
 			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 10},
@@ -250,10 +256,11 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 		results := buf.peek(8)
 		require.Equal(t, 4, len(results))
 		verifyBlockNumbers(t, results, 1, 2, 3, 3)
-		removed := buf.dequeue(8)
+		removed := buf.dequeueRange(1, 3, 5)
 		require.Equal(t, 4, len(removed))
 		buf.lock.Lock()
 		require.Equal(t, 0, len(buf.blocks[0].logs))
+		require.Equal(t, int64(2), buf.blocks[1].blockNumber)
 		require.Equal(t, 1, len(buf.blocks[1].visited))
 		buf.lock.Unlock()
 	})
@@ -291,9 +298,42 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0},
 			logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3"), LogIndex: 0},
 		), 2)
-		results := buf.peekRange(int64(0), int64(5))
+		results := buf.peekRange(int64(1), int64(5))
 		fmt.Println(results)
 		verifyBlockNumbers(t, results, 2, 3, 4, 4)
+	})
+
+	t.Run("dequeue with limits returns latest block logs", func(t *testing.T) {
+		buf := newLogEventBuffer(logger.TestLogger(t), 3, 5, 10)
+		require.Equal(t, buf.enqueue(big.NewInt(1),
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 4, TxHash: common.HexToHash("0x4"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 5, TxHash: common.HexToHash("0x5"), LogIndex: 0},
+		), 5)
+
+		logs := buf.dequeueRange(1, 5, 2)
+		require.Equal(t, 2, len(logs))
+		require.Equal(t, int64(5), logs[0].log.BlockNumber)
+		require.Equal(t, int64(4), logs[1].log.BlockNumber)
+	})
+
+	t.Run("dequeue doesn't return same logs again", func(t *testing.T) {
+		buf := newLogEventBuffer(logger.TestLogger(t), 3, 5, 10)
+		require.Equal(t, buf.enqueue(big.NewInt(1),
+			logpoller.Log{BlockNumber: 1, TxHash: common.HexToHash("0x1"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x2"), LogIndex: 0},
+			logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3"), LogIndex: 0},
+		), 3)
+
+		logs := buf.dequeueRange(3, 3, 2)
+		fmt.Println(logs)
+		require.Equal(t, 1, len(logs))
+
+		logs = buf.dequeueRange(3, 3, 2)
+		fmt.Println(logs)
+		require.Equal(t, 0, len(logs))
 	})
 }
 

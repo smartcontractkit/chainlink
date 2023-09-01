@@ -2,6 +2,7 @@ package threshold
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -199,8 +200,8 @@ func Test_decryptionQueue_GetCiphertext_CiphertextNotFound(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(3, 1000, 64, testutils.WaitTimeout(t), lggr)
 
-	_, err := dq.GetCiphertext([]byte("8"))
-	assert.Equal(t, err.Error(), "ciphertext not found")
+	_, err := dq.GetCiphertext([]byte{0xa5})
+	assert.True(t, errors.Is(err, decryptionPlugin.ErrNotFound))
 }
 
 func Test_decryptionQueue_Decrypt_DecryptCalledAfterReadyResult(t *testing.T) {
@@ -253,20 +254,38 @@ func Test_decryptionQueue_Decrypt_CleanupSuccessfulRequest(t *testing.T) {
 	assert.Equal(t, err2.Error(), "context provided by caller was cancelled")
 }
 
-func Test_decryptionQueue_Decrypt_HandleClosedChannelWithoutPlaintextResponse(t *testing.T) {
+func Test_decryptionQueue_Decrypt_UserErrorDuringDecryption(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	dq := NewDecryptionQueue(5, 1000, 64, testutils.WaitTimeout(t), lggr)
+	ciphertextId := []byte{0x12, 0x0f}
 
 	go func() {
-		waitForPendingRequestToBeAdded(t, dq, []byte("1"))
-		close(dq.pendingRequests[string([]byte("1"))].chPlaintext)
+		waitForPendingRequestToBeAdded(t, dq, ciphertextId)
+		dq.SetResult(ciphertextId, nil, decryptionPlugin.ErrAggregation)
 	}()
 
 	ctx, cancel := context.WithCancel(testutils.Context(t))
 	defer cancel()
 
-	_, err := dq.Decrypt(ctx, []byte("1"), []byte("encrypted"))
-	assert.Equal(t, err.Error(), "pending decryption request for ciphertextId 1 was closed without a response")
+	_, err := dq.Decrypt(ctx, ciphertextId, []byte("encrypted"))
+	assert.Equal(t, err.Error(), "pending decryption request for ciphertextId 0x120f was closed without a response")
+}
+
+func Test_decryptionQueue_Decrypt_HandleClosedChannelWithoutPlaintextResponse(t *testing.T) {
+	lggr := logger.TestLogger(t)
+	dq := NewDecryptionQueue(5, 1000, 64, testutils.WaitTimeout(t), lggr)
+	ciphertextId := []byte{0x00, 0xff}
+
+	go func() {
+		waitForPendingRequestToBeAdded(t, dq, ciphertextId)
+		close(dq.pendingRequests[string(ciphertextId)].chPlaintext)
+	}()
+
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	defer cancel()
+
+	_, err := dq.Decrypt(ctx, ciphertextId, []byte("encrypted"))
+	assert.Equal(t, err.Error(), "pending decryption request for ciphertextId 0x00ff was closed without a response")
 }
 
 func Test_decryptionQueue_GetRequests_RequestsCountLimit(t *testing.T) {

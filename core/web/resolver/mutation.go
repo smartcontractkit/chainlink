@@ -151,23 +151,24 @@ func (r *Resolver) DeleteCSAKey(ctx context.Context, args struct {
 }
 
 type createFeedsManagerChainConfigInput struct {
-	FeedsManagerID     string
-	ChainID            string
-	ChainType          string
-	AccountAddr        string
-	AdminAddr          string
-	FluxMonitorEnabled bool
-	OCR1Enabled        bool
-	OCR1IsBootstrap    *bool
-	OCR1Multiaddr      *string
-	OCR1P2PPeerID      *string
-	OCR1KeyBundleID    *string
-	OCR2Enabled        bool
-	OCR2IsBootstrap    *bool
-	OCR2Multiaddr      *string
-	OCR2P2PPeerID      *string
-	OCR2KeyBundleID    *string
-	OCR2Plugins        string
+	FeedsManagerID       string
+	ChainID              string
+	ChainType            string
+	AccountAddr          string
+	AdminAddr            string
+	FluxMonitorEnabled   bool
+	OCR1Enabled          bool
+	OCR1IsBootstrap      *bool
+	OCR1Multiaddr        *string
+	OCR1P2PPeerID        *string
+	OCR1KeyBundleID      *string
+	OCR2Enabled          bool
+	OCR2IsBootstrap      *bool
+	OCR2Multiaddr        *string
+	OCR2ForwarderAddress *string
+	OCR2P2PPeerID        *string
+	OCR2KeyBundleID      *string
+	OCR2Plugins          string
 }
 
 func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struct {
@@ -217,12 +218,13 @@ func (r *Resolver) CreateFeedsManagerChainConfig(ctx context.Context, args struc
 		}
 
 		params.OCR2Config = feeds.OCR2ConfigModel{
-			Enabled:     args.Input.OCR2Enabled,
-			IsBootstrap: *args.Input.OCR2IsBootstrap,
-			Multiaddr:   null.StringFromPtr(args.Input.OCR2Multiaddr),
-			P2PPeerID:   null.StringFromPtr(args.Input.OCR2P2PPeerID),
-			KeyBundleID: null.StringFromPtr(args.Input.OCR2KeyBundleID),
-			Plugins:     plugins,
+			Enabled:          args.Input.OCR2Enabled,
+			IsBootstrap:      *args.Input.OCR2IsBootstrap,
+			Multiaddr:        null.StringFromPtr(args.Input.OCR2Multiaddr),
+			ForwarderAddress: null.StringFromPtr(args.Input.OCR2ForwarderAddress),
+			P2PPeerID:        null.StringFromPtr(args.Input.OCR2P2PPeerID),
+			KeyBundleID:      null.StringFromPtr(args.Input.OCR2KeyBundleID),
+			Plugins:          plugins,
 		}
 	}
 
@@ -287,20 +289,21 @@ func (r *Resolver) DeleteFeedsManagerChainConfig(ctx context.Context, args struc
 }
 
 type updateFeedsManagerChainConfigInput struct {
-	AccountAddr        string
-	AdminAddr          string
-	FluxMonitorEnabled bool
-	OCR1Enabled        bool
-	OCR1IsBootstrap    *bool
-	OCR1Multiaddr      *string
-	OCR1P2PPeerID      *string
-	OCR1KeyBundleID    *string
-	OCR2Enabled        bool
-	OCR2IsBootstrap    *bool
-	OCR2Multiaddr      *string
-	OCR2P2PPeerID      *string
-	OCR2KeyBundleID    *string
-	OCR2Plugins        string
+	AccountAddr          string
+	AdminAddr            string
+	FluxMonitorEnabled   bool
+	OCR1Enabled          bool
+	OCR1IsBootstrap      *bool
+	OCR1Multiaddr        *string
+	OCR1P2PPeerID        *string
+	OCR1KeyBundleID      *string
+	OCR2Enabled          bool
+	OCR2IsBootstrap      *bool
+	OCR2Multiaddr        *string
+	OCR2ForwarderAddress *string
+	OCR2P2PPeerID        *string
+	OCR2KeyBundleID      *string
+	OCR2Plugins          string
 }
 
 func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struct {
@@ -344,12 +347,13 @@ func (r *Resolver) UpdateFeedsManagerChainConfig(ctx context.Context, args struc
 		}
 
 		params.OCR2Config = feeds.OCR2ConfigModel{
-			Enabled:     args.Input.OCR2Enabled,
-			IsBootstrap: *args.Input.OCR2IsBootstrap,
-			Multiaddr:   null.StringFromPtr(args.Input.OCR2Multiaddr),
-			P2PPeerID:   null.StringFromPtr(args.Input.OCR2P2PPeerID),
-			KeyBundleID: null.StringFromPtr(args.Input.OCR2KeyBundleID),
-			Plugins:     plugins,
+			Enabled:          args.Input.OCR2Enabled,
+			IsBootstrap:      *args.Input.OCR2IsBootstrap,
+			Multiaddr:        null.StringFromPtr(args.Input.OCR2Multiaddr),
+			ForwarderAddress: null.StringFromPtr(args.Input.OCR2ForwarderAddress),
+			P2PPeerID:        null.StringFromPtr(args.Input.OCR2P2PPeerID),
+			KeyBundleID:      null.StringFromPtr(args.Input.OCR2KeyBundleID),
+			Plugins:          plugins,
 		}
 	}
 
@@ -1011,7 +1015,7 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 	config := r.App.GetConfig()
 	switch jbt {
 	case job.OffchainReporting:
-		jb, err = ocr.ValidatedOracleSpecToml(r.App.GetChains().EVM, args.Input.TOML)
+		jb, err = ocr.ValidatedOracleSpecToml(r.App.GetRelayers().LegacyEVMChains(), args.Input.TOML)
 		if !config.OCR().Enabled() {
 			return nil, errors.New("The Offchain Reporting feature is disabled by configuration")
 		}

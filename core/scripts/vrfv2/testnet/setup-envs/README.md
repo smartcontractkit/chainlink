@@ -27,6 +27,9 @@ go run . \
 --bhs-bk-creds-file <path_to_file_with_creds> \
 --bhf-node-url=http://localhost:6614 \
 --bhf-creds-file <path_to_file_with_creds> \
+--deploy-contracts true \
+--batch-fulfillment-enabled true \
+--min-confs 1 \
 --num-eth-keys 5 \
 --num-vrf-keys 1 \
 --sending-key-funding-amount 100000000000000000

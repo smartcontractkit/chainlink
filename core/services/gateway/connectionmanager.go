@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"go.uber.org/multierr"
@@ -122,6 +123,8 @@ func (m *connectionManager) Start(ctx context.Context) error {
 				}
 				go donConnMgr.readLoop(nodeAddress, nodeState)
 			}
+			donConnMgr.closeWait.Add(1)
+			go donConnMgr.heartbeatLoop(m.config.HeartbeatIntervalSec)
 		}
 		return m.wsServer.Start(ctx)
 	})
@@ -202,6 +205,12 @@ func (m *connectionManager) FinalizeHandshake(attemptId string, response []byte,
 	if err != nil || attempt.nodeAddress != "0x"+hex.EncodeToString(signer) {
 		return network.ErrChallengeInvalidSignature
 	}
+	if conn != nil {
+		conn.SetPongHandler(func(data string) error {
+			m.lggr.Debugw("received heartbeat pong from node", "nodeAddress", attempt.nodeAddress)
+			return nil
+		})
+	}
 	attempt.nodeState.conn.Reset(conn)
 	m.lggr.Infof("node %s connected", attempt.nodeAddress)
 	return nil
@@ -251,6 +260,37 @@ func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState
 			if err != nil {
 				m.lggr.Error("error when calling HandleNodeMessage ", err)
 			}
+		}
+	}
+}
+
+func (m *donConnectionManager) heartbeatLoop(intervalSec uint32) {
+	ctx, _ := utils.StopChan(m.shutdownCh).NewCtx()
+	defer m.closeWait.Done()
+
+	if intervalSec == 0 {
+		m.lggr.Error("heartbeat interval is 0, heartbeat disabled")
+		return
+	}
+	m.lggr.Info("starting heartbeat loop")
+
+	ticker := time.NewTicker(time.Duration(intervalSec) * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-m.shutdownCh:
+			return
+		case <-ticker.C:
+			errorCount := 0
+			for nodeAddress, nodeState := range m.nodes {
+				err := nodeState.conn.Write(ctx, websocket.PingMessage, []byte{})
+				if err != nil {
+					m.lggr.Debugw("unable to send heartbeat to node", "nodeAddress", nodeAddress, "err", err)
+					errorCount++
+				}
+			}
+			m.lggr.Infow("sent heartbeat to nodes", "donID", m.donConfig.DonId, "errCount", errorCount)
 		}
 	}
 }

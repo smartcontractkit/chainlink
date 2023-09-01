@@ -237,6 +237,70 @@ type FunctionsBillingRegistryEventsMock interface {
 	BillingEnd(requestId [32]byte, subscriptionId uint64, signerPayment *big.Int, transmitterPayment *big.Int, totalCost *big.Int, success bool) error
 }
 
+type StakingEventsMock interface {
+	Address() string
+	PoolSizeIncreased(maxPoolSize *big.Int) error
+	MaxCommunityStakeAmountIncreased(maxStakeAmount *big.Int) error
+	MaxOperatorStakeAmountIncreased(maxStakeAmount *big.Int) error
+	RewardInitialized(rate *big.Int, available *big.Int, startTimestamp *big.Int, endTimestamp *big.Int) error
+	AlertRaised(alerter common.Address, roundId *big.Int, rewardAmount *big.Int) error
+	Staked(staker common.Address, newStake *big.Int, totalStake *big.Int) error
+	OperatorAdded(operator common.Address) error
+	OperatorRemoved(operator common.Address, amount *big.Int) error
+	FeedOperatorsSet(feedOperators []common.Address) error
+}
+
+type OffchainAggregatorEventsMock interface {
+	Address() string
+	ConfigSet(previousConfigBlockNumber uint32, configCount uint64, signers []common.Address, transmitters []common.Address, threshold uint8, encodedConfigVersion uint64, encoded []byte) error
+	NewTransmission(aggregatorRoundId uint32, answer *big.Int, transmitter common.Address, observations []*big.Int, observers []byte, rawReportContext [32]byte) error
+}
+
+type KeeperRegistry11Mock interface {
+	Address() string
+	EmitUpkeepPerformed(id *big.Int, success bool, from common.Address, payment *big.Int, performData []byte) error
+	EmitUpkeepCanceled(id *big.Int, atBlockHeight uint64) error
+	EmitFundsWithdrawn(id *big.Int, amount *big.Int, to common.Address) error
+	EmitKeepersUpdated(keepers []common.Address, payees []common.Address) error
+	EmitUpkeepRegistered(id *big.Int, executeGas uint32, admin common.Address) error
+	EmitFundsAdded(id *big.Int, from common.Address, amount *big.Int) error
+	SetUpkeepCount(_upkeepCount *big.Int) error
+	SetCanceledUpkeepList(_canceledUpkeepList []*big.Int) error
+	SetKeeperList(_keepers []common.Address) error
+	SetConfig(_paymentPremiumPPB uint32, _flatFeeMicroLink uint32, _blockCountPerTurn *big.Int, _checkGasLimit uint32, _stalenessSeconds *big.Int, _gasCeilingMultiplier uint16, _fallbackGasPrice *big.Int, _fallbackLinkPrice *big.Int) error
+	SetUpkeep(id *big.Int, _target common.Address, _executeGas uint32, _balance *big.Int, _admin common.Address, _maxValidBlocknumber uint64, _lastKeeper common.Address, _checkData []byte) error
+	SetMinBalance(id *big.Int, minBalance *big.Int) error
+	SetCheckUpkeepData(id *big.Int, performData []byte, maxLinkPayment *big.Int, gasLimit *big.Int, adjustedGasWei *big.Int, linkEth *big.Int) error
+	SetPerformUpkeepSuccess(id *big.Int, success bool) error
+}
+
+type KeeperRegistrar12Mock interface {
+	Address() string
+	EmitRegistrationRequested(hash [32]byte, name string, encryptedEmail []byte, upkeepContract common.Address, gasLimit uint32, adminAddress common.Address, checkData []byte, amount *big.Int, source uint8) error
+	EmitRegistrationApproved(hash [32]byte, displayName string, upkeepId *big.Int) error
+	SetRegistrationConfig(_autoApproveConfigType uint8, _autoApproveMaxAllowed uint32, _approvedCount uint32, _keeperRegistry common.Address, _minLINKJuels *big.Int) error
+}
+
+type KeeperGasWrapperMock interface {
+	Address() string
+	SetMeasureCheckGasResult(result bool, payload []byte, gas *big.Int) error
+}
+
+type FunctionsV1EventsMock interface {
+	Address() string
+	EmitRequestProcessed(requestId [32]byte, subscriptionId uint64, totalCostJuels *big.Int, transmitter common.Address, resultCode uint8, response []byte, errByte []byte, callbackReturnData []byte) error
+	EmitRequestStart(requestId [32]byte, donId [32]byte, subscriptionId uint64, subscriptionOwner common.Address, requestingContract common.Address, requestInitiator common.Address, data []byte, dataVersion uint16, callbackGasLimit uint32, estimatedTotalCostJuels *big.Int) error
+	EmitSubscriptionCanceled(subscriptionId uint64, fundsRecipient common.Address, fundsAmount *big.Int) error
+	EmitSubscriptionConsumerAdded(subscriptionId uint64, consumer common.Address) error
+	EmitSubscriptionConsumerRemoved(subscriptionId uint64, consumer common.Address) error
+	EmitSubscriptionCreated(subscriptionId uint64, owner common.Address) error
+	EmitSubscriptionFunded(subscriptionId uint64, oldBalance *big.Int, newBalance *big.Int) error
+	EmitSubscriptionOwnerTransferred(subscriptionId uint64, from common.Address, to common.Address) error
+	EmitSubscriptionOwnerTransferRequested(subscriptionId uint64, from common.Address, to common.Address) error
+	EmitRequestNotProcessed(requestId [32]byte, coordinator common.Address, transmitter common.Address, resultCode uint8) error
+	EmitContractUpdated(id [32]byte, from common.Address, to common.Address) error
+}
+
 type MockAggregatorProxy interface {
 	Address() string
 	UpdateAggregator(aggregator common.Address) error
@@ -283,4 +347,18 @@ type AuthorizedForwarder interface {
 	Address() string
 	Owner(ctx context.Context) (string, error)
 	GetAuthorizedSenders(ctx context.Context) ([]string, error)
+}
+
+type FunctionsCoordinator interface {
+	Address() string
+}
+
+type FunctionsRouter interface {
+	Address() string
+	CreateSubscriptionWithConsumer(consumer string) (uint64, error)
+}
+
+type FunctionsLoadTestClient interface {
+	Address() string
+	SendRequest(source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error
 }

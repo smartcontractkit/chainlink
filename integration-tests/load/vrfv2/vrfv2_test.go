@@ -31,7 +31,7 @@ func TestVRFV2Load(t *testing.T) {
 		T:          t,
 		LoadType:   wasp.VU,
 		GenName:    "vu",
-		VU:         NewJobVolumeVU(cfg.SoakVolume.Pace.Duration(), 1, env.GetAPIs(), env.Geth.EthClient, vrfv2Contracts),
+		VU:         NewJobVolumeVU(cfg.SoakVolume.Pace.Duration(), 1, env.GetAPIs(), env.EVMClient, vrfv2Contracts),
 		Labels:     labels,
 		LokiConfig: wasp.NewEnvLokiConfig(),
 	}
@@ -40,7 +40,10 @@ func TestVRFV2Load(t *testing.T) {
 
 	// is our "job" stable at all, no memory leaks, no flaking performance under some RPS?
 	t.Run("vrfv2 soak test", func(t *testing.T) {
-		singleFeedConfig.Schedule = wasp.Plain(cfg.Soak.RPS, cfg.Soak.Duration.Duration())
+		singleFeedConfig.Schedule = wasp.Plain(
+			cfg.Soak.RPS,
+			cfg.Soak.Duration.Duration(),
+		)
 		_, err := wasp.NewProfile().
 			Add(wasp.NewGenerator(singleFeedConfig)).
 			Run(true)
@@ -49,7 +52,12 @@ func TestVRFV2Load(t *testing.T) {
 
 	// what are the limits for one "job", figuring out the max/optimal performance params by increasing RPS and varying configuration
 	t.Run("vrfv2 load test", func(t *testing.T) {
-		singleFeedConfig.Schedule = wasp.Line(cfg.Load.RPSFrom, cfg.Load.RPSTo, cfg.Load.Duration.Duration())
+		singleFeedConfig.Schedule = wasp.Steps(
+			cfg.Load.RPSFrom,
+			cfg.Load.RPSIncrease,
+			cfg.Load.RPSSteps,
+			cfg.Load.Duration.Duration(),
+		)
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(singleFeedConfig)).
 			Run(true)
@@ -58,7 +66,10 @@ func TestVRFV2Load(t *testing.T) {
 
 	// how many "jobs" of the same type we can run at once at a stable load with optimal configuration?
 	t.Run("vrfv2 volume soak test", func(t *testing.T) {
-		multiFeedConfig.Schedule = wasp.Plain(cfg.SoakVolume.Products, cfg.SoakVolume.Duration.Duration())
+		multiFeedConfig.Schedule = wasp.Plain(
+			cfg.SoakVolume.Products,
+			cfg.SoakVolume.Duration.Duration(),
+		)
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(multiFeedConfig)).
 			Run(true)
@@ -67,7 +78,12 @@ func TestVRFV2Load(t *testing.T) {
 
 	// what are the limits if we add more and more "jobs/products" of the same type, each "job" have a stable RPS we vary only amount of jobs
 	t.Run("vrfv2 volume load test", func(t *testing.T) {
-		multiFeedConfig.Schedule = wasp.Line(cfg.LoadVolume.ProductsFrom, cfg.LoadVolume.ProductsTo, cfg.LoadVolume.Duration.Duration())
+		multiFeedConfig.Schedule = wasp.Steps(
+			cfg.LoadVolume.ProductsFrom,
+			cfg.LoadVolume.ProductsIncrease,
+			cfg.LoadVolume.ProductsSteps,
+			cfg.LoadVolume.Duration.Duration(),
+		)
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(multiFeedConfig)).
 			Run(true)

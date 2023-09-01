@@ -5,32 +5,34 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"net/url"
 	"os"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
-
-	"math/big"
-
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	tc "github.com/testcontainers/testcontainers-go"
+	tcwait "github.com/testcontainers/testcontainers-go/wait"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/templates"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	tc "github.com/testcontainers/testcontainers-go"
-	tcwait "github.com/testcontainers/testcontainers-go/wait"
 )
 
 var (
@@ -39,11 +41,11 @@ var (
 )
 
 type ClNode struct {
-	EnvComponent
+	test_env.EnvComponent
 	API                   *client.ChainlinkClient
 	NodeConfig            *chainlink.Config
 	NodeSecretsConfigTOML string
-	PostgresDb            *PostgresDb
+	PostgresDb            *test_env.PostgresDb
 	lw                    *logwatch.LogWatch
 }
 
@@ -74,11 +76,11 @@ func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
 }
 
 func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
-	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:3])
+	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
-	pgDb := NewPostgresDb(networks, WithPostgresDbContainerName(pgDefaultCName))
+	pgDb := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
 	n := &ClNode{
-		EnvComponent: EnvComponent{
+		EnvComponent: test_env.EnvComponent{
 			ContainerName: nodeDefaultCName,
 			Networks:      networks,
 		},
@@ -257,6 +259,7 @@ func (n *ClNode) StartContainer() error {
 		return errors.Wrap(err, ErrConnectNodeClient)
 	}
 
+	clClient.Config.InternalIP = n.ContainerName
 	n.Container = container
 	n.API = clClient
 

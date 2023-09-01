@@ -41,7 +41,13 @@ func FundChainlinkNodes(
 		if err != nil {
 			return err
 		}
-		gasEstimates, err := client.EstimateGas(ethereum.CallMsg{})
+		recipient := common.HexToAddress(toAddress)
+		msg := ethereum.CallMsg{
+			From:  common.HexToAddress(client.GetDefaultWallet().Address()),
+			To:    &recipient,
+			Value: utils.EtherToWei(amount),
+		}
+		gasEstimates, err := client.EstimateGas(msg)
 		if err != nil {
 			return err
 		}
@@ -79,7 +85,7 @@ func FundChainlinkNodesAddress(
 
 // FundChainlinkNodesAddress will fund all of the provided Chainlink nodes addresses with a set amount of native currency
 func FundChainlinkNodesAddresses(
-	nodes []*client.ChainlinkK8sClient,
+	nodes []*client.ChainlinkClient,
 	client blockchain.EVMClient,
 	amount *big.Float,
 ) error {

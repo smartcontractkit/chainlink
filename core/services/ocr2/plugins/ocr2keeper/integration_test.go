@@ -447,7 +447,7 @@ func setupForwarderForNode(
 	_, err = forwarderORM.CreateForwarder(faddr, chainID)
 	require.NoError(t, err)
 
-	chain, err := app.GetChains().EVM.Get((*big.Int)(&chainID))
+	chain, err := app.GetRelayers().LegacyEVMChains().Get((*big.Int)(&chainID).String())
 	require.NoError(t, err)
 	fwdr, err := chain.TxManager().GetForwarderForEOA(recipient)
 	require.NoError(t, err)

@@ -14,6 +14,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	mercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -422,7 +423,7 @@ var trrsMercury = pipeline.TaskRunResults{
 
 func TestGetFinalValues(t *testing.T) {
 	e := EnhancedTelemetryService[EnhancedTelemetryMercuryData]{}
-	o := mercury.Observation{
+	o := mercuryv1.Observation{
 		BenchmarkPrice:        mercury.ObsResult[*big.Int]{Val: big.NewInt(111111)},
 		Bid:                   mercury.ObsResult[*big.Int]{Val: big.NewInt(222222)},
 		Ask:                   mercury.ObsResult[*big.Int]{Val: big.NewInt(333333)},
@@ -439,7 +440,7 @@ func TestGetFinalValues(t *testing.T) {
 	require.Equal(t, blockHash, common.HexToHash("0x123321").Bytes())
 	require.Equal(t, blockTimestamp, uint64(987654321))
 
-	benchmarkPrice, bid, ask, blockNr, blockHash, blockTimestamp = e.getFinalValues(mercury.Observation{})
+	benchmarkPrice, bid, ask, blockNr, blockHash, blockTimestamp = e.getFinalValues(mercuryv1.Observation{})
 	require.Equal(t, benchmarkPrice, int64(0))
 	require.Equal(t, bid, int64(0))
 	require.Equal(t, ask, int64(0))
@@ -581,7 +582,7 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 
 	chTelem <- EnhancedTelemetryMercuryData{
 		TaskRunResults: trrsMercury,
-		Observation: mercury.Observation{
+		Observation: mercuryv1.Observation{
 			BenchmarkPrice:        mercury.ObsResult[*big.Int]{Val: big.NewInt(111111)},
 			Bid:                   mercury.ObsResult[*big.Int]{Val: big.NewInt(222222)},
 			Ask:                   mercury.ObsResult[*big.Int]{Val: big.NewInt(333333)},
@@ -633,7 +634,7 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 					Value: nil,
 				}},
 		},
-		Observation: mercury.Observation{},
+		Observation: mercuryv1.Observation{},
 		RepTimestamp: types.ReportTimestamp{
 			ConfigDigest: types.ConfigDigest{2},
 			Epoch:        11,
@@ -644,7 +645,7 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 	trrsMercury[0].Result.Value = ""
 	chTelem <- EnhancedTelemetryMercuryData{
 		TaskRunResults: trrsMercury,
-		Observation:    mercury.Observation{},
+		Observation:    mercuryv1.Observation{},
 		RepTimestamp: types.ReportTimestamp{
 			ConfigDigest: types.ConfigDigest{2},
 			Epoch:        11,

@@ -500,7 +500,7 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID Request
 		return
 	}
 
-	nodeProvidedSecrets, userErr, internalErr := l.getSecrets(ctx, eaClient, requestIDStr, subscriptionOwner, requestData)
+	nodeProvidedSecrets, userErr, internalErr := l.getSecrets(ctx, eaClient, requestID, subscriptionOwner, requestData)
 	if internalErr != nil {
 		l.logger.Errorw("internal error during getSecrets", "requestID", requestIDStr, "err", internalErr)
 		l.setError(ctx, requestID, INTERNAL_ERROR, []byte(internalErr.Error()))
@@ -678,25 +678,26 @@ func (l *FunctionsListener) reportSourceCodeDomains(requestId RequestID, domains
 	}
 }
 
-func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAdapterClient, requestID string, subscriptionOwner common.Address, requestData *RequestData) (decryptedSecrets string, userError, internalError error) {
+func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAdapterClient, requestID RequestID, subscriptionOwner common.Address, requestData *RequestData) (decryptedSecrets string, userError, internalError error) {
 	if l.decryptor == nil {
 		l.logger.Warn("Decryptor not configured")
 		return "", nil, nil
 	}
 
 	var secrets []byte
+	requestIDStr := formatRequestId(requestID)
 
 	switch requestData.SecretsLocation {
 	case LocationInline:
-		l.logger.Warnw("request used Inline secrets location, processing with no secrets", "requestID", requestID)
+		l.logger.Warnw("request used Inline secrets location, processing with no secrets", "requestID", requestIDStr)
 		return "", nil, nil
 	case LocationRemote:
-		thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestID, l.job.Name.ValueOrZero())
+		thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestIDStr, l.job.Name.ValueOrZero())
 		if err != nil {
 			return "", nil, errors.Wrap(err, "failed to fetch encrypted secrets")
 		}
 		if len(userError) != 0 {
-			l.logger.Debugw("no valid threshold encrypted secrets detected, falling back to legacy secrets", "requestID", requestID, "err", string(userError))
+			l.logger.Debugw("no valid threshold encrypted secrets detected, falling back to legacy secrets", "requestID", requestIDStr, "err", string(userError))
 		}
 		secrets = thresholdEncSecrets
 	case LocationDONHosted:
@@ -725,7 +726,7 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 	decryptCtx, cancel := context.WithTimeout(ctx, time.Duration(l.pluginConfig.DecryptionQueueConfig.DecryptRequestTimeoutSec)*time.Second)
 	defer cancel()
 
-	decryptedSecretsBytes, err := l.decryptor.Decrypt(decryptCtx, []byte(requestID), secrets)
+	decryptedSecretsBytes, err := l.decryptor.Decrypt(decryptCtx, requestID[:], secrets)
 	if err != nil {
 		return "", errors.New("threshold decryption of secrets failed"), nil
 	}

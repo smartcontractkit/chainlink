@@ -19,6 +19,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   event WrapperFulfillmentFailed(uint256 indexed requestId, address indexed consumer);
 
   error LinkAlreadySet();
+  error FailedToTransferLink();
 
   LinkTokenInterface public s_link;
   AggregatorV3Interface public s_linkEthFeed;
@@ -391,7 +392,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @param _amount is the amount of LINK in Juels that should be withdrawn.
    */
   function withdraw(address _recipient, uint256 _amount) external onlyOwner {
-    s_link.transfer(_recipient, _amount);
+    if (!s_link.transfer(_recipient, _amount)) {
+      revert FailedToTransferLink();
+    }
   }
 
   /**

@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import "./KeeperRegistryBase2_1.sol";
-import "./KeeperRegistryLogicB2_1.sol";
-import "./Chainable.sol";
+import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import {KeeperRegistryBase2_1} from "./KeeperRegistryBase2_1.sol";
+import {KeeperRegistryLogicB2_1} from "./KeeperRegistryLogicB2_1.sol";
+import {Chainable} from "./Chainable.sol";
 import {AutomationForwarder} from "./AutomationForwarder.sol";
-import "../../../automation/interfaces/UpkeepTranscoderInterfaceV2.sol";
-import "../../../automation/interfaces/MigratableKeeperRegistryInterfaceV2.sol";
+import {IAutomationForwarder} from "./interfaces/IAutomationForwarder.sol";
+import {UpkeepTranscoderInterfaceV2} from "../../../automation/interfaces/UpkeepTranscoderInterfaceV2.sol";
+import {MigratableKeeperRegistryInterfaceV2} from "../../../automation/interfaces/MigratableKeeperRegistryInterfaceV2.sol";
 
 /**
  * @notice Logic contract, works in tandem with KeeperRegistry as a proxy
@@ -158,9 +161,9 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
   }
 
   /**
-   * @dev checkCallback is used specifically for automation feed lookups (see FeedLookupCompatibleInterface.sol)
+   * @dev checkCallback is used specifically for automation data streams lookups (see StreamsLookupCompatibleInterface.sol)
    * @param id the upkeepID to execute a callback for
-   * @param values the values returned from the feed lookup
+   * @param values the values returned from the data streams lookup
    * @param extraData the user-provided extra context data
    */
   function checkCallback(
@@ -388,7 +391,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
   /**
    * @notice received upkeeps migrated from another registry
    * @param encodedUpkeeps the raw upkeep data to import
-   * @dev this function is never called direcly, it is only called by another registry's migrate function
+   * @dev this function is never called directly, it is only called by another registry's migrate function
    */
   function receiveUpkeeps(bytes calldata encodedUpkeeps) external {
     if (
@@ -425,7 +428,7 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
   /**
    * @notice sets the upkeep trigger config
    * @param id the upkeepID to change the trigger for
-   * @param triggerConfig the new triggerconfig
+   * @param triggerConfig the new trigger config
    */
   function setUpkeepTriggerConfig(uint256 id, bytes calldata triggerConfig) external {
     _requireAdminAndNotCancelled(id);

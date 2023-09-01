@@ -12,6 +12,11 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
+	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -19,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
@@ -336,18 +342,45 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := plugins.NewLoopRegistry(lggr)
 	ks := mocks.NewSolana(t)
-	rf := cmd.RelayerFactory{
-		Logger:        lggr,
-		DB:            pgtest.NewSqlxDB(t),
-		GeneralConfig: configtest.NewGeneralConfig(t, nil),
-		LoopRegistry:  reg,
+
+	// config 3 chains but only enable 2 => should only be 2 relayer
+	nEnabledChains := 2
+	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Solana = solana.SolanaConfigs{
+			&solana.SolanaConfig{
+				ChainID: ptr[string]("solana-id-1"),
+				Enabled: ptr(true),
+				Chain:   solcfg.Chain{},
+				Nodes:   []*solcfg.Node{},
+			},
+			&solana.SolanaConfig{
+				ChainID: ptr[string]("solana-id-2"),
+				Enabled: ptr(true),
+				Chain:   solcfg.Chain{},
+				Nodes:   []*solcfg.Node{},
+			},
+			&solana.SolanaConfig{
+				ChainID: ptr[string]("disabled-solana-id-1"),
+				Enabled: ptr(false),
+				Chain:   solcfg.Chain{},
+				Nodes:   []*solcfg.Node{},
+			},
+		}
+	})
+
+	rf := chainlink.RelayerFactory{
+		Logger:       lggr,
+		DB:           pgtest.NewSqlxDB(t),
+		QConfig:      tConfig.Database(),
+		LoopRegistry: reg,
 	}
 
 	// not parallel; shared state
 	t.Run("no plugin", func(t *testing.T) {
-		relayer, err := rf.NewSolana(ks)
+		relayers, err := rf.NewSolana(ks, tConfig.SolanaConfigs())
 		require.NoError(t, err)
-		require.NotNil(t, relayer)
+		require.NotNil(t, relayers)
+		require.Len(t, relayers, nEnabledChains)
 		// no using plugin, so registry should be empty
 		require.Len(t, reg.List(), 0)
 	})
@@ -355,31 +388,86 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	t.Run("plugin", func(t *testing.T) {
 		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
 
-		relayer, err := rf.NewSolana(ks)
+		relayers, err := rf.NewSolana(ks, tConfig.SolanaConfigs())
 		require.NoError(t, err)
-		require.NotNil(t, relayer)
+		require.NotNil(t, relayers)
+		require.Len(t, relayers, nEnabledChains)
 		// make sure registry has the plugin
-		require.Len(t, reg.List(), 1)
+		require.Len(t, reg.List(), nEnabledChains)
 	})
 
+	// test that duplicate enabled chains is an error when
+	duplicateConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Solana = solana.SolanaConfigs{
+			&solana.SolanaConfig{
+				ChainID: ptr[string]("dupe"),
+				Enabled: ptr(true),
+				Chain:   solcfg.Chain{},
+				Nodes:   []*solcfg.Node{},
+			},
+			&solana.SolanaConfig{
+				ChainID: ptr[string]("dupe"),
+				Enabled: ptr(true),
+				Chain:   solcfg.Chain{},
+				Nodes:   []*solcfg.Node{},
+			},
+		}
+	})
+
+	// not parallel; shared state
+	t.Run("no plugin, duplicate chains", func(t *testing.T) {
+		_, err := rf.NewSolana(ks, duplicateConfig.SolanaConfigs())
+		require.Error(t, err)
+	})
+
+	t.Run("plugin, duplicate chains", func(t *testing.T) {
+		t.Setenv("CL_SOLANA_CMD", "phony_solana_cmd")
+		_, err := rf.NewSolana(ks, duplicateConfig.SolanaConfigs())
+		require.Error(t, err)
+	})
 }
 
 func TestSetupStarkNetRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := plugins.NewLoopRegistry(lggr)
 	ks := mocks.NewStarkNet(t)
-	rf := cmd.RelayerFactory{
-		Logger:        lggr,
-		DB:            pgtest.NewSqlxDB(t),
-		GeneralConfig: configtest.NewGeneralConfig(t, nil),
-		LoopRegistry:  reg,
+	// config 3 chains but only enable 2 => should only be 2 relayer
+	nEnabledChains := 2
+	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Starknet = starknet.StarknetConfigs{
+			&starknet.StarknetConfig{
+				ChainID: ptr[string]("starknet-id-1"),
+				Enabled: ptr(true),
+				Chain:   stkcfg.Chain{},
+				Nodes:   []*config.Node{},
+			},
+			&starknet.StarknetConfig{
+				ChainID: ptr[string]("starknet-id-2"),
+				Enabled: ptr(true),
+				Chain:   stkcfg.Chain{},
+				Nodes:   []*config.Node{},
+			},
+			&starknet.StarknetConfig{
+				ChainID: ptr[string]("disabled-starknet-id-1"),
+				Enabled: ptr(false),
+				Chain:   stkcfg.Chain{},
+				Nodes:   []*config.Node{},
+			},
+		}
+	})
+	rf := chainlink.RelayerFactory{
+		Logger:       lggr,
+		DB:           pgtest.NewSqlxDB(t),
+		QConfig:      tConfig.Database(),
+		LoopRegistry: reg,
 	}
 
 	// not parallel; shared state
 	t.Run("no plugin", func(t *testing.T) {
-		relayer, err := rf.NewStarkNet(ks)
+		relayers, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
 		require.NoError(t, err)
-		require.NotNil(t, relayer)
+		require.NotNil(t, relayers)
+		require.Len(t, relayers, nEnabledChains)
 		// no using plugin, so registry should be empty
 		require.Len(t, reg.List(), 0)
 	})
@@ -387,11 +475,41 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 	t.Run("plugin", func(t *testing.T) {
 		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
 
-		relayer, err := rf.NewStarkNet(ks)
+		relayers, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
 		require.NoError(t, err)
-		require.NotNil(t, relayer)
+		require.NotNil(t, relayers)
+		require.Len(t, relayers, nEnabledChains)
 		// make sure registry has the plugin
-		require.Len(t, reg.List(), 1)
+		require.Len(t, reg.List(), nEnabledChains)
 	})
 
+	// test that duplicate enabled chains is an error when
+	duplicateConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Starknet = starknet.StarknetConfigs{
+			&starknet.StarknetConfig{
+				ChainID: ptr[string]("dupe"),
+				Enabled: ptr(true),
+				Chain:   stkcfg.Chain{},
+				Nodes:   []*config.Node{},
+			},
+			&starknet.StarknetConfig{
+				ChainID: ptr[string]("dupe"),
+				Enabled: ptr(true),
+				Chain:   stkcfg.Chain{},
+				Nodes:   []*config.Node{},
+			},
+		}
+	})
+
+	// not parallel; shared state
+	t.Run("no plugin, duplicate chains", func(t *testing.T) {
+		_, err := rf.NewStarkNet(ks, duplicateConfig.StarknetConfigs())
+		require.Error(t, err)
+	})
+
+	t.Run("plugin, duplicate chains", func(t *testing.T) {
+		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
+		_, err := rf.NewStarkNet(ks, duplicateConfig.StarknetConfigs())
+		require.Error(t, err)
+	})
 }

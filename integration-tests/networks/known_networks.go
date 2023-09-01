@@ -2,11 +2,13 @@
 package networks
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
@@ -60,6 +62,7 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       10000,
+		DefaultGasLimit:           6000000,
 	}
 
 	// SimulatedEVM_NON_DEV_2 represents a simulated network with chain id 2337 which can be used to deploy a non-dev geth node
@@ -70,7 +73,7 @@ var (
 		ClientImplementation: blockchain.EthereumClientImplementation,
 		ChainID:              2337,
 		PrivateKeys: []string{
-			"ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+			"59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
 		},
 		URLs:                      []string{"ws://dest-chain-ethereum-geth:8546"},
 		HTTPURLs:                  []string{"http://dest-chain-ethereum-geth:8544"},
@@ -78,6 +81,7 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       10000,
+		DefaultGasLimit:           6000000,
 	}
 
 	SimulatedEVMNonDev = blockchain.EVMNetwork{
@@ -107,6 +111,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: 5 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
+		FinalityTag:               true,
+		DefaultGasLimit:           6000000,
 	}
 
 	// sepoliaTestnet https://sepolia.dev/
@@ -120,6 +126,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
+		FinalityTag:               true,
+		DefaultGasLimit:           6000000,
 	}
 
 	// goerliTestnet https://goerli.net/
@@ -133,6 +141,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: 5 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
+		FinalityTag:               true,
+		DefaultGasLimit:           6000000,
 	}
 
 	KlaytnMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
@@ -195,6 +205,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
 		MinimumConfirmations:      0,
 		GasEstimationBuffer:       0,
+		FinalityTag:               true,
+		DefaultGasLimit:           100000000,
 	}
 
 	// arbitrumGoerli https://developer.offchainlabs.com/docs/public_chains
@@ -208,6 +220,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      0,
 		GasEstimationBuffer:       0,
+		FinalityTag:               true,
+		DefaultGasLimit:           100000000,
 	}
 
 	OptimismMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
@@ -220,6 +234,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
+		FinalityTag:               true,
+		DefaultGasLimit:           6000000,
 	}
 
 	// optimismGoerli https://dev.optimism.io/kovan-to-goerli/
@@ -233,6 +249,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
+		FinalityTag:               true,
+		DefaultGasLimit:           6000000,
 	}
 
 	RSKMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
@@ -270,6 +288,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: 2 * time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
+		FinalityDepth:             550,
+		DefaultGasLimit:           6000000,
 	}
 
 	// PolygonMumbai https://mumbai.polygonscan.com/
@@ -283,6 +303,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
+		FinalityDepth:             550,
+		DefaultGasLimit:           6000000,
 	}
 
 	AvalancheMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
@@ -295,6 +317,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       0,
+		FinalityDepth:             35,
+		DefaultGasLimit:           6000000,
 	}
 
 	AvalancheFuji = blockchain.EVMNetwork{
@@ -307,6 +331,8 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
+		FinalityDepth:             35,
+		DefaultGasLimit:           6000000,
 	}
 
 	Quorum = blockchain.EVMNetwork{
@@ -343,6 +369,28 @@ var (
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
 		MinimumConfirmations:      1,
 		GasEstimationBuffer:       1000,
+	}
+
+	ScrollSepolia = blockchain.EVMNetwork{
+		Name:                      "Scroll Sepolia",
+		ClientImplementation:      blockchain.ScrollClientImplementation,
+		ChainID:                   534351,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
+	}
+
+	ScrollMainnet = blockchain.EVMNetwork{
+		Name:                      "Scroll Mainnet",
+		ClientImplementation:      blockchain.ScrollClientImplementation,
+		ChainID:                   534352,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       0,
 	}
 
 	CeloMainnet = blockchain.EVMNetwork{
@@ -418,6 +466,8 @@ var (
 		"AVALANCHE_FUJI":    AvalancheFuji,
 		"AVALANCHE_MAINNET": AvalancheMainnet,
 		"QUORUM":            Quorum,
+		"SCROLL_SEPOLIA":    ScrollSepolia,
+		"SCROLL_MAINNET":    ScrollMainnet,
 		"BASE_MAINNET":      BaseMainnet,
 		"BSC_TESTNET":       BSCTestnet,
 		"BSC_MAINNET":       BSCMainnet,
@@ -485,10 +535,7 @@ func setURLs(prefix string, network *blockchain.EVMNetwork) {
 		}
 		wsURLs := strings.Split(evmUrls, ",")
 		httpURLs := strings.Split(evmhttpUrls, ",")
-		log.Warn().
-			Interface("EVM_URLS", wsURLs).
-			Interface("EVM_HTTP_URLS", httpURLs).
-			Msgf("No '%s' env var defined, defaulting to 'EVM_URLS'", wsEnvVar)
+		log.Warn().Msgf("No '%s' env var defined, defaulting to 'EVM_URLS'", wsEnvVar)
 		network.URLs = wsURLs
 		network.HTTPURLs = httpURLs
 		return
@@ -498,7 +545,7 @@ func setURLs(prefix string, network *blockchain.EVMNetwork) {
 	httpURLs := strings.Split(httpEnvURLs, ",")
 	network.URLs = wsURLs
 	network.HTTPURLs = httpURLs
-	log.Info().Interface(wsEnvVar, wsURLs).Interface(httpEnvVar, httpURLs).Msg("Read network URLs")
+	log.Info().Msg("Read network URLs")
 }
 
 // setKeys sets a network's private key(s) based on env vars
@@ -517,13 +564,34 @@ func setKeys(prefix string, network *blockchain.EVMNetwork) {
 	}
 	if keysEnv == "" {
 		keys := strings.Split(os.Getenv("EVM_KEYS"), ",")
-		log.Warn().
-			Interface("EVM_KEYS", keys).
-			Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_KEYS'", envVar))
+		log.Warn().Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_KEYS'", envVar))
 		network.PrivateKeys = keys
 		return
 	}
 	keys := strings.Split(keysEnv, ",")
 	network.PrivateKeys = keys
-	log.Info().Interface(envVar, keys).Msg("Read network Keys")
+
+	// log public keys for debugging
+	publicKeys := []string{}
+	for _, key := range network.PrivateKeys {
+		publicKey, err := privateKeyToAddress(key)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Error getting public key from private key")
+		}
+		publicKeys = append(publicKeys, publicKey)
+	}
+	log.Info().Interface("Funding Addresses", publicKeys).Msg("Read network Keys")
+}
+
+func privateKeyToAddress(privateKeyString string) (string, error) {
+	privateKey, err := crypto.HexToECDSA(privateKeyString)
+	if err != nil {
+		return "", err
+	}
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return "", fmt.Errorf("error casting private key to public ECDSA key")
+	}
+	return crypto.PubkeyToAddress(*publicKeyECDSA).Hex(), nil
 }

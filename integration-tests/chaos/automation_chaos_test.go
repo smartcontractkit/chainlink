@@ -229,13 +229,16 @@ func TestAutomationChaos(t *testing.T) {
 				t,
 				eth_contracts.RegistryVersion_2_0,
 				defaultOCRRegistryConfig,
-				numberOfUpkeeps,
 				linkToken,
 				contractDeployer,
 				chainClient,
 			)
 
-			actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0)
+			// Fund the registry with LINK
+			err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfUpkeeps))))
+			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
+
+			actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, eth_contracts.RegistryVersion_2_0)
 			nodesWithoutBootstrap := chainlinkNodes[1:]
 			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second)
 			require.NoError(t, err, "Error building OCR config vars")
@@ -243,17 +246,7 @@ func TestAutomationChaos(t *testing.T) {
 			require.NoError(t, err, "Registry config should be be set successfully")
 			require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 
-			consumers, upkeepIDs := actions.DeployConsumers(
-				t,
-				registry,
-				registrar,
-				linkToken,
-				contractDeployer,
-				chainClient,
-				numberOfUpkeeps,
-				big.NewInt(defaultLinkFunds),
-				defaultUpkeepGasLimit,
-			)
+			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false)
 
 			l.Info().Msg("Waiting for all upkeeps to be performed")
 

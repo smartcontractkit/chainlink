@@ -6,11 +6,13 @@ import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
 import {ExposedVRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/testhelpers/ExposedVRFCoordinatorV2Plus.sol";
 import {VRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/VRFCoordinatorV2Plus.sol";
+import {SubscriptionAPI} from "../../../../src/v0.8/dev/vrf/SubscriptionAPI.sol";
 import {BlockhashStore} from "../../../../src/v0.8/dev/BlockhashStore.sol";
 import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol";
 import {VRFV2PlusClient} from "../../../../src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
 import {console} from "forge-std/console.sol";
 import {VmSafe} from "forge-std/Vm.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol"; // for Math.ceilDiv
 
 /*
  * USAGE INSTRUCTIONS:
@@ -30,6 +32,7 @@ contract VRFV2Plus is BaseTest {
 
   BlockhashStore s_bhs;
   ExposedVRFCoordinatorV2Plus s_testCoordinator;
+  ExposedVRFCoordinatorV2Plus s_testCoordinator_noLink;
   VRFV2PlusConsumerExample s_testConsumer;
   MockLinkToken s_linkToken;
   MockV3Aggregator s_linkEthFeed;
@@ -56,9 +59,8 @@ contract VRFV2Plus is BaseTest {
     s_bhs = new BlockhashStore();
 
     // Deploy coordinator and consumer.
+    // Note: adding contract deployments to this section will require the VRF proofs be regenerated.
     s_testCoordinator = new ExposedVRFCoordinatorV2Plus(address(s_bhs));
-
-    // Deploy link token and link/eth feed.
     s_linkToken = new MockLinkToken();
     s_linkEthFeed = new MockV3Aggregator(18, 500000000000000000); // .5 ETH (good for testing)
 
@@ -79,6 +81,8 @@ contract VRFV2Plus is BaseTest {
       )
     }
     s_testConsumer = VRFV2PlusConsumerExample(consumerCreate2Address);
+
+    s_testCoordinator_noLink = new ExposedVRFCoordinatorV2Plus(address(s_bhs));
 
     // Configure the coordinator.
     s_testCoordinator.setLINKAndLINKETHFeed(address(s_linkToken), address(s_linkEthFeed));
@@ -139,6 +143,80 @@ contract VRFV2Plus is BaseTest {
   function testCreateSubscription() public {
     uint256 subId = s_testCoordinator.createSubscription();
     s_testCoordinator.fundSubscriptionWithEth{value: 10 ether}(subId);
+  }
+
+  function testCancelSubWithNoLink() public {
+    uint256 subId = s_testCoordinator_noLink.createSubscription();
+    s_testCoordinator_noLink.fundSubscriptionWithEth{value: 1000 ether}(subId);
+
+    assertEq(LINK_WHALE.balance, 9000 ether);
+    s_testCoordinator_noLink.cancelSubscription(subId, LINK_WHALE);
+    assertEq(LINK_WHALE.balance, 10_000 ether);
+
+    vm.expectRevert(SubscriptionAPI.InvalidSubscription.selector);
+    s_testCoordinator_noLink.getSubscription(subId);
+  }
+
+  function testGetActiveSubscriptionIds() public {
+    uint numSubs = 40;
+    for (uint i = 0; i < numSubs; i++) {
+      s_testCoordinator.createSubscription();
+    }
+    // get all subscriptions, assert length is correct
+    uint256[] memory allSubs = s_testCoordinator.getActiveSubscriptionIds(0, 0);
+    assertEq(allSubs.length, s_testCoordinator.getActiveSubscriptionIdsLength());
+
+    // paginate through subscriptions, batching by 10.
+    // we should eventually get all the subscriptions this way.
+    uint256[][] memory subIds = paginateSubscriptions(s_testCoordinator, 10);
+    // check that all subscriptions were returned
+    uint actualNumSubs = 0;
+    for (uint batchIdx = 0; batchIdx < subIds.length; batchIdx++) {
+      for (uint subIdx = 0; subIdx < subIds[batchIdx].length; subIdx++) {
+        s_testCoordinator.getSubscription(subIds[batchIdx][subIdx]);
+        actualNumSubs++;
+      }
+    }
+    assertEq(actualNumSubs, s_testCoordinator.getActiveSubscriptionIdsLength());
+
+    // cancel a bunch of subscriptions, assert that they are not returned
+    uint256[] memory subsToCancel = new uint256[](3);
+    for (uint i = 0; i < 3; i++) {
+      subsToCancel[i] = subIds[0][i];
+    }
+    for (uint i = 0; i < subsToCancel.length; i++) {
+      s_testCoordinator.cancelSubscription(subsToCancel[i], LINK_WHALE);
+    }
+    uint256[][] memory newSubIds = paginateSubscriptions(s_testCoordinator, 10);
+    // check that all subscriptions were returned
+    // and assert that none of the canceled subscriptions are returned
+    actualNumSubs = 0;
+    for (uint batchIdx = 0; batchIdx < newSubIds.length; batchIdx++) {
+      for (uint subIdx = 0; subIdx < newSubIds[batchIdx].length; subIdx++) {
+        for (uint i = 0; i < subsToCancel.length; i++) {
+          assertFalse(newSubIds[batchIdx][subIdx] == subsToCancel[i]);
+        }
+        s_testCoordinator.getSubscription(newSubIds[batchIdx][subIdx]);
+        actualNumSubs++;
+      }
+    }
+    assertEq(actualNumSubs, s_testCoordinator.getActiveSubscriptionIdsLength());
+  }
+
+  function paginateSubscriptions(
+    ExposedVRFCoordinatorV2Plus coordinator,
+    uint256 batchSize
+  ) internal view returns (uint256[][] memory) {
+    uint arrIndex = 0;
+    uint startIndex = 0;
+    uint256 numSubs = coordinator.getActiveSubscriptionIdsLength();
+    uint256[][] memory subIds = new uint256[][](Math.ceilDiv(numSubs, batchSize));
+    while (startIndex < numSubs) {
+      subIds[arrIndex] = coordinator.getActiveSubscriptionIds(startIndex, batchSize);
+      startIndex += batchSize;
+      arrIndex++;
+    }
+    return subIds;
   }
 
   event RandomWordsRequested(
@@ -256,12 +334,8 @@ contract VRFV2Plus is BaseTest {
     VmSafe.Log[] memory entries = vm.getRecordedLogs();
     assertEq(entries[0].topics[1], bytes32(uint256(requestId)));
     assertEq(entries[0].topics[2], bytes32(uint256(subId)));
-    (uint256 loggedOutputSeed, , bytes memory loggedExtraArgs, bool loggedSuccess) = abi.decode(
-      entries[0].data,
-      (uint256, uint256, bytes, bool)
-    );
+    (uint256 loggedOutputSeed, , bool loggedSuccess) = abi.decode(entries[0].data, (uint256, uint256, bool));
     assertEq(loggedOutputSeed, outputSeed);
-    assertEq(loggedExtraArgs, rc.extraArgs);
     assertEq(loggedSuccess, true);
 
     (fulfilled, , ) = s_testConsumer.s_requests(requestId);
@@ -377,12 +451,8 @@ contract VRFV2Plus is BaseTest {
     VmSafe.Log[] memory entries = vm.getRecordedLogs();
     assertEq(entries[0].topics[1], bytes32(uint256(requestId)));
     assertEq(entries[0].topics[2], bytes32(uint256(subId)));
-    (uint256 loggedOutputSeed, , bytes memory loggedExtraArgs, bool loggedSuccess) = abi.decode(
-      entries[0].data,
-      (uint256, uint256, bytes, bool)
-    );
+    (uint256 loggedOutputSeed, , bool loggedSuccess) = abi.decode(entries[0].data, (uint256, uint256, bool));
     assertEq(loggedOutputSeed, outputSeed);
-    assertEq(loggedExtraArgs, rc.extraArgs);
     assertEq(loggedSuccess, true);
 
     (fulfilled, , ) = s_testConsumer.s_requests(requestId);
