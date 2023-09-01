@@ -199,39 +199,37 @@ func (te *CLClusterTestEnv) Terminate() error {
 // Cleanup cleans the environment up after it's done being used, mainly for returning funds when on live networks.
 // Intended to be used as part of t.Cleanup() in tests.
 func (te *CLClusterTestEnv) Cleanup() error {
-	if te.Cfg != nil {
-		log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
-		if te.EVMClient == nil {
-			return errors.New("blockchain client is nil, unable to return funds from chainlink nodes")
-		}
-		if te.CLNodes == nil {
-			return errors.New("chainlink nodes are nil, unable to return funds from chainlink nodes")
-		}
-		if te.EVMClient.NetworkSimulated() {
-			log.Info().Str("Network Name", te.EVMClient.GetNetworkName()).
-				Msg("Network is a simulated network. Skipping fund return.")
-			return nil
-		}
+	log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
+	if te.EVMClient == nil {
+		return errors.New("blockchain client is nil, unable to return funds from chainlink nodes")
+	}
+	if te.CLNodes == nil {
+		return errors.New("chainlink nodes are nil, unable to return funds from chainlink nodes")
+	}
+	if te.EVMClient.NetworkSimulated() {
+		log.Info().Str("Network Name", te.EVMClient.GetNetworkName()).
+			Msg("Network is a simulated network. Skipping fund return.")
+		return nil
+	}
 
-		for _, chainlinkNode := range te.CLNodes {
-			fundedKeys, err := chainlinkNode.API.ExportEVMKeysForChain(te.EVMClient.GetChainID().String())
+	for _, chainlinkNode := range te.CLNodes {
+		fundedKeys, err := chainlinkNode.API.ExportEVMKeysForChain(te.EVMClient.GetChainID().String())
+		if err != nil {
+			return err
+		}
+		for _, key := range fundedKeys {
+			keyToDecrypt, err := json.Marshal(key)
 			if err != nil {
 				return err
 			}
-			for _, key := range fundedKeys {
-				keyToDecrypt, err := json.Marshal(key)
-				if err != nil {
-					return err
-				}
-				// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
-				// issues. So we avoid running in parallel; slower, but safer.
-				decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
-				if err != nil {
-					return err
-				}
-				if err = te.EVMClient.ReturnFunds(decryptedKey.PrivateKey); err != nil {
-					return err
-				}
+			// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
+			// issues. So we avoid running in parallel; slower, but safer.
+			decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
+			if err != nil {
+				return err
+			}
+			if err = te.EVMClient.ReturnFunds(decryptedKey.PrivateKey); err != nil {
+				return err
 			}
 		}
 	}
