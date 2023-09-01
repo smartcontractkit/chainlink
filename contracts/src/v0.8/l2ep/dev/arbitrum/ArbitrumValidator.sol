@@ -9,7 +9,7 @@ import "../../../shared/access/SimpleWriteAccessController.sol";
 
 /* ./dev dependencies - to be moved from ./dev after audit */
 import "../interfaces/ArbitrumSequencerUptimeFeedInterface.sol";
-import "../interfaces/FlagsInterface.sol";
+import "../../../dev/interfaces/FlagsInterface.sol";
 import "../interfaces/IArbitrumDelayedInbox.sol";
 import "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
 import "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
