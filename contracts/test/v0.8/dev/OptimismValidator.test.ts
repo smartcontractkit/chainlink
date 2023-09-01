@@ -4,7 +4,7 @@ import { expect } from 'chai'
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/signers'
 /// Pick ABIs from compilation
 // @ts-ignore
-import { abi as optimismSequencerStatusRecorderAbi } from '../../../artifacts/src/v0.8/dev/OptimismSequencerUptimeFeed.sol/OptimismSequencerUptimeFeed.json'
+import { abi as optimismSequencerStatusRecorderAbi } from '../../../artifacts/src/v0.8/l2ep/dev/optimism/OptimismSequencerUptimeFeed.sol/OptimismSequencerUptimeFeed.json'
 // @ts-ignore
 import { abi as optimismL1CrossDomainMessengerAbi } from '@eth-optimism/contracts/artifacts/contracts/L1/messaging/L1CrossDomainMessenger.sol'
 // @ts-ignore
@@ -30,7 +30,7 @@ describe('OptimismValidator', () => {
   beforeEach(async () => {
     // Required for building the calldata
     optimismUptimeFeedFactory = await ethers.getContractFactory(
-      'src/v0.8/dev/OptimismSequencerUptimeFeed.sol:OptimismSequencerUptimeFeed',
+      'src/v0.8/l2ep/dev/optimism/OptimismSequencerUptimeFeed.sol:OptimismSequencerUptimeFeed',
       deployer,
     )
 
@@ -44,7 +44,7 @@ describe('OptimismValidator', () => {
 
     // Contract under test
     const optimismValidatorFactory = await ethers.getContractFactory(
-      'src/v0.8/dev/OptimismValidator.sol:OptimismValidator',
+      'src/v0.8/l2ep/dev/optimism/OptimismValidator.sol:OptimismValidator',
       deployer,
     )
 
