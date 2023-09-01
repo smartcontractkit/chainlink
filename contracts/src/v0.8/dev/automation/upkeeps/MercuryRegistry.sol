@@ -44,6 +44,8 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
     string feedName; // the name of the feed
     string feedId; // the id of the feed (hex encoded)
     bool active; // true if the feed is being actively updated, otherwise false
+    int192 deviationPercentagePPM; // acceptable deviation threshold - 1.5% = 15_000, 100% = 1_000_000, etc..
+    uint32 stalenessSeconds; // acceptable staleness threshold - 60 = 1 minute, 300 = 5 minutes, etc..
   }
 
   // Report object obtained from off-chain Mercury server.
@@ -68,8 +70,6 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
   IVerifierProxy public s_verifier; // for Mercury v0.2 - verifies off-chain reports
 
   int192 constant scale = 1_000_000; // a scalar used for measuring deviation with precision
-  int192 public s_deviationPercentagePPM; // acceptable deviation threshold - 1.5% = 15_000, 100% = 1_000_000, etc..
-  uint32 public s_stalenessSeconds; // acceptable staleness threshold - 60 = 1 minute, 300 = 5 minutes, etc..
 
   string[] public s_feeds; // list of feed Ids
   mapping(string => Feed) public s_feedMapping; // mapping of feed Ids to stored feed data
@@ -77,18 +77,14 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
   constructor(
     string[] memory feedIds,
     string[] memory feedNames,
-    address verifier,
-    int192 deviationPercentagePPM,
-    uint32 stalenessSeconds
+    int192[] memory deviationPercentagePPMs,
+    uint32[] memory stalenessSeconds,
+    address verifier
   ) ConfirmedOwner(msg.sender) {
     s_verifier = IVerifierProxy(verifier);
 
-    // Store desired deviation threshold and staleness seconds.
-    s_deviationPercentagePPM = deviationPercentagePPM;
-    s_stalenessSeconds = stalenessSeconds;
-
     // Store desired feeds.
-    setFeeds(feedIds, feedNames);
+    setFeeds(feedIds, feedNames, deviationPercentagePPMs, stalenessSeconds);
   }
 
   // Returns a user-defined batch of feed data, based on the on-chain state.
@@ -126,8 +122,8 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
       string memory feedId = bytes32ToHexString(abi.encodePacked(report.feedId));
       Feed memory feed = s_feedMapping[feedId];
       if (
-        (report.observationsTimestamp - feed.observationsTimestamp > s_stalenessSeconds) ||
-        deviationExceedsThreshold(feed.price, report.price)
+        (report.observationsTimestamp - feed.observationsTimestamp > feed.stalenessSeconds) ||
+        deviationExceedsThreshold(feed.price, report.price, feed.deviationPercentagePPM)
       ) {
         filteredValues[count] = values[i];
         count++;
@@ -195,7 +191,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
 
   // Check if the off-chain value has deviated sufficiently from the on-chain value to justify an update.
   // `scale` is used to ensure precision is not lost.
-  function deviationExceedsThreshold(int192 onChain, int192 offChain) public view returns (bool) {
+  function deviationExceedsThreshold(int192 onChain, int192 offChain, int192 deviationPercentagePPM) public view returns (bool) {
     // Compute absolute difference between the on-chain and off-chain values.
     int192 scaledDifference = (onChain - offChain) * scale;
     if (scaledDifference < 0) {
@@ -203,7 +199,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
     }
 
     // Compare to the allowed deviation from the on-chain value.
-    int192 deviationMax = ((onChain * scale) * s_deviationPercentagePPM) / scale;
+    int192 deviationMax = ((onChain * scale) * deviationPercentagePPM) / scale;
     return scaledDifference > deviationMax;
   }
 
@@ -220,25 +216,30 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
     return string(abi.encodePacked("0x", converted));
   }
 
-  function addFeeds(string[] memory feedIds, string[] memory feedNames) external onlyOwner {
+  function addFeeds(
+    string[] memory feedIds, 
+    string[] memory feedNames,
+    int192[] memory deviationPercentagePPMs,
+    uint32[] memory stalenessSeconds
+    ) external onlyOwner feedsAreValid(feedIds, feedNames, deviationPercentagePPMs, stalenessSeconds) {
     for (uint256 i = 0; i < feedIds.length; i++) {
       string memory feedId = feedIds[i];
       if (s_feedMapping[feedId].active) {
         revert DuplicateFeed(feedId);
       }
-
-      s_feedMapping[feedId].feedName = feedNames[i];
-      s_feedMapping[feedId].feedId = feedId;
+      updateFeed(feedId, feedNames[i], deviationPercentagePPMs[i], stalenessSeconds[i]);
       s_feedMapping[feedId].active = true;
 
       s_feeds.push(feedId);
     }
   }
 
-  function setFeeds(string[] memory feedIds, string[] memory feedNames) public onlyOwner {
-    // Ensure correctly formatted constructor arguments.
-    require(feedIds.length == feedNames.length, "incorrectly formatted feeds");
-
+  function setFeeds(
+    string[] memory feedIds, 
+    string[] memory feedNames,
+    int192[] memory deviationPercentagePPMs,
+    uint32[] memory stalenessSeconds
+  ) public onlyOwner feedsAreValid(feedIds, feedNames, deviationPercentagePPMs, stalenessSeconds) {
     // Clear prior feeds.
     for (uint256 i = 0; i < s_feeds.length; i++) {
       s_feedMapping[s_feeds[i]].active = false;
@@ -250,21 +251,33 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
       if (s_feedMapping[feedId].active) {
         revert DuplicateFeed(feedId);
       }
-
-      s_feedMapping[feedId].feedName = feedNames[i];
-      s_feedMapping[feedId].feedId = feedId;
+      updateFeed(feedId, feedNames[i], deviationPercentagePPMs[i], stalenessSeconds[i]);
       s_feedMapping[feedId].active = true;
     }
     s_feeds = feedIds;
   }
 
-  function setConfig(int192 deviationPercentagePPM, uint32 stalenessSeconds) external onlyOwner {
-    s_stalenessSeconds = stalenessSeconds;
-    s_deviationPercentagePPM = deviationPercentagePPM;
+  function updateFeed(string memory feedId, string memory feedName, int192 deviationPercentagePPM, uint32 stalnessSeconds) internal {
+      s_feedMapping[feedId].feedName = feedName;
+      s_feedMapping[feedId].deviationPercentagePPM = deviationPercentagePPM;
+      s_feedMapping[feedId].stalenessSeconds = stalnessSeconds;
+      s_feedMapping[feedId].feedId = feedId;
   }
 
   function setVerifier(address verifier) external onlyOwner {
     s_verifier = IVerifierProxy(verifier);
+  }
+
+  modifier feedsAreValid(
+    string[] memory feedIds, 
+    string[] memory feedNames,
+    int192[] memory deviationPercentagePPMs,
+    uint32[] memory stalenessSeconds
+  ) {
+    require(feedIds.length == feedNames.length, "incorrectly formatted feeds");
+    require(feedIds.length == deviationPercentagePPMs.length, "incorrectly formatted feeds");
+    require(feedIds.length == stalenessSeconds.length, "incorrectly formatted feeds");
+        _;
   }
 }
 

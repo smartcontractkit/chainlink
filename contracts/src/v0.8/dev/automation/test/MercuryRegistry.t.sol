@@ -63,6 +63,12 @@ contract MercuryRegistryTest is Test {
     feedIds[0] = s_BTCUSDFeedId;
     feedIds[1] = s_ETHUSDFeedId;
 
+    // Deviation threshold and staleness are the same for all feeds.
+    int192[] memory thresholds = new int192[](1);
+    thresholds[0] = DEVIATION_THRESHOLD;
+    uint32[] memory stalenessSeconds = new uint32[](1);
+    stalenessSeconds[0] = STALENESS_SECONDS;
+
     // Initialize with BTC feed.
     string[] memory initialFeedIds = new string[](1);
     initialFeedIds[0] = feedIds[0];
@@ -71,9 +77,9 @@ contract MercuryRegistryTest is Test {
     s_testRegistry = new MercuryRegistry(
       initialFeedIds,
       initialFeedNames,
-      address(0), // verifier unset
-      DEVIATION_THRESHOLD,
-      STALENESS_SECONDS
+      thresholds,
+      stalenessSeconds,
+      address(0) // verifier unset
     );
     s_testRegistry.setVerifier(s_verifier); // set verifier
 
@@ -82,7 +88,7 @@ contract MercuryRegistryTest is Test {
     addedFeedIds[0] = feedIds[1];
     string[] memory addedFeedNames = new string[](1);
     addedFeedNames[0] = "ETH/USD";
-    s_testRegistry.addFeeds(addedFeedIds, addedFeedNames);
+    s_testRegistry.addFeeds(addedFeedIds, addedFeedNames, thresholds, stalenessSeconds);
   }
 
   function testMercuryRegistry() public {
@@ -112,27 +118,34 @@ contract MercuryRegistryTest is Test {
     s_testRegistry.performUpkeep(performData);
 
     // Check state of BTC/USD feed to ensure update was propagated.
-    (
-      uint32 observationsTimestamp,
-      int192 price,
-      int192 bid,
-      int192 ask,
-      string memory feedName,
-      string memory localFeedId,
-      bool active
-    ) = s_testRegistry.s_feedMapping(s_BTCUSDFeedId);
-    assertEq(observationsTimestamp, 1692732568); // Tuesday, August 22, 2023 7:29:28 PM
-    assertEq(bid, 2585674416498); //   $25,856.74416498
-    assertEq(price, 2585711126720); // $25,857.11126720
-    assertEq(ask, 2585747836943); //   $25,857.47836943
-    assertEq(feedName, "BTC/USD");
-    assertEq(localFeedId, s_BTCUSDFeedId);
-    assertEq(active, true);
+    bytes memory oldPerformData;
+    uint32 oldObservationsTimestamp;
+    { // scoped to prevent stack-too-deep error
+      (
+        uint32 observationsTimestamp,
+        int192 price,
+        int192 bid,
+        int192 ask,
+        string memory feedName,
+        string memory localFeedId,
+        bool active,
+        int192 deviationPercentagePPM,
+        uint32 stalenessSeconds
+      ) = s_testRegistry.s_feedMapping(s_BTCUSDFeedId);
+      assertEq(observationsTimestamp, 1692732568); // Tuesday, August 22, 2023 7:29:28 PM
+      assertEq(bid, 2585674416498); //   $25,856.74416498
+      assertEq(price, 2585711126720); // $25,857.11126720
+      assertEq(ask, 2585747836943); //   $25,857.47836943
+      assertEq(feedName, "BTC/USD");
+      assertEq(localFeedId, s_BTCUSDFeedId);
+      assertEq(active, true);
+      assertEq(deviationPercentagePPM, DEVIATION_THRESHOLD);
+      assertEq(stalenessSeconds, STALENESS_SECONDS);
 
-    // Save this for later in the test.
-    bytes memory oldPerformData = performData;
-    uint32 oldObservationsTimestamp = observationsTimestamp;
-
+      // Save this for later in the test.
+      oldPerformData = performData;
+      oldObservationsTimestamp = observationsTimestamp;
+    }
     // Obtain mercury report off-chain (for August 23 BTC/USD price & ETH/USD price)
     values = new bytes[](2);
     values[0] = s_august23BTCUSDMercuryReport;
@@ -163,6 +176,9 @@ contract MercuryRegistryTest is Test {
     assertEq(feeds[1].ask, 169086456584); //   $16,90.86456584
     assertEq(feeds[1].feedName, "ETH/USD");
     assertEq(feeds[1].feedId, s_ETHUSDFeedId);
+    assertEq(feeds[1].active, true);
+    assertEq(feeds[1].deviationPercentagePPM, DEVIATION_THRESHOLD);
+    assertEq(feeds[1].stalenessSeconds, STALENESS_SECONDS);
 
     // Obtain mercury report off-chain for August 23 BTC/USD price (second report of the day).
     // The price of this incoming report will not deviate enough from the on-chain value to trigger an update,
@@ -240,7 +256,9 @@ contract MercuryRegistryTest is Test {
       int192 ask,
       string memory feedName,
       string memory localFeedId,
-      bool active
+      bool active,
+      int192 deviationPercentagePPM,
+      uint32 stalenessSeconds
     ) = s_testRegistry.s_feedMapping(s_BTCUSDFeedId);
     assertEq(observationsTimestamp, 1692732568); // Tuesday, August 22, 2023 7:29:28 PM
     assertEq(bid, 2585674416498); //   $25,856.74416498
@@ -249,6 +267,8 @@ contract MercuryRegistryTest is Test {
     assertEq(feedName, "BTC/USD");
     assertEq(localFeedId, s_BTCUSDFeedId);
     assertEq(active, true);
+    assertEq(deviationPercentagePPM, DEVIATION_THRESHOLD);
+    assertEq(stalenessSeconds, STALENESS_SECONDS);
 
     // Obtain mercury report off-chain (for August 23 BTC/USD price & ETH/USD price)
     values = new bytes[](2);
@@ -280,6 +300,9 @@ contract MercuryRegistryTest is Test {
     assertEq(feeds[1].ask, 0);
     assertEq(feeds[1].feedName, "ETH/USD");
     assertEq(feeds[1].feedId, s_ETHUSDFeedId);
+    assertEq(feeds[1].active, true);
+    assertEq(feeds[1].deviationPercentagePPM, DEVIATION_THRESHOLD);
+    assertEq(feeds[1].stalenessSeconds, STALENESS_SECONDS);
 
     // Try again, with sufficient gas to update both feeds.
     batchedRegistry.performUpkeep{gas: 2_500_000}(performData);
