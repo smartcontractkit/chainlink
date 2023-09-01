@@ -17,6 +17,7 @@ observationSource = """
 ds1  [type=http method=GET url="https://api.coindesk.com/v1/bpi/currentprice.json"];
 jp1  [type=jsonparse path="bpi,USD,rate_float"];
 
+
 // data source 2
 ds2  [type=http method=GET url="https://api.coindesk.com/v1/bpi/currentprice.json"];
 jp2  [type=jsonparse path="bpi,USD,rate_float"];
