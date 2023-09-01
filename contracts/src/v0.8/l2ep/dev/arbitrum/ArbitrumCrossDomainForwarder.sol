@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/TypeAndVersionInterface.sol";
-import "./../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
-import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import "./CrossDomainForwarder.sol";
+import "../../../interfaces/TypeAndVersionInterface.sol";
+import "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
+import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import "../CrossDomainForwarder.sol";
 
 /**
  * @title ArbitrumCrossDomainForwarder - L1 xDomain account representation
