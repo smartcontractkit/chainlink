@@ -5,15 +5,12 @@ import "../upkeeps/MercuryRegistry.sol";
 import "../upkeeps/MercuryRegistryBatchUpkeep.sol";
 import "../2_1/interfaces/StreamsLookupCompatibleInterface.sol";
 
-// Note: changing this test will cause the Foundry CI cache to change,
-// so test changes in this file need to be accompanied by updating `BLOCK_NUMBER`
-// to a reasonably recent block number on Arbitrum Goerli.
 contract MercuryRegistryTest is Test {
-  uint256 internal constant BLOCK_NUMBER = 38176211;
   address internal constant OWNER = 0x00007e64E1fB0C487F25dd6D3601ff6aF8d32e4e;
-  address internal constant VERIFIER = 0x60448B880c9f3B501af3f343DA9284148BD7D77C;
   int192 internal constant DEVIATION_THRESHOLD = 10_000; // 1%
   uint32 internal constant STALENESS_SECONDS = 3600; // 1 hour
+
+  address s_verifier = 0x60448B880c9f3B501af3f343DA9284148BD7D77C;
 
   string[] feedIds;
   string s_BTCUSDFeedId = "0x6962e629c3a0f5b7e3e9294b0c283c9b20f94f1c89c8ba8c1ee4650738f20fb2";
@@ -52,10 +49,10 @@ contract MercuryRegistryTest is Test {
 
   function setUp() public virtual {
     // Set owner, and fork Arbitrum Goerli Testnet (chain ID 421613).
-    // A public Arbitrum Goerli RPC url is being used, and the fork should be cached in CI so availability is not an issue for test runs.
+    // The fork is only used in local testing, as to not disrupt CI. For CI, a mock verifier is used instead.
     vm.startPrank(OWNER);
     try vm.envBool("CI") returns (bool /* ci */) {
-      vm.selectFork(vm.createFork("https://goerli-rollup.arbitrum.io/rpc", BLOCK_NUMBER));
+      s_verifier = address(new MockVerifierProxy());
     } catch {
       vm.selectFork(vm.createFork("https://goerli-rollup.arbitrum.io/rpc"));
     }
@@ -78,7 +75,7 @@ contract MercuryRegistryTest is Test {
       DEVIATION_THRESHOLD,
       STALENESS_SECONDS
     );
-    s_testRegistry.setVerifier(VERIFIER); // set verifier
+    s_testRegistry.setVerifier(s_verifier); // set verifier
 
     // Add ETH feed.
     string[] memory addedFeedIds = new string[](1);
@@ -90,8 +87,7 @@ contract MercuryRegistryTest is Test {
 
   function testMercuryRegistry() public {
     // Check upkeep, receive Mercury revert.
-    uint256 blockNumber = BLOCK_NUMBER;
-    vm.roll(blockNumber);
+    uint256 blockNumber = block.number;
     vm.expectRevert(
       abi.encodeWithSelector(
         StreamsLookupCompatibleInterface.StreamsLookup.selector,
@@ -212,8 +208,7 @@ contract MercuryRegistryTest is Test {
       50 // end batch beyond length of feed Ids (take responsibility for all feeds)
     );
     // Check upkeep, receive Mercury revert.
-    uint256 blockNumber = BLOCK_NUMBER;
-    vm.roll(blockNumber);
+    uint256 blockNumber = block.number;
     vm.expectRevert(
       abi.encodeWithSelector(
         StreamsLookupCompatibleInterface.StreamsLookup.selector,
@@ -307,4 +302,11 @@ contract MercuryRegistryTest is Test {
     (shouldPerformUpkeep, performData) = batchedRegistry.checkCallback(values, bytes(""));
     assertEq(shouldPerformUpkeep, false);
   }
+}
+
+contract MockVerifierProxy is IVerifierProxy {
+    function verify(bytes calldata payload) external payable override returns (bytes memory) {
+          (, bytes memory reportData, , , ) = abi.decode(payload, (bytes32[3], bytes, bytes32[], bytes32[], bytes32));
+          return reportData;
+    }
 }
