@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
+	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/logging"
@@ -88,9 +89,9 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
-		rv := registryVersion
-		n := name
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -214,8 +215,9 @@ func TestAutomationAddFunds(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
-		rv := registryVersion
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
@@ -265,8 +267,9 @@ func TestAutomationPauseUnPause(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
-		rv := registryVersion
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
@@ -277,7 +280,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 
 			gom := gomega.NewGomegaWithT(t)
 			gom.Eventually(func(g gomega.Gomega) {
-				// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 5
+				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 5
 				for i := 0; i < len(upkeepIDs); i++ {
 					counter, err := consumers[i].Counter(context.Background())
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
@@ -348,8 +351,9 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
-		rv := registryVersion
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
@@ -419,8 +423,9 @@ func TestAutomationPauseRegistry(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
-		rv := registryVersion
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
@@ -477,8 +482,9 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
-		rv := registryVersion
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
@@ -562,8 +568,9 @@ func TestAutomationPerformSimulation(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
-		rv := registryVersion
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
@@ -626,8 +633,9 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
-		rv := registryVersion
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
@@ -739,8 +747,9 @@ func TestUpdateCheckData(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
-		rv := registryVersion
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
@@ -850,6 +859,10 @@ func setupAutomationTestDocker(
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 	env.ParallelTransactions(true)
+			if err := actions.ReturnFunds(chainlinkNodes, chainClient); err != nil {
+				log.Error().Err(err).Msg("Error returning funds")
+			}
+		})
 
 	txCost, err := env.EVMClient.EstimateCostForChainlinkOperations(1000)
 	require.NoError(t, err, "Error estimating cost for Chainlink Operations")
