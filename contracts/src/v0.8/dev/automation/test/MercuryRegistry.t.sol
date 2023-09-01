@@ -120,7 +120,8 @@ contract MercuryRegistryTest is Test {
     // Check state of BTC/USD feed to ensure update was propagated.
     bytes memory oldPerformData;
     uint32 oldObservationsTimestamp;
-    { // scoped to prevent stack-too-deep error
+    {
+      // scoped to prevent stack-too-deep error
       (
         uint32 observationsTimestamp,
         int192 price,
@@ -328,8 +329,8 @@ contract MercuryRegistryTest is Test {
 }
 
 contract MockVerifierProxy is IVerifierProxy {
-    function verify(bytes calldata payload) external payable override returns (bytes memory) {
-          (, bytes memory reportData, , , ) = abi.decode(payload, (bytes32[3], bytes, bytes32[], bytes32[], bytes32));
-          return reportData;
-    }
+  function verify(bytes calldata payload) external payable override returns (bytes memory) {
+    (, bytes memory reportData, , , ) = abi.decode(payload, (bytes32[3], bytes, bytes32[], bytes32[], bytes32));
+    return reportData;
+  }
 }

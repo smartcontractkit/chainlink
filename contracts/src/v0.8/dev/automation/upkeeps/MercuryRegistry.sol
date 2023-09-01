@@ -192,7 +192,11 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
 
   // Check if the off-chain value has deviated sufficiently from the on-chain value to justify an update.
   // `scale` is used to ensure precision is not lost.
-  function deviationExceedsThreshold(int192 onChain, int192 offChain, int192 deviationPercentagePPM) public pure returns (bool) {
+  function deviationExceedsThreshold(
+    int192 onChain,
+    int192 offChain,
+    int192 deviationPercentagePPM
+  ) public pure returns (bool) {
     // Compute absolute difference between the on-chain and off-chain values.
     int192 scaledDifference = (onChain - offChain) * scale;
     if (scaledDifference < 0) {
@@ -218,11 +222,11 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
   }
 
   function addFeeds(
-    string[] memory feedIds, 
+    string[] memory feedIds,
     string[] memory feedNames,
     int192[] memory deviationPercentagePPMs,
     uint32[] memory stalenessSeconds
-    ) external onlyOwner feedsAreValid(feedIds, feedNames, deviationPercentagePPMs, stalenessSeconds) {
+  ) external onlyOwner feedsAreValid(feedIds, feedNames, deviationPercentagePPMs, stalenessSeconds) {
     for (uint256 i = 0; i < feedIds.length; i++) {
       string memory feedId = feedIds[i];
       if (s_feedMapping[feedId].active) {
@@ -236,7 +240,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
   }
 
   function setFeeds(
-    string[] memory feedIds, 
+    string[] memory feedIds,
     string[] memory feedNames,
     int192[] memory deviationPercentagePPMs,
     uint32[] memory stalenessSeconds
@@ -258,11 +262,16 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
     s_feeds = feedIds;
   }
 
-  function updateFeed(string memory feedId, string memory feedName, int192 deviationPercentagePPM, uint32 stalnessSeconds) internal {
-      s_feedMapping[feedId].feedName = feedName;
-      s_feedMapping[feedId].deviationPercentagePPM = deviationPercentagePPM;
-      s_feedMapping[feedId].stalenessSeconds = stalnessSeconds;
-      s_feedMapping[feedId].feedId = feedId;
+  function updateFeed(
+    string memory feedId,
+    string memory feedName,
+    int192 deviationPercentagePPM,
+    uint32 stalnessSeconds
+  ) internal {
+    s_feedMapping[feedId].feedName = feedName;
+    s_feedMapping[feedId].deviationPercentagePPM = deviationPercentagePPM;
+    s_feedMapping[feedId].stalenessSeconds = stalnessSeconds;
+    s_feedMapping[feedId].feedId = feedId;
   }
 
   function setVerifier(address verifier) external onlyOwner {
@@ -270,7 +279,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
   }
 
   modifier feedsAreValid(
-    string[] memory feedIds, 
+    string[] memory feedIds,
     string[] memory feedNames,
     int192[] memory deviationPercentagePPMs,
     uint32[] memory stalenessSeconds
