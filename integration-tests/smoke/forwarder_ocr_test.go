@@ -1,14 +1,15 @@
 package smoke
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
-	"context"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/stretchr/testify/require"
 )
 
 func TestForwarderOCRBasic(t *testing.T) {
@@ -55,6 +56,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 		authorizedForwarders,
 		env.EVMClient,
 	)
+	require.NoError(t, err, "Error deploying OCR contracts")
 
 	err = actions.CreateOCRJobsWithForwarderLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockServer.Client)
 	require.NoError(t, err, "failed to setup forwarder jobs")

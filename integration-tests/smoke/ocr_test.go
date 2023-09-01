@@ -1,10 +1,9 @@
 package smoke
 
 import (
-	"testing"
-
 	"context"
 	"math/big"
+	"testing"
 
 	"github.com/stretchr/testify/require"
 

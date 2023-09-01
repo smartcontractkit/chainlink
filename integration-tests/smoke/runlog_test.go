@@ -3,15 +3,18 @@ package smoke
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 
 func TestRunLogBasic(t *testing.T) {
