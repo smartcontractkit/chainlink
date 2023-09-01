@@ -49,12 +49,12 @@ contract MercuryRegistryTest is Test {
 
   function setUp() public virtual {
     // Set owner, and fork Arbitrum Goerli Testnet (chain ID 421613).
-    // The fork is only used in local testing, as to not disrupt CI. For CI, a mock verifier is used instead.
+    // The fork is only used with the `FORK_TEST` flag enabeld, as to not disrupt CI. For CI, a mock verifier is used instead.
     vm.startPrank(OWNER);
-    try vm.envBool("CI") returns (bool /* ci */) {
-      s_verifier = address(new MockVerifierProxy());
-    } catch {
+    try vm.envBool("FORK_TEST") returns (bool /* fork testing enabled */) {
       vm.selectFork(vm.createFork("https://goerli-rollup.arbitrum.io/rpc"));
+    } catch {
+      s_verifier = address(new MockVerifierProxy());
     }
     vm.chainId(31337); // restore chain Id
 
