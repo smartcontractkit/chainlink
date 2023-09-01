@@ -29,6 +29,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
   error DuplicateFeed(string feedId);
   error FeedNotActive(string feedId);
   error StaleReport(string feedId, uint32 currentTimestamp, uint32 incomingTimestamp);
+  error InvalidFeeds();
 
   // Feed object used for storing feed data.
   // not included but contained in reports:
@@ -191,7 +192,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
 
   // Check if the off-chain value has deviated sufficiently from the on-chain value to justify an update.
   // `scale` is used to ensure precision is not lost.
-  function deviationExceedsThreshold(int192 onChain, int192 offChain, int192 deviationPercentagePPM) public view returns (bool) {
+  function deviationExceedsThreshold(int192 onChain, int192 offChain, int192 deviationPercentagePPM) public pure returns (bool) {
     // Compute absolute difference between the on-chain and off-chain values.
     int192 scaledDifference = (onChain - offChain) * scale;
     if (scaledDifference < 0) {
@@ -274,10 +275,16 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
     int192[] memory deviationPercentagePPMs,
     uint32[] memory stalenessSeconds
   ) {
-    require(feedIds.length == feedNames.length, "incorrectly formatted feeds");
-    require(feedIds.length == deviationPercentagePPMs.length, "incorrectly formatted feeds");
-    require(feedIds.length == stalenessSeconds.length, "incorrectly formatted feeds");
-        _;
+    if (feedIds.length != feedNames.length) {
+      revert InvalidFeeds();
+    }
+    if (feedIds.length != deviationPercentagePPMs.length) {
+      revert InvalidFeeds();
+    }
+    if (feedIds.length != stalenessSeconds.length) {
+      revert InvalidFeeds();
+    }
+    _;
   }
 }
 
