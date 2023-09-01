@@ -300,11 +300,11 @@ var (
 		ChainID:                   80001,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		Timeout:                   blockchain.JSONStrDuration{Duration: 3 * time.Minute},
 		MinimumConfirmations:      1,
-		GasEstimationBuffer:       1000,
+		GasEstimationBuffer:       100000,
 		FinalityDepth:             550,
-		DefaultGasLimit:           6000000,
+		DefaultGasLimit:           8000000,
 	}
 
 	AvalancheMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
