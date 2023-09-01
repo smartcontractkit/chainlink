@@ -8,7 +8,7 @@ import {IVerifier} from "../../interfaces/IVerifier.sol";
 import {ErroredVerifier} from "../mocks/ErroredVerifier.sol";
 import {Verifier} from "../../Verifier.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {AccessControllerInterface} from "../../../interfaces/AccessControllerInterface.sol";
+import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
 import {FeeManager} from "../../dev/FeeManager.sol";
 import {Common} from "../../../libraries/Common.sol";
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/mocks/ERC20Mock.sol";

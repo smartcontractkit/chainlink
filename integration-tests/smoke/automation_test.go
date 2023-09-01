@@ -130,8 +130,6 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			l.Info().Msg("Waiting for all upkeeps to be performed")
 			gom := gomega.NewGomegaWithT(t)
 
-			// Wait for 30 seconds to allow everything to be ready before emitting logs
-			time.Sleep(30 * time.Second)
 			for i := 0; i < len(upkeepIDs); i++ {
 				err := consumers[i].Start()
 				if err != nil {
@@ -867,11 +865,14 @@ func setupAutomationTestDocker(
 		t,
 		registryVersion,
 		registryConfig,
-		defaultAmountOfUpkeeps,
 		linkToken,
 		env.ContractDeployer,
 		env.EVMClient,
 	)
+
+		// Fund the registry with LINK
+		err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(defaultAmountOfUpkeeps))))
+		require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
 	err = actions.CreateOCRKeeperJobsLocal(nodeClients, registry.Address(), network.ChainID, 0, registryVersion)
 	require.NoError(t, err, "Error creating OCR Keeper Jobs")

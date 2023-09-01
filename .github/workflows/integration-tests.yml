@@ -41,6 +41,7 @@ jobs:
               - '**/*go.mod'
               - '.github/workflows/integration-tests.yml'
               - '**/*Dockerfile'
+              - 'core/**/config/**/*.toml'
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics

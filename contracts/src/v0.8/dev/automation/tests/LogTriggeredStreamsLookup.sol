@@ -2,7 +2,7 @@
 pragma solidity 0.8.16;
 
 import {ILogAutomation, Log} from "../2_1/interfaces/ILogAutomation.sol";
-import "../2_1/interfaces/FeedLookupCompatibleInterface.sol";
+import "../2_1/interfaces/StreamsLookupCompatibleInterface.sol";
 import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 
 interface IVerifierProxy {
@@ -15,7 +15,7 @@ interface IVerifierProxy {
   function verify(bytes memory signedReport) external returns (bytes memory verifierResponse);
 }
 
-contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface {
+contract LogTriggeredStreamsLookup is ILogAutomation, StreamsLookupCompatibleInterface {
   event PerformingLogTriggerUpkeep(
     address indexed from,
     uint256 orderId,
@@ -74,7 +74,7 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
       bytes memory t3 = abi.encodePacked(log.topics[3]);
       address exchange = abi.decode(t3, (address));
 
-      revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(orderId, amount, exchange));
+      revert StreamsLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(orderId, amount, exchange));
     }
     revert("could not find matching event sig");
   }
