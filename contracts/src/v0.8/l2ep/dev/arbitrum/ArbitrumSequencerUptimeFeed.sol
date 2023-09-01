@@ -9,7 +9,7 @@ import {AggregatorV2V3Interface} from "../../../interfaces/AggregatorV2V3Interfa
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 import {FlagsInterface} from "./../interfaces/FlagsInterface.sol";
 import {ArbitrumSequencerUptimeFeedInterface} from "../interfaces/ArbitrumSequencerUptimeFeedInterface.sol";
-import {SimpleReadAccessController} from "../../../SimpleReadAccessController.sol";
+import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
 import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 
 /**

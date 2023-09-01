@@ -5,7 +5,7 @@ import "../../../interfaces/AggregatorValidatorInterface.sol";
 import "../../../interfaces/TypeAndVersionInterface.sol";
 import "../../../interfaces/AccessControllerInterface.sol";
 import "../../../interfaces/AggregatorV3Interface.sol";
-import "../../../SimpleWriteAccessController.sol";
+import "../../../shared/access/SimpleWriteAccessController.sol";
 
 import "./../interfaces/OptimismSequencerUptimeFeedInterface.sol";
 import "@eth-optimism/contracts/L1/messaging/IL1CrossDomainMessenger.sol";

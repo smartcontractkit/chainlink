@@ -38,7 +38,7 @@ describe('ArbitrumSequencerUptimeFeed', () => {
 
   beforeEach(async () => {
     const accessControllerFactory = await ethers.getContractFactory(
-      'src/v0.8/SimpleWriteAccessController.sol:SimpleWriteAccessController',
+      'src/v0.8/shared/access/SimpleWriteAccessController.sol:SimpleWriteAccessController',
       deployer,
     )
     accessController = await accessControllerFactory.deploy()

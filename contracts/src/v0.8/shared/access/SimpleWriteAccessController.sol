@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./shared/access/ConfirmedOwner.sol";
-import "./interfaces/AccessControllerInterface.sol";
+import "./ConfirmedOwner.sol";
+import "../../interfaces/AccessControllerInterface.sol";
 
 /**
  * @title SimpleWriteAccessController
