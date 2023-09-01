@@ -10,9 +10,9 @@ import (
 func TestFunctionsLoad(t *testing.T) {
 	cfg, err := ReadConfig()
 	require.NoError(t, err)
-	env, ft, err := SetupLocalLoadTestEnv(cfg)
+	ft, err := SetupLocalLoadTestEnv(cfg)
 	require.NoError(t, err)
-	env.ParallelTransactions(false)
+	ft.EVMClient.ParallelTransactions(false)
 
 	labels := map[string]string{
 		"branch": "functions_healthcheck",

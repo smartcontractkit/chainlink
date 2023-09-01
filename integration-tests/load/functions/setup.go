@@ -7,8 +7,9 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"math/big"
@@ -19,6 +20,9 @@ import (
 )
 
 type FunctionsTest struct {
+	EVMClient                 blockchain.EVMClient
+	ContractDeployer          contracts.ContractDeployer
+	ContractLoader            contracts.ContractLoader
 	LinkToken                 contracts.LinkToken
 	Coordinator               contracts.FunctionsCoordinator
 	Router                    contracts.FunctionsRouter
@@ -44,72 +48,83 @@ type S4SecretsCfg struct {
 	S4SetPayload          string
 }
 
-func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, *FunctionsTest, error) {
-	env, err := test_env.NewCLTestEnvBuilder().
-		Build()
+func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
+	bc, err := blockchain.NewEVMClientFromNetwork(networks.SelectedNetwork)
 	if err != nil {
-		return env, nil, err
+		return nil, err
 	}
-	lt, err := env.ContractLoader.LoadLINKToken(cfg.Common.LINKTokenAddr)
+	cd, err := contracts.NewContractDeployer(bc)
 	if err != nil {
-		return env, nil, err
+		return nil, err
 	}
-	coord, err := env.ContractLoader.LoadFunctionsCoordinator(cfg.Common.Coordinator)
+
+	cl, err := contracts.NewContractLoader(bc)
 	if err != nil {
-		return env, nil, err
+		return nil, err
 	}
-	router, err := env.ContractLoader.LoadFunctionsRouter(cfg.Common.Router)
 	if err != nil {
-		return env, nil, err
+		return nil, err
+	}
+	lt, err := cl.LoadLINKToken(cfg.Common.LINKTokenAddr)
+	if err != nil {
+		return nil, err
+	}
+	coord, err := cl.LoadFunctionsCoordinator(cfg.Common.Coordinator)
+	if err != nil {
+		return nil, err
+	}
+	router, err := cl.LoadFunctionsRouter(cfg.Common.Router)
+	if err != nil {
+		return nil, err
 	}
 	var loadTestClient contracts.FunctionsLoadTestClient
 	if cfg.Common.LoadTestClient != "" {
-		loadTestClient, err = env.ContractLoader.LoadFunctionsLoadTestClient(cfg.Common.LoadTestClient)
+		loadTestClient, err = cl.LoadFunctionsLoadTestClient(cfg.Common.LoadTestClient)
 	} else {
-		loadTestClient, err = env.ContractDeployer.DeployFunctionsLoadTestClient(cfg.Common.Router)
+		loadTestClient, err = cd.DeployFunctionsLoadTestClient(cfg.Common.Router)
 	}
 	if err != nil {
-		return env, nil, err
+		return nil, err
 	}
 	if cfg.Common.SubscriptionID == 0 {
 		log.Info().Msg("Creating new subscription")
 		subID, err := router.CreateSubscriptionWithConsumer(loadTestClient.Address())
 		if err != nil {
-			return env, nil, errors.Wrap(err, "failed to create a new subscription")
+			return nil, errors.Wrap(err, "failed to create a new subscription")
 		}
 		encodedSubId, err := chainlinkutils.ABIEncode(`[{"type":"uint64"}]`, subID)
 		if err != nil {
-			return env, nil, errors.Wrap(err, "failed to encode subscription ID for funding")
+			return nil, errors.Wrap(err, "failed to encode subscription ID for funding")
 		}
 		_, err = lt.TransferAndCall(router.Address(), big.NewInt(0).Mul(cfg.Common.Funding.SubFunds, big.NewInt(1e18)), encodedSubId)
 		if err != nil {
-			return env, nil, errors.Wrap(err, "failed to transferAndCall router, LINK funding")
+			return nil, errors.Wrap(err, "failed to transferAndCall router, LINK funding")
 		}
 		cfg.Common.SubscriptionID = subID
 	}
 	pKey, pubKey, err := parseEthereumPrivateKey(os.Getenv("MUMBAI_KEYS"))
 	if err != nil {
-		return env, nil, errors.Wrap(err, "failed to load Ethereum private key")
+		return nil, errors.Wrap(err, "failed to load Ethereum private key")
 	}
 	tpk, err := coord.GetThresholdPublicKey()
 	if err != nil {
-		return env, nil, errors.Wrap(err, "failed to get Threshold public key")
+		return nil, errors.Wrap(err, "failed to get Threshold public key")
 	}
 	log.Info().Hex("ThresholdPublicKeyBytesHex", tpk).Msg("Loaded coordinator keys")
 	donPubKey, err := coord.GetDONPublicKey()
 	if err != nil {
-		return env, nil, errors.Wrap(err, "failed to get DON public key")
+		return nil, errors.Wrap(err, "failed to get DON public key")
 	}
 	log.Info().Hex("DONPublicKeyHex", donPubKey).Msg("Loaded coordinator keys")
 	tdh2pk, err := ParseTDH2Key(tpk)
 	if err != nil {
-		return env, nil, errors.Wrap(err, "failed to unmarshal tdh2 public key")
+		return nil, errors.Wrap(err, "failed to unmarshal tdh2 public key")
 	}
 	var encryptedSecrets string
 	if cfg.Common.Secrets != "" {
 		encryptedSecrets, err = EncryptS4Secrets(pKey, tdh2pk, donPubKey, cfg.Common.Secrets)
 		if err != nil {
-			return env, nil, errors.Wrap(err, "failed to generate tdh2 secrets")
+			return nil, errors.Wrap(err, "failed to generate tdh2 secrets")
 		}
 		if err := UploadS4Secrets(resty.New(), &S4SecretsCfg{
 			GatewayURL:            fmt.Sprintf("%s/user", cfg.Common.GatewayURL),
@@ -122,10 +137,13 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, 
 			S4SetExpirationPeriod: 60 * 60 * 1000,
 			S4SetPayload:          encryptedSecrets,
 		}); err != nil {
-			return env, nil, errors.Wrap(err, "failed to upload secrets to S4")
+			return nil, errors.Wrap(err, "failed to upload secrets to S4")
 		}
 	}
-	return env, &FunctionsTest{
+	return &FunctionsTest{
+		EVMClient:                 bc,
+		ContractDeployer:          cd,
+		ContractLoader:            cl,
 		LinkToken:                 lt,
 		Coordinator:               coord,
 		Router:                    router,
