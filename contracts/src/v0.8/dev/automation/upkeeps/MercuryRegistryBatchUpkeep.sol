@@ -2,10 +2,10 @@ pragma solidity 0.8.6;
 
 import "../../../shared/access/ConfirmedOwner.sol";
 import "../../../automation/interfaces/AutomationCompatibleInterface.sol";
-import "../2_1/interfaces/FeedLookupCompatibleInterface.sol";
+import "../2_1/interfaces/StreamsLookupCompatibleInterface.sol";
 import "./MercuryRegistry.sol";
 
-contract MercuryRegistryBatchUpkeep is ConfirmedOwner, AutomationCompatibleInterface, FeedLookupCompatibleInterface {
+contract MercuryRegistryBatchUpkeep is ConfirmedOwner, AutomationCompatibleInterface, StreamsLookupCompatibleInterface {
   error BatchSizeTooLarge(uint256 batchsize, uint256 maxBatchSize);
   // Use a reasonable maximum batch size. Every Mercury report is ~750 bytes, too many reports
   // passed into a single batch could exceed the calldata or transaction size limit for some blockchains.

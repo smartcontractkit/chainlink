@@ -3,13 +3,13 @@ pragma solidity ^0.8.0;
 import {Test} from "forge-std/Test.sol";
 import "../upkeeps/MercuryRegistry.sol";
 import "../upkeeps/MercuryRegistryBatchUpkeep.sol";
-import "../2_1/interfaces/FeedLookupCompatibleInterface.sol";
+import "../2_1/interfaces/StreamsLookupCompatibleInterface.sol";
 
 // Note: changing this test will cause the Foundry CI cache to change,
 // so test changes in this file need to be accompanied by updating `BLOCK_NUMBER`
 // to a reasonably recent block number on Arbitrum Goerli.
 contract MercuryRegistryTest is Test {
-  uint256 internal constant BLOCK_NUMBER = 37969133;
+  uint256 internal constant BLOCK_NUMBER = 38167413;
   address internal constant OWNER = 0x00007e64E1fB0C487F25dd6D3601ff6aF8d32e4e;
   address internal constant VERIFIER = 0x60448B880c9f3B501af3f343DA9284148BD7D77C;
   int192 internal constant DEVIATION_THRESHOLD = 10_000; // 1%
@@ -94,7 +94,7 @@ contract MercuryRegistryTest is Test {
     vm.roll(blockNumber);
     vm.expectRevert(
       abi.encodeWithSelector(
-        FeedLookupCompatibleInterface.FeedLookup.selector,
+        StreamsLookupCompatibleInterface.StreamsLookup.selector,
         "feedIdHex", // feedParamKey
         feedIds, // feed Ids
         "blockNumber", // timeParamKey
@@ -216,7 +216,7 @@ contract MercuryRegistryTest is Test {
     vm.roll(blockNumber);
     vm.expectRevert(
       abi.encodeWithSelector(
-        FeedLookupCompatibleInterface.FeedLookup.selector,
+        StreamsLookupCompatibleInterface.StreamsLookup.selector,
         "feedIdHex", // feedParamKey
         feedIds, // feed Ids
         "blockNumber", // timeParamKey

@@ -2,7 +2,7 @@ pragma solidity 0.8.6;
 
 import "../../../shared/access/ConfirmedOwner.sol";
 import "../../../automation/interfaces/AutomationCompatibleInterface.sol";
-import "../2_1/interfaces/FeedLookupCompatibleInterface.sol";
+import "../2_1/interfaces/StreamsLookupCompatibleInterface.sol";
 import "../../../ChainSpecificUtil.sol";
 
 /*--------------------------------------------------------------------------------------------------------------------+
@@ -25,7 +25,7 @@ import "../../../ChainSpecificUtil.sol";
 | TODO:                                                                                                               |
 |   - Optimize gas consumption.                                                                                       |
 -+---------------------------------------------------------------------------------------------------------------------*/
-contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, FeedLookupCompatibleInterface {
+contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, StreamsLookupCompatibleInterface {
   error DuplicateFeed(string feedId);
   error FeedNotActive(string feedId);
   error StaleReport(string feedId, uint32 currentTimestamp, uint32 incomingTimestamp);
@@ -110,7 +110,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, FeedL
   // Extracted from `checkUpkeep` for batching purposes.
   function revertForFeedLookup(string[] memory feeds) public view returns (bool, bytes memory) {
     uint256 blockNumber = ChainSpecificUtil.getBlockNumber();
-    revert FeedLookup(c_feedParamKey, feeds, c_timeParamKey, blockNumber, "");
+    revert StreamsLookup(c_feedParamKey, feeds, c_timeParamKey, blockNumber, "");
   }
 
   // Filter for feeds that have deviated sufficiently from their respective on-chain values, or where
