@@ -43,6 +43,12 @@ subscription_id = 23
 ```
 Then insert new client addr and subscription number back
 
+## Debug
+Show more logs
+```
+export WASP_LOG_LEVEL=debug
+```
+
 ### Dashboards
 
 Deploying dashboard:

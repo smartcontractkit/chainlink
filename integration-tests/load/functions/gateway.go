@@ -224,48 +224,4 @@ func EncryptS4Secrets(deployerPk *ecdsa.PrivateKey, tdh2Pk *tdh2easy.PublicKey, 
 		return "", errors.Wrap(err, "failed to marshal secrets msg")
 	}
 	return string(finalMsg), nil
-	//  public async buildEncryptedSecrets(
-	//    secrets?: Record<string, string>,
-	//  ): Promise<{ encryptedSecrets: string }> {
-	//    if (!secrets || Object.keys(secrets).length === 0) {
-	//      throw Error('Secrets are empty')
-	//    }
-	//
-	//    if (
-	//      typeof secrets !== 'object' ||
-	//      !Object.values(secrets).every(s => {
-	//        return typeof s === 'string'
-	//      })
-	//    ) {
-	//      throw Error('Secrets are not a string map')
-	//    }
-	//
-	//    const { thresholdPublicKey, donPublicKey } = await this.fetchKeys()
-	//
-	//    const message = JSON.stringify(secrets)
-	//    const signature = await this.signer.signMessage(message)
-	//
-	//    const signedSecrets = JSON.stringify({
-	//      message,
-	//      signature,
-	//    })
-	//
-	//    const encryptedSignedSecrets = EthCrypto.cipher.stringify(
-	//      await EthCrypto.encryptWithPublicKey(donPublicKey, signedSecrets),
-	//    )
-	//
-	//    const donKeyEncryptedSecrets = {
-	//      '0x0': Buffer.from(encryptedSignedSecrets, 'hex').toString('base64'),
-	//    }
-	//
-	//    const encryptedSecretsHexstring =
-	//      '0x' +
-	//      Buffer.from(
-	//        encrypt(thresholdPublicKey, Buffer.from(JSON.stringify(donKeyEncryptedSecrets))),
-	//      ).toString('hex')
-	//
-	//    return {
-	//      encryptedSecrets: encryptedSecretsHexstring,
-	//    }
-	//  }
 }
