@@ -25,8 +25,12 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		WithCLNodes(1).
 		WithFunding(vrfv2plus_constants.ChainlinkNodeFundingAmountEth).
 		Build()
-
 	require.NoError(t, err, "error creating test env")
+	t.Cleanup(func() {
+		if err := env.Cleanup(); err != nil {
+			l.Error().Err(err).Msg("Error cleaning up test environment")
+		}
+	})
 
 	env.ParallelTransactions(true)
 

@@ -20,13 +20,19 @@ import (
 func TestRunLogBasic(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithGeth().
 		WithMockServer(1).
 		WithCLNodes(1).
-		WithFunding(big.NewFloat(1)).
+		WithFunding(big.NewFloat(.1)).
 		Build()
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := env.Cleanup(); err != nil {
+			l.Error().Err(err).Msg("Error cleaning up test environment")
+		}
+	})
 
 	lt, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")

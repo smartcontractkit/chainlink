@@ -28,6 +28,11 @@ func TestVRFv2Basic(t *testing.T) {
 		WithFunding(vrfConst.ChainlinkNodeFundingAmountEth).
 		Build()
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := env.Cleanup(); err != nil {
+			l.Error().Err(err).Msg("Error cleaning up test environment")
+		}
+	})
 	env.ParallelTransactions(true)
 
 	mockFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, vrfConst.LinkEthFeedResponse)

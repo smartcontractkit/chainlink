@@ -105,7 +105,7 @@ func TestKeeperBasicSmoke(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			gom.Eventually(func(g gomega.Gomega) error {
-				// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 10
+				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
 				for i := 0; i < len(upkeepIDs); i++ {
 					counter, err := consumers[i].Counter(context.Background())
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
@@ -1089,6 +1089,7 @@ func setupKeeperTest(t *testing.T) (
 	clNodeConfig.Keeper.TurnLookBack = &turnLookBack
 	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
 	clNodeConfig.Keeper.Registry.PerformGasOverhead = &performGasOverhead
+	l := utils.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithGeth().
@@ -1098,6 +1099,11 @@ func setupKeeperTest(t *testing.T) (
 		WithFunding(big.NewFloat(.5)).
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
+	t.Cleanup(func() {
+		if err := env.Cleanup(); err != nil {
+			l.Error().Err(err).Msg("Error cleaning up test environment")
+		}
+	})
 
 	env.ParallelTransactions(true)
 
