@@ -250,17 +250,11 @@ func DeployAutoOCRRegistryAndRegistrar(
 	t *testing.T,
 	registryVersion ethereum.KeeperRegistryVersion,
 	registrySettings contracts.KeeperRegistrySettings,
-	numberOfUpkeeps int,
 	linkToken contracts.LinkToken,
 	contractDeployer contracts.ContractDeployer,
 	client blockchain.EVMClient,
 ) (contracts.KeeperRegistry, contracts.KeeperRegistrar) {
 	registry := deployRegistry(t, registryVersion, registrySettings, contractDeployer, client, linkToken)
-
-	// Fund the registry with 1 LINK * amount of KeeperConsumerPerformance contracts
-	err := linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfUpkeeps))))
-	require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
-
 	registrar := deployRegistrar(t, registryVersion, registry, linkToken, contractDeployer, client)
 
 	return registry, registrar
