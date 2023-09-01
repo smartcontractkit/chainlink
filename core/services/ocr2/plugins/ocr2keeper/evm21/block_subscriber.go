@@ -127,7 +127,7 @@ func (bs *BlockSubscriber) cleanup() {
 	bs.lggr.Infof("lastClearedBlock is set to %d", bs.lastClearedBlock)
 }
 
-func (bs *BlockSubscriber) Start(ctx context.Context) error {
+func (bs *BlockSubscriber) Start(_ context.Context) error {
 	bs.lggr.Info("block subscriber started.")
 	return bs.sync.StartOnce("BlockSubscriber", func() error {
 		bs.mu.Lock()
@@ -227,9 +227,15 @@ func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
 	// head parent is a linked list with EVM finality depth
 	// when re-org happens, new heads will have pointers to the new blocks
 	i := int64(0)
-	for cp := h; cp != nil; cp = cp.Parent {
-		if cp != h && bs.blocks[cp.Number] != cp.Hash.Hex() {
-			bs.lggr.Warnf("overriding block %d old hash %s with new hash %s due to re-org", cp.Number, bs.blocks[cp.Number], cp.Hash.Hex())
+	for cp := h; ; cp = cp.Parent {
+		if cp == nil || bs.blocks[cp.Number] == cp.Hash.Hex() {
+			break
+		}
+		existingHash, ok := bs.blocks[cp.Number]
+		if !ok {
+			bs.lggr.Debugf("filling block %d with new hash %s", cp.Number, cp.Hash.Hex())
+		} else if existingHash != cp.Hash.Hex() {
+			bs.lggr.Warnf("overriding block %d old hash %s with new hash %s due to re-org", cp.Number, existingHash, cp.Hash.Hex())
 		}
 		bs.blocks[cp.Number] = cp.Hash.Hex()
 		i++

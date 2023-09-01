@@ -4,7 +4,7 @@ pragma solidity 0.8.16;
 import {BaseTestWithConfiguredVerifierAndFeeManager} from "./BaseVerifierTest.t.sol";
 import {Verifier} from "../../Verifier.sol";
 import {VerifierProxy} from "../../VerifierProxy.sol";
-import {AccessControllerInterface} from "../../../interfaces/AccessControllerInterface.sol";
+import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
 import {Common} from "../../../libraries/Common.sol";
 
 contract VerifierVerifyTest is BaseTestWithConfiguredVerifierAndFeeManager {
@@ -12,14 +12,14 @@ contract VerifierVerifyTest is BaseTestWithConfiguredVerifierAndFeeManager {
 
   event ReportVerified(bytes32 indexed feedId, address requester);
 
-  V0Report internal s_testReportOne;
+  V1Report internal s_testReportOne;
 
   function setUp() public virtual override {
     BaseTestWithConfiguredVerifierAndFeeManager.setUp();
     (, , bytes32 configDigest) = s_verifier.latestConfigDetails(FEED_ID);
     s_reportContext[0] = configDigest;
     s_reportContext[1] = bytes32(abi.encode(uint32(5), uint8(1)));
-    s_testReportOne = _createV0Report(
+    s_testReportOne = _createV1Report(
       FEED_ID,
       OBSERVATIONS_TIMESTAMP,
       MEDIAN,
@@ -32,7 +32,7 @@ contract VerifierVerifyTest is BaseTestWithConfiguredVerifierAndFeeManager {
     );
   }
 
-  function assertReportsEqual(bytes memory response, V0Report memory testReport) public {
+  function assertReportsEqual(bytes memory response, V1Report memory testReport) public {
     (
       bytes32 feedId,
       uint32 timestamp,
@@ -162,7 +162,7 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
   }
 
   function test_revertsIfReportHasUnconfiguredFeedID() public {
-    V0Report memory report = _createV0Report(
+    V1Report memory report = _createV1Report(
       FEED_ID_2,
       OBSERVATIONS_TIMESTAMP,
       MEDIAN,

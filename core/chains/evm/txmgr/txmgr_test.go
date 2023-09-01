@@ -401,7 +401,7 @@ func (g *gasEstimatorConfig) PriceMax() *assets.Wei                { return asse
 func (g *gasEstimatorConfig) PriceMin() *assets.Wei                { return assets.NewWeiI(42) }
 func (g *gasEstimatorConfig) Mode() string                         { return "FixedPrice" }
 func (g *gasEstimatorConfig) LimitJobType() evmconfig.LimitJobType { return &limitJobTypeConfig{} }
-func (e *gasEstimatorConfig) PriceMaxKey(addr common.Address) *assets.Wei {
+func (g *gasEstimatorConfig) PriceMaxKey(addr common.Address) *assets.Wei {
 	return assets.NewWeiI(42)
 }
 

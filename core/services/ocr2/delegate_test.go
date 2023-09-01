@@ -172,7 +172,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		})
 	}
 
-	t.Run("when forwarders are enabled and chainset retrieval fails, error should be handled", func(t *testing.T) {
+	t.Run("when forwarders are enabled and chain retrieval fails, error should be handled", func(t *testing.T) {
 		jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
 		require.NoError(t, err)
 		jb.ForwardingAllowed = true

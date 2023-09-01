@@ -274,6 +274,7 @@ func (o *OCRSoakTest) Run() {
 		Msg("Starting OCR Soak Test")
 
 	o.testLoop(o.Inputs.TestDuration, startingValue)
+	o.complete()
 }
 
 // Networks returns the networks that the test is running on
@@ -422,7 +423,10 @@ func (o *OCRSoakTest) Resume() {
 		StartTime: time.Now(),
 		Message:   "Test Resumed",
 	})
-	log.Info().Str("Time Left", o.Inputs.TestDuration.String()).Msg("Resuming OCR Soak Test")
+	log.Info().
+		Str("Total Duration", o.Inputs.TestDuration.String()).
+		Str("Time Left", o.timeLeft.String()).
+		Msg("Resuming OCR Soak Test")
 
 	ocrAddresses := make([]common.Address, len(o.ocrInstances))
 	for i, ocrInstance := range o.ocrInstances {
@@ -464,6 +468,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	lastValue := 0
 	newRoundTrigger := time.NewTimer(0) // Want to trigger a new round ASAP
 	defer newRoundTrigger.Stop()
+	o.setFilterQuery()
 	err := o.observeOCREvents()
 	require.NoError(o.t, err, "Error subscribing to OCR events")
 
@@ -514,10 +519,19 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	}
 }
 
-// observeOCREvents subscribes to OCR events and logs them to the test logger
-// WARNING: Should only be used for observation and logging. This is not a reliable way to collect events.
-func (o *OCRSoakTest) observeOCREvents() error {
-	// set the filter query to listen for AnswerUpdated events on all OCR contracts
+// completes the test
+func (o *OCRSoakTest) complete() {
+	o.log.Info().Msg("Test Complete, collecting on-chain events")
+
+	err := o.collectEvents()
+	if err != nil {
+		log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
+	}
+	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
+}
+
+// setFilterQuery to look for all events that happened
+func (o *OCRSoakTest) setFilterQuery() {
 	ocrAddresses := make([]common.Address, len(o.ocrInstances))
 	for i, ocrInstance := range o.ocrInstances {
 		ocrAddresses[i] = common.HexToAddress(ocrInstance.Address())
@@ -529,7 +543,16 @@ func (o *OCRSoakTest) observeOCREvents() error {
 		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
 		FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
 	}
+	log.Debug().
+		Interface("Addresses", ocrAddresses).
+		Str("Topic", contractABI.Events["AnswerUpdated"].ID.Hex()).
+		Uint64("Starting Block", o.startingBlockNum).
+		Msg("Filter Query Set")
+}
 
+// observeOCREvents subscribes to OCR events and logs them to the test logger
+// WARNING: Should only be used for observation and logging. This is not a reliable way to collect events.
+func (o *OCRSoakTest) observeOCREvents() error {
 	eventLogs := make(chan types.Log)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -560,7 +583,7 @@ func (o *OCRSoakTest) observeOCREvents() error {
 					Msg("Answer Updated Event")
 			case err = <-eventSub.Err():
 				for err != nil {
-					o.log.Trace().
+					o.log.Info().
 						Err(err).
 						Interface("Query", o.filterQuery).
 						Msg("Error while subscribed to OCR Logs. Resubscribing")
@@ -609,11 +632,12 @@ func (o *OCRSoakTest) collectEvents() error {
 	o.log.Info().Msg("Collecting on-chain events")
 
 	// We must retrieve the events, use exponential backoff for timeout to retry
-	var (
-		contractEvents []types.Log
-		err            error
-		timeout        = time.Second * 15
-	)
+	timeout := time.Second * 15
+	log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
+
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	contractEvents, err := o.chainClient.FilterLogs(ctx, o.filterQuery)
+	cancel()
 	for err != nil {
 		log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
