@@ -455,11 +455,8 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 		return nil, err
 	}
 
-	var contractTransmitter ContractTransmitter
-	var reportCodec median.ReportCodec
-
-	reportCodec = evmreportcodec.ReportCodec{}
-	contractTransmitter, err = newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ks.Eth())
+	reportCodec := evmreportcodec.ReportCodec{}
+	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ks.Eth())
 	if err != nil {
 		return nil, err
 	}

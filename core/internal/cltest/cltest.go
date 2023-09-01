@@ -1634,10 +1634,8 @@ func FlagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCom
 	for _, command := range app.Commands {
 		flags := recursiveFindFlagsWithName(actionFuncName, command, parentCommand, foundName)
 
-		if flags != nil {
-			for _, flag := range flags {
-				flag.Apply(flagSet)
-			}
+		for _, flag := range flags {
+			flag.Apply(flagSet)
 		}
 	}
 
