@@ -223,7 +223,7 @@ func (n *node) isOutOfSync(num int64, td *utils.Big) (outOfSync bool) {
 	return
 }
 
-// syncStatus returns outOfSync true if num or td is more than SyncThresold behind the best node.
+// syncStatus returns outOfSync true if num or td is more than SyncThreshold behind the best node.
 // Always returns outOfSync false for SyncThreshold 0.
 // liveNodes is only included when outOfSync is true.
 func (n *node) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes int) {
