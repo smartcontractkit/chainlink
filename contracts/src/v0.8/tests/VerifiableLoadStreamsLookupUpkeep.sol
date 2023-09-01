@@ -2,9 +2,9 @@
 pragma solidity 0.8.16;
 
 import "./VerifiableLoadBase.sol";
-import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
+import "../dev/automation/2_1/interfaces/StreamsLookupCompatibleInterface.sol";
 
-contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatibleInterface {
+contract VerifiableLoadStreamsLookupUpkeep is VerifiableLoadBase, StreamsLookupCompatibleInterface {
   constructor(AutomationRegistrar2_1 _registrar, bool _useArb) VerifiableLoadBase(_registrar, _useArb) {}
 
   function checkCallback(
@@ -34,7 +34,7 @@ contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatible
       return (false, pData);
     }
 
-    revert FeedLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId));
+    revert StreamsLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId));
   }
 
   function performUpkeep(bytes calldata performData) external {

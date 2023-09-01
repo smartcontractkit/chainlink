@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 2.5.0 - UNRELEASED
 
+### Fixed
+- `chainlink txs evm create` returns a transaction hash for the attempted transaction in the CLI. Previously only the sender, receipient and `unstarted` state were returned.
+
 ### Upcoming Required Configuration Change
 
 - Starting in 2.6.0, chainlink nodes will no longer allow insecure configuration for production builds. Any TOML configuration that sets the following line will fail validation checks in `node start` or `node validate`:

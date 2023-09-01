@@ -161,9 +161,9 @@ contract KeeperRegistryLogicA2_1 is KeeperRegistryBase2_1, Chainable {
   }
 
   /**
-   * @dev checkCallback is used specifically for automation feed lookups (see FeedLookupCompatibleInterface.sol)
+   * @dev checkCallback is used specifically for automation data streams lookups (see StreamsLookupCompatibleInterface.sol)
    * @param id the upkeepID to execute a callback for
-   * @param values the values returned from the feed lookup
+   * @param values the values returned from the data streams lookup
    * @param extraData the user-provided extra context data
    */
   function checkCallback(

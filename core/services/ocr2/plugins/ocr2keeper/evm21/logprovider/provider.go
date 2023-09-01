@@ -51,7 +51,7 @@ type FilterOptions struct {
 
 type LogTriggersLifeCycle interface {
 	// RegisterFilter registers the filter (if valid) for the given upkeepID.
-	RegisterFilter(opts FilterOptions) error
+	RegisterFilter(ctx context.Context, opts FilterOptions) error
 	// UnregisterFilter removes the filter for the given upkeepID.
 	UnregisterFilter(upkeepID *big.Int) error
 }
