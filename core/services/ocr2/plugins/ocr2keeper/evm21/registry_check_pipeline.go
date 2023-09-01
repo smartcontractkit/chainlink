@@ -64,7 +64,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 		return
 	}
 
-	upkeepResults = r.feedLookup(ctx, upkeepResults)
+	upkeepResults = r.streamsLookup(ctx, upkeepResults)
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {
@@ -105,7 +105,6 @@ func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId
 		r.lggr.Warnf("latest block is %d, check block number %s is too old for upkeepId %s", r.bs.latestBlock.Load(), checkBlock, upkeepId)
 		return encoding.CheckBlockTooOld, false
 	}
-	r.lggr.Warnf("latestBlock=%d checkBlock=%d", r.bs.latestBlock.Load().Number, checkBlock.Int64())
 
 	var h string
 	var ok bool

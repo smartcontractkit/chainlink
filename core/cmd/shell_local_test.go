@@ -136,10 +136,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				if err := cli.Before(c); err != nil {
 					return err
 				}
-				if err := client.RunNode(c); err != nil {
-					return err
-				}
-				return nil
+				return client.RunNode(c)
 			}
 
 			if test.wantUnlocked {

@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -534,7 +535,7 @@ func (p *mockLogEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int
 	return p.RefreshActiveUpkeepsFn(ids...)
 }
 
-func (p *mockLogEventProvider) RegisterFilter(opts logprovider.FilterOptions) error {
+func (p *mockLogEventProvider) RegisterFilter(ctx context.Context, opts logprovider.FilterOptions) error {
 	return p.RegisterFilterFn(opts)
 }
 

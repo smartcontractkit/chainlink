@@ -2,6 +2,7 @@ package logprovider
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -11,11 +12,15 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
 	// LogRetention is the amount of time to retain logs for.
 	LogRetention = 24 * time.Hour
+	// When adding a filter in log poller, backfill is done for this number of blocks
+	// from latest
+	LogBackfillBuffer = 250
 )
 
 func (p *logEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, error) {
@@ -54,7 +59,7 @@ func (p *logEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, er
 	return newIDs, merr
 }
 
-func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
+func (p *logEventProvider) RegisterFilter(ctx context.Context, opts FilterOptions) error {
 	upkeepID, cfg := opts.UpkeepID, opts.TriggerConfig
 	if err := p.validateLogTriggerConfig(cfg); err != nil {
 		return fmt.Errorf("invalid log trigger config: %w", err)
@@ -97,7 +102,7 @@ func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
 	filter.addr = cfg.ContractAddress.Bytes()
 	filter.topics = []common.Hash{cfg.Topic0, cfg.Topic1, cfg.Topic2, cfg.Topic3}
 
-	if err := p.register(lpFilter, filter); err != nil {
+	if err := p.register(ctx, lpFilter, filter); err != nil {
 		return fmt.Errorf("failed to register upkeep filter %s: %w", filter.upkeepID.String(), err)
 	}
 
@@ -105,12 +110,23 @@ func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
 }
 
 // register registers the upkeep filter with the log poller and adds it to the filter store.
-func (p *logEventProvider) register(lpFilter logpoller.Filter, ufilter upkeepFilter) error {
+func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filter, ufilter upkeepFilter) error {
+	latest, err := p.poller.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return fmt.Errorf("failed to get latest block while registering filter: %w", err)
+	}
 	if err := p.poller.RegisterFilter(lpFilter); err != nil {
 		return err
 	}
 	p.filterStore.AddActiveUpkeeps(ufilter)
-	p.poller.ReplayAsync(int64(ufilter.configUpdateBlock))
+	backfillBlock := latest - int64(LogBackfillBuffer)
+	if backfillBlock < 1 {
+		// New chain, backfill from start
+		backfillBlock = 1
+	}
+	// TODO: Optimise to do backfill from ufilter.configUpdateBlock only for new filters
+	// if it is not too old
+	p.poller.ReplayAsync(backfillBlock)
 
 	return nil
 }
