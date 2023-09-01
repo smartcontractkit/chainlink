@@ -23,6 +23,12 @@ AllowSimplePasswords=true
 
 - To migrate on production builds, update the database password set in Database.URL to be 16 - 50 characters without leading or trailing whitespace. URI parsing rules apply to the chosen password - refer to [RFC 3986](https://datatracker.ietf.org/doc/html/rfc3986) for special character escape rules.
 
+### Changed
+
+- The default node selection algorithm for EVM chains using a Clique-like consensus algorithm (i.e. BSC, Polygon, Scroll) 
+  has been changed from `HighestHead` to `TotalDifficulty`. If you're currently overriding `EVM.NodePool.SelectionMode` to
+  `HighestHead` for these chains, you should remove that override to use the new default. This will improve stability during reorgs.
+
 <!-- unreleasedstop -->
 
 ## 2.4.0 - 2023-08-21
