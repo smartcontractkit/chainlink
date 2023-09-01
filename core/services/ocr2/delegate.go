@@ -1142,14 +1142,6 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	}
 
 	if d.cfg.OCR2().CaptureAutomationCustomTelemetry() {
-		chainID, err2 := spec.RelayConfig.EVMChainID()
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "ChainID did not get")
-		}
-		chain, err2 := d.chainSet.Get(big.NewInt(chainID))
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "ErrNoChainFromSpec")
-		}
 		hb := chain.HeadBroadcaster()
 		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
 		rAddr := ethkey.MustEIP55Address(spec.ContractID).Address()
