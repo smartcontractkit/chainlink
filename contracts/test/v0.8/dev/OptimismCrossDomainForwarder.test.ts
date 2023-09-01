@@ -26,7 +26,7 @@ before(async () => {
 
   // Contract factories
   forwarderFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/OptimismCrossDomainForwarder.sol:OptimismCrossDomainForwarder',
+    'src/v0.8/l2ep/dev/optimism/OptimismCrossDomainForwarder.sol:OptimismCrossDomainForwarder',
     owner,
   )
   greeterFactory = await ethers.getContractFactory(
