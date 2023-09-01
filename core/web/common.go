@@ -15,9 +15,6 @@ var (
 )
 
 func getChain(legacyChains evm.LegacyChainContainer, chainIDstr string) (chain evm.Chain, err error) {
-	if legacyChains.Len() > 1 {
-		return nil, ErrMultipleChains
-	}
 
 	if chainIDstr != "" && chainIDstr != "<nil>" {
 		// evm keys are expected to be parsable as a big int
@@ -30,6 +27,10 @@ func getChain(legacyChains evm.LegacyChainContainer, chainIDstr string) (chain e
 			return nil, ErrMissingChainID
 		}
 		return chain, nil
+	}
+
+	if legacyChains.Len() > 1 {
+		return nil, ErrMultipleChains
 	}
 
 	chain, err = legacyChains.Default()

@@ -906,6 +906,22 @@ func main() {
 		tx, err := coordinator.CancelSubscription(e.Owner, parseSubID(*subID), e.Owner.From)
 		helpers.PanicErr(err)
 		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
+	case "eoa-fund-sub-with-native-token":
+		fund := flag.NewFlagSet("eoa-fund-sub-with-native-token", flag.ExitOnError)
+		coordinatorAddress := fund.String("coordinator-address", "", "coordinator address")
+		amountStr := fund.String("amount", "", "amount to fund in wei")
+		subID := fund.String("sub-id", "", "sub-id")
+		helpers.ParseArgs(fund, os.Args[2:], "coordinator-address", "amount", "sub-id")
+		amount, s := big.NewInt(0).SetString(*amountStr, 10)
+		if !s {
+			panic(fmt.Sprintf("failed to parse top up amount '%s'", *amountStr))
+		}
+		coordinator, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(common.HexToAddress(*coordinatorAddress), e.Ec)
+		helpers.PanicErr(err)
+		e.Owner.Value = amount
+		tx, err := coordinator.FundSubscriptionWithEth(e.Owner, parseSubID(*subID))
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 	case "eoa-fund-sub":
 		fund := flag.NewFlagSet("eoa-fund-sub", flag.ExitOnError)
 		coordinatorAddress := fund.String("coordinator-address", "", "coordinator address")

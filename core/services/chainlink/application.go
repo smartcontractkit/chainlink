@@ -185,7 +185,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// we need to initialize in case we serve OCR2 LOOPs
 	loopRegistry := opts.LoopRegistry
 	if loopRegistry == nil {
-		loopRegistry = plugins.NewLoopRegistry(globalLogger.Named("LoopRegistry"))
+		loopRegistry = plugins.NewLoopRegistry(globalLogger)
 	}
 
 	// If the audit logger is enabled
