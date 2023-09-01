@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../../../interfaces/AggregatorValidatorInterface.sol";
 import "../../../interfaces/TypeAndVersionInterface.sol";
-import "../../../interfaces/AccessControllerInterface.sol";
+import "../../../shared/interfaces/AccessControllerInterface.sol";
 import "../../../interfaces/AggregatorV3Interface.sol";
 import "../../../shared/access/SimpleWriteAccessController.sol";
 
