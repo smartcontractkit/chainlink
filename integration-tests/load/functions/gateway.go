@@ -151,7 +151,7 @@ func ListS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) error {
 	if err != nil {
 		return err
 	}
-	log.Info().Interface("Request", msgdec).Msg("Sending RPC request")
+	log.Debug().Interface("Request", msgdec).Msg("Sending RPC request")
 	var result map[string]interface{}
 	resp, err := rc.R().
 		SetBody(rawMsg).
@@ -162,7 +162,7 @@ func ListS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) error {
 	if err := json.Unmarshal(resp.Body(), &result); err != nil {
 		return err
 	}
-	log.Info().Interface("Result", result).Msg("S4 secrets_list response result")
+	log.Debug().Interface("Result", result).Msg("S4 secrets_list response result")
 	if resp.StatusCode() != 200 {
 		return fmt.Errorf("status code was %d, expected 200", resp.StatusCode())
 	}

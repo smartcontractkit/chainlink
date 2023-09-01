@@ -18,12 +18,6 @@ import (
 	"time"
 )
 
-const (
-	SecretJSON           = "{\"ltsecret\": \"1\"}"
-	JSPayloadWithSecrets = "return Functions.encodeUint256(BigInt(secrets.ltsecret))"
-	DefaultJSPayload     = "const response = await Functions.makeHttpRequest({ url: 'http://dummyjson.com/products/1' }); return Functions.encodeUint256(response.data.id)"
-)
-
 type FunctionsTest struct {
 	LinkToken                 contracts.LinkToken
 	Coordinator               contracts.FunctionsCoordinator
@@ -111,22 +105,25 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, 
 	if err != nil {
 		return env, nil, errors.Wrap(err, "failed to unmarshal tdh2 public key")
 	}
-	secrets, err := EncryptS4Secrets(pKey, tdh2pk, donPubKey, "{\"ltsecret\": \"1\"}")
-	if err != nil {
-		return env, nil, errors.Wrap(err, "failed to generate tdh2 secrets")
-	}
-	if err := UploadS4Secrets(resty.New(), &S4SecretsCfg{
-		GatewayURL:            fmt.Sprintf("%s/user", cfg.Common.GatewayURL),
-		PrivateKey:            os.Getenv("MUMBAI_KEYS"),
-		MessageID:             strconv.Itoa(mrand.Intn(100000-1) + 1),
-		Method:                "secrets_set",
-		DonID:                 cfg.Common.DONID,
-		S4SetSlotID:           uint(mrand.Intn(5)),
-		S4SetVersion:          uint64(time.Now().UnixNano()),
-		S4SetExpirationPeriod: 60 * 60 * 1000,
-		S4SetPayload:          secrets,
-	}); err != nil {
-		return env, nil, errors.Wrap(err, "failed to upload secrets to S4")
+	var encryptedSecrets string
+	if cfg.Common.Secrets != "" {
+		encryptedSecrets, err = EncryptS4Secrets(pKey, tdh2pk, donPubKey, cfg.Common.Secrets)
+		if err != nil {
+			return env, nil, errors.Wrap(err, "failed to generate tdh2 secrets")
+		}
+		if err := UploadS4Secrets(resty.New(), &S4SecretsCfg{
+			GatewayURL:            fmt.Sprintf("%s/user", cfg.Common.GatewayURL),
+			PrivateKey:            cfg.MumbaiPrivateKey,
+			MessageID:             strconv.Itoa(mrand.Intn(100000-1) + 1),
+			Method:                "secrets_set",
+			DonID:                 cfg.Common.DONID,
+			S4SetSlotID:           uint(mrand.Intn(5)),
+			S4SetVersion:          uint64(time.Now().UnixNano()),
+			S4SetExpirationPeriod: 60 * 60 * 1000,
+			S4SetPayload:          encryptedSecrets,
+		}); err != nil {
+			return env, nil, errors.Wrap(err, "failed to upload secrets to S4")
+		}
 	}
 	return env, &FunctionsTest{
 		LinkToken:                 lt,
@@ -137,7 +134,7 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*test_env.CLClusterTestEnv, 
 		EthereumPublicKey:         pubKey,
 		ThresholdPublicKey:        tdh2pk,
 		ThresholdPublicKeyBytes:   tpk,
-		ThresholdEncryptedSecrets: secrets,
+		ThresholdEncryptedSecrets: encryptedSecrets,
 		DONPublicKey:              donPubKey,
 	}, nil
 }

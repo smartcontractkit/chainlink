@@ -1,12 +1,12 @@
 [Soak]
 rps = 1
+requests_per_call = 40
 duration = "10m"
 
-[Load]
-rps_from = 1
-rps_increase = 1
-rps_steps = 10
-duration = "3m"
+[Stress]
+rps = 1
+requests_per_call = 78
+duration = "10m"
 
 [GatewayListSoak]
 rps = 95
@@ -27,7 +27,9 @@ router_addr = "0x2673266D3Cd08b53494B5a92B66DEec7F1408E7A"
 # comment both client and sub to automatically create a new pair
 client_addr = "0x64a351fbAa61681A5a7e569Cc5A691150c4D73D2"
 subscription_id = 23
-# not used until we have full DON setup
-# node_funds = 10
 sub_funds = 10
-requests_per_call = 1
+
+functions_call_payload = "const response = await Functions.makeHttpRequest({ url: 'http://dummyjson.com/products/1' }); return Functions.encodeUint256(response.data.id)"
+#functions_call_payload = "return Functions.encodeUint256(BigInt(secrets.ltsecret))"
+# uncomment to upload new secrets to s4
+#secrets = "{\"ltsecret\": \"1\"}"
