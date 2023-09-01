@@ -38,10 +38,8 @@ var (
 
 type Node[
 	CHAIN_ID types.ID,
-	BLOCK_HASH types.Hashable,
-	HEAD types.Head[BLOCK_HASH],
-	SUB types.Subscription,
-	RPC_CLIENT nodetypes.NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	HEAD nodetypes.Head,
+	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
 ] interface {
 	// State returns NodeState
 	State() NodeState
@@ -59,10 +57,8 @@ type Node[
 
 type node[
 	CHAIN_ID types.ID,
-	BLOCK_HASH types.Hashable,
-	HEAD types.Head[BLOCK_HASH],
-	SUB types.Subscription,
-	RPC_CLIENT nodetypes.NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	HEAD nodetypes.Head,
+	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
 ] struct {
 	utils.StartStopOnce
 	lfcLog              logger.Logger
@@ -101,10 +97,8 @@ type node[
 
 func NewNode[
 	CHAIN_ID types.ID,
-	BLOCK_HASH types.Hashable,
-	HEAD types.Head[BLOCK_HASH],
-	SUB types.Subscription,
-	RPC_CLIENT nodetypes.NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	HEAD nodetypes.Head,
+	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
 ](
 	nodeCfg nodetypes.NodeConfig,
 	noNewHeadsThreshold time.Duration,
@@ -117,8 +111,8 @@ func NewNode[
 	nodeOrder int32,
 	rpcClient RPC_CLIENT,
 	chainFamily string,
-) Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
-	n := new(node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT])
+) Node[CHAIN_ID, HEAD, RPC_CLIENT] {
+	n := new(node[CHAIN_ID, HEAD, RPC_CLIENT])
 	n.name = name
 	n.id = id
 	n.chainID = chainID
@@ -144,7 +138,7 @@ func NewNode[
 	return n
 }
 
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) String() string {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) String() string {
 	s := fmt.Sprintf("(primary)%s:%s", n.name, n.ws.String())
 	if n.http != nil {
 		s = s + fmt.Sprintf(":%s", n.http.String())
@@ -152,15 +146,15 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) String() string {
 	return s
 }
 
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) ConfiguredChainID() (chainID CHAIN_ID) {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) ConfiguredChainID() (chainID CHAIN_ID) {
 	return n.chainID
 }
 
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Name() string {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) Name() string {
 	return n.name
 }
 
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) RPCClient() RPC_CLIENT {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) RPCClient() RPC_CLIENT {
 	return n.rpcClient
 }
 
@@ -168,7 +162,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) RPCClient() RPC_CLIE
 // Should only be called once in a node's lifecycle
 // Return value is necessary to conform to interface but this will never
 // actually return an error.
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Start(startCtx context.Context) error {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) Start(startCtx context.Context) error {
 	return n.StartOnce(n.name, func() error {
 		n.start(startCtx)
 		return nil
@@ -180,8 +174,8 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Start(startCtx conte
 // Not thread-safe.
 // Node lifecycle is synchronous: only one goroutine should be running at a
 // time.
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) start(startCtx context.Context) {
-	if n.state != NodeStateUndialed {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) start(startCtx context.Context) {
+	if n.state != nodeStateUndialed {
 		panic(fmt.Sprintf("cannot dial node with state %v", n.state))
 	}
 
@@ -190,7 +184,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) start(startCtx conte
 		n.declareUnreachable()
 		return
 	}
-	n.setState(NodeStateDialed)
+	n.setState(nodeStateDialed)
 
 	if err := n.verify(startCtx); errors.Is(err, errInvalidChainID) {
 		n.lfcLog.Errorw("Verify failed: Node has the wrong chain ID", "err", err)
@@ -208,7 +202,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) start(startCtx conte
 // verify checks that all connections to eth nodes match the given chain ID
 // Not thread-safe
 // Pure verify: does not mutate node "state" field.
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) verify(callerCtx context.Context) (err error) {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) verify(callerCtx context.Context) (err error) {
 	promPoolRPCNodeVerifies.WithLabelValues(n.chainFamily, n.chainID.String(), n.name).Inc()
 	promFailed := func() {
 		promPoolRPCNodeVerifiesFailed.WithLabelValues(n.chainFamily, n.chainID.String(), n.name).Inc()
@@ -216,7 +210,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) verify(callerCtx con
 
 	st := n.State()
 	switch st {
-	case NodeStateDialed, NodeStateOutOfSync, NodeStateInvalidChainID:
+	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID:
 	default:
 		panic(fmt.Sprintf("cannot verify node in state %v", st))
 	}
@@ -241,7 +235,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) verify(callerCtx con
 	return nil
 }
 
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Close() error {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) Close() error {
 	return n.StopOnce(n.name, func() error {
 		defer func() {
 			n.wg.Wait()
@@ -252,7 +246,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Close() error {
 		defer n.stateMu.Unlock()
 
 		n.cancelNodeCtx()
-		n.state = NodeStateClosed
+		n.state = nodeStateClosed
 		return nil
 	})
 }
@@ -260,14 +254,14 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Close() error {
 // disconnectAll disconnects all clients connected to the node
 // WARNING: NOT THREAD-SAFE
 // This must be called from within the n.stateMu lock
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) disconnectAll() {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) disconnectAll() {
 	n.rpcClient.DisconnectAll()
 }
 
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Order() int32 {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) Order() int32 {
 	return n.order
 }
 
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) ChainFamily() string {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) ChainFamily() string {
 	return n.chainFamily
 }

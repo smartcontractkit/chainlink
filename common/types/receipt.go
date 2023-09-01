@@ -2,7 +2,7 @@ package types
 
 import "math/big"
 
-type ChainReceipt[TX_HASH Hashable, BLOCK_HASH Hashable] interface {
+type Receipt[TX_HASH Hashable, BLOCK_HASH Hashable] interface {
 	GetStatus() uint64
 	GetTxHash() TX_HASH
 	GetBlockNumber() *big.Int

@@ -48,7 +48,7 @@ func zombieNodeCheckInterval(noNewHeadsThreshold time.Duration) time.Duration {
 	return utils.WithJitter(interval)
 }
 
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) setLatestReceived(blockNumber int64, totalDifficulty *utils.Big) {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) setLatestReceived(blockNumber int64, totalDifficulty *utils.Big) {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	n.stateLatestBlockNumber = blockNumber
@@ -67,15 +67,15 @@ const (
 
 // This handles node lifecycle for the ALIVE state
 // Should only be run ONCE per node, after a successful Dial
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) aliveLoop() {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) aliveLoop() {
 	defer n.wg.Done()
 
 	{
 		// sanity check
 		state := n.State()
 		switch state {
-		case NodeStateAlive:
-		case NodeStateClosed:
+		case nodeStateAlive:
+		case nodeStateClosed:
 			return
 		default:
 			panic(fmt.Sprintf("aliveLoop can only run for node in Alive state, got: %s", state))
@@ -215,7 +215,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) aliveLoop() {
 	}
 }
 
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) isOutOfSync(num int64, td *utils.Big) (outOfSync bool) {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) isOutOfSync(num int64, td *utils.Big) (outOfSync bool) {
 	outOfSync, _ = n.syncStatus(num, td)
 	return
 }
@@ -223,7 +223,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) isOutOfSync(num int6
 // syncStatus returns outOfSync true if num or td is more than SyncThresold behind the best node.
 // Always returns outOfSync false for SyncThreshold 0.
 // liveNodes is only included when outOfSync is true.
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes int) {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes int) {
 	if n.nLiveNodes == nil {
 		return // skip for tests
 	}
@@ -251,15 +251,15 @@ const (
 )
 
 // outOfSyncLoop takes an OutOfSync node and waits until isOutOfSync returns false to go back to live status
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) outOfSyncLoop(isOutOfSync func(num int64, td *utils.Big) bool) {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) outOfSyncLoop(isOutOfSync func(num int64, td *utils.Big) bool) {
 	defer n.wg.Done()
 
 	{
 		// sanity check
 		state := n.State()
 		switch state {
-		case NodeStateOutOfSync:
-		case NodeStateClosed:
+		case nodeStateOutOfSync:
+		case nodeStateClosed:
 			return
 		default:
 			panic(fmt.Sprintf("outOfSyncLoop can only run for node in OutOfSync state, got: %s", state))
@@ -330,15 +330,15 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) outOfSyncLoop(isOutO
 	}
 }
 
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) unreachableLoop() {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) unreachableLoop() {
 	defer n.wg.Done()
 
 	{
 		// sanity check
 		state := n.State()
 		switch state {
-		case NodeStateUnreachable:
-		case NodeStateClosed:
+		case nodeStateUnreachable:
+		case nodeStateClosed:
 			return
 		default:
 			panic(fmt.Sprintf("unreachableLoop can only run for node in Unreachable state, got: %s", state))
@@ -365,7 +365,7 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) unreachableLoop() {
 				continue
 			}
 
-			n.setState(NodeStateDialed)
+			n.setState(nodeStateDialed)
 
 			err = n.verify(n.nodeCtx)
 
@@ -386,15 +386,15 @@ func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) unreachableLoop() {
 	}
 }
 
-func (n *node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) invalidChainIDLoop() {
+func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) invalidChainIDLoop() {
 	defer n.wg.Done()
 
 	{
 		// sanity check
 		state := n.State()
 		switch state {
-		case NodeStateInvalidChainID:
-		case NodeStateClosed:
+		case nodeStateInvalidChainID:
+		case nodeStateClosed:
 			return
 		default:
 			panic(fmt.Sprintf("invalidChainIDLoop can only run for node in InvalidChainID state, got: %s", state))

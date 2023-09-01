@@ -6,20 +6,24 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type NodeClientAPI[
+type Head interface {
+	BlockNumber() int64
+	BlockDifficulty() *utils.Big
+}
+
+type NodeClient[
 	CHAIN_ID types.ID,
-	BLOCK_HASH types.Hashable,
-	HEAD types.Head[BLOCK_HASH],
-	SUB types.Subscription,
+	HEAD Head,
 ] interface {
 	Close()
 	ChainID(context.Context) (CHAIN_ID, error)
 	Dial(callerCtx context.Context) error
 	DialHTTP() error
 	DisconnectAll()
-	Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (SUB, error)
+	Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (types.Subscription, error)
 	ClientVersion(context.Context) (string, error)
 }
 
@@ -28,14 +32,6 @@ type NodeConfig interface {
 	PollInterval() time.Duration
 	SelectionMode() string
 	SyncThreshold() uint32
-}
-
-type SendOnlyClientAPI[
-	CHAIN_ID types.ID,
-] interface {
-	Close()
-	ChainID(context.Context) (CHAIN_ID, error)
-	DialHTTP() error
 }
 
 type NodeTier int

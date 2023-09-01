@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -20,9 +21,7 @@ import (
 type ChainClient struct {
 	multiNodeClient clienttypes.MultiNodeClient[
 		*big.Int,
-		common.Hash,
 		*evmtypes.Head,
-		ethereum.Subscription,
 		RPCClient,
 		*types.Transaction,
 	]
@@ -35,12 +34,12 @@ func (c *ChainClient) NewClient(
 	logger logger.Logger,
 	selectionMode string,
 	noNewHeadsThreshold time.Duration,
-	nodes []clienttypes.Node[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient],
+	nodes []clienttypes.Node[*big.Int, *evmtypes.Head, RPCClient],
 	sendonlys []clienttypes.SendOnlyNode[*big.Int, RPCClient],
 	chainID *big.Int,
 	chainType config.ChainType,
 ) *ChainClient {
-	multiNodeClient := clienttypes.NewMultiNodeClient[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient, *types.Transaction](
+	multiNodeClient := clienttypes.NewMultiNodeClient[*big.Int, *evmtypes.Head, RPCClient, *types.Transaction](
 		logger, selectionMode, noNewHeadsThreshold, nodes, sendonlys, chainID, "EVM",
 	)
 

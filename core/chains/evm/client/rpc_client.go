@@ -18,6 +18,7 @@ import (
 	"github.com/pkg/errors"
 
 	nodetypes "github.com/smartcontractkit/chainlink/v2/common/chains/client/types"
+	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -25,11 +26,9 @@ import (
 )
 
 type RPCClient interface {
-	nodetypes.NodeClientAPI[
+	nodetypes.NodeClient[
 		*big.Int,
-		common.Hash,
 		*evmtypes.Head,
-		ethereum.Subscription,
 	]
 	nodetypes.RPCClient[
 		*big.Int,
@@ -43,7 +42,6 @@ type RPCClient interface {
 		*evmtypes.Receipt,
 		*assets.Wei,
 		*evmtypes.Head,
-		ethereum.Subscription,
 	]
 }
 
@@ -300,7 +298,7 @@ func (r *rpcClient) BatchCallContext(ctx context.Context, b []interface{}) error
 	return err
 }
 
-func (r *rpcClient) Subscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (ethereum.Subscription, error) {
+func (r *rpcClient) Subscribe(ctx context.Context, channel chan<- *evmtypes.Head, args ...interface{}) (commontypes.Subscription, error) {
 	ctx, cancel, ws, _, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return nil, err

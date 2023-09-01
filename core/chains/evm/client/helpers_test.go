@@ -7,8 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
@@ -75,10 +73,10 @@ func NewChainClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNew
 	lggr := logger.TestLogger(t)
 	rpcClient := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, nodetypes.Primary)
 
-	n := clienttypes.NewNode[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient](
+	n := clienttypes.NewNode[*big.Int, *evmtypes.Head, RPCClient](
 		nodePoolCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpcClient, "EVM")
 	// n.(*node).setLatestReceived(0, utils.NewBigI(0))
-	primaries := []clienttypes.Node[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient]{n}
+	primaries := []clienttypes.Node[*big.Int, *evmtypes.Head, RPCClient]{n}
 
 	var sendonlys []clienttypes.SendOnlyNode[*big.Int, RPCClient]
 	for i, u := range sendonlyRPCURLs {
@@ -93,7 +91,7 @@ func NewChainClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNew
 	}
 
 	// pool := NewPool(lggr, nodePoolCfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, "")
-	multiNodeClient := clienttypes.NewMultiNodeClient[*big.Int, common.Hash, *evmtypes.Head, ethereum.Subscription, RPCClient, *types.Transaction](
+	multiNodeClient := clienttypes.NewMultiNodeClient[*big.Int, *evmtypes.Head, RPCClient, *types.Transaction](
 		lggr, nodePoolCfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, "EVM",
 	)
 	c := &ChainClient{

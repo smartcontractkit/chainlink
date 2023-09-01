@@ -6,16 +6,23 @@ import (
 	"net/url"
 	"sync"
 
-	nodetypes "github.com/smartcontractkit/chainlink/v2/common/chains/client/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+type SendOnlyClient[
+	CHAIN_ID types.ID,
+] interface {
+	Close()
+	ChainID(context.Context) (CHAIN_ID, error)
+	DialHTTP() error
+}
+
 // SendOnlyNode represents one node used as a sendonly
 type SendOnlyNode[
 	CHAIN_ID types.ID,
-	RPC_CLIENT nodetypes.SendOnlyClientAPI[CHAIN_ID],
+	RPC_CLIENT SendOnlyClient[CHAIN_ID],
 ] interface {
 	// Start may attempt to connect to the node, but should only return error for misconfiguration - never for temporary errors.
 	Start(context.Context) error
@@ -35,7 +42,7 @@ type SendOnlyNode[
 // It must use an http(s) url
 type sendOnlyNode[
 	CHAIN_ID types.ID,
-	RPC_CLIENT nodetypes.SendOnlyClientAPI[CHAIN_ID],
+	RPC_CLIENT SendOnlyClient[CHAIN_ID],
 ] struct {
 	utils.StartStopOnce
 
@@ -54,7 +61,7 @@ type sendOnlyNode[
 // NewSendOnlyNode returns a new sendonly node
 func NewSendOnlyNode[
 	CHAIN_ID types.ID,
-	RPC_CLIENT nodetypes.SendOnlyClientAPI[CHAIN_ID],
+	RPC_CLIENT SendOnlyClient[CHAIN_ID],
 ](
 	lggr logger.Logger,
 	httpuri url.URL,
@@ -84,7 +91,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) Start(ctx context.Context) error {
 // Start setups up and verifies the sendonly node
 // Should only be called once in a node's lifecycle
 func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) start(startCtx context.Context) {
-	if s.State() != NodeStateUndialed {
+	if s.State() != nodeStateUndialed {
 		panic(fmt.Sprintf("cannot dial node with state %v", s.state))
 	}
 
@@ -92,10 +99,10 @@ func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) start(startCtx context.Context) {
 	if err != nil {
 		promPoolRPCNodeTransitionsToUnusable.WithLabelValues(s.chainID.String(), s.name).Inc()
 		s.log.Errorw("Dial failed: SendOnly Node is unusable", "err", err)
-		s.setState(NodeStateUnusable)
+		s.setState(nodeStateUnusable)
 		return
 	}
-	s.setState(NodeStateDialed)
+	s.setState(nodeStateDialed)
 
 	if s.chainID.String() == "0" {
 		// Skip verification if chainID is zero
@@ -107,7 +114,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) start(startCtx context.Context) {
 			if err != nil {
 				promPoolRPCNodeTransitionsToUnreachable.WithLabelValues(s.chainID.String(), s.name).Inc()
 				s.log.Errorw(fmt.Sprintf("Verify failed: %v", err), "err", err)
-				s.setState(NodeStateUnreachable)
+				s.setState(nodeStateUnreachable)
 			} else {
 				promPoolRPCNodeTransitionsToInvalidChainID.WithLabelValues(s.chainID.String(), s.name).Inc()
 				s.log.Errorf(
@@ -116,7 +123,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) start(startCtx context.Context) {
 					s.chainID.String(),
 					s.name,
 				)
-				s.setState(NodeStateInvalidChainID)
+				s.setState(nodeStateInvalidChainID)
 			}
 			// Since it has failed, spin up the verifyLoop that will keep
 			// retrying until success
@@ -127,7 +134,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) start(startCtx context.Context) {
 	}
 
 	promPoolRPCNodeTransitionsToAlive.WithLabelValues(s.chainID.String(), s.name).Inc()
-	s.setState(NodeStateAlive)
+	s.setState(nodeStateAlive)
 	s.log.Infow("Sendonly RPC Node is online", "nodeState", s.state)
 }
 
@@ -135,7 +142,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) Close() error {
 	return s.StopOnce(s.name, func() error {
 		s.rpcClient.Close()
 		s.wg.Wait()
-		s.setState(NodeStateClosed)
+		s.setState(nodeStateClosed)
 		return nil
 	})
 }

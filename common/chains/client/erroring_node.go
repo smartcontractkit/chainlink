@@ -12,49 +12,47 @@ import (
 
 type erroringNode[
 	CHAIN_ID types.ID,
-	BLOCK_HASH types.Hashable,
-	HEAD types.Head[BLOCK_HASH],
-	SUB types.Subscription,
-	RPC_CLIENT nodetypes.NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	HEAD nodetypes.Head,
+	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
 ] struct {
 	errMsg string
 }
 
-func (e *erroringNode[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) ConfiguredChainID() (chainID CHAIN_ID) {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) ConfiguredChainID() (chainID CHAIN_ID) {
 	return chainID
 }
 
-func (e *erroringNode[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Start(ctx context.Context) error {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) Start(ctx context.Context) error {
 	return errors.New(e.errMsg)
 }
 
-func (e *erroringNode[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Close() error {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) Close() error {
 	return nil
 }
 
-func (e *erroringNode[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) String() string {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) String() string {
 	return "<erroring node>"
 }
 
-func (e *erroringNode[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) State() NodeState {
-	return NodeStateUnreachable
+func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) State() NodeState {
+	return nodeStateUnreachable
 }
 
-func (e *erroringNode[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) StateAndLatest() (NodeState, int64, *utils.Big) {
-	return NodeStateUnreachable, -1, nil
+func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) StateAndLatest() (NodeState, int64, *utils.Big) {
+	return nodeStateUnreachable, -1, nil
 }
 
-func (e *erroringNode[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Order() int32 {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) Order() int32 {
 	return 100
 }
 
-func (e *erroringNode[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Name() string {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) Name() string {
 	return ""
 }
-func (e *erroringNode[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) NodeStates() map[int32]string {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) NodeStates() map[int32]string {
 	return nil
 }
 
-func (e *erroringNode[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) RPCClient() (rpcClient RPC_CLIENT) {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) RPCClient() (rpcClient RPC_CLIENT) {
 	return rpcClient
 }

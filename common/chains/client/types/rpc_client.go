@@ -18,10 +18,9 @@ type RPCClient[
 	TX_HASH types.Hashable,
 	EVENT any,
 	EVENT_OPS any, // event filter query options
-	TX_RECEIPT types.ChainReceipt[TX_HASH, BLOCK_HASH],
+	TX_RECEIPT types.Receipt[TX_HASH, BLOCK_HASH],
 	FEE feetypes.Fee,
 	HEAD types.Head[BLOCK_HASH],
-	SUB types.Subscription,
 ] interface {
 	Accounts[ADDR, SEQ]
 	Transactions[ADDR, TX, TX_HASH, BLOCK_HASH, TX_RECEIPT, SEQ, FEE]
@@ -38,7 +37,7 @@ type RPCClient[
 	ChainID(ctx context.Context) (CHAIN_ID, error)
 	CodeAt(ctx context.Context, account ADDR, blockNumber *big.Int) ([]byte, error)
 
-	Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (SUB, error)
+	Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (types.Subscription, error)
 }
 
 type Accounts[ADDR types.Hashable, SEQ types.Sequence] interface {
@@ -55,7 +54,7 @@ type Transactions[
 	TX any,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	TX_RECEIPT types.ChainReceipt[TX_HASH, BLOCK_HASH],
+	TX_RECEIPT types.Receipt[TX_HASH, BLOCK_HASH],
 	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {

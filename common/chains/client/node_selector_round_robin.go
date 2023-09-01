@@ -9,31 +9,27 @@ import (
 
 type roundRobinSelector[
 	CHAIN_ID types.ID,
-	BLOCK_HASH types.Hashable,
-	HEAD types.Head[BLOCK_HASH],
-	SUB types.Subscription,
-	RPC_CLIENT nodetypes.NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
+	HEAD nodetypes.Head,
+	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
 ] struct {
-	nodes           []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
+	nodes           []Node[CHAIN_ID, HEAD, RPC_CLIENT]
 	roundRobinCount atomic.Uint32
 }
 
 func NewRoundRobinSelector[
 	CHAIN_ID types.ID,
-	BLOCK_HASH types.Hashable,
-	HEAD types.Head[BLOCK_HASH],
-	SUB types.Subscription,
-	RPC_CLIENT nodetypes.NodeClientAPI[CHAIN_ID, BLOCK_HASH, HEAD, SUB],
-](nodes []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) NodeSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
-	return &roundRobinSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]{
+	HEAD nodetypes.Head,
+	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
+](nodes []Node[CHAIN_ID, HEAD, RPC_CLIENT]) NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT] {
+	return &roundRobinSelector[CHAIN_ID, HEAD, RPC_CLIENT]{
 		nodes: nodes,
 	}
 }
 
-func (s *roundRobinSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Select() Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT] {
-	var liveNodes []Node[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]
+func (s *roundRobinSelector[CHAIN_ID, HEAD, RPC_CLIENT]) Select() Node[CHAIN_ID, HEAD, RPC_CLIENT] {
+	var liveNodes []Node[CHAIN_ID, HEAD, RPC_CLIENT]
 	for _, n := range s.nodes {
-		if n.State() == NodeStateAlive {
+		if n.State() == nodeStateAlive {
 			liveNodes = append(liveNodes, n)
 		}
 	}
@@ -50,6 +46,6 @@ func (s *roundRobinSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Select
 	return liveNodes[idx]
 }
 
-func (s *roundRobinSelector[CHAIN_ID, BLOCK_HASH, HEAD, SUB, RPC_CLIENT]) Name() string {
+func (s *roundRobinSelector[CHAIN_ID, HEAD, RPC_CLIENT]) Name() string {
 	return NodeSelectionMode_RoundRobin
 }
