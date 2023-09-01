@@ -25,6 +25,7 @@ mkShell {
     go-mockery
 
     # tooling
+    
     gotools
     gopls
     delve
