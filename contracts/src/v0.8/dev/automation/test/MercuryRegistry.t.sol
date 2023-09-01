@@ -9,7 +9,7 @@ import "../2_1/interfaces/StreamsLookupCompatibleInterface.sol";
 // so test changes in this file need to be accompanied by updating `BLOCK_NUMBER`
 // to a reasonably recent block number on Arbitrum Goerli.
 contract MercuryRegistryTest is Test {
-  uint256 internal constant BLOCK_NUMBER = 38167413;
+  uint256 internal constant BLOCK_NUMBER = 38176211;
   address internal constant OWNER = 0x00007e64E1fB0C487F25dd6D3601ff6aF8d32e4e;
   address internal constant VERIFIER = 0x60448B880c9f3B501af3f343DA9284148BD7D77C;
   int192 internal constant DEVIATION_THRESHOLD = 10_000; // 1%
@@ -109,7 +109,7 @@ contract MercuryRegistryTest is Test {
     values[0] = s_august22BTCUSDMercuryReport;
 
     // Pass the obtained mercury report into checkCallback, to assert that an update is warranted.
-    (bool shouldPerformUpkeep, bytes memory performData) = s_testRegistry.checkCallback(values, bytes("LOOKUP_DATA"));
+    (bool shouldPerformUpkeep, bytes memory performData) = s_testRegistry.checkCallback(values, bytes(""));
     assertEq(shouldPerformUpkeep, true);
 
     // Perform upkeep to update on-chain state.
@@ -143,7 +143,7 @@ contract MercuryRegistryTest is Test {
     values[1] = s_august23ETHUSDMercuryReport;
 
     // Pass the obtained mercury report into checkCallback, to assert that an update is warranted.
-    (shouldPerformUpkeep, performData) = s_testRegistry.checkCallback(values, bytes("LOOKUP_DATA"));
+    (shouldPerformUpkeep, performData) = s_testRegistry.checkCallback(values, bytes(""));
     assertEq(shouldPerformUpkeep, true);
 
     // Perform upkeep to update on-chain state.
@@ -175,7 +175,7 @@ contract MercuryRegistryTest is Test {
     values[0] = s_august23BTCUSDMercuryReport_2;
 
     // Pass the obtained mercury report into checkCallback, to assert that an update is not warranted.
-    (shouldPerformUpkeep, performData) = s_testRegistry.checkCallback(values, bytes("LOOKUP_DATA"));
+    (shouldPerformUpkeep, performData) = s_testRegistry.checkCallback(values, bytes(""));
     assertEq(shouldPerformUpkeep, false);
 
     // Ensure stale reports cannot be included.
@@ -231,7 +231,7 @@ contract MercuryRegistryTest is Test {
     values[0] = s_august22BTCUSDMercuryReport;
 
     // Pass the obtained mercury report into checkCallback, to assert that an update is warranted.
-    (bool shouldPerformUpkeep, bytes memory performData) = batchedRegistry.checkCallback(values, bytes("LOOKUP_DATA"));
+    (bool shouldPerformUpkeep, bytes memory performData) = batchedRegistry.checkCallback(values, bytes(""));
     assertEq(shouldPerformUpkeep, true);
 
     // Perform upkeep to update on-chain state.
@@ -261,7 +261,7 @@ contract MercuryRegistryTest is Test {
     values[1] = s_august23ETHUSDMercuryReport;
 
     // Pass the obtained mercury report into checkCallback, to assert that an update is warranted.
-    (shouldPerformUpkeep, performData) = batchedRegistry.checkCallback(values, bytes("LOOKUP_DATA"));
+    (shouldPerformUpkeep, performData) = batchedRegistry.checkCallback(values, bytes(""));
     assertEq(shouldPerformUpkeep, true);
 
     // Perform upkeep to update on-chain state, but with not enough gas to update both feeds.
@@ -304,7 +304,7 @@ contract MercuryRegistryTest is Test {
     values[0] = s_august23BTCUSDMercuryReport_2;
 
     // Pass the obtained mercury report into checkCallback, to assert that an update is not warranted.
-    (shouldPerformUpkeep, performData) = batchedRegistry.checkCallback(values, bytes("LOOKUP_DATA"));
+    (shouldPerformUpkeep, performData) = batchedRegistry.checkCallback(values, bytes(""));
     assertEq(shouldPerformUpkeep, false);
   }
 }
