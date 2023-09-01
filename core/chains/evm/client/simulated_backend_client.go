@@ -78,15 +78,25 @@ func (c *SimulatedBackendClient) checkEthCallArgs(
 			"must be the string \"latest\", or a *big.Int, got %#+v", args[1])
 	}
 
+	toAddr, err := interfaceToAddress(callArgs["to"])
+	if err != nil {
+		return nil, nil, err
+	}
+
 	// to and from need to map to a common.Address but could come in as a string
 	ca := CallArgs{
-		To:   interfaceToAddress(callArgs["to"]),
+		To:   toAddr,
 		Data: callArgs["data"].(hexutil.Bytes),
 	}
 
 	// from is optional in the standard client; default to 0x when missing
 	if value, ok := callArgs["from"]; ok {
-		ca.From = interfaceToAddress(value)
+		addr, err := interfaceToAddress(value)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		ca.From = addr
 	} else {
 		ca.From = common.HexToAddress("0x")
 	}
@@ -94,21 +104,27 @@ func (c *SimulatedBackendClient) checkEthCallArgs(
 	return &ca, blockNumber, nil
 }
 
-func interfaceToAddress(value interface{}) common.Address {
+func interfaceToAddress(value interface{}) (common.Address, error) {
 	switch v := value.(type) {
 	case common.Address:
 		return v
 	case string:
-		return common.HexToAddress(v)
+		return common.HexToAddress(v), nil
 	case *big.Int:
-		return common.BigToAddress(v)
+		return common.BigToAddress(v), nil
 	default:
-		panic("unrecognized value type for converting value to common.Address; try string, *big.Int, or common.Address")
+		return common.HexToAddress("0x"), fmt.Errorf("unrecognized value type for converting value to common.Address; try string, *big.Int, or common.Address")
 	}
 }
 
 // CallContext mocks the ethereum client RPC calls used by chainlink, copying the
 // return value into result.
+// The simulated backend cannot access old blocks and will return an error if
+// anything other than `latest`, `nil`, or the latest block are passed to
+// `CallContract`.
+// The simulated client avoids the old block error from the simulated backend by
+// passing `nil` to `CallContract` when calling `CallContext` or `BatchCallContext`
+// and will not return an error when an old block is used.
 func (c *SimulatedBackendClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
 	switch method {
 	case "eth_call":
@@ -496,6 +512,12 @@ func (c *SimulatedBackendClient) SuggestGasPrice(ctx context.Context) (*big.Int,
 }
 
 // BatchCallContext makes a batch rpc call.
+// The simulated backend cannot access old blocks and will return an error if
+// anything other than `latest`, `nil`, or the latest block are passed to
+// `CallContract`.
+// The simulated client avoids the old block error from the simulated backend by
+// passing `nil` to `CallContract` when calling `CallContext` or `BatchCallContext`
+// and will not return an error when an old block is used.
 func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.BatchElem) error {
 	select {
 	case <-ctx.Done():
