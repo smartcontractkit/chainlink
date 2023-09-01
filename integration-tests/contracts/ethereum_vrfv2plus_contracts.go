@@ -135,6 +135,30 @@ func (v *EthereumVRFCoordinatorV2Plus) CreateSubscription() error {
 	return v.client.ProcessTransaction(tx)
 }
 
+func (v *EthereumVRFCoordinatorV2Plus) Migrate(subId *big.Int, coordinatorAddress string) error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.coordinator.Migrate(opts, subId, common.HexToAddress(coordinatorAddress))
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVRFCoordinatorV2Plus) RegisterMigratableCoordinator(migratableCoordinatorAddress string) error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.coordinator.RegisterMigratableCoordinator(opts, common.HexToAddress(migratableCoordinatorAddress))
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
 func (v *EthereumVRFCoordinatorV2Plus) AddConsumer(subId *big.Int, consumerAddress string) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {

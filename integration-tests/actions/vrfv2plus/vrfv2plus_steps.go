@@ -53,9 +53,17 @@ func DeployVRFV2PlusContracts(
 	if err != nil {
 		return nil, errors.Wrap(err, ErrDeployBlockHashStore)
 	}
+	err = chainClient.WaitForEvents()
+	if err != nil {
+		return nil, errors.Wrap(err, ErrWaitTXsComplete)
+	}
 	coordinator, err := contractDeployer.DeployVRFCoordinatorV2Plus(bhs.Address())
 	if err != nil {
 		return nil, errors.Wrap(err, ErrDeployCoordinator)
+	}
+	err = chainClient.WaitForEvents()
+	if err != nil {
+		return nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
 	loadTestConsumer, err := contractDeployer.DeployVRFv2PlusLoadTestConsumer(coordinator.Address())
 	if err != nil {
@@ -161,16 +169,16 @@ func SetupVRFV2PlusEnvironment(
 	env *test_env.CLClusterTestEnv,
 	linkAddress contracts.LinkToken,
 	mockETHLinkFeedAddress contracts.MockETHLINKFeed,
-) (*test_env.CLClusterTestEnv, *VRFV2PlusContracts, *big.Int, *VRFV2PlusJobInfo, error) {
+) (*VRFV2PlusContracts, *big.Int, *VRFV2PlusJobInfo, error) {
 
 	vrfv2PlusContracts, err := DeployVRFV2PlusContracts(env.ContractDeployer, env.EVMClient)
 	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrDeployVRFV2PlusContracts)
+		return nil, nil, nil, errors.Wrap(err, ErrDeployVRFV2PlusContracts)
 	}
 
 	err = env.EVMClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+		return nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
 
 	err = vrfv2PlusContracts.Coordinator.SetConfig(
@@ -182,59 +190,59 @@ func SetupVRFV2PlusEnvironment(
 		vrfv2plus_constants.VRFCoordinatorV2PlusFeeConfig,
 	)
 	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrSetVRFCoordinatorConfig)
+		return nil, nil, nil, errors.Wrap(err, ErrSetVRFCoordinatorConfig)
 	}
 	err = env.EVMClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+		return nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
 
 	err = vrfv2PlusContracts.Coordinator.CreateSubscription()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrCreateVRFSubscription)
+		return nil, nil, nil, errors.Wrap(err, ErrCreateVRFSubscription)
 	}
 	err = env.EVMClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+		return nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
 
 	subID, err := vrfv2PlusContracts.Coordinator.FindSubscriptionID()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrFindSubID)
+		return nil, nil, nil, errors.Wrap(err, ErrFindSubID)
 	}
 
 	err = vrfv2PlusContracts.Coordinator.AddConsumer(subID, vrfv2PlusContracts.LoadTestConsumer.Address())
 	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrAddConsumerToSub)
+		return nil, nil, nil, errors.Wrap(err, ErrAddConsumerToSub)
 	}
 
 	//Native Billing
 	err = vrfv2PlusContracts.Coordinator.FundSubscriptionWithEth(subID, big.NewInt(0).Mul(vrfv2plus_constants.VRFSubscriptionFundingAmountNativeToken, big.NewInt(1e18)))
 	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrFundSubWithNativeToken)
+		return nil, nil, nil, errors.Wrap(err, ErrFundSubWithNativeToken)
 	}
 
 	//Link Billing
 	err = vrfv2PlusContracts.Coordinator.SetLINKAndLINKETHFeed(linkAddress.Address(), mockETHLinkFeedAddress.Address())
 	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrSetLinkETHLinkFeed)
+		return nil, nil, nil, errors.Wrap(err, ErrSetLinkETHLinkFeed)
 	}
 	err = env.EVMClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+		return nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
 	err = FundVRFCoordinatorV2PlusSubscription(linkAddress, vrfv2PlusContracts.Coordinator, env.EVMClient, subID, vrfv2plus_constants.VRFSubscriptionFundingAmountLink)
 	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrFundSubWithLinkToken)
+		return nil, nil, nil, errors.Wrap(err, ErrFundSubWithLinkToken)
 	}
 	err = env.EVMClient.WaitForEvents()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+		return nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
 
 	vrfV2PlusJobs, err := CreateVRFV2PlusJobs(env.GetAPIs(), vrfv2PlusContracts.Coordinator, env.EVMClient, vrfv2plus_constants.MinimumConfirmations)
 	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrCreateVRFV2PlusJobs)
+		return nil, nil, nil, errors.Wrap(err, ErrCreateVRFV2PlusJobs)
 	}
 
 	// this part is here because VRFv2 can work with only a specific key
@@ -242,14 +250,14 @@ func SetupVRFV2PlusEnvironment(
 	//	Key = '...'
 	addr, err := env.CLNodes[0].API.PrimaryEthAddress()
 	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrGetPrimaryKey)
+		return nil, nil, nil, errors.Wrap(err, ErrGetPrimaryKey)
 	}
 	nodeConfig := node.NewConfig(env.CLNodes[0].NodeConfig,
 		node.WithVRFv2EVMEstimator(addr),
 	)
 	err = env.CLNodes[0].Restart(nodeConfig)
 	if err != nil {
-		return nil, nil, nil, nil, errors.Wrap(err, ErrRestartCLNode)
+		return nil, nil, nil, errors.Wrap(err, ErrRestartCLNode)
 	}
-	return env, vrfv2PlusContracts, subID, vrfV2PlusJobs[0], nil
+	return vrfv2PlusContracts, subID, vrfV2PlusJobs[0], nil
 }

@@ -71,6 +71,8 @@ type VRFCoordinatorV2Plus interface {
 	) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
 	CreateSubscription() error
+	Migrate(subId *big.Int, coordinatorAddress string) error
+	RegisterMigratableCoordinator(migratableCoordinatorAddress string) error
 	AddConsumer(subId *big.Int, consumerAddress string) error
 	FundSubscriptionWithEth(subId *big.Int, nativeTokenAmount *big.Int) error
 	Address() string

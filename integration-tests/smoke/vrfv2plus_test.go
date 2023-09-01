@@ -34,7 +34,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 	linkAddress, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	env, vrfv2PlusContracts, subID, job, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress)
+	vrfv2PlusContracts, subID, job, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress)
 	require.NoError(t, err, "error setting up VRF v2 Plus env")
 
 	subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
@@ -147,5 +147,84 @@ func TestVRFv2PlusBilling(t *testing.T) {
 			require.Equal(t, w.Cmp(big.NewInt(0)), 1, "Expected the VRF job give an answer bigger than 0")
 		}
 	})
+
+}
+
+func TestVRFv2PlusMigration(t *testing.T) {
+	t.Parallel()
+	//l := utils.GetTestLogger(t)
+
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithGeth().
+		WithCLNodes(1).
+		WithFunding(vrfv2plus_constants.ChainlinkNodeFundingAmountEth).
+		Build()
+
+	require.NoError(t, err, "error creating test env")
+
+	env.ParallelTransactions(true)
+
+	mockETHLinkFeedAddress, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, vrfv2plus_constants.LinkEthFeedResponse)
+	require.NoError(t, err, "error deploying mock ETH/LINK feed")
+
+	linkAddress, err := actions.DeployLINKToken(env.ContractDeployer)
+	require.NoError(t, err, "error deploying LINK contract")
+
+	//todo - add more consumers to the sub with diff eth and link balances
+	oldVRFV2PlusContracts, subID, oldJob, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress)
+	require.NoError(t, err, "error setting up VRF v2 Plus env")
+
+	newCoordinator, err := env.ContractDeployer.DeployVRFCoordinatorV2Plus(oldVRFV2PlusContracts.BHS.Address())
+	require.NoError(t, err, vrfv2plus.ErrDeployCoordinator)
+
+	err = env.EVMClient.WaitForEvents()
+	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
+
+	//todo - create just one job
+	newVRFV2PlusJobs, err := vrfv2plus.CreateVRFV2PlusJobs(env.GetAPIs(), newCoordinator, env.EVMClient, vrfv2plus_constants.MinimumConfirmations)
+	require.NoError(t, err, vrfv2plus.ErrCreateVRFV2PlusJobs)
+
+	// test and assert
+	err = oldVRFV2PlusContracts.LoadTestConsumer.RequestRandomness(
+		oldJob.KeyHash,
+		subID,
+		vrfv2plus_constants.MinimumConfirmations,
+		vrfv2plus_constants.CallbackGasLimit,
+		true,
+		vrfv2plus_constants.NumberOfWords,
+		vrfv2plus_constants.RandomnessRequestCountPerRequest,
+	)
+	require.NoError(t, err, "error requesting randomness")
+
+	_, err = oldVRFV2PlusContracts.Coordinator.WaitForRandomWordsFulfilledEvent([]*big.Int{subID}, nil, time.Minute*2)
+	require.NoError(t, err, "error waiting for RandomWordsFulfilled event")
+
+	err = oldVRFV2PlusContracts.Coordinator.RegisterMigratableCoordinator(newCoordinator.Address())
+
+	err = env.EVMClient.WaitForEvents()
+	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
+
+	err = oldVRFV2PlusContracts.Coordinator.Migrate(subID, newCoordinator.Address())
+	require.NoError(t, err, "error migrating sub id ", subID.String(), " from ", oldVRFV2PlusContracts.Coordinator.Address(), " to new Coordinator address ", newCoordinator.Address())
+
+	err = env.EVMClient.WaitForEvents()
+	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
+
+	// test and assert
+	err = oldVRFV2PlusContracts.LoadTestConsumer.RequestRandomness(
+		newVRFV2PlusJobs[0].KeyHash,
+		subID,
+		vrfv2plus_constants.MinimumConfirmations,
+		vrfv2plus_constants.CallbackGasLimit,
+		true,
+		vrfv2plus_constants.NumberOfWords,
+		vrfv2plus_constants.RandomnessRequestCountPerRequest,
+	)
+	require.NoError(t, err, "error requesting randomness")
+
+	_, err = newCoordinator.WaitForRandomWordsFulfilledEvent([]*big.Int{subID}, nil, time.Minute*2)
+	require.NoError(t, err, "error waiting for RandomWordsFulfilled event")
+
+	//todo - check consumers, eth and link balances
 
 }
