@@ -8,21 +8,17 @@ rps_increase = 1
 rps_steps = 10
 duration = "3m"
 
-[SoakVolume]
-products = 5
-pace = "1s"
-duration = "3m"
+[GatewayListSoak]
+rps = 95
+duration = "10m"
 
-[LoadVolume]
-products_from = 1
-products_increase = 1
-products_steps = 10
-pace = "1s"
-
-duration = "3m"
+[GatewaySetSoak]
+rps = 95
+duration = "10m"
 
 [Common]
 # Polygon Mumbai only for now
+receiver = "0x3098B6665589959711A48a6bAe5B7F2908f6a3bE"
 don_id = "fun-staging-mumbai-1"
 gateway_url = "https://gateway-staging1.main.stage.cldev.sh"
 link_token_addr = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"

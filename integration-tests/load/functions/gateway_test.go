@@ -1,6 +1,7 @@
 package loadfunctions
 
 import (
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -18,13 +19,16 @@ func TestGatewayLoad(t *testing.T) {
 		"commit": "gateway_healthcheck",
 	}
 
-	gatewayGunConfig := &wasp.Config{
-		T:        t,
+	secretsListCfg := &wasp.Config{
 		LoadType: wasp.RPS,
-		GenName:  "gun",
+		GenName:  functions.MethodSecretsList,
+		Schedule: wasp.Plain(
+			cfg.GatewayListSoak.RPS,
+			cfg.GatewayListSoak.Duration.Duration(),
+		),
 		Gun: NewGatewaySecretsSetGun(
 			cfg,
-			"secrets_set",
+			functions.MethodSecretsList,
 			ft.EthereumPrivateKey,
 			ft.ThresholdPublicKey,
 			ft.DONPublicKey,
@@ -33,27 +37,37 @@ func TestGatewayLoad(t *testing.T) {
 		LokiConfig: wasp.NewEnvLokiConfig(),
 	}
 
-	t.Run("gateway secrets set soak test", func(t *testing.T) {
-		gatewayGunConfig.Schedule = wasp.Plain(
-			cfg.Soak.RPS,
-			cfg.Soak.Duration.Duration(),
-		)
+	secretsSetCfg := &wasp.Config{
+		LoadType: wasp.RPS,
+		GenName:  functions.MethodSecretsSet,
+		Schedule: wasp.Plain(
+			cfg.GatewaySetSoak.RPS,
+			cfg.GatewaySetSoak.Duration.Duration(),
+		),
+		Gun: NewGatewaySecretsSetGun(
+			cfg,
+			functions.MethodSecretsSet,
+			ft.EthereumPrivateKey,
+			ft.ThresholdPublicKey,
+			ft.DONPublicKey,
+		),
+		Labels:     labels,
+		LokiConfig: wasp.NewEnvLokiConfig(),
+	}
+
+	t.Run("gateway secrets list soak test", func(t *testing.T) {
+		secretsListCfg.T = t
 		_, err := wasp.NewProfile().
-			Add(wasp.NewGenerator(gatewayGunConfig)).
+			Add(wasp.NewGenerator(secretsListCfg)).
 			Run(true)
 		require.NoError(t, err)
 	})
 
-	//t.Run("functions load test", func(t *testing.T) {
-	//	singleFeedConfig.Schedule = wasp.Steps(
-	//		cfg.Load.RPSFrom,
-	//		cfg.Load.RPSIncrease,
-	//		cfg.Load.RPSSteps,
-	//		cfg.Load.Duration.Duration(),
-	//	)
-	//	_, err = wasp.NewProfile().
-	//		Add(wasp.NewGenerator(singleFeedConfig)).
-	//		Run(true)
-	//	require.NoError(t, err)
-	//})
+	t.Run("gateway secrets set soak test", func(t *testing.T) {
+		secretsListCfg.T = t
+		_, err := wasp.NewProfile().
+			Add(wasp.NewGenerator(secretsSetCfg)).
+			Run(true)
+		require.NoError(t, err)
+	})
 }

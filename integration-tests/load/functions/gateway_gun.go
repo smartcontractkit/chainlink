@@ -42,7 +42,7 @@ func callSetSecrets(m *GatewaySecretsSetGun) *wasp.CallResult {
 	version := uint64(time.Now().UnixNano())
 	expiration := int64(60 * 60 * 1000)
 	secret := fmt.Sprintf("{\"ltsecret\": \"%s\"}", randNum)
-	log.Info().
+	log.Debug().
 		Uint("SlotID", randSlot).
 		Str("MessageID", randNum).
 		Uint64("Version", version).
@@ -81,9 +81,10 @@ func callSecretsList(m *GatewaySecretsSetGun) *wasp.CallResult {
 	expiration := int64(60 * 60 * 1000)
 	if err := ListS4Secrets(m.Resty, &S4SecretsCfg{
 		GatewayURL:            fmt.Sprintf("%s/user", m.Cfg.Common.GatewayURL),
+		RecieverAddr:          m.Cfg.Common.Receiver,
 		PrivateKey:            os.Getenv("MUMBAI_KEYS"),
 		MessageID:             randNum,
-		Method:                "secrets_set",
+		Method:                m.Method,
 		DonID:                 m.Cfg.Common.DONID,
 		S4SetSlotID:           randSlot,
 		S4SetVersion:          version,
@@ -97,7 +98,6 @@ func callSecretsList(m *GatewaySecretsSetGun) *wasp.CallResult {
 // Call implements example gun call, assertions on response bodies should be done here
 func (m *GatewaySecretsSetGun) Call(_ *wasp.Generator) *wasp.CallResult {
 	var res *wasp.CallResult
-	log.Warn().Str("Method", m.Method).Send()
 	switch m.Method {
 	case "secrets_set":
 		res = callSetSecrets(m)

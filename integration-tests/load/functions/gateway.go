@@ -103,7 +103,7 @@ func UploadS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) error {
 	}
 	var result *RPCResponse
 	resp, err := rc.R().
-		SetBody(bytes.NewBuffer(rawMsg)).
+		SetBody(rawMsg).
 		Post(s4Cfg.GatewayURL)
 	if err != nil {
 		return err
@@ -114,7 +114,7 @@ func UploadS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) error {
 	if err := json.Unmarshal(resp.Body(), &result); err != nil {
 		return err
 	}
-	log.Info().Interface("Result", result).Msg("S4 secrets_set response result")
+	log.Debug().Interface("Result", result).Msg("S4 secrets_set response result")
 	for _, nodeResponse := range result.Result.Body.Payload.NodeResponses {
 		if !nodeResponse.Body.Payload.Success {
 			return fmt.Errorf("node response was not succesful")
@@ -132,8 +132,9 @@ func ListS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) error {
 	msg := &api.Message{
 		Body: api.MessageBody{
 			MessageId: s4Cfg.MessageID,
-			Method:    "secrets_list",
+			Method:    s4Cfg.Method,
 			DonId:     s4Cfg.DonID,
+			Receiver:  s4Cfg.RecieverAddr,
 		},
 	}
 
@@ -146,9 +147,14 @@ func ListS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) error {
 	if err != nil {
 		return err
 	}
+	msgdec, err := codec.DecodeRequest(rawMsg)
+	if err != nil {
+		return err
+	}
+	log.Info().Interface("Request", msgdec).Msg("Sending RPC request")
 	var result map[string]interface{}
 	resp, err := rc.R().
-		SetBody(bytes.NewBuffer(rawMsg)).
+		SetBody(rawMsg).
 		Post(s4Cfg.GatewayURL)
 	if err != nil {
 		return err

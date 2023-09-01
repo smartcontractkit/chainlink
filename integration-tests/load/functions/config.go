@@ -17,11 +17,11 @@ const (
 )
 
 type PerformanceConfig struct {
-	Soak       *Soak       `toml:"Soak"`
-	Load       *Load       `toml:"Load"`
-	SoakVolume *SoakVolume `toml:"SoakVolume"`
-	LoadVolume *LoadVolume `toml:"LoadVolume"`
-	Common     *Common     `toml:"Common"`
+	Soak            *Soak            `toml:"Soak"`
+	Load            *Load            `toml:"Load"`
+	GatewayListSoak *GatewayListSoak `toml:"GatewayListSoak"`
+	GatewaySetSoak  *GatewaySetSoak  `toml:"GatewaySetSoak"`
+	Common          *Common          `toml:"Common"`
 }
 
 type Common struct {
@@ -34,6 +34,7 @@ type Common struct {
 	DONID           string `toml:"don_id"`
 	GatewayURL      string `toml:"gateway_url"`
 	RequestsPerCall uint32 `toml:"requests_per_call"`
+	Receiver        string `toml:"receiver"`
 }
 
 type Funding struct {
@@ -46,12 +47,6 @@ type Soak struct {
 	Duration *models.Duration `toml:"duration"`
 }
 
-type SoakVolume struct {
-	Products int64            `toml:"products"`
-	Pace     *models.Duration `toml:"pace"`
-	Duration *models.Duration `toml:"duration"`
-}
-
 type Load struct {
 	RPSFrom     int64            `toml:"rps_from"`
 	RPSIncrease int64            `toml:"rps_increase"`
@@ -59,12 +54,14 @@ type Load struct {
 	Duration    *models.Duration `toml:"duration"`
 }
 
-type LoadVolume struct {
-	ProductsFrom     int64            `toml:"products_from"`
-	ProductsIncrease int64            `toml:"products_increase"`
-	ProductsSteps    int              `toml:"products_steps"`
-	Pace             *models.Duration `toml:"pace"`
-	Duration         *models.Duration `toml:"duration"`
+type GatewayListSoak struct {
+	RPS      int64            `toml:"rps"`
+	Duration *models.Duration `toml:"duration"`
+}
+
+type GatewaySetSoak struct {
+	RPS      int64            `toml:"rps"`
+	Duration *models.Duration `toml:"duration"`
 }
 
 func ReadConfig() (*PerformanceConfig, error) {
