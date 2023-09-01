@@ -57,6 +57,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		subBalanceBeforeRequest := subscription.Balance
 
 		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(job.Job.Data.ID)
+		require.NoError(t, err, "error reading job runs")
 
 		// test and assert
 		err = vrfv2PlusContracts.LoadTestConsumer.RequestRandomness(
