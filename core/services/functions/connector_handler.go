@@ -45,7 +45,7 @@ func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKe
 		storage:     storage,
 		allowlist:   allowlist,
 		rateLimiter: rateLimiter,
-		lggr:        lggr.Named("functionsConnectorHandler"),
+		lggr:        lggr.Named("FunctionsConnectorHandler"),
 	}, nil
 }
 

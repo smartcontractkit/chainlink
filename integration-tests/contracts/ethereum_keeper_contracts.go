@@ -68,6 +68,7 @@ type KeeperRegistry interface {
 	CancelUpkeep(id *big.Int) error
 	SetUpkeepGasLimit(id *big.Int, gas uint32) error
 	ParseUpkeepPerformedLog(log *types.Log) (*UpkeepPerformedLog, error)
+	ParseStaleUpkeepReportLog(log *types.Log) (*StaleUpkeepReportLog, error)
 	ParseUpkeepIdFromRegisteredLog(log *types.Log) (*big.Int, error)
 	Pause() error
 	Migrate(upkeepIDs []*big.Int, destinationAddress common.Address) error
@@ -128,6 +129,10 @@ type UpkeepPerformedLog struct {
 	Id      *big.Int
 	Success bool
 	From    common.Address
+}
+
+type StaleUpkeepReportLog struct {
+	Id *big.Int
 }
 
 // KeeperRegistryOpts opts to deploy keeper registry version
@@ -1023,6 +1028,40 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			Success: parsedLog.Success,
 			From:    utils.ZeroAddress,
 		}, nil
+	case ethereum.RegistryVersion_2_1:
+		parsedLog, err := v.registry2_1.ParseUpkeepPerformed(*log)
+		if err != nil {
+			return nil, err
+		}
+		return &UpkeepPerformedLog{
+			Id:      parsedLog.Id,
+			Success: parsedLog.Success,
+			From:    utils.ZeroAddress,
+		}, nil
+	}
+	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
+}
+
+// ParseStaleUpkeepReportLog Parses Stale upkeep report log
+func (v *EthereumKeeperRegistry) ParseStaleUpkeepReportLog(log *types.Log) (*StaleUpkeepReportLog, error) {
+	switch v.version {
+	case ethereum.RegistryVersion_2_0:
+		parsedLog, err := v.registry2_0.ParseStaleUpkeepReport(*log)
+		if err != nil {
+			return nil, err
+		}
+		return &StaleUpkeepReportLog{
+			Id: parsedLog.Id,
+		}, nil
+	case ethereum.RegistryVersion_2_1:
+		parsedLog, err := v.registry2_1.ParseStaleUpkeepReport(*log)
+		if err != nil {
+			return nil, err
+		}
+		return &StaleUpkeepReportLog{
+			Id: parsedLog.Id,
+		}, nil
+
 	}
 	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
 }

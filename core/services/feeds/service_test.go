@@ -816,6 +816,7 @@ func Test_Service_DeleteJob(t *testing.T) {
 			before: func(svc *TestService) {
 				svc.orm.On("GetJobProposalByRemoteUUID", approved.RemoteUUID).Return(&approved, nil)
 				svc.orm.On("DeleteProposal", approved.ID, mock.Anything).Return(nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
 			args:   args,
 			wantID: approved.ID,
@@ -956,6 +957,7 @@ answer1      [type=median index=0];
 				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(pendingProposal, nil)
 				svc.orm.On("GetLatestSpec", pendingSpec.JobProposalID).Return(pendingSpec, nil)
 				svc.orm.On("RevokeSpec", pendingSpec.ID, mock.Anything).Return(nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
 			args:   args,
 			wantID: pendingProposal.ID,
@@ -972,6 +974,7 @@ answer1      [type=median index=0];
 					Definition:    defn,
 				}, nil)
 				svc.orm.On("RevokeSpec", pendingSpec.ID, mock.Anything).Return(nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
 			args:   args,
 			wantID: pendingProposal.ID,
@@ -1120,9 +1123,10 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		multiaddr = "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"
-		mgr       = &feeds.FeedsManager{ID: 1}
-		ccfg      = feeds.ChainConfig{
+		multiaddr     = "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"
+		mgr           = &feeds.FeedsManager{ID: 1}
+		forwarderAddr = "0x0002"
+		ccfg          = feeds.ChainConfig{
 			ID:             100,
 			FeedsManagerID: mgr.ID,
 			ChainID:        "42",
@@ -1139,9 +1143,10 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 				KeyBundleID: null.StringFrom(ocrKey.GetID()),
 			},
 			OCR2Config: feeds.OCR2ConfigModel{
-				Enabled:     true,
-				IsBootstrap: true,
-				Multiaddr:   null.StringFrom(multiaddr),
+				Enabled:          true,
+				IsBootstrap:      true,
+				Multiaddr:        null.StringFrom(multiaddr),
+				ForwarderAddress: null.StringFrom(forwarderAddr),
 				Plugins: feeds.Plugins{
 					Commit:  true,
 					Execute: true,
@@ -1189,9 +1194,10 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 					},
 				},
 				Ocr2Config: &proto.OCR2Config{
-					Enabled:     true,
-					IsBootstrap: ccfg.OCR2Config.IsBootstrap,
-					Multiaddr:   multiaddr,
+					Enabled:          true,
+					IsBootstrap:      ccfg.OCR2Config.IsBootstrap,
+					Multiaddr:        multiaddr,
+					ForwarderAddress: &forwarderAddr,
 					Plugins: &proto.OCR2Config_Plugins{
 						Commit:  ccfg.OCR2Config.Plugins.Commit,
 						Execute: ccfg.OCR2Config.Plugins.Execute,
