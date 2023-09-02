@@ -65,12 +65,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		return nil, errors.New("log poller must be enabled to run blockhashstore")
 	}
 
-	if jb.BlockhashStoreSpec.WaitBlocks < int32(chain.Config().EVM().FinalityDepth()) {
-		return nil, fmt.Errorf(
-			"waitBlocks must be greater than or equal to chain's finality depth (%d), currently %d",
-			chain.Config().EVM().FinalityDepth(), jb.BlockhashStoreSpec.WaitBlocks)
-	}
-
 	keys, err := d.ks.EnabledKeysForChain(chain.ID())
 	if err != nil {
 		return nil, errors.Wrap(err, "getting sending keys")
