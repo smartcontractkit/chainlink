@@ -355,6 +355,7 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 	}
 	r.filterStore.UpdateFilters(func(uf1, uf2 upkeepFilter) upkeepFilter {
 		uf1.lastRePollBlock = end
+		r.lggr.Debugw("Updated lastRePollBlock", "lastRePollBlock", end, "upkeepID", uf1.upkeepID)
 		return uf1
 	}, f)
 
