@@ -202,6 +202,8 @@ require (
 	github.com/grafana/dskit v0.0.0-20230201083518-528d8a7d52f2 // indirect
 	github.com/grafana/loki v1.6.2-0.20230403212622-90888a0cc737 // indirect
 	github.com/grafana/loki/pkg/push v0.0.0-20230127102416-571f88bc5765 // indirect
+	github.com/grafana/pyroscope-go v1.0.2 // indirect
+	github.com/grafana/pyroscope-go/godeltaprof v0.1.3 // indirect
 	github.com/grafana/regexp v0.0.0-20221122212121-6b5c0a4cb7fd // indirect
 	github.com/gregjones/httpcache v0.0.0-20190611155906-901d90724c79 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
@@ -366,7 +368,6 @@ require (
 	github.com/prometheus/procfs v0.11.0 // indirect
 	github.com/prometheus/prometheus v0.46.0 // indirect
 	github.com/pyroscope-io/client v0.7.1 // indirect
-	github.com/pyroscope-io/godeltaprof v0.1.2 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect

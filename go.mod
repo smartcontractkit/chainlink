@@ -29,6 +29,7 @@ require (
 	github.com/gorilla/securecookie v1.1.1
 	github.com/gorilla/sessions v1.2.1
 	github.com/gorilla/websocket v1.5.0
+	github.com/grafana/pyroscope-go v1.0.2
 	github.com/graph-gophers/dataloader v5.0.0+incompatible
 	github.com/graph-gophers/graphql-go v1.3.0
 	github.com/hashicorp/go-plugin v1.4.10
@@ -58,7 +59,6 @@ require (
 	github.com/prometheus/client_model v0.4.0
 	github.com/prometheus/common v0.44.0
 	github.com/prometheus/prometheus v0.46.0
-	github.com/pyroscope-io/client v0.7.1
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rogpeppe/go-internal v1.11.0
 	github.com/scylladb/go-reflectx v1.0.1
@@ -195,6 +195,7 @@ require (
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/gopacket v1.1.19 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
+	github.com/grafana/pyroscope-go/godeltaprof v0.1.3 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.0-rc.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.0-rc.3 // indirect
@@ -308,7 +309,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/prometheus/procfs v0.11.0 // indirect
-	github.com/pyroscope-io/godeltaprof v0.1.0 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
