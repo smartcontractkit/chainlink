@@ -36,6 +36,8 @@ type LogPoller interface {
 	ReplayAsync(fromBlock int64)
 	RegisterFilter(filter Filter, qopts ...pg.QOpt) error
 	UnregisterFilter(name string, qopts ...pg.QOpt) error
+	// Add GetFilter(name string, qopts ...pg.QOpt) (Filter, error)
+	// to allow clients to recognize if a filter has been registered before
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 
@@ -671,6 +673,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 			lp.lggr.Warnw("Unable to insert logs, retrying", "err", err, "from", from, "to", to)
 			return err
 		}
+		// Do lp.orm.InsertBlock so that next backfill starts from this block?
 	}
 	return nil
 }
@@ -802,6 +805,7 @@ func (lp *logPoller) PollAndSaveLogs(ctx context.Context, currentBlockNumber int
 	lastSafeBackfillBlock := latestBlockNumber - lp.finalityDepth - 1
 	if lastSafeBackfillBlock >= currentBlockNumber {
 		lp.lggr.Infow("Backfilling logs", "start", currentBlockNumber, "end", lastSafeBackfillBlock)
+		// Log an error/crit here if the backfill range is too large to indicate that LP might be lagging?
 		if err = lp.backfill(ctx, currentBlockNumber, lastSafeBackfillBlock); err != nil {
 			// If there's an error backfilling, we can just return and retry from the last block saved
 			// since we don't save any blocks on backfilling. We may re-insert the same logs but thats ok.
@@ -1033,6 +1037,7 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts
 	}
 
 	// Fill any remaining blocks from the client.
+	// Instead of numbers which can have duplicates, pass blocksRequested here?
 	blocksFoundFromRPC, err := lp.fillRemainingBlocksFromRPC(ctx, numbers, blocksFound)
 	if err != nil {
 		return nil, err

@@ -177,6 +177,7 @@ func (o *ORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 	}
 	q := o.q.WithOpts(qopts...)
 
+	// Reduce constant batch size?
 	batchInsertSize := 4000
 	for i := 0; i < len(logs); i += batchInsertSize {
 		start, end := i, i+batchInsertSize
