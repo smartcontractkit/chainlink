@@ -34,7 +34,7 @@ require (
 	github.com/graph-gophers/graphql-go v1.3.0
 	github.com/hashicorp/go-plugin v1.4.10
 	github.com/hdevalence/ed25519consensus v0.1.0
-	github.com/jackc/pgconn v1.14.0
+	github.com/jackc/pgconn v1.14.1
 	github.com/jackc/pgtype v1.14.0
 	github.com/jackc/pgx/v4 v4.18.1
 	github.com/jpillora/backoff v1.0.0
