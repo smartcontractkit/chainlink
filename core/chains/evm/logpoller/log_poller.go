@@ -36,8 +36,6 @@ type LogPoller interface {
 	ReplayAsync(fromBlock int64)
 	RegisterFilter(filter Filter, qopts ...pg.QOpt) error
 	UnregisterFilter(name string, qopts ...pg.QOpt) error
-	// Add GetFilter(name string, qopts ...pg.QOpt) (Filter, error)
-	// to allow clients to recognize if a filter has been registered before
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 
@@ -667,13 +665,13 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 
 		lp.lggr.Debugw("Backfill found logs", "from", from, "to", to, "logs", len(gethLogs), "blocks", blocks)
 		err = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
+			// Do lp.orm.InsertBlock with the tx so that next backfill starts from this block?
 			return lp.orm.InsertLogs(convertLogs(gethLogs, blocks, lp.lggr, lp.ec.ConfiguredChainID()), pg.WithQueryer(tx))
 		})
 		if err != nil {
 			lp.lggr.Warnw("Unable to insert logs, retrying", "err", err, "from", from, "to", to)
 			return err
 		}
-		// Do lp.orm.InsertBlock so that next backfill starts from this block?
 	}
 	return nil
 }
