@@ -62,7 +62,7 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rogpeppe/go-internal v1.11.0
 	github.com/scylladb/go-reflectx v1.0.1
-	github.com/shirou/gopsutil/v3 v3.22.12
+	github.com/shirou/gopsutil/v3 v3.23.8
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230831132059-42af68994512
@@ -332,7 +332,7 @@ require (
 	github.com/tidwall/btree v1.6.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.0 // indirect
-	github.com/tklauser/go-sysconf v0.3.11 // indirect
+	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/tyler-smith/go-bip39 v1.1.0 // indirect
@@ -355,7 +355,7 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/ratelimit v0.2.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
+	golang.org/x/sys v0.11.0 // indirect
 	google.golang.org/genproto v0.0.0-20230717213848-3f92550aa753 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20230717213848-3f92550aa753 // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20230717213848-3f92550aa753 // indirect
