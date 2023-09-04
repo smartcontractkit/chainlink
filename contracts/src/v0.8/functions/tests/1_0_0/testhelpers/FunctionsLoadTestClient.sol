@@ -13,11 +13,13 @@ contract FunctionsLoadTestClient is FunctionsClient, ConfirmedOwner {
 
   uint32 public constant MAX_CALLBACK_GAS = 70_000;
 
-  bytes32 public s_lastRequestId;
-  bytes32 public s_lastResponse;
-  bytes32 public s_lastError;
-  uint32 public s_lastResponseLength;
-  uint32 public s_lastErrorLength;
+  bytes32 public lastRequestID;
+  bytes32 public lastResponse;
+  bytes32 public lastError;
+  uint32 public totalRequests;
+  uint32 public totalEmptyResponses;
+  uint32 public totalSucceededResponses;
+  uint32 public totalFailedResponses;
 
   constructor(address router) FunctionsClient(router) ConfirmedOwner(msg.sender) {}
 
@@ -29,6 +31,7 @@ contract FunctionsLoadTestClient is FunctionsClient, ConfirmedOwner {
    * @param subscriptionId Billing ID
    */
   function sendRequest(
+    uint32 times,
     string calldata source,
     bytes calldata encryptedSecretsReferences,
     string[] calldata args,
@@ -39,7 +42,33 @@ contract FunctionsLoadTestClient is FunctionsClient, ConfirmedOwner {
     req.initializeRequestForInlineJavaScript(source);
     if (encryptedSecretsReferences.length > 0) req.addSecretsReference(encryptedSecretsReferences);
     if (args.length > 0) req.setArgs(args);
-    s_lastRequestId = _sendRequest(req.encodeCBOR(), subscriptionId, MAX_CALLBACK_GAS, jobId);
+    uint i = 0;
+    for (i = 0; i < times; i++) {
+      lastRequestID = _sendRequest(req.encodeCBOR(), subscriptionId, MAX_CALLBACK_GAS, jobId);
+      totalRequests += 1;
+    }
+  }
+
+  function resetStats() external onlyOwner {
+    lastRequestID = "";
+    lastResponse = "";
+    lastError = "";
+    totalRequests = 0;
+    totalSucceededResponses = 0;
+    totalFailedResponses = 0;
+    totalEmptyResponses = 0;
+  }
+
+  function getStats() public view onlyOwner returns (bytes32, bytes32, bytes32, uint32, uint32, uint32, uint32) {
+    return (
+      lastRequestID,
+      lastResponse,
+      lastError,
+      totalRequests,
+      totalSucceededResponses,
+      totalFailedResponses,
+      totalEmptyResponses
+    );
   }
 
   /**
@@ -51,11 +80,18 @@ contract FunctionsLoadTestClient is FunctionsClient, ConfirmedOwner {
    */
   function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
     // Save only the first 32 bytes of response/error to always fit within MAX_CALLBACK_GAS
-    s_lastRequestId = requestId;
-    s_lastResponse = bytesToBytes32(response);
-    s_lastResponseLength = uint32(response.length);
-    s_lastError = bytesToBytes32(err);
-    s_lastErrorLength = uint32(err.length);
+    lastRequestID = requestId;
+    lastResponse = bytesToBytes32(response);
+    lastError = bytesToBytes32(err);
+    if (response.length == 0) {
+      totalEmptyResponses += 1;
+    }
+    if (err.length != 0) {
+      totalFailedResponses += 1;
+    }
+    if (response.length != 0 && err.length == 0) {
+      totalSucceededResponses += 1;
+    }
   }
 
   function bytesToBytes32(bytes memory b) private pure returns (bytes32 out) {
