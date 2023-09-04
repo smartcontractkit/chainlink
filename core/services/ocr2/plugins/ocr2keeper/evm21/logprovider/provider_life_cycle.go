@@ -110,8 +110,10 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 	if err != nil {
 		return fmt.Errorf("failed to get latest block while registering filter: %w", err)
 	}
-	isNewPollerFilter := p.poller.HasFilter(lpFilter.Name)
-	if !isNewPollerFilter {
+	lggr := p.lggr.With("upkeepID", ufilter.upkeepID.String())
+	logPollerHasFilter := p.poller.HasFilter(lpFilter.Name)
+	if logPollerHasFilter {
+		lggr.Debugw("Upserting upkeep filter")
 		// removing filter so we can recreate it with updated values
 		err := p.poller.UnregisterFilter(lpFilter.Name)
 		if err != nil {
@@ -122,7 +124,7 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 		return err
 	}
 	p.filterStore.AddActiveUpkeeps(ufilter)
-	if !isNewPollerFilter {
+	if logPollerHasFilter {
 		// already registered, no need to backfill
 		return nil
 	}
@@ -136,6 +138,7 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 		backfillBlock = int64(ufilter.configUpdateBlock)
 	}
 	// NOTE: replys are planned to be done as part of RegisterFilter within logpoller
+	lggr.Debugw("Backfilling logs for new upkeep filter", "backfillBlock", backfillBlock)
 	p.poller.ReplayAsync(backfillBlock)
 
 	return nil
