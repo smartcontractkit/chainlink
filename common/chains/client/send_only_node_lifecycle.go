@@ -18,49 +18,49 @@ func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) verifyLoop() {
 	backoff := utils.NewRedialBackoff()
 	for {
 		select {
+		case <-s.chStop:
+			return
 		case <-time.After(backoff.Duration()):
-			chainID, err := s.rpcClient.ChainID(context.Background())
-			if err != nil {
-				ok := s.IfStarted(func() {
-					if changed := s.setState(nodeStateUnreachable); changed {
-						promPoolRPCNodeTransitionsToUnreachable.WithLabelValues(s.chainID.String(), s.name).Inc()
-					}
-				})
-				if !ok {
-					return
+		}
+		chainID, err := s.rpcClient.ChainID(context.Background())
+		if err != nil {
+			ok := s.IfStarted(func() {
+				if changed := s.setState(nodeStateUnreachable); changed {
+					promPoolRPCNodeTransitionsToUnreachable.WithLabelValues(s.chainID.String(), s.name).Inc()
 				}
-				s.log.Errorw(fmt.Sprintf("Verify failed: %v", err), "err", err)
-				continue
-			} else if chainID.String() != s.chainID.String() {
-				ok := s.IfStarted(func() {
-					if changed := s.setState(nodeStateInvalidChainID); changed {
-						promPoolRPCNodeTransitionsToInvalidChainID.WithLabelValues(s.chainID.String(), s.name).Inc()
-					}
-				})
-				if !ok {
-					return
-				}
-				s.log.Errorf(
-					"sendonly rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
-					chainID.String(),
-					s.chainID.String(),
-					s.name,
-				)
-
-				continue
-			} else {
-				ok := s.IfStarted(func() {
-					if changed := s.setState(nodeStateAlive); changed {
-						promPoolRPCNodeTransitionsToAlive.WithLabelValues(s.chainID.String(), s.name).Inc()
-					}
-				})
-				if !ok {
-					return
-				}
-				s.log.Infow("Sendonly RPC Node is online", "nodeState", s.state)
+			})
+			if !ok {
 				return
 			}
-		case <-s.chStop:
+			s.log.Errorw(fmt.Sprintf("Verify failed: %v", err), "err", err)
+			continue
+		} else if chainID.String() != s.chainID.String() {
+			ok := s.IfStarted(func() {
+				if changed := s.setState(nodeStateInvalidChainID); changed {
+					promPoolRPCNodeTransitionsToInvalidChainID.WithLabelValues(s.chainID.String(), s.name).Inc()
+				}
+			})
+			if !ok {
+				return
+			}
+			s.log.Errorf(
+				"sendonly rpc ChainID doesn't match local chain ID: RPC ID=%s, local ID=%s, node name=%s",
+				chainID.String(),
+				s.chainID.String(),
+				s.name,
+			)
+
+			continue
+		} else {
+			ok := s.IfStarted(func() {
+				if changed := s.setState(nodeStateAlive); changed {
+					promPoolRPCNodeTransitionsToAlive.WithLabelValues(s.chainID.String(), s.name).Inc()
+				}
+			})
+			if !ok {
+				return
+			}
+			s.log.Infow("Sendonly RPC Node is online", "nodeState", s.state)
 			return
 		}
 	}
