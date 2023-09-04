@@ -64,12 +64,12 @@ describe('KeeperRegistry2_1 - Frozen [ @skip-coverage ]', () => {
   it('has not changed', () => {
     assert.equal(
       ethers.utils.id(KeeperRegistryFactory.bytecode),
-      '0xd94f351a1cd64aa81dd7238301f680f4bfc2a0f84c4b5451525f3f879488f033',
+      '0xd8dfe20e746039e8420349326becc0a15dcd8fa3cd6aa0924d214328a7c45206',
       'KeeperRegistry bytecode has changed',
     )
     assert.equal(
       ethers.utils.id(KeeperRegistryLogicAFactory.bytecode),
-      '0xe69d334fa75af0d6d8572996d815c93b8be1c8546670510b0d20ef349e57b2df',
+      '0x007d5c10abc07fbced761a73ae0bbe031dc721f5d4468dcf7ec4851222cf6fe0',
       'KeeperRegistryLogicA bytecode has changed',
     )
     assert.equal(
@@ -741,6 +741,7 @@ describe('KeeperRegistry2_1', () => {
     performData?: string
     checkBlockNum?: number
     checkBlockHash?: string
+    logBlockHash?: BytesLike
     txHash?: BytesLike
     logIndex?: number
     timestamp?: number
@@ -763,6 +764,7 @@ describe('KeeperRegistry2_1', () => {
       checkBlockHash: latestBlock.hash,
       logIndex: 0,
       txHash: undefined, // assigned uniquely below
+      logBlockHash: undefined, // assigned uniquely below
       timestamp: now(),
       gasLimit: undefined,
       gasPrice: undefined,
@@ -780,6 +782,7 @@ describe('KeeperRegistry2_1', () => {
           break
         case Trigger.LOG:
           trigger = encodeLogTrigger({
+            logBlockHash: config.logBlockHash || ethers.utils.randomBytes(32),
             txHash: config.txHash || ethers.utils.randomBytes(32),
             logIndex: config.logIndex,
             blockNum: config.checkBlockNum,

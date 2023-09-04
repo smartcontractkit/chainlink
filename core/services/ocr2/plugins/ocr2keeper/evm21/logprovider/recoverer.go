@@ -178,6 +178,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 		return nil, errors.New("missing log trigger extension")
 	}
 	logBlock := int64(proposal.Trigger.LogTriggerExtension.BlockNumber)
+	// TODO: Can rely on logBlockHash here and get block number from it
 	if logBlock == 0 {
 		var number *big.Int
 		number, _, err = core.GetTxBlock(ctx, r.client, proposal.Trigger.LogTriggerExtension.TxHash)

@@ -225,8 +225,9 @@ func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller
 
 func (c *TransmitEventProvider) logKey(log logpoller.Log) string {
 	logExt := ocr2keepers.LogTriggerExtension{
-		TxHash: log.TxHash,
-		Index:  uint32(log.LogIndex),
+		TxHash:    log.TxHash,
+		Index:     uint32(log.LogIndex),
+		BlockHash: log.BlockHash,
 	}
 	logId := logExt.LogIdentifier()
 	return hex.EncodeToString(logId)
