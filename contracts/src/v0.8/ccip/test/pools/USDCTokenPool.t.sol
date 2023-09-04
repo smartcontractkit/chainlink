@@ -419,6 +419,35 @@ contract USDCTokenPool_setDomains is USDCTokenPoolSetup {
 
     s_usdcTokenPool.setDomains(domainUpdates);
   }
+
+  function testInvalidDomainReverts() public {
+    bytes32 validCaller = bytes32(uint256(25));
+    // Ensure valid domain works
+    USDCTokenPool.DomainUpdate[] memory domainUpdates = new USDCTokenPool.DomainUpdate[](1);
+    domainUpdates[0] = USDCTokenPool.DomainUpdate({
+      allowedCaller: validCaller,
+      domainIdentifier: 0, // ensures 0 is valid, as this is eth mainnet
+      destChainSelector: 45690,
+      enabled: true
+    });
+
+    s_usdcTokenPool.setDomains(domainUpdates);
+
+    // Make update invalid on allowedCaller
+    domainUpdates[0].allowedCaller = bytes32(0);
+    vm.expectRevert(abi.encodeWithSelector(USDCTokenPool.InvalidDomain.selector, domainUpdates[0]));
+
+    s_usdcTokenPool.setDomains(domainUpdates);
+
+    // Make valid again
+    domainUpdates[0].allowedCaller = validCaller;
+
+    // Make invalid on destChainSelector
+    domainUpdates[0].destChainSelector = 0;
+    vm.expectRevert(abi.encodeWithSelector(USDCTokenPool.InvalidDomain.selector, domainUpdates[0]));
+
+    s_usdcTokenPool.setDomains(domainUpdates);
+  }
 }
 
 contract USDCTokenPool_setConfig is USDCTokenPoolSetup {

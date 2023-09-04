@@ -175,6 +175,8 @@ contract USDCTokenPool is TokenPool {
     uint32 version;
     // solhint-disable-next-line no-inline-assembly
     assembly {
+      // We truncate using the datatype of the version variable, meaning
+      // we will only be left with the first 4 bytes of the message.
       version := mload(add(usdcMessage, 4)) // 0 + 4 = 4
     }
     // This token pool only supports version 1 of the CCTP message format
@@ -238,8 +240,7 @@ contract USDCTokenPool is TokenPool {
   function setDomains(DomainUpdate[] calldata domains) external onlyOwner {
     for (uint256 i = 0; i < domains.length; ++i) {
       DomainUpdate memory domain = domains[i];
-      if (domain.allowedCaller == bytes32(0) || domain.domainIdentifier == 0 || domain.destChainSelector == 0)
-        revert InvalidDomain(domain);
+      if (domain.allowedCaller == bytes32(0) || domain.destChainSelector == 0) revert InvalidDomain(domain);
 
       s_chainToDomain[domain.destChainSelector] = Domain({
         domainIdentifier: domain.domainIdentifier,
