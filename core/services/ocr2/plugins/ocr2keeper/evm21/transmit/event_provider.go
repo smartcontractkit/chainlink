@@ -198,6 +198,7 @@ func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller
 			trigger.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{}
 			trigger.LogTriggerExtension.TxHash = triggerW.TxHash
 			trigger.LogTriggerExtension.Index = triggerW.LogIndex
+			trigger.LogTriggerExtension.BlockHash = triggerW.LogBlockHash
 		default:
 		}
 		workID := core.UpkeepWorkID(*upkeepId, trigger)

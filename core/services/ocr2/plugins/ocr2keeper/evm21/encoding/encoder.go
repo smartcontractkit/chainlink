@@ -68,6 +68,7 @@ func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, error
 		case ocr2keepers.LogTrigger:
 			triggerW.TxHash = result.Trigger.LogTriggerExtension.TxHash
 			triggerW.LogIndex = result.Trigger.LogTriggerExtension.Index
+			triggerW.LogBlockHash = result.Trigger.BlockHash
 		default:
 			// no special handling here for conditional triggers
 		}
@@ -110,6 +111,7 @@ func (e reportEncoder) Extract(raw []byte) ([]ocr2keepers.ReportedUpkeep, error)
 			trigger.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{}
 			trigger.LogTriggerExtension.TxHash = triggerW.TxHash
 			trigger.LogTriggerExtension.Index = triggerW.LogIndex
+			trigger.LogTriggerExtension.BlockHash = triggerW.LogBlockHash
 		default:
 		}
 		workID := core.UpkeepWorkID(*id, trigger)
