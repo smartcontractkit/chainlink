@@ -93,7 +93,7 @@ jobs:
       - name: Run coverage
         if: ${{ needs.changes.outputs.changes == 'true' }}
         working-directory: contracts
-        run: forge coverage --report lcov
+        run: forge coverage --ir-minimum  --report lcov
 
       - name: Prune report
         if: ${{ needs.changes.outputs.changes == 'true' }}
