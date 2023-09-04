@@ -363,7 +363,7 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 	// maxBurst will be used to increase the burst limit to allow a long range scan
 	maxBurst := int(lookbackBlocks + 1)
 
-	for _, filter := range filters {
+	for i, filter := range filters {
 		if len(filter.addr) == 0 {
 			continue
 		}
@@ -408,7 +408,9 @@ func (p *logEventProvider) readLogs(ctx context.Context, latest int64, filters [
 
 		p.buffer.enqueue(filter.upkeepID, filteredLogs...)
 
-		filter.lastPollBlock = latest
+		// Update the lastPollBlock for filter in slice this is then
+		// updated into filter store in updateFiltersLastPoll
+		filters[i].lastPollBlock = latest
 	}
 
 	return merr
