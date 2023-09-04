@@ -39,6 +39,8 @@ require (
 	gonum.org/v1/gonum v0.13.0 // indirect
 )
 
+require github.com/joho/godotenv v1.4.0
+
 require (
 	contrib.go.opencensus.io/exporter/stackdriver v0.13.5 // indirect
 	cosmossdk.io/api v0.3.1 // indirect
