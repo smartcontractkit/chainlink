@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -515,7 +516,7 @@ func TestResolver_OCR2Spec(t *testing.T) {
 						Relay:                             relay.EVM,
 						RelayConfig:                       relayConfig,
 						TransmitterID:                     null.StringFrom(transmitterAddress.String()),
-						PluginType:                        job.Median,
+						PluginType:                        types.Median,
 						PluginConfig:                      pluginConfig,
 					},
 				}, nil)
