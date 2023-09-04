@@ -83,11 +83,6 @@ func (p *logEventProvider) RegisterFilter(ctx context.Context, opts FilterOption
 			p.lggr.Debugf("filter for upkeep with id %s already registered with the same config", upkeepID.String())
 			return nil
 		}
-		// removing filter so we can recreate it with updated values
-		err := p.poller.UnregisterFilter(p.filterName(currentFilter.upkeepID))
-		if err != nil {
-			return fmt.Errorf("failed to unregister upkeep filter %s for update: %w", upkeepID.String(), err)
-		}
 		filter = *currentFilter
 	} else { // new filter
 		filter = upkeepFilter{
@@ -115,16 +110,28 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 	if err != nil {
 		return fmt.Errorf("failed to get latest block while registering filter: %w", err)
 	}
+	isNewPollerFilter := p.poller.HasFilter(lpFilter.Name)
+	if !isNewPollerFilter {
+		// removing filter so we can recreate it with updated values
+		err := p.poller.UnregisterFilter(lpFilter.Name)
+		if err != nil {
+			return fmt.Errorf("failed to upsert (unregister) upkeep filter %s: %w", ufilter.upkeepID.String(), err)
+		}
+	}
 	if err := p.poller.RegisterFilter(lpFilter); err != nil {
 		return err
 	}
 	p.filterStore.AddActiveUpkeeps(ufilter)
+	if !isNewPollerFilter {
+		// already registered, no need to backfill
+		return nil
+	}
 	backfillBlock := latest - int64(LogBackfillBuffer)
 	if backfillBlock < 1 {
 		// New chain, backfill from start
 		backfillBlock = 1
 	}
-	// TODO: Optimise to do backfill from ufilter.configUpdateBlock only for new filters
+	// Exploratory: Optimise to do backfill from ufilter.configUpdateBlock
 	// if it is not too old
 	p.poller.ReplayAsync(backfillBlock)
 
