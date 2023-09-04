@@ -794,6 +794,11 @@ func (b *BlockhashStoreSpecResolver) LookbackBlocks() int32 {
 	return b.spec.LookbackBlocks
 }
 
+// HeartbeatPeriodBlocks returns the job's HeartbeatPeriodBlocks param.
+func (b *BlockhashStoreSpecResolver) HeartbeatPeriodBlocks() int32 {
+	return b.spec.HeartbeatPeriodBlocks
+}
+
 // BlockhashStoreAddress returns the job's BlockhashStoreAddress param.
 func (b *BlockhashStoreSpecResolver) BlockhashStoreAddress() string {
 	return b.spec.BlockhashStoreAddress.String()

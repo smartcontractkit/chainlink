@@ -10,7 +10,9 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -22,25 +24,31 @@ func NewFeeder(
 	coordinator Coordinator,
 	bhs BHS,
 	lp logpoller.LogPoller,
-	trustedBHSBatchSize int32,
-	waitBlocks int,
-	lookbackBlocks int,
+	headBroadcaster httypes.HeadBroadcasterRegistry,
+	trustedBHSBatchSize,
+	waitBlocks,
+	lookbackBlocks,
+	heartbeatPeriodBlocks int,
 	latestBlock func(ctx context.Context) (uint64, error),
 ) *Feeder {
-	return &Feeder{
-		lggr:                logger,
-		coordinator:         coordinator,
-		bhs:                 bhs,
-		lp:                  lp,
-		trustedBHSBatchSize: trustedBHSBatchSize,
-		waitBlocks:          waitBlocks,
-		lookbackBlocks:      lookbackBlocks,
-		latestBlock:         latestBlock,
-		stored:              make(map[uint64]struct{}),
-		storedTrusted:       make(map[uint64]common.Hash),
-		lastRunBlock:        0,
-		wgStored:            sync.WaitGroup{},
+	feeder := &Feeder{
+		lggr:                  logger,
+		coordinator:           coordinator,
+		bhs:                   bhs,
+		lp:                    lp,
+		trustedBHSBatchSize:   trustedBHSBatchSize,
+		waitBlocks:            waitBlocks,
+		lookbackBlocks:        lookbackBlocks,
+		latestBlock:           latestBlock,
+		stored:                make(map[uint64]struct{}),
+		storedTrusted:         make(map[uint64]common.Hash),
+		lastRunBlock:          0,
+		wgStored:              sync.WaitGroup{},
+		heartbeatPeriodBlocks: heartbeatPeriodBlocks,
+		headBroadcaster:       headBroadcaster,
 	}
+	feeder.subscribeHeadBroadcaster()
+	return feeder
 }
 
 // Feeder checks recent VRF coordinator events and stores any blockhashes for blocks within
@@ -50,10 +58,23 @@ type Feeder struct {
 	coordinator         Coordinator
 	bhs                 BHS
 	lp                  logpoller.LogPoller
-	trustedBHSBatchSize int32
+	trustedBHSBatchSize int
 	waitBlocks          int
 	lookbackBlocks      int
 	latestBlock         func(ctx context.Context) (uint64, error)
+
+	// heartbeatPeriodBlocks is a heartbeat period in blocks in which
+	// the feeder will always store a blockhash, even if there are no
+	// unfulfilled requests. This is to ensure that there are blockhashes
+	// in the store to start from if we ever need to run backwards mode.
+	heartbeatPeriodBlocks int
+	// we rely on the head broadcaster for the heartbeat stores
+	// rather than the log poller to have some
+	// redundancy, in case the log poller starts misbehaving.
+	headBroadcaster httypes.HeadBroadcasterRegistry
+	// lastStoredHeartbeatBlock is the last block number that we stored
+	// a heartbeat blockhash for.
+	lastStoredHeartbeatBlock int64
 
 	stored        map[uint64]struct{}    // used for trustless feeder
 	storedTrusted map[uint64]common.Hash // used for trusted feeder
@@ -61,6 +82,34 @@ type Feeder struct {
 	wgStored      sync.WaitGroup
 	batchLock     sync.Mutex
 	errsLock      sync.Mutex
+}
+
+func (f *Feeder) subscribeHeadBroadcaster() {
+	f.headBroadcaster.Subscribe(f)
+}
+
+// OnNewLongestChain implements HeadTrackable
+// note that the ctx has a timeout of 2 seconds
+// the below code cannot exceed that else we start missing
+// heartbeat bh's.
+func (f *Feeder) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
+	if diff := head.Number - f.lastStoredHeartbeatBlock; diff >= int64(f.heartbeatPeriodBlocks) {
+		f.lggr.Infow("storing heartbeat blockhash",
+			"latestHead", head.Number,
+			"heartbeatPeriodBlocks", f.heartbeatPeriodBlocks,
+			"lastStoredHeartbeatBlock", f.lastStoredHeartbeatBlock,
+		)
+		if err := f.bhs.Store(ctx, uint64(head.Number)); err != nil {
+			f.lggr.Errorw("failed to store heartbeat blockhash",
+				"err", err,
+				"latestHead", head.Number,
+				"heartbeatPeriodBlocks", f.heartbeatPeriodBlocks,
+				"lastStoredHeartbeatBlock", f.lastStoredHeartbeatBlock,
+			)
+		} else {
+			f.lastStoredHeartbeatBlock = head.Number
+		}
+	}
 }
 
 // Run the feeder.
@@ -184,7 +233,7 @@ func (f *Feeder) runTrusted(
 
 			// If there's room, store the block in the batch. Threadsafe.
 			f.batchLock.Lock()
-			if len(batch) < int(f.trustedBHSBatchSize) {
+			if len(batch) < f.trustedBHSBatchSize {
 				batch[block] = struct{}{}
 			}
 			f.batchLock.Unlock()

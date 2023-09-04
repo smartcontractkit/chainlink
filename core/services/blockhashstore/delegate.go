@@ -162,9 +162,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		NewMultiCoordinator(coordinators...),
 		bpBHS,
 		lp,
-		jb.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize,
+		chain.HeadBroadcaster(),
+		int(jb.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize),
 		int(jb.BlockhashStoreSpec.WaitBlocks),
 		int(jb.BlockhashStoreSpec.LookbackBlocks),
+		int(jb.BlockhashStoreSpec.HeartbeatPeriodBlocks),
 		func(ctx context.Context) (uint64, error) {
 			head, err := lp.LatestBlock(pg.WithParentCtx(ctx))
 			if err != nil {
