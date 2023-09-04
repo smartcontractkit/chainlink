@@ -2,16 +2,21 @@ package smoke
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/stretchr/testify/require"
-	"testing"
 )
 
 func TestCronBasic(t *testing.T) {
 	t.Parallel()
+	l := utils.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithGeth().
@@ -19,6 +24,12 @@ func TestCronBasic(t *testing.T) {
 		WithCLNodes(1).
 		Build()
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := env.Cleanup(); err != nil {
+			l.Error().Err(err).Msg("Error cleaning up test environment")
+		}
+	})
+
 	err = env.MockServer.Client.SetValuePath("/variable", 5)
 	require.NoError(t, err, "Setting value path in mockserver shouldn't fail")
 

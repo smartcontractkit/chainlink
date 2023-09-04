@@ -6,6 +6,7 @@ import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
 import {ExposedVRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/testhelpers/ExposedVRFCoordinatorV2Plus.sol";
 import {VRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/VRFCoordinatorV2Plus.sol";
+import {SubscriptionAPI} from "../../../../src/v0.8/dev/vrf/SubscriptionAPI.sol";
 import {BlockhashStore} from "../../../../src/v0.8/dev/BlockhashStore.sol";
 import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol";
 import {VRFV2PlusClient} from "../../../../src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
@@ -31,6 +32,7 @@ contract VRFV2Plus is BaseTest {
 
   BlockhashStore s_bhs;
   ExposedVRFCoordinatorV2Plus s_testCoordinator;
+  ExposedVRFCoordinatorV2Plus s_testCoordinator_noLink;
   VRFV2PlusConsumerExample s_testConsumer;
   MockLinkToken s_linkToken;
   MockV3Aggregator s_linkEthFeed;
@@ -57,9 +59,8 @@ contract VRFV2Plus is BaseTest {
     s_bhs = new BlockhashStore();
 
     // Deploy coordinator and consumer.
+    // Note: adding contract deployments to this section will require the VRF proofs be regenerated.
     s_testCoordinator = new ExposedVRFCoordinatorV2Plus(address(s_bhs));
-
-    // Deploy link token and link/eth feed.
     s_linkToken = new MockLinkToken();
     s_linkEthFeed = new MockV3Aggregator(18, 500000000000000000); // .5 ETH (good for testing)
 
@@ -80,6 +81,8 @@ contract VRFV2Plus is BaseTest {
       )
     }
     s_testConsumer = VRFV2PlusConsumerExample(consumerCreate2Address);
+
+    s_testCoordinator_noLink = new ExposedVRFCoordinatorV2Plus(address(s_bhs));
 
     // Configure the coordinator.
     s_testCoordinator.setLINKAndLINKETHFeed(address(s_linkToken), address(s_linkEthFeed));
@@ -140,6 +143,18 @@ contract VRFV2Plus is BaseTest {
   function testCreateSubscription() public {
     uint256 subId = s_testCoordinator.createSubscription();
     s_testCoordinator.fundSubscriptionWithEth{value: 10 ether}(subId);
+  }
+
+  function testCancelSubWithNoLink() public {
+    uint256 subId = s_testCoordinator_noLink.createSubscription();
+    s_testCoordinator_noLink.fundSubscriptionWithEth{value: 1000 ether}(subId);
+
+    assertEq(LINK_WHALE.balance, 9000 ether);
+    s_testCoordinator_noLink.cancelSubscription(subId, LINK_WHALE);
+    assertEq(LINK_WHALE.balance, 10_000 ether);
+
+    vm.expectRevert(SubscriptionAPI.InvalidSubscription.selector);
+    s_testCoordinator_noLink.getSubscription(subId);
   }
 
   function testGetActiveSubscriptionIds() public {
