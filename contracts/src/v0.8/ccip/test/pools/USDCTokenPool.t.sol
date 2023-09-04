@@ -454,6 +454,9 @@ contract USDCTokenPool_setConfig is USDCTokenPoolSetup {
   event ConfigSet(USDCTokenPool.USDCConfig);
 
   function testSetConfigSuccess() public {
+    // Assert existing approval
+    assertEq(type(uint256).max, s_usdcTokenPool.getToken().allowance(address(s_usdcTokenPool), address(s_mockUSDC)));
+
     MockUSDC newMockUSDC = new MockUSDC(0);
 
     USDCTokenPool.USDCConfig memory newConfig = USDCTokenPool.USDCConfig({
@@ -478,9 +481,36 @@ contract USDCTokenPool_setConfig is USDCTokenPoolSetup {
       type(uint256).max,
       s_usdcTokenPool.getToken().allowance(address(s_usdcTokenPool), gotConfig.tokenMessenger)
     );
+    // Assert old approval is removed
+    assertEq(0, s_usdcTokenPool.getToken().allowance(address(s_usdcTokenPool), address(s_mockUSDC)));
   }
 
   // Reverts
+
+  function testInvalidMessageVersionReverts() public {
+    USDCTokenPool.USDCConfig memory newConfig = USDCTokenPool.USDCConfig({
+      version: 1,
+      tokenMessenger: address(100),
+      messageTransmitter: address(1)
+    });
+
+    vm.expectRevert(abi.encodeWithSelector(USDCTokenPool.InvalidMessageVersion.selector, newConfig.version));
+    s_usdcTokenPool.setConfig(newConfig);
+  }
+
+  function testInvalidTokenMessengerVersionReverts() public {
+    uint32 wrongVersion = 5;
+    MockUSDC newMockUSDC = new MockUSDC(wrongVersion);
+
+    USDCTokenPool.USDCConfig memory newConfig = USDCTokenPool.USDCConfig({
+      version: 0,
+      tokenMessenger: address(newMockUSDC),
+      messageTransmitter: address(1)
+    });
+
+    vm.expectRevert(abi.encodeWithSelector(USDCTokenPool.InvalidTokenMessengerVersion.selector, wrongVersion));
+    s_usdcTokenPool.setConfig(newConfig);
+  }
 
   function testInvalidConfigReverts() public {
     USDCTokenPool.USDCConfig memory newConfig = USDCTokenPool.USDCConfig({
@@ -532,6 +562,8 @@ contract USDCTokenPool__validateMessage is USDCTokenPoolSetup {
     );
   }
 
+  // Reverts
+
   function testValidateInvalidMessageReverts() public {
     USDCMessage memory usdcMessage = USDCMessage({
       version: 0,
@@ -570,6 +602,21 @@ contract USDCTokenPool__validateMessage is USDCTokenPoolSetup {
       encodedUsdcMessage,
       USDCTokenPool.SourceTokenDataPayload({nonce: expectedNonce, sourceDomain: usdcMessage.sourceDomain})
     );
+
+    usdcMessage.destinationDomain = DEST_DOMAIN_IDENTIFIER + 1;
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        USDCTokenPool.InvalidDestinationDomain.selector,
+        DEST_DOMAIN_IDENTIFIER,
+        usdcMessage.destinationDomain
+      )
+    );
+
+    s_usdcTokenPool.validateMessage(
+      _generateUSDCMessage(usdcMessage),
+      USDCTokenPool.SourceTokenDataPayload({nonce: usdcMessage.nonce, sourceDomain: usdcMessage.sourceDomain})
+    );
+    usdcMessage.destinationDomain = DEST_DOMAIN_IDENTIFIER;
 
     uint32 wrongVersion = usdcMessage.version + 1;
 
