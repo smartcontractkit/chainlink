@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"testing"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Test_tokenToDecimals(t *testing.T) {
@@ -93,6 +95,15 @@ func Test_tokenToDecimals(t *testing.T) {
 				return
 			}
 
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, got)
+
+			// we set token factory to always return an error
+			// we don't expect it to be used again, decimals should be in cache.
+			tokenToDecimal.tokenFactory = func(address common.Address) (link_token_interface.LinkTokenInterface, error) {
+				return nil, fmt.Errorf("some error")
+			}
+			got, err = tokenToDecimal.CallOrigin(testutils.Context(t))
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
 		})
@@ -186,6 +197,20 @@ func Test_copyMap(t *testing.T) {
 		val["a"] = big.NewInt(20)
 		assert.Equal(t, int64(100), cp["a"].Int64())
 	})
+}
+
+func Test_cachedDecimals(t *testing.T) {
+	tokenDecimalsCache := &tokenToDecimals{}
+	addr := utils.RandomAddress()
+
+	decimals, exists := tokenDecimalsCache.getCachedDecimals(addr)
+	assert.Zero(t, decimals)
+	assert.False(t, exists)
+
+	tokenDecimalsCache.setCachedDecimals(addr, 123)
+	decimals, exists = tokenDecimalsCache.getCachedDecimals(addr)
+	assert.Equal(t, uint8(123), decimals)
+	assert.True(t, exists)
 }
 
 func createTokenFactory(decimalMapping map[common.Address]uint8) func(address common.Address) (link_token_interface.LinkTokenInterface, error) {
