@@ -134,8 +134,7 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
 	// Filter might have been unregistered already, only try to unregister if it exists
 	if p.poller.HasFilter(p.filterName(upkeepID)) {
-		err := p.poller.UnregisterFilter(p.filterName(upkeepID))
-		if err != nil {
+		if err := p.poller.UnregisterFilter(p.filterName(upkeepID)); err != nil {
 			return fmt.Errorf("failed to unregister upkeep filter %s: %w", upkeepID.String(), err)
 		}
 	}
