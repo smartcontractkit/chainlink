@@ -41,4 +41,28 @@ contract ExposedVRFCoordinatorV2Plus is VRFCoordinatorV2Plus {
   function getSubscriptionStruct(uint256 subId) external view returns (Subscription memory) {
     return s_subscriptions[subId];
   }
+
+  function setTotalBalanceTestingOnlyXXX(uint96 newBalance) external {
+    s_totalBalance = newBalance;
+  }
+
+  function setTotalEthBalanceTestingOnlyXXX(uint96 newBalance) external {
+    s_totalEthBalance = newBalance;
+  }
+
+  function setWithdrawableTokensTestingOnlyXXX(address oracle, uint96 newBalance) external {
+    s_withdrawableTokens[oracle] = newBalance;
+  }
+
+  function getWithdrawableTokensTestingOnlyXXX(address oracle) external view returns (uint96) {
+    return s_withdrawableTokens[oracle];
+  }
+
+  function setWithdrawableEthTestingOnlyXXX(address oracle, uint96 newBalance) external {
+    s_withdrawableEth[oracle] = newBalance;
+  }
+
+  function getWithdrawableEthTestingOnlyXXX(address oracle) external view returns (uint96) {
+    return s_withdrawableEth[oracle];
+  }
 }
