@@ -241,7 +241,6 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     vm.expectEmit(true, false, false, true);
     emit FundsRecovered(OWNER, 10 ether);
     s_subscriptionAPI.recoverFunds(OWNER);
-
   }
 
   function testRecoverFundsNothingToTransfer() public {
