@@ -23,6 +23,7 @@ jobs:
               - 'contracts/src/v0.8/**/*'
               - '.github/workflows/solidity-foundry.yml'
               - 'contracts/foundry.toml'
+              - 'contracts/gas-snapshots/*.gas-snapshot'
 
   tests:
     strategy:
