@@ -58,17 +58,15 @@ func TestHasher(t *testing.T) {
 			{Token: common.HexToAddress("0x4440000000000000000000000000000000000001"), Amount: big.NewInt(12345678900)},
 			{Token: common.HexToAddress("0x6660000000000000000000000000000000000001"), Amount: big.NewInt(4204242)},
 		},
-		SourceTokenData: [][]byte{{0x21}},
+		SourceTokenData: [][]byte{{0x2, 0x1}},
 		MessageId:       [32]byte{},
 	}
 
 	hash, err = hasher.HashLeaf(testhelpers.GenerateCCIPSendLog(t, message))
 	require.NoError(t, err)
 
-	stirngd := hex.EncodeToString(hash[:])
-
 	// NOTE: Must match spec
-	require.Equal(t, "40c17709ed4f16043f62ad1eebd53012781aee3804473299f7e6af0937eb1885", stirngd)
+	require.Equal(t, "7de96e00e1cf9753877faf459a68e9ee4fd901e50c2a3cd524586bf0cb3accf5", hex.EncodeToString(hash[:]))
 }
 
 func TestMetaDataHash(t *testing.T) {
