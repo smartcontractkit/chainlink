@@ -137,7 +137,8 @@ func newOCR2VRFConfigProvider(lggr logger.Logger, chain evm.Chain, rargs relayty
 		lggr.With("contractID", rargs.ContractID),
 		chain.Client(),
 		chain.LogPoller(),
-		contractAddress)
+		contractAddress,
+		common.Address{})
 	if err != nil {
 		return nil, err
 	}

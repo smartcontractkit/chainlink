@@ -382,5 +382,5 @@ replace (
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
 
-	github.com/smartcontractkit/libocr => /Users/sam/code/smartcontractkit/libocr
+	github.com/smartcontractkit/libocr => /Users/michael.fletcher@smartcontract.com/Workspace/chainlink/libocr
 )

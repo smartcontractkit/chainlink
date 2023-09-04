@@ -150,6 +150,7 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, rargs rela
 		chain.Client(),
 		chain.LogPoller(),
 		contractAddress,
+		common.Address{},
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create config poller")

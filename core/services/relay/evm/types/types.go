@@ -5,10 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"time"
-
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/jpillora/backoff"
 	"github.com/lib/pq"
 
 	"gopkg.in/guregu/null.v2"
@@ -20,15 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
-
-func NewRPCCallBackoff() backoff.Backoff {
-	return backoff.Backoff{
-		Factor: 2,
-		Jitter: true,
-		Min:    100 * time.Millisecond,
-		Max:    1 * time.Hour,
-	}
-}
 
 type RelayConfig struct {
 	ChainID                *utils.Big  `json:"chainID"`
