@@ -23,6 +23,7 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 		errored        bool
 		upkeepID       *big.Int
 		upkeepCfg      LogTriggerConfig
+		hasFilter      bool
 		cfgUpdateBlock uint64
 		mockPoller     bool
 		unregister     bool
@@ -35,6 +36,7 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 				ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{1, 2, 3, 4}, 20)),
 				Topic0:          common.BytesToHash(common.LeftPadBytes([]byte{1, 2, 3, 4}, 32)),
 			},
+			false,
 			uint64(1),
 			true,
 			false,
@@ -44,6 +46,7 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 			true,
 			big.NewInt(111),
 			LogTriggerConfig{},
+			false,
 			uint64(0),
 			false,
 			false,
@@ -56,6 +59,7 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 				ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{}, 20)),
 				Topic0:          common.BytesToHash(common.LeftPadBytes([]byte{}, 32)),
 			},
+			false,
 			uint64(2),
 			false,
 			false,
@@ -68,6 +72,7 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 				ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{1, 2, 3, 4}, 20)),
 				Topic0:          common.BytesToHash(common.LeftPadBytes([]byte{1, 2, 3, 4}, 32)),
 			},
+			true,
 			uint64(0),
 			true,
 			false,
@@ -80,23 +85,25 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 				ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{1, 2, 3, 4}, 20)),
 				Topic0:          common.BytesToHash(common.LeftPadBytes([]byte{1, 2, 3, 4}, 32)),
 			},
+			true,
 			uint64(2),
 			true,
 			true,
 		},
 	}
 
-	mp := new(mocks.LogPoller)
-	mp.On("RegisterFilter", mock.Anything).Return(nil)
-	mp.On("UnregisterFilter", mock.Anything).Return(nil)
-	mp.On("LatestBlock", mock.Anything).Return(int64(0), nil)
-	mp.On("ReplayAsync", mock.Anything).Return(nil)
-	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
+	lp := new(mocks.LogPoller)
+	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	lp.On("UnregisterFilter", mock.Anything).Return(nil)
+	lp.On("LatestBlock", mock.Anything).Return(int64(0), nil)
+	lp.On("ReplayAsync", mock.Anything).Return(nil)
+	p := NewLogProvider(logger.TestLogger(t), lp, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
+			lp.On("HasFilter", mock.Anything).Return(tc.hasFilter)
 			err := p.RegisterFilter(ctx, FilterOptions{
 				UpkeepID:      tc.upkeepID,
 				TriggerConfig: tc.upkeepCfg,
