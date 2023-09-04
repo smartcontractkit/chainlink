@@ -131,8 +131,11 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 		// New chain, backfill from start
 		backfillBlock = 1
 	}
-	// Exploratory: Optimise to do backfill from ufilter.configUpdateBlock
-	// if it is not too old
+	if int64(ufilter.configUpdateBlock) > backfillBlock {
+		// backfill from config update block in case it is not too old
+		backfillBlock = int64(ufilter.configUpdateBlock)
+	}
+	// NOTE: replys are planned to be done as part of RegisterFilter within logpoller
 	p.poller.ReplayAsync(backfillBlock)
 
 	return nil
