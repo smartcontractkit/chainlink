@@ -10,8 +10,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-
-	utils2 "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -22,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions/vrfv2_constants"
+	utils2 "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
 var (

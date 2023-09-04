@@ -2,16 +2,18 @@ package smoke
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_constants"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"math/big"
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_constants"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 
 func TestVRFv2PlusBilling(t *testing.T) {
@@ -23,8 +25,12 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		WithCLNodes(1).
 		WithFunding(vrfv2plus_constants.ChainlinkNodeFundingAmountEth).
 		Build()
-
 	require.NoError(t, err, "error creating test env")
+	t.Cleanup(func() {
+		if err := env.Cleanup(); err != nil {
+			l.Error().Err(err).Msg("Error cleaning up test environment")
+		}
+	})
 
 	env.ParallelTransactions(true)
 
@@ -51,6 +57,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		subBalanceBeforeRequest := subscription.Balance
 
 		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(job.Job.Data.ID)
+		require.NoError(t, err, "error reading job runs")
 
 		// test and assert
 		err = vrfv2PlusContracts.LoadTestConsumer.RequestRandomness(
