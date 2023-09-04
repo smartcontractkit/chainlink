@@ -28,9 +28,14 @@ var (
 	_ = abi.ConvertType
 )
 
+type CommonAddressAndWeight struct {
+	Addr   common.Address
+	Weight uint64
+}
+
 var ErroredVerifierMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"latestConfigDetails\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"latestConfigDigestAndEpoch\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"},{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"},{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"\",\"type\":\"bytes32[]\"},{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"name\":\"setConfig\",\"outputs\":[],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"interfaceId\",\"type\":\"bytes4\"}],\"name\":\"supportsInterface\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"verify\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}]",
-	Bin: "0x608060405234801561001057600080fd5b506107b1806100206000396000f3fe608060405234801561001057600080fd5b50600436106100675760003560e01c806344a0b2ad1161005057806344a0b2ad146100f6578063b70d929d1461010b578063e84f128e1461014157600080fd5b806301ffc9a71461006c5780633d3ac1b5146100d6575b600080fd5b6100c161007a366004610361565b7fffffffff00000000000000000000000000000000000000000000000000000000167f3d3ac1b5000000000000000000000000000000000000000000000000000000001490565b60405190151581526020015b60405180910390f35b6100e96100e43660046104df565b610177565b6040516100cd919061052d565b6101096101043660046106b3565b6101e1565b005b61011e61011936600461078b565b610243565b604080519315158452602084019290925263ffffffff16908201526060016100cd565b61015461014f36600461078b565b6102d2565b6040805163ffffffff9485168152939092166020840152908201526060016100cd565b6040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601060248201527f4661696c656420746f207665726966790000000000000000000000000000000060448201526060906064015b60405180910390fd5b6040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601460248201527f4661696c656420746f2073657420636f6e66696700000000000000000000000060448201526064016101d8565b60008060006040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016101d8906020808252602c908201527f4661696c656420746f20676574206c617465737420636f6e666967206469676560408201527f737420616e642065706f63680000000000000000000000000000000000000000606082015260800190565b60008060006040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016101d89060208082526023908201527f4661696c656420746f20676574206c617465737420636f6e666967206465746160408201527f696c730000000000000000000000000000000000000000000000000000000000606082015260800190565b60006020828403121561037357600080fd5b81357fffffffff00000000000000000000000000000000000000000000000000000000811681146103a357600080fd5b9392505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016810167ffffffffffffffff81118282101715610420576104206103aa565b604052919050565b600082601f83011261043957600080fd5b813567ffffffffffffffff811115610453576104536103aa565b61048460207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f840116016103d9565b81815284602083860101111561049957600080fd5b816020850160208301376000918101602001919091529392505050565b803573ffffffffffffffffffffffffffffffffffffffff811681146104da57600080fd5b919050565b600080604083850312156104f257600080fd5b823567ffffffffffffffff81111561050957600080fd5b61051585828601610428565b925050610524602084016104b6565b90509250929050565b600060208083528351808285015260005b8181101561055a5785810183015185820160400152820161053e565b5060006040828601015260407fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8301168501019250505092915050565b600067ffffffffffffffff8211156105b3576105b36103aa565b5060051b60200190565b600082601f8301126105ce57600080fd5b813560206105e36105de83610599565b6103d9565b82815260059290921b8401810191818101908684111561060257600080fd5b8286015b8481101561062457610617816104b6565b8352918301918301610606565b509695505050505050565b600082601f83011261064057600080fd5b813560206106506105de83610599565b82815260059290921b8401810191818101908684111561066f57600080fd5b8286015b848110156106245780358352918301918301610673565b803560ff811681146104da57600080fd5b803567ffffffffffffffff811681146104da57600080fd5b600080600080600080600060e0888a0312156106ce57600080fd5b87359650602088013567ffffffffffffffff808211156106ed57600080fd5b6106f98b838c016105bd565b975060408a013591508082111561070f57600080fd5b61071b8b838c0161062f565b965061072960608b0161068a565b955060808a013591508082111561073f57600080fd5b61074b8b838c01610428565b945061075960a08b0161069b565b935060c08a013591508082111561076f57600080fd5b5061077c8a828b01610428565b91505092959891949750929550565b60006020828403121561079d57600080fd5b503591905056fea164736f6c6343000810000a",
+	ABI: "[{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"activateConfig\",\"outputs\":[],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"activateFeed\",\"outputs\":[],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"},{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"deactivateConfig\",\"outputs\":[],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"deactivateFeed\",\"outputs\":[],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"latestConfigDetails\",\"outputs\":[{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"},{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"},{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"}],\"name\":\"latestConfigDigestAndEpoch\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"},{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"},{\"internalType\":\"uint32\",\"name\":\"\",\"type\":\"uint32\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"},{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"\",\"type\":\"bytes32[]\"},{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"weight\",\"type\":\"uint64\"}],\"internalType\":\"structCommon.AddressAndWeight[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"name\":\"setConfig\",\"outputs\":[],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes32\",\"name\":\"\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"\",\"type\":\"uint256\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"},{\"internalType\":\"address[]\",\"name\":\"\",\"type\":\"address[]\"},{\"internalType\":\"bytes32[]\",\"name\":\"\",\"type\":\"bytes32[]\"},{\"internalType\":\"uint8\",\"name\":\"\",\"type\":\"uint8\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"},{\"internalType\":\"uint64\",\"name\":\"\",\"type\":\"uint64\"},{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"},{\"components\":[{\"internalType\":\"address\",\"name\":\"addr\",\"type\":\"address\"},{\"internalType\":\"uint64\",\"name\":\"weight\",\"type\":\"uint64\"}],\"internalType\":\"structCommon.AddressAndWeight[]\",\"name\":\"\",\"type\":\"tuple[]\"}],\"name\":\"setConfigFromSource\",\"outputs\":[],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes4\",\"name\":\"interfaceId\",\"type\":\"bytes4\"}],\"name\":\"supportsInterface\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"\",\"type\":\"bool\"}],\"stateMutability\":\"pure\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"},{\"internalType\":\"address\",\"name\":\"\",\"type\":\"address\"}],\"name\":\"verify\",\"outputs\":[{\"internalType\":\"bytes\",\"name\":\"\",\"type\":\"bytes\"}],\"stateMutability\":\"pure\",\"type\":\"function\"}]",
+	Bin: "0x608060405234801561001057600080fd5b50610c00806100206000396000f3fe608060405234801561001057600080fd5b50600436106100be5760003560e01c8063b70d929d11610076578063e84f128e1161005b578063e84f128e146101d1578063f010722114610207578063f84cf58e1461021a57600080fd5b8063b70d929d14610188578063ded6307c146101be57600080fd5b80633dd86430116100a75780633dd864301461014d578063564a0a7a1461016257806394d959801461017557600080fd5b806301ffc9a7146100c35780633d3ac1b51461012d575b600080fd5b6101186100d136600461059a565b7fffffffff00000000000000000000000000000000000000000000000000000000167f3d3ac1b5000000000000000000000000000000000000000000000000000000001490565b60405190151581526020015b60405180910390f35b61014061013b366004610741565b610228565b604051610124919061078f565b61016061015b3660046107fb565b610292565b005b6101606101703660046107fb565b6102f4565b610160610183366004610814565b610356565b61019b6101963660046107fb565b6103b8565b604080519315158452602084019290925263ffffffff1690820152606001610124565b6101606101cc366004610814565b610447565b6101e46101df3660046107fb565b6104a9565b6040805163ffffffff948516815293909216602084015290820152606001610124565b6101606102153660046109dd565b610538565b610160610215366004610ada565b6040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601060248201527f4661696c656420746f207665726966790000000000000000000000000000000060448201526060906064015b60405180910390fd5b6040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601760248201527f4661696c656420746f20616374697661746520666565640000000000000000006044820152606401610289565b6040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601960248201527f4661696c656420746f20646561637469766174652066656564000000000000006044820152606401610289565b6040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601b60248201527f4661696c656420746f206465616374697661746520636f6e66696700000000006044820152606401610289565b60008060006040517f08c379a0000000000000000000000000000000000000000000000000000000008152600401610289906020808252602c908201527f4661696c656420746f20676574206c617465737420636f6e666967206469676560408201527f737420616e642065706f63680000000000000000000000000000000000000000606082015260800190565b6040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601960248201527f4661696c656420746f20616374697661746520636f6e666967000000000000006044820152606401610289565b60008060006040517f08c379a00000000000000000000000000000000000000000000000000000000081526004016102899060208082526023908201527f4661696c656420746f20676574206c617465737420636f6e666967206465746160408201527f696c730000000000000000000000000000000000000000000000000000000000606082015260800190565b6040517f08c379a000000000000000000000000000000000000000000000000000000000815260206004820152601460248201527f4661696c656420746f2073657420636f6e6669670000000000000000000000006044820152606401610289565b6000602082840312156105ac57600080fd5b81357fffffffff00000000000000000000000000000000000000000000000000000000811681146105dc57600080fd5b9392505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fd5b6040805190810167ffffffffffffffff81118282101715610635576106356105e3565b60405290565b604051601f82017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe016810167ffffffffffffffff81118282101715610682576106826105e3565b604052919050565b600082601f83011261069b57600080fd5b813567ffffffffffffffff8111156106b5576106b56105e3565b6106e660207fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8401160161063b565b8181528460208386010111156106fb57600080fd5b816020850160208301376000918101602001919091529392505050565b803573ffffffffffffffffffffffffffffffffffffffff8116811461073c57600080fd5b919050565b6000806040838503121561075457600080fd5b823567ffffffffffffffff81111561076b57600080fd5b6107778582860161068a565b92505061078660208401610718565b90509250929050565b600060208083528351808285015260005b818110156107bc578581018301518582016040015282016107a0565b5060006040828601015260407fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0601f8301168501019250505092915050565b60006020828403121561080d57600080fd5b5035919050565b6000806040838503121561082757600080fd5b50508035926020909101359150565b600067ffffffffffffffff821115610850576108506105e3565b5060051b60200190565b600082601f83011261086b57600080fd5b8135602061088061087b83610836565b61063b565b82815260059290921b8401810191818101908684111561089f57600080fd5b8286015b848110156108c1576108b481610718565b83529183019183016108a3565b509695505050505050565b600082601f8301126108dd57600080fd5b813560206108ed61087b83610836565b82815260059290921b8401810191818101908684111561090c57600080fd5b8286015b848110156108c15780358352918301918301610910565b803560ff8116811461073c57600080fd5b803567ffffffffffffffff8116811461073c57600080fd5b600082601f83011261096157600080fd5b8135602061097161087b83610836565b82815260069290921b8401810191818101908684111561099057600080fd5b8286015b848110156108c157604081890312156109ad5760008081fd5b6109b5610612565b6109be82610718565b81526109cb858301610938565b81860152835291830191604001610994565b600080600080600080600080610100898b0312156109fa57600080fd5b88359750602089013567ffffffffffffffff80821115610a1957600080fd5b610a258c838d0161085a565b985060408b0135915080821115610a3b57600080fd5b610a478c838d016108cc565b9750610a5560608c01610927565b965060808b0135915080821115610a6b57600080fd5b610a778c838d0161068a565b9550610a8560a08c01610938565b945060c08b0135915080821115610a9b57600080fd5b610aa78c838d0161068a565b935060e08b0135915080821115610abd57600080fd5b50610aca8b828c01610950565b9150509295985092959890939650565b6000806000806000806000806000806101408b8d031215610afa57600080fd5b8a35995060208b01359850610b1160408c01610718565b975060608b013567ffffffffffffffff80821115610b2e57600080fd5b610b3a8e838f0161085a565b985060808d0135915080821115610b5057600080fd5b610b5c8e838f016108cc565b9750610b6a60a08e01610927565b965060c08d0135915080821115610b8057600080fd5b610b8c8e838f0161068a565b9550610b9a60e08e01610938565b94506101008d0135915080821115610bb157600080fd5b610bbd8e838f0161068a565b93506101208d0135915080821115610bd457600080fd5b50610be18d828e01610950565b9150509295989b9194979a509295985056fea164736f6c6343000810000a",
 }
 
 var ErroredVerifierABI = ErroredVerifierMetaData.ABI
@@ -169,6 +174,86 @@ func (_ErroredVerifier *ErroredVerifierTransactorRaw) Transact(opts *bind.Transa
 	return _ErroredVerifier.Contract.contract.Transact(opts, method, params...)
 }
 
+func (_ErroredVerifier *ErroredVerifierCaller) ActivateConfig(opts *bind.CallOpts, arg0 [32]byte, arg1 [32]byte) error {
+	var out []interface{}
+	err := _ErroredVerifier.contract.Call(opts, &out, "activateConfig", arg0, arg1)
+
+	if err != nil {
+		return err
+	}
+
+	return err
+
+}
+
+func (_ErroredVerifier *ErroredVerifierSession) ActivateConfig(arg0 [32]byte, arg1 [32]byte) error {
+	return _ErroredVerifier.Contract.ActivateConfig(&_ErroredVerifier.CallOpts, arg0, arg1)
+}
+
+func (_ErroredVerifier *ErroredVerifierCallerSession) ActivateConfig(arg0 [32]byte, arg1 [32]byte) error {
+	return _ErroredVerifier.Contract.ActivateConfig(&_ErroredVerifier.CallOpts, arg0, arg1)
+}
+
+func (_ErroredVerifier *ErroredVerifierCaller) ActivateFeed(opts *bind.CallOpts, arg0 [32]byte) error {
+	var out []interface{}
+	err := _ErroredVerifier.contract.Call(opts, &out, "activateFeed", arg0)
+
+	if err != nil {
+		return err
+	}
+
+	return err
+
+}
+
+func (_ErroredVerifier *ErroredVerifierSession) ActivateFeed(arg0 [32]byte) error {
+	return _ErroredVerifier.Contract.ActivateFeed(&_ErroredVerifier.CallOpts, arg0)
+}
+
+func (_ErroredVerifier *ErroredVerifierCallerSession) ActivateFeed(arg0 [32]byte) error {
+	return _ErroredVerifier.Contract.ActivateFeed(&_ErroredVerifier.CallOpts, arg0)
+}
+
+func (_ErroredVerifier *ErroredVerifierCaller) DeactivateConfig(opts *bind.CallOpts, arg0 [32]byte, arg1 [32]byte) error {
+	var out []interface{}
+	err := _ErroredVerifier.contract.Call(opts, &out, "deactivateConfig", arg0, arg1)
+
+	if err != nil {
+		return err
+	}
+
+	return err
+
+}
+
+func (_ErroredVerifier *ErroredVerifierSession) DeactivateConfig(arg0 [32]byte, arg1 [32]byte) error {
+	return _ErroredVerifier.Contract.DeactivateConfig(&_ErroredVerifier.CallOpts, arg0, arg1)
+}
+
+func (_ErroredVerifier *ErroredVerifierCallerSession) DeactivateConfig(arg0 [32]byte, arg1 [32]byte) error {
+	return _ErroredVerifier.Contract.DeactivateConfig(&_ErroredVerifier.CallOpts, arg0, arg1)
+}
+
+func (_ErroredVerifier *ErroredVerifierCaller) DeactivateFeed(opts *bind.CallOpts, arg0 [32]byte) error {
+	var out []interface{}
+	err := _ErroredVerifier.contract.Call(opts, &out, "deactivateFeed", arg0)
+
+	if err != nil {
+		return err
+	}
+
+	return err
+
+}
+
+func (_ErroredVerifier *ErroredVerifierSession) DeactivateFeed(arg0 [32]byte) error {
+	return _ErroredVerifier.Contract.DeactivateFeed(&_ErroredVerifier.CallOpts, arg0)
+}
+
+func (_ErroredVerifier *ErroredVerifierCallerSession) DeactivateFeed(arg0 [32]byte) error {
+	return _ErroredVerifier.Contract.DeactivateFeed(&_ErroredVerifier.CallOpts, arg0)
+}
+
 func (_ErroredVerifier *ErroredVerifierCaller) LatestConfigDetails(opts *bind.CallOpts, arg0 [32]byte) (uint32, uint32, [32]byte, error) {
 	var out []interface{}
 	err := _ErroredVerifier.contract.Call(opts, &out, "latestConfigDetails", arg0)
@@ -217,9 +302,9 @@ func (_ErroredVerifier *ErroredVerifierCallerSession) LatestConfigDigestAndEpoch
 	return _ErroredVerifier.Contract.LatestConfigDigestAndEpoch(&_ErroredVerifier.CallOpts, arg0)
 }
 
-func (_ErroredVerifier *ErroredVerifierCaller) SetConfig(opts *bind.CallOpts, arg0 [32]byte, arg1 []common.Address, arg2 [][32]byte, arg3 uint8, arg4 []byte, arg5 uint64, arg6 []byte) error {
+func (_ErroredVerifier *ErroredVerifierCaller) SetConfig(opts *bind.CallOpts, arg0 [32]byte, arg1 []common.Address, arg2 [][32]byte, arg3 uint8, arg4 []byte, arg5 uint64, arg6 []byte, arg7 []CommonAddressAndWeight) error {
 	var out []interface{}
-	err := _ErroredVerifier.contract.Call(opts, &out, "setConfig", arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+	err := _ErroredVerifier.contract.Call(opts, &out, "setConfig", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 
 	if err != nil {
 		return err
@@ -229,12 +314,32 @@ func (_ErroredVerifier *ErroredVerifierCaller) SetConfig(opts *bind.CallOpts, ar
 
 }
 
-func (_ErroredVerifier *ErroredVerifierSession) SetConfig(arg0 [32]byte, arg1 []common.Address, arg2 [][32]byte, arg3 uint8, arg4 []byte, arg5 uint64, arg6 []byte) error {
-	return _ErroredVerifier.Contract.SetConfig(&_ErroredVerifier.CallOpts, arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+func (_ErroredVerifier *ErroredVerifierSession) SetConfig(arg0 [32]byte, arg1 []common.Address, arg2 [][32]byte, arg3 uint8, arg4 []byte, arg5 uint64, arg6 []byte, arg7 []CommonAddressAndWeight) error {
+	return _ErroredVerifier.Contract.SetConfig(&_ErroredVerifier.CallOpts, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
 }
 
-func (_ErroredVerifier *ErroredVerifierCallerSession) SetConfig(arg0 [32]byte, arg1 []common.Address, arg2 [][32]byte, arg3 uint8, arg4 []byte, arg5 uint64, arg6 []byte) error {
-	return _ErroredVerifier.Contract.SetConfig(&_ErroredVerifier.CallOpts, arg0, arg1, arg2, arg3, arg4, arg5, arg6)
+func (_ErroredVerifier *ErroredVerifierCallerSession) SetConfig(arg0 [32]byte, arg1 []common.Address, arg2 [][32]byte, arg3 uint8, arg4 []byte, arg5 uint64, arg6 []byte, arg7 []CommonAddressAndWeight) error {
+	return _ErroredVerifier.Contract.SetConfig(&_ErroredVerifier.CallOpts, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7)
+}
+
+func (_ErroredVerifier *ErroredVerifierCaller) SetConfigFromSource(opts *bind.CallOpts, arg0 [32]byte, arg1 *big.Int, arg2 common.Address, arg3 []common.Address, arg4 [][32]byte, arg5 uint8, arg6 []byte, arg7 uint64, arg8 []byte, arg9 []CommonAddressAndWeight) error {
+	var out []interface{}
+	err := _ErroredVerifier.contract.Call(opts, &out, "setConfigFromSource", arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
+
+	if err != nil {
+		return err
+	}
+
+	return err
+
+}
+
+func (_ErroredVerifier *ErroredVerifierSession) SetConfigFromSource(arg0 [32]byte, arg1 *big.Int, arg2 common.Address, arg3 []common.Address, arg4 [][32]byte, arg5 uint8, arg6 []byte, arg7 uint64, arg8 []byte, arg9 []CommonAddressAndWeight) error {
+	return _ErroredVerifier.Contract.SetConfigFromSource(&_ErroredVerifier.CallOpts, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
+}
+
+func (_ErroredVerifier *ErroredVerifierCallerSession) SetConfigFromSource(arg0 [32]byte, arg1 *big.Int, arg2 common.Address, arg3 []common.Address, arg4 [][32]byte, arg5 uint8, arg6 []byte, arg7 uint64, arg8 []byte, arg9 []CommonAddressAndWeight) error {
+	return _ErroredVerifier.Contract.SetConfigFromSource(&_ErroredVerifier.CallOpts, arg0, arg1, arg2, arg3, arg4, arg5, arg6, arg7, arg8, arg9)
 }
 
 func (_ErroredVerifier *ErroredVerifierCaller) SupportsInterface(opts *bind.CallOpts, interfaceId [4]byte) (bool, error) {
@@ -286,11 +391,21 @@ func (_ErroredVerifier *ErroredVerifier) Address() common.Address {
 }
 
 type ErroredVerifierInterface interface {
+	ActivateConfig(opts *bind.CallOpts, arg0 [32]byte, arg1 [32]byte) error
+
+	ActivateFeed(opts *bind.CallOpts, arg0 [32]byte) error
+
+	DeactivateConfig(opts *bind.CallOpts, arg0 [32]byte, arg1 [32]byte) error
+
+	DeactivateFeed(opts *bind.CallOpts, arg0 [32]byte) error
+
 	LatestConfigDetails(opts *bind.CallOpts, arg0 [32]byte) (uint32, uint32, [32]byte, error)
 
 	LatestConfigDigestAndEpoch(opts *bind.CallOpts, arg0 [32]byte) (bool, [32]byte, uint32, error)
 
-	SetConfig(opts *bind.CallOpts, arg0 [32]byte, arg1 []common.Address, arg2 [][32]byte, arg3 uint8, arg4 []byte, arg5 uint64, arg6 []byte) error
+	SetConfig(opts *bind.CallOpts, arg0 [32]byte, arg1 []common.Address, arg2 [][32]byte, arg3 uint8, arg4 []byte, arg5 uint64, arg6 []byte, arg7 []CommonAddressAndWeight) error
+
+	SetConfigFromSource(opts *bind.CallOpts, arg0 [32]byte, arg1 *big.Int, arg2 common.Address, arg3 []common.Address, arg4 [][32]byte, arg5 uint8, arg6 []byte, arg7 uint64, arg8 []byte, arg9 []CommonAddressAndWeight) error
 
 	SupportsInterface(opts *bind.CallOpts, interfaceId [4]byte) (bool, error)
 
