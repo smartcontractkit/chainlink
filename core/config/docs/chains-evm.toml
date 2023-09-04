@@ -47,7 +47,7 @@ FlagsContractAddress = '0xae4E781a6218A8031764928E88d457937A954fC3' # Example
 LinkContractAddress = '0x538aAaB4ea120b2bC2fe5D296852D948F07D849e' # Example
 # **ADVANCED**
 # LogBackfillBatchSize sets the batch size for calling FilterLogs when we backfill missing logs.
-LogBackfillBatchSize = 1000 # Default
+LogBackfillBatchSize = 100 # Default
 # **ADVANCED**
 # LogPollInterval works in conjunction with Feature.LogPoller. Controls how frequently the log poller polls for logs. Defaults to the block production rate.
 LogPollInterval = '15s' # Default
