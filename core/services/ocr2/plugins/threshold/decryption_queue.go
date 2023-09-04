@@ -56,7 +56,7 @@ func NewDecryptionQueue(maxQueueLength int, maxCiphertextBytes int, maxCiphertex
 		make(map[string]pendingRequest),
 		make(map[string]completedRequest),
 		sync.RWMutex{},
-		lggr.Named("decryptionQueue"),
+		lggr.Named("DecryptionQueue"),
 	}
 	return &dq
 }

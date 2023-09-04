@@ -300,11 +300,11 @@ var (
 		ChainID:                   80001,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
-		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		Timeout:                   blockchain.JSONStrDuration{Duration: 3 * time.Minute},
 		MinimumConfirmations:      1,
-		GasEstimationBuffer:       1000,
+		GasEstimationBuffer:       100000,
 		FinalityDepth:             550,
-		DefaultGasLimit:           6000000,
+		DefaultGasLimit:           8000000,
 	}
 
 	AvalancheMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
@@ -558,17 +558,18 @@ func setKeys(prefix string, network *blockchain.EVMNetwork) {
 	}
 
 	envVar := fmt.Sprintf("%s_KEYS", prefix)
-	keysEnv, err := utils.GetEnv(envVar)
+	keysFromEnv, err := utils.GetEnv(envVar)
 	if err != nil {
 		log.Fatal().Err(err).Str("env var", envVar).Msg("Error getting env var")
 	}
-	if keysEnv == "" {
-		keys := strings.Split(os.Getenv("EVM_KEYS"), ",")
+	if keysFromEnv == "" {
 		log.Warn().Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_KEYS'", envVar))
-		network.PrivateKeys = keys
-		return
+		keysFromEnv = os.Getenv("EVM_KEYS")
 	}
-	keys := strings.Split(keysEnv, ",")
+	keys := strings.Split(keysFromEnv, ",")
+	for i, key := range keys {
+		keys[i] = strings.TrimPrefix(key, "0x")
+	}
 	network.PrivateKeys = keys
 
 	// log public keys for debugging
