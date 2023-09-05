@@ -93,4 +93,6 @@ contracts/yarn.lock
 # Ignore DevSpace cache and log folder
 .devspace/
 
-core/scripts/ccip/json/credentials
+/core/scripts/ccip/json/credentials
+/core/scripts/ccip/revert-reason/bin/ccip-revert-reason
+

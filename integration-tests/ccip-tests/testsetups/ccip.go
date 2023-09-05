@@ -21,23 +21,20 @@ import (
 	mockserver_cfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 
-	ccipnode "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/types/config/node"
-
 	integrationactions "github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts/laneconfig"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts/laneconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testreporters"
+	ccipnode "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/types/config/node"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
 const (

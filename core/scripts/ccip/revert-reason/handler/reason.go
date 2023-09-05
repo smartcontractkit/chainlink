@@ -22,91 +22,101 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
 )
 
 // RevertReasonFromErrorCodeString attempts to decode an error code string
-func (h *BaseHandler) RevertReasonFromErrorCodeString(errorCodeString string) string {
+func (h *BaseHandler) RevertReasonFromErrorCodeString(errorCodeString string) (string, error) {
 	errorCodeString = strings.TrimPrefix(errorCodeString, "0x")
-	return decodeErrorStringFromABI(errorCodeString, getAllABIs())
+	return DecodeErrorStringFromABI(errorCodeString)
 }
 
 // RevertReasonFromTx attempts to fetch more info on failed TX
-func (h *BaseHandler) RevertReasonFromTx(txHash string) string {
+func (h *BaseHandler) RevertReasonFromTx(txHash string) (string, error) {
 	// Need a node URL
 	// NOTE: this node needs to run in archive mode
 	ethUrl := h.cfg.NodeURL
 	if ethUrl == "" {
-		panicErr(errors.New("You must define ETH_NODE env variable"))
+		panicErr(errors.New("you must define ETH_NODE env variable"))
 	}
 	requester := h.cfg.FromAddress
 
-	ec, ethErr := ethclient.Dial(ethUrl)
-	panicErr(ethErr)
-	errorString, _ := getErrorForTx(ec, txHash, requester)
-	// Some nodes prepend "Reverted " and we also remove the 0x
-	trimmed := strings.TrimPrefix(errorString, "Reverted ")[2:]
+	ec, err := ethclient.Dial(ethUrl)
+	panicErr(err)
+	errorString, _ := GetErrorForTx(ec, txHash, requester)
 
-	contractABIs := getAllABIs()
-
-	return decodeErrorStringFromABI(trimmed, contractABIs)
+	return DecodeErrorStringFromABI(errorString)
 }
 
-func decodeErrorStringFromABI(errorString string, contractABIs []string) string {
-	builder := strings.Builder{}
+func DecodeErrorStringFromABI(errorString string) (string, error) {
+	contractABIs := getAllABIs()
+
+	// Sanitize error string
+	errorString = strings.TrimPrefix(errorString, "Reverted ")
+	errorString = strings.TrimPrefix(errorString, "0x")
 
 	data, err := hex.DecodeString(errorString)
-	panicErr(err)
+	if err != nil {
+		return "", errors.Wrap(err, "error decoding error string")
+	}
 
 	for _, contractABI := range contractABIs {
 		parsedAbi, err2 := abi.JSON(strings.NewReader(contractABI))
-		panicErr(err2)
+		if err2 != nil {
+			return "", errors.Wrap(err2, "error loading ABI")
+		}
 
-		for k, abiError := range parsedAbi.Errors {
+		for errorName, abiError := range parsedAbi.Errors {
 			if bytes.Equal(data[:4], abiError.ID.Bytes()[:4]) {
 				// Found a matching error
 				v, err3 := abiError.Unpack(data)
-				panicErr(err3)
-				builder.WriteString(fmt.Sprintf("Error is \"%v\" args %v\n", k, v))
-				return builder.String()
+				if err3 != nil {
+					return "", errors.Wrap(err3, "error unpacking data")
+				}
+
+				// If exec error, the actual error is within the revert reason
+				if errorName == "ExecutionError" || errorName == "TokenRateLimitError" {
+					// Get the inner type, which is `bytes`
+					fmt.Printf("Error is \"%v\" inner error: ", errorName)
+					errorBytes := v.([]interface{})[0].([]byte)
+					return DecodeErrorStringFromABI(hex.EncodeToString(errorBytes))
+				}
+				return fmt.Sprintf("error is \"%v\" args %v\n", errorName, v), nil
 			}
 		}
 	}
 
 	if len(errorString) > 8 && errorString[:8] == "4e487b71" {
-		builder.WriteString("Decoded error: Assertion failure\n")
+		fmt.Println("Assertion failure")
 		indicator := errorString[len(errorString)-2:]
 		switch indicator {
 		case "01":
-			builder.WriteString("If you call assert with an argument that evaluates to false.\n")
+			return fmt.Sprintf("If you call assert with an argument that evaluates to false."), nil
 		case "11":
-			builder.WriteString("If an arithmetic operation results in underflow or overflow outside of an unchecked { ... } block.\n")
+			return fmt.Sprintf("If an arithmetic operation results in underflow or overflow outside of an unchecked { ... } block."), nil
 		case "12":
-			builder.WriteString("If you divide or modulo by zero (e.g. 5 / 0 or 23 modulo 0).\n")
+			return fmt.Sprintf("If you divide or modulo by zero (e.g. 5 / 0 or 23 modulo 0)."), nil
 		case "21":
-			builder.WriteString("If you convert a value that is too big or negative into an enum type.\n")
+			return fmt.Sprintf("If you convert a value that is too big or negative into an enum type."), nil
 		case "31":
-			builder.WriteString("If you call .pop() on an empty array.\n")
+			return fmt.Sprintf("If you call .pop() on an empty array."), nil
 		case "32":
-			builder.WriteString("If you access an array, bytesN or an array slice at an out-of-bounds or negative index (i.e. x[i] where i >= x.length or i < 0).\n")
+			return fmt.Sprintf("If you access an array, bytesN or an array slice at an out-of-bounds or negative index (i.e. x[i] where i >= x.length or i < 0)."), nil
 		case "41":
-			builder.WriteString("If you allocate too much memory or create an array that is too large.\n")
+			return fmt.Sprintf("If you allocate too much memory or create an array that is too large."), nil
 		case "51":
-			builder.WriteString("If you call a zero-initialized variable of internal function type.\n")
+			return fmt.Sprintf("If you call a zero-initialized variable of internal function type."), nil
 		default:
-			builder.WriteString(fmt.Sprintf("This is a revert produced by an assertion failure. Exact code not found \"%s\"\n", indicator))
+			return fmt.Sprintf("This is a revert produced by an assertion failure. Exact code not found \"%s\"", indicator), nil
 		}
-		return builder.String()
 	}
 
 	stringErr, err := abi.UnpackRevert(data)
 	if err == nil {
-		builder.WriteString("String error thrown")
-		builder.WriteString(fmt.Sprintf("error: %s", stringErr))
-		return builder.String()
+		return fmt.Sprintf("string error: %s", stringErr), nil
 	}
 
-	builder.WriteString(fmt.Sprintf("Cannot match error with contract ABI. Error code \"%v\"\n", "trimmed"))
-	return builder.String()
+	return "", errors.Errorf("Cannot match error with contract ABI. Error code \"%v\"\n", errorString)
 }
 
 func getAllABIs() []string {
@@ -114,6 +124,7 @@ func getAllABIs() []string {
 		arm_contract.ARMContractABI,
 		lock_release_token_pool.LockReleaseTokenPoolABI,
 		burn_mint_token_pool.BurnMintTokenPoolABI,
+		usdc_token_pool.USDCTokenPoolABI,
 		commit_store.CommitStoreABI,
 		price_registry.PriceRegistryABI,
 		evm_2_evm_onramp.EVM2EVMOnRampABI,
@@ -122,11 +133,15 @@ func getAllABIs() []string {
 	}
 }
 
-func getErrorForTx(client *ethclient.Client, txHash string, requester string) (string, common.Address) {
+func GetErrorForTx(client *ethclient.Client, txHash string, requester string) (string, error) {
 	tx, _, err := client.TransactionByHash(context.Background(), common.HexToHash(txHash))
-	panicErr(err)
+	if err != nil {
+		return "", errors.Wrap(err, "error getting transaction from hash")
+	}
 	re, err := client.TransactionReceipt(context.Background(), common.HexToHash(txHash))
-	panicErr(err)
+	if err != nil {
+		return "", errors.Wrap(err, "error getting transaction receipt")
+	}
 
 	call := ethereum.CallMsg{
 		From:     common.HexToAddress(requester),
@@ -140,24 +155,28 @@ func getErrorForTx(client *ethclient.Client, txHash string, requester string) (s
 		panic("no error calling contract")
 	}
 
-	return parseError(err), *tx.To()
+	return parseError(err)
 }
 
-func parseError(txError error) string {
+func parseError(txError error) (string, error) {
 	b, err := json.Marshal(txError)
-	panicErr(err)
+	if err != nil {
+		return "", err
+	}
 	var callErr struct {
 		Code    int
 		Data    string `json:"data"`
 		Message string `json:"message"`
 	}
-	err = json.Unmarshal(b, &callErr)
-	panicErr(err)
+	if json.Unmarshal(b, &callErr) != nil {
+		return "", err
+	}
 
 	if callErr.Data == "" && strings.Contains(callErr.Message, "missing trie node") {
-		panic("Use an archive node")
+		return "", errors.Errorf("please use an archive node")
 	}
-	return callErr.Data
+
+	return callErr.Data, nil
 }
 
 func panicErr(err error) {

@@ -26,7 +26,9 @@ func Test_RevertReasonFromTx(t *testing.T) {
 			h := &BaseHandler{
 				cfg: tt.fields.cfg,
 			}
-			require.Equal(t, tt.expected, h.RevertReasonFromTx(tt.args.txHash))
+			got, err := h.RevertReasonFromTx(tt.args.txHash)
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, got)
 		})
 	}
 }
@@ -50,7 +52,7 @@ func Test_RevertReasonFromErrorCodeString(t *testing.T) {
 			args: args{
 				errorCodeString: "0x4e487b710000000000000000000000000000000000000000000000000000000000000032",
 			},
-			expected: "Decoded error: Assertion failure\nIf you access an array, bytesN or an array slice at an out-of-bounds or negative index (i.e. x[i] where i >= x.length or i < 0).\n",
+			expected: "If you access an array, bytesN or an array slice at an out-of-bounds or negative index (i.e. x[i] where i >= x.length or i < 0).",
 		},
 	}
 	for _, tt := range tests {
@@ -58,7 +60,9 @@ func Test_RevertReasonFromErrorCodeString(t *testing.T) {
 			h := &BaseHandler{
 				cfg: tt.fields.cfg,
 			}
-			require.Equal(t, tt.expected, h.RevertReasonFromErrorCodeString(tt.args.errorCodeString))
+			got, err := h.RevertReasonFromErrorCodeString(tt.args.errorCodeString)
+			require.NoError(t, err)
+			require.Equal(t, tt.expected, got)
 		})
 	}
 }

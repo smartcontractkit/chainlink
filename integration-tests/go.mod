@@ -21,7 +21,7 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chain-selectors v1.0.1
 	github.com/smartcontractkit/chainlink-env v0.36.0
-	github.com/smartcontractkit/chainlink-testing-framework v1.16.1-0.20230825001100-85c8b45d8005
+	github.com/smartcontractkit/chainlink-testing-framework v1.16.2
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20230828183543-6d0939746966
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230816220705-665e93233ae5
@@ -367,7 +367,7 @@ require (
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c // indirect
 	github.com/pressly/goose/v3 v3.15.0 // indirect
-	github.com/prometheus/alertmanager v0.25.0 // indirect
+	github.com/prometheus/alertmanager v0.25.1 // indirect
 	github.com/prometheus/client_golang v1.16.0 // indirect
 	github.com/prometheus/client_model v0.4.0 // indirect
 	github.com/prometheus/common v0.44.0 // indirect

@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipevents"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/hasher"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/observability"
@@ -110,12 +111,15 @@ func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyCha
 			lggr:                     execLggr,
 			sourceLP:                 sourceChain.LogPoller(),
 			destLP:                   destChain.LogPoller(),
+			sourceEvents:             ccipevents.NewLogPollerClient(sourceChain.LogPoller(), execLggr, sourceChain.Client()),
+			destEvents:               ccipevents.NewLogPollerClient(destChain.LogPoller(), execLggr, destChain.Client()),
 			onRamp:                   onRamp,
 			offRamp:                  offRamp,
 			commitStore:              commitStore,
 			sourcePriceRegistry:      sourcePriceRegistry,
 			sourceWrappedNativeToken: sourceWrappedNative,
 			destClient:               destChain.Client(),
+			sourceClient:             sourceChain.Client(),
 			destGasEstimator:         destChain.GasEstimator(),
 			leafHasher:               hasher.NewLeafHasher(offRampConfig.SourceChainSelector, offRampConfig.ChainSelector, onRamp.Address(), hasher.NewKeccakCtx()),
 		})
