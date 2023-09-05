@@ -432,6 +432,5 @@ func NewLegacyChainsWithChain(t testing.TB, ch evm.Chain, cfg evm.AppConfig) evm
 	m := map[string]evm.Chain{ch.ID().String(): ch}
 	legacyChains, err := evm.NewLegacyChains(cfg, m)
 	require.NoError(t, err)
-	legacyChains.SetDefault(ch)
 	return legacyChains
 }
