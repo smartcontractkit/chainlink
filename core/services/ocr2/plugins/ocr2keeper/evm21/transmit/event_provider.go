@@ -162,6 +162,7 @@ func (c *TransmitEventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keep
 func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller.Log) ([]ocr2keepers.TransmitEvent, error) {
 	vals := []ocr2keepers.TransmitEvent{}
 	visited := make(map[string]ocr2keepers.TransmitEvent)
+
 	for _, log := range logs {
 		k := c.logKey(log)
 		if _, ok := visited[k]; ok {
