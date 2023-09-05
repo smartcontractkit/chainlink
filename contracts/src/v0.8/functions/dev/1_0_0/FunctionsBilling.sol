@@ -20,7 +20,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   using FunctionsResponse for FunctionsResponse.Commitment;
   using FunctionsResponse for FunctionsResponse.FulfillResult;
 
-  uint32 private constant REASONABLE_GAS_PRICE_CEILING = 1_000_000;
+  uint56 private constant REASONABLE_GAS_PRICE_CEILING = 1_000_000_000_000_000; // 1 million wei
   // ================================================================
   // |                  Request Commitment state                    |
   // ================================================================
@@ -125,10 +125,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     return uint256(weiPerUnitLink);
   }
 
-  function _getJuelsPerGas(uint256 gasPriceGwei) private view returns (uint96) {
+  function _getJuelsPerGas(uint256 gasPriceWei) private view returns (uint96) {
     // (1e18 juels/link) * (wei/gas) / (wei/link) = juels per gas
     // There are only 1e9*1e18 = 1e27 juels in existence, should not exceed uint96 (2^96 ~ 7e28)
-    return SafeCast.toUint96((1e18 * gasPriceGwei) / getWeiPerUnitLink());
+    return SafeCast.toUint96((1e18 * gasPriceWei) / getWeiPerUnitLink());
   }
 
   // ================================================================
@@ -140,16 +140,16 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     uint64 subscriptionId,
     bytes calldata data,
     uint32 callbackGasLimit,
-    uint256 gasPriceGwei
+    uint256 gasPriceWei
   ) external view override returns (uint96) {
     _getRouter().isValidCallbackGasLimit(subscriptionId, callbackGasLimit);
     // Reasonable ceilings to prevent integer overflows
-    if (gasPriceGwei > REASONABLE_GAS_PRICE_CEILING) {
+    if (gasPriceWei > REASONABLE_GAS_PRICE_CEILING) {
       revert InvalidCalldata();
     }
     uint72 adminFee = getAdminFee();
     uint72 donFee = getDONFee(data);
-    return _calculateCostEstimate(callbackGasLimit, gasPriceGwei, donFee, adminFee);
+    return _calculateCostEstimate(callbackGasLimit, gasPriceWei, donFee, adminFee);
   }
 
   // @notice Estimate the cost in Juels of LINK
@@ -157,14 +157,14 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // Gas Price can be overestimated to account for flucuations between request and response time
   function _calculateCostEstimate(
     uint32 callbackGasLimit,
-    uint256 gasPriceGwei,
+    uint256 gasPriceWei,
     uint72 donFee,
     uint72 adminFee
   ) internal view returns (uint96) {
     uint256 executionGas = s_config.gasOverheadBeforeCallback + s_config.gasOverheadAfterCallback + callbackGasLimit;
 
-    uint256 gasPriceWithOverestimation = gasPriceGwei +
-      ((gasPriceGwei * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
+    uint256 gasPriceWithOverestimation = gasPriceWei +
+      ((gasPriceWei * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
     // @NOTE: Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
 
     uint96 juelsPerGas = _getJuelsPerGas(gasPriceWithOverestimation);
