@@ -383,7 +383,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			[]int64{600},
 		},
 		{
-			"lastRePollBlock starts at configUpdateBlock",
+			"lastRePollBlock starts at configUpdateBlock if higher than lastRePollBlock",
 			100,
 			5000,
 			nil,
@@ -394,6 +394,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 					topics: []common.Hash{
 						common.HexToHash("0x1"),
 					},
+					lastRePollBlock:   100,
 					configUpdateBlock: 500,
 				},
 			},
