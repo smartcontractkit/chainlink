@@ -280,16 +280,30 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 			if jb.OCR2OracleSpec.PluginType == Median {
 				var cfg medianconfig.PluginConfig
+				validatePipeline := func(s string) error {
+					feePipeline, err := pipeline.Parse(s)
+					if err != nil {
+						return err
+					}
+					if err2 := o.AssertBridgesExist(*feePipeline); err2 != nil {
+						return err2
+					}
+					return nil
+				}
+
 				err = json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
 				if err != nil {
 					return errors.Wrap(err, "failed to parse plugin config")
 				}
-				feePipeline, err := pipeline.Parse(cfg.JuelsPerFeeCoinPipeline)
-				if err != nil {
-					return err
+
+				if errFeePipeline := validatePipeline(cfg.JuelsPerFeeCoinPipeline); errFeePipeline != nil {
+					return errFeePipeline
 				}
-				if err2 := o.AssertBridgesExist(*feePipeline); err2 != nil {
-					return err2
+
+				if cfg.GasPricePipelineExists() {
+					if errGasPipeline := validatePipeline(cfg.GasPricePipeline); errGasPipeline != nil {
+						return errGasPipeline
+					}
 				}
 			}
 

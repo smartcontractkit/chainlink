@@ -16,7 +16,8 @@ func TestValidatePluginConfig(t *testing.T) {
 		{"foo", "foo"},
 	} {
 		t.Run(s.name, func(t *testing.T) {
-			assert.Error(t, ValidatePluginConfig(PluginConfig{JuelsPerFeeCoinPipeline: s.pipeline}))
+			config := PluginConfig{JuelsPerFeeCoinPipeline: s.pipeline}
+			assert.Error(t, config.ValidatePluginConfig())
 		})
 	}
 }

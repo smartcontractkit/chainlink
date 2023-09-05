@@ -23,7 +23,7 @@ func NewPlugin(lggr logger.Logger) *Plugin {
 	return &Plugin{Base: plugins.Base{Logger: lggr}, stop: make(utils.StopChan)}
 }
 
-func (p *Plugin) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin median.DataSource, errorLog loop.ErrorLog) (loop.ReportingPluginFactory, error) {
+func (p *Plugin) NewMedianFactory(ctx context.Context, provider types.MedianProvider, dataSource, juelsPerFeeCoin, gasPrice median.DataSource, errorLog loop.ErrorLog) (loop.ReportingPluginFactory, error) {
 	var ctxVals loop.ContextValues
 	ctxVals.SetValues(ctx)
 	lggr := logger.With(p.Logger, ctxVals.Args()...)
@@ -31,6 +31,7 @@ func (p *Plugin) NewMedianFactory(ctx context.Context, provider types.MedianProv
 		ContractTransmitter:       provider.MedianContract(),
 		DataSource:                dataSource,
 		JuelsPerFeeCoinDataSource: juelsPerFeeCoin,
+		GasPriceDataSource:        gasPrice,
 		Logger: logger.NewOCRWrapper(lggr, true, func(msg string) {
 			ctx, cancelFn := p.stop.NewCtx()
 			defer cancelFn()
