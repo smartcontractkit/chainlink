@@ -29,7 +29,9 @@ client_addr = "0x89D4b58D859a536D0B888ecD5093eF5FF9e4F977"
 subscription_id = 47
 sub_funds = 10
 
-functions_call_payload = "const response = await Functions.makeHttpRequest({ url: 'http://dummyjson.com/products/1' }); return Functions.encodeUint256(response.data.id)"
-#functions_call_payload = "return Functions.encodeString(JSON.stringify(secrets))"
+#functions_call_payload = "const response = await Functions.makeHttpRequest({ url: 'http://dummyjson.com/products/1' }); return Functions.encodeUint256(response.data.id)"
+functions_call_payload = "return Functions.encodeString(JSON.stringify(secrets))"
+secrets_slot_id = 0
+secrets_version = 1693945705
 # uncomment to upload new secrets to s4
 #secrets = "{\"ltsecret\": \"1\"}"

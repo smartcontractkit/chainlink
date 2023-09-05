@@ -37,6 +37,8 @@ type Common struct {
 	Receiver             string `toml:"receiver"`
 	FunctionsCallPayload string `toml:"functions_call_payload"`
 	Secrets              string `toml:"secrets"`
+	SecretsSlotID        uint8  `toml:"secrets_slot_id"`
+	SecretsVersionID     uint64 `toml:"secrets_version_id"`
 }
 
 type Funding struct {
