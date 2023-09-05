@@ -211,6 +211,7 @@ func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller
 		}
 
 		transmitEvent.Confirmations = latestBlock - int64(transmitEvent.TransmitBlock)
+
 		vals = append(vals, transmitEvent)
 		visited[k] = transmitEvent
 	}
