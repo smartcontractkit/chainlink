@@ -318,7 +318,7 @@ func (p *logEventProvider) updateFiltersLastPoll(entries []upkeepFilter) {
 	p.filterStore.UpdateFilters(func(orig, f upkeepFilter) upkeepFilter {
 		if f.lastPollBlock > orig.lastPollBlock {
 			orig.lastPollBlock = f.lastPollBlock
-			p.lggr.Debugw("Updated lastPollBlock", "lastPollBlock", f.lastPollBlock, "upkeepID", f.upkeepID)
+			// p.lggr.Debugw("Updated lastPollBlock", "lastPollBlock", f.lastPollBlock, "upkeepID", f.upkeepID)
 		}
 		return orig
 	}, entries...)
