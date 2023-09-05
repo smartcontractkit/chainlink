@@ -374,15 +374,15 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 	trigger2 := ocr2keepers.NewLogTrigger(570, common.HexToHash("0x1222d75217e2dd461cc77e4091c37abe76277430d97f1963a822b4e94ebb83fc"), extension2)
 
 	tests := []struct {
-		name               string
-		inputs             []ocr2keepers.UpkeepPayload
-		blocks             map[int64]string
-		latestBlock        ocr2keepers.BlockKey
-		results            []ocr2keepers.CheckResult
-		err                error
-		ethTxReceiptCalls  map[string]bool
-		receipts           map[string]*types.Receipt
-		ethTxReceiptErrors map[string]error
+		name          string
+		inputs        []ocr2keepers.UpkeepPayload
+		blocks        map[int64]string
+		latestBlock   ocr2keepers.BlockKey
+		results       []ocr2keepers.CheckResult
+		err           error
+		ethCalls      map[string]bool
+		receipts      map[string]*types.Receipt
+		ethCallErrors map[string]error
 	}{
 		{
 			name: "check upkeeps with different upkeep types",
@@ -452,11 +452,11 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 					LinkNative:             big.NewInt(0),
 				},
 			},
-			ethTxReceiptCalls: map[string]bool{
+			ethCalls: map[string]bool{
 				uid1.String(): true,
 			},
 			receipts: map[string]*types.Receipt{},
-			ethTxReceiptErrors: map[string]error{
+			ethCallErrors: map[string]error{
 				uid1.String(): fmt.Errorf("error"),
 			},
 		},
@@ -476,9 +476,9 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			client := new(evmClientMocks.Client)
 			for _, i := range tc.inputs {
 				uid := i.UpkeepID.String()
-				if tc.ethTxReceiptCalls[uid] {
+				if tc.ethCalls[uid] {
 					client.On("CallContext", mock.Anything, mock.Anything, "eth_getTransactionReceipt", common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651")).
-						Return(tc.ethTxReceiptErrors[uid]).Run(func(args mock.Arguments) {
+						Return(tc.ethCallErrors[uid]).Run(func(args mock.Arguments) {
 						receipt := tc.receipts[uid]
 						if receipt != nil {
 							res := args.Get(1).(*types.Receipt)
