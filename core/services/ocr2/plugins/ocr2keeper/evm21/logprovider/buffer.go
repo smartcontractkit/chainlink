@@ -1,6 +1,7 @@
 package logprovider
 
 import (
+	"encoding/hex"
 	"math/big"
 	"sort"
 	"sync"
@@ -8,6 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/ocr2keepers/pkg/v3/random"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 )
 
 var (
@@ -33,9 +36,46 @@ type fetchedBlock struct {
 	visited []fetchedLog
 }
 
+func (currentBlock *fetchedBlock) Append(lggr logger.Logger, fl fetchedLog, maxBlockLogs, maxUpkeepLogs int) (fetchedLog, bool) {
+	has, upkeepLogs := currentBlock.has(fl.upkeepID, fl.log)
+	if has {
+		// Skipping known logs
+		return fetchedLog{}, false
+	}
+	// lggr.Debugw("Adding log", "i", i, "blockBlock", currentBlock.blockNumber, "logBlock", log.BlockNumber, "id", id)
+	currentBlock.logs = append(currentBlock.logs, fl)
+
+	// drop logs if we reached limits.
+	if upkeepLogs+1 > maxUpkeepLogs {
+		// in case we have logs overflow for a particular upkeep, we drop a log of that upkeep,
+		// based on shared, random (per block) order of the logs in the block.
+		currentBlock.Sort()
+		var dropped fetchedLog
+		currentLogs := make([]fetchedLog, 0, len(currentBlock.logs)-1)
+		for _, l := range currentBlock.logs {
+			if dropped.upkeepID == nil && l.upkeepID.Cmp(fl.upkeepID) == 0 {
+				dropped = l
+				continue
+			}
+			currentLogs = append(currentLogs, l)
+		}
+		currentBlock.logs = currentLogs
+		return dropped, true
+	} else if len(currentBlock.logs) > maxBlockLogs {
+		// in case we have logs overflow in the buffer level, we drop a log based on
+		// shared, random (per block) order of the logs in the block.
+		currentBlock.Sort()
+		dropped := currentBlock.logs[0]
+		currentBlock.logs = currentBlock.logs[1:]
+		return dropped, true
+	}
+
+	return fetchedLog{}, true
+}
+
 // Has returns true if the block has the log,
 // and the number of logs for that upkeep in the block.
-func (b fetchedBlock) Has(id *big.Int, log logpoller.Log) (bool, int) {
+func (b fetchedBlock) has(id *big.Int, log logpoller.Log) (bool, int) {
 	allLogs := append(b.logs, b.visited...)
 	upkeepLogs := 0
 	for _, l := range allLogs {
@@ -60,6 +100,27 @@ func (b fetchedBlock) Clone() fetchedBlock {
 		logs:        logs,
 		visited:     visited,
 	}
+}
+
+// Sort by log identifiers, shuffled using a pseduorandom souce that is shared across all nodes
+// for a given block.
+func (b *fetchedBlock) Sort() {
+	randSeed := random.GetRandomKeySource(nil, uint64(b.blockNumber))
+
+	shuffledLogIDs := make([]string, len(b.logs))
+	for i, log := range b.logs {
+		ext := ocr2keepers.LogTriggerExtension{
+			TxHash:    log.log.TxHash,
+			Index:     uint32(log.log.LogIndex),
+			BlockHash: log.log.BlockHash,
+		}
+		logID := hex.EncodeToString(ext.LogIdentifier())
+		shuffledLogIDs[i] = random.ShuffleString(logID, randSeed)
+	}
+
+	sort.Slice(b.logs, func(i, j int) bool {
+		return shuffledLogIDs[i] < shuffledLogIDs[j]
+	})
 }
 
 // logEventBuffer is a circular/ring buffer of fetched logs.
@@ -97,6 +158,7 @@ func (b *logEventBuffer) bufferSize() int {
 }
 
 // enqueue adds logs (if not exist) to the buffer, returning the number of logs added
+// minus the number of logs dropped.
 func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 	b.lock.Lock()
 	defer b.lock.Unlock()
@@ -107,7 +169,8 @@ func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 	maxUpkeepLogs := int(b.maxUpkeepLogsPerBlock)
 
 	latestBlock := b.latestBlockSeen()
-	added := 0
+	added, dropped := 0, 0
+
 	for _, log := range logs {
 		if log.BlockNumber == 0 {
 			// invalid log
@@ -125,23 +188,20 @@ func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 			lggr.Debugw("Skipping log from old block", "currentBlock", currentBlock.blockNumber, "newBlock", log.BlockNumber)
 			continue
 		}
-		if len(currentBlock.logs)+1 > maxBlockLogs {
-			lggr.Debugw("Reached max logs number per block, dropping log", "blockNumber", log.BlockNumber,
-				"blockHash", log.BlockHash, "txHash", log.TxHash, "logIndex", log.LogIndex)
+		droppedLog, ok := currentBlock.Append(lggr, fetchedLog{upkeepID: id, log: log}, maxBlockLogs, maxUpkeepLogs)
+		if !ok {
+			// Skipping known logs
 			continue
 		}
-		if has, upkeepLogs := currentBlock.Has(id, log); has {
-			// Skipping existing log
-			continue
-		} else if upkeepLogs+1 > maxUpkeepLogs {
-			lggr.Debugw("Reached max logs number per upkeep, dropping log", "blockNumber", log.BlockNumber,
-				"blockHash", log.BlockHash, "txHash", log.TxHash, "logIndex", log.LogIndex)
-			continue
+		if droppedLog.upkeepID != nil {
+			dropped++
+			lggr.Debugw("Reached log buffer limits, dropping log", "blockNumber", droppedLog.log.BlockNumber,
+				"blockHash", droppedLog.log.BlockHash, "txHash", droppedLog.log.TxHash, "logIndex", droppedLog.log.LogIndex,
+				"upkeepID", droppedLog.upkeepID.String())
 		}
-		// lggr.Debugw("Adding log", "i", i, "blockBlock", currentBlock.blockNumber, "logBlock", log.BlockNumber, "id", id)
-		currentBlock.logs = append(currentBlock.logs, fetchedLog{upkeepID: id, log: log})
-		b.blocks[i] = currentBlock
 		added++
+		b.blocks[i] = currentBlock
+
 		if log.BlockNumber > latestBlock {
 			latestBlock = log.BlockNumber
 		}
@@ -151,10 +211,10 @@ func (b *logEventBuffer) enqueue(id *big.Int, logs ...logpoller.Log) int {
 		atomic.StoreInt64(&b.latestBlock, latestBlock)
 	}
 	if added > 0 {
-		lggr.Debugw("Added logs to buffer", "addedLogs", added, "latestBlock", latestBlock)
+		lggr.Debugw("Added logs to buffer", "addedLogs", added, "dropped", dropped, "latestBlock", latestBlock)
 	}
 
-	return added
+	return added - dropped
 }
 
 // peek returns the logs in range [latestBlock-blocks, latestBlock]
