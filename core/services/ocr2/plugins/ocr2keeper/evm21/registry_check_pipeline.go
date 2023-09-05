@@ -15,12 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
 )
 
-const (
-	// validCheckBlockRange decides the max distance between the check block and the current block
-	// allowed in checkPipeline
-	validCheckBlockRange = 128
-)
-
 type checkResult struct {
 	cr  []ocr2keepers.CheckResult
 	err error
@@ -98,14 +92,7 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 }
 
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
-func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
-	// verify check block number is not too old
-	latestBlock := r.bs.latestBlock.Load()
-	if int64(latestBlock.Number)-checkBlock.Int64() > validCheckBlockRange {
-		r.lggr.Warnf("latest block is %d, check block number %s is too old for upkeepId %s", r.bs.latestBlock.Load(), checkBlock, upkeepId)
-		return encoding.CheckBlockTooOld, false
-	}
-
+func (r *EvmRegistry) verifyCheckBlockHash(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
 	var h string
 	var ok bool
 	// verify check block number and hash are valid
@@ -169,7 +156,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 
 	for i, p := range payloads {
 		block, checkHash, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
-		state, retryable := r.verifyCheckBlock(ctx, block, upkeepId, checkHash)
+		state, retryable := r.verifyCheckBlockHash(ctx, block, upkeepId, checkHash)
 		if state != encoding.NoPipelineError {
 			results[i] = encoding.GetIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, state, retryable)
 			continue
@@ -240,6 +227,13 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 	for i, req := range checkReqs {
 		index := indices[i]
 		if req.Error != nil {
+			// primitive way of checking errors
+			if strings.Contains(req.Error.Error(), "header not found") {
+				// Check block not found in RPC, non-retryable error
+				r.lggr.Warnf("header not found error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
+				results[index].Retryable = false
+				results[index].PipelineExecutionState = uint8(encoding.CheckBlockTooOld)
+			}
 			// individual upkeep failed in a batch call, retryable
 			r.lggr.Warnf("error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
 			results[index].Retryable = true

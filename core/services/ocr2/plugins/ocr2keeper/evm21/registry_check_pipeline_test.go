@@ -198,7 +198,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				e.client = client
 			}
 
-			state, retryable := e.verifyCheckBlock(context.Background(), tc.checkBlock, tc.upkeepId, tc.checkHash)
+			state, retryable := e.verifyCheckBlockHash(context.Background(), tc.checkBlock, tc.upkeepId, tc.checkHash)
 			assert.Equal(t, tc.state, state)
 			assert.Equal(t, tc.retryable, retryable)
 		})
