@@ -7,10 +7,11 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/ocr2keepers/pkg/v3/random"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var (
@@ -36,37 +37,37 @@ type fetchedBlock struct {
 	visited []fetchedLog
 }
 
-func (currentBlock *fetchedBlock) Append(lggr logger.Logger, fl fetchedLog, maxBlockLogs, maxUpkeepLogs int) (fetchedLog, bool) {
-	has, upkeepLogs := currentBlock.has(fl.upkeepID, fl.log)
+func (b *fetchedBlock) Append(lggr logger.Logger, fl fetchedLog, maxBlockLogs, maxUpkeepLogs int) (fetchedLog, bool) {
+	has, upkeepLogs := b.has(fl.upkeepID, fl.log)
 	if has {
 		// Skipping known logs
 		return fetchedLog{}, false
 	}
 	// lggr.Debugw("Adding log", "i", i, "blockBlock", currentBlock.blockNumber, "logBlock", log.BlockNumber, "id", id)
-	currentBlock.logs = append(currentBlock.logs, fl)
+	b.logs = append(b.logs, fl)
 
 	// drop logs if we reached limits.
 	if upkeepLogs+1 > maxUpkeepLogs {
 		// in case we have logs overflow for a particular upkeep, we drop a log of that upkeep,
 		// based on shared, random (per block) order of the logs in the block.
-		currentBlock.Sort()
+		b.Sort()
 		var dropped fetchedLog
-		currentLogs := make([]fetchedLog, 0, len(currentBlock.logs)-1)
-		for _, l := range currentBlock.logs {
+		currentLogs := make([]fetchedLog, 0, len(b.logs)-1)
+		for _, l := range b.logs {
 			if dropped.upkeepID == nil && l.upkeepID.Cmp(fl.upkeepID) == 0 {
 				dropped = l
 				continue
 			}
 			currentLogs = append(currentLogs, l)
 		}
-		currentBlock.logs = currentLogs
+		b.logs = currentLogs
 		return dropped, true
-	} else if len(currentBlock.logs)+len(currentBlock.visited) > maxBlockLogs {
+	} else if len(b.logs)+len(b.visited) > maxBlockLogs {
 		// in case we have logs overflow in the buffer level, we drop a log based on
 		// shared, random (per block) order of the logs in the block.
-		currentBlock.Sort()
-		dropped := currentBlock.logs[0]
-		currentBlock.logs = currentBlock.logs[1:]
+		b.Sort()
+		dropped := b.logs[0]
+		b.logs = b.logs[1:]
 		return dropped, true
 	}
 
