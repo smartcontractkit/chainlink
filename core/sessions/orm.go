@@ -112,11 +112,12 @@ func (o *orm) AuthorizedUserWithSession(sessionID string) (User, error) {
 		return User{}, ErrUserSessionExpired
 	}
 
-	if err := o.q.Get(&user, "SELECT * FROM users WHERE lower(email) = lower($1)", foundSession.Email); err != nil {
+	user, err := o.findUser(foundSession.Email)
+	if err != nil {
 		return User{}, errors.Wrap(err, "no matching user for provided session email")
 	}
 
-	err := o.q.Transaction(func(tx pg.Queryer) error {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
 		// Session valid and tied to user, update last_used
 		_, err := tx.Exec("UPDATE sessions SET last_used = now() WHERE id = $1 AND last_used + $2 >= now()", sessionID, o.sessionDuration)
 		if err != nil {
