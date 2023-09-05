@@ -61,7 +61,7 @@ func (currentBlock *fetchedBlock) Append(lggr logger.Logger, fl fetchedLog, maxB
 		}
 		currentBlock.logs = currentLogs
 		return dropped, true
-	} else if len(currentBlock.logs) > maxBlockLogs {
+	} else if len(currentBlock.logs)+len(currentBlock.visited) > maxBlockLogs {
 		// in case we have logs overflow in the buffer level, we drop a log based on
 		// shared, random (per block) order of the logs in the block.
 		currentBlock.Sort()
