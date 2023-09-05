@@ -328,6 +328,14 @@ func TestLogRecoverer_Recover(t *testing.T) {
 					},
 					configUpdateBlock: 450, // should be filtered out
 				},
+				{
+					upkeepID: big.NewInt(3),
+					addr:     common.HexToAddress("0x2").Bytes(),
+					topics: []common.Hash{
+						common.HexToHash("0x2"),
+					},
+					lastRePollBlock: 450, // should be filtered out, as its higher than latest-lookback
+				},
 			},
 			[]ocr2keepers.UpkeepState{ocr2keepers.UnknownState},
 			nil,
@@ -342,7 +350,67 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			nil,
 			nil,
 			[]string{"84c83c79c2be2c3eabd8d35986a2a798d9187564d7f4f8f96c5a0f40f50bed3f"},
-			[]int64{200, 0},
+			[]int64{200, 0, 450},
+		},
+		{
+			"lastRePollBlock updated with burst",
+			100,
+			50000,
+			nil,
+			[]upkeepFilter{
+				{
+					upkeepID: big.NewInt(1),
+					addr:     common.HexToAddress("0x1").Bytes(),
+					topics: []common.Hash{
+						common.HexToHash("0x1"),
+					},
+					lastRePollBlock: 100, // Should be updated with burst
+				},
+			},
+			[]ocr2keepers.UpkeepState{ocr2keepers.UnknownState},
+			nil,
+			[]logpoller.Log{
+				{
+					BlockNumber: 2,
+					TxHash:      common.HexToHash("0x111"),
+					LogIndex:    1,
+					BlockHash:   common.HexToHash("0x2"),
+				},
+			},
+			nil,
+			nil,
+			[]string{"84c83c79c2be2c3eabd8d35986a2a798d9187564d7f4f8f96c5a0f40f50bed3f"},
+			[]int64{600},
+		},
+		{
+			"lastRePollBlock starts at configUpdateBlock",
+			100,
+			5000,
+			nil,
+			[]upkeepFilter{
+				{
+					upkeepID: big.NewInt(1),
+					addr:     common.HexToAddress("0x1").Bytes(),
+					topics: []common.Hash{
+						common.HexToHash("0x1"),
+					},
+					configUpdateBlock: 500,
+				},
+			},
+			[]ocr2keepers.UpkeepState{ocr2keepers.UnknownState},
+			nil,
+			[]logpoller.Log{
+				{
+					BlockNumber: 2,
+					TxHash:      common.HexToHash("0x111"),
+					LogIndex:    1,
+					BlockHash:   common.HexToHash("0x2"),
+				},
+			},
+			nil,
+			nil,
+			[]string{"84c83c79c2be2c3eabd8d35986a2a798d9187564d7f4f8f96c5a0f40f50bed3f"},
+			[]int64{700}, // should be configUpdateBlock + recoveryLogsBuffer
 		},
 	}
 
