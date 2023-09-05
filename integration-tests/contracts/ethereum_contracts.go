@@ -2197,8 +2197,8 @@ func (e *EthereumFunctionsLoadTestClient) GetStats() (*EthereumFunctionsLoadStat
 	}
 	return &EthereumFunctionsLoadStats{
 		LastRequestID: string(Bytes32ToSlice(lr)),
-		LastResponse:  string(Bytes32ToSlice(lbody)),
-		LastError:     string(Bytes32ToSlice(lerr)),
+		LastResponse:  string(lbody),
+		LastError:     string(lerr),
 		Total:         total,
 		Succeeded:     succeeded,
 		Errored:       errored,
