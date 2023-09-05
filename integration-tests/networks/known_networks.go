@@ -440,6 +440,18 @@ var (
 		GasEstimationBuffer:       0,
 	}
 
+	HederaTestnet blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "Hedera Testnet",
+		SupportsEIP1559:           true,
+		ClientImplementation:      blockchain.EthereumClientImplementation,
+		ChainID:                   296,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      3,
+		GasEstimationBuffer:       0,
+	}
+
 	MappedNetworks = map[string]blockchain.EVMNetwork{
 		"SIMULATED":        SimulatedEVM,
 		"SIMULATED_1":      SimulatedEVMNonDev1,
@@ -471,6 +483,7 @@ var (
 		"BASE_MAINNET":      BaseMainnet,
 		"BSC_TESTNET":       BSCTestnet,
 		"BSC_MAINNET":       BSCMainnet,
+		"HEDERA_TESTNET":    HederaTestnet,
 	}
 )
 
