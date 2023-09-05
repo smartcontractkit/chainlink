@@ -67,6 +67,7 @@ contract BaseRewardManagerTest is Test {
   bytes4 internal immutable INVALID_WEIGHT_ERROR_SELECTOR = RewardManager.InvalidWeights.selector;
   bytes4 internal immutable INVALID_POOL_ID_ERROR_SELECTOR = RewardManager.InvalidPoolId.selector;
   bytes internal constant ONLY_CALLABLE_BY_OWNER_ERROR = "Only callable by owner";
+  bytes4 internal immutable INVALID_POOL_LENGTH_SELECTOR = RewardManager.InvalidPoolLength.selector;
 
   // Events emitted within the reward manager
   event RewardRecipientsUpdated(bytes32 indexed poolId, Common.AddressAndWeight[] newRewardRecipients);

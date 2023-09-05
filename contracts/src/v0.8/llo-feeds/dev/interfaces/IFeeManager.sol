@@ -36,10 +36,11 @@ interface IFeeManager is IERC165, IVerifierFeeManager {
 
   /**
    * @notice Withdraws any native or LINK rewards to the owner address
-   * @param quantity quantity of tokens to withdraw, address(0) is native
+   * @param assetAddress address of the asset to withdraw
+   * @param recipientAddress address to withdraw to
    * @param quantity quantity to withdraw
    */
-  function withdraw(address assetAddress, uint192 quantity) external;
+  function withdraw(address assetAddress, address recipientAddress, uint192 quantity) external;
 
   /**
    * @notice Returns the link balance of the fee manager

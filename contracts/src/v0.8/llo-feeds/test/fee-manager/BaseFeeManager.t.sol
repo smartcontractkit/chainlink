@@ -75,7 +75,7 @@ contract BaseFeeManagerTest is Test {
   event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint64 discount);
   event NativeSurchargeUpdated(uint64 newSurcharge);
   event InsufficientLink(IRewardManager.FeePayment[] feesAndRewards);
-  event Withdraw(address adminAddress, address assetAddress, uint192 quantity);
+  event Withdraw(address adminAddress, address recipient, address assetAddress, uint192 quantity);
   event LinkDeficitCleared(bytes32 indexed configDigest, uint256 linkQuantity);
   event DiscountApplied(
     bytes32 indexed configDigest,
@@ -247,13 +247,13 @@ contract BaseFeeManagerTest is Test {
     return IFeeManager.Quote(getNativeAddress());
   }
 
-  function withdraw(address assetAddress, uint256 amount, address sender) public {
+  function withdraw(address assetAddress, address recipient, uint256 amount, address sender) public {
     //record the current address and switch to the recipient
     address originalAddr = msg.sender;
     changePrank(sender);
 
     //set the surcharge
-    feeManager.withdraw(assetAddress, uint192(amount));
+    feeManager.withdraw(assetAddress, recipient, uint192(amount));
 
     //change back to the original address
     changePrank(originalAddr);

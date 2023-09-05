@@ -76,6 +76,9 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   // @notice thrown when trying to clear a zero deficit
   error ZeroDeficit();
 
+  /// @notice thrown when trying to pay an address that cannot except funds
+  error InvalidReceivingAddress();
+
   /// @notice Emitted whenever a subscriber's discount is updated
   /// @param subscriber address of the subscriber to update discounts for
   /// @param feedId Feed ID for the discount
@@ -92,9 +95,11 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   event InsufficientLink(IRewardManager.FeePayment[] rewards);
 
   /// @notice Emitted when funds are withdrawn
+  /// @param adminAddress Address of the admin
+  /// @param recipient Address of the recipient
   /// @param assetAddress Address of the asset withdrawn
   /// @param quantity Amount of the asset withdrawn
-  event Withdraw(address adminAddress, address assetAddress, uint192 quantity);
+  event Withdraw(address adminAddress, address recipient, address assetAddress, uint192 quantity);
 
   /// @notice Emits when a deficit has been cleared for a particular config digest
   /// @param configDigest Config digest of the deficit cleared
@@ -106,13 +111,13 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @param subscriber Address of the subscriber who paid the fee
   /// @param fee Fee paid
   /// @param reward Reward paid
-  /// @param appliedDiscountQuantity Discount applied to the fee
+  /// @param appliedDiscount Discount applied to the fee
   event DiscountApplied(
     bytes32 indexed configDigest,
     address indexed subscriber,
     Common.Asset fee,
     Common.Asset reward,
-    uint256 appliedDiscountQuantity
+    uint256 appliedDiscount
   );
 
   /**
@@ -148,6 +153,11 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     _;
   }
 
+  modifier onlyProxy() {
+    if (msg.sender != i_proxyAddress) revert Unauthorized();
+    _;
+  }
+
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
     return "FeeManager 1.0.0";
@@ -159,7 +169,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifierFeeManager
-  function processFee(bytes calldata payload, address subscriber) external payable override onlyOwnerOrProxy {
+  function processFee(bytes calldata payload, address subscriber) external payable override onlyProxy {
     (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(payload, subscriber);
 
     if (fee.amount == 0) {
@@ -178,7 +188,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifierFeeManager
-  function processFeeBulk(bytes[] calldata payloads, address subscriber) external payable override onlyOwnerOrProxy {
+  function processFeeBulk(bytes[] calldata payloads, address subscriber) external payable override onlyProxy {
     FeeAndReward[] memory feesAndRewards = new IFeeManager.FeeAndReward[](payloads.length);
 
     //keep track of the number of fees to prevent over initialising the FeePayment array within _convertToLinkAndNativeFees
@@ -316,18 +326,20 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IFeeManager
-  function withdraw(address assetAddress, uint192 quantity) external onlyOwner {
+  function withdraw(address assetAddress, address recipient, uint192 quantity) external onlyOwner {
     //address 0 is used to withdraw native in the context of withdrawing
     if (assetAddress == address(0)) {
-      payable(owner()).transfer(quantity);
+      (bool success, ) = payable(recipient).call{value: quantity}("");
+
+      if (!success) revert InvalidReceivingAddress();
       return;
     }
 
     //withdraw the requested asset
-    IERC20(assetAddress).safeTransfer(owner(), quantity);
+    IERC20(assetAddress).safeTransfer(recipient, quantity);
 
     //emit event when funds are withdrawn
-    emit Withdraw(msg.sender, assetAddress, quantity);
+    emit Withdraw(msg.sender, recipient, assetAddress, uint192(quantity));
   }
 
   /// @inheritdoc IFeeManager
@@ -423,7 +435,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       //there must be enough to cover the fee
       if (totalNativeFee > msg.value) revert InvalidDeposit();
 
-      //wrap the amount required to pay the fee & approve as the subscriber paid in unwrapped native
+      //wrap the amount required to pay the fee & approve as the subscriber paid in wrapped native
       IWERC20(i_nativeAddress).deposit{value: totalNativeFee}();
 
       unchecked {

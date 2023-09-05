@@ -121,7 +121,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   /// @inheritdoc IVerifierProxy
-  function verify(bytes calldata payload) external payable checkAccess returns (bytes memory verifiedReport) {
+  function verify(bytes calldata payload) external payable checkAccess returns (bytes memory) {
     IVerifierFeeManager feeManager = s_feeManager;
 
     // Bill the verifier
@@ -196,7 +196,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   /// @inheritdoc IVerifierProxy
-  function getVerifier(bytes32 configDigest) external view override returns (address verifierAddress) {
+  function getVerifier(bytes32 configDigest) external view override returns (address) {
     return s_verifiersByConfig[configDigest];
   }
 
