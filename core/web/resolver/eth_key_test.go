@@ -252,7 +252,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 		},
 
 		{
-			name:          "Empty set on #chainSet.Get()",
+			name:          "Empty set on legacy evm chains",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				states := []ethkey.State{

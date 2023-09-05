@@ -214,7 +214,7 @@ func (v *verifiedCachedClient) GetAccountInfoWithOpts(ctx context.Context, addr 
 }
 
 func newChain(id string, cfg *SolanaConfig, ks loop.Keystore, cfgs Configs, lggr logger.Logger) (*chain, error) {
-	lggr = logger.With(lggr, "chainID", id, "chainSet", "solana")
+	lggr = logger.With(lggr, "chainID", id, "chain", "solana")
 	var ch = chain{
 		id:          id,
 		cfg:         cfg,
@@ -342,7 +342,7 @@ func (c *chain) verifiedClient(node db.Node) (client.ReaderWriter, error) {
 			expectedChainID: c.id,
 		}
 		// create client
-		cl.ReaderWriter, err = client.NewClient(url, c.cfg, DefaultRequestTimeout, logger.Named(c.lggr, "Client-"+node.Name))
+		cl.ReaderWriter, err = client.NewClient(url, c.cfg, DefaultRequestTimeout, logger.Named(c.lggr, "Client."+node.Name))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create client")
 		}

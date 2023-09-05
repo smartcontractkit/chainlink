@@ -266,8 +266,8 @@ func TestIntegration_OCR2(t *testing.T) {
 	err = bootstrapNode.app.Start(testutils.Context(t))
 	require.NoError(t, err)
 
-	chainSet := bootstrapNode.app.GetRelayers().LegacyEVMChains()
-	require.NotNil(t, chainSet)
+	emvChains := bootstrapNode.app.GetRelayers().LegacyEVMChains()
+	require.NotNil(t, emvChains)
 	ocrJob, err := ocrbootstrap.ValidatedBootstrapSpecToml(fmt.Sprintf(`
 type				= "bootstrap"
 name				= "bootstrap"

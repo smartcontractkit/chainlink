@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
+	"github.com/grafana/pyroscope-go"
 	"github.com/pkg/errors"
-	"github.com/pyroscope-io/client/pyroscope"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
@@ -185,7 +185,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	// we need to initialize in case we serve OCR2 LOOPs
 	loopRegistry := opts.LoopRegistry
 	if loopRegistry == nil {
-		loopRegistry = plugins.NewLoopRegistry(globalLogger.Named("LoopRegistry"))
+		loopRegistry = plugins.NewLoopRegistry(globalLogger)
 	}
 
 	// If the audit logger is enabled

@@ -512,8 +512,11 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(
 		registrar = actions.DeployKeeperRegistrar(t, registryVersion, k.linkToken, registrarSettings, k.contractDeployer, k.chainClient, registry)
 	} else { // OCR automation - v2.X
 		registry, registrar = actions.DeployAutoOCRRegistryAndRegistrar(
-			t, registryVersion, *k.Inputs.KeeperRegistrySettings, k.Inputs.Upkeeps.NumberOfUpkeeps, k.linkToken, k.contractDeployer, k.chainClient)
+			t, registryVersion, *k.Inputs.KeeperRegistrySettings, k.linkToken, k.contractDeployer, k.chainClient)
 
+		// Fund the registry with LINK
+		err := k.linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(k.Inputs.Upkeeps.NumberOfUpkeeps))))
+		require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, k.chainlinkNodes[1:], *k.Inputs.KeeperRegistrySettings, registrar.Address(), k.Inputs.DeltaStage)
 		l.Debug().Interface("KeeperRegistrySettings", *k.Inputs.KeeperRegistrySettings).Interface("OCRConfig", ocrConfig).Msg("Config")
 		require.NoError(t, err, "Error building OCR config vars")

@@ -2,22 +2,21 @@ package smoke
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_constants"
 	"math/big"
 	"testing"
 	"time"
 
-	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_constants"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
-func TestVRFv2PlusBasic(t *testing.T) {
+func TestVRFv2PlusBilling(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 
@@ -26,94 +25,134 @@ func TestVRFv2PlusBasic(t *testing.T) {
 		WithCLNodes(1).
 		WithFunding(vrfv2plus_constants.ChainlinkNodeFundingAmountEth).
 		Build()
-	require.NoError(t, err)
+	require.NoError(t, err, "error creating test env")
+	t.Cleanup(func() {
+		if err := env.Cleanup(); err != nil {
+			l.Error().Err(err).Msg("Error cleaning up test environment")
+		}
+	})
+
 	env.ParallelTransactions(true)
 
 	mockETHLinkFeedAddress, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, vrfv2plus_constants.LinkEthFeedResponse)
-	require.NoError(t, err)
+	require.NoError(t, err, "error deploying mock ETH/LINK feed")
+
 	linkAddress, err := actions.DeployLINKToken(env.ContractDeployer)
-	require.NoError(t, err)
-	vrfv2PlusContracts, err := vrfv2plus.DeployVRFV2PlusContracts(env.ContractDeployer, env.EVMClient)
-	require.NoError(t, err)
+	require.NoError(t, err, "error deploying LINK contract")
 
-	err = env.EVMClient.WaitForEvents()
-	require.NoError(t, err)
+	env, vrfv2PlusContracts, subID, job, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress)
+	require.NoError(t, err, "error setting up VRF v2 Plus env")
 
-	err = vrfv2PlusContracts.Coordinator.SetLINKAndLINKETHFeed(linkAddress.Address(), mockETHLinkFeedAddress.Address())
-	require.NoError(t, err)
+	subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
+	require.NoError(t, err, "error getting subscription information")
 
-	err = vrfv2PlusContracts.Coordinator.SetConfig(
-		vrfv2plus_constants.MinimumConfirmations,
-		vrfv2plus_constants.MaxGasLimitVRFCoordinatorConfig,
-		vrfv2plus_constants.StalenessSeconds,
-		vrfv2plus_constants.GasAfterPaymentCalculation,
-		vrfv2plus_constants.LinkEthFeedResponse,
-		vrfv2plus_constants.VRFCoordinatorV2PlusFeeConfig,
-	)
-	require.NoError(t, err)
-	err = env.EVMClient.WaitForEvents()
-	require.NoError(t, err)
+	l.Debug().
+		Interface("Juels Balance", subscription.Balance).
+		Interface("Native Token Balance", subscription.EthBalance).
+		Interface("Subscription ID", subID).
+		Msg("Subscription Data")
 
-	err = vrfv2PlusContracts.Coordinator.CreateSubscription()
-	require.NoError(t, err)
-	err = env.EVMClient.WaitForEvents()
-	require.NoError(t, err)
+	t.Run("VRFV2 Plus With Link Billing", func(t *testing.T) {
+		var isNativeBilling = false
+		subBalanceBeforeRequest := subscription.Balance
 
-	subID, err := vrfv2PlusContracts.Coordinator.FindSubscriptionID()
-	require.NoError(t, err)
+		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(job.Job.Data.ID)
+		require.NoError(t, err, "error reading job runs")
 
-	err = vrfv2PlusContracts.Coordinator.AddConsumer(subID, vrfv2PlusContracts.LoadTestConsumer.Address())
-	require.NoError(t, err)
+		// test and assert
+		err = vrfv2PlusContracts.LoadTestConsumer.RequestRandomness(
+			job.KeyHash,
+			subID,
+			vrfv2plus_constants.MinimumConfirmations,
+			vrfv2plus_constants.CallbackGasLimit,
+			isNativeBilling,
+			vrfv2plus_constants.NumberOfWords,
+			vrfv2plus_constants.RandomnessRequestCountPerRequest,
+		)
+		require.NoError(t, err, "error requesting randomness")
 
-	err = vrfv2plus.FundVRFCoordinatorV2PlusSubscription(linkAddress, vrfv2PlusContracts.Coordinator, env.EVMClient, subID, vrfv2plus_constants.VRFSubscriptionFundingAmountLink)
-	require.NoError(t, err)
+		randomWordsFulfilledEvent, err := vrfv2PlusContracts.Coordinator.WaitForRandomWordsFulfilledEvent([]*big.Int{subID}, nil, time.Minute*2)
+		require.NoError(t, err, "error waiting for RandomWordsFulfilled event")
 
-	vrfV2jobs, err := vrfv2plus.CreateVRFV2PlusJobs(env.GetAPIs(), vrfv2PlusContracts.Coordinator, env.EVMClient, vrfv2plus_constants.MinimumConfirmations)
-	require.NoError(t, err)
+		l.Debug().
+			Interface("Total Payment in Juels", randomWordsFulfilledEvent.Payment).
+			Interface("TX Hash", randomWordsFulfilledEvent.Raw.TxHash).
+			Interface("Subscription ID", randomWordsFulfilledEvent.SubID).
+			Interface("Request ID", randomWordsFulfilledEvent.RequestId).
+			Bool("Success", randomWordsFulfilledEvent.Success).
+			Msg("Randomness Fulfillment TX metadata")
 
-	// this part is here because VRFv2 can work with only a specific key
-	// [[EVM.KeySpecific]]
-	//	Key = '...'
-	addr, err := env.CLNodes[0].API.PrimaryEthAddress()
-	require.NoError(t, err)
-	nodeConfig := node.NewConfig(env.CLNodes[0].NodeConfig,
-		node.WithVRFv2EVMEstimator(addr),
-	)
-	err = env.CLNodes[0].Restart(nodeConfig)
-	require.NoError(t, err)
+		expectedSubBalanceJuels := new(big.Int).Sub(subBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
+		subscription, err = vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
+		require.NoError(t, err, "error getting subscription information")
+		subBalanceAfterRequest := subscription.Balance
+		require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
 
-	// test and assert
-	err = vrfv2PlusContracts.LoadTestConsumer.RequestRandomness(
-		vrfV2jobs[0].KeyHash,
-		subID,
-		vrfv2plus_constants.MinimumConfirmations,
-		vrfv2plus_constants.CallbackGasLimit,
-		false,
-		vrfv2plus_constants.NumberOfWords,
-		vrfv2plus_constants.RandomnessRequestCountPerRequest,
-	)
-	require.NoError(t, err)
+		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(job.Job.Data.ID)
+		require.NoError(t, err, "error reading job runs")
+		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 
-	gom := gomega.NewGomegaWithT(t)
-	timeout := time.Minute * 1
-	var lastRequestID *big.Int
-	gom.Eventually(func(g gomega.Gomega) {
-		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(vrfV2jobs[0].Job.Data.ID)
-		g.Expect(err).ShouldNot(gomega.HaveOccurred())
-		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically("==", 1))
-		lastRequestID, err = vrfv2PlusContracts.LoadTestConsumer.GetLastRequestId(context.Background())
-		l.Debug().Interface("Last Request ID", lastRequestID).Msg("Last Request ID Received")
-
-		g.Expect(err).ShouldNot(gomega.HaveOccurred())
-		status, err := vrfv2PlusContracts.LoadTestConsumer.GetRequestStatus(context.Background(), lastRequestID)
-		g.Expect(err).ShouldNot(gomega.HaveOccurred())
-		g.Expect(status.Fulfilled).Should(gomega.BeTrue())
+		status, err := vrfv2PlusContracts.LoadTestConsumer.GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
+		require.NoError(t, err, "error getting rand request status")
+		require.True(t, status.Fulfilled)
 		l.Debug().Interface("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
-		g.Expect(err).ShouldNot(gomega.HaveOccurred())
+		require.Equal(t, vrfv2plus_constants.NumberOfWords, uint32(len(status.RandomWords)))
 		for _, w := range status.RandomWords {
-			l.Info().Uint64("Output", w.Uint64()).Msg("Randomness fulfilled")
-			g.Expect(w.Uint64()).Should(gomega.BeNumerically(">", 0), "Expected the VRF job give an answer bigger than 0")
+			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
+			require.Equal(t, w.Cmp(big.NewInt(0)), 1, "Expected the VRF job give an answer bigger than 0")
 		}
-	}, timeout, "1s").Should(gomega.Succeed())
+	})
+
+	t.Run("VRFV2 Plus With Native Billing", func(t *testing.T) {
+		var isNativeBilling = true
+		subNativeTokenBalanceBeforeRequest := subscription.EthBalance
+
+		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(job.Job.Data.ID)
+
+		// test and assert
+		err = vrfv2PlusContracts.LoadTestConsumer.RequestRandomness(
+			job.KeyHash,
+			subID,
+			vrfv2plus_constants.MinimumConfirmations,
+			vrfv2plus_constants.CallbackGasLimit,
+			isNativeBilling,
+			vrfv2plus_constants.NumberOfWords,
+			vrfv2plus_constants.RandomnessRequestCountPerRequest,
+		)
+		require.NoError(t, err, "error requesting randomness")
+
+		randomWordsFulfilledEvent, err := vrfv2PlusContracts.Coordinator.WaitForRandomWordsFulfilledEvent([]*big.Int{subID}, nil, time.Minute*2)
+		require.NoError(t, err, "error waiting for RandomWordsFulfilled event")
+
+		l.Debug().
+			Interface("Total Payment in Wei", randomWordsFulfilledEvent.Payment).
+			Interface("TX Hash", randomWordsFulfilledEvent.Raw.TxHash).
+			Interface("Subscription ID", randomWordsFulfilledEvent.SubID).
+			Interface("Request ID", randomWordsFulfilledEvent.RequestId).
+			Bool("Success", randomWordsFulfilledEvent.Success).
+			Msg("Randomness Fulfillment TX metadata")
+
+		expectedSubBalanceWei := new(big.Int).Sub(subNativeTokenBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
+		subscription, err = vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
+		require.NoError(t, err)
+		subBalanceAfterRequest := subscription.EthBalance
+		require.Equal(t, expectedSubBalanceWei, subBalanceAfterRequest)
+
+		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(job.Job.Data.ID)
+		require.NoError(t, err, "error reading job runs")
+		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
+
+		status, err := vrfv2PlusContracts.LoadTestConsumer.GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
+		require.NoError(t, err, "error getting rand request status")
+		require.True(t, status.Fulfilled)
+		l.Debug().Interface("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+
+		require.Equal(t, vrfv2plus_constants.NumberOfWords, uint32(len(status.RandomWords)))
+		for _, w := range status.RandomWords {
+			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
+			require.Equal(t, w.Cmp(big.NewInt(0)), 1, "Expected the VRF job give an answer bigger than 0")
+		}
+	})
+
 }

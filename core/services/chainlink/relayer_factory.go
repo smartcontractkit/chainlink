@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	pkgsolana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
@@ -38,13 +39,13 @@ type EVMFactoryConfig struct {
 }
 
 func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (map[relay.ID]evmrelay.LoopRelayAdapter, error) {
-	// TODO impl EVM loop. For now always 'fallback' to an adapter and embedded chainset
+	// TODO impl EVM loop. For now always 'fallback' to an adapter and embedded chain
 
 	relayers := make(map[relay.ID]evmrelay.LoopRelayAdapter)
 
 	// override some common opts with the factory values. this seems weird... maybe other signatures should change, or this should take a different type...
 	ccOpts := evm.ChainRelayExtenderConfig{
-		Logger:        r.Logger,
+		Logger:        r.Logger.Named("EVM"),
 		DB:            r.DB,
 		KeyStore:      config.CSAETHKeystore.Eth(),
 		RelayerConfig: config.RelayerConfig,
@@ -100,7 +101,8 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 			continue
 		}
 
-		// all the lower level APIs expect chainsets. create a single valued set per id
+		// all the lower level APIs expect a config slice. create a single valued set per id
+		// TODO BCF-2605: clean this up
 		singleChainCfg := solana.SolanaConfigs{chainCfg}
 
 		if cmdName := env.SolanaPluginCmd.Get(); cmdName != "" {
@@ -173,7 +175,8 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 			continue
 		}
 
-		// all the lower level APIs expect chainsets. create a single valued set per id
+		// all the lower level APIs expect a config slice. create a single valued set per id
+		// TODO BCF-2605: clean this up
 		singleChainCfg := starknet.StarknetConfigs{chainCfg}
 
 		if cmdName := env.StarknetPluginCmd.Get(); cmdName != "" {
@@ -196,7 +199,7 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 			// be compatible with instantiating a starknet transaction manager KeystoreAdapter within the LOOPp executable.
 			starknetRelayers[relayId] = loop.NewRelayerService(starkLggr, r.GRPCOpts, starknetCmdFn, string(cfgTOML), loopKs)
 		} else {
-			// fallback to embedded chainset
+			// fallback to embedded chain
 			opts := starknet.ChainOpts{
 				Logger:   starkLggr,
 				KeyStore: loopKs,
@@ -229,8 +232,6 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 	// create one relayer per chain id
 	for _, chainCfg := range config.CosmosConfigs {
 		relayId := relay.ID{Network: relay.Cosmos, ChainID: relay.ChainID(*chainCfg.ChainID)}
-		// all the lower level APIs expect chainsets. create a single valued set per id
-		// TODO: Cosmos LOOPp impl. For now, use relayer adapter
 
 		opts := cosmos.ChainOpts{
 			QueryConfig:      r.QConfig,
