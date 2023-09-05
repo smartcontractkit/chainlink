@@ -10,8 +10,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipevents"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/hasher"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/merklemulti"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -21,23 +23,21 @@ func getProofData(
 	ctx context.Context,
 	lggr logger.Logger,
 	hashLeaf hasher.LeafHasherInterface[[32]byte],
-	seqParser func(log logpoller.Log) (uint64, error),
 	onRampAddress common.Address,
-	sourceLP logpoller.LogPoller,
+	sourceEventsClient ccipevents.Client,
 	interval commit_store.CommitStoreInterval,
-) (msgsInRoot []logpoller.Log, leaves [][32]byte, tree *merklemulti.Tree[[32]byte], err error) {
-	msgsInRoot, err = sourceLP.LogsDataWordRange(
-		abihelpers.EventSignatures.SendRequested,
+) (sendReqsInRoot []ccipevents.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested], leaves [][32]byte, tree *merklemulti.Tree[[32]byte], err error) {
+	sendReqs, err := sourceEventsClient.GetSendRequestsBetweenSeqNums(
+		ctx,
 		onRampAddress,
-		abihelpers.EventSignatures.SendRequestedSequenceNumberWord,
-		abihelpers.EvmWord(interval.Min),
-		abihelpers.EvmWord(interval.Max),
+		interval.Min,
+		interval.Max,
 		0, // no need for confirmations, commitReport was already confirmed and we need all msgs in it
-		pg.WithParentCtx(ctx))
+	)
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	leaves, err = leavesFromIntervals(lggr, seqParser, interval, hashLeaf, msgsInRoot)
+	leaves, err = leavesFromIntervals(lggr, interval, hashLeaf, sendReqs)
 	if err != nil {
 		return nil, nil, nil, err
 	}
@@ -45,7 +45,7 @@ func getProofData(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	return msgsInRoot, leaves, tree, nil
+	return sendReqs, leaves, tree, nil
 }
 
 func buildExecutionReportForMessages(
