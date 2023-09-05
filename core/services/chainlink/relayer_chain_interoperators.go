@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -105,27 +106,17 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 		}
 
 		legacyMap := make(map[string]evm.Chain)
-		var defaultChain evm.Chain
-
 		for id, a := range adapters {
 			// adapter is a service
 			op.srvs = append(op.srvs, a)
 			op.loopRelayers[id] = a
 			legacyMap[id.ChainID.String()] = a.Chain()
-			if a.Default() {
-				defaultChain = a.Chain()
-			}
-
 		}
 		legacy, err := evm.NewLegacyChains(config.AppConfig, legacyMap)
 		if err != nil {
 			return err
 		}
 		op.legacyChains.EVMChains = legacy
-		// TODO BCF-2510 this may not be necessary if EVM is not enabled by default
-		if defaultChain != nil {
-			op.legacyChains.EVMChains.SetDefault(defaultChain)
-		}
 		return nil
 	}
 }

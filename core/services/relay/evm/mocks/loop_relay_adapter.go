@@ -104,20 +104,6 @@ func (_m *LoopRelayAdapter) Close() error {
 	return r0
 }
 
-// Default provides a mock function with given fields:
-func (_m *LoopRelayAdapter) Default() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // HealthReport provides a mock function with given fields:
 func (_m *LoopRelayAdapter) HealthReport() map[string]error {
 	ret := _m.Called()

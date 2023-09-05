@@ -10,6 +10,7 @@ import (
 
 var (
 	ErrMissingChainID = errors.New("evmChainID does not match any local chains")
+	ErrEmptyChainID   = errors.New("evmChainID is empty")
 	ErrInvalidChainID = errors.New("invalid evmChainID")
 	ErrMultipleChains = errors.New("more than one chain available, you must specify evmChainID parameter")
 )
@@ -33,9 +34,5 @@ func getChain(legacyChains evm.LegacyChainContainer, chainIDstr string) (chain e
 		return nil, ErrMultipleChains
 	}
 
-	chain, err = legacyChains.Default()
-	if err != nil {
-		return nil, err
-	}
-	return chain, nil
+	return nil, ErrEmptyChainID
 }
