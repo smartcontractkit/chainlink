@@ -93,40 +93,23 @@ func (s staticRelayer) NewFunctionsProvider(ctx context.Context, rargs types.Rel
 	panic("unimplemented")
 }
 
-func (s staticRelayer) ChainStatus(ctx context.Context, id string) (types.ChainStatus, error) {
-	if id != chainID {
-		return types.ChainStatus{}, fmt.Errorf("expected id %s but got %s", chainID, id)
-	}
+func (s staticRelayer) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
 	return chain, nil
 }
 
-func (s staticRelayer) ChainStatuses(ctx context.Context, o, l int) ([]types.ChainStatus, int, error) {
-	if offset != o {
-		return nil, -1, fmt.Errorf("expected offset %d but got %d", offset, o)
+func (s staticRelayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) ([]types.NodeStatus, string, int, error) {
+
+	if limit != pageSize {
+		return nil, "", -1, fmt.Errorf("expected page_size %d but got %d", limit, pageSize)
 	}
-	if limit != l {
-		return nil, -1, fmt.Errorf("expected limit %d but got %d", limit, l)
+	if pageToken != "" {
+		return nil, "", -1, fmt.Errorf("expected empty page_token but got %q", pageToken)
+
 	}
-	return chains, count, nil
+	return nodes, "", total, nil
 }
 
-func (s staticRelayer) NodeStatuses(ctx context.Context, o, l int, cs ...string) ([]types.NodeStatus, int, error) {
-	if offset != o {
-		return nil, -1, fmt.Errorf("expected offset %d but got %d", offset, o)
-	}
-	if limit != l {
-		return nil, -1, fmt.Errorf("expected limit %d but got %d", limit, l)
-	}
-	if !reflect.DeepEqual(chainIDs, cs) {
-		return nil, -1, fmt.Errorf("expected chain IDs %v but got %v", chainIDs, cs)
-	}
-	return nodes, count, nil
-}
-
-func (s staticRelayer) SendTx(ctx context.Context, id, f, t string, a *big.Int, b bool) error {
-	if id != chainID {
-		return fmt.Errorf("expected id %s but got %s", chainID, id)
-	}
+func (s staticRelayer) Transact(ctx context.Context, f, t string, a *big.Int, b bool) error {
 	if f != from {
 		return fmt.Errorf("expected from %s but got %s", from, f)
 	}
@@ -287,32 +270,25 @@ func TestRelayer(t *testing.T, relayer internal.Relayer) {
 		})
 	})
 
-	t.Run("ChainStatus", func(t *testing.T) {
+	t.Run("GetChainStatus", func(t *testing.T) {
 		t.Parallel()
-		gotChain, err := relayer.ChainStatus(ctx, chainID)
+		gotChain, err := relayer.GetChainStatus(ctx)
 		require.NoError(t, err)
 		assert.Equal(t, chain, gotChain)
 	})
 
-	t.Run("ChainStatuses", func(t *testing.T) {
+	t.Run("ListNodeStatuses", func(t *testing.T) {
 		t.Parallel()
-		gotChains, gotCount, err := relayer.ChainStatuses(ctx, offset, limit)
-		require.NoError(t, err)
-		assert.Equal(t, chains, gotChains)
-		assert.Equal(t, count, gotCount)
-	})
-
-	t.Run("NodeStatuses", func(t *testing.T) {
-		t.Parallel()
-		gotNodes, gotCount, err := relayer.NodeStatuses(ctx, offset, limit, chainIDs...)
+		gotNodes, gotNextToken, gotCount, err := relayer.ListNodeStatuses(ctx, limit, "")
 		require.NoError(t, err)
 		assert.Equal(t, nodes, gotNodes)
-		assert.Equal(t, count, gotCount)
+		assert.Equal(t, total, gotCount)
+		assert.Empty(t, gotNextToken)
 	})
 
-	t.Run("SendTx", func(t *testing.T) {
+	t.Run("Transact", func(t *testing.T) {
 		t.Parallel()
-		err := relayer.SendTx(ctx, chainID, from, to, amount, balanceCheck)
+		err := relayer.Transact(ctx, from, to, amount, balanceCheck)
 		require.NoError(t, err)
 	})
 }

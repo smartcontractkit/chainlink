@@ -44,12 +44,9 @@ service Relayer {
   rpc NewMedianProvider (NewMedianProviderRequest) returns (NewMedianProviderReply) {}
   rpc NewMercuryProvider (NewMercuryProviderRequest) returns (NewMercuryProviderReply) {}
 
-  rpc ChainStatus (ChainStatusRequest) returns (ChainStatusReply) {}
-  rpc ChainStatuses (ChainStatusesRequest) returns (ChainStatusesReply) {}
-
-  rpc NodeStatuses (NodeStatusesRequest) returns (NodeStatusesReply) {}
-
-  rpc SendTx (SendTxRequest) returns (google.protobuf.Empty) {}
+  rpc GetChainStatus (GetChainStatusRequest) returns (GetChainStatusReply) {}
+  rpc ListNodeStatuses (ListNodeStatusesRequest) returns (ListNodeStatusesReply) {}
+  rpc Transact (TransactionRequest) returns (google.protobuf.Empty) {}
 }
 
 // RelayArgs represents [github.com/smartcontractkit/chainlink-relay/pkg/types.RelayArgs].
@@ -99,27 +96,12 @@ message NewMercuryProviderReply {
   uint32 mercuryProviderID = 1;
 }
 
-// ChainStatusRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ChainStatus].
-message ChainStatusRequest {
-  string id = 1;
-}
-
+message GetChainStatusRequest {}
 // ChainStatusReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ChainStatus].
-message ChainStatusReply {
+message GetChainStatusReply {
   ChainStatus chain = 1;
 }
 
-// ChainStatusesRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ChainStatuses].
-message ChainStatusesRequest {
-  int32 offset = 1;
-  int32 limit = 2;
-}
-
-// ChainStatusesReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ChainStatuses].
-message ChainStatusesReply {
-  repeated ChainStatus chains = 1;
-  int32 count = 2; // total count of chains
-}
 
 // ChainStatus represents [github.com/smartcontractkit/chainlink-relay/pkg/types.ChainStatus].
 message ChainStatus {
@@ -128,17 +110,17 @@ message ChainStatus {
   string config = 3; // TOML
 }
 
-// NodeStatusesRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NodeStatuses].
-message NodeStatusesRequest {
-  int32 offset = 1;
-  int32 limit = 2;
-  repeated string chainIDs = 3;
+// ListNodeStatusesRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ListNodeStatuses].
+message ListNodeStatusesRequest {
+  int32 page_size = 1;
+  string page_token = 2;
 }
 
-// NodeStatusesReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NodeStatuses].
-message NodeStatusesReply {
+// ListNodeStatusesReply is a pagination response  for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ListNodeStatuses].
+message ListNodeStatusesReply {
   repeated NodeStatus nodes = 1;
-  int32 count = 2; // total count of nodes
+  int32 total = 2; // total count of nodes
+  string next_page_token =3;
 }
 
 // NodeStatus represents [github.com/smartcontractkit/chainlink-relay/pkg/types.NodeStatus].
@@ -150,12 +132,11 @@ message NodeStatus {
 }
 
 // SendTxRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.SendTx].
-message SendTxRequest {
-  string chainID = 1;
-  string from = 2;
-  string to = 3;
-  BigInt amount = 4;
-  bool balanceCheck = 5;
+message TransactionRequest {
+  string from = 1;
+  string to = 2;
+  BigInt amount = 3;
+  bool balanceCheck = 4;
 }
 
 service DataSource {

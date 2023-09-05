@@ -70,30 +70,23 @@ func (r *RelayerService) NewFunctionsProvider(ctx context.Context, rargs types.R
 	return r.service.NewFunctionsProvider(ctx, rargs, pargs)
 }
 
-func (r *RelayerService) ChainStatus(ctx context.Context, id string) (types.ChainStatus, error) {
+func (r *RelayerService) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
 	if err := r.wait(ctx); err != nil {
 		return types.ChainStatus{}, err
 	}
-	return r.service.ChainStatus(ctx, id)
+	return r.service.GetChainStatus(ctx)
 }
 
-func (r *RelayerService) ChainStatuses(ctx context.Context, offset, limit int) (chains []types.ChainStatus, count int, err error) {
+func (r *RelayerService) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (nodes []types.NodeStatus, nextPageToken string, total int, err error) {
 	if err := r.wait(ctx); err != nil {
-		return nil, -1, err
+		return nil, "", -1, err
 	}
-	return r.service.ChainStatuses(ctx, offset, limit)
+	return r.service.ListNodeStatuses(ctx, pageSize, pageToken)
 }
 
-func (r *RelayerService) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error) {
-	if err := r.wait(ctx); err != nil {
-		return nil, -1, err
-	}
-	return r.service.NodeStatuses(ctx, offset, limit, chainIDs...)
-}
-
-func (r *RelayerService) SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error {
+func (r *RelayerService) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	if err := r.wait(ctx); err != nil {
 		return err
 	}
-	return r.service.SendTx(ctx, chainID, from, to, amount, balanceCheck)
+	return r.service.Transact(ctx, from, to, amount, balanceCheck)
 }

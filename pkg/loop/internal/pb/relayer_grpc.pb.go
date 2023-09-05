@@ -240,10 +240,9 @@ const (
 	Relayer_NewConfigProvider_FullMethodName  = "/loop.Relayer/NewConfigProvider"
 	Relayer_NewMedianProvider_FullMethodName  = "/loop.Relayer/NewMedianProvider"
 	Relayer_NewMercuryProvider_FullMethodName = "/loop.Relayer/NewMercuryProvider"
-	Relayer_ChainStatus_FullMethodName        = "/loop.Relayer/ChainStatus"
-	Relayer_ChainStatuses_FullMethodName      = "/loop.Relayer/ChainStatuses"
-	Relayer_NodeStatuses_FullMethodName       = "/loop.Relayer/NodeStatuses"
-	Relayer_SendTx_FullMethodName             = "/loop.Relayer/SendTx"
+	Relayer_GetChainStatus_FullMethodName     = "/loop.Relayer/GetChainStatus"
+	Relayer_ListNodeStatuses_FullMethodName   = "/loop.Relayer/ListNodeStatuses"
+	Relayer_Transact_FullMethodName           = "/loop.Relayer/Transact"
 )
 
 // RelayerClient is the client API for Relayer service.
@@ -253,10 +252,9 @@ type RelayerClient interface {
 	NewConfigProvider(ctx context.Context, in *NewConfigProviderRequest, opts ...grpc.CallOption) (*NewConfigProviderReply, error)
 	NewMedianProvider(ctx context.Context, in *NewMedianProviderRequest, opts ...grpc.CallOption) (*NewMedianProviderReply, error)
 	NewMercuryProvider(ctx context.Context, in *NewMercuryProviderRequest, opts ...grpc.CallOption) (*NewMercuryProviderReply, error)
-	ChainStatus(ctx context.Context, in *ChainStatusRequest, opts ...grpc.CallOption) (*ChainStatusReply, error)
-	ChainStatuses(ctx context.Context, in *ChainStatusesRequest, opts ...grpc.CallOption) (*ChainStatusesReply, error)
-	NodeStatuses(ctx context.Context, in *NodeStatusesRequest, opts ...grpc.CallOption) (*NodeStatusesReply, error)
-	SendTx(ctx context.Context, in *SendTxRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
+	GetChainStatus(ctx context.Context, in *GetChainStatusRequest, opts ...grpc.CallOption) (*GetChainStatusReply, error)
+	ListNodeStatuses(ctx context.Context, in *ListNodeStatusesRequest, opts ...grpc.CallOption) (*ListNodeStatusesReply, error)
+	Transact(ctx context.Context, in *TransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
 }
 
 type relayerClient struct {
@@ -294,36 +292,27 @@ func (c *relayerClient) NewMercuryProvider(ctx context.Context, in *NewMercuryPr
 	return out, nil
 }
 
-func (c *relayerClient) ChainStatus(ctx context.Context, in *ChainStatusRequest, opts ...grpc.CallOption) (*ChainStatusReply, error) {
-	out := new(ChainStatusReply)
-	err := c.cc.Invoke(ctx, Relayer_ChainStatus_FullMethodName, in, out, opts...)
+func (c *relayerClient) GetChainStatus(ctx context.Context, in *GetChainStatusRequest, opts ...grpc.CallOption) (*GetChainStatusReply, error) {
+	out := new(GetChainStatusReply)
+	err := c.cc.Invoke(ctx, Relayer_GetChainStatus_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *relayerClient) ChainStatuses(ctx context.Context, in *ChainStatusesRequest, opts ...grpc.CallOption) (*ChainStatusesReply, error) {
-	out := new(ChainStatusesReply)
-	err := c.cc.Invoke(ctx, Relayer_ChainStatuses_FullMethodName, in, out, opts...)
+func (c *relayerClient) ListNodeStatuses(ctx context.Context, in *ListNodeStatusesRequest, opts ...grpc.CallOption) (*ListNodeStatusesReply, error) {
+	out := new(ListNodeStatusesReply)
+	err := c.cc.Invoke(ctx, Relayer_ListNodeStatuses_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *relayerClient) NodeStatuses(ctx context.Context, in *NodeStatusesRequest, opts ...grpc.CallOption) (*NodeStatusesReply, error) {
-	out := new(NodeStatusesReply)
-	err := c.cc.Invoke(ctx, Relayer_NodeStatuses_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *relayerClient) SendTx(ctx context.Context, in *SendTxRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
+func (c *relayerClient) Transact(ctx context.Context, in *TransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error) {
 	out := new(emptypb.Empty)
-	err := c.cc.Invoke(ctx, Relayer_SendTx_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, Relayer_Transact_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -337,10 +326,9 @@ type RelayerServer interface {
 	NewConfigProvider(context.Context, *NewConfigProviderRequest) (*NewConfigProviderReply, error)
 	NewMedianProvider(context.Context, *NewMedianProviderRequest) (*NewMedianProviderReply, error)
 	NewMercuryProvider(context.Context, *NewMercuryProviderRequest) (*NewMercuryProviderReply, error)
-	ChainStatus(context.Context, *ChainStatusRequest) (*ChainStatusReply, error)
-	ChainStatuses(context.Context, *ChainStatusesRequest) (*ChainStatusesReply, error)
-	NodeStatuses(context.Context, *NodeStatusesRequest) (*NodeStatusesReply, error)
-	SendTx(context.Context, *SendTxRequest) (*emptypb.Empty, error)
+	GetChainStatus(context.Context, *GetChainStatusRequest) (*GetChainStatusReply, error)
+	ListNodeStatuses(context.Context, *ListNodeStatusesRequest) (*ListNodeStatusesReply, error)
+	Transact(context.Context, *TransactionRequest) (*emptypb.Empty, error)
 	mustEmbedUnimplementedRelayerServer()
 }
 
@@ -357,17 +345,14 @@ func (UnimplementedRelayerServer) NewMedianProvider(context.Context, *NewMedianP
 func (UnimplementedRelayerServer) NewMercuryProvider(context.Context, *NewMercuryProviderRequest) (*NewMercuryProviderReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NewMercuryProvider not implemented")
 }
-func (UnimplementedRelayerServer) ChainStatus(context.Context, *ChainStatusRequest) (*ChainStatusReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ChainStatus not implemented")
+func (UnimplementedRelayerServer) GetChainStatus(context.Context, *GetChainStatusRequest) (*GetChainStatusReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetChainStatus not implemented")
 }
-func (UnimplementedRelayerServer) ChainStatuses(context.Context, *ChainStatusesRequest) (*ChainStatusesReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ChainStatuses not implemented")
+func (UnimplementedRelayerServer) ListNodeStatuses(context.Context, *ListNodeStatusesRequest) (*ListNodeStatusesReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListNodeStatuses not implemented")
 }
-func (UnimplementedRelayerServer) NodeStatuses(context.Context, *NodeStatusesRequest) (*NodeStatusesReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method NodeStatuses not implemented")
-}
-func (UnimplementedRelayerServer) SendTx(context.Context, *SendTxRequest) (*emptypb.Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SendTx not implemented")
+func (UnimplementedRelayerServer) Transact(context.Context, *TransactionRequest) (*emptypb.Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Transact not implemented")
 }
 func (UnimplementedRelayerServer) mustEmbedUnimplementedRelayerServer() {}
 
@@ -436,74 +421,56 @@ func _Relayer_NewMercuryProvider_Handler(srv interface{}, ctx context.Context, d
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Relayer_ChainStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ChainStatusRequest)
+func _Relayer_GetChainStatus_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetChainStatusRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RelayerServer).ChainStatus(ctx, in)
+		return srv.(RelayerServer).GetChainStatus(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Relayer_ChainStatus_FullMethodName,
+		FullMethod: Relayer_GetChainStatus_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RelayerServer).ChainStatus(ctx, req.(*ChainStatusRequest))
+		return srv.(RelayerServer).GetChainStatus(ctx, req.(*GetChainStatusRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Relayer_ChainStatuses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ChainStatusesRequest)
+func _Relayer_ListNodeStatuses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ListNodeStatusesRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RelayerServer).ChainStatuses(ctx, in)
+		return srv.(RelayerServer).ListNodeStatuses(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Relayer_ChainStatuses_FullMethodName,
+		FullMethod: Relayer_ListNodeStatuses_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RelayerServer).ChainStatuses(ctx, req.(*ChainStatusesRequest))
+		return srv.(RelayerServer).ListNodeStatuses(ctx, req.(*ListNodeStatusesRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Relayer_NodeStatuses_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NodeStatusesRequest)
+func _Relayer_Transact_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(TransactionRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RelayerServer).NodeStatuses(ctx, in)
+		return srv.(RelayerServer).Transact(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Relayer_NodeStatuses_FullMethodName,
+		FullMethod: Relayer_Transact_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RelayerServer).NodeStatuses(ctx, req.(*NodeStatusesRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Relayer_SendTx_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SendTxRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RelayerServer).SendTx(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Relayer_SendTx_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RelayerServer).SendTx(ctx, req.(*SendTxRequest))
+		return srv.(RelayerServer).Transact(ctx, req.(*TransactionRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -528,20 +495,16 @@ var Relayer_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Relayer_NewMercuryProvider_Handler,
 		},
 		{
-			MethodName: "ChainStatus",
-			Handler:    _Relayer_ChainStatus_Handler,
+			MethodName: "GetChainStatus",
+			Handler:    _Relayer_GetChainStatus_Handler,
 		},
 		{
-			MethodName: "ChainStatuses",
-			Handler:    _Relayer_ChainStatuses_Handler,
+			MethodName: "ListNodeStatuses",
+			Handler:    _Relayer_ListNodeStatuses_Handler,
 		},
 		{
-			MethodName: "NodeStatuses",
-			Handler:    _Relayer_NodeStatuses_Handler,
-		},
-		{
-			MethodName: "SendTx",
-			Handler:    _Relayer_SendTx_Handler,
+			MethodName: "Transact",
+			Handler:    _Relayer_Transact_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

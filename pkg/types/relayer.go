@@ -36,6 +36,15 @@ type NodeStatus struct {
 	State   string
 }
 
+// ChainService is a sub-interface of [loop.Relayer] that encapsulates the explicit interactions with a chain
+type ChainService interface {
+	Service
+
+	GetChainStatus(ctx context.Context) (ChainStatus, error)
+	ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []NodeStatus, nextPageToken string, total int, err error)
+	Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
+}
+
 // Deprecated: use loop.Relayer, which includes context.Context.
 type Relayer interface {
 	Service
@@ -43,11 +52,4 @@ type Relayer interface {
 	NewMedianProvider(rargs RelayArgs, pargs PluginArgs) (MedianProvider, error)
 	NewMercuryProvider(rargs RelayArgs, pargs PluginArgs) (MercuryProvider, error)
 	NewFunctionsProvider(rargs RelayArgs, pargs PluginArgs) (FunctionsProvider, error)
-}
-
-// Deprecated
-type ChainService interface {
-	Service
-
-	SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }

@@ -22,7 +22,7 @@ const (
 	balanceCheck     = true
 	blockHeight      = uint64(1337)
 	changedInBlock   = uint64(14)
-	count            = 2
+	total            = 2
 	epoch            = uint32(88)
 	errMsg           = "test error"
 	from             = "0xabcd"
@@ -42,8 +42,6 @@ var (
 		Config: ConfigTOML,
 	}
 	chainID            = "chain-id"
-	chainIDs           = []string{"foo", "bar"}
-	chains             = []types.ChainStatus{chain, {ID: "test-id", Enabled: true}}
 	configDigest       = libocr.ConfigDigest([32]byte{2: 10, 12: 16})
 	configDigestPrefix = libocr.ConfigDigestPrefix(99)
 	contractConfig     = libocr.ContractConfig{
