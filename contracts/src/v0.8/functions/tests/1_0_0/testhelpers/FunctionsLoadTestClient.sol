@@ -86,6 +86,7 @@ contract FunctionsLoadTestClient is FunctionsClient, ConfirmedOwner {
    * @param times Number of times to send the request
    * @param cborEncodedRequest The CBOR encoded bytes data for a Functions request
    * @param subscriptionId The subscription ID that will be charged to service the request
+   * @param donId DON ID
    */
   function sendEncodedRequest(
     uint32 times,
