@@ -32,7 +32,7 @@ var (
 	// GCInterval is the interval at which the recovery cache is cleaned up
 	GCInterval = RecoveryCacheTTL - time.Second
 	// MaxProposals is the maximum number of proposals that can be returned by GetRecoveryProposals
-	MaxProposals = 50
+	MaxProposals = 20
 	// recoveryBatchSize is the number of filters to recover in a single batch
 	recoveryBatchSize = 10
 	// recoveryLogsBuffer is the number of blocks to be used as a safety buffer when reading logs
