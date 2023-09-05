@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cache"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipevents"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	plugintesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/plugins"
@@ -55,6 +56,7 @@ type execTestHarness = struct {
 func setupExecTestHarness(t *testing.T) execTestHarness {
 	th := plugintesthelpers.SetupCCIPTestHarness(t)
 
+	lggr := logger.TestLogger(t)
 	destFeeEstimator := mocks.NewEvmFeeEstimator(t)
 
 	destFeeEstimator.On(
@@ -79,11 +81,14 @@ func setupExecTestHarness(t *testing.T) execTestHarness {
 			lggr:                     th.Lggr,
 			sourceLP:                 th.SourceLP,
 			destLP:                   th.DestLP,
+			sourceEvents:             ccipevents.NewLogPollerClient(th.SourceLP, lggr, th.SourceClient),
+			destEvents:               ccipevents.NewLogPollerClient(th.DestLP, lggr, th.DestClient),
 			sourcePriceRegistry:      th.Source.PriceRegistry,
 			onRamp:                   th.Source.OnRamp,
 			commitStore:              th.Dest.CommitStore,
 			offRamp:                  th.Dest.OffRamp,
 			destClient:               th.DestClient,
+			sourceClient:             th.SourceClient,
 			sourceWrappedNativeToken: th.Source.WrappedNative.Address(),
 			leafHasher:               hasher.NewLeafHasher(th.Source.ChainSelector, th.Dest.ChainSelector, th.Source.OnRamp.Address(), hasher.NewKeccakCtx()),
 			destGasEstimator:         destFeeEstimator,

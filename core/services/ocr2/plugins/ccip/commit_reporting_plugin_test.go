@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cache"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipevents"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/hasher"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/merklemulti"
@@ -64,6 +65,7 @@ func setupCommitTestHarness(t *testing.T) commitTestHarness {
 		mock.Anything,
 	).Maybe().Return(gas.EvmFee{Legacy: assets.NewWei(defaultGasPrice)}, uint32(200e3), nil)
 
+	lggr := logger.TestLogger(t)
 	priceGetter := newMockPriceGetter()
 
 	backendClient := client.NewSimulatedBackendClient(t, th.Dest.Chain, new(big.Int).SetUint64(th.Dest.ChainID))
@@ -72,6 +74,8 @@ func setupCommitTestHarness(t *testing.T) commitTestHarness {
 			lggr:                th.Lggr,
 			sourceLP:            th.SourceLP,
 			destLP:              th.DestLP,
+			sourceEvents:        ccipevents.NewLogPollerClient(th.SourceLP, lggr, backendClient),
+			destEvents:          ccipevents.NewLogPollerClient(th.DestLP, lggr, backendClient),
 			offRamp:             th.Dest.OffRamp,
 			onRampAddress:       th.Source.OnRamp.Address(),
 			commitStore:         th.Dest.CommitStore,
@@ -80,8 +84,8 @@ func setupCommitTestHarness(t *testing.T) commitTestHarness {
 			sourceFeeEstimator:  sourceFeeEstimator,
 			sourceChainSelector: th.Source.ChainSelector,
 			destClient:          backendClient,
+			sourceClient:        backendClient,
 			leafHasher:          hasher.NewLeafHasher(th.Source.ChainSelector, th.Dest.ChainSelector, th.Source.OnRamp.Address(), hasher.NewKeccakCtx()),
-			getSeqNumFromLog:    getSeqNumFromLog(th.Source.OnRamp),
 		},
 		inflightReports: newInflightCommitReportsContainer(time.Hour),
 		onchainConfig:   th.CommitOnchainConfig,
