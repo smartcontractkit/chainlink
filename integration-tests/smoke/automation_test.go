@@ -717,7 +717,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			highCheckGasLimit := automationDefaultRegistryConfig
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
 			highCheckGasLimit.RegistryVersion = registryVersion
-			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(t, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 5*time.Second)
+			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 30*time.Second)
 			require.NoError(t, err, "Error building OCR config")
 
 			err = registry.SetConfig(highCheckGasLimit, ocrConfig)
@@ -884,7 +884,7 @@ func setupAutomationTestDocker(
 
 	err = actions.CreateOCRKeeperJobsLocal(nodeClients, registry.Address(), network.ChainID, 0, registryVersion)
 	require.NoError(t, err, "Error creating OCR Keeper Jobs")
-	// nodesWithoutBootstrap := chainlinkNodes[1:]
+		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, registryConfig, registrar.Address(), 30*time.Second)
 	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(t, workerNodes, registryConfig, registrar.Address(), 5*time.Second)
 	require.NoError(t, err, "Error building OCR config vars")
 	err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
