@@ -86,9 +86,9 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		makeEthCall bool
 	}{
 		{
-			name:        "check block number too old",
+			name:        "check block number too new",
 			checkBlock:  big.NewInt(500),
-			latestBlock: ocr2keepers.BlockKey{Number: 800},
+			latestBlock: ocr2keepers.BlockKey{Number: 400},
 			upkeepId:    big.NewInt(12345),
 			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
 			payload: ocr2keepers.UpkeepPayload{
@@ -96,7 +96,8 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				Trigger:  ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
 				WorkID:   "work",
 			},
-			state: encoding.CheckBlockTooOld,
+			state:     encoding.CheckBlockTooNew,
+			retryable: true,
 		},
 		{
 			name:        "for an invalid check block number, if hash does not match the check hash, return CheckBlockInvalid",
