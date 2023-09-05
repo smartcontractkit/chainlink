@@ -60,7 +60,6 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
   mapping(uint256 => bytes32) /* requestID */ /* commitment */ public s_requestCommitments;
 
   event ProvingKeyRegistered(bytes32 keyHash, address indexed oracle);
-  event ProvingKeyDeregistered(bytes32 keyHash, address indexed oracle);
   event RandomWordsRequested(
     bytes32 indexed keyHash,
     uint256 requestId,
@@ -119,28 +118,6 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     s_provingKeys[kh] = oracle;
     s_provingKeyHashes.push(kh);
     emit ProvingKeyRegistered(kh, oracle);
-  }
-
-  /**
-   * @notice Deregisters a proving key to an oracle.
-   * @param publicProvingKey key that oracle can use to submit vrf fulfillments
-   */
-  function deregisterProvingKey(uint256[2] calldata publicProvingKey) external onlyOwner {
-    bytes32 kh = hashOfKey(publicProvingKey);
-    address oracle = s_provingKeys[kh];
-    if (oracle == address(0)) {
-      revert NoSuchProvingKey(kh);
-    }
-    delete s_provingKeys[kh];
-    for (uint256 i = 0; i < s_provingKeyHashes.length; i++) {
-      if (s_provingKeyHashes[i] == kh) {
-        bytes32 last = s_provingKeyHashes[s_provingKeyHashes.length - 1];
-        // Copy last element and overwrite kh to be deleted with it
-        s_provingKeyHashes[i] = last;
-        s_provingKeyHashes.pop();
-      }
-    }
-    emit ProvingKeyDeregistered(kh, oracle);
   }
 
   /**
