@@ -62,7 +62,6 @@ contract FunctionsRouterSetup is BaseTest {
   function getCoordinatorConfig() public view returns (FunctionsBilling.Config memory) {
     return
       FunctionsBilling.Config({
-        maxCallbackGasLimit: 0, // NOTE: unused , TODO: remove
         feedStalenessSeconds: 24 * 60 * 60, // 1 day
         gasOverheadAfterCallback: 44_615, // TODO: update
         gasOverheadBeforeCallback: 44_615, // TODO: update
