@@ -92,7 +92,14 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 }
 
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
-func (r *EvmRegistry) verifyCheckBlockHash(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
+func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
+	// verify check block number is not in future (can happen when this node is lagging the other members in DON)
+	latestBlock := r.bs.latestBlock.Load()
+	if checkBlock.Int64() > int64(latestBlock.Number) {
+		r.lggr.Warnf("latest block is %d, check block number %s is in future for upkeepId %s", r.bs.latestBlock.Load(), checkBlock, upkeepId)
+		return encoding.CheckBlockTooNew, true // retryable since the block can be found in future
+	}
+
 	var h string
 	var ok bool
 	// verify check block number and hash are valid
@@ -156,7 +163,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 
 	for i, p := range payloads {
 		block, checkHash, upkeepId := r.getBlockAndUpkeepId(p.UpkeepID, p.Trigger)
-		state, retryable := r.verifyCheckBlockHash(ctx, block, upkeepId, checkHash)
+		state, retryable := r.verifyCheckBlock(ctx, block, upkeepId, checkHash)
 		if state != encoding.NoPipelineError {
 			results[i] = encoding.GetIneligibleCheckResultWithoutPerformData(p, encoding.UpkeepFailureReasonNone, state, retryable)
 			continue
@@ -234,8 +241,8 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 				results[index].Retryable = false
 				results[index].PipelineExecutionState = uint8(encoding.CheckBlockTooOld)
 			}
-			// individual upkeep failed in a batch call, retryable
-			r.lggr.Warnf("error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
+			// individual upkeep failed in a batch call, likely a flay RPC error, consider retryable
+			r.lggr.Warnf("rpc error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
 			results[index].Retryable = true
 			results[index].PipelineExecutionState = uint8(encoding.RpcFlakyFailure)
 		} else {
