@@ -255,7 +255,8 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 		},
 	}, nil)
 
-	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200))
+	filterStore := NewUpkeepFilterStore()
+	p := NewLogProvider(logger.TestLogger(t), mp, &mockedPacker{}, filterStore, NewOptions(200))
 
 	var ids []*big.Int
 	for i := 0; i < 10; i++ {
@@ -277,6 +278,15 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 		require.NoError(t, p.ReadLogs(ctx, ids[:2]...))
 		logs := p.buffer.peek(10)
 		require.Len(t, logs, 2)
+
+		var updatedFilters []upkeepFilter
+		filterStore.RangeFiltersByIDs(func(i int, f upkeepFilter) {
+			updatedFilters = append(updatedFilters, f.Clone())
+		}, ids[:2]...)
+		for _, f := range updatedFilters {
+			// Last poll block should be updated
+			require.Equal(t, int64(1), f.lastPollBlock)
+		}
 	})
 
 	// TODO: test rate limiting

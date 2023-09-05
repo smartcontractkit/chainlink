@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -1185,7 +1186,8 @@ func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 		}
 		for i := range jbs {
 			err = o.LoadEnvConfigVars(&jbs[i])
-			if err != nil {
+			//We must return the jobs even if the chainID is disabled
+			if err != nil && !errors.Is(err, chains.ErrNoSuchChainID) {
 				return err
 			}
 		}

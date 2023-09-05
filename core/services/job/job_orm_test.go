@@ -1248,6 +1248,7 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
 	require.NoError(t, err)
+	jb.DirectRequestSpec.EVMChainID = utils.NewBigI(0)
 
 	err = orm.CreateJob(&jb)
 	require.NoError(t, err)
@@ -1269,6 +1270,28 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 		jbs, err := orm.FindJobsByPipelineSpecIDs([]int32{-1})
 		require.NoError(t, err)
 		assert.Len(t, jbs, 0)
+	})
+
+	t.Run("with chainID disabled", func(t *testing.T) {
+		newCfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0] = &evmcfg.EVMConfig{
+				ChainID: utils.NewBigI(0),
+				Enabled: ptr(false),
+			}
+			c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+				ChainID: utils.NewBigI(123123123),
+				Enabled: ptr(true),
+			})
+		})
+		relayExtenders2 := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: newCfg, KeyStore: keyStore.Eth()})
+		legacyChains2, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders2)
+
+		require.NoError(t, err)
+		orm2 := NewTestORM(t, db, legacyChains2, pipelineORM, bridgesORM, keyStore, config.Database())
+
+		jbs, err := orm2.FindJobsByPipelineSpecIDs([]int32{jb.PipelineSpecID})
+		require.NoError(t, err)
+		assert.Len(t, jbs, 1)
 	})
 }
 
