@@ -366,3 +366,13 @@ type FunctionsLoadTestClient interface {
 	GetStats() (*EthereumFunctionsLoadStats, error)
 	SendRequest(times uint32, source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error
 }
+
+type MercuryVerifier interface {
+	Address() string
+	Verify(signedReport []byte, sender common.Address) error
+}
+
+type MercuryVerifierProxy interface {
+	Address() string
+	Verify(signedReport []byte) error
+}

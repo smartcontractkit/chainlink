@@ -46,6 +46,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 )
 
 // EthereumOracle oracle for "directrequest" job tests
@@ -2227,6 +2229,50 @@ func (e *EthereumFunctionsLoadTestClient) SendRequest(times uint32, source strin
 		return err
 	}
 	tx, err := e.instance.SendRequest(opts, times, source, encryptedSecretsReferences, args, subscriptionId, jobId)
+	if err != nil {
+		return err
+	}
+	return e.client.ProcessTransaction(tx)
+}
+
+type EthereumMercuryVerifier struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *verifier.Verifier
+}
+
+func (e *EthereumMercuryVerifier) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumMercuryVerifier) Verify(signedReport []byte, sender common.Address) error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := e.instance.Verify(opts, signedReport, sender)
+	if err != nil {
+		return err
+	}
+	return e.client.ProcessTransaction(tx)
+}
+
+type EthereumMercuryVerifierProxy struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *verifier_proxy.VerifierProxy
+}
+
+func (e *EthereumMercuryVerifierProxy) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumMercuryVerifierProxy) Verify(signedReport []byte) error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := e.instance.Verify(opts, signedReport)
 	if err != nil {
 		return err
 	}
