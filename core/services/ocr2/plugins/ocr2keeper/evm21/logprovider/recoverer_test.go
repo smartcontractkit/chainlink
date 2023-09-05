@@ -226,11 +226,12 @@ func TestLogRecoverer_Recover(t *testing.T) {
 		logsErr          error
 		recoverErr       error
 		proposalsWorkIDs []string
+		lastRePollBlocks []int64
 	}{
 		{
 			"no filters",
 			200,
-			300,
+			200,
 			nil,
 			[]upkeepFilter{},
 			[]ocr2keepers.UpkeepState{},
@@ -239,6 +240,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			nil,
 			nil,
 			[]string{},
+			[]int64{},
 		},
 		{
 			"latest block error",
@@ -252,6 +254,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			nil,
 			fmt.Errorf("test error"),
 			[]string{},
+			[]int64{},
 		},
 		{
 			"states error",
@@ -280,6 +283,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			nil,
 			nil,
 			[]string{},
+			[]int64{0},
 		},
 		{
 			"get logs error",
@@ -301,11 +305,12 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			fmt.Errorf("test error"),
 			nil,
 			[]string{},
+			[]int64{0},
 		},
 		{
 			"happy flow",
 			100,
-			200,
+			500,
 			nil,
 			[]upkeepFilter{
 				{
@@ -321,7 +326,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 					topics: []common.Hash{
 						common.HexToHash("0x2"),
 					},
-					configUpdateBlock: 150, // should be filtered out
+					configUpdateBlock: 450, // should be filtered out
 				},
 			},
 			[]ocr2keepers.UpkeepState{ocr2keepers.UnknownState},
@@ -337,6 +342,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			nil,
 			nil,
 			[]string{"84c83c79c2be2c3eabd8d35986a2a798d9187564d7f4f8f96c5a0f40f50bed3f"},
+			[]int64{200, 0},
 		},
 	}
 
@@ -356,6 +362,13 @@ func TestLogRecoverer_Recover(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+			for i, active := range tc.active {
+				filters := filterStore.GetFilters(func(f upkeepFilter) bool {
+					return f.upkeepID.String() == active.upkeepID.String()
+				})
+				require.Equal(t, 1, len(filters))
+				require.Equal(t, tc.lastRePollBlocks[i], filters[0].lastRePollBlock)
+			}
 
 			proposals, err := recoverer.GetRecoveryProposals(ctx)
 			require.NoError(t, err)
