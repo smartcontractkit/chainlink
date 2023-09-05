@@ -106,6 +106,7 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 
 		legacyMap := make(map[string]evm.Chain)
 		var defaultChain evm.Chain
+
 		for id, a := range adapters {
 			// adapter is a service
 			op.srvs = append(op.srvs, a)
@@ -137,6 +138,7 @@ func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactor
 			return fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
 		}
 		legacyMap := make(map[string]cosmos.Chain)
+
 		for id, a := range adapters {
 			op.srvs = append(op.srvs, a)
 			op.loopRelayers[id] = a
@@ -155,6 +157,7 @@ func InitSolana(ctx context.Context, factory RelayerFactory, config SolanaFactor
 		if err2 != nil {
 			return fmt.Errorf("failed to setup Solana relayer: %w", err2)
 		}
+
 		for id, relayer := range solRelayers {
 			op.srvs = append(op.srvs, relayer)
 			op.loopRelayers[id] = relayer
@@ -171,10 +174,12 @@ func InitStarknet(ctx context.Context, factory RelayerFactory, config StarkNetFa
 		if err2 != nil {
 			return fmt.Errorf("failed to setup StarkNet relayer: %w", err2)
 		}
+
 		for id, relayer := range starkRelayers {
 			op.srvs = append(op.srvs, relayer)
 			op.loopRelayers[id] = relayer
 		}
+
 		return nil
 	}
 }
@@ -211,7 +216,7 @@ func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id re
 
 	lr, err := rs.Get(id)
 	if err != nil {
-		return types.ChainStatus{}, fmt.Errorf("%w: error getting chainstatus: %w", chains.ErrNotFound, err)
+		return types.ChainStatus{}, fmt.Errorf("%w: error getting chain status: %w", chains.ErrNotFound, err)
 	}
 	// this call is weird because the [loop.Relayer] interface still requires id
 	// but in this context the `relayer` should only have only id

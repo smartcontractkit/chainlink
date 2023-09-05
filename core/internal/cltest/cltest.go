@@ -385,7 +385,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
-	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"))
+	loopRegistry := plugins.NewLoopRegistry(lggr)
 
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:       lggr,
@@ -397,7 +397,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	chainId := ethClient.ConfiguredChainID()
 	evmOpts := chainlink.EVMFactoryConfig{
-		RelayerConfig: evm.RelayerConfig{
+		RelayerConfig: &evm.RelayerConfig{
 			AppConfig:        cfg,
 			EventBroadcaster: eventBroadcaster,
 			MailMon:          mailMon,
@@ -1634,10 +1634,8 @@ func FlagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCom
 	for _, command := range app.Commands {
 		flags := recursiveFindFlagsWithName(actionFuncName, command, parentCommand, foundName)
 
-		if flags != nil {
-			for _, flag := range flags {
-				flag.Apply(flagSet)
-			}
+		for _, flag := range flags {
+			flag.Apply(flagSet)
 		}
 	}
 

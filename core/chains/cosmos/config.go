@@ -234,6 +234,7 @@ func legacyNode(n *coscfg.Node, id string) db.Node {
 
 type CosmosConfig struct {
 	ChainID *string
+	// Do not access directly. Use [IsEnabled]
 	Enabled *bool
 	coscfg.Chain
 	Nodes CosmosNodes
