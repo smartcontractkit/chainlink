@@ -40,7 +40,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 	linkAddress, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	vrfv2PlusContracts, subID, job, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress)
+	vrfv2PlusContracts, subID, vrfv2PlusData, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress)
 	require.NoError(t, err, "error setting up VRF v2 Plus env")
 
 	subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
@@ -56,12 +56,12 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		var isNativeBilling = false
 		subBalanceBeforeRequest := subscription.Balance
 
-		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(job.Job.Data.ID)
+		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
 		require.NoError(t, err, "error reading job runs")
 
 		// test and assert
 		err = vrfv2PlusContracts.LoadTestConsumer.RequestRandomness(
-			job.KeyHash,
+			vrfv2PlusData.KeyHash,
 			subID,
 			vrfv2plus_constants.MinimumConfirmations,
 			vrfv2plus_constants.CallbackGasLimit,
@@ -88,7 +88,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		subBalanceAfterRequest := subscription.Balance
 		require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
 
-		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(job.Job.Data.ID)
+		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
 		require.NoError(t, err, "error reading job runs")
 		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 
@@ -108,11 +108,11 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		var isNativeBilling = true
 		subNativeTokenBalanceBeforeRequest := subscription.EthBalance
 
-		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(job.Job.Data.ID)
+		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
 
 		// test and assert
 		err = vrfv2PlusContracts.LoadTestConsumer.RequestRandomness(
-			job.KeyHash,
+			vrfv2PlusData.KeyHash,
 			subID,
 			vrfv2plus_constants.MinimumConfirmations,
 			vrfv2plus_constants.CallbackGasLimit,
@@ -139,7 +139,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		subBalanceAfterRequest := subscription.EthBalance
 		require.Equal(t, expectedSubBalanceWei, subBalanceAfterRequest)
 
-		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(job.Job.Data.ID)
+		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
 		require.NoError(t, err, "error reading job runs")
 		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 
@@ -178,22 +178,42 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	require.NoError(t, err, "error deploying LINK contract")
 
 	//todo - add more consumers to the sub with diff eth and link balances
-	oldVRFV2PlusContracts, subID, oldJob, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress)
+	oldVRFV2PlusContracts, subID, vrfv2PlusData, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress)
 	require.NoError(t, err, "error setting up VRF v2 Plus env")
 
-	newCoordinator, err := env.ContractDeployer.DeployVRFCoordinatorV2Plus(oldVRFV2PlusContracts.BHS.Address())
+	newCoordinator, err := env.ContractDeployer.DeployVRFCoordinatorV2PlusUpgradedVersion(oldVRFV2PlusContracts.BHS.Address())
 	require.NoError(t, err, vrfv2plus.ErrDeployCoordinator)
 
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
 
-	//todo - create just one job
-	newVRFV2PlusJobs, err := vrfv2plus.CreateVRFV2PlusJobs(env.GetAPIs(), newCoordinator, env.EVMClient, vrfv2plus_constants.MinimumConfirmations)
+	err = newCoordinator.SetConfig(
+		vrfv2plus_constants.MinimumConfirmations,
+		vrfv2plus_constants.MaxGasLimitVRFCoordinatorConfig,
+		vrfv2plus_constants.StalenessSeconds,
+		vrfv2plus_constants.GasAfterPaymentCalculation,
+		vrfv2plus_constants.LinkEthFeedResponse,
+		vrfv2plus_constants.VRFCoordinatorV2PlusUpgradedVersionFeeConfig,
+	)
+
+	err = newCoordinator.SetLINKAndLINKETHFeed(linkAddress.Address(), mockETHLinkFeedAddress.Address())
+	require.NoError(t, err, vrfv2plus.ErrSetLinkETHLinkFeed)
+	err = env.EVMClient.WaitForEvents()
+	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
+
+	_, err = vrfv2plus.CreateVRFV2PlusJob(
+		env.GetAPIs()[0],
+		newCoordinator.Address(),
+		vrfv2PlusData.PrimaryEthAddress,
+		vrfv2PlusData.VRFKey.Data.ID,
+		vrfv2PlusData.ChainID.String(),
+		vrfv2plus_constants.MinimumConfirmations,
+	)
 	require.NoError(t, err, vrfv2plus.ErrCreateVRFV2PlusJobs)
 
 	// test and assert
 	err = oldVRFV2PlusContracts.LoadTestConsumer.RequestRandomness(
-		oldJob.KeyHash,
+		vrfv2PlusData.KeyHash,
 		subID,
 		vrfv2plus_constants.MinimumConfirmations,
 		vrfv2plus_constants.CallbackGasLimit,
@@ -219,7 +239,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 	// test and assert
 	err = oldVRFV2PlusContracts.LoadTestConsumer.RequestRandomness(
-		newVRFV2PlusJobs[0].KeyHash,
+		vrfv2PlusData.KeyHash,
 		subID,
 		vrfv2plus_constants.MinimumConfirmations,
 		vrfv2plus_constants.CallbackGasLimit,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
 	"math/big"
 	"time"
 
@@ -79,6 +80,35 @@ type VRFCoordinatorV2Plus interface {
 	GetSubscription(ctx context.Context, subID *big.Int) (vrf_coordinator_v2plus.GetSubscription, error)
 	FindSubscriptionID() (*big.Int, error)
 	WaitForRandomWordsFulfilledEvent(subID []*big.Int, requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled, error)
+}
+
+type VRFCoordinatorV2PlusUpgradedVersion interface {
+	SetLINKAndLINKETHFeed(
+		link string,
+		linkEthFeed string,
+	) error
+	SetConfig(
+		minimumRequestConfirmations uint16,
+		maxGasLimit uint32,
+		stalenessSeconds uint32,
+		gasAfterPaymentCalculation uint32,
+		fallbackWeiPerUnitLink *big.Int,
+		feeConfig vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionFeeConfig,
+	) error
+	RegisterProvingKey(
+		oracleAddr string,
+		publicProvingKey [2]*big.Int,
+	) error
+	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
+	CreateSubscription() error
+	Migrate(subId *big.Int, coordinatorAddress string) error
+	RegisterMigratableCoordinator(migratableCoordinatorAddress string) error
+	AddConsumer(subId *big.Int, consumerAddress string) error
+	FundSubscriptionWithEth(subId *big.Int, nativeTokenAmount *big.Int) error
+	Address() string
+	GetSubscription(ctx context.Context, subID *big.Int) (vrf_v2plus_upgraded_version.GetSubscription, error)
+	FindSubscriptionID() (*big.Int, error)
+	WaitForRandomWordsFulfilledEvent(subID []*big.Int, requestID []*big.Int, timeout time.Duration) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsFulfilled, error)
 }
 
 type VRFConsumer interface {
