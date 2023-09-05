@@ -717,7 +717,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			highCheckGasLimit := automationDefaultRegistryConfig
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
 			highCheckGasLimit.RegistryVersion = registryVersion
-			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 30*time.Second)
+			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(t, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 30*time.Second)
 			require.NoError(t, err, "Error building OCR config")
 
 			err = registry.SetConfig(highCheckGasLimit, ocrConfig)
@@ -828,16 +828,9 @@ func setupAutomationTestDocker(
 ) {
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
-
 	network := networks.SelectedNetwork
-	// chainlinkProps := map[string]any{
-	// 	"toml":        client.AddNetworksConfig(automationBaseTOML, network),
-	// 	"secretsToml": client.AddSecretTomlConfig("https://google.com", "username1", "password1"),
-	// 	"db": map[string]any{
-	// 		"stateful": statefulDb,
-	// 	},
-	// }
 
+	// build the node config
 	clNodeConfig := node.NewConfig(node.BaseConf)
 	syncInterval := models.MustMakeDuration(5 * time.Minute)
 	clNodeConfig.Feature.LogPoller = it_utils.Ptr[bool](true)
@@ -849,6 +842,7 @@ func setupAutomationTestDocker(
 	clNodeConfig.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
 	clNodeConfig.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
 
+	// launch the environment
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithGeth().
 		WithMockServer(1).
@@ -884,8 +878,7 @@ func setupAutomationTestDocker(
 
 	err = actions.CreateOCRKeeperJobsLocal(nodeClients, registry.Address(), network.ChainID, 0, registryVersion)
 	require.NoError(t, err, "Error creating OCR Keeper Jobs")
-		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, registryConfig, registrar.Address(), 30*time.Second)
-	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(t, workerNodes, registryConfig, registrar.Address(), 5*time.Second)
+	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(t, workerNodes, registryConfig, registrar.Address(), 30*time.Second)
 	require.NoError(t, err, "Error building OCR config vars")
 	err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
 	require.NoError(t, err, "Registry config should be set successfully")
