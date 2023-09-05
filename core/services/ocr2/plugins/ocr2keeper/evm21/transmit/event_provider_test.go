@@ -151,7 +151,7 @@ func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 			false,
 		},
 		{
-			"same log twice",
+			"same log twice", // shouldn't happen in practice as log poller should not return same logs
 			[]transmitEventLog{
 				{
 					Log: logpoller.Log{
@@ -182,6 +182,11 @@ func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 			},
 			1,
 			[]ocr2keepers.TransmitEvent{
+				{
+					Type:       ocr2keepers.PerformEvent,
+					UpkeepID:   id,
+					CheckBlock: ocr2keepers.BlockNumber(1),
+				},
 				{
 					Type:       ocr2keepers.PerformEvent,
 					UpkeepID:   id,
