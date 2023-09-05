@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ocr2keepers/pkg/v3/random"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -243,6 +244,11 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 }
 
 func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
+	latestBlock, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+	}
+
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
@@ -251,6 +257,8 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 	}
 
 	logsCount := map[string]int{}
+
+	r.sortPending(uint64(latestBlock))
 
 	var results, pending []ocr2keepers.UpkeepPayload
 	for _, payload := range r.pending {
@@ -595,4 +603,19 @@ func (r *logRecoverer) removePending(workID string) {
 		}
 	}
 	r.pending = updated
+}
+
+// sortPending sorts the pending list by a random order based on the latest block.
+// NOTE: the lock must be held before calling this function.
+func (r *logRecoverer) sortPending(latestBlock uint64) {
+	randSeed := random.GetRandomKeySource(nil, latestBlock)
+
+	shuffledIDs := make([]string, len(r.pending))
+	for i, p := range r.pending {
+		shuffledIDs[i] = random.ShuffleString(p.WorkID, randSeed)
+	}
+
+	sort.Slice(r.pending, func(i, j int) bool {
+		return shuffledIDs[i] < shuffledIDs[j]
+	})
 }
