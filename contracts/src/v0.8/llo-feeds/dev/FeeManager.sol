@@ -75,6 +75,9 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   // @notice thrown when trying to clear a zero deficit
   error ZeroDeficit();
 
+  /// @notice thrown when trying to pay an address that cannot except funds
+  error InvalidReceivingAddress();
+
   /// @notice Emitted whenever a subscriber's discount is updated
   /// @param subscriber address of the subscriber to update discounts for
   /// @param feedId Feed ID for the discount
@@ -93,9 +96,11 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   event InsufficientLink(bytes32 indexed configDigest, uint256 linkQuantity, uint256 nativeQuantity);
 
   /// @notice Emitted when funds are withdrawn
+  /// @param adminAddress Address of the admin
+  /// @param recipient Address of the recipient
   /// @param assetAddress Address of the asset withdrawn
   /// @param quantity Amount of the asset withdrawn
-  event Withdraw(address adminAddress, address assetAddress, uint256 quantity);
+  event Withdraw(address adminAddress, address recipient, address assetAddress, uint256 quantity);
 
   /// @notice Emits when a deficit has been cleared for a particular config digest
   /// @param configDigest Config digest of the deficit cleared
@@ -135,6 +140,11 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     _;
   }
 
+  modifier onlyProxy() {
+    if (msg.sender != i_proxyAddress) revert Unauthorized();
+    _;
+  }
+
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
     return "FeeManager 0.0.1";
@@ -146,7 +156,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IFeeManager
-  function processFee(bytes calldata payload, address subscriber) external payable onlyOwnerOrProxy {
+  function processFee(bytes calldata payload, address subscriber) external payable onlyProxy {
     if (subscriber == address(this)) revert InvalidAddress();
 
     //decode the report from the payload
@@ -155,7 +165,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     //get the feedId from the report
     bytes32 feedId = bytes32(report);
 
-    //v2 doesn't need a quote payload, so skip the decoding if the report is a v1 report
+    //v1 doesn't need a quote payload
     Quote memory quote;
     if (_getReportVersion(feedId) != REPORT_V1) {
       //all reports greater than v1 should have a quote payload
@@ -190,7 +200,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
             change -= fee.amount;
           }
         } else {
-          //if the user has not paid in native, they must have approved unwrapped native to be transferred
+          //if the user has not paid in native, they must have approved wrapped native to be transferred
           IERC20(fee.assetAddress).safeTransferFrom(subscriber, address(this), fee.amount);
         }
       }
@@ -328,18 +338,20 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IFeeManager
-  function withdraw(address assetAddress, uint256 quantity) external onlyOwner {
+  function withdraw(address assetAddress, address recipient, uint256 quantity) external onlyOwner {
     //address 0 is used to withdraw native in the context of withdrawing
     if (assetAddress == address(0)) {
-      payable(owner()).transfer(quantity);
+      (bool success, ) = payable(recipient).call{value: quantity}("");
+
+      if (!success) revert InvalidReceivingAddress();
       return;
     }
 
     //withdraw the requested asset
-    IERC20(assetAddress).safeTransfer(owner(), quantity);
+    IERC20(assetAddress).safeTransfer(recipient, quantity);
 
     //emit event when funds are withdrawn
-    emit Withdraw(msg.sender, assetAddress, quantity);
+    emit Withdraw(msg.sender, recipient, assetAddress, quantity);
   }
 
   /// @inheritdoc IFeeManager

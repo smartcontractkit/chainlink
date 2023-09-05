@@ -117,9 +117,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   /// @inheritdoc IVerifierProxy
-  function verify(
-    bytes calldata payload
-  ) external payable override checkAccess returns (bytes memory verifierResponse) {
+  function verify(bytes calldata payload) external payable override checkAccess returns (bytes memory) {
     // First 32 bytes of the signed report is the config digest
     bytes32 configDigest = bytes32(payload);
     address verifierAddress = s_verifiersByConfig[configDigest];
@@ -172,7 +170,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   /// @inheritdoc IVerifierProxy
-  function getVerifier(bytes32 configDigest) external view override returns (address verifierAddress) {
+  function getVerifier(bytes32 configDigest) external view override returns (address) {
     return s_verifiersByConfig[configDigest];
   }
 

@@ -54,6 +54,9 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   // @notice Thrown when the calling contract is not within the authorized contracts
   error Unauthorized();
 
+  // @notice Thrown when getAvailableRewardPoolIds parameters are incorrectly set
+  error InvalidPoolLength();
+
   // Events emitted upon state change
   event RewardRecipientsUpdated(bytes32 indexed poolId, Common.AddressAndWeight[] newRewardRecipients);
   event RewardsClaimed(bytes32 indexed poolId, address indexed recipient, uint256 quantity);
@@ -91,8 +94,13 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     _;
   }
 
+  modifier onlyFeeManager() {
+    if (msg.sender != s_feeManagerAddress) revert Unauthorized();
+    _;
+  }
+
   /// @inheritdoc IRewardManager
-  function onFeePaid(bytes32 poolId, address payer, uint256 amount) external override onlyOwnerOrFeeManager {
+  function onFeePaid(bytes32 poolId, address payer, uint256 amount) external override onlyFeeManager {
     //update the total fees collected for this pot
     unchecked {
       //the total amount for any ERC20 asset cannot exceed 2^256 - 1
@@ -271,9 +279,17 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   /// @inheritdoc IRewardManager
-  function getAvailableRewardPoolIds(address recipient) external view returns (bytes32[] memory) {
+  function getAvailableRewardPoolIds(
+    address recipient,
+    uint256 cursor,
+    uint256 numberOfPools
+  ) external view returns (bytes32[] memory) {
     //get the length of the pool ids which we will loop through and potentially return
     uint256 registeredPoolIdsLength = s_registeredPoolIds.length;
+
+    uint256 totalPoolsToCheck = numberOfPools > registeredPoolIdsLength ? registeredPoolIdsLength : numberOfPools;
+
+    if (cursor > totalPoolsToCheck) revert InvalidPoolLength();
 
     //create a new array with the maximum amount of potential pool ids
     bytes32[] memory claimablePoolIds = new bytes32[](registeredPoolIdsLength);
@@ -281,9 +297,10 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     uint256 poolIdArrayIndex;
 
     //loop all the pool ids, and check if the recipient has a registered weight and a claimable amount
-    for (uint256 i; i < registeredPoolIdsLength; ++i) {
+    for (uint256 i = cursor; i < totalPoolsToCheck; ++i) {
       //get the poolId
       bytes32 poolId = s_registeredPoolIds[i];
+
       //if the recipient has a weight, they are a recipient of this poolId
       if (s_rewardRecipientWeights[poolId][recipient] != 0) {
         //get the total in this pool
