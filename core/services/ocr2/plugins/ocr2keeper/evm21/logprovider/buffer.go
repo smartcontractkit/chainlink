@@ -280,6 +280,9 @@ func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit int) []fetch
 		if block.blockNumber < start || block.blockNumber > end {
 			continue
 		}
+		// Sort the logs in random order that is shared across all nodes.
+		// This ensures that nodes across the network will process the same logs.
+		block.Sort()
 		var remainingLogs, blockResults []fetchedLog
 		for _, log := range block.logs {
 			if logsCount[log.upkeepID.String()] >= upkeepLimit {
