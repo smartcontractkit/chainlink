@@ -139,7 +139,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 
 			startTime := time.Now()
 			// TODO Tune this timeout window after stress testing
-			gom.Eventually(func(g gomega.Gomega) error {
+			gom.Eventually(func(g gomega.Gomega) {
 				// Check if the upkeeps are performing multiple times by analyzing their counters
 				for i := 0; i < len(upkeepIDs); i++ {
 					counter, err := consumers[i].Counter(context.Background())
@@ -149,7 +149,6 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">=", int64(expect)),
 						"Expected consumer counter to be greater than %d, but got %d", expect, counter.Int64())
 				}
-				return nil
 			}, "5m", "1s").Should(gomega.Succeed()) // ~1m for cluster setup, ~2m for performing each upkeep 5 times, ~2m buffer
 
 			l.Info().Msgf("Total time taken to get 5 performs for each upkeep: %s", time.Since(startTime))
@@ -806,7 +805,7 @@ func TestUpdateCheckData(t *testing.T) {
 						"Expected perform data checker counter to be greater than 0, but got %d", counter.Int64())
 					l.Info().Int64("Upkeep perform data checker", counter.Int64()).Msg("Number of upkeeps performed")
 				}
-			}, "8m" /*"2m"*/, "1s").Should(gomega.Succeed()) // ~1m to perform once, 1m buffer
+			}, "2m", "1s").Should(gomega.Succeed()) // ~1m to perform once, 1m buffer
 		})
 	}
 }

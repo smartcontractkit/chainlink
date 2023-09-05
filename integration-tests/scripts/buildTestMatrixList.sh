@@ -2,6 +2,7 @@
 
 # requires a path to a test file to compare the test list against
 # requires a matrix job name to be passed in, for example "automation"
+# requires a node label to be passed in, for example "ubuntu-latest"
 
 set -e
 
@@ -18,6 +19,7 @@ NODE_LABEL=$3
 JSONFILE="${FILENAME}_test_list.json"
 COUNTER=1
 
+# Build a JSON object in the format expected by our integration-tests workflow matrix
 matrix_output() {
   local counter=$1
   local job_name=$2
