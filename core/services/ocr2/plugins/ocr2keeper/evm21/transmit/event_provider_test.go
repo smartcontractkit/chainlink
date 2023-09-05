@@ -151,7 +151,7 @@ func TestTransmitEventProvider_ProcessLogs(t *testing.T) {
 			false,
 		},
 		{
-			"same log twice", // shouldn't happen in practice as log poller should not return same logs
+			"same log twice", // shouldn't happen in practice as log poller should not return duplicate logs
 			[]transmitEventLog{
 				{
 					Log: logpoller.Log{
