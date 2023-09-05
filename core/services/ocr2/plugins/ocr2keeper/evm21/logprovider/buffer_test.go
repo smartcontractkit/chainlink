@@ -318,10 +318,13 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 		require.Equal(t, int64(5), logs[0].log.BlockNumber)
 		require.Equal(t, int64(4), logs[1].log.BlockNumber)
 
+		require.Equal(t, buf.enqueue(big.NewInt(1),
+			logpoller.Log{BlockNumber: 4, TxHash: common.HexToHash("0x4"), LogIndex: 1},
+			logpoller.Log{BlockNumber: 5, TxHash: common.HexToHash("0x5"), LogIndex: 1},
+		), 2)
+
 		logs = buf.dequeueRange(1, 5, 3, 2)
 		require.Equal(t, 2, len(logs))
-		require.Equal(t, int64(5), logs[0].log.BlockNumber)
-		require.Equal(t, int64(4), logs[1].log.BlockNumber)
 	})
 
 	t.Run("dequeue doesn't return same logs again", func(t *testing.T) {
