@@ -19,11 +19,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipevents"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/hasher"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
@@ -104,6 +104,8 @@ func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainC
 			lggr:                commitLggr,
 			sourceLP:            sourceChain.LogPoller(),
 			destLP:              destChain.LogPoller(),
+			sourceEvents:        ccipevents.NewLogPollerClient(sourceChain.LogPoller(), commitLggr, sourceChain.Client()),
+			destEvents:          ccipevents.NewLogPollerClient(destChain.LogPoller(), commitLggr, destChain.Client()),
 			offRamp:             offRamp,
 			onRampAddress:       onRamp.Address(),
 			priceGetter:         priceGetterObject,
@@ -114,7 +116,6 @@ func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainC
 			sourceClient:        sourceChain.Client(),
 			commitStore:         commitStore,
 			leafHasher:          leafHasher,
-			getSeqNumFromLog:    getSeqNumFromLog(onRamp),
 			checkFinalityTags:   sourceChain.Config().EVM().FinalityTagEnabled(),
 		})
 
@@ -147,16 +148,6 @@ func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainC
 		}, nil
 	}
 	return []job.ServiceCtx{job.NewServiceAdapter(oracle)}, nil
-}
-
-func getSeqNumFromLog(onRamp evm_2_evm_onramp.EVM2EVMOnRampInterface) func(log logpoller.Log) (uint64, error) {
-	return func(log logpoller.Log) (uint64, error) {
-		req, err := onRamp.ParseCCIPSendRequested(log.ToGethLog())
-		if err != nil {
-			return 0, err
-		}
-		return req.Message.SequenceNumber, nil
-	}
 }
 
 // CommitReportToEthTxMeta generates a txmgr.EthTxMeta from the given commit report.

@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipevents"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/hasher"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/observability"
@@ -122,25 +123,22 @@ func calculateUsdPerUnitGas(sourceGasPrice *big.Int, usdPerFeeCoin *big.Int) *bi
 // Extracts the hashed leaves from a given set of logs
 func leavesFromIntervals(
 	lggr logger.Logger,
-	seqParser func(logpoller.Log) (uint64, error),
 	interval commit_store.CommitStoreInterval,
 	hasher hasher.LeafHasherInterface[[32]byte],
-	logs []logpoller.Log,
+	sendReqs []ccipevents.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested],
 ) ([][32]byte, error) {
 	var seqNrs []uint64
-	for _, log := range logs {
-		seqNr, err2 := seqParser(log)
-		if err2 != nil {
-			return nil, err2
-		}
-		seqNrs = append(seqNrs, seqNr)
+	for _, req := range sendReqs {
+		seqNrs = append(seqNrs, req.Data.Message.SequenceNumber)
 	}
+
 	if !contiguousReqs(lggr, interval.Min, interval.Max, seqNrs) {
 		return nil, errors.Errorf("do not have full range [%v, %v] have %v", interval.Min, interval.Max, seqNrs)
 	}
 	var leaves [][32]byte
-	for _, log := range logs {
-		hash, err2 := hasher.HashLeaf(log.ToGethLog())
+
+	for _, sendReq := range sendReqs {
+		hash, err2 := hasher.HashLeaf(sendReq.Data.Raw)
 		if err2 != nil {
 			return nil, err2
 		}
