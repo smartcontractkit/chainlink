@@ -236,7 +236,7 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 		results := buf.peekRange(int64(1), int64(2))
 		require.Equal(t, 2, len(results))
 		verifyBlockNumbers(t, results, 1, 2)
-		removed := buf.dequeueRange(int64(1), int64(2), 2)
+		removed := buf.dequeueRange(int64(1), int64(2), 2, 10)
 		require.Equal(t, 2, len(removed))
 		results = buf.peekRange(int64(1), int64(2))
 		require.Equal(t, 0, len(results))
@@ -256,7 +256,7 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 		results := buf.peek(8)
 		require.Equal(t, 4, len(results))
 		verifyBlockNumbers(t, results, 1, 2, 3, 3)
-		removed := buf.dequeueRange(1, 3, 5)
+		removed := buf.dequeueRange(1, 3, 5, 5)
 		require.Equal(t, 4, len(removed))
 		buf.lock.Lock()
 		require.Equal(t, 0, len(buf.blocks[0].logs))
@@ -313,7 +313,12 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 			logpoller.Log{BlockNumber: 5, TxHash: common.HexToHash("0x5"), LogIndex: 0},
 		), 5)
 
-		logs := buf.dequeueRange(1, 5, 2)
+		logs := buf.dequeueRange(1, 5, 2, 10)
+		require.Equal(t, 2, len(logs))
+		require.Equal(t, int64(5), logs[0].log.BlockNumber)
+		require.Equal(t, int64(4), logs[1].log.BlockNumber)
+
+		logs = buf.dequeueRange(1, 5, 3, 2)
 		require.Equal(t, 2, len(logs))
 		require.Equal(t, int64(5), logs[0].log.BlockNumber)
 		require.Equal(t, int64(4), logs[1].log.BlockNumber)
@@ -327,11 +332,11 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 			logpoller.Log{BlockNumber: 3, TxHash: common.HexToHash("0x3"), LogIndex: 0},
 		), 3)
 
-		logs := buf.dequeueRange(3, 3, 2)
+		logs := buf.dequeueRange(3, 3, 2, 10)
 		fmt.Println(logs)
 		require.Equal(t, 1, len(logs))
 
-		logs = buf.dequeueRange(3, 3, 2)
+		logs = buf.dequeueRange(3, 3, 2, 10)
 		fmt.Println(logs)
 		require.Equal(t, 0, len(logs))
 	})

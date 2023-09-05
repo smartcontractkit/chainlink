@@ -256,7 +256,7 @@ func (b *logEventBuffer) peekRange(start, end int64) []fetchedLog {
 }
 
 // dequeueRange returns the logs between start and end inclusive.
-func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit int) []fetchedLog {
+func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit, totalLimit int) []fetchedLog {
 	b.lock.Lock()
 	defer b.lock.Unlock()
 
@@ -274,23 +274,33 @@ func (b *logEventBuffer) dequeueRange(start, end int64, upkeepLimit int) []fetch
 	})
 
 	logsCount := map[string]int{}
+	totalCount := 0
 	var results []fetchedLog
 	for _, block := range fetchedBlocks {
-		// double checking that we don't have any gaps in the range
 		if block.blockNumber < start || block.blockNumber > end {
+			// double checking that we don't have any gaps in the range
 			continue
+		}
+		if totalCount >= totalLimit {
+			// reached total limit, no need to process more blocks
+			break
 		}
 		// Sort the logs in random order that is shared across all nodes.
 		// This ensures that nodes across the network will process the same logs.
 		block.Sort()
 		var remainingLogs, blockResults []fetchedLog
 		for _, log := range block.logs {
+			if totalCount >= totalLimit {
+				remainingLogs = append(remainingLogs, log)
+				continue
+			}
 			if logsCount[log.upkeepID.String()] >= upkeepLimit {
 				remainingLogs = append(remainingLogs, log)
 				continue
 			}
-			logsCount[log.upkeepID.String()]++
 			blockResults = append(blockResults, log)
+			logsCount[log.upkeepID.String()]++
+			totalCount++
 		}
 		if len(blockResults) == 0 {
 			continue

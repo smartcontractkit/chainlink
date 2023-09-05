@@ -30,6 +30,8 @@ var (
 
 	// AllowedLogsPerUpkeep is the maximum number of logs allowed per upkeep every single call.
 	AllowedLogsPerUpkeep = 5
+	// MaxPayloads is the maximum number of payloads to return per call.
+	MaxPayloads = 100
 
 	readJobQueueSize = 64
 	readLogsTimeout  = 10 * time.Second
@@ -177,7 +179,7 @@ func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers
 	if start <= 0 {
 		start = 1
 	}
-	logs := p.buffer.dequeueRange(start, latest, AllowedLogsPerUpkeep)
+	logs := p.buffer.dequeueRange(start, latest, AllowedLogsPerUpkeep, MaxPayloads)
 
 	// p.lggr.Debugw("got latest logs from buffer", "latest", latest, "diff", diff, "logs", len(logs))
 
