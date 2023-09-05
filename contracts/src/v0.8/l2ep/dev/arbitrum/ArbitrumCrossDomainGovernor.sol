@@ -1,38 +1,34 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./interfaces/DelegateForwarderInterface.sol";
-import "../vendor/@eth-optimism/contracts/0.4.7/contracts/optimistic-ethereum/iOVM/bridge/messaging/iOVM_CrossDomainMessenger.sol";
-import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import "./OptimismCrossDomainForwarder.sol";
+import "../interfaces/DelegateForwarderInterface.sol";
+import "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
+import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import "./ArbitrumCrossDomainForwarder.sol";
 
 /**
- * @title OptimismCrossDomainGovernor - L1 xDomain account representation (with delegatecall support) for Optimism
+ * @title ArbitrumCrossDomainGovernor - L1 xDomain account representation (with delegatecall support) for Arbitrum
  * @notice L2 Contract which receives messages from a specific L1 address and transparently forwards them to the destination.
  * @dev Any other L2 contract which uses this contract's address as a privileged position,
  *   can be considered to be simultaneously owned by the `l1Owner` and L2 `owner`
  */
-contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCrossDomainForwarder {
+contract ArbitrumCrossDomainGovernor is DelegateForwarderInterface, ArbitrumCrossDomainForwarder {
   /**
-   * @notice creates a new Optimism xDomain Forwarder contract
-   * @param crossDomainMessengerAddr the xDomain bridge messenger (Optimism bridge L2) contract address
+   * @notice creates a new Arbitrum xDomain Forwarder contract
    * @param l1OwnerAddr the L1 owner address that will be allowed to call the forward fn
    * @dev Empty constructor required due to inheriting from abstract contract CrossDomainForwarder
    */
-  constructor(
-    iOVM_CrossDomainMessenger crossDomainMessengerAddr,
-    address l1OwnerAddr
-  ) OptimismCrossDomainForwarder(crossDomainMessengerAddr, l1OwnerAddr) {}
+  constructor(address l1OwnerAddr) ArbitrumCrossDomainForwarder(l1OwnerAddr) {}
 
   /**
    * @notice versions:
    *
-   * - OptimismCrossDomainForwarder 1.0.0: initial release
+   * - ArbitrumCrossDomainGovernor 1.0.0: initial release
    *
    * @inheritdoc TypeAndVersionInterface
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
-    return "OptimismCrossDomainGovernor 1.0.0";
+    return "ArbitrumCrossDomainGovernor 1.0.0";
   }
 
   /**
@@ -55,16 +51,7 @@ contract OptimismCrossDomainGovernor is DelegateForwarderInterface, OptimismCros
    * @notice The call MUST come from either the L1 owner (via cross-chain message) or the L2 owner. Reverts otherwise.
    */
   modifier onlyLocalOrCrossDomainOwner() {
-    address messenger = crossDomainMessenger();
-    // 1. The delegatecall MUST come from either the L1 owner (via cross-chain message) or the L2 owner
-    require(msg.sender == messenger || msg.sender == owner(), "Sender is not the L2 messenger or owner");
-    // 2. The L2 Messenger's caller MUST be the L1 Owner
-    if (msg.sender == messenger) {
-      require(
-        iOVM_CrossDomainMessenger(messenger).xDomainMessageSender() == l1Owner(),
-        "xDomain sender is not the L1 owner"
-      );
-    }
+    require(msg.sender == crossDomainMessenger() || msg.sender == owner(), "Sender is not the L2 messenger or owner");
     _;
   }
 }

@@ -348,6 +348,12 @@ func EvmTxRequestWithValue(value big.Int) func(*txmgr.TxRequest) {
 	}
 }
 
+func EvmTxRequestWithIdempotencyKey(idempotencyKey string) func(*txmgr.TxRequest) {
+	return func(tx *txmgr.TxRequest) {
+		tx.IdempotencyKey = &idempotencyKey
+	}
+}
+
 func MustCreateUnstartedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress common.Address, toAddress common.Address, encodedPayload []byte, gasLimit uint32, value big.Int, chainID *big.Int, opts ...interface{}) (tx txmgr.Tx) {
 	txRequest := txmgr.TxRequest{
 		FromAddress:    fromAddress,

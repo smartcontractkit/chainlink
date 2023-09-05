@@ -57,6 +57,7 @@ type TxStoreWebApi interface {
 	TxAttempts(offset, limit int) ([]TxAttempt, int, error)
 	TransactionsWithAttempts(offset, limit int) ([]Tx, int, error)
 	FindTxAttempt(hash common.Hash) (*TxAttempt, error)
+	FindTxWithAttempts(etxID int64) (etx Tx, err error)
 }
 
 type TestEvmTxStore interface {
@@ -66,7 +67,6 @@ type TestEvmTxStore interface {
 	InsertReceipt(receipt *evmtypes.Receipt) (int64, error)
 	InsertTx(etx *Tx) error
 	FindTxAttemptsByTxIDs(ids []int64) ([]TxAttempt, error)
-	FindTxWithAttempts(etxID int64) (etx Tx, err error)
 	InsertTxAttempt(attempt *TxAttempt) error
 	LoadTxesAttempts(etxs []*Tx, qopts ...pg.QOpt) error
 }
@@ -152,6 +152,7 @@ func toOnchainReceipt(rs []*evmtypes.Receipt) []rawOnchainReceipt {
 // This is exported, as tests and other external code still directly reads DB using this schema.
 type DbEthTx struct {
 	ID             int64
+	IdempotencyKey *string
 	Nonce          *int64
 	FromAddress    common.Address
 	ToAddress      common.Address
@@ -218,6 +219,7 @@ func DbEthTxToEthTx(dbEthTx DbEthTx, evmEthTx *Tx) {
 		n := evmtypes.Nonce(*dbEthTx.Nonce)
 		evmEthTx.Sequence = &n
 	}
+	evmEthTx.IdempotencyKey = dbEthTx.IdempotencyKey
 	evmEthTx.FromAddress = dbEthTx.FromAddress
 	evmEthTx.ToAddress = dbEthTx.ToAddress
 	evmEthTx.EncodedPayload = dbEthTx.EncodedPayload
@@ -906,6 +908,21 @@ func (o *evmTxStore) FindReceiptsPendingConfirmation(ctx context.Context, blockN
 	return
 }
 
+// FindTxWithIdempotencyKey returns any broadcast ethtx with the given idempotencyKey and chainID
+func (o *evmTxStore) FindTxWithIdempotencyKey(idempotencyKey string, chainID *big.Int) (etx *Tx, err error) {
+	var dbEtx DbEthTx
+	err = o.q.Get(&dbEtx, `SELECT * FROM eth_txes WHERE idempotency_key = $1 and evm_chain_id = $2`, idempotencyKey, chainID.String())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, pkgerrors.Wrap(err, "FindTxWithIdempotencyKey failed to load eth_txes")
+	}
+	etx = new(Tx)
+	DbEthTxToEthTx(dbEtx, etx)
+	return
+}
+
 // FindTxWithSequence returns any broadcast ethtx with the given nonce
 func (o *evmTxStore) FindTxWithSequence(fromAddress common.Address, nonce evmtypes.Nonce) (etx *Tx, err error) {
 	etx = new(Tx)
@@ -1501,12 +1518,12 @@ func (o *evmTxStore) CreateTransaction(txRequest TxRequest, chainID *big.Int, qo
 			}
 		}
 		err = tx.Get(&dbEtx, `
-INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker)
+INSERT INTO eth_txes (from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id, transmit_checker, idempotency_key)
 VALUES (
-$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11
+$1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11,$12
 )
 RETURNING "eth_txes".*
-`, txRequest.FromAddress, txRequest.ToAddress, txRequest.EncodedPayload, assets.Eth(txRequest.Value), txRequest.FeeLimit, txRequest.Meta, txRequest.Strategy.Subject(), chainID.String(), txRequest.MinConfirmations, txRequest.PipelineTaskRunID, txRequest.Checker)
+`, txRequest.FromAddress, txRequest.ToAddress, txRequest.EncodedPayload, assets.Eth(txRequest.Value), txRequest.FeeLimit, txRequest.Meta, txRequest.Strategy.Subject(), chainID.String(), txRequest.MinConfirmations, txRequest.PipelineTaskRunID, txRequest.Checker, txRequest.IdempotencyKey)
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to insert eth_tx")
 		}

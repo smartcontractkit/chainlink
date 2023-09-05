@@ -1,15 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../interfaces/AggregatorValidatorInterface.sol";
-import "../interfaces/TypeAndVersionInterface.sol";
-import "../interfaces/AccessControllerInterface.sol";
-import "../interfaces/AggregatorV3Interface.sol";
-import "../SimpleWriteAccessController.sol";
+import "../../../interfaces/AggregatorValidatorInterface.sol";
+import "../../../interfaces/TypeAndVersionInterface.sol";
+import "../../../shared/interfaces/AccessControllerInterface.sol";
+import "../../../interfaces/AggregatorV3Interface.sol";
+import "../../../shared/access/SimpleWriteAccessController.sol";
 
-import "./interfaces/OptimismSequencerUptimeFeedInterface.sol";
+import "./../interfaces/OptimismSequencerUptimeFeedInterface.sol";
 import "@eth-optimism/contracts/L1/messaging/IL1CrossDomainMessenger.sol";
-import "../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 
 /**
  * @title OptimismValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
