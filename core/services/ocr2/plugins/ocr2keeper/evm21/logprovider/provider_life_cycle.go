@@ -20,7 +20,7 @@ var (
 	LogRetention = 24 * time.Hour
 	// When adding a filter in log poller, backfill is done for this number of blocks
 	// from latest
-	LogBackfillBuffer = 250
+	LogBackfillBuffer = 100
 )
 
 func (p *logEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, error) {
