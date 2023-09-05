@@ -3,8 +3,8 @@ package evm
 import (
 	"database/sql"
 	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/bigbigendian"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocrconfigurationstoreevmsimple"
 	"math/big"
 	"testing"
 	"time"
@@ -21,7 +21,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2configurationstore"
 	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -63,7 +62,7 @@ func TestConfigPoller(t *testing.T) {
 		"TEST",
 	)
 	require.NoError(t, err)
-	configStoreContractAddr, _, configStoreContract, err := ocr2configurationstore.DeployOCRConfigurationStoreEVMSimple(user, b)
+	configStoreContractAddr, _, configStoreContract, err := ocrconfigurationstoreevmsimple.DeployOCRConfigurationStoreEVMSimple(user, b)
 	require.NoError(t, err)
 	b.Commit()
 
@@ -241,7 +240,7 @@ func TestConfigPoller(t *testing.T) {
 				transmitterAddresses, err := AccountToAddress(contractConfig.Transmitters)
 				require.NoError(t, err)
 
-				configuration := ocr2configurationstore.IOCRConfigurationStoreEVMSimpleConfiguration{
+				configuration := ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimpleConfigurationEVMSimple{
 					Signers:               signerAddresses,
 					Transmitters:          transmitterAddresses,
 					OnchainConfig:         contractConfig.OnchainConfig,
@@ -252,7 +251,7 @@ func TestConfigPoller(t *testing.T) {
 					F:                     contractConfig.F,
 				}
 
-				addConfig(t, user, configStoreContract, ocrAddress, configuration)
+				addConfig(t, user, configStoreContract, configuration)
 
 				b.Commit()
 				onchainDetails, err = ocrContract.LatestConfigDetails(nil)
@@ -340,18 +339,9 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 	}
 }
 
-func addConfig(t *testing.T, user *bind.TransactOpts, configStoreContract *ocr2configurationstore.OCRConfigurationStoreEVMSimple, aggregatorAddress common.Address, config ocr2configurationstore.IOCRConfigurationStoreEVMSimpleConfiguration) {
+func addConfig(t *testing.T, user *bind.TransactOpts, configStoreContract *ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimple, config ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimpleConfigurationEVMSimple) {
 
-	_, err := configStoreContract.AddConfig(user, ocr2configurationstore.IOCRConfigurationStoreEVMSimpleConfiguration{
-		ConfigCount:           config.ConfigCount,
-		ContractAddress:       aggregatorAddress,
-		Signers:               config.Signers,
-		Transmitters:          config.Transmitters,
-		OnchainConfig:         config.OnchainConfig,
-		OffchainConfig:        config.OffchainConfig,
-		OffchainConfigVersion: config.OffchainConfigVersion,
-		F:                     config.F,
-	})
+	_, err := configStoreContract.AddConfig(user, config)
 	require.NoError(t, err)
 }
 

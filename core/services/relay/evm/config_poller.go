@@ -11,7 +11,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2configurationstore"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocrconfigurationstoreevmsimple"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -99,7 +99,7 @@ type configPoller struct {
 	aggregatorContract     *ocr2aggregator.OCR2Aggregator
 
 	configStoreContractAddr common.Address
-	configStoreContract     *ocr2configurationstore.OCRConfigurationStoreEVMSimple
+	configStoreContract     *ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimple
 }
 
 func configPollerFilterName(addr common.Address) string {
@@ -121,9 +121,9 @@ func newConfigPoller(lggr logger.Logger, client client.Client, destChainPoller l
 		return nil, err
 	}
 
-	configStoreContract := &ocr2configurationstore.OCRConfigurationStoreEVMSimple{}
+	configStoreContract := &ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimple{}
 	if (configStoreAddr != common.Address{}) {
-		configStoreContract, err = ocr2configurationstore.NewOCRConfigurationStoreEVMSimple(configStoreAddr, client)
+		configStoreContract, err = ocrconfigurationstoreevmsimple.NewOCRConfigurationStoreEVMSimple(configStoreAddr, client)
 		if err != nil {
 			return nil, err
 		}
