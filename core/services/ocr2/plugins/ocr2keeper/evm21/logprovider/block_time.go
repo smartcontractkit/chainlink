@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	defaultSampleSize = int64(10)
+	defaultSampleSize = int64(200)
 	defaultBlockTime  = time.Second * 1
 )
 
