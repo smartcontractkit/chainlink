@@ -353,7 +353,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			[]int64{200, 0, 450},
 		},
 		{
-			"lastRePollBlock updated with burst",
+			"lastRePollBlock updated with burst when lagging behind",
 			100,
 			50000,
 			nil,
@@ -383,7 +383,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			[]int64{600},
 		},
 		{
-			"lastRePollBlock starts at configUpdateBlock if higher than lastRePollBlock",
+			"recovery starts at configUpdateBlock if higher than lastRePollBlock",
 			100,
 			5000,
 			nil,
