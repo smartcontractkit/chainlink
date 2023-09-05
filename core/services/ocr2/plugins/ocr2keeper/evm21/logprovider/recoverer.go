@@ -25,11 +25,17 @@ import (
 )
 
 var (
-	DefaultRecoveryInterval = 5 * time.Second
-	RecoveryCacheTTL        = 10*time.Minute - time.Second
-	GCInterval              = RecoveryCacheTTL
-
-	recoveryBatchSize  = 10
+	// RecoveryInterval is the interval at which the recovery scanning processing is triggered
+	RecoveryInterval = 5 * time.Second
+	// RecoveryCacheTTL is the time to live for the recovery cache
+	RecoveryCacheTTL = 10 * time.Minute
+	// GCInterval is the interval at which the recovery cache is cleaned up
+	GCInterval = RecoveryCacheTTL - time.Second
+	// MaxProposals is the maximum number of proposals that can be returned by GetRecoveryProposals
+	MaxProposals = 50
+	// recoveryBatchSize is the number of filters to recover in a single batch
+	recoveryBatchSize = 10
+	// recoveryLogsBuffer is the number of blocks to be used as a safety buffer when reading logs
 	recoveryLogsBuffer = int64(50)
 )
 
@@ -256,20 +262,29 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 		return nil, nil
 	}
 
+	allLogsCounter := 0
 	logsCount := map[string]int{}
 
 	r.sortPending(uint64(latestBlock))
 
 	var results, pending []ocr2keepers.UpkeepPayload
 	for _, payload := range r.pending {
-		uid := payload.UpkeepID.String()
-		if logsCount[uid] >= AllowedLogsPerUpkeep {
+		if allLogsCounter >= MaxProposals {
+			// we have enough proposals, pushed the rest are pushed back to pending
 			pending = append(pending, payload)
 			continue
 		}
-		logsCount[uid]++
+		uid := payload.UpkeepID.String()
+		if logsCount[uid] >= AllowedLogsPerUpkeep {
+			// we have enough proposals for this upkeep, the rest are pushed back to pending
+			pending = append(pending, payload)
+			continue
+		}
 		results = append(results, payload)
+		logsCount[uid]++
+		allLogsCounter++
 	}
+
 	r.pending = pending
 
 	r.lggr.Debugf("found %d pending payloads", len(pending))
