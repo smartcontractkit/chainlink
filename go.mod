@@ -65,10 +65,10 @@ require (
 	github.com/shirou/gopsutil/v3 v3.22.12
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
-	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230831132059-42af68994512
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230901143551-bf6bd84d6938
-	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230831134610-680240b97aca
-	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230901115736-bbabe542a918
+	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230824124058-9b063c470048 // TODO: update when https://github.com/smartcontractkit/chainlink-cosmos/pull/356 is merged
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230905153104-3e033ffaaa7b
+	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230802143301-165000751a85
+	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230802150127-d2c95679d61a
 	github.com/smartcontractkit/libocr v0.0.0-20230816220705-665e93233ae5
 	github.com/smartcontractkit/ocr2keepers v0.7.19
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
