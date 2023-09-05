@@ -369,20 +369,20 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 		BlockNumber: 550,
 	}
 
-	trigger0 := ocr2keepers.NewTrigger(150, common.HexToHash("0x1c77db0abe32327cf3ea9de2aadf79876f9e6b6dfcee9d4719a8a2dc8ca289d0"))
+	trigger0 := ocr2keepers.NewTrigger(590, common.HexToHash("0x1c77db0abe32327cf3ea9de2aadf79876f9e6b6dfcee9d4719a8a2dc8ca289d0"))
 	trigger1 := ocr2keepers.NewLogTrigger(560, common.HexToHash("0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857"), extension1)
 	trigger2 := ocr2keepers.NewLogTrigger(570, common.HexToHash("0x1222d75217e2dd461cc77e4091c37abe76277430d97f1963a822b4e94ebb83fc"), extension2)
 
 	tests := []struct {
-		name          string
-		inputs        []ocr2keepers.UpkeepPayload
-		blocks        map[int64]string
-		latestBlock   ocr2keepers.BlockKey
-		results       []ocr2keepers.CheckResult
-		err           error
-		ethCalls      map[string]bool
-		receipts      map[string]*types.Receipt
-		ethCallErrors map[string]error
+		name               string
+		inputs             []ocr2keepers.UpkeepPayload
+		blocks             map[int64]string
+		latestBlock        ocr2keepers.BlockKey
+		results            []ocr2keepers.CheckResult
+		err                error
+		ethTxReceiptCalls  map[string]bool
+		receipts           map[string]*types.Receipt
+		ethTxReceiptErrors map[string]error
 	}{
 		{
 			name: "check upkeeps with different upkeep types",
@@ -413,8 +413,8 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			latestBlock: ocr2keepers.BlockKey{Number: 580},
 			results: []ocr2keepers.CheckResult{
 				{
-					PipelineExecutionState: uint8(encoding.CheckBlockTooOld),
-					Retryable:              false,
+					PipelineExecutionState: uint8(encoding.CheckBlockTooNew),
+					Retryable:              true,
 					Eligible:               false,
 					IneligibilityReason:    0,
 					UpkeepID:               uid0,
@@ -452,11 +452,11 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 					LinkNative:             big.NewInt(0),
 				},
 			},
-			ethCalls: map[string]bool{
+			ethTxReceiptCalls: map[string]bool{
 				uid1.String(): true,
 			},
 			receipts: map[string]*types.Receipt{},
-			ethCallErrors: map[string]error{
+			ethTxReceiptErrors: map[string]error{
 				uid1.String(): fmt.Errorf("error"),
 			},
 		},
@@ -476,9 +476,9 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			client := new(evmClientMocks.Client)
 			for _, i := range tc.inputs {
 				uid := i.UpkeepID.String()
-				if tc.ethCalls[uid] {
+				if tc.ethTxReceiptCalls[uid] {
 					client.On("CallContext", mock.Anything, mock.Anything, "eth_getTransactionReceipt", common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651")).
-						Return(tc.ethCallErrors[uid]).Run(func(args mock.Arguments) {
+						Return(tc.ethTxReceiptErrors[uid]).Run(func(args mock.Arguments) {
 						receipt := tc.receipts[uid]
 						if receipt != nil {
 							res := args.Get(1).(*types.Receipt)
