@@ -240,11 +240,12 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 				r.lggr.Warnf("header not found error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
 				results[index].Retryable = false
 				results[index].PipelineExecutionState = uint8(encoding.CheckBlockTooOld)
+			} else {
+				// individual upkeep failed in a batch call, likely a flay RPC error, consider retryable
+				r.lggr.Warnf("rpc error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
+				results[index].Retryable = true
+				results[index].PipelineExecutionState = uint8(encoding.RpcFlakyFailure)
 			}
-			// individual upkeep failed in a batch call, likely a flay RPC error, consider retryable
-			r.lggr.Warnf("rpc error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
-			results[index].Retryable = true
-			results[index].PipelineExecutionState = uint8(encoding.RpcFlakyFailure)
 		} else {
 			var err error
 			results[index], err = r.packer.UnpackCheckResult(payloads[index], *checkResults[i])
