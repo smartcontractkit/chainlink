@@ -159,17 +159,10 @@ func (c *TransmitEventProvider) GetLatestEvents(ctx context.Context) ([]ocr2keep
 }
 
 // processLogs will parse the unseen logs and return the corresponding transmit events.
-// If a log was seen before it won't be returned.
 func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller.Log) ([]ocr2keepers.TransmitEvent, error) {
 	vals := []ocr2keepers.TransmitEvent{}
-	visited := make(map[string]ocr2keepers.TransmitEvent)
-
 	for _, log := range logs {
 		k := c.logKey(log)
-		if _, ok := visited[k]; ok {
-			// ensure we don't have duplicates
-			continue
-		}
 
 		transmitEvent, ok := c.cache.get(ocr2keepers.BlockNumber(log.BlockNumber), k)
 		if !ok {
@@ -208,18 +201,11 @@ func (c *TransmitEventProvider) processLogs(latestBlock int64, logs ...logpoller
 				UpkeepID:        *upkeepId,
 				CheckBlock:      trigger.BlockNumber,
 			}
+			c.cache.add(k, transmitEvent)
 		}
 
 		transmitEvent.Confirmations = latestBlock - int64(transmitEvent.TransmitBlock)
-
 		vals = append(vals, transmitEvent)
-		visited[k] = transmitEvent
-	}
-
-	// adding to the cache only after we've processed all the logs
-	// the next time we call processLogs we don't want to process these logs
-	for k, e := range visited {
-		c.cache.add(k, e)
 	}
 
 	return vals, nil
