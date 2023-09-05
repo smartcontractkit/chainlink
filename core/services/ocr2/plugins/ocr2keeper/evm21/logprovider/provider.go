@@ -101,7 +101,7 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDa
 	return &logEventProvider{
 		packer:      packer,
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
-		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), bufferMaxBlockSize, allowedLogsPerBlock),
+		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), maxLogsPerBlock, maxLogsPerUpkeepInBlock),
 		poller:      poller,
 		opts:        opts,
 		filterStore: filterStore,
