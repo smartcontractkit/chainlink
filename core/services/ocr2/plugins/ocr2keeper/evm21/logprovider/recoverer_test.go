@@ -231,7 +231,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 		{
 			"no filters",
 			200,
-			200,
+			300,
 			nil,
 			[]upkeepFilter{},
 			[]ocr2keepers.UpkeepState{},
