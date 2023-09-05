@@ -22,7 +22,6 @@ var ErrNoChains = errors.New("no EVM chains loaded")
 type EVMChainRelayerExtender interface {
 	relay.RelayerExt
 	Chain() evmchain.Chain
-	Default() bool
 	// compatibility remove after BCF-2441
 	ChainStatus(ctx context.Context, id string) (relaytypes.ChainStatus, error)
 	ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error)
@@ -43,21 +42,13 @@ type ChainRelayerExtenders struct {
 var _ EVMChainRelayerExtenderSlicer = &ChainRelayerExtenders{}
 
 func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) (*evmchain.LegacyChains, error) {
-
 	m := make(map[string]evmchain.Chain)
-	var dflt evmchain.Chain
 	for _, r := range exts.Slice() {
 		m[r.Chain().ID().String()] = r.Chain()
-		if r.Default() {
-			dflt = r.Chain()
-		}
 	}
 	l, err := evmchain.NewLegacyChains(exts.AppConfig(), m)
 	if err != nil {
 		return nil, err
-	}
-	if dflt != nil {
-		l.SetDefault(dflt)
 	}
 	return l, nil
 }
@@ -87,8 +78,7 @@ func (c *ChainRelayerExtenders) Len() int {
 
 // implements OneChain
 type ChainRelayerExt struct {
-	chain     evmchain.Chain
-	isDefault bool
+	chain evmchain.Chain
 }
 
 var _ EVMChainRelayerExtender = &ChainRelayerExt{}
@@ -111,10 +101,6 @@ func (s *ChainRelayerExt) ID() string {
 
 func (s *ChainRelayerExt) Chain() evmchain.Chain {
 	return s.chain
-}
-
-func (s *ChainRelayerExt) Default() bool {
-	return s.isDefault
 }
 
 var ErrCorruptEVMChain = errors.New("corrupt evm chain")
@@ -207,14 +193,6 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 		}
 	}
 
-	defaultChainID := opts.AppConfig.DefaultChainID()
-	if defaultChainID == nil && len(enabled) >= 1 {
-		defaultChainID = enabled[0].ChainID.ToInt()
-		if len(enabled) > 1 {
-			opts.Logger.Debugf("Multiple chains present, default chain: %s", defaultChainID.String())
-		}
-	}
-
 	var result []*ChainRelayerExt
 	var err error
 	for i := range enabled {
@@ -235,8 +213,7 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 		}
 
 		s := &ChainRelayerExt{
-			chain:     chain,
-			isDefault: (cid == defaultChainID.String()),
+			chain: chain,
 		}
 		result = append(result, s)
 	}

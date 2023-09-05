@@ -375,18 +375,6 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	legacyEVMChains := app.GetRelayers().LegacyEVMChains()
 
-	// By passing in a function we can be lazy trying to look up a default
-	// chain - if there are no existing keys, there is no need to check for
-	// a chain ID
-	DefaultEVMChainIDFunc := func() (*big.Int, error) {
-		def, err2 := legacyEVMChains.Default()
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "cannot get default EVM chain ID; no default EVM chain available")
-		}
-		return def.ID(), nil
-	}
-	err = keyStore.Migrate(s.Config.Password().VRF(), DefaultEVMChainIDFunc)
-
 	if s.Config.EVMEnabled() {
 		if err != nil {
 			return errors.Wrap(err, "error migrating keystore")
@@ -396,6 +384,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 			return fmt.Errorf("error listing legacy evm chains: %w", err)
 		}
 		for _, ch := range chainList {
+			if err = keyStore.Migrate(s.Config.Password().VRF(), ch.ID()); err != nil {
+				return errors.Wrap(err, "error migrating keystore")
+			}
 			if ch.Config().EVM().AutoCreateKey() {
 				lggr.Debugf("AutoCreateKey=true, will ensure EVM key for chain %s", ch.ID())
 				err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())

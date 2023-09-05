@@ -1342,7 +1342,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		Transactions: cltest.LegacyTransactionsFromGasPrices(48_000_000_000, 49_000_000_000, 31_000_000_000),
 	}
 
-	evmChainID := utils.NewBig(cfg.DefaultChainID())
+	evmChainID := utils.NewBig(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
 	h40 := evmtypes.Head{Hash: utils.NewHash(), Number: 40, EVMChainID: evmChainID}
 	h41 := evmtypes.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41, EVMChainID: evmChainID}
 	h42 := evmtypes.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
@@ -1373,7 +1373,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	})
 
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
+	ethClient.On("ConfiguredChainID", mock.Anything).Return(*evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 	// HeadTracker backfill
 	ethClient.On("HeadByHash", mock.Anything, h40.Hash).Return(&h40, nil).Maybe()

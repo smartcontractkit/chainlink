@@ -3,8 +3,6 @@
 package mocks
 
 import (
-	big "math/big"
-
 	config "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 
@@ -94,22 +92,6 @@ func (_m *ChainScopedConfig) Database() coreconfig.Database {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(coreconfig.Database)
-		}
-	}
-
-	return r0
-}
-
-// DefaultChainID provides a mock function with given fields:
-func (_m *ChainScopedConfig) DefaultChainID() *big.Int {
-	ret := _m.Called()
-
-	var r0 *big.Int
-	if rf, ok := ret.Get(0).(func() *big.Int); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 

@@ -1,7 +1,6 @@
 package config
 
 import (
-	"math/big"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,7 +20,6 @@ type AppConfig interface {
 	RootDir() string
 	ShutdownGracePeriod() time.Duration
 	InsecureFastScrypt() bool
-	DefaultChainID() *big.Int
 	EVMEnabled() bool
 	EVMRPCEnabled() bool
 	CosmosEnabled() bool
