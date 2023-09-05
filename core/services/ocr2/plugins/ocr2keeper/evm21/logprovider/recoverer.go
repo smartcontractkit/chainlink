@@ -605,10 +605,15 @@ func (r *logRecoverer) removePending(workID string) {
 	r.pending = updated
 }
 
-// sortPending sorts the pending list by a random order based on the latest block.
+// sortPending sorts the pending list by a random order based on the normalized latest block number.
+// Divided by 10 to ensure that nodes with similar block numbers won't end up with different order.
 // NOTE: the lock must be held before calling this function.
 func (r *logRecoverer) sortPending(latestBlock uint64) {
-	randSeed := random.GetRandomKeySource(nil, latestBlock)
+	normalized := latestBlock / 10
+	if normalized == 0 {
+		normalized = 1
+	}
+	randSeed := random.GetRandomKeySource(nil, normalized)
 
 	shuffledIDs := make([]string, len(r.pending))
 	for i, p := range r.pending {
