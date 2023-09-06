@@ -37,6 +37,8 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
+replace github.com/smartcontractkit/libocr => github.com/augustbleeds/libocr v0.0.0-20230901193648-78ff9454fecd
+
 // Pin K8s versions as their updates are highly disruptive and go mod keeps wanting to update them
 replace (
 	k8s.io/api => k8s.io/api v0.25.11

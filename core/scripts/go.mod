@@ -375,6 +375,8 @@ require (
 	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
+replace github.com/smartcontractkit/libocr => github.com/augustbleeds/libocr v0.0.0-20230901193648-78ff9454fecd
+
 replace (
 	// Fix go mod tidy issue for ambiguous imports from go-ethereum
 	// See https://github.com/ugorji/go/issues/279
