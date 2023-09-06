@@ -666,6 +666,35 @@ func TestORM_FindReceiptsPendingConfirmation(t *testing.T) {
 	assert.Equal(t, tr.ID, receiptsPlus[0].ID)
 }
 
+func Test_FindTxWithIdempotencyKey(t *testing.T) {
+	t.Parallel()
+	db := pgtest.NewSqlxDB(t)
+	cfg := newTestChainScopedConfig(t)
+	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore, 0)
+
+	t.Run("returns nil if no results", func(t *testing.T) {
+		idempotencyKey := "777"
+		etx, err := txStore.FindTxWithIdempotencyKey(idempotencyKey, big.NewInt(0))
+		require.NoError(t, err)
+		assert.Nil(t, etx)
+	})
+
+	t.Run("returns transaction if it exists", func(t *testing.T) {
+		idempotencyKey := "777"
+		cfg.EVM().ChainID()
+		etx := cltest.MustCreateUnstartedGeneratedTx(t, txStore, fromAddress, big.NewInt(0),
+			cltest.EvmTxRequestWithIdempotencyKey(idempotencyKey))
+		require.Equal(t, idempotencyKey, *etx.IdempotencyKey)
+
+		res, err := txStore.FindTxWithIdempotencyKey(idempotencyKey, big.NewInt(0))
+		require.NoError(t, err)
+		assert.Equal(t, etx.Sequence, res.Sequence)
+		require.Equal(t, idempotencyKey, *res.IdempotencyKey)
+	})
+}
+
 func TestORM_FindTxWithSequence(t *testing.T) {
 	t.Parallel()
 
