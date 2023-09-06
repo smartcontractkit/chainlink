@@ -180,7 +180,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 
 	// Verify the log is still present on chain, not reorged and is within recoverable range
 	// Do not trust the logBlockNumber from proposal since it's not included in workID
-	logTxHash := common.BytesToHash(proposal.Trigger.LogTriggerExtension.BlockHash[:])
+	logBlockHash := common.BytesToHash(proposal.Trigger.LogTriggerExtension.BlockHash[:])
 	bn, bh, err := core.GetTxBlock(ctx, r.client, proposal.Trigger.LogTriggerExtension.TxHash)
 	if err != nil {
 		return nil, err
@@ -188,7 +188,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 	if bn == nil {
 		return nil, errors.New("failed to get tx block")
 	}
-	if bh.Hex() != logTxHash.Hex() {
+	if bh.Hex() != logBlockHash.Hex() {
 		return nil, errors.New("log tx reorged")
 	}
 	logBlock := bn.Int64()
