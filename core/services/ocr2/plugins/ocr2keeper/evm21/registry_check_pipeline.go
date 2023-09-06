@@ -328,9 +328,9 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		}
 
 		if !simulatePerformSuccess {
-			r.lggr.Warnf("upkeepId %s is not eligible after simulation of perform", checkResults[idx].UpkeepID.String())
-			checkResults[performToKeyIdx[i]].Eligible = false
-			checkResults[performToKeyIdx[i]].IneligibilityReason = uint8(encoding.UpkeepFailureReasonSimulationFailed)
+			r.lggr.Warnf("upkeepId %s is not eligible after simulation of perform, still performing though", checkResults[idx].UpkeepID.String())
+			//checkResults[performToKeyIdx[i]].Eligible = false
+			//checkResults[performToKeyIdx[i]].IneligibilityReason = uint8(encoding.UpkeepFailureReasonSimulationFailed)
 		}
 	}
 
