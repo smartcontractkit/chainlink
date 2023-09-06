@@ -336,7 +336,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			},
 			nil,
 			nil,
-			[]string{"84c83c79c2be2c3eabd8d35986a2a798d9187564d7f4f8f96c5a0f40f50bed3f"},
+			[]string{"7b39bc6e7a109f4c6f34795efdf069169c7095abbc4326c7e50c6eef035e1e36"},
 		},
 	}
 
@@ -806,7 +806,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					}
 					return t
 				}(),
-				WorkID: "d91c6f090b8477f434cf775182e4ff12c90618ba4da5b8ec06aa719768b7743a",
+				WorkID: "7dacfdd0ed0b4a4a658219f982b0f4c4bdcbb6862de6a0596f7acf6672c6e85a",
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
@@ -849,7 +849,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					}
 					return t
 				}(),
-				WorkID: "d91c6f090b8477f434cf775182e4ff12c90618ba4da5b8ec06aa719768b7743a",
+				WorkID: "7dacfdd0ed0b4a4a658219f982b0f4c4bdcbb6862de6a0596f7acf6672c6e85a",
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
