@@ -340,6 +340,7 @@ submit_tx  [type=ethtx to="%s"
             data="$(encode_tx)"
             minConfirmations="0"
             from="$(jobSpec.from)"
+			evmChainID="$(evmChainID)"
             txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"
             transmitChecker="{\\"CheckerType\\": \\"vrf_v1\\", \\"VRFCoordinatorAddress\\": \\"%s\\"}"]
 decode_log->vrf->encode_tx->submit_tx

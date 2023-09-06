@@ -424,6 +424,7 @@ func (lsn *Listener) ProcessRequest(ctx context.Context, req request) bool {
 			"logTopics":      req.req.Raw.Topics,
 			"logData":        req.req.Raw.Data,
 		},
+		"evmChainID": lsn.Job.VRFSpec.EVMChainID,
 	})
 
 	run := pipeline.NewRun(*lsn.Job.PipelineSpec, vars)
