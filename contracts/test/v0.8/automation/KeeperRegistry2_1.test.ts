@@ -1241,18 +1241,19 @@ describe('KeeperRegistry2_1', () => {
       })
 
       it('handles duplicate log triggers', async () => {
+        const logBlockHash = ethers.utils.randomBytes(32)
         const txHash = ethers.utils.randomBytes(32)
         const logIndex = 0
         const expectedDedupKey = ethers.utils.solidityKeccak256(
-          ['uint256', 'bytes32', 'uint32'],
-          [logUpkeepId, txHash, logIndex],
+          ['uint256', 'bytes32', 'bytes32', 'uint32'],
+          [logUpkeepId, logBlockHash, txHash, logIndex],
         )
         assert.isFalse(await registry.hasDedupKey(expectedDedupKey))
         const tx = await getTransmitTx(
           registry,
           keeper1,
           [logUpkeepId, logUpkeepId],
-          { txHash, logIndex }, // will result in the same dedup key
+          { logBlockHash, txHash, logIndex }, // will result in the same dedup key
         )
         const receipt = await tx.wait()
         const staleUpkeepReport = parseStaleUpkeepReportLogs(receipt)
