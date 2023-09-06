@@ -47,8 +47,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	relayerExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, MailMon: mailMon, KeyStore: keyStore.Eth()})
 
 	lggr := logger.TestLogger(t)
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayerExtenders)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayerExtenders)
 	delegate := directrequest.NewDelegate(lggr, runner, nil, legacyChains, mailMon)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
@@ -89,8 +88,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 	lggr := logger.TestLogger(t)
 	orm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, cfg.Database())
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	jobORM := job.NewORM(db, legacyChains, orm, btORM, keyStore, lggr, cfg.Database())
 	delegate := directrequest.NewDelegate(lggr, runner, orm, legacyChains, mailMon)
 
@@ -99,8 +97,7 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 	if specF != nil {
 		specF(jb)
 	}
-	err = jobORM.CreateJob(jb)
-	require.NoError(t, err)
+	require.NoError(t, jobORM.CreateJob(jb))
 	serviceArray, err := delegate.ServicesForSpec(*jb)
 	require.NoError(t, err)
 	assert.Len(t, serviceArray, 1)
