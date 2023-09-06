@@ -31,7 +31,9 @@ import (
 func TestLogRecoverer_GetRecoverables(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, nil, NewOptions(200))
+	lp := &lpmocks.LogPoller{}
+	lp.On("LatestBlock", mock.Anything).Return(int64(100), nil)
+	r := NewLogRecoverer(logger.TestLogger(t), lp, nil, nil, nil, nil, NewOptions(200))
 
 	tests := []struct {
 		name    string
