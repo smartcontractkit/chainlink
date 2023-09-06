@@ -55,10 +55,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 	if err != nil {
 		return nil, err
 	}
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(evmRelayExtenders)
-	if err != nil {
-		return nil, err
-	}
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(evmRelayExtenders)
 	for _, ext := range evmRelayExtenders.Slice() {
 		relayID := relay.ID{Network: relay.EVM, ChainID: relay.ChainID(ext.Chain().ID().String())}
 		chain, err := legacyChains.Get(relayID.ChainID.String())
@@ -227,7 +224,10 @@ type CosmosFactoryConfig struct {
 func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConfig) (map[relay.ID]cosmos.LoopRelayerChainer, error) {
 	relayers := make(map[relay.ID]cosmos.LoopRelayerChainer)
 
-	var lggr = r.Logger.Named("Cosmos")
+	var (
+		lggr   = r.Logger.Named("Cosmos")
+		loopKs = &keystore.CosmosLoopKeystore{Cosmos: config.Keystore}
+	)
 
 	// create one relayer per chain id
 	for _, chainCfg := range config.CosmosConfigs {
@@ -237,7 +237,7 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 			QueryConfig:      r.QConfig,
 			Logger:           lggr.Named(relayId.ChainID.String()),
 			DB:               r.DB,
-			KeyStore:         config.Keystore,
+			KeyStore:         loopKs,
 			EventBroadcaster: config.EventBroadcaster,
 		}
 		opts.Configs = cosmos.NewConfigs(cosmos.CosmosConfigs{chainCfg})
