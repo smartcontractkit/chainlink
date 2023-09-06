@@ -83,11 +83,6 @@ func (p *logEventProvider) RegisterFilter(ctx context.Context, opts FilterOption
 			p.lggr.Debugf("filter for upkeep with id %s already registered with the same config", upkeepID.String())
 			return nil
 		}
-		// removing filter so we can recreate it with updated values
-		err := p.poller.UnregisterFilter(p.filterName(currentFilter.upkeepID))
-		if err != nil {
-			return fmt.Errorf("failed to unregister upkeep filter %s for update: %w", upkeepID.String(), err)
-		}
 		filter = *currentFilter
 	} else { // new filter
 		filter = upkeepFilter{
@@ -115,17 +110,35 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 	if err != nil {
 		return fmt.Errorf("failed to get latest block while registering filter: %w", err)
 	}
+	lggr := p.lggr.With("upkeepID", ufilter.upkeepID.String())
+	logPollerHasFilter := p.poller.HasFilter(lpFilter.Name)
+	if logPollerHasFilter {
+		lggr.Debugw("Upserting upkeep filter")
+		// removing filter so we can recreate it with updated values
+		err := p.poller.UnregisterFilter(lpFilter.Name)
+		if err != nil {
+			return fmt.Errorf("failed to upsert (unregister) upkeep filter %s: %w", ufilter.upkeepID.String(), err)
+		}
+	}
 	if err := p.poller.RegisterFilter(lpFilter); err != nil {
 		return err
 	}
 	p.filterStore.AddActiveUpkeeps(ufilter)
+	if logPollerHasFilter {
+		// already registered, no need to backfill
+		return nil
+	}
 	backfillBlock := latest - int64(LogBackfillBuffer)
 	if backfillBlock < 1 {
 		// New chain, backfill from start
 		backfillBlock = 1
 	}
-	// TODO: Optimise to do backfill from ufilter.configUpdateBlock only for new filters
-	// if it is not too old
+	if int64(ufilter.configUpdateBlock) > backfillBlock {
+		// backfill from config update block in case it is not too old
+		backfillBlock = int64(ufilter.configUpdateBlock)
+	}
+	// NOTE: replys are planned to be done as part of RegisterFilter within logpoller
+	lggr.Debugw("Backfilling logs for new upkeep filter", "backfillBlock", backfillBlock)
 	p.poller.ReplayAsync(backfillBlock)
 
 	return nil
