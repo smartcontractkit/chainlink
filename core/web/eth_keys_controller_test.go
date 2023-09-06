@@ -228,7 +228,12 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	resp, cleanup := client.Post("/v2/keys/evm", nil)
+	chainURL := url.URL{Path: "/v2/keys/evm"}
+	query := chainURL.Query()
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	chainURL.RawQuery = query.Encode()
+
+	resp, cleanup := client.Post(chainURL.String(), nil)
 	defer cleanup()
 
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
