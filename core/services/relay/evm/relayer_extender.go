@@ -42,8 +42,7 @@ type ChainRelayerExtenders struct {
 
 var _ EVMChainRelayerExtenderSlicer = &ChainRelayerExtenders{}
 
-func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) (*evmchain.LegacyChains, error) {
-
+func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) *evmchain.LegacyChains {
 	m := make(map[string]evmchain.Chain)
 	var dflt evmchain.Chain
 	for _, r := range exts.Slice() {
@@ -52,14 +51,11 @@ func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) (*e
 			dflt = r.Chain()
 		}
 	}
-	l, err := evmchain.NewLegacyChains(exts.AppConfig(), m)
-	if err != nil {
-		return nil, err
-	}
+	l := evmchain.NewLegacyChains(m, exts.AppConfig().EVMConfigs())
 	if dflt != nil {
 		l.SetDefault(dflt)
 	}
-	return l, nil
+	return l
 }
 
 func newChainRelayerExtsFromSlice(exts []*ChainRelayerExt, appConfig evm.AppConfig) *ChainRelayerExtenders {
@@ -142,10 +138,6 @@ func (s *ChainRelayerExt) Ready() (err error) {
 var ErrInconsistentChainRelayerExtender = errors.New("inconsistent evm chain relayer extender")
 
 // Legacy interface remove after BFC-2441, BCF-2564
-
-func (s *ChainRelayerExt) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
-	return s.Transact(ctx, from, to, amount, balanceCheck)
-}
 
 func (s *ChainRelayerExt) ChainStatus(ctx context.Context, id string) (relaytypes.ChainStatus, error) {
 	if s.chain.ID().String() != id {

@@ -58,9 +58,8 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
-	// note the [loop.Relayer] API is in intermediate state. we found the relayer above; we should not need to pass
-	// the chain id here
-	err = relayer.SendTx(c, tr.SolanaChainID, tr.From.String(), tr.To.String(), amount, !tr.AllowHigherAmounts)
+
+	err = relayer.Transact(c, tr.From.String(), tr.To.String(), amount, !tr.AllowHigherAmounts)
 	if err != nil {
 		switch err {
 		case chains.ErrNotFound, chains.ErrChainIDEmpty:
