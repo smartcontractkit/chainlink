@@ -75,11 +75,11 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, loopKs lo
 		Configs:  starknet.NewConfigs(cfgAdapter),
 	}
 
-	relayExt, err := starknet.NewRelayExtender(&cfg.Starknet, opts)
+	chain, err := starknet.NewChain(&cfg.Starknet, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain: %w", err)
 	}
-	ra := relay.NewRelayerAdapter(pkgstarknet.NewRelayer(c.Logger, relayExt), relayExt)
+	ra := relay.NewRelayerAdapter(pkgstarknet.NewRelayer(c.Logger, chain), chain)
 
 	c.SubService(ra)
 
