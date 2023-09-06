@@ -286,23 +286,23 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   /// @inheritdoc IRewardManager
   function getAvailableRewardPoolIds(
     address recipient,
-    uint256 cursor,
-    uint256 numberOfPools
+    uint256 startIndex,
+    uint256 endIndex
   ) external view returns (bytes32[] memory) {
     //get the length of the pool ids which we will loop through and potentially return
     uint256 registeredPoolIdsLength = s_registeredPoolIds.length;
 
-    uint256 totalPoolsToCheck = numberOfPools > registeredPoolIdsLength ? registeredPoolIdsLength : numberOfPools;
+    uint256 lastIndex = endIndex > registeredPoolIdsLength ? registeredPoolIdsLength : endIndex;
 
-    if (cursor > totalPoolsToCheck) revert InvalidPoolLength();
+    if (startIndex > lastIndex) revert InvalidPoolLength();
 
     //create a new array with the maximum amount of potential pool ids
-    bytes32[] memory claimablePoolIds = new bytes32[](registeredPoolIdsLength);
+    bytes32[] memory claimablePoolIds = new bytes32[](lastIndex - startIndex);
     //we want the pools which a recipient has funds for to be sequential, so we need to keep track of the index
     uint256 poolIdArrayIndex;
 
     //loop all the pool ids, and check if the recipient has a registered weight and a claimable amount
-    for (uint256 i = cursor; i < totalPoolsToCheck; ++i) {
+    for (uint256 i = startIndex; i < lastIndex; ++i) {
       //get the poolId
       bytes32 poolId = s_registeredPoolIds[i];
 
