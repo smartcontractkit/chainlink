@@ -38,7 +38,7 @@ func NewApplicationWithConfigV2OnSimulatedBlockchain(
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
 	}
 
-	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
 	chainID := utils.NewBig(testutils.SimulatedChainID)
 	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), 0, 0, logger.TestLogger(t), uuid.New())
@@ -63,7 +63,7 @@ func NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(
 		t.Fatalf("expected backend chain ID to be %s but it was %s", testutils.SimulatedChainID.String(), bid.String())
 	}
 
-	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+	require.Zero(t, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()).Cmp(testutils.SimulatedChainID))
 	chainID := utils.NewBig(testutils.SimulatedChainID)
 	client := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), 0, 0, logger.TestLogger(t), uuid.New())
