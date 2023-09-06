@@ -58,7 +58,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	})
 
 	t.Run("Spec with DirectRequestSpec", func(t *testing.T) {
-		spec := job.Job{DirectRequestSpec: &job.DirectRequestSpec{}, PipelineSpec: &pipeline.Spec{}}
+		spec := job.Job{DirectRequestSpec: &job.DirectRequestSpec{EVMChainID: (*utils.Big)(testutils.FixtureChainID)}, PipelineSpec: &pipeline.Spec{}}
 		services, err := delegate.ServicesForSpec(spec)
 		require.NoError(t, err)
 		assert.Len(t, services, 1)

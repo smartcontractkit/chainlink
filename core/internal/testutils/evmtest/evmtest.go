@@ -44,7 +44,7 @@ func NewChainScopedConfig(t testing.TB, cfg evm.AppConfig) evmconfig.ChainScoped
 	if len(cfg.EVMConfigs()) > 0 {
 		evmCfg = cfg.EVMConfigs()[0]
 	} else {
-		chainID := utils.NewBigI(0)
+		var chainID = (*utils.Big)(testutils.FixtureChainID)
 		evmCfg = &evmtoml.EVMConfig{
 			ChainID: chainID,
 			Chain:   evmtoml.Defaults(chainID),

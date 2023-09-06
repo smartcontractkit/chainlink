@@ -624,7 +624,7 @@ NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0,0,0,0
 
 func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	t.Helper()
-	drs := &job.DirectRequestSpec{}
+	drs := &job.DirectRequestSpec{EVMChainID: (*utils.Big)(testutils.FixtureChainID)}
 	spec := &job.Job{
 		Type:              job.DirectRequest,
 		SchemaVersion:     1,
