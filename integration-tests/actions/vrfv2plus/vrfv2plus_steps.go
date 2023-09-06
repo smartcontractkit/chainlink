@@ -3,8 +3,10 @@ package vrfv2plus
 import (
 	"context"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_constants"
@@ -12,8 +14,10 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 	"math/big"
+	"time"
 )
 
 var (
@@ -43,6 +47,11 @@ var (
 	ErrGetPrimaryKey            = "error getting primary ETH key address"
 	ErrRestartCLNode            = "error restarting CL node"
 	ErrWaitTXsComplete          = "error waiting for TXs to complete"
+
+	ErrRequestRandomness             = "error requesting randomness"
+	ErrWaitRandomWordsRequestedEvent = "error waiting for RandomWordsRequested event"
+
+	ErrWaitRandomWordsFulfilledEvent = "error waiting for RandomWordsFulfilled event"
 )
 
 func DeployVRFV2PlusContracts(
@@ -53,7 +62,7 @@ func DeployVRFV2PlusContracts(
 	if err != nil {
 		return nil, errors.Wrap(err, ErrDeployBlockHashStore)
 	}
-	err = chainClient.WaitForEvents()
+	//err = chainClient.WaitForEvents()
 	if err != nil {
 		return nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
@@ -61,7 +70,7 @@ func DeployVRFV2PlusContracts(
 	if err != nil {
 		return nil, errors.Wrap(err, ErrDeployCoordinator)
 	}
-	err = chainClient.WaitForEvents()
+	//err = chainClient.WaitForEvents()
 	if err != nil {
 		return nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
@@ -111,10 +120,29 @@ func CreateVRFV2PlusJob(
 	return job, nil
 }
 
-func VRFV2RegisterProvingKey(
+func VRFV2PlusRegisterProvingKey(
 	vrfKey *client.VRFKey,
 	oracleAddress string,
 	coordinator contracts.VRFCoordinatorV2Plus,
+) (VRFV2PlusEncodedProvingKey, error) {
+	provingKey, err := actions.EncodeOnChainVRFProvingKey(*vrfKey)
+	if err != nil {
+		return VRFV2PlusEncodedProvingKey{}, errors.Wrap(err, ErrEncodingProvingKey)
+	}
+	err = coordinator.RegisterProvingKey(
+		oracleAddress,
+		provingKey,
+	)
+	if err != nil {
+		return VRFV2PlusEncodedProvingKey{}, errors.Wrap(err, ErrRegisterProvingKey)
+	}
+	return provingKey, nil
+}
+
+func VRFV2PlusUpgradedVersionRegisterProvingKey(
+	vrfKey *client.VRFKey,
+	oracleAddress string,
+	coordinator contracts.VRFCoordinatorV2PlusUpgradedVersion,
 ) (VRFV2PlusEncodedProvingKey, error) {
 	provingKey, err := actions.EncodeOnChainVRFProvingKey(*vrfKey)
 	if err != nil {
@@ -149,11 +177,6 @@ func SetupVRFV2PlusEnvironment(env *test_env.CLClusterTestEnv, linkAddress contr
 		return nil, nil, nil, errors.Wrap(err, ErrDeployVRFV2PlusContracts)
 	}
 
-	err = env.EVMClient.WaitForEvents()
-	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
-	}
-
 	err = vrfv2PlusContracts.Coordinator.SetConfig(
 		vrfv2plus_constants.MinimumConfirmations,
 		vrfv2plus_constants.MaxGasLimitVRFCoordinatorConfig,
@@ -164,10 +187,6 @@ func SetupVRFV2PlusEnvironment(env *test_env.CLClusterTestEnv, linkAddress contr
 	)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrSetVRFCoordinatorConfig)
-	}
-	err = env.EVMClient.WaitForEvents()
-	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
 
 	err = vrfv2PlusContracts.Coordinator.CreateSubscription()
@@ -204,7 +223,7 @@ func SetupVRFV2PlusEnvironment(env *test_env.CLClusterTestEnv, linkAddress contr
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrNodePrimaryKey)
 	}
-	provingKey, err := VRFV2RegisterProvingKey(vrfKey, nativeTokenPrimaryKeyAddress, vrfv2PlusContracts.Coordinator)
+	provingKey, err := VRFV2PlusRegisterProvingKey(vrfKey, nativeTokenPrimaryKeyAddress, vrfv2PlusContracts.Coordinator)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrRegisteringProvingKey)
 	}
@@ -285,4 +304,65 @@ func SetupBilling(env *test_env.CLClusterTestEnv, linkAddress contracts.LinkToke
 	}
 
 	return nil
+}
+
+func RequestRandomnessAndWaitForFulfillment(
+	consumer contracts.VRFv2PlusLoadTestConsumer,
+	//coordinator contracts.VRFCoordinatorV2Plus,
+	coordinator contracts.VRFCoordinatorV2Plus,
+	vrfv2PlusData *VRFV2PlusData,
+	subID *big.Int,
+	isNativeBilling bool,
+	l zerolog.Logger,
+) (*vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled, error) {
+	err := consumer.RequestRandomness(
+		vrfv2PlusData.KeyHash,
+		subID,
+		vrfv2plus_constants.MinimumConfirmations,
+		vrfv2plus_constants.CallbackGasLimit,
+		isNativeBilling,
+		vrfv2plus_constants.NumberOfWords,
+		vrfv2plus_constants.RandomnessRequestCountPerRequest,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, ErrRequestRandomness)
+	}
+
+	randomWordsRequestedEvent, err := coordinator.WaitForRandomWordsRequestedEvent(
+		[][32]byte{vrfv2PlusData.KeyHash},
+		[]*big.Int{subID},
+		[]common.Address{common.HexToAddress(consumer.Address())},
+		time.Minute*1,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, ErrWaitRandomWordsRequestedEvent)
+	}
+
+	l.Debug().
+		Interface("Request ID", randomWordsRequestedEvent.RequestId).
+		Interface("Subscription ID", randomWordsRequestedEvent.SubId).
+		Interface("Sender Address", randomWordsRequestedEvent.Sender.String()).
+		Interface("Keyhash", randomWordsRequestedEvent.KeyHash).
+		Interface("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
+		Interface("Number of Words", randomWordsRequestedEvent.NumWords).
+		Interface("Minimum Request Confirmations", randomWordsRequestedEvent.MinimumRequestConfirmations).
+		Msg("RandomnessRequested Event")
+
+	randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
+		[]*big.Int{subID},
+		[]*big.Int{randomWordsRequestedEvent.RequestId},
+		time.Minute*2,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, ErrWaitRandomWordsFulfilledEvent)
+	}
+
+	l.Debug().
+		Interface("Total Payment in Juels", randomWordsFulfilledEvent.Payment).
+		Interface("TX Hash", randomWordsFulfilledEvent.Raw.TxHash).
+		Interface("Subscription ID", randomWordsFulfilledEvent.SubID).
+		Interface("Request ID", randomWordsFulfilledEvent.RequestId).
+		Bool("Success", randomWordsFulfilledEvent.Success).
+		Msg("RandomWordsFulfilled Event (TX metadata)")
+	return randomWordsFulfilledEvent, err
 }

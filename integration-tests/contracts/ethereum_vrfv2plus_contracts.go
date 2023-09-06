@@ -235,6 +235,46 @@ func (v *EthereumVRFCoordinatorV2Plus) WaitForRandomWordsFulfilledEvent(subID []
 	}
 }
 
+func (v *EthereumVRFCoordinatorV2Plus) WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []*big.Int, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested, error) {
+	randomWordsFulfilledEventsChannel := make(chan *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested)
+	subscription, err := v.coordinator.WatchRandomWordsRequested(nil, randomWordsFulfilledEventsChannel, keyHash, subID, sender)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for RandomWordsFulfilled event")
+		case randomWordsFulfilledEvent := <-randomWordsFulfilledEventsChannel:
+			return randomWordsFulfilledEvent, nil
+		}
+	}
+}
+
+func (v *EthereumVRFCoordinatorV2Plus) WaitForMigrationCompletedEvent(timeout time.Duration) (*vrf_coordinator_v2plus.VRFCoordinatorV2PlusMigrationCompleted, error) {
+	eventsChannel := make(chan *vrf_coordinator_v2plus.VRFCoordinatorV2PlusMigrationCompleted)
+	subscription, err := v.coordinator.WatchMigrationCompleted(nil, eventsChannel)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for MigrationCompleted event")
+		case migrationCompletedEvent := <-eventsChannel:
+			return migrationCompletedEvent, nil
+		}
+	}
+}
+
 func (v *EthereumVRFv2PlusLoadTestConsumer) Address() string {
 	return v.address.Hex()
 }
@@ -248,6 +288,13 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) RequestRandomness(keyHash [32]byte, 
 		return err
 	}
 	return v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVRFv2PlusLoadTestConsumer) GetCoordinator(ctx context.Context) (common.Address, error) {
+	return v.consumer.COORDINATOR(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
 }
 func (v *EthereumVRFv2PlusLoadTestConsumer) GetRequestStatus(ctx context.Context, requestID *big.Int) (vrf_v2plus_load_test_with_metrics.GetRequestStatus, error) {
 	return v.consumer.GetRequestStatus(&bind.CallOpts{
@@ -508,6 +555,46 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) WaitForRandomWordsFulfille
 			return nil, fmt.Errorf("timeout waiting for RandomWordsFulfilled event")
 		case randomWordsFulfilledEvent := <-randomWordsFulfilledEventsChannel:
 			return randomWordsFulfilledEvent, nil
+		}
+	}
+}
+
+func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) WaitForMigrationCompletedEvent(timeout time.Duration) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionMigrationCompleted, error) {
+	eventsChannel := make(chan *vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionMigrationCompleted)
+	subscription, err := v.coordinator.WatchMigrationCompleted(nil, eventsChannel)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for MigrationCompleted event")
+		case migrationCompletedEvent := <-eventsChannel:
+			return migrationCompletedEvent, nil
+		}
+	}
+}
+
+func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []*big.Int, sender []common.Address, timeout time.Duration) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsRequested, error) {
+	eventsChannel := make(chan *vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsRequested)
+	subscription, err := v.coordinator.WatchRandomWordsRequested(nil, eventsChannel, keyHash, subID, sender)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for RandomWordsRequested event")
+		case randomWordsRequestedEvent := <-eventsChannel:
+			return randomWordsRequestedEvent, nil
 		}
 	}
 }
