@@ -34,7 +34,15 @@ contract VerifiableLoadStreamsLookupUpkeep is VerifiableLoadBase, StreamsLookupC
       return (false, pData);
     }
 
-    revert StreamsLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId));
+    uint256 timeParam;
+    if (keccak256(abi.encodePacked(timeParamKey)) == keccak256(abi.encodePacked("feedIdHex"))) {
+      timeParam = blockNum;
+    } else {
+      // assume this will be feedIDs for v0.3
+      timeParam = block.timestamp;
+    }
+
+    revert StreamsLookup(feedParamKey, feedsHex, timeParamKey, timeParam, abi.encode(upkeepId));
   }
 
   function performUpkeep(bytes calldata performData) external {

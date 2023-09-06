@@ -99,15 +99,21 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     if (!eligible()) {
       return (false, data);
     }
-    uint256 blockNumber;
-    if (useArbBlock) {
-      blockNumber = ARB_SYS.arbBlockNumber();
+    uint256 timeParam;
+    if (keccak256(abi.encodePacked(timeParamKey)) == keccak256(abi.encodePacked("feedIdHex"))) {
+      if (useArbBlock) {
+        timeParam = ARB_SYS.arbBlockNumber();
+      } else {
+        timeParam = block.number;
+      }
     } else {
-      blockNumber = block.number;
+      // assume this will be feedIDs for v0.3
+      timeParam = block.timestamp;
     }
+
     // encode ARB_SYS as extraData to verify that it is provided to checkCallback correctly.
     // in reality, this can be any data or empty
-    revert StreamsLookup(feedParamKey, feeds, timeParamKey, blockNumber, abi.encodePacked(address(ARB_SYS)));
+    revert StreamsLookup(feedParamKey, feeds, timeParamKey, timeParam, abi.encodePacked(address(ARB_SYS)));
   }
 
   function performUpkeep(bytes calldata performData) external {
