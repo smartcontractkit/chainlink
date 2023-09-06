@@ -620,7 +620,10 @@ func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
 					require.Nil(t, dropped.upkeepID)
 				}
 			}
-
+			// clear cached logIDs
+			for i := range b.logs {
+				b.logs[i].cachedLogID = ""
+			}
 			require.Equal(t, tc.expected, b.logs)
 		})
 	}

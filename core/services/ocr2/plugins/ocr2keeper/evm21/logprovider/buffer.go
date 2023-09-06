@@ -25,12 +25,13 @@ var (
 type fetchedLog struct {
 	upkeepID *big.Int
 	log      logpoller.Log
-
-	logId string
+	// cachedLogID is the cached log identifier, used for sorting.
+	// It is calculated lazily, and cached for performance.
+	cachedLogID string
 }
 
-func (l fetchedLog) getLogID() string {
-	if len(l.logId) == 0 {
+func (l *fetchedLog) getLogID() string {
+	if len(l.cachedLogID) == 0 {
 		ext := ocr2keepers.LogTriggerExtension{
 			Index: uint32(l.log.LogIndex),
 		}
@@ -38,9 +39,9 @@ func (l fetchedLog) getLogID() string {
 		// TODO: uncomment avoid block hash bytes once log identifier func
 		// changes in ocr2keepers to work with block hash
 		// copy(ext.BlockHash[:], l.log.BlockHash[:])
-		l.logId = hex.EncodeToString(append(l.log.BlockHash.Bytes(), ext.LogIdentifier()...))
+		l.cachedLogID = hex.EncodeToString(append(l.log.BlockHash.Bytes(), ext.LogIdentifier()...))
 	}
-	return l.logId
+	return l.cachedLogID
 }
 
 // fetchedBlock holds the logs fetched for a block
