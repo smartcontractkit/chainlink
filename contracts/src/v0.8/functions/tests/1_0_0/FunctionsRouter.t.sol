@@ -4,7 +4,7 @@ pragma solidity ^0.8.19;
 import {FunctionsRouter} from "../../dev/1_0_0/FunctionsRouter.sol";
 import {FunctionsSubscriptions} from "../../dev/1_0_0/FunctionsSubscriptions.sol";
 
-import {FunctionsRouterSetup, FunctionsOwnerAcceptTermsOfService} from "./Setup.t.sol";
+import {FunctionsRouterSetup} from "./Setup.t.sol";
 
 // ================================================================
 // |                        Functions Router                      |
