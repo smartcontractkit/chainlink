@@ -10,9 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [dev]
 
 ### Fixed
+ - Unauthenticated users executing CLI commands previously generated a confusing error log, which is now removed:
+```[ERROR] Error in transaction, rolling back: session missing or expired, please login again pg/transaction.go:118 ```
  - Fixed a bug that was preventing job runs to be displayed when the job `chainID` was disabled.
 
-
+...
 ## 2.5.0 - UNRELEASED
 
 ### Fixed
@@ -21,7 +23,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Upcoming Required Configuration Change
 
 - Starting in 2.6.0, chainlink nodes will no longer allow insecure configuration for production builds. Any TOML configuration that sets the following line will fail validation checks in `node start` or `node validate`:
-
 ```
 AllowSimplePasswords=true
 ```

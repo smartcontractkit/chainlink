@@ -570,4 +570,40 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
       USER
     );
   }
+
+  function test_discountIsReturnedForLink() public {
+    //set the subscriber discount to 50%
+    setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, getLinkAddress(), FEE_SCALAR / 2, ADMIN);
+
+    //get the fee applied
+    uint256 discount = getAppliedDiscount(getV3Report(DEFAULT_FEED_1_V3), getLinkQuote(), USER);
+
+    //fee should be half the default
+    assertEq(discount, FEE_SCALAR / 2);
+  }
+
+  function test_DiscountIsReturnedForNative() public {
+    //set the subscriber discount to 50%
+    setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
+
+    //get the discount applied
+    uint256 discount = getAppliedDiscount(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
+
+    //fee should be half the default
+    assertEq(discount, FEE_SCALAR / 2);
+  }
+
+  function test_DiscountIsReturnedForNativeWithSurcharge() public {
+    //set the subscriber discount to 50%
+    setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
+
+    //set the surcharge
+    setNativeSurcharge(FEE_SCALAR / 5, ADMIN);
+
+    //get the discount applied
+    uint256 discount = getAppliedDiscount(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
+
+    //fee should be half the default
+    assertEq(discount, FEE_SCALAR / 2);
+  }
 }
