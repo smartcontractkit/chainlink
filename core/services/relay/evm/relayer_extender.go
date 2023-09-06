@@ -139,10 +139,6 @@ var ErrInconsistentChainRelayerExtender = errors.New("inconsistent evm chain rel
 
 // Legacy interface remove after BFC-2441, BCF-2564
 
-func (s *ChainRelayerExt) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
-	return s.Transact(ctx, from, to, amount, balanceCheck)
-}
-
 func (s *ChainRelayerExt) ChainStatus(ctx context.Context, id string) (relaytypes.ChainStatus, error) {
 	if s.chain.ID().String() != id {
 		return relaytypes.ChainStatus{}, fmt.Errorf("%w: given id %q does not match expected id %q", ErrInconsistentChainRelayerExtender, id, s.chain.ID())

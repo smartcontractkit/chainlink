@@ -94,7 +94,7 @@ func (s *testChainService) HealthReport() map[string]error {
 func (s *testChainService) GetChainStatus(ctx context.Context) (stat types.ChainStatus, err error) {
 	return
 }
-func (s *testChainService) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, nextPageToken string, err error) {
+func (s *testChainService) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, nextPageToken string, total int, err error) {
 	return
 }
 
