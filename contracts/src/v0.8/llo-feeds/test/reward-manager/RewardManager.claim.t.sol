@@ -607,26 +607,23 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
     assertEq(poolIds[1], ZERO_POOL_ID);
   }
 
-  function test_getAvailableRewardsCursorCannotBeGreaterThanTotalPools() public {
+  function test_getAvailableRewardsIndexCannotBeGreaterThanTotalPools() public {
     vm.expectRevert(INVALID_POOL_LENGTH_SELECTOR);
 
     rewardManager.getAvailableRewardPoolIds(FEE_MANAGER, type(uint256).max, 0);
   }
 
-  function test_getAvailableRewardsCursorAndTotalPoolsEqual() public {
+  function test_getAvailableRewardsStartIndexAndEndIndex() public {
     bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(getPrimaryRecipients()[0].addr, 2, 2);
 
-    //user should not be in any pool
-    assertEq(poolIds[0], ZERO_POOL_ID);
-    assertEq(poolIds[1], ZERO_POOL_ID);
+    assertEq(poolIds.length, 0);
   }
 
-  function test_getAvailableRewardsCursorSingleResult() public {
+  function test_getAvailableRewardsStartIndexSingleResult() public {
     bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(getPrimaryRecipients()[0].addr, 0, 1);
 
     //user should not be in any pool
     assertEq(poolIds[0], PRIMARY_POOL_ID);
-    assertEq(poolIds[1], ZERO_POOL_ID);
   }
 }
 
