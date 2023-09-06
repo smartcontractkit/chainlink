@@ -2143,7 +2143,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt) //nolint:gosec - just copying fields
 		_, err = db.NamedExec(sql, &dbAttempt)
 		require.NoError(t, err)
-		txmgr.DbEthTxAttemptToEthTxAttempt(dbAttempt, &attempt) //nolin:gosec - just copying fields
+		txmgr.DbEthTxAttemptToEthTxAttempt(dbAttempt, &attempt) //nolint:gosec - just copying fields
 	}
 
 	// add eth_receipts
