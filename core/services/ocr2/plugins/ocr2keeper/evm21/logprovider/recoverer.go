@@ -624,7 +624,7 @@ func (r *logRecoverer) removePending(workID string) {
 // Divided by 10 to ensure that nodes with similar block numbers won't end up with different order.
 // NOTE: the lock must be held before calling this function.
 func (r *logRecoverer) sortPending(latestBlock uint64) {
-	normalized := latestBlock / 10
+	normalized := latestBlock / 100
 	if normalized == 0 {
 		normalized = 1
 	}
