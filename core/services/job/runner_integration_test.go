@@ -171,6 +171,7 @@ func TestRunner(t *testing.T) {
 		jb := makeOCRJobSpecFromToml(t, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
+			evmChainID		   = "0"
 			observationSource = """
 				ds1          [type=bridge name="%s"];
 			"""
@@ -437,6 +438,7 @@ answer1      [type=median index=0];
 		schemaVersion      = 1
 		contractAddress    = "%s"
 		isBootstrapPeer    = false
+		evmChainID		   = "0"
 		observationSource = """
 ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
 ds1_parse    [type=jsonparse path="USD" lax=true];
@@ -474,6 +476,7 @@ ds1 -> ds1_parse;
 		schemaVersion      = 1
 		contractAddress    = "%s"
 		isBootstrapPeer    = true
+		evmChainID		   = "0"
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
 		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
@@ -512,6 +515,7 @@ ds1 -> ds1_parse;
 		contractAddress    = "%s"
 		isBootstrapPeer    = false
 		observationTimeout = "15s"
+		evmChainID		   = "0"
 		observationSource = """
 ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
 ds1_parse    [type=jsonparse path="USD" lax=true];

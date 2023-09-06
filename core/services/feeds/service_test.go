@@ -73,6 +73,7 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name              = "example OCR1 spec"
 externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+evmChainID 		   = 0
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pBootstrapPeers  = [
 	"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
