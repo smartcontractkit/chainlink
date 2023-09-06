@@ -234,6 +234,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
 
     Subscription memory subscription = getSubscription(subscriptionId);
     Consumer memory consumer = getConsumer(msg.sender, subscriptionId);
+    uint72 adminFee = s_config.adminFee;
 
     // Forward request to DON
     FunctionsResponse.Commitment memory commitment = coordinator.startRequest(
@@ -244,7 +245,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
         dataVersion: dataVersion,
         flags: getFlags(subscriptionId),
         callbackGasLimit: callbackGasLimit,
-        adminFee: s_config.adminFee,
+        adminFee: adminFee,
         initiatedRequests: consumer.initiatedRequests,
         completedRequests: consumer.completedRequests,
         availableBalance: subscription.balance - subscription.blockedBalance,
@@ -261,7 +262,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     s_requestCommitments[commitment.requestId] = keccak256(
       abi.encode(
         FunctionsResponse.Commitment({
-          adminFee: s_config.adminFee,
+          adminFee: adminFee,
           coordinator: address(coordinator),
           client: msg.sender,
           subscriptionId: subscriptionId,
@@ -313,23 +314,27 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       revert OnlyCallableFromCoordinator();
     }
 
-    if (s_requestCommitments[commitment.requestId] == bytes32(0)) {
-      resultCode = FunctionsResponse.FulfillResult.INVALID_REQUEST_ID;
-      emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
-      return (resultCode, 0);
-    }
+    {
+      bytes32 commitmentHash = s_requestCommitments[commitment.requestId];
 
-    if (keccak256(abi.encode(commitment)) != s_requestCommitments[commitment.requestId]) {
-      resultCode = FunctionsResponse.FulfillResult.INVALID_COMMITMENT;
-      emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
-      return (resultCode, 0);
-    }
+      if (commitmentHash == bytes32(0)) {
+        resultCode = FunctionsResponse.FulfillResult.INVALID_REQUEST_ID;
+        emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
+        return (resultCode, 0);
+      }
 
-    // Check that the transmitter has supplied enough gas for the callback to succeed
-    if (gasleft() < commitment.callbackGasLimit + commitment.gasOverheadAfterCallback) {
-      resultCode = FunctionsResponse.FulfillResult.INSUFFICIENT_GAS_PROVIDED;
-      emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
-      return (resultCode, 0);
+      if (keccak256(abi.encode(commitment)) != commitmentHash) {
+        resultCode = FunctionsResponse.FulfillResult.INVALID_COMMITMENT;
+        emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
+        return (resultCode, 0);
+      }
+
+      // Check that the transmitter has supplied enough gas for the callback to succeed
+      if (gasleft() < commitment.callbackGasLimit + commitment.gasOverheadAfterCallback) {
+        resultCode = FunctionsResponse.FulfillResult.INSUFFICIENT_GAS_PROVIDED;
+        emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
+        return (resultCode, 0);
+      }
     }
 
     {
@@ -513,24 +518,22 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     for (uint256 i = 0; i < idsArrayLength; ++i) {
       bytes32 id = proposedContractSetIds[i];
       address proposedContract = proposedContractSetAddresses[i];
+
       if (
         proposedContract == address(0) || // The Proposed address must be a valid address
         s_route[id] == proposedContract // The Proposed address must point to a different address than what is currently set
       ) {
         revert InvalidProposal();
       }
+
+      emit ContractProposed({
+        proposedContractSetId: id,
+        proposedContractSetFromAddress: s_route[id],
+        proposedContractSetToAddress: proposedContract
+      });
     }
 
     s_proposedContractSet = ContractProposalSet({ids: proposedContractSetIds, to: proposedContractSetAddresses});
-
-    // NOTE: iterations of this loop will not exceed MAX_PROPOSAL_SET_LENGTH
-    for (uint256 i = 0; i < proposedContractSetIds.length; ++i) {
-      emit ContractProposed({
-        proposedContractSetId: proposedContractSetIds[i],
-        proposedContractSetFromAddress: s_route[proposedContractSetIds[i]],
-        proposedContractSetToAddress: proposedContractSetAddresses[i]
-      });
-    }
   }
 
   // @inheritdoc IRouterBase
