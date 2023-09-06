@@ -378,9 +378,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 		}
 	}
-	if ethClient == nil {
-		ethClient = evmclient.NewNullClient(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), lggr)
-	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 
@@ -395,20 +392,26 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		GRPCOpts:     loop.GRPCOpts{},
 	}
 
-	chainId := ethClient.ConfiguredChainID()
 	evmOpts := chainlink.EVMFactoryConfig{
 		RelayerConfig: &evm.RelayerConfig{
 			AppConfig:        cfg,
 			EventBroadcaster: eventBroadcaster,
 			MailMon:          mailMon,
-			GenEthClient: func(_ *big.Int) evmclient.Client {
-				if chainId.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
-					t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainId, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
-				}
-				return ethClient
-			},
 		},
 		CSAETHKeystore: keyStore,
+	}
+
+	if cfg.EVMEnabled() {
+		if ethClient == nil {
+			ethClient = evmclient.NewNullClient(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), lggr)
+		}
+		chainId := ethClient.ConfiguredChainID()
+		evmOpts.GenEthClient = func(_ *big.Int) evmclient.Client {
+			if chainId.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
+				t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainId, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+			}
+			return ethClient
+		}
 	}
 
 	testCtx := testutils.Context(t)
