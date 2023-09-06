@@ -86,9 +86,9 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		makeEthCall bool
 	}{
 		{
-			name:        "check block number too told",
+			name:        "check block number too new",
 			checkBlock:  big.NewInt(500),
-			latestBlock: ocr2keepers.BlockKey{Number: 800},
+			latestBlock: ocr2keepers.BlockKey{Number: 400},
 			upkeepId:    big.NewInt(12345),
 			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
 			payload: ocr2keepers.UpkeepPayload{
@@ -96,7 +96,8 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				Trigger:  ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
 				WorkID:   "work",
 			},
-			state: encoding.CheckBlockTooOld,
+			state:     encoding.CheckBlockTooNew,
+			retryable: true,
 		},
 		{
 			name:        "for an invalid check block number, if hash does not match the check hash, return CheckBlockInvalid",
@@ -368,7 +369,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 		BlockNumber: 550,
 	}
 
-	trigger0 := ocr2keepers.NewTrigger(150, common.HexToHash("0x1c77db0abe32327cf3ea9de2aadf79876f9e6b6dfcee9d4719a8a2dc8ca289d0"))
+	trigger0 := ocr2keepers.NewTrigger(590, common.HexToHash("0x1c77db0abe32327cf3ea9de2aadf79876f9e6b6dfcee9d4719a8a2dc8ca289d0"))
 	trigger1 := ocr2keepers.NewLogTrigger(560, common.HexToHash("0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857"), extension1)
 	trigger2 := ocr2keepers.NewLogTrigger(570, common.HexToHash("0x1222d75217e2dd461cc77e4091c37abe76277430d97f1963a822b4e94ebb83fc"), extension2)
 
@@ -412,8 +413,8 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			latestBlock: ocr2keepers.BlockKey{Number: 580},
 			results: []ocr2keepers.CheckResult{
 				{
-					PipelineExecutionState: uint8(encoding.CheckBlockTooOld),
-					Retryable:              false,
+					PipelineExecutionState: uint8(encoding.CheckBlockTooNew),
+					Retryable:              true,
 					Eligible:               false,
 					IneligibilityReason:    0,
 					UpkeepID:               uid0,
