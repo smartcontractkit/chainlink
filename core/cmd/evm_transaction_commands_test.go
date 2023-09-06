@@ -17,6 +17,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -160,6 +161,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	amount := "100.5"
 	to := "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"
 	require.NoError(t, set.Parse([]string{amount, fromAddress.Hex(), to}))
+	require.NoError(t, set.Set("id", evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs()).String()))
 
 	cliapp := cli.NewApp()
 	c := cli.NewContext(cliapp, set, nil)
