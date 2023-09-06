@@ -667,9 +667,18 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 				{
 					log: logpoller.Log{
 						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x2"),
+						LogIndex:    0,
+					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+				},
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
 						TxHash:      common.HexToHash("0x1"),
 						LogIndex:    0,
 					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "222").BigInt(),
 				},
 				{
 					log: logpoller.Log{
@@ -677,6 +686,7 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 						TxHash:      common.HexToHash("0x1"),
 						LogIndex:    2,
 					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
 				},
 				{
 					log: logpoller.Log{
@@ -684,6 +694,7 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 						TxHash:      common.HexToHash("0x1"),
 						LogIndex:    4,
 					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
 				},
 				{
 					log: logpoller.Log{
@@ -691,6 +702,15 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 						TxHash:      common.HexToHash("0x1"),
 						LogIndex:    3,
 					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "222").BigInt(),
+				},
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    3,
+					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
 				},
 				{
 					log: logpoller.Log{
@@ -698,6 +718,7 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 						TxHash:      common.HexToHash("0x1"),
 						LogIndex:    5,
 					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
 				},
 				{
 					log: logpoller.Log{
@@ -705,23 +726,28 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 						TxHash:      common.HexToHash("0x1"),
 						LogIndex:    1,
 					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
 				},
 			},
 			beforeSort: []string{
+				"000000000000000000000000000000000000000000000000000000000000000200000000",
 				"000000000000000000000000000000000000000000000000000000000000000100000000",
 				"000000000000000000000000000000000000000000000000000000000000000100000002",
 				"000000000000000000000000000000000000000000000000000000000000000100000004",
+				"000000000000000000000000000000000000000000000000000000000000000100000003",
 				"000000000000000000000000000000000000000000000000000000000000000100000003",
 				"000000000000000000000000000000000000000000000000000000000000000100000005",
 				"000000000000000000000000000000000000000000000000000000000000000100000001",
 			},
 			afterSort: []string{
 				"000000000000000000000000000000000000000000000000000000000000000100000000",
+				"000000000000000000000000000000000000000000000000000000000000000100000001",
 				"000000000000000000000000000000000000000000000000000000000000000100000002",
 				"000000000000000000000000000000000000000000000000000000000000000100000003",
+				"000000000000000000000000000000000000000000000000000000000000000100000003",
 				"000000000000000000000000000000000000000000000000000000000000000100000004",
-				"000000000000000000000000000000000000000000000000000000000000000100000001",
 				"000000000000000000000000000000000000000000000000000000000000000100000005",
+				"000000000000000000000000000000000000000000000000000000000000000200000000",
 			},
 			iterations: 10,
 		},

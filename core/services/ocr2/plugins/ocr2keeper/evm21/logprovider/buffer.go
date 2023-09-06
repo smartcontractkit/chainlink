@@ -2,6 +2,7 @@ package logprovider
 
 import (
 	"encoding/hex"
+	"fmt"
 	"math/big"
 	"sort"
 	"sync"
@@ -25,6 +26,20 @@ var (
 type fetchedLog struct {
 	upkeepID *big.Int
 	log      logpoller.Log
+
+	logId string
+}
+
+func (l fetchedLog) getLogID() string {
+	if len(l.logId) == 0 {
+		ext := ocr2keepers.LogTriggerExtension{
+			TxHash:    l.log.TxHash,
+			Index:     uint32(l.log.LogIndex),
+			BlockHash: l.log.BlockHash,
+		}
+		l.logId = hex.EncodeToString(ext.LogIdentifier())
+	}
+	return l.logId
 }
 
 // fetchedBlock holds the logs fetched for a block
@@ -108,19 +123,14 @@ func (b fetchedBlock) Clone() fetchedBlock {
 func (b *fetchedBlock) Sort() {
 	randSeed := random.GetRandomKeySource(nil, uint64(b.blockNumber))
 
-	shuffledLogIDs := make([]string, len(b.logs))
-	for i, log := range b.logs {
-		ext := ocr2keepers.LogTriggerExtension{
-			TxHash:    log.log.TxHash,
-			Index:     uint32(log.log.LogIndex),
-			BlockHash: log.log.BlockHash,
-		}
-		logID := hex.EncodeToString(ext.LogIdentifier())
-		shuffledLogIDs[i] = random.ShuffleString(logID, randSeed)
+	shuffledLogIDs := make(map[string]string, len(b.logs))
+	for _, log := range b.logs {
+		logID := log.getLogID()
+		shuffledLogIDs[logID] = random.ShuffleString(fmt.Sprintf("%s:%s", log.upkeepID, logID), randSeed)
 	}
 
-	sort.Slice(b.logs, func(i, j int) bool {
-		return shuffledLogIDs[i] < shuffledLogIDs[j]
+	sort.SliceStable(b.logs, func(i, j int) bool {
+		return shuffledLogIDs[b.logs[i].getLogID()] < shuffledLogIDs[b.logs[j].getLogID()]
 	})
 }
 

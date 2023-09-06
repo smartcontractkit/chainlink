@@ -630,12 +630,12 @@ func (r *logRecoverer) sortPending(latestBlock uint64) {
 	}
 	randSeed := random.GetRandomKeySource(nil, normalized)
 
-	shuffledIDs := make([]string, len(r.pending))
-	for i, p := range r.pending {
-		shuffledIDs[i] = random.ShuffleString(p.WorkID, randSeed)
+	shuffledIDs := make(map[string]string, len(r.pending))
+	for _, p := range r.pending {
+		shuffledIDs[p.WorkID] = random.ShuffleString(p.WorkID, randSeed)
 	}
 
-	sort.Slice(r.pending, func(i, j int) bool {
-		return shuffledIDs[i] < shuffledIDs[j]
+	sort.SliceStable(r.pending, func(i, j int) bool {
+		return shuffledIDs[r.pending[i].WorkID] < shuffledIDs[r.pending[j].WorkID]
 	})
 }
