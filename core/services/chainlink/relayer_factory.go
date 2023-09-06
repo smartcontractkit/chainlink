@@ -55,10 +55,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 	if err != nil {
 		return nil, err
 	}
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(evmRelayExtenders)
-	if err != nil {
-		return nil, err
-	}
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(evmRelayExtenders)
 	for _, ext := range evmRelayExtenders.Slice() {
 		relayID := relay.ID{Network: relay.EVM, ChainID: relay.ChainID(ext.Chain().ID().String())}
 		chain, err := legacyChains.Get(relayID.ChainID.String())
