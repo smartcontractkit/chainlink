@@ -128,16 +128,18 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayEx
 	return opts
 }
 
+// Deprecated, this is a replacement function for tests for now removed default evmChainID logic
 func MustGetDefaultChainID(t testing.TB, evmCfgs evmtoml.EVMConfigs) *big.Int {
-	if len(evmCfgs) != 1 {
-		t.Fatalf("only one evm chain config must be defined")
+	if len(evmCfgs) == 0 {
+		t.Fatalf("at least one evm chain config must be defined")
 	}
 	return evmCfgs[0].ChainID.ToInt()
 }
 
+// Deprecated, this is a replacement function for tests for now removed default chain logic
 func MustGetDefaultChain(t testing.TB, cc evm.LegacyChainContainer) evm.Chain {
-	if len(cc.Slice()) != 1 {
-		t.Fatalf("only one evm chain container must be defined")
+	if len(cc.Slice()) == 0 {
+		t.Fatalf("at least one evm chain container must be defined")
 	}
 
 	return cc.Slice()[0]
