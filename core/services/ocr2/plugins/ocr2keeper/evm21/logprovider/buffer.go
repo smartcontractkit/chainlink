@@ -2,7 +2,6 @@ package logprovider
 
 import (
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"sort"
 	"sync"
@@ -33,11 +32,13 @@ type fetchedLog struct {
 func (l fetchedLog) getLogID() string {
 	if len(l.logId) == 0 {
 		ext := ocr2keepers.LogTriggerExtension{
-			TxHash:    l.log.TxHash,
-			Index:     uint32(l.log.LogIndex),
-			BlockHash: l.log.BlockHash,
+			Index: uint32(l.log.LogIndex),
 		}
-		l.logId = hex.EncodeToString(ext.LogIdentifier())
+		copy(ext.TxHash[:], l.log.TxHash[:])
+		// TODO: uncomment avoid block hash bytes once log identifier func
+		// changes in ocr2keepers to work with block hash
+		// copy(ext.BlockHash[:], l.log.BlockHash[:])
+		l.logId = hex.EncodeToString(append(l.log.BlockHash.Bytes(), ext.LogIdentifier()...))
 	}
 	return l.logId
 }
@@ -126,7 +127,7 @@ func (b *fetchedBlock) Sort() {
 	shuffledLogIDs := make(map[string]string, len(b.logs))
 	for _, log := range b.logs {
 		logID := log.getLogID()
-		shuffledLogIDs[logID] = random.ShuffleString(fmt.Sprintf("%s:%s", log.upkeepID, logID), randSeed)
+		shuffledLogIDs[logID] = random.ShuffleString(logID, randSeed)
 	}
 
 	sort.SliceStable(b.logs, func(i, j int) bool {

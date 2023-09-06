@@ -647,6 +647,7 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 			logs: []fetchedLog{
 				{
 					log: logpoller.Log{
+						BlockHash:   common.HexToHash("0x111"),
 						BlockNumber: 1,
 						TxHash:      common.HexToHash("0x1"),
 						LogIndex:    0,
@@ -667,7 +668,8 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 				{
 					log: logpoller.Log{
 						BlockNumber: 1,
-						TxHash:      common.HexToHash("0x2"),
+						BlockHash:   common.HexToHash("0xa25ebae1099f3fbae2525ebae279f3ae25e"),
+						TxHash:      common.HexToHash("0xb711bd1103927611ee41152aa8ae27f3330"),
 						LogIndex:    0,
 					},
 					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
@@ -675,7 +677,8 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 				{
 					log: logpoller.Log{
 						BlockNumber: 1,
-						TxHash:      common.HexToHash("0x1"),
+						BlockHash:   common.HexToHash("0xa25ebae1099f3fbae2525ebae279f3ae25e"),
+						TxHash:      common.HexToHash("0xa651bd1109922111ee411525ebae27f3fb6"),
 						LogIndex:    0,
 					},
 					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "222").BigInt(),
@@ -683,15 +686,8 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 				{
 					log: logpoller.Log{
 						BlockNumber: 1,
-						TxHash:      common.HexToHash("0x1"),
-						LogIndex:    2,
-					},
-					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
-				},
-				{
-					log: logpoller.Log{
-						BlockNumber: 1,
-						TxHash:      common.HexToHash("0x1"),
+						BlockHash:   common.HexToHash("0xa25ebae1099f3fbae2525ebae279f3ae25e"),
+						TxHash:      common.HexToHash("0xa651bd1109922111ee411525ebae27f3fb6"),
 						LogIndex:    4,
 					},
 					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
@@ -699,7 +695,8 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 				{
 					log: logpoller.Log{
 						BlockNumber: 1,
-						TxHash:      common.HexToHash("0x1"),
+						BlockHash:   common.HexToHash("0xa25ebae1099f3fbae2525ebae279f3ae25e"),
+						TxHash:      common.HexToHash("0xa651bd1109922111ee411525ebae27f3fb6"),
 						LogIndex:    3,
 					},
 					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "222").BigInt(),
@@ -707,15 +704,17 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 				{
 					log: logpoller.Log{
 						BlockNumber: 1,
-						TxHash:      common.HexToHash("0x1"),
-						LogIndex:    3,
+						BlockHash:   common.HexToHash("0xa25ebae1099f3fbae2525ebae279f3ae25e"),
+						TxHash:      common.HexToHash("0xa651bd1109922111ee411525ebae27f3fb6"),
+						LogIndex:    2,
 					},
 					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
 				},
 				{
 					log: logpoller.Log{
 						BlockNumber: 1,
-						TxHash:      common.HexToHash("0x1"),
+						BlockHash:   common.HexToHash("0xa25ebae1099f3fbae2525ebae279f3ae25e"),
+						TxHash:      common.HexToHash("0xa651bd1109922111ee411525ebae27f3fb6"),
 						LogIndex:    5,
 					},
 					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
@@ -723,31 +722,41 @@ func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
 				{
 					log: logpoller.Log{
 						BlockNumber: 1,
-						TxHash:      common.HexToHash("0x1"),
+						BlockHash:   common.HexToHash("0xa25ebae1099f3fbae2525ebae279f3ae25e"),
+						TxHash:      common.HexToHash("0xa651bd1109922111ee411525ebae27f3fb6"),
+						LogIndex:    3,
+					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+				},
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						BlockHash:   common.HexToHash("0xa25ebae1099f3fbae2525ebae279f3ae25e"),
+						TxHash:      common.HexToHash("0xa651bd1109922111ee411525ebae27f3fb6"),
 						LogIndex:    1,
 					},
 					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
 				},
 			},
 			beforeSort: []string{
-				"000000000000000000000000000000000000000000000000000000000000000200000000",
-				"000000000000000000000000000000000000000000000000000000000000000100000000",
-				"000000000000000000000000000000000000000000000000000000000000000100000002",
-				"000000000000000000000000000000000000000000000000000000000000000100000004",
-				"000000000000000000000000000000000000000000000000000000000000000100000003",
-				"000000000000000000000000000000000000000000000000000000000000000100000003",
-				"000000000000000000000000000000000000000000000000000000000000000100000005",
-				"000000000000000000000000000000000000000000000000000000000000000100000001",
+				"00000000000000000000000000000b711bd1103927611ee41152aa8ae27f333000000000",
+				"00000000000000000000000000000a651bd1109922111ee411525ebae27f3fb600000000",
+				"00000000000000000000000000000a651bd1109922111ee411525ebae27f3fb600000004",
+				"00000000000000000000000000000a651bd1109922111ee411525ebae27f3fb600000003",
+				"00000000000000000000000000000a651bd1109922111ee411525ebae27f3fb600000002",
+				"00000000000000000000000000000a651bd1109922111ee411525ebae27f3fb600000005",
+				"00000000000000000000000000000a651bd1109922111ee411525ebae27f3fb600000003",
+				"00000000000000000000000000000a651bd1109922111ee411525ebae27f3fb600000001",
 			},
 			afterSort: []string{
-				"000000000000000000000000000000000000000000000000000000000000000100000000",
-				"000000000000000000000000000000000000000000000000000000000000000100000001",
-				"000000000000000000000000000000000000000000000000000000000000000100000002",
-				"000000000000000000000000000000000000000000000000000000000000000100000003",
-				"000000000000000000000000000000000000000000000000000000000000000100000003",
-				"000000000000000000000000000000000000000000000000000000000000000100000004",
-				"000000000000000000000000000000000000000000000000000000000000000100000005",
-				"000000000000000000000000000000000000000000000000000000000000000200000000",
+				"00000000000000000000000000000b711bd1103927611ee41152aa8ae27f333000000000",
+				"00000000000000000000000000000a651bd1109922111ee411525ebae27f3fb600000000",
+				"00000000000000000000000000000a651bd1109922111ee411525ebae27f3fb600000001",
+				"00000000000000000000000000000a651bd1109922111ee411525ebae27f3fb600000002",
+				"00000000000000000000000000000a651bd1109922111ee411525ebae27f3fb600000003",
+				"00000000000000000000000000000a651bd1109922111ee411525ebae27f3fb600000003",
+				"00000000000000000000000000000a651bd1109922111ee411525ebae27f3fb600000004",
+				"00000000000000000000000000000a651bd1109922111ee411525ebae27f3fb600000005",
 			},
 			iterations: 10,
 		},
