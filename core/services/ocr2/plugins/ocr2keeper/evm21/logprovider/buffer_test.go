@@ -1,15 +1,18 @@
 package logprovider
 
 import (
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
 func TestLogEventBuffer_GetBlocksInRange(t *testing.T) {
@@ -345,9 +348,460 @@ func TestLogEventBuffer_EnqueueDequeue(t *testing.T) {
 	})
 }
 
+func TestLogEventBuffer_FetchedBlock_Append(t *testing.T) {
+	type appendArgs struct {
+		fl                          fetchedLog
+		maxBlockLogs, maxUpkeepLogs int
+		added, dropped              bool
+	}
+
+	tests := []struct {
+		name        string
+		blockNumber int64
+		logs        []fetchedLog
+		visited     []fetchedLog
+		toAdd       []appendArgs
+		expected    []fetchedLog
+		added       bool
+	}{
+		{
+			name:        "empty block",
+			blockNumber: 1,
+			logs:        []fetchedLog{},
+			visited:     []fetchedLog{},
+			toAdd: []appendArgs{
+				{
+					fl: fetchedLog{
+						log: logpoller.Log{
+							BlockNumber: 1,
+							TxHash:      common.HexToHash("0x1"),
+							LogIndex:    0,
+						},
+						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					},
+					maxBlockLogs:  10,
+					maxUpkeepLogs: 2,
+					added:         true,
+				},
+			},
+			expected: []fetchedLog{
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    0,
+					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+				},
+			},
+		},
+		{
+			name:        "existing log",
+			blockNumber: 1,
+			logs: []fetchedLog{
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    0,
+					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+				},
+			},
+			visited: []fetchedLog{},
+			toAdd: []appendArgs{
+				{
+					fl: fetchedLog{
+						log: logpoller.Log{
+							BlockNumber: 1,
+							TxHash:      common.HexToHash("0x1"),
+							LogIndex:    0,
+						},
+						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					},
+					maxBlockLogs:  10,
+					maxUpkeepLogs: 2,
+					added:         false,
+				},
+			},
+			expected: []fetchedLog{
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    0,
+					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+				},
+			},
+		},
+		{
+			name:        "visited log",
+			blockNumber: 1,
+			logs:        []fetchedLog{},
+			visited: []fetchedLog{
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    0,
+					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+				},
+			},
+			toAdd: []appendArgs{
+				{
+					fl: fetchedLog{
+						log: logpoller.Log{
+							BlockNumber: 1,
+							TxHash:      common.HexToHash("0x1"),
+							LogIndex:    0,
+						},
+						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					},
+					maxBlockLogs:  10,
+					maxUpkeepLogs: 2,
+					added:         false,
+				},
+			},
+			expected: []fetchedLog{},
+		},
+		{
+			name:        "upkeep log limits",
+			blockNumber: 1,
+			logs:        []fetchedLog{},
+			visited:     []fetchedLog{},
+			toAdd: []appendArgs{
+				{
+					fl: fetchedLog{
+						log: logpoller.Log{
+							BlockNumber: 1,
+							TxHash:      common.HexToHash("0x1"),
+							LogIndex:    0,
+						},
+						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					},
+					maxBlockLogs:  10,
+					maxUpkeepLogs: 2,
+					added:         true,
+				},
+				{
+					fl: fetchedLog{
+						log: logpoller.Log{
+							BlockNumber: 1,
+							TxHash:      common.HexToHash("0x1"),
+							LogIndex:    1,
+						},
+						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					},
+					maxBlockLogs:  10,
+					maxUpkeepLogs: 2,
+					added:         true,
+				},
+				{
+					fl: fetchedLog{
+						log: logpoller.Log{
+							BlockNumber: 1,
+							TxHash:      common.HexToHash("0x1"),
+							LogIndex:    2,
+						},
+						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					},
+					maxBlockLogs:  10,
+					maxUpkeepLogs: 2,
+					added:         true,
+					dropped:       true,
+				},
+			},
+			expected: []fetchedLog{
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    1,
+					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+				},
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    2,
+					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+				},
+			},
+		},
+		{
+			name:        "block log limits",
+			blockNumber: 1,
+			logs:        []fetchedLog{},
+			visited:     []fetchedLog{},
+			toAdd: []appendArgs{
+				{
+					fl: fetchedLog{
+						log: logpoller.Log{
+							BlockNumber: 1,
+							TxHash:      common.HexToHash("0x1"),
+							LogIndex:    0,
+						},
+						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					},
+					maxBlockLogs:  2,
+					maxUpkeepLogs: 4,
+					added:         true,
+				},
+				{
+					fl: fetchedLog{
+						log: logpoller.Log{
+							BlockNumber: 1,
+							TxHash:      common.HexToHash("0x1"),
+							LogIndex:    1,
+						},
+						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					},
+					maxBlockLogs:  2,
+					maxUpkeepLogs: 4,
+					added:         true,
+				},
+				{
+					fl: fetchedLog{
+						log: logpoller.Log{
+							BlockNumber: 1,
+							TxHash:      common.HexToHash("0x1"),
+							LogIndex:    2,
+						},
+						upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+					},
+					maxBlockLogs:  2,
+					maxUpkeepLogs: 4,
+					added:         true,
+					dropped:       true,
+				},
+			},
+			expected: []fetchedLog{
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    1,
+					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+				},
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    2,
+					},
+					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			lggr := logger.TestLogger(t)
+			b := fetchedBlock{
+				blockNumber: tc.blockNumber,
+				logs:        make([]fetchedLog, len(tc.logs)),
+				visited:     make([]fetchedLog, len(tc.visited)),
+			}
+			copy(b.logs, tc.logs)
+			copy(b.visited, tc.visited)
+
+			for _, args := range tc.toAdd {
+				dropped, added := b.Append(lggr, args.fl, args.maxBlockLogs, args.maxUpkeepLogs)
+				require.Equal(t, args.added, added)
+				if args.dropped {
+					require.NotNil(t, dropped.upkeepID)
+				} else {
+					require.Nil(t, dropped.upkeepID)
+				}
+			}
+
+			require.Equal(t, tc.expected, b.logs)
+		})
+	}
+}
+func TestLogEventBuffer_FetchedBlock_Sort(t *testing.T) {
+	tests := []struct {
+		name        string
+		blockNumber int64
+		logs        []fetchedLog
+		beforeSort  []string
+		afterSort   []string
+		iterations  int
+	}{
+		{
+			name:        "no logs",
+			blockNumber: 10,
+			logs:        []fetchedLog{},
+			beforeSort:  []string{},
+			afterSort:   []string{},
+		},
+		{
+			name:        "single log",
+			blockNumber: 1,
+			logs: []fetchedLog{
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    0,
+					},
+				},
+			},
+			beforeSort: []string{
+				"000000000000000000000000000000000000000000000000000000000000000100000000",
+			},
+			afterSort: []string{
+				"000000000000000000000000000000000000000000000000000000000000000100000000",
+			},
+		},
+		{
+			name:        "multiple logs with 10 iterations",
+			blockNumber: 1,
+			logs: []fetchedLog{
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    0,
+					},
+				},
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    2,
+					},
+				},
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    4,
+					},
+				},
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    3,
+					},
+				},
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    5,
+					},
+				},
+				{
+					log: logpoller.Log{
+						BlockNumber: 1,
+						TxHash:      common.HexToHash("0x1"),
+						LogIndex:    1,
+					},
+				},
+			},
+			beforeSort: []string{
+				"000000000000000000000000000000000000000000000000000000000000000100000000",
+				"000000000000000000000000000000000000000000000000000000000000000100000002",
+				"000000000000000000000000000000000000000000000000000000000000000100000004",
+				"000000000000000000000000000000000000000000000000000000000000000100000003",
+				"000000000000000000000000000000000000000000000000000000000000000100000005",
+				"000000000000000000000000000000000000000000000000000000000000000100000001",
+			},
+			afterSort: []string{
+				"000000000000000000000000000000000000000000000000000000000000000100000000",
+				"000000000000000000000000000000000000000000000000000000000000000100000002",
+				"000000000000000000000000000000000000000000000000000000000000000100000003",
+				"000000000000000000000000000000000000000000000000000000000000000100000004",
+				"000000000000000000000000000000000000000000000000000000000000000100000001",
+				"000000000000000000000000000000000000000000000000000000000000000100000005",
+			},
+			iterations: 10,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			b := fetchedBlock{
+				blockNumber: tc.blockNumber,
+				logs:        make([]fetchedLog, len(tc.logs)),
+			}
+			if tc.iterations == 0 {
+				tc.iterations = 1
+			}
+			// performing the same multiple times should yield the same result
+			// default is one iteration
+			for i := 0; i < tc.iterations; i++ {
+				copy(b.logs, tc.logs)
+				logIDs := getLogIds(b)
+				require.Equal(t, len(tc.beforeSort), len(logIDs))
+				require.Equal(t, tc.beforeSort, logIDs)
+				b.Sort()
+				logIDsAfterSort := getLogIds(b)
+				require.Equal(t, len(tc.afterSort), len(logIDsAfterSort))
+				require.Equal(t, tc.afterSort, logIDsAfterSort)
+			}
+		})
+	}
+}
+
+func TestLogEventBuffer_FetchedBlock_Clone(t *testing.T) {
+	b1 := fetchedBlock{
+		blockNumber: 1,
+		logs: []fetchedLog{
+			{
+				log: logpoller.Log{
+					BlockNumber: 1,
+					TxHash:      common.HexToHash("0x1"),
+					LogIndex:    0,
+				},
+				upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+			},
+			{
+				log: logpoller.Log{
+					BlockNumber: 1,
+					TxHash:      common.HexToHash("0x1"),
+					LogIndex:    2,
+				},
+				upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "111").BigInt(),
+			},
+		},
+	}
+
+	b2 := b1.Clone()
+	require.Equal(t, b1.blockNumber, b2.blockNumber)
+	require.Equal(t, len(b1.logs), len(b2.logs))
+	require.Equal(t, b1.logs[0].log.BlockNumber, b2.logs[0].log.BlockNumber)
+
+	b1.blockNumber = 2
+	b1.logs[0].log.BlockNumber = 2
+	require.NotEqual(t, b1.blockNumber, b2.blockNumber)
+	require.NotEqual(t, b1.logs[0].log.BlockNumber, b2.logs[0].log.BlockNumber)
+}
+
 func verifyBlockNumbers(t *testing.T, logs []fetchedLog, bns ...int64) {
 	require.Equal(t, len(bns), len(logs), "expected length mismatch")
 	for i, log := range logs {
 		require.Equal(t, bns[i], log.log.BlockNumber, "wrong block number")
 	}
+}
+
+func getLogIds(b fetchedBlock) []string {
+	logIDs := make([]string, len(b.logs))
+	for i, l := range b.logs {
+		ext := ocr2keepers.LogTriggerExtension{
+			TxHash:    l.log.TxHash,
+			Index:     uint32(l.log.LogIndex),
+			BlockHash: l.log.BlockHash,
+		}
+		logIDs[i] = hex.EncodeToString(ext.LogIdentifier())
+	}
+	return logIDs
 }
