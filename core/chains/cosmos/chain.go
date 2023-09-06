@@ -20,13 +20,13 @@ import (
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -54,7 +54,7 @@ type ChainOpts struct {
 	QueryConfig      pg.QConfig
 	Logger           logger.Logger
 	DB               *sqlx.DB
-	KeyStore         keystore.Cosmos
+	KeyStore         loop.Keystore
 	EventBroadcaster pg.EventBroadcaster
 	Configs          types.Configs
 }
@@ -112,7 +112,7 @@ type chain struct {
 	lggr logger.Logger
 }
 
-func newChain(id string, cfg *CosmosConfig, db *sqlx.DB, ks keystore.Cosmos, logCfg pg.QConfig, eb pg.EventBroadcaster, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg *CosmosConfig, db *sqlx.DB, ks loop.Keystore, logCfg pg.QConfig, eb pg.EventBroadcaster, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
 	lggr = logger.With(lggr, "cosmosChainID", id)
 	var ch = chain{
 		id:   id,
