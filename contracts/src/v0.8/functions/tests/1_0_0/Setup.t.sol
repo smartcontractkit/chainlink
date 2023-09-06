@@ -55,7 +55,9 @@ contract FunctionsRouterSetup is BaseTest {
         adminFee: s_adminFee,
         handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
         maxCallbackGasLimits: maxCallbackGasLimits,
-        gasForCallExactCheck: 5000
+        gasForCallExactCheck: 5000,
+        subscriptionDepositCompletedRequests: 10,
+        subscriptionDepositJuels: 5 * 1e18
       });
   }
 

@@ -85,11 +85,13 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // |                    Configuration state                       |
   // ================================================================
   struct Config {
-    uint16 maxConsumersPerSubscription; // ══════╗ Maximum number of consumers which can be added to a single subscription. This bound ensures we are able to loop over all subscription consumers as needed, without exceeding gas limits. Should a user require more consumers, they can use multiple subscriptions.
-    uint72 adminFee; //                          ║ Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
-    bytes4 handleOracleFulfillmentSelector; //   ║ The function selector that is used when calling back to the Client contract
-    uint16 gasForCallExactCheck; // ═════════════╝ Used during calling back to the client. Ensures we have at least enough gas to be able to revert if gasAmount >  63//64*gas available.
-    uint32[] maxCallbackGasLimits; // ═══════════╸ List of max callback gas limits used by flag with GAS_FLAG_INDEX
+    uint16 maxConsumersPerSubscription; // ═════════╗ Maximum number of consumers which can be added to a single subscription. This bound ensures we are able to loop over all subscription consumers as needed, without exceeding gas limits. Should a user require more consumers, they can use multiple subscriptions.
+    uint72 adminFee; //                             ║ Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
+    bytes4 handleOracleFulfillmentSelector; //      ║ The function selector that is used when calling back to the Client contract
+    uint16 gasForCallExactCheck; // ════════════════╝ Used during calling back to the client. Ensures we have at least enough gas to be able to revert if gasAmount >  63//64*gas available.
+    uint32[] maxCallbackGasLimits; // ══════════════╗ List of max callback gas limits used by flag with GAS_FLAG_INDEX
+    uint16 subscriptionDepositCompletedRequests; // ║ Amount of requests that must be completed before the full subscription balance will be released when closing a subscription account.
+    uint72 subscriptionDepositJuels; // ════════════╝ Amount of subscription funds that are held as a deposit until Config.subscriptionDepositCompletedRequests are made using the subscription.
   }
 
   Config private s_config;
@@ -178,6 +180,11 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // Used within FunctionsSubscriptions.sol
   function _getMaxConsumers() internal view override returns (uint16) {
     return s_config.maxConsumersPerSubscription;
+  }
+
+  // Used within FunctionsSubscriptions.sol
+  function _getSubscriptionDepositDetails() internal view override returns (uint16, uint72, address) {
+    return (s_config.subscriptionDepositCompletedRequests, s_config.subscriptionDepositJuels, owner());
   }
 
   // ================================================================

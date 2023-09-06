@@ -45,11 +45,13 @@ type FunctionsResponseCommitment struct {
 }
 
 type FunctionsRouterConfig struct {
-	MaxConsumersPerSubscription     uint16
-	AdminFee                        *big.Int
-	HandleOracleFulfillmentSelector [4]byte
-	GasForCallExactCheck            uint16
-	MaxCallbackGasLimits            []uint32
+	MaxConsumersPerSubscription          uint16
+	AdminFee                             *big.Int
+	HandleOracleFulfillmentSelector      [4]byte
+	GasForCallExactCheck                 uint16
+	MaxCallbackGasLimits                 []uint32
+	SubscriptionDepositCompletedRequests uint16
+	SubscriptionDepositJuels             *big.Int
 }
 
 type IFunctionsSubscriptionsConsumer struct {
@@ -3358,7 +3360,7 @@ func (_FunctionsRouter *FunctionsRouter) ParseLog(log types.Log) (generated.Abig
 }
 
 func (FunctionsRouterConfigUpdated) Topic() common.Hash {
-	return common.HexToHash("0x049ce2e6e1420eb4b07b425e90129186833eb346bda40b37d5d921aad482f71c")
+	return common.HexToHash("0x00a5832bf95f66c7814294cc4db681f20ee79608bfb8912a5321d66cfed5e985")
 }
 
 func (FunctionsRouterContractProposed) Topic() common.Hash {

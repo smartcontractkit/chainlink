@@ -192,16 +192,18 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	var handleOracleFulfillmentSelector [4]byte
 	copy(handleOracleFulfillmentSelector[:], handleOracleFulfillmentSelectorSlice[:4])
 	functionsRouterConfig := functions_router.FunctionsRouterConfig{
-		MaxConsumersPerSubscription:     uint16(100),
-		AdminFee:                        big.NewInt(0),
-		HandleOracleFulfillmentSelector: handleOracleFulfillmentSelector,
-		MaxCallbackGasLimits:            []uint32{300_000, 500_000, 1_000_000},
-		GasForCallExactCheck:            5000,
+		MaxConsumersPerSubscription:          uint16(100),
+		AdminFee:                             big.NewInt(0),
+		HandleOracleFulfillmentSelector:      handleOracleFulfillmentSelector,
+		MaxCallbackGasLimits:                 []uint32{300_000, 500_000, 1_000_000},
+		GasForCallExactCheck:                 5000,
+		SubscriptionDepositCompletedRequests: 10,
+		SubscriptionDepositJuels:             big.NewInt(9 * 1e18), // 9 LINK
 	}
 	routerAddress, _, routerContract, err := functions_router.DeployFunctionsRouter(owner, b, linkAddr, functionsRouterConfig)
 	require.NoError(t, err)
 
-	// Deploy Allow List contract
+	// Deploy Allow List contractz
 	privateKey, err := crypto.HexToECDSA(allowListPrivateKey[2:])
 	proofSignerPublicKey := crypto.PubkeyToAddress(privateKey.PublicKey)
 	require.NoError(t, err)
