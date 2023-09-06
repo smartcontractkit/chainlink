@@ -3,27 +3,36 @@ package smoke
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
-	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 
 func TestRunLogBasic(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithGeth().
 		WithMockServer(1).
 		WithCLNodes(1).
-		WithFunding(big.NewFloat(1)).
+		WithFunding(big.NewFloat(.1)).
 		Build()
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := env.Cleanup(); err != nil {
+			l.Error().Err(err).Msg("Error cleaning up test environment")
+		}
+	})
 
 	lt, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")

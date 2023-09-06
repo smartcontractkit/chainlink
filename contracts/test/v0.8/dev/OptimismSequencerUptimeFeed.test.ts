@@ -43,7 +43,7 @@ describe('OptimismSequencerUptimeFeed', () => {
   beforeEach(async () => {
     const optimismSequencerStatusRecorderFactory =
       await ethers.getContractFactory(
-        'src/v0.8/dev/OptimismSequencerUptimeFeed.sol:OptimismSequencerUptimeFeed',
+        'src/v0.8/l2ep/dev/optimism/OptimismSequencerUptimeFeed.sol:OptimismSequencerUptimeFeed',
         deployer,
       )
     optimismUptimeFeed = await optimismSequencerStatusRecorderFactory.deploy(

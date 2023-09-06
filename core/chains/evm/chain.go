@@ -14,7 +14,11 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	gotoml "github.com/pelletier/go-toml/v2"
+
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -29,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -52,6 +57,13 @@ type Chain interface {
 	BalanceMonitor() monitor.BalanceMonitor
 	LogPoller() logpoller.LogPoller
 	GasEstimator() gas.EvmFeeEstimator
+
+	// TODO remove after BCF-2441
+	// This funcs are implemented now in preparation the interface change, which is expected
+	// to absorb these definitions into [types.ChainService]
+	GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error)
+	ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []relaytypes.NodeStatus, nextPageToken string, total int, err error)
+	Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
 var (
@@ -84,14 +96,11 @@ type LegacyChainContainer interface {
 
 var _ LegacyChainContainer = &LegacyChains{}
 
-func NewLegacyChains(cfg AppConfig, m map[string]Chain) (*LegacyChains, error) {
-	if cfg == nil {
-		return nil, fmt.Errorf("must provide non-nil app config")
-	}
+func NewLegacyChains(m map[string]Chain, evmCfgs toml.EVMConfigs) *LegacyChains {
 	return &LegacyChains{
 		ChainsKV: chains.NewChainsKV[Chain](m),
-		cfgs:     chains.NewConfigs[utils.Big, evmtypes.Node](cfg.EVMConfigs()),
-	}, nil
+		cfgs:     chains.NewConfigs[utils.Big, evmtypes.Node](evmCfgs),
+	}
 }
 
 func (c *LegacyChains) ChainNodeConfigs() evmtypes.Configs {
@@ -126,7 +135,7 @@ func (c *LegacyChains) Get(id string) (Chain, error) {
 type chain struct {
 	utils.StartStopOnce
 	id              *big.Int
-	cfg             evmconfig.ChainScopedConfig
+	cfg             *evmconfig.ChainScoped
 	client          evmclient.Client
 	txm             txmgr.TxManager
 	logger          logger.Logger
@@ -157,7 +166,7 @@ type ChainRelayExtenderConfig struct {
 	Logger   logger.Logger
 	DB       *sqlx.DB
 	KeyStore keystore.Eth
-	RelayerConfig
+	*RelayerConfig
 }
 
 // options for the relayer factory.
@@ -203,9 +212,9 @@ func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExt
 	return newChain(ctx, cfg, chain.Nodes, opts)
 }
 
-func newChain(ctx context.Context, cfg evmconfig.ChainScopedConfig, nodes []*toml.Node, opts ChainRelayExtenderConfig) (*chain, error) {
+func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelayExtenderConfig) (*chain, error) {
 	chainID, chainType := cfg.EVM().ChainID(), cfg.EVM().ChainType()
-	l := opts.Logger.Named(chainID.String()).With("evmChainID", chainID.String())
+	l := opts.Logger
 	var client evmclient.Client
 	if !cfg.EVMRPCEnabled() {
 		client = evmclient.NewNullClient(chainID, l)
@@ -380,8 +389,69 @@ func (c *chain) HealthReport() map[string]error {
 	return report
 }
 
-func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return chains.ErrLOOPPUnsupported
+}
+
+func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	return c.Transact(ctx, from, to, amount, balanceCheck)
+}
+
+func (c *chain) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
+	toml, err := c.cfg.EVM().TOMLString()
+	if err != nil {
+		return types.ChainStatus{}, err
+	}
+	return types.ChainStatus{
+		ID:      c.ID().String(),
+		Enabled: c.cfg.EVM().IsEnabled(),
+		Config:  toml,
+	}, nil
+}
+
+// TODO BCF-2602 statuses are static for non-evm chain and should be dynamic
+func (c *chain) listNodeStatuses(start, end int) ([]types.NodeStatus, int, error) {
+	nodes := c.cfg.Nodes()
+	total := len(nodes)
+	if start >= total {
+		return nil, total, internal.ErrOutOfRange
+	}
+	if end > total {
+		end = total
+	}
+	stats := make([]types.NodeStatus, 0)
+
+	states := c.Client().NodeStates()
+	for _, n := range nodes[start:end] {
+		var (
+			nodeState string
+			exists    bool
+		)
+		toml, err := gotoml.Marshal(n)
+		if err != nil {
+			return nil, -1, err
+		}
+		if states == nil {
+			nodeState = "Unknown"
+		} else {
+			nodeState, exists = states[*n.Name]
+			if !exists {
+				// The node is in the DB and the chain is enabled but it's not running
+				nodeState = "NotLoaded"
+			}
+		}
+		stats = append(stats, types.NodeStatus{
+			ChainID: c.ID().String(),
+			Name:    *n.Name,
+			Config:  string(toml),
+			State:   nodeState,
+		})
+	}
+	return stats, total, nil
+}
+
+func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, nextPageToken string, total int, err error) {
+	return internal.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
 }
 
 func (c *chain) ID() *big.Int                             { return c.id }
@@ -430,6 +500,9 @@ func (opts *ChainRelayExtenderConfig) Check() error {
 		return errors.New("config must be non-nil")
 	}
 
-	opts.operationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](opts.AppConfig.EVMConfigs())
+	opts.init.Do(func() {
+		opts.operationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](opts.AppConfig.EVMConfigs())
+	})
+
 	return nil
 }

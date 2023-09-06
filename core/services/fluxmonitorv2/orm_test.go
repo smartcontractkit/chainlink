@@ -95,8 +95,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	bridgeORM := bridges.NewORM(db, lggr, cfg.Database())
 
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db, KeyStore: keyStore.Eth()})
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
 	jobORM := job.NewORM(db, legacyChains, pipelineORM, bridgeORM, keyStore, lggr, cfg.Database())
@@ -106,8 +105,7 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	var roundID uint32 = 1
 
 	jb := makeJob(t)
-	err = jobORM.CreateJob(jb)
-	require.NoError(t, err)
+	require.NoError(t, jobORM.CreateJob(jb))
 
 	for expectedCount := uint64(1); expectedCount < 4; expectedCount++ {
 		f := time.Now()

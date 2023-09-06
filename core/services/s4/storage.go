@@ -75,7 +75,7 @@ var _ Storage = (*storage)(nil)
 
 func NewStorage(lggr logger.Logger, contraints Constraints, orm ORM, clock utils.Clock) Storage {
 	return &storage{
-		lggr:       lggr.Named("s4_storage"),
+		lggr:       lggr.Named("S4Storage"),
 		contraints: contraints,
 		orm:        orm,
 		clock:      clock,
