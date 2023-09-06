@@ -36,10 +36,8 @@ func (l *fetchedLog) getLogID() string {
 			Index: uint32(l.log.LogIndex),
 		}
 		copy(ext.TxHash[:], l.log.TxHash[:])
-		// TODO: uncomment avoid block hash bytes once log identifier func
-		// changes in ocr2keepers to work with block hash
-		// copy(ext.BlockHash[:], l.log.BlockHash[:])
-		l.cachedLogID = hex.EncodeToString(append(l.log.BlockHash.Bytes(), ext.LogIdentifier()...))
+		copy(ext.BlockHash[:], l.log.BlockHash[:])
+		l.cachedLogID = hex.EncodeToString(ext.LogIdentifier())
 	}
 	return l.cachedLogID
 }
