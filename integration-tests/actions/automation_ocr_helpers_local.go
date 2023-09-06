@@ -204,10 +204,8 @@ func CreateOCRKeeperJobsLocal(
 		log.Error().Err(err).Msg("Shouldn't fail creating bootstrap job on bootstrap node")
 		return err
 	}
-	// NOTE: this might need the bootstrap internal url if the URL doesn't work
-	// P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.URL(), 6690)
-	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.InternalIP(), 6690)
 
+	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.InternalIP(), 6690)
 	for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
 		nodeTransmitterAddress, err := chainlinkNodes[nodeIndex].EthAddresses()
 		if err != nil {

@@ -26,7 +26,7 @@ matrix_output() {
   local test_name=$3
   local node_label=$4
   local counter_out=$(printf "%02d\n" $counter)
-  echo -n "{\"name\": \"${job_name}-${counter_out}\", \"file\": \"${job_name}\",\"nodes\": 1, \"os\": \"${node_label}\", \"pyroscope_env\": \"ci-smoke-${job_name}-evm-simulated\", \"run\": \"-run '^(${test_name})$'\"}"
+  echo -n "{\"name\": \"${job_name}-${counter_out}\", \"file\": \"${job_name}\",\"nodes\": 1, \"os\": \"${node_label}\", \"pyroscope_env\": \"ci-smoke-${job_name}-evm-simulated\", \"run\": \"-run '^${test_name}$'\"}"
 }
 
 # Read the JSON file and loop through 'tests' and 'run'

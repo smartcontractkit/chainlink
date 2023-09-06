@@ -103,7 +103,7 @@ func (n *ClNode) Restart(cfg *chainlink.Config) error {
 	return n.StartContainer()
 }
 
-// Restart restarts only CL node, DB container is reused
+// UpgradeVersion restarts the cl node with new image and version
 func (n *ClNode) UpgradeVersion(cfg *chainlink.Config, newImage, newVersion string) error {
 	if newVersion == "" {
 		return fmt.Errorf("new version is empty")
