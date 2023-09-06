@@ -57,8 +57,9 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     timeParamKey = "blockNumber"; // timestamp
     // search feeds in notion: "Schema and Feed ID Registry"
     feeds = [
-      "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", // ETH / USD in production testnet
-      "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000" // BTC / USD in production testnet
+      "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", // ETH / USD in production testnet v0.2
+      "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000" // BTC / USD in production testnet v0.2
+      // "0x00028c915d6af0fd66bba2d0fc9405226bca8d6806333121a7d9832103d1563c" // ETH / USD in staging testnet v0.3
     ];
     staging = _staging;
     verify = _verify;

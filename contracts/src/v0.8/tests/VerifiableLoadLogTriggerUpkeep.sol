@@ -54,8 +54,16 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, StreamsLookupComp
         dummyMap[blockhash(blockNum)] = false;
       }
 
+      uint256 timeParam;
+      if (keccak256(abi.encodePacked(timeParamKey)) == keccak256(abi.encodePacked("feedIdHex"))) {
+        timeParam = blockNum;
+      } else {
+        // assume this will be feedIDs for v0.3
+        timeParam = block.timestamp;
+      }
+
       if (useMercury) {
-        revert StreamsLookup(feedParamKey, feedsHex, timeParamKey, blockNum, abi.encode(upkeepId, blockNum, addr));
+        revert StreamsLookup(feedParamKey, feedsHex, timeParamKey, timeParam, abi.encode(upkeepId, blockNum, addr));
       }
 
       // if we don't use mercury, create a perform data which resembles the output of checkCallback
