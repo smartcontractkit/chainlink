@@ -177,7 +177,7 @@ func (o *ORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 	}
 	q := o.q.WithOpts(qopts...)
 
-	batchInsertSize := 1000
+	batchInsertSize := 4000
 	for i := 0; i < len(logs); i += batchInsertSize {
 		start, end := i, i+batchInsertSize
 		if end > len(logs) {
@@ -189,7 +189,12 @@ func (o *ORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 (:evm_chain_id, :log_index, :block_hash, :block_number, :block_timestamp, :address, :event_sig, :topics, :tx_hash, :data, NOW()) ON CONFLICT DO NOTHING`, logs[start:end])
 
 		if err != nil {
-			return err
+			if batchInsertSize == 1 {
+				return err
+			}
+			batchInsertSize /= 2
+			i -= batchInsertSize // // counteract +=batchSize on next loop iteration
+			continue
 		}
 	}
 
