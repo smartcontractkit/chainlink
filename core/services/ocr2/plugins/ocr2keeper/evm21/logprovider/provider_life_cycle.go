@@ -126,7 +126,7 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 	}
 	// TODO: Optimise to do backfill from ufilter.configUpdateBlock only for new filters
 	// if it is not too old
-	// p.poller.ReplayAsync(backfillBlock)
+	p.poller.ReplayAsync(backfillBlock)
 
 	return nil
 }
