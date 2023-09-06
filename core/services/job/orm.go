@@ -166,7 +166,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 		switch jb.Type {
 		case DirectRequest:
 			if jb.DirectRequestSpec.EVMChainID == nil {
-				return errors.New("valid evm chain id must be provided")
+				return errors.New("evm chain id must be defined")
 			}
 			var specID int32
 			sql := `INSERT INTO direct_request_specs (contract_address, min_incoming_confirmations, requesters, min_contract_payment, evm_chain_id, created_at, updated_at)
@@ -178,7 +178,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			jb.DirectRequestSpecID = &specID
 		case FluxMonitor:
 			if jb.FluxMonitorSpec.EVMChainID == nil {
-				return errors.New("valid evm chain id must be provided")
+				return errors.New("evm chain id must be defined")
 			}
 			var specID int32
 			sql := `INSERT INTO flux_monitor_specs (contract_address, threshold, absolute_threshold, poll_timer_period, poll_timer_disabled, idle_timer_period, idle_timer_disabled,
