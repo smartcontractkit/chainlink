@@ -430,6 +430,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			KeeperSpec: &job.KeeperSpec{
 				FromAddress:     nodeAddressEIP55,
 				ContractAddress: regAddrEIP55,
+				EVMChainID:      (*utils.Big)(testutils.FixtureChainID),
 			},
 			SchemaVersion:     1,
 			ForwardingAllowed: true,

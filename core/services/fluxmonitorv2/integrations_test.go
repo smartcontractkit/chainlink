@@ -495,9 +495,9 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 	schemaVersion     = 1
 	name              = "integration test"
 	contractAddress   = "%s"
+	evmChainID        = 1337
 	threshold = 2.0
 	absoluteThreshold = 0.0
-	evmChainID        = 1337
 
 	idleTimerPeriod = "10s"
 	idleTimerDisabled = false
@@ -644,6 +644,7 @@ type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "%s"
+evmChainID  	  = "0"
 threshold = 0.5
 absoluteThreshold = 0.0
 
@@ -752,6 +753,7 @@ type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "%s"
+evmChainID        = "0"
 threshold = 0.5
 absoluteThreshold = 0.0
 
@@ -862,6 +864,7 @@ type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "%s"
+evmChainID		  = "0"
 threshold = 0.5
 absoluteThreshold = 0.01
 
@@ -963,6 +966,7 @@ type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "%s"
+evmChainID		  = "0""
 threshold = 0.5
 absoluteThreshold = 0.0
 
