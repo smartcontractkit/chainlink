@@ -371,7 +371,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 	if err != nil {
 		return nil, err
 	}
-	if err := libocr2.SanityCheckLocalConfig(lc); err != nil {
+	if err = libocr2.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
 	lggr.Infow("OCR2 job using local config",
