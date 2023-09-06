@@ -86,7 +86,7 @@ func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, error
 	return e.packer.PackReport(report)
 }
 
-// Extract the plugin will call this function to accept/transmit reports
+// Extract extracts a slice of reported upkeeps (upkeep id, trigger, and work id) from raw bytes. the plugin will call this function to accept/transmit reports.
 func (e reportEncoder) Extract(raw []byte) ([]ocr2keepers.ReportedUpkeep, error) {
 	report, err := e.packer.UnpackReport(raw)
 	if err != nil {

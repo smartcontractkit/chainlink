@@ -495,6 +495,8 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				return fmt.Errorf("at block %s upkeep %s received status code %d from mercury v0.3", sl.time.String(), sl.upkeepId.String(), resp.StatusCode)
 			}
 
+			lggr.Infof("at block %s upkeep %s received status code %d resp.BODY is %s", sl.time.String(), sl.upkeepId.String(), resp.StatusCode, hexutil.Encode(body))
+
 			var response MercuryV03Response
 			err1 = json.Unmarshal(body, &response)
 			if err1 != nil {

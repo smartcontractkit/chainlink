@@ -46,6 +46,7 @@ func (f upkeepFilter) Clone() upkeepFilter {
 	}
 }
 
+// Select returns a slice of logs which match the upkeep filter.
 func (f upkeepFilter) Select(logs ...logpoller.Log) []logpoller.Log {
 	var selected []logpoller.Log
 	for _, log := range logs {
@@ -56,6 +57,7 @@ func (f upkeepFilter) Select(logs ...logpoller.Log) []logpoller.Log {
 	return selected
 }
 
+// match returns a bool indicating if the log's topics data matches selector and indexed topics in upkeep filter.
 func (f upkeepFilter) match(log logpoller.Log) bool {
 	filters := f.topics[1:]
 	selector := f.selector
@@ -65,7 +67,7 @@ func (f upkeepFilter) match(log logpoller.Log) bool {
 		return true
 	}
 
-	for i, f := range filters {
+	for i, filter := range filters {
 		// bitwise AND the selector with the index to check
 		// if the filter is needed
 		mask := uint8(1 << uint8(i))
@@ -76,7 +78,7 @@ func (f upkeepFilter) match(log logpoller.Log) bool {
 			// log doesn't have enough topics
 			return false
 		}
-		if !bytes.Equal(f.Bytes(), log.Topics[i+1]) {
+		if !bytes.Equal(filter.Bytes(), log.Topics[i+1]) {
 			return false
 		}
 	}
