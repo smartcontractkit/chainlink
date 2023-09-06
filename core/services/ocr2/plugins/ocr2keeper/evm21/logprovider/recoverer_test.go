@@ -635,8 +635,47 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					return 100, nil
 				},
 			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(200)
+					return nil
+				},
+			},
 			expectErr: true,
 			wantErr:   errors.New("log block is not recoverable"),
+		},
+		{
+			name: "if a log block has does not match, an error is returned",
+			proposal: ocr2keepers.CoordinatedBlockProposal{
+				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				Trigger: ocr2keepers.Trigger{
+					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+						BlockNumber: 200,
+						BlockHash:   common.HexToHash("0x2"),
+					},
+				},
+			},
+			filterStore: &mockFilterStore{
+				HasFn: func(id *big.Int) bool {
+					return true
+				},
+			},
+			logPoller: &mockLogPoller{
+				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+					return 100, nil
+				},
+			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(200)
+					receipt.BlockHash = common.HexToHash("0x1")
+					return nil
+				},
+			},
+			expectErr: true,
+			wantErr:   errors.New("log tx reorged"),
 		},
 		{
 			name: "if a log block is recoverable, when the upkeep state reader errors, an error is returned",
@@ -663,6 +702,13 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					return nil, errors.New("upkeep state boom")
 				},
 			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(80)
+					return nil
+				},
+			},
 			expectErr: true,
 			wantErr:   errors.New("upkeep state boom"),
 		},
@@ -684,6 +730,13 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
 					return 100, nil
+				},
+			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(80)
+					return nil
 				},
 			},
 			stateReader: &mockStateReader{
@@ -719,6 +772,13 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					return 100, nil
 				},
 			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(80)
+					return nil
+				},
+			},
 			stateReader: &mockStateReader{
 				SelectByWorkIDsFn: func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 					return []ocr2keepers.UpkeepState{
@@ -745,6 +805,13 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 					return nil, errors.New("logs with sigs boom")
+				},
+			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(80)
+					return nil
 				},
 			},
 			stateReader: &mockStateReader{
@@ -777,6 +844,13 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 							BlockNumber: 80,
 						},
 					}, nil
+				},
+			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(80)
+					return nil
 				},
 			},
 			stateReader: &mockStateReader{
@@ -821,6 +895,14 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 							LogIndex:    3,
 						},
 					}, nil
+				},
+			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(80)
+					receipt.BlockHash = [32]byte{1}
+					return nil
 				},
 			},
 			stateReader: &mockStateReader{
@@ -869,6 +951,14 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 							CreatedAt:      time.Date(2022, 1, 1, 1, 1, 1, 1, time.UTC),
 						},
 					}, nil
+				},
+			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(80)
+					receipt.BlockHash = [32]byte{1}
+					return nil
 				},
 			},
 			stateReader: &mockStateReader{
