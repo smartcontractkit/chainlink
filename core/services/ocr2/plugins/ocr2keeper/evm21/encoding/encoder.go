@@ -68,7 +68,7 @@ func (e reportEncoder) Encode(results ...ocr2keepers.CheckResult) ([]byte, error
 		case ocr2keepers.LogTrigger:
 			triggerW.TxHash = result.Trigger.LogTriggerExtension.TxHash
 			triggerW.LogIndex = result.Trigger.LogTriggerExtension.Index
-			triggerW.LogBlockHash = result.Trigger.BlockHash
+			triggerW.LogBlockHash = result.Trigger.LogTriggerExtension.BlockHash
 		default:
 			// no special handling here for conditional triggers
 		}
