@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 
@@ -19,9 +20,10 @@ import (
 )
 
 type RelayConfig struct {
-	ChainID                *utils.Big  `json:"chainID"`
-	FromBlock              uint64      `json:"fromBlock"`
-	EffectiveTransmitterID null.String `json:"effectiveTransmitterID"`
+	ChainID                *utils.Big      `json:"chainID"`
+	FromBlock              uint64          `json:"fromBlock"`
+	EffectiveTransmitterID null.String     `json:"effectiveTransmitterID"`
+	ConfigContractAddress  *common.Address `json:"configContractAddress"`
 
 	// Contract-specific
 	SendingKeys pq.StringArray `json:"sendingKeys"`

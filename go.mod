@@ -69,7 +69,7 @@ require (
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230824125819-215fd09979a2
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230802143301-165000751a85
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230802150127-d2c95679d61a
-	github.com/smartcontractkit/libocr v0.0.0-20230816220705-665e93233ae5
+	github.com/smartcontractkit/libocr v0.0.0-20230906140108-e7a3c15e218e
 	github.com/smartcontractkit/ocr2keepers v0.7.18
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
@@ -382,5 +382,5 @@ replace (
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
 
-	github.com/smartcontractkit/libocr => /Users/michael.fletcher@smartcontract.com/Workspace/chainlink/libocr
+	github.com/smartcontractkit/libocr => /Users/sam/code/smartcontractkit/libocr
 )

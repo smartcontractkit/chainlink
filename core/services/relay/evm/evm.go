@@ -295,6 +295,7 @@ func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpt
 			aggregatorAddress,
 			*relayConfig.FeedID,
 			eventBroadcaster,
+			// TODO: Does mercury need to support config contract? DF-19182
 		)
 	} else {
 		cp, err = NewConfigPoller(
@@ -302,7 +303,7 @@ func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpt
 			chain.Client(),
 			chain.LogPoller(),
 			aggregatorAddress,
-			common.Address{},
+			relayConfig.ConfigContractAddress,
 		)
 	}
 	if err != nil {

@@ -150,7 +150,8 @@ func newOCR2KeeperConfigProvider(lggr logger.Logger, chain evm.Chain, rargs rela
 		chain.Client(),
 		chain.LogPoller(),
 		contractAddress,
-		common.Address{},
+		// TODO: Does ocr2keeper need to support config contract? DF-19182
+		nil,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create config poller")

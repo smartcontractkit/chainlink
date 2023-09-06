@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -98,7 +99,9 @@ type configPoller struct {
 	aggregatorContractAddr common.Address
 	aggregatorContract     *ocr2aggregator.OCR2Aggregator
 
-	configStoreContractAddr common.Address
+	// Some chains "manage" state bloat by deleting older logs. The ConfigStore
+	// contract allows us work around such restrictions.
+	configStoreContractAddr *common.Address
 	configStoreContract     *ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimple
 }
 
@@ -106,11 +109,11 @@ func configPollerFilterName(addr common.Address) string {
 	return logpoller.FilterName("OCR2ConfigPoller", addr.String())
 }
 
-func NewConfigPoller(lggr logger.Logger, client client.Client, destChainPoller logpoller.LogPoller, aggregatorContractAddr common.Address, configStoreAddr common.Address) (evmRelayTypes.ConfigPoller, error) {
+func NewConfigPoller(lggr logger.Logger, client client.Client, destChainPoller logpoller.LogPoller, aggregatorContractAddr common.Address, configStoreAddr *common.Address) (evmRelayTypes.ConfigPoller, error) {
 	return newConfigPoller(lggr, client, destChainPoller, aggregatorContractAddr, configStoreAddr)
 }
 
-func newConfigPoller(lggr logger.Logger, client client.Client, destChainPoller logpoller.LogPoller, aggregatorContractAddr common.Address, configStoreAddr common.Address) (*configPoller, error) {
+func newConfigPoller(lggr logger.Logger, client client.Client, destChainPoller logpoller.LogPoller, aggregatorContractAddr common.Address, configStoreAddr *common.Address) (*configPoller, error) {
 	err := destChainPoller.RegisterFilter(logpoller.Filter{Name: configPollerFilterName(aggregatorContractAddr), EventSigs: []common.Hash{ConfigSet}, Addresses: []common.Address{aggregatorContractAddr}})
 	if err != nil {
 		return nil, err
@@ -121,23 +124,21 @@ func newConfigPoller(lggr logger.Logger, client client.Client, destChainPoller l
 		return nil, err
 	}
 
-	configStoreContract := &ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimple{}
-	if (configStoreAddr != common.Address{}) {
-		configStoreContract, err = ocrconfigurationstoreevmsimple.NewOCRConfigurationStoreEVMSimple(configStoreAddr, client)
+	cp := &configPoller{
+		lggr:                   lggr,
+		filterName:             configPollerFilterName(aggregatorContractAddr),
+		destChainLogPoller:     destChainPoller,
+		aggregatorContractAddr: aggregatorContractAddr,
+		client:                 client,
+		aggregatorContract:     aggregatorContract,
+	}
+
+	if configStoreAddr != nil {
+		cp.configStoreContractAddr = configStoreAddr
+		cp.configStoreContract, err = ocrconfigurationstoreevmsimple.NewOCRConfigurationStoreEVMSimple(*configStoreAddr, client)
 		if err != nil {
 			return nil, err
 		}
-	}
-
-	cp := &configPoller{
-		lggr:                    lggr,
-		filterName:              configPollerFilterName(aggregatorContractAddr),
-		destChainLogPoller:      destChainPoller,
-		aggregatorContractAddr:  aggregatorContractAddr,
-		client:                  client,
-		aggregatorContract:      aggregatorContract,
-		configStoreContract:     configStoreContract,
-		configStoreContractAddr: configStoreAddr,
 	}
 
 	return cp, nil
@@ -163,10 +164,12 @@ func (cp *configPoller) Replay(ctx context.Context, fromBlock int64) error {
 func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
 	latest, err := cp.destChainLogPoller.LatestLogByEventSigWithConfs(ConfigSet, cp.aggregatorContractAddr, 1, pg.WithParentCtx(ctx))
 	if err != nil {
-		// If contract is not configured, or logs have been pruned, we will not have the log.
 		if errors.Is(err, sql.ErrNoRows) {
-			// Fallback to RPC call in case logs have been pruned
-			return cp.callLatestConfigDetails(ctx)
+			if cp.isConfigStoreAvailable() {
+				// Fallback to RPC call in case logs have been pruned and configStoreContract is available
+				return cp.callLatestConfigDetails(ctx)
+			}
+			err = nil // log not found means return zero config digest
 		}
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
@@ -184,7 +187,11 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 		return ocrtypes.ContractConfig{}, err
 	}
 	if len(lgs) == 0 {
-		return cp.callReadConfig(ctx)
+		if cp.isConfigStoreAvailable() {
+			// Fallback to RPC call in case logs have been pruned
+			return cp.callReadConfigFromStore(ctx, changedInBlock)
+		}
+		return ocrtypes.ContractConfig{}, fmt.Errorf("missing config on contract %s (chain %s) at block %d", cp.aggregatorContractAddr.Hex(), cp.client.ConfiguredChainID().String(), changedInBlock)
 	}
 	latestConfigSet, err := configFromLog(lgs[len(lgs)-1].Data)
 	if err != nil {
@@ -206,6 +213,11 @@ func (cp *configPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 	return uint64(latest), nil
 }
 
+func (cp *configPoller) isConfigStoreAvailable() bool {
+	return cp.configStoreContract != nil
+}
+
+// RPC call for latest config details
 func (cp *configPoller) callLatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error) {
 	details, err := cp.aggregatorContract.LatestConfigDetails(&bind.CallOpts{
 		Context: ctx,
@@ -216,20 +228,19 @@ func (cp *configPoller) callLatestConfigDetails(ctx context.Context) (changedInB
 	return uint64(details.BlockNumber), details.ConfigDigest, err
 }
 
-// Some chains "manage" state bloat by deleting older logs. The ConfigStore
-// contract allows us work around such restrictions.
-//
-// Caller must hold lock on configStoreContract
-func (cp *configPoller) callReadConfig(ctx context.Context) (cfg ocrtypes.ContractConfig, err error) {
-
-	if cp.configStoreContract == nil {
-		return cfg, fmt.Errorf("config store contraact does not exist or has not been configured")
-	}
-
-	_, configDigest, err := cp.LatestConfigDetails(ctx)
+// RPC call to read config from config store contract
+func (cp *configPoller) callReadConfigFromStore(ctx context.Context, expectChangedInBlock uint64) (cfg ocrtypes.ContractConfig, err error) {
+	changedInBlock, configDigest, err := cp.LatestConfigDetails(ctx)
 	if err != nil {
 		failedRPCContractCalls.WithLabelValues(cp.client.ConfiguredChainID().String(), cp.aggregatorContractAddr.Hex()).Inc()
 		return cfg, fmt.Errorf("failed to get latest config details: %w", err)
+	}
+	if configDigest == (ocrtypes.ConfigDigest{}) {
+		return cfg, nil
+	}
+	// FIXME: How to handle this case?
+	if changedInBlock < expectChangedInBlock {
+		return cfg, fmt.Errorf("stale config: expected to find config changed in block %d or greater but the config was changed in block %d (digest: %s)", expectChangedInBlock, changedInBlock, configDigest)
 	}
 
 	storedConfig, err := cp.configStoreContract.ReadConfig(&bind.CallOpts{
