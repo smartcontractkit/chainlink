@@ -40,11 +40,12 @@ func TestWorkID(t *testing.T) {
 				BlockNumber: 123,
 				BlockHash:   common.HexToHash("0xabcdef"),
 				LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
-					Index:  1,
-					TxHash: common.HexToHash("0x12345"),
+					Index:     1,
+					TxHash:    common.HexToHash("0x12345"),
+					BlockHash: common.HexToHash("0xabcdef"),
 				},
 			},
-			expected: "db0e245ff4e7551d6c862d9a0eb5466624e1439ad1db262a7a3d6137d892d0a3",
+			expected: "580139f082b445858687ee2865459918b52099755398bdf5459029b228357285",
 		},
 		{
 			name:     "happy path example from an actual tx",
@@ -53,11 +54,12 @@ func TestWorkID(t *testing.T) {
 				BlockNumber: 39344455,
 				BlockHash:   common.HexToHash("0xb41258d18cd44ebf7a0d70de011f2bc4a67c9b68e8b6dada864045d8543bb020"),
 				LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
-					Index:  41,
-					TxHash: common.HexToHash("0x44079b1b33aff337dbf17b9e12c5724ecab979c50c8201a9814a488ff3e22384"),
+					Index:     41,
+					TxHash:    common.HexToHash("0x44079b1b33aff337dbf17b9e12c5724ecab979c50c8201a9814a488ff3e22384"),
+					BlockHash: common.HexToHash("0xb41258d18cd44ebf7a0d70de011f2bc4a67c9b68e8b6dada864045d8543bb020"),
 				},
 			},
-			expected: "cdb4cfd9b4855b28d243d099c41b832da6b2d99dda3e7d09b900899afd09328f",
+			expected: "ad08c78b703fcb530230a042cfc1d6f57664b883a9b1972449625c88f62a3be9",
 		},
 		{
 			name:     "empty upkeepID",
