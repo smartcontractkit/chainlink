@@ -2197,8 +2197,8 @@ func (e *EthereumFunctionsLoadTestClient) GetStats() (*EthereumFunctionsLoadStat
 	}
 	return &EthereumFunctionsLoadStats{
 		LastRequestID: string(Bytes32ToSlice(lr)),
-		LastResponse:  string(Bytes32ToSlice(lbody)),
-		LastError:     string(Bytes32ToSlice(lerr)),
+		LastResponse:  string(lbody),
+		LastError:     string(lerr),
 		Total:         total,
 		Succeeded:     succeeded,
 		Errored:       errored,
@@ -2227,6 +2227,18 @@ func (e *EthereumFunctionsLoadTestClient) SendRequest(times uint32, source strin
 		return err
 	}
 	tx, err := e.instance.SendRequest(opts, times, source, encryptedSecretsReferences, args, subscriptionId, jobId)
+	if err != nil {
+		return err
+	}
+	return e.client.ProcessTransaction(tx)
+}
+
+func (e *EthereumFunctionsLoadTestClient) SendRequestWithDONHostedSecrets(times uint32, source string, slotID uint8, slotVersion uint64, args []string, subscriptionId uint64, donID [32]byte) error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := e.instance.SendRequestWithDONHostedSecrets(opts, times, source, slotID, slotVersion, args, subscriptionId, donID)
 	if err != nil {
 		return err
 	}

@@ -283,6 +283,7 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
 			logTriggerIDs = append(logTriggerIDs, id)
+		default:
 		}
 	}
 
