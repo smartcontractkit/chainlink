@@ -817,7 +817,7 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 		FeeToken:     feeToken,
 		ExtraArgs:    extraArgsV1,
 	}
-	log.Info().Interface("ge msg details", msg).Msg("ccip message to be sent")
+	log.Info().Interface("msg details", msg).Msg("ccip message to be sent")
 	fee, err := sourceCCIP.Common.Router.GetFee(destChainSelector, msg)
 	if err != nil {
 		reason, _ := blockchain.RPCErrorFromError(err)

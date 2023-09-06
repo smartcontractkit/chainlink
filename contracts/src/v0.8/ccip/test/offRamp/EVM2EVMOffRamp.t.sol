@@ -775,7 +775,20 @@ contract EVM2EVMOffRamp_executeSingleMessage is EVM2EVMOffRampSetup {
 
   function testTokensSuccess() public {
     Internal.EVM2EVMMessage memory message = _generateMessagesWithTokens()[0];
-    s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
+    bytes[] memory offchainTokenData = new bytes[](message.tokenAmounts.length);
+    vm.expectCall(
+      s_destPools[0],
+      abi.encodeWithSelector(
+        LockReleaseTokenPool.releaseOrMint.selector,
+        abi.encode(message.sender),
+        message.receiver,
+        message.tokenAmounts[0].amount,
+        SOURCE_CHAIN_ID,
+        abi.encode(message.sourceTokenData[0], offchainTokenData[0])
+      )
+    );
+
+    s_offRamp.executeSingleMessage(message, offchainTokenData);
   }
 
   function testNonContractSuccess() public {
@@ -797,6 +810,8 @@ contract EVM2EVMOffRamp_executeSingleMessage is EVM2EVMOffRampSetup {
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
   }
 
+  // Reverts
+
   function testTokenHandlingErrorReverts() public {
     uint256[] memory amounts = new uint256[](2);
     amounts[0] = 1000;
@@ -811,8 +826,6 @@ contract EVM2EVMOffRamp_executeSingleMessage is EVM2EVMOffRampSetup {
 
     s_offRamp.executeSingleMessage(message, new bytes[](message.tokenAmounts.length));
   }
-
-  // Reverts
 
   function testZeroGasDONExecutionReverts() public {
     Internal.EVM2EVMMessage memory message = _generateAny2EVMMessageNoTokens(1);
@@ -974,6 +987,7 @@ contract EVM2EVMOffRamp_manuallyExecute is EVM2EVMOffRampSetup {
     Internal.EVM2EVMMessage[] memory messages = _generateBasicMessages();
     messages[0].tokenAmounts = new Client.EVMTokenAmount[](1);
     messages[0].tokenAmounts[0] = Client.EVMTokenAmount({token: s_sourceFeeToken, amount: tokenAmount});
+    messages[0].sourceTokenData = new bytes[](1);
     messages[0].receiver = address(receiver);
     messages[0].messageId = Internal._hash(messages[0], s_offRamp.metadataHash());
 
@@ -1154,7 +1168,28 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
     uint256 amount1 = 100;
     srcTokenAmounts[0].amount = amount1;
 
-    s_offRamp.releaseOrMintTokens(srcTokenAmounts, abi.encode(OWNER), OWNER, new bytes[](srcTokenAmounts.length));
+    bytes memory originalSender = abi.encode(OWNER);
+
+    bytes[] memory offchainTokenData = new bytes[](srcTokenAmounts.length);
+    offchainTokenData[0] = abi.encode(0x12345678);
+
+    bytes[] memory sourceTokenData = new bytes[](srcTokenAmounts.length);
+    sourceTokenData[0] = abi.encode(0x87654321);
+
+    vm.expectCall(
+      s_destPools[0],
+      abi.encodeWithSelector(
+        LockReleaseTokenPool.releaseOrMint.selector,
+        originalSender,
+        OWNER,
+        srcTokenAmounts[0].amount,
+        SOURCE_CHAIN_ID,
+        abi.encode(sourceTokenData[0], offchainTokenData[0])
+      )
+    );
+
+    s_offRamp.releaseOrMintTokens(srcTokenAmounts, originalSender, OWNER, sourceTokenData, offchainTokenData);
+
     assertEq(startingBalance + amount1, dstToken1.balanceOf(OWNER));
   }
 
@@ -1168,7 +1203,13 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
 
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.TokenHandlingError.selector, unknownError));
 
-    s_offRamp.releaseOrMintTokens(srcTokenAmounts, abi.encode(OWNER), OWNER, new bytes[](srcTokenAmounts.length));
+    s_offRamp.releaseOrMintTokens(
+      srcTokenAmounts,
+      abi.encode(OWNER),
+      OWNER,
+      new bytes[](srcTokenAmounts.length),
+      new bytes[](srcTokenAmounts.length)
+    );
   }
 
   function testRateLimitErrorsReverts() public {
@@ -1205,7 +1246,13 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
 
       vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.TokenRateLimitError.selector, rateLimitErrors[i]));
 
-      s_offRamp.releaseOrMintTokens(srcTokenAmounts, abi.encode(OWNER), OWNER, new bytes[](srcTokenAmounts.length));
+      s_offRamp.releaseOrMintTokens(
+        srcTokenAmounts,
+        abi.encode(OWNER),
+        OWNER,
+        new bytes[](srcTokenAmounts.length),
+        new bytes[](srcTokenAmounts.length)
+      );
     }
   }
 
@@ -1213,7 +1260,7 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);
 
     vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.UnsupportedToken.selector, address(0)));
-    s_offRamp.releaseOrMintTokens(tokenAmounts, bytes(""), OWNER, new bytes[](0));
+    s_offRamp.releaseOrMintTokens(tokenAmounts, bytes(""), OWNER, new bytes[](0), new bytes[](0));
   }
 }
 

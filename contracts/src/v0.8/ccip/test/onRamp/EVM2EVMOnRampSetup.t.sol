@@ -192,6 +192,7 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
       receiver: abi.decode(message.receiver, (address)),
       data: message.data,
       tokenAmounts: message.tokenAmounts,
+      sourceTokenData: new bytes[](message.tokenAmounts.length),
       feeToken: message.feeToken,
       messageId: ""
     });

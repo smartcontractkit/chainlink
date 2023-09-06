@@ -26,7 +26,8 @@ interface IMessageReceiver {
   ///     * nonce                 8          uint64     12
   ///     * sender                32         bytes32    20
   ///     * recipient             32         bytes32    52
-  ///     * messageBody           dynamic    bytes      84
+  ///     * destinationCaller     32         bytes32    84
+  ///     * messageBody           dynamic    bytes      116
   /// param attestation A valid attestation is the concatenated 65-byte signature(s) of
   /// exactly `thresholdSignature` signatures, in increasing order of attester address.
   /// ***If the attester addresses recovered from signatures are not in increasing order,

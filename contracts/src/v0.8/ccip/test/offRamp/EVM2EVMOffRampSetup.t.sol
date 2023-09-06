@@ -146,6 +146,7 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
       receiver: address(s_receiver),
       data: data,
       tokenAmounts: tokenAmounts,
+      sourceTokenData: new bytes[](tokenAmounts.length),
       feeToken: s_destFeeToken,
       feeTokenAmount: uint256(0),
       messageId: ""

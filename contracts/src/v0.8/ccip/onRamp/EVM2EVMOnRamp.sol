@@ -182,8 +182,6 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   /// messages has been sent yet. 0 is not a valid sequence number for any
   /// real transaction.
   uint64 internal s_sequenceNumber;
-  /// @dev Whether this OnRamp is paused or not
-  bool private s_paused = false;
 
   constructor(
     StaticConfig memory staticConfig,
@@ -265,9 +263,9 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     // We want to disallow sending to address(0) and to precompiles, which exist on address(1) through address(9).
     if (decodedReceiver > type(uint160).max || decodedReceiver < 10) revert InvalidAddress(message.receiver);
 
-    Client.EVMExtraArgsV1 memory extraArgs = _fromBytes(message.extraArgs);
+    uint256 gasLimit = _fromBytes(message.extraArgs).gasLimit;
     // Validate the message with various checks
-    _validateMessage(message.data.length, extraArgs.gasLimit, message.tokenAmounts.length);
+    _validateMessage(message.data.length, gasLimit, message.tokenAmounts.length);
 
     // Rate limit on aggregated token value
     _rateLimitValue(message.tokenAmounts, IPriceRegistry(s_dynamicConfig.priceRegistry));
@@ -293,25 +291,25 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     // We need the next available sequence number so we increment before we use the value
     Internal.EVM2EVMMessage memory newMessage = Internal.EVM2EVMMessage({
       sourceChainSelector: i_chainSelector,
-      sequenceNumber: ++s_sequenceNumber,
-      feeTokenAmount: feeTokenAmount,
       sender: originalSender,
-      nonce: ++s_senderNonce[originalSender],
-      gasLimit: extraArgs.gasLimit,
-      strict: false,
       receiver: address(uint160(decodedReceiver)),
+      sequenceNumber: ++s_sequenceNumber,
+      gasLimit: gasLimit,
+      strict: false,
+      nonce: ++s_senderNonce[originalSender],
+      feeToken: message.feeToken,
+      feeTokenAmount: feeTokenAmount,
       data: message.data,
       tokenAmounts: message.tokenAmounts,
-      feeToken: message.feeToken,
+      sourceTokenData: new bytes[](message.tokenAmounts.length), // will be filled in later
       messageId: ""
     });
-    newMessage.messageId = Internal._hash(newMessage, i_metadataHash);
 
     // Lock the tokens as last step. TokenPools may not always be trusted.
     // There should be no state changes after external call to TokenPools.
     for (uint256 i = 0; i < message.tokenAmounts.length; ++i) {
       Client.EVMTokenAmount memory tokenAndAmount = message.tokenAmounts[i];
-      getPoolBySourceToken(IERC20(tokenAndAmount.token)).lockOrBurn(
+      newMessage.sourceTokenData[i] = getPoolBySourceToken(IERC20(tokenAndAmount.token)).lockOrBurn(
         originalSender,
         message.receiver,
         tokenAndAmount.amount,
@@ -319,6 +317,9 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
         bytes("") // any future extraArgs component would be added here
       );
     }
+
+    // Hash only after the sourceTokenData has been set
+    newMessage.messageId = Internal._hash(newMessage, i_metadataHash);
 
     // Emit message request
     emit CCIPSendRequested(newMessage);

@@ -407,6 +407,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersion
         message.tokenAmounts,
         abi.encode(message.sender),
         message.receiver,
+        message.sourceTokenData,
         offchainTokenData
       );
     }
@@ -573,6 +574,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersion
     Client.EVMTokenAmount[] memory sourceTokenAmounts,
     bytes memory originalSender,
     address receiver,
+    bytes[] memory sourceTokenData,
     bytes[] memory offchainTokenData
   ) internal returns (Client.EVMTokenAmount[] memory) {
     Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](sourceTokenAmounts.length);
@@ -585,7 +587,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersion
           receiver,
           sourceTokenAmounts[i].amount,
           i_sourceChainSelector,
-          offchainTokenData[i]
+          abi.encode(sourceTokenData[i], offchainTokenData[i])
         )
       {} catch (
         /// @dev we only want to revert on rate limiting errors, any other errors are

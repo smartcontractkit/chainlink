@@ -23,16 +23,17 @@ func TestHasher(t *testing.T) {
 
 	message := evm_2_evm_onramp.InternalEVM2EVMMessage{
 		SourceChainSelector: sourceChainSelector,
-		SequenceNumber:      1337,
-		FeeTokenAmount:      big.NewInt(1),
 		Sender:              common.HexToAddress("0x1110000000000000000000000000000000000001"),
-		Nonce:               1337,
+		Receiver:            common.HexToAddress("0x2220000000000000000000000000000000000001"),
+		SequenceNumber:      1337,
 		GasLimit:            big.NewInt(100),
 		Strict:              false,
-		Receiver:            common.HexToAddress("0x2220000000000000000000000000000000000001"),
+		Nonce:               1337,
+		FeeToken:            common.Address{},
+		FeeTokenAmount:      big.NewInt(1),
 		Data:                []byte{},
 		TokenAmounts:        []evm_2_evm_onramp.ClientEVMTokenAmount{{Token: common.HexToAddress("0x4440000000000000000000000000000000000001"), Amount: big.NewInt(12345678900)}},
-		FeeToken:            common.Address{},
+		SourceTokenData:     [][]byte{},
 		MessageId:           [32]byte{},
 	}
 
@@ -40,31 +41,32 @@ func TestHasher(t *testing.T) {
 	require.NoError(t, err)
 
 	// NOTE: Must match spec
-	require.Equal(t, "26f282c6ac8231933b1799648d01ff6cec792a33fb37408b4d135968f9168ace", hex.EncodeToString(hash[:]))
+	require.Equal(t, "e0f22328cc83d50c2861629eaabcad5b39e8d30ba163228ff3574a0a229f5c9f", hex.EncodeToString(hash[:]))
 
 	message = evm_2_evm_onramp.InternalEVM2EVMMessage{
 		SourceChainSelector: sourceChainSelector,
-		SequenceNumber:      1337,
-		FeeTokenAmount:      big.NewInt(1e12),
 		Sender:              common.HexToAddress("0x1110000000000000000000000000000000000001"),
-		Nonce:               1337,
+		Receiver:            common.HexToAddress("0x2220000000000000000000000000000000000001"),
+		SequenceNumber:      1337,
 		GasLimit:            big.NewInt(100),
 		Strict:              false,
-		Receiver:            common.HexToAddress("0x2220000000000000000000000000000000000001"),
+		Nonce:               1337,
+		FeeToken:            common.Address{},
+		FeeTokenAmount:      big.NewInt(1e12),
 		Data:                []byte("foo bar baz"),
 		TokenAmounts: []evm_2_evm_onramp.ClientEVMTokenAmount{
 			{Token: common.HexToAddress("0x4440000000000000000000000000000000000001"), Amount: big.NewInt(12345678900)},
 			{Token: common.HexToAddress("0x6660000000000000000000000000000000000001"), Amount: big.NewInt(4204242)},
 		},
-		FeeToken:  common.Address{},
-		MessageId: [32]byte{},
+		SourceTokenData: [][]byte{{0x2, 0x1}},
+		MessageId:       [32]byte{},
 	}
 
 	hash, err = hasher.HashLeaf(testhelpers.GenerateCCIPSendLog(t, message))
 	require.NoError(t, err)
 
 	// NOTE: Must match spec
-	require.Equal(t, "05cee92e7cb86a37b6536554828a5b21ff20ac3d4ef821ec47056f1d963313de", hex.EncodeToString(hash[:]))
+	require.Equal(t, "7de96e00e1cf9753877faf459a68e9ee4fd901e50c2a3cd524586bf0cb3accf5", hex.EncodeToString(hash[:]))
 }
 
 func TestMetaDataHash(t *testing.T) {

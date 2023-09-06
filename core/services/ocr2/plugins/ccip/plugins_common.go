@@ -70,7 +70,6 @@ func LoadOnRampDynamicConfig(onRamp evm_2_evm_onramp.EVM2EVMOnRampInterface, cli
 		if err != nil {
 			return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, err
 		}
-
 		return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
 			Router:          legacyDynamicConfig.Router,
 			MaxTokensLength: legacyDynamicConfig.MaxTokensLength,
