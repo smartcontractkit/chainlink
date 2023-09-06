@@ -50,7 +50,7 @@ interface IRewardManager is IERC165 {
    * @notice Gets a list of pool ids which have reward for a specific recipient.
    * @param recipient address of the recipient to get pool ids for
    * @param startIndex the index to start from
-   * @param endIndex the last index to return
+   * @param endIndex the index to stop at
    */
   function getAvailableRewardPoolIds(
     address recipient,
