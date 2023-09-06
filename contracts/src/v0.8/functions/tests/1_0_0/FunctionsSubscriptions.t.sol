@@ -102,12 +102,12 @@ contract FunctionsSubscriptions_OwnerCancelSubscription is FunctionsSubscription
   function test_OwnerCancelSubscription_Success() public {
     uint256 subscriptionOwnerBalanceBefore = s_linkToken.balanceOf(OWNER_ADDRESS);
 
-    // topic0 (function signature, always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
-    bool checkTopic1 = false;
+    // topic0 (function signature, always checked), topic1 (true), NOT topic2 (false), NOT topic3 (false), and data (true).
+    bool checkTopic1SubscriptionId = true;
     bool checkTopic2 = false;
     bool checkTopic3 = false;
     bool checkData = true;
-    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
+    vm.expectEmit(checkTopic1SubscriptionId, checkTopic2, checkTopic3, checkData);
     emit SubscriptionCanceled(s_subscriptionId, OWNER_ADDRESS, s_subscriptionInitialFunding);
 
     s_functionsRouter.ownerCancelSubscription(s_subscriptionId);
@@ -616,6 +616,25 @@ contract FunctionsSubscriptions_AcceptSubscriptionOwnerTransfer is FunctionsSubs
 
     vm.expectRevert(
       abi.encodeWithSelector(FunctionsRouter.SenderMustAcceptTermsOfService.selector, NEW_OWNER_ADDRESS_WITHOUT_TOS)
+    );
+    s_functionsRouter.acceptSubscriptionOwnerTransfer(s_subscriptionId);
+  }
+
+  function test_AcceptSubscriptionOwnerTransfer_RevertIfSenderBecomesBlocked() public {
+    // Propose an address that is allowed to accept ownership
+    s_functionsRouter.proposeSubscriptionOwnerTransfer(s_subscriptionId, NEW_OWNER_ADDRESS_WITH_TOS);
+    bool hasAccess = s_termsOfServiceAllowList.hasAccess(NEW_OWNER_ADDRESS_WITH_TOS, new bytes(0));
+    assertEq(hasAccess, true);
+
+    // Revoke access
+    s_termsOfServiceAllowList.blockSender(NEW_OWNER_ADDRESS_WITH_TOS);
+
+    // Send as blocked address
+    vm.stopPrank();
+    vm.startPrank(NEW_OWNER_ADDRESS_WITH_TOS);
+
+    vm.expectRevert(
+      abi.encodeWithSelector(FunctionsRouter.SenderMustAcceptTermsOfService.selector, NEW_OWNER_ADDRESS_WITH_TOS)
     );
     s_functionsRouter.acceptSubscriptionOwnerTransfer(s_subscriptionId);
   }
