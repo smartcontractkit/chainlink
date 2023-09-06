@@ -144,6 +144,7 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	mp := new(mocks.LogPoller)
 	mp.On("RegisterFilter", mock.Anything).Return(nil)
 	mp.On("UnregisterFilter", mock.Anything).Return(nil)
+	mp.On("HasFilter", mock.Anything).Return(false)
 	mp.On("LatestBlock", mock.Anything).Return(int64(0), nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
 
@@ -170,6 +171,7 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	newIds, err := p.RefreshActiveUpkeeps()
 	require.NoError(t, err)
 	require.Len(t, newIds, 0)
+	mp.On("HasFilter", p.filterName(core.GenUpkeepID(ocr2keepers.LogTrigger, "2222").BigInt())).Return(true)
 	newIds, err = p.RefreshActiveUpkeeps(
 		core.GenUpkeepID(ocr2keepers.LogTrigger, "2222").BigInt(),
 		core.GenUpkeepID(ocr2keepers.LogTrigger, "1234").BigInt(),
