@@ -32,13 +32,12 @@ func (txm *Txm) SendMsgBatch(ctx context.Context) {
 
 func (ka *KeystoreAdapter) Accounts(ctx context.Context) ([]string, error) {
 	ka.mutex.Lock()
+	defer ka.mutex.Unlock()
 	err := ka.updateMappingLocked()
 	if err != nil {
-		ka.mutex.Unlock()
 		return nil, err
 	}
 	addresses := maps.Keys(ka.addressToPubKey)
-	ka.mutex.Unlock()
 
 	return addresses, nil
 }
