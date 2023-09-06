@@ -86,7 +86,7 @@ func init() {
 		panic(err)
 	}
 	EventSignatures.SendRequested = getIDOrPanic("CCIPSendRequested", onRampABI)
-	EventSignatures.SendRequestedSequenceNumberWord = 2
+	EventSignatures.SendRequestedSequenceNumberWord = 4
 
 	commitStoreABI, err := abi.JSON(strings.NewReader(commit_store.CommitStoreABI))
 	if err != nil {
@@ -150,20 +150,21 @@ func DecodeOffRampMessage(b []byte) (*evm_2_evm_offramp.InternalEVM2EVMMessage, 
 	// Note must use unnamed type here
 	receivedCp, ok := unpacked[0].(struct {
 		SourceChainSelector uint64         `json:"sourceChainSelector"`
-		SequenceNumber      uint64         `json:"sequenceNumber"`
-		FeeTokenAmount      *big.Int       `json:"feeTokenAmount"`
 		Sender              common.Address `json:"sender"`
-		Nonce               uint64         `json:"nonce"`
+		Receiver            common.Address `json:"receiver"`
+		SequenceNumber      uint64         `json:"sequenceNumber"`
 		GasLimit            *big.Int       `json:"gasLimit"`
 		Strict              bool           `json:"strict"`
-		Receiver            common.Address `json:"receiver"`
+		Nonce               uint64         `json:"nonce"`
+		FeeToken            common.Address `json:"feeToken"`
+		FeeTokenAmount      *big.Int       `json:"feeTokenAmount"`
 		Data                []uint8        `json:"data"`
 		TokenAmounts        []struct {
 			Token  common.Address `json:"token"`
 			Amount *big.Int       `json:"amount"`
 		} `json:"tokenAmounts"`
-		FeeToken  common.Address `json:"feeToken"`
-		MessageId [32]byte       `json:"messageId"`
+		SourceTokenData [][]byte `json:"sourceTokenData"`
+		MessageId       [32]byte `json:"messageId"`
 	})
 	if !ok {
 		return nil, fmt.Errorf("invalid format have %T want %T", unpacked[0], receivedCp)
@@ -178,41 +179,43 @@ func DecodeOffRampMessage(b []byte) (*evm_2_evm_offramp.InternalEVM2EVMMessage, 
 
 	return &evm_2_evm_offramp.InternalEVM2EVMMessage{
 		SourceChainSelector: receivedCp.SourceChainSelector,
-		SequenceNumber:      receivedCp.SequenceNumber,
-		FeeTokenAmount:      receivedCp.FeeTokenAmount,
 		Sender:              receivedCp.Sender,
-		Nonce:               receivedCp.Nonce,
+		Receiver:            receivedCp.Receiver,
+		SequenceNumber:      receivedCp.SequenceNumber,
 		GasLimit:            receivedCp.GasLimit,
 		Strict:              receivedCp.Strict,
-		Receiver:            receivedCp.Receiver,
+		Nonce:               receivedCp.Nonce,
+		FeeToken:            receivedCp.FeeToken,
+		FeeTokenAmount:      receivedCp.FeeTokenAmount,
 		Data:                receivedCp.Data,
 		TokenAmounts:        tokensAndAmounts,
-		FeeToken:            receivedCp.FeeToken,
+		SourceTokenData:     receivedCp.SourceTokenData,
 		MessageId:           receivedCp.MessageId,
 	}, nil
 }
 
 func OnRampMessageToOffRampMessage(msg evm_2_evm_onramp.InternalEVM2EVMMessage) evm_2_evm_offramp.InternalEVM2EVMMessage {
-	var tokensAndAmounts []evm_2_evm_offramp.ClientEVMTokenAmount
-	for _, tokenAndAmount := range msg.TokenAmounts {
-		tokensAndAmounts = append(tokensAndAmounts, evm_2_evm_offramp.ClientEVMTokenAmount{
+	tokensAndAmounts := make([]evm_2_evm_offramp.ClientEVMTokenAmount, len(msg.TokenAmounts))
+	for i, tokenAndAmount := range msg.TokenAmounts {
+		tokensAndAmounts[i] = evm_2_evm_offramp.ClientEVMTokenAmount{
 			Token:  tokenAndAmount.Token,
 			Amount: tokenAndAmount.Amount,
-		})
+		}
 	}
 
 	return evm_2_evm_offramp.InternalEVM2EVMMessage{
 		SourceChainSelector: msg.SourceChainSelector,
-		SequenceNumber:      msg.SequenceNumber,
-		FeeTokenAmount:      msg.FeeTokenAmount,
 		Sender:              msg.Sender,
-		Nonce:               msg.Nonce,
+		Receiver:            msg.Receiver,
+		SequenceNumber:      msg.SequenceNumber,
 		GasLimit:            msg.GasLimit,
 		Strict:              msg.Strict,
-		Receiver:            msg.Receiver,
+		Nonce:               msg.Nonce,
+		FeeToken:            msg.FeeToken,
+		FeeTokenAmount:      msg.FeeTokenAmount,
 		Data:                msg.Data,
 		TokenAmounts:        tokensAndAmounts,
-		FeeToken:            msg.FeeToken,
+		SourceTokenData:     msg.SourceTokenData,
 		MessageId:           msg.MessageId,
 	}
 }
@@ -246,20 +249,21 @@ func DecodeExecutionReport(report []byte) (evm_2_evm_offramp.InternalExecutionRe
 	erStruct, ok := unpacked[0].(struct {
 		Messages []struct {
 			SourceChainSelector uint64         `json:"sourceChainSelector"`
-			SequenceNumber      uint64         `json:"sequenceNumber"`
-			FeeTokenAmount      *big.Int       `json:"feeTokenAmount"`
 			Sender              common.Address `json:"sender"`
-			Nonce               uint64         `json:"nonce"`
+			Receiver            common.Address `json:"receiver"`
+			SequenceNumber      uint64         `json:"sequenceNumber"`
 			GasLimit            *big.Int       `json:"gasLimit"`
 			Strict              bool           `json:"strict"`
-			Receiver            common.Address `json:"receiver"`
+			Nonce               uint64         `json:"nonce"`
+			FeeToken            common.Address `json:"feeToken"`
+			FeeTokenAmount      *big.Int       `json:"feeTokenAmount"`
 			Data                []uint8        `json:"data"`
 			TokenAmounts        []struct {
 				Token  common.Address `json:"token"`
 				Amount *big.Int       `json:"amount"`
 			} `json:"tokenAmounts"`
-			FeeToken  common.Address `json:"feeToken"`
-			MessageId [32]byte       `json:"messageId"`
+			SourceTokenData [][]byte `json:"sourceTokenData"`
+			MessageId       [32]byte `json:"messageId"`
 		} `json:"messages"`
 		OffchainTokenData [][][]byte  `json:"offchainTokenData"`
 		Proofs            [][32]uint8 `json:"proofs"`
@@ -290,6 +294,7 @@ func DecodeExecutionReport(report []byte) (evm_2_evm_offramp.InternalExecutionRe
 			Receiver:            msg.Receiver,
 			Data:                msg.Data,
 			TokenAmounts:        tokensAndAmounts,
+			SourceTokenData:     msg.SourceTokenData,
 			FeeToken:            msg.FeeToken,
 			MessageId:           msg.MessageId,
 		})

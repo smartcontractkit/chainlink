@@ -9,11 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
-
 	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
