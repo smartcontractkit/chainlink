@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
@@ -20,16 +21,16 @@ func TestLegacyChains(t *testing.T) {
 	c.On("ID").Return(big.NewInt(7))
 	m := map[string]evm.Chain{c.ID().String(): c}
 
-	l, err := evm.NewLegacyChains(evmCfg, m)
-	assert.NoError(t, err)
+	l := evm.NewLegacyChains(m, evmCfg.EVMConfigs())
 	assert.NotNil(t, l.ChainNodeConfigs())
 	got, err := l.Get(c.ID().String())
 	assert.NoError(t, err)
 	assert.Equal(t, c, got)
 
-	l, err = evm.NewLegacyChains(nil, m)
-	assert.Error(t, err)
-	assert.Nil(t, l)
+	require.NotPanics(t, func() {
+		l = evm.NewLegacyChains(m, nil)
+		assert.NotNil(t, l.ChainNodeConfigs())
+	})
 }
 
 func TestRelayConfigInit(t *testing.T) {

@@ -29,7 +29,8 @@ var (
 	GCInterval              = RecoveryCacheTTL
 
 	recoveryBatchSize  = 10
-	recoveryLogsBuffer = int64(50)
+	recoveryLogsBuffer = int64(200)
+	recoveryLogsBurst  = int64(500)
 )
 
 type LogRecoverer interface {
@@ -318,6 +319,12 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		start = startBlock
 	}
 	end := start + recoveryLogsBuffer
+	if offsetBlock-end > 100*recoveryLogsBuffer {
+		// If recoverer is lagging by a lot (more than 100x recoveryLogsBuffer), allow
+		// a range of recoveryLogsBurst
+		// Exploratory: Store lastRePollBlock in DB to prevent bursts during restarts
+		end = start + recoveryLogsBurst
+	}
 	if end > offsetBlock {
 		end = offsetBlock
 	}

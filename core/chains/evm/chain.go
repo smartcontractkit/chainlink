@@ -96,14 +96,11 @@ type LegacyChainContainer interface {
 
 var _ LegacyChainContainer = &LegacyChains{}
 
-func NewLegacyChains(cfg AppConfig, m map[string]Chain) (*LegacyChains, error) {
-	if cfg == nil {
-		return nil, fmt.Errorf("must provide non-nil app config")
-	}
+func NewLegacyChains(m map[string]Chain, evmCfgs toml.EVMConfigs) *LegacyChains {
 	return &LegacyChains{
 		ChainsKV: chains.NewChainsKV[Chain](m),
-		cfgs:     chains.NewConfigs[utils.Big, evmtypes.Node](cfg.EVMConfigs()),
-	}, nil
+		cfgs:     chains.NewConfigs[utils.Big, evmtypes.Node](evmCfgs),
+	}
 }
 
 func (c *LegacyChains) ChainNodeConfigs() evmtypes.Configs {
