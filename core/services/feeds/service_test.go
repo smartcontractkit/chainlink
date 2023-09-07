@@ -126,6 +126,13 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
+gasPriceSource = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
 `
 const BootstrapTestSpec = `
 type				= "bootstrap"
@@ -917,6 +924,13 @@ answer1 [type=median index=0];
 chainID = 0
 [pluginConfig]
 juelsPerFeeCoinSource = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
+gasPriceSource = """
 ds1          [type=bridge name=voter_turnout];
 ds1_parse    [type=jsonparse path="one,two"];
 ds1_multiply [type=multiply times=1.23];
@@ -2181,6 +2195,13 @@ ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
 """
+gasPriceSource = """
+ds1          [type=bridge name=voter_turnout];
+ds1_parse    [type=jsonparse path="one,two"];
+ds1_multiply [type=multiply times=1.23];
+ds1 -> ds1_parse -> ds1_multiply -> answer1;
+answer1      [type=median index=0];
+"""
 `
 		defn2 = `
 name = 'LINK / ETH | version 3 | contract 0x0000000000000000000000000000000000000000'
@@ -2209,6 +2230,7 @@ ds1_parse    [type=jsonparse path="one,two"];
 ds1_multiply [type=multiply times=1.23];
 ds1 -> ds1_parse -> ds1_multiply -> answer1;
 answer1      [type=median index=0];
+# intentionally do not set gasPriceSource for this pipeline to cover case when none is set
 """
 `
 

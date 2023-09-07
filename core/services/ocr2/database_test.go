@@ -34,7 +34,12 @@ func MustInsertOCROracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress ethke
 	ds1_multiply [type=multiply times=1.23];
 	ds1 -> ds1_parse -> ds1_multiply -> answer1;
 	answer1      [type=median index=0];`
-	config := medianconfig.PluginConfig{JuelsPerFeeCoinPipeline: mockJuelsPerFeeCoinSource}
+	mockGasPriceSource := `ds1          [type=bridge name=voter_turnout];
+	ds1_parse    [type=jsonparse path="one,two"];
+	ds1_multiply [type=multiply times=1.23];
+	ds1 -> ds1_parse -> ds1_multiply -> answer1;
+	answer1      [type=median index=0];`
+	config := medianconfig.PluginConfig{JuelsPerFeeCoinPipeline: mockJuelsPerFeeCoinSource, GasPricePipeline: mockGasPriceSource}
 	jsonConfig, err := json.Marshal(config)
 	require.NoError(t, err)
 

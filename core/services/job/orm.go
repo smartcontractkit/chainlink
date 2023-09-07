@@ -281,14 +281,11 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			if jb.OCR2OracleSpec.PluginType == Median {
 				var cfg medianconfig.PluginConfig
 				validatePipeline := func(s string) error {
-					feePipeline, err := pipeline.Parse(s)
-					if err != nil {
-						return err
+					feePipeline, pipelineErr := pipeline.Parse(s)
+					if pipelineErr != nil {
+						return pipelineErr
 					}
-					if err2 := o.AssertBridgesExist(*feePipeline); err2 != nil {
-						return err2
-					}
-					return nil
+					return o.AssertBridgesExist(*feePipeline)
 				}
 
 				err = json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
