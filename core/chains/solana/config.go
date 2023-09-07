@@ -15,7 +15,6 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
@@ -71,116 +70,6 @@ func (cs *SolanaConfigs) SetFrom(fs *SolanaConfigs) (err error) {
 			*cs = append(*cs, f)
 		} else {
 			(*cs)[i].SetFrom(f)
-		}
-	}
-	return
-}
-
-func (cs SolanaConfigs) Chains(ids ...relay.ChainID) (r []relaytypes.ChainStatus, err error) {
-	for _, ch := range cs {
-		if ch == nil {
-			continue
-		}
-		if len(ids) > 0 {
-			var match bool
-			for _, id := range ids {
-				if id.String() == *ch.ChainID {
-					match = true
-					break
-				}
-			}
-			if !match {
-				continue
-			}
-		}
-		ch2 := relaytypes.ChainStatus{
-			ID:      *ch.ChainID,
-			Enabled: ch.IsEnabled(),
-		}
-		ch2.Config, err = ch.TOMLString()
-		if err != nil {
-			return
-		}
-		r = append(r, ch2)
-	}
-	return
-}
-
-func (cs SolanaConfigs) Node(name string) (soldb.Node, error) {
-	for i := range cs {
-		for _, n := range cs[i].Nodes {
-			if n.Name != nil && *n.Name == name {
-				cid := relay.ChainID(*cs[i].ChainID)
-				return legacySolNode(n, cid), nil
-			}
-		}
-	}
-	return soldb.Node{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
-}
-
-func (cs SolanaConfigs) nodes(id relay.ChainID) (ns SolanaNodes) {
-	for _, c := range cs {
-		if *c.ChainID == id.String() {
-			return c.Nodes
-		}
-	}
-	return nil
-}
-
-func (cs SolanaConfigs) Nodes(id relay.ChainID) (ns []soldb.Node, err error) {
-	nodes := cs.nodes(id)
-	if nodes == nil {
-		err = fmt.Errorf("no nodes: chain %s: %w", id, chains.ErrNotFound)
-		return
-	}
-	for _, n := range nodes {
-		if n == nil {
-			continue
-		}
-		ns = append(ns, legacySolNode(n, id))
-	}
-	return
-}
-
-func (cs SolanaConfigs) NodeStatus(name string) (relaytypes.NodeStatus, error) {
-	for i := range cs {
-		for _, n := range cs[i].Nodes {
-			if n.Name != nil && *n.Name == name {
-				cid := relay.ChainID(*cs[i].ChainID)
-				return nodeStatus(n, cid)
-			}
-		}
-	}
-	return relaytypes.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
-}
-
-func (cs SolanaConfigs) NodeStatuses(ids ...relay.ChainID) (ns []relaytypes.NodeStatus, err error) {
-	if len(ids) == 0 {
-		for i := range cs {
-			for _, n := range cs[i].Nodes {
-				if n == nil {
-					continue
-				}
-				cid := relay.ChainID(*cs[i].ChainID)
-				n2, err := nodeStatus(n, cid)
-				if err != nil {
-					return nil, err
-				}
-				ns = append(ns, n2)
-			}
-		}
-		return
-	}
-	for _, id := range ids {
-		for _, n := range cs.nodes(id) {
-			if n == nil {
-				continue
-			}
-			n2, err := nodeStatus(n, id)
-			if err != nil {
-				return nil, err
-			}
-			ns = append(ns, n2)
 		}
 	}
 	return
