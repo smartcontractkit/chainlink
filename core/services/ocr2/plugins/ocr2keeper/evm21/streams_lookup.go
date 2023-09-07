@@ -163,7 +163,7 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 
 	state, reason, values, retryable, err := r.doMercuryRequest(ctx, lookup, lggr)
 	if err != nil {
-		lggr.Errorf("upkeep %s retryable %v doMercuryRequest: %v", lookup.upkeepId, retryable, err)
+		lggr.Errorf("upkeep %s retryable %v doMercuryRequest: %s", lookup.upkeepId, retryable, err.Error())
 		checkResults[i].Retryable = retryable
 		checkResults[i].PipelineExecutionState = uint8(state)
 		checkResults[i].IneligibilityReason = uint8(reason)
@@ -176,7 +176,7 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 
 	state, retryable, mercuryBytes, err := r.checkCallback(ctx, values, lookup)
 	if err != nil {
-		lggr.Errorf("at block %d upkeep %s checkCallback err: %v", lookup.block, lookup.upkeepId, err)
+		lggr.Errorf("at block %d upkeep %s checkCallback err: %s", lookup.block, lookup.upkeepId, err.Error())
 		checkResults[i].Retryable = retryable
 		checkResults[i].PipelineExecutionState = uint8(state)
 		return
@@ -185,7 +185,7 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 
 	state, needed, performData, failureReason, _, err := r.packer.UnpackCheckCallbackResult(mercuryBytes)
 	if err != nil {
-		lggr.Errorf("at block %d upkeep %s UnpackCheckCallbackResult err: %v", lookup.block, lookup.upkeepId, err)
+		lggr.Errorf("at block %d upkeep %s UnpackCheckCallbackResult err: %s", lookup.block, lookup.upkeepId, err.Error())
 		checkResults[i].PipelineExecutionState = uint8(state)
 		return
 	}
@@ -318,7 +318,6 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, l
 			results[m.Index] = m.Bytes[0]
 		}
 	}
-	lggr.Debugf("upkeep %s retryable %t reqErr %s", sl.upkeepId.String(), retryable && !allSuccess, reqErr.Error())
 	// only retry when not all successful AND none are not retryable
 	return state, encoding.UpkeepFailureReasonNone, results, retryable && !allSuccess, reqErr
 }
