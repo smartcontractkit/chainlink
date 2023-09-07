@@ -66,6 +66,8 @@ type upkeepStateStore struct {
 	mu    sync.RWMutex
 	cache map[string]*upkeepStateRecord
 
+	pendingRecords []persistedStateRecord
+
 	// service values
 	cancel context.CancelFunc
 }
@@ -73,12 +75,13 @@ type upkeepStateStore struct {
 // NewUpkeepStateStore creates a new state store
 func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScanner) *upkeepStateStore {
 	return &upkeepStateStore{
-		orm:          orm,
-		lggr:         lggr.Named("UpkeepStateStore"),
-		cache:        map[string]*upkeepStateRecord{},
-		scanner:      scanner,
-		retention:    CacheExpiration,
-		cleanCadence: GCInterval,
+		orm:            orm,
+		lggr:           lggr.Named("UpkeepStateStore"),
+		cache:          map[string]*upkeepStateRecord{},
+		scanner:        scanner,
+		retention:      CacheExpiration,
+		cleanCadence:   GCInterval,
+		pendingRecords: []persistedStateRecord{},
 	}
 }
 
@@ -200,13 +203,15 @@ func (u *upkeepStateStore) upsertStateRecord(ctx context.Context, workID string,
 
 	u.cache[workID] = record
 
-	return u.orm.BatchInsertUpkeepStates([]persistedStateRecord{{
+	u.pendingRecords = append(u.pendingRecords, persistedStateRecord{
 		UpkeepID:            utils.NewBig(upkeepID),
 		WorkID:              record.workID,
 		CompletionState:     uint8(record.state),
 		IneligibilityReason: reason,
 		InsertedAt:          record.addedAt,
-	}}, pg.WithParentCtx(ctx))
+	})
+
+	return nil
 }
 
 // fetchPerformed fetches all performed logs from the scanner to populate the cache.
