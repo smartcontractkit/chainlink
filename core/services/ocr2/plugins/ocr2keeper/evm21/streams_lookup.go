@@ -430,13 +430,13 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 
 // multiFeedsRequest sends a Mercury v0.3 request for a multi-feed report
 func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryData, sl *StreamsLookup, lggr logger.Logger) {
-	t := big.NewInt(sl.time.Int64() - 5)
-	q := url.Values{
-		feedIDs:   {strings.Join(sl.feeds, ",")},
-		timestamp: {t.String()},
-	}
+	//q := url.Values{
+	//	feedIDs:   {strings.Join(sl.feeds, ",")},
+	//	timestamp: {sl.time.String()},
+	//}
+	q := fmt.Sprintf("feedIDs=%s&timestamp=%s", strings.Join(sl.feeds, ","), sl.time.String())
 
-	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV03, q.Encode())
+	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV03, q)
 	lggr.Debugf("request URL for upkeep %s feed %s: %s", sl.upkeepId.String(), strings.Join(sl.feeds, ","), reqUrl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
@@ -446,7 +446,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 	}
 
 	ts := time.Now().UTC().UnixMilli()
-	signature := r.generateHMAC(http.MethodGet, mercuryBatchPathV03+q.Encode(), []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
+	signature := r.generateHMAC(http.MethodGet, mercuryBatchPathV03+q, []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
 	req.Header.Set(headerContentType, applicationJson)
 	// username here is often referred to as user id
 	req.Header.Set(headerAuthorization, r.mercury.cred.Username)
@@ -511,15 +511,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				return fmt.Errorf("at block %s upkeep %s requested %d feeds but received %d reports from mercury v0.3", sl.time.String(), sl.upkeepId.String(), len(sl.feeds), len(response.Reports))
 			}
 			var reportBytes [][]byte
-			//var b []byte
 			for _, rsp := range response.Reports {
-				//b, err1 = hexutil.Decode("0x" + rsp.FullReport)
-				//if err1 != nil {
-				//	lggr.Warnf("at block %s upkeep %s failed to decode fullReport %s from mercury v0.3: %v", sl.time.String(), sl.upkeepId.String(), rsp.FullReport, err1)
-				//	retryable = false
-				//	state = encoding.InvalidMercuryResponse
-				//	return err1
-				//}
 				reportBytes = append(reportBytes, rsp.FullReport)
 			}
 			ch <- MercuryData{

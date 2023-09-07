@@ -655,225 +655,221 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 	}
 }
 
-//
-//func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
-//	upkeepId := big.NewInt(123456789)
-//	tests := []struct {
-//		name           string
-//		lookup         *StreamsLookup
-//		statusCode     int
-//		lastStatusCode int
-//		retryNumber    int
-//		retryable      bool
-//		errorMessage   string
-//		response       MercuryV03Response
-//	}{
-//		{
-//			name: "success - mercury responds in the first try",
-//			lookup: &StreamsLookup{
-//				feedParamKey: feedIDs,
-//				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-//				timeParamKey: timestamp,
-//				time:         big.NewInt(123456),
-//				upkeepId:     upkeepId,
-//			},
-//			response: MercuryV03Response{
-//				Reports: []MercuryV03Report{
-//					{
-//						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
-//						ValidFromTimestamp:    123456,
-//						ObservationsTimestamp: 123456,
-//						FullReport:            "0xab2123dc00000012",
-//					},
-//					{
-//						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
-//						ValidFromTimestamp:    123458,
-//						ObservationsTimestamp: 123458,
-//						FullReport:            "0xab2123dc00000016",
-//					},
-//				},
-//			},
-//			statusCode: http.StatusOK,
-//		},
-//		{
-//			name: "success - retry for 404",
-//			lookup: &StreamsLookup{
-//				feedParamKey: feedIDs,
-//				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-//				timeParamKey: timestamp,
-//				time:         big.NewInt(123456),
-//				upkeepId:     upkeepId,
-//			},
-//			retryNumber:    1,
-//			statusCode:     http.StatusNotFound,
-//			lastStatusCode: http.StatusOK,
-//			response: MercuryV03Response{
-//				Reports: []MercuryV03Report{
-//					{
-//						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
-//						ValidFromTimestamp:    123456,
-//						ObservationsTimestamp: 123456,
-//						FullReport:            "0xab2123dc00000012",
-//					},
-//					{
-//						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
-//						ValidFromTimestamp:    123458,
-//						ObservationsTimestamp: 123458,
-//						FullReport:            "0xab2123dc00000012",
-//					},
-//				},
-//			},
-//		},
-//		{
-//			name: "success - retry for 500",
-//			lookup: &StreamsLookup{
-//				feedParamKey: feedIDs,
-//				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-//				timeParamKey: timestamp,
-//				time:         big.NewInt(123456),
-//				upkeepId:     upkeepId,
-//			},
-//			retryNumber:    2,
-//			statusCode:     http.StatusInternalServerError,
-//			lastStatusCode: http.StatusOK,
-//			response: MercuryV03Response{
-//				Reports: []MercuryV03Report{
-//					{
-//						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
-//						ValidFromTimestamp:    123456,
-//						ObservationsTimestamp: 123456,
-//						FullReport:            "0xab2123dc00000012",
-//					},
-//					{
-//						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
-//						ValidFromTimestamp:    123458,
-//						ObservationsTimestamp: 123458,
-//						FullReport:            "0xab2123dc00000019",
-//					},
-//				},
-//			},
-//		},
-//		{
-//			name: "failure - returns retryable",
-//			lookup: &StreamsLookup{
-//				feedParamKey: feedIDs,
-//				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-//				timeParamKey: timestamp,
-//				time:         big.NewInt(123456),
-//				upkeepId:     upkeepId,
-//			},
-//			retryNumber:  totalAttempt,
-//			statusCode:   http.StatusNotFound,
-//			retryable:    true,
-//			errorMessage: "All attempts fail:\n#1: 404\n#2: 404\n#3: 404",
-//		},
-//		{
-//			name: "failure - returns retryable and then non-retryable",
-//			lookup: &StreamsLookup{
-//				feedParamKey: feedIDs,
-//				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-//				timeParamKey: timestamp,
-//				time:         big.NewInt(123456),
-//				upkeepId:     upkeepId,
-//			},
-//			retryNumber:    1,
-//			statusCode:     http.StatusNotFound,
-//			lastStatusCode: http.StatusBadGateway,
-//			errorMessage:   "All attempts fail:\n#1: 404\n#2: at block 123456 upkeep 123456789 received status code 502 from mercury v0.3",
-//		},
-//		{
-//			name: "failure - returns not retryable",
-//			lookup: &StreamsLookup{
-//				feedParamKey: feedIDs,
-//				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-//				timeParamKey: timestamp,
-//				time:         big.NewInt(123456),
-//				upkeepId:     upkeepId,
-//			},
-//			statusCode:   http.StatusBadGateway,
-//			errorMessage: "All attempts fail:\n#1: at block 123456 upkeep 123456789 received status code 502 from mercury v0.3",
-//		},
-//		{
-//			name: "failure - reports length does not match feeds length",
-//			lookup: &StreamsLookup{
-//				feedParamKey: feedIDs,
-//				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-//				timeParamKey: timestamp,
-//				time:         big.NewInt(123456),
-//				upkeepId:     upkeepId,
-//			},
-//			response: MercuryV03Response{
-//				Reports: []MercuryV03Report{
-//					{
-//						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
-//						ValidFromTimestamp:    123456,
-//						ObservationsTimestamp: 123456,
-//						FullReport:            "0xab2123dc00000012",
-//					},
-//				},
-//			},
-//			statusCode:   http.StatusOK,
-//			errorMessage: "All attempts fail:\n#1: at block 123456 upkeep 123456789 requested 2 feeds but received 1 reports from mercury v0.3",
-//		},
-//	}
-//
-//	for _, tt := range tests {
-//		t.Run(tt.name, func(t *testing.T) {
-//			r := setupEVMRegistry(t)
-//			hc := mocks.NewHttpClient(t)
-//			b, err := json.Marshal(tt.response)
-//			assert.Nil(t, err)
-//
-//			if tt.retryNumber == 0 {
-//				resp := &http.Response{
-//					StatusCode: tt.statusCode,
-//					Body:       io.NopCloser(bytes.NewReader(b)),
-//				}
-//				hc.On("Do", mock.Anything).Return(resp, nil).Once()
-//			} else if tt.retryNumber < totalAttempt {
-//				retryResp := &http.Response{
-//					StatusCode: tt.statusCode,
-//					Body:       io.NopCloser(bytes.NewReader(b)),
-//				}
-//				hc.On("Do", mock.Anything).Return(retryResp, nil).Times(tt.retryNumber)
-//
-//				resp := &http.Response{
-//					StatusCode: tt.lastStatusCode,
-//					Body:       io.NopCloser(bytes.NewReader(b)),
-//				}
-//				hc.On("Do", mock.Anything).Return(resp, nil).Once()
-//			} else {
-//				resp := &http.Response{
-//					StatusCode: tt.statusCode,
-//					Body:       io.NopCloser(bytes.NewReader(b)),
-//				}
-//				hc.On("Do", mock.Anything).Return(resp, nil).Times(tt.retryNumber)
-//			}
-//			r.hc = hc
-//
-//			ch := make(chan MercuryData, 1)
-//			r.multiFeedsRequest(context.Background(), ch, tt.lookup, r.lggr)
-//
-//			m := <-ch
-//			assert.Equal(t, 0, m.Index)
-//			assert.Equal(t, tt.retryable, m.Retryable)
-//			if tt.retryNumber >= totalAttempt || tt.errorMessage != "" {
-//				assert.Equal(t, tt.errorMessage, m.Error.Error())
-//				assert.Equal(t, [][]byte{}, m.Bytes)
-//			} else {
-//				assert.Nil(t, m.Error)
-//				var reports [][]byte
-//				var report []byte
-//				for _, rsp := range tt.response.Reports {
-//					report, err = hexutil.Decode(rsp.FullReport)
-//					assert.Nil(t, err)
-//					reports = append(reports, report)
-//				}
-//				assert.Equal(t, reports, m.Bytes)
-//			}
-//		})
-//	}
-//}
+func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
+	upkeepId := big.NewInt(123456789)
+	tests := []struct {
+		name           string
+		lookup         *StreamsLookup
+		statusCode     int
+		lastStatusCode int
+		retryNumber    int
+		retryable      bool
+		errorMessage   string
+		response       MercuryV03Response
+	}{
+		{
+			name: "success - mercury responds in the first try",
+			lookup: &StreamsLookup{
+				feedParamKey: feedIDs,
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: timestamp,
+				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
+			},
+			response: MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                hexutil.MustDecode("0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            hexutil.MustDecode("0xab2123dc00000012"),
+					},
+					{
+						FeedID:                hexutil.MustDecode("0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"),
+						ValidFromTimestamp:    123458,
+						ObservationsTimestamp: 123458,
+						FullReport:            hexutil.MustDecode("0xab2123dc00000016"),
+					},
+				},
+			},
+			statusCode: http.StatusOK,
+		},
+		{
+			name: "success - retry for 404",
+			lookup: &StreamsLookup{
+				feedParamKey: feedIDs,
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: timestamp,
+				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
+			},
+			retryNumber:    1,
+			statusCode:     http.StatusNotFound,
+			lastStatusCode: http.StatusOK,
+			response: MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                hexutil.MustDecode("0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            hexutil.MustDecode("0xab2123dc00000012"),
+					},
+					{
+						FeedID:                hexutil.MustDecode("0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"),
+						ValidFromTimestamp:    123458,
+						ObservationsTimestamp: 123458,
+						FullReport:            hexutil.MustDecode("0xab2123dc00000012"),
+					},
+				},
+			},
+		},
+		{
+			name: "success - retry for 500",
+			lookup: &StreamsLookup{
+				feedParamKey: feedIDs,
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: timestamp,
+				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
+			},
+			retryNumber:    2,
+			statusCode:     http.StatusInternalServerError,
+			lastStatusCode: http.StatusOK,
+			response: MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                hexutil.MustDecode("0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            hexutil.MustDecode("0xab2123dc00000012"),
+					},
+					{
+						FeedID:                hexutil.MustDecode("0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"),
+						ValidFromTimestamp:    123458,
+						ObservationsTimestamp: 123458,
+						FullReport:            hexutil.MustDecode("0xab2123dc00000019"),
+					},
+				},
+			},
+		},
+		{
+			name: "failure - returns retryable",
+			lookup: &StreamsLookup{
+				feedParamKey: feedIDs,
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: timestamp,
+				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
+			},
+			retryNumber:  totalAttempt,
+			statusCode:   http.StatusNotFound,
+			retryable:    true,
+			errorMessage: "All attempts fail:\n#1: 404\n#2: 404\n#3: 404",
+		},
+		{
+			name: "failure - returns retryable and then non-retryable",
+			lookup: &StreamsLookup{
+				feedParamKey: feedIDs,
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: timestamp,
+				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
+			},
+			retryNumber:    1,
+			statusCode:     http.StatusNotFound,
+			lastStatusCode: http.StatusBadGateway,
+			errorMessage:   "All attempts fail:\n#1: 404\n#2: at block 123456 upkeep 123456789 received status code 502 from mercury v0.3",
+		},
+		{
+			name: "failure - returns not retryable",
+			lookup: &StreamsLookup{
+				feedParamKey: feedIDs,
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: timestamp,
+				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
+			},
+			statusCode:   http.StatusBadGateway,
+			errorMessage: "All attempts fail:\n#1: at block 123456 upkeep 123456789 received status code 502 from mercury v0.3",
+		},
+		{
+			name: "failure - reports length does not match feeds length",
+			lookup: &StreamsLookup{
+				feedParamKey: feedIDs,
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: timestamp,
+				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
+			},
+			response: MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                hexutil.MustDecode("0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            hexutil.MustDecode("0xab2123dc00000012"),
+					},
+				},
+			},
+			statusCode:   http.StatusOK,
+			errorMessage: "All attempts fail:\n#1: at block 123456 upkeep 123456789 requested 2 feeds but received 1 reports from mercury v0.3",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := setupEVMRegistry(t)
+			hc := mocks.NewHttpClient(t)
+			b, err := json.Marshal(tt.response)
+			assert.Nil(t, err)
+
+			if tt.retryNumber == 0 {
+				resp := &http.Response{
+					StatusCode: tt.statusCode,
+					Body:       io.NopCloser(bytes.NewReader(b)),
+				}
+				hc.On("Do", mock.Anything).Return(resp, nil).Once()
+			} else if tt.retryNumber < totalAttempt {
+				retryResp := &http.Response{
+					StatusCode: tt.statusCode,
+					Body:       io.NopCloser(bytes.NewReader(b)),
+				}
+				hc.On("Do", mock.Anything).Return(retryResp, nil).Times(tt.retryNumber)
+
+				resp := &http.Response{
+					StatusCode: tt.lastStatusCode,
+					Body:       io.NopCloser(bytes.NewReader(b)),
+				}
+				hc.On("Do", mock.Anything).Return(resp, nil).Once()
+			} else {
+				resp := &http.Response{
+					StatusCode: tt.statusCode,
+					Body:       io.NopCloser(bytes.NewReader(b)),
+				}
+				hc.On("Do", mock.Anything).Return(resp, nil).Times(tt.retryNumber)
+			}
+			r.hc = hc
+
+			ch := make(chan MercuryData, 1)
+			r.multiFeedsRequest(context.Background(), ch, tt.lookup, r.lggr)
+
+			m := <-ch
+			assert.Equal(t, 0, m.Index)
+			assert.Equal(t, tt.retryable, m.Retryable)
+			if tt.retryNumber >= totalAttempt || tt.errorMessage != "" {
+				assert.Equal(t, tt.errorMessage, m.Error.Error())
+				assert.Equal(t, [][]byte{}, m.Bytes)
+			} else {
+				assert.Nil(t, m.Error)
+				var reports [][]byte
+				for _, rsp := range tt.response.Reports {
+					reports = append(reports, rsp.FullReport)
+				}
+				assert.Equal(t, reports, m.Bytes)
+			}
+		})
+	}
+}
 
 func TestEvmRegistry_CheckCallback(t *testing.T) {
 	upkeepId := big.NewInt(123456789)
