@@ -14,12 +14,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/feed_lookup_compatible_interface"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/transmit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/upkeepstate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -27,7 +28,7 @@ import (
 type AutomationServices interface {
 	Registry() *EvmRegistry
 	Encoder() ocr2keepers.Encoder
-	TransmitEventProvider() *TransmitEventProvider
+	TransmitEventProvider() *transmit.TransmitEventProvider
 	BlockSubscriber() *BlockSubscriber
 	PayloadBuilder() ocr2keepers.PayloadBuilder
 	UpkeepStateStore() upkeepstate.UpkeepStateStore
@@ -38,7 +39,7 @@ type AutomationServices interface {
 }
 
 func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, keyring ocrtypes.OnchainKeyring, lggr logger.Logger, db *sqlx.DB, dbCfg pg.QConfig) (AutomationServices, error) {
-	feedLookupCompatibleABI, err := abi.JSON(strings.NewReader(feed_lookup_compatible_interface.FeedLookupCompatibleInterfaceABI))
+	streamsLookupCompatibleABI, err := abi.JSON(strings.NewReader(streams_lookup_compatible_interface.StreamsLookupCompatibleInterfaceABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
@@ -57,13 +58,13 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 	// lookback blocks for transmit event is hard coded and should provide ample time for logs
 	// to be detected in most cases
 	var transmitLookbackBlocks int64 = 250
-	transmitter, err := NewTransmitEventProvider(lggr, client.LogPoller(), addr, client.Client(), transmitLookbackBlocks)
+	transmitEventProvider, err := transmit.NewTransmitEventProvider(lggr, client.LogPoller(), addr, client.Client(), transmitLookbackBlocks)
 	if err != nil {
 		return nil, err
 	}
 
 	services := new(automationServices)
-	services.transmitter = transmitter
+	services.transmitEventProvider = transmitEventProvider
 
 	packer := encoding.NewAbiPacker(keeperRegistryABI, utilsABI)
 	services.encoder = encoding.NewReportEncoder(packer)
@@ -84,9 +85,9 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 	al := NewActiveUpkeepList()
 	services.payloadBuilder = NewPayloadBuilder(al, logRecoverer, lggr)
 
-	services.reg = NewEvmRegistry(lggr, addr, client, feedLookupCompatibleABI,
+	services.reg = NewEvmRegistry(lggr, addr, client, streamsLookupCompatibleABI,
 		keeperRegistryABI, registryContract, mc, al, services.logProvider,
-		packer, services.blockSub)
+		packer, services.blockSub, finalityDepth)
 
 	services.upkeepProvider = NewUpkeepProvider(al, services.blockSub, client.LogPoller())
 
@@ -94,16 +95,16 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 }
 
 type automationServices struct {
-	reg            *EvmRegistry
-	encoder        ocr2keepers.Encoder
-	transmitter    *TransmitEventProvider
-	blockSub       *BlockSubscriber
-	payloadBuilder ocr2keepers.PayloadBuilder
-	upkeepState    upkeepstate.UpkeepStateStore
-	logProvider    logprovider.LogEventProvider
-	logRecoverer   logprovider.LogRecoverer
-	upkeepProvider *upkeepProvider
-	keyring        *onchainKeyringV3Wrapper
+	reg                   *EvmRegistry
+	encoder               ocr2keepers.Encoder
+	transmitEventProvider *transmit.TransmitEventProvider
+	blockSub              *BlockSubscriber
+	payloadBuilder        ocr2keepers.PayloadBuilder
+	upkeepState           upkeepstate.UpkeepStateStore
+	logProvider           logprovider.LogEventProvider
+	logRecoverer          logprovider.LogRecoverer
+	upkeepProvider        *upkeepProvider
+	keyring               *onchainKeyringV3Wrapper
 }
 
 var _ AutomationServices = &automationServices{}
@@ -116,8 +117,8 @@ func (f *automationServices) Encoder() ocr2keepers.Encoder {
 	return f.encoder
 }
 
-func (f *automationServices) TransmitEventProvider() *TransmitEventProvider {
-	return f.transmitter
+func (f *automationServices) TransmitEventProvider() *transmit.TransmitEventProvider {
+	return f.transmitEventProvider
 }
 
 func (f *automationServices) BlockSubscriber() *BlockSubscriber {

@@ -31,6 +31,16 @@ pnpmdep: ## Install solidity contract dependencies through pnpm
 abigen: ## Build & install abigen.
 	../tools/bin/build_abigen
 
+.PHONY: mockery
+mockery: $(mockery) ## Install mockery.
+	go install github.com/vektra/mockery/v2@v2.28.1
+
+.PHONY: foundry-refresh
+foundry-refresh:
+	foundryup
+	git submodule deinit -f .
+	git submodule update --init --recursive
+
 ccip-precommit: export FOUNDRY_PROFILE=ccip
 .PHONY: ccip-precommit
 ccip-precommit:
@@ -57,7 +67,7 @@ ccip-lcov:
 # make call example
 # 		make FOUNDRY_PROFILE=llo-feeds wrappers
 .PHONY: wrappers
-wrappers: pnpmdep abigen mockery ## Recompiles solidity contracts and their go wrappers.
+wrappers: pnpmdep mockery abigen ## Recompiles solidity contracts and their go wrappers.
 	./scripts/native_solc_compile_all_$(FOUNDRY_PROFILE)
 	go generate ../core/gethwrappers/$(FOUNDRY_PROFILE)
 
@@ -65,13 +75,9 @@ wrappers: pnpmdep abigen mockery ## Recompiles solidity contracts and their go w
 # assumption that native_solc_compile_all contains sub-calls to each product, and
 # go_generate does the same.
 .PHONY: wrappers-all
-wrappers-all: pnpmdep abigen mockery ## Recompiles solidity contracts and their go wrappers.
+wrappers-all: pnpmdep mockery abigen ## Recompiles solidity contracts and their go wrappers.
 	# go_generate contains a call to  compile all contracts before generating wrappers
 	go generate ../core/gethwrappers/go_generate.go
-
-.PHONY: mockery
-mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.28.1
 
 # Custom wrapper generation for OCR2VRF as their contracts do not exist in this repo
 .PHONY: go-solidity-wrappers-ocr2vrf

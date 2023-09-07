@@ -2099,19 +2099,17 @@ func TestStartingCountsV1(t *testing.T) {
 			ChainID:            chainID.ToInt(),
 		})
 	}
-	txes := append(confirmedTxes, unconfirmedTxes...)
 	sql := `INSERT INTO eth_txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, broadcast_at, initial_broadcast_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
 VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :created_at, :broadcast_at, :initial_broadcast_at, :meta, :subject, :evm_chain_id, :min_confirmations, :pipeline_task_run_id);`
-	for _, tx := range txes {
+	for _, tx := range append(confirmedTxes, unconfirmedTxes...) {
 		dbEtx := txmgr.DbEthTxFromEthTx(&tx)
 		_, err = db.NamedExec(sql, &dbEtx)
-		txmgr.DbEthTxToEthTx(dbEtx, &tx)
 		require.NoError(t, err)
 	}
 
 	// add eth_tx_attempts for confirmed
 	broadcastBlock := int64(1)
-	txAttempts := []txmgr.TxAttempt{}
+	var txAttempts []txmgr.TxAttempt
 	for i := range confirmedTxes {
 		txAttempts = append(txAttempts, txmgr.TxAttempt{
 			TxID:                    int64(i + 1),
@@ -2142,10 +2140,10 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	sql = `INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, state, created_at, chain_specific_gas_limit)
 		VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :state, :created_at, :chain_specific_gas_limit)`
 	for _, attempt := range txAttempts {
-		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt)
+		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt) //nolint:gosec - just copying fields
 		_, err = db.NamedExec(sql, &dbAttempt)
-		txmgr.DbEthTxAttemptToEthTxAttempt(dbAttempt, &attempt)
 		require.NoError(t, err)
+		txmgr.DbEthTxAttemptToEthTxAttempt(dbAttempt, &attempt) //nolint:gosec - just copying fields
 	}
 
 	// add eth_receipts

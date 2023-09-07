@@ -56,7 +56,7 @@ func NewDecryptionQueue(maxQueueLength int, maxCiphertextBytes int, maxCiphertex
 		make(map[string]pendingRequest),
 		make(map[string]completedRequest),
 		sync.RWMutex{},
-		lggr.Named("decryptionQueue"),
+		lggr.Named("DecryptionQueue"),
 	}
 	return &dq
 }
@@ -171,7 +171,11 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit in
 
 	dq.pendingRequestQueue = removeMultipleIndices(dq.pendingRequestQueue, indicesToRemove)
 
-	dq.lggr.Debugf("returning first %d of %d total requests awaiting decryption", len(requests), len(dq.pendingRequestQueue))
+	if len(dq.pendingRequestQueue) > 0 {
+		dq.lggr.Debugf("returning first %d of %d total requests awaiting decryption", len(requests), len(dq.pendingRequestQueue))
+	} else {
+		dq.lggr.Debug("no requests awaiting decryption")
+	}
 
 	return requests
 }
@@ -194,7 +198,7 @@ func (dq *decryptionQueue) GetCiphertext(ciphertextId decryptionPlugin.Ciphertex
 
 	req, ok := dq.pendingRequests[string(ciphertextId)]
 	if !ok {
-		return nil, fmt.Errorf("ciphertextID %s not found", ciphertextId)
+		return nil, decryptionPlugin.ErrNotFound
 	}
 
 	return req.ciphertext, nil

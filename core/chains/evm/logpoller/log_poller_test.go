@@ -760,6 +760,13 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 	require.True(t, ok)
 	assert.True(t, filter.Contains(&filter3))
 	assert.True(t, filter3.Contains(&filter))
+
+	t.Run("HasFilter", func(t *testing.T) {
+		assert.True(t, th.LogPoller.HasFilter("first Filter"))
+		assert.True(t, th.LogPoller.HasFilter("second Filter"))
+		assert.True(t, th.LogPoller.HasFilter("third Filter"))
+		assert.False(t, th.LogPoller.HasFilter("fourth Filter"))
+	})
 }
 
 func TestLogPoller_GetBlocks_Range(t *testing.T) {

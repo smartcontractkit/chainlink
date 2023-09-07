@@ -15,7 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -45,11 +45,17 @@ func TestSolanaChain_GetClient(t *testing.T) {
 	defer mockServer.Close()
 
 	solORM := &mockConfigs{}
-	lggr := logger.TestLogger(t)
+
+	ch := solcfg.Chain{}
+	ch.SetDefaults()
+	cfg := &SolanaConfig{
+		ChainID: ptr("devnet"),
+		Chain:   ch,
+	}
 	testChain := chain{
 		id:          "devnet",
 		nodes:       solORM.Nodes,
-		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
+		cfg:         cfg,
 		lggr:        logger.TestLogger(t),
 		clientCache: map[string]*verifiedCachedClient{},
 	}
@@ -139,9 +145,14 @@ func TestSolanaChain_VerifiedClient(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	lggr := logger.TestLogger(t)
+	ch := solcfg.Chain{}
+	ch.SetDefaults()
+	cfg := &SolanaConfig{
+		ChainID: ptr("devnet"),
+		Chain:   ch,
+	}
 	testChain := chain{
-		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
+		cfg:         cfg,
 		lggr:        logger.TestLogger(t),
 		clientCache: map[string]*verifiedCachedClient{},
 	}
@@ -177,10 +188,16 @@ func TestSolanaChain_VerifiedClient_ParallelClients(t *testing.T) {
 	}))
 	defer mockServer.Close()
 
-	lggr := logger.TestLogger(t)
+	ch := solcfg.Chain{}
+	ch.SetDefaults()
+	cfg := &SolanaConfig{
+		ChainID: ptr("devnet"),
+		Enabled: ptr(true),
+		Chain:   ch,
+	}
 	testChain := chain{
 		id:          "devnet",
-		cfg:         config.NewConfig(db.ChainCfg{}, lggr),
+		cfg:         cfg,
 		lggr:        logger.TestLogger(t),
 		clientCache: map[string]*verifiedCachedClient{},
 	}
@@ -233,4 +250,8 @@ func (m *mockConfigs) NodeStatus(s string) (types.NodeStatus, error) { panic("un
 
 func (m *mockConfigs) NodeStatusesPaged(offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error) {
 	panic("unimplemented")
+}
+
+func ptr[T any](t T) *T {
+	return &t
 }

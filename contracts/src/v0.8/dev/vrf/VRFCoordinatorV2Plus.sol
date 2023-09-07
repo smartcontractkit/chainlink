@@ -653,7 +653,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     revert CoordinatorNotRegistered(target);
   }
 
-  function migrate(uint256 subId, address newCoordinator) external {
+  function migrate(uint256 subId, address newCoordinator) external nonReentrant {
     if (!isTargetRegistered(newCoordinator)) {
       revert CoordinatorNotRegistered(newCoordinator);
     }
@@ -672,10 +672,20 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     bytes memory encodedData = abi.encode(migrationData);
     deleteSubscription(subId);
     IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: ethBalance}(encodedData);
-    require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
+
+    // Only transfer LINK if the token is active and there is a balance.
+    if (address(LINK) != address(0) && balance != 0) {
+      require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
+    }
+
+    // despite the fact that we follow best practices this is still probably safest
+    // to prevent any re-entrancy possibilities.
+    s_config.reentrancyLock = true;
     for (uint256 i = 0; i < consumers.length; i++) {
       IVRFMigratableConsumerV2Plus(consumers[i]).setCoordinator(newCoordinator);
     }
+    s_config.reentrancyLock = false;
+
     emit MigrationCompleted(newCoordinator, subId);
   }
 

@@ -45,8 +45,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth(), TxManager: txManager})
 	require.True(t, relayExtenders.Len() > 0)
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 
 	type testCase struct {
 		name                  string
@@ -172,7 +171,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		})
 	}
 
-	t.Run("when forwarders are enabled and chainset retrieval fails, error should be handled", func(t *testing.T) {
+	t.Run("when forwarders are enabled and chain retrieval fails, error should be handled", func(t *testing.T) {
 		jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
 		require.NoError(t, err)
 		jb.ForwardingAllowed = true

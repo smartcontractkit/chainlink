@@ -48,10 +48,10 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/KeeperRegistryLogic2_0.abi ../../contracts/solc/v0.8.6/KeeperRegistryLogic2_0.bin KeeperRegistryLogic keeper_registry_logic2_0
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/UpkeepTranscoder.abi ../../contracts/solc/v0.8.6/UpkeepTranscoder.bin UpkeepTranscoder upkeep_transcoder
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/VerifiableLoadUpkeep.abi ../../contracts/solc/v0.8.16/VerifiableLoadUpkeep.bin VerifiableLoadUpkeep verifiable_load_upkeep_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/VerifiableLoadMercuryUpkeep.abi ../../contracts/solc/v0.8.16/VerifiableLoadMercuryUpkeep.bin VerifiableLoadMercuryUpkeep verifiable_load_mercury_upkeep_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/VerifiableLoadStreamsLookupUpkeep.abi ../../contracts/solc/v0.8.16/VerifiableLoadStreamsLookupUpkeep.bin VerifiableLoadStreamsLookupUpkeep verifiable_load_streams_lookup_upkeep_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/VerifiableLoadLogTriggerUpkeep.abi ../../contracts/solc/v0.8.16/VerifiableLoadLogTriggerUpkeep.bin VerifiableLoadLogTriggerUpkeep verifiable_load_log_trigger_upkeep_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/MercuryUpkeep.abi ../../contracts/solc/v0.8.16/MercuryUpkeep.bin MercuryUpkeep mercury_upkeep_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/FeedLookupCompatibleInterface.abi ../../contracts/solc/v0.8.16/FeedLookupCompatibleInterface.bin FeedLookupCompatibleInterface feed_lookup_compatible_interface
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/StreamsLookupUpkeep.abi ../../contracts/solc/v0.8.16/StreamsLookupUpkeep.bin StreamsLookupUpkeep streams_lookup_upkeep_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/StreamsLookupCompatibleInterface.abi ../../contracts/solc/v0.8.16/StreamsLookupCompatibleInterface.bin StreamsLookupCompatibleInterface streams_lookup_compatible_interface
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationConsumerBenchmark.abi ../../contracts/solc/v0.8.16/AutomationConsumerBenchmark.bin AutomationConsumerBenchmark automation_consumer_benchmark
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationRegistrar2_1.abi ../../contracts/solc/v0.8.16/AutomationRegistrar2_1.bin AutomationRegistrar automation_registrar_wrapper2_1
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/KeeperRegistry2_1.abi ../../contracts/solc/v0.8.16/KeeperRegistry2_1.bin KeeperRegistry keeper_registry_wrapper_2_1
@@ -62,7 +62,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationUtils2_1.abi ../../contracts/solc/v0.8.16/AutomationUtils2_1.bin AutomationUtils automation_utils_2_1
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/AutomationForwarderLogic.abi ../../contracts/solc/v0.8.16/AutomationForwarderLogic.bin AutomationForwarderLogic automation_forwarder_logic
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/LogUpkeepCounter.abi ../../contracts/solc/v0.8.6/LogUpkeepCounter.bin LogUpkeepCounter log_upkeep_counter_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/LogTriggeredFeedLookup.abi ../../contracts/solc/v0.8.16/LogTriggeredFeedLookup.bin LogTriggeredFeedLookup log_triggered_feed_lookup_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/LogTriggeredStreamsLookup.abi ../../contracts/solc/v0.8.16/LogTriggeredStreamsLookup.bin LogTriggeredStreamsLookup log_triggered_streams_lookup_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/DummyProtocol.abi ../../contracts/solc/v0.8.16/DummyProtocol.bin DummyProtocol dummy_protocol_wrapper
 
 // v0.8.6 VRFConsumer
@@ -118,6 +118,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFConsumerV2PlusUpgradeableExample.abi ../../contracts/solc/v0.8.6/VRFConsumerV2PlusUpgradeableExample.bin VRFConsumerV2PlusUpgradeableExample vrf_consumer_v2_plus_upgradeable_example
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2PlusClient.abi ../../contracts/solc/v0.8.6/VRFV2PlusClient.bin VRFV2PlusClient vrfv2plus_client
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFCoordinatorV2Plus_V2Example.abi ../../contracts/solc/v0.8.6/VRFCoordinatorV2Plus_V2Example.bin VRFCoordinatorV2Plus_V2Example vrf_coordinator_v2_plus_v2_example
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2PlusMaliciousMigrator.abi ../../contracts/solc/v0.8.6/VRFV2PlusMaliciousMigrator.bin VRFV2PlusMaliciousMigrator vrfv2plus_malicious_migrator
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2PlusLoadTestWithMetrics.abi ../../contracts/solc/v0.8.6/VRFV2PlusLoadTestWithMetrics.bin VRFV2PlusLoadTestWithMetrics vrf_v2plus_load_test_with_metrics
 
 // Aggregators

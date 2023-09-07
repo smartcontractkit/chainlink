@@ -1,10 +1,12 @@
 package keystore
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 )
 
@@ -143,4 +145,39 @@ func (ks *cosmos) getByID(id string) (cosmoskey.Key, error) {
 		return cosmoskey.Key{}, KeyNotFoundError{ID: id, KeyType: "Cosmos"}
 	}
 	return key, nil
+}
+
+// CosmosLoopKeystore implements the [github.com/smartcontractkit/chainlink-relay/pkg/loop.Keystore] interface and
+// handles signing for Cosmos messages.
+type CosmosLoopKeystore struct {
+	Cosmos
+}
+
+var _ loop.Keystore = &CosmosLoopKeystore{}
+
+func (lk *CosmosLoopKeystore) Sign(ctx context.Context, id string, hash []byte) ([]byte, error) {
+	k, err := lk.Get(id)
+	if err != nil {
+		return nil, err
+	}
+	// loopp spec requires passing nil hash to check existence of id
+	if hash == nil {
+		return nil, nil
+	}
+
+	return k.ToPrivKey().Sign(hash)
+}
+
+func (lk *CosmosLoopKeystore) Accounts(ctx context.Context) ([]string, error) {
+	keys, err := lk.GetAll()
+	if err != nil {
+		return nil, err
+	}
+
+	accounts := []string{}
+	for _, k := range keys {
+		accounts = append(accounts, k.PublicKeyStr())
+	}
+
+	return accounts, nil
 }
