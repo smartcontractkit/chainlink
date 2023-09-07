@@ -66,10 +66,10 @@ type MercuryV03Response struct {
 }
 
 type MercuryV03Report struct {
-	FeedID                string `json:"feedID"` // feed id in hex
+	FeedID                []byte `json:"feedID"` // feed id in hex
 	ValidFromTimestamp    uint32 `json:"validFromTimestamp"`
 	ObservationsTimestamp uint32 `json:"observationsTimestamp"`
-	FullReport            string `json:"fullReport"` // the actual mercury report of this feed, can be sent to verifier
+	FullReport            []byte `json:"fullReport"` // the actual mercury report of this feed, can be sent to verifier
 }
 
 type MercuryData struct {
@@ -318,7 +318,7 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, l
 			results[m.Index] = m.Bytes[0]
 		}
 	}
-	lggr.Debugf("upkeep %s retryable %t reqErr %w", sl.upkeepId.String(), retryable && !allSuccess, reqErr)
+	lggr.Debugf("upkeep %s retryable %t reqErr %s", sl.upkeepId.String(), retryable && !allSuccess, reqErr.Error())
 	// only retry when not all successful AND none are not retryable
 	return state, encoding.UpkeepFailureReasonNone, results, retryable && !allSuccess, reqErr
 }
@@ -511,16 +511,16 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				return fmt.Errorf("at block %s upkeep %s requested %d feeds but received %d reports from mercury v0.3", sl.time.String(), sl.upkeepId.String(), len(sl.feeds), len(response.Reports))
 			}
 			var reportBytes [][]byte
-			var b []byte
+			//var b []byte
 			for _, rsp := range response.Reports {
-				b, err1 = hexutil.Decode("0x" + rsp.FullReport)
-				if err1 != nil {
-					lggr.Warnf("at block %s upkeep %s failed to decode fullReport %s from mercury v0.3: %v", sl.time.String(), sl.upkeepId.String(), rsp.FullReport, err1)
-					retryable = false
-					state = encoding.InvalidMercuryResponse
-					return err1
-				}
-				reportBytes = append(reportBytes, b)
+				//b, err1 = hexutil.Decode("0x" + rsp.FullReport)
+				//if err1 != nil {
+				//	lggr.Warnf("at block %s upkeep %s failed to decode fullReport %s from mercury v0.3: %v", sl.time.String(), sl.upkeepId.String(), rsp.FullReport, err1)
+				//	retryable = false
+				//	state = encoding.InvalidMercuryResponse
+				//	return err1
+				//}
+				reportBytes = append(reportBytes, rsp.FullReport)
 			}
 			ch <- MercuryData{
 				Index:     0,
