@@ -42,6 +42,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 )
 
+const (
+	LDAPUniqueMemberAttribute = "uniqueMember"
+)
+
 // implements sessions.AuthenticationProvider interface
 type ldapAuthenticator struct {
 	q           pg.Q
@@ -90,6 +94,7 @@ func NewLDAPAuthenticator(
 	ldap.DefaultTimeout = ldapCfg.QueryTimeout()
 
 	// Test initial connection and credentials
+	lggr.Infof("Attempting initial connection to configured LDAP server with bind as API user")
 	conn, err := ldapAuth.dialAndConnect()
 	if err != nil {
 		return nil, errors.Errorf("Unable to establish connection to LDAP server with provided URL and credentials: %v", err)
@@ -174,7 +179,7 @@ func (l *ldapAuthenticator) FindUserByAPIToken(apiToken string) (sessions.User, 
 	err := l.q.Transaction(func(tx pg.Queryer) error {
 		// Query the ldap user API token table for given token, user role and email are cached so
 		// no further upstream LDAP query is performed, sessions and tokens are synced against the upstream server
-		// via the UpstreamSyncInterval config
+		// via the UpstreamSyncInterval config and reaper.go sync implementation
 		var foundUserToken struct {
 			UserEmail string
 			UserRole  sessions.UserRole
@@ -182,7 +187,7 @@ func (l *ldapAuthenticator) FindUserByAPIToken(apiToken string) (sessions.User, 
 		}
 		if err := tx.Get(&foundUserToken,
 			"SELECT user_email, user_role, created_at + $2 >= now() as valid FROM ldap_user_api_tokens WHERE token_key = $1",
-			apiToken, l.config.UserAPITokenDuration(),
+			apiToken, l.config.UserAPITokenDuration().Duration(),
 		); err != nil {
 			return err
 		}
@@ -198,7 +203,7 @@ func (l *ldapAuthenticator) FindUserByAPIToken(apiToken string) (sessions.User, 
 	if err != nil {
 		if err == sessions.ErrUserSessionExpired {
 			// API Token expired, purge
-			if _, err := l.q.Exec("DELETE FROM ldap_user_api_tokens WHERE id = $1", apiToken); err != nil {
+			if _, err := l.q.Exec("DELETE FROM ldap_user_api_tokens WHERE token_key = $1", apiToken); err != nil {
 				l.lggr.Errorf("Error purging stale ldap API token session: %v", err)
 			}
 		}
@@ -300,7 +305,7 @@ func (l *ldapAuthenticator) ldapGroupMembersListToUser(conn *ldap.Conn, groupNam
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases,
 		0, int(l.config.QueryTimeout().Seconds()), false,
 		filterQuery,
-		[]string{"uniqueMember"},
+		[]string{LDAPUniqueMemberAttribute},
 		nil,
 	)
 	result, err := conn.Search(searchRequest)
@@ -338,7 +343,7 @@ func (l *ldapAuthenticator) AuthorizedUserWithSession(sessionID string) (session
 			"SELECT user_email, user_role, created_at + $2 >= now() as valid FROM ldap_sessions WHERE id = $1",
 			sessionID, l.config.SessionTimeout().Duration(),
 		); err != nil {
-			return errors.Wrap(err, "no matching user for provided session token")
+			return sessions.ErrUserSessionExpired
 		}
 		if !foundSession.Valid {
 			// Sessions expired, purge
@@ -505,7 +510,7 @@ func (l *ldapAuthenticator) SetAuthToken(user *sessions.User, token *auth.Token)
 
 	err = l.q.Transaction(func(tx pg.Queryer) error {
 		// Remove any existing API tokens
-		if _, err := l.q.Exec("DELETE FROM ldap_user_api_tokens WHERE user_email = $1"); err != nil {
+		if _, err := l.q.Exec("DELETE FROM ldap_user_api_tokens WHERE user_email = $1", user.Email); err != nil {
 			return errors.Wrap(err, "Error executing DELETE FROM ldap_user_api_tokens")
 		}
 		// Create new API token for user

@@ -219,8 +219,8 @@ func (l *ldapConfig) QueryTimeout() time.Duration {
 	return l.c.QueryTimeout.Duration()
 }
 
-func (l *ldapConfig) UserAPITokenDuration() time.Duration {
-	return l.c.UserAPITokenDuration.Duration()
+func (l *ldapConfig) UserAPITokenDuration() models.Duration {
+	return *l.c.UserAPITokenDuration
 }
 
 func (l *ldapConfig) BaseUserAttr() string {

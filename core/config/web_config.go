@@ -50,7 +50,7 @@ type LDAP interface {
 	RunUserGroupCN() string
 	ReadUserGroupCN() string
 	UserApiTokenEnabled() bool
-	UserAPITokenDuration() time.Duration
+	UserAPITokenDuration() models.Duration
 	UpstreamSyncInterval() models.Duration
 }
 
