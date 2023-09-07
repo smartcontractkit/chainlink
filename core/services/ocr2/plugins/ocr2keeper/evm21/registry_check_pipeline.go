@@ -99,13 +99,6 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
 func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
-	// verify check block number is not in future (can happen when this node is lagging the other members in DON)
-	latestBlock := r.bs.latestBlock.Load()
-	if checkBlock.Int64() > int64(latestBlock.Number) {
-		r.lggr.Warnf("latest block is %d, check block number %s is in future for upkeepId %s", r.bs.latestBlock.Load(), checkBlock, upkeepId)
-		return encoding.CheckBlockTooNew, true // retryable since the block can be found in future
-	}
-
 	var h string
 	var ok bool
 	// verify check block number and hash are valid
