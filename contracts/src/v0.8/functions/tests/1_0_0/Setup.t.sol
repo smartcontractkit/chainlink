@@ -253,7 +253,7 @@ contract FunctionsFulfillmentSetup is FunctionsClientRequestSetup {
     // Get actual cost from RequestProcessed event log
     Vm.Log[] memory entries = vm.getRecordedLogs();
     (uint96 totalCostJuels, , , , , ) = abi.decode(
-      entries[1].data,
+      entries[2].data,
       (uint96, address, FunctionsResponse.FulfillResult, bytes, bytes, bytes)
     );
     // totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels
