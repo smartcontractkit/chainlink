@@ -478,10 +478,10 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 	}
 	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
 	filterStore := logprovider.NewUpkeepFilterStore()
-	origDefaultRecoveryInterval := logprovider.DefaultRecoveryInterval
-	logprovider.DefaultRecoveryInterval = time.Millisecond * 200
+	origDefaultRecoveryInterval := logprovider.RecoveryInterval
+	logprovider.RecoveryInterval = time.Millisecond * 200
 	defer func() {
-		logprovider.DefaultRecoveryInterval = origDefaultRecoveryInterval
+		logprovider.RecoveryInterval = origDefaultRecoveryInterval
 	}()
 	provider, recoverer := setup(logger.TestLogger(t), lp, nil, utilsABI, &mockUpkeepStateStore{}, filterStore, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
