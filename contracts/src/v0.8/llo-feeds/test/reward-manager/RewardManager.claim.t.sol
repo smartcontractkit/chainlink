@@ -550,7 +550,11 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
 
   function test_getRewardsAvailableToRecipientInBothPools() public {
     //get index 0 as this recipient is in both default pools
-    bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(getPrimaryRecipients()[0].addr);
+    bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(
+      getPrimaryRecipients()[0].addr,
+      0,
+      type(uint256).max
+    );
 
     //check the recipient is in both pools
     assertEq(poolIds[0], PRIMARY_POOL_ID);
@@ -559,7 +563,11 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
 
   function test_getRewardsAvailableToRecipientInSinglePool() public {
     //get index 0 as this recipient is in both default pools
-    bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(getPrimaryRecipients()[1].addr);
+    bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(
+      getPrimaryRecipients()[1].addr,
+      0,
+      type(uint256).max
+    );
 
     //check the recipient is in both pools
     assertEq(poolIds[0], PRIMARY_POOL_ID);
@@ -568,7 +576,7 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
 
   function test_getRewardsAvailableToRecipientInNoPools() public {
     //get index 0 as this recipient is in both default pools
-    bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(FEE_MANAGER);
+    bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(FEE_MANAGER, 0, type(uint256).max);
 
     //check the recipient is in neither pool
     assertEq(poolIds[0], ZERO_POOL_ID);
@@ -577,7 +585,11 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
 
   function test_getRewardsAvailableToRecipientInBothPoolsWhereAlreadyClaimed() public {
     //get index 0 as this recipient is in both default pools
-    bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(getPrimaryRecipients()[0].addr);
+    bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(
+      getPrimaryRecipients()[0].addr,
+      0,
+      type(uint256).max
+    );
 
     //check the recipient is in both pools
     assertEq(poolIds[0], PRIMARY_POOL_ID);
@@ -588,11 +600,29 @@ contract RewardManagerRecipientClaimMultiplePoolsTest is BaseRewardManagerTest {
     claimRewards(SECONDARY_POOL_ARRAY, getSecondaryRecipients()[0].addr);
 
     //get the available pools again
-    poolIds = rewardManager.getAvailableRewardPoolIds(getPrimaryRecipients()[0].addr);
+    poolIds = rewardManager.getAvailableRewardPoolIds(getPrimaryRecipients()[0].addr, 0, type(uint256).max);
 
     //user should not be in any pool
     assertEq(poolIds[0], ZERO_POOL_ID);
     assertEq(poolIds[1], ZERO_POOL_ID);
+  }
+
+  function test_getAvailableRewardsCursorCannotBeGreaterThanTotalPools() public {
+    vm.expectRevert(INVALID_POOL_LENGTH_SELECTOR);
+
+    rewardManager.getAvailableRewardPoolIds(FEE_MANAGER, type(uint256).max, 0);
+  }
+
+  function test_getAvailableRewardsCursorAndTotalPoolsEqual() public {
+    bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(getPrimaryRecipients()[0].addr, 2, 2);
+
+    assertEq(poolIds.length, 0);
+  }
+
+  function test_getAvailableRewardsCursorSingleResult() public {
+    bytes32[] memory poolIds = rewardManager.getAvailableRewardPoolIds(getPrimaryRecipients()[0].addr, 0, 1);
+
+    assertEq(poolIds[0], PRIMARY_POOL_ID);
   }
 }
 

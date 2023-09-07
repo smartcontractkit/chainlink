@@ -71,11 +71,11 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, keystore 
 		KeyStore: keystore,
 		Configs:  solana.NewConfigs(cfgAdapter),
 	}
-	relayExt, err := solana.NewRelayExtender(&cfg.Solana, opts)
+	chain, err := solana.NewChain(&cfg.Solana, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain: %w", err)
 	}
-	ra := relay.NewRelayerAdapter(pkgsol.NewRelayer(c.Logger, relayExt), relayExt)
+	ra := relay.NewRelayerAdapter(pkgsol.NewRelayer(c.Logger, chain), chain)
 
 	c.SubService(ra)
 

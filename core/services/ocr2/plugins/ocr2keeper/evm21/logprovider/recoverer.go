@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ocr2keepers/pkg/v3/random"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -24,11 +25,17 @@ import (
 )
 
 var (
-	DefaultRecoveryInterval = 5 * time.Second
-	RecoveryCacheTTL        = 10*time.Minute - time.Second
-	GCInterval              = RecoveryCacheTTL
-
-	recoveryBatchSize  = 10
+	// RecoveryInterval is the interval at which the recovery scanning processing is triggered
+	RecoveryInterval = 5 * time.Second
+	// RecoveryCacheTTL is the time to live for the recovery cache
+	RecoveryCacheTTL = 10 * time.Minute
+	// GCInterval is the interval at which the recovery cache is cleaned up
+	GCInterval = RecoveryCacheTTL - time.Second
+	// MaxProposals is the maximum number of proposals that can be returned by GetRecoveryProposals
+	MaxProposals = 20
+	// recoveryBatchSize is the number of filters to recover in a single batch
+	recoveryBatchSize = 10
+	// recoveryLogsBuffer is the number of blocks to be used as a safety buffer when reading logs
 	recoveryLogsBuffer = int64(200)
 	recoveryLogsBurst  = int64(500)
 )
@@ -243,7 +250,12 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 	return nil, fmt.Errorf("no log found for upkeepID %v and trigger %+v", proposal.UpkeepID, proposal.Trigger)
 }
 
-func (r *logRecoverer) GetRecoveryProposals(_ context.Context) ([]ocr2keepers.UpkeepPayload, error) {
+func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
+	latestBlock, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+	}
+
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
@@ -251,18 +263,29 @@ func (r *logRecoverer) GetRecoveryProposals(_ context.Context) ([]ocr2keepers.Up
 		return nil, nil
 	}
 
+	allLogsCounter := 0
 	logsCount := map[string]int{}
+
+	r.sortPending(uint64(latestBlock))
 
 	var results, pending []ocr2keepers.UpkeepPayload
 	for _, payload := range r.pending {
-		uid := payload.UpkeepID.String()
-		if logsCount[uid] >= AllowedLogsPerUpkeep {
+		if allLogsCounter >= MaxProposals {
+			// we have enough proposals, pushed the rest are pushed back to pending
 			pending = append(pending, payload)
 			continue
 		}
-		logsCount[uid]++
+		uid := payload.UpkeepID.String()
+		if logsCount[uid] >= AllowedLogsPerUpkeep {
+			// we have enough proposals for this upkeep, the rest are pushed back to pending
+			pending = append(pending, payload)
+			continue
+		}
 		results = append(results, payload)
+		logsCount[uid]++
+		allLogsCounter++
 	}
+
 	r.pending = pending
 
 	r.lggr.Debugf("found %d pending payloads", len(pending))
@@ -602,4 +625,24 @@ func (r *logRecoverer) removePending(workID string) {
 		}
 	}
 	r.pending = updated
+}
+
+// sortPending sorts the pending list by a random order based on the normalized latest block number.
+// Divided by 10 to ensure that nodes with similar block numbers won't end up with different order.
+// NOTE: the lock must be held before calling this function.
+func (r *logRecoverer) sortPending(latestBlock uint64) {
+	normalized := latestBlock / 100
+	if normalized == 0 {
+		normalized = 1
+	}
+	randSeed := random.GetRandomKeySource(nil, normalized)
+
+	shuffledIDs := make(map[string]string, len(r.pending))
+	for _, p := range r.pending {
+		shuffledIDs[p.WorkID] = random.ShuffleString(p.WorkID, randSeed)
+	}
+
+	sort.SliceStable(r.pending, func(i, j int) bool {
+		return shuffledIDs[r.pending[i].WorkID] < shuffledIDs[r.pending[j].WorkID]
+	})
 }
