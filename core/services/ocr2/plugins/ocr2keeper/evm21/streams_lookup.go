@@ -66,10 +66,10 @@ type MercuryV03Response struct {
 }
 
 type MercuryV03Report struct {
-	//FeedID                string `json:"feedID"` // feed id in hex
-	//ValidFromTimestamp    string `json:"validFromTimestamp"`
-	//ObservationsTimestamp string `json:"observationsTimestamp"`
-	FullReport string `json:"fullReport"` // the actual mercury report of this feed, can be sent to verifier
+	FeedID                string `json:"feedID"` // feed id in hex
+	ValidFromTimestamp    uint32 `json:"validFromTimestamp"`
+	ObservationsTimestamp uint32 `json:"observationsTimestamp"`
+	FullReport            string `json:"fullReport"` // the actual mercury report of this feed, can be sent to verifier
 }
 
 type MercuryData struct {

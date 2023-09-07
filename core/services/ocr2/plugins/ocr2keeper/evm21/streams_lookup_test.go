@@ -679,16 +679,16 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			response: MercuryV03Response{
 				Reports: []MercuryV03Report{
 					{
-						//FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
-						//ValidFromTimestamp:    "123456",
-						//ObservationsTimestamp: "123456",
-						FullReport: "0xab2123dc00000012",
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            "0xab2123dc00000012",
 					},
 					{
-						//FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
-						//ValidFromTimestamp:    "123458",
-						//ObservationsTimestamp: "123458",
-						FullReport: "0xab2123dc00000016",
+						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123458,
+						ObservationsTimestamp: 123458,
+						FullReport:            "0xab2123dc00000016",
 					},
 				},
 			},
@@ -709,16 +709,16 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			response: MercuryV03Response{
 				Reports: []MercuryV03Report{
 					{
-						//FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
-						//ValidFromTimestamp:    "123456",
-						//ObservationsTimestamp: "123456",
-						FullReport: "0xab2123dc00000012",
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            "0xab2123dc00000012",
 					},
 					{
-						//FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
-						//ValidFromTimestamp:    "123458",
-						//ObservationsTimestamp: "123458",
-						FullReport: "0xab2123dc00000012",
+						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123458,
+						ObservationsTimestamp: 123458,
+						FullReport:            "0xab2123dc00000012",
 					},
 				},
 			},
@@ -738,16 +738,16 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			response: MercuryV03Response{
 				Reports: []MercuryV03Report{
 					{
-						//FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
-						//ValidFromTimestamp:    "123456",
-						//ObservationsTimestamp: "123456",
-						FullReport: "0xab2123dc00000012",
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            "0xab2123dc00000012",
 					},
 					{
-						//FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
-						//ValidFromTimestamp:    "123458",
-						//ObservationsTimestamp: "123458",
-						FullReport: "0xab2123dc00000019",
+						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123458,
+						ObservationsTimestamp: 123458,
+						FullReport:            "0xab2123dc00000019",
 					},
 				},
 			},
@@ -804,10 +804,10 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			response: MercuryV03Response{
 				Reports: []MercuryV03Report{
 					{
-						//FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
-						//ValidFromTimestamp:    "123456",
-						//ObservationsTimestamp: "123456",
-						FullReport: "0xab2123dc00000012",
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            "0xab2123dc00000012",
 					},
 				},
 			},
