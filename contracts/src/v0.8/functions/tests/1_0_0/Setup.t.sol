@@ -11,7 +11,6 @@ import {TermsOfServiceAllowList} from "../../dev/1_0_0/accessControl/TermsOfServ
 import {FunctionsClientUpgradeHelper} from "./testhelpers/FunctionsClientUpgradeHelper.sol";
 import {MockLinkToken} from "../../../mocks/MockLinkToken.sol";
 
-import "forge-std/console.sol";
 import "forge-std/Vm.sol";
 
 contract FunctionsRouterSetup is BaseTest {
@@ -23,6 +22,7 @@ contract FunctionsRouterSetup is BaseTest {
 
   uint16 internal s_maxConsumersPerSubscription = 3;
   uint72 internal s_adminFee = 100;
+  uint72 internal s_donFee = 100;
   bytes4 internal s_handleOracleFulfillmentSelector = 0x0ca76175;
 
   int256 internal LINK_ETH_RATE = 6000000000000000;
@@ -59,7 +59,7 @@ contract FunctionsRouterSetup is BaseTest {
       });
   }
 
-  function getCoordinatorConfig() public pure returns (FunctionsBilling.Config memory) {
+  function getCoordinatorConfig() public view returns (FunctionsBilling.Config memory) {
     return
       FunctionsBilling.Config({
         maxCallbackGasLimit: 0, // NOTE: unused , TODO: remove
@@ -67,7 +67,7 @@ contract FunctionsRouterSetup is BaseTest {
         gasOverheadAfterCallback: 44_615, // TODO: update
         gasOverheadBeforeCallback: 44_615, // TODO: update
         requestTimeoutSeconds: 60 * 5, // 5 minutes
-        donFee: 100,
+        donFee: s_donFee,
         maxSupportedRequestDataVersion: 1,
         fulfillmentGasPriceOverEstimationBP: 5000,
         fallbackNativePerUnitLink: 5000000000000000
