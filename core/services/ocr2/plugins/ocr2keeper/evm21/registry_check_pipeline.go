@@ -15,6 +15,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
 )
 
+const (
+	// checkBlockTooOldRange is the number of blocks that can be behind the latest block before
+	// we return a CheckBlockTooOld error
+	checkBlockTooOldRange = 128
+)
+
 type checkResult struct {
 	cr  []ocr2keepers.CheckResult
 	err error
@@ -238,10 +244,12 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 	for i, req := range checkReqs {
 		index := indices[i]
 		if req.Error != nil {
+			latestBlock := r.bs.latestBlock.Load()
+			checkBlock, _, _ := r.getBlockAndUpkeepId(payloads[index].UpkeepID, payloads[index].Trigger)
 			// primitive way of checking errors
-			if strings.Contains(req.Error.Error(), "header not found") {
-				// Check block not found in RPC, non-retryable error
-				r.lggr.Warnf("header not found error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
+			if strings.Contains(req.Error.Error(), "header not found") && int64(latestBlock.Number)-checkBlock.Int64() > checkBlockTooOldRange {
+				// Check block not found in RPC and it is too old, non-retryable error
+				r.lggr.Warnf("header not found error encountered in check result for upkeepId %s, check block %d, latest block %d: %s", results[index].UpkeepID.String(), checkBlock.Int64(), int64(latestBlock.Number), req.Error)
 				results[index].Retryable = false
 				results[index].PipelineExecutionState = uint8(encoding.CheckBlockTooOld)
 			} else {
