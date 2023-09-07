@@ -24,8 +24,6 @@ type EVMChainRelayerExtender interface {
 	Chain() evmchain.Chain
 	Default() bool
 	// compatibility remove after BCF-2441
-	ChainStatus(ctx context.Context, id string) (relaytypes.ChainStatus, error)
-	ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error)
 	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, count int, err error)
 }
 
@@ -136,28 +134,6 @@ func (s *ChainRelayerExt) Ready() (err error) {
 }
 
 var ErrInconsistentChainRelayerExtender = errors.New("inconsistent evm chain relayer extender")
-
-// Legacy interface remove after BFC-2441, BCF-2564
-
-func (s *ChainRelayerExt) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
-	return s.Transact(ctx, from, to, amount, balanceCheck)
-}
-
-func (s *ChainRelayerExt) ChainStatus(ctx context.Context, id string) (relaytypes.ChainStatus, error) {
-	if s.chain.ID().String() != id {
-		return relaytypes.ChainStatus{}, fmt.Errorf("%w: given id %q does not match expected id %q", ErrInconsistentChainRelayerExtender, id, s.chain.ID())
-	}
-	return s.chain.GetChainStatus(ctx)
-}
-
-func (s *ChainRelayerExt) ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error) {
-	stat, err := s.chain.GetChainStatus(ctx)
-	if err != nil {
-		return nil, -1, err
-	}
-	return []relaytypes.ChainStatus{stat}, 1, nil
-
-}
 
 func (s *ChainRelayerExt) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, total int, err error) {
 	if len(chainIDs) > 1 {

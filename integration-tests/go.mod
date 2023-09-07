@@ -131,6 +131,7 @@ require (
 	github.com/dvsekhvalnov/jose2go v1.5.0 // indirect
 	github.com/edsrzf/mmap-go v1.1.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
+	github.com/esote/minmaxheap v1.0.0 // indirect
 	github.com/evanphx/json-patch v5.6.0+incompatible // indirect
 	github.com/evanphx/json-patch/v5 v5.6.0 // indirect
 	github.com/exponent-io/jsonpath v0.0.0-20210407135951-1de76d718b3f // indirect
@@ -383,7 +384,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230831132059-42af68994512 // indirect
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230901143551-bf6bd84d6938 // indirect
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230905185157-da01915913a4 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230831134610-680240b97aca // indirect
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230901115736-bbabe542a918 // indirect
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb // indirect
