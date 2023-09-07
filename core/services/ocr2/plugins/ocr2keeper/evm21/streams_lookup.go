@@ -434,7 +434,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 	//	feedIDs:   {strings.Join(sl.feeds, ",")},
 	//	timestamp: {sl.time.String()},
 	//}
-	t := big.NewInt(sl.time.Int64() - 5)
+	t := big.NewInt(sl.time.Int64() - 10)
 	q := fmt.Sprintf("feedIDs=%s&timestamp=%s", strings.Join(sl.feeds, ","), t.String())
 
 	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV03, q)
@@ -485,15 +485,27 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				return err1
 			}
 
-			if resp.StatusCode == http.StatusNotFound || resp.StatusCode == http.StatusInternalServerError {
-				lggr.Warnf("at block %s upkeep %s received status code %d from mercury v0.3", sl.time.String(), sl.upkeepId.String(), resp.StatusCode)
+			lggr.Infof("at timestamp %s upkeep %s received status code %d from mercury v0.3", sl.time.String(), sl.upkeepId.String(), resp.StatusCode)
+			if resp.StatusCode == http.StatusUnauthorized {
+				retryable = false
+				state = encoding.UpkeepNotAuthorized
+				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by unauthorized upkeep", sl.time.String(), sl.upkeepId.String(), resp.StatusCode)
+			} else if resp.StatusCode == http.StatusBadRequest {
+				retryable = false
+				state = encoding.InvalidMercuryRequest
+				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by invalid format of timestamp", sl.time.String(), sl.upkeepId.String(), resp.StatusCode)
+			} else if resp.StatusCode == http.StatusInternalServerError {
 				retryable = true
 				state = encoding.MercuryFlakyFailure
 				return errors.New(strconv.FormatInt(int64(resp.StatusCode), 10))
+			} else if resp.StatusCode == 420 {
+				// in 0.3, this will happen when missing/malformed query args, missing or bad required headers, non-existent feeds, or no permissions for feeds
+				retryable = false
+				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by missing/malformed query args, missing or bad required headers, non-existent feeds, or no permissions for feeds", sl.time.String(), sl.upkeepId.String(), resp.StatusCode)
 			} else if resp.StatusCode != http.StatusOK {
 				retryable = false
 				state = encoding.InvalidMercuryRequest
-				return fmt.Errorf("at block %s upkeep %s received status code %d from mercury v0.3", sl.time.String(), sl.upkeepId.String(), resp.StatusCode)
+				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3", sl.time.String(), sl.upkeepId.String(), resp.StatusCode)
 			}
 
 			var response MercuryV03Response
@@ -504,12 +516,12 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				state = encoding.MercuryUnmarshalError
 				return err1
 			}
+			// in v0.3, if some feeds are not available, the server will only return available feeds, but we need to make sure ALL feeds are retrieved before calling user contract
+			// hence, retry in this case. retry will help when we send a very new timestamp and reports are not yet generated
 			if len(response.Reports) != len(sl.feeds) {
-				// this should never happen. if this upkeep does not have permission for any feeds it requests, or if certain feeds are
-				// missing in mercury server, the mercury server v0.3 should respond with 400s, rather than returning partial results
-				retryable = false
-				state = encoding.InvalidMercuryResponse
-				return fmt.Errorf("at block %s upkeep %s requested %d feeds but received %d reports from mercury v0.3", sl.time.String(), sl.upkeepId.String(), len(sl.feeds), len(response.Reports))
+				retryable = true
+				state = encoding.MercuryFlakyFailure
+				return errors.New(fmt.Sprintf("%d", http.StatusNotFound))
 			}
 			var reportBytes [][]byte
 			for _, rsp := range response.Reports {
