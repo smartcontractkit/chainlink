@@ -29,19 +29,18 @@ message LatestReportResponse {
 
 message Report {
     bytes feedId = 1;
-    bytes price = 2;
     bytes payload = 3;
+
     int64 validFromBlockNumber = 4;
     int64 currentBlockNumber = 5;
-    bytes currentBlockHash = 6;
-    uint64 currentBlockTimestamp = 7;
+    
     int64 observationsTimestamp = 8;
+    int64 validFromTimestamp = 15;
+
     bytes configDigest = 9;
-    uint32 epoch = 10;
-    uint32 round = 11;
-    string operatorName = 12;
-    bytes transmittingOperator = 13;
+
     Timestamp createdAt = 14;
+    reserved 2, 6, 7, 10, 11, 12, 13;
 }
 
 // Taken from: https://github.com/protocolbuffers/protobuf/blob/main/src/google/protobuf/timestamp.proto
