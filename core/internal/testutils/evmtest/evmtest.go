@@ -162,7 +162,7 @@ chains:
 	}
 }
 
-func (mo *TestConfigs) Chains(offset int, limit int, ids ...relay.ChainID) (cs []types.ChainStatus, count int, err error) {
+func (mo *TestConfigs) Chains(ids ...relay.ChainID) (cs []types.ChainStatus, count int, err error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
 	if len(ids) == 0 {

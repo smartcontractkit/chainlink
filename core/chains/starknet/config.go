@@ -316,3 +316,11 @@ func (c *StarknetConfig) OCR2CacheTTL() time.Duration {
 func (c *StarknetConfig) RequestTimeout() time.Duration {
 	return c.Chain.RequestTimeout.Duration()
 }
+
+func (c *StarknetConfig) ListNodes() ([]db.Node, error) {
+	var allNodes []db.Node
+	for _, n := range c.Nodes {
+		allNodes = append(allNodes, legacyNode(n, relay.ChainID(*c.ChainID)))
+	}
+	return allNodes, nil
+}

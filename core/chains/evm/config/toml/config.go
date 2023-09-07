@@ -95,7 +95,18 @@ func (cs *EVMConfigs) SetFrom(fs *EVMConfigs) (err error) {
 	return
 }
 
-func (cs EVMConfigs) Chains(ids ...relay.ChainID) (r []relaytypes.ChainStatus, err error) {
+func (cs EVMConfigs) totalChains() int {
+	total := 0
+	for _, ch := range cs {
+		if ch == nil {
+			continue
+		}
+		total += 1
+	}
+	return total
+}
+func (cs EVMConfigs) Chains(ids ...relay.ChainID) (r []relaytypes.ChainStatus, total int, err error) {
+	total = cs.totalChains()
 	for _, ch := range cs {
 		if ch == nil {
 			continue

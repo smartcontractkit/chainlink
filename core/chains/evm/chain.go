@@ -70,7 +70,7 @@ type LegacyChains struct {
 	*chains.ChainsKV[Chain]
 	dflt Chain
 
-	cfgs evmtypes.Configs
+	cfgs toml.EVMConfigs //evmtypes.Configs
 }
 
 // LegacyChainContainer is container for EVM chains.
@@ -92,7 +92,7 @@ var _ LegacyChainContainer = &LegacyChains{}
 func NewLegacyChains(m map[string]Chain, evmCfgs toml.EVMConfigs) *LegacyChains {
 	return &LegacyChains{
 		ChainsKV: chains.NewChainsKV[Chain](m),
-		cfgs:     chains.NewConfigs[evmtypes.Node](evmCfgs),
+		cfgs:     evmCfgs,
 	}
 }
 
@@ -173,8 +173,8 @@ type RelayerConfig struct {
 	MailMon          *utils.MailboxMonitor
 	GasEstimator     gas.EvmFeeEstimator
 
-	init               sync.Once
-	operationalConfigs evmtypes.Configs
+	init sync.Once
+	//operationalConfigs evmtypes.Configs
 
 	// TODO BCF-2513 remove test code from the API
 	// Gen-functions are useful for dependency injection by tests
@@ -186,14 +186,6 @@ type RelayerConfig struct {
 	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
 }
 
-func (r *RelayerConfig) EVMConfigs() evmtypes.Configs {
-	if r.operationalConfigs == nil {
-		r.init.Do(func() {
-			r.operationalConfigs = chains.NewConfigs[evmtypes.Node](r.AppConfig.EVMConfigs())
-		})
-	}
-	return r.operationalConfigs
-}
 func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExtenderConfig) (Chain, error) {
 	chainID := chain.ChainID
 	l := opts.Logger.With("evmChainID", chainID.String())
@@ -492,10 +484,6 @@ func (opts *ChainRelayExtenderConfig) Check() error {
 	if opts.AppConfig == nil {
 		return errors.New("config must be non-nil")
 	}
-
-	opts.init.Do(func() {
-		opts.operationalConfigs = chains.NewConfigs[evmtypes.Node](opts.AppConfig.EVMConfigs())
-	})
 
 	return nil
 }

@@ -25,7 +25,7 @@ func (b *chainBatcher) loadByIDs(_ context.Context, keys dataloader.Keys) []*dat
 	}
 
 	// Fetch the chains
-	cs, _, err := b.app.EVMORM().Chains(0, -1, chainIDs...)
+	cs, _, err := b.app.EVMORM().Chains(chainIDs...)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}

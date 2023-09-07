@@ -16,7 +16,6 @@ import (
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
@@ -368,6 +367,19 @@ func sdkDecFromDecimal(d *decimal.Decimal) sdk.Dec {
 	return sdk.NewDecFromBigIntWithPrec(i.BigInt(), sdk.Precision)
 }
 
-func NewConfigs(cfgs chains.ConfigsV2[db.Node]) types.Configs {
-	return chains.NewConfigs(cfgs)
+func (c *CosmosConfig) GetNode(name string) (db.Node, error) {
+	for _, n := range c.Nodes {
+		if *n.Name == name {
+			return legacyNode(n, relay.ChainID(*c.ChainID)), nil
+		}
+	}
+	return db.Node{}, fmt.Errorf("%w: node %s", chains.ErrNotFound, name)
+}
+
+func (c *CosmosConfig) ListNodes() ([]db.Node, error) {
+	var allNodes []db.Node
+	for _, n := range c.Nodes {
+		allNodes = append(allNodes, legacyNode(n, relay.ChainID(*c.ChainID)))
+	}
+	return allNodes, nil
 }

@@ -6,10 +6,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 )
 
-// Configs manages cosmos chains and nodes.
-type Configs interface {
-	chains.ChainConfigs
-	chains.NodeConfigs[db.Node]
+type Config interface {
+	chains.ChainConfig[db.Node]
 }
 
 // NewNode defines a new node to create.

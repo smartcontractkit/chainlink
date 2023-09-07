@@ -374,14 +374,10 @@ func (c *SolanaConfig) FeeBumpPeriod() time.Duration {
 	return c.Chain.FeeBumpPeriod.Duration()
 }
 
-// Configs manages solana chains and nodes.
-type Configs interface {
-	chains.ChainConfigs
-	chains.NodeConfigs[soldb.Node]
-}
-
-var _ chains.Configs[soldb.Node] = (Configs)(nil)
-
-func NewConfigs(cfgs chains.ConfigsV2[soldb.Node]) Configs {
-	return chains.NewConfigs(cfgs)
+func (c *SolanaConfig) ListNodes() ([]soldb.Node, error) {
+	var allNodes []soldb.Node
+	for _, n := range c.Nodes {
+		allNodes = append(allNodes, legacySolNode(n, relay.ChainID(*c.ChainID)))
+	}
+	return allNodes, nil
 }

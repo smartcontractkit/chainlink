@@ -98,10 +98,6 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 			continue
 		}
 
-		// all the lower level APIs expect a config slice. create a single valued set per id
-		// TODO BCF-2605: clean this up
-		singleChainCfg := solana.SolanaConfigs{chainCfg}
-
 		if cmdName := env.SolanaPluginCmd.Get(); cmdName != "" {
 
 			// setup the solana relayer to be a LOOP
@@ -128,7 +124,6 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 			opts := solana.ChainOpts{
 				Logger:   solLggr,
 				KeyStore: signer,
-				Configs:  solana.NewConfigs(singleChainCfg),
 			}
 
 			chain, err := solana.NewChain(chainCfg, opts)
@@ -172,10 +167,6 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 			continue
 		}
 
-		// all the lower level APIs expect a config slice. create a single valued set per id
-		// TODO BCF-2605: clean this up
-		singleChainCfg := starknet.StarknetConfigs{chainCfg}
-
 		if cmdName := env.StarknetPluginCmd.Get(); cmdName != "" {
 			// setup the starknet relayer to be a LOOP
 			cfgTOML, err := toml.Marshal(struct {
@@ -200,7 +191,6 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 			opts := starknet.ChainOpts{
 				Logger:   starkLggr,
 				KeyStore: loopKs,
-				Configs:  starknet.NewConfigs(singleChainCfg),
 			}
 
 			chain, err := starknet.NewChain(chainCfg, opts)
@@ -240,7 +230,7 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 			KeyStore:         loopKs,
 			EventBroadcaster: config.EventBroadcaster,
 		}
-		opts.Configs = cosmos.NewConfigs(cosmos.CosmosConfigs{chainCfg})
+		//	opts.Config = cosmos.New // cosmos.NewConfigs(cosmos.CosmosConfigs{chainCfg})
 		chain, err := cosmos.NewChain(chainCfg, opts)
 
 		if err != nil {
