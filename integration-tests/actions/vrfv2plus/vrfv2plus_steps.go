@@ -315,7 +315,7 @@ func RequestRandomnessAndWaitForFulfillment(
 	isNativeBilling bool,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled, error) {
-	err := consumer.RequestRandomness(
+	_, err := consumer.RequestRandomness(
 		vrfv2PlusData.KeyHash,
 		subID,
 		vrfv2plus_constants.MinimumConfirmations,

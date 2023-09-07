@@ -712,6 +712,10 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       revert SubscriptionIDCollisionFound();
     }
 
+    for (uint i = 0; i < migrationData.consumers.length; i++) {
+      addConsumer(migrationData.subId, migrationData.consumers[i]);
+    }
+
     s_subscriptions[migrationData.subId] = Subscription({
       ethBalance: migrationData.ethBalance,
       balance: migrationData.linkBalance,

@@ -247,7 +247,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		Interface("Coordinator", coordinatorAddressInConsumerAfterMigration).
 		Msg("Coordinator Address in Consumer After Migration")
 
-	err = oldVRFV2PlusContracts.LoadTestConsumer.RequestRandomness(
+	_, err = oldVRFV2PlusContracts.LoadTestConsumer.RequestRandomness(
 		vrfv2PlusData.KeyHash,
 		subID,
 		vrfv2plus_constants.MinimumConfirmations,
@@ -256,6 +256,9 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		vrfv2plus_constants.NumberOfWords,
 		vrfv2plus_constants.RandomnessRequestCountPerRequest,
 	)
+
+	//revertReasonFromTx, _, err := env.EVMClient.RevertReasonFromTx(hash, vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetricsABI)
+	//l.Debug().Interface("REASON", revertReasonFromTx).Msg("REVERT REASON")
 	require.NoError(t, err, vrfv2plus.ErrRequestRandomness)
 
 	randomWordsRequestedEvent, err := newCoordinator.WaitForRandomWordsRequestedEvent(

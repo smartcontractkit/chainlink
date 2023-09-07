@@ -278,16 +278,17 @@ func (v *EthereumVRFCoordinatorV2Plus) WaitForMigrationCompletedEvent(timeout ti
 func (v *EthereumVRFv2PlusLoadTestConsumer) Address() string {
 	return v.address.Hex()
 }
-func (v *EthereumVRFv2PlusLoadTestConsumer) RequestRandomness(keyHash [32]byte, subID *big.Int, requestConfirmations uint16, callbackGasLimit uint32, nativePayment bool, numWords uint32, requestCount uint16) error {
+func (v *EthereumVRFv2PlusLoadTestConsumer) RequestRandomness(keyHash [32]byte, subID *big.Int, requestConfirmations uint16, callbackGasLimit uint32, nativePayment bool, numWords uint32, requestCount uint16) (*types.Transaction, error) {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
-		return err
+		return nil, err
 	}
 	tx, err := v.consumer.RequestRandomWords(opts, subID, requestConfirmations, keyHash, callbackGasLimit, nativePayment, numWords, requestCount)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return v.client.ProcessTransaction(tx)
+
+	return tx, v.client.ProcessTransaction(tx)
 }
 
 func (v *EthereumVRFv2PlusLoadTestConsumer) GetCoordinator(ctx context.Context) (common.Address, error) {
