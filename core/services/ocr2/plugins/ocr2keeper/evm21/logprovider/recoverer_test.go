@@ -351,7 +351,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			},
 			nil,
 			nil,
-			[]string{"7b39bc6e7a109f4c6f34795efdf069169c7095abbc4326c7e50c6eef035e1e36"},
+			[]string{"c207451fa897f9bb13b09d54d8655edf0644e027c53521b4a92eafbb64ba4d14"},
 			[]int64{200, 0, 450},
 		},
 		{
@@ -381,7 +381,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			},
 			nil,
 			nil,
-			[]string{"7b39bc6e7a109f4c6f34795efdf069169c7095abbc4326c7e50c6eef035e1e36"},
+			[]string{"c207451fa897f9bb13b09d54d8655edf0644e027c53521b4a92eafbb64ba4d14"},
 			[]int64{600},
 		},
 		{
@@ -412,7 +412,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			},
 			nil,
 			nil,
-			[]string{"7b39bc6e7a109f4c6f34795efdf069169c7095abbc4326c7e50c6eef035e1e36"},
+			[]string{"c207451fa897f9bb13b09d54d8655edf0644e027c53521b4a92eafbb64ba4d14"},
 			[]int64{700}, // should be configUpdateBlock + recoveryLogsBuffer
 		},
 	}
@@ -964,7 +964,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					}
 					return t
 				}(),
-				WorkID: "7dacfdd0ed0b4a4a658219f982b0f4c4bdcbb6862de6a0596f7acf6672c6e85a",
+				WorkID: "7f775793422d178c90e99c3bbdf05181bc6bb6ce13170e87c92ac396bb7ddda0",
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
@@ -1015,7 +1015,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					}
 					return t
 				}(),
-				WorkID: "7dacfdd0ed0b4a4a658219f982b0f4c4bdcbb6862de6a0596f7acf6672c6e85a",
+				WorkID: "7f775793422d178c90e99c3bbdf05181bc6bb6ce13170e87c92ac396bb7ddda0",
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
