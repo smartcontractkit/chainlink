@@ -248,7 +248,7 @@ func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken 
 }
 
 func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
-	panic("unimplmented")
+	return c.sendTx(ctx, from, to, amount, balanceCheck)
 }
 
 func (c *chain) listNodeStatuses(start, end int) ([]relaytypes.NodeStatus, int, error) {
@@ -392,7 +392,7 @@ func (c *chain) HealthReport() map[string]error {
 	return report
 }
 
-func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+func (c *chain) sendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	reader, err := c.Reader()
 	if err != nil {
 		return fmt.Errorf("chain unreachable: %w", err)

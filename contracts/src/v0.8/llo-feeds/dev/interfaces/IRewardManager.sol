@@ -48,8 +48,14 @@ interface IRewardManager is IERC165 {
   /**
    * @notice Gets a list of pool ids which have reward for a specific recipient.
    * @param recipient address of the recipient to get pool ids for
+   * @param startIndex the index to start from
+   * @param endIndex the index to stop at
    */
-  function getAvailableRewardPoolIds(address recipient) external view returns (bytes32[] memory);
+  function getAvailableRewardPoolIds(
+    address recipient,
+    uint256 startIndex,
+    uint256 endIndex
+  ) external view returns (bytes32[] memory);
 
   /**
    * @notice The structure to hold a fee payment notice
