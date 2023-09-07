@@ -3,20 +3,19 @@ package client
 import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	nodetypes "github.com/smartcontractkit/chainlink/v2/common/chains/client/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
 type totalDifficultyNodeSelector[
 	CHAIN_ID types.ID,
-	HEAD nodetypes.Head,
-	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
+	HEAD Head,
+	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
 ] []Node[CHAIN_ID, HEAD, RPC_CLIENT]
 
 func NewTotalDifficultyNodeSelector[
 	CHAIN_ID types.ID,
-	HEAD nodetypes.Head,
-	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
+	HEAD Head,
+	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
 ](nodes []Node[CHAIN_ID, HEAD, RPC_CLIENT]) NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT] {
 	return totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT](nodes)
 }

@@ -11,7 +11,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
-	nodetypes "github.com/smartcontractkit/chainlink/v2/common/chains/client/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -36,10 +35,35 @@ var (
 	}, []string{"network", "chainID", "nodeName"})
 )
 
+type NodeConfig interface {
+	PollFailureThreshold() uint32
+	PollInterval() time.Duration
+	SelectionMode() string
+	SyncThreshold() uint32
+}
+
+type NodeClient[
+	CHAIN_ID types.ID,
+	HEAD Head,
+] interface {
+	Close()
+	ChainID(context.Context) (CHAIN_ID, error)
+	Dial(callerCtx context.Context) error
+	DialHTTP() error
+	DisconnectAll()
+	Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (types.Subscription, error)
+	ClientVersion(context.Context) (string, error)
+}
+
+type Head interface {
+	BlockNumber() int64
+	BlockDifficulty() *utils.Big
+}
+
 type Node[
 	CHAIN_ID types.ID,
-	HEAD nodetypes.Head,
-	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
+	HEAD Head,
+	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
 ] interface {
 	// State returns NodeState
 	State() NodeState
@@ -57,15 +81,15 @@ type Node[
 
 type node[
 	CHAIN_ID types.ID,
-	HEAD nodetypes.Head,
-	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
+	HEAD Head,
+	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
 ] struct {
 	utils.StartStopOnce
 	lfcLog              logger.Logger
 	name                string
 	id                  int32
 	chainID             CHAIN_ID
-	nodePoolCfg         nodetypes.NodeConfig
+	nodePoolCfg         NodeConfig
 	noNewHeadsThreshold time.Duration
 	order               int32
 	chainFamily         string
@@ -97,10 +121,10 @@ type node[
 
 func NewNode[
 	CHAIN_ID types.ID,
-	HEAD nodetypes.Head,
-	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
+	HEAD Head,
+	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
 ](
-	nodeCfg nodetypes.NodeConfig,
+	nodeCfg NodeConfig,
 	noNewHeadsThreshold time.Duration,
 	lggr logger.Logger,
 	wsuri url.URL,

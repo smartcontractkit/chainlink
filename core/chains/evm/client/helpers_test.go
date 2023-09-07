@@ -10,8 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
-	nodetypes "github.com/smartcontractkit/chainlink/v2/common/chains/client/types"
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -71,27 +70,27 @@ func NewChainClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNew
 	}
 
 	lggr := logger.TestLogger(t)
-	rpcClient := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, nodetypes.Primary)
+	rpcClient := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary)
 
-	n := clienttypes.NewNode[*big.Int, *evmtypes.Head, RPCClient](
+	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCClient](
 		nodePoolCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpcClient, "EVM")
 	// n.(*node).setLatestReceived(0, utils.NewBigI(0))
-	primaries := []clienttypes.Node[*big.Int, *evmtypes.Head, RPCClient]{n}
+	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]{n}
 
-	var sendonlys []clienttypes.SendOnlyNode[*big.Int, RPCClient]
+	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient]
 	for i, u := range sendonlyRPCURLs {
 		if u.Scheme != "http" && u.Scheme != "https" {
 			return nil, errors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
 		}
 		var empty url.URL
-		rpcClient := NewRPCClient(lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, nodetypes.Secondary)
-		s := clienttypes.NewSendOnlyNode[*big.Int, RPCClient](
+		rpcClient := NewRPCClient(lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary)
+		s := commonclient.NewSendOnlyNode[*big.Int, RPCClient](
 			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpcClient)
 		sendonlys = append(sendonlys, s)
 	}
 
 	// pool := NewPool(lggr, nodePoolCfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, "")
-	multiNodeClient := clienttypes.NewMultiNodeClient[*big.Int, *evmtypes.Head, RPCClient, *types.Transaction](
+	multiNodeClient := commonclient.NewMultiNodeClient[*big.Int, *evmtypes.Head, RPCClient, *types.Transaction](
 		lggr, nodePoolCfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, "EVM",
 	)
 	c := &ChainClient{

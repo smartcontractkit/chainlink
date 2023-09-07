@@ -5,14 +5,13 @@ import (
 	"sort"
 	"sync/atomic"
 
-	nodetypes "github.com/smartcontractkit/chainlink/v2/common/chains/client/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
 type priorityLevelNodeSelector[
 	CHAIN_ID types.ID,
-	HEAD nodetypes.Head,
-	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
+	HEAD Head,
+	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
 ] struct {
 	nodes           []Node[CHAIN_ID, HEAD, RPC_CLIENT]
 	roundRobinCount []atomic.Uint32
@@ -20,8 +19,8 @@ type priorityLevelNodeSelector[
 
 type nodeWithPriority[
 	CHAIN_ID types.ID,
-	HEAD nodetypes.Head,
-	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
+	HEAD Head,
+	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
 ] struct {
 	node     Node[CHAIN_ID, HEAD, RPC_CLIENT]
 	priority int32
@@ -29,8 +28,8 @@ type nodeWithPriority[
 
 func NewPriorityLevelNodeSelector[
 	CHAIN_ID types.ID,
-	HEAD nodetypes.Head,
-	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
+	HEAD Head,
+	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
 ](nodes []Node[CHAIN_ID, HEAD, RPC_CLIENT]) NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT] {
 	return &priorityLevelNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]{
 		nodes:           nodes,
@@ -77,8 +76,8 @@ func (s priorityLevelNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]) getHighestPriorit
 // removeLowerTiers take a slice of nodeWithPriority[CHAIN_ID, BLOCK_HASH, HEAD, RPC_CLIENT] and keeps only the highest tier
 func removeLowerTiers[
 	CHAIN_ID types.ID,
-	HEAD nodetypes.Head,
-	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
+	HEAD Head,
+	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
 ](nodes []nodeWithPriority[CHAIN_ID, HEAD, RPC_CLIENT]) []nodeWithPriority[CHAIN_ID, HEAD, RPC_CLIENT] {
 	sort.SliceStable(nodes, func(i, j int) bool {
 		return nodes[i].priority > nodes[j].priority
@@ -99,8 +98,8 @@ func removeLowerTiers[
 // nrOfPriorityTiers calculates the total number of priority tiers
 func nrOfPriorityTiers[
 	CHAIN_ID types.ID,
-	HEAD nodetypes.Head,
-	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
+	HEAD Head,
+	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
 ](nodes []Node[CHAIN_ID, HEAD, RPC_CLIENT]) int32 {
 	highestPriority := int32(0)
 	for _, n := range nodes {
@@ -115,8 +114,8 @@ func nrOfPriorityTiers[
 // firstOrHighestPriority takes a list of nodes and returns the first one with the highest priority
 func firstOrHighestPriority[
 	CHAIN_ID types.ID,
-	HEAD nodetypes.Head,
-	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
+	HEAD Head,
+	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
 ](nodes []Node[CHAIN_ID, HEAD, RPC_CLIENT]) Node[CHAIN_ID, HEAD, RPC_CLIENT] {
 	hp := int32(math.MaxInt32)
 	var node Node[CHAIN_ID, HEAD, RPC_CLIENT]

@@ -3,14 +3,13 @@ package client
 import (
 	"sync/atomic"
 
-	nodetypes "github.com/smartcontractkit/chainlink/v2/common/chains/client/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 )
 
 type roundRobinSelector[
 	CHAIN_ID types.ID,
-	HEAD nodetypes.Head,
-	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
+	HEAD Head,
+	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
 ] struct {
 	nodes           []Node[CHAIN_ID, HEAD, RPC_CLIENT]
 	roundRobinCount atomic.Uint32
@@ -18,8 +17,8 @@ type roundRobinSelector[
 
 func NewRoundRobinSelector[
 	CHAIN_ID types.ID,
-	HEAD nodetypes.Head,
-	RPC_CLIENT nodetypes.NodeClient[CHAIN_ID, HEAD],
+	HEAD Head,
+	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
 ](nodes []Node[CHAIN_ID, HEAD, RPC_CLIENT]) NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT] {
 	return &roundRobinSelector[CHAIN_ID, HEAD, RPC_CLIENT]{
 		nodes: nodes,

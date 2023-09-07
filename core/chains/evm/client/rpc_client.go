@@ -17,7 +17,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
-	nodetypes "github.com/smartcontractkit/chainlink/v2/common/chains/client/types"
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -26,11 +27,11 @@ import (
 )
 
 type RPCClient interface {
-	nodetypes.NodeClient[
+	commonclient.NodeClient[
 		*big.Int,
 		*evmtypes.Head,
 	]
-	nodetypes.RPCClient[
+	clienttypes.RPCClient[
 		*big.Int,
 		evmtypes.Nonce,
 		common.Address,
@@ -50,7 +51,7 @@ type rpcClient struct {
 	name    string
 	id      int32
 	chainID *big.Int
-	tier    nodetypes.NodeTier
+	tier    commonclient.NodeTier
 
 	ws   rawclient
 	http *rawclient
@@ -68,7 +69,7 @@ type rpcClient struct {
 }
 
 // NewRPCCLient returns a new *rpcClient as clienttypes.RPCClient
-func NewRPCClient(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int, tier nodetypes.NodeTier) RPCClient {
+func NewRPCClient(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int, tier commonclient.NodeTier) RPCClient {
 	r := new(rpcClient)
 	r.name = name
 	r.id = id
