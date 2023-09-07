@@ -57,6 +57,7 @@ type logRecoverer struct {
 	lggr logger.Logger
 
 	cancel context.CancelFunc
+	done   chan struct{}
 
 	lookbackBlocks *atomic.Int64
 	blockTime      *atomic.Int64
@@ -79,6 +80,8 @@ var _ LogRecoverer = &logRecoverer{}
 func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client client.Client, stateStore core.UpkeepStateReader, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logRecoverer {
 	rec := &logRecoverer{
 		lggr: lggr.Named("LogRecoverer"),
+
+		done: make(chan struct{}),
 
 		blockTime:      &atomic.Int64{},
 		lookbackBlocks: &atomic.Int64{},
@@ -126,6 +129,8 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 
 	{
 		go func(ctx context.Context, interval time.Duration) {
+			defer close(r.done)
+
 			ticker := time.NewTicker(interval)
 			defer ticker.Stop()
 			gcTicker := time.NewTicker(utils.WithJitter(GCInterval))
@@ -151,6 +156,14 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 }
 
 func (r *logRecoverer) Close() error {
+	if err := r.stop(); err != nil {
+		return err
+	}
+	<-r.done
+	return nil
+}
+
+func (r *logRecoverer) stop() error {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
@@ -160,6 +173,7 @@ func (r *logRecoverer) Close() error {
 	} else {
 		return errors.New("already stopped")
 	}
+
 	return nil
 }
 
