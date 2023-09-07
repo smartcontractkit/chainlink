@@ -86,7 +86,7 @@ func (t *pipelineTransmitter) CreateEthTransaction(ctx context.Context, toAddres
 	}
 
 	if run.State != pipeline.RunStatusCompleted {
-		return fmt.Errorf("unexpected pipeline run state: %s with fatal errors %e", run.State, run.FatalErrors.ToError())
+		return fmt.Errorf("unexpected pipeline run state: %s with fatal errors %w", run.State, run.FatalErrors.ToError())
 	}
 
 	return nil
