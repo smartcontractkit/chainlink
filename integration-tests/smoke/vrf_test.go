@@ -3,29 +3,38 @@ package smoke
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"testing"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv1"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/stretchr/testify/require"
-	"math/big"
-	"testing"
-	"time"
 )
 
 func TestVRFBasic(t *testing.T) {
 	t.Parallel()
 	l := utils.GetTestLogger(t)
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithGeth().
 		WithMockServer(1).
 		WithCLNodes(1).
-		WithFunding(big.NewFloat(1)).
+		WithFunding(big.NewFloat(.1)).
 		Build()
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := env.Cleanup(); err != nil {
+			l.Error().Err(err).Msg("Error cleaning up test environment")
+		}
+	})
 	env.ParallelTransactions(true)
 
 	lt, err := actions.DeployLINKToken(env.ContractDeployer)
