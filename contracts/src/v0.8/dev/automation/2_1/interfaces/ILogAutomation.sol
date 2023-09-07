@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 struct Log {
   uint256 index;
+  uint256 txIndex;
   bytes32 txHash;
   uint256 blockNumber;
   bytes32 blockHash;
