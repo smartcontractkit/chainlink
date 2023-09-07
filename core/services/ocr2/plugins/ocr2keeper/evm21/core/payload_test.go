@@ -126,7 +126,7 @@ func TestNewUpkeepPayload(t *testing.T) {
 				},
 			},
 			check:  []byte("check-data-111"),
-			workID: "d2fc1c0d626b480a4180f30b89142ae727c85e0b4dc0a82645bcef8062ff932a",
+			workID: "d8e7c8907a0b60b637ce71ff4f757edf076e270d52c51f6e4d46a3b0696e0a39",
 		},
 	}
 
