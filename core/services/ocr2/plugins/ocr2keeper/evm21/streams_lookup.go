@@ -434,10 +434,11 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 	//	feedIDs:   {strings.Join(sl.feeds, ",")},
 	//	timestamp: {sl.time.String()},
 	//}
-	q := fmt.Sprintf("feedIDs=%s&timestamp=%s", strings.Join(sl.feeds, ","), sl.time.String())
+	t := big.NewInt(sl.time.Int64() - 5)
+	q := fmt.Sprintf("feedIDs=%s&timestamp=%s", strings.Join(sl.feeds, ","), t.String())
 
 	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV03, q)
-	lggr.Debugf("request URL for upkeep %s feed %s: %s", sl.upkeepId.String(), strings.Join(sl.feeds, ","), reqUrl)
+	lggr.Debugf("request URL for upkeep %s userId %s: %s", sl.upkeepId.String(), r.mercury.cred.Username, reqUrl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
 	if err != nil {
