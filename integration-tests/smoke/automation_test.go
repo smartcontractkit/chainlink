@@ -6,18 +6,13 @@ import (
 	"math/big"
 	"os"
 	"strconv"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/logging"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	eth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
@@ -27,6 +22,11 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const (
@@ -38,25 +38,6 @@ const (
 )
 
 var (
-	automationBaseTOML = `[Feature]
-LogPoller = true
-
-[OCR2]
-Enabled = true
-
-[Keeper]
-TurnLookBack = 0
-
-[Keeper.Registry]
-SyncInterval = '5m'
-PerformGasOverhead = 150_000
-
-[P2P]
-[P2P.V2]
-Enabled = true
-AnnounceAddresses = ["0.0.0.0:6690"]
-ListenAddresses = ["0.0.0.0:6690"]`
-
 	defaultOCRRegistryConfig = contracts.KeeperRegistrySettings{
 		PaymentPremiumPPB:    uint32(200000000),
 		FlatFeeMicroLINK:     uint32(0),
@@ -109,7 +90,9 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -126,12 +109,9 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				require.NoError(t, err, "Error getting upgrade version")
 				testName = "node-upgrade"
 			}
-			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner, testEnv := setupAutomationTest(
+			chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupAutomationTestDocker(
 				t, testName, registryVersion, defaultOCRRegistryConfig, nodeUpgrade,
 			)
-			if onlyStartRunner {
-				return
-			}
 
 			// Use the name to determine if this is a log trigger or not
 			isLogTrigger := name == "registry_2_1_logtrigger"
@@ -152,8 +132,6 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			l.Info().Msg("Waiting for all upkeeps to be performed")
 			gom := gomega.NewGomegaWithT(t)
 
-			// Wait for 30 seconds to allow everything to be ready before emitting logs
-			time.Sleep(30 * time.Second)
 			for i := 0; i < len(upkeepIDs); i++ {
 				err := consumers[i].Start()
 				if err != nil {
@@ -181,7 +159,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				expect := 5
 				// Upgrade the nodes one at a time and check that the upkeeps are still being performed
 				for i := 0; i < 5; i++ {
-					actions.UpgradeChainlinkNodeVersions(testEnv, upgradeImage, upgradeVersion, chainlinkNodes[i])
+					actions.UpgradeChainlinkNodeVersionsLocal(upgradeImage, upgradeVersion, testEnv.CLNodes[i])
 					time.Sleep(time.Second * 10)
 					expect = expect + 5
 					gom.Eventually(func(g gomega.Gomega) {
@@ -237,16 +215,14 @@ func TestAutomationAddFunds(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-
-			chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
+			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "add-funds", registryVersion, defaultOCRRegistryConfig, false,
 			)
-			if onlyStartRunner {
-				return
-			}
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(1), automationDefaultUpkeepGasLimit, false)
 
@@ -291,22 +267,20 @@ func TestAutomationPauseUnPause(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-
-			chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
+			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "pause-unpause", registryVersion, defaultOCRRegistryConfig, false,
 			)
-			if onlyStartRunner {
-				return
-			}
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
 
 			gom := gomega.NewGomegaWithT(t)
 			gom.Eventually(func(g gomega.Gomega) {
-				// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 5
+				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 5
 				for i := 0; i < len(upkeepIDs); i++ {
 					counter, err := consumers[i].Counter(context.Background())
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
@@ -377,16 +351,14 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-
-			chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
+			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "register-upkeep", registryVersion, defaultOCRRegistryConfig, false,
 			)
-			if onlyStartRunner {
-				return
-			}
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
 
@@ -451,15 +423,14 @@ func TestAutomationPauseRegistry(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
+			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "pause-registry", registryVersion, defaultOCRRegistryConfig, false,
 			)
-			if onlyStartRunner {
-				return
-			}
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
 			gom := gomega.NewGomegaWithT(t)
@@ -511,16 +482,14 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-
-			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
+			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "keeper-nodes-down", registryVersion, defaultOCRRegistryConfig, false,
 			)
-			if onlyStartRunner {
-				return
-			}
 
 			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
 			gom := gomega.NewGomegaWithT(t)
@@ -599,16 +568,14 @@ func TestAutomationPerformSimulation(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-
-			chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
+			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "perform-simulation", registryVersion, defaultOCRRegistryConfig, false,
 			)
-			if onlyStartRunner {
-				return
-			}
 
 			consumersPerformance, _ := actions.DeployPerformanceConsumers(
 				t,
@@ -666,16 +633,14 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-
-			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
+			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "gas-limit", registryVersion, defaultOCRRegistryConfig, false,
 			)
-			if onlyStartRunner {
-				return
-			}
 
 			consumersPerformance, upkeepIDs := actions.DeployPerformanceConsumers(
 				t,
@@ -753,7 +718,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			highCheckGasLimit := automationDefaultRegistryConfig
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
 			highCheckGasLimit.RegistryVersion = registryVersion
-			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 5*time.Second)
+			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(t, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 30*time.Second)
 			require.NoError(t, err, "Error building OCR config")
 
 			err = registry.SetConfig(highCheckGasLimit, ocrConfig)
@@ -782,16 +747,14 @@ func TestUpdateCheckData(t *testing.T) {
 		"registry_2_1": ethereum.RegistryVersion_2_1,
 	}
 
-	for name, registryVersion := range registryVersions {
+	for n, rv := range registryVersions {
+		name := n
+		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-
-			chainClient, _, contractDeployer, linkToken, registry, registrar, onlyStartRunner, _ := setupAutomationTest(
+			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "update-check-data", registryVersion, defaultOCRRegistryConfig, false,
 			)
-			if onlyStartRunner {
-				return
-			}
 
 			performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerConsumers(
 				t,
@@ -849,95 +812,78 @@ func TestUpdateCheckData(t *testing.T) {
 	}
 }
 
-func setupAutomationTest(
+func setupAutomationTestDocker(
 	t *testing.T,
 	testName string,
 	registryVersion ethereum.KeeperRegistryVersion,
 	registryConfig contracts.KeeperRegistrySettings,
 	statefulDb bool,
 ) (
-	chainClient blockchain.EVMClient,
-	chainlinkNodes []*client.ChainlinkK8sClient,
-	contractDeployer contracts.ContractDeployer,
-	linkToken contracts.LinkToken,
-	registry contracts.KeeperRegistry,
-	registrar contracts.KeeperRegistrar,
-	onlyStartRunner bool,
-	testEnvironment *environment.Environment,
+	blockchain.EVMClient,
+	[]*client.ChainlinkClient,
+	contracts.ContractDeployer,
+	contracts.LinkToken,
+	contracts.KeeperRegistry,
+	contracts.KeeperRegistrar,
+	*test_env.CLClusterTestEnv,
 ) {
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
-
 	network := networks.SelectedNetwork
-	evmConfig := eth.New(nil)
-	if !network.Simulated {
-		evmConfig = eth.New(&eth.Props{
-			NetworkName: network.Name,
-			Simulated:   network.Simulated,
-			WsURLs:      network.URLs,
-		})
-	}
-	chainlinkProps := map[string]any{
-		"toml":        client.AddNetworksConfig(automationBaseTOML, network),
-		"secretsToml": client.AddSecretTomlConfig("https://google.com", "username1", "password1"),
-		"db": map[string]any{
-			"stateful": statefulDb,
-		},
-	}
 
-	cd, err := chainlink.NewDeployment(5, chainlinkProps)
-	require.NoError(t, err, "Failed to create chainlink deployment")
-	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-automation-%s-%s", testName, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")),
-		Test:            t,
-	}).
-		AddHelm(evmConfig).
-		AddHelmCharts(cd)
-	err = testEnvironment.Run()
+	// build the node config
+	clNodeConfig := node.NewConfig(node.BaseConf)
+	syncInterval := models.MustMakeDuration(5 * time.Minute)
+	clNodeConfig.Feature.LogPoller = it_utils.Ptr[bool](true)
+	clNodeConfig.OCR2.Enabled = it_utils.Ptr[bool](true)
+	clNodeConfig.Keeper.TurnLookBack = it_utils.Ptr[int64](int64(0))
+	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
+	clNodeConfig.Keeper.Registry.PerformGasOverhead = it_utils.Ptr[uint32](uint32(150000))
+	clNodeConfig.P2P.V2.Enabled = it_utils.Ptr[bool](true)
+	clNodeConfig.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
+	clNodeConfig.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
 
-	require.NoError(t, err, "Error setting up test environment")
+	// launch the environment
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithGeth().
+		WithMockServer(1).
+		WithCLNodes(5).
+		WithCLNodeConfig(clNodeConfig).
+		WithFunding(big.NewFloat(.5)).
+		Build()
+	require.NoError(t, err, "Error deploying test environment")
+	env.ParallelTransactions(true)
 
-	onlyStartRunner = testEnvironment.WillUseRemoteRunner()
-	if !onlyStartRunner {
-		chainClient, err = blockchain.NewEVMClient(network, testEnvironment)
-		require.NoError(t, err, "Error connecting to blockchain")
-		contractDeployer, err = contracts.NewContractDeployer(chainClient)
-		require.NoError(t, err, "Error building contract deployer")
-		chainlinkNodes, err = client.ConnectChainlinkNodes(testEnvironment)
-		require.NoError(t, err, "Error connecting to Chainlink nodes")
-		chainClient.ParallelTransactions(true)
+	txCost, err := env.EVMClient.EstimateCostForChainlinkOperations(1000)
+	require.NoError(t, err, "Error estimating cost for Chainlink Operations")
+	nodeClients := env.GetAPIs()
+	workerNodes := nodeClients[1:]
+	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, txCost)
+	require.NoError(t, err, "Error funding Chainlink nodes")
 
-		txCost, err := chainClient.EstimateCostForChainlinkOperations(1000)
-		require.NoError(t, err, "Error estimating cost for Chainlink Operations")
-		err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, txCost)
-		require.NoError(t, err, "Error funding Chainlink nodes")
+	linkToken, err := env.ContractDeployer.DeployLinkTokenContract()
+	require.NoError(t, err, "Error deploying LINK token")
 
-		linkToken, err = contractDeployer.DeployLinkTokenContract()
-		require.NoError(t, err, "Error deploying LINK token")
+	registry, registrar := actions.DeployAutoOCRRegistryAndRegistrar(
+		t,
+		registryVersion,
+		registryConfig,
+		linkToken,
+		env.ContractDeployer,
+		env.EVMClient,
+	)
 
-		registry, registrar = actions.DeployAutoOCRRegistryAndRegistrar(
-			t,
-			registryVersion,
-			registryConfig,
-			defaultAmountOfUpkeeps,
-			linkToken,
-			contractDeployer,
-			chainClient,
-		)
+	// Fund the registry with LINK
+	err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(defaultAmountOfUpkeeps))))
+	require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-		actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, registryVersion)
-		nodesWithoutBootstrap := chainlinkNodes[1:]
-		ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, registryConfig, registrar.Address(), 5*time.Second)
-		require.NoError(t, err, "Error building OCR config vars")
-		err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
-		require.NoError(t, err, "Registry config should be set successfully")
-		require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
-		// Register cleanup for any test
-		t.Cleanup(func() {
-			err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
-			require.NoError(t, err, "Error tearing down environment")
-		})
-	}
+	err = actions.CreateOCRKeeperJobsLocal(nodeClients, registry.Address(), network.ChainID, 0, registryVersion)
+	require.NoError(t, err, "Error creating OCR Keeper Jobs")
+	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(t, workerNodes, registryConfig, registrar.Address(), 30*time.Second)
+	require.NoError(t, err, "Error building OCR config vars")
+	err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
+	require.NoError(t, err, "Registry config should be set successfully")
+	require.NoError(t, env.EVMClient.WaitForEvents(), "Waiting for config to be set")
 
-	return chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, onlyStartRunner, testEnvironment
+	return env.EVMClient, nodeClients, env.ContractDeployer, linkToken, registry, registrar, env
 }

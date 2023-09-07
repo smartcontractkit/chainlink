@@ -10,52 +10,71 @@ import (
 func TestFunctionsLoad(t *testing.T) {
 	cfg, err := ReadConfig()
 	require.NoError(t, err)
-	env, functionContracts, err := SetupLocalLoadTestEnv(cfg)
+	ft, err := SetupLocalLoadTestEnv(cfg)
 	require.NoError(t, err)
-	env.ParallelTransactions(true)
+	ft.EVMClient.ParallelTransactions(false)
 
 	labels := map[string]string{
 		"branch": "functions_healthcheck",
 		"commit": "functions_healthcheck",
 	}
 
-	singleFeedConfig := &wasp.Config{
-		T:           t,
-		LoadType:    wasp.RPS,
-		GenName:     "gun",
-		CallTimeout: 2 * time.Minute,
-		Gun: NewSingleFunctionCallGun(
-			functionContracts,
-			"const response = await Functions.makeHttpRequest({ url: 'http://dummyjson.com/products/1' }); return Functions.encodeUint256(response.data.id)",
-			[]byte{},
-			[]string{},
-			cfg.Common.SubscriptionID,
-			StringToByte32(cfg.Common.DONID),
-		),
-		Labels:     labels,
-		LokiConfig: wasp.NewEnvLokiConfig(),
-	}
+	MonitorLoadStats(t, ft, labels)
 
 	t.Run("functions soak test", func(t *testing.T) {
-		singleFeedConfig.Schedule = wasp.Plain(
-			cfg.Soak.RPS,
-			cfg.Soak.Duration.Duration(),
-		)
 		_, err := wasp.NewProfile().
-			Add(wasp.NewGenerator(singleFeedConfig)).
+			Add(wasp.NewGenerator(&wasp.Config{
+				T:                     t,
+				LoadType:              wasp.RPS,
+				GenName:               "functions_soak_gen",
+				RateLimitUnitDuration: 5 * time.Second,
+				CallTimeout:           3 * time.Minute,
+				Schedule: wasp.Plain(
+					cfg.Soak.RPS,
+					cfg.Soak.Duration.Duration(),
+				),
+				Gun: NewSingleFunctionCallGun(
+					ft,
+					cfg.Soak.RequestsPerCall,
+					cfg.Common.FunctionsCallPayload,
+					cfg.Common.SecretsSlotID,
+					cfg.Common.SecretsVersionID,
+					[]string{},
+					cfg.Common.SubscriptionID,
+					StringToByte32(cfg.Common.DONID),
+				),
+				Labels:     labels,
+				LokiConfig: wasp.NewEnvLokiConfig(),
+			})).
 			Run(true)
 		require.NoError(t, err)
 	})
 
-	t.Run("functions load test", func(t *testing.T) {
-		singleFeedConfig.Schedule = wasp.Steps(
-			cfg.Load.RPSFrom,
-			cfg.Load.RPSIncrease,
-			cfg.Load.RPSSteps,
-			cfg.Load.Duration.Duration(),
-		)
+	t.Run("functions stress test", func(t *testing.T) {
 		_, err = wasp.NewProfile().
-			Add(wasp.NewGenerator(singleFeedConfig)).
+			Add(wasp.NewGenerator(&wasp.Config{
+				T:                     t,
+				LoadType:              wasp.RPS,
+				GenName:               "functions_stress_gen",
+				RateLimitUnitDuration: 5 * time.Second,
+				CallTimeout:           3 * time.Minute,
+				Schedule: wasp.Plain(
+					cfg.Stress.RPS,
+					cfg.Stress.Duration.Duration(),
+				),
+				Gun: NewSingleFunctionCallGun(
+					ft,
+					cfg.Soak.RequestsPerCall,
+					cfg.Common.FunctionsCallPayload,
+					cfg.Common.SecretsSlotID,
+					cfg.Common.SecretsVersionID,
+					[]string{},
+					cfg.Common.SubscriptionID,
+					StringToByte32(cfg.Common.DONID),
+				),
+				Labels:     labels,
+				LokiConfig: wasp.NewEnvLokiConfig(),
+			})).
 			Run(true)
 		require.NoError(t, err)
 	})

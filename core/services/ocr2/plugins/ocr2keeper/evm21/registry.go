@@ -36,9 +36,7 @@ const (
 	// defaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
 	defaultAllowListExpiration = 20 * time.Minute
 	// allowListCleanupInterval decides when the expired items in allowList cache will be deleted.
-	allowListCleanupInterval = 5 * time.Minute
-	// TODO decide on a value for this
-	indexedLogsConfirmations   = 10
+	allowListCleanupInterval   = 5 * time.Minute
 	logTriggerRefreshBatchSize = 32
 )
 
@@ -75,13 +73,14 @@ func NewEvmRegistry(
 	lggr logger.Logger,
 	addr common.Address,
 	client evm.Chain,
-	feedLookupCompatibleABI, keeperRegistryABI abi.ABI,
+	streamsLookupCompatibleABI, keeperRegistryABI abi.ABI,
 	registry *iregistry21.IKeeperRegistryMaster,
 	mc *models.MercuryCredentials,
 	al ActiveUpkeepList,
 	logEventProvider logprovider.LogEventProvider,
 	packer encoding.Packer,
 	blockSub *BlockSubscriber,
+	finalityDepth uint32,
 ) *EvmRegistry {
 	return &EvmRegistry{
 		lggr:         lggr.Named("EvmRegistry"),
@@ -97,12 +96,13 @@ func NewEvmRegistry(
 		chLog:        make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
 			cred:           mc,
-			abi:            feedLookupCompatibleABI,
+			abi:            streamsLookupCompatibleABI,
 			allowListCache: cache.New(defaultAllowListExpiration, allowListCleanupInterval),
 		},
 		hc:               http.DefaultClient,
 		logEventProvider: logEventProvider,
 		bs:               blockSub,
+		finalityDepth:    finalityDepth,
 	}
 }
 
@@ -148,6 +148,7 @@ type EvmRegistry struct {
 	hc               HttpClient
 	bs               *BlockSubscriber
 	logEventProvider logprovider.LogEventProvider
+	finalityDepth    uint32
 }
 
 func (r *EvmRegistry) Name() string {
@@ -283,20 +284,20 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
 			logTriggerIDs = append(logTriggerIDs, id)
+		default:
 		}
 	}
 
-	newUpkeeps, err := r.logEventProvider.RefreshActiveUpkeeps(logTriggerIDs...)
+	_, err = r.logEventProvider.RefreshActiveUpkeeps(logTriggerIDs...)
 	if err != nil {
 		return fmt.Errorf("failed to refresh active upkeep ids in log event provider: %w", err)
 	}
 
-	return r.refreshLogTriggerUpkeeps(newUpkeeps)
+	// Try to refersh log trigger config for all log upkeeps
+	return r.refreshLogTriggerUpkeeps(logTriggerIDs)
 }
 
 // refreshLogTriggerUpkeeps refreshes the active upkeep ids for log trigger upkeeps
-//
-// TODO: check for updated config for log trigger upkeeps and update it, currently we ignore them.
 func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 	var err error
 	for i := 0; i < len(ids); i += logTriggerRefreshBatchSize {
@@ -322,11 +323,11 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(logTriggerIDs []*big.Int) er
 		logTriggerHashes = append(logTriggerHashes, common.BigToHash(id))
 	}
 
-	unpausedLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, indexedLogsConfirmations, pg.WithParentCtx(r.ctx))
+	unpausedLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, int(r.finalityDepth), pg.WithParentCtx(r.ctx))
 	if err != nil {
 		return err
 	}
-	configSetLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, indexedLogsConfirmations, pg.WithParentCtx(r.ctx))
+	configSetLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, int(r.finalityDepth), pg.WithParentCtx(r.ctx))
 	if err != nil {
 		return err
 	}
@@ -360,13 +361,13 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(logTriggerIDs []*big.Int) er
 	for _, id := range logTriggerIDs {
 		logBlock, ok := configSetBlockNumbers[id.String()]
 		if !ok {
-			r.lggr.Warnf("unable to find config set block number for %s", id.String())
+			r.lggr.Warnf("unable to find finalized config set block number for %s, skipping refresh", id.String())
 			continue
 		}
 
 		config, ok := perUpkeepConfig[id.String()]
 		if !ok {
-			r.lggr.Warnf("unable to find per upkeep config for %s", id.String())
+			r.lggr.Warnf("unable to find per finalized log config for %s, skipping refresh", id.String())
 			continue
 		}
 

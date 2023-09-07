@@ -23,6 +23,9 @@ jobs:
               - 'contracts/src/v0.8/**/*'
               - '.github/workflows/solidity-foundry.yml'
               - 'contracts/foundry.toml'
+              - 'contracts/gas-snapshots/*.gas-snapshot'
+              - '.gitmodules'
+              - 'contracts/foundry-lib'
 
   tests:
     strategy:
@@ -69,6 +72,7 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Run Forge snapshot
+        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) }}
         run: |
           forge snapshot --check gas-snapshots/${{ matrix.product }}.gas-snapshot
         id: snapshot

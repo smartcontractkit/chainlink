@@ -8,14 +8,17 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/stretchr/testify/require"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -26,6 +29,8 @@ import (
 
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
+	l := utils.GetTestLogger(t)
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithGeth().
 		WithMockServer(1).
@@ -34,9 +39,15 @@ func TestOCRv2Basic(t *testing.T) {
 			node.WithP2Pv2(),
 		)).
 		WithCLNodes(6).
-		WithFunding(big.NewFloat(10)).
+		WithFunding(big.NewFloat(.1)).
 		Build()
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := env.Cleanup(); err != nil {
+			l.Error().Err(err).Msg("Error cleaning up test environment")
+		}
+	})
+
 	env.ParallelTransactions(true)
 
 	nodeClients := env.GetAPIs()
