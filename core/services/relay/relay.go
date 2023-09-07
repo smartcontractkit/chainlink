@@ -116,6 +116,8 @@ type relayerAdapter struct {
 }
 
 // NewRelayerAdapter returns a [loop.Relayer] adapted from a [types.Relayer] and [RelayerExt].
+// Unlike NewRelayerServerAdapter which is used to adapt non-LOOPP relayers, this is used to adapt
+// LOOPP-based relayer which are then server over GRPC (by the relayerServer).
 func NewRelayerAdapter(r types.Relayer, e RelayerExt) loop.Relayer {
 	return &relayerAdapter{Relayer: r, RelayerExt: e}
 }

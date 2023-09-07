@@ -62,7 +62,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 		if err != nil {
 			return nil, err
 		}
-		relayer := evmrelay.NewLoopRelayAdapter(evmrelay.NewRelayer(ccOpts.DB, chain, r.QConfig, ccOpts.Logger, config.CSAETHKeystore, ccOpts.EventBroadcaster), ext)
+		relayer := evmrelay.NewLoopRelayServerAdapter(evmrelay.NewRelayer(ccOpts.DB, chain, r.QConfig, ccOpts.Logger, config.CSAETHKeystore, ccOpts.EventBroadcaster), ext)
 		relayers[relayID] = relayer
 	}
 

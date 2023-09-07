@@ -19,7 +19,7 @@ type LoopRelayer struct {
 
 var _ loop.Relayer = &LoopRelayer{}
 
-func NewLoopRelayAdapter(r *Relayer, cs EVMChainRelayerExtender) *LoopRelayer {
+func NewLoopRelayServerAdapter(r *Relayer, cs EVMChainRelayerExtender) *LoopRelayer {
 	ra := relay.NewRelayerServerAdapter(r, cs)
 	return &LoopRelayer{
 		Relayer: ra,
