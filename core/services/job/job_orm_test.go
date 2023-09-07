@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/eal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -297,6 +298,28 @@ func TestORM(t *testing.T) {
 		require.Equal(t, jb.BlockHeaderFeederSpec.FromAddresses, savedJob.BlockHeaderFeederSpec.FromAddresses)
 		require.Equal(t, jb.BlockHeaderFeederSpec.GetBlockhashesBatchSize, savedJob.BlockHeaderFeederSpec.GetBlockhashesBatchSize)
 		require.Equal(t, jb.BlockHeaderFeederSpec.StoreBlockhashesBatchSize, savedJob.BlockHeaderFeederSpec.StoreBlockhashesBatchSize)
+		err = orm.DeleteJob(jb.ID)
+		require.NoError(t, err)
+		_, err = orm.FindJob(testutils.Context(t), jb.ID)
+		require.Error(t, err)
+	})
+
+	t.Run("it creates and deletes records for EAL job", func(t *testing.T) {
+		jb, err := eal.ValidatedEALSpec(
+			testspecs.GenerateEALSpec(testspecs.EALSpecParams{}).Toml())
+		require.NoError(t, err)
+
+		err = orm.CreateJob(&jb)
+		require.NoError(t, err)
+		savedJob, err := orm.FindJob(testutils.Context(t), jb.ID)
+		require.NoError(t, err)
+		require.Equal(t, jb.ID, savedJob.ID)
+		require.Equal(t, jb.Type, savedJob.Type)
+		require.Equal(t, jb.EALSpec.ID, savedJob.EALSpec.ID)
+		require.Equal(t, jb.EALSpec.ForwarderAddress, savedJob.EALSpec.ForwarderAddress)
+		require.Equal(t, jb.EALSpec.EVMChainID, savedJob.EALSpec.EVMChainID)
+		require.Equal(t, jb.EALSpec.CCIPChainSelector, savedJob.EALSpec.CCIPChainSelector)
+		require.Equal(t, jb.EALSpec.FromAddresses, savedJob.EALSpec.FromAddresses)
 		err = orm.DeleteJob(jb.ID)
 		require.NoError(t, err)
 		_, err = orm.FindJob(testutils.Context(t), jb.ID)

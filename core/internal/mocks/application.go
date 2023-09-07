@@ -13,6 +13,8 @@ import (
 
 	context "context"
 
+	eal "github.com/smartcontractkit/chainlink/v2/core/services/eal"
+
 	feeds "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 
 	job "github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -90,6 +92,22 @@ func (_m *Application) DeleteJob(ctx context.Context, jobID int32) error {
 		r0 = rf(ctx, jobID)
 	} else {
 		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// EALRequestRouter provides a mock function with given fields:
+func (_m *Application) EALRequestRouter() eal.RequestRouter {
+	ret := _m.Called()
+
+	var r0 eal.RequestRouter
+	if rf, ok := ret.Get(0).(func() eal.RequestRouter); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(eal.RequestRouter)
+		}
 	}
 
 	return r0

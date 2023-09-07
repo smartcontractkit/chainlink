@@ -37,6 +37,7 @@ const (
 	BlockHeaderFeederJobSpec JobSpecType = "blockheaderfeeder"
 	BootstrapJobSpec         JobSpecType = "bootstrap"
 	GatewayJobSpec           JobSpecType = "gateway"
+	EALJobSpec               JobSpecType = "eal"
 )
 
 // DirectRequestSpec defines the spec details of a DirectRequest Job
@@ -439,6 +440,26 @@ func NewGatewaySpec(spec *job.GatewaySpec) *GatewaySpec {
 	}
 }
 
+// EALSpec defines the job parameters for a gas station server job
+type EALSpec struct {
+	ForwarderAddress  ethkey.EIP55Address   `json:"forwarderAddress"`
+	EVMChainID        *utils.Big            `json:"evmChainID"`
+	CCIPChainSelector *utils.Big            `json:"ccipChainSelector"`
+	FromAddresses     []ethkey.EIP55Address `json:"fromAddresses"`
+
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+func NewEALSpec(spec *job.EALSpec) *EALSpec {
+	return &EALSpec{
+		ForwarderAddress:  spec.ForwarderAddress,
+		EVMChainID:        spec.EVMChainID,
+		CCIPChainSelector: spec.CCIPChainSelector,
+		FromAddresses:     spec.FromAddresses,
+	}
+}
+
 // JobError represents errors on the job
 type JobError struct {
 	ID          int64     `json:"id"`
@@ -480,6 +501,7 @@ type JobResource struct {
 	BlockHeaderFeederSpec  *BlockHeaderFeederSpec  `json:"blockHeaderFeederSpec"`
 	BootstrapSpec          *BootstrapSpec          `json:"bootstrapSpec"`
 	GatewaySpec            *GatewaySpec            `json:"gatewaySpec"`
+	EALSpec                *EALSpec                `json:"ealSpec"`
 	PipelineSpec           PipelineSpec            `json:"pipelineSpec"`
 	Errors                 []JobError              `json:"errors"`
 }
@@ -523,6 +545,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.BootstrapSpec = NewBootstrapSpec(j.BootstrapSpec)
 	case job.Gateway:
 		resource.GatewaySpec = NewGatewaySpec(j.GatewaySpec)
+	case job.EAL:
+		resource.EALSpec = NewEALSpec(j.EALSpec)
 	}
 
 	jes := []JobError{}

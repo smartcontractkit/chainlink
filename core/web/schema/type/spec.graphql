@@ -10,7 +10,8 @@ union JobSpec =
     BlockhashStoreSpec |
     BlockHeaderFeederSpec |
     BootstrapSpec |
-    GatewaySpec
+    GatewaySpec |
+    EALSpec
 
 type CronSpec {
     schedule: String!
@@ -167,5 +168,14 @@ type BootstrapSpec {
 type GatewaySpec {
     id: ID!
     gatewayConfig: Map!
+    createdAt: Time!
+}
+
+type EALSpec {
+    id: ID!
+    forwarderAddress: String!
+    evmChainID: String
+    ccipChainSelector: String
+    fromAddresses: [String!]
     createdAt: Time!
 }

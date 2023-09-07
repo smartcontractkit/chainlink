@@ -42,6 +42,7 @@ const (
 	Webhook                 Type = (Type)(pipeline.WebhookJobType)
 	Bootstrap               Type = (Type)(pipeline.BootstrapJobType)
 	Gateway                 Type = (Type)(pipeline.GatewayJobType)
+	EAL                     Type = (Type)(pipeline.EALJobType)
 )
 
 //revive:disable:redefines-builtin-id
@@ -79,6 +80,7 @@ var (
 		LegacyGasStationSidecar: false,
 		Bootstrap:               false,
 		Gateway:                 false,
+		EAL:                     false,
 	}
 	supportsAsync = map[Type]bool{
 		Cron:                    true,
@@ -95,6 +97,7 @@ var (
 		LegacyGasStationSidecar: false,
 		Bootstrap:               false,
 		Gateway:                 false,
+		EAL:                     false,
 	}
 	schemaVersions = map[Type]uint32{
 		Cron:                    1,
@@ -111,6 +114,7 @@ var (
 		LegacyGasStationSidecar: 1,
 		Bootstrap:               1,
 		Gateway:                 1,
+		EAL:                     1,
 	}
 )
 
@@ -147,6 +151,8 @@ type Job struct {
 	GatewaySpecID                 *int32
 	PipelineSpecID                int32
 	PipelineSpec                  *pipeline.Spec
+	EALSpecID                     *int32
+	EALSpec                       *EALSpec
 	JobSpecErrors                 []SpecError
 	Type                          Type
 	SchemaVersion                 uint32
@@ -768,4 +774,29 @@ func (s *GatewaySpec) SetID(value string) error {
 	}
 	s.ID = int32(ID)
 	return nil
+}
+
+// EALSpec defines the job spec for the gas station.
+type EALSpec struct {
+	ID int32
+
+	// ForwarderAddress is the address of EIP2771 forwarder that verifies signature
+	// and forwards requests to target contracts
+	ForwarderAddress ethkey.EIP55Address `toml:"forwarderAddress"`
+
+	// EVMChainID defines the chain ID from which the meta-transaction request originates.
+	EVMChainID *utils.Big `toml:"evmChainID"`
+
+	// CCIPChainSelector is the CCIP chain selector that corresponds to EVMChainID param.
+	// This selector is equivalent to (source) chainID specified in SendTransaction request
+	CCIPChainSelector *utils.Big `toml:"ccipChainSelector"`
+
+	// FromAddress is the sender address that should be used to send meta-transactions
+	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
+
+	// CreatedAt is the time this job was created.
+	CreatedAt time.Time `toml:"-"`
+
+	// UpdatedAt is the time this job was last updated.
+	UpdatedAt time.Time `toml:"-"`
 }

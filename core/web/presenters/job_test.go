@@ -125,6 +125,7 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
+						"ealSpec": null,
 						"errors": []
 					}
 				}
@@ -201,6 +202,7 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
+						"ealSpec": null,
 						"errors": []
 					}
 				}
@@ -289,6 +291,7 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
+						"ealSpec": null,
 						"errors": []
 					}
 				}
@@ -352,6 +355,7 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
+						"ealSpec": null,
 						"errors": []
 					}
 				}
@@ -410,6 +414,7 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
+						"ealSpec": null,
                         "errors": []
                     }
                 }
@@ -466,6 +471,7 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
+						"ealSpec": null,
 						"errors": []
 					}
 				}
@@ -544,6 +550,7 @@ func TestJob(t *testing.T) {
 							"dotDagSource": ""
 						},
 						"gatewaySpec": null,
+						"ealSpec": null,
 						"errors": []
 					}
 				}
@@ -624,6 +631,7 @@ func TestJob(t *testing.T) {
 							"dotDagSource": ""
 						},
 						"gatewaySpec": null,
+						"ealSpec": null,
 						"errors": []
 					}
 				}
@@ -688,6 +696,7 @@ func TestJob(t *testing.T) {
 							"dotDagSource": ""
 						},
 						"gatewaySpec": null,
+						"ealSpec": null,
 						"errors": []
 					}
 				}
@@ -749,6 +758,7 @@ func TestJob(t *testing.T) {
 							"jobID": 0,
 							"dotDagSource": ""
 						},
+						"ealSpec": null,
 						"errors": []
 					}
 				}
@@ -821,6 +831,7 @@ func TestJob(t *testing.T) {
 						"blockHeaderFeederSpec": null,
 						"bootstrapSpec": null,
 						"gatewaySpec": null,
+						"ealSpec": null,
 						"errors": [{
 							"id": 200,
 							"description": "some error",

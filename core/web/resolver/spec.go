@@ -117,6 +117,14 @@ func (r *SpecResolver) ToGatewaySpec() (*GatewaySpecResolver, bool) {
 	return &GatewaySpecResolver{spec: *r.j.GatewaySpec}, true
 }
 
+func (r *SpecResolver) ToEALSpec() (*EALSpecResolver, bool) {
+	if r.j.Type != job.EAL {
+		return nil, false
+	}
+
+	return &EALSpecResolver{spec: *r.j.EALSpec}, true
+}
+
 type CronSpecResolver struct {
 	spec job.CronSpec
 }
@@ -1028,4 +1036,47 @@ func (r *GatewaySpecResolver) GatewayConfig() gqlscalar.Map {
 
 func (r *GatewaySpecResolver) CreatedAt() graphql.Time {
 	return graphql.Time{Time: r.spec.CreatedAt}
+}
+
+// EALSpecResolver exposes the job parameters for a EALSpec.
+type EALSpecResolver struct {
+	spec job.EALSpec
+}
+
+func (r *EALSpecResolver) ID() graphql.ID {
+	return graphql.ID(stringutils.FromInt32(r.spec.ID))
+}
+
+// ForwarderAddress returns the job's ForwarderAddress param.
+func (b *EALSpecResolver) ForwarderAddress() string {
+	return b.spec.ForwarderAddress.String()
+}
+
+// EVMChainID returns the job's EVMChainID param.
+func (b *EALSpecResolver) EVMChainID() *string {
+	chainID := b.spec.EVMChainID.String()
+	return &chainID
+}
+
+// CCIPChainSelector returns the job's CCIPChainSelector param.
+func (b *EALSpecResolver) CCIPChainSelector() *string {
+	ccipChainSelector := b.spec.CCIPChainSelector.String()
+	return &ccipChainSelector
+}
+
+// FromAddress returns the job's FromAddress param, if any.
+func (b *EALSpecResolver) FromAddresses() *[]string {
+	if b.spec.FromAddresses == nil {
+		return nil
+	}
+	var addresses []string
+	for _, a := range b.spec.FromAddresses {
+		addresses = append(addresses, a.Address().String())
+	}
+	return &addresses
+}
+
+// CreatedAt resolves the spec's created at timestamp.
+func (b *EALSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: b.spec.CreatedAt}
 }

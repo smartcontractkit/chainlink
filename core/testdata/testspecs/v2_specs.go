@@ -820,3 +820,74 @@ storeBlockhashesBatchSize = %d
 
 	return BlockHeaderFeederSpec{BlockHeaderFeederSpecParams: params, toml: toml}
 }
+
+// EALSpecParams defines params for building a EAL job spec.
+type EALSpecParams struct {
+	JobID             string
+	Name              string
+	ForwarderAddress  string
+	EVMChainID        uint64
+	CCIPChainSelector uint64
+	FromAddresses     []string
+}
+
+// EALSpec defines a EAL job spec.
+type EALSpec struct {
+	EALSpecParams
+	toml string
+}
+
+// Toml returns the EALSpec in TOML string form.
+func (l EALSpec) Toml() string {
+	return l.toml
+}
+
+// GenerateEALSpec creates a EALSpec from the given params.
+func GenerateEALSpec(params EALSpecParams) EALSpec {
+	if params.JobID == "" {
+		params.JobID = "123e4567-e89b-12d3-a456-426655442211"
+	}
+
+	if params.Name == "" {
+		params.Name = "eal"
+	}
+
+	if params.ForwarderAddress == "" {
+		params.ForwarderAddress = "0xb078DA5cDa45Ee0f5D2007C03fCf8d9461395e6c"
+	}
+
+	if params.CCIPChainSelector == 0 {
+		params.CCIPChainSelector = 125500
+	}
+
+	var formattedFromAddresses string
+	if params.FromAddresses == nil {
+		formattedFromAddresses = `["0xBe0b739f841bC113D4F4e4CdD16086ffAbB5f39f"]`
+	} else {
+		var addresses []string
+		for _, address := range params.FromAddresses {
+			addresses = append(addresses, fmt.Sprintf("%q", address))
+		}
+		formattedFromAddresses = fmt.Sprintf("[%s]", strings.Join(addresses, ", "))
+	}
+
+	template := `
+type = "eal"
+schemaVersion = 1
+name = "%s"
+forwarderAddress = "%s"
+evmChainID = "%d"
+ccipChainSelector = "%d"
+fromAddresses = %s
+`
+	toml := fmt.Sprintf(
+		template,
+		params.Name,
+		params.ForwarderAddress,
+		params.EVMChainID,
+		params.CCIPChainSelector,
+		formattedFromAddresses,
+	)
+
+	return EALSpec{EALSpecParams: params, toml: toml}
+}

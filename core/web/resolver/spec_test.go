@@ -1071,3 +1071,71 @@ func TestResolver_GatewaySpec(t *testing.T) {
 
 	RunGQLTests(t, testCases)
 }
+
+func TestResolver_EALSpec(t *testing.T) {
+	var (
+		id = int32(1)
+	)
+	forwarderAddress, err := ethkey.NewEIP55Address("0x613a38AC1659769640aaE063C651F48E0250454C")
+	require.NoError(t, err)
+
+	fromAddress, err := ethkey.NewEIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42")
+	require.NoError(t, err)
+
+	testCases := []GQLTestCase{
+		{
+			name:          "EAL spec",
+			authenticated: true,
+			before: func(f *gqlTestFramework) {
+				f.App.On("JobORM").Return(f.Mocks.jobORM)
+				f.Mocks.jobORM.On("FindJobWithoutSpecErrors", id).Return(job.Job{
+					Type: job.EAL,
+					EALSpec: &job.EALSpec{
+						ID:                id,
+						ForwarderAddress:  forwarderAddress,
+						CreatedAt:         f.Timestamp(),
+						EVMChainID:        utils.NewBigI(42),
+						CCIPChainSelector: utils.NewBigI(420000),
+						FromAddresses:     []ethkey.EIP55Address{fromAddress},
+					},
+				}, nil)
+			},
+			query: `
+				query GetJob {
+					job(id: "1") {
+						... on Job {
+							spec {
+								__typename
+								... on EALSpec {
+									id
+									forwarderAddress
+									evmChainID
+									ccipChainSelector
+									fromAddresses
+									createdAt
+								}
+							}
+						}
+					}
+				}
+			`,
+			result: `
+				{
+					"job": {
+						"spec": {
+							"__typename": "EALSpec",
+							"id": "1",
+							"forwarderAddress": "0x613a38AC1659769640aaE063C651F48E0250454C",
+							"evmChainID": "42",
+							"ccipChainSelector": "420000",
+							"fromAddresses": ["0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"],
+							"createdAt": "2021-01-01T00:00:00Z"
+						}
+					}
+				}
+			`,
+		},
+	}
+
+	RunGQLTests(t, testCases)
+}

@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/eal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
@@ -1044,6 +1045,8 @@ func (r *Resolver) CreateJob(ctx context.Context, args struct {
 		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(args.Input.TOML)
 	case job.Gateway:
 		jb, err = gateway.ValidatedGatewaySpec(args.Input.TOML)
+	case job.EAL:
+		jb, err = eal.ValidatedEALSpec(args.Input.TOML)
 	default:
 		return NewCreateJobPayload(r.App, nil, map[string]string{
 			"Job Type": fmt.Sprintf("unknown job type: %s", jbt),

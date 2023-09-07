@@ -26,6 +26,7 @@ var (
 		Gateway:                 {},
 		LegacyGasStationServer:  {},
 		LegacyGasStationSidecar: {},
+		EAL:                     {},
 	}
 )
 

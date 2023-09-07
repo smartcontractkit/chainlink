@@ -42,6 +42,7 @@ const (
 	GatewayJobType                 string = "gateway"
 	LegacyGasStationServerJobType  string = "legacygasstationserver"
 	LegacyGasStationSidecarJobType string = "legacygasstationsidecar"
+	EALJobType                     string = "eal"
 )
 
 //go:generate mockery --quiet --name Config --output ./mocks/ --case=underscore

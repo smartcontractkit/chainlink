@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/eal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -250,6 +251,8 @@ func (jc *JobsController) validateJobSpec(tomlString string) (jb job.Job, status
 		jb, err = ocrbootstrap.ValidatedBootstrapSpecToml(tomlString)
 	case job.Gateway:
 		jb, err = gateway.ValidatedGatewaySpec(tomlString)
+	case job.EAL:
+		jb, err = eal.ValidatedEALSpec(tomlString)
 	default:
 		return jb, http.StatusUnprocessableEntity, errors.Errorf("unknown job type: %s", jobType)
 	}

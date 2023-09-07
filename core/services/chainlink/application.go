@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockheaderfeeder"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
 	"github.com/smartcontractkit/chainlink/v2/core/services/directrequest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/eal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
@@ -103,6 +104,8 @@ type Application interface {
 	ID() uuid.UUID
 
 	SecretGenerator() SecretGenerator
+
+	EALRequestRouter() eal.RequestRouter
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -136,6 +139,7 @@ type ChainlinkApplication struct {
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
 	loopRegistry             *plugins.LoopRegistry
+	ealRequestRouter         eal.RequestRouter
 
 	started     bool
 	startStopMu sync.Mutex
@@ -336,8 +340,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				legacyEVMChains,
 				keyStore.Eth(),
 				globalLogger),
+			job.EAL: eal.NewDelegate(
+				globalLogger,
+				legacyEVMChains,
+				keyStore.Eth(),
+			),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
+		ealRequestRouter = delegates[job.EAL].(*eal.Delegate).RequestRouter()
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
@@ -480,8 +490,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		secretGenerator:          opts.SecretGenerator,
 		profiler:                 profiler,
 		loopRegistry:             loopRegistry,
-
-		sqlxDB: opts.SqlxDB,
+		ealRequestRouter:         ealRequestRouter,
+		sqlxDB:                   opts.SqlxDB,
 
 		// NOTE: Can keep things clean by putting more things in srvcs instead of manually start/closing
 		srvcs: srvcs,
@@ -679,6 +689,10 @@ func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalI
 
 func (app *ChainlinkApplication) SecretGenerator() SecretGenerator {
 	return app.secretGenerator
+}
+
+func (app *ChainlinkApplication) EALRequestRouter() eal.RequestRouter {
+	return app.ealRequestRouter
 }
 
 // WakeSessionReaper wakes up the reaper to do its reaping.

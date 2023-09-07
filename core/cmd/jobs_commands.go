@@ -164,6 +164,10 @@ func (p JobPresenter) FriendlyCreatedAt() string {
 		if p.GatewaySpec != nil {
 			return p.GatewaySpec.CreatedAt.Format(time.RFC3339)
 		}
+	case presenters.EALJobSpec:
+		if p.EALSpec != nil {
+			return p.EALSpec.CreatedAt.Format(time.RFC3339)
+		}
 	default:
 		return "unknown"
 	}

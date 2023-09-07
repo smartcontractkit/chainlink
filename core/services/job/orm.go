@@ -431,6 +431,15 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.Wrap(err, "failed to create GatewaySpec for jobSpec")
 			}
 			jb.GatewaySpecID = &specID
+		case EAL:
+			var specID int32
+			sql := `INSERT INTO eal_specs (forwarder_address, evm_chain_id, ccip_chain_selector, from_addresses, created_at, updated_at)
+			VALUES (:forwarder_address, :evm_chain_id, :ccip_chain_selector, :from_addresses, NOW(), NOW())
+			RETURNING id;`
+			if err := pg.PrepareQueryRowx(tx, sql, &specID, toEALSpecRow(jb.EALSpec)); err != nil {
+				return errors.Wrap(err, "failed to create EAL spec")
+			}
+			jb.EALSpecID = &specID
 		default:
 			o.lggr.Panicf("Unsupported jb.Type: %v", jb.Type)
 		}
@@ -521,18 +530,18 @@ func (o *orm) InsertJob(job *Job, qopts ...pg.QOpt) error {
 	if job.ID == 0 {
 		query = `INSERT INTO jobs (pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 				keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
-                legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+                legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, eal_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
-		        :legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+		        :legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :eal_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 	} else {
 		query = `INSERT INTO jobs (id, pipeline_spec_id, name, schema_version, type, max_task_duration, ocr_oracle_spec_id, ocr2_oracle_spec_id, direct_request_spec_id, flux_monitor_spec_id,
 			keeper_spec_id, cron_spec_id, vrf_spec_id, webhook_spec_id, blockhash_store_spec_id, bootstrap_spec_id, block_header_feeder_spec_id, gateway_spec_id, 
-                  legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
+                  legacy_gas_station_server_spec_id, legacy_gas_station_sidecar_spec_id, eal_spec_id, external_job_id, gas_limit, forwarding_allowed, created_at)
 		VALUES (:id, :pipeline_spec_id, :name, :schema_version, :type, :max_task_duration, :ocr_oracle_spec_id, :ocr2_oracle_spec_id, :direct_request_spec_id, :flux_monitor_spec_id,
 				:keeper_spec_id, :cron_spec_id, :vrf_spec_id, :webhook_spec_id, :blockhash_store_spec_id, :bootstrap_spec_id, :block_header_feeder_spec_id, :gateway_spec_id, 
-				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
+				:legacy_gas_station_server_spec_id, :legacy_gas_station_sidecar_spec_id, :eal_spec_id, :external_job_id, :gas_limit, :forwarding_allowed, NOW())
 		RETURNING *;`
 	}
 	return q.GetNamed(query, job, job)
@@ -1294,6 +1303,7 @@ func LoadAllJobTypes(tx pg.Queryer, job *Job) error {
 		loadJobType(tx, job, "LegacyGasStationSidecarSpec", "legacy_gas_station_sidecar_specs", job.LegacyGasStationSidecarSpecID),
 		loadJobType(tx, job, "BootstrapSpec", "bootstrap_specs", job.BootstrapSpecID),
 		loadJobType(tx, job, "GatewaySpec", "gateway_specs", job.GatewaySpecID),
+		loadEALJob(tx, job, job.EALSpecID),
 	)
 }
 
@@ -1434,6 +1444,45 @@ func (r blockHeaderFeederSpecRow) toBlockHeaderFeederSpec() *BlockHeaderFeederSp
 			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
 	}
 	return r.BlockHeaderFeederSpec
+}
+
+func loadEALJob(tx pg.Queryer, job *Job, id *int32) error {
+	if id == nil {
+		return nil
+	}
+
+	var row ealSpecRow
+	err := tx.Get(&row, `SELECT * FROM eal_specs WHERE id = $1`, *id)
+	if err != nil {
+		return errors.Wrapf(err, `failed to load job type EALSpec with id %d`, *id)
+	}
+
+	job.EALSpec = row.toEALSpec()
+	return nil
+}
+
+// ealSpecRow is a helper type for reading and writing ealSpec specs to the database. This is necessary
+// because the bytea[] in the DB is not automatically convertible to or from the spec's
+// FromAddresses field. pq.ByteaArray must be used instead.
+type ealSpecRow struct {
+	*EALSpec
+	FromAddresses pq.ByteaArray
+}
+
+func toEALSpecRow(spec *EALSpec) ealSpecRow {
+	addresses := make(pq.ByteaArray, len(spec.FromAddresses))
+	for i, a := range spec.FromAddresses {
+		addresses[i] = a.Bytes()
+	}
+	return ealSpecRow{EALSpec: spec, FromAddresses: addresses}
+}
+
+func (r ealSpecRow) toEALSpec() *EALSpec {
+	for _, a := range r.FromAddresses {
+		r.EALSpec.FromAddresses = append(r.EALSpec.FromAddresses,
+			ethkey.EIP55AddressFromAddress(common.BytesToAddress(a)))
+	}
+	return r.EALSpec
 }
 
 func loadLegacyGasStationServerJob(tx pg.Queryer, job *Job, id *int32) error {
