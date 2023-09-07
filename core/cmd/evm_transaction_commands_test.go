@@ -218,7 +218,6 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	set := flag.NewFlagSet("sendether", 0)
 	cltest.FlagSetApplyFromAction(client.SendEther, set, "")
 
-	fmt.Println("**** flagset ", set.Args())
 	require.NoError(t, set.Set("id", testutils.FixtureChainID.String()))
 	require.NoError(t, set.Set("wei", "false"))
 

@@ -1618,6 +1618,7 @@ func testMaliciousConsumer(
 		c.EVM[0].GasEstimator.PriceMax = assets.GWei(1)
 		c.EVM[0].GasEstimator.PriceDefault = assets.GWei(1)
 		c.EVM[0].GasEstimator.FeeCapDefault = assets.GWei(1)
+		c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
 	})
 	carol := uni.vrfConsumers[0]
 
@@ -1642,6 +1643,7 @@ func testMaliciousConsumer(
 		GasLanePrice:             assets.GWei(1),
 		PublicKey:                vrfkey.PublicKey.String(),
 		V2:                       true,
+		EVMChainID:               testutils.SimulatedChainID.String(),
 	}).Toml()
 	jb, err := vrfcommon.ValidatedVRFSpec(s)
 	require.NoError(t, err)
