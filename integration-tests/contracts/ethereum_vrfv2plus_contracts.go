@@ -291,7 +291,7 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) RequestRandomness(keyHash [32]byte, 
 }
 
 func (v *EthereumVRFv2PlusLoadTestConsumer) GetCoordinator(ctx context.Context) (common.Address, error) {
-	return v.consumer.COORDINATOR(&bind.CallOpts{
+	return v.consumer.SVrfCoordinator(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})

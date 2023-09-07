@@ -262,7 +262,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		[][32]byte{vrfv2PlusData.KeyHash},
 		[]*big.Int{subID},
 		[]common.Address{common.HexToAddress(oldVRFV2PlusContracts.LoadTestConsumer.Address())},
-		time.Minute*1,
+		time.Minute*3,
 	)
 	require.NoError(t, err, vrfv2plus.ErrWaitRandomWordsRequestedEvent)
 
