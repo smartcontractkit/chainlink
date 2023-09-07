@@ -513,9 +513,9 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			var reportBytes [][]byte
 			var b []byte
 			for _, rsp := range response.Reports {
-				b, err1 = hexutil.Decode(rsp.FullReport)
+				b, err1 = hexutil.Decode("0x" + rsp.FullReport)
 				if err1 != nil {
-					lggr.Warnf("upkeep %s block %s failed to decode fullReport %s from mercury v0.3: %v", sl.upkeepId.String(), sl.time.String(), rsp.FullReport, err1)
+					lggr.Warnf("at block %s upkeep %s failed to decode fullReport %s from mercury v0.3: %v", sl.time.String(), sl.upkeepId.String(), rsp.FullReport, err1)
 					retryable = false
 					state = encoding.InvalidMercuryResponse
 					return err1
