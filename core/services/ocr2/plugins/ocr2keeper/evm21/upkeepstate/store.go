@@ -25,7 +25,7 @@ const (
 )
 
 type ORM interface {
-	InsertUpkeepState(persistedStateRecord, ...pg.QOpt) error
+	BatchInsertUpkeepStates([]persistedStateRecord, ...pg.QOpt) error
 	SelectStatesByWorkIDs([]string, ...pg.QOpt) ([]persistedStateRecord, error)
 	DeleteExpired(time.Time, ...pg.QOpt) error
 }
@@ -200,13 +200,13 @@ func (u *upkeepStateStore) upsertStateRecord(ctx context.Context, workID string,
 
 	u.cache[workID] = record
 
-	return u.orm.InsertUpkeepState(persistedStateRecord{
+	return u.orm.BatchInsertUpkeepStates([]persistedStateRecord{{
 		UpkeepID:            utils.NewBig(upkeepID),
 		WorkID:              record.workID,
 		CompletionState:     uint8(record.state),
 		IneligibilityReason: reason,
 		InsertedAt:          record.addedAt,
-	}, pg.WithParentCtx(ctx))
+	}}, pg.WithParentCtx(ctx))
 }
 
 // fetchPerformed fetches all performed logs from the scanner to populate the cache.

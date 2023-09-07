@@ -475,7 +475,7 @@ func (_m *mockORM) setErr(err error) {
 	_m.err = err
 }
 
-func (_m *mockORM) InsertUpkeepState(state persistedStateRecord, _ ...pg.QOpt) error {
+func (_m *mockORM) BatchInsertUpkeepStates(state []persistedStateRecord, _ ...pg.QOpt) error {
 	return nil
 }
 
