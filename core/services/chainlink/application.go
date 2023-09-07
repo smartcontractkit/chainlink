@@ -421,26 +421,30 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 	}
 
-	var feedsService feeds.Service
+	var feedsService feeds.Service = &feeds.NullService{}
 	if cfg.Feature().FeedsManager() {
-		feedsORM := feeds.NewORM(db, opts.Logger, cfg.Database())
-		feedsService = feeds.NewService(
-			feedsORM,
-			jobORM,
-			db,
-			jobSpawner,
-			keyStore,
-			cfg.Insecure(),
-			cfg.JobPipeline(),
-			cfg.OCR(),
-			cfg.OCR2(),
-			cfg.Database(),
-			legacyEVMChains,
-			globalLogger,
-			opts.Version,
-		)
-	} else {
-		feedsService = &feeds.NullService{}
+		if keys, err := opts.KeyStore.CSA().GetAll(); err != nil {
+			globalLogger.Warn("[Feeds Service] Unable to start without CSA key", "err", err)
+		} else if len(keys) == 0 {
+			globalLogger.Warn("[Feeds Service] Unable to start without CSA key")
+		} else {
+			feedsORM := feeds.NewORM(db, opts.Logger, cfg.Database())
+			feedsService = feeds.NewService(
+				feedsORM,
+				jobORM,
+				db,
+				jobSpawner,
+				keyStore,
+				cfg.Insecure(),
+				cfg.JobPipeline(),
+				cfg.OCR(),
+				cfg.OCR2(),
+				cfg.Database(),
+				legacyEVMChains,
+				globalLogger,
+				opts.Version,
+			)
+		}
 	}
 
 	app := &ChainlinkApplication{
