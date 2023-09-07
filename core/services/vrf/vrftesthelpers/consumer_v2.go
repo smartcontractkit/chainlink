@@ -13,8 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_malicious_consumer_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_malicious_consumer_v2_plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_reverting_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_reverting_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/vrf/generated/vrfv2plus_consumer_example"
 )
 
 var (
@@ -35,6 +35,7 @@ type VRFConsumerContract interface {
 	SGasAvailable(opts *bind.CallOpts) (*big.Int, error)
 	UpdateSubscription(opts *bind.TransactOpts, consumers []common.Address) (*gethtypes.Transaction, error)
 	SetSubID(opts *bind.TransactOpts, subID *big.Int) (*gethtypes.Transaction, error)
+	SVrfCoordinator(opts *bind.CallOpts) (common.Address, error)
 }
 
 type ConsumerType string
@@ -327,4 +328,11 @@ func (c *vrfConsumerContract) TopUpSubscriptionNative(opts *bind.TransactOpts, a
 		return c.vrfV2PlusConsumer.TopUpSubscriptionNative(&o)
 	}
 	return nil, errors.New("TopUpSubscriptionNative is not supported")
+}
+
+func (c *vrfConsumerContract) SVrfCoordinator(opts *bind.CallOpts) (common.Address, error) {
+	if c.consumerType == VRFV2PlusConsumer {
+		return c.vrfV2PlusConsumer.SVrfCoordinator(opts)
+	}
+	return common.Address{}, errors.New("SVrfCoordinator is not supported")
 }

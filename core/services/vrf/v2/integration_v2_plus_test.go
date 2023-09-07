@@ -35,8 +35,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_sub_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_proxy_admin"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2_transparent_upgradeable_proxy"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_reverting_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/vrf/generated/vrfv2plus_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -1224,6 +1224,10 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 	_, err = uni.rootContract.Migrate(consumer, subID, uni.migrationTestCoordinatorAddress)
 	require.NoError(t, err)
 	uni.backend.Commit()
+
+	coordinatorAddrAfterMigration, err := consumerContract.SVrfCoordinator(nil)
+	require.NoError(t, err)
+	require.Equal(t, uni.migrationTestCoordinatorAddress, coordinatorAddrAfterMigration)
 
 	subV2, err := uni.migrationTestCoordinator.GetSubscription(nil, subID)
 	require.NoError(t, err)
