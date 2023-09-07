@@ -112,7 +112,6 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 		return errors.New("already started")
 	}
 	r.cancel = cancel
-	r.done = make(chan struct{})
 	r.lock.Unlock()
 
 	blockTimeResolver := newBlockTimeResolver(r.poller)

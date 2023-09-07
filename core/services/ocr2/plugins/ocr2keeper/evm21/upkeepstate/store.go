@@ -100,7 +100,6 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	u.cancel = cancel
-	u.done = make(chan struct{})
 	u.mu.Unlock()
 
 	if err := u.scanner.Start(ctx); err != nil {
