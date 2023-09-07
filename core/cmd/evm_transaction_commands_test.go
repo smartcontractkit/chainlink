@@ -17,6 +17,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -217,6 +218,8 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	set := flag.NewFlagSet("sendether", 0)
 	cltest.FlagSetApplyFromAction(client.SendEther, set, "")
 
+	fmt.Println("**** flagset ", set.Args())
+	require.NoError(t, set.Set("id", testutils.FixtureChainID.String()))
 	require.NoError(t, set.Set("wei", "false"))
 
 	amount := "1000000000000000000"
