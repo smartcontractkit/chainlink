@@ -112,9 +112,10 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 	}
 	lggr := p.lggr.With("upkeepID", ufilter.upkeepID.String())
 	logPollerHasFilter := p.poller.HasFilter(lpFilter.Name)
-	if logPollerHasFilter {
+	filterStoreHasFilter := p.filterStore.Has(ufilter.upkeepID)
+	if filterStoreHasFilter {
+		// removing filter in case of an update so we can recreate it with updated values
 		lggr.Debugw("Upserting upkeep filter")
-		// removing filter so we can recreate it with updated values
 		err := p.poller.UnregisterFilter(lpFilter.Name)
 		if err != nil {
 			return fmt.Errorf("failed to upsert (unregister) upkeep filter %s: %w", ufilter.upkeepID.String(), err)
@@ -125,7 +126,7 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 	}
 	p.filterStore.AddActiveUpkeeps(ufilter)
 	if logPollerHasFilter {
-		// already registered, no need to backfill
+		// already registered in DB before, no need to backfill
 		return nil
 	}
 	backfillBlock := latest - int64(LogBackfillBuffer)
@@ -145,11 +146,11 @@ func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filt
 }
 
 func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
-	err := p.poller.UnregisterFilter(p.filterName(upkeepID))
-	if err != nil {
-		// TODO: mark as removed in filter store, so we'll
-		// automatically retry on next refresh
-		return fmt.Errorf("failed to unregister upkeep filter %s: %w", upkeepID.String(), err)
+	// Filter might have been unregistered already, only try to unregister if it exists
+	if p.poller.HasFilter(p.filterName(upkeepID)) {
+		if err := p.poller.UnregisterFilter(p.filterName(upkeepID)); err != nil {
+			return fmt.Errorf("failed to unregister upkeep filter %s: %w", upkeepID.String(), err)
+		}
 	}
 	p.filterStore.RemoveActiveUpkeeps(upkeepFilter{
 		upkeepID: upkeepID,
