@@ -92,7 +92,7 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 	return rec
 }
 
-func (r *logRecoverer) Start(pctx context.Context) error {
+func (r *logRecoverer) Start(_ context.Context) error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	r.lock.Lock()
@@ -104,8 +104,8 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 	r.cancel = cancel
 	r.lock.Unlock()
 
-	blockTimeResolver := newBlockTimeResolver(r.poller)
-	blockTime, err := blockTimeResolver.BlockTime(ctx, defaultSampleSize)
+	resolver := newBlockTimeResolver(r.poller)
+	blockTime, err := resolver.BlockTime(ctx, defaultSampleSize)
 	if err != nil {
 		// TODO: TBD exit or just log a warning
 		// return fmt.Errorf("failed to compute block time: %w", err)
@@ -243,7 +243,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 	return nil, fmt.Errorf("no log found for upkeepID %v and trigger %+v", proposal.UpkeepID, proposal.Trigger)
 }
 
-func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
+func (r *logRecoverer) GetRecoveryProposals(_ context.Context) ([]ocr2keepers.UpkeepPayload, error) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
@@ -414,7 +414,7 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 }
 
 // filterFinalizedStates filters out the log upkeeps that have already been completed (performed or ineligible).
-func (r *logRecoverer) filterFinalizedStates(f upkeepFilter, logs []logpoller.Log, states []ocr2keepers.UpkeepState) []logpoller.Log {
+func (r *logRecoverer) filterFinalizedStates(_ upkeepFilter, logs []logpoller.Log, states []ocr2keepers.UpkeepState) []logpoller.Log {
 	filtered := make([]logpoller.Log, 0)
 
 	for i, log := range logs {

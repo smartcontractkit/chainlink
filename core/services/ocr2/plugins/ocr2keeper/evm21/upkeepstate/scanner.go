@@ -56,7 +56,7 @@ func (s *performedEventsScanner) Start(_ context.Context) error {
 	})
 }
 
-// implements io.Closer, does nothing upon close
+// Close implements io.Closer and does nothing
 func (s *performedEventsScanner) Close() error {
 	return nil
 }

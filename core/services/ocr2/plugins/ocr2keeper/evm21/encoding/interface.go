@@ -49,7 +49,6 @@ type Packer interface {
 	UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error)
 	UnpackCheckCallbackResult(callbackResp []byte) (PipelineExecutionState, bool, []byte, uint8, *big.Int, error)
 	UnpackPerformResult(raw string) (PipelineExecutionState, bool, error)
-	UnpackUpkeepInfo(id *big.Int, raw string) (UpkeepInfo, error)
 	UnpackLogTriggerConfig(raw []byte) (automation_utils_2_1.LogTriggerConfig, error)
 	PackReport(report automation_utils_2_1.KeeperRegistryBase21Report) ([]byte, error)
 	UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistryBase21Report, error)
