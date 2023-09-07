@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -77,7 +78,7 @@ func (cs *CosmosConfigs) SetFrom(fs *CosmosConfigs) (err error) {
 	return
 }
 
-func (cs CosmosConfigs) Chains(ids ...string) (r []relaytypes.ChainStatus, err error) {
+func (cs CosmosConfigs) Chains(ids ...relay.ChainID) (r []relaytypes.ChainStatus, err error) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -85,7 +86,7 @@ func (cs CosmosConfigs) Chains(ids ...string) (r []relaytypes.ChainStatus, err e
 		if len(ids) > 0 {
 			var match bool
 			for _, id := range ids {
-				if id == *ch.ChainID {
+				if id.String() == *ch.ChainID {
 					match = true
 					break
 				}
@@ -111,7 +112,8 @@ func (cs CosmosConfigs) Node(name string) (n db.Node, err error) {
 	for i := range cs {
 		for _, n := range cs[i].Nodes {
 			if n.Name != nil && *n.Name == name {
-				return legacyNode(n, *cs[i].ChainID), nil
+				cid := relay.ChainID(*cs[i].ChainID)
+				return legacyNode(n, cid), nil
 			}
 		}
 	}
@@ -119,26 +121,26 @@ func (cs CosmosConfigs) Node(name string) (n db.Node, err error) {
 	return
 }
 
-func (cs CosmosConfigs) nodes(chainID string) (ns CosmosNodes) {
+func (cs CosmosConfigs) nodes(id relay.ChainID) (ns CosmosNodes) {
 	for _, c := range cs {
-		if *c.ChainID == chainID {
+		if *c.ChainID == id.String() {
 			return c.Nodes
 		}
 	}
 	return nil
 }
 
-func (cs CosmosConfigs) Nodes(chainID string) (ns []db.Node, err error) {
-	nodes := cs.nodes(chainID)
+func (cs CosmosConfigs) Nodes(id relay.ChainID) (ns []db.Node, err error) {
+	nodes := cs.nodes(id)
 	if nodes == nil {
-		err = fmt.Errorf("no nodes: chain %s: %w", chainID, chains.ErrNotFound)
+		err = fmt.Errorf("no nodes: chain %s: %w", id, chains.ErrNotFound)
 		return
 	}
 	for _, n := range nodes {
 		if n == nil {
 			continue
 		}
-		ns = append(ns, legacyNode(n, chainID))
+		ns = append(ns, legacyNode(n, id))
 	}
 	return
 
@@ -148,7 +150,8 @@ func (cs CosmosConfigs) NodeStatus(name string) (n relaytypes.NodeStatus, err er
 	for i := range cs {
 		for _, n := range cs[i].Nodes {
 			if n.Name != nil && *n.Name == name {
-				return nodeStatus(n, *cs[i].ChainID)
+				cid := relay.ChainID(*cs[i].ChainID)
+				return nodeStatus(n, cid)
 			}
 		}
 	}
@@ -156,14 +159,15 @@ func (cs CosmosConfigs) NodeStatus(name string) (n relaytypes.NodeStatus, err er
 	return
 }
 
-func (cs CosmosConfigs) NodeStatuses(chainIDs ...string) (ns []relaytypes.NodeStatus, err error) {
-	if len(chainIDs) == 0 {
+func (cs CosmosConfigs) NodeStatuses(ids ...relay.ChainID) (ns []relaytypes.NodeStatus, err error) {
+	if len(ids) == 0 {
 		for i := range cs {
 			for _, n := range cs[i].Nodes {
 				if n == nil {
 					continue
 				}
-				n2, err := nodeStatus(n, *cs[i].ChainID)
+				cid := relay.ChainID(*cs[i].ChainID)
+				n2, err := nodeStatus(n, cid)
 				if err != nil {
 					return nil, err
 				}
@@ -172,7 +176,7 @@ func (cs CosmosConfigs) NodeStatuses(chainIDs ...string) (ns []relaytypes.NodeSt
 		}
 		return
 	}
-	for _, id := range chainIDs {
+	for _, id := range ids {
 		for _, n := range cs.nodes(id) {
 			if n == nil {
 				continue
@@ -187,9 +191,9 @@ func (cs CosmosConfigs) NodeStatuses(chainIDs ...string) (ns []relaytypes.NodeSt
 	return
 }
 
-func nodeStatus(n *coscfg.Node, chainID string) (relaytypes.NodeStatus, error) {
+func nodeStatus(n *coscfg.Node, id relay.ChainID) (relaytypes.NodeStatus, error) {
 	var s relaytypes.NodeStatus
-	s.ChainID = chainID
+	s.ChainID = id.String()
 	s.Name = *n.Name
 	b, err := toml.Marshal(n)
 	if err != nil {
@@ -224,10 +228,10 @@ func setFromNode(n, f *coscfg.Node) {
 	}
 }
 
-func legacyNode(n *coscfg.Node, id string) db.Node {
+func legacyNode(n *coscfg.Node, id relay.ChainID) db.Node {
 	return db.Node{
 		Name:          *n.Name,
-		CosmosChainID: id,
+		CosmosChainID: id.String(),
 		TendermintURL: (*url.URL)(n.TendermintURL).String(),
 	}
 }
@@ -364,6 +368,6 @@ func sdkDecFromDecimal(d *decimal.Decimal) sdk.Dec {
 	return sdk.NewDecFromBigIntWithPrec(i.BigInt(), sdk.Precision)
 }
 
-func NewConfigs(cfgs chains.ConfigsV2[string, db.Node]) types.Configs {
+func NewConfigs(cfgs chains.ConfigsV2[db.Node]) types.Configs {
 	return chains.NewConfigs(cfgs)
 }

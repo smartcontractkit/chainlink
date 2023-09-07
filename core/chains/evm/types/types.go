@@ -18,7 +18,7 @@ import (
 
 type Configs interface {
 	chains.ChainConfigs
-	chains.NodeConfigs[utils.Big, Node]
+	chains.NodeConfigs[Node]
 }
 
 type Node struct {

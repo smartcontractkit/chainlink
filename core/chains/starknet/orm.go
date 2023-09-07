@@ -7,6 +7,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet/types"
 )
 
-func NewConfigs(cfgs chains.ConfigsV2[string, starknetdb.Node]) types.Configs {
+func NewConfigs(cfgs chains.ConfigsV2[starknetdb.Node]) types.Configs {
 	return chains.NewConfigs(cfgs)
 }

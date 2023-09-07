@@ -9,7 +9,7 @@ import (
 // Configs manages cosmos chains and nodes.
 type Configs interface {
 	chains.ChainConfigs
-	chains.NodeConfigs[string, db.Node]
+	chains.NodeConfigs[db.Node]
 }
 
 // NewNode defines a new node to create.

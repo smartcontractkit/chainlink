@@ -8,5 +8,5 @@ import (
 
 type Configs interface {
 	chains.ChainConfigs
-	chains.NodeConfigs[string, db.Node]
+	chains.NodeConfigs[db.Node]
 }

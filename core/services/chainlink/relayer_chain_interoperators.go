@@ -55,6 +55,8 @@ type LegacyChainer interface {
 
 type ChainStatuser interface {
 	ChainStatus(ctx context.Context, id relay.ID) (types.ChainStatus, error)
+	//ListChainStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.ChainStatus, nextPageToken string, total int, err error)
+
 	ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
 }
 

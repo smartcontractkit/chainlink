@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 const TestSolanaGenesisHashTemplate = `{"jsonrpc":"2.0","result":"%s","id":1}`
@@ -236,11 +237,11 @@ type mockConfigs struct {
 	nodesForChain []db.Node
 }
 
-func (m *mockConfigs) Nodes(chainID string) (nodes []db.Node, err error) {
+func (m *mockConfigs) Nodes(chainID relay.ChainID) (nodes []db.Node, err error) {
 	return m.nodesForChain, nil
 }
 
-func (m *mockConfigs) Chains(offset, limit int, ids ...string) ([]types.ChainStatus, int, error) {
+func (m *mockConfigs) Chains(offset, limit int, ids ...relay.ChainID) ([]types.ChainStatus, int, error) {
 	panic("unimplemented")
 }
 

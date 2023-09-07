@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/db"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -74,7 +75,7 @@ func (cs *StarknetConfigs) SetFrom(fs *StarknetConfigs) (err error) {
 	return
 }
 
-func (cs StarknetConfigs) Chains(ids ...string) (r []types.ChainStatus, err error) {
+func (cs StarknetConfigs) Chains(ids ...relay.ChainID) (r []types.ChainStatus, err error) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -82,7 +83,7 @@ func (cs StarknetConfigs) Chains(ids ...string) (r []types.ChainStatus, err erro
 		if len(ids) > 0 {
 			var match bool
 			for _, id := range ids {
-				if id == *ch.ChainID {
+				if id.String() == *ch.ChainID {
 					match = true
 					break
 				}
@@ -108,7 +109,8 @@ func (cs StarknetConfigs) Node(name string) (n db.Node, err error) {
 	for i := range cs {
 		for _, n := range cs[i].Nodes {
 			if n.Name != nil && *n.Name == name {
-				return legacyNode(n, *cs[i].ChainID), nil
+				cid := relay.ChainID(*cs[i].ChainID)
+				return legacyNode(n, cid), nil
 			}
 		}
 	}
@@ -116,26 +118,26 @@ func (cs StarknetConfigs) Node(name string) (n db.Node, err error) {
 	return
 }
 
-func (cs StarknetConfigs) nodes(chainID string) (ns StarknetNodes) {
+func (cs StarknetConfigs) nodes(id relay.ChainID) (ns StarknetNodes) {
 	for _, c := range cs {
-		if *c.ChainID == chainID {
+		if *c.ChainID == id.String() {
 			return c.Nodes
 		}
 	}
 	return nil
 }
 
-func (cs StarknetConfigs) Nodes(chainID string) (ns []db.Node, err error) {
-	nodes := cs.nodes(chainID)
+func (cs StarknetConfigs) Nodes(id relay.ChainID) (ns []db.Node, err error) {
+	nodes := cs.nodes(id)
 	if nodes == nil {
-		err = fmt.Errorf("no nodes: chain %s: %w", chainID, chains.ErrNotFound)
+		err = fmt.Errorf("no nodes: chain %s: %w", id, chains.ErrNotFound)
 		return
 	}
 	for _, n := range nodes {
 		if n == nil {
 			continue
 		}
-		ns = append(ns, legacyNode(n, chainID))
+		ns = append(ns, legacyNode(n, id))
 	}
 	return
 }
@@ -144,7 +146,8 @@ func (cs StarknetConfigs) NodeStatus(name string) (n types.NodeStatus, err error
 	for i := range cs {
 		for _, n := range cs[i].Nodes {
 			if n.Name != nil && *n.Name == name {
-				return nodeStatus(n, *cs[i].ChainID)
+				cid := relay.ChainID(*cs[i].ChainID)
+				return nodeStatus(n, cid)
 			}
 		}
 	}
@@ -152,14 +155,15 @@ func (cs StarknetConfigs) NodeStatus(name string) (n types.NodeStatus, err error
 	return
 }
 
-func (cs StarknetConfigs) NodeStatuses(chainIDs ...string) (ns []types.NodeStatus, err error) {
-	if len(chainIDs) == 0 {
+func (cs StarknetConfigs) NodeStatuses(ids ...relay.ChainID) (ns []types.NodeStatus, err error) {
+	if len(ids) == 0 {
 		for i := range cs {
 			for _, n := range cs[i].Nodes {
 				if n == nil {
 					continue
 				}
-				n2, err := nodeStatus(n, *cs[i].ChainID)
+				cid := relay.ChainID(*cs[i].ChainID)
+				n2, err := nodeStatus(n, cid)
 				if err != nil {
 					return nil, err
 				}
@@ -168,7 +172,7 @@ func (cs StarknetConfigs) NodeStatuses(chainIDs ...string) (ns []types.NodeStatu
 		}
 		return
 	}
-	for _, id := range chainIDs {
+	for _, id := range ids {
 		for _, n := range cs.nodes(id) {
 			if n == nil {
 				continue
@@ -183,9 +187,9 @@ func (cs StarknetConfigs) NodeStatuses(chainIDs ...string) (ns []types.NodeStatu
 	return
 }
 
-func nodeStatus(n *stkcfg.Node, chainID string) (types.NodeStatus, error) {
+func nodeStatus(n *stkcfg.Node, id relay.ChainID) (types.NodeStatus, error) {
 	var s types.NodeStatus
-	s.ChainID = chainID
+	s.ChainID = id.String()
 	s.Name = *n.Name
 	b, err := toml.Marshal(n)
 	if err != nil {
@@ -283,10 +287,10 @@ func setFromNode(n, f *stkcfg.Node) {
 	}
 }
 
-func legacyNode(n *stkcfg.Node, id string) db.Node {
+func legacyNode(n *stkcfg.Node, id relay.ChainID) db.Node {
 	return db.Node{
 		Name:    *n.Name,
-		ChainID: id,
+		ChainID: id.String(),
 		URL:     (*url.URL)(n.URL).String(),
 	}
 }

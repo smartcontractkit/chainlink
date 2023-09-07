@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -54,7 +55,7 @@ func (o *ChainOpts) Validate() (err error) {
 	return
 }
 
-func (o *ChainOpts) ConfigsAndLogger() (chains.Configs[string, db.Node], logger.Logger) {
+func (o *ChainOpts) ConfigsAndLogger() (chains.Configs[db.Node], logger.Logger) {
 	return o.Configs, o.Logger
 }
 
@@ -118,11 +119,15 @@ func (c *chain) Reader() (starknet.Reader, error) {
 	return c.getClient()
 }
 
+func (c *chain) ChainID() relay.ChainID {
+	return relay.ChainID(c.id)
+}
+
 // getClient returns a client, randomly selecting one from available and valid nodes
 func (c *chain) getClient() (*starknet.Client, error) {
 	var node db.Node
 	var client *starknet.Client
-	nodes, err := c.cfgs.Nodes(c.id)
+	nodes, err := c.cfgs.Nodes(c.ChainID())
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get nodes")
 	}
@@ -215,7 +220,7 @@ func (c *chain) listNodeStatuses(start, end int) ([]relaytypes.NodeStatus, int, 
 	}
 	nodes := c.cfg.Nodes[start:end]
 	for _, node := range nodes {
-		stat, err := nodeStatus(node, c.id)
+		stat, err := nodeStatus(node, c.ChainID())
 		if err != nil {
 			return stats, total, err
 		}

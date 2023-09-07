@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
@@ -94,7 +95,7 @@ func (cs *EVMConfigs) SetFrom(fs *EVMConfigs) (err error) {
 	return
 }
 
-func (cs EVMConfigs) Chains(ids ...string) (r []relaytypes.ChainStatus, err error) {
+func (cs EVMConfigs) Chains(ids ...relay.ChainID) (r []relaytypes.ChainStatus, err error) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -103,7 +104,7 @@ func (cs EVMConfigs) Chains(ids ...string) (r []relaytypes.ChainStatus, err erro
 		if len(ids) > 0 {
 			var match bool
 			for _, id := range ids {
-				if id == chainID {
+				if id.String() == chainID {
 					match = true
 					break
 				}
@@ -140,7 +141,7 @@ func (cs EVMConfigs) NodeStatus(name string) (relaytypes.NodeStatus, error) {
 	for i := range cs {
 		for _, n := range cs[i].Nodes {
 			if n.Name != nil && *n.Name == name {
-				return nodeStatus(n, cs[i].ChainID.String())
+				return nodeStatus(n, relay.ChainID(cs[i].ChainID.String()))
 			}
 		}
 	}
@@ -165,9 +166,9 @@ func legacyNode(n *Node, chainID *utils.Big) (v2 types.Node) {
 	return
 }
 
-func nodeStatus(n *Node, chainID string) (relaytypes.NodeStatus, error) {
+func nodeStatus(n *Node, chainID relay.ChainID) (relaytypes.NodeStatus, error) {
 	var s relaytypes.NodeStatus
-	s.ChainID = chainID
+	s.ChainID = chainID.String()
 	s.Name = *n.Name
 	b, err := toml.Marshal(n)
 	if err != nil {
@@ -177,18 +178,22 @@ func nodeStatus(n *Node, chainID string) (relaytypes.NodeStatus, error) {
 	return s, nil
 }
 
-func (cs EVMConfigs) nodes(chainID string) (ns EVMNodes) {
+func (cs EVMConfigs) nodes(id relay.ChainID) (ns EVMNodes) {
 	for _, c := range cs {
-		if c.ChainID.String() == chainID {
+		if c.ChainID.String() == id.String() {
 			return c.Nodes
 		}
 	}
 	return nil
 }
 
-func (cs EVMConfigs) Nodes(chainID utils.Big) (ns []types.Node, err error) {
-	id := chainID.String()
-	nodes := cs.nodes(id)
+func (cs EVMConfigs) Nodes(chainID relay.ChainID) (ns []types.Node, err error) {
+
+	evmID, err := chainID.Int64()
+	if err != nil {
+		return nil, fmt.Errorf("invalid evm chain id %q : %w", chainID, err)
+	}
+	nodes := cs.nodes(chainID)
 	if nodes == nil {
 		err = fmt.Errorf("no nodes: chain %s: %w", &chainID, chains.ErrNotFound)
 		return
@@ -197,19 +202,20 @@ func (cs EVMConfigs) Nodes(chainID utils.Big) (ns []types.Node, err error) {
 		if n == nil {
 			continue
 		}
-		ns = append(ns, legacyNode(n, &chainID))
+
+		ns = append(ns, legacyNode(n, utils.NewBigI(evmID)))
 	}
 	return
 }
 
-func (cs EVMConfigs) NodeStatuses(chainIDs ...string) (ns []relaytypes.NodeStatus, err error) {
+func (cs EVMConfigs) NodeStatuses(chainIDs ...relay.ChainID) (ns []relaytypes.NodeStatus, err error) {
 	if len(chainIDs) == 0 {
 		for i := range cs {
 			for _, n := range cs[i].Nodes {
 				if n == nil {
 					continue
 				}
-				n2, err := nodeStatus(n, cs[i].ChainID.String())
+				n2, err := nodeStatus(n, relay.ChainID(cs[i].ChainID.String()))
 				if err != nil {
 					return nil, err
 				}

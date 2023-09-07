@@ -28,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -84,7 +85,7 @@ func (o *ChainOpts) Validate() (err error) {
 	return
 }
 
-func (o *ChainOpts) ConfigsAndLogger() (chains.Configs[string, db.Node], logger.Logger) {
+func (o *ChainOpts) ConfigsAndLogger() (chains.Configs[db.Node], logger.Logger) {
 	return o.Configs, o.Logger
 }
 
@@ -143,6 +144,10 @@ func (c *chain) ID() string {
 	return c.id
 }
 
+func (c *chain) ChainID() relay.ChainID {
+	return relay.ChainID(c.id)
+}
+
 func (c *chain) Config() coscfg.Config {
 	return c.cfg
 }
@@ -159,7 +164,7 @@ func (c *chain) Reader(name string) (cosmosclient.Reader, error) {
 func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 	var node db.Node
 	if name == "" { // Any node
-		nodes, err := c.cfgs.Nodes(c.id)
+		nodes, err := c.cfgs.Nodes(c.ChainID())
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get nodes")
 		}
@@ -251,7 +256,7 @@ func (c *chain) listNodeStatuses(start, end int) ([]relaytypes.NodeStatus, int, 
 	}
 	nodes := c.cfg.Nodes[start:end]
 	for _, node := range nodes {
-		stat, err := nodeStatus(node, c.id)
+		stat, err := nodeStatus(node, c.ChainID())
 		if err != nil {
 			return stats, total, err
 		}
