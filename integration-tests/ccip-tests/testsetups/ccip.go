@@ -819,7 +819,7 @@ func DeployLocalCluster(
 		if nonDevGethNetworks == nil {
 			return errors.New("cannot create nodes with custom config without nonDevGethNetworks")
 		}
-		toml, err := node.NewConfigFromToml(ccipnode.CCIPTOML,
+		toml, err := node.NewConfigFromToml(string(ccipnode.CCIPTOML),
 			node.WithPrivateEVMs(nonDevGethNetworks))
 		if err != nil {
 			return err
@@ -910,7 +910,7 @@ func DeployEnvironments(
 		*/
 	}
 
-	tomlCfg, err := node.NewConfigFromToml(ccipnode.CCIPTOML, ccipnode.WithPrivateEVMs(nets))
+	tomlCfg, err := node.NewConfigFromToml(string(ccipnode.CCIPTOML), ccipnode.WithPrivateEVMs(nets))
 	tomlStr, err := tomlCfg.TOMLString()
 	require.NoError(t, err)
 	clProps["toml"] = tomlStr
