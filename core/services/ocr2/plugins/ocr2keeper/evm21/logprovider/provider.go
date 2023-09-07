@@ -80,7 +80,8 @@ var _ LogEventProviderTest = &logEventProvider{}
 type logEventProvider struct {
 	lggr logger.Logger
 
-	cancel context.CancelFunc
+	cancel   context.CancelFunc
+	routines sync.WaitGroup
 
 	poller logpoller.LogPoller
 
@@ -124,6 +125,7 @@ func (p *logEventProvider) Start(context.Context) error {
 
 	p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", readMaxBatchSize, "readers", readerThreads)
 
+	p.routines.Add(readerThreads)
 	{ // start readers
 		go func(ctx context.Context) {
 			for i := 0; i < readerThreads; i++ {
@@ -132,9 +134,12 @@ func (p *logEventProvider) Start(context.Context) error {
 		}(ctx)
 	}
 
+	p.routines.Add(1)
 	{ // start scheduler
 		lggr := p.lggr.With("where", "scheduler")
 		go func(ctx context.Context) {
+			defer p.routines.Done()
+
 			err := p.scheduleReadJobs(ctx, func(ids []*big.Int) {
 				select {
 				case readQ <- ids:
@@ -143,10 +148,6 @@ func (p *logEventProvider) Start(context.Context) error {
 					lggr.Warnw("readQ is full, dropping ids", "ids", ids)
 				}
 			})
-			// if the context was canceled, we don't need to log the error
-			if ctx.Err() != nil {
-				return
-			}
 			if err != nil {
 				lggr.Warnw("stopped scheduling read jobs with error", "err", err)
 			}
@@ -158,6 +159,14 @@ func (p *logEventProvider) Start(context.Context) error {
 }
 
 func (p *logEventProvider) Close() error {
+	if err := p.stop(); err != nil {
+		return err
+	}
+	p.routines.Wait()
+	return nil
+}
+
+func (p *logEventProvider) stop() error {
 	p.lock.Lock()
 	defer p.lock.Unlock()
 
@@ -167,6 +176,7 @@ func (p *logEventProvider) Close() error {
 	} else {
 		return errors.New("already stopped")
 	}
+
 	return nil
 }
 
@@ -265,13 +275,15 @@ func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([
 			partitionIdx++
 			atomic.StoreUint64(&p.currentPartitionIdx, partitionIdx)
 		case <-ctx.Done():
-			return ctx.Err()
+			return nil
 		}
 	}
 }
 
 // startReader starts a reader that reads logs from the ids coming from readQ.
 func (p *logEventProvider) startReader(pctx context.Context, readQ <-chan []*big.Int) {
+	defer p.routines.Done()
+
 	ctx, cancel := context.WithCancel(pctx)
 	defer cancel()
 
