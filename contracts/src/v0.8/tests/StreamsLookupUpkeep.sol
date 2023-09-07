@@ -15,13 +15,7 @@ interface IVerifierProxy {
 }
 
 contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupCompatibleInterface {
-  event MercuryPerformEvent(
-    address indexed sender,
-    uint256 indexed blockNumber,
-    bytes v0,
-    bytes verifiedV0,
-    bytes ed
-  );
+  event MercuryPerformEvent(address indexed sender, uint256 indexed blockNumber, bytes v0, bytes verifiedV0, bytes ed);
 
   ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
   // keep these in sync with verifier proxy in RDD
