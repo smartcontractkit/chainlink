@@ -152,7 +152,7 @@ contract FunctionsBilling_EstimateCost is FunctionsSubscriptionSetup {
     s_functionsCoordinator.estimateCost(s_subscriptionId, requestData, callbackGasLimit, gasPriceWei);
   }
 
-  function test_EstimateCost_Success() public view {
+  function test_EstimateCost_Success() public {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
@@ -167,7 +167,14 @@ contract FunctionsBilling_EstimateCost is FunctionsSubscriptionSetup {
     uint32 callbackGasLimit = 5_500;
     uint256 gasPriceWei = 1;
 
-    s_functionsCoordinator.estimateCost(s_subscriptionId, requestData, callbackGasLimit, gasPriceWei);
+    uint96 costEstimate = s_functionsCoordinator.estimateCost(
+      s_subscriptionId,
+      requestData,
+      callbackGasLimit,
+      gasPriceWei
+    );
+    uint96 expectedCostEstimate = 15725380;
+    assertEq(costEstimate, expectedCostEstimate);
   }
 }
 
