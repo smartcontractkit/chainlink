@@ -1,6 +1,7 @@
 package node
 
 import (
+	"bytes"
 	_ "embed"
 	"math/big"
 	"time"
@@ -14,10 +15,23 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 //go:embed tomls/ccip.toml
 var CCIPTOML []byte
+
+func NewConfigFromToml(tomlConfig []byte, opts ...node.NodeConfigOpt) (*chainlink.Config, error) {
+	var cfg chainlink.Config
+	err := config.DecodeTOML(bytes.NewReader(tomlConfig), &cfg)
+	if err != nil {
+		return nil, err
+	}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	return &cfg, nil
+}
 
 func WithPrivateEVMs(networks []blockchain.EVMNetwork) node.NodeConfigOpt {
 	var evmConfigs []*evmcfg.EVMConfig

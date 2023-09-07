@@ -32,9 +32,9 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts/laneconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testreporters"
+	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/types/config/node"
 	ccipnode "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
-	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
 const (
@@ -819,7 +819,7 @@ func DeployLocalCluster(
 		if nonDevGethNetworks == nil {
 			return errors.New("cannot create nodes with custom config without nonDevGethNetworks")
 		}
-		toml, err := node.NewConfigFromToml(string(ccipnode.CCIPTOML),
+		toml, err := node.NewConfigFromToml(ccipnode.CCIPTOML,
 			node.WithPrivateEVMs(nonDevGethNetworks))
 		if err != nil {
 			return err
@@ -910,7 +910,7 @@ func DeployEnvironments(
 		*/
 	}
 
-	tomlCfg, err := node.NewConfigFromToml(string(ccipnode.CCIPTOML), ccipnode.WithPrivateEVMs(nets))
+	tomlCfg, err := node.NewConfigFromToml(ccipnode.CCIPTOML, ccipnode.WithPrivateEVMs(nets))
 	tomlStr, err := tomlCfg.TOMLString()
 	require.NoError(t, err)
 	clProps["toml"] = tomlStr
