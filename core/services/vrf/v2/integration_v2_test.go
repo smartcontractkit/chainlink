@@ -554,6 +554,7 @@ func createVRFJobs(
 			V2:                       true,
 			GasLanePrice:             gasLanePrices[i],
 			VRFOwnerAddress:          vrfOwnerString,
+			EVMChainID:               testutils.SimulatedChainID.String(),
 		}).Toml()
 
 		jb, err := vrfcommon.ValidatedVRFSpec(spec)

@@ -359,14 +359,18 @@ vrf          [type=vrfv2
 estimate_gas [type=estimategaslimit
               to="%s"
               multiplier="1.1"
-              data="$(vrf.output)"]
+              data="$(vrf.output)"
+			  evmChainID="$(evmChainID)"
+]
 simulate [type=ethcall
           to="%s"
 		  gas="$(estimate_gas)"
 		  gasPrice="$(jobSpec.maxGasPrice)"
 		  extractRevertReason=true
 		  contract="%s"
-		  data="$(vrf.output)"]
+		  data="$(vrf.output)"
+		  evmChainID="$(evmChainID)"
+]
 decode_log->vrf->estimate_gas->simulate
 `, coordinatorAddress, coordinatorAddress, coordinatorAddress)
 	}
@@ -384,14 +388,18 @@ generate_proof          [type=vrfv2plus
 estimate_gas            [type=estimategaslimit
                          to="%s"
                          multiplier="1.1"
-                         data="$(generate_proof.output)"]
+                         data="$(generate_proof.output)"
+						 evmChainID="$(evmChainID)"
+]
 simulate_fulfillment    [type=ethcall
                          to="%s"
 		                 gas="$(estimate_gas)"
 		                 gasPrice="$(jobSpec.maxGasPrice)"
 		                 extractRevertReason=true
 		                 contract="%s"
-		                 data="$(generate_proof.output)"]
+		                 data="$(generate_proof.output)"
+					     evmChainID="$(evmChainID)"
+]
 decode_log->generate_proof->estimate_gas->simulate_fulfillment
 `, coordinatorAddress, coordinatorAddress, coordinatorAddress)
 	}
