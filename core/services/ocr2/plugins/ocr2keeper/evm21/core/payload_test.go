@@ -45,7 +45,7 @@ func TestWorkID(t *testing.T) {
 					BlockHash: common.HexToHash("0xabcdef"),
 				},
 			},
-			expected: "580139f082b445858687ee2865459918b52099755398bdf5459029b228357285",
+			expected: "aaa208331dfafff7a681e3358d082a2e78633dd05c8fb2817c391888cadb2912",
 		},
 		{
 			name:     "happy path example from an actual tx",
@@ -59,7 +59,7 @@ func TestWorkID(t *testing.T) {
 					BlockHash: common.HexToHash("0xb41258d18cd44ebf7a0d70de011f2bc4a67c9b68e8b6dada864045d8543bb020"),
 				},
 			},
-			expected: "ad08c78b703fcb530230a042cfc1d6f57664b883a9b1972449625c88f62a3be9",
+			expected: "ef1b6acac8aa3682a8a08f666a13cfa165f7e811a16ea9fa0817f437fc4d110d",
 		},
 		{
 			name:     "empty upkeepID",
