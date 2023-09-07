@@ -2,17 +2,14 @@ package cosmostxm
 
 import (
 	"context"
-	"crypto/sha256"
 	"encoding/hex"
 	"sync"
 
-	"github.com/cometbft/cometbft/crypto"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
-	"github.com/cosmos/cosmos-sdk/types/bech32"
 	"github.com/pkg/errors"
-	"golang.org/x/crypto/ripemd160" //nolint: staticcheck
 
+	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/params"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 )
 
@@ -61,21 +58,13 @@ func (ka *KeystoreAdapter) updateMappingLocked() error {
 			addressToPubKey[prevEntry.bech32Addr] = prevEntry.accountInfo
 			continue
 		}
+
 		pubKeyBytes, err := hex.DecodeString(account)
 		if err != nil {
 			return err
 		}
 
-		if len(pubKeyBytes) != secp256k1.PubKeySize {
-			return errors.New("length of pubkey is incorrect")
-		}
-
-		sha := sha256.Sum256(pubKeyBytes)
-		hasherRIPEMD160 := ripemd160.New()
-		_, _ = hasherRIPEMD160.Write(sha[:])
-		address := crypto.Address(hasherRIPEMD160.Sum(nil))
-
-		bech32Addr, err := bech32.ConvertAndEncode(ka.accountPrefix, address)
+		bech32Addr, err := params.CreateBech32Address(account, ka.accountPrefix)
 		if err != nil {
 			return err
 		}
