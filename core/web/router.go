@@ -678,3 +678,14 @@ func prometheusHandler(token string, h http.Handler) gin.HandlerFunc {
 		h.ServeHTTP(c.Writer, c.Request)
 	}
 }
+
+func ealRoutes(config chainlink.GeneralConfig, app chainlink.Application, r *gin.RouterGroup) {
+	if config.Feature().EAL() {
+		group := r.Group("/eal/v1")
+		lgsc := EALController{
+			requestRouter: app.EALRequestRouter(),
+			lggr:          app.GetLogger(),
+		}
+		group.Any("send_transaction", lgsc.SendTransaction)
+	}
+}

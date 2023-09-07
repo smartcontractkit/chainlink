@@ -15,6 +15,8 @@ FeedsManager = true # Default
 LogPoller = false # Default
 # UICSAKeys enables CSA Keys in the UI.
 UICSAKeys = false # Default
+# EAL is an experimental feature that exposes API endpoints for reading and writing to blockchains.
+EAL = false # Default
 
 [Database]
 # DefaultIdleInTxSessionTimeout is the maximum time allowed for a transaction to be open and idle before timing out. See Postgres `idle_in_transaction_session_timeout` for more details.

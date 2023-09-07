@@ -289,6 +289,10 @@ func (g *generalConfig) FeatureUICSAKeys() bool {
 	return *g.c.Feature.UICSAKeys
 }
 
+func (g *generalConfig) FeatureEAL() bool {
+	return *g.c.Feature.EAL
+}
+
 func (g *generalConfig) AutoPprof() config.AutoPprof {
 	return &autoPprofConfig{c: g.c.AutoPprof, rootDir: g.RootDir}
 }
