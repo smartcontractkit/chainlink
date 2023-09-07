@@ -301,12 +301,25 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			ctx := testutils.Context(t)
 
+			tickerCh := make(chan time.Time)
+			oldNewTickerFn := newTickerFn
+			newTickerFn = func(d time.Duration) *time.Ticker {
+				return &time.Ticker{
+					C: tickerCh,
+				}
+			}
+			defer func() {
+				newTickerFn = oldNewTickerFn
+			}()
+
 			lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 			chainID := testutils.FixtureChainID
 			db := pgtest.NewSqlxDB(t)
 			orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 			scanner := &mockScanner{}
 			store := NewUpkeepStateStore(orm, lggr, scanner)
+
+			require.NoError(t, store.Start(ctx))
 
 			t.Cleanup(func() {
 				t.Log("cleaning up database")
@@ -319,6 +332,9 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			for _, insert := range test.storedValues {
 				require.NoError(t, store.SetUpkeepState(context.Background(), insert.result, insert.state), "storing states should not produce an error")
 			}
+
+			tickerCh <- time.Now()
+			tickerCh <- time.Now() // by the second tick we know the flush has been triggered
 
 			// empty the cache before doing selects to force a db lookup
 			store.cache = make(map[string]*upkeepStateRecord)

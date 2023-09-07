@@ -21,7 +21,9 @@ const (
 	// CacheExpiration is the amount of time that we keep a record in the cache.
 	CacheExpiration = 24 * time.Hour
 	// GCInterval is the amount of time between cache cleanups.
-	GCInterval = 2 * time.Hour
+	GCInterval   = 2 * time.Hour
+	flushCadence = 30 * time.Second
+	flushSize    = 1000
 )
 
 type ORM interface {
@@ -39,7 +41,8 @@ type UpkeepStateStore interface {
 }
 
 var (
-	_ UpkeepStateStore = &upkeepStateStore{}
+	_           UpkeepStateStore = &upkeepStateStore{}
+	newTickerFn                  = time.NewTicker
 )
 
 // upkeepStateRecord is a record that we save in a local cache.
@@ -67,6 +70,7 @@ type upkeepStateStore struct {
 	cache map[string]*upkeepStateRecord
 
 	pendingRecords []persistedStateRecord
+	errCh          chan error
 
 	// service values
 	cancel context.CancelFunc
@@ -82,6 +86,7 @@ func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScann
 		retention:      CacheExpiration,
 		cleanCadence:   GCInterval,
 		pendingRecords: []persistedStateRecord{},
+		errCh:          make(chan error, 1),
 	}
 }
 
@@ -114,6 +119,9 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 			ticker := time.NewTicker(utils.WithJitter(u.cleanCadence))
 			defer ticker.Stop()
 
+			flushTicker := newTickerFn(flushCadence)
+			defer flushTicker.Stop()
+
 			for {
 				select {
 				case <-ticker.C:
@@ -122,6 +130,10 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 					}
 
 					ticker.Reset(utils.WithJitter(u.cleanCadence))
+				case <-flushTicker.C:
+					u.flush(ctx)
+				case err := <-u.errCh:
+					u.lggr.Errorw("error inserting records", "err", err)
 				case <-ctx.Done():
 
 				}
@@ -130,6 +142,25 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 	}
 
 	return nil
+}
+
+func (u *upkeepStateStore) flush(ctx context.Context) {
+	batch := len(u.pendingRecords)
+
+	if batch > flushSize {
+		batch = flushSize
+	} else if batch == 0 {
+		return
+	}
+
+	cloneRecords := u.pendingRecords[:batch]
+	u.pendingRecords = u.pendingRecords[batch:]
+
+	//go func() {
+	if err := u.orm.BatchInsertUpkeepStates(cloneRecords, pg.WithParentCtx(ctx)); err != nil {
+		//u.errCh <- err
+	}
+	//}()
 }
 
 // Close stops the service of pruning stale data; implements io.Closer
