@@ -353,8 +353,8 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 		l.Info().Int64("Upkeep Count", countersAfterSetMatch[i].Int64()).Int("Upkeep Index", i).Msg("Upkeep")
 	}
 
-	// Wait for 10 seconds to make sure backend is ready
-	time.Sleep(10 * time.Second)
+	// Wait for 30 seconds to make sure backend is ready
+	time.Sleep(30 * time.Second)
 	// Start the consumers again
 	for i := 0; i < len(consumers); i++ {
 		err := consumers[i].Start()
