@@ -69,7 +69,7 @@ describe('KeeperRegistry2_1 - Frozen [ @skip-coverage ]', () => {
     )
     assert.equal(
       ethers.utils.id(KeeperRegistryLogicAFactory.bytecode),
-      '0x007d5c10abc07fbced761a73ae0bbe031dc721f5d4468dcf7ec4851222cf6fe0',
+      '0xe69d334fa75af0d6d8572996d815c93b8be1c8546670510b0d20ef349e57b2df',
       'KeeperRegistryLogicA bytecode has changed',
     )
     assert.equal(
