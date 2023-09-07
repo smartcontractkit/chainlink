@@ -114,10 +114,10 @@ func setFromNode(n, f *coscfg.Node) {
 	}
 }
 
-func legacyNode(n *coscfg.Node, id relay.ChainID) db.Node {
+func legacyNode(n *coscfg.Node, id string) db.Node {
 	return db.Node{
 		Name:          *n.Name,
-		CosmosChainID: id.String(),
+		CosmosChainID: id,
 		TendermintURL: (*url.URL)(n.TendermintURL).String(),
 	}
 }
@@ -257,16 +257,16 @@ func sdkDecFromDecimal(d *decimal.Decimal) sdk.Dec {
 func (c *CosmosConfig) GetNode(name string) (db.Node, error) {
 	for _, n := range c.Nodes {
 		if *n.Name == name {
-			return legacyNode(n, relay.ChainID(*c.ChainID)), nil
+			return legacyNode(n, *c.ChainID), nil
 		}
 	}
-	return db.Node{}, fmt.Errorf("%w: node %s", chains.ErrNotFound, name)
+	return db.Node{}, fmt.Errorf("%w: node %q", chains.ErrNotFound, name)
 }
 
 func (c *CosmosConfig) ListNodes() ([]db.Node, error) {
 	var allNodes []db.Node
 	for _, n := range c.Nodes {
-		allNodes = append(allNodes, legacyNode(n, relay.ChainID(*c.ChainID)))
+		allNodes = append(allNodes, legacyNode(n, *c.ChainID))
 	}
 	return allNodes, nil
 }
