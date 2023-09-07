@@ -430,14 +430,14 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 
 // multiFeedsRequest sends a Mercury v0.3 request for a multi-feed report
 func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryData, sl *StreamsLookup, lggr logger.Logger) {
-	//q := url.Values{
-	//	feedIDs:   {strings.Join(sl.feeds, ",")},
-	//	timestamp: {sl.time.String()},
-	//}
-	t := big.NewInt(sl.time.Int64() - 10)
-	q := fmt.Sprintf("feedIDs=%s&timestamp=%s", strings.Join(sl.feeds, ","), t.String())
+	q := url.Values{
+		feedIDs:   {strings.Join(sl.feeds, ",")},
+		timestamp: {sl.time.String()},
+	}
+	//t := big.NewInt(sl.time.Int64() - 10)
+	//q := fmt.Sprintf("feedIDs=%s&timestamp=%s", strings.Join(sl.feeds, ","), t.String())
 
-	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV03, q)
+	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV03, q.Encode())
 	lggr.Debugf("request URL for upkeep %s userId %s: %s", sl.upkeepId.String(), r.mercury.cred.Username, reqUrl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
@@ -447,7 +447,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 	}
 
 	ts := time.Now().UTC().UnixMilli()
-	signature := r.generateHMAC(http.MethodGet, mercuryBatchPathV03+q, []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
+	signature := r.generateHMAC(http.MethodGet, mercuryBatchPathV03+q.Encode(), []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
 	req.Header.Set(headerContentType, applicationJson)
 	// username here is often referred to as user id
 	req.Header.Set(headerAuthorization, r.mercury.cred.Username)
@@ -466,7 +466,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			retryable = false
 			resp, err1 := r.hc.Do(req)
 			if err1 != nil {
-				lggr.Warnf("at block %s upkeep %s GET request fails from mercury v0.3: %v", sl.time.String(), sl.upkeepId.String(), err1)
+				lggr.Warnf("at timestamp %s upkeep %s GET request fails from mercury v0.3: %v", sl.time.String(), sl.upkeepId.String(), err1)
 				retryable = true
 				state = encoding.MercuryFlakyFailure
 				return err1
@@ -497,7 +497,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			} else if resp.StatusCode == http.StatusInternalServerError {
 				retryable = true
 				state = encoding.MercuryFlakyFailure
-				return errors.New(strconv.FormatInt(int64(resp.StatusCode), 10))
+				return fmt.Errorf("%d", http.StatusInternalServerError)
 			} else if resp.StatusCode == 420 {
 				// in 0.3, this will happen when missing/malformed query args, missing or bad required headers, non-existent feeds, or no permissions for feeds
 				retryable = false
@@ -511,7 +511,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			var response MercuryV03Response
 			err1 = json.Unmarshal(body, &response)
 			if err1 != nil {
-				lggr.Warnf("at block %s upkeep %s failed to unmarshal body to MercuryV03Response from mercury v0.3: %v", sl.time.String(), sl.upkeepId.String(), err1)
+				lggr.Warnf("at timestamp %s upkeep %s failed to unmarshal body to MercuryV03Response from mercury v0.3: %v", sl.time.String(), sl.upkeepId.String(), err1)
 				retryable = false
 				state = encoding.MercuryUnmarshalError
 				return err1
@@ -521,7 +521,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			if len(response.Reports) != len(sl.feeds) {
 				retryable = true
 				state = encoding.MercuryFlakyFailure
-				return errors.New(fmt.Sprintf("%d", http.StatusNotFound))
+				return fmt.Errorf("%d", http.StatusNotFound)
 			}
 			var reportBytes [][]byte
 			for _, rsp := range response.Reports {
