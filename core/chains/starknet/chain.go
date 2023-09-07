@@ -50,10 +50,6 @@ func (o *ChainOpts) Validate() (err error) {
 	return
 }
 
-func (o *ChainOpts) GetLogger() logger.Logger {
-	return o.Logger
-}
-
 var _ starkChain.Chain = (*chain)(nil)
 
 type chain struct {

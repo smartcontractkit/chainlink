@@ -101,7 +101,7 @@ func (cs EVMConfigs) totalChains() int {
 		if ch == nil {
 			continue
 		}
-		total += 1
+		total++
 	}
 	return total
 }

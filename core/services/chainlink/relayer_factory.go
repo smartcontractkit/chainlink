@@ -230,9 +230,8 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 			KeyStore:         loopKs,
 			EventBroadcaster: config.EventBroadcaster,
 		}
-		//	opts.Config = cosmos.New // cosmos.NewConfigs(cosmos.CosmosConfigs{chainCfg})
-		chain, err := cosmos.NewChain(chainCfg, opts)
 
+		chain, err := cosmos.NewChain(chainCfg, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load Cosmos chain %q: %w", relayId, err)
 		}

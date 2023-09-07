@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
-	"sync"
 	"time"
 
 	"go.uber.org/multierr"
@@ -55,8 +54,6 @@ type Chain interface {
 	BalanceMonitor() monitor.BalanceMonitor
 	LogPoller() logpoller.LogPoller
 	GasEstimator() gas.EvmFeeEstimator
-
-	//GetNodeStatus(ctx context.Context, name string) (relaytypes.NodeStatus, error)
 }
 
 var (
@@ -70,7 +67,7 @@ type LegacyChains struct {
 	*chains.ChainsKV[Chain]
 	dflt Chain
 
-	cfgs toml.EVMConfigs //evmtypes.Configs
+	cfgs toml.EVMConfigs
 }
 
 // LegacyChainContainer is container for EVM chains.
@@ -84,6 +81,9 @@ type LegacyChainContainer interface {
 	List(ids ...string) ([]Chain, error)
 	Slice() []Chain
 
+	// BCF-2516: this is only used for EVMORM. When we delete that
+	// we can promote/move the needed funcs from it to LegacyChainContainer
+	// so instead of EVMORM().XYZ() we'd have something like legacyChains.XYZ()
 	ChainNodeConfigs() evmtypes.Configs
 }
 
@@ -172,9 +172,6 @@ type RelayerConfig struct {
 	EventBroadcaster pg.EventBroadcaster
 	MailMon          *utils.MailboxMonitor
 	GasEstimator     gas.EvmFeeEstimator
-
-	init sync.Once
-	//operationalConfigs evmtypes.Configs
 
 	// TODO BCF-2513 remove test code from the API
 	// Gen-functions are useful for dependency injection by tests

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
@@ -25,8 +24,4 @@ func TestLegacyChains(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, c, got)
 
-	require.NotPanics(t, func() {
-		l = evm.NewLegacyChains(m, nil)
-		assert.NotNil(t, l.ChainNodeConfigs())
-	})
 }

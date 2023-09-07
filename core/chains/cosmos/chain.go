@@ -25,7 +25,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -57,7 +56,6 @@ type ChainOpts struct {
 	DB               *sqlx.DB
 	KeyStore         loop.Keystore
 	EventBroadcaster pg.EventBroadcaster
-	Config           types.Config
 }
 
 func (o *ChainOpts) Validate() (err error) {
@@ -79,18 +77,7 @@ func (o *ChainOpts) Validate() (err error) {
 	if o.EventBroadcaster == nil {
 		err = multierr.Append(err, required("EventBroadcaster"))
 	}
-	if o.Config == nil {
-		err = multierr.Append(err, required("Configs"))
-	}
 	return
-}
-
-func (o *ChainOpts) GetLogger() logger.Logger {
-	return o.Logger
-}
-
-func (o *ChainOpts) ChainConfig() chains.ChainConfig[db.Node] {
-	return o.Config
 }
 
 func NewChain(cfg *CosmosConfig, opts ChainOpts) (adapters.Chain, error) {
@@ -188,7 +175,7 @@ func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 	}
 	client, err := cosmosclient.NewClient(c.id, node.TendermintURL, DefaultRequestTimeout, logger.Named(c.lggr, "Client."+name))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create client: %w")
+		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
 	c.lggr.Debugw("Created client", "name", node.Name, "tendermint-url", node.TendermintURL)
 	return client, nil
