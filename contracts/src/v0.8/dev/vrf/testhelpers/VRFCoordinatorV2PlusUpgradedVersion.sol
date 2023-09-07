@@ -713,7 +713,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     }
 
     for (uint i = 0; i < migrationData.consumers.length; i++) {
-      addConsumer(migrationData.subId, migrationData.consumers[i]);
+      s_consumers[migrationData.consumers[i]][migrationData.subId] = 1;
     }
 
     s_subscriptions[migrationData.subId] = Subscription({
