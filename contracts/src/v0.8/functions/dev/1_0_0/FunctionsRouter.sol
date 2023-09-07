@@ -183,8 +183,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   }
 
   // Used within FunctionsSubscriptions.sol
-  function _getSubscriptionDepositDetails() internal view override returns (uint16, uint72, address) {
-    return (s_config.subscriptionDepositCompletedRequests, s_config.subscriptionDepositJuels, owner());
+  function _getSubscriptionDepositDetails() internal view override returns (uint16, uint72) {
+    return (s_config.subscriptionDepositCompletedRequests, s_config.subscriptionDepositJuels);
   }
 
   // ================================================================

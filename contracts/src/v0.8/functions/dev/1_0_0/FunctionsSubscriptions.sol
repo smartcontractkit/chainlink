@@ -70,7 +70,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   error MustBeSubscriptionOwner();
   error TimeoutNotExceeded();
   error MustBeProposedOwner(address proposedOwner);
-  error TotalBalanceInvariantViolated(uint256 totalBalance, uint256 deductionAttempt); // Should never happen
   event FundsRecovered(address to, uint256 amount);
 
   // ================================================================
@@ -121,16 +120,17 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     uint96 callbackGasCostJuels = juelsPerGas * gasUsed;
     uint96 totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels;
 
-    // Charge the subscription
-    if (s_subscriptions[subscriptionId].balance < totalCostJuels) {
+    if (
+      s_subscriptions[subscriptionId].balance < totalCostJuels ||
+      s_subscriptions[subscriptionId].blockedBalance < estimatedTotalCostJuels
+    ) {
       revert InsufficientBalance(s_subscriptions[subscriptionId].balance);
     }
+
+    // Charge the subscription
     s_subscriptions[subscriptionId].balance -= totalCostJuels;
 
     // Unblock earmarked funds
-    if (s_subscriptions[subscriptionId].blockedBalance < estimatedTotalCostJuels) {
-      revert InsufficientBalance(s_subscriptions[subscriptionId].balance);
-    }
     s_subscriptions[subscriptionId].blockedBalance -= estimatedTotalCostJuels;
 
     // Pay the DON's fees and gas reimbursement
@@ -154,13 +154,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     _onlyRouterOwner();
     _isExistingSubscription(subscriptionId);
 
-    (uint96 balance, , address subscriptionOwner) = _cancelSubscriptionHelper(subscriptionId);
-
-    s_totalLinkBalance -= balance;
-
-    IERC20(i_linkToken).safeTransfer(subscriptionOwner, uint256(balance));
-
-    emit SubscriptionCanceled(subscriptionId, subscriptionOwner, balance);
+    _cancelSubscriptionHelper(subscriptionId, s_subscriptions[subscriptionId].owner, true);
   }
 
   // @inheritdoc IFunctionsSubscriptions
@@ -191,9 +185,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     if (currentBalance < amount) {
       revert InsufficientBalance(currentBalance);
     }
-    if (s_totalLinkBalance < amount) {
-      revert TotalBalanceInvariantViolated(s_totalLinkBalance, amount);
-    }
     s_withdrawableTokens[msg.sender] -= amount;
     s_totalLinkBalance -= amount;
     IERC20(i_linkToken).safeTransfer(recipient, amount);
@@ -211,9 +202,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     uint96 currentBalance = s_withdrawableTokens[address(this)];
     if (currentBalance < amount) {
       revert InsufficientBalance(currentBalance);
-    }
-    if (s_totalLinkBalance < amount) {
-      revert TotalBalanceInvariantViolated(s_totalLinkBalance, amount);
     }
     s_withdrawableTokens[address(this)] -= amount;
     s_totalLinkBalance -= amount;
@@ -267,26 +255,22 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
 
   // @inheritdoc IFunctionsSubscriptions
   function getSubscription(uint64 subscriptionId) public view override returns (Subscription memory) {
-    _isExistingSubscription(subscriptionId);
     return s_subscriptions[subscriptionId];
   }
 
   // @inheritdoc IFunctionsSubscriptions
-  // function getSubscriptionsInRange(
-  //   uint64 subscriptionIdStart,
-  //   uint64 subscriptionIdEnd
-  // ) public view override returns (Subscription[] memory) {
-  //   if (subscriptionIdStart > subscriptionIdEnd || subscriptionIdStart == subscriptionIdEnd) {
-  //     revert InvalidCalldata();
-  //   }
-  //   Subscription[] memory subscriptions;
-  //   for (uint256 i = subscriptionIdStart; i < subscriptionIdEnd; ++i) {
-  //     if (s_subscriptions[uint64(i)].owner == address(0)) {
-  //       subscriptions[i - subscriptionIdStart] = s_subscriptions[uint64(i)];
-  //     }
-  //   }
-  //   return subscriptions;
-  // }
+  function getSubscriptionsInRange(
+    uint64 subscriptionIdStart,
+    uint64 subscriptionIdEnd
+  ) external view override returns (Subscription[] memory subscriptions) {
+    if (subscriptionIdStart >= subscriptionIdEnd) {
+      revert InvalidCalldata();
+    }
+    for (uint256 i = subscriptionIdStart; i < subscriptionIdEnd; ++i) {
+      subscriptions[i - subscriptionIdStart] = s_subscriptions[uint64(i)];
+    }
+    return subscriptions;
+  }
 
   // @inheritdoc IFunctionsSubscriptions
   function getConsumer(address client, uint64 subscriptionId) public view override returns (Consumer memory) {
@@ -387,9 +371,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     _onlySenderThatAcceptedToS();
 
     Consumer memory consumerData = s_consumers[consumer][subscriptionId];
-    if (!consumerData.allowed) {
-      revert InvalidConsumer();
-    }
+    _isAllowedConsumer(consumer, subscriptionId);
     if (consumerData.initiatedRequests != consumerData.completedRequests) {
       revert CannotRemoveWithPendingRequests();
     }
@@ -434,7 +416,10 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     emit SubscriptionConsumerAdded(subscriptionId, consumer);
   }
 
-  function _cancelSubscriptionHelper(uint64 subscriptionId) private returns (uint96, uint64, address) {
+  // Overriden in FunctionsRouter.sol
+  function _getSubscriptionDepositDetails() internal virtual returns (uint16, uint72);
+
+  function _cancelSubscriptionHelper(uint64 subscriptionId, address toAddress, bool skipSubscriptionDeposit) private {
     Subscription memory subscription = s_subscriptions[subscriptionId];
     uint96 balance = subscription.balance;
     uint64 completedRequests = 0;
@@ -442,16 +427,38 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     // NOTE: loop iterations are bounded by config.maxConsumers
     // If no consumers, does nothing.
     for (uint256 i = 0; i < subscription.consumers.length; ++i) {
-      completedRequests += s_consumers[subscription.consumers[i]][subscriptionId].completedRequests;
-      delete s_consumers[subscription.consumers[i]][subscriptionId];
+      address consumer = subscription.consumers[i];
+      completedRequests += s_consumers[consumer][subscriptionId].completedRequests;
+      delete s_consumers[consumer][subscriptionId];
     }
     delete s_subscriptions[subscriptionId];
 
-    return (balance, completedRequests, subscription.owner);
-  }
+    (uint16 subscriptionDepositCompletedRequests, uint72 subscriptionDepositJuels) = _getSubscriptionDepositDetails();
 
-  // Overriden in FunctionsRouter.sol
-  function _getSubscriptionDepositDetails() internal virtual returns (uint16, uint72, address);
+    IERC20 linkToken = IERC20(i_linkToken);
+
+    if (skipSubscriptionDeposit || completedRequests >= subscriptionDepositCompletedRequests) {
+      // If subscription has made sufficient requests, withdraw total balance
+
+      s_totalLinkBalance -= balance;
+      linkToken.safeTransfer(toAddress, uint256(balance));
+      emit SubscriptionCanceled(subscriptionId, toAddress, balance);
+    } else {
+      // Otherwise if subscription has not made enough requests, deposit will be forfeited
+
+      if (subscriptionDepositJuels > balance) {
+        // If remaining balance is less than subscriptionDepositJuels, take all as deposit
+        s_withdrawableTokens[address(this)] -= balance;
+        emit SubscriptionCanceled(subscriptionId, toAddress, 0);
+      } else {
+        uint96 effectiveBalance = balance - subscriptionDepositJuels;
+        s_totalLinkBalance -= effectiveBalance;
+        linkToken.safeTransfer(toAddress, uint256(effectiveBalance));
+        s_withdrawableTokens[address(this)] -= subscriptionDepositJuels;
+        emit SubscriptionCanceled(subscriptionId, toAddress, effectiveBalance);
+      }
+    }
+  }
 
   // @inheritdoc IFunctionsSubscriptions
   function cancelSubscription(uint64 subscriptionId, address to) external override {
@@ -463,37 +470,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
       revert CannotRemoveWithPendingRequests();
     }
 
-    (uint96 balance, uint64 completedRequests, ) = _cancelSubscriptionHelper(subscriptionId);
-
-    (
-      uint16 subscriptionDepositCompletedRequests,
-      uint72 subscriptionDepositJuels,
-      address owner
-    ) = _getSubscriptionDepositDetails();
-
-    IERC20 linkToken = IERC20(i_linkToken);
-
-    if (completedRequests >= subscriptionDepositCompletedRequests) {
-      // If subscription has made sufficient requests, withdraw total balance
-
-      s_totalLinkBalance -= balance;
-      linkToken.safeTransfer(to, uint256(balance));
-      emit SubscriptionCanceled(subscriptionId, to, balance);
-    } else {
-      // Otherwise if subscription has not made enough requests, deposit will be forfeited
-
-      if (subscriptionDepositJuels > balance) {
-        // If remaining balance is less than subscriptionDepositJuels, take all as deposit
-        linkToken.safeTransfer(owner, uint256(balance));
-        emit SubscriptionCanceled(subscriptionId, to, 0);
-      } else {
-        uint96 effectiveBalance = balance - subscriptionDepositJuels;
-        s_totalLinkBalance -= effectiveBalance;
-        linkToken.safeTransfer(to, uint256(effectiveBalance));
-        linkToken.safeTransfer(owner, uint256(subscriptionDepositJuels));
-        emit SubscriptionCanceled(subscriptionId, to, effectiveBalance);
-      }
-    }
+    _cancelSubscriptionHelper(subscriptionId, to, false);
   }
 
   // @inheritdoc IFunctionsSubscriptions
