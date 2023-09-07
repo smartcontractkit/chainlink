@@ -1423,6 +1423,7 @@ func (lsn *listenerV2) simulateFulfillment(
 			"logTopics":      req.req.Raw().Topics,
 			"logData":        req.req.Raw().Data,
 		},
+		"evmChainID": lsn.job.VRFSpec.EVMChainID.String(),
 	})
 	var trrs pipeline.TaskRunResults
 	res.run, trrs, err = lsn.pipelineRunner.ExecuteRun(ctx, *lsn.job.PipelineSpec, vars, lg)
