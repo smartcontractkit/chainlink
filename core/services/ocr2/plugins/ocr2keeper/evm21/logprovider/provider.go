@@ -80,8 +80,8 @@ var _ LogEventProviderTest = &logEventProvider{}
 type logEventProvider struct {
 	lggr logger.Logger
 
-	cancel  context.CancelFunc
-	threads sync.WaitGroup
+	cancel    context.CancelFunc
+	threadsWG sync.WaitGroup
 
 	poller logpoller.LogPoller
 
@@ -125,18 +125,18 @@ func (p *logEventProvider) Start(context.Context) error {
 
 	p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", readMaxBatchSize, "readers", readerThreads)
 
-	p.threads.Add(readerThreads)
 	{ // start readers
 		for i := 0; i < readerThreads; i++ {
+			p.threadsWG.Add(1)
 			go p.startReader(ctx, readQ)
 		}
 	}
 
-	p.threads.Add(1)
 	{ // start scheduler
 		lggr := p.lggr.With("where", "scheduler")
+		p.threadsWG.Add(1)
 		go func(ctx context.Context) {
-			defer p.threads.Done()
+			defer p.threadsWG.Done()
 
 			err := p.scheduleReadJobs(ctx, func(ids []*big.Int) {
 				select {
@@ -160,7 +160,7 @@ func (p *logEventProvider) Close() error {
 	if err := p.stop(); err != nil {
 		return err
 	}
-	p.threads.Wait()
+	p.threadsWG.Wait()
 	return nil
 }
 
@@ -280,7 +280,7 @@ func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([
 
 // startReader starts a reader that reads logs from the ids coming from readQ.
 func (p *logEventProvider) startReader(pctx context.Context, readQ <-chan []*big.Int) {
-	defer p.threads.Done()
+	defer p.threadsWG.Done()
 
 	ctx, cancel := context.WithCancel(pctx)
 	defer cancel()
