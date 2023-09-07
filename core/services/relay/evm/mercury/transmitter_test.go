@@ -176,12 +176,12 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 		})
 		t.Run("BenchmarkPriceFromReport fails", func(t *testing.T) {
 			codec.val = nil
-			codec.err = errors.New("something exploded!")
+			codec.err = errors.New("something exploded")
 
 			_, err := mt.LatestPrice(testutils.Context(t), sampleFeedID)
 			require.Error(t, err)
 
-			assert.EqualError(t, err, "something exploded!")
+			assert.EqualError(t, err, "something exploded")
 		})
 	})
 
