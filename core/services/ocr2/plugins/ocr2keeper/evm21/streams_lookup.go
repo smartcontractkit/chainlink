@@ -431,9 +431,10 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 
 // multiFeedsRequest sends a Mercury v0.3 request for a multi-feed report
 func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryData, sl *StreamsLookup, lggr logger.Logger) {
+	t := big.NewInt(sl.time.Int64() - 5)
 	q := url.Values{
 		feedIDs:   {strings.Join(sl.feeds, ",")},
-		timestamp: {sl.time.String()},
+		timestamp: {t.String()},
 	}
 
 	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV03, q.Encode())
