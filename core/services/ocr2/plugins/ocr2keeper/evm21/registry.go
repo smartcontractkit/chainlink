@@ -149,7 +149,7 @@ type EvmRegistry struct {
 	bs               *BlockSubscriber
 	logEventProvider logprovider.LogEventProvider
 	finalityDepth    uint32
-	threads          sync.WaitGroup
+	threadsWG        sync.WaitGroup
 }
 
 func (r *EvmRegistry) Name() string {
@@ -167,11 +167,11 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 			return fmt.Errorf("logPoller error while registering automation events: %w", err)
 		}
 
-		r.threads.Add(1)
+		r.threadsWG.Add(1)
 		// refresh the active upkeep keys; if the reInit timer returns, do it again
 		{
 			go func(cx context.Context, tmr *time.Timer, lggr logger.Logger, f func() error) {
-				defer r.threads.Done()
+				defer r.threadsWG.Done()
 				err := f()
 				if err != nil {
 					lggr.Errorf("failed to initialize upkeeps", err)
@@ -192,11 +192,11 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 			}(r.ctx, r.reInit, r.lggr, r.refreshActiveUpkeeps)
 		}
 
-		r.threads.Add(1)
+		r.threadsWG.Add(1)
 		// start polling logs on an interval
 		{
 			go func(cx context.Context, lggr logger.Logger, f func() error) {
-				defer r.threads.Done()
+				defer r.threadsWG.Done()
 				ticker := time.NewTicker(time.Second)
 				for {
 					select {
@@ -213,11 +213,11 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 			}(r.ctx, r.lggr, r.pollUpkeepStateLogs)
 		}
 
-		r.threads.Add(1)
+		r.threadsWG.Add(1)
 		// run process to process logs from log channel
 		{
 			go func(cx context.Context, ch chan logpoller.Log, lggr logger.Logger, f func(logpoller.Log) error) {
-				defer r.threads.Done()
+				defer r.threadsWG.Done()
 				for {
 					select {
 					case l := <-ch:
@@ -244,7 +244,7 @@ func (r *EvmRegistry) Close() error {
 		r.runState = 0
 		r.runError = nil
 		r.mu.Unlock()
-		r.threads.Wait()
+		r.threadsWG.Wait()
 		return nil
 	})
 }
