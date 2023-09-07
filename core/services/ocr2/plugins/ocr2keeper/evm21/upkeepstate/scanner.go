@@ -16,6 +16,8 @@ import (
 )
 
 var (
+	_ PerformedLogsScanner = &performedEventsScanner{}
+
 	workIDsBatchSize = 25
 )
 
@@ -25,8 +27,6 @@ type PerformedLogsScanner interface {
 	Start(context.Context) error
 	io.Closer
 }
-
-var _ PerformedLogsScanner = &performedEventsScanner{}
 
 type performedEventsScanner struct {
 	lggr            logger.Logger
