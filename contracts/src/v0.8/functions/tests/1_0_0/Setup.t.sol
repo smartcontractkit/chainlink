@@ -195,7 +195,7 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     bytes memory secrets;
     string[] memory args = new string[](0);
     bytes[] memory bytesArgs = new bytes[](0);
-    uint32 callbackGasLimit = 5000;
+    uint32 callbackGasLimit = 5500;
 
     vm.recordLogs();
     s_requestId = s_functionsClient.sendRequest(
