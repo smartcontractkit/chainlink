@@ -19,9 +19,7 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     address indexed sender,
     uint256 indexed blockNumber,
     bytes v0,
-    bytes v1,
     bytes verifiedV0,
-    bytes verifiedV1,
     bytes ed
   );
 
@@ -53,13 +51,13 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     initialBlock = 0;
     counter = 0;
     useArbBlock = _useArbBlock;
-    feedParamKey = "feedIdHex"; // feedIDs for v0.3
-    timeParamKey = "blockNumber"; // timestamp
+    feedParamKey = "feedIDs"; // feedIDs for v0.3
+    timeParamKey = "timestamp"; // timestamp
     // search feeds in notion: "Schema and Feed ID Registry"
     feeds = [
-      "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", // ETH / USD in production testnet v0.2
-      "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000" // BTC / USD in production testnet v0.2
-      // "0x00028c915d6af0fd66bba2d0fc9405226bca8d6806333121a7d9832103d1563c" // ETH / USD in staging testnet v0.3
+      //"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", // ETH / USD in production testnet v0.2
+      //"0x4254432d5553442d415242495452554d2d544553544e45540000000000000000" // BTC / USD in production testnet v0.2
+      "0x00028c915d6af0fd66bba2d0fc9405226bca8d6806333121a7d9832103d1563c" // ETH / USD in staging testnet v0.3
     ];
     staging = _staging;
     verify = _verify;
@@ -136,13 +134,11 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     if (verify) {
       if (staging) {
         v0 = STAGING_TESTNET_VERIFIER_PROXY.verify(values[0]);
-        v1 = STAGING_TESTNET_VERIFIER_PROXY.verify(values[1]);
       } else {
         v0 = PRODUCTION_TESTNET_VERIFIER_PROXY.verify(values[0]);
-        v1 = PRODUCTION_TESTNET_VERIFIER_PROXY.verify(values[1]);
       }
     }
-    emit MercuryPerformEvent(msg.sender, blockNumber, values[0], values[1], v0, v1, extraData);
+    emit MercuryPerformEvent(msg.sender, blockNumber, values[0], v0, extraData);
   }
 
   function eligible() public view returns (bool) {

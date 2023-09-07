@@ -67,7 +67,7 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, StreamsLookupComp
       }
 
       // if we don't use mercury, create a perform data which resembles the output of checkCallback
-      bytes[] memory values = new bytes[](2);
+      bytes[] memory values = new bytes[](feedsHex.length);
       bytes memory extraData = abi.encode(upkeepId, blockNum, addr);
       return (true, abi.encode(values, extraData));
     }
