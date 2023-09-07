@@ -68,6 +68,7 @@ type upkeepStateStore struct {
 
 	// service values
 	cancel context.CancelFunc
+	done   chan struct{}
 }
 
 // NewUpkeepStateStore creates a new state store
@@ -79,6 +80,7 @@ func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScann
 		scanner:      scanner,
 		retention:    CacheExpiration,
 		cleanCadence: GCInterval,
+		done:         make(chan struct{}),
 	}
 }
 
@@ -98,6 +100,7 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	u.cancel = cancel
+	u.done = make(chan struct{})
 	u.mu.Unlock()
 
 	if err := u.scanner.Start(ctx); err != nil {
@@ -108,6 +111,8 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 
 	{
 		go func(ctx context.Context) {
+			defer close(u.done)
+
 			ticker := time.NewTicker(utils.WithJitter(u.cleanCadence))
 			defer ticker.Stop()
 
@@ -120,7 +125,6 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 
 					ticker.Reset(utils.WithJitter(u.cleanCadence))
 				case <-ctx.Done():
-
 				}
 			}
 		}(ctx)
@@ -132,17 +136,19 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 // Close stops the service of pruning stale data; implements io.Closer
 func (u *upkeepStateStore) Close() error {
 	u.mu.Lock()
-	defer u.mu.Unlock()
-
 	if cancel := u.cancel; cancel != nil {
 		u.cancel = nil
+		u.mu.Unlock()
 		cancel()
 	} else {
+		u.mu.Unlock()
 		return fmt.Errorf("already stopped")
 	}
 	if err := u.scanner.Close(); err != nil {
 		return fmt.Errorf("failed to start scanner")
 	}
+
+	<-u.done
 
 	return nil
 }
