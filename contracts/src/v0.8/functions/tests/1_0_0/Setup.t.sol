@@ -196,9 +196,18 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     bytes memory secrets;
     string[] memory args = new string[](0);
     bytes[] memory bytesArgs = new bytes[](0);
+    uint32 callbackGasLimit = 5000;
 
     vm.recordLogs();
-    s_requestId = s_functionsClient.sendRequest(s_donId, sourceCode, secrets, args, bytesArgs, s_subscriptionId, 5000);
+    s_requestId = s_functionsClient.sendRequest(
+      s_donId,
+      sourceCode,
+      secrets,
+      args,
+      bytesArgs,
+      s_subscriptionId,
+      callbackGasLimit
+    );
 
     // Get commitment data from OracleRequest event log
     Vm.Log[] memory entries = vm.getRecordedLogs();

@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import {FunctionsRouter} from "../../dev/1_0_0/FunctionsRouter.sol";
 import {FunctionsSubscriptions} from "../../dev/1_0_0/FunctionsSubscriptions.sol";
+import {FunctionsBilling} from "../../dev/1_0_0/FunctionsBilling.sol";
 import {FunctionsRequest} from "../../dev/1_0_0/libraries/FunctionsRequest.sol";
 import {FunctionsResponse} from "../../dev/1_0_0/libraries/FunctionsResponse.sol";
 import {FunctionsCoordinatorTestHelper} from "./testhelpers/FunctionsCoordinatorTestHelper.sol";
@@ -11,6 +12,7 @@ import {FunctionsClientTestHelper} from "./testhelpers/FunctionsClientTestHelper
 import {FunctionsRouterSetup, FunctionsRoutesSetup, FunctionsSubscriptionSetup, FunctionsClientRequestSetup} from "./Setup.t.sol";
 
 import "forge-std/Vm.sol";
+import "forge-std/console.sol";
 
 // ================================================================
 // |                        Functions Router                      |
@@ -350,6 +352,34 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
     );
   }
 
+  function test_SendRequest_RevertIfInsufficientSubscriptionBalance() public {
+    // Create new subscription that does not have any funding
+    uint64 subscriptionId = s_functionsRouter.createSubscription();
+    s_functionsRouter.addConsumer(subscriptionId, address(OWNER_ADDRESS));
+
+    // Build minimal valid request data
+    string memory sourceCode = "return 'hello world';";
+    FunctionsRequest.Request memory request;
+    FunctionsRequest.initializeRequest(
+      request,
+      FunctionsRequest.Location.Inline,
+      FunctionsRequest.CodeLanguage.JavaScript,
+      sourceCode
+    );
+    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+
+    uint32 callbackGasLimit = 5000;
+    vm.expectRevert(FunctionsBilling.InsufficientBalance.selector);
+
+    s_functionsRouter.sendRequest(
+      subscriptionId,
+      requestData,
+      FunctionsRequest.REQUEST_DATA_VERSION,
+      callbackGasLimit,
+      s_donId
+    );
+  }
+
   event RequestStart(
     bytes32 indexed requestId,
     bytes32 indexed donId,
@@ -617,6 +647,34 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
     );
   }
 
+  function test_SendRequest_RevertIfInsufficientSubscriptionBalance() public {
+    // Create new subscription that does not have any funding
+    uint64 subscriptionId = s_functionsRouter.createSubscription();
+    s_functionsRouter.addConsumer(subscriptionId, address(OWNER_ADDRESS));
+
+    // Build minimal valid request data
+    string memory sourceCode = "return 'hello world';";
+    FunctionsRequest.Request memory request;
+    FunctionsRequest.initializeRequest(
+      request,
+      FunctionsRequest.Location.Inline,
+      FunctionsRequest.CodeLanguage.JavaScript,
+      sourceCode
+    );
+    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+
+    uint32 callbackGasLimit = 5000;
+    vm.expectRevert(FunctionsBilling.InsufficientBalance.selector);
+
+    s_functionsRouter.sendRequestToProposed(
+      subscriptionId,
+      requestData,
+      FunctionsRequest.REQUEST_DATA_VERSION,
+      callbackGasLimit,
+      s_donId
+    );
+  }
+
   event RequestStart(
     bytes32 indexed requestId,
     bytes32 indexed donId,
@@ -822,39 +880,40 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
   }
 
   function test_Fulfill_RequestNotProcessedInsufficientGas() public {
-    // // Send as committed Coordinator
-    // vm.stopPrank();
-    // vm.startPrank(address(s_functionsCoordinator));
-    // bytes memory response = bytes("hello world!");
-    // bytes memory err = new bytes(0);
-    // uint96 juelsPerGas = 0;
-    // uint96 costWithoutCallback = 0;
-    // address transmitter = NOP_TRANSMITTER_ADDRESS_1;
-    // FunctionsResponse.Commitment memory commitment = s_requestCommitment;
-    // TODO: set tx.gasprice
-    // // topic0 (function signature, always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
-    // bool checkTopic1 = false;
-    // bool checkTopic2 = false;
-    // bool checkTopic3 = false;
-    // bool checkData = true;
-    // vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
-    // emit RequestNotProcessed({
-    //   requestId: s_requestCommitment.requestId,
-    //   coordinator: address(s_functionsCoordinator),
-    //   transmitter: NOP_TRANSMITTER_ADDRESS_1,
-    //   resultCode: FunctionsResponse.FulfillResult.INSUFFICIENT_GAS_PROVIDED
-    // });
-    // // TODO: set gas
-    // (FunctionsResponse.FulfillResult resultCode, uint96 callbackGasCostJuels) = s_functionsRouter.fulfill{gas: 1}(
-    //   response,
-    //   err,
-    //   juelsPerGas,
-    //   costWithoutCallback,
-    //   transmitter,
-    //   commitment
-    // );
-    // assertEq(uint(resultCode), uint(FunctionsResponse.FulfillResult.INSUFFICIENT_GAS_PROVIDED));
-    // assertEq(callbackGasCostJuels, 0);
+    // Send as committed Coordinator
+    vm.stopPrank();
+    vm.startPrank(address(s_functionsCoordinator));
+
+    bytes memory response = bytes("hello world!");
+    bytes memory err = new bytes(0);
+    uint96 juelsPerGas = 0;
+    uint96 costWithoutCallback = 0;
+    address transmitter = NOP_TRANSMITTER_ADDRESS_1;
+
+    vm.txGasPrice(1);
+
+    // topic0 (function signature, always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
+    bool checkTopic1 = false;
+    bool checkTopic2 = false;
+    bool checkTopic3 = false;
+    bool checkData = true;
+    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
+    emit RequestNotProcessed({
+      requestId: s_requestCommitment.requestId,
+      coordinator: address(s_functionsCoordinator),
+      transmitter: NOP_TRANSMITTER_ADDRESS_1,
+      resultCode: FunctionsResponse.FulfillResult.INSUFFICIENT_GAS_PROVIDED
+    });
+
+    // Coordinator sends enough gas that would get through callback and payment, but fail after
+    uint32 callbackGasLimit = 5000;
+    uint256 gasToUse = getCoordinatorConfig().gasOverheadBeforeCallback + callbackGasLimit;
+    (FunctionsResponse.FulfillResult resultCode, uint96 callbackGasCostJuels) = s_functionsRouter.fulfill{
+      gas: gasToUse
+    }(response, err, juelsPerGas, costWithoutCallback, transmitter, s_requestCommitment);
+
+    assertEq(uint(resultCode), uint(FunctionsResponse.FulfillResult.INSUFFICIENT_GAS_PROVIDED));
+    assertEq(callbackGasCostJuels, 0);
   }
 
   function test_Fulfill_RequestNotProcessedSubscriptionBalanceInvariant() public {
@@ -894,39 +953,41 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
 
   function test_Fulfill_RequestNotProcessedCostExceedsCommitment() public {
     // Send as committed Coordinator
-    // vm.stopPrank();
-    // vm.startPrank(address(s_functionsCoordinator));
-    // bytes memory response = bytes("hello world!");
-    // bytes memory err = new bytes(0);
-    // uint96 juelsPerGas = 0;
-    // uint96 costWithoutCallback = 0;
-    // address transmitter = NOP_TRANSMITTER_ADDRESS_1;
-    // FunctionsResponse.Commitment memory commitment = s_requestCommitment;
-    // Simulate 10x gas price spike
-    // TODO: fix this
-    // vm.txGasPrice(10);
+    vm.stopPrank();
+    vm.startPrank(address(s_functionsCoordinator));
+
+    bytes memory response = bytes("hello world!");
+    bytes memory err = new bytes(0);
+    // Use higher juelsPerGas than request time
+    uint96 juelsPerGas = 100000;
+    uint96 costWithoutCallback = 1;
+    address transmitter = NOP_TRANSMITTER_ADDRESS_1;
+    FunctionsResponse.Commitment memory commitment = s_requestCommitment;
+
     // topic0 (function signature, always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
-    // bool checkTopic1 = false;
-    // bool checkTopic2 = false;
-    // bool checkTopic3 = false;
-    // bool checkData = true;
-    // vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
-    // emit RequestNotProcessed({
-    //   requestId: s_requestCommitment.requestId,
-    //   coordinator: address(s_functionsCoordinator),
-    //   transmitter: NOP_TRANSMITTER_ADDRESS_1,
-    //   resultCode: FunctionsResponse.FulfillResult.COST_EXCEEDS_COMMITMENT
-    // });
-    // (FunctionsResponse.FulfillResult resultCode, uint96 callbackGasCostJuels) = s_functionsRouter.fulfill(
-    //   response,
-    //   err,
-    //   juelsPerGas,
-    //   costWithoutCallback,
-    //   transmitter,
-    //   commitment
-    // );
-    // assertEq(uint(resultCode), uint(FunctionsResponse.FulfillResult.COST_EXCEEDS_COMMITMENT));
-    // assertEq(callbackGasCostJuels, 0);
+    bool checkTopic1 = false;
+    bool checkTopic2 = false;
+    bool checkTopic3 = false;
+    bool checkData = true;
+    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
+    emit RequestNotProcessed({
+      requestId: s_requestCommitment.requestId,
+      coordinator: address(s_functionsCoordinator),
+      transmitter: NOP_TRANSMITTER_ADDRESS_1,
+      resultCode: FunctionsResponse.FulfillResult.COST_EXCEEDS_COMMITMENT
+    });
+
+    (FunctionsResponse.FulfillResult resultCode, uint96 callbackGasCostJuels) = s_functionsRouter.fulfill(
+      response,
+      err,
+      juelsPerGas,
+      costWithoutCallback,
+      transmitter,
+      commitment
+    );
+
+    assertEq(uint(resultCode), uint(FunctionsResponse.FulfillResult.COST_EXCEEDS_COMMITMENT));
+    assertEq(callbackGasCostJuels, 0);
   }
 
   event RequestProcessed(
@@ -942,7 +1003,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
 
   FunctionsClientTestHelper internal s_clientWithFailingCallback;
 
-  function test_Fulfill_SuccessUserCallbackError() public {
+  function test_Fulfill_SuccessUserCallbackReverts() public {
     // Deploy Client with failing callback
     s_clientWithFailingCallback = new FunctionsClientTestHelper(address(s_functionsRouter));
     s_clientWithFailingCallback.setRevertFulfillRequest(true);
@@ -998,6 +1059,70 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
         "0x08c379a00000000000000000000000000000000000000000000000000000000000000020000000000000000000000000000000000000000000000000000000000000000f61736b656420746f207265766572740000000000000000000000000000000000"
       ) // TODO: build this
     });
+
+    (FunctionsResponse.FulfillResult resultCode, uint96 callbackGasCostJuels) = s_functionsRouter.fulfill(
+      response,
+      err,
+      juelsPerGas,
+      costWithoutCallback,
+      transmitter,
+      commitment
+    );
+
+    assertEq(uint(resultCode), uint(FunctionsResponse.FulfillResult.USER_CALLBACK_ERROR));
+    assertEq(callbackGasCostJuels, 0);
+  }
+
+  function test_Fulfill_SuccessUserCallbackRunsOutOfGas() public {
+    string memory sourceCode = "return 'hello world';";
+    bytes memory secrets;
+    string[] memory args = new string[](0);
+    bytes[] memory bytesArgs = new bytes[](0);
+    uint32 callbackGasLimit = 0;
+
+    vm.recordLogs();
+    // Send a request with no gas for the callback
+    bytes32 requestId = s_functionsClient.sendRequest(
+      s_donId,
+      sourceCode,
+      secrets,
+      args,
+      bytesArgs,
+      s_subscriptionId,
+      callbackGasLimit
+    );
+
+    // Get commitment data from OracleRequest event log
+    Vm.Log[] memory entries = vm.getRecordedLogs();
+    (, , , , , , , FunctionsResponse.Commitment memory commitment) = abi.decode(
+      entries[0].data,
+      (address, uint64, address, bytes, uint16, bytes32, uint64, FunctionsResponse.Commitment)
+    );
+
+    // Send as committed Coordinator
+    vm.stopPrank();
+    vm.startPrank(address(s_functionsCoordinator));
+
+    bytes memory response = bytes("hello world!");
+    bytes memory err = new bytes(0);
+    uint96 juelsPerGas = 0;
+    uint96 costWithoutCallback = 0;
+    address transmitter = NOP_TRANSMITTER_ADDRESS_1;
+
+    // topic0 (function signature, always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
+    vm.expectEmit(false, false, false, true);
+    emit RequestProcessed({
+      requestId: requestId,
+      subscriptionId: s_subscriptionId,
+      totalCostJuels: s_adminFee + costWithoutCallback, // NOTE: tx.gasprice is at 0, so no callback gas used
+      transmitter: transmitter,
+      resultCode: FunctionsResponse.FulfillResult.USER_CALLBACK_ERROR,
+      response: response,
+      err: err,
+      callbackReturnData: new bytes(0)
+    });
+
+    vm.recordLogs();
 
     (FunctionsResponse.FulfillResult resultCode, uint96 callbackGasCostJuels) = s_functionsRouter.fulfill(
       response,
