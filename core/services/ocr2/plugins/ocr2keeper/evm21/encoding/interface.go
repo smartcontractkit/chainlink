@@ -30,6 +30,7 @@ const (
 	UpkeepFailureReasonTxHashNoLongerExists    UpkeepFailureReason = 33
 	UpkeepFailureReasonInvalidRevertDataInput  UpkeepFailureReason = 34
 	UpkeepFailureReasonSimulationFailed        UpkeepFailureReason = 35
+	UpkeepFailureReasonTxHashReorged           UpkeepFailureReason = 36
 
 	// pipeline execution error
 	NoPipelineError        PipelineExecutionState = 0
