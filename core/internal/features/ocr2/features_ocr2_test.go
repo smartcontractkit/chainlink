@@ -382,10 +382,10 @@ juelsPerFeeCoinSource = """
 """
 gasPriceSource = """
 		// data source
-		ds1          [type=bridge name="%s"];
-		ds1_parse    [type=jsonparse path="data"];
+		dsp          [type=bridge name="%s"];
+		dsp_parse    [type=jsonparse path="data"];
 
-		ds -> ds1_parse;
+		dsp -> dsp_parse;
 """
 `, ocrContractAddress, kbs[i].ID(), transmitters[i], bridgeName, i, slowServers[i].URL, i, blockBeforeConfig.Number().Int64(), bridgeName, i, slowServers[i].URL, i, bridgeName))
 		require.NoError(t, err)
