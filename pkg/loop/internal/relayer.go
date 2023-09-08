@@ -184,15 +184,16 @@ func (r *relayerClient) NewConfigProvider(ctx context.Context, rargs types.Relay
 	return newConfigProviderClient(r.withName("ConfigProviderClient"), cc), nil
 }
 
-func (r *relayerClient) NewMedianProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.MedianProvider, error) {
-	cc := r.newClientConn("MedianProvider", func(ctx context.Context) (uint32, resources, error) {
-		reply, err := r.relayer.NewMedianProvider(ctx, &pb.NewMedianProviderRequest{
+func (r *relayerClient) NewPluginProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
+	cc := r.newClientConn("PluginProvider", func(ctx context.Context) (uint32, resources, error) {
+		reply, err := r.relayer.NewPluginProvider(ctx, &pb.NewPluginProviderRequest{
 			RelayArgs: &pb.RelayArgs{
 				ExternalJobID: rargs.ExternalJobID[:],
 				JobID:         rargs.JobID,
 				ContractID:    rargs.ContractID,
 				New:           rargs.New,
 				RelayConfig:   rargs.RelayConfig,
+				ProviderType:  rargs.ProviderType,
 			},
 			PluginArgs: &pb.PluginArgs{
 				TransmitterID: pargs.TransmitterID,
@@ -202,17 +203,20 @@ func (r *relayerClient) NewMedianProvider(ctx context.Context, rargs types.Relay
 		if err != nil {
 			return 0, nil, err
 		}
-		return reply.MedianProviderID, nil, nil
+		return reply.PluginProviderID, nil, nil
 	})
-	return newMedianProviderClient(r.brokerExt, cc), nil
-}
 
-func (r *relayerClient) NewMercuryProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.MercuryProvider, error) {
-	return nil, errors.New("mercury is not supported")
-}
-
-func (r *relayerClient) NewFunctionsProvider(context.Context, types.RelayArgs, types.PluginArgs) (types.FunctionsProvider, error) {
-	return nil, errors.New("functions are not supported")
+	// TODO: Remove this when we have fully transitioned all relayers to running in LOOPPs.
+	// This allows callers to type assert a PluginProvider into a product provider type (eg. MedianProvider)
+	// for interoperability with legacy code.
+	switch rargs.ProviderType {
+	case string(types.Median):
+		return newMedianProviderClient(r.brokerExt, cc), nil
+	case string(types.GenericPlugin):
+		return newPluginProviderClient(r.brokerExt, cc), nil
+	default:
+		return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)
+	}
 }
 
 func (r *relayerClient) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
@@ -306,27 +310,55 @@ func (r *relayerServer) NewConfigProvider(ctx context.Context, request *pb.NewCo
 	return &pb.NewConfigProviderReply{ConfigProviderID: id}, nil
 }
 
-func (r *relayerServer) NewMedianProvider(ctx context.Context, request *pb.NewMedianProviderRequest) (*pb.NewMedianProviderReply, error) {
+func (r *relayerServer) NewPluginProvider(ctx context.Context, request *pb.NewPluginProviderRequest) (*pb.NewPluginProviderReply, error) {
 	exJobID, err := uuid.FromBytes(request.RelayArgs.ExternalJobID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid uuid bytes for ExternalJobID: %w", err)
 	}
-	provider, err := r.impl.NewMedianProvider(ctx, types.RelayArgs{
+	relayArgs := types.RelayArgs{
 		ExternalJobID: exJobID,
 		JobID:         request.RelayArgs.JobID,
 		ContractID:    request.RelayArgs.ContractID,
 		New:           request.RelayArgs.New,
 		RelayConfig:   request.RelayArgs.RelayConfig,
-	}, types.PluginArgs{
+		ProviderType:  request.RelayArgs.ProviderType,
+	}
+	pluginArgs := types.PluginArgs{
 		TransmitterID: request.PluginArgs.TransmitterID,
 		PluginConfig:  request.PluginArgs.PluginConfig,
-	})
+	}
+
+	switch request.RelayArgs.ProviderType {
+	case string(types.Median):
+		id, err := r.newMedianProvider(ctx, relayArgs, pluginArgs)
+		if err != nil {
+			return nil, err
+		}
+		return &pb.NewPluginProviderReply{PluginProviderID: id}, nil
+	case string(types.GenericPlugin):
+		id, err := r.newPluginProvider(ctx, relayArgs, pluginArgs)
+		if err != nil {
+			return nil, err
+		}
+		return &pb.NewPluginProviderReply{PluginProviderID: id}, nil
+	}
+
+	return nil, fmt.Errorf("provider type not supported: %s", relayArgs.ProviderType)
+}
+
+func (r *relayerServer) newMedianProvider(ctx context.Context, relayArgs types.RelayArgs, pluginArgs types.PluginArgs) (uint32, error) {
+	i, ok := r.impl.(MedianProvider)
+	if !ok {
+		return 0, errors.New("median not supported")
+	}
+
+	provider, err := i.NewMedianProvider(ctx, relayArgs, pluginArgs)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 	err = provider.Start(ctx)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 	const name = "MedianProvider"
 	providerRes := resource{name: name, Closer: provider}
@@ -341,14 +373,35 @@ func (r *relayerServer) NewMedianProvider(ctx context.Context, request *pb.NewMe
 		pb.RegisterOnchainConfigCodecServer(s, &onchainConfigCodecServer{impl: provider.OnchainConfigCodec()})
 	}, providerRes)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
 
-	return &pb.NewMedianProviderReply{MedianProviderID: id}, nil
+	return id, err
 }
 
-func (r *relayerServer) NewMercuryProvider(ctx context.Context, request *pb.NewMercuryProviderRequest) (*pb.NewMercuryProviderReply, error) {
-	return nil, errors.New("mercury is not supported")
+func (r *relayerServer) newPluginProvider(ctx context.Context, relayArgs types.RelayArgs, pluginArgs types.PluginArgs) (uint32, error) {
+	provider, err := r.impl.NewPluginProvider(ctx, relayArgs, pluginArgs)
+	if err != nil {
+		return 0, err
+	}
+	err = provider.Start(ctx)
+	if err != nil {
+		return 0, err
+	}
+	const name = "PluginProvider"
+	providerRes := resource{name: name, Closer: provider}
+
+	id, _, err := r.serveNew(name, func(s *grpc.Server) {
+		pb.RegisterServiceServer(s, &serviceServer{srv: provider})
+		pb.RegisterOffchainConfigDigesterServer(s, &offchainConfigDigesterServer{impl: provider.OffchainConfigDigester()})
+		pb.RegisterContractConfigTrackerServer(s, &contractConfigTrackerServer{impl: provider.ContractConfigTracker()})
+		pb.RegisterContractTransmitterServer(s, &contractTransmitterServer{impl: provider.ContractTransmitter()})
+	}, providerRes)
+	if err != nil {
+		return 0, err
+	}
+
+	return id, err
 }
 
 func (r *relayerServer) GetChainStatus(ctx context.Context, request *pb.GetChainStatusRequest) (*pb.GetChainStatusReply, error) {

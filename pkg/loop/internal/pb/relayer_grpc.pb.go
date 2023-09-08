@@ -237,12 +237,11 @@ var Keystore_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	Relayer_NewConfigProvider_FullMethodName  = "/loop.Relayer/NewConfigProvider"
-	Relayer_NewMedianProvider_FullMethodName  = "/loop.Relayer/NewMedianProvider"
-	Relayer_NewMercuryProvider_FullMethodName = "/loop.Relayer/NewMercuryProvider"
-	Relayer_GetChainStatus_FullMethodName     = "/loop.Relayer/GetChainStatus"
-	Relayer_ListNodeStatuses_FullMethodName   = "/loop.Relayer/ListNodeStatuses"
-	Relayer_Transact_FullMethodName           = "/loop.Relayer/Transact"
+	Relayer_NewConfigProvider_FullMethodName = "/loop.Relayer/NewConfigProvider"
+	Relayer_NewPluginProvider_FullMethodName = "/loop.Relayer/NewPluginProvider"
+	Relayer_GetChainStatus_FullMethodName    = "/loop.Relayer/GetChainStatus"
+	Relayer_ListNodeStatuses_FullMethodName  = "/loop.Relayer/ListNodeStatuses"
+	Relayer_Transact_FullMethodName          = "/loop.Relayer/Transact"
 )
 
 // RelayerClient is the client API for Relayer service.
@@ -250,8 +249,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type RelayerClient interface {
 	NewConfigProvider(ctx context.Context, in *NewConfigProviderRequest, opts ...grpc.CallOption) (*NewConfigProviderReply, error)
-	NewMedianProvider(ctx context.Context, in *NewMedianProviderRequest, opts ...grpc.CallOption) (*NewMedianProviderReply, error)
-	NewMercuryProvider(ctx context.Context, in *NewMercuryProviderRequest, opts ...grpc.CallOption) (*NewMercuryProviderReply, error)
+	NewPluginProvider(ctx context.Context, in *NewPluginProviderRequest, opts ...grpc.CallOption) (*NewPluginProviderReply, error)
 	GetChainStatus(ctx context.Context, in *GetChainStatusRequest, opts ...grpc.CallOption) (*GetChainStatusReply, error)
 	ListNodeStatuses(ctx context.Context, in *ListNodeStatusesRequest, opts ...grpc.CallOption) (*ListNodeStatusesReply, error)
 	Transact(ctx context.Context, in *TransactionRequest, opts ...grpc.CallOption) (*emptypb.Empty, error)
@@ -274,18 +272,9 @@ func (c *relayerClient) NewConfigProvider(ctx context.Context, in *NewConfigProv
 	return out, nil
 }
 
-func (c *relayerClient) NewMedianProvider(ctx context.Context, in *NewMedianProviderRequest, opts ...grpc.CallOption) (*NewMedianProviderReply, error) {
-	out := new(NewMedianProviderReply)
-	err := c.cc.Invoke(ctx, Relayer_NewMedianProvider_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *relayerClient) NewMercuryProvider(ctx context.Context, in *NewMercuryProviderRequest, opts ...grpc.CallOption) (*NewMercuryProviderReply, error) {
-	out := new(NewMercuryProviderReply)
-	err := c.cc.Invoke(ctx, Relayer_NewMercuryProvider_FullMethodName, in, out, opts...)
+func (c *relayerClient) NewPluginProvider(ctx context.Context, in *NewPluginProviderRequest, opts ...grpc.CallOption) (*NewPluginProviderReply, error) {
+	out := new(NewPluginProviderReply)
+	err := c.cc.Invoke(ctx, Relayer_NewPluginProvider_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -324,8 +313,7 @@ func (c *relayerClient) Transact(ctx context.Context, in *TransactionRequest, op
 // for forward compatibility
 type RelayerServer interface {
 	NewConfigProvider(context.Context, *NewConfigProviderRequest) (*NewConfigProviderReply, error)
-	NewMedianProvider(context.Context, *NewMedianProviderRequest) (*NewMedianProviderReply, error)
-	NewMercuryProvider(context.Context, *NewMercuryProviderRequest) (*NewMercuryProviderReply, error)
+	NewPluginProvider(context.Context, *NewPluginProviderRequest) (*NewPluginProviderReply, error)
 	GetChainStatus(context.Context, *GetChainStatusRequest) (*GetChainStatusReply, error)
 	ListNodeStatuses(context.Context, *ListNodeStatusesRequest) (*ListNodeStatusesReply, error)
 	Transact(context.Context, *TransactionRequest) (*emptypb.Empty, error)
@@ -339,11 +327,8 @@ type UnimplementedRelayerServer struct {
 func (UnimplementedRelayerServer) NewConfigProvider(context.Context, *NewConfigProviderRequest) (*NewConfigProviderReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method NewConfigProvider not implemented")
 }
-func (UnimplementedRelayerServer) NewMedianProvider(context.Context, *NewMedianProviderRequest) (*NewMedianProviderReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method NewMedianProvider not implemented")
-}
-func (UnimplementedRelayerServer) NewMercuryProvider(context.Context, *NewMercuryProviderRequest) (*NewMercuryProviderReply, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method NewMercuryProvider not implemented")
+func (UnimplementedRelayerServer) NewPluginProvider(context.Context, *NewPluginProviderRequest) (*NewPluginProviderReply, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method NewPluginProvider not implemented")
 }
 func (UnimplementedRelayerServer) GetChainStatus(context.Context, *GetChainStatusRequest) (*GetChainStatusReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetChainStatus not implemented")
@@ -385,38 +370,20 @@ func _Relayer_NewConfigProvider_Handler(srv interface{}, ctx context.Context, de
 	return interceptor(ctx, in, info, handler)
 }
 
-func _Relayer_NewMedianProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NewMedianProviderRequest)
+func _Relayer_NewPluginProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(NewPluginProviderRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(RelayerServer).NewMedianProvider(ctx, in)
+		return srv.(RelayerServer).NewPluginProvider(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: Relayer_NewMedianProvider_FullMethodName,
+		FullMethod: Relayer_NewPluginProvider_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RelayerServer).NewMedianProvider(ctx, req.(*NewMedianProviderRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _Relayer_NewMercuryProvider_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(NewMercuryProviderRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(RelayerServer).NewMercuryProvider(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: Relayer_NewMercuryProvider_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(RelayerServer).NewMercuryProvider(ctx, req.(*NewMercuryProviderRequest))
+		return srv.(RelayerServer).NewPluginProvider(ctx, req.(*NewPluginProviderRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -487,12 +454,8 @@ var Relayer_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _Relayer_NewConfigProvider_Handler,
 		},
 		{
-			MethodName: "NewMedianProvider",
-			Handler:    _Relayer_NewMedianProvider_Handler,
-		},
-		{
-			MethodName: "NewMercuryProvider",
-			Handler:    _Relayer_NewMercuryProvider_Handler,
+			MethodName: "NewPluginProvider",
+			Handler:    _Relayer_NewPluginProvider_Handler,
 		},
 		{
 			MethodName: "GetChainStatus",

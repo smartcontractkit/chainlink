@@ -170,26 +170,20 @@ var (
 )
 
 type medianProviderClient struct {
-	*configProviderClient
-	contractTransmitter libocr.ContractTransmitter
-	reportCodec         median.ReportCodec
-	medianContract      median.MedianContract
-	onchainConfigCodec  median.OnchainConfigCodec
+	*pluginProviderClient
+	reportCodec        median.ReportCodec
+	medianContract     median.MedianContract
+	onchainConfigCodec median.OnchainConfigCodec
 }
 
 func (m *medianProviderClient) ClientConn() grpc.ClientConnInterface { return m.cc }
 
 func newMedianProviderClient(b *brokerExt, cc grpc.ClientConnInterface) *medianProviderClient {
-	m := &medianProviderClient{configProviderClient: newConfigProviderClient(b.withName("MedianProviderClient"), cc)}
-	m.contractTransmitter = &contractTransmitterClient{b, pb.NewContractTransmitterClient(m.cc)}
+	m := &medianProviderClient{pluginProviderClient: newPluginProviderClient(b.withName("MedianProviderClient"), cc)}
 	m.reportCodec = &reportCodecClient{b, pb.NewReportCodecClient(m.cc)}
 	m.medianContract = &medianContractClient{pb.NewMedianContractClient(m.cc)}
 	m.onchainConfigCodec = &onchainConfigCodecClient{b, pb.NewOnchainConfigCodecClient(m.cc)}
 	return m
-}
-
-func (m *medianProviderClient) ContractTransmitter() libocr.ContractTransmitter {
-	return m.contractTransmitter
 }
 
 func (m *medianProviderClient) ReportCodec() median.ReportCodec {

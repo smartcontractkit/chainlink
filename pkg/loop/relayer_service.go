@@ -49,25 +49,11 @@ func (r *RelayerService) NewConfigProvider(ctx context.Context, args types.Relay
 	return r.service.NewConfigProvider(ctx, args)
 }
 
-func (r *RelayerService) NewMedianProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.MedianProvider, error) {
+func (r *RelayerService) NewPluginProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
 	if err := r.wait(ctx); err != nil {
 		return nil, err
 	}
-	return r.service.NewMedianProvider(ctx, rargs, pargs)
-}
-
-func (r *RelayerService) NewMercuryProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.MercuryProvider, error) {
-	if err := r.wait(ctx); err != nil {
-		return nil, err
-	}
-	return r.service.NewMercuryProvider(ctx, rargs, pargs)
-}
-
-func (r *RelayerService) NewFunctionsProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.FunctionsProvider, error) {
-	if err := r.wait(ctx); err != nil {
-		return nil, err
-	}
-	return r.service.NewFunctionsProvider(ctx, rargs, pargs)
+	return r.service.NewPluginProvider(ctx, rargs, pargs)
 }
 
 func (r *RelayerService) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {

@@ -69,9 +69,11 @@ func newMedianProvider(t *testing.T, pr loop.PluginRelayer) types.MedianProvider
 	require.NoError(t, err)
 	require.NoError(t, r.Start(ctx))
 	t.Cleanup(func() { assert.NoError(t, r.Close()) })
-	p, err := r.NewMedianProvider(ctx, test.RelayArgs, test.PluginArgs)
+	p, err := r.NewPluginProvider(ctx, test.RelayArgs, test.PluginArgs)
+	mp, ok := p.(types.MedianProvider)
+	require.True(t, ok)
 	require.NoError(t, err)
-	require.NoError(t, p.Start(ctx))
-	t.Cleanup(func() { assert.NoError(t, p.Close()) })
-	return p
+	require.NoError(t, mp.Start(ctx))
+	t.Cleanup(func() { assert.NoError(t, mp.Close()) })
+	return mp
 }

@@ -10,10 +10,11 @@ import (
 // MercuryProvider provides components needed for a mercury OCR2 plugin.
 // Mercury requires config tracking but does not transmit on-chain.
 type MercuryProvider interface {
-	ConfigProvider
+	PluginProvider
+
 	ReportCodecV1() v1.ReportCodec
 	ReportCodecV2() v2.ReportCodec
 	ReportCodecV3() v3.ReportCodec
 	OnchainConfigCodec() mercury.OnchainConfigCodec
-	ContractTransmitter() mercury.Transmitter
+	MercuryServerFetcher() mercury.MercuryServerFetcher
 }

@@ -41,8 +41,7 @@ message SignReply {
 
 service Relayer {
   rpc NewConfigProvider (NewConfigProviderRequest) returns (NewConfigProviderReply) {}
-  rpc NewMedianProvider (NewMedianProviderRequest) returns (NewMedianProviderReply) {}
-  rpc NewMercuryProvider (NewMercuryProviderRequest) returns (NewMercuryProviderReply) {}
+  rpc NewPluginProvider (NewPluginProviderRequest) returns (NewPluginProviderReply) {}
 
   rpc GetChainStatus (GetChainStatusRequest) returns (GetChainStatusReply) {}
   rpc ListNodeStatuses (ListNodeStatusesRequest) returns (ListNodeStatusesReply) {}
@@ -56,12 +55,24 @@ message RelayArgs {
   string contractID = 3;
   bool new = 4;
   bytes relayConfig = 5;
+  string providerType = 6;
 }
 
 // RelayArgs represents [github.com/smartcontractkit/chainlink-relay/pkg/types.PluginArgs].
 message PluginArgs {
   string transmitterID = 1;
   bytes pluginConfig = 2;
+}
+
+// NewPluginProviderRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewPluginProvider].
+message NewPluginProviderRequest {
+  RelayArgs relayArgs = 1;
+  PluginArgs pluginArgs = 2;
+}
+
+// NewPluginProviderReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewPluginProvider].
+message NewPluginProviderReply {
+  uint32 pluginProviderID = 1;
 }
 
 // NewConfigProviderRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewConfigProvider].
@@ -74,29 +85,8 @@ message NewConfigProviderReply {
   uint32 configProviderID = 1;
 }
 
-// NewMedianProviderRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewMedianProvider].
-message NewMedianProviderRequest {
-  RelayArgs relayArgs = 1;
-  PluginArgs pluginArgs = 2;
-}
-
-// NewMedianProviderReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewMedianProvider].
-message NewMedianProviderReply {
-  uint32 medianProviderID = 1;
-}
-
-// NewMercuryProviderRequest has arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewMercuryProvider].
-message NewMercuryProviderRequest {
-  RelayArgs relayArgs = 1;
-  PluginArgs pluginArgs = 2;
-}
-
-// NewMercuryProviderReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.NewMercuryProvider].
-message NewMercuryProviderReply {
-  uint32 mercuryProviderID = 1;
-}
-
 message GetChainStatusRequest {}
+
 // ChainStatusReply has return arguments for [github.com/smartcontractkit/chainlink-relay/pkg/loop.Relayer.ChainStatus].
 message GetChainStatusReply {
   ChainStatus chain = 1;

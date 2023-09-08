@@ -21,6 +21,7 @@ type RelayArgs struct {
 	ContractID    string
 	New           bool // Whether this is a first time job add.
 	RelayConfig   []byte
+	ProviderType  string
 }
 
 type ChainStatus struct {
