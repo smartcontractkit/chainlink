@@ -124,7 +124,7 @@ func NewMedianServices(ctx context.Context,
 			return
 		}
 		// TODO: make it compatible with LOOPP approach of creating new median service
-		median := loop.NewMedianService(lggr, telem, cmdFn, provider, dataSource, juelsPerFeeCoinSource, errorLog)
+		median := loop.NewMedianService(lggr, telem, cmdFn, provider, dataSource, juelsPerFeeCoinSource, gasPriceDataSource, errorLog)
 		argsNoPlugin.ReportingPluginFactory = median
 		srvs = append(srvs, median)
 	} else {
