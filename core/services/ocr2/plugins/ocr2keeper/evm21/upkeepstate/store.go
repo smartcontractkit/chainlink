@@ -42,7 +42,7 @@ type UpkeepStateStore interface {
 var (
 	_           UpkeepStateStore = &upkeepStateStore{}
 	newTickerFn                  = time.NewTicker
-	flushSize                    = 1000
+	batchSize                    = 1000
 )
 
 // upkeepStateRecord is a record that we save in a local cache.
@@ -158,8 +158,8 @@ func (u *upkeepStateStore) flush(ctx context.Context) {
 	u.pendingRecords = []persistedStateRecord{}
 	u.mu.Unlock()
 
-	for i := 0; i < len(cloneRecords); i += flushSize {
-		end := i + flushSize
+	for i := 0; i < len(cloneRecords); i += batchSize {
+		end := i + batchSize
 		if end > len(cloneRecords) {
 			end = len(cloneRecords)
 		}

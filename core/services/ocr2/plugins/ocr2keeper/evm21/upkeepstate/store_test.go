@@ -220,11 +220,12 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		flushSize    int
-		queryIDs     []string
-		storedValues []storedValue
-		expected     []ocr2keepers.UpkeepState
+		name           string
+		flushSize      int
+		expectedWrites int
+		queryIDs       []string
+		storedValues   []storedValue
+		expected       []ocr2keepers.UpkeepState
 	}{
 		{
 			name:      "querying non-stored workIDs on empty db returns unknown state results",
@@ -255,9 +256,10 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			},
 		},
 		{
-			name:      "querying workIDs with non-stored values returns valid results",
-			queryIDs:  []string{"0x1", "0x2", "0x3", "0x4"},
-			flushSize: 4,
+			name:           "querying workIDs with non-stored values returns valid results",
+			queryIDs:       []string{"0x1", "0x2", "0x3", "0x4"},
+			flushSize:      4,
+			expectedWrites: 1,
 			storedValues: []storedValue{
 				{result: makeTestResult(5, "0x1", false, 1), state: ocr2keepers.Ineligible},
 				{result: makeTestResult(6, "0x2", false, 1), state: ocr2keepers.Ineligible},
@@ -272,14 +274,15 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			},
 		},
 		{
-			name:      "storing eligible values is a noop",
-			queryIDs:  []string{"0x1", "0x2", "0x3", "0x4"},
-			flushSize: 4,
+			name:           "storing eligible values is a noop",
+			queryIDs:       []string{"0x1", "0x2", "0x3", "0x4"},
+			flushSize:      4,
+			expectedWrites: 1,
 			storedValues: []storedValue{
 				{result: makeTestResult(9, "0x1", false, 1), state: ocr2keepers.Ineligible},
 				{result: makeTestResult(10, "0x2", false, 1), state: ocr2keepers.Ineligible},
 				{result: makeTestResult(11, "0x3", false, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(12, "0x4", true, 1), state: ocr2keepers.Performed},
+				{result: makeTestResult(12, "0x4", true, 1), state: ocr2keepers.Performed}, // gets inserted
 			},
 			expected: []ocr2keepers.UpkeepState{
 				ocr2keepers.Ineligible,
@@ -289,12 +292,13 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			},
 		},
 		{
-			name:      "provided state on setupkeepstate is currently ignored for eligible check results",
-			queryIDs:  []string{"0x1", "0x2"},
-			flushSize: 1,
+			name:           "provided state on setupkeepstate is currently ignored for eligible check results",
+			queryIDs:       []string{"0x1", "0x2"},
+			flushSize:      1,
+			expectedWrites: 1,
 			storedValues: []storedValue{
 				{result: makeTestResult(13, "0x1", true, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(14, "0x2", false, 1), state: ocr2keepers.Performed},
+				{result: makeTestResult(14, "0x2", false, 1), state: ocr2keepers.Performed}, // gets inserted
 			},
 			expected: []ocr2keepers.UpkeepState{
 				ocr2keepers.UnknownState,
@@ -302,18 +306,19 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			},
 		},
 		{
-			name:      "provided state outside the flush batchg isn't registered in the db",
-			queryIDs:  []string{"0x1", "0x2", "0x3", "0x4", "0x5", "0x6", "0x7", "0x8"},
-			flushSize: 3,
+			name:           "provided state outside the flush batch isn't registered in the db",
+			queryIDs:       []string{"0x1", "0x2", "0x3", "0x4", "0x5", "0x6", "0x7", "0x8"},
+			flushSize:      3,
+			expectedWrites: 2,
 			storedValues: []storedValue{
 				{result: makeTestResult(13, "0x1", true, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(14, "0x2", false, 1), state: ocr2keepers.Performed},
+				{result: makeTestResult(14, "0x2", false, 1), state: ocr2keepers.Performed}, // gets inserted
 				{result: makeTestResult(15, "0x3", true, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(16, "0x4", false, 1), state: ocr2keepers.Performed},
+				{result: makeTestResult(16, "0x4", false, 1), state: ocr2keepers.Performed}, // gets inserted
 				{result: makeTestResult(17, "0x5", true, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(18, "0x6", false, 1), state: ocr2keepers.Performed},
+				{result: makeTestResult(18, "0x6", false, 1), state: ocr2keepers.Performed}, // gets inserted
 				{result: makeTestResult(19, "0x7", true, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(20, "0x8", false, 1), state: ocr2keepers.Performed},
+				{result: makeTestResult(20, "0x8", false, 1), state: ocr2keepers.Performed}, // gets inserted
 			},
 			expected: []ocr2keepers.UpkeepState{
 				ocr2keepers.UnknownState,
@@ -334,7 +339,7 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 
 			tickerCh := make(chan time.Time)
 			oldNewTickerFn := newTickerFn
-			oldFlushSize := flushSize
+			oldFlushSize := batchSize
 			defer func() {
 			}()
 			newTickerFn = func(d time.Duration) *time.Ticker {
@@ -342,10 +347,10 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 					C: tickerCh,
 				}
 			}
-			flushSize = test.flushSize
+			batchSize = test.flushSize
 			defer func() {
 				newTickerFn = oldNewTickerFn
-				flushSize = oldFlushSize
+				batchSize = oldFlushSize
 			}()
 
 			lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
@@ -357,6 +362,7 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 				BatchInsertUpkeepStatesFn: func(records []persistedStateRecord, opt ...pg.QOpt) error {
 					err := realORM.BatchInsertUpkeepStates(records, opt...)
 					insertFinished <- struct{}{}
+					fmt.Println("insert called")
 					return err
 				},
 				SelectStatesByWorkIDsFn: func(strings []string, opt ...pg.QOpt) ([]persistedStateRecord, error) {
@@ -386,7 +392,7 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			tickerCh <- time.Now()
 
 			// if this test inserts data, wait for the insert to complete before proceeding
-			if len(test.storedValues) > 0 {
+			for i := 0; i < test.expectedWrites; i++ {
 				<-insertFinished
 			}
 
