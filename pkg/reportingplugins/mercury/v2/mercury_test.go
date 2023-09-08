@@ -302,7 +302,7 @@ func Test_Plugin_Report(t *testing.T) {
 			assert.Equal(t, codec.builtReport, report)
 			require.NotNil(t, codec.builtReportFields)
 			assert.Equal(t, ReportFields{
-				ValidFromTimestamp: codec.observationTimestamp,
+				ValidFromTimestamp: codec.observationTimestamp + 1, // previous observation timestamp +1 second
 				Timestamp:          ts,
 				NativeFee:          big.NewInt(2300000000000000000), // 2.3e18
 				LinkFee:            big.NewInt(1300000000000000000), // 1.3e18

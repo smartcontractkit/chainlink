@@ -329,11 +329,12 @@ func (rp *reportingPlugin) Report(repts types.ReportTimestamp, previousReport ty
 func (rp *reportingPlugin) buildReportFields(previousReport types.Report, paos []PAO) (rf ReportFields, merr error) {
 	var err error
 	if previousReport != nil {
-		rf.CurrentBlockNum, err = rp.reportCodec.CurrentBlockNumFromReport(previousReport)
+		var maxFinalizedBlockNumber int64
+		maxFinalizedBlockNumber, err = rp.reportCodec.CurrentBlockNumFromReport(previousReport)
 		if err != nil {
 			merr = errors.Join(merr, err)
 		} else {
-			rf.ValidFromBlockNum = rf.CurrentBlockNum + 1
+			rf.ValidFromBlockNum = maxFinalizedBlockNumber + 1
 		}
 	} else {
 		var maxFinalizedBlockNumber int64

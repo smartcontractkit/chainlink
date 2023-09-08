@@ -351,8 +351,10 @@ func (rp *reportingPlugin) buildReportFields(previousReport ocrtypes.Report, pao
 
 	var err error
 	if previousReport != nil {
-		rf.ValidFromTimestamp, err = rp.reportCodec.ObservationTimestampFromReport(previousReport)
+		var maxFinalizedTimestamp uint32
+		maxFinalizedTimestamp, err = rp.reportCodec.ObservationTimestampFromReport(previousReport)
 		merr = errors.Join(merr, err)
+		rf.ValidFromTimestamp = maxFinalizedTimestamp + 1
 	} else {
 		var maxFinalizedTimestamp int64
 		maxFinalizedTimestamp, err = mercury.GetConsensusMaxFinalizedTimestamp(convertMaxFinalizedTimestamp(paos), rp.f)
