@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
 	reportcodecv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/reportcodec"
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
@@ -112,6 +113,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	if relayConfig.FeedID == nil {
 		return nil, errors.New("FeedID must be specified")
 	}
+	feedID := mercuryutils.FeedID(*relayConfig.FeedID)
 
 	if relayConfig.ChainID.String() != r.chain.ID().String() {
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
@@ -120,13 +122,6 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	if err != nil {
 		return nil, errors.WithStack(err)
 	}
-
-	// FIXME: We actually know the version here since it's in the feed ID, can
-	// we use generics to avoid passing three of this?
-	// https://smartcontract-it.atlassian.net/browse/MERC-1414
-	reportCodecV1 := reportcodecv1.NewReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodecV1"))
-	reportCodecV2 := reportcodecv2.NewReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodecV2"))
-	reportCodecV3 := reportcodecv3.NewReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodecV3"))
 
 	if !relayConfig.EffectiveTransmitterID.Valid {
 		return nil, errors.New("EffectiveTransmitterID must be specified")
@@ -140,7 +135,26 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	if err != nil {
 		return nil, err
 	}
-	transmitter := mercury.NewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.db, r.pgCfg)
+
+	// FIXME: We actually know the version here since it's in the feed ID, can
+	// we use generics to avoid passing three of this?
+	// https://smartcontract-it.atlassian.net/browse/MERC-1414
+	reportCodecV1 := reportcodecv1.NewReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodecV1"))
+	reportCodecV2 := reportcodecv2.NewReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodecV2"))
+	reportCodecV3 := reportcodecv3.NewReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodecV3"))
+
+	var transmitterCodec mercury.TransmitterReportDecoder
+	switch feedID.Version() {
+	case 1:
+		transmitterCodec = reportCodecV1
+	case 2:
+		transmitterCodec = reportCodecV2
+	case 3:
+		transmitterCodec = reportCodecV3
+	default:
+		return nil, fmt.Errorf("invalid feed version %d", feedID.Version())
+	}
+	transmitter := mercury.NewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.db, r.pgCfg, transmitterCodec)
 
 	return NewMercuryProvider(configWatcher, transmitter, reportCodecV1, reportCodecV2, reportCodecV3, r.lggr), nil
 }
