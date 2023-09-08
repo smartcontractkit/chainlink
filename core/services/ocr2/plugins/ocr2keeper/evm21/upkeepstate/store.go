@@ -21,8 +21,9 @@ const (
 	// CacheExpiration is the amount of time that we keep a record in the cache.
 	CacheExpiration = 24 * time.Hour
 	// GCInterval is the amount of time between cache cleanups.
-	GCInterval   = 2 * time.Hour
-	flushCadence = 30 * time.Second
+	GCInterval           = 2 * time.Hour
+	flushCadence         = 30 * time.Second
+	concurrentBatchCalls = 10
 )
 
 type ORM interface {
@@ -87,7 +88,7 @@ func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScann
 		retention:      CacheExpiration,
 		cleanCadence:   GCInterval,
 		pendingRecords: []persistedStateRecord{},
-		sem:            make(chan struct{}, 10),
+		sem:            make(chan struct{}, concurrentBatchCalls),
 		doneCh:         make(chan struct{}, 1),
 	}
 }
@@ -118,10 +119,10 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 
 	{
 		go func(ctx context.Context) {
-			ticker := time.NewTicker(utils.WithJitter(u.cleanCadence))
+			ticker := time.NewTicker(u.cleanCadence)
 			defer ticker.Stop()
 
-			flushTicker := newTickerFn(flushCadence)
+			flushTicker := newTickerFn(utils.WithJitter(flushCadence))
 			defer flushTicker.Stop()
 
 			for {
