@@ -324,7 +324,7 @@ contract FunctionsMultipleFulfillmentsSetup is FunctionsFulfillmentSetup {
     // Get actual cost from RequestProcessed event log
     Vm.Log[] memory entriesAfterFulfill2 = vm.getRecordedLogs();
     (uint96 totalCostJuels2, , , , , ) = abi.decode(
-      entriesAfterFulfill2[1].data,
+      entriesAfterFulfill2[2].data,
       (uint96, address, FunctionsResponse.FulfillResult, bytes, bytes, bytes)
     );
     // totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels
@@ -383,7 +383,7 @@ contract FunctionsMultipleFulfillmentsSetup is FunctionsFulfillmentSetup {
     // Get actual cost from RequestProcessed event log
     Vm.Log[] memory entriesAfterFulfill3 = vm.getRecordedLogs();
     (uint96 totalCostJuels3, , , , , ) = abi.decode(
-      entriesAfterFulfill3[1].data,
+      entriesAfterFulfill3[2].data,
       (uint96, address, FunctionsResponse.FulfillResult, bytes, bytes, bytes)
     );
 
