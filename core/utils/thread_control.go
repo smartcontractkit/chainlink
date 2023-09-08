@@ -33,9 +33,9 @@ type threadControl struct {
 }
 
 func (tc *threadControl) Go(fn func(context.Context)) {
-	tc.add()
+	tc.threadsWG.Add(1)
 	go func() {
-		defer tc.done()
+		defer tc.threadsWG.Done()
 		ctx, cancel := tc.stop.NewCtx()
 		defer cancel()
 		fn(ctx)
@@ -45,14 +45,4 @@ func (tc *threadControl) Go(fn func(context.Context)) {
 func (tc *threadControl) Close() {
 	close(tc.stop)
 	tc.threadsWG.Wait()
-}
-
-func (tc *threadControl) add() {
-	tc.running.Add(1)
-	tc.threadsWG.Add(1)
-}
-
-func (tc *threadControl) done() {
-	tc.running.Add(-1)
-	tc.threadsWG.Done()
 }
