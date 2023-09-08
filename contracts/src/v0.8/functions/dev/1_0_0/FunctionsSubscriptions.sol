@@ -154,7 +154,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     _onlyRouterOwner();
     _isExistingSubscription(subscriptionId);
 
-    _cancelSubscriptionHelper(subscriptionId, s_subscriptions[subscriptionId].owner, true);
+    _cancelSubscriptionHelper(subscriptionId, s_subscriptions[subscriptionId].owner, false);
   }
 
   // @inheritdoc IFunctionsSubscriptions
@@ -445,7 +445,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     IERC20 linkToken = IERC20(i_linkToken);
 
     // If subscription has not made enough requests, deposit will be forfeited
-    if (completedRequests < subscriptionDepositMinimumRequests && !checkDepositRefundability) {
+    if (completedRequests < subscriptionDepositMinimumRequests && checkDepositRefundability) {
       uint96 deposit = subscriptionDepositJuels > balance ? balance : subscriptionDepositJuels;
       if (deposit > 0) {
         s_withdrawableTokens[address(this)] += deposit;
@@ -470,7 +470,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
       revert CannotRemoveWithPendingRequests();
     }
 
-    _cancelSubscriptionHelper(subscriptionId, to, false);
+    _cancelSubscriptionHelper(subscriptionId, to, true);
   }
 
   // @inheritdoc IFunctionsSubscriptions
