@@ -77,6 +77,8 @@ export type FunctionsRouterConfig = {
   handleOracleFulfillmentSelector: string
   maxCallbackGasLimits: number[]
   gasForCallExactCheck: number
+  subscriptionDepositMinimumRequests: number
+  subscriptionDepositJuels: BigNumber
 }
 export const functionsRouterConfig: FunctionsRouterConfig = {
   maxConsumersPerSubscription: 100,
@@ -84,9 +86,10 @@ export const functionsRouterConfig: FunctionsRouterConfig = {
   handleOracleFulfillmentSelector: '0x0ca76175',
   maxCallbackGasLimits: [300_000, 500_000, 1_000_000],
   gasForCallExactCheck: 5000,
+  subscriptionDepositMinimumRequests: 10,
+  subscriptionDepositJuels: BigNumber.from('1000000000000000000'),
 }
 export type CoordinatorConfig = {
-  maxCallbackGasLimit: number
   feedStalenessSeconds: number
   gasOverheadBeforeCallback: number
   gasOverheadAfterCallback: number
@@ -98,7 +101,6 @@ export type CoordinatorConfig = {
 }
 const fallbackNativePerUnitLink = 5000000000000000
 export const coordinatorConfig: CoordinatorConfig = {
-  maxCallbackGasLimit: 1_000_000,
   feedStalenessSeconds: 86_400,
   gasOverheadBeforeCallback: 44_615,
   gasOverheadAfterCallback: 44_615,
