@@ -1,0 +1,70 @@
+{
+  "tests": [
+    {
+      "name": "TestKeeperBasicSmoke"
+    },
+    {
+      "name": "TestKeeperBlockCountPerTurn",
+      "run": [
+        {
+          "name": "registry_1_1"
+        },
+        {
+          "name": "registry_1_2"
+        },
+        {
+          "name": "registry_1_3"
+        }
+      ]
+    },
+    {
+      "name": "TestKeeperSimulation"
+    },
+    {
+      "name": "TestKeeperCheckPerformGasLimit",
+      "run": [
+        {
+          "name": "registry_1_2"
+        },
+        {
+          "name": "registry_1_3"
+        }
+      ]
+    },
+    {
+      "name": "TestKeeperRegisterUpkeep"
+    },
+    {
+      "name": "TestKeeperAddFunds"
+    },
+    {
+      "name": "TestKeeperRemove"
+    },
+    {
+      "name": "TestKeeperPauseRegistry"
+    },
+    {
+      "name": "TestKeeperMigrateRegistry"
+    },
+    {
+      "name": "TestKeeperNodeDown",
+      "run": [
+        {
+          "name": "registry_1_1"
+        },
+        {
+          "name": "registry_1_2"
+        },
+        {
+          "name": "registry_1_3"
+        }
+      ]
+    },
+    {
+      "name": "TestKeeperPauseUnPauseUpkeep"
+    },
+    {
+      "name": "TestKeeperUpdateCheckData"
+    }
+  ]
+}

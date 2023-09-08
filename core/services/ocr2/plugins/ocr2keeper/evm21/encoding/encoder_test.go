@@ -37,7 +37,7 @@ func TestReportEncoder_EncodeExtract(t *testing.T) {
 			[]ocr2keepers.CheckResult{
 				newResult(1, 1, core.GenUpkeepID(ocr2keepers.LogTrigger, "123"), 1, 1),
 			},
-			704,
+			736,
 			1,
 			1,
 			nil,
@@ -49,7 +49,7 @@ func TestReportEncoder_EncodeExtract(t *testing.T) {
 				newResult(1, 1, core.GenUpkeepID(ocr2keepers.ConditionTrigger, "20"), 1, 1),
 				newResult(1, 1, core.GenUpkeepID(ocr2keepers.ConditionTrigger, "30"), 1, 1),
 			},
-			1280,
+			1312,
 			3,
 			3,
 			nil,
@@ -61,7 +61,7 @@ func TestReportEncoder_EncodeExtract(t *testing.T) {
 				newResult(1, 1, core.GenUpkeepID(ocr2keepers.ConditionTrigger, "20"), 1, 1),
 				newResult(1, 1, core.GenUpkeepID(ocr2keepers.LogTrigger, "10"), 1, 1),
 			},
-			1280,
+			1312,
 			1000,
 			2000,
 			nil,
@@ -110,8 +110,9 @@ func newResult(block int64, checkBlock ocr2keepers.BlockNumber, id ocr2keepers.U
 
 	if tp == ocr2keepers.LogTrigger {
 		trig.LogTriggerExtension = &ocr2keepers.LogTriggerExtension{
-			Index:  1,
-			TxHash: common.HexToHash("0x1234567890123456789012345678901234567890123456789012345678901234"),
+			Index:     1,
+			TxHash:    common.HexToHash("0x1234567890123456789012345678901234567890123456789012345678901234"),
+			BlockHash: common.HexToHash("0xaaaaaaaa90123456789012345678901234567890123456789012345678901234"),
 		}
 	}
 
