@@ -2,7 +2,6 @@ package loadfunctions
 
 import (
 	"crypto/ecdsa"
-	"fmt"
 	"math/big"
 	mrand "math/rand"
 	"os"
@@ -117,7 +116,7 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get DON public key")
 	}
-	log.Info().Hex("DONPublicKeyHex", donPubKey).Msg("Loaded coordinator keys")
+	log.Info().Hex("DONPublicKeyHex", donPubKey).Msg("Loaded DON key")
 	tdh2pk, err := ParseTDH2Key(tpk)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal tdh2 public key")
@@ -128,8 +127,8 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate tdh2 secrets")
 		}
-		if err := UploadS4Secrets(resty.New(), &S4SecretsCfg{
-			GatewayURL:            fmt.Sprintf("%s/user", cfg.Common.GatewayURL),
+		slotID, slotVersion, err := UploadS4Secrets(resty.New(), &S4SecretsCfg{
+			GatewayURL:            cfg.Common.GatewayURL,
 			PrivateKey:            cfg.MumbaiPrivateKey,
 			MessageID:             strconv.Itoa(mrand.Intn(100000-1) + 1),
 			Method:                "secrets_set",
@@ -138,9 +137,16 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 			S4SetVersion:          uint64(time.Now().UnixNano()),
 			S4SetExpirationPeriod: 60 * 60 * 1000,
 			S4SetPayload:          encryptedSecrets,
-		}); err != nil {
+		})
+		if err != nil {
 			return nil, errors.Wrap(err, "failed to upload secrets to S4")
 		}
+		cfg.Common.SecretsSlotID = slotID
+		cfg.Common.SecretsVersionID = slotVersion
+		log.Info().
+			Uint8("SlotID", slotID).
+			Uint64("SlotVersion", slotVersion).
+			Msg("Set new secret")
 	}
 	return &FunctionsTest{
 		EVMClient:                 bc,
