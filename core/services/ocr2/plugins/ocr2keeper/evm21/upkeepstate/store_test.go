@@ -256,24 +256,6 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 				ocr2keepers.UnknownState,
 			},
 		},
-		//{
-		//	name:           "querying workIDs with non-stored values returns valid results",
-		//	queryIDs:       []string{"0x1", "0x2", "0x3", "0x4"},
-		//	flushSize:      4,
-		//	expectedWrites: 1,
-		//	storedValues: []storedValue{
-		//		{result: makeTestResult(5, "0x1", false, 1), state: ocr2keepers.Ineligible},
-		//		{result: makeTestResult(6, "0x2", false, 1), state: ocr2keepers.Ineligible},
-		//		{result: makeTestResult(7, "0x3", false, 1), state: ocr2keepers.Ineligible},
-		//		{result: makeTestResult(8, "0x44", false, 1), state: ocr2keepers.Ineligible},
-		//	},
-		//	expected: []ocr2keepers.UpkeepState{
-		//		ocr2keepers.Ineligible,
-		//		ocr2keepers.Ineligible,
-		//		ocr2keepers.Ineligible,
-		//		ocr2keepers.UnknownState,
-		//	},
-		//},
 		{
 			name:           "storing eligible values is a noop",
 			queryIDs:       []string{"0x1", "0x2", "0x3", "0x4"},
