@@ -24,7 +24,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // |                         Balance state                        |
   // ================================================================
   // link token address
-  address internal immutable i_linkToken;
+  IERC20 internal immutable i_linkToken;
 
   // s_totalLinkBalance tracks the total LINK sent to/from
   // this contract through onTokenTransfer, cancelSubscription and oracleWithdraw.
@@ -89,7 +89,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // |                       Initialization                         |
   // ================================================================
   constructor(address link) {
-    i_linkToken = link;
+    i_linkToken = IERC20(link);
   }
 
   // ================================================================
@@ -153,18 +153,17 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   function ownerCancelSubscription(uint64 subscriptionId) external override {
     _onlyRouterOwner();
     _isExistingSubscription(subscriptionId);
-
     _cancelSubscriptionHelper(subscriptionId, s_subscriptions[subscriptionId].owner, false);
   }
 
   // @inheritdoc IFunctionsSubscriptions
   function recoverFunds(address to) external override {
     _onlyRouterOwner();
-    uint256 externalBalance = IERC20(i_linkToken).balanceOf(address(this));
+    uint256 externalBalance = i_linkToken.balanceOf(address(this));
     uint256 internalBalance = uint256(s_totalLinkBalance);
     if (internalBalance < externalBalance) {
       uint256 amount = externalBalance - internalBalance;
-      IERC20(i_linkToken).safeTransfer(to, amount);
+      i_linkToken.safeTransfer(to, amount);
       emit FundsRecovered(to, amount);
     }
     // If the balances are equal, nothing to be done.
@@ -187,7 +186,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     }
     s_withdrawableTokens[msg.sender] -= amount;
     s_totalLinkBalance -= amount;
-    IERC20(i_linkToken).safeTransfer(recipient, amount);
+    i_linkToken.safeTransfer(recipient, amount);
   }
 
   // @notice Owner withdraw LINK earned through admin fees
@@ -206,7 +205,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     s_withdrawableTokens[address(this)] -= amount;
     s_totalLinkBalance -= amount;
 
-    IERC20(i_linkToken).safeTransfer(recipient, amount);
+    i_linkToken.safeTransfer(recipient, amount);
   }
 
   // ================================================================
@@ -443,8 +442,6 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
 
     (uint16 subscriptionDepositMinimumRequests, uint72 subscriptionDepositJuels) = _getSubscriptionDepositDetails();
 
-    IERC20 linkToken = IERC20(i_linkToken);
-
     // If subscription has not made enough requests, deposit will be forfeited
     if (checkDepositRefundability && completedRequests < subscriptionDepositMinimumRequests) {
       uint96 deposit = subscriptionDepositJuels > balance ? balance : subscriptionDepositJuels;
@@ -456,7 +453,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
 
     if (balance > 0) {
       s_totalLinkBalance -= balance;
-      linkToken.safeTransfer(toAddress, uint256(balance));
+      i_linkToken.safeTransfer(toAddress, uint256(balance));
     }
     emit SubscriptionCanceled(subscriptionId, toAddress, balance);
   }

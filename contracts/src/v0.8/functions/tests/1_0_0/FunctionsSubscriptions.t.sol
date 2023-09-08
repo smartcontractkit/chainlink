@@ -6,6 +6,8 @@ import {FunctionsRouter} from "../../dev/1_0_0/FunctionsRouter.sol";
 import {FunctionsSubscriptions} from "../../dev/1_0_0/FunctionsSubscriptions.sol";
 import {FunctionsResponse} from "../../dev/1_0_0/libraries/FunctionsResponse.sol";
 
+import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
+
 import {FunctionsRouterSetup, FunctionsOwnerAcceptTermsOfServiceSetup, FunctionsClientSetup, FunctionsSubscriptionSetup, FunctionsClientRequestSetup, FunctionsFulfillmentSetup} from "./Setup.t.sol";
 
 import "forge-std/Vm.sol";
@@ -17,8 +19,8 @@ import "forge-std/Vm.sol";
 contract FunctionsSubscriptions_Constructor_Helper is FunctionsSubscriptions {
   constructor(address link) FunctionsSubscriptions(link) {}
 
-  function getLinkToken() public view returns (address) {
-    return i_linkToken;
+  function getLinkToken() public view returns (IERC20) {
+    return IERC20(i_linkToken);
   }
 
   // overrides
@@ -48,7 +50,7 @@ contract FunctionsSubscriptions_Constructor is BaseTest {
   }
 
   function test_Constructor_Success() public {
-    assertEq(s_linkToken, s_subscriptionsHelper.getLinkToken());
+    assertEq(address(s_linkToken), address(s_subscriptionsHelper.getLinkToken()));
   }
 }
 
