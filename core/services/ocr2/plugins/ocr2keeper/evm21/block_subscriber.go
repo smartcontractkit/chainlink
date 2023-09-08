@@ -29,11 +29,15 @@ const (
 	blockHistorySize = int64(256)
 )
 
+var (
+	BlockSubscriberServiceName = "BlockSubscriber"
+)
+
 type BlockSubscriber struct {
-	sync             utils.StartStopOnce
+	utils.StartStopOnce
+	threadCtrl utils.ThreadControl
+
 	mu               sync.RWMutex
-	ctx              context.Context
-	cancel           context.CancelFunc
 	hb               httypes.HeadBroadcaster
 	lp               logpoller.LogPoller
 	headC            chan *evmtypes.Head
@@ -53,6 +57,7 @@ var _ ocr2keepers.BlockSubscriber = &BlockSubscriber{}
 
 func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, lggr logger.Logger) *BlockSubscriber {
 	return &BlockSubscriber{
+		threadCtrl:       utils.NewThreadControl(context.Background(), 2),
 		hb:               hb,
 		lp:               lp,
 		headC:            make(chan *evmtypes.Head, channelSize),
@@ -81,8 +86,8 @@ func (bs *BlockSubscriber) getBlockRange(ctx context.Context) ([]uint64, error) 
 	return blocks, nil
 }
 
-func (bs *BlockSubscriber) initializeBlocks(blocks []uint64) error {
-	logpollerBlocks, err := bs.lp.GetBlocksRange(bs.ctx, blocks, pg.WithParentCtx(bs.ctx))
+func (bs *BlockSubscriber) initializeBlocks(ctx context.Context, blocks []uint64) error {
+	logpollerBlocks, err := bs.lp.GetBlocksRange(ctx, blocks)
 	if err != nil {
 		return err
 	}
@@ -127,18 +132,19 @@ func (bs *BlockSubscriber) cleanup() {
 	bs.lggr.Infof("lastClearedBlock is set to %d", bs.lastClearedBlock)
 }
 
-func (bs *BlockSubscriber) Start(_ context.Context) error {
-	bs.lggr.Info("block subscriber started.")
-	return bs.sync.StartOnce("BlockSubscriber", func() error {
+func (bs *BlockSubscriber) Start(ctx context.Context) error {
+	return bs.StartOnce(BlockSubscriberServiceName, func() error {
 		bs.mu.Lock()
 		defer bs.mu.Unlock()
-		bs.ctx, bs.cancel = context.WithCancel(context.Background())
+
+		bs.lggr.Info("block subscriber started.")
+
 		// initialize the blocks map with the recent blockSize blocks
-		blocks, err := bs.getBlockRange(bs.ctx)
+		blocks, err := bs.getBlockRange(ctx)
 		if err != nil {
 			bs.lggr.Errorf("failed to get block range", err)
 		}
-		err = bs.initializeBlocks(blocks)
+		err = bs.initializeBlocks(ctx, blocks)
 		if err != nil {
 			bs.lggr.Errorf("failed to get log poller blocks", err)
 		}
@@ -146,35 +152,36 @@ func (bs *BlockSubscriber) Start(_ context.Context) error {
 		_, bs.unsubscribe = bs.hb.Subscribe(&headWrapper{headC: bs.headC, lggr: bs.lggr})
 
 		// poll from head broadcaster channel and push to subscribers
-		{
-			go func(ctx context.Context) {
-				for {
-					select {
-					case h := <-bs.headC:
-						if h != nil {
-							bs.processHead(h)
-						}
-					case <-ctx.Done():
-						return
+		if err := bs.threadCtrl.Go(func(ctx context.Context) {
+			for {
+				select {
+				case h := <-bs.headC:
+					if h != nil {
+						bs.processHead(h)
 					}
+				case <-ctx.Done():
+					return
 				}
-			}(bs.ctx)
+			}
+		}); err != nil {
+			return fmt.Errorf("failed to start head broadcaster thread: %w", err)
 		}
 
 		// clean up block maps
-		{
-			go func(ctx context.Context) {
-				ticker := time.NewTicker(cleanUpInterval)
-				for {
-					select {
-					case <-ticker.C:
-						bs.cleanup()
-					case <-ctx.Done():
-						ticker.Stop()
-						return
-					}
+		if err := bs.threadCtrl.Go(func(ctx context.Context) {
+			ticker := time.NewTicker(cleanUpInterval)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					bs.cleanup()
+				case <-ctx.Done():
+					return
 				}
-			}(bs.ctx)
+			}
+		}); err != nil {
+			return fmt.Errorf("failed to start block cleanup thread: %w", err)
 		}
 
 		return nil
@@ -182,12 +189,9 @@ func (bs *BlockSubscriber) Start(_ context.Context) error {
 }
 
 func (bs *BlockSubscriber) Close() error {
-	bs.lggr.Info("stop block subscriber")
-	return bs.sync.StopOnce("BlockSubscriber", func() error {
-		bs.mu.Lock()
-		defer bs.mu.Unlock()
-
-		bs.cancel()
+	return bs.StopOnce(BlockSubscriberServiceName, func() error {
+		bs.lggr.Info("stop block subscriber")
+		bs.threadCtrl.Close()
 		bs.unsubscribe()
 		return nil
 	})
