@@ -979,7 +979,7 @@ contract FunctionsSubscriptions_CancelSubscription is FunctionsSubscriptionSetup
 
   event SubscriptionCanceled(uint64 indexed subscriptionId, address fundsRecipient, uint256 fundsAmount);
 
-  function test_CancelSubscription_SuccessForefeitAllBalanceAsDeposit() public {
+  function test_CancelSubscription_SuccessForfeitAllBalanceAsDeposit() public {
     // No requests have been completed
     assertEq(s_functionsRouter.getConsumer(address(s_functionsClient), s_subscriptionId).completedRequests, 0);
     // Subscription balance is less than deposit amount

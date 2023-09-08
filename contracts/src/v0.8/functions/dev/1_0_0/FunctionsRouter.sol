@@ -182,7 +182,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     return s_config.maxConsumersPerSubscription;
   }
 
-  // Used within FunctionsSubscriptions.sol
+  /// @dev Used within FunctionsSubscriptions.sol
   function _getSubscriptionDepositDetails() internal view override returns (uint16, uint72) {
     return (s_config.subscriptionDepositMinimumRequests, s_config.subscriptionDepositJuels);
   }

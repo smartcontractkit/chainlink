@@ -259,7 +259,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     return s_subscriptions[subscriptionId];
   }
 
-  // @inheritdoc IFunctionsSubscriptions
+  /// @inheritdoc IFunctionsSubscriptions
   function getSubscriptionsInRange(
     uint64 subscriptionIdStart,
     uint64 subscriptionIdEnd
@@ -424,7 +424,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     emit SubscriptionConsumerAdded(subscriptionId, consumer);
   }
 
-  // Overriden in FunctionsRouter.sol
+  /// @dev Overriden in FunctionsRouter.sol
   function _getSubscriptionDepositDetails() internal virtual returns (uint16, uint72);
 
   function _cancelSubscriptionHelper(uint64 subscriptionId, address toAddress, bool checkDepositRefundability) private {
@@ -461,7 +461,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     emit SubscriptionCanceled(subscriptionId, toAddress, balance);
   }
 
-  // @inheritdoc IFunctionsSubscriptions
+  /// @inheritdoc IFunctionsSubscriptions
   function cancelSubscription(uint64 subscriptionId, address to) external override {
     _whenNotPaused();
     _onlySubscriptionOwner(subscriptionId);
