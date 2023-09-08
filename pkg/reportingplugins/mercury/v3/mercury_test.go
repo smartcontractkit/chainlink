@@ -494,9 +494,13 @@ func Test_Plugin_Observation(t *testing.T) {
 		assert.True(t, p.PricesValid)
 		assert.Equal(t, obs.MaxFinalizedTimestamp.Val, p.MaxFinalizedTimestamp)
 		assert.True(t, p.MaxFinalizedTimestampValid)
-		assert.Equal(t, mercury.CalculateFee(obs.LinkPrice.Val, 100), mustDecodeBigInt(p.LinkFee))
+
+		fee := mercury.CalculateFee(obs.LinkPrice.Val, 100)
+		assert.Equal(t, fee, mustDecodeBigInt(p.LinkFee))
 		assert.True(t, p.LinkFeeValid)
-		assert.Equal(t, mercury.CalculateFee(obs.NativePrice.Val, 100), mustDecodeBigInt(p.NativeFee))
+
+		fee = mercury.CalculateFee(obs.NativePrice.Val, 100)
+		assert.Equal(t, fee, mustDecodeBigInt(p.NativeFee))
 		assert.True(t, p.NativeFeeValid)
 	})
 
@@ -557,7 +561,9 @@ func Test_Plugin_Observation(t *testing.T) {
 		assert.False(t, p.MaxFinalizedTimestampValid)
 		assert.Zero(t, p.LinkFee)
 		assert.False(t, p.LinkFeeValid)
-		assert.Equal(t, mercury.CalculateFee(obs.NativePrice.Val, 100), mustDecodeBigInt(p.NativeFee))
+
+		fee := mercury.CalculateFee(obs.NativePrice.Val, 100)
+		assert.Equal(t, fee, mustDecodeBigInt(p.NativeFee))
 		assert.True(t, p.NativeFeeValid)
 	})
 
@@ -630,8 +636,6 @@ func Test_Plugin_Observation(t *testing.T) {
 
 		assert.Zero(t, p.BenchmarkPrice)
 		assert.False(t, p.PricesValid)
-		assert.Zero(t, p.LinkFee)
-		assert.False(t, p.LinkFeeValid)
 	})
 
 	t.Run("encoding fails on all observations", func(t *testing.T) {
@@ -648,6 +652,7 @@ func Test_Plugin_Observation(t *testing.T) {
 			MaxFinalizedTimestamp: mercury.ObsResult[int64]{
 				Val: rand.Int63(),
 			},
+			// encoding never fails on calculated fees
 			LinkPrice: mercury.ObsResult[*big.Int]{
 				Val: new(big.Int).Exp(big.NewInt(2), big.NewInt(256), nil),
 			},
@@ -668,10 +673,6 @@ func Test_Plugin_Observation(t *testing.T) {
 		assert.Zero(t, p.Bid)
 		assert.Zero(t, p.Ask)
 		assert.False(t, p.PricesValid)
-		assert.Zero(t, p.LinkFee)
-		assert.False(t, p.LinkFeeValid)
-		assert.Zero(t, p.NativeFee)
-		assert.False(t, p.NativeFeeValid)
 	})
 }
 
