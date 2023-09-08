@@ -70,7 +70,7 @@ compileContract dev/vrf/libraries/VRFV2PlusClient.sol
 compileContract dev/vrf/testhelpers/VRFCoordinatorV2Plus_V2Example.sol
 compileContract dev/vrf/TrustedBlockhashStore.sol
 compileContract dev/vrf/testhelpers/VRFV2PlusLoadTestWithMetrics.sol
-compileContractAltOpts dev/vrf/testhelpers/VRFCoordinatorV2PlusUpgradedVersion.sol 5
+compileContractAltOpts dev/vrf/testhelpers/VRFCoordinatorV2PlusUpgradedVersion.sol 10
 
 # VRF V2 Wrapper
 compileContract vrf/VRFV2Wrapper.sol
