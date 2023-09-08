@@ -155,7 +155,7 @@ func (r *EvmRegistry) Name() string {
 	return r.lggr.Name()
 }
 
-func (r *EvmRegistry) Start(ctx context.Context) error {
+func (r *EvmRegistry) Start(_ context.Context) error {
 	return r.sync.StartOnce("AutomationRegistry", func() error {
 		r.mu.Lock()
 		defer r.mu.Unlock()
@@ -484,9 +484,9 @@ func RegistryUpkeepFilterName(addr common.Address) string {
 	return logpoller.FilterName("KeeperRegistry Events", addr.String())
 }
 
-func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
-	// Add log filters for the log poller so that it can poll and find the logs that
-	// we need
+// registerEvents registers upkeep state events from keeper registry on log poller
+func (r *EvmRegistry) registerEvents(_ uint64, addr common.Address) error {
+	// Add log filters for the log poller so that it can poll and find the logs that we need
 	return r.poller.RegisterFilter(logpoller.Filter{
 		Name:      RegistryUpkeepFilterName(addr),
 		EventSigs: upkeepStateEvents,
@@ -494,7 +494,7 @@ func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error 
 	})
 }
 
-// Removes an upkeepID from active list and unregisters the log filter for log upkeeps
+// removeFromActive removes an upkeepID from active list and unregisters the log filter for log upkeeps
 func (r *EvmRegistry) removeFromActive(id *big.Int) {
 	r.active.Remove(id)
 
@@ -565,6 +565,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 	return ids, nil
 }
 
+// updateTriggerConfig updates the trigger config for an upkeep. it will re-register a filter for this upkeep.
 func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte, logBlock uint64) error {
 	uid := &ocr2keepers.UpkeepIdentifier{}
 	uid.FromBigInt(id)
@@ -596,7 +597,7 @@ func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte, logBlock uint
 	return nil
 }
 
-// updateTriggerConfig gets invoked upon changes in the trigger config of an upkeep.
+// fetchTriggerConfig fetches trigger config in raw bytes for an upkeep.
 func (r *EvmRegistry) fetchTriggerConfig(id *big.Int) ([]byte, error) {
 	opts := r.buildCallOpts(r.ctx, nil)
 	cfg, err := r.registry.GetUpkeepTriggerConfig(opts, id)

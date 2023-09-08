@@ -98,7 +98,7 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 }
 
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
-func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
+func (r *EvmRegistry) verifyCheckBlock(_ context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
 	var h string
 	var ok bool
 	// verify check block number and hash are valid
