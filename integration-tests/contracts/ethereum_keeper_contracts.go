@@ -76,6 +76,7 @@ type KeeperRegistry interface {
 	PauseUpkeep(id *big.Int) error
 	UnpauseUpkeep(id *big.Int) error
 	UpdateCheckData(id *big.Int, newCheckData []byte) error
+	SetUpkeepTriggerConfig(id *big.Int, triggerConfig []byte) error
 }
 
 type KeeperConsumer interface {
@@ -900,6 +901,26 @@ func (v *EthereumKeeperRegistry) UpdateCheckData(id *big.Int, newCheckData []byt
 		return v.client.ProcessTransaction(tx)
 	default:
 		return fmt.Errorf("UpdateCheckData is not supported by keeper registry version %d", v.version)
+	}
+}
+
+// SetUpkeepTriggerConfig updates the trigger config of an upkeep (only for version 2.1)
+func (v *EthereumKeeperRegistry) SetUpkeepTriggerConfig(id *big.Int, triggerConfig []byte) error {
+
+	switch v.version {
+	case ethereum.RegistryVersion_2_1:
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry2_1.SetUpkeepTriggerConfig(opts, id, triggerConfig)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	default:
+		return fmt.Errorf("SetUpkeepTriggerConfig is not supported by keeper registry version %d", v.version)
 	}
 }
 
