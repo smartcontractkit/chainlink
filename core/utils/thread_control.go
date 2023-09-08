@@ -2,16 +2,11 @@ package utils
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"sync/atomic"
 )
 
-var (
-	_ ThreadControl = &threadControl{}
-
-	ErrThreadLimitReached = errors.New("thread limit reached")
-)
+var _ ThreadControl = &threadControl{}
 
 // ThreadControl is a helper for managing a group of goroutines.
 type ThreadControl interface {
@@ -21,10 +16,9 @@ type ThreadControl interface {
 	Close()
 }
 
-func NewThreadControl(limit int) *threadControl {
+func NewThreadControl() *threadControl {
 	tc := &threadControl{
-		stop:  make(chan struct{}),
-		limit: int32(limit),
+		stop: make(chan struct{}),
 	}
 
 	return tc
@@ -33,7 +27,6 @@ func NewThreadControl(limit int) *threadControl {
 type threadControl struct {
 	threadsWG sync.WaitGroup
 
-	limit   int32
 	running atomic.Int32
 
 	stop StopChan

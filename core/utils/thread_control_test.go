@@ -10,7 +10,7 @@ import (
 
 func TestThreadControl_Close(t *testing.T) {
 	n := 10
-	tc := NewThreadControl(n)
+	tc := NewThreadControl()
 
 	finished := atomic.Int32{}
 
