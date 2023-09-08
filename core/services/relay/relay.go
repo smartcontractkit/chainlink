@@ -112,12 +112,12 @@ var _ loop.Relayer = (*relayerAdapter)(nil)
 // relayerAdapter adapts a [types.Relayer] and [RelayerExt] to implement [loop.Relayer].
 type relayerAdapter struct {
 	types.Relayer
-	// TODO we can un-embedded `ext` once BFC-2441 is merged. Right now that's not possible
-	// because this are conflicting definitions of SendTx
 	RelayerExt
 }
 
 // NewRelayerAdapter returns a [loop.Relayer] adapted from a [types.Relayer] and [RelayerExt].
+// Unlike NewRelayerServerAdapter which is used to adapt non-LOOPP relayers, this is used to adapt
+// LOOPP-based relayer which are then server over GRPC (by the relayerServer).
 func NewRelayerAdapter(r types.Relayer, e RelayerExt) loop.Relayer {
 	return &relayerAdapter{Relayer: r, RelayerExt: e}
 }
@@ -136,6 +136,10 @@ func (r *relayerAdapter) NewMercuryProvider(ctx context.Context, rargs types.Rel
 
 func (r *relayerAdapter) NewFunctionsProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.FunctionsProvider, error) {
 	return r.Relayer.NewFunctionsProvider(rargs, pargs)
+}
+
+func (r *relayerAdapter) NewPluginProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
+	return nil, fmt.Errorf("unexpected call to NewPluginProvider: did you forget to wrap relayerAdapter in a relayerServerAdapter?")
 }
 
 func (r *relayerAdapter) Start(ctx context.Context) error {
@@ -183,4 +187,34 @@ func (r *relayerAdapter) NodeStatuses(ctx context.Context, offset, limit int, ch
 		limit = len(nodes)
 	}
 	return nodes[offset:limit], total, nil
+}
+
+type relayerServerAdapter struct {
+	*relayerAdapter
+}
+
+func (r *relayerServerAdapter) NewPluginProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
+	switch types.OCR2PluginType(rargs.ProviderType) {
+	case types.Median:
+		return r.NewMedianProvider(ctx, rargs, pargs)
+	case types.Functions:
+		return r.NewFunctionsProvider(ctx, rargs, pargs)
+	case types.Mercury:
+		return r.NewMercuryProvider(ctx, rargs, pargs)
+	case types.DKG, types.OCR2VRF, types.OCR2Keeper, types.GenericPlugin:
+		return r.relayerAdapter.NewPluginProvider(ctx, rargs, pargs)
+	}
+
+	return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)
+}
+
+// NewRelayerServerAdapter returns a [loop.Relayer] adapted from a [types.Relayer] and [RelayerExt].
+// Unlike NewRelayerAdapter, this behaves like the loop `RelayerServer` and dispatches calls
+// to `NewPluginProvider` according to the passed in `RelayArgs.ProviderType`.
+// This should only be used to adapt relayers not running via GRPC in a LOOPP.
+//
+// nolint:staticcheck // SA1019
+func NewRelayerServerAdapter(r types.Relayer, e RelayerExt) loop.Relayer {
+	ra := &relayerAdapter{Relayer: r, RelayerExt: e}
+	return &relayerServerAdapter{relayerAdapter: ra}
 }
