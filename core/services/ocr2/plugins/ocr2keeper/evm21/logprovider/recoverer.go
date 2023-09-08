@@ -660,7 +660,7 @@ func (r *logRecoverer) updateBlockTime(ctx context.Context) {
 	if blockTime > 0 {
 		currentBlockTime := r.blockTime.Load()
 		newBlockTime := int64(blockTime)
-		if (int64(math.Abs(float64(currentBlockTime-newBlockTime))) * 100 / currentBlockTime) > 20 {
+		if currentBlockTime > 0 && (int64(math.Abs(float64(currentBlockTime-newBlockTime)))*100/currentBlockTime) > 20 {
 			r.lggr.Warnf("updating blocktime from %d to %d, this change is larger than 20%", currentBlockTime, newBlockTime)
 		} else {
 			r.lggr.Debugf("updating blocktime from %d to %d", currentBlockTime, newBlockTime)
