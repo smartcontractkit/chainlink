@@ -99,11 +99,9 @@ contract FunctionsSubscriptions_OwnerCancelSubscription is FunctionsSubscription
 
   function test_OwnerCancelSubscription_SuccessDeletesSubscription() public {
     s_functionsRouter.ownerCancelSubscription(s_subscriptionId);
-    // No owner means the subscription has been deleted
-    FunctionsSubscriptions.Subscription memory subscriptionAfterCancel = s_functionsRouter.getSubscription(
-      s_subscriptionId
-    );
-    assertEq(subscriptionAfterCancel.owner, address(0));
+    // Subscription should no longer exist
+    vm.expectRevert(FunctionsSubscriptions.InvalidSubscription.selector);
+    s_functionsRouter.getSubscription(s_subscriptionId);
   }
 
   event SubscriptionCanceled(uint64 indexed subscriptionId, address fundsRecipient, uint256 fundsAmount);
@@ -1004,11 +1002,9 @@ contract FunctionsSubscriptions_CancelSubscription is FunctionsSubscriptionSetup
     uint256 subscriptionOwnerBalanceAfter = s_linkToken.balanceOf(OWNER_ADDRESS);
     assertEq(subscriptionOwnerBalanceBefore + expectedRefund, subscriptionOwnerBalanceAfter);
 
-    // No owner means the subscription has been deleted
-    FunctionsSubscriptions.Subscription memory subscriptionAfterCancel = s_functionsRouter.getSubscription(
-      s_subscriptionId
-    );
-    assertEq(subscriptionAfterCancel.owner, address(0));
+    // Subscription should no longer exist
+    vm.expectRevert(FunctionsSubscriptions.InvalidSubscription.selector);
+    s_functionsRouter.getSubscription(s_subscriptionId);
 
     // Router owner should have expectedDepositWithheld to withdraw
     uint96 expectedDepositWithheld = s_subscriptionInitialFunding;
@@ -1018,7 +1014,7 @@ contract FunctionsSubscriptions_CancelSubscription is FunctionsSubscriptionSetup
     assertEq(balanceBeforeWithdraw + expectedDepositWithheld, balanceAfterWithdraw);
   }
 
-  function test_CancelSubscription_SuccessForefeitSomeBalanceAsDeposit() public {
+  function test_CancelSubscription_SuccessForfeitSomeBalanceAsDeposit() public {
     // No requests have been completed
     assertEq(s_functionsRouter.getConsumer(address(s_functionsClient), s_subscriptionId).completedRequests, 0);
     // Subscription balance is more than deposit amount, double fund the subscription
@@ -1041,11 +1037,9 @@ contract FunctionsSubscriptions_CancelSubscription is FunctionsSubscriptionSetup
     uint256 subscriptionOwnerBalanceAfter = s_linkToken.balanceOf(OWNER_ADDRESS);
     assertEq(subscriptionOwnerBalanceBefore + expectedRefund, subscriptionOwnerBalanceAfter);
 
-    // No owner means the subscription has been deleted
-    FunctionsSubscriptions.Subscription memory subscriptionAfterCancel = s_functionsRouter.getSubscription(
-      s_subscriptionId
-    );
-    assertEq(subscriptionAfterCancel.owner, address(0));
+    // Subscription should no longer exist
+    vm.expectRevert(FunctionsSubscriptions.InvalidSubscription.selector);
+    s_functionsRouter.getSubscription(s_subscriptionId);
 
     // Router owner should have expectedDepositWithheld to withdraw
     uint96 expectedDepositWithheld = s_subscriptionDepositJuels;
@@ -1127,11 +1121,9 @@ contract FunctionsSubscriptions_CancelSubscription is FunctionsSubscriptionSetup
     uint256 subscriptionOwnerBalanceAfter = s_linkToken.balanceOf(OWNER_ADDRESS);
     assertEq(subscriptionOwnerBalanceBefore + expectedRefund, subscriptionOwnerBalanceAfter);
 
-    // No owner means the subscription has been deleted
-    FunctionsSubscriptions.Subscription memory subscriptionAfterCancel = s_functionsRouter.getSubscription(
-      s_subscriptionId
-    );
-    assertEq(subscriptionAfterCancel.owner, address(0));
+    // Subscription should no longer exist
+    vm.expectRevert(FunctionsSubscriptions.InvalidSubscription.selector);
+    s_functionsRouter.getSubscription(s_subscriptionId);
   }
 }
 

@@ -387,7 +387,7 @@ describe('Functions Router - Subscriptions', () => {
         const strangerBalance = await contracts.linkToken.balanceOf(
           roles.strangerAddress,
         )
-        expect(strangerBalance.toString()).to.equal('1000000000000001000')
+        expect(strangerBalance.toString()).to.equal('0')
         await expect(
           contracts.router.connect(roles.subOwner).getSubscription(subId),
         ).to.be.revertedWith('InvalidSubscription')
@@ -493,7 +493,7 @@ describe('Functions Router - Subscriptions', () => {
                 .connect(roles.subOwner)
                 .cancelSubscription(subId, roles.strangerAddress)
             },
-            BigNumber.from('-1000'),
+            BigNumber.from('0'),
           ],
         ]
         for (const [fn, expectedBalanceChange] of balanceChangingFns) {

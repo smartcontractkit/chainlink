@@ -255,6 +255,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
 
   // @inheritdoc IFunctionsSubscriptions
   function getSubscription(uint64 subscriptionId) public view override returns (Subscription memory) {
+    _isExistingSubscription(subscriptionId);
     return s_subscriptions[subscriptionId];
   }
 
@@ -445,7 +446,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     IERC20 linkToken = IERC20(i_linkToken);
 
     // If subscription has not made enough requests, deposit will be forfeited
-    if (completedRequests < subscriptionDepositMinimumRequests && checkDepositRefundability) {
+    if (checkDepositRefundability && completedRequests < subscriptionDepositMinimumRequests) {
       uint96 deposit = subscriptionDepositJuels > balance ? balance : subscriptionDepositJuels;
       if (deposit > 0) {
         s_withdrawableTokens[address(this)] += deposit;
