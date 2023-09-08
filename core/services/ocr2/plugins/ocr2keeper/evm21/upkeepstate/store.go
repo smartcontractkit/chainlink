@@ -120,7 +120,7 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 
 					ticker.Reset(utils.WithJitter(u.cleanCadence))
 				case <-ctx.Done():
-
+					return
 				}
 			}
 		}(ctx)
