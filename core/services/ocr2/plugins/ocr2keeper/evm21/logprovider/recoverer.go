@@ -104,7 +104,7 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 	return rec
 }
 
-func (r *logRecoverer) Start(pctx context.Context) error {
+func (r *logRecoverer) Start(_ context.Context) error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	r.lock.Lock()
@@ -441,7 +441,7 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 }
 
 // filterFinalizedStates filters out the log upkeeps that have already been completed (performed or ineligible).
-func (r *logRecoverer) filterFinalizedStates(f upkeepFilter, logs []logpoller.Log, states []ocr2keepers.UpkeepState) []logpoller.Log {
+func (r *logRecoverer) filterFinalizedStates(_ upkeepFilter, logs []logpoller.Log, states []ocr2keepers.UpkeepState) []logpoller.Log {
 	filtered := make([]logpoller.Log, 0)
 
 	for i, log := range logs {

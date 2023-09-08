@@ -28,7 +28,7 @@ import (
 type AutomationServices interface {
 	Registry() *EvmRegistry
 	Encoder() ocr2keepers.Encoder
-	TransmitEventProvider() *transmit.TransmitEventProvider
+	TransmitEventProvider() *transmit.EventProvider
 	BlockSubscriber() *BlockSubscriber
 	PayloadBuilder() ocr2keepers.PayloadBuilder
 	UpkeepStateStore() upkeepstate.UpkeepStateStore
@@ -97,7 +97,7 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 type automationServices struct {
 	reg                   *EvmRegistry
 	encoder               ocr2keepers.Encoder
-	transmitEventProvider *transmit.TransmitEventProvider
+	transmitEventProvider *transmit.EventProvider
 	blockSub              *BlockSubscriber
 	payloadBuilder        ocr2keepers.PayloadBuilder
 	upkeepState           upkeepstate.UpkeepStateStore
@@ -117,7 +117,7 @@ func (f *automationServices) Encoder() ocr2keepers.Encoder {
 	return f.encoder
 }
 
-func (f *automationServices) TransmitEventProvider() *transmit.TransmitEventProvider {
+func (f *automationServices) TransmitEventProvider() *transmit.EventProvider {
 	return f.transmitEventProvider
 }
 
