@@ -11,7 +11,6 @@ import "../../../shared/access/ConfirmedOwner.sol";
  * @notice Allows making many VRF V2 randomness requests in a single transaction for load testing.
  */
 contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
-
   uint256 public s_responseCount;
   uint256 public s_requestCount;
   uint256 public s_averageFulfillmentInMillions = 0; // in millions for better precision
@@ -31,8 +30,7 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
 
   mapping(uint256 => RequestStatus) /* requestId */ /* requestStatus */ public s_requests;
 
-  constructor(address _vrfCoordinator) VRFConsumerBaseV2Plus(_vrfCoordinator) {
-  }
+  constructor(address _vrfCoordinator) VRFConsumerBaseV2Plus(_vrfCoordinator) {}
 
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
     uint256 fulfilmentBlockNumber = ChainSpecificUtil.getBlockNumber();

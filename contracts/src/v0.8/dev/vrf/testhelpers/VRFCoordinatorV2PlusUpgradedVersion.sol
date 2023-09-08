@@ -221,7 +221,9 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
    * @return requestId - A unique identifier of the request. Can be used to match
    * a request to a response in fulfillRandomWords.
    */
-  function requestRandomWords(VRFV2PlusClient.RandomWordsRequest calldata req) external override nonReentrant returns (uint256) {
+  function requestRandomWords(
+    VRFV2PlusClient.RandomWordsRequest calldata req
+  ) external override nonReentrant returns (uint256) {
     // Input validation using the subscription storage.
     if (s_subscriptionConfigs[req.subId].owner == address(0)) {
       revert InvalidSubscription();
@@ -719,12 +721,12 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     s_subscriptions[migrationData.subId] = Subscription({
       ethBalance: migrationData.ethBalance,
       balance: migrationData.linkBalance,
-      reqCount : 0
+      reqCount: 0
     });
     s_subscriptionConfigs[migrationData.subId] = SubscriptionConfig({
       owner: migrationData.subOwner,
       consumers: migrationData.consumers,
-      requestedOwner : address(0)
+      requestedOwner: address(0)
     });
   }
 }
