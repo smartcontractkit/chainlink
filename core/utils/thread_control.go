@@ -26,8 +26,8 @@ func NewThreadControl(pctx context.Context, limit int) *threadControl {
 	tc := &threadControl{
 		ctx:    ctx,
 		cancel: cancel,
+		limit:  int32(limit),
 	}
-	tc.limit.Store(int32(limit))
 
 	return tc
 }
@@ -35,7 +35,7 @@ func NewThreadControl(pctx context.Context, limit int) *threadControl {
 type threadControl struct {
 	threadsWG sync.WaitGroup
 
-	limit   atomic.Int32
+	limit   int32
 	running atomic.Int32
 
 	ctx    context.Context
@@ -60,7 +60,7 @@ func (tc *threadControl) Close() {
 }
 
 func (tc *threadControl) add() error {
-	if tc.running.Add(1) > tc.limit.Load() {
+	if tc.running.Add(1) > tc.limit {
 		tc.running.Add(-1)
 		return ErrThreadLimitReached
 	}

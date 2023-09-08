@@ -119,7 +119,7 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 
 		r.lggr.Infow("starting log recoverer", "blockTime", r.blockTime.Load(), "lookbackBlocks", r.lookbackBlocks.Load(), "interval", r.interval)
 
-		r.threadCtrl.Go(func(ctx context.Context) {
+		if err := r.threadCtrl.Go(func(ctx context.Context) {
 			ticker := time.NewTicker(r.interval)
 			defer ticker.Stop()
 			gcTicker := time.NewTicker(utils.WithJitter(GCInterval))
@@ -138,7 +138,9 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 					return
 				}
 			}
-		})
+		}); err != nil {
+			return fmt.Errorf("failed to start log recoverer thread: %w", err)
+		}
 
 		return nil
 	})

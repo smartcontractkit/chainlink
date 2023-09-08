@@ -85,7 +85,7 @@ func NewEvmRegistry(
 	finalityDepth uint32,
 ) *EvmRegistry {
 	return &EvmRegistry{
-		threadCtrl:   utils.NewThreadControl(context.Background(), 10), // TODO: limit
+		threadCtrl:   utils.NewThreadControl(context.Background(), 3),
 		lggr:         lggr.Named("EvmRegistry"),
 		poller:       client.LogPoller(),
 		addr:         addr,
@@ -168,7 +168,7 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 			return fmt.Errorf("logPoller error while registering automation events: %w", err)
 		}
 
-		r.threadCtrl.Go(func(ctx context.Context) {
+		if err := r.threadCtrl.Go(func(ctx context.Context) {
 			lggr := r.lggr.With("where", "upkeeps_referesh")
 			err := r.refreshActiveUpkeeps()
 			if err != nil {
@@ -187,9 +187,11 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 					return
 				}
 			}
-		})
+		}); err != nil {
+			return fmt.Errorf("failed to start upkeep refresh thread: %w", err)
+		}
 
-		r.threadCtrl.Go(func(ctx context.Context) {
+		if err := r.threadCtrl.Go(func(ctx context.Context) {
 			lggr := r.lggr.With("where", "logs_polling")
 			ticker := time.NewTicker(time.Second)
 			defer ticker.Stop()
@@ -205,9 +207,11 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 					return
 				}
 			}
-		})
+		}); err != nil {
+			return fmt.Errorf("failed to start upkeep state log polling thread: %w", err)
+		}
 
-		r.threadCtrl.Go(func(ctx context.Context) {
+		if err := r.threadCtrl.Go(func(ctx context.Context) {
 			lggr := r.lggr.With("where", "logs_processing")
 			ch := r.chLog
 
@@ -222,7 +226,9 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 					return
 				}
 			}
-		})
+		}); err != nil {
+			return fmt.Errorf("failed to start upkeep state log processing thread: %w", err)
+		}
 
 		return nil
 	})

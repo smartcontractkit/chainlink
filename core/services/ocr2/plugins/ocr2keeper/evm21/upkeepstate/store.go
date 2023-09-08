@@ -97,7 +97,7 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 
 		u.lggr.Debug("Starting upkeep state store")
 
-		u.threadCtrl.Go(func(ctx context.Context) {
+		if err := u.threadCtrl.Go(func(ctx context.Context) {
 			ticker := time.NewTicker(utils.WithJitter(u.cleanCadence))
 			defer ticker.Stop()
 
@@ -107,13 +107,14 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 					if err := u.cleanup(ctx); err != nil {
 						u.lggr.Errorw("unable to clean old state values", "err", err)
 					}
-
 					ticker.Reset(utils.WithJitter(u.cleanCadence))
 				case <-ctx.Done():
 					return
 				}
 			}
-		})
+		}); err != nil {
+			return fmt.Errorf("failed to start upkeep state store thread: %w", err)
+		}
 
 		return nil
 	})

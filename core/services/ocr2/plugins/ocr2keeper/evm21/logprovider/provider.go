@@ -121,12 +121,14 @@ func (p *logEventProvider) Start(context.Context) error {
 		p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", readMaxBatchSize, "readers", readerThreads)
 
 		for i := 0; i < readerThreads; i++ {
-			p.threadCtrl.Go(func(ctx context.Context) {
+			if err := p.threadCtrl.Go(func(ctx context.Context) {
 				p.startReader(ctx, readQ)
-			})
+			}); err != nil {
+				return fmt.Errorf("failed to start reader#%d thread: %w", i, err)
+			}
 		}
 
-		p.threadCtrl.Go(func(ctx context.Context) {
+		if err := p.threadCtrl.Go(func(ctx context.Context) {
 			lggr := p.lggr.With("where", "scheduler")
 
 			err := p.scheduleReadJobs(ctx, func(ids []*big.Int) {
@@ -145,7 +147,9 @@ func (p *logEventProvider) Start(context.Context) error {
 				lggr.Warnw("stopped scheduling read jobs with error", "err", err)
 			}
 			lggr.Debug("stopped scheduling read jobs")
-		})
+		}); err != nil {
+			return fmt.Errorf("failed to start scheduler thread: %w", err)
+		}
 
 		return nil
 	})
