@@ -3,6 +3,7 @@ package median
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -68,12 +69,13 @@ func NewMedianServices(ctx context.Context,
 	}
 	spec := jb.OCR2OracleSpec
 
-	provider, err := relayer.NewMedianProvider(ctx, types.RelayArgs{
+	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
 		ExternalJobID: jb.ExternalJobID,
 		JobID:         spec.ID,
 		ContractID:    spec.ContractID,
 		New:           isNewlyCreatedJob,
 		RelayConfig:   spec.RelayConfig.Bytes(),
+		ProviderType:  string(spec.PluginType),
 	}, types.PluginArgs{
 		TransmitterID: spec.TransmitterID.String,
 		PluginConfig:  spec.PluginConfig.Bytes(),
@@ -81,6 +83,12 @@ func NewMedianServices(ctx context.Context,
 	if err != nil {
 		return
 	}
+
+	medianProvider, ok := provider.(types.MedianProvider)
+	if !ok {
+		return nil, errors.New("could not coerce PluginProvider to MedianProvider")
+	}
+
 	srvs = append(srvs, provider)
 	argsNoPlugin.ContractTransmitter = provider.ContractTransmitter()
 	argsNoPlugin.ContractConfigTracker = provider.ContractConfigTracker()
@@ -123,13 +131,11 @@ func NewMedianServices(ctx context.Context,
 			abort()
 			return
 		}
-		// TODO: make it compatible with LOOPP approach of creating new median service
-		median := loop.NewMedianService(lggr, telem, cmdFn, provider, dataSource, juelsPerFeeCoinSource, gasPriceDataSource, errorLog)
+		median := loop.NewMedianService(lggr, telem, cmdFn, medianProvider, dataSource, juelsPerFeeCoinSource, gasPriceDataSource, errorLog)
 		argsNoPlugin.ReportingPluginFactory = median
 		srvs = append(srvs, median)
 	} else {
-		// legacy way
-		argsNoPlugin.ReportingPluginFactory, err = NewPlugin(lggr).NewMedianFactory(ctx, provider, dataSource, juelsPerFeeCoinSource, gasPriceDataSource, errorLog)
+		argsNoPlugin.ReportingPluginFactory, err = NewPlugin(lggr).NewMedianFactory(ctx, medianProvider, dataSource, juelsPerFeeCoinSource, gasPriceDataSource, errorLog)
 		if err != nil {
 			err = fmt.Errorf("failed to create median factory: %w", err)
 			abort()

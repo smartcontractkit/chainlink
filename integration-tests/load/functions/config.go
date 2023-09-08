@@ -18,7 +18,11 @@ const (
 
 type PerformanceConfig struct {
 	Soak             *Soak            `toml:"Soak"`
+	SecretsSoak      *SecretsSoak     `toml:"SecretsSoak"`
+	RealSoak         *RealSoak        `toml:"RealSoak"`
 	Stress           *Stress          `toml:"Stress"`
+	SecretsStress    *SecretsStress   `toml:"SecretsStress"`
+	RealStress       *RealStress      `toml:"RealStress"`
 	GatewayListSoak  *GatewayListSoak `toml:"GatewayListSoak"`
 	GatewaySetSoak   *GatewaySetSoak  `toml:"GatewaySetSoak"`
 	Common           *Common          `toml:"Common"`
@@ -27,18 +31,21 @@ type PerformanceConfig struct {
 
 type Common struct {
 	Funding
-	LINKTokenAddr        string `toml:"link_token_addr"`
-	Coordinator          string `toml:"coordinator_addr"`
-	Router               string `toml:"router_addr"`
-	LoadTestClient       string `toml:"client_addr"`
-	SubscriptionID       uint64 `toml:"subscription_id"`
-	DONID                string `toml:"don_id"`
-	GatewayURL           string `toml:"gateway_url"`
-	Receiver             string `toml:"receiver"`
-	FunctionsCallPayload string `toml:"functions_call_payload"`
-	Secrets              string `toml:"secrets"`
-	SecretsSlotID        uint8  `toml:"secrets_slot_id"`
-	SecretsVersionID     uint64 `toml:"secrets_version_id"`
+	LINKTokenAddr                   string `toml:"link_token_addr"`
+	Coordinator                     string `toml:"coordinator_addr"`
+	Router                          string `toml:"router_addr"`
+	LoadTestClient                  string `toml:"client_addr"`
+	SubscriptionID                  uint64 `toml:"subscription_id"`
+	DONID                           string `toml:"don_id"`
+	GatewayURL                      string `toml:"gateway_url"`
+	Receiver                        string `toml:"receiver"`
+	FunctionsCallPayloadHTTP        string `toml:"functions_call_payload_http"`
+	FunctionsCallPayloadWithSecrets string `toml:"functions_call_payload_with_secrets"`
+	FunctionsCallPayloadReal        string `toml:"functions_call_payload_real"`
+	SecretsSlotID                   uint8  `toml:"secrets_slot_id"`
+	SecretsVersionID                uint64 `toml:"secrets_version_id"`
+	// Secrets these are for CI secrets
+	Secrets string `toml:"secrets"`
 }
 
 type Funding struct {
@@ -52,7 +59,31 @@ type Soak struct {
 	Duration        *models.Duration `toml:"duration"`
 }
 
+type SecretsSoak struct {
+	RPS             int64            `toml:"rps"`
+	RequestsPerCall uint32           `toml:"requests_per_call"`
+	Duration        *models.Duration `toml:"duration"`
+}
+
+type RealSoak struct {
+	RPS             int64            `toml:"rps"`
+	RequestsPerCall uint32           `toml:"requests_per_call"`
+	Duration        *models.Duration `toml:"duration"`
+}
+
 type Stress struct {
+	RPS             int64            `toml:"rps"`
+	RequestsPerCall uint32           `toml:"requests_per_call"`
+	Duration        *models.Duration `toml:"duration"`
+}
+
+type SecretsStress struct {
+	RPS             int64            `toml:"rps"`
+	RequestsPerCall uint32           `toml:"requests_per_call"`
+	Duration        *models.Duration `toml:"duration"`
+}
+
+type RealStress struct {
 	RPS             int64            `toml:"rps"`
 	RequestsPerCall uint32           `toml:"requests_per_call"`
 	Duration        *models.Duration `toml:"duration"`
