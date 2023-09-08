@@ -21,12 +21,10 @@ type ThreadControl interface {
 	Close()
 }
 
-func NewThreadControl(pctx context.Context, limit int) *threadControl {
-	ctx, cancel := context.WithCancel(pctx)
+func NewThreadControl(limit int) *threadControl {
 	tc := &threadControl{
-		ctx:    ctx,
-		cancel: cancel,
-		limit:  int32(limit),
+		stop:  make(chan struct{}),
+		limit: int32(limit),
 	}
 
 	return tc
@@ -38,24 +36,26 @@ type threadControl struct {
 	limit   int32
 	running atomic.Int32
 
-	ctx    context.Context
-	cancel context.CancelFunc
+	stop StopChan
 }
 
 func (tc *threadControl) Go(fn func(context.Context)) error {
 	if err := tc.add(); err != nil {
 		return err
 	}
-	go func(ctx context.Context) {
+
+	go func() {
 		defer tc.done()
+		ctx, cancel := tc.stop.NewCtx()
+		defer cancel()
 		fn(ctx)
-	}(tc.ctx)
+	}()
 
 	return nil
 }
 
 func (tc *threadControl) Close() {
-	tc.cancel()
+	close(tc.stop)
 	tc.threadsWG.Wait()
 }
 
