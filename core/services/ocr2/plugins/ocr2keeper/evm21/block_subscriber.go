@@ -132,25 +132,25 @@ func (bs *BlockSubscriber) cleanup() {
 	bs.lggr.Infof("lastClearedBlock is set to %d", bs.lastClearedBlock)
 }
 
+func (bs *BlockSubscriber) initialize(ctx context.Context) {
+	bs.mu.Lock()
+	defer bs.mu.Unlock()
+	// initialize the blocks map with the recent blockSize blocks
+	blocks, err := bs.getBlockRange(ctx)
+	if err != nil {
+		bs.lggr.Errorf("failed to get block range", err)
+	}
+	err = bs.initializeBlocks(ctx, blocks)
+	if err != nil {
+		bs.lggr.Errorf("failed to get log poller blocks", err)
+	}
+	_, bs.unsubscribe = bs.hb.Subscribe(&headWrapper{headC: bs.headC, lggr: bs.lggr})
+}
+
 func (bs *BlockSubscriber) Start(ctx context.Context) error {
 	return bs.StartOnce(BlockSubscriberServiceName, func() error {
-		bs.mu.Lock()
-		defer bs.mu.Unlock()
-
 		bs.lggr.Info("block subscriber started.")
-
-		// initialize the blocks map with the recent blockSize blocks
-		blocks, err := bs.getBlockRange(ctx)
-		if err != nil {
-			bs.lggr.Errorf("failed to get block range", err)
-		}
-		err = bs.initializeBlocks(ctx, blocks)
-		if err != nil {
-			bs.lggr.Errorf("failed to get log poller blocks", err)
-		}
-
-		_, bs.unsubscribe = bs.hb.Subscribe(&headWrapper{headC: bs.headC, lggr: bs.lggr})
-
+		bs.initialize(ctx)
 		// poll from head broadcaster channel and push to subscribers
 		bs.threadCtrl.Go(func(ctx context.Context) {
 			for {
@@ -164,7 +164,7 @@ func (bs *BlockSubscriber) Start(ctx context.Context) error {
 				}
 			}
 		})
-
+		// cleanup old blocks
 		bs.threadCtrl.Go(func(ctx context.Context) {
 			ticker := time.NewTicker(cleanUpInterval)
 			defer ticker.Stop()
