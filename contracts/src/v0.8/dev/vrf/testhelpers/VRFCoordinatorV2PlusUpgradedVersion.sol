@@ -593,9 +593,6 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
   /// @dev Emitted when new coordinator is registered as migratable target
   event CoordinatorRegistered(address coordinatorAddress);
 
-  /// @dev Emitted when new coordinator is deregistered
-  event CoordinatorDeregistered(address coordinatorAddress);
-
   /// @notice emitted when migration to new coordinator completes successfully
   /// @param newCoordinator coordinator address after migration
   /// @param subId subscription ID
@@ -632,20 +629,6 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     }
     s_migrationTargets.push(target);
     emit CoordinatorRegistered(target);
-  }
-
-  function deregisterMigratableCoordinator(address target) external onlyOwner {
-    uint256 nTargets = s_migrationTargets.length;
-    for (uint256 i = 0; i < nTargets; i++) {
-      if (s_migrationTargets[i] == target) {
-        s_migrationTargets[i] = s_migrationTargets[nTargets - 1];
-        s_migrationTargets[nTargets - 1] = target;
-        s_migrationTargets.pop();
-        emit CoordinatorDeregistered(target);
-        return;
-      }
-    }
-    revert CoordinatorNotRegistered(target);
   }
 
   function migrate(uint256 subId, address newCoordinator) external nonReentrant {
