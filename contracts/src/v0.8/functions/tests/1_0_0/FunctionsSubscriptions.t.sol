@@ -807,6 +807,24 @@ contract FunctionsSubscriptions_AddConsumer is FunctionsSubscriptionSetup {
     s_functionsRouter.addConsumer(s_subscriptionId, address(3));
   }
 
+  function test_AddConsumer_RevertIfMaximumConsumersAfterConfigUpdate() public {
+    // Fill Consumers to s_maxConsumersPerSubscription
+    // Already has one from setup
+    s_functionsRouter.addConsumer(s_subscriptionId, address(1));
+    s_functionsRouter.addConsumer(s_subscriptionId, address(2));
+
+    // Lower maxConsumersPerSubscription
+    s_maxConsumersPerSubscription = 1;
+    FunctionsRouter.Config memory newRouterConfig = getRouterConfig();
+    s_functionsRouter.updateConfig(newRouterConfig);
+
+    // .AddConsumer should still revert
+    vm.expectRevert(
+      abi.encodeWithSelector(FunctionsSubscriptions.TooManyConsumers.selector, s_maxConsumersPerSubscription)
+    );
+    s_functionsRouter.addConsumer(s_subscriptionId, address(3));
+  }
+
   event SubscriptionConsumerAdded(uint64 indexed subscriptionId, address consumer);
 
   function test_AddConsumer_Success() public {

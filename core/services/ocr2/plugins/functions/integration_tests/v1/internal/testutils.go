@@ -214,7 +214,6 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 
 	// Deploy Coordinator contract (matches updateConfig() in FunctionsBilling.sol)
 	coordinatorConfig := functions_coordinator.FunctionsBillingConfig{
-		MaxCallbackGasLimit:                 uint32(450_000),
 		FeedStalenessSeconds:                uint32(86_400),
 		GasOverheadBeforeCallback:           uint32(325_000),
 		GasOverheadAfterCallback:            uint32(50_000),
