@@ -151,9 +151,9 @@ func (mo *TestConfigs) PutChains(cs ...evmtoml.EVMConfig) {
 	defer mo.mu.Unlock()
 chains:
 	for i := range cs {
-		id := cs[i].ChainID.String()
+		id := cs[i].ChainID
 		for j, c2 := range mo.EVMConfigs {
-			if c2.ChainID.String() == id {
+			if c2.ChainID == id {
 				mo.EVMConfigs[j] = &cs[i] // replace
 				continue chains
 			}
@@ -182,12 +182,12 @@ func (mo *TestConfigs) Chains(ids ...relay.ChainID) (cs []types.ChainStatus, cou
 	}
 	for i := range mo.EVMConfigs {
 		c := mo.EVMConfigs[i]
-		chainID := relay.ChainID(c.ChainID.String())
+		chainID := c.ChainID.String()
 		if !slices.Contains(ids, chainID) {
 			continue
 		}
 		c2 := types.ChainStatus{
-			ID:      chainID.String(),
+			ID:      chainID,
 			Enabled: c.IsEnabled(),
 		}
 		c2.Config, err = c.TOMLString()
@@ -207,13 +207,13 @@ func (mo *TestConfigs) Nodes(id relay.ChainID) (nodes []evmtypes.Node, err error
 
 	for i := range mo.EVMConfigs {
 		c := mo.EVMConfigs[i]
-		if id.String() == c.ChainID.String() {
+		if id == c.ChainID.String() {
 			for _, n := range c.Nodes {
 				nodes = append(nodes, legacyNode(n, c.ChainID))
 			}
 		}
 	}
-	err = fmt.Errorf("no nodes: chain %s: %w", id.String(), chains.ErrNotFound)
+	err = fmt.Errorf("no nodes: chain %s: %w", id, chains.ErrNotFound)
 	return
 }
 

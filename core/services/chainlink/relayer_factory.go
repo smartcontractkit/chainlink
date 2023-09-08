@@ -58,7 +58,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(evmRelayExtenders)
 	for _, ext := range evmRelayExtenders.Slice() {
 		relayID := relay.ID{Network: relay.EVM, ChainID: relay.ChainID(ext.Chain().ID().String())}
-		chain, err := legacyChains.Get(relayID.ChainID.String())
+		chain, err := legacyChains.Get(relayID.ChainID)
 		if err != nil {
 			return nil, err
 		}
@@ -225,7 +225,7 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 
 		opts := cosmos.ChainOpts{
 			QueryConfig:      r.QConfig,
-			Logger:           lggr.Named(relayId.ChainID.String()),
+			Logger:           lggr.Named(relayId.ChainID),
 			DB:               r.DB,
 			KeyStore:         loopKs,
 			EventBroadcaster: config.EventBroadcaster,

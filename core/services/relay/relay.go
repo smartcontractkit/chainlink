@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"strconv"
 
 	"golang.org/x/exp/maps"
 
@@ -14,7 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
-type Network string
+type Network = string
+type ChainID = string
 
 var (
 	EVM             Network = "evm"
@@ -36,29 +36,14 @@ type ID struct {
 }
 
 func (i *ID) Name() string {
-	return fmt.Sprintf("%s.%s", i.Network, i.ChainID.String())
+	return fmt.Sprintf("%s.%s", i.Network, i.ChainID)
 }
 
 func (i *ID) String() string {
 	return i.Name()
 }
-func NewID(n Network, c ChainID) (ID, error) {
-	id := ID{Network: n, ChainID: c}
-	err := id.validate()
-	if err != nil {
-		return ID{}, err
-	}
-	return id, nil
-}
-func (i *ID) validate() error {
-	// the only validation is to ensure that EVM chain ids are compatible with int64
-	if i.Network == EVM {
-		_, err := i.ChainID.Int64()
-		if err != nil {
-			return fmt.Errorf("RelayIdentifier invalid: EVM relayer must have integer-compatible chain ID: %w", err)
-		}
-	}
-	return nil
+func NewID(n Network, c ChainID) ID {
+	return ID{Network: n, ChainID: c}
 }
 
 var idRegex = regexp.MustCompile(
@@ -86,19 +71,6 @@ func (i *ID) UnmarshalString(s string) error {
 	i.ChainID = newID.ChainID
 	i.Network = newID.Network
 	return nil
-}
-
-type ChainID string
-
-func (c ChainID) String() string {
-	return string(c)
-}
-func (c ChainID) Int64() (int64, error) {
-	i, err := strconv.Atoi(c.String())
-	if err != nil {
-		return int64(0), err
-	}
-	return int64(i), nil
 }
 
 // RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a Chain. See [relayerAdapter].

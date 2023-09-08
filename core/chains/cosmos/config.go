@@ -79,7 +79,7 @@ func (cs *CosmosConfigs) SetFrom(fs *CosmosConfigs) (err error) {
 
 func nodeStatus(n *coscfg.Node, id relay.ChainID) (relaytypes.NodeStatus, error) {
 	var s relaytypes.NodeStatus
-	s.ChainID = id.String()
+	s.ChainID = id
 	s.Name = *n.Name
 	b, err := toml.Marshal(n)
 	if err != nil {

@@ -76,7 +76,7 @@ func (cs *StarknetConfigs) SetFrom(fs *StarknetConfigs) (err error) {
 
 func nodeStatus(n *stkcfg.Node, id relay.ChainID) (types.NodeStatus, error) {
 	var s types.NodeStatus
-	s.ChainID = id.String()
+	s.ChainID = id
 	s.Name = *n.Name
 	b, err := toml.Marshal(n)
 	if err != nil {
@@ -177,7 +177,7 @@ func setFromNode(n, f *stkcfg.Node) {
 func legacyNode(n *stkcfg.Node, id relay.ChainID) db.Node {
 	return db.Node{
 		Name:    *n.Name,
-		ChainID: id.String(),
+		ChainID: id,
 		URL:     (*url.URL)(n.URL).String(),
 	}
 }
@@ -207,7 +207,7 @@ func (c *StarknetConfig) RequestTimeout() time.Duration {
 func (c *StarknetConfig) ListNodes() ([]db.Node, error) {
 	var allNodes []db.Node
 	for _, n := range c.Nodes {
-		allNodes = append(allNodes, legacyNode(n, relay.ChainID(*c.ChainID)))
+		allNodes = append(allNodes, legacyNode(n, *c.ChainID))
 	}
 	return allNodes, nil
 }

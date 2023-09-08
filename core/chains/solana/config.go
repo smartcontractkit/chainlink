@@ -77,7 +77,7 @@ func (cs *SolanaConfigs) SetFrom(fs *SolanaConfigs) (err error) {
 
 func nodeStatus(n *solcfg.Node, id relay.ChainID) (relaytypes.NodeStatus, error) {
 	var s relaytypes.NodeStatus
-	s.ChainID = id.String()
+	s.ChainID = id
 	s.Name = *n.Name
 	b, err := toml.Marshal(n)
 	if err != nil {
@@ -115,7 +115,7 @@ func setFromNode(n, f *solcfg.Node) {
 func legacySolNode(n *solcfg.Node, id relay.ChainID) soldb.Node {
 	return soldb.Node{
 		Name:          *n.Name,
-		SolanaChainID: id.String(),
+		SolanaChainID: id,
 		SolanaURL:     (*url.URL)(n.URL).String(),
 	}
 }
@@ -266,7 +266,7 @@ func (c *SolanaConfig) FeeBumpPeriod() time.Duration {
 func (c *SolanaConfig) ListNodes() ([]soldb.Node, error) {
 	var allNodes []soldb.Node
 	for _, n := range c.Nodes {
-		allNodes = append(allNodes, legacySolNode(n, relay.ChainID(*c.ChainID)))
+		allNodes = append(allNodes, legacySolNode(n, *c.ChainID))
 	}
 	return allNodes, nil
 }

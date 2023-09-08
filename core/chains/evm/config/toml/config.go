@@ -3,6 +3,7 @@ package toml
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/pelletier/go-toml/v2"
@@ -115,7 +116,7 @@ func (cs EVMConfigs) Chains(ids ...relay.ChainID) (r []relaytypes.ChainStatus, t
 		if len(ids) > 0 {
 			var match bool
 			for _, id := range ids {
-				if id.String() == chainID {
+				if id == chainID {
 					match = true
 					break
 				}
@@ -179,7 +180,7 @@ func legacyNode(n *Node, chainID *utils.Big) (v2 types.Node) {
 
 func nodeStatus(n *Node, chainID relay.ChainID) (relaytypes.NodeStatus, error) {
 	var s relaytypes.NodeStatus
-	s.ChainID = chainID.String()
+	s.ChainID = chainID
 	s.Name = *n.Name
 	b, err := toml.Marshal(n)
 	if err != nil {
@@ -191,7 +192,7 @@ func nodeStatus(n *Node, chainID relay.ChainID) (relaytypes.NodeStatus, error) {
 
 func (cs EVMConfigs) nodes(id relay.ChainID) (ns EVMNodes) {
 	for _, c := range cs {
-		if c.ChainID.String() == id.String() {
+		if c.ChainID.String() == id {
 			return c.Nodes
 		}
 	}
@@ -199,8 +200,7 @@ func (cs EVMConfigs) nodes(id relay.ChainID) (ns EVMNodes) {
 }
 
 func (cs EVMConfigs) Nodes(chainID relay.ChainID) (ns []types.Node, err error) {
-
-	evmID, err := chainID.Int64()
+	evmID, err := ChainIDInt64(chainID)
 	if err != nil {
 		return nil, fmt.Errorf("invalid evm chain id %q : %w", chainID, err)
 	}
@@ -801,4 +801,12 @@ func (n *Node) SetFrom(f *Node) {
 	if f.Order != nil {
 		n.Order = f.Order
 	}
+}
+
+func ChainIDInt64(cid relay.ChainID) (int64, error) {
+	i, err := strconv.Atoi(cid)
+	if err != nil {
+		return int64(0), err
+	}
+	return int64(i), nil
 }

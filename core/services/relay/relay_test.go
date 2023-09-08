@@ -48,34 +48,7 @@ func TestIdentifier_UnmarshalString(t *testing.T) {
 }
 
 func TestNewID(t *testing.T) {
-	type args struct {
-		n Network
-		c ChainID
-	}
-	tests := []struct {
-		name    string
-		args    args
-		want    ID
-		wantErr bool
-	}{
-		{name: "good evm",
-			args: args{n: EVM, c: "1"},
-			want: ID{Network: EVM, ChainID: "1"},
-		},
-		{name: "bad evm",
-			args:    args{n: EVM, c: "not a number"},
-			want:    ID{},
-			wantErr: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, err := NewID(tt.args.n, tt.args.c)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("NewID() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			assert.Equal(t, tt.want, got, "got id %v", got)
-		})
-	}
+	rid := NewID(EVM, "chain id")
+	assert.Equal(t, EVM, rid.Network)
+	assert.Equal(t, "chain id", rid.ChainID)
 }

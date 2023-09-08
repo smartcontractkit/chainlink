@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -358,12 +359,28 @@ type OCR2OracleSpec struct {
 	CaptureAutomationCustomTelemetry  bool            `toml:"captureAutomationCustomTelemetry"`
 }
 
+func validateRelayID(id relay.ID) error {
+	// only the EVM has specific requirements
+	if id.Network == relay.EVM {
+		_, err := toml.ChainIDInt64(id.ChainID)
+		if err != nil {
+			return fmt.Errorf("invalid EVM chain id %s: %w", id.ChainID, err)
+		}
+	}
+	return nil
+}
+
 func (s *OCR2OracleSpec) RelayID() (relay.ID, error) {
 	cid, err := s.getChainID()
 	if err != nil {
 		return relay.ID{}, err
 	}
-	return relay.NewID(s.Relay, cid)
+	rid := relay.NewID(s.Relay, cid)
+	err = validateRelayID(rid)
+	if err != nil {
+		return relay.ID{}, err
+	}
+	return rid, nil
 }
 
 func (s *OCR2OracleSpec) getChainID() (relay.ChainID, error) {
