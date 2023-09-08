@@ -728,6 +728,7 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 
 	decryptedSecretsBytes, err := l.decryptor.Decrypt(decryptCtx, requestID[:], secrets)
 	if err != nil {
+		l.logger.Debugw("threshold decryption of secrets failed", "requestID", requestIDStr, "err", err)
 		return "", errors.New("threshold decryption of secrets failed"), nil
 	}
 	return string(decryptedSecretsBytes), nil, nil

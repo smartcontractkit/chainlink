@@ -28,7 +28,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     uint256 withdrawAmount = contractBalance / 2;
 
     //withdraw some balance
-    withdraw(getLinkAddress(), withdrawAmount, ADMIN);
+    withdraw(getLinkAddress(), ADMIN, withdrawAmount, ADMIN);
 
     //check the balance has been reduced
     uint256 newContractBalance = getLinkBalance(address(feeManager));
@@ -54,7 +54,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     uint256 withdrawAmount = contractBalance / 2;
 
     //withdraw some balance
-    withdraw(NATIVE_WITHDRAW_ADDRESS, withdrawAmount, ADMIN);
+    withdraw(NATIVE_WITHDRAW_ADDRESS, ADMIN, withdrawAmount, ADMIN);
 
     //check the balance has been reduced
     uint256 newContractBalance = getNativeUnwrappedBalance(address(feeManager));
@@ -76,7 +76,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     vm.expectRevert(ONLY_CALLABLE_BY_OWNER_ERROR);
 
     //withdraw some balance
-    withdraw(getLinkAddress(), DEFAULT_LINK_MINT_QUANTITY, USER);
+    withdraw(getLinkAddress(), ADMIN, DEFAULT_LINK_MINT_QUANTITY, USER);
   }
 
   function test_eventIsEmittedAfterSurchargeIsSet() public {
@@ -118,10 +118,10 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     vm.expectEmit();
 
     //the event to be emitted
-    emit Withdraw(ADMIN, getLinkAddress(), withdrawAmount);
+    emit Withdraw(ADMIN, ADMIN, getLinkAddress(), withdrawAmount);
 
     //withdraw some balance
-    withdraw(getLinkAddress(), withdrawAmount, ADMIN);
+    withdraw(getLinkAddress(), ADMIN, withdrawAmount, ADMIN);
   }
 
   function test_linkAvailableForPaymentReturnsLinkBalance() public {

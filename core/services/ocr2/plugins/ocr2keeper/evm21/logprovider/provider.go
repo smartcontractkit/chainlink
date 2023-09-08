@@ -30,6 +30,8 @@ var (
 
 	// AllowedLogsPerUpkeep is the maximum number of logs allowed per upkeep every single call.
 	AllowedLogsPerUpkeep = 5
+	// MaxPayloads is the maximum number of payloads to return per call.
+	MaxPayloads = 100
 
 	readJobQueueSize = 64
 	readLogsTimeout  = 10 * time.Second
@@ -99,7 +101,7 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDa
 	return &logEventProvider{
 		packer:      packer,
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
-		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), bufferMaxBlockSize, allowedLogsPerBlock),
+		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), maxLogsPerBlock, maxLogsPerUpkeepInBlock),
 		poller:      poller,
 		opts:        opts,
 		filterStore: filterStore,
@@ -141,6 +143,10 @@ func (p *logEventProvider) Start(context.Context) error {
 					lggr.Warnw("readQ is full, dropping ids", "ids", ids)
 				}
 			})
+			// if the context was canceled, we don't need to log the error
+			if ctx.Err() != nil {
+				return
+			}
 			if err != nil {
 				lggr.Warnw("stopped scheduling read jobs with error", "err", err)
 			}
@@ -177,7 +183,7 @@ func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers
 	if start <= 0 {
 		start = 1
 	}
-	logs := p.buffer.dequeueRange(start, latest, AllowedLogsPerUpkeep)
+	logs := p.buffer.dequeueRange(start, latest, AllowedLogsPerUpkeep, MaxPayloads)
 
 	// p.lggr.Debugw("got latest logs from buffer", "latest", latest, "diff", diff, "logs", len(logs))
 
@@ -318,7 +324,10 @@ func (p *logEventProvider) updateFiltersLastPoll(entries []upkeepFilter) {
 	p.filterStore.UpdateFilters(func(orig, f upkeepFilter) upkeepFilter {
 		if f.lastPollBlock > orig.lastPollBlock {
 			orig.lastPollBlock = f.lastPollBlock
-			p.lggr.Debugw("Updated lastPollBlock", "lastPollBlock", f.lastPollBlock, "upkeepID", f.upkeepID)
+			if f.lastPollBlock%10 == 0 {
+				// print log occasionally to avoid spamming logs
+				p.lggr.Debugw("Updated lastPollBlock", "lastPollBlock", f.lastPollBlock, "upkeepID", f.upkeepID)
+			}
 		}
 		return orig
 	}, entries...)

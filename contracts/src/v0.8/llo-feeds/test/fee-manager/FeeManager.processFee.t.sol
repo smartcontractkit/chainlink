@@ -455,4 +455,46 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     //check the unused native passed in is returned
     assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY);
   }
+
+  function test_processFeeWithDiscountEmitsEvent() public {
+    //simulate a deposit of link for the conversion pool
+    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+
+    //set the subscriber discount to 50%
+    setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
+
+    //approve the native to be transferred from the user
+    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE / 2, USER);
+
+    //get the default payload
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+
+    Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
+    Common.Asset memory reward = getReward(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
+    uint256 appliedDiscount = getAppliedDiscount(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
+
+    vm.expectEmit();
+
+    emit DiscountApplied(DEFAULT_CONFIG_DIGEST, USER, fee, reward, appliedDiscount);
+
+    //call processFee should not revert as the fee is 0
+    processFee(payload, USER, 0);
+  }
+
+  function test_processFeeWithNoDiscountDoesNotEmitEvent() public {
+    //simulate a deposit of link for the conversion pool
+    mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
+
+    //approve the native to be transferred from the user
+    approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
+
+    //get the default payload
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+
+    //call processFee should not revert as the fee is 0
+    processFee(payload, USER, 0);
+
+    //no logs should have been emitted
+    assertEq(vm.getRecordedLogs().length, 0);
+  }
 }
