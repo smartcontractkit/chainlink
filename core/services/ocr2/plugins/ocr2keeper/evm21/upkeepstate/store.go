@@ -70,7 +70,6 @@ type upkeepStateStore struct {
 	cache map[string]*upkeepStateRecord
 
 	pendingRecords []persistedStateRecord
-	errCh          chan error
 	sem            chan struct{}
 	doneCh         chan struct{}
 
@@ -88,7 +87,6 @@ func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScann
 		retention:      CacheExpiration,
 		cleanCadence:   GCInterval,
 		pendingRecords: []persistedStateRecord{},
-		errCh:          make(chan error, 1),
 		sem:            make(chan struct{}, 10),
 		doneCh:         make(chan struct{}, 1),
 	}
@@ -136,8 +134,6 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 					ticker.Reset(utils.WithJitter(u.cleanCadence))
 				case <-flushTicker.C:
 					u.flush(ctx)
-				case err := <-u.errCh:
-					u.lggr.Errorw("error inserting records", "err", err)
 				case <-ctx.Done():
 					u.flush(ctx)
 					u.doneCh <- struct{}{}
@@ -170,7 +166,7 @@ func (u *upkeepStateStore) flush(ctx context.Context) {
 
 		go func() {
 			if err := u.orm.BatchInsertRecords(batch, pg.WithParentCtx(ctx)); err != nil {
-				u.errCh <- err
+				u.lggr.Errorw("error inserting records", "err", err)
 			}
 			<-u.sem
 		}()
