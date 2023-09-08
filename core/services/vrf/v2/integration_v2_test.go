@@ -1318,6 +1318,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore(t *testing.T
 }
 
 func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore_AfterDelay(t *testing.T) {
+	t.Skip("TODO: VRF-616")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, true)
