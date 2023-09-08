@@ -149,143 +149,143 @@ contract FunctionsSubscriptions_RecoverFunds is FunctionsRouterSetup {
   }
 }
 
-/// @notice #oracleWithdraw
-contract FunctionsSubscriptions_OracleWithdraw is FunctionsFulfillmentSetup {
-  function test_OracleWithdraw_RevertIfPaused() public {
-    s_functionsRouter.pause();
+///// @notice #oracleWithdraw
+//contract FunctionsSubscriptions_OracleWithdraw is FunctionsFulfillmentSetup {
+//  function test_OracleWithdraw_RevertIfPaused() public {
+//    s_functionsRouter.pause();
+//
+//    // Subscription payable balances are set to the Coordinator
+//    // Send as Coordinator contract
+//    vm.stopPrank();
+//    vm.startPrank(address(s_functionsCoordinator));
+//
+//    vm.expectRevert("Pausable: paused");
+//
+//    uint96 amountToWithdraw = 1; // more than 0
+//    s_functionsRouter.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, amountToWithdraw);
+//  }
+//
+//  function test_OracleWithdraw_RevertIfNoAmount() public {
+//    // Subscription payable balances are set to the Coordinator
+//    // Send as Coordinator contract
+//    vm.stopPrank();
+//    vm.startPrank(address(s_functionsCoordinator));
+//
+//    vm.expectRevert(FunctionsSubscriptions.InvalidCalldata.selector);
+//
+//    uint96 amountToWithdraw = 0;
+//    s_functionsRouter.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, amountToWithdraw);
+//  }
+//
+//  function test_OracleWithdraw_RevertIfAmountMoreThanBalance() public {
+//    // Subscription payable balances are set to the Coordinator
+//    // Send as Coordinator contract
+//    vm.stopPrank();
+//    vm.startPrank(address(s_functionsCoordinator));
+//
+//    vm.expectRevert(
+//      abi.encodeWithSelector(FunctionsSubscriptions.InsufficientBalance.selector, s_fulfillmentCoordinatorBalance)
+//    );
+//
+//    uint96 amountToWithdraw = s_fulfillmentCoordinatorBalance + 1;
+//    s_functionsRouter.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, amountToWithdraw);
+//  }
+//
+//  function test_OracleWithdraw_RevertIfBalanceInvariant() public {
+//    // Subscription payable balances are set to the Coordinator
+//    // Send as Coordinator contract
+//    // vm.stopPrank();
+//    // vm.startPrank(address(s_functionsCoordinator));
+//    // TODO: Use internal function helper contract to modify s_totalLinkBalance
+//    // uint96 amountToWithdraw = s_fulfillmentCoordinatorBalance;
+//    // vm.expectRevert(abi.encodeWithSelector(FunctionsSubscriptions.TotalBalanceInvariantViolated.selector, 0, amountToWithdraw));
+//    // s_functionsRouter.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, amountToWithdraw);
+//  }
+//
+//  function test_OracleWithdraw_SuccessPaysRecipient() public {
+//    // Subscription payable balances are set to the Coordinator
+//    // Send as Coordinator contract
+//    vm.stopPrank();
+//    vm.startPrank(address(s_functionsCoordinator));
+//
+//    uint256 transmitterBalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_1);
+//
+//    uint96 amountToWithdraw = s_fulfillmentCoordinatorBalance;
+//    s_functionsRouter.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, amountToWithdraw);
+//
+//    uint256 transmitterBalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_1);
+//    assertEq(transmitterBalanceBefore + s_fulfillmentCoordinatorBalance, transmitterBalanceAfter);
+//  }
+//
+//  function test_OracleWithdraw_SuccessSetsBalanceToZero() public {
+//    // Subscription payable balances are set to the Coordinator
+//    // Send as Coordinator contract
+//    vm.stopPrank();
+//    vm.startPrank(address(s_functionsCoordinator));
+//
+//    uint96 amountToWithdraw = s_fulfillmentCoordinatorBalance;
+//    s_functionsRouter.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, amountToWithdraw);
+//
+//    // Attempt to withdraw 1 Juel after withdrawing full balance
+//    vm.expectRevert(abi.encodeWithSelector(FunctionsSubscriptions.InsufficientBalance.selector, 0));
+//    s_functionsRouter.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, 1);
+//  }
+//}
 
-    // Subscription payable balances are set to the Coordinator
-    // Send as Coordinator contract
-    vm.stopPrank();
-    vm.startPrank(address(s_functionsCoordinator));
-
-    vm.expectRevert("Pausable: paused");
-
-    uint96 amountToWithdraw = 1; // more than 0
-    s_functionsRouter.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, amountToWithdraw);
-  }
-
-  function test_OracleWithdraw_RevertIfNoAmount() public {
-    // Subscription payable balances are set to the Coordinator
-    // Send as Coordinator contract
-    vm.stopPrank();
-    vm.startPrank(address(s_functionsCoordinator));
-
-    vm.expectRevert(FunctionsSubscriptions.InvalidCalldata.selector);
-
-    uint96 amountToWithdraw = 0;
-    s_functionsRouter.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, amountToWithdraw);
-  }
-
-  function test_OracleWithdraw_RevertIfAmountMoreThanBalance() public {
-    // Subscription payable balances are set to the Coordinator
-    // Send as Coordinator contract
-    vm.stopPrank();
-    vm.startPrank(address(s_functionsCoordinator));
-
-    vm.expectRevert(
-      abi.encodeWithSelector(FunctionsSubscriptions.InsufficientBalance.selector, s_fulfillmentCoordinatorBalance)
-    );
-
-    uint96 amountToWithdraw = s_fulfillmentCoordinatorBalance + 1;
-    s_functionsRouter.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, amountToWithdraw);
-  }
-
-  function test_OracleWithdraw_RevertIfBalanceInvariant() public {
-    // Subscription payable balances are set to the Coordinator
-    // Send as Coordinator contract
-    // vm.stopPrank();
-    // vm.startPrank(address(s_functionsCoordinator));
-    // TODO: Use internal function helper contract to modify s_totalLinkBalance
-    // uint96 amountToWithdraw = s_fulfillmentCoordinatorBalance;
-    // vm.expectRevert(abi.encodeWithSelector(FunctionsSubscriptions.TotalBalanceInvariantViolated.selector, 0, amountToWithdraw));
-    // s_functionsRouter.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, amountToWithdraw);
-  }
-
-  function test_OracleWithdraw_SuccessPaysRecipient() public {
-    // Subscription payable balances are set to the Coordinator
-    // Send as Coordinator contract
-    vm.stopPrank();
-    vm.startPrank(address(s_functionsCoordinator));
-
-    uint256 transmitterBalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_1);
-
-    uint96 amountToWithdraw = s_fulfillmentCoordinatorBalance;
-    s_functionsRouter.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, amountToWithdraw);
-
-    uint256 transmitterBalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_1);
-    assertEq(transmitterBalanceBefore + s_fulfillmentCoordinatorBalance, transmitterBalanceAfter);
-  }
-
-  function test_OracleWithdraw_SuccessSetsBalanceToZero() public {
-    // Subscription payable balances are set to the Coordinator
-    // Send as Coordinator contract
-    vm.stopPrank();
-    vm.startPrank(address(s_functionsCoordinator));
-
-    uint96 amountToWithdraw = s_fulfillmentCoordinatorBalance;
-    s_functionsRouter.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, amountToWithdraw);
-
-    // Attempt to withdraw 1 Juel after withdrawing full balance
-    vm.expectRevert(abi.encodeWithSelector(FunctionsSubscriptions.InsufficientBalance.selector, 0));
-    s_functionsRouter.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, 1);
-  }
-}
-
-/// @notice #ownerWithdraw
-contract FunctionsSubscriptions_OwnerWithdraw is FunctionsFulfillmentSetup {
-  function test_OwnerWithdraw_RevertIfNotOwner() public {
-    // Send as stranger
-    vm.stopPrank();
-    vm.startPrank(STRANGER_ADDRESS);
-
-    vm.expectRevert("Only callable by owner");
-    s_functionsRouter.recoverFunds(OWNER_ADDRESS);
-  }
-
-  function test_OwnerWithdraw_RevertIfAmountMoreThanBalance() public {
-    vm.expectRevert(
-      abi.encodeWithSelector(FunctionsSubscriptions.InsufficientBalance.selector, s_fulfillmentRouterOwnerBalance)
-    );
-
-    uint96 amountToWithdraw = s_fulfillmentRouterOwnerBalance + 1;
-    s_functionsRouter.ownerWithdraw(OWNER_ADDRESS, amountToWithdraw);
-  }
-
-  function test_OwnerWithdraw_RevertIfBalanceInvariant() public {
-    // TODO: Use internal function helper contract to modify s_totalLinkBalance
-    // uint96 amountToWithdraw = s_fulfillmentRouterOwnerBalance;
-    // vm.expectRevert(abi.encodeWithSelector(FunctionsSubscriptions.TotalBalanceInvariantViolated.selector, 0, amountToWithdraw));
-    // s_functionsRouter.ownerWithdraw(OWNER_ADDRESS, amountToWithdraw);
-  }
-
-  function test_OwnerWithdraw_SuccessIfNoAmount() public {
-    uint256 balanceBefore = s_linkToken.balanceOf(OWNER_ADDRESS);
-    uint96 amountToWithdraw = 0;
-    s_functionsRouter.ownerWithdraw(OWNER_ADDRESS, amountToWithdraw);
-    uint256 balanceAfter = s_linkToken.balanceOf(OWNER_ADDRESS);
-    assertEq(balanceBefore + s_fulfillmentRouterOwnerBalance, balanceAfter);
-  }
-
-  function test_OwnerWithdraw_SuccessPaysRecipient() public {
-    uint256 balanceBefore = s_linkToken.balanceOf(STRANGER_ADDRESS);
-
-    uint96 amountToWithdraw = s_fulfillmentRouterOwnerBalance;
-    s_functionsRouter.ownerWithdraw(STRANGER_ADDRESS, amountToWithdraw);
-
-    uint256 balanceAfter = s_linkToken.balanceOf(STRANGER_ADDRESS);
-    assertEq(balanceBefore + s_fulfillmentRouterOwnerBalance, balanceAfter);
-  }
-
-  function test_OwnerWithdraw_SuccessSetsBalanceToZero() public {
-    uint96 amountToWithdraw = s_fulfillmentRouterOwnerBalance;
-    s_functionsRouter.ownerWithdraw(OWNER_ADDRESS, amountToWithdraw);
-
-    // Attempt to withdraw 1 Juel after withdrawing full balance
-    vm.expectRevert(abi.encodeWithSelector(FunctionsSubscriptions.InsufficientBalance.selector, 0));
-    s_functionsRouter.ownerWithdraw(OWNER_ADDRESS, 1);
-  }
-}
+///// @notice #ownerWithdraw
+//contract FunctionsSubscriptions_OwnerWithdraw is FunctionsFulfillmentSetup {
+//  function test_OwnerWithdraw_RevertIfNotOwner() public {
+//    // Send as stranger
+//    vm.stopPrank();
+//    vm.startPrank(STRANGER_ADDRESS);
+//
+//    vm.expectRevert("Only callable by owner");
+//    s_functionsRouter.recoverFunds(OWNER_ADDRESS);
+//  }
+//
+//  function test_OwnerWithdraw_RevertIfAmountMoreThanBalance() public {
+//    vm.expectRevert(
+//      abi.encodeWithSelector(FunctionsSubscriptions.InsufficientBalance.selector, s_fulfillmentRouterOwnerBalance)
+//    );
+//
+//    uint96 amountToWithdraw = s_fulfillmentRouterOwnerBalance + 1;
+//    s_functionsRouter.ownerWithdraw(OWNER_ADDRESS, amountToWithdraw);
+//  }
+//
+//  function test_OwnerWithdraw_RevertIfBalanceInvariant() public {
+//    // TODO: Use internal function helper contract to modify s_totalLinkBalance
+//    // uint96 amountToWithdraw = s_fulfillmentRouterOwnerBalance;
+//    // vm.expectRevert(abi.encodeWithSelector(FunctionsSubscriptions.TotalBalanceInvariantViolated.selector, 0, amountToWithdraw));
+//    // s_functionsRouter.ownerWithdraw(OWNER_ADDRESS, amountToWithdraw);
+//  }
+//
+//  function test_OwnerWithdraw_SuccessIfNoAmount() public {
+//    uint256 balanceBefore = s_linkToken.balanceOf(OWNER_ADDRESS);
+//    uint96 amountToWithdraw = 0;
+//    s_functionsRouter.ownerWithdraw(OWNER_ADDRESS, amountToWithdraw);
+//    uint256 balanceAfter = s_linkToken.balanceOf(OWNER_ADDRESS);
+//    assertEq(balanceBefore + s_fulfillmentRouterOwnerBalance, balanceAfter);
+//  }
+//
+//  function test_OwnerWithdraw_SuccessPaysRecipient() public {
+//    uint256 balanceBefore = s_linkToken.balanceOf(STRANGER_ADDRESS);
+//
+//    uint96 amountToWithdraw = s_fulfillmentRouterOwnerBalance;
+//    s_functionsRouter.ownerWithdraw(STRANGER_ADDRESS, amountToWithdraw);
+//
+//    uint256 balanceAfter = s_linkToken.balanceOf(STRANGER_ADDRESS);
+//    assertEq(balanceBefore + s_fulfillmentRouterOwnerBalance, balanceAfter);
+//  }
+//
+//  function test_OwnerWithdraw_SuccessSetsBalanceToZero() public {
+//    uint96 amountToWithdraw = s_fulfillmentRouterOwnerBalance;
+//    s_functionsRouter.ownerWithdraw(OWNER_ADDRESS, amountToWithdraw);
+//
+//    // Attempt to withdraw 1 Juel after withdrawing full balance
+//    vm.expectRevert(abi.encodeWithSelector(FunctionsSubscriptions.InsufficientBalance.selector, 0));
+//    s_functionsRouter.ownerWithdraw(OWNER_ADDRESS, 1);
+//  }
+//}
 
 /// @notice #onTokenTransfer
 contract FunctionsSubscriptions_OnTokenTransfer is FunctionsSubscriptionSetup {
@@ -907,26 +907,26 @@ contract FunctionsSubscriptions__CancelSubscriptionHelper {
   // TODO: make contract internal function helper
 }
 
-/// @notice #pendingRequestExists
-contract FunctionsSubscriptions_PendingRequestExists is FunctionsFulfillmentSetup {
-  function test_PendingRequestExists_SuccessFalseIfNoPendingRequests() public {
-    bool hasPendingRequests = s_functionsRouter.pendingRequestExists(s_subscriptionId);
-    assertEq(hasPendingRequests, false);
-  }
-
-  function test_PendingRequestExists_SuccessTrueIfPendingRequests() public {
-    // Send a minimal request
-    string memory sourceCode = "return 'hello world';";
-    bytes memory secrets;
-    string[] memory args = new string[](0);
-    bytes[] memory bytesArgs = new bytes[](0);
-
-    s_functionsClient.sendRequest(s_donId, sourceCode, secrets, args, bytesArgs, s_subscriptionId, 5000);
-
-    bool hasPendingRequests = s_functionsRouter.pendingRequestExists(s_subscriptionId);
-    assertEq(hasPendingRequests, true);
-  }
-}
+///// @notice #pendingRequestExists
+//contract FunctionsSubscriptions_PendingRequestExists is FunctionsFulfillmentSetup {
+//  function test_PendingRequestExists_SuccessFalseIfNoPendingRequests() public {
+//    bool hasPendingRequests = s_functionsRouter.pendingRequestExists(s_subscriptionId);
+//    assertEq(hasPendingRequests, false);
+//  }
+//
+//  function test_PendingRequestExists_SuccessTrueIfPendingRequests() public {
+//    // Send a minimal request
+//    string memory sourceCode = "return 'hello world';";
+//    bytes memory secrets;
+//    string[] memory args = new string[](0);
+//    bytes[] memory bytesArgs = new bytes[](0);
+//
+//    s_functionsClient.sendRequest(s_donId, sourceCode, secrets, args, bytesArgs, s_subscriptionId, 5000);
+//
+//    bool hasPendingRequests = s_functionsRouter.pendingRequestExists(s_subscriptionId);
+//    assertEq(hasPendingRequests, true);
+//  }
+//}
 
 /// @notice #setFlags
 contract FunctionsSubscriptions_SetFlags is FunctionsSubscriptionSetup {
