@@ -3,6 +3,7 @@ pragma solidity ^0.8.19;
 
 import {FunctionsRouter} from "../../dev/1_0_0/FunctionsRouter.sol";
 import {FunctionsSubscriptions} from "../../dev/1_0_0/FunctionsSubscriptions.sol";
+import {FunctionsCoordinator} from "../../dev/1_0_0/FunctionsCoordinator.sol";
 import {FunctionsBilling} from "../../dev/1_0_0/FunctionsBilling.sol";
 import {FunctionsRequest} from "../../dev/1_0_0/libraries/FunctionsRequest.sol";
 import {FunctionsResponse} from "../../dev/1_0_0/libraries/FunctionsResponse.sol";
@@ -373,6 +374,59 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
 
     s_functionsRouter.sendRequest(
       subscriptionId,
+      requestData,
+      FunctionsRequest.REQUEST_DATA_VERSION,
+      callbackGasLimit,
+      s_donId
+    );
+  }
+
+  function test_SendRequest_RevertIfDuplicateRequestId() public {
+    // Build minimal valid request data
+    string memory sourceCode = "return 'hello world';";
+    FunctionsRequest.Request memory request;
+    FunctionsRequest.initializeRequest(
+      request,
+      FunctionsRequest.Location.Inline,
+      FunctionsRequest.CodeLanguage.JavaScript,
+      sourceCode
+    );
+    uint32 callbackGasLimit = 5_000;
+    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+
+    // Send a first request that will remain pending
+    bytes32 requestId = s_functionsRouter.sendRequest(
+      s_subscriptionId,
+      requestData,
+      FunctionsRequest.REQUEST_DATA_VERSION,
+      callbackGasLimit,
+      s_donId
+    );
+
+    // Mock the Coordinator to always give back the first requestId
+    FunctionsResponse.Commitment memory mockCommitment = FunctionsResponse.Commitment({
+      adminFee: s_adminFee,
+      coordinator: address(s_functionsCoordinator),
+      client: OWNER_ADDRESS,
+      subscriptionId: s_subscriptionId,
+      callbackGasLimit: callbackGasLimit,
+      estimatedTotalCostJuels: 0,
+      timeoutTimestamp: uint32(block.timestamp + getCoordinatorConfig().requestTimeoutSeconds),
+      requestId: requestId,
+      donFee: s_donFee,
+      gasOverheadBeforeCallback: getCoordinatorConfig().gasOverheadBeforeCallback,
+      gasOverheadAfterCallback: getCoordinatorConfig().gasOverheadAfterCallback
+    });
+
+    vm.mockCall(
+      address(s_functionsCoordinator),
+      abi.encodeWithSelector(FunctionsCoordinator.startRequest.selector),
+      abi.encode(mockCommitment)
+    );
+
+    vm.expectRevert(abi.encodeWithSelector(FunctionsRouter.DuplicateRequestId.selector, requestId));
+    s_functionsRouter.sendRequest(
+      s_subscriptionId,
       requestData,
       FunctionsRequest.REQUEST_DATA_VERSION,
       callbackGasLimit,
@@ -1147,7 +1201,6 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
     uint96 juelsPerGas = 0;
     uint96 costWithoutCallback = 0;
     address transmitter = NOP_TRANSMITTER_ADDRESS_1;
-    FunctionsResponse.Commitment memory commitment = s_requestCommitment;
 
     // topic0 (function signature, always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
     bool checkTopic1 = false;
@@ -1174,7 +1227,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
       juelsPerGas,
       costWithoutCallback,
       transmitter,
-      commitment
+      s_requestCommitment
     );
 
     assertEq(uint(resultCode), uint(FunctionsResponse.FulfillResult.FULFILLED));

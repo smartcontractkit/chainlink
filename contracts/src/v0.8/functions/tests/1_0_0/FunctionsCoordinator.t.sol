@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
+import {FunctionsCoordinator} from "../../dev/1_0_0/FunctionsCoordinator.sol";
+import {FunctionsBilling} from "../../dev/1_0_0/FunctionsBilling.sol";
+import {FunctionsRequest} from "../../dev/1_0_0/libraries/FunctionsRequest.sol";
+
+import {FunctionsSubscriptionSetup} from "./Setup.t.sol";
+
 // ================================================================
 // |                       Functions Coordinator                  |
 // ================================================================
@@ -115,8 +121,61 @@ contract FunctionsBilling__GetJuelsPerGas {
 }
 
 /// @notice #estimateCost
-contract FunctionsBilling_EstimateCost {
+contract FunctionsBilling_EstimateCost is FunctionsSubscriptionSetup {
+  function setUp() public virtual override {
+    FunctionsSubscriptionSetup.setUp();
 
+    // Get cost estimate as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+  }
+
+  uint256 private constant REASONABLE_GAS_PRICE_CEILING = 1_000_000_000_000_000; // 1 million gwei
+
+  function test_EstimateCost_RevertsIfGasPriceAboveCeiling() public {
+    // Build minimal valid request data
+    string memory sourceCode = "return 'hello world';";
+    FunctionsRequest.Request memory request;
+    FunctionsRequest.initializeRequest(
+      request,
+      FunctionsRequest.Location.Inline,
+      FunctionsRequest.CodeLanguage.JavaScript,
+      sourceCode
+    );
+    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+
+    uint32 callbackGasLimit = 5_500;
+    uint256 gasPriceWei = REASONABLE_GAS_PRICE_CEILING + 1;
+
+    vm.expectRevert(FunctionsBilling.InvalidCalldata.selector);
+
+    s_functionsCoordinator.estimateCost(s_subscriptionId, requestData, callbackGasLimit, gasPriceWei);
+  }
+
+  function test_EstimateCost_Success() public {
+    // Build minimal valid request data
+    string memory sourceCode = "return 'hello world';";
+    FunctionsRequest.Request memory request;
+    FunctionsRequest.initializeRequest(
+      request,
+      FunctionsRequest.Location.Inline,
+      FunctionsRequest.CodeLanguage.JavaScript,
+      sourceCode
+    );
+    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+
+    uint32 callbackGasLimit = 5_500;
+    uint256 gasPriceWei = 1;
+
+    uint96 costEstimate = s_functionsCoordinator.estimateCost(
+      s_subscriptionId,
+      requestData,
+      callbackGasLimit,
+      gasPriceWei
+    );
+    uint96 expectedCostEstimate = 15725380;
+    assertEq(costEstimate, expectedCostEstimate);
+  }
 }
 
 /// @notice #_calculateCostEstimate

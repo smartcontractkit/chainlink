@@ -62,6 +62,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   error SenderMustAcceptTermsOfService(address sender);
   error InvalidGasFlagValue(uint8 value);
   error GasLimitTooBig(uint32 limit);
+  error DuplicateRequestId(bytes32 requestId);
 
   struct CallbackResult {
     bool success; // ══════╸ Whether the callback succeeded or not
@@ -243,6 +244,11 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
         subscriptionOwner: subscription.owner
       })
     );
+
+    // Do not allow setting a comittment for a requestId that already exists
+    if (s_requestCommitments[commitment.requestId] != bytes32(0)) {
+      revert DuplicateRequestId(commitment.requestId);
+    }
 
     // Store a commitment about the request
     s_requestCommitments[commitment.requestId] = keccak256(
