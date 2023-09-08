@@ -62,7 +62,6 @@ contract FunctionsRouterSetup is BaseTest {
   function getCoordinatorConfig() public view returns (FunctionsBilling.Config memory) {
     return
       FunctionsBilling.Config({
-        maxCallbackGasLimit: 0, // NOTE: unused , TODO: remove
         feedStalenessSeconds: 24 * 60 * 60, // 1 day
         gasOverheadAfterCallback: 44_615, // TODO: update
         gasOverheadBeforeCallback: 44_615, // TODO: update
@@ -196,7 +195,7 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     bytes memory secrets;
     string[] memory args = new string[](0);
     bytes[] memory bytesArgs = new bytes[](0);
-    uint32 callbackGasLimit = 5000;
+    uint32 callbackGasLimit = 5500;
 
     vm.recordLogs();
     s_requestId = s_functionsClient.sendRequest(
@@ -254,7 +253,7 @@ contract FunctionsFulfillmentSetup is FunctionsClientRequestSetup {
     // Get actual cost from RequestProcessed event log
     Vm.Log[] memory entries = vm.getRecordedLogs();
     (uint96 totalCostJuels, , , , , ) = abi.decode(
-      entries[1].data,
+      entries[2].data,
       (uint96, address, FunctionsResponse.FulfillResult, bytes, bytes, bytes)
     );
     // totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels
