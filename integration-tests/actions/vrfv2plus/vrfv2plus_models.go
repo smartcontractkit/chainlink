@@ -24,7 +24,7 @@ type VRFV2PlusData struct {
 }
 
 type VRFV2PlusContracts struct {
-	Coordinator      contracts.VRFCoordinatorV2Plus
-	BHS              contracts.BlockHashStore
-	LoadTestConsumer contracts.VRFv2PlusLoadTestConsumer
+	Coordinator       contracts.VRFCoordinatorV2Plus
+	BHS               contracts.BlockHashStore
+	LoadTestConsumers []contracts.VRFv2PlusLoadTestConsumer
 }

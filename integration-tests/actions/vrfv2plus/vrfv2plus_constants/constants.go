@@ -8,7 +8,7 @@ import (
 
 var (
 	LinkEthFeedResponse                     = big.NewInt(1e18)
-	MinimumConfirmations                    = uint16(3)
+	MinimumConfirmations                    = uint16(1)
 	RandomnessRequestCountPerRequest        = uint16(1)
 	VRFSubscriptionFundingAmountLink        = big.NewInt(100)
 	VRFSubscriptionFundingAmountNativeToken = big.NewInt(1)

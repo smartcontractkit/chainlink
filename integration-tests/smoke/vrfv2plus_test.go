@@ -2,7 +2,6 @@ package smoke
 
 import (
 	"context"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"math/big"
 	"testing"
@@ -42,7 +41,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 	linkAddress, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	vrfv2PlusContracts, subID, vrfv2PlusData, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress)
+	vrfv2PlusContracts, subID, vrfv2PlusData, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress, 1)
 	require.NoError(t, err, "error setting up VRF v2 Plus env")
 
 	subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
@@ -65,7 +64,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 
 		// test and assert
 		randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
-			vrfv2PlusContracts.LoadTestConsumer,
+			vrfv2PlusContracts.LoadTestConsumers[0],
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusData,
 			subID,
@@ -84,7 +83,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		require.NoError(t, err, "error reading job runs")
 		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 
-		status, err := vrfv2PlusContracts.LoadTestConsumer.GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
+		status, err := vrfv2PlusContracts.LoadTestConsumers[0].GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
 		l.Debug().Interface("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
@@ -104,7 +103,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 
 		// test and assert
 		randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
-			vrfv2PlusContracts.LoadTestConsumer,
+			vrfv2PlusContracts.LoadTestConsumers[0],
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusData,
 			subID,
@@ -122,7 +121,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		require.NoError(t, err, "error reading job runs")
 		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 
-		status, err := vrfv2PlusContracts.LoadTestConsumer.GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
+		status, err := vrfv2PlusContracts.LoadTestConsumers[0].GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
 		l.Debug().Interface("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
@@ -137,7 +136,6 @@ func TestVRFv2PlusBilling(t *testing.T) {
 }
 
 func TestVRFv2PlusMigration(t *testing.T) {
-	var isNativeBilling = false
 	t.Parallel()
 	l := utils.GetTestLogger(t)
 
@@ -157,16 +155,23 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	linkAddress, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	//todo - add more consumers to the sub with diff eth and link balances
-	oldVRFV2PlusContracts, subID, vrfv2PlusData, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress)
+	oldVRFV2PlusContracts, subID, vrfv2PlusData, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress, 2)
 	require.NoError(t, err, "error setting up VRF v2 Plus env")
 
-	coordinatorAddressInConsumer, err := oldVRFV2PlusContracts.LoadTestConsumer.GetCoordinator(context.Background())
+	for _, consumer := range oldVRFV2PlusContracts.LoadTestConsumers {
+		coordinatorAddressInConsumer, err := consumer.GetCoordinator(context.Background())
+		require.NoError(t, err, "error getting Coordinator from Consumer contract")
+		require.Equal(t, oldVRFV2PlusContracts.Coordinator.Address(), coordinatorAddressInConsumer.String())
+		l.Debug().
+			Interface("Consumer", consumer.Address()).
+			Interface("Coordinator", coordinatorAddressInConsumer.String()).
+			Msg("Coordinator Address in Consumer Before Migration")
+	}
 
-	l.Debug().
-		Interface("Coordinator", coordinatorAddressInConsumer).
-		Msg("Coordinator Address in Consumer")
+	oldSubscription, err := oldVRFV2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
+	require.NoError(t, err, "error getting subscription information")
 
+	//Migration Process
 	newCoordinator, err := env.ContractDeployer.DeployVRFCoordinatorV2PlusUpgradedVersion(oldVRFV2PlusContracts.BHS.Address())
 	require.NoError(t, err, vrfv2plus.ErrDeployCoordinator)
 
@@ -200,17 +205,6 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	)
 	require.NoError(t, err, vrfv2plus.ErrCreateVRFV2PlusJobs)
 
-	// test and assert
-	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillment(
-		oldVRFV2PlusContracts.LoadTestConsumer,
-		oldVRFV2PlusContracts.Coordinator,
-		vrfv2PlusData,
-		subID,
-		isNativeBilling,
-		l,
-	)
-	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
-
 	err = oldVRFV2PlusContracts.Coordinator.RegisterMigratableCoordinator(newCoordinator.Address())
 
 	err = env.EVMClient.WaitForEvents()
@@ -229,59 +223,59 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		Str("Migrated To Coordinator", migrationCompletedEvent.NewCoordinator.String()).
 		Msg("MigrationCompleted Event")
 
-	subscription, err := newCoordinator.GetSubscription(context.Background(), subID)
+	migratedSubscription, err := newCoordinator.GetSubscription(context.Background(), subID)
 	require.NoError(t, err, "error getting subscription information")
 
 	l.Debug().
 		Interface("New Coordinator", newCoordinator.Address()).
 		Interface("Subscription ID", subID).
-		Interface("Juels Balance", subscription.Balance).
-		Interface("Native Token Balance", subscription.EthBalance).
-		Interface("Subscription Owner", subscription.Owner.String()).
-		Interface("Subscription Consumers", subscription.Consumers).
+		Interface("Juels Balance", migratedSubscription.Balance).
+		Interface("Native Token Balance", migratedSubscription.EthBalance).
+		Interface("Subscription Owner", migratedSubscription.Owner.String()).
+		Interface("Subscription Consumers", migratedSubscription.Consumers).
 		Msg("Subscription Data After Migration to New Coordinator")
 
-	coordinatorAddressInConsumerAfterMigration, err := oldVRFV2PlusContracts.LoadTestConsumer.GetCoordinator(context.Background())
+	//Verify that Coordinators were updated in Consumers
+	for _, consumer := range oldVRFV2PlusContracts.LoadTestConsumers {
+		coordinatorAddressInConsumerAfterMigration, err := consumer.GetCoordinator(context.Background())
+		require.NoError(t, err, "error getting Coordinator from Consumer contract")
+		require.Equal(t, newCoordinator.Address(), coordinatorAddressInConsumerAfterMigration.String())
+		l.Debug().
+			Interface("Consumer", consumer.Address()).
+			Interface("Coordinator", coordinatorAddressInConsumerAfterMigration).
+			Msg("Coordinator Address in Consumer After Migration")
+	}
 
-	l.Debug().
-		Interface("Coordinator", coordinatorAddressInConsumerAfterMigration).
-		Msg("Coordinator Address in Consumer After Migration")
+	//Verify old and migrated subs
+	require.Equal(t, oldSubscription.EthBalance, migratedSubscription.EthBalance)
+	require.Equal(t, oldSubscription.Balance, migratedSubscription.Balance)
+	require.Equal(t, oldSubscription.Owner, migratedSubscription.Owner)
+	require.Equal(t, oldSubscription.Consumers, migratedSubscription.Consumers)
 
-	_, err = oldVRFV2PlusContracts.LoadTestConsumer.RequestRandomness(
-		vrfv2PlusData.KeyHash,
+	//Verify that old sub was deleted from old Coordinator
+	oldSubscription, err = oldVRFV2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
+	require.Error(t, err, "error not occurred when trying to get deleted subscription from old Coordinator after sub migration")
+
+	//Verify rand requests fulfills with Link Token billing
+	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillmentUpgraded(
+		oldVRFV2PlusContracts.LoadTestConsumers[0],
+		newCoordinator,
+		vrfv2PlusData,
 		subID,
-		vrfv2plus_constants.MinimumConfirmations,
-		vrfv2plus_constants.CallbackGasLimit,
-		isNativeBilling,
-		vrfv2plus_constants.NumberOfWords,
-		vrfv2plus_constants.RandomnessRequestCountPerRequest,
+		false,
+		l,
 	)
+	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
-	//revertReasonFromTx, _, err := env.EVMClient.RevertReasonFromTx(hash, vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetricsABI)
-	//l.Debug().Interface("REASON", revertReasonFromTx).Msg("REVERT REASON")
-	require.NoError(t, err, vrfv2plus.ErrRequestRandomness)
-
-	randomWordsRequestedEvent, err := newCoordinator.WaitForRandomWordsRequestedEvent(
-		[][32]byte{vrfv2PlusData.KeyHash},
-		[]*big.Int{subID},
-		[]common.Address{common.HexToAddress(oldVRFV2PlusContracts.LoadTestConsumer.Address())},
-		time.Minute*3,
+	//Verify rand requests fulfills with Native Token billing
+	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillmentUpgraded(
+		oldVRFV2PlusContracts.LoadTestConsumers[1],
+		newCoordinator,
+		vrfv2PlusData,
+		subID,
+		true,
+		l,
 	)
-	require.NoError(t, err, vrfv2plus.ErrWaitRandomWordsRequestedEvent)
-
-	l.Debug().
-		Interface("Request ID", randomWordsRequestedEvent.RequestId).
-		Interface("Subscription ID", randomWordsRequestedEvent.SubId).
-		Interface("Sender Address", randomWordsRequestedEvent.Sender.String()).
-		Interface("Keyhash", randomWordsRequestedEvent.KeyHash).
-		Interface("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
-		Interface("Number of Words", randomWordsRequestedEvent.NumWords).
-		Interface("Minimum Request Confirmations", randomWordsRequestedEvent.MinimumRequestConfirmations).
-		Msg("RandomnessRequested Event")
-
-	_, err = newCoordinator.WaitForRandomWordsFulfilledEvent([]*big.Int{subID}, nil, time.Minute*1)
-	require.NoError(t, err, "error waiting for RandomWordsFulfilled event")
-
-	//todo - check consumers, eth and link balances
+	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
 }

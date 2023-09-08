@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 	"math/big"
 	"time"
@@ -57,6 +58,7 @@ var (
 func DeployVRFV2PlusContracts(
 	contractDeployer contracts.ContractDeployer,
 	chainClient blockchain.EVMClient,
+	consumerContractsAmount int,
 ) (*VRFV2PlusContracts, error) {
 	bhs, err := contractDeployer.DeployBlockhashStore()
 	if err != nil {
@@ -74,15 +76,22 @@ func DeployVRFV2PlusContracts(
 	if err != nil {
 		return nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
-	loadTestConsumer, err := contractDeployer.DeployVRFv2PlusLoadTestConsumer(coordinator.Address())
-	if err != nil {
-		return nil, errors.Wrap(err, ErrAdvancedConsumer)
+
+	var consumers []contracts.VRFv2PlusLoadTestConsumer
+
+	for i := 1; i <= consumerContractsAmount; i++ {
+		loadTestConsumer, err := contractDeployer.DeployVRFv2PlusLoadTestConsumer(coordinator.Address())
+		if err != nil {
+			return nil, errors.Wrap(err, ErrAdvancedConsumer)
+		}
+		consumers = append(consumers, loadTestConsumer)
 	}
+
 	err = chainClient.WaitForEvents()
 	if err != nil {
 		return nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
-	return &VRFV2PlusContracts{coordinator, bhs, loadTestConsumer}, nil
+	return &VRFV2PlusContracts{coordinator, bhs, consumers}, nil
 }
 
 func CreateVRFV2PlusJob(
@@ -170,9 +179,14 @@ func FundVRFCoordinatorV2PlusSubscription(linkToken contracts.LinkToken, coordin
 	return chainClient.WaitForEvents()
 }
 
-func SetupVRFV2PlusEnvironment(env *test_env.CLClusterTestEnv, linkAddress contracts.LinkToken, mockETHLinkFeedAddress contracts.MockETHLINKFeed) (*VRFV2PlusContracts, *big.Int, *VRFV2PlusData, error) {
+func SetupVRFV2PlusEnvironment(
+	env *test_env.CLClusterTestEnv,
+	linkAddress contracts.LinkToken,
+	mockETHLinkFeedAddress contracts.MockETHLINKFeed,
+	consumerContractsAmount int,
+) (*VRFV2PlusContracts, *big.Int, *VRFV2PlusData, error) {
 
-	vrfv2PlusContracts, err := DeployVRFV2PlusContracts(env.ContractDeployer, env.EVMClient)
+	vrfv2PlusContracts, err := DeployVRFV2PlusContracts(env.ContractDeployer, env.EVMClient, consumerContractsAmount)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrDeployVRFV2PlusContracts)
 	}
@@ -203,9 +217,11 @@ func SetupVRFV2PlusEnvironment(env *test_env.CLClusterTestEnv, linkAddress contr
 		return nil, nil, nil, errors.Wrap(err, ErrFindSubID)
 	}
 
-	err = vrfv2PlusContracts.Coordinator.AddConsumer(subID, vrfv2PlusContracts.LoadTestConsumer.Address())
-	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, ErrAddConsumerToSub)
+	for _, consumer := range vrfv2PlusContracts.LoadTestConsumers {
+		err = vrfv2PlusContracts.Coordinator.AddConsumer(subID, consumer.Address())
+		if err != nil {
+			return nil, nil, nil, errors.Wrap(err, ErrAddConsumerToSub)
+		}
 	}
 
 	err = SetupBilling(env, linkAddress, mockETHLinkFeedAddress, vrfv2PlusContracts, subID)
@@ -308,13 +324,72 @@ func SetupBilling(env *test_env.CLClusterTestEnv, linkAddress contracts.LinkToke
 
 func RequestRandomnessAndWaitForFulfillment(
 	consumer contracts.VRFv2PlusLoadTestConsumer,
-	//coordinator contracts.VRFCoordinatorV2Plus,
 	coordinator contracts.VRFCoordinatorV2Plus,
 	vrfv2PlusData *VRFV2PlusData,
 	subID *big.Int,
 	isNativeBilling bool,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled, error) {
+	_, err := consumer.RequestRandomness(
+		vrfv2PlusData.KeyHash,
+		subID,
+		vrfv2plus_constants.MinimumConfirmations,
+		vrfv2plus_constants.CallbackGasLimit,
+		isNativeBilling,
+		vrfv2plus_constants.NumberOfWords,
+		vrfv2plus_constants.RandomnessRequestCountPerRequest,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, ErrRequestRandomness)
+	}
+
+	randomWordsRequestedEvent, err := coordinator.WaitForRandomWordsRequestedEvent(
+		[][32]byte{vrfv2PlusData.KeyHash},
+		[]*big.Int{subID},
+		[]common.Address{common.HexToAddress(consumer.Address())},
+		time.Minute*1,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, ErrWaitRandomWordsRequestedEvent)
+	}
+
+	l.Debug().
+		Interface("Request ID", randomWordsRequestedEvent.RequestId).
+		Interface("Subscription ID", randomWordsRequestedEvent.SubId).
+		Interface("Sender Address", randomWordsRequestedEvent.Sender.String()).
+		Interface("Keyhash", randomWordsRequestedEvent.KeyHash).
+		Interface("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
+		Interface("Number of Words", randomWordsRequestedEvent.NumWords).
+		Interface("Minimum Request Confirmations", randomWordsRequestedEvent.MinimumRequestConfirmations).
+		Msg("RandomnessRequested Event")
+
+	randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
+		[]*big.Int{subID},
+		[]*big.Int{randomWordsRequestedEvent.RequestId},
+		time.Minute*2,
+	)
+	if err != nil {
+		return nil, errors.Wrap(err, ErrWaitRandomWordsFulfilledEvent)
+	}
+
+	l.Debug().
+		Interface("Total Payment in Juels", randomWordsFulfilledEvent.Payment).
+		Interface("TX Hash", randomWordsFulfilledEvent.Raw.TxHash).
+		Interface("Subscription ID", randomWordsFulfilledEvent.SubID).
+		Interface("Request ID", randomWordsFulfilledEvent.RequestId).
+		Bool("Success", randomWordsFulfilledEvent.Success).
+		Msg("RandomWordsFulfilled Event (TX metadata)")
+	return randomWordsFulfilledEvent, err
+}
+
+func RequestRandomnessAndWaitForFulfillmentUpgraded(
+	consumer contracts.VRFv2PlusLoadTestConsumer,
+	coordinator contracts.VRFCoordinatorV2PlusUpgradedVersion,
+	vrfv2PlusData *VRFV2PlusData,
+	subID *big.Int,
+	isNativeBilling bool,
+	l zerolog.Logger,
+) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsFulfilled, error) {
 	_, err := consumer.RequestRandomness(
 		vrfv2PlusData.KeyHash,
 		subID,
