@@ -36,7 +36,7 @@ type ETHTxTask struct {
 	// If unset, the receipt will be passed as output
 	// It has no effect if minConfirmations == 0
 	FailOnRevert    string `json:"failOnRevert"`
-	EVMChainID      string `json:"evmChainID" mapstructure:"evmChainID"`
+	EVMChainID      string `default:"$(evmChainID)" json:"evmChainID" mapstructure:"evmChainID"`
 	TransmitChecker string `json:"transmitChecker"`
 
 	forwardingAllowed bool

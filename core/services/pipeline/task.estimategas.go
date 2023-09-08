@@ -27,7 +27,7 @@ type EstimateGasLimitTask struct {
 	To         string `json:"to"`
 	Multiplier string `json:"multiplier"`
 	Data       string `json:"data"`
-	EVMChainID string `json:"evmChainID" mapstructure:"evmChainID"`
+	EVMChainID string `default:"$(evmChainID)" json:"evmChainID" mapstructure:"evmChainID"`
 
 	specGasLimit *uint32
 	legacyChains evm.LegacyChainContainer

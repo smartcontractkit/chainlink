@@ -340,7 +340,6 @@ submit_tx  [type=ethtx to="%s"
             data="$(encode_tx)"
             minConfirmations="0"
             from="$(jobSpec.from)"
-			evmChainID="$(evmChainID)"
             txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"
             transmitChecker="{\\"CheckerType\\": \\"vrf_v1\\", \\"VRFCoordinatorAddress\\": \\"%s\\"}"]
 decode_log->vrf->encode_tx->submit_tx
@@ -360,7 +359,6 @@ estimate_gas [type=estimategaslimit
               to="%s"
               multiplier="1.1"
               data="$(vrf.output)"
-			  evmChainID="$(evmChainID)"
 ]
 simulate [type=ethcall
           to="%s"
@@ -369,7 +367,6 @@ simulate [type=ethcall
 		  extractRevertReason=true
 		  contract="%s"
 		  data="$(vrf.output)"
-		  evmChainID="$(evmChainID)"
 ]
 decode_log->vrf->estimate_gas->simulate
 `, coordinatorAddress, coordinatorAddress, coordinatorAddress)
@@ -389,7 +386,6 @@ estimate_gas            [type=estimategaslimit
                          to="%s"
                          multiplier="1.1"
                          data="$(generate_proof.output)"
-						 evmChainID="$(evmChainID)"
 ]
 simulate_fulfillment    [type=ethcall
                          to="%s"
@@ -398,7 +394,6 @@ simulate_fulfillment    [type=ethcall
 		                 extractRevertReason=true
 		                 contract="%s"
 		                 data="$(generate_proof.output)"
-					     evmChainID="$(evmChainID)"
 ]
 decode_log->generate_proof->estimate_gas->simulate_fulfillment
 `, coordinatorAddress, coordinatorAddress, coordinatorAddress)

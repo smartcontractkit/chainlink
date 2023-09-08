@@ -32,7 +32,7 @@ type ETHCallTask struct {
 	GasFeeCap           string `json:"gasFeeCap"`
 	GasUnlimited        string `json:"gasUnlimited"`
 	ExtractRevertReason bool   `json:"extractRevertReason"`
-	EVMChainID          string `json:"evmChainID" mapstructure:"evmChainID"`
+	EVMChainID          string `default:"$(evmChainID)" json:"evmChainID" mapstructure:"evmChainID"`
 
 	specGasLimit *uint32
 	legacyChains evm.LegacyChainContainer
