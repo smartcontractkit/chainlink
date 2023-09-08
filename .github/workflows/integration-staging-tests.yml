@@ -57,7 +57,7 @@ jobs:
         run: |
           cd integration-tests/load/functions
           if [[ $SELECTED_TEST == mumbai_functions* ]]; then
-            go test -v -run TestFunctionsLoad/$SELECTED_TEST
+            go test -v -timeout 6h -run TestFunctionsLoad/$SELECTED_TEST
           elif [[ $SELECTED_TEST == gateway* ]]; then
-            go test -v -run TestGatewayLoad/$SELECTED_TEST
+            go test -v -timeout 6h -run TestGatewayLoad/$SELECTED_TEST
           fi
