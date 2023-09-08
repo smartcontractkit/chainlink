@@ -57,5 +57,6 @@ abstract contract FunctionsClient is IFunctionsClient {
       revert OnlyRouterCanFulfill();
     }
     fulfillRequest(requestId, response, err);
+    emit RequestFulfilled(requestId);
   }
 }

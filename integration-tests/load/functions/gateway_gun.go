@@ -36,7 +36,7 @@ func NewGatewaySecretsSetGun(cfg *PerformanceConfig, method string, pKey *ecdsa.
 	}
 }
 
-func callSetSecrets(m *GatewaySecretsSetGun) *wasp.CallResult {
+func callSecretsSet(m *GatewaySecretsSetGun) *wasp.CallResult {
 	randNum := strconv.Itoa(rand.Intn(100000))
 	randSlot := uint(rand.Intn(5))
 	version := uint64(time.Now().UnixNano())
@@ -58,8 +58,8 @@ func callSetSecrets(m *GatewaySecretsSetGun) *wasp.CallResult {
 	if err != nil {
 		return &wasp.CallResult{Error: err.Error(), Failed: true}
 	}
-	if err := UploadS4Secrets(m.Resty, &S4SecretsCfg{
-		GatewayURL:            fmt.Sprintf("%s/user", m.Cfg.Common.GatewayURL),
+	_, _, err = UploadS4Secrets(m.Resty, &S4SecretsCfg{
+		GatewayURL:            m.Cfg.Common.GatewayURL,
 		PrivateKey:            os.Getenv("MUMBAI_KEYS"),
 		MessageID:             randNum,
 		Method:                "secrets_set",
@@ -68,7 +68,8 @@ func callSetSecrets(m *GatewaySecretsSetGun) *wasp.CallResult {
 		S4SetVersion:          version,
 		S4SetExpirationPeriod: expiration,
 		S4SetPayload:          secrets,
-	}); err != nil {
+	})
+	if err != nil {
 		return &wasp.CallResult{Error: err.Error(), Failed: true}
 	}
 	return &wasp.CallResult{}
@@ -80,7 +81,7 @@ func callSecretsList(m *GatewaySecretsSetGun) *wasp.CallResult {
 	version := uint64(time.Now().UnixNano())
 	expiration := int64(60 * 60 * 1000)
 	if err := ListS4Secrets(m.Resty, &S4SecretsCfg{
-		GatewayURL:            fmt.Sprintf("%s/user", m.Cfg.Common.GatewayURL),
+		GatewayURL:            fmt.Sprintf(m.Cfg.Common.GatewayURL),
 		RecieverAddr:          m.Cfg.Common.Receiver,
 		PrivateKey:            os.Getenv("MUMBAI_KEYS"),
 		MessageID:             randNum,
@@ -100,7 +101,7 @@ func (m *GatewaySecretsSetGun) Call(_ *wasp.Generator) *wasp.CallResult {
 	var res *wasp.CallResult
 	switch m.Method {
 	case "secrets_set":
-		res = callSetSecrets(m)
+		res = callSecretsSet(m)
 	case "secrets_list":
 		res = callSecretsList(m)
 	default:

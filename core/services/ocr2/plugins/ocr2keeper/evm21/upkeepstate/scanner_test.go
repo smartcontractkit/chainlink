@@ -2,6 +2,7 @@ package upkeepstate
 
 import (
 	"fmt"
+	"sort"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -108,6 +109,57 @@ func TestPerformedEventsScanner(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestPerformedEventsScanner_Batch(t *testing.T) {
+	ctx := testutils.Context(t)
+	registryAddr := common.HexToAddress("0x12345")
+	lggr := logger.TestLogger(t)
+	lp := new(mocks.LogPoller)
+	scanner := NewPerformedEventsScanner(lggr, lp, registryAddr, 100)
+
+	lp.On("IndexedLogs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{
+		{
+			BlockNumber: 1,
+			Address:     registryAddr,
+			Topics: convertTopics([]common.Hash{
+				iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(),
+				common.HexToHash("0x290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563"),
+			}),
+		},
+	}, nil).Times(1)
+	lp.On("IndexedLogs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{
+		{
+			BlockNumber: 3,
+			Address:     registryAddr,
+			Topics: convertTopics([]common.Hash{
+				iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(),
+				common.HexToHash("0x331decd9548b62a8d603457658386fc84ba6bc95888008f6362f93160ef3b663"),
+			}),
+		},
+	}, nil).Times(1)
+
+	origWorkIDsBatchSize := workIDsBatchSize
+	workIDsBatchSize = 8
+	defer func() {
+		workIDsBatchSize = origWorkIDsBatchSize
+	}()
+
+	ids, err := scanner.ScanWorkIDs(ctx,
+		"290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563",
+		"1111", "2222", "3333", "4444", "5555", "6666", "7777", "8888", "9999",
+		"331decd9548b62a8d603457658386fc84ba6bc95888008f6362f93160ef3b663",
+	)
+
+	require.NoError(t, err)
+	require.Equal(t, 2, len(ids))
+	sort.Slice(ids, func(i, j int) bool {
+		return ids[i] < ids[j]
+	})
+	require.Equal(t, "290decd9548b62a8d60345a988386fc84ba6bc95484008f6362f93160ef3e563", ids[0])
+	require.Equal(t, "331decd9548b62a8d603457658386fc84ba6bc95888008f6362f93160ef3b663", ids[1])
+
+	lp.AssertExpectations(t)
 }
 
 func convertTopics(topics []common.Hash) [][]byte {

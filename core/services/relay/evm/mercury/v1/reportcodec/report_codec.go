@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
@@ -88,4 +89,12 @@ func (r *ReportCodec) ValidFromBlockNumFromReport(report ocrtypes.Report) (int64
 
 func (r *ReportCodec) Decode(report ocrtypes.Report) (*reporttypes.Report, error) {
 	return reporttypes.Decode(report)
+}
+
+func (r *ReportCodec) BenchmarkPriceFromReport(report ocrtypes.Report) (*big.Int, error) {
+	decoded, err := r.Decode(report)
+	if err != nil {
+		return nil, err
+	}
+	return decoded.BenchmarkPrice, nil
 }

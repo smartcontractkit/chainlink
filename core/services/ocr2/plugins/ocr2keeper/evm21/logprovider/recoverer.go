@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"sort"
 	"sync"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/ocr2keepers/pkg/v3/random"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -24,13 +26,21 @@ import (
 )
 
 var (
-	DefaultRecoveryInterval = 5 * time.Second
-	RecoveryCacheTTL        = 10*time.Minute - time.Second
-	GCInterval              = RecoveryCacheTTL
-
-	recoveryBatchSize  = 10
+	// RecoveryInterval is the interval at which the recovery scanning processing is triggered
+	RecoveryInterval = 5 * time.Second
+	// RecoveryCacheTTL is the time to live for the recovery cache
+	RecoveryCacheTTL = 10 * time.Minute
+	// GCInterval is the interval at which the recovery cache is cleaned up
+	GCInterval = RecoveryCacheTTL - time.Second
+	// MaxProposals is the maximum number of proposals that can be returned by GetRecoveryProposals
+	MaxProposals = 20
+	// recoveryBatchSize is the number of filters to recover in a single batch
+	recoveryBatchSize = 10
+	// recoveryLogsBuffer is the number of blocks to be used as a safety buffer when reading logs
 	recoveryLogsBuffer = int64(200)
 	recoveryLogsBurst  = int64(500)
+	// blockTimeUpdateCadence is the cadence at which the chain's blocktime is re-calculated
+	blockTimeUpdateCadence = 10 * time.Minute
 )
 
 type LogRecoverer interface {
@@ -60,11 +70,12 @@ type logRecoverer struct {
 	pending []ocr2keepers.UpkeepPayload
 	visited map[string]visitedRecord
 
-	filterStore UpkeepFilterStore
-	states      core.UpkeepStateReader
-	packer      LogDataPacker
-	poller      logpoller.LogPoller
-	client      client.Client
+	filterStore       UpkeepFilterStore
+	states            core.UpkeepStateReader
+	packer            LogDataPacker
+	poller            logpoller.LogPoller
+	client            client.Client
+	blockTimeResolver *blockTimeResolver
 }
 
 var _ LogRecoverer = &logRecoverer{}
@@ -77,13 +88,14 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 		lookbackBlocks: &atomic.Int64{},
 		interval:       opts.ReadInterval * 5,
 
-		pending:     make([]ocr2keepers.UpkeepPayload, 0),
-		visited:     make(map[string]visitedRecord),
-		poller:      poller,
-		filterStore: filterStore,
-		states:      stateStore,
-		packer:      packer,
-		client:      client,
+		pending:           make([]ocr2keepers.UpkeepPayload, 0),
+		visited:           make(map[string]visitedRecord),
+		poller:            poller,
+		filterStore:       filterStore,
+		states:            stateStore,
+		packer:            packer,
+		client:            client,
+		blockTimeResolver: newBlockTimeResolver(poller),
 	}
 
 	rec.lookbackBlocks.Store(opts.LookbackBlocks)
@@ -92,7 +104,7 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 	return rec
 }
 
-func (r *logRecoverer) Start(pctx context.Context) error {
+func (r *logRecoverer) Start(_ context.Context) error {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	r.lock.Lock()
@@ -104,35 +116,30 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 	r.cancel = cancel
 	r.lock.Unlock()
 
-	blockTimeResolver := newBlockTimeResolver(r.poller)
-	blockTime, err := blockTimeResolver.BlockTime(ctx, defaultSampleSize)
-	if err != nil {
-		// TODO: TBD exit or just log a warning
-		// return fmt.Errorf("failed to compute block time: %w", err)
-		r.lggr.Warnw("failed to compute block time", "err", err)
-	}
-	if blockTime > 0 {
-		r.blockTime.Store(int64(blockTime))
-	}
+	r.updateBlockTime(ctx)
 
 	r.lggr.Infow("starting log recoverer", "blockTime", r.blockTime.Load(), "lookbackBlocks", r.lookbackBlocks.Load(), "interval", r.interval)
 
 	{
 		go func(ctx context.Context, interval time.Duration) {
-			ticker := time.NewTicker(interval)
-			defer ticker.Stop()
+			recoverTicker := time.NewTicker(interval)
+			defer recoverTicker.Stop()
 			gcTicker := time.NewTicker(utils.WithJitter(GCInterval))
 			defer gcTicker.Stop()
+			blockTimeUpdateTicker := time.NewTicker(blockTimeUpdateCadence)
+			defer blockTimeUpdateTicker.Stop()
 
 			for {
 				select {
-				case <-ticker.C:
+				case <-recoverTicker.C:
 					if err := r.recover(ctx); err != nil {
 						r.lggr.Warnw("failed to recover logs", "err", err)
 					}
 				case <-gcTicker.C:
 					r.clean(ctx)
 					gcTicker.Reset(utils.WithJitter(GCInterval))
+				case <-blockTimeUpdateTicker.C:
+					r.updateBlockTime(ctx)
 				case <-ctx.Done():
 					return
 				}
@@ -178,26 +185,30 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 	if proposal.Trigger.LogTriggerExtension == nil {
 		return nil, errors.New("missing log trigger extension")
 	}
-	logBlock := int64(proposal.Trigger.LogTriggerExtension.BlockNumber)
-	if logBlock == 0 {
-		var number *big.Int
-		number, _, err = core.GetTxBlock(ctx, r.client, proposal.Trigger.LogTriggerExtension.TxHash)
-		if err != nil {
-			return nil, err
-		}
-		if number == nil {
-			return nil, errors.New("failed to get tx block")
-		}
-		logBlock = number.Int64()
+
+	// Verify the log is still present on chain, not reorged and is within recoverable range
+	// Do not trust the logBlockNumber from proposal since it's not included in workID
+	logBlockHash := common.BytesToHash(proposal.Trigger.LogTriggerExtension.BlockHash[:])
+	bn, bh, err := core.GetTxBlock(ctx, r.client, proposal.Trigger.LogTriggerExtension.TxHash)
+	if err != nil {
+		return nil, err
 	}
+	if bn == nil {
+		return nil, errors.New("failed to get tx block")
+	}
+	if bh.Hex() != logBlockHash.Hex() {
+		return nil, errors.New("log tx reorged")
+	}
+	logBlock := bn.Int64()
 	if isRecoverable := logBlock < offsetBlock && logBlock > start; !isRecoverable {
 		return nil, errors.New("log block is not recoverable")
 	}
+
+	// Check if the log was already performed or ineligible
 	upkeepStates, err := r.states.SelectByWorkIDs(ctx, proposal.WorkID)
 	if err != nil {
 		return nil, err
 	}
-
 	for _, upkeepState := range upkeepStates {
 		switch upkeepState {
 		case ocr2keepers.Performed, ocr2keepers.Ineligible:
@@ -244,6 +255,11 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 }
 
 func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
+	latestBlock, err := r.poller.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+	}
+
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
@@ -251,18 +267,29 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 		return nil, nil
 	}
 
+	allLogsCounter := 0
 	logsCount := map[string]int{}
+
+	r.sortPending(uint64(latestBlock))
 
 	var results, pending []ocr2keepers.UpkeepPayload
 	for _, payload := range r.pending {
-		uid := payload.UpkeepID.String()
-		if logsCount[uid] >= AllowedLogsPerUpkeep {
+		if allLogsCounter >= MaxProposals {
+			// we have enough proposals, pushed the rest are pushed back to pending
 			pending = append(pending, payload)
 			continue
 		}
-		logsCount[uid]++
+		uid := payload.UpkeepID.String()
+		if logsCount[uid] >= AllowedLogsPerUpkeep {
+			// we have enough proposals for this upkeep, the rest are pushed back to pending
+			pending = append(pending, payload)
+			continue
+		}
 		results = append(results, payload)
+		logsCount[uid]++
+		allLogsCounter++
 	}
+
 	r.pending = pending
 
 	r.lggr.Debugf("found %d pending payloads", len(pending))
@@ -414,7 +441,7 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 }
 
 // filterFinalizedStates filters out the log upkeeps that have already been completed (performed or ineligible).
-func (r *logRecoverer) filterFinalizedStates(f upkeepFilter, logs []logpoller.Log, states []ocr2keepers.UpkeepState) []logpoller.Log {
+func (r *logRecoverer) filterFinalizedStates(_ upkeepFilter, logs []logpoller.Log, states []ocr2keepers.UpkeepState) []logpoller.Log {
 	filtered := make([]logpoller.Log, 0)
 
 	for i, log := range logs {
@@ -602,4 +629,42 @@ func (r *logRecoverer) removePending(workID string) {
 		}
 	}
 	r.pending = updated
+}
+
+// sortPending sorts the pending list by a random order based on the normalized latest block number.
+// Divided by 10 to ensure that nodes with similar block numbers won't end up with different order.
+// NOTE: the lock must be held before calling this function.
+func (r *logRecoverer) sortPending(latestBlock uint64) {
+	normalized := latestBlock / 100
+	if normalized == 0 {
+		normalized = 1
+	}
+	randSeed := random.GetRandomKeySource(nil, normalized)
+
+	shuffledIDs := make(map[string]string, len(r.pending))
+	for _, p := range r.pending {
+		shuffledIDs[p.WorkID] = random.ShuffleString(p.WorkID, randSeed)
+	}
+
+	sort.SliceStable(r.pending, func(i, j int) bool {
+		return shuffledIDs[r.pending[i].WorkID] < shuffledIDs[r.pending[j].WorkID]
+	})
+}
+
+func (r *logRecoverer) updateBlockTime(ctx context.Context) {
+	blockTime, err := r.blockTimeResolver.BlockTime(ctx, defaultSampleSize)
+	if err != nil {
+		r.lggr.Warnw("failed to compute block time", "err", err)
+		return
+	}
+	if blockTime > 0 {
+		currentBlockTime := r.blockTime.Load()
+		newBlockTime := int64(blockTime)
+		if currentBlockTime > 0 && (int64(math.Abs(float64(currentBlockTime-newBlockTime)))*100/currentBlockTime) > 20 {
+			r.lggr.Warnf("updating blocktime from %d to %d, this change is larger than 20%", currentBlockTime, newBlockTime)
+		} else {
+			r.lggr.Debugf("updating blocktime from %d to %d", currentBlockTime, newBlockTime)
+		}
+		r.blockTime.Store(newBlockTime)
+	}
 }

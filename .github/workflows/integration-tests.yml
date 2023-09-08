@@ -3,8 +3,7 @@ on:
   merge_group:
   pull_request:
   schedule:
-    # - cron: "0 0 * * *"
-    - cron: "0 * * * *" # every hour while we debug for flakes
+    - cron: "0 0 * * *"
   push:
     tags:
       - "*"
@@ -111,6 +110,7 @@ jobs:
           echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
 
   build-test-image:
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || contains(join(github.event.pull_request.labels.*.name, ' '), 'build-test-image')
     environment: integration
     permissions:
       id-token: write
@@ -140,14 +140,36 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
 
-  eth-smoke-tests-matrix:
+  compare-tests:
+    needs: [changes]
+    runs-on: ubuntu-latest
+    name: Compare/Build Automation Test List
+    outputs:
+      matrix: ${{ env.MATRIX_JSON }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - name: Compare Test Lists
+        run: |
+          cd ./integration-tests
+          ./scripts/compareTestList.sh ./smoke/automation_test.go
+          ./scripts/compareTestList.sh ./smoke/keeper_test.go
+      - name: Build Test Matrix Lists
+        id: build-test-matrix-list
+        run: |
+          cd ./integration-tests
+          MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu20.04-8cores-32GB)
+          MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu20.04-8cores-32GB)
+          COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
+          echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+  eth-smoke-tests-matrix-automation:
     environment: integration
     permissions:
       checks: write
       pull-requests: write
       id-token: write
       contents: read
-    needs: [build-chainlink, changes, build-test-image]
+    needs: [build-chainlink, changes, compare-tests]
     env:
       SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
@@ -156,16 +178,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        product:
-          - name: automation
-            nodes: 19
-            os: ubuntu-latest
-            pyroscope_env: ci-smoke-automation-evm-simulated
-          # temporarily disabled
-          # - name: ocr2vrf
-          #   nodes: 2
-          #   os: ubuntu-latest
-          #   pyroscope_env: ci-smoke-ocr2vrf-evm-simulated
+        product: ${{fromJson(needs.compare-tests.outputs.matrix)}}
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}
     steps:
@@ -173,23 +186,31 @@ jobs:
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+      - name: Build Go Test Command
+        id: build-go-test-command
+        run: |
+          # if the matrix.product.run is set, use it for a different command
+          if [ "${{ matrix.product.run }}" != "" ]; then
+            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
+          else
+            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
+          fi
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
         env:
-          TESTCONTAINERS_RYUK_DISABLED: true
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ./smoke/${{ matrix.product.name }}_test.go 2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: EVM Smoke Test Results ${{ matrix.product.name }}
+          publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
@@ -197,28 +218,6 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-
-      ## Run this step when changes that do not need the test to run are made
-      - name: Run Setup
-        if: needs.changes.outputs.src == 'false'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
-        with:
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: 'true'
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-
-      - name: Upload test log
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
-        if: failure()
-        with:
-          name: test-log-${{ matrix.product.name }}
-          path: /tmp/gotest.log
-          retention-days: 7
-        continue-on-error: true
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
@@ -229,8 +228,7 @@ jobs:
           this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
-
-  eth-smoke-tests-matrix-docker:
+  eth-smoke-tests-matrix:
     environment: integration
     permissions:
       checks: write
@@ -287,98 +285,6 @@ jobs:
             nodes: 1
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
-
-          # Keeper tests split out to use minimal environments
-          - name: keeper-1
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperBasicSmoke$
-          - name: keeper-2
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperBlockCountPerTurn/registry_1_1$
-          - name: keeper-3
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperBlockCountPerTurn/registry_1_2$
-          - name: keeper-4
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperBlockCountPerTurn/registry_1_3$
-          - name: keeper-5
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperSimulation$
-          - name: keeper-6
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperCheckPerformGasLimit/registry_1_2$
-          - name: keeper-7
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperCheckPerformGasLimit/registry_1_3$
-          - name: keeper-8
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperRegisterUpkeep$
-          - name: keeper-9
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperAddFunds$
-          - name: keeper-10
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperRemove$
-          - name: keeper-11
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperPauseRegistry$
-          - name: keeper-12
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperMigrateRegistry$
-          - name: keeper-13
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperNodeDown/registry_1_1$
-          - name: keeper-14
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperNodeDown/registry_1_2$
-          - name: keeper-15
-            nodes: 1
-            os: ubuntu20.04-8cores-32GB
-            pyroscope_env: ci-smoke-keeper-evm-simulated
-            file: keeper
-            run: -run ^TestKeeperNodeDown/registry_1_3$
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}
     steps:
@@ -410,7 +316,7 @@ jobs:
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_location: ./integration-tests/smoke/logs
-          publish_check_name: EVM Smoke Test Results ${{ matrix.product.name }}
+          publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
@@ -455,10 +361,10 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     name: ETH Smoke Tests
-    needs: [eth-smoke-tests-matrix,eth-smoke-tests-matrix-docker]
+    needs: [eth-smoke-tests-matrix, eth-smoke-tests-matrix-automation]
     steps:
       - name: Check smoke test matrix status
-        if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-docker.result != 'success'
+        if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-automation.result != 'success'
         run: exit 1
       - name: Collect Metrics
         if: always()
@@ -700,7 +606,7 @@ jobs:
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
       - name: Collect Metrics
-        if: needs.changes.outputs.src == 'true'
+        if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
@@ -709,6 +615,7 @@ jobs:
           this-job-name: Solana Build Test Image
         continue-on-error: true
       - name: Checkout the repo
+        if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           repository: smartcontractkit/chainlink-solana
@@ -722,6 +629,8 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      - run: echo "this exists so we don't have to run anything else if the build is skipped"
+        if: needs.changes.outputs.src == 'false' || needs.solana-test-image-exists.outputs.exists == 'true'
 
   solana-smoke-tests:
     environment: integration
