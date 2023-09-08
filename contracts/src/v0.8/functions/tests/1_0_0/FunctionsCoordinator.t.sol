@@ -5,7 +5,7 @@ import {FunctionsCoordinator} from "../../dev/1_0_0/FunctionsCoordinator.sol";
 import {FunctionsBilling} from "../../dev/1_0_0/FunctionsBilling.sol";
 import {FunctionsRequest} from "../../dev/1_0_0/libraries/FunctionsRequest.sol";
 
-import {FunctionsSubscriptionSetup} from "./Setup.t.sol";
+import {FunctionsSubscriptionSetup, FunctionsMultipleFulfillmentsSetup} from "./Setup.t.sol";
 
 // ================================================================
 // |                       Functions Coordinator                  |
@@ -209,8 +209,47 @@ contract FunctionsBilling_OracleWithdraw {
 }
 
 /// @notice #oracleWithdrawAll
-contract FunctionsBilling_OracleWithdrawAll {
+contract FunctionsBilling_OracleWithdrawAll is FunctionsMultipleFulfillmentsSetup {
+  function setUp() public virtual override {
+    // Use no DON fee so that a transmitter has a balance of 0
+    s_donFee = 0;
 
+    FunctionsMultipleFulfillmentsSetup.setUp();
+  }
+
+  function test_OracleWithdrawAll_RevertIfNotOwner() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    vm.expectRevert("Only callable by owner");
+    s_functionsCoordinator.oracleWithdrawAll();
+  }
+
+  function test_OracleWithdrawAll_SuccessPaysTransmittersWithBalance() public {
+    uint256 transmitter1BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_1);
+    assertEq(transmitter1BalanceBefore, 0);
+    uint256 transmitter2BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_2);
+    assertEq(transmitter2BalanceBefore, 0);
+    uint256 transmitter3BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_3);
+    assertEq(transmitter3BalanceBefore, 0);
+    uint256 transmitter4BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_4);
+    assertEq(transmitter4BalanceBefore, 0);
+
+    s_functionsCoordinator.oracleWithdrawAll();
+
+    uint96 expectedTransmitterBalance = s_fulfillmentCoordinatorBalance / 3;
+
+    uint256 transmitter1BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_1);
+    assertEq(transmitter1BalanceAfter, expectedTransmitterBalance);
+    uint256 transmitter2BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_2);
+    assertEq(transmitter2BalanceAfter, expectedTransmitterBalance);
+    uint256 transmitter3BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_3);
+    assertEq(transmitter3BalanceAfter, expectedTransmitterBalance);
+    // Transmitter 4 has no balance
+    uint256 transmitter4BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_4);
+    assertEq(transmitter4BalanceAfter, 0);
+  }
 }
 
 /// @notice #_getTransmitters
