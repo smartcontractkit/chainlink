@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/prices"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -41,7 +42,7 @@ func newBlockHistoryConfig() *gas.MockBlockHistoryConfig {
 }
 
 func newBlockHistoryEstimatorWithChainID(t *testing.T, c evmclient.Client, cfg gas.Config, gCfg gas.GasEstimatorConfig, bhCfg gas.BlockHistoryConfig, cid big.Int) gas.EvmEstimator {
-	return gas.NewBlockHistoryEstimator(logger.TestLogger(t), c, cfg, gCfg, bhCfg, cid)
+	return gas.NewBlockHistoryEstimator(logger.TestLogger(t), c, cfg, gCfg, bhCfg, cid, prices.NewNoOpGetter())
 }
 
 func newBlockHistoryEstimator(t *testing.T, c evmclient.Client, cfg gas.Config, gCfg gas.GasEstimatorConfig, bhCfg gas.BlockHistoryConfig) *gas.BlockHistoryEstimator {
@@ -2019,7 +2020,7 @@ func TestBlockHistoryEstimator_CheckConnectivity(t *testing.T) {
 	geCfg.EIP1559DynamicFeesF = false
 
 	bhe := gas.BlockHistoryEstimatorFromInterface(
-		gas.NewBlockHistoryEstimator(lggr, nil, cfg, geCfg, bhCfg, *testutils.NewRandomEVMChainID()),
+		gas.NewBlockHistoryEstimator(lggr, nil, cfg, geCfg, bhCfg, *testutils.NewRandomEVMChainID(), prices.NewNoOpGetter()),
 	)
 
 	attempts := []gas.EvmPriorAttempt{
