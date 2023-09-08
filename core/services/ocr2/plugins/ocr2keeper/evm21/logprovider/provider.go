@@ -146,6 +146,10 @@ func (p *logEventProvider) Start(context.Context) error {
 					lggr.Warnw("readQ is full, dropping ids", "ids", ids)
 				}
 			})
+			// if the context was canceled, we don't need to log the error
+			if ctx.Err() != nil {
+				return
+			}
 			if err != nil {
 				lggr.Warnw("stopped scheduling read jobs with error", "err", err)
 			}

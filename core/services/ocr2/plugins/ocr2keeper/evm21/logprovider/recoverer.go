@@ -199,26 +199,30 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 	if proposal.Trigger.LogTriggerExtension == nil {
 		return nil, errors.New("missing log trigger extension")
 	}
-	logBlock := int64(proposal.Trigger.LogTriggerExtension.BlockNumber)
-	if logBlock == 0 {
-		var number *big.Int
-		number, _, err = core.GetTxBlock(ctx, r.client, proposal.Trigger.LogTriggerExtension.TxHash)
-		if err != nil {
-			return nil, err
-		}
-		if number == nil {
-			return nil, errors.New("failed to get tx block")
-		}
-		logBlock = number.Int64()
+
+	// Verify the log is still present on chain, not reorged and is within recoverable range
+	// Do not trust the logBlockNumber from proposal since it's not included in workID
+	logBlockHash := common.BytesToHash(proposal.Trigger.LogTriggerExtension.BlockHash[:])
+	bn, bh, err := core.GetTxBlock(ctx, r.client, proposal.Trigger.LogTriggerExtension.TxHash)
+	if err != nil {
+		return nil, err
 	}
+	if bn == nil {
+		return nil, errors.New("failed to get tx block")
+	}
+	if bh.Hex() != logBlockHash.Hex() {
+		return nil, errors.New("log tx reorged")
+	}
+	logBlock := bn.Int64()
 	if isRecoverable := logBlock < offsetBlock && logBlock > start; !isRecoverable {
 		return nil, errors.New("log block is not recoverable")
 	}
+
+	// Check if the log was already performed or ineligible
 	upkeepStates, err := r.states.SelectByWorkIDs(ctx, proposal.WorkID)
 	if err != nil {
 		return nil, err
 	}
-
 	for _, upkeepState := range upkeepStates {
 		switch upkeepState {
 		case ocr2keepers.Performed, ocr2keepers.Ineligible:

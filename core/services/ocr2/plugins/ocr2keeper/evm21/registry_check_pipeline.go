@@ -99,13 +99,6 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
 func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
-	// verify check block number is not in future (can happen when this node is lagging the other members in DON)
-	latestBlock := r.bs.latestBlock.Load()
-	if checkBlock.Int64() > int64(latestBlock.Number) {
-		r.lggr.Warnf("latest block is %d, check block number %s is in future for upkeepId %s", r.bs.latestBlock.Load(), checkBlock, upkeepId)
-		return encoding.CheckBlockTooNew, true // retryable since the block can be found in future
-	}
-
 	var h string
 	var ok bool
 	// verify check block number and hash are valid
@@ -134,7 +127,7 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 	if logBlockNumber != 0 {
 		h, ok := r.bs.queryBlocksMap(logBlockNumber)
 		if ok && h == logBlockHash.Hex() {
-			r.lggr.Debugf("tx hash %s exists on chain at block number %d for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockNumber, upkeepId)
+			r.lggr.Debugf("tx hash %s exists on chain at block number %d, block hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockHash.Hex(), logBlockNumber, upkeepId)
 			return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
 		}
 		r.lggr.Debugf("log block %d does not exist in block subscriber for upkeepId %s, querying eth client", logBlockNumber, upkeepId)
@@ -142,7 +135,7 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 		r.lggr.Debugf("log block not provided, querying eth client for tx hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 	}
 	// query eth client as a fallback
-	bn, _, err := core.GetTxBlock(r.ctx, r.client, p.Trigger.LogTriggerExtension.TxHash)
+	bn, bh, err := core.GetTxBlock(r.ctx, r.client, p.Trigger.LogTriggerExtension.TxHash)
 	if err != nil {
 		// primitive way of checking errors
 		if strings.Contains(err.Error(), "missing required field") || strings.Contains(err.Error(), "not found") {
@@ -154,6 +147,10 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 	if bn == nil {
 		r.lggr.Warnf("tx hash %s does not exist on chain for upkeepId %s.", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 		return encoding.UpkeepFailureReasonTxHashNoLongerExists, encoding.NoPipelineError, false
+	}
+	if bh.Hex() != logBlockHash.Hex() {
+		r.lggr.Warnf("tx hash %s reorged from expected blockhash %s to %s for upkeepId %s.", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockHash.Hex(), bh.Hex(), upkeepId)
+		return encoding.UpkeepFailureReasonTxHashReorged, encoding.NoPipelineError, false
 	}
 	r.lggr.Debugf("tx hash %s exists on chain for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 	return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
