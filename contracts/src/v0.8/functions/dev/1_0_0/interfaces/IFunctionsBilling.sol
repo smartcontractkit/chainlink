@@ -20,13 +20,13 @@ interface IFunctionsBilling {
   // @param - subscriptionId An identifier of the billing account
   // @param - data Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
   // @param - callbackGasLimit Gas limit for the fulfillment callback
-  // @param - gasPriceGwei The blockchain's gas price to estimate with
+  // @param - gasPriceWei The blockchain's gas price to estimate with
   // @return - billedCost Cost in Juels (1e18) of LINK
   function estimateCost(
     uint64 subscriptionId,
     bytes calldata data,
     uint32 callbackGasLimit,
-    uint256 gasPriceGwei
+    uint256 gasPriceWei
   ) external view returns (uint96);
 
   // @notice Remove a request commitment that the Router has determined to be stale
