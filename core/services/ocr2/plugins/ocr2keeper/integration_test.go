@@ -56,6 +56,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
 const (
@@ -705,7 +707,7 @@ func TestFilterNamesFromSpec20(t *testing.T) {
 	address := common.HexToAddress(hexutil.Encode(b))
 
 	spec := &job.OCR2OracleSpec{
-		PluginType: job.OCR2Keeper,
+		PluginType: relaytypes.OCR2Keeper,
 		ContractID: address.String(), // valid contract addr
 	}
 
@@ -717,7 +719,7 @@ func TestFilterNamesFromSpec20(t *testing.T) {
 	assert.Equal(t, logpoller.FilterName("EvmRegistry - Upkeep events for", address), names[1])
 
 	spec = &job.OCR2OracleSpec{
-		PluginType: job.OCR2Keeper,
+		PluginType: relaytypes.OCR2Keeper,
 		ContractID: "0x5431", // invalid contract addr
 	}
 	_, err = ocr2keeper.FilterNamesFromSpec20(spec)

@@ -86,7 +86,6 @@ export const functionsRouterConfig: FunctionsRouterConfig = {
   gasForCallExactCheck: 5000,
 }
 export type CoordinatorConfig = {
-  maxCallbackGasLimit: number
   feedStalenessSeconds: number
   gasOverheadBeforeCallback: number
   gasOverheadAfterCallback: number
@@ -98,7 +97,6 @@ export type CoordinatorConfig = {
 }
 const fallbackNativePerUnitLink = 5000000000000000
 export const coordinatorConfig: CoordinatorConfig = {
-  maxCallbackGasLimit: 1_000_000,
   feedStalenessSeconds: 86_400,
   gasOverheadBeforeCallback: 44_615,
   gasOverheadAfterCallback: 44_615,
