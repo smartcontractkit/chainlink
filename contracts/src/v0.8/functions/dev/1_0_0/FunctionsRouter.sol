@@ -135,20 +135,20 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // |                        Configuration                         |
   // ================================================================
 
-  // @notice The identifier of the route to retrieve the address of the access control contract
+  /// @notice The identifier of the route to retrieve the address of the access control contract
   // The access control contract controls which accounts can manage subscriptions
-  // @return id - bytes32 id that can be passed to the "getContractById" of the Router
+  /// @return id - bytes32 id that can be passed to the "getContractById" of the Router
   function getConfig() external view returns (Config memory) {
     return s_config;
   }
 
-  // @notice The router configuration
+  /// @notice The router configuration
   function updateConfig(Config memory config) public onlyOwner {
     s_config = config;
     emit ConfigUpdated(config);
   }
 
-  // @inheritdoc IFunctionsRouter
+  /// @inheritdoc IFunctionsRouter
   function isValidCallbackGasLimit(uint64 subscriptionId, uint32 callbackGasLimit) public view {
     uint8 callbackGasLimitsIndexSelector = uint8(getFlags(subscriptionId)[MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX]);
     if (callbackGasLimitsIndexSelector >= s_config.maxCallbackGasLimits.length) {
@@ -160,22 +160,22 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     }
   }
 
-  // @inheritdoc IFunctionsRouter
+  /// @inheritdoc IFunctionsRouter
   function getAdminFee() external view override returns (uint72) {
     return s_config.adminFee;
   }
 
-  // @inheritdoc IFunctionsRouter
+  /// @inheritdoc IFunctionsRouter
   function getAllowListId() external view override returns (bytes32) {
     return s_allowListId;
   }
 
-  // @inheritdoc IFunctionsRouter
+  /// @inheritdoc IFunctionsRouter
   function setAllowListId(bytes32 allowListId) external override onlyOwner {
     s_allowListId = allowListId;
   }
 
-  // Used within FunctionsSubscriptions.sol
+  /// @dev Used within FunctionsSubscriptions.sol
   function _getMaxConsumers() internal view override returns (uint16) {
     return s_config.maxConsumersPerSubscription;
   }
@@ -184,7 +184,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // |                           Requests                           |
   // ================================================================
 
-  // @inheritdoc IFunctionsRouter
+  /// @inheritdoc IFunctionsRouter
   function sendRequest(
     uint64 subscriptionId,
     bytes calldata data,
@@ -196,7 +196,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     return _sendRequest(donId, coordinator, subscriptionId, data, dataVersion, callbackGasLimit);
   }
 
-  // @inheritdoc IFunctionsRouter
+  /// @inheritdoc IFunctionsRouter
   function sendRequestToProposed(
     uint64 subscriptionId,
     bytes calldata data,
@@ -291,7 +291,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // |                           Responses                          |
   // ================================================================
 
-  // @inheritdoc IFunctionsRouter
+  /// @inheritdoc IFunctionsRouter
   function fulfill(
     bytes memory response,
     bytes memory err,
@@ -462,7 +462,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // |                        Route methods                         |
   // ================================================================
 
-  // @inheritdoc IRouterBase
+  /// @inheritdoc IFunctionsRouter
   function getContractById(bytes32 id) public view override returns (address) {
     address currentImplementation = s_route[id];
     if (currentImplementation == address(0)) {
@@ -471,7 +471,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     return currentImplementation;
   }
 
-  // @inheritdoc IRouterBase
+  /// @inheritdoc IFunctionsRouter
   function getProposedContractById(bytes32 id) public view override returns (address) {
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
     for (uint8 i = 0; i < s_proposedContractSet.ids.length; ++i) {
@@ -486,12 +486,12 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // |                 Contract Proposal methods                    |
   // ================================================================
 
-  // @inheritdoc IRouterBase
+  /// @inheritdoc IFunctionsRouter
   function getProposedContractSet() external view override returns (bytes32[] memory, address[] memory) {
     return (s_proposedContractSet.ids, s_proposedContractSet.to);
   }
 
-  // @inheritdoc IRouterBase
+  /// @inheritdoc IFunctionsRouter
   function proposeContractsUpdate(
     bytes32[] memory proposedContractSetIds,
     address[] memory proposedContractSetAddresses
@@ -526,7 +526,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     }
   }
 
-  // @inheritdoc IRouterBase
+  /// @inheritdoc IFunctionsRouter
   function updateContracts() external override onlyOwner {
     // Iterations will not exceed MAX_PROPOSAL_SET_LENGTH
     for (uint256 i = 0; i < s_proposedContractSet.ids.length; ++i) {
@@ -544,17 +544,17 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // ================================================================
   // Favoring internal functions over actual modifiers to reduce contract size
 
-  // Used within FunctionsSubscriptions.sol
+  /// @dev Used within FunctionsSubscriptions.sol
   function _whenNotPaused() internal view override {
     _requireNotPaused();
   }
 
-  // Used within FunctionsSubscriptions.sol
+  /// @dev Used within FunctionsSubscriptions.sol
   function _onlyRouterOwner() internal view override {
     _validateOwnership();
   }
 
-  // Used within FunctionsSubscriptions.sol
+  /// @dev Used within FunctionsSubscriptions.sol
   function _onlySenderThatAcceptedToS() internal view override {
     address currentImplementation = s_route[s_allowListId];
     if (currentImplementation == address(0)) {
@@ -566,12 +566,12 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     }
   }
 
-  // @inheritdoc IRouterBase
+  /// @inheritdoc IFunctionsRouter
   function pause() external override onlyOwner {
     _pause();
   }
 
-  // @inheritdoc IRouterBase
+  /// @inheritdoc IFunctionsRouter
   function unpause() external override onlyOwner {
     _unpause();
   }
