@@ -103,7 +103,7 @@ type logEventProvider struct {
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
 	return &logEventProvider{
-		threadCtrl:  utils.NewThreadControl(context.Background(), 1+readerThreads),
+		threadCtrl:  utils.NewThreadControl(),
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
 		packer:      packer,
 		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), maxLogsPerBlock, maxLogsPerUpkeepInBlock),
@@ -121,14 +121,12 @@ func (p *logEventProvider) Start(context.Context) error {
 		p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", readMaxBatchSize, "readers", readerThreads)
 
 		for i := 0; i < readerThreads; i++ {
-			if err := p.threadCtrl.Go(func(ctx context.Context) {
+			p.threadCtrl.Go(func(ctx context.Context) {
 				p.startReader(ctx, readQ)
-			}); err != nil {
-				return fmt.Errorf("failed to start reader#%d thread: %w", i, err)
-			}
+			})
 		}
 
-		if err := p.threadCtrl.Go(func(ctx context.Context) {
+		p.threadCtrl.Go(func(ctx context.Context) {
 			lggr := p.lggr.With("where", "scheduler")
 
 			err := p.scheduleReadJobs(ctx, func(ids []*big.Int) {
@@ -147,9 +145,7 @@ func (p *logEventProvider) Start(context.Context) error {
 				lggr.Warnw("stopped scheduling read jobs with error", "err", err)
 			}
 			lggr.Debug("stopped scheduling read jobs")
-		}); err != nil {
-			return fmt.Errorf("failed to start scheduler thread: %w", err)
-		}
+		})
 
 		return nil
 	})

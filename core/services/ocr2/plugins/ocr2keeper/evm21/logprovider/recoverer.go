@@ -83,7 +83,7 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 	rec := &logRecoverer{
 		lggr: lggr.Named(LogRecovererServiceName),
 
-		threadCtrl: utils.NewThreadControl(context.Background(), 1),
+		threadCtrl: utils.NewThreadControl(),
 
 		blockTime:      &atomic.Int64{},
 		lookbackBlocks: &atomic.Int64{},
@@ -119,7 +119,7 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 
 		r.lggr.Infow("starting log recoverer", "blockTime", r.blockTime.Load(), "lookbackBlocks", r.lookbackBlocks.Load(), "interval", r.interval)
 
-		if err := r.threadCtrl.Go(func(ctx context.Context) {
+		r.threadCtrl.Go(func(ctx context.Context) {
 			ticker := time.NewTicker(r.interval)
 			defer ticker.Stop()
 			gcTicker := time.NewTicker(utils.WithJitter(GCInterval))
@@ -138,9 +138,7 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 					return
 				}
 			}
-		}); err != nil {
-			return fmt.Errorf("failed to start log recoverer thread: %w", err)
-		}
+		})
 
 		return nil
 	})

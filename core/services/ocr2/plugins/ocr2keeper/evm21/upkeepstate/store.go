@@ -79,7 +79,7 @@ func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScann
 		scanner:      scanner,
 		retention:    CacheExpiration,
 		cleanCadence: GCInterval,
-		threadCtrl:   utils.NewThreadControl(context.Background(), 1),
+		threadCtrl:   utils.NewThreadControl(),
 	}
 }
 
@@ -97,7 +97,7 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 
 		u.lggr.Debug("Starting upkeep state store")
 
-		if err := u.threadCtrl.Go(func(ctx context.Context) {
+		u.threadCtrl.Go(func(ctx context.Context) {
 			ticker := time.NewTicker(utils.WithJitter(u.cleanCadence))
 			defer ticker.Stop()
 
@@ -112,9 +112,7 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 					return
 				}
 			}
-		}); err != nil {
-			return fmt.Errorf("failed to start upkeep state store thread: %w", err)
-		}
+		})
 
 		return nil
 	})

@@ -57,7 +57,7 @@ var _ ocr2keepers.BlockSubscriber = &BlockSubscriber{}
 
 func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, lggr logger.Logger) *BlockSubscriber {
 	return &BlockSubscriber{
-		threadCtrl:       utils.NewThreadControl(context.Background(), 2),
+		threadCtrl:       utils.NewThreadControl(),
 		hb:               hb,
 		lp:               lp,
 		headC:            make(chan *evmtypes.Head, channelSize),
@@ -152,7 +152,7 @@ func (bs *BlockSubscriber) Start(ctx context.Context) error {
 		_, bs.unsubscribe = bs.hb.Subscribe(&headWrapper{headC: bs.headC, lggr: bs.lggr})
 
 		// poll from head broadcaster channel and push to subscribers
-		if err := bs.threadCtrl.Go(func(ctx context.Context) {
+		bs.threadCtrl.Go(func(ctx context.Context) {
 			for {
 				select {
 				case h := <-bs.headC:
@@ -163,12 +163,9 @@ func (bs *BlockSubscriber) Start(ctx context.Context) error {
 					return
 				}
 			}
-		}); err != nil {
-			return fmt.Errorf("failed to start head broadcaster thread: %w", err)
-		}
+		})
 
-		// clean up block maps
-		if err := bs.threadCtrl.Go(func(ctx context.Context) {
+		bs.threadCtrl.Go(func(ctx context.Context) {
 			ticker := time.NewTicker(cleanUpInterval)
 			defer ticker.Stop()
 
@@ -180,9 +177,7 @@ func (bs *BlockSubscriber) Start(ctx context.Context) error {
 					return
 				}
 			}
-		}); err != nil {
-			return fmt.Errorf("failed to start block cleanup thread: %w", err)
-		}
+		})
 
 		return nil
 	})
