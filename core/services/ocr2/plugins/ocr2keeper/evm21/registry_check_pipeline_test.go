@@ -86,20 +86,6 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		makeEthCall bool
 	}{
 		{
-			name:        "check block number too new",
-			checkBlock:  big.NewInt(500),
-			latestBlock: ocr2keepers.BlockKey{Number: 400},
-			upkeepId:    big.NewInt(12345),
-			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
-			payload: ocr2keepers.UpkeepPayload{
-				UpkeepID: upkeepId,
-				Trigger:  ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
-				WorkID:   "work",
-			},
-			state:     encoding.CheckBlockTooNew,
-			retryable: true,
-		},
-		{
 			name:        "for an invalid check block number, if hash does not match the check hash, return CheckBlockInvalid",
 			checkBlock:  big.NewInt(500),
 			latestBlock: ocr2keepers.BlockKey{Number: 560},
@@ -281,6 +267,26 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 			receipt: &types.Receipt{Status: 0},
 		},
 		{
+			name:     "eth client returns a matching block but different hash",
+			upkeepId: big.NewInt(12345),
+			payload: ocr2keepers.UpkeepPayload{
+				UpkeepID: upkeepId,
+				Trigger:  ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension1),
+				WorkID:   "work",
+			},
+			reason:    encoding.UpkeepFailureReasonTxHashReorged,
+			retryable: false,
+			blocks: map[int64]string{
+				500: "0xa518faeadcc423338c62572da84dda35fe44b34f521ce88f6081b703b250cca4",
+			},
+			makeEthCall: true,
+			receipt: &types.Receipt{
+				Status:      1,
+				BlockNumber: big.NewInt(550),
+				BlockHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
+			},
+		},
+		{
 			name:     "eth client returns a matching block",
 			upkeepId: big.NewInt(12345),
 			payload: ocr2keepers.UpkeepPayload{
@@ -297,7 +303,7 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 			receipt: &types.Receipt{
 				Status:      1,
 				BlockNumber: big.NewInt(550),
-				BlockHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
+				BlockHash:   common.HexToHash("0x3df0e926f3e21ec1195ffe007a2899214905eb02e768aa89ce0b94accd7f3d71"),
 			},
 		},
 		{
@@ -369,7 +375,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 		BlockNumber: 550,
 	}
 
-	trigger0 := ocr2keepers.NewTrigger(590, common.HexToHash("0x1c77db0abe32327cf3ea9de2aadf79876f9e6b6dfcee9d4719a8a2dc8ca289d0"))
+	trigger0 := ocr2keepers.NewTrigger(575, common.HexToHash("0x1c77db0abe32327cf3ea9de2aadf79876f9e6b6dfcee9d4719a8a2dc8ca289d0"))
 	trigger1 := ocr2keepers.NewLogTrigger(560, common.HexToHash("0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857"), extension1)
 	trigger2 := ocr2keepers.NewLogTrigger(570, common.HexToHash("0x1222d75217e2dd461cc77e4091c37abe76277430d97f1963a822b4e94ebb83fc"), extension2)
 
@@ -409,12 +415,13 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 				550: "0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857",
 				560: "0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857",
 				570: "0x1222d75217e2dd461cc77e4091c37abe76277430d97f1963a822b4e94ebb83fc",
+				575: "0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857",
 			},
 			latestBlock: ocr2keepers.BlockKey{Number: 580},
 			results: []ocr2keepers.CheckResult{
 				{
-					PipelineExecutionState: uint8(encoding.CheckBlockTooNew),
-					Retryable:              true,
+					PipelineExecutionState: uint8(encoding.CheckBlockInvalid),
+					Retryable:              false,
 					Eligible:               false,
 					IneligibilityReason:    0,
 					UpkeepID:               uid0,
