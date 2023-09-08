@@ -384,8 +384,6 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			}
 
 			tickerCh <- time.Now()
-			tickerCh <- time.Now()
-			tickerCh <- time.Now()
 
 			// if this test inserts data, wait for the insert to complete before proceeding
 			if len(test.storedValues) > 0 {
@@ -404,6 +402,10 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			observedLogs.TakeAll()
 
 			require.Equal(t, 0, observedLogs.Len())
+
+			require.NoError(t, store.Close())
+
+			<-store.doneCh
 		})
 	}
 }

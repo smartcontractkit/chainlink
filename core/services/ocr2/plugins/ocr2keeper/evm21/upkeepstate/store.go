@@ -72,6 +72,8 @@ type upkeepStateStore struct {
 	pendingRecords []persistedStateRecord
 	errCh          chan error
 	sem            chan struct{}
+	doneCh         chan struct{}
+
 	// service values
 	cancel context.CancelFunc
 }
@@ -88,6 +90,7 @@ func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScann
 		pendingRecords: []persistedStateRecord{},
 		errCh:          make(chan error, 1),
 		sem:            make(chan struct{}, 10),
+		doneCh:         make(chan struct{}, 1),
 	}
 }
 
@@ -137,6 +140,7 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 					u.lggr.Errorw("error inserting records", "err", err)
 				case <-ctx.Done():
 					u.flush(ctx)
+					u.doneCh <- struct{}{}
 					return
 				}
 			}
