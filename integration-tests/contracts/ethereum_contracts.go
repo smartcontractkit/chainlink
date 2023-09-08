@@ -2279,14 +2279,17 @@ func (e *EthereumMercuryVerifierProxy) Address() string {
 	return e.address.Hex()
 }
 
-func (e *EthereumMercuryVerifierProxy) Verify(signedReport []byte) error {
+func (e *EthereumMercuryVerifierProxy) Verify(signedReport []byte, value *big.Int) (*types.Transaction, error) {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if value != nil {
+		opts.Value = value
+	}
 	if err != nil {
-		return err
+		return nil, err
 	}
 	tx, err := e.instance.Verify(opts, signedReport)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return e.client.ProcessTransaction(tx)
+	return tx, e.client.ProcessTransaction(tx)
 }
