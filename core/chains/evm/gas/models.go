@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -30,6 +31,7 @@ type EvmFeeEstimator interface {
 	services.ServiceCtx
 	commontypes.HeadTrackable[*evmtypes.Head, common.Hash]
 
+	GetPriceComponents(ctx context.Context, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (prices []PriceComponent, err error)
 	GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint32, err error)
 	BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint32, maxFeePrice *assets.Wei, attempts []EvmPriorAttempt) (bumpedFee EvmFee, chainSpecificFeeLimit uint32, err error)
 
@@ -63,16 +65,16 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 	df := geCfg.EIP1559DynamicFees()
 	switch s {
 	case "Arbitrum":
-		return NewWrappedEvmEstimator(NewArbitrumEstimator(lggr, geCfg, ethClient, ethClient), df)
+		return NewWrappedEvmEstimator(NewArbitrumEstimator(lggr, geCfg, ethClient, ethClient, prices.NewNoOpGetter()), df)
 	case "BlockHistory":
-		return NewWrappedEvmEstimator(NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, *ethClient.ConfiguredChainID()), df)
+		return NewWrappedEvmEstimator(NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, *ethClient.ConfiguredChainID(), prices.NewNoOpGetter()), df)
 	case "FixedPrice":
-		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df)
+		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr, prices.NewNoOpGetter()), df)
 	case "Optimism2", "L2Suggested":
-		return NewWrappedEvmEstimator(NewL2SuggestedPriceEstimator(lggr, ethClient), df)
+		return NewWrappedEvmEstimator(NewL2SuggestedPriceEstimator(lggr, ethClient, prices.NewNoOpGetter()), df)
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
-		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df)
+		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr, prices.NewNoOpGetter()), df)
 	}
 }
 
@@ -98,6 +100,8 @@ type EvmEstimator interface {
 	commontypes.HeadTrackable[*evmtypes.Head, common.Hash]
 	services.ServiceCtx
 
+	// GetPriceComponents returns chain-specific price components
+	GetPriceComponents(ctx context.Context, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (prices []PriceComponent, err error)
 	// GetLegacyGas Calculates initial gas fee for non-EIP1559 transaction
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return
 	GetLegacyGas(ctx context.Context, calldata []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error)
@@ -150,6 +154,10 @@ func NewWrappedEvmEstimator(e EvmEstimator, eip1559Enabled bool) EvmFeeEstimator
 		EvmEstimator:   e,
 		EIP1559Enabled: eip1559Enabled,
 	}
+}
+
+func (e WrappedEvmEstimator) GetPriceComponents(ctx context.Context, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (prices []PriceComponent, err error) {
+	return e.EvmEstimator.GetPriceComponents(ctx, maxGasPriceWei, opts...)
 }
 
 func (e WrappedEvmEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint32, err error) {

@@ -119,14 +119,15 @@ type (
 		latestMu     sync.RWMutex
 		initialFetch atomic.Bool
 
-		logger logger.SugaredLogger
+		logger               logger.SugaredLogger
+		priceComponentGetter PriceComponentGetter
 	}
 )
 
 // NewBlockHistoryEstimator returns a new BlockHistoryEstimator that listens
 // for new heads and updates the base gas price dynamically based on the
 // configured percentile of gas prices in that block
-func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID big.Int) EvmEstimator {
+func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg chainConfig, eCfg estimatorGasEstimatorConfig, bhCfg BlockHistoryConfig, chainID big.Int, p PriceComponentGetter) EvmEstimator {
 	ctx, cancel := context.WithCancel(context.Background())
 	b := &BlockHistoryEstimator{
 		ethClient: ethClient,
@@ -136,12 +137,13 @@ func NewBlockHistoryEstimator(lggr logger.Logger, ethClient evmclient.Client, cf
 		bhConfig:  bhCfg,
 		blocks:    make([]evmtypes.Block, 0),
 		// Must have enough blocks for both estimator and connectivity checker
-		size:      int64(mathutil.Max(bhCfg.BlockHistorySize(), bhCfg.CheckInclusionBlocks())),
-		mb:        utils.NewSingleMailbox[*evmtypes.Head](),
-		wg:        new(sync.WaitGroup),
-		ctx:       ctx,
-		ctxCancel: cancel,
-		logger:    logger.Sugared(lggr.Named("BlockHistoryEstimator")),
+		size:                 int64(mathutil.Max(bhCfg.BlockHistorySize(), bhCfg.CheckInclusionBlocks())),
+		mb:                   utils.NewSingleMailbox[*evmtypes.Head](),
+		wg:                   new(sync.WaitGroup),
+		ctx:                  ctx,
+		ctxCancel:            cancel,
+		logger:               logger.Sugared(lggr.Named("BlockHistoryEstimator")),
+		priceComponentGetter: p,
 	}
 
 	return b
@@ -244,6 +246,14 @@ func (b *BlockHistoryEstimator) Name() string {
 }
 func (b *BlockHistoryEstimator) HealthReport() map[string]error {
 	return map[string]error{b.Name(): b.StartStopOnce.Healthy()}
+}
+
+func (b *BlockHistoryEstimator) GetPriceComponents(ctx context.Context, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (prices []PriceComponent, err error) {
+	gasPrice, _, err := b.GetLegacyGas(ctx, nil, 0, maxGasPriceWei, opts...)
+	if err != nil {
+		return []PriceComponent{}, err
+	}
+	return b.priceComponentGetter.GetPriceComponents(ctx, gasPrice)
 }
 
 func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
@@ -500,6 +510,11 @@ func (b *BlockHistoryEstimator) FetchBlocksAndRecalculate(ctx context.Context, h
 	}
 	b.initialFetch.Store(true)
 	b.Recalculate(head)
+
+	if err := b.priceComponentGetter.RefreshComponents(b.ctx); err != nil {
+		b.logger.Warnw("Error refreshing price components", "err", err)
+		return
+	}
 }
 
 // Recalculate adds the given heads to the history and recalculates gas price.

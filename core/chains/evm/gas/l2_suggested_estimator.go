@@ -41,18 +41,21 @@ type l2SuggestedPriceEstimator struct {
 	chInitialised  chan struct{}
 	chStop         utils.StopChan
 	chDone         chan struct{}
+
+	priceComponentGetter PriceComponentGetter
 }
 
 // NewL2SuggestedPriceEstimator returns a new Estimator which uses the L2 suggested gas price.
-func NewL2SuggestedPriceEstimator(lggr logger.Logger, client rpcClient) EvmEstimator {
+func NewL2SuggestedPriceEstimator(lggr logger.Logger, client rpcClient, p PriceComponentGetter) EvmEstimator {
 	return &l2SuggestedPriceEstimator{
-		client:         client,
-		pollPeriod:     10 * time.Second,
-		logger:         lggr.Named("L2SuggestedEstimator"),
-		chForceRefetch: make(chan (chan struct{})),
-		chInitialised:  make(chan struct{}),
-		chStop:         make(chan struct{}),
-		chDone:         make(chan struct{}),
+		client:               client,
+		pollPeriod:           10 * time.Second,
+		logger:               lggr.Named("L2SuggestedEstimator"),
+		chForceRefetch:       make(chan (chan struct{})),
+		chInitialised:        make(chan struct{}),
+		chStop:               make(chan struct{}),
+		chDone:               make(chan struct{}),
+		priceComponentGetter: p,
 	}
 }
 
@@ -117,6 +120,14 @@ func (o *l2SuggestedPriceEstimator) refreshPrice() (t *time.Timer) {
 	o.gasPriceMu.Lock()
 	defer o.gasPriceMu.Unlock()
 	o.l2GasPrice = bi
+
+	priceGetterCtx, priceGetterCancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
+	defer priceGetterCancel()
+	if err := o.priceComponentGetter.RefreshComponents(priceGetterCtx); err != nil {
+		o.logger.Warnf("Failed to refresh price component getter, got error: %s", err)
+		return
+	}
+
 	return
 }
 
@@ -130,6 +141,14 @@ func (*l2SuggestedPriceEstimator) GetDynamicFee(_ context.Context, _ uint32, _ *
 func (*l2SuggestedPriceEstimator) BumpDynamicFee(_ context.Context, _ DynamicFee, _ uint32, _ *assets.Wei, _ []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
 	err = errors.New("dynamic fees are not implemented for this layer 2")
 	return
+}
+
+func (f *l2SuggestedPriceEstimator) GetPriceComponents(ctx context.Context, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (prices []PriceComponent, err error) {
+	gasPrice, _, err := f.GetLegacyGas(ctx, nil, 0, maxGasPriceWei, opts...)
+	if err != nil {
+		return []PriceComponent{}, err
+	}
+	return f.priceComponentGetter.GetPriceComponents(ctx, gasPrice)
 }
 
 func (o *l2SuggestedPriceEstimator) GetLegacyGas(ctx context.Context, _ []byte, l2GasLimit uint32, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (gasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
