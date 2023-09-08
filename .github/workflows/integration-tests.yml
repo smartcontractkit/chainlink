@@ -241,6 +241,7 @@ jobs:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_LOG_LEVEL: debug
+      CL_CLIENT_DEBUG: true
     strategy:
       fail-fast: false
       matrix:
