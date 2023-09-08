@@ -13,21 +13,37 @@ See more config options in [config.toml](./config.toml)
 
 ## Usage
 
-Soak `1 TX/sec - 40 requests per TX`
+All tests are split by network and in 3 groups:
+- HTTP payload only
+- Secrets decoding payload only
+- Realistic payload with args/http/secrets
+
+Load test client is [here](../../../contracts/src/v0.8/functions/tests/1_0_0/testhelpers/FunctionsLoadTestClient.sol)
+
+Load is controlled with 2 params:
+- RPS
+- requests_per_call (generating more events in a loop in the contract)
+
+`Soak` is a stable workload for which there **must** be no issues
+
+`Stress` is a peak workload for which issues **must** be analyzed
+
+Load test client can execute `78 calls per request` at max (gas limit)
+
+Functions tests:
 ```
-go test -v -run TestFunctionsLoad/functions_soak_test
+go test -v -run TestFunctionsLoad/mumbai_functions_soak_test_http
+go test -v -run TestFunctionsLoad/mumbai_functions_stress_test_http
+go test -v -run TestFunctionsLoad/mumbai_functions_soak_test_only_secrets
+go test -v -run TestFunctionsLoad/mumbai_functions_stress_test_only_secrets
+go test -v -run TestFunctionsLoad/mumbai_functions_soak_test_real
+go test -v -run TestFunctionsLoad/mumbai_functions_stress_test_real
 ```
-Stress `1 TX/sec - 78 requests per TX` (max gas)
+
+Gateway tests:
 ```
-go test -v -run TestFunctionsLoad/functions_stress_test
-```
-Gateway `secrets_list` test
-```
-go test -v -timeout 24h -run TestGatewayLoad/gateway_secrets_list_soak_test
-```
-Gateway `secrets_set` test
-```
-go test -v -timeout 24h -run TestGatewayLoad/gateway_secrets_set_soak_test
+go test -v -run TestGatewayLoad/gateway_secrets_list_soak_test
+go test -v -run TestGatewayLoad/gateway_secrets_set_soak_test
 ```
 
 Chaos suite can be combined with any test, can be found [here](../../chaos/functions/full.yaml)
