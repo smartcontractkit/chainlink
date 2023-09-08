@@ -14,12 +14,13 @@ import (
 )
 
 func bootstrapPersistenceManager(t *testing.T) *PersistenceManager {
+	t.Helper()
 	db := pgtest.NewSqlxDB(t)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 	lggr := logger.TestLogger(t)
 	orm := NewORM(db, lggr, pgtest.NewQConfig(true))
-	return NewPersistenceManager(lggr, orm, 0)
+	return NewPersistenceManager(lggr, orm, 0, 2, 10*time.Millisecond, 10*time.Millisecond)
 }
 
 func TestPersistenceManager(t *testing.T) {
@@ -61,7 +62,6 @@ func TestPersistenceManagerAsyncDelete(t *testing.T) {
 	err = pm.Insert(ctx, &pb.TransmitRequest{Payload: reports[1]}, ocrtypes.ReportContext{})
 	require.NoError(t, err)
 
-	flushDeletesFrequency = 10 * time.Millisecond
 	err = pm.Start(ctx)
 	require.NoError(t, err)
 
@@ -103,8 +103,6 @@ func TestPersistenceManagerPrune(t *testing.T) {
 	err = pm.Insert(ctx, &pb.TransmitRequest{Payload: reports[2]}, ocrtypes.ReportContext{ReportTimestamp: ocrtypes.ReportTimestamp{Epoch: 3}})
 	require.NoError(t, err)
 
-	maxTransmitQueueSize = 2
-	pruneFrequency = 10 * time.Millisecond
 	err = pm.Start(ctx)
 	require.NoError(t, err)
 
