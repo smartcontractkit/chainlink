@@ -41,7 +41,7 @@ contract FunctionsRouter_GetConfig is FunctionsRouterSetup {
     assertEq(config.maxCallbackGasLimits[1], getRouterConfig().maxCallbackGasLimits[1]);
     assertEq(config.maxCallbackGasLimits[2], getRouterConfig().maxCallbackGasLimits[2]);
     assertEq(config.gasForCallExactCheck, getRouterConfig().gasForCallExactCheck);
-    assertEq(config.subscriptionDepositCompletedRequests, getRouterConfig().subscriptionDepositCompletedRequests);
+    assertEq(config.subscriptionDepositMinimumRequests, getRouterConfig().subscriptionDepositMinimumRequests);
     assertEq(config.subscriptionDepositJuels, getRouterConfig().subscriptionDepositJuels);
   }
 }
@@ -65,7 +65,7 @@ contract FunctionsRouter_UpdateConfig is FunctionsRouterSetup {
       handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
       maxCallbackGasLimits: maxCallbackGasLimits,
       gasForCallExactCheck: 5000,
-      subscriptionDepositCompletedRequests: 10,
+      subscriptionDepositMinimumRequests: 10,
       subscriptionDepositJuels: 5 * 1e18
     });
   }

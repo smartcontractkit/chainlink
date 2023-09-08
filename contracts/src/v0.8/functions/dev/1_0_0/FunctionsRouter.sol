@@ -90,8 +90,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     bytes4 handleOracleFulfillmentSelector; //      ║ The function selector that is used when calling back to the Client contract
     uint16 gasForCallExactCheck; // ════════════════╝ Used during calling back to the client. Ensures we have at least enough gas to be able to revert if gasAmount >  63//64*gas available.
     uint32[] maxCallbackGasLimits; // ══════════════╸ List of max callback gas limits used by flag with GAS_FLAG_INDEX
-    uint16 subscriptionDepositCompletedRequests; //═╗ Amount of requests that must be completed before the full subscription balance will be released when closing a subscription account.
-    uint72 subscriptionDepositJuels; // ════════════╝ Amount of subscription funds that are held as a deposit until Config.subscriptionDepositCompletedRequests are made using the subscription.
+    uint16 subscriptionDepositMinimumRequests; //═╗ Amount of requests that must be completed before the full subscription balance will be released when closing a subscription account.
+    uint72 subscriptionDepositJuels; // ════════════╝ Amount of subscription funds that are held as a deposit until Config.subscriptionDepositMinimumRequests are made using the subscription.
   }
 
   Config private s_config;
@@ -184,7 +184,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
 
   // Used within FunctionsSubscriptions.sol
   function _getSubscriptionDepositDetails() internal view override returns (uint16, uint72) {
-    return (s_config.subscriptionDepositCompletedRequests, s_config.subscriptionDepositJuels);
+    return (s_config.subscriptionDepositMinimumRequests, s_config.subscriptionDepositJuels);
   }
 
   // ================================================================

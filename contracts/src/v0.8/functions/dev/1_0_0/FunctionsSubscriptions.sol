@@ -263,7 +263,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     uint64 subscriptionIdStart,
     uint64 subscriptionIdEnd
   ) external view override returns (Subscription[] memory subscriptions) {
-    if (subscriptionIdStart >= subscriptionIdEnd || subscriptionIdEnd > s_currentSubscriptionId) {
+    if (subscriptionIdStart > subscriptionIdEnd || subscriptionIdEnd > s_currentSubscriptionId) {
       revert InvalidCalldata();
     }
 
@@ -422,7 +422,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // Overriden in FunctionsRouter.sol
   function _getSubscriptionDepositDetails() internal virtual returns (uint16, uint72);
 
-  function _cancelSubscriptionHelper(uint64 subscriptionId, address toAddress, bool skipSubscriptionDeposit) private {
+  function _cancelSubscriptionHelper(uint64 subscriptionId, address toAddress, bool checkDepositRefundability) private {
     Subscription memory subscription = s_subscriptions[subscriptionId];
     uint96 balance = subscription.balance;
     uint64 completedRequests = 0;
@@ -436,12 +436,12 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     }
     delete s_subscriptions[subscriptionId];
 
-    (uint16 subscriptionDepositCompletedRequests, uint72 subscriptionDepositJuels) = _getSubscriptionDepositDetails();
+    (uint16 subscriptionDepositMinimumRequests, uint72 subscriptionDepositJuels) = _getSubscriptionDepositDetails();
 
     IERC20 linkToken = IERC20(i_linkToken);
 
     // If subscription has not made enough requests, deposit will be forfeited
-    if (completedRequests < subscriptionDepositCompletedRequests && !skipSubscriptionDeposit) {
+    if (completedRequests < subscriptionDepositMinimumRequests && !checkDepositRefundability) {
       uint96 deposit = subscriptionDepositJuels > balance ? balance : subscriptionDepositJuels;
       if (deposit > 0) {
         s_withdrawableTokens[address(this)] += deposit;

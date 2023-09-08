@@ -1056,7 +1056,7 @@ contract FunctionsSubscriptions_CancelSubscription is FunctionsSubscriptionSetup
   }
 
   function test_CancelSubscription_SuccessRecieveDeposit() public {
-    // Complete 1 request = subscriptionDepositCompletedRequests
+    // Complete 1 request = subscriptionDepositMinimumRequests
     vm.recordLogs();
     bytes32 requestId = s_functionsClient.sendRequest(
       s_donId,
