@@ -19,6 +19,8 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -268,7 +270,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.Errorf("forwarding is not currently supported for %s jobs", jb.OCR2OracleSpec.PluginType)
 			}
 
-			if jb.OCR2OracleSpec.PluginType == Mercury {
+			if jb.OCR2OracleSpec.PluginType == types.Mercury {
 				if jb.OCR2OracleSpec.FeedID == nil {
 					return errors.New("feed ID is required for mercury plugin type")
 				}
@@ -278,7 +280,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
-			if jb.OCR2OracleSpec.PluginType == Median {
+			if jb.OCR2OracleSpec.PluginType == types.Median {
 				var cfg medianconfig.PluginConfig
 				err = json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
 				if err != nil {
@@ -456,7 +458,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 // ValidateKeyStoreMatch confirms that the key has a valid match in the keystore
 func ValidateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key string) error {
-	if spec.PluginType == Mercury {
+	if spec.PluginType == types.Mercury {
 		_, err := keyStore.CSA().Get(key)
 		if err != nil {
 			return errors.Errorf("no CSA key matching: %q", key)
