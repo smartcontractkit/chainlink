@@ -74,6 +74,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
+// mispeled coment
+var unused = "unused"
+
 // Application implements the common functions used in the core node.
 type Application interface {
 	Start(ctx context.Context) error
