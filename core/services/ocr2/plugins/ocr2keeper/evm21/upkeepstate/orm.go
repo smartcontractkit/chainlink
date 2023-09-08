@@ -34,8 +34,8 @@ func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *
 	}
 }
 
-// BatchInsertUpkeepStates is idempotent and sets upkeep state values in db
-func (o *orm) BatchInsertUpkeepStates(state []persistedStateRecord, qopts ...pg.QOpt) error {
+// BatchInsertRecords is idempotent and sets upkeep state values in db
+func (o *orm) BatchInsertRecords(state []persistedStateRecord, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 
 	if len(state) == 0 {

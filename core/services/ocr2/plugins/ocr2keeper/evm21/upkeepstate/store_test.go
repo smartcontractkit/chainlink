@@ -331,8 +331,8 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			realORM := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 			insertFinished := make(chan struct{}, 1)
 			orm := &wrappedORM{
-				BatchInsertUpkeepStatesFn: func(records []persistedStateRecord, opt ...pg.QOpt) error {
-					err := realORM.BatchInsertUpkeepStates(records, opt...)
+				BatchInsertRecordsFn: func(records []persistedStateRecord, opt ...pg.QOpt) error {
+					err := realORM.BatchInsertRecords(records, opt...)
 					insertFinished <- struct{}{}
 					return err
 				},
@@ -395,8 +395,8 @@ func TestUpkeepStateStore_emptyDB(t *testing.T) {
 		realORM := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 		insertFinished := make(chan struct{}, 1)
 		orm := &wrappedORM{
-			BatchInsertUpkeepStatesFn: func(records []persistedStateRecord, opt ...pg.QOpt) error {
-				err := realORM.BatchInsertUpkeepStates(records, opt...)
+			BatchInsertRecordsFn: func(records []persistedStateRecord, opt ...pg.QOpt) error {
+				err := realORM.BatchInsertRecords(records, opt...)
 				insertFinished <- struct{}{}
 				return err
 			},
@@ -564,7 +564,7 @@ func (_m *mockORM) setErr(err error) {
 	_m.err = err
 }
 
-func (_m *mockORM) BatchInsertUpkeepStates(state []persistedStateRecord, _ ...pg.QOpt) error {
+func (_m *mockORM) BatchInsertRecords(state []persistedStateRecord, _ ...pg.QOpt) error {
 	return nil
 }
 
@@ -589,13 +589,13 @@ func (_m *mockORM) DeleteExpired(tm time.Time, _ ...pg.QOpt) error {
 }
 
 type wrappedORM struct {
-	BatchInsertUpkeepStatesFn func([]persistedStateRecord, ...pg.QOpt) error
-	SelectStatesByWorkIDsFn   func([]string, ...pg.QOpt) ([]persistedStateRecord, error)
-	DeleteExpiredFn           func(time.Time, ...pg.QOpt) error
+	BatchInsertRecordsFn    func([]persistedStateRecord, ...pg.QOpt) error
+	SelectStatesByWorkIDsFn func([]string, ...pg.QOpt) ([]persistedStateRecord, error)
+	DeleteExpiredFn         func(time.Time, ...pg.QOpt) error
 }
 
-func (o *wrappedORM) BatchInsertUpkeepStates(r []persistedStateRecord, q ...pg.QOpt) error {
-	return o.BatchInsertUpkeepStatesFn(r, q...)
+func (o *wrappedORM) BatchInsertRecords(r []persistedStateRecord, q ...pg.QOpt) error {
+	return o.BatchInsertRecordsFn(r, q...)
 }
 
 func (o *wrappedORM) SelectStatesByWorkIDs(ids []string, q ...pg.QOpt) ([]persistedStateRecord, error) {

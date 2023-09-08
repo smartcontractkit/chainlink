@@ -32,7 +32,7 @@ func TestInsertSelectDelete(t *testing.T) {
 		},
 	}
 
-	err := orm.BatchInsertUpkeepStates(inserted)
+	err := orm.BatchInsertRecords(inserted)
 
 	require.NoError(t, err, "no error expected from insert")
 

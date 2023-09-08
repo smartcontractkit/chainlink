@@ -26,7 +26,7 @@ const (
 )
 
 type ORM interface {
-	BatchInsertUpkeepStates([]persistedStateRecord, ...pg.QOpt) error
+	BatchInsertRecords([]persistedStateRecord, ...pg.QOpt) error
 	SelectStatesByWorkIDs([]string, ...pg.QOpt) ([]persistedStateRecord, error)
 	DeleteExpired(time.Time, ...pg.QOpt) error
 }
@@ -169,7 +169,7 @@ func (u *upkeepStateStore) flush(ctx context.Context) {
 		u.sem <- struct{}{}
 
 		go func() {
-			if err := u.orm.BatchInsertUpkeepStates(batch, pg.WithParentCtx(ctx)); err != nil {
+			if err := u.orm.BatchInsertRecords(batch, pg.WithParentCtx(ctx)); err != nil {
 				u.errCh <- err
 			}
 			<-u.sem
