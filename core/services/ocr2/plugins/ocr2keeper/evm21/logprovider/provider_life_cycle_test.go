@@ -110,7 +110,11 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 				lp.On("RegisterFilter", mock.Anything).Return(nil)
 				lp.On("UnregisterFilter", mock.Anything).Return(nil)
 				lp.On("LatestBlock", mock.Anything).Return(int64(0), nil)
-				lp.On("HasFilter", p.filterName(tc.upkeepID)).Return(tc.hasFilter).Times(1)
+				hasFitlerTimes := 1
+				if tc.unregister {
+					hasFitlerTimes = 2
+				}
+				lp.On("HasFilter", p.filterName(tc.upkeepID)).Return(tc.hasFilter).Times(hasFitlerTimes)
 				if tc.replyed {
 					lp.On("ReplayAsync", mock.Anything).Return(nil).Times(1)
 				} else {

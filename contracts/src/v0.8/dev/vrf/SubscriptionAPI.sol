@@ -36,6 +36,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   error FailedToSendEther();
   error FailedToTransferLink();
   error IndexOutOfRange();
+  error LinkNotSet();
 
   // We use the subscription struct (1 word)
   // at fulfillment time.
@@ -158,6 +159,14 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    * @param to address to send link to
    */
   function recoverFunds(address to) external onlyOwner {
+    // If LINK is not set, we cannot recover funds.
+    // It is possible that this coordinator address was funded with LINK
+    // by accident by a user but the LINK token needs to be set first
+    // before we can recover it.
+    if (address(LINK) == address(0)) {
+      revert LinkNotSet();
+    }
+
     uint256 externalBalance = LINK.balanceOf(address(this));
     uint256 internalBalance = uint256(s_totalBalance);
     if (internalBalance > externalBalance) {
@@ -200,6 +209,9 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    * @param amount amount to withdraw
    */
   function oracleWithdraw(address recipient, uint96 amount) external nonReentrant {
+    if (address(LINK) == address(0)) {
+      revert LinkNotSet();
+    }
     if (s_withdrawableTokens[msg.sender] < amount) {
       revert InsufficientBalance();
     }
@@ -239,7 +251,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    // We do not check that the msg.sender is the subscription owner,
+    // We do not check that the sender is the subscription owner,
     // anyone can fund a subscription.
     uint256 oldBalance = s_subscriptions[subId].balance;
     s_subscriptions[subId].balance += uint96(amount);
@@ -425,9 +437,5 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
       revert MustBeSubOwner(owner);
     }
     _;
-  }
-
-  function getConsumerKey(address consumer, uint256 subId) internal pure returns (bytes32) {
-    return keccak256(abi.encodePacked(subId, consumer));
   }
 }
