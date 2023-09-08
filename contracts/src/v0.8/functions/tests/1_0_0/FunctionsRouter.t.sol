@@ -1191,6 +1191,53 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
     assertEq(callbackGasCostJuels, 0);
   }
 
+  function test_Fulfill_SuccessClientNoLongerExists() public {
+    // Delete the Client contract in the time between request and fulfillment
+    vm.etch(address(s_functionsClient), new bytes(0));
+
+    // Send as committed Coordinator
+    vm.stopPrank();
+    vm.startPrank(address(s_functionsCoordinator));
+
+    bytes memory response = bytes("hello world!");
+    bytes memory err = new bytes(0);
+    uint96 juelsPerGas = 0;
+    uint96 costWithoutCallback = 0;
+    address transmitter = NOP_TRANSMITTER_ADDRESS_1;
+    FunctionsResponse.Commitment memory commitment = s_requestCommitment;
+
+    // topic0 (function signature, always checked), topic1 (true), topic2 (true), NOT topic3 (false), and data (true).
+    bool checkTopic1RequestId = true;
+    bool checkTopic2SubscriptionId = true;
+    bool checkTopic3 = false;
+    bool checkData = true;
+    vm.expectEmit(checkTopic1RequestId, checkTopic2SubscriptionId, checkTopic3, checkData);
+    emit RequestProcessed({
+      requestId: s_requestId,
+      subscriptionId: s_subscriptionId,
+      totalCostJuels: s_adminFee + costWithoutCallback, // NOTE: tx.gasprice is at 0, so no callback gas used
+      transmitter: transmitter,
+      resultCode: FunctionsResponse.FulfillResult.USER_CALLBACK_ERROR,
+      response: response,
+      err: err,
+      callbackReturnData: new bytes(0)
+    });
+
+    vm.recordLogs();
+
+    (FunctionsResponse.FulfillResult resultCode, uint96 callbackGasCostJuels) = s_functionsRouter.fulfill(
+      response,
+      err,
+      juelsPerGas,
+      costWithoutCallback,
+      transmitter,
+      commitment
+    );
+
+    assertEq(uint(resultCode), uint(FunctionsResponse.FulfillResult.USER_CALLBACK_ERROR));
+    assertEq(callbackGasCostJuels, 0);
+  }
+
   function test_Fulfill_SuccessFulfilled() public {
     // Send as committed Coordinator
     vm.stopPrank();

@@ -395,7 +395,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
 
     // Already maxed, cannot add any more consumers.
     uint16 maximumConsumers = _getMaxConsumers();
-    if (s_subscriptions[subscriptionId].consumers.length == maximumConsumers) {
+    if (s_subscriptions[subscriptionId].consumers.length >= maximumConsumers) {
       revert TooManyConsumers(maximumConsumers);
     }
     if (s_consumers[consumer][subscriptionId].allowed) {

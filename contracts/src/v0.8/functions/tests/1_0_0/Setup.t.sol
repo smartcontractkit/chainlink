@@ -264,3 +264,134 @@ contract FunctionsFulfillmentSetup is FunctionsClientRequestSetup {
     vm.startPrank(OWNER_ADDRESS);
   }
 }
+
+contract FunctionsMultipleFulfillmentsSetup is FunctionsFulfillmentSetup {
+  bytes32 s_requestId2;
+  FunctionsResponse.Commitment s_requestCommitment2;
+  bytes32 s_requestId3;
+  FunctionsResponse.Commitment s_requestCommitment3;
+
+  function setUp() public virtual override {
+    FunctionsFulfillmentSetup.setUp();
+
+    // Make 2 additional requests (1 already complete)
+
+    //  *** Request #2 ***
+    vm.recordLogs();
+    s_requestId2 = s_functionsClient.sendRequest(
+      s_donId,
+      "return 'hello world';",
+      new bytes(0),
+      new string[](0),
+      new bytes[](0),
+      s_subscriptionId,
+      5500
+    );
+
+    // Get commitment data from OracleRequest event log
+    Vm.Log[] memory entriesAfterRequest2 = vm.getRecordedLogs();
+    (, , , , , , , FunctionsResponse.Commitment memory commitment2) = abi.decode(
+      entriesAfterRequest2[0].data,
+      (address, uint64, address, bytes, uint16, bytes32, uint64, FunctionsResponse.Commitment)
+    );
+    s_requestCommitment2 = commitment2;
+
+    // Transmit as transmitter 2
+    vm.stopPrank();
+    vm.startPrank(NOP_TRANSMITTER_ADDRESS_2);
+
+    // Build report
+    bytes32[] memory requestIds2 = new bytes32[](1);
+    requestIds2[0] = s_requestId2;
+    bytes[] memory results2 = new bytes[](1);
+    results2[0] = bytes("hello world!");
+    bytes[] memory errors2 = new bytes[](1);
+    // No error
+    bytes[] memory onchainMetadata2 = new bytes[](1);
+    onchainMetadata2[0] = abi.encode(s_requestCommitment2);
+    bytes[] memory offchainMetadata2 = new bytes[](1);
+    // No offchain metadata
+    bytes memory report2 = abi.encode(requestIds2, results2, errors2, onchainMetadata2, offchainMetadata2);
+
+    // Build signers
+    address[31] memory signers2;
+    signers2[0] = NOP_SIGNER_ADDRESS_2;
+
+    // Send report
+    vm.recordLogs();
+    s_functionsCoordinator.callReportWithSigners(report2, signers2);
+
+    // Get actual cost from RequestProcessed event log
+    Vm.Log[] memory entriesAfterFulfill2 = vm.getRecordedLogs();
+    (uint96 totalCostJuels2, , , , , ) = abi.decode(
+      entriesAfterFulfill2[2].data,
+      (uint96, address, FunctionsResponse.FulfillResult, bytes, bytes, bytes)
+    );
+    // totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels
+    s_fulfillmentCoordinatorBalance += totalCostJuels2 - s_adminFee;
+    s_fulfillmentRouterOwnerBalance += s_adminFee;
+
+    // Return prank to Owner
+    vm.stopPrank();
+    vm.startPrank(OWNER_ADDRESS);
+
+    //  *** Request #3 ***
+    vm.recordLogs();
+    s_requestId3 = s_functionsClient.sendRequest(
+      s_donId,
+      "return 'hello world';",
+      new bytes(0),
+      new string[](0),
+      new bytes[](0),
+      s_subscriptionId,
+      5500
+    );
+
+    // Get commitment data from OracleRequest event log
+    Vm.Log[] memory entriesAfterRequest3 = vm.getRecordedLogs();
+    (, , , , , , , FunctionsResponse.Commitment memory commitment3) = abi.decode(
+      entriesAfterRequest3[0].data,
+      (address, uint64, address, bytes, uint16, bytes32, uint64, FunctionsResponse.Commitment)
+    );
+    s_requestCommitment3 = commitment3;
+
+    // Transmit as transmitter 3
+    vm.stopPrank();
+    vm.startPrank(NOP_TRANSMITTER_ADDRESS_3);
+
+    // Build report
+    bytes32[] memory requestIds3 = new bytes32[](1);
+    requestIds3[0] = s_requestId3;
+    bytes[] memory results3 = new bytes[](1);
+    results3[0] = bytes("hello world!");
+    bytes[] memory errors3 = new bytes[](1);
+    // No error
+    bytes[] memory onchainMetadata3 = new bytes[](1);
+    onchainMetadata3[0] = abi.encode(s_requestCommitment3);
+    bytes[] memory offchainMetadata3 = new bytes[](1);
+    // No offchain metadata
+    bytes memory report3 = abi.encode(requestIds3, results3, errors3, onchainMetadata3, offchainMetadata3);
+
+    // Build signers
+    address[31] memory signers3;
+    signers3[0] = NOP_SIGNER_ADDRESS_3;
+
+    // Send report
+    vm.recordLogs();
+    s_functionsCoordinator.callReportWithSigners(report3, signers3);
+
+    // Get actual cost from RequestProcessed event log
+    Vm.Log[] memory entriesAfterFulfill3 = vm.getRecordedLogs();
+    (uint96 totalCostJuels3, , , , , ) = abi.decode(
+      entriesAfterFulfill3[2].data,
+      (uint96, address, FunctionsResponse.FulfillResult, bytes, bytes, bytes)
+    );
+
+    // totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels
+    s_fulfillmentCoordinatorBalance += totalCostJuels3 - s_adminFee;
+
+    // Return prank to Owner
+    vm.stopPrank();
+    vm.startPrank(OWNER_ADDRESS);
+  }
+}
