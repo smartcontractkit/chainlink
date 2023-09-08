@@ -72,7 +72,7 @@
     "prettier": "^3.0.3",
     "prettier-plugin-solidity": "1.1.3",
     "rlp": "^2.0.0",
-    "solhint": "^3.4.1",
+    "solhint": "^3.6.2",
     "solhint-plugin-prettier": "^0.0.5",
     "solidity-coverage": "^0.8.4",
     "ts-node": "^10.0.0",

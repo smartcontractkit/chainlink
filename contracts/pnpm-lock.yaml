@@ -146,8 +146,8 @@ devDependencies:
     specifier: ^2.0.0
     version: 2.2.7
   solhint:
-    specifier: ^3.4.1
-    version: 3.4.1
+    specifier: ^3.6.2
+    version: 3.6.2
   solhint-plugin-prettier:
     specifier: ^0.0.5
     version: 0.0.5(prettier-plugin-solidity@1.1.3)(prettier@3.0.3)
@@ -9485,6 +9485,14 @@ packages:
       lru-cache: 6.0.0
     dev: true
 
+  /semver@7.5.4:
+    resolution: {integrity: sha512-1bCSESV6Pv+i21Hvpxp3Dx+pSD8lIPt8uVjRrxAUt/nbswYc+tK6Y2btiULjd4+fnq15PX+nqQDC7Oft7WkwcA==}
+    engines: {node: '>=10'}
+    hasBin: true
+    dependencies:
+      lru-cache: 6.0.0
+    dev: true
+
   /send@0.17.1:
     resolution: {integrity: sha512-BsVKsiGcQMFwT8UxypobUKyv7irCNRHk1T0G680vk88yf6LBByGcZJOTJCrTP2xVN6yI+XjPJcNuE3V4fT9sAg==}
     engines: {node: '>= 0.8.0'}
@@ -9786,8 +9794,8 @@ packages:
       prettier-plugin-solidity: 1.1.3(prettier@3.0.3)
     dev: true
 
-  /solhint@3.4.1:
-    resolution: {integrity: sha512-pzZn2RlZhws1XwvLPVSsxfHrwsteFf5eySOhpAytzXwKQYbTCJV6z8EevYDiSVKMpWrvbKpEtJ055CuEmzp4Xg==}
+  /solhint@3.6.2:
+    resolution: {integrity: sha512-85EeLbmkcPwD+3JR7aEMKsVC9YrRSxd4qkXuMzrlf7+z2Eqdfm1wHWq1ffTuo5aDhoZxp2I9yF3QkxZOxOL7aQ==}
     hasBin: true
     dependencies:
       '@solidity-parser/parser': 0.16.0
@@ -9803,7 +9811,7 @@ packages:
       js-yaml: 4.1.0
       lodash: 4.17.21
       pluralize: 8.0.0
-      semver: 6.3.0
+      semver: 7.5.4
       strip-ansi: 6.0.1
       table: 6.8.1
       text-table: 0.2.0
