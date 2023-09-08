@@ -3,7 +3,6 @@ package utils
 import (
 	"context"
 	"sync"
-	"sync/atomic"
 )
 
 var _ ThreadControl = &threadControl{}
@@ -26,10 +25,7 @@ func NewThreadControl() *threadControl {
 
 type threadControl struct {
 	threadsWG sync.WaitGroup
-
-	running atomic.Int32
-
-	stop StopChan
+	stop      StopChan
 }
 
 func (tc *threadControl) Go(fn func(context.Context)) {
