@@ -18,6 +18,8 @@ import (
 )
 
 const (
+	UpkeepStateStoreServiceName = "UpkeepStateStore"
+
 	// CacheExpiration is the amount of time that we keep a record in the cache.
 	CacheExpiration = 24 * time.Hour
 	// GCInterval is the amount of time between cache cleanups.
@@ -54,64 +56,48 @@ type upkeepStateRecord struct {
 // It stores the state of ineligible upkeeps in a local, in-memory cache.
 // In addition, performed events are fetched by the scanner on demand.
 type upkeepStateStore struct {
-	// dependencies
+	utils.StartStopOnce
+	threadCtrl utils.ThreadControl
+
 	orm     ORM
 	lggr    logger.Logger
 	scanner PerformedLogsScanner
 
-	// configuration
 	retention    time.Duration
 	cleanCadence time.Duration
 
 	mu    sync.RWMutex
 	cache map[string]*upkeepStateRecord
-
-	// service values
-	cancel context.CancelFunc
-	done   chan struct{}
 }
 
 // NewUpkeepStateStore creates a new state store
 func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScanner) *upkeepStateStore {
 	return &upkeepStateStore{
 		orm:          orm,
-		lggr:         lggr.Named("UpkeepStateStore"),
+		lggr:         lggr.Named(UpkeepStateStoreServiceName),
 		cache:        map[string]*upkeepStateRecord{},
 		scanner:      scanner,
 		retention:    CacheExpiration,
 		cleanCadence: GCInterval,
-		done:         make(chan struct{}),
+		threadCtrl:   utils.NewThreadControl(context.Background(), 1),
 	}
 }
 
 // Start starts the upkeep state store.
 // it does background cleanup of the cache.
 func (u *upkeepStateStore) Start(pctx context.Context) error {
-	if u.retention == 0 {
-		return errors.New("pruneDepth must be greater than zero")
-	}
+	return u.StartOnce(UpkeepStateStoreServiceName, func() error {
+		if u.retention == 0 {
+			return errors.New("pruneDepth must be greater than zero")
+		}
 
-	u.mu.Lock()
-	if u.cancel != nil {
-		u.mu.Unlock()
-		return fmt.Errorf("already started")
-	}
+		if err := u.scanner.Start(pctx); err != nil {
+			return fmt.Errorf("failed to start scanner")
+		}
 
-	ctx, cancel := context.WithCancel(context.Background())
+		u.lggr.Debug("Starting upkeep state store")
 
-	u.cancel = cancel
-	u.mu.Unlock()
-
-	if err := u.scanner.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start scanner")
-	}
-
-	u.lggr.Debug("Starting upkeep state store")
-
-	{
-		go func(ctx context.Context) {
-			defer close(u.done)
-
+		u.threadCtrl.Go(func(ctx context.Context) {
 			ticker := time.NewTicker(utils.WithJitter(u.cleanCadence))
 			defer ticker.Stop()
 
@@ -124,32 +110,25 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 
 					ticker.Reset(utils.WithJitter(u.cleanCadence))
 				case <-ctx.Done():
+					return
 				}
 			}
-		}(ctx)
-	}
+		})
 
-	return nil
+		return nil
+	})
 }
 
 // Close stops the service of pruning stale data; implements io.Closer
 func (u *upkeepStateStore) Close() error {
-	u.mu.Lock()
-	if cancel := u.cancel; cancel != nil {
-		u.cancel = nil
-		u.mu.Unlock()
-		cancel()
-	} else {
-		u.mu.Unlock()
-		return fmt.Errorf("already stopped")
-	}
-	if err := u.scanner.Close(); err != nil {
-		return fmt.Errorf("failed to start scanner")
-	}
+	return u.StopOnce(UpkeepStateStoreServiceName, func() error {
+		u.threadCtrl.Close()
+		return nil
+	})
+}
 
-	<-u.done
-
-	return nil
+func (u *upkeepStateStore) HealthReport() map[string]error {
+	return map[string]error{UpkeepStateStoreServiceName: u.Healthy()}
 }
 
 // SelectByWorkIDs returns the current state of the upkeep for the provided ids.

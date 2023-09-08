@@ -25,6 +25,8 @@ import (
 )
 
 var (
+	LogRecovererServiceName = "LogRecoverer"
+
 	// RecoveryInterval is the interval at which the recovery scanning processing is triggered
 	RecoveryInterval = 5 * time.Second
 	// RecoveryCacheTTL is the time to live for the recovery cache
@@ -54,10 +56,10 @@ type visitedRecord struct {
 }
 
 type logRecoverer struct {
-	lggr logger.Logger
+	utils.StartStopOnce
+	threadCtrl utils.ThreadControl
 
-	cancel context.CancelFunc
-	done   chan struct{}
+	lggr logger.Logger
 
 	lookbackBlocks *atomic.Int64
 	blockTime      *atomic.Int64
@@ -79,9 +81,9 @@ var _ LogRecoverer = &logRecoverer{}
 
 func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client client.Client, stateStore core.UpkeepStateReader, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logRecoverer {
 	rec := &logRecoverer{
-		lggr: lggr.Named("LogRecoverer"),
+		lggr: lggr.Named(LogRecovererServiceName),
 
-		done: make(chan struct{}),
+		threadCtrl: utils.NewThreadControl(context.Background(), 1),
 
 		blockTime:      &atomic.Int64{},
 		lookbackBlocks: &atomic.Int64{},
@@ -103,35 +105,22 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 }
 
 func (r *logRecoverer) Start(pctx context.Context) error {
-	ctx, cancel := context.WithCancel(context.Background())
+	return r.StartOnce(LogRecovererServiceName, func() error {
+		blockTimeResolver := newBlockTimeResolver(r.poller)
+		blockTime, err := blockTimeResolver.BlockTime(pctx, defaultSampleSize)
+		if err != nil {
+			// TODO: TBD exit or just log a warning
+			// return fmt.Errorf("failed to compute block time: %w", err)
+			r.lggr.Warnw("failed to compute block time", "err", err)
+		}
+		if blockTime > 0 {
+			r.blockTime.Store(int64(blockTime))
+		}
 
-	r.lock.Lock()
-	if r.cancel != nil {
-		r.lock.Unlock()
-		cancel() // Cancel the created context
-		return errors.New("already started")
-	}
-	r.cancel = cancel
-	r.lock.Unlock()
+		r.lggr.Infow("starting log recoverer", "blockTime", r.blockTime.Load(), "lookbackBlocks", r.lookbackBlocks.Load(), "interval", r.interval)
 
-	blockTimeResolver := newBlockTimeResolver(r.poller)
-	blockTime, err := blockTimeResolver.BlockTime(ctx, defaultSampleSize)
-	if err != nil {
-		// TODO: TBD exit or just log a warning
-		// return fmt.Errorf("failed to compute block time: %w", err)
-		r.lggr.Warnw("failed to compute block time", "err", err)
-	}
-	if blockTime > 0 {
-		r.blockTime.Store(int64(blockTime))
-	}
-
-	r.lggr.Infow("starting log recoverer", "blockTime", r.blockTime.Load(), "lookbackBlocks", r.lookbackBlocks.Load(), "interval", r.interval)
-
-	{
-		go func(ctx context.Context, interval time.Duration) {
-			defer close(r.done)
-
-			ticker := time.NewTicker(interval)
+		r.threadCtrl.Go(func(ctx context.Context) {
+			ticker := time.NewTicker(r.interval)
 			defer ticker.Stop()
 			gcTicker := time.NewTicker(utils.WithJitter(GCInterval))
 			defer gcTicker.Stop()
@@ -149,32 +138,21 @@ func (r *logRecoverer) Start(pctx context.Context) error {
 					return
 				}
 			}
-		}(ctx, r.interval)
-	}
+		})
 
-	return nil
+		return nil
+	})
 }
 
 func (r *logRecoverer) Close() error {
-	if err := r.stop(); err != nil {
-		return err
-	}
-	<-r.done
-	return nil
+	return r.StopOnce(LogRecovererServiceName, func() error {
+		r.threadCtrl.Close()
+		return nil
+	})
 }
 
-func (r *logRecoverer) stop() error {
-	r.lock.Lock()
-	defer r.lock.Unlock()
-
-	if cancel := r.cancel; cancel != nil {
-		r.cancel = nil
-		cancel()
-	} else {
-		return errors.New("already stopped")
-	}
-
-	return nil
+func (r *logRecoverer) HealthReport() map[string]error {
+	return map[string]error{LogRecovererServiceName: r.Healthy()}
 }
 
 func (r *logRecoverer) GetProposalData(ctx context.Context, proposal ocr2keepers.CoordinatedBlockProposal) ([]byte, error) {

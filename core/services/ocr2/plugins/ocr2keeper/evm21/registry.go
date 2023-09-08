@@ -41,6 +41,8 @@ const (
 )
 
 var (
+	RegistryServiceName = "AutomationRegistry"
+
 	ErrLogReadFailure              = fmt.Errorf("failure reading logs")
 	ErrHeadNotAvailable            = fmt.Errorf("head not available")
 	ErrInitializationFailure       = fmt.Errorf("failed to initialize registry")
@@ -83,6 +85,7 @@ func NewEvmRegistry(
 	finalityDepth uint32,
 ) *EvmRegistry {
 	return &EvmRegistry{
+		threadCtrl:   utils.NewThreadControl(context.Background(), 10), // TODO: limit
 		lggr:         lggr.Named("EvmRegistry"),
 		poller:       client.LogPoller(),
 		addr:         addr,
@@ -124,7 +127,8 @@ type MercuryConfig struct {
 }
 
 type EvmRegistry struct {
-	sync             utils.StartStopOnce
+	utils.StartStopOnce
+	threadCtrl       utils.ThreadControl
 	lggr             logger.Logger
 	poller           logpoller.LogPoller
 	addr             common.Address
@@ -134,7 +138,6 @@ type EvmRegistry struct {
 	abi              abi.ABI
 	packer           encoding.Packer
 	chLog            chan logpoller.Log
-	reInit           *time.Timer
 	mu               sync.RWMutex
 	logProcessed     map[string]bool
 	active           ActiveUpkeepList
@@ -149,7 +152,6 @@ type EvmRegistry struct {
 	bs               *BlockSubscriber
 	logEventProvider logprovider.LogEventProvider
 	finalityDepth    uint32
-	threadsWG        sync.WaitGroup
 }
 
 func (r *EvmRegistry) Name() string {
@@ -157,116 +159,84 @@ func (r *EvmRegistry) Name() string {
 }
 
 func (r *EvmRegistry) Start(ctx context.Context) error {
-	return r.sync.StartOnce("AutomationRegistry", func() error {
+	return r.StartOnce(RegistryServiceName, func() error {
 		r.mu.Lock()
 		defer r.mu.Unlock()
 		r.ctx, r.cancel = context.WithCancel(context.Background())
-		r.reInit = time.NewTimer(refreshInterval)
 
 		if err := r.registerEvents(r.chainID, r.addr); err != nil {
 			return fmt.Errorf("logPoller error while registering automation events: %w", err)
 		}
 
-		r.threadsWG.Add(1)
-		// refresh the active upkeep keys; if the reInit timer returns, do it again
-		{
-			go func(cx context.Context, tmr *time.Timer, lggr logger.Logger, f func() error) {
-				defer r.threadsWG.Done()
-				err := f()
-				if err != nil {
-					lggr.Errorf("failed to initialize upkeeps", err)
-				}
-
-				for {
-					select {
-					case <-tmr.C:
-						err = f()
-						if err != nil {
-							lggr.Errorf("failed to re-initialize upkeeps", err)
-						}
-						tmr.Reset(refreshInterval)
-					case <-cx.Done():
-						return
+		r.threadCtrl.Go(func(ctx context.Context) {
+			lggr := r.lggr.With("where", "upkeeps_referesh")
+			err := r.refreshActiveUpkeeps()
+			if err != nil {
+				lggr.Errorf("failed to initialize upkeeps", err)
+			}
+			tmr := time.NewTimer(refreshInterval)
+			for {
+				select {
+				case <-tmr.C:
+					err = r.refreshActiveUpkeeps()
+					if err != nil {
+						lggr.Errorf("failed to refresh upkeeps", err)
 					}
+					tmr.Reset(refreshInterval)
+				case <-ctx.Done():
+					return
 				}
-			}(r.ctx, r.reInit, r.lggr, r.refreshActiveUpkeeps)
-		}
+			}
+		})
 
-		r.threadsWG.Add(1)
-		// start polling logs on an interval
-		{
-			go func(cx context.Context, lggr logger.Logger, f func() error) {
-				defer r.threadsWG.Done()
-				ticker := time.NewTicker(time.Second)
-				for {
-					select {
-					case <-ticker.C:
-						err := f()
-						if err != nil {
-							lggr.Errorf("failed to poll logs for upkeeps", err)
-						}
-					case <-cx.Done():
-						ticker.Stop()
-						return
+		r.threadCtrl.Go(func(ctx context.Context) {
+			lggr := r.lggr.With("where", "logs_polling")
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+
+			for {
+				select {
+				case <-ticker.C:
+					err := r.pollUpkeepStateLogs()
+					if err != nil {
+						lggr.Errorf("failed to poll logs for upkeeps", err)
 					}
+				case <-ctx.Done():
+					return
 				}
-			}(r.ctx, r.lggr, r.pollUpkeepStateLogs)
-		}
+			}
+		})
 
-		r.threadsWG.Add(1)
-		// run process to process logs from log channel
-		{
-			go func(cx context.Context, ch chan logpoller.Log, lggr logger.Logger, f func(logpoller.Log) error) {
-				defer r.threadsWG.Done()
-				for {
-					select {
-					case l := <-ch:
-						err := f(l)
-						if err != nil {
-							lggr.Errorf("failed to process log for upkeep", err)
-						}
-					case <-cx.Done():
-						return
+		r.threadCtrl.Go(func(ctx context.Context) {
+			lggr := r.lggr.With("where", "logs_processing")
+			ch := r.chLog
+
+			for {
+				select {
+				case l := <-ch:
+					err := r.processUpkeepStateLog(l)
+					if err != nil {
+						lggr.Errorf("failed to process log for upkeep", err)
 					}
+				case <-ctx.Done():
+					return
 				}
-			}(r.ctx, r.chLog, r.lggr, r.processUpkeepStateLog)
-		}
+			}
+		})
 
-		r.runState = 1
 		return nil
 	})
 }
 
 func (r *EvmRegistry) Close() error {
-	return r.sync.StopOnce("AutomationRegistry", func() error {
-		r.mu.Lock()
-		r.cancel()
-		r.runState = 0
-		r.runError = nil
-		r.mu.Unlock()
-		r.threadsWG.Wait()
+	return r.StopOnce(RegistryServiceName, func() error {
+		r.threadCtrl.Close()
 		return nil
 	})
 }
 
-func (r *EvmRegistry) Ready() error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	if r.runState == 1 {
-		return nil
-	}
-	return r.sync.Ready()
-}
-
 func (r *EvmRegistry) HealthReport() map[string]error {
-	r.mu.RLock()
-	defer r.mu.RUnlock()
-
-	if r.runState > 1 {
-		r.sync.SvcErrBuffer.Append(fmt.Errorf("failed run state: %w", r.runError))
-	}
-	return map[string]error{r.Name(): r.sync.Healthy()}
+	return map[string]error{RegistryServiceName: r.Healthy()}
 }
 
 func (r *EvmRegistry) refreshActiveUpkeeps() error {
