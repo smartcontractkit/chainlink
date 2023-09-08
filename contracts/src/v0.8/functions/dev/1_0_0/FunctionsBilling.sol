@@ -256,12 +256,12 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   ) internal returns (FunctionsResponse.FulfillResult) {
     FunctionsResponse.Commitment memory commitment = abi.decode(onchainMetadata, (FunctionsResponse.Commitment));
 
-    if (s_requestCommitments[requestId] != keccak256(abi.encode(commitment))) {
-      return FunctionsResponse.FulfillResult.INVALID_COMMITMENT;
-    }
-
     if (s_requestCommitments[requestId] == bytes32(0)) {
       return FunctionsResponse.FulfillResult.INVALID_REQUEST_ID;
+    }
+
+    if (s_requestCommitments[requestId] != keccak256(abi.encode(commitment))) {
+      return FunctionsResponse.FulfillResult.INVALID_COMMITMENT;
     }
 
     uint96 juelsPerGas = _getJuelsPerGas(tx.gasprice);
@@ -304,15 +304,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   /// @inheritdoc IFunctionsBilling
   /// @dev Only callable by the Router
   /// @dev Used by FunctionsRouter.sol during timeout of a request
-  function deleteCommitment(bytes32 requestId) external override onlyRouter returns (bool) {
-    // Ensure that commitment exists
-    if (s_requestCommitments[requestId] == bytes32(0)) {
-      return false;
-    }
+  function deleteCommitment(bytes32 requestId) external override onlyRouter {
     // Delete commitment
     delete s_requestCommitments[requestId];
     emit CommitmentDeleted(requestId);
-    return true;
   }
 
   // ================================================================

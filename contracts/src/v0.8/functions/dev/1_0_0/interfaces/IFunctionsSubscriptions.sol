@@ -25,6 +25,15 @@ interface IFunctionsSubscriptions {
   /// @return subscription - see IFunctionsSubscriptions.Subscription for more information on the structure
   function getSubscription(uint64 subscriptionId) external view returns (Subscription memory);
 
+  /// @notice Retrieve details about multiple subscriptions using an inclusive range
+  /// @param subscriptionIdStart - the ID of the subscription to start the range at
+  /// @param subscriptionIdEnd - the ID of the subscription to end the range at
+  /// @return subscriptions - see IFunctionsSubscriptions.Subscription for more information on the structure
+  function getSubscriptionsInRange(
+    uint64 subscriptionIdStart,
+    uint64 subscriptionIdEnd
+  ) external view returns (Subscription[] memory);
+
   /// @notice Get details about a consumer of a subscription.
   /// @param client - the consumer contract address
   /// @param subscriptionId - the ID of the subscription

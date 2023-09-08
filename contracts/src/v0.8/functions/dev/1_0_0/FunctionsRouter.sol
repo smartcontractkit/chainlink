@@ -85,11 +85,13 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
   // |                    Configuration state                       |
   // ================================================================
   struct Config {
-    uint16 maxConsumersPerSubscription; // ══════╗ Maximum number of consumers which can be added to a single subscription. This bound ensures we are able to loop over all subscription consumers as needed, without exceeding gas limits. Should a user require more consumers, they can use multiple subscriptions.
-    uint72 adminFee; //                          ║ Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
-    bytes4 handleOracleFulfillmentSelector; //   ║ The function selector that is used when calling back to the Client contract
-    uint16 gasForCallExactCheck; // ═════════════╝ Used during calling back to the client. Ensures we have at least enough gas to be able to revert if gasAmount >  63//64*gas available.
-    uint32[] maxCallbackGasLimits; // ═══════════╸ List of max callback gas limits used by flag with GAS_FLAG_INDEX
+    uint16 maxConsumersPerSubscription; // ═════════╗ Maximum number of consumers which can be added to a single subscription. This bound ensures we are able to loop over all subscription consumers as needed, without exceeding gas limits. Should a user require more consumers, they can use multiple subscriptions.
+    uint72 adminFee; //                             ║ Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
+    bytes4 handleOracleFulfillmentSelector; //      ║ The function selector that is used when calling back to the Client contract
+    uint16 gasForCallExactCheck; // ════════════════╝ Used during calling back to the client. Ensures we have at least enough gas to be able to revert if gasAmount >  63//64*gas available.
+    uint32[] maxCallbackGasLimits; // ══════════════╸ List of max callback gas limits used by flag with GAS_FLAG_INDEX
+    uint16 subscriptionDepositMinimumRequests; //═══╗ Amount of requests that must be completed before the full subscription balance will be released when closing a subscription account.
+    uint72 subscriptionDepositJuels; // ════════════╝ Amount of subscription funds that are held as a deposit until Config.subscriptionDepositMinimumRequests are made using the subscription.
   }
 
   Config private s_config;
@@ -180,6 +182,11 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     return s_config.maxConsumersPerSubscription;
   }
 
+  /// @dev Used within FunctionsSubscriptions.sol
+  function _getSubscriptionDepositDetails() internal view override returns (uint16, uint72) {
+    return (s_config.subscriptionDepositMinimumRequests, s_config.subscriptionDepositJuels);
+  }
+
   // ================================================================
   // |                           Requests                           |
   // ================================================================
@@ -227,6 +234,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
 
     Subscription memory subscription = getSubscription(subscriptionId);
     Consumer memory consumer = getConsumer(msg.sender, subscriptionId);
+    uint72 adminFee = s_config.adminFee;
 
     // Forward request to DON
     FunctionsResponse.Commitment memory commitment = coordinator.startRequest(
@@ -237,7 +245,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
         dataVersion: dataVersion,
         flags: getFlags(subscriptionId),
         callbackGasLimit: callbackGasLimit,
-        adminFee: s_config.adminFee,
+        adminFee: adminFee,
         initiatedRequests: consumer.initiatedRequests,
         completedRequests: consumer.completedRequests,
         availableBalance: subscription.balance - subscription.blockedBalance,
@@ -254,7 +262,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     s_requestCommitments[commitment.requestId] = keccak256(
       abi.encode(
         FunctionsResponse.Commitment({
-          adminFee: s_config.adminFee,
+          adminFee: adminFee,
           coordinator: address(coordinator),
           client: msg.sender,
           subscriptionId: subscriptionId,
@@ -306,23 +314,27 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       revert OnlyCallableFromCoordinator();
     }
 
-    if (s_requestCommitments[commitment.requestId] == bytes32(0)) {
-      resultCode = FunctionsResponse.FulfillResult.INVALID_REQUEST_ID;
-      emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
-      return (resultCode, 0);
-    }
+    {
+      bytes32 commitmentHash = s_requestCommitments[commitment.requestId];
 
-    if (keccak256(abi.encode(commitment)) != s_requestCommitments[commitment.requestId]) {
-      resultCode = FunctionsResponse.FulfillResult.INVALID_COMMITMENT;
-      emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
-      return (resultCode, 0);
-    }
+      if (commitmentHash == bytes32(0)) {
+        resultCode = FunctionsResponse.FulfillResult.INVALID_REQUEST_ID;
+        emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
+        return (resultCode, 0);
+      }
 
-    // Check that the transmitter has supplied enough gas for the callback to succeed
-    if (gasleft() < commitment.callbackGasLimit + commitment.gasOverheadAfterCallback) {
-      resultCode = FunctionsResponse.FulfillResult.INSUFFICIENT_GAS_PROVIDED;
-      emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
-      return (resultCode, 0);
+      if (keccak256(abi.encode(commitment)) != commitmentHash) {
+        resultCode = FunctionsResponse.FulfillResult.INVALID_COMMITMENT;
+        emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
+        return (resultCode, 0);
+      }
+
+      // Check that the transmitter has supplied enough gas for the callback to succeed
+      if (gasleft() < commitment.callbackGasLimit + commitment.gasOverheadAfterCallback) {
+        resultCode = FunctionsResponse.FulfillResult.INSUFFICIENT_GAS_PROVIDED;
+        emit RequestNotProcessed(commitment.requestId, commitment.coordinator, transmitter, resultCode);
+        return (resultCode, 0);
+      }
     }
 
     {
@@ -512,18 +524,15 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       ) {
         revert InvalidProposal();
       }
+
+      emit ContractProposed({
+        proposedContractSetId: id,
+        proposedContractSetFromAddress: s_route[id],
+        proposedContractSetToAddress: proposedContract
+      });
     }
 
     s_proposedContractSet = ContractProposalSet({ids: proposedContractSetIds, to: proposedContractSetAddresses});
-
-    // NOTE: iterations of this loop will not exceed MAX_PROPOSAL_SET_LENGTH
-    for (uint256 i = 0; i < proposedContractSetIds.length; ++i) {
-      emit ContractProposed({
-        proposedContractSetId: proposedContractSetIds[i],
-        proposedContractSetFromAddress: s_route[proposedContractSetIds[i]],
-        proposedContractSetToAddress: proposedContractSetAddresses[i]
-      });
-    }
   }
 
   /// @inheritdoc IFunctionsRouter

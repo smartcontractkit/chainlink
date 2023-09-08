@@ -31,7 +31,7 @@ interface IFunctionsBilling {
 
   /// @notice Remove a request commitment that the Router has determined to be stale
   /// @param requestId - The request ID to remove
-  function deleteCommitment(bytes32 requestId) external returns (bool);
+  function deleteCommitment(bytes32 requestId) external;
 
   /// @notice Oracle withdraw LINK earned through fulfilling requests
   /// @notice If amount is 0 the full balance will be withdrawn
