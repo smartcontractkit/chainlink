@@ -430,14 +430,14 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 
 // multiFeedsRequest sends a Mercury v0.3 request for a multi-feed report
 func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryData, sl *StreamsLookup, lggr logger.Logger) {
-	q := url.Values{
-		feedIDs:   {strings.Join(sl.feeds, ",")},
-		timestamp: {sl.time.String()},
-	}
-	//t := big.NewInt(sl.time.Int64() - 10)
-	//q := fmt.Sprintf("feedIDs=%s&timestamp=%s", strings.Join(sl.feeds, ","), t.String())
+	// this won't work bc q.Encode() will encode commas as '%2C' but the server is strictly expecting a comma separated list
+	//q := url.Values{
+	//	feedIDs:   {strings.Join(sl.feeds, ",")},
+	//	timestamp: {sl.time.String()},
+	//}
+	params := fmt.Sprintf("%s=%s&%s=%s", feedIDs, strings.Join(sl.feeds, ","), timestamp, sl.time.String())
 
-	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV03, q.Encode())
+	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV03, params)
 	lggr.Debugf("request URL for upkeep %s userId %s: %s", sl.upkeepId.String(), r.mercury.cred.Username, reqUrl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
@@ -447,7 +447,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 	}
 
 	ts := time.Now().UTC().UnixMilli()
-	signature := r.generateHMAC(http.MethodGet, mercuryBatchPathV03+q.Encode(), []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
+	signature := r.generateHMAC(http.MethodGet, mercuryBatchPathV03+params, []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
 	req.Header.Set(headerContentType, applicationJson)
 	// username here is often referred to as user id
 	req.Header.Set(headerAuthorization, r.mercury.cred.Username)
