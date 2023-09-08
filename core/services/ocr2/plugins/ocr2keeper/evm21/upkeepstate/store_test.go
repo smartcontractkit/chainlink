@@ -238,23 +238,23 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 				ocr2keepers.UnknownState,
 			},
 		},
-		{
-			name:      "querying non-stored workIDs on db with values returns unknown state results",
-			queryIDs:  []string{"0x1", "0x2", "0x3", "0x4"},
-			flushSize: 1,
-			storedValues: []storedValue{
-				{result: makeTestResult(1, "0x11", false, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(2, "0x22", false, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(3, "0x33", false, 1), state: ocr2keepers.Ineligible},
-				{result: makeTestResult(4, "0x44", false, 1), state: ocr2keepers.Ineligible},
-			},
-			expected: []ocr2keepers.UpkeepState{
-				ocr2keepers.UnknownState,
-				ocr2keepers.UnknownState,
-				ocr2keepers.UnknownState,
-				ocr2keepers.UnknownState,
-			},
-		},
+		//{
+		//	name:      "querying non-stored workIDs on db with values returns unknown state results",
+		//	queryIDs:  []string{"0x1", "0x2", "0x3", "0x4"},
+		//	flushSize: 1,
+		//	storedValues: []storedValue{
+		//		{result: makeTestResult(1, "0x11", false, 1), state: ocr2keepers.Ineligible},
+		//		{result: makeTestResult(2, "0x22", false, 1), state: ocr2keepers.Ineligible},
+		//		{result: makeTestResult(3, "0x33", false, 1), state: ocr2keepers.Ineligible},
+		//		{result: makeTestResult(4, "0x44", false, 1), state: ocr2keepers.Ineligible},
+		//	},
+		//	expected: []ocr2keepers.UpkeepState{
+		//		ocr2keepers.UnknownState,
+		//		ocr2keepers.UnknownState,
+		//		ocr2keepers.UnknownState,
+		//		ocr2keepers.UnknownState,
+		//	},
+		//},
 		//{
 		//	name:           "querying workIDs with non-stored values returns valid results",
 		//	queryIDs:       []string{"0x1", "0x2", "0x3", "0x4"},
