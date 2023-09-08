@@ -184,7 +184,6 @@ func TestNewPayloadBuilder(t *testing.T) {
 						BlockNumber: 1,
 						BlockHash:   [32]byte{1},
 					},
-					CheckData: make([]byte, 0),
 				},
 			},
 		},

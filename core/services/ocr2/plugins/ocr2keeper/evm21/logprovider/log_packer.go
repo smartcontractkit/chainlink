@@ -22,7 +22,7 @@ func NewLogEventsPacker(utilsABI abi.ABI) *logEventsPacker {
 }
 
 func (p *logEventsPacker) PackLogData(log logpoller.Log) ([]byte, error) {
-	topics := [][32]byte{}
+	var topics [][32]byte
 	for _, topic := range log.GetTopics() {
 		topics = append(topics, topic)
 	}

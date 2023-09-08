@@ -16,7 +16,7 @@ type triggerWrapper = automation_utils_2_1.KeeperRegistryBase21LogTrigger
 
 var ErrABINotParsable = fmt.Errorf("error parsing abi")
 
-// according to the upkeep type of the given id.
+// PackTrigger packs the trigger data according to the upkeep type of the given id. it will remove the first 4 bytes of function selector.
 func PackTrigger(id *big.Int, trig triggerWrapper) ([]byte, error) {
 	var trigger []byte
 	var err error
