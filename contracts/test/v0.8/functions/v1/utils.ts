@@ -78,7 +78,7 @@ export type FunctionsRouterConfig = {
   maxCallbackGasLimits: number[]
   gasForCallExactCheck: number
   subscriptionDepositMinimumRequests: number
-  subscriptionDepositJuels: number
+  subscriptionDepositJuels: BigNumber
 }
 export const functionsRouterConfig: FunctionsRouterConfig = {
   maxConsumersPerSubscription: 100,
@@ -87,7 +87,7 @@ export const functionsRouterConfig: FunctionsRouterConfig = {
   maxCallbackGasLimits: [300_000, 500_000, 1_000_000],
   gasForCallExactCheck: 5000,
   subscriptionDepositMinimumRequests: 10,
-  subscriptionDepositJuels: 5 * 1e18,
+  subscriptionDepositJuels: BigNumber.from('1000000000000000000'),
 }
 export type CoordinatorConfig = {
   feedStalenessSeconds: number

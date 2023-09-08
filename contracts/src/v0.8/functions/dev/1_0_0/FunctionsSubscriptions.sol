@@ -263,7 +263,11 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     uint64 subscriptionIdStart,
     uint64 subscriptionIdEnd
   ) external view override returns (Subscription[] memory subscriptions) {
-    if (subscriptionIdStart > subscriptionIdEnd || subscriptionIdEnd > s_currentSubscriptionId) {
+    if (
+      subscriptionIdStart > subscriptionIdEnd ||
+      subscriptionIdEnd > s_currentSubscriptionId ||
+      s_currentSubscriptionId == 0
+    ) {
       revert InvalidCalldata();
     }
 
