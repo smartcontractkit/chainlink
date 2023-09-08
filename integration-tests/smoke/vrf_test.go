@@ -66,6 +66,7 @@ func TestVRFBasic(t *testing.T) {
 			MinIncomingConfirmations: 1,
 			PublicKey:                pubKeyCompressed,
 			ExternalJobID:            jobUUID.String(),
+			EvmChainID:               env.EVMClient.GetChainID().String(),
 			ObservationSource:        ost,
 		})
 		require.NoError(t, err, "Creating VRF Job shouldn't fail")

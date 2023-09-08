@@ -892,13 +892,14 @@ type OCRTaskJobSpec struct {
 	TrackerSubscribeInterval time.Duration      `toml:"contractConfigTrackerSubscribeInterval"` // Optional
 	ForwardingAllowed        bool               `toml:"forwardingAllowed"`                      // Optional, by default false
 	ContractAddress          string             `toml:"contractAddress"`                        // Address of the OCR contract
-	P2PBootstrapPeers        []*ChainlinkClient `toml:"p2pBootstrapPeers"`                      // P2P ID of the bootstrap node
-	IsBootstrapPeer          bool               `toml:"isBootstrapPeer"`                        // Typically false
-	P2PPeerID                string             `toml:"p2pPeerID"`                              // This node's P2P ID
-	KeyBundleID              string             `toml:"keyBundleID"`                            // ID of this node's OCR key bundle
-	MonitoringEndpoint       string             `toml:"monitoringEndpoint"`                     // Typically "chain.link:4321"
-	TransmitterAddress       string             `toml:"transmitterAddress"`                     // ETH address this node will use to transmit its answer
-	ObservationSource        string             `toml:"observationSource"`                      // List of commands for the Chainlink node
+	EvmChainID               string             `toml:"evmChainID"`
+	P2PBootstrapPeers        []*ChainlinkClient `toml:"p2pBootstrapPeers"`  // P2P ID of the bootstrap node
+	IsBootstrapPeer          bool               `toml:"isBootstrapPeer"`    // Typically false
+	P2PPeerID                string             `toml:"p2pPeerID"`          // This node's P2P ID
+	KeyBundleID              string             `toml:"keyBundleID"`        // ID of this node's OCR key bundle
+	MonitoringEndpoint       string             `toml:"monitoringEndpoint"` // Typically "chain.link:4321"
+	TransmitterAddress       string             `toml:"transmitterAddress"` // ETH address this node will use to transmit its answer
+	ObservationSource        string             `toml:"observationSource"`  // List of commands for the Chainlink node
 }
 
 // P2PData holds the remote ip and the peer id and port
@@ -939,6 +940,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		TrackerPollInterval      time.Duration
 		TrackerSubscribeInterval time.Duration
 		ContractAddress          string
+		EvmChainID               string
 		P2PBootstrapPeers        []P2PData
 		IsBootstrapPeer          bool
 		P2PPeerID                string
@@ -954,6 +956,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		TrackerPollInterval:      o.TrackerPollInterval,
 		TrackerSubscribeInterval: o.TrackerSubscribeInterval,
 		ContractAddress:          o.ContractAddress,
+		EvmChainID:               o.EvmChainID,
 		P2PBootstrapPeers:        peers,
 		IsBootstrapPeer:          o.IsBootstrapPeer,
 		P2PPeerID:                o.P2PPeerID,
@@ -971,6 +974,7 @@ contractConfigConfirmations            ={{if not .ContractConfirmations}} 3 {{el
 contractConfigTrackerPollInterval      ={{if not .TrackerPollInterval}} "1m" {{else}} {{.TrackerPollInterval}} {{end}}
 contractConfigTrackerSubscribeInterval ={{if not .TrackerSubscribeInterval}} "2m" {{else}} {{.TrackerSubscribeInterval}} {{end}}
 contractAddress                        = "{{.ContractAddress}}"
+evmChainID							   = "{{.EvmChainID}}"
 {{if .P2PBootstrapPeers}}
 p2pBootstrapPeers                      = [
   {{range $peer := .P2PBootstrapPeers}}
@@ -1186,6 +1190,7 @@ type VRFJobSpec struct {
 	Name                     string `toml:"name"`
 	CoordinatorAddress       string `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
 	PublicKey                string `toml:"publicKey"`          // Public key of the proving key
+	EvmChainID               string `toml:"evmChainID"`
 	ExternalJobID            string `toml:"externalJobID"`
 	ObservationSource        string `toml:"observationSource"` // List of commands for the Chainlink node
 	MinIncomingConfirmations int    `toml:"minIncomingConfirmations"`
@@ -1203,6 +1208,7 @@ name                     = "{{.Name}}"
 coordinatorAddress       = "{{.CoordinatorAddress}}"
 minIncomingConfirmations = {{.MinIncomingConfirmations}}
 publicKey                = "{{.PublicKey}}"
+evmChainID               = "{{.EVMChainID}}"
 externalJobID            = "{{.ExternalJobID}}"
 observationSource = """
 {{.ObservationSource}}
