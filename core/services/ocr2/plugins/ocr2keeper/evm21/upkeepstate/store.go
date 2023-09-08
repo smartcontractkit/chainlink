@@ -147,28 +147,30 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 }
 
 func (u *upkeepStateStore) flush(ctx context.Context) {
-	u.sem <- struct{}{}
+	cloneRecords := make([]persistedStateRecord, len(u.pendingRecords))
 
 	u.mu.Lock()
-	defer u.mu.Unlock()
+	copy(cloneRecords, u.pendingRecords)
+	u.pendingRecords = []persistedStateRecord{}
+	u.mu.Unlock()
 
-	batch := len(u.pendingRecords)
-
-	if batch > flushSize {
-		batch = flushSize
-	} else if batch == 0 {
-		return
-	}
-
-	cloneRecords := u.pendingRecords[:batch]
-	u.pendingRecords = u.pendingRecords[batch:]
-
-	go func() {
-		if err := u.orm.BatchInsertUpkeepStates(cloneRecords, pg.WithParentCtx(ctx)); err != nil {
-			u.errCh <- err
+	for i := 0; i < len(cloneRecords); i += flushSize {
+		end := i + flushSize
+		if end > len(cloneRecords) {
+			end = len(cloneRecords)
 		}
-		<-u.sem
-	}()
+
+		batch := cloneRecords[i:end]
+
+		u.sem <- struct{}{}
+
+		go func() {
+			if err := u.orm.BatchInsertUpkeepStates(batch, pg.WithParentCtx(ctx)); err != nil {
+				u.errCh <- err
+			}
+			<-u.sem
+		}()
+	}
 }
 
 // Close stops the service of pruning stale data; implements io.Closer

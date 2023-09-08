@@ -322,8 +322,8 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 				ocr2keepers.Ineligible,
 				ocr2keepers.UnknownState,
 				ocr2keepers.Ineligible,
-				ocr2keepers.UnknownState, // unknown because not flushed to db
-				ocr2keepers.UnknownState, // unknown because not flushed to db
+				ocr2keepers.UnknownState,
+				ocr2keepers.Ineligible,
 			},
 		},
 	}
@@ -383,6 +383,8 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 				require.NoError(t, store.SetUpkeepState(context.Background(), insert.result, insert.state), "storing states should not produce an error")
 			}
 
+			tickerCh <- time.Now()
+			tickerCh <- time.Now()
 			tickerCh <- time.Now()
 
 			// if this test inserts data, wait for the insert to complete before proceeding
