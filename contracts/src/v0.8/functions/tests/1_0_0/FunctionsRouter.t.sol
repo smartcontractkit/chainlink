@@ -13,7 +13,6 @@ import {FunctionsClientTestHelper} from "./testhelpers/FunctionsClientTestHelper
 import {FunctionsRouterSetup, FunctionsRoutesSetup, FunctionsSubscriptionSetup, FunctionsClientRequestSetup} from "./Setup.t.sol";
 
 import "forge-std/Vm.sol";
-import "forge-std/console.sol";
 
 // ================================================================
 // |                        Functions Router                      |
@@ -42,6 +41,8 @@ contract FunctionsRouter_GetConfig is FunctionsRouterSetup {
     assertEq(config.maxCallbackGasLimits[1], getRouterConfig().maxCallbackGasLimits[1]);
     assertEq(config.maxCallbackGasLimits[2], getRouterConfig().maxCallbackGasLimits[2]);
     assertEq(config.gasForCallExactCheck, getRouterConfig().gasForCallExactCheck);
+    assertEq(config.subscriptionDepositCompletedRequests, getRouterConfig().subscriptionDepositCompletedRequests);
+    assertEq(config.subscriptionDepositJuels, getRouterConfig().subscriptionDepositJuels);
   }
 }
 
@@ -63,7 +64,9 @@ contract FunctionsRouter_UpdateConfig is FunctionsRouterSetup {
       adminFee: s_adminFee,
       handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
       maxCallbackGasLimits: maxCallbackGasLimits,
-      gasForCallExactCheck: 5000
+      gasForCallExactCheck: 5000,
+      subscriptionDepositCompletedRequests: 10,
+      subscriptionDepositJuels: 5 * 1e18
     });
   }
 

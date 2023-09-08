@@ -8,6 +8,8 @@ import {FunctionsResponse} from "../../dev/1_0_0/libraries/FunctionsResponse.sol
 
 import {FunctionsRouterSetup, FunctionsOwnerAcceptTermsOfServiceSetup, FunctionsClientSetup, FunctionsSubscriptionSetup, FunctionsClientRequestSetup, FunctionsFulfillmentSetup} from "./Setup.t.sol";
 
+import "forge-std/Vm.sol";
+
 // ================================================================
 // |                    Functions Subscriptions                   |
 // ================================================================
@@ -22,6 +24,10 @@ contract FunctionsSubscriptions_Constructor_Helper is FunctionsSubscriptions {
   // overrides
   function _getMaxConsumers() internal pure override returns (uint16) {
     return 0;
+  }
+
+  function _getSubscriptionDepositDetails() internal pure override returns (uint16, uint72) {
+    return (0, 0);
   }
 
   function _onlySenderThatAcceptedToS() internal override {}
@@ -93,8 +99,11 @@ contract FunctionsSubscriptions_OwnerCancelSubscription is FunctionsSubscription
 
   function test_OwnerCancelSubscription_SuccessDeletesSubscription() public {
     s_functionsRouter.ownerCancelSubscription(s_subscriptionId);
-    vm.expectRevert(FunctionsSubscriptions.InvalidSubscription.selector);
-    s_functionsRouter.getSubscription(s_subscriptionId);
+    // No owner means the subscription has been deleted
+    FunctionsSubscriptions.Subscription memory subscriptionAfterCancel = s_functionsRouter.getSubscription(
+      s_subscriptionId
+    );
+    assertEq(subscriptionAfterCancel.owner, address(0));
   }
 
   event SubscriptionCanceled(uint64 indexed subscriptionId, address fundsRecipient, uint256 fundsAmount);
@@ -346,6 +355,79 @@ contract FunctionsSubscriptions_GetSubscriptionCount is FunctionsSubscriptionSet
     uint96 subscriptionCount = s_functionsRouter.getSubscriptionCount();
     // One subscription was made during setup
     assertEq(subscriptionCount, 1);
+  }
+}
+
+/// @notice #getSubscriptionsInRange
+contract FunctionsSubscriptions_GetSubscriptionsInRange is FunctionsSubscriptionSetup {
+  function setUp() public virtual override {
+    FunctionsSubscriptionSetup.setUp();
+
+    // Create 2 more subscriptions
+    /* uint64 subscriptionId2 = */ s_functionsRouter.createSubscription();
+    uint64 subscriptionId3 = s_functionsRouter.createSubscription();
+
+    // Give each one unique state
+    // #1 subscriptionId for requests, #2 empty, #3 proposedOwner of stranger
+    s_functionsRouter.proposeSubscriptionOwnerTransfer(subscriptionId3, STRANGER_ADDRESS);
+  }
+
+  function test_GetSubscriptionsInRange_RevertIfStartIsAfterEnd() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    vm.expectRevert(FunctionsSubscriptions.InvalidCalldata.selector);
+
+    s_functionsRouter.getSubscriptionsInRange(1, 0);
+  }
+
+  function test_GetSubscriptionsInRange_RevertIfEndIsAfterLastSubscription() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    uint64 lastSubscriptionId = s_functionsRouter.getSubscriptionCount();
+    vm.expectRevert(FunctionsSubscriptions.InvalidCalldata.selector);
+    s_functionsRouter.getSubscriptionsInRange(1, lastSubscriptionId + 1);
+  }
+
+  function test_GetSubscriptionsInRange_Success() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    uint64 lastSubscriptionId = s_functionsRouter.getSubscriptionCount();
+    FunctionsSubscriptions.Subscription[] memory subscriptions = s_functionsRouter.getSubscriptionsInRange(
+      s_subscriptionId,
+      lastSubscriptionId
+    );
+
+    assertEq(subscriptions.length, 3);
+
+    // Check subscription 1
+    assertEq(subscriptions[0].balance, s_subscriptionInitialFunding);
+    assertEq(subscriptions[0].owner, OWNER_ADDRESS);
+    assertEq(subscriptions[0].blockedBalance, 0);
+    assertEq(subscriptions[0].proposedOwner, address(0));
+    assertEq(subscriptions[0].consumers[0], address(s_functionsClient));
+    assertEq(subscriptions[0].flags, bytes32(0));
+
+    // Check subscription 2
+    assertEq(subscriptions[1].balance, 0);
+    assertEq(subscriptions[1].owner, OWNER_ADDRESS);
+    assertEq(subscriptions[1].blockedBalance, 0);
+    assertEq(subscriptions[1].proposedOwner, address(0));
+    assertEq(subscriptions[1].consumers.length, 0);
+    assertEq(subscriptions[1].flags, bytes32(0));
+
+    // Check subscription 3
+    assertEq(subscriptions[2].balance, 0);
+    assertEq(subscriptions[2].owner, OWNER_ADDRESS);
+    assertEq(subscriptions[2].blockedBalance, 0);
+    assertEq(subscriptions[2].proposedOwner, address(STRANGER_ADDRESS));
+    assertEq(subscriptions[2].consumers.length, 0);
+    assertEq(subscriptions[2].flags, bytes32(0));
   }
 }
 
@@ -899,8 +981,15 @@ contract FunctionsSubscriptions_CancelSubscription is FunctionsSubscriptionSetup
 
   event SubscriptionCanceled(uint64 indexed subscriptionId, address fundsRecipient, uint256 fundsAmount);
 
-  function test_CancelSubscription_Success() public {
+  function test_CancelSubscription_SuccessForefeitAllBalanceAsDeposit() public {
+    // No requests have been completed
+    assertEq(s_functionsRouter.getConsumer(address(s_functionsClient), s_subscriptionId).completedRequests, 0);
+    // Subscription balance is less than deposit amount
+    assertLe(s_functionsRouter.getSubscription(s_subscriptionId).balance, s_subscriptionDepositJuels);
+
     uint256 subscriptionOwnerBalanceBefore = s_linkToken.balanceOf(OWNER_ADDRESS);
+
+    uint96 expectedRefund = 0;
 
     // topic0 (function signature, always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
     bool checkTopic1 = false;
@@ -908,15 +997,141 @@ contract FunctionsSubscriptions_CancelSubscription is FunctionsSubscriptionSetup
     bool checkTopic3 = false;
     bool checkData = true;
     vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
-    emit SubscriptionCanceled(s_subscriptionId, OWNER_ADDRESS, s_subscriptionInitialFunding);
+    emit SubscriptionCanceled(s_subscriptionId, OWNER_ADDRESS, expectedRefund);
 
     s_functionsRouter.cancelSubscription(s_subscriptionId, OWNER_ADDRESS);
 
     uint256 subscriptionOwnerBalanceAfter = s_linkToken.balanceOf(OWNER_ADDRESS);
-    assertEq(subscriptionOwnerBalanceBefore + s_subscriptionInitialFunding, subscriptionOwnerBalanceAfter);
+    assertEq(subscriptionOwnerBalanceBefore + expectedRefund, subscriptionOwnerBalanceAfter);
 
-    vm.expectRevert(FunctionsSubscriptions.InvalidSubscription.selector);
-    s_functionsRouter.getSubscription(s_subscriptionId);
+    // No owner means the subscription has been deleted
+    FunctionsSubscriptions.Subscription memory subscriptionAfterCancel = s_functionsRouter.getSubscription(
+      s_subscriptionId
+    );
+    assertEq(subscriptionAfterCancel.owner, address(0));
+
+    // Router owner should have expectedDepositWithheld to withdraw
+    uint96 expectedDepositWithheld = s_subscriptionInitialFunding;
+    uint256 balanceBeforeWithdraw = s_linkToken.balanceOf(STRANGER_ADDRESS);
+    s_functionsRouter.ownerWithdraw(STRANGER_ADDRESS, 0);
+    uint256 balanceAfterWithdraw = s_linkToken.balanceOf(STRANGER_ADDRESS);
+    assertEq(balanceBeforeWithdraw + expectedDepositWithheld, balanceAfterWithdraw);
+  }
+
+  function test_CancelSubscription_SuccessForefeitSomeBalanceAsDeposit() public {
+    // No requests have been completed
+    assertEq(s_functionsRouter.getConsumer(address(s_functionsClient), s_subscriptionId).completedRequests, 0);
+    // Subscription balance is more than deposit amount, double fund the subscription
+    s_linkToken.transferAndCall(address(s_functionsRouter), s_subscriptionInitialFunding, abi.encode(s_subscriptionId));
+    assertGe(s_functionsRouter.getSubscription(s_subscriptionId).balance, s_subscriptionDepositJuels);
+
+    uint256 subscriptionOwnerBalanceBefore = s_linkToken.balanceOf(OWNER_ADDRESS);
+
+    uint96 expectedRefund = (s_subscriptionInitialFunding * 2) - s_subscriptionDepositJuels;
+    // topic0 (function signature, always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
+    bool checkTopic1 = false;
+    bool checkTopic2 = false;
+    bool checkTopic3 = false;
+    bool checkData = true;
+    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
+    emit SubscriptionCanceled(s_subscriptionId, OWNER_ADDRESS, expectedRefund);
+
+    s_functionsRouter.cancelSubscription(s_subscriptionId, OWNER_ADDRESS);
+
+    uint256 subscriptionOwnerBalanceAfter = s_linkToken.balanceOf(OWNER_ADDRESS);
+    assertEq(subscriptionOwnerBalanceBefore + expectedRefund, subscriptionOwnerBalanceAfter);
+
+    // No owner means the subscription has been deleted
+    FunctionsSubscriptions.Subscription memory subscriptionAfterCancel = s_functionsRouter.getSubscription(
+      s_subscriptionId
+    );
+    assertEq(subscriptionAfterCancel.owner, address(0));
+
+    // Router owner should have expectedDepositWithheld to withdraw
+    uint96 expectedDepositWithheld = s_subscriptionDepositJuels;
+    uint256 balanceBeforeWithdraw = s_linkToken.balanceOf(STRANGER_ADDRESS);
+    s_functionsRouter.ownerWithdraw(STRANGER_ADDRESS, 0);
+    uint256 balanceAfterWithdraw = s_linkToken.balanceOf(STRANGER_ADDRESS);
+    assertEq(balanceBeforeWithdraw + expectedDepositWithheld, balanceAfterWithdraw);
+  }
+
+  function test_CancelSubscription_SuccessRecieveDeposit() public {
+    // Complete 1 request = subscriptionDepositCompletedRequests
+    vm.recordLogs();
+    bytes32 requestId = s_functionsClient.sendRequest(
+      s_donId,
+      "return 'hello world';",
+      new bytes(0),
+      new string[](0),
+      new bytes[](0),
+      s_subscriptionId,
+      5500
+    );
+
+    // Get commitment data from OracleRequest event log
+    Vm.Log[] memory entries = vm.getRecordedLogs();
+    (, , , , , , , FunctionsResponse.Commitment memory commitment) = abi.decode(
+      entries[0].data,
+      (address, uint64, address, bytes, uint16, bytes32, uint64, FunctionsResponse.Commitment)
+    );
+
+    // Send as transmitter 1
+    vm.stopPrank();
+    vm.startPrank(NOP_TRANSMITTER_ADDRESS_1);
+
+    // Build report
+    bytes32[] memory requestIds = new bytes32[](1);
+    requestIds[0] = requestId;
+    bytes[] memory results = new bytes[](1);
+    results[0] = bytes("hello world!");
+    bytes[] memory errors = new bytes[](1);
+    // No error
+    bytes[] memory onchainMetadata = new bytes[](1);
+    onchainMetadata[0] = abi.encode(commitment);
+    bytes[] memory offchainMetadata = new bytes[](1);
+    // No offchain metadata
+    bytes memory report = abi.encode(requestIds, results, errors, onchainMetadata, offchainMetadata);
+
+    // Build signers
+    address[31] memory signers;
+    signers[0] = NOP_SIGNER_ADDRESS_1;
+
+    // Send report
+    vm.recordLogs();
+    s_functionsCoordinator.callReportWithSigners(report, signers);
+
+    // Get actual cost from RequestProcessed event log
+    Vm.Log[] memory entries2 = vm.getRecordedLogs();
+    (uint96 totalCostJuels, , , , , ) = abi.decode(
+      entries2[2].data,
+      (uint96, address, FunctionsResponse.FulfillResult, bytes, bytes, bytes)
+    );
+
+    // Return to sending as owner
+    vm.stopPrank();
+    vm.startPrank(OWNER_ADDRESS);
+
+    uint256 subscriptionOwnerBalanceBefore = s_linkToken.balanceOf(OWNER_ADDRESS);
+
+    uint96 expectedRefund = s_subscriptionInitialFunding - totalCostJuels;
+    // topic0 (function signature, always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
+    bool checkTopic1 = false;
+    bool checkTopic2 = false;
+    bool checkTopic3 = false;
+    bool checkData = true;
+    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
+    emit SubscriptionCanceled(s_subscriptionId, OWNER_ADDRESS, expectedRefund);
+
+    s_functionsRouter.cancelSubscription(s_subscriptionId, OWNER_ADDRESS);
+
+    uint256 subscriptionOwnerBalanceAfter = s_linkToken.balanceOf(OWNER_ADDRESS);
+    assertEq(subscriptionOwnerBalanceBefore + expectedRefund, subscriptionOwnerBalanceAfter);
+
+    // No owner means the subscription has been deleted
+    FunctionsSubscriptions.Subscription memory subscriptionAfterCancel = s_functionsRouter.getSubscription(
+      s_subscriptionId
+    );
+    assertEq(subscriptionAfterCancel.owner, address(0));
   }
 }
 

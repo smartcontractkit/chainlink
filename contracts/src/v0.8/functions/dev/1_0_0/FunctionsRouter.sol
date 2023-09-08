@@ -89,8 +89,8 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     uint72 adminFee; //                             ║ Flat fee (in Juels of LINK) that will be paid to the Router owner for operation of the network
     bytes4 handleOracleFulfillmentSelector; //      ║ The function selector that is used when calling back to the Client contract
     uint16 gasForCallExactCheck; // ════════════════╝ Used during calling back to the client. Ensures we have at least enough gas to be able to revert if gasAmount >  63//64*gas available.
-    uint32[] maxCallbackGasLimits; // ══════════════╗ List of max callback gas limits used by flag with GAS_FLAG_INDEX
-    uint16 subscriptionDepositCompletedRequests; // ║ Amount of requests that must be completed before the full subscription balance will be released when closing a subscription account.
+    uint32[] maxCallbackGasLimits; // ══════════════╸ List of max callback gas limits used by flag with GAS_FLAG_INDEX
+    uint16 subscriptionDepositCompletedRequests; //═╗ Amount of requests that must be completed before the full subscription balance will be released when closing a subscription account.
     uint72 subscriptionDepositJuels; // ════════════╝ Amount of subscription funds that are held as a deposit until Config.subscriptionDepositCompletedRequests are made using the subscription.
   }
 
@@ -518,7 +518,6 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     for (uint256 i = 0; i < idsArrayLength; ++i) {
       bytes32 id = proposedContractSetIds[i];
       address proposedContract = proposedContractSetAddresses[i];
-
       if (
         proposedContract == address(0) || // The Proposed address must be a valid address
         s_route[id] == proposedContract // The Proposed address must point to a different address than what is currently set

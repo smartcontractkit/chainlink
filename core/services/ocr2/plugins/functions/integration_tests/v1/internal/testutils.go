@@ -203,7 +203,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	routerAddress, _, routerContract, err := functions_router.DeployFunctionsRouter(owner, b, linkAddr, functionsRouterConfig)
 	require.NoError(t, err)
 
-	// Deploy Allow List contractz
+	// Deploy Allow List contract
 	privateKey, err := crypto.HexToECDSA(allowListPrivateKey[2:])
 	proofSignerPublicKey := crypto.PubkeyToAddress(privateKey.PublicKey)
 	require.NoError(t, err)

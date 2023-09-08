@@ -42,7 +42,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // loop through all the current subscriptions via .getSubscription().
   uint64 private s_currentSubscriptionId;
 
-  mapping(uint64 subscriptionId => IFunctionsSubscriptions.Subscription) private s_subscriptions;
+  mapping(uint64 subscriptionId => Subscription) private s_subscriptions;
 
   // Maintains the list of keys in s_consumers.
   // We do this for 2 reasons:
@@ -50,7 +50,7 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
   // 2. To be able to return the list of all consumers in getSubscription.
   // Note that we need the s_consumers map to be able to directly check if a
   // consumer is valid without reading all the consumers from storage.
-  mapping(address consumer => mapping(uint64 subscriptionId => IFunctionsSubscriptions.Consumer)) private s_consumers;
+  mapping(address consumer => mapping(uint64 subscriptionId => Consumer)) private s_consumers;
 
   event SubscriptionCreated(uint64 indexed subscriptionId, address owner);
   event SubscriptionFunded(uint64 indexed subscriptionId, uint256 oldBalance, uint256 newBalance);
@@ -263,12 +263,15 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
     uint64 subscriptionIdStart,
     uint64 subscriptionIdEnd
   ) external view override returns (Subscription[] memory subscriptions) {
-    if (subscriptionIdStart >= subscriptionIdEnd) {
+    if (subscriptionIdStart >= subscriptionIdEnd || subscriptionIdEnd > s_currentSubscriptionId) {
       revert InvalidCalldata();
     }
-    for (uint256 i = subscriptionIdStart; i < subscriptionIdEnd; ++i) {
-      subscriptions[i - subscriptionIdStart] = s_subscriptions[uint64(i)];
+
+    subscriptions = new Subscription[]((subscriptionIdEnd - subscriptionIdStart) + 1);
+    for (uint256 i = 0; i <= subscriptionIdEnd - subscriptionIdStart; ++i) {
+      subscriptions[i] = s_subscriptions[uint64(subscriptionIdStart + i)];
     }
+
     return subscriptions;
   }
 
@@ -437,27 +440,20 @@ abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Rece
 
     IERC20 linkToken = IERC20(i_linkToken);
 
-    if (skipSubscriptionDeposit || completedRequests >= subscriptionDepositCompletedRequests) {
-      // If subscription has made sufficient requests, withdraw total balance
-
-      s_totalLinkBalance -= balance;
-      linkToken.safeTransfer(toAddress, uint256(balance));
-      emit SubscriptionCanceled(subscriptionId, toAddress, balance);
-    } else {
-      // Otherwise if subscription has not made enough requests, deposit will be forfeited
-
-      if (subscriptionDepositJuels > balance) {
-        // If remaining balance is less than subscriptionDepositJuels, take all as deposit
-        s_withdrawableTokens[address(this)] -= balance;
-        emit SubscriptionCanceled(subscriptionId, toAddress, 0);
-      } else {
-        uint96 effectiveBalance = balance - subscriptionDepositJuels;
-        s_totalLinkBalance -= effectiveBalance;
-        linkToken.safeTransfer(toAddress, uint256(effectiveBalance));
-        s_withdrawableTokens[address(this)] -= subscriptionDepositJuels;
-        emit SubscriptionCanceled(subscriptionId, toAddress, effectiveBalance);
+    // If subscription has not made enough requests, deposit will be forfeited
+    if (completedRequests < subscriptionDepositCompletedRequests && !skipSubscriptionDeposit) {
+      uint96 deposit = subscriptionDepositJuels > balance ? balance : subscriptionDepositJuels;
+      if (deposit > 0) {
+        s_withdrawableTokens[address(this)] += deposit;
+        balance -= deposit;
       }
     }
+
+    if (balance > 0) {
+      s_totalLinkBalance -= balance;
+      linkToken.safeTransfer(toAddress, uint256(balance));
+    }
+    emit SubscriptionCanceled(subscriptionId, toAddress, balance);
   }
 
   // @inheritdoc IFunctionsSubscriptions

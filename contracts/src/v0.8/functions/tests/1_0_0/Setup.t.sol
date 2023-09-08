@@ -24,6 +24,8 @@ contract FunctionsRouterSetup is BaseTest {
   uint72 internal s_adminFee = 100;
   uint72 internal s_donFee = 100;
   bytes4 internal s_handleOracleFulfillmentSelector = 0x0ca76175;
+  uint16 s_subscriptionDepositCompletedRequests = 1;
+  uint72 s_subscriptionDepositJuels = 11 * 1e18;
 
   int256 internal LINK_ETH_RATE = 6000000000000000;
 
@@ -56,8 +58,8 @@ contract FunctionsRouterSetup is BaseTest {
         handleOracleFulfillmentSelector: s_handleOracleFulfillmentSelector,
         maxCallbackGasLimits: maxCallbackGasLimits,
         gasForCallExactCheck: 5000,
-        subscriptionDepositCompletedRequests: 10,
-        subscriptionDepositJuels: 5 * 1e18
+        subscriptionDepositCompletedRequests: s_subscriptionDepositCompletedRequests,
+        subscriptionDepositJuels: s_subscriptionDepositJuels
       });
   }
 
