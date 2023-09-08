@@ -116,7 +116,7 @@ func (bm *balanceMonitor) updateBalance(ethBal assets.Eth, address gethCommon.Ad
 	bm.ethBalances[address] = &ethBal
 	bm.ethBalancesMtx.Unlock()
 
-	lgr := bm.logger.Named("balance_log").With(
+	lgr := bm.logger.Named("BalanceLog").With(
 		"address", address.Hex(),
 		"ethBalance", ethBal.String(),
 		"weiBalance", ethBal.ToInt())

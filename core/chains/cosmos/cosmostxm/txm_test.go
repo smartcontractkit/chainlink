@@ -63,11 +63,17 @@ func TestTxm_Integration(t *testing.T) {
 	tc, err := cosmosclient.NewClient(chainID, tendermintURL, cosmos.DefaultRequestTimeout, lggr)
 	require.NoError(t, err)
 
+	loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
+	keystoreAdapter := cosmostxm.NewKeystoreAdapter(loopKs, *cosmosChain.Bech32Prefix)
+
 	// First create a transmitter key and fund it with 1k native tokens
 	require.NoError(t, ks.Unlock("blah"))
-	transmitterKey, err := ks.Cosmos().Create()
+	err = ks.Cosmos().EnsureKey()
 	require.NoError(t, err)
-	transmitterID, err := sdk.AccAddressFromBech32(transmitterKey.PublicKeyStr())
+	ksAccounts, err := keystoreAdapter.Accounts(testutils.Context(t))
+	require.NoError(t, err)
+	transmitterAddress := ksAccounts[0]
+	transmitterID, err := sdk.AccAddressFromBech32(transmitterAddress)
 	require.NoError(t, err)
 	an, sn, err := tc.Account(accounts[0].Address)
 	require.NoError(t, err)
@@ -82,13 +88,13 @@ func TestTxm_Integration(t *testing.T) {
 	// the chainlink-cosmos repo instead of copying it to cores testdata
 	contractID := cosmosclient.DeployTestContract(t, tendermintURL, chainID, *cosmosChain.FeeToken, accounts[0], cosmosclient.Account{
 		Name:       "transmitter",
-		PrivateKey: cosmostxm.NewKeyWrapper(transmitterKey),
+		PrivateKey: cosmostxm.NewKeyWrapper(keystoreAdapter, transmitterAddress),
 		Address:    transmitterID,
 	}, tc, testdir, "../../../testdata/cosmos/my_first_contract.wasm")
 
 	tcFn := func() (cosmosclient.ReaderWriter, error) { return tc, nil }
 	// Start txm
-	txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, &chainConfig, ks.Cosmos(), lggr, pgtest.NewQConfig(true), eb)
+	txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, &chainConfig, loopKs, lggr, pgtest.NewQConfig(true), eb)
 	require.NoError(t, txm.Start(testutils.Context(t)))
 
 	// Change the contract state

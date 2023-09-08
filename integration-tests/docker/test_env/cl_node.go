@@ -22,6 +22,7 @@ import (
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -39,11 +40,11 @@ var (
 )
 
 type ClNode struct {
-	EnvComponent
+	test_env.EnvComponent
 	API                   *client.ChainlinkClient
 	NodeConfig            *chainlink.Config
 	NodeSecretsConfigTOML string
-	PostgresDb            *PostgresDb
+	PostgresDb            *test_env.PostgresDb
 	lw                    *logwatch.LogWatch
 }
 
@@ -76,9 +77,9 @@ func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
 func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
-	pgDb := NewPostgresDb(networks, WithPostgresDbContainerName(pgDefaultCName))
+	pgDb := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
 	n := &ClNode{
-		EnvComponent: EnvComponent{
+		EnvComponent: test_env.EnvComponent{
 			ContainerName: nodeDefaultCName,
 			Networks:      networks,
 		},

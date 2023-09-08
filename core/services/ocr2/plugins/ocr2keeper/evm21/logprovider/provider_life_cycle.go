@@ -2,6 +2,7 @@ package logprovider
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -11,14 +12,19 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
 	// LogRetention is the amount of time to retain logs for.
 	LogRetention = 24 * time.Hour
+	// When adding a filter in log poller, backfill is done for this number of blocks
+	// from latest
+	LogBackfillBuffer = 100
 )
 
 func (p *logEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, error) {
+	// Exploratory: investigate how we can batch the refresh
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -53,7 +59,7 @@ func (p *logEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, er
 	return newIDs, merr
 }
 
-func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
+func (p *logEventProvider) RegisterFilter(ctx context.Context, opts FilterOptions) error {
 	upkeepID, cfg := opts.UpkeepID, opts.TriggerConfig
 	if err := p.validateLogTriggerConfig(cfg); err != nil {
 		return fmt.Errorf("invalid log trigger config: %w", err)
@@ -77,11 +83,6 @@ func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
 			p.lggr.Debugf("filter for upkeep with id %s already registered with the same config", upkeepID.String())
 			return nil
 		}
-		// removing filter so we can recreate it with updated values
-		err := p.poller.UnregisterFilter(p.filterName(currentFilter.upkeepID))
-		if err != nil {
-			return fmt.Errorf("failed to unregister upkeep filter %s for update: %w", upkeepID.String(), err)
-		}
 		filter = *currentFilter
 	} else { // new filter
 		filter = upkeepFilter{
@@ -96,7 +97,7 @@ func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
 	filter.addr = cfg.ContractAddress.Bytes()
 	filter.topics = []common.Hash{cfg.Topic0, cfg.Topic1, cfg.Topic2, cfg.Topic3}
 
-	if err := p.register(lpFilter, filter); err != nil {
+	if err := p.register(ctx, lpFilter, filter); err != nil {
 		return fmt.Errorf("failed to register upkeep filter %s: %w", filter.upkeepID.String(), err)
 	}
 
@@ -104,22 +105,52 @@ func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
 }
 
 // register registers the upkeep filter with the log poller and adds it to the filter store.
-func (p *logEventProvider) register(lpFilter logpoller.Filter, ufilter upkeepFilter) error {
+func (p *logEventProvider) register(ctx context.Context, lpFilter logpoller.Filter, ufilter upkeepFilter) error {
+	latest, err := p.poller.LatestBlock(pg.WithParentCtx(ctx))
+	if err != nil {
+		return fmt.Errorf("failed to get latest block while registering filter: %w", err)
+	}
+	lggr := p.lggr.With("upkeepID", ufilter.upkeepID.String())
+	logPollerHasFilter := p.poller.HasFilter(lpFilter.Name)
+	filterStoreHasFilter := p.filterStore.Has(ufilter.upkeepID)
+	if filterStoreHasFilter {
+		// removing filter in case of an update so we can recreate it with updated values
+		lggr.Debugw("Upserting upkeep filter")
+		err := p.poller.UnregisterFilter(lpFilter.Name)
+		if err != nil {
+			return fmt.Errorf("failed to upsert (unregister) upkeep filter %s: %w", ufilter.upkeepID.String(), err)
+		}
+	}
 	if err := p.poller.RegisterFilter(lpFilter); err != nil {
 		return err
 	}
 	p.filterStore.AddActiveUpkeeps(ufilter)
-	p.poller.ReplayAsync(int64(ufilter.configUpdateBlock))
+	if logPollerHasFilter {
+		// already registered in DB before, no need to backfill
+		return nil
+	}
+	backfillBlock := latest - int64(LogBackfillBuffer)
+	if backfillBlock < 1 {
+		// New chain, backfill from start
+		backfillBlock = 1
+	}
+	if int64(ufilter.configUpdateBlock) > backfillBlock {
+		// backfill from config update block in case it is not too old
+		backfillBlock = int64(ufilter.configUpdateBlock)
+	}
+	// NOTE: replys are planned to be done as part of RegisterFilter within logpoller
+	lggr.Debugw("Backfilling logs for new upkeep filter", "backfillBlock", backfillBlock)
+	p.poller.ReplayAsync(backfillBlock)
 
 	return nil
 }
 
 func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
-	err := p.poller.UnregisterFilter(p.filterName(upkeepID))
-	if err != nil {
-		// TODO: mark as removed in filter store, so we'll
-		// automatically retry on next refresh
-		return fmt.Errorf("failed to unregister upkeep filter %s: %w", upkeepID.String(), err)
+	// Filter might have been unregistered already, only try to unregister if it exists
+	if p.poller.HasFilter(p.filterName(upkeepID)) {
+		if err := p.poller.UnregisterFilter(p.filterName(upkeepID)); err != nil {
+			return fmt.Errorf("failed to unregister upkeep filter %s: %w", upkeepID.String(), err)
+		}
 	}
 	p.filterStore.RemoveActiveUpkeeps(upkeepFilter{
 		upkeepID: upkeepID,

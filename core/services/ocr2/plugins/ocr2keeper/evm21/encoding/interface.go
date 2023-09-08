@@ -29,6 +29,7 @@ const (
 	UpkeepFailureReasonMercuryAccessNotAllowed UpkeepFailureReason = 32
 	UpkeepFailureReasonTxHashNoLongerExists    UpkeepFailureReason = 33
 	UpkeepFailureReasonInvalidRevertDataInput  UpkeepFailureReason = 34
+	UpkeepFailureReasonSimulationFailed        UpkeepFailureReason = 35
 
 	// pipeline execution error
 	NoPipelineError        PipelineExecutionState = 0
@@ -40,6 +41,7 @@ const (
 	MercuryUnmarshalError  PipelineExecutionState = 6
 	InvalidMercuryRequest  PipelineExecutionState = 7
 	InvalidMercuryResponse PipelineExecutionState = 8 // this will only happen if Mercury server sends bad responses
+	CheckBlockTooNew       PipelineExecutionState = 9
 )
 
 type UpkeepInfo = iregistry21.KeeperRegistryBase21UpkeepInfo

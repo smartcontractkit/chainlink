@@ -575,8 +575,8 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 		fmID = createFeedsManager(t, orm)
 
 		// Set initial values for job proposal counts
-		wantApproved, wantRejected int64
-		wantPending, wantCancelled = int64(1), int64(1)
+		wantApproved, wantRejected, wantDeleted, wantRevoked int64
+		wantPending, wantCancelled                           = int64(1), int64(1)
 	)
 
 	// Create a pending job proposal.
@@ -604,6 +604,8 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 	assert.Equal(t, wantApproved, counts.Approved)
 	assert.Equal(t, wantRejected, counts.Rejected)
 	assert.Equal(t, wantCancelled, counts.Cancelled)
+	assert.Equal(t, wantDeleted, counts.Deleted)
+	assert.Equal(t, wantRevoked, counts.Revoked)
 
 	// Upsert the cancelled job proposal to rejected
 	// which changes pending_update to TRUE, but leaves status as
@@ -630,6 +632,8 @@ func Test_ORM_CountJobProposalsByStatus(t *testing.T) {
 	assert.Equal(t, wantApproved, counts.Approved)
 	assert.Equal(t, wantRejected, counts.Rejected)
 	assert.Equal(t, wantCancelled, counts.Cancelled)
+	assert.Equal(t, wantDeleted, counts.Deleted)
+	assert.Equal(t, wantRevoked, counts.Revoked)
 }
 
 func Test_ORM_ListJobProposalByManagersIDs(t *testing.T) {
@@ -1475,8 +1479,7 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 		bridgeORM      = bridges.NewORM(db, lggr, config.Database())
 		relayExtenders = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	)
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	orm := job.NewORM(db, legacyChains, pipelineORM, bridgeORM, keyStore, lggr, config.Database())
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, keyStore.P2P().Add(cltest.DefaultP2PKey))

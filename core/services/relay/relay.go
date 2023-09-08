@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 	"regexp"
 	"strconv"
 
@@ -103,16 +102,10 @@ func (c ChainID) Int64() (int64, error) {
 	return int64(i), nil
 }
 
-// RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a ChainSet. See [relayerAdapter].
+// RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a Chain. See [relayerAdapter].
 type RelayerExt interface {
-	services.ServiceCtx
-
-	ChainStatus(ctx context.Context, id string) (types.ChainStatus, error)
-	ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
-
-	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error)
-
-	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
+	types.ChainService
+	ID() string
 }
 
 var _ loop.Relayer = (*relayerAdapter)(nil)
@@ -120,6 +113,8 @@ var _ loop.Relayer = (*relayerAdapter)(nil)
 // relayerAdapter adapts a [types.Relayer] and [RelayerExt] to implement [loop.Relayer].
 type relayerAdapter struct {
 	types.Relayer
+	// TODO we can un-embedded `ext` once BFC-2441 is merged. Right now that's not possible
+	// because this are conflicting definitions of SendTx
 	RelayerExt
 }
 
@@ -166,4 +161,27 @@ func (r *relayerAdapter) HealthReport() map[string]error {
 	maps.Copy(r.Relayer.HealthReport(), hr)
 	maps.Copy(r.RelayerExt.HealthReport(), hr)
 	return hr
+}
+
+func (r *relayerAdapter) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, total int, err error) {
+	if len(chainIDs) > 1 {
+		return nil, 0, fmt.Errorf("internal error: node statuses expects at most one chain id got %v", chainIDs)
+	}
+	if len(chainIDs) == 1 && chainIDs[0] != r.ID() {
+		return nil, 0, fmt.Errorf("node statuses unexpected chain id got %s want %s", chainIDs[0], r.ID())
+	}
+
+	nodes, _, total, err = r.ListNodeStatuses(ctx, int32(limit), "")
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(nodes) < offset {
+		return []types.NodeStatus{}, 0, fmt.Errorf("out of range")
+	}
+	if limit <= 0 {
+		limit = len(nodes)
+	} else if len(nodes) < limit {
+		limit = len(nodes)
+	}
+	return nodes[offset:limit], total, nil
 }

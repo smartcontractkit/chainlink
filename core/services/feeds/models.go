@@ -154,12 +154,13 @@ func (c *OCR1Config) Scan(value interface{}) error {
 
 // OCR2ConfigModel defines configuration for OCR2 Jobs.
 type OCR2ConfigModel struct {
-	Enabled     bool        `json:"enabled"`
-	IsBootstrap bool        `json:"is_bootstrap"`
-	Multiaddr   null.String `json:"multiaddr"`
-	P2PPeerID   null.String `json:"p2p_peer_id"`
-	KeyBundleID null.String `json:"key_bundle_id"`
-	Plugins     Plugins     `json:"plugins"`
+	Enabled          bool        `json:"enabled"`
+	IsBootstrap      bool        `json:"is_bootstrap"`
+	Multiaddr        null.String `json:"multiaddr"`
+	ForwarderAddress null.String `json:"forwarder_address"`
+	P2PPeerID        null.String `json:"p2p_peer_id"`
+	KeyBundleID      null.String `json:"key_bundle_id"`
+	Plugins          Plugins     `json:"plugins"`
 }
 
 func (c OCR2ConfigModel) Value() (driver.Value, error) {
@@ -250,6 +251,8 @@ type JobProposalCounts struct {
 	Cancelled int64
 	Approved  int64
 	Rejected  int64
+	Deleted   int64
+	Revoked   int64
 }
 
 // toMetrics transforms JobProposalCounts into a map with float64 values for setting metrics

@@ -20,11 +20,13 @@ import (
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -37,18 +39,80 @@ import (
 // TODO(BCI-979): Remove this, or make this configurable with the updated client.
 const DefaultRequestTimeout = 30 * time.Second
 
+var (
+	// ErrChainIDEmpty is returned when chain is required but was empty.
+	ErrChainIDEmpty = errors.New("chain id empty")
+	// ErrChainIDInvalid is returned when a chain id does not match any configured chains.
+	ErrChainIDInvalid = errors.New("chain id does not match any local chains")
+)
+
+// Chain is a wrap for easy use in other places in the core node
+type Chain = adapters.Chain
+
+// ChainOpts holds options for configuring a Chain.
+type ChainOpts struct {
+	QueryConfig      pg.QConfig
+	Logger           logger.Logger
+	DB               *sqlx.DB
+	KeyStore         loop.Keystore
+	EventBroadcaster pg.EventBroadcaster
+	Configs          types.Configs
+}
+
+func (o *ChainOpts) Validate() (err error) {
+	required := func(s string) error {
+		return fmt.Errorf("%s is required", s)
+	}
+	if o.QueryConfig == nil {
+		err = multierr.Append(err, required("Config"))
+	}
+	if o.Logger == nil {
+		err = multierr.Append(err, required("Logger'"))
+	}
+	if o.DB == nil {
+		err = multierr.Append(err, required("DB"))
+	}
+	if o.KeyStore == nil {
+		err = multierr.Append(err, required("KeyStore"))
+	}
+	if o.EventBroadcaster == nil {
+		err = multierr.Append(err, required("EventBroadcaster"))
+	}
+	if o.Configs == nil {
+		err = multierr.Append(err, required("Configs"))
+	}
+	return
+}
+
+func (o *ChainOpts) ConfigsAndLogger() (chains.Configs[string, db.Node], logger.Logger) {
+	return o.Configs, o.Logger
+}
+
+func NewChain(cfg *CosmosConfig, opts ChainOpts) (adapters.Chain, error) {
+	if !cfg.IsEnabled() {
+		return nil, fmt.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
+	}
+	c, err := newChain(*cfg.ChainID, cfg, opts.DB, opts.KeyStore, opts.QueryConfig, opts.EventBroadcaster, opts.Configs, opts.Logger)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
 var _ adapters.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
-	id   string
-	cfg  coscfg.Config
-	txm  *cosmostxm.Txm
+	id  string
+	cfg *CosmosConfig
+	txm *cosmostxm.Txm
+	// TODO remove this dep after BCF-2441
+	// cfs implements the loop.Relayer interface that will be removed
 	cfgs types.Configs
 	lggr logger.Logger
 }
 
-func newChain(id string, cfg coscfg.Config, db *sqlx.DB, ks keystore.Cosmos, logCfg pg.QConfig, eb pg.EventBroadcaster, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg *CosmosConfig, db *sqlx.DB, ks loop.Keystore, logCfg pg.QConfig, eb pg.EventBroadcaster, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
 	lggr = logger.With(lggr, "cosmosChainID", id)
 	var ch = chain{
 		id:   id,
@@ -117,7 +181,7 @@ func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 			return nil, fmt.Errorf("failed to create client for chain %s with node %s: wrong chain id %s", c.id, name, node.CosmosChainID)
 		}
 	}
-	client, err := cosmosclient.NewClient(c.id, node.TendermintURL, DefaultRequestTimeout, logger.Named(c.lggr, "Client-"+name))
+	client, err := cosmosclient.NewClient(c.id, node.TendermintURL, DefaultRequestTimeout, logger.Named(c.lggr, "Client."+name))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create client")
 	}
@@ -155,6 +219,43 @@ func (c *chain) HealthReport() map[string]error {
 	}
 }
 
-func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+// ChainService interface
+func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
+	toml, err := c.cfg.TOMLString()
+	if err != nil {
+		return relaytypes.ChainStatus{}, err
+	}
+	return relaytypes.ChainStatus{
+		ID:      c.id,
+		Enabled: *c.cfg.Enabled,
+		Config:  toml,
+	}, nil
+}
+func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []relaytypes.NodeStatus, nextPageToken string, total int, err error) {
+	return internal.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
+}
+
+func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return chains.ErrLOOPPUnsupported
+}
+
+// TODO BCF-2602 statuses are static for non-evm chain and should be dynamic
+func (c *chain) listNodeStatuses(start, end int) ([]relaytypes.NodeStatus, int, error) {
+	stats := make([]relaytypes.NodeStatus, 0)
+	total := len(c.cfg.Nodes)
+	if start >= total {
+		return stats, total, internal.ErrOutOfRange
+	}
+	if end > total {
+		end = total
+	}
+	nodes := c.cfg.Nodes[start:end]
+	for _, node := range nodes {
+		stat, err := nodeStatus(node, c.id)
+		if err != nil {
+			return stats, total, err
+		}
+		stats = append(stats, stat)
+	}
+	return stats, total, nil
 }

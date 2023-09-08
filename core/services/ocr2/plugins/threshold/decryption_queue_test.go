@@ -2,6 +2,7 @@ package threshold
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"testing"
 	"time"
@@ -200,7 +201,7 @@ func Test_decryptionQueue_GetCiphertext_CiphertextNotFound(t *testing.T) {
 	dq := NewDecryptionQueue(3, 1000, 64, testutils.WaitTimeout(t), lggr)
 
 	_, err := dq.GetCiphertext([]byte{0xa5})
-	assert.Equal(t, err.Error(), "ciphertextID 0xa5 not found")
+	assert.True(t, errors.Is(err, decryptionPlugin.ErrNotFound))
 }
 
 func Test_decryptionQueue_Decrypt_DecryptCalledAfterReadyResult(t *testing.T) {

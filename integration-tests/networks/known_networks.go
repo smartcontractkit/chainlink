@@ -2,11 +2,13 @@
 package networks
 
 import (
+	"crypto/ecdsa"
 	"fmt"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
@@ -300,9 +302,9 @@ var (
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   blockchain.JSONStrDuration{Duration: 5 * time.Minute},
 		MinimumConfirmations:      1,
-		GasEstimationBuffer:       1000,
+		GasEstimationBuffer:       100000,
 		FinalityDepth:             550,
-		DefaultGasLimit:           6000000,
+		DefaultGasLimit:           8000000,
 	}
 
 	AvalancheMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
@@ -537,10 +539,7 @@ func setURLs(prefix string, network *blockchain.EVMNetwork) {
 		}
 		wsURLs := strings.Split(evmUrls, ",")
 		httpURLs := strings.Split(evmhttpUrls, ",")
-		log.Warn().
-			Interface("EVM_URLS", wsURLs).
-			Interface("EVM_HTTP_URLS", httpURLs).
-			Msgf("No '%s' env var defined, defaulting to 'EVM_URLS'", wsEnvVar)
+		log.Warn().Msgf("No '%s' env var defined, defaulting to 'EVM_URLS'", wsEnvVar)
 		network.URLs = wsURLs
 		network.HTTPURLs = httpURLs
 		return
@@ -563,19 +562,41 @@ func setKeys(prefix string, network *blockchain.EVMNetwork) {
 	}
 
 	envVar := fmt.Sprintf("%s_KEYS", prefix)
-	keysEnv, err := utils.GetEnv(envVar)
+	keysFromEnv, err := utils.GetEnv(envVar)
 	if err != nil {
 		log.Fatal().Err(err).Str("env var", envVar).Msg("Error getting env var")
 	}
-	if keysEnv == "" {
-		keys := strings.Split(os.Getenv("EVM_KEYS"), ",")
-		log.Warn().
-			Interface("EVM_KEYS", keys).
-			Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_KEYS'", envVar))
-		network.PrivateKeys = keys
-		return
+	if keysFromEnv == "" {
+		log.Warn().Msg(fmt.Sprintf("No '%s' env var defined, defaulting to 'EVM_KEYS'", envVar))
+		keysFromEnv = os.Getenv("EVM_KEYS")
 	}
-	keys := strings.Split(keysEnv, ",")
+	keys := strings.Split(keysFromEnv, ",")
+	for i, key := range keys {
+		keys[i] = strings.TrimPrefix(key, "0x")
+	}
 	network.PrivateKeys = keys
-	log.Info().Msg("Read network Keys")
+
+	// log public keys for debugging
+	publicKeys := []string{}
+	for _, key := range network.PrivateKeys {
+		publicKey, err := privateKeyToAddress(key)
+		if err != nil {
+			log.Fatal().Err(err).Msg("Error getting public key from private key")
+		}
+		publicKeys = append(publicKeys, publicKey)
+	}
+	log.Info().Interface("Funding Addresses", publicKeys).Msg("Read network Keys")
+}
+
+func privateKeyToAddress(privateKeyString string) (string, error) {
+	privateKey, err := crypto.HexToECDSA(privateKeyString)
+	if err != nil {
+		return "", err
+	}
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		return "", fmt.Errorf("error casting private key to public ECDSA key")
+	}
+	return crypto.PubkeyToAddress(*publicKeyECDSA).Hex(), nil
 }

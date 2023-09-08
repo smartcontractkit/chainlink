@@ -57,14 +57,14 @@ optimizer_runs = 1000000
 src = 'src/v0.8/llo-feeds'
 test = 'src/v0.8/llo-feeds/test'
 solc_version = '0.8.16'
-deny_warnings = true
+# We cannot turn on deny_warnings = true as that will
+# hide any CI failure
 
 [profile.shared]
 optimizer_runs = 1000000
 src = 'src/v0.8/shared'
 test = 'src/v0.8/shared/test'
 solc_version = '0.8.19'
-deny_warnings = true
 
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

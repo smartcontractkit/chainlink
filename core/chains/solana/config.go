@@ -10,7 +10,7 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/slices"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	soldb "github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
@@ -75,7 +75,7 @@ func (cs *SolanaConfigs) SetFrom(fs *SolanaConfigs) (err error) {
 	return
 }
 
-func (cs SolanaConfigs) Chains(ids ...string) (r []types.ChainStatus, err error) {
+func (cs SolanaConfigs) Chains(ids ...string) (r []relaytypes.ChainStatus, err error) {
 	for _, ch := range cs {
 		if ch == nil {
 			continue
@@ -92,7 +92,7 @@ func (cs SolanaConfigs) Chains(ids ...string) (r []types.ChainStatus, err error)
 				continue
 			}
 		}
-		ch2 := types.ChainStatus{
+		ch2 := relaytypes.ChainStatus{
 			ID:      *ch.ChainID,
 			Enabled: ch.IsEnabled(),
 		}
@@ -140,7 +140,7 @@ func (cs SolanaConfigs) Nodes(chainID string) (ns []soldb.Node, err error) {
 	return
 }
 
-func (cs SolanaConfigs) NodeStatus(name string) (types.NodeStatus, error) {
+func (cs SolanaConfigs) NodeStatus(name string) (relaytypes.NodeStatus, error) {
 	for i := range cs {
 		for _, n := range cs[i].Nodes {
 			if n.Name != nil && *n.Name == name {
@@ -148,10 +148,10 @@ func (cs SolanaConfigs) NodeStatus(name string) (types.NodeStatus, error) {
 			}
 		}
 	}
-	return types.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
+	return relaytypes.NodeStatus{}, fmt.Errorf("node %s: %w", name, chains.ErrNotFound)
 }
 
-func (cs SolanaConfigs) NodeStatuses(chainIDs ...string) (ns []types.NodeStatus, err error) {
+func (cs SolanaConfigs) NodeStatuses(chainIDs ...string) (ns []relaytypes.NodeStatus, err error) {
 	if len(chainIDs) == 0 {
 		for i := range cs {
 			for _, n := range cs[i].Nodes {
@@ -182,13 +182,13 @@ func (cs SolanaConfigs) NodeStatuses(chainIDs ...string) (ns []types.NodeStatus,
 	return
 }
 
-func nodeStatus(n *solcfg.Node, chainID string) (types.NodeStatus, error) {
-	var s types.NodeStatus
+func nodeStatus(n *solcfg.Node, chainID string) (relaytypes.NodeStatus, error) {
+	var s relaytypes.NodeStatus
 	s.ChainID = chainID
 	s.Name = *n.Name
 	b, err := toml.Marshal(n)
 	if err != nil {
-		return types.NodeStatus{}, err
+		return relaytypes.NodeStatus{}, err
 	}
 	s.Config = string(b)
 	return s, nil
@@ -229,6 +229,7 @@ func legacySolNode(n *solcfg.Node, chainID string) soldb.Node {
 
 type SolanaConfig struct {
 	ChainID *string
+	// Do not access directly, use [IsEnabled]
 	Enabled *bool
 	solcfg.Chain
 	Nodes SolanaNodes

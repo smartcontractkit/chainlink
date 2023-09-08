@@ -28,7 +28,7 @@ before(async () => {
 
   // Contract factories
   governorFactory = await ethers.getContractFactory(
-    'src/v0.8/dev/OptimismCrossDomainGovernor.sol:OptimismCrossDomainGovernor',
+    'src/v0.8/l2ep/dev/optimism/OptimismCrossDomainGovernor.sol:OptimismCrossDomainGovernor',
     owner,
   )
   greeterFactory = await ethers.getContractFactory(

@@ -34,7 +34,9 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   event EthFundsRecovered(address to, uint256 amount);
   error LinkAlreadySet();
   error FailedToSendEther();
+  error FailedToTransferLink();
   error IndexOutOfRange();
+  error LinkNotSet();
 
   // We use the subscription struct (1 word)
   // at fulfillment time.
@@ -157,6 +159,14 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    * @param to address to send link to
    */
   function recoverFunds(address to) external onlyOwner {
+    // If LINK is not set, we cannot recover funds.
+    // It is possible that this coordinator address was funded with LINK
+    // by accident by a user but the LINK token needs to be set first
+    // before we can recover it.
+    if (address(LINK) == address(0)) {
+      revert LinkNotSet();
+    }
+
     uint256 externalBalance = LINK.balanceOf(address(this));
     uint256 internalBalance = uint256(s_totalBalance);
     if (internalBalance > externalBalance) {
@@ -164,7 +174,9 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     }
     if (internalBalance < externalBalance) {
       uint256 amount = externalBalance - internalBalance;
-      LINK.transfer(to, amount);
+      if (!LINK.transfer(to, amount)) {
+        revert FailedToTransferLink();
+      }
       emit FundsRecovered(to, amount);
     }
     // If the balances are equal, nothing to be done.
@@ -197,6 +209,9 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
    * @param amount amount to withdraw
    */
   function oracleWithdraw(address recipient, uint96 amount) external nonReentrant {
+    if (address(LINK) == address(0)) {
+      revert LinkNotSet();
+    }
     if (s_withdrawableTokens[msg.sender] < amount) {
       revert InsufficientBalance();
     }
@@ -236,7 +251,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    // We do not check that the msg.sender is the subscription owner,
+    // We do not check that the sender is the subscription owner,
     // anyone can fund a subscription.
     uint256 oldBalance = s_subscriptions[subId].balance;
     s_subscriptions[subId].balance += uint96(amount);
@@ -397,9 +412,14 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
 
   function cancelSubscriptionHelper(uint256 subId, address to) internal {
     (uint96 balance, uint96 ethBalance) = deleteSubscription(subId);
-    if (!LINK.transfer(to, uint256(balance))) {
-      revert InsufficientBalance();
+
+    // Only withdraw LINK if the token is active and there is a balance.
+    if (address(LINK) != address(0) && balance != 0) {
+      if (!LINK.transfer(to, uint256(balance))) {
+        revert InsufficientBalance();
+      }
     }
+
     // send eth to the "to" address using call
     (bool success, ) = to.call{value: uint256(ethBalance)}("");
     if (!success) {
@@ -417,9 +437,5 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
       revert MustBeSubOwner(owner);
     }
     _;
-  }
-
-  function getConsumerKey(address consumer, uint256 subId) internal pure returns (bytes32) {
-    return keccak256(abi.encodePacked(subId, consumer));
   }
 }
