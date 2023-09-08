@@ -177,7 +177,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 	//Migration Process
 	newCoordinator, err := env.ContractDeployer.DeployVRFCoordinatorV2PlusUpgradedVersion(oldVRFV2PlusContracts.BHS.Address())
-	require.NoError(t, err, vrfv2plus.ErrDeployCoordinator)
+	require.NoError(t, err, "error deploying VRF CoordinatorV2PlusUpgradedVersion")
 
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
