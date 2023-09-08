@@ -72,7 +72,7 @@ type upkeepStateStore struct {
 
 	pendingRecords []persistedStateRecord
 	sem            chan struct{}
-	doneCh         chan struct{}
+	batchSize      int
 
 	// service values
 	cancel context.CancelFunc
@@ -89,7 +89,7 @@ func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScann
 		cleanCadence:   GCInterval,
 		pendingRecords: []persistedStateRecord{},
 		sem:            make(chan struct{}, concurrentBatchCalls),
-		doneCh:         make(chan struct{}, 1),
+		batchSize:      batchSize,
 	}
 }
 
@@ -137,7 +137,6 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 					u.flush(ctx)
 				case <-ctx.Done():
 					u.flush(ctx)
-					u.doneCh <- struct{}{}
 					return
 				}
 			}
@@ -155,8 +154,8 @@ func (u *upkeepStateStore) flush(ctx context.Context) {
 	u.pendingRecords = []persistedStateRecord{}
 	u.mu.Unlock()
 
-	for i := 0; i < len(cloneRecords); i += batchSize {
-		end := i + batchSize
+	for i := 0; i < len(cloneRecords); i += u.batchSize {
+		end := i + u.batchSize
 		if end > len(cloneRecords) {
 			end = len(cloneRecords)
 		}
