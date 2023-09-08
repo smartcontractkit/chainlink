@@ -228,17 +228,6 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 		expected       []ocr2keepers.UpkeepState
 	}{
 		{
-			name:      "querying non-stored workIDs on empty db returns unknown state results",
-			queryIDs:  []string{"0x1", "0x2", "0x3", "0x4"},
-			flushSize: 1,
-			expected: []ocr2keepers.UpkeepState{
-				ocr2keepers.UnknownState,
-				ocr2keepers.UnknownState,
-				ocr2keepers.UnknownState,
-				ocr2keepers.UnknownState,
-			},
-		},
-		{
 			name:           "querying non-stored workIDs on db with values returns unknown state results",
 			queryIDs:       []string{"0x1", "0x2", "0x3", "0x4"},
 			flushSize:      10,
@@ -345,7 +334,6 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 				BatchInsertUpkeepStatesFn: func(records []persistedStateRecord, opt ...pg.QOpt) error {
 					err := realORM.BatchInsertUpkeepStates(records, opt...)
 					insertFinished <- struct{}{}
-					fmt.Println("insert called")
 					return err
 				},
 				SelectStatesByWorkIDsFn: func(strings []string, opt ...pg.QOpt) ([]persistedStateRecord, error) {
@@ -397,6 +385,44 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			<-store.doneCh
 		})
 	}
+}
+
+func TestUpkeepStateStore_emptyDB(t *testing.T) {
+	t.Run("querying non-stored workIDs on empty db returns unknown state results", func(t *testing.T) {
+		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
+		chainID := testutils.FixtureChainID
+		db := pgtest.NewSqlxDB(t)
+		realORM := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+		insertFinished := make(chan struct{}, 1)
+		orm := &wrappedORM{
+			BatchInsertUpkeepStatesFn: func(records []persistedStateRecord, opt ...pg.QOpt) error {
+				err := realORM.BatchInsertUpkeepStates(records, opt...)
+				insertFinished <- struct{}{}
+				return err
+			},
+			SelectStatesByWorkIDsFn: func(strings []string, opt ...pg.QOpt) ([]persistedStateRecord, error) {
+				return realORM.SelectStatesByWorkIDs(strings, opt...)
+			},
+			DeleteExpiredFn: func(t time.Time, opt ...pg.QOpt) error {
+				return realORM.DeleteExpired(t, opt...)
+			},
+		}
+		scanner := &mockScanner{}
+		store := NewUpkeepStateStore(orm, lggr, scanner)
+
+		states, err := store.SelectByWorkIDs(context.Background(), []string{"0x1", "0x2", "0x3", "0x4"}...)
+		assert.NoError(t, err)
+		assert.Equal(t, []ocr2keepers.UpkeepState{
+			ocr2keepers.UnknownState,
+			ocr2keepers.UnknownState,
+			ocr2keepers.UnknownState,
+			ocr2keepers.UnknownState,
+		}, states)
+
+		observedLogs.TakeAll()
+
+		require.Equal(t, 0, observedLogs.Len())
+	})
 }
 
 func TestUpkeepStateStore_Upsert(t *testing.T) {
