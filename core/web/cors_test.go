@@ -9,6 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
+var unusedTestVar = "foo"
+
 func TestCors_DefaultOrigins(t *testing.T) {
 	t.Parallel()
 
