@@ -23,7 +23,6 @@ const (
 	// GCInterval is the amount of time between cache cleanups.
 	GCInterval   = 2 * time.Hour
 	flushCadence = 30 * time.Second
-	flushSize    = 1000
 )
 
 type ORM interface {
@@ -43,6 +42,7 @@ type UpkeepStateStore interface {
 var (
 	_           UpkeepStateStore = &upkeepStateStore{}
 	newTickerFn                  = time.NewTicker
+	flushSize                    = 1000
 )
 
 // upkeepStateRecord is a record that we save in a local cache.
@@ -71,7 +71,7 @@ type upkeepStateStore struct {
 
 	pendingRecords []persistedStateRecord
 	errCh          chan error
-
+	sem            chan struct{}
 	// service values
 	cancel context.CancelFunc
 }
@@ -87,6 +87,7 @@ func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScann
 		cleanCadence:   GCInterval,
 		pendingRecords: []persistedStateRecord{},
 		errCh:          make(chan error, 1),
+		sem:            make(chan struct{}, 10),
 	}
 }
 
@@ -135,7 +136,8 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 				case err := <-u.errCh:
 					u.lggr.Errorw("error inserting records", "err", err)
 				case <-ctx.Done():
-
+					u.flush(ctx)
+					return
 				}
 			}
 		}(ctx)
@@ -145,6 +147,11 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 }
 
 func (u *upkeepStateStore) flush(ctx context.Context) {
+	u.sem <- struct{}{}
+
+	u.mu.Lock()
+	defer u.mu.Unlock()
+
 	batch := len(u.pendingRecords)
 
 	if batch > flushSize {
@@ -156,11 +163,12 @@ func (u *upkeepStateStore) flush(ctx context.Context) {
 	cloneRecords := u.pendingRecords[:batch]
 	u.pendingRecords = u.pendingRecords[batch:]
 
-	//go func() {
-	if err := u.orm.BatchInsertUpkeepStates(cloneRecords, pg.WithParentCtx(ctx)); err != nil {
-		//u.errCh <- err
-	}
-	//}()
+	go func() {
+		if err := u.orm.BatchInsertUpkeepStates(cloneRecords, pg.WithParentCtx(ctx)); err != nil {
+			u.errCh <- err
+		}
+		<-u.sem
+	}()
 }
 
 // Close stops the service of pruning stale data; implements io.Closer
