@@ -21,16 +21,18 @@ func TestInsertSelectDelete(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 
-	inserted := persistedStateRecord{
-		UpkeepID:            utils.NewBig(big.NewInt(2)),
-		WorkID:              "0x1",
-		CompletionState:     100,
-		BlockNumber:         2,
-		IneligibilityReason: 2,
-		InsertedAt:          time.Now(),
+	inserted := []persistedStateRecord{
+		{
+			UpkeepID:            utils.NewBig(big.NewInt(2)),
+			WorkID:              "0x1",
+			CompletionState:     100,
+			BlockNumber:         2,
+			IneligibilityReason: 2,
+			InsertedAt:          time.Now(),
+		},
 	}
 
-	err := orm.InsertUpkeepState(inserted)
+	err := orm.BatchInsertRecords(inserted)
 
 	require.NoError(t, err, "no error expected from insert")
 

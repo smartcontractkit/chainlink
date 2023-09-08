@@ -21,11 +21,13 @@ const (
 	// CacheExpiration is the amount of time that we keep a record in the cache.
 	CacheExpiration = 24 * time.Hour
 	// GCInterval is the amount of time between cache cleanups.
-	GCInterval = 2 * time.Hour
+	GCInterval           = 2 * time.Hour
+	flushCadence         = 30 * time.Second
+	concurrentBatchCalls = 10
 )
 
 type ORM interface {
-	InsertUpkeepState(persistedStateRecord, ...pg.QOpt) error
+	BatchInsertRecords([]persistedStateRecord, ...pg.QOpt) error
 	SelectStatesByWorkIDs([]string, ...pg.QOpt) ([]persistedStateRecord, error)
 	DeleteExpired(time.Time, ...pg.QOpt) error
 }
@@ -39,7 +41,9 @@ type UpkeepStateStore interface {
 }
 
 var (
-	_ UpkeepStateStore = &upkeepStateStore{}
+	_           UpkeepStateStore = &upkeepStateStore{}
+	newTickerFn                  = time.NewTicker
+	batchSize                    = 1000
 )
 
 // upkeepStateRecord is a record that we save in a local cache.
@@ -66,6 +70,10 @@ type upkeepStateStore struct {
 	mu    sync.RWMutex
 	cache map[string]*upkeepStateRecord
 
+	pendingRecords []persistedStateRecord
+	sem            chan struct{}
+	batchSize      int
+
 	// service values
 	cancel context.CancelFunc
 }
@@ -73,12 +81,15 @@ type upkeepStateStore struct {
 // NewUpkeepStateStore creates a new state store
 func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScanner) *upkeepStateStore {
 	return &upkeepStateStore{
-		orm:          orm,
-		lggr:         lggr.Named("UpkeepStateStore"),
-		cache:        map[string]*upkeepStateRecord{},
-		scanner:      scanner,
-		retention:    CacheExpiration,
-		cleanCadence: GCInterval,
+		orm:            orm,
+		lggr:           lggr.Named("UpkeepStateStore"),
+		cache:          map[string]*upkeepStateRecord{},
+		scanner:        scanner,
+		retention:      CacheExpiration,
+		cleanCadence:   GCInterval,
+		pendingRecords: []persistedStateRecord{},
+		sem:            make(chan struct{}, concurrentBatchCalls),
+		batchSize:      batchSize,
 	}
 }
 
@@ -108,8 +119,11 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 
 	{
 		go func(ctx context.Context) {
-			ticker := time.NewTicker(utils.WithJitter(u.cleanCadence))
+			ticker := time.NewTicker(u.cleanCadence)
 			defer ticker.Stop()
+
+			flushTicker := newTickerFn(utils.WithJitter(flushCadence))
+			defer flushTicker.Stop()
 
 			for {
 				select {
@@ -119,14 +133,44 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 					}
 
 					ticker.Reset(utils.WithJitter(u.cleanCadence))
+				case <-flushTicker.C:
+					u.flush(ctx)
 				case <-ctx.Done():
-
+					u.flush(ctx)
+					return
 				}
 			}
 		}(ctx)
 	}
 
 	return nil
+}
+
+func (u *upkeepStateStore) flush(ctx context.Context) {
+	cloneRecords := make([]persistedStateRecord, len(u.pendingRecords))
+
+	u.mu.Lock()
+	copy(cloneRecords, u.pendingRecords)
+	u.pendingRecords = []persistedStateRecord{}
+	u.mu.Unlock()
+
+	for i := 0; i < len(cloneRecords); i += u.batchSize {
+		end := i + u.batchSize
+		if end > len(cloneRecords) {
+			end = len(cloneRecords)
+		}
+
+		batch := cloneRecords[i:end]
+
+		u.sem <- struct{}{}
+
+		go func() {
+			if err := u.orm.BatchInsertRecords(batch, pg.WithParentCtx(ctx)); err != nil {
+				u.lggr.Errorw("error inserting records", "err", err)
+			}
+			<-u.sem
+		}()
+	}
 }
 
 // Close stops the service of pruning stale data; implements io.Closer
@@ -200,13 +244,15 @@ func (u *upkeepStateStore) upsertStateRecord(ctx context.Context, workID string,
 
 	u.cache[workID] = record
 
-	return u.orm.InsertUpkeepState(persistedStateRecord{
+	u.pendingRecords = append(u.pendingRecords, persistedStateRecord{
 		UpkeepID:            utils.NewBig(upkeepID),
 		WorkID:              record.workID,
 		CompletionState:     uint8(record.state),
 		IneligibilityReason: reason,
 		InsertedAt:          record.addedAt,
-	}, pg.WithParentCtx(ctx))
+	})
+
+	return nil
 }
 
 // fetchPerformed fetches all performed logs from the scanner to populate the cache.
