@@ -1,0 +1,109 @@
+{
+  "tests": [
+    {
+      "name": "TestAutomationBasic",
+      "run": [
+        {
+          "name": "registry_2_0"
+        },
+        {
+          "name": "registry_2_1_conditional"
+        },
+        {
+          "name": "registry_2_1_logtrigger"
+        }
+      ]
+    },
+    {
+      "name": "TestAutomationAddFunds",
+      "run": [
+        {
+          "name": "registry_2_0"
+        },
+        {
+          "name": "registry_2_1"
+        }
+      ]
+    },
+    {
+      "name": "TestAutomationPauseUnPause",
+      "run": [
+        {
+          "name": "registry_2_0"
+        },
+        {
+          "name": "registry_2_1"
+        }
+      ]
+    },
+    {
+      "name": "TestAutomationRegisterUpkeep",
+      "run": [
+        {
+          "name": "registry_2_0"
+        },
+        {
+          "name": "registry_2_1"
+        }
+      ]
+    },
+    {
+      "name": "TestAutomationPauseRegistry",
+      "run": [
+        {
+          "name": "registry_2_0"
+        },
+        {
+          "name": "registry_2_1"
+        }
+      ]
+    },
+    {
+      "name": "TestAutomationKeeperNodesDown",
+      "run": [
+        {
+          "name": "registry_2_0"
+        },
+        {
+          "name": "registry_2_1"
+        }
+      ]
+    },
+    {
+      "name": "TestAutomationPerformSimulation",
+      "run": [
+        {
+          "name": "registry_2_0"
+        },
+        {
+          "name": "registry_2_1"
+        }
+      ]
+    },
+    {
+      "name": "TestAutomationCheckPerformGasLimit",
+      "run": [
+        {
+          "name": "registry_2_0"
+        },
+        {
+          "name": "registry_2_1"
+        }
+      ]
+    },
+    {
+      "name": "TestUpdateCheckData",
+      "run": [
+        {
+          "name": "registry_2_0"
+        },
+        {
+          "name": "registry_2_1"
+        }
+      ]
+    },
+    {
+      "name": "TestSetUpkeepTriggerConfig"
+    }
+  ]
+}

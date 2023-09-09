@@ -33,7 +33,7 @@ func (b *payloadBuilder) BuildPayloads(ctx context.Context, proposals ...ocr2kee
 		var payload ocr2keepers.UpkeepPayload
 		if b.upkeepList.IsActive(proposal.UpkeepID.BigInt()) {
 			b.lggr.Debugf("building payload for coordinated block proposal %+v", proposal)
-			checkData := []byte{}
+			var checkData []byte
 			var err error
 			switch core.GetUpkeepType(proposal.UpkeepID) {
 			case ocr2keepers.LogTrigger:

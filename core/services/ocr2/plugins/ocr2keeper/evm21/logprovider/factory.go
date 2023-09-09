@@ -49,8 +49,8 @@ func NewOptions(finalityDepth int64) LogTriggersOptions {
 func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
 	if o.LookbackBlocks == 0 {
 		lookbackBlocks := int64(200)
-		if lookbackBlocks < int64(finalityDepth) {
-			lookbackBlocks = int64(finalityDepth)
+		if lookbackBlocks < finalityDepth {
+			lookbackBlocks = finalityDepth
 		}
 		o.LookbackBlocks = lookbackBlocks
 	}

@@ -18,8 +18,7 @@ import (
 var (
 	// LogRetention is the amount of time to retain logs for.
 	LogRetention = 24 * time.Hour
-	// When adding a filter in log poller, backfill is done for this number of blocks
-	// from latest
+	// LogBackfillBuffer is the number of blocks from the latest block for which backfill is done when adding a filter in log poller
 	LogBackfillBuffer = 100
 )
 
