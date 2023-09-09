@@ -259,7 +259,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     uint256 linkQuantity;
     uint256 nativeQuantity;
     uint256 expiresAt;
-    (, , , linkQuantity, nativeQuantity, expiresAt) = abi.decode(
+    (, , , nativeQuantity, linkQuantity, expiresAt) = abi.decode(
       report,
       (bytes32, uint32, uint32, uint192, uint192, uint32)
     );
