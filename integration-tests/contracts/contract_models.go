@@ -376,4 +376,5 @@ type MercuryVerifier interface {
 type MercuryVerifierProxy interface {
 	Address() string
 	Verify(signedReport []byte, value *big.Int) (*types.Transaction, error)
+	VerifyBulk(signedReports [][]byte, value *big.Int) (*types.Transaction, error)
 }

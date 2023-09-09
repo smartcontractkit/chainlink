@@ -2293,3 +2293,18 @@ func (e *EthereumMercuryVerifierProxy) Verify(signedReport []byte, value *big.In
 	}
 	return tx, e.client.ProcessTransaction(tx)
 }
+
+func (e *EthereumMercuryVerifierProxy) VerifyBulk(signedReports [][]byte, value *big.Int) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if value != nil {
+		opts.Value = value
+	}
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.VerifyBulk(opts, signedReports)
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
+}
