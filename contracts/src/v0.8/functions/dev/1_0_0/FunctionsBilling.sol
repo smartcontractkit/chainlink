@@ -10,11 +10,9 @@ import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/SafeCast.sol";
 
-/**
- * @title Functions Billing contract
- * @notice Contract that calculates payment from users to the nodes of the Decentralized Oracle Network (DON).
- * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
- */
+/// @title Functions Billing contract
+/// @notice Contract that calculates payment from users to the nodes of the Decentralized Oracle Network (DON).
+/// @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
 abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   using FunctionsResponse for FunctionsResponse.RequestMeta;
   using FunctionsResponse for FunctionsResponse.Commitment;
@@ -82,14 +80,14 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // |                        Configuration                         |
   // ================================================================
 
-  // @notice Gets the Chainlink Coordinator's billing configuration
-  // @return config
+  /// @notice Gets the Chainlink Coordinator's billing configuration
+  /// @return config
   function getConfig() external view returns (Config memory) {
     return s_config;
   }
 
-  // @notice Sets the Chainlink Coordinator's billing configuration
-  // @param config - See the contents of the Config struct in IFunctionsBilling.Config for more information
+  /// @notice Sets the Chainlink Coordinator's billing configuration
+  /// @param config - See the contents of the Config struct in IFunctionsBilling.Config for more information
   function updateConfig(Config memory config) public {
     _onlyOwner();
 
@@ -101,17 +99,17 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // |                       Fee Calculation                        |
   // ================================================================
 
-  // @inheritdoc IFunctionsBilling
+  /// @inheritdoc IFunctionsBilling
   function getDONFee(bytes memory /* requestData */) public view override returns (uint72) {
     return s_config.donFee;
   }
 
-  // @inheritdoc IFunctionsBilling
+  /// @inheritdoc IFunctionsBilling
   function getAdminFee() public view override returns (uint72) {
     return _getRouter().getAdminFee();
   }
 
-  // @inheritdoc IFunctionsBilling
+  /// @inheritdoc IFunctionsBilling
   function getWeiPerUnitLink() public view returns (uint256) {
     Config memory config = s_config;
     (, int256 weiPerUnitLink, , uint256 timestamp, ) = s_linkToNativeFeed.latestRoundData();
@@ -135,7 +133,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // |                       Cost Estimation                        |
   // ================================================================
 
-  // @inheritdoc IFunctionsBilling
+  /// @inheritdoc IFunctionsBilling
   function estimateCost(
     uint64 subscriptionId,
     bytes calldata data,
@@ -152,7 +150,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     return _calculateCostEstimate(callbackGasLimit, gasPriceWei, donFee, adminFee);
   }
 
-  // @notice Estimate the cost in Juels of LINK
+  /// @notice Estimate the cost in Juels of LINK
   // that will be charged to a subscription to fulfill a Functions request
   // Gas Price can be overestimated to account for flucuations between request and response time
   function _calculateCostEstimate(
@@ -165,7 +163,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
 
     uint256 gasPriceWithOverestimation = gasPriceWei +
       ((gasPriceWei * s_config.fulfillmentGasPriceOverEstimationBP) / 10_000);
-    // @NOTE: Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
+    /// @NOTE: Basis Points are 1/100th of 1%, divide by 10_000 to bring back to original units
 
     uint96 juelsPerGas = _getJuelsPerGas(gasPriceWithOverestimation);
     uint256 estimatedGasReimbursement = juelsPerGas * executionGas;
@@ -178,12 +176,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // |                           Billing                            |
   // ================================================================
 
-  // @notice Initiate the billing process for an Functions request
-  // @dev Only callable by the Functions Router
-  // @param data - Encoded Chainlink Functions request data, use FunctionsClient API to encode a request
-  // @param requestDataVersion - Version number of the structure of the request data
-  // @param billing - Billing configuration for the request
-  // @return commitment - The parameters of the request that must be held consistent at response time
+  /// @notice Initiate the billing process for an Functions request
+  /// @dev Only callable by the Functions Router
+  /// @param request - Chainlink Functions request data, see FunctionsResponse.RequestMeta for the structure
+  /// @return commitment - The parameters of the request that must be held consistent at response time
   function _startBilling(
     FunctionsResponse.RequestMeta memory request
   ) internal returns (FunctionsResponse.Commitment memory commitment) {
@@ -233,8 +229,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     return commitment;
   }
 
-  // @notice Generate a keccak hash request ID
-  // @dev uses the number of requests that the consumer of a subscription has sent as a nonce
+  /// @notice Generate a keccak hash request ID
+  /// @dev uses the number of requests that the consumer of a subscription has sent as a nonce
   function _computeRequestId(
     address don,
     address client,
@@ -244,13 +240,13 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     return keccak256(abi.encode(don, client, subscriptionId, nonce));
   }
 
-  // @notice Finalize billing process for an Functions request by sending a callback to the Client contract and then charging the subscription
-  // @param requestId identifier for the request that was generated by the Registry in the beginBilling commitment
-  // @param response response data from DON consensus
-  // @param err error from DON consensus
-  // @return result fulfillment result
-  // @dev Only callable by a node that has been approved on the Coordinator
-  // @dev simulated offchain to determine if sufficient balance is present to fulfill the request
+  /// @notice Finalize billing process for an Functions request by sending a callback to the Client contract and then charging the subscription
+  /// @param requestId identifier for the request that was generated by the Registry in the beginBilling commitment
+  /// @param response response data from DON consensus
+  /// @param err error from DON consensus
+  /// @return result fulfillment result
+  /// @dev Only callable by a node that has been approved on the Coordinator
+  /// @dev simulated offchain to determine if sufficient balance is present to fulfill the request
   function _fulfillAndBill(
     bytes32 requestId,
     bytes memory response,
@@ -305,9 +301,9 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // |                       Request Timeout                        |
   // ================================================================
 
-  // @inheritdoc IFunctionsBilling
-  // @dev Only callable by the Router
-  // @dev Used by FunctionsRouter.sol during timeout of a request
+  /// @inheritdoc IFunctionsBilling
+  /// @dev Only callable by the Router
+  /// @dev Used by FunctionsRouter.sol during timeout of a request
   function deleteCommitment(bytes32 requestId) external override onlyRouter {
     // Delete commitment
     delete s_requestCommitments[requestId];
@@ -318,7 +314,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   // |                    Fund withdrawal                           |
   // ================================================================
 
-  // @inheritdoc IFunctionsBilling
+  /// @inheritdoc IFunctionsBilling
   function oracleWithdraw(address recipient, uint96 amount) external {
     _disperseFeePool();
 
@@ -331,8 +327,8 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     IFunctionsSubscriptions(address(_getRouter())).oracleWithdraw(recipient, amount);
   }
 
-  // @inheritdoc IFunctionsBilling
-  // @dev Only callable by the Coordinator owner
+  /// @inheritdoc IFunctionsBilling
+  /// @dev Only callable by the Coordinator owner
   function oracleWithdrawAll() external {
     _onlyOwner();
     _disperseFeePool();
