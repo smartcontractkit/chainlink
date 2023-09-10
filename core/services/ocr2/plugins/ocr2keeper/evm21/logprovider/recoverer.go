@@ -336,10 +336,10 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 
 // recoverFilter recovers logs for a single upkeep filter.
 func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startBlock, offsetBlock int64) error {
-	start := f.lastRePollBlock + 1
+	start := f.lastRePollBlock + 1 // NOTE: we expect f.lastRePollBlock + 1 <= offsetBlock, as others would have been filtered out
 	// ensure we don't recover logs from before the filter was created
-	// NOTE: we expect that filter with configUpdateBlock > offsetBlock were already filtered out.
 	if configUpdateBlock := int64(f.configUpdateBlock); start < configUpdateBlock {
+		// NOTE: we expect that configUpdateBlock <= offsetBlock, as others would have been filtered out
 		start = configUpdateBlock
 	}
 	if start < startBlock {
@@ -468,7 +468,7 @@ func (r *logRecoverer) getFilterBatch(offsetBlock int64) []upkeepFilter {
 	filters := r.filterStore.GetFilters(func(f upkeepFilter) bool {
 		// ensure we work only on filters that are ready to be recovered
 		// no need to recover in case f.configUpdateBlock is after offsetBlock
-		return f.lastRePollBlock <= offsetBlock && int64(f.configUpdateBlock) <= offsetBlock
+		return f.lastRePollBlock < offsetBlock && int64(f.configUpdateBlock) <= offsetBlock
 	})
 
 	sort.Slice(filters, func(i, j int) bool {
