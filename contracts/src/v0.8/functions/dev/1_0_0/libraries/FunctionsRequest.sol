@@ -3,7 +3,7 @@ pragma solidity ^0.8.19;
 
 import {CBOR} from "../../../../vendor/solidity-cborutils/v2.0.0/CBOR.sol";
 
-// @title Library for encoding the input data of a Functions request into CBOR
+/// @title Library for encoding the input data of a Functions request into CBOR
 library FunctionsRequest {
   using CBOR for CBOR.CBORBuffer;
 
@@ -36,9 +36,9 @@ library FunctionsRequest {
   error EmptyArgs();
   error NoInlineSecrets();
 
-  // @notice Encodes a Request to CBOR encoded bytes
-  // @param self The request to encode
-  // @return CBOR encoded bytes
+  /// @notice Encodes a Request to CBOR encoded bytes
+  /// @param self The request to encode
+  /// @return CBOR encoded bytes
   function encodeCBOR(Request memory self) internal pure returns (bytes memory) {
     CBOR.CBORBuffer memory buffer = CBOR.create(DEFAULT_BUFFER_SIZE);
 
@@ -82,12 +82,12 @@ library FunctionsRequest {
     return buffer.buf.buf;
   }
 
-  // @notice Initializes a Chainlink Functions Request
-  // @dev Sets the codeLocation and code on the request
-  // @param self The uninitialized request
-  // @param codeLocation The user provided source code location
-  // @param language The programming language of the user code
-  // @param source The user provided source code or a url
+  /// @notice Initializes a Chainlink Functions Request
+  /// @dev Sets the codeLocation and code on the request
+  /// @param self The uninitialized request
+  /// @param codeLocation The user provided source code location
+  /// @param language The programming language of the user code
+  /// @param source The user provided source code or a url
   function initializeRequest(
     Request memory self,
     Location codeLocation,
@@ -101,17 +101,17 @@ library FunctionsRequest {
     self.source = source;
   }
 
-  // @notice Initializes a Chainlink Functions Request
-  // @dev Simplified version of initializeRequest for PoC
-  // @param self The uninitialized request
-  // @param javaScriptSource The user provided JS code (must not be empty)
+  /// @notice Initializes a Chainlink Functions Request
+  /// @dev Simplified version of initializeRequest for PoC
+  /// @param self The uninitialized request
+  /// @param javaScriptSource The user provided JS code (must not be empty)
   function initializeRequestForInlineJavaScript(Request memory self, string memory javaScriptSource) internal pure {
     initializeRequest(self, Location.Inline, CodeLanguage.JavaScript, javaScriptSource);
   }
 
-  // @notice Adds Remote user encrypted secrets to a Request
-  // @param self The initialized request
-  // @param encryptedSecretsReference Encrypted comma-separated string of URLs pointing to off-chain secrets
+  /// @notice Adds Remote user encrypted secrets to a Request
+  /// @param self The initialized request
+  /// @param encryptedSecretsReference Encrypted comma-separated string of URLs pointing to off-chain secrets
   function addSecretsReference(Request memory self, bytes memory encryptedSecretsReference) internal pure {
     if (encryptedSecretsReference.length == 0) revert EmptySecrets();
 
@@ -119,10 +119,10 @@ library FunctionsRequest {
     self.encryptedSecretsReference = encryptedSecretsReference;
   }
 
-  // @notice Adds DON-hosted secrets reference to a Request
-  // @param self The initialized request
-  // @param slotID Slot ID of the user's secrets hosted on DON
-  // @param version User data version (for the slotID)
+  /// @notice Adds DON-hosted secrets reference to a Request
+  /// @param self The initialized request
+  /// @param slotID Slot ID of the user's secrets hosted on DON
+  /// @param version User data version (for the slotID)
   function addDONHostedSecrets(Request memory self, uint8 slotID, uint64 version) internal pure {
     CBOR.CBORBuffer memory buffer = CBOR.create(DEFAULT_BUFFER_SIZE);
 
@@ -135,18 +135,18 @@ library FunctionsRequest {
     self.encryptedSecretsReference = buffer.buf.buf;
   }
 
-  // @notice Sets args for the user run function
-  // @param self The initialized request
-  // @param args The array of string args (must not be empty)
+  /// @notice Sets args for the user run function
+  /// @param self The initialized request
+  /// @param args The array of string args (must not be empty)
   function setArgs(Request memory self, string[] memory args) internal pure {
     if (args.length == 0) revert EmptyArgs();
 
     self.args = args;
   }
 
-  // @notice Sets bytes args for the user run function
-  // @param self The initialized request
-  // @param args The array of bytes args (must not be empty)
+  /// @notice Sets bytes args for the user run function
+  /// @param self The initialized request
+  /// @param args The array of bytes args (must not be empty)
   function setBytesArgs(Request memory self, bytes[] memory args) internal pure {
     if (args.length == 0) revert EmptyArgs();
 

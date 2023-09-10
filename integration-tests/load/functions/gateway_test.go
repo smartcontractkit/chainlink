@@ -1,10 +1,12 @@
 package loadfunctions
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
+	"testing"
+
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
-	"testing"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
 )
 
 func TestGatewayLoad(t *testing.T) {
