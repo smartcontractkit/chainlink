@@ -292,7 +292,7 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 
 	r.pending = pending
 
-	r.lggr.Debugf("found %d pending payloads", len(pending))
+	r.lggr.Debugf("found %d recoverable payloads", len(results))
 
 	return results, nil
 }
@@ -336,7 +336,7 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 
 // recoverFilter recovers logs for a single upkeep filter.
 func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startBlock, offsetBlock int64) error {
-	start := f.lastRePollBlock
+	start := f.lastRePollBlock + 1
 	// ensure we don't recover logs from before the filter was created
 	// NOTE: we expect that filter with configUpdateBlock > offsetBlock were already filtered out.
 	if configUpdateBlock := int64(f.configUpdateBlock); start < configUpdateBlock {
