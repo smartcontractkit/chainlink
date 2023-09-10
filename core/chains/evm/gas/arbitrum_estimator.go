@@ -51,11 +51,11 @@ type arbitrumEstimator struct {
 	utils.StartStopOnce
 }
 
-func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient, ethClient ethClient, p PriceComponentGetter) EvmEstimator {
+func NewArbitrumEstimator(lggr logger.Logger, cfg ArbConfig, rpcClient rpcClient, ethClient ethClient) EvmEstimator {
 	lggr = lggr.Named("ArbitrumEstimator")
 	return &arbitrumEstimator{
 		cfg:            cfg,
-		EvmEstimator:   NewL2SuggestedPriceEstimator(lggr, rpcClient, p),
+		EvmEstimator:   NewL2SuggestedPriceEstimator(lggr, rpcClient),
 		client:         ethClient,
 		pollPeriod:     10 * time.Second,
 		logger:         lggr,
@@ -93,21 +93,6 @@ func (a *arbitrumEstimator) Ready() error { return a.StartStopOnce.Ready() }
 
 func (a *arbitrumEstimator) HealthReport() map[string]error {
 	return map[string]error{a.Name(): a.StartStopOnce.Healthy()}
-}
-
-func (a *arbitrumEstimator) GetPriceComponents(ctx context.Context, maxGasPriceWei *assets.Wei, opts ...feetypes.Opt) (prices []PriceComponent, err error) {
-	prices, err = a.EvmEstimator.GetPriceComponents(ctx, maxGasPriceWei, opts...)
-	if err != nil {
-		return
-	}
-
-	gasPrice, _, err := a.GetLegacyGas(ctx, nil, 0, maxGasPriceWei, opts...)
-	if err != nil {
-		return []PriceComponent{}, err
-	}
-
-	prices[0].Price = gasPrice
-	return
 }
 
 // GetLegacyGas estimates both the gas price and the gas limit.

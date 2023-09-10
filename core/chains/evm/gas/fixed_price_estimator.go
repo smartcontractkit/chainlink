@@ -15,10 +15,9 @@ import (
 var _ EvmEstimator = (*fixedPriceEstimator)(nil)
 
 type fixedPriceEstimator struct {
-	config               fixedPriceEstimatorConfig
-	bhConfig             fixedPriceEstimatorBlockHistoryConfig
-	lggr                 logger.SugaredLogger
-	priceComponentGetter PriceComponentGetter
+	config   fixedPriceEstimatorConfig
+	bhConfig fixedPriceEstimatorBlockHistoryConfig
+	lggr     logger.SugaredLogger
 }
 type bumpConfig interface {
 	LimitMultiplier() float32
@@ -45,8 +44,8 @@ type fixedPriceEstimatorBlockHistoryConfig interface {
 
 // NewFixedPriceEstimator returns a new "FixedPrice" estimator which will
 // always use the config default values for gas prices and limits
-func NewFixedPriceEstimator(cfg fixedPriceEstimatorConfig, bhCfg fixedPriceEstimatorBlockHistoryConfig, lggr logger.Logger, p PriceComponentGetter) EvmEstimator {
-	return &fixedPriceEstimator{cfg, bhCfg, logger.Sugared(lggr.Named("FixedPriceEstimator")), p}
+func NewFixedPriceEstimator(cfg fixedPriceEstimatorConfig, bhCfg fixedPriceEstimatorBlockHistoryConfig, lggr logger.Logger) EvmEstimator {
+	return &fixedPriceEstimator{cfg, bhCfg, logger.Sugared(lggr.Named("FixedPriceEstimator"))}
 }
 
 func (f *fixedPriceEstimator) Start(context.Context) error {
@@ -57,11 +56,6 @@ func (f *fixedPriceEstimator) Start(context.Context) error {
 		}
 	}
 	return nil
-}
-
-func (f *fixedPriceEstimator) GetPriceComponents(ctx context.Context, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (prices []PriceComponent, err error) {
-	gasPrice := commonfee.CalculateFee(f.config.PriceDefault().ToInt(), maxGasPriceWei.ToInt(), f.config.PriceMax().ToInt())
-	return f.priceComponentGetter.GetPriceComponents(ctx, assets.NewWei(gasPrice))
 }
 
 func (f *fixedPriceEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLimit uint32, maxGasPriceWei *assets.Wei, _ ...feetypes.Opt) (*assets.Wei, uint32, error) {
