@@ -52,7 +52,7 @@ const (
 	OPGasOracleAddress = "0x420000000000000000000000000000000000000F"
 	// GasOracle_l1BaseFee is the a hex encoded call to:
 	// `function l1BaseFee() external view returns (uint256);`
-	OPGasOracle_getL1BaseFeeEstimate = "519b4bd3"
+	OPGasOracle_l1BaseFee = "519b4bd3"
 
 	// Interval at which to poll for L1BaseFee. A good starting point is the L1 block time.
 	PollPeriod = 12 * time.Second
@@ -61,12 +61,12 @@ const (
 func NewL1BaeFeeOracle(lggr logger.Logger, ethClient evmclient.Client, oracleType OracleType) L1Oracle {
 	var address, selector string
 	switch oracleType {
-	case ARBITRUM:
+	case Arbitrum:
 		address = ArbGasInfoAddress
 		selector = ArbGasInfo_getL1BaseFeeEstimate
-	case OP_STACK:
+	case OPStack:
 		address = OPGasOracleAddress
-		selector = OPGasOracle_getL1BaseFeeEstimate
+		selector = OPGasOracle_l1BaseFee
 	default:
 		panic(fmt.Errorf("unsupportd oracle type: %s", oracleType))
 	}
