@@ -23,16 +23,16 @@ const (
 	OPStack  OracleType = "OP_STACK"
 )
 
-// Reads L2-specific precompiles and caches the l1BaseFee set by the L2.
-type l1BaseFeeOracle struct {
+// Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
+type l1GasPriceOracle struct {
 	client     evmclient.Client
 	pollPeriod time.Duration
 	logger     logger.Logger
 	address    string
 	selector   string
 
-	l1BaseFeeMu sync.RWMutex
-	l1BaseFee   *assets.Wei
+	l1GasPriceMu sync.RWMutex
+	l1GasPrice   *assets.Wei
 
 	chInitialised chan struct{}
 	chStop        utils.StopChan
@@ -58,7 +58,7 @@ const (
 	PollPeriod = 12 * time.Second
 )
 
-func NewL1BaeFeeOracle(lggr logger.Logger, ethClient evmclient.Client, oracleType OracleType) L1Oracle {
+func NewL1GasPriceOracle(lggr logger.Logger, ethClient evmclient.Client, oracleType OracleType) L1Oracle {
 	var address, selector string
 	switch oracleType {
 	case Arbitrum:
@@ -71,27 +71,27 @@ func NewL1BaeFeeOracle(lggr logger.Logger, ethClient evmclient.Client, oracleTyp
 		panic(fmt.Errorf("unsupportd oracle type: %s", oracleType))
 	}
 
-	return &l1BaseFeeOracle{
+	return &l1GasPriceOracle{
 		client:     ethClient,
 		pollPeriod: PollPeriod,
-		logger:     lggr.Named(fmt.Sprintf("%s L1BaseFeeOracle", oracleType)),
+		logger:     lggr.Named(fmt.Sprintf("%s L1GasPriceOracle", oracleType)),
 		address:    address,
 		selector:   selector,
 	}
 }
 
-func (o *l1BaseFeeOracle) Name() string {
+func (o *l1GasPriceOracle) Name() string {
 	return o.logger.Name()
 }
 
-func (o *l1BaseFeeOracle) Start(ctx context.Context) error {
+func (o *l1GasPriceOracle) Start(ctx context.Context) error {
 	return o.StartOnce(o.Name(), func() error {
 		go o.run()
 		<-o.chInitialised
 		return nil
 	})
 }
-func (o *l1BaseFeeOracle) Close() error {
+func (o *l1GasPriceOracle) Close() error {
 	return o.StopOnce(o.Name(), func() (err error) {
 		close(o.chStop)
 		<-o.chDone
@@ -99,13 +99,13 @@ func (o *l1BaseFeeOracle) Close() error {
 	})
 }
 
-func (o *l1BaseFeeOracle) Ready() error { return o.StartStopOnce.Ready() }
+func (o *l1GasPriceOracle) Ready() error { return o.StartStopOnce.Ready() }
 
-func (o *l1BaseFeeOracle) HealthReport() map[string]error {
+func (o *l1GasPriceOracle) HealthReport() map[string]error {
 	return map[string]error{o.Name(): o.StartStopOnce.Healthy()}
 }
 
-func (o *l1BaseFeeOracle) run() {
+func (o *l1GasPriceOracle) run() {
 	defer close(o.chDone)
 
 	t := o.refresh()
@@ -121,7 +121,7 @@ func (o *l1BaseFeeOracle) run() {
 	}
 }
 
-func (o *l1BaseFeeOracle) refresh() (t *time.Timer) {
+func (o *l1GasPriceOracle) refresh() (t *time.Timer) {
 	t = time.NewTimer(utils.WithJitter(o.pollPeriod))
 
 	ctx, cancel := o.chStop.CtxCancel(evmclient.ContextWithDefaultTimeout())
@@ -142,14 +142,14 @@ func (o *l1BaseFeeOracle) refresh() (t *time.Timer) {
 	}
 	price := new(big.Int).SetBytes(b)
 
-	o.l1BaseFeeMu.Lock()
-	defer o.l1BaseFeeMu.Unlock()
-	o.l1BaseFee = assets.NewWei(price)
+	o.l1GasPriceMu.Lock()
+	defer o.l1GasPriceMu.Unlock()
+	o.l1GasPrice = assets.NewWei(price)
 	return
 }
 
-func (o *l1BaseFeeOracle) L1GasPrice(_ context.Context) (*assets.Wei, error) {
-	o.l1BaseFeeMu.RLock()
-	defer o.l1BaseFeeMu.RUnlock()
-	return o.l1BaseFee, nil
+func (o *l1GasPriceOracle) L1GasPrice(_ context.Context) (*assets.Wei, error) {
+	o.l1GasPriceMu.RLock()
+	defer o.l1GasPriceMu.RUnlock()
+	return o.l1GasPrice, nil
 }
