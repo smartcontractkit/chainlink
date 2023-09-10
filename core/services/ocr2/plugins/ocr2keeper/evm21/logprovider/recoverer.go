@@ -39,9 +39,9 @@ var (
 	// recoveryLogsBuffer is the number of blocks to be used as a safety buffer when reading logs
 	recoveryLogsBuffer = int64(200)
 	recoveryLogsBurst  = int64(500)
-	// performFinaliltyBuffer is the buffer subtracted from latestBlock-finalityDepth while checking
+	// performFinalityBuffer is the buffer subtracted from latestBlock-finalityDepth while checking
 	// for recoverable logs in order to give enough time for perform logs to be finalized
-	performFinaliltyBuffer = int64(200)
+	performFinalityBuffer = int64(200)
 	// blockTimeUpdateCadence is the cadence at which the chain's blocktime is re-calculated
 	blockTimeUpdateCadence = 10 * time.Minute
 )
@@ -465,7 +465,7 @@ func (r *logRecoverer) getRecoveryWindow(latest int64) (int64, int64) {
 	blockTime := r.blockTime.Load()
 	blocksInDay := int64(24*time.Hour) / blockTime
 	start := latest - blocksInDay
-	end := latest - lookbackBlocks - performFinaliltyBuffer
+	end := latest - lookbackBlocks - performFinalityBuffer
 	if start > end {
 		// In this case, allow starting from more than a day behind
 		start = end
