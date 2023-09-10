@@ -375,7 +375,7 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		// If recoverer is lagging by a lot (more than 100x recoveryLogsBuffer), allow
 		// a range of recoveryLogsBurst
 		// Exploratory: Store lastRePollBlock in DB to prevent bursts during restarts
-		// (while also taking into account exisitng pending payloads)
+		// (while also taking into account existing pending payloads)
 		end = start + recoveryLogsBurst
 	}
 	if end > offsetBlock {
