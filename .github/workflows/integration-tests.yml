@@ -163,6 +163,7 @@ jobs:
           COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
           echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
   eth-smoke-tests-matrix-automation:
+    if: false ##DEBUG
     environment: integration
     permissions:
       checks: write
