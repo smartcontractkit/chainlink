@@ -910,8 +910,8 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	}
 
 	mc := d.cfg.Mercury().Credentials(credName)
-	if mc == nil || !mc.Validate() {
-		return nil, fmt.Errorf("keeper2 services: mercury credential is not configured properly")
+	if mc == nil {
+		return nil, fmt.Errorf("keeper2 services: mercury credential is not configured")
 	}
 	rid, err := spec.RelayID()
 	if err != nil {
