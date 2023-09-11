@@ -147,6 +147,12 @@ jobs:
     outputs:
       matrix: ${{ env.MATRIX_JSON }}
     steps:
+      - name: Check for Skip Tests Label
+        if: contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')
+        run: |
+          echo "## `skip-smoke-tests` label is active, skipping E2E smoke tests" >>$GITHUB_STEP_SUMMARY
+          echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
+          exit 0
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Compare Test Lists
