@@ -32,8 +32,10 @@ func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
 
 	keyStore.On("GetRoundRobinAddress", testutils.FixtureChainID).Return(fromAddress, nil)
 	fluxAggregator.On("Address").Return(toAddress)
-	orm.On("CreateEthTransaction", fromAddress, toAddress, payload, gasLimit).Return(nil)
 
-	err = submitter.Submit(roundID, submission)
+	idempotencyKey := "fluxmonitor-1"
+	orm.On("CreateEthTransaction", fromAddress, toAddress, payload, gasLimit, &idempotencyKey).Return(nil)
+
+	err = submitter.Submit(roundID, submission, &idempotencyKey)
 	assert.NoError(t, err)
 }
