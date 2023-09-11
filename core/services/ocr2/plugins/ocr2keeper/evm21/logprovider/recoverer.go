@@ -39,9 +39,6 @@ var (
 	// recoveryLogsBuffer is the number of blocks to be used as a safety buffer when reading logs
 	recoveryLogsBuffer = int64(200)
 	recoveryLogsBurst  = int64(500)
-	// performFinalityBuffer is the buffer subtracted from latestBlock-finalityDepth while checking
-	// for recoverable logs in order to give enough time for perform logs to be finalized
-	performFinalityBuffer = int64(200)
 	// blockTimeUpdateCadence is the cadence at which the chain's blocktime is re-calculated
 	blockTimeUpdateCadence = 10 * time.Minute
 )
@@ -79,6 +76,8 @@ type logRecoverer struct {
 	poller            logpoller.LogPoller
 	client            client.Client
 	blockTimeResolver *blockTimeResolver
+
+	finalityDepth int64
 }
 
 var _ LogRecoverer = &logRecoverer{}
@@ -99,6 +98,8 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 		packer:            packer,
 		client:            client,
 		blockTimeResolver: newBlockTimeResolver(poller),
+
+		finalityDepth: opts.FinalityDepth,
 	}
 
 	rec.lookbackBlocks.Store(opts.LookbackBlocks)
@@ -465,7 +466,10 @@ func (r *logRecoverer) getRecoveryWindow(latest int64) (int64, int64) {
 	blockTime := r.blockTime.Load()
 	blocksInDay := int64(24*time.Hour) / blockTime
 	start := latest - blocksInDay
-	end := latest - lookbackBlocks - performFinalityBuffer
+	// Exploratory: Instead of subtracting finality depth to account for finalized performs
+	// keep two pointers of lastRePollBlock for soft and hard finalization, i.e. manage
+	// unfinalized perform logs better
+	end := latest - lookbackBlocks - r.finalityDepth
 	if start > end {
 		// In this case, allow starting from more than a day behind
 		start = end
