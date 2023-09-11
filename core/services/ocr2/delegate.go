@@ -8,6 +8,7 @@ import (
 	"log"
 	"time"
 
+	"google.golang.org/grpc"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -30,6 +31,7 @@ import (
 
 	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop/reportingplugins"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -43,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/persistence"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
@@ -428,6 +431,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		s4PluginDB := NewDB(d.db, spec.ID, s4PluginId, lggr, d.cfg.Database())
 		return d.newServicesOCR2Functions(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, thresholdPluginDB, s4PluginDB, lc, ocrLogger)
 
+	case types.GenericPlugin:
+		return d.newServicesGenericPlugin(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
@@ -471,6 +477,143 @@ func GetEVMEffectiveTransmitterID(jb *job.Job, chain evm.Chain, lggr logger.Suga
 	}
 
 	return spec.TransmitterID.String, nil
+}
+
+type coreConfig struct {
+	Command       string `json:"command"`
+	ProviderType  string `json:"provider_type"`
+	PluginName    string `json:"plugin_name"`
+	TelemetryType string `json:"telemetry_type"`
+}
+
+type PluginConfig struct {
+	CoreConfig   coreConfig `json:"core_config"`
+	PluginConfig json.RawMessage
+}
+
+func validateGenericPluginSpec(c coreConfig) error {
+	if c.Command == "" {
+		return errors.New("generic config invalid: must provide command path")
+	}
+
+	if c.PluginName == "" {
+		return errors.New("generic config invalid: must provide plugin name")
+	}
+
+	if c.TelemetryType == "" {
+		return errors.New("generic config invalid: must provide telemetry type")
+	}
+
+	return nil
+}
+
+type connProvider interface {
+	ClientConn() grpc.ClientConnInterface
+}
+
+func (d *Delegate) newServicesGenericPlugin(
+	ctx context.Context,
+	lggr logger.SugaredLogger,
+	jb job.Job,
+	bootstrapPeers []commontypes.BootstrapperLocator,
+	kb ocr2key.KeyBundle,
+	ocrDB *db,
+	lc ocrtypes.LocalConfig,
+	ocrLogger commontypes.Logger,
+) (srvs []job.ServiceCtx, err error) {
+	spec := jb.OCR2OracleSpec
+
+	p := PluginConfig{}
+	err = json.Unmarshal(spec.PluginConfig.Bytes(), &p)
+	if err != nil {
+		return nil, err
+	}
+	cconf := p.CoreConfig
+
+	err = validateGenericPluginSpec(cconf)
+	if err != nil {
+		return nil, err
+	}
+
+	rid, err := spec.RelayID()
+	if err != nil {
+		return nil, fmt.Errorf("%s services: %w: %w", cconf.PluginName, ErrJobSpecNoRelayer, err)
+	}
+
+	relayer, err := d.RelayGetter.Get(rid)
+	if err != nil {
+		return nil, fmt.Errorf("%s services; failed to get relay %s is it enabled?: %w", p.CoreConfig.PluginName, spec.Relay, err)
+	}
+
+	provider, err := relayer.NewPluginProvider(ctx, types.RelayArgs{
+		ExternalJobID: jb.ExternalJobID,
+		JobID:         spec.ID,
+		ContractID:    spec.ContractID,
+		New:           d.isNewlyCreatedJob,
+		RelayConfig:   spec.RelayConfig.Bytes(),
+		ProviderType:  cconf.ProviderType,
+	}, types.PluginArgs{
+		TransmitterID: spec.TransmitterID.String,
+		PluginConfig:  spec.PluginConfig.Bytes(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	srvs = append(srvs, provider)
+
+	oracleEndpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(
+		spec.ContractID,
+		synchronization.TelemetryType(cconf.TelemetryType),
+		rid.Network,
+		rid.ChainID,
+	)
+	oracleArgs := libocr2.OCR2OracleArgs{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		V2Bootstrappers:              bootstrapPeers,
+		Database:                     ocrDB,
+		LocalConfig:                  lc,
+		Logger:                       ocrLogger,
+		MonitoringEndpoint:           oracleEndpoint,
+		OffchainKeyring:              kb,
+		OnchainKeyring:               kb,
+		ContractTransmitter:          provider.ContractTransmitter(),
+		ContractConfigTracker:        provider.ContractConfigTracker(),
+		OffchainConfigDigester:       provider.OffchainConfigDigester(),
+	}
+
+	pluginLggr := lggr.Named(cconf.PluginName).Named(spec.ContractID).Named(spec.GetID())
+	cmdFn, grpcOpts, err := d.cfg.RegisterLOOP(fmt.Sprintf("%s-%s-%s", cconf.PluginName, spec.ContractID, spec.GetID()), cconf.Command)
+	if err != nil {
+		return nil, fmt.Errorf("failed to register loop: %w", err)
+	}
+
+	errorLog := &errorLog{jobID: jb.ID, recordError: d.jobORM.RecordError}
+	providerConn, ok := provider.(connProvider)
+	if !ok {
+		return nil, errors.New("provider not supported: the provider is not a LOOPP provider")
+	}
+
+	pluginConfig := types.ReportingPluginServiceConfig{
+		PluginName:   cconf.PluginName,
+		Command:      cconf.Command,
+		ProviderType: cconf.ProviderType,
+		PluginConfig: string(p.PluginConfig),
+	}
+
+	pr := generic.NewPipelineRunnerAdapter(pluginLggr, jb, d.pipelineRunner)
+	ta := generic.NewTelemetryAdapter(d.monitoringEndpointGen)
+
+	plugin := reportingplugins.NewLOOPPService(pluginLggr, grpcOpts, cmdFn, pluginConfig, providerConn.ClientConn(), pr, ta, errorLog)
+	oracleArgs.ReportingPluginFactory = plugin
+	srvs = append(srvs, plugin)
+
+	oracle, err := libocr2.NewOracle(oracleArgs)
+	if err != nil {
+		return nil, err
+	}
+
+	srvs = append(srvs, job.NewServiceAdapter(oracle))
+	return srvs, nil
 }
 
 func (d *Delegate) newServicesMercury(
