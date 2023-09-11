@@ -70,9 +70,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface, ConfirmedOwner {
    * @notice Sets the configuration of the vrfv2 mock coordinator
    */
   function setConfig() public onlyOwner {
-    s_config = Config({
-      reentrancyLock: false
-    });
+    s_config = Config({reentrancyLock: false});
     emit ConfigSet();
   }
 
