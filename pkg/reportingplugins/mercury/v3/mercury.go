@@ -322,13 +322,16 @@ func (rp *reportingPlugin) Report(repts ocrtypes.ReportTimestamp, previousReport
 		return false, nil, err
 	}
 
+	if rf.Timestamp < rf.ValidFromTimestamp {
+		rp.logger.Debugw("shouldReport: no (overlap)", "observationTimestamp", rf.Timestamp, "validFromTimestamp", rf.ValidFromTimestamp, "repts", repts)
+		return false, nil, nil
+	}
+
 	if err = rp.validateReport(rf); err != nil {
-		rp.logger.Debugw("shouldReport: no (validation error)", "err", err, "timestamp", repts)
+		rp.logger.Debugw("shouldReport: no (validation error)", "err", err, "repts", repts)
 		return false, nil, err
 	}
-	rp.logger.Debugw("shouldReport: yes",
-		"timestamp", repts,
-	)
+	rp.logger.Debugw("shouldReport: yes", "repts", repts)
 
 	report, err = rp.reportCodec.BuildReport(rf)
 	if err != nil {

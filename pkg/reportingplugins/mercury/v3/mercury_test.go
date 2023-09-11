@@ -35,6 +35,7 @@ type testReportCodec struct {
 	builtReport          ocrtypes.Report
 
 	builtReportFields *ReportFields
+	err               error
 }
 
 func (rc *testReportCodec) BuildReport(rf ReportFields) (ocrtypes.Report, error) {
@@ -48,7 +49,7 @@ func (rc testReportCodec) MaxReportLength(n int) (int, error) {
 }
 
 func (rc testReportCodec) ObservationTimestampFromReport(ocrtypes.Report) (uint32, error) {
-	return rc.observationTimestamp, nil
+	return rc.observationTimestamp, rc.err
 }
 
 func newAttributedObservation(t *testing.T, p *MercuryObservationProto) ocrtypes.AttributedObservation {
@@ -330,7 +331,28 @@ func Test_Plugin_Report(t *testing.T) {
 			}, *codec.builtReportFields)
 
 		})
-		t.Run("errors if cannot extract timestamp from previous report", func(t *testing.T) {})
+		t.Run("errors if cannot extract timestamp from previous report", func(t *testing.T) {
+			codec.err = errors.New("something exploded trying to extract timestamp")
+			aos := newValidAos(t)
+
+			should, _, err := rp.Report(ocrtypes.ReportTimestamp{}, previousReport, aos)
+			assert.False(t, should)
+			assert.EqualError(t, err, "something exploded trying to extract timestamp")
+		})
+		t.Run("does not report if observationTimestamp < validFromTimestamp", func(t *testing.T) {
+			codec.observationTimestamp = 43
+			codec.err = nil
+
+			protos := newValidProtos()
+			for i := range protos {
+				protos[i].Timestamp = 42
+			}
+			aos := newValidAos(t, protos...)
+
+			should, _, err := rp.Report(ocrtypes.ReportTimestamp{}, previousReport, aos)
+			assert.False(t, should)
+			assert.NoError(t, err)
+		})
 	})
 
 	t.Run("buildReport failures", func(t *testing.T) {
