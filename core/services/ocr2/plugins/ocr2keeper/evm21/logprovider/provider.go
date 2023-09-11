@@ -129,7 +129,7 @@ func (p *logEventProvider) Start(context.Context) error {
 		p.threadCtrl.Go(func(ctx context.Context) {
 			lggr := p.lggr.With("where", "scheduler")
 
-			err := p.scheduleReadJobs(ctx, func(ids []*big.Int) {
+			p.scheduleReadJobs(ctx, func(ids []*big.Int) {
 				select {
 				case readQ <- ids:
 				case <-ctx.Done():
@@ -137,14 +137,6 @@ func (p *logEventProvider) Start(context.Context) error {
 					lggr.Warnw("readQ is full, dropping ids", "ids", ids)
 				}
 			})
-			// if the context was canceled, we don't need to log the error
-			if ctx.Err() != nil {
-				return
-			}
-			if err != nil {
-				lggr.Warnw("stopped scheduling read jobs with error", "err", err)
-			}
-			lggr.Debug("stopped scheduling read jobs")
 		})
 
 		return nil
@@ -225,7 +217,7 @@ func (p *logEventProvider) CurrentPartitionIdx() uint64 {
 }
 
 // scheduleReadJobs starts a scheduler that pushed ids to readQ for reading logs in the background.
-func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([]*big.Int)) error {
+func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([]*big.Int)) {
 	ctx, cancel := context.WithCancel(pctx)
 	defer cancel()
 
@@ -253,7 +245,7 @@ func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([
 			partitionIdx++
 			atomic.StoreUint64(&p.currentPartitionIdx, partitionIdx)
 		case <-ctx.Done():
-			return nil
+			return
 		}
 	}
 }
