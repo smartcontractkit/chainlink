@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {IAutomationRegistryConsumer} from "../interfaces/IAutomationRegistryConsumer.sol";
-import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
+import {IAutomationRegistryConsumer} from "../../interfaces/IAutomationRegistryConsumer.sol";
+import {IAutomationForwarder} from "../../interfaces/IAutomationForwarder.sol";
 import {AutomationForwarder} from "../AutomationForwarder.sol";
 import {AutomationForwarderLogic} from "../AutomationForwarderLogic.sol";
-import {MockKeeperRegistry2_1} from "../mocks/MockKeeperRegistry2_1.sol";
-import {UpkeepCounter} from "../mocks/UpkeepCounter.sol";
+import {MockKeeperRegistry2_1} from "../../mocks/MockKeeperRegistry2_1.sol";
+import {UpkeepCounter} from "../../testhelpers/UpkeepCounter.sol";
 import {BaseTest} from "./BaseTest.t.sol";
 
 // in contracts directory, run
