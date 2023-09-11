@@ -339,6 +339,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	ctx, cancel := runCloserChannel.NewCtx()
 	defer cancel()
 
+	evmChainID := lb.EVMChainID()
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
 			"databaseID":    l.job.ID,
@@ -360,6 +361,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			"blockTransactionsRoot": lb.TransactionsRoot(),
 			"blockStateRoot":        lb.StateRoot(),
 		},
+		"evmChainID": evmChainID.String(),
 	})
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
 	_, err := l.pipelineRunner.Run(ctx, &run, l.logger, true, func(tx pg.Queryer) error {
