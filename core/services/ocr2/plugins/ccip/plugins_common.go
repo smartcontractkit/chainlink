@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_0_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipevents"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
@@ -75,9 +76,27 @@ func LoadOnRampDynamicConfig(onRamp evm_2_evm_onramp.EVM2EVMOnRampInterface, cli
 			MaxTokensLength: legacyDynamicConfig.MaxTokensLength,
 			PriceRegistry:   legacyDynamicConfig.PriceRegistry,
 			MaxDataSize:     legacyDynamicConfig.MaxDataSize,
-			MaxGasLimit:     legacyDynamicConfig.MaxGasLimit,
+			MaxGasLimit:     uint32(legacyDynamicConfig.MaxGasLimit),
 		}, nil
-	case "1.1.0", "1.2.0":
+	case "1.1.0":
+		legacyOnramp, err := evm_2_evm_onramp_1_1_0.NewEVM2EVMOnRamp(onRamp.Address(), client)
+		if err != nil {
+			return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, err
+		}
+		legacyDynamicConfig, err := legacyOnramp.GetDynamicConfig(opts)
+		if err != nil {
+			return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, err
+		}
+		return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
+			Router:                legacyDynamicConfig.Router,
+			MaxTokensLength:       legacyDynamicConfig.MaxTokensLength,
+			DestGasOverhead:       legacyDynamicConfig.DestGasOverhead,
+			DestGasPerPayloadByte: legacyDynamicConfig.DestGasPerPayloadByte,
+			PriceRegistry:         legacyDynamicConfig.PriceRegistry,
+			MaxDataSize:           legacyDynamicConfig.MaxDataSize,
+			MaxGasLimit:           uint32(legacyDynamicConfig.MaxGasLimit),
+		}, nil
+	case "1.2.0":
 		return onRamp.GetDynamicConfig(opts)
 	default:
 		return evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{}, errors.Errorf("Invalid onramp version: %s", version)
