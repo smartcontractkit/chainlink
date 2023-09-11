@@ -36,7 +36,7 @@ type ETHTxTask struct {
 	// If unset, the receipt will be passed as output
 	// It has no effect if minConfirmations == 0
 	FailOnRevert    string `json:"failOnRevert"`
-	EVMChainID      string `default:"$(evmChainID)" json:"evmChainID" mapstructure:"evmChainID"`
+	EVMChainID      string `json:"evmChainID" mapstructure:"evmChainID"`
 	TransmitChecker string `json:"transmitChecker"`
 
 	forwardingAllowed bool
@@ -56,9 +56,16 @@ func (t *ETHTxTask) Type() TaskType {
 	return TaskTypeETHTx
 }
 
+func (t *ETHTxTask) getEvmChainID() string {
+	if t.EVMChainID == "" {
+		t.EVMChainID = "$(evmChainID)"
+	}
+	return t.EVMChainID
+}
+
 func (t *ETHTxTask) Run(_ context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
 	var chainID StringParam
-	err := errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.EVMChainID, vars), NonemptyString(t.EVMChainID), "")), "evmChainID")
+	err := errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.getEvmChainID(), vars), NonemptyString(t.getEvmChainID()), "")), "evmChainID")
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}

@@ -17,7 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -25,7 +24,6 @@ func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	config, err := GeneralConfigOpts{}.New()
 	require.NoError(t, err)
 	assert.Equal(t, (*url.URL)(nil), config.WebServer().BridgeResponseURL())
-	assert.Nil(t, evmtest.MustGetDefaultChainID(t, config.EVMConfigs()))
 	assert.False(t, config.EVMRPCEnabled())
 	assert.False(t, config.EVMEnabled())
 	assert.False(t, config.CosmosEnabled())

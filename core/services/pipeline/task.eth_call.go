@@ -32,7 +32,7 @@ type ETHCallTask struct {
 	GasFeeCap           string `json:"gasFeeCap"`
 	GasUnlimited        string `json:"gasUnlimited"`
 	ExtractRevertReason bool   `json:"extractRevertReason"`
-	EVMChainID          string `default:"$(evmChainID)" json:"evmChainID" mapstructure:"evmChainID"`
+	EVMChainID          string `json:"evmChainID" mapstructure:"evmChainID"`
 
 	specGasLimit *uint32
 	legacyChains evm.LegacyChainContainer
@@ -53,6 +53,13 @@ var (
 
 func (t *ETHCallTask) Type() TaskType {
 	return TaskTypeETHCall
+}
+
+func (t *ETHCallTask) getEvmChainID() string {
+	if t.EVMChainID == "" {
+		t.EVMChainID = "$(evmChainID)"
+	}
+	return t.EVMChainID
 }
 
 func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inputs []Result) (result Result, runInfo RunInfo) {
@@ -80,7 +87,7 @@ func (t *ETHCallTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, in
 		errors.Wrap(ResolveParam(&gasPrice, From(VarExpr(t.GasPrice, vars), t.GasPrice)), "gasPrice"),
 		errors.Wrap(ResolveParam(&gasTipCap, From(VarExpr(t.GasTipCap, vars), t.GasTipCap)), "gasTipCap"),
 		errors.Wrap(ResolveParam(&gasFeeCap, From(VarExpr(t.GasFeeCap, vars), t.GasFeeCap)), "gasFeeCap"),
-		errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.EVMChainID, vars), NonemptyString(t.EVMChainID), "")), "evmChainID"),
+		errors.Wrap(ResolveParam(&chainID, From(VarExpr(t.getEvmChainID(), vars), NonemptyString(t.getEvmChainID()), "")), "evmChainID"),
 		errors.Wrap(ResolveParam(&gasUnlimited, From(VarExpr(t.GasUnlimited, vars), NonemptyString(t.GasUnlimited), false)), "gasUnlimited"),
 	)
 	if err != nil {
