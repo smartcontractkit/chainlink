@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -911,7 +912,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 	})
 
 	t.Run("test Mercury ETH key validation", func(t *testing.T) {
-		jb.OCR2OracleSpec.PluginType = job.Mercury
+		jb.OCR2OracleSpec.PluginType = types.Mercury
 		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no CSA key matching: \"bad key\"")
 

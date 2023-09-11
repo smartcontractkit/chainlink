@@ -101,6 +101,9 @@
           "name": "registry_2_1"
         }
       ]
+    },
+    {
+      "name": "TestSetUpkeepTriggerConfig"
     }
   ]
 }

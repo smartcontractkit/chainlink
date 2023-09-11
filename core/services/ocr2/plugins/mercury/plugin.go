@@ -67,7 +67,7 @@ func NewServices(
 			runResults,
 			chEnhancedTelem,
 			chainHeadTracker,
-			ocr2Provider.ContractTransmitter(),
+			ocr2Provider.MercuryServerFetcher(),
 			pluginConfig.InitialBlockNumber.Ptr(),
 			feedID,
 		)
@@ -87,7 +87,7 @@ func NewServices(
 			lggr,
 			runResults,
 			chEnhancedTelem,
-			ocr2Provider.ContractTransmitter(),
+			ocr2Provider.MercuryServerFetcher(),
 			*pluginConfig.LinkFeedID,
 			*pluginConfig.NativeFeedID,
 		)
@@ -107,7 +107,7 @@ func NewServices(
 			lggr,
 			runResults,
 			chEnhancedTelem,
-			ocr2Provider.ContractTransmitter(),
+			ocr2Provider.MercuryServerFetcher(),
 			*pluginConfig.LinkFeedID,
 			*pluginConfig.NativeFeedID,
 		)
