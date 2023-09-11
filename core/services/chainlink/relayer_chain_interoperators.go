@@ -276,7 +276,6 @@ func (rs *CoreRelayerChainInteroperators) Node(ctx context.Context, name string)
 
 // ids must be a string representation of relay.Identifier
 // ids are a filter; if none are specified, all are returned.
-// TODO: BCF-2440/1 this signature can be changed to id relay.Identifier which is a much better API
 func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, relayerIDs ...relay.ID) (nodes []types.NodeStatus, count int, err error) {
 	var (
 		totalErr error
