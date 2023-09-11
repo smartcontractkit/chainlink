@@ -75,8 +75,7 @@ describe('OptimismValidator', () => {
     it('posts sequencer status when there is not status change', async () => {
       await optimismValidator.addAccess(eoaValidator.address)
 
-      const currentBlockNum = await ethers.provider.getBlockNumber()
-      const currentBlock = await ethers.provider.getBlock(currentBlockNum)
+      const currentBlock = await ethers.provider.getBlock('latest')
       const futureTimestamp = currentBlock.timestamp + 5000
 
       await ethers.provider.send('evm_setNextBlockTimestamp', [futureTimestamp])
@@ -100,8 +99,7 @@ describe('OptimismValidator', () => {
     it('post sequencer offline', async () => {
       await optimismValidator.addAccess(eoaValidator.address)
 
-      const currentBlockNum = await ethers.provider.getBlockNumber()
-      const currentBlock = await ethers.provider.getBlock(currentBlockNum)
+      const currentBlock = await ethers.provider.getBlock('latest')
       const futureTimestamp = currentBlock.timestamp + 10000
 
       await ethers.provider.send('evm_setNextBlockTimestamp', [futureTimestamp])
