@@ -193,7 +193,7 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 			reads := make(chan []*big.Int, 100)
 
 			go func(ctx context.Context) {
-				_ = p.scheduleReadJobs(ctx, func(ids []*big.Int) {
+				p.scheduleReadJobs(ctx, func(ids []*big.Int) {
 					select {
 					case reads <- ids:
 					default:
