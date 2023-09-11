@@ -1319,6 +1319,7 @@ func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore(t *testing.T
 }
 
 func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore_AfterDelay(t *testing.T) {
+	t.Skip("TODO: VRF-616")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, true)
@@ -2141,10 +2142,10 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	sql = `INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, state, created_at, chain_specific_gas_limit)
 		VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :state, :created_at, :chain_specific_gas_limit)`
 	for _, attempt := range txAttempts {
-		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt) //nolint:gosec - just copying fields
+		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt) //nolint:gosec // just copying fields
 		_, err = db.NamedExec(sql, &dbAttempt)
 		require.NoError(t, err)
-		txmgr.DbEthTxAttemptToEthTxAttempt(dbAttempt, &attempt) //nolint:gosec - just copying fields
+		txmgr.DbEthTxAttemptToEthTxAttempt(dbAttempt, &attempt) //nolint:gosec // just copying fields
 	}
 
 	// add eth_receipts

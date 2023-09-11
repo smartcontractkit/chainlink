@@ -67,7 +67,7 @@ type relayGetter struct {
 }
 
 func (g *relayGetter) Get(id relay.ID) (loop.Relayer, error) {
-	return evmrelayer.NewLoopRelayAdapter(g.r, g.e), nil
+	return evmrelayer.NewLoopRelayServerAdapter(g.r, g.e), nil
 }
 
 func TestSpawner_CreateJobDeleteJob(t *testing.T) {
