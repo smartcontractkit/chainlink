@@ -310,14 +310,13 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			ctx := testutils.Context(t)
 
 			tickerCh := make(chan time.Time)
+
 			oldNewTickerFn := newTickerFn
 			oldFlushSize := batchSize
-			defer func() {
-			}()
 			newTickerFn = func(d time.Duration) *time.Ticker {
-				return &time.Ticker{
-					C: tickerCh,
-				}
+				t := time.NewTicker(d)
+				t.C = tickerCh
+				return t
 			}
 			batchSize = test.flushSize
 			defer func() {
