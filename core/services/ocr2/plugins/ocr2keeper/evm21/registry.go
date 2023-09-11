@@ -170,15 +170,17 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 			if err != nil {
 				lggr.Errorf("failed to initialize upkeeps", err)
 			}
-			tmr := time.NewTimer(refreshInterval)
+
+			ticker := time.NewTicker(refreshInterval)
+			defer ticker.Stop()
+
 			for {
 				select {
-				case <-tmr.C:
+				case <-ticker.C:
 					err = r.refreshActiveUpkeeps()
 					if err != nil {
 						lggr.Errorf("failed to refresh upkeeps", err)
 					}
-					tmr.Reset(refreshInterval)
 				case <-ctx.Done():
 					return
 				}
