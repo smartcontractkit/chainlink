@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"math/big"
 	"sort"
 	"sync"
@@ -40,6 +41,8 @@ var (
 	// recoveryLogsBuffer is the number of blocks to be used as a safety buffer when reading logs
 	recoveryLogsBuffer = int64(200)
 	recoveryLogsBurst  = int64(500)
+	// blockTimeUpdateCadence is the cadence at which the chain's blocktime is re-calculated
+	blockTimeUpdateCadence = 10 * time.Minute
 )
 
 type LogRecoverer interface {
@@ -70,11 +73,12 @@ type logRecoverer struct {
 	pending []ocr2keepers.UpkeepPayload
 	visited map[string]visitedRecord
 
-	filterStore UpkeepFilterStore
-	states      core.UpkeepStateReader
-	packer      LogDataPacker
-	poller      logpoller.LogPoller
-	client      client.Client
+	filterStore       UpkeepFilterStore
+	states            core.UpkeepStateReader
+	packer            LogDataPacker
+	poller            logpoller.LogPoller
+	client            client.Client
+	blockTimeResolver *blockTimeResolver
 }
 
 var _ LogRecoverer = &logRecoverer{}
@@ -89,13 +93,14 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 		lookbackBlocks: &atomic.Int64{},
 		interval:       opts.ReadInterval * 5,
 
-		pending:     make([]ocr2keepers.UpkeepPayload, 0),
-		visited:     make(map[string]visitedRecord),
-		poller:      poller,
-		filterStore: filterStore,
-		states:      stateStore,
-		packer:      packer,
-		client:      client,
+		pending:           make([]ocr2keepers.UpkeepPayload, 0),
+		visited:           make(map[string]visitedRecord),
+		poller:            poller,
+		filterStore:       filterStore,
+		states:            stateStore,
+		packer:            packer,
+		client:            client,
+		blockTimeResolver: newBlockTimeResolver(poller),
 	}
 
 	rec.lookbackBlocks.Store(opts.LookbackBlocks)
@@ -106,34 +111,29 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 
 func (r *logRecoverer) Start(pctx context.Context) error {
 	return r.StartOnce(LogRecovererServiceName, func() error {
-		blockTimeResolver := newBlockTimeResolver(r.poller)
-		blockTime, err := blockTimeResolver.BlockTime(pctx, defaultSampleSize)
-		if err != nil {
-			// TODO: TBD exit or just log a warning
-			// return fmt.Errorf("failed to compute block time: %w", err)
-			r.lggr.Warnw("failed to compute block time", "err", err)
-		}
-		if blockTime > 0 {
-			r.blockTime.Store(int64(blockTime))
-		}
+		r.updateBlockTime(ctx)
 
 		r.lggr.Infow("starting log recoverer", "blockTime", r.blockTime.Load(), "lookbackBlocks", r.lookbackBlocks.Load(), "interval", r.interval)
 
 		r.threadCtrl.Go(func(ctx context.Context) {
-			ticker := time.NewTicker(r.interval)
-			defer ticker.Stop()
+			recoverTicker := time.NewTicker(r.interval)
+			defer recoverTicker.Stop()
 			gcTicker := time.NewTicker(utils.WithJitter(GCInterval))
 			defer gcTicker.Stop()
+			blockTimeUpdateTicker := time.NewTicker(blockTimeUpdateCadence)
+			defer blockTimeUpdateTicker.Stop()
 
 			for {
 				select {
-				case <-ticker.C:
+				case <-recoverTicker.C:
 					if err := r.recover(ctx); err != nil {
 						r.lggr.Warnw("failed to recover logs", "err", err)
 					}
 				case <-gcTicker.C:
 					r.clean(ctx)
 					gcTicker.Reset(utils.WithJitter(GCInterval))
+				case <-blockTimeUpdateTicker.C:
+					r.updateBlockTime(ctx)
 				case <-ctx.Done():
 					return
 				}
@@ -433,7 +433,7 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 }
 
 // filterFinalizedStates filters out the log upkeeps that have already been completed (performed or ineligible).
-func (r *logRecoverer) filterFinalizedStates(f upkeepFilter, logs []logpoller.Log, states []ocr2keepers.UpkeepState) []logpoller.Log {
+func (r *logRecoverer) filterFinalizedStates(_ upkeepFilter, logs []logpoller.Log, states []ocr2keepers.UpkeepState) []logpoller.Log {
 	filtered := make([]logpoller.Log, 0)
 
 	for i, log := range logs {
@@ -641,4 +641,22 @@ func (r *logRecoverer) sortPending(latestBlock uint64) {
 	sort.SliceStable(r.pending, func(i, j int) bool {
 		return shuffledIDs[r.pending[i].WorkID] < shuffledIDs[r.pending[j].WorkID]
 	})
+}
+
+func (r *logRecoverer) updateBlockTime(ctx context.Context) {
+	blockTime, err := r.blockTimeResolver.BlockTime(ctx, defaultSampleSize)
+	if err != nil {
+		r.lggr.Warnw("failed to compute block time", "err", err)
+		return
+	}
+	if blockTime > 0 {
+		currentBlockTime := r.blockTime.Load()
+		newBlockTime := int64(blockTime)
+		if currentBlockTime > 0 && (int64(math.Abs(float64(currentBlockTime-newBlockTime)))*100/currentBlockTime) > 20 {
+			r.lggr.Warnf("updating blocktime from %d to %d, this change is larger than 20%", currentBlockTime, newBlockTime)
+		} else {
+			r.lggr.Debugf("updating blocktime from %d to %d", currentBlockTime, newBlockTime)
+		}
+		r.blockTime.Store(newBlockTime)
+	}
 }

@@ -37,8 +37,7 @@ type LoopRelayerChain struct {
 }
 
 func NewLoopRelayerChain(r *pkgcosmos.Relayer, s adapters.Chain) *LoopRelayerChain {
-
-	ra := relay.NewRelayerAdapter(r, s)
+	ra := relay.NewRelayerServerAdapter(r, s)
 	return &LoopRelayerChain{
 		Relayer: ra,
 		chain:   s,
