@@ -85,6 +85,7 @@ func NewEvmRegistry(
 	finalityDepth uint32,
 ) *EvmRegistry {
 	return &EvmRegistry{
+		ctx:          context.Background(),
 		threadCtrl:   utils.NewThreadControl(),
 		lggr:         lggr.Named("EvmRegistry"),
 		poller:       client.LogPoller(),
@@ -143,7 +144,6 @@ type EvmRegistry struct {
 	active           ActiveUpkeepList
 	lastPollBlock    int64
 	ctx              context.Context
-	cancel           context.CancelFunc
 	headFunc         func(ocr2keepers.BlockKey)
 	runState         int
 	runError         error
@@ -160,10 +160,6 @@ func (r *EvmRegistry) Name() string {
 
 func (r *EvmRegistry) Start(ctx context.Context) error {
 	return r.StartOnce(RegistryServiceName, func() error {
-		r.mu.Lock()
-		defer r.mu.Unlock()
-		r.ctx, r.cancel = context.WithCancel(context.Background())
-
 		if err := r.registerEvents(r.chainID, r.addr); err != nil {
 			return fmt.Errorf("logPoller error while registering automation events: %w", err)
 		}
