@@ -204,7 +204,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface, ConfirmedOwner {
     return (s_subscriptions[_subId].balance, 0, s_subscriptions[_subId].owner, s_consumers[_subId]);
   }
 
-  function cancelSubscription(uint64 _subId, address _to) external override onlySubOwner(_subId) {
+  function cancelSubscription(uint64 _subId, address _to) external override onlySubOwner(_subId) nonReentrant {
     emit SubscriptionCanceled(_subId, _to, s_subscriptions[_subId].balance);
     delete (s_subscriptions[_subId]);
   }
@@ -240,7 +240,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface, ConfirmedOwner {
   function removeConsumer(
     uint64 _subId,
     address _consumer
-  ) external override onlySubOwner(_subId) onlyValidConsumer(_subId, _consumer) {
+  ) external override onlySubOwner(_subId) onlyValidConsumer(_subId, _consumer) nonReentrant {
     address[] storage consumers = s_consumers[_subId];
     for (uint256 i = 0; i < consumers.length; i++) {
       if (consumers[i] == _consumer) {
