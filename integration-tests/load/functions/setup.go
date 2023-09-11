@@ -2,20 +2,22 @@ package loadfunctions
 
 import (
 	"crypto/ecdsa"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/go-resty/resty/v2"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
-	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"math/big"
 	mrand "math/rand"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/go-resty/resty/v2"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type FunctionsTest struct {
