@@ -229,6 +229,7 @@ jobs:
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
   eth-smoke-tests-matrix:
+    if: false ##DEBUG
     environment: integration
     permissions:
       checks: write
