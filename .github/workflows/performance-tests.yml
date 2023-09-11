@@ -31,7 +31,7 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@ecf95283f03858871ff00b787d79c419715afc34 # v2.7.0
       - name: Build and Push
-        uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5 # v3.2.0
+        uses: docker/build-push-action@0a97817b6ade9f46837855d676c4cca3a2471fc9 # v4.2.1
         with:
           context: .
           file: core/chainlink.Dockerfile
