@@ -129,10 +129,6 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 		err = multierr.Append(err, config.NamedMultiErrorList(err1, "Database"))
 	}
 
-	if err2 := s.Explorer.SetFrom(&f.Explorer); err2 != nil {
-		err = multierr.Append(err, config.NamedMultiErrorList(err2, "Explorer"))
-	}
-
 	if err3 := s.Password.SetFrom(&f.Password); err3 != nil {
 		err = multierr.Append(err, config.NamedMultiErrorList(err3, "Password"))
 	}
@@ -222,12 +218,6 @@ func (s *Secrets) setEnv() error {
 	if env.DatabaseAllowSimplePasswords.IsTrue() {
 		s.Database.AllowSimplePasswords = new(bool)
 		*s.Database.AllowSimplePasswords = true
-	}
-	if explorerKey := env.ExplorerAccessKey.Get(); explorerKey != "" {
-		s.Explorer.AccessKey = &explorerKey
-	}
-	if explorerSecret := env.ExplorerSecret.Get(); explorerSecret != "" {
-		s.Explorer.Secret = &explorerSecret
 	}
 	if keystorePassword := env.PasswordKeystore.Get(); keystorePassword != "" {
 		s.Password.Keystore = &keystorePassword
