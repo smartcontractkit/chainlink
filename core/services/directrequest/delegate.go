@@ -348,6 +348,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			"pipelineSpec": &pipeline.Spec{
 				ForwardingAllowed: l.job.ForwardingAllowed,
 			},
+			"evmChainID": evmChainID.String(),
 		},
 		"jobRun": map[string]interface{}{
 			"meta":                  meta,
@@ -361,7 +362,6 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			"blockTransactionsRoot": lb.TransactionsRoot(),
 			"blockStateRoot":        lb.StateRoot(),
 		},
-		"evmChainID": evmChainID.String(),
 	})
 	run := pipeline.NewRun(*l.job.PipelineSpec, vars)
 	_, err := l.pipelineRunner.Run(ctx, &run, l.logger, true, func(tx pg.Queryer) error {

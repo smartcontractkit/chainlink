@@ -1415,6 +1415,7 @@ func (lsn *listenerV2) simulateFulfillment(
 			"name":          lsn.job.Name.ValueOrZero(),
 			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
 			"maxGasPrice":   maxGasPriceWei.ToInt().String(),
+			"evmChainID":    lsn.job.VRFSpec.EVMChainID.String(),
 		},
 		"jobRun": map[string]interface{}{
 			"logBlockHash":   req.req.Raw().BlockHash.Bytes(),
@@ -1423,7 +1424,6 @@ func (lsn *listenerV2) simulateFulfillment(
 			"logTopics":      req.req.Raw().Topics,
 			"logData":        req.req.Raw().Data,
 		},
-		"evmChainID": lsn.job.VRFSpec.EVMChainID.String(),
 	})
 	var trrs pipeline.TaskRunResults
 	res.run, trrs, err = lsn.pipelineRunner.ExecuteRun(ctx, *lsn.job.PipelineSpec, vars, lg)
