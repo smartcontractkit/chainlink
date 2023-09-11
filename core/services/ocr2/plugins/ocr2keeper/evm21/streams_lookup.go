@@ -108,6 +108,10 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 			// user contract did not revert with StreamsLookup error
 			continue
 		}
+		if r.mercury.cred == nil {
+			lggr.Errorf("at block %d upkeep %s tries to access mercury server but mercury credential is not configured", block, upkeepId)
+			continue
+		}
 
 		if len(l.feeds) == 0 {
 			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
