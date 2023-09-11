@@ -109,31 +109,56 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 	return rec
 }
 
-func (r *logRecoverer) Start(pctx context.Context) error {
+// Start starts the log recoverer, which runs 3 threads in the background:
+// 1. Recovery thread: scans for logs that were missed by the log poller
+// 2. Cleanup thread: cleans up the cache of logs that were already processed
+// 3. Block time thread: updates the block time of the chain
+func (r *logRecoverer) Start(ctx context.Context) error {
 	return r.StartOnce(LogRecovererServiceName, func() error {
 		r.updateBlockTime(ctx)
 
 		r.lggr.Infow("starting log recoverer", "blockTime", r.blockTime.Load(), "lookbackBlocks", r.lookbackBlocks.Load(), "interval", r.interval)
 
 		r.threadCtrl.Go(func(ctx context.Context) {
-			recoverTicker := time.NewTicker(r.interval)
-			defer recoverTicker.Stop()
-			gcTicker := time.NewTicker(utils.WithJitter(GCInterval))
-			defer gcTicker.Stop()
-			blockTimeUpdateTicker := time.NewTicker(blockTimeUpdateCadence)
-			defer blockTimeUpdateTicker.Stop()
+			recoveryTicker := time.NewTicker(r.interval)
+			defer recoveryTicker.Stop()
 
 			for {
 				select {
-				case <-recoverTicker.C:
+				case <-recoveryTicker.C:
 					if err := r.recover(ctx); err != nil {
 						r.lggr.Warnw("failed to recover logs", "err", err)
 					}
-				case <-gcTicker.C:
+				case <-ctx.Done():
+					return
+				}
+			}
+		})
+
+		r.threadCtrl.Go(func(ctx context.Context) {
+			cleanupTicker := time.NewTicker(utils.WithJitter(GCInterval))
+			defer cleanupTicker.Stop()
+
+			for {
+				select {
+				case <-cleanupTicker.C:
 					r.clean(ctx)
-					gcTicker.Reset(utils.WithJitter(GCInterval))
-				case <-blockTimeUpdateTicker.C:
+					cleanupTicker.Reset(utils.WithJitter(GCInterval))
+				case <-ctx.Done():
+					return
+				}
+			}
+		})
+
+		r.threadCtrl.Go(func(ctx context.Context) {
+			blockTimeTicker := time.NewTicker(blockTimeUpdateCadence)
+			defer blockTimeTicker.Stop()
+
+			for {
+				select {
+				case <-blockTimeTicker.C:
 					r.updateBlockTime(ctx)
+					blockTimeTicker.Reset(utils.WithJitter(blockTimeUpdateCadence))
 				case <-ctx.Done():
 					return
 				}
