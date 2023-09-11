@@ -26,6 +26,8 @@ import (
 )
 
 var (
+	LogRecovererServiceName = "LogRecoverer"
+
 	// RecoveryInterval is the interval at which the recovery scanning processing is triggered
 	RecoveryInterval = 5 * time.Second
 	// RecoveryCacheTTL is the time to live for the recovery cache
@@ -57,9 +59,10 @@ type visitedRecord struct {
 }
 
 type logRecoverer struct {
-	lggr logger.Logger
+	utils.StartStopOnce
+	threadCtrl utils.ThreadControl
 
-	cancel context.CancelFunc
+	lggr logger.Logger
 
 	lookbackBlocks *atomic.Int64
 	blockTime      *atomic.Int64
@@ -82,7 +85,9 @@ var _ LogRecoverer = &logRecoverer{}
 
 func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client client.Client, stateStore core.UpkeepStateReader, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logRecoverer {
 	rec := &logRecoverer{
-		lggr: lggr.Named("LogRecoverer"),
+		lggr: lggr.Named(LogRecovererServiceName),
+
+		threadCtrl: utils.NewThreadControl(),
 
 		blockTime:      &atomic.Int64{},
 		lookbackBlocks: &atomic.Int64{},
@@ -104,63 +109,75 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 	return rec
 }
 
-func (r *logRecoverer) Start(_ context.Context) error {
-	ctx, cancel := context.WithCancel(context.Background())
+// Start starts the log recoverer, which runs 3 threads in the background:
+// 1. Recovery thread: scans for logs that were missed by the log poller
+// 2. Cleanup thread: cleans up the cache of logs that were already processed
+// 3. Block time thread: updates the block time of the chain
+func (r *logRecoverer) Start(ctx context.Context) error {
+	return r.StartOnce(LogRecovererServiceName, func() error {
+		r.updateBlockTime(ctx)
 
-	r.lock.Lock()
-	if r.cancel != nil {
-		r.lock.Unlock()
-		cancel() // Cancel the created context
-		return errors.New("already started")
-	}
-	r.cancel = cancel
-	r.lock.Unlock()
+		r.lggr.Infow("starting log recoverer", "blockTime", r.blockTime.Load(), "lookbackBlocks", r.lookbackBlocks.Load(), "interval", r.interval)
 
-	r.updateBlockTime(ctx)
-
-	r.lggr.Infow("starting log recoverer", "blockTime", r.blockTime.Load(), "lookbackBlocks", r.lookbackBlocks.Load(), "interval", r.interval)
-
-	{
-		go func(ctx context.Context, interval time.Duration) {
-			recoverTicker := time.NewTicker(interval)
-			defer recoverTicker.Stop()
-			gcTicker := time.NewTicker(utils.WithJitter(GCInterval))
-			defer gcTicker.Stop()
-			blockTimeUpdateTicker := time.NewTicker(blockTimeUpdateCadence)
-			defer blockTimeUpdateTicker.Stop()
+		r.threadCtrl.Go(func(ctx context.Context) {
+			recoveryTicker := time.NewTicker(r.interval)
+			defer recoveryTicker.Stop()
 
 			for {
 				select {
-				case <-recoverTicker.C:
+				case <-recoveryTicker.C:
 					if err := r.recover(ctx); err != nil {
 						r.lggr.Warnw("failed to recover logs", "err", err)
 					}
-				case <-gcTicker.C:
-					r.clean(ctx)
-					gcTicker.Reset(utils.WithJitter(GCInterval))
-				case <-blockTimeUpdateTicker.C:
-					r.updateBlockTime(ctx)
 				case <-ctx.Done():
 					return
 				}
 			}
-		}(ctx, r.interval)
-	}
+		})
 
-	return nil
+		r.threadCtrl.Go(func(ctx context.Context) {
+			cleanupTicker := time.NewTicker(utils.WithJitter(GCInterval))
+			defer cleanupTicker.Stop()
+
+			for {
+				select {
+				case <-cleanupTicker.C:
+					r.clean(ctx)
+					cleanupTicker.Reset(utils.WithJitter(GCInterval))
+				case <-ctx.Done():
+					return
+				}
+			}
+		})
+
+		r.threadCtrl.Go(func(ctx context.Context) {
+			blockTimeTicker := time.NewTicker(blockTimeUpdateCadence)
+			defer blockTimeTicker.Stop()
+
+			for {
+				select {
+				case <-blockTimeTicker.C:
+					r.updateBlockTime(ctx)
+					blockTimeTicker.Reset(utils.WithJitter(blockTimeUpdateCadence))
+				case <-ctx.Done():
+					return
+				}
+			}
+		})
+
+		return nil
+	})
 }
 
 func (r *logRecoverer) Close() error {
-	r.lock.Lock()
-	defer r.lock.Unlock()
+	return r.StopOnce(LogRecovererServiceName, func() error {
+		r.threadCtrl.Close()
+		return nil
+	})
+}
 
-	if cancel := r.cancel; cancel != nil {
-		r.cancel = nil
-		cancel()
-	} else {
-		return errors.New("already stopped")
-	}
-	return nil
+func (r *logRecoverer) HealthReport() map[string]error {
+	return map[string]error{LogRecovererServiceName: r.Healthy()}
 }
 
 func (r *logRecoverer) GetProposalData(ctx context.Context, proposal ocr2keepers.CoordinatedBlockProposal) ([]byte, error) {
