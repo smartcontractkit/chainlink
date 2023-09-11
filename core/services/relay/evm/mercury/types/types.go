@@ -2,6 +2,9 @@ package types
 
 import (
 	"context"
+	"math/big"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -16,4 +19,8 @@ type ChainHeadTracker interface {
 
 type DataSourceORM interface {
 	LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error)
+}
+
+type ReportCodec interface {
+	BenchmarkPriceFromReport(report ocrtypes.Report) (*big.Int, error)
 }

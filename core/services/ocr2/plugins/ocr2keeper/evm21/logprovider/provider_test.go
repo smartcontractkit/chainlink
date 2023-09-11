@@ -193,7 +193,7 @@ func TestLogEventProvider_ScheduleReadJobs(t *testing.T) {
 			reads := make(chan []*big.Int, 100)
 
 			go func(ctx context.Context) {
-				_ = p.scheduleReadJobs(ctx, func(ids []*big.Int) {
+				p.scheduleReadJobs(ctx, func(ids []*big.Int) {
 					select {
 					case reads <- ids:
 					default:
@@ -246,6 +246,7 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 
 	mp.On("RegisterFilter", mock.Anything).Return(nil)
 	mp.On("ReplayAsync", mock.Anything).Return()
+	mp.On("HasFilter", mock.Anything).Return(false)
 	mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
 	mp.On("LatestBlock", mock.Anything).Return(int64(1), nil)
 	mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{

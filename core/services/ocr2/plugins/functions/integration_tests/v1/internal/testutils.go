@@ -192,11 +192,13 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 	var handleOracleFulfillmentSelector [4]byte
 	copy(handleOracleFulfillmentSelector[:], handleOracleFulfillmentSelectorSlice[:4])
 	functionsRouterConfig := functions_router.FunctionsRouterConfig{
-		MaxConsumersPerSubscription:     uint16(100),
-		AdminFee:                        big.NewInt(0),
-		HandleOracleFulfillmentSelector: handleOracleFulfillmentSelector,
-		MaxCallbackGasLimits:            []uint32{300_000, 500_000, 1_000_000},
-		GasForCallExactCheck:            5000,
+		MaxConsumersPerSubscription:        uint16(100),
+		AdminFee:                           big.NewInt(0),
+		HandleOracleFulfillmentSelector:    handleOracleFulfillmentSelector,
+		MaxCallbackGasLimits:               []uint32{300_000, 500_000, 1_000_000},
+		GasForCallExactCheck:               5000,
+		SubscriptionDepositMinimumRequests: 10,
+		SubscriptionDepositJuels:           big.NewInt(9 * 1e18), // 9 LINK
 	}
 	routerAddress, _, routerContract, err := functions_router.DeployFunctionsRouter(owner, b, linkAddr, functionsRouterConfig)
 	require.NoError(t, err)
@@ -214,7 +216,6 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 
 	// Deploy Coordinator contract (matches updateConfig() in FunctionsBilling.sol)
 	coordinatorConfig := functions_coordinator.FunctionsBillingConfig{
-		MaxCallbackGasLimit:                 uint32(450_000),
 		FeedStalenessSeconds:                uint32(86_400),
 		GasOverheadBeforeCallback:           uint32(325_000),
 		GasOverheadAfterCallback:            uint32(50_000),

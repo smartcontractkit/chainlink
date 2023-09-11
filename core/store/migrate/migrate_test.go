@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -350,7 +351,7 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 	require.NoError(t, err)
 
 	type PluginValues struct {
-		PluginType   job.OCR2PluginType
+		PluginType   types.OCR2PluginType
 		PluginConfig job.JSONConfig
 	}
 
@@ -360,7 +361,7 @@ func TestMigrate_101_GenericOCR2(t *testing.T) {
 	err = db.Get(&pluginValues, sql)
 	require.NoError(t, err)
 
-	require.Equal(t, job.Median, pluginValues.PluginType)
+	require.Equal(t, types.Median, pluginValues.PluginType)
 	require.Equal(t, job.JSONConfig{"juelsPerFeeCoinSource": spec.JuelsPerFeeCoinPipeline}, pluginValues.PluginConfig)
 
 	err = goose.Down(db.DB, migrationDir)

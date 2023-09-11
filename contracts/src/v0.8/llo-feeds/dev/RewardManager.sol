@@ -54,11 +54,14 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   // @notice Thrown when the calling contract is not within the authorized contracts
   error Unauthorized();
 
+  // @notice Thrown when getAvailableRewardPoolIds parameters are incorrectly set
+  error InvalidPoolLength();
+
   // Events emitted upon state change
   event RewardRecipientsUpdated(bytes32 indexed poolId, Common.AddressAndWeight[] newRewardRecipients);
   event RewardsClaimed(bytes32 indexed poolId, address indexed recipient, uint192 quantity);
   event FeeManagerUpdated(address newFeeManagerAddress);
-  event FeePaid(FeePayment[] payments, address payee);
+  event FeePaid(FeePayment[] payments, address payer);
 
   /**
    * @notice Constructor
@@ -73,7 +76,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
   // @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "RewardManager 0.0.1";
+    return "RewardManager 1.0.0";
   }
 
   // @inheritdoc IERC165
@@ -91,8 +94,13 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     _;
   }
 
+  modifier onlyFeeManager() {
+    if (msg.sender != s_feeManagerAddress) revert Unauthorized();
+    _;
+  }
+
   /// @inheritdoc IRewardManager
-  function onFeePaid(FeePayment[] calldata payments, address payee) external override onlyOwnerOrFeeManager {
+  function onFeePaid(FeePayment[] calldata payments, address payer) external override onlyFeeManager {
     uint256 totalFeeAmount;
     for (uint256 i; i < payments.length; ++i) {
       unchecked {
@@ -105,9 +113,9 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     }
 
     //transfer the fees to this contract
-    IERC20(i_linkAddress).safeTransferFrom(payee, address(this), totalFeeAmount);
+    IERC20(i_linkAddress).safeTransferFrom(payer, address(this), totalFeeAmount);
 
-    emit FeePaid(payments, payee);
+    emit FeePaid(payments, payer);
   }
 
   /// @inheritdoc IRewardManager
@@ -276,19 +284,28 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   /// @inheritdoc IRewardManager
-  function getAvailableRewardPoolIds(address recipient) external view returns (bytes32[] memory) {
+  function getAvailableRewardPoolIds(
+    address recipient,
+    uint256 startIndex,
+    uint256 endIndex
+  ) external view returns (bytes32[] memory) {
     //get the length of the pool ids which we will loop through and potentially return
     uint256 registeredPoolIdsLength = s_registeredPoolIds.length;
 
+    uint256 lastIndex = endIndex > registeredPoolIdsLength ? registeredPoolIdsLength : endIndex;
+
+    if (startIndex > lastIndex) revert InvalidPoolLength();
+
     //create a new array with the maximum amount of potential pool ids
-    bytes32[] memory claimablePoolIds = new bytes32[](registeredPoolIdsLength);
+    bytes32[] memory claimablePoolIds = new bytes32[](lastIndex - startIndex);
     //we want the pools which a recipient has funds for to be sequential, so we need to keep track of the index
     uint256 poolIdArrayIndex;
 
     //loop all the pool ids, and check if the recipient has a registered weight and a claimable amount
-    for (uint256 i; i < registeredPoolIdsLength; ++i) {
+    for (uint256 i = startIndex; i < lastIndex; ++i) {
       //get the poolId
       bytes32 poolId = s_registeredPoolIds[i];
+
       //if the recipient has a weight, they are a recipient of this poolId
       if (s_rewardRecipientWeights[poolId][recipient] != 0) {
         //get the total in this pool
