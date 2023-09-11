@@ -114,7 +114,7 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 			// adapter is a service
 			op.srvs = append(op.srvs, a)
 			op.loopRelayers[id] = a
-			legacyMap[id.ChainID.String()] = a.Chain()
+			legacyMap[id.ChainID] = a.Chain()
 		}
 		op.legacyChains.EVMChains = evm.NewLegacyChains(legacyMap, config.AppConfig.EVMConfigs())
 		return nil
@@ -133,7 +133,7 @@ func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactor
 		for id, a := range adapters {
 			op.srvs = append(op.srvs, a)
 			op.loopRelayers[id] = a
-			legacyMap[id.ChainID.String()] = a.Chain()
+			legacyMap[id.ChainID] = a.Chain()
 		}
 		op.legacyChains.CosmosChains = cosmos.NewLegacyChains(legacyMap)
 
