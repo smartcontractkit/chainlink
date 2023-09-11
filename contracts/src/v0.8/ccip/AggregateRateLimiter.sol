@@ -13,7 +13,7 @@ import {USDPriceWith18Decimals} from "./libraries/USDPriceWith18Decimals.sol";
 /// token transfers, using a price registry to convert to a numeraire asset (e.g. USD).
 contract AggregateRateLimiter is OwnerIsCreator {
   using RateLimiter for RateLimiter.TokenBucket;
-  using USDPriceWith18Decimals for uint192;
+  using USDPriceWith18Decimals for uint224;
 
   error PriceNotFoundForToken(address token);
   event AdminSet(address newAdmin);
@@ -45,7 +45,7 @@ contract AggregateRateLimiter is OwnerIsCreator {
     for (uint256 i = 0; i < numberOfTokens; ++i) {
       // not fetching validated price, as price staleness is not important for value-based rate limiting
       // we only need to verify price is not 0
-      uint192 pricePerToken = priceRegistry.getTokenPrice(tokenAmounts[i].token).value;
+      uint224 pricePerToken = priceRegistry.getTokenPrice(tokenAmounts[i].token).value;
       if (pricePerToken == 0) revert PriceNotFoundForToken(tokenAmounts[i].token);
       value += pricePerToken._calcUSDValueFromTokenAmount(tokenAmounts[i].amount);
     }

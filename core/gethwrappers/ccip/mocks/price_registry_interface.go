@@ -353,18 +353,18 @@ func (_m *PriceRegistryInterface) FilterUsdPerUnitGasUpdated(opts *bind.FilterOp
 }
 
 // GetDestinationChainGasPrice provides a mock function with given fields: opts, destChainSelector
-func (_m *PriceRegistryInterface) GetDestinationChainGasPrice(opts *bind.CallOpts, destChainSelector uint64) (price_registry.InternalTimestampedUint192Value, error) {
+func (_m *PriceRegistryInterface) GetDestinationChainGasPrice(opts *bind.CallOpts, destChainSelector uint64) (price_registry.InternalTimestampedPackedUint224, error) {
 	ret := _m.Called(opts, destChainSelector)
 
-	var r0 price_registry.InternalTimestampedUint192Value
+	var r0 price_registry.InternalTimestampedPackedUint224
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64) (price_registry.InternalTimestampedUint192Value, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64) (price_registry.InternalTimestampedPackedUint224, error)); ok {
 		return rf(opts, destChainSelector)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64) price_registry.InternalTimestampedUint192Value); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64) price_registry.InternalTimestampedPackedUint224); ok {
 		r0 = rf(opts, destChainSelector)
 	} else {
-		r0 = ret.Get(0).(price_registry.InternalTimestampedUint192Value)
+		r0 = ret.Get(0).(price_registry.InternalTimestampedPackedUint224)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts, uint64) error); ok {
@@ -479,18 +479,18 @@ func (_m *PriceRegistryInterface) GetTokenAndGasPrices(opts *bind.CallOpts, toke
 }
 
 // GetTokenPrice provides a mock function with given fields: opts, token
-func (_m *PriceRegistryInterface) GetTokenPrice(opts *bind.CallOpts, token common.Address) (price_registry.InternalTimestampedUint192Value, error) {
+func (_m *PriceRegistryInterface) GetTokenPrice(opts *bind.CallOpts, token common.Address) (price_registry.InternalTimestampedPackedUint224, error) {
 	ret := _m.Called(opts, token)
 
-	var r0 price_registry.InternalTimestampedUint192Value
+	var r0 price_registry.InternalTimestampedPackedUint224
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, common.Address) (price_registry.InternalTimestampedUint192Value, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, common.Address) (price_registry.InternalTimestampedPackedUint224, error)); ok {
 		return rf(opts, token)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, common.Address) price_registry.InternalTimestampedUint192Value); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, common.Address) price_registry.InternalTimestampedPackedUint224); ok {
 		r0 = rf(opts, token)
 	} else {
-		r0 = ret.Get(0).(price_registry.InternalTimestampedUint192Value)
+		r0 = ret.Get(0).(price_registry.InternalTimestampedPackedUint224)
 	}
 
 	if rf, ok := ret.Get(1).(func(*bind.CallOpts, common.Address) error); ok {
@@ -503,19 +503,19 @@ func (_m *PriceRegistryInterface) GetTokenPrice(opts *bind.CallOpts, token commo
 }
 
 // GetTokenPrices provides a mock function with given fields: opts, tokens
-func (_m *PriceRegistryInterface) GetTokenPrices(opts *bind.CallOpts, tokens []common.Address) ([]price_registry.InternalTimestampedUint192Value, error) {
+func (_m *PriceRegistryInterface) GetTokenPrices(opts *bind.CallOpts, tokens []common.Address) ([]price_registry.InternalTimestampedPackedUint224, error) {
 	ret := _m.Called(opts, tokens)
 
-	var r0 []price_registry.InternalTimestampedUint192Value
+	var r0 []price_registry.InternalTimestampedPackedUint224
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, []common.Address) ([]price_registry.InternalTimestampedUint192Value, error)); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, []common.Address) ([]price_registry.InternalTimestampedPackedUint224, error)); ok {
 		return rf(opts, tokens)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, []common.Address) []price_registry.InternalTimestampedUint192Value); ok {
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, []common.Address) []price_registry.InternalTimestampedPackedUint224); ok {
 		r0 = rf(opts, tokens)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]price_registry.InternalTimestampedUint192Value)
+			r0 = ret.Get(0).([]price_registry.InternalTimestampedPackedUint224)
 		}
 	}
 
@@ -833,6 +833,30 @@ func (_m *PriceRegistryInterface) TransferOwnership(opts *bind.TransactOpts, to 
 
 	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, common.Address) error); ok {
 		r1 = rf(opts, to)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// TypeAndVersion provides a mock function with given fields: opts
+func (_m *PriceRegistryInterface) TypeAndVersion(opts *bind.CallOpts) (string, error) {
+	ret := _m.Called(opts)
+
+	var r0 string
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (string, error)); ok {
+		return rf(opts)
+	}
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts) string); ok {
+		r0 = rf(opts)
+	} else {
+		r0 = ret.Get(0).(string)
+	}
+
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
+		r1 = rf(opts)
 	} else {
 		r1 = ret.Error(1)
 	}

@@ -224,13 +224,16 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 			ArmProxy:          c.Source.ARM.Address(), // ARM
 		},
 		evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
-			Router:                c.Source.Router.Address(),
-			MaxTokensLength:       5,
-			DestGasOverhead:       350_000,
-			DestGasPerPayloadByte: 16,
-			PriceRegistry:         c.Source.PriceRegistry.Address(),
-			MaxDataSize:           1e5,
-			MaxGasLimit:           4_000_000,
+			Router:                          c.Source.Router.Address(),
+			MaxTokensLength:                 5,
+			DestGasOverhead:                 350_000,
+			DestGasPerPayloadByte:           16,
+			DestDataAvailabilityOverheadGas: 33_596,
+			DestGasPerDataAvailabilityByte:  16,
+			DestDataAvailabilityMultiplier:  6840, // 0.684
+			PriceRegistry:                   c.Source.PriceRegistry.Address(),
+			MaxDataSize:                     1e5,
+			MaxGasLimit:                     4_000_000,
 		},
 		[]evm_2_evm_onramp.InternalPoolUpdate{
 			{
@@ -265,9 +268,10 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
 			{
-				Token:           c.Source.LinkToken.Address(),
-				Ratio:           5_0, // 5 bps
-				DestGasOverhead: 34_000,
+				Token:             c.Source.LinkToken.Address(),
+				Ratio:             5_0, // 5 bps
+				DestGasOverhead:   34_000,
+				DestBytesOverhead: 0,
 			},
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight{},
@@ -891,13 +895,16 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			ArmProxy:          armProxySourceAddress, // ARM
 		},
 		evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
-			Router:                sourceRouterAddress,
-			MaxTokensLength:       5,
-			DestGasOverhead:       350_000,
-			DestGasPerPayloadByte: 16,
-			PriceRegistry:         sourcePricesAddress,
-			MaxDataSize:           1e5,
-			MaxGasLimit:           4_000_000,
+			Router:                          sourceRouterAddress,
+			MaxTokensLength:                 5,
+			DestGasOverhead:                 350_000,
+			DestGasPerPayloadByte:           16,
+			DestDataAvailabilityOverheadGas: 33_596,
+			DestGasPerDataAvailabilityByte:  16,
+			DestDataAvailabilityMultiplier:  6840, // 0.684
+			PriceRegistry:                   sourcePricesAddress,
+			MaxDataSize:                     1e5,
+			MaxGasLimit:                     4_000_000,
 		},
 		[]evm_2_evm_onramp.InternalPoolUpdate{
 			{
@@ -936,9 +943,10 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
 			{
-				Token:           sourceLinkTokenAddress,
-				Ratio:           5_0, // 5 bps
-				DestGasOverhead: 34_000,
+				Token:             sourceLinkTokenAddress,
+				Ratio:             5_0, // 5 bps
+				DestGasOverhead:   34_000,
+				DestBytesOverhead: 0,
 			},
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight{},

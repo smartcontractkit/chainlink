@@ -27,7 +27,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   using SafeERC20 for IERC20;
   using EnumerableMap for EnumerableMap.AddressToUintMap;
   using EnumerableMapAddresses for EnumerableMapAddresses.AddressToAddressMap;
-  using USDPriceWith18Decimals for uint192;
+  using USDPriceWith18Decimals for uint224;
 
   error InvalidExtraArgsTag();
   error OnlyCallableByOwnerOrAdmin();
@@ -77,13 +77,16 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
   /// @dev Struct to contains the dynamic configuration
   struct DynamicConfig {
-    address router; // ---------------┐ Router address
-    uint16 maxTokensLength; //        | Maximum number of ERC20 token transfers that can be included per message
-    uint32 destGasOverhead; //        | Extra gas charged on top of the gasLimit
-    uint16 destGasPerPayloadByte; // -┘ Destination chain gas charged per byte of `data` payload
-    address priceRegistry; // --------┐ Price registry address
-    uint32 maxDataSize; //            | Maximum payload data size
-    uint64 maxGasLimit; // -----------┘ Maximum gas limit for messages targeting EVMs
+    address router; // -------------------------┐ Router address
+    uint16 maxTokensLength; //                  | Maximum number of ERC20 token transfers per message
+    uint32 destGasOverhead; //                  | Extra gas charged on top of the gasLimit
+    uint16 destGasPerPayloadByte; //            | Destination chain gas charged per byte of `data` payload
+    uint32 destDataAvailabilityOverheadGas; //  | Extra data availability gas charged on top of message data
+    uint16 destGasPerDataAvailabilityByte; // --┘ Amount of gas to charge per byte of data that needs availability
+    uint16 destDataAvailabilityMultiplier; // --┐ Multiplier for data availability gas, multples of 1e-4, or 0.0001
+    address priceRegistry; //                   | Price registry address
+    uint32 maxDataSize; //                      | Maximum payload data size, max 4GB
+    uint32 maxGasLimit; // ---------------------┘ Maximum gas limit for messages targeting EVMs, max 4 Billion gas
   }
 
   /// @dev Struct to hold the execution fee configuration for a fee token
@@ -110,16 +113,18 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
   /// @dev Struct to hold the transfer fee configuration for token transfers
   struct TokenTransferFeeConfig {
-    uint16 ratio; // ---------------┐ Ratio of token transfer value to charge as fee, multiples of 0.1bps, or 1e-5
-    uint32 destGasOverhead; // -----┘ Gas charged to execute the token transfer on the destination chain
+    uint16 ratio; // -------------------┐ Ratio of token transfer value to charge as fee, multiples of 0.1bps, or 1e-5
+    uint32 destGasOverhead; //          | Gas charged to execute the token transfer on the destination chain
+    uint32 destBytesOverhead; // -------┘ Extra data availability bytes on top of transfer data, e.g. USDC offchain data
   }
 
   /// @dev Same as TokenTransferFeeConfig
   /// token included so that an array of these can be passed in to setTokenTransferFeeConfig
   struct TokenTransferFeeConfigArgs {
-    address token; // --------------┐ Token address
-    uint16 ratio; //                | Ratio of token transfer value to charge as fee, multiples of 0.1bps, or 1e-5
-    uint32 destGasOverhead; // -----┘ Gas charged to execute the token transfer on the destination chain
+    address token; // ------------------┐ Token address
+    uint16 ratio; //                    | Ratio of token transfer value to charge as fee, multiples of 0.1bps, or 1e-5
+    uint32 destGasOverhead; //          | Gas charged to execute the token transfer on the destination chain
+    uint32 destBytesOverhead; // -------┘ Extra data availability bytes on top of transfer data, e.g. USDC offchain data
   }
 
   /// @dev Nop address and weight, used to set the nops and their weights
@@ -476,18 +481,18 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     FeeTokenConfig memory feeTokenConfig = s_feeTokenConfig[message.feeToken];
     if (!feeTokenConfig.enabled) revert NotAFeeToken(message.feeToken);
 
-    (uint192 feeTokenPrice, uint192 gasPrice) = IPriceRegistry(s_dynamicConfig.priceRegistry).getTokenAndGasPrices(
-      message.feeToken,
-      i_destChainSelector
-    );
+    (uint224 feeTokenPrice, uint224 packedGasPrice) = IPriceRegistry(s_dynamicConfig.priceRegistry)
+      .getTokenAndGasPrices(message.feeToken, i_destChainSelector);
+    uint112 executionGasPrice = uint112(packedGasPrice);
 
     // Calculate premiumFee in USD with 18 decimals precision.
     // If there are token transfers, premiumFee is calculated from token transfer fees.
     // If there are no token transfers, we charge a flat network fee.
     uint256 premiumFeeUSD = 0;
     uint32 tokenTransferGas = 0;
+    uint32 tokenTransferBytesOverhead = 0;
     if (message.tokenAmounts.length > 0) {
-      (premiumFeeUSD, tokenTransferGas) = _getTokenTransferCost(
+      (premiumFeeUSD, tokenTransferGas, tokenTransferBytesOverhead) = _getTokenTransferCost(
         message.feeToken,
         feeTokenPrice,
         message.tokenAmounts,
@@ -502,19 +507,58 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     premiumFeeUSD = premiumFeeUSD * feeTokenConfig.premiumMultiplier;
 
     // Calculate execution gas fee on destination chain in USD with 36 decimals.
-    // We add the message gas limit, the overhead gas, and the calldata gas together.
+    // We add the message gas limit, the overhead gas, and the data availability gas together.
     // We then multiple this destination gas total with the gas multiplier and convert it into USD.
-    uint256 executionCostUSD = gasPrice *
+    uint256 executionCostUSD = executionGasPrice *
       ((extraArgs.gasLimit +
         s_dynamicConfig.destGasOverhead +
-        message.data.length *
-        s_dynamicConfig.destGasPerPayloadByte +
+        (message.data.length * s_dynamicConfig.destGasPerPayloadByte) +
         tokenTransferGas) * feeTokenConfig.gasMultiplier);
 
-    // Transform total USD fee in 36 decimals to 18 decimals, then convert into fee token amount.
-    // Division of 18 decimals upfront loses slight precision. It is still accurate enough for fee calculations.
-    // This is done to extend the range of decimal-encoded token price before overflow becomes a concern.
-    return feeTokenPrice._calcTokenAmountFromUSDValue((premiumFeeUSD + executionCostUSD) / 1 ether);
+    uint256 dataAvailabilityCostUSD = 0;
+    // Only calculate data availability cost if multiplier is non-zero.
+    // The multiplier should be set to 0 if destination chain does not charge data availability cost.
+    if (s_dynamicConfig.destDataAvailabilityMultiplier > 0) {
+      uint112 dataAvailabilityGasPrice = uint112(packedGasPrice >> Internal.GAS_PRICE_BITS);
+
+      dataAvailabilityCostUSD = _getDataAvailabilityCostUSD(
+        dataAvailabilityGasPrice,
+        message.data.length,
+        message.tokenAmounts.length,
+        tokenTransferBytesOverhead
+      );
+    }
+
+    // Calculate number of fee tokens to charge.
+    // Total USD fee is in 36 decimals, feeTokenPrice is in 18 decimals USD for 1e18 smallest token denominations.
+    // Result of the division is the number of smallest token denominations.
+    return (premiumFeeUSD + executionCostUSD + dataAvailabilityCostUSD) / feeTokenPrice;
+  }
+
+  /// @notice Returns the estimated data availability cost of the message.
+  /// @dev To save on gas, we use a single destGasPerDataAvailabilityByte value for both zero and non-zero bytes.
+  /// @param dataAvailabilityGasPrice USD per data availability gas in 18 decimals.
+  /// @param messageDataLength length of the data field in the message.
+  /// @param numberOfTokens number of distinct token transfers in the message.
+  /// @param tokenTransferBytesOverhead additional token transfer data passed to destination, e.g. USDC attestation.
+  /// @return dataAvailabilityCostUSD total data availability cost in USD with 36 decimals.
+  function _getDataAvailabilityCostUSD(
+    uint112 dataAvailabilityGasPrice,
+    uint256 messageDataLength,
+    uint256 numberOfTokens,
+    uint32 tokenTransferBytesOverhead
+  ) internal view returns (uint256 dataAvailabilityCostUSD) {
+    uint256 dataAvailabilityLengthBytes = Internal.MESSAGE_FIXED_BYTES +
+      messageDataLength +
+      (numberOfTokens * Internal.MESSAGE_BYTES_PER_TOKEN) +
+      tokenTransferBytesOverhead;
+
+    uint256 dataAvailabilityGas = (dataAvailabilityLengthBytes * s_dynamicConfig.destGasPerDataAvailabilityByte) +
+      s_dynamicConfig.destDataAvailabilityOverheadGas;
+
+    // dataAvailabilityGasPrice is in 18 decimals, destDataAvailabilityMultiplier is in 4 decimals
+    // we pad 14 decimals to bring the result to 36 decimals, in line with token bps and execution fee.
+    return ((dataAvailabilityGas * dataAvailabilityGasPrice) * s_dynamicConfig.destDataAvailabilityMultiplier) * 1e14;
   }
 
   /// @notice Returns the token transfer fee.
@@ -523,12 +567,19 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   /// @dev Assumes that tokenAmounts are validated to be listed tokens elsewhere.
   /// @dev Splitting one token transfer into multiple transfers is discouraged,
   /// as it will result in a transferFee equal or greater than the same amount aggregated/de-duped.
+  /// @param feeToken address of the feeToken.
+  /// @param feeTokenPrice price of feeToken in USD with 18 decimals.
+  /// @param tokenAmounts token transfers in the message.
+  /// @param feeTokenConfig configuration struct of fee token.
+  /// @return tokenTransferFeeUSD total token transfer bps fee in USD with 36 decimals.
+  /// @return tokenTransferGas total execution gas of the token transfers.
+  /// @return tokenTransferBytesOverhead additional token transfer data passed to destination, e.g. USDC attestation.
   function _getTokenTransferCost(
     address feeToken,
-    uint192 feeTokenPrice,
+    uint224 feeTokenPrice,
     Client.EVMTokenAmount[] calldata tokenAmounts,
     FeeTokenConfig memory feeTokenConfig
-  ) internal view returns (uint256 tokenTransferFeeUSD, uint32 tokenTransferGas) {
+  ) internal view returns (uint256 tokenTransferFeeUSD, uint32 tokenTransferGas, uint32 tokenTransferBytesOverhead) {
     uint256 numberOfTokens = tokenAmounts.length;
 
     for (uint256 i = 0; i < numberOfTokens; ++i) {
@@ -542,7 +593,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
       // Only calculate bps fee if ratio is greater than 0. Ratio of 0 means no bps fee for a token.
       // Useful for when the PriceRegistry cannot return a valid price for the token.
       if (transferFeeConfig.ratio > 0) {
-        uint192 tokenPrice = 0;
+        uint224 tokenPrice = 0;
         if (tokenAmount.token != feeToken) {
           tokenPrice = IPriceRegistry(s_dynamicConfig.priceRegistry).getValidatedTokenPrice(tokenAmount.token);
         } else {
@@ -556,21 +607,22 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
       tokenTransferFeeUSD += bpsFeeUSD;
       tokenTransferGas += transferFeeConfig.destGasOverhead;
+      tokenTransferBytesOverhead += transferFeeConfig.destBytesOverhead;
     }
 
     // Convert USD values with 2 decimals to 18 decimals.
     // Sum of bps fees should be kept within range of [minTokenTransferFeeUSD, maxTokenTransferFeeUSD].
     uint256 minTransferFeeUSD = uint256(feeTokenConfig.minTokenTransferFeeUSD) * 1e16;
     if (tokenTransferFeeUSD < minTransferFeeUSD) {
-      return (minTransferFeeUSD, tokenTransferGas);
+      return (minTransferFeeUSD, tokenTransferGas, tokenTransferBytesOverhead);
     }
 
     uint256 maxTransferFeeUSD = uint256(feeTokenConfig.maxTokenTransferFeeUSD) * 1e16;
     if (tokenTransferFeeUSD > maxTransferFeeUSD) {
-      return (maxTransferFeeUSD, tokenTransferGas);
+      return (maxTransferFeeUSD, tokenTransferGas, tokenTransferBytesOverhead);
     }
 
-    return (tokenTransferFeeUSD, tokenTransferGas);
+    return (tokenTransferFeeUSD, tokenTransferGas, tokenTransferBytesOverhead);
   }
 
   /// @notice Gets the fee configuration for a token
@@ -626,7 +678,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
       s_tokenTransferFeeConfig[configArg.token] = TokenTransferFeeConfig({
         ratio: configArg.ratio,
-        destGasOverhead: configArg.destGasOverhead
+        destGasOverhead: configArg.destGasOverhead,
+        destBytesOverhead: configArg.destBytesOverhead
       });
     }
     emit TokenTransferFeeConfigSet(tokenTransferFeeConfigArgs);

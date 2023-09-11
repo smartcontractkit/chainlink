@@ -15,7 +15,7 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
   event CCIPSendRequested(Internal.EVM2EVMMessage message);
 
   address internal constant CUSTOM_TOKEN = address(12345);
-  uint192 internal constant CUSTOM_TOKEN_PRICE = 1e17; // $0.1 CUSTOM
+  uint224 internal constant CUSTOM_TOKEN_PRICE = 1e17; // $0.1 CUSTOM
 
   uint256 internal immutable i_tokenAmount0 = 9;
   uint256 internal immutable i_tokenAmount1 = 7;
@@ -63,21 +63,24 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
       EVM2EVMOnRamp.TokenTransferFeeConfigArgs({
         token: s_sourceFeeToken,
         ratio: 2_5, // 2.5 bps, or 0.025%
-        destGasOverhead: 40_000
+        destGasOverhead: 40_000,
+        destBytesOverhead: 0
       })
     );
     s_tokenTransferFeeConfigArgs.push(
       EVM2EVMOnRamp.TokenTransferFeeConfigArgs({
         token: s_sourceRouter.getWrappedNative(),
         ratio: 5_0, // 5 bps, or 0.05%
-        destGasOverhead: 10_000
+        destGasOverhead: 10_000,
+        destBytesOverhead: 100
       })
     );
     s_tokenTransferFeeConfigArgs.push(
       EVM2EVMOnRamp.TokenTransferFeeConfigArgs({
         token: CUSTOM_TOKEN,
         ratio: 10_0, // 10 bps, or 0.1%
-        destGasOverhead: 1
+        destGasOverhead: 1,
+        destBytesOverhead: 200
       })
     );
 

@@ -11,7 +11,7 @@ library USDPriceWith18Decimals {
   /// @dev this function assumes that no more than 1e59 US dollar worth of token is passed in.
   /// If more is sent, this function will overflow and revert.
   /// Since there isn't even close to 1e59 dollars, this is ok for all legit tokens.
-  function _calcUSDValueFromTokenAmount(uint192 tokenPrice, uint256 tokenAmount) internal pure returns (uint256) {
+  function _calcUSDValueFromTokenAmount(uint224 tokenPrice, uint256 tokenAmount) internal pure returns (uint256) {
     /// LINK Example:
     /// tokenPrice:         8e18 -> $8/LINK, as 1e18 token amount is 1 LINK, worth 8 USD, or 8e18 with 18 decimals
     /// tokenAmount:        2e18 -> 2 LINK
@@ -30,7 +30,7 @@ library USDPriceWith18Decimals {
   /// @param tokenPrice The USD price of the token.
   /// @param usdValue USD value with 18 decimals.
   /// @return Amount of the smallest token denomination.
-  function _calcTokenAmountFromUSDValue(uint192 tokenPrice, uint256 usdValue) internal pure returns (uint256) {
+  function _calcTokenAmountFromUSDValue(uint224 tokenPrice, uint256 usdValue) internal pure returns (uint256) {
     /// LINK Example:
     /// tokenPrice:          8e18 -> $8/LINK, as 1e18 token amount is 1 LINK, worth 8 USD, or 8e18 with 18 decimals
     /// usdValue:           16e18 -> $16
