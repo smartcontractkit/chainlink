@@ -120,32 +120,6 @@ func (s *ChainRelayerExt) Ready() (err error) {
 	return s.chain.Ready()
 }
 
-var ErrInconsistentChainRelayerExtender = errors.New("inconsistent evm chain relayer extender")
-
-func (s *ChainRelayerExt) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, total int, err error) {
-	if len(chainIDs) > 1 {
-		return nil, -1, fmt.Errorf("single chain chain set only support one chain id. got %v", chainIDs)
-	}
-	cid := chainIDs[0]
-	if cid != s.chain.ID().String() {
-		return nil, -1, fmt.Errorf("unknown chain id %s. expected %s", cid, s.chain.ID())
-	}
-	nodes, _, total, err = s.ListNodeStatuses(ctx, int32(limit), "")
-	if err != nil {
-		return nil, -1, err
-	}
-	if len(nodes) < offset {
-		return []relaytypes.NodeStatus{}, -1, fmt.Errorf("out of range")
-	}
-	if limit <= 0 {
-		limit = len(nodes)
-	} else if len(nodes) < limit {
-		limit = len(nodes)
-	}
-	return nodes[offset:limit], total, nil
-
-}
-
 func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExtenderConfig) (*ChainRelayerExtenders, error) {
 	if err := opts.Check(); err != nil {
 		return nil, err
