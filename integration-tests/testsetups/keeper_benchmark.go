@@ -384,10 +384,13 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
 // setFilterQuery sets the filter query for the test to check on events
 func (k *KeeperBenchmarkTest) setFilterQuery(rIndex int) {
 	contractABI := k.contractABI(rIndex)
+	addresses := []common.Address{common.HexToAddress(k.keeperRegistries[rIndex].Address())}
+	topics := [][]common.Hash{{contractABI.Events["UpkeepPerformed"].ID}, {contractABI.Events["StaleUpkeepReport"].ID}}
 	k.filterQuery = geth.FilterQuery{
-		Addresses: []common.Address{common.HexToAddress(k.keeperRegistries[rIndex].Address())},
-		Topics:    [][]common.Hash{{contractABI.Events["UpkeepPerformed"].ID}, {contractABI.Events["StaleUpkeepReport"].ID}},
+		Addresses: addresses,
+		Topics:    topics,
 	}
+	log.Debug().Interface("Addresses", addresses).Interface("Topics", topics).Msg("Set Filter Query")
 }
 
 // getContractABI returns the ABI of the keeper registry contract in use
