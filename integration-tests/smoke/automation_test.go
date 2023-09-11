@@ -1003,7 +1003,7 @@ func setupAutomationTestDocker(
 	network := networks.SelectedNetwork
 
 	// build the node config
-	clNodeConfig := node.NewConfig(node.BaseConf)
+	clNodeConfig := node.NewConfig(node.NewBaseConfig())
 	syncInterval := models.MustMakeDuration(5 * time.Minute)
 	clNodeConfig.Feature.LogPoller = it_utils.Ptr[bool](true)
 	clNodeConfig.OCR2.Enabled = it_utils.Ptr[bool](true)

@@ -2,105 +2,34 @@
   "tests": [
     {
       "name": "TestAutomationBasic",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1_conditional"
-        },
-        {
-          "name": "registry_2_1_logtrigger"
-        }
-      ]
+      "label": "ubuntu20.04-32cores-128GB"
     },
     {
-      "name": "TestAutomationAddFunds",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
+      "name": "TestAutomationAddFunds"
     },
     {
       "name": "TestAutomationPauseUnPause",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
+      "label": "ubuntu20.04-16cores-64GB"
     },
     {
-      "name": "TestAutomationRegisterUpkeep",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
+      "name": "TestAutomationRegisterUpkeep"
     },
     {
-      "name": "TestAutomationPauseRegistry",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
+      "name": "TestAutomationPauseRegistry"
     },
     {
       "name": "TestAutomationKeeperNodesDown",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
+      "label": "ubuntu20.04-16cores-64GB"
     },
     {
-      "name": "TestAutomationPerformSimulation",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
+      "name": "TestAutomationPerformSimulation"
     },
     {
       "name": "TestAutomationCheckPerformGasLimit",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
+      "label": "ubuntu20.04-16cores-64GB"
     },
     {
-      "name": "TestUpdateCheckData",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
+      "name": "TestUpdateCheckData"
     },
     {
       "name": "TestSetUpkeepTriggerConfig"

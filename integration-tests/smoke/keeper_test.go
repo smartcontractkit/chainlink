@@ -82,10 +82,11 @@ func TestKeeperBasicSmoke(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
-
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -157,10 +158,11 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
-
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -259,10 +261,11 @@ func TestKeeperSimulation(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
-
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
 				t,
 				registryVersion,
@@ -331,8 +334,10 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
 			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
 				t,
@@ -442,10 +447,11 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
-
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, registrar, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -529,10 +535,11 @@ func TestKeeperAddFunds(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
-
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -591,10 +598,11 @@ func TestKeeperRemove(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
-
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -667,10 +675,11 @@ func TestKeeperPauseRegistry(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
-
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -818,8 +827,10 @@ func TestKeeperNodeDown(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
 			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
@@ -1082,7 +1093,7 @@ func setupKeeperTest(t *testing.T) (
 	contracts.LinkToken,
 	*test_env.CLClusterTestEnv,
 ) {
-	clNodeConfig := node.NewConfig(node.BaseConf)
+	clNodeConfig := node.NewConfig(node.NewBaseConfig())
 	turnLookBack := int64(0)
 	syncInterval := models.MustMakeDuration(5 * time.Second)
 	performGasOverhead := uint32(150000)

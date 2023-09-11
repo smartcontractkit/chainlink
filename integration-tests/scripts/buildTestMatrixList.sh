@@ -32,6 +32,8 @@ matrix_output() {
 # Read the JSON file and loop through 'tests' and 'run'
 jq -c '.tests[]' ${JSONFILE} | while read -r test; do
   testName=$(echo ${test} | jq -r '.name')
+  label=$(echo ${test} | jq -r '.label // empty')
+  effective_node_label=${label:-$NODE_LABEL}
   subTests=$(echo ${test} | jq -r '.run[]?.name // empty')
   output=""
   
@@ -41,14 +43,14 @@ jq -c '.tests[]' ${JSONFILE} | while read -r test; do
       if [ $COUNTER -ne 1 ]; then
         echo -n ","
       fi
-      matrix_output $COUNTER $MATRIX_JOB_NAME "${testName}/${subTest}" ${NODE_LABEL}
+      matrix_output $COUNTER $MATRIX_JOB_NAME "${testName}/${subTest}" ${effective_node_label}
       ((COUNTER++))
     done
   else
     if [ $COUNTER -ne 1 ]; then
       echo -n ","
     fi
-    matrix_output $COUNTER $MATRIX_JOB_NAME "${testName}" ${NODE_LABEL}
+    matrix_output $COUNTER $MATRIX_JOB_NAME "${testName}" ${effective_node_label}
     ((COUNTER++))
   fi
 
