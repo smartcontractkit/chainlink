@@ -5,8 +5,9 @@ pragma solidity ^0.8.4;
 import "../shared/interfaces/LinkTokenInterface.sol";
 import "../interfaces/VRFCoordinatorV2Interface.sol";
 import "../vrf/VRFConsumerBaseV2.sol";
+import "../shared/access/ConfirmedOwner.sol";
 
-contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
+contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface, ConfirmedOwner {
   uint96 public immutable BASE_FEE;
   uint96 public immutable GAS_PRICE_LINK;
   uint16 public immutable MAX_CONSUMERS = 100;
@@ -17,6 +18,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
   error TooManyConsumers();
   error InvalidConsumer();
   error InvalidRandomWords();
+  error Reentrant();
 
   event RandomWordsRequested(
     bytes32 indexed keyHash,
@@ -34,7 +36,13 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
   event SubscriptionCanceled(uint64 indexed subId, address to, uint256 amount);
   event ConsumerAdded(uint64 indexed subId, address consumer);
   event ConsumerRemoved(uint64 indexed subId, address consumer);
+  event ConfigSet();
 
+  struct Config {
+    // Reentrancy protection.
+    bool reentrancyLock;
+  }
+  Config private s_config;
   uint64 s_currentSubId;
   uint256 s_nextRequestId = 1;
   uint256 s_nextPreSeed = 100;
@@ -52,9 +60,20 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
   }
   mapping(uint256 => Request) s_requests; /* requestId */ /* request */
 
-  constructor(uint96 _baseFee, uint96 _gasPriceLink) {
+  constructor(uint96 _baseFee, uint96 _gasPriceLink) ConfirmedOwner(msg.sender) {
     BASE_FEE = _baseFee;
     GAS_PRICE_LINK = _gasPriceLink;
+    setConfig();
+  }
+
+  /**
+   * @notice Sets the configuration of the vrfv2 mock coordinator
+   */
+  function setConfig() public onlyOwner {
+    s_config = Config({
+      reentrancyLock: false
+    });
+    emit ConfigSet();
   }
 
   function consumerIsAdded(uint64 _subId, address _consumer) public view returns (bool) {
@@ -85,7 +104,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
    * @param _requestId the request to fulfill
    * @param _consumer the VRF randomness consumer to send the result to
    */
-  function fulfillRandomWords(uint256 _requestId, address _consumer) external {
+  function fulfillRandomWords(uint256 _requestId, address _consumer) external nonReentrant {
     fulfillRandomWordsWithOverride(_requestId, _consumer, new uint256[](0));
   }
 
@@ -114,7 +133,9 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
 
     VRFConsumerBaseV2 v;
     bytes memory callReq = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, _requestId, _words);
+    s_config.reentrancyLock = true;
     (bool success, ) = _consumer.call{gas: req.callbackGasLimit}(callReq);
+    s_config.reentrancyLock = false;
 
     uint96 payment = uint96(BASE_FEE + ((startGas - gasleft()) * GAS_PRICE_LINK));
     if (s_subscriptions[req.subId].balance < payment) {
@@ -146,7 +167,7 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
     uint16 _minimumRequestConfirmations,
     uint32 _callbackGasLimit,
     uint32 _numWords
-  ) external override onlyValidConsumer(_subId, msg.sender) returns (uint256) {
+  ) external override nonReentrant onlyValidConsumer(_subId, msg.sender) returns (uint256) {
     if (s_subscriptions[_subId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -274,6 +295,13 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface {
       0,
       0
     );
+  }
+
+  modifier nonReentrant() {
+    if (s_config.reentrancyLock) {
+      revert Reentrant();
+    }
+    _;
   }
 
   function getFallbackWeiPerUnitLink() external view returns (int256) {
