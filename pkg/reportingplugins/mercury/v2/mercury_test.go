@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/protobuf/proto"
 
@@ -64,7 +65,7 @@ func newAttributedObservation(t *testing.T, p *MercuryObservationProto) ocrtypes
 func newTestReportPlugin(t *testing.T, codec *testReportCodec, ds *testDataSource) *reportingPlugin {
 	offchainConfig := mercury.OffchainConfig{
 		ExpirationWindow: 1,
-		BaseUSDFeeCents:  100,
+		BaseUSDFee:       decimal.NewFromInt32(1),
 	}
 	onchainConfig := mercury.OnchainConfig{
 		Min: big.NewInt(1),
@@ -480,11 +481,11 @@ func Test_Plugin_Observation(t *testing.T) {
 		assert.Equal(t, obs.MaxFinalizedTimestamp.Val, p.MaxFinalizedTimestamp)
 		assert.True(t, p.MaxFinalizedTimestampValid)
 
-		fee := mercury.CalculateFee(obs.LinkPrice.Val, 100)
+		fee := mercury.CalculateFee(obs.LinkPrice.Val, decimal.NewFromInt32(1))
 		assert.Equal(t, fee, mustDecodeBigInt(p.LinkFee))
 		assert.True(t, p.LinkFeeValid)
 
-		fee = mercury.CalculateFee(obs.NativePrice.Val, 100)
+		fee = mercury.CalculateFee(obs.NativePrice.Val, decimal.NewFromInt32(1))
 		assert.Equal(t, fee, mustDecodeBigInt(p.NativeFee))
 		assert.True(t, p.NativeFeeValid)
 	})
@@ -547,7 +548,7 @@ func Test_Plugin_Observation(t *testing.T) {
 		assert.Zero(t, p.LinkFee)
 		assert.False(t, p.LinkFeeValid)
 
-		fee := mercury.CalculateFee(obs.NativePrice.Val, 100)
+		fee := mercury.CalculateFee(obs.NativePrice.Val, decimal.NewFromInt32(1))
 		assert.Equal(t, fee, mustDecodeBigInt(p.NativeFee))
 		assert.True(t, p.NativeFeeValid)
 	})

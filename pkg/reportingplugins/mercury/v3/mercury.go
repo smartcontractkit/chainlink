@@ -195,7 +195,7 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 	} else if obs.LinkPrice.Val.Cmp(MissingPrice) <= 0 {
 		p.LinkFee = mercury.MaxInt192Enc
 	} else {
-		linkFee := mercury.CalculateFee(obs.LinkPrice.Val, rp.offchainConfig.BaseUSDFeeCents)
+		linkFee := mercury.CalculateFee(obs.LinkPrice.Val, rp.offchainConfig.BaseUSDFee)
 		if linkFeeEncoded, err := mercury.EncodeValueInt192(linkFee); err != nil {
 			linkErr = pkgerrors.Wrapf(err, "failed to encode LINK fee; val=%s", linkFee)
 			obsErrors = append(obsErrors, linkErr)
@@ -215,7 +215,7 @@ func (rp *reportingPlugin) Observation(ctx context.Context, repts ocrtypes.Repor
 	} else if obs.NativePrice.Val.Cmp(MissingPrice) <= 0 {
 		p.NativeFee = mercury.MaxInt192Enc
 	} else {
-		nativeFee := mercury.CalculateFee(obs.NativePrice.Val, rp.offchainConfig.BaseUSDFeeCents)
+		nativeFee := mercury.CalculateFee(obs.NativePrice.Val, rp.offchainConfig.BaseUSDFee)
 		if nativeFeeEncoded, err := mercury.EncodeValueInt192(nativeFee); err != nil {
 			nativeErr = pkgerrors.Wrapf(err, "failed to encode native fee; val=%s", nativeFee)
 			obsErrors = append(obsErrors, nativeErr)
