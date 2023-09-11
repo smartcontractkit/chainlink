@@ -51,30 +51,6 @@ AllowSimplePasswords skips the password complexity check normally enforced on UR
 
 Environment variable: `CL_DATABASE_ALLOW_SIMPLE_PASSWORDS`
 
-## Explorer
-```toml
-[Explorer]
-AccessKey = "access_key" # Example
-Secret = "secret" # Example
-```
-
-
-### AccessKey
-```toml
-AccessKey = "access_key" # Example
-```
-AccessKey is the access key for authenticating with the Explorer.
-
-Environment variable: `CL_EXPLORER_ACCESS_KEY`
-
-### Secret
-```toml
-Secret = "secret" # Example
-```
-Secret is the secret for authenticating with the Explorer.
-
-Environment variable: `CL_EXPLORER_SECRET`
-
 ## Password
 ```toml
 [Password]
