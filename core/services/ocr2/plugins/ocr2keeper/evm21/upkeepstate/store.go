@@ -18,11 +18,11 @@ import (
 
 const (
 	UpkeepStateStoreServiceName = "UpkeepStateStore"
-
 	// CacheExpiration is the amount of time that we keep a record in the cache.
 	CacheExpiration = 24 * time.Hour
 	// GCInterval is the amount of time between cache cleanups.
-	GCInterval           = 2 * time.Hour
+	GCInterval = 2 * time.Hour
+	// flushCadence is the amount of time between flushes to the DB.
 	flushCadence         = 30 * time.Second
 	concurrentBatchCalls = 10
 )
@@ -94,7 +94,8 @@ func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScann
 }
 
 // Start starts the upkeep state store.
-// it does background cleanup of the cache.
+// it does background cleanup of the cache every GCInterval,
+// and flush records to DB every flushCadence.
 func (u *upkeepStateStore) Start(pctx context.Context) error {
 	return u.StartOnce(UpkeepStateStoreServiceName, func() error {
 		if err := u.scanner.Start(pctx); err != nil {
@@ -119,6 +120,7 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 					ticker.Reset(utils.WithJitter(u.cleanCadence))
 				case <-flushTicker.C:
 					u.flush(ctx)
+					flushTicker.Reset(utils.WithJitter(flushCadence))
 				case <-ctx.Done():
 					u.flush(ctx)
 					return
