@@ -352,7 +352,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			nil,
 			nil,
 			[]string{"c207451fa897f9bb13b09d54d8655edf0644e027c53521b4a92eafbb64ba4d14"},
-			[]int64{200, 0, 450},
+			[]int64{201, 0, 450},
 		},
 		{
 			"lastRePollBlock updated with burst when lagging behind",
@@ -366,7 +366,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 					topics: []common.Hash{
 						common.HexToHash("0x1"),
 					},
-					lastRePollBlock: 100, // Should be updated with burst
+					lastRePollBlock: 99, // Should be updated with burst
 				},
 			},
 			[]ocr2keepers.UpkeepState{ocr2keepers.UnknownState},
@@ -382,7 +382,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			nil,
 			nil,
 			[]string{"c207451fa897f9bb13b09d54d8655edf0644e027c53521b4a92eafbb64ba4d14"},
-			[]int64{601},
+			[]int64{600},
 		},
 		{
 			"recovery starts at configUpdateBlock if higher than lastRePollBlock",
