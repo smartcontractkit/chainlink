@@ -2,7 +2,6 @@ package upkeepstate
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -98,10 +97,6 @@ func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScann
 // it does background cleanup of the cache.
 func (u *upkeepStateStore) Start(pctx context.Context) error {
 	return u.StartOnce(UpkeepStateStoreServiceName, func() error {
-		if u.retention == 0 {
-			return errors.New("pruneDepth must be greater than zero")
-		}
-
 		if err := u.scanner.Start(pctx); err != nil {
 			return fmt.Errorf("failed to start scanner")
 		}
