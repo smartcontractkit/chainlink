@@ -10,7 +10,7 @@ import {UpkeepCounter} from "../mocks/UpkeepCounter.sol";
 import {BaseTest} from "./BaseTest.t.sol";
 
 // in contracts directory, run
-// forge test --match-path src/v0.8/dev/automation/2_1/test/AutomationForwarder.t.sol
+// forge test --match-path src/v0.8/automation/2_1/test/AutomationForwarder.t.sol
 
 contract AutomationForwarderSetUp is BaseTest {
   IAutomationForwarder internal forwarder;
