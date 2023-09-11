@@ -277,12 +277,12 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 
 	var filters []string
 	switch spec.PluginType {
-	case job.OCR2VRF:
+	case types.OCR2VRF:
 		filters, err = ocr2coordinator.FilterNamesFromSpec(spec)
 		if err != nil {
 			d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
 		}
-	case job.OCR2Keeper:
+	case types.OCR2Keeper:
 		filters, err = ocr2keeper.FilterNamesFromSpec20(spec)
 		if err != nil {
 			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
@@ -374,7 +374,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 	if err != nil {
 		return nil, err
 	}
-	if err := libocr2.SanityCheckLocalConfig(lc); err != nil {
+	if err = libocr2.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
 	lggr.Infow("OCR2 job using local config",
@@ -408,22 +408,22 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 
 	ctx := lggrCtx.ContextWithValues(context.Background())
 	switch spec.PluginType {
-	case job.Mercury:
+	case types.Mercury:
 		return d.newServicesMercury(ctx, lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
-	case job.Median:
+	case types.Median:
 		return d.newServicesMedian(ctx, lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
-	case job.DKG:
+	case types.DKG:
 		return d.newServicesDKG(lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
-	case job.OCR2VRF:
+	case types.OCR2VRF:
 		return d.newServicesOCR2VRF(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc)
 
-	case job.OCR2Keeper:
+	case types.OCR2Keeper:
 		return d.newServicesOCR2Keepers(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
-	case job.OCR2Functions:
+	case types.Functions:
 		const (
 			_ int32 = iota
 			thresholdPluginId
@@ -440,7 +440,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 
 func GetEVMEffectiveTransmitterID(jb *job.Job, chain evm.Chain, lggr logger.SugaredLogger) (string, error) {
 	spec := jb.OCR2OracleSpec
-	if spec.PluginType == job.Mercury {
+	if spec.PluginType == types.Mercury {
 		return spec.TransmitterID.String, nil
 	}
 
@@ -451,7 +451,7 @@ func GetEVMEffectiveTransmitterID(jb *job.Job, chain evm.Chain, lggr logger.Suga
 		if err != nil {
 			return "", err
 		}
-		if len(sendingKeys) > 1 && spec.PluginType != job.OCR2VRF {
+		if len(sendingKeys) > 1 && spec.PluginType != types.OCR2VRF {
 			return "", errors.New("only ocr2 vrf should have more than 1 sending key")
 		}
 		spec.TransmitterID = null.StringFrom(sendingKeys[0])
@@ -517,19 +517,25 @@ func (d *Delegate) newServicesMercury(
 		return nil, fmt.Errorf("mercury services: failed to get chain %s: %w", rid.ChainID, err)
 	}
 
-	mercuryProvider, err2 := relayer.NewMercuryProvider(ctx,
+	provider, err2 := relayer.NewPluginProvider(ctx,
 		types.RelayArgs{
 			ExternalJobID: jb.ExternalJobID,
 			JobID:         spec.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
 			RelayConfig:   spec.RelayConfig.Bytes(),
+			ProviderType:  string(spec.PluginType),
 		}, types.PluginArgs{
 			TransmitterID: transmitterID,
 			PluginConfig:  spec.PluginConfig.Bytes(),
 		})
 	if err2 != nil {
 		return nil, err2
+	}
+
+	mercuryProvider, ok := provider.(types.MercuryProvider)
+	if !ok {
+		return nil, errors.New("could not coerce PluginProvider to MercuryProvider")
 	}
 
 	oracleArgsNoPlugin := libocr2.MercuryOracleArgs{

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 	"regexp"
 	"strconv"
 
@@ -105,12 +104,7 @@ func (c ChainID) Int64() (int64, error) {
 // RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a Chain. See [relayerAdapter].
 type RelayerExt interface {
 	types.ChainService
-	// TODO remove after BFC-2441
 	ID() string
-	GetChainStatus(ctx context.Context) (types.ChainStatus, error)
-	ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, nextPageToken string, total int, err error)
-	// choose different name than SendTx to avoid collison during refactor.
-	Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
 var _ loop.Relayer = (*relayerAdapter)(nil)
@@ -118,14 +112,14 @@ var _ loop.Relayer = (*relayerAdapter)(nil)
 // relayerAdapter adapts a [types.Relayer] and [RelayerExt] to implement [loop.Relayer].
 type relayerAdapter struct {
 	types.Relayer
-	// TODO we can un-embedded `ext` once BFC-2441 is merged. Right now that's not possible
-	// because this are conflicting definitions of SendTx
-	ext RelayerExt
+	RelayerExt
 }
 
 // NewRelayerAdapter returns a [loop.Relayer] adapted from a [types.Relayer] and [RelayerExt].
+// Unlike NewRelayerServerAdapter which is used to adapt non-LOOPP relayers, this is used to adapt
+// LOOPP-based relayer which are then server over GRPC (by the relayerServer).
 func NewRelayerAdapter(r types.Relayer, e RelayerExt) loop.Relayer {
-	return &relayerAdapter{Relayer: r, ext: e}
+	return &relayerAdapter{Relayer: r, RelayerExt: e}
 }
 
 func (r *relayerAdapter) NewConfigProvider(ctx context.Context, rargs types.RelayArgs) (types.ConfigProvider, error) {
@@ -144,56 +138,43 @@ func (r *relayerAdapter) NewFunctionsProvider(ctx context.Context, rargs types.R
 	return r.Relayer.NewFunctionsProvider(rargs, pargs)
 }
 
+func (r *relayerAdapter) NewPluginProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
+	return nil, fmt.Errorf("unexpected call to NewPluginProvider: did you forget to wrap relayerAdapter in a relayerServerAdapter?")
+}
+
 func (r *relayerAdapter) Start(ctx context.Context) error {
 	var ms services.MultiStart
-	return ms.Start(ctx, r.ext, r.Relayer)
+	return ms.Start(ctx, r.RelayerExt, r.Relayer)
 }
 
 func (r *relayerAdapter) Close() error {
-	return services.CloseAll(r.Relayer, r.ext)
+	return services.CloseAll(r.Relayer, r.RelayerExt)
 }
 
 func (r *relayerAdapter) Name() string {
-	return fmt.Sprintf("%s-%s", r.Relayer.Name(), r.ext.Name())
+	return fmt.Sprintf("%s-%s", r.Relayer.Name(), r.RelayerExt.Name())
 }
 
 func (r *relayerAdapter) Ready() (err error) {
-	return errors.Join(r.Relayer.Ready(), r.ext.Ready())
+	return errors.Join(r.Relayer.Ready(), r.RelayerExt.Ready())
 }
 
 func (r *relayerAdapter) HealthReport() map[string]error {
 	hr := make(map[string]error)
 	maps.Copy(r.Relayer.HealthReport(), hr)
-	maps.Copy(r.ext.HealthReport(), hr)
+	maps.Copy(r.RelayerExt.HealthReport(), hr)
 	return hr
-}
-
-// Implement the existing [loop.Relayer] interface using the underlaying chain service
-// TODO Delete this code after BFC-2441
-
-func (r *relayerAdapter) ChainStatus(ctx context.Context, id string) (types.ChainStatus, error) {
-	if id != r.ext.ID() {
-		return types.ChainStatus{}, fmt.Errorf("unexpected chain id. got %s want %s", id, r.ID())
-	}
-	return r.ext.GetChainStatus(ctx)
-}
-func (r *relayerAdapter) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
-	stat, err := r.ext.GetChainStatus(ctx)
-	if err != nil {
-		return nil, -1, err
-	}
-	return []types.ChainStatus{stat}, 1, nil
 }
 
 func (r *relayerAdapter) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, total int, err error) {
 	if len(chainIDs) > 1 {
 		return nil, 0, fmt.Errorf("internal error: node statuses expects at most one chain id got %v", chainIDs)
 	}
-	if len(chainIDs) == 1 && chainIDs[0] != r.ext.ID() {
+	if len(chainIDs) == 1 && chainIDs[0] != r.ID() {
 		return nil, 0, fmt.Errorf("node statuses unexpected chain id got %s want %s", chainIDs[0], r.ID())
 	}
 
-	nodes, _, total, err = r.ext.ListNodeStatuses(ctx, int32(limit), "")
+	nodes, _, total, err = r.ListNodeStatuses(ctx, int32(limit), "")
 	if err != nil {
 		return nil, 0, err
 	}
@@ -208,26 +189,32 @@ func (r *relayerAdapter) NodeStatuses(ctx context.Context, offset, limit int, ch
 	return nodes[offset:limit], total, nil
 }
 
-func (r *relayerAdapter) SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error {
-	if chainID != r.ext.ID() {
-		return fmt.Errorf("send tx unexpected chain id. got %s want %s", chainID, r.ext.ID())
+type relayerServerAdapter struct {
+	*relayerAdapter
+}
+
+func (r *relayerServerAdapter) NewPluginProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
+	switch types.OCR2PluginType(rargs.ProviderType) {
+	case types.Median:
+		return r.NewMedianProvider(ctx, rargs, pargs)
+	case types.Functions:
+		return r.NewFunctionsProvider(ctx, rargs, pargs)
+	case types.Mercury:
+		return r.NewMercuryProvider(ctx, rargs, pargs)
+	case types.DKG, types.OCR2VRF, types.OCR2Keeper, types.GenericPlugin:
+		return r.relayerAdapter.NewPluginProvider(ctx, rargs, pargs)
 	}
-	return r.ext.Transact(ctx, from, to, amount, balanceCheck)
+
+	return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)
 }
 
-func (r *relayerAdapter) ID() string {
-	return r.ext.ID()
-}
-
-func (r *relayerAdapter) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
-	return r.ext.GetChainStatus(ctx)
-}
-
-func (r *relayerAdapter) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, nextPageToken string, total int, err error) {
-	return r.ext.ListNodeStatuses(ctx, pageSize, pageToken)
-}
-
-// choose different name than SendTx to avoid collison during refactor.
-func (r *relayerAdapter) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
-	return r.ext.Transact(ctx, from, to, amount, balanceCheck)
+// NewRelayerServerAdapter returns a [loop.Relayer] adapted from a [types.Relayer] and [RelayerExt].
+// Unlike NewRelayerAdapter, this behaves like the loop `RelayerServer` and dispatches calls
+// to `NewPluginProvider` according to the passed in `RelayArgs.ProviderType`.
+// This should only be used to adapt relayers not running via GRPC in a LOOPP.
+//
+// nolint:staticcheck // SA1019
+func NewRelayerServerAdapter(r types.Relayer, e RelayerExt) loop.Relayer {
+	ra := &relayerAdapter{Relayer: r, RelayerExt: e}
+	return &relayerServerAdapter{relayerAdapter: ra}
 }

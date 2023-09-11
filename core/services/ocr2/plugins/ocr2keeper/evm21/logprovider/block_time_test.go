@@ -52,10 +52,8 @@ func TestBlockTimeResolver_BlockTime(t *testing.T) {
 			20,
 			nil,
 			[]logpoller.LogPollerBlock{
-				{BlockTimestamp: now.Add(-time.Second * (2 * 4)), BlockNumber: 1},
-				{BlockTimestamp: now.Add(-time.Second * (2 * 3)), BlockNumber: 2},
-				{BlockTimestamp: now.Add(-time.Second * (2 * 2)), BlockNumber: 3},
-				{BlockTimestamp: now.Add(-time.Second * 2), BlockNumber: 4},
+				{BlockTimestamp: now.Add(-time.Second * (2 * 4)), BlockNumber: 16},
+				{BlockTimestamp: now, BlockNumber: 20},
 			},
 			nil,
 			2 * time.Second,

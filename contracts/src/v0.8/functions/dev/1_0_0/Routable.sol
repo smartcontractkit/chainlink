@@ -4,9 +4,9 @@ pragma solidity ^0.8.19;
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IOwnableFunctionsRouter} from "./interfaces/IOwnableFunctionsRouter.sol";
 
-// @title This abstract should be inherited by contracts that will be used
-// as the destinations to a route (id=>contract) on the Router.
-// It provides a Router getter and modifiers
+/// @title This abstract should be inherited by contracts that will be used
+/// as the destinations to a route (id=>contract) on the Router.
+/// It provides a Router getter and modifiers.
 abstract contract Routable is ITypeAndVersion {
   IOwnableFunctionsRouter private immutable i_router;
 
@@ -14,7 +14,7 @@ abstract contract Routable is ITypeAndVersion {
   error OnlyCallableByRouter();
   error OnlyCallableByRouterOwner();
 
-  // @dev Initializes the contract.
+  /// @dev Initializes the contract.
   constructor(address router) {
     if (router == address(0)) {
       revert RouterMustBeSet();
@@ -22,12 +22,12 @@ abstract contract Routable is ITypeAndVersion {
     i_router = IOwnableFunctionsRouter(router);
   }
 
-  // @notice Return the Router
+  /// @notice Return the Router
   function _getRouter() internal view returns (IOwnableFunctionsRouter router) {
     return i_router;
   }
 
-  // @notice Reverts if called by anyone other than the router.
+  /// @notice Reverts if called by anyone other than the router.
   modifier onlyRouter() {
     if (msg.sender != address(i_router)) {
       revert OnlyCallableByRouter();
@@ -35,7 +35,7 @@ abstract contract Routable is ITypeAndVersion {
     _;
   }
 
-  // @notice Reverts if called by anyone other than the router owner.
+  /// @notice Reverts if called by anyone other than the router owner.
   modifier onlyRouterOwner() {
     if (msg.sender != i_router.owner()) {
       revert OnlyCallableByRouterOwner();

@@ -20,11 +20,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
@@ -244,13 +245,13 @@ var networkConfig = map[string]NetworkConfig{
 	"SimulatedGeth": {
 		upkeepSLA:  int64(20),
 		blockTime:  time.Second,
-		deltaStage: time.Duration(0),
+		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
 	},
 	"geth": {
 		upkeepSLA:  int64(20),
 		blockTime:  time.Second,
-		deltaStage: time.Duration(0),
+		deltaStage: 30 * time.Second,
 		funding:    big.NewFloat(100_000),
 	},
 	"GoerliTestnet": {

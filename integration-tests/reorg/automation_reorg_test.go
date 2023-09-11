@@ -19,11 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 var (
@@ -183,7 +184,7 @@ func TestAutomationReorg(t *testing.T) {
 
 	actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, ethereum.RegistryVersion_2_0)
 	nodesWithoutBootstrap := chainlinkNodes[1:]
-	ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second)
+	ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second)
 	require.NoError(t, err, "OCR2 config should be built successfully")
 	err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
 	require.NoError(t, err, "Registry config should be be set successfully")

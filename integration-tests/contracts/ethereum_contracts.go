@@ -25,7 +25,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_client_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
@@ -47,6 +46,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 )
 
 // EthereumOracle oracle for "directrequest" job tests
@@ -2113,7 +2114,7 @@ func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string
 		return 0, err
 	}
 	for _, l := range r.Logs {
-		log.Warn().Interface("Log", common.Bytes2Hex(l.Data)).Send()
+		log.Info().Interface("Log", common.Bytes2Hex(l.Data)).Send()
 	}
 	topicsMap := map[string]interface{}{}
 
@@ -2122,14 +2123,14 @@ func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string
 		return 0, err
 	}
 	for _, ev := range fabi.Events {
-		log.Warn().Str("EventName", ev.Name).Send()
+		log.Info().Str("EventName", ev.Name).Send()
 	}
 	topicOneInputs := abi.Arguments{fabi.Events["SubscriptionCreated"].Inputs[0]}
 	topicOneHash := []common.Hash{r.Logs[0].Topics[1:][0]}
 	if err := abi.ParseTopicsIntoMap(topicsMap, topicOneInputs, topicOneHash); err != nil {
 		return 0, errors.Wrap(err, "failed to decode topic value")
 	}
-	log.Warn().Interface("NewTopicsDecoded", topicsMap).Send()
+	log.Info().Interface("NewTopicsDecoded", topicsMap).Send()
 	if topicsMap["subscriptionId"] == 0 {
 		return 0, errors.New("failed to decode subscription ID after creation")
 	}
@@ -2140,6 +2141,22 @@ type EthereumFunctionsCoordinator struct {
 	address  common.Address
 	client   blockchain.EVMClient
 	instance *functions_coordinator.FunctionsCoordinator
+}
+
+func (e *EthereumFunctionsCoordinator) GetThresholdPublicKey() ([]byte, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: context.Background(),
+	}
+	return e.instance.GetThresholdPublicKey(opts)
+}
+
+func (e *EthereumFunctionsCoordinator) GetDONPublicKey() ([]byte, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: context.Background(),
+	}
+	return e.instance.GetDONPublicKey(opts)
 }
 
 func (e *EthereumFunctionsCoordinator) Address() string {
@@ -2156,19 +2173,138 @@ func (e *EthereumFunctionsLoadTestClient) Address() string {
 	return e.address.Hex()
 }
 
-func (e *EthereumFunctionsLoadTestClient) SendRequest(source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error {
+type EthereumFunctionsLoadStats struct {
+	LastRequestID string
+	LastResponse  string
+	LastError     string
+	Total         uint32
+	Succeeded     uint32
+	Errored       uint32
+	Empty         uint32
+}
+
+func Bytes32ToSlice(a [32]byte) (r []byte) {
+	r = append(r, a[:]...)
+	return
+}
+
+func (e *EthereumFunctionsLoadTestClient) GetStats() (*EthereumFunctionsLoadStats, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: context.Background(),
+	}
+	lr, lbody, lerr, total, succeeded, errored, empty, err := e.instance.GetStats(opts)
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumFunctionsLoadStats{
+		LastRequestID: string(Bytes32ToSlice(lr)),
+		LastResponse:  string(lbody),
+		LastError:     string(lerr),
+		Total:         total,
+		Succeeded:     succeeded,
+		Errored:       errored,
+		Empty:         empty,
+	}, nil
+}
+
+func (e *EthereumFunctionsLoadTestClient) ResetStats() error {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
-	tx, err := e.instance.SendRequest(opts, source, encryptedSecretsReferences, args, subscriptionId, jobId)
+	tx, err := e.instance.ResetStats(opts)
 	if err != nil {
 		return err
 	}
 	if err := e.client.ProcessTransaction(tx); err != nil {
 		return err
 	}
-	revertReason, _, _ := e.client.RevertReasonFromTx(tx.Hash(), functions_client_example.FunctionsClientExampleABI)
-	log.Debug().Str("RevertReason", revertReason).Send()
 	return nil
+}
+
+func (e *EthereumFunctionsLoadTestClient) SendRequest(times uint32, source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := e.instance.SendRequest(opts, times, source, encryptedSecretsReferences, args, subscriptionId, jobId)
+	if err != nil {
+		return err
+	}
+	return e.client.ProcessTransaction(tx)
+}
+
+func (e *EthereumFunctionsLoadTestClient) SendRequestWithDONHostedSecrets(times uint32, source string, slotID uint8, slotVersion uint64, args []string, subscriptionId uint64, donID [32]byte) error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := e.instance.SendRequestWithDONHostedSecrets(opts, times, source, slotID, slotVersion, args, subscriptionId, donID)
+	if err != nil {
+		return err
+	}
+	return e.client.ProcessTransaction(tx)
+}
+
+type EthereumMercuryVerifier struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *verifier.Verifier
+}
+
+func (e *EthereumMercuryVerifier) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumMercuryVerifier) Verify(signedReport []byte, sender common.Address) error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := e.instance.Verify(opts, signedReport, sender)
+	if err != nil {
+		return err
+	}
+	return e.client.ProcessTransaction(tx)
+}
+
+type EthereumMercuryVerifierProxy struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *verifier_proxy.VerifierProxy
+}
+
+func (e *EthereumMercuryVerifierProxy) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumMercuryVerifierProxy) Verify(signedReport []byte, value *big.Int) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if value != nil {
+		opts.Value = value
+	}
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.Verify(opts, signedReport)
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
+}
+
+func (e *EthereumMercuryVerifierProxy) VerifyBulk(signedReports [][]byte, value *big.Int) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if value != nil {
+		opts.Value = value
+	}
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.VerifyBulk(opts, signedReports)
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
 }

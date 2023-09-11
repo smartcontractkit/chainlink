@@ -36,6 +36,7 @@ type LogPoller interface {
 	ReplayAsync(fromBlock int64)
 	RegisterFilter(filter Filter, qopts ...pg.QOpt) error
 	UnregisterFilter(name string, qopts ...pg.QOpt) error
+	HasFilter(name string) bool
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 
@@ -256,6 +257,15 @@ func (lp *logPoller) UnregisterFilter(name string, qopts ...pg.QOpt) error {
 	delete(lp.filters, name)
 	lp.filterDirty = true
 	return nil
+}
+
+// HasFilter returns true if the log poller has an active filter with the given name.
+func (lp *logPoller) HasFilter(name string) bool {
+	lp.filterMu.RLock()
+	defer lp.filterMu.RUnlock()
+
+	_, ok := lp.filters[name]
+	return ok
 }
 
 func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery {
@@ -647,7 +657,7 @@ func (lp *logPoller) backfill(ctx context.Context, start, end int64) error {
 				}
 			}
 			if batchSize == 1 {
-				lp.lggr.Criticalw("Too many log results in a single block, failed to retrieve logs! Node may run in a degraded state unless LogBackfillBatchSize is increased", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
+				lp.lggr.Criticalw("Too many log results in a single block, failed to retrieve logs! Node may be running in a degraded state.", "err", err, "from", from, "to", to, "LogBackfillBatchSize", lp.backfillBatchSize)
 				return err
 			}
 			batchSize /= 2
@@ -1033,7 +1043,7 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts
 	}
 
 	// Fill any remaining blocks from the client.
-	blocksFoundFromRPC, err := lp.fillRemainingBlocksFromRPC(ctx, numbers, blocksFound)
+	blocksFoundFromRPC, err := lp.fillRemainingBlocksFromRPC(ctx, blocksRequested, blocksFound)
 	if err != nil {
 		return nil, err
 	}
@@ -1059,12 +1069,12 @@ func (lp *logPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts
 
 func (lp *logPoller) fillRemainingBlocksFromRPC(
 	ctx context.Context,
-	blocksRequested []uint64,
+	blocksRequested map[uint64]struct{},
 	blocksFound map[uint64]LogPollerBlock,
 ) (map[uint64]LogPollerBlock, error) {
 	var reqs []rpc.BatchElem
 	var remainingBlocks []uint64
-	for _, num := range blocksRequested {
+	for num := range blocksRequested {
 		if _, ok := blocksFound[num]; !ok {
 			req := rpc.BatchElem{
 				Method: "eth_getBlockByNumber",
