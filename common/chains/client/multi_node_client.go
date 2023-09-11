@@ -57,10 +57,6 @@ type MultiNodeClient[
 	NodesAsSendOnlys() []SendOnlyNode[CHAIN_ID, RPC_CLIENT]
 	WrapSendOnlyTransaction(ctx context.Context, lggr logger.Logger, tx TX, n SendOnlyNode[CHAIN_ID, RPC_CLIENT],
 		f func(ctx context.Context, lggr logger.Logger, tx TX, n SendOnlyNode[CHAIN_ID, RPC_CLIENT]))
-
-	runLoop()
-	nLiveNodes() (int, int64, *utils.Big)
-	report()
 }
 
 func ContextWithDefaultTimeout() (ctx context.Context, cancel context.CancelFunc) {
