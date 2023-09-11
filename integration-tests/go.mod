@@ -21,7 +21,7 @@ require (
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chain-selectors v1.0.1
 	github.com/smartcontractkit/chainlink-env v0.36.0
-	github.com/smartcontractkit/chainlink-testing-framework v1.16.5-0.20230907234215-8f758ef3a2d9
+	github.com/smartcontractkit/chainlink-testing-framework v1.16.6
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20230828183543-6d0939746966
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230816220705-665e93233ae5
@@ -40,6 +40,13 @@ require (
 	golang.org/x/crypto v0.12.0
 	golang.org/x/sync v0.3.0
 	gopkg.in/guregu/null.v4 v4.0.0
+)
+
+// Pin K8s versions as their updates are highly disruptive and go mod keeps wanting to update them
+replace (
+	k8s.io/api => k8s.io/api v0.25.11
+	k8s.io/client-go => k8s.io/client-go v0.25.11
+	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d
 )
 
 require (
@@ -521,9 +528,6 @@ replace (
 
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.43.1-0.20230327151049-211ae4f1f0a2
 	github.com/sercand/kuberesolver v2.4.0+incompatible => github.com/sercand/kuberesolver/v5 v5.1.0
-	github.com/smartcontractkit/chainlink/integration-tests => ../integration-tests
 
-	k8s.io/api => k8s.io/api v0.25.11
-	k8s.io/client-go => k8s.io/client-go v0.25.11
-	k8s.io/kube-openapi => k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d
+	github.com/smartcontractkit/chainlink/integration-tests => ../integration-tests
 )

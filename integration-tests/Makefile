@@ -2,43 +2,42 @@ BIN_DIR = bin
 export GOPATH ?= $(shell go env GOPATH)
 export GO111MODULE ?= on
 
-LINUX   = LINUX
-OSX     = OSX
-WINDOWS = WIN32
-OSFLAG  := 
+LINUX=LINUX
+OSX=OSX
+WINDOWS=WIN32
+OSFLAG :=
 ifeq ($(OS),Windows_NT)
-    OSFLAG = $(WINDOWS)
+	OSFLAG = $(WINDOWS)
 else
-    UNAME_S := $(shell uname -s)
-
+	UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Linux)
-	OSFLAG = $(LINUX)
+		OSFLAG = $(LINUX)
 endif
-
 ifeq ($(UNAME_S),Darwin)
-	OSFLAG = $(OSX)
+		OSFLAG = $(OSX)
 endif
 endif
-
 
 install_qa_tools:
 ifeq ($(OSFLAG),$(WINDOWS))
 	echo "If you are running windows and know how to install what is needed, please contribute by adding it here!"
 	echo "You will need nodejs, golang, k3d, and helm."
 	exit 1
-endif
+else
+
+# linux and mac can use asdf to install all of the dependencies
+ifeq ($(shell which asdf), )
 
 # install asdf
-ifeq ($(shell which asdf),)
 ifeq ($(OSFLAG),$(LINUX))
 	echo "You will need to install asdf via your linux installer https://asdf-vm.com/guide/getting-started.html"
 	exit 1
-endif
+else
 ifeq ($(OSFLAG),$(OSX))
 	brew install asdf
 endif
 endif
-
+endif
 # install the plugins if needed and then install the dependencies
 	asdf plugin-add nodejs || true
 	asdf plugin-add golang || true
@@ -46,12 +45,11 @@ endif
 	asdf plugin-add helm || true
 	asdf plugin-add kubectl || true
 	asdf install
-
+endif
 # Now install the helm charts that are needed (should be os agnostic)
 	helm repo add chainlink-qa https://raw.githubusercontent.com/smartcontractkit/qa-charts/gh-pages/
 	helm repo add bitnami https://charts.bitnami.com/bitnami
 	helm repo update
-
 
 .PHONY: install_gotestfmt
 install_gotestfmt:
@@ -70,11 +68,7 @@ build_test_image:
 #Build a chainlink docker image for local testing and push to k3d registry
 .PHONY: build_push_docker_image
 build_push_docker_image:
-	docker build -f ../core/chainlink.Dockerfile \
-	--build-arg COMMIT_SHA=$(shell git rev-parse HEAD) \
-	--build-arg CHAINLINK_USER=chainlink \
-	-t localhost:5000/chainlink:develop ../
-	docker push localhost:5000/chainlink:develop
+	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t localhost:5000/chainlink:develop ../ ; docker push localhost:5000/chainlink:develop
 
 ## Test Runner
 .PHONY: run
@@ -134,16 +128,6 @@ test_chaos_network: install_gotestfmt ## Run all smoke tests
 .PHONY: test_chaos_verbose
 test_chaos_verbose: ## Run all smoke tests with verbose logging
 	go test -timeout 24h -count=1 -v $(args) ./chaos
-
-.PHONY: test_chaos_ccip_pods_raw
-test_chaos_ccip_pods_raw:
-	DATABASE_URL="postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable" \
-	go test -timeout 2h -v -count=1 $(args) -p 2 -run 'TestChaosCCIP/.*pod-chaos' ./chaos
-
-.PHONY: test_chaos_ccip_network_raw
-test_chaos_ccip_network_raw:
-	DATABASE_URL="postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable" \
-	go test -timeout 2h -v -count=1 $(args) -p 2 -run 'TestChaosCCIP/.*network-chaos' ./chaos
 
 # Performance
 .PHONY: test_perf
@@ -208,16 +192,13 @@ test_benchmark_automation: ## Run the automation benchmark tests
 test_reorg_automation: ## Run the automation reorg tests
 	go test -timeout 300m -v -run ^TestAutomationReorg$$ ./reorg -count=1 | tee automation_reorg_run_`date +"%Y%m%d-%H%M%S"`.log
 
-
 # image: the name for the chainlink image being built, example: image=chainlink
 # tag: the tag for the chainlink image being built, example: tag=latest
 # example usage: make build_docker_image image=chainlink tag=latest
 .PHONY: build_docker_image
 build_docker_image:
-	docker build -f ../core/chainlink.Dockerfile \
-	--build-arg COMMIT_SHA=$(git rev-parse HEAD) \
-	--build-arg CHAINLINK_USER=chainlink \
-	-t $(image):$(tag) ../
+	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t $(image):$(tag) ../
+
 
 # image: the name for the chainlink image being built, example: image=chainlink
 # tag: the tag for the chainlink image being built, example: tag=latest

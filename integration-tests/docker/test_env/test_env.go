@@ -8,17 +8,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	tc "github.com/testcontainers/testcontainers-go"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
-	tc "github.com/testcontainers/testcontainers-go"
-	"golang.org/x/sync/errgroup"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 var (
