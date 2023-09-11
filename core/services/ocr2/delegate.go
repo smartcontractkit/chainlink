@@ -371,7 +371,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 	if err != nil {
 		return nil, err
 	}
-	if err := libocr2.SanityCheckLocalConfig(lc); err != nil {
+	if err = libocr2.SanityCheckLocalConfig(lc); err != nil {
 		return nil, err
 	}
 	lggr.Infow("OCR2 job using local config",
@@ -1214,6 +1214,8 @@ func (d *Delegate) newServicesOCR2Functions(
 		ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
 	}
 
+	noopMonitoringEndpoint := telemetry.NoopAgent{}
+
 	thresholdOracleArgs := libocr2.OCR2OracleArgs{
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
 		V2Bootstrappers:              bootstrapPeers,
@@ -1222,11 +1224,12 @@ func (d *Delegate) newServicesOCR2Functions(
 		Database:                     thresholdOcrDB,
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2Threshold),
-		OffchainConfigDigester:       thresholdProvider.OffchainConfigDigester(),
-		OffchainKeyring:              kb,
-		OnchainKeyring:               kb,
-		ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
+		// Telemetry ingress for OCR2Threshold is currently not supported so a noop monitoring endpoint is being used
+		MonitoringEndpoint:     &noopMonitoringEndpoint,
+		OffchainConfigDigester: thresholdProvider.OffchainConfigDigester(),
+		OffchainKeyring:        kb,
+		OnchainKeyring:         kb,
+		ReportingPluginFactory: nil, // To be set by NewFunctionsServices
 	}
 
 	s4OracleArgs := libocr2.OCR2OracleArgs{
@@ -1237,11 +1240,12 @@ func (d *Delegate) newServicesOCR2Functions(
 		Database:                     s4OcrDB,
 		LocalConfig:                  lc,
 		Logger:                       ocrLogger,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2S4),
-		OffchainConfigDigester:       s4Provider.OffchainConfigDigester(),
-		OffchainKeyring:              kb,
-		OnchainKeyring:               kb,
-		ReportingPluginFactory:       nil, // To be set by NewFunctionsServices
+		// Telemetry ingress for OCR2S4 is currently not supported so a noop monitoring endpoint is being used
+		MonitoringEndpoint:     &noopMonitoringEndpoint,
+		OffchainConfigDigester: s4Provider.OffchainConfigDigester(),
+		OffchainKeyring:        kb,
+		OnchainKeyring:         kb,
+		ReportingPluginFactory: nil, // To be set by NewFunctionsServices
 	}
 
 	encryptedThresholdKeyShare := d.cfg.Threshold().ThresholdKeyShare()

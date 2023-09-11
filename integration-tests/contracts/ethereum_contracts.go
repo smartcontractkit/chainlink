@@ -17,7 +17,6 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_client_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
@@ -2112,7 +2111,7 @@ func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string
 		return 0, err
 	}
 	for _, l := range r.Logs {
-		log.Warn().Interface("Log", common.Bytes2Hex(l.Data)).Send()
+		log.Info().Interface("Log", common.Bytes2Hex(l.Data)).Send()
 	}
 	topicsMap := map[string]interface{}{}
 
@@ -2121,14 +2120,14 @@ func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string
 		return 0, err
 	}
 	for _, ev := range fabi.Events {
-		log.Warn().Str("EventName", ev.Name).Send()
+		log.Info().Str("EventName", ev.Name).Send()
 	}
 	topicOneInputs := abi.Arguments{fabi.Events["SubscriptionCreated"].Inputs[0]}
 	topicOneHash := []common.Hash{r.Logs[0].Topics[1:][0]}
 	if err := abi.ParseTopicsIntoMap(topicsMap, topicOneInputs, topicOneHash); err != nil {
 		return 0, errors.Wrap(err, "failed to decode topic value")
 	}
-	log.Warn().Interface("NewTopicsDecoded", topicsMap).Send()
+	log.Info().Interface("NewTopicsDecoded", topicsMap).Send()
 	if topicsMap["subscriptionId"] == 0 {
 		return 0, errors.New("failed to decode subscription ID after creation")
 	}
@@ -2139,6 +2138,22 @@ type EthereumFunctionsCoordinator struct {
 	address  common.Address
 	client   blockchain.EVMClient
 	instance *functions_coordinator.FunctionsCoordinator
+}
+
+func (e *EthereumFunctionsCoordinator) GetThresholdPublicKey() ([]byte, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: context.Background(),
+	}
+	return e.instance.GetThresholdPublicKey(opts)
+}
+
+func (e *EthereumFunctionsCoordinator) GetDONPublicKey() ([]byte, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: context.Background(),
+	}
+	return e.instance.GetDONPublicKey(opts)
 }
 
 func (e *EthereumFunctionsCoordinator) Address() string {
@@ -2155,19 +2170,64 @@ func (e *EthereumFunctionsLoadTestClient) Address() string {
 	return e.address.Hex()
 }
 
-func (e *EthereumFunctionsLoadTestClient) SendRequest(source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error {
+type EthereumFunctionsLoadStats struct {
+	LastRequestID string
+	LastResponse  string
+	LastError     string
+	Total         uint32
+	Succeeded     uint32
+	Errored       uint32
+	Empty         uint32
+}
+
+func Bytes32ToSlice(a [32]byte) (r []byte) {
+	r = append(r, a[:]...)
+	return
+}
+
+func (e *EthereumFunctionsLoadTestClient) GetStats() (*EthereumFunctionsLoadStats, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: context.Background(),
+	}
+	lr, lbody, lerr, total, succeeded, errored, empty, err := e.instance.GetStats(opts)
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumFunctionsLoadStats{
+		LastRequestID: string(Bytes32ToSlice(lr)),
+		LastResponse:  string(Bytes32ToSlice(lbody)),
+		LastError:     string(Bytes32ToSlice(lerr)),
+		Total:         total,
+		Succeeded:     succeeded,
+		Errored:       errored,
+		Empty:         empty,
+	}, nil
+}
+
+func (e *EthereumFunctionsLoadTestClient) ResetStats() error {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
-	tx, err := e.instance.SendRequest(opts, source, encryptedSecretsReferences, args, subscriptionId, jobId)
+	tx, err := e.instance.ResetStats(opts)
 	if err != nil {
 		return err
 	}
 	if err := e.client.ProcessTransaction(tx); err != nil {
 		return err
 	}
-	revertReason, _, _ := e.client.RevertReasonFromTx(tx.Hash(), functions_client_example.FunctionsClientExampleABI)
-	log.Debug().Str("RevertReason", revertReason).Send()
 	return nil
+}
+
+func (e *EthereumFunctionsLoadTestClient) SendRequest(times uint32, source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := e.instance.SendRequest(opts, times, source, encryptedSecretsReferences, args, subscriptionId, jobId)
+	if err != nil {
+		return err
+	}
+	return e.client.ProcessTransaction(tx)
 }
