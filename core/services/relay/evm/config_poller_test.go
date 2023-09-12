@@ -64,12 +64,14 @@ func TestConfigPoller(t *testing.T) {
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { lp.Close() })
-	logPoller, err := NewConfigPoller(lggr, lp, ocrAddress)
+	configPoller, err := NewConfigPoller(lggr, lp, ocrAddress)
 	require.NoError(t, err)
 	// Should have no config to begin with.
-	_, config, err := logPoller.LatestConfigDetails(testutils.Context(t))
+	_, config, err := configPoller.LatestConfigDetails(testutils.Context(t))
 	require.NoError(t, err)
 	require.Equal(t, ocrtypes2.ConfigDigest{}, config)
+	_, err = configPoller.LatestConfig(testutils.Context(t), 0)
+	require.Error(t, err)
 	// Set the config
 	contractConfig := setConfig(t, median.OffchainConfig{
 		AlphaReportInfinite: false,
@@ -89,13 +91,13 @@ func TestConfigPoller(t *testing.T) {
 	var digest [32]byte
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		b.Commit()
-		configBlock, digest, err = logPoller.LatestConfigDetails(testutils.Context(t))
+		configBlock, digest, err = configPoller.LatestConfigDetails(testutils.Context(t))
 		require.NoError(t, err)
 		return ocrtypes2.ConfigDigest{} != digest
 	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 
 	// Assert the config returned is the one we configured.
-	newConfig, err := logPoller.LatestConfig(testutils.Context(t), configBlock)
+	newConfig, err := configPoller.LatestConfig(testutils.Context(t), configBlock)
 	require.NoError(t, err)
 	// Note we don't check onchainConfig, as that is populated in the contract itself.
 	assert.Equal(t, digest, [32]byte(newConfig.ConfigDigest))
