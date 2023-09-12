@@ -140,3 +140,33 @@ func TestRunner_RerunSuccessful(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, m.entries["core/assets"], []string{"TestLink"})
 }
+
+type exitError struct{}
+
+func (e *exitError) ExitCode() int { return 1 }
+
+func (e *exitError) Error() string { return "exit code: 1" }
+
+func TestRunner_RerunFailsWithNonzeroExitCode(t *testing.T) {
+	output := `{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Test":"TestLink","Elapsed":0}`
+
+	rerunOutput := `
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Test":"TestLink","Elapsed":0}
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"pass","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Test":"TestLink","Elapsed":0}
+`
+	m := newMockReporter()
+	r := &Runner{
+		numReruns: 2,
+		readers:   []io.Reader{strings.NewReader(output)},
+		runTestFn: func(pkg string, testNames []string, numReruns int, w io.Writer) error {
+			_, _ = w.Write([]byte(rerunOutput))
+			return &exitError{}
+		},
+		parse:    parseOutput,
+		reporter: m,
+	}
+
+	err := r.Run()
+	require.NoError(t, err)
+	assert.Equal(t, m.entries["core/assets"], []string{"TestLink"})
+}
