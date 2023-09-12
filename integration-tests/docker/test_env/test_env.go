@@ -3,17 +3,20 @@ package test_env
 import (
 	"encoding/json"
 	"math/big"
+	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	tc "github.com/testcontainers/testcontainers-go"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
@@ -41,11 +44,12 @@ type CLClusterTestEnv struct {
 	ContractDeployer contracts.ContractDeployer
 	ContractLoader   contracts.ContractLoader
 	l                zerolog.Logger
+	t                *testing.T
 }
 
-func NewTestEnv(l zerolog.Logger) (*CLClusterTestEnv, error) {
+func NewTestEnv() (*CLClusterTestEnv, error) {
 	utils.SetupCoreDockerEnvLogger()
-	network, err := docker.CreateNetwork()
+	network, err := docker.CreateNetwork(log.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -54,13 +58,21 @@ func NewTestEnv(l zerolog.Logger) (*CLClusterTestEnv, error) {
 		Network:    network,
 		Geth:       test_env.NewGeth(networks),
 		MockServer: test_env.NewMockServer(networks),
-		l:          l,
+		l:          log.Logger,
 	}, nil
+}
+
+func (te *CLClusterTestEnv) WithTestLogger(t *testing.T) *CLClusterTestEnv {
+	te.t = t
+	te.l = logging.GetTestLogger(t)
+	te.Geth.WithTestLogger(t)
+	te.MockServer.WithTestLogger(t)
+	return te
 }
 
 func NewTestEnvFromCfg(l zerolog.Logger, cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
 	utils.SetupCoreDockerEnvLogger()
-	network, err := docker.CreateNetwork()
+	network, err := docker.CreateNetwork(log.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +83,7 @@ func NewTestEnvFromCfg(l zerolog.Logger, cfg *TestEnvConfig) (*CLClusterTestEnv,
 		Network:    network,
 		Geth:       test_env.NewGeth(networks, test_env.WithContainerName(cfg.Geth.ContainerName)),
 		MockServer: test_env.NewMockServer(networks, test_env.WithContainerName(cfg.MockServer.ContainerName)),
-		l:          l,
+		l:          log.Logger,
 	}, nil
 }
 
@@ -83,7 +95,11 @@ func (te *CLClusterTestEnv) WithPrivateGethChain(evmNetworks []blockchain.EVMNet
 	var chains []test_env.PrivateGethChain
 	for _, evmNetwork := range evmNetworks {
 		n := evmNetwork
-		chains = append(chains, test_env.NewPrivateGethChain(&n, []string{te.Network.Name}))
+		pgc := test_env.NewPrivateGethChain(&n, []string{te.Network.Name})
+		if te.t != nil {
+			pgc.WithTestLogger(te.t)
+		}
+		chains = append(chains, pgc)
 	}
 	te.PrivateGethChain = chains
 	return te
@@ -133,10 +149,13 @@ func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int
 				nodeContainerName = te.Cfg.Nodes[nodeIndex].NodeContainerName
 				dbContainerName = te.Cfg.Nodes[nodeIndex].DbContainerName
 			}
-			n := NewClNode([]string{te.Network.Name}, nodeConfig, te.l,
+			n := NewClNode([]string{te.Network.Name}, nodeConfig,
 				WithNodeContainerName(nodeContainerName),
 				WithDbContainerName(dbContainerName),
 			)
+			if te.t != nil {
+				n.WithTestLogger(te.t)
+			}
 			err := n.StartContainer()
 			if err != nil {
 				return err

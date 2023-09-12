@@ -19,8 +19,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
@@ -100,7 +100,7 @@ func NewKeeperBenchmarkTest(inputs KeeperBenchmarkTestInputs) *KeeperBenchmarkTe
 
 // Setup prepares contracts for the test
 func (k *KeeperBenchmarkTest) Setup(t *testing.T, env *environment.Environment) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	startTime := time.Now()
 	k.TestReporter.Summary.StartTime = startTime.UnixMilli()
 	k.ensureInputValues(t)
@@ -202,7 +202,7 @@ func (k *KeeperBenchmarkTest) Setup(t *testing.T, env *environment.Environment) 
 
 // Run runs the keeper benchmark test
 func (k *KeeperBenchmarkTest) Run(t *testing.T) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	u := k.Inputs.Upkeeps
 	k.TestReporter.Summary.Load.TotalCheckGasPerBlock = int64(u.NumberOfUpkeeps) * u.CheckGasToBurn
 	k.TestReporter.Summary.Load.TotalPerformGasPerBlock = int64((float64(u.NumberOfUpkeeps) /
@@ -323,7 +323,7 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
 	metricsReporter *testreporters.KeeperBenchmarkTestReporter,
 	rIndex int,
 ) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	contractABI, err := keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
 	require.NoError(t, err, "Error getting ABI")
 	switch k.Inputs.RegistryVersions[rIndex] {
@@ -476,7 +476,7 @@ func (k *KeeperBenchmarkTest) DeployBenchmarkKeeperContracts(
 	t *testing.T,
 	index int,
 ) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	registryVersion := k.Inputs.RegistryVersions[index]
 	k.Inputs.KeeperRegistrySettings.RegistryVersion = registryVersion
 	upkeep := k.Inputs.Upkeeps
@@ -587,7 +587,7 @@ func DeployKeeperConsumersBenchmark(
 	contractDeployer contracts.ContractDeployer,
 	client blockchain.EVMClient,
 ) contracts.AutomationConsumerBenchmark {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 
 	// Deploy consumer
 	keeperConsumerInstance, err := contractDeployer.DeployKeeperConsumerBenchmark()

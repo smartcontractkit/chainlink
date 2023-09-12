@@ -13,7 +13,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -48,7 +48,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndex(
 	deltaStage time.Duration,
 	keyIndex int,
 ) (contracts.OCRv2Config, error) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	S, oracleIdentities, err := GetOracleIdentitiesWithKeyIndex(chainlinkNodes, keyIndex)
 	if err != nil {
 		return contracts.OCRv2Config{}, err
@@ -172,7 +172,7 @@ func CreateOCRKeeperJobs(
 	keyIndex int,
 	registryVersion ethereum.KeeperRegistryVersion,
 ) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	bootstrapNode := chainlinkNodes[0]
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 	require.NoError(t, err, "Shouldn't fail reading P2P keys from bootstrap node")

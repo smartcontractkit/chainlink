@@ -13,17 +13,15 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
@@ -98,7 +96,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			l := utils.GetTestLogger(t)
+			l := logging.GetTestLogger(t)
 
 			var (
 				upgradeImage   string
@@ -214,7 +212,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 
 func TestSetUpkeepTriggerConfig(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 		t, "set-trigger-config", ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, false,
@@ -440,7 +438,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			l := utils.GetTestLogger(t)
+			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "pause-unpause", registryVersion, defaultOCRRegistryConfig, false,
 			)
@@ -523,7 +521,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			l := utils.GetTestLogger(t)
+			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "register-upkeep", registryVersion, defaultOCRRegistryConfig, false,
 			)
@@ -652,7 +650,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			l := utils.GetTestLogger(t)
+			l := logging.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "keeper-nodes-down", registryVersion, defaultOCRRegistryConfig, false,
 			)
@@ -801,7 +799,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			l := utils.GetTestLogger(t)
+			l := logging.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "gas-limit", registryVersion, defaultOCRRegistryConfig, false,
 			)
@@ -914,7 +912,7 @@ func TestUpdateCheckData(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			l := utils.GetTestLogger(t)
+			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "update-check-data", registryVersion, defaultOCRRegistryConfig, false,
 			)
@@ -990,7 +988,7 @@ func setupAutomationTestDocker(
 	contracts.KeeperRegistrar,
 	*test_env.CLClusterTestEnv,
 ) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
 	network := networks.SelectedNetwork
@@ -1009,7 +1007,7 @@ func setupAutomationTestDocker(
 
 	// launch the environment
 	env, err := test_env.NewCLTestEnvBuilder().
-		WithLogger(l).
+		WithTestLogger(t).
 		WithGeth().
 		WithMockServer(1).
 		WithCLNodes(5).

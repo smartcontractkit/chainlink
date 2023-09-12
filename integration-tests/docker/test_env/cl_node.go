@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -18,12 +19,14 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -49,6 +52,7 @@ type ClNode struct {
 	lw                    *logwatch.LogWatch
 	ContainerImage        string
 	ContainerVersion      string
+	t                     *testing.T
 	l                     zerolog.Logger
 }
 
@@ -78,7 +82,7 @@ func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, nodeConfig *chainlink.Config, logger zerolog.Logger, opts ...ClNodeOption) *ClNode {
+func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
 	pgDb := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
@@ -89,11 +93,18 @@ func NewClNode(networks []string, nodeConfig *chainlink.Config, logger zerolog.L
 		},
 		NodeConfig: nodeConfig,
 		PostgresDb: pgDb,
-		l:          logger,
+		l:          log.Logger,
 	}
 	for _, opt := range opts {
 		opt(n)
 	}
+	return n
+}
+
+func (n *ClNode) WithTestLogger(t *testing.T) *ClNode {
+	n.l = logging.GetTestLogger(t)
+	n.t = t
+	n.PostgresDb.WithTestLogger(t)
 	return n
 }
 
@@ -240,10 +251,15 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return err
 	}
-	container, err := docker.StartContainerWithRetry(tc.GenericContainerRequest{
+	l := tc.Logger
+	if n.t != nil {
+		l = tc.TestLogger(n.t)
+	}
+	container, err := docker.StartContainerWithRetry(n.l, tc.GenericContainerRequest{
 		ContainerRequest: *cReq,
 		Started:          true,
 		Reuse:            true,
+		Logger:           l,
 	})
 	if err != nil {
 		return errors.Wrap(err, ErrStartCLNodeContainer)

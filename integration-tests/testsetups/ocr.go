@@ -32,8 +32,8 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
@@ -115,7 +115,7 @@ func NewOCRSoakTest(t *testing.T, forwarderFlow bool) (*OCRSoakTest, error) {
 		t:              t,
 		startTime:      time.Now(),
 		timeLeft:       testInputs.TestDuration,
-		log:            utils.GetTestLogger(t),
+		log:            logging.GetTestLogger(t),
 		ocrRoundStates: make([]*testreporters.OCRRoundState, 0),
 		ocrInstanceMap: make(map[string]contracts.OffchainAggregator),
 	}

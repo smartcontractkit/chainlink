@@ -3,6 +3,7 @@ package test_env
 import (
 	"math/big"
 	"os"
+	"testing"
 
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -10,10 +11,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
@@ -31,6 +32,7 @@ type CLTestEnvBuilder struct {
 	customNodeCsaKeys    []string
 	defaultNodeCsaKeys   []string
 	l                    zerolog.Logger
+	t                    *testing.T
 
 	/* funding */
 	ETHFunds *big.Float
@@ -43,8 +45,9 @@ func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	}
 }
 
-func (b *CLTestEnvBuilder) WithLogger(l zerolog.Logger) *CLTestEnvBuilder {
-	b.l = l
+func (b *CLTestEnvBuilder) WithTestLogger(t *testing.T) *CLTestEnvBuilder {
+	b.t = t
+	b.l = logging.GetTestLogger(t)
 	return b
 }
 
@@ -120,10 +123,14 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 			return nil, err
 		}
 	} else {
-		te, err = NewTestEnv(b.l)
+		te, err = NewTestEnv()
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if b.t != nil {
+		te.WithTestLogger(b.t)
 	}
 
 	if b.hasLogWatch {
