@@ -66,20 +66,16 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, loopKs lo
 		return nil, fmt.Errorf("failed to decode config toml: %w:\n\t%s", err, config)
 	}
 
-	// TODO BCF-2605 clean this up when the internal details of  Chain construction
-	// doesn't need `Configs`
-	cfgAdapter := starknet.StarknetConfigs{&cfg.Starknet}
 	opts := starknet.ChainOpts{
 		Logger:   c.Logger,
 		KeyStore: loopKs,
-		Configs:  starknet.NewConfigs(cfgAdapter),
 	}
 
-	relayExt, err := starknet.NewRelayExtender(&cfg.Starknet, opts)
+	chain, err := starknet.NewChain(&cfg.Starknet, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain: %w", err)
 	}
-	ra := relay.NewRelayerAdapter(pkgstarknet.NewRelayer(c.Logger, relayExt), relayExt)
+	ra := relay.NewRelayerAdapter(pkgstarknet.NewRelayer(c.Logger, chain), chain)
 
 	c.SubService(ra)
 

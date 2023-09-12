@@ -41,12 +41,6 @@ contract FunctionsTestHelper {
     storeRequest(r);
   }
 
-  function addSignature(bytes memory signature) public {
-    FunctionsRequest.Request memory r = s_req;
-    r.requestSignature = signature;
-    storeRequest(r);
-  }
-
   function storeRequest(FunctionsRequest.Request memory r) private {
     s_req.codeLocation = r.codeLocation;
     s_req.language = r.language;
@@ -54,6 +48,5 @@ contract FunctionsTestHelper {
     s_req.args = r.args;
     s_req.secretsLocation = r.secretsLocation;
     s_req.encryptedSecretsReference = r.encryptedSecretsReference;
-    s_req.requestSignature = r.requestSignature;
   }
 }

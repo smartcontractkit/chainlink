@@ -49,38 +49,36 @@ type RPCResponse struct {
 	} `json:"result"`
 }
 
-func UploadS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) error {
+func UploadS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) (uint8, uint64, error) {
 	key, err := crypto.HexToECDSA(s4Cfg.PrivateKey)
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
 	address := crypto.PubkeyToAddress(key.PublicKey)
 	var payloadJSON []byte
-	if s4Cfg.Method == functions.MethodSecretsSet {
-		envelope := s4.Envelope{
-			Address:    address.Bytes(),
-			SlotID:     s4Cfg.S4SetSlotID,
-			Version:    s4Cfg.S4SetVersion,
-			Payload:    []byte(s4Cfg.S4SetPayload),
-			Expiration: time.Now().UnixMilli() + s4Cfg.S4SetExpirationPeriod,
-		}
-		signature, err := envelope.Sign(key)
-		if err != nil {
-			return err
-		}
+	envelope := s4.Envelope{
+		Address:    address.Bytes(),
+		SlotID:     s4Cfg.S4SetSlotID,
+		Version:    s4Cfg.S4SetVersion,
+		Payload:    []byte(s4Cfg.S4SetPayload),
+		Expiration: time.Now().UnixMilli() + s4Cfg.S4SetExpirationPeriod,
+	}
+	signature, err := envelope.Sign(key)
+	if err != nil {
+		return 0, 0, err
+	}
 
-		s4SetPayload := functions.SecretsSetRequest{
-			SlotID:     envelope.SlotID,
-			Version:    envelope.Version,
-			Expiration: envelope.Expiration,
-			Payload:    []byte(s4Cfg.S4SetPayload),
-			Signature:  signature,
-		}
+	s4SetPayload := functions.SecretsSetRequest{
+		SlotID:     envelope.SlotID,
+		Version:    envelope.Version,
+		Expiration: envelope.Expiration,
+		Payload:    []byte(s4Cfg.S4SetPayload),
+		Signature:  signature,
+	}
 
-		payloadJSON, err = json.Marshal(s4SetPayload)
-		if err != nil {
-			return err
-		}
+	payloadJSON, err = json.Marshal(s4SetPayload)
+	if err != nil {
+		return 0, 0, err
 	}
 
 	msg := &api.Message{
@@ -94,33 +92,33 @@ func UploadS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) error {
 
 	err = msg.Sign(key)
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
 	codec := api.JsonRPCCodec{}
 	rawMsg, err := codec.EncodeRequest(msg)
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
 	var result *RPCResponse
 	resp, err := rc.R().
 		SetBody(rawMsg).
 		Post(s4Cfg.GatewayURL)
 	if err != nil {
-		return err
+		return 0, 0, err
 	}
 	if resp.StatusCode() != 200 {
-		return fmt.Errorf("status code was %d, expected 200", resp.StatusCode())
+		return 0, 0, fmt.Errorf("status code was %d, expected 200", resp.StatusCode())
 	}
 	if err := json.Unmarshal(resp.Body(), &result); err != nil {
-		return err
+		return 0, 0, err
 	}
 	log.Debug().Interface("Result", result).Msg("S4 secrets_set response result")
 	for _, nodeResponse := range result.Result.Body.Payload.NodeResponses {
 		if !nodeResponse.Body.Payload.Success {
-			return fmt.Errorf("node response was not succesful")
+			return 0, 0, fmt.Errorf("node response was not succesful")
 		}
 	}
-	return nil
+	return uint8(envelope.SlotID), envelope.Version, nil
 }
 
 func ListS4Secrets(rc *resty.Client, s4Cfg *S4SecretsCfg) error {

@@ -72,8 +72,9 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Run Forge snapshot
+        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) }}
         run: |
-          forge snapshot --check gas-snapshots/${{ matrix.product }}.gas-snapshot
+          forge snapshot --nmt "testFuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product }}.gas-snapshot
         id: snapshot
         working-directory: contracts
         env:

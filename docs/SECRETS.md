@@ -135,6 +135,7 @@ Environment variable: `CL_PROMETHEUS_AUTH_TOKEN`
 Username = "A-Mercury-Username" # Example
 Password = "A-Mercury-Password" # Example
 URL = "https://example.com" # Example
+LegacyURL = "https://example.v1.com" # Example
 ```
 
 
@@ -154,7 +155,13 @@ Password is used for basic auth of the Mercury endpoint
 ```toml
 URL = "https://example.com" # Example
 ```
-URL is the Mercury endpoint URL which is used by OCR2 Automation to access Mercury price feed
+URL is the Mercury endpoint base URL used to access Mercury price feed
+
+### LegacyURL
+```toml
+LegacyURL = "https://example.v1.com" # Example
+```
+LegacyURL is the Mercury legacy endpoint base URL used to access Mercury v0.2 price feed
 
 ## Threshold
 ```toml

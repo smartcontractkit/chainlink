@@ -58,11 +58,11 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(evmRelayExtenders)
 	for _, ext := range evmRelayExtenders.Slice() {
 		relayID := relay.ID{Network: relay.EVM, ChainID: relay.ChainID(ext.Chain().ID().String())}
-		chain, err := legacyChains.Get(relayID.ChainID.String())
+		chain, err := legacyChains.Get(relayID.ChainID)
 		if err != nil {
 			return nil, err
 		}
-		relayer := evmrelay.NewLoopRelayAdapter(evmrelay.NewRelayer(ccOpts.DB, chain, r.QConfig, ccOpts.Logger, config.CSAETHKeystore, ccOpts.EventBroadcaster), ext)
+		relayer := evmrelay.NewLoopRelayServerAdapter(evmrelay.NewRelayer(ccOpts.DB, chain, r.QConfig, ccOpts.Logger, config.CSAETHKeystore, ccOpts.EventBroadcaster), ext)
 		relayers[relayID] = relayer
 	}
 
@@ -98,10 +98,6 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 			continue
 		}
 
-		// all the lower level APIs expect a config slice. create a single valued set per id
-		// TODO BCF-2605: clean this up
-		singleChainCfg := solana.SolanaConfigs{chainCfg}
-
 		if cmdName := env.SolanaPluginCmd.Get(); cmdName != "" {
 
 			// setup the solana relayer to be a LOOP
@@ -128,14 +124,13 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 			opts := solana.ChainOpts{
 				Logger:   solLggr,
 				KeyStore: signer,
-				Configs:  solana.NewConfigs(singleChainCfg),
 			}
 
-			relayExt, err := solana.NewRelayExtender(chainCfg, opts)
+			chain, err := solana.NewChain(chainCfg, opts)
 			if err != nil {
 				return nil, err
 			}
-			solanaRelayers[relayId] = relay.NewRelayerAdapter(pkgsolana.NewRelayer(solLggr, relayExt), relayExt)
+			solanaRelayers[relayId] = relay.NewRelayerServerAdapter(pkgsolana.NewRelayer(solLggr, chain), chain)
 		}
 	}
 	return solanaRelayers, nil
@@ -172,10 +167,6 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 			continue
 		}
 
-		// all the lower level APIs expect a config slice. create a single valued set per id
-		// TODO BCF-2605: clean this up
-		singleChainCfg := starknet.StarknetConfigs{chainCfg}
-
 		if cmdName := env.StarknetPluginCmd.Get(); cmdName != "" {
 			// setup the starknet relayer to be a LOOP
 			cfgTOML, err := toml.Marshal(struct {
@@ -200,15 +191,14 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 			opts := starknet.ChainOpts{
 				Logger:   starkLggr,
 				KeyStore: loopKs,
-				Configs:  starknet.NewConfigs(singleChainCfg),
 			}
 
-			relayExt, err := starknet.NewRelayExtender(chainCfg, opts)
+			chain, err := starknet.NewChain(chainCfg, opts)
 			if err != nil {
 				return nil, err
 			}
 
-			starknetRelayers[relayId] = relay.NewRelayerAdapter(pkgstarknet.NewRelayer(starkLggr, relayExt), relayExt)
+			starknetRelayers[relayId] = relay.NewRelayerServerAdapter(pkgstarknet.NewRelayer(starkLggr, chain), chain)
 		}
 	}
 	return starknetRelayers, nil
@@ -235,19 +225,18 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 
 		opts := cosmos.ChainOpts{
 			QueryConfig:      r.QConfig,
-			Logger:           lggr.Named(relayId.ChainID.String()),
+			Logger:           lggr.Named(relayId.ChainID),
 			DB:               r.DB,
 			KeyStore:         loopKs,
 			EventBroadcaster: config.EventBroadcaster,
 		}
-		opts.Configs = cosmos.NewConfigs(cosmos.CosmosConfigs{chainCfg})
-		relayExt, err := cosmos.NewRelayExtender(chainCfg, opts)
 
+		chain, err := cosmos.NewChain(chainCfg, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load Cosmos chain %q: %w", relayId, err)
 		}
 
-		relayers[relayId] = cosmos.NewLoopRelayerChain(pkgcosmos.NewRelayer(lggr, relayExt), relayExt)
+		relayers[relayId] = cosmos.NewLoopRelayerChain(pkgcosmos.NewRelayer(lggr, chain), chain)
 
 	}
 	return relayers, nil
