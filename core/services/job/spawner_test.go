@@ -93,7 +93,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		}).
 		Return(nil).Maybe()
 
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, AppConfig: config, KeyStore: ethKeyStore})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	t.Run("should respect its dependents", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
@@ -269,11 +269,11 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		})
 		lp := &mocklp.LogPoller{}
 		testopts := evmtest.TestChainOpts{
-			DB:            db,
-			Client:        ethClient,
-			GeneralConfig: config,
-			LogPoller:     lp,
-			KeyStore:      ethKeyStore,
+			DB:        db,
+			Client:    ethClient,
+			AppConfig: config,
+			LogPoller: lp,
+			KeyStore:  ethKeyStore,
 		}
 
 		lggr := logger.TestLogger(t)
@@ -282,7 +282,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 		chain := evmtest.MustGetDefaultChain(t, legacyChains)
 
-		evmRelayer := evmrelayer.NewRelayer(testopts.DB, chain, testopts.GeneralConfig.Database(), lggr, keyStore, pg.NewNullEventBroadcaster())
+		evmRelayer := evmrelayer.NewRelayer(testopts.DB, chain, testopts.AppConfig.Database(), lggr, keyStore, pg.NewNullEventBroadcaster())
 		testRelayGetter := &relayGetter{
 			e: relayExtenders.Slice()[0],
 			r: evmRelayer,

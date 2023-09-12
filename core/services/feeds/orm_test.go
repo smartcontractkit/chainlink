@@ -1477,7 +1477,7 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 		lggr           = logger.TestLogger(t)
 		pipelineORM    = pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(db, lggr, config.Database())
-		relayExtenders = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+		relayExtenders = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, AppConfig: config, KeyStore: keyStore.Eth()})
 	)
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	orm := job.NewORM(db, legacyChains, pipelineORM, bridgeORM, keyStore, lggr, config.Database())

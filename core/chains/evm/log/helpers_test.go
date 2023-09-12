@@ -115,7 +115,7 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 
 	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{
 		Client:         ethClient,
-		GeneralConfig:  globalConfig,
+		AppConfig:      globalConfig,
 		DB:             c.db,
 		KeyStore:       kst.Eth(),
 		LogBroadcaster: &log.NullBroadcaster{},

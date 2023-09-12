@@ -10,7 +10,6 @@ import (
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmchain "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -28,12 +27,12 @@ type EVMChainRelayerExtender interface {
 type EVMChainRelayerExtenderSlicer interface {
 	Slice() []EVMChainRelayerExtender
 	Len() int
-	AppConfig() evmchain.AppConfig
+	EVMConfigs() toml.EVMConfigs
 }
 
 type ChainRelayerExtenders struct {
 	exts []EVMChainRelayerExtender
-	cfg  evmchain.AppConfig
+	cfg  toml.EVMConfigs
 }
 
 var _ EVMChainRelayerExtenderSlicer = &ChainRelayerExtenders{}
@@ -47,25 +46,25 @@ func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) *ev
 			dflt = r.Chain()
 		}
 	}
-	l := evmchain.NewLegacyChains(m, exts.AppConfig().EVMConfigs())
+	l := evmchain.NewLegacyChains(m, exts.EVMConfigs())
 	if dflt != nil {
 		l.SetDefault(dflt)
 	}
 	return l
 }
 
-func newChainRelayerExtsFromSlice(exts []*ChainRelayerExt, appConfig evm.AppConfig) *ChainRelayerExtenders {
+func newChainRelayerExtsFromSlice(exts []*ChainRelayerExt, evmConfigs toml.EVMConfigs) *ChainRelayerExtenders {
 	temp := make([]EVMChainRelayerExtender, len(exts))
 	for i := range exts {
 		temp[i] = exts[i]
 	}
 	return &ChainRelayerExtenders{
 		exts: temp,
-		cfg:  appConfig,
+		cfg:  evmConfigs,
 	}
 }
 
-func (c *ChainRelayerExtenders) AppConfig() evmchain.AppConfig {
+func (c *ChainRelayerExtenders) EVMConfigs() toml.EVMConfigs {
 	return c.cfg
 }
 
@@ -77,7 +76,7 @@ func (c *ChainRelayerExtenders) Len() int {
 	return len(c.exts)
 }
 
-// implements OneChain
+// implements [EVMChainRelayerExtender]
 type ChainRelayerExt struct {
 	chain     evmchain.Chain
 	isDefault bool
@@ -184,5 +183,5 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 		}
 		result = append(result, s)
 	}
-	return newChainRelayerExtsFromSlice(result, opts.AppConfig), nil
+	return newChainRelayerExtsFromSlice(result, evmConfigs), nil
 }

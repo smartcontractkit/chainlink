@@ -183,6 +183,96 @@ type RelayerConfig struct {
 	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
 }
 
+type ChainOpts struct {
+	EventBroadcaster pg.EventBroadcaster
+	MailMon          *utils.MailboxMonitor
+	GasEstimator     gas.EvmFeeEstimator
+
+	EthClient       client.Client
+	LogBroadcaster  log.Broadcaster
+	LogPoller       logpoller.LogPoller
+	HeadTracker     httypes.HeadTracker
+	HeadBroadcaster httypes.HeadBroadcaster
+	TxManager       txmgr.TxManager
+	BalanceMonitor  monitor.BalanceMonitor
+}
+
+func NewChainOpts(cfg evmconfig.ChainScopedConfig, lggr logger.Logger, db *sqlx.DB, ks keystore.Eth, mailMon *utils.MailboxMonitor) (*ChainOpts, error) {
+	opts := &ChainOpts{}
+	err := opts.setDefaults(cfg, lggr, db, ks, mailMon)
+	if err != nil {
+		return nil, err
+	}
+	return opts, nil
+}
+
+func (o *ChainOpts) setDefaults(cfg evmconfig.ChainScopedConfig, lggr logger.Logger, db *sqlx.DB, ks keystore.Eth, mailMon *utils.MailboxMonitor, eb pg.EventBroadcaster) error {
+	chainID, chainType := cfg.EVM().ChainID(), cfg.EVM().ChainType()
+	o.HeadBroadcaster = headtracker.NewHeadBroadcaster(lggr)
+	o.LogPoller = logpoller.LogPollerDisabled
+	var headBroadcasterSubscribers []httypes.HeadTrackable
+	defer func() {
+		for _, s := range headBroadcasterSubscribers {
+			o.HeadBroadcaster.Subscribe(s)
+		}
+	}()
+
+	if !cfg.EVMRPCEnabled() {
+		o.EthClient = evmclient.NewNullClient(chainID, lggr)
+		o.HeadTracker = headtracker.NullTracker
+		o.TxManager = &txmgr.NullTxManager{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
+		o.BalanceMonitor = nil
+		o.LogBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("Ethereum is disabled for chain %d", chainID)}
+		return nil
+	}
+
+	var err2 error
+	o.EthClient, err2 = newEthClientFromChain(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), lggr, chainID, chainType, cfg.Nodes())
+	if err2 != nil {
+		return fmt.Errorf("failed to instantiate eth client for chain with ID %s: %w", cfg.EVM().ChainID().String(), err2)
+	}
+
+	orm := headtracker.NewORM(db, lggr, cfg.Database(), *chainID)
+	headSaver := headtracker.NewHeadSaver(lggr, orm, cfg.EVM(), cfg.EVM().HeadTracker())
+	o.HeadTracker = headtracker.NewHeadTracker(lggr, o.EthClient, cfg.EVM(), cfg.EVM().HeadTracker(), o.HeadBroadcaster, headSaver, mailMon)
+	logORM := log.NewORM(db, lggr, cfg.Database(), *chainID)
+	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
+	highestSeenHead, err := headSaver.LatestHeadFromDB(ctx)
+	if err != nil {
+		return nil, err
+	}
+	logBroadcaster = log.NewBroadcaster(logORM, o.EthClient, cfg.EVM(), lggr, highestSeenHead, mailMon)
+
+	if cfg.Feature().LogPoller() {
+		lpORM := logpoller.NewORM(chainID, db, lggr, cfg.Database())
+		o.LogPoller = logpoller.NewObservedLogPoller(lpORM, o.EthClient, lggr, cfg.EVM().LogPollInterval(), int64(cfg.EVM().FinalityDepth()), int64(cfg.EVM().LogBackfillBatchSize()), int64(cfg.EVM().RPCDefaultBatchSize()), int64(cfg.EVM().LogKeepBlocksDepth()))
+	}
+
+	o.GasEstimator = gas.NewEstimator(lggr, o.EthClient, cfg.EVM(), cfg.EVM().GasEstimator())
+	txmCfg := TxmCfg{
+		EVM:              cfg.EVM(),
+		DB:               cfg.Database(),
+		LogPoller:        o.LogPoller,
+		GasEstimator:     o.GasEstimator,
+		KeyStore:         ks,
+		EventBroadcaster: eb,
+	}
+
+	o.TxManager, err2 = newEvmTxm(db, txmCfg, o.EthClient, lggr)
+	if err2 != nil {
+		return fmt.Errorf("failed to instantiate EvmTxm for chain with ID %s: %w", chainID.String(), err2)
+	}
+
+	headBroadcasterSubscribers = append(headBroadcasterSubscribers, o.TxManager)
+
+	if cfg.EVM().BalanceMonitor().Enabled() {
+		o.BalanceMonitor = monitor.NewBalanceMonitor(o.EthClient, ks, lggr)
+		headBroadcasterSubscribers = append(headBroadcasterSubscribers, o.BalanceMonitor)
+	}
+
+	return nil
+}
+
 func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExtenderConfig) (Chain, error) {
 	chainID := chain.ChainID
 	l := opts.Logger.With("evmChainID", chainID.String())
@@ -191,50 +281,64 @@ func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExt
 	}
 	cfg := evmconfig.NewTOMLChainScopedConfig(opts.AppConfig, chain, l)
 	// note: per-chain validation is not necessary at this point since everything is checked earlier on boot.
-	return newChain(ctx, cfg, chain.Nodes, opts)
+	return newChain(ctx, cfg, opts)
 }
 
-func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelayExtenderConfig) (*chain, error) {
+func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, opts ChainRelayExtenderConfig) (*chain, error) {
 	chainID, chainType := cfg.EVM().ChainID(), cfg.EVM().ChainType()
 	l := opts.Logger
-	var client evmclient.Client
-	if !cfg.EVMRPCEnabled() {
-		client = evmclient.NewNullClient(chainID, l)
-	} else if opts.GenEthClient == nil {
-		var err2 error
-		client, err2 = newEthClientFromChain(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, nodes)
-		if err2 != nil {
-			return nil, fmt.Errorf("failed to instantiate eth client for chain with ID %s: %w", cfg.EVM().ChainID().String(), err2)
-		}
-	} else {
-		client = opts.GenEthClient(chainID)
-	}
+	/*
+		var client evmclient.Client
 
-	db := opts.DB
-	headBroadcaster := headtracker.NewHeadBroadcaster(l)
-	headSaver := headtracker.NullSaver
-	var headTracker httypes.HeadTracker
-	if !cfg.EVMRPCEnabled() {
-		headTracker = headtracker.NullTracker
-	} else if opts.GenHeadTracker == nil {
-		orm := headtracker.NewORM(db, l, cfg.Database(), *chainID)
-		headSaver = headtracker.NewHeadSaver(l, orm, cfg.EVM(), cfg.EVM().HeadTracker())
-		headTracker = headtracker.NewHeadTracker(l, client, cfg.EVM(), cfg.EVM().HeadTracker(), headBroadcaster, headSaver, opts.MailMon)
-	} else {
-		headTracker = opts.GenHeadTracker(chainID, headBroadcaster)
-	}
-
-	logPoller := logpoller.LogPollerDisabled
-	if cfg.Feature().LogPoller() {
-		if opts.GenLogPoller != nil {
-			logPoller = opts.GenLogPoller(chainID)
+		if !cfg.EVMRPCEnabled() {
+			client = evmclient.NewNullClient(chainID, l)
+		} else if opts.GenEthClient == nil {
+			var err2 error
+			client, err2 = newEthClientFromChain(cfg.EVM().NodePool(), cfg.EVM().NodeNoNewHeadsThreshold(), l, chainID, chainType, cfg.Nodes())
+			if err2 != nil {
+				return nil, fmt.Errorf("failed to instantiate eth client for chain with ID %s: %w", cfg.EVM().ChainID().String(), err2)
+			}
 		} else {
-			logPoller = logpoller.NewObservedLogPoller(logpoller.NewORM(chainID, db, l, cfg.Database()), client, l, cfg.EVM().LogPollInterval(), int64(cfg.EVM().FinalityDepth()), int64(cfg.EVM().LogBackfillBatchSize()), int64(cfg.EVM().RPCDefaultBatchSize()), int64(cfg.EVM().LogKeepBlocksDepth()))
+			client = opts.GenEthClient(chainID)
 		}
-	}
+	*/
+	/*
+		db := opts.DB
+		headBroadcaster := headtracker.NewHeadBroadcaster(l)
+		headSaver := headtracker.NullSaver
+		var headTracker httypes.HeadTracker
+		if !cfg.EVMRPCEnabled() {
+			headTracker = headtracker.NullTracker
+		} else if opts.GenHeadTracker == nil {
+			orm := headtracker.NewORM(db, l, cfg.Database(), *chainID)
+			headSaver = headtracker.NewHeadSaver(l, orm, cfg.EVM(), cfg.EVM().HeadTracker())
+			headTracker = headtracker.NewHeadTracker(l, client, cfg.EVM(), cfg.EVM().HeadTracker(), headBroadcaster, headSaver, opts.MailMon)
+		} else {
+			headTracker = opts.GenHeadTracker(chainID, headBroadcaster)
+		}
+	*/
+
+	/*
+		logPoller := logpoller.LogPollerDisabled
+		if cfg.Feature().LogPoller() {
+			if opts.GenLogPoller != nil {
+				logPoller = opts.GenLogPoller(chainID)
+			} else {
+				logPoller = logpoller.NewObservedLogPoller(logpoller.NewORM(chainID, db, l, cfg.Database()), client, l, cfg.EVM().LogPollInterval(), int64(cfg.EVM().FinalityDepth()), int64(cfg.EVM().LogBackfillBatchSize()), int64(cfg.EVM().RPCDefaultBatchSize()), int64(cfg.EVM().LogKeepBlocksDepth()))
+			}
+		}
+	*/
 
 	// note: gas estimator is started as a part of the txm
-	txm, gasEstimator, err := newEvmTxm(db, cfg.EVM(), cfg.EVMRPCEnabled(), cfg.Database(), cfg.Database().Listener(), client, l, logPoller, opts)
+	txmCfg := TxmCfg{
+		EVM:              o,
+		DB:               nil,
+		LogPoller:        nil,
+		GasEstimator:     nil,
+		KeyStore:         nil,
+		EventBroadcaster: nil,
+	}
+	txm, gasEstimator, err := newEvmTxm(db, cfg.EVM(), cfg.Database(), cfg.Database().Listener(), client, l, logPoller, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate EvmTxm for chain with ID %s: %w", chainID.String(), err)
 	}

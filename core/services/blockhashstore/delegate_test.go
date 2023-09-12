@@ -63,11 +63,11 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	relayExtenders := evmtest.NewChainRelayExtenders(
 		t,
 		evmtest.TestChainOpts{
-			DB:            db,
-			KeyStore:      kst,
-			GeneralConfig: cfg,
-			Client:        ethClient,
-			LogPoller:     lp,
+			DB:        db,
+			KeyStore:  kst,
+			AppConfig: cfg,
+			Client:    ethClient,
+			LogPoller: lp,
 		},
 	)
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)

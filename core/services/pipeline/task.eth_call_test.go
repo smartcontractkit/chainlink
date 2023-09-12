@@ -259,7 +259,7 @@ func TestETHCallTask(t *testing.T) {
 
 			var legacyChains evm.LegacyChainContainer
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
-				exts := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
+				exts := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, AppConfig: cfg, TxManager: txManager, KeyStore: keyStore})
 				legacyChains = evmrelay.NewLegacyChainsFromRelayerExtenders(exts)
 			} else {
 				legacyChains = cltest.NewLegacyChainsWithMockChain(t, ethClient, cfg)

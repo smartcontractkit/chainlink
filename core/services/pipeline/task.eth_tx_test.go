@@ -573,7 +573,7 @@ func TestETHTxTask(t *testing.T) {
 			})
 			lggr := logger.TestLogger(t)
 
-			relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg,
+			relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, AppConfig: cfg,
 				TxManager: txManager, KeyStore: keyStore})
 			legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 

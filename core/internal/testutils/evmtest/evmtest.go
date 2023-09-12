@@ -60,7 +60,7 @@ type TestChainOpts struct {
 	Client         evmclient.Client
 	LogBroadcaster log.Broadcaster
 	LogPoller      logpoller.LogPoller
-	GeneralConfig  evm.AppConfig
+	AppConfig      evm.AppConfig
 	HeadTracker    httypes.HeadTracker
 	DB             *sqlx.DB
 	TxManager      txmgr.TxManager
@@ -85,7 +85,7 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayEx
 		DB:       testopts.DB,
 		KeyStore: testopts.KeyStore,
 		RelayerConfig: &evm.RelayerConfig{
-			AppConfig:        testopts.GeneralConfig,
+			AppConfig:        testopts.AppConfig,
 			EventBroadcaster: pg.NewNullEventBroadcaster(),
 			MailMon:          testopts.MailMon,
 			GasEstimator:     testopts.GasEstimator,
@@ -95,7 +95,7 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayEx
 		if testopts.Client != nil {
 			return testopts.Client
 		}
-		return evmclient.NewNullClient(testopts.GeneralConfig.DefaultChainID(), logger.TestLogger(t))
+		return evmclient.NewNullClient(testopts.AppConfig.DefaultChainID(), logger.TestLogger(t))
 	}
 	if testopts.LogBroadcaster != nil {
 		opts.GenLogBroadcaster = func(*big.Int) log.Broadcaster {
