@@ -14,6 +14,7 @@ cd "$SCRIPT_DIR"/../ || exit 1
 FILENAME=$1
 MATRIX_JOB_NAME=$2
 NODE_LABEL=$3
+NODE_COUNT=$4
 
 # Get list of test names from JSON file
 JSONFILE="${FILENAME}_test_list.json"
@@ -25,13 +26,18 @@ matrix_output() {
   local job_name=$2
   local test_name=$3
   local node_label=$4
+  local node_count=$5
   local counter_out=$(printf "%02d\n" $counter)
-  echo -n "{\"name\": \"${job_name}-${counter_out}\", \"file\": \"${job_name}\",\"nodes\": 1, \"os\": \"${node_label}\", \"pyroscope_env\": \"ci-smoke-${job_name}-evm-simulated\", \"run\": \"-run '^${test_name}$'\"}"
+  echo -n "{\"name\": \"${job_name}-${counter_out}\", \"file\": \"${job_name}\",\"nodes\": ${node_count}, \"os\": \"${node_label}\", \"pyroscope_env\": \"ci-smoke-${job_name}-evm-simulated\", \"run\": \"-run '^${test_name}$'\"}"
 }
 
 # Read the JSON file and loop through 'tests' and 'run'
 jq -c '.tests[]' ${JSONFILE} | while read -r test; do
   testName=$(echo ${test} | jq -r '.name')
+  label=$(echo ${test} | jq -r '.label // empty')
+  effective_node_label=${label:-$NODE_LABEL}
+  node_count=$(echo ${test} | jq -r '.nodes // empty')
+  effective_node_count=${node_count:-$NODE_COUNT}
   subTests=$(echo ${test} | jq -r '.run[]?.name // empty')
   output=""
   
@@ -41,14 +47,14 @@ jq -c '.tests[]' ${JSONFILE} | while read -r test; do
       if [ $COUNTER -ne 1 ]; then
         echo -n ","
       fi
-      matrix_output $COUNTER $MATRIX_JOB_NAME "${testName}/${subTest}" ${NODE_LABEL}
+      matrix_output $COUNTER $MATRIX_JOB_NAME "${testName}/${subTest}" ${effective_node_label} ${effective_node_count}
       ((COUNTER++))
     done
   else
     if [ $COUNTER -ne 1 ]; then
       echo -n ","
     fi
-    matrix_output $COUNTER $MATRIX_JOB_NAME "${testName}" ${NODE_LABEL}
+    matrix_output $COUNTER $MATRIX_JOB_NAME "${testName}" ${effective_node_label} ${effective_node_count}
     ((COUNTER++))
   fi
 
