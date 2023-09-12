@@ -76,7 +76,8 @@ func (p *logEventProvider) RegisterFilter(ctx context.Context, opts FilterOption
 	if currentFilter != nil {
 		if currentFilter.configUpdateBlock > opts.UpdateBlock {
 			// already registered with a config from a higher block number
-			return fmt.Errorf("filter for upkeep with id %s already registered with newer config", upkeepID.String())
+			p.lggr.Debugf("filter for upkeep with id %s already registered with newer config", upkeepID.String())
+			return nil
 		} else if currentFilter.configUpdateBlock == opts.UpdateBlock {
 			// already registered with the same config
 			p.lggr.Debugf("filter for upkeep with id %s already registered with the same config", upkeepID.String())
