@@ -175,7 +175,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 			TriggerConfig: cfg,
 			UpdateBlock:   bn.Uint64() - 1,
 		})
-		require.Error(t, err)
+		require.NoError(t, err)
 		// new block
 		b, err = ethClient.BlockByHash(ctx, backend.Commit())
 		require.NoError(t, err)
