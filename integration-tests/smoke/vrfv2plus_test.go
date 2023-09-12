@@ -100,6 +100,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		subNativeTokenBalanceBeforeRequest := subscription.EthBalance
 
 		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
+		require.NoError(t, err, "error reading job runs")
 
 		// test and assert
 		randomWordsFulfilledEvent, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
@@ -199,6 +200,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		require.NoError(t, err, vrfv2plus.ErrCreateVRFV2PlusJobs)
 
 		err = vrfv2PlusContracts.Coordinator.RegisterMigratableCoordinator(newCoordinator.Address())
+		require.NoError(t, err, "error registering migratable coordinator")
 
 		err = env.EVMClient.WaitForEvents()
 		require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
