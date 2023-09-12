@@ -948,7 +948,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		TrackerPollInterval      time.Duration
 		TrackerSubscribeInterval time.Duration
 		ContractAddress          string
-		EvmChainID               string
+		EVMChainID               string
 		P2PBootstrapPeers        []P2PData
 		IsBootstrapPeer          bool
 		P2PPeerID                string
@@ -964,7 +964,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		TrackerPollInterval:      o.TrackerPollInterval,
 		TrackerSubscribeInterval: o.TrackerSubscribeInterval,
 		ContractAddress:          o.ContractAddress,
-		EvmChainID:               o.EVMChainID,
+		EVMChainID:               o.EVMChainID,
 		P2PBootstrapPeers:        peers,
 		IsBootstrapPeer:          o.IsBootstrapPeer,
 		P2PPeerID:                o.P2PPeerID,
