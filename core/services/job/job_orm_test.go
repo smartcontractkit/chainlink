@@ -16,6 +16,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -602,6 +603,92 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 	require.NoError(t, jobORM.DeleteJob(jb.ID))
 	cltest.AssertCount(t, db, "bootstrap_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
+}
+
+func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
+	config := configtest.NewGeneralConfig(t, nil)
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config.Database())
+
+	lggr := logger.TestLogger(t)
+	pipelineORM := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db, lggr, config.Database())
+
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
+
+	t.Run("evm chain id validation for ocr works", func(t *testing.T) {
+		jb := job.Job{
+			Type:          job.OffchainReporting,
+			OCROracleSpec: &job.OCROracleSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for direct request works", func(t *testing.T) {
+		jb := job.Job{
+			Type:              job.DirectRequest,
+			DirectRequestSpec: &job.DirectRequestSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for flux monitor works", func(t *testing.T) {
+		jb := job.Job{
+			Type:            job.FluxMonitor,
+			FluxMonitorSpec: &job.FluxMonitorSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for keepers works", func(t *testing.T) {
+		jb := job.Job{
+			Type:       job.Keeper,
+			KeeperSpec: &job.KeeperSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for vrf works", func(t *testing.T) {
+		jb := job.Job{
+			Type:    job.VRF,
+			VRFSpec: &job.VRFSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for block hash store works", func(t *testing.T) {
+		jb := job.Job{
+			Type:               job.BlockhashStore,
+			BlockhashStoreSpec: &job.BlockhashStoreSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for block header feeder works", func(t *testing.T) {
+		jb := job.Job{
+			Type:                  job.BlockHeaderFeeder,
+			BlockHeaderFeederSpec: &job.BlockHeaderFeederSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for legacy gas station server spec works", func(t *testing.T) {
+		jb := job.Job{
+			Type:                       job.LegacyGasStationServer,
+			LegacyGasStationServerSpec: &job.LegacyGasStationServerSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for legacy gas station sidecar spec works", func(t *testing.T) {
+		jb := job.Job{
+			Type:                        job.LegacyGasStationSidecar,
+			LegacyGasStationSidecarSpec: &job.LegacyGasStationSidecarSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
 }
 
 func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
