@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
@@ -29,6 +30,7 @@ type CLTestEnvBuilder struct {
 	externalAdapterCount int
 	customNodeCsaKeys    []string
 	defaultNodeCsaKeys   []string
+	l                    zerolog.Logger
 
 	/* funding */
 	ETHFunds *big.Float
@@ -37,7 +39,13 @@ type CLTestEnvBuilder struct {
 func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	return &CLTestEnvBuilder{
 		externalAdapterCount: 1,
+		l:                    log.Logger,
 	}
+}
+
+func (b *CLTestEnvBuilder) WithLogger(l zerolog.Logger) *CLTestEnvBuilder {
+	b.l = l
+	return b
 }
 
 func (b *CLTestEnvBuilder) WithLogWatcher() *CLTestEnvBuilder {
@@ -95,7 +103,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 }
 
 func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
-	log.Info().
+	b.l.Info().
 		Bool("hasGeth", b.hasGeth).
 		Bool("hasMockServer", b.hasMockServer).
 		Int("externalAdapterCount", b.externalAdapterCount).
@@ -107,12 +115,12 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 	var te *CLClusterTestEnv
 	var err error
 	if cfg != nil {
-		te, err = NewTestEnvFromCfg(cfg)
+		te, err = NewTestEnvFromCfg(b.l, cfg)
 		if err != nil {
 			return nil, err
 		}
 	} else {
-		te, err = NewTestEnv()
+		te, err = NewTestEnv(b.l)
 		if err != nil {
 			return nil, err
 		}

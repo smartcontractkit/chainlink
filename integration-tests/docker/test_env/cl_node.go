@@ -17,7 +17,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 
@@ -48,6 +48,7 @@ type ClNode struct {
 	lw                    *logwatch.LogWatch
 	ContainerImage        string
 	ContainerVersion      string
+	l                     zerolog.Logger
 }
 
 type ClNodeOption = func(c *ClNode)
@@ -76,7 +77,7 @@ func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
+func NewClNode(networks []string, nodeConfig *chainlink.Config, logger zerolog.Logger, opts ...ClNodeOption) *ClNode {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
 	pgDb := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
@@ -87,6 +88,7 @@ func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOp
 		},
 		NodeConfig: nodeConfig,
 		PostgresDb: pgDb,
+		l:          logger,
 	}
 	for _, opt := range opts {
 		opt(n)
@@ -258,7 +260,7 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return err
 	}
-	log.Info().Str("containerName", n.ContainerName).
+	n.l.Info().Str("containerName", n.ContainerName).
 		Str("clEndpoint", clEndpoint).
 		Str("clInternalIP", ip).
 		Msg("Started Chainlink Node container")

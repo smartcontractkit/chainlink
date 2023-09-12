@@ -22,6 +22,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	l := utils.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
+		WithLogger(l).
 		WithGeth().
 		WithMockServer(1).
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),

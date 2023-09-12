@@ -882,7 +882,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			highCheckGasLimit := automationDefaultRegistryConfig
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
 			highCheckGasLimit.RegistryVersion = registryVersion
-			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(t, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 30*time.Second)
+			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 30*time.Second)
 			require.NoError(t, err, "Error building OCR config")
 
 			err = registry.SetConfig(highCheckGasLimit, ocrConfig)
@@ -990,6 +990,7 @@ func setupAutomationTestDocker(
 	contracts.KeeperRegistrar,
 	*test_env.CLClusterTestEnv,
 ) {
+	l := utils.GetTestLogger(t)
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
 	network := networks.SelectedNetwork
@@ -1008,6 +1009,7 @@ func setupAutomationTestDocker(
 
 	// launch the environment
 	env, err := test_env.NewCLTestEnvBuilder().
+		WithLogger(l).
 		WithGeth().
 		WithMockServer(1).
 		WithCLNodes(5).
@@ -1040,9 +1042,9 @@ func setupAutomationTestDocker(
 	err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(defaultAmountOfUpkeeps))))
 	require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-	err = actions.CreateOCRKeeperJobsLocal(nodeClients, registry.Address(), network.ChainID, 0, registryVersion)
+	err = actions.CreateOCRKeeperJobsLocal(l, nodeClients, registry.Address(), network.ChainID, 0, registryVersion)
 	require.NoError(t, err, "Error creating OCR Keeper Jobs")
-	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(t, workerNodes, registryConfig, registrar.Address(), 30*time.Second)
+	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, workerNodes, registryConfig, registrar.Address(), 30*time.Second)
 	require.NoError(t, err, "Error building OCR config vars")
 	err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
 	require.NoError(t, err, "Registry config should be set successfully")
