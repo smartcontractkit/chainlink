@@ -866,8 +866,9 @@ type OCRBootstrapJobSpec struct {
 	TrackerPollInterval      time.Duration `toml:"contractConfigTrackerPollInterval"`      // Optional
 	TrackerSubscribeInterval time.Duration `toml:"contractConfigTrackerSubscribeInterval"` // Optional
 	ContractAddress          string        `toml:"contractAddress"`                        // Address of the OCR contract
-	IsBootstrapPeer          bool          `toml:"isBootstrapPeer"`                        // Typically true
-	P2PPeerID                string        `toml:"p2pPeerID"`                              // This node's P2P ID
+	EVMChainID               string        `toml:"evmChainID"`
+	IsBootstrapPeer          bool          `toml:"isBootstrapPeer"` // Typically true
+	P2PPeerID                string        `toml:"p2pPeerID"`       // This node's P2P ID
 }
 
 // Type returns the type of the job
@@ -882,6 +883,7 @@ contractConfigConfirmations            ={{if not .ContractConfirmations}} 3 {{el
 contractConfigTrackerPollInterval      ={{if not .TrackerPollInterval}} "1m" {{else}} {{.TrackerPollInterval}} {{end}}
 contractConfigTrackerSubscribeInterval ={{if not .TrackerSubscribeInterval}} "2m" {{else}} {{.TrackerSubscribeInterval}} {{end}}
 contractAddress                        = "{{.ContractAddress}}"
+evmChainID		 		 			   = "{{.EVMChainID}}"
 p2pBootstrapPeers                      = []
 isBootstrapPeer                        = {{.IsBootstrapPeer}}
 p2pPeerID                              = "{{.P2PPeerID}}"`
