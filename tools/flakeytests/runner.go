@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -83,8 +84,13 @@ func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
 				continue
 			}
 
+			if !strings.HasPrefix(string(t), "{") {
+				continue
+			}
+
 			e, err := newEvent(t)
 			if err != nil {
+
 				return nil, err
 			}
 
@@ -111,6 +117,10 @@ func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
 	return tests, nil
 }
 
+type exitCoder interface {
+	ExitCode() int
+}
+
 func (r *Runner) runTests(failedTests map[string]map[string]int) (io.Reader, error) {
 	var out bytes.Buffer
 	for pkg, tests := range failedTests {
@@ -123,6 +133,10 @@ func (r *Runner) runTests(failedTests map[string]map[string]int) (io.Reader, err
 		err := r.runTestFn(pkg, ts, r.numReruns, &out)
 		if err != nil {
 			log.Printf("Test command errored: %s\n", err)
+			var exErr exitCoder
+			if errors.As(err, &exErr) && exErr.ExitCode() > 0 {
+				return &out, nil
+			}
 			return &out, err
 		}
 	}
