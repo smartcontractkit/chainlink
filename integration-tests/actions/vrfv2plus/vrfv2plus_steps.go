@@ -64,7 +64,7 @@ func DeployVRFV2PlusContracts(
 	if err != nil {
 		return nil, errors.Wrap(err, ErrDeployBlockHashStore)
 	}
-	//err = chainClient.WaitForEvents()
+	err = chainClient.WaitForEvents()
 	if err != nil {
 		return nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
@@ -72,11 +72,10 @@ func DeployVRFV2PlusContracts(
 	if err != nil {
 		return nil, errors.Wrap(err, ErrDeployCoordinator)
 	}
-	//err = chainClient.WaitForEvents()
+	err = chainClient.WaitForEvents()
 	if err != nil {
 		return nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
-
 	consumers, err := DeployConsumers(contractDeployer, coordinator, consumerContractsAmount)
 	if err != nil {
 		return nil, err
