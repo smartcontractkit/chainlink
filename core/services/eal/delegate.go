@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/capital-markets-projects/core/gethwrappers/forwarder/generated/forwarder"
+	"github.com/smartcontractkit/capital-markets-projects/core/gethwrappers/eal/generated/forwarder"
 	eallib "github.com/smartcontractkit/capital-markets-projects/lib/services/eal"
 	ealtypes "github.com/smartcontractkit/capital-markets-projects/lib/services/eal/types"
 	"github.com/smartcontractkit/capital-markets-projects/lib/web/jsonrpc"
