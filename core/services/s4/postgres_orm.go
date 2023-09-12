@@ -71,7 +71,7 @@ RETURNING id;`, o.tableName)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrVersionTooLow
 	}
-	return nil
+	return err
 }
 
 func (o orm) DeleteExpired(limit uint, utcNow time.Time, qopts ...pg.QOpt) (int64, error) {
