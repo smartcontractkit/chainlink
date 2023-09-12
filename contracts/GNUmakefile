@@ -13,9 +13,11 @@ ALL_FOUNDRY_PRODUCTS = vrf automation llo-feeds functions automation-dev shared
 #		make snapshot
 # make call example
 # 		make FOUNDRY_PROFILE=llo-feeds snapshot
+# note make snapshot skips fuzz tests named according to best practices, although forge uses
+# a static fuzz seed by default, flaky gas results per platform are still observed.
 .PHONY: snapshot
 snapshot: ## Make a snapshot for a specific product.
-	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --snap gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
+	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --nmt "testFuzz_\w{1,}?" --snap gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
 
 .PHONY: snapshot-all
 snapshot-all: ## Make a snapshot for all products.
