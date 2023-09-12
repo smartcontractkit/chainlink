@@ -68,6 +68,7 @@ func TestRunLogBasic(t *testing.T) {
 		Name:                     fmt.Sprintf("direct-request-%s", uuid.NewString()),
 		MinIncomingConfirmations: "1",
 		ContractAddress:          oracle.Address(),
+		EVMChainID:               env.EVMClient.GetChainID().String(),
 		ExternalJobID:            jobUUID.String(),
 		ObservationSource:        ost,
 	})

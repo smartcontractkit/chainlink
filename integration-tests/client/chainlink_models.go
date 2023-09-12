@@ -762,6 +762,7 @@ func (d *DirectRequestTxPipelineSpec) String() (string, error) {
 type DirectRequestJobSpec struct {
 	Name                     string `toml:"name"`
 	ContractAddress          string `toml:"contractAddress"`
+	EVMChainID               string `toml:"evmChainID"`
 	ExternalJobID            string `toml:"externalJobID"`
 	MinIncomingConfirmations string `toml:"minIncomingConfirmations"`
 	ObservationSource        string `toml:"observationSource"` // List of commands for the Chainlink node
@@ -777,6 +778,7 @@ schemaVersion     = 1
 name              = "{{.Name}}"
 maxTaskDuration   = "99999s"
 contractAddress   = "{{.ContractAddress}}"
+evmChainID		  = "{{.EVMChainID}}"
 externalJobID     = "{{.ExternalJobID}}"
 minIncomingConfirmations = {{.MinIncomingConfirmations}}
 observationSource = """
@@ -896,7 +898,7 @@ type OCRTaskJobSpec struct {
 	TrackerSubscribeInterval time.Duration      `toml:"contractConfigTrackerSubscribeInterval"` // Optional
 	ForwardingAllowed        bool               `toml:"forwardingAllowed"`                      // Optional, by default false
 	ContractAddress          string             `toml:"contractAddress"`                        // Address of the OCR contract
-	EvmChainID               string             `toml:"evmChainID"`
+	EVMChainID               string             `toml:"evmChainID"`
 	P2PBootstrapPeers        []*ChainlinkClient `toml:"p2pBootstrapPeers"`  // P2P ID of the bootstrap node
 	IsBootstrapPeer          bool               `toml:"isBootstrapPeer"`    // Typically false
 	P2PPeerID                string             `toml:"p2pPeerID"`          // This node's P2P ID
@@ -960,7 +962,7 @@ func (o *OCRTaskJobSpec) String() (string, error) {
 		TrackerPollInterval:      o.TrackerPollInterval,
 		TrackerSubscribeInterval: o.TrackerSubscribeInterval,
 		ContractAddress:          o.ContractAddress,
-		EvmChainID:               o.EvmChainID,
+		EvmChainID:               o.EVMChainID,
 		P2PBootstrapPeers:        peers,
 		IsBootstrapPeer:          o.IsBootstrapPeer,
 		P2PPeerID:                o.P2PPeerID,
@@ -978,7 +980,7 @@ contractConfigConfirmations            ={{if not .ContractConfirmations}} 3 {{el
 contractConfigTrackerPollInterval      ={{if not .TrackerPollInterval}} "1m" {{else}} {{.TrackerPollInterval}} {{end}}
 contractConfigTrackerSubscribeInterval ={{if not .TrackerSubscribeInterval}} "2m" {{else}} {{.TrackerSubscribeInterval}} {{end}}
 contractAddress                        = "{{.ContractAddress}}"
-evmChainID							   = "{{.EvmChainID}}"
+evmChainID							   = "{{.EVMChainID}}"
 {{if .P2PBootstrapPeers}}
 p2pBootstrapPeers                      = [
   {{range $peer := .P2PBootstrapPeers}}
@@ -1194,7 +1196,7 @@ type VRFJobSpec struct {
 	Name                     string `toml:"name"`
 	CoordinatorAddress       string `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
 	PublicKey                string `toml:"publicKey"`          // Public key of the proving key
-	EvmChainID               string `toml:"evmChainID"`
+	EVMChainID               string `toml:"evmChainID"`
 	ExternalJobID            string `toml:"externalJobID"`
 	ObservationSource        string `toml:"observationSource"` // List of commands for the Chainlink node
 	MinIncomingConfirmations int    `toml:"minIncomingConfirmations"`

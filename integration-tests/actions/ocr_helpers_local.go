@@ -142,6 +142,7 @@ func CreateOCRJobsLocal(
 	workerNodes []*client.ChainlinkClient,
 	mockValue int,
 	mockserver *ctfClient.MockserverClient,
+	evmChainID string,
 ) error {
 	for _, ocrInstance := range ocrInstances {
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -196,6 +197,7 @@ func CreateOCRJobsLocal(
 			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode}
 			ocrSpec := &client.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
+				EVMChainID:         evmChainID,
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
 				KeyBundleID:        nodeOCRKeyId,
@@ -410,7 +412,7 @@ func CreateOCRJobsWithForwarderLocal(
 			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode}
 			ocrSpec := &client.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
-				EvmChainID:         evmChainID,
+				EVMChainID:         evmChainID,
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
 				KeyBundleID:        nodeOCRKeyId,
