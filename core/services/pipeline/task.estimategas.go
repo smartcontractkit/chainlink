@@ -49,7 +49,7 @@ func (t *EstimateGasLimitTask) Type() TaskType {
 
 func (t *EstimateGasLimitTask) getEvmChainID() string {
 	if t.EVMChainID == "" {
-		t.EVMChainID = "$(evmChainID)"
+		t.EVMChainID = "$(jobSpec.evmChainID)"
 	}
 	return t.EVMChainID
 }

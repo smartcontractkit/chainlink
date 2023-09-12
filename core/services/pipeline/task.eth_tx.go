@@ -58,7 +58,7 @@ func (t *ETHTxTask) Type() TaskType {
 
 func (t *ETHTxTask) getEvmChainID() string {
 	if t.EVMChainID == "" {
-		t.EVMChainID = "$(evmChainID)"
+		t.EVMChainID = "$(jobSpec.evmChainID)"
 	}
 	return t.EVMChainID
 }
