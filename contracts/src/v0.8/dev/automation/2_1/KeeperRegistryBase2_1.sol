@@ -398,6 +398,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
    * not necessarily the block number that the log was emitted in!!!!
    */
   struct LogTrigger {
+    bytes32 logBlockHash;
     bytes32 txHash;
     uint32 logIndex;
     uint32 blockNum;
@@ -794,7 +795,7 @@ abstract contract KeeperRegistryBase2_1 is ConfirmedOwner, ExecutionPrevention {
     UpkeepTransmitInfo memory transmitInfo
   ) internal returns (bool, bytes32) {
     LogTrigger memory trigger = abi.decode(rawTrigger, (LogTrigger));
-    bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.txHash, trigger.logIndex));
+    bytes32 dedupID = keccak256(abi.encodePacked(upkeepId, trigger.logBlockHash, trigger.txHash, trigger.logIndex));
     if (
       (trigger.blockHash != bytes32("") && _blockHash(trigger.blockNum) != trigger.blockHash) ||
       trigger.blockNum >= _blockNum()

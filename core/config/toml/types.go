@@ -1219,8 +1219,13 @@ func (ins *Insecure) setFrom(f *Insecure) {
 }
 
 type MercuryCredentials struct {
-	URL      *models.SecretURL
+	// LegacyURL is the legacy base URL for mercury v0.2 API
+	LegacyURL *models.SecretURL
+	// URL is the base URL for mercury v0.3 API
+	URL *models.SecretURL
+	// Username is the user id for mercury credential
 	Username *models.Secret
+	// Password is the user secret key for mercury credential
 	Password *models.Secret
 }
 
@@ -1265,6 +1270,10 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 		}
 		if creds.URL == nil || creds.URL.URL() == nil {
 			err = multierr.Append(err, configutils.ErrMissing{Name: "URL", Msg: "must be provided and non-empty"})
+			continue
+		}
+		if creds.LegacyURL != nil && creds.LegacyURL.URL() == nil {
+			err = multierr.Append(err, configutils.ErrMissing{Name: "Legacy URL", Msg: "must be a valid URL"})
 			continue
 		}
 		s := creds.URL.URL().String()

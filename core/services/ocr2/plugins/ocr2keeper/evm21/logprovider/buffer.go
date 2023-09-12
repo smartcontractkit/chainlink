@@ -99,7 +99,7 @@ func (b fetchedBlock) has(id *big.Int, log logpoller.Log) (bool, int) {
 			continue
 		}
 		upkeepLogs++
-		if l.log.BlockNumber == log.BlockNumber && l.log.TxHash == log.TxHash && l.log.LogIndex == log.LogIndex {
+		if l.log.BlockHash == log.BlockHash && l.log.TxHash == log.TxHash && l.log.LogIndex == log.LogIndex {
 			return true, upkeepLogs
 		}
 	}

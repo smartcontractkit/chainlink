@@ -5,9 +5,7 @@ import {FunctionsClient} from "../FunctionsClient.sol";
 import {ConfirmedOwner} from "../../../../shared/access/ConfirmedOwner.sol";
 import {FunctionsRequest} from "../libraries/FunctionsRequest.sol";
 
-/**
- * @title Chainlink Functions example Client contract implementation
- */
+/// @title Chainlink Functions example Client contract implementation
 contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
   using FunctionsRequest for FunctionsRequest.Request;
 
@@ -23,13 +21,11 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
 
   constructor(address router) FunctionsClient(router) ConfirmedOwner(msg.sender) {}
 
-  /**
-   * @notice Send a simple request
-   * @param source JavaScript source code
-   * @param encryptedSecretsReferences Encrypted secrets payload
-   * @param args List of arguments accessible from within the source code
-   * @param subscriptionId Billing ID
-   */
+  /// @notice Send a simple request
+  /// @param source JavaScript source code
+  /// @param encryptedSecretsReferences Encrypted secrets payload
+  /// @param args List of arguments accessible from within the source code
+  /// @param subscriptionId Billing ID
   function sendRequest(
     string calldata source,
     bytes calldata encryptedSecretsReferences,
@@ -44,13 +40,11 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
     s_lastRequestId = _sendRequest(req.encodeCBOR(), subscriptionId, MAX_CALLBACK_GAS, jobId);
   }
 
-  /**
-   * @notice Store latest result/error
-   * @param requestId The request ID, returned by sendRequest()
-   * @param response Aggregated response from the user code
-   * @param err Aggregated error from the user code or from the execution pipeline
-   * Either response or error parameter will be set, but never both
-   */
+  /// @notice Store latest result/error
+  /// @param requestId The request ID, returned by sendRequest()
+  /// @param response Aggregated response from the user code
+  /// @param err Aggregated error from the user code or from the execution pipeline
+  /// @dev Either response or error parameter will be set, but never both
   function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
     if (s_lastRequestId != requestId) {
       revert UnexpectedRequestID(requestId);

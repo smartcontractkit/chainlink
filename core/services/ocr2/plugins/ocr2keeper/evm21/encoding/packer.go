@@ -94,22 +94,6 @@ func (p *abiPacker) UnpackPerformResult(raw string) (PipelineExecutionState, boo
 	return NoPipelineError, *abi.ConvertType(out[0], new(bool)).(*bool), nil
 }
 
-func (p *abiPacker) UnpackUpkeepInfo(id *big.Int, raw string) (UpkeepInfo, error) {
-	b, err := hexutil.Decode(raw)
-	if err != nil {
-		return UpkeepInfo{}, err
-	}
-
-	out, err := p.abi.Methods["getUpkeep"].Outputs.UnpackValues(b)
-	if err != nil {
-		return UpkeepInfo{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
-	}
-
-	info := *abi.ConvertType(out[0], new(UpkeepInfo)).(*UpkeepInfo)
-
-	return info, nil
-}
-
 // UnpackLogTriggerConfig unpacks the log trigger config from the given raw data
 func (p *abiPacker) UnpackLogTriggerConfig(raw []byte) (automation_utils_2_1.LogTriggerConfig, error) {
 	var cfg automation_utils_2_1.LogTriggerConfig

@@ -36,6 +36,8 @@ type LogTriggersOptions struct {
 	BlockRateLimit rate.Limit
 	// blockLimitBurst is the burst upper limit on the range of blocks the we fetch logs for.
 	BlockLimitBurst int
+	// Finality depth is the number of blocks to wait before considering a block final.
+	FinalityDepth int64
 }
 
 func NewOptions(finalityDepth int64) LogTriggersOptions {
@@ -49,8 +51,8 @@ func NewOptions(finalityDepth int64) LogTriggersOptions {
 func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
 	if o.LookbackBlocks == 0 {
 		lookbackBlocks := int64(200)
-		if lookbackBlocks < int64(finalityDepth) {
-			lookbackBlocks = int64(finalityDepth)
+		if lookbackBlocks < finalityDepth {
+			lookbackBlocks = finalityDepth
 		}
 		o.LookbackBlocks = lookbackBlocks
 	}
@@ -62,5 +64,8 @@ func (o *LogTriggersOptions) Defaults(finalityDepth int64) {
 	}
 	if o.BlockRateLimit == 0 {
 		o.BlockRateLimit = rate.Every(o.ReadInterval)
+	}
+	if o.FinalityDepth == 0 {
+		o.FinalityDepth = finalityDepth
 	}
 }

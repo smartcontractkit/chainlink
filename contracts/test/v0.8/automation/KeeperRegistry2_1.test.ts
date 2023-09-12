@@ -64,7 +64,7 @@ describe('KeeperRegistry2_1 - Frozen [ @skip-coverage ]', () => {
   it('has not changed', () => {
     assert.equal(
       ethers.utils.id(KeeperRegistryFactory.bytecode),
-      '0xd94f351a1cd64aa81dd7238301f680f4bfc2a0f84c4b5451525f3f879488f033',
+      '0xd8dfe20e746039e8420349326becc0a15dcd8fa3cd6aa0924d214328a7c45206',
       'KeeperRegistry bytecode has changed',
     )
     assert.equal(
@@ -474,9 +474,8 @@ describe('KeeperRegistry2_1', () => {
       'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
     )) as unknown as MockV3AggregatorFactory
     upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
-    upkeepAutoFunderFactory = await ethers.getContractFactory(
-      'UpkeepAutoFunder',
-    )
+    upkeepAutoFunderFactory =
+      await ethers.getContractFactory('UpkeepAutoFunder')
     mockArbGasInfoFactory = await ethers.getContractFactory('MockArbGasInfo')
     mockOVMGasPriceOracleFactory = await ethers.getContractFactory(
       'MockOVMGasPriceOracle',
@@ -741,6 +740,7 @@ describe('KeeperRegistry2_1', () => {
     performData?: string
     checkBlockNum?: number
     checkBlockHash?: string
+    logBlockHash?: BytesLike
     txHash?: BytesLike
     logIndex?: number
     timestamp?: number
@@ -763,6 +763,7 @@ describe('KeeperRegistry2_1', () => {
       checkBlockHash: latestBlock.hash,
       logIndex: 0,
       txHash: undefined, // assigned uniquely below
+      logBlockHash: undefined, // assigned uniquely below
       timestamp: now(),
       gasLimit: undefined,
       gasPrice: undefined,
@@ -780,6 +781,7 @@ describe('KeeperRegistry2_1', () => {
           break
         case Trigger.LOG:
           trigger = encodeLogTrigger({
+            logBlockHash: config.logBlockHash || ethers.utils.randomBytes(32),
             txHash: config.txHash || ethers.utils.randomBytes(32),
             logIndex: config.logIndex,
             blockNum: config.checkBlockNum,
@@ -1238,18 +1240,19 @@ describe('KeeperRegistry2_1', () => {
       })
 
       it('handles duplicate log triggers', async () => {
+        const logBlockHash = ethers.utils.randomBytes(32)
         const txHash = ethers.utils.randomBytes(32)
         const logIndex = 0
         const expectedDedupKey = ethers.utils.solidityKeccak256(
-          ['uint256', 'bytes32', 'uint32'],
-          [logUpkeepId, txHash, logIndex],
+          ['uint256', 'bytes32', 'bytes32', 'uint32'],
+          [logUpkeepId, logBlockHash, txHash, logIndex],
         )
         assert.isFalse(await registry.hasDedupKey(expectedDedupKey))
         const tx = await getTransmitTx(
           registry,
           keeper1,
           [logUpkeepId, logUpkeepId],
-          { txHash, logIndex }, // will result in the same dedup key
+          { logBlockHash, txHash, logIndex }, // will result in the same dedup key
         )
         const receipt = await tx.wait()
         const staleUpkeepReport = parseStaleUpkeepReportLogs(receipt)
@@ -1569,7 +1572,7 @@ describe('KeeperRegistry2_1', () => {
           linkForGas(
             gasUsed,
             gasOverhead,
-            gasCeilingMultiplier, // Should be same with exisitng multiplier
+            gasCeilingMultiplier, // Should be same with existing multiplier
             paymentPremiumPPB,
             flatFeeMicroLink,
           ).total.toString(),
@@ -4996,7 +4999,7 @@ describe('KeeperRegistry2_1', () => {
     })
 
     itMaybe(
-      'sets the payees when exisitng payees are zero address',
+      'sets the payees when existing payees are zero address',
       async () => {
         //Initial payees should be zero address
         await blankRegistry.connect(owner).setConfig(...baseConfig) // used to test initial config

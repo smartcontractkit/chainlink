@@ -158,7 +158,7 @@ func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
 			bs := NewBlockSubscriber(hb, lp, lggr)
 			bs.blockHistorySize = historySize
 			bs.blockSize = blockSize
-			err := bs.initializeBlocks(tc.Blocks)
+			err := bs.initializeBlocks(testutils.Context(t), tc.Blocks)
 
 			if tc.Error != nil {
 				assert.Equal(t, tc.Error.Error(), err.Error())
