@@ -3,9 +3,8 @@
 package mocks
 
 import (
-	config "github.com/smartcontractkit/chainlink/v2/core/config"
-
 	cosmos "github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	config "github.com/smartcontractkit/chainlink/v2/core/config"
 
 	mock "github.com/stretchr/testify/mock"
 

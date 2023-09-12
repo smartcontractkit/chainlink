@@ -47,20 +47,6 @@ func (_m *LoopRelayAdapter) Close() error {
 	return r0
 }
 
-// Default provides a mock function with given fields:
-func (_m *LoopRelayAdapter) Default() bool {
-	ret := _m.Called()
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
 // GetChainStatus provides a mock function with given fields: ctx
 func (_m *LoopRelayAdapter) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
 	ret := _m.Called(ctx)
