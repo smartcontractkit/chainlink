@@ -15,6 +15,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
 )
 
+const (
+	// checkBlockTooOldRange is the number of blocks that can be behind the latest block before
+	// we return a CheckBlockTooOld error
+	checkBlockTooOldRange = 128
+)
+
 type checkResult struct {
 	cr  []ocr2keepers.CheckResult
 	err error
@@ -92,14 +98,7 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 }
 
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
-func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
-	// verify check block number is not in future (can happen when this node is lagging the other members in DON)
-	latestBlock := r.bs.latestBlock.Load()
-	if checkBlock.Int64() > int64(latestBlock.Number) {
-		r.lggr.Warnf("latest block is %d, check block number %s is in future for upkeepId %s", r.bs.latestBlock.Load(), checkBlock, upkeepId)
-		return encoding.CheckBlockTooNew, true // retryable since the block can be found in future
-	}
-
+func (r *EvmRegistry) verifyCheckBlock(_ context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
 	var h string
 	var ok bool
 	// verify check block number and hash are valid
@@ -128,7 +127,7 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 	if logBlockNumber != 0 {
 		h, ok := r.bs.queryBlocksMap(logBlockNumber)
 		if ok && h == logBlockHash.Hex() {
-			r.lggr.Debugf("tx hash %s exists on chain at block number %d for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockNumber, upkeepId)
+			r.lggr.Debugf("tx hash %s exists on chain at block number %d, block hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockHash.Hex(), logBlockNumber, upkeepId)
 			return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
 		}
 		r.lggr.Debugf("log block %d does not exist in block subscriber for upkeepId %s, querying eth client", logBlockNumber, upkeepId)
@@ -136,7 +135,7 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 		r.lggr.Debugf("log block not provided, querying eth client for tx hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 	}
 	// query eth client as a fallback
-	bn, _, err := core.GetTxBlock(r.ctx, r.client, p.Trigger.LogTriggerExtension.TxHash)
+	bn, bh, err := core.GetTxBlock(r.ctx, r.client, p.Trigger.LogTriggerExtension.TxHash)
 	if err != nil {
 		// primitive way of checking errors
 		if strings.Contains(err.Error(), "missing required field") || strings.Contains(err.Error(), "not found") {
@@ -148,6 +147,10 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 	if bn == nil {
 		r.lggr.Warnf("tx hash %s does not exist on chain for upkeepId %s.", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 		return encoding.UpkeepFailureReasonTxHashNoLongerExists, encoding.NoPipelineError, false
+	}
+	if bh.Hex() != logBlockHash.Hex() {
+		r.lggr.Warnf("tx hash %s reorged from expected blockhash %s to %s for upkeepId %s.", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockHash.Hex(), bh.Hex(), upkeepId)
+		return encoding.UpkeepFailureReasonTxHashReorged, encoding.NoPipelineError, false
 	}
 	r.lggr.Debugf("tx hash %s exists on chain for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 	return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
@@ -234,10 +237,12 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 	for i, req := range checkReqs {
 		index := indices[i]
 		if req.Error != nil {
+			latestBlock := r.bs.latestBlock.Load()
+			checkBlock, _, _ := r.getBlockAndUpkeepId(payloads[index].UpkeepID, payloads[index].Trigger)
 			// primitive way of checking errors
-			if strings.Contains(req.Error.Error(), "header not found") {
-				// Check block not found in RPC, non-retryable error
-				r.lggr.Warnf("header not found error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
+			if strings.Contains(req.Error.Error(), "header not found") && int64(latestBlock.Number)-checkBlock.Int64() > checkBlockTooOldRange {
+				// Check block not found in RPC and it is too old, non-retryable error
+				r.lggr.Warnf("header not found error encountered in check result for upkeepId %s, check block %d, latest block %d: %s", results[index].UpkeepID.String(), checkBlock.Int64(), int64(latestBlock.Number), req.Error)
 				results[index].Retryable = false
 				results[index].PipelineExecutionState = uint8(encoding.CheckBlockTooOld)
 			} else {

@@ -2,7 +2,6 @@ package upkeepstate
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -18,14 +17,18 @@ import (
 )
 
 const (
+	UpkeepStateStoreServiceName = "UpkeepStateStore"
 	// CacheExpiration is the amount of time that we keep a record in the cache.
 	CacheExpiration = 24 * time.Hour
 	// GCInterval is the amount of time between cache cleanups.
 	GCInterval = 2 * time.Hour
+	// flushCadence is the amount of time between flushes to the DB.
+	flushCadence         = 30 * time.Second
+	concurrentBatchCalls = 10
 )
 
 type ORM interface {
-	InsertUpkeepState(persistedStateRecord, ...pg.QOpt) error
+	BatchInsertRecords([]persistedStateRecord, ...pg.QOpt) error
 	SelectStatesByWorkIDs([]string, ...pg.QOpt) ([]persistedStateRecord, error)
 	DeleteExpired(time.Time, ...pg.QOpt) error
 }
@@ -39,7 +42,9 @@ type UpkeepStateStore interface {
 }
 
 var (
-	_ UpkeepStateStore = &upkeepStateStore{}
+	_           UpkeepStateStore = &upkeepStateStore{}
+	newTickerFn                  = time.NewTicker
+	batchSize                    = 1000
 )
 
 // upkeepStateRecord is a record that we save in a local cache.
@@ -54,62 +59,57 @@ type upkeepStateRecord struct {
 // It stores the state of ineligible upkeeps in a local, in-memory cache.
 // In addition, performed events are fetched by the scanner on demand.
 type upkeepStateStore struct {
-	// dependencies
+	utils.StartStopOnce
+	threadCtrl utils.ThreadControl
+
 	orm     ORM
 	lggr    logger.Logger
 	scanner PerformedLogsScanner
 
-	// configuration
 	retention    time.Duration
 	cleanCadence time.Duration
 
 	mu    sync.RWMutex
 	cache map[string]*upkeepStateRecord
 
-	// service values
-	cancel context.CancelFunc
+	pendingRecords []persistedStateRecord
+	sem            chan struct{}
+	batchSize      int
 }
 
 // NewUpkeepStateStore creates a new state store
 func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScanner) *upkeepStateStore {
 	return &upkeepStateStore{
-		orm:          orm,
-		lggr:         lggr.Named("UpkeepStateStore"),
-		cache:        map[string]*upkeepStateRecord{},
-		scanner:      scanner,
-		retention:    CacheExpiration,
-		cleanCadence: GCInterval,
+		orm:            orm,
+		lggr:           lggr.Named(UpkeepStateStoreServiceName),
+		cache:          map[string]*upkeepStateRecord{},
+		scanner:        scanner,
+		retention:      CacheExpiration,
+		cleanCadence:   GCInterval,
+		threadCtrl:     utils.NewThreadControl(),
+		pendingRecords: []persistedStateRecord{},
+		sem:            make(chan struct{}, concurrentBatchCalls),
+		batchSize:      batchSize,
 	}
 }
 
 // Start starts the upkeep state store.
-// it does background cleanup of the cache.
+// it does background cleanup of the cache every GCInterval,
+// and flush records to DB every flushCadence.
 func (u *upkeepStateStore) Start(pctx context.Context) error {
-	if u.retention == 0 {
-		return errors.New("pruneDepth must be greater than zero")
-	}
+	return u.StartOnce(UpkeepStateStoreServiceName, func() error {
+		if err := u.scanner.Start(pctx); err != nil {
+			return fmt.Errorf("failed to start scanner")
+		}
 
-	u.mu.Lock()
-	if u.cancel != nil {
-		u.mu.Unlock()
-		return fmt.Errorf("already started")
-	}
+		u.lggr.Debug("Starting upkeep state store")
 
-	ctx, cancel := context.WithCancel(context.Background())
-
-	u.cancel = cancel
-	u.mu.Unlock()
-
-	if err := u.scanner.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start scanner")
-	}
-
-	u.lggr.Debug("Starting upkeep state store")
-
-	{
-		go func(ctx context.Context) {
+		u.threadCtrl.Go(func(ctx context.Context) {
 			ticker := time.NewTicker(utils.WithJitter(u.cleanCadence))
 			defer ticker.Stop()
+
+			flushTicker := newTickerFn(utils.WithJitter(flushCadence))
+			defer flushTicker.Stop()
 
 			for {
 				select {
@@ -117,34 +117,57 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 					if err := u.cleanup(ctx); err != nil {
 						u.lggr.Errorw("unable to clean old state values", "err", err)
 					}
-
 					ticker.Reset(utils.WithJitter(u.cleanCadence))
+				case <-flushTicker.C:
+					u.flush(ctx)
+					flushTicker.Reset(utils.WithJitter(flushCadence))
 				case <-ctx.Done():
-
+					u.flush(ctx)
+					return
 				}
 			}
-		}(ctx)
-	}
+		})
+		return nil
+	})
+}
 
-	return nil
+func (u *upkeepStateStore) flush(ctx context.Context) {
+	cloneRecords := make([]persistedStateRecord, len(u.pendingRecords))
+
+	u.mu.Lock()
+	copy(cloneRecords, u.pendingRecords)
+	u.pendingRecords = []persistedStateRecord{}
+	u.mu.Unlock()
+
+	for i := 0; i < len(cloneRecords); i += u.batchSize {
+		end := i + u.batchSize
+		if end > len(cloneRecords) {
+			end = len(cloneRecords)
+		}
+
+		batch := cloneRecords[i:end]
+
+		u.sem <- struct{}{}
+
+		go func() {
+			if err := u.orm.BatchInsertRecords(batch, pg.WithParentCtx(ctx)); err != nil {
+				u.lggr.Errorw("error inserting records", "err", err)
+			}
+			<-u.sem
+		}()
+	}
 }
 
 // Close stops the service of pruning stale data; implements io.Closer
 func (u *upkeepStateStore) Close() error {
-	u.mu.Lock()
-	defer u.mu.Unlock()
+	return u.StopOnce(UpkeepStateStoreServiceName, func() error {
+		u.threadCtrl.Close()
+		return nil
+	})
+}
 
-	if cancel := u.cancel; cancel != nil {
-		u.cancel = nil
-		cancel()
-	} else {
-		return fmt.Errorf("already stopped")
-	}
-	if err := u.scanner.Close(); err != nil {
-		return fmt.Errorf("failed to start scanner")
-	}
-
-	return nil
+func (u *upkeepStateStore) HealthReport() map[string]error {
+	return map[string]error{UpkeepStateStoreServiceName: u.Healthy()}
 }
 
 // SelectByWorkIDs returns the current state of the upkeep for the provided ids.
@@ -200,13 +223,15 @@ func (u *upkeepStateStore) upsertStateRecord(ctx context.Context, workID string,
 
 	u.cache[workID] = record
 
-	return u.orm.InsertUpkeepState(persistedStateRecord{
+	u.pendingRecords = append(u.pendingRecords, persistedStateRecord{
 		UpkeepID:            utils.NewBig(upkeepID),
 		WorkID:              record.workID,
 		CompletionState:     uint8(record.state),
 		IneligibilityReason: reason,
 		InsertedAt:          record.addedAt,
-	}, pg.WithParentCtx(ctx))
+	})
+
+	return nil
 }
 
 // fetchPerformed fetches all performed logs from the scanner to populate the cache.

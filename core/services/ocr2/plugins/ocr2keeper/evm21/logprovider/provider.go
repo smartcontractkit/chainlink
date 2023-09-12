@@ -22,9 +22,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
+	LogProviderServiceName = "LogEventProvider"
+
 	ErrHeadNotAvailable   = fmt.Errorf("head not available")
 	ErrBlockLimitExceeded = fmt.Errorf("block limit exceeded")
 
@@ -78,9 +81,10 @@ var _ LogEventProviderTest = &logEventProvider{}
 
 // logEventProvider manages log filters for upkeeps and enables to read the log events.
 type logEventProvider struct {
-	lggr logger.Logger
+	utils.StartStopOnce
+	threadCtrl utils.ThreadControl
 
-	cancel context.CancelFunc
+	lggr logger.Logger
 
 	poller logpoller.LogPoller
 
@@ -99,8 +103,9 @@ type logEventProvider struct {
 
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
 	return &logEventProvider{
-		packer:      packer,
+		threadCtrl:  utils.NewThreadControl(),
 		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
+		packer:      packer,
 		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), maxLogsPerBlock, maxLogsPerUpkeepInBlock),
 		poller:      poller,
 		opts:        opts,
@@ -109,33 +114,22 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDa
 }
 
 func (p *logEventProvider) Start(context.Context) error {
-	ctx, cancel := context.WithCancel(context.Background())
+	return p.StartOnce(LogProviderServiceName, func() error {
 
-	p.lock.Lock()
-	if p.cancel != nil {
-		p.lock.Unlock()
-		cancel() // Cancel the created context
-		return errors.New("already started")
-	}
-	p.cancel = cancel
-	p.lock.Unlock()
+		readQ := make(chan []*big.Int, readJobQueueSize)
 
-	readQ := make(chan []*big.Int, readJobQueueSize)
+		p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", readMaxBatchSize, "readers", readerThreads)
 
-	p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", readMaxBatchSize, "readers", readerThreads)
+		for i := 0; i < readerThreads; i++ {
+			p.threadCtrl.Go(func(ctx context.Context) {
+				p.startReader(ctx, readQ)
+			})
+		}
 
-	{ // start readers
-		go func(ctx context.Context) {
-			for i := 0; i < readerThreads; i++ {
-				go p.startReader(ctx, readQ)
-			}
-		}(ctx)
-	}
+		p.threadCtrl.Go(func(ctx context.Context) {
+			lggr := p.lggr.With("where", "scheduler")
 
-	{ // start scheduler
-		lggr := p.lggr.With("where", "scheduler")
-		go func(ctx context.Context) {
-			err := p.scheduleReadJobs(ctx, func(ids []*big.Int) {
+			p.scheduleReadJobs(ctx, func(ids []*big.Int) {
 				select {
 				case readQ <- ids:
 				case <-ctx.Done():
@@ -143,31 +137,21 @@ func (p *logEventProvider) Start(context.Context) error {
 					lggr.Warnw("readQ is full, dropping ids", "ids", ids)
 				}
 			})
-			if err != nil {
-				lggr.Warnw("stopped scheduling read jobs with error", "err", err)
-			}
-			lggr.Debug("stopped scheduling read jobs")
-		}(ctx)
-	}
+		})
 
-	return nil
+		return nil
+	})
 }
 
 func (p *logEventProvider) Close() error {
-	p.lock.Lock()
-	defer p.lock.Unlock()
-
-	if cancel := p.cancel; cancel != nil {
-		p.cancel = nil
-		cancel()
-	} else {
-		return errors.New("already stopped")
-	}
-	return nil
+	return p.StopOnce(LogProviderServiceName, func() error {
+		p.threadCtrl.Close()
+		return nil
+	})
 }
 
-func (p *logEventProvider) Name() string {
-	return p.lggr.Name()
+func (p *logEventProvider) HealthReport() map[string]error {
+	return map[string]error{LogProviderServiceName: p.Healthy()}
 }
 
 func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
@@ -233,7 +217,7 @@ func (p *logEventProvider) CurrentPartitionIdx() uint64 {
 }
 
 // scheduleReadJobs starts a scheduler that pushed ids to readQ for reading logs in the background.
-func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([]*big.Int)) error {
+func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([]*big.Int)) {
 	ctx, cancel := context.WithCancel(pctx)
 	defer cancel()
 
@@ -261,7 +245,7 @@ func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([
 			partitionIdx++
 			atomic.StoreUint64(&p.currentPartitionIdx, partitionIdx)
 		case <-ctx.Done():
-			return ctx.Err()
+			return
 		}
 	}
 }
