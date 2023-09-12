@@ -52,7 +52,6 @@ increase minikube's resources significantly, or get a more substantial cluster.
 This is necessary to deploy ephemeral testing environments, which include external adapters, chainlink nodes and their DBs,
 as well as some simulated blockchains, all depending on the types of tests and networks being used.
 
-
 ### Setup Kubernetes Cluster using k3d
 
 [k3d](https://k3d.io/) is a lightweight wrapper to run k3s (a lightweight kubernetes distribution) in docker. It's a great way to run a local kubernetes cluster for testing.
@@ -91,6 +90,7 @@ You can also specify `EVM_KEYS` and `EVM_URLS` for running on live chains, or us
 Other `EVM_*` variables are retrieved when running with the `@general` tag, and is helpful for doing quick sanity checks on new chains or when tweaking variables.
 
 **The tests will not automatically load your .env file. Remember to run `source .env` for changes to take effect.**
+
 ## How to Run
 
 Most of the time, you'll want to run tests on a simulated chain, for the purposes of speed and cost.
@@ -185,71 +185,6 @@ Currently, all performance tests are only run on simulated blockchains.
 ```sh
 make test_perf
 ```
-
-## CCIP Tests
-
-### Configure Environment for CCIP
-
-> CCIP tests follow some additional set up as it needs multi-chain set-up to run the tests. 
-> To run any kind of CCIP tests you need to provide the some mandatory and optional env variables. 
-> See the [ccip-example.env](ccip/ccip-example.env) file and use it as a template for your own .env file.
-> The tests will not automatically load your .env file. Remember to run source .env for changes to take effect.
-
-
-
-### How to Run CCIP Tests
-
->After following the instructions [Install Dependencies](#setup) , [K8 Setup](#connect-to-a-kubernetes-cluster) 
->and [Configure Environment](#configure-environment-for-ccip) , you can run the tests using the following commands.
-
-#### Smoke tests   
-Mostly you would run tests on simulated networks for cost and speed-
-```sh
-make test_smoke_ccip_simulated
-```
-On specific networks (set up according to envionment variables) -
-```sh
-make test_smoke_ccip
-```
-
-#### Load tests
-On simulated networks -
-```sh
-make test_load_ccip_simulated
-```
-On specific networks (set up according to envionment variables) -
-```sh
-make test_load_ccip
-```
-
-#### Soak tests
-Soak tests are just load tests run with long duration and lesser rate of request triggering.
-```sh
-make test_soak_ccip
-```
-
-#### Chaos tests
-Chaos tests can only be run in simulated networks to inject specific chaos events in custom environments.
-You need to trigger podchaos tests and network chaos tests separately.
-
-```sh
-make test_chaos_ccip_pods_raw
-```
-
-```sh
-make test_chaos_ccip_network_raw
-```
-#### Soak/Load/Smoke tests on Existing Deployments
-> Tests can be run on existing deployments by setting the env var CCIP_TESTS_ON_EXISTING_DEPLOYMENT to true.
-> 1. Create a branch out of the code ref using which the contracts were deployed. (This is to ensure that the gethwrappers are compatible with the deployed contracts)
-> 2. Update [contracts.json](ccip/contracts/laneconfig/contracts.json) file with the contract addresses of the deployment under test.
-> 3. Set the env var CCIP_TESTS_ON_EXISTING_DEPLOYMENT to true in the .env file.
-> 4. Set up other env vars denoting the network and other load config parameters in .env file as mentioned in [Configure Environment](#configure-environment-for-ccip) section.
-> 5. Run the tests in same branch using the following command -
-> ```sh
-> source <your .env file>
-> make test_soak_ccip # Or the corresponding make <test_type>_test command for load or smoke tests
-> ```
 
 ## Common Issues
 

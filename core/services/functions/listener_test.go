@@ -90,8 +90,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, KeyStore: kst.Eth(), LogBroadcaster: broadcaster, MailMon: mailMon})
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 
 	chain := legacyChains.Slice()[0]
 	lggr := logger.TestLogger(t)
@@ -127,8 +126,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 	decryptor := threshold_mocks.NewDecryptor(t)
 
 	var pluginConfig config.PluginConfig
-	err = json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
-	require.NoError(t, err)
+	require.NoError(t, json.Unmarshal(jsonConfig.Bytes(), &pluginConfig))
 
 	contractAddress := "0xa"
 

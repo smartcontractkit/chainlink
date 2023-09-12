@@ -22,6 +22,7 @@ import (
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -39,12 +40,14 @@ var (
 )
 
 type ClNode struct {
-	EnvComponent
+	test_env.EnvComponent
 	API                   *client.ChainlinkClient
 	NodeConfig            *chainlink.Config
 	NodeSecretsConfigTOML string
-	PostgresDb            *PostgresDb
+	PostgresDb            *test_env.PostgresDb
 	lw                    *logwatch.LogWatch
+	ContainerImage        string
+	ContainerVersion      string
 }
 
 type ClNodeOption = func(c *ClNode)
@@ -76,9 +79,9 @@ func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
 func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
-	pgDb := NewPostgresDb(networks, WithPostgresDbContainerName(pgDefaultCName))
+	pgDb := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
 	n := &ClNode{
-		EnvComponent: EnvComponent{
+		EnvComponent: test_env.EnvComponent{
 			ContainerName: nodeDefaultCName,
 			Networks:      networks,
 		},
@@ -98,6 +101,19 @@ func (n *ClNode) Restart(cfg *chainlink.Config) error {
 	}
 	n.NodeConfig = cfg
 	return n.StartContainer()
+}
+
+// UpgradeVersion restarts the cl node with new image and version
+func (n *ClNode) UpgradeVersion(cfg *chainlink.Config, newImage, newVersion string) error {
+	if newVersion == "" {
+		return fmt.Errorf("new version is empty")
+	}
+	if newImage == "" {
+		newImage = os.Getenv("CHAINLINK_IMAGE")
+	}
+	n.ContainerImage = newImage
+	n.ContainerVersion = newVersion
+	return n.Restart(n.NodeConfig)
 }
 
 func (n *ClNode) PrimaryETHAddress() (string, error) {
@@ -202,7 +218,6 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	}
 	return evmClient.Fund(toAddress, amount, gasEstimates)
 }
-
 func (n *ClNode) StartContainer() error {
 	err := n.PostgresDb.StartContainer()
 	if err != nil {
@@ -225,6 +240,7 @@ func (n *ClNode) StartContainer() error {
 	container, err := tc.GenericContainer(context.Background(), tc.GenericContainerRequest{
 		ContainerRequest: *cReq,
 		Started:          true,
+		Reuse:            true,
 	})
 	if err != nil {
 		return errors.Wrap(err, ErrStartCLNodeContainer)
@@ -311,18 +327,24 @@ func (n *ClNode) getContainerRequest() (
 	adminCredsPath := "/home/admin-credentials.txt"
 	apiCredsPath := "/home/api-credentials.txt"
 
-	image, ok := os.LookupEnv("CHAINLINK_IMAGE")
-	if !ok {
-		return nil, errors.New("CHAINLINK_IMAGE env must be set")
+	if n.ContainerImage == "" {
+		image, ok := os.LookupEnv("CHAINLINK_IMAGE")
+		if !ok {
+			return nil, errors.New("CHAINLINK_IMAGE env must be set")
+		}
+		n.ContainerImage = image
 	}
-	tag, ok := os.LookupEnv("CHAINLINK_VERSION")
-	if !ok {
-		return nil, errors.New("CHAINLINK_VERSION env must be set")
+	if n.ContainerVersion == "" {
+		version, ok := os.LookupEnv("CHAINLINK_VERSION")
+		if !ok {
+			return nil, errors.New("CHAINLINK_VERSION env must be set")
+		}
+		n.ContainerVersion = version
 	}
 
 	return &tc.ContainerRequest{
 		Name:         n.ContainerName,
-		Image:        fmt.Sprintf("%s:%s", image, tag),
+		Image:        fmt.Sprintf("%s:%s", n.ContainerImage, n.ContainerVersion),
 		ExposedPorts: []string{"6688/tcp"},
 		Entrypoint: []string{"chainlink",
 			"-c", configPath,

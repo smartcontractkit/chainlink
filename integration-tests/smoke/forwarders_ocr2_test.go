@@ -10,6 +10,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
@@ -17,6 +19,8 @@ import (
 
 func TestForwarderOCR2Basic(t *testing.T) {
 	t.Parallel()
+	l := utils.GetTestLogger(t)
+
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithGeth().
 		WithMockServer(1).
@@ -26,9 +30,15 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		)).
 		WithForwarders().
 		WithCLNodes(6).
-		WithFunding(big.NewFloat(10)).
+		WithFunding(big.NewFloat(.1)).
 		Build()
 	require.NoError(t, err)
+	t.Cleanup(func() {
+		if err := env.Cleanup(); err != nil {
+			l.Error().Err(err).Msg("Error cleaning up test environment")
+		}
+	})
+
 	env.ParallelTransactions(true)
 
 	nodeClients := env.GetAPIs()

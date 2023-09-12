@@ -47,7 +47,7 @@ var launchAndTestCmd = &cobra.Command{
 
 func init() {
 	launchAndTestCmd.Flags().BoolP("withdraw", "w", true, "Specify if funds should be withdrawn and upkeeps should be canceled")
-	launchAndTestCmd.Flags().BoolP("bootstrap", "b", true, "Specify if launching bootstrap node is required. Default listen ports(5688, 8000) are used, if you need to use custom ports, please use bootstrap command")
+	launchAndTestCmd.Flags().BoolP("bootstrap", "b", false, "Specify if launching bootstrap node is required. Default listen ports(5688, 8000) are used, if you need to use custom ports, please use bootstrap command")
 	launchAndTestCmd.Flags().BoolP("export-logs", "l", false, "Specify if container logs should be exported to ./")
 	launchAndTestCmd.Flags().BoolP("force", "f", false, "Specify if existing containers should be forcefully removed ./")
 }

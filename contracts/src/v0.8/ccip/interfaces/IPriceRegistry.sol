@@ -11,24 +11,29 @@ interface IPriceRegistry {
   /// @notice Get the `tokenPrice` for a given token.
   /// @param token The token to get the price for.
   /// @return tokenPrice The tokenPrice for the given token.
-  function getTokenPrice(address token) external view returns (Internal.TimestampedUint192Value memory);
+  function getTokenPrice(address token) external view returns (Internal.TimestampedPackedUint224 memory);
 
   /// @notice Get the `tokenPrice` for a given token, checks if the price is valid.
   /// @param token The token to get the price for.
   /// @return tokenPrice The tokenPrice for the given token if it exists and is valid.
-  function getValidatedTokenPrice(address token) external view returns (uint192);
+  function getValidatedTokenPrice(address token) external view returns (uint224);
 
   /// @notice Get the `tokenPrice` for an array of tokens.
   /// @param tokens The tokens to get prices for.
   /// @return tokenPrices The tokenPrices for the given tokens.
-  function getTokenPrices(address[] calldata tokens) external view returns (Internal.TimestampedUint192Value[] memory);
+  function getTokenPrices(address[] calldata tokens) external view returns (Internal.TimestampedPackedUint224[] memory);
 
-  /// @notice Get the `gasPrice` for a given destination chain ID.
+  /// @notice Get an encoded `gasPrice` for a given destination chain ID.
+  /// The 224-bit result encodes necessary gas price components.
+  /// On L1 chains like Ethereum or Avax, the only component is the gas price.
+  /// On Optimistic Rollups, there are two components - the L2 gas price, and L1 base fee for data availability.
+  /// On future chains, there could be more or differing price components.
+  /// PriceRegistry does not contain chain-specific logic to parse destination chain price components.
   /// @param destChainSelector The destination chain to get the price for.
-  /// @return gasPrice The gasPrice for the given destination chain ID.
+  /// @return gasPrice The encoded gasPrice for the given destination chain ID.
   function getDestinationChainGasPrice(
     uint64 destChainSelector
-  ) external view returns (Internal.TimestampedUint192Value memory);
+  ) external view returns (Internal.TimestampedPackedUint224 memory);
 
   /// @notice Gets the fee token price and the gas price, both denominated in dollars.
   /// @param token The source token to get the price for.
@@ -38,7 +43,7 @@ interface IPriceRegistry {
   function getTokenAndGasPrices(
     address token,
     uint64 destChainSelector
-  ) external view returns (uint192 tokenPrice, uint192 gasPrice);
+  ) external view returns (uint224 tokenPrice, uint224 gasPrice);
 
   /// @notice Convert a given token amount to target token amount.
   /// @param fromToken The given token address.

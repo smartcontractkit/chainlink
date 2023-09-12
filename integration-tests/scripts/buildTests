@@ -26,5 +26,3 @@ do
     go test -c ./"${x}"
 done
 IFS=$OIFS
-
-

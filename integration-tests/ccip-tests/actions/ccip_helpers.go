@@ -541,9 +541,10 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 				Pool:  sourceCCIP.Common.BridgeTokenPools[i].EthAddress,
 			})
 			tokenTransferFeeConfig = append(tokenTransferFeeConfig, evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
-				Token:           token.ContractAddress,
-				Ratio:           5_0, // 5 bps
-				DestGasOverhead: 34_000,
+				Token:             token.ContractAddress,
+				Ratio:             5_0, // 5 bps
+				DestGasOverhead:   34_000,
+				DestBytesOverhead: 0,
 			})
 		}
 

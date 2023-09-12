@@ -13,10 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/pkg/errors"
-
 	"github.com/patrickmn/go-cache"
+	"github.com/pkg/errors"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -36,7 +36,8 @@ const (
 	// defaultAllowListExpiration decides how long an upkeep's allow list info will be valid for.
 	defaultAllowListExpiration = 20 * time.Minute
 	// allowListCleanupInterval decides when the expired items in allowList cache will be deleted.
-	allowListCleanupInterval = 5 * time.Minute
+	allowListCleanupInterval   = 5 * time.Minute
+	logTriggerRefreshBatchSize = 32
 )
 
 var (
@@ -72,13 +73,14 @@ func NewEvmRegistry(
 	lggr logger.Logger,
 	addr common.Address,
 	client evm.Chain,
-	feedLookupCompatibleABI, keeperRegistryABI abi.ABI,
+	streamsLookupCompatibleABI, keeperRegistryABI abi.ABI,
 	registry *iregistry21.IKeeperRegistryMaster,
 	mc *models.MercuryCredentials,
 	al ActiveUpkeepList,
 	logEventProvider logprovider.LogEventProvider,
 	packer encoding.Packer,
 	blockSub *BlockSubscriber,
+	finalityDepth uint32,
 ) *EvmRegistry {
 	return &EvmRegistry{
 		lggr:         lggr.Named("EvmRegistry"),
@@ -94,12 +96,13 @@ func NewEvmRegistry(
 		chLog:        make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
 			cred:           mc,
-			abi:            feedLookupCompatibleABI,
+			abi:            streamsLookupCompatibleABI,
 			allowListCache: cache.New(defaultAllowListExpiration, allowListCleanupInterval),
 		},
 		hc:               http.DefaultClient,
 		logEventProvider: logEventProvider,
 		bs:               blockSub,
+		finalityDepth:    finalityDepth,
 	}
 }
 
@@ -145,6 +148,7 @@ type EvmRegistry struct {
 	hc               HttpClient
 	bs               *BlockSubscriber
 	logEventProvider logprovider.LogEventProvider
+	finalityDepth    uint32
 }
 
 func (r *EvmRegistry) Name() string {
@@ -270,18 +274,12 @@ func (r *EvmRegistry) refreshActiveUpkeeps() error {
 	}
 	r.active.Reset(ids...)
 
-	return r.refreshLogTriggerUpkeeps(ids)
-}
-
-// refreshLogTriggerUpkeeps refreshes the active upkeep ids for log trigger upkeeps
-//
-// TODO: check for updated config for log trigger upkeeps and update it, currently we ignore them.
-func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
-	logTriggerIDs := make([]*big.Int, 0)
+	var logTriggerIDs []*big.Int
 	for _, id := range ids {
 		uid := &ocr2keepers.UpkeepIdentifier{}
 		if ok := uid.FromBigInt(id); !ok {
 			r.lggr.Warnf("failed to parse upkeep id %s", id.String())
+			continue
 		}
 		switch core.GetUpkeepType(*uid) {
 		case ocr2keepers.LogTrigger:
@@ -289,15 +287,95 @@ func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
 		default:
 		}
 	}
-	newUpkeeps, err := r.logEventProvider.RefreshActiveUpkeeps(logTriggerIDs...)
+
+	_, err = r.logEventProvider.RefreshActiveUpkeeps(logTriggerIDs...)
 	if err != nil {
 		return fmt.Errorf("failed to refresh active upkeep ids in log event provider: %w", err)
 	}
+
+	// Try to refersh log trigger config for all log upkeeps
+	return r.refreshLogTriggerUpkeeps(logTriggerIDs)
+}
+
+// refreshLogTriggerUpkeeps refreshes the active upkeep ids for log trigger upkeeps
+func (r *EvmRegistry) refreshLogTriggerUpkeeps(ids []*big.Int) error {
+	var err error
+	for i := 0; i < len(ids); i += logTriggerRefreshBatchSize {
+		end := i + logTriggerRefreshBatchSize
+		if end > len(ids) {
+			end = len(ids)
+		}
+		idBatch := ids[i:end]
+
+		if batchErr := r.refreshLogTriggerUpkeepsBatch(idBatch); batchErr != nil {
+			multierr.AppendInto(&err, batchErr)
+		}
+
+		time.Sleep(500 * time.Millisecond)
+	}
+
+	return err
+}
+
+func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(logTriggerIDs []*big.Int) error {
+	var logTriggerHashes []common.Hash
+	for _, id := range logTriggerIDs {
+		logTriggerHashes = append(logTriggerHashes, common.BigToHash(id))
+	}
+
+	unpausedLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, int(r.finalityDepth), pg.WithParentCtx(r.ctx))
+	if err != nil {
+		return err
+	}
+	configSetLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, int(r.finalityDepth), pg.WithParentCtx(r.ctx))
+	if err != nil {
+		return err
+	}
+
+	logs := append(unpausedLogs, configSetLogs...)
+
+	configSetBlockNumbers := map[string]uint64{}
+	unpausedBlockNumbers := map[string]uint64{}
+	perUpkeepConfig := map[string][]byte{}
+
+	for _, log := range logs {
+		rawLog := log.ToGethLog()
+		abilog, err := r.registry.ParseLog(rawLog)
+		if err != nil {
+			return err
+		}
+		switch l := abilog.(type) {
+		case *iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet:
+			if rawLog.BlockNumber > configSetBlockNumbers[l.Id.String()] {
+				configSetBlockNumbers[l.Id.String()] = rawLog.BlockNumber
+				perUpkeepConfig[l.Id.String()] = l.TriggerConfig
+			}
+		case *iregistry21.IKeeperRegistryMasterUpkeepUnpaused:
+			if rawLog.BlockNumber > unpausedBlockNumbers[l.Id.String()] {
+				unpausedBlockNumbers[l.Id.String()] = rawLog.BlockNumber
+			}
+		}
+	}
+
 	var merr error
-	for _, id := range newUpkeeps {
-		// TODO: find the ConfigSet/UpkeepUnpaused events for this upkeep and pass cfg and block number
-		// block number should be taken from UpkeepUnpaused if it's block is higher than ConfigSet
-		if err := r.updateTriggerConfig(id, nil, 0); err != nil {
+	for _, id := range logTriggerIDs {
+		logBlock, ok := configSetBlockNumbers[id.String()]
+		if !ok {
+			r.lggr.Warnf("unable to find finalized config set block number for %s, skipping refresh", id.String())
+			continue
+		}
+
+		config, ok := perUpkeepConfig[id.String()]
+		if !ok {
+			r.lggr.Warnf("unable to find per finalized log config for %s, skipping refresh", id.String())
+			continue
+		}
+
+		// In case an upkeep was paused then unpaused after a config set event, start the config from the unpaused block number
+		if unpausedBlockNumbers[id.String()] > logBlock {
+			logBlock = unpausedBlockNumbers[id.String()]
+		}
+		if err := r.updateTriggerConfig(id, config, logBlock); err != nil {
 			merr = goerrors.Join(merr, fmt.Errorf("failed to update trigger config for upkeep id %s: %w", id.String(), err))
 		}
 	}
@@ -505,7 +583,7 @@ func (r *EvmRegistry) updateTriggerConfig(id *big.Int, cfg []byte, logBlock uint
 			r.lggr.Warnw("failed to unpack log upkeep config", "upkeepID", id.String(), "err", err)
 			return nil
 		}
-		if err := r.logEventProvider.RegisterFilter(logprovider.FilterOptions{
+		if err := r.logEventProvider.RegisterFilter(r.ctx, logprovider.FilterOptions{
 			TriggerConfig: logprovider.LogTriggerConfig(parsed),
 			UpkeepID:      id,
 			UpdateBlock:   logBlock,

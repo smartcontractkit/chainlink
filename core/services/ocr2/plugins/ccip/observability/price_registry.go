@@ -36,8 +36,8 @@ func (o *ObservedPriceRegistry) GetFeeTokens(opts *bind.CallOpts) ([]common.Addr
 	})
 }
 
-func (o *ObservedPriceRegistry) GetTokenPrices(opts *bind.CallOpts, tokens []common.Address) ([]price_registry.InternalTimestampedUint192Value, error) {
-	return withObservedContract(o.metric, "GetTokenPrices", func() ([]price_registry.InternalTimestampedUint192Value, error) {
+func (o *ObservedPriceRegistry) GetTokenPrices(opts *bind.CallOpts, tokens []common.Address) ([]price_registry.InternalTimestampedPackedUint224, error) {
+	return withObservedContract(o.metric, "GetTokenPrices", func() ([]price_registry.InternalTimestampedPackedUint224, error) {
 		return o.PriceRegistryInterface.GetTokenPrices(opts, tokens)
 	})
 }

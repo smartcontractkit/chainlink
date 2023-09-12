@@ -1,23 +1,23 @@
 package test_env
 
 import (
+	"encoding/json"
 	"math/big"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
-	"golang.org/x/sync/errgroup"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-
+	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	tc "github.com/testcontainers/testcontainers-go"
+	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
@@ -34,9 +34,9 @@ type CLClusterTestEnv struct {
 
 	/* components */
 	CLNodes          []*ClNode
-	Geth             *Geth                       // for tests using --dev networks
+	Geth             *test_env.Geth              // for tests using --dev networks
 	PrivateGethChain []test_env.PrivateGethChain // for tests using non-dev networks
-	MockServer       *MockServer
+	MockServer       *test_env.MockServer
 	EVMClient        blockchain.EVMClient
 	ContractDeployer contracts.ContractDeployer
 	ContractLoader   contracts.ContractLoader
@@ -51,8 +51,8 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 	networks := []string{network.Name}
 	return &CLClusterTestEnv{
 		Network:    network,
-		Geth:       NewGeth(networks),
-		MockServer: NewMockServer(networks),
+		Geth:       test_env.NewGeth(networks),
+		MockServer: test_env.NewMockServer(networks),
 	}, nil
 }
 
@@ -67,8 +67,8 @@ func NewTestEnvFromCfg(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
 	return &CLClusterTestEnv{
 		Cfg:        cfg,
 		Network:    network,
-		Geth:       NewGeth(networks, WithContainerName(cfg.Geth.ContainerName)),
-		MockServer: NewMockServer(networks, WithContainerName(cfg.MockServer.ContainerName)),
+		Geth:       test_env.NewGeth(networks, test_env.WithContainerName(cfg.Geth.ContainerName)),
+		MockServer: test_env.NewMockServer(networks, test_env.WithContainerName(cfg.MockServer.ContainerName)),
 	}, nil
 }
 
@@ -100,7 +100,7 @@ func (te *CLClusterTestEnv) StartPrivateGethChain() error {
 	return nil
 }
 
-func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, InternalDockerUrls, error) {
+func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, test_env.InternalDockerUrls, error) {
 	return te.Geth.StartContainer()
 }
 
@@ -193,5 +193,45 @@ func (te *CLClusterTestEnv) GetNodeCSAKeys() ([]string, error) {
 func (te *CLClusterTestEnv) Terminate() error {
 	// TESTCONTAINERS_RYUK_DISABLED=false by default so ryuk will remove all
 	// the containers and the Network
+	return nil
+}
+
+// Cleanup cleans the environment up after it's done being used, mainly for returning funds when on live networks.
+// Intended to be used as part of t.Cleanup() in tests.
+func (te *CLClusterTestEnv) Cleanup() error {
+	log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
+	if te.EVMClient == nil {
+		return errors.New("blockchain client is nil, unable to return funds from chainlink nodes")
+	}
+	if te.CLNodes == nil {
+		return errors.New("chainlink nodes are nil, unable to return funds from chainlink nodes")
+	}
+	if te.EVMClient.NetworkSimulated() {
+		log.Info().Str("Network Name", te.EVMClient.GetNetworkName()).
+			Msg("Network is a simulated network. Skipping fund return.")
+		return nil
+	}
+
+	for _, chainlinkNode := range te.CLNodes {
+		fundedKeys, err := chainlinkNode.API.ExportEVMKeysForChain(te.EVMClient.GetChainID().String())
+		if err != nil {
+			return err
+		}
+		for _, key := range fundedKeys {
+			keyToDecrypt, err := json.Marshal(key)
+			if err != nil {
+				return err
+			}
+			// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
+			// issues. So we avoid running in parallel; slower, but safer.
+			decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
+			if err != nil {
+				return err
+			}
+			if err = te.EVMClient.ReturnFunds(decryptedKey.PrivateKey); err != nil {
+				return err
+			}
+		}
+	}
 	return nil
 }

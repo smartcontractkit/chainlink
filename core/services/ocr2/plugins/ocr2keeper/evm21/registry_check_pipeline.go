@@ -15,12 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
 )
 
-const (
-	// validCheckBlockRange decides the max distance between the check block and the current block
-	// allowed in checkPipeline
-	validCheckBlockRange = 128
-)
-
 type checkResult struct {
 	cr  []ocr2keepers.CheckResult
 	err error
@@ -64,7 +58,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 		return
 	}
 
-	upkeepResults = r.feedLookup(ctx, upkeepResults)
+	upkeepResults = r.streamsLookup(ctx, upkeepResults)
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {
@@ -99,13 +93,12 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
 func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
-	// verify check block number is not too old
+	// verify check block number is not in future (can happen when this node is lagging the other members in DON)
 	latestBlock := r.bs.latestBlock.Load()
-	if int64(latestBlock.Number)-checkBlock.Int64() > validCheckBlockRange {
-		r.lggr.Warnf("latest block is %d, check block number %s is too old for upkeepId %s", r.bs.latestBlock.Load(), checkBlock, upkeepId)
-		return encoding.CheckBlockTooOld, false
+	if checkBlock.Int64() > int64(latestBlock.Number) {
+		r.lggr.Warnf("latest block is %d, check block number %s is in future for upkeepId %s", r.bs.latestBlock.Load(), checkBlock, upkeepId)
+		return encoding.CheckBlockTooNew, true // retryable since the block can be found in future
 	}
-	r.lggr.Warnf("latestBlock=%d checkBlock=%d", r.bs.latestBlock.Load().Number, checkBlock.Int64())
 
 	var h string
 	var ok bool
@@ -241,10 +234,18 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 	for i, req := range checkReqs {
 		index := indices[i]
 		if req.Error != nil {
-			// individual upkeep failed in a batch call, retryable
-			r.lggr.Warnf("error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
-			results[index].Retryable = true
-			results[index].PipelineExecutionState = uint8(encoding.RpcFlakyFailure)
+			// primitive way of checking errors
+			if strings.Contains(req.Error.Error(), "header not found") {
+				// Check block not found in RPC, non-retryable error
+				r.lggr.Warnf("header not found error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
+				results[index].Retryable = false
+				results[index].PipelineExecutionState = uint8(encoding.CheckBlockTooOld)
+			} else {
+				// individual upkeep failed in a batch call, likely a flay RPC error, consider retryable
+				r.lggr.Warnf("rpc error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
+				results[index].Retryable = true
+				results[index].PipelineExecutionState = uint8(encoding.RpcFlakyFailure)
+			}
 		} else {
 			var err error
 			results[index], err = r.packer.UnpackCheckResult(payloads[index], *checkResults[i])
@@ -331,6 +332,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		if !simulatePerformSuccess {
 			r.lggr.Warnf("upkeepId %s is not eligible after simulation of perform", checkResults[idx].UpkeepID.String())
 			checkResults[performToKeyIdx[i]].Eligible = false
+			checkResults[performToKeyIdx[i]].IneligibilityReason = uint8(encoding.UpkeepFailureReasonSimulationFailed)
 		}
 	}
 

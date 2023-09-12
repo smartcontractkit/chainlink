@@ -20,11 +20,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 var (
@@ -229,15 +230,18 @@ func TestAutomationChaos(t *testing.T) {
 				t,
 				eth_contracts.RegistryVersion_2_0,
 				defaultOCRRegistryConfig,
-				numberOfUpkeeps,
 				linkToken,
 				contractDeployer,
 				chainClient,
 			)
 
+			// Fund the registry with LINK
+			err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfUpkeeps))))
+			require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
+
 			actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, eth_contracts.RegistryVersion_2_0)
 			nodesWithoutBootstrap := chainlinkNodes[1:]
-			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second)
+			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second)
 			require.NoError(t, err, "Error building OCR config vars")
 			err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
 			require.NoError(t, err, "Registry config should be be set successfully")

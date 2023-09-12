@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/maps"
 
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -46,61 +47,67 @@ var (
 	_     Coordinator = &TestCoordinator{}
 	_     BHS         = &TestBHS{}
 	tests             = []struct {
-		name           string
-		requests       []Event
-		fulfillments   []Event
-		wait           int
-		lookback       int
-		latest         uint64
-		bhs            TestBHS
-		expectedStored []uint64
-		expectedErrMsg string
+		name                    string
+		requests                []Event
+		fulfillments            []Event
+		wait                    int
+		lookback                int
+		latest                  uint64
+		bhs                     TestBHS
+		expectedStored          []uint64
+		expectedStoredMapBlocks []uint64 // expected state of stored map in Feeder struct
+		expectedErrMsg          string
 	}{
 		{
-			name:           "single unfulfilled request",
-			requests:       []Event{{Block: 150, ID: "1000"}},
-			wait:           25,
-			lookback:       100,
-			latest:         200,
-			expectedStored: []uint64{150},
+			name:                    "single unfulfilled request",
+			requests:                []Event{{Block: 150, ID: "1000"}},
+			wait:                    25,
+			lookback:                100,
+			latest:                  200,
+			expectedStored:          []uint64{150},
+			expectedStoredMapBlocks: []uint64{150},
 		},
 		{
-			name:           "single fulfilled request",
-			requests:       []Event{{Block: 150, ID: "1000"}},
-			fulfillments:   []Event{{Block: 155, ID: "1000"}},
-			wait:           25,
-			lookback:       100,
-			latest:         200,
-			expectedStored: []uint64{},
+			name:                    "single fulfilled request",
+			requests:                []Event{{Block: 150, ID: "1000"}},
+			fulfillments:            []Event{{Block: 155, ID: "1000"}},
+			wait:                    25,
+			lookback:                100,
+			latest:                  200,
+			expectedStored:          []uint64{},
+			expectedStoredMapBlocks: []uint64{},
 		},
 		{
-			name:           "single already fulfilled",
-			requests:       []Event{{Block: 150, ID: "1000"}},
-			wait:           25,
-			lookback:       100,
-			latest:         200,
-			bhs:            TestBHS{Stored: []uint64{150}},
-			expectedStored: []uint64{150},
+			name:                    "single already fulfilled",
+			requests:                []Event{{Block: 150, ID: "1000"}},
+			wait:                    25,
+			lookback:                100,
+			latest:                  200,
+			bhs:                     TestBHS{Stored: []uint64{150}},
+			expectedStored:          []uint64{150},
+			expectedStoredMapBlocks: []uint64{},
 		},
 		{
-			name:           "error checking if stored, store anyway",
-			requests:       []Event{{Block: 150, ID: "1000"}},
-			wait:           25,
-			lookback:       100,
-			latest:         200,
-			bhs:            TestBHS{ErrorsIsStored: []uint64{150}},
-			expectedStored: []uint64{150},
-			expectedErrMsg: "checking if stored: error checking if stored",
+			name:                    "error checking if stored, store anyway",
+			requests:                []Event{{Block: 150, ID: "1000"}},
+			wait:                    25,
+			lookback:                100,
+			latest:                  200,
+			bhs:                     TestBHS{ErrorsIsStored: []uint64{150}},
+			expectedStored:          []uint64{150},
+			expectedStoredMapBlocks: []uint64{150},
+			expectedErrMsg:          "checking if stored: error checking if stored",
 		},
 		{
-			name:           "error storing, continue to next block anyway",
-			requests:       []Event{{Block: 150, ID: "1000"}, {Block: 151, ID: "1000"}},
-			wait:           25,
-			lookback:       100,
-			latest:         200,
-			bhs:            TestBHS{ErrorsStore: []uint64{150}},
-			expectedStored: []uint64{151},
-			expectedErrMsg: "storing block: error storing",
+			name:                    "error storing, continue to next block anyway",
+			requests:                []Event{{Block: 150, ID: "1000"}, {Block: 151, ID: "1000"}},
+			wait:                    25,
+			lookback:                100,
+			latest:                  200,
+			bhs:                     TestBHS{ErrorsStore: []uint64{150}},
+			expectedStored:          []uint64{151},
+			expectedStoredMapBlocks: []uint64{151},
+			expectedErrMsg:          "storing block: error storing",
 		},
 		{
 			name: "multiple requests same block, some fulfilled",
@@ -111,10 +118,11 @@ var (
 			fulfillments: []Event{
 				{Block: 150, ID: "10001"},
 				{Block: 150, ID: "10003"}},
-			wait:           25,
-			lookback:       100,
-			latest:         200,
-			expectedStored: []uint64{150},
+			wait:                    25,
+			lookback:                100,
+			latest:                  200,
+			expectedStored:          []uint64{150},
+			expectedStoredMapBlocks: []uint64{150},
 		},
 		{
 			name: "multiple requests same block, all fulfilled",
@@ -126,52 +134,58 @@ var (
 				{Block: 150, ID: "10001"},
 				{Block: 150, ID: "10002"},
 				{Block: 150, ID: "10003"}},
-			wait:           25,
-			lookback:       100,
-			latest:         200,
-			expectedStored: []uint64{},
+			wait:                    25,
+			lookback:                100,
+			latest:                  200,
+			expectedStored:          []uint64{},
+			expectedStoredMapBlocks: []uint64{},
 		},
 		{
-			name:           "fulfillment no matching request no error",
-			requests:       []Event{{Block: 150, ID: "1000"}},
-			fulfillments:   []Event{{Block: 199, ID: "10002"}},
-			wait:           25,
-			lookback:       100,
-			latest:         200,
-			expectedStored: []uint64{150},
+			name:                    "fulfillment no matching request no error",
+			requests:                []Event{{Block: 150, ID: "1000"}},
+			fulfillments:            []Event{{Block: 199, ID: "10002"}},
+			wait:                    25,
+			lookback:                100,
+			latest:                  200,
+			expectedStored:          []uint64{150},
+			expectedStoredMapBlocks: []uint64{150},
 		},
 		{
-			name:           "multiple unfulfilled requests",
-			requests:       []Event{{Block: 150, ID: "10001"}, {Block: 151, ID: "10002"}},
-			wait:           25,
-			lookback:       100,
-			latest:         200,
-			expectedStored: []uint64{150, 151},
+			name:                    "multiple unfulfilled requests",
+			requests:                []Event{{Block: 150, ID: "10001"}, {Block: 151, ID: "10002"}},
+			wait:                    25,
+			lookback:                100,
+			latest:                  200,
+			expectedStored:          []uint64{150, 151},
+			expectedStoredMapBlocks: []uint64{150, 151},
 		},
 		{
-			name:           "multiple fulfilled requests",
-			requests:       []Event{{Block: 150, ID: "10001"}, {Block: 151, ID: "10002"}},
-			fulfillments:   []Event{{Block: 150, ID: "10001"}, {Block: 151, ID: "10002"}},
-			wait:           25,
-			lookback:       100,
-			latest:         200,
-			expectedStored: []uint64{},
+			name:                    "multiple fulfilled requests",
+			requests:                []Event{{Block: 150, ID: "10001"}, {Block: 151, ID: "10002"}},
+			fulfillments:            []Event{{Block: 150, ID: "10001"}, {Block: 151, ID: "10002"}},
+			wait:                    25,
+			lookback:                100,
+			latest:                  200,
+			expectedStored:          []uint64{},
+			expectedStoredMapBlocks: []uint64{},
 		},
 		{
-			name:           "recent unfulfilled request do not store",
-			requests:       []Event{{Block: 185, ID: "1000"}},
-			wait:           25,
-			lookback:       100,
-			latest:         200,
-			expectedStored: []uint64{},
+			name:                    "recent unfulfilled request do not store",
+			requests:                []Event{{Block: 185, ID: "1000"}},
+			wait:                    25,
+			lookback:                100,
+			latest:                  200,
+			expectedStored:          []uint64{},
+			expectedStoredMapBlocks: []uint64{},
 		},
 		{
-			name:           "old unfulfilled request do not store",
-			requests:       []Event{{Block: 99, ID: "1000"}, {Block: 57, ID: "1000"}},
-			wait:           25,
-			lookback:       100,
-			latest:         200,
-			expectedStored: []uint64{},
+			name:                    "old unfulfilled request do not store",
+			requests:                []Event{{Block: 99, ID: "1000"}, {Block: 57, ID: "1000"}},
+			wait:                    25,
+			lookback:                100,
+			latest:                  200,
+			expectedStored:          []uint64{},
+			expectedStoredMapBlocks: []uint64{},
 		},
 		{
 			name: "mixed",
@@ -204,18 +218,20 @@ var (
 
 				// Block 154
 				{Block: 154, ID: "10007"}},
-			wait:           25,
-			lookback:       100,
-			latest:         200,
-			expectedStored: []uint64{150, 153},
+			wait:                    25,
+			lookback:                100,
+			latest:                  200,
+			expectedStored:          []uint64{150, 153},
+			expectedStoredMapBlocks: []uint64{150, 153},
 		},
 		{
-			name:           "lookback before 0th block",
-			requests:       []Event{{Block: 20, ID: "1000"}},
-			wait:           25,
-			lookback:       100,
-			latest:         50,
-			expectedStored: []uint64{20},
+			name:                    "lookback before 0th block",
+			requests:                []Event{{Block: 20, ID: "1000"}},
+			wait:                    25,
+			lookback:                100,
+			latest:                  50,
+			expectedStored:          []uint64{20},
+			expectedStoredMapBlocks: []uint64{20},
 		},
 	}
 )
@@ -250,6 +266,7 @@ func TestFeeder(t *testing.T) {
 			}
 
 			require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
+			require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
 		})
 	}
 }
@@ -341,6 +358,7 @@ func TestFeederWithLogPollerVRFv1(t *testing.T) {
 				require.EqualError(t, err, test.expectedErrMsg)
 			}
 			require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
+			require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
 		})
 	}
 }
@@ -436,6 +454,7 @@ func TestFeederWithLogPollerVRFv2(t *testing.T) {
 				require.EqualError(t, err, test.expectedErrMsg)
 			}
 			require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
+			require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
 		})
 	}
 }
@@ -531,6 +550,7 @@ func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
 				require.EqualError(t, err, test.expectedErrMsg)
 			}
 			require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
+			require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
 		})
 	}
 }

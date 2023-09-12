@@ -7,8 +7,11 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_constants"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 	"math/big"
 )
@@ -27,6 +30,19 @@ var (
 	ErrSendingLinkToken       = "error sending Link token"
 	ErrCreatingVRFv2PlusJob   = "error creating VRFv2Plus job"
 	ErrParseJob               = "error parsing job definition"
+
+	ErrDeployVRFV2PlusContracts = "error deploying VRFV2Plus contracts"
+	ErrSetVRFCoordinatorConfig  = "error setting config for VRF Coordinator contract"
+	ErrCreateVRFSubscription    = "error creating VRF Subscription"
+	ErrFindSubID                = "error finding created subscription ID"
+	ErrAddConsumerToSub         = "error adding consumer to VRF Subscription"
+	ErrFundSubWithNativeToken   = "error funding subscription with native token"
+	ErrSetLinkETHLinkFeed       = "error setting Link and ETH/LINK feed for VRF Coordinator contract"
+	ErrFundSubWithLinkToken     = "error funding subscription with Link tokens"
+	ErrCreateVRFV2PlusJobs      = "error creating VRF V2 Plus Jobs"
+	ErrGetPrimaryKey            = "error getting primary ETH key address"
+	ErrRestartCLNode            = "error restarting CL node"
+	ErrWaitTXsComplete          = "error waiting for TXs to complete"
 )
 
 func DeployVRFV2PlusContracts(
@@ -47,7 +63,7 @@ func DeployVRFV2PlusContracts(
 	}
 	err = chainClient.WaitForEvents()
 	if err != nil {
-		return nil, err
+		return nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
 	return &VRFV2PlusContracts{coordinator, bhs, loadTestConsumer}, nil
 }
@@ -57,8 +73,8 @@ func CreateVRFV2PlusJobs(
 	coordinator contracts.VRFCoordinatorV2Plus,
 	c blockchain.EVMClient,
 	minIncomingConfirmations uint16,
-) ([]VRFV2PlusJobInfo, error) {
-	jobInfo := make([]VRFV2PlusJobInfo, 0)
+) ([]*VRFV2PlusJobInfo, error) {
+	jobInfo := make([]*VRFV2PlusJobInfo, 0)
 	for _, chainlinkNode := range chainlinkNodes {
 		vrfKey, err := chainlinkNode.MustCreateVRFKey()
 		if err != nil {
@@ -99,7 +115,7 @@ func CreateVRFV2PlusJobs(
 		if err != nil {
 			return nil, errors.Wrap(err, ErrCreatingProvingKeyHash)
 		}
-		ji := VRFV2PlusJobInfo{
+		ji := &VRFV2PlusJobInfo{
 			Job:               job,
 			VRFKey:            vrfKey,
 			EncodedProvingKey: provingKey,
@@ -139,4 +155,101 @@ func FundVRFCoordinatorV2PlusSubscription(linkToken contracts.LinkToken, coordin
 		return errors.Wrap(err, ErrSendingLinkToken)
 	}
 	return chainClient.WaitForEvents()
+}
+
+func SetupVRFV2PlusEnvironment(
+	env *test_env.CLClusterTestEnv,
+	linkAddress contracts.LinkToken,
+	mockETHLinkFeedAddress contracts.MockETHLINKFeed,
+) (*test_env.CLClusterTestEnv, *VRFV2PlusContracts, *big.Int, *VRFV2PlusJobInfo, error) {
+
+	vrfv2PlusContracts, err := DeployVRFV2PlusContracts(env.ContractDeployer, env.EVMClient)
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrDeployVRFV2PlusContracts)
+	}
+
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+	}
+
+	err = vrfv2PlusContracts.Coordinator.SetConfig(
+		vrfv2plus_constants.MinimumConfirmations,
+		vrfv2plus_constants.MaxGasLimitVRFCoordinatorConfig,
+		vrfv2plus_constants.StalenessSeconds,
+		vrfv2plus_constants.GasAfterPaymentCalculation,
+		vrfv2plus_constants.LinkEthFeedResponse,
+		vrfv2plus_constants.VRFCoordinatorV2PlusFeeConfig,
+	)
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrSetVRFCoordinatorConfig)
+	}
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+	}
+
+	err = vrfv2PlusContracts.Coordinator.CreateSubscription()
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrCreateVRFSubscription)
+	}
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+	}
+
+	subID, err := vrfv2PlusContracts.Coordinator.FindSubscriptionID()
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrFindSubID)
+	}
+
+	err = vrfv2PlusContracts.Coordinator.AddConsumer(subID, vrfv2PlusContracts.LoadTestConsumer.Address())
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrAddConsumerToSub)
+	}
+
+	//Native Billing
+	err = vrfv2PlusContracts.Coordinator.FundSubscriptionWithEth(subID, big.NewInt(0).Mul(vrfv2plus_constants.VRFSubscriptionFundingAmountNativeToken, big.NewInt(1e18)))
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrFundSubWithNativeToken)
+	}
+
+	//Link Billing
+	err = vrfv2PlusContracts.Coordinator.SetLINKAndLINKETHFeed(linkAddress.Address(), mockETHLinkFeedAddress.Address())
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrSetLinkETHLinkFeed)
+	}
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+	}
+	err = FundVRFCoordinatorV2PlusSubscription(linkAddress, vrfv2PlusContracts.Coordinator, env.EVMClient, subID, vrfv2plus_constants.VRFSubscriptionFundingAmountLink)
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrFundSubWithLinkToken)
+	}
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+	}
+
+	vrfV2PlusJobs, err := CreateVRFV2PlusJobs(env.GetAPIs(), vrfv2PlusContracts.Coordinator, env.EVMClient, vrfv2plus_constants.MinimumConfirmations)
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrCreateVRFV2PlusJobs)
+	}
+
+	// this part is here because VRFv2 can work with only a specific key
+	// [[EVM.KeySpecific]]
+	//	Key = '...'
+	addr, err := env.CLNodes[0].API.PrimaryEthAddress()
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrGetPrimaryKey)
+	}
+	nodeConfig := node.NewConfig(env.CLNodes[0].NodeConfig,
+		node.WithVRFv2EVMEstimator(addr),
+	)
+	err = env.CLNodes[0].Restart(nodeConfig)
+	if err != nil {
+		return nil, nil, nil, nil, errors.Wrap(err, ErrRestartCLNode)
+	}
+	return env, vrfv2PlusContracts, subID, vrfV2PlusJobs[0], nil
 }

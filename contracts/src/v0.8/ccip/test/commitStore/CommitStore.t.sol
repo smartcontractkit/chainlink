@@ -362,7 +362,7 @@ contract CommitStore_report is CommitStoreSetup {
 
   function testStaleReportWithRootSuccess() public {
     uint64 maxSeq = 12;
-    uint192 tokenStartPrice = IPriceRegistry(s_commitStore.getDynamicConfig().priceRegistry)
+    uint224 tokenStartPrice = IPriceRegistry(s_commitStore.getDynamicConfig().priceRegistry)
       .getTokenPrice(s_sourceFeeToken)
       .value;
 
@@ -413,8 +413,8 @@ contract CommitStore_report is CommitStoreSetup {
 
   function testValidPriceUpdateThenStaleReportWithRootSuccess() public {
     uint64 maxSeq = 12;
-    uint192 tokenPrice1 = 4e18;
-    uint192 tokenPrice2 = 5e18;
+    uint224 tokenPrice1 = 4e18;
+    uint224 tokenPrice2 = 5e18;
 
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
       priceUpdates: getSinglePriceUpdateStruct(s_sourceFeeToken, tokenPrice1),

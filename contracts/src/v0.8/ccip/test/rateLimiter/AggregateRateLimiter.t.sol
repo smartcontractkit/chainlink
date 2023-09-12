@@ -16,7 +16,7 @@ contract AggregateTokenLimiterSetup is BaseTest, PriceRegistrySetup {
   RateLimiter.Config s_config;
 
   address immutable TOKEN = 0x21118E64E1fB0c487F25Dd6d3601FF6af8D32E4e;
-  uint192 constant TOKEN_PRICE = 4e18;
+  uint224 constant TOKEN_PRICE = 4e18;
 
   function setUp() public virtual override(BaseTest, PriceRegistrySetup) {
     BaseTest.setUp();

@@ -75,10 +75,13 @@ func DecodeErrorStringFromABI(errorString string) (string, error) {
 				}
 
 				// If exec error, the actual error is within the revert reason
-				if errorName == "ExecutionError" || errorName == "TokenRateLimitError" {
+				if errorName == "ExecutionError" || errorName == "TokenRateLimitError" || errorName == "TokenHandlingError" {
 					// Get the inner type, which is `bytes`
 					fmt.Printf("Error is \"%v\" inner error: ", errorName)
 					errorBytes := v.([]interface{})[0].([]byte)
+					if len(errorBytes) < 4 {
+						return "[reverted without error code]", nil
+					}
 					return DecodeErrorStringFromABI(hex.EncodeToString(errorBytes))
 				}
 				return fmt.Sprintf("error is \"%v\" args %v\n", errorName, v), nil

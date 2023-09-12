@@ -81,7 +81,7 @@ func TestLoader_Nodes(t *testing.T) {
 	}
 	rcInterops := chainlinkmocks.NewRelayerChainInteroperators(t)
 	rcInterops.On("NodeStatuses", mock.Anything, 0, -1,
-		relayID2.String(), relayID1.String(), notARelayID.String()).Return([]relaytypes.NodeStatus{
+		relayID2, relayID1, notARelayID).Return([]relaytypes.NodeStatus{
 		genNodeStat(chainID2.String()), genNodeStat(chainID1.String()),
 	}, 2, nil)
 

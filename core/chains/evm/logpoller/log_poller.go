@@ -36,6 +36,7 @@ type LogPoller interface {
 	ReplayAsync(fromBlock int64)
 	RegisterFilter(filter Filter, qopts ...pg.QOpt) error
 	UnregisterFilter(name string, qopts ...pg.QOpt) error
+	HasFilter(name string) bool
 	LatestBlock(qopts ...pg.QOpt) (int64, error)
 	GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]LogPollerBlock, error)
 
@@ -257,6 +258,15 @@ func (lp *logPoller) UnregisterFilter(name string, qopts ...pg.QOpt) error {
 	delete(lp.filters, name)
 	lp.filterDirty = true
 	return nil
+}
+
+// HasFilter returns true if the log poller has an active filter with the given name.
+func (lp *logPoller) HasFilter(name string) bool {
+	lp.filterMu.RLock()
+	defer lp.filterMu.RUnlock()
+
+	_, ok := lp.filters[name]
+	return ok
 }
 
 func (lp *logPoller) Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery {

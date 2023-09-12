@@ -9,18 +9,23 @@ library Internal {
   struct PriceUpdates {
     TokenPriceUpdate[] tokenPriceUpdates;
     uint64 destChainSelector; // ──╮ Destination chain selector
-    uint192 usdPerUnitGas; // ─────╯ 1e18 USD per smallest unit (e.g. wei) of destination chain gas
+    uint224 usdPerUnitGas; // ─────╯ 1e18 USD per smallest unit (e.g. wei) of destination chain gas
   }
 
   struct TokenPriceUpdate {
     address sourceToken; // Source token
-    uint192 usdPerToken; // 1e18 USD per smallest unit of token
+    uint224 usdPerToken; // 1e18 USD per smallest unit of token
   }
 
-  struct TimestampedUint192Value {
-    uint192 value; // ───────╮ The price, in 1e18 USD.
-    uint64 timestamp; // ────╯ Timestamp of the most recent price update.
+  struct TimestampedPackedUint224 {
+    uint224 value; // ───────╮ Value in uint224, packed.
+    uint32 timestamp; // ────╯ Timestamp of the most recent price update.
   }
+
+  /// @dev Gas price is stored in 112-bit unsigned int. uint224 can pack 2 prices.
+  /// When packing L1 and L2 gas prices, L1 gas price is left-shifted to the higher-order bits.
+  /// Using uint8, which is strictly lower than 1st shift operand, to avoid shift operand type warning.
+  uint8 public constant GAS_PRICE_BITS = 112;
 
   struct PoolUpdate {
     address token; // The IERC20 token address
@@ -51,6 +56,17 @@ library Internal {
     bytes[] sourceTokenData; //               array of token pool return values, one per token
     bytes32 messageId; //                     a hash of the message data
   }
+
+  /// @dev EVM2EVMMessage struct has 13 fields, including 3 variable arrays.
+  /// Each variable array takes 1 more slot to store its length.
+  /// When abi encoded, excluding array contents,
+  /// EVM2EVMMessage takes up a fixed number of 16 lots, 32 bytes each.
+  /// For structs that contain arrays, 1 more slot is added to the front, reaching a total of 17.
+  uint256 public constant MESSAGE_FIXED_BYTES = 32 * 17;
+
+  /// @dev Each token transfer adds 1 EVMTokenAmount and 1 bytes.
+  /// When abiEncoded, each EVMTokenAmount takes 2 slots, each bytes takes 2 slots.
+  uint256 public constant MESSAGE_BYTES_PER_TOKEN = 32 * 4;
 
   function _toAny2EVMMessage(
     EVM2EVMMessage memory original,
