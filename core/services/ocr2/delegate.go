@@ -286,13 +286,13 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 		if err != nil {
 			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
 		}
-	case job.CCIPCommit:
+	case types.CCIPCommit:
 		err = ccip.UnregisterCommitPluginLpFilters(context.Background(), q, spec, d.legacyChains)
 		if err != nil {
 			d.lggr.Errorw("failed to unregister ccip commit plugin filters", "err", err, "spec", spec)
 		}
 		return nil
-	case job.CCIPExecution:
+	case types.CCIPExecution:
 		err = ccip.UnregisterExecPluginLpFilters(context.Background(), q, spec, d.legacyChains)
 		if err != nil {
 			d.lggr.Errorw("failed to unregister ccip exec plugin filters", "err", err, "spec", spec)
@@ -380,9 +380,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 	ocrLogger := relaylogger.NewOCRWrapper(lggr, d.cfg.OCR2().TraceLogging(), func(msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 	})
-	logError := func(msg string) {
-		lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
-	}
 
 	lc, err := validate.ToLocalConfig(d.cfg.OCR2(), d.cfg.Insecure(), *spec)
 	if err != nil {
@@ -436,93 +433,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 
 	case types.OCR2Keeper:
 		return d.newServicesOCR2Keepers(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
-	case job.CCIPCommit:
-		if spec.Relay != relay.EVM {
-			return nil, errors.New("Non evm chains are not supported for CCIP commit")
-		}
-		rid, err := spec.RelayID()
-		if err != nil {
-			return nil, fmt.Errorf("ccip services: %w: %w", ErrJobSpecNoRelayer, err)
-		}
-
-		chain, err := d.legacyChains.Get(rid.ChainID.String())
-		if err != nil {
-			return nil, fmt.Errorf("ccip services; failed to get chain %s: %w", rid.ChainID, err)
-		}
-		ccipProvider, err2 := evmrelay.NewCCIPCommitProvider(
-			lggr.Named("CCIPCommit"),
-			chain,
-			types.RelayArgs{
-				ExternalJobID: jb.ExternalJobID,
-				JobID:         spec.ID,
-				ContractID:    spec.ContractID,
-				RelayConfig:   spec.RelayConfig.Bytes(),
-				New:           d.isNewlyCreatedJob,
-			},
-			transmitterID,
-			d.ethKs,
-			d.eventBroadcaster,
-		)
-		if err2 != nil {
-			return nil, err2
-		}
-		oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
-			BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
-			V2Bootstrappers:              bootstrapPeers,
-			ContractTransmitter:          ccipProvider.ContractTransmitter(),
-			ContractConfigTracker:        ccipProvider.ContractConfigTracker(),
-			Database:                     ocrDB,
-			LocalConfig:                  lc,
-			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2CCIP),
-			OffchainConfigDigester:       ccipProvider.OffchainConfigDigester(),
-			OffchainKeyring:              kb,
-			OnchainKeyring:               kb,
-		}
-		return ccip.NewCommitServices(lggr, jb, d.legacyChains, d.isNewlyCreatedJob, d.pipelineRunner, oracleArgsNoPlugin, logError)
-	case job.CCIPExecution:
-		if spec.Relay != relay.EVM {
-			return nil, errors.New("Non evm chains are not supported for CCIP execution")
-		}
-		rid, err := spec.RelayID()
-		if err != nil {
-			return nil, fmt.Errorf("ccip services: %w: %w", ErrJobSpecNoRelayer, err)
-		}
-		chain, err := d.legacyChains.Get(rid.ChainID.String())
-		if err != nil {
-			return nil, fmt.Errorf("ccip services; failed to get chain %s: %w", rid.ChainID, err)
-		}
-		ccipProvider, err2 := evmrelay.NewCCIPExecutionProvider(
-			lggr.Named("CCIPExec"),
-			chain,
-			types.RelayArgs{
-				ExternalJobID: jb.ExternalJobID,
-				JobID:         spec.ID,
-				ContractID:    spec.ContractID,
-				RelayConfig:   spec.RelayConfig.Bytes(),
-				New:           d.isNewlyCreatedJob,
-			},
-			transmitterID,
-			d.ethKs,
-			d.eventBroadcaster,
-		)
-		if err2 != nil {
-			return nil, err2
-		}
-		oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
-			BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
-			V2Bootstrappers:              bootstrapPeers,
-			ContractTransmitter:          ccipProvider.ContractTransmitter(),
-			ContractConfigTracker:        ccipProvider.ContractConfigTracker(),
-			Database:                     ocrDB,
-			LocalConfig:                  lc,
-			MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2CCIP),
-			OffchainConfigDigester:       ccipProvider.OffchainConfigDigester(),
-			OffchainKeyring:              kb,
-			OnchainKeyring:               kb,
-		}
-
-		return ccip.NewExecutionServices(lggr, jb, d.legacyChains, d.isNewlyCreatedJob, oracleArgsNoPlugin, logError)
-
 	case types.Functions:
 		const (
 			_ int32 = iota
@@ -533,6 +443,10 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		s4PluginDB := NewDB(d.db, spec.ID, s4PluginId, lggr, d.cfg.Database())
 		return d.newServicesOCR2Functions(lggr, jb, runResults, bootstrapPeers, kb, ocrDB, thresholdPluginDB, s4PluginDB, lc, ocrLogger)
 
+	case types.CCIPCommit:
+		return d.newServicesCCIPCommit(lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
+	case types.CCIPExecution:
+		return d.newServicesCCIPExecution(lggr, jb, bootstrapPeers, kb, ocrDB, lc, transmitterID)
 	default:
 		return nil, errors.Errorf("plugin type %s not supported", spec.PluginType)
 	}
@@ -1403,6 +1317,103 @@ func (d *Delegate) newServicesOCR2Functions(
 	)
 
 	return append([]job.ServiceCtx{runResultSaver, functionsProvider, thresholdProvider, s4Provider}, functionsServices...), nil
+}
+
+func (d *Delegate) newServicesCCIPCommit(lggr logger.SugaredLogger, jb job.Job, bootstrapPeers []commontypes.BootstrapperLocator, kb ocr2key.KeyBundle, ocrDB *db, lc ocrtypes.LocalConfig, transmitterID string) ([]job.ServiceCtx, error) {
+	spec := jb.OCR2OracleSpec
+	if spec.Relay != relay.EVM {
+		return nil, errors.New("Non evm chains are not supported for CCIP commit")
+	}
+	rid, err := spec.RelayID()
+	if err != nil {
+		return nil, fmt.Errorf("ccip services: %w: %w", ErrJobSpecNoRelayer, err)
+	}
+
+	chain, err := d.legacyChains.Get(rid.ChainID)
+	if err != nil {
+		return nil, fmt.Errorf("ccip services; failed to get chain %s: %w", rid.ChainID, err)
+	}
+	ccipProvider, err2 := evmrelay.NewCCIPCommitProvider(
+		lggr.Named("CCIPCommit"),
+		chain,
+		types.RelayArgs{
+			ExternalJobID: jb.ExternalJobID,
+			JobID:         spec.ID,
+			ContractID:    spec.ContractID,
+			RelayConfig:   spec.RelayConfig.Bytes(),
+			New:           d.isNewlyCreatedJob,
+		},
+		transmitterID,
+		d.ethKs,
+		d.eventBroadcaster,
+	)
+	if err2 != nil {
+		return nil, err2
+	}
+	oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		V2Bootstrappers:              bootstrapPeers,
+		ContractTransmitter:          ccipProvider.ContractTransmitter(),
+		ContractConfigTracker:        ccipProvider.ContractConfigTracker(),
+		Database:                     ocrDB,
+		LocalConfig:                  lc,
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2CCIP),
+		OffchainConfigDigester:       ccipProvider.OffchainConfigDigester(),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               kb,
+	}
+	logError := func(msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
+	}
+	return ccip.NewCommitServices(lggr, jb, d.legacyChains, d.isNewlyCreatedJob, d.pipelineRunner, oracleArgsNoPlugin, logError)
+}
+
+func (d *Delegate) newServicesCCIPExecution(lggr logger.SugaredLogger, jb job.Job, bootstrapPeers []commontypes.BootstrapperLocator, kb ocr2key.KeyBundle, ocrDB *db, lc ocrtypes.LocalConfig, transmitterID string) ([]job.ServiceCtx, error) {
+	spec := jb.OCR2OracleSpec
+	if spec.Relay != relay.EVM {
+		return nil, errors.New("Non evm chains are not supported for CCIP execution")
+	}
+	rid, err := spec.RelayID()
+	if err != nil {
+		return nil, fmt.Errorf("ccip services: %w: %w", ErrJobSpecNoRelayer, err)
+	}
+	chain, err := d.legacyChains.Get(rid.ChainID)
+	if err != nil {
+		return nil, fmt.Errorf("ccip services; failed to get chain %s: %w", rid.ChainID, err)
+	}
+	ccipProvider, err2 := evmrelay.NewCCIPExecutionProvider(
+		lggr.Named("CCIPExec"),
+		chain,
+		types.RelayArgs{
+			ExternalJobID: jb.ExternalJobID,
+			JobID:         spec.ID,
+			ContractID:    spec.ContractID,
+			RelayConfig:   spec.RelayConfig.Bytes(),
+			New:           d.isNewlyCreatedJob,
+		},
+		transmitterID,
+		d.ethKs,
+		d.eventBroadcaster,
+	)
+	if err2 != nil {
+		return nil, err2
+	}
+	oracleArgsNoPlugin := libocr2.OCR2OracleArgs{
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		V2Bootstrappers:              bootstrapPeers,
+		ContractTransmitter:          ccipProvider.ContractTransmitter(),
+		ContractConfigTracker:        ccipProvider.ContractConfigTracker(),
+		Database:                     ocrDB,
+		LocalConfig:                  lc,
+		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2CCIP),
+		OffchainConfigDigester:       ccipProvider.OffchainConfigDigester(),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               kb,
+	}
+	logError := func(msg string) {
+		lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
+	}
+	return ccip.NewExecutionServices(lggr, jb, d.legacyChains, d.isNewlyCreatedJob, oracleArgsNoPlugin, logError)
 }
 
 // errorLog implements [loop.ErrorLog]

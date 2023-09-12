@@ -1572,7 +1572,7 @@ describe('KeeperRegistry2_1', () => {
           linkForGas(
             gasUsed,
             gasOverhead,
-            gasCeilingMultiplier, // Should be same with exisitng multiplier
+            gasCeilingMultiplier, // Should be same with existing multiplier
             paymentPremiumPPB,
             flatFeeMicroLink,
           ).total.toString(),
@@ -4999,7 +4999,7 @@ describe('KeeperRegistry2_1', () => {
     })
 
     itMaybe(
-      'sets the payees when exisitng payees are zero address',
+      'sets the payees when existing payees are zero address',
       async () => {
         //Initial payees should be zero address
         await blankRegistry.connect(owner).setConfig(...baseConfig) // used to test initial config

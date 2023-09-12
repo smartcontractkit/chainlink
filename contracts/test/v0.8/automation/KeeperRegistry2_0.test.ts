@@ -1065,7 +1065,7 @@ describe.skip('KeeperRegistry2_0', () => {
           linkForGas(
             gasUsed,
             gasOverhead,
-            gasCeilingMultiplier, // Should be same with exisitng multiplier
+            gasCeilingMultiplier, // Should be same with existing multiplier
             paymentPremiumPPB,
             flatFeeMicroLink,
           ).total.toString(),
@@ -4340,7 +4340,7 @@ describe.skip('KeeperRegistry2_0', () => {
       )
     })
 
-    it('sets the payees when exisitng payees are zero address', async () => {
+    it('sets the payees when existing payees are zero address', async () => {
       //Initial payees should be zero address
       for (let i = 0; i < keeperAddresses.length; i++) {
         const payee = (await registry.getTransmitterInfo(keeperAddresses[i]))

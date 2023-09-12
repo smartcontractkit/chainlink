@@ -13,6 +13,7 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
@@ -114,7 +115,7 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 		return nil
 	case types.Mercury:
 		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig, *spec.OCR2OracleSpec.FeedID)
-	case job.CCIPExecution, job.CCIPCommit:
+	case types.CCIPExecution, types.CCIPCommit:
 	case "":
 		return errors.New("no plugin specified")
 	default:

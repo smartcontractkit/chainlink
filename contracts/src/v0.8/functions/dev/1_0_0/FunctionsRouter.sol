@@ -108,6 +108,7 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     bytes32[] ids; // ══╸ The IDs that key into the routes that will be modified if the update is applied
     address[] to; // ═══╸ The address of the contracts that the route will point to if the updated is applied
   }
+
   ContractProposalSet private s_proposedContractSet;
 
   event ContractProposed(
@@ -452,8 +453,9 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
       }
       // call and report whether we succeeded
       // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
+      let gasBeforeCall := gas()
       success := call(callbackGasLimit, client, 0, add(encodedCallback, 0x20), mload(encodedCallback), 0, 0)
-      gasUsed := sub(g, gas())
+      gasUsed := sub(gasBeforeCall, gas())
 
       // limit our copy to MAX_CALLBACK_RETURN_BYTES bytes
       let toCopy := returndatasize()
