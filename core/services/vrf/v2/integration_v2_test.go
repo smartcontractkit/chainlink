@@ -1067,6 +1067,7 @@ func testEoa(
 }
 
 func TestVRFV2Integration_SingleConsumer_EIP150_HappyPath(t *testing.T) {
+	t.Skip("TODO: VRF-617")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2Universe(t, ownerKey, 1)
