@@ -1536,7 +1536,7 @@ func AssertCountStays(t testing.TB, db *sqlx.DB, tableName string, want int64) {
 	var count int64
 	var err error
 	g.Consistently(func() int64 {
-		err = db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %q`, tableName))
+		err = db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s`, tableName))
 		assert.NoError(t, err)
 		return count
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))

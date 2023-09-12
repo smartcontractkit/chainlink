@@ -626,7 +626,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	sub := pgmocks.NewSubscription(t)
 	sub.On("Events").Return(make(<-chan pg.Event))
-	eventBroadcaster.On("Subscribe", "insert_on_evm.eth_txes", "").Return(sub, nil)
+	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
 	evmConfig.bumpThreshold = uint64(1)
 
 	require.NoError(t, txm.Start(testutils.Context(t)))
@@ -695,7 +695,7 @@ func TestTxm_Reset(t *testing.T) {
 	sub := pgmocks.NewSubscription(t)
 	sub.On("Events").Return(make(<-chan pg.Event))
 	sub.On("Close")
-	eventBroadcaster.On("Subscribe", "insert_on_evm.eth_txes", "").Return(sub, nil)
+	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
 
 	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, cfg.EVM(), cfg.EVM().GasEstimator())
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), cfg.Database(), cfg.Database().Listener(), kst.Eth(), eventBroadcaster)

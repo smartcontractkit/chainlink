@@ -801,7 +801,7 @@ func (o *evmTxStore) SaveFetchedReceipts(r []*evmtypes.Receipt, chainID *big.Int
 			receipt = EXCLUDED.receipt
 		RETURNING evm.eth_receipts.tx_hash, evm.eth_receipts.block_number
 	),
-	updated_evm.eth_tx_attempts AS (
+	updated_eth_tx_attempts AS (
 		UPDATE evm.eth_tx_attempts
 		SET
 			state = 'broadcast',
@@ -812,8 +812,8 @@ func (o *evmTxStore) SaveFetchedReceipts(r []*evmtypes.Receipt, chainID *big.Int
 	)
 	UPDATE evm.eth_txes
 	SET state = 'confirmed'
-	FROM updated_evm.eth_tx_attempts
-	WHERE updated_evm.eth_tx_attempts.eth_tx_id = evm.eth_txes.id
+	FROM updated_eth_tx_attempts
+	WHERE updated_eth_tx_attempts.eth_tx_id = evm.eth_txes.id
 	AND evm_chain_id = ?
 	`
 
@@ -1388,12 +1388,10 @@ func (o *evmTxStore) UpdateTxUnstartedToInProgress(etx *Tx, attempt *TxAttempt, 
 		err = tx.Get(&dbAttempt, query, args...)
 		if err != nil {
 			var pqErr *pgconn.PgError
-			if isPqErr := errors.As(err, &pqErr); isPqErr {
-				switch pqErr.ConstraintName {
-				case "evm.eth_tx_attempts_eth_tx_id_fkey":
-					return txmgr.ErrTxRemoved
-				default:
-				}
+			if isPqErr := errors.As(err, &pqErr); isPqErr &&
+				pqErr.SchemaName == "evm" &&
+				pqErr.ConstraintName == "eth_tx_attempts_eth_tx_id_fkey" {
+				return txmgr.ErrTxRemoved
 			}
 			if err != nil {
 				return pkgerrors.Wrap(err, "UpdateTxUnstartedToInProgress failed to create eth_tx_attempt")
@@ -1522,7 +1520,7 @@ INSERT INTO evm.eth_txes (from_address, to_address, encoded_payload, value, gas_
 VALUES (
 $1,$2,$3,$4,$5,'unstarted',NOW(),$6,$7,$8,$9,$10,$11,$12
 )
-RETURNING "evm.eth_txes".*
+RETURNING "eth_txes".*
 `, txRequest.FromAddress, txRequest.ToAddress, txRequest.EncodedPayload, assets.Eth(txRequest.Value), txRequest.FeeLimit, txRequest.Meta, txRequest.Strategy.Subject(), chainID.String(), txRequest.MinConfirmations, txRequest.PipelineTaskRunID, txRequest.Checker, txRequest.IdempotencyKey)
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to insert eth_tx")
