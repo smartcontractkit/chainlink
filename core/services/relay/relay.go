@@ -174,7 +174,7 @@ func (r *relayerServerAdapter) NewPluginProvider(ctx context.Context, rargs type
 		return r.NewFunctionsProvider(ctx, rargs, pargs)
 	case types.Mercury:
 		return r.NewMercuryProvider(ctx, rargs, pargs)
-	case types.DKG, types.OCR2VRF, types.OCR2Keeper, types.GenericPlugin:
+	case types.DKG, types.OCR2VRF, types.OCR2Keeper, types.GenericPlugin, types.CCIPCommit, types.CCIPExecution:
 		return r.relayerAdapter.NewPluginProvider(ctx, rargs, pargs)
 	}
 
