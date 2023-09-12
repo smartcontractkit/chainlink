@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"net/url"
-	"sync"
 	"time"
 
 	"go.uber.org/multierr"
@@ -17,8 +16,6 @@ import (
 	gotoml "github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-
-	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -57,13 +54,6 @@ type Chain interface {
 	BalanceMonitor() monitor.BalanceMonitor
 	LogPoller() logpoller.LogPoller
 	GasEstimator() gas.EvmFeeEstimator
-
-	// TODO remove after BCF-2441
-	// This funcs are implemented now in preparation the interface change, which is expected
-	// to absorb these definitions into [types.ChainService]
-	GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error)
-	ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []relaytypes.NodeStatus, nextPageToken string, total int, err error)
-	Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error
 }
 
 var (
@@ -77,7 +67,7 @@ type LegacyChains struct {
 	*chains.ChainsKV[Chain]
 	dflt Chain
 
-	cfgs evmtypes.Configs
+	cfgs toml.EVMConfigs
 }
 
 // LegacyChainContainer is container for EVM chains.
@@ -91,6 +81,9 @@ type LegacyChainContainer interface {
 	List(ids ...string) ([]Chain, error)
 	Slice() []Chain
 
+	// BCF-2516: this is only used for EVMORM. When we delete that
+	// we can promote/move the needed funcs from it to LegacyChainContainer
+	// so instead of EVMORM().XYZ() we'd have something like legacyChains.XYZ()
 	ChainNodeConfigs() evmtypes.Configs
 }
 
@@ -99,7 +92,7 @@ var _ LegacyChainContainer = &LegacyChains{}
 func NewLegacyChains(m map[string]Chain, evmCfgs toml.EVMConfigs) *LegacyChains {
 	return &LegacyChains{
 		ChainsKV: chains.NewChainsKV[Chain](m),
-		cfgs:     chains.NewConfigs[utils.Big, evmtypes.Node](evmCfgs),
+		cfgs:     evmCfgs,
 	}
 }
 
@@ -180,9 +173,6 @@ type RelayerConfig struct {
 	MailMon          *utils.MailboxMonitor
 	GasEstimator     gas.EvmFeeEstimator
 
-	init               sync.Once
-	operationalConfigs evmtypes.Configs
-
 	// TODO BCF-2513 remove test code from the API
 	// Gen-functions are useful for dependency injection by tests
 	GenEthClient      func(*big.Int) client.Client
@@ -193,14 +183,6 @@ type RelayerConfig struct {
 	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
 }
 
-func (r *RelayerConfig) EVMConfigs() evmtypes.Configs {
-	if r.operationalConfigs == nil {
-		r.init.Do(func() {
-			r.operationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](r.AppConfig.EVMConfigs())
-		})
-	}
-	return r.operationalConfigs
-}
 func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExtenderConfig) (Chain, error) {
 	chainID := chain.ChainID
 	l := opts.Logger.With("evmChainID", chainID.String())
@@ -499,10 +481,6 @@ func (opts *ChainRelayExtenderConfig) Check() error {
 	if opts.AppConfig == nil {
 		return errors.New("config must be non-nil")
 	}
-
-	opts.init.Do(func() {
-		opts.operationalConfigs = chains.NewConfigs[utils.Big, evmtypes.Node](opts.AppConfig.EVMConfigs())
-	})
 
 	return nil
 }

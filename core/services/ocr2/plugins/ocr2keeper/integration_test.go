@@ -114,7 +114,7 @@ func setupNode(
 	p2pKey, err := p2pkey.NewV2()
 	require.NoError(t, err)
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
-	config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
+	cfg, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("%s%d", dbName, port), func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Feature.LogPoller = ptr(true)
 
 		c.OCR.Enabled = ptr(false)
@@ -135,14 +135,15 @@ func setupNode(
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
 		s.Mercury.Credentials = map[string]toml.MercuryCredentials{
 			MercuryCredName: {
-				URL:      models.MustSecretURL("https://mercury.chain.link"),
-				Username: models.NewSecret("username1"),
-				Password: models.NewSecret("password1"),
+				LegacyURL: models.MustSecretURL("https://old.api.link"),
+				URL:       models.MustSecretURL("https://new.api.link"),
+				Username:  models.NewSecret("username1"),
+				Password:  models.NewSecret("password1"),
 			},
 		}
 	})
 
-	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, backend, nodeKey, p2pKey)
+	app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, cfg, backend, nodeKey, p2pKey)
 	kb, err := app.GetKeyStore().OCR2().Create(chaintype.EVM)
 	require.NoError(t, err)
 
@@ -164,16 +165,16 @@ type Node struct {
 
 func (node *Node) AddJob(t *testing.T, spec string) {
 	c := node.App.GetConfig()
-	job, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
+	jb, err := validate.ValidatedOracleSpecToml(c.OCR2(), c.Insecure(), spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(context.Background(), &job)
+	err = node.App.AddJobV2(context.Background(), &jb)
 	require.NoError(t, err)
 }
 
 func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
-	job, err := ocrbootstrap.ValidatedBootstrapSpecToml(spec)
+	jb, err := ocrbootstrap.ValidatedBootstrapSpecToml(spec)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(context.Background(), &job)
+	err = node.App.AddJobV2(context.Background(), &jb)
 	require.NoError(t, err)
 }
 
