@@ -191,6 +191,7 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	if err != nil {
 		return errors.Wrap(err, "unexpected error during functions_allow_list.NewTermsOfServiceAllowList")
 	}
+	a.lggr.Debugw("allowlist route ID", tosID, "allowlist contract address", tosAddress)
 	addrList, err := tosContract.GetAllAllowedSenders(&bind.CallOpts{
 		Pending:     false,
 		BlockNumber: blockNum,
