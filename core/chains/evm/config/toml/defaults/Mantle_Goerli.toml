@@ -1,0 +1,23 @@
+ChainID = '5001'
+
+FinalityDepth = 1
+LogPollInterval = '2s'
+MinIncomingConfirmations = 1
+# Blocks are only emitted when a transaction happens / no empty blocks
+NoNewHeadsThreshold = '0'
+
+[OCR]
+ContractConfirmations = 1
+
+[GasEstimator]
+Mode = 'L2Suggested'
+# Minimum gas price is lower than default (1gwei)
+PriceMin = '0.05 gwei'
+PriceMax = '200 gwei'
+BumpThreshold = 0
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 0
+
+[HeadTracker]
+HistoryDepth = 50
