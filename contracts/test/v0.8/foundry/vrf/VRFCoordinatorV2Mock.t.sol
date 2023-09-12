@@ -120,8 +120,8 @@ contract VRFCoordinatorV2MockTest is BaseTest {
   // cannot add a consumer to a nonexistent subscription
   function testAddConsumerToInvalidSub() public {
     vm.startPrank(s_subOwner);
-    bytes4 reason32 = bytes4(keccak256("InvalidSubscription()"));
-    vm.expectRevert(toBytes(reason32));
+    bytes4 reason = bytes4(keccak256("InvalidSubscription()"));
+    vm.expectRevert(toBytes(reason));
     s_vrfCoordinatorV2Mock.addConsumer(1, address(s_vrfConsumerV2));
     vm.stopPrank();
   }
@@ -135,8 +135,8 @@ contract VRFCoordinatorV2MockTest is BaseTest {
       s_vrfCoordinatorV2Mock.addConsumer(subId, address(bytes20(keccak256(abi.encodePacked(i)))));
     }
     // Adding 101th consumer should revert
-    bytes4 reason32 = bytes4(keccak256("TooManyConsumers()"));
-    vm.expectRevert(toBytes(reason32));
+    bytes4 reason = bytes4(keccak256("TooManyConsumers()"));
+    vm.expectRevert(toBytes(reason));
     s_vrfCoordinatorV2Mock.addConsumer(subId, address(s_vrfConsumerV2));
     vm.stopPrank();
   }
@@ -162,8 +162,8 @@ contract VRFCoordinatorV2MockTest is BaseTest {
   // cannot remove a consumer from a nonexistent subscription
   function testRemoveConsumerFromInvalidSub() public {
     vm.startPrank(s_subOwner);
-    bytes4 reason32 = bytes4(keccak256("InvalidSubscription()"));
-    vm.expectRevert(toBytes(reason32));
+    bytes4 reason = bytes4(keccak256("InvalidSubscription()"));
+    vm.expectRevert(toBytes(reason));
     s_vrfCoordinatorV2Mock.removeConsumer(1, address(s_vrfConsumerV2));
     vm.stopPrank();
   }
@@ -184,8 +184,8 @@ contract VRFCoordinatorV2MockTest is BaseTest {
     s_vrfCoordinatorV2Mock.removeConsumer(subId, address(s_vrfConsumerV2));
 
     // Removing consumer again should revert with InvalidConsumer
-    bytes4 reason32 = bytes4(keccak256("InvalidConsumer()"));
-    vm.expectRevert(toBytes(reason32));
+    bytes4 reason = bytes4(keccak256("InvalidConsumer()"));
+    vm.expectRevert(toBytes(reason));
     s_vrfCoordinatorV2Mock.removeConsumer(subId, address(s_vrfConsumerV2));
     vm.stopPrank();
   }
@@ -210,8 +210,8 @@ contract VRFCoordinatorV2MockTest is BaseTest {
     vm.startPrank(s_subOwner);
 
     // Removing consumer again should revert with InvalidConsumer
-    bytes4 reason32 = bytes4(keccak256("InvalidSubscription()"));
-    vm.expectRevert(toBytes(reason32));
+    bytes4 reason = bytes4(keccak256("InvalidSubscription()"));
+    vm.expectRevert(toBytes(reason));
     s_vrfCoordinatorV2Mock.removeConsumer(1, address(s_vrfConsumerV2));
 
     vm.stopPrank();
@@ -228,8 +228,8 @@ contract VRFCoordinatorV2MockTest is BaseTest {
     emit SubscriptionCanceled(subId, s_subOwner, oneLink);
     s_vrfCoordinatorV2Mock.cancelSubscription(subId, s_subOwner);
 
-    bytes4 reason32 = bytes4(keccak256("InvalidSubscription()"));
-    vm.expectRevert(toBytes(reason32));
+    bytes4 reason = bytes4(keccak256("InvalidSubscription()"));
+    vm.expectRevert(toBytes(reason));
     s_vrfCoordinatorV2Mock.getSubscription(subId);
 
     vm.stopPrank();
@@ -242,8 +242,8 @@ contract VRFCoordinatorV2MockTest is BaseTest {
 
     s_vrfCoordinatorV2Mock.fundSubscription(subId, oneLink);
 
-    bytes4 reason32 = bytes4(keccak256("InvalidConsumer()"));
-    vm.expectRevert(toBytes(reason32));
+    bytes4 reason = bytes4(keccak256("InvalidConsumer()"));
+    vm.expectRevert(toBytes(reason));
     s_vrfCoordinatorV2Mock.requestRandomWords(
       KEY_HASH,
       subId,
@@ -285,8 +285,8 @@ contract VRFCoordinatorV2MockTest is BaseTest {
       DEFAULT_NUM_WORDS
     );
 
-    bytes4 reason32 = bytes4(keccak256("InsufficientBalance()"));
-    vm.expectRevert(toBytes(reason32));
+    bytes4 reason = bytes4(keccak256("InsufficientBalance()"));
+    vm.expectRevert(toBytes(reason));
     s_vrfCoordinatorV2Mock.fulfillRandomWords(reqId, consumerAddr);
 
     vm.stopPrank();
@@ -357,14 +357,14 @@ contract VRFCoordinatorV2MockTest is BaseTest {
       2
     );
 
-    bytes4 reason32 = bytes4(keccak256("InvalidRandomWords()"));
+    bytes4 reason = bytes4(keccak256("InvalidRandomWords()"));
+    vm.expectRevert(toBytes(reason));
     uint256[] memory words1 = new uint256[](5);
     words1[0] = 1;
     words1[1] = 2;
     words1[2] = 3;
     words1[3] = 4;
     words1[4] = 5;
-    vm.expectRevert(toBytes(reason32));
     s_vrfCoordinatorV2Mock.fulfillRandomWordsWithOverride(reqId, consumerAddr, uint256[](words1));
 
     vm.expectEmit(true, false, false, true);
