@@ -384,10 +384,22 @@ func (rp *reportingPlugin) buildReportFields(previousReport ocrtypes.Report, pao
 	merr = errors.Join(merr, pkgerrors.Wrap(err, "GetConsensusAsk failed"))
 
 	rf.LinkFee, err = mercury.GetConsensusLinkFee(convertLinkFee(paos), rp.f)
-	merr = errors.Join(merr, pkgerrors.Wrap(err, "GetConsensusLinkFee failed"))
+	if err != nil {
+		// It is better to generate a report that will validate for free,
+		// rather than no report at all, if we cannot come to consensus on a
+		// valid fee.
+		rp.logger.Errorw("Cannot come to consensus on LINK fee, falling back to 0", "err", err, "paos", paos)
+		rf.LinkFee = big.NewInt(0)
+	}
 
 	rf.NativeFee, err = mercury.GetConsensusNativeFee(convertNativeFee(paos), rp.f)
-	merr = errors.Join(merr, pkgerrors.Wrap(err, "GetConsensusNativeFee failed"))
+	if err != nil {
+		// It is better to generate a report that will validate for free,
+		// rather than no report at all, if we cannot come to consensus on a
+		// valid fee.
+		rp.logger.Errorw("Cannot come to consensus on Native fee, falling back to 0", "err", err, "paos", paos)
+		rf.NativeFee = big.NewInt(0)
+	}
 
 	if int64(rf.Timestamp)+int64(rp.offchainConfig.ExpirationWindow) > math.MaxUint32 {
 		merr = errors.Join(merr, fmt.Errorf("timestamp %d + expiration window %d overflows uint32", rf.Timestamp, rp.offchainConfig.ExpirationWindow))

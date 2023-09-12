@@ -354,6 +354,27 @@ func Test_Plugin_Report(t *testing.T) {
 			assert.False(t, should)
 			assert.NoError(t, err)
 		})
+		t.Run("uses 0 values for link/native if they are invalid", func(t *testing.T) {
+			codec.observationTimestamp = 42
+			codec.err = nil
+
+			protos := newValidProtos()
+			for i := range protos {
+				protos[i].LinkFeeValid = false
+				protos[i].NativeFeeValid = false
+			}
+			aos := newValidAos(t, protos...)
+
+			should, report, err := rp.Report(ocrtypes.ReportTimestamp{}, previousReport, aos)
+			assert.True(t, should)
+			assert.NoError(t, err)
+
+			assert.True(t, should)
+			assert.Equal(t, codec.builtReport, report)
+			require.NotNil(t, codec.builtReportFields)
+			assert.Equal(t, "0", codec.builtReportFields.LinkFee.String())
+			assert.Equal(t, "0", codec.builtReportFields.NativeFee.String())
+		})
 	})
 
 	t.Run("buildReport failures", func(t *testing.T) {

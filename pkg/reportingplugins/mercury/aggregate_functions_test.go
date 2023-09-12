@@ -321,6 +321,23 @@ func Test_AggregateFunctions(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, big.NewInt(3), linkFee)
 		})
+		t.Run("treats zero values as valid", func(t *testing.T) {
+			paos := NewValidParsedAttributedObservations()
+			for i := range paos {
+				paos[i].LinkFee = big.NewInt(0)
+			}
+			linkFee, err := GetConsensusLinkFee(convertLinkFee(paos), f)
+			require.NoError(t, err)
+			assert.Equal(t, big.NewInt(0), linkFee)
+		})
+		t.Run("treats negative values as invalid", func(t *testing.T) {
+			paos := NewValidParsedAttributedObservations()
+			for i := range paos {
+				paos[i].LinkFee = big.NewInt(int64(0 - i))
+			}
+			_, err := GetConsensusLinkFee(convertLinkFee(paos), f)
+			assert.EqualError(t, err, "fewer than f+1 observations have a valid linkFee (got: 1/4)")
+		})
 
 		t.Run("fails when fewer than f+1 linkFees are valid", func(t *testing.T) {
 			invalidMPaos := convertLinkFee(invalidPaos)
@@ -336,7 +353,23 @@ func Test_AggregateFunctions(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, big.NewInt(3), nativeFee)
 		})
-
+		t.Run("treats zero values as valid", func(t *testing.T) {
+			paos := NewValidParsedAttributedObservations()
+			for i := range paos {
+				paos[i].NativeFee = big.NewInt(0)
+			}
+			nativeFee, err := GetConsensusNativeFee(convertNativeFee(paos), f)
+			require.NoError(t, err)
+			assert.Equal(t, big.NewInt(0), nativeFee)
+		})
+		t.Run("treats negative values as invalid", func(t *testing.T) {
+			paos := NewValidParsedAttributedObservations()
+			for i := range paos {
+				paos[i].NativeFee = big.NewInt(int64(0 - i))
+			}
+			_, err := GetConsensusNativeFee(convertNativeFee(paos), f)
+			assert.EqualError(t, err, "fewer than f+1 observations have a valid nativeFee (got: 1/4)")
+		})
 		t.Run("fails when fewer than f+1 nativeFees are valid", func(t *testing.T) {
 			invalidMPaos := convertNativeFee(invalidPaos)
 			_, err := GetConsensusNativeFee(invalidMPaos, f)

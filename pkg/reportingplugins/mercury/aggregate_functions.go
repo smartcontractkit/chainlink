@@ -6,6 +6,8 @@ import (
 	"sort"
 )
 
+var Zero = big.NewInt(0)
+
 // NOTE: All aggregate functions assume at least one element in the passed slice
 // The passed slice might be mutated (sorted)
 
@@ -128,7 +130,7 @@ func GetConsensusLinkFee(paos []PAOLinkFee, f int) (*big.Int, error) {
 	var validLinkFees []*big.Int
 	for _, pao := range paos {
 		fee, valid := pao.GetLinkFee()
-		if valid {
+		if valid && fee.Sign() >= 0 {
 			validLinkFees = append(validLinkFees, fee)
 		}
 	}
@@ -151,7 +153,7 @@ func GetConsensusNativeFee(paos []PAONativeFee, f int) (*big.Int, error) {
 	var validNativeFees []*big.Int
 	for _, pao := range paos {
 		fee, valid := pao.GetNativeFee()
-		if valid {
+		if valid && fee.Sign() >= 0 {
 			validNativeFees = append(validNativeFees, fee)
 		}
 	}
