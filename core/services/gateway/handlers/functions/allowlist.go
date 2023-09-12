@@ -177,6 +177,9 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	if err != nil {
 		return errors.Wrap(err, "unexpected error during functions_router.GetAllowListId")
 	}
+	if tosID == [32]byte{} {
+		return errors.New("allowlist route ID has not been set")
+	}
 	tosAddress, err := a.contractV1.GetContractById(&bind.CallOpts{
 		Pending: false,
 		Context: ctx,
