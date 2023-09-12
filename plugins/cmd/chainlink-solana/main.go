@@ -63,13 +63,9 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, keystore 
 		return nil, fmt.Errorf("failed to decode config toml: %w:\n\t%s", err, config)
 	}
 
-	// TODO BCF-2605 clean this up when the internal details of Solana Chain construction
-	// doesn't need `Configs`
-	cfgAdapter := solana.SolanaConfigs{&cfg.Solana}
 	opts := solana.ChainOpts{
 		Logger:   c.Logger,
 		KeyStore: keystore,
-		Configs:  solana.NewConfigs(cfgAdapter),
 	}
 	chain, err := solana.NewChain(&cfg.Solana, opts)
 	if err != nil {
