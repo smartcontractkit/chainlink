@@ -789,6 +789,7 @@ observationSource = """
 type FluxMonitorJobSpec struct {
 	Name              string        `toml:"name"`
 	ContractAddress   string        `toml:"contractAddress"`   // Address of the Flux Monitor script
+	EVMChainID        string        `toml:"evmChainID"`        // Not optional
 	Precision         int           `toml:"precision"`         // Optional
 	Threshold         float32       `toml:"threshold"`         // Optional
 	AbsoluteThreshold float32       `toml:"absoluteThreshold"` // Optional
@@ -809,6 +810,7 @@ func (f *FluxMonitorJobSpec) String() (string, error) {
 schemaVersion     = 1
 name              = "{{.Name}}"
 contractAddress   = "{{.ContractAddress}}"
+evmChainID		  = "{{.EVMChainID}}"
 precision         ={{if not .Precision}} 0 {{else}} {{.Precision}} {{end}}
 threshold         ={{if not .Threshold}} 0.5 {{else}} {{.Threshold}} {{end}}
 absoluteThreshold ={{if not .AbsoluteThreshold}} 0.1 {{else}} {{.AbsoluteThreshold}} {{end}}
@@ -832,6 +834,7 @@ type KeeperJobSpec struct {
 	Name                     string `toml:"name"`
 	ContractAddress          string `toml:"contractAddress"`
 	FromAddress              string `toml:"fromAddress"` // Hex representation of the from address
+	EVMChainID               string `toml:"evmChainID"`  // Not optional
 	MinIncomingConfirmations int    `toml:"minIncomingConfirmations"`
 }
 
@@ -846,6 +849,7 @@ schemaVersion            = 1
 name                     = "{{.Name}}"
 contractAddress          = "{{.ContractAddress}}"
 fromAddress              = "{{.FromAddress}}"
+evmChainID		 		 = "{{.EVMChainID}}"
 minIncomingConfirmations = {{.MinIncomingConfirmations}}
 `
 	return MarshallTemplate(k, "Keeper Job", keeperTemplateString)
