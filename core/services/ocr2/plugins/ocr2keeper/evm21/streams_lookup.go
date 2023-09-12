@@ -108,6 +108,10 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 			// user contract did not revert with StreamsLookup error
 			continue
 		}
+		if r.mercury.cred == nil {
+			lggr.Errorf("at block %d upkeep %s tries to access mercury server but mercury credential is not configured", block, upkeepId)
+			continue
+		}
 
 		if len(l.feeds) == 0 {
 			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
@@ -328,7 +332,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 		sl.feedParamKey: {sl.feeds[index]},
 		sl.timeParamKey: {sl.time.String()},
 	}
-	mercuryURL := r.mercury.cred.URL
+	mercuryURL := r.mercury.cred.LegacyURL
 	reqUrl := fmt.Sprintf("%s%s%s", mercuryURL, mercuryPathV02, q.Encode())
 	lggr.Debugf("request URL for upkeep %s feed %s: %s", sl.upkeepId.String(), sl.feeds[index], reqUrl)
 
@@ -383,6 +387,8 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 				state = encoding.InvalidMercuryRequest
 				return fmt.Errorf("at block %s upkeep %s received status code %d for feed %s", sl.time.String(), sl.upkeepId.String(), resp.StatusCode, sl.feeds[index])
 			}
+
+			lggr.Debugf("at block %s upkeep %s received status code %d from mercury v0.2 with BODY=%s", sl.time.String(), sl.upkeepId.String(), resp.StatusCode, hexutil.Encode(body))
 
 			var m MercuryV02Response
 			err1 = json.Unmarshal(body, &m)
@@ -506,6 +512,8 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				state = encoding.InvalidMercuryRequest
 				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3", sl.time.String(), sl.upkeepId.String(), resp.StatusCode)
 			}
+
+			lggr.Debugf("at block %s upkeep %s received status code %d from mercury v0.3 with BODY=%s", sl.time.String(), sl.upkeepId.String(), resp.StatusCode, hexutil.Encode(body))
 
 			var response MercuryV03Response
 			err1 = json.Unmarshal(body, &response)
