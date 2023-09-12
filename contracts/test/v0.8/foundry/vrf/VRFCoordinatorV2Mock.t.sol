@@ -64,8 +64,17 @@ contract VRFCoordinatorV2MockTest is BaseTest {
       true // check data (target coordinator address)
     );
     emit SubscriptionCreated(2, address(OWNER));
-    uint256 subId = s_vrfCoordinatorV2Mock.createSubscription();
+    uint64 subId = s_vrfCoordinatorV2Mock.createSubscription();
     assertEq(subId, 2);
+
+    (uint96 balance,
+     uint64 reqCount,
+     address owner,
+     address[] memory consumers) = s_vrfCoordinatorV2Mock.getSubscription(subId);
+    assertEq(balance, 0);
+    assertEq(reqCount, 0);
+    assertEq(owner, address(OWNER));
+    assertEq(consumers.length, 0);
     // s_testCoordinator.fundSubscriptionWithEth{value: 10 ether}(subId);
   }
 }
