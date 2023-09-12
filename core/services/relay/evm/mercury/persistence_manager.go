@@ -99,7 +99,7 @@ func (pm *PersistenceManager) runFlushDeletesLoop() {
 				pm.lggr.Errorw("Failed to delete queued transmit requests", "err", err)
 				pm.addToDeleteQueue(queuedReqs...)
 			} else {
-				pm.lggr.Trace("Deleted queued transmit requests")
+				pm.lggr.Debugw("Deleted queued transmit requests")
 			}
 		}
 	}
@@ -121,7 +121,7 @@ func (pm *PersistenceManager) runPruneLoop() {
 			if err := pm.orm.PruneTransmitRequests(pm.maxTransmitQueueSize, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout()); err != nil {
 				pm.lggr.Errorw("Failed to prune transmit requests table", "err", err)
 			} else {
-				pm.lggr.Trace("Pruned transmit requests table")
+				pm.lggr.Debugw("Pruned transmit requests table")
 			}
 		}
 	}
