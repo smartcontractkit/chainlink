@@ -62,9 +62,10 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		chLog:        make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
 			cred: &models.MercuryCredentials{
-				URL:      "https://google.com",
-				Username: "FakeClientID",
-				Password: "FakeClientKey",
+				LegacyURL: "https://google.old.com",
+				URL:       "https://google.com",
+				Username:  "FakeClientID",
+				Password:  "FakeClientKey",
 			},
 			abi:            streamsLookupCompatibleABI,
 			allowListCache: cache.New(defaultAllowListExpiration, allowListCleanupInterval),

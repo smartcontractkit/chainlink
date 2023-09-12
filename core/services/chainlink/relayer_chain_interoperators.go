@@ -116,7 +116,7 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 			// adapter is a service
 			op.srvs = append(op.srvs, a)
 			op.loopRelayers[id] = a
-			legacyMap[id.ChainID.String()] = a.Chain()
+			legacyMap[id.ChainID] = a.Chain()
 			if a.Default() {
 				defaultChain = a.Chain()
 			}
@@ -143,7 +143,7 @@ func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactor
 		for id, a := range adapters {
 			op.srvs = append(op.srvs, a)
 			op.loopRelayers[id] = a
-			legacyMap[id.ChainID.String()] = a.Chain()
+			legacyMap[id.ChainID] = a.Chain()
 		}
 		op.legacyChains.CosmosChains = cosmos.NewLegacyChains(legacyMap)
 
@@ -276,7 +276,6 @@ func (rs *CoreRelayerChainInteroperators) Node(ctx context.Context, name string)
 
 // ids must be a string representation of relay.Identifier
 // ids are a filter; if none are specified, all are returned.
-// TODO: BCF-2440/1 this signature can be changed to id relay.Identifier which is a much better API
 func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, relayerIDs ...relay.ID) (nodes []types.NodeStatus, count int, err error) {
 	var (
 		totalErr error

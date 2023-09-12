@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -62,7 +63,12 @@ func (e Envelope) ToJson() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	payload, err := json.Marshal(e.Payload)
+	nonNilPayload := e.Payload
+	if nonNilPayload == nil {
+		// prevent unwanted "null" values in JSON representation
+		nonNilPayload = []byte{}
+	}
+	payload, err := json.Marshal(nonNilPayload)
 	if err != nil {
 		return nil, err
 	}
