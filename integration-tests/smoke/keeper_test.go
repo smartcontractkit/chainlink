@@ -75,7 +75,6 @@ var (
 
 func TestKeeperBasicSmoke(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
 	registryVersions := []ethereum.KeeperRegistryVersion{
 		ethereum.RegistryVersion_1_1,
 		ethereum.RegistryVersion_1_2,
@@ -86,6 +85,7 @@ func TestKeeperBasicSmoke(t *testing.T) {
 		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
+			l := utils.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
@@ -151,7 +151,6 @@ func TestKeeperBasicSmoke(t *testing.T) {
 
 func TestKeeperBlockCountPerTurn(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
 	registryVersions := []ethereum.KeeperRegistryVersion{
 		ethereum.RegistryVersion_1_1,
 		ethereum.RegistryVersion_1_2,
@@ -162,6 +161,7 @@ func TestKeeperBlockCountPerTurn(t *testing.T) {
 		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
+			l := utils.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
@@ -328,7 +328,6 @@ func TestKeeperSimulation(t *testing.T) {
 
 func TestKeeperCheckPerformGasLimit(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
 	registryVersions := []ethereum.KeeperRegistryVersion{
 		ethereum.RegistryVersion_1_2,
 		ethereum.RegistryVersion_1_3,
@@ -338,6 +337,7 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
+			l := utils.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
 				t,
@@ -440,7 +440,6 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 
 func TestKeeperRegisterUpkeep(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
 	registryVersions := []ethereum.KeeperRegistryVersion{
 		ethereum.RegistryVersion_1_1,
 		ethereum.RegistryVersion_1_2,
@@ -451,6 +450,7 @@ func TestKeeperRegisterUpkeep(t *testing.T) {
 		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
+			l := utils.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, registrar, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
@@ -591,7 +591,6 @@ func TestKeeperAddFunds(t *testing.T) {
 
 func TestKeeperRemove(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
 	registryVersions := []ethereum.KeeperRegistryVersion{
 		ethereum.RegistryVersion_1_1,
 		ethereum.RegistryVersion_1_2,
@@ -602,6 +601,7 @@ func TestKeeperRemove(t *testing.T) {
 		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
+			l := utils.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
@@ -820,7 +820,6 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 
 func TestKeeperNodeDown(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
 	registryVersions := []ethereum.KeeperRegistryVersion{
 		ethereum.RegistryVersion_1_1,
 		ethereum.RegistryVersion_1_2,
@@ -831,6 +830,7 @@ func TestKeeperNodeDown(t *testing.T) {
 		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
 			t.Parallel()
+			l := utils.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
