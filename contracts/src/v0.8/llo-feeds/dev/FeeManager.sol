@@ -169,8 +169,8 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifierFeeManager
-  function processFee(bytes calldata payload, address subscriber) external payable override onlyProxy {
-    (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(payload, subscriber);
+  function processFee(bytes calldata payload, bytes calldata quotePayload, address subscriber) external payable override onlyProxy {
+    (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(payload, quotePayload, subscriber);
 
     if (fee.amount == 0) {
       _tryReturnChange(subscriber, msg.value);
@@ -188,17 +188,22 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifierFeeManager
-  function processFeeBulk(bytes[] calldata payloads, address subscriber) external payable override onlyProxy {
+  function processFeeBulk(bytes[] calldata payloads, bytes[] calldata quotePayloads, address subscriber) external payable override onlyProxy {
     FeeAndReward[] memory feesAndRewards = new IFeeManager.FeeAndReward[](payloads.length);
 
     //keep track of the number of fees to prevent over initialising the FeePayment array within _convertToLinkAndNativeFees
     uint256 numberOfLinkFees;
     uint256 numberOfNativeFees;
 
+    bool separateQuotePayloads = quotePayloads.length > 1;
+
     uint256 feesAndRewardsIndex;
     for (uint256 i; i < payloads.length; ++i) {
+      bytes calldata quotePayload = separateQuotePayloads ? quotePayloads[i] : quotePayloads[0];
+
       (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(
         payloads[i],
+        quotePayload,
         subscriber
       );
 
@@ -232,7 +237,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   function getFeeAndReward(
     address subscriber,
     bytes memory report,
-    Quote memory quote
+    address quoteAddress
   ) public view returns (Common.Asset memory, Common.Asset memory, uint256) {
     Common.Asset memory fee;
     Common.Asset memory reward;
@@ -251,7 +256,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     }
 
     //verify the quote payload is a supported token
-    if (quote.quoteAddress != i_nativeAddress && quote.quoteAddress != i_linkAddress) {
+    if (quoteAddress != i_nativeAddress && quoteAddress != i_linkAddress) {
       revert InvalidQuote();
     }
 
@@ -270,14 +275,14 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     }
 
     //get the discount being applied
-    uint256 discount = s_subscriberDiscounts[subscriber][feedId][quote.quoteAddress];
+    uint256 discount = s_subscriberDiscounts[subscriber][feedId][quoteAddress];
 
     //the reward is always set in LINK
     reward.assetAddress = i_linkAddress;
     reward.amount = Math.ceilDiv(linkQuantity * (PERCENTAGE_SCALAR - discount), PERCENTAGE_SCALAR);
 
     //calculate either the LINK fee or native fee if it's within the report
-    if (quote.quoteAddress == i_linkAddress) {
+    if (quoteAddress == i_linkAddress) {
       fee.assetAddress = i_linkAddress;
       fee.amount = reward.amount;
     } else {
@@ -358,6 +363,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
   function _processFee(
     bytes calldata payload,
+    bytes calldata quotePayload,
     address subscriber
   ) internal view returns (Common.Asset memory, Common.Asset memory, uint256) {
     if (subscriber == address(this)) revert InvalidAddress();
@@ -369,17 +375,10 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     bytes32 feedId = bytes32(report);
 
     //v1 doesn't need a quote payload, so skip the decoding
-    Quote memory quote;
+    address quote;
     if (_getReportVersion(feedId) != REPORT_V1) {
-      //all reports greater than v1 should have a quote payload
-      (, , , , , bytes memory quoteBytes) = abi.decode(
-        payload,
-        // reportContext, report, rs, ss, raw, quote
-        (bytes32[3], bytes, bytes32[], bytes32[], bytes32, bytes)
-      );
-
       //decode the quote from the bytes
-      (quote) = abi.decode(quoteBytes, (Quote));
+      (quote) = abi.decode(quotePayload, (address));
     }
 
     //decode the fee, it will always be native or LINK
