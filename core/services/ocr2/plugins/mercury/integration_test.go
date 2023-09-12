@@ -25,7 +25,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	ocr3confighelper "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 	"github.com/stretchr/testify/assert"
@@ -67,7 +67,7 @@ var (
 	}
 	rawReportingPluginConfig = relaymercury.OffchainConfig{
 		ExpirationWindow: 1,
-		BaseUSDFeeCents:  100,
+		BaseUSDFee:       decimal.NewFromInt(100),
 	}
 )
 
@@ -701,7 +701,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			expectedFee := relaymercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFeeCents)
+			expectedFee := relaymercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
 			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
@@ -983,7 +983,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			expectedFee := relaymercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFeeCents)
+			expectedFee := relaymercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
 			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
