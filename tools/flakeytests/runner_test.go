@@ -35,6 +35,21 @@ func TestParser(t *testing.T) {
 	assert.Equal(t, ts["core/assets"]["TestLink"], 1)
 }
 
+func TestParser_SkipsNonJSON(t *testing.T) {
+	output := `Failed tests and panics:
+-------
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Test":"TestLink","Elapsed":0}
+`
+
+	r := strings.NewReader(output)
+	ts, err := parseOutput(r)
+	require.NoError(t, err)
+
+	assert.Len(t, ts, 1)
+	assert.Len(t, ts["core/assets"], 1)
+	assert.Equal(t, ts["core/assets"]["TestLink"], 1)
+}
+
 func TestParser_PanicDueToLogging(t *testing.T) {
 	output := `
 {"Time":"2023-09-07T16:01:40.649849+01:00","Action":"output","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Test":"TestAssets_LinkScanValue","Output":"panic: foo\n"}
