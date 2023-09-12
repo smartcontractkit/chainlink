@@ -161,8 +161,8 @@ func setFromChain(c, f *coscfg.Chain) {
 	if f.FallbackGasPrice != nil {
 		c.FallbackGasPrice = f.FallbackGasPrice
 	}
-	if f.FeeToken != nil {
-		c.FeeToken = f.FeeToken
+	if f.GasToken != nil {
+		c.GasToken = f.GasToken
 	}
 	if f.GasLimitMultiplier != nil {
 		c.GasLimitMultiplier = f.GasLimitMultiplier
@@ -225,8 +225,8 @@ func (c *CosmosConfig) FallbackGasPrice() sdk.Dec {
 	return sdkDecFromDecimal(c.Chain.FallbackGasPrice)
 }
 
-func (c *CosmosConfig) FeeToken() string {
-	return *c.Chain.FeeToken
+func (c *CosmosConfig) GasToken() string {
+	return *c.Chain.GasToken
 }
 
 func (c *CosmosConfig) GasLimitMultiplier() float64 {
