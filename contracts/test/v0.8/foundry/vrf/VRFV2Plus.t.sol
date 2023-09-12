@@ -99,7 +99,7 @@ contract VRFV2Plus is BaseTest {
     );
   }
 
-  // TODO: Fix this test after make foundry-refresh
+  // TODO: Fix this test after make foundry-refresh (JIRA ticket VRF-618)
   function skipped_testSetConfig() public {
     // Should setConfig successfully.
     setConfig(basicFeeConfig);
@@ -241,7 +241,7 @@ contract VRFV2Plus is BaseTest {
     bool success
   );
 
-  // TODO: Fix this test after make foundry-refresh
+  // TODO: Fix this test after make foundry-refresh (JIRA ticket VRF-618)
   function skipped_testRequestAndFulfillRandomWordsNative() public {
     uint32 requestBlock = 10;
     vm.roll(requestBlock);
@@ -359,7 +359,7 @@ contract VRFV2Plus is BaseTest {
     assertApproxEqAbs(ethBalanceAfter, ethBalanceBefore - 120_000, 10_000);
   }
 
-  // TODO: Fix this test after make foundry-refresh
+  // TODO: Fix this test after make foundry-refresh (JIRA ticket VRF-618)
   function skipped_testRequestAndFulfillRandomWordsLINK() public {
     uint32 requestBlock = 20;
     vm.roll(requestBlock);
