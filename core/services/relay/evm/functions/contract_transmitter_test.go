@@ -116,6 +116,14 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 	reportBytes, err := codec.EncodeReport(processedRequests)
 	require.NoError(t, err)
 
+	// success
 	require.NoError(t, ot.Transmit(testutils.Context(t), ocrtypes.ReportContext{}, reportBytes, []ocrtypes.AttributedOnchainSignature{}))
 	require.Equal(t, coordinatorAddress, ocrTransmitter.toAddress)
+
+	// failure on too many signatures
+	signatures := []ocrtypes.AttributedOnchainSignature{}
+	for i := 0; i < 33; i++ {
+		signatures = append(signatures, ocrtypes.AttributedOnchainSignature{})
+	}
+	require.Error(t, ot.Transmit(testutils.Context(t), ocrtypes.ReportContext{}, reportBytes, signatures))
 }

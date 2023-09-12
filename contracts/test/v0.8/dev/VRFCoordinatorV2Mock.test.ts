@@ -262,7 +262,7 @@ describe('VRFCoordinatorV2Mock', () => {
       expect(receipt.events[0].args['success']).to.equal(true)
       assert(
         receipt.events[0].args['payment']
-          .sub(BigNumber.from('100119017000000000'))
+          .sub(BigNumber.from('100119403000000000'))
           .lt(BigNumber.from('10000000000')),
       )
 
@@ -315,7 +315,7 @@ describe('VRFCoordinatorV2Mock', () => {
       expect(receipt.events[0].args['success']).to.equal(true)
       assert(
         receipt.events[0].args['payment']
-          .sub(BigNumber.from('100119017000000000'))
+          .sub(BigNumber.from('100120516000000000'))
           .lt(BigNumber.from('10000000000')),
       )
 
