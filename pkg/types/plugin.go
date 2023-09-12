@@ -13,4 +13,7 @@ const (
 	Functions     OCR2PluginType = "functions"
 	Mercury       OCR2PluginType = "mercury"
 	GenericPlugin OCR2PluginType = "plugin"
+
+	CCIPCommit    OCR2PluginType = "ccip-commit"
+	CCIPExecution OCR2PluginType = "ccip-execution"
 )
