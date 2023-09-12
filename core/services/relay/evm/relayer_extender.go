@@ -22,8 +22,6 @@ var ErrNoChains = errors.New("no EVM chains loaded")
 type EVMChainRelayerExtender interface {
 	relay.RelayerExt
 	Chain() evmchain.Chain
-	// compatibility remove after BCF-2441
-	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, count int, err error)
 }
 
 type EVMChainRelayerExtenderSlicer interface {
@@ -44,7 +42,6 @@ func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) *ev
 	for _, r := range exts.Slice() {
 		m[r.Chain().ID().String()] = r.Chain()
 	}
-	
 	return evmchain.NewLegacyChains(m, exts.AppConfig().EVMConfigs())
 }
 
