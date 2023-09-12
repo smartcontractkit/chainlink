@@ -139,7 +139,7 @@ func setupNode(
 		c.EVM[0].GasEstimator.Mode = ptr("FixedPrice")
 		s.Mercury.Credentials = map[string]toml.MercuryCredentials{
 			MercuryCredName: {
-				LegacyURL: models.MustSecretURL("https://old.api.link"),
+				LegacyURL: models.MustSecretURL(mercury.URL()),
 				URL:       models.MustSecretURL(mercury.URL()),
 				Username:  models.NewSecret(mercury.Username()),
 				Password:  models.NewSecret(mercury.Password()),
