@@ -228,19 +228,19 @@ func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int
 		return encoding.PackUnpackDecodeFailed, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to pack upkeepId: %w", err)
 	}
 
-	var b hexutil.Bytes
+	var resultBytes hexutil.Bytes
 	args := map[string]interface{}{
 		"to":   r.addr.Hex(),
 		"data": hexutil.Bytes(payload),
 	}
 
 	// call checkCallback function at the block which OCR3 has agreed upon
-	err = r.client.CallContext(opts.Context, &b, "eth_call", args, opts.BlockNumber)
+	err = r.client.CallContext(opts.Context, &resultBytes, "eth_call", args, opts.BlockNumber)
 	if err != nil {
 		return encoding.RpcFlakyFailure, encoding.UpkeepFailureReasonNone, true, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
 	}
 
-	cfg, err := r.packer.UnpackGetUpkeepPrivilegeConfig(b)
+	cfg, err := r.packer.UnpackGetUpkeepPrivilegeConfig(resultBytes)
 	if err != nil {
 		return encoding.PackUnpackDecodeFailed, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
 	}
@@ -250,14 +250,14 @@ func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int
 		return encoding.NoPipelineError, encoding.UpkeepFailureReasonMercuryAccessNotAllowed, false, false, fmt.Errorf("upkeep privilege config is empty")
 	}
 
-	var a UpkeepPrivilegeConfig
-	if err := json.Unmarshal(cfg, &a); err != nil {
+	var privilegeConfig UpkeepPrivilegeConfig
+	if err := json.Unmarshal(cfg, &privilegeConfig); err != nil {
 		return encoding.MercuryUnmarshalError, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to unmarshal privilege config: %v", err)
 	}
 
-	r.mercury.allowListCache.Set(upkeepId.String(), a.MercuryEnabled, cache.DefaultExpiration)
+	r.mercury.allowListCache.Set(upkeepId.String(), privilegeConfig.MercuryEnabled, cache.DefaultExpiration)
 
-	return encoding.NoPipelineError, encoding.UpkeepFailureReasonNone, false, a.MercuryEnabled, nil
+	return encoding.NoPipelineError, encoding.UpkeepFailureReasonNone, false, privilegeConfig.MercuryEnabled, nil
 }
 
 // decodeStreamsLookup decodes the revert error StreamsLookup(string feedParamKey, string[] feeds, string feedParamKey, uint256 time, byte[] extraData)

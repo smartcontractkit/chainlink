@@ -439,6 +439,7 @@ func TestPacker_UnpackGetUpkeepPrivilegeConfig(t *testing.T) {
 				err = json.Unmarshal(b, &data)
 
 				assert.NoError(t, err, "packed data should unmarshal using json encoding")
+				assert.Equal(t, []byte(`{"mercuryEnabled":true}`), b)
 			} else {
 				assert.NotNil(t, err, "error expected from unpack function")
 			}

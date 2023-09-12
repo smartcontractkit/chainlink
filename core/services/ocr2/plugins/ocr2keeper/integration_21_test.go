@@ -352,13 +352,9 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 	// deploy multiple upkeeps that listen to a log emitter and need to be
 	// performed for each log event
 	_ = feeds.DeployUpkeeps(t, backend, upkeepOwner, upkeepCount)
-	_ = feeds.RegisterAndFund(t, registerAndFund(registry, registryOwner, backend, linkToken))
+	_ = feeds.RegisterAndFund(t, registry, registryOwner, backend, linkToken)
 	_ = feeds.EnableMercury(t, backend, registry, registryOwner)
 	_ = feeds.VerifyEnv(t, backend, registry, registryOwner)
-
-	// using sleep here is not the right way to go, but it currently work on
-	// a local machine. this does have issues in CI
-	time.Sleep(10 * time.Second)
 
 	// start emitting events in a separate go-routine
 	// feed lookup relies on a single contract event log to perform multiple
@@ -847,7 +843,10 @@ func (c *feedLookupUpkeepController) DeployUpkeeps(
 
 func (c *feedLookupUpkeepController) RegisterAndFund(
 	t *testing.T,
-	f registerAndFundFunc,
+	registry *iregistry21.IKeeperRegistryMaster,
+	registryOwner *bind.TransactOpts,
+	backend *backends.SimulatedBackend,
+	linkToken *link_token_interface.LinkToken,
 ) error {
 	ids := make([]*big.Int, len(c.contracts))
 
@@ -865,8 +864,10 @@ func (c *feedLookupUpkeepController) RegisterAndFund(
 
 	require.NoError(t, err)
 
+	registerFunc := registerAndFund(registry, registryOwner, backend, linkToken)
+
 	for x := range c.contracts {
-		ids[x] = f(t, c.addresses[x], c.contractsOwner, 1, config)
+		ids[x] = registerFunc(t, c.addresses[x], c.contractsOwner, 1, config)
 	}
 
 	c.upkeepIds = ids
