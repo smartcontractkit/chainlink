@@ -1300,7 +1300,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 		attempt2 := cltest.NewLegacyEthTxAttempt(t, etx2.ID)
 		attempt2.Hash = etx.TxAttempts[0].Hash
 
-		// Even though this will initially fail due to idx_evm.eth_tx_attempts_hash constraint, because the conflicting tx has been abandoned
+		// Even though this will initially fail due to idx_eth_tx_attempts_hash constraint, because the conflicting tx has been abandoned
 		// it should succeed after removing the abandoned attempt and retrying the insert
 		err = txStore.UpdateTxUnstartedToInProgress(&etx2, &attempt2)
 		require.NoError(t, err)
@@ -1317,7 +1317,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 
 		// Should fail due to idx_eth_tx_attempt_hash constraint
 		err := txStore.UpdateTxUnstartedToInProgress(&etx, &etx.TxAttempts[0])
-		assert.ErrorContains(t, err, "idx_evm.eth_tx_attempts_hash")
+		assert.ErrorContains(t, err, "idx_eth_tx_attempts_hash")
 		txStore = cltest.NewTestTxStore(t, db, cfg.Database()) // current txStore is poisened now, next test will need fresh one
 	})
 }

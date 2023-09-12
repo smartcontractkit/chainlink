@@ -38,13 +38,13 @@ const (
 		VALUES (
 		$1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9, $10, $11
 		)
-		RETURNING "evm.eth_txes".*`
+		RETURNING "eth_txes".*`
 
 	addConfirmedEthTxQuery = `INSERT INTO evm.eth_txes (nonce, broadcast_at, initial_broadcast_at, error, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
 		VALUES (
 		$1, NOW(), NOW(), NULL, $2, $3, $4, $5, $6, 'confirmed', NOW(), $7, $8, $9, $10, $11
 		)
-		RETURNING "evm.eth_txes".*`
+		RETURNING "eth_txes".*`
 )
 
 func txMetaSubIDs(t *testing.T, vrfVersion vrfcommon.Version, subID *big.Int) (*uint64, *string) {
