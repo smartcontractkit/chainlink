@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -1151,16 +1150,16 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		hb := chain.HeadBroadcaster()
 		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
 		rAddr := ethkey.MustEIP55Address(spec.ContractID).Address()
-		registry, rErr := keeper_registry_wrapper2_0.NewKeeperRegistry(rAddr, chain.Client())
-		if rErr != nil {
-			return nil, errors.Wrap(rErr, "error creating new Registry Wrapper for customTelemService")
-		}
-		customTelemService := ocr2keeper.NewAutomationCustomTelemetryService(
+		customTelemService, custErr := ocr2keeper.NewAutomationCustomTelemetryService(
 			endpoint,
 			hb,
 			lggr,
-			registry,
+			chain,
+			rAddr,
 		)
+		if custErr != nil {
+			return nil, custErr
+		}
 		automationServices = append(automationServices, customTelemService)
 	}
 

@@ -4,10 +4,13 @@ import (
 	"context"
 	"time"
 
+	"cosmossdk.io/errors"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
@@ -39,15 +42,19 @@ type latestConfigDigestGetter interface {
 
 // NewAutomationCustomTelemetryService creates a telemetry service for new blocks and node version
 func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint, hb httypes.HeadBroadcaster,
-	lggr logger.Logger, latestcd latestConfigDigestGetter) *AutomationCustomTelemetryService {
+	lggr logger.Logger, chain evm.Chain, rAddr common.Address) (*AutomationCustomTelemetryService, error) {
+	registry, rErr := keeper_registry_wrapper2_0.NewKeeperRegistry(rAddr, chain.Client())
+	if rErr != nil {
+		return nil, errors.Wrap(rErr, "error creating new Registry Wrapper for customTelemService")
+	}
 	return &AutomationCustomTelemetryService{
 		monitoringEndpoint: me,
 		headBroadcaster:    hb,
 		headCh:             make(chan blockKey, customTelemChanSize),
 		chDone:             make(chan struct{}),
 		lggr:               lggr.Named("Automation Custom Telem"),
-		latestConfigDigest: latestcd,
-	}
+		latestConfigDigest: registry,
+	}, nil
 }
 
 // Start starts Custom Telemetry Service, sends 1 NodeVersion message to endpoint at start and sends new BlockNumber messages
