@@ -18,6 +18,7 @@ on:
 
 jobs:
   golangci:
+    if: ${{ github.event_name == 'pull_request' ||  github.event_name == 'schedule' }}
     name: lint
     runs-on: ubuntu20.04-8cores-32GB
     steps:
