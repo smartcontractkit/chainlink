@@ -11,9 +11,6 @@ on:
       - master
       - develop
       - "release/*"
-      - staging
-      - trying
-      - rollup
   merge_group:
   pull_request:
   schedule:
