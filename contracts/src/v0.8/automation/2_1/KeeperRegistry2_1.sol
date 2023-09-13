@@ -1,14 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
-import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import {Proxy} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
+import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import {Proxy} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/proxy/Proxy.sol";
 import {KeeperRegistryBase2_1} from "./KeeperRegistryBase2_1.sol";
 import {KeeperRegistryLogicB2_1} from "./KeeperRegistryLogicB2_1.sol";
-import {Chainable} from "./Chainable.sol";
-import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
-import {OCR2Abstract} from "../../../shared/ocr2/OCR2Abstract.sol";
+import {Chainable} from "../Chainable.sol";
+import {IERC677Receiver} from "../../shared/interfaces/IERC677Receiver.sol";
+import {OCR2Abstract} from "../../shared/ocr2/OCR2Abstract.sol";
 
 /**
  * @notice Registry for adding work for Chainlink Keepers to perform on client
