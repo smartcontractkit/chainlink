@@ -45,6 +45,8 @@ func TestFluxBasic(t *testing.T) {
 	err = env.MockServer.Client.SetValuePath(adapterPath, 1e5)
 	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
 
+	require.Fail(t, "//DEBUG")
+
 	lt, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
 	fluxInstance, err := env.ContractDeployer.DeployFluxAggregatorContract(lt.Address(), contracts.DefaultFluxAggregatorOptions())
