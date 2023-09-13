@@ -34,7 +34,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   bytes32[] public s_registeredPoolIds;
 
   // @dev The address for the LINK contract
-  address private immutable i_linkAddress;
+  address public immutable i_linkAddress;
 
   // The total weight of all RewardRecipients. 1e18 = 100% of the pool fees
   uint64 private constant PERCENTAGE_SCALAR = 1e18;
