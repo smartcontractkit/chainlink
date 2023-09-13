@@ -15,6 +15,9 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipevents"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/oraclelib"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -26,9 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipevents"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/hasher"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/observability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -44,7 +45,7 @@ const (
 	FEE_TOKEN_REMOVED            = "Fee token removed"
 )
 
-func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainContainer, new bool, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string)) ([]job.ServiceCtx, error) {
+func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainContainer, new bool, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string), qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 	var pluginConfig ccipconfig.ExecutionPluginJobSpecConfig
 	err := json.Unmarshal(spec.PluginConfig.Bytes(), &pluginConfig)
@@ -121,10 +122,10 @@ func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyCha
 			destClient:               destChain.Client(),
 			sourceClient:             sourceChain.Client(),
 			destGasEstimator:         destChain.GasEstimator(),
-			leafHasher:               hasher.NewLeafHasher(offRampConfig.SourceChainSelector, offRampConfig.ChainSelector, onRamp.Address(), hasher.NewKeccakCtx()),
+			leafHasher:               hashlib.NewLeafHasher(offRampConfig.SourceChainSelector, offRampConfig.ChainSelector, onRamp.Address(), hashlib.NewKeccakCtx()),
 		})
 
-	err = wrappedPluginFactory.UpdateLogPollerFilters(zeroAddress)
+	err = wrappedPluginFactory.UpdateLogPollerFilters(zeroAddress, qopts...)
 	if err != nil {
 		return nil, err
 	}
@@ -145,7 +146,7 @@ func NewExecutionServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyCha
 	// If this is a brand-new job, then we make use of the start blocks. If not then we're rebooting and log poller will pick up where we left off.
 	if new {
 		return []job.ServiceCtx{
-			NewBackfilledOracle(
+			oraclelib.NewBackfilledOracle(
 				execLggr,
 				sourceChain.LogPoller(),
 				destChain.LogPoller(),
@@ -213,7 +214,7 @@ func getExecutionPluginDestLpChainFilters(commitStore, offRamp, priceRegistry co
 }
 
 // UnregisterExecPluginLpFilters unregisters all the registered filters for both source and dest chains.
-func UnregisterExecPluginLpFilters(ctx context.Context, q pg.Queryer, spec *job.OCR2OracleSpec, chainSet evm.LegacyChainContainer) error {
+func UnregisterExecPluginLpFilters(ctx context.Context, spec *job.OCR2OracleSpec, chainSet evm.LegacyChainContainer, qopts ...pg.QOpt) error {
 	if spec == nil {
 		return errors.New("spec is nil")
 	}
@@ -260,18 +261,18 @@ func UnregisterExecPluginLpFilters(ctx context.Context, q pg.Queryer, spec *job.
 		return errors.Wrap(err, "failed loading onRamp")
 	}
 
-	return unregisterExecutionPluginLpFilters(ctx, q, sourceChain.LogPoller(), destChain.LogPoller(), offRamp, offRampConfig, sourceOnRamp, sourceChain.Client())
+	return unregisterExecutionPluginLpFilters(ctx, sourceChain.LogPoller(), destChain.LogPoller(), offRamp, offRampConfig, sourceOnRamp, sourceChain.Client(), qopts...)
 }
 
 func unregisterExecutionPluginLpFilters(
 	ctx context.Context,
-	q pg.Queryer,
 	sourceLP logpoller.LogPoller,
 	destLP logpoller.LogPoller,
 	destOffRamp evm_2_evm_offramp.EVM2EVMOffRampInterface,
 	destOffRampConfig evm_2_evm_offramp.EVM2EVMOffRampStaticConfig,
 	sourceOnRamp evm_2_evm_onramp.EVM2EVMOnRampInterface,
-	sourceChainClient client.Client) error {
+	sourceChainClient client.Client,
+	qopts ...pg.QOpt) error {
 	destOffRampDynCfg, err := destOffRamp.GetDynamicConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return err
@@ -283,17 +284,17 @@ func unregisterExecutionPluginLpFilters(
 	}
 
 	if err := unregisterLpFilters(
-		q,
 		sourceLP,
 		getExecutionPluginSourceLpChainFilters(destOffRampConfig.OnRamp, onRampDynCfg.PriceRegistry),
+		qopts...,
 	); err != nil {
 		return err
 	}
 
 	return unregisterLpFilters(
-		q,
 		destLP,
 		getExecutionPluginDestLpChainFilters(destOffRampConfig.CommitStore, destOffRamp.Address(), destOffRampDynCfg.PriceRegistry),
+		qopts...,
 	)
 }
 

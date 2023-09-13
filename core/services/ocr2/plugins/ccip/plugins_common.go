@@ -19,9 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipevents"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/hasher"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipevents"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/observability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -35,8 +35,6 @@ const (
 )
 
 var zeroAddress = common.HexToAddress("0")
-
-var nilQueryer pg.Queryer
 
 var ErrCommitStoreIsDown = errors.New("commitStore is down")
 
@@ -142,7 +140,7 @@ func calculateUsdPerUnitGas(sourceGasPrice *big.Int, usdPerFeeCoin *big.Int) *bi
 func leavesFromIntervals(
 	lggr logger.Logger,
 	interval commit_store.CommitStoreInterval,
-	hasher hasher.LeafHasherInterface[[32]byte],
+	hasher hashlib.LeafHasherInterface[[32]byte],
 	sendReqs []ccipevents.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested],
 ) ([][32]byte, error) {
 	var seqNrs []uint64
@@ -186,24 +184,24 @@ func filterContainsZeroAddress(addrs []common.Address) bool {
 	return false
 }
 
-func registerLpFilters(q pg.Queryer, lp logpoller.LogPoller, filters []logpoller.Filter) error {
+func registerLpFilters(lp logpoller.LogPoller, filters []logpoller.Filter, qopts ...pg.QOpt) error {
 	for _, lpFilter := range filters {
 		if filterContainsZeroAddress(lpFilter.Addresses) {
 			continue
 		}
-		if err := lp.RegisterFilter(lpFilter); err != nil {
+		if err := lp.RegisterFilter(lpFilter, qopts...); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func unregisterLpFilters(q pg.Queryer, lp logpoller.LogPoller, filters []logpoller.Filter) error {
+func unregisterLpFilters(lp logpoller.LogPoller, filters []logpoller.Filter, qopts ...pg.QOpt) error {
 	for _, lpFilter := range filters {
 		if filterContainsZeroAddress(lpFilter.Addresses) {
 			continue
 		}
-		if err := lp.UnregisterFilter(lpFilter.Name, pg.WithQueryer(q)); err != nil {
+		if err := lp.UnregisterFilter(lpFilter.Name, qopts...); err != nil {
 			return err
 		}
 	}

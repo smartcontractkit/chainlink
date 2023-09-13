@@ -75,7 +75,7 @@ MacOSX*
 cache
 core/services/ocr2/plugins/ccip/transactions.rlp
 lcov.info
-!core/services/ocr2/plugins/ccip/cache/
+!core/services/ocr2/plugins/ccip/internal/cache/
 
 
 core/scripts/ccip/json/credentials

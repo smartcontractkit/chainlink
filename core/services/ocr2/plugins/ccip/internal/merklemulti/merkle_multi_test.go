@@ -10,12 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"gonum.org/v1/gonum/stat/combin"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/hasher"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/merklemulti/fixtures"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/merklemulti/fixtures"
 )
 
 var (
-	ctx              = hasher.NewKeccakCtx()
+	ctx              = hashlib.NewKeccakCtx()
 	a, b, c, d, e, f = ctx.Hash([]byte{0xa}), ctx.Hash([]byte{0xb}), ctx.Hash([]byte{0xc}), ctx.Hash([]byte{0xd}), ctx.Hash([]byte{0xe}), ctx.Hash([]byte{0xf})
 )
 
@@ -87,7 +87,7 @@ func TestSpecFixtureVerifyProof(t *testing.T) {
 func TestSpecFixtureNewTree(t *testing.T) {
 	for _, testVector := range fixtures.TestVectors {
 		var leafHashes = hashesFromHexStrings(testVector.AllLeafs)
-		mctx := hasher.NewKeccakCtx()
+		mctx := hashlib.NewKeccakCtx()
 		tree, err := NewTree(mctx, leafHashes)
 		assert.NoError(t, err)
 		actualRoot := tree.Root()

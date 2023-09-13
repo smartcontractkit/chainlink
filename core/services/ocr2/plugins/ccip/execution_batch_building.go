@@ -13,16 +13,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipevents"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/hasher"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/merklemulti"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipevents"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/merklemulti"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func getProofData(
 	ctx context.Context,
 	lggr logger.Logger,
-	hashLeaf hasher.LeafHasherInterface[[32]byte],
+	hashLeaf hashlib.LeafHasherInterface[[32]byte],
 	onRampAddress common.Address,
 	sourceEventsClient ccipevents.Client,
 	interval commit_store.CommitStoreInterval,
@@ -41,7 +41,7 @@ func getProofData(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	tree, err = merklemulti.NewTree(hasher.NewKeccakCtx(), leaves)
+	tree, err = merklemulti.NewTree(hashlib.NewKeccakCtx(), leaves)
 	if err != nil {
 		return nil, nil, nil, err
 	}
