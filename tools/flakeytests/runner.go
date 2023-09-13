@@ -84,8 +84,13 @@ func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
 				continue
 			}
 
+			if !strings.HasPrefix(string(t), "{") {
+				continue
+			}
+
 			e, err := newEvent(t)
 			if err != nil {
+
 				return nil, err
 			}
 
