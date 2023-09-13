@@ -41,7 +41,7 @@ func ValidatedOracleSpecToml(legacyChains evm.LegacyChainContainer, tomlString s
 	return ValidatedOracleSpecTomlCfg(func(id *big.Int) (evmconfig.ChainScopedConfig, error) {
 		c, err := legacyChains.Get(id.String())
 		if err != nil {
-			return nil, errors.Wrap(err, "invalid oracle spec")
+			return nil, err
 		}
 		return c.Config(), nil
 	}, tomlString)
