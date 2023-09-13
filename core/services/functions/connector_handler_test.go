@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
@@ -31,10 +32,11 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 	connector := gcmocks.NewGatewayConnector(t)
 	allowlist := gfmocks.NewOnchainAllowlist(t)
 	rateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
+	subscriptions := gfmocks.NewOnchainSubscriptions(t)
 	require.NoError(t, err)
 	allowlist.On("Start", mock.Anything).Return(nil)
 	allowlist.On("Close", mock.Anything).Return(nil)
-	handler, err := functions.NewFunctionsConnectorHandler(addr.Hex(), privateKey, storage, allowlist, rateLimiter, logger)
+	handler, err := functions.NewFunctionsConnectorHandler(addr.Hex(), privateKey, storage, allowlist, rateLimiter, subscriptions, logger)
 	require.NoError(t, err)
 
 	handler.SetConnector(connector)
@@ -73,6 +75,9 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			}
 			storage.On("List", ctx, addr).Return(snapshot, nil).Once()
 			allowlist.On("Allow", addr).Return(true).Once()
+			subscriptions.On("GetSubscription", mock.Anything).Return(
+				&functions_router.IFunctionsSubscriptionsSubscription{},
+			)
 			connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 				msg, ok := args[2].(*api.Message)
 				require.True(t, ok)
@@ -129,6 +134,9 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 
 			storage.On("Put", ctx, &key, &record, signature).Return(nil).Once()
 			allowlist.On("Allow", addr).Return(true).Once()
+			subscriptions.On("GetSubscription", mock.Anything).Return(
+				&functions_router.IFunctionsSubscriptionsSubscription{},
+			)
 			connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 				msg, ok := args[2].(*api.Message)
 				require.True(t, ok)

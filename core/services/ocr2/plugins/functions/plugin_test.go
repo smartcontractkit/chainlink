@@ -31,10 +31,11 @@ func TestNewConnector_Success(t *testing.T) {
 	ethKeystore := ksmocks.NewEth(t)
 	s4Storage := s4mocks.NewStorage(t)
 	allowlist := gfmocks.NewOnchainAllowlist(t)
+	subscriptions := gfmocks.NewOnchainSubscriptions(t)
 	rateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
 	ethKeystore.On("EnabledKeysForChain", mock.Anything).Return([]ethkey.KeyV2{keyV2}, nil)
-	_, err = functions.NewConnector(gwcCfg, ethKeystore, chainID, s4Storage, allowlist, rateLimiter, logger.TestLogger(t))
+	_, err = functions.NewConnector(gwcCfg, ethKeystore, chainID, s4Storage, allowlist, rateLimiter, subscriptions, logger.TestLogger(t))
 	require.NoError(t, err)
 }
 
@@ -53,9 +54,10 @@ func TestNewConnector_NoKeyForConfiguredAddress(t *testing.T) {
 	ethKeystore := ksmocks.NewEth(t)
 	s4Storage := s4mocks.NewStorage(t)
 	allowlist := gfmocks.NewOnchainAllowlist(t)
+	subscriptions := gfmocks.NewOnchainSubscriptions(t)
 	rateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
 	ethKeystore.On("EnabledKeysForChain", mock.Anything).Return([]ethkey.KeyV2{{Address: common.HexToAddress(addresses[1])}}, nil)
-	_, err = functions.NewConnector(gwcCfg, ethKeystore, chainID, s4Storage, allowlist, rateLimiter, logger.TestLogger(t))
+	_, err = functions.NewConnector(gwcCfg, ethKeystore, chainID, s4Storage, allowlist, rateLimiter, subscriptions, logger.TestLogger(t))
 	require.Error(t, err)
 }
