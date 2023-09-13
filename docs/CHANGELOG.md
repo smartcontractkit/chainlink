@@ -17,7 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * `Explorer.AccessKey`
  * `Explorer.Secret` 
  
- All nodes will have to remove the following configuration field: `ExplorerUrl`
+ All nodes will have to remove the following configuration field: `ExplorerURL`
 
 ### Fixed
 
