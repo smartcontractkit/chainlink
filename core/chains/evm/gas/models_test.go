@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -37,6 +38,9 @@ func TestWrappedEvmEstimator(t *testing.T) {
 	e.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(legacyFee, gasLimit, nil).Once()
 
+	mockEvmEstimatorName := "MockEstimator"
+	mockEstimatorName := "WrappedEvmEstimator(MockEstimator)"
+
 	// L1Oracle returns the correct L1Oracle interface
 	t.Run("L1Oracle", func(t *testing.T) {
 		// expect nil
@@ -44,10 +48,11 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		l1Oracle := estimator.L1Oracle()
 		assert.Nil(t, l1Oracle)
 
-		o := oraclesMocks.NewL1Oracle(t)
-		estimator = gas.NewWrappedEvmEstimatorWithL1Oracle(e, false, o)
+		// expect l1Oracle
+		oracle := oraclesMocks.NewL1Oracle(t)
+		estimator = gas.NewWrappedEvmEstimatorWithL1Oracle(e, false, oracle)
 		l1Oracle = estimator.L1Oracle()
-		assert.Equal(t, o, l1Oracle)
+		assert.Equal(t, oracle, l1Oracle)
 	})
 
 	// GetFee returns gas estimation based on configuration value
@@ -126,5 +131,81 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		require.NoError(t, err)
 		fee = new(big.Int).Mul(dynamicFee.FeeCap.ToInt(), big.NewInt(int64(gasLimit)))
 		assert.Equal(t, new(big.Int).Add(val.ToInt(), fee), total)
+	})
+
+	t.Run("Name", func(t *testing.T) {
+		evmEstimator := mocks.NewEvmEstimator(t)
+		oracle := oraclesMocks.NewL1Oracle(t)
+
+		evmEstimator.On("Name").Return(mockEvmEstimatorName, nil).Once()
+
+		estimator := gas.NewWrappedEvmEstimatorWithL1Oracle(evmEstimator, false, oracle)
+		name := estimator.Name()
+		require.Equal(t, mockEstimatorName, name)
+	})
+
+	t.Run("Start and stop calls both EVM estimator and L1Oracle", func(t *testing.T) {
+		evmEstimator := mocks.NewEvmEstimator(t)
+		oracle := oraclesMocks.NewL1Oracle(t)
+
+		evmEstimator.On("Name").Return(mockEvmEstimatorName, nil).Times(4)
+		evmEstimator.On("Start", mock.Anything).Return(nil).Twice()
+		evmEstimator.On("Close").Return(nil).Twice()
+		oracle.On("Start", mock.Anything).Return(nil).Once()
+		oracle.On("Close").Return(nil).Once()
+
+		estimator := gas.NewWrappedEvmEstimator(evmEstimator, false)
+		err := estimator.Start(ctx)
+		require.NoError(t, err)
+		err = estimator.Close()
+		require.NoError(t, err)
+
+		estimator = gas.NewWrappedEvmEstimatorWithL1Oracle(evmEstimator, false, oracle)
+		err = estimator.Start(ctx)
+		require.NoError(t, err)
+		err = estimator.Close()
+		require.NoError(t, err)
+	})
+
+	t.Run("Read calls both EVM estimator and L1Oracle", func(t *testing.T) {
+		evmEstimator := mocks.NewEvmEstimator(t)
+		oracle := oraclesMocks.NewL1Oracle(t)
+
+		evmEstimator.On("Ready").Return(nil).Twice()
+		oracle.On("Ready").Return(nil).Once()
+
+		estimator := gas.NewWrappedEvmEstimator(evmEstimator, false)
+		err := estimator.Ready()
+		require.NoError(t, err)
+
+		estimator = gas.NewWrappedEvmEstimatorWithL1Oracle(evmEstimator, false, oracle)
+		err = estimator.Ready()
+		require.NoError(t, err)
+	})
+
+	t.Run("HealthReport merges report from EVM estimator and L1Oracle", func(t *testing.T) {
+		evmEstimator := mocks.NewEvmEstimator(t)
+		oracle := oraclesMocks.NewL1Oracle(t)
+
+		evmEstimatorKey := "evm"
+		evmEstimatorError := errors.New("evm error")
+		oracleKey := "oracle"
+		oracleError := errors.New("oracle error")
+
+		evmEstimator.On("Name").Return(mockEvmEstimatorName, nil).Twice()
+		evmEstimator.On("HealthReport").Return(map[string]error{evmEstimatorKey: evmEstimatorError}).Twice()
+		oracle.On("HealthReport").Return(map[string]error{oracleKey: oracleError}).Once()
+
+		estimator := gas.NewWrappedEvmEstimator(evmEstimator, false)
+		report := estimator.HealthReport()
+		require.True(t, errors.Is(report[evmEstimatorKey], evmEstimatorError))
+		require.Nil(t, report[oracleKey])
+		require.NotNil(t, report[mockEstimatorName])
+
+		estimator = gas.NewWrappedEvmEstimatorWithL1Oracle(evmEstimator, false, oracle)
+		report = estimator.HealthReport()
+		require.True(t, errors.Is(report[evmEstimatorKey], evmEstimatorError))
+		require.True(t, errors.Is(report[oracleKey], oracleError))
+		require.NotNil(t, report[mockEstimatorName])
 	})
 }
