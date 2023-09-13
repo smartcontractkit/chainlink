@@ -36,8 +36,6 @@ const (
 
 var zeroAddress = common.HexToAddress("0")
 
-var nilQueryer pg.Queryer
-
 var ErrCommitStoreIsDown = errors.New("commitStore is down")
 
 func LoadOnRamp(onRampAddress common.Address, pluginName string, client client.Client) (evm_2_evm_onramp.EVM2EVMOnRampInterface, error) {
@@ -186,24 +184,24 @@ func filterContainsZeroAddress(addrs []common.Address) bool {
 	return false
 }
 
-func registerLpFilters(q pg.Queryer, lp logpoller.LogPoller, filters []logpoller.Filter) error {
+func registerLpFilters(lp logpoller.LogPoller, filters []logpoller.Filter, qopts ...pg.QOpt) error {
 	for _, lpFilter := range filters {
 		if filterContainsZeroAddress(lpFilter.Addresses) {
 			continue
 		}
-		if err := lp.RegisterFilter(lpFilter); err != nil {
+		if err := lp.RegisterFilter(lpFilter, qopts...); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func unregisterLpFilters(q pg.Queryer, lp logpoller.LogPoller, filters []logpoller.Filter) error {
+func unregisterLpFilters(lp logpoller.LogPoller, filters []logpoller.Filter, qopts ...pg.QOpt) error {
 	for _, lpFilter := range filters {
 		if filterContainsZeroAddress(lpFilter.Addresses) {
 			continue
 		}
-		if err := lp.UnregisterFilter(lpFilter.Name, pg.WithQueryer(q)); err != nil {
+		if err := lp.UnregisterFilter(lpFilter.Name, qopts...); err != nil {
 			return err
 		}
 	}

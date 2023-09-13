@@ -195,17 +195,17 @@ func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp ty
 
 // UpdateLogPollerFilters updates the log poller filters for the source and destination chains.
 // pass zeroAddress if dstPriceRegistry is unknown, filters with zero address are omitted.
-func (rf *ExecutionReportingPluginFactory) UpdateLogPollerFilters(destPriceRegistry common.Address) error {
+func (rf *ExecutionReportingPluginFactory) UpdateLogPollerFilters(destPriceRegistry common.Address, qopts ...pg.QOpt) error {
 	rf.filtersMu.Lock()
 	defer rf.filtersMu.Unlock()
 
 	// source chain filters
 	sourceFiltersBefore, sourceFiltersNow := rf.sourceChainFilters, getExecutionPluginSourceLpChainFilters(rf.config.onRamp.Address(), rf.config.sourcePriceRegistry.Address())
 	created, deleted := filtersDiff(sourceFiltersBefore, sourceFiltersNow)
-	if err := unregisterLpFilters(nilQueryer, rf.config.sourceLP, deleted); err != nil {
+	if err := unregisterLpFilters(rf.config.sourceLP, deleted, qopts...); err != nil {
 		return err
 	}
-	if err := registerLpFilters(nilQueryer, rf.config.sourceLP, created); err != nil {
+	if err := registerLpFilters(rf.config.sourceLP, created, qopts...); err != nil {
 		return err
 	}
 	rf.sourceChainFilters = sourceFiltersNow
@@ -213,10 +213,10 @@ func (rf *ExecutionReportingPluginFactory) UpdateLogPollerFilters(destPriceRegis
 	// destination chain filters
 	destFiltersBefore, destFiltersNow := rf.destChainFilters, getExecutionPluginDestLpChainFilters(rf.config.commitStore.Address(), rf.config.offRamp.Address(), destPriceRegistry)
 	created, deleted = filtersDiff(destFiltersBefore, destFiltersNow)
-	if err := unregisterLpFilters(nilQueryer, rf.config.destLP, deleted); err != nil {
+	if err := unregisterLpFilters(rf.config.destLP, deleted, qopts...); err != nil {
 		return err
 	}
-	if err := registerLpFilters(nilQueryer, rf.config.destLP, created); err != nil {
+	if err := registerLpFilters(rf.config.destLP, created, qopts...); err != nil {
 		return err
 	}
 	rf.destChainFilters = destFiltersNow

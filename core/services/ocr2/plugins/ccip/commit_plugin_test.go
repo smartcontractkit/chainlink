@@ -70,7 +70,7 @@ func TestGetCommitPluginFilterNamesFromSpec(t *testing.T) {
 				}
 			}
 
-			err := UnregisterCommitPluginLpFilters(context.Background(), nil, tc.spec, chainSet)
+			err := UnregisterCommitPluginLpFilters(context.Background(), tc.spec, chainSet)
 			if tc.expectingErr {
 				assert.Error(t, err)
 			} else {
@@ -105,7 +105,7 @@ func TestGetCommitPluginFilterNames(t *testing.T) {
 	dstLP.On("UnregisterFilter", "Token pool added - 0xDAFeA492D9c6733Ae3D56b7eD1AdB60692C98BC4", mock.Anything).Return(nil)
 	dstLP.On("UnregisterFilter", "Token pool removed - 0xDAFeA492D9c6733Ae3D56b7eD1AdB60692C98BC4", mock.Anything).Return(nil)
 
-	err := unregisterCommitPluginFilters(context.Background(), nil, srcLP, dstLP, mockCommitStore, offRampAddr)
+	err := unregisterCommitPluginFilters(context.Background(), srcLP, dstLP, mockCommitStore, offRampAddr)
 	assert.NoError(t, err)
 
 	srcLP.AssertExpectations(t)

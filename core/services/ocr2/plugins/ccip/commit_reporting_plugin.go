@@ -29,6 +29,7 @@ import (
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/hasher"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/merklemulti"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 const (
@@ -200,17 +201,17 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 
 // UpdateLogPollerFilters updates the log poller filters for the source and destination chains.
 // pass zeroAddress if destPriceRegistry is unknown, filters with zero address are omitted.
-func (rf *CommitReportingPluginFactory) UpdateLogPollerFilters(destPriceRegistry common.Address) error {
+func (rf *CommitReportingPluginFactory) UpdateLogPollerFilters(destPriceRegistry common.Address, qopts ...pg.QOpt) error {
 	rf.filtersMu.Lock()
 	defer rf.filtersMu.Unlock()
 
 	// source chain filters
 	sourceFiltersBefore, sourceFiltersNow := rf.sourceChainFilters, getCommitPluginSourceLpFilters(rf.config.onRampAddress)
 	created, deleted := filtersDiff(sourceFiltersBefore, sourceFiltersNow)
-	if err := unregisterLpFilters(nilQueryer, rf.config.sourceLP, deleted); err != nil {
+	if err := unregisterLpFilters(rf.config.sourceLP, deleted, qopts...); err != nil {
 		return err
 	}
-	if err := registerLpFilters(nilQueryer, rf.config.sourceLP, created); err != nil {
+	if err := registerLpFilters(rf.config.sourceLP, created, qopts...); err != nil {
 		return err
 	}
 	rf.sourceChainFilters = sourceFiltersNow
@@ -218,10 +219,10 @@ func (rf *CommitReportingPluginFactory) UpdateLogPollerFilters(destPriceRegistry
 	// destination chain filters
 	destFiltersBefore, destFiltersNow := rf.destChainFilters, getCommitPluginDestLpFilters(destPriceRegistry, rf.config.offRamp.Address())
 	created, deleted = filtersDiff(destFiltersBefore, destFiltersNow)
-	if err := unregisterLpFilters(nilQueryer, rf.config.destLP, deleted); err != nil {
+	if err := unregisterLpFilters(rf.config.destLP, deleted, qopts...); err != nil {
 		return err
 	}
-	if err := registerLpFilters(nilQueryer, rf.config.destLP, created); err != nil {
+	if err := registerLpFilters(rf.config.destLP, created, qopts...); err != nil {
 		return err
 	}
 	rf.destChainFilters = destFiltersNow
