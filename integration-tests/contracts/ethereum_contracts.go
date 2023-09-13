@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -1115,6 +1116,7 @@ type FluxAggregatorRoundConfirmer struct {
 	context      context.Context
 	cancel       context.CancelFunc
 	complete     bool
+	l            zerolog.Logger
 }
 
 // NewFluxAggregatorRoundConfirmer provides a new instance of a FluxAggregatorRoundConfirmer
@@ -1122,6 +1124,7 @@ func NewFluxAggregatorRoundConfirmer(
 	contract FluxAggregator,
 	roundID *big.Int,
 	timeout time.Duration,
+	logger zerolog.Logger,
 ) *FluxAggregatorRoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &FluxAggregatorRoundConfirmer{
@@ -1130,6 +1133,7 @@ func NewFluxAggregatorRoundConfirmer(
 		doneChan:     make(chan struct{}),
 		context:      ctx,
 		cancel:       ctxCancel,
+		l:            logger,
 	}
 }
 

@@ -9,11 +9,13 @@ import (
 	"sync"
 	"time"
 
+	"os"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-resty/resty/v2"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
-	"os"
 )
 
 const (
@@ -39,6 +41,7 @@ type ChainlinkClient struct {
 	pageSize          int
 	primaryEthAddress string
 	ethAddresses      []string
+	l                 zerolog.Logger
 }
 
 // NewChainlinkClient creates a new Chainlink model using a provided config
@@ -55,7 +58,12 @@ func NewChainlinkClient(c *ChainlinkConfig) (*ChainlinkClient, error) {
 		Config:    c,
 		APIClient: rc,
 		pageSize:  25,
+		l:         log.Logger,
 	}, nil
+}
+
+func (c *ChainlinkClient) WithLogger(l zerolog.Logger) {
+	c.l = l
 }
 
 func initRestyClient(url string, email string, password string, timeout *time.Duration) (*resty.Client, error) {
@@ -92,8 +100,8 @@ func (c *ChainlinkClient) URL() string {
 // CreateJobRaw creates a Chainlink job based on the provided spec string
 func (c *ChainlinkClient) CreateJobRaw(spec string) (*Job, *http.Response, error) {
 	job := &Job{}
-	log.Info().Str("Node URL", c.Config.URL).Msg("Creating Job")
-	log.Trace().Str("Node URL", c.Config.URL).Str("Job Body", spec).Msg("Creating Job")
+	c.l.Info().Str("Node URL", c.Config.URL).Msg("Creating Job")
+	c.l.Trace().Str("Node URL", c.Config.URL).Str("Job Body", spec).Msg("Creating Job")
 	resp, err := c.APIClient.R().
 		SetBody(&JobForm{
 			TOML: spec,
@@ -123,8 +131,8 @@ func (c *ChainlinkClient) CreateJob(spec JobSpec) (*Job, *http.Response, error) 
 	if err != nil {
 		return nil, nil, err
 	}
-	log.Info().Str("Node URL", c.Config.URL).Str("Type", spec.Type()).Msg("Creating Job")
-	log.Trace().Str("Node URL", c.Config.URL).Str("Type", spec.Type()).Str("Spec", specString).Msg("Creating Job")
+	c.l.Info().Str("Node URL", c.Config.URL).Str("Type", spec.Type()).Msg("Creating Job")
+	c.l.Trace().Str("Node URL", c.Config.URL).Str("Type", spec.Type()).Str("Spec", specString).Msg("Creating Job")
 	resp, err := c.APIClient.R().
 		SetBody(&JobForm{
 			TOML: specString,
@@ -140,7 +148,7 @@ func (c *ChainlinkClient) CreateJob(spec JobSpec) (*Job, *http.Response, error) 
 // ReadJobs reads all jobs from the Chainlink node
 func (c *ChainlinkClient) ReadJobs() (*ResponseSlice, *http.Response, error) {
 	specObj := &ResponseSlice{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Getting Jobs")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Getting Jobs")
 	resp, err := c.APIClient.R().
 		SetResult(&specObj).
 		Get("/v2/jobs")
@@ -153,7 +161,7 @@ func (c *ChainlinkClient) ReadJobs() (*ResponseSlice, *http.Response, error) {
 // ReadJob reads a job with the provided ID from the Chainlink node
 func (c *ChainlinkClient) ReadJob(id string) (*Response, *http.Response, error) {
 	specObj := &Response{}
-	log.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Reading Job")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Reading Job")
 	resp, err := c.APIClient.R().
 		SetResult(&specObj).
 		SetPathParams(map[string]string{
@@ -178,7 +186,7 @@ func (c *ChainlinkClient) MustDeleteJob(id string) error {
 
 // DeleteJob deletes a job with a provided ID from the Chainlink node
 func (c *ChainlinkClient) DeleteJob(id string) (*http.Response, error) {
-	log.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Deleting Job")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Deleting Job")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"id": id,
@@ -194,7 +202,7 @@ func (c *ChainlinkClient) DeleteJob(id string) (*http.Response, error) {
 func (c *ChainlinkClient) CreateSpec(spec string) (*Spec, *http.Response, error) {
 	s := &Spec{}
 	r := strings.NewReplacer("\n", "", " ", "", "\\", "") // Makes it more compact and readable for logging
-	log.Info().Str(NodeURL, c.Config.URL).Str("Spec", r.Replace(spec)).Msg("Creating Spec")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("Spec", r.Replace(spec)).Msg("Creating Spec")
 	resp, err := c.APIClient.R().
 		SetBody([]byte(spec)).
 		SetResult(&s).
@@ -208,7 +216,7 @@ func (c *ChainlinkClient) CreateSpec(spec string) (*Spec, *http.Response, error)
 // ReadSpec reads a job spec with the provided ID on the Chainlink node
 func (c *ChainlinkClient) ReadSpec(id string) (*Response, *http.Response, error) {
 	specObj := &Response{}
-	log.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Reading Spec")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Reading Spec")
 	resp, err := c.APIClient.R().
 		SetResult(&specObj).
 		SetPathParams(map[string]string{
@@ -234,7 +242,7 @@ func (c *ChainlinkClient) MustReadRunsByJob(jobID string) (*JobRunsResponse, err
 // ReadRunsByJob reads all runs for a job
 func (c *ChainlinkClient) ReadRunsByJob(jobID string) (*JobRunsResponse, *http.Response, error) {
 	runsObj := &JobRunsResponse{}
-	log.Debug().Str(NodeURL, c.Config.URL).Str("JobID", jobID).Msg("Reading runs for a job")
+	c.l.Debug().Str(NodeURL, c.Config.URL).Str("JobID", jobID).Msg("Reading runs for a job")
 	resp, err := c.APIClient.R().
 		SetResult(&runsObj).
 		SetPathParams(map[string]string{
@@ -249,7 +257,7 @@ func (c *ChainlinkClient) ReadRunsByJob(jobID string) (*JobRunsResponse, *http.R
 
 // DeleteSpec deletes a job spec with the provided ID from the Chainlink node
 func (c *ChainlinkClient) DeleteSpec(id string) (*http.Response, error) {
-	log.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Deleting Spec")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Deleting Spec")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"id": id,
@@ -272,7 +280,7 @@ func (c *ChainlinkClient) MustCreateBridge(bta *BridgeTypeAttributes) error {
 }
 
 func (c *ChainlinkClient) CreateBridge(bta *BridgeTypeAttributes) (*http.Response, error) {
-	log.Info().Str(NodeURL, c.Config.URL).Str("Name", bta.Name).Msg("Creating Bridge")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("Name", bta.Name).Msg("Creating Bridge")
 	resp, err := c.APIClient.R().
 		SetBody(bta).
 		Post("/v2/bridge_types")
@@ -285,7 +293,7 @@ func (c *ChainlinkClient) CreateBridge(bta *BridgeTypeAttributes) (*http.Respons
 // ReadBridge reads a bridge from the Chainlink node based on the provided name
 func (c *ChainlinkClient) ReadBridge(name string) (*BridgeType, *http.Response, error) {
 	bt := BridgeType{}
-	log.Info().Str(NodeURL, c.Config.URL).Str("Name", name).Msg("Reading Bridge")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("Name", name).Msg("Reading Bridge")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"name": name,
@@ -300,7 +308,7 @@ func (c *ChainlinkClient) ReadBridge(name string) (*BridgeType, *http.Response, 
 
 // DeleteBridge deletes a bridge on the Chainlink node based on the provided name
 func (c *ChainlinkClient) DeleteBridge(name string) (*http.Response, error) {
-	log.Info().Str(NodeURL, c.Config.URL).Str("Name", name).Msg("Deleting Bridge")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("Name", name).Msg("Deleting Bridge")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"name": name,
@@ -315,7 +323,7 @@ func (c *ChainlinkClient) DeleteBridge(name string) (*http.Response, error) {
 // CreateOCRKey creates an OCRKey on the Chainlink node
 func (c *ChainlinkClient) CreateOCRKey() (*OCRKey, *http.Response, error) {
 	ocrKey := &OCRKey{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Creating OCR Key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Creating OCR Key")
 	resp, err := c.APIClient.R().
 		SetResult(ocrKey).
 		Post("/v2/keys/ocr")
@@ -329,7 +337,7 @@ func (c *ChainlinkClient) CreateOCRKey() (*OCRKey, *http.Response, error) {
 // the request is unsuccessful
 func (c *ChainlinkClient) MustReadOCRKeys() (*OCRKeys, error) {
 	ocrKeys := &OCRKeys{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Reading OCR Keys")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading OCR Keys")
 	resp, err := c.APIClient.R().
 		SetResult(ocrKeys).
 		Get("/v2/keys/ocr")
@@ -350,7 +358,7 @@ func (c *ChainlinkClient) MustReadOCRKeys() (*OCRKeys, error) {
 
 // DeleteOCRKey deletes an OCRKey based on the provided ID
 func (c *ChainlinkClient) DeleteOCRKey(id string) (*http.Response, error) {
-	log.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Deleting OCR Key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Deleting OCR Key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"id": id,
@@ -365,7 +373,7 @@ func (c *ChainlinkClient) DeleteOCRKey(id string) (*http.Response, error) {
 // CreateOCR2Key creates an OCR2Key on the Chainlink node
 func (c *ChainlinkClient) CreateOCR2Key(chain string) (*OCR2Key, *http.Response, error) {
 	ocr2Key := &OCR2Key{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Creating OCR2 Key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Creating OCR2 Key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"chain": chain,
@@ -381,7 +389,7 @@ func (c *ChainlinkClient) CreateOCR2Key(chain string) (*OCR2Key, *http.Response,
 // ReadOCR2Keys reads all OCR2Keys from the Chainlink node
 func (c *ChainlinkClient) ReadOCR2Keys() (*OCR2Keys, *http.Response, error) {
 	ocr2Keys := &OCR2Keys{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Reading OCR2 Keys")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading OCR2 Keys")
 	resp, err := c.APIClient.R().
 		SetResult(ocr2Keys).
 		Get("/v2/keys/ocr2")
@@ -391,7 +399,7 @@ func (c *ChainlinkClient) ReadOCR2Keys() (*OCR2Keys, *http.Response, error) {
 // MustReadOCR2Keys reads all OCR2Keys from the Chainlink node returns err if response not 200
 func (c *ChainlinkClient) MustReadOCR2Keys() (*OCR2Keys, error) {
 	ocr2Keys := &OCR2Keys{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Reading OCR2 Keys")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading OCR2 Keys")
 	resp, err := c.APIClient.R().
 		SetResult(ocr2Keys).
 		Get("/v2/keys/ocr2")
@@ -404,7 +412,7 @@ func (c *ChainlinkClient) MustReadOCR2Keys() (*OCR2Keys, error) {
 
 // DeleteOCR2Key deletes an OCR2Key based on the provided ID
 func (c *ChainlinkClient) DeleteOCR2Key(id string) (*http.Response, error) {
-	log.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Deleting OCR2 Key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Deleting OCR2 Key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"id": id,
@@ -419,7 +427,7 @@ func (c *ChainlinkClient) DeleteOCR2Key(id string) (*http.Response, error) {
 // CreateP2PKey creates an P2PKey on the Chainlink node
 func (c *ChainlinkClient) CreateP2PKey() (*P2PKey, *http.Response, error) {
 	p2pKey := &P2PKey{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Creating P2P Key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Creating P2P Key")
 	resp, err := c.APIClient.R().
 		SetResult(p2pKey).
 		Post("/v2/keys/p2p")
@@ -433,7 +441,7 @@ func (c *ChainlinkClient) CreateP2PKey() (*P2PKey, *http.Response, error) {
 // the request is unsuccessful
 func (c *ChainlinkClient) MustReadP2PKeys() (*P2PKeys, error) {
 	p2pKeys := &P2PKeys{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Reading P2P Keys")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading P2P Keys")
 	resp, err := c.APIClient.R().
 		SetResult(p2pKeys).
 		Get("/v2/keys/p2p")
@@ -443,7 +451,7 @@ func (c *ChainlinkClient) MustReadP2PKeys() (*P2PKeys, error) {
 	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
 	if len(p2pKeys.Data) == 0 {
 		err = fmt.Errorf("Found no P2P Keys on the Chainlink node. Node URL: %s", c.Config.URL)
-		log.Err(err).Msg("Error getting P2P keys")
+		c.l.Err(err).Msg("Error getting P2P keys")
 		return nil, err
 	}
 	for index := range p2pKeys.Data {
@@ -454,7 +462,7 @@ func (c *ChainlinkClient) MustReadP2PKeys() (*P2PKeys, error) {
 
 // DeleteP2PKey deletes a P2PKey on the Chainlink node based on the provided ID
 func (c *ChainlinkClient) DeleteP2PKey(id int) (*http.Response, error) {
-	log.Info().Str(NodeURL, c.Config.URL).Int("ID", id).Msg("Deleting P2P Key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Int("ID", id).Msg("Deleting P2P Key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"id": fmt.Sprint(id),
@@ -470,7 +478,7 @@ func (c *ChainlinkClient) DeleteP2PKey(id int) (*http.Response, error) {
 // the request is unsuccessful
 func (c *ChainlinkClient) MustReadETHKeys() (*ETHKeys, error) {
 	ethKeys := &ETHKeys{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Reading ETH Keys")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading ETH Keys")
 	resp, err := c.APIClient.R().
 		SetResult(ethKeys).
 		Get("/v2/keys/eth")
@@ -479,7 +487,7 @@ func (c *ChainlinkClient) MustReadETHKeys() (*ETHKeys, error) {
 	}
 	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
 	if len(ethKeys.Data) == 0 {
-		log.Warn().Str(NodeURL, c.Config.URL).Msg("Found no ETH Keys on the node")
+		c.l.Warn().Str(NodeURL, c.Config.URL).Msg("Found no ETH Keys on the node")
 	}
 	return ethKeys, err
 }
@@ -487,7 +495,7 @@ func (c *ChainlinkClient) MustReadETHKeys() (*ETHKeys, error) {
 // UpdateEthKeyMaxGasPriceGWei updates the maxGasPriceGWei for an eth key
 func (c *ChainlinkClient) UpdateEthKeyMaxGasPriceGWei(keyId string, gWei int) (*ETHKey, *http.Response, error) {
 	ethKey := &ETHKey{}
-	log.Info().Str(NodeURL, c.Config.URL).Str("ID", keyId).Int("maxGasPriceGWei", gWei).Msg("Update maxGasPriceGWei for eth key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", keyId).Int("maxGasPriceGWei", gWei).Msg("Update maxGasPriceGWei for eth key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"keyId": keyId,
@@ -608,7 +616,7 @@ func (c *ChainlinkClient) ExportEVMKeys() ([]*ExportedEVMKey, error) {
 			exportedKeys = append(exportedKeys, exportedKey)
 		}
 	}
-	log.Info().
+	c.l.Info().
 		Str(NodeURL, c.Config.URL).
 		Str("Password", ChainlinkKeyPassword).
 		Msg("Exported EVM Keys")
@@ -636,7 +644,7 @@ func (c *ChainlinkClient) ExportEVMKeysForChain(chainid string) ([]*ExportedEVMK
 			exportedKeys = append(exportedKeys, exportedKey)
 		}
 	}
-	log.Info().
+	c.l.Info().
 		Str(NodeURL, c.Config.URL).
 		Str("Password", ChainlinkKeyPassword).
 		Msg("Exported EVM Keys")
@@ -646,7 +654,7 @@ func (c *ChainlinkClient) ExportEVMKeysForChain(chainid string) ([]*ExportedEVMK
 // CreateTxKey creates a tx key on the Chainlink node
 func (c *ChainlinkClient) CreateTxKey(chain string, chainId string) (*TxKey, *http.Response, error) {
 	txKey := &TxKey{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Creating Tx Key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Creating Tx Key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"chain": chain,
@@ -663,7 +671,7 @@ func (c *ChainlinkClient) CreateTxKey(chain string, chainId string) (*TxKey, *ht
 // ReadTxKeys reads all tx keys from the Chainlink node
 func (c *ChainlinkClient) ReadTxKeys(chain string) (*TxKeys, *http.Response, error) {
 	txKeys := &TxKeys{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Reading Tx Keys")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading Tx Keys")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"chain": chain,
@@ -678,7 +686,7 @@ func (c *ChainlinkClient) ReadTxKeys(chain string) (*TxKeys, *http.Response, err
 
 // DeleteTxKey deletes an tx key based on the provided ID
 func (c *ChainlinkClient) DeleteTxKey(chain string, id string) (*http.Response, error) {
-	log.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Deleting Tx Key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Deleting Tx Key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"chain": chain,
@@ -695,7 +703,7 @@ func (c *ChainlinkClient) DeleteTxKey(chain string, id string) (*http.Response, 
 // and returns error if the request is unsuccessful
 func (c *ChainlinkClient) MustReadTransactionAttempts() (*TransactionsData, error) {
 	txsData := &TransactionsData{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Reading Transaction Attempts")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading Transaction Attempts")
 	resp, err := c.APIClient.R().
 		SetResult(txsData).
 		Get("/v2/tx_attempts")
@@ -709,7 +717,7 @@ func (c *ChainlinkClient) MustReadTransactionAttempts() (*TransactionsData, erro
 // ReadTransactions reads all transactions made by the Chainlink node
 func (c *ChainlinkClient) ReadTransactions() (*TransactionsData, *http.Response, error) {
 	txsData := &TransactionsData{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Reading Transactions")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading Transactions")
 	resp, err := c.APIClient.R().
 		SetResult(txsData).
 		Get("/v2/transactions")
@@ -735,7 +743,7 @@ func (c *ChainlinkClient) MustSendNativeToken(amount *big.Int, fromAddress, toAd
 		SetResult(txData).
 		Post("/v2/transfers")
 
-	log.Info().
+	c.l.Info().
 		Str(NodeURL, c.Config.URL).
 		Str("From", fromAddress).
 		Str("To", toAddress).
@@ -751,7 +759,7 @@ func (c *ChainlinkClient) MustSendNativeToken(amount *big.Int, fromAddress, toAd
 // ReadVRFKeys reads all VRF keys from the Chainlink node
 func (c *ChainlinkClient) ReadVRFKeys() (*VRFKeys, *http.Response, error) {
 	vrfKeys := &VRFKeys{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Reading VRF Keys")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading VRF Keys")
 	resp, err := c.APIClient.R().
 		SetResult(vrfKeys).
 		Get("/v2/keys/vrf")
@@ -759,7 +767,7 @@ func (c *ChainlinkClient) ReadVRFKeys() (*VRFKeys, *http.Response, error) {
 		return nil, nil, err
 	}
 	if len(vrfKeys.Data) == 0 {
-		log.Warn().Str(NodeURL, c.Config.URL).Msg("Found no VRF Keys on the node")
+		c.l.Warn().Str(NodeURL, c.Config.URL).Msg("Found no VRF Keys on the node")
 	}
 	return vrfKeys, resp.RawResponse, err
 }
@@ -768,7 +776,7 @@ func (c *ChainlinkClient) ReadVRFKeys() (*VRFKeys, *http.Response, error) {
 // and returns error if the request is unsuccessful
 func (c *ChainlinkClient) MustCreateVRFKey() (*VRFKey, error) {
 	vrfKey := &VRFKey{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Creating VRF Key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Creating VRF Key")
 	resp, err := c.APIClient.R().
 		SetResult(vrfKey).
 		Post("/v2/keys/vrf")
@@ -781,7 +789,7 @@ func (c *ChainlinkClient) MustCreateVRFKey() (*VRFKey, error) {
 // ExportVRFKey exports a vrf key by key id
 func (c *ChainlinkClient) ExportVRFKey(keyId string) (*VRFExportKey, *http.Response, error) {
 	vrfExportKey := &VRFExportKey{}
-	log.Info().Str(NodeURL, c.Config.URL).Str("ID", keyId).Msg("Exporting VRF Key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", keyId).Msg("Exporting VRF Key")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"keyId": keyId,
@@ -797,7 +805,7 @@ func (c *ChainlinkClient) ExportVRFKey(keyId string) (*VRFExportKey, *http.Respo
 // ImportVRFKey import vrf key
 func (c *ChainlinkClient) ImportVRFKey(vrfExportKey *VRFExportKey) (*VRFKey, *http.Response, error) {
 	vrfKey := &VRFKey{}
-	log.Info().Str(NodeURL, c.Config.URL).Str("ID", vrfExportKey.VrfKey.Address).Msg("Importing VRF Key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", vrfExportKey.VrfKey.Address).Msg("Importing VRF Key")
 	resp, err := c.APIClient.R().
 		SetBody(vrfExportKey).
 		SetResult(vrfKey).
@@ -812,7 +820,7 @@ func (c *ChainlinkClient) ImportVRFKey(vrfExportKey *VRFExportKey) (*VRFKey, *ht
 // and returns error if the request is unsuccessful
 func (c *ChainlinkClient) MustCreateDkgSignKey() (*DKGSignKey, error) {
 	dkgSignKey := &DKGSignKey{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Creating DKG Sign Key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Creating DKG Sign Key")
 	resp, err := c.APIClient.R().
 		SetResult(dkgSignKey).
 		Post("/v2/keys/dkgsign")
@@ -826,7 +834,7 @@ func (c *ChainlinkClient) MustCreateDkgSignKey() (*DKGSignKey, error) {
 // and returns error if the request is unsuccessful
 func (c *ChainlinkClient) MustCreateDkgEncryptKey() (*DKGEncryptKey, error) {
 	dkgEncryptKey := &DKGEncryptKey{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Creating DKG Encrypt Key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Creating DKG Encrypt Key")
 	resp, err := c.APIClient.R().
 		SetResult(dkgEncryptKey).
 		Post("/v2/keys/dkgencrypt")
@@ -839,7 +847,7 @@ func (c *ChainlinkClient) MustCreateDkgEncryptKey() (*DKGEncryptKey, error) {
 // MustReadDKGSignKeys reads all DKG Sign Keys from the Chainlink node returns err if response not 200
 func (c *ChainlinkClient) MustReadDKGSignKeys() (*DKGSignKeys, error) {
 	dkgSignKeys := &DKGSignKeys{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Reading DKG Sign Keys")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading DKG Sign Keys")
 	resp, err := c.APIClient.R().
 		SetResult(dkgSignKeys).
 		Get("/v2/keys/dkgsign")
@@ -853,7 +861,7 @@ func (c *ChainlinkClient) MustReadDKGSignKeys() (*DKGSignKeys, error) {
 // MustReadDKGEncryptKeys reads all DKG Encrypt Keys from the Chainlink node returns err if response not 200
 func (c *ChainlinkClient) MustReadDKGEncryptKeys() (*DKGEncryptKeys, error) {
 	dkgEncryptKeys := &DKGEncryptKeys{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Reading DKG Encrypt Keys")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading DKG Encrypt Keys")
 	resp, err := c.APIClient.R().
 		SetResult(dkgEncryptKeys).
 		Get("/v2/keys/dkgencrypt")
@@ -867,7 +875,7 @@ func (c *ChainlinkClient) MustReadDKGEncryptKeys() (*DKGEncryptKeys, error) {
 // CreateCSAKey creates a CSA key on the Chainlink node, only 1 CSA key per noe
 func (c *ChainlinkClient) CreateCSAKey() (*CSAKey, *http.Response, error) {
 	csaKey := &CSAKey{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Creating CSA Key")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Creating CSA Key")
 	resp, err := c.APIClient.R().
 		SetResult(csaKey).
 		Post("/v2/keys/csa")
@@ -880,12 +888,12 @@ func (c *ChainlinkClient) CreateCSAKey() (*CSAKey, *http.Response, error) {
 // ReadCSAKeys reads CSA keys from the Chainlink node
 func (c *ChainlinkClient) ReadCSAKeys() (*CSAKeys, *http.Response, error) {
 	csaKeys := &CSAKeys{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Reading CSA Keys")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading CSA Keys")
 	resp, err := c.APIClient.R().
 		SetResult(csaKeys).
 		Get("/v2/keys/csa")
 	if len(csaKeys.Data) == 0 {
-		log.Warn().Str(NodeURL, c.Config.URL).Msg("Found no CSA Keys on the node")
+		c.l.Warn().Str(NodeURL, c.Config.URL).Msg("Found no CSA Keys on the node")
 	}
 	if err != nil {
 		return nil, nil, err
@@ -896,7 +904,7 @@ func (c *ChainlinkClient) ReadCSAKeys() (*CSAKeys, *http.Response, error) {
 // CreateEI creates an EI on the Chainlink node based on the provided attributes and returns the respective secrets
 func (c *ChainlinkClient) CreateEI(eia *EIAttributes) (*EIKeyCreate, *http.Response, error) {
 	ei := EIKeyCreate{}
-	log.Info().Str(NodeURL, c.Config.URL).Str("Name", eia.Name).Msg("Creating External Initiator")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("Name", eia.Name).Msg("Creating External Initiator")
 	resp, err := c.APIClient.R().
 		SetBody(eia).
 		SetResult(&ei).
@@ -910,7 +918,7 @@ func (c *ChainlinkClient) CreateEI(eia *EIAttributes) (*EIKeyCreate, *http.Respo
 // ReadEIs reads all of the configured EIs from the Chainlink node
 func (c *ChainlinkClient) ReadEIs() (*EIKeys, *http.Response, error) {
 	ei := EIKeys{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Reading EI Keys")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading EI Keys")
 	resp, err := c.APIClient.R().
 		SetResult(&ei).
 		Get("/v2/external_initiators")
@@ -922,7 +930,7 @@ func (c *ChainlinkClient) ReadEIs() (*EIKeys, *http.Response, error) {
 
 // DeleteEI deletes an external initiator in the Chainlink node based on the provided name
 func (c *ChainlinkClient) DeleteEI(name string) (*http.Response, error) {
-	log.Info().Str(NodeURL, c.Config.URL).Str("Name", name).Msg("Deleting EI")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("Name", name).Msg("Deleting EI")
 	resp, err := c.APIClient.R().
 		SetPathParams(map[string]string{
 			"name": name,
@@ -937,7 +945,7 @@ func (c *ChainlinkClient) DeleteEI(name string) (*http.Response, error) {
 // CreateCosmosChain creates a cosmos chain
 func (c *ChainlinkClient) CreateCosmosChain(chain *CosmosChainAttributes) (*CosmosChainCreate, *http.Response, error) {
 	response := CosmosChainCreate{}
-	log.Info().Str(NodeURL, c.Config.URL).Str("Chain ID", chain.ChainID).Msg("Creating Cosmos Chain")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("Chain ID", chain.ChainID).Msg("Creating Cosmos Chain")
 	resp, err := c.APIClient.R().
 		SetBody(chain).
 		SetResult(&response).
@@ -951,7 +959,7 @@ func (c *ChainlinkClient) CreateCosmosChain(chain *CosmosChainAttributes) (*Cosm
 // CreateCosmosNode creates a cosmos node
 func (c *ChainlinkClient) CreateCosmosNode(node *CosmosNodeAttributes) (*CosmosNodeCreate, *http.Response, error) {
 	response := CosmosNodeCreate{}
-	log.Info().Str(NodeURL, c.Config.URL).Str("Name", node.Name).Msg("Creating Cosmos Node")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("Name", node.Name).Msg("Creating Cosmos Node")
 	resp, err := c.APIClient.R().
 		SetBody(node).
 		SetResult(&response).
@@ -965,7 +973,7 @@ func (c *ChainlinkClient) CreateCosmosNode(node *CosmosNodeAttributes) (*CosmosN
 // CreateSolanaChain creates a solana chain
 func (c *ChainlinkClient) CreateSolanaChain(chain *SolanaChainAttributes) (*SolanaChainCreate, *http.Response, error) {
 	response := SolanaChainCreate{}
-	log.Info().Str(NodeURL, c.Config.URL).Str("Chain ID", chain.ChainID).Msg("Creating Solana Chain")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("Chain ID", chain.ChainID).Msg("Creating Solana Chain")
 	resp, err := c.APIClient.R().
 		SetBody(chain).
 		SetResult(&response).
@@ -979,7 +987,7 @@ func (c *ChainlinkClient) CreateSolanaChain(chain *SolanaChainAttributes) (*Sola
 // CreateSolanaNode creates a solana node
 func (c *ChainlinkClient) CreateSolanaNode(node *SolanaNodeAttributes) (*SolanaNodeCreate, *http.Response, error) {
 	response := SolanaNodeCreate{}
-	log.Info().Str(NodeURL, c.Config.URL).Str("Name", node.Name).Msg("Creating Solana Node")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("Name", node.Name).Msg("Creating Solana Node")
 	resp, err := c.APIClient.R().
 		SetBody(node).
 		SetResult(&response).
@@ -993,7 +1001,7 @@ func (c *ChainlinkClient) CreateSolanaNode(node *SolanaNodeAttributes) (*SolanaN
 // CreateStarkNetChain creates a starknet chain
 func (c *ChainlinkClient) CreateStarkNetChain(chain *StarkNetChainAttributes) (*StarkNetChainCreate, *http.Response, error) {
 	response := StarkNetChainCreate{}
-	log.Info().Str(NodeURL, c.Config.URL).Str("Chain ID", chain.ChainID).Msg("Creating StarkNet Chain")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("Chain ID", chain.ChainID).Msg("Creating StarkNet Chain")
 	resp, err := c.APIClient.R().
 		SetBody(chain).
 		SetResult(&response).
@@ -1007,7 +1015,7 @@ func (c *ChainlinkClient) CreateStarkNetChain(chain *StarkNetChainAttributes) (*
 // CreateStarkNetNode creates a starknet node
 func (c *ChainlinkClient) CreateStarkNetNode(node *StarkNetNodeAttributes) (*StarkNetNodeCreate, *http.Response, error) {
 	response := StarkNetNodeCreate{}
-	log.Info().Str(NodeURL, c.Config.URL).Str("Name", node.Name).Msg("Creating StarkNet Node")
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("Name", node.Name).Msg("Creating StarkNet Node")
 	resp, err := c.APIClient.R().
 		SetBody(node).
 		SetResult(&response).
@@ -1030,14 +1038,14 @@ func (c *ChainlinkClient) Profile(profileTime time.Duration, profileFunction fun
 	profileResults := NewBlankChainlinkProfileResults()
 	profileErrorGroup := new(errgroup.Group)
 	var profileExecutedGroup sync.WaitGroup
-	log.Info().Int("Seconds to Profile", profileSeconds).Str(NodeURL, c.Config.URL).Msg("Starting Node PPROF session")
+	c.l.Info().Int("Seconds to Profile", profileSeconds).Str(NodeURL, c.Config.URL).Msg("Starting Node PPROF session")
 	for _, rep := range profileResults.Reports {
 		profileExecutedGroup.Add(1)
 		profileReport := rep
 		// The profile function returns with the profile results after the profile time frame has concluded
 		// e.g. a profile API call of 5 seconds will start profiling, wait for 5 seconds, then send back results
 		profileErrorGroup.Go(func() error {
-			log.Debug().Str("Type", profileReport.Type).Msg("PROFILING")
+			c.l.Debug().Str("Type", profileReport.Type).Msg("PROFILING")
 			profileExecutedGroup.Done()
 			resp, err := c.APIClient.R().
 				SetPathParams(map[string]string{
@@ -1054,7 +1062,7 @@ func (c *ChainlinkClient) Profile(profileTime time.Duration, profileFunction fun
 			if err != nil {
 				return err
 			}
-			log.Debug().Str("Type", profileReport.Type).Msg("DONE PROFILING")
+			c.l.Debug().Str("Type", profileReport.Type).Msg("DONE PROFILING")
 			profileReport.Data = resp.Body()
 			return err
 		})
@@ -1070,12 +1078,12 @@ func (c *ChainlinkClient) Profile(profileTime time.Duration, profileFunction fun
 	actualSeconds := int(actualRunTime.Seconds())
 
 	if actualSeconds > profileSeconds {
-		log.Warn().
+		c.l.Warn().
 			Int("Actual Seconds", actualSeconds).
 			Int("Profile Seconds", profileSeconds).
 			Msg("Your profile function took longer than expected to run, increase profileTime")
 	} else if actualSeconds < profileSeconds && actualSeconds > 0 {
-		log.Warn().
+		c.l.Warn().
 			Int("Actual Seconds", actualSeconds).
 			Int("Profile Seconds", profileSeconds).
 			Msg("Your profile function took shorter than expected to run, you can decrease profileTime")
@@ -1174,7 +1182,7 @@ func (c *ChainlinkClient) TrackForwarder(chainID *big.Int, address common.Addres
 		ChainID: chainID.String(),
 		Address: address.Hex(),
 	}
-	log.Debug().Str(NodeURL, c.Config.URL).
+	c.l.Debug().Str(NodeURL, c.Config.URL).
 		Str("Forwarder address", (address).Hex()).
 		Str("Chain ID", chainID.String()).
 		Msg("Track forwarder")
@@ -1196,7 +1204,7 @@ func (c *ChainlinkClient) TrackForwarder(chainID *big.Int, address common.Addres
 // GetForwarders get list of tracked forwarders
 func (c *ChainlinkClient) GetForwarders() (*Forwarders, *http.Response, error) {
 	response := &Forwarders{}
-	log.Info().Str(NodeURL, c.Config.URL).Msg("Reading Tracked Forwarders")
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Reading Tracked Forwarders")
 	resp, err := c.APIClient.R().
 		SetResult(response).
 		Get("/v2/nodes/evm/forwarders")

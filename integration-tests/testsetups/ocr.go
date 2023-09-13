@@ -22,7 +22,6 @@ import (
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-env/environment"
@@ -424,7 +423,7 @@ func (o *OCRSoakTest) Resume() {
 		StartTime: time.Now(),
 		Message:   "Test Resumed",
 	})
-	log.Info().
+	o.log.Info().
 		Str("Total Duration", o.Inputs.TestDuration.String()).
 		Str("Time Left", o.timeLeft.String()).
 		Msg("Resuming OCR Soak Test")
@@ -447,7 +446,7 @@ func (o *OCRSoakTest) Resume() {
 	o.log.Info().Msg("Test Complete, collecting on-chain events")
 
 	err = o.collectEvents()
-	log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
+	o.log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
 	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
 }
 
@@ -485,7 +484,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 			if err := o.SaveState(); err != nil {
 				o.log.Error().Err(err).Msg("Error saving state")
 			}
-			log.Warn().Str("Time Taken", time.Since(saveStart).String()).Msg("Saved state")
+			o.log.Warn().Str("Time Taken", time.Since(saveStart).String()).Msg("Saved state")
 			os.Exit(2) // Exit with code 2 to indicate test was interrupted, not just a normal failure
 		case <-endTest:
 			return
@@ -526,7 +525,7 @@ func (o *OCRSoakTest) complete() {
 
 	err := o.collectEvents()
 	if err != nil {
-		log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
+		o.log.Error().Err(err).Interface("Query", o.filterQuery).Msg("Error collecting on-chain events, expect malformed report")
 	}
 	o.TestReporter.RecordEvents(o.ocrRoundStates, o.testIssues)
 }
@@ -544,7 +543,7 @@ func (o *OCRSoakTest) setFilterQuery() {
 		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
 		FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
 	}
-	log.Debug().
+	o.log.Debug().
 		Interface("Addresses", ocrAddresses).
 		Str("Topic", contractABI.Events["AnswerUpdated"].ID.Hex()).
 		Uint64("Starting Block", o.startingBlockNum).
@@ -569,7 +568,7 @@ func (o *OCRSoakTest) observeOCREvents() error {
 			case event := <-eventLogs:
 				answerUpdated, err := o.ocrInstances[0].ParseEventAnswerUpdated(event)
 				if err != nil {
-					log.Warn().
+					o.log.Warn().
 						Err(err).
 						Str("Address", event.Address.Hex()).
 						Uint64("Block Number", event.BlockNumber).
@@ -634,18 +633,18 @@ func (o *OCRSoakTest) collectEvents() error {
 
 	// We must retrieve the events, use exponential backoff for timeout to retry
 	timeout := time.Second * 15
-	log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
+	o.log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
 
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	contractEvents, err := o.chainClient.FilterLogs(ctx, o.filterQuery)
 	cancel()
 	for err != nil {
-		log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
+		o.log.Info().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Retrieving on-chain events")
 		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		contractEvents, err = o.chainClient.FilterLogs(ctx, o.filterQuery)
 		cancel()
 		if err != nil {
-			log.Warn().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Error collecting on-chain events, trying again")
+			o.log.Warn().Interface("Filter Query", o.filterQuery).Str("Timeout", timeout.String()).Msg("Error collecting on-chain events, trying again")
 			timeout *= 2
 		}
 	}

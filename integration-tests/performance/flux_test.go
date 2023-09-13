@@ -115,7 +115,7 @@ func TestFluxPerformance(t *testing.T) {
 			return
 		}
 		fluxRoundTimeout := 2 * time.Minute
-		fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout)
+		fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout, l)
 		chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
 		err = chainClient.WaitForEvents()
 		require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
@@ -133,7 +133,7 @@ func TestFluxPerformance(t *testing.T) {
 		require.Equal(t, int64(3), data.AllocatedFunds.Int64(),
 			"Expected allocated funds to be %d, but found %d", int64(3), data.AllocatedFunds.Int64())
 
-		fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout)
+		fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout, l)
 		chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
 		err = mockServer.SetValuePath(adapterPath, 1e10)
 		require.NoError(t, err, "Setting value path in mock server shouldn't fail")
