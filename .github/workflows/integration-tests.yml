@@ -728,7 +728,6 @@ jobs:
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_LOG_LEVEL: debug
       EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
-      TEST_EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
 
       OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
       OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
