@@ -12,9 +12,10 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 )
 
 // FeedScopedConfigSet ConfigSet with FeedID for use with mercury (and multi-config DON)
@@ -29,7 +30,7 @@ const (
 
 func init() {
 	var err error
-	verifierABI, err = abi.JSON(strings.NewReader(mercury_verifier.MercuryVerifierABI))
+	verifierABI, err = abi.JSON(strings.NewReader(verifier.VerifierABI))
 	if err != nil {
 		panic(err)
 	}
@@ -39,11 +40,11 @@ func init() {
 // FullConfigFromLog defines the contract config with the feedID
 type FullConfigFromLog struct {
 	ocrtypes.ContractConfig
-	feedID [32]byte
+	feedID utils.FeedID
 }
 
-func unpackLogData(d []byte) (*mercury_verifier.MercuryVerifierConfigSet, error) {
-	unpacked := new(mercury_verifier.MercuryVerifierConfigSet)
+func unpackLogData(d []byte) (*verifier.VerifierConfigSet, error) {
+	unpacked := new(verifier.VerifierConfigSet)
 
 	err := verifierABI.UnpackIntoInterface(unpacked, configSetEventName, d)
 	if err != nil {
@@ -191,7 +192,10 @@ func (cp *ConfigPoller) LatestBlockHeight(ctx context.Context) (blockHeight uint
 }
 
 func (cp *ConfigPoller) startLogSubscription() {
-	feedIdPgHex := cp.feedId.Hex()[2:] // trim the leading 0x to make it comparable to pg's hex encoding.
+	// trim the leading 0x to make it comparable to pg's hex encoding.
+	addressPgHex := cp.addr.Hex()[2:]
+	feedIdPgHex := cp.feedId.Hex()[2:]
+
 	for {
 		event, ok := <-cp.subscription.Events()
 		if !ok {
@@ -203,6 +207,11 @@ func (cp *ConfigPoller) startLogSubscription() {
 		addressTopicValues := strings.Split(event.Payload, ":")
 		if len(addressTopicValues) < 2 {
 			cp.lggr.Warnf("invalid event from %s channel: %s", pg.ChannelInsertOnEVMLogs, event.Payload)
+			continue
+		}
+
+		address := addressTopicValues[0]
+		if address != addressPgHex {
 			continue
 		}
 

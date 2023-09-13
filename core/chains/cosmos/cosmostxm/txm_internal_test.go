@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -61,21 +62,29 @@ func TestTxm(t *testing.T) {
 	require.NoError(t, err)
 	sender2, err := cosmostypes.AccAddressFromBech32(k2.PublicKeyStr())
 	require.NoError(t, err)
-	contract, err := cosmostypes.AccAddressFromBech32("cosmos1z94322r480rhye2atp8z7v0wm37pk36ghzkdnd")
+	k3, err := ks.Cosmos().Create()
 	require.NoError(t, err)
-	contract2, err := cosmostypes.AccAddressFromBech32("cosmos1pe6e59rzm5upts599wl8hrvh95afy859yrcva8")
+	contract, err := cosmostypes.AccAddressFromBech32(k3.PublicKeyStr())
+	require.NoError(t, err)
+	k4, err := ks.Cosmos().Create()
+	require.NoError(t, err)
+	contract2, err := cosmostypes.AccAddressFromBech32(k4.PublicKeyStr())
 	require.NoError(t, err)
 	logCfg := pgtest.NewQConfig(true)
 	chainID := cosmostest.RandomChainID()
 	two := int64(2)
+	feeToken := "ucosm"
 	cfg := &cosmos.CosmosConfig{Chain: coscfg.Chain{
 		MaxMsgsPerBatch: &two,
+		FeeToken:        &feeToken,
 	}}
 	cfg.SetDefaults()
 	gpe := cosmosclient.NewMustGasPriceEstimator([]cosmosclient.GasPricesEstimator{
 		cosmosclient.NewFixedGasPriceEstimator(map[string]cosmostypes.DecCoin{
-			"uatom": cosmostypes.NewDecCoinFromDec("uatom", cosmostypes.MustNewDecFromStr("0.01")),
-		}),
+			cfg.FeeToken(): cosmostypes.NewDecCoinFromDec(cfg.FeeToken(), cosmostypes.MustNewDecFromStr("0.01")),
+		},
+			lggr.(logger.SugaredLogger),
+		),
 	}, lggr)
 
 	t.Run("single msg", func(t *testing.T) {

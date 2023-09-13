@@ -2,62 +2,140 @@ package logprovider
 
 import (
 	"bytes"
+	"errors"
+	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"golang.org/x/time/rate"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
 
-func (p *logEventProvider) RegisterFilter(upkeepID *big.Int, cfg LogTriggerConfig) error {
+var (
+	// LogRetention is the amount of time to retain logs for.
+	LogRetention = 24 * time.Hour
+)
+
+func (p *logEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	p.lggr.Debugw("Refreshing active upkeeps", "upkeeps", len(ids))
+	visited := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		visited[id.String()] = false
+	}
+	inactiveIDs := p.filterStore.GetIDs(func(f upkeepFilter) bool {
+		uid := f.upkeepID.String()
+		_, ok := visited[uid]
+		visited[uid] = true
+		return !ok
+	})
+	var merr error
+	if len(inactiveIDs) > 0 {
+		p.lggr.Debugw("Removing inactive upkeeps", "upkeeps", len(inactiveIDs))
+		for _, id := range inactiveIDs {
+			if err := p.UnregisterFilter(id); err != nil {
+				merr = errors.Join(merr, fmt.Errorf("failed to unregister filter: %s", id.String()))
+			}
+		}
+	}
+	var newIDs []*big.Int
+	for id, ok := range visited {
+		if !ok {
+			uid, _ := new(big.Int).SetString(id, 10)
+			newIDs = append(newIDs, uid)
+		}
+	}
+
+	return newIDs, merr
+}
+
+func (p *logEventProvider) RegisterFilter(opts FilterOptions) error {
+	upkeepID, cfg := opts.UpkeepID, opts.TriggerConfig
 	if err := p.validateLogTriggerConfig(cfg); err != nil {
-		return errors.Wrap(err, "invalid log trigger config")
+		return fmt.Errorf("invalid log trigger config: %w", err)
 	}
-	filter := p.newLogFilter(upkeepID, cfg)
+	lpFilter := p.newLogFilter(upkeepID, cfg)
 
-	// TODO: optimize locking, currently we lock the whole map while registering the filter
-	p.lock.Lock()
-	defer p.lock.Unlock()
+	// using lock to facilitate multiple events causing filter registration
+	// at the same time.
+	// Exploratory: consider using a q to handle registration requests
+	p.registerLock.Lock()
+	defer p.registerLock.Unlock()
 
-	uid := upkeepID.String()
-	if _, ok := p.active[uid]; ok {
-		// TODO: check for updates
-		return errors.Errorf("filter for upkeep with id %s already registered", uid)
+	var filter upkeepFilter
+	currentFilter := p.filterStore.Get(upkeepID)
+	if currentFilter != nil {
+		if currentFilter.configUpdateBlock > opts.UpdateBlock {
+			// already registered with a config from a higher block number
+			return fmt.Errorf("filter for upkeep with id %s already registered with newer config", upkeepID.String())
+		} else if currentFilter.configUpdateBlock == opts.UpdateBlock {
+			// already registered with the same config
+			p.lggr.Debugf("filter for upkeep with id %s already registered with the same config", upkeepID.String())
+			return nil
+		}
+		// removing filter so we can recreate it with updated values
+		err := p.poller.UnregisterFilter(p.filterName(currentFilter.upkeepID))
+		if err != nil {
+			return fmt.Errorf("failed to unregister upkeep filter %s for update: %w", upkeepID.String(), err)
+		}
+		filter = *currentFilter
+	} else { // new filter
+		filter = upkeepFilter{
+			upkeepID:     upkeepID,
+			blockLimiter: rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
+		}
 	}
-	if err := p.poller.RegisterFilter(filter); err != nil {
-		return errors.Wrap(err, "failed to register upkeep filter")
-	}
-	p.active[uid] = upkeepFilterEntry{
-		id:           upkeepID,
-		filter:       filter,
-		cfg:          cfg,
-		blockLimiter: rate.NewLimiter(p.opts.BlockRateLimit, p.opts.BlockLimitBurst),
+	filter.lastPollBlock = 0
+	filter.lastRePollBlock = 0
+	filter.configUpdateBlock = opts.UpdateBlock
+	filter.addr = lpFilter.Addresses[0].Bytes()
+	filter.topics = make([]common.Hash, len(lpFilter.EventSigs))
+	copy(filter.topics, lpFilter.EventSigs)
+
+	if err := p.register(lpFilter, filter); err != nil {
+		return fmt.Errorf("failed to register upkeep filter %s: %w", filter.upkeepID.String(), err)
 	}
 
 	return nil
 }
 
-func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
-	err := p.poller.UnregisterFilter(p.filterName(upkeepID), nil)
-	if err == nil {
-		p.lock.Lock()
-		delete(p.active, upkeepID.String())
-		p.lock.Unlock()
+// register registers the upkeep filter with the log poller and adds it to the filter store.
+func (p *logEventProvider) register(lpFilter logpoller.Filter, ufilter upkeepFilter) error {
+	if err := p.poller.RegisterFilter(lpFilter); err != nil {
+		return err
 	}
-	return errors.Wrap(err, "failed to unregister upkeep filter")
+	p.filterStore.AddActiveUpkeeps(ufilter)
+	p.poller.ReplayAsync(int64(ufilter.configUpdateBlock))
+
+	return nil
+}
+
+func (p *logEventProvider) UnregisterFilter(upkeepID *big.Int) error {
+	err := p.poller.UnregisterFilter(p.filterName(upkeepID))
+	if err != nil {
+		// TODO: mark as removed in filter store, so we'll
+		// automatically retry on next refresh
+		return fmt.Errorf("failed to unregister upkeep filter %s: %w", upkeepID.String(), err)
+	}
+	p.filterStore.RemoveActiveUpkeeps(upkeepFilter{
+		upkeepID: upkeepID,
+	})
+	return nil
 }
 
 // newLogFilter creates logpoller.Filter from the given upkeep config
 func (p *logEventProvider) newLogFilter(upkeepID *big.Int, cfg LogTriggerConfig) logpoller.Filter {
-	sigs := p.getFiltersBySelector(cfg.FilterSelector, cfg.Topic1[:], cfg.Topic2[:], cfg.Topic3[:])
-	sigs = append([]common.Hash{common.BytesToHash(cfg.Topic0[:])}, sigs...)
+	topics := p.getFiltersBySelector(cfg.FilterSelector, cfg.Topic1[:], cfg.Topic2[:], cfg.Topic3[:])
+	topics = append([]common.Hash{common.BytesToHash(cfg.Topic0[:])}, topics...)
 	return logpoller.Filter{
 		Name:      p.filterName(upkeepID),
-		EventSigs: sigs,
+		EventSigs: topics,
 		Addresses: []common.Address{cfg.ContractAddress},
-		Retention: p.opts.LogRetention,
+		Retention: LogRetention,
 	}
 }
 

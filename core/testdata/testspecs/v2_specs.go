@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var (
@@ -585,18 +586,20 @@ ds -> ds_parse -> ds_multiply;
 
 // BlockhashStoreSpecParams defines params for building a blockhash store job spec.
 type BlockhashStoreSpecParams struct {
-	JobID                    string
-	Name                     string
-	CoordinatorV1Address     string
-	CoordinatorV2Address     string
-	CoordinatorV2PlusAddress string
-	WaitBlocks               int
-	LookbackBlocks           int
-	BlockhashStoreAddress    string
-	PollPeriod               time.Duration
-	RunTimeout               time.Duration
-	EVMChainID               int64
-	FromAddresses            []string
+	JobID                          string
+	Name                           string
+	CoordinatorV1Address           string
+	CoordinatorV2Address           string
+	CoordinatorV2PlusAddress       string
+	WaitBlocks                     int
+	LookbackBlocks                 int
+	BlockhashStoreAddress          string
+	TrustedBlockhashStoreAddress   string
+	TrustedBlockhashStoreBatchSize int32
+	PollPeriod                     time.Duration
+	RunTimeout                     time.Duration
+	EVMChainID                     int64
+	FromAddresses                  []string
 }
 
 // BlockhashStoreSpec defines a blockhash store job spec.
@@ -630,6 +633,14 @@ func GenerateBlockhashStoreSpec(params BlockhashStoreSpecParams) BlockhashStoreS
 
 	if params.CoordinatorV2PlusAddress == "" {
 		params.CoordinatorV2PlusAddress = "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b"
+	}
+
+	if params.TrustedBlockhashStoreAddress == "" {
+		params.TrustedBlockhashStoreAddress = utils.ZeroAddress.Hex()
+	}
+
+	if params.TrustedBlockhashStoreBatchSize == 0 {
+		params.TrustedBlockhashStoreBatchSize = 20
 	}
 
 	if params.WaitBlocks == 0 {
@@ -673,6 +684,8 @@ coordinatorV2PlusAddress = "%s"
 waitBlocks = %d
 lookbackBlocks = %d
 blockhashStoreAddress = "%s"
+trustedBlockhashStoreAddress = "%s"
+trustedBlockhashStoreBatchSize = %d
 pollPeriod = "%s"
 runTimeout = "%s"
 evmChainID = "%d"
@@ -680,7 +693,7 @@ fromAddresses = %s
 `
 	toml := fmt.Sprintf(template, params.Name, params.CoordinatorV1Address,
 		params.CoordinatorV2Address, params.CoordinatorV2PlusAddress, params.WaitBlocks, params.LookbackBlocks,
-		params.BlockhashStoreAddress, params.PollPeriod.String(), params.RunTimeout.String(),
+		params.BlockhashStoreAddress, params.TrustedBlockhashStoreAddress, params.TrustedBlockhashStoreBatchSize, params.PollPeriod.String(), params.RunTimeout.String(),
 		params.EVMChainID, formattedFromAddresses)
 
 	return BlockhashStoreSpec{BlockhashStoreSpecParams: params, toml: toml}

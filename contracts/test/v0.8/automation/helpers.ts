@@ -6,7 +6,10 @@ import { IKeeperRegistryMaster__factory as IKeeperRegistryMasterFactory } from '
 
 export const deployRegistry21 = async (
   from: Signer,
-  ...params: Parameters<KeeperRegistryLogicBFactory['deploy']>
+  mode: Parameters<KeeperRegistryLogicBFactory['deploy']>[0],
+  link: Parameters<KeeperRegistryLogicBFactory['deploy']>[1],
+  linkNative: Parameters<KeeperRegistryLogicBFactory['deploy']>[2],
+  fastgas: Parameters<KeeperRegistryLogicBFactory['deploy']>[3],
 ): Promise<IKeeperRegistry> => {
   const logicBFactory = await ethers.getContractFactory(
     'KeeperRegistryLogicB2_1',
@@ -15,7 +18,13 @@ export const deployRegistry21 = async (
     'KeeperRegistryLogicA2_1',
   )
   const registryFactory = await ethers.getContractFactory('KeeperRegistry2_1')
-  const logicB = await logicBFactory.connect(from).deploy(...params)
+  const forwarderLogicFactory = await ethers.getContractFactory(
+    'AutomationForwarderLogic',
+  )
+  const forwarderLogic = await forwarderLogicFactory.connect(from).deploy()
+  const logicB = await logicBFactory
+    .connect(from)
+    .deploy(mode, link, linkNative, fastgas, forwarderLogic.address)
   const logicA = await logicAFactory.connect(from).deploy(logicB.address)
   const master = await registryFactory.connect(from).deploy(logicA.address)
   return IKeeperRegistryMasterFactory.connect(master.address, from)

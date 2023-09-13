@@ -3,7 +3,7 @@ pragma solidity 0.8.16;
 
 import {ILogAutomation, Log} from "../2_1/interfaces/ILogAutomation.sol";
 import "../2_1/interfaces/FeedLookupCompatibleInterface.sol";
-import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 
 interface IVerifierProxy {
   /**
@@ -36,12 +36,14 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
 
   // for mercury config
   bool public useArbitrumBlockNum;
+  bool public verify;
   string[] public feedsHex = ["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"];
   string public feedParamKey = "feedIdHex";
   string public timeParamKey = "blockNumber";
 
-  constructor(bool _useArbitrumBlockNum) {
+  constructor(bool _useArbitrumBlockNum, bool _verify) {
     useArbitrumBlockNum = _useArbitrumBlockNum;
+    verify = _verify;
   }
 
   function setTimeParamKey(string memory timeParam) external {
@@ -56,7 +58,10 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
     feedsHex = newFeeds;
   }
 
-  function checkLog(Log calldata log) external override returns (bool upkeepNeeded, bytes memory performData) {
+  function checkLog(
+    Log calldata log,
+    bytes memory
+  ) external override returns (bool upkeepNeeded, bytes memory performData) {
     uint256 blockNum = getBlockNumber();
 
     // filter by event signature
@@ -78,7 +83,10 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
     (bytes[] memory values, bytes memory extraData) = abi.decode(performData, (bytes[], bytes));
     (uint256 orderId, uint256 amount, address exchange) = abi.decode(extraData, (uint256, uint256, address));
 
-    bytes memory verifiedResponse; // = VERIFIER.verify(values[0]);
+    bytes memory verifiedResponse = "";
+    if (verify) {
+      verifiedResponse = VERIFIER.verify(values[0]);
+    }
 
     emit PerformingLogTriggerUpkeep(
       tx.origin,
@@ -94,7 +102,7 @@ contract LogTriggeredFeedLookup is ILogAutomation, FeedLookupCompatibleInterface
   function checkCallback(
     bytes[] memory values,
     bytes memory extraData
-  ) external view override returns (bool upkeepNeeded, bytes memory performData) {
+  ) external view override returns (bool, bytes memory) {
     // do sth about the chainlinkBlob data in values and extraData
     bytes memory performData = abi.encode(values, extraData);
     return (true, performData);

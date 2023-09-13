@@ -29,7 +29,9 @@ let personas: Personas
 before(async () => {
   personas = (await getUsers()).personas
 
-  linkTokenFactory = await ethers.getContractFactory('LinkToken')
+  linkTokenFactory = await ethers.getContractFactory(
+    'src/v0.4/LinkToken.sol:LinkToken',
+  )
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory
@@ -163,9 +165,7 @@ describe('AutomationRegistrar2_1', () => {
     }
     await registry
       .connect(owner)
-      [
-        'setConfig(address[],address[],uint8,(uint32,uint32,uint32,uint24,uint16,uint96,uint32,uint32,uint32,uint32,uint256,uint256,address,address[],address),uint64,bytes)'
-      ](keepers, keepers, 1, onchainConfig, 1, '0x')
+      .setConfigTypeSafe(keepers, keepers, 1, onchainConfig, 1, '0x')
   })
 
   describe('#typeAndVersion', () => {

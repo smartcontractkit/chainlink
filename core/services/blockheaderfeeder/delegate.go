@@ -25,20 +25,20 @@ import (
 var _ job.ServiceCtx = &service{}
 
 type Delegate struct {
-	logger logger.Logger
-	chains evm.ChainSet
-	ks     keystore.Eth
+	logger       logger.Logger
+	legacyChains evm.LegacyChainContainer
+	ks           keystore.Eth
 }
 
 func NewDelegate(
 	logger logger.Logger,
-	chains evm.ChainSet,
+	legacyChains evm.LegacyChainContainer,
 	ks keystore.Eth,
 ) *Delegate {
 	return &Delegate{
-		logger: logger,
-		chains: chains,
-		ks:     ks,
+		logger:       logger,
+		legacyChains: legacyChains,
+		ks:           ks,
 	}
 }
 
@@ -48,12 +48,12 @@ func (d *Delegate) JobType() job.Type {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
 	if jb.BlockHeaderFeederSpec == nil {
 		return nil, errors.Errorf("Delegate expects a BlockHeaderFeederSpec to be present, got %+v", jb)
 	}
 
-	chain, err := d.chains.Get(jb.BlockHeaderFeederSpec.EVMChainID.ToInt())
+	chain, err := d.legacyChains.Get(jb.BlockHeaderFeederSpec.EVMChainID.String())
 	if err != nil {
 		return nil, fmt.Errorf(
 			"getting chain ID %d: %w", jb.BlockHeaderFeederSpec.EVMChainID.ToInt(), err)
@@ -138,7 +138,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		coordinators = append(coordinators, coord)
 	}
 
-	bpBHS, err := blockhashstore.NewBulletproofBHS(chain.Config().EVM().GasEstimator(), chain.Config().Database(), fromAddresses, chain.TxManager(), bhs, chain.ID(), d.ks)
+	bpBHS, err := blockhashstore.NewBulletproofBHS(chain.Config().EVM().GasEstimator(), chain.Config().Database(), fromAddresses, chain.TxManager(), bhs, nil, chain.ID(), d.ks)
 	if err != nil {
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}

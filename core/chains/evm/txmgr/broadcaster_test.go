@@ -1486,7 +1486,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// Do the thing
 		retryable, err := eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "bumped gas price of 20 gwei is equal to original gas price of 20 gwei. ACTION REQUIRED: This is a configuration error, you must increase either EVM.GasEstimator.BumpPercent or EVM.GasEstimator.BumpMin")
+		require.Contains(t, err.Error(), "bumped fee price of 20 gwei is equal to original fee price of 20 gwei. ACTION REQUIRED: This is a configuration error, you must increase either FeeEstimator.BumpPercent or FeeEstimator.BumpMin")
 		assert.True(t, retryable)
 
 		// TEARDOWN: Clear out the unsent tx before the next test
@@ -1868,13 +1868,6 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 		assert.Equal(t, int64(0), nonce)
 	})
 
-}
-
-func checkerToJson(t *testing.T, checker txmgr.TransmitCheckerSpec) *datatypes.JSON {
-	b, err := json.Marshal(checker)
-	require.NoError(t, err)
-	j := datatypes.JSON(b)
-	return &j
 }
 
 type testCheckerFactory struct {

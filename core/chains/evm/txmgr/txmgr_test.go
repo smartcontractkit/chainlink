@@ -248,6 +248,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
 		testDefaultSubID := uint64(2)
 		testDefaultMaxLink := "1000000000000000000"
+		testDefaultMaxEth := "2000000000000000000"
 		// max uint256 is 1.1579209e+77
 		testDefaultGlobalSubID := crypto.Keccak256Hash([]byte("sub id")).String()
 		jobID := int32(25)
@@ -258,6 +259,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			RequestID:     &requestID,
 			RequestTxHash: &requestTxHash,
 			MaxLink:       &testDefaultMaxLink, // 1e18
+			MaxEth:        &testDefaultMaxEth,  // 2e18
 			SubID:         &testDefaultSubID,
 			GlobalSubID:   &testDefaultGlobalSubID,
 		}
@@ -428,7 +430,7 @@ type transactionsConfig struct {
 	e *evmConfig
 }
 
-func (_ *transactionsConfig) ForwardersEnabled() bool             { return true }
+func (*transactionsConfig) ForwardersEnabled() bool               { return true }
 func (t *transactionsConfig) MaxInFlight() uint32                 { return t.e.maxInFlight }
 func (t *transactionsConfig) MaxQueued() uint64                   { return t.e.maxQueued }
 func (t *transactionsConfig) ReaperInterval() time.Duration       { return t.e.reaperInterval }

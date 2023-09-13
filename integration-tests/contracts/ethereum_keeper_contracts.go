@@ -11,20 +11,27 @@ import (
 
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	goabi "github.com/umbracle/ethgo/abi"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
+	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -32,20 +39,13 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
+var utilsABI = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
+var registrarABI = cltypes.MustGetABI(registrar21.AutomationRegistrarABI)
+
 type KeeperRegistrar interface {
 	Address() string
 
-	EncodeRegisterRequest(
-		name string,
-		email []byte,
-		upkeepAddr string,
-		gasLimit uint32,
-		adminAddr string,
-		checkData []byte,
-		amount *big.Int,
-		source uint8,
-		senderAddr string,
-	) ([]byte, error)
+	EncodeRegisterRequest(name string, email []byte, upkeepAddr string, gasLimit uint32, adminAddr string, checkData []byte, amount *big.Int, source uint8, senderAddr string, isLogTrigger bool) ([]byte, error)
 
 	Fund(ethAmount *big.Float) error
 }
@@ -81,6 +81,7 @@ type KeeperConsumer interface {
 	Address() string
 	Fund(ethAmount *big.Float) error
 	Counter(ctx context.Context) (*big.Int, error)
+	Start() error
 }
 
 type UpkeepCounter interface {
@@ -154,6 +155,7 @@ type KeeperRegistrySettings struct {
 	FallbackLinkPrice    *big.Int // LINK price used if the LINK price feed is stale
 	MaxCheckDataSize     uint32
 	MaxPerformDataSize   uint32
+	RegistryVersion      ethereum.KeeperRegistryVersion
 }
 
 // KeeperRegistrarSettings represents settings for registrar contract
@@ -194,6 +196,7 @@ type EthereumKeeperRegistry struct {
 	registry1_2 *keeper_registry_wrapper1_2.KeeperRegistry
 	registry1_3 *keeper_registry_wrapper1_3.KeeperRegistry
 	registry2_0 *keeper_registry_wrapper2_0.KeeperRegistry
+	registry2_1 *i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMaster
 	address     *common.Address
 }
 
@@ -210,23 +213,46 @@ func (v *EthereumKeeperRegistry) Fund(ethAmount *big.Float) error {
 }
 
 func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string) ([]byte, error) {
-	configType := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
-	onchainConfig, err := goabi.Encode(map[string]interface{}{
-		"paymentPremiumPPB":    rcs.PaymentPremiumPPB,
-		"flatFeeMicroLink":     rcs.FlatFeeMicroLINK,
-		"checkGasLimit":        rcs.CheckGasLimit,
-		"stalenessSeconds":     rcs.StalenessSeconds,
-		"gasCeilingMultiplier": rcs.GasCeilingMultiplier,
-		"minUpkeepSpend":       rcs.MinUpkeepSpend,
-		"maxPerformGas":        rcs.MaxPerformGas,
-		"maxCheckDataSize":     rcs.MaxCheckDataSize,
-		"maxPerformDataSize":   rcs.MaxPerformDataSize,
-		"fallbackGasPrice":     rcs.FallbackGasPrice,
-		"fallbackLinkPrice":    rcs.FallbackLinkPrice,
-		"transcoder":           common.Address{},
-		"registrar":            registrar,
-	}, configType)
-	return onchainConfig, err
+	if rcs.RegistryVersion == ethereum.RegistryVersion_2_1 {
+		onchainConfigStruct := registry21.KeeperRegistryBase21OnchainConfig{
+			PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
+			FlatFeeMicroLink:       rcs.FlatFeeMicroLINK,
+			CheckGasLimit:          rcs.CheckGasLimit,
+			StalenessSeconds:       rcs.StalenessSeconds,
+			GasCeilingMultiplier:   rcs.GasCeilingMultiplier,
+			MinUpkeepSpend:         rcs.MinUpkeepSpend,
+			MaxPerformGas:          rcs.MaxPerformGas,
+			MaxCheckDataSize:       rcs.MaxCheckDataSize,
+			MaxPerformDataSize:     rcs.MaxPerformDataSize,
+			MaxRevertDataSize:      uint32(1000),
+			FallbackGasPrice:       rcs.FallbackGasPrice,
+			FallbackLinkPrice:      rcs.FallbackLinkPrice,
+			Transcoder:             common.Address{},
+			Registrars:             []common.Address{common.HexToAddress(registrar)},
+			UpkeepPrivilegeManager: common.Address{},
+		}
+		encodedOnchainConfig, err := utilsABI.Methods["_onChainConfig"].Inputs.Pack(&onchainConfigStruct)
+
+		return encodedOnchainConfig, err
+	} else {
+		configType := goabi.MustNewType("tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds,uint16 gasCeilingMultiplier,uint96 minUpkeepSpend,uint32 maxPerformGas,uint32 maxCheckDataSize,uint32 maxPerformDataSize,uint256 fallbackGasPrice,uint256 fallbackLinkPrice,address transcoder,address registrar)")
+		onchainConfig, err := goabi.Encode(map[string]interface{}{
+			"paymentPremiumPPB":    rcs.PaymentPremiumPPB,
+			"flatFeeMicroLink":     rcs.FlatFeeMicroLINK,
+			"checkGasLimit":        rcs.CheckGasLimit,
+			"stalenessSeconds":     rcs.StalenessSeconds,
+			"gasCeilingMultiplier": rcs.GasCeilingMultiplier,
+			"minUpkeepSpend":       rcs.MinUpkeepSpend,
+			"maxPerformGas":        rcs.MaxPerformGas,
+			"maxCheckDataSize":     rcs.MaxCheckDataSize,
+			"maxPerformDataSize":   rcs.MaxPerformDataSize,
+			"fallbackGasPrice":     rcs.FallbackGasPrice,
+			"fallbackLinkPrice":    rcs.FallbackLinkPrice,
+			"transcoder":           common.Address{},
+			"registrar":            registrar,
+		}, configType)
+		return onchainConfig, err
+	}
 }
 
 func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrConfig OCRv2Config) error {
@@ -307,6 +333,19 @@ func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrCon
 		return v.client.ProcessTransaction(tx)
 	case ethereum.RegistryVersion_2_0:
 		tx, err := v.registry2_0.SetConfig(txOpts,
+			ocrConfig.Signers,
+			ocrConfig.Transmitters,
+			ocrConfig.F,
+			ocrConfig.OnchainConfig,
+			ocrConfig.OffchainConfigVersion,
+			ocrConfig.OffchainConfig,
+		)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		tx, err := v.registry2_1.SetConfig(txOpts,
 			ocrConfig.Signers,
 			ocrConfig.Transmitters,
 			ocrConfig.F,
@@ -700,6 +739,11 @@ func (v *EthereumKeeperRegistry) CancelUpkeep(id *big.Int) error {
 		if err != nil {
 			return err
 		}
+	case ethereum.RegistryVersion_2_1:
+		tx, err = v.registry2_1.CancelUpkeep(opts, id)
+		if err != nil {
+			return err
+		}
 	}
 
 	log.Info().
@@ -947,7 +991,14 @@ func (v *EthereumKeeperRegistry) ParseUpkeepIdFromRegisteredLog(log *types.Log) 
 			return nil, err
 		}
 		return parsedLog.Id, nil
+	case ethereum.RegistryVersion_2_1:
+		parsedLog, err := v.registry2_1.ParseUpkeepRegistered(*log)
+		if err != nil {
+			return nil, err
+		}
+		return parsedLog.Id, nil
 	}
+
 	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
 }
 
@@ -1453,6 +1504,11 @@ type EthereumKeeperConsumer struct {
 	address  *common.Address
 }
 
+// Just pass for non-logtrigger
+func (v *EthereumKeeperConsumer) Start() error {
+	return nil
+}
+
 func (v *EthereumKeeperConsumer) Address() string {
 	return v.address.Hex()
 }
@@ -1466,6 +1522,49 @@ func (v *EthereumKeeperConsumer) Fund(ethAmount *big.Float) error {
 }
 
 func (v *EthereumKeeperConsumer) Counter(ctx context.Context) (*big.Int, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	cnt, err := v.consumer.Counter(opts)
+	if err != nil {
+		return nil, err
+	}
+	return cnt, nil
+}
+
+type EthereumAutomationLogCounterConsumer struct {
+	client   blockchain.EVMClient
+	consumer *log_upkeep_counter_wrapper.LogUpkeepCounter
+	address  *common.Address
+}
+
+func (v *EthereumAutomationLogCounterConsumer) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumAutomationLogCounterConsumer) Start() error {
+	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+
+	tx, err := v.consumer.Start(txOpts)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumAutomationLogCounterConsumer) Fund(ethAmount *big.Float) error {
+	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
+}
+
+func (v *EthereumAutomationLogCounterConsumer) Counter(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
@@ -1618,6 +1717,7 @@ type EthereumKeeperRegistrar struct {
 	client      blockchain.EVMClient
 	registrar   *keeper_registrar_wrapper1_2.KeeperRegistrar
 	registrar20 *keeper_registrar_wrapper2_0.KeeperRegistrar
+	registrar21 *registrar21.AutomationRegistrar
 	address     *common.Address
 }
 
@@ -1634,17 +1734,7 @@ func (v *EthereumKeeperRegistrar) Fund(ethAmount *big.Float) error {
 }
 
 // EncodeRegisterRequest encodes register request to call it through link token TransferAndCall
-func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(
-	name string,
-	email []byte,
-	upkeepAddr string,
-	gasLimit uint32,
-	adminAddr string,
-	checkData []byte,
-	amount *big.Int,
-	source uint8,
-	senderAddr string,
-) ([]byte, error) {
+func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(name string, email []byte, upkeepAddr string, gasLimit uint32, adminAddr string, checkData []byte, amount *big.Int, source uint8, senderAddr string, isLogTrigger bool) ([]byte, error) {
 	if v.registrar20 != nil {
 		registryABI, err := abi.JSON(strings.NewReader(keeper_registrar_wrapper2_0.KeeperRegistrarMetaData.ABI))
 		if err != nil {
@@ -1662,10 +1752,80 @@ func (v *EthereumKeeperRegistrar) EncodeRegisterRequest(
 			amount,
 			common.HexToAddress(senderAddr),
 		)
+
 		if err != nil {
 			return nil, err
 		}
 		return req, nil
+	} else if v.registrar21 != nil {
+		if isLogTrigger {
+			// bytes representation of 0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d
+			topic0InBytes := [32]byte{
+				61, 83, 163, 149, 80, 224, 70, 136,
+				6, 88, 39, 243, 187, 134, 88, 76,
+				176, 7, 171, 158, 188, 167, 235,
+				213, 40, 231, 48, 28, 156, 49, 235, 93,
+			}
+
+			// bytes representation of 0x0000000000000000000000000000000000000000000000000000000000000000
+			bytes0 := [32]byte{
+				0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+			}
+
+			logTriggerConfigStruct := automation_utils_2_1.LogTriggerConfig{
+				ContractAddress: common.HexToAddress(upkeepAddr),
+				FilterSelector:  0,
+				Topic0:          topic0InBytes,
+				Topic1:          bytes0,
+				Topic2:          bytes0,
+				Topic3:          bytes0,
+			}
+			encodedLogTriggerConfig, err := utilsABI.Methods["_logTriggerConfig"].Inputs.Pack(&logTriggerConfigStruct)
+			if err != nil {
+				return nil, err
+			}
+
+			req, err := registrarABI.Pack(
+				"register",
+				name,
+				email,
+				common.HexToAddress(upkeepAddr),
+				gasLimit,
+				common.HexToAddress(adminAddr),
+				uint8(1), // trigger type
+				checkData,
+				encodedLogTriggerConfig, // triggerConfig
+				[]byte{},                // offchainConfig
+				amount,
+				common.HexToAddress(senderAddr),
+			)
+
+			if err != nil {
+				return nil, err
+			}
+			return req, nil
+
+		} else {
+			req, err := registrarABI.Pack(
+				"register",
+				name,
+				email,
+				common.HexToAddress(upkeepAddr),
+				gasLimit,
+				common.HexToAddress(adminAddr),
+				uint8(0), // trigger type
+				checkData,
+				[]byte{}, // triggerConfig
+				[]byte{}, // offchainConfig
+				amount,
+				common.HexToAddress(senderAddr),
+			)
+
+			if err != nil {
+				return nil, err
+			}
+			return req, nil
+		}
 	}
 	registryABI, err := abi.JSON(strings.NewReader(keeper_registrar_wrapper1_2.KeeperRegistrarMetaData.ABI))
 	if err != nil {

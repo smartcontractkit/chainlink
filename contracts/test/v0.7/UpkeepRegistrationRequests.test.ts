@@ -25,7 +25,9 @@ let personas: Personas
 before(async () => {
   personas = (await getUsers()).personas
 
-  linkTokenFactory = await ethers.getContractFactory('LinkToken')
+  linkTokenFactory = await ethers.getContractFactory(
+    'src/v0.4/LinkToken.sol:LinkToken',
+  )
   mockV3AggregatorFactory = (await ethers.getContractFactory(
     'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
   )) as unknown as MockV3AggregatorFactory

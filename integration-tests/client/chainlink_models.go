@@ -21,9 +21,7 @@ type ChainlinkConfig struct {
 	URL         string
 	Email       string
 	Password    string
-	InternalIP  string // Can change if the node is restarted. Prefer RemoteURL if possible
-	ChartName   string
-	PodName     string
+	InternalIP  string
 	HTTPTimeout *time.Duration
 }
 
@@ -430,7 +428,6 @@ type CosmosChainConfig struct {
 type CosmosChainAttributes struct {
 	ChainID string            `json:"chainID"`
 	Config  CosmosChainConfig `json:"config"`
-	FCDURL  string            `json:"fcdURL" db:"fcd_url"`
 }
 
 // CosmosChain is the model that represents the terra chain when read
@@ -600,7 +597,7 @@ schedule          = "{{.Schedule}}"
 observationSource = """
 {{.ObservationSource}}
 """`
-	return marshallTemplate(c, "CRON Job", cronJobTemplateString)
+	return MarshallTemplate(c, "CRON Job", cronJobTemplateString)
 }
 
 // PipelineSpec common API call pipeline
@@ -620,7 +617,7 @@ func (d *PipelineSpec) String() (string, error) {
 		fetch [type=bridge name="{{.BridgeTypeAttributes.Name}}" requestData="{{.BridgeTypeAttributes.RequestData}}"];
 		parse [type=jsonparse path="{{.DataPath}}"];
 		fetch -> parse;`
-	return marshallTemplate(d, "API call pipeline template", sourceString)
+	return MarshallTemplate(d, "API call pipeline template", sourceString)
 }
 
 // VRFV2TxPipelineSpec VRFv2 request with tx callback
@@ -657,7 +654,7 @@ simulate [type=ethcall
           contract="{{ .Address }}"
           data="$(vrf.output)"]
 decode_log->vrf->estimate_gas->simulate`
-	return marshallTemplate(d, "VRFV2 pipeline template", sourceString)
+	return MarshallTemplate(d, "VRFV2 pipeline template", sourceString)
 }
 
 // VRFTxPipelineSpec VRF request with tx callback
@@ -689,7 +686,7 @@ submit_tx  [type=ethtx to="{{.Address}}"
             data="$(encode_tx)"
             txMeta="{\\"requestTxHash\\": $(jobRun.logTxHash),\\"requestID\\": $(decode_log.requestID),\\"jobID\\": $(jobSpec.databaseID)}"]
 decode_log->vrf->encode_tx->submit_tx`
-	return marshallTemplate(d, "VRF pipeline template", sourceString)
+	return MarshallTemplate(d, "VRF pipeline template", sourceString)
 }
 
 // DirectRequestTxPipelineSpec oracle request with tx callback
@@ -721,7 +718,7 @@ func (d *DirectRequestTxPipelineSpec) String() (string, error) {
 			parse  [type=jsonparse path="{{.DataPath}}"]
             submit [type=ethtx to="$(decode_log.requester)" data="$(encode_tx)" failOnRevert=true]
 			decode_log -> fetch -> parse -> encode_tx -> submit`
-	return marshallTemplate(d, "Direct request pipeline template", sourceString)
+	return MarshallTemplate(d, "Direct request pipeline template", sourceString)
 }
 
 // DirectRequestJobSpec represents a direct request spec
@@ -748,7 +745,7 @@ minIncomingConfirmations = {{.MinIncomingConfirmations}}
 observationSource = """
 {{.ObservationSource}}
 """`
-	return marshallTemplate(d, "Direct Request Job", directRequestTemplateString)
+	return MarshallTemplate(d, "Direct Request Job", directRequestTemplateString)
 }
 
 // FluxMonitorJobSpec represents a flux monitor spec
@@ -790,7 +787,7 @@ maxTaskDuration = {{if not .Precision}} "180s" {{else}} {{.Precision}} {{end}}
 observationSource = """
 {{.ObservationSource}}
 """`
-	return marshallTemplate(f, "Flux Monitor Job", fluxMonitorTemplateString)
+	return MarshallTemplate(f, "Flux Monitor Job", fluxMonitorTemplateString)
 }
 
 // KeeperJobSpec represents a V2 keeper spec
@@ -814,7 +811,7 @@ contractAddress          = "{{.ContractAddress}}"
 fromAddress              = "{{.FromAddress}}"
 minIncomingConfirmations = {{.MinIncomingConfirmations}}
 `
-	return marshallTemplate(k, "Keeper Job", keeperTemplateString)
+	return MarshallTemplate(k, "Keeper Job", keeperTemplateString)
 }
 
 // OCRBootstrapJobSpec represents the spec for bootstrapping an OCR job, given to one node that then must be linked
@@ -845,26 +842,26 @@ contractAddress                        = "{{.ContractAddress}}"
 p2pBootstrapPeers                      = []
 isBootstrapPeer                        = {{.IsBootstrapPeer}}
 p2pPeerID                              = "{{.P2PPeerID}}"`
-	return marshallTemplate(o, "OCR Bootstrap Job", ocrTemplateString)
+	return MarshallTemplate(o, "OCR Bootstrap Job", ocrTemplateString)
 }
 
 // OCRTaskJobSpec represents an OCR job that is given to other nodes, meant to communicate with the bootstrap node,
 // and provide their answers
 type OCRTaskJobSpec struct {
-	Name                     string        `toml:"name"`
-	BlockChainTimeout        time.Duration `toml:"blockchainTimeout"`                      // Optional
-	ContractConfirmations    int           `toml:"contractConfigConfirmations"`            // Optional
-	TrackerPollInterval      time.Duration `toml:"contractConfigTrackerPollInterval"`      // Optional
-	TrackerSubscribeInterval time.Duration `toml:"contractConfigTrackerSubscribeInterval"` // Optional
-	ForwardingAllowed        bool          `toml:"forwardingAllowed"`                      // Optional, by default false
-	ContractAddress          string        `toml:"contractAddress"`                        // Address of the OCR contract
-	P2PBootstrapPeers        []*Chainlink  `toml:"p2pBootstrapPeers"`                      // P2P ID of the bootstrap node
-	IsBootstrapPeer          bool          `toml:"isBootstrapPeer"`                        // Typically false
-	P2PPeerID                string        `toml:"p2pPeerID"`                              // This node's P2P ID
-	KeyBundleID              string        `toml:"keyBundleID"`                            // ID of this node's OCR key bundle
-	MonitoringEndpoint       string        `toml:"monitoringEndpoint"`                     // Typically "chain.link:4321"
-	TransmitterAddress       string        `toml:"transmitterAddress"`                     // ETH address this node will use to transmit its answer
-	ObservationSource        string        `toml:"observationSource"`                      // List of commands for the Chainlink node
+	Name                     string             `toml:"name"`
+	BlockChainTimeout        time.Duration      `toml:"blockchainTimeout"`                      // Optional
+	ContractConfirmations    int                `toml:"contractConfigConfirmations"`            // Optional
+	TrackerPollInterval      time.Duration      `toml:"contractConfigTrackerPollInterval"`      // Optional
+	TrackerSubscribeInterval time.Duration      `toml:"contractConfigTrackerSubscribeInterval"` // Optional
+	ForwardingAllowed        bool               `toml:"forwardingAllowed"`                      // Optional, by default false
+	ContractAddress          string             `toml:"contractAddress"`                        // Address of the OCR contract
+	P2PBootstrapPeers        []*ChainlinkClient `toml:"p2pBootstrapPeers"`                      // P2P ID of the bootstrap node
+	IsBootstrapPeer          bool               `toml:"isBootstrapPeer"`                        // Typically false
+	P2PPeerID                string             `toml:"p2pPeerID"`                              // This node's P2P ID
+	KeyBundleID              string             `toml:"keyBundleID"`                            // ID of this node's OCR key bundle
+	MonitoringEndpoint       string             `toml:"monitoringEndpoint"`                     // Typically "chain.link:4321"
+	TransmitterAddress       string             `toml:"transmitterAddress"`                     // ETH address this node will use to transmit its answer
+	ObservationSource        string             `toml:"observationSource"`                      // List of commands for the Chainlink node
 }
 
 // P2PData holds the remote ip and the peer id and port
@@ -956,7 +953,7 @@ observationSource                      = """
 {{.ObservationSource}}
 """`
 
-	return marshallTemplate(specWrap, "OCR Job", ocrTemplateString)
+	return MarshallTemplate(specWrap, "OCR Job", ocrTemplateString)
 }
 
 // OCR2TaskJobSpec represents an OCR2 job that is given to other nodes, meant to communicate with the bootstrap node,
@@ -1064,13 +1061,13 @@ observationSource                      = """
 [relayConfig]{{range $key, $value := .RelayConfig}}
 {{$key}} = {{$value}}{{end}}
 `
-	return marshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
+	return MarshallTemplate(specWrap, "OCR2 Job", ocr2TemplateString)
 }
 
 // VRFV2JobSpec represents a VRFV2 job
 type VRFV2JobSpec struct {
 	Name                     string        `toml:"name"`
-	CoordinatorAddress       string        `toml:"coordinatorAddress"` // Address of the VRF Coordinator contract
+	CoordinatorAddress       string        `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
 	PublicKey                string        `toml:"publicKey"`          // Public key of the proving key
 	ExternalJobID            string        `toml:"externalJobID"`
 	ObservationSource        string        `toml:"observationSource"` // List of commands for the Chainlink node
@@ -1104,13 +1101,13 @@ observationSource = """
 {{.ObservationSource}}
 """
 `
-	return marshallTemplate(v, "VRFV2 Job", vrfTemplateString)
+	return MarshallTemplate(v, "VRFV2 Job", vrfTemplateString)
 }
 
 // VRFJobSpec represents a VRF job
 type VRFJobSpec struct {
 	Name                     string `toml:"name"`
-	CoordinatorAddress       string `toml:"coordinatorAddress"` // Address of the VRF Coordinator contract
+	CoordinatorAddress       string `toml:"coordinatorAddress"` // Address of the VRF CoordinatorV2 contract
 	PublicKey                string `toml:"publicKey"`          // Public key of the proving key
 	ExternalJobID            string `toml:"externalJobID"`
 	ObservationSource        string `toml:"observationSource"` // List of commands for the Chainlink node
@@ -1134,13 +1131,13 @@ observationSource = """
 {{.ObservationSource}}
 """
 `
-	return marshallTemplate(v, "VRF Job", vrfTemplateString)
+	return MarshallTemplate(v, "VRF Job", vrfTemplateString)
 }
 
 // BlockhashStoreJobSpec represents a blockhashstore job
 type BlockhashStoreJobSpec struct {
 	Name                  string `toml:"name"`
-	CoordinatorV2Address  string `toml:"coordinatorV2Address"` // Address of the VRF Coordinator contract
+	CoordinatorV2Address  string `toml:"coordinatorV2Address"` // Address of the VRF CoordinatorV2 contract
 	WaitBlocks            int    `toml:"waitBlocks"`
 	LookbackBlocks        int    `toml:"lookbackBlocks"`
 	BlockhashStoreAddress string `toml:"blockhashStoreAddress"`
@@ -1166,7 +1163,7 @@ pollPeriod               = "{{.PollPeriod}}"
 runTimeout               = "{{.RunTimeout}}"
 evmChainID               = "{{.EVMChainID}}"
 `
-	return marshallTemplate(b, "BlockhashStore Job", vrfTemplateString)
+	return MarshallTemplate(b, "BlockhashStore Job", vrfTemplateString)
 }
 
 // WebhookJobSpec reprsents a webhook job
@@ -1191,7 +1188,7 @@ externalInitiators = [
 observationSource = """
 {{.ObservationSource}}
 """`
-	return marshallTemplate(w, "Webhook Job", webHookTemplateString)
+	return MarshallTemplate(w, "Webhook Job", webHookTemplateString)
 }
 
 // ObservationSourceSpecHTTP creates a http GET task spec for json data
@@ -1211,7 +1208,7 @@ func ObservationSourceSpecBridge(bta *BridgeTypeAttributes) string {
 }
 
 // marshallTemplate Helper to marshall templates
-func marshallTemplate(jobSpec interface{}, name, templateString string) (string, error) {
+func MarshallTemplate(jobSpec interface{}, name, templateString string) (string, error) {
 	var buf bytes.Buffer
 	tmpl, err := template.New(name).Parse(templateString)
 	if err != nil {
@@ -1291,7 +1288,7 @@ func NewBlankChainlinkProfileResults() *ChainlinkProfileResults {
 }
 
 type CLNodesWithKeys struct {
-	Node       *Chainlink
+	Node       *ChainlinkClient
 	KeysBundle NodeKeysBundle
 }
 

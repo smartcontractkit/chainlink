@@ -193,11 +193,11 @@ func TestAutomationChaos(t *testing.T) {
 				return
 			}
 
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 1, 2, ChaosGroupMinority)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=", 1, 2, ChaosGroupMinority)
 			require.NoError(t, err)
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 3, 5, ChaosGroupMajority)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=", 3, 5, ChaosGroupMajority)
 			require.NoError(t, err)
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, 2, 5, ChaosGroupMajorityPlus)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=", 2, 5, ChaosGroupMajorityPlus)
 			require.NoError(t, err)
 
 			chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
@@ -235,7 +235,7 @@ func TestAutomationChaos(t *testing.T) {
 				chainClient,
 			)
 
-			actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0)
+			actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, eth_contracts.RegistryVersion_2_0)
 			nodesWithoutBootstrap := chainlinkNodes[1:]
 			ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second)
 			require.NoError(t, err, "Error building OCR config vars")
@@ -243,17 +243,7 @@ func TestAutomationChaos(t *testing.T) {
 			require.NoError(t, err, "Registry config should be be set successfully")
 			require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 
-			consumers, upkeepIDs := actions.DeployConsumers(
-				t,
-				registry,
-				registrar,
-				linkToken,
-				contractDeployer,
-				chainClient,
-				numberOfUpkeeps,
-				big.NewInt(defaultLinkFunds),
-				defaultUpkeepGasLimit,
-			)
+			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false)
 
 			l.Info().Msg("Waiting for all upkeeps to be performed")
 

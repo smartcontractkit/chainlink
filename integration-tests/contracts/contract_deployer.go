@@ -10,28 +10,38 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog/log"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
+	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
+	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_oracle_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper_mock"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
+	registrylogica21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_a_wrapper_2_1"
+	registrylogicb21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
+	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
@@ -39,8 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
-
-	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 // ContractDeployer is an interface for abstracting the contract deployment methods across network implementations
@@ -52,6 +60,7 @@ type ContractDeployer interface {
 	DeployLinkTokenContract() (LinkToken, error)
 	LoadLinkToken(address common.Address) (LinkToken, error)
 	DeployOffChainAggregator(linkAddr string, offchainOptions OffchainOptions) (OffchainAggregator, error)
+	LoadOffChainAggregator(address *common.Address) (OffchainAggregator, error)
 	DeployVRFContract() (VRF, error)
 	DeployMockETHLINKFeed(answer *big.Int) (MockETHLINKFeed, error)
 	LoadETHLINKFeed(address common.Address) (MockETHLINKFeed, error)
@@ -63,6 +72,7 @@ type ContractDeployer interface {
 	DeployKeeperRegistry(opts *KeeperRegistryOpts) (KeeperRegistry, error)
 	LoadKeeperRegistry(address common.Address, registryVersion eth_contracts.KeeperRegistryVersion) (KeeperRegistry, error)
 	DeployKeeperConsumer(updateInterval *big.Int) (KeeperConsumer, error)
+	DeployAutomationLogTriggerConsumer(testInterval *big.Int) (KeeperConsumer, error)
 	DeployKeeperConsumerPerformance(
 		testBlockRange,
 		averageCadence,
@@ -88,11 +98,17 @@ type ContractDeployer interface {
 	DeployOperatorFactory(linkAddr string) (OperatorFactory, error)
 	DeployStaking(params eth_contracts.StakingPoolConstructorParams) (Staking, error)
 	DeployBatchBlockhashStore(blockhashStoreAddr string) (BatchBlockhashStore, error)
+	DeployFunctionsLoadTestClient(router string) (FunctionsLoadTestClient, error)
 	DeployFunctionsOracleEventsMock() (FunctionsOracleEventsMock, error)
 	DeployFunctionsBillingRegistryEventsMock() (FunctionsBillingRegistryEventsMock, error)
+	DeployStakingEventsMock() (StakingEventsMock, error)
+	DeployOffchainAggregatorEventsMock() (OffchainAggregatorEventsMock, error)
 	DeployMockAggregatorProxy(aggregatorAddr string) (MockAggregatorProxy, error)
 	DeployOffchainAggregatorV2(linkAddr string, offchainOptions OffchainOptions) (OffchainAggregatorV2, error)
 	DeployKeeperRegistryCheckUpkeepGasUsageWrapper(keeperRegistryAddr string) (KeeperRegistryCheckUpkeepGasUsageWrapper, error)
+	DeployKeeperRegistry11Mock() (KeeperRegistry11Mock, error)
+	DeployKeeperRegistrar12Mock() (KeeperRegistrar12Mock, error)
+	DeployKeeperGasWrapperMock() (KeeperGasWrapperMock, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -116,6 +132,10 @@ func NewContractDeployer(bcClient blockchain.EVMClient) (ContractDeployer, error
 		return &CeloContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	case *blockchain.QuorumClient:
 		return &QuorumContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+	case *blockchain.BSCClient:
+		return &BSCContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+	case *blockchain.ScrollClient:
+		return &ScrollContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -159,6 +179,14 @@ type CeloContractDeployer struct {
 }
 
 type QuorumContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type BSCContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type ScrollContractDeployer struct {
 	*EthereumContractDeployer
 }
 
@@ -250,6 +278,23 @@ func (e *EthereumContractDeployer) DeployStaking(params eth_contracts.StakingPoo
 	}, nil
 }
 
+func (e *EthereumContractDeployer) DeployFunctionsLoadTestClient(router string) (FunctionsLoadTestClient, error) {
+	address, _, instance, err := e.client.DeployContract("FunctionsLoadTestClient", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return functions_load_test_client.DeployFunctionsLoadTestClient(auth, backend, common.HexToAddress(router))
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumFunctionsLoadTestClient{
+		client:   e.client,
+		instance: instance.(*functions_load_test_client.FunctionsLoadTestClient),
+		address:  *address,
+	}, nil
+}
+
 func (e *EthereumContractDeployer) DeployFunctionsOracleEventsMock() (FunctionsOracleEventsMock, error) {
 	address, _, instance, err := e.client.DeployContract("FunctionsOracleEventsMock", func(
 		auth *bind.TransactOpts,
@@ -280,6 +325,91 @@ func (e *EthereumContractDeployer) DeployFunctionsBillingRegistryEventsMock() (F
 	return &EthereumFunctionsBillingRegistryEventsMock{
 		client:     e.client,
 		eventsMock: instance.(*functions_billing_registry_events_mock.FunctionsBillingRegistryEventsMock),
+		address:    address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployStakingEventsMock() (StakingEventsMock, error) {
+	address, _, instance, err := e.client.DeployContract("StakingEventsMock", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return eth_contracts.DeployStakingEventsMock(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumStakingEventsMock{
+		client:     e.client,
+		eventsMock: instance.(*eth_contracts.StakingEventsMock),
+		address:    address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployKeeperRegistry11Mock() (KeeperRegistry11Mock, error) {
+	address, _, instance, err := e.client.DeployContract("KeeperRegistry11Mock", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return keeper_registry_wrapper1_1_mock.DeployKeeperRegistryMock(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumKeeperRegistry11Mock{
+		client:       e.client,
+		registryMock: instance.(*keeper_registry_wrapper1_1_mock.KeeperRegistryMock),
+		address:      address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployKeeperRegistrar12Mock() (KeeperRegistrar12Mock, error) {
+	address, _, instance, err := e.client.DeployContract("KeeperRegistrar12Mock", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return keeper_registrar_wrapper1_2_mock.DeployKeeperRegistrarMock(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumKeeperRegistrar12Mock{
+		client:        e.client,
+		registrarMock: instance.(*keeper_registrar_wrapper1_2_mock.KeeperRegistrarMock),
+		address:       address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployKeeperGasWrapperMock() (KeeperGasWrapperMock, error) {
+	address, _, instance, err := e.client.DeployContract("KeeperGasWrapperMock", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return gas_wrapper_mock.DeployKeeperRegistryCheckUpkeepGasUsageWrapperMock(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumKeeperGasWrapperMock{
+		client:         e.client,
+		gasWrapperMock: instance.(*gas_wrapper_mock.KeeperRegistryCheckUpkeepGasUsageWrapperMock),
+		address:        address,
+	}, nil
+}
+
+func (e *EthereumContractDeployer) DeployOffchainAggregatorEventsMock() (OffchainAggregatorEventsMock, error) {
+	address, _, instance, err := e.client.DeployContract("OffchainAggregatorEventsMock", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return eth_contracts.DeployOffchainAggregatorEventsMock(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumOffchainAggregatorEventsMock{
+		client:     e.client,
+		eventsMock: instance.(*eth_contracts.OffchainAggregatorEventsMock),
 		address:    address,
 	}, nil
 }
@@ -400,6 +530,24 @@ func (e *EthereumContractDeployer) DeployOffChainAggregator(
 		client:  e.client,
 		ocr:     instance.(*offchainaggregator.OffchainAggregator),
 		address: address,
+	}, err
+}
+
+// LoadOffChainAggregator loads an already deployed offchain aggregator contract
+func (e *EthereumContractDeployer) LoadOffChainAggregator(address *common.Address) (OffchainAggregator, error) {
+	instance, err := e.client.LoadContract("OffChainAggregator", *address, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return offchainaggregator.NewOffchainAggregator(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumOffchainAggregator{
+		address: address,
+		client:  e.client,
+		ocr:     instance.(*offchainaggregator.OffchainAggregator),
 	}, err
 }
 
@@ -550,6 +698,36 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion eth_con
 			registrar20: instance.(*keeper_registrar_wrapper2_0.KeeperRegistrar),
 			address:     address,
 		}, err
+	} else if registryVersion == eth_contracts.RegistryVersion_2_1 {
+		// deploy registrar 2.1
+		address, _, instance, err := e.client.DeployContract("AutomationRegistrar", func(
+			opts *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			// set default TriggerType to 0(conditional), AutoApproveConfigType to 2(auto approve enabled), AutoApproveMaxAllowed to 1000
+			triggerConfigs := []registrar21.AutomationRegistrar21InitialTriggerConfig{
+				{TriggerType: 0, AutoApproveType: 2, AutoApproveMaxAllowed: 1000},
+				{TriggerType: 1, AutoApproveType: 2, AutoApproveMaxAllowed: 1000},
+			}
+
+			return registrar21.DeployAutomationRegistrar(
+				opts,
+				backend,
+				common.HexToAddress(linkAddr),
+				common.HexToAddress(registrarSettings.RegistryAddr),
+				registrarSettings.MinLinkJuels,
+				triggerConfigs)
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		return &EthereumKeeperRegistrar{
+			client:      e.client,
+			registrar21: instance.(*registrar21.AutomationRegistrar),
+			address:     address,
+		}, err
 	}
 	// non OCR registrar
 	address, _, instance, err := e.client.DeployContract("KeeperRegistrar", func(
@@ -589,21 +767,37 @@ func (e *EthereumContractDeployer) LoadKeeperRegistrar(address common.Address, r
 			client:    e.client,
 			registrar: instance.(*keeper_registrar_wrapper1_2.KeeperRegistrar),
 		}, err
+	} else if registryVersion == eth_contracts.RegistryVersion_2_0 {
+		instance, err := e.client.LoadContract("KeeperRegistrar", address, func(
+			address common.Address,
+			backend bind.ContractBackend,
+		) (interface{}, error) {
+			return keeper_registrar_wrapper2_0.NewKeeperRegistrar(address, backend)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &EthereumKeeperRegistrar{
+			address:     &address,
+			client:      e.client,
+			registrar20: instance.(*keeper_registrar_wrapper2_0.KeeperRegistrar),
+		}, err
+	} else {
+		instance, err := e.client.LoadContract("AutomationRegistrar", address, func(
+			address common.Address,
+			backend bind.ContractBackend,
+		) (interface{}, error) {
+			return registrar21.NewAutomationRegistrar(address, backend)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &EthereumKeeperRegistrar{
+			address:     &address,
+			client:      e.client,
+			registrar21: instance.(*registrar21.AutomationRegistrar),
+		}, err
 	}
-	instance, err := e.client.LoadContract("KeeperRegistrar", address, func(
-		address common.Address,
-		backend bind.ContractBackend,
-	) (interface{}, error) {
-		return keeper_registrar_wrapper2_0.NewKeeperRegistrar(address, backend)
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumKeeperRegistrar{
-		address:     &address,
-		client:      e.client,
-		registrar20: instance.(*keeper_registrar_wrapper2_0.KeeperRegistrar),
-	}, err
 }
 
 func (e *EthereumContractDeployer) DeployKeeperRegistry(
@@ -793,6 +987,93 @@ func (e *EthereumContractDeployer) DeployKeeperRegistry(
 			address:     address,
 		}, err
 
+	case eth_contracts.RegistryVersion_2_1:
+		automationForwarderLogicAddr, _, _, err := e.client.DeployContract("automationForwarderLogic", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			return automationForwarderLogic.DeployAutomationForwarderLogic(auth, backend)
+		})
+
+		if err != nil {
+			return nil, err
+		}
+
+		if err := e.client.WaitForEvents(); err != nil {
+			return nil, err
+		}
+
+		registryLogicBAddr, _, _, err := e.client.DeployContract("KeeperRegistryLogicB2_1", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+
+			return registrylogicb21.DeployKeeperRegistryLogicB(
+				auth,
+				backend,
+				mode,
+				common.HexToAddress(opts.LinkAddr),
+				common.HexToAddress(opts.ETHFeedAddr),
+				common.HexToAddress(opts.GasFeedAddr),
+				*automationForwarderLogicAddr,
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
+
+		if err := e.client.WaitForEvents(); err != nil {
+			return nil, err
+		}
+
+		registryLogicAAddr, _, _, err := e.client.DeployContract("KeeperRegistryLogicA2_1", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+
+			return registrylogica21.DeployKeeperRegistryLogicA(
+				auth,
+				backend,
+				*registryLogicBAddr,
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
+		if err := e.client.WaitForEvents(); err != nil {
+			return nil, err
+		}
+
+		address, _, _, err := e.client.DeployContract("KeeperRegistry2_1", func(
+			auth *bind.TransactOpts,
+			backend bind.ContractBackend,
+		) (common.Address, *types.Transaction, interface{}, error) {
+			return registry21.DeployKeeperRegistry(
+				auth,
+				backend,
+				*registryLogicAAddr,
+			)
+		})
+		if err != nil {
+			return nil, err
+		}
+		if err := e.client.WaitForEvents(); err != nil {
+			return nil, err
+		}
+
+		registryMaster, err := iregistry21.NewIKeeperRegistryMaster(
+			*address,
+			e.client.Backend(),
+		)
+		if err != nil {
+			return nil, err
+		}
+		return &EthereumKeeperRegistry{
+			client:      e.client,
+			version:     eth_contracts.RegistryVersion_2_1,
+			registry2_1: registryMaster,
+			address:     address,
+		}, err
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", opts.RegistryVersion)
 	}
@@ -861,6 +1142,21 @@ func (e *EthereumContractDeployer) LoadKeeperRegistry(address common.Address, re
 			client:      e.client,
 			registry2_0: instance.(*keeper_registry_wrapper2_0.KeeperRegistry),
 		}, err
+	case eth_contracts.RegistryVersion_2_1:
+		instance, err := e.client.LoadContract("KeeperRegistry", address, func(
+			address common.Address,
+			backend bind.ContractBackend,
+		) (interface{}, error) {
+			return iregistry21.NewIKeeperRegistryMaster(address, backend)
+		})
+		if err != nil {
+			return nil, err
+		}
+		return &EthereumKeeperRegistry{
+			address:     &address,
+			client:      e.client,
+			registry2_1: instance.(*iregistry21.IKeeperRegistryMaster),
+		}, err
 	default:
 		return nil, fmt.Errorf("keeper registry version %d is not supported", registryVersion)
 	}
@@ -879,6 +1175,25 @@ func (e *EthereumContractDeployer) DeployKeeperConsumer(updateInterval *big.Int)
 	return &EthereumKeeperConsumer{
 		client:   e.client,
 		consumer: instance.(*eth_contracts.KeeperConsumer),
+		address:  address,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployAutomationLogTriggerConsumer(testInterval *big.Int) (KeeperConsumer, error) {
+	address, _, instance, err := e.client.DeployContract("LogUpkeepCounter", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
+			auth, backend, testInterval,
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumAutomationLogCounterConsumer{
+		client:   e.client,
+		consumer: instance.(*log_upkeep_counter_wrapper.LogUpkeepCounter),
 		address:  address,
 	}, err
 }

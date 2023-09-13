@@ -2,13 +2,13 @@
 pragma solidity ^0.8.0;
 
 import "../VRFConsumerBase.sol";
-import "../../interfaces/ERC677ReceiverInterface.sol";
+import "../../shared/interfaces/IERC677Receiver.sol";
 
 /**
  * @title The VRFLoadTestOwnerlessConsumer contract.
  * @notice Allows making many VRF V1 randomness requests in a single transaction for load testing.
  */
-contract VRFLoadTestOwnerlessConsumer is VRFConsumerBase, ERC677ReceiverInterface {
+contract VRFLoadTestOwnerlessConsumer is VRFConsumerBase, IERC677Receiver {
   // The price of each VRF request in Juels. 1 LINK = 1e18 Juels.
   uint256 public immutable PRICE;
 

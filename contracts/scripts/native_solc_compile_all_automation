@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │       Compiling Automation contracts...      │"
+echo " └──────────────────────────────────────────────┘"
+
+SOLC_VERSION="0.8.6"
+OPTIMIZE_RUNS=1000000
+
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
+python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
+
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
+
+compileContract () {
+  solc @openzeppelin/=$ROOT/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+      -o $ROOT/contracts/solc/v$SOLC_VERSION \
+      --abi --bin --allow-paths $ROOT/contracts/src/v0.8,$ROOT/contracts/node_modules\
+      $ROOT/contracts/src/v0.8/$1
+}
+
+compileContract automation/upkeeps/CronUpkeepFactory.sol
+compileContract automation/1_2/KeeperRegistrar1_2.sol
+compileContract automation/1_2/KeeperRegistry1_2.sol
+compileContract automation/1_2/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.sol
+compileContract automation/1_3/KeeperRegistry1_3.sol
+compileContract automation/1_3/KeeperRegistryLogic1_3.sol
+compileContract automation/2_0/KeeperRegistrar2_0.sol
+compileContract automation/2_0/KeeperRegistry2_0.sol
+compileContract automation/2_0/KeeperRegistryLogic2_0.sol
+compileContract automation/UpkeepTranscoder.sol
+compileContract automation/mocks/MockAggregatorProxy.sol
+compileContract dev/automation/tests/LogUpkeepCounter.sol
+
+# Keepers x VRF v2
+compileContract KeepersVRFConsumer.sol
+
+compileContract automation/mocks/KeeperRegistrar1_2Mock.sol
+compileContract automation/mocks/KeeperRegistryCheckUpkeepGasUsageWrapper1_2Mock.sol
+
+SOLC_VERSION="0.8.16"
+
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
+# v0.8.16
+compileContract dev/automation/2_1/AutomationRegistrar2_1.sol
+compileContract dev/automation/2_1/KeeperRegistry2_1.sol
+compileContract dev/automation/2_1/KeeperRegistryLogicA2_1.sol
+compileContract dev/automation/2_1/KeeperRegistryLogicB2_1.sol
+compileContract dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol
+compileContract dev/automation/2_1/interfaces/ILogAutomation.sol
+compileContract dev/automation/2_1/AutomationUtils2_1.sol
+compileContract dev/automation/2_1/AutomationForwarderLogic.sol
+compileContract dev/automation/tests/LogTriggeredFeedLookup.sol
+compileContract dev/automation/tests/DummyProtocol.sol
+compileContract dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol
+
+compileContract tests/VerifiableLoadUpkeep.sol
+compileContract tests/VerifiableLoadMercuryUpkeep.sol
+compileContract tests/VerifiableLoadLogTriggerUpkeep.sol
+compileContract tests/AutomationConsumerBenchmark.sol
+compileContract tests/MercuryUpkeep.sol

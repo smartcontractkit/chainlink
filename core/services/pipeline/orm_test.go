@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -520,8 +521,10 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	porm := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db, lggr, config.Database())
 
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	require.NoError(t, err)
+	jorm := job.NewORM(db, legacyChains, porm, bridgeORM, keyStore, lggr, config.Database())
 	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()
@@ -545,7 +548,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 		MaxTaskDuration: models.Interval(1 * time.Minute),
 	}
 
-	err := jorm.CreateJob(&keeperJob)
+	err = jorm.CreateJob(&keeperJob)
 	require.NoError(t, err)
 	require.Equal(t, job.Keeper, keeperJob.Type)
 
@@ -621,8 +624,10 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	porm := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgeORM := bridges.NewORM(db, lggr, config.Database())
 
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	jorm := job.NewORM(db, cc, porm, bridgeORM, keyStore, lggr, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	require.NoError(t, err)
+	jorm := job.NewORM(db, legacyChains, porm, bridgeORM, keyStore, lggr, config.Database())
 	defer func() { assert.NoError(t, jorm.Close()) }()
 
 	timestamp := time.Now()
@@ -645,7 +650,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 		MaxTaskDuration: models.Interval(1 * time.Minute),
 	}
 
-	err := jorm.CreateJob(&drJob)
+	err = jorm.CreateJob(&drJob)
 	require.NoError(t, err)
 	require.Equal(t, job.DirectRequest, drJob.Type)
 
