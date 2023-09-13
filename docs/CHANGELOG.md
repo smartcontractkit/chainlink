@@ -30,6 +30,18 @@ AllowSimplePasswords=true
 ### Removed
 
 - Removed support for sending telemetry to the deprecated Explorer service
+- Removed the following configuration:
+
+```
+ExplorerURL
+```
+- Removed the following secret configuration:
+
+```
+[Explorer]
+AccessKey
+Secret
+```
 
 <!-- unreleasedstop -->
 
