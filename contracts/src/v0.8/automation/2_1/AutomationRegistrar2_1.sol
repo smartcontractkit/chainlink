@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.16;
 
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
