@@ -84,14 +84,21 @@ func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
 				continue
 			}
 
+			// Skip the line if doesn't start with a "{" --
+			// this mean it isn't JSON output.
 			if !strings.HasPrefix(string(t), "{") {
 				continue
 			}
 
 			e, err := newEvent(t)
 			if err != nil {
-
 				return nil, err
+			}
+
+			// We're only interested in test failures, for which
+			// both Package and Test would be present.
+			if e.Package == "" || e.Test == "" {
+				continue
 			}
 
 			switch e.Action {
@@ -133,9 +140,12 @@ func (r *Runner) runTests(failedTests map[string]map[string]int) (io.Reader, err
 		err := r.runTestFn(pkg, ts, r.numReruns, &out)
 		if err != nil {
 			log.Printf("Test command errored: %s\n", err)
+			// There was an error because the command failed with a non-zero
+			// exit code. This could just mean that the test failed again, so let's
+			// keep going.
 			var exErr exitCoder
 			if errors.As(err, &exErr) && exErr.ExitCode() > 0 {
-				return &out, nil
+				continue
 			}
 			return &out, err
 		}
