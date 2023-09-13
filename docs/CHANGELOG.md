@@ -9,24 +9,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
-### Fixed
- - Unauthenticated users executing CLI commands previously generated a confusing error log, which is now removed:
-```[ERROR] Error in transaction, rolling back: session missing or expired, please login again pg/transaction.go:118 ```
- - Fixed a bug that was preventing job runs to be displayed when the job `chainID` was disabled.
-- `chainlink txs evm create` returns a transaction hash for the attempted transaction in the CLI. Previously only the sender, receipient and `unstarted` state were returned.
-
-...
-## 2.5.0 - UNRELEASED
-
-### Upcoming Required Configuration Change
-
-- Starting in 2.6.0, chainlink nodes will no longer allow insecure configuration for production builds. Any TOML configuration that sets the following line will fail validation checks in `node start` or `node validate`:
-```
-AllowSimplePasswords=true
-```
-
-- To migrate on production builds, update the database password set in Database.URL to be 16 - 50 characters without leading or trailing whitespace. URI parsing rules apply to the chosen password - refer to [RFC 3986](https://datatracker.ietf.org/doc/html/rfc3986) for special character escape rules.
-
 ### Removed
 
 - Removed support for sending telemetry to the deprecated Explorer service. All nodes will have to remove `Explorer` related keys from TOML configuration and env vars. 
@@ -36,7 +18,33 @@ AllowSimplePasswords=true
  * `Explorer.Secret` 
  
  All nodes will have to remove the following configuration field: `ExplorerUrl`
+
+### Fixed
+
+- Unauthenticated users executing CLI commands previously generated a confusing error log, which is now removed:
+  ```
+  [ERROR] Error in transaction, rolling back: session missing or expired, please login again pg/transaction.go:118
+  ```
+- Fixed a bug that was preventing job runs to be displayed when the job `chainID` was disabled.
+- `chainlink txs evm create` returns a transaction hash for the attempted transaction in the CLI. Previously only the sender, receipient and `unstarted` state were returned.
+
 <!-- unreleasedstop -->
+
+## 2.5.0 - 2023-09-13
+
+### Upcoming Required Configuration Change
+
+- Starting in 2.6.0, chainlink nodes will no longer allow insecure configuration for production builds. Any TOML configuration that sets the following line will fail validation checks in `node start` or `node validate`:
+
+```
+AllowSimplePasswords=true
+```
+
+- To migrate on production builds, update the database password set in Database.URL to be 16 - 50 characters without leading or trailing whitespace. URI parsing rules apply to the chosen password - refer to [RFC 3986](https://datatracker.ietf.org/doc/html/rfc3986) for special character escape rules.
+
+### Added
+
+- Various Functions improvements
 
 ## 2.4.0 - 2023-08-21
 
