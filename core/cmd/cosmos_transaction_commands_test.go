@@ -50,7 +50,7 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 	chainID := cosmostest.RandomChainID()
 	cosmosChain := coscfg.Chain{}
 	cosmosChain.SetDefaults()
-	accounts, _, url := cosmosclient.SetupLocalCosmosNode(t, chainID, *cosmosChain.FeeToken)
+	accounts, _, url := cosmosclient.SetupLocalCosmosNode(t, chainID, *cosmosChain.GasToken)
 	require.Greater(t, len(accounts), 1)
 	nodes := cosmos.CosmosNodes{
 		&coscfg.Node{
@@ -71,7 +71,7 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {
-		coin, err := reader.Balance(from.Address, *cosmosChain.FeeToken)
+		coin, err := reader.Balance(from.Address, *cosmosChain.GasToken)
 		if !assert.NoError(t, err) {
 			return false
 		}
@@ -97,7 +97,7 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 	} {
 		tt := tt
 		t.Run(tt.amount, func(t *testing.T) {
-			startBal, err := reader.Balance(from.Address, *cosmosChain.FeeToken)
+			startBal, err := reader.Balance(from.Address, *cosmosChain.GasToken)
 			require.NoError(t, err)
 
 			set := flag.NewFlagSet("sendcosmoscoins", 0)
@@ -156,11 +156,11 @@ func TestShell_SendCosmosCoins(t *testing.T) {
 			}
 
 			// Check balance
-			endBal, err := reader.Balance(from.Address, *cosmosChain.FeeToken)
+			endBal, err := reader.Balance(from.Address, *cosmosChain.GasToken)
 			require.NoError(t, err)
 			if assert.NotNil(t, startBal) && assert.NotNil(t, endBal) {
 				diff := startBal.Sub(*endBal).Amount
-				sent, err := denom.ConvertDecCoinToDenom(sdk.NewDecCoinFromDec(nativeToken, sdk.MustNewDecFromStr(tt.amount)), *cosmosChain.FeeToken)
+				sent, err := denom.ConvertDecCoinToDenom(sdk.NewDecCoinFromDec(nativeToken, sdk.MustNewDecFromStr(tt.amount)), *cosmosChain.GasToken)
 				require.NoError(t, err)
 				if assert.True(t, diff.IsInt64()) && assert.True(t, sent.Amount.IsInt64()) {
 					require.Greater(t, diff.Int64(), sent.Amount.Int64())
