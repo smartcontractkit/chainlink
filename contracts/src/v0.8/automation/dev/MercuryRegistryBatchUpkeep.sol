@@ -1,8 +1,8 @@
 pragma solidity 0.8.6;
 
-import "../../../shared/access/ConfirmedOwner.sol";
-import "../../../automation/interfaces/AutomationCompatibleInterface.sol";
-import "../2_1/interfaces/StreamsLookupCompatibleInterface.sol";
+import "../../shared/access/ConfirmedOwner.sol";
+import "../interfaces/AutomationCompatibleInterface.sol";
+import "../interfaces/StreamsLookupCompatibleInterface.sol";
 import "./MercuryRegistry.sol";
 
 contract MercuryRegistryBatchUpkeep is ConfirmedOwner, AutomationCompatibleInterface, StreamsLookupCompatibleInterface {
