@@ -120,43 +120,50 @@ func (s *onchainSubscriptions) queryLoop() {
 
 	var start uint64 = 1
 
+	queryFunc := func() {
+		ctx, cancel := utils.ContextFromChanWithTimeout(s.stopCh, time.Duration(s.config.QueryTimeoutSec)*time.Second)
+		defer cancel()
+
+		latestBlockHeight, err := s.client.LatestBlockHeight(ctx)
+		if err != nil || latestBlockHeight == nil {
+			s.lggr.Errorw("Error calling LatestBlockHeight", "err", err, "latestBlockHeight", latestBlockHeight.Int64())
+			return
+		}
+
+		blockNumber := big.NewInt(0).Sub(latestBlockHeight, s.blockConfirmations)
+
+		count, err := s.getSubscriptionsCount(ctx, blockNumber)
+		if err != nil {
+			s.lggr.Errorw("Error getting subscriptions count", "err", err)
+			return
+		}
+		if count == 0 {
+			s.lggr.Info("Router has no subscriptions yet")
+			return
+		}
+
+		if start > count {
+			start = 1
+		}
+
+		end := start + uint64(s.config.QueryRangeSize)
+		if end > count {
+			end = count
+		}
+		if err := s.querySubscriptionsRange(ctx, blockNumber, start, end); err != nil {
+			s.lggr.Errorw("Error querying subscriptions", "err", err, "start", start, "end", end)
+			return
+		}
+
+		start = end + 1
+	}
+
 	for {
 		select {
 		case <-s.stopCh:
 			return
 		case <-ticker.C:
-			ctx, cancel := utils.ContextFromChanWithTimeout(s.stopCh, time.Duration(s.config.QueryTimeoutSec)*time.Second)
-
-			latestBlockHeight, err := s.client.LatestBlockHeight(ctx)
-			if err != nil || latestBlockHeight == nil {
-				cancel()
-				s.lggr.Errorw("Error calling LatestBlockHeight", "err", err, "latestBlockHeight", latestBlockHeight.Int64())
-				continue
-			}
-
-			blockNumber := big.NewInt(0).Sub(latestBlockHeight, s.blockConfirmations)
-
-			count, err := s.getSubscriptionsCount(ctx, blockNumber)
-			if err != nil {
-				cancel()
-				s.lggr.Errorw("Error getting subscriptions count", "err", err)
-				continue
-			}
-			if count == 0 {
-				cancel()
-				s.lggr.Info("Router has no subscriptions yet")
-				continue
-			}
-
-			end := start + uint64(s.config.QueryRangeSize)
-			if end > count {
-				end = count
-			}
-			if err := s.querySubscriptionsRange(ctx, blockNumber, start, end); err != nil {
-				cancel()
-				s.lggr.Errorw("Error querying subscriptions", "err", err, "start", start, "end", end)
-				continue
-			}
+			queryFunc()
 		}
 	}
 }
