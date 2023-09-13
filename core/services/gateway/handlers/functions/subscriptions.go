@@ -177,6 +177,7 @@ func (s *onchainSubscriptions) querySubscriptionsRange(ctx context.Context, bloc
 		if subscription.Owner == utils.ZeroAddress {
 			continue
 		}
+		subscription := subscription
 		s.subscriptions[subscription.Owner] = &subscription
 	}
 
