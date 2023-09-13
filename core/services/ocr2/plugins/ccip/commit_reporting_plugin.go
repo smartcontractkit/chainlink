@@ -24,11 +24,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cache"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipevents"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/hasher"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/merklemulti"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipevents"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/merklemulti"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
@@ -64,7 +65,7 @@ type CommitPluginConfig struct {
 	sourceNative             common.Address
 	sourceFeeEstimator       gas.EvmFeeEstimator
 	sourceClient, destClient evmclient.Client
-	leafHasher               hasher.LeafHasherInterface[[32]byte]
+	leafHasher               hashlib.LeafHasherInterface[[32]byte]
 	checkFinalityTags        bool
 }
 
@@ -678,7 +679,7 @@ func (r *CommitReportingPlugin) buildReport(ctx context.Context, lggr logger.Log
 		return commit_store.CommitStoreCommitReport{}, fmt.Errorf("tried building a tree without leaves")
 	}
 
-	tree, err := merklemulti.NewTree(hasher.NewKeccakCtx(), leaves)
+	tree, err := merklemulti.NewTree(hashlib.NewKeccakCtx(), leaves)
 	if err != nil {
 		return commit_store.CommitStoreCommitReport{}, err
 	}

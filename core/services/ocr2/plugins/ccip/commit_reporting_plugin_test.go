@@ -33,12 +33,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/cache"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipevents"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/hasher"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/merklemulti"
-
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipevents"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/merklemulti"
 	plugintesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/plugins"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -85,7 +84,7 @@ func setupCommitTestHarness(t *testing.T) commitTestHarness {
 			sourceChainSelector: th.Source.ChainSelector,
 			destClient:          backendClient,
 			sourceClient:        backendClient,
-			leafHasher:          hasher.NewLeafHasher(th.Source.ChainSelector, th.Dest.ChainSelector, th.Source.OnRamp.Address(), hasher.NewKeccakCtx()),
+			leafHasher:          hashlib.NewLeafHasher(th.Source.ChainSelector, th.Dest.ChainSelector, th.Source.OnRamp.Address(), hashlib.NewKeccakCtx()),
 		},
 		inflightReports: newInflightCommitReportsContainer(time.Hour),
 		onchainConfig:   th.CommitOnchainConfig,
@@ -142,7 +141,7 @@ func TestCommitReportEncoding(t *testing.T) {
 	newGasPrice := big.NewInt(2000e9) // $2000 per eth * 1gwei
 
 	// Send a report.
-	mctx := hasher.NewKeccakCtx()
+	mctx := hashlib.NewKeccakCtx()
 	tree, err := merklemulti.NewTree(mctx, [][32]byte{mctx.Hash([]byte{0xaa})})
 	require.NoError(t, err)
 	report := commit_store.CommitStoreCommitReport{
@@ -1096,7 +1095,7 @@ func TestShouldAcceptFinalizedReport(t *testing.T) {
 }
 
 func TestCommitReportToEthTxMeta(t *testing.T) {
-	mctx := hasher.NewKeccakCtx()
+	mctx := hashlib.NewKeccakCtx()
 	tree, err := merklemulti.NewTree(mctx, [][32]byte{mctx.Hash([]byte{0xaa})})
 	require.NoError(t, err)
 

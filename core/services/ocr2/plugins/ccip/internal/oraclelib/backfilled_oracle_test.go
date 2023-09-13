@@ -1,4 +1,4 @@
-package ccip_test
+package oraclelib
 
 import (
 	"testing"
@@ -10,10 +10,9 @@ import (
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	jobmocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 )
 
-func TestOracleBackfill(t *testing.T) {
+func TestBackfilledOracle(t *testing.T) {
 	// First scenario: Start() fails, check that all Replay are being called.
 	lp1 := lpmocks.NewLogPoller(t)
 	lp2 := lpmocks.NewLogPoller(t)
@@ -21,7 +20,7 @@ func TestOracleBackfill(t *testing.T) {
 	lp2.On("Replay", mock.Anything, int64(2)).Return(nil)
 	oracle1 := jobmocks.NewServiceCtx(t)
 	oracle1.On("Start", mock.Anything).Return(errors.New("Failed to start")).Twice()
-	job := ccip.NewBackfilledOracle(logger.TestLogger(t), lp1, lp2, 1, 2, oracle1)
+	job := NewBackfilledOracle(logger.TestLogger(t), lp1, lp2, 1, 2, oracle1)
 
 	job.Run()
 	assert.False(t, job.IsRunning())
@@ -33,7 +32,7 @@ func TestOracleBackfill(t *testing.T) {
 	oracle2.On("Start", mock.Anything).Return(nil).Twice()
 	oracle2.On("Close").Return(nil).Once()
 
-	job2 := ccip.NewBackfilledOracle(logger.TestLogger(t), lp1, lp2, 1, 2, oracle2)
+	job2 := NewBackfilledOracle(logger.TestLogger(t), lp1, lp2, 1, 2, oracle2)
 	job2.Run()
 	assert.True(t, job2.IsRunning())
 	assert.Nil(t, job2.Close())
@@ -50,7 +49,7 @@ func TestOracleBackfill(t *testing.T) {
 	lp12.On("Replay", mock.Anything, int64(2)).Return(errors.New("Replay failed")).Once()
 
 	oracle := jobmocks.NewServiceCtx(t)
-	job3 := ccip.NewBackfilledOracle(logger.NullLogger, lp11, lp12, 1, 2, oracle)
+	job3 := NewBackfilledOracle(logger.NullLogger, lp11, lp12, 1, 2, oracle)
 	job3.Run()
 	assert.False(t, job3.IsRunning())
 }

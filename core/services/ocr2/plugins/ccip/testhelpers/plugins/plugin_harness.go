@@ -21,8 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/hasher"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/merklemulti"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/merklemulti"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -195,8 +195,8 @@ func (mb MessageBatch) ToExecutionReport() evm_2_evm_offramp.InternalExecutionRe
 }
 
 func (th *CCIPPluginTestHarness) GenerateAndSendMessageBatch(t *testing.T, nMessages int, payloadSize int, nTokensPerMessage int) MessageBatch {
-	mctx := hasher.NewKeccakCtx()
-	leafHasher := hasher.NewLeafHasher(th.Source.ChainSelector, th.Dest.ChainSelector, th.Source.OnRamp.Address(), mctx)
+	mctx := hashlib.NewKeccakCtx()
+	leafHasher := hashlib.NewLeafHasher(th.Source.ChainSelector, th.Dest.ChainSelector, th.Source.OnRamp.Address(), mctx)
 
 	maxPayload := make([]byte, payloadSize)
 	for i := 0; i < payloadSize; i++ {
