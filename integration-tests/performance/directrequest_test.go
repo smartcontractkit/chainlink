@@ -38,7 +38,7 @@ func TestDirectRequestPerformance(t *testing.T) {
 
 	chainClient, err := blockchain.NewEVMClient(blockchain.SimulatedEVMNetwork, testEnvironment, l)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")

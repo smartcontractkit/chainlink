@@ -54,7 +54,7 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 	if err != nil {
 		return nil, err
 	}
-	cd, err := contracts.NewContractDeployer(bc)
+	cd, err := contracts.NewContractDeployer(bc, log.Logger)
 	if err != nil {
 		return nil, err
 	}

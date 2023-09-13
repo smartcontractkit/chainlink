@@ -65,7 +65,7 @@ func (s *DonChain) initializeClients() {
 	s.EVMClient, err = blockchain.NewEVMClient(network, s.conf.Env, s.l)
 	require.NoError(s.conf.T, err, "Connecting to blockchain nodes shouldn't fail")
 
-	s.ContractDeployer, err = contracts.NewContractDeployer(s.EVMClient)
+	s.ContractDeployer, err = contracts.NewContractDeployer(s.EVMClient, s.l)
 	require.NoError(s.conf.T, err)
 
 	s.ChainlinkNodes, err = client.ConnectChainlinkNodes(s.conf.Env)

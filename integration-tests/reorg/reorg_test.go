@@ -134,7 +134,7 @@ func TestDirectRequestReorg(t *testing.T) {
 
 	chainClient, err := blockchain.NewEVMClient(networkSettings, testEnvironment, l)
 	require.NoError(t, err, "Error connecting to blockchain")
-	cd, err := contracts.NewContractDeployer(chainClient)
+	cd, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Error building contract deployer")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")

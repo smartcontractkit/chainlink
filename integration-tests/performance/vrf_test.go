@@ -35,7 +35,7 @@ func TestVRFBasic(t *testing.T) {
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
 	require.NoError(t, err, "Connecting client shouldn't fail")
-	cd, err := contracts.NewContractDeployer(chainClient)
+	cd, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")

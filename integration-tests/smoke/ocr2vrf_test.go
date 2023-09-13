@@ -36,7 +36,7 @@ func TestOCR2VRFRedeemModel(t *testing.T) {
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
 	require.NoError(t, err, "Error connecting to blockchain")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Error building contract deployer")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
@@ -98,7 +98,7 @@ func TestOCR2VRFFulfillmentModel(t *testing.T) {
 
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
 	require.NoError(t, err, "Error connecting to blockchain")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Error building contract deployer")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")

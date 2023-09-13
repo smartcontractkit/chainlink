@@ -36,7 +36,7 @@ func TestOCRBasic(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
 
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
@@ -61,7 +61,7 @@ func TestOCRBasic(t *testing.T) {
 	profileFunction := func(chainlinkNode *client.ChainlinkClient) {
 		err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, mockServer)
 		require.NoError(t, err)
-		err = actions.StartNewRound(1, ocrInstances, chainClient)
+		err = actions.StartNewRound(1, ocrInstances, chainClient, l)
 		require.NoError(t, err)
 
 		answer, err := ocrInstances[0].GetLatestAnswer(context.Background())
@@ -70,7 +70,7 @@ func TestOCRBasic(t *testing.T) {
 
 		err = mockServer.SetValuePath("ocr", 10)
 		require.NoError(t, err)
-		err = actions.StartNewRound(2, ocrInstances, chainClient)
+		err = actions.StartNewRound(2, ocrInstances, chainClient, l)
 		require.NoError(t, err)
 
 		answer, err = ocrInstances[0].GetLatestAnswer(context.Background())

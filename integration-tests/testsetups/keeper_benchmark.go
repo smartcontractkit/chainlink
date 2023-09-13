@@ -116,7 +116,7 @@ func (k *KeeperBenchmarkTest) Setup(t *testing.T, env *environment.Environment) 
 
 	var err error
 	// Connect to networks and prepare for contract deployment
-	k.contractDeployer, err = contracts.NewContractDeployer(k.chainClient)
+	k.contractDeployer, err = contracts.NewContractDeployer(k.chainClient, l)
 	require.NoError(t, err, "Building a new contract deployer shouldn't fail")
 	k.chainlinkNodes, err = client.ConnectChainlinkNodes(k.env)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
@@ -264,6 +264,7 @@ func (k *KeeperBenchmarkTest) Run(t *testing.T) {
 					&k.TestReporter,
 					int64(index),
 					inputs.Upkeeps.FirstEligibleBuffer,
+					l,
 				),
 			)
 		}

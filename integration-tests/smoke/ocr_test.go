@@ -47,7 +47,7 @@ func TestOCRBasic(t *testing.T) {
 	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockServer.Client)
 	require.NoError(t, err)
 
-	err = actions.StartNewRound(1, ocrInstances, env.EVMClient)
+	err = actions.StartNewRound(1, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
 
 	answer, err := ocrInstances[0].GetLatestAnswer(context.Background())
@@ -56,7 +56,7 @@ func TestOCRBasic(t *testing.T) {
 
 	err = actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockServer.Client)
 	require.NoError(t, err)
-	err = actions.StartNewRound(2, ocrInstances, env.EVMClient)
+	err = actions.StartNewRound(2, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
 
 	answer, err = ocrInstances[0].GetLatestAnswer(context.Background())

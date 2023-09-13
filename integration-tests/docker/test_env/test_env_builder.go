@@ -194,13 +194,13 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 
 	te.EVMClient = bc
 
-	cd, err := contracts.NewContractDeployer(bc)
+	cd, err := contracts.NewContractDeployer(bc, b.l)
 	if err != nil {
 		return nil, err
 	}
 	te.ContractDeployer = cd
 
-	cl, err := contracts.NewContractLoader(bc)
+	cl, err := contracts.NewContractLoader(bc, b.l)
 	if err != nil {
 		return nil, err
 	}

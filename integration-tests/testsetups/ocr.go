@@ -188,7 +188,7 @@ func (o *OCRSoakTest) Setup() {
 	// Make connections to soak test resources
 	o.chainClient, err = blockchain.NewEVMClient(network, o.testEnvironment, o.log)
 	require.NoError(o.t, err, "Error creating EVM client")
-	contractDeployer, err := contracts.NewContractDeployer(o.chainClient)
+	contractDeployer, err := contracts.NewContractDeployer(o.chainClient, o.log)
 	require.NoError(o.t, err, "Unable to create contract deployer")
 	require.NotNil(o.t, contractDeployer, "Contract deployer shouldn't be nil")
 	nodes, err := client.ConnectChainlinkNodes(o.testEnvironment)
@@ -206,7 +206,7 @@ func (o *OCRSoakTest) Setup() {
 	require.NoError(o.t, err, "Error funding Chainlink nodes")
 
 	if o.OperatorForwarderFlow {
-		contractLoader, err := contracts.NewContractLoader(o.chainClient)
+		contractLoader, err := contracts.NewContractLoader(o.chainClient, o.log)
 		require.NoError(o.t, err, "Loading contracts shouldn't fail")
 
 		operators, authorizedForwarders, _ := actions.DeployForwarderContracts(
@@ -388,7 +388,7 @@ func (o *OCRSoakTest) LoadState() error {
 	if err != nil {
 		return err
 	}
-	contractDeployer, err := contracts.NewContractDeployer(o.chainClient)
+	contractDeployer, err := contracts.NewContractDeployer(o.chainClient, o.log)
 	if err != nil {
 		return err
 	}
