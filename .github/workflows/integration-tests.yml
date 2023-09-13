@@ -312,7 +312,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@ee7d7fe52c3bd5d248b675c36f744ff69f6e83bc # v2.2.13
         env:
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
@@ -323,6 +323,7 @@ jobs:
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
           cl_image_tag: ${{ github.sha }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_name: ${{ matrix.product.name }}-test-logs
           artifacts_location: ./integration-tests/smoke/logs/
           publish_check_name: ${{ matrix.product.name }}
           token: ${{ secrets.GITHUB_TOKEN }}
@@ -345,14 +346,6 @@ jobs:
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
 
-      - name: Upload test log
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
-        if: failure()
-        with:
-          name: test-log-${{ matrix.product.name }}
-          path: ./integration-tests/smoke/logs/
-          retention-days: 7
-        continue-on-error: true
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
