@@ -34,7 +34,7 @@ func TestOCRv2Basic(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithGeth().
 		WithMockServer(1).
-		WithCLNodeConfig(node.NewConfig(node.BaseConf,
+		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
 			node.WithOCR2(),
 			node.WithP2Pv2(),
 		)).
