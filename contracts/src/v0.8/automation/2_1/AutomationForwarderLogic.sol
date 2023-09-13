@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {IAutomationRegistryConsumer} from "./interfaces/IAutomationRegistryConsumer.sol";
-import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
+import {IAutomationRegistryConsumer} from "../interfaces/IAutomationRegistryConsumer.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
 contract AutomationForwarderLogic is ITypeAndVersion {
   IAutomationRegistryConsumer private s_registry;

@@ -2,10 +2,10 @@
 pragma solidity 0.8.16;
 
 import {KeeperRegistryBase2_1} from "./KeeperRegistryBase2_1.sol";
-import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
-import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
-import {UpkeepFormat} from "../../../automation/interfaces/UpkeepTranscoderInterface.sol";
-import {IAutomationForwarder} from "./interfaces/IAutomationForwarder.sol";
+import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import {Address} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import {UpkeepFormat} from "../interfaces/UpkeepTranscoderInterface.sol";
+import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
 
 contract KeeperRegistryLogicB2_1 is KeeperRegistryBase2_1 {
   using Address for address;
