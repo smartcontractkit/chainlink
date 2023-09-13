@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
+	oraclesMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/chainoracles/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 )
 
@@ -35,6 +36,19 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		Return(dynamicFee, gasLimit, nil).Once()
 	e.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
 		Return(legacyFee, gasLimit, nil).Once()
+
+	// L1Oracle returns the correct L1Oracle interface
+	t.Run("L1Oracle", func(t *testing.T) {
+		// expect nil
+		estimator := gas.NewWrappedEvmEstimator(e, false)
+		l1Oracle := estimator.L1Oracle()
+		assert.Nil(t, l1Oracle)
+
+		o := oraclesMocks.NewL1Oracle(t)
+		estimator = gas.NewWrappedEvmEstimatorWithL1Oracle(e, false, o)
+		l1Oracle = estimator.L1Oracle()
+		assert.Equal(t, o, l1Oracle)
+	})
 
 	// GetFee returns gas estimation based on configuration value
 	t.Run("GetFee", func(t *testing.T) {
