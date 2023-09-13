@@ -240,7 +240,7 @@ func (ks *eth) Add(address common.Address, chainID *big.Int, qopts ...pg.QOpt) e
 // caller must hold lock!
 func (ks *eth) addKey(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
 	state := new(ethkey.State)
-	sql := `INSERT INTO evm_key_states (address, next_nonce, disabled, evm_chain_id, created_at, updated_at)
+	sql := `INSERT INTO evm.key_states (address, next_nonce, disabled, evm_chain_id, created_at, updated_at)
 			VALUES ($1, 0, false, $2, NOW(), NOW()) 
 			RETURNING *;`
 	q := ks.orm.q.WithOpts(qopts...)
@@ -267,7 +267,7 @@ func (ks *eth) Enable(address common.Address, chainID *big.Int, qopts ...pg.QOpt
 func (ks *eth) enable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
 	state := new(ethkey.State)
 	q := ks.orm.q.WithOpts(qopts...)
-	sql := `UPDATE evm_key_states SET disabled = false, updated_at = NOW() WHERE address = $1 AND evm_chain_id = $2
+	sql := `UPDATE evm.key_states SET disabled = false, updated_at = NOW() WHERE address = $1 AND evm_chain_id = $2
 			RETURNING *;`
 	if err := q.Get(state, sql, address, chainID.String()); err != nil {
 		return errors.Wrap(err, "failed to enable state")
@@ -291,7 +291,7 @@ func (ks *eth) Disable(address common.Address, chainID *big.Int, qopts ...pg.QOp
 func (ks *eth) disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
 	state := new(ethkey.State)
 	q := ks.orm.q.WithOpts(qopts...)
-	sql := `UPDATE evm_key_states SET disabled = false, updated_at = NOW() WHERE address = $1 AND evm_chain_id = $2
+	sql := `UPDATE evm.key_states SET disabled = false, updated_at = NOW() WHERE address = $1 AND evm_chain_id = $2
 			RETURNING id, next_nonce, address, evm_chain_id, disabled, created_at, updated_at;`
 	if err := q.Get(state, sql, address, chainID.String()); err != nil {
 		return errors.Wrap(err, "failed to enable state")
@@ -305,7 +305,7 @@ func (ks *eth) disable(address common.Address, chainID *big.Int, qopts ...pg.QOp
 // Reset the key/chain nonce to the given one
 func (ks *eth) Reset(address common.Address, chainID *big.Int, nonce int64, qopts ...pg.QOpt) error {
 	q := ks.orm.q.WithOpts(qopts...)
-	res, err := q.Exec(`UPDATE evm_key_states SET next_nonce = $1 WHERE address = $2 AND evm_chain_id = $3`, nonce, address, chainID.String())
+	res, err := q.Exec(`UPDATE evm.key_states SET next_nonce = $1 WHERE address = $2 AND evm_chain_id = $3`, nonce, address, chainID.String())
 	if err != nil {
 		return errors.Wrap(err, "failed to reset state")
 	}
@@ -337,7 +337,7 @@ func (ks *eth) Delete(id string) (ethkey.KeyV2, error) {
 		return ethkey.KeyV2{}, err
 	}
 	err = ks.safeRemoveKey(key, func(tx pg.Queryer) error {
-		_, err2 := tx.Exec(`DELETE FROM evm_key_states WHERE address = $1`, key.Address)
+		_, err2 := tx.Exec(`DELETE FROM evm.key_states WHERE address = $1`, key.Address)
 		return err2
 	})
 	if err != nil {
@@ -587,7 +587,7 @@ func (ks *eth) XXXTestingOnlySetState(state ethkey.State) {
 		panic(fmt.Sprintf("key not found with ID %s", state.KeyID()))
 	}
 	*existingState = state
-	sql := `UPDATE evm_key_states SET address = :address, next_nonce = :next_nonce, is_disabled = :is_disabled, evm_chain_id = :evm_chain_id, updated_at = NOW()
+	sql := `UPDATE evm.key_states SET address = :address, next_nonce = :next_nonce, is_disabled = :is_disabled, evm_chain_id = :evm_chain_id, updated_at = NOW()
 	WHERE address = :address;`
 	_, err := ks.orm.q.NamedExec(sql, state)
 	if err != nil {
@@ -669,7 +669,7 @@ func (ks *eth) addWithNonce(key ethkey.KeyV2, chainID *big.Int, nonce int64, isD
 	defer ks.lock.Unlock()
 	err = ks.safeAddKey(key, func(tx pg.Queryer) (merr error) {
 		state := new(ethkey.State)
-		sql := `INSERT INTO evm_key_states (address, next_nonce, disabled, evm_chain_id, created_at, updated_at)
+		sql := `INSERT INTO evm.key_states (address, next_nonce, disabled, evm_chain_id, created_at, updated_at)
 VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *;`
 		if err = ks.orm.q.Get(state, sql, key.Address, nonce, isDisabled, chainID); err != nil {
 			return errors.Wrap(err, "failed to insert evm_key_state")
