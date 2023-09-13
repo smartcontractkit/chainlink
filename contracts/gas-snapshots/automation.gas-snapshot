@@ -1,3 +1,8 @@
+AutomationForwarder_forward:testBasicSuccess() (gas: 87630)
+AutomationForwarder_forward:testNotAuthorizedReverts() (gas: 24560)
+AutomationForwarder_forward:testWrongFunctionSelectorSuccess() (gas: 17958)
+AutomationForwarder_updateRegistry:testBasicSuccess() (gas: 14577)
+AutomationForwarder_updateRegistry:testNotFromRegistryNotAuthorizedReverts() (gas: 17665)
 HeartbeatRequester_getAggregatorRequestHeartbeat:testBasicSuccess() (gas: 75412)
 HeartbeatRequester_getAggregatorRequestHeartbeat:testHeartbeatNotPermittedReverts() (gas: 21730)
 HeartbeatRequester_permitHeartbeat:testBasicDeployerSuccess() (gas: 48229)

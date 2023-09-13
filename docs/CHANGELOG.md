@@ -28,6 +28,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fixed a bug that was preventing job runs to be displayed when the job `chainID` was disabled.
 - `chainlink txs evm create` returns a transaction hash for the attempted transaction in the CLI. Previously only the sender, receipient and `unstarted` state were returned.
 
+### Added
+
+- New prometheus metrics for mercury:
+    - `mercury_price_feed_missing`
+    - `mercury_price_feed_errors`
+  Nops may wish to add alerting on these.
+
 <!-- unreleasedstop -->
 
 ## 2.5.0 - 2023-09-13
