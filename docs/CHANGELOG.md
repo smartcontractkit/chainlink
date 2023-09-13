@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ...
 
-## 2.5.0 - UNRELEASED
+<!-- unreleasedstop -->
+
+## 2.5.0 - 2023-09-13
 
 ### Upcoming Required Configuration Change
 
@@ -26,8 +28,6 @@ AllowSimplePasswords=true
 ### Added
 
 - Various Functions improvements
-
-<!-- unreleasedstop -->
 
 ## 2.4.0 - 2023-08-21
 
