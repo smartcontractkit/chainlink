@@ -89,6 +89,8 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	_, config, err := configPoller.LatestConfigDetails(testutils.Context(t))
 	require.NoError(t, err)
 	require.Equal(t, ocrtypes2.ConfigDigest{}, config)
+	_, err = configPoller.LatestConfig(testutils.Context(t), 0)
+	require.Error(t, err)
 
 	pluginConfig := &functionsConfig.ReportingPluginConfigWrapper{
 		Config: &functionsConfig.ReportingPluginConfig{

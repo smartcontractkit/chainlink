@@ -367,24 +367,24 @@ func getRespCounts(q pg.Q, chainID uint64, evmFinalityDepth uint32) (
 		RequestID string
 		Count     int
 	}{}
-	// This query should use the idx_eth_txes_state_from_address_evm_chain_id
+	// This query should use the idx_evm.txes_state_from_address_evm_chain_id
 	// index, since the quantity of unconfirmed/unstarted/in_progress transactions _should_ be small
 	// relative to the rest of the data.
 	unconfirmedQuery := `
 SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') AS count
-FROM eth_txes et
+FROM evm.txes et
 WHERE et.meta->'RequestID' IS NOT NULL
 AND et.state IN ('unconfirmed', 'unstarted', 'in_progress')
 GROUP BY meta->'RequestID'
 	`
 	// Fetch completed transactions only as far back as the given cutoffBlockNumber. This avoids
-	// a table scan of the eth_txes table, which could be large if it is unpruned.
+	// a table scan of the evm.txes table, which could be large if it is unpruned.
 	confirmedQuery := `
 SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') AS count
-FROM eth_txes et JOIN eth_tx_attempts eta on et.id = eta.eth_tx_id
-	join eth_receipts er on eta.hash = er.tx_hash
+FROM evm.txes et JOIN evm.tx_attempts eta on et.id = eta.eth_tx_id
+	join evm.receipts er on eta.hash = er.tx_hash
 WHERE et.meta->'RequestID' is not null
-AND er.block_number >= (SELECT number FROM evm_heads WHERE evm_chain_id = $1 ORDER BY number DESC LIMIT 1) - $2
+AND er.block_number >= (SELECT number FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC LIMIT 1) - $2
 GROUP BY meta->'RequestID'
 	`
 	query := unconfirmedQuery + "\nUNION ALL\n" + confirmedQuery

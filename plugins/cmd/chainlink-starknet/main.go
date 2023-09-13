@@ -66,13 +66,9 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, loopKs lo
 		return nil, fmt.Errorf("failed to decode config toml: %w:\n\t%s", err, config)
 	}
 
-	// TODO BCF-2605 clean this up when the internal details of  Chain construction
-	// doesn't need `Configs`
-	cfgAdapter := starknet.StarknetConfigs{&cfg.Starknet}
 	opts := starknet.ChainOpts{
 		Logger:   c.Logger,
 		KeyStore: loopKs,
-		Configs:  starknet.NewConfigs(cfgAdapter),
 	}
 
 	chain, err := starknet.NewChain(&cfg.Starknet, opts)

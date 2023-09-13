@@ -177,6 +177,10 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	if err != nil {
 		return errors.Wrap(err, "unexpected error during functions_router.GetAllowListId")
 	}
+	a.lggr.Debugw("successfully fetched allowlist route ID", "id", tosID)
+	if tosID == [32]byte{} {
+		return errors.New("allowlist route ID has not been set")
+	}
 	tosAddress, err := a.contractV1.GetContractById(&bind.CallOpts{
 		Pending: false,
 		Context: ctx,
@@ -184,6 +188,7 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	if err != nil {
 		return errors.Wrap(err, "unexpected error during functions_router.GetContractById")
 	}
+	a.lggr.Debugw("successfully fetched allowlist contract address", "address", tosAddress)
 	tosContract, err := functions_allow_list.NewTermsOfServiceAllowList(tosAddress, a.client)
 	if err != nil {
 		return errors.Wrap(err, "unexpected error during functions_allow_list.NewTermsOfServiceAllowList")
