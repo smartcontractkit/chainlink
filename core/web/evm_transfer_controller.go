@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -146,7 +147,8 @@ func FindTxAttempt(ctx context.Context, timeout time.Duration, etx txmgr.Tx, Fin
 		}
 
 		// exit if tx attempts are found
-		if len(etx.TxAttempts) > 0 {
+		// also validate etx.State != unstarted (ensure proper tx state for tx with attempts)
+		if len(etx.TxAttempts) > 0 && etx.State != commontxmgr.TxUnstarted {
 			break
 		}
 		tick = time.After(recheckTime)
