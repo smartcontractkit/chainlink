@@ -169,8 +169,8 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifierFeeManager
-  function processFee(bytes calldata payload, bytes calldata quotePayload, address subscriber) external payable override onlyProxy {
-    (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(payload, quotePayload, subscriber);
+  function processFee(bytes calldata payload, bytes calldata feePayload, address subscriber) external payable override onlyProxy {
+    (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(payload, feePayload, subscriber);
 
     if (fee.amount == 0) {
       _tryReturnChange(subscriber, msg.value);
@@ -188,22 +188,18 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifierFeeManager
-  function processFeeBulk(bytes[] calldata payloads, bytes[] calldata quotePayloads, address subscriber) external payable override onlyProxy {
+  function processFeeBulk(bytes[] calldata payloads, bytes calldata feePayload, address subscriber) external payable override onlyProxy {
     FeeAndReward[] memory feesAndRewards = new IFeeManager.FeeAndReward[](payloads.length);
 
     //keep track of the number of fees to prevent over initialising the FeePayment array within _convertToLinkAndNativeFees
     uint256 numberOfLinkFees;
     uint256 numberOfNativeFees;
 
-    bool separateQuotePayloads = quotePayloads.length > 1;
-
     uint256 feesAndRewardsIndex;
     for (uint256 i; i < payloads.length; ++i) {
-      bytes calldata quotePayload = separateQuotePayloads ? quotePayloads[i] : quotePayloads[0];
-
       (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(
         payloads[i],
-        quotePayload,
+        feePayload,
         subscriber
       );
 
