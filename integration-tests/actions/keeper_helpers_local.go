@@ -45,10 +45,11 @@ func CreateKeeperJobsLocal(
 			return nil, err
 		}
 		job, err := chainlinkNode.MustCreateJob(&client.KeeperJobSpec{
-			Name:            fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
-			ContractAddress: keeperRegistry.Address(),
-			FromAddress:     chainlinkNodeAddress,
-			EVMChainID:      evmChainID,
+			Name:                     fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
+			ContractAddress:          keeperRegistry.Address(),
+			FromAddress:              chainlinkNodeAddress,
+			EVMChainID:               evmChainID,
+			MinIncomingConfirmations: 1,
 		})
 		if err != nil {
 			log.Error().Err(err).Msg("Creating KeeperV2 Job shouldn't fail")
