@@ -2,7 +2,7 @@
 
 pragma solidity 0.8.6;
 
-import {ILogAutomation, Log} from "../2_1/interfaces/ILogAutomation.sol";
+import {ILogAutomation, Log} from "../interfaces/ILogAutomation.sol";
 
 contract LogUpkeepCounter is ILogAutomation {
   bytes32 sig1 = 0x3d53a39550e04688065827f3bb86584cb007ab9ebca7ebd528e7301c9c31eb5d;

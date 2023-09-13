@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {ILogAutomation, Log} from "../2_1/interfaces/ILogAutomation.sol";
-import "../2_1/interfaces/StreamsLookupCompatibleInterface.sol";
-import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import {ILogAutomation, Log} from "../interfaces/ILogAutomation.sol";
+import "../interfaces/StreamsLookupCompatibleInterface.sol";
+import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 
 interface IVerifierProxy {
   /**

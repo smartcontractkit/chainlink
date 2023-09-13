@@ -2,6 +2,7 @@ package test_env
 
 import (
 	"encoding/json"
+	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
@@ -12,13 +13,13 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
@@ -34,8 +35,8 @@ type CLClusterTestEnv struct {
 
 	/* components */
 	CLNodes          []*ClNode
-	Geth             *test_env.Geth              // for tests using --dev networks
-	PrivateGethChain []test_env.PrivateGethChain // for tests using non-dev networks
+	Geth             *test_env.Geth          // for tests using --dev networks
+	PrivateChain     []test_env.PrivateChain // for tests using non-dev networks
 	MockServer       *test_env.MockServer
 	EVMClient        blockchain.EVMClient
 	ContractDeployer contracts.ContractDeployer
@@ -76,23 +77,34 @@ func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
 	te.EVMClient.ParallelTransactions(enabled)
 }
 
-func (te *CLClusterTestEnv) WithPrivateGethChain(evmNetworks []blockchain.EVMNetwork) *CLClusterTestEnv {
-	var chains []test_env.PrivateGethChain
+func (te *CLClusterTestEnv) WithPrivateChain(evmNetworks []blockchain.EVMNetwork) *CLClusterTestEnv {
+	var chains []test_env.PrivateChain
 	for _, evmNetwork := range evmNetworks {
 		n := evmNetwork
-		chains = append(chains, test_env.NewPrivateGethChain(&n, []string{te.Network.Name}))
+		var privateChain test_env.PrivateChain
+		switch n.SimulationType {
+		case "besu":
+			privateChain = test_env.NewPrivateBesuChain(&n, []string{te.Network.Name})
+		default:
+			privateChain = test_env.NewPrivateGethChain(&n, []string{te.Network.Name})
+		}
+		chains = append(chains, privateChain)
 	}
-	te.PrivateGethChain = chains
+	te.PrivateChain = chains
 	return te
 }
 
-func (te *CLClusterTestEnv) StartPrivateGethChain() error {
-	for _, chain := range te.PrivateGethChain {
-		err := chain.PrimaryNode.Start()
+func (te *CLClusterTestEnv) StartPrivateChain() error {
+	for _, chain := range te.PrivateChain {
+		primaryNode := chain.GetPrimaryNode()
+		if primaryNode == nil {
+			return errors.WithStack(fmt.Errorf("Primary node is nil in PrivateChain interface"))
+		}
+		err := primaryNode.Start()
 		if err != nil {
 			return err
 		}
-		err = chain.PrimaryNode.ConnectToClient()
+		err = primaryNode.ConnectToClient()
 		if err != nil {
 			return err
 		}
