@@ -1,7 +1,7 @@
 GETH_VERSION: 1.12.0
 errored_verifier: ../../../contracts/solc/v0.8.16/ErroredVerifier.abi ../../../contracts/solc/v0.8.16/ErroredVerifier.bin a1b88979c6b0b210677346df554ffc33992d6ebe24be5a244475bfb4d153155e
 exposed_verifier: ../../../contracts/solc/v0.8.16/ExposedVerifier.abi ../../../contracts/solc/v0.8.16/ExposedVerifier.bin 6932cea8f2738e874d3ec9e1a4231d2421704030c071d9e15dd2f7f08482c246
-fee_manager: ../../../contracts/solc/v0.8.16/FeeManager.abi ../../../contracts/solc/v0.8.16/FeeManager.bin 2c22cbfb24374f645eef8a368f30d1821e350501742118eebd0fa3e8bcbc4d29
+fee_manager: ../../../contracts/solc/v0.8.16/FeeManager.abi ../../../contracts/solc/v0.8.16/FeeManager.bin 13bf557ea7b04a516d6ad0651e33293b310b6a1287a4f13fcbcbc570ce0f04cd
 llo_feeds: ../../../contracts/solc/v0.8.16/FeeManager.abi ../../../contracts/solc/v0.8.16/FeeManager.bin cb71e018f67e49d7bc0e194c822204dfd59f79ff42e4fc8fd8ab63f3acd71361
 llo_feeds_test: ../../../contracts/solc/v0.8.16/ExposedVerifier.abi ../../../contracts/solc/v0.8.16/ExposedVerifier.bin 6932cea8f2738e874d3ec9e1a4231d2421704030c071d9e15dd2f7f08482c246
 reward_manager: ../../../contracts/solc/v0.8.16/RewardManager.abi ../../../contracts/solc/v0.8.16/RewardManager.bin 8b163eb0537180accfa69beea298890f1605c8d9f776689ea26802eefda46457
