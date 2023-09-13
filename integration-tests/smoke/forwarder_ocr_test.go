@@ -55,7 +55,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 			t, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]}, env.EVMClient, env.ContractLoader,
 		)
 		require.NoError(t, err, "Accepting Authorize Receivers on Operator shouldn't fail")
-		err = actions.TrackForwarderLocal(env.EVMClient, authorizedForwarders[i], workerNodes[i])
+		err = actions.TrackForwarderLocal(env.EVMClient, authorizedForwarders[i], workerNodes[i], l)
 		require.NoError(t, err)
 		err = env.EVMClient.WaitForEvents()
 	}
@@ -71,7 +71,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 
 	err = actions.CreateOCRJobsWithForwarderLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockServer.Client)
 	require.NoError(t, err, "failed to setup forwarder jobs")
-	err = actions.StartNewRound(1, ocrInstances, env.EVMClient)
+	err = actions.StartNewRound(1, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
@@ -83,7 +83,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 
 	err = actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockServer.Client)
 	require.NoError(t, err)
-	err = actions.StartNewRound(2, ocrInstances, env.EVMClient)
+	err = actions.StartNewRound(2, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")

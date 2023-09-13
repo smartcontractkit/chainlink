@@ -61,7 +61,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	for i := range workerNodes {
 		actions.AcceptAuthorizedReceiversOperator(t, operators[i], authorizedForwarders[i], []common.Address{workerNodeAddresses[i]}, env.EVMClient, env.ContractLoader)
 		require.NoError(t, err, "Accepting Authorized Receivers on Operator shouldn't fail")
-		err = actions.TrackForwarderLocal(env.EVMClient, authorizedForwarders[i], workerNodes[i])
+		err = actions.TrackForwarderLocal(env.EVMClient, authorizedForwarders[i], workerNodes[i], l)
 		require.NoError(t, err, "failed to track forwarders")
 		err = env.EVMClient.WaitForEvents()
 		require.NoError(t, err, "Error waiting for events")

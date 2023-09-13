@@ -155,7 +155,7 @@ func TestOCRChaos(t *testing.T) {
 
 			chainClient, err := blockchain.NewEVMClient(blockchain.SimulatedEVMNetwork, testEnvironment, l)
 			require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-			cd, err := contracts.NewContractDeployer(chainClient)
+			cd, err := contracts.NewContractDeployer(chainClient, l)
 			require.NoError(t, err, "Deploying contracts shouldn't fail")
 
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)

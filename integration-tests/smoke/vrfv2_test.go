@@ -23,6 +23,7 @@ func TestVRFv2Basic(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestLogger(t).
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(vrfConst.ChainlinkNodeFundingAmountEth).

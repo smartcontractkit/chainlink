@@ -21,6 +21,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestLogger(t).
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(vrfv2plus_constants.ChainlinkNodeFundingAmountEth).

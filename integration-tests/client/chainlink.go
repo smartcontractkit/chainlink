@@ -45,7 +45,7 @@ type ChainlinkClient struct {
 }
 
 // NewChainlinkClient creates a new Chainlink model using a provided config
-func NewChainlinkClient(c *ChainlinkConfig) (*ChainlinkClient, error) {
+func NewChainlinkClient(c *ChainlinkConfig, logger zerolog.Logger) (*ChainlinkClient, error) {
 	rc, err := initRestyClient(c.URL, c.Email, c.Password, c.HTTPTimeout)
 	if err != nil {
 		return nil, err
@@ -58,12 +58,8 @@ func NewChainlinkClient(c *ChainlinkConfig) (*ChainlinkClient, error) {
 		Config:    c,
 		APIClient: rc,
 		pageSize:  25,
-		l:         log.Logger,
+		l:         logger,
 	}, nil
-}
-
-func (c *ChainlinkClient) WithLogger(l zerolog.Logger) {
-	c.l = l
 }
 
 func initRestyClient(url string, email string, password string, timeout *time.Duration) (*resty.Client, error) {

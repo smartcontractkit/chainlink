@@ -251,9 +251,13 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return err
 	}
+
 	l := tc.Logger
 	if n.t != nil {
-		l = tc.TestLogger(n.t)
+		l = logging.CustomT{
+			T: n.t,
+			L: n.l,
+		}
 	}
 	container, err := docker.StartContainerWithRetry(n.l, tc.GenericContainerRequest{
 		ContainerRequest: *cReq,
@@ -286,12 +290,11 @@ func (n *ClNode) StartContainer() error {
 		Email:      "local@local.com",
 		Password:   "localdevpassword",
 		InternalIP: ip,
-	})
+	},
+		n.l)
 	if err != nil {
 		return errors.Wrap(err, ErrConnectNodeClient)
 	}
-
-	clClient.WithLogger(n.l)
 	clClient.Config.InternalIP = n.ContainerName
 	n.Container = container
 	n.API = clClient
