@@ -1,0 +1,2 @@
+GETH_VERSION: 1.12.0
+mercury_registry_wrapper: ../../../contracts/solc/v0.8.6/MercuryRegistry.abi ../../../contracts/solc/v0.8.6/MercuryRegistry.bin ff7e67001f90da19d073eb824c8b4df678ae85db3af3740f89401758d881883f

@@ -38,6 +38,7 @@ compileContract automation/2_0/KeeperRegistryLogic2_0.sol
 compileContract automation/UpkeepTranscoder.sol
 compileContract automation/mocks/MockAggregatorProxy.sol
 compileContract dev/automation/tests/LogUpkeepCounter.sol
+compileContract dev/automation/upkeeps/MercuryRegistry.sol
 
 # Keepers x VRF v2
 compileContract KeepersVRFConsumer.sol

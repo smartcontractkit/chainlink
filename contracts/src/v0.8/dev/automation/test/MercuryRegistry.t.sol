@@ -7,7 +7,7 @@ import "../2_1/interfaces/StreamsLookupCompatibleInterface.sol";
 
 contract MercuryRegistryTest is Test {
   address internal constant OWNER = 0x00007e64E1fB0C487F25dd6D3601ff6aF8d32e4e;
-  int192 internal constant DEVIATION_THRESHOLD = 10_000; // 1%
+  uint32 internal constant DEVIATION_THRESHOLD = 10_000; // 1%
   uint32 internal constant STALENESS_SECONDS = 3600; // 1 hour
 
   address s_verifier = 0x60448B880c9f3B501af3f343DA9284148BD7D77C;
@@ -64,7 +64,7 @@ contract MercuryRegistryTest is Test {
     feedIds[1] = s_ETHUSDFeedId;
 
     // Deviation threshold and staleness are the same for all feeds.
-    int192[] memory thresholds = new int192[](1);
+    uint32[] memory thresholds = new uint32[](1);
     thresholds[0] = DEVIATION_THRESHOLD;
     uint32[] memory stalenessSeconds = new uint32[](1);
     stalenessSeconds[0] = STALENESS_SECONDS;
@@ -101,7 +101,11 @@ contract MercuryRegistryTest is Test {
         feedIds, // feed Ids
         "blockNumber", // timeParamKey
         blockNumber, // block number on which request is occuring
-        "" // extra data
+        bytes.concat(
+          "CHECK_WITH_FUNCTIONS", 
+          s_testRegistry.packPriceDeviationAndStaleness(0, 0, STALENESS_SECONDS, DEVIATION_THRESHOLD), 
+          s_testRegistry.packPriceDeviationAndStaleness(0, 0, STALENESS_SECONDS, DEVIATION_THRESHOLD)
+        ) // extra data
       )
     );
     s_testRegistry.checkUpkeep("");
@@ -130,7 +134,7 @@ contract MercuryRegistryTest is Test {
         string memory feedName,
         string memory localFeedId,
         bool active,
-        int192 deviationPercentagePPM,
+        uint32 deviationPercentagePPM,
         uint32 stalenessSeconds
       ) = s_testRegistry.s_feedMapping(s_BTCUSDFeedId);
       assertEq(observationsTimestamp, 1692732568); // Tuesday, August 22, 2023 7:29:28 PM
@@ -233,7 +237,11 @@ contract MercuryRegistryTest is Test {
         feedIds, // feed Ids
         "blockNumber", // timeParamKey
         blockNumber, // block number on which request is occuring
-        "" // extra data
+        bytes.concat(
+          "CHECK_WITH_FUNCTIONS", 
+          s_testRegistry.packPriceDeviationAndStaleness(0, 0, STALENESS_SECONDS, DEVIATION_THRESHOLD), 
+          s_testRegistry.packPriceDeviationAndStaleness(0, 0, STALENESS_SECONDS, DEVIATION_THRESHOLD)
+        ) // extra data
       )
     );
     batchedRegistry.checkUpkeep("");
@@ -258,7 +266,7 @@ contract MercuryRegistryTest is Test {
       string memory feedName,
       string memory localFeedId,
       bool active,
-      int192 deviationPercentagePPM,
+      uint32 deviationPercentagePPM,
       uint32 stalenessSeconds
     ) = s_testRegistry.s_feedMapping(s_BTCUSDFeedId);
     assertEq(observationsTimestamp, 1692732568); // Tuesday, August 22, 2023 7:29:28 PM

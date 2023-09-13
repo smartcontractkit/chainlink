@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/automation/generated/mercury_registry_wrapper"
 	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registrylogic20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
@@ -27,7 +28,6 @@ import (
 	registry20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_streams_lookup_upkeep_wrapper"
@@ -584,14 +584,15 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 					k.cfg.UseArbBlockNumber,
 				)
 			} else {
-				upkeepAddr, deployUpkeepTx, _, err = streams_lookup_upkeep_wrapper.DeployStreamsLookupUpkeep(
+				fmt.Println("UPLOADING THE STREAMS LOOKUP")
+				upkeepAddr, deployUpkeepTx, _, err = mercury_registry_wrapper.DeployMercuryRegistry(
 					k.buildTxOpts(ctx),
 					k.client,
-					big.NewInt(k.cfg.UpkeepTestRange),
-					big.NewInt(k.cfg.UpkeepInterval),
-					true,  /* useArbBlock */
-					true,  /* staging */
-					false, /* verify mercury response */
+					[]string{"0x6962e629c3a0f5b7e3e9294b0c283c9b20f94f1c89c8ba8c1ee4650738f20fb2"},
+					[]string{"BTC/USD Feed"},
+					[]uint32{10_000},
+					[]uint32{30},
+					common.HexToAddress("0x60448B880c9f3B501af3f343DA9284148BD7D77C"),
 				)
 			}
 			if err != nil {

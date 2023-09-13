@@ -45,7 +45,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
     string feedName; // the name of the feed
     string feedId; // the id of the feed (hex encoded)
     bool active; // true if the feed is being actively updated, otherwise false
-    int192 deviationPercentagePPM; // acceptable deviation threshold - 1.5% = 15_000, 100% = 1_000_000, etc..
+    uint32 deviationPercentagePPM; // acceptable deviation threshold - 1.5% = 15_000, 100% = 1_000_000, etc..
     uint32 stalenessSeconds; // acceptable staleness threshold - 60 = 1 minute, 300 = 5 minutes, etc..
   }
 
@@ -78,7 +78,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
   constructor(
     string[] memory feedIds,
     string[] memory feedNames,
-    int192[] memory deviationPercentagePPMs,
+    uint32[] memory deviationPercentagePPMs,
     uint32[] memory stalenessSeconds,
     address verifier
   ) ConfirmedOwner(msg.sender) {
@@ -107,7 +107,24 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
   // Extracted from `checkUpkeep` for batching purposes.
   function revertForFeedLookup(string[] memory feeds) public view returns (bool, bytes memory) {
     uint256 blockNumber = ChainSpecificUtil.getBlockNumber();
-    revert StreamsLookup(c_feedParamKey, feeds, c_timeParamKey, blockNumber, "");
+    bytes memory extraData = "CHECK_WITH_FUNCTIONS";
+    for (uint256 x = 0; x < feeds.length; x++) {
+      bytes32 formattedPriceForFeed = packPriceDeviationAndStaleness(
+        s_feedMapping[feeds[x]].price,
+        s_feedMapping[feeds[x]].observationsTimestamp,
+        s_feedMapping[feeds[x]].stalenessSeconds, 
+        s_feedMapping[feeds[x]].deviationPercentagePPM
+      );
+      extraData = bytes.concat(extraData, formattedPriceForFeed);
+    }
+    revert StreamsLookup(c_feedParamKey, feeds, c_timeParamKey, blockNumber, extraData);
+  }
+
+  // Packs the price, stalenessSeconds, and deviationPercentagePPM of a feed into a single bytes32 item.
+  // Note: we lose some precision on the price (uint192 -> uint160), need to make sure that isn't an issue.
+  function packPriceDeviationAndStaleness(int192 price, uint32 observationsTimestamp, uint32 stalenessSeconds, uint32 deviationPercentagePPM) 
+    public pure returns (bytes32) {
+      return bytes32(((((uint256(uint192(price) << 32)| observationsTimestamp) << 32) | stalenessSeconds) << 32) | deviationPercentagePPM);
   }
 
   // Filter for feeds that have deviated sufficiently from their respective on-chain values, or where
@@ -124,7 +141,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
       Feed memory feed = s_feedMapping[feedId];
       if (
         (report.observationsTimestamp - feed.observationsTimestamp > feed.stalenessSeconds) ||
-        deviationExceedsThreshold(feed.price, report.price, feed.deviationPercentagePPM)
+        deviationExceedsThreshold(feed.price, report.price, int192(int32(feed.deviationPercentagePPM)))
       ) {
         filteredValues[count] = values[i];
         count++;
@@ -224,7 +241,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
   function addFeeds(
     string[] memory feedIds,
     string[] memory feedNames,
-    int192[] memory deviationPercentagePPMs,
+    uint32[] memory deviationPercentagePPMs,
     uint32[] memory stalenessSeconds
   ) external onlyOwner feedsAreValid(feedIds, feedNames, deviationPercentagePPMs, stalenessSeconds) {
     for (uint256 i = 0; i < feedIds.length; i++) {
@@ -242,7 +259,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
   function setFeeds(
     string[] memory feedIds,
     string[] memory feedNames,
-    int192[] memory deviationPercentagePPMs,
+    uint32[] memory deviationPercentagePPMs,
     uint32[] memory stalenessSeconds
   ) public onlyOwner feedsAreValid(feedIds, feedNames, deviationPercentagePPMs, stalenessSeconds) {
     // Clear prior feeds.
@@ -265,7 +282,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
   function updateFeed(
     string memory feedId,
     string memory feedName,
-    int192 deviationPercentagePPM,
+    uint32 deviationPercentagePPM,
     uint32 stalnessSeconds
   ) internal {
     s_feedMapping[feedId].feedName = feedName;
@@ -281,7 +298,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
   modifier feedsAreValid(
     string[] memory feedIds,
     string[] memory feedNames,
-    int192[] memory deviationPercentagePPMs,
+    uint32[] memory deviationPercentagePPMs,
     uint32[] memory stalenessSeconds
   ) {
     if (feedIds.length != feedNames.length) {

@@ -1,9 +1,11 @@
 package evm
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -20,12 +22,14 @@ import (
 	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -45,14 +49,23 @@ const (
 	totalAttempt        = 3
 )
 
+type OnChainFeedDatum struct {
+	price                  *big.Int
+	observationsTimestamp  uint32
+	stalenessSeconds       uint32
+	deviationPercentagePPM uint32
+}
+
 type StreamsLookup struct {
-	feedParamKey string
-	feeds        []string
-	timeParamKey string
-	time         *big.Int
-	extraData    []byte
-	upkeepId     *big.Int
-	block        uint64
+	feedParamKey    string
+	feeds           []string
+	timeParamKey    string
+	time            *big.Int
+	extraData       []byte
+	upkeepId        *big.Int
+	block           uint64
+	useFunctions    bool
+	onChainFeedData []*OnChainFeedDatum
 }
 
 // MercuryV02Response represents a JSON structure used by Mercury v0.2
@@ -161,39 +174,50 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *StreamsLookup, i int, checkResults []ocr2keepers.CheckResult, lggr logger.Logger) {
 	defer wg.Done()
 
-	state, reason, values, retryable, err := r.doMercuryRequest(ctx, lookup, lggr)
-	if err != nil {
-		lggr.Errorf("upkeep %s retryable %v doMercuryRequest: %v", lookup.upkeepId, retryable, err)
-		checkResults[i].Retryable = retryable
-		checkResults[i].PipelineExecutionState = uint8(state)
-		checkResults[i].IneligibilityReason = uint8(reason)
-		return
-	}
+	values := [][]byte{common.Hex2Bytes("0006a2f7f9b6c10385739c687064aa1e457812927f59446cccddf7740cc025ad00000000000000000000000000000000000000000000000000000000014cb94e000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280010100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001206962e629c3a0f5b7e3e9294b0c283c9b20f94f1c89c8ba8c1ee4650738f20fb20000000000000000000000000000000000000000000000000000000064e50c980000000000000000000000000000000000000000000000000000025a0864a8c00000000000000000000000000000000000000000000000000000025a063481720000000000000000000000000000000000000000000000000000025a0a94d00f000000000000000000000000000000000000000000000000000000000226181f4733a6d98892d1821771c041d5d69298210fdca9d643ad74477423b6a3045647000000000000000000000000000000000000000000000000000000000226181f0000000000000000000000000000000000000000000000000000000064e50c9700000000000000000000000000000000000000000000000000000000000000027f3056b1b71dd516037afd2e636f8afb39853f5cb3ccaa4b02d6f9a2a64622534e94aa1f794f6a72478deb7e0eb2942864b7fac76d6e120bd809530b1b74a32b00000000000000000000000000000000000000000000000000000000000000027bd3b385c0812dfcad2652d225410a014a0b836cd9635a6e7fb404f65f7a912f0b193db57e5c4f38ce71f29170f7eadfa94d972338858bacd59ab224245206db")}
 
 	for j, v := range values {
 		lggr.Infof("upkeep %s doMercuryRequest values[%d]: %s", lookup.upkeepId, j, hexutil.Encode(v))
 	}
 
-	state, retryable, mercuryBytes, err := r.checkCallback(ctx, values, lookup)
-	if err != nil {
-		lggr.Errorf("at block %d upkeep %s checkCallback err: %v", lookup.block, lookup.upkeepId, err)
-		checkResults[i].Retryable = retryable
-		checkResults[i].PipelineExecutionState = uint8(state)
-		return
-	}
-	lggr.Infof("checkCallback mercuryBytes=%s", hexutil.Encode(mercuryBytes))
+	var performData []byte
+	var needed bool
+	if !lookup.useFunctions {
+		var state encoding.PipelineExecutionState
+		var err error
+		var failureReason uint8
+		state, retryable, mercuryBytes, err := r.checkCallback(ctx, values, lookup)
+		if err != nil {
+			lggr.Errorf("at block %d upkeep %s checkCallback err: %v", lookup.block, lookup.upkeepId, err)
+			checkResults[i].Retryable = retryable
+			checkResults[i].PipelineExecutionState = uint8(state)
+			return
+		}
+		lggr.Infof("checkCallback mercuryBytes=%s", hexutil.Encode(mercuryBytes))
 
-	state, needed, performData, failureReason, _, err := r.packer.UnpackCheckCallbackResult(mercuryBytes)
-	if err != nil {
-		lggr.Errorf("at block %d upkeep %s UnpackCheckCallbackResult err: %v", lookup.block, lookup.upkeepId, err)
-		checkResults[i].PipelineExecutionState = uint8(state)
-		return
-	}
+		state, needed, performData, failureReason, _, err = r.packer.UnpackCheckCallbackResult(mercuryBytes)
+		if err != nil {
+			lggr.Errorf("at block %d upkeep %s UnpackCheckCallbackResult err: %v", lookup.block, lookup.upkeepId, err)
+			checkResults[i].PipelineExecutionState = uint8(state)
+			return
+		}
 
-	if failureReason == uint8(encoding.UpkeepFailureReasonMercuryCallbackReverted) {
-		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryCallbackReverted)
-		lggr.Debugf("at block %d upkeep %s mercury callback reverts", lookup.block, lookup.upkeepId)
-		return
+		if failureReason == uint8(encoding.UpkeepFailureReasonMercuryCallbackReverted) {
+			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryCallbackReverted)
+			lggr.Debugf("at block %d upkeep %s mercury callback reverts", lookup.block, lookup.upkeepId)
+			return
+		}
+	} else {
+		var state encoding.PipelineExecutionState
+		var err error
+		var retryable bool
+		state, retryable, needed, performData, _, err = r.checkCallbackWithFunctions(ctx, values, lookup)
+		if err != nil {
+			lggr.Errorf("at block %d upkeep %s checkCallbackWithFunctions err: %v", lookup.block, lookup.upkeepId, err)
+			checkResults[i].Retryable = retryable
+			checkResults[i].PipelineExecutionState = uint8(state)
+			return
+		}
 	}
 
 	if !needed {
@@ -243,13 +267,39 @@ func (r *EvmRegistry) decodeStreamsLookup(data []byte) (*StreamsLookup, error) {
 	}
 	errorParameters := unpack.([]interface{})
 
-	return &StreamsLookup{
-		feedParamKey: *abi.ConvertType(errorParameters[0], new(string)).(*string),
-		feeds:        *abi.ConvertType(errorParameters[1], new([]string)).(*[]string),
-		timeParamKey: *abi.ConvertType(errorParameters[2], new(string)).(*string),
-		time:         *abi.ConvertType(errorParameters[3], new(*big.Int)).(**big.Int),
-		extraData:    *abi.ConvertType(errorParameters[4], new([]byte)).(*[]byte),
-	}, nil
+	feeds := *abi.ConvertType(errorParameters[1], new([]string)).(*[]string)
+	extraData := *abi.ConvertType(errorParameters[4], new([]byte)).(*[]byte)
+
+	var useFunctions bool = false
+	var onChainFeedData []*OnChainFeedDatum
+	if bytes.Equal(extraData[:20], []byte("CHECK_WITH_FUNCTIONS")) {
+		useFunctions = true
+		for i := range feeds {
+			start := 20 + 32*i
+			price := big.NewInt(0).SetBytes(extraData[start : start+20])
+			observationsTimestamp := binary.BigEndian.Uint32(extraData[start+20 : start+24])
+			stalenessSeconds := binary.BigEndian.Uint32(extraData[start+24 : start+28])
+			deviationPercentagePPM := binary.BigEndian.Uint32(extraData[start+28 : start+32])
+			onChainFeedData = append(onChainFeedData, &OnChainFeedDatum{
+				price:                  price,
+				observationsTimestamp:  observationsTimestamp,
+				stalenessSeconds:       stalenessSeconds,
+				deviationPercentagePPM: deviationPercentagePPM,
+			})
+		}
+	}
+
+	streamsLookup := StreamsLookup{
+		feedParamKey:    *abi.ConvertType(errorParameters[0], new(string)).(*string),
+		feeds:           feeds,
+		timeParamKey:    *abi.ConvertType(errorParameters[2], new(string)).(*string),
+		time:            *abi.ConvertType(errorParameters[3], new(*big.Int)).(**big.Int),
+		extraData:       extraData,
+		useFunctions:    useFunctions,
+		onChainFeedData: onChainFeedData,
+	}
+
+	return &streamsLookup, nil
 }
 
 func (r *EvmRegistry) checkCallback(ctx context.Context, values [][]byte, lookup *StreamsLookup) (encoding.PipelineExecutionState, bool, hexutil.Bytes, error) {
@@ -270,6 +320,51 @@ func (r *EvmRegistry) checkCallback(ctx context.Context, values [][]byte, lookup
 		return encoding.RpcFlakyFailure, true, nil, err
 	}
 	return encoding.NoPipelineError, false, b, nil
+}
+
+func (r *EvmRegistry) checkCallbackWithFunctions(
+	ctx context.Context,
+	values [][]byte,
+	lookup *StreamsLookup,
+) (encoding.PipelineExecutionState, bool, bool, []byte, uint8, error) {
+
+	r.lggr.Infow("LOOKUP_REVERT_DATA",
+		"deviation", lookup.onChainFeedData[0].deviationPercentagePPM,
+		"timestamp", lookup.onChainFeedData[0].observationsTimestamp,
+		"price", lookup.onChainFeedData[0].price.String(),
+		"staleness", lookup.onChainFeedData[0].stalenessSeconds,
+	)
+	// Gateway is still blocked. We simply stub the functionality and return the values seen off-chain.
+	// Below this logic is what could be run for gateway, commented out.
+	abiEncode, err := utils.ABIEncode(`[{"type":"bytes[]"},{"type":"bytes"}]`, values, lookup.extraData)
+	if err != nil {
+		return encoding.PackUnpackDecodeFailed, false, false, nil, 0, nil
+	}
+	return 0, false, true, abiEncode, 0, nil
+
+	/* url := "GATEWAY_URL"
+	data := map[string]interface{}{
+		"jsonrpc": "2.0",
+		"method":  "request",
+		"id":      "1001",
+		"params": map[string]interface{}{
+			"signature": "",
+			"args": map[string]interface{}{
+				"0": lookup.block, // provide block number agreed upon in-case of non-deterministic logic
+				"1": json.marshal(lookup.OnChainFeedData), // provide on-chain data
+				"2": values, // provide off-chain data
+			},
+			"body": map[string]interface{}{
+				"don_id": "functions_experimental",
+				"sender": "GATEWAY_DEMO",
+				"payload": map[string]string{
+					"source":       [ENTER_SCRIPT_HERE],
+					"codeLocation": "0",
+					"language":     "0",
+				},
+			},
+		},
+	} */
 }
 
 // doMercuryRequest sends requests to Mercury API to retrieve mercury data.
@@ -331,7 +426,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 	}
 	mercuryURL := r.mercury.cred.URL
 	reqUrl := fmt.Sprintf("%s%s%s", mercuryURL, mercuryPathV02, q.Encode())
-	lggr.Debugf("request URL for upkeep %s feed %s: %s", sl.upkeepId.String(), sl.feeds[index], reqUrl)
+	lggr.Infow("request URL for upkeep %s feed %s: %s", sl.upkeepId.String(), sl.feeds[index], reqUrl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
 	if err != nil {
