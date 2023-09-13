@@ -10,20 +10,20 @@ contract Chainable {
   /**
    * @dev addresses of the next contract in the chain **have to be immutable/constant** or the system won't work
    */
-  address private immutable i_next;
+  address private immutable FALLBACK_ADDRESS;
 
   /**
-   * @param next the address of the next contract in the chain
+   * @param fallbackAddress the address of the next contract in the chain
    */
-  constructor(address next) {
-    i_next = next;
+  constructor(address fallbackAddress) {
+    FALLBACK_ADDRESS = fallbackAddress;
   }
 
   /**
    * @notice returns the address of the next contract in the chain
    */
   function fallbackTo() external view returns (address) {
-    return i_next;
+    return FALLBACK_ADDRESS;
   }
 
   /**
@@ -32,7 +32,7 @@ contract Chainable {
    */
   fallback() external {
     // copy to memory for assembly access
-    address next = i_next;
+    address next = FALLBACK_ADDRESS;
     // copied directly from OZ's Proxy contract
     assembly {
       // Copy msg.data. We take full control of memory in this inline assembly

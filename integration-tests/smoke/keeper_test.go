@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 const (
@@ -75,17 +75,18 @@ var (
 
 func TestKeeperBasicSmoke(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
 	registryVersions := []ethereum.KeeperRegistryVersion{
 		ethereum.RegistryVersion_1_1,
 		ethereum.RegistryVersion_1_2,
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
-
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			l := utils.GetTestLogger(t)
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -105,7 +106,7 @@ func TestKeeperBasicSmoke(t *testing.T) {
 			require.NoError(t, err, "Error creating keeper jobs")
 
 			gom.Eventually(func(g gomega.Gomega) error {
-				// Check if the upkeeps are performing multiple times by analysing their counters and checking they are greater than 10
+				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
 				for i := 0; i < len(upkeepIDs); i++ {
 					counter, err := consumers[i].Counter(context.Background())
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
@@ -150,17 +151,18 @@ func TestKeeperBasicSmoke(t *testing.T) {
 
 func TestKeeperBlockCountPerTurn(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
 	registryVersions := []ethereum.KeeperRegistryVersion{
 		ethereum.RegistryVersion_1_1,
 		ethereum.RegistryVersion_1_2,
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
-
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			l := utils.GetTestLogger(t)
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -259,10 +261,11 @@ func TestKeeperSimulation(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
-
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
 				t,
 				registryVersion,
@@ -325,14 +328,16 @@ func TestKeeperSimulation(t *testing.T) {
 
 func TestKeeperCheckPerformGasLimit(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
 	registryVersions := []ethereum.KeeperRegistryVersion{
 		ethereum.RegistryVersion_1_2,
 		ethereum.RegistryVersion_1_3,
 	}
 
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			l := utils.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumersPerformance, upkeepIDs := actions.DeployPerformanceKeeperContracts(
 				t,
@@ -435,17 +440,18 @@ func TestKeeperCheckPerformGasLimit(t *testing.T) {
 
 func TestKeeperRegisterUpkeep(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
 	registryVersions := []ethereum.KeeperRegistryVersion{
 		ethereum.RegistryVersion_1_1,
 		ethereum.RegistryVersion_1_2,
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
-
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			l := utils.GetTestLogger(t)
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, registrar, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -529,10 +535,11 @@ func TestKeeperAddFunds(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
-
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -584,17 +591,18 @@ func TestKeeperAddFunds(t *testing.T) {
 
 func TestKeeperRemove(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
 	registryVersions := []ethereum.KeeperRegistryVersion{
 		ethereum.RegistryVersion_1_1,
 		ethereum.RegistryVersion_1_2,
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
-
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			l := utils.GetTestLogger(t)
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -667,10 +675,11 @@ func TestKeeperPauseRegistry(t *testing.T) {
 		ethereum.RegistryVersion_1_3,
 	}
 
-	chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
-
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
 				registryVersion,
@@ -811,15 +820,17 @@ func TestKeeperMigrateRegistry(t *testing.T) {
 
 func TestKeeperNodeDown(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
 	registryVersions := []ethereum.KeeperRegistryVersion{
 		ethereum.RegistryVersion_1_1,
 		ethereum.RegistryVersion_1_2,
 		ethereum.RegistryVersion_1_3,
 	}
 
-	for _, registryVersion := range registryVersions {
+	for _, rv := range registryVersions {
+		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			l := utils.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
 			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
 				t,
@@ -1082,13 +1093,14 @@ func setupKeeperTest(t *testing.T) (
 	contracts.LinkToken,
 	*test_env.CLClusterTestEnv,
 ) {
-	clNodeConfig := node.NewConfig(node.BaseConf)
+	clNodeConfig := node.NewConfig(node.NewBaseConfig())
 	turnLookBack := int64(0)
 	syncInterval := models.MustMakeDuration(5 * time.Second)
 	performGasOverhead := uint32(150000)
 	clNodeConfig.Keeper.TurnLookBack = &turnLookBack
 	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
 	clNodeConfig.Keeper.Registry.PerformGasOverhead = &performGasOverhead
+	l := utils.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithGeth().
@@ -1098,6 +1110,11 @@ func setupKeeperTest(t *testing.T) (
 		WithFunding(big.NewFloat(.5)).
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
+	t.Cleanup(func() {
+		if err := env.Cleanup(); err != nil {
+			l.Error().Err(err).Msg("Error cleaning up test environment")
+		}
+	})
 
 	env.ParallelTransactions(true)
 

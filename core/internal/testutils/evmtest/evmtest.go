@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -83,7 +84,7 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayEx
 		Logger:   logger.TestLogger(t),
 		DB:       testopts.DB,
 		KeyStore: testopts.KeyStore,
-		RelayerConfig: evm.RelayerConfig{
+		RelayerConfig: &evm.RelayerConfig{
 			AppConfig:        testopts.GeneralConfig,
 			EventBroadcaster: pg.NewNullEventBroadcaster(),
 			MailMon:          testopts.MailMon,
@@ -150,9 +151,9 @@ func (mo *TestConfigs) PutChains(cs ...evmtoml.EVMConfig) {
 	defer mo.mu.Unlock()
 chains:
 	for i := range cs {
-		id := cs[i].ChainID.String()
+		id := cs[i].ChainID
 		for j, c2 := range mo.EVMConfigs {
-			if c2.ChainID.String() == id {
+			if c2.ChainID == id {
 				mo.EVMConfigs[j] = &cs[i] // replace
 				continue chains
 			}
@@ -161,7 +162,7 @@ chains:
 	}
 }
 
-func (mo *TestConfigs) Chains(offset int, limit int, ids ...string) (cs []types.ChainStatus, count int, err error) {
+func (mo *TestConfigs) Chains(ids ...relay.ChainID) (cs []types.ChainStatus, count int, err error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
 	if len(ids) == 0 {
@@ -200,19 +201,19 @@ func (mo *TestConfigs) Chains(offset int, limit int, ids ...string) (cs []types.
 }
 
 // Nodes implements evmtypes.Configs
-func (mo *TestConfigs) Nodes(chainID utils.Big) (nodes []evmtypes.Node, err error) {
+func (mo *TestConfigs) Nodes(id relay.ChainID) (nodes []evmtypes.Node, err error) {
 	mo.mu.RLock()
 	defer mo.mu.RUnlock()
 
 	for i := range mo.EVMConfigs {
 		c := mo.EVMConfigs[i]
-		if chainID.Cmp(c.ChainID) == 0 {
+		if id == c.ChainID.String() {
 			for _, n := range c.Nodes {
 				nodes = append(nodes, legacyNode(n, c.ChainID))
 			}
 		}
 	}
-	err = fmt.Errorf("no nodes: chain %s: %w", chainID.String(), chains.ErrNotFound)
+	err = fmt.Errorf("no nodes: chain %s: %w", id, chains.ErrNotFound)
 	return
 }
 

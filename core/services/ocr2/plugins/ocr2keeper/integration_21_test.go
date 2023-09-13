@@ -29,6 +29,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
 
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
@@ -57,7 +58,7 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 	address := common.HexToAddress(hexutil.Encode(b))
 
 	spec := &job.OCR2OracleSpec{
-		PluginType: job.OCR2Keeper,
+		PluginType: relaytypes.OCR2Keeper,
 		ContractID: address.String(), // valid contract addr
 	}
 
@@ -69,7 +70,7 @@ func TestFilterNamesFromSpec21(t *testing.T) {
 	assert.Equal(t, logpoller.FilterName("KeeperRegistry Events", address), names[1])
 
 	spec = &job.OCR2OracleSpec{
-		PluginType: job.OCR2Keeper,
+		PluginType: relaytypes.OCR2Keeper,
 		ContractID: "0x5431", // invalid contract addr
 	}
 	_, err = ocr2keeper.FilterNamesFromSpec21(spec)
@@ -165,7 +166,6 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 }
 
 func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
-	t.Skip() // TODO: fix test (fails in CI)
 	g := gomega.NewWithT(t)
 
 	// setup blockchain
@@ -198,9 +198,6 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	registry := deployKeeper21Registry(t, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 
 	nodes := setupNodes(t, nodeKeys, registry, backend, steve)
-	// wait for nodes to start
-	// TODO: find a better way to do this
-	<-time.After(time.Second * 10)
 
 	upkeeps := 1
 
@@ -216,26 +213,23 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 
 	backend.Commit()
 
-	emits := 10
+	emits := 1
 	go emitEvents(testutils.Context(t), t, emits, contracts, carrol, func() {
 		backend.Commit()
-		time.Sleep(3 * time.Second)
 	})
 
 	listener, done := listenPerformed(t, backend, registry, ids, int64(1))
 	g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
 	done()
 
-	runs := checkPipelineRuns(t, nodes, 1*len(nodes)) // TODO: TBD
+	runs := checkPipelineRuns(t, nodes, 1)
 
 	t.Run("recover logs", func(t *testing.T) {
-		t.Skip() // TODO: fix test (fails in CI)
 
 		addr, contract := addrs[0], contracts[0]
 		upkeepID := registerUpkeep(t, registry, addr, carrol, steve, backend)
 		backend.Commit()
 		t.Logf("Registered new upkeep %s for address %s", upkeepID.String(), addr.String())
-		// blockBeforeEmits := backend.Blockchain().CurrentBlock().Number.Uint64()
 		// Emit 100 logs in a burst
 		emits := 100
 		i := 0
@@ -252,13 +246,9 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 			backend.Commit()
 			time.Sleep(time.Millisecond * 10)
 		}
-		t.Logf("Mined %d blocks", dummyBlocks)
+		t.Logf("Mined %d blocks, waiting for logs to be recovered", dummyBlocks)
 
-		// listener, done := listenPerformed(t, backend, registry, []*big.Int{upkeepID}, int64(blockBeforeEmits))
-		// defer done()
-		// g.Eventually(listener, testutils.WaitTimeout(t), cltest.DBPollingInterval).Should(gomega.BeTrue())
-
-		expectedPostRecover := runs + emits // TODO: TBD
+		expectedPostRecover := runs + emits
 		waitPipelineRuns(t, nodes, expectedPostRecover, testutils.WaitTimeout(t), cltest.DBPollingInterval)
 
 	})

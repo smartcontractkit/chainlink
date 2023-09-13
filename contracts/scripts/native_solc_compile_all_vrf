@@ -51,6 +51,7 @@ compileContract vrf/BatchBlockhashStore.sol
 compileContract vrf/BatchVRFCoordinatorV2.sol
 compileContract vrf/testhelpers/VRFCoordinatorV2TestHelper.sol
 compileContractAltOpts vrf/VRFCoordinatorV2.sol 10000
+compileContract mocks/VRFCoordinatorV2Mock.sol
 compileContract vrf/VRFOwner.sol
 
 # VRF V2Plus
@@ -65,9 +66,11 @@ compileContract dev/vrf/testhelpers/VRFV2PlusSingleConsumerExample.sol
 compileContract dev/vrf/testhelpers/VRFV2PlusWrapperConsumerExample.sol
 compileContract dev/vrf/testhelpers/VRFV2PlusRevertingExample.sol
 compileContract dev/vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
+compileContract dev/vrf/testhelpers/VRFV2PlusMaliciousMigrator.sol
 compileContract dev/vrf/libraries/VRFV2PlusClient.sol
 compileContract dev/vrf/testhelpers/VRFCoordinatorV2Plus_V2Example.sol
 compileContract dev/vrf/TrustedBlockhashStore.sol
+compileContract dev/vrf/testhelpers/VRFV2PlusLoadTestWithMetrics.sol
 
 # VRF V2 Wrapper
 compileContract vrf/VRFV2Wrapper.sol

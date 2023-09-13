@@ -8,7 +8,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
@@ -17,6 +16,7 @@ import (
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
@@ -85,19 +85,6 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		retryable   bool
 		makeEthCall bool
 	}{
-		{
-			name:        "check block number too told",
-			checkBlock:  big.NewInt(500),
-			latestBlock: ocr2keepers.BlockKey{Number: 800},
-			upkeepId:    big.NewInt(12345),
-			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
-			payload: ocr2keepers.UpkeepPayload{
-				UpkeepID: upkeepId,
-				Trigger:  ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
-				WorkID:   "work",
-			},
-			state: encoding.CheckBlockTooOld,
-		},
 		{
 			name:        "for an invalid check block number, if hash does not match the check hash, return CheckBlockInvalid",
 			checkBlock:  big.NewInt(500),
@@ -208,10 +195,15 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 type mockLogPoller struct {
 	logpoller.LogPoller
 	GetBlocksRangeFn func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error)
+	IndexedLogsFn    func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error)
 }
 
 func (p *mockLogPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
 	return p.GetBlocksRangeFn(ctx, numbers, qopts...)
+}
+
+func (p *mockLogPoller) IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+	return p.IndexedLogsFn(eventSig, address, topicIndex, topicValues, confs, qopts...)
 }
 
 func TestRegistry_VerifyLogExists(t *testing.T) {
@@ -272,7 +264,27 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 			blocks: map[int64]string{
 				500: "0xb2173b4b75f23f56b7b2b6b2cc5fa9ed1079b9d1655b12b40fdb4dbf59006419",
 			},
-			receipt: &types.Receipt{},
+			receipt: &types.Receipt{Status: 0},
+		},
+		{
+			name:     "eth client returns a matching block but different hash",
+			upkeepId: big.NewInt(12345),
+			payload: ocr2keepers.UpkeepPayload{
+				UpkeepID: upkeepId,
+				Trigger:  ocr2keepers.NewLogTrigger(550, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"), extension1),
+				WorkID:   "work",
+			},
+			reason:    encoding.UpkeepFailureReasonTxHashReorged,
+			retryable: false,
+			blocks: map[int64]string{
+				500: "0xa518faeadcc423338c62572da84dda35fe44b34f521ce88f6081b703b250cca4",
+			},
+			makeEthCall: true,
+			receipt: &types.Receipt{
+				Status:      1,
+				BlockNumber: big.NewInt(550),
+				BlockHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
+			},
 		},
 		{
 			name:     "eth client returns a matching block",
@@ -289,8 +301,9 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 			},
 			makeEthCall: true,
 			receipt: &types.Receipt{
+				Status:      1,
 				BlockNumber: big.NewInt(550),
-				BlockHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
+				BlockHash:   common.HexToHash("0x3df0e926f3e21ec1195ffe007a2899214905eb02e768aa89ce0b94accd7f3d71"),
 			},
 		},
 		{
@@ -322,8 +335,16 @@ func TestRegistry_VerifyLogExists(t *testing.T) {
 
 			if tc.makeEthCall {
 				client := new(evmClientMocks.Client)
-				client.On("TransactionReceipt", mock.Anything, common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651")).
-					Return(tc.receipt, tc.ethCallErr)
+				client.On("CallContext", mock.Anything, mock.Anything, "eth_getTransactionReceipt", common.BytesToHash(tc.payload.Trigger.LogTriggerExtension.TxHash[:])).
+					Return(tc.ethCallErr).Run(func(args mock.Arguments) {
+					if tc.receipt != nil {
+						res := args.Get(1).(*types.Receipt)
+						res.Status = tc.receipt.Status
+						res.TxHash = tc.receipt.TxHash
+						res.BlockNumber = tc.receipt.BlockNumber
+						res.BlockHash = tc.receipt.BlockHash
+					}
+				})
 				e.client = client
 			}
 
@@ -354,7 +375,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 		BlockNumber: 550,
 	}
 
-	trigger0 := ocr2keepers.NewTrigger(150, common.HexToHash("0x1c77db0abe32327cf3ea9de2aadf79876f9e6b6dfcee9d4719a8a2dc8ca289d0"))
+	trigger0 := ocr2keepers.NewTrigger(575, common.HexToHash("0x1c77db0abe32327cf3ea9de2aadf79876f9e6b6dfcee9d4719a8a2dc8ca289d0"))
 	trigger1 := ocr2keepers.NewLogTrigger(560, common.HexToHash("0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857"), extension1)
 	trigger2 := ocr2keepers.NewLogTrigger(570, common.HexToHash("0x1222d75217e2dd461cc77e4091c37abe76277430d97f1963a822b4e94ebb83fc"), extension2)
 
@@ -394,11 +415,12 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 				550: "0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857",
 				560: "0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857",
 				570: "0x1222d75217e2dd461cc77e4091c37abe76277430d97f1963a822b4e94ebb83fc",
+				575: "0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857",
 			},
 			latestBlock: ocr2keepers.BlockKey{Number: 580},
 			results: []ocr2keepers.CheckResult{
 				{
-					PipelineExecutionState: uint8(encoding.CheckBlockTooOld),
+					PipelineExecutionState: uint8(encoding.CheckBlockInvalid),
 					Retryable:              false,
 					Eligible:               false,
 					IneligibilityReason:    0,
@@ -440,12 +462,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			ethCalls: map[string]bool{
 				uid1.String(): true,
 			},
-			receipts: map[string]*types.Receipt{
-				//uid1.String(): {
-				//	BlockNumber: big.NewInt(550),
-				//	BlockHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
-				//},
-			},
+			receipts: map[string]*types.Receipt{},
 			ethCallErrors: map[string]error{
 				uid1.String(): fmt.Errorf("error"),
 			},
@@ -467,8 +484,17 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			for _, i := range tc.inputs {
 				uid := i.UpkeepID.String()
 				if tc.ethCalls[uid] {
-					client.On("TransactionReceipt", mock.Anything, common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651")).
-						Return(tc.receipts[uid], tc.ethCallErrors[uid])
+					client.On("CallContext", mock.Anything, mock.Anything, "eth_getTransactionReceipt", common.HexToHash("0xc8def8abdcf3a4eaaf6cc13bff3e4e2a7168d86ea41dbbf97451235aa76c3651")).
+						Return(tc.ethCallErrors[uid]).Run(func(args mock.Arguments) {
+						receipt := tc.receipts[uid]
+						if receipt != nil {
+							res := args.Get(1).(*types.Receipt)
+							res.Status = receipt.Status
+							res.TxHash = receipt.TxHash
+							res.BlockNumber = receipt.BlockNumber
+							res.BlockHash = receipt.BlockHash
+						}
+					})
 				}
 			}
 			e.client = client

@@ -140,7 +140,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Chain: coscfg.Chain{
 					GasLimitMultiplier: ptr(decimal.RequireFromString("1.55555")),
 					Bech32Prefix:       ptr("wasm"),
-					FeeToken:           ptr("cosm"),
+					GasToken:           ptr("cosm"),
 				},
 				Nodes: cosmos.CosmosNodes{
 					&coscfg.Node{
@@ -155,7 +155,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Chain: coscfg.Chain{
 					GasLimitMultiplier: ptr(decimal.RequireFromString("0.777")),
 					Bech32Prefix:       ptr("wasm"),
-					FeeToken:           ptr("cosm"),
+					GasToken:           ptr("cosm"),
 				},
 				Nodes: cosmos.CosmosNodes{
 					&coscfg.Node{
@@ -183,8 +183,9 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 	testctx := testutils.Context(t)
 
 	tests := []struct {
-		name      string
-		initFuncs []chainlink.CoreRelayerChainInitFunc
+		name                    string
+		initFuncs               []chainlink.CoreRelayerChainInitFunc
+		expectedRelayerNetworks map[relay.Network]struct{}
 
 		expectedEVMChainCnt   int
 		expectedEVMNodeCnt    int
@@ -206,7 +207,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		{name: "2 evm chains with 3 nodes",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
-					RelayerConfig: evm.RelayerConfig{
+					RelayerConfig: &evm.RelayerConfig{
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
 						MailMon:          &utils.MailboxMonitor{},
@@ -220,8 +221,11 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID1.String())},
 				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID2.String())},
 			},
+			expectedRelayerNetworks: map[relay.Network]struct{}{relay.EVM: {}},
 		},
+
 		{name: "2 solana chain with 2 node",
+
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
 					Keystore:      keyStore.Solana(),
@@ -233,8 +237,11 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID1)},
 				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID2)},
 			},
+			expectedRelayerNetworks: map[relay.Network]struct{}{relay.Solana: {}},
 		},
+
 		{name: "2 starknet chain with 4 nodes",
+
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitStarknet(testctx, factory, chainlink.StarkNetFactoryConfig{
 					Keystore:        keyStore.StarkNet(),
@@ -246,7 +253,9 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID1)},
 				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID2)},
 			},
+			expectedRelayerNetworks: map[relay.Network]struct{}{relay.StarkNet: {}},
 		},
+
 		{
 			name: "2 cosmos chains with 2 nodes",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
@@ -261,14 +270,16 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID1)},
 				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID2)},
 			},
+			expectedRelayerNetworks: map[relay.Network]struct{}{relay.Cosmos: {}},
 		},
 
 		{name: "all chains",
+
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
 				Keystore:      keyStore.Solana(),
 				SolanaConfigs: cfg.SolanaConfigs()}),
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
-					RelayerConfig: evm.RelayerConfig{
+					RelayerConfig: &evm.RelayerConfig{
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
 						MailMon:          &utils.MailboxMonitor{},
@@ -311,9 +322,12 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID1)},
 				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID2)},
 			},
+
+			expectedRelayerNetworks: map[relay.Network]struct{}{relay.EVM: {}, relay.Cosmos: {}, relay.Solana: {}, relay.StarkNet: {}},
 		},
 	}
 	for _, tt := range tests {
+		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 			cr, err := chainlink.NewCoreRelayerChainInteroperators(tt.initFuncs...)
@@ -336,6 +350,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			assert.Len(t, allNodeStats, expectedNodeCnt)
 			assert.Equal(t, cnt, len(allNodeStats))
 
+			gotRelayerNetworks := make(map[relay.Network]struct{})
 			for relayNetwork := range relay.SupportedRelays {
 				var expectedChainCnt, expectedNodeCnt int
 				switch relayNetwork {
@@ -353,11 +368,26 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 				interops := cr.List(chainlink.FilterRelayersByType(relayNetwork))
 				assert.Len(t, cr.List(chainlink.FilterRelayersByType(relayNetwork)).Slice(), expectedChainCnt)
+				if len(interops.Slice()) > 0 {
+					gotRelayerNetworks[relayNetwork] = struct{}{}
+				}
+
+				// check legacy chains for those that haven't migrated fully to the loop relayer interface
 				if relayNetwork == relay.EVM {
-					assert.Len(t, cr.LegacyEVMChains().Slice(), expectedChainCnt)
+					_, wantEVM := tt.expectedRelayerNetworks[relay.EVM]
+					if wantEVM {
+						assert.Len(t, cr.LegacyEVMChains().Slice(), expectedChainCnt)
+					} else {
+						assert.Nil(t, cr.LegacyEVMChains())
+					}
 				}
 				if relayNetwork == relay.Cosmos {
-					assert.Len(t, cr.LegacyCosmosChains().Slice(), expectedChainCnt)
+					_, wantCosmos := tt.expectedRelayerNetworks[relay.Cosmos]
+					if wantCosmos {
+						assert.Len(t, cr.LegacyCosmosChains().Slice(), expectedChainCnt)
+					} else {
+						assert.Nil(t, cr.LegacyCosmosChains())
+					}
 				}
 
 				nodesStats, cnt, err := interops.NodeStatuses(testctx, 0, 0)
@@ -366,6 +396,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				assert.Equal(t, cnt, len(nodesStats))
 
 			}
+			assert.EqualValues(t, gotRelayerNetworks, tt.expectedRelayerNetworks)
 
 			allRelayerIds := [][]relay.ID{
 				tt.expectedEVMRelayerIds,
@@ -381,19 +412,19 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					assert.NoError(t, err)
 					stat, err := cr.ChainStatus(testctx, wantId)
 					assert.NoError(t, err)
-					assert.Equal(t, wantId.ChainID.String(), stat.ID)
+					assert.Equal(t, wantId.ChainID, stat.ID)
 					// check legacy chains for evm and cosmos
 					if wantId.Network == relay.EVM {
-						c, err := cr.LegacyEVMChains().Get(wantId.ChainID.String())
+						c, err := cr.LegacyEVMChains().Get(wantId.ChainID)
 						assert.NoError(t, err)
 						assert.NotNil(t, c)
-						assert.Equal(t, wantId.ChainID.String(), c.ID().String())
+						assert.Equal(t, wantId.ChainID, c.ID().String())
 					}
 					if wantId.Network == relay.Cosmos {
-						c, err := cr.LegacyCosmosChains().Get(wantId.ChainID.String())
+						c, err := cr.LegacyCosmosChains().Get(wantId.ChainID)
 						assert.NoError(t, err)
 						assert.NotNil(t, c)
-						assert.Equal(t, wantId.ChainID.String(), c.ID())
+						assert.Equal(t, wantId.ChainID, c.ID())
 					}
 				}
 			}
@@ -404,6 +435,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			assert.ErrorIs(t, err, chainlink.ErrNoSuchRelayer)
 
 		})
+
 	}
 
 	t.Run("bad init func", func(t *testing.T) {

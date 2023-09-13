@@ -28,13 +28,23 @@ type PersistenceManager struct {
 
 	deleteMu    sync.Mutex
 	deleteQueue []*pb.TransmitRequest
+
+	jobID int32
+
+	maxTransmitQueueSize  int
+	flushDeletesFrequency time.Duration
+	pruneFrequency        time.Duration
 }
 
-func NewPersistenceManager(lggr logger.Logger, orm ORM) *PersistenceManager {
+func NewPersistenceManager(lggr logger.Logger, orm ORM, jobID int32, maxTransmitQueueSize int, flushDeletesFrequency, pruneFrequency time.Duration) *PersistenceManager {
 	return &PersistenceManager{
-		lggr:   lggr.Named("MercuryPersistenceManager"),
-		orm:    orm,
-		stopCh: make(chan struct{}),
+		lggr:                  lggr.Named("MercuryPersistenceManager"),
+		orm:                   orm,
+		stopCh:                make(chan struct{}),
+		jobID:                 jobID,
+		maxTransmitQueueSize:  maxTransmitQueueSize,
+		flushDeletesFrequency: flushDeletesFrequency,
+		pruneFrequency:        pruneFrequency,
 	}
 }
 
@@ -56,7 +66,7 @@ func (pm *PersistenceManager) Close() error {
 }
 
 func (pm *PersistenceManager) Insert(ctx context.Context, req *pb.TransmitRequest, reportCtx ocrtypes.ReportContext) error {
-	return pm.orm.InsertTransmitRequest(req, reportCtx, pg.WithParentCtx(ctx))
+	return pm.orm.InsertTransmitRequest(req, pm.jobID, reportCtx, pg.WithParentCtx(ctx))
 }
 
 func (pm *PersistenceManager) Delete(ctx context.Context, req *pb.TransmitRequest) error {
@@ -77,18 +87,19 @@ func (pm *PersistenceManager) runFlushDeletesLoop() {
 	ctx, cancel := pm.stopCh.Ctx(context.Background())
 	defer cancel()
 
-	ticker := time.NewTicker(utils.WithJitter(flushDeletesFrequency))
+	ticker := time.NewTicker(utils.WithJitter(pm.flushDeletesFrequency))
 	for {
 		select {
 		case <-ctx.Done():
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			pm.lggr.Trace("Deleting queued requests from transmit requests table")
 			queuedReqs := pm.resetDeleteQueue()
 			if err := pm.orm.DeleteTransmitRequests(queuedReqs, pg.WithParentCtx(ctx)); err != nil {
 				pm.lggr.Errorw("Failed to delete queued transmit requests", "err", err)
 				pm.addToDeleteQueue(queuedReqs...)
+			} else {
+				pm.lggr.Debugw("Deleted queued transmit requests")
 			}
 		}
 	}
@@ -100,16 +111,17 @@ func (pm *PersistenceManager) runPruneLoop() {
 	ctx, cancel := pm.stopCh.Ctx(context.Background())
 	defer cancel()
 
-	ticker := time.NewTicker(utils.WithJitter(pruneFrequency))
+	ticker := time.NewTicker(utils.WithJitter(pm.pruneFrequency))
 	for {
 		select {
 		case <-ctx.Done():
 			ticker.Stop()
 			return
 		case <-ticker.C:
-			pm.lggr.Trace("Pruning transmit requests table")
-			if err := pm.orm.PruneTransmitRequests(maxTransmitQueueSize, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout()); err != nil {
+			if err := pm.orm.PruneTransmitRequests(pm.maxTransmitQueueSize, pg.WithParentCtx(ctx), pg.WithLongQueryTimeout()); err != nil {
 				pm.lggr.Errorw("Failed to prune transmit requests table", "err", err)
+			} else {
+				pm.lggr.Debugw("Pruned transmit requests table")
 			}
 		}
 	}
