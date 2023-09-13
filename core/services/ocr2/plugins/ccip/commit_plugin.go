@@ -34,7 +34,7 @@ const (
 	COMMIT_CCIP_SENDS    = "Commit ccip sends"
 )
 
-func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainContainer, new bool, pr pipeline.Runner, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string)) ([]job.ServiceCtx, error) {
+func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainContainer, new bool, pr pipeline.Runner, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string), qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 
 	var pluginConfig ccipconfig.CommitPluginJobSpecConfig
@@ -117,7 +117,7 @@ func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainC
 			checkFinalityTags:   sourceChain.Config().EVM().FinalityTagEnabled(),
 		})
 
-	err = wrappedPluginFactory.UpdateLogPollerFilters(zeroAddress)
+	err = wrappedPluginFactory.UpdateLogPollerFilters(zeroAddress, qopts...)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +206,7 @@ func getCommitPluginDestLpFilters(priceRegistry common.Address, offRamp common.A
 }
 
 // UnregisterCommitPluginLpFilters unregisters all the registered filters for both source and dest chains.
-func UnregisterCommitPluginLpFilters(ctx context.Context, q pg.Queryer, spec *job.OCR2OracleSpec, chainSet evm.LegacyChainContainer) error {
+func UnregisterCommitPluginLpFilters(ctx context.Context, spec *job.OCR2OracleSpec, chainSet evm.LegacyChainContainer, qopts ...pg.QOpt) error {
 	if spec == nil {
 		return errors.New("spec is nil")
 	}
@@ -249,10 +249,10 @@ func UnregisterCommitPluginLpFilters(ctx context.Context, q pg.Queryer, spec *jo
 	if err != nil {
 		return err
 	}
-	return unregisterCommitPluginFilters(ctx, q, sourceChain.LogPoller(), destChain.LogPoller(), commitStore, common.HexToAddress(pluginConfig.OffRamp))
+	return unregisterCommitPluginFilters(ctx, sourceChain.LogPoller(), destChain.LogPoller(), commitStore, common.HexToAddress(pluginConfig.OffRamp), qopts...)
 }
 
-func unregisterCommitPluginFilters(ctx context.Context, q pg.Queryer, sourceLP, destLP logpoller.LogPoller, destCommitStore commit_store.CommitStoreInterface, offRamp common.Address) error {
+func unregisterCommitPluginFilters(ctx context.Context, sourceLP, destLP logpoller.LogPoller, destCommitStore commit_store.CommitStoreInterface, offRamp common.Address, qopts ...pg.QOpt) error {
 	staticCfg, err := destCommitStore.GetStaticConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
 		return err
@@ -264,16 +264,16 @@ func unregisterCommitPluginFilters(ctx context.Context, q pg.Queryer, sourceLP, 
 	}
 
 	if err := unregisterLpFilters(
-		q,
 		sourceLP,
 		getCommitPluginSourceLpFilters(staticCfg.OnRamp),
+		qopts...,
 	); err != nil {
 		return err
 	}
 
 	return unregisterLpFilters(
-		q,
 		destLP,
 		getCommitPluginDestLpFilters(dynamicCfg.PriceRegistry, offRamp),
+		qopts...,
 	)
 }
