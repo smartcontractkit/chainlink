@@ -27,8 +27,16 @@
           "deployed_at": 17636734
         },
         "42161": {
-          "on_ramp": "",
-          "deployed_at": 0
+          "on_ramp": "0x333f976915195ba9044fD0cd603cEcE936f6264e",
+          "deployed_at": 18029393
+        },
+        "56": {
+          "on_ramp": "0xdF1d7FD22aC3aB5171E275796f123224039f3b24",
+          "deployed_at": 18029385
+        },
+        "8453": {
+          "on_ramp": "0xe2Eb229e88F56691e96bb98256707Bc62160FE73",
+          "deployed_at": 18029431
         }
       },
       "dest_contracts": {
@@ -48,9 +56,19 @@
           "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
         },
         "42161": {
-          "off_ramp": "",
-          "commit_store": "",
-          "receiver_dapp": "0x236034Bbb418A269f0d160b16087af11931Eba71"
+          "off_ramp": "0x61135E701a2214C170c5F596D0067798FEfbaaE4",
+          "commit_store": "0x3d3467e1036Ee25F6F4aa15e3Abf77443A23144C",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        },
+        "56": {
+          "off_ramp": "0xC7176620daf49A39a17FF9A6C2DE1eAA6033EE94",
+          "commit_store": "0x7986C9892389854cAAbAC785ff18123B0070a5Fd",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        },
+        "8453": {
+          "off_ramp": "0xfF51C00546AA3d9051a4B96Ae81346E14709CD24",
+          "commit_store": "0x2D1708ff2a15adbE313eA8C6035aA24d0FBA1c77",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
         }
       }
     },
@@ -89,21 +107,22 @@
       "bridge_tokens_pools": [
         ""
       ],
-      "arm": "",
-      "router": "",
-      "price_registry": "",
+      "arm": "0xe06b0e8c4bd455153e8794ad7Ea8Ff5A14B64E4b",
+      "arm_proxy" : "0xC311a21e6fEf769344EB1515588B9d535662a145",
+      "router": "0xE92634289A1841A979C11C2f618B33D376e4Ba85",
+      "price_registry": "0xeBec5Cb8651FCD0Fd86Bd1BBb8562f5028D5102E",
       "wrapped_native": "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
       "src_contracts": {
         "1" : {
-          "on_ramp": "",
-          "deployed_at": 0
+          "on_ramp": "0x98dd9E9b8AE458225119Ab5B8c947A9d1cd0B648",
+          "deployed_at": 126471491
         }
       },
       "dest_contracts": {
         "1": {
-          "off_ramp": "",
-          "commit_store": "",
-          "receiver_dapp": "0x16673CFb93Dc33dE90830EaF856E557Ca18Bf897"
+          "off_ramp": "0x7b1f908ceBf41d5829D0134c7dfD6aa0f163C97d",
+          "commit_store": "0x8E2adA223f8514C2E6E6Fb0877a19018B67256fF",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
         }
       }
     },
@@ -175,6 +194,60 @@
         "137": {
           "off_ramp": "0xC65F15b8178c2Fd653183130C6E003d196C39eC2",
           "commit_store": "0xa9DC27fAc318fdDCa08E215ca157Fa5C7A832d80",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        }
+      }
+    },
+    "Bsc Mainnet": {
+      "fee_token": "0x404460C6A5EdE2D891e8297795264fDe62ADBB75",
+      "bridge_tokens": [
+        "0x404460C6A5EdE2D891e8297795264fDe62ADBB75"
+      ],
+      "bridge_tokens_pools": [
+        ""
+      ],
+      "arm": "0x3DB43b96B2625F4232e9Df900d464dd2c64C0021",
+      "arm_proxy" : "0x9e09697842194f77d315E0907F1Bda77922e8f84",
+      "router": "0x536d7E53D0aDeB1F20E7c81fea45d02eC9dBD698",
+      "price_registry": "0x18C3D917D55Bc1784a3d4729AA3e2C1ecd662fFd",
+      "wrapped_native": "0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c",
+      "src_contracts": {
+        "1" : {
+          "on_ramp": "0x1f17D464652f5Bd74a03446FeA20590CCfB3332D",
+          "deployed_at": 31312405
+        }
+      },
+      "dest_contracts": {
+        "1": {
+          "off_ramp": "0xEcaa7473b57956647C8Cff5a909520e7A0A4a5f6",
+          "commit_store": "0x9C68a868db2C27E9A7Ce43b73272A5d7ecFB5865",
+          "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
+        }
+      }
+    },
+    "Base Mainnet": {
+      "fee_token": "0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196",
+      "bridge_tokens": [
+        "0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196"
+      ],
+      "bridge_tokens_pools": [
+        ""
+      ],
+      "arm": "0x38660c8CC222c0192b635c2ac09687B4F25cCE5F",
+      "arm_proxy" : "0xC842c69d54F83170C42C4d556B4F6B2ca53Dd3E8",
+      "router": "0x673AA85efd75080031d44fcA061575d1dA427A28",
+      "price_registry": "0x1bA15c57c8b74cD32443D7583E7f6d7c638aCf46",
+      "wrapped_native": "0x4200000000000000000000000000000000000006",
+      "src_contracts": {
+        "1" : {
+          "on_ramp": "0xD44371bFDe87f2db3eA6Df242091351A06c2e181",
+          "deployed_at": 3316617
+        }
+      },
+      "dest_contracts": {
+        "1": {
+          "off_ramp": "0x391B9B016C3bBA61F02e7ddd345130415908B9c7",
+          "commit_store": "0x398d2164a3F61353B4619814A31cC74A7741612E",
           "receiver_dapp": "0xAFa2c441a83bBCEDc2E8c5c6f66248aFD8b9af3d"
         }
       }
