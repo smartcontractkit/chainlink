@@ -6,12 +6,12 @@ import "../../dev/interfaces/IFeeManager.sol";
 contract FeeManagerProxy {
   IFeeManager internal i_feeManager;
 
-  function processFee(bytes calldata payload) public payable {
-    i_feeManager.processFee{value: msg.value}(payload, msg.sender);
+  function processFee(bytes calldata payload, bytes calldata feePayload) public payable {
+    i_feeManager.processFee{value: msg.value}(payload, feePayload, msg.sender);
   }
 
-  function processFeeBulk(bytes[] calldata payloads) public payable {
-    i_feeManager.processFeeBulk{value: msg.value}(payloads, msg.sender);
+  function processFeeBulk(bytes[] calldata payloads, bytes calldata feePayload) public payable {
+    i_feeManager.processFeeBulk{value: msg.value}(payloads, feePayload, msg.sender);
   }
 
   function setFeeManager(IFeeManager feeManager) public {

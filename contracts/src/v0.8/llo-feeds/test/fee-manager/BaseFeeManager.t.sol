@@ -98,8 +98,8 @@ contract BaseFeeManagerTest is Test {
     native = new WERC20Mock();
 
     feeManagerProxy = new FeeManagerProxy();
-    rewardManager = new RewardManager(getLinkAddress());
-    feeManager = new FeeManager(getLinkAddress(), getNativeAddress(), address(feeManagerProxy), address(rewardManager));
+    rewardManager = new RewardManager(address(link));
+    feeManager = new FeeManager(address(link), address(native), address(feeManagerProxy), address(rewardManager));
 
     //link the feeManager to the proxy
     feeManagerProxy.setFeeManager(feeManager);
@@ -156,7 +156,7 @@ contract BaseFeeManagerTest is Test {
   // solium-disable-next-line no-unused-vars
   function getFee(
     bytes memory report,
-    IFeeManager.Quote memory quote,
+    address quote,
     address subscriber
   ) public view returns (Common.Asset memory) {
     //get the fee
@@ -167,7 +167,7 @@ contract BaseFeeManagerTest is Test {
 
   function getReward(
     bytes memory report,
-    IFeeManager.Quote memory quote,
+    address quote,
     address subscriber
   ) public view returns (Common.Asset memory) {
     //get the reward
@@ -178,7 +178,7 @@ contract BaseFeeManagerTest is Test {
 
   function getAppliedDiscount(
     bytes memory report,
-    IFeeManager.Quote memory quote,
+    address quote,
     address subscriber
   ) public view returns (uint256) {
     //get the reward
@@ -239,12 +239,12 @@ contract BaseFeeManagerTest is Test {
       );
   }
 
-  function getLinkQuote() public view returns (IFeeManager.Quote memory) {
-    return IFeeManager.Quote(getLinkAddress());
+  function getLinkQuote() public view returns (address) {
+    return address(link);
   }
 
-  function getNativeQuote() public view returns (IFeeManager.Quote memory) {
-    return IFeeManager.Quote(getNativeAddress());
+  function getNativeQuote() public view returns (address) {
+    return address(native);
   }
 
   function withdraw(address assetAddress, address recipient, uint256 amount, address sender) public {
@@ -302,6 +302,7 @@ contract BaseFeeManagerTest is Test {
   function ProcessFeeAsUser(
     bytes memory payload,
     address subscriber,
+    address tokenAddress,
     uint256 wrappedNativeValue,
     address sender
   ) public {
@@ -310,50 +311,45 @@ contract BaseFeeManagerTest is Test {
     changePrank(sender);
 
     //process the fee
-    feeManager.processFee{value: wrappedNativeValue}(payload, subscriber);
+    feeManager.processFee{value: wrappedNativeValue}(payload, abi.encode(tokenAddress), subscriber);
 
     //change ProcessFeeAsUserback to the original address
     changePrank(originalAddr);
   }
 
-  function processFee(bytes memory payload, address subscriber, uint256 wrappedNativeValue) public {
+  function processFee(bytes memory payload, address subscriber, address feeAddress, uint256 wrappedNativeValue) public {
     //record the current address and switch to the recipient
     address originalAddr = msg.sender;
     changePrank(subscriber);
 
     //process the fee
-    feeManagerProxy.processFee{value: wrappedNativeValue}(payload);
+    feeManagerProxy.processFee{value: wrappedNativeValue}(payload, abi.encode(feeAddress));
 
     //change back to the original address
     changePrank(originalAddr);
   }
 
-  function processFee(bytes[] memory payloads, address subscriber, uint256 wrappedNativeValue) public {
+  function processFee(bytes[] memory payloads, address subscriber, address feeAddress, uint256 wrappedNativeValue) public {
     //record the current address and switch to the recipient
     address originalAddr = msg.sender;
     changePrank(subscriber);
 
     //process the fee
-    feeManagerProxy.processFeeBulk{value: wrappedNativeValue}(payloads);
+    feeManagerProxy.processFeeBulk{value: wrappedNativeValue}(payloads, abi.encode(feeAddress));
 
     //change back to the original address
     changePrank(originalAddr);
   }
 
-  function getPayload(bytes memory reportPayload, bytes memory quotePayload) public pure returns (bytes memory) {
+  function getPayload(bytes memory reportPayload) public pure returns (bytes memory) {
     return
       abi.encode(
         [DEFAULT_CONFIG_DIGEST, 0, 0],
         reportPayload,
         new bytes32[](1),
         new bytes32[](1),
-        bytes32(""),
-        quotePayload
+        bytes32("")
       );
-  }
-
-  function getQuotePayload(address quoteAddress) public pure returns (bytes memory) {
-    return abi.encode(quoteAddress);
   }
 
   function approveLink(address spender, uint256 quantity, address sender) public {
@@ -378,14 +374,6 @@ contract BaseFeeManagerTest is Test {
 
     //change back to the original address
     changePrank(originalAddr);
-  }
-
-  function getLinkAddress() public view returns (address) {
-    return address(link);
-  }
-
-  function getNativeAddress() public view returns (address) {
-    return address(native);
   }
 
   function payLinkDeficit(bytes32 configDigest, address sender) public {
