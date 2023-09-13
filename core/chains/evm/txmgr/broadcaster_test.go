@@ -618,7 +618,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		}
 
 		// Simulate a "PruneQueue" call
-		assert.NoError(t, utils.JustError(db.Exec(`DELETE FROM evm.eth_txes WHERE state = 'unstarted'`)))
+		assert.NoError(t, utils.JustError(db.Exec(`DELETE FROM evm.txes WHERE state = 'unstarted'`)))
 
 		close(chBlock)
 	}()
@@ -1009,7 +1009,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// We assume success and hand off to eth confirmer to eventually mark it as failed
 		var latestID int64
 		var etx1 txmgr.Tx
-		require.NoError(t, db.Get(&latestID, "SELECT max(id) FROM evm.eth_txes"))
+		require.NoError(t, db.Get(&latestID, "SELECT max(id) FROM evm.txes"))
 		etx1, err = txStore.FindTxWithAttempts(latestID)
 		require.NoError(t, err)
 		require.NotNil(t, etx1.BroadcastAt)
@@ -1478,7 +1478,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.True(t, retryable)
 
 		// TEARDOWN: Clear out the unsent tx before the next test
-		pgtest.MustExec(t, db, `DELETE FROM evm.eth_txes WHERE nonce = $1`, localNextNonce)
+		pgtest.MustExec(t, db, `DELETE FROM evm.txes WHERE nonce = $1`, localNextNonce)
 	})
 
 	t.Run("eth tx is left in progress if eth node returns insufficient eth", func(t *testing.T) {
@@ -1509,7 +1509,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
 	})
 
-	pgtest.MustExec(t, db, `DELETE FROM evm.eth_txes`)
+	pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
 
 	t.Run("eth tx is left in progress if nonce is too high", func(t *testing.T) {
 		localNextNonce := getLocalNextNonce(t, ethKeyStore, fromAddress)
@@ -1537,7 +1537,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, attempt.State)
 		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
 
-		pgtest.MustExec(t, db, `DELETE FROM evm.eth_txes`)
+		pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
 	})
 
 	t.Run("eth node returns underpriced transaction and bumping gas doesn't increase it in EIP-1559 mode", func(t *testing.T) {
@@ -1567,7 +1567,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.Contains(t, err.Error(), "bumped gas tip cap of 1 wei is less than or equal to original gas tip cap of 1 wei")
 		assert.True(t, retryable)
 
-		pgtest.MustExec(t, db, `DELETE FROM evm.eth_txes`)
+		pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
 	})
 
 	t.Run("eth node returns underpriced transaction in EIP-1559 mode, bumps until inclusion", func(t *testing.T) {
@@ -1616,7 +1616,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.False(t, retryable)
 
 		// TEARDOWN: Clear out the unsent tx before the next test
-		pgtest.MustExec(t, db, `DELETE FROM evm.eth_txes WHERE nonce = $1`, localNextNonce)
+		pgtest.MustExec(t, db, `DELETE FROM evm.txes WHERE nonce = $1`, localNextNonce)
 	})
 
 }
@@ -1770,7 +1770,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 	sub := pgmocks.NewSubscription(t)
 	sub.On("Events").Return(make(<-chan pg.Event))
 	sub.On("Close")
-	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
+	eventBroadcaster.On("Subscribe", "evm.insert_on_txes", "").Return(sub, nil)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), evmcfg.EVM().GasEstimator().BlockHistory(), lggr), evmcfg.EVM().GasEstimator().EIP1559DynamicFees())
 	checkerFactory := &testCheckerFactory{}
 

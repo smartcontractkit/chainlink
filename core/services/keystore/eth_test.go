@@ -104,7 +104,7 @@ func Test_EthKeyStore(t *testing.T) {
 		cltest.AssertCount(t, db, statesTableName, 0)
 	})
 
-	t.Run("Delete removes key even if evm.eth_txes are present", func(t *testing.T) {
+	t.Run("Delete removes key even if evm.txes are present", func(t *testing.T) {
 		defer reset()
 		key, err := ethKeyStore.Create(&cltest.FixtureChainID)
 		require.NoError(t, err)

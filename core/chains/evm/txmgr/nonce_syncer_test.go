@@ -42,8 +42,8 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
 
-		cltest.AssertCount(t, db, "evm.eth_txes", 0)
-		cltest.AssertCount(t, db, "evm.eth_tx_attempts", 0)
+		cltest.AssertCount(t, db, "evm.txes", 0)
+		cltest.AssertCount(t, db, "evm.tx_attempts", 0)
 
 		assertDatabaseNonce(t, db, from, 0)
 	})
@@ -66,8 +66,8 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore, testutils.FixtureChainID)
 		require.NoError(t, ns.Sync(testutils.Context(t), sendingKeys[0].Address.Address()))
 
-		cltest.AssertCount(t, db, "evm.eth_txes", 0)
-		cltest.AssertCount(t, db, "evm.eth_tx_attempts", 0)
+		cltest.AssertCount(t, db, "evm.txes", 0)
+		cltest.AssertCount(t, db, "evm.tx_attempts", 0)
 
 		assertDatabaseNonce(t, db, from, 0)
 	})
@@ -91,8 +91,8 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		sendingKeys := cltest.MustSendingKeyStates(t, ethKeyStore, testutils.FixtureChainID)
 		require.NoError(t, ns.Sync(testutils.Context(t), sendingKeys[0].Address.Address()))
 
-		cltest.AssertCount(t, db, "evm.eth_txes", 0)
-		cltest.AssertCount(t, db, "evm.eth_tx_attempts", 0)
+		cltest.AssertCount(t, db, "evm.txes", 0)
+		cltest.AssertCount(t, db, "evm.tx_attempts", 0)
 
 		assertDatabaseNonce(t, db, k1.Address, 32)
 	})

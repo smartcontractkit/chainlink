@@ -983,7 +983,7 @@ func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []int64 {
 	var err error
 	g.Consistently(func() []int64 {
 		txaIds = make([]int64, 0)
-		err = db.Select(&txaIds, `SELECT ID FROM evm.eth_tx_attempts ORDER BY id ASC`)
+		err = db.Select(&txaIds, `SELECT ID FROM evm.tx_attempts ORDER BY id ASC`)
 		assert.NoError(t, err)
 		return txaIds
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))

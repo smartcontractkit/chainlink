@@ -443,7 +443,7 @@ func MustInsertRevertedEthReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, bl
 	return r
 }
 
-// Inserts into evm.eth_receipts but does not update evm.eth_txes or evm.eth_tx_attempts
+// Inserts into evm.receipts but does not update evm.txes or evm.tx_attempts
 func MustInsertConfirmedEthTxWithReceipt(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonce, blockNum int64) (etx txmgr.Tx) {
 	etx = MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, nonce, blockNum, fromAddress)
 	MustInsertEthReceipt(t, txStore, blockNum, utils.NewHash(), etx.TxAttempts[0].Hash)
