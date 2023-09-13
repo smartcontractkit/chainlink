@@ -25,7 +25,7 @@ func TestOCRBasic(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		if err := env.Cleanup(); err != nil {
+		if err := env.Cleanup(t); err != nil {
 			l.Error().Err(err).Msg("Error cleaning up test environment")
 		}
 	})
@@ -42,6 +42,8 @@ func TestOCRBasic(t *testing.T) {
 	require.NoError(t, err)
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
+
+	require.Fail(t, "//DEBUG")
 
 	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockServer.Client)
 	require.NoError(t, err)

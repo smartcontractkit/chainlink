@@ -1,9 +1,14 @@
 package test_env
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"os"
+	"path/filepath"
+	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
@@ -16,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+	testUtils "github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -210,40 +216,74 @@ func (te *CLClusterTestEnv) Terminate() error {
 
 // Cleanup cleans the environment up after it's done being used, mainly for returning funds when on live networks.
 // Intended to be used as part of t.Cleanup() in tests.
-func (te *CLClusterTestEnv) Cleanup() error {
-	log.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
+func (te *CLClusterTestEnv) Cleanup(t *testing.T) error {
+	l := testUtils.GetTestLogger(t)
 	if te.EVMClient == nil {
 		return errors.New("blockchain client is nil, unable to return funds from chainlink nodes")
 	}
 	if te.CLNodes == nil {
 		return errors.New("chainlink nodes are nil, unable to return funds from chainlink nodes")
 	}
+
+	// Check if we need to return funds
 	if te.EVMClient.NetworkSimulated() {
-		log.Info().Str("Network Name", te.EVMClient.GetNetworkName()).
+		l.Info().Str("Network Name", te.EVMClient.GetNetworkName()).
 			Msg("Network is a simulated network. Skipping fund return.")
+	} else {
+		l.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
+		for _, chainlinkNode := range te.CLNodes {
+			fundedKeys, err := chainlinkNode.API.ExportEVMKeysForChain(te.EVMClient.GetChainID().String())
+			if err != nil {
+				return err
+			}
+			for _, key := range fundedKeys {
+				keyToDecrypt, err := json.Marshal(key)
+				if err != nil {
+					return err
+				}
+				// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
+				// issues. So we avoid running in parallel; slower, but safer.
+				decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
+				if err != nil {
+					return err
+				}
+				if err = te.EVMClient.ReturnFunds(decryptedKey.PrivateKey); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	// Print logs if the test failed
+	if !t.Failed() {
 		return nil
 	}
 
-	for _, chainlinkNode := range te.CLNodes {
-		fundedKeys, err := chainlinkNode.API.ExportEVMKeysForChain(te.EVMClient.GetChainID().String())
+	folder := fmt.Sprintf("./logs/%s-%s", t.Name(), time.Now().Format("2006-01-02T15-04-05"))
+	if err := os.MkdirAll(folder, os.ModePerm); err != nil {
+		return err
+	}
+
+	l.Warn().Msg("Test failed, collecting logs")
+	for _, node := range te.CLNodes {
+		logReader, err := node.Container.Logs(context.Background())
 		if err != nil {
 			return err
 		}
-		for _, key := range fundedKeys {
-			keyToDecrypt, err := json.Marshal(key)
-			if err != nil {
-				return err
-			}
-			// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
-			// issues. So we avoid running in parallel; slower, but safer.
-			decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
-			if err != nil {
-				return err
-			}
-			if err = te.EVMClient.ReturnFunds(decryptedKey.PrivateKey); err != nil {
-				return err
-			}
+		var logs []byte
+		_, err = logReader.Read(logs)
+		if err != nil {
+			return err
+		}
+		if err = os.WriteFile(filepath.Join(folder, fmt.Sprintf("node-%s.log", node.ContainerName)), logs, 0600); err != nil {
+			return err
 		}
 	}
+	absPath, err := filepath.Abs(folder)
+	if err != nil {
+		return errors.Wrap(err, fmt.Sprintf("failed to get absolute path of logs folder '%s'", folder))
+	}
+	l.Warn().Str("Logs Location", absPath).Msg("Wrote Logs")
+
 	return nil
 }
