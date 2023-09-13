@@ -1,4 +1,4 @@
-package hasher
+package hashlib
 
 import (
 	"testing"

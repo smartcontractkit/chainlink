@@ -1,4 +1,4 @@
-package hasher_test
+package hashlib
 
 import (
 	"encoding/hex"
@@ -6,20 +6,20 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/hasher"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
 func TestHasher(t *testing.T) {
 	sourceChainSelector, destChainSelector := uint64(1), uint64(4)
 	onRampAddress := common.HexToAddress("0x5550000000000000000000000000000000000001")
 
-	hashingCtx := hasher.NewKeccakCtx()
+	hashingCtx := NewKeccakCtx()
 
-	hasher := hasher.NewLeafHasher(sourceChainSelector, destChainSelector, onRampAddress, hashingCtx)
+	hasher := NewLeafHasher(sourceChainSelector, destChainSelector, onRampAddress, hashingCtx)
 
 	message := evm_2_evm_onramp.InternalEVM2EVMMessage{
 		SourceChainSelector: sourceChainSelector,
@@ -37,7 +37,9 @@ func TestHasher(t *testing.T) {
 		MessageId:           [32]byte{},
 	}
 
-	hash, err := hasher.HashLeaf(testhelpers.GenerateCCIPSendLog(t, message))
+	pack, err := abihelpers.MessageArgs.Pack(message)
+	require.NoError(t, err)
+	hash, err := hasher.HashLeaf(types.Log{Topics: []common.Hash{abihelpers.EventSignatures.SendRequested}, Data: pack})
 	require.NoError(t, err)
 
 	// NOTE: Must match spec
@@ -62,7 +64,9 @@ func TestHasher(t *testing.T) {
 		MessageId:       [32]byte{},
 	}
 
-	hash, err = hasher.HashLeaf(testhelpers.GenerateCCIPSendLog(t, message))
+	pack, err = abihelpers.MessageArgs.Pack(message)
+	require.NoError(t, err)
+	hash, err = hasher.HashLeaf(types.Log{Topics: []common.Hash{abihelpers.EventSignatures.SendRequested}, Data: pack})
 	require.NoError(t, err)
 
 	// NOTE: Must match spec
@@ -72,7 +76,7 @@ func TestHasher(t *testing.T) {
 func TestMetaDataHash(t *testing.T) {
 	sourceChainSelector, destChainSelector := uint64(1), uint64(4)
 	onRampAddress := common.HexToAddress("0x5550000000000000000000000000000000000001")
-	ctx := hasher.NewKeccakCtx()
-	hash := hasher.GetMetaDataHash(ctx, ctx.Hash([]byte("EVM2EVMSubscriptionMessagePlus")), sourceChainSelector, onRampAddress, destChainSelector)
+	ctx := NewKeccakCtx()
+	hash := GetMetaDataHash(ctx, ctx.Hash([]byte("EVM2EVMSubscriptionMessagePlus")), sourceChainSelector, onRampAddress, destChainSelector)
 	require.Equal(t, "e8b93c9d01a7a72ec6c7235e238701cf1511b267a31fdb78dd342649ee58c08d", hex.EncodeToString(hash[:]))
 }
