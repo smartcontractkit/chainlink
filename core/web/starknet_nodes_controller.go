@@ -10,6 +10,8 @@ import (
 var ErrStarkNetNotEnabled = errChainDisabled{name: "StarkNet", tomlKey: "Starknet.Enabled"}
 
 func NewStarkNetNodesController(app chainlink.Application) NodesController {
+	scopedNodeStatuser := NewNetworkScopedNodeStatuser(app.GetRelayers(), relay.StarkNet)
+
 	return newNodesController[presenters.StarkNetNodeResource](
-		app.GetRelayers().List(chainlink.FilterRelayersByType(relay.StarkNet)), ErrStarkNetNotEnabled, presenters.NewStarkNetNodeResource, app.GetAuditLogger())
+		scopedNodeStatuser, ErrStarkNetNotEnabled, presenters.NewStarkNetNodeResource, app.GetAuditLogger())
 }

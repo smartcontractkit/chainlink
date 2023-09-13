@@ -15,19 +15,16 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"golang.org/x/exp/maps"
-
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/sqlx"
+	"golang.org/x/exp/maps"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
-	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -79,7 +76,11 @@ type ConfigTracker interface {
 	LatestConfigDetails(ctx context.Context) (changedInBlock uint64, configDigest ocrtypes.ConfigDigest, err error)
 }
 
-var _ Transmitter = &mercuryTransmitter{}
+type TransmitterReportDecoder interface {
+	BenchmarkPriceFromReport(report ocrtypes.Report) (*big.Int, error)
+}
+
+var _ Transmitter = (*mercuryTransmitter)(nil)
 
 type mercuryTransmitter struct {
 	utils.StartStopOnce
@@ -87,8 +88,10 @@ type mercuryTransmitter struct {
 	rpcClient          wsrpc.Client
 	cfgTracker         ConfigTracker
 	persistenceManager *PersistenceManager
+	codec              TransmitterReportDecoder
 
 	feedID      mercuryutils.FeedID
+	jobID       int32
 	fromAccount string
 
 	stopCh utils.StopChan
@@ -119,16 +122,18 @@ func getPayloadTypes() abi.Arguments {
 	})
 }
 
-func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, feedID [32]byte, db *sqlx.DB, cfg pg.QConfig) *mercuryTransmitter {
+func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, db *sqlx.DB, cfg pg.QConfig, codec TransmitterReportDecoder) *mercuryTransmitter {
 	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
-	persistenceManager := NewPersistenceManager(lggr, NewORM(db, lggr, cfg))
+	persistenceManager := NewPersistenceManager(lggr, NewORM(db, lggr, cfg), jobID, maxTransmitQueueSize, flushDeletesFrequency, pruneFrequency)
 	return &mercuryTransmitter{
 		utils.StartStopOnce{},
 		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
 		rpcClient,
 		cfgTracker,
 		persistenceManager,
+		codec,
 		feedID,
+		jobID,
 		fmt.Sprintf("%x", fromAccount),
 		make(chan (struct{})),
 		NewTransmitQueue(lggr, feedIDHex, maxTransmitQueueSize, nil, persistenceManager),
@@ -323,18 +328,23 @@ func (mt *mercuryTransmitter) FetchInitialMaxFinalizedBlockNumber(ctx context.Co
 func (mt *mercuryTransmitter) LatestPrice(ctx context.Context, feedID [32]byte) (*big.Int, error) {
 	mt.lggr.Trace("LatestPrice")
 
-	report, err := mt.latestReport(ctx, feedID)
+	fullReport, err := mt.latestReport(ctx, feedID)
 	if err != nil {
 		return nil, err
 	}
-	if report == nil {
+	if fullReport == nil {
 		return nil, nil
 	}
-	price, err := relaymercury.DecodeValueInt192(report.Price)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to decode report.Price as *big.Int")
+	payload := fullReport.Payload
+	m := make(map[string]interface{})
+	if err := PayloadTypes.UnpackIntoMap(m, payload); err != nil {
+		return nil, err
 	}
-	return price, nil
+	report, is := m["report"].([]byte)
+	if !is {
+		return nil, fmt.Errorf("expected report to be []byte, but it was %T", m["report"])
+	}
+	return mt.codec.BenchmarkPriceFromReport(report)
 }
 
 // LatestTimestamp will return -1, nil if the feed is missing

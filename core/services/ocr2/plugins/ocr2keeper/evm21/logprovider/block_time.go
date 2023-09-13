@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	defaultSampleSize = int64(10)
+	defaultSampleSize = int64(10000)
 	defaultBlockTime  = time.Second * 1
 )
 
@@ -34,39 +34,28 @@ func (r *blockTimeResolver) BlockTime(ctx context.Context, blockSampleSize int64
 	if err != nil {
 		return 0, fmt.Errorf("failed to get latest block from poller: %w", err)
 	}
-	if latest < blockSampleSize {
+	if latest <= blockSampleSize {
 		return defaultBlockTime, nil
 	}
-	blockTimes, err := r.getSampleTimestamps(ctx, blockSampleSize, latest)
+	start, end := latest-blockSampleSize, latest
+	startTime, endTime, err := r.getSampleTimestamps(ctx, uint64(start), uint64(end))
 	if err != nil {
 		return 0, err
 	}
 
-	var sumDiff time.Duration
-	for i := range blockTimes {
-		if i != int(blockSampleSize-1) {
-			sumDiff += blockTimes[i].Sub(blockTimes[i+1])
-		}
-	}
-
-	return sumDiff / time.Duration(blockSampleSize-1), nil
+	return endTime.Sub(startTime) / time.Duration(blockSampleSize), nil
 }
 
-func (r *blockTimeResolver) getSampleTimestamps(ctx context.Context, blockSampleSize, latest int64) ([]time.Time, error) {
-	blockSample := make([]uint64, blockSampleSize)
-	for i := range blockSample {
-		blockSample[i] = uint64(latest - blockSampleSize + int64(i))
-	}
-	blocks, err := r.poller.GetBlocksRange(ctx, blockSample)
+func (r *blockTimeResolver) getSampleTimestamps(ctx context.Context, start, end uint64) (time.Time, time.Time, error) {
+	blocks, err := r.poller.GetBlocksRange(ctx, []uint64{start, end})
 	if err != nil {
-		return nil, fmt.Errorf("failed to get block range from poller: %w", err)
+		return time.Time{}, time.Time{}, fmt.Errorf("failed to get block range from poller: %w", err)
 	}
 	sort.Slice(blocks, func(i, j int) bool {
-		return blocks[i].BlockNumber > blocks[j].BlockNumber
+		return blocks[i].BlockNumber < blocks[j].BlockNumber
 	})
-	blockTimes := make([]time.Time, blockSampleSize)
-	for i, b := range blocks {
-		blockTimes[i] = b.BlockTimestamp
+	if len(blocks) < 2 {
+		return time.Time{}, time.Time{}, fmt.Errorf("failed to fetch blocks %d, %d from log poller", start, end)
 	}
-	return blockTimes, nil
+	return blocks[0].BlockTimestamp, blocks[1].BlockTimestamp, nil
 }

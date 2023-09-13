@@ -263,7 +263,7 @@ func TeardownSuite(
 
 	for _, c := range clients {
 		if c != nil && chainlinkNodes != nil && len(chainlinkNodes) > 0 {
-			if err := returnFunds(chainlinkNodes, c); err != nil {
+			if err := ReturnFunds(chainlinkNodes, c); err != nil {
 				// This printed line is required for tests that use real funds to propagate the failure
 				// out to the system running the test. Do not remove
 				fmt.Println(environment.FAILED_FUND_RETURN)
@@ -306,7 +306,7 @@ func TeardownRemoteSuite(
 		l.Warn().Msgf("Error deleting jobs %+v", err)
 	}
 
-	if err = returnFunds(chainlinkNodes, client); err != nil {
+	if err = ReturnFunds(chainlinkNodes, client); err != nil {
 		l.Error().Err(err).Str("Namespace", namespace).
 			Msg("Error attempting to return funds from chainlink nodes to network's default wallet. " +
 				"Environment is left running so you can try manually!")
@@ -337,8 +337,9 @@ func DeleteAllJobs(chainlinkNodes []*client.ChainlinkK8sClient) error {
 	return nil
 }
 
-// Returns all the funds from the chainlink nodes to the networks default address
-func returnFunds(chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient blockchain.EVMClient) error {
+// ReturnFunds attempts to return all the funds from the chainlink nodes to the network's default address
+// all from a remote, k8s style environment
+func ReturnFunds(chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient blockchain.EVMClient) error {
 	if blockchainClient == nil {
 		return errors.New("blockchain client is nil, unable to return funds from chainlink nodes")
 	}

@@ -21,8 +21,8 @@ func GetSchema() abi.Arguments {
 		{Name: "feedId", Type: mustNewType("bytes32")},
 		{Name: "validFromTimestamp", Type: mustNewType("uint32")},
 		{Name: "observationsTimestamp", Type: mustNewType("uint32")},
-		{Name: "nativeFee", Type: mustNewType("int192")},
-		{Name: "linkFee", Type: mustNewType("int192")},
+		{Name: "nativeFee", Type: mustNewType("uint192")},
+		{Name: "linkFee", Type: mustNewType("uint192")},
 		{Name: "expiresAt", Type: mustNewType("uint32")},
 		{Name: "benchmarkPrice", Type: mustNewType("int192")},
 	})

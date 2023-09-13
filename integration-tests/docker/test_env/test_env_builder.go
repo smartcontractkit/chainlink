@@ -8,11 +8,13 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
@@ -30,11 +32,6 @@ type CLTestEnvBuilder struct {
 
 	/* funding */
 	ETHFunds *big.Float
-}
-
-type InternalDockerUrls struct {
-	HttpUrl string
-	WsUrl   string
 }
 
 func NewCLTestEnvBuilder() *CLTestEnvBuilder {
@@ -161,7 +158,7 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 		return te, nil
 	}
 	networkConfig := networks.SelectedNetwork
-	var internalDockerUrls InternalDockerUrls
+	var internalDockerUrls test_env.InternalDockerUrls
 	if b.hasGeth && networkConfig.Simulated {
 		networkConfig, internalDockerUrls, err = te.StartGeth()
 		if err != nil {
@@ -197,7 +194,7 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 		if b.clNodeConfig != nil {
 			cfg = b.clNodeConfig
 		} else {
-			cfg = node.NewConfig(node.BaseConf,
+			cfg = node.NewConfig(node.NewBaseConfig(),
 				node.WithOCR1(),
 				node.WithP2Pv1(),
 			)

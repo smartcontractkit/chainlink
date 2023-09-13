@@ -7,11 +7,10 @@ import {Common} from "../../../libraries/Common.sol";
 interface IRewardManager is IERC165 {
   /**
    * @notice Record the fee received for a particular pool
-   * @param poolId poolId of the report being verified
-   * @param payee the user the funds should be deposited from
-   * @param amount the amount to be paid into the pool
+   * @param payments array of structs containing pool id and amount
+   * @param payee the user the funds should be retrieved from
    */
-  function onFeePaid(bytes32 poolId, address payee, uint256 amount) external;
+  function onFeePaid(FeePayment[] calldata payments, address payee) external;
 
   /**
    * @notice Claims the rewards in a specific pool
@@ -49,6 +48,22 @@ interface IRewardManager is IERC165 {
   /**
    * @notice Gets a list of pool ids which have reward for a specific recipient.
    * @param recipient address of the recipient to get pool ids for
+   * @param startIndex the index to start from
+   * @param endIndex the index to stop at
    */
-  function getAvailableRewardPoolIds(address recipient) external view returns (bytes32[] memory);
+  function getAvailableRewardPoolIds(
+    address recipient,
+    uint256 startIndex,
+    uint256 endIndex
+  ) external view returns (bytes32[] memory);
+
+  /**
+   * @notice The structure to hold a fee payment notice
+   * @param poolId the poolId receiving the payment
+   * @param amount the amount being paid
+   */
+  struct FeePayment {
+    bytes32 poolId;
+    uint192 amount;
+  }
 }

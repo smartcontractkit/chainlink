@@ -38,7 +38,7 @@ func TestTxm_Integration(t *testing.T) {
 	chainID := cosmostest.RandomChainID()
 	cosmosChain := coscfg.Chain{}
 	cosmosChain.SetDefaults()
-	fallbackGasPrice := sdk.NewDecCoinFromDec(*cosmosChain.FeeToken, sdk.MustNewDecFromStr("0.01"))
+	fallbackGasPrice := sdk.NewDecCoinFromDec(*cosmosChain.GasToken, sdk.MustNewDecFromStr("0.01"))
 	chainConfig := cosmos.CosmosConfig{ChainID: &chainID, Enabled: ptr(true), Chain: cosmosChain}
 	cfg, db := heavyweight.FullTestDBNoFixturesV2(t, "cosmos_txm", func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Cosmos = cosmos.CosmosConfigs{&chainConfig}
@@ -47,7 +47,7 @@ func TestTxm_Integration(t *testing.T) {
 	logCfg := pgtest.NewQConfig(true)
 	gpe := cosmosclient.NewMustGasPriceEstimator([]cosmosclient.GasPricesEstimator{
 		cosmosclient.NewFixedGasPriceEstimator(map[string]sdk.DecCoin{
-			*cosmosChain.FeeToken: fallbackGasPrice,
+			*cosmosChain.GasToken: fallbackGasPrice,
 		},
 			lggr.(logger.SugaredLogger),
 		),
@@ -59,20 +59,26 @@ func TestTxm_Integration(t *testing.T) {
 	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewQConfig(true))
 	zeConfig := sdk.GetConfig()
 	fmt.Println(zeConfig)
-	accounts, testdir, tendermintURL := cosmosclient.SetupLocalCosmosNode(t, chainID, *cosmosChain.FeeToken)
+	accounts, testdir, tendermintURL := cosmosclient.SetupLocalCosmosNode(t, chainID, *cosmosChain.GasToken)
 	tc, err := cosmosclient.NewClient(chainID, tendermintURL, cosmos.DefaultRequestTimeout, lggr)
 	require.NoError(t, err)
 
+	loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
+	keystoreAdapter := cosmostxm.NewKeystoreAdapter(loopKs, *cosmosChain.Bech32Prefix)
+
 	// First create a transmitter key and fund it with 1k native tokens
 	require.NoError(t, ks.Unlock("blah"))
-	transmitterKey, err := ks.Cosmos().Create()
+	err = ks.Cosmos().EnsureKey()
 	require.NoError(t, err)
-	transmitterID, err := sdk.AccAddressFromBech32(transmitterKey.PublicKeyStr())
+	ksAccounts, err := keystoreAdapter.Accounts(testutils.Context(t))
+	require.NoError(t, err)
+	transmitterAddress := ksAccounts[0]
+	transmitterID, err := sdk.AccAddressFromBech32(transmitterAddress)
 	require.NoError(t, err)
 	an, sn, err := tc.Account(accounts[0].Address)
 	require.NoError(t, err)
-	resp, err := tc.SignAndBroadcast([]sdk.Msg{banktypes.NewMsgSend(accounts[0].Address, transmitterID, sdk.NewCoins(sdk.NewInt64Coin(*cosmosChain.FeeToken, 100000)))},
-		an, sn, gpe.GasPrices()[*cosmosChain.FeeToken], accounts[0].PrivateKey, txtypes.BroadcastMode_BROADCAST_MODE_SYNC)
+	resp, err := tc.SignAndBroadcast([]sdk.Msg{banktypes.NewMsgSend(accounts[0].Address, transmitterID, sdk.NewCoins(sdk.NewInt64Coin(*cosmosChain.GasToken, 100000)))},
+		an, sn, gpe.GasPrices()[*cosmosChain.GasToken], accounts[0].PrivateKey, txtypes.BroadcastMode_BROADCAST_MODE_SYNC)
 	tx, success := cosmosclient.AwaitTxCommitted(t, tc, resp.TxResponse.TxHash)
 	require.True(t, success)
 	require.Equal(t, types.CodeTypeOK, tx.TxResponse.Code)
@@ -80,15 +86,15 @@ func TestTxm_Integration(t *testing.T) {
 
 	// TODO: find a way to pull this test artifact from
 	// the chainlink-cosmos repo instead of copying it to cores testdata
-	contractID := cosmosclient.DeployTestContract(t, tendermintURL, chainID, *cosmosChain.FeeToken, accounts[0], cosmosclient.Account{
+	contractID := cosmosclient.DeployTestContract(t, tendermintURL, chainID, *cosmosChain.GasToken, accounts[0], cosmosclient.Account{
 		Name:       "transmitter",
-		PrivateKey: cosmostxm.NewKeyWrapper(transmitterKey),
+		PrivateKey: cosmostxm.NewKeyWrapper(keystoreAdapter, transmitterAddress),
 		Address:    transmitterID,
 	}, tc, testdir, "../../../testdata/cosmos/my_first_contract.wasm")
 
 	tcFn := func() (cosmosclient.ReaderWriter, error) { return tc, nil }
 	// Start txm
-	txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, &chainConfig, ks.Cosmos(), lggr, pgtest.NewQConfig(true), eb)
+	txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, &chainConfig, loopKs, lggr, pgtest.NewQConfig(true), eb)
 	require.NoError(t, txm.Start(testutils.Context(t)))
 
 	// Change the contract state

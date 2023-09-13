@@ -11,6 +11,7 @@ import {IWERC20} from "../../shared/interfaces/IWERC20.sol";
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC20.sol";
 import {Math} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/Math.sol";
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IVerifierFeeManager} from "./interfaces/IVerifierFeeManager.sol";
 
 /**
  * @title FeeManager
@@ -28,19 +29,19 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   mapping(bytes32 => uint256) public s_linkDeficit;
 
   /// @notice the total discount that can be applied to a fee, 1e18 = 100% discount
-  uint256 private constant PERCENTAGE_SCALAR = 1e18;
+  uint64 private constant PERCENTAGE_SCALAR = 1e18;
 
   /// @notice the LINK token address
-  address private immutable i_linkAddress;
+  address public immutable i_linkAddress;
 
   /// @notice the native token address
-  address private immutable i_nativeAddress;
+  address public immutable i_nativeAddress;
 
   /// @notice the proxy address
-  address private immutable i_proxyAddress;
+  address public immutable i_proxyAddress;
 
   /// @notice the reward manager address
-  IRewardManager private immutable i_rewardManager;
+  IRewardManager public immutable i_rewardManager;
 
   // @notice the mask to apply to get the report version
   bytes32 private constant REPORT_VERSION_MASK = 0xffff000000000000000000000000000000000000000000000000000000000000;
@@ -53,9 +54,6 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @notice the error thrown if the discount or surcharge is invalid
   error InvalidSurcharge();
-
-  /// @notice the error thrown if the token is invalid
-  error InvalidToken();
 
   /// @notice the error thrown if the discount is invalid
   error InvalidDiscount();
@@ -78,32 +76,49 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   // @notice thrown when trying to clear a zero deficit
   error ZeroDeficit();
 
+  /// @notice thrown when trying to pay an address that cannot except funds
+  error InvalidReceivingAddress();
+
   /// @notice Emitted whenever a subscriber's discount is updated
   /// @param subscriber address of the subscriber to update discounts for
   /// @param feedId Feed ID for the discount
   /// @param token Token address for the discount
   /// @param discount Discount to apply, in relation to the PERCENTAGE_SCALAR
-  event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint256 discount);
+  event SubscriberDiscountUpdated(address indexed subscriber, bytes32 indexed feedId, address token, uint64 discount);
 
   /// @notice Emitted when updating the native surcharge
   /// @param newSurcharge Surcharge amount to apply relative to PERCENTAGE_SCALAR
-  event NativeSurchargeUpdated(uint256 newSurcharge);
+  event NativeSurchargeUpdated(uint64 newSurcharge);
 
   /// @notice Emits when this contract does not have enough LINK to send to the reward manager when paying in native
-  /// @param configDigest Config digest of the report
-  /// @param linkQuantity Amount of LINK required to pay the reward
-  /// @param nativeQuantity Amount of native required to pay the reward
-  event InsufficientLink(bytes32 indexed configDigest, uint256 linkQuantity, uint256 nativeQuantity);
+  /// @param rewards Config digest and link fees which could not be subsidised
+  event InsufficientLink(IRewardManager.FeePayment[] rewards);
 
   /// @notice Emitted when funds are withdrawn
+  /// @param adminAddress Address of the admin
+  /// @param recipient Address of the recipient
   /// @param assetAddress Address of the asset withdrawn
   /// @param quantity Amount of the asset withdrawn
-  event Withdraw(address adminAddress, address assetAddress, uint256 quantity);
+  event Withdraw(address adminAddress, address recipient, address assetAddress, uint192 quantity);
 
   /// @notice Emits when a deficit has been cleared for a particular config digest
   /// @param configDigest Config digest of the deficit cleared
   /// @param linkQuantity Amount of LINK required to pay the deficit
   event LinkDeficitCleared(bytes32 indexed configDigest, uint256 linkQuantity);
+
+  /// @notice Emits when a fee has been processed
+  /// @param configDigest Config digest of the fee processed
+  /// @param subscriber Address of the subscriber who paid the fee
+  /// @param fee Fee paid
+  /// @param reward Reward paid
+  /// @param appliedDiscount Discount applied to the fee
+  event DiscountApplied(
+    bytes32 indexed configDigest,
+    address indexed subscriber,
+    Common.Asset fee,
+    Common.Asset reward,
+    uint256 appliedDiscount
+  );
 
   /**
    * @notice Construct the FeeManager contract
@@ -134,94 +149,82 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   modifier onlyOwnerOrProxy() {
-    if (msg.sender != owner() && msg.sender != i_proxyAddress) revert Unauthorized();
+    if (msg.sender != i_proxyAddress && msg.sender != owner()) revert Unauthorized();
+    _;
+  }
+
+  modifier onlyProxy() {
+    if (msg.sender != i_proxyAddress) revert Unauthorized();
     _;
   }
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "FeeManager 0.0.1";
+    return "FeeManager 1.0.0";
   }
 
   /// @inheritdoc IERC165
   function supportsInterface(bytes4 interfaceId) external pure override returns (bool) {
-    return interfaceId == this.processFee.selector;
+    return interfaceId == this.processFee.selector || interfaceId == this.processFeeBulk.selector;
   }
 
-  /// @inheritdoc IFeeManager
-  function processFee(bytes calldata payload, address subscriber) external payable onlyOwnerOrProxy {
-    if (subscriber == address(this)) revert InvalidAddress();
+  /// @inheritdoc IVerifierFeeManager
+  function processFee(bytes calldata payload, address subscriber) external payable override onlyProxy {
+    (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(payload, subscriber);
 
-    //decode the report from the payload
-    (, bytes memory report) = abi.decode(payload, (bytes32[3], bytes));
+    if (fee.amount == 0) {
+      _tryReturnChange(subscriber, msg.value);
+      return;
+    }
 
-    //get the feedId from the report
-    bytes32 feedId = bytes32(report);
+    IFeeManager.FeeAndReward[] memory feeAndReward = new IFeeManager.FeeAndReward[](1);
+    feeAndReward[0] = IFeeManager.FeeAndReward(bytes32(payload), fee, reward, appliedDiscount);
 
-    //v2 doesn't need a quote payload, so skip the decoding if the report is a v1 report
-    Quote memory quote;
-    if (_getReportVersion(feedId) != REPORT_V1) {
-      //all reports greater than v1 should have a quote payload
-      (, , , , , bytes memory quoteBytes) = abi.decode(
-        payload,
-        (bytes32[3], bytes, bytes32[], bytes32[], bytes32, bytes)
+    if (fee.assetAddress == i_linkAddress) {
+      _handleFeesAndRewards(subscriber, feeAndReward, 1, 0);
+    } else {
+      _handleFeesAndRewards(subscriber, feeAndReward, 0, 1);
+    }
+  }
+
+  /// @inheritdoc IVerifierFeeManager
+  function processFeeBulk(bytes[] calldata payloads, address subscriber) external payable override onlyProxy {
+    FeeAndReward[] memory feesAndRewards = new IFeeManager.FeeAndReward[](payloads.length);
+
+    //keep track of the number of fees to prevent over initialising the FeePayment array within _convertToLinkAndNativeFees
+    uint256 numberOfLinkFees;
+    uint256 numberOfNativeFees;
+
+    uint256 feesAndRewardsIndex;
+    for (uint256 i; i < payloads.length; ++i) {
+      (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(
+        payloads[i],
+        subscriber
       );
 
-      //decode the quote from the bytes
-      (quote) = abi.decode(quoteBytes, (Quote));
-    }
+      if (fee.amount != 0) {
+        feesAndRewards[feesAndRewardsIndex++] = IFeeManager.FeeAndReward(
+          bytes32(payloads[i]),
+          fee,
+          reward,
+          appliedDiscount
+        );
 
-    //decode the fee, it will always be native or LINK
-    (Common.Asset memory fee, Common.Asset memory reward) = getFeeAndReward(msg.sender, report, quote);
-
-    //keep track of change in case of any over payment
-    uint256 change;
-
-    //wrap the amount required to pay the fee
-    if (msg.value != 0) {
-      //quote must be in native with enough to cover the fee
-      if (fee.assetAddress != i_nativeAddress) revert InvalidDeposit();
-      if (fee.amount > msg.value) revert InvalidDeposit();
-
-      //wrap the amount required to pay the fee & approve
-      IWERC20(i_nativeAddress).deposit{value: fee.amount}();
-
-      unchecked {
-        //msg.value is always >= to fee.amount
-        change = msg.value - fee.amount;
-      }
-    }
-
-    //get the config digest which is the first 32 bytes of the payload
-    bytes32 configDigest = bytes32(payload);
-
-    //some users might not be billed
-    if (fee.amount != 0) {
-      //if the fee is in LINK, transfer directly from the subscriber to the reward manager
-      if (fee.assetAddress == i_linkAddress) {
-        //distributes the fee
-        i_rewardManager.onFeePaid(configDigest, subscriber, reward.amount);
-      } else {
-        //if the fee is in native wrapped, transfer to this contract in exchange for the equivalent amount of LINK excluding the surcharge
-        if (msg.value == 0) {
-          IERC20(fee.assetAddress).safeTransferFrom(subscriber, address(this), fee.amount);
-        }
-
-        //check that the contract has enough LINK before paying the fee
-        if (reward.amount > IERC20(i_linkAddress).balanceOf(address(this))) {
-          // If not enough LINK on this contract to forward for rewards, tally the deficit to be paid by out-of-band LINK
-          s_linkDeficit[configDigest] += reward.amount;
-          emit InsufficientLink(configDigest, reward.amount, fee.amount);
-        } else {
-          //bill the payee and distribute the fee using the config digest as the key
-          i_rewardManager.onFeePaid(configDigest, address(this), reward.amount);
+        unchecked {
+          //keep track of some tallys to make downstream calculations more efficient
+          if (fee.assetAddress == i_linkAddress) {
+            ++numberOfLinkFees;
+          } else {
+            ++numberOfNativeFees;
+          }
         }
       }
     }
 
-    // a refund may be needed if the payee has paid in excess of the fee
-    if (change != 0) {
-      payable(subscriber).transfer(change);
+    if (numberOfLinkFees != 0 || numberOfNativeFees != 0) {
+      _handleFeesAndRewards(subscriber, feesAndRewards, numberOfLinkFees, numberOfNativeFees);
+    } else {
+      _tryReturnChange(subscriber, msg.value);
     }
   }
 
@@ -230,7 +233,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     address subscriber,
     bytes memory report,
     Quote memory quote
-  ) public view returns (Common.Asset memory, Common.Asset memory) {
+  ) public view returns (Common.Asset memory, Common.Asset memory, uint256) {
     Common.Asset memory fee;
     Common.Asset memory reward;
 
@@ -244,7 +247,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     if (reportVersion == REPORT_V1) {
       fee.assetAddress = i_nativeAddress;
       reward.assetAddress = i_linkAddress;
-      return (fee, reward);
+      return (fee, reward, 0);
     }
 
     //verify the quote payload is a supported token
@@ -256,9 +259,9 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     uint256 linkQuantity;
     uint256 nativeQuantity;
     uint256 expiresAt;
-    (, , , , linkQuantity, nativeQuantity, expiresAt) = abi.decode(
+    (, , , nativeQuantity, linkQuantity, expiresAt) = abi.decode(
       report,
-      (bytes32, uint32, uint32, int192, uint192, uint192, uint32)
+      (bytes32, uint32, uint32, uint192, uint192, uint32)
     );
 
     //read the timestamp bytes from the report data and verify it has not expired
@@ -266,33 +269,29 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
       revert ExpiredReport();
     }
 
-    //the reward is always set in LINK
-    reward.assetAddress = i_linkAddress;
-    reward.amount = linkQuantity;
-
-    //calculate either the LINK fee or native fee if it's within the report
-    if (quote.quoteAddress == i_linkAddress) {
-      fee.assetAddress = reward.assetAddress;
-      fee.amount = reward.amount;
-    } else {
-      fee.assetAddress = i_nativeAddress;
-      fee.amount = Math.ceilDiv(nativeQuantity * (PERCENTAGE_SCALAR + s_nativeSurcharge), PERCENTAGE_SCALAR);
-    }
-
     //get the discount being applied
     uint256 discount = s_subscriberDiscounts[subscriber][feedId][quote.quoteAddress];
 
-    //apply the discount to the fee, rounding up
-    fee.amount = fee.amount - ((fee.amount * discount) / PERCENTAGE_SCALAR);
+    //the reward is always set in LINK
+    reward.assetAddress = i_linkAddress;
+    reward.amount = Math.ceilDiv(linkQuantity * (PERCENTAGE_SCALAR - discount), PERCENTAGE_SCALAR);
 
-    //apply the discount to the reward, rounding down
-    reward.amount = reward.amount - Math.ceilDiv(reward.amount * discount, PERCENTAGE_SCALAR);
+    //calculate either the LINK fee or native fee if it's within the report
+    if (quote.quoteAddress == i_linkAddress) {
+      fee.assetAddress = i_linkAddress;
+      fee.amount = reward.amount;
+    } else {
+      uint256 surchargedFee = Math.ceilDiv(nativeQuantity * (PERCENTAGE_SCALAR + s_nativeSurcharge), PERCENTAGE_SCALAR);
+
+      fee.assetAddress = i_nativeAddress;
+      fee.amount = Math.ceilDiv(surchargedFee * (PERCENTAGE_SCALAR - discount), PERCENTAGE_SCALAR);
+    }
 
     //return the fee
-    return (fee, reward);
+    return (fee, reward, discount);
   }
 
-  /// @inheritdoc IFeeManager
+  /// @inheritdoc IVerifierFeeManager
   function setFeeRecipients(
     bytes32 configDigest,
     Common.AddressAndWeight[] calldata rewardRecipientAndWeights
@@ -301,7 +300,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IFeeManager
-  function setNativeSurcharge(uint256 surcharge) external onlyOwner {
+  function setNativeSurcharge(uint64 surcharge) external onlyOwner {
     if (surcharge > PERCENTAGE_SCALAR) revert InvalidSurcharge();
 
     s_nativeSurcharge = surcharge;
@@ -314,7 +313,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     address subscriber,
     bytes32 feedId,
     address token,
-    uint256 discount
+    uint64 discount
   ) external onlyOwner {
     //make sure the discount is not greater than the total discount that can be applied
     if (discount > PERCENTAGE_SCALAR) revert InvalidDiscount();
@@ -327,18 +326,20 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IFeeManager
-  function withdraw(address assetAddress, uint256 quantity) external onlyOwner {
+  function withdraw(address assetAddress, address recipient, uint192 quantity) external onlyOwner {
     //address 0 is used to withdraw native in the context of withdrawing
     if (assetAddress == address(0)) {
-      payable(owner()).transfer(quantity);
+      (bool success, ) = payable(recipient).call{value: quantity}("");
+
+      if (!success) revert InvalidReceivingAddress();
       return;
     }
 
     //withdraw the requested asset
-    IERC20(assetAddress).safeTransfer(owner(), quantity);
+    IERC20(assetAddress).safeTransfer(recipient, quantity);
 
     //emit event when funds are withdrawn
-    emit Withdraw(msg.sender, assetAddress, quantity);
+    emit Withdraw(msg.sender, recipient, assetAddress, uint192(quantity));
   }
 
   /// @inheritdoc IFeeManager
@@ -355,13 +356,144 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     return REPORT_VERSION_MASK & feedId;
   }
 
+  function _processFee(
+    bytes calldata payload,
+    address subscriber
+  ) internal view returns (Common.Asset memory, Common.Asset memory, uint256) {
+    if (subscriber == address(this)) revert InvalidAddress();
+
+    //decode the report from the payload
+    (, bytes memory report) = abi.decode(payload, (bytes32[3], bytes));
+
+    //get the feedId from the report
+    bytes32 feedId = bytes32(report);
+
+    //v1 doesn't need a quote payload, so skip the decoding
+    Quote memory quote;
+    if (_getReportVersion(feedId) != REPORT_V1) {
+      //all reports greater than v1 should have a quote payload
+      (, , , , , bytes memory quoteBytes) = abi.decode(
+        payload,
+        // reportContext, report, rs, ss, raw, quote
+        (bytes32[3], bytes, bytes32[], bytes32[], bytes32, bytes)
+      );
+
+      //decode the quote from the bytes
+      (quote) = abi.decode(quoteBytes, (Quote));
+    }
+
+    //decode the fee, it will always be native or LINK
+    return getFeeAndReward(subscriber, report, quote);
+  }
+
+  function _handleFeesAndRewards(
+    address subscriber,
+    FeeAndReward[] memory feesAndRewards,
+    uint256 numberOfLinkFees,
+    uint256 numberOfNativeFees
+  ) internal {
+    IRewardManager.FeePayment[] memory linkRewards = new IRewardManager.FeePayment[](numberOfLinkFees);
+    IRewardManager.FeePayment[] memory nativeFeeLinkRewards = new IRewardManager.FeePayment[](numberOfNativeFees);
+
+    uint256 totalNativeFee;
+    uint256 totalNativeFeeLinkValue;
+
+    uint256 linkRewardsIndex;
+    uint256 nativeFeeLinkRewardsIndex;
+
+    uint256 totalNumberOfFees = numberOfLinkFees + numberOfNativeFees;
+    for (uint256 i; i < totalNumberOfFees; ++i) {
+      if (feesAndRewards[i].fee.assetAddress == i_linkAddress) {
+        linkRewards[linkRewardsIndex++] = IRewardManager.FeePayment(
+          feesAndRewards[i].configDigest,
+          uint192(feesAndRewards[i].reward.amount)
+        );
+      } else {
+        nativeFeeLinkRewards[nativeFeeLinkRewardsIndex++] = IRewardManager.FeePayment(
+          feesAndRewards[i].configDigest,
+          uint192(feesAndRewards[i].reward.amount)
+        );
+        totalNativeFee += feesAndRewards[i].fee.amount;
+        totalNativeFeeLinkValue += feesAndRewards[i].reward.amount;
+      }
+
+      if (feesAndRewards[i].appliedDiscount != 0) {
+        emit DiscountApplied(
+          feesAndRewards[i].configDigest,
+          subscriber,
+          feesAndRewards[i].fee,
+          feesAndRewards[i].reward,
+          feesAndRewards[i].appliedDiscount
+        );
+      }
+    }
+
+    //keep track of change in case of any over payment
+    uint256 change;
+
+    if (msg.value != 0) {
+      //there must be enough to cover the fee
+      if (totalNativeFee > msg.value) revert InvalidDeposit();
+
+      //wrap the amount required to pay the fee & approve as the subscriber paid in wrapped native
+      IWERC20(i_nativeAddress).deposit{value: totalNativeFee}();
+
+      unchecked {
+        //msg.value is always >= to fee.amount
+        change = msg.value - totalNativeFee;
+      }
+    } else {
+      if (totalNativeFee != 0) {
+        //subscriber has paid in wrapped native, so transfer the native to this contract
+        IERC20(i_nativeAddress).safeTransferFrom(subscriber, address(this), totalNativeFee);
+      }
+    }
+
+    if (linkRewards.length != 0) {
+      i_rewardManager.onFeePaid(linkRewards, subscriber);
+    }
+
+    if (nativeFeeLinkRewards.length != 0) {
+      //distribute subsidised fees paid in Native
+      if (totalNativeFeeLinkValue > IERC20(i_linkAddress).balanceOf(address(this))) {
+        // If not enough LINK on this contract to forward for rewards, tally the deficit to be paid by out-of-band LINK
+        for (uint256 i; i < nativeFeeLinkRewards.length; ++i) {
+          unchecked {
+            //we have previously tallied the fees, any overflows would have already reverted
+            s_linkDeficit[nativeFeeLinkRewards[i].poolId] += nativeFeeLinkRewards[i].amount;
+          }
+        }
+
+        emit InsufficientLink(nativeFeeLinkRewards);
+      } else {
+        //distribute the fees
+        i_rewardManager.onFeePaid(nativeFeeLinkRewards, address(this));
+      }
+    }
+
+    // a refund may be needed if the payee has paid in excess of the fee
+    _tryReturnChange(subscriber, change);
+  }
+
+  function _tryReturnChange(address subscriber, uint256 quantity) internal {
+    if (quantity != 0) {
+      payable(subscriber).transfer(quantity);
+    }
+  }
+
   /// @inheritdoc IFeeManager
   function payLinkDeficit(bytes32 configDigest) external onlyOwner {
     uint256 deficit = s_linkDeficit[configDigest];
+
     if (deficit == 0) revert ZeroDeficit();
 
     delete s_linkDeficit[configDigest];
-    i_rewardManager.onFeePaid(configDigest, address(this), deficit);
+
+    IRewardManager.FeePayment[] memory deficitFeePayment = new IRewardManager.FeePayment[](1);
+
+    deficitFeePayment[0] = IRewardManager.FeePayment(configDigest, uint192(deficit));
+
+    i_rewardManager.onFeePaid(deficitFeePayment, address(this));
 
     emit LinkDeficitCleared(configDigest, deficit);
   }

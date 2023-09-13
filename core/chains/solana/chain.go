@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/client"
@@ -25,23 +26,59 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/db"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/txm"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/solana/monitor"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // DefaultRequestTimeout is the default Solana client timeout.
 const DefaultRequestTimeout = 30 * time.Second
 
+// ChainOpts holds options for configuring a Chain.
+type ChainOpts struct {
+	Logger   logger.Logger
+	KeyStore loop.Keystore
+}
+
+func (o *ChainOpts) Validate() (err error) {
+	required := func(s string) error {
+		return errors.Errorf("%s is required", s)
+	}
+	if o.Logger == nil {
+		err = multierr.Append(err, required("Logger"))
+	}
+	if o.KeyStore == nil {
+		err = multierr.Append(err, required("KeyStore"))
+	}
+	return
+}
+
+func (o *ChainOpts) GetLogger() logger.Logger {
+	return o.Logger
+}
+
+func NewChain(cfg *SolanaConfig, opts ChainOpts) (solana.Chain, error) {
+	if !cfg.IsEnabled() {
+		return nil, fmt.Errorf("cannot create new chain with ID %s: %w", *cfg.ChainID, chains.ErrChainDisabled)
+	}
+	c, err := newChain(*cfg.ChainID, cfg, opts.KeyStore, opts.Logger)
+	if err != nil {
+		return nil, err
+	}
+	return c, nil
+}
+
 var _ solana.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
 	id             string
-	cfg            config.Config
+	cfg            *SolanaConfig
 	txm            *txm.Txm
 	balanceMonitor services.ServiceCtx
-	nodes          func(chainID string) (nodes []db.Node, err error)
 	lggr           logger.Logger
 
 	// tracking node chain id for verification
@@ -172,12 +209,11 @@ func (v *verifiedCachedClient) GetAccountInfoWithOpts(ctx context.Context, addr 
 	return v.ReaderWriter.GetAccountInfoWithOpts(ctx, addr, opts)
 }
 
-func newChain(id string, cfg config.Config, ks loop.Keystore, cfgs Configs, lggr logger.Logger) (*chain, error) {
-	lggr = logger.With(lggr, "chainID", id, "chainSet", "solana")
+func newChain(id string, cfg *SolanaConfig, ks loop.Keystore, lggr logger.Logger) (*chain, error) {
+	lggr = logger.With(lggr, "chainID", id, "chain", "solana")
 	var ch = chain{
 		id:          id,
 		cfg:         cfg,
-		nodes:       cfgs.Nodes,
 		lggr:        logger.Named(lggr, "Chain"),
 		clientCache: map[string]*verifiedCachedClient{},
 	}
@@ -187,6 +223,47 @@ func newChain(id string, cfg config.Config, ks loop.Keystore, cfgs Configs, lggr
 	ch.txm = txm.NewTxm(ch.id, tc, cfg, ks, lggr)
 	ch.balanceMonitor = monitor.NewBalanceMonitor(ch.id, cfg, lggr, ks, ch.Reader)
 	return &ch, nil
+}
+
+// ChainService interface
+func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, error) {
+	toml, err := c.cfg.TOMLString()
+	if err != nil {
+		return relaytypes.ChainStatus{}, err
+	}
+	return relaytypes.ChainStatus{
+		ID:      c.id,
+		Enabled: c.cfg.IsEnabled(),
+		Config:  toml,
+	}, nil
+}
+
+func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []relaytypes.NodeStatus, nextPageToken string, total int, err error) {
+	return internal.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
+}
+
+func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+	return c.sendTx(ctx, from, to, amount, balanceCheck)
+}
+
+func (c *chain) listNodeStatuses(start, end int) ([]relaytypes.NodeStatus, int, error) {
+	stats := make([]relaytypes.NodeStatus, 0)
+	total := len(c.cfg.Nodes)
+	if start >= total {
+		return stats, total, internal.ErrOutOfRange
+	}
+	if end > total {
+		end = total
+	}
+	nodes := c.cfg.Nodes[start:end]
+	for _, node := range nodes {
+		stat, err := nodeStatus(node, c.ChainID())
+		if err != nil {
+			return stats, total, err
+		}
+		stats = append(stats, stat)
+	}
+	return stats, total, nil
 }
 
 func (c *chain) Name() string {
@@ -209,11 +286,15 @@ func (c *chain) Reader() (client.Reader, error) {
 	return c.getClient()
 }
 
+func (c *chain) ChainID() relay.ChainID {
+	return relay.ChainID(c.id)
+}
+
 // getClient returns a client, randomly selecting one from available and valid nodes
 func (c *chain) getClient() (client.ReaderWriter, error) {
 	var node db.Node
 	var client client.ReaderWriter
-	nodes, err := c.nodes(c.id) // opt: pass static nodes set to constructor
+	nodes, err := c.cfg.ListNodes()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get nodes")
 	}
@@ -260,7 +341,7 @@ func (c *chain) verifiedClient(node db.Node) (client.ReaderWriter, error) {
 			expectedChainID: c.id,
 		}
 		// create client
-		cl.ReaderWriter, err = client.NewClient(url, c.cfg, DefaultRequestTimeout, logger.Named(c.lggr, "Client-"+node.Name))
+		cl.ReaderWriter, err = client.NewClient(url, c.cfg, DefaultRequestTimeout, logger.Named(c.lggr, "Client."+node.Name))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create client")
 		}
@@ -310,7 +391,7 @@ func (c *chain) HealthReport() map[string]error {
 	return report
 }
 
-func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
+func (c *chain) sendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	reader, err := c.Reader()
 	if err != nil {
 		return fmt.Errorf("chain unreachable: %w", err)

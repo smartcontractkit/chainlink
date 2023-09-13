@@ -3,6 +3,8 @@ package flakeytests
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -10,13 +12,11 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 )
 
 var (
-	failedTestRe = regexp.MustCompile(`^--- FAIL: (Test\w+)`)
-	logPanicRe   = regexp.MustCompile(`^panic: Log in goroutine after (Test\w+)`)
-
-	failedPkgRe = regexp.MustCompile(`^FAIL\s+github\.com\/smartcontractkit\/chainlink\/v2\/(\S+)`)
+	panicRe = regexp.MustCompile(`^panic:`)
 )
 
 type Runner struct {
@@ -53,29 +53,67 @@ func runGoTest(pkg string, tests []string, numReruns int, w io.Writer) error {
 	return cmd.Run()
 }
 
+type TestEvent struct {
+	Time    time.Time
+	Action  string
+	Package string
+	Test    string
+	Elapsed float64 // seconds
+	Output  string
+}
+
+func newEvent(b []byte) (*TestEvent, error) {
+	e := &TestEvent{}
+	err := json.Unmarshal(b, e)
+	if err != nil {
+		return nil, err
+	}
+
+	e.Package = strings.Replace(e.Package, "github.com/smartcontractkit/chainlink/v2/", "", -1)
+	return e, nil
+
+}
+
 func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
-	testsWithoutPackage := []string{}
 	tests := map[string]map[string]int{}
 	for _, r := range readers {
 		s := bufio.NewScanner(r)
 		for s.Scan() {
-			t := s.Text()
-			switch {
-			case failedTestRe.MatchString(t):
-				m := failedTestRe.FindStringSubmatch(t)
-				testsWithoutPackage = append(testsWithoutPackage, m[1])
-			case logPanicRe.MatchString(t):
-				m := logPanicRe.FindStringSubmatch(t)
-				testsWithoutPackage = append(testsWithoutPackage, m[1])
-			case failedPkgRe.MatchString(t):
-				p := failedPkgRe.FindStringSubmatch(t)
-				for _, t := range testsWithoutPackage {
-					if tests[p[1]] == nil {
-						tests[p[1]] = map[string]int{}
-					}
-					tests[p[1]][t]++
+			t := s.Bytes()
+			if len(t) == 0 {
+				continue
+			}
+
+			// Skip the line if doesn't start with a "{" --
+			// this mean it isn't JSON output.
+			if !strings.HasPrefix(string(t), "{") {
+				continue
+			}
+
+			e, err := newEvent(t)
+			if err != nil {
+				return nil, err
+			}
+
+			// We're only interested in test failures, for which
+			// both Package and Test would be present.
+			if e.Package == "" || e.Test == "" {
+				continue
+			}
+
+			switch e.Action {
+			case "fail":
+				if tests[e.Package] == nil {
+					tests[e.Package] = map[string]int{}
 				}
-				testsWithoutPackage = []string{}
+				tests[e.Package][e.Test]++
+			case "output":
+				if panicRe.MatchString(e.Output) {
+					if tests[e.Package] == nil {
+						tests[e.Package] = map[string]int{}
+					}
+					tests[e.Package][e.Test]++
+				}
 			}
 		}
 
@@ -84,6 +122,10 @@ func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
 		}
 	}
 	return tests, nil
+}
+
+type exitCoder interface {
+	ExitCode() int
 }
 
 func (r *Runner) runTests(failedTests map[string]map[string]int) (io.Reader, error) {
@@ -98,6 +140,13 @@ func (r *Runner) runTests(failedTests map[string]map[string]int) (io.Reader, err
 		err := r.runTestFn(pkg, ts, r.numReruns, &out)
 		if err != nil {
 			log.Printf("Test command errored: %s\n", err)
+			// There was an error because the command failed with a non-zero
+			// exit code. This could just mean that the test failed again, so let's
+			// keep going.
+			var exErr exitCoder
+			if errors.As(err, &exErr) && exErr.ExitCode() > 0 {
+				continue
+			}
 			return &out, err
 		}
 	}

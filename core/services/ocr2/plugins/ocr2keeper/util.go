@@ -21,6 +21,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	kevm20 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm20"
 	kevm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
+	kevm21transmit "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/transmit"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
@@ -113,6 +115,7 @@ func EVMDependencies21(
 	pr pipeline.Runner,
 	mc *models.MercuryCredentials,
 	keyring ocrtypes.OnchainKeyring,
+	dbCfg pg.QConfig,
 ) (evmrelay.OCR2KeeperProvider, kevm21.AutomationServices, error) {
 	var err error
 	var keeperProvider evmrelay.OCR2KeeperProvider
@@ -124,7 +127,7 @@ func EVMDependencies21(
 	}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
-	services, err := kevm21.New(rAddr, chain, mc, keyring, lggr)
+	services, err := kevm21.New(rAddr, chain, mc, keyring, lggr, db, dbCfg)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -137,5 +140,5 @@ func FilterNamesFromSpec21(spec *job.OCR2OracleSpec) (names []string, err error)
 	if err != nil {
 		return nil, err
 	}
-	return []string{kevm21.TransmitEventProviderFilterName(addr.Address()), kevm21.RegistryUpkeepFilterName(addr.Address())}, err
+	return []string{kevm21transmit.EventProviderFilterName(addr.Address()), kevm21.RegistryUpkeepFilterName(addr.Address())}, err
 }

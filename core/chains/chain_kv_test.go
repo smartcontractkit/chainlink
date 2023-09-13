@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 )
 
@@ -88,6 +89,13 @@ func (s *testChainService) HealthReport() map[string]error {
 	return map[string]error{}
 }
 
-func (s *testChainService) SendTx(ctx context.Context, from string, to string, amount *big.Int, balanceCheck bool) error {
+// Implement [types.ChainService] interface
+func (s *testChainService) GetChainStatus(ctx context.Context) (stat types.ChainStatus, err error) {
+	return
+}
+func (s *testChainService) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []types.NodeStatus, nextPageToken string, total int, err error) {
+	return
+}
+func (s *testChainService) Transact(ctx context.Context, from string, to string, amount *big.Int, balanceCheck bool) error {
 	return nil
 }

@@ -70,8 +70,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 			LogPoller:     lp,
 		},
 	)
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	return blockhashstore.NewDelegate(lggr, legacyChains, kst), &testData{
 		ethClient:    ethClient,
 		ethKeyStore:  kst,
@@ -123,14 +122,6 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	t.Run("wrong EVMChainID", func(t *testing.T) {
 		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
 			EVMChainID: utils.NewBigI(123),
-		}}
-		_, err := delegate.ServicesForSpec(spec)
-		assert.Error(t, err)
-	})
-
-	t.Run("WaitBlocks less than EvmFinalityDepth", func(t *testing.T) {
-		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{
-			WaitBlocks: defaultWaitBlocks - 1,
 		}}
 		_, err := delegate.ServicesForSpec(spec)
 		assert.Error(t, err)
