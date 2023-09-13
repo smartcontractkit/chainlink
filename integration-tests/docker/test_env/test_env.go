@@ -98,7 +98,7 @@ func (te *CLClusterTestEnv) WithPrivateChain(evmNetworks []blockchain.EVMNetwork
 		n := evmNetwork
 		pgc := test_env.NewPrivateGethChain(&n, []string{te.Network.Name})
 		if te.t != nil {
-			pgc.WithTestLogger(te.t)
+			pgc.GetPrimaryNode().WithTestLogger(te.t)
 		}
 		chains = append(chains, pgc)
 		var privateChain test_env.PrivateChain
