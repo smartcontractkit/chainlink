@@ -1,8 +1,8 @@
-// SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.16;
 
 import {KeeperRegistryBase2_1} from "./KeeperRegistryBase2_1.sol";
-import {ILogAutomation, Log} from "./interfaces/ILogAutomation.sol";
+import {ILogAutomation, Log} from "../interfaces/ILogAutomation.sol";
 
 /**
  * @notice this file exposes structs that are otherwise internal to the automation registry
