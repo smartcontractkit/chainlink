@@ -23,8 +23,8 @@ import (
 	utils2 "github.com/smartcontractkit/chainlink/integration-tests/utils"
 )
 
-var (
-	BaseConf = &chainlink.Config{
+func NewBaseConfig() *chainlink.Config {
+	return &chainlink.Config{
 		Core: toml.Core{
 			RootDir: utils2.Ptr("/home/chainlink"),
 			Database: toml.Database{
@@ -60,7 +60,7 @@ var (
 			P2P: toml.P2P{},
 		},
 	}
-)
+}
 
 type NodeConfigOpt = func(c *chainlink.Config)
 

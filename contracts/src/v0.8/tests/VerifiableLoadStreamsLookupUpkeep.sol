@@ -35,7 +35,7 @@ contract VerifiableLoadStreamsLookupUpkeep is VerifiableLoadBase, StreamsLookupC
     }
 
     uint256 timeParam;
-    if (keccak256(abi.encodePacked(timeParamKey)) == keccak256(abi.encodePacked("feedIdHex"))) {
+    if (keccak256(abi.encodePacked(feedParamKey)) == keccak256(abi.encodePacked("feedIdHex"))) {
       timeParam = blockNum;
     } else {
       // assume this will be feedIDs for v0.3

@@ -194,7 +194,7 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 		if b.clNodeConfig != nil {
 			cfg = b.clNodeConfig
 		} else {
-			cfg = node.NewConfig(node.BaseConf,
+			cfg = node.NewConfig(node.NewBaseConfig(),
 				node.WithOCR1(),
 				node.WithP2Pv1(),
 			)

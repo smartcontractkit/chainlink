@@ -87,8 +87,6 @@ func TestAutomationBasic(t *testing.T) {
 
 func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0":             ethereum.RegistryVersion_2_0,
 		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
@@ -100,6 +98,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			l := utils.GetTestLogger(t)
 
 			var (
 				upgradeImage   string
@@ -431,8 +430,6 @@ func TestAutomationAddFunds(t *testing.T) {
 
 func TestAutomationPauseUnPause(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
@@ -443,6 +440,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			l := utils.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "pause-unpause", registryVersion, defaultOCRRegistryConfig, false,
 			)
@@ -515,8 +513,6 @@ func TestAutomationPauseUnPause(t *testing.T) {
 
 func TestAutomationRegisterUpkeep(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
@@ -527,6 +523,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			l := utils.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "register-upkeep", registryVersion, defaultOCRRegistryConfig, false,
 			)
@@ -588,7 +585,6 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 
 func TestAutomationPauseRegistry(t *testing.T) {
 	t.Parallel()
-
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
@@ -646,8 +642,6 @@ func TestAutomationPauseRegistry(t *testing.T) {
 
 func TestAutomationKeeperNodesDown(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
@@ -658,6 +652,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			l := utils.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "keeper-nodes-down", registryVersion, defaultOCRRegistryConfig, false,
 			)
@@ -733,7 +728,6 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 
 func TestAutomationPerformSimulation(t *testing.T) {
 	t.Parallel()
-
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
@@ -797,8 +791,6 @@ func TestAutomationPerformSimulation(t *testing.T) {
 
 func TestAutomationCheckPerformGasLimit(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
@@ -809,6 +801,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			l := utils.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "gas-limit", registryVersion, defaultOCRRegistryConfig, false,
 			)
@@ -911,8 +904,6 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 
 func TestUpdateCheckData(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
@@ -923,6 +914,7 @@ func TestUpdateCheckData(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			l := utils.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "update-check-data", registryVersion, defaultOCRRegistryConfig, false,
 			)
@@ -1003,7 +995,7 @@ func setupAutomationTestDocker(
 	network := networks.SelectedNetwork
 
 	// build the node config
-	clNodeConfig := node.NewConfig(node.BaseConf)
+	clNodeConfig := node.NewConfig(node.NewBaseConfig())
 	syncInterval := models.MustMakeDuration(5 * time.Minute)
 	clNodeConfig.Feature.LogPoller = it_utils.Ptr[bool](true)
 	clNodeConfig.OCR2.Enabled = it_utils.Ptr[bool](true)
