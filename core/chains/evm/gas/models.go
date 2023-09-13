@@ -67,12 +67,10 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 	df := geCfg.EIP1559DynamicFees()
 	switch s {
 	case "Arbitrum":
-		l1Oracle := chainoracles.NewL1GasPriceOracle(lggr, ethClient, chainoracles.Arbitrum)
+		l1Oracle := chainoracles.NewL1GasPriceOracle(lggr, ethClient, cfg.ChainType())
 		return NewWrappedEvmEstimatorWithL1Oracle(NewArbitrumEstimator(lggr, geCfg, ethClient, ethClient), df, l1Oracle)
 	case "BlockHistory":
-		return NewWrappedEvmEstimator(NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, *ethClient.ConfiguredChainID()), df)
-	case "OPStack":
-		l1Oracle := chainoracles.NewL1GasPriceOracle(lggr, ethClient, chainoracles.OPStack)
+		l1Oracle := chainoracles.NewL1GasPriceOracle(lggr, ethClient, cfg.ChainType())
 		return NewWrappedEvmEstimatorWithL1Oracle(NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, *ethClient.ConfiguredChainID()), df, l1Oracle)
 	case "FixedPrice":
 		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df)

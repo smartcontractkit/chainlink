@@ -6,7 +6,6 @@ NoNewHeadsThreshold = '40s'
 MinIncomingConfirmations = 1
 
 [GasEstimator]
-Mode = 'OPStack'
 EIP1559DynamicFees = true
 PriceMin = '1 wei'
 BumpMin = '100 wei'

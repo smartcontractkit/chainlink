@@ -12,16 +12,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type OracleType string
-
-const (
-	Arbitrum OracleType = "ARBITRUM"
-	OPStack  OracleType = "OP_STACK"
-)
 
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
 type l1GasPriceOracle struct {
@@ -58,23 +54,23 @@ const (
 	PollPeriod = 12 * time.Second
 )
 
-func NewL1GasPriceOracle(lggr logger.Logger, ethClient evmclient.Client, oracleType OracleType) L1Oracle {
+func NewL1GasPriceOracle(lggr logger.Logger, ethClient evmclient.Client, chainType config.ChainType) L1Oracle {
 	var address, selector string
-	switch oracleType {
-	case Arbitrum:
+	switch chainType {
+	case config.ChainArbitrum:
 		address = ArbGasInfoAddress
 		selector = ArbGasInfo_getL1BaseFeeEstimate
-	case OPStack:
+	case config.ChainOptimismBedrock:
 		address = OPGasOracleAddress
 		selector = OPGasOracle_l1BaseFee
 	default:
-		panic(fmt.Errorf("unsupportd oracle type: %s", oracleType))
+		return nil
 	}
 
 	return &l1GasPriceOracle{
 		client:     ethClient,
 		pollPeriod: PollPeriod,
-		logger:     lggr.Named(fmt.Sprintf("%s L1GasPriceOracle", oracleType)),
+		logger:     lggr.Named(fmt.Sprintf("%d L1GasPriceOracle", chainType)),
 		address:    address,
 		selector:   selector,
 	}
