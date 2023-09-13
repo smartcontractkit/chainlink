@@ -17,7 +17,7 @@ import (
 )
 
 const (
-	UpkeepStateStoreServiceName = "UpkeepStateStore"
+	upkeepStateStoreServiceName = "UpkeepStateStore"
 	// CacheExpiration is the amount of time that we keep a record in the cache.
 	CacheExpiration = 24 * time.Hour
 	// GCInterval is the amount of time between cache cleanups.
@@ -81,7 +81,7 @@ type upkeepStateStore struct {
 func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScanner) *upkeepStateStore {
 	return &upkeepStateStore{
 		orm:            orm,
-		lggr:           lggr.Named(UpkeepStateStoreServiceName),
+		lggr:           lggr.Named(upkeepStateStoreServiceName),
 		cache:          map[string]*upkeepStateRecord{},
 		scanner:        scanner,
 		retention:      CacheExpiration,
@@ -97,7 +97,7 @@ func NewUpkeepStateStore(orm ORM, lggr logger.Logger, scanner PerformedLogsScann
 // it does background cleanup of the cache every GCInterval,
 // and flush records to DB every flushCadence.
 func (u *upkeepStateStore) Start(pctx context.Context) error {
-	return u.StartOnce(UpkeepStateStoreServiceName, func() error {
+	return u.StartOnce(upkeepStateStoreServiceName, func() error {
 		if err := u.scanner.Start(pctx); err != nil {
 			return fmt.Errorf("failed to start scanner")
 		}
@@ -160,7 +160,7 @@ func (u *upkeepStateStore) flush(ctx context.Context) {
 
 // Close stops the service of pruning stale data; implements io.Closer
 func (u *upkeepStateStore) Close() error {
-	return u.StopOnce(UpkeepStateStoreServiceName, func() error {
+	return u.StopOnce(upkeepStateStoreServiceName, func() error {
 		u.threadCtrl.Close()
 		return nil
 	})
