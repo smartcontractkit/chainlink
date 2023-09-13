@@ -27,10 +27,8 @@ const (
 	lookbackDepth = 1024
 	// blockHistorySize decides the block history size sent to subscribers
 	blockHistorySize = int64(256)
-)
 
-var (
-	BlockSubscriberServiceName = "BlockSubscriber"
+	blockSubscriberServiceName = "BlockSubscriber"
 )
 
 type BlockSubscriber struct {
@@ -66,7 +64,7 @@ func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, lggr
 		blockHistorySize: blockHistorySize,
 		blockSize:        lookbackDepth,
 		latestBlock:      atomic.Pointer[ocr2keepers.BlockKey]{},
-		lggr:             lggr.Named(BlockSubscriberServiceName),
+		lggr:             lggr.Named(blockSubscriberServiceName),
 	}
 }
 
@@ -148,7 +146,7 @@ func (bs *BlockSubscriber) initialize(ctx context.Context) {
 }
 
 func (bs *BlockSubscriber) Start(ctx context.Context) error {
-	return bs.StartOnce(BlockSubscriberServiceName, func() error {
+	return bs.StartOnce(blockSubscriberServiceName, func() error {
 		bs.lggr.Info("block subscriber started.")
 		bs.initialize(ctx)
 		// poll from head broadcaster channel and push to subscribers
@@ -184,7 +182,7 @@ func (bs *BlockSubscriber) Start(ctx context.Context) error {
 }
 
 func (bs *BlockSubscriber) Close() error {
-	return bs.StopOnce(BlockSubscriberServiceName, func() error {
+	return bs.StopOnce(blockSubscriberServiceName, func() error {
 		bs.lggr.Info("stop block subscriber")
 		bs.threadCtrl.Close()
 		bs.unsubscribe()

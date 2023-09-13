@@ -41,7 +41,7 @@ const (
 )
 
 var (
-	RegistryServiceName = "EvmRegistry"
+	registryServiceName = "EvmRegistry"
 
 	ErrLogReadFailure              = fmt.Errorf("failure reading logs")
 	ErrHeadNotAvailable            = fmt.Errorf("head not available")
@@ -87,7 +87,7 @@ func NewEvmRegistry(
 	return &EvmRegistry{
 		ctx:          context.Background(),
 		threadCtrl:   utils.NewThreadControl(),
-		lggr:         lggr.Named(RegistryServiceName),
+		lggr:         lggr.Named(registryServiceName),
 		poller:       client.LogPoller(),
 		addr:         addr,
 		client:       client.Client(),
@@ -159,16 +159,15 @@ func (r *EvmRegistry) Name() string {
 }
 
 func (r *EvmRegistry) Start(ctx context.Context) error {
-	return r.StartOnce(RegistryServiceName, func() error {
+	return r.StartOnce(registryServiceName, func() error {
 		if err := r.registerEvents(r.chainID, r.addr); err != nil {
 			return fmt.Errorf("logPoller error while registering automation events: %w", err)
 		}
 
 		r.threadCtrl.Go(func(ctx context.Context) {
-			lggr := r.lggr.Named("UpkeepRefreshThread")
 			err := r.refreshActiveUpkeeps()
 			if err != nil {
-				lggr.Errorf("failed to initialize upkeeps", err)
+				r.lggr.Errorf("failed to initialize upkeeps", err)
 			}
 
 			ticker := time.NewTicker(refreshInterval)
@@ -179,7 +178,7 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 				case <-ticker.C:
 					err = r.refreshActiveUpkeeps()
 					if err != nil {
-						lggr.Errorf("failed to refresh upkeeps", err)
+						r.lggr.Errorf("failed to refresh upkeeps", err)
 					}
 				case <-ctx.Done():
 					return
@@ -188,7 +187,6 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 		})
 
 		r.threadCtrl.Go(func(ctx context.Context) {
-			lggr := r.lggr.Named("LogPollingThread")
 			ticker := time.NewTicker(time.Second)
 			defer ticker.Stop()
 
@@ -197,7 +195,7 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 				case <-ticker.C:
 					err := r.pollUpkeepStateLogs()
 					if err != nil {
-						lggr.Errorf("failed to poll logs for upkeeps", err)
+						r.lggr.Errorf("failed to poll logs for upkeeps", err)
 					}
 				case <-ctx.Done():
 					return
@@ -206,7 +204,6 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 		})
 
 		r.threadCtrl.Go(func(ctx context.Context) {
-			lggr := r.lggr.Named("LogProcessingThread")
 			ch := r.chLog
 
 			for {
@@ -214,7 +211,7 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 				case l := <-ch:
 					err := r.processUpkeepStateLog(l)
 					if err != nil {
-						lggr.Errorf("failed to process log for upkeep", err)
+						r.lggr.Errorf("failed to process log for upkeep", err)
 					}
 				case <-ctx.Done():
 					return
@@ -227,7 +224,7 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 }
 
 func (r *EvmRegistry) Close() error {
-	return r.StopOnce(RegistryServiceName, func() error {
+	return r.StopOnce(registryServiceName, func() error {
 		r.threadCtrl.Close()
 		return nil
 	})

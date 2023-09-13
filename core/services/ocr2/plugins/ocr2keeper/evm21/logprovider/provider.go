@@ -26,7 +26,7 @@ import (
 )
 
 var (
-	LogProviderServiceName = "LogEventProvider"
+	logProviderServiceName = "LogEventProvider"
 
 	ErrHeadNotAvailable   = fmt.Errorf("head not available")
 	ErrBlockLimitExceeded = fmt.Errorf("block limit exceeded")
@@ -104,7 +104,7 @@ type logEventProvider struct {
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
 	return &logEventProvider{
 		threadCtrl:  utils.NewThreadControl(),
-		lggr:        lggr.Named(LogProviderServiceName),
+		lggr:        lggr.Named(logProviderServiceName),
 		packer:      packer,
 		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), maxLogsPerBlock, maxLogsPerUpkeepInBlock),
 		poller:      poller,
@@ -114,7 +114,7 @@ func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDa
 }
 
 func (p *logEventProvider) Start(context.Context) error {
-	return p.StartOnce(LogProviderServiceName, func() error {
+	return p.StartOnce(logProviderServiceName, func() error {
 
 		readQ := make(chan []*big.Int, readJobQueueSize)
 
@@ -145,7 +145,7 @@ func (p *logEventProvider) Start(context.Context) error {
 }
 
 func (p *logEventProvider) Close() error {
-	return p.StopOnce(LogProviderServiceName, func() error {
+	return p.StopOnce(logProviderServiceName, func() error {
 		p.threadCtrl.Close()
 		return nil
 	})

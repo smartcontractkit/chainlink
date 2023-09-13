@@ -572,14 +572,14 @@ func (r *logRecoverer) clean(ctx context.Context) {
 		}
 	}
 	r.lock.RUnlock()
-	lggr := r.lggr.Named("Cleaner")
+
 	if len(expired) == 0 {
-		lggr.Debug("no expired upkeeps")
+		r.lggr.Debug("no expired upkeeps")
 		return
 	}
 	err := r.tryExpire(ctx, expired...)
 	if err != nil {
-		lggr.Warnw("failed to clean visited upkeeps", "err", err)
+		r.lggr.Warnw("failed to clean visited upkeeps", "err", err)
 	}
 }
 
@@ -595,7 +595,6 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get states: %w", err)
 	}
-	lggr := r.lggr.Named("TryExpire")
 	start, _ := r.getRecoveryWindow(latestBlock)
 	r.lock.Lock()
 	defer r.lock.Unlock()
@@ -612,7 +611,7 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 			}
 			if logBlock := rec.payload.Trigger.LogTriggerExtension.BlockNumber; int64(logBlock) < start {
 				// we can't recover this log anymore, so we remove it from the visited list
-				lggr.Debugw("removing expired log: old block", "upkeepID", rec.payload.UpkeepID,
+				r.lggr.Debugw("removing expired log: old block", "upkeepID", rec.payload.UpkeepID,
 					"latestBlock", latestBlock, "logBlock", logBlock, "start", start)
 				r.removePending(rec.payload.WorkID)
 				delete(r.visited, ids[i])
@@ -629,7 +628,7 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 	}
 
 	if removed > 0 {
-		lggr.Debugw("expired upkeeps", "expired", len(ids), "cleaned", removed)
+		r.lggr.Debugw("expired upkeeps", "expired", len(ids), "cleaned", removed)
 	}
 
 	return nil
