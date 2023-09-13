@@ -153,7 +153,7 @@ func TestOCRChaos(t *testing.T) {
 			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=", 2, 5, ChaosGroupMajorityPlus)
 			require.NoError(t, err)
 
-			chainClient, err := blockchain.NewEVMClient(blockchain.SimulatedEVMNetwork, testEnvironment)
+			chainClient, err := blockchain.NewEVMClient(blockchain.SimulatedEVMNetwork, testEnvironment, l)
 			require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
 			cd, err := contracts.NewContractDeployer(chainClient)
 			require.NoError(t, err, "Deploying contracts shouldn't fail")

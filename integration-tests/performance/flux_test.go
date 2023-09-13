@@ -35,7 +35,7 @@ func TestFluxPerformance(t *testing.T) {
 		return
 	}
 
-	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
+	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
 	contractDeployer, err := contracts.NewContractDeployer(chainClient)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")

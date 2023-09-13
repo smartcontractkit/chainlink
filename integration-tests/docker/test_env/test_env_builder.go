@@ -182,7 +182,7 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 
 	}
 
-	bc, err := blockchain.NewEVMClientFromNetwork(networkConfig)
+	bc, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)
 	if err != nil {
 		return nil, err
 	}

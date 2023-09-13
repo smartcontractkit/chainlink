@@ -201,7 +201,7 @@ func TestAutomationChaos(t *testing.T) {
 			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=", 2, 5, ChaosGroupMajorityPlus)
 			require.NoError(t, err)
 
-			chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
+			chainClient, err := blockchain.NewEVMClient(network, testEnvironment, l)
 			require.NoError(t, err, "Error connecting to blockchain")
 			contractDeployer, err := contracts.NewContractDeployer(chainClient)
 			require.NoError(t, err, "Error building contract deployer")

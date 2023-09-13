@@ -1153,11 +1153,11 @@ func (f *FluxAggregatorRoundConfirmer) ReceiveHeader(header blockchain.NodeHeade
 		"Header Number":     header.Number.Uint64(),
 	}
 	if lr.Cmp(f.roundID) >= 0 {
-		log.Info().Fields(logFields).Msg("FluxAggregator round completed")
+		f.l.Info().Fields(logFields).Msg("FluxAggregator round completed")
 		f.complete = true
 		f.doneChan <- struct{}{}
 	} else {
-		log.Debug().Fields(logFields).Msg("Waiting for FluxAggregator round")
+		f.l.Debug().Fields(logFields).Msg("Waiting for FluxAggregator round")
 	}
 	return nil
 }

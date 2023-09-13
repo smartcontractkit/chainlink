@@ -147,7 +147,7 @@ func TestAutomationReorg(t *testing.T) {
 		return
 	}
 
-	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
+	chainClient, err := blockchain.NewEVMClient(network, testEnvironment, l)
 	require.NoError(t, err, "Error connecting to blockchain")
 	contractDeployer, err := contracts.NewContractDeployer(chainClient)
 	require.NoError(t, err, "Error building contract deployer")

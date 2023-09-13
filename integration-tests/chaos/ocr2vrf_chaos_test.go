@@ -140,7 +140,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=", 3, 5, ChaosGroupMajority)
 			require.NoError(t, err)
 
-			chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
+			chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
 			require.NoError(t, err, "Error connecting to blockchain")
 			contractDeployer, err := contracts.NewContractDeployer(chainClient)
 			require.NoError(t, err, "Error building contract deployer")

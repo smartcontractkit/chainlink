@@ -153,7 +153,7 @@ func TestAutomationBenchmark(t *testing.T) {
 
 	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
 
-	chainClient, err := blockchain.NewEVMClient(benchmarkNetwork, testEnvironment)
+	chainClient, err := blockchain.NewEVMClient(benchmarkNetwork, testEnvironment, l)
 	require.NoError(t, err, "Error connecting to blockchain")
 	registryVersions := addRegistry(RegistryToTest)
 	keeperBenchmarkTest := testsetups.NewKeeperBenchmarkTest(

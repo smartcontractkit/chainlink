@@ -164,7 +164,7 @@ func (o *OCRSoakTest) LoadEnvironment(chainlinkURLs []string, chainURL, mockServ
 		network = networks.SelectedNetwork
 		err     error
 	)
-	o.chainClient, err = blockchain.ConnectEVMClient(network)
+	o.chainClient, err = blockchain.ConnectEVMClient(network, o.log)
 	require.NoError(o.t, err, "Error connecting to EVM client")
 	chainlinkNodes, err := client.ConnectChainlinkNodeURLs(chainlinkURLs)
 	require.NoError(o.t, err, "Error connecting to chainlink nodes")
@@ -186,7 +186,7 @@ func (o *OCRSoakTest) Setup() {
 
 	// Environment currently being used to soak test on
 	// Make connections to soak test resources
-	o.chainClient, err = blockchain.NewEVMClient(network, o.testEnvironment)
+	o.chainClient, err = blockchain.NewEVMClient(network, o.testEnvironment, o.log)
 	require.NoError(o.t, err, "Error creating EVM client")
 	contractDeployer, err := contracts.NewContractDeployer(o.chainClient)
 	require.NoError(o.t, err, "Unable to create contract deployer")
@@ -384,7 +384,7 @@ func (o *OCRSoakTest) LoadState() error {
 	o.startingBlockNum = testState.StartingBlockNum
 
 	network := networks.SelectedNetwork
-	o.chainClient, err = blockchain.ConnectEVMClient(network)
+	o.chainClient, err = blockchain.ConnectEVMClient(network, o.log)
 	if err != nil {
 		return err
 	}
