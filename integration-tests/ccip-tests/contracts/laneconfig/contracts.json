@@ -346,7 +346,7 @@
         "84531": {
           "off_ramp": "0xd0a9f52562f9111a4cd66d6615b8773bf96e6b74",
           "commit_store": "0x7d8fb097848183cd12420e0fbe813ec697a07198",
-          "receiver_dapp": "0xbf13977761571fa12e1927c718b61de66e12eab8"
+          "receiver_dapp": "0xda9e8e71bB750a996Af33ebB8aBb18cd9EB9DC75"
         }
       }
     },
@@ -391,7 +391,7 @@
         "97" : {
           "off_ramp": "0x29c5567e38790527ee04fa1a7e0b06c38d436682",
           "commit_store": "0x5b19d30862e0872549ee980efa99d0d047624428",
-          "receiver_dapp": "0x97be6bc42c081cc812a7af4b621eb403f730a80d"
+          "receiver_dapp": "0xda9e8e71bB750a996Af33ebB8aBb18cd9EB9DC75"
         }
       }
     },
@@ -436,7 +436,7 @@
         "97" : {
           "off_ramp": "0xa52d36272621dbb9b6c0d51e9f4f57b7eae2ebdb",
           "commit_store": "0x502709022c3aab16c9cf72600932806061667333",
-          "receiver_dapp": "0x7fcea14b24d7cabce97e88240ec041b458497483"
+          "receiver_dapp": "0xda9e8e71bB750a996Af33ebB8aBb18cd9EB9DC75"
         }
       }
     },
@@ -476,12 +476,12 @@
         "80001" : {
           "off_ramp": "0xadbc0d83d675c5c381f9f4303b55c56d72a5e947",
           "commit_store": "0x35a926bc94654627443e436bb3d197d62821cf05",
-          "receiver_dapp": "0xbaa9615039c2d047e3ce53e96933d085742933a1"
+          "receiver_dapp": "0xda9e8e71bB750a996Af33ebB8aBb18cd9EB9DC75"
         },
         "84531" : {
           "off_ramp": "0x8d482ecbe85bd0ef13d8c56e0d83e93ccf0d66c8",
           "commit_store": "0x6ea3de96a33617c3620b7c33c22656f860ddc255",
-          "receiver_dapp": "0x60fa2ab7b549f1d1220a5b4969f83adab3abc071"
+          "receiver_dapp": "0xda9e8e71bB750a996Af33ebB8aBb18cd9EB9DC75"
         }
       }
     },
@@ -519,17 +519,17 @@
         "420" : {
           "off_ramp": "0xd7e2f42d3b7feac0c39d06484de34f1959cdd9ea",
           "commit_store": "0x94301e622996ab441fd632fcc8e971116be02b87",
-          "receiver_dapp": "0x17b9417224e1bec23bb7208f4d5aac4ba797e701"
+          "receiver_dapp": "0xda9e8e71bB750a996Af33ebB8aBb18cd9EB9DC75"
         },
         "97" : {
           "off_ramp": "0x0a4a2f5517b5546fa3a05b2226f951094c62a9d9",
           "commit_store": "0x67fd22597147e88e76fd141ba15abd692fa58261",
-          "receiver_dapp": "0xfab462772a2d228eeb723f9d47288caad4492b59"
+          "receiver_dapp": "0xda9e8e71bB750a996Af33ebB8aBb18cd9EB9DC75"
         },
         "421613" : {
           "off_ramp": "0xa5007c13b7df93e7647ffd671b9982cdced4e7ff",
           "commit_store": "0x693fdcbbf0c6d4b3b0034021fe64e98f8a081712",
-          "receiver_dapp": "0x6fce09b2e74f649a4494a1844219cb0d86cfe8b7"
+          "receiver_dapp": "0xda9e8e71bB750a996Af33ebB8aBb18cd9EB9DC75"
         }
       }
     }
