@@ -225,7 +225,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
-	if cfg.Explorer().URL() != nil && cfg.TelemetryIngress().URL() != nil {
+	//TODO: @george-dorin: change this when https://github.com/smartcontractkit/chainlink/pull/10581 is merged
+	if cfg.Explorer().URL() != nil && len(cfg.TelemetryIngress().Endpoints()) > 0 {
 		globalLogger.Warn("Both ExplorerUrl and TelemetryIngress.Url are set, defaulting to Explorer")
 	}
 
@@ -236,15 +237,14 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	ticfg := cfg.TelemetryIngress()
 	// Use Explorer over TelemetryIngress if both URLs are set
-	if cfg.Explorer().URL() == nil && ticfg.URL() != nil {
+	//TODO: @george-dorin: change this when https://github.com/smartcontractkit/chainlink/pull/10581 is merged
+	if cfg.Explorer().URL() == nil && len(cfg.TelemetryIngress().Endpoints()) > 0 {
 		if ticfg.UseBatchSend() {
-			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(ticfg.URL(),
-				ticfg.ServerPubKey(), keyStore.CSA(), ticfg.Logging(), globalLogger, ticfg.BufferSize(), ticfg.MaxBatchSize(), ticfg.SendInterval(), ticfg.SendTimeout(), ticfg.UniConn())
+			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(ticfg, keyStore.CSA(), globalLogger)
 			monitoringEndpointGen = telemetry.NewIngressAgentBatchWrapper(telemetryIngressBatchClient)
 
 		} else {
-			telemetryIngressClient = synchronization.NewTelemetryIngressClient(ticfg.URL(),
-				ticfg.ServerPubKey(), keyStore.CSA(), ticfg.Logging(), globalLogger, ticfg.BufferSize())
+			telemetryIngressClient = synchronization.NewTelemetryIngressClient(keyStore.CSA(), ticfg.Logging(), globalLogger, ticfg.BufferSize(), ticfg.Endpoints())
 			monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
 		}
 	}

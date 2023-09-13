@@ -37,22 +37,23 @@ type Core struct {
 	RootDir             *string
 	ShutdownGracePeriod *models.Duration
 
-	Feature          Feature          `toml:",omitempty"`
-	Database         Database         `toml:",omitempty"`
-	TelemetryIngress TelemetryIngress `toml:",omitempty"`
-	AuditLogger      AuditLogger      `toml:",omitempty"`
-	Log              Log              `toml:",omitempty"`
-	WebServer        WebServer        `toml:",omitempty"`
-	JobPipeline      JobPipeline      `toml:",omitempty"`
-	FluxMonitor      FluxMonitor      `toml:",omitempty"`
-	OCR2             OCR2             `toml:",omitempty"`
-	OCR              OCR              `toml:",omitempty"`
-	P2P              P2P              `toml:",omitempty"`
-	Keeper           Keeper           `toml:",omitempty"`
-	AutoPprof        AutoPprof        `toml:",omitempty"`
-	Pyroscope        Pyroscope        `toml:",omitempty"`
-	Sentry           Sentry           `toml:",omitempty"`
-	Insecure         Insecure         `toml:",omitempty"`
+	Feature                  Feature                   `toml:",omitempty"`
+	Database                 Database                  `toml:",omitempty"`
+	TelemetryIngress         TelemetryIngress          `toml:",omitempty"`
+	TelemetryIngressEndpoint TelemetryIngressEndpoints `toml:",omitempty"`
+	AuditLogger              AuditLogger               `toml:",omitempty"`
+	Log                      Log                       `toml:",omitempty"`
+	WebServer                WebServer                 `toml:",omitempty"`
+	JobPipeline              JobPipeline               `toml:",omitempty"`
+	FluxMonitor              FluxMonitor               `toml:",omitempty"`
+	OCR2                     OCR2                      `toml:",omitempty"`
+	OCR                      OCR                       `toml:",omitempty"`
+	P2P                      P2P                       `toml:",omitempty"`
+	Keeper                   Keeper                    `toml:",omitempty"`
+	AutoPprof                AutoPprof                 `toml:",omitempty"`
+	Pyroscope                Pyroscope                 `toml:",omitempty"`
+	Sentry                   Sentry                    `toml:",omitempty"`
+	Insecure                 Insecure                  `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -73,6 +74,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.Feature.setFrom(&f.Feature)
 	c.Database.setFrom(&f.Database)
 	c.TelemetryIngress.setFrom(&f.TelemetryIngress)
+	c.TelemetryIngressEndpoint.setFrom(&f.TelemetryIngressEndpoint)
 	c.AuditLogger.SetFrom(&f.AuditLogger)
 	c.Log.setFrom(&f.Log)
 
@@ -460,13 +462,39 @@ func (d *DatabaseBackup) setFrom(f *DatabaseBackup) {
 type TelemetryIngress struct {
 	UniConn      *bool
 	Logging      *bool
-	ServerPubKey *string
-	URL          *models.URL
 	BufferSize   *uint16
 	MaxBatchSize *uint16
 	SendInterval *models.Duration
 	SendTimeout  *models.Duration
 	UseBatchSend *bool
+}
+
+type TelemetryIngressEndpoint struct {
+	Network      *string
+	ChainID      *string
+	URL          *models.URL
+	ServerPubKey *string
+}
+
+type TelemetryIngressEndpoints []*TelemetryIngressEndpoint
+
+func (t *TelemetryIngressEndpoints) setFrom(f *TelemetryIngressEndpoints) {
+	for _, e := range *f {
+		var telemetryEndpoint TelemetryIngressEndpoint
+		if v := e.Network; v != nil {
+			telemetryEndpoint.Network = v
+		}
+		if v := e.ChainID; v != nil {
+			telemetryEndpoint.ChainID = v
+		}
+		if v := e.ServerPubKey; v != nil {
+			telemetryEndpoint.ServerPubKey = v
+		}
+		if v := e.URL; v != nil {
+			telemetryEndpoint.URL = v
+		}
+		*t = append(*t, &telemetryEndpoint)
+	}
 }
 
 func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
@@ -475,12 +503,6 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	}
 	if v := f.Logging; v != nil {
 		t.Logging = v
-	}
-	if v := f.ServerPubKey; v != nil {
-		t.ServerPubKey = v
-	}
-	if v := f.URL; v != nil {
-		t.URL = v
 	}
 	if v := f.BufferSize; v != nil {
 		t.BufferSize = v
