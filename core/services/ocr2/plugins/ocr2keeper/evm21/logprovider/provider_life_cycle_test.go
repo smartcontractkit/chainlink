@@ -70,7 +70,7 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 		},
 		{
 			"existing config with old block",
-			true,
+			false,
 			big.NewInt(111),
 			LogTriggerConfig{
 				ContractAddress: common.BytesToAddress(common.LeftPadBytes([]byte{1, 2, 3, 4}, 20)),
