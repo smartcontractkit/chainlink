@@ -140,7 +140,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Chain: coscfg.Chain{
 					GasLimitMultiplier: ptr(decimal.RequireFromString("1.55555")),
 					Bech32Prefix:       ptr("wasm"),
-					FeeToken:           ptr("cosm"),
+					GasToken:           ptr("cosm"),
 				},
 				Nodes: cosmos.CosmosNodes{
 					&coscfg.Node{
@@ -155,7 +155,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Chain: coscfg.Chain{
 					GasLimitMultiplier: ptr(decimal.RequireFromString("0.777")),
 					Bech32Prefix:       ptr("wasm"),
-					FeeToken:           ptr("cosm"),
+					GasToken:           ptr("cosm"),
 				},
 				Nodes: cosmos.CosmosNodes{
 					&coscfg.Node{
