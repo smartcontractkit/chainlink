@@ -36,19 +36,6 @@ AllowSimplePasswords=true
  * `Explorer.Secret` 
  
  All nodes will have to remove the following configuration field: `ExplorerUrl`
-- Removed the following configuration:
-
-```
-ExplorerURL
-```
-- Removed the following secret configuration:
-
-```
-[Explorer]
-AccessKey
-Secret
-```
-
 <!-- unreleasedstop -->
 
 ## 2.4.0 - 2023-08-21
