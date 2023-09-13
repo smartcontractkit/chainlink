@@ -983,7 +983,7 @@ func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []int64 {
 	var err error
 	g.Consistently(func() []int64 {
 		txaIds = make([]int64, 0)
-		err = db.Select(&txaIds, `SELECT ID FROM eth_tx_attempts ORDER BY id ASC`)
+		err = db.Select(&txaIds, `SELECT ID FROM evm.tx_attempts ORDER BY id ASC`)
 		assert.NoError(t, err)
 		return txaIds
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
@@ -1536,7 +1536,7 @@ func AssertCountStays(t testing.TB, db *sqlx.DB, tableName string, want int64) {
 	var count int64
 	var err error
 	g.Consistently(func() int64 {
-		err = db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %q`, tableName))
+		err = db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s`, tableName))
 		assert.NoError(t, err)
 		return count
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))

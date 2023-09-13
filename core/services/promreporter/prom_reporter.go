@@ -176,7 +176,7 @@ func (pr *promReporter) reportHeadMetrics(ctx context.Context, head *evmtypes.He
 
 func (pr *promReporter) reportPendingEthTxes(ctx context.Context, evmChainID *big.Int) (err error) {
 	var unconfirmed int64
-	if err := pr.db.QueryRowContext(ctx, `SELECT count(*) FROM eth_txes WHERE state = 'unconfirmed' AND evm_chain_id = $1`, evmChainID.String()).Scan(&unconfirmed); err != nil {
+	if err := pr.db.QueryRowContext(ctx, `SELECT count(*) FROM evm.txes WHERE state = 'unconfirmed' AND evm_chain_id = $1`, evmChainID.String()).Scan(&unconfirmed); err != nil {
 		return errors.Wrap(err, "failed to query for unconfirmed eth_tx count")
 	}
 	pr.backend.SetUnconfirmedTransactions(evmChainID, unconfirmed)
@@ -186,7 +186,7 @@ func (pr *promReporter) reportPendingEthTxes(ctx context.Context, evmChainID *bi
 func (pr *promReporter) reportMaxUnconfirmedAge(ctx context.Context, evmChainID *big.Int) (err error) {
 	var broadcastAt null.Time
 	now := time.Now()
-	if err := pr.db.QueryRowContext(ctx, `SELECT min(initial_broadcast_at) FROM eth_txes WHERE state = 'unconfirmed' AND evm_chain_id = $1`, evmChainID.String()).Scan(&broadcastAt); err != nil {
+	if err := pr.db.QueryRowContext(ctx, `SELECT min(initial_broadcast_at) FROM evm.txes WHERE state = 'unconfirmed' AND evm_chain_id = $1`, evmChainID.String()).Scan(&broadcastAt); err != nil {
 		return errors.Wrap(err, "failed to query for unconfirmed eth_tx count")
 	}
 	var seconds float64
@@ -201,11 +201,11 @@ func (pr *promReporter) reportMaxUnconfirmedAge(ctx context.Context, evmChainID 
 func (pr *promReporter) reportMaxUnconfirmedBlocks(ctx context.Context, head *evmtypes.Head) (err error) {
 	var earliestUnconfirmedTxBlock null.Int
 	err = pr.db.QueryRowContext(ctx, `
-SELECT MIN(broadcast_before_block_num) FROM eth_tx_attempts
-JOIN eth_txes ON eth_txes.id = eth_tx_attempts.eth_tx_id
-WHERE eth_txes.state = 'unconfirmed'
+SELECT MIN(broadcast_before_block_num) FROM evm.tx_attempts
+JOIN evm.txes ON evm.txes.id = evm.tx_attempts.eth_tx_id
+WHERE evm.txes.state = 'unconfirmed'
 AND evm_chain_id = $1
-AND eth_txes.state = 'unconfirmed'`, head.EVMChainID.String()).Scan(&earliestUnconfirmedTxBlock)
+AND evm.txes.state = 'unconfirmed'`, head.EVMChainID.String()).Scan(&earliestUnconfirmedTxBlock)
 	if err != nil {
 		return errors.Wrap(err, "failed to query for min broadcast_before_block_num")
 	}

@@ -267,7 +267,7 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 	//  an inconsistent state.  This assumes UnregisterFilter will return nil if the filter wasn't found
 	//  at all (no rows deleted).
 	spec := jb.OCR2OracleSpec
-	chain, err := d.legacyChains.Get(relayID.ChainID.String())
+	chain, err := d.legacyChains.Get(relayID.ChainID)
 	if err != nil {
 		d.lggr.Error("cleanupEVM: failed to chain get chain %s", "err", relayID.ChainID, err)
 		return nil
@@ -347,7 +347,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 	if rid.Network == relay.EVM {
 		lggr = logger.Sugared(lggr.With("evmChainID", rid.ChainID))
 
-		chain, err2 := d.legacyChains.Get(rid.ChainID.String())
+		chain, err2 := d.legacyChains.Get(rid.ChainID)
 		if err2 != nil {
 			return nil, fmt.Errorf("ServicesForSpec: could not get EVM chain %s: %w", rid.ChainID, err2)
 		}
@@ -511,7 +511,7 @@ func (d *Delegate) newServicesMercury(
 	if err != nil {
 		return nil, fmt.Errorf("failed to get relay %s is it enabled?: %w", spec.Relay, err)
 	}
-	chain, err := d.legacyChains.Get(rid.ChainID.String())
+	chain, err := d.legacyChains.Get(rid.ChainID)
 	if err != nil {
 		return nil, fmt.Errorf("mercury services: failed to get chain %s: %w", rid.ChainID, err)
 	}
@@ -626,7 +626,7 @@ func (d *Delegate) newServicesDKG(
 		return nil, fmt.Errorf("DKG services: expected EVM relayer got %s", rid.Network)
 	}
 
-	chain, err2 := d.legacyChains.Get(rid.ChainID.String())
+	chain, err2 := d.legacyChains.Get(rid.ChainID)
 	if err2 != nil {
 		return nil, fmt.Errorf("DKG services: failed to get chain %s: %w", rid.ChainID, err2)
 	}
@@ -694,7 +694,7 @@ func (d *Delegate) newServicesOCR2VRF(
 	if rid.Network != relay.EVM {
 		return nil, fmt.Errorf("VRF services: expected EVM relayer got %s", rid.Network)
 	}
-	chain, err2 := d.legacyChains.Get(rid.ChainID.String())
+	chain, err2 := d.legacyChains.Get(rid.ChainID)
 	if err2 != nil {
 		return nil, fmt.Errorf("VRF services: failed to get chain (%s): %w", rid.ChainID, err2)
 	}
@@ -920,7 +920,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		return nil, fmt.Errorf("keeper2 services: expected EVM relayer got %s", rid.Network)
 	}
 
-	chain, err2 := d.legacyChains.Get(rid.ChainID.String())
+	chain, err2 := d.legacyChains.Get(rid.ChainID)
 	if err2 != nil {
 		return nil, fmt.Errorf("keeper2 services: failed to get chain %s: %w", rid.ChainID, err2)
 	}
@@ -1033,7 +1033,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 	if rid.Network != relay.EVM {
 		return nil, fmt.Errorf("keepers2.0 services: expected EVM relayer got %s", rid.Network)
 	}
-	chain, err2 := d.legacyChains.Get(rid.ChainID.String())
+	chain, err2 := d.legacyChains.Get(rid.ChainID)
 	if err2 != nil {
 		return nil, fmt.Errorf("keepers2.0 services: failed to get chain (%s): %w", rid.ChainID, err2)
 	}
@@ -1187,7 +1187,7 @@ func (d *Delegate) newServicesOCR2Functions(
 	if rid.Network != relay.EVM {
 		return nil, fmt.Errorf("functions services: expected EVM relayer got %s", rid.Network)
 	}
-	chain, err := d.legacyChains.Get(rid.ChainID.String())
+	chain, err := d.legacyChains.Get(rid.ChainID)
 	if err != nil {
 		return nil, fmt.Errorf("functions services: failed to get chain %s: %w", rid.ChainID, err)
 	}

@@ -35,6 +35,21 @@ func TestParser(t *testing.T) {
 	assert.Equal(t, ts["core/assets"]["TestLink"], 1)
 }
 
+func TestParser_SkipsNonJSON(t *testing.T) {
+	output := `Failed tests and panics:
+-------
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Test":"TestLink","Elapsed":0}
+`
+
+	r := strings.NewReader(output)
+	ts, err := parseOutput(r)
+	require.NoError(t, err)
+
+	assert.Len(t, ts, 1)
+	assert.Len(t, ts["core/assets"], 1)
+	assert.Equal(t, ts["core/assets"]["TestLink"], 1)
+}
+
 func TestParser_PanicDueToLogging(t *testing.T) {
 	output := `
 {"Time":"2023-09-07T16:01:40.649849+01:00","Action":"output","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Test":"TestAssets_LinkScanValue","Output":"panic: foo\n"}
@@ -73,6 +88,31 @@ func TestParser_SuccessfulOutput(t *testing.T) {
 
 func TestRunner_WithFlake(t *testing.T) {
 	output := `{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Test":"TestLink","Elapsed":0}`
+	m := newMockReporter()
+	r := &Runner{
+		numReruns: 2,
+		readers:   []io.Reader{strings.NewReader(output)},
+		runTestFn: func(pkg string, testNames []string, numReruns int, w io.Writer) error {
+			_, err := w.Write([]byte(output))
+			return err
+		},
+		parse:    parseOutput,
+		reporter: m,
+	}
+
+	// This will report a flake since we've mocked the rerun
+	// to only report one failure (not two as expected).
+	err := r.Run()
+	require.NoError(t, err)
+	assert.Len(t, m.entries, 1)
+	assert.Equal(t, m.entries["core/assets"], []string{"TestLink"})
+}
+
+func TestRunner_WithFailedPackage(t *testing.T) {
+	output := `
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Test":"TestLink","Elapsed":0}
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Elapsed":0}
+`
 	m := newMockReporter()
 	r := &Runner{
 		numReruns: 2,
@@ -138,5 +178,78 @@ func TestRunner_RerunSuccessful(t *testing.T) {
 
 	err := r.Run()
 	require.NoError(t, err)
+	assert.Equal(t, m.entries["core/assets"], []string{"TestLink"})
+}
+
+type exitError struct{}
+
+func (e *exitError) ExitCode() int { return 1 }
+
+func (e *exitError) Error() string { return "exit code: 1" }
+
+func TestRunner_RerunFailsWithNonzeroExitCode(t *testing.T) {
+	output := `{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Test":"TestLink","Elapsed":0}`
+
+	rerunOutput := `
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Test":"TestLink","Elapsed":0}
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"pass","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Test":"TestLink","Elapsed":0}
+`
+	m := newMockReporter()
+	r := &Runner{
+		numReruns: 2,
+		readers:   []io.Reader{strings.NewReader(output)},
+		runTestFn: func(pkg string, testNames []string, numReruns int, w io.Writer) error {
+			_, _ = w.Write([]byte(rerunOutput))
+			return &exitError{}
+		},
+		parse:    parseOutput,
+		reporter: m,
+	}
+
+	err := r.Run()
+	require.NoError(t, err)
+	assert.Equal(t, m.entries["core/assets"], []string{"TestLink"})
+}
+
+func TestRunner_RerunWithNonZeroExitCodeDoesntStopCommand(t *testing.T) {
+	outputs := []io.Reader{
+		strings.NewReader(`
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Test":"TestLink","Elapsed":0}
+`),
+		strings.NewReader(`
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2","Test":"TestMaybeReservedLinkV2","Elapsed":0}
+`),
+	}
+
+	rerunOutputs := []string{
+		`
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Test":"TestLink","Elapsed":0}
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"pass","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Test":"TestLink","Elapsed":0}
+`,
+		`
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2","Test":"TestMaybeReservedLinkV2","Elapsed":0}
+{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/core/services/vrf/v2","Test":"TestMaybeReservedLinkV2","Elapsed":0}
+`,
+	}
+
+	index := 0
+	m := newMockReporter()
+	r := &Runner{
+		numReruns: 2,
+		readers:   outputs,
+		runTestFn: func(pkg string, testNames []string, numReruns int, w io.Writer) error {
+
+			_, _ = w.Write([]byte(rerunOutputs[index]))
+			index++
+			return &exitError{}
+		},
+		parse:    parseOutput,
+		reporter: m,
+	}
+
+	err := r.Run()
+	require.NoError(t, err)
+	calls := index
+	assert.Equal(t, 2, calls)
 	assert.Equal(t, m.entries["core/assets"], []string{"TestLink"})
 }

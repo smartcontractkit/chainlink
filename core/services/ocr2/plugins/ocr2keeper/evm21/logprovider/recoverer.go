@@ -79,6 +79,8 @@ type logRecoverer struct {
 	poller            logpoller.LogPoller
 	client            client.Client
 	blockTimeResolver *blockTimeResolver
+
+	finalityDepth int64
 }
 
 var _ LogRecoverer = &logRecoverer{}
@@ -101,6 +103,8 @@ func NewLogRecoverer(lggr logger.Logger, poller logpoller.LogPoller, client clie
 		packer:            packer,
 		client:            client,
 		blockTimeResolver: newBlockTimeResolver(poller),
+
+		finalityDepth: opts.FinalityDepth,
 	}
 
 	rec.lookbackBlocks.Store(opts.LookbackBlocks)
@@ -309,7 +313,7 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 
 	r.pending = pending
 
-	r.lggr.Debugf("found %d pending payloads", len(pending))
+	r.lggr.Debugf("found %d recoverable payloads", len(results))
 
 	return results, nil
 }
@@ -353,10 +357,10 @@ func (r *logRecoverer) recover(ctx context.Context) error {
 
 // recoverFilter recovers logs for a single upkeep filter.
 func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startBlock, offsetBlock int64) error {
-	start := f.lastRePollBlock
+	start := f.lastRePollBlock + 1 // NOTE: we expect f.lastRePollBlock + 1 <= offsetBlock, as others would have been filtered out
 	// ensure we don't recover logs from before the filter was created
-	// NOTE: we expect that filter with configUpdateBlock > offsetBlock were already filtered out.
 	if configUpdateBlock := int64(f.configUpdateBlock); start < configUpdateBlock {
+		// NOTE: we expect that configUpdateBlock <= offsetBlock, as others would have been filtered out
 		start = configUpdateBlock
 	}
 	if start < startBlock {
@@ -367,6 +371,7 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 		// If recoverer is lagging by a lot (more than 100x recoveryLogsBuffer), allow
 		// a range of recoveryLogsBurst
 		// Exploratory: Store lastRePollBlock in DB to prevent bursts during restarts
+		// (while also taking into account exisitng pending payloads)
 		end = start + recoveryLogsBurst
 	}
 	if end > offsetBlock {
@@ -477,7 +482,16 @@ func (r *logRecoverer) getRecoveryWindow(latest int64) (int64, int64) {
 	lookbackBlocks := r.lookbackBlocks.Load()
 	blockTime := r.blockTime.Load()
 	blocksInDay := int64(24*time.Hour) / blockTime
-	return latest - blocksInDay, latest - lookbackBlocks
+	start := latest - blocksInDay
+	// Exploratory: Instead of subtracting finality depth to account for finalized performs
+	// keep two pointers of lastRePollBlock for soft and hard finalization, i.e. manage
+	// unfinalized perform logs better
+	end := latest - lookbackBlocks - r.finalityDepth
+	if start > end {
+		// In this case, allow starting from more than a day behind
+		start = end
+	}
+	return start, end
 }
 
 // getFilterBatch returns a batch of filters that are ready to be recovered.
@@ -485,7 +499,7 @@ func (r *logRecoverer) getFilterBatch(offsetBlock int64) []upkeepFilter {
 	filters := r.filterStore.GetFilters(func(f upkeepFilter) bool {
 		// ensure we work only on filters that are ready to be recovered
 		// no need to recover in case f.configUpdateBlock is after offsetBlock
-		return f.lastRePollBlock <= offsetBlock && int64(f.configUpdateBlock) <= offsetBlock
+		return f.lastRePollBlock < offsetBlock && int64(f.configUpdateBlock) <= offsetBlock
 	})
 
 	sort.Slice(filters, func(i, j int) bool {

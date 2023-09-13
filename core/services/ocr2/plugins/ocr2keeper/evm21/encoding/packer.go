@@ -66,6 +66,21 @@ func (p *abiPacker) UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw str
 	return result, nil
 }
 
+func (p *abiPacker) PackGetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error) {
+	return p.abi.Pack("getUpkeepPrivilegeConfig", upkeepId)
+}
+
+func (p *abiPacker) UnpackGetUpkeepPrivilegeConfig(resp []byte) ([]byte, error) {
+	out, err := p.abi.Methods["getUpkeepPrivilegeConfig"].Outputs.UnpackValues(resp)
+	if err != nil {
+		return nil, fmt.Errorf("%w: unpack getUpkeepPrivilegeConfig return", err)
+	}
+
+	bts := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
+
+	return bts, nil
+}
+
 func (p *abiPacker) UnpackCheckCallbackResult(callbackResp []byte) (PipelineExecutionState, bool, []byte, uint8, *big.Int, error) {
 	out, err := p.abi.Methods["checkCallback"].Outputs.UnpackValues(callbackResp)
 	if err != nil {

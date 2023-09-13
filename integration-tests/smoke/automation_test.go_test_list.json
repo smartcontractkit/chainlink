@@ -2,108 +2,51 @@
   "tests": [
     {
       "name": "TestAutomationBasic",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1_conditional"
-        },
-        {
-          "name": "registry_2_1_logtrigger"
-        }
-      ]
-    },
-    {
-      "name": "TestAutomationAddFunds",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
-    },
-    {
-      "name": "TestAutomationPauseUnPause",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
-    },
-    {
-      "name": "TestAutomationRegisterUpkeep",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
-    },
-    {
-      "name": "TestAutomationPauseRegistry",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
-    },
-    {
-      "name": "TestAutomationKeeperNodesDown",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
-    },
-    {
-      "name": "TestAutomationPerformSimulation",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
-    },
-    {
-      "name": "TestAutomationCheckPerformGasLimit",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
-    },
-    {
-      "name": "TestUpdateCheckData",
-      "run": [
-        {
-          "name": "registry_2_0"
-        },
-        {
-          "name": "registry_2_1"
-        }
-      ]
+      "label": "ubuntu20.04-32cores-128GB",
+      "nodes": 3
     },
     {
       "name": "TestSetUpkeepTriggerConfig"
+    },
+    {
+      "name": "TestAutomationAddFunds",
+      "label": "ubuntu20.04-32cores-128GB",
+      "nodes": 2
+    },
+    {
+      "name": "TestAutomationPauseUnPause",
+      "label": "ubuntu20.04-16cores-64GB",
+      "nodes": 2
+    },
+    {
+      "name": "TestAutomationRegisterUpkeep",
+      "label": "ubuntu20.04-16cores-64GB",
+      "nodes": 2
+    },
+    {
+      "name": "TestAutomationPauseRegistry",
+      "label": "ubuntu20.04-16cores-64GB",
+      "nodes": 2
+    },
+    {
+      "name": "TestAutomationKeeperNodesDown",
+      "label": "ubuntu20.04-16cores-64GB",
+      "nodes": 2
+    },
+    {
+      "name": "TestAutomationPerformSimulation",
+      "label": "ubuntu20.04-16cores-64GB",
+      "nodes": 2
+    },
+    {
+      "name": "TestAutomationCheckPerformGasLimit",
+      "label": "ubuntu20.04-32cores-128GB",
+      "nodes": 2
+    },
+    {
+      "name": "TestUpdateCheckData",
+      "label": "ubuntu20.04-32cores-128GB",
+      "nodes": 2
     }
   ]
 }
