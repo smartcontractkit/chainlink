@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -13,7 +14,6 @@ import (
 	"github.com/go-resty/resty/v2"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
-	"os"
 )
 
 const (
@@ -109,10 +109,13 @@ func (c *ChainlinkClient) CreateJobRaw(spec string) (*Job, *http.Response, error
 // MustCreateJob creates a Chainlink job based on the provided spec struct and returns error if
 // the request is unsuccessful
 func (c *ChainlinkClient) MustCreateJob(spec JobSpec) (*Job, error) {
+	spek, _ := spec.String()
+	log.Info().Msg("**** Job spec is " + spek)
 	job, resp, err := c.CreateJob(spec)
 	if err != nil {
 		return nil, err
 	}
+
 	return job, VerifyStatusCode(resp.StatusCode, http.StatusOK)
 }
 
