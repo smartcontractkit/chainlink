@@ -1,7 +1,7 @@
 pragma solidity 0.8.16;
 
 import "../automation/interfaces/AutomationCompatibleInterface.sol";
-import "../dev/automation/2_1/interfaces/StreamsLookupCompatibleInterface.sol";
+import "../automation/interfaces/StreamsLookupCompatibleInterface.sol";
 import {ArbSys} from "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 
 interface IVerifierProxy {
@@ -15,15 +15,7 @@ interface IVerifierProxy {
 }
 
 contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupCompatibleInterface {
-  event MercuryPerformEvent(
-    address indexed sender,
-    uint256 indexed blockNumber,
-    bytes v0,
-    bytes v1,
-    bytes verifiedV0,
-    bytes verifiedV1,
-    bytes ed
-  );
+  event MercuryPerformEvent(address indexed sender, uint256 indexed blockNumber, bytes v0, bytes verifiedV0, bytes ed);
 
   ArbSys internal constant ARB_SYS = ArbSys(0x0000000000000000000000000000000000000064);
   // keep these in sync with verifier proxy in RDD
@@ -53,12 +45,13 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     initialBlock = 0;
     counter = 0;
     useArbBlock = _useArbBlock;
-    feedParamKey = "feedIdHex"; // feedIDs for v0.3
-    timeParamKey = "blockNumber"; // timestamp
+    feedParamKey = "feedIDs"; // feedIDs for v0.3
+    timeParamKey = "timestamp"; // timestamp
     // search feeds in notion: "Schema and Feed ID Registry"
     feeds = [
-      "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", // ETH / USD in production testnet
-      "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000" // BTC / USD in production testnet
+      //"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", // ETH / USD in production testnet v0.2
+      //"0x4254432d5553442d415242495452554d2d544553544e45540000000000000000" // BTC / USD in production testnet v0.2
+      "0x00028c915d6af0fd66bba2d0fc9405226bca8d6806333121a7d9832103d1563c" // ETH / USD in staging testnet v0.3
     ];
     staging = _staging;
     verify = _verify;
@@ -99,15 +92,21 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     if (!eligible()) {
       return (false, data);
     }
-    uint256 blockNumber;
-    if (useArbBlock) {
-      blockNumber = ARB_SYS.arbBlockNumber();
+    uint256 timeParam;
+    if (keccak256(abi.encodePacked(feedParamKey)) == keccak256(abi.encodePacked("feedIdHex"))) {
+      if (useArbBlock) {
+        timeParam = ARB_SYS.arbBlockNumber();
+      } else {
+        timeParam = block.number;
+      }
     } else {
-      blockNumber = block.number;
+      // assume this will be feedIDs for v0.3
+      timeParam = block.timestamp;
     }
+
     // encode ARB_SYS as extraData to verify that it is provided to checkCallback correctly.
     // in reality, this can be any data or empty
-    revert StreamsLookup(feedParamKey, feeds, timeParamKey, blockNumber, abi.encodePacked(address(ARB_SYS)));
+    revert StreamsLookup(feedParamKey, feeds, timeParamKey, timeParam, abi.encodePacked(address(ARB_SYS)));
   }
 
   function performUpkeep(bytes calldata performData) external {
@@ -129,13 +128,11 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
     if (verify) {
       if (staging) {
         v0 = STAGING_TESTNET_VERIFIER_PROXY.verify(values[0]);
-        v1 = STAGING_TESTNET_VERIFIER_PROXY.verify(values[1]);
       } else {
         v0 = PRODUCTION_TESTNET_VERIFIER_PROXY.verify(values[0]);
-        v1 = PRODUCTION_TESTNET_VERIFIER_PROXY.verify(values[1]);
       }
     }
-    emit MercuryPerformEvent(msg.sender, blockNumber, values[0], values[1], v0, v1, extraData);
+    emit MercuryPerformEvent(msg.sender, blockNumber, values[0], v0, extraData);
   }
 
   function eligible() public view returns (bool) {

@@ -118,7 +118,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job, qopts ...pg.QOpt) (services 
 		if routerFields.ContractVersion != 1 || routerFields.ContractUpdateCheckFrequencySec == 0 {
 			return nil, errors.New("invalid router contract config")
 		}
-		configProvider, err = relayer.NewFunctionsProvider(
+		configProvider, err = relayer.NewPluginProvider(
 			ctx,
 			types.RelayArgs{
 				ExternalJobID: jobSpec.ExternalJobID,
@@ -126,6 +126,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job, qopts ...pg.QOpt) (services 
 				ContractID:    spec.ContractID,
 				RelayConfig:   spec.RelayConfig.Bytes(),
 				New:           d.isNewlyCreatedJob,
+				ProviderType:  string(types.Functions),
 			},
 			types.PluginArgs{
 				PluginConfig: spec.RelayConfig.Bytes(), // contains all necessary fields for config provider

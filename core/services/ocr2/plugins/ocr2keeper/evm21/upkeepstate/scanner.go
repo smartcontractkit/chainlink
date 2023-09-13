@@ -15,6 +15,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
+var (
+	_ PerformedLogsScanner = &performedEventsScanner{}
+
+	workIDsBatchSize = 25
+)
+
 type PerformedLogsScanner interface {
 	ScanWorkIDs(ctx context.Context, workIDs ...string) ([]string, error)
 
@@ -56,7 +62,7 @@ func (s *performedEventsScanner) Start(_ context.Context) error {
 	})
 }
 
-// implements io.Closer, does nothing upon close
+// Close implements io.Closer and does nothing
 func (s *performedEventsScanner) Close() error {
 	return nil
 }
@@ -66,9 +72,18 @@ func (s *performedEventsScanner) ScanWorkIDs(ctx context.Context, workID ...stri
 	for _, id := range workID {
 		ids = append(ids, common.HexToHash(id))
 	}
-	logs, err := s.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(), s.registryAddress, 1, ids, int(s.finalityDepth), pg.WithParentCtx(ctx))
-	if err != nil {
-		return nil, fmt.Errorf("error fetching logs: %w", err)
+	logs := make([]logpoller.Log, 0)
+	for i := 0; i < len(ids); i += workIDsBatchSize {
+		end := i + workIDsBatchSize
+		if end > len(ids) {
+			end = len(ids)
+		}
+		batch := ids[i:end]
+		batchLogs, err := s.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(), s.registryAddress, 1, batch, int(s.finalityDepth), pg.WithParentCtx(ctx))
+		if err != nil {
+			return nil, fmt.Errorf("error fetching logs: %w", err)
+		}
+		logs = append(logs, batchLogs...)
 	}
 
 	return s.logsToWorkIDs(logs), nil

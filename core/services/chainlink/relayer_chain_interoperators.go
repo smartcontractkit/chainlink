@@ -53,17 +53,21 @@ type LegacyChainer interface {
 	LegacyCosmosChains() cosmos.LegacyChainContainer
 }
 
-// Similar to [chains.ChainStatuser] but keyed by relay identifier instead of string
-// TODO BCF-2441 remove this comment when chains.ChainStatus is no longer keyed.
 type ChainStatuser interface {
 	ChainStatus(ctx context.Context, id relay.ID) (types.ChainStatus, error)
 	ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
 }
 
+// NodesStatuser is an interface for node configuration and state.
+// TODO BCF-2440, BCF-2511 may need Node(ctx,name) to get a node status by name
+type NodesStatuser interface {
+	NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...relay.ID) (nodes []types.NodeStatus, count int, err error)
+}
+
 // ChainsNodesStatuser report statuses about chains and nodes
 type ChainsNodesStatuser interface {
 	ChainStatuser
-	chains.NodesStatuser
+	NodesStatuser
 }
 
 var _ RelayerChainInteroperators = &CoreRelayerChainInteroperators{}
@@ -112,7 +116,7 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 			// adapter is a service
 			op.srvs = append(op.srvs, a)
 			op.loopRelayers[id] = a
-			legacyMap[id.ChainID.String()] = a.Chain()
+			legacyMap[id.ChainID] = a.Chain()
 			if a.Default() {
 				defaultChain = a.Chain()
 			}
@@ -139,7 +143,7 @@ func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactor
 		for id, a := range adapters {
 			op.srvs = append(op.srvs, a)
 			op.loopRelayers[id] = a
-			legacyMap[id.ChainID.String()] = a.Chain()
+			legacyMap[id.ChainID] = a.Chain()
 		}
 		op.legacyChains.CosmosChains = cosmos.NewLegacyChains(legacyMap)
 
@@ -220,7 +224,6 @@ func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id re
 }
 
 func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
-	// chain statuses are not dynamic; the call would be better named as ChainConfig or such.
 
 	var (
 		stats    []types.ChainStatus
@@ -273,8 +276,7 @@ func (rs *CoreRelayerChainInteroperators) Node(ctx context.Context, name string)
 
 // ids must be a string representation of relay.Identifier
 // ids are a filter; if none are specified, all are returned.
-// TODO: BCF-2440/1 this signature can be changed to id relay.Identifier which is a much better API
-func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, relayerIDs ...string) (nodes []types.NodeStatus, count int, err error) {
+func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, relayerIDs ...relay.ID) (nodes []types.NodeStatus, count int, err error) {
 	var (
 		totalErr error
 		result   []types.NodeStatus
@@ -290,14 +292,8 @@ func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offs
 			count += total
 		}
 	} else {
-		for _, idStr := range relayerIDs {
-			rid := new(relay.ID)
-			err := rid.UnmarshalString(idStr)
-			if err != nil {
-				totalErr = errors.Join(totalErr, err)
-				continue
-			}
-			lr, exist := rs.loopRelayers[*rid]
+		for _, rid := range relayerIDs {
+			lr, exist := rs.loopRelayers[rid]
 			if !exist {
 				totalErr = errors.Join(totalErr, fmt.Errorf("relayer %s does not exist", rid.Name()))
 				continue

@@ -23,7 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -31,7 +31,6 @@ type ChainOpts struct {
 	Logger logger.Logger
 	// the implementation used here needs to be co-ordinated with the starknet transaction manager keystore adapter
 	KeyStore loop.Keystore
-	Configs  types.Configs
 }
 
 func (o *ChainOpts) Name() string {
@@ -48,14 +47,7 @@ func (o *ChainOpts) Validate() (err error) {
 	if o.KeyStore == nil {
 		err = multierr.Append(err, required("KeyStore"))
 	}
-	if o.Configs == nil {
-		err = multierr.Append(err, required("Configs"))
-	}
 	return
-}
-
-func (o *ChainOpts) ConfigsAndLogger() (chains.Configs[string, db.Node], logger.Logger) {
-	return o.Configs, o.Logger
 }
 
 var _ starkChain.Chain = (*chain)(nil)
@@ -64,7 +56,6 @@ type chain struct {
 	utils.StartStopOnce
 	id   string
 	cfg  *StarknetConfig
-	cfgs types.Configs
 	lggr logger.Logger
 	txm  txm.StarkTXM
 }
@@ -73,19 +64,18 @@ func NewChain(cfg *StarknetConfig, opts ChainOpts) (starkchain.Chain, error) {
 	if !cfg.IsEnabled() {
 		return nil, fmt.Errorf("cannot create new chain with ID %s: %w", *cfg.ChainID, chains.ErrChainDisabled)
 	}
-	c, err := newChain(*cfg.ChainID, cfg, opts.KeyStore, opts.Configs, opts.Logger)
+	c, err := newChain(*cfg.ChainID, cfg, opts.KeyStore, opts.Logger)
 	if err != nil {
 		return nil, err
 	}
 	return c, nil
 }
 
-func newChain(id string, cfg *StarknetConfig, loopKs loop.Keystore, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg *StarknetConfig, loopKs loop.Keystore, lggr logger.Logger) (*chain, error) {
 	lggr = logger.With(lggr, "starknetChainID", id)
 	ch := &chain{
 		id:   id,
 		cfg:  cfg,
-		cfgs: cfgs,
 		lggr: logger.Named(lggr, "Chain"),
 	}
 
@@ -118,11 +108,15 @@ func (c *chain) Reader() (starknet.Reader, error) {
 	return c.getClient()
 }
 
+func (c *chain) ChainID() relay.ChainID {
+	return relay.ChainID(c.id)
+}
+
 // getClient returns a client, randomly selecting one from available and valid nodes
 func (c *chain) getClient() (*starknet.Client, error) {
 	var node db.Node
 	var client *starknet.Client
-	nodes, err := c.cfgs.Nodes(c.id)
+	nodes, err := c.cfg.ListNodes()
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get nodes")
 	}
@@ -215,7 +209,7 @@ func (c *chain) listNodeStatuses(start, end int) ([]relaytypes.NodeStatus, int, 
 	}
 	nodes := c.cfg.Nodes[start:end]
 	for _, node := range nodes {
-		stat, err := nodeStatus(node, c.id)
+		stat, err := nodeStatus(node, c.ChainID())
 		if err != nil {
 			return stats, total, err
 		}

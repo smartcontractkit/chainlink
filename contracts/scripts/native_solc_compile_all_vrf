@@ -51,6 +51,7 @@ compileContract vrf/BatchBlockhashStore.sol
 compileContract vrf/BatchVRFCoordinatorV2.sol
 compileContract vrf/testhelpers/VRFCoordinatorV2TestHelper.sol
 compileContractAltOpts vrf/VRFCoordinatorV2.sol 10000
+compileContract mocks/VRFCoordinatorV2Mock.sol
 compileContract vrf/VRFOwner.sol
 
 # VRF V2Plus

@@ -66,6 +66,21 @@ func (p *abiPacker) UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw str
 	return result, nil
 }
 
+func (p *abiPacker) PackGetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error) {
+	return p.abi.Pack("getUpkeepPrivilegeConfig", upkeepId)
+}
+
+func (p *abiPacker) UnpackGetUpkeepPrivilegeConfig(resp []byte) ([]byte, error) {
+	out, err := p.abi.Methods["getUpkeepPrivilegeConfig"].Outputs.UnpackValues(resp)
+	if err != nil {
+		return nil, fmt.Errorf("%w: unpack getUpkeepPrivilegeConfig return", err)
+	}
+
+	bts := *abi.ConvertType(out[0], new([]byte)).(*[]byte)
+
+	return bts, nil
+}
+
 func (p *abiPacker) UnpackCheckCallbackResult(callbackResp []byte) (PipelineExecutionState, bool, []byte, uint8, *big.Int, error) {
 	out, err := p.abi.Methods["checkCallback"].Outputs.UnpackValues(callbackResp)
 	if err != nil {
@@ -92,22 +107,6 @@ func (p *abiPacker) UnpackPerformResult(raw string) (PipelineExecutionState, boo
 	}
 
 	return NoPipelineError, *abi.ConvertType(out[0], new(bool)).(*bool), nil
-}
-
-func (p *abiPacker) UnpackUpkeepInfo(id *big.Int, raw string) (UpkeepInfo, error) {
-	b, err := hexutil.Decode(raw)
-	if err != nil {
-		return UpkeepInfo{}, err
-	}
-
-	out, err := p.abi.Methods["getUpkeep"].Outputs.UnpackValues(b)
-	if err != nil {
-		return UpkeepInfo{}, fmt.Errorf("%w: unpack getUpkeep return: %s", err, raw)
-	}
-
-	info := *abi.ConvertType(out[0], new(UpkeepInfo)).(*UpkeepInfo)
-
-	return info, nil
 }
 
 // UnpackLogTriggerConfig unpacks the log trigger config from the given raw data

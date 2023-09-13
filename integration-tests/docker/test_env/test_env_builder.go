@@ -1,6 +1,7 @@
 package test_env
 
 import (
+	"fmt"
 	"math/big"
 	"os"
 
@@ -12,8 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
@@ -135,19 +137,23 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 		}
 	}
 	if b.nonDevGethNetworks != nil {
-		te.WithPrivateGethChain(b.nonDevGethNetworks)
-		err := te.StartPrivateGethChain()
+		te.WithPrivateChain(b.nonDevGethNetworks)
+		err := te.StartPrivateChain()
 		if err != nil {
 			return te, err
 		}
-		var nonDevGethNetworks []blockchain.EVMNetwork
-		for i, n := range te.PrivateGethChain {
-			nonDevGethNetworks = append(nonDevGethNetworks, *n.NetworkConfig)
-			nonDevGethNetworks[i].URLs = []string{n.PrimaryNode.InternalWsUrl}
-			nonDevGethNetworks[i].HTTPURLs = []string{n.PrimaryNode.InternalHttpUrl}
+		var nonDevNetworks []blockchain.EVMNetwork
+		for i, n := range te.PrivateChain {
+			primaryNode := n.GetPrimaryNode()
+			if primaryNode == nil {
+				return te, errors.WithStack(fmt.Errorf("Primary node is nil in PrivateChain interface"))
+			}
+			nonDevNetworks = append(nonDevNetworks, *n.GetNetworkConfig())
+			nonDevNetworks[i].URLs = []string{primaryNode.GetInternalWsUrl()}
+			nonDevNetworks[i].HTTPURLs = []string{primaryNode.GetInternalHttpUrl()}
 		}
-		if nonDevGethNetworks == nil {
-			return nil, errors.New("cannot create nodes with custom config without nonDevGethNetworks")
+		if nonDevNetworks == nil {
+			return nil, errors.New("cannot create nodes with custom config without nonDevNetworks")
 		}
 
 		err = te.StartClNodes(b.clNodeConfig, b.clNodesCount)
@@ -193,7 +199,7 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 		if b.clNodeConfig != nil {
 			cfg = b.clNodeConfig
 		} else {
-			cfg = node.NewConfig(node.BaseConf,
+			cfg = node.NewConfig(node.NewBaseConfig(),
 				node.WithOCR1(),
 				node.WithP2Pv1(),
 			)
