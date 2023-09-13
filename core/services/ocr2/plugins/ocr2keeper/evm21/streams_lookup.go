@@ -88,7 +88,7 @@ type UpkeepPrivilegeConfig struct {
 
 // streamsLookup looks through check upkeep results looking for any that need off chain lookup
 func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keepers.CheckResult) []ocr2keepers.CheckResult {
-	lggr := r.lggr.With("where", "StreamsLookup")
+	lggr := r.lggr.Named("StreamsLookup")
 	lookups := map[int]*StreamsLookup{}
 	for i, res := range checkResults {
 		if res.IneligibilityReason != uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {

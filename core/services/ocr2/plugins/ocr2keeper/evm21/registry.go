@@ -41,7 +41,7 @@ const (
 )
 
 var (
-	RegistryServiceName = "AutomationRegistry"
+	RegistryServiceName = "EvmRegistry"
 
 	ErrLogReadFailure              = fmt.Errorf("failure reading logs")
 	ErrHeadNotAvailable            = fmt.Errorf("head not available")
@@ -87,7 +87,7 @@ func NewEvmRegistry(
 	return &EvmRegistry{
 		ctx:          context.Background(),
 		threadCtrl:   utils.NewThreadControl(),
-		lggr:         lggr.Named("EvmRegistry"),
+		lggr:         lggr.Named(RegistryServiceName),
 		poller:       client.LogPoller(),
 		addr:         addr,
 		client:       client.Client(),
@@ -165,7 +165,7 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 		}
 
 		r.threadCtrl.Go(func(ctx context.Context) {
-			lggr := r.lggr.With("where", "upkeeps_referesh")
+			lggr := r.lggr.Named("UpkeepRefreshThread")
 			err := r.refreshActiveUpkeeps()
 			if err != nil {
 				lggr.Errorf("failed to initialize upkeeps", err)
@@ -188,7 +188,7 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 		})
 
 		r.threadCtrl.Go(func(ctx context.Context) {
-			lggr := r.lggr.With("where", "logs_polling")
+			lggr := r.lggr.Named("LogPollingThread")
 			ticker := time.NewTicker(time.Second)
 			defer ticker.Stop()
 
@@ -206,7 +206,7 @@ func (r *EvmRegistry) Start(ctx context.Context) error {
 		})
 
 		r.threadCtrl.Go(func(ctx context.Context) {
-			lggr := r.lggr.With("where", "logs_processing")
+			lggr := r.lggr.Named("LogProcessingThread")
 			ch := r.chLog
 
 			for {
@@ -234,7 +234,7 @@ func (r *EvmRegistry) Close() error {
 }
 
 func (r *EvmRegistry) HealthReport() map[string]error {
-	return map[string]error{RegistryServiceName: r.Healthy()}
+	return map[string]error{r.lggr.Name(): r.Healthy()}
 }
 
 func (r *EvmRegistry) refreshActiveUpkeeps() error {

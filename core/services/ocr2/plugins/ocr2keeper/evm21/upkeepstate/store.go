@@ -167,7 +167,7 @@ func (u *upkeepStateStore) Close() error {
 }
 
 func (u *upkeepStateStore) HealthReport() map[string]error {
-	return map[string]error{UpkeepStateStoreServiceName: u.Healthy()}
+	return map[string]error{u.lggr.Name(): u.Healthy()}
 }
 
 // SelectByWorkIDs returns the current state of the upkeep for the provided ids.

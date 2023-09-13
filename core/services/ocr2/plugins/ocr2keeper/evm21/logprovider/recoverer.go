@@ -181,7 +181,7 @@ func (r *logRecoverer) Close() error {
 }
 
 func (r *logRecoverer) HealthReport() map[string]error {
-	return map[string]error{LogRecovererServiceName: r.Healthy()}
+	return map[string]error{r.lggr.Name(): r.Healthy()}
 }
 
 func (r *logRecoverer) GetProposalData(ctx context.Context, proposal ocr2keepers.CoordinatedBlockProposal) ([]byte, error) {
@@ -572,7 +572,7 @@ func (r *logRecoverer) clean(ctx context.Context) {
 		}
 	}
 	r.lock.RUnlock()
-	lggr := r.lggr.With("where", "clean")
+	lggr := r.lggr.Named("Cleaner")
 	if len(expired) == 0 {
 		lggr.Debug("no expired upkeeps")
 		return
@@ -595,7 +595,7 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 	if err != nil {
 		return fmt.Errorf("failed to get states: %w", err)
 	}
-	lggr := r.lggr.With("where", "clean")
+	lggr := r.lggr.Named("TryExpire")
 	start, _ := r.getRecoveryWindow(latestBlock)
 	r.lock.Lock()
 	defer r.lock.Unlock()

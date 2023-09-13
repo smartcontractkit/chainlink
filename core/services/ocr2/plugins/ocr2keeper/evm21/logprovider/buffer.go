@@ -152,7 +152,7 @@ type logEventBuffer struct {
 
 func newLogEventBuffer(lggr logger.Logger, size, maxBlockLogs, maxUpkeepLogsPerBlock int) *logEventBuffer {
 	return &logEventBuffer{
-		lggr:                  lggr.Named("KeepersRegistry.LogEventBuffer"),
+		lggr:                  lggr.Named("LogEventBuffer"),
 		size:                  int32(size),
 		blocks:                make([]fetchedBlock, size),
 		maxBlockLogs:          maxBlockLogs,

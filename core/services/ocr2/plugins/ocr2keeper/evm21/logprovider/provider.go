@@ -104,7 +104,7 @@ type logEventProvider struct {
 func NewLogProvider(lggr logger.Logger, poller logpoller.LogPoller, packer LogDataPacker, filterStore UpkeepFilterStore, opts LogTriggersOptions) *logEventProvider {
 	return &logEventProvider{
 		threadCtrl:  utils.NewThreadControl(),
-		lggr:        lggr.Named("KeepersRegistry.LogEventProvider"),
+		lggr:        lggr.Named(LogProviderServiceName),
 		packer:      packer,
 		buffer:      newLogEventBuffer(lggr, int(opts.LookbackBlocks), maxLogsPerBlock, maxLogsPerUpkeepInBlock),
 		poller:      poller,
@@ -121,13 +121,14 @@ func (p *logEventProvider) Start(context.Context) error {
 		p.lggr.Infow("starting log event provider", "readInterval", p.opts.ReadInterval, "readMaxBatchSize", readMaxBatchSize, "readers", readerThreads)
 
 		for i := 0; i < readerThreads; i++ {
+			tid := i + 1
 			p.threadCtrl.Go(func(ctx context.Context) {
-				p.startReader(ctx, readQ)
+				p.startReader(ctx, readQ, tid)
 			})
 		}
 
 		p.threadCtrl.Go(func(ctx context.Context) {
-			lggr := p.lggr.With("where", "scheduler")
+			lggr := p.lggr.Named("Scheduler")
 
 			p.scheduleReadJobs(ctx, func(ids []*big.Int) {
 				select {
@@ -151,7 +152,7 @@ func (p *logEventProvider) Close() error {
 }
 
 func (p *logEventProvider) HealthReport() map[string]error {
-	return map[string]error{LogProviderServiceName: p.Healthy()}
+	return map[string]error{p.lggr.Name(): p.Healthy()}
 }
 
 func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
@@ -251,11 +252,11 @@ func (p *logEventProvider) scheduleReadJobs(pctx context.Context, execute func([
 }
 
 // startReader starts a reader that reads logs from the ids coming from readQ.
-func (p *logEventProvider) startReader(pctx context.Context, readQ <-chan []*big.Int) {
+func (p *logEventProvider) startReader(pctx context.Context, readQ <-chan []*big.Int, tid int) {
 	ctx, cancel := context.WithCancel(pctx)
 	defer cancel()
 
-	lggr := p.lggr.With("where", "reader")
+	lggr := p.lggr.Named(fmt.Sprintf("ReaderThread-%d", tid))
 
 	for {
 		select {

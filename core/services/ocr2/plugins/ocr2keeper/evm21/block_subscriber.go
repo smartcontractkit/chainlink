@@ -66,7 +66,7 @@ func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, lggr
 		blockHistorySize: blockHistorySize,
 		blockSize:        lookbackDepth,
 		latestBlock:      atomic.Pointer[ocr2keepers.BlockKey]{},
-		lggr:             lggr.Named("BlockSubscriber"),
+		lggr:             lggr.Named(BlockSubscriberServiceName),
 	}
 }
 
