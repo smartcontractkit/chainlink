@@ -10,82 +10,35 @@ on:
     branches:
       - master
       - develop
-      - 'release/*'
-      - staging
-      - trying
-      - rollup
+      - "release/*"
   merge_group:
   pull_request:
   schedule:
     - cron: "0 0 * * *"
 
 jobs:
-  golangci-changes:
-    name: detect changes for lint
-    runs-on: ubuntu-latest
-    outputs:
-      src: ${{ steps.golangci-changes.outputs.src }}
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
-      - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
-        id: golangci-changes
-        with:
-          filters: |
-            src:
-            - '**/*.go'
-            - '**/go.mod'
-            - '**/go.sum'
-            - '.golangci.yml'
-            - '.github/workflows/ci-core.yml'
-  init:
-    name: initialize
-    runs-on: ubuntu-latest
-    needs: [golangci-changes]
-    defaults:
-      run:
-        shell: bash
-    outputs:
-      # Determine if `on` event should trigger linting to run
-      on_trigger_lint: ${{ steps.golangci-lint.outputs.on_trigger }}
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
-      - name: Check if event should trigger lint
-        id: golangci-lint
-        env:
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          GITHUB_BASE_REF: ${{ github.base_ref }}
-          GITHUB_REF: ${{ github.ref }}
-          SRC_CHANGED: ${{ needs.golangci-changes.outputs.src }}
-        run: ./.github/scripts/bash/ontriggerlint.sh | tee -a $GITHUB_OUTPUT
-
   golangci:
+    if: ${{ github.event_name == 'pull_request' ||  github.event_name == 'schedule' }}
     name: lint
-    runs-on: ubuntu-latest
-    needs: [init]
+    runs-on: ubuntu20.04-8cores-32GB
     steps:
-      - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-go@v4
-        if: needs.init.outputs.on_trigger_lint == 'true'
-        with:
-          go-version-file: 'go.mod'
-          # If cache is set to true (default), the "prepare environment" will
-          # silently fail with these errors:
-          # Error: /usr/bin/tar: <...>: Cannot open: File exists
-          cache: false
+      - uses: actions/checkout@v4
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+      - name: Touching core/web/assets/index.html
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+      - name: Build binary
+        run: go build ./...
       - name: golangci-lint
-        if: needs.init.outputs.on_trigger_lint == 'true'
         uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3.7.0
         with:
           version: v1.54.2
-          only-new-issues: ${{ github.event.schedule == '' }} # show only new issues, unless it's a scheduled run
-          args: --out-format checkstyle:golangci-lint-report.xml
-      - name: Print lint report artifact
-        if: always()
-        run: test -f golangci-lint-report.xml && cat golangci-lint-report.xml || true
+          # We already cache these directories in setup-go
+          skip-pkg-cache: true
+          skip-build-cache: true
+          # only-new-issues is only applicable to PRs, otherwise it is always set to false
+          only-new-issues: true
+          args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
       - name: Store lint report artifact
         if: always()
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
@@ -94,7 +47,6 @@ jobs:
           path: golangci-lint-report.xml
       - name: Collect Metrics
         if: always()
-        id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
@@ -231,7 +183,7 @@ jobs:
         env:
           SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
         with:
-          channel-id: '#topic-data-races'
+          channel-id: "#topic-data-races"
           slack-message: "Race tests failed: ${{ job.html_url }}\n${{ format('https://github.com/smartcontractkit/chainlink/actions/runs/{0}', github.run_id) }}"
       - name: Collect Metrics
         if: always()

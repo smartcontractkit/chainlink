@@ -11,7 +11,7 @@ var _ MonitoringEndpointGenerator = &NoopAgent{}
 type NoopAgent struct {
 }
 
-// SendLog sends a telemetry log to the explorer
+// SendLog sends a telemetry log to the ingress service
 func (t *NoopAgent) SendLog(log []byte) {
 }
 

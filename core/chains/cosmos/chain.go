@@ -114,7 +114,7 @@ func newChain(id string, cfg *CosmosConfig, db *sqlx.DB, ks loop.Keystore, logCf
 	gpe := cosmosclient.NewMustGasPriceEstimator([]cosmosclient.GasPricesEstimator{
 		cosmosclient.NewClosureGasPriceEstimator(func() (map[string]sdk.DecCoin, error) {
 			return map[string]sdk.DecCoin{
-				cfg.FeeToken(): sdk.NewDecCoinFromDec(cfg.FeeToken(), cfg.FallbackGasPrice()),
+				cfg.GasToken(): sdk.NewDecCoinFromDec(cfg.GasToken(), cfg.FallbackGasPrice()),
 			}, nil
 		}),
 	}, lggr)

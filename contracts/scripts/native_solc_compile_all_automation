@@ -37,7 +37,7 @@ compileContract automation/2_0/KeeperRegistry2_0.sol
 compileContract automation/2_0/KeeperRegistryLogic2_0.sol
 compileContract automation/UpkeepTranscoder.sol
 compileContract automation/mocks/MockAggregatorProxy.sol
-compileContract dev/automation/tests/LogUpkeepCounter.sol
+compileContract automation/testhelpers/LogUpkeepCounter.sol
 
 # Keepers x VRF v2
 compileContract KeepersVRFConsumer.sol
@@ -52,17 +52,17 @@ solc-select use $SOLC_VERSION
 export SOLC_VERSION=$SOLC_VERSION
 
 # v0.8.16
-compileContract dev/automation/2_1/AutomationRegistrar2_1.sol
-compileContract dev/automation/2_1/KeeperRegistry2_1.sol
-compileContract dev/automation/2_1/KeeperRegistryLogicA2_1.sol
-compileContract dev/automation/2_1/KeeperRegistryLogicB2_1.sol
-compileContract dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol
-compileContract dev/automation/2_1/interfaces/ILogAutomation.sol
-compileContract dev/automation/2_1/AutomationUtils2_1.sol
-compileContract dev/automation/2_1/AutomationForwarderLogic.sol
-compileContract dev/automation/tests/LogTriggeredStreamsLookup.sol
-compileContract dev/automation/tests/DummyProtocol.sol
-compileContract dev/automation/2_1/interfaces/StreamsLookupCompatibleInterface.sol
+compileContract automation/2_1/AutomationRegistrar2_1.sol
+compileContract automation/2_1/KeeperRegistry2_1.sol
+compileContract automation/2_1/KeeperRegistryLogicA2_1.sol
+compileContract automation/2_1/KeeperRegistryLogicB2_1.sol
+compileContract automation/interfaces/2_1/IKeeperRegistryMaster.sol
+compileContract automation/interfaces/ILogAutomation.sol
+compileContract automation/2_1/AutomationUtils2_1.sol
+compileContract automation/2_1/AutomationForwarderLogic.sol
+compileContract automation/testhelpers/LogTriggeredStreamsLookup.sol
+compileContract automation/testhelpers/DummyProtocol.sol
+compileContract automation/interfaces/StreamsLookupCompatibleInterface.sol
 
 compileContract tests/VerifiableLoadUpkeep.sol
 compileContract tests/VerifiableLoadStreamsLookupUpkeep.sol
