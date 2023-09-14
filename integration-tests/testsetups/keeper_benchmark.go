@@ -246,7 +246,7 @@ func (k *KeeperBenchmarkTest) Run(t *testing.T) {
 			// Give time for OCR nodes to bootstrap
 			time.Sleep(1 * time.Minute)
 		} else {
-			actions.CreateKeeperJobsWithKeyIndex(t, k.chainlinkNodes, k.keeperRegistries[rIndex], txKeyId, ocrConfig)
+			actions.CreateKeeperJobsWithKeyIndex(t, k.chainlinkNodes, k.keeperRegistries[rIndex], txKeyId, ocrConfig, k.chainClient.GetChainID().String())
 		}
 		err = k.chainClient.WaitForEvents()
 		require.NoError(t, err, "Error waiting for registry setConfig")
