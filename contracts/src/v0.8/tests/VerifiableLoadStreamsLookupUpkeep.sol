@@ -2,7 +2,7 @@
 pragma solidity 0.8.16;
 
 import "./VerifiableLoadBase.sol";
-import "../dev/automation/2_1/interfaces/StreamsLookupCompatibleInterface.sol";
+import "../automation/interfaces/StreamsLookupCompatibleInterface.sol";
 
 contract VerifiableLoadStreamsLookupUpkeep is VerifiableLoadBase, StreamsLookupCompatibleInterface {
   constructor(AutomationRegistrar2_1 _registrar, bool _useArb) VerifiableLoadBase(_registrar, _useArb) {}
@@ -35,7 +35,7 @@ contract VerifiableLoadStreamsLookupUpkeep is VerifiableLoadBase, StreamsLookupC
     }
 
     uint256 timeParam;
-    if (keccak256(abi.encodePacked(timeParamKey)) == keccak256(abi.encodePacked("feedIdHex"))) {
+    if (keccak256(abi.encodePacked(feedParamKey)) == keccak256(abi.encodePacked("feedIdHex"))) {
       timeParam = blockNum;
     } else {
       // assume this will be feedIDs for v0.3
