@@ -481,14 +481,6 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-      - name: Upload test log
-        uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
-        if: failure()
-        with:
-          name: test-log-${{ matrix.product.name }}
-          path: /tmp/gotest.log
-          retention-days: 7
-        continue-on-error: true
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics

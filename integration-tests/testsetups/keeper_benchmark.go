@@ -390,7 +390,7 @@ func (k *KeeperBenchmarkTest) setFilterQuery(rIndex int) {
 		Addresses: addresses,
 		Topics:    topics,
 	}
-	log.Debug().Interface("Addresses", addresses).Interface("Topics", topics).Msg("Set Filter Query")
+	k.log.Debug().Interface("Addresses", addresses).Interface("Topics", topics).Msg("Set Filter Query")
 }
 
 // getContractABI returns the ABI of the keeper registry contract in use
