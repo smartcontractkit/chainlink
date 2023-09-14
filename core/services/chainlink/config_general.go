@@ -413,18 +413,6 @@ func (g *generalConfig) ShutdownGracePeriod() time.Duration {
 	return g.c.ShutdownGracePeriod.Duration()
 }
 
-func (g *generalConfig) Explorer() config.Explorer {
-	return &explorerConfig{s: g.secrets.Explorer, explorerURL: g.c.ExplorerURL}
-}
-
-func (g *generalConfig) ExplorerURL() *url.URL {
-	u := (*url.URL)(g.c.ExplorerURL)
-	if *u == zeroURL {
-		u = nil
-	}
-	return u
-}
-
 func (g *generalConfig) FluxMonitor() config.FluxMonitor {
 	return &fluxMonitorConfig{c: g.c.FluxMonitor}
 }

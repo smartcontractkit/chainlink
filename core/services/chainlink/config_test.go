@@ -213,7 +213,6 @@ func TestConfig_Marshal(t *testing.T) {
 
 	global := Config{
 		Core: toml.Core{
-			ExplorerURL:         mustURL("http://explorer.url"),
 			InsecureFastScrypt:  ptr(true),
 			RootDir:             ptr("test/root/dir"),
 			ShutdownGracePeriod: models.MustNewDuration(10 * time.Second),
@@ -636,8 +635,7 @@ func TestConfig_Marshal(t *testing.T) {
 		exp    string
 	}{
 		{"empty", Config{}, ``},
-		{"global", global, `ExplorerURL = 'http://explorer.url'
-InsecureFastScrypt = true
+		{"global", global, `InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
 
@@ -1305,9 +1303,7 @@ func TestSecrets_Validate(t *testing.T) {
 	}{
 		{name: "partial",
 			toml: `
-Database.AllowSimplePasswords = true
-Explorer.AccessKey = "access_key"
-Explorer.Secret = "secret"`,
+Database.AllowSimplePasswords = true`,
 			exp: `invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
 	- Password.Keystore: empty: must be provided and non-empty`},
