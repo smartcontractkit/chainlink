@@ -30,7 +30,7 @@ func TestRunLogBasic(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		if err := env.Cleanup(); err != nil {
+		if err := env.Cleanup(t); err != nil {
 			l.Error().Err(err).Msg("Error cleaning up test environment")
 		}
 	})
@@ -69,6 +69,7 @@ func TestRunLogBasic(t *testing.T) {
 		Name:                     fmt.Sprintf("direct-request-%s", uuid.NewString()),
 		MinIncomingConfirmations: "1",
 		ContractAddress:          oracle.Address(),
+		EVMChainID:               env.EVMClient.GetChainID().String(),
 		ExternalJobID:            jobUUID.String(),
 		ObservationSource:        ost,
 	})

@@ -185,7 +185,7 @@ func TestOCRChaos(t *testing.T) {
 			require.NoError(t, err)
 			err = chainClient.WaitForEvents()
 			require.NoError(t, err)
-			err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, ms)
+			err = actions.CreateOCRJobs(ocrInstances, bootstrapNode, workerNodes, 5, ms, chainClient.GetChainID().String())
 			require.NoError(t, err)
 
 			chaosApplied := false

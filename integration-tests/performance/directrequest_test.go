@@ -82,6 +82,7 @@ func TestDirectRequestPerformance(t *testing.T) {
 		Name:                     "direct_request",
 		MinIncomingConfirmations: "1",
 		ContractAddress:          oracle.Address(),
+		EVMChainID:               chainClient.GetChainID().String(),
 		ExternalJobID:            jobUUID.String(),
 		ObservationSource:        ost,
 	})

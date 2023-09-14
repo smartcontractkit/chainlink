@@ -32,7 +32,7 @@ func TestFluxBasic(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		if err := env.Cleanup(); err != nil {
+		if err := env.Cleanup(t); err != nil {
 			l.Error().Err(err).Msg("Error cleaning up test environment")
 		}
 	})
@@ -94,6 +94,7 @@ func TestFluxBasic(t *testing.T) {
 		fluxSpec := &client.FluxMonitorJobSpec{
 			Name:              fmt.Sprintf("flux-monitor-%s", adapterUUID),
 			ContractAddress:   fluxInstance.Address(),
+			EVMChainID:        env.EVMClient.GetChainID().String(),
 			Threshold:         0,
 			AbsoluteThreshold: 0,
 			PollTimerPeriod:   15 * time.Second, // min 15s

@@ -26,7 +26,7 @@ func TestOCRBasic(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		if err := env.Cleanup(); err != nil {
+		if err := env.Cleanup(t); err != nil {
 			l.Error().Err(err).Msg("Error cleaning up test environment")
 		}
 	})
@@ -44,7 +44,7 @@ func TestOCRBasic(t *testing.T) {
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockServer.Client)
+	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockServer.Client, env.EVMClient.GetChainID().String())
 	require.NoError(t, err)
 
 	err = actions.StartNewRound(1, ocrInstances, env.EVMClient, l)
