@@ -59,10 +59,10 @@ devDependencies:
     specifier: ^0.5.11
     version: 0.5.11(bn.js@4.12.0)
   '@typechain/ethers-v5':
-    specifier: ^7.0.1
+    specifier: ^7.2.0
     version: 7.2.0(@ethersproject/abi@5.6.1)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.6.1)(ethers@5.6.1)(typechain@8.2.0)(typescript@4.9.5)
   '@typechain/hardhat':
-    specifier: ^3.0.0
+    specifier: ^3.1.0
     version: 3.1.0(hardhat@2.12.7)(lodash@4.17.21)(typechain@8.2.0)
   '@types/cbor':
     specifier: 5.0.1
@@ -161,7 +161,7 @@ devDependencies:
     specifier: ^2.4.0
     version: 2.4.0
   typechain:
-    specifier: ^8.0.0
+    specifier: ^8.2.0
     version: 8.2.0(typescript@4.9.5)
   typescript:
     specifier: ^4.3.2
