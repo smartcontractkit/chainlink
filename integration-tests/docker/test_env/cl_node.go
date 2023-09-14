@@ -22,6 +22,7 @@ import (
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -237,7 +238,7 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return err
 	}
-	container, err := tc.GenericContainer(context.Background(), tc.GenericContainerRequest{
+	container, err := docker.StartContainerWithRetry(tc.GenericContainerRequest{
 		ContainerRequest: *cReq,
 		Started:          true,
 		Reuse:            true,

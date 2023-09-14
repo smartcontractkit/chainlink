@@ -177,7 +177,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 	db := app.GetSqlxDB()
 	client, _ := app.NewShellAndRenderer()
 
-	cltest.AssertCount(t, db, "evm_key_states", 1) // The initial funding key
+	cltest.AssertCount(t, db, "evm.key_states", 1) // The initial funding key
 	keys, err := app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(keys))
@@ -200,7 +200,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 	require.NoError(t, set.Parse([]string{"-evmChainID", id.String()}))
 	assert.NoError(t, client.CreateETHKey(c))
 
-	cltest.AssertCount(t, db, "evm_key_states", 3)
+	cltest.AssertCount(t, db, "evm.key_states", 3)
 	keys, err = app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
 	require.Equal(t, 3, len(keys))
@@ -304,7 +304,7 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	_, err = ethKeyStore.Get(address)
 	require.Error(t, err)
 
-	cltest.AssertCount(t, app.GetSqlxDB(), "evm_key_states", 0)
+	cltest.AssertCount(t, app.GetSqlxDB(), "evm.key_states", 0)
 
 	// Import the key
 	set = flag.NewFlagSet("test", 0)

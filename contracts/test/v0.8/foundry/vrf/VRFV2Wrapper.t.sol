@@ -5,6 +5,7 @@ import {VRF} from "../../../../src/v0.8/vrf/VRF.sol";
 import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
 import {ExposedVRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/testhelpers/ExposedVRFCoordinatorV2Plus.sol";
+import {VRFV2PlusWrapperConsumerBase} from "../../../../src/v0.8/dev/vrf/VRFV2PlusWrapperConsumerBase.sol";
 import {VRFV2PlusWrapperConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusWrapperConsumerExample.sol";
 import {VRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/VRFCoordinatorV2Plus.sol";
 import {VRFV2PlusWrapper} from "../../../../src/v0.8/dev/vrf/VRFV2PlusWrapper.sol";
@@ -70,6 +71,21 @@ contract VRFV2PlusWrapperTest is BaseTest {
       vrfKeyHash, // keyHash
       10 // max number of words
     );
+    (
+      ,
+      ,
+      ,
+      uint32 _wrapperGasOverhead,
+      uint32 _coordinatorGasOverhead,
+      uint8 _wrapperPremiumPercentage,
+      bytes32 _keyHash,
+      uint8 _maxNumWords
+    ) = s_wrapper.getConfig();
+    assertEq(_wrapperGasOverhead, wrapperGasOverhead);
+    assertEq(_coordinatorGasOverhead, coordinatorGasOverhead);
+    assertEq(0, _wrapperPremiumPercentage);
+    assertEq(vrfKeyHash, _keyHash);
+    assertEq(10, _maxNumWords);
   }
 
   event RandomWordsRequested(
@@ -84,10 +100,41 @@ contract VRFV2PlusWrapperTest is BaseTest {
     address indexed sender
   );
 
+  function testSetLinkAndLinkEthFeed() public {
+    VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(address(0), address(0), address(s_testCoordinator));
+
+    // Set LINK and LINK/ETH feed on wrapper.
+    wrapper.setLINK(address(s_linkToken));
+    wrapper.setLinkEthFeed(address(s_linkEthFeed));
+    assertEq(address(wrapper.s_link()), address(s_linkToken));
+    assertEq(address(wrapper.s_linkEthFeed()), address(s_linkEthFeed));
+
+    // Revert for subsequent assignment.
+    vm.expectRevert(VRFV2PlusWrapper.LinkAlreadySet.selector);
+    wrapper.setLINK(address(s_linkToken));
+
+    // Consumer can set LINK token.
+    VRFV2PlusWrapperConsumerExample consumer = new VRFV2PlusWrapperConsumerExample(address(0), address(wrapper));
+    consumer.setLinkToken(address(s_linkToken));
+
+    // Revert for subsequent assignment.
+    vm.expectRevert(VRFV2PlusWrapperConsumerBase.LINKAlreadySet.selector);
+    consumer.setLinkToken(address(s_linkToken));
+  }
+
   function testRequestAndFulfillRandomWordsNativeWrapper() public {
     // Fund subscription.
     s_testCoordinator.fundSubscriptionWithEth{value: 10 ether}(s_wrapper.SUBSCRIPTION_ID());
     vm.deal(address(s_consumer), 10 ether);
+
+    // Get type and version.
+    assertEq(s_wrapper.typeAndVersion(), "VRFV2Wrapper 1.0.0");
+
+    // Cannot make request while disabled.
+    s_wrapper.disable();
+    vm.expectRevert("wrapper is disabled");
+    s_consumer.makeRequestNative(500_000, 0, 1);
+    s_wrapper.enable();
 
     // Request randomness from wrapper.
     uint32 callbackGasLimit = 1_000_000;
@@ -114,7 +161,11 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
     (uint256 paid, bool fulfilled, bool native) = s_consumer.s_requests(requestId);
     uint32 expectedPaid = callbackGasLimit + wrapperGasOverhead + coordinatorGasOverhead;
+    uint256 wrapperNativeCostEstimate = s_wrapper.estimateRequestPriceNative(callbackGasLimit, tx.gasprice);
+    uint256 wrapperCostCalculation = s_wrapper.calculateRequestPriceNative(callbackGasLimit);
     assertEq(paid, expectedPaid);
+    assertEq(uint256(paid), wrapperNativeCostEstimate);
+    assertEq(wrapperNativeCostEstimate, wrapperCostCalculation);
     assertEq(fulfilled, false);
     assertEq(native, true);
     assertEq(address(s_consumer).balance, 10 ether - expectedPaid);
@@ -129,6 +180,13 @@ contract VRFV2PlusWrapperTest is BaseTest {
     (, bool nowFulfilled, uint256[] memory storedWords) = s_consumer.getRequestStatus(requestId);
     assertEq(nowFulfilled, true);
     assertEq(storedWords[0], 123);
+
+    // Withdraw funds from wrapper.
+    changePrank(LINK_WHALE);
+    uint256 priorWhaleBalance = LINK_WHALE.balance;
+    s_wrapper.withdrawNative(LINK_WHALE, paid);
+    assertEq(LINK_WHALE.balance, priorWhaleBalance + paid);
+    assertEq(address(s_wrapper).balance, 0);
   }
 
   function testRequestAndFulfillRandomWordsLINKWrapper() public {
@@ -162,7 +220,11 @@ contract VRFV2PlusWrapperTest is BaseTest {
     // Assert that the request was made correctly.
     (uint256 paid, bool fulfilled, bool native) = s_consumer.s_requests(requestId);
     uint32 expectedPaid = (callbackGasLimit + wrapperGasOverhead + coordinatorGasOverhead) * 2;
+    uint256 wrapperCostEstimate = s_wrapper.estimateRequestPrice(callbackGasLimit, tx.gasprice);
+    uint256 wrapperCostCalculation = s_wrapper.calculateRequestPrice(callbackGasLimit);
     assertEq(paid, expectedPaid); // 1_030_000 * 2 for link/eth ratio
+    assertEq(uint256(paid), wrapperCostEstimate);
+    assertEq(wrapperCostEstimate, wrapperCostCalculation);
     assertEq(fulfilled, false);
     assertEq(native, false);
     assertEq(s_linkToken.balanceOf(address(s_consumer)), 10 ether - expectedPaid);
@@ -177,5 +239,12 @@ contract VRFV2PlusWrapperTest is BaseTest {
     (, bool nowFulfilled, uint256[] memory storedWords) = s_consumer.getRequestStatus(requestId);
     assertEq(nowFulfilled, true);
     assertEq(storedWords[0], 456);
+
+    // Withdraw funds from wrapper.
+    changePrank(LINK_WHALE);
+    uint256 priorWhaleBalance = s_linkToken.balanceOf(LINK_WHALE);
+    s_wrapper.withdraw(LINK_WHALE, paid);
+    assertEq(s_linkToken.balanceOf(LINK_WHALE), priorWhaleBalance + paid);
+    assertEq(s_linkToken.balanceOf(address(s_wrapper)), 0);
   }
 }

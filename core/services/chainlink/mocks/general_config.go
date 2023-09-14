@@ -207,22 +207,6 @@ func (_m *GeneralConfig) EVMRPCEnabled() bool {
 	return r0
 }
 
-// Explorer provides a mock function with given fields:
-func (_m *GeneralConfig) Explorer() config.Explorer {
-	ret := _m.Called()
-
-	var r0 config.Explorer
-	if rf, ok := ret.Get(0).(func() config.Explorer); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(config.Explorer)
-		}
-	}
-
-	return r0
-}
-
 // Feature provides a mock function with given fields:
 func (_m *GeneralConfig) Feature() config.Feature {
 	ret := _m.Called()

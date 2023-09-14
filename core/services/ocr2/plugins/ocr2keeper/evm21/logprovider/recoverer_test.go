@@ -352,7 +352,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			nil,
 			nil,
 			[]string{"c207451fa897f9bb13b09d54d8655edf0644e027c53521b4a92eafbb64ba4d14"},
-			[]int64{200, 0, 450},
+			[]int64{201, 0, 450},
 		},
 		{
 			"lastRePollBlock updated with burst when lagging behind",
@@ -366,7 +366,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 					topics: []common.Hash{
 						common.HexToHash("0x1"),
 					},
-					lastRePollBlock: 100, // Should be updated with burst
+					lastRePollBlock: 99, // Should be updated with burst
 				},
 			},
 			[]ocr2keepers.UpkeepState{ocr2keepers.UnknownState},
@@ -778,7 +778,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
-					return 100, nil
+					return 300, nil
 				},
 			},
 			stateReader: &mockStateReader{
@@ -813,7 +813,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
-					return 100, nil
+					return 300, nil
 				},
 			},
 			client: &mockClient{
@@ -853,7 +853,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
-					return 100, nil
+					return 300, nil
 				},
 			},
 			client: &mockClient{
@@ -885,7 +885,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
-					return 100, nil
+					return 300, nil
 				},
 				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 					return nil, errors.New("logs with sigs boom")
@@ -920,7 +920,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
-					return 100, nil
+					return 300, nil
 				},
 				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 					return []logpoller.Log{
@@ -968,7 +968,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
-					return 100, nil
+					return 300, nil
 				},
 				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 					return []logpoller.Log{
@@ -1019,7 +1019,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
-					return 100, nil
+					return 300, nil
 				},
 				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 					return []logpoller.Log{

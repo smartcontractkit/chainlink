@@ -175,7 +175,7 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { lp.Close() })
 
-	eventBroadcaster.On("Subscribe", "insert_on_evm_logs", "").Return(subscription, nil)
+	eventBroadcaster.On("Subscribe", "evm.insert_on_logs", "").Return(subscription, nil)
 
 	configPoller, err := NewConfigPoller(lggr, lp, verifierAddress, feedID, eventBroadcaster)
 	require.NoError(t, err)

@@ -58,7 +58,7 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(evmRelayExtenders)
 	for _, ext := range evmRelayExtenders.Slice() {
 		relayID := relay.ID{Network: relay.EVM, ChainID: relay.ChainID(ext.Chain().ID().String())}
-		chain, err := legacyChains.Get(relayID.ChainID.String())
+		chain, err := legacyChains.Get(relayID.ChainID)
 		if err != nil {
 			return nil, err
 		}
@@ -98,10 +98,6 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 			continue
 		}
 
-		// all the lower level APIs expect a config slice. create a single valued set per id
-		// TODO BCF-2605: clean this up
-		singleChainCfg := solana.SolanaConfigs{chainCfg}
-
 		if cmdName := env.SolanaPluginCmd.Get(); cmdName != "" {
 
 			// setup the solana relayer to be a LOOP
@@ -128,7 +124,6 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 			opts := solana.ChainOpts{
 				Logger:   solLggr,
 				KeyStore: signer,
-				Configs:  solana.NewConfigs(singleChainCfg),
 			}
 
 			chain, err := solana.NewChain(chainCfg, opts)
@@ -172,10 +167,6 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 			continue
 		}
 
-		// all the lower level APIs expect a config slice. create a single valued set per id
-		// TODO BCF-2605: clean this up
-		singleChainCfg := starknet.StarknetConfigs{chainCfg}
-
 		if cmdName := env.StarknetPluginCmd.Get(); cmdName != "" {
 			// setup the starknet relayer to be a LOOP
 			cfgTOML, err := toml.Marshal(struct {
@@ -200,7 +191,6 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 			opts := starknet.ChainOpts{
 				Logger:   starkLggr,
 				KeyStore: loopKs,
-				Configs:  starknet.NewConfigs(singleChainCfg),
 			}
 
 			chain, err := starknet.NewChain(chainCfg, opts)
@@ -235,14 +225,13 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 
 		opts := cosmos.ChainOpts{
 			QueryConfig:      r.QConfig,
-			Logger:           lggr.Named(relayId.ChainID.String()),
+			Logger:           lggr.Named(relayId.ChainID),
 			DB:               r.DB,
 			KeyStore:         loopKs,
 			EventBroadcaster: config.EventBroadcaster,
 		}
-		opts.Configs = cosmos.NewConfigs(cosmos.CosmosConfigs{chainCfg})
-		chain, err := cosmos.NewChain(chainCfg, opts)
 
+		chain, err := cosmos.NewChain(chainCfg, opts)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load Cosmos chain %q: %w", relayId, err)
 		}
