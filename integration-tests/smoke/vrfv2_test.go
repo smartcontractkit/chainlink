@@ -29,7 +29,7 @@ func TestVRFv2Basic(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		if err := env.Cleanup(); err != nil {
+		if err := env.Cleanup(t); err != nil {
 			l.Error().Err(err).Msg("Error cleaning up test environment")
 		}
 	})

@@ -262,9 +262,9 @@ func (o *OCRSoakTest) Run() {
 
 	startingValue := 5
 	if o.OperatorForwarderFlow {
-		actions.CreateOCRJobsWithForwarder(o.t, o.ocrInstances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer)
+		actions.CreateOCRJobsWithForwarder(o.t, o.ocrInstances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer, o.chainClient.GetChainID().String())
 	} else {
-		err := actions.CreateOCRJobs(o.ocrInstances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer)
+		err := actions.CreateOCRJobs(o.ocrInstances, o.bootstrapNode, o.workerNodes, startingValue, o.mockServer, o.chainClient.GetChainID().String())
 		require.NoError(o.t, err, "Error creating OCR jobs")
 	}
 
