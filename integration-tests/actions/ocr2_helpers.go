@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
@@ -360,13 +361,14 @@ func StartNewOCR2Round(
 	ocrInstances []contracts.OffchainAggregatorV2,
 	client blockchain.EVMClient,
 	timeout time.Duration,
+	logger zerolog.Logger,
 ) error {
 	for i := 0; i < len(ocrInstances); i++ {
 		err := ocrInstances[i].RequestNewRound()
 		if err != nil {
 			return fmt.Errorf("requesting new OCR round %d have failed: %w", i+1, err)
 		}
-		ocrRound := contracts.NewOffchainAggregatorV2RoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), timeout)
+		ocrRound := contracts.NewOffchainAggregatorV2RoundConfirmer(ocrInstances[i], big.NewInt(roundNumber), timeout, logger)
 		client.AddHeaderEventSubscription(ocrInstances[i].Address(), ocrRound)
 		err = client.WaitForEvents()
 		if err != nil {
