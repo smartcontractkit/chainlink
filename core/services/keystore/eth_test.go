@@ -38,10 +38,10 @@ func Test_EthKeyStore(t *testing.T) {
 	reset := func() {
 		keyStore.ResetXXXTestOnly()
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
-		require.NoError(t, utils.JustError(db.Exec("DELETE FROM evm_key_states")))
+		require.NoError(t, utils.JustError(db.Exec("DELETE FROM evm.key_states")))
 		require.NoError(t, keyStore.Unlock(cltest.Password))
 	}
-	const statesTableName = "evm_key_states"
+	const statesTableName = "evm.key_states"
 
 	t.Run("Create / GetAll / Get", func(t *testing.T) {
 		defer reset()
@@ -104,7 +104,7 @@ func Test_EthKeyStore(t *testing.T) {
 		cltest.AssertCount(t, db, statesTableName, 0)
 	})
 
-	t.Run("Delete removes key even if eth_txes are present", func(t *testing.T) {
+	t.Run("Delete removes key even if evm.txes are present", func(t *testing.T) {
 		defer reset()
 		key, err := ethKeyStore.Create(&cltest.FixtureChainID)
 		require.NoError(t, err)
@@ -170,7 +170,7 @@ func Test_EthKeyStore(t *testing.T) {
 		require.NoError(t, err)
 		key2, err := ethKeyStore.Create(big.NewInt(1337))
 		require.NoError(t, err)
-		testutils.AssertCount(t, db, "evm_key_states", 2)
+		testutils.AssertCount(t, db, "evm.key_states", 2)
 		keys, err := ethKeyStore.GetAll()
 		require.NoError(t, err)
 		assert.Len(t, keys, 2)
@@ -363,7 +363,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 	reset := func() {
 		keyStore.ResetXXXTestOnly()
 		require.NoError(t, utils.JustError(db.Exec("DELETE FROM encrypted_key_rings")))
-		require.NoError(t, utils.JustError(db.Exec("DELETE FROM evm_key_states")))
+		require.NoError(t, utils.JustError(db.Exec("DELETE FROM evm.key_states")))
 		require.NoError(t, keyStore.Unlock(cltest.Password))
 	}
 
@@ -552,10 +552,10 @@ func Test_EthKeyStore_EnsureKeys(t *testing.T) {
 		keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 		ks := keyStore.Eth()
 
-		testutils.AssertCount(t, db, "evm_key_states", 0)
+		testutils.AssertCount(t, db, "evm.key_states", 0)
 		err := ks.EnsureKeys(testutils.FixtureChainID, testutils.SimulatedChainID)
 		require.NoError(t, err)
-		testutils.AssertCount(t, db, "evm_key_states", 2)
+		testutils.AssertCount(t, db, "evm.key_states", 2)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		assert.Len(t, keys, 2)
@@ -570,7 +570,7 @@ func Test_EthKeyStore_EnsureKeys(t *testing.T) {
 		// Add one enabled key
 		_, err := ks.Create(testutils.FixtureChainID)
 		require.NoError(t, err)
-		testutils.AssertCount(t, db, "evm_key_states", 1)
+		testutils.AssertCount(t, db, "evm.key_states", 1)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		assert.Len(t, keys, 1)
@@ -578,7 +578,7 @@ func Test_EthKeyStore_EnsureKeys(t *testing.T) {
 		// this adds one more key for the additional chain
 		err = ks.EnsureKeys(testutils.FixtureChainID, testutils.SimulatedChainID)
 		require.NoError(t, err)
-		testutils.AssertCount(t, db, "evm_key_states", 2)
+		testutils.AssertCount(t, db, "evm.key_states", 2)
 		keys, err = ks.GetAll()
 		require.NoError(t, err)
 		assert.Len(t, keys, 2)
@@ -593,7 +593,7 @@ func Test_EthKeyStore_EnsureKeys(t *testing.T) {
 		// Add one enabled key
 		k, err := ks.Create(testutils.FixtureChainID)
 		require.NoError(t, err)
-		testutils.AssertCount(t, db, "evm_key_states", 1)
+		testutils.AssertCount(t, db, "evm.key_states", 1)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
 		assert.Len(t, keys, 1)
@@ -605,7 +605,7 @@ func Test_EthKeyStore_EnsureKeys(t *testing.T) {
 		// this does nothing
 		err = ks.EnsureKeys(testutils.FixtureChainID)
 		require.NoError(t, err)
-		testutils.AssertCount(t, db, "evm_key_states", 1)
+		testutils.AssertCount(t, db, "evm.key_states", 1)
 		keys, err = ks.GetAll()
 		require.NoError(t, err)
 		assert.Len(t, keys, 1)
@@ -728,7 +728,7 @@ func Test_IncrementNextSequence(t *testing.T) {
 	err = ks.IncrementNextSequence(evmAddr1, testutils.FixtureChainID, evmtypes.Nonce(randNonce))
 	require.NoError(t, err)
 	var nonce int64
-	require.NoError(t, db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 AND evm_chain_id = $2`, addr1, testutils.FixtureChainID.String()))
+	require.NoError(t, db.Get(&nonce, `SELECT next_nonce FROM evm.key_states WHERE address = $1 AND evm_chain_id = $2`, addr1, testutils.FixtureChainID.String()))
 	assert.Equal(t, randNonce+1, nonce)
 
 	err = ks.IncrementNextSequence(evmAddr1, testutils.SimulatedChainID, evmtypes.Nonce(randNonce+1))
@@ -745,7 +745,7 @@ func Test_IncrementNextSequence(t *testing.T) {
 	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr2.Hex()))
 
 	// verify it didnt get changed by any erroring calls
-	require.NoError(t, db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 AND evm_chain_id = $2`, addr1, testutils.FixtureChainID.String()))
+	require.NoError(t, db.Get(&nonce, `SELECT next_nonce FROM evm.key_states WHERE address = $1 AND evm_chain_id = $2`, addr1, testutils.FixtureChainID.String()))
 	assert.Equal(t, randNonce+1, nonce)
 }
 
@@ -768,7 +768,7 @@ func Test_EthKeyStore_Delete(t *testing.T) {
 	require.NoError(t, ks.Add(addr1, testutils.SimulatedChainID))
 	require.NoError(t, ks.Enable(addr1, testutils.SimulatedChainID))
 
-	testutils.AssertCount(t, db, "evm_key_states", 4)
+	testutils.AssertCount(t, db, "evm.key_states", 4)
 	keys, err := ks.GetAll()
 	require.NoError(t, err)
 	assert.Len(t, keys, 3)
@@ -781,7 +781,7 @@ func Test_EthKeyStore_Delete(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, addr1, deletedK.Address)
 
-	testutils.AssertCount(t, db, "evm_key_states", 2)
+	testutils.AssertCount(t, db, "evm.key_states", 2)
 	keys, err = ks.GetAll()
 	require.NoError(t, err)
 	assert.Len(t, keys, 2)

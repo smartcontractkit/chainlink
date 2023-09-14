@@ -1,7 +1,6 @@
 # ALL_FOUNDRY_PRODUCTS contains a list of all products that have a foundry
-# profile defined and use Foundry snapshots. Adding a product to this list
-# will make it available for snapshotting.
-ALL_FOUNDRY_PRODUCTS = automation llo-feeds functions automation-dev shared
+# profile defined and use the Foundry snapshots. 
+ALL_FOUNDRY_PRODUCTS = automation llo-feeds functions shared
 
 # To make a snapshot for a specific product, either set the `FOUNDRY_PROFILE` env var
 # or call the target with `FOUNDRY_PROFILE=product`

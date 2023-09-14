@@ -65,7 +65,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Len(t, errors.Errors, 0)
 
-	cltest.AssertCount(t, app.GetSqlxDB(), "eth_txes", 1)
+	cltest.AssertCount(t, app.GetSqlxDB(), "evm.txes", 1)
 }
 
 func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
@@ -105,7 +105,7 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Len(t, errors.Errors, 0)
 
-	cltest.AssertCount(t, app.GetSqlxDB(), "eth_txes", 1)
+	cltest.AssertCount(t, app.GetSqlxDB(), "evm.txes", 1)
 }
 
 func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testing.T) {
@@ -150,7 +150,7 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
 	assert.Len(t, errors.Errors, 0)
 
-	cltest.AssertCount(t, app.GetSqlxDB(), "eth_txes", 1)
+	cltest.AssertCount(t, app.GetSqlxDB(), "evm.txes", 1)
 }
 
 func TestTransfersController_TransferZeroAddressError(t *testing.T) {
@@ -314,7 +314,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 	err = web.ParseJSONAPIResponse(cltest.ParseResponseBody(t, resp), &resource)
 	assert.NoError(t, err)
 
-	cltest.AssertCount(t, app.GetSqlxDB(), "eth_txes", 1)
+	cltest.AssertCount(t, app.GetSqlxDB(), "evm.txes", 1)
 
 	// check returned data
 	assert.NotEmpty(t, resource.Hash)
