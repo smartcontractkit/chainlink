@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+### Removed
+
+- Removed support for sending telemetry to the deprecated Explorer service. All nodes will have to remove `Explorer` related keys from TOML configuration and env vars. 
+
+ All nodes will have to remove the following secret configurations: 
+ * `Explorer.AccessKey`
+ * `Explorer.Secret` 
+ 
+ All nodes will have to remove the following configuration field: `ExplorerURL`
+
 ### Fixed
 
 - Unauthenticated users executing CLI commands previously generated a confusing error log, which is now removed:
