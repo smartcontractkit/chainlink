@@ -276,25 +276,25 @@ func (te *CLClusterTestEnv) Cleanup(t *testing.T) error {
 			if err != nil {
 				return err
 			}
+			defer logFile.Close()
 			logReader, err := node.Container.Logs(context.Background())
 			if err != nil {
 				return err
 			}
-			for {
-				logBuf := make([]byte, 1024)
-				_, err = logReader.Read(logBuf)
-				_, err = logFile.Write(logBuf)
-				if err == io.EOF {
-					l.Info().Str("Node", node.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
-					break
-				} else if err != nil {
-					return err
-				}
+			_, err = io.Copy(logFile, logReader)
+			if err != nil {
+				return err
 			}
+			l.Info().Str("Node", node.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
 			return nil
 		})
 	}
-	l.Warn().Str("Logs Location", absPath).Msg("Wrote Logs")
+
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	l.Info().Str("Logs Location", folder).Msg("Wrote Logs for Failed Test")
 
 	return nil
 }
