@@ -69,17 +69,17 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 	switch s {
 	case "Arbitrum":
 		l1Oracle := chainoracles.NewL1GasPriceOracle(lggr, ethClient, cfg.ChainType())
-		return NewWrappedEvmEstimatorWithL1Oracle(NewArbitrumEstimator(lggr, geCfg, ethClient, ethClient), df, l1Oracle)
+		return NewWrappedEvmEstimator(NewArbitrumEstimator(lggr, geCfg, ethClient, ethClient), df, l1Oracle)
 	case "BlockHistory":
 		l1Oracle := chainoracles.NewL1GasPriceOracle(lggr, ethClient, cfg.ChainType())
-		return NewWrappedEvmEstimatorWithL1Oracle(NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, *ethClient.ConfiguredChainID()), df, l1Oracle)
+		return NewWrappedEvmEstimator(NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, *ethClient.ConfiguredChainID()), df, l1Oracle)
 	case "FixedPrice":
-		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df)
+		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df, nil)
 	case "Optimism2", "L2Suggested":
-		return NewWrappedEvmEstimator(NewL2SuggestedPriceEstimator(lggr, ethClient), df)
+		return NewWrappedEvmEstimator(NewL2SuggestedPriceEstimator(lggr, ethClient), df, nil)
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
-		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df)
+		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df, nil)
 	}
 }
 
@@ -154,19 +154,11 @@ type WrappedEvmEstimator struct {
 
 var _ EvmFeeEstimator = (*WrappedEvmEstimator)(nil)
 
-func NewWrappedEvmEstimator(e EvmEstimator, eip1559Enabled bool) EvmFeeEstimator {
+func NewWrappedEvmEstimator(e EvmEstimator, eip1559Enabled bool, l1Oracle chainoracles.L1Oracle) EvmFeeEstimator {
 	return &WrappedEvmEstimator{
 		EvmEstimator:   e,
 		EIP1559Enabled: eip1559Enabled,
-		l1Oracle:       nil,
-	}
-}
-
-func NewWrappedEvmEstimatorWithL1Oracle(e EvmEstimator, eip1559Enabled bool, o chainoracles.L1Oracle) EvmFeeEstimator {
-	return &WrappedEvmEstimator{
-		EvmEstimator:   e,
-		EIP1559Enabled: eip1559Enabled,
-		l1Oracle:       o,
+		l1Oracle:       l1Oracle,
 	}
 }
 

@@ -24,8 +24,7 @@ func TestL1GasPriceOracle(t *testing.T) {
 	t.Run("Unsupported ChainType returns nil", func(t *testing.T) {
 		ethClient := mocks.NewETHClient(t)
 
-		oracle := NewL1GasPriceOracle(logger.TestLogger(t), ethClient, config.ChainCelo)
-		assert.Nil(t, oracle)
+		assert.Panicsf(t, func() { NewL1GasPriceOracle(logger.TestLogger(t), ethClient, config.ChainCelo) }, "Received unspported chaintype %s", config.ChainCelo)
 	})
 
 	t.Run("Calling L1GasPrice on unstarted L1Oracle returns error", func(t *testing.T) {
@@ -46,7 +45,7 @@ func TestL1GasPriceOracle(t *testing.T) {
 			blockNumber := args.Get(2).(*big.Int)
 			assert.Equal(t, ArbGasInfoAddress, callMsg.To.String())
 			assert.Equal(t, ArbGasInfo_getL1BaseFeeEstimate, fmt.Sprintf("%x", callMsg.Data))
-			assert.Equal(t, big.NewInt(-1), blockNumber)
+			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
 		oracle := NewL1GasPriceOracle(logger.TestLogger(t), ethClient, config.ChainArbitrum)
@@ -68,7 +67,7 @@ func TestL1GasPriceOracle(t *testing.T) {
 			blockNumber := args.Get(2).(*big.Int)
 			assert.Equal(t, OPGasOracleAddress, callMsg.To.String())
 			assert.Equal(t, OPGasOracle_l1BaseFee, fmt.Sprintf("%x", callMsg.Data))
-			assert.Equal(t, big.NewInt(-1), blockNumber)
+			assert.Nil(t, blockNumber)
 		}).Return(common.BigToHash(l1BaseFee).Bytes(), nil)
 
 		oracle := NewL1GasPriceOracle(logger.TestLogger(t), ethClient, config.ChainOptimismBedrock)

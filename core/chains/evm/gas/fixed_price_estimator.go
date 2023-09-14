@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/pkg/errors"
-
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"

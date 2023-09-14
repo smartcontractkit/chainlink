@@ -2,6 +2,7 @@ package chainoracles
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -9,7 +10,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -29,7 +29,7 @@ type l1GasPriceOracle struct {
 	pollPeriod time.Duration
 	logger     logger.Logger
 	address    string
-	selector   string
+	callArgs   string
 
 	l1GasPriceMu sync.RWMutex
 	l1GasPrice   *assets.Wei
@@ -60,16 +60,16 @@ const (
 )
 
 func NewL1GasPriceOracle(lggr logger.Logger, ethClient ethClient, chainType config.ChainType) L1Oracle {
-	var address, selector string
+	var address, callArgs string
 	switch chainType {
 	case config.ChainArbitrum:
 		address = ArbGasInfoAddress
-		selector = ArbGasInfo_getL1BaseFeeEstimate
+		callArgs = ArbGasInfo_getL1BaseFeeEstimate
 	case config.ChainOptimismBedrock:
 		address = OPGasOracleAddress
-		selector = OPGasOracle_l1BaseFee
+		callArgs = OPGasOracle_l1BaseFee
 	default:
-		return nil
+		panic(fmt.Sprintf("Received unspported chaintype %s", chainType))
 	}
 
 	return &l1GasPriceOracle{
@@ -77,7 +77,7 @@ func NewL1GasPriceOracle(lggr logger.Logger, ethClient ethClient, chainType conf
 		pollPeriod:    PollPeriod,
 		logger:        lggr.Named(fmt.Sprintf("L1GasPriceOracle(%s)", chainType)),
 		address:       address,
-		selector:      selector,
+		callArgs:      callArgs,
 		chInitialised: make(chan struct{}),
 		chStop:        make(chan struct{}),
 		chDone:        make(chan struct{}),
@@ -134,14 +134,15 @@ func (o *l1GasPriceOracle) refresh() (t *time.Timer) {
 	precompile := common.HexToAddress(o.address)
 	b, err := o.client.CallContract(ctx, ethereum.CallMsg{
 		To:   &precompile,
-		Data: common.Hex2Bytes(o.selector),
-	}, big.NewInt(-1))
+		Data: common.Hex2Bytes(o.callArgs),
+	}, nil)
 	if err != nil {
+		o.logger.Errorf("gas oracle contract call failed: %v", err)
 		return
 	}
 
 	if len(b) != 32 { // returns uint256;
-		o.logger.Warnf("return data length (%d) different than expected (%d)", len(b), 32)
+		o.logger.Criticalf("return data length (%d) different than expected (%d)", len(b), 32)
 		return
 	}
 	price := new(big.Int).SetBytes(b)
