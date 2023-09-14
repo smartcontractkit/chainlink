@@ -480,7 +480,6 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			set.Set("evmChainID", testutils.SimulatedChainID.String())
 			cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
 
 			require.NoError(t, set.Set("address", fromAddress.Hex()))

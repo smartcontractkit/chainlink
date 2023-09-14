@@ -1,4 +1,3 @@
-ExplorerURL = ''
 InsecureFastScrypt = false
 RootDir = 'my/root/dir'
 ShutdownGracePeriod = '5s'

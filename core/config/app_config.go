@@ -38,7 +38,6 @@ type AppConfig interface {
 	AuditLogger() AuditLogger
 	AutoPprof() AutoPprof
 	Database() Database
-	Explorer() Explorer
 	Feature() Feature
 	FluxMonitor() FluxMonitor
 	Insecure() Insecure

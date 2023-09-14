@@ -9,7 +9,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+### Removed
+
+- Removed support for sending telemetry to the deprecated Explorer service. All nodes will have to remove `Explorer` related keys from TOML configuration and env vars. 
+
+ All nodes will have to remove the following secret configurations: 
+ * `Explorer.AccessKey`
+ * `Explorer.Secret` 
+ 
+ All nodes will have to remove the following configuration field: `ExplorerURL`
+
 ### Fixed
+- Unauthenticated users executing CLI commands previously generated a confusing error log, which is now removed:
+```[ERROR] Error in transaction, rolling back: session missing or expired, please login again pg/transaction.go:118 ```
+- Fixed a bug that was preventing job runs to be displayed when the job `chainID` was disabled.
+- `chainlink txs evm create` returns a transaction hash for the attempted transaction in the CLI. Previously only the sender, recipient and `unstarted` state were returned.
+- Fixed a bug when when `evmChainId` is requested instead of `id` or `evm-chain-id` in CLI error verbatim
+
+## 2.5.0 - UNRELEASED
+=======
 
 - Unauthenticated users executing CLI commands previously generated a confusing error log, which is now removed:
   ```
@@ -26,8 +44,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Nops may wish to add alerting on these.
 
 <!-- unreleasedstop -->
-
-## 2.5.0 - 2023-09-13
 
 ### Upcoming Required Configuration Change
 
