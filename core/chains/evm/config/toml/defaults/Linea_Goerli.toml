@@ -1,0 +1,21 @@
+ChainID = '59140'
+FinalityDepth = 1
+MinIncomingConfirmations = 1
+NoNewHeadsThreshold = '6m'
+LogPollInterval = '30s'
+
+[OCR]
+ContractConfirmations = 1
+
+[Transactions]
+ResendAfterThreshold = '3m'
+
+[GasEstimator]
+PriceMin = '100 mwei'
+BumpPercent = 40
+
+[GasEstimator.BlockHistory]
+BlockHistorySize = 12
+
+[HeadTracker]
+HistoryDepth = 50
