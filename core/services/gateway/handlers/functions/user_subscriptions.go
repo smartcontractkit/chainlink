@@ -41,7 +41,6 @@ func (us *userSubscriptions) UpdateSubscription(subscriptionId uint64, subscript
 			}
 		}
 		delete(us.subscriptionIdsMap, subscriptionId)
-		return
 	} else {
 		us.subscriptionIdsMap[subscriptionId] = subscription.Owner
 		if _, ok := us.userSubscriptionsMap[subscription.Owner]; !ok {
