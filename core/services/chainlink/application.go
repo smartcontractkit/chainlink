@@ -47,7 +47,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
-	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
@@ -219,24 +218,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	healthChecker := services.NewChecker()
 
-	telemetryIngressClient := synchronization.TelemetryIngressClient(&synchronization.NoopTelemetryIngressClient{})
-	telemetryIngressBatchClient := synchronization.TelemetryIngressBatchClient(&synchronization.NoopTelemetryIngressBatchClient{})
-	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
-
-	ticfg := cfg.TelemetryIngress()
-	if ticfg.URL() != nil {
-		if ticfg.UseBatchSend() {
-			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(ticfg.URL(),
-				ticfg.ServerPubKey(), keyStore.CSA(), ticfg.Logging(), globalLogger, ticfg.BufferSize(), ticfg.MaxBatchSize(), ticfg.SendInterval(), ticfg.SendTimeout(), ticfg.UniConn())
-			monitoringEndpointGen = telemetry.NewIngressAgentBatchWrapper(telemetryIngressBatchClient)
-
-		} else {
-			telemetryIngressClient = synchronization.NewTelemetryIngressClient(ticfg.URL(),
-				ticfg.ServerPubKey(), keyStore.CSA(), ticfg.Logging(), globalLogger, ticfg.BufferSize())
-			monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
-		}
-	}
-	srvcs = append(srvcs, telemetryIngressClient, telemetryIngressBatchClient)
+	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), keyStore.CSA(), globalLogger)
+	srvcs = append(srvcs, telemetryManager)
 
 	backupCfg := cfg.Database().Backup()
 	if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.Frequency() > 0 {
@@ -361,7 +344,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			keyStore,
 			pipelineRunner,
 			peerWrapper,
-			monitoringEndpointGen,
+			telemetryManager,
 			legacyEVMChains,
 			globalLogger,
 			cfg.Database(),
@@ -381,7 +364,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			mercuryORM,
 			pipelineRunner,
 			peerWrapper,
-			monitoringEndpointGen,
+			telemetryManager,
 			legacyEVMChains,
 			globalLogger,
 			ocr2DelegateConfig,

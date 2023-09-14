@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/wsrpc"
 	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -49,8 +48,9 @@ func (NoopTelemetryIngressClient) Ready() error { return nil }
 
 type telemetryIngressClient struct {
 	utils.StartStopOnce
-	endpoints []TelemetryEndpoint
-	ks        keystore.CSA
+	url             *url.URL
+	ks              keystore.CSA
+	serverPubKeyHex string
 
 	telemClient telemPb.TelemClient
 	logging     bool
@@ -71,24 +71,17 @@ type TelemPayload struct {
 	ChainID    string
 }
 
-type TelemetryEndpoint struct {
-	Network      string
-	ChainID      string
-	URL          url.URL
-	ServerPubKey string
-}
-
 // NewTelemetryIngressClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressClient(ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint, endpoints []config.TelemetryIngressEndpoint) TelemetryIngressClient {
-	lggr = lggr.Named("TelemetryIngressClient")
+func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint) TelemetryIngressClient {
 	return &telemetryIngressClient{
-		endpoints:   parseEndpoints(endpoints, lggr),
-		ks:          ks,
-		logging:     logging,
-		lggr:        lggr,
-		chTelemetry: make(chan TelemPayload, telemBufferSize),
-		chDone:      make(chan struct{}),
+		url:             url,
+		ks:              ks,
+		serverPubKeyHex: serverPubKeyHex,
+		logging:         logging,
+		lggr:            lggr.Named("TelemetryIngressClient"),
+		chTelemetry:     make(chan TelemPayload, telemBufferSize),
+		chDone:          make(chan struct{}),
 	}
 }
 
@@ -99,9 +92,8 @@ func (tc *telemetryIngressClient) Start(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		for _, e := range tc.endpoints {
-			tc.connect(ctx, privkey, e.URL, e.ServerPubKey)
-		}
+
+		tc.connect(ctx, privkey)
 
 		return nil
 	})
@@ -124,27 +116,15 @@ func (tc *telemetryIngressClient) HealthReport() map[string]error {
 	return map[string]error{tc.Name(): tc.StartStopOnce.Healthy()}
 }
 
-func parseEndpoints(c []config.TelemetryIngressEndpoint, lggr logger.Logger) []TelemetryEndpoint {
-	var telemEndpoints []TelemetryEndpoint
-	for _, e := range c {
-		if e.URL() == nil {
-			lggr.Warnw("telemetry endpoint does not have URL", "network", e.Network(), "chainID", e.ChainID())
-			continue
-		}
-		telemEndpoints = append(telemEndpoints, TelemetryEndpoint{e.Network(), e.ChainID(), *e.URL(), e.ServerPubKey()})
-	}
-	return telemEndpoints
-}
-
-func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []byte, url url.URL, serverPubKeyHex string) {
+func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []byte) {
 	tc.wgDone.Add(1)
 
 	go func() {
 		defer tc.wgDone.Done()
 
-		serverPubKey := keys.FromHex(serverPubKeyHex)
+		serverPubKey := keys.FromHex(tc.serverPubKeyHex)
 
-		conn, err := wsrpc.DialWithContext(ctx, url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey), wsrpc.WithLogger(tc.lggr))
+		conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey), wsrpc.WithLogger(tc.lggr))
 		if err != nil {
 			if ctx.Err() != nil {
 				tc.lggr.Warnw("gave up connecting to telemetry endpoint", "err", err)
