@@ -30,32 +30,6 @@ func (_m *LegacyChainContainer) ChainNodeConfigs() types.Configs {
 	return r0
 }
 
-// Default provides a mock function with given fields:
-func (_m *LegacyChainContainer) Default() (evm.Chain, error) {
-	ret := _m.Called()
-
-	var r0 evm.Chain
-	var r1 error
-	if rf, ok := ret.Get(0).(func() (evm.Chain, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() evm.Chain); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(evm.Chain)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // Get provides a mock function with given fields: id
 func (_m *LegacyChainContainer) Get(id string) (evm.Chain, error) {
 	ret := _m.Called(id)
@@ -126,11 +100,6 @@ func (_m *LegacyChainContainer) List(ids ...string) ([]evm.Chain, error) {
 	}
 
 	return r0, r1
-}
-
-// SetDefault provides a mock function with given fields: _a0
-func (_m *LegacyChainContainer) SetDefault(_a0 evm.Chain) {
-	_m.Called(_a0)
 }
 
 // Slice provides a mock function with given fields:
