@@ -97,7 +97,7 @@ func NewChainClientWithTestNode(
 		sendonlys = append(sendonlys, s)
 	}
 
-	var chainType commonconfig.ChainType = ""
+	var chainType commonconfig.ChainType
 	c := NewChainClient(lggr, nodeCfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
 	t.Cleanup(c.Close)
 	return c, nil
