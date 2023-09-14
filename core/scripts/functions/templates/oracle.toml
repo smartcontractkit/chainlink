@@ -45,10 +45,10 @@ maxSecretsSizesList = [10_240, 20_480, 51_200, 102_400, 307_200, 512_000, 1_048_
 
   [pluginConfig.OnchainSubscriptions]
   blockConfirmations = 1
-  routerAddress = "{{router_contract_address}}"
-  queryFrequencySec = 30
-  queryTimeoutSec = 10
-  queryRangeSize = 100
+  contractAddress = "{{router_contract_address}}"
+  updateFrequencySec = 30
+  updateTimeoutSec = 10
+  updateRangeSize = 100
 
   [pluginConfig.RateLimiter]
   globalBurst = 5

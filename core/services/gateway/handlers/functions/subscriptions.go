@@ -19,11 +19,11 @@ import (
 )
 
 type OnchainSubscriptionsConfig struct {
-	RouterAddress      common.Address `json:"routerAddress"`
+	ContractAddress    common.Address `json:"contractAddress"`
 	BlockConfirmations uint           `json:"blockConfirmations"`
-	QueryFrequencySec  uint           `json:"queryFrequencySec"`
-	QueryTimeoutSec    uint           `json:"queryTimeoutSec"`
-	QueryRangeSize     uint           `json:"queryRangeSize"`
+	UpdateFrequencySec uint           `json:"updateFrequencySec"`
+	UpdateTimeoutSec   uint           `json:"updateTimeoutSec"`
+	UpdateRangeSize    uint           `json:"updateRangeSize"`
 }
 
 // OnchainSubscriptions maintains a mirror of all subscriptions fetched from the blockchain (EVM-only).
@@ -33,15 +33,15 @@ type OnchainSubscriptionsConfig struct {
 type OnchainSubscriptions interface {
 	job.ServiceCtx
 
-	// GetSubscription returns a subscription for the given user address, or null if not found
-	GetSubscription(common.Address) *functions_router.IFunctionsSubscriptionsSubscription
+	// GetMaxUserBalance returns a maximum subscription balance, or error if user has no subscriptions.
+	GetMaxUserBalance(common.Address) (*big.Int, error)
 }
 
 type onchainSubscriptions struct {
 	utils.StartStopOnce
 
 	config             OnchainSubscriptionsConfig
-	subscriptions      map[common.Address]*functions_router.IFunctionsSubscriptionsSubscription
+	subscriptions      UserSubscriptions
 	client             evmclient.Client
 	router             *functions_router.FunctionsRouter
 	blockConfirmations *big.Int
@@ -58,13 +58,13 @@ func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscription
 	if lggr == nil {
 		return nil, errors.New("logger is nil")
 	}
-	router, err := functions_router.NewFunctionsRouter(config.RouterAddress, client)
+	router, err := functions_router.NewFunctionsRouter(config.ContractAddress, client)
 	if err != nil {
 		return nil, fmt.Errorf("unexpected error during functions_router.NewFunctionsRouter: %s", err)
 	}
 	return &onchainSubscriptions{
 		config:             config,
-		subscriptions:      make(map[common.Address]*functions_router.IFunctionsSubscriptionsSubscription),
+		subscriptions:      NewUserSubscriptions(),
 		client:             client,
 		router:             router,
 		blockConfirmations: big.NewInt(int64(config.BlockConfirmations)),
@@ -76,14 +76,14 @@ func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscription
 func (s *onchainSubscriptions) Start(ctx context.Context) error {
 	return s.StartOnce("OnchainSubscriptions", func() error {
 		s.lggr.Info("starting onchain subscriptions")
-		if s.config.QueryFrequencySec == 0 {
+		if s.config.UpdateFrequencySec == 0 {
 			return errors.New("OnchainSubscriptionsConfig.UpdateFrequencySec must be greater than 0")
 		}
-		if s.config.QueryTimeoutSec == 0 {
+		if s.config.UpdateTimeoutSec == 0 {
 			return errors.New("OnchainSubscriptionsConfig.UpdateTimeoutSec must be greater than 0")
 		}
-		if s.config.QueryRangeSize == 0 {
-			return errors.New("OnchainSubscriptionsConfig.QueryRangeSize must be greater than 0")
+		if s.config.UpdateRangeSize == 0 {
+			return errors.New("OnchainSubscriptionsConfig.UpdateRangeSize must be greater than 0")
 		}
 
 		s.closeWait.Add(1)
@@ -102,26 +102,22 @@ func (s *onchainSubscriptions) Close() error {
 	})
 }
 
-func (s *onchainSubscriptions) GetSubscription(address common.Address) *functions_router.IFunctionsSubscriptionsSubscription {
+func (s *onchainSubscriptions) GetMaxUserBalance(user common.Address) (*big.Int, error) {
 	s.rwMutex.RLock()
 	defer s.rwMutex.RUnlock()
-	subscription, ok := s.subscriptions[address]
-	if !ok {
-		return nil
-	}
-	return subscription
+	return s.subscriptions.GetMaxUserBalance(user)
 }
 
 func (s *onchainSubscriptions) queryLoop() {
 	defer s.closeWait.Done()
 
-	ticker := time.NewTicker(time.Duration(s.config.QueryFrequencySec) * time.Second)
+	ticker := time.NewTicker(time.Duration(s.config.UpdateFrequencySec) * time.Second)
 	defer ticker.Stop()
 
 	var start uint64 = 1
 
 	queryFunc := func() {
-		ctx, cancel := utils.ContextFromChanWithTimeout(s.stopCh, time.Duration(s.config.QueryTimeoutSec)*time.Second)
+		ctx, cancel := utils.ContextFromChanWithTimeout(s.stopCh, time.Duration(s.config.UpdateTimeoutSec)*time.Second)
 		defer cancel()
 
 		latestBlockHeight, err := s.client.LatestBlockHeight(ctx)
@@ -146,7 +142,7 @@ func (s *onchainSubscriptions) queryLoop() {
 			start = 1
 		}
 
-		end := start + uint64(s.config.QueryRangeSize)
+		end := start + uint64(s.config.UpdateRangeSize)
 		if end > count {
 			end = count
 		}
@@ -157,6 +153,8 @@ func (s *onchainSubscriptions) queryLoop() {
 
 		start = end + 1
 	}
+
+	queryFunc()
 
 	for {
 		select {
@@ -180,12 +178,10 @@ func (s *onchainSubscriptions) querySubscriptionsRange(ctx context.Context, bloc
 
 	s.rwMutex.Lock()
 	defer s.rwMutex.Unlock()
-	for _, subscription := range subscriptions {
-		if subscription.Owner == utils.ZeroAddress {
-			continue
-		}
+	for i, subscription := range subscriptions {
+		subscriptionId := start + uint64(i)
 		subscription := subscription
-		s.subscriptions[subscription.Owner] = &subscription
+		s.subscriptions.UpdateSubscription(subscriptionId, &subscription)
 	}
 
 	return nil

@@ -42,11 +42,11 @@ func TestSubscriptions(t *testing.T) {
 		Data: hexutil.MustDecode("0xec2454e500000000000000000000000000000000000000000000000000000000000000010000000000000000000000000000000000000000000000000000000000000003"),
 	}, mock.Anything).Return(getSubscriptionsInRange, nil)
 	config := functions.OnchainSubscriptionsConfig{
-		RouterAddress:      common.Address{},
+		ContractAddress:    common.Address{},
 		BlockConfirmations: 1,
-		QueryFrequencySec:  1,
-		QueryTimeoutSec:    1,
-		QueryRangeSize:     10,
+		UpdateFrequencySec: 1,
+		UpdateTimeoutSec:   1,
+		UpdateRangeSize:    10,
 	}
 	subscriptions, err := functions.NewOnchainSubscriptions(client, config, logger.TestLogger(t))
 	require.NoError(t, err)
@@ -58,6 +58,9 @@ func TestSubscriptions(t *testing.T) {
 	})
 
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
-		return subscriptions.GetSubscription(common.HexToAddress(validUser)) != nil && subscriptions.GetSubscription(common.HexToAddress(invalidUser)) == nil
+		expectedBalance := big.NewInt(0).SetBytes(hexutil.MustDecode("0x01158e460913d00000"))
+		balance, err1 := subscriptions.GetMaxUserBalance(common.HexToAddress(validUser))
+		_, err2 := subscriptions.GetMaxUserBalance(common.HexToAddress(invalidUser))
+		return err1 == nil && err2 != nil && balance.Cmp(expectedBalance) == 0
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
 }
