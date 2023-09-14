@@ -327,7 +327,7 @@ func (l *logPollerWrapper) SubscribeToUpdates(subscriberName string, subscriber 
 	if l.pluginConfig.ContractVersion == 0 {
 		// in V0, immediately set contract address to Oracle contract and never update again
 		if err := subscriber.UpdateRoutes(l.routerContract.Address(), l.routerContract.Address()); err != nil {
-			l.lggr.Errorw("LogPollerWrapper: Failed to update routes", "subscriberName", subscriberName, "error", err)
+			l.lggr.Errorw("LogPollerWrapper: Failed to update routes", "subscriberName", subscriberName, "err", err)
 		}
 	} else if l.pluginConfig.ContractVersion == 1 {
 		l.mu.Lock()
@@ -422,7 +422,7 @@ func (l *logPollerWrapper) handleRouteUpdate(activeCoordinator common.Address, p
 	for _, subscriber := range l.subscribers {
 		err := subscriber.UpdateRoutes(activeCoordinator, proposedCoordinator)
 		if err != nil {
-			l.lggr.Errorw("LogPollerWrapper: Failed to update routes", "error", err)
+			l.lggr.Errorw("LogPollerWrapper: Failed to update routes", "err", err)
 		}
 	}
 }

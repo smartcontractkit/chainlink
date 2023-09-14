@@ -158,7 +158,7 @@ func (c *gatewayConnector) readLoop(gatewayState *gatewayState) {
 				break
 			}
 			if err = msg.Validate(); err != nil {
-				c.lggr.Errorw("failed to validate message signature", "id", gatewayState.config.Id, "error", err)
+				c.lggr.Errorw("failed to validate message signature", "id", gatewayState.config.Id, "err", err)
 				break
 			}
 			c.handler.HandleGatewayMessage(ctx, gatewayState.config.Id, msg)
@@ -174,7 +174,7 @@ func (c *gatewayConnector) reconnectLoop(gatewayState *gatewayState) {
 	for {
 		conn, err := gatewayState.wsClient.Connect(ctx, gatewayState.url)
 		if err != nil {
-			c.lggr.Errorw("connection error", "url", gatewayState.url, "error", err)
+			c.lggr.Errorw("connection error", "url", gatewayState.url, "err", err)
 		} else {
 			c.lggr.Infow("connected successfully", "url", gatewayState.url)
 			closeCh := gatewayState.conn.Reset(conn)
