@@ -4,9 +4,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
@@ -75,9 +75,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			}
 			storage.On("List", ctx, addr).Return(snapshot, nil).Once()
 			allowlist.On("Allow", addr).Return(true).Once()
-			subscriptions.On("GetSubscription", mock.Anything).Return(
-				&functions_router.IFunctionsSubscriptionsSubscription{},
-			)
+			subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(10), nil)
 			connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 				msg, ok := args[2].(*api.Message)
 				require.True(t, ok)
@@ -134,9 +132,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 
 			storage.On("Put", ctx, &key, &record, signature).Return(nil).Once()
 			allowlist.On("Allow", addr).Return(true).Once()
-			subscriptions.On("GetSubscription", mock.Anything).Return(
-				&functions_router.IFunctionsSubscriptionsSubscription{},
-			)
+			subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(10), nil)
 			connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 				msg, ok := args[2].(*api.Message)
 				require.True(t, ok)

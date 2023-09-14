@@ -114,7 +114,8 @@ func (s *onchainSubscriptions) queryLoop() {
 	ticker := time.NewTicker(time.Duration(s.config.UpdateFrequencySec) * time.Second)
 	defer ticker.Stop()
 
-	var start uint64 = 1
+	start := uint64(1)
+	lastKnownCount := uint64(0)
 
 	queryFunc := func() {
 		ctx, cancel := utils.ContextFromChanWithTimeout(s.stopCh, time.Duration(s.config.UpdateTimeoutSec)*time.Second)
@@ -128,23 +129,33 @@ func (s *onchainSubscriptions) queryLoop() {
 
 		blockNumber := big.NewInt(0).Sub(latestBlockHeight, s.blockConfirmations)
 
-		count, err := s.getSubscriptionsCount(ctx, blockNumber)
-		if err != nil {
-			s.lggr.Errorw("Error getting subscriptions count", "err", err)
-			return
+		updateLastKnownCount := func() {
+			count, err := s.getSubscriptionsCount(ctx, blockNumber)
+			if err != nil {
+				s.lggr.Errorw("Error getting subscriptions count", "err", err)
+				return
+			}
+			lastKnownCount = count
 		}
-		if count == 0 {
+
+		if lastKnownCount == 0 {
+			updateLastKnownCount()
+		}
+		if lastKnownCount == 0 {
 			s.lggr.Info("Router has no subscriptions yet")
 			return
 		}
 
-		if start > count {
+		if start > lastKnownCount {
 			start = 1
 		}
 
 		end := start + uint64(s.config.UpdateRangeSize)
-		if end > count {
-			end = count
+		if end > lastKnownCount {
+			updateLastKnownCount()
+			if end > lastKnownCount {
+				end = lastKnownCount
+			}
 		}
 		if err := s.querySubscriptionsRange(ctx, blockNumber, start, end); err != nil {
 			s.lggr.Errorw("Error querying subscriptions", "err", err, "start", start, "end", end)

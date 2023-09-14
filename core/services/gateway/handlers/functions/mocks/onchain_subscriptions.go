@@ -4,10 +4,9 @@ package mocks
 
 import (
 	context "context"
+	big "math/big"
 
 	common "github.com/ethereum/go-ethereum/common"
-
-	functions_router "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -31,20 +30,30 @@ func (_m *OnchainSubscriptions) Close() error {
 	return r0
 }
 
-// GetSubscription provides a mock function with given fields: _a0
-func (_m *OnchainSubscriptions) GetSubscription(_a0 common.Address) *functions_router.IFunctionsSubscriptionsSubscription {
+// GetMaxUserBalance provides a mock function with given fields: _a0
+func (_m *OnchainSubscriptions) GetMaxUserBalance(_a0 common.Address) (*big.Int, error) {
 	ret := _m.Called(_a0)
 
-	var r0 *functions_router.IFunctionsSubscriptionsSubscription
-	if rf, ok := ret.Get(0).(func(common.Address) *functions_router.IFunctionsSubscriptionsSubscription); ok {
+	var r0 *big.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(common.Address) (*big.Int, error)); ok {
+		return rf(_a0)
+	}
+	if rf, ok := ret.Get(0).(func(common.Address) *big.Int); ok {
 		r0 = rf(_a0)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*functions_router.IFunctionsSubscriptionsSubscription)
+			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(common.Address) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // Start provides a mock function with given fields: _a0

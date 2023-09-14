@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -70,8 +71,8 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 		h.lggr.Errorw("request rate-limited", "id", gatewayId, "address", fromAddr)
 		return
 	}
-	if h.subscriptions.GetSubscription(fromAddr) == nil {
-		h.lggr.Errorw("request is not backed with a valid subscription", "id", gatewayId, "address", fromAddr)
+	if balance, err := h.subscriptions.GetMaxUserBalance(fromAddr); err != nil || balance.Cmp(big.NewInt(0)) == 0 {
+		h.lggr.Errorw("request is not backed with a funded subscription", "id", gatewayId, "address", fromAddr)
 		return
 	}
 
