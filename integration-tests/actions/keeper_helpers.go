@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -339,7 +339,7 @@ func RegisterUpkeepContracts(t *testing.T, linkToken contracts.LinkToken, linkFu
 }
 
 func RegisterUpkeepContractsWithCheckData(t *testing.T, linkToken contracts.LinkToken, linkFunds *big.Int, client blockchain.EVMClient, upkeepGasLimit uint32, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, numberOfContracts int, upkeepAddresses []string, checkData [][]byte, isLogTrigger bool) []*big.Int {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	registrationTxHashes := make([]common.Hash, 0)
 	upkeepIds := make([]*big.Int, 0)
 	for contractCount, upkeepAddress := range upkeepAddresses {
@@ -398,7 +398,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, linkToken contracts.Link
 }
 
 func DeployKeeperConsumers(t *testing.T, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfContracts int, isLogTrigger bool) []contracts.KeeperConsumer {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	keeperConsumerContracts := make([]contracts.KeeperConsumer, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
@@ -441,7 +441,7 @@ func DeployKeeperConsumersPerformance(
 	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
 	performGasToBurn int64, // How much gas should be burned on performUpkeep() calls
 ) []contracts.KeeperConsumerPerformance {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	upkeeps := make([]contracts.KeeperConsumerPerformance, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
@@ -478,7 +478,7 @@ func DeployPerformDataChecker(
 	numberOfContracts int,
 	expectedData []byte,
 ) []contracts.KeeperPerformDataChecker {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	upkeeps := make([]contracts.KeeperPerformDataChecker, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
@@ -510,7 +510,7 @@ func DeployUpkeepCounters(
 	testRange *big.Int,
 	interval *big.Int,
 ) []contracts.UpkeepCounter {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	upkeepCounters := make([]contracts.UpkeepCounter, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
@@ -543,7 +543,7 @@ func DeployUpkeepPerformCounterRestrictive(
 	testRange *big.Int,
 	averageEligibilityCadence *big.Int,
 ) []contracts.UpkeepPerformCounterRestrictive {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	upkeepCounters := make([]contracts.UpkeepPerformCounterRestrictive, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
