@@ -312,7 +312,7 @@ jobs:
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@3da605517fb82f587dcb3c93a3d962b7c61a517f # DEBUG
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@67f2498fe57e2c638df70f91ef91317703f0c4f2 # DEBUG
         env:
           PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
           PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
