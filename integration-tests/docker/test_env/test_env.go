@@ -24,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
-	testUtils "github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -240,7 +239,6 @@ func (te *CLClusterTestEnv) Terminate() error {
 // Cleanup cleans the environment up after it's done being used, mainly for returning funds when on live networks.
 // Intended to be used as part of t.Cleanup() in tests.
 func (te *CLClusterTestEnv) Cleanup(t *testing.T) error {
-	l := testUtils.GetTestLogger(t)
 	if te.EVMClient == nil {
 		return errors.New("blockchain client is nil, unable to return funds from chainlink nodes")
 	}
@@ -250,10 +248,10 @@ func (te *CLClusterTestEnv) Cleanup(t *testing.T) error {
 
 	// Check if we need to return funds
 	if te.EVMClient.NetworkSimulated() {
-		l.Info().Str("Network Name", te.EVMClient.GetNetworkName()).
+		te.l.Info().Str("Network Name", te.EVMClient.GetNetworkName()).
 			Msg("Network is a simulated network. Skipping fund return.")
 	} else {
-		l.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
+		te.l.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
 		for _, chainlinkNode := range te.CLNodes {
 			fundedKeys, err := chainlinkNode.API.ExportEVMKeysForChain(te.EVMClient.GetChainID().String())
 			if err != nil {
@@ -288,7 +286,7 @@ func (te *CLClusterTestEnv) Cleanup(t *testing.T) error {
 		return err
 	}
 
-	l.Warn().Msg("Test failed, collecting logs")
+	te.l.Warn().Msg("Test failed, collecting logs")
 	eg := &errgroup.Group{}
 	for _, n := range te.CLNodes {
 		node := n
@@ -307,7 +305,7 @@ func (te *CLClusterTestEnv) Cleanup(t *testing.T) error {
 			if err != nil {
 				return err
 			}
-			l.Info().Str("Node", node.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
+			te.l.Info().Str("Node", node.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
 			return nil
 		})
 	}
@@ -316,7 +314,7 @@ func (te *CLClusterTestEnv) Cleanup(t *testing.T) error {
 		return err
 	}
 
-	l.Info().Str("Logs Location", folder).Msg("Wrote Logs for Failed Test")
+	te.l.Info().Str("Logs Location", folder).Msg("Wrote Logs for Failed Test")
 
 	return nil
 }
