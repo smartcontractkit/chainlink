@@ -1112,7 +1112,7 @@ func setupKeeperTest(t *testing.T) (
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 	t.Cleanup(func() {
-		if err := env.Cleanup(); err != nil {
+		if err := env.Cleanup(t); err != nil {
 			l.Error().Err(err).Msg("Error cleaning up test environment")
 		}
 	})
