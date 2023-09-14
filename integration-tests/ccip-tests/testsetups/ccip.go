@@ -199,6 +199,7 @@ func (p *CCIPTestConfig) SetNetworkPairs(t *testing.T, lggr zerolog.Logger) erro
 	if lanes != "" {
 		p.NetworkPairs = []NetworkPair{}
 		networkPairs := strings.Split(lanes, "|")
+		networkMap := make(map[int64]blockchain.EVMNetwork)
 		for _, pair := range networkPairs {
 			networkNames := strings.Split(pair, ",")
 			if len(networkNames) != 2 {
@@ -209,6 +210,15 @@ func (p *CCIPTestConfig) SetNetworkPairs(t *testing.T, lggr zerolog.Logger) erro
 				NetworkA: nets[0],
 				NetworkB: nets[1],
 			})
+			if _, ok := networkMap[nets[0].ChainID]; !ok {
+				networkMap[nets[0].ChainID] = nets[0]
+			}
+			if _, ok := networkMap[nets[1].ChainID]; !ok {
+				networkMap[nets[1].ChainID] = nets[1]
+			}
+		}
+		for _, net := range networkMap {
+			p.AllNetworks = append(p.AllNetworks, net)
 		}
 		return allError
 	}
