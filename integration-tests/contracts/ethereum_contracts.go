@@ -2257,7 +2257,7 @@ func (e *EthereumMercuryVerifier) Address() string {
 	return e.address.Hex()
 }
 
-func (e *EthereumMercuryVerifier) Verify(signedReport []byte, feePayload []byte, sender common.Address) error {
+func (e *EthereumMercuryVerifier) Verify(signedReport []byte, sender common.Address) error {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return err

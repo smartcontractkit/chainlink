@@ -155,7 +155,11 @@ contract VerifierVerifySingleConfigDigestTest is VerifierVerifyTest {
   function test_revertsIfConfigDigestNotSet() public {
     bytes32[3] memory reportContext = s_reportContext;
     reportContext[0] = bytes32("wrong-context-digest");
-    bytes memory signedReport = _generateV1EncodedBlob(s_testReportOne, reportContext, _getSigners(FAULT_TOLERANCE + 1));
+    bytes memory signedReport = _generateV1EncodedBlob(
+      s_testReportOne,
+      reportContext,
+      _getSigners(FAULT_TOLERANCE + 1)
+    );
     vm.expectRevert(abi.encodeWithSelector(Verifier.DigestInactive.selector, FEED_ID, reportContext[0]));
     changePrank(address(s_verifierProxy));
     s_verifier.verify(signedReport, msg.sender);

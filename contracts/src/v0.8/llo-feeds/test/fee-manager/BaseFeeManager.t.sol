@@ -154,33 +154,21 @@ contract BaseFeeManagerTest is Test {
   }
 
   // solium-disable-next-line no-unused-vars
-  function getFee(
-    bytes memory report,
-    address quote,
-    address subscriber
-  ) public view returns (Common.Asset memory) {
+  function getFee(bytes memory report, address quote, address subscriber) public view returns (Common.Asset memory) {
     //get the fee
     (Common.Asset memory fee, , ) = feeManager.getFeeAndReward(subscriber, report, quote);
 
     return fee;
   }
 
-  function getReward(
-    bytes memory report,
-    address quote,
-    address subscriber
-  ) public view returns (Common.Asset memory) {
+  function getReward(bytes memory report, address quote, address subscriber) public view returns (Common.Asset memory) {
     //get the reward
     (, Common.Asset memory reward, ) = feeManager.getFeeAndReward(subscriber, report, quote);
 
     return reward;
   }
 
-  function getAppliedDiscount(
-    bytes memory report,
-    address quote,
-    address subscriber
-  ) public view returns (uint256) {
+  function getAppliedDiscount(bytes memory report, address quote, address subscriber) public view returns (uint256) {
     //get the reward
     (, , uint256 appliedDiscount) = feeManager.getFeeAndReward(subscriber, report, quote);
 
@@ -329,7 +317,12 @@ contract BaseFeeManagerTest is Test {
     changePrank(originalAddr);
   }
 
-  function processFee(bytes[] memory payloads, address subscriber, address feeAddress, uint256 wrappedNativeValue) public {
+  function processFee(
+    bytes[] memory payloads,
+    address subscriber,
+    address feeAddress,
+    uint256 wrappedNativeValue
+  ) public {
     //record the current address and switch to the recipient
     address originalAddr = msg.sender;
     changePrank(subscriber);
@@ -342,14 +335,7 @@ contract BaseFeeManagerTest is Test {
   }
 
   function getPayload(bytes memory reportPayload) public pure returns (bytes memory) {
-    return
-      abi.encode(
-        [DEFAULT_CONFIG_DIGEST, 0, 0],
-        reportPayload,
-        new bytes32[](1),
-        new bytes32[](1),
-        bytes32("")
-      );
+    return abi.encode([DEFAULT_CONFIG_DIGEST, 0, 0], reportPayload, new bytes32[](1), new bytes32[](1), bytes32(""));
   }
 
   function approveLink(address spender, uint256 quantity, address sender) public {

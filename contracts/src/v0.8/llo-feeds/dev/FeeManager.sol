@@ -169,8 +169,16 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifierFeeManager
-  function processFee(bytes calldata payload, bytes calldata feePayload, address subscriber) external payable override onlyProxy {
-    (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(payload, feePayload, subscriber);
+  function processFee(
+    bytes calldata payload,
+    bytes calldata feePayload,
+    address subscriber
+  ) external payable override onlyProxy {
+    (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(
+      payload,
+      feePayload,
+      subscriber
+    );
 
     if (fee.amount == 0) {
       _tryReturnChange(subscriber, msg.value);
@@ -188,7 +196,11 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifierFeeManager
-  function processFeeBulk(bytes[] calldata payloads, bytes calldata feePayload, address subscriber) external payable override onlyProxy {
+  function processFeeBulk(
+    bytes[] calldata payloads,
+    bytes calldata feePayload,
+    address subscriber
+  ) external payable override onlyProxy {
     FeeAndReward[] memory feesAndRewards = new IFeeManager.FeeAndReward[](payloads.length);
 
     //keep track of the number of fees to prevent over initialising the FeePayment array within _convertToLinkAndNativeFees

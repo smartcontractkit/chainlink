@@ -121,7 +121,10 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   /// @inheritdoc IVerifierProxy
-  function verify(bytes calldata payload, bytes calldata feePayload) external payable checkAccess returns (bytes memory) {
+  function verify(
+    bytes calldata payload,
+    bytes calldata feePayload
+  ) external payable checkAccess returns (bytes memory) {
     IVerifierFeeManager feeManager = s_feeManager;
 
     // Bill the verifier
@@ -133,7 +136,10 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   }
 
   /// @inheritdoc IVerifierProxy
-  function verifyBulk(bytes[] calldata payloads, bytes calldata feePayload) external payable checkAccess returns (bytes[] memory verifiedReports) {
+  function verifyBulk(
+    bytes[] calldata payloads,
+    bytes calldata feePayload
+  ) external payable checkAccess returns (bytes[] memory verifiedReports) {
     IVerifierFeeManager feeManager = s_feeManager;
 
     // Bill the verifier

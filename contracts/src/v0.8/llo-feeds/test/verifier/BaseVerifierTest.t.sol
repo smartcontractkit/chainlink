@@ -412,7 +412,12 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     changePrank(originalAddr);
   }
 
-  function _verifyBulk(bytes[] memory payload, address feeAddress, uint256 wrappedNativeValue, address sender) internal {
+  function _verifyBulk(
+    bytes[] memory payload,
+    address feeAddress,
+    uint256 wrappedNativeValue,
+    address sender
+  ) internal {
     address originalAddr = msg.sender;
     changePrank(sender);
 

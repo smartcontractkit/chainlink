@@ -177,7 +177,7 @@ contract VerifierBulkVerifyBillingReport is VerifierTestWithConfiguredVerifierAn
     signedReports[1] = signedReportV3;
     signedReports[2] = signedReportV3;
 
-    _approveLink(address(rewardManager), 2* DEFAULT_REPORT_LINK_FEE, USER);
+    _approveLink(address(rewardManager), 2 * DEFAULT_REPORT_LINK_FEE, USER);
 
     _verifyBulk(signedReports, address(link), 0, USER);
 

@@ -100,7 +100,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     bytes memory payload = getPayload(getV1Report(DEFAULT_FEED_1_V1));
 
     //processing the fee will transfer the link from the user to the rewardManager
-    processFee(payload, USER, address(0),  0);
+    processFee(payload, USER, address(0), 0);
   }
 
   function test_processFeeWithDefaultReportPayloadAndQuoteStillVerifies() public {
