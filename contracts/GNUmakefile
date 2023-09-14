@@ -1,6 +1,6 @@
 # ALL_FOUNDRY_PRODUCTS contains a list of all products that have a foundry
 # profile defined and use the Foundry snapshots. 
-ALL_FOUNDRY_PRODUCTS = automation llo-feeds functions shared
+ALL_FOUNDRY_PRODUCTS = llo-feeds functions shared
 
 # To make a snapshot for a specific product, either set the `FOUNDRY_PROFILE` env var
 # or call the target with `FOUNDRY_PROFILE=product`
@@ -38,7 +38,7 @@ mockery: $(mockery) ## Install mockery.
 
 .PHONY: foundry
 foundry: ## Install foundry.
-	foundryup --version nightly-5cfed63071ef1bb06f90190d2f678f546bfc971c
+	foundryup --version nightly-ca67d15f4abd46394b324c50e21e66f306a1162d
 
 .PHONY: foundry-refresh
 foundry-refresh: foundry
