@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 )
@@ -12,6 +13,7 @@ func CreateKeeperJobsLocal(
 	chainlinkNodes []*client.ChainlinkClient,
 	keeperRegistry contracts.KeeperRegistry,
 	ocrConfig contracts.OCRv2Config,
+	evmChainID string,
 ) ([]*client.Job, error) {
 	// Send keeper jobs to registry and chainlink nodes
 	primaryNode := chainlinkNodes[0]
@@ -46,6 +48,7 @@ func CreateKeeperJobsLocal(
 			Name:                     fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
 			ContractAddress:          keeperRegistry.Address(),
 			FromAddress:              chainlinkNodeAddress,
+			EVMChainID:               evmChainID,
 			MinIncomingConfirmations: 1,
 		})
 		if err != nil {
