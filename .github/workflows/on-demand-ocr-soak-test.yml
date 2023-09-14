@@ -21,7 +21,7 @@ on:
           - "MUMBAI"
           - "POLYGON_MAINNET"   
           - "LINEA_GOERLI"
-          - "LINEA_MAINNET"   
+          - "LINEA_MAINNET"  
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
