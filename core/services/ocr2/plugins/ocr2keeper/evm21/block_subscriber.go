@@ -226,23 +226,39 @@ func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
 	// head parent is a linked list with EVM finality depth
 	// when re-org happens, new heads will have pointers to the new blocks
 	i := int64(0)
+	depth := int64(0)
+	for cp := h; ; cp = cp.Parent {
+		if cp == nil {
+			break
+		}
+		depth++
+	}
+	bs.lggr.Warnf("BlockSubscriber parent DEPTH=%d", depth)
+
 	for cp := h; ; cp = cp.Parent {
 		if cp == nil || bs.blocks[cp.Number] == cp.Hash.Hex() {
+			if cp == nil {
+				bs.lggr.Warnf("BlockSubscriber cp is nil, exit")
+			}
+			if cp != nil && bs.blocks[cp.Number] == cp.Hash.Hex() {
+				bs.lggr.Warnf("BlockSubscriber cp.Number=%d equals cp.Hash.Hex()=%s, exit", cp.Number, cp.Hash.Hex())
+			}
 			break
 		}
 		existingHash, ok := bs.blocks[cp.Number]
 		if !ok {
-			bs.lggr.Debugf("filling block %d with new hash %s", cp.Number, cp.Hash.Hex())
+			bs.lggr.Warnf("BlockSubscriber filling block %d with new hash %s", cp.Number, cp.Hash.Hex())
 		} else if existingHash != cp.Hash.Hex() {
-			bs.lggr.Warnf("overriding block %d old hash %s with new hash %s due to re-org", cp.Number, existingHash, cp.Hash.Hex())
+			bs.lggr.Warnf("BlockSubscriber overriding block %d old hash %s with new hash %s due to re-org", cp.Number, existingHash, cp.Hash.Hex())
 		}
 		bs.blocks[cp.Number] = cp.Hash.Hex()
 		i++
 		if i > bs.blockSize {
+			bs.lggr.Warnf("BlockSubscriber depth %d exceeds block size", i)
 			break
 		}
 	}
-	bs.lggr.Debugf("blocks block %d hash is %s", h.Number, h.Hash.Hex())
+	bs.lggr.Debugf("BlockSubscriber blocks block %d hash is %s", h.Number, h.Hash.Hex())
 
 	history := bs.buildHistory(h.Number)
 	block := &ocr2keepers.BlockKey{
