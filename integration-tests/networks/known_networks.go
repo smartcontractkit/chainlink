@@ -440,11 +440,23 @@ var (
 		GasEstimationBuffer:       0,
 	}
 
-	LineaTestnet blockchain.EVMNetwork = blockchain.EVMNetwork{
-		Name:                      "Linea Testnet",
+	LineaGoerli blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "Linea Goerli",
 		SupportsEIP1559:           true,
-		ClientImplementation:      blockchain.EthereumClientImplementation,
+		ClientImplementation:      blockchain.LineaClientImplementation,
 		ChainID:                   59140,
+		Simulated:                 false,
+		ChainlinkTransactionLimit: 5000,
+		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		MinimumConfirmations:      1,
+		GasEstimationBuffer:       1000,
+	}
+
+	LineaMainnet blockchain.EVMNetwork = blockchain.EVMNetwork{
+		Name:                      "Linea Mainnet",
+		SupportsEIP1559:           true,
+		ClientImplementation:      blockchain.LineaClientImplementation,
+		ChainID:                   59144,
 		Simulated:                 false,
 		ChainlinkTransactionLimit: 5000,
 		Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
@@ -483,7 +495,8 @@ var (
 		"BASE_MAINNET":      BaseMainnet,
 		"BSC_TESTNET":       BSCTestnet,
 		"BSC_MAINNET":       BSCMainnet,
-		"LINEA_TESTNET":     LineaTestnet,
+		"LINEA_GOERLI":      LineaGoerli,
+		"LINEA_MAINNET":     LineaMainnet,
 	}
 )
 
