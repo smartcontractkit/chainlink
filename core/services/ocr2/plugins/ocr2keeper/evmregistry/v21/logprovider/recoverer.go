@@ -540,7 +540,7 @@ func (r *logRecoverer) selectFilterBatch(filters []upkeepFilter) []upkeepFilter 
 	for len(results) < batchSize && len(filters) != 0 {
 		i, err := r.randIntn(len(filters))
 		if err != nil {
-			r.lggr.Debugw("error generating random number", "error", err.Error())
+			r.lggr.Debugw("error generating random number", "err", err.Error())
 			continue
 		}
 		results = append(results, filters[i])

@@ -21,7 +21,7 @@ func TestJobPipelineConfigTest(t *testing.T) {
 	jp := cfg.JobPipeline()
 
 	assert.Equal(t, int64(100*utils.MB), jp.DefaultHTTPLimit())
-	d, err := commonconfig.NewDuration(1 * time.Minute)
+	d := *commonconfig.MustNewDuration(1 * time.Minute)
 	require.NoError(t, err)
 	assert.Equal(t, d, jp.DefaultHTTPTimeout())
 	assert.Equal(t, 1*time.Hour, jp.MaxRunDuration())

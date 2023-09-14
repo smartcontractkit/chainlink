@@ -268,6 +268,7 @@ require (
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/smartcontractkit/chain-selectors v1.0.5 // indirect
 	github.com/spf13/afero v1.9.3 // indirect
 	github.com/spf13/cobra v1.6.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
@@ -333,4 +334,12 @@ replace (
 
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
+
+	// TODO: streams
+	github.com/smartcontractkit/chainlink-common => /Users/sam/code/smartcontractkit/chainlink-common
+	github.com/smartcontractkit/chainlink-cosmos => /Users/sam/code/smartcontractkit/chainlink-cosmos
+	github.com/smartcontractkit/chainlink-data-streams => /Users/sam/code/smartcontractkit/chainlink-data-streams
+	github.com/smartcontractkit/chainlink-solana => /Users/sam/code/smartcontractkit/chainlink-solana
+	github.com/smartcontractkit/chainlink-starknet/relayer => /Users/sam/code/smartcontractkit/chainlink-starknet/relayer
+
 )
