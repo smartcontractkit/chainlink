@@ -105,7 +105,7 @@ func (c *LegacyChains) ChainNodeConfigs() evmtypes.Configs {
 // TODO BCF-2507 unify the type system
 func (c *LegacyChains) Get(id string) (Chain, error) {
 	if id == nilBigInt.String() || id == emptyString {
-		return nil, fmt.Errorf("invalid chain id requested: %s", id)
+		return nil, fmt.Errorf("invalid chain id requested: %q", id)
 	}
 	return c.ChainsKV.Get(id)
 }
