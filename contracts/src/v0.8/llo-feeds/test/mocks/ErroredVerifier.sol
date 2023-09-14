@@ -46,6 +46,7 @@ contract ErroredVerifier is IVerifier {
     bytes32,
     uint256,
     address,
+    uint32,
     address[] memory,
     bytes32[] memory,
     uint8,
