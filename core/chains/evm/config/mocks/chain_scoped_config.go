@@ -160,22 +160,6 @@ func (_m *ChainScopedConfig) EVMRPCEnabled() bool {
 	return r0
 }
 
-// Explorer provides a mock function with given fields:
-func (_m *ChainScopedConfig) Explorer() coreconfig.Explorer {
-	ret := _m.Called()
-
-	var r0 coreconfig.Explorer
-	if rf, ok := ret.Get(0).(func() coreconfig.Explorer); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(coreconfig.Explorer)
-		}
-	}
-
-	return r0
-}
-
 // Feature provides a mock function with given fields:
 func (_m *ChainScopedConfig) Feature() coreconfig.Feature {
 	ret := _m.Called()

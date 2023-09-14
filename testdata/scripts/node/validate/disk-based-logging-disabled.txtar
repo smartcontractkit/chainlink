@@ -54,7 +54,6 @@ WSURL = 'wss://foo.bar/ws'
 HTTPURL = 'https://foo.bar'
 
 # Effective Configuration, with defaults applied:
-ExplorerURL = ''
 InsecureFastScrypt = false
 RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'
