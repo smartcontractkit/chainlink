@@ -66,20 +66,24 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 		"priceMin", geCfg.PriceMin(),
 	)
 	df := geCfg.EIP1559DynamicFees()
+
+	// create l1Oracle only if it is supported for the chain
+	var l1Oracle chainoracles.L1Oracle
+	if chainoracles.IsL1OracleChain(cfg.ChainType()) {
+		l1Oracle = chainoracles.NewL1GasPriceOracle(lggr, ethClient, cfg.ChainType())
+	}
 	switch s {
 	case "Arbitrum":
-		l1Oracle := chainoracles.NewL1GasPriceOracle(lggr, ethClient, cfg.ChainType())
 		return NewWrappedEvmEstimator(NewArbitrumEstimator(lggr, geCfg, ethClient, ethClient), df, l1Oracle)
 	case "BlockHistory":
-		l1Oracle := chainoracles.NewL1GasPriceOracle(lggr, ethClient, cfg.ChainType())
 		return NewWrappedEvmEstimator(NewBlockHistoryEstimator(lggr, ethClient, cfg, geCfg, bh, *ethClient.ConfiguredChainID()), df, l1Oracle)
 	case "FixedPrice":
-		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df, nil)
+		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df, l1Oracle)
 	case "Optimism2", "L2Suggested":
-		return NewWrappedEvmEstimator(NewL2SuggestedPriceEstimator(lggr, ethClient), df, nil)
+		return NewWrappedEvmEstimator(NewL2SuggestedPriceEstimator(lggr, ethClient), df, l1Oracle)
 	default:
 		lggr.Warnf("GasEstimator: unrecognised mode '%s', falling back to FixedPriceEstimator", s)
-		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df, nil)
+		return NewWrappedEvmEstimator(NewFixedPriceEstimator(geCfg, bh, lggr), df, l1Oracle)
 	}
 }
 

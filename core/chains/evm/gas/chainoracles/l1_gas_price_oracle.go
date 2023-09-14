@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -58,6 +59,12 @@ const (
 	// Interval at which to poll for L1BaseFee. A good starting point is the L1 block time.
 	PollPeriod = 12 * time.Second
 )
+
+var supportedChainTypes = []config.ChainType{config.ChainArbitrum, config.ChainOptimismBedrock}
+
+func IsL1OracleChain(chainType config.ChainType) bool {
+	return slices.Contains(supportedChainTypes, chainType)
+}
 
 func NewL1GasPriceOracle(lggr logger.Logger, ethClient ethClient, chainType config.ChainType) L1Oracle {
 	var address, callArgs string
