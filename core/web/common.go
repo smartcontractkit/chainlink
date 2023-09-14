@@ -9,10 +9,10 @@ import (
 )
 
 var (
-	ErrMissingChainID = errors.New("evmChainID does not match any local chains")
-	ErrEmptyChainID   = errors.New("evmChainID is empty")
-	ErrInvalidChainID = errors.New("invalid evmChainID")
-	ErrMultipleChains = errors.New("more than one chain available, you must specify evmChainID parameter")
+	ErrMissingChainID = errors.New("chain id does not match any local chains")
+	ErrEmptyChainID   = errors.New("chainID is empty")
+	ErrInvalidChainID = errors.New("invalid chain id")
+	ErrMultipleChains = errors.New("more than one chain available, you must specify chain id parameter")
 )
 
 func getChain(legacyChains evm.LegacyChainContainer, chainIDstr string) (chain evm.Chain, err error) {

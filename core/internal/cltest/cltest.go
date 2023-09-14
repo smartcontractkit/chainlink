@@ -533,15 +533,19 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Cl
 	c.On("HeadByHash", mock.Anything, h0.Hash).Maybe().Return(h0, nil)
 	c.On("BatchCallContext", mock.Anything, mock.Anything).Maybe().Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
-		elems[0].Result = &evmtypes.Block{
-			Number:       42,
-			Hash:         utils.NewHash(),
-			Transactions: LegacyTransactionsFromGasPrices(9001, 9002),
+		if len(elems) > 0 {
+			elems[0].Result = &evmtypes.Block{
+				Number:       42,
+				Hash:         utils.NewHash(),
+				Transactions: LegacyTransactionsFromGasPrices(9001, 9002),
+			}
 		}
-		elems[1].Result = &evmtypes.Block{
-			Number:       41,
-			Hash:         utils.NewHash(),
-			Transactions: LegacyTransactionsFromGasPrices(9003, 9004),
+		if len(elems) > 1 {
+			elems[1].Result = &evmtypes.Block{
+				Number:       41,
+				Hash:         utils.NewHash(),
+				Transactions: LegacyTransactionsFromGasPrices(9003, 9004),
+			}
 		}
 	})
 	c.On("ConfiguredChainID").Maybe().Return(&FixtureChainID)
