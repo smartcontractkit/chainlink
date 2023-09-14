@@ -242,6 +242,6 @@ func TestGateway_ProcessRequest_HandlerError(t *testing.T) {
 
 	req := newSignedRequest(t, "abcd", "request", "testDON", []byte{})
 	response, statusCode := gw.ProcessRequest(testutils.Context(t), req)
-	requireJsonRPCError(t, response, "abcd", -32000, "failure")
-	require.Equal(t, 500, statusCode)
+	requireJsonRPCError(t, response, "abcd", -32600, "failure")
+	require.Equal(t, 400, statusCode)
 }
