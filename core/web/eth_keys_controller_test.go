@@ -409,7 +409,7 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	assert.NoError(t, err)
 
 	var count int
-	err = app.GetSqlxDB().Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = 'fatal_error'`, addr)
+	err = app.GetSqlxDB().Get(&count, `SELECT count(*) FROM evm.txes WHERE from_address = $1 AND state = 'fatal_error'`, addr)
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
 
@@ -436,7 +436,7 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	assert.Equal(t, false, updatedKey.Disabled)
 
 	var s string
-	err = app.GetSqlxDB().Get(&s, `SELECT error FROM eth_txes WHERE from_address = $1 AND state = 'fatal_error'`, addr)
+	err = app.GetSqlxDB().Get(&s, `SELECT error FROM evm.txes WHERE from_address = $1 AND state = 'fatal_error'`, addr)
 	require.NoError(t, err)
 	assert.Equal(t, "abandoned", s)
 }
