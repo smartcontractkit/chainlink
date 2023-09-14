@@ -58,7 +58,6 @@ func (sk *OCR2Key) Sign(reportCtx types.ReportContext, report types.Report) ([]b
 	if err != nil {
 		return []byte{}, err
 	}
-
 	r, s, err := caigo.Curve.Sign(hash, sk.priv)
 	if err != nil {
 		return []byte{}, err
@@ -83,6 +82,10 @@ func (sk *OCR2Key) Sign(reportCtx types.ReportContext, report types.Report) ([]b
 		return []byte{}, errors.Errorf("unexpected signature size, got %d want %d", len(out), sk.MaxSignatureLength())
 	}
 	return out, nil
+}
+
+func (sk *OCR2Key) Sign3(digest types.ConfigDigest, seqNr uint64, r types.Report) (signature []byte, err error) {
+	panic("TODO")
 }
 
 func (sk *OCR2Key) Verify(publicKey types.OnchainPublicKey, reportCtx types.ReportContext, report types.Report, signature []byte) bool {
@@ -118,6 +121,10 @@ func (sk *OCR2Key) Verify(publicKey types.OnchainPublicKey, reportCtx types.Repo
 	}
 
 	return caigo.Curve.Verify(hash, r, s, keys[0].X, keys[0].Y) || caigo.Curve.Verify(hash, r, s, keys[1].X, keys[1].Y)
+}
+
+func (sk *OCR2Key) Verify3(publicKey types.OnchainPublicKey, cd types.ConfigDigest, seqNr uint64, r types.Report, signature []byte) bool {
+	panic("TODO")
 }
 
 func (sk *OCR2Key) MaxSignatureLength() int {

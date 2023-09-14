@@ -222,7 +222,7 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 
 	})
 
-	t.Run("error", func(t *testing.T) {
+	t.Run("err", func(t *testing.T) {
 		testErr := errors.New("some error")
 		rows := generateTestRows(t, 1, time.Minute)
 		orm.On("Update", mock.Anything, mock.Anything).Return(testErr).Once()

@@ -27,6 +27,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 	q := NewTransmitQueue(lggr, "", 0, nil, nil)
+	codec := new(mockCodec)
 
 	t.Run("v1 report transmission successfully enqueued", func(t *testing.T) {
 		report := sampleV1Report
@@ -40,7 +41,8 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), nil)
+		// func NewTransmitter(lggr logger.Logger, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, db *sqlx.DB, cfg pg.QConfig, codec TransmitterReportDecoder) *mercuryTransmitter {
+		mt := NewTransmitter(lggr, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), codec)
 		mt.queue = q
 		err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
 
@@ -58,7 +60,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), nil)
+		mt := NewTransmitter(lggr, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), codec)
 		mt.queue = q
 		err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
 
@@ -76,7 +78,7 @@ func Test_MercuryTransmitter_Transmit(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), nil)
+		mt := NewTransmitter(lggr, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), codec)
 		mt.queue = q
 		err := mt.Transmit(testutils.Context(t), sampleReportContext, report, sampleSigs)
 
@@ -88,6 +90,8 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
+	var jobID int32
+	codec := new(mockCodec)
 
 	t.Run("successful query", func(t *testing.T) {
 		c := mocks.MockWSRPCClient{
@@ -101,7 +105,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true), nil)
+		mt := NewTransmitter(lggr, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), codec)
 		ts, err := mt.LatestTimestamp(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -116,7 +120,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true), nil)
+		mt := NewTransmitter(lggr, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), codec)
 		ts, err := mt.LatestTimestamp(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -129,7 +133,7 @@ func Test_MercuryTransmitter_LatestTimestamp(t *testing.T) {
 				return nil, errors.New("something exploded")
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true), nil)
+		mt := NewTransmitter(lggr, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), codec)
 		_, err := mt.LatestTimestamp(testutils.Context(t))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
@@ -151,6 +155,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
+	var jobID int32
 
 	codec := new(mockCodec)
 
@@ -167,7 +172,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true), codec)
+		mt := NewTransmitter(lggr, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), codec)
 
 		t.Run("BenchmarkPriceFromReport succeeds", func(t *testing.T) {
 			codec.val = originalPrice
@@ -197,7 +202,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true), nil)
+		mt := NewTransmitter(lggr, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), codec)
 		price, err := mt.LatestPrice(testutils.Context(t), sampleFeedID)
 		require.NoError(t, err)
 
@@ -210,7 +215,7 @@ func Test_MercuryTransmitter_LatestPrice(t *testing.T) {
 				return nil, errors.New("something exploded")
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true), nil)
+		mt := NewTransmitter(lggr, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), codec)
 		_, err := mt.LatestPrice(testutils.Context(t), sampleFeedID)
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
@@ -222,6 +227,8 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	db := pgtest.NewSqlxDB(t)
+	var jobID int32
+	codec := new(mockCodec)
 
 	t.Run("successful query", func(t *testing.T) {
 		c := mocks.MockWSRPCClient{
@@ -235,7 +242,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true), nil)
+		mt := NewTransmitter(lggr, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), codec)
 		bn, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -250,7 +257,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true), nil)
+		mt := NewTransmitter(lggr, c, sampleClientPubKey, jobID, sampleFeedID, db, pgtest.NewQConfig(true), codec)
 		bn, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.NoError(t, err)
 
@@ -262,7 +269,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 				return nil, errors.New("something exploded")
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true), nil)
+		mt := NewTransmitter(lggr, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true), codec)
 		_, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "something exploded")
@@ -279,7 +286,7 @@ func Test_MercuryTransmitter_FetchInitialMaxFinalizedBlockNumber(t *testing.T) {
 				return out, nil
 			},
 		}
-		mt := NewTransmitter(lggr, nil, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true), nil)
+		mt := NewTransmitter(lggr, c, sampleClientPubKey, 0, sampleFeedID, db, pgtest.NewQConfig(true), codec)
 		_, err := mt.FetchInitialMaxFinalizedBlockNumber(testutils.Context(t))
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "latestReport failed; mismatched feed IDs, expected: 0x1c916b4aa7e57ca7b68ae1bf45653f56b656fd3aa335ef7fae696b663f1b8472, got: 0x")

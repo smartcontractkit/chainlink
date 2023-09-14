@@ -107,7 +107,6 @@ type mercuryTransmitter struct {
 	services.StateMachine
 	lggr               logger.Logger
 	rpcClient          wsrpc.Client
-	cfgTracker         ConfigTracker
 	persistenceManager *PersistenceManager
 	codec              TransmitterReportDecoder
 
@@ -148,14 +147,13 @@ func getPayloadTypes() abi.Arguments {
 	})
 }
 
-func NewTransmitter(lggr logger.Logger, cfgTracker ConfigTracker, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, db *sqlx.DB, cfg pg.QConfig, codec TransmitterReportDecoder) *mercuryTransmitter {
+func NewTransmitter(lggr logger.Logger, rpcClient wsrpc.Client, fromAccount ed25519.PublicKey, jobID int32, feedID [32]byte, db *sqlx.DB, cfg pg.QConfig, codec TransmitterReportDecoder) *mercuryTransmitter {
 	feedIDHex := fmt.Sprintf("0x%x", feedID[:])
 	persistenceManager := NewPersistenceManager(lggr, NewORM(db, lggr, cfg), jobID, maxTransmitQueueSize, flushDeletesFrequency, pruneFrequency)
 	return &mercuryTransmitter{
 		services.StateMachine{},
 		lggr.Named("MercuryTransmitter").With("feedID", feedIDHex),
 		rpcClient,
-		cfgTracker,
 		persistenceManager,
 		codec,
 		feedID,
@@ -241,7 +239,7 @@ func (mt *mercuryTransmitter) runDeleteQueueLoop() {
 		case req := <-mt.deleteQueue:
 			for {
 				if err := mt.persistenceManager.Delete(runloopCtx, req); err != nil {
-					mt.lggr.Errorw("Failed to delete transmit request record", "error", err, "req", req)
+					mt.lggr.Errorw("Failed to delete transmit request record", "err", err, "req", req)
 					mt.transmitQueueDeleteErrorCount.Inc()
 					select {
 					case <-time.After(b.Duration()):

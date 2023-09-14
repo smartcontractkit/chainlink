@@ -81,6 +81,7 @@ require (
 	github.com/smartcontractkit/wsrpc v0.7.2
 	github.com/spf13/cast v1.6.0
 	github.com/stretchr/testify v1.8.4
+	github.com/test-go/testify v1.1.4
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
 	github.com/tidwall/gjson v1.17.0
 	github.com/ugorji/go/codec v1.2.12
@@ -132,6 +133,7 @@ require (
 	github.com/bgentry/speakeasy v0.1.1-0.20220910012023-760eaf8b6816 // indirect
 	github.com/blendle/zapdriver v1.3.1 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.3.2 // indirect
+	github.com/btcsuite/btcd/btcutil v1.1.3 // indirect
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
 	github.com/bytedance/sonic v1.10.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
@@ -279,6 +281,7 @@ require (
 	github.com/sethvargo/go-retry v0.2.4 // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/smartcontractkit/chain-selectors v1.0.5 // indirect
 	github.com/spacemonkeygo/spacelog v0.0.0-20180420211403-2296661a0572 // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/afero v1.9.3 // indirect
@@ -348,4 +351,12 @@ replace (
 
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
+
+	// TODO: streams
+	github.com/smartcontractkit/chainlink-common => /Users/sam/code/smartcontractkit/chainlink-common
+	github.com/smartcontractkit/chainlink-cosmos => /Users/sam/code/smartcontractkit/chainlink-cosmos
+	github.com/smartcontractkit/chainlink-data-streams => /Users/sam/code/smartcontractkit/chainlink-data-streams
+	github.com/smartcontractkit/chainlink-solana => /Users/sam/code/smartcontractkit/chainlink-solana
+	github.com/smartcontractkit/chainlink-starknet/relayer => /Users/sam/code/smartcontractkit/chainlink-starknet/relayer
+
 )

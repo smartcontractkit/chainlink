@@ -33,6 +33,10 @@ compileContract llo-feeds/VerifierProxy.sol
 compileContract llo-feeds/FeeManager.sol
 compileContract llo-feeds/RewardManager.sol
 
-#Test | Mocks
+# Test | Mocks
 compileContract llo-feeds/test/mocks/ErroredVerifier.sol
 compileContract llo-feeds/test/mocks/ExposedVerifier.sol
+
+# Streams
+compileContract llo-feeds/ConfigurationStore.sol
+compileContract llo-feeds/StreamsConfig.sol

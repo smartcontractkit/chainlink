@@ -22,6 +22,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+	datastreams "github.com/smartcontractkit/chainlink-data-streams/streams"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -31,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
+	streamsconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/streams/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -42,6 +44,7 @@ import (
 	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 )
 
 var _ commontypes.Relayer = &Relayer{} //nolint:staticcheck
@@ -188,9 +191,54 @@ func (r *Relayer) NewMercuryProvider(rargs commontypes.RelayArgs, pargs commonty
 	default:
 		return nil, fmt.Errorf("invalid feed version %d", feedID.Version())
 	}
-	transmitter := mercury.NewTransmitter(lggr, cw.ContractConfigTracker(), client, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.db, r.pgCfg, transmitterCodec)
+	transmitter := mercury.NewTransmitter(lggr, client, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.db, r.pgCfg, transmitterCodec)
 
 	return NewMercuryProvider(cw, r.chainReader, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, lggr), nil
+}
+
+func (r *Relayer) NewStreamsProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.StreamsProvider, error) {
+	// TODO
+	relayOpts := types.NewRelayOpts(rargs)
+	relayConfig, err := relayOpts.RelayConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get relay config: %w", err)
+	}
+
+	var streamsConfig streamsconfig.PluginConfig
+	if err := json.Unmarshal(pargs.PluginConfig, &streamsConfig); err != nil {
+		return nil, pkgerrors.WithStack(err)
+	}
+	if err := streamsConfig.Validate(); err != nil {
+		return nil, err
+	}
+
+	if relayConfig.ChainID.String() != r.chain.ID().String() {
+		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
+	}
+	configWatcher, err := newConfigProvider(r.lggr, r.chain, relayOpts, r.eventBroadcaster)
+	if err != nil {
+		return nil, pkgerrors.WithStack(err)
+	}
+
+	if !relayConfig.EffectiveTransmitterID.Valid {
+		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
+	}
+	privKey, err := r.ks.CSA().Get(relayConfig.EffectiveTransmitterID.String)
+	if err != nil {
+		return nil, pkgerrors.Wrap(err, "failed to get CSA key for mercury connection")
+	}
+
+	client, err := r.mercuryPool.Checkout(context.Background(), privKey, streamsConfig.ServerPubKey, streamsConfig.ServerURL())
+	if err != nil {
+		return nil, err
+	}
+
+	// FIXME
+	// transmitter := streamsNewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, rargs.JobID, r.db, r.pgCfg)
+	transmitter := streams.NewTransmitter(r.lggr, client, privKey.PublicKey)
+	channelDefinitionCache := datastreams.NewChannelDefinitionCache()
+
+	return NewStreamsProvider(configWatcher, transmitter, r.lggr, channelDefinitionCache), nil
 }
 
 func (r *Relayer) NewFunctionsProvider(rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.FunctionsProvider, error) {

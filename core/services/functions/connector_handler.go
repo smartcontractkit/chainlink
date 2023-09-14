@@ -244,7 +244,7 @@ func (h *functionsConnectorHandler) handleOffchainRequest(request *OffchainReque
 	defer cancel()
 	err := h.listener.HandleOffchainRequest(ctx, request)
 	if err != nil {
-		h.lggr.Errorw("internal error while processing", "id", request.RequestId, "error", err)
+		h.lggr.Errorw("internal error while processing", "id", request.RequestId, "err", err)
 		h.mu.Lock()
 		defer h.mu.Unlock()
 		state, ok := h.heartbeatRequests[RequestID(request.RequestId)]
@@ -303,7 +303,7 @@ func (h *functionsConnectorHandler) cacheNewRequestLocked(requestId RequestID, r
 func (h *functionsConnectorHandler) sendResponseAndLog(ctx context.Context, gatewayId string, requestBody *api.MessageBody, payload any) {
 	err := h.sendResponse(ctx, gatewayId, requestBody, payload)
 	if err != nil {
-		h.lggr.Errorw("failed to send response to gateway", "id", gatewayId, "error", err)
+		h.lggr.Errorw("failed to send response to gateway", "id", gatewayId, "err", err)
 	} else {
 		h.lggr.Debugw("sent to gateway", "id", gatewayId, "messageId", requestBody.MessageId, "donId", requestBody.DonId, "method", requestBody.Method)
 	}

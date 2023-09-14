@@ -464,7 +464,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 // ValidateKeyStoreMatch confirms that the key has a valid match in the keystore
 func ValidateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key string) error {
-	if spec.PluginType == types.Mercury {
+	if spec.PluginType == types.Mercury || spec.PluginType == types.Streams {
 		_, err := keyStore.CSA().Get(key)
 		if err != nil {
 			return errors.Errorf("no CSA key matching: %q", key)

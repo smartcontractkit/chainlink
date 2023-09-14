@@ -226,6 +226,32 @@ func (_m *LoopRelayAdapter) NewPluginProvider(_a0 context.Context, _a1 types.Rel
 	return r0, r1
 }
 
+// NewStreamsProvider provides a mock function with given fields: _a0, _a1, _a2
+func (_m *LoopRelayAdapter) NewStreamsProvider(_a0 context.Context, _a1 types.RelayArgs, _a2 types.PluginArgs) (types.StreamsProvider, error) {
+	ret := _m.Called(_a0, _a1, _a2)
+
+	var r0 types.StreamsProvider
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, types.RelayArgs, types.PluginArgs) (types.StreamsProvider, error)); ok {
+		return rf(_a0, _a1, _a2)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, types.RelayArgs, types.PluginArgs) types.StreamsProvider); ok {
+		r0 = rf(_a0, _a1, _a2)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(types.StreamsProvider)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, types.RelayArgs, types.PluginArgs) error); ok {
+		r1 = rf(_a0, _a1, _a2)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // Ready provides a mock function with given fields:
 func (_m *LoopRelayAdapter) Ready() error {
 	ret := _m.Called()

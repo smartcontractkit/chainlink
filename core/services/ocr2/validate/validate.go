@@ -17,6 +17,7 @@ import (
 	dkgconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
+	streamsconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/streams/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
@@ -114,6 +115,8 @@ func validateSpec(tree *toml.Tree, spec job.Job) error {
 		return nil
 	case types.Mercury:
 		return validateOCR2MercurySpec(spec.OCR2OracleSpec.PluginConfig, *spec.OCR2OracleSpec.FeedID)
+	case types.Streams:
+		return validateOCR2StreamsSpec(spec.OCR2OracleSpec.PluginConfig)
 	case types.GenericPlugin:
 		return validateOCR2GenericPluginSpec(spec.OCR2OracleSpec.PluginConfig)
 	case "":
@@ -254,4 +257,13 @@ func validateOCR2MercurySpec(jsonConfig job.JSONConfig, feedId [32]byte) error {
 		return pkgerrors.Wrap(err, "error while unmarshaling plugin config")
 	}
 	return pkgerrors.Wrap(mercuryconfig.ValidatePluginConfig(pluginConfig, feedId), "Mercury PluginConfig is invalid")
+}
+
+func validateOCR2StreamsSpec(jsonConfig job.JSONConfig) error {
+	var pluginConfig streamsconfig.PluginConfig
+	err := json.Unmarshal(jsonConfig.Bytes(), &pluginConfig)
+	if err != nil {
+		return pkgerrors.Wrap(err, "error while unmarshaling plugin config")
+	}
+	return pkgerrors.Wrap(pluginConfig.Validate(), "Streams PluginConfig is invalid")
 }

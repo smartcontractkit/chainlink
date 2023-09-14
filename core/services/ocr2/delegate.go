@@ -68,6 +68,7 @@ import (
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -431,6 +432,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	case types.Mercury:
 		return d.newServicesMercury(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
+	case types.Streams:
+		return d.newServicesStreams(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
+
 	case types.Median:
 		return d.newServicesMedian(ctx, lggr, jb, bootstrapPeers, kb, ocrDB, lc, ocrLogger)
 
@@ -463,7 +467,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 func GetEVMEffectiveTransmitterID(jb *job.Job, chain legacyevm.Chain, lggr logger.SugaredLogger) (string, error) {
 	spec := jb.OCR2OracleSpec
-	if spec.PluginType == types.Mercury {
+	if spec.PluginType == types.Mercury || spec.PluginType == types.Streams {
 		return spec.TransmitterID.String, nil
 	}
 
@@ -727,6 +731,94 @@ func (d *Delegate) newServicesMercury(
 	}
 
 	return mercuryServices, err2
+}
+
+func (d *Delegate) newServicesStreams(
+	ctx context.Context,
+	lggr logger.SugaredLogger,
+	jb job.Job,
+	bootstrapPeers []commontypes.BootstrapperLocator,
+	kb ocr2key.KeyBundle,
+	ocrDB *db,
+	lc ocrtypes.LocalConfig,
+	ocrLogger commontypes.Logger,
+) ([]job.ServiceCtx, error) {
+	lggr = logger.Sugared(d.lggr.Named("Streams"))
+	spec := jb.OCR2OracleSpec
+	transmitterID := spec.TransmitterID.String
+	if len(transmitterID) != 64 {
+		return nil, errors.Errorf("ServicesForSpec: streams job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
+	}
+	if _, err := hex.DecodeString(transmitterID); err != nil {
+		return nil, errors.Wrapf(err, "ServicesForSpec: streams job type requires transmitter ID to be a 32-byte hex string, got: %q", transmitterID)
+	}
+
+	rid, err := spec.RelayID()
+	if err != nil {
+		return nil, ErrJobSpecNoRelayer{Err: err, PluginName: "streams"}
+	}
+	if rid.Network != relay.EVM {
+		return nil, fmt.Errorf("streams services: expected EVM relayer got %s", rid.Network)
+	}
+	relayer, err := d.RelayGetter.Get(rid)
+	if err != nil {
+		return nil, ErrRelayNotEnabled{Err: err, Relay: spec.Relay, PluginName: "streams"}
+	}
+
+	provider, err2 := relayer.NewStreamsProvider(ctx,
+		types.RelayArgs{
+			ExternalJobID: jb.ExternalJobID,
+			JobID:         jb.ID,
+			ContractID:    spec.ContractID,
+			New:           d.isNewlyCreatedJob,
+			RelayConfig:   spec.RelayConfig.Bytes(),
+			ProviderType:  string(spec.PluginType),
+		}, types.PluginArgs{
+			TransmitterID: transmitterID,
+			PluginConfig:  spec.PluginConfig.Bytes(),
+		})
+	if err2 != nil {
+		return nil, err2
+	}
+
+	streamsProvider, ok := provider.(types.StreamsProvider)
+	if !ok {
+		return nil, errors.New("could not coerce PluginProvider to streamsProvider")
+	}
+
+	// chEnhancedTelem := make(chan ocrcommon.EnhancedTelemetryMercuryData, 100)
+
+	// lloServices, err2 := llo.NewServices(jb, streamsProvider, d.pipelineRunner, runResults, lggr, oracleArgsNoPlugin, d.cfg.JobPipeline(), chEnhancedTelem, chain, d.mercuryORM, (mercuryutils.FeedID)(*spec.FeedID))
+
+	// if ocrcommon.ShouldCollectEnhancedTelemetryMercury(jb) {
+	//     enhancedTelemService := ocrcommon.NewEnhancedTelemetryService(&jb, chEnhancedTelem, make(chan struct{}), d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.FeedID.String(), synchronization.EnhancedEAMercury), lggr.Named("EnhancedTelemetryMercury"))
+	//     mercuryServices = append(mercuryServices, enhancedTelemService)
+	// } else {
+	//     lggr.Infow("Enhanced telemetry is disabled for llo job", "job", jb.Name)
+	// }
+
+	kr := streams.NewOnchainKeyring(kb)
+
+	cfg := streams.DelegateConfig{
+		Logger:  lggr,
+		Queryer: pg.NewQ(d.db, d.lggr, d.cfg.Database()),
+		Runner:  d.pipelineRunner,
+
+		// TODO
+		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
+		V2Bootstrappers:              bootstrapPeers,
+		ContractTransmitter:          streamsProvider.ContractTransmitter(),
+		ContractConfigTracker:        streamsProvider.ContractConfigTracker(),
+		Database:                     ocrDB,
+		LocalConfig:                  lc,
+		MonitoringEndpoint:           nil, // TODO
+		OffchainConfigDigester:       streamsProvider.OffchainConfigDigester(),
+		OffchainKeyring:              kb,
+		OnchainKeyring:               kr,
+		OCRLogger:                    ocrLogger,
+	}
+	srv := streams.NewDelegate(cfg)
+	return []job.ServiceCtx{srv}, nil
 }
 
 func (d *Delegate) newServicesMedian(

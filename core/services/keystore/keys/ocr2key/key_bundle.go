@@ -14,12 +14,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
+type OCR3SignerVerifier interface {
+	Sign3(digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error)
+	Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool
+}
+
 // nolint
 type KeyBundle interface {
 	// OnchainKeyring is used for signing reports (groups of observations, verified onchain)
 	ocrtypes.OnchainKeyring
 	// OffchainKeyring is used for signing observations
 	ocrtypes.OffchainKeyring
+
+	OCR3SignerVerifier
+
 	ID() string
 	ChainType() chaintype.ChainType
 	Marshal() ([]byte, error)
