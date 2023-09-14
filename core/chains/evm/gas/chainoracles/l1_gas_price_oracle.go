@@ -49,7 +49,7 @@ const (
 	ArbGasInfo_getL1BaseFeeEstimate = "f5d6ded7"
 
 	// GasOracleAddress is the address of the precompiled contract that exists on OP stack chain.
-	// This is the case for Optimism and Base
+	// This is the case for Optimism and Base.
 	OPGasOracleAddress = "0x420000000000000000000000000000000000000F"
 	// GasOracle_l1BaseFee is the a hex encoded call to:
 	// `function l1BaseFee() external view returns (uint256);`
