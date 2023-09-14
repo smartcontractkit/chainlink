@@ -1,12 +1,6 @@
 name: Build and Publish with Goreleaser
 description: A composite action that allows building and publishing signed chainlink artifacts (binaries + images)
 inputs:
-  docker-image-tag-suffix:
-    description: The suffix to append to the Docker image tag
-    required: true
-  dockerfile:
-    description: The path to the Dockerfile to use for building the image
-    required: true
   goreleaser-version:
     description: The goreleaser version
     default: 1.15.2
@@ -23,7 +17,7 @@ inputs:
     description: The macos sdk directory
     default: MacOSX12.3.sdk
     required: false
-  # publishing inputs
+  # publising inputs
   enable-docker-publish:
     description: Enable publishing of docker images / manifests
     default: "true"
@@ -102,12 +96,10 @@ runs:
       id: goreleaser
       shell: bash
       env:
-        DOCKERFILE: ${{ inputs.dockerfile }}
         ENABLE_COSIGN: ${{ inputs.enable-cosign }}
         ENABLE_GORELEASER_SNAPSHOT: ${{ inputs.enable-goreleaser-snapshot }}
         ENABLE_DOCKER_PUBLISH: ${{ inputs.enable-docker-publish }}
         IMAGE_PREFIX: ${{ inputs.docker-registry }}
-        IMAGE_TAG_SUFFIX: ${{ inputs.docker-image-tag-suffix }}
         GORELEASER_EXEC: ${{ inputs.goreleaser-exec }}
         GORELEASER_CONFIG: ${{ inputs.goreleaser-config }}
         COSIGN_PASSWORD: ${{ inputs.cosign-password }}
