@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -17,11 +18,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type OracleType string
+//go:generate mockery --quiet --name ethClient --output ./mocks/ --case=underscore --structname ETHClient
+type ethClient interface {
+	CallContract(ctx context.Context, msg ethereum.CallMsg, blockNumber *big.Int) ([]byte, error)
+}
 
 // Reads L2-specific precompiles and caches the l1GasPrice set by the L2.
 type l1GasPriceOracle struct {
-	client     evmclient.Client
+	client     ethClient
 	pollPeriod time.Duration
 	logger     logger.Logger
 	address    string
@@ -44,7 +48,8 @@ const (
 	// `function getL1BaseFeeEstimate() external view returns (uint256);`
 	ArbGasInfo_getL1BaseFeeEstimate = "f5d6ded7"
 
-	// GasOracleAddress is the address of the "Precompiled contract that exists in every OP stack chain."
+	// GasOracleAddress is the address of the precompiled contract that exists on OP stack chain.
+	// This is the case for Optimism and Base
 	OPGasOracleAddress = "0x420000000000000000000000000000000000000F"
 	// GasOracle_l1BaseFee is the a hex encoded call to:
 	// `function l1BaseFee() external view returns (uint256);`
@@ -54,7 +59,7 @@ const (
 	PollPeriod = 12 * time.Second
 )
 
-func NewL1GasPriceOracle(lggr logger.Logger, ethClient evmclient.Client, chainType config.ChainType) L1Oracle {
+func NewL1GasPriceOracle(lggr logger.Logger, ethClient ethClient, chainType config.ChainType) L1Oracle {
 	var address, selector string
 	switch chainType {
 	case config.ChainArbitrum:
@@ -68,11 +73,14 @@ func NewL1GasPriceOracle(lggr logger.Logger, ethClient evmclient.Client, chainTy
 	}
 
 	return &l1GasPriceOracle{
-		client:     ethClient,
-		pollPeriod: PollPeriod,
-		logger:     lggr.Named(fmt.Sprintf("%d L1GasPriceOracle", chainType)),
-		address:    address,
-		selector:   selector,
+		client:        ethClient,
+		pollPeriod:    PollPeriod,
+		logger:        lggr.Named(fmt.Sprintf("L1GasPriceOracle(%s)", chainType)),
+		address:       address,
+		selector:      selector,
+		chInitialised: make(chan struct{}),
+		chStop:        make(chan struct{}),
+		chDone:        make(chan struct{}),
 	}
 }
 
@@ -88,10 +96,10 @@ func (o *l1GasPriceOracle) Start(ctx context.Context) error {
 	})
 }
 func (o *l1GasPriceOracle) Close() error {
-	return o.StopOnce(o.Name(), func() (err error) {
+	return o.StopOnce(o.Name(), func() error {
 		close(o.chStop)
 		<-o.chDone
-		return
+		return nil
 	})
 }
 
@@ -144,8 +152,17 @@ func (o *l1GasPriceOracle) refresh() (t *time.Timer) {
 	return
 }
 
-func (o *l1GasPriceOracle) L1GasPrice(_ context.Context) (*assets.Wei, error) {
-	o.l1GasPriceMu.RLock()
-	defer o.l1GasPriceMu.RUnlock()
-	return o.l1GasPrice, nil
+func (o *l1GasPriceOracle) L1GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err error) {
+	ok := o.IfStarted(func() {
+		o.l1GasPriceMu.RLock()
+		l1GasPrice = o.l1GasPrice
+		o.l1GasPriceMu.RUnlock()
+	})
+	if !ok {
+		return l1GasPrice, errors.New("L1GasPriceOracle is not started; cannot estimate gas")
+	}
+	if l1GasPrice == nil {
+		return l1GasPrice, errors.New("failed to get l1 gas price; gas price not set")
+	}
+	return
 }
