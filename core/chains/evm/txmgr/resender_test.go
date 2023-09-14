@@ -187,10 +187,10 @@ func Test_EthResender_Start(t *testing.T) {
 		}()
 
 		var dbEtx txmgr.DbEthTx
-		err := db.Get(&dbEtx, `SELECT * FROM eth_txes WHERE id = $1`, etx.ID)
+		err := db.Get(&dbEtx, `SELECT * FROM evm.txes WHERE id = $1`, etx.ID)
 		require.NoError(t, err)
 		var dbEtx2 txmgr.DbEthTx
-		err = db.Get(&dbEtx2, `SELECT * FROM eth_txes WHERE id = $1`, etx2.ID)
+		err = db.Get(&dbEtx2, `SELECT * FROM evm.txes WHERE id = $1`, etx2.ID)
 		require.NoError(t, err)
 
 		assert.Greater(t, dbEtx.BroadcastAt.Unix(), originalBroadcastAt.Unix())

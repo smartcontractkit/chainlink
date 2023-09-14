@@ -167,7 +167,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	assert.NoError(t, client.SendEther(c))
 
 	dbEvmTx := txmgr.DbEthTx{}
-	require.NoError(t, db.Get(&dbEvmTx, `SELECT * FROM eth_txes`))
+	require.NoError(t, db.Get(&dbEvmTx, `SELECT * FROM evm.txes`))
 	require.Equal(t, "100.500000000000000000", dbEvmTx.Value.String())
 	require.Equal(t, fromAddress, dbEvmTx.FromAddress)
 	require.Equal(t, to, dbEvmTx.ToAddress.String())
@@ -179,7 +179,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("%d", *dbEvmTx.Nonce), output.Nonce)
 
 	dbEvmTxAttempt := txmgr.DbEthTxAttempt{}
-	require.NoError(t, db.Get(&dbEvmTxAttempt, `SELECT * FROM eth_tx_attempts`))
+	require.NoError(t, db.Get(&dbEvmTxAttempt, `SELECT * FROM evm.tx_attempts`))
 	assert.Equal(t, dbEvmTxAttempt.Hash, output.Hash)
 }
 
@@ -231,7 +231,7 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	assert.NoError(t, client.SendEther(c))
 
 	dbEvmTx := txmgr.DbEthTx{}
-	require.NoError(t, db.Get(&dbEvmTx, `SELECT * FROM eth_txes`))
+	require.NoError(t, db.Get(&dbEvmTx, `SELECT * FROM evm.txes`))
 	require.Equal(t, "1.000000000000000000", dbEvmTx.Value.String())
 	require.Equal(t, fromAddress, dbEvmTx.FromAddress)
 	require.Equal(t, to, dbEvmTx.ToAddress.String())
@@ -243,6 +243,6 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("%d", *dbEvmTx.Nonce), output.Nonce)
 
 	dbEvmTxAttempt := txmgr.DbEthTxAttempt{}
-	require.NoError(t, db.Get(&dbEvmTxAttempt, `SELECT * FROM eth_tx_attempts`))
+	require.NoError(t, db.Get(&dbEvmTxAttempt, `SELECT * FROM evm.tx_attempts`))
 	assert.Equal(t, dbEvmTxAttempt.Hash, output.Hash)
 }
