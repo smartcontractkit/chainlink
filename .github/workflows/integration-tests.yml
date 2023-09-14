@@ -3,8 +3,8 @@ on:
   merge_group:
   pull_request:
   schedule:
-    # - cron: "0 0 * * *"
-    - cron: "0 * * * *" # DEBUG: Run every hour to nail down flakes
+    - cron: "0 0 * * *"
+    # - cron: "0 * * * *" # DEBUG: Run every hour to nail down flakes
   push:
     tags:
       - "*"
@@ -411,6 +411,7 @@ jobs:
     needs: [eth-smoke-tests]
     runs-on: ubuntu20.04-16cores-64GB
     name: ETH Smoke Tests Go Mod Cache
+    continue-on-error: true
     steps:
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
