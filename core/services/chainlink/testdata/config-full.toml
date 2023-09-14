@@ -35,13 +35,17 @@ LeaseRefreshInterval = '1s'
 [TelemetryIngress]
 UniConn = true
 Logging = true
-ServerPubKey = 'test-pub-key'
-URL = 'https://prom.test'
 BufferSize = 1234
 MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
+
+[[TelemetryIngressEndpoint]]
+Network = 'EVM'
+ChainID = '1'
+URL = 'https://prom.test'
+ServerPubKey = 'test-pub-key'
 
 [AuditLogger]
 Enabled = true

@@ -132,7 +132,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 
 	ingressClient := sync_mocks.NewTelemetryIngressClient(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
-	monEndpoint := ingressAgent.GenMonitoringEndpoint(contractAddress, synchronization.FunctionsRequests)
+	monEndpoint := ingressAgent.GenMonitoringEndpoint(contractAddress, synchronization.FunctionsRequests, "test-network", "test-chainID")
 
 	s4Storage := s4_mocks.NewStorage(t)
 	client := chain.Client()

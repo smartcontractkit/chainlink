@@ -188,7 +188,7 @@ func TestSendEATelemetry(t *testing.T) {
 	wg := sync.WaitGroup{}
 	ingressClient := mocks.NewTelemetryIngressClient(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
-	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA)
+	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA, "test-network", "test-chainID")
 
 	var sentMessage []byte
 	ingressClient.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
@@ -304,7 +304,7 @@ func TestCollectAndSend(t *testing.T) {
 	wg := sync.WaitGroup{}
 	ingressClient := mocks.NewTelemetryIngressClient(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
-	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA)
+	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA, "test-network", "test-chainID")
 	ingressClient.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
 		wg.Done()
 	})
@@ -551,7 +551,7 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 	wg := sync.WaitGroup{}
 	ingressClient := mocks.NewTelemetryIngressClient(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
-	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEAMercury)
+	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEAMercury, "test-network", "test-chainID")
 
 	var sentMessage []byte
 	ingressClient.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {

@@ -271,13 +271,20 @@ func TestConfig_Marshal(t *testing.T) {
 	full.TelemetryIngress = toml.TelemetryIngress{
 		UniConn:      ptr(true),
 		Logging:      ptr(true),
-		ServerPubKey: ptr("test-pub-key"),
-		URL:          mustURL("https://prom.test"),
 		BufferSize:   ptr[uint16](1234),
 		MaxBatchSize: ptr[uint16](4321),
 		SendInterval: models.MustNewDuration(time.Minute),
 		SendTimeout:  models.MustNewDuration(5 * time.Second),
 		UseBatchSend: ptr(true),
+	}
+
+	full.TelemetryIngressEndpoint = toml.TelemetryIngressEndpoints{
+		ptr(toml.TelemetryIngressEndpoint{
+			Network:      ptr("test-network"),
+			ChainID:      ptr("123123123"),
+			ServerPubKey: ptr("test-pub-key-111551111-test-network"),
+			URL:          mustURL("http://localhost-123123123-test-network:9000"),
+		}),
 	}
 	full.Log = toml.Log{
 		Level:       ptr(toml.LogLevel(zapcore.DPanicLevel)),
@@ -683,14 +690,19 @@ LeaseRefreshInterval = '1s'
 		{"TelemetryIngress", Config{Core: toml.Core{TelemetryIngress: full.TelemetryIngress}}, `[TelemetryIngress]
 UniConn = true
 Logging = true
-ServerPubKey = 'test-pub-key'
-URL = 'https://prom.test'
 BufferSize = 1234
 MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
 `},
+		{"TelemetryIngressEndpoint", Config{Core: toml.Core{TelemetryIngressEndpoint: full.TelemetryIngressEndpoint}}, `[[TelemetryIngressEndpoint]]
+Network = 'test-network'
+ChainID = '123123123'
+URL = 'http://localhost-123123123-test-network:9000'
+ServerPubKey = 'test-pub-key-111551111-test-network'
+`},
+
 		{"Log", Config{Core: toml.Core{Log: full.Log}}, `[Log]
 Level = 'crit'
 JSONConsole = true

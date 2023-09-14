@@ -244,8 +244,6 @@ LeaseRefreshInterval determines how often to refresh the lease lock. Also contro
 [TelemetryIngress]
 UniConn = true # Default
 Logging = false # Default
-ServerPubKey = 'test-pub-key' # Example
-URL = 'https://prom.test' # Example
 BufferSize = 100 # Default
 MaxBatchSize = 50 # Default
 SendInterval = '500ms' # Default
@@ -265,18 +263,6 @@ UniConn toggles which ws connection style is used.
 Logging = false # Default
 ```
 Logging toggles verbose logging of the raw telemetry messages being sent.
-
-### ServerPubKey
-```toml
-ServerPubKey = 'test-pub-key' # Example
-```
-ServerPubKey is the public key of the telemetry server.
-
-### URL
-```toml
-URL = 'https://prom.test' # Example
-```
-URL is where to send telemetry.
 
 ### BufferSize
 ```toml
@@ -307,6 +293,40 @@ SendTimeout is the max duration to wait for the request to complete when sending
 UseBatchSend = true # Default
 ```
 UseBatchSend toggles sending telemetry to the ingress server using the batch client.
+
+## TelemetryIngressEndpoint]] # Example
+```toml
+[[TelemetryIngressEndpoint]] # Example
+Network = 'EVM' # Example
+ChainID = '111551111' # Example
+ServerPubKey = 'test-pub-key-111551111-evm' # Example
+URL = 'http://localhost-111551111-evm:9000' # Example
+```
+
+
+### Network
+```toml
+Network = 'EVM' # Example
+```
+Network aka EVM, Solana, Starknet
+
+### ChainID
+```toml
+ChainID = '111551111' # Example
+```
+ChainID of the network
+
+### ServerPubKey
+```toml
+ServerPubKey = 'test-pub-key-111551111-evm' # Example
+```
+ServerPubKey is the public key of the telemetry server.
+
+### URL
+```toml
+URL = 'http://localhost-111551111-evm:9000' # Example
+```
+URL is where to send telemetry.
 
 ## AuditLogger
 ```toml

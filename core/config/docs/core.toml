@@ -99,10 +99,11 @@ SendTimeout = '10s' # Default
 # UseBatchSend toggles sending telemetry to the ingress server using the batch client.
 UseBatchSend = true # Default
 
-[[TelemetryIngressEndpoint]]
+[[TelemetryIngressEndpoint]] # Example
+# Network aka EVM, Solana, Starknet
 Network = 'EVM' # Example
-# Chain ID for the endpoint
-ChainID = 111551111 # Example
+# ChainID of the network
+ChainID = '111551111' # Example
 # ServerPubKey is the public key of the telemetry server.
 ServerPubKey = 'test-pub-key-111551111-evm' # Example
 # URL is where to send telemetry.
