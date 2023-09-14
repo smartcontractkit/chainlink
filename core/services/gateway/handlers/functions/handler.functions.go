@@ -57,6 +57,7 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 	if err != nil {
 		return nil, err
 	}
+	lggr = lggr.Named("FunctionsHandler:" + donConfig.DonId)
 	var allowlist OnchainAllowlist
 	if cfg.OnchainAllowlist != nil {
 		chain, err2 := legacyChains.Get(cfg.OnchainAllowlistChainID)
