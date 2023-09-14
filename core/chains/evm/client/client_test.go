@@ -392,7 +392,6 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 				require.NoError(t, err)
 
 				ctx, cancel := context.WithTimeout(testutils.Context(t), 5*time.Second)
-				defer cancel()
 				result, err := ethClient.HeadByNumber(ctx, expectedBlockNum)
 				if test.error != nil {
 					require.Error(t, err, test.error)
@@ -402,6 +401,7 @@ func TestEthClient_HeaderByNumber(t *testing.T) {
 					require.Equal(t, test.expectedResponseBlock, result.Number)
 					require.Zero(t, cltest.FixtureChainID.Cmp(result.EVMChainID.ToInt()))
 				}
+				cancel()
 			}
 		})
 	}
