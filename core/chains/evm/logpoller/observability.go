@@ -140,6 +140,12 @@ func (o *ObservedLogPoller) LogsDataWordGreaterThan(eventSig common.Hash, addres
 	})
 }
 
+func (o *ObservedLogPoller) LogsUntilBlockHashDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, untilBlockHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	return withObservedQueryAndResults(o, "LogsUntilBlockHashDataWordGreaterThan", func() ([]Log, error) {
+		return o.LogPoller.LogsUntilBlockHashDataWordGreaterThan(eventSig, address, wordIndex, wordValueMin, untilBlockHash, qopts...)
+	})
+}
+
 func withObservedQueryAndResults[T any](o *ObservedLogPoller, queryName string, query func() ([]T, error)) ([]T, error) {
 	results, err := withObservedQuery(o, queryName, query)
 	if err == nil {
