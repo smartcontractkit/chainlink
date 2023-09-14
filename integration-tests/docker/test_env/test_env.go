@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -254,7 +255,8 @@ func (te *CLClusterTestEnv) Cleanup(t *testing.T) error {
 		}
 	}
 
-	// Print logs if the test failed
+	// TODO: This is an imperfect and temporary solution, see TT-590 for a more sustainable solution
+	// Collect logs if the test failed
 	if !t.Failed() {
 		return nil
 	}
@@ -265,23 +267,32 @@ func (te *CLClusterTestEnv) Cleanup(t *testing.T) error {
 	}
 
 	l.Warn().Msg("Test failed, collecting logs")
-	for _, node := range te.CLNodes {
-		logReader, err := node.Container.Logs(context.Background())
-		if err != nil {
-			return err
-		}
-		var logs []byte
-		_, err = logReader.Read(logs)
-		if err != nil {
-			return err
-		}
-		if err = os.WriteFile(filepath.Join(folder, fmt.Sprintf("node-%s.log", node.ContainerName)), logs, 0600); err != nil {
-			return err
-		}
-	}
-	absPath, err := filepath.Abs(folder)
-	if err != nil {
-		return errors.Wrap(err, fmt.Sprintf("failed to get absolute path of logs folder '%s'", folder))
+	eg := &errgroup.Group{}
+	for _, n := range te.CLNodes {
+		node := n
+		eg.Go(func() error {
+			logFileName := filepath.Join(folder, fmt.Sprintf("node-%s.log", node.ContainerName))
+			logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY, 0644)
+			if err != nil {
+				return err
+			}
+			logReader, err := node.Container.Logs(context.Background())
+			if err != nil {
+				return err
+			}
+			for {
+				logBuf := make([]byte, 1024)
+				_, err = logReader.Read(logBuf)
+				_, err = logFile.Write(logBuf)
+				if err == io.EOF {
+					l.Info().Str("Node", node.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
+					break
+				} else if err != nil {
+					return err
+				}
+			}
+			return nil
+		})
 	}
 	l.Warn().Str("Logs Location", absPath).Msg("Wrote Logs")
 
