@@ -387,12 +387,12 @@ func (o *ORM) SelectUntilBlockHashDataWordGreaterThan(address common.Address, ev
 		// We want to mimic the behaviour of the ETH RPC which errors if blockhash not found.
 		var block LogPollerBlock
 		if err := tx.Get(&block,
-			`SELECT * FROM evm_log_poller_blocks 
+			`SELECT * FROM evm.log_poller_blocks 
 					WHERE evm_chain_id = $1 AND block_hash = $2`, utils.NewBig(o.chainID), untilBlockHash); err != nil {
 			return err
 		}
 		return q.Select(&logs,
-			`SELECT * FROM evm_logs 
+			`SELECT * FROM evm.logs 
 			WHERE evm_chain_id = $1
 			AND address = $2 AND event_sig = $3
 			AND substring(data from 32*$4+1 for 32) >= $5
