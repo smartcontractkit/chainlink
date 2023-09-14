@@ -1,7 +1,11 @@
 ChainID = '59140'
 # Block time 12s, finality < 3m
 FinalityDepth = 15
-LogPollInterval = '30s'
+# Blocks are only emitted when a transaction happens / no empty blocks
+NoNewHeadsThreshold = '0'
+
+[GasEstimator]
+Mode = 'L2Suggested'
 
 # Linea uses 200 blocks to estimate gas price
 [GasEstimator.BlockHistory]
