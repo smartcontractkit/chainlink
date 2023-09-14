@@ -5225,7 +5225,7 @@ BlockRate = '6s' # Default
 BlocksUntilTxTimeout = 30 # Default
 ConfirmPollPeriod = '1s' # Default
 FallbackGasPrice = '0.015' # Default
-FeeToken = 'ucosm' # Default
+GasToken = 'ucosm' # Default
 GasLimitMultiplier = '1.5' # Default
 MaxMsgsPerBatch = 100 # Default
 OCR2CachePollPeriod = '4s' # Default
@@ -5276,11 +5276,11 @@ FallbackGasPrice = '0.015' # Default
 ```
 FallbackGasPrice sets a fallback gas price to use when the estimator is not available.
 
-### FeeToken
+### GasToken
 ```toml
-FeeToken = 'ucosm' # Default
+GasToken = 'ucosm' # Default
 ```
-FeeToken is the token denomination which is being used to pay gas fees on this chain.
+GasToken is the token denomination which is being used to pay gas fees on this chain.
 
 ### GasLimitMultiplier
 ```toml

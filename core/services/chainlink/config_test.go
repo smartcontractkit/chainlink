@@ -615,7 +615,7 @@ func TestConfig_Marshal(t *testing.T) {
 				BlocksUntilTxTimeout: ptr[int64](12),
 				ConfirmPollPeriod:    relayutils.MustNewDuration(time.Second),
 				FallbackGasPrice:     mustDecimal("0.001"),
-				FeeToken:             ptr("ucosm"),
+				GasToken:             ptr("ucosm"),
 				GasLimitMultiplier:   mustDecimal("1.2"),
 				MaxMsgsPerBatch:      ptr[int64](17),
 				OCR2CachePollPeriod:  relayutils.MustNewDuration(time.Minute),
@@ -964,7 +964,7 @@ BlockRate = '1m0s'
 BlocksUntilTxTimeout = 12
 ConfirmPollPeriod = '1s'
 FallbackGasPrice = '0.001'
-FeeToken = 'ucosm'
+GasToken = 'ucosm'
 GasLimitMultiplier = '1.2'
 MaxMsgsPerBatch = 17
 OCR2CachePollPeriod = '1m0s'

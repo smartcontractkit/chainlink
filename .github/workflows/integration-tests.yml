@@ -3,7 +3,8 @@ on:
   merge_group:
   pull_request:
   schedule:
-    - cron: "0 0 * * *"
+    # - cron: "0 0 * * *"
+    - cron: "0 * * * *" # DEBUG: Run every hour to nail down flakes
   push:
     tags:
       - "*"
@@ -148,6 +149,11 @@ jobs:
     outputs:
       matrix: ${{ env.MATRIX_JSON }}
     steps:
+      - name: Check for Skip Tests Label
+        if: contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')
+        run: |
+          echo "## \`skip-smoke-tests\` label is active, skipping E2E smoke tests" >>$GITHUB_STEP_SUMMARY
+          exit 0
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Compare Test Lists
@@ -159,11 +165,12 @@ jobs:
         id: build-test-matrix-list
         run: |
           cd ./integration-tests
-          MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu20.04-8cores-32GB)
-          MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu20.04-8cores-32GB)
+          MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu20.04-8cores-32GB 1)
+          MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu20.04-8cores-32GB 1)
           COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
           echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
   eth-smoke-tests-matrix-automation:
+    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
     permissions:
       checks: write
@@ -231,6 +238,7 @@ jobs:
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
   eth-smoke-tests-matrix:
+    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
     permissions:
       checks: write
@@ -654,6 +662,7 @@ jobs:
 #        if: needs.changes.outputs.src == 'false' || needs.solana-test-image-exists.outputs.exists == 'true'
 #
 #  solana-smoke-tests:
+#    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
 #    environment: integration
 #    permissions:
 #      checks: write
@@ -797,7 +806,7 @@ jobs:
 #
 #  testnet-smoke-tests-notify:
 #    name: Live Testnet Start Slack Thread
-#    if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) }} ## Only run live tests on new tags and nightly
+#    if: success() || failure()
 #    environment: integration
 #    outputs:
 #      thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -918,3 +927,4 @@ jobs:
 #          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 #
 #  ### End Live Testnet Section
+#

@@ -40,7 +40,6 @@
 #        with:
 #          owner: smartcontractkit
 #          repo: operator-ui
-#          comment_downstream_url: ${{ github.event.pull_request.comments_url }}
 #          github_token: ${{ steps.get-gh-token.outputs.access-token }}
 #          workflow_file_name: chainlink-ci.yml
 #          client_payload: '{"ref": "${{ github.event.pull_request.head.sha }}"}'

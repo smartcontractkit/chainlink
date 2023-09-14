@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
-import {IKeeperRegistryMaster} from "./interfaces/IKeeperRegistryMaster.sol";
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
-import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
+import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
+import {IKeeperRegistryMaster} from "../interfaces/2_1/IKeeperRegistryMaster.sol";
+import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {IERC677Receiver} from "../../shared/interfaces/IERC677Receiver.sol";
 
 /**
  * @notice Contract to accept requests for upkeep registrations

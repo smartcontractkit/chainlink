@@ -500,7 +500,7 @@ func (txm *Txm) GetMsgs(ids ...int64) (adapters.Msgs, error) {
 // GasPrice returns the gas price from the estimator in the configured fee token.
 func (txm *Txm) GasPrice() (sdk.DecCoin, error) {
 	prices := txm.gpe.GasPrices()
-	gasPrice, ok := prices[txm.cfg.FeeToken()]
+	gasPrice, ok := prices[txm.cfg.GasToken()]
 	if !ok {
 		return sdk.DecCoin{}, errors.New("unexpected empty gas price")
 	}

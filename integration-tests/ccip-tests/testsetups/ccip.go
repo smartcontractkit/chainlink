@@ -715,9 +715,11 @@ func CCIPDefaultTestSetUp(
 	chainByChainID := make(map[int64]blockchain.EVMClient)
 	if inputs.LocalCluster {
 		require.NotNil(t, ccipEnv.LocalCluster, "Local cluster shouldn't be nil")
-		for _, n := range ccipEnv.LocalCluster.PrivateGethChain {
-			chainByChainID[n.PrimaryNode.EVMClient.GetChainID().Int64()] = n.PrimaryNode.EVMClient
-			chains = append(chains, n.PrimaryNode.EVMClient)
+		for _, n := range ccipEnv.LocalCluster.PrivateChain {
+			primaryNode := n.GetPrimaryNode()
+			require.NotNil(t, primaryNode, "Primary node is nil in PrivateChain interface")
+			chainByChainID[primaryNode.GetEVMClient().GetChainID().Int64()] = primaryNode.GetEVMClient()
+			chains = append(chains, primaryNode.GetEVMClient())
 		}
 	} else {
 		for _, network := range inputs.AllNetworks {
@@ -838,10 +840,12 @@ func DeployLocalCluster(
 	// a func to start the CL nodes asynchronously
 	deployCL := func() error {
 		var nonDevGethNetworks []blockchain.EVMNetwork
-		for i, n := range env.PrivateGethChain {
-			nonDevGethNetworks = append(nonDevGethNetworks, *n.NetworkConfig)
-			nonDevGethNetworks[i].URLs = []string{n.PrimaryNode.InternalWsUrl}
-			nonDevGethNetworks[i].HTTPURLs = []string{n.PrimaryNode.InternalHttpUrl}
+		for i, n := range env.PrivateChain {
+			primaryNode := n.GetPrimaryNode()
+			require.NotNil(t, primaryNode, "Primary node is nil in PrivateChain interface")
+			nonDevGethNetworks = append(nonDevGethNetworks, *n.GetNetworkConfig())
+			nonDevGethNetworks[i].URLs = []string{primaryNode.GetInternalWsUrl()}
+			nonDevGethNetworks[i].HTTPURLs = []string{primaryNode.GetInternalHttpUrl()}
 		}
 		if nonDevGethNetworks == nil {
 			return errors.New("cannot create nodes with custom config without nonDevGethNetworks")
