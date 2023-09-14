@@ -1,21 +1,8 @@
 ChainID = '59140'
-FinalityDepth = 1
-MinIncomingConfirmations = 1
-NoNewHeadsThreshold = '6m'
+# Block time 12s, finality < 3m
+FinalityDepth = 15
 LogPollInterval = '30s'
 
-[OCR]
-ContractConfirmations = 1
-
-[Transactions]
-ResendAfterThreshold = '3m'
-
-[GasEstimator]
-PriceMin = '100 mwei'
-BumpPercent = 40
-
+# Linea uses 200 blocks to estimate gas price
 [GasEstimator.BlockHistory]
-BlockHistorySize = 12
-
-[HeadTracker]
-HistoryDepth = 50
+BlockHistorySize = 200
