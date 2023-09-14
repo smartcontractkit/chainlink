@@ -152,8 +152,8 @@ func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 	}
 
 	bridges := utils.BuildBridges(eaUrls)
-	for _, b := range bridges {
-		err = n.API.MustCreateBridge(&b)
+	for index := range bridges {
+		err = n.API.MustCreateBridge(&bridges[index])
 		if err != nil {
 			return nil, err
 		}
