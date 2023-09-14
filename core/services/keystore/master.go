@@ -51,7 +51,6 @@ type Master interface {
 	StarkNet() StarkNet
 	VRF() VRF
 	Unlock(password string) error
-	Migrate(vrfPassword string, chainID *big.Int) error
 	IsEmpty() (bool, error)
 }
 
@@ -149,81 +148,6 @@ func (ks *master) IsEmpty() (bool, error) {
 		return false, err
 	}
 	return count == 0, nil
-}
-
-func (ks *master) Migrate(vrfPssword string, chainID *big.Int) error {
-	ks.lock.Lock()
-	defer ks.lock.Unlock()
-	if ks.isLocked() {
-		return ErrLocked
-	}
-	csaKeys, err := ks.csa.GetV1KeysAsV2()
-	if err != nil {
-		return err
-	}
-	for _, csaKey := range csaKeys {
-		if _, exists := ks.keyRing.CSA[csaKey.ID()]; exists {
-			continue
-		}
-		ks.logger.Debugf("Migrating CSA key %s", csaKey.ID())
-		ks.keyRing.CSA[csaKey.ID()] = csaKey
-	}
-	ocrKeys, err := ks.ocr.GetV1KeysAsV2()
-	if err != nil {
-		return err
-	}
-	for _, ocrKey := range ocrKeys {
-		if _, exists := ks.keyRing.OCR[ocrKey.ID()]; exists {
-			continue
-		}
-		ks.logger.Debugf("Migrating OCR key %s", ocrKey.ID())
-		ks.keyRing.OCR[ocrKey.ID()] = ocrKey
-	}
-	p2pKeys, err := ks.p2p.GetV1KeysAsV2()
-	if err != nil {
-		return err
-	}
-	for _, p2pKey := range p2pKeys {
-		if _, exists := ks.keyRing.P2P[p2pKey.ID()]; exists {
-			continue
-		}
-		ks.logger.Debugf("Migrating P2P key %s", p2pKey.ID())
-		ks.keyRing.P2P[p2pKey.ID()] = p2pKey
-	}
-	vrfKeys, err := ks.vrf.GetV1KeysAsV2(vrfPssword)
-	if err != nil {
-		return err
-	}
-	for _, vrfKey := range vrfKeys {
-		if _, exists := ks.keyRing.VRF[vrfKey.ID()]; exists {
-			continue
-		}
-		ks.logger.Debugf("Migrating VRF key %s", vrfKey.ID())
-		ks.keyRing.VRF[vrfKey.ID()] = vrfKey
-	}
-	if err = ks.keyManager.save(); err != nil {
-		return err
-	}
-	ethKeys, nonces, fundings, err := ks.eth.getV1KeysAsV2()
-	if err != nil {
-		return err
-	}
-	if len(ethKeys) > 0 {
-		for i, ethKey := range ethKeys {
-			if _, exists := ks.keyRing.Eth[ethKey.ID()]; exists {
-				continue
-			}
-			ks.logger.Debugf("Migrating Eth key %s (and pegging to chain ID %s)", ethKey.ID(), chainID.String())
-			// Note that V1 keys that were "funding" will be migrated as "disabled"
-			if err = ks.eth.addWithNonce(ethKey, chainID, nonces[i], fundings[i]); err != nil {
-				return err
-			}
-			if err = ks.keyManager.save(); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
 }
 
 type keyManager struct {

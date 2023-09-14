@@ -384,9 +384,6 @@ func (s *Shell) runNode(c *cli.Context) error {
 			return fmt.Errorf("error listing legacy evm chains: %w", err)
 		}
 		for _, ch := range chainList {
-			if err = keyStore.Migrate(s.Config.Password().VRF(), ch.ID()); err != nil {
-				return errors.Wrap(err, "error migrating keystore")
-			}
 			if ch.Config().EVM().AutoCreateKey() {
 				lggr.Debugf("AutoCreateKey=true, will ensure EVM key for chain %s", ch.ID())
 				err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
