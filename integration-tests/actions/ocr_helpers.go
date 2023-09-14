@@ -186,6 +186,7 @@ func CreateOCRJobs(
 	workerNodes []*client.ChainlinkK8sClient,
 	mockValue int,
 	mockserver *ctfClient.MockserverClient,
+	evmChainID string,
 ) error {
 	for _, ocrInstance := range ocrInstances {
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -196,6 +197,7 @@ func CreateOCRJobs(
 		bootstrapSpec := &client.OCRBootstrapJobSpec{
 			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
 			ContractAddress: ocrInstance.Address(),
+			EVMChainID:      evmChainID,
 			P2PPeerID:       bootstrapP2PId,
 			IsBootstrapPeer: true,
 		}
@@ -240,6 +242,7 @@ func CreateOCRJobs(
 			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode.ChainlinkClient}
 			ocrSpec := &client.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
+				EVMChainID:         evmChainID,
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
 				KeyBundleID:        nodeOCRKeyId,
@@ -264,6 +267,7 @@ func CreateOCRJobsWithForwarder(
 	workerNodes []*client.ChainlinkK8sClient,
 	mockValue int,
 	mockserver *ctfClient.MockserverClient,
+	evmChainID string,
 ) {
 	for _, ocrInstance := range ocrInstances {
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -272,6 +276,7 @@ func CreateOCRJobsWithForwarder(
 		bootstrapSpec := &client.OCRBootstrapJobSpec{
 			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
 			ContractAddress: ocrInstance.Address(),
+			EVMChainID:      evmChainID,
 			P2PPeerID:       bootstrapP2PId,
 			IsBootstrapPeer: true,
 		}
@@ -302,6 +307,7 @@ func CreateOCRJobsWithForwarder(
 			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode.ChainlinkClient}
 			ocrSpec := &client.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
+				EVMChainID:         evmChainID,
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
 				KeyBundleID:        nodeOCRKeyId,

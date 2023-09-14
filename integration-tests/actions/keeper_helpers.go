@@ -27,6 +27,7 @@ func CreateKeeperJobs(
 	chainlinkNodes []*client.ChainlinkK8sClient,
 	keeperRegistry contracts.KeeperRegistry,
 	ocrConfig contracts.OCRv2Config,
+	evmChainID string,
 ) {
 	// Send keeper jobs to registry and chainlink nodes
 	primaryNode := chainlinkNodes[0]
@@ -49,6 +50,7 @@ func CreateKeeperJobs(
 			Name:                     fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
 			ContractAddress:          keeperRegistry.Address(),
 			FromAddress:              chainlinkNodeAddress,
+			EVMChainID:               evmChainID,
 			MinIncomingConfirmations: 1,
 		})
 		require.NoError(t, err, "Creating KeeperV2 Job shouldn't fail")
@@ -61,6 +63,7 @@ func CreateKeeperJobsWithKeyIndex(
 	keeperRegistry contracts.KeeperRegistry,
 	keyIndex int,
 	ocrConfig contracts.OCRv2Config,
+	evmChainID string,
 ) {
 	// Send keeper jobs to registry and chainlink nodes
 	primaryNode := chainlinkNodes[0]
@@ -83,6 +86,7 @@ func CreateKeeperJobsWithKeyIndex(
 			Name:                     fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
 			ContractAddress:          keeperRegistry.Address(),
 			FromAddress:              chainlinkNodeAddress[keyIndex],
+			EVMChainID:               evmChainID,
 			MinIncomingConfirmations: 1,
 		})
 		require.NoError(t, err, "Creating KeeperV2 Job shouldn't fail")
