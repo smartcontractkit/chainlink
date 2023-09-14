@@ -68,7 +68,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	)
 	require.NoError(t, err, "Error deploying OCR contracts")
 
-	err = actions.CreateOCRJobsWithForwarderLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockServer.Client)
+	err = actions.CreateOCRJobsWithForwarderLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockServer.Client, env.EVMClient.GetChainID().String())
 	require.NoError(t, err, "failed to setup forwarder jobs")
 	err = actions.StartNewRound(1, ocrInstances, env.EVMClient)
 	require.NoError(t, err)
