@@ -104,13 +104,13 @@ func init() {
 // FSM methods
 
 // State allows reading the current state of the node.
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) State() NodeState {
+func (n *node[CHAIN_ID, HEAD, RPC]) State() NodeState {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
 	return n.state
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) StateAndLatest() (NodeState, int64, *utils.Big) {
+func (n *node[CHAIN_ID, HEAD, RPC]) StateAndLatest() (NodeState, int64, *utils.Big) {
 	n.stateMu.RLock()
 	defer n.stateMu.RUnlock()
 	return n.state, n.stateLatestBlockNumber, n.stateLatestTotalDifficulty
@@ -120,7 +120,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) StateAndLatest() (NodeState, int64, *
 // This is low-level; care should be taken by the caller to ensure the new state is a valid transition.
 // State changes should always be synchronous: only one goroutine at a time should change state.
 // n.stateMu should not be locked for long periods of time because external clients expect a timely response from n.State()
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) setState(s NodeState) {
+func (n *node[CHAIN_ID, HEAD, RPC]) setState(s NodeState) {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	n.state = s
@@ -129,7 +129,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) setState(s NodeState) {
 // declareXXX methods change the state and pass conrol off the new state
 // management goroutine
 
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) declareAlive() {
+func (n *node[CHAIN_ID, HEAD, RPC]) declareAlive() {
 	n.transitionToAlive(func() {
 		n.lfcLog.Infow("RPC Node is online", "nodeState", n.state)
 		n.wg.Add(1)
@@ -137,7 +137,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) declareAlive() {
 	})
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) transitionToAlive(fn func()) {
+func (n *node[CHAIN_ID, HEAD, RPC]) transitionToAlive(fn func()) {
 	promPoolRPCNodeTransitionsToAlive.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
@@ -155,7 +155,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) transitionToAlive(fn func()) {
 
 // declareInSync puts a node back into Alive state, allowing it to be used by
 // pool consumers again
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) declareInSync() {
+func (n *node[CHAIN_ID, HEAD, RPC]) declareInSync() {
 	n.transitionToInSync(func() {
 		n.lfcLog.Infow("RPC Node is back in sync", "nodeState", n.state)
 		n.wg.Add(1)
@@ -163,7 +163,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) declareInSync() {
 	})
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) transitionToInSync(fn func()) {
+func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInSync(fn func()) {
 	promPoolRPCNodeTransitionsToAlive.WithLabelValues(n.chainID.String(), n.name).Inc()
 	promPoolRPCNodeTransitionsToInSync.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
@@ -182,7 +182,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) transitionToInSync(fn func()) {
 
 // declareOutOfSync puts a node into OutOfSync state, disconnecting all current
 // clients and making it unavailable for use until back in-sync.
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) declareOutOfSync(isOutOfSync func(num int64, td *utils.Big) bool) {
+func (n *node[CHAIN_ID, HEAD, RPC]) declareOutOfSync(isOutOfSync func(num int64, td *utils.Big) bool) {
 	n.transitionToOutOfSync(func() {
 		n.lfcLog.Errorw("RPC Node is out of sync", "nodeState", n.state)
 		n.wg.Add(1)
@@ -190,7 +190,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) declareOutOfSync(isOutOfSync func(num
 	})
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) transitionToOutOfSync(fn func()) {
+func (n *node[CHAIN_ID, HEAD, RPC]) transitionToOutOfSync(fn func()) {
 	promPoolRPCNodeTransitionsToOutOfSync.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
@@ -207,7 +207,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) transitionToOutOfSync(fn func()) {
 	fn()
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) declareUnreachable() {
+func (n *node[CHAIN_ID, HEAD, RPC]) declareUnreachable() {
 	n.transitionToUnreachable(func() {
 		n.lfcLog.Errorw("RPC Node is unreachable", "nodeState", n.state)
 		n.wg.Add(1)
@@ -215,7 +215,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) declareUnreachable() {
 	})
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) transitionToUnreachable(fn func()) {
+func (n *node[CHAIN_ID, HEAD, RPC]) transitionToUnreachable(fn func()) {
 	promPoolRPCNodeTransitionsToUnreachable.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
@@ -232,7 +232,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) transitionToUnreachable(fn func()) {
 	fn()
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) declareInvalidChainID() {
+func (n *node[CHAIN_ID, HEAD, RPC]) declareInvalidChainID() {
 	n.transitionToInvalidChainID(func() {
 		n.lfcLog.Errorw("RPC Node has the wrong chain ID", "nodeState", n.state)
 		n.wg.Add(1)
@@ -240,7 +240,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) declareInvalidChainID() {
 	})
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) transitionToInvalidChainID(fn func()) {
+func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInvalidChainID(fn func()) {
 	promPoolRPCNodeTransitionsToInvalidChainID.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()

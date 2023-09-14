@@ -48,7 +48,7 @@ func zombieNodeCheckInterval(noNewHeadsThreshold time.Duration) time.Duration {
 	return utils.WithJitter(interval)
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) setLatestReceived(blockNumber int64, totalDifficulty *utils.Big) {
+func (n *node[CHAIN_ID, HEAD, RPC]) setLatestReceived(blockNumber int64, totalDifficulty *utils.Big) {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
 	n.stateLatestBlockNumber = blockNumber
@@ -67,7 +67,7 @@ const (
 
 // This handles node lifecycle for the ALIVE state
 // Should only be run ONCE per node, after a successful Dial
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) aliveLoop() {
+func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 	defer n.wg.Done()
 
 	{
@@ -90,7 +90,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) aliveLoop() {
 	lggr.Tracew("Alive loop starting", "nodeState", n.State())
 
 	headsC := make(chan HEAD)
-	sub, err := n.rpcClient.Subscribe(n.nodeCtx, headsC, "newHeads")
+	sub, err := n.rpc.Subscribe(n.nodeCtx, headsC, "newHeads")
 	if err != nil {
 		lggr.Errorw("Initial subscribe for heads failed", "nodeState", n.State())
 		n.declareUnreachable()
@@ -137,7 +137,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) aliveLoop() {
 			promPoolRPCNodePolls.WithLabelValues(n.chainID.String(), n.name).Inc()
 			lggr.Tracew("Polling for version", "nodeState", n.State(), "pollFailures", pollFailures)
 			ctx, cancel := context.WithTimeout(n.nodeCtx, pollInterval)
-			version, err := n.RPCClient().ClientVersion(ctx)
+			version, err := n.RPC().ClientVersion(ctx)
 			cancel()
 			if err != nil {
 				// prevent overflow
@@ -215,7 +215,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) aliveLoop() {
 	}
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) isOutOfSync(num int64, td *utils.Big) (outOfSync bool) {
+func (n *node[CHAIN_ID, HEAD, RPC]) isOutOfSync(num int64, td *utils.Big) (outOfSync bool) {
 	outOfSync, _ = n.syncStatus(num, td)
 	return
 }
@@ -223,7 +223,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) isOutOfSync(num int64, td *utils.Big)
 // syncStatus returns outOfSync true if num or td is more than SyncThresold behind the best node.
 // Always returns outOfSync false for SyncThreshold 0.
 // liveNodes is only included when outOfSync is true.
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes int) {
+func (n *node[CHAIN_ID, HEAD, RPC]) syncStatus(num int64, td *utils.Big) (outOfSync bool, liveNodes int) {
 	if n.nLiveNodes == nil {
 		return // skip for tests
 	}
@@ -251,7 +251,7 @@ const (
 )
 
 // outOfSyncLoop takes an OutOfSync node and waits until isOutOfSync returns false to go back to live status
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) outOfSyncLoop(isOutOfSync func(num int64, td *utils.Big) bool) {
+func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td *utils.Big) bool) {
 	defer n.wg.Done()
 
 	{
@@ -272,7 +272,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) outOfSyncLoop(isOutOfSync func(num in
 	lggr.Debugw("Trying to revive out-of-sync RPC node", "nodeState", n.State())
 
 	// Need to redial since out-of-sync nodes are automatically disconnected
-	if err := n.rpcClient.Dial(n.nodeCtx); err != nil {
+	if err := n.rpc.Dial(n.nodeCtx); err != nil {
 		lggr.Errorw("Failed to dial out-of-sync RPC node", "nodeState", n.State())
 		n.declareUnreachable()
 		return
@@ -288,7 +288,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) outOfSyncLoop(isOutOfSync func(num in
 	lggr.Tracew("Successfully subscribed to heads feed on out-of-sync RPC node", "nodeState", n.State())
 
 	ch := make(chan HEAD)
-	sub, err := n.rpcClient.Subscribe(n.nodeCtx, ch, "newHeads")
+	sub, err := n.rpc.Subscribe(n.nodeCtx, ch, "newHeads")
 	if err != nil {
 		lggr.Errorw("Failed to subscribe heads on out-of-sync RPC node", "nodeState", n.State(), "err", err)
 		n.declareUnreachable()
@@ -330,7 +330,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) outOfSyncLoop(isOutOfSync func(num in
 	}
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) unreachableLoop() {
+func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 	defer n.wg.Done()
 
 	{
@@ -359,7 +359,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) unreachableLoop() {
 		case <-time.After(dialRetryBackoff.Duration()):
 			lggr.Tracew("Trying to re-dial RPC node", "nodeState", n.State())
 
-			err := n.rpcClient.Dial(n.nodeCtx)
+			err := n.rpc.Dial(n.nodeCtx)
 			if err != nil {
 				lggr.Errorw(fmt.Sprintf("Failed to redial RPC node; still unreachable: %v", err), "err", err, "nodeState", n.State())
 				continue
@@ -386,7 +386,7 @@ func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) unreachableLoop() {
 	}
 }
 
-func (n *node[CHAIN_ID, HEAD, RPC_CLIENT]) invalidChainIDLoop() {
+func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 	defer n.wg.Done()
 
 	{

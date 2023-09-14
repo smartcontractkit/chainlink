@@ -12,46 +12,46 @@ import (
 type erroringNode[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
+	RPC NodeClient[CHAIN_ID, HEAD],
 ] struct {
 	errMsg string
 }
 
-func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) ConfiguredChainID() (chainID CHAIN_ID) {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC]) ConfiguredChainID() (chainID CHAIN_ID) {
 	return chainID
 }
 
-func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) Start(ctx context.Context) error {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC]) Start(ctx context.Context) error {
 	return errors.New(e.errMsg)
 }
 
-func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) Close() error {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC]) Close() error {
 	return nil
 }
 
-func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) String() string {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC]) String() string {
 	return "<erroring node>"
 }
 
-func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) State() NodeState {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC]) State() NodeState {
 	return nodeStateUnreachable
 }
 
-func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) StateAndLatest() (NodeState, int64, *utils.Big) {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC]) StateAndLatest() (NodeState, int64, *utils.Big) {
 	return nodeStateUnreachable, -1, nil
 }
 
-func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) Order() int32 {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC]) Order() int32 {
 	return 100
 }
 
-func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) Name() string {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC]) Name() string {
 	return ""
 }
-func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) NodeStates() map[int32]string {
+func (e *erroringNode[CHAIN_ID, HEAD, RPC]) NodeStates() map[int32]string {
 	return nil
 }
 
-func (e *erroringNode[CHAIN_ID, HEAD, RPC_CLIENT]) RPCClient() (rpcClient RPC_CLIENT) {
-	return rpcClient
+func (e *erroringNode[CHAIN_ID, HEAD, RPC]) RPC() (rpc RPC) {
+	return rpc
 }

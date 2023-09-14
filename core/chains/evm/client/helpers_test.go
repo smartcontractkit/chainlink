@@ -7,12 +7,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	commonconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -59,7 +59,16 @@ func NewClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeads
 	return c, nil
 }
 
-func NewChainClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNewHeadsThreshold time.Duration, rpcUrl string, rpcHTTPURL *url.URL, sendonlyRPCURLs []url.URL, id int32, chainID *big.Int) (*ChainClient, error) {
+func NewChainClientWithTestNode(
+	t *testing.T,
+	nodeCfg commonclient.NodeConfig,
+	noNewHeadsThreshold time.Duration,
+	rpcUrl string,
+	rpcHTTPURL *url.URL,
+	sendonlyRPCURLs []url.URL,
+	id int32,
+	chainID *big.Int,
+) (Client, error) {
 	parsed, err := url.ParseRequestURI(rpcUrl)
 	if err != nil {
 		return nil, err
@@ -70,33 +79,26 @@ func NewChainClientWithTestNode(t *testing.T, nodePoolCfg config.NodePool, noNew
 	}
 
 	lggr := logger.TestLogger(t)
-	rpcClient := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary)
+	rpc := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, commonclient.Primary)
 
-	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCClient](
-		nodePoolCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpcClient, "EVM")
-	// n.(*node).setLatestReceived(0, utils.NewBigI(0))
-	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCClient]{n}
+	n := commonclient.NewNode[*big.Int, *evmtypes.Head, *rpcClient](
+		nodeCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
+	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, *rpcClient]{n}
 
-	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCClient]
+	var sendonlys []commonclient.SendOnlyNode[*big.Int, *rpcClient]
 	for i, u := range sendonlyRPCURLs {
 		if u.Scheme != "http" && u.Scheme != "https" {
 			return nil, errors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
 		}
 		var empty url.URL
-		rpcClient := NewRPCClient(lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary)
-		s := commonclient.NewSendOnlyNode[*big.Int, RPCClient](
-			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpcClient)
+		rpc := NewRPCClient(lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, commonclient.Secondary)
+		s := commonclient.NewSendOnlyNode[*big.Int, *rpcClient](
+			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpc)
 		sendonlys = append(sendonlys, s)
 	}
 
-	// pool := NewPool(lggr, nodePoolCfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, "")
-	multiNodeClient := commonclient.NewMultiNodeClient[*big.Int, *evmtypes.Head, RPCClient, *types.Transaction](
-		lggr, nodePoolCfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, "EVM",
-	)
-	c := &ChainClient{
-		multiNodeClient: multiNodeClient,
-		logger:          lggr,
-	}
+	var chainType commonconfig.ChainType = ""
+	c := NewChainClient(lggr, nodeCfg.SelectionMode(), noNewHeadsThreshold, primaries, sendonlys, chainID, chainType)
 	t.Cleanup(c.Close)
 	return c, nil
 }

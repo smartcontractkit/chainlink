@@ -9,20 +9,20 @@ import (
 type highestHeadNodeSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
-] []Node[CHAIN_ID, HEAD, RPC_CLIENT]
+	RPC NodeClient[CHAIN_ID, HEAD],
+] []Node[CHAIN_ID, HEAD, RPC]
 
 func NewHighestHeadNodeSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
-](nodes []Node[CHAIN_ID, HEAD, RPC_CLIENT]) NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT] {
-	return highestHeadNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT](nodes)
+	RPC NodeClient[CHAIN_ID, HEAD],
+](nodes []Node[CHAIN_ID, HEAD, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
+	return highestHeadNodeSelector[CHAIN_ID, HEAD, RPC](nodes)
 }
 
-func (s highestHeadNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]) Select() Node[CHAIN_ID, HEAD, RPC_CLIENT] {
+func (s highestHeadNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, HEAD, RPC] {
 	var highestHeadNumber int64 = math.MinInt64
-	var highestHeadNodes []Node[CHAIN_ID, HEAD, RPC_CLIENT]
+	var highestHeadNodes []Node[CHAIN_ID, HEAD, RPC]
 	for _, n := range s {
 		state, currentHeadNumber, _ := n.StateAndLatest()
 		if state == nodeStateAlive && currentHeadNumber >= highestHeadNumber {
@@ -36,6 +36,6 @@ func (s highestHeadNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]) Select() Node[CHAIN
 	return firstOrHighestPriority(highestHeadNodes)
 }
 
-func (s highestHeadNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]) Name() string {
+func (s highestHeadNodeSelector[CHAIN_ID, HEAD, RPC]) Name() string {
 	return NodeSelectionMode_HighestHead
 }

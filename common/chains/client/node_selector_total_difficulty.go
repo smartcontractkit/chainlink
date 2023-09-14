@@ -9,22 +9,22 @@ import (
 type totalDifficultyNodeSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
-] []Node[CHAIN_ID, HEAD, RPC_CLIENT]
+	RPC NodeClient[CHAIN_ID, HEAD],
+] []Node[CHAIN_ID, HEAD, RPC]
 
 func NewTotalDifficultyNodeSelector[
 	CHAIN_ID types.ID,
 	HEAD Head,
-	RPC_CLIENT NodeClient[CHAIN_ID, HEAD],
-](nodes []Node[CHAIN_ID, HEAD, RPC_CLIENT]) NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT] {
-	return totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT](nodes)
+	RPC NodeClient[CHAIN_ID, HEAD],
+](nodes []Node[CHAIN_ID, HEAD, RPC]) NodeSelector[CHAIN_ID, HEAD, RPC] {
+	return totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC](nodes)
 }
 
-func (s totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]) Select() Node[CHAIN_ID, HEAD, RPC_CLIENT] {
+func (s totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, HEAD, RPC] {
 	// NodeNoNewHeadsThreshold may not be enabled, in this case all nodes have td == nil
 	var highestTD *utils.Big
-	var nodes []Node[CHAIN_ID, HEAD, RPC_CLIENT]
-	var aliveNodes []Node[CHAIN_ID, HEAD, RPC_CLIENT]
+	var nodes []Node[CHAIN_ID, HEAD, RPC]
+	var aliveNodes []Node[CHAIN_ID, HEAD, RPC]
 
 	for _, n := range s {
 		state, _, currentTD := n.StateAndLatest()
@@ -49,6 +49,6 @@ func (s totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]) Select() Node[C
 	return firstOrHighestPriority(nodes)
 }
 
-func (s totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC_CLIENT]) Name() string {
+func (s totalDifficultyNodeSelector[CHAIN_ID, HEAD, RPC]) Name() string {
 	return NodeSelectionMode_TotalDifficulty
 }

@@ -20,7 +20,7 @@ type nullClient[
 	TX any,
 	TX_HASH types.Hashable,
 	EVENT any,
-	EVENT_OPS any, // event filter query options
+	EVENT_OPS any,
 	TX_RECEIPT any,
 	FEE feetypes.Fee,
 	HEAD types.Head[BLOCK_HASH],
@@ -38,7 +38,7 @@ func NewNullClient[
 	TX any,
 	TX_HASH types.Hashable,
 	EVENT any,
-	EVENT_OPS any, // event filter query options
+	EVENT_OPS any,
 	TX_RECEIPT any,
 	FEE feetypes.Fee,
 	HEAD types.Head[BLOCK_HASH],

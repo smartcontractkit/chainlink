@@ -12,7 +12,7 @@ import (
 // fails.
 //
 // It will continue checking until success and then exit permanently.
-func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) verifyLoop() {
+func (s *sendOnlyNode[CHAIN_ID, RPC]) verifyLoop() {
 	defer s.wg.Done()
 
 	backoff := utils.NewRedialBackoff()
@@ -22,7 +22,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) verifyLoop() {
 			return
 		case <-time.After(backoff.Duration()):
 		}
-		chainID, err := s.rpcClient.ChainID(context.Background())
+		chainID, err := s.rpc.ChainID(context.Background())
 		if err != nil {
 			ok := s.IfStarted(func() {
 				if changed := s.setState(nodeStateUnreachable); changed {

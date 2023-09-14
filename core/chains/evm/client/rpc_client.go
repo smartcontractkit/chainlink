@@ -18,33 +18,12 @@ import (
 	"github.com/pkg/errors"
 
 	commonclient "github.com/smartcontractkit/chainlink/v2/common/chains/client"
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
-
-type RPCClient interface {
-	commonclient.NodeClient[
-		*big.Int,
-		*evmtypes.Head,
-	]
-	clienttypes.RPCClient[
-		*big.Int,
-		evmtypes.Nonce,
-		common.Address,
-		common.Hash,
-		types.Transaction,
-		common.Hash,
-		types.Log,
-		ethereum.FilterQuery,
-		*evmtypes.Receipt,
-		*assets.Wei,
-		*evmtypes.Head,
-	]
-}
 
 type rpcClient struct {
 	rpcLog  logger.Logger
@@ -69,7 +48,15 @@ type rpcClient struct {
 }
 
 // NewRPCCLient returns a new *rpcClient as clienttypes.RPCClient
-func NewRPCClient(lggr logger.Logger, wsuri url.URL, httpuri *url.URL, name string, id int32, chainID *big.Int, tier commonclient.NodeTier) RPCClient {
+func NewRPCClient(
+	lggr logger.Logger,
+	wsuri url.URL,
+	httpuri *url.URL,
+	name string,
+	id int32,
+	chainID *big.Int,
+	tier commonclient.NodeTier,
+) *rpcClient {
 	r := new(rpcClient)
 	r.name = name
 	r.id = id
@@ -272,12 +259,11 @@ func (r *rpcClient) CallContext(ctx context.Context, result interface{}, method 
 	return err
 }
 
-func (r *rpcClient) BatchCallContext(ctx context.Context, b []interface{}) error {
+func (r *rpcClient) BatchCallContext(ctx context.Context, b []any) error {
 	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
 		return err
 	}
-	// Not sure if this is the best solution.
 	batch := make([]rpc.BatchElem, len(b))
 	for i, arg := range b {
 		batch[i] = arg.(rpc.BatchElem)
@@ -334,6 +320,32 @@ func (r *rpcClient) TransactionReceipt(ctx context.Context, txHash common.Hash) 
 	return
 }
 
+func (r *rpcClient) TransactionReceiptGeth(ctx context.Context, txHash common.Hash) (receipt *types.Receipt, err error) {
+	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	lggr := r.newRqLggr().With("txHash", txHash)
+
+	lggr.Debug("RPC call: evmclient.Client#TransactionReceipt")
+
+	start := time.Now()
+	if http != nil {
+		receipt, err = http.geth.TransactionReceipt(ctx, txHash)
+		err = r.wrapHTTP(err)
+	} else {
+		receipt, err = ws.geth.TransactionReceipt(ctx, txHash)
+		err = r.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	r.logResult(lggr, err, duration, r.getRPCDomain(), "TransactionReceipt",
+		"receipt", receipt,
+	)
+
+	return
+}
 func (r *rpcClient) TransactionByHash(ctx context.Context, txHash common.Hash) (tx *types.Transaction, err error) {
 	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
 	if err != nil {
@@ -435,6 +447,58 @@ func (r *rpcClient) BlockByHash(ctx context.Context, hash common.Hash) (head *ev
 		return
 	}
 	head.EVMChainID = utils.NewBig(r.chainID)
+	return
+}
+
+func (r *rpcClient) BlockByHashGeth(ctx context.Context, hash common.Hash) (block *types.Block, err error) {
+	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	lggr := r.newRqLggr().With("hash", hash)
+
+	lggr.Debug("RPC call: evmclient.Client#BlockByHash")
+	start := time.Now()
+	if http != nil {
+		block, err = http.geth.BlockByHash(ctx, hash)
+		err = r.wrapHTTP(err)
+	} else {
+		block, err = ws.geth.BlockByHash(ctx, hash)
+		err = r.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	r.logResult(lggr, err, duration, r.getRPCDomain(), "BlockByHash",
+		"block", block,
+	)
+
+	return
+}
+
+func (r *rpcClient) BlockByNumberGeth(ctx context.Context, number *big.Int) (block *types.Block, err error) {
+	ctx, cancel, ws, http, err := r.makeLiveQueryCtxAndSafeGetClients(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer cancel()
+	lggr := r.newRqLggr().With("number", number)
+
+	lggr.Debug("RPC call: evmclient.Client#BlockByNumber")
+	start := time.Now()
+	if http != nil {
+		block, err = http.geth.BlockByNumber(ctx, number)
+		err = r.wrapHTTP(err)
+	} else {
+		block, err = ws.geth.BlockByNumber(ctx, number)
+		err = r.wrapWS(err)
+	}
+	duration := time.Since(start)
+
+	r.logResult(lggr, err, duration, r.getRPCDomain(), "BlockByNumber",
+		"block", block,
+	)
+
 	return
 }
 

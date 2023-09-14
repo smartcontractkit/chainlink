@@ -22,14 +22,14 @@ type SendOnlyClient[
 // SendOnlyNode represents one node used as a sendonly
 type SendOnlyNode[
 	CHAIN_ID types.ID,
-	RPC_CLIENT SendOnlyClient[CHAIN_ID],
+	RPC SendOnlyClient[CHAIN_ID],
 ] interface {
 	// Start may attempt to connect to the node, but should only return error for misconfiguration - never for temporary errors.
 	Start(context.Context) error
 	Close() error
 
 	ConfiguredChainID() CHAIN_ID
-	RPCClient() RPC_CLIENT
+	RPC() RPC
 
 	String() string
 	// State returns NodeState
@@ -42,46 +42,46 @@ type SendOnlyNode[
 // It must use an http(s) url
 type sendOnlyNode[
 	CHAIN_ID types.ID,
-	RPC_CLIENT SendOnlyClient[CHAIN_ID],
+	RPC SendOnlyClient[CHAIN_ID],
 ] struct {
 	utils.StartStopOnce
 
 	stateMu sync.RWMutex // protects state* fields
 	state   NodeState
 
-	rpcClient RPC_CLIENT
-	uri       url.URL
-	log       logger.Logger
-	name      string
-	chainID   CHAIN_ID
-	chStop    utils.StopChan
-	wg        sync.WaitGroup
+	rpc     RPC
+	uri     url.URL
+	log     logger.Logger
+	name    string
+	chainID CHAIN_ID
+	chStop  utils.StopChan
+	wg      sync.WaitGroup
 }
 
 // NewSendOnlyNode returns a new sendonly node
 func NewSendOnlyNode[
 	CHAIN_ID types.ID,
-	RPC_CLIENT SendOnlyClient[CHAIN_ID],
+	RPC SendOnlyClient[CHAIN_ID],
 ](
 	lggr logger.Logger,
 	httpuri url.URL,
 	name string,
 	chainID CHAIN_ID,
-	rpcClient RPC_CLIENT,
-) SendOnlyNode[CHAIN_ID, RPC_CLIENT] {
-	s := new(sendOnlyNode[CHAIN_ID, RPC_CLIENT])
+	rpc RPC,
+) SendOnlyNode[CHAIN_ID, RPC] {
+	s := new(sendOnlyNode[CHAIN_ID, RPC])
 	s.name = name
 	s.log = lggr.Named("SendOnlyNode").Named(name).With(
 		"nodeTier", "sendonly",
 	)
-	s.rpcClient = rpcClient
+	s.rpc = rpc
 	s.uri = httpuri
 	s.chainID = chainID
 	s.chStop = make(chan struct{})
 	return s
 }
 
-func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) Start(ctx context.Context) error {
+func (s *sendOnlyNode[CHAIN_ID, RPC]) Start(ctx context.Context) error {
 	return s.StartOnce(s.name, func() error {
 		s.start(ctx)
 		return nil
@@ -90,12 +90,12 @@ func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) Start(ctx context.Context) error {
 
 // Start setups up and verifies the sendonly node
 // Should only be called once in a node's lifecycle
-func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) start(startCtx context.Context) {
+func (s *sendOnlyNode[CHAIN_ID, RPC]) start(startCtx context.Context) {
 	if s.State() != nodeStateUndialed {
 		panic(fmt.Sprintf("cannot dial node with state %v", s.state))
 	}
 
-	err := s.rpcClient.DialHTTP()
+	err := s.rpc.DialHTTP()
 	if err != nil {
 		promPoolRPCNodeTransitionsToUnusable.WithLabelValues(s.chainID.String(), s.name).Inc()
 		s.log.Errorw("Dial failed: SendOnly Node is unusable", "err", err)
@@ -108,7 +108,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) start(startCtx context.Context) {
 		// Skip verification if chainID is zero
 		s.log.Warn("sendonly rpc ChainID verification skipped")
 	} else {
-		chainID, err := s.rpcClient.ChainID(startCtx)
+		chainID, err := s.rpc.ChainID(startCtx)
 		if err != nil || chainID.String() != s.chainID.String() {
 			promPoolRPCNodeTransitionsToUnreachable.WithLabelValues(s.chainID.String(), s.name).Inc()
 			if err != nil {
@@ -138,28 +138,28 @@ func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) start(startCtx context.Context) {
 	s.log.Infow("Sendonly RPC Node is online", "nodeState", s.state)
 }
 
-func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) Close() error {
+func (s *sendOnlyNode[CHAIN_ID, RPC]) Close() error {
 	return s.StopOnce(s.name, func() error {
-		s.rpcClient.Close()
+		s.rpc.Close()
 		s.wg.Wait()
 		s.setState(nodeStateClosed)
 		return nil
 	})
 }
 
-func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) ConfiguredChainID() CHAIN_ID {
+func (s *sendOnlyNode[CHAIN_ID, RPC]) ConfiguredChainID() CHAIN_ID {
 	return s.chainID
 }
 
-func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) RPCClient() RPC_CLIENT {
-	return s.rpcClient
+func (s *sendOnlyNode[CHAIN_ID, RPC]) RPC() RPC {
+	return s.rpc
 }
 
-func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) String() string {
+func (s *sendOnlyNode[CHAIN_ID, RPC]) String() string {
 	return fmt.Sprintf("(secondary)%s:%s", s.name, s.uri.Redacted())
 }
 
-func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) setState(state NodeState) (changed bool) {
+func (s *sendOnlyNode[CHAIN_ID, RPC]) setState(state NodeState) (changed bool) {
 	s.stateMu.Lock()
 	defer s.stateMu.Unlock()
 	if s.state == state {
@@ -169,12 +169,12 @@ func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) setState(state NodeState) (changed 
 	return true
 }
 
-func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) State() NodeState {
+func (s *sendOnlyNode[CHAIN_ID, RPC]) State() NodeState {
 	s.stateMu.RLock()
 	defer s.stateMu.RUnlock()
 	return s.state
 }
 
-func (s *sendOnlyNode[CHAIN_ID, RPC_CLIENT]) Name() string {
+func (s *sendOnlyNode[CHAIN_ID, RPC]) Name() string {
 	return s.name
 }
