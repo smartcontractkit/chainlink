@@ -17,7 +17,9 @@ on:
           - "BSC_MAINNET"
           - "BSC_TESTNET"
           - "SCROLL_SEPOLIA"
-          - "SCROLL_MAINNET"   
+          - "SCROLL_MAINNET" 
+          - "MANTLE_GOERLI"
+          - "MANTLE_MAINNET"  
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
