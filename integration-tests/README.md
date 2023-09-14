@@ -4,7 +4,7 @@ Here lives the integration tests for chainlink, utilizing our [chainlink-testing
 
 ## NOTE: Move to Testcontainers
 
-If you have previously run these smoke tests using GitHub Actions or some sort of Kubernetes setup, that method is no longer necessary. We have moved the majority of our tests to utilize plain Docker containers (with the help of [Testcontainers](https://golang.testcontainers.org/)). This should make tests faster, more stable, and enable you to run them on your local machine without much hassle. More p
+If you have previously run these smoke tests using GitHub Actions or some sort of Kubernetes setup, that method is no longer necessary. We have moved the majority of our tests to utilize plain Docker containers (with the help of [Testcontainers](https://golang.testcontainers.org/)). This should make tests faster, more stable, and enable you to run them on your local machine without much hassle.
 
 ## Requirements
 
