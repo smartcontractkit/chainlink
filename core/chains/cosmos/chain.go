@@ -25,9 +25,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/cosmostxm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -56,7 +56,6 @@ type ChainOpts struct {
 	DB               *sqlx.DB
 	KeyStore         loop.Keystore
 	EventBroadcaster pg.EventBroadcaster
-	Configs          types.Configs
 }
 
 func (o *ChainOpts) Validate() (err error) {
@@ -78,21 +77,14 @@ func (o *ChainOpts) Validate() (err error) {
 	if o.EventBroadcaster == nil {
 		err = multierr.Append(err, required("EventBroadcaster"))
 	}
-	if o.Configs == nil {
-		err = multierr.Append(err, required("Configs"))
-	}
 	return
-}
-
-func (o *ChainOpts) ConfigsAndLogger() (chains.Configs[string, db.Node], logger.Logger) {
-	return o.Configs, o.Logger
 }
 
 func NewChain(cfg *CosmosConfig, opts ChainOpts) (adapters.Chain, error) {
 	if !cfg.IsEnabled() {
 		return nil, fmt.Errorf("cannot create new chain with ID %s, the chain is disabled", *cfg.ChainID)
 	}
-	c, err := newChain(*cfg.ChainID, cfg, opts.DB, opts.KeyStore, opts.QueryConfig, opts.EventBroadcaster, opts.Configs, opts.Logger)
+	c, err := newChain(*cfg.ChainID, cfg, opts.DB, opts.KeyStore, opts.QueryConfig, opts.EventBroadcaster, opts.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -103,21 +95,17 @@ var _ adapters.Chain = (*chain)(nil)
 
 type chain struct {
 	utils.StartStopOnce
-	id  string
-	cfg *CosmosConfig
-	txm *cosmostxm.Txm
-	// TODO remove this dep after BCF-2441
-	// cfs implements the loop.Relayer interface that will be removed
-	cfgs types.Configs
+	id   string
+	cfg  *CosmosConfig
+	txm  *cosmostxm.Txm
 	lggr logger.Logger
 }
 
-func newChain(id string, cfg *CosmosConfig, db *sqlx.DB, ks loop.Keystore, logCfg pg.QConfig, eb pg.EventBroadcaster, cfgs types.Configs, lggr logger.Logger) (*chain, error) {
+func newChain(id string, cfg *CosmosConfig, db *sqlx.DB, ks loop.Keystore, logCfg pg.QConfig, eb pg.EventBroadcaster, lggr logger.Logger) (*chain, error) {
 	lggr = logger.With(lggr, "cosmosChainID", id)
 	var ch = chain{
 		id:   id,
 		cfg:  cfg,
-		cfgs: cfgs,
 		lggr: logger.Named(lggr, "Chain"),
 	}
 	tc := func() (cosmosclient.ReaderWriter, error) {
@@ -126,7 +114,7 @@ func newChain(id string, cfg *CosmosConfig, db *sqlx.DB, ks loop.Keystore, logCf
 	gpe := cosmosclient.NewMustGasPriceEstimator([]cosmosclient.GasPricesEstimator{
 		cosmosclient.NewClosureGasPriceEstimator(func() (map[string]sdk.DecCoin, error) {
 			return map[string]sdk.DecCoin{
-				cfg.FeeToken(): sdk.NewDecCoinFromDec(cfg.FeeToken(), cfg.FallbackGasPrice()),
+				cfg.GasToken(): sdk.NewDecCoinFromDec(cfg.GasToken(), cfg.FallbackGasPrice()),
 			}, nil
 		}),
 	}, lggr)
@@ -141,6 +129,10 @@ func (c *chain) Name() string {
 
 func (c *chain) ID() string {
 	return c.id
+}
+
+func (c *chain) ChainID() relay.ChainID {
+	return relay.ChainID(c.id)
 }
 
 func (c *chain) Config() coscfg.Config {
@@ -159,23 +151,23 @@ func (c *chain) Reader(name string) (cosmosclient.Reader, error) {
 func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 	var node db.Node
 	if name == "" { // Any node
-		nodes, err := c.cfgs.Nodes(c.id)
+		nodes, err := c.cfg.ListNodes()
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to get nodes")
+			return nil, fmt.Errorf("failed to list nodes: %w", err)
 		}
 		if len(nodes) == 0 {
 			return nil, errors.New("no nodes available")
 		}
 		nodeIndex, err := rand.Int(rand.Reader, big.NewInt(int64(len(nodes))))
 		if err != nil {
-			return nil, errors.Wrap(err, "could not generate a random node index")
+			return nil, fmt.Errorf("could not generate a random node index: %w", err)
 		}
 		node = nodes[nodeIndex.Int64()]
 	} else { // Named node
 		var err error
-		node, err = c.cfgs.Node(name)
+		node, err = c.cfg.GetNode(name)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get node named %s", name)
+			return nil, fmt.Errorf("failed to get node named %s: %w", name, err)
 		}
 		if node.CosmosChainID != c.id {
 			return nil, fmt.Errorf("failed to create client for chain %s with node %s: wrong chain id %s", c.id, name, node.CosmosChainID)
@@ -183,7 +175,7 @@ func (c *chain) getClient(name string) (cosmosclient.ReaderWriter, error) {
 	}
 	client, err := cosmosclient.NewClient(c.id, node.TendermintURL, DefaultRequestTimeout, logger.Named(c.lggr, "Client."+name))
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create client")
+		return nil, fmt.Errorf("failed to create client: %w", err)
 	}
 	c.lggr.Debugw("Created client", "name", node.Name, "tendermint-url", node.TendermintURL)
 	return client, nil
@@ -251,7 +243,7 @@ func (c *chain) listNodeStatuses(start, end int) ([]relaytypes.NodeStatus, int, 
 	}
 	nodes := c.cfg.Nodes[start:end]
 	for _, node := range nodes {
-		stat, err := nodeStatus(node, c.id)
+		stat, err := nodeStatus(node, c.ChainID())
 		if err != nil {
 			return stats, total, err
 		}

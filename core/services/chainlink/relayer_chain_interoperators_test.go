@@ -140,7 +140,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Chain: coscfg.Chain{
 					GasLimitMultiplier: ptr(decimal.RequireFromString("1.55555")),
 					Bech32Prefix:       ptr("wasm"),
-					FeeToken:           ptr("cosm"),
+					GasToken:           ptr("cosm"),
 				},
 				Nodes: cosmos.CosmosNodes{
 					&coscfg.Node{
@@ -155,7 +155,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Chain: coscfg.Chain{
 					GasLimitMultiplier: ptr(decimal.RequireFromString("0.777")),
 					Bech32Prefix:       ptr("wasm"),
-					FeeToken:           ptr("cosm"),
+					GasToken:           ptr("cosm"),
 				},
 				Nodes: cosmos.CosmosNodes{
 					&coscfg.Node{
@@ -412,19 +412,19 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					assert.NoError(t, err)
 					stat, err := cr.ChainStatus(testctx, wantId)
 					assert.NoError(t, err)
-					assert.Equal(t, wantId.ChainID.String(), stat.ID)
+					assert.Equal(t, wantId.ChainID, stat.ID)
 					// check legacy chains for evm and cosmos
 					if wantId.Network == relay.EVM {
-						c, err := cr.LegacyEVMChains().Get(wantId.ChainID.String())
+						c, err := cr.LegacyEVMChains().Get(wantId.ChainID)
 						assert.NoError(t, err)
 						assert.NotNil(t, c)
-						assert.Equal(t, wantId.ChainID.String(), c.ID().String())
+						assert.Equal(t, wantId.ChainID, c.ID().String())
 					}
 					if wantId.Network == relay.Cosmos {
-						c, err := cr.LegacyCosmosChains().Get(wantId.ChainID.String())
+						c, err := cr.LegacyCosmosChains().Get(wantId.ChainID)
 						assert.NoError(t, err)
 						assert.NotNil(t, c)
-						assert.Equal(t, wantId.ChainID.String(), c.ID())
+						assert.Equal(t, wantId.ChainID, c.ID())
 					}
 				}
 			}

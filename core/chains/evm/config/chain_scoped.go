@@ -15,9 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func NewTOMLChainScopedConfig(genCfg gencfg.AppConfig, tomlConfig *toml.EVMConfig, lggr logger.Logger) *ChainScoped {
+func NewTOMLChainScopedConfig(appCfg gencfg.AppConfig, tomlConfig *toml.EVMConfig, lggr logger.Logger) *ChainScoped {
 	return &ChainScoped{
-		AppConfig: genCfg,
+		AppConfig: appCfg,
 		evmConfig: &evmConfig{c: tomlConfig},
 		lggr:      lggr}
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -46,6 +47,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 )
 
 // EthereumOracle oracle for "directrequest" job tests
@@ -1113,6 +1116,7 @@ type FluxAggregatorRoundConfirmer struct {
 	context      context.Context
 	cancel       context.CancelFunc
 	complete     bool
+	l            zerolog.Logger
 }
 
 // NewFluxAggregatorRoundConfirmer provides a new instance of a FluxAggregatorRoundConfirmer
@@ -1120,6 +1124,7 @@ func NewFluxAggregatorRoundConfirmer(
 	contract FluxAggregator,
 	roundID *big.Int,
 	timeout time.Duration,
+	logger zerolog.Logger,
 ) *FluxAggregatorRoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &FluxAggregatorRoundConfirmer{
@@ -1128,6 +1133,7 @@ func NewFluxAggregatorRoundConfirmer(
 		doneChan:     make(chan struct{}),
 		context:      ctx,
 		cancel:       ctxCancel,
+		l:            logger,
 	}
 }
 
@@ -1147,11 +1153,11 @@ func (f *FluxAggregatorRoundConfirmer) ReceiveHeader(header blockchain.NodeHeade
 		"Header Number":     header.Number.Uint64(),
 	}
 	if lr.Cmp(f.roundID) >= 0 {
-		log.Info().Fields(logFields).Msg("FluxAggregator round completed")
+		f.l.Info().Fields(logFields).Msg("FluxAggregator round completed")
 		f.complete = true
 		f.doneChan <- struct{}{}
 	} else {
-		log.Debug().Fields(logFields).Msg("Waiting for FluxAggregator round")
+		f.l.Debug().Fields(logFields).Msg("Waiting for FluxAggregator round")
 	}
 	return nil
 }
@@ -1179,6 +1185,7 @@ type EthereumLinkToken struct {
 	client   blockchain.EVMClient
 	instance *link_token_interface.LinkToken
 	address  common.Address
+	l        zerolog.Logger
 }
 
 // Fund the LINK Token contract with ETH to distribute the token
@@ -1220,7 +1227,7 @@ func (l *EthereumLinkToken) Approve(to string, amount *big.Int) error {
 	if err != nil {
 		return err
 	}
-	log.Info().
+	l.l.Info().
 		Str("From", l.client.GetDefaultWallet().Address()).
 		Str("To", to).
 		Str("Amount", amount.String()).
@@ -1238,7 +1245,7 @@ func (l *EthereumLinkToken) Transfer(to string, amount *big.Int) error {
 	if err != nil {
 		return err
 	}
-	log.Info().
+	l.l.Info().
 		Str("From", l.client.GetDefaultWallet().Address()).
 		Str("To", to).
 		Str("Amount", amount.String()).
@@ -1260,7 +1267,7 @@ func (l *EthereumLinkToken) TransferAndCall(to string, amount *big.Int, data []b
 	if err != nil {
 		return nil, err
 	}
-	log.Info().
+	l.l.Info().
 		Str("From", l.client.GetDefaultWallet().Address()).
 		Str("To", to).
 		Str("Amount", amount.String()).
@@ -1275,6 +1282,7 @@ type EthereumOffchainAggregator struct {
 	client  blockchain.EVMClient
 	ocr     *offchainaggregator.OffchainAggregator
 	address *common.Address
+	l       zerolog.Logger
 }
 
 // Fund sends specified currencies to the contract
@@ -1320,7 +1328,7 @@ func (o *EthereumOffchainAggregator) SetPayees(
 		payeesAddr = append(payeesAddr, common.HexToAddress(p))
 	}
 
-	log.Info().
+	o.l.Info().
 		Str("Transmitters", fmt.Sprintf("%v", transmitters)).
 		Str("Payees", fmt.Sprintf("%v", payees)).
 		Str("OCR Address", o.Address()).
@@ -1428,7 +1436,7 @@ func (o *EthereumOffchainAggregator) RequestNewRound() error {
 	if err != nil {
 		return err
 	}
-	log.Info().Str("Contract Address", o.address.Hex()).Msg("New OCR round requested")
+	o.l.Info().Str("Contract Address", o.address.Hex()).Msg("New OCR round requested")
 
 	return o.client.ProcessTransaction(tx)
 }
@@ -1510,6 +1518,7 @@ type RunlogRoundConfirmer struct {
 	doneChan chan struct{}
 	context  context.Context
 	cancel   context.CancelFunc
+	l        zerolog.Logger
 }
 
 // NewRunlogRoundConfirmer provides a new instance of a RunlogRoundConfirmer
@@ -1517,6 +1526,7 @@ func NewRunlogRoundConfirmer(
 	contract APIConsumer,
 	roundID *big.Int,
 	timeout time.Duration,
+	logger zerolog.Logger,
 ) *RunlogRoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &RunlogRoundConfirmer{
@@ -1525,6 +1535,7 @@ func NewRunlogRoundConfirmer(
 		doneChan: make(chan struct{}),
 		context:  ctx,
 		cancel:   ctxCancel,
+		l:        logger,
 	}
 }
 
@@ -1540,10 +1551,10 @@ func (o *RunlogRoundConfirmer) ReceiveHeader(_ blockchain.NodeHeader) error {
 		"Waiting for Round": o.roundID.Int64(),
 	}
 	if currentRoundID.Cmp(o.roundID) >= 0 {
-		log.Info().Fields(logFields).Msg("Runlog round completed")
+		o.l.Info().Fields(logFields).Msg("Runlog round completed")
 		o.doneChan <- struct{}{}
 	} else {
-		log.Debug().Fields(logFields).Msg("Waiting for Runlog round")
+		o.l.Debug().Fields(logFields).Msg("Waiting for Runlog round")
 	}
 	return nil
 }
@@ -1570,6 +1581,7 @@ type OffchainAggregatorRoundConfirmer struct {
 	cancel            context.CancelFunc
 	blocksSinceAnswer uint
 	complete          bool
+	l                 zerolog.Logger
 }
 
 // NewOffchainAggregatorRoundConfirmer provides a new instance of a OffchainAggregatorRoundConfirmer
@@ -1577,6 +1589,7 @@ func NewOffchainAggregatorRoundConfirmer(
 	contract OffchainAggregator,
 	roundID *big.Int,
 	timeout time.Duration,
+	logger zerolog.Logger,
 ) *OffchainAggregatorRoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &OffchainAggregatorRoundConfirmer{
@@ -1586,6 +1599,7 @@ func NewOffchainAggregatorRoundConfirmer(
 		context:     ctx,
 		cancel:      ctxCancel,
 		complete:    false,
+		l:           logger,
 	}
 }
 
@@ -1607,11 +1621,11 @@ func (o *OffchainAggregatorRoundConfirmer) ReceiveHeader(_ blockchain.NodeHeader
 		"Waiting for Round": o.roundID.Int64(),
 	}
 	if currRound.Cmp(o.roundID) >= 0 {
-		log.Info().Fields(logFields).Msg("OCR round completed")
+		o.l.Info().Fields(logFields).Msg("OCR round completed")
 		o.doneChan <- struct{}{}
 		o.complete = true
 	} else {
-		log.Debug().Fields(logFields).Msg("Waiting on OCR Round")
+		o.l.Debug().Fields(logFields).Msg("Waiting on OCR Round")
 	}
 	return nil
 }
@@ -1644,6 +1658,7 @@ type OffchainAggregatorV2RoundConfirmer struct {
 	cancel            context.CancelFunc
 	blocksSinceAnswer uint
 	complete          bool
+	l                 zerolog.Logger
 }
 
 // NewOffchainAggregatorRoundConfirmer provides a new instance of a OffchainAggregatorRoundConfirmer
@@ -1651,6 +1666,7 @@ func NewOffchainAggregatorV2RoundConfirmer(
 	contract OffchainAggregatorV2,
 	roundID *big.Int,
 	timeout time.Duration,
+	logger zerolog.Logger,
 ) *OffchainAggregatorV2RoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &OffchainAggregatorV2RoundConfirmer{
@@ -1660,6 +1676,7 @@ func NewOffchainAggregatorV2RoundConfirmer(
 		context:     ctx,
 		cancel:      ctxCancel,
 		complete:    false,
+		l:           logger,
 	}
 }
 
@@ -1681,11 +1698,11 @@ func (o *OffchainAggregatorV2RoundConfirmer) ReceiveHeader(_ blockchain.NodeHead
 		"Waiting for Round": o.roundID.Int64(),
 	}
 	if currRound.Cmp(o.roundID) >= 0 {
-		log.Info().Fields(logFields).Msg("OCR round completed")
+		o.l.Info().Fields(logFields).Msg("OCR round completed")
 		o.doneChan <- struct{}{}
 		o.complete = true
 	} else {
-		log.Debug().Fields(logFields).Msg("Waiting on OCR Round")
+		o.l.Debug().Fields(logFields).Msg("Waiting on OCR Round")
 	}
 	return nil
 }
@@ -1813,6 +1830,7 @@ type EthereumOperator struct {
 	address  common.Address
 	client   blockchain.EVMClient
 	operator *operator_wrapper.Operator
+	l        zerolog.Logger
 }
 
 func (e *EthereumOperator) Address() string {
@@ -1824,7 +1842,7 @@ func (e *EthereumOperator) AcceptAuthorizedReceivers(forwarders []common.Address
 	if err != nil {
 		return err
 	}
-	log.Info().
+	e.l.Info().
 		Str("ForwardersAddresses", fmt.Sprint(forwarders)).
 		Str("EoaAddresses", fmt.Sprint(eoa)).
 		Msg("Accepting Authorized Receivers")
@@ -1921,6 +1939,7 @@ type EthereumOffchainAggregatorV2 struct {
 	address  *common.Address
 	client   blockchain.EVMClient
 	contract *ocr2aggregator.OCR2Aggregator
+	l        zerolog.Logger
 }
 
 // OCRv2Config represents the config for the OCRv2 contract
@@ -2006,7 +2025,7 @@ func (e *EthereumOffchainAggregatorV2) SetPayees(transmitters, payees []string) 
 	if err != nil {
 		return err
 	}
-	log.Info().
+	e.l.Info().
 		Str("Transmitters", fmt.Sprintf("%v", transmitters)).
 		Str("Payees", fmt.Sprintf("%v", payees)).
 		Str("OCRv2 Address", e.Address()).
@@ -2032,7 +2051,7 @@ func (e *EthereumOffchainAggregatorV2) SetConfig(ocrConfig *OCRv2Config) error {
 	if err != nil {
 		return err
 	}
-	log.Info().
+	e.l.Info().
 		Str("Address", e.Address()).
 		Interface("Signers", ocrConfig.Signers).
 		Interface("Transmitters", ocrConfig.Transmitters).
@@ -2089,6 +2108,7 @@ type EthereumFunctionsRouter struct {
 	address  common.Address
 	client   blockchain.EVMClient
 	instance *functions_router.FunctionsRouter
+	l        zerolog.Logger
 }
 
 func (e *EthereumFunctionsRouter) Address() string {
@@ -2112,7 +2132,7 @@ func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string
 		return 0, err
 	}
 	for _, l := range r.Logs {
-		log.Info().Interface("Log", common.Bytes2Hex(l.Data)).Send()
+		e.l.Info().Interface("Log", common.Bytes2Hex(l.Data)).Send()
 	}
 	topicsMap := map[string]interface{}{}
 
@@ -2121,14 +2141,14 @@ func (e *EthereumFunctionsRouter) CreateSubscriptionWithConsumer(consumer string
 		return 0, err
 	}
 	for _, ev := range fabi.Events {
-		log.Info().Str("EventName", ev.Name).Send()
+		e.l.Info().Str("EventName", ev.Name).Send()
 	}
 	topicOneInputs := abi.Arguments{fabi.Events["SubscriptionCreated"].Inputs[0]}
 	topicOneHash := []common.Hash{r.Logs[0].Topics[1:][0]}
 	if err := abi.ParseTopicsIntoMap(topicsMap, topicOneInputs, topicOneHash); err != nil {
 		return 0, errors.Wrap(err, "failed to decode topic value")
 	}
-	log.Info().Interface("NewTopicsDecoded", topicsMap).Send()
+	e.l.Info().Interface("NewTopicsDecoded", topicsMap).Send()
 	if topicsMap["subscriptionId"] == 0 {
 		return 0, errors.New("failed to decode subscription ID after creation")
 	}
@@ -2243,4 +2263,66 @@ func (e *EthereumFunctionsLoadTestClient) SendRequestWithDONHostedSecrets(times 
 		return err
 	}
 	return e.client.ProcessTransaction(tx)
+}
+
+type EthereumMercuryVerifier struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *verifier.Verifier
+}
+
+func (e *EthereumMercuryVerifier) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumMercuryVerifier) Verify(signedReport []byte, sender common.Address) error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := e.instance.Verify(opts, signedReport, sender)
+	if err != nil {
+		return err
+	}
+	return e.client.ProcessTransaction(tx)
+}
+
+type EthereumMercuryVerifierProxy struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *verifier_proxy.VerifierProxy
+}
+
+func (e *EthereumMercuryVerifierProxy) Address() string {
+	return e.address.Hex()
+}
+
+func (e *EthereumMercuryVerifierProxy) Verify(signedReport []byte, value *big.Int) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if value != nil {
+		opts.Value = value
+	}
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.Verify(opts, signedReport)
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
+}
+
+func (e *EthereumMercuryVerifierProxy) VerifyBulk(signedReports [][]byte, value *big.Int) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if value != nil {
+		opts.Value = value
+	}
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.VerifyBulk(opts, signedReports)
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
 }

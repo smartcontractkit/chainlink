@@ -13,8 +13,8 @@ BlocksUntilTxTimeout = 30 # Default
 ConfirmPollPeriod = '1s' # Default
 # FallbackGasPrice sets a fallback gas price to use when the estimator is not available.
 FallbackGasPrice = '0.015' # Default
-# FeeToken is the token denomination which is being used to pay gas fees on this chain.
-FeeToken = 'ucosm' # Default
+# GasToken is the token denomination which is being used to pay gas fees on this chain.
+GasToken = 'ucosm' # Default
 # GasLimitMultiplier scales the estimated gas limit.
 GasLimitMultiplier = '1.5' # Default
 # MaxMsgsPerBatch limits the numbers of mesages per transaction batch.
