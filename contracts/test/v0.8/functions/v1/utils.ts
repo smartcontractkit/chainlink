@@ -52,7 +52,7 @@ export const encodeReport = async (
   offchainMetadata: string,
 ) => {
   const functionsResponse = await ethers.getContractFactory(
-    'src/v0.8/functions/dev/1_0_0/FunctionsCoordinator.sol:FunctionsCoordinator',
+    'src/v0.8/functions/dev/v1_0_0/FunctionsCoordinator.sol:FunctionsCoordinator',
   )
   const onchainMetadataBytes = functionsResponse.interface._abiCoder.encode(
     [
@@ -130,19 +130,19 @@ export async function setupRolesAndFactories(): Promise<{
 }> {
   const roles = (await getUsers()).roles
   const functionsRouterFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/dev/1_0_0/FunctionsRouter.sol:FunctionsRouter',
+    'src/v0.8/functions/dev/v1_0_0/FunctionsRouter.sol:FunctionsRouter',
     roles.defaultAccount,
   )
   const functionsCoordinatorFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/1_0_0/testhelpers/FunctionsCoordinatorTestHelper.sol:FunctionsCoordinatorTestHelper',
+    'src/v0.8/functions/tests/v1_0_0/testhelpers/FunctionsCoordinatorTestHelper.sol:FunctionsCoordinatorTestHelper',
     roles.defaultAccount,
   )
   const accessControlFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/dev/1_0_0/accessControl/TermsOfServiceAllowList.sol:TermsOfServiceAllowList',
+    'src/v0.8/functions/dev/v1_0_0/accessControl/TermsOfServiceAllowList.sol:TermsOfServiceAllowList',
     roles.defaultAccount,
   )
   const clientTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/1_0_0/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
+    'src/v0.8/functions/tests/v1_0_0/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
     roles.consumer,
   )
   const linkTokenFactory = await ethers.getContractFactory(
