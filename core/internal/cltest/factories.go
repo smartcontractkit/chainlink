@@ -481,6 +481,14 @@ func MustAddRandomKeyToKeystore(t testing.TB, ethKeyStore keystore.Eth) (ethkey.
 	return k, k.Address
 }
 
+func MustAddRandomKeyToKeystoreWithChainID(t testing.TB, chainID *big.Int, ethKeyStore keystore.Eth) (ethkey.KeyV2, common.Address) {
+	t.Helper()
+	k := MustGenerateRandomKey(t)
+	MustAddKeyToKeystore(t, k, chainID, ethKeyStore)
+
+	return k, k.Address
+}
+
 func MustAddKeyToKeystore(t testing.TB, key ethkey.KeyV2, chainID *big.Int, ethKeyStore keystore.Eth) {
 	t.Helper()
 	ethKeyStore.XXXTestingOnlyAdd(key)
@@ -624,7 +632,7 @@ NOW(),NOW(),$1,'{}',false,$2,$3,0,0,0,0,0,0,0,0
 
 func MakeDirectRequestJobSpec(t *testing.T) *job.Job {
 	t.Helper()
-	drs := &job.DirectRequestSpec{}
+	drs := &job.DirectRequestSpec{EVMChainID: (*utils.Big)(testutils.FixtureChainID)}
 	spec := &job.Job{
 		Type:              job.DirectRequest,
 		SchemaVersion:     1,
@@ -640,7 +648,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 	t.Helper()
 
 	var keeperSpec job.KeeperSpec
-	err := korm.Q().Get(&keeperSpec, `INSERT INTO keeper_specs (contract_address, from_address, created_at, updated_at) VALUES ($1, $2, NOW(), NOW()) RETURNING *`, contract, from)
+	err := korm.Q().Get(&keeperSpec, `INSERT INTO keeper_specs (contract_address, from_address, created_at, updated_at,evm_chain_id) VALUES ($1, $2, NOW(), NOW(), $3) RETURNING *`, contract, from, testutils.SimulatedChainID.Int64())
 	require.NoError(t, err)
 
 	var pipelineSpec pipeline.Spec
@@ -668,7 +676,7 @@ func MustInsertKeeperJob(t *testing.T, db *sqlx.DB, korm keeper.ORM, from ethkey
 }
 
 func MustInsertKeeperRegistry(t *testing.T, db *sqlx.DB, korm keeper.ORM, ethKeyStore keystore.Eth, keeperIndex, numKeepers, blockCountPerTurn int32) (keeper.Registry, job.Job) {
-	key, _ := MustAddRandomKeyToKeystore(t, ethKeyStore)
+	key, _ := MustAddRandomKeyToKeystoreWithChainID(t, testutils.SimulatedChainID, ethKeyStore)
 	from := key.EIP55Address
 	t.Helper()
 	contractAddress := NewEIP55Address()
