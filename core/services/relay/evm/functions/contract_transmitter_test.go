@@ -52,7 +52,7 @@ func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 
 	functionsTransmitter, err := functions.NewFunctionsContractTransmitter(c, contractABI, &mockTransmitter{}, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
 		return &txmgr.TxMeta{}, nil
-	}, 0)
+	}, 0, nil)
 	require.NoError(t, err)
 	require.NoError(t, functionsTransmitter.UpdateRoutes(gethcommon.Address{}, gethcommon.Address{}))
 
@@ -77,7 +77,7 @@ func TestContractTransmitter_Transmit_V0(t *testing.T) {
 	ocrTransmitter := mockTransmitter{}
 	ot, err := functions.NewFunctionsContractTransmitter(c, contractABI, &ocrTransmitter, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
 		return &txmgr.TxMeta{}, nil
-	}, contractVersion)
+	}, contractVersion, nil)
 	require.NoError(t, err)
 	require.NoError(t, ot.UpdateRoutes(destAddress, destAddress))
 
@@ -99,7 +99,7 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 	ocrTransmitter := mockTransmitter{}
 	ot, err := functions.NewFunctionsContractTransmitter(c, contractABI, &ocrTransmitter, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
 		return &txmgr.TxMeta{}, nil
-	}, contractVersion)
+	}, contractVersion, nil)
 	require.NoError(t, err)
 	require.NoError(t, ot.UpdateRoutes(configuredDestAddress, configuredDestAddress))
 
@@ -142,7 +142,7 @@ func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 	ocrTransmitter := mockTransmitter{}
 	ot, err := functions.NewFunctionsContractTransmitter(c, contractABI, &ocrTransmitter, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
 		return &txmgr.TxMeta{}, nil
-	}, contractVersion)
+	}, contractVersion, nil)
 	require.NoError(t, err)
 	require.NoError(t, ot.UpdateRoutes(configuredDestAddress, configuredDestAddress))
 

@@ -36,7 +36,7 @@ type globalId struct {
 }
 
 type pendingRequest[T any] struct {
-	callbackCh   chan<- handlers.UserCallbackPayload
+	callbackCh   []chan<- handlers.UserCallbackPayload
 	responseData *T
 	timeoutTimer *time.Timer
 	mu           sync.Mutex
@@ -56,8 +56,10 @@ func (c *requestCache[T]) NewRequest(request *api.Message, callbackCh chan<- han
 	key := globalId{request.Body.Sender, request.Body.MessageId}
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	_, ok := c.cache[key]
+	entry, ok := c.cache[key]
 	if ok {
+		entry.callbackCh = append(entry.callbackCh, callbackCh)
+		c.cache[key] = entry
 		return errors.New("request already exists")
 	}
 	if len(c.cache) >= int(c.maxCacheSize) {
@@ -66,7 +68,7 @@ func (c *requestCache[T]) NewRequest(request *api.Message, callbackCh chan<- han
 	timer := time.AfterFunc(c.timeout, func() {
 		c.deleteAndSendOnce(key, handlers.UserCallbackPayload{Msg: request, ErrMsg: "timeout", ErrCode: api.RequestTimeoutError})
 	})
-	c.cache[key] = &pendingRequest[T]{callbackCh: callbackCh, responseData: responseData, timeoutTimer: timer}
+	c.cache[key] = &pendingRequest[T]{callbackCh: []chan<- handlers.UserCallbackPayload{callbackCh}, responseData: responseData, timeoutTimer: timer}
 	return nil
 }
 
@@ -110,7 +112,9 @@ func (c *requestCache[T]) deleteAndSendOnce(key globalId, callbackResponse handl
 	c.mu.Unlock()
 	if deleted {
 		entry.timeoutTimer.Stop()
-		entry.callbackCh <- callbackResponse
-		close(entry.callbackCh)
+		for _, callbackCh := range entry.callbackCh {
+			callbackCh <- callbackResponse
+			close(callbackCh)
+		}
 	}
 }

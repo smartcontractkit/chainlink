@@ -42,16 +42,16 @@ type MessageBody struct {
 	Payload json.RawMessage `json:"payload,omitempty"`
 
 	// Fields only used locally for convenience. Not serialized.
-	Sender string `json:"-"`
+	Sender string `json:"sender"`
 }
 
 func (m *Message) Validate() error {
 	if m == nil {
 		return errors.New("nil message")
 	}
-	if len(m.Signature) != MessageSignatureHexEncodedLen {
+	/*if len(m.Signature) != MessageSignatureHexEncodedLen {
 		return errors.New("invalid hex-encoded signature length")
-	}
+	}*/
 	if len(m.Body.MessageId) == 0 || len(m.Body.MessageId) > MessageIdMaxLen {
 		return errors.New("invalid message ID length")
 	}
@@ -64,11 +64,11 @@ func (m *Message) Validate() error {
 	if len(m.Body.Receiver) != 0 && len(m.Body.Receiver) != MessageReceiverLen {
 		return errors.New("invalid Receiver length")
 	}
-	signerBytes, err := m.ExtractSigner()
+	/*signerBytes, err := m.ExtractSigner()
 	if err != nil {
 		return err
 	}
-	m.Body.Sender = utils.StringToHex(string(signerBytes))
+	m.Body.Sender = utils.StringToHex(string(signerBytes))*/
 	return nil
 }
 

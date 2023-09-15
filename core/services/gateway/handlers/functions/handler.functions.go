@@ -73,7 +73,7 @@ type functionsHandler struct {
 	handlerConfig   FunctionsHandlerConfig
 	donConfig       *config.DONConfig
 	don             handlers.DON
-	pendingRequests hc.RequestCache[PendingSecretsRequest]
+	pendingRequests hc.RequestCache[PendingRequest]
 	allowlist       OnchainAllowlist
 	subscriptions   OnchainSubscriptions
 	minimumBalance  *assets.Link
@@ -83,7 +83,7 @@ type functionsHandler struct {
 	lggr            logger.Logger
 }
 
-type PendingSecretsRequest struct {
+type PendingRequest struct {
 	request    *api.Message
 	responses  map[string]*api.Message
 	successful []*api.Message
@@ -134,7 +134,7 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 			return nil, err2
 		}
 	}
-	pendingRequestsCache := hc.NewRequestCache[PendingSecretsRequest](time.Millisecond*time.Duration(cfg.RequestTimeoutMillis), cfg.MaxPendingRequests)
+	pendingRequestsCache := hc.NewRequestCache[PendingRequest](time.Millisecond*time.Duration(cfg.RequestTimeoutMillis), cfg.MaxPendingRequests)
 	return NewFunctionsHandler(cfg, donConfig, don, pendingRequestsCache, allowlist, subscriptions, cfg.MinimumSubscriptionBalance, userRateLimiter, nodeRateLimiter, lggr), nil
 }
 
@@ -142,7 +142,7 @@ func NewFunctionsHandler(
 	cfg FunctionsHandlerConfig,
 	donConfig *config.DONConfig,
 	don handlers.DON,
-	pendingRequestsCache hc.RequestCache[PendingSecretsRequest],
+	pendingRequestsCache hc.RequestCache[PendingRequest],
 	allowlist OnchainAllowlist,
 	subscriptions OnchainSubscriptions,
 	minimumBalance *assets.Link,
@@ -154,8 +154,8 @@ func NewFunctionsHandler(
 		donConfig:       donConfig,
 		don:             don,
 		pendingRequests: pendingRequestsCache,
-		allowlist:       allowlist,
-		subscriptions:   subscriptions,
+		allowlist:       nil,
+		subscriptions:   nil,
 		minimumBalance:  minimumBalance,
 		userRateLimiter: userRateLimiter,
 		nodeRateLimiter: nodeRateLimiter,
@@ -183,8 +183,8 @@ func (h *functionsHandler) HandleUserMessage(ctx context.Context, msg *api.Messa
 		}
 	}
 	switch msg.Body.Method {
-	case MethodSecretsSet, MethodSecretsList:
-		return h.handleSecretsRequest(ctx, msg, callbackCh)
+	case MethodSecretsSet, MethodSecretsList, MethodRequest:
+		return h.handleRequest(ctx, msg, callbackCh)
 	default:
 		h.lggr.Debugw("unsupported method", "method", msg.Body.Method)
 		promHandlerError.WithLabelValues(h.donConfig.DonId, ErrUnsupportedMethod.Error()).Inc()
@@ -192,11 +192,11 @@ func (h *functionsHandler) HandleUserMessage(ctx context.Context, msg *api.Messa
 	}
 }
 
-func (h *functionsHandler) handleSecretsRequest(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
-	h.lggr.Debugw("handleSecretsRequest: processing message", "sender", msg.Body.Sender, "messageId", msg.Body.MessageId)
-	err := h.pendingRequests.NewRequest(msg, callbackCh, &PendingSecretsRequest{request: msg, responses: make(map[string]*api.Message)})
+func (h *functionsHandler) handleRequest(ctx context.Context, msg *api.Message, callbackCh chan<- handlers.UserCallbackPayload) error {
+	h.lggr.Debugw("handleRequest: processing message", "sender", msg.Body.Sender, "messageId", msg.Body.MessageId)
+	err := h.pendingRequests.NewRequest(msg, callbackCh, &PendingRequest{request: msg, responses: make(map[string]*api.Message)})
 	if err != nil {
-		h.lggr.Warnw("handleSecretsRequest: error adding new request", "sender", msg.Body.Sender, "err", err)
+		h.lggr.Warnw("handleRequest: error adding new request", "sender", msg.Body.Sender, "err", err)
 		promHandlerError.WithLabelValues(h.donConfig.DonId, err.Error()).Inc()
 		return err
 	}
@@ -204,7 +204,7 @@ func (h *functionsHandler) handleSecretsRequest(ctx context.Context, msg *api.Me
 	for _, member := range h.donConfig.Members {
 		err := h.don.SendToNode(ctx, member.Address, msg)
 		if err != nil {
-			h.lggr.Debugw("handleSecretsRequest: failed to send to a node", "node", member.Address, "err", err)
+			h.lggr.Debugw("handleRequest: failed to send to a node", "node", member.Address, "err", err)
 		}
 	}
 	return nil
@@ -219,14 +219,16 @@ func (h *functionsHandler) HandleNodeMessage(ctx context.Context, msg *api.Messa
 	switch msg.Body.Method {
 	case MethodSecretsSet, MethodSecretsList:
 		return h.pendingRequests.ProcessResponse(msg, h.processSecretsResponse)
+	case MethodRequest:
+		return h.pendingRequests.ProcessResponse(msg, h.processOCRResponse)
 	default:
 		h.lggr.Debugw("unsupported method", "method", msg.Body.Method)
 		return ErrUnsupportedMethod
 	}
 }
 
-// Conforms to ResponseProcessor[*PendingSecretsRequest]
-func (h *functionsHandler) processSecretsResponse(response *api.Message, responseData *PendingSecretsRequest) (*handlers.UserCallbackPayload, *PendingSecretsRequest, error) {
+// Conforms to ResponseProcessor[*PendingRequest]
+func (h *functionsHandler) processSecretsResponse(response *api.Message, responseData *PendingRequest) (*handlers.UserCallbackPayload, *PendingRequest, error) {
 	if _, exists := responseData.responses[response.Body.Sender]; exists {
 		return nil, nil, errors.New("duplicate response")
 	}
@@ -258,6 +260,19 @@ func (h *functionsHandler) processSecretsResponse(response *api.Message, respons
 	}
 	// not ready to be processed yet
 	return nil, responseData, nil
+}
+
+func (h *functionsHandler) processOCRResponse(response *api.Message, responseData *PendingRequest) (*handlers.UserCallbackPayload, *PendingRequest, error) {
+	if _, exists := responseData.responses[response.Body.Sender]; exists {
+		return nil, nil, errors.New("duplicate response")
+	}
+	if response.Body.Method != responseData.request.Body.Method {
+		return nil, responseData, errors.New("invalid method")
+	}
+	responseData.responses[response.Body.Sender] = response
+
+	callbackPayload := &handlers.UserCallbackPayload{Msg: response, ErrCode: api.NoError, ErrMsg: ""}
+	return callbackPayload, responseData, nil
 }
 
 func newSecretsResponse(request *api.Message, success bool, responses []*api.Message) (*handlers.UserCallbackPayload, error) {

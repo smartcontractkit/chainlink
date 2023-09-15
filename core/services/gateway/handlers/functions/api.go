@@ -5,6 +5,7 @@ import "github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 const (
 	MethodSecretsSet  = "secrets_set"
 	MethodSecretsList = "secrets_list"
+	MethodRequest     = "request"
 )
 
 type SecretsSetRequest struct {

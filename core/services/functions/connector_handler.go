@@ -5,11 +5,11 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-
-	"go.uber.org/multierr"
+	"sync"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/functions/offchain"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
@@ -19,20 +19,32 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 type functionsConnectorHandler struct {
 	utils.StartStopOnce
+	connector         connector.GatewayConnector
+	signerKey         *ecdsa.PrivateKey
+	nodeAddress       string
+	storage           s4.Storage
+	allowlist         functions.OnchainAllowlist
+	rateLimiter       *hc.RateLimiter
+	subscriptions     functions.OnchainSubscriptions
+	minimumBalance    assets.Link
+	listener          *FunctionsListener
+	transmitterHook   offchain.TransmitterHook
+	requests          map[RequestID]*requestState
+	mu                sync.Mutex
+	chStop            chan struct{}
+	shutdownWaitGroup sync.WaitGroup
+	lggr              logger.Logger
+}
 
-	connector      connector.GatewayConnector
-	signerKey      *ecdsa.PrivateKey
-	nodeAddress    string
-	storage        s4.Storage
-	allowlist      functions.OnchainAllowlist
-	rateLimiter    *hc.RateLimiter
-	subscriptions  functions.OnchainSubscriptions
-	minimumBalance assets.Link
-	lggr           logger.Logger
+type requestState struct {
+	GatewayId string
+	Requests  []*api.MessageBody
+	Report    *offchain.SignedReport
 }
 
 var (
@@ -40,19 +52,23 @@ var (
 	_ connector.GatewayConnectorHandler = &functionsConnectorHandler{}
 )
 
-func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist functions.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions functions.OnchainSubscriptions, minimumBalance assets.Link, lggr logger.Logger) (*functionsConnectorHandler, error) {
+func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist functions.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions functions.OnchainSubscriptions, minimumBalance assets.Link, listener *FunctionsListener, transmitterHook offchain.TransmitterHook, lggr logger.Logger) (*functionsConnectorHandler, error) {
 	if signerKey == nil || storage == nil || allowlist == nil || rateLimiter == nil || subscriptions == nil {
 		return nil, fmt.Errorf("signerKey, storage, allowlist, rateLimiter and subscriptions must be non-nil")
 	}
 	return &functionsConnectorHandler{
-		nodeAddress:    nodeAddress,
-		signerKey:      signerKey,
-		storage:        storage,
-		allowlist:      allowlist,
-		rateLimiter:    rateLimiter,
-		subscriptions:  subscriptions,
-		minimumBalance: minimumBalance,
-		lggr:           lggr.Named("FunctionsConnectorHandler"),
+		nodeAddress:     nodeAddress,
+		signerKey:       signerKey,
+		storage:         storage,
+		allowlist:       allowlist,
+		rateLimiter:     rateLimiter,
+		subscriptions:   subscriptions,
+		minimumBalance:  minimumBalance,
+		listener:        listener,
+		transmitterHook: transmitterHook,
+		requests:        make(map[RequestID]*requestState),
+		chStop:          make(chan struct{}),
+		lggr:            lggr.Named("FunctionsConnectorHandler"),
 	}, nil
 }
 
@@ -67,18 +83,18 @@ func (h *functionsConnectorHandler) Sign(data ...[]byte) ([]byte, error) {
 func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message) {
 	body := &msg.Body
 	fromAddr := ethCommon.HexToAddress(body.Sender)
-	if !h.allowlist.Allow(fromAddr) {
+	/*if !h.allowlist.Allow(fromAddr) {
 		h.lggr.Errorw("allowlist prevented the request from this address", "id", gatewayId, "address", fromAddr)
 		return
-	}
+	}*/
 	if !h.rateLimiter.Allow(body.Sender) {
 		h.lggr.Errorw("request rate-limited", "id", gatewayId, "address", fromAddr)
 		return
 	}
-	if balance, err := h.subscriptions.GetMaxUserBalance(fromAddr); err != nil || balance.Cmp(h.minimumBalance.ToInt()) < 0 {
+	/*if balance, err := h.subscriptions.GetMaxUserBalance(fromAddr); err != nil || balance.Cmp(h.minimumBalance.ToInt()) < 0 {
 		h.lggr.Errorw("user subscription has insufficient balance", "id", gatewayId, "address", fromAddr, "balance", balance, "minBalance", h.minimumBalance)
 		return
-	}
+	}*/
 
 	h.lggr.Debugw("handling gateway request", "id", gatewayId, "method", body.Method)
 
@@ -87,6 +103,8 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 		h.handleSecretsList(ctx, gatewayId, body, fromAddr)
 	case functions.MethodSecretsSet:
 		h.handleSecretsSet(ctx, gatewayId, body, fromAddr)
+	case functions.MethodRequest:
+		h.handleRequest(ctx, gatewayId, body, fromAddr)
 	default:
 		h.lggr.Errorw("unsupported method", "id", gatewayId, "method", body.Method)
 	}
@@ -94,19 +112,51 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 
 func (h *functionsConnectorHandler) Start(ctx context.Context) error {
 	return h.StartOnce("FunctionsConnectorHandler", func() error {
-		if err := h.allowlist.Start(ctx); err != nil {
+		/*if err := h.allowlist.Start(ctx); err != nil {
 			return err
 		}
-		return h.subscriptions.Start(ctx)
+		return h.subscriptions.Start(ctx)*/
+		h.shutdownWaitGroup.Add(1)
+		go h.reportLoop()
+		return nil
 	})
 }
 
 func (h *functionsConnectorHandler) Close() error {
 	return h.StopOnce("FunctionsConnectorHandler", func() (err error) {
-		err = multierr.Combine(err, h.allowlist.Close())
-		err = multierr.Combine(err, h.subscriptions.Close())
+		//err = multierr.Combine(err, h.allowlist.Close())
+		//err = multierr.Combine(err, h.subscriptions.Close())
+		h.shutdownWaitGroup.Wait()
 		return
 	})
+}
+
+func (h *functionsConnectorHandler) reportLoop() {
+	defer h.shutdownWaitGroup.Done()
+	for {
+		select {
+		case report := <-h.transmitterHook.ReportChannel():
+			h.lggr.Infow("received report", "requestId", report.RequestID, "result", report.Result, "error", report.Error)
+			// TODO respond to Gateway
+			h.mu.Lock()
+			state, ok := h.requests[report.RequestID]
+			if !ok {
+				h.lggr.Errorw("received report for unknown request", "requestId", report.RequestID)
+				h.mu.Unlock()
+				continue
+			}
+			state.Report = report
+			h.mu.Unlock()
+			for _, msgBody := range state.Requests {
+				msgBody.Receiver = msgBody.Sender
+				if err := h.sendResponse(context.Background(), state.GatewayId, msgBody, report); err != nil {
+					h.lggr.Errorw("failed to send response to gateway", "id", state.GatewayId, "error", err)
+				}
+			}
+		case <-h.chStop:
+			return
+		}
+	}
 }
 
 func (h *functionsConnectorHandler) handleSecretsList(ctx context.Context, gatewayId string, body *api.MessageBody, fromAddr ethCommon.Address) {
@@ -158,6 +208,47 @@ func (h *functionsConnectorHandler) handleSecretsSet(ctx context.Context, gatewa
 
 	if err := h.sendResponse(ctx, gatewayId, body, response); err != nil {
 		h.lggr.Errorw("failed to send response to gateway", "id", gatewayId, "error", err)
+	}
+}
+
+func (h *functionsConnectorHandler) handleRequest(ctx context.Context, gatewayId string, body *api.MessageBody, fromAddr ethCommon.Address) {
+	var request OffchainRequest
+	err := json.Unmarshal(body.Payload, &request)
+	if err != nil {
+		// TODO
+		h.lggr.Errorw("failed to unmarshal request", "id", gatewayId, "error", err)
+		return
+	}
+	// Internal Functions request ID is a hash of (sender address, message id, request id)
+	id := fromAddr.Bytes()
+	id = append(id, body.MessageId[:]...)
+	id = append(id, request.RequestId[:]...)
+	internalId := RequestID(crypto.Keccak256Hash(id))
+	request.RequestId = internalId
+	h.lggr.Infow("handling offchain request", "messageId", body.MessageId, "id", internalId, "sender", body.Sender)
+	h.mu.Lock()
+	state, ok := h.requests[internalId]
+	if !ok {
+		// new request
+		h.requests[internalId] = &requestState{
+			GatewayId: gatewayId,
+			Requests:  []*api.MessageBody{body},
+		}
+		h.mu.Unlock()
+		h.listener.HandleOffchainRequest(ctx, &request)
+	} else {
+		// existing request
+		if state.Report != nil {
+			h.mu.Unlock()
+			body.Receiver = body.Sender
+			if err := h.sendResponse(ctx, gatewayId, body, state.Report); err != nil {
+				h.lggr.Errorw("failed to send response to gateway", "id", gatewayId, "error", err)
+			}
+		} else {
+			state.Requests = append(state.Requests, body)
+			h.requests[internalId] = state
+			h.mu.Unlock()
+		}
 	}
 }
 

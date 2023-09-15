@@ -1,5 +1,7 @@
 package functions
 
+import "github.com/ethereum/go-ethereum/common"
+
 const (
 	LocationInline     = 0
 	LocationRemote     = 1
@@ -8,6 +10,13 @@ const (
 )
 
 type RequestFlags [32]byte
+
+type OffchainRequest struct {
+	RequestId         [32]byte       `json:"requestId"`
+	SubscriptionId    uint64         `json:"subscriptionId"`
+	SubscriptionOwner common.Address `json:"subscriptionOwner"`
+	Data              RequestData    `json:"data"`
+}
 
 type RequestData struct {
 	Source          string   `json:"source" cbor:"source"`

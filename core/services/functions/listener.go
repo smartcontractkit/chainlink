@@ -118,6 +118,7 @@ const (
 
 	FlagCBORMaxSize    uint32 = 1
 	FlagSecretsMaxSize uint32 = 2
+	FlagMaxReponseSize uint32 = 4
 )
 
 type FunctionsListener struct {
@@ -479,6 +480,32 @@ func (l *FunctionsListener) parseCBOR(requestId RequestID, cborData []byte, maxS
 	}
 
 	return &requestData, nil
+}
+
+func (l *FunctionsListener) HandleOffchainRequest(ctx context.Context, request *OffchainRequest) {
+	callbackGasLimit := uint32(0)
+	contractAddr := common.HexToAddress("0x336152a0FdB8F6240802E6E375C29c9e1Ca76927")
+	hash := common.Hash{}
+	newReq := &Request{
+		RequestID:                  request.RequestId,
+		RequestTxHash:              &hash,
+		ReceivedAt:                 time.Now(),
+		Flags:                      []byte{},
+		CallbackGasLimit:           &callbackGasLimit,
+		CoordinatorContractAddress: &contractAddr,
+		OnchainMetadata:            []byte{},
+	}
+	if err := l.pluginORM.CreateRequest(newReq, pg.WithParentCtx(ctx)); err != nil {
+		if errors.Is(err, ErrDuplicateRequestID) {
+			l.logger.Warnw("handleOracleRequestV1: received a log with duplicate request ID", "requestID", formatRequestId(request.RequestId), "err", err)
+		} else {
+			l.logger.Errorw("handleOracleRequestV1: failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
+		}
+		return
+	}
+	flags := RequestFlags{}
+	flags[FlagMaxReponseSize] = 6 // max value
+	l.handleRequest(ctx, request.RequestId, request.SubscriptionId, request.SubscriptionOwner, flags, &request.Data)
 }
 
 func (l *FunctionsListener) handleRequest(ctx context.Context, requestID RequestID, subscriptionId uint64, subscriptionOwner common.Address, flags RequestFlags, requestData *RequestData) {

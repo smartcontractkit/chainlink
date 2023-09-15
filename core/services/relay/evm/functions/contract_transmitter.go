@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/functions/offchain"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -53,6 +54,7 @@ type contractTransmitter struct {
 	reportToEvmTxMeta   ReportToEthMetadata
 	contractVersion     uint32
 	reportCodec         encoding.ReportCodec
+	transmitterHook     offchain.TransmitterHook
 }
 
 var _ FunctionsContractTransmitter = &contractTransmitter{}
@@ -70,6 +72,7 @@ func NewFunctionsContractTransmitter(
 	lggr logger.Logger,
 	reportToEvmTxMeta ReportToEthMetadata,
 	contractVersion uint32,
+	transmitterHook offchain.TransmitterHook,
 ) (*contractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
 	if !ok {
@@ -93,6 +96,7 @@ func NewFunctionsContractTransmitter(
 		reportToEvmTxMeta:   reportToEvmTxMeta,
 		contractVersion:     contractVersion,
 		reportCodec:         codec,
+		transmitterHook:     transmitterHook,
 	}, nil
 }
 
@@ -113,6 +117,7 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 		ss = append(ss, s)
 		vs[i] = v
 	}
+
 	rawReportCtx := evmutil.RawReportContext(reportCtx)
 
 	txMeta, err := oc.reportToEvmTxMeta(report)
@@ -139,6 +144,26 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 		if len(requests[0].CoordinatorContract) != common.AddressLength {
 			return fmt.Errorf("FunctionsContractTransmitter: incorrect length of CoordinatorContract field: %d", len(requests[0].CoordinatorContract))
 		}
+
+		if oc.transmitterHook != nil {
+			for _, req := range requests {
+				req := req
+				id, _ := encoding.SliceToByte32(req.RequestID)
+				// This assumes that report always contains only a single request.
+				signedReport := &offchain.SignedReport{
+					Report:    report,
+					Rs:        rs,
+					Ss:        ss,
+					Vs:        vs,
+					RequestID: id,
+					Result:    req.Result,
+					Error:     req.Error,
+				}
+				oc.transmitterHook.Transmit(signedReport)
+			}
+			return nil
+		}
+
 		destinationContract.SetBytes(requests[0].CoordinatorContract)
 		if destinationContract == (common.Address{}) {
 			return errors.New("FunctionsContractTransmitter: destination coordinator contract is zero")
