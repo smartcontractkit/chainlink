@@ -13,6 +13,7 @@ import {MockLinkToken} from "../../../mocks/MockLinkToken.sol";
 
 import "forge-std/Vm.sol";
 
+/// @notice Set up to deploy the following contracts: FunctionsRouter, FunctionsCoordinator, LINK/ETH Feed, ToS Allow List, and LINK token
 contract FunctionsRouterSetup is BaseTest {
   FunctionsRouter internal s_functionsRouter;
   FunctionsCoordinatorTestHelper internal s_functionsCoordinator; // TODO: use actual FunctionsCoordinator instead of helper
@@ -82,6 +83,7 @@ contract FunctionsRouterSetup is BaseTest {
   }
 }
 
+/// @notice Set up to set the OCR configuration of the Coordinator contract
 contract FunctionsDONSetup is FunctionsRouterSetup {
   uint256 internal NOP_SIGNER_PRIVATE_KEY_1 = 0x100;
   address internal NOP_SIGNER_ADDRESS_1 = vm.addr(NOP_SIGNER_PRIVATE_KEY_1);
@@ -135,6 +137,7 @@ contract FunctionsDONSetup is FunctionsRouterSetup {
   }
 }
 
+/// @notice Set up to add the Coordinator and ToS Allow Contract as routes on the Router contract
 contract FunctionsRoutesSetup is FunctionsDONSetup {
   bytes32 s_donId = bytes32("1");
 
@@ -154,6 +157,7 @@ contract FunctionsRoutesSetup is FunctionsDONSetup {
   }
 }
 
+/// @notice Set up for the OWNER_ADDRESS to accept the Terms of Service
 contract FunctionsOwnerAcceptTermsOfServiceSetup is FunctionsRoutesSetup {
   function setUp() public virtual override {
     FunctionsRoutesSetup.setUp();
@@ -165,6 +169,7 @@ contract FunctionsOwnerAcceptTermsOfServiceSetup is FunctionsRoutesSetup {
   }
 }
 
+/// @notice Set up to deploy a consumer contract
 contract FunctionsClientSetup is FunctionsOwnerAcceptTermsOfServiceSetup {
   FunctionsClientUpgradeHelper internal s_functionsClient;
 
@@ -175,6 +180,7 @@ contract FunctionsClientSetup is FunctionsOwnerAcceptTermsOfServiceSetup {
   }
 }
 
+/// @notice Set up to create a subscription, add the consumer contract as a consumer of the subscription, and fund the subscription with 's_subscriptionInitialFunding'
 contract FunctionsSubscriptionSetup is FunctionsClientSetup {
   uint64 s_subscriptionId;
   uint96 s_subscriptionInitialFunding = 10 * JUELS_PER_LINK; // 10 LINK
@@ -191,6 +197,7 @@ contract FunctionsSubscriptionSetup is FunctionsClientSetup {
   }
 }
 
+/// @notice Set up to initate a minimal request and store it in s_requests[1]
 contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
   struct RequestData {
     string sourceCode;
@@ -230,6 +237,13 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     return gasOverheadJuels + s_donFee + s_adminFee + callbackGasCostJuels;
   }
 
+  /// @notice Send a request and store information about it in s_requests
+  /// @param requestNumberKey - the key that the request will be stored in `s_requests` in
+  /// @param sourceCode - Raw source code for Request.codeLocation of Location.Inline, URL for Request.codeLocation of Location.Remote, or slot decimal number for Request.codeLocation of Location.DONHosted
+  /// @param secrets - Encrypted URLs for Request.secretsLocation of Location.Remote (use addSecretsReference()), or CBOR encoded slotid+version for Request.secretsLocation of Location.DONHosted (use addDONHostedSecrets())
+  /// @param args - String arguments that will be passed into the source code
+  /// @param bytesArgs - Bytes arguments that will be passed into the source code
+  /// @param callbackGasLimit - Gas limit for the fulfillment callback
   function _sendAndStoreRequest(
     uint256 requestNumberKey,
     string memory sourceCode,
@@ -273,6 +287,12 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     });
   }
 
+  /// @notice Send a request and store information about it in s_requests
+  /// @param requestNumberKeys - One or more requestNumberKeys that were used to store the request in `s_requests` of the requests, that will be added to the report
+  /// @param results - The result that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param errors - The error that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @return report - Report bytes data
+  /// @return reportContext - Report context bytes32 data
   function _buildReport(
     uint256[] memory requestNumberKeys,
     string[] memory results,
@@ -320,6 +340,13 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     return (report, reportContext);
   }
 
+  /// @notice Gather signatures on report data
+  /// @param report - Report bytes generated from `_buildReport`
+  /// @param reportContext - Report context bytes32 generated from `_buildReport`
+  /// @param signerPrivateKeys - One or more addresses that will sign the report data
+  /// @return rawRs - Signature rs
+  /// @return rawSs - Signature ss
+  /// @return rawVs - Signature vs
   function _signReport(
     bytes memory report,
     bytes32[3] memory reportContext,
@@ -341,6 +368,14 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     return (rs, ss, bytes32(vs));
   }
 
+  /// @notice Provide a response from the DON to fulfill one or more requests and store the updated balances of the DON & Admin
+  /// @param requestNumberKeys - One or more requestNumberKeys that were used to store the request in `s_requests` of the requests, that will be added to the report
+  /// @param results - The result that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param errors - The error that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param transmitter - The address that will send the `.report` transaction
+  /// @param expectedToSucceed - Boolean representing if the report transmission is expected to produce a RequestProcessed event for every fulfillment. If not, we ignore retrieving the event log.
+  /// @param requestProcessedIndex - On a successful fulfillment the Router will emit a RequestProcessed event. To grab that event we must know the order at which this event was thrown in the report transmission lifecycle. This can change depending on the test setup (e.g. the Client contract gives an extra event during its callback)
+  /// @param transmitterGasToUse - Override the default amount of gas that the transmitter sends the `.report` transaction with
   function _reportAndStore(
     uint256[] memory requestNumberKeys,
     string[] memory results,
@@ -399,7 +434,14 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     vm.startPrank(OWNER_ADDRESS);
   }
 
-  /// @dev Overload to give transmitterGasToUse as 0, which gives default tx gas
+  /// @notice Provide a response from the DON to fulfill one or more requests and store the updated balances of the DON & Admin
+  /// @param requestNumberKeys - One or more requestNumberKeys that were used to store the request in `s_requests` of the requests, that will be added to the report
+  /// @param results - The result that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param errors - The error that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param transmitter - The address that will send the `.report` transaction
+  /// @param expectedToSucceed - Boolean representing if the report transmission is expected to produce a RequestProcessed event for every fulfillment. If not, we ignore retrieving the event log.
+  /// @param requestProcessedIndex - On a successful fulfillment the Router will emit a RequestProcessed event. To grab that event we must know the order at which this event was thrown in the report transmission lifecycle. This can change depending on the test setup (e.g. the Client contract gives an extra event during its callback)
+  /// @dev @param transmitterGasToUse is overloaded to give transmitterGasToUse as 0] - Sends the `.report` transaction with the default amount of gas
   function _reportAndStore(
     uint256[] memory requestNumberKeys,
     string[] memory results,
@@ -411,7 +453,14 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     _reportAndStore(requestNumberKeys, results, errors, transmitter, expectedToSucceed, requestProcessedIndex, 0);
   }
 
-  /// @dev Overload to give requestProcessedIndex as 3 (happy path value)
+  /// @notice Provide a response from the DON to fulfill one or more requests and store the updated balances of the DON & Admin
+  /// @param requestNumberKeys - One or more requestNumberKeys that were used to store the request in `s_requests` of the requests, that will be added to the report
+  /// @param results - The result that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param errors - The error that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param transmitter - The address that will send the `.report` transaction
+  /// @param expectedToSucceed - Boolean representing if the report transmission is expected to produce a RequestProcessed event for every fulfillment. If not, we ignore retrieving the event log.
+  /// @dev @param requestProcessedIndex is overloaded to give requestProcessedIndex as 3 (happy path value)] - On a successful fulfillment the Router will emit a RequestProcessed event. To grab that event we must know the order at which this event was thrown in the report transmission lifecycle. This can change depending on the test setup (e.g. the Client contract gives an extra event during its callback)
+  /// @dev @param transmitterGasToUse is overloaded to give transmitterGasToUse as 0] - Sends the `.report` transaction with the default amount of gas
   function _reportAndStore(
     uint256[] memory requestNumberKeys,
     string[] memory results,
@@ -422,7 +471,14 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     _reportAndStore(requestNumberKeys, results, errors, transmitter, expectedToSucceed, 3);
   }
 
-  /// @dev Overload to give expectedToSucceed as true
+  /// @notice Provide a response from the DON to fulfill one or more requests and store the updated balances of the DON & Admin
+  /// @param requestNumberKeys - One or more requestNumberKeys that were used to store the request in `s_requests` of the requests, that will be added to the report
+  /// @param results - The result that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param errors - The error that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param transmitter - The address that will send the `.report` transaction
+  /// @dev @param expectedToSucceed is overloaded to give the value as true - The report transmission is expected to produce a RequestProcessed event for every fulfillment
+  /// @dev @param requestProcessedIndex is overloaded to give requestProcessedIndex as 3 (happy path value)] - On a successful fulfillment the Router will emit a RequestProcessed event. To grab that event we must know the order at which this event was thrown in the report transmission lifecycle. This can change depending on the test setup (e.g. the Client contract gives an extra event during its callback)
+  /// @dev @param transmitterGasToUse is overloaded to give transmitterGasToUse as 0] - Sends the `.report` transaction with the default amount of gas
   function _reportAndStore(
     uint256[] memory requestNumberKeys,
     string[] memory results,
@@ -432,7 +488,14 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     _reportAndStore(requestNumberKeys, results, errors, transmitter, true);
   }
 
-  /// @dev Overload to give transmitter as transmitter #1
+  /// @notice Provide a response from the DON to fulfill one or more requests and store the updated balances of the DON & Admin
+  /// @param requestNumberKeys - One or more requestNumberKeys that were used to store the request in `s_requests` of the requests, that will be added to the report
+  /// @param results - The result that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param errors - The error that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @dev @param transmitter is overloaded to give the value of transmitter #1 - The address that will send the `.report` transaction
+  /// @dev @param expectedToSucceed is overloaded to give the value as true - The report transmission is expected to produce a RequestProcessed event for every fulfillment
+  /// @dev @param requestProcessedIndex is overloaded to give requestProcessedIndex as 3 (happy path value)] - On a successful fulfillment the Router will emit a RequestProcessed event. To grab that event we must know the order at which this event was thrown in the report transmission lifecycle. This can change depending on the test setup (e.g. the Client contract gives an extra event during its callback)
+  /// @dev @param transmitterGasToUse is overloaded to give transmitterGasToUse as 0] - Sends the `.report` transaction with the default amount of gas
   function _reportAndStore(
     uint256[] memory requestNumberKeys,
     string[] memory results,
@@ -442,6 +505,7 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
   }
 }
 
+/// @notice Set up to have transmitter #1 send a report that fulfills request #1
 contract FunctionsFulfillmentSetup is FunctionsClientRequestSetup {
   function setUp() public virtual override {
     FunctionsClientRequestSetup.setUp();
@@ -458,6 +522,7 @@ contract FunctionsFulfillmentSetup is FunctionsClientRequestSetup {
   }
 }
 
+/// @notice Set up to send and fulfill two more requests, s_request[2] reported by transmitter #2 and s_request[3] reported by transmitter #3
 contract FunctionsMultipleFulfillmentsSetup is FunctionsFulfillmentSetup {
   function setUp() public virtual override {
     FunctionsFulfillmentSetup.setUp();
