@@ -1,4 +1,4 @@
-name: Deployments
+name: Cleanup integration deployments
 on:
   workflow_dispatch:
   schedule:
@@ -13,7 +13,7 @@ jobs:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: 🧼 Clean up Environment
+      - name: Clean up integration environment
         uses: ./.github/actions/delete-deployments
         with:
           environment: integration
