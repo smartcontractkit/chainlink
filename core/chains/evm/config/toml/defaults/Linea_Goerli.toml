@@ -5,7 +5,6 @@ FinalityDepth = 15
 NoNewHeadsThreshold = '0'
 
 [GasEstimator]
-Mode = 'L2Suggested'
 BumpPercent = 40
 
 [Transactions]
