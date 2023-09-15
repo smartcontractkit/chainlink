@@ -2,21 +2,22 @@ package loadfunctions
 
 import (
 	"crypto/ecdsa"
-	"fmt"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/go-resty/resty/v2"
-	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
-	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
 	"math/big"
 	mrand "math/rand"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/go-resty/resty/v2"
+	"github.com/pkg/errors"
+	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type FunctionsTest struct {
@@ -49,16 +50,16 @@ type S4SecretsCfg struct {
 }
 
 func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
-	bc, err := blockchain.NewEVMClientFromNetwork(networks.SelectedNetwork)
+	bc, err := blockchain.NewEVMClientFromNetwork(networks.SelectedNetwork, log.Logger)
 	if err != nil {
 		return nil, err
 	}
-	cd, err := contracts.NewContractDeployer(bc)
+	cd, err := contracts.NewContractDeployer(bc, log.Logger)
 	if err != nil {
 		return nil, err
 	}
 
-	cl, err := contracts.NewContractLoader(bc)
+	cl, err := contracts.NewContractLoader(bc, log.Logger)
 	if err != nil {
 		return nil, err
 	}
@@ -115,7 +116,7 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get DON public key")
 	}
-	log.Info().Hex("DONPublicKeyHex", donPubKey).Msg("Loaded coordinator keys")
+	log.Info().Hex("DONPublicKeyHex", donPubKey).Msg("Loaded DON key")
 	tdh2pk, err := ParseTDH2Key(tpk)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to unmarshal tdh2 public key")
@@ -126,8 +127,8 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to generate tdh2 secrets")
 		}
-		if err := UploadS4Secrets(resty.New(), &S4SecretsCfg{
-			GatewayURL:            fmt.Sprintf("%s/user", cfg.Common.GatewayURL),
+		slotID, slotVersion, err := UploadS4Secrets(resty.New(), &S4SecretsCfg{
+			GatewayURL:            cfg.Common.GatewayURL,
 			PrivateKey:            cfg.MumbaiPrivateKey,
 			MessageID:             strconv.Itoa(mrand.Intn(100000-1) + 1),
 			Method:                "secrets_set",
@@ -136,9 +137,16 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 			S4SetVersion:          uint64(time.Now().UnixNano()),
 			S4SetExpirationPeriod: 60 * 60 * 1000,
 			S4SetPayload:          encryptedSecrets,
-		}); err != nil {
+		})
+		if err != nil {
 			return nil, errors.Wrap(err, "failed to upload secrets to S4")
 		}
+		cfg.Common.SecretsSlotID = slotID
+		cfg.Common.SecretsVersionID = slotVersion
+		log.Info().
+			Uint8("SlotID", slotID).
+			Uint64("SlotVersion", slotVersion).
+			Msg("Set new secret")
 	}
 	return &FunctionsTest{
 		EVMClient:                 bc,

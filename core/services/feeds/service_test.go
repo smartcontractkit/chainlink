@@ -73,6 +73,7 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name              = "example OCR1 spec"
 externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+evmChainID 		   = 0
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pBootstrapPeers  = [
 	"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
@@ -181,8 +182,7 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	ethKeyStore := cltest.NewKeyStore(t, db, gcfg.Database()).Eth()
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{GeneralConfig: gcfg,
 		HeadTracker: headtracker.NullTracker, KeyStore: ethKeyStore})
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	keyStore.On("Eth").Return(ethKeyStore)
 	keyStore.On("CSA").Return(csaKeystore)
 	keyStore.On("P2P").Return(p2pKeystore)

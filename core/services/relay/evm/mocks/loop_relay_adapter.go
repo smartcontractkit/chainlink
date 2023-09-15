@@ -33,63 +33,6 @@ func (_m *LoopRelayAdapter) Chain() evm.Chain {
 	return r0
 }
 
-// ChainStatus provides a mock function with given fields: ctx, id
-func (_m *LoopRelayAdapter) ChainStatus(ctx context.Context, id string) (types.ChainStatus, error) {
-	ret := _m.Called(ctx, id)
-
-	var r0 types.ChainStatus
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string) (types.ChainStatus, error)); ok {
-		return rf(ctx, id)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, string) types.ChainStatus); ok {
-		r0 = rf(ctx, id)
-	} else {
-		r0 = ret.Get(0).(types.ChainStatus)
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
-		r1 = rf(ctx, id)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// ChainStatuses provides a mock function with given fields: ctx, offset, limit
-func (_m *LoopRelayAdapter) ChainStatuses(ctx context.Context, offset int, limit int) ([]types.ChainStatus, int, error) {
-	ret := _m.Called(ctx, offset, limit)
-
-	var r0 []types.ChainStatus
-	var r1 int
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) ([]types.ChainStatus, int, error)); ok {
-		return rf(ctx, offset, limit)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int, int) []types.ChainStatus); ok {
-		r0 = rf(ctx, offset, limit)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.ChainStatus)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int, int) int); ok {
-		r1 = rf(ctx, offset, limit)
-	} else {
-		r1 = ret.Get(1).(int)
-	}
-
-	if rf, ok := ret.Get(2).(func(context.Context, int, int) error); ok {
-		r2 = rf(ctx, offset, limit)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
-}
-
 // Close provides a mock function with given fields:
 func (_m *LoopRelayAdapter) Close() error {
 	ret := _m.Called()
@@ -104,18 +47,28 @@ func (_m *LoopRelayAdapter) Close() error {
 	return r0
 }
 
-// Default provides a mock function with given fields:
-func (_m *LoopRelayAdapter) Default() bool {
-	ret := _m.Called()
+// GetChainStatus provides a mock function with given fields: ctx
+func (_m *LoopRelayAdapter) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
+	ret := _m.Called(ctx)
 
-	var r0 bool
-	if rf, ok := ret.Get(0).(func() bool); ok {
-		r0 = rf()
+	var r0 types.ChainStatus
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context) (types.ChainStatus, error)); ok {
+		return rf(ctx)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context) types.ChainStatus); ok {
+		r0 = rf(ctx)
 	} else {
-		r0 = ret.Get(0).(bool)
+		r0 = ret.Get(0).(types.ChainStatus)
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = rf(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // HealthReport provides a mock function with given fields:
@@ -132,6 +85,46 @@ func (_m *LoopRelayAdapter) HealthReport() map[string]error {
 	}
 
 	return r0
+}
+
+// ListNodeStatuses provides a mock function with given fields: ctx, pageSize, pageToken
+func (_m *LoopRelayAdapter) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) ([]types.NodeStatus, string, int, error) {
+	ret := _m.Called(ctx, pageSize, pageToken)
+
+	var r0 []types.NodeStatus
+	var r1 string
+	var r2 int
+	var r3 error
+	if rf, ok := ret.Get(0).(func(context.Context, int32, string) ([]types.NodeStatus, string, int, error)); ok {
+		return rf(ctx, pageSize, pageToken)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int32, string) []types.NodeStatus); ok {
+		r0 = rf(ctx, pageSize, pageToken)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]types.NodeStatus)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int32, string) string); ok {
+		r1 = rf(ctx, pageSize, pageToken)
+	} else {
+		r1 = ret.Get(1).(string)
+	}
+
+	if rf, ok := ret.Get(2).(func(context.Context, int32, string) int); ok {
+		r2 = rf(ctx, pageSize, pageToken)
+	} else {
+		r2 = ret.Get(2).(int)
+	}
+
+	if rf, ok := ret.Get(3).(func(context.Context, int32, string) error); ok {
+		r3 = rf(ctx, pageSize, pageToken)
+	} else {
+		r3 = ret.Error(3)
+	}
+
+	return r0, r1, r2, r3
 }
 
 // Name provides a mock function with given fields:
@@ -174,20 +167,20 @@ func (_m *LoopRelayAdapter) NewConfigProvider(_a0 context.Context, _a1 types.Rel
 	return r0, r1
 }
 
-// NewFunctionsProvider provides a mock function with given fields: _a0, _a1, _a2
-func (_m *LoopRelayAdapter) NewFunctionsProvider(_a0 context.Context, _a1 types.RelayArgs, _a2 types.PluginArgs) (types.FunctionsProvider, error) {
+// NewPluginProvider provides a mock function with given fields: _a0, _a1, _a2
+func (_m *LoopRelayAdapter) NewPluginProvider(_a0 context.Context, _a1 types.RelayArgs, _a2 types.PluginArgs) (types.PluginProvider, error) {
 	ret := _m.Called(_a0, _a1, _a2)
 
-	var r0 types.FunctionsProvider
+	var r0 types.PluginProvider
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, types.RelayArgs, types.PluginArgs) (types.FunctionsProvider, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, types.RelayArgs, types.PluginArgs) (types.PluginProvider, error)); ok {
 		return rf(_a0, _a1, _a2)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, types.RelayArgs, types.PluginArgs) types.FunctionsProvider); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, types.RelayArgs, types.PluginArgs) types.PluginProvider); ok {
 		r0 = rf(_a0, _a1, _a2)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.FunctionsProvider)
+			r0 = ret.Get(0).(types.PluginProvider)
 		}
 	}
 
@@ -198,98 +191,6 @@ func (_m *LoopRelayAdapter) NewFunctionsProvider(_a0 context.Context, _a1 types.
 	}
 
 	return r0, r1
-}
-
-// NewMedianProvider provides a mock function with given fields: _a0, _a1, _a2
-func (_m *LoopRelayAdapter) NewMedianProvider(_a0 context.Context, _a1 types.RelayArgs, _a2 types.PluginArgs) (types.MedianProvider, error) {
-	ret := _m.Called(_a0, _a1, _a2)
-
-	var r0 types.MedianProvider
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, types.RelayArgs, types.PluginArgs) (types.MedianProvider, error)); ok {
-		return rf(_a0, _a1, _a2)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, types.RelayArgs, types.PluginArgs) types.MedianProvider); ok {
-		r0 = rf(_a0, _a1, _a2)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.MedianProvider)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, types.RelayArgs, types.PluginArgs) error); ok {
-		r1 = rf(_a0, _a1, _a2)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// NewMercuryProvider provides a mock function with given fields: _a0, _a1, _a2
-func (_m *LoopRelayAdapter) NewMercuryProvider(_a0 context.Context, _a1 types.RelayArgs, _a2 types.PluginArgs) (types.MercuryProvider, error) {
-	ret := _m.Called(_a0, _a1, _a2)
-
-	var r0 types.MercuryProvider
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, types.RelayArgs, types.PluginArgs) (types.MercuryProvider, error)); ok {
-		return rf(_a0, _a1, _a2)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, types.RelayArgs, types.PluginArgs) types.MercuryProvider); ok {
-		r0 = rf(_a0, _a1, _a2)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(types.MercuryProvider)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, types.RelayArgs, types.PluginArgs) error); ok {
-		r1 = rf(_a0, _a1, _a2)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// NodeStatuses provides a mock function with given fields: ctx, offset, limit, chainIDs
-func (_m *LoopRelayAdapter) NodeStatuses(ctx context.Context, offset int, limit int, chainIDs ...string) ([]types.NodeStatus, int, error) {
-	_va := make([]interface{}, len(chainIDs))
-	for _i := range chainIDs {
-		_va[_i] = chainIDs[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, ctx, offset, limit)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	var r0 []types.NodeStatus
-	var r1 int
-	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, int, int, ...string) ([]types.NodeStatus, int, error)); ok {
-		return rf(ctx, offset, limit, chainIDs...)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int, int, ...string) []types.NodeStatus); ok {
-		r0 = rf(ctx, offset, limit, chainIDs...)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]types.NodeStatus)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int, int, ...string) int); ok {
-		r1 = rf(ctx, offset, limit, chainIDs...)
-	} else {
-		r1 = ret.Get(1).(int)
-	}
-
-	if rf, ok := ret.Get(2).(func(context.Context, int, int, ...string) error); ok {
-		r2 = rf(ctx, offset, limit, chainIDs...)
-	} else {
-		r2 = ret.Error(2)
-	}
-
-	return r0, r1, r2
 }
 
 // Ready provides a mock function with given fields:
@@ -306,20 +207,6 @@ func (_m *LoopRelayAdapter) Ready() error {
 	return r0
 }
 
-// SendTx provides a mock function with given fields: ctx, chainID, from, to, amount, balanceCheck
-func (_m *LoopRelayAdapter) SendTx(ctx context.Context, chainID string, from string, to string, amount *big.Int, balanceCheck bool) error {
-	ret := _m.Called(ctx, chainID, from, to, amount, balanceCheck)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, *big.Int, bool) error); ok {
-		r0 = rf(ctx, chainID, from, to, amount, balanceCheck)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // Start provides a mock function with given fields: _a0
 func (_m *LoopRelayAdapter) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)
@@ -327,6 +214,20 @@ func (_m *LoopRelayAdapter) Start(_a0 context.Context) error {
 	var r0 error
 	if rf, ok := ret.Get(0).(func(context.Context) error); ok {
 		r0 = rf(_a0)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Transact provides a mock function with given fields: ctx, from, to, amount, balanceCheck
+func (_m *LoopRelayAdapter) Transact(ctx context.Context, from string, to string, amount *big.Int, balanceCheck bool) error {
+	ret := _m.Called(ctx, from, to, amount, balanceCheck)
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, *big.Int, bool) error); ok {
+		r0 = rf(ctx, from, to, amount, balanceCheck)
 	} else {
 		r0 = ret.Error(0)
 	}

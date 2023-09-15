@@ -32,16 +32,16 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   uint64 private constant PERCENTAGE_SCALAR = 1e18;
 
   /// @notice the LINK token address
-  address private immutable i_linkAddress;
+  address public immutable i_linkAddress;
 
   /// @notice the native token address
-  address private immutable i_nativeAddress;
+  address public immutable i_nativeAddress;
 
   /// @notice the proxy address
-  address private immutable i_proxyAddress;
+  address public immutable i_proxyAddress;
 
   /// @notice the reward manager address
-  IRewardManager private immutable i_rewardManager;
+  IRewardManager public immutable i_rewardManager;
 
   // @notice the mask to apply to get the report version
   bytes32 private constant REPORT_VERSION_MASK = 0xffff000000000000000000000000000000000000000000000000000000000000;
@@ -259,7 +259,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     uint256 linkQuantity;
     uint256 nativeQuantity;
     uint256 expiresAt;
-    (, , , linkQuantity, nativeQuantity, expiresAt) = abi.decode(
+    (, , , nativeQuantity, linkQuantity, expiresAt) = abi.decode(
       report,
       (bytes32, uint32, uint32, uint192, uint192, uint32)
     );

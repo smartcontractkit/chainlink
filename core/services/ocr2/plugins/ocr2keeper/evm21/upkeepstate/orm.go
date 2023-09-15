@@ -34,16 +34,40 @@ func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *
 	}
 }
 
-// InsertUpkeepState is idempotent and sets upkeep state values in db
-func (o *orm) InsertUpkeepState(state persistedStateRecord, qopts ...pg.QOpt) error {
+// BatchInsertRecords is idempotent and sets upkeep state values in db
+func (o *orm) BatchInsertRecords(state []persistedStateRecord, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
 
-	query := `INSERT INTO evm_upkeep_states (evm_chain_id, work_id, completion_state, block_number, inserted_at, upkeep_id, ineligibility_reason)
-	  VALUES ($1::NUMERIC, $2, $3, $4, $5, $6::NUMERIC, $7)
-	    ON CONFLICT (evm_chain_id, work_id)
-	    DO NOTHING`
+	if len(state) == 0 {
+		return nil
+	}
 
-	return q.ExecQ(query, o.chainID, state.WorkID, state.CompletionState, state.BlockNumber, state.InsertedAt, state.UpkeepID, state.IneligibilityReason)
+	type row struct {
+		EvmChainId          *utils.Big
+		WorkId              string
+		CompletionState     uint8
+		BlockNumber         int64
+		InsertedAt          time.Time
+		UpkeepId            *utils.Big
+		IneligibilityReason uint8
+	}
+
+	var rows []row
+	for _, record := range state {
+		rows = append(rows, row{
+			EvmChainId:          o.chainID,
+			WorkId:              record.WorkID,
+			CompletionState:     record.CompletionState,
+			BlockNumber:         record.BlockNumber,
+			InsertedAt:          record.InsertedAt,
+			UpkeepId:            record.UpkeepID,
+			IneligibilityReason: record.IneligibilityReason,
+		})
+	}
+
+	return q.ExecQNamed(`INSERT INTO evm.upkeep_states
+(evm_chain_id, work_id, completion_state, block_number, inserted_at, upkeep_id, ineligibility_reason) VALUES
+(:evm_chain_id, :work_id, :completion_state, :block_number, :inserted_at, :upkeep_id, :ineligibility_reason) ON CONFLICT (evm_chain_id, work_id) DO NOTHING`, rows)
 }
 
 // SelectStatesByWorkIDs searches the data store for stored states for the
@@ -52,7 +76,7 @@ func (o *orm) SelectStatesByWorkIDs(workIDs []string, qopts ...pg.QOpt) (states 
 	q := o.q.WithOpts(qopts...)
 
 	err = q.Select(&states, `SELECT upkeep_id, work_id, completion_state, block_number, ineligibility_reason, inserted_at
-	  FROM evm_upkeep_states
+	  FROM evm.upkeep_states
 	  WHERE work_id = ANY($1) AND evm_chain_id = $2::NUMERIC`, pq.Array(workIDs), o.chainID)
 
 	if err != nil {
@@ -65,7 +89,7 @@ func (o *orm) SelectStatesByWorkIDs(workIDs []string, qopts ...pg.QOpt) (states 
 // DeleteExpired prunes stored states older than to the provided time
 func (o *orm) DeleteExpired(expired time.Time, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	_, err := q.Exec(`DELETE FROM evm_upkeep_states WHERE inserted_at <= $1 AND evm_chain_id::NUMERIC = $2`, expired, o.chainID)
+	_, err := q.Exec(`DELETE FROM evm.upkeep_states WHERE inserted_at <= $1 AND evm_chain_id::NUMERIC = $2`, expired, o.chainID)
 
 	return err
 }

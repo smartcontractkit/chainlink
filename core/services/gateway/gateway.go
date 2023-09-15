@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"go.uber.org/multierr"
+
+	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -58,6 +61,12 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 		donConnMgr := connMgr.DONConnectionManager(donConfig.DonId)
 		if donConnMgr == nil {
 			return nil, fmt.Errorf("connection manager ID %s not found", donConfig.DonId)
+		}
+		for idx, nodeConfig := range donConfig.Members {
+			donConfig.Members[idx].Address = strings.ToLower(nodeConfig.Address)
+			if !common.IsHexAddress(nodeConfig.Address) {
+				return nil, fmt.Errorf("invalid node address %s", nodeConfig.Address)
+			}
 		}
 		handler, err := handlerFactory.NewHandler(donConfig.HandlerName, donConfig.HandlerConfig, &donConfig, donConnMgr)
 		if err != nil {
@@ -127,7 +136,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte) (rawRes
 	responseCh := make(chan handlers.UserCallbackPayload, 1)
 	err = handler.HandleUserMessage(ctx, msg, responseCh)
 	if err != nil {
-		return newError(g.codec, msg.Body.MessageId, api.InternalHandlerError, err.Error())
+		return newError(g.codec, msg.Body.MessageId, api.HandlerError, err.Error())
 	}
 	// await response
 	var response handlers.UserCallbackPayload

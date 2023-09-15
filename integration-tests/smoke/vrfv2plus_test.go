@@ -8,7 +8,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
@@ -18,16 +18,17 @@ import (
 
 func TestVRFv2PlusBilling(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestLogger(t).
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(vrfv2plus_constants.ChainlinkNodeFundingAmountEth).
 		Build()
 	require.NoError(t, err, "error creating test env")
 	t.Cleanup(func() {
-		if err := env.Cleanup(); err != nil {
+		if err := env.Cleanup(t); err != nil {
 			l.Error().Err(err).Msg("Error cleaning up test environment")
 		}
 	})
@@ -109,6 +110,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		subNativeTokenBalanceBeforeRequest := subscription.EthBalance
 
 		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(job.Job.Data.ID)
+		require.NoError(t, err, "error reading job runs")
 
 		// test and assert
 		err = vrfv2PlusContracts.LoadTestConsumer.RequestRandomness(

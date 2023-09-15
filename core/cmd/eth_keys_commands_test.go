@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
@@ -177,33 +178,26 @@ func TestShell_CreateETHKey(t *testing.T) {
 	db := app.GetSqlxDB()
 	client, _ := app.NewShellAndRenderer()
 
-	cltest.AssertCount(t, db, "evm_key_states", 1) // The initial funding key
+	cltest.AssertCount(t, db, "evm.key_states", 1) // The initial funding key
 	keys, err := app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
 	require.Equal(t, 1, len(keys))
 
-	// create a key on the default chain
-	set := flag.NewFlagSet("test", 0)
-	cltest.FlagSetApplyFromAction(client.CreateETHKey, set, "")
-	c := cli.NewContext(nil, set, nil)
-	assert.NoError(t, client.CreateETHKey(c))
-
-	// create the key on a specific chainID
 	id := big.NewInt(0)
 
-	set = flag.NewFlagSet("test", 0)
+	set := flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.CreateETHKey, set, "")
 
-	require.NoError(t, set.Set("evmChainID", ""))
+	require.NoError(t, set.Set("evm-chain-id", testutils.FixtureChainID.String()))
 
-	c = cli.NewContext(nil, set, nil)
-	require.NoError(t, set.Parse([]string{"-evmChainID", id.String()}))
+	c := cli.NewContext(nil, set, nil)
+	require.NoError(t, set.Parse([]string{"-evm-chain-id", id.String()}))
 	assert.NoError(t, client.CreateETHKey(c))
 
-	cltest.AssertCount(t, db, "evm_key_states", 3)
+	cltest.AssertCount(t, db, "evm.key_states", 2)
 	keys, err = app.KeyStore.Eth().GetAll()
 	require.NoError(t, err)
-	require.Equal(t, 3, len(keys))
+	require.Equal(t, 2, len(keys))
 }
 
 func TestShell_DeleteETHKey(t *testing.T) {
@@ -304,13 +298,16 @@ func TestShell_ImportExportETHKey_NoChains(t *testing.T) {
 	_, err = ethKeyStore.Get(address)
 	require.Error(t, err)
 
-	cltest.AssertCount(t, app.GetSqlxDB(), "evm_key_states", 0)
+	cltest.AssertCount(t, app.GetSqlxDB(), "evm.key_states", 0)
 
 	// Import the key
 	set = flag.NewFlagSet("test", 0)
-	set.String("old-password", "../internal/fixtures/incorrect_password.txt", "")
-	err = set.Parse([]string{keyfilepath})
-	require.NoError(t, err)
+	cltest.FlagSetApplyFromAction(client.ImportETHKey, set, "")
+
+	require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
+	require.NoError(t, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))
+	require.NoError(t, set.Parse([]string{keyfilepath}))
+
 	c = cli.NewContext(nil, set, nil)
 	err = client.ImportETHKey(c)
 	require.NoError(t, err)
@@ -412,6 +409,8 @@ func TestShell_ImportExportETHKey_WithChains(t *testing.T) {
 	set = flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.ImportETHKey, set, "")
 
+	require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
+	require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 	require.NoError(t, set.Set("old-password", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Parse([]string{keyfilepath}))
 

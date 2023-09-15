@@ -56,7 +56,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"",
+			"0",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -76,7 +76,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"",
+			"0",
 			"$(gasLimit)",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -97,7 +97,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"",
+			"0",
 			"",
 			&specGasLimit,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -117,7 +117,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"$(foo)",
-			"",
+			"0",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -138,7 +138,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"0xThisAintGonnaWork",
 			"$(foo)",
-			"",
+			"0",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -153,7 +153,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbee",
 			"",
 			"$(foo)",
-			"",
+			"0",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -168,7 +168,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"",
+			"0",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -183,7 +183,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"",
+			"0",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -198,7 +198,7 @@ func TestETHCallTask(t *testing.T) {
 			"0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF",
 			"",
 			"$(foo)",
-			"",
+			"0",
 			"",
 			nil,
 			pipeline.NewVarsFrom(map[string]interface{}{
@@ -258,11 +258,9 @@ func TestETHCallTask(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 
 			var legacyChains evm.LegacyChainContainer
-			var err error
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
 				exts := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
-				legacyChains, err = evmrelay.NewLegacyChainsFromRelayerExtenders(exts)
-				require.NoError(t, err)
+				legacyChains = evmrelay.NewLegacyChainsFromRelayerExtenders(exts)
 			} else {
 				legacyChains = cltest.NewLegacyChainsWithMockChain(t, ethClient, cfg)
 			}

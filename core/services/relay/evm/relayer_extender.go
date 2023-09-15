@@ -22,11 +22,6 @@ var ErrNoChains = errors.New("no EVM chains loaded")
 type EVMChainRelayerExtender interface {
 	relay.RelayerExt
 	Chain() evmchain.Chain
-	Default() bool
-	// compatibility remove after BCF-2441
-	ChainStatus(ctx context.Context, id string) (relaytypes.ChainStatus, error)
-	ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error)
-	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, count int, err error)
 }
 
 type EVMChainRelayerExtenderSlicer interface {
@@ -42,24 +37,12 @@ type ChainRelayerExtenders struct {
 
 var _ EVMChainRelayerExtenderSlicer = &ChainRelayerExtenders{}
 
-func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) (*evmchain.LegacyChains, error) {
-
+func NewLegacyChainsFromRelayerExtenders(exts EVMChainRelayerExtenderSlicer) *evmchain.LegacyChains {
 	m := make(map[string]evmchain.Chain)
-	var dflt evmchain.Chain
 	for _, r := range exts.Slice() {
 		m[r.Chain().ID().String()] = r.Chain()
-		if r.Default() {
-			dflt = r.Chain()
-		}
 	}
-	l, err := evmchain.NewLegacyChains(exts.AppConfig(), m)
-	if err != nil {
-		return nil, err
-	}
-	if dflt != nil {
-		l.SetDefault(dflt)
-	}
-	return l, nil
+	return evmchain.NewLegacyChains(m, exts.AppConfig().EVMConfigs())
 }
 
 func newChainRelayerExtsFromSlice(exts []*ChainRelayerExt, appConfig evm.AppConfig) *ChainRelayerExtenders {
@@ -87,8 +70,7 @@ func (c *ChainRelayerExtenders) Len() int {
 
 // implements OneChain
 type ChainRelayerExt struct {
-	chain     evmchain.Chain
-	isDefault bool
+	chain evmchain.Chain
 }
 
 var _ EVMChainRelayerExtender = &ChainRelayerExt{}
@@ -113,10 +95,6 @@ func (s *ChainRelayerExt) Chain() evmchain.Chain {
 	return s.chain
 }
 
-func (s *ChainRelayerExt) Default() bool {
-	return s.isDefault
-}
-
 var ErrCorruptEVMChain = errors.New("corrupt evm chain")
 
 func (s *ChainRelayerExt) Start(ctx context.Context) error {
@@ -139,54 +117,6 @@ func (s *ChainRelayerExt) Ready() (err error) {
 	return s.chain.Ready()
 }
 
-var ErrInconsistentChainRelayerExtender = errors.New("inconsistent evm chain relayer extender")
-
-// Legacy interface remove after BFC-2441, BCF-2564
-
-func (s *ChainRelayerExt) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
-	return s.Transact(ctx, from, to, amount, balanceCheck)
-}
-
-func (s *ChainRelayerExt) ChainStatus(ctx context.Context, id string) (relaytypes.ChainStatus, error) {
-	if s.chain.ID().String() != id {
-		return relaytypes.ChainStatus{}, fmt.Errorf("%w: given id %q does not match expected id %q", ErrInconsistentChainRelayerExtender, id, s.chain.ID())
-	}
-	return s.chain.GetChainStatus(ctx)
-}
-
-func (s *ChainRelayerExt) ChainStatuses(ctx context.Context, offset, limit int) ([]relaytypes.ChainStatus, int, error) {
-	stat, err := s.chain.GetChainStatus(ctx)
-	if err != nil {
-		return nil, -1, err
-	}
-	return []relaytypes.ChainStatus{stat}, 1, nil
-
-}
-
-func (s *ChainRelayerExt) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []relaytypes.NodeStatus, total int, err error) {
-	if len(chainIDs) > 1 {
-		return nil, -1, fmt.Errorf("single chain chain set only support one chain id. got %v", chainIDs)
-	}
-	cid := chainIDs[0]
-	if cid != s.chain.ID().String() {
-		return nil, -1, fmt.Errorf("unknown chain id %s. expected %s", cid, s.chain.ID())
-	}
-	nodes, _, total, err = s.ListNodeStatuses(ctx, int32(limit), "")
-	if err != nil {
-		return nil, -1, err
-	}
-	if len(nodes) < offset {
-		return []relaytypes.NodeStatus{}, -1, fmt.Errorf("out of range")
-	}
-	if limit <= 0 {
-		limit = len(nodes)
-	} else if len(nodes) < limit {
-		limit = len(nodes)
-	}
-	return nodes[offset:limit], total, nil
-
-}
-
 func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExtenderConfig) (*ChainRelayerExtenders, error) {
 	if err := opts.Check(); err != nil {
 		return nil, err
@@ -204,14 +134,6 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 		unique[cfg.ChainID.String()] = struct{}{}
 		if evmConfigs[i].IsEnabled() {
 			enabled = append(enabled, evmConfigs[i])
-		}
-	}
-
-	defaultChainID := opts.AppConfig.DefaultChainID()
-	if defaultChainID == nil && len(enabled) >= 1 {
-		defaultChainID = enabled[0].ChainID.ToInt()
-		if len(enabled) > 1 {
-			opts.Logger.Debugf("Multiple chains present, default chain: %s", defaultChainID.String())
 		}
 	}
 
@@ -235,8 +157,7 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 		}
 
 		s := &ChainRelayerExt{
-			chain:     chain,
-			isDefault: (cid == defaultChainID.String()),
+			chain: chain,
 		}
 		result = append(result, s)
 	}

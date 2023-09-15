@@ -70,8 +70,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 			LogPoller:     lp,
 		},
 	)
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	return blockhashstore.NewDelegate(lggr, legacyChains, kst), &testData{
 		ethClient:    ethClient,
 		ethKeyStore:  kst,
@@ -90,7 +89,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	defaultWaitBlocks := (int32)(testData.legacyChains.Slice()[0].Config().EVM().FinalityDepth())
 
 	t.Run("happy", func(t *testing.T) {
-		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks}}
+		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks, EVMChainID: (*utils.Big)(testutils.FixtureChainID)}}
 		services, err := delegate.ServicesForSpec(spec)
 
 		require.NoError(t, err)
@@ -107,6 +106,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 			CoordinatorV1Address:     &coordinatorV1,
 			CoordinatorV2Address:     &coordinatorV2,
 			CoordinatorV2PlusAddress: &coordinatorV2Plus,
+			EVMChainID:               (*utils.Big)(testutils.FixtureChainID),
 		}}
 		services, err := delegate.ServicesForSpec(spec)
 
@@ -151,6 +151,7 @@ func TestDelegate_StartStop(t *testing.T) {
 		WaitBlocks: defaultWaitBlocks,
 		PollPeriod: time.Second,
 		RunTimeout: testutils.WaitTimeout(t),
+		EVMChainID: (*utils.Big)(testutils.FixtureChainID),
 	}}
 	services, err := delegate.ServicesForSpec(spec)
 

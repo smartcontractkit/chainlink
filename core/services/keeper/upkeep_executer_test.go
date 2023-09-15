@@ -72,22 +72,23 @@ func setup(t *testing.T, estimator gas.EvmFeeEstimator, overrideFn func(c *chain
 	})
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := evmtest.NewEthClientMock(t)
+	ethClient.On("ConfiguredChainID").Return(cfg.EVMConfigs()[0].ChainID.ToInt()).Maybe()
+	ethClient.On("IsL2").Return(false).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Maybe().Return(&evmtypes.Head{Number: 1, Hash: utils.NewHash()}, nil)
 	txm := txmmocks.NewMockEvmTxManager(t)
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{TxManager: txm, DB: db, Client: ethClient, KeyStore: keyStore.Eth(), GeneralConfig: cfg, GasEstimator: estimator})
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	jpv2 := cltest.NewJobPipelineV2(t, cfg.WebServer(), cfg.JobPipeline(), cfg.Database(), legacyChains, db, keyStore, nil, nil)
 	ch := evmtest.MustGetDefaultChain(t, legacyChains)
 	orm := keeper.NewORM(db, logger.TestLogger(t), ch.Config().Database())
 	registry, job := cltest.MustInsertKeeperRegistry(t, db, orm, keyStore.Eth(), 0, 1, 20)
+
 	lggr := logger.TestLogger(t)
 	executer := keeper.NewUpkeepExecuter(job, orm, jpv2.Pr, ethClient, ch.HeadBroadcaster(), ch.GasEstimator(), lggr, ch.Config().Keeper(), job.KeeperSpec.FromAddress.Address())
 	upkeep := cltest.MustInsertUpkeepForRegistry(t, db, ch.Config().Database(), registry)
-	err = executer.Start(testutils.Context(t))
+	require.NoError(t, executer.Start(testutils.Context(t)))
 	t.Cleanup(func() { executer.Close() })
-	require.NoError(t, err)
 	return db, cfg, ethClient, executer, registry, upkeep, job, jpv2, txm, keyStore, ch, orm
 }
 
@@ -124,7 +125,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	t.Parallel()
 
 	t.Run("runs upkeep on triggering block number", func(t *testing.T) {
-		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, mockEstimator(t), nil)
+		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, mockEstimator(t),
+			func(c *chainlink.Config, s *chainlink.Secrets) {
+				c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
+			})
 
 		gasLimit := 5_000_000 + config.Keeper().Registry().PerformGasOverhead()
 
@@ -167,6 +171,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 		runTest := func(t *testing.T, eip1559 bool) {
 			db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, mockEstimator(t), func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = &eip1559
+				c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
 			})
 
 			gasLimit := 5_000_000 + config.Keeper().Registry().PerformGasOverhead()
@@ -217,10 +222,12 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	})
 
 	t.Run("errors if submission key not found", func(t *testing.T) {
-		_, _, ethMock, executer, registry, _, job, jpv2, _, keyStore, _, _ := setup(t, mockEstimator(t), nil)
+		_, _, ethMock, executer, registry, _, job, jpv2, _, keyStore, _, _ := setup(t, mockEstimator(t), func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
+		})
 
 		// replace expected key with random one
-		_, err := keyStore.Eth().Create(&cltest.FixtureChainID)
+		_, err := keyStore.Eth().Create(testutils.SimulatedChainID)
 		require.NoError(t, err)
 		_, err = keyStore.Eth().Delete(job.KeeperSpec.FromAddress.Hex())
 		require.NoError(t, err)
@@ -267,7 +274,9 @@ func Test_UpkeepExecuter_PerformsUpkeep_Happy(t *testing.T) {
 	})
 
 	t.Run("triggers if heads are skipped but later heads arrive within range", func(t *testing.T) {
-		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, mockEstimator(t), nil)
+		db, config, ethMock, executer, registry, upkeep, job, jpv2, txm, _, _, _ := setup(t, mockEstimator(t), func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
+		})
 
 		etxs := []cltest.Awaiter{
 			cltest.NewAwaiter(),
@@ -306,7 +315,10 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 
 	g := gomega.NewWithT(t)
 
-	db, _, ethMock, executer, registry, _, _, _, _, _, _, _ := setup(t, mockEstimator(t), nil)
+	db, _, ethMock, executer, registry, _, _, _, _, _, _, _ := setup(t, mockEstimator(t),
+		func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
+		})
 
 	var wasCalled atomic.Bool
 	registryMock := cltest.NewContractMockReceiver(t, ethMock, keeper.Registry1_1ABI, registry.ContractAddress.Address())
@@ -318,7 +330,7 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	executer.OnNewLongestChain(testutils.Context(t), &head)
 
 	g.Eventually(wasCalled.Load).Should(gomega.Equal(true))
-	cltest.AssertCountStays(t, db, "eth_txes", 0)
+	cltest.AssertCountStays(t, db, "evm.txes", 0)
 }
 
 func ptr[T any](t T) *T { return &t }
