@@ -1,8 +1,6 @@
 package functions
 
 import (
-	"encoding/hex"
-	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -62,6 +60,5 @@ func (us *userSubscriptions) GetMaxUserBalance(user common.Address) (*big.Int, e
 			maxBalance = sub.Balance
 		}
 	}
-	fmt.Println(hex.EncodeToString(maxBalance.Bytes()))
 	return maxBalance, nil
 }
