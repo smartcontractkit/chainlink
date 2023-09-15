@@ -22,15 +22,15 @@ import (
 type functionsConnectorHandler struct {
 	utils.StartStopOnce
 
-	connector      connector.GatewayConnector
-	signerKey      *ecdsa.PrivateKey
-	nodeAddress    string
-	storage        s4.Storage
-	allowlist      functions.OnchainAllowlist
-	rateLimiter    *hc.RateLimiter
-	subscriptions  functions.OnchainSubscriptions
-	minimumBalance float64
-	lggr           logger.Logger
+	connector     connector.GatewayConnector
+	signerKey     *ecdsa.PrivateKey
+	nodeAddress   string
+	storage       s4.Storage
+	allowlist     functions.OnchainAllowlist
+	rateLimiter   *hc.RateLimiter
+	subscriptions functions.OnchainSubscriptions
+	minBalanceWei *big.Int
+	lggr          logger.Logger
 }
 
 var (
@@ -42,15 +42,17 @@ func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKe
 	if signerKey == nil || storage == nil || allowlist == nil || rateLimiter == nil || subscriptions == nil {
 		return nil, fmt.Errorf("signerKey, storage, allowlist, rateLimiter and subscriptions must be non-nil")
 	}
+	minBalanceWei := new(big.Int)
+	big.NewFloat(0).Mul(big.NewFloat(minimumBalance), big.NewFloat(1e18)).Int(minBalanceWei)
 	return &functionsConnectorHandler{
-		nodeAddress:    nodeAddress,
-		signerKey:      signerKey,
-		storage:        storage,
-		allowlist:      allowlist,
-		rateLimiter:    rateLimiter,
-		subscriptions:  subscriptions,
-		minimumBalance: minimumBalance,
-		lggr:           lggr.Named("FunctionsConnectorHandler"),
+		nodeAddress:   nodeAddress,
+		signerKey:     signerKey,
+		storage:       storage,
+		allowlist:     allowlist,
+		rateLimiter:   rateLimiter,
+		subscriptions: subscriptions,
+		minBalanceWei: minBalanceWei,
+		lggr:          lggr.Named("FunctionsConnectorHandler"),
 	}, nil
 }
 
@@ -74,9 +76,7 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 		return
 	}
 
-	minBalanceWei := new(big.Int)
-	big.NewFloat(0).Mul(big.NewFloat(h.minimumBalance), big.NewFloat(1e18)).Int(minBalanceWei)
-	if balance, err := h.subscriptions.GetMaxUserBalance(fromAddr); err != nil || balance.Cmp(minBalanceWei) < 0 {
+	if balance, err := h.subscriptions.GetMaxUserBalance(fromAddr); err != nil || balance.Cmp(h.minBalanceWei) < 0 {
 		h.lggr.Errorw("request is not backed with a funded subscription", "id", gatewayId, "address", fromAddr)
 		return
 	}

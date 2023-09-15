@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -20,7 +21,11 @@ import (
 type FunctionsHandlerConfig struct {
 	OnchainAllowlistChainID string `json:"onchainAllowlistChainId"`
 	// Not specifying OnchainAllowlist config disables allowlist checks
-	OnchainAllowlist *OnchainAllowlistConfig `json:"onchainAllowlist"`
+	OnchainAllowlist            *OnchainAllowlistConfig `json:"onchainAllowlist"`
+	OnchainSubscriptionsChainID string                  `json:"onchainSubscriptionsChainId"`
+	// Not specifying OnchainSubscriptions config disables minimum balance checks
+	OnchainSubscriptions           *OnchainSubscriptionsConfig `json:"onchainSubscriptions"`
+	MinimumSubscriptionBalanceLink float64                     `json:"minimumSubscriptionBalanceLink"`
 	// Not specifying RateLimiter config disables rate limiting
 	UserRateLimiter      *hc.RateLimiterConfig `json:"userRateLimiter"`
 	NodeRateLimiter      *hc.RateLimiterConfig `json:"nodeRateLimiter"`
@@ -31,15 +36,17 @@ type FunctionsHandlerConfig struct {
 type functionsHandler struct {
 	utils.StartStopOnce
 
-	handlerConfig   FunctionsHandlerConfig
-	donConfig       *config.DONConfig
-	don             handlers.DON
-	pendingRequests hc.RequestCache[PendingSecretsRequest]
-	allowlist       OnchainAllowlist
-	userRateLimiter *hc.RateLimiter
-	nodeRateLimiter *hc.RateLimiter
-	chStop          utils.StopChan
-	lggr            logger.Logger
+	handlerConfig     FunctionsHandlerConfig
+	donConfig         *config.DONConfig
+	don               handlers.DON
+	pendingRequests   hc.RequestCache[PendingSecretsRequest]
+	allowlist         OnchainAllowlist
+	subscriptions     OnchainSubscriptions
+	minimumBalanceWei *big.Int
+	userRateLimiter   *hc.RateLimiter
+	nodeRateLimiter   *hc.RateLimiter
+	chStop            utils.StopChan
+	lggr              logger.Logger
 }
 
 type PendingSecretsRequest struct {
@@ -62,11 +69,11 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 	if cfg.OnchainAllowlist != nil {
 		chain, err2 := legacyChains.Get(cfg.OnchainAllowlistChainID)
 		if err2 != nil {
-			return nil, err
+			return nil, err2
 		}
 		allowlist, err2 = NewOnchainAllowlist(chain.Client(), *cfg.OnchainAllowlist, lggr)
 		if err2 != nil {
-			return nil, err
+			return nil, err2
 		}
 	}
 	var userRateLimiter, nodeRateLimiter *hc.RateLimiter
@@ -82,8 +89,21 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 			return nil, err
 		}
 	}
+	var subscriptions OnchainSubscriptions
+	if cfg.OnchainSubscriptions != nil {
+		chain, err2 := legacyChains.Get(cfg.OnchainSubscriptionsChainID)
+		if err2 != nil {
+			return nil, err2
+		}
+		subscriptions, err2 = NewOnchainSubscriptions(chain.Client(), *cfg.OnchainSubscriptions, lggr)
+		if err2 != nil {
+			return nil, err2
+		}
+	}
+	minimumBalanceWei := new(big.Int)
+	big.NewFloat(0).Mul(big.NewFloat(cfg.MinimumSubscriptionBalanceLink), big.NewFloat(1e18)).Int(minimumBalanceWei)
 	pendingRequestsCache := hc.NewRequestCache[PendingSecretsRequest](time.Millisecond*time.Duration(cfg.RequestTimeoutMillis), cfg.MaxPendingRequests)
-	return NewFunctionsHandler(cfg, donConfig, don, pendingRequestsCache, allowlist, userRateLimiter, nodeRateLimiter, lggr), nil
+	return NewFunctionsHandler(cfg, donConfig, don, pendingRequestsCache, allowlist, subscriptions, minimumBalanceWei, userRateLimiter, nodeRateLimiter, lggr), nil
 }
 
 func NewFunctionsHandler(
@@ -92,19 +112,23 @@ func NewFunctionsHandler(
 	don handlers.DON,
 	pendingRequestsCache hc.RequestCache[PendingSecretsRequest],
 	allowlist OnchainAllowlist,
+	subscriptions OnchainSubscriptions,
+	minimumBalanceWei *big.Int,
 	userRateLimiter *hc.RateLimiter,
 	nodeRateLimiter *hc.RateLimiter,
 	lggr logger.Logger) handlers.Handler {
 	return &functionsHandler{
-		handlerConfig:   cfg,
-		donConfig:       donConfig,
-		don:             don,
-		pendingRequests: pendingRequestsCache,
-		allowlist:       allowlist,
-		userRateLimiter: userRateLimiter,
-		nodeRateLimiter: nodeRateLimiter,
-		chStop:          make(utils.StopChan),
-		lggr:            lggr,
+		handlerConfig:     cfg,
+		donConfig:         donConfig,
+		don:               don,
+		pendingRequests:   pendingRequestsCache,
+		allowlist:         allowlist,
+		subscriptions:     subscriptions,
+		minimumBalanceWei: minimumBalanceWei,
+		userRateLimiter:   userRateLimiter,
+		nodeRateLimiter:   nodeRateLimiter,
+		chStop:            make(utils.StopChan),
+		lggr:              lggr,
 	}
 }
 
@@ -117,6 +141,12 @@ func (h *functionsHandler) HandleUserMessage(ctx context.Context, msg *api.Messa
 	if h.userRateLimiter != nil && !h.userRateLimiter.Allow(msg.Body.Sender) {
 		h.lggr.Debug("rate-limited", "sender", msg.Body.Sender)
 		return errors.New("rate-limited")
+	}
+	if h.subscriptions != nil {
+		if balance, err := h.subscriptions.GetMaxUserBalance(sender); err != nil || balance.Cmp(h.minimumBalanceWei) < 0 {
+			h.lggr.Debug("received a message from a user having insufficient balance", "sender", msg.Body.Sender, "balance", balance.String())
+			return errors.New("sender has insufficient balance")
+		}
 	}
 	switch msg.Body.Method {
 	case MethodSecretsSet, MethodSecretsList:
