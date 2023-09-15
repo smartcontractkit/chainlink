@@ -79,6 +79,29 @@ func (v *EthereumVRFCoordinatorV2Plus) GetSubscription(ctx context.Context, subI
 	return subscription, nil
 }
 
+func (v *EthereumVRFCoordinatorV2Plus) GetLinkTotalBalance(ctx context.Context) (*big.Int, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	totalBalance, err := v.coordinator.STotalBalance(opts)
+	if err != nil {
+		return nil, err
+	}
+	return totalBalance, nil
+}
+func (v *EthereumVRFCoordinatorV2Plus) GetNativeTokenTotalBalance(ctx context.Context) (*big.Int, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	totalBalance, err := v.coordinator.STotalEthBalance(opts)
+	if err != nil {
+		return nil, err
+	}
+	return totalBalance, nil
+}
+
 func (v *EthereumVRFCoordinatorV2Plus) SetConfig(minimumRequestConfirmations uint16, maxGasLimit uint32, stalenessSeconds uint32, gasAfterPaymentCalculation uint32, fallbackWeiPerUnitLink *big.Int, feeConfig vrf_coordinator_v2plus.VRFCoordinatorV2PlusFeeConfig) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
@@ -465,6 +488,29 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) CreateSubscription() error
 		return err
 	}
 	return v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) GetLinkTotalBalance(ctx context.Context) (*big.Int, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	totalBalance, err := v.coordinator.STotalBalance(opts)
+	if err != nil {
+		return nil, err
+	}
+	return totalBalance, nil
+}
+func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) GetNativeTokenTotalBalance(ctx context.Context) (*big.Int, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	totalBalance, err := v.coordinator.STotalEthBalance(opts)
+	if err != nil {
+		return nil, err
+	}
+	return totalBalance, nil
 }
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) Migrate(subId *big.Int, coordinatorAddress string) error {

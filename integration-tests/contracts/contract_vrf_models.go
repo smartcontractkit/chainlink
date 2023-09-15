@@ -78,6 +78,8 @@ type VRFCoordinatorV2Plus interface {
 	FundSubscriptionWithEth(subId *big.Int, nativeTokenAmount *big.Int) error
 	Address() string
 	GetSubscription(ctx context.Context, subID *big.Int) (vrf_coordinator_v2plus.GetSubscription, error)
+	GetNativeTokenTotalBalance(ctx context.Context) (*big.Int, error)
+	GetLinkTotalBalance(ctx context.Context) (*big.Int, error)
 	FindSubscriptionID() (*big.Int, error)
 	WaitForRandomWordsFulfilledEvent(subID []*big.Int, requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled, error)
 	WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []*big.Int, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested, error)
@@ -103,6 +105,8 @@ type VRFCoordinatorV2PlusUpgradedVersion interface {
 	) error
 	HashOfKey(ctx context.Context, pubKey [2]*big.Int) ([32]byte, error)
 	CreateSubscription() error
+	GetNativeTokenTotalBalance(ctx context.Context) (*big.Int, error)
+	GetLinkTotalBalance(ctx context.Context) (*big.Int, error)
 	Migrate(subId *big.Int, coordinatorAddress string) error
 	RegisterMigratableCoordinator(migratableCoordinatorAddress string) error
 	AddConsumer(subId *big.Int, consumerAddress string) error

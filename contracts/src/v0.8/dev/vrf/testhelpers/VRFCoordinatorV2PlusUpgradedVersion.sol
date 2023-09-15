@@ -711,5 +711,9 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       consumers: migrationData.consumers,
       requestedOwner: address(0)
     });
+
+    s_totalBalance += uint96(migrationData.linkBalance);
+    s_totalEthBalance += uint96(migrationData.ethBalance);
+
   }
 }
