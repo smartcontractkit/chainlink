@@ -1320,7 +1320,7 @@ func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
 		cfg.ChainTypeF = "celo"
 		tx := evmtypes.Transaction{Type: 0x7c, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
 		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
-		
+
 		tx2 := evmtypes.Transaction{Type: 0x7b, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
 		assert.Equal(t, false, bhe.IsUsable(tx2, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
 
