@@ -212,8 +212,6 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
       //ensure the reward recipient address is not zero
       if (recipientAddress == address(0)) revert InvalidAddress();
-      //ensure the weight is not zero
-      if (recipientWeight == 0) revert InvalidWeights();
 
       //save/overwrite the weight for the reward recipient
       s_rewardRecipientWeights[poolId][recipientAddress] = recipientWeight;
@@ -244,9 +242,6 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
       address recipientAddress = newRewardRecipients[i].addr;
       //get the existing weight
       uint256 existingWeight = s_rewardRecipientWeights[poolId][recipientAddress];
-
-      //if the existing weight is 0, the recipient isn't part of this configuration
-      if (existingWeight == 0) revert InvalidAddress();
 
       //if a recipient is updated, the rewards must be claimed first as they can't claim previous fees at the new weight
       _claimRewards(newRewardRecipients[i].addr, poolIds);
