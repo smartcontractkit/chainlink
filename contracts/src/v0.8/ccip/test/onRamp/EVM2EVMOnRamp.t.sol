@@ -707,13 +707,10 @@ contract EVM2EVMOnRamp_getDataAvailabilityCostUSD is EVM2EVMOnRamp_getFeeSetup {
   }
 
   function testFuzz_ZeroDataAvailabilityGasPriceAlwaysCalculatesZeroDataAvailabilityCostSuccess(
-    uint256 messageDataLength,
-    uint256 numberOfTokens,
+    uint64 messageDataLength,
+    uint32 numberOfTokens,
     uint32 tokenTransferBytesOverhead
   ) public {
-    vm.assume(messageDataLength < type(uint64).max);
-    vm.assume(numberOfTokens < type(uint64).max);
-
     uint256 dataAvailabilityCostUSD = s_onRamp.getDataAvailabilityCostUSD(
       0,
       messageDataLength,
@@ -729,14 +726,10 @@ contract EVM2EVMOnRamp_getDataAvailabilityCostUSD is EVM2EVMOnRamp_getFeeSetup {
     uint16 destGasPerDataAvailabilityByte,
     uint16 destDataAvailabilityMultiplier,
     uint112 dataAvailabilityGasPrice,
-    uint256 messageDataLength,
-    uint256 numberOfTokens,
+    uint64 messageDataLength,
+    uint32 numberOfTokens,
     uint32 tokenTransferBytesOverhead
   ) public {
-    // Using large yet reasonable numbers to avoid overflows.
-    vm.assume(messageDataLength < type(uint64).max);
-    vm.assume(numberOfTokens < type(uint64).max);
-
     EVM2EVMOnRamp.DynamicConfig memory dynamicConfig = s_onRamp.getDynamicConfig();
     dynamicConfig.destDataAvailabilityOverheadGas = destDataAvailabilityOverheadGas;
     dynamicConfig.destGasPerDataAvailabilityByte = destGasPerDataAvailabilityByte;
