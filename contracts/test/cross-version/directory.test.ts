@@ -6,26 +6,26 @@ import { expect } from 'chai'
 describe('Directory', () => {
   it('Should not have a file or directory starting with a number in contracts/src', () => {
     const srcPath = path.join(__dirname, '..', '..', 'src')
-    
+
     const noNumbersAsFirstChar = (dirPath: string): boolean => {
-      const entries = fs.readdirSync(dirPath, { withFileTypes: true });
-      
+      const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+
       for (const entry of entries) {
         if (/^\d/.test(entry.name)) {
-          throw new Error(`${path.join(dirPath, entry.name)} starts with a number`)
+          throw new Error(
+            `${path.join(dirPath, entry.name)} starts with a number`,
+          )
         }
 
         if (entry.isDirectory()) {
-          const newPath = path.join(dirPath, entry.name);
-          noNumbersAsFirstChar(newPath);
+          const newPath = path.join(dirPath, entry.name)
+          noNumbersAsFirstChar(newPath)
         }
       }
-      
-      return true;
-    };
+
+      return true
+    }
 
     expect(noNumbersAsFirstChar(srcPath)).to.be.true
   })
 })
-
-
