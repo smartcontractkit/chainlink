@@ -44,8 +44,8 @@ UseBatchSend = true
 [[TelemetryIngressEndpoint]]
 Network = 'EVM'
 ChainID = '1'
-ServerPubKey = 'test-pub-key'
 URL = 'https://prom.test'
+ServerPubKey = 'test-pub-key'
 
 [AuditLogger]
 Enabled = true

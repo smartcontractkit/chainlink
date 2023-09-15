@@ -280,10 +280,10 @@ func TestConfig_Marshal(t *testing.T) {
 
 	full.TelemetryIngressEndpoint = toml.TelemetryIngressEndpoints{
 		ptr(toml.TelemetryIngressEndpoint{
-			Network:      ptr("test-network"),
-			ChainID:      ptr("123123123"),
-			ServerPubKey: ptr("test-pub-key-111551111-test-network"),
-			URL:          mustURL("http://localhost-123123123-test-network:9000"),
+			Network:      ptr("EVM"),
+			ChainID:      ptr("1"),
+			ServerPubKey: ptr("test-pub-key"),
+			URL:          mustURL("https://prom.test"),
 		}),
 	}
 	full.Log = toml.Log{
@@ -697,10 +697,10 @@ SendTimeout = '5s'
 UseBatchSend = true
 `},
 		{"TelemetryIngressEndpoint", Config{Core: toml.Core{TelemetryIngressEndpoint: full.TelemetryIngressEndpoint}}, `[[TelemetryIngressEndpoint]]
-Network = 'test-network'
-ChainID = '123123123'
-URL = 'http://localhost-123123123-test-network:9000'
-ServerPubKey = 'test-pub-key-111551111-test-network'
+Network = 'EVM'
+ChainID = '1'
+URL = 'https://prom.test'
+ServerPubKey = 'test-pub-key'
 `},
 
 		{"Log", Config{Core: toml.Core{Log: full.Log}}, `[Log]

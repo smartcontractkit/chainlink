@@ -41,12 +41,6 @@ SendInterval = '500ms'
 SendTimeout = '10s'
 UseBatchSend = true
 
-[[TelemetryIngressEndpoint]]
-Network = ''
-ChainID = ''
-ServerPubKey = ''
-URL = ''
-
 [AuditLogger]
 Enabled = true
 ForwardToUrl = 'http://localhost:9898'
