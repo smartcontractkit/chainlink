@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/automation/generated/composer_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
@@ -43,6 +44,12 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
 	}
+
+	composerCompatibleABI, err := abi.JSON(strings.NewReader(composer_compatible_interface.ComposerCompatibleInterfaceV1ABI))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+	}
+
 	keeperRegistryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
@@ -85,7 +92,7 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 	al := NewActiveUpkeepList()
 	services.payloadBuilder = NewPayloadBuilder(al, logRecoverer, lggr)
 
-	services.reg = NewEvmRegistry(lggr, addr, client, streamsLookupCompatibleABI,
+	services.reg = NewEvmRegistry(lggr, addr, client, streamsLookupCompatibleABI, composerCompatibleABI,
 		keeperRegistryABI, registryContract, mc, al, services.logProvider,
 		packer, services.blockSub, finalityDepth)
 

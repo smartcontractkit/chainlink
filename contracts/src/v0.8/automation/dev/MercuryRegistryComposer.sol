@@ -1,9 +1,10 @@
-pragma solidity 0.8.6;
+pragma solidity 0.8.16;
 
 import "../../shared/access/ConfirmedOwner.sol";
 import "../interfaces/AutomationCompatibleInterface.sol";
 import "./interfaces/ComposerCompatibleInterfaceV1.sol";
 import "../../ChainSpecificUtil.sol";
+import "../../vendor/openzeppelin-contracts/contracts/utils/Strings.sol";
 
 /*--------------------------------------------------------------------------------------------------------------------+
 | Mercury + Automation                                                                                                |
@@ -108,6 +109,25 @@ contract MercuryRegistryComposer is ConfirmedOwner, AutomationCompatibleInterfac
   function revertForFeedLookup(string[] memory feeds) public view returns (bool, bytes memory) {
     uint256 blockNumber = ChainSpecificUtil.getBlockNumber();
     string[] memory functionsArguments = new string[](1);
+
+    // Pass current on-chain data as an argument to the Functions DON.
+    string memory currentMercuryData = "";
+    for (uint256 i; i < feeds.length; i ++) {
+      Feed memory feed = s_feedMapping[feeds[i]];
+      string memory entry = string.concat(
+        "(" , 
+        Strings.toString(uint192(feed.price)),
+        ",", 
+        Strings.toString(feed.observationsTimestamp), 
+        ",", 
+        Strings.toString(uint192(feed.deviationPercentagePPM)),  
+        ")"
+      );
+      currentMercuryData = string.concat(currentMercuryData, entry, i == feeds.length - 1 ? "" : ",");
+    }
+    functionsArguments[0] = currentMercuryData;
+
+    // Emit Composer request revert.
     revert ComposerRequestV1("TODO_SCRIPT_HASH", functionsArguments, true, c_feedParamKey, feeds, c_timeParamKey, blockNumber, "");
   }
 

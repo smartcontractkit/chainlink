@@ -20,12 +20,14 @@ import (
 	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const (
@@ -53,6 +55,26 @@ type StreamsLookup struct {
 	extraData    []byte
 	upkeepId     *big.Int
 	block        uint64
+}
+
+type ComposerRequestV1 struct {
+	scriptHash         string
+	functionsArguments []string
+	useMercury         bool
+	feedParamKey       string
+	feeds              []string
+	timeParamKey       string
+	time               *big.Int
+	extraData          []byte
+	upkeepId           *big.Int
+	block              uint64
+}
+
+type MercuryReportStruct struct {
+	ObservationsTimestamp uint32   `json:"observations_timestamp"`
+	Price                 *big.Int `json:"price"`
+	Bid                   *big.Int `json:"bid"`
+	Ask                   *big.Int `json:"ask"`
 }
 
 // MercuryV02Response represents a JSON structure used by Mercury v0.2
@@ -235,7 +257,7 @@ func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int
 	}
 
 	// call checkCallback function at the block which OCR3 has agreed upon
-	err = r.client.CallContext(opts.Context, &resultBytes, "eth_call", args, opts.BlockNumber)
+	err = r.client.CallContext(opts.Context, &resultBytes, "eth_call", args, hexutil.EncodeUint64(opts.BlockNumber.Uint64()))
 	if err != nil {
 		return encoding.RpcFlakyFailure, encoding.UpkeepFailureReasonNone, true, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
 	}
@@ -275,6 +297,190 @@ func (r *EvmRegistry) decodeStreamsLookup(data []byte) (*StreamsLookup, error) {
 		timeParamKey: *abi.ConvertType(errorParameters[2], new(string)).(*string),
 		time:         *abi.ConvertType(errorParameters[3], new(*big.Int)).(**big.Int),
 		extraData:    *abi.ConvertType(errorParameters[4], new([]byte)).(*[]byte),
+	}, nil
+}
+
+// streamsLookup looks through check upkeep results looking for any that need off chain lookup
+func (r *EvmRegistry) composerRequest(ctx context.Context, checkResults []ocr2keepers.CheckResult) []ocr2keepers.CheckResult {
+	lggr := r.lggr.With("where", "ComposerRequest")
+	requests := map[int]*ComposerRequestV1{}
+	for i, res := range checkResults {
+		if res.IneligibilityReason != uint8(encoding.UpkeepFailureReasonTargetCheckReverted) {
+			// Streams Lookup only works when upkeep target check reverts
+			continue
+		}
+
+		block := big.NewInt(int64(res.Trigger.BlockNumber))
+		upkeepId := res.UpkeepID
+
+		// Try to decode the revert error into streams lookup format. User upkeeps can revert with any reason, see if they
+		// tried to call mercury
+		lggr.Infof("at block %d upkeep %s trying to decodeComposerRequest performData=%s", block, upkeepId, hexutil.Encode(checkResults[i].PerformData))
+		req, err := r.decodeComposerRequest(res.PerformData)
+		if err != nil {
+			lggr.Warnf("at block %d upkeep %s decodeComposerRequest failed: %v", block, upkeepId, err)
+			// user contract did not revert with StreamsLookup error
+			continue
+		}
+		if r.mercury.cred == nil && req.useMercury {
+			lggr.Errorf("at block %d upkeep %s tries to access mercury server for composer request but mercury credential is not configured", block, upkeepId)
+			continue
+		}
+
+		if len(req.feeds) == 0 && req.useMercury {
+			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
+			lggr.Warnf("at block %s upkeep %s has empty feeds array", block, upkeepId)
+			continue
+		}
+		// mercury permission checking for v0.3 is done by mercury server
+		if req.feedParamKey == feedIdHex && req.timeParamKey == blockNumber && req.useMercury {
+			// check permission on the registry for mercury v0.2
+			opts := r.buildCallOpts(ctx, block)
+			state, reason, retryable, allowed, err := r.allowedToUseMercury(opts, upkeepId.BigInt())
+			if err != nil {
+				lggr.Warnf("at block %s upkeep %s failed to query mercury allow list: %s", block, upkeepId, err)
+				checkResults[i].PipelineExecutionState = uint8(state)
+				checkResults[i].IneligibilityReason = uint8(reason)
+				checkResults[i].Retryable = retryable
+				continue
+			}
+
+			if !allowed {
+				lggr.Warnf("at block %d upkeep %s NOT allowed to query Mercury server", block, upkeepId)
+				checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryAccessNotAllowed)
+				continue
+			}
+		} else if (req.feedParamKey != feedIDs || req.timeParamKey != timestamp) && req.useMercury {
+			// if mercury version cannot be determined, set failure reason
+			lggr.Warnf("at block %d upkeep %s NOT allowed to query Mercury server", block, upkeepId)
+			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
+			continue
+		}
+
+		req.upkeepId = upkeepId.BigInt()
+		// the block here is exclusively used to call checkCallback at this block, not to be confused with the block number
+		// in the revert for mercury v0.2, which is denoted by time in the struct bc starting from v0.3, only timestamp will be supported
+		req.block = uint64(block.Int64())
+		lggr.Infof("at block %d upkeep %s decodeStreamsLookup feedKey=%s timeKey=%s feeds=%v time=%s extraData=%s", block, upkeepId, req.feedParamKey, req.timeParamKey, req.feeds, req.time, hexutil.Encode(req.extraData))
+		requests[i] = req
+	}
+
+	var wg sync.WaitGroup
+	for i, req := range requests {
+		wg.Add(1)
+		go r.doComposerRequest(ctx, &wg, req, i, checkResults, lggr)
+	}
+	wg.Wait()
+
+	// don't surface error to plugin bc StreamsLookup process should be self-contained.
+	return checkResults
+}
+
+func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup, request *ComposerRequestV1, i int, checkResults []ocr2keepers.CheckResult, lggr logger.Logger) {
+	defer wg.Done()
+
+	var state encoding.PipelineExecutionState
+	var reason encoding.UpkeepFailureReason
+	var values [][]byte
+	var retryable bool
+	var err error
+
+	if request.useMercury {
+		lookup := &StreamsLookup{
+			feedParamKey: request.feedParamKey,
+			feeds:        request.feeds,
+			timeParamKey: request.timeParamKey,
+			time:         request.time,
+			extraData:    request.extraData,
+			upkeepId:     request.upkeepId,
+			block:        request.block,
+		}
+		state, reason, values, retryable, err = r.doMercuryRequest(ctx, lookup, lggr)
+		if err != nil {
+			lggr.Errorf("upkeep %s retryable %v doMercuryRequest: %s", request.upkeepId, retryable, err.Error())
+			checkResults[i].Retryable = retryable
+			checkResults[i].PipelineExecutionState = uint8(state)
+			checkResults[i].IneligibilityReason = uint8(reason)
+			return
+		}
+
+		var reportData []MercuryReportStruct
+		for j, v := range values {
+			lggr.Infof("upkeep %s doMercuryRequest values[%d]: %s", request.upkeepId, j, hexutil.Encode(v))
+			const innerReportType = `[{"type":"bytes32"},{"type":"uint32"},{"type":"int192"},{"type":"int192"},{"type":"int192"},{"type":"uint64"},{"type":"bytes32"},{"type":"uint64"},{"type":"uint64"}]`
+			const reportType = `[{ "type": "bytes32[3]" },{ "type": "bytes" },{ "type": "bytes32[]" },{ "type": "bytes32[]" },{ "type": "bytes32" }]`
+			interfaces, err := utils.ABIDecode(reportType, v)
+			if err != nil {
+				panic(err)
+			}
+			innerInterfaces, err := utils.ABIDecode(innerReportType, interfaces[1].([]byte))
+			if err != nil {
+				panic(err)
+			}
+			fmt.Println("DATA_FROM_VALUE")
+			fmt.Println(common.Hash(innerInterfaces[0].([32]byte)).String())
+			fmt.Println(innerInterfaces[1].(uint32))
+			fmt.Println(innerInterfaces[2].(*big.Int))
+			fmt.Println(innerInterfaces[3].(*big.Int))
+			fmt.Println(innerInterfaces[4].(*big.Int))
+			fmt.Println(innerInterfaces[5].(uint64))
+			reportData = append(reportData, MercuryReportStruct{
+				ObservationsTimestamp: innerInterfaces[1].(uint32),
+				Price:                 innerInterfaces[2].(*big.Int),
+				Bid:                   innerInterfaces[3].(*big.Int),
+				Ask:                   innerInterfaces[4].(*big.Int),
+			})
+		}
+
+		mercuryArg, err := json.Marshal(reportData)
+		if err != nil {
+			fmt.Println("ERROR MARSHALLING DATA", err)
+		}
+
+		// THIS PRINTS OUR MERCURY ARGUMENT AND THE ON-CHAIN PRICE DATA.
+		fmt.Println("MERCURY_ARG", string(mercuryArg), request.functionsArguments)
+
+		// SIM START
+		// AT THIS POINT, FUNCTIONS SHOULD BE CALLED VIA GATEWAY TO DO SOMETHING WITH THE REVERT ARGUMENTS AND MERCURY DATA.
+		// UNTIL THEN, THE MERCURY REPORTS ARE SIMPLY PASSED BACK AS PERFORM DATA.
+
+		abiEncode, err := utils.ABIEncode(`[{"type":"bytes[]"},{"type":"bytes"}]`, values, lookup.extraData)
+		if err != nil {
+			lggr.Errorf("upkeep %s retryable %v abi encode packing: %s", request.upkeepId, retryable, err.Error())
+			checkResults[i].Retryable = false
+			checkResults[i].PipelineExecutionState = uint8(encoding.PackUnpackDecodeFailed)
+			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
+			return
+		}
+
+		// SIM END
+
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonNone)
+		checkResults[i].Eligible = true
+		checkResults[i].PerformData = abiEncode
+	}
+}
+
+// decodeStreamsLookup decodes the revert error StreamsLookup(string feedParamKey, string[] feeds, string feedParamKey, uint256 time, byte[] extraData)
+func (r *EvmRegistry) decodeComposerRequest(data []byte) (*ComposerRequestV1, error) {
+	e := r.composer.abi.Errors["ComposerRequestV1"]
+	fmt.Println("DATA", hexutil.Encode(data))
+	fmt.Println(e)
+	unpack, err := e.Unpack(data)
+	if err != nil {
+		return nil, fmt.Errorf("unpack error: %w", err)
+	}
+	errorParameters := unpack.([]interface{})
+
+	return &ComposerRequestV1{
+		scriptHash:         *abi.ConvertType(errorParameters[0], new(string)).(*string),
+		functionsArguments: *abi.ConvertType(errorParameters[1], new([]string)).(*[]string),
+		useMercury:         *abi.ConvertType(errorParameters[2], new(bool)).(*bool),
+		feedParamKey:       *abi.ConvertType(errorParameters[3], new(string)).(*string),
+		feeds:              *abi.ConvertType(errorParameters[4], new([]string)).(*[]string),
+		timeParamKey:       *abi.ConvertType(errorParameters[5], new(string)).(*string),
+		time:               *abi.ConvertType(errorParameters[6], new(*big.Int)).(**big.Int),
+		extraData:          *abi.ConvertType(errorParameters[7], new([]byte)).(*[]byte),
 	}, nil
 }
 
@@ -354,7 +560,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 		sl.feedParamKey: {sl.feeds[index]},
 		sl.timeParamKey: {sl.time.String()},
 	}
-	mercuryURL := r.mercury.cred.LegacyURL
+	mercuryURL := r.mercury.cred.URL
 	reqUrl := fmt.Sprintf("%s%s%s", mercuryURL, mercuryPathV02, q.Encode())
 	lggr.Debugf("request URL for upkeep %s feed %s: %s", sl.upkeepId.String(), sl.feeds[index], reqUrl)
 

@@ -53,7 +53,7 @@ const (
 const (
 	nodeTOML = `[Log]
 JSONConsole = true
-Level = 'debug'
+Level = 'info'
 [WebServer]
 AllowOrigins = '*'
 SecureCookies = false

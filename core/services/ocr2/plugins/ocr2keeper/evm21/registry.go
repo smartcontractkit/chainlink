@@ -75,7 +75,7 @@ func NewEvmRegistry(
 	lggr logger.Logger,
 	addr common.Address,
 	client evm.Chain,
-	streamsLookupCompatibleABI, keeperRegistryABI abi.ABI,
+	streamsLookupCompatibleABI, composerCompatibleABI, keeperRegistryABI abi.ABI,
 	registry *iregistry21.IKeeperRegistryMaster,
 	mc *models.MercuryCredentials,
 	al ActiveUpkeepList,
@@ -103,6 +103,7 @@ func NewEvmRegistry(
 			abi:            streamsLookupCompatibleABI,
 			allowListCache: cache.New(defaultAllowListExpiration, allowListCleanupInterval),
 		},
+		composer:         &ComposerConfig{abi: composerCompatibleABI},
 		hc:               http.DefaultClient,
 		logEventProvider: logEventProvider,
 		bs:               blockSub,
@@ -127,6 +128,10 @@ type MercuryConfig struct {
 	allowListCache *cache.Cache
 }
 
+type ComposerConfig struct {
+	abi abi.ABI
+}
+
 type EvmRegistry struct {
 	utils.StartStopOnce
 	threadCtrl       utils.ThreadControl
@@ -148,6 +153,7 @@ type EvmRegistry struct {
 	runState         int
 	runError         error
 	mercury          *MercuryConfig
+	composer         *ComposerConfig
 	hc               HttpClient
 	bs               *BlockSubscriber
 	logEventProvider logprovider.LogEventProvider
