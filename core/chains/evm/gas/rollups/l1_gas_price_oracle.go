@@ -1,4 +1,4 @@
-package chainoracles
+package rollups
 
 import (
 	"context"
@@ -62,7 +62,7 @@ const (
 
 var supportedChainTypes = []config.ChainType{config.ChainArbitrum, config.ChainOptimismBedrock}
 
-func IsL1OracleChain(chainType config.ChainType) bool {
+func IsRollupWithL1Support(chainType config.ChainType) bool {
 	return slices.Contains(supportedChainTypes, chainType)
 }
 
@@ -160,7 +160,7 @@ func (o *l1GasPriceOracle) refresh() (t *time.Timer) {
 	return
 }
 
-func (o *l1GasPriceOracle) L1GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err error) {
+func (o *l1GasPriceOracle) GasPrice(_ context.Context) (l1GasPrice *assets.Wei, err error) {
 	ok := o.IfStarted(func() {
 		o.l1GasPriceMu.RLock()
 		l1GasPrice = o.l1GasPrice

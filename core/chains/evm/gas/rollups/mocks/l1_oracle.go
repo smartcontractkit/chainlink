@@ -3,9 +3,9 @@
 package mocks
 
 import (
-	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
-
 	context "context"
+
+	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
 
 	mock "github.com/stretchr/testify/mock"
 )
@@ -29,24 +29,8 @@ func (_m *L1Oracle) Close() error {
 	return r0
 }
 
-// HealthReport provides a mock function with given fields:
-func (_m *L1Oracle) HealthReport() map[string]error {
-	ret := _m.Called()
-
-	var r0 map[string]error
-	if rf, ok := ret.Get(0).(func() map[string]error); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(map[string]error)
-		}
-	}
-
-	return r0
-}
-
-// L1GasPrice provides a mock function with given fields: ctx
-func (_m *L1Oracle) L1GasPrice(ctx context.Context) (*assets.Wei, error) {
+// GasPrice provides a mock function with given fields: ctx
+func (_m *L1Oracle) GasPrice(ctx context.Context) (*assets.Wei, error) {
 	ret := _m.Called(ctx)
 
 	var r0 *assets.Wei
@@ -69,6 +53,22 @@ func (_m *L1Oracle) L1GasPrice(ctx context.Context) (*assets.Wei, error) {
 	}
 
 	return r0, r1
+}
+
+// HealthReport provides a mock function with given fields:
+func (_m *L1Oracle) HealthReport() map[string]error {
+	ret := _m.Called()
+
+	var r0 map[string]error
+	if rf, ok := ret.Get(0).(func() map[string]error); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(map[string]error)
+		}
+	}
+
+	return r0
 }
 
 // Name provides a mock function with given fields:

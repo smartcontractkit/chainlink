@@ -12,8 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
-	oraclesMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/chainoracles/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
+	rollupMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups/mocks"
 )
 
 func TestWrappedEvmEstimator(t *testing.T) {
@@ -49,7 +49,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 		assert.Nil(t, l1Oracle)
 
 		// expect l1Oracle
-		oracle := oraclesMocks.NewL1Oracle(t)
+		oracle := rollupMocks.NewL1Oracle(t)
 		estimator = gas.NewWrappedEvmEstimator(e, false, oracle)
 		l1Oracle = estimator.L1Oracle()
 		assert.Equal(t, oracle, l1Oracle)
@@ -135,7 +135,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 
 	t.Run("Name", func(t *testing.T) {
 		evmEstimator := mocks.NewEvmEstimator(t)
-		oracle := oraclesMocks.NewL1Oracle(t)
+		oracle := rollupMocks.NewL1Oracle(t)
 
 		evmEstimator.On("Name").Return(mockEvmEstimatorName, nil).Once()
 
@@ -146,7 +146,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 
 	t.Run("Start and stop calls both EVM estimator and L1Oracle", func(t *testing.T) {
 		evmEstimator := mocks.NewEvmEstimator(t)
-		oracle := oraclesMocks.NewL1Oracle(t)
+		oracle := rollupMocks.NewL1Oracle(t)
 
 		evmEstimator.On("Name").Return(mockEvmEstimatorName, nil).Times(4)
 		evmEstimator.On("Start", mock.Anything).Return(nil).Twice()
@@ -169,7 +169,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 
 	t.Run("Read calls both EVM estimator and L1Oracle", func(t *testing.T) {
 		evmEstimator := mocks.NewEvmEstimator(t)
-		oracle := oraclesMocks.NewL1Oracle(t)
+		oracle := rollupMocks.NewL1Oracle(t)
 
 		evmEstimator.On("Ready").Return(nil).Twice()
 		oracle.On("Ready").Return(nil).Once()
@@ -185,7 +185,7 @@ func TestWrappedEvmEstimator(t *testing.T) {
 
 	t.Run("HealthReport merges report from EVM estimator and L1Oracle", func(t *testing.T) {
 		evmEstimator := mocks.NewEvmEstimator(t)
-		oracle := oraclesMocks.NewL1Oracle(t)
+		oracle := rollupMocks.NewL1Oracle(t)
 
 		evmEstimatorKey := "evm"
 		evmEstimatorError := errors.New("evm error")

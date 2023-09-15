@@ -1,4 +1,4 @@
-package chainoracles
+package rollups
 
 import (
 	"context"
@@ -14,5 +14,5 @@ import (
 type L1Oracle interface {
 	services.ServiceCtx
 
-	L1GasPrice(ctx context.Context) (*assets.Wei, error)
+	GasPrice(ctx context.Context) (*assets.Wei, error)
 }

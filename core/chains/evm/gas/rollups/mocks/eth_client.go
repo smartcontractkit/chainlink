@@ -3,9 +3,8 @@
 package mocks
 
 import (
-	big "math/big"
-
 	context "context"
+	big "math/big"
 
 	ethereum "github.com/ethereum/go-ethereum"
 

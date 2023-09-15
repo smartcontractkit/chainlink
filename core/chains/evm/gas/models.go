@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/chainoracles"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -34,7 +34,7 @@ type EvmFeeEstimator interface {
 	commontypes.HeadTrackable[*evmtypes.Head, common.Hash]
 
 	// L1Oracle returns the L1 gas price oracle only if the chain has one, e.g. OP stack L2s and Arbitrum.
-	L1Oracle() chainoracles.L1Oracle
+	L1Oracle() rollups.L1Oracle
 	GetFee(ctx context.Context, calldata []byte, feeLimit uint32, maxFeePrice *assets.Wei, opts ...feetypes.Opt) (fee EvmFee, chainSpecificFeeLimit uint32, err error)
 	BumpFee(ctx context.Context, originalFee EvmFee, feeLimit uint32, maxFeePrice *assets.Wei, attempts []EvmPriorAttempt) (bumpedFee EvmFee, chainSpecificFeeLimit uint32, err error)
 
@@ -68,9 +68,9 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 	df := geCfg.EIP1559DynamicFees()
 
 	// create l1Oracle only if it is supported for the chain
-	var l1Oracle chainoracles.L1Oracle
-	if chainoracles.IsL1OracleChain(cfg.ChainType()) {
-		l1Oracle = chainoracles.NewL1GasPriceOracle(lggr, ethClient, cfg.ChainType())
+	var l1Oracle rollups.L1Oracle
+	if rollups.IsRollupWithL1Support(cfg.ChainType()) {
+		l1Oracle = rollups.NewL1GasPriceOracle(lggr, ethClient, cfg.ChainType())
 	}
 	switch s {
 	case "Arbitrum":
@@ -152,13 +152,13 @@ func (fee EvmFee) ValidDynamic() bool {
 type WrappedEvmEstimator struct {
 	EvmEstimator
 	EIP1559Enabled bool
-	l1Oracle       chainoracles.L1Oracle
+	l1Oracle       rollups.L1Oracle
 	utils.StartStopOnce
 }
 
 var _ EvmFeeEstimator = (*WrappedEvmEstimator)(nil)
 
-func NewWrappedEvmEstimator(e EvmEstimator, eip1559Enabled bool, l1Oracle chainoracles.L1Oracle) EvmFeeEstimator {
+func NewWrappedEvmEstimator(e EvmEstimator, eip1559Enabled bool, l1Oracle rollups.L1Oracle) EvmFeeEstimator {
 	return &WrappedEvmEstimator{
 		EvmEstimator:   e,
 		EIP1559Enabled: eip1559Enabled,
@@ -223,7 +223,7 @@ func (e *WrappedEvmEstimator) HealthReport() map[string]error {
 	return report
 }
 
-func (e *WrappedEvmEstimator) L1Oracle() chainoracles.L1Oracle {
+func (e *WrappedEvmEstimator) L1Oracle() rollups.L1Oracle {
 	return e.l1Oracle
 }
 

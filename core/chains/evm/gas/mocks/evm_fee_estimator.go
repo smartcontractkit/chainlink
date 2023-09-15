@@ -7,8 +7,6 @@ import (
 
 	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
 
-	chainoracles "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/chainoracles"
-
 	context "context"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -16,6 +14,8 @@ import (
 	gas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 
 	mock "github.com/stretchr/testify/mock"
+
+	rollups "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 
 	types "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 )
@@ -158,15 +158,15 @@ func (_m *EvmFeeEstimator) HealthReport() map[string]error {
 }
 
 // L1Oracle provides a mock function with given fields:
-func (_m *EvmFeeEstimator) L1Oracle() chainoracles.L1Oracle {
+func (_m *EvmFeeEstimator) L1Oracle() rollups.L1Oracle {
 	ret := _m.Called()
 
-	var r0 chainoracles.L1Oracle
-	if rf, ok := ret.Get(0).(func() chainoracles.L1Oracle); ok {
+	var r0 rollups.L1Oracle
+	if rf, ok := ret.Get(0).(func() rollups.L1Oracle); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(chainoracles.L1Oracle)
+			r0 = ret.Get(0).(rollups.L1Oracle)
 		}
 	}
 
