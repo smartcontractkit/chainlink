@@ -104,7 +104,9 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     uint256 totalFeeAmount;
     for (uint256 i; i < payments.length; ++i) {
       unchecked {
-        //the total amount for any ERC20 asset cannot exceed 2^256 - 1
+        //the total amount for any ERC-20 asset cannot exceed 2^256 - 1
+        //see https://github.com/OpenZeppelin/openzeppelin-contracts/blob/36bf1e46fa811f0f07d38eb9cfbc69a955f300ce/contracts/token/ERC20/ERC20.sol#L266
+        //for example implementation.
         s_totalRewardRecipientFees[payments[i].poolId] += payments[i].amount;
 
         //tally the total payable fees
