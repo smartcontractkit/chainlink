@@ -36,7 +36,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 	require.NoError(t, err)
 	allowlist.On("Start", mock.Anything).Return(nil)
 	allowlist.On("Close", mock.Anything).Return(nil)
-	handler, err := functions.NewFunctionsConnectorHandler(addr.Hex(), privateKey, storage, allowlist, rateLimiter, subscriptions, logger)
+	handler, err := functions.NewFunctionsConnectorHandler(addr.Hex(), privateKey, storage, allowlist, rateLimiter, subscriptions, 0.0, logger)
 	require.NoError(t, err)
 
 	handler.SetConnector(connector)
@@ -75,7 +75,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 			}
 			storage.On("List", ctx, addr).Return(snapshot, nil).Once()
 			allowlist.On("Allow", addr).Return(true).Once()
-			subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(10), nil)
+			subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil)
 			connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 				msg, ok := args[2].(*api.Message)
 				require.True(t, ok)
@@ -132,7 +132,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 
 			storage.On("Put", ctx, &key, &record, signature).Return(nil).Once()
 			allowlist.On("Allow", addr).Return(true).Once()
-			subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(10), nil)
+			subscriptions.On("GetMaxUserBalance", mock.Anything).Return(big.NewInt(100), nil)
 			connector.On("SendToGateway", ctx, "gw1", mock.Anything).Run(func(args mock.Arguments) {
 				msg, ok := args[2].(*api.Message)
 				require.True(t, ok)

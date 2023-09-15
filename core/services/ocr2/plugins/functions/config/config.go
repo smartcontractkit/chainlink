@@ -35,6 +35,7 @@ type PluginConfig struct {
 	MaxRequestSizeBytes                uint32                                `json:"maxRequestSizeBytes"`
 	MaxRequestSizesList                []uint32                              `json:"maxRequestSizesList"`
 	MaxSecretsSizesList                []uint32                              `json:"maxSecretsSizesList"`
+	MinimumSubscriptionBalanceLink     float64                               `json:"minimumSubscriptionBalanceLink"`
 	GatewayConnectorConfig             *connector.ConnectorConfig            `json:"gatewayConnectorConfig"`
 	OnchainAllowlist                   *functions.OnchainAllowlistConfig     `json:"onchainAllowlist"`
 	OnchainSubscriptions               *functions.OnchainSubscriptionsConfig `json:"onchainSubscriptions"`
