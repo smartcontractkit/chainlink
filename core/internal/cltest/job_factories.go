@@ -24,6 +24,7 @@ const (
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			contractAddress    = "%s"
+			evmChainID		   = "0"
 			p2pPeerID          = "%s"
 			p2pBootstrapPeers  = ["/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"]
 			isBootstrapPeer    = false

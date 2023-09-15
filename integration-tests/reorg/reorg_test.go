@@ -91,6 +91,7 @@ func CleanupReorgTest(
 
 func TestDirectRequestReorg(t *testing.T) {
 	logging.Init()
+	l := logging.GetTestLogger(t)
 	testEnvironment := environment.New(&environment.Config{
 		TTL:  1 * time.Hour,
 		Test: t,
@@ -131,9 +132,9 @@ func TestDirectRequestReorg(t *testing.T) {
 	err = testEnvironment.AddHelmCharts(chainlinkDeployment).Run()
 	require.NoError(t, err, "Error adding to test environment")
 
-	chainClient, err := blockchain.NewEVMClient(networkSettings, testEnvironment)
+	chainClient, err := blockchain.NewEVMClient(networkSettings, testEnvironment, l)
 	require.NoError(t, err, "Error connecting to blockchain")
-	cd, err := contracts.NewContractDeployer(chainClient)
+	cd, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Error building contract deployer")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
@@ -181,6 +182,7 @@ func TestDirectRequestReorg(t *testing.T) {
 		Name:                     "direct_request",
 		MinIncomingConfirmations: minIncomingConfirmations,
 		ContractAddress:          oracle.Address(),
+		EVMChainID:               chainClient.GetChainID().String(),
 		ExternalJobID:            jobUUID.String(),
 		ObservationSource:        ost,
 	})
