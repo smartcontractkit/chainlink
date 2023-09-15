@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	mercurytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -117,8 +118,11 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			defer wg.Done()
 			obs.LinkPrice.Val, obs.LinkPrice.Err = ds.fetcher.LatestPrice(ctx, ds.linkFeedID)
 			if obs.LinkPrice.Val == nil && obs.LinkPrice.Err == nil {
+				mercurytypes.PriceFeedMissingCount.WithLabelValues(ds.linkFeedID.String()).Inc()
 				ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing LINK feed, using sentinel value of %s", relaymercuryv2.MissingPrice), "linkFeedID", ds.linkFeedID)
 				obs.LinkPrice.Val = relaymercuryv2.MissingPrice
+			} else if obs.LinkPrice.Err != nil {
+				mercurytypes.PriceFeedErrorCount.WithLabelValues(ds.linkFeedID.String()).Inc()
 			}
 		}()
 	}
@@ -131,8 +135,11 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			defer wg.Done()
 			obs.NativePrice.Val, obs.NativePrice.Err = ds.fetcher.LatestPrice(ctx, ds.nativeFeedID)
 			if obs.NativePrice.Val == nil && obs.NativePrice.Err == nil {
+				mercurytypes.PriceFeedMissingCount.WithLabelValues(ds.nativeFeedID.String()).Inc()
 				ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing native feed, using sentinel value of %s", relaymercuryv2.MissingPrice), "nativeFeedID", ds.nativeFeedID)
 				obs.NativePrice.Val = relaymercuryv2.MissingPrice
+			} else if obs.NativePrice.Err != nil {
+				mercurytypes.PriceFeedErrorCount.WithLabelValues(ds.nativeFeedID.String()).Inc()
 			}
 		}()
 	}

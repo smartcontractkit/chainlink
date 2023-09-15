@@ -14,10 +14,15 @@ library ChainSpecificUtil {
   ArbGasInfo private constant ARBGAS = ArbGasInfo(ARBGAS_ADDR);
   uint256 private constant ARB_MAINNET_CHAIN_ID = 42161;
   uint256 private constant ARB_GOERLI_TESTNET_CHAIN_ID = 421613;
+  uint256 private constant ARB_SEPOLIA_TESTNET_CHAIN_ID = 421614;
 
   function getBlockhash(uint64 blockNumber) internal view returns (bytes32) {
     uint256 chainid = block.chainid;
-    if (chainid == ARB_MAINNET_CHAIN_ID || chainid == ARB_GOERLI_TESTNET_CHAIN_ID) {
+    if (
+      chainid == ARB_MAINNET_CHAIN_ID ||
+      chainid == ARB_GOERLI_TESTNET_CHAIN_ID ||
+      chainid == ARB_SEPOLIA_TESTNET_CHAIN_ID
+    ) {
       if ((getBlockNumber() - blockNumber) > 256 || blockNumber >= getBlockNumber()) {
         return "";
       }

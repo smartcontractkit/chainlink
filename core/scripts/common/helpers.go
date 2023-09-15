@@ -130,6 +130,8 @@ func SetupEnv(overrideNonce bool) Environment {
 		owner.Nonce = big.NewInt(int64(nonce))
 	}
 	owner.GasPrice = gp.Mul(gp, big.NewInt(2))
+	owner.GasPrice = big.NewInt(0)
+
 	fmt.Println("Modified Gas Price that will be set:", owner.GasPrice, "wei")
 	// the execution environment for the scripts
 	return Environment{

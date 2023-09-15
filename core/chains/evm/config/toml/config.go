@@ -206,7 +206,7 @@ func (cs EVMConfigs) Nodes(chainID relay.ChainID) (ns []types.Node, err error) {
 	}
 	nodes := cs.nodes(chainID)
 	if nodes == nil {
-		err = fmt.Errorf("no nodes: chain %s: %w", &chainID, chains.ErrNotFound)
+		err = fmt.Errorf("no nodes: chain %q: %w", chainID, chains.ErrNotFound)
 		return
 	}
 	for _, n := range nodes {
