@@ -96,7 +96,7 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock utils.Clock, lgg
 			codec:      codec,
 			nodes:      nodes,
 			shutdownCh: make(chan struct{}),
-			lggr:       lggr,
+			lggr:       lggr.Named("DONConnectionManager." + donConfig.DonId),
 		}
 	}
 	connMgr := &connectionManager{

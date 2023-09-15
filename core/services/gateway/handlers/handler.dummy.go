@@ -32,7 +32,7 @@ func NewDummyHandler(donConfig *config.DONConfig, don DON, lggr logger.Logger) (
 		donConfig:      donConfig,
 		don:            don,
 		savedCallbacks: make(map[string]*savedCallback),
-		lggr:           lggr,
+		lggr:           lggr.Named("DummyHandler." + donConfig.DonId),
 	}, nil
 }
 

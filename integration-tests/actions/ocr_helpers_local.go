@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"golang.org/x/sync/errgroup"
@@ -271,13 +271,14 @@ func TrackForwarderLocal(
 	chainClient blockchain.EVMClient,
 	authorizedForwarder common.Address,
 	node *client.ChainlinkClient,
+	logger zerolog.Logger,
 ) error {
 	chainID := chainClient.GetChainID()
 	_, _, err := node.TrackForwarder(chainID, authorizedForwarder)
 	if err != nil {
 		return errors.Wrap(err, "failed to track forwarder")
 	}
-	log.Info().Str("NodeURL", node.Config.URL).
+	logger.Info().Str("NodeURL", node.Config.URL).
 		Str("ForwarderAddress", authorizedForwarder.Hex()).
 		Str("ChaindID", chainID.String()).
 		Msg("Forwarder tracked")
