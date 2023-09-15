@@ -10,6 +10,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
@@ -18,6 +21,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+var promRequest = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "gateway_request",
+	Help: "Metric to track received requests and response codes",
+}, []string{"response_code"})
 
 type Gateway interface {
 	job.ServiceCtx
@@ -154,6 +162,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte) (rawRes
 	if err != nil {
 		return newError(g.codec, msg.Body.MessageId, api.NodeReponseEncodingError, "")
 	}
+	promRequest.WithLabelValues(api.NoError.String()).Inc()
 	return rawResponse, api.ToHttpErrorCode(api.NoError)
 }
 
@@ -161,8 +170,10 @@ func newError(codec api.Codec, id string, errCode api.ErrorCode, errMsg string) 
 	rawResponse, err := codec.EncodeNewErrorResponse(id, api.ToJsonRPCErrorCode(errCode), errMsg, nil)
 	if err != nil {
 		// we're not even able to encode a valid JSON response
+		promRequest.WithLabelValues(api.FatalError.String()).Inc()
 		return []byte("fatal error"), api.ToHttpErrorCode(api.FatalError)
 	}
+	promRequest.WithLabelValues(errCode.String()).Inc()
 	return rawResponse, api.ToHttpErrorCode(errCode)
 }
 
