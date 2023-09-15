@@ -6,6 +6,11 @@ NoNewHeadsThreshold = '0'
 
 [GasEstimator]
 Mode = 'L2Suggested'
+BumpPercent = 40
+
+[Transactions]
+# increase resend time to align with finality
+ResendAfterThreshold = '3m'
 
 # Linea uses 200 blocks to estimate gas price
 [GasEstimator.BlockHistory]
