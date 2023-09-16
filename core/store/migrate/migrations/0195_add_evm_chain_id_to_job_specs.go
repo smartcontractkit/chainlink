@@ -3,7 +3,6 @@ package migrations
 import (
 	"context"
 	"database/sql"
-	"strings"
 
 	"github.com/pressly/goose/v3"
 
@@ -53,8 +52,7 @@ func Up195(ctx context.Context, tx *sql.Tx) error {
 		return err
 	}
 
-	url := cfg.Database().URL()
-	if cfg.EVMEnabled() && !strings.Contains(url.String(), "_test") {
+	if cfg.EVMEnabled() {
 		chainID := cfg.EVMConfigs()[0].ChainID
 		_, err = tx.ExecContext(ctx, up195_1, chainID)
 		if err != nil {
