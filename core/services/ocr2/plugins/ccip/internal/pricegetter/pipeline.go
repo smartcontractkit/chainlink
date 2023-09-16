@@ -1,4 +1,4 @@
-package ccip
+package pricegetter
 
 import (
 	"context"
@@ -8,20 +8,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/shopspring/decimal"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/parseutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
-type PriceGetter interface {
-	// Returns token prices in USD
-	TokenPricesUSD(ctx context.Context, tokens []common.Address) (map[common.Address]*big.Int, error)
-}
+var _ PriceGetter = &PipelineGetter{}
 
-var _ PriceGetter = &priceGetter{}
-
-type priceGetter struct {
+type PipelineGetter struct {
 	source        string
 	runner        pipeline.Runner
 	jobID         int32
@@ -30,12 +25,13 @@ type priceGetter struct {
 	lggr          logger.Logger
 }
 
-func NewPriceGetter(source string, runner pipeline.Runner, jobID int32, externalJobID uuid.UUID, name string, lggr logger.Logger) (*priceGetter, error) {
+func NewPipelineGetter(source string, runner pipeline.Runner, jobID int32, externalJobID uuid.UUID, name string, lggr logger.Logger) (*PipelineGetter, error) {
 	_, err := pipeline.Parse(source)
 	if err != nil {
 		return nil, err
 	}
-	return &priceGetter{
+
+	return &PipelineGetter{
 		source:        source,
 		runner:        runner,
 		jobID:         jobID,
@@ -45,7 +41,7 @@ func NewPriceGetter(source string, runner pipeline.Runner, jobID int32, external
 	}, nil
 }
 
-func (d *priceGetter) TokenPricesUSD(ctx context.Context, tokens []common.Address) (map[common.Address]*big.Int, error) {
+func (d *PipelineGetter) TokenPricesUSD(ctx context.Context, tokens []common.Address) (map[common.Address]*big.Int, error) {
 	_, trrs, err := d.runner.ExecuteRun(ctx, pipeline.Spec{
 		ID:           d.jobID,
 		DotDagSource: d.source,
@@ -71,7 +67,7 @@ func (d *priceGetter) TokenPricesUSD(ctx context.Context, tokens []common.Addres
 
 	priceMap := make(map[common.Address]*big.Int)
 	for tokenAddress, rawPrice := range prices {
-		castedPrice, err := parseBigInt(rawPrice)
+		castedPrice, err := parseutil.ParseBigIntFromAny(rawPrice)
 		if err != nil {
 			return nil, err
 		}
@@ -85,37 +81,4 @@ func (d *priceGetter) TokenPricesUSD(ctx context.Context, tokens []common.Addres
 		}
 	}
 	return priceMap, nil
-}
-
-func parseBigInt(price any) (*big.Int, error) {
-	if price == nil {
-		return nil, errors.Errorf("nil value passed")
-	}
-
-	switch v := price.(type) {
-	case decimal.Decimal:
-		return bigIntFromString(v.String())
-	case *decimal.Decimal:
-		return bigIntFromString(v.String())
-	case *big.Int:
-		return v, nil
-	case string:
-		return bigIntFromString(v)
-	case int64:
-		return big.NewInt(v), nil
-	case float64:
-		i := new(big.Int)
-		big.NewFloat(v).Int(i)
-		return i, nil
-	default:
-		return nil, errors.Errorf("unsupported price type %T from tokensForFeeCoin spec", price)
-	}
-}
-
-func bigIntFromString(v string) (*big.Int, error) {
-	priceBigInt, success := new(big.Int).SetString(v, 10)
-	if !success {
-		return nil, errors.Errorf("unable to convert to integer %v", v)
-	}
-	return priceBigInt, nil
 }
