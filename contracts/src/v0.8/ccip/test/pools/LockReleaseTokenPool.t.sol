@@ -23,11 +23,11 @@ contract LockReleaseTokenPoolSetup is BaseTest {
     BaseTest.setUp();
     s_token = new BurnMintERC677("LINK", "LNK", 18, 0);
     deal(address(s_token), OWNER, type(uint256).max);
-    s_lockReleaseTokenPool = new LockReleaseTokenPool(s_token, new address[](0), address(s_mockARM));
+    s_lockReleaseTokenPool = new LockReleaseTokenPool(s_token, new address[](0), address(s_mockARM), true);
 
     s_allowedList.push(USER_1);
     s_allowedList.push(DUMMY_CONTRACT_ADDRESS);
-    s_lockReleaseTokenPoolWithAllowList = new LockReleaseTokenPool(s_token, s_allowedList, address(s_mockARM));
+    s_lockReleaseTokenPoolWithAllowList = new LockReleaseTokenPool(s_token, s_allowedList, address(s_mockARM), true);
 
     TokenPool.RampUpdate[] memory onRamps = new TokenPool.RampUpdate[](1);
     onRamps[0] = TokenPool.RampUpdate({ramp: s_allowedOnRamp, allowed: true, rateLimiterConfig: rateLimiterConfig()});
@@ -148,6 +148,15 @@ contract LockReleaseTokenPool_getProvidedLiquidity is LockReleaseTokenPoolSetup 
   }
 }
 
+contract LockReleaseTokenPool_canAcceptLiquidity is LockReleaseTokenPoolSetup {
+  function test_CanAcceptLiquiditySuccess() public {
+    assertEq(true, s_lockReleaseTokenPool.canAcceptLiquidity());
+
+    s_lockReleaseTokenPool = new LockReleaseTokenPool(s_token, new address[](0), address(s_mockARM), false);
+    assertEq(false, s_lockReleaseTokenPool.canAcceptLiquidity());
+  }
+}
+
 contract LockReleaseTokenPool_addLiquidity is LockReleaseTokenPoolSetup {
   function testFuzz_AddLiquiditySuccess(uint256 amount) public {
     uint256 balancePre = s_token.balanceOf(OWNER);
@@ -165,6 +174,13 @@ contract LockReleaseTokenPool_addLiquidity is LockReleaseTokenPoolSetup {
     vm.assume(amount > 0);
     vm.expectRevert("ERC20: insufficient allowance");
     s_lockReleaseTokenPool.addLiquidity(amount);
+  }
+
+  function testLiquidityNotAcceptedReverts() public {
+    s_lockReleaseTokenPool = new LockReleaseTokenPool(s_token, new address[](0), address(s_mockARM), false);
+
+    vm.expectRevert(LockReleaseTokenPool.LiquidityNotAccepted.selector);
+    s_lockReleaseTokenPool.addLiquidity(1);
   }
 }
 

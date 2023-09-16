@@ -642,11 +642,13 @@ contract EVM2EVMOnRamp_getFeeSetup is EVM2EVMOnRampSetup {
     // Add additional pool addresses for test tokens to mark them as supported
     Internal.PoolUpdate[] memory newRamps = new Internal.PoolUpdate[](2);
     address wrappedNativePool = address(
-      new LockReleaseTokenPool(IERC20(s_sourceRouter.getWrappedNative()), new address[](0), address(s_mockARM))
+      new LockReleaseTokenPool(IERC20(s_sourceRouter.getWrappedNative()), new address[](0), address(s_mockARM), true)
     );
     newRamps[0] = Internal.PoolUpdate({token: s_sourceRouter.getWrappedNative(), pool: wrappedNativePool});
 
-    address customPool = address(new LockReleaseTokenPool(IERC20(CUSTOM_TOKEN), new address[](0), address(s_mockARM)));
+    address customPool = address(
+      new LockReleaseTokenPool(IERC20(CUSTOM_TOKEN), new address[](0), address(s_mockARM), true)
+    );
     newRamps[1] = Internal.PoolUpdate({token: CUSTOM_TOKEN, pool: customPool});
     s_onRamp.applyPoolUpdates(new Internal.PoolUpdate[](0), newRamps);
 

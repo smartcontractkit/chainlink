@@ -154,7 +154,9 @@ func (e *CCIPContractsDeployer) DeployLockReleaseTokenPoolContract(linkAddr stri
 			auth,
 			backend,
 			token,
-			[]common.Address{}, armProxy)
+			[]common.Address{},
+			armProxy,
+			true)
 	})
 
 	if err != nil {

@@ -28,7 +28,7 @@ contract TokenSetup is BaseTest {
       BurnMintERC677 sourceLink = new BurnMintERC677("sLINK", "sLNK", 18, 0);
       deal(address(sourceLink), OWNER, type(uint256).max);
       s_sourceTokens.push(address(sourceLink));
-      s_sourcePools.push(address(new LockReleaseTokenPool(sourceLink, new address[](0), address(s_mockARM))));
+      s_sourcePools.push(address(new LockReleaseTokenPool(sourceLink, new address[](0), address(s_mockARM), true)));
 
       BurnMintERC677 sourceETH = new BurnMintERC677("sETH", "sETH", 18, 0);
       deal(address(sourceETH), OWNER, 2 ** 128);
@@ -44,7 +44,7 @@ contract TokenSetup is BaseTest {
       BurnMintERC677 destLink = new BurnMintERC677("dLINK", "dLNK", 18, 0);
       deal(address(destLink), OWNER, type(uint256).max);
       s_destTokens.push(address(destLink));
-      s_destPools.push(address(new LockReleaseTokenPool(destLink, new address[](0), address(s_mockARM))));
+      s_destPools.push(address(new LockReleaseTokenPool(destLink, new address[](0), address(s_mockARM), true)));
 
       BurnMintERC677 destEth = new BurnMintERC677("dETH", "dETH", 18, 0);
       deal(address(destEth), OWNER, 2 ** 128);

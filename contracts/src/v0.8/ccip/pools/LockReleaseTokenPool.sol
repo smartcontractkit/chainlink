@@ -18,13 +18,27 @@ contract LockReleaseTokenPool is TokenPool {
 
   error InsufficientLiquidity();
   error WithdrawalTooHigh();
+  error LiquidityNotAccepted();
 
-  // The unique lock release pool flag to signal through EIP 165.
+  /// @dev The unique lock release pool flag to signal through EIP 165.
   bytes4 private constant LOCK_RELEASE_INTERFACE_ID = bytes4(keccak256("LockReleaseTokenPool"));
+
+  /// @dev Whether or not the pool accepts liquidity.
+  /// External liquidity is not required when there is one canonical token deployed to a chain,
+  /// and CCIP is facilitating mint/burn on all the other chains, in which case the invariant
+  /// balanceOf(pool) on home chain == sum(totalSupply(mint/burn "wrapped" token) on all remote chains) should always hold
+  bool internal immutable i_acceptLiquidity;
 
   mapping(address provider => uint256 balance) internal s_liquidityProviderBalances;
 
-  constructor(IERC20 token, address[] memory allowlist, address armProxy) TokenPool(token, allowlist, armProxy) {}
+  constructor(
+    IERC20 token,
+    address[] memory allowlist,
+    address armProxy,
+    bool acceptLiquidity
+  ) TokenPool(token, allowlist, armProxy) {
+    i_acceptLiquidity = acceptLiquidity;
+  }
 
   /// @notice Locks the token in the pool
   /// @param amount Amount to lock
@@ -76,9 +90,16 @@ contract LockReleaseTokenPool is TokenPool {
     return s_liquidityProviderBalances[provider];
   }
 
+  /// @notice Checks if the pool can accept liquidity.
+  /// @return true if the pool can accept liquidity, false otherwise.
+  function canAcceptLiquidity() external view returns (bool) {
+    return i_acceptLiquidity;
+  }
+
   /// @notice Adds liquidity to the pool. The tokens should be approved first.
   /// @param amount The amount of liquidity to provide.
   function addLiquidity(uint256 amount) external {
+    if (!i_acceptLiquidity) revert LiquidityNotAccepted();
     i_token.safeTransferFrom(msg.sender, address(this), amount);
     s_liquidityProviderBalances[msg.sender] += amount;
     emit LiquidityAdded(msg.sender, amount);
