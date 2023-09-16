@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 
+	"github.com/pkg/errors"
 	"github.com/pressly/goose/v3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -14,7 +15,7 @@ func init() {
 }
 
 const (
-	up195_1 = `
+	setMissingEvmChainIDsInSpecs = `
 	UPDATE direct_request_specs SET evm_chain_id = '%d' WHERE evm_chain_id IS NULL;
 	UPDATE flux_monitor_specs SET evm_chain_id = '%d' WHERE evm_chain_id IS NULL;
 	UPDATE ocr_oracle_specs SET evm_chain_id = '%d' WHERE evm_chain_id IS NULL;
@@ -23,7 +24,7 @@ const (
 	UPDATE blockhash_store_specs SET evm_chain_id = '%d' WHERE evm_chain_id IS NULL;
 	UPDATE block_header_feeder_specs SET evm_chain_id = '%d' WHERE evm_chain_id IS NULL;
 	`
-	up195_2 = `
+	addNullConstraintsToSpecs = `
 	ALTER TABLE direct_request_specs ALTER COLUMN evm_chain_id SET NOT NULL;
 	ALTER TABLE flux_monitor_specs ALTER COLUMN evm_chain_id SET NOT NULL;
 	ALTER TABLE ocr_oracle_specs ALTER COLUMN evm_chain_id SET NOT NULL;
@@ -33,7 +34,7 @@ const (
 	ALTER TABLE block_header_feeder_specs ALTER COLUMN evm_chain_id SET NOT NULL;
 	`
 
-	down195 = `
+	dropNullConstraintsFromSpecs = `
 	ALTER TABLE direct_request_specs ALTER COLUMN evm_chain_id DROP NOT NULL;
 	ALTER TABLE flux_monitor_specs ALTER COLUMN evm_chain_id DROP NOT NULL;
 	ALTER TABLE ocr_oracle_specs ALTER COLUMN evm_chain_id DROP NOT NULL;
@@ -54,19 +55,19 @@ func Up195(ctx context.Context, tx *sql.Tx) error {
 
 	if cfg.EVMEnabled() {
 		chainID := cfg.EVMConfigs()[0].ChainID
-		_, err = tx.ExecContext(ctx, up195_1, chainID)
+		_, err = tx.ExecContext(ctx, setMissingEvmChainIDsInSpecs, chainID)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "failed to set missing evm chain ids")
 		}
 	}
 
-	_, err = tx.ExecContext(ctx, up195_2)
-	return err
+	_, err = tx.ExecContext(ctx, addNullConstraintsToSpecs)
+	return errors.Wrap(err, "failed to add null constraints")
 }
 
 // nolint
 func Down195(ctx context.Context, tx *sql.Tx) error {
-	if _, err := tx.ExecContext(ctx, down195); err != nil {
+	if _, err := tx.ExecContext(ctx, dropNullConstraintsFromSpecs); err != nil {
 		return err
 	}
 	return nil
