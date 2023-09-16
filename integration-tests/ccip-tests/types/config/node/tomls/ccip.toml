@@ -2,6 +2,25 @@
 LogPoller = true
 CCIP = true
 
+[Log]
+Level = 'info'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 100
+
+[WebServer.TLS]
+HTTPSPort = 0
+
 [Database]
 MaxIdleConns = 50
 MaxOpenConns = 50
@@ -13,6 +32,10 @@ DefaultTransactionQueueDepth = 0
 [OCR]
 Enabled = false
 DefaultTransactionQueueDepth = 0
+
+[P2P.V1]
+Enabled = false
+ListenPort = 0
 
 [P2P]
 [P2P.V2]

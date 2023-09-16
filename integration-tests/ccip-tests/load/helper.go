@@ -141,8 +141,8 @@ func (l *loadArgs) AddMoreLanesToRun() {
 			err := l.TestSetupArgs.AddLanesForNetworkPair(
 				l.lggr, n.NetworkA, n.NetworkB,
 				n.ChainClientA, n.ChainClientB,
-				transferAmounts, nil, 5, true,
-				true, false)
+				transferAmounts, 5, true,
+				true)
 			assert.NoError(l.t, err)
 			l.LaneLoadCfg <- laneLoadCfg{
 				lane: l.TestSetupArgs.Lanes[netIndex].ForwardLane,

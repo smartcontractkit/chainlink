@@ -18,15 +18,16 @@ var (
 )
 
 type CommonContracts struct {
-	IsNativeFeeToken bool     `json:"is_native_fee_token,omitempty"`
-	IsMockARM        bool     `json:"is_mock_arm,omitempty"`
-	FeeToken         string   `json:"fee_token"`
-	BridgeTokens     []string `json:"bridge_tokens"`
-	BridgeTokenPools []string `json:"bridge_tokens_pools"`
-	ARM              string   `json:"arm"`
-	Router           string   `json:"router"`
-	PriceRegistry    string   `json:"price_registry"`
-	WrappedNative    string   `json:"wrapped_native"`
+	IsNativeFeeToken        bool     `json:"is_native_fee_token,omitempty"`
+	IsMockARM               bool     `json:"is_mock_arm,omitempty"`
+	FeeToken                string   `json:"fee_token"`
+	BridgeTokens            []string `json:"bridge_tokens"`
+	BridgeTokenPools        []string `json:"bridge_tokens_pools"`
+	ARM                     string   `json:"arm"`
+	Router                  string   `json:"router"`
+	PriceRegistry           string   `json:"price_registry"`
+	PriceUpdatesToWatchFrom uint64   `json:"price_updates_started_at"`
+	WrappedNative           string   `json:"wrapped_native"`
 }
 
 type SourceContracts struct {
