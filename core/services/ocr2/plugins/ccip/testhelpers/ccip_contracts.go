@@ -576,6 +576,7 @@ func (c *CCIPContracts) SetupLockAndMintTokenPool(
 		sourceTokenAddress,
 		[]common.Address{}, // empty allowList at deploy time indicates pool has no original sender restrictions
 		c.Source.ARMProxy.Address(),
+		true,
 	)
 	if err != nil {
 		return [20]byte{}, nil, err
@@ -782,7 +783,9 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		sourceChain,
 		sourceLinkTokenAddress,
 		[]common.Address{},
-		armProxySourceAddress)
+		armProxySourceAddress,
+		true,
+	)
 	require.NoError(t, err)
 	sourceChain.Commit()
 	sourcePool, err := lock_release_token_pool.NewLockReleaseTokenPool(sourcePoolAddress, sourceChain)
@@ -798,7 +801,10 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		destUser,
 		destChain,
 		destLinkTokenAddress,
-		[]common.Address{}, armProxyDestAddress)
+		[]common.Address{},
+		armProxyDestAddress,
+		true,
+	)
 	require.NoError(t, err)
 	destChain.Commit()
 	destPool, err := lock_release_token_pool.NewLockReleaseTokenPool(destPoolAddress, destChain)
@@ -838,7 +844,10 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		sourceUser,
 		sourceChain,
 		sourceWeth9addr,
-		[]common.Address{}, armProxySourceAddress)
+		[]common.Address{},
+		armProxySourceAddress,
+		true,
+	)
 	require.NoError(t, err)
 	sourceChain.Commit()
 
@@ -989,7 +998,10 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		destUser,
 		destChain,
 		destWeth9addr,
-		[]common.Address{}, armProxyDestAddress)
+		[]common.Address{},
+		armProxyDestAddress,
+		true,
+	)
 	require.NoError(t, err)
 	destWrappedPool, err := lock_release_token_pool.NewLockReleaseTokenPool(destWrappedPoolAddress, destChain)
 	require.NoError(t, err)
