@@ -1,4 +1,4 @@
-package ccip_test
+package pricegetter_test
 
 import (
 	"context"
@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
 	pipelinemocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
@@ -24,7 +25,6 @@ import (
 
 	config "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 )
 
 func TestDataSource(t *testing.T) {
@@ -52,7 +52,7 @@ func TestDataSource(t *testing.T) {
 	merge [type=merge left="{}" right="{\"%s\":$(link_parse), \"%s\":$(usdc_parse)}"];
 `, linkEth.URL, usdcEth.URL, linkTokenAddress, usdcTokenAddress)
 
-	priceGetter := createPriceGetter(t, source)
+	priceGetter := newTestPipelineGetter(t, source)
 	// Ask for all prices present in spec.
 	prices, err := priceGetter.TokenPricesUSD(context.Background(), []common.Address{linkTokenAddress, usdcTokenAddress})
 	require.NoError(t, err)
@@ -125,7 +125,7 @@ func TestParsingDifferentFormats(t *testing.T) {
 			merge [type=merge left="{}" right="{\"%s\":$(coin_parse)}"];
 			`, token.URL, address)
 
-			prices, err := createPriceGetter(t, source).
+			prices, err := newTestPipelineGetter(t, source).
 				TokenPricesUSD(context.Background(), []common.Address{address})
 
 			if tt.expectedError {
@@ -138,7 +138,7 @@ func TestParsingDifferentFormats(t *testing.T) {
 	}
 }
 
-func createPriceGetter(t *testing.T, source string) ccip.PriceGetter {
+func newTestPipelineGetter(t *testing.T, source string) *pricegetter.PipelineGetter {
 	lggr, _ := logger.NewLogger()
 	cfg := pipelinemocks.NewConfig(t)
 	cfg.On("MaxRunDuration").Return(time.Second)
@@ -148,7 +148,7 @@ func createPriceGetter(t *testing.T, source string) ccip.PriceGetter {
 	bridgeORM := bridges.NewORM(db, lggr, config.NewTestGeneralConfig(t).Database())
 	runner := pipeline.NewRunner(pipeline.NewORM(db, lggr, config.NewTestGeneralConfig(t).Database(), config.NewTestGeneralConfig(t).JobPipeline().MaxSuccessfulRuns()),
 		bridgeORM, cfg, nil, nil, nil, nil, lggr, &http.Client{}, &http.Client{})
-	ds, err := ccip.NewPriceGetter(source, runner, 1, uuid.New(), "test", lggr)
+	ds, err := pricegetter.NewPipelineGetter(source, runner, 1, uuid.New(), "test", lggr)
 	require.NoError(t, err)
 	return ds
 }

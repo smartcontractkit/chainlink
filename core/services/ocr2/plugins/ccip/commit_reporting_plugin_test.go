@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipevents"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/merklemulti"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	plugintesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/plugins"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -65,7 +66,7 @@ func setupCommitTestHarness(t *testing.T) commitTestHarness {
 	).Maybe().Return(gas.EvmFee{Legacy: assets.NewWei(defaultGasPrice)}, uint32(200e3), nil)
 
 	lggr := logger.TestLogger(t)
-	priceGetter := newMockPriceGetter()
+	priceGetter := pricegetter.NewMockPriceGetter(t)
 
 	backendClient := client.NewSimulatedBackendClient(t, th.Dest.Chain, new(big.Int).SetUint64(th.Dest.ChainID))
 	plugin := CommitReportingPlugin{
@@ -104,7 +105,7 @@ func setupCommitTestHarness(t *testing.T) commitTestHarness {
 		plugin.config.sourceNative:    big.NewInt(0).Mul(big.NewInt(100), big.NewInt(1e18)),
 		th.Source.LinkToken.Address(): big.NewInt(0).Mul(big.NewInt(200), big.NewInt(1e18)),
 		th.Dest.LinkToken.Address():   big.NewInt(0).Mul(big.NewInt(200), big.NewInt(1e18)),
-	}, nil)
+	}, nil).Maybe()
 
 	return commitTestHarness{
 		CCIPPluginTestHarness: th,
@@ -782,7 +783,7 @@ func TestGeneratePriceUpdates(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			priceGetter := newMockPriceGetter()
+			priceGetter := pricegetter.NewMockPriceGetter(t)
 			defer priceGetter.AssertExpectations(t)
 
 			sourceFeeEstimator := mocks.NewEvmFeeEstimator(t)
@@ -796,7 +797,7 @@ func TestGeneratePriceUpdates(t *testing.T) {
 			sort.Slice(tokens, func(i, j int) bool { return tokens[i].String() < tokens[j].String() })
 
 			if len(tokens) > 0 {
-				priceGetter.On("TokenPricesUSD", tokens).Return(tc.priceGetterRespData, tc.priceGetterRespErr)
+				priceGetter.On("TokenPricesUSD", mock.Anything, tokens).Return(tc.priceGetterRespData, tc.priceGetterRespErr)
 			}
 
 			if tc.maxGasPrice > 0 {
