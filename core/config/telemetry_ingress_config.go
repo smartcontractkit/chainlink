@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+//go:generate mockery --quiet --name TelemetryIngress --output ./mocks/ --case=underscore --filename telemetry_ingress.go
+
 type TelemetryIngress interface {
 	Logging() bool
 	UniConn() bool
@@ -16,6 +18,7 @@ type TelemetryIngress interface {
 	Endpoints() []TelemetryIngressEndpoint
 }
 
+//go:generate mockery --quiet --name TelemetryIngressEndpoint --output ./mocks/ --case=underscore --filename telemetry_ingress_endpoint.go
 type TelemetryIngressEndpoint interface {
 	Network() string
 	ChainID() string

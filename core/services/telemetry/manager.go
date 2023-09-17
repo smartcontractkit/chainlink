@@ -45,14 +45,14 @@ type telemetryEndpoint struct {
 	Network string
 	URL     *url.URL
 	client  TelemetryClient
-	pubKey  string
+	PubKey  string
 }
 
-func NewManager(cfg config.TelemetryIngress, ks keystore.CSA, lggr logger.Logger) *Manager {
+func NewManager(cfg config.TelemetryIngress, csaKeyStore keystore.CSA, lggr logger.Logger) *Manager {
 	m := &Manager{
 		bufferSize:   cfg.BufferSize(),
 		endpoints:    nil,
-		ks:           ks,
+		ks:           csaKeyStore,
 		lggr:         lggr.Named("TelemetryManager"),
 		logging:      cfg.Logging(),
 		maxBatchSize: cfg.MaxBatchSize(),
@@ -152,7 +152,7 @@ func (m *Manager) addEndpoint(e config.TelemetryIngressEndpoint) error {
 		Network: strings.ToUpper(e.Network()),
 		ChainID: strings.ToUpper(e.ChainID()),
 		URL:     e.URL(),
-		pubKey:  e.ServerPubKey(),
+		PubKey:  e.ServerPubKey(),
 		client:  tClient,
 	}
 
