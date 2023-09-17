@@ -737,6 +737,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					"externalJobID": jb.ExternalJobID,
 					"name":          jb.Name.ValueOrZero(),
 					"publicKey":     jb.VRFSpec.PublicKey[:],
+					"evmChainID":    jb.VRFSpec.EVMChainID.String(),
 				},
 				"jobRun": map[string]interface{}{
 					"meta":           meta,

@@ -1415,6 +1415,7 @@ func (lsn *listenerV2) simulateFulfillment(
 			"name":          lsn.job.Name.ValueOrZero(),
 			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
 			"maxGasPrice":   maxGasPriceWei.ToInt().String(),
+			"evmChainID":    lsn.job.VRFSpec.EVMChainID.String(),
 		},
 		"jobRun": map[string]interface{}{
 			"logBlockHash":   req.req.Raw().BlockHash.Bytes(),

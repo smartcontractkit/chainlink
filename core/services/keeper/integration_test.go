@@ -405,6 +405,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			c.EVM[0].MinIncomingConfirmations = ptr[uint32](1)    // disable reorg protection for this test
 			c.EVM[0].HeadTracker.MaxBufferSize = ptr[uint32](100) // helps prevent missed heads
 			c.EVM[0].Transactions.ForwardersEnabled = ptr(true)   // Enable Operator Forwarder flow
+			c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
 		})
 		scopedConfig := evmtest.NewChainScopedConfig(t, config)
 		korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
@@ -430,6 +431,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			KeeperSpec: &job.KeeperSpec{
 				FromAddress:     nodeAddressEIP55,
 				ContractAddress: regAddrEIP55,
+				EVMChainID:      (*utils.Big)(testutils.SimulatedChainID),
 			},
 			SchemaVersion:     1,
 			ForwardingAllowed: true,

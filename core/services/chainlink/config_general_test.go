@@ -24,7 +24,6 @@ func TestTOMLGeneralConfig_Defaults(t *testing.T) {
 	config, err := GeneralConfigOpts{}.New()
 	require.NoError(t, err)
 	assert.Equal(t, (*url.URL)(nil), config.WebServer().BridgeResponseURL())
-	assert.Nil(t, config.DefaultChainID())
 	assert.False(t, config.EVMRPCEnabled())
 	assert.False(t, config.EVMEnabled())
 	assert.False(t, config.CosmosEnabled())
