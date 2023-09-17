@@ -1,7 +1,6 @@
 package services_test
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -21,6 +20,8 @@ type boolCheck struct {
 	name    string
 	healthy bool
 }
+
+func (b boolCheck) Name() string { return b.name }
 
 func (b boolCheck) Ready() error {
 	if b.healthy {
@@ -57,8 +58,8 @@ func TestCheck(t *testing.T) {
 		}},
 	} {
 		c := services.NewChecker()
-		for i, check := range test.checks {
-			require.NoError(t, c.Register(fmt.Sprint(i), check))
+		for _, check := range test.checks {
+			require.NoError(t, c.Register(check))
 		}
 
 		require.NoError(t, c.Start())

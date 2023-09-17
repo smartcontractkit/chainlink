@@ -54,7 +54,7 @@ type Server struct {
 
 // MustRegister registers the Checkable with services.Checker, or exits upon failure.
 func (s *Server) MustRegister(name string, c services.Checkable) {
-	err := s.Register(name, c)
+	err := s.Register(c)
 	if err != nil {
 		s.Logger.Fatalf("Failed to register %s with health checker: %v", name, err)
 	}
