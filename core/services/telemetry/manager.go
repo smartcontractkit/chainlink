@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type TelemetryClient interface {
+type Client interface {
 	services.ServiceCtx
 	Send(payload synchronization.TelemPayload)
 }
@@ -44,10 +44,11 @@ type telemetryEndpoint struct {
 	ChainID string
 	Network string
 	URL     *url.URL
-	client  TelemetryClient
+	client  Client
 	PubKey  string
 }
 
+// NewManager create a new telemetry manager that is responsible for configuring telemetry agents and generating the defined telemetry endpoints and monitoring endpoints
 func NewManager(cfg config.TelemetryIngress, csaKeyStore keystore.CSA, lggr logger.Logger) *Manager {
 	m := &Manager{
 		bufferSize:   cfg.BufferSize(),
@@ -103,6 +104,7 @@ func (m *Manager) HealthReport() map[string]error {
 	return hr
 }
 
+// GenMonitoringEndpoint creates a new monitoring endpoints based on the existing available endpoints defined in the core config TOML, if no endpoint for the network and chainID exists, a NOOP agent will be used and the telemetry will not be sent
 func (m *Manager) GenMonitoringEndpoint(contractID string, telemType synchronization.TelemetryType, network string, chainID string) commontypes.MonitoringEndpoint {
 
 	e, found := m.getEndpoint(network, chainID)
@@ -114,9 +116,9 @@ func (m *Manager) GenMonitoringEndpoint(contractID string, telemType synchroniza
 
 	if m.useBatchSend {
 		return NewIngressAgentBatch(e.client, contractID, telemType, network, chainID)
-	} else {
-		return NewIngressAgent(e.client, contractID, telemType, network, chainID)
 	}
+
+	return NewIngressAgent(e.client, contractID, telemType, network, chainID)
 
 }
 
@@ -137,11 +139,11 @@ func (m *Manager) addEndpoint(e config.TelemetryIngressEndpoint) error {
 		return errors.New("cannot add telemetry endpoint, ServerPubKey cannot be empty")
 	}
 
-	if _, found := m.getEndpoint(e.Network(), e.ChainID()); found != false {
-		return errors.New(fmt.Sprintf("cannot add telemetry endpoint for network %q and chainID %q, endpoint already exists", e.Network(), e.ChainID()))
+	if _, found := m.getEndpoint(e.Network(), e.ChainID()); found {
+		return errors.Errorf("cannot add telemetry endpoint for network %q and chainID %q, endpoint already exists", e.Network(), e.ChainID())
 	}
 
-	var tClient TelemetryClient
+	var tClient Client
 	if m.useBatchSend {
 		tClient = synchronization.NewTelemetryIngressBatchClient(e.URL(), e.ServerPubKey(), m.ks, m.logging, m.lggr, m.bufferSize, m.maxBatchSize, m.sendInterval, m.sendTimeout, m.uniConn)
 	} else {

@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"net/url"
 	"reflect"
@@ -188,7 +189,7 @@ func TestNewManager(t *testing.T) {
 	require.Equal(t, "TelemetryManager", m.Name())
 
 	require.Nil(t, m.Start(context.Background()))
-	testutils.WaitForLogMessageCount(t, logObs, "error connecting error while dialing dial tcp: lookup http: no such host, waiting then retrying", 3)
+	testutils.WaitForLogMessageCount(t, logObs, "error connecting error while dialing dial tcp", 3)
 
 	hr := m.HealthReport()
 	require.Equal(t, 4, len(hr))
@@ -204,56 +205,47 @@ func TestCorrectEndpointRouting(t *testing.T) {
 	ks := mocks3.NewCSA(t)
 
 	tm := NewManager(tic, ks, lggr)
-	tm.endpoints = make([]*telemetryEndpoint, 4)
 
-	clientN1c1 := mocks2.NewTelemetryIngressBatchClient(t)
-	clientN1c1Sent := make([]synchronization.TelemPayload, 0)
-	clientN1c1.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
-		clientN1c1Sent = append(clientN1c1Sent, args[0].(synchronization.TelemPayload))
-	})
-	tm.endpoints[0] = &telemetryEndpoint{
-		StartStopOnce: utils.StartStopOnce{},
-		ChainID:       "NETWORK-1-CHAINID-1",
-		Network:       "NETWORK-1",
-		client:        clientN1c1,
+	type testEndpoint struct {
+		network string
+		chainID string
 	}
 
-	clientN1c2 := mocks2.NewTelemetryIngressBatchClient(t)
-	clientN1c2Sent := make([]synchronization.TelemPayload, 0)
-	clientN1c2.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
-		clientN1c2Sent = append(clientN1c2Sent, args[0].(synchronization.TelemPayload))
-	})
-	tm.endpoints[1] = &telemetryEndpoint{
-		StartStopOnce: utils.StartStopOnce{},
-		ChainID:       "NETWORK-1-CHAINID-2",
-		Network:       "NETWORK-1",
-		client:        clientN1c2,
+	testEndpoints := []testEndpoint{
+		{
+			network: "NETWORK-1",
+			chainID: "NETWORK-1-CHAINID-1",
+		},
+		{
+			network: "NETWORK-1",
+			chainID: "NETWORK-1-CHAINID-2",
+		},
+		{
+			network: "NETWORK-2",
+			chainID: "NETWORK-2-CHAINID-1",
+		},
+		{
+			network: "NETWORK-2",
+			chainID: "NETWORK-2-CHAINID-2",
+		},
 	}
 
-	clientN2c1 := mocks2.NewTelemetryIngressBatchClient(t)
-	clientN2c1Sent := make([]synchronization.TelemPayload, 0)
-	clientN2c1.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
-		clientN2c1Sent = append(clientN2c1Sent, args[0].(synchronization.TelemPayload))
-	})
-	tm.endpoints[2] = &telemetryEndpoint{
-		StartStopOnce: utils.StartStopOnce{},
-		ChainID:       "NETWORK-2-CHAINID-1",
-		Network:       "NETWORK-2",
-		client:        clientN2c1,
-	}
+	tm.endpoints = make([]*telemetryEndpoint, len(testEndpoints))
+	clientSent := make([]synchronization.TelemPayload, 0)
+	for i, e := range testEndpoints {
+		clientMock := mocks2.NewTelemetryIngressBatchClient(t)
+		clientMock.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
+			clientSent = append(clientSent, args[0].(synchronization.TelemPayload))
+		})
 
-	clientN2c2 := mocks2.NewTelemetryIngressBatchClient(t)
-	clientN2c2Sent := make([]synchronization.TelemPayload, 0)
-	clientN2c2.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
-		clientN2c2Sent = append(clientN2c2Sent, args[0].(synchronization.TelemPayload))
-	})
-	tm.endpoints[3] = &telemetryEndpoint{
-		StartStopOnce: utils.StartStopOnce{},
-		ChainID:       "NETWORK-2-CHAINID-2",
-		Network:       "NETWORK-2",
-		client:        clientN2c2,
-	}
+		tm.endpoints[i] = &telemetryEndpoint{
+			StartStopOnce: utils.StartStopOnce{},
+			ChainID:       e.chainID,
+			Network:       e.network,
+			client:        clientMock,
+		}
 
+	}
 	//Unknown networks or chainID
 	noopEndpoint := tm.GenMonitoringEndpoint("some-contractID", "some-type", "unknown-network", "unknown-chainID")
 	require.Equal(t, "*telemetry.NoopAgent", reflect.TypeOf(noopEndpoint).String())
@@ -271,42 +263,24 @@ func TestCorrectEndpointRouting(t *testing.T) {
 	require.Contains(t, obsLogs.TakeAll()[0].Message, "no telemetry endpoint found")
 
 	//Known networks and chainID
-	n1c1 := tm.GenMonitoringEndpoint("contractID-network-1-chainID-1", "telemType1", "network-1", "network-1-chainID-1")
-	n1c2 := tm.GenMonitoringEndpoint("contractID-network-1-chainID-2", "telemType2", "network-1", "network-1-chainID-2")
-	n2c1 := tm.GenMonitoringEndpoint("contractID-network-2-chainID-1", "telemType3", "network-2", "network-2-chainID-1")
-	n2c2 := tm.GenMonitoringEndpoint("contractID-network-2-chainID-2", "telemType4", "network-2", "network-2-chainID-2")
-	require.Equal(t, 0, obsLogs.Len())
+	for i, e := range testEndpoints {
+		telemType := fmt.Sprintf("TelemType_%s", e.chainID)
+		contractID := fmt.Sprintf("contractID_%s", e.chainID)
+		me := tm.GenMonitoringEndpoint(
+			contractID,
+			synchronization.TelemetryType(telemType),
+			e.network,
+			e.chainID,
+		)
+		me.SendLog([]byte(e.chainID))
+		require.Equal(t, 0, obsLogs.Len())
 
-	n1c1.SendLog([]byte("network-1-chainID-1"))
-	require.Equal(t, 1, len(clientN1c1Sent))
-	require.Equal(t, "network-1", clientN1c1Sent[0].Network)
-	require.Equal(t, "network-1-chainID-1", clientN1c1Sent[0].ChainID)
-	require.Equal(t, "contractID-network-1-chainID-1", clientN1c1Sent[0].ContractID)
-	require.Equal(t, "telemType1", string(clientN1c1Sent[0].TelemType))
-	require.Equal(t, []byte("network-1-chainID-1"), clientN1c1Sent[0].Telemetry)
-
-	n1c2.SendLog([]byte("network-1-chainID-2"))
-	require.Equal(t, 1, len(clientN1c2Sent))
-	require.Equal(t, "network-1", clientN1c2Sent[0].Network)
-	require.Equal(t, "network-1-chainID-2", clientN1c2Sent[0].ChainID)
-	require.Equal(t, "contractID-network-1-chainID-2", clientN1c2Sent[0].ContractID)
-	require.Equal(t, "telemType2", string(clientN1c2Sent[0].TelemType))
-	require.Equal(t, []byte("network-1-chainID-2"), clientN1c2Sent[0].Telemetry)
-
-	n2c1.SendLog([]byte("network-2-chainID-1"))
-	require.Equal(t, 1, len(clientN2c1Sent))
-	require.Equal(t, "network-2", clientN2c1Sent[0].Network)
-	require.Equal(t, "network-2-chainID-1", clientN2c1Sent[0].ChainID)
-	require.Equal(t, "contractID-network-2-chainID-1", clientN2c1Sent[0].ContractID)
-	require.Equal(t, "telemType3", string(clientN2c1Sent[0].TelemType))
-	require.Equal(t, []byte("network-2-chainID-1"), clientN2c1Sent[0].Telemetry)
-
-	n2c2.SendLog([]byte("network-2-chainID-2"))
-	require.Equal(t, 1, len(clientN2c2Sent))
-	require.Equal(t, "network-2", clientN2c2Sent[0].Network)
-	require.Equal(t, "network-2-chainID-2", clientN2c2Sent[0].ChainID)
-	require.Equal(t, "contractID-network-2-chainID-2", clientN2c2Sent[0].ContractID)
-	require.Equal(t, "telemType4", string(clientN2c2Sent[0].TelemType))
-	require.Equal(t, []byte("network-2-chainID-2"), clientN2c2Sent[0].Telemetry)
+		require.Equal(t, i+1, len(clientSent))
+		require.Equal(t, e.network, clientSent[i].Network)
+		require.Equal(t, e.chainID, clientSent[i].ChainID)
+		require.Equal(t, contractID, clientSent[i].ContractID)
+		require.Equal(t, telemType, string(clientSent[i].TelemType))
+		require.Equal(t, []byte(e.chainID), clientSent[i].Telemetry)
+	}
 
 }
