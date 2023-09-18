@@ -281,15 +281,15 @@ func (k *KeeperBenchmarkTest) Run() {
 				k.chainClient.DeleteHeaderEventSubscription(fmt.Sprintf("Keeper Tracker %d %d", rIndex, index))
 			}
 		}
-
 	}()
-	logSubscriptionStop := make(chan bool)
+
+	k.setFilterQuery()
+	require.NoError(k.t, err, "Setting filter query shouldn't fail")
 	for rIndex := range k.keeperRegistries {
 		k.observeUpkeepEvents(rIndex)
 	}
 	err = k.chainClient.WaitForEvents()
 	require.NoError(k.t, err, "Error waiting for keeper subscriptions")
-	close(logSubscriptionStop)
 
 	for _, chainlinkNode := range k.chainlinkNodes {
 		txData, err := chainlinkNode.MustReadTransactionAttempts()
@@ -342,19 +342,25 @@ func (k *KeeperBenchmarkTest) TearDownVals(t *testing.T) (
 // due to how fragile subscriptions can be
 func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
 	eventLogs := make(chan types.Log)
-	sub, err := k.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	sub, err := k.chainClient.SubscribeFilterLogs(ctx, k.filterQuery, eventLogs)
+	cancel()
 	require.NoError(k.t, err, "Subscribing to upkeep performed events log shouldn't fail")
+	contractABI, err := k.contractABI(rIndex)
+	require.NoError(k.t, err, "Getting contract ABI shouldn't fail")
+
 	go func() {
-		var numRevertedUpkeeps int64
-		var numStaleReports int64
 		for {
 			select {
 			case err := <-sub.Err():
-				k.log.Error().Err(err).Msg("Error while subscribing to Keeper Event Logs. Resubscribing...")
-				sub.Unsubscribe()
+				for err != nil {
+					k.log.Error().Err(err).Interface("Query", k.filterQuery).Msg("Error while subscribing to Keeper Event Logs. Resubscribing...")
 
-				sub, err = k.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
-				require.NoError(k.t, err, "Error re-subscribing to event logs")
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					sub, err = k.chainClient.SubscribeFilterLogs(ctx, k.filterQuery, eventLogs)
+					cancel()
+				}
+				log.Info().Msg("Resubscribed to Keeper Event Logs")
 			case vLog := <-eventLogs:
 				eventDetails, err := contractABI.EventByID(vLog.Topics[0])
 				require.NoError(k.t, err, "Getting event details for subscribed log shouldn't fail")
@@ -380,7 +386,6 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
 							Str("From", parsedLog.From.String()).
 							Str("Registry", k.keeperRegistries[rIndex].Address()).
 							Msg("Got reverted Upkeep Performed log on Registry")
-						numRevertedUpkeeps++
 					}
 				} else if eventDetails.Name == "StaleUpkeepReport" {
 					parsedLog, err := k.keeperRegistries[rIndex].ParseStaleUpkeepReportLog(&vLog)
@@ -389,7 +394,6 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
 						Str("Upkeep ID", parsedLog.Id.String()).
 						Str("Registry", k.keeperRegistries[rIndex].Address()).
 						Msg("Got stale Upkeep report log on Registry")
-					numStaleReports++
 				}
 			}
 		}
@@ -418,16 +422,16 @@ func (k *KeeperBenchmarkTest) contractABI(rIndex int) (*abi.ABI, error) {
 	return contractABI, err
 }
 
-func (k *KeeperBenchmarkTest) setFilterQuery() error {
-	if len(k.keeperRegistries) == 0 {
-		return fmt.Errorf("No registries deployed")
+// setFilterQuery sets the filter query for the test to watch for events on contracts
+func (k *KeeperBenchmarkTest) setFilterQuery() {
+	registryAddresses := make([]common.Address, len(k.keeperRegistries))
+	for index, registry := range k.keeperRegistries {
+		registryAddresses[index] = common.HexToAddress(registry.Address())
 	}
 	k.filterQuery = geth.FilterQuery{
-		Addresses: []common.Address{common.HexToAddress(k.keeperRegistries[0].Address())},
+		Addresses: registryAddresses,
 		FromBlock: k.startingBlock,
-		Topics:    [][]common.Hash{{}},
 	}
-
 }
 
 // ensureValues ensures that all values needed to run the test are present
