@@ -225,12 +225,12 @@ func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cf
 	// Set up the versioning Configs
 	verORM := versioning.NewORM(db, appLggr, cfg.DefaultQueryTimeout())
 
-	if static.Version != static.Unset {
+	if true {
 		var appv, dbv *semver.Version
 		appv, dbv, err = versioning.CheckVersion(db, appLggr, static.Version)
 		if err != nil {
 			// Exit immediately and don't touch the database if the app version is too old
-			return fmt.Errorf("CheckVersion: %w", err)
+			//return fmt.Errorf("CheckVersion: %w", err)
 		}
 
 		// Take backup if app version is newer than DB version
@@ -267,19 +267,6 @@ func handleNodeVersioning(db *sqlx.DB, appLggr logger.Logger, rootDir string, cf
 }
 
 func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbackup.BackupConfig, lggr logger.Logger, appv, dbv *semver.Version, healthReportPort uint16) (err error) {
-	if appv == nil {
-		lggr.Debug("Application version is missing, skipping automatic DB backup.")
-		return nil
-	}
-	if dbv == nil {
-		lggr.Debug("Database version is missing, skipping automatic DB backup.")
-		return nil
-	}
-	if !appv.GreaterThan(dbv) {
-		lggr.Debugf("Application version %s is older or equal to database version %s, skipping automatic DB backup.", appv.String(), dbv.String())
-		return nil
-	}
-	lggr.Infof("Upgrade detected: application version %s is newer than database version %s, taking automatic DB backup. To skip automatic database backup before version upgrades, set Database.Backup.OnVersionUpgrade=false. To disable backups entirely set Database.Backup.Mode=none.", appv.String(), dbv.String())
 
 	databaseBackup, err := periodicbackup.NewDatabaseBackup(dbUrl, rootDir, cfg, lggr)
 	if err != nil {
@@ -291,7 +278,7 @@ func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbacku
 	ibhr := services.NewInBackupHealthReport(healthReportPort, lggr)
 	ibhr.Start()
 	defer ibhr.Stop()
-	err = databaseBackup.RunBackup(appv.String())
+	err = databaseBackup.RunBackup("test")
 	return err
 }
 

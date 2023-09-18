@@ -186,8 +186,12 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 	maskedArgs := maskArgs(args)
 	backup.logger.Debugf("Running pg_dump with: %v", maskedArgs)
 
+	//cmd := exec.Command(
+	//	"pg_dump", args...,
+	//)
+
 	cmd := exec.Command(
-		"pg_dump", args...,
+		"sleep", "120",
 	)
 
 	_, err = cmd.Output()
