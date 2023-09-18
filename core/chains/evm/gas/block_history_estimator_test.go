@@ -1316,13 +1316,17 @@ func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
 		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
 	})
 
-	t.Run("returns false if transaction is of type 0x7c only on Celo", func(t *testing.T) {
+	t.Run("returns false if transaction is of type 0x7c or 0x7b only on Celo", func(t *testing.T) {
 		cfg.ChainTypeF = "celo"
 		tx := evmtypes.Transaction{Type: 0x7c, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
 		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
 
+		tx2 := evmtypes.Transaction{Type: 0x7b, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
+		assert.Equal(t, false, bhe.IsUsable(tx2, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+
 		cfg.ChainTypeF = ""
 		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+		assert.Equal(t, true, bhe.IsUsable(tx2, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
 	})
 
 	t.Run("returns false if transaction has base fee higher than the gas price only on Celo", func(t *testing.T) {
