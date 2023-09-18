@@ -341,27 +341,6 @@ func (k *KeeperBenchmarkTest) TearDownVals(t *testing.T) (
 // WARNING: This should only be used for observation and logging. This isn't a reliable way to build a final report
 // due to how fragile subscriptions can be
 func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
-	contractABI, err := keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
-	require.NoError(k.t, err, "Error getting ABI")
-	switch k.Inputs.RegistryVersions[rIndex] {
-	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
-		contractABI, err = keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
-	case ethereum.RegistryVersion_1_2:
-		contractABI, err = keeper_registry_wrapper1_2.KeeperRegistryMetaData.GetAbi()
-	case ethereum.RegistryVersion_1_3:
-		contractABI, err = keeper_registry_wrapper1_3.KeeperRegistryMetaData.GetAbi()
-	case ethereum.RegistryVersion_2_0:
-		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
-	case ethereum.RegistryVersion_2_1:
-		contractABI, err = iregistry21.IKeeperRegistryMasterMetaData.GetAbi()
-	default:
-		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
-	}
-
-	require.NoError(k.t, err, "Getting contract abi for registry shouldn't fail")
-	query := geth.FilterQuery{
-		Addresses: []common.Address{common.HexToAddress(k.keeperRegistries[rIndex].Address())},
-	}
 	eventLogs := make(chan types.Log)
 	sub, err := k.chainClient.SubscribeFilterLogs(context.Background(), query, eventLogs)
 	require.NoError(k.t, err, "Subscribing to upkeep performed events log shouldn't fail")
@@ -415,6 +394,28 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
 			}
 		}
 	}()
+}
+
+func (k *KeeperBenchmarkTest) contractABI(rIndex int) (*abi.ABI, error) {
+	var (
+		contractABI *abi.ABI
+		err         error
+	)
+	switch k.Inputs.RegistryVersions[rIndex] {
+	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
+		contractABI, err = keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
+	case ethereum.RegistryVersion_1_2:
+		contractABI, err = keeper_registry_wrapper1_2.KeeperRegistryMetaData.GetAbi()
+	case ethereum.RegistryVersion_1_3:
+		contractABI, err = keeper_registry_wrapper1_3.KeeperRegistryMetaData.GetAbi()
+	case ethereum.RegistryVersion_2_0:
+		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
+	case ethereum.RegistryVersion_2_1:
+		contractABI, err = iregistry21.IKeeperRegistryMasterMetaData.GetAbi()
+	default:
+		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
+	}
+	return contractABI, err
 }
 
 func (k *KeeperBenchmarkTest) setFilterQuery() error {
