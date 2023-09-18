@@ -71,14 +71,14 @@
     "moment": "^2.29.4",
     "prettier": "^3.0.3",
     "prettier-plugin-solidity": "1.1.3",
-    "rlp": "^2.0.0",
+    "rlp": "^2.2.7",
     "solhint": "^3.6.2",
     "solhint-plugin-prettier": "^0.0.5",
     "solidity-coverage": "^0.8.4",
-    "ts-node": "^10.0.0",
-    "tslib": "^2.4.0",
-    "typechain": "^8.0.0",
-    "typescript": "^4.3.2"
+    "ts-node": "^10.9.1",
+    "tslib": "^2.6.2",
+    "typechain": "^8.2.0",
+    "typescript": "^4.9.5"
   },
   "dependencies": {
     "@eth-optimism/contracts": "^0.5.21",
