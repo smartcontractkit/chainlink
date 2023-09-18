@@ -15,8 +15,10 @@ Transactions.ResendAfterThreshold = '1m'
 Enabled = true
 
 [GasEstimator]
-PriceDefault = '5 gwei'
-PriceMin = '1 gwei'
+# For BSC the Block Base Fee will always be 0 and only the priority fee will be used
+EIP1559DynamicFees = true
+TipCapDefault = '10 gwei'
+TipCapMin = '1 gwei'
 BumpMin = '5 gwei'
 # 15s delay since feeds update every minute in volatile situations
 BumpThreshold = 5
