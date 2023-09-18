@@ -78,7 +78,7 @@
     "ts-node": "^10.9.1",
     "tslib": "^2.6.2",
     "typechain": "^8.2.0",
-    "typescript": "^4.9.5"
+    "typescript": "^5.2.2"
   },
   "dependencies": {
     "@eth-optimism/contracts": "^0.5.21",
