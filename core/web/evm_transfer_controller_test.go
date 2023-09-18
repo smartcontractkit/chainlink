@@ -43,7 +43,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
@@ -84,7 +84,7 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	amount := assets.NewEthValue(1000000000000000000)
 
@@ -128,7 +128,7 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
@@ -162,7 +162,7 @@ func TestTransfersController_TransferZeroAddressError(t *testing.T) {
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	request := models.SendEtherRequest{
 		DestinationAddress: common.HexToAddress("0xFA01FA015C8A5332987319823728982379128371"),
 		FromAddress:        common.HexToAddress("0x0000000000000000000000000000000000000000"),
@@ -191,7 +191,7 @@ func TestTransfersController_TransferBalanceToLowError(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
@@ -228,7 +228,7 @@ func TestTransfersController_TransferBalanceToLowError_ZeroBalance(t *testing.T)
 	app := cltest.NewApplicationWithKey(t, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
@@ -255,7 +255,7 @@ func TestTransfersController_JSONBindingError(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	resp, cleanup := client.Post("/v2/transfers", bytes.NewBuffer([]byte(`{"address":""}`)))
 	t.Cleanup(cleanup)
@@ -289,7 +289,7 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 	app := cltest.NewApplicationWithConfigAndKey(t, config, ethClient, key)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	amount, err := assets.NewEthValueS("100")
 	require.NoError(t, err)
