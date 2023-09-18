@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
@@ -22,7 +22,7 @@ func TestSmokeCCIPForBidirectionalLane(t *testing.T) {
 		testName string
 		lane     *actions.CCIPLane
 	}
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	TestCfg := testsetups.NewCCIPTestConfig(t, l, testsetups.Smoke)
 	transferAmounts := []*big.Int{big.NewInt(1e14), big.NewInt(1e14)}
 	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, l, "smoke-ccip", 6, transferAmounts, nil, 5, true, true, TestCfg)
@@ -74,7 +74,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 		testName string
 		lane     *actions.CCIPLane
 	}
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	TestCfg := testsetups.NewCCIPTestConfig(t, l, testsetups.Smoke)
 	require.Equal(t, actions.TokenTransfer, TestCfg.MsgType, "Test config should have token transfer message type")
 	transferAmounts := []*big.Int{big.NewInt(1e14)}

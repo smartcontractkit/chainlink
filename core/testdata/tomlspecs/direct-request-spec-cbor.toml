@@ -3,6 +3,7 @@ schemaVersion       = 1
 name                = "example eth request event spec"
 contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
 externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F90"
+evmChainID          = 1337
 observationSource   = """
     decode_log   [type=ethabidecodelog
                   abi="OracleRequest(bytes32 indexed specId, address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes data)"

@@ -85,7 +85,7 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler Gateway
 		signer:      signer,
 		handler:     handler,
 		shutdownCh:  make(chan struct{}),
-		lggr:        lggr,
+		lggr:        lggr.Named("GatewayConnector"),
 	}
 	gateways := make(map[string]*gatewayState)
 	urlToId := make(map[string]string)

@@ -213,7 +213,7 @@ func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	ge := config.EVM().GasEstimator()
-	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(ge, ge.BlockHistory(), lggr), ge.EIP1559DynamicFees())
+	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(ge, ge.BlockHistory(), lggr), ge.EIP1559DynamicFees(), nil)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ks, estimator)
 	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), config.Database(), ks, txBuilder, lggr)
 	ec.SetResumeCallback(fn)
@@ -378,9 +378,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 		}
 	}
-	if ethClient == nil {
-		ethClient = evmclient.NewNullClient(cfg.DefaultChainID(), lggr)
-	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 
@@ -395,20 +392,26 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		GRPCOpts:     loop.GRPCOpts{},
 	}
 
-	chainId := ethClient.ConfiguredChainID()
 	evmOpts := chainlink.EVMFactoryConfig{
 		RelayerConfig: &evm.RelayerConfig{
 			AppConfig:        cfg,
 			EventBroadcaster: eventBroadcaster,
 			MailMon:          mailMon,
-			GenEthClient: func(_ *big.Int) evmclient.Client {
-				if chainId.Cmp(cfg.DefaultChainID()) != 0 {
-					t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", chainId, cfg.DefaultChainID())
-				}
-				return ethClient
-			},
 		},
 		CSAETHKeystore: keyStore,
+	}
+
+	if cfg.EVMEnabled() {
+		if ethClient == nil {
+			ethClient = evmclient.NewNullClient(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), lggr)
+		}
+		chainId := ethClient.ConfiguredChainID()
+		evmOpts.GenEthClient = func(_ *big.Int) evmclient.Client {
+			if chainId.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
+				t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainId, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+			}
+			return ethClient
+		}
 	}
 
 	testCtx := testutils.Context(t)
@@ -1290,7 +1293,7 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmc
 	// Start
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Maybe()
-	ethClient.On("ConfiguredChainID", mock.Anything).Return(app.GetConfig().DefaultChainID(), nil)
+	ethClient.On("ConfiguredChainID", mock.Anything).Return(evmtest.MustGetDefaultChainID(t, app.GetConfig().EVMConfigs()), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	ethClient.On("Close").Return().Maybe()

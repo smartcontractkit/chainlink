@@ -4,16 +4,19 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
@@ -30,6 +33,8 @@ type CLTestEnvBuilder struct {
 	externalAdapterCount int
 	customNodeCsaKeys    []string
 	defaultNodeCsaKeys   []string
+	l                    zerolog.Logger
+	t                    *testing.T
 
 	/* funding */
 	ETHFunds *big.Float
@@ -38,7 +43,14 @@ type CLTestEnvBuilder struct {
 func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	return &CLTestEnvBuilder{
 		externalAdapterCount: 1,
+		l:                    log.Logger,
 	}
+}
+
+func (b *CLTestEnvBuilder) WithTestLogger(t *testing.T) *CLTestEnvBuilder {
+	b.t = t
+	b.l = logging.GetTestLogger(t)
+	return b
 }
 
 func (b *CLTestEnvBuilder) WithLogWatcher() *CLTestEnvBuilder {
@@ -96,7 +108,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 }
 
 func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
-	log.Info().
+	b.l.Info().
 		Bool("hasGeth", b.hasGeth).
 		Bool("hasMockServer", b.hasMockServer).
 		Int("externalAdapterCount", b.externalAdapterCount).
@@ -108,7 +120,7 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 	var te *CLClusterTestEnv
 	var err error
 	if cfg != nil {
-		te, err = NewTestEnvFromCfg(cfg)
+		te, err = NewTestEnvFromCfg(b.l, cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -117,6 +129,10 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if b.t != nil {
+		te.WithTestLogger(b.t)
 	}
 
 	if b.hasLogWatch {
@@ -155,10 +171,11 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 		if nonDevNetworks == nil {
 			return nil, errors.New("cannot create nodes with custom config without nonDevNetworks")
 		}
-
-		err = te.StartClNodes(b.clNodeConfig, b.clNodesCount)
-		if err != nil {
-			return nil, err
+		if b.clNodesCount > 0 {
+			err = te.StartClNodes(b.clNodeConfig, b.clNodesCount)
+			if err != nil {
+				return nil, err
+			}
 		}
 		return te, nil
 	}
@@ -172,20 +189,20 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 
 	}
 
-	bc, err := blockchain.NewEVMClientFromNetwork(networkConfig)
+	bc, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)
 	if err != nil {
 		return nil, err
 	}
 
 	te.EVMClient = bc
 
-	cd, err := contracts.NewContractDeployer(bc)
+	cd, err := contracts.NewContractDeployer(bc, b.l)
 	if err != nil {
 		return nil, err
 	}
 	te.ContractDeployer = cd
 
-	cl, err := contracts.NewContractLoader(bc)
+	cl, err := contracts.NewContractLoader(bc, b.l)
 	if err != nil {
 		return nil, err
 	}

@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -22,16 +22,17 @@ import (
 
 func TestFluxBasic(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestLogger(t).
 		WithGeth().
 		WithMockServer(1).
 		WithCLNodes(3).
 		Build()
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		if err := env.Cleanup(); err != nil {
+		if err := env.Cleanup(t); err != nil {
 			l.Error().Err(err).Msg("Error cleaning up test environment")
 		}
 	})
@@ -93,6 +94,7 @@ func TestFluxBasic(t *testing.T) {
 		fluxSpec := &client.FluxMonitorJobSpec{
 			Name:              fmt.Sprintf("flux-monitor-%s", adapterUUID),
 			ContractAddress:   fluxInstance.Address(),
+			EVMChainID:        env.EVMClient.GetChainID().String(),
 			Threshold:         0,
 			AbsoluteThreshold: 0,
 			PollTimerPeriod:   15 * time.Second, // min 15s
@@ -105,7 +107,7 @@ func TestFluxBasic(t *testing.T) {
 
 	// initial value set is performed before jobs creation
 	fluxRoundTimeout := 1 * time.Minute
-	fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout)
+	fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout, l)
 	env.EVMClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
@@ -122,7 +124,7 @@ func TestFluxBasic(t *testing.T) {
 	require.Equal(t, int64(3), data.AllocatedFunds.Int64(),
 		"Expected allocated funds to be %d, but found %d", int64(3), data.AllocatedFunds.Int64())
 
-	fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout)
+	fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout, l)
 	env.EVMClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
 	err = env.MockServer.Client.SetValuePath(adapterPath, 1e10)
 	require.NoError(t, err, "Setting value path in mock server shouldn't fail")
