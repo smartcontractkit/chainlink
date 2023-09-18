@@ -18,9 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -109,7 +109,7 @@ const (
 
 func TestAutomationChaos(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 
 	testCases := map[string]struct {
 		networkChart environment.ConnectedChart
@@ -201,10 +201,11 @@ func TestAutomationChaos(t *testing.T) {
 			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=", 2, 5, ChaosGroupMajorityPlus)
 			require.NoError(t, err)
 
-			chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
+			chainClient, err := blockchain.NewEVMClient(network, testEnvironment, l)
 			require.NoError(t, err, "Error connecting to blockchain")
-			contractDeployer, err := contracts.NewContractDeployer(chainClient)
+			contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
 			require.NoError(t, err, "Error building contract deployer")
+
 			chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 			require.NoError(t, err, "Error connecting to Chainlink nodes")
 			chainClient.ParallelTransactions(true)

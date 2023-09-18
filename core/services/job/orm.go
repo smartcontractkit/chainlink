@@ -167,6 +167,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 		switch jb.Type {
 		case DirectRequest:
+			if jb.DirectRequestSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
 			var specID int32
 			sql := `INSERT INTO direct_request_specs (contract_address, min_incoming_confirmations, requesters, min_contract_payment, evm_chain_id, created_at, updated_at)
 			VALUES (:contract_address, :min_incoming_confirmations, :requesters, :min_contract_payment, :evm_chain_id, now(), now())
@@ -176,6 +179,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			jb.DirectRequestSpecID = &specID
 		case FluxMonitor:
+			if jb.FluxMonitorSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
 			var specID int32
 			sql := `INSERT INTO flux_monitor_specs (contract_address, threshold, absolute_threshold, poll_timer_period, poll_timer_disabled, idle_timer_period, idle_timer_disabled,
 					drumbeat_schedule, drumbeat_random_delay, drumbeat_enabled, min_payment, evm_chain_id, created_at, updated_at)
@@ -187,6 +193,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			jb.FluxMonitorSpecID = &specID
 		case OffchainReporting:
+			if jb.OCROracleSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
+
 			var specID int32
 			if jb.OCROracleSpec.EncryptedOCRKeyBundleID != nil {
 				_, err := o.keyStore.OCR().Get(jb.OCROracleSpec.EncryptedOCRKeyBundleID.String())
@@ -201,16 +211,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
-			if jb.OCROracleSpec.EVMChainID == nil {
-				// If unspecified, assume we're creating a job intended to run on default chain id
-				newChain, err := o.legacyChains.Default()
-				if err != nil {
-					return err
-				}
-				jb.OCROracleSpec.EVMChainID = utils.NewBig(newChain.ID())
-			}
 			newChainID := jb.OCROracleSpec.EVMChainID
-
 			existingSpec := new(OCROracleSpec)
 			err := tx.Get(existingSpec, `SELECT * FROM ocr_oracle_specs WHERE contract_address = $1 and (evm_chain_id = $2 or evm_chain_id IS NULL) LIMIT 1;`,
 				jb.OCROracleSpec.ContractAddress, newChainID,
@@ -308,6 +309,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			jb.OCR2OracleSpecID = &specID
 		case Keeper:
+			if jb.KeeperSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
 			var specID int32
 			sql := `INSERT INTO keeper_specs (contract_address, from_address, evm_chain_id, created_at, updated_at)
 			VALUES (:contract_address, :from_address, :evm_chain_id, NOW(), NOW())
@@ -326,6 +330,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			jb.CronSpecID = &specID
 		case VRF:
+			if jb.VRFSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
 			var specID int32
 			sql := `INSERT INTO vrf_specs (
 				coordinator_address, public_key, min_incoming_confirmations,
@@ -377,6 +384,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 		case BlockhashStore:
+			if jb.BlockhashStoreSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
 			var specID int32
 			sql := `INSERT INTO blockhash_store_specs (coordinator_v1_address, coordinator_v2_address, coordinator_v2_plus_address, trusted_blockhash_store_address, trusted_blockhash_store_batch_size, wait_blocks, lookback_blocks, blockhash_store_address, poll_period, run_timeout, evm_chain_id, from_addresses, created_at, updated_at)
 			VALUES (:coordinator_v1_address, :coordinator_v2_address, :coordinator_v2_plus_address, :trusted_blockhash_store_address, :trusted_blockhash_store_batch_size, :wait_blocks, :lookback_blocks, :blockhash_store_address, :poll_period, :run_timeout, :evm_chain_id, :from_addresses, NOW(), NOW())
@@ -386,6 +396,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			jb.BlockhashStoreSpecID = &specID
 		case BlockHeaderFeeder:
+			if jb.BlockHeaderFeederSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
 			var specID int32
 			sql := `INSERT INTO block_header_feeder_specs (coordinator_v1_address, coordinator_v2_address, coordinator_v2_plus_address, wait_blocks, lookback_blocks, blockhash_store_address, batch_blockhash_store_address, poll_period, run_timeout, evm_chain_id, from_addresses, get_blockhashes_batch_size, store_blockhashes_batch_size, created_at, updated_at)
 			VALUES (:coordinator_v1_address, :coordinator_v2_address, :coordinator_v2_plus_address, :wait_blocks, :lookback_blocks, :blockhash_store_address, :batch_blockhash_store_address, :poll_period, :run_timeout, :evm_chain_id, :from_addresses,  :get_blockhashes_batch_size, :store_blockhashes_batch_size, NOW(), NOW())
@@ -395,6 +408,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			jb.BlockHeaderFeederSpecID = &specID
 		case LegacyGasStationServer:
+			if jb.LegacyGasStationServerSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
 			var specID int32
 			sql := `INSERT INTO legacy_gas_station_server_specs (forwarder_address, evm_chain_id, ccip_chain_selector, from_addresses, created_at, updated_at)
 			VALUES (:forwarder_address, :evm_chain_id, :ccip_chain_selector, :from_addresses, NOW(), NOW())
@@ -404,6 +420,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			jb.LegacyGasStationServerSpecID = &specID
 		case LegacyGasStationSidecar:
+			if jb.LegacyGasStationSidecarSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
 			var specID int32
 			sql := `INSERT INTO legacy_gas_station_sidecar_specs (forwarder_address, off_ramp_address, lookback_blocks, poll_period, run_timeout, evm_chain_id, ccip_chain_selector, created_at, updated_at)
 			VALUES (:forwarder_address, :off_ramp_address, :lookback_blocks, :poll_period, :run_timeout, :evm_chain_id, :ccip_chain_selector, NOW(), NOW())
