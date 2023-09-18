@@ -4,7 +4,7 @@
 
 ...
 
-## 0.7.0 - UNRELEASED
+## 0.7.1 - UNRELEASED
 
 ### Changed
 
