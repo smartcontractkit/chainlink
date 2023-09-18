@@ -468,6 +468,7 @@ func (o *CCIPTestSetUpOutputs) DeployChainContracts(
 	chainClient blockchain.EVMClient,
 	noOfTokens int,
 	tokenDeployerFns []blockchain.ContractDeployer,
+	lggr zerolog.Logger,
 ) error {
 	var k8Env *environment.Environment
 	ccipEnv := o.Env
@@ -475,14 +476,14 @@ func (o *CCIPTestSetUpOutputs) DeployChainContracts(
 		k8Env = ccipEnv.K8Env
 	}
 	net := chainClient.GetNetworkConfig()
-	chain, err := blockchain.ConcurrentEVMClient(*net, k8Env, chainClient)
+	chain, err := blockchain.ConcurrentEVMClient(*net, k8Env, chainClient, lggr)
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to create chain client for %s: %v", net.Name, err))
 	}
 
 	chain.ParallelTransactions(true)
 
-	ccipCommon, err := actions.DefaultCCIPModule(chain, o.Cfg.ExistingDeployment)
+	ccipCommon, err := actions.DefaultCCIPModule(chain, o.Cfg.ExistingDeployment, lggr)
 	if err != nil {
 		return errors.WithStack(fmt.Errorf("failed to create ccip common module for %s: %v", net.Name, err))
 	}
@@ -525,11 +526,11 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	// on one lane will keep on waiting for transactions on other lane for the same network)
 	// Currently for simulated network clients(from same network) created with NewEVMClient does not sync nonce
 	// ConcurrentEVMClient is a work-around for that.
-	sourceChainClientA2B, err := blockchain.ConcurrentEVMClient(networkA, k8Env, chainClientA)
+	sourceChainClientA2B, err := blockchain.ConcurrentEVMClient(networkA, k8Env, chainClientA, lggr)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
 	sourceChainClientA2B.ParallelTransactions(true)
 
-	destChainClientA2B, err := blockchain.ConcurrentEVMClient(networkB, k8Env, chainClientB)
+	destChainClientA2B, err := blockchain.ConcurrentEVMClient(networkB, k8Env, chainClientB, lggr)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
 	destChainClientA2B.ParallelTransactions(true)
 
@@ -566,11 +567,11 @@ func (o *CCIPTestSetUpOutputs) AddLanesForNetworkPair(
 	var ccipLaneB2A *actions.CCIPLane
 
 	if bidirectional {
-		sourceChainClientB2A, err := blockchain.ConcurrentEVMClient(networkB, k8Env, destChainClientA2B)
+		sourceChainClientB2A, err := blockchain.ConcurrentEVMClient(networkB, k8Env, destChainClientA2B, lggr)
 		require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
 		sourceChainClientB2A.ParallelTransactions(true)
 
-		destChainClientB2A, err := blockchain.ConcurrentEVMClient(networkA, k8Env, sourceChainClientA2B)
+		destChainClientB2A, err := blockchain.ConcurrentEVMClient(networkA, k8Env, sourceChainClientA2B, lggr)
 		require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
 		destChainClientB2A.ParallelTransactions(true)
 
@@ -780,7 +781,7 @@ func CCIPDefaultTestSetUp(
 		}
 	} else {
 		for _, network := range inputs.AllNetworks {
-			ec, err := blockchain.NewEVMClient(network, k8Env)
+			ec, err := blockchain.NewEVMClient(network, k8Env, lggr)
 			require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
 			chains = append(chains, ec)
 			chainByChainID[network.ChainID] = ec
@@ -816,7 +817,7 @@ func CCIPDefaultTestSetUp(
 					return err
 				}
 			}
-			return ccipEnv.SetUpNodesAndKeys(ctx, inputs.NodeFunding, chains)
+			return ccipEnv.SetUpNodesAndKeys(ctx, inputs.NodeFunding, chains, lggr)
 		})
 	}
 	// deploy all chain specific common contracts
@@ -824,7 +825,7 @@ func CCIPDefaultTestSetUp(
 	for _, chain := range chainByChainID {
 		chain := chain
 		chainAddGrp.Go(func() error {
-			return setUpArgs.DeployChainContracts(chain, len(transferAmounts), tokenDeployerFns)
+			return setUpArgs.DeployChainContracts(chain, len(transferAmounts), tokenDeployerFns, lggr)
 		})
 	}
 	require.NoError(t, chainAddGrp.Wait(), "Deploying common contracts shouldn't fail")

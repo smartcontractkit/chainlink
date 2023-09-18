@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ocrConfigHelper2 "github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
@@ -43,10 +44,10 @@ type CCIPContractsDeployer struct {
 }
 
 // NewCCIPContractsDeployer returns an instance of a contract deployer for CCIP
-func NewCCIPContractsDeployer(bcClient blockchain.EVMClient) (*CCIPContractsDeployer, error) {
+func NewCCIPContractsDeployer(bcClient blockchain.EVMClient, logger zerolog.Logger) (*CCIPContractsDeployer, error) {
 	return &CCIPContractsDeployer{
 		evmClient:   bcClient,
-		EthDeployer: contracts.NewEthereumContractDeployer(bcClient),
+		EthDeployer: contracts.NewEthereumContractDeployer(bcClient, logger),
 	}, nil
 }
 

@@ -8,14 +8,14 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 )
 
 func TestLoadCCIPStableRPS(t *testing.T) {
 	t.Parallel()
-	lggr := utils.GetTestLogger(t)
+	lggr := logging.GetTestLogger(t)
 	testArgs := NewLoadArgs(t, lggr, context.Background())
 	testArgs.Setup(true)
 	// if the test runs on remote runner
@@ -32,7 +32,7 @@ func TestLoadCCIPStableRPS(t *testing.T) {
 
 func TestLoadCCIPSequentialLaneAdd(t *testing.T) {
 	t.Parallel()
-	lggr := utils.GetTestLogger(t)
+	lggr := logging.GetTestLogger(t)
 	testArgs := NewLoadArgs(t, lggr, context.Background())
 	testArgs.TestCfg.SequentialLaneAddition = true
 	if len(testArgs.TestCfg.NetworkPairs) <= 1 {
@@ -94,7 +94,7 @@ func TestLoadCCIPStableRequestTriggeringWithPodChaos(t *testing.T) {
 		in := in
 		t.Run(in.ChaosName, func(t *testing.T) {
 			t.Parallel()
-			lggr := utils.GetTestLogger(t)
+			lggr := logging.GetTestLogger(t)
 			testArgs := NewLoadArgs(t, lggr, context.Background(), in)
 			testArgs.TestCfg.TestDuration = 5 * time.Minute
 			testArgs.TestCfg.Load.TimeUnit = 1 * time.Second

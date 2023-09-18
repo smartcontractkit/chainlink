@@ -110,8 +110,8 @@ type CCIPCommon struct {
 	priceUpdateWatcher      map[string]*big.Int // key - token address; value - timestamp of update
 }
 
-func (ccipModule *CCIPCommon) Copy(chainClient blockchain.EVMClient) (*CCIPCommon, error) {
-	newCD, err := contracts.NewCCIPContractsDeployer(chainClient)
+func (ccipModule *CCIPCommon) Copy(chainClient blockchain.EVMClient, logger zerolog.Logger) (*CCIPCommon, error) {
+	newCD, err := contracts.NewCCIPContractsDeployer(chainClient, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -517,8 +517,8 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 	return nil
 }
 
-func DefaultCCIPModule(chainClient blockchain.EVMClient, existingDeployment bool) (*CCIPCommon, error) {
-	cd, err := contracts.NewCCIPContractsDeployer(chainClient)
+func DefaultCCIPModule(chainClient blockchain.EVMClient, existingDeployment bool, logger zerolog.Logger) (*CCIPCommon, error) {
+	cd, err := contracts.NewCCIPContractsDeployer(chainClient, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -910,8 +910,8 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 	return sendTx.Hash(), time.Since(timeNow), fee, nil
 }
 
-func DefaultSourceCCIPModule(chainClient blockchain.EVMClient, destChain uint64, transferAmount []*big.Int, ccipCommon *CCIPCommon) (*SourceCCIPModule, error) {
-	cmn, err := ccipCommon.Copy(chainClient)
+func DefaultSourceCCIPModule(chainClient blockchain.EVMClient, destChain uint64, transferAmount []*big.Int, ccipCommon *CCIPCommon, logger zerolog.Logger) (*SourceCCIPModule, error) {
+	cmn, err := ccipCommon.Copy(chainClient, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -1348,8 +1348,8 @@ func (destCCIP *DestCCIPModule) AssertSeqNumberExecuted(
 	}
 }
 
-func DefaultDestinationCCIPModule(chainClient blockchain.EVMClient, sourceChain uint64, ccipCommon *CCIPCommon) (*DestCCIPModule, error) {
-	cmn, err := ccipCommon.Copy(chainClient)
+func DefaultDestinationCCIPModule(chainClient blockchain.EVMClient, sourceChain uint64, ccipCommon *CCIPCommon, logger zerolog.Logger) (*DestCCIPModule, error) {
+	cmn, err := ccipCommon.Copy(chainClient, logger)
 	if err != nil {
 		return nil, err
 	}
@@ -1729,11 +1729,11 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		return errors.WithStack(fmt.Errorf("common contracts for destination chain %s not found", destChainClient.GetChainID().String()))
 	}
 
-	lane.Source, err = DefaultSourceCCIPModule(sourceChainClient, destChainClient.GetChainID().Uint64(), transferAmounts, sourceCommon)
+	lane.Source, err = DefaultSourceCCIPModule(sourceChainClient, destChainClient.GetChainID().Uint64(), transferAmounts, sourceCommon, lane.Logger)
 	if err != nil {
 		return errors.WithStack(err)
 	}
-	lane.Dest, err = DefaultDestinationCCIPModule(destChainClient, sourceChainClient.GetChainID().Uint64(), destCommon)
+	lane.Dest, err = DefaultDestinationCCIPModule(destChainClient, sourceChainClient.GetChainID().Uint64(), destCommon, lane.Logger)
 	if err != nil {
 		return errors.WithStack(err)
 	}
@@ -2151,6 +2151,7 @@ func (c *CCIPTestEnv) SetUpNodesAndKeys(
 	ctx context.Context,
 	nodeFund *big.Float,
 	chains []blockchain.EVMClient,
+	logger zerolog.Logger,
 ) error {
 	chainlinkNodes := make([]*client.ChainlinkClient, 0)
 	var err error
@@ -2207,7 +2208,7 @@ func (c *CCIPTestEnv) SetUpNodesAndKeys(
 			if cfg == nil {
 				return fmt.Errorf("blank network config")
 			}
-			c1, err := blockchain.ConcurrentEVMClient(*cfg, c.K8Env, ec)
+			c1, err := blockchain.ConcurrentEVMClient(*cfg, c.K8Env, ec, logger)
 			if err != nil {
 				return fmt.Errorf("getting concurrent evmclient chain %s %+v", ec.GetNetworkName(), err)
 			}
