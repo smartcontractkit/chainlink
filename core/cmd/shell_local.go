@@ -376,9 +376,6 @@ func (s *Shell) runNode(c *cli.Context) error {
 	legacyEVMChains := app.GetRelayers().LegacyEVMChains()
 
 	if s.Config.EVMEnabled() {
-		if err != nil {
-			return errors.Wrap(err, "error migrating keystore")
-		}
 		chainList, err := legacyEVMChains.List()
 		if err != nil {
 			return fmt.Errorf("error listing legacy evm chains: %w", err)
