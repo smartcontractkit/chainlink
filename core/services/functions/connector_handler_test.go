@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
@@ -36,7 +37,7 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 	require.NoError(t, err)
 	allowlist.On("Start", mock.Anything).Return(nil)
 	allowlist.On("Close", mock.Anything).Return(nil)
-	handler, err := functions.NewFunctionsConnectorHandler(addr.Hex(), privateKey, storage, allowlist, rateLimiter, subscriptions, 0.0, logger)
+	handler, err := functions.NewFunctionsConnectorHandler(addr.Hex(), privateKey, storage, allowlist, rateLimiter, subscriptions, *assets.NewLinkFromJuels(0), logger)
 	require.NoError(t, err)
 
 	handler.SetConnector(connector)

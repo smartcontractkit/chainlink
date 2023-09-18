@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -41,13 +42,13 @@ func newFunctionsHandlerForATestDON(t *testing.T, nodes []gc.TestNode, requestTi
 	don := handlers_mocks.NewDON(t)
 	allowlist := functions_mocks.NewOnchainAllowlist(t)
 	subscriptions := functions_mocks.NewOnchainSubscriptions(t)
-	minBalanceWei := big.NewInt(100)
+	minBalance := assets.NewLinkFromJuels(100)
 	userRateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
 	nodeRateLimiter, err := hc.NewRateLimiter(hc.RateLimiterConfig{GlobalRPS: 100.0, GlobalBurst: 100, PerSenderRPS: 100.0, PerSenderBurst: 100})
 	require.NoError(t, err)
 	pendingRequestsCache := hc.NewRequestCache[functions.PendingSecretsRequest](requestTimeout, 1000)
-	handler := functions.NewFunctionsHandler(cfg, donConfig, don, pendingRequestsCache, allowlist, subscriptions, minBalanceWei, userRateLimiter, nodeRateLimiter, logger.TestLogger(t))
+	handler := functions.NewFunctionsHandler(cfg, donConfig, don, pendingRequestsCache, allowlist, subscriptions, minBalance, userRateLimiter, nodeRateLimiter, logger.TestLogger(t))
 	return handler, don, allowlist, subscriptions
 }
 

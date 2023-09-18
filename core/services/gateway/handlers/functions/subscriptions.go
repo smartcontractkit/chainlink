@@ -33,7 +33,7 @@ type OnchainSubscriptionsConfig struct {
 type OnchainSubscriptions interface {
 	job.ServiceCtx
 
-	// GetMaxUserBalance returns a maximum subscription balance, or error if user has no subscriptions.
+	// GetMaxUserBalance returns a maximum subscription balance (juels), or error if user has no subscriptions.
 	GetMaxUserBalance(common.Address) (*big.Int, error)
 }
 

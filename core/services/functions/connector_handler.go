@@ -5,8 +5,8 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
-	"math/big"
 
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
@@ -29,7 +29,7 @@ type functionsConnectorHandler struct {
 	allowlist     functions.OnchainAllowlist
 	rateLimiter   *hc.RateLimiter
 	subscriptions functions.OnchainSubscriptions
-	minBalanceWei *big.Int
+	minBalance    assets.Link
 	lggr          logger.Logger
 }
 
@@ -38,12 +38,10 @@ var (
 	_ connector.GatewayConnectorHandler = &functionsConnectorHandler{}
 )
 
-func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist functions.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions functions.OnchainSubscriptions, minimumBalance float64, lggr logger.Logger) (*functionsConnectorHandler, error) {
+func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist functions.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions functions.OnchainSubscriptions, minBalance assets.Link, lggr logger.Logger) (*functionsConnectorHandler, error) {
 	if signerKey == nil || storage == nil || allowlist == nil || rateLimiter == nil || subscriptions == nil {
 		return nil, fmt.Errorf("signerKey, storage, allowlist, rateLimiter and subscriptions must be non-nil")
 	}
-	minBalanceWei := new(big.Int)
-	big.NewFloat(0).Mul(big.NewFloat(minimumBalance), big.NewFloat(1e18)).Int(minBalanceWei)
 	return &functionsConnectorHandler{
 		nodeAddress:   nodeAddress,
 		signerKey:     signerKey,
@@ -51,7 +49,7 @@ func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKe
 		allowlist:     allowlist,
 		rateLimiter:   rateLimiter,
 		subscriptions: subscriptions,
-		minBalanceWei: minBalanceWei,
+		minBalance:    minBalance,
 		lggr:          lggr.Named("FunctionsConnectorHandler"),
 	}, nil
 }
@@ -75,9 +73,8 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 		h.lggr.Errorw("request rate-limited", "id", gatewayId, "address", fromAddr)
 		return
 	}
-
-	if balance, err := h.subscriptions.GetMaxUserBalance(fromAddr); err != nil || balance.Cmp(h.minBalanceWei) < 0 {
-		h.lggr.Errorw("request is not backed with a funded subscription", "id", gatewayId, "address", fromAddr)
+	if balance, err := h.subscriptions.GetMaxUserBalance(fromAddr); err != nil || balance.Cmp(h.minBalance.ToInt()) < 0 {
+		h.lggr.Errorw("user subscription has insufficient balance", "id", gatewayId, "address", fromAddr, "balance", balance, "minBalance", h.minBalance)
 		return
 	}
 

@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"math/big"
+	"fmt"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -52,13 +53,12 @@ var (
 )
 
 type FunctionsHandlerConfig struct {
-	OnchainAllowlistChainID string `json:"onchainAllowlistChainId"`
+	ChainID string `json:"chainId"`
 	// Not specifying OnchainAllowlist config disables allowlist checks
-	OnchainAllowlist            *OnchainAllowlistConfig `json:"onchainAllowlist"`
-	OnchainSubscriptionsChainID string                  `json:"onchainSubscriptionsChainId"`
+	OnchainAllowlist *OnchainAllowlistConfig `json:"onchainAllowlist"`
 	// Not specifying OnchainSubscriptions config disables minimum balance checks
-	OnchainSubscriptions           *OnchainSubscriptionsConfig `json:"onchainSubscriptions"`
-	MinimumSubscriptionBalanceLink float64                     `json:"minimumSubscriptionBalanceLink"`
+	OnchainSubscriptions       *OnchainSubscriptionsConfig `json:"onchainSubscriptions"`
+	MinimumSubscriptionBalance *assets.Link                `json:"minimumSubscriptionBalance"`
 	// Not specifying RateLimiter config disables rate limiting
 	UserRateLimiter      *hc.RateLimiterConfig `json:"userRateLimiter"`
 	NodeRateLimiter      *hc.RateLimiterConfig `json:"nodeRateLimiter"`
@@ -69,17 +69,17 @@ type FunctionsHandlerConfig struct {
 type functionsHandler struct {
 	utils.StartStopOnce
 
-	handlerConfig     FunctionsHandlerConfig
-	donConfig         *config.DONConfig
-	don               handlers.DON
-	pendingRequests   hc.RequestCache[PendingSecretsRequest]
-	allowlist         OnchainAllowlist
-	subscriptions     OnchainSubscriptions
-	minimumBalanceWei *big.Int
-	userRateLimiter   *hc.RateLimiter
-	nodeRateLimiter   *hc.RateLimiter
-	chStop            utils.StopChan
-	lggr              logger.Logger
+	handlerConfig   FunctionsHandlerConfig
+	donConfig       *config.DONConfig
+	don             handlers.DON
+	pendingRequests hc.RequestCache[PendingSecretsRequest]
+	allowlist       OnchainAllowlist
+	subscriptions   OnchainSubscriptions
+	minimumBalance  *assets.Link
+	userRateLimiter *hc.RateLimiter
+	nodeRateLimiter *hc.RateLimiter
+	chStop          utils.StopChan
+	lggr            logger.Logger
 }
 
 type PendingSecretsRequest struct {
@@ -100,7 +100,7 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 	lggr = lggr.Named("FunctionsHandler:" + donConfig.DonId)
 	var allowlist OnchainAllowlist
 	if cfg.OnchainAllowlist != nil {
-		chain, err2 := legacyChains.Get(cfg.OnchainAllowlistChainID)
+		chain, err2 := legacyChains.Get(cfg.ChainID)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -124,7 +124,7 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 	}
 	var subscriptions OnchainSubscriptions
 	if cfg.OnchainSubscriptions != nil {
-		chain, err2 := legacyChains.Get(cfg.OnchainSubscriptionsChainID)
+		chain, err2 := legacyChains.Get(cfg.ChainID)
 		if err2 != nil {
 			return nil, err2
 		}
@@ -133,10 +133,8 @@ func NewFunctionsHandlerFromConfig(handlerConfig json.RawMessage, donConfig *con
 			return nil, err2
 		}
 	}
-	minimumBalanceWei := new(big.Int)
-	big.NewFloat(0).Mul(big.NewFloat(cfg.MinimumSubscriptionBalanceLink), big.NewFloat(1e18)).Int(minimumBalanceWei)
 	pendingRequestsCache := hc.NewRequestCache[PendingSecretsRequest](time.Millisecond*time.Duration(cfg.RequestTimeoutMillis), cfg.MaxPendingRequests)
-	return NewFunctionsHandler(cfg, donConfig, don, pendingRequestsCache, allowlist, subscriptions, minimumBalanceWei, userRateLimiter, nodeRateLimiter, lggr), nil
+	return NewFunctionsHandler(cfg, donConfig, don, pendingRequestsCache, allowlist, subscriptions, cfg.MinimumSubscriptionBalance, userRateLimiter, nodeRateLimiter, lggr), nil
 }
 
 func NewFunctionsHandler(
@@ -146,22 +144,22 @@ func NewFunctionsHandler(
 	pendingRequestsCache hc.RequestCache[PendingSecretsRequest],
 	allowlist OnchainAllowlist,
 	subscriptions OnchainSubscriptions,
-	minimumBalanceWei *big.Int,
+	minimumBalance *assets.Link,
 	userRateLimiter *hc.RateLimiter,
 	nodeRateLimiter *hc.RateLimiter,
 	lggr logger.Logger) handlers.Handler {
 	return &functionsHandler{
-		handlerConfig:     cfg,
-		donConfig:         donConfig,
-		don:               don,
-		pendingRequests:   pendingRequestsCache,
-		allowlist:         allowlist,
-		subscriptions:     subscriptions,
-		minimumBalanceWei: minimumBalanceWei,
-		userRateLimiter:   userRateLimiter,
-		nodeRateLimiter:   nodeRateLimiter,
-		chStop:            make(utils.StopChan),
-		lggr:              lggr,
+		handlerConfig:   cfg,
+		donConfig:       donConfig,
+		don:             don,
+		pendingRequests: pendingRequestsCache,
+		allowlist:       allowlist,
+		subscriptions:   subscriptions,
+		minimumBalance:  minimumBalance,
+		userRateLimiter: userRateLimiter,
+		nodeRateLimiter: nodeRateLimiter,
+		chStop:          make(utils.StopChan),
+		lggr:            lggr,
 	}
 }
 
@@ -177,10 +175,10 @@ func (h *functionsHandler) HandleUserMessage(ctx context.Context, msg *api.Messa
 		promHandlerError.WithLabelValues(h.donConfig.DonId, ErrRateLimited.Error()).Inc()
 		return ErrRateLimited
 	}
-	if h.subscriptions != nil {
-		if balance, err := h.subscriptions.GetMaxUserBalance(sender); err != nil || balance.Cmp(h.minimumBalanceWei) < 0 {
+	if h.subscriptions != nil && h.minimumBalance != nil {
+		if balance, err := h.subscriptions.GetMaxUserBalance(sender); err != nil || balance.Cmp(h.minimumBalance.ToInt()) < 0 {
 			h.lggr.Debug("received a message from a user having insufficient balance", "sender", msg.Body.Sender, "balance", balance.String())
-			return errors.New("sender has insufficient balance")
+			return fmt.Errorf("sender has insufficient balance: %v juels", balance.String())
 		}
 	}
 	switch msg.Body.Method {
