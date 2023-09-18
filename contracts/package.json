@@ -50,7 +50,7 @@
     "@types/debug": "^4.1.8",
     "@types/deep-equal-in-any-order": "^1.0.1",
     "@types/mocha": "^10.0.1",
-    "@types/node": "^15.12.2",
+    "@types/node": "^16.18.52",
     "@typescript-eslint/eslint-plugin": "^6.6.0",
     "@typescript-eslint/parser": "^6.6.0",
     "abi-to-sol": "^0.6.6",
