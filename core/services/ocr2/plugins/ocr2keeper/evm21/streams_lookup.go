@@ -458,14 +458,9 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 
 // multiFeedsRequest sends a Mercury v0.3 request for a multi-feed report
 func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryData, sl *StreamsLookup, lggr logger.Logger) {
-	// this won't work bc q.Encode() will encode commas as '%2C' but the server is strictly expecting a comma separated list
-	//q := url.Values{
-	//	feedIDs:   {strings.Join(sl.feeds, ",")},
-	//	timestamp: {sl.time.String()},
-	//}
 	params := fmt.Sprintf("%s=%s&%s=%s", feedIDs, strings.Join(sl.feeds, ","), timestamp, sl.time.String())
 	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV03, params)
-	lggr.Debugf("request URL for upkeep %s userId %s: %s", sl.upkeepId.String(), r.mercury.cred.Username, reqUrl)
+	lggr.Debugf("request URL for upkeep %s feedIDs %s: %s", sl.upkeepId.String(), strings.Join(sl.feeds, ","), reqUrl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
 	if err != nil {
