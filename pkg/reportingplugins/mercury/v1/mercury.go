@@ -300,7 +300,7 @@ func (rp *reportingPlugin) Report(repts types.ReportTimestamp, previousReport ty
 
 	rf, err := rp.buildReportFields(previousReport, paos)
 	if err != nil {
-		rp.logger.Debugw("failed to build report fields", "paos", paos, "f", rp.f, "reportFields", rf, "repts", repts)
+		rp.logger.Errorw("failed to build report fields", "paos", paos, "f", rp.f, "reportFields", rf, "repts", repts, "err", err)
 		return false, nil, err
 	}
 
@@ -310,7 +310,7 @@ func (rp *reportingPlugin) Report(repts types.ReportTimestamp, previousReport ty
 	}
 
 	if err = rp.validateReport(rf); err != nil {
-		rp.logger.Debugw("shouldReport: no (validation error)", "err", err, "timestamp", repts)
+		rp.logger.Errorw("shouldReport: no (validation error)", "reportFields", rf, "err", err, "repts", repts, "paos", paos)
 		return false, nil, err
 	}
 	rp.logger.Debugw("shouldReport: yes",
