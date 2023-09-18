@@ -10,4 +10,6 @@ type Checkable interface {
 	// HealthReport returns a full health report of the callee including it's dependencies.
 	// key is the dep name, value is nil if healthy, or error message otherwise.
 	HealthReport() map[string]error
+	// Name returns the fully qualified name of the component. Usually the logger name.
+	Name() string
 }
