@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -170,10 +171,11 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 		if nonDevNetworks == nil {
 			return nil, errors.New("cannot create nodes with custom config without nonDevNetworks")
 		}
-
-		err = te.StartClNodes(b.clNodeConfig, b.clNodesCount)
-		if err != nil {
-			return nil, err
+		if b.clNodesCount > 0 {
+			err = te.StartClNodes(b.clNodeConfig, b.clNodesCount)
+			if err != nil {
+				return nil, err
+			}
 		}
 		return te, nil
 	}
