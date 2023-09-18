@@ -619,7 +619,7 @@ func (ta *TestApplication) NewHTTPClient(user *User) HTTPClientCleaner {
 	ta.t.Helper()
 
 	if user.Email == "" {
-		user.Email = fmt.Sprintf("%s@chainlink.test", uuid.New().String())
+		user.Email = fmt.Sprintf("%s@chainlink.test", uuid.New())
 	}
 
 	if user.Role == "" {

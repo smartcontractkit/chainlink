@@ -60,7 +60,7 @@ func TestUserController_UpdatePassword(t *testing.T) {
 			reqBody:        fmt.Sprintf(`{"newPassword": "%slonglonglonglong", "oldPassword": "%s"}`, u.Email, cltest.Password),
 			wantStatusCode: http.StatusUnprocessableEntity,
 			wantErrCount:   1,
-			wantErrMessage: fmt.Sprintf("%s	%s%s\n", utils.ErrMsgHeader, "password may not contain: ", fmt.Sprintf("\"%s\"", u.Email)),
+			wantErrMessage: fmt.Sprintf("%s	%s%s\n", utils.ErrMsgHeader, "password may not contain: ", fmt.Sprintf(`"%s"`, u.Email)),
 		},
 		{
 			name:           "Success",
