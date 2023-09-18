@@ -215,7 +215,7 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 					"to":   r.addr.Hex(),
 					"data": hexutil.Bytes(payload),
 				},
-				hexutil.EncodeBig(opts.BlockNumber),
+				opts.BlockNumber,
 			},
 			Result: &result,
 		})
