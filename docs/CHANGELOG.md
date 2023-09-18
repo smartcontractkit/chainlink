@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+### Added
+
+- Temporary helper function for proper migration of evmChainID not null in specs, that fills in missing chainIDs. This needs to be removed after one version after everyone migrated properly. For proper migrations all nodes must upgrade sequentially without skipping this version.
+
 ### Removed
 
 - Removed support for sending telemetry to the deprecated Explorer service. All nodes will have to remove `Explorer` related keys from TOML configuration and env vars. 
