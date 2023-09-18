@@ -134,9 +134,15 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	initGlobals(cfg.Prometheus())
 
 	// TODO TO BE REMOVED IN v2.7.0
-	err = evmChainIDMigration(cfg, db.DB)
+	migrationVer, err := migrate.Current(db.DB, appLggr)
 	if err != nil {
 		return nil, err
+	}
+	if migrationVer == 194 {
+		err = evmChainIDMigration(cfg, db.DB)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
