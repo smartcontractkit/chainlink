@@ -14,6 +14,7 @@ contract FunctionsClientTestHelper is FunctionsClient {
   event FulfillRequestInvoked(bytes32 requestId, bytes response, bytes err);
 
   bool private s_revertFulfillRequest;
+  string private s_revertFulfillRequestMessage = "asked to revert";
   bool private s_doInvalidOperation;
   bool private s_doInvalidReentrantOperation;
   bool private s_doValidReentrantOperation;
@@ -22,6 +23,24 @@ contract FunctionsClientTestHelper is FunctionsClient {
   bytes32 private s_donId;
 
   constructor(address router) FunctionsClient(router) {}
+
+  function sendRequest(
+    bytes32 donId,
+    string calldata source,
+    bytes calldata secrets,
+    string[] calldata args,
+    bytes[] memory bytesArgs,
+    uint64 subscriptionId,
+    uint32 callbackGasLimit
+  ) public returns (bytes32 requestId) {
+    FunctionsRequest.Request memory req;
+    req.initializeRequestForInlineJavaScript(source);
+    if (secrets.length > 0) req.addSecretsReference(secrets);
+    if (args.length > 0) req.setArgs(args);
+    if (bytesArgs.length > 0) req.setBytesArgs(bytesArgs);
+
+    return _sendRequest(FunctionsRequest.encodeCBOR(req), subscriptionId, callbackGasLimit, donId);
+  }
 
   function sendSimpleRequestWithJavaScript(
     string memory sourceCode,
@@ -68,7 +87,7 @@ contract FunctionsClientTestHelper is FunctionsClient {
 
   function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
     if (s_revertFulfillRequest) {
-      revert("asked to revert");
+      revert(s_revertFulfillRequestMessage);
     }
     if (s_doInvalidOperation) {
       uint256 x = 1;
@@ -86,6 +105,10 @@ contract FunctionsClientTestHelper is FunctionsClient {
 
   function setRevertFulfillRequest(bool on) external {
     s_revertFulfillRequest = on;
+  }
+
+  function setRevertFulfillRequestMessage(string memory message) external {
+    s_revertFulfillRequestMessage = message;
   }
 
   function setDoInvalidOperation(bool on) external {

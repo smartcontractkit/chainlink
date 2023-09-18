@@ -212,7 +212,7 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     FunctionsResponse.Commitment commitment;
   }
 
-  mapping(uint256 => Request) s_requests;
+  mapping(uint256 requestNumber => Request) s_requests;
 
   uint96 s_fulfillmentRouterOwnerBalance = 0;
   uint96 s_fulfillmentCoordinatorBalance = 0;
@@ -244,13 +244,15 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
   /// @param args - String arguments that will be passed into the source code
   /// @param bytesArgs - Bytes arguments that will be passed into the source code
   /// @param callbackGasLimit - Gas limit for the fulfillment callback
+  /// @param client - The consumer contract to send the request from
   function _sendAndStoreRequest(
     uint256 requestNumberKey,
     string memory sourceCode,
     bytes memory secrets,
     string[] memory args,
     bytes[] memory bytesArgs,
-    uint32 callbackGasLimit
+    uint32 callbackGasLimit,
+    address client
   ) internal {
     if (s_requests[requestNumberKey].requestId != bytes32(0)) {
       revert("Request already written");
@@ -258,7 +260,7 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
 
     vm.recordLogs();
 
-    bytes32 requestId = s_functionsClient.sendRequest(
+    bytes32 requestId = FunctionsClientUpgradeHelper(client).sendRequest(
       s_donId,
       sourceCode,
       secrets,
@@ -288,11 +290,32 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
   }
 
   /// @notice Send a request and store information about it in s_requests
-  /// @param requestNumberKeys - One or more requestNumberKeys that were used to store the request in `s_requests` of the requests, that will be added to the report
-  /// @param results - The result that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
-  /// @param errors - The error that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
-  /// @return report - Report bytes data
-  /// @return reportContext - Report context bytes32 data
+  /// @param requestNumberKey - the key that the request will be stored in `s_requests` in
+  /// @param sourceCode - Raw source code for Request.codeLocation of Location.Inline, URL for Request.codeLocation of Location.Remote, or slot decimal number for Request.codeLocation of Location.DONHosted
+  /// @param secrets - Encrypted URLs for Request.secretsLocation of Location.Remote (use addSecretsReference()), or CBOR encoded slotid+version for Request.secretsLocation of Location.DONHosted (use addDONHostedSecrets())
+  /// @param args - String arguments that will be passed into the source code
+  /// @param bytesArgs - Bytes arguments that will be passed into the source code
+  /// @param callbackGasLimit - Gas limit for the fulfillment callback
+  /// @dev @param client - The consumer contract to send the request from (overloaded to fill client with s_functionsClient)
+  function _sendAndStoreRequest(
+    uint256 requestNumberKey,
+    string memory sourceCode,
+    bytes memory secrets,
+    string[] memory args,
+    bytes[] memory bytesArgs,
+    uint32 callbackGasLimit
+  ) internal {
+    _sendAndStoreRequest(
+      requestNumberKey,
+      sourceCode,
+      secrets,
+      args,
+      bytesArgs,
+      callbackGasLimit,
+      address(s_functionsClient)
+    );
+  }
+
   function _buildReport(
     uint256[] memory requestNumberKeys,
     string[] memory results,
