@@ -13,7 +13,6 @@ import {FunctionsClientTestHelper} from "./testhelpers/FunctionsClientTestHelper
 import {FunctionsRouterSetup, FunctionsRoutesSetup, FunctionsSubscriptionSetup, FunctionsClientRequestSetup} from "./Setup.t.sol";
 
 import "forge-std/Vm.sol";
-import "forge-std/console.sol";
 
 // ================================================================
 // |                        Functions Router                      |

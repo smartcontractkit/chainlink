@@ -21,6 +21,5 @@ contract BaseTest is Test {
     s_baseTestInitialized = true;
     // Set msg.sender to OWNER until stopPrank is called
     vm.startPrank(OWNER_ADDRESS, OWNER_ADDRESS);
-    vm.txGasPrice(TX_GASPRICE_START);
   }
 }
