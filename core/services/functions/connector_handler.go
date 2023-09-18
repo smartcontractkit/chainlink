@@ -22,15 +22,15 @@ import (
 type functionsConnectorHandler struct {
 	utils.StartStopOnce
 
-	connector                  connector.GatewayConnector
-	signerKey                  *ecdsa.PrivateKey
-	nodeAddress                string
-	storage                    s4.Storage
-	allowlist                  functions.OnchainAllowlist
-	rateLimiter                *hc.RateLimiter
-	subscriptions              functions.OnchainSubscriptions
-	minimumSubscriptionBalance assets.Link
-	lggr                       logger.Logger
+	connector      connector.GatewayConnector
+	signerKey      *ecdsa.PrivateKey
+	nodeAddress    string
+	storage        s4.Storage
+	allowlist      functions.OnchainAllowlist
+	rateLimiter    *hc.RateLimiter
+	subscriptions  functions.OnchainSubscriptions
+	minimumBalance assets.Link
+	lggr           logger.Logger
 }
 
 var (
@@ -38,19 +38,19 @@ var (
 	_ connector.GatewayConnectorHandler = &functionsConnectorHandler{}
 )
 
-func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist functions.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions functions.OnchainSubscriptions, minimumSubscriptionBalance assets.Link, lggr logger.Logger) (*functionsConnectorHandler, error) {
+func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist functions.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions functions.OnchainSubscriptions, minimumBalance assets.Link, lggr logger.Logger) (*functionsConnectorHandler, error) {
 	if signerKey == nil || storage == nil || allowlist == nil || rateLimiter == nil || subscriptions == nil {
 		return nil, fmt.Errorf("signerKey, storage, allowlist, rateLimiter and subscriptions must be non-nil")
 	}
 	return &functionsConnectorHandler{
-		nodeAddress:                nodeAddress,
-		signerKey:                  signerKey,
-		storage:                    storage,
-		allowlist:                  allowlist,
-		rateLimiter:                rateLimiter,
-		subscriptions:              subscriptions,
-		minimumSubscriptionBalance: minimumSubscriptionBalance,
-		lggr:                       lggr.Named("FunctionsConnectorHandler"),
+		nodeAddress:    nodeAddress,
+		signerKey:      signerKey,
+		storage:        storage,
+		allowlist:      allowlist,
+		rateLimiter:    rateLimiter,
+		subscriptions:  subscriptions,
+		minimumBalance: minimumBalance,
+		lggr:           lggr.Named("FunctionsConnectorHandler"),
 	}, nil
 }
 
@@ -73,8 +73,8 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 		h.lggr.Errorw("request rate-limited", "id", gatewayId, "address", fromAddr)
 		return
 	}
-	if balance, err := h.subscriptions.GetMaxUserBalance(fromAddr); err != nil || balance.Cmp(h.minimumSubscriptionBalance.ToInt()) < 0 {
-		h.lggr.Errorw("user subscription has insufficient balance", "id", gatewayId, "address", fromAddr, "balance", balance, "minBalance", h.minimumSubscriptionBalance)
+	if balance, err := h.subscriptions.GetMaxUserBalance(fromAddr); err != nil || balance.Cmp(h.minimumBalance.ToInt()) < 0 {
+		h.lggr.Errorw("user subscription has insufficient balance", "id", gatewayId, "address", fromAddr, "balance", balance, "minBalance", h.minimumBalance)
 		return
 	}
 
