@@ -166,7 +166,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		jb.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize,
 		int(jb.BlockhashStoreSpec.WaitBlocks),
 		int(jb.BlockhashStoreSpec.LookbackBlocks),
-		int(60),
+		int(jb.BlockhashStoreSpec.HeartbeatPeriodTime),
 		func(ctx context.Context) (uint64, error) {
 			head, err := lp.LatestBlock(pg.WithParentCtx(ctx))
 			if err != nil {
