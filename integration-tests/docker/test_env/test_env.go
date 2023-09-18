@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -101,17 +102,18 @@ func (te *CLClusterTestEnv) WithPrivateChain(evmNetworks []blockchain.EVMNetwork
 	var chains []test_env.PrivateChain
 	for _, evmNetwork := range evmNetworks {
 		n := evmNetwork
-		pgc := test_env.NewPrivateGethChain(&n, []string{te.Network.Name})
-		if te.t != nil {
-			pgc.GetPrimaryNode().WithTestLogger(te.t)
-		}
-		chains = append(chains, pgc)
 		var privateChain test_env.PrivateChain
 		switch n.SimulationType {
 		case "besu":
 			privateChain = test_env.NewPrivateBesuChain(&n, []string{te.Network.Name})
+			if te.t != nil {
+				privateChain.GetPrimaryNode().WithTestLogger(te.t)
+			}
 		default:
 			privateChain = test_env.NewPrivateGethChain(&n, []string{te.Network.Name})
+			if te.t != nil {
+				privateChain.GetPrimaryNode().WithTestLogger(te.t)
+			}
 		}
 		chains = append(chains, privateChain)
 	}
