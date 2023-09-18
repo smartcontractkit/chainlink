@@ -180,33 +180,6 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	require.Len(t, activeSubIdsOldCoordinatorBeforeMigration, 1, "Active Sub Ids length is not equal to 1")
 	require.Equal(t, subID, activeSubIdsOldCoordinatorBeforeMigration[0])
 
-	////create sub to isolate test from other tests
-	//subID, err = vrfv2plus.CreateSubAndFindSubID(env, vrfv2PlusContracts.Coordinator)
-	//require.NoError(t, err)
-	//
-	////fund sub
-	//err = vrfv2plus.FundSubscription(env, linkAddress, vrfv2PlusContracts.Coordinator, subID)
-	//require.NoError(t, err)
-	//
-	////deploy consumers
-	//consumersForMigration, err := vrfv2plus.DeployConsumers(env.ContractDeployer, vrfv2PlusContracts.Coordinator, 2)
-	//require.NoError(t, err)
-	//
-	////add consumers to sub
-	//for _, consumer := range consumersForMigration {
-	//	err := vrfv2PlusContracts.Coordinator.AddConsumer(subID, consumer.Address())
-	//	require.NoError(t, err, vrfv2plus.ErrAddConsumerToSub)
-	//	err = env.EVMClient.WaitForEvents()
-	//	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
-	//	coordinatorAddressInConsumer, err := consumer.GetCoordinator(context.Background())
-	//	require.NoError(t, err, "error getting Coordinator from Consumer contract")
-	//	require.Equal(t, vrfv2PlusContracts.Coordinator.Address(), coordinatorAddressInConsumer.String())
-	//	l.Debug().
-	//		Interface("Consumer", consumer.Address()).
-	//		Interface("Coordinator", coordinatorAddressInConsumer.String()).
-	//		Msg("Coordinator Address in Consumer Before Migration")
-	//}
-
 	oldSubscriptionBeforeMigration, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
 	require.NoError(t, err, "error getting subscription information")
 
