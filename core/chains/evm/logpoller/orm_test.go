@@ -563,6 +563,21 @@ func TestORM_DataWords(t *testing.T) {
 	lgs, err = o1.SelectDataWordGreaterThan(addr, eventSig, 0, logpoller.EvmWord(1), 0)
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(lgs))
+
+	// Unknown hash should an error
+	lgs, err = o1.SelectUntilBlockHashDataWordGreaterThan(addr, eventSig, 0, logpoller.EvmWord(1), common.HexToHash("0x3"))
+	require.Error(t, err)
+	assert.Equal(t, 0, len(lgs))
+
+	// 1 block should include first log
+	lgs, err = o1.SelectUntilBlockHashDataWordGreaterThan(addr, eventSig, 0, logpoller.EvmWord(1), common.HexToHash("0x1"))
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(lgs))
+
+	// 2 block should include both
+	lgs, err = o1.SelectUntilBlockHashDataWordGreaterThan(addr, eventSig, 0, logpoller.EvmWord(1), common.HexToHash("0x2"))
+	require.NoError(t, err)
+	assert.Equal(t, 2, len(lgs))
 }
 
 func TestORM_SelectLogsWithSigsByBlockRangeFilter(t *testing.T) {
