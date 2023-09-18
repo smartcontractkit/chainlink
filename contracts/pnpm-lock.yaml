@@ -44,17 +44,17 @@ devDependencies:
     specifier: ^1.0.8
     version: 1.0.8(hardhat@2.12.7)
   '@nomiclabs/hardhat-ethers':
-    specifier: ^2.0.2
-    version: 2.0.2(ethers@5.6.1)(hardhat@2.12.7)
+    specifier: ^2.2.3
+    version: 2.2.3(ethers@5.6.1)(hardhat@2.12.7)
   '@nomiclabs/hardhat-etherscan':
     specifier: ^3.1.0
     version: 3.1.0(hardhat@2.12.7)
   '@nomiclabs/hardhat-waffle':
     specifier: ^2.0.1
-    version: 2.0.1(@nomiclabs/hardhat-ethers@2.0.2)(ethereum-waffle@3.3.0)(ethers@5.6.1)(hardhat@2.12.7)
+    version: 2.0.1(@nomiclabs/hardhat-ethers@2.2.3)(ethereum-waffle@3.3.0)(ethers@5.6.1)(hardhat@2.12.7)
   '@openzeppelin/hardhat-upgrades':
     specifier: 1.22.1
-    version: 1.22.1(@nomiclabs/hardhat-ethers@2.0.2)(@nomiclabs/hardhat-etherscan@3.1.0)(ethers@5.6.1)(hardhat@2.12.7)
+    version: 1.22.1(@nomiclabs/hardhat-ethers@2.2.3)(@nomiclabs/hardhat-etherscan@3.1.0)(ethers@5.6.1)(hardhat@2.12.7)
   '@openzeppelin/test-helpers':
     specifier: ^0.5.11
     version: 0.5.11(bn.js@4.12.0)
@@ -1325,8 +1325,8 @@ packages:
       '@nomicfoundation/solidity-analyzer-win32-x64-msvc': 0.1.0
     dev: true
 
-  /@nomiclabs/hardhat-ethers@2.0.2(ethers@5.6.1)(hardhat@2.12.7):
-    resolution: {integrity: sha512-6quxWe8wwS4X5v3Au8q1jOvXYEPkS1Fh+cME5u6AwNdnI4uERvPlVjlgRWzpnb+Rrt1l/cEqiNRH9GlsBMSDQg==}
+  /@nomiclabs/hardhat-ethers@2.2.3(ethers@5.6.1)(hardhat@2.12.7):
+    resolution: {integrity: sha512-YhzPdzb612X591FOe68q+qXVXGG2ANZRvDo0RRUtimev85rCrAlv/TLMEZw5c+kq9AbzocLTVX/h2jVIFPL9Xg==}
     peerDependencies:
       ethers: ^5.0.0
       hardhat: ^2.0.0
@@ -1355,7 +1355,7 @@ packages:
       - supports-color
     dev: true
 
-  /@nomiclabs/hardhat-waffle@2.0.1(@nomiclabs/hardhat-ethers@2.0.2)(ethereum-waffle@3.3.0)(ethers@5.6.1)(hardhat@2.12.7):
+  /@nomiclabs/hardhat-waffle@2.0.1(@nomiclabs/hardhat-ethers@2.2.3)(ethereum-waffle@3.3.0)(ethers@5.6.1)(hardhat@2.12.7):
     resolution: {integrity: sha512-2YR2V5zTiztSH9n8BYWgtv3Q+EL0N5Ltm1PAr5z20uAY4SkkfylJ98CIqt18XFvxTD5x4K2wKBzddjV9ViDAZQ==}
     peerDependencies:
       '@nomiclabs/hardhat-ethers': ^2.0.0
@@ -1363,7 +1363,7 @@ packages:
       ethers: ^5.0.0
       hardhat: ^2.0.0
     dependencies:
-      '@nomiclabs/hardhat-ethers': 2.0.2(ethers@5.6.1)(hardhat@2.12.7)
+      '@nomiclabs/hardhat-ethers': 2.2.3(ethers@5.6.1)(hardhat@2.12.7)
       '@types/sinon-chai': 3.2.8
       '@types/web3': 1.0.19
       ethereum-waffle: 3.3.0(typescript@4.9.5)
@@ -1390,7 +1390,7 @@ packages:
     resolution: {integrity: sha512-tDBopO1c98Yk7Cv/PZlHqrvtVjlgK5R4J6jxLwoO7qxK4xqOiZG+zSkIvGFpPZ0ikc3QOED3plgdqjgNTnBc7g==}
     dev: false
 
-  /@openzeppelin/hardhat-upgrades@1.22.1(@nomiclabs/hardhat-ethers@2.0.2)(@nomiclabs/hardhat-etherscan@3.1.0)(ethers@5.6.1)(hardhat@2.12.7):
+  /@openzeppelin/hardhat-upgrades@1.22.1(@nomiclabs/hardhat-ethers@2.2.3)(@nomiclabs/hardhat-etherscan@3.1.0)(ethers@5.6.1)(hardhat@2.12.7):
     resolution: {integrity: sha512-MdoitCTLl4zwMU8MeE/bCj+7JMWBEvd38XqJkw36PkJrXlbv6FedDVCPoumMAhpmtymm0nTwTYYklYG+L6WiiQ==}
     hasBin: true
     peerDependencies:
@@ -1403,7 +1403,7 @@ packages:
       '@nomiclabs/harhdat-etherscan':
         optional: true
     dependencies:
-      '@nomiclabs/hardhat-ethers': 2.0.2(ethers@5.6.1)(hardhat@2.12.7)
+      '@nomiclabs/hardhat-ethers': 2.2.3(ethers@5.6.1)(hardhat@2.12.7)
       '@nomiclabs/hardhat-etherscan': 3.1.0(hardhat@2.12.7)
       '@openzeppelin/upgrades-core': 1.22.0
       chalk: 4.1.2
