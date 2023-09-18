@@ -68,17 +68,17 @@ devDependencies:
     specifier: 5.0.1
     version: 5.0.1
   '@types/chai':
-    specifier: ^4.2.18
-    version: 4.3.3
+    specifier: ^4.3.6
+    version: 4.3.6
   '@types/debug':
-    specifier: ^4.1.7
-    version: 4.1.7
+    specifier: ^4.1.8
+    version: 4.1.8
   '@types/deep-equal-in-any-order':
     specifier: ^1.0.1
     version: 1.0.1
   '@types/mocha':
-    specifier: ^8.2.2
-    version: 8.2.2
+    specifier: ^10.0.1
+    version: 10.0.1
   '@types/node':
     specifier: ^15.12.2
     version: 15.14.9
@@ -92,10 +92,10 @@ devDependencies:
     specifier: ^0.6.6
     version: 0.6.6
   chai:
-    specifier: ^4.3.4
-    version: 4.3.6
+    specifier: ^4.3.8
+    version: 4.3.8
   debug:
-    specifier: ^4.3.2
+    specifier: ^4.3.4
     version: 4.3.4(supports-color@8.1.1)
   deep-equal-in-any-order:
     specifier: ^2.0.6
@@ -334,7 +334,7 @@ packages:
       '@ethersproject/transactions': 5.7.0
       '@ethersproject/web': 5.7.1
       bufio: 1.0.7
-      chai: 4.3.6
+      chai: 4.3.8
     transitivePeerDependencies:
       - bufferutil
       - utf-8-validate
@@ -1444,8 +1444,8 @@ packages:
       '@openzeppelin/contract-loader': 0.6.3
       '@truffle/contract': 4.6.2
       ansi-colors: 3.2.4
-      chai: 4.3.6
-      chai-bn: 0.2.2(bn.js@4.12.0)(chai@4.3.6)
+      chai: 4.3.8
+      chai-bn: 0.2.2(bn.js@4.12.0)(chai@4.3.8)
       ethjs-abi: 0.2.1
       lodash.flatten: 4.4.0
       semver: 5.7.1
@@ -1853,8 +1853,8 @@ packages:
       '@types/node': 15.14.9
     dev: true
 
-  /@types/chai@4.3.3:
-    resolution: {integrity: sha512-hC7OMnszpxhZPduX+m+nrx+uFoLkWOMiR4oa/AZF3MuSETYTZmFfJAHqZEM8MVlvfG7BEUcgvtwoCTxBp6hm3g==}
+  /@types/chai@4.3.6:
+    resolution: {integrity: sha512-VOVRLM1mBxIRxydiViqPcKn6MIxZytrbMpd6RJLIWKxUNr3zux8no0Oc7kJx0WAPIitgZ0gkrDS+btlqQpubpw==}
     dev: true
 
   /@types/concat-stream@1.6.1:
@@ -1863,8 +1863,8 @@ packages:
       '@types/node': 15.14.9
     dev: true
 
-  /@types/debug@4.1.7:
-    resolution: {integrity: sha512-9AonUzyTjXXhEOa0DnqpzZi6VHlqKMswga9EXjpXnnqxwLtdvPPtlO8evrI5D9S6asFRCQ6v+wpiUKbw+vKqyg==}
+  /@types/debug@4.1.8:
+    resolution: {integrity: sha512-/vPO1EPOs306Cvhwv7KfVfYvOJqA/S/AXjaHQiJboCZzcNDb+TIJFN9/2C9DZ//ijSKWioNyUxD792QmDJ+HKQ==}
     dependencies:
       '@types/ms': 0.7.31
     dev: true
@@ -1919,8 +1919,8 @@ packages:
       '@types/node': 15.14.9
     dev: true
 
-  /@types/mocha@8.2.2:
-    resolution: {integrity: sha512-Lwh0lzzqT5Pqh6z61P3c3P5nm6fzQK/MMHl9UKeneAeInVflBSz1O2EkX6gM6xfJd7FBXBY5purtLx7fUiZ7Hw==}
+  /@types/mocha@10.0.1:
+    resolution: {integrity: sha512-/fvYntiO1GeICvqbQ3doGDIP97vWmvFt83GKguJ6prmQM2iXZfFcq6YE8KteFyRtX2/h5Hf91BYvPodJKFYv5Q==}
     dev: true
 
   /@types/ms@0.7.31:
@@ -1989,7 +1989,7 @@ packages:
   /@types/sinon-chai@3.2.8:
     resolution: {integrity: sha512-d4ImIQbT/rKMG8+AXpmcan5T2/PNeSjrYhvkwet6z0p8kzYtfgA32xzOBlbU0yqJfq+/0Ml805iFoODO0LP5/g==}
     dependencies:
-      '@types/chai': 4.3.3
+      '@types/chai': 4.3.6
       '@types/sinon': 10.0.13
     dev: true
 
@@ -3596,23 +3596,23 @@ packages:
       nofilter: 3.1.0
     dev: true
 
-  /chai-bn@0.2.2(bn.js@4.12.0)(chai@4.3.6):
+  /chai-bn@0.2.2(bn.js@4.12.0)(chai@4.3.8):
     resolution: {integrity: sha512-MzjelH0p8vWn65QKmEq/DLBG1Hle4WeyqT79ANhXZhn/UxRWO0OogkAxi5oGGtfzwU9bZR8mvbvYdoqNVWQwFg==}
     peerDependencies:
       bn.js: ^4.11.0
       chai: ^4.0.0
     dependencies:
       bn.js: 4.12.0
-      chai: 4.3.6
+      chai: 4.3.8
     dev: true
 
-  /chai@4.3.6:
-    resolution: {integrity: sha512-bbcp3YfHCUzMOvKqsztczerVgBKSsEijCySNlHHbX3VG1nskvqjz5Rfso1gGwD6w6oOV3eI60pKuMOV5MV7p3Q==}
+  /chai@4.3.8:
+    resolution: {integrity: sha512-vX4YvVVtxlfSZ2VecZgFUTU5qPCYsobVI2O9FmwEXBhDigYGQA6jRXCycIs1yJnnWbZ6/+a2zNIF5DfVCcJBFQ==}
     engines: {node: '>=4'}
     dependencies:
       assertion-error: 1.1.0
       check-error: 1.0.2
-      deep-eql: 3.0.1
+      deep-eql: 4.1.3
       get-func-name: 2.0.0
       loupe: 2.3.4
       pathval: 1.1.1
@@ -4279,9 +4279,9 @@ packages:
       mimic-response: 3.1.0
     dev: true
 
-  /deep-eql@3.0.1:
-    resolution: {integrity: sha512-+QeIQyN5ZuO+3Uk5DYh6/1eKO0m0YmJFGNmFHGACpf1ClL1nmlV/p4gNgbl2pJGxgXb4faqo6UE+M5ACEMyVcw==}
-    engines: {node: '>=0.12'}
+  /deep-eql@4.1.3:
+    resolution: {integrity: sha512-WaEtAOpRA1MQ0eohqZjpGD8zdI0Ovsm8mmFhaDN8dvDZzyoUMcYDnf5Y6iu7HTXxf8JDS23qWa4a+hKCDyOPzw==}
+    engines: {node: '>=6'}
     dependencies:
       type-detect: 4.0.8
 
