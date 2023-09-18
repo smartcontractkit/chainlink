@@ -3,7 +3,6 @@ package smoke
 import (
 	"context"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"math/big"
 	"testing"
 	"time"
@@ -162,7 +161,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	linkAddress, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	vrfv2PlusContracts, subID, vrfv2PlusData, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress, 1)
+	vrfv2PlusContracts, subID, vrfv2PlusData, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress, 2)
 	require.NoError(t, err, "error setting up VRF v2 Plus env")
 
 	subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
@@ -176,32 +175,37 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		Interface("Subscription Consumers", subscription.Consumers).
 		Msg("Subscription Data")
 
-	//create sub to isolate test from other tests
-	subID, err = vrfv2plus.CreateSubAndFindSubID(env, vrfv2PlusContracts.Coordinator)
-	require.NoError(t, err)
+	activeSubIdsOldCoordinatorBeforeMigration, err := vrfv2PlusContracts.Coordinator.GetActiveSubscriptionIds(context.Background(), big.NewInt(0), big.NewInt(0))
+	require.NoError(t, err, "error occurred getting active sub ids")
+	require.Len(t, activeSubIdsOldCoordinatorBeforeMigration, 1, "Active Sub Ids length is not equal to 1")
+	require.Equal(t, subID, activeSubIdsOldCoordinatorBeforeMigration[0])
 
-	//fund sub
-	err = vrfv2plus.FundSubscription(env, linkAddress, vrfv2PlusContracts.Coordinator, subID)
-	require.NoError(t, err)
-
-	//deploy consumers
-	consumersForMigration, err := vrfv2plus.DeployConsumers(env.ContractDeployer, vrfv2PlusContracts.Coordinator, 2)
-	require.NoError(t, err)
-
-	//add consumers to sub
-	for _, consumer := range consumersForMigration {
-		err := vrfv2PlusContracts.Coordinator.AddConsumer(subID, consumer.Address())
-		require.NoError(t, err, vrfv2plus.ErrAddConsumerToSub)
-		err = env.EVMClient.WaitForEvents()
-		require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
-		coordinatorAddressInConsumer, err := consumer.GetCoordinator(context.Background())
-		require.NoError(t, err, "error getting Coordinator from Consumer contract")
-		require.Equal(t, vrfv2PlusContracts.Coordinator.Address(), coordinatorAddressInConsumer.String())
-		l.Debug().
-			Interface("Consumer", consumer.Address()).
-			Interface("Coordinator", coordinatorAddressInConsumer.String()).
-			Msg("Coordinator Address in Consumer Before Migration")
-	}
+	////create sub to isolate test from other tests
+	//subID, err = vrfv2plus.CreateSubAndFindSubID(env, vrfv2PlusContracts.Coordinator)
+	//require.NoError(t, err)
+	//
+	////fund sub
+	//err = vrfv2plus.FundSubscription(env, linkAddress, vrfv2PlusContracts.Coordinator, subID)
+	//require.NoError(t, err)
+	//
+	////deploy consumers
+	//consumersForMigration, err := vrfv2plus.DeployConsumers(env.ContractDeployer, vrfv2PlusContracts.Coordinator, 2)
+	//require.NoError(t, err)
+	//
+	////add consumers to sub
+	//for _, consumer := range consumersForMigration {
+	//	err := vrfv2PlusContracts.Coordinator.AddConsumer(subID, consumer.Address())
+	//	require.NoError(t, err, vrfv2plus.ErrAddConsumerToSub)
+	//	err = env.EVMClient.WaitForEvents()
+	//	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
+	//	coordinatorAddressInConsumer, err := consumer.GetCoordinator(context.Background())
+	//	require.NoError(t, err, "error getting Coordinator from Consumer contract")
+	//	require.Equal(t, vrfv2PlusContracts.Coordinator.Address(), coordinatorAddressInConsumer.String())
+	//	l.Debug().
+	//		Interface("Consumer", consumer.Address()).
+	//		Interface("Coordinator", coordinatorAddressInConsumer.String()).
+	//		Msg("Coordinator Address in Consumer Before Migration")
+	//}
 
 	oldSubscriptionBeforeMigration, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
 	require.NoError(t, err, "error getting subscription information")
@@ -246,8 +250,11 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
 
-	oldCoordinatorLinkTotalBalanceBeforeMigration, oldCoordinatorEthTotalBalanceBeforeMigration := getCoordinatorTotalBalance(t, vrfv2PlusContracts.Coordinator)
-	migratedCoordinatorLinkTotalBalanceBeforeMigration, migratedCoordinatorEthTotalBalanceBeforeMigration := getUpgradedCoordinatorTotalBalance(t, newCoordinator)
+	oldCoordinatorLinkTotalBalanceBeforeMigration, oldCoordinatorEthTotalBalanceBeforeMigration, err := vrfv2plus.GetCoordinatorTotalBalance(vrfv2PlusContracts.Coordinator)
+	require.NoError(t, err)
+
+	migratedCoordinatorLinkTotalBalanceBeforeMigration, migratedCoordinatorEthTotalBalanceBeforeMigration, err := vrfv2plus.GetUpgradedCoordinatorTotalBalance(newCoordinator)
+	require.NoError(t, err)
 
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
@@ -265,9 +272,11 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		Str("Migrated To Coordinator", migrationCompletedEvent.NewCoordinator.String()).
 		Msg("MigrationCompleted Event")
 
-	oldCoordinatorLinkTotalBalanceAfterMigration, oldCoordinatorEthTotalBalanceAfterMigration := getCoordinatorTotalBalance(t, vrfv2PlusContracts.Coordinator)
+	oldCoordinatorLinkTotalBalanceAfterMigration, oldCoordinatorEthTotalBalanceAfterMigration, err := vrfv2plus.GetCoordinatorTotalBalance(vrfv2PlusContracts.Coordinator)
+	require.NoError(t, err)
 
-	migratedCoordinatorLinkTotalBalanceAfterMigration, migratedCoordinatorEthTotalBalanceAfterMigration := getUpgradedCoordinatorTotalBalance(t, newCoordinator)
+	migratedCoordinatorLinkTotalBalanceAfterMigration, migratedCoordinatorEthTotalBalanceAfterMigration, err := vrfv2plus.GetUpgradedCoordinatorTotalBalance(newCoordinator)
+	require.NoError(t, err)
 
 	migratedSubscription, err := newCoordinator.GetSubscription(context.Background(), subID)
 	require.NoError(t, err, "error getting subscription information")
@@ -282,7 +291,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		Msg("Subscription Data After Migration to New Coordinator")
 
 	//Verify that Coordinators were updated in Consumers
-	for _, consumer := range consumersForMigration {
+	for _, consumer := range vrfv2PlusContracts.LoadTestConsumers {
 		coordinatorAddressInConsumerAfterMigration, err := consumer.GetCoordinator(context.Background())
 		require.NoError(t, err, "error getting Coordinator from Consumer contract")
 		require.Equal(t, newCoordinator.Address(), coordinatorAddressInConsumerAfterMigration.String())
@@ -302,13 +311,20 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	_, err = vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
 	require.Error(t, err, "error not occurred when trying to get deleted subscription from old Coordinator after sub migration")
 
+	_, err = vrfv2PlusContracts.Coordinator.GetActiveSubscriptionIds(context.Background(), big.NewInt(0), big.NewInt(0))
+	require.Error(t, err, "error not occurred getting active sub ids. Should occur since it should revert when sub id array is empty")
+
+	activeSubIdsMigratedCoordinator, err := newCoordinator.GetActiveSubscriptionIds(context.Background(), big.NewInt(0), big.NewInt(0))
+	require.NoError(t, err, "error occurred getting active sub ids")
+	require.Len(t, activeSubIdsMigratedCoordinator, 1, "Active Sub Ids length is not equal to 1 for Migrated Coordinator after migration")
+	require.Equal(t, subID, activeSubIdsMigratedCoordinator[0])
+
+	//Verify that total balances changed for Link and Eth for new and old coordinator
 	expectedLinkTotalBalanceForMigratedCoordinator := new(big.Int).Add(oldSubscriptionBeforeMigration.Balance, migratedCoordinatorLinkTotalBalanceBeforeMigration)
 	expectedEthTotalBalanceForMigratedCoordinator := new(big.Int).Add(oldSubscriptionBeforeMigration.EthBalance, migratedCoordinatorEthTotalBalanceBeforeMigration)
 
 	expectedLinkTotalBalanceForOldCoordinator := new(big.Int).Sub(oldCoordinatorLinkTotalBalanceBeforeMigration, oldSubscriptionBeforeMigration.Balance)
 	expectedEthTotalBalanceForOldCoordinator := new(big.Int).Sub(oldCoordinatorEthTotalBalanceBeforeMigration, oldSubscriptionBeforeMigration.EthBalance)
-
-	//Verify that total balances changed for Link and Eth for new coordinator
 	require.Equal(t, expectedLinkTotalBalanceForMigratedCoordinator, migratedCoordinatorLinkTotalBalanceAfterMigration)
 	require.Equal(t, expectedEthTotalBalanceForMigratedCoordinator, migratedCoordinatorEthTotalBalanceAfterMigration)
 	require.Equal(t, expectedLinkTotalBalanceForOldCoordinator, oldCoordinatorLinkTotalBalanceAfterMigration)
@@ -316,7 +332,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 	//Verify rand requests fulfills with Link Token billing
 	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillmentUpgraded(
-		consumersForMigration[0],
+		vrfv2PlusContracts.LoadTestConsumers[0],
 		newCoordinator,
 		vrfv2PlusData,
 		subID,
@@ -327,7 +343,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 	//Verify rand requests fulfills with Native Token billing
 	_, err = vrfv2plus.RequestRandomnessAndWaitForFulfillmentUpgraded(
-		consumersForMigration[1],
+		vrfv2PlusContracts.LoadTestConsumers[1],
 		newCoordinator,
 		vrfv2PlusData,
 		subID,
@@ -336,22 +352,4 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	)
 	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
-}
-
-func getCoordinatorTotalBalance(t *testing.T, coordinator contracts.VRFCoordinatorV2Plus) (linkTotalBalance *big.Int, nativeTokenTotalBalance *big.Int) {
-	linkTotalBalance, err := coordinator.GetLinkTotalBalance(context.Background())
-	require.NoError(t, err, "error getting Link Total Balance")
-
-	nativeTokenTotalBalance, err = coordinator.GetNativeTokenTotalBalance(context.Background())
-	require.NoError(t, err, "error getting Native Token Total Balance")
-	return
-}
-
-func getUpgradedCoordinatorTotalBalance(t *testing.T, coordinator contracts.VRFCoordinatorV2PlusUpgradedVersion) (linkTotalBalance *big.Int, nativeTokenTotalBalance *big.Int) {
-	linkTotalBalance, err := coordinator.GetLinkTotalBalance(context.Background())
-	require.NoError(t, err, "error getting Link Total Balance")
-
-	nativeTokenTotalBalance, err = coordinator.GetNativeTokenTotalBalance(context.Background())
-	require.NoError(t, err, "error getting Native Token Total Balance")
-	return
 }

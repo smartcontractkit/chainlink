@@ -11,6 +11,7 @@ import "../../../ChainSpecificUtil.sol";
 import "../SubscriptionAPI.sol";
 import "../libraries/VRFV2PlusClient.sol";
 import "../../interfaces/IVRFCoordinatorV2PlusMigration.sol";
+import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 
 contract VRFCoordinatorV2PlusUpgradedVersion is
   VRF,
@@ -18,6 +19,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
   IVRFCoordinatorV2PlusMigration,
   IVRFMigratableCoordinatorV2Plus
 {
+  using EnumerableSet for EnumerableSet.UintSet;
   /// @dev should always be available
   BlockhashStoreInterface public immutable BLOCKHASH_STORE;
 
@@ -715,5 +717,6 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     s_totalBalance += uint96(migrationData.linkBalance);
     s_totalEthBalance += uint96(migrationData.ethBalance);
 
+    s_subIds.add(migrationData.subId);
   }
 }

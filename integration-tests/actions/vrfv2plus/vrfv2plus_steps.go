@@ -22,37 +22,36 @@ import (
 )
 
 var (
-	ErrNodePrimaryKey         = "error getting node's primary ETH key"
-	ErrCreatingProvingKeyHash = "error creating a keyHash from the proving key"
-	ErrRegisteringProvingKey  = "error registering a proving key on Coordinator contract"
-	ErrRegisterProvingKey     = "error registering proving keys"
-	ErrEncodingProvingKey     = "error encoding proving key"
-	ErrCreatingVRFv2PlusKey   = "error creating VRFv2Plus key"
-	ErrDeployBlockHashStore   = "error deploying blockhash store"
-	ErrDeployCoordinator      = "error deploying VRF CoordinatorV2Plus"
-	ErrAdvancedConsumer       = "error deploying VRFv2Plus Advanced Consumer"
-	ErrABIEncodingFunding     = "error Abi encoding subscriptionID"
-	ErrSendingLinkToken       = "error sending Link token"
-	ErrCreatingVRFv2PlusJob   = "error creating VRFv2Plus job"
-	ErrParseJob               = "error parsing job definition"
-
-	ErrDeployVRFV2PlusContracts = "error deploying VRFV2Plus contracts"
-	ErrSetVRFCoordinatorConfig  = "error setting config for VRF Coordinator contract"
-	ErrCreateVRFSubscription    = "error creating VRF Subscription"
-	ErrFindSubID                = "error finding created subscription ID"
-	ErrAddConsumerToSub         = "error adding consumer to VRF Subscription"
-	ErrFundSubWithNativeToken   = "error funding subscription with native token"
-	ErrSetLinkETHLinkFeed       = "error setting Link and ETH/LINK feed for VRF Coordinator contract"
-	ErrFundSubWithLinkToken     = "error funding subscription with Link tokens"
-	ErrCreateVRFV2PlusJobs      = "error creating VRF V2 Plus Jobs"
-	ErrGetPrimaryKey            = "error getting primary ETH key address"
-	ErrRestartCLNode            = "error restarting CL node"
-	ErrWaitTXsComplete          = "error waiting for TXs to complete"
-
+	ErrNodePrimaryKey                = "error getting node's primary ETH key"
+	ErrCreatingProvingKeyHash        = "error creating a keyHash from the proving key"
+	ErrRegisteringProvingKey         = "error registering a proving key on Coordinator contract"
+	ErrRegisterProvingKey            = "error registering proving keys"
+	ErrEncodingProvingKey            = "error encoding proving key"
+	ErrCreatingVRFv2PlusKey          = "error creating VRFv2Plus key"
+	ErrDeployBlockHashStore          = "error deploying blockhash store"
+	ErrDeployCoordinator             = "error deploying VRF CoordinatorV2Plus"
+	ErrAdvancedConsumer              = "error deploying VRFv2Plus Advanced Consumer"
+	ErrABIEncodingFunding            = "error Abi encoding subscriptionID"
+	ErrSendingLinkToken              = "error sending Link token"
+	ErrCreatingVRFv2PlusJob          = "error creating VRFv2Plus job"
+	ErrParseJob                      = "error parsing job definition"
+	ErrDeployVRFV2PlusContracts      = "error deploying VRFV2Plus contracts"
+	ErrSetVRFCoordinatorConfig       = "error setting config for VRF Coordinator contract"
+	ErrCreateVRFSubscription         = "error creating VRF Subscription"
+	ErrFindSubID                     = "error finding created subscription ID"
+	ErrAddConsumerToSub              = "error adding consumer to VRF Subscription"
+	ErrFundSubWithNativeToken        = "error funding subscription with native token"
+	ErrSetLinkETHLinkFeed            = "error setting Link and ETH/LINK feed for VRF Coordinator contract"
+	ErrFundSubWithLinkToken          = "error funding subscription with Link tokens"
+	ErrCreateVRFV2PlusJobs           = "error creating VRF V2 Plus Jobs"
+	ErrGetPrimaryKey                 = "error getting primary ETH key address"
+	ErrRestartCLNode                 = "error restarting CL node"
+	ErrWaitTXsComplete               = "error waiting for TXs to complete"
 	ErrRequestRandomness             = "error requesting randomness"
 	ErrWaitRandomWordsRequestedEvent = "error waiting for RandomWordsRequested event"
-
 	ErrWaitRandomWordsFulfilledEvent = "error waiting for RandomWordsFulfilled event"
+	ErrLinkTotalBalance              = "error waiting for RandomWordsFulfilled event"
+	ErrNativeTokenBalance            = "error waiting for RandomWordsFulfilled event"
 )
 
 func DeployVRFV2PlusContracts(
@@ -315,6 +314,30 @@ func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, coordinator contracts
 		return nil, errors.Wrap(err, ErrFindSubID)
 	}
 	return subID, nil
+}
+
+func GetUpgradedCoordinatorTotalBalance(coordinator contracts.VRFCoordinatorV2PlusUpgradedVersion) (linkTotalBalance *big.Int, nativeTokenTotalBalance *big.Int, err error) {
+	linkTotalBalance, err = coordinator.GetLinkTotalBalance(context.Background())
+	if err != nil {
+		return nil, nil, errors.Wrap(err, ErrLinkTotalBalance)
+	}
+	nativeTokenTotalBalance, err = coordinator.GetNativeTokenTotalBalance(context.Background())
+	if err != nil {
+		return nil, nil, errors.Wrap(err, ErrNativeTokenBalance)
+	}
+	return
+}
+
+func GetCoordinatorTotalBalance(coordinator contracts.VRFCoordinatorV2Plus) (linkTotalBalance *big.Int, nativeTokenTotalBalance *big.Int, err error) {
+	linkTotalBalance, err = coordinator.GetLinkTotalBalance(context.Background())
+	if err != nil {
+		return nil, nil, errors.Wrap(err, ErrLinkTotalBalance)
+	}
+	nativeTokenTotalBalance, err = coordinator.GetNativeTokenTotalBalance(context.Background())
+	if err != nil {
+		return nil, nil, errors.Wrap(err, ErrNativeTokenBalance)
+	}
+	return
 }
 
 func FundSubscription(env *test_env.CLClusterTestEnv, linkAddress contracts.LinkToken, coordinator contracts.VRFCoordinatorV2Plus, subID *big.Int) error {

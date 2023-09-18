@@ -67,6 +67,18 @@ func (v *EthereumVRFCoordinatorV2Plus) HashOfKey(ctx context.Context, pubKey [2]
 	return hash, nil
 }
 
+func (v *EthereumVRFCoordinatorV2Plus) GetActiveSubscriptionIds(ctx context.Context, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	activeSubscriptionIds, err := v.coordinator.GetActiveSubscriptionIds(opts, startIndex, maxCount)
+	if err != nil {
+		return nil, err
+	}
+	return activeSubscriptionIds, nil
+}
+
 func (v *EthereumVRFCoordinatorV2Plus) GetSubscription(ctx context.Context, subID *big.Int) (vrf_coordinator_v2plus.GetSubscription, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
@@ -413,6 +425,18 @@ func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) HashOfKey(ctx context.Cont
 		return [32]byte{}, err
 	}
 	return hash, nil
+}
+
+func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) GetActiveSubscriptionIds(ctx context.Context, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	activeSubscriptionIds, err := v.coordinator.GetActiveSubscriptionIds(opts, startIndex, maxCount)
+	if err != nil {
+		return nil, err
+	}
+	return activeSubscriptionIds, nil
 }
 
 func (v *EthereumVRFCoordinatorV2PlusUpgradedVersion) GetSubscription(ctx context.Context, subID *big.Int) (vrf_v2plus_upgraded_version.GetSubscription, error) {
