@@ -843,7 +843,7 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 	// TODO TO BE REMOVED IN v2.7.0
 	db, err := sql.Open(string(dialects.Postgres), parsed.String())
 	if err != nil {
-		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
+		return fmt.Errorf("unable to open postgres database for evmChainID helper migration: %+v", err)
 	}
 	defer func() {
 		if cerr := db.Close(); cerr != nil {
