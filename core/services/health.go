@@ -252,7 +252,7 @@ func (i *InBackupHealthReport) Stop() {
 func (i *InBackupHealthReport) Start() {
 	go func() {
 		http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-			w.WriteHeader(http.StatusServiceUnavailable)
+			w.WriteHeader(http.StatusNoContent)
 			_, err := w.Write([]byte("Database backup in progress..."))
 			if err != nil {
 				i.lggr.Errorf("Cannot write response to /health")
