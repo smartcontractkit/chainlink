@@ -126,10 +126,13 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 	// if log block number is populated, check log block number and block hash
 	if logBlockNumber != 0 {
 		h, ok := r.bs.queryBlocksMap(logBlockNumber)
+		// if this block number/hash combo exists in block subscriber, this block and tx still exists on chain and is valid
 		if ok && h == logBlockHash.Hex() {
 			r.lggr.Debugf("tx hash %s exists on chain at block number %d, block hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockHash.Hex(), logBlockNumber, upkeepId)
 			return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
 		}
+		// if this block does not exist in the block subscriber, the block which this log lived on was probably re-orged
+		// hence, check eth client for this log's tx hash to confirm
 		r.lggr.Debugf("log block %d does not exist in block subscriber for upkeepId %s, querying eth client", logBlockNumber, upkeepId)
 	} else {
 		r.lggr.Debugf("log block not provided, querying eth client for tx hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
