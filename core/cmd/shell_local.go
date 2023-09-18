@@ -840,6 +840,23 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 		return s.errorOut(errDBURLMissing)
 	}
 
+	// TODO TO BE REMOVED IN v2.7.0
+	db, err := sql.Open(string(dialects.Postgres), parsed.String())
+	if err != nil {
+		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
+	}
+	defer func() {
+		if cerr := db.Close(); cerr != nil {
+			err = multierr.Append(err, cerr)
+		}
+	}()
+
+	// TODO TO BE REMOVED IN v2.7.0
+	err = evmChainIDMigration(s.Config, db)
+	if err != nil {
+		return err
+	}
+
 	s.Logger.Infof("Migrating database: %#v", parsed.String())
 	if err := migrateDB(cfg, s.Logger); err != nil {
 		return s.errorOut(err)
@@ -1023,6 +1040,7 @@ func migrateDB(config dbConfig, lggr logger.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
+
 	if err = migrate.Migrate(db.DB, lggr); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
