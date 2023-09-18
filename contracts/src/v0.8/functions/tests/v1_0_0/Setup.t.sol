@@ -13,6 +13,7 @@ import {MockLinkToken} from "../../../mocks/MockLinkToken.sol";
 
 import "forge-std/Vm.sol";
 
+/// @notice Set up to deploy the following contracts: FunctionsRouter, FunctionsCoordinator, LINK/ETH Feed, ToS Allow List, and LINK token
 contract FunctionsRouterSetup is BaseTest {
   FunctionsRouter internal s_functionsRouter;
   FunctionsCoordinatorTestHelper internal s_functionsCoordinator; // TODO: use actual FunctionsCoordinator instead of helper
@@ -25,7 +26,7 @@ contract FunctionsRouterSetup is BaseTest {
   uint72 internal s_donFee = 100;
   bytes4 internal s_handleOracleFulfillmentSelector = 0x0ca76175;
   uint16 s_subscriptionDepositMinimumRequests = 1;
-  uint72 s_subscriptionDepositJuels = 11 * 1e18;
+  uint72 s_subscriptionDepositJuels = 11 * JUELS_PER_LINK;
 
   int256 internal LINK_ETH_RATE = 6000000000000000;
 
@@ -67,8 +68,8 @@ contract FunctionsRouterSetup is BaseTest {
     return
       FunctionsBilling.Config({
         feedStalenessSeconds: 24 * 60 * 60, // 1 day
-        gasOverheadAfterCallback: 44_615, // TODO: update
-        gasOverheadBeforeCallback: 44_615, // TODO: update
+        gasOverheadAfterCallback: 50_000, // TODO: update
+        gasOverheadBeforeCallback: 100_00, // TODO: update
         requestTimeoutSeconds: 60 * 5, // 5 minutes
         donFee: s_donFee,
         maxSupportedRequestDataVersion: 1,
@@ -82,6 +83,7 @@ contract FunctionsRouterSetup is BaseTest {
   }
 }
 
+/// @notice Set up to set the OCR configuration of the Coordinator contract
 contract FunctionsDONSetup is FunctionsRouterSetup {
   uint256 internal NOP_SIGNER_PRIVATE_KEY_1 = 0x100;
   address internal NOP_SIGNER_ADDRESS_1 = vm.addr(NOP_SIGNER_PRIVATE_KEY_1);
@@ -101,35 +103,41 @@ contract FunctionsDONSetup is FunctionsRouterSetup {
   uint256 internal NOP_TRANSMITTER_PRIVATE_KEY_4 = 0x107;
   address internal NOP_TRANSMITTER_ADDRESS_4 = vm.addr(NOP_TRANSMITTER_PRIVATE_KEY_4);
 
+  address[] internal s_signers;
+  address[] internal s_transmitters;
+  uint8 s_f = 1;
+  bytes internal s_onchainConfig = new bytes(0);
+  uint64 internal s_offchainConfigVersion = 1;
+  bytes internal s_offchainConfig = new bytes(0);
+
   function setUp() public virtual override {
     FunctionsRouterSetup.setUp();
 
-    address[] memory _signers = new address[](4);
-    _signers[0] = NOP_SIGNER_ADDRESS_1;
-    _signers[1] = NOP_SIGNER_ADDRESS_2;
-    _signers[2] = NOP_SIGNER_ADDRESS_3;
-    _signers[3] = NOP_SIGNER_ADDRESS_4;
-    address[] memory _transmitters = new address[](4);
-    _transmitters[0] = NOP_TRANSMITTER_ADDRESS_1;
-    _transmitters[1] = NOP_TRANSMITTER_ADDRESS_2;
-    _transmitters[2] = NOP_TRANSMITTER_ADDRESS_3;
-    _transmitters[3] = NOP_TRANSMITTER_ADDRESS_4;
-    uint8 _f = 1;
-    bytes memory _onchainConfig = new bytes(0);
-    uint64 _offchainConfigVersion = 1;
-    bytes memory _offchainConfig = new bytes(0);
+    s_signers = new address[](4);
+    s_signers[0] = NOP_SIGNER_ADDRESS_1;
+    s_signers[1] = NOP_SIGNER_ADDRESS_2;
+    s_signers[2] = NOP_SIGNER_ADDRESS_3;
+    s_signers[3] = NOP_SIGNER_ADDRESS_4;
+
+    s_transmitters = new address[](4);
+    s_transmitters[0] = NOP_TRANSMITTER_ADDRESS_1;
+    s_transmitters[1] = NOP_TRANSMITTER_ADDRESS_2;
+    s_transmitters[2] = NOP_TRANSMITTER_ADDRESS_3;
+    s_transmitters[3] = NOP_TRANSMITTER_ADDRESS_4;
+
     // set OCR config
     s_functionsCoordinator.setConfig(
-      _signers,
-      _transmitters,
-      _f,
-      _onchainConfig,
-      _offchainConfigVersion,
-      _offchainConfig
+      s_signers,
+      s_transmitters,
+      s_f,
+      s_onchainConfig,
+      s_offchainConfigVersion,
+      s_offchainConfig
     );
   }
 }
 
+/// @notice Set up to add the Coordinator and ToS Allow Contract as routes on the Router contract
 contract FunctionsRoutesSetup is FunctionsDONSetup {
   bytes32 s_donId = bytes32("1");
 
@@ -149,6 +157,7 @@ contract FunctionsRoutesSetup is FunctionsDONSetup {
   }
 }
 
+/// @notice Set up for the OWNER_ADDRESS to accept the Terms of Service
 contract FunctionsOwnerAcceptTermsOfServiceSetup is FunctionsRoutesSetup {
   function setUp() public virtual override {
     FunctionsRoutesSetup.setUp();
@@ -160,6 +169,7 @@ contract FunctionsOwnerAcceptTermsOfServiceSetup is FunctionsRoutesSetup {
   }
 }
 
+/// @notice Set up to deploy a consumer contract
 contract FunctionsClientSetup is FunctionsOwnerAcceptTermsOfServiceSetup {
   FunctionsClientUpgradeHelper internal s_functionsClient;
 
@@ -170,8 +180,8 @@ contract FunctionsClientSetup is FunctionsOwnerAcceptTermsOfServiceSetup {
   }
 }
 
+/// @notice Set up to create a subscription, add the consumer contract as a consumer of the subscription, and fund the subscription with 's_subscriptionInitialFunding'
 contract FunctionsSubscriptionSetup is FunctionsClientSetup {
-  uint96 constant JUELS_PER_LINK = 1e18;
   uint64 s_subscriptionId;
   uint96 s_subscriptionInitialFunding = 10 * JUELS_PER_LINK; // 10 LINK
 
@@ -187,22 +197,68 @@ contract FunctionsSubscriptionSetup is FunctionsClientSetup {
   }
 }
 
+/// @notice Set up to initate a minimal request and store it in s_requests[1]
 contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
-  bytes32 s_requestId;
-  FunctionsResponse.Commitment s_requestCommitment;
+  struct RequestData {
+    string sourceCode;
+    bytes secrets;
+    string[] args;
+    bytes[] bytesArgs;
+    uint32 callbackGasLimit;
+  }
+  struct Request {
+    RequestData requestData;
+    bytes32 requestId;
+    FunctionsResponse.Commitment commitment;
+  }
+
+  mapping(uint256 => Request) s_requests;
+
+  uint96 s_fulfillmentRouterOwnerBalance = 0;
+  uint96 s_fulfillmentCoordinatorBalance = 0;
 
   function setUp() public virtual override {
     FunctionsSubscriptionSetup.setUp();
 
-    // Send a minimal request
+    // Send request #1
     string memory sourceCode = "return 'hello world';";
-    bytes memory secrets;
+    bytes memory secrets = new bytes(0);
     string[] memory args = new string[](0);
     bytes[] memory bytesArgs = new bytes[](0);
     uint32 callbackGasLimit = 5500;
+    _sendAndStoreRequest(1, sourceCode, secrets, args, bytesArgs, callbackGasLimit);
+  }
+
+  function _getExpectedCost(uint256 gasUsed) internal view returns (uint96 totalCostJuels) {
+    uint96 juelsPerGas = uint96((1e18 * TX_GASPRICE_START) / uint256(LINK_ETH_RATE));
+    uint96 gasOverheadJuels = juelsPerGas *
+      (getCoordinatorConfig().gasOverheadBeforeCallback + getCoordinatorConfig().gasOverheadAfterCallback);
+    uint96 callbackGasCostJuels = uint96(juelsPerGas * gasUsed);
+    return gasOverheadJuels + s_donFee + s_adminFee + callbackGasCostJuels;
+  }
+
+  /// @notice Send a request and store information about it in s_requests
+  /// @param requestNumberKey - the key that the request will be stored in `s_requests` in
+  /// @param sourceCode - Raw source code for Request.codeLocation of Location.Inline, URL for Request.codeLocation of Location.Remote, or slot decimal number for Request.codeLocation of Location.DONHosted
+  /// @param secrets - Encrypted URLs for Request.secretsLocation of Location.Remote (use addSecretsReference()), or CBOR encoded slotid+version for Request.secretsLocation of Location.DONHosted (use addDONHostedSecrets())
+  /// @param args - String arguments that will be passed into the source code
+  /// @param bytesArgs - Bytes arguments that will be passed into the source code
+  /// @param callbackGasLimit - Gas limit for the fulfillment callback
+  function _sendAndStoreRequest(
+    uint256 requestNumberKey,
+    string memory sourceCode,
+    bytes memory secrets,
+    string[] memory args,
+    bytes[] memory bytesArgs,
+    uint32 callbackGasLimit
+  ) internal {
+    if (s_requests[requestNumberKey].requestId != bytes32(0)) {
+      revert("Request already written");
+    }
 
     vm.recordLogs();
-    s_requestId = s_functionsClient.sendRequest(
+
+    bytes32 requestId = s_functionsClient.sendRequest(
       s_donId,
       sourceCode,
       secrets,
@@ -218,184 +274,288 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
       entries[0].data,
       (address, uint64, address, bytes, uint16, bytes32, uint64, FunctionsResponse.Commitment)
     );
-    s_requestCommitment = commitment;
+    s_requests[requestNumberKey] = Request({
+      requestData: RequestData({
+        sourceCode: sourceCode,
+        secrets: secrets,
+        args: args,
+        bytesArgs: bytesArgs,
+        callbackGasLimit: callbackGasLimit
+      }),
+      requestId: requestId,
+      commitment: commitment
+    });
   }
-}
 
-contract FunctionsFulfillmentSetup is FunctionsClientRequestSetup {
-  uint96 s_fulfillmentRouterOwnerBalance = s_adminFee;
-  uint96 s_fulfillmentCoordinatorBalance;
-
-  function setUp() public virtual override {
-    FunctionsClientRequestSetup.setUp();
-
-    // Send as transmitter 1
-    vm.stopPrank();
-    vm.startPrank(NOP_TRANSMITTER_ADDRESS_1);
-
+  /// @notice Send a request and store information about it in s_requests
+  /// @param requestNumberKeys - One or more requestNumberKeys that were used to store the request in `s_requests` of the requests, that will be added to the report
+  /// @param results - The result that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param errors - The error that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @return report - Report bytes data
+  /// @return reportContext - Report context bytes32 data
+  function _buildReport(
+    uint256[] memory requestNumberKeys,
+    string[] memory results,
+    bytes[] memory errors
+  ) internal view returns (bytes memory report, bytes32[3] memory reportContext) {
     // Build report
-    bytes32[] memory requestIds = new bytes32[](1);
-    requestIds[0] = s_requestId;
-    bytes[] memory results = new bytes[](1);
-    results[0] = bytes("hello world!");
-    bytes[] memory errors = new bytes[](1);
-    // No error
-    bytes[] memory onchainMetadata = new bytes[](1);
-    onchainMetadata[0] = abi.encode(s_requestCommitment);
-    bytes[] memory offchainMetadata = new bytes[](1);
-    // No offchain metadata
-    bytes memory report = abi.encode(requestIds, results, errors, onchainMetadata, offchainMetadata);
+    bytes32[] memory _requestIds = new bytes32[](requestNumberKeys.length);
+    bytes[] memory _results = new bytes[](requestNumberKeys.length);
+    bytes[] memory _errors = new bytes[](requestNumberKeys.length);
+    bytes[] memory _onchainMetadata = new bytes[](requestNumberKeys.length);
+    bytes[] memory _offchainMetadata = new bytes[](requestNumberKeys.length);
+    for (uint256 i = 0; i < requestNumberKeys.length; ++i) {
+      if (keccak256(bytes(results[i])) != keccak256(new bytes(0)) && keccak256(errors[i]) != keccak256(new bytes(0))) {
+        revert("Report can only contain a result OR an error, one must remain empty.");
+      }
+      _requestIds[i] = s_requests[requestNumberKeys[i]].requestId;
+      _results[i] = bytes(results[i]);
+      _errors[i] = errors[i];
+      _onchainMetadata[i] = abi.encode(s_requests[requestNumberKeys[i]].commitment);
+      _offchainMetadata[i] = new bytes(0); // No off-chain metadata
+    }
+    report = abi.encode(_requestIds, _results, _errors, _onchainMetadata, _offchainMetadata);
 
-    // Build signers
-    address[31] memory signers;
-    signers[0] = NOP_SIGNER_ADDRESS_1;
+    // Build report context
+    uint256 h = uint256(
+      keccak256(
+        abi.encode(
+          block.chainid,
+          address(s_functionsCoordinator),
+          1,
+          s_signers,
+          s_transmitters,
+          s_f,
+          s_onchainConfig,
+          s_offchainConfigVersion,
+          s_offchainConfig
+        )
+      )
+    );
+    uint256 prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
+    uint256 prefix = 0x0001 << (256 - 16); // 0x000100..00
+    bytes32 configDigest = bytes32((prefix & prefixMask) | (h & ~prefixMask));
+    reportContext = [configDigest, configDigest, configDigest];
+
+    return (report, reportContext);
+  }
+
+  /// @notice Gather signatures on report data
+  /// @param report - Report bytes generated from `_buildReport`
+  /// @param reportContext - Report context bytes32 generated from `_buildReport`
+  /// @param signerPrivateKeys - One or more addresses that will sign the report data
+  /// @return rawRs - Signature rs
+  /// @return rawSs - Signature ss
+  /// @return rawVs - Signature vs
+  function _signReport(
+    bytes memory report,
+    bytes32[3] memory reportContext,
+    uint256[] memory signerPrivateKeys
+  ) internal pure returns (bytes32[] memory rawRs, bytes32[] memory rawSs, bytes32 rawVs) {
+    bytes32[] memory rs = new bytes32[](signerPrivateKeys.length);
+    bytes32[] memory ss = new bytes32[](signerPrivateKeys.length);
+    bytes memory vs = new bytes(signerPrivateKeys.length);
+
+    bytes32 reportDigest = keccak256(abi.encodePacked(keccak256(report), reportContext));
+
+    for (uint256 i = 0; i < signerPrivateKeys.length; i++) {
+      (uint8 v, bytes32 r, bytes32 s) = vm.sign(signerPrivateKeys[i], reportDigest);
+      rs[i] = r;
+      ss[i] = s;
+      vs[i] = bytes1(v - 27);
+    }
+
+    return (rs, ss, bytes32(vs));
+  }
+
+  /// @notice Provide a response from the DON to fulfill one or more requests and store the updated balances of the DON & Admin
+  /// @param requestNumberKeys - One or more requestNumberKeys that were used to store the request in `s_requests` of the requests, that will be added to the report
+  /// @param results - The result that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param errors - The error that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param transmitter - The address that will send the `.report` transaction
+  /// @param expectedToSucceed - Boolean representing if the report transmission is expected to produce a RequestProcessed event for every fulfillment. If not, we ignore retrieving the event log.
+  /// @param requestProcessedIndex - On a successful fulfillment the Router will emit a RequestProcessed event. To grab that event we must know the order at which this event was thrown in the report transmission lifecycle. This can change depending on the test setup (e.g. the Client contract gives an extra event during its callback)
+  /// @param transmitterGasToUse - Override the default amount of gas that the transmitter sends the `.report` transaction with
+  function _reportAndStore(
+    uint256[] memory requestNumberKeys,
+    string[] memory results,
+    bytes[] memory errors,
+    address transmitter,
+    bool expectedToSucceed,
+    uint8 requestProcessedIndex,
+    uint256 transmitterGasToUse
+  ) internal {
+    {
+      if (requestNumberKeys.length != results.length || requestNumberKeys.length != errors.length) {
+        revert("_reportAndStore arguments length mismatch");
+      }
+    }
+
+    (bytes memory report, bytes32[3] memory reportContext) = _buildReport(requestNumberKeys, results, errors);
+
+    // Sign the report
+    // Need at least 3 signers to fulfill minimum number of: (configInfo.n + configInfo.f) / 2 + 1
+    uint256[] memory signerPrivateKeys = new uint256[](3);
+    signerPrivateKeys[0] = NOP_SIGNER_PRIVATE_KEY_1;
+    signerPrivateKeys[1] = NOP_SIGNER_PRIVATE_KEY_2;
+    signerPrivateKeys[2] = NOP_SIGNER_PRIVATE_KEY_3;
+    (bytes32[] memory rawRs, bytes32[] memory rawSs, bytes32 rawVs) = _signReport(
+      report,
+      reportContext,
+      signerPrivateKeys
+    );
+
+    // Send as transmitter
+    vm.stopPrank();
+    vm.startPrank(transmitter);
 
     // Send report
     vm.recordLogs();
-    s_functionsCoordinator.callReportWithSigners(report, signers);
+    if (transmitterGasToUse > 0) {
+      s_functionsCoordinator.transmit{gas: transmitterGasToUse}(reportContext, report, rawRs, rawSs, rawVs);
+    } else {
+      s_functionsCoordinator.transmit(reportContext, report, rawRs, rawSs, rawVs);
+    }
 
-    // Get actual cost from RequestProcessed event log
-    Vm.Log[] memory entries = vm.getRecordedLogs();
-    (uint96 totalCostJuels, , , , , ) = abi.decode(
-      entries[2].data,
-      (uint96, address, FunctionsResponse.FulfillResult, bytes, bytes, bytes)
-    );
-    // totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels
-    s_fulfillmentCoordinatorBalance = totalCostJuels - s_adminFee;
+    if (expectedToSucceed) {
+      // Get actual cost from RequestProcessed event log
+      (uint96 totalCostJuels, , , , , ) = abi.decode(
+        vm.getRecordedLogs()[requestProcessedIndex].data,
+        (uint96, address, FunctionsResponse.FulfillResult, bytes, bytes, bytes)
+      );
+      // Store profit amounts
+      s_fulfillmentRouterOwnerBalance += s_adminFee;
+      // totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels
+      s_fulfillmentCoordinatorBalance += totalCostJuels - s_adminFee;
+    }
 
     // Return prank to Owner
     vm.stopPrank();
     vm.startPrank(OWNER_ADDRESS);
   }
+
+  /// @notice Provide a response from the DON to fulfill one or more requests and store the updated balances of the DON & Admin
+  /// @param requestNumberKeys - One or more requestNumberKeys that were used to store the request in `s_requests` of the requests, that will be added to the report
+  /// @param results - The result that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param errors - The error that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param transmitter - The address that will send the `.report` transaction
+  /// @param expectedToSucceed - Boolean representing if the report transmission is expected to produce a RequestProcessed event for every fulfillment. If not, we ignore retrieving the event log.
+  /// @param requestProcessedIndex - On a successful fulfillment the Router will emit a RequestProcessed event. To grab that event we must know the order at which this event was thrown in the report transmission lifecycle. This can change depending on the test setup (e.g. the Client contract gives an extra event during its callback)
+  /// @dev @param transmitterGasToUse is overloaded to give transmitterGasToUse as 0] - Sends the `.report` transaction with the default amount of gas
+  function _reportAndStore(
+    uint256[] memory requestNumberKeys,
+    string[] memory results,
+    bytes[] memory errors,
+    address transmitter,
+    bool expectedToSucceed,
+    uint8 requestProcessedIndex
+  ) internal {
+    _reportAndStore(requestNumberKeys, results, errors, transmitter, expectedToSucceed, requestProcessedIndex, 0);
+  }
+
+  /// @notice Provide a response from the DON to fulfill one or more requests and store the updated balances of the DON & Admin
+  /// @param requestNumberKeys - One or more requestNumberKeys that were used to store the request in `s_requests` of the requests, that will be added to the report
+  /// @param results - The result that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param errors - The error that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param transmitter - The address that will send the `.report` transaction
+  /// @param expectedToSucceed - Boolean representing if the report transmission is expected to produce a RequestProcessed event for every fulfillment. If not, we ignore retrieving the event log.
+  /// @dev @param requestProcessedIndex is overloaded to give requestProcessedIndex as 3 (happy path value)] - On a successful fulfillment the Router will emit a RequestProcessed event. To grab that event we must know the order at which this event was thrown in the report transmission lifecycle. This can change depending on the test setup (e.g. the Client contract gives an extra event during its callback)
+  /// @dev @param transmitterGasToUse is overloaded to give transmitterGasToUse as 0] - Sends the `.report` transaction with the default amount of gas
+  function _reportAndStore(
+    uint256[] memory requestNumberKeys,
+    string[] memory results,
+    bytes[] memory errors,
+    address transmitter,
+    bool expectedToSucceed
+  ) internal {
+    _reportAndStore(requestNumberKeys, results, errors, transmitter, expectedToSucceed, 3);
+  }
+
+  /// @notice Provide a response from the DON to fulfill one or more requests and store the updated balances of the DON & Admin
+  /// @param requestNumberKeys - One or more requestNumberKeys that were used to store the request in `s_requests` of the requests, that will be added to the report
+  /// @param results - The result that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param errors - The error that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param transmitter - The address that will send the `.report` transaction
+  /// @dev @param expectedToSucceed is overloaded to give the value as true - The report transmission is expected to produce a RequestProcessed event for every fulfillment
+  /// @dev @param requestProcessedIndex is overloaded to give requestProcessedIndex as 3 (happy path value)] - On a successful fulfillment the Router will emit a RequestProcessed event. To grab that event we must know the order at which this event was thrown in the report transmission lifecycle. This can change depending on the test setup (e.g. the Client contract gives an extra event during its callback)
+  /// @dev @param transmitterGasToUse is overloaded to give transmitterGasToUse as 0] - Sends the `.report` transaction with the default amount of gas
+  function _reportAndStore(
+    uint256[] memory requestNumberKeys,
+    string[] memory results,
+    bytes[] memory errors,
+    address transmitter
+  ) internal {
+    _reportAndStore(requestNumberKeys, results, errors, transmitter, true);
+  }
+
+  /// @notice Provide a response from the DON to fulfill one or more requests and store the updated balances of the DON & Admin
+  /// @param requestNumberKeys - One or more requestNumberKeys that were used to store the request in `s_requests` of the requests, that will be added to the report
+  /// @param results - The result that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @param errors - The error that will be sent to the consumer contract's callback. For each index, e.g. result[index] or errors[index], only one of should be filled.
+  /// @dev @param transmitter is overloaded to give the value of transmitter #1 - The address that will send the `.report` transaction
+  /// @dev @param expectedToSucceed is overloaded to give the value as true - The report transmission is expected to produce a RequestProcessed event for every fulfillment
+  /// @dev @param requestProcessedIndex is overloaded to give requestProcessedIndex as 3 (happy path value)] - On a successful fulfillment the Router will emit a RequestProcessed event. To grab that event we must know the order at which this event was thrown in the report transmission lifecycle. This can change depending on the test setup (e.g. the Client contract gives an extra event during its callback)
+  /// @dev @param transmitterGasToUse is overloaded to give transmitterGasToUse as 0] - Sends the `.report` transaction with the default amount of gas
+  function _reportAndStore(
+    uint256[] memory requestNumberKeys,
+    string[] memory results,
+    bytes[] memory errors
+  ) internal {
+    _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1);
+  }
 }
 
-contract FunctionsMultipleFulfillmentsSetup is FunctionsFulfillmentSetup {
-  bytes32 s_requestId2;
-  FunctionsResponse.Commitment s_requestCommitment2;
-  bytes32 s_requestId3;
-  FunctionsResponse.Commitment s_requestCommitment3;
+/// @notice Set up to have transmitter #1 send a report that fulfills request #1
+contract FunctionsFulfillmentSetup is FunctionsClientRequestSetup {
+  function setUp() public virtual override {
+    FunctionsClientRequestSetup.setUp();
 
+    // Fulfill request 1
+    uint256[] memory requestNumberKeys = new uint256[](1);
+    requestNumberKeys[0] = 1;
+    string[] memory results = new string[](1);
+    results[0] = "hello world!";
+    bytes[] memory errors = new bytes[](1);
+    errors[0] = new bytes(0);
+
+    _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1, true);
+  }
+}
+
+/// @notice Set up to send and fulfill two more requests, s_request[2] reported by transmitter #2 and s_request[3] reported by transmitter #3
+contract FunctionsMultipleFulfillmentsSetup is FunctionsFulfillmentSetup {
   function setUp() public virtual override {
     FunctionsFulfillmentSetup.setUp();
 
     // Make 2 additional requests (1 already complete)
 
     //  *** Request #2 ***
-    vm.recordLogs();
-    s_requestId2 = s_functionsClient.sendRequest(
-      s_donId,
-      "return 'hello world';",
-      new bytes(0),
-      new string[](0),
-      new bytes[](0),
-      s_subscriptionId,
-      5500
-    );
-
-    // Get commitment data from OracleRequest event log
-    Vm.Log[] memory entriesAfterRequest2 = vm.getRecordedLogs();
-    (, , , , , , , FunctionsResponse.Commitment memory commitment2) = abi.decode(
-      entriesAfterRequest2[0].data,
-      (address, uint64, address, bytes, uint16, bytes32, uint64, FunctionsResponse.Commitment)
-    );
-    s_requestCommitment2 = commitment2;
-
-    // Transmit as transmitter 2
-    vm.stopPrank();
-    vm.startPrank(NOP_TRANSMITTER_ADDRESS_2);
-
-    // Build report
-    bytes32[] memory requestIds2 = new bytes32[](1);
-    requestIds2[0] = s_requestId2;
-    bytes[] memory results2 = new bytes[](1);
-    results2[0] = bytes("hello world!");
-    bytes[] memory errors2 = new bytes[](1);
-    // No error
-    bytes[] memory onchainMetadata2 = new bytes[](1);
-    onchainMetadata2[0] = abi.encode(s_requestCommitment2);
-    bytes[] memory offchainMetadata2 = new bytes[](1);
-    // No offchain metadata
-    bytes memory report2 = abi.encode(requestIds2, results2, errors2, onchainMetadata2, offchainMetadata2);
-
-    // Build signers
-    address[31] memory signers2;
-    signers2[0] = NOP_SIGNER_ADDRESS_2;
-
-    // Send report
-    vm.recordLogs();
-    s_functionsCoordinator.callReportWithSigners(report2, signers2);
-
-    // Get actual cost from RequestProcessed event log
-    Vm.Log[] memory entriesAfterFulfill2 = vm.getRecordedLogs();
-    (uint96 totalCostJuels2, , , , , ) = abi.decode(
-      entriesAfterFulfill2[2].data,
-      (uint96, address, FunctionsResponse.FulfillResult, bytes, bytes, bytes)
-    );
-    // totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels
-    s_fulfillmentCoordinatorBalance += totalCostJuels2 - s_adminFee;
-    s_fulfillmentRouterOwnerBalance += s_adminFee;
-
-    // Return prank to Owner
-    vm.stopPrank();
-    vm.startPrank(OWNER_ADDRESS);
+    // Send
+    string memory sourceCode = "return 'hello world';";
+    bytes memory secrets = new bytes(0);
+    string[] memory args = new string[](0);
+    bytes[] memory bytesArgs = new bytes[](0);
+    uint32 callbackGasLimit = 5500;
+    _sendAndStoreRequest(2, sourceCode, secrets, args, bytesArgs, callbackGasLimit);
+    // Fulfill as transmitter #2
+    uint256[] memory requestNumberKeys1 = new uint256[](1);
+    requestNumberKeys1[0] = 2;
+    string[] memory results1 = new string[](1);
+    results1[0] = "hello world!";
+    bytes[] memory errors1 = new bytes[](1);
+    errors1[0] = new bytes(0);
+    _reportAndStore(requestNumberKeys1, results1, errors1, NOP_TRANSMITTER_ADDRESS_2, true);
 
     //  *** Request #3 ***
-    vm.recordLogs();
-    s_requestId3 = s_functionsClient.sendRequest(
-      s_donId,
-      "return 'hello world';",
-      new bytes(0),
-      new string[](0),
-      new bytes[](0),
-      s_subscriptionId,
-      5500
-    );
-
-    // Get commitment data from OracleRequest event log
-    Vm.Log[] memory entriesAfterRequest3 = vm.getRecordedLogs();
-    (, , , , , , , FunctionsResponse.Commitment memory commitment3) = abi.decode(
-      entriesAfterRequest3[0].data,
-      (address, uint64, address, bytes, uint16, bytes32, uint64, FunctionsResponse.Commitment)
-    );
-    s_requestCommitment3 = commitment3;
-
-    // Transmit as transmitter 3
-    vm.stopPrank();
-    vm.startPrank(NOP_TRANSMITTER_ADDRESS_3);
-
-    // Build report
-    bytes32[] memory requestIds3 = new bytes32[](1);
-    requestIds3[0] = s_requestId3;
-    bytes[] memory results3 = new bytes[](1);
-    results3[0] = bytes("hello world!");
-    bytes[] memory errors3 = new bytes[](1);
-    // No error
-    bytes[] memory onchainMetadata3 = new bytes[](1);
-    onchainMetadata3[0] = abi.encode(s_requestCommitment3);
-    bytes[] memory offchainMetadata3 = new bytes[](1);
-    // No offchain metadata
-    bytes memory report3 = abi.encode(requestIds3, results3, errors3, onchainMetadata3, offchainMetadata3);
-
-    // Build signers
-    address[31] memory signers3;
-    signers3[0] = NOP_SIGNER_ADDRESS_3;
-
-    // Send report
-    vm.recordLogs();
-    s_functionsCoordinator.callReportWithSigners(report3, signers3);
-
-    // Get actual cost from RequestProcessed event log
-    Vm.Log[] memory entriesAfterFulfill3 = vm.getRecordedLogs();
-    (uint96 totalCostJuels3, , , , , ) = abi.decode(
-      entriesAfterFulfill3[2].data,
-      (uint96, address, FunctionsResponse.FulfillResult, bytes, bytes, bytes)
-    );
-
-    // totalCostJuels = costWithoutCallbackJuels + adminFee + callbackGasCostJuels
-    s_fulfillmentCoordinatorBalance += totalCostJuels3 - s_adminFee;
-
-    // Return prank to Owner
-    vm.stopPrank();
-    vm.startPrank(OWNER_ADDRESS);
+    // Send
+    _sendAndStoreRequest(3, sourceCode, secrets, args, bytesArgs, callbackGasLimit);
+    // Fulfill as transmitter #3
+    uint256[] memory requestNumberKeys2 = new uint256[](1);
+    requestNumberKeys2[0] = 3;
+    string[] memory results2 = new string[](1);
+    results2[0] = "hello world!";
+    bytes[] memory errors2 = new bytes[](1);
+    errors2[0] = new bytes(0);
+    _reportAndStore(requestNumberKeys2, results2, errors2, NOP_TRANSMITTER_ADDRESS_3, true);
   }
 }
