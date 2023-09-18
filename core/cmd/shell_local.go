@@ -852,7 +852,7 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 	}()
 
 	// TODO TO BE REMOVED IN v2.7.0
-	err = evmChainIDMigration(s.Config, db)
+	err = evmChainIDMigration(s.Config, db, s.Logger)
 	if err != nil {
 		return err
 	}

@@ -134,15 +134,9 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	initGlobals(cfg.Prometheus())
 
 	// TODO TO BE REMOVED IN v2.7.0
-	migrationVer, err := migrate.Current(db.DB, appLggr)
+	err = evmChainIDMigration(cfg, db.DB, appLggr)
 	if err != nil {
 		return nil, err
-	}
-	if migrationVer == 194 {
-		err = evmChainIDMigration(cfg, db.DB)
-		if err != nil {
-			return nil, err
-		}
 	}
 
 	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
@@ -308,7 +302,15 @@ func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbacku
 }
 
 // evmChainIDMigration TODO TO BE REMOVED IN v2.7.0. This is a helper function for evmChainID 0195 migration in v2.6.0 only, so that we don't have to inject evmChainID into goose.
-func evmChainIDMigration(generalConfig chainlink.GeneralConfig, db *sql.DB) error {
+func evmChainIDMigration(generalConfig chainlink.GeneralConfig, db *sql.DB, lggr logger.Logger) error {
+	migrationVer, err := migrate.Current(db, lggr)
+	if err != nil {
+		return err
+	}
+	if migrationVer != 194 {
+		return nil
+	}
+
 	if generalConfig.EVMEnabled() {
 		if generalConfig.EVMConfigs() == nil {
 			return errors.New("evm configs are missing")
