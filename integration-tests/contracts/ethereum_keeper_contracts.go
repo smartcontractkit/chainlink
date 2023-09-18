@@ -15,9 +15,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	goabi "github.com/umbracle/ethgo/abi"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
