@@ -304,6 +304,11 @@ func (rp *reportingPlugin) Report(repts types.ReportTimestamp, previousReport ty
 		return false, nil, err
 	}
 
+	if rf.CurrentBlockNum < rf.ValidFromBlockNum {
+		rp.logger.Debugw("shouldReport: no (overlap)", "currentBlockNum", rf.CurrentBlockNum, "validFromBlockNum", rf.ValidFromBlockNum, "repts", repts)
+		return false, nil, nil
+	}
+
 	if err = rp.validateReport(rf); err != nil {
 		rp.logger.Debugw("shouldReport: no (validation error)", "err", err, "timestamp", repts)
 		return false, nil, err

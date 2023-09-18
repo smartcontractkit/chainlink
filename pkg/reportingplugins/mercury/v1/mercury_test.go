@@ -748,6 +748,21 @@ func Test_Plugin_Report(t *testing.T) {
 			assert.False(t, should)
 			assert.EqualError(t, err, "test error current block fail")
 		})
+		t.Run("does not report if currentBlockNum < validFromBlockNum", func(t *testing.T) {
+			codec.currentBlock = 49 // means that validFromBlockNum=50 which is > currentBlockNum of 49
+			codec.currentBlockErr = nil
+
+			aos := []types.AttributedObservation{
+				newAttributedObservation(t, newValidMercuryObservationProto()),
+				newAttributedObservation(t, newValidMercuryObservationProto()),
+				newAttributedObservation(t, newValidMercuryObservationProto()),
+				newAttributedObservation(t, newValidMercuryObservationProto()),
+			}
+			should, _, err := rp.Report(repts, previousReport, aos)
+
+			assert.False(t, should)
+			assert.NoError(t, err)
+		})
 	})
 }
 
