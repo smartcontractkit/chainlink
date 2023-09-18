@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipevents"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/observability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -141,7 +141,7 @@ func leavesFromIntervals(
 	lggr logger.Logger,
 	interval commit_store.CommitStoreInterval,
 	hasher hashlib.LeafHasherInterface[[32]byte],
-	sendReqs []ccipevents.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested],
+	sendReqs []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested],
 ) ([][32]byte, error) {
 	var seqNrs []uint64
 	for _, req := range sendReqs {

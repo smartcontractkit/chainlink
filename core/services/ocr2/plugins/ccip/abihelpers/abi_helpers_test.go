@@ -4,7 +4,11 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"math/rand"
 	"testing"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
@@ -56,6 +60,30 @@ func TestProofFlagToBits(t *testing.T) {
 		a := ProofFlagsToBits(tc.flags)
 		assert.Equal(t, tc.expected.String(), a.String())
 	}
+}
+
+func TestCommitReportEncoding(t *testing.T) {
+	report := commit_store.CommitStoreCommitReport{
+		PriceUpdates: commit_store.InternalPriceUpdates{
+			TokenPriceUpdates: []commit_store.InternalTokenPriceUpdate{
+				{
+					SourceToken: utils.RandomAddress(),
+					UsdPerToken: big.NewInt(9e18),
+				},
+			},
+			DestChainSelector: rand.Uint64(),
+			UsdPerUnitGas:     big.NewInt(2000e9),
+		},
+		MerkleRoot: [32]byte{123},
+		Interval:   commit_store.CommitStoreInterval{Min: 1, Max: 10},
+	}
+
+	encodedReport, err := EncodeCommitReport(report)
+	require.NoError(t, err)
+
+	decodedReport, err := DecodeCommitReport(encodedReport)
+	require.NoError(t, err)
+	require.Equal(t, report, decodedReport)
 }
 
 func TestExecutionReportEncoding(t *testing.T) {

@@ -18,9 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 
-	ctfClient "github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2/confighelper"
 	types4 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -28,6 +26,8 @@ import (
 	"go.uber.org/zap"
 	"k8s.io/utils/pointer"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	ctfClient "github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"

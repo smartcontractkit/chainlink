@@ -33,8 +33,8 @@ func TestIntegration_CCIP(t *testing.T) {
 		_, err := w.Write([]byte(`{"UsdPerETH": "1700000000000000000000"}`))
 		require.NoError(t, err)
 	}))
-	wrapped, err := ccipTH.Source.Router.GetWrappedNative(nil)
-	require.NoError(t, err)
+	wrapped, err1 := ccipTH.Source.Router.GetWrappedNative(nil)
+	require.NoError(t, err1)
 	tokenPricesUSDPipeline := fmt.Sprintf(`
 // Price 1
 link [type=http method=GET url="%s"];
@@ -310,7 +310,7 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 		linkToTransferToOnRamp := big.NewInt(1e18)
 
 		// transfer some link to onramp to pay the nops
-		_, err = ccipTH.Source.LinkToken.Transfer(ccipTH.Source.User, ccipTH.Source.OnRamp.Address(), linkToTransferToOnRamp)
+		_, err := ccipTH.Source.LinkToken.Transfer(ccipTH.Source.User, ccipTH.Source.OnRamp.Address(), linkToTransferToOnRamp)
 		require.NoError(t, err)
 		ccipTH.Source.Chain.Commit()
 
@@ -477,15 +477,13 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 			seqNumber := currentSeqNum + 1
 			defer msgWg.Done()
 			for {
-				select {
-				case <-ticker.C:
-					t.Logf("sending request for seqnum %d", seqNumber)
-					ccipContracts.SendMessage(t, gasLimit, tokenAmount, ccipTH.Dest.Receivers[0].Receiver.Address())
-					ccipContracts.Source.Chain.Commit()
-					seqNumber++
-					if seqNumber == endSeq {
-						return
-					}
+				<-ticker.C // wait for ticker
+				t.Logf("sending request for seqnum %d", seqNumber)
+				ccipContracts.SendMessage(t, gasLimit, tokenAmount, ccipTH.Dest.Receivers[0].Receiver.Address())
+				ccipContracts.Source.Chain.Commit()
+				seqNumber++
+				if seqNumber == endSeq {
+					return
 				}
 			}
 		}(ccipTH.CCIPContracts, currentSeqNum)

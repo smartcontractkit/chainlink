@@ -1,4 +1,4 @@
-package ccipevents
+package ccipdata
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
@@ -22,10 +23,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
-var _ Client = &LogPollerClient{}
+var _ Reader = &LogPollerReader{}
 
-// LogPollerClient implements the Client interface by using a logPoller instance to fetch the events.
-type LogPollerClient struct {
+// LogPollerReader implements the Reader interface by using a logPoller instance to fetch the events.
+type LogPollerReader struct {
 	lp     logpoller.LogPoller
 	lggr   logger.Logger
 	client evmclient.Client
@@ -33,15 +34,15 @@ type LogPollerClient struct {
 	dependencyCache sync.Map
 }
 
-func NewLogPollerClient(lp logpoller.LogPoller, lggr logger.Logger, client evmclient.Client) *LogPollerClient {
-	return &LogPollerClient{
+func NewLogPollerReader(lp logpoller.LogPoller, lggr logger.Logger, client evmclient.Client) *LogPollerReader {
+	return &LogPollerReader{
 		lp:     lp,
 		lggr:   lggr,
 		client: client,
 	}
 }
 
-func (c *LogPollerClient) GetSendRequestsGteSeqNum(ctx context.Context, onRampAddress common.Address, seqNum uint64, checkFinalityTags bool, confs int) (sendReqs []Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested], err error) {
+func (c *LogPollerReader) GetSendRequestsGteSeqNum(ctx context.Context, onRampAddress common.Address, seqNum uint64, checkFinalityTags bool, confs int) (sendReqs []Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested], err error) {
 	onRamp, err := c.loadOnRamp(onRampAddress)
 	if err != nil {
 		return nil, err
@@ -107,7 +108,7 @@ func (c *LogPollerClient) GetSendRequestsGteSeqNum(ctx context.Context, onRampAd
 	)
 }
 
-func (c *LogPollerClient) GetSendRequestsBetweenSeqNums(ctx context.Context, onRampAddress common.Address, seqNumMin, seqNumMax uint64, confs int) ([]Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested], error) {
+func (c *LogPollerReader) GetSendRequestsBetweenSeqNums(ctx context.Context, onRampAddress common.Address, seqNumMin, seqNumMax uint64, confs int) ([]Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested], error) {
 	onRamp, err := c.loadOnRamp(onRampAddress)
 	if err != nil {
 		return nil, err
@@ -134,7 +135,7 @@ func (c *LogPollerClient) GetSendRequestsBetweenSeqNums(ctx context.Context, onR
 	)
 }
 
-func (c *LogPollerClient) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, priceRegistryAddress common.Address, ts time.Time, confs int) ([]Event[price_registry.PriceRegistryUsdPerTokenUpdated], error) {
+func (c *LogPollerReader) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, priceRegistryAddress common.Address, ts time.Time, confs int) ([]Event[price_registry.PriceRegistryUsdPerTokenUpdated], error) {
 	priceRegistry, err := c.loadPriceRegistry(priceRegistryAddress)
 	if err != nil {
 		return nil, err
@@ -160,7 +161,7 @@ func (c *LogPollerClient) GetTokenPriceUpdatesCreatedAfter(ctx context.Context, 
 	)
 }
 
-func (c *LogPollerClient) GetGasPriceUpdatesCreatedAfter(ctx context.Context, priceRegistryAddress common.Address, chainSelector uint64, ts time.Time, confs int) ([]Event[price_registry.PriceRegistryUsdPerUnitGasUpdated], error) {
+func (c *LogPollerReader) GetGasPriceUpdatesCreatedAfter(ctx context.Context, priceRegistryAddress common.Address, chainSelector uint64, ts time.Time, confs int) ([]Event[price_registry.PriceRegistryUsdPerUnitGasUpdated], error) {
 	priceRegistry, err := c.loadPriceRegistry(priceRegistryAddress)
 	if err != nil {
 		return nil, err
@@ -188,7 +189,7 @@ func (c *LogPollerClient) GetGasPriceUpdatesCreatedAfter(ctx context.Context, pr
 	)
 }
 
-func (c *LogPollerClient) GetExecutionStateChangesBetweenSeqNums(ctx context.Context, offRampAddress common.Address, seqNumMin, seqNumMax uint64, confs int) ([]Event[evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged], error) {
+func (c *LogPollerReader) GetExecutionStateChangesBetweenSeqNums(ctx context.Context, offRampAddress common.Address, seqNumMin, seqNumMax uint64, confs int) ([]Event[evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged], error) {
 	offRamp, err := c.loadOffRamp(offRampAddress)
 	if err != nil {
 		return nil, err
@@ -216,8 +217,61 @@ func (c *LogPollerClient) GetExecutionStateChangesBetweenSeqNums(ctx context.Con
 	)
 }
 
-func (c *LogPollerClient) LatestBlock(ctx context.Context) (int64, error) {
+func (c *LogPollerReader) LatestBlock(ctx context.Context) (int64, error) {
 	return c.lp.LatestBlock(pg.WithParentCtx(ctx))
+}
+
+func (c *LogPollerReader) GetAcceptedCommitReportsGteSeqNum(ctx context.Context, commitStoreAddress common.Address, seqNum uint64, confs int) ([]Event[commit_store.CommitStoreReportAccepted], error) {
+	commitStore, err := c.loadCommitStore(commitStoreAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	logs, err := c.lp.LogsDataWordGreaterThan(
+		abihelpers.EventSignatures.ReportAccepted,
+		commitStoreAddress,
+		abihelpers.EventSignatures.ReportAcceptedMaxSequenceNumberWord,
+		logpoller.EvmWord(seqNum),
+		confs,
+		pg.WithParentCtx(ctx),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseLogs[commit_store.CommitStoreReportAccepted](
+		logs,
+		c.lggr,
+		func(log types.Log) (*commit_store.CommitStoreReportAccepted, error) {
+			return commitStore.ParseReportAccepted(log)
+		},
+	)
+}
+
+func (c *LogPollerReader) GetAcceptedCommitReportsGteTimestamp(ctx context.Context, commitStoreAddress common.Address, ts time.Time, confs int) ([]Event[commit_store.CommitStoreReportAccepted], error) {
+	commitStore, err := c.loadCommitStore(commitStoreAddress)
+	if err != nil {
+		return nil, err
+	}
+
+	logs, err := c.lp.LogsCreatedAfter(
+		abihelpers.EventSignatures.ReportAccepted,
+		commitStoreAddress,
+		ts,
+		confs,
+		pg.WithParentCtx(ctx),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return parseLogs[commit_store.CommitStoreReportAccepted](
+		logs,
+		c.lggr,
+		func(log types.Log) (*commit_store.CommitStoreReportAccepted, error) {
+			return commitStore.ParseReportAccepted(log)
+		},
+	)
 }
 
 func parseLogs[T any](logs []logpoller.Log, lggr logger.Logger, parseFunc func(log types.Log) (*T, error)) ([]Event[T], error) {
@@ -241,7 +295,7 @@ func parseLogs[T any](logs []logpoller.Log, lggr logger.Logger, parseFunc func(l
 	return reqs, nil
 }
 
-func (c *LogPollerClient) loadOnRamp(addr common.Address) (*evm_2_evm_onramp.EVM2EVMOnRampFilterer, error) {
+func (c *LogPollerReader) loadOnRamp(addr common.Address) (*evm_2_evm_onramp.EVM2EVMOnRampFilterer, error) {
 	onRamp, exists := loadCachedDependency[*evm_2_evm_onramp.EVM2EVMOnRampFilterer](&c.dependencyCache, addr)
 	if exists {
 		return onRamp, nil
@@ -256,7 +310,7 @@ func (c *LogPollerClient) loadOnRamp(addr common.Address) (*evm_2_evm_onramp.EVM
 	return onRamp, nil
 }
 
-func (c *LogPollerClient) loadPriceRegistry(addr common.Address) (*price_registry.PriceRegistryFilterer, error) {
+func (c *LogPollerReader) loadPriceRegistry(addr common.Address) (*price_registry.PriceRegistryFilterer, error) {
 	priceRegistry, exists := loadCachedDependency[*price_registry.PriceRegistryFilterer](&c.dependencyCache, addr)
 	if exists {
 		return priceRegistry, nil
@@ -271,7 +325,7 @@ func (c *LogPollerClient) loadPriceRegistry(addr common.Address) (*price_registr
 	return priceRegistry, nil
 }
 
-func (c *LogPollerClient) loadOffRamp(addr common.Address) (*evm_2_evm_offramp.EVM2EVMOffRampFilterer, error) {
+func (c *LogPollerReader) loadOffRamp(addr common.Address) (*evm_2_evm_offramp.EVM2EVMOffRampFilterer, error) {
 	offRamp, exists := loadCachedDependency[*evm_2_evm_offramp.EVM2EVMOffRampFilterer](&c.dependencyCache, addr)
 	if exists {
 		return offRamp, nil
@@ -284,6 +338,21 @@ func (c *LogPollerClient) loadOffRamp(addr common.Address) (*evm_2_evm_offramp.E
 
 	c.dependencyCache.Store(addr, offRamp)
 	return offRamp, nil
+}
+
+func (c *LogPollerReader) loadCommitStore(addr common.Address) (*commit_store.CommitStoreFilterer, error) {
+	commitStore, exists := loadCachedDependency[*commit_store.CommitStoreFilterer](&c.dependencyCache, addr)
+	if exists {
+		return commitStore, nil
+	}
+
+	commitStore, err := commit_store.NewCommitStoreFilterer(addr, c.client)
+	if err != nil {
+		return nil, err
+	}
+
+	c.dependencyCache.Store(addr, commitStore)
+	return commitStore, nil
 }
 
 func loadCachedDependency[T any](cache *sync.Map, addr common.Address) (T, bool) {

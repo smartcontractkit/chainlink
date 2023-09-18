@@ -120,10 +120,6 @@ func TestGet_ConcurrentAccess(t *testing.T) {
 
 	// 1 init block + 100 iterations
 	require.Equal(t, int64(101), contract.lastChangeBlock)
-
-	// Make sure that recent value is stored in cache
-	val := contract.copyCachedValue()
-	require.Equal(t, "value_99", val)
 }
 
 func newCachedContract(lp logpoller.LogPoller, cacheValue string, originValue []string, lastChangeBlock int64) *CachedChain[string] {

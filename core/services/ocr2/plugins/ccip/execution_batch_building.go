@@ -7,16 +7,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipevents"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/merklemulti"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 func getProofData(
@@ -24,10 +22,10 @@ func getProofData(
 	lggr logger.Logger,
 	hashLeaf hashlib.LeafHasherInterface[[32]byte],
 	onRampAddress common.Address,
-	sourceEventsClient ccipevents.Client,
+	sourceReader ccipdata.Reader,
 	interval commit_store.CommitStoreInterval,
-) (sendReqsInRoot []ccipevents.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested], leaves [][32]byte, tree *merklemulti.Tree[[32]byte], err error) {
-	sendReqs, err := sourceEventsClient.GetSendRequestsBetweenSeqNums(
+) (sendReqsInRoot []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested], leaves [][32]byte, tree *merklemulti.Tree[[32]byte], err error) {
+	sendReqs, err := sourceReader.GetSendRequestsBetweenSeqNums(
 		ctx,
 		onRampAddress,
 		interval.Min,
@@ -99,27 +97,18 @@ func validateSeqNumbers(serviceCtx context.Context, commitStore commit_store.Com
 }
 
 // Gets the commit report from the saved logs for a given sequence number.
-func getCommitReportForSeqNum(ctx context.Context, dstLogPoller logpoller.LogPoller, commitStore commit_store.CommitStoreInterface, seqNr uint64) (commit_store.CommitStoreCommitReport, error) {
-	// fetch commitReports which report.Interval.Max >= seqNr
-	logs, err := dstLogPoller.LogsDataWordGreaterThan(
-		abihelpers.EventSignatures.ReportAccepted,
-		commitStore.Address(),
-		abihelpers.EventSignatures.ReportAcceptedMaxSequenceNumberWord,
-		logpoller.EvmWord(seqNr),
-		0,
-		pg.WithParentCtx(ctx),
-	)
+func getCommitReportForSeqNum(ctx context.Context, destReader ccipdata.Reader, commitStore commit_store.CommitStoreInterface, seqNum uint64) (commit_store.CommitStoreCommitReport, error) {
+	acceptedReports, err := destReader.GetAcceptedCommitReportsGteSeqNum(ctx, commitStore.Address(), seqNum, 0)
 	if err != nil {
 		return commit_store.CommitStoreCommitReport{}, err
 	}
-	for _, log := range logs {
-		reportAccepted, err := commitStore.ParseReportAccepted(log.ToGethLog())
-		if err != nil {
-			return commit_store.CommitStoreCommitReport{}, err
-		}
-		if reportAccepted.Report.Interval.Min <= seqNr && seqNr <= reportAccepted.Report.Interval.Max {
-			return reportAccepted.Report, nil
+
+	for _, acceptedReport := range acceptedReports {
+		reportInterval := acceptedReport.Data.Report.Interval
+		if reportInterval.Min <= seqNum && seqNum <= reportInterval.Max {
+			return acceptedReport.Data.Report, nil
 		}
 	}
+
 	return commit_store.CommitStoreCommitReport{}, errors.Errorf("seq number not committed")
 }

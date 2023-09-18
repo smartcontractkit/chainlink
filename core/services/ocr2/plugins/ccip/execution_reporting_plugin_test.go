@@ -13,15 +13,23 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cometbft/cometbft/libs/rand"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/custom_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/mocks"
@@ -29,398 +37,207 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipevents"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
-	plugintesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/plugins"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-var (
-	MaxTokensPerMessage = 5
-	MaxPayloadLength    = 100_000
-)
-
-type execTestHarness = struct {
-	plugintesthelpers.CCIPPluginTestHarness
-	plugin *ExecutionReportingPlugin
-}
-
-func setupExecTestHarness(t *testing.T) execTestHarness {
-	th := plugintesthelpers.SetupCCIPTestHarness(t)
-
-	lggr := logger.TestLogger(t)
-	destFeeEstimator := mocks.NewEvmFeeEstimator(t)
-
-	destFeeEstimator.On(
-		"GetFee",
-		mock.Anything,
-		mock.Anything,
-		mock.Anything,
-		mock.Anything,
-	).Maybe().Return(gas.EvmFee{Legacy: assets.NewWei(defaultGasPrice)}, uint32(200e3), nil)
-
-	offchainConfig := ccipconfig.ExecOffchainConfig{
-		SourceFinalityDepth:         0,
-		DestOptimisticConfirmations: 0,
-		MaxGasPrice:                 200e9,
-		BatchGasLimit:               5e6,
-		RootSnoozeTime:              models.MustMakeDuration(10 * time.Minute),
-		InflightCacheExpiry:         models.MustMakeDuration(3 * time.Minute),
-		RelativeBoostPerWaitHour:    0.07,
-	}
-	plugin := ExecutionReportingPlugin{
-		config: ExecutionPluginConfig{
-			lggr:                     th.Lggr,
-			sourceLP:                 th.SourceLP,
-			destLP:                   th.DestLP,
-			sourceEvents:             ccipevents.NewLogPollerClient(th.SourceLP, lggr, th.SourceClient),
-			destEvents:               ccipevents.NewLogPollerClient(th.DestLP, lggr, th.DestClient),
-			sourcePriceRegistry:      th.Source.PriceRegistry,
-			onRamp:                   th.Source.OnRamp,
-			commitStore:              th.Dest.CommitStore,
-			offRamp:                  th.Dest.OffRamp,
-			destClient:               th.DestClient,
-			sourceClient:             th.SourceClient,
-			sourceWrappedNativeToken: th.Source.WrappedNative.Address(),
-			leafHasher:               hashlib.NewLeafHasher(th.Source.ChainSelector, th.Dest.ChainSelector, th.Source.OnRamp.Address(), hashlib.NewKeccakCtx()),
-			destGasEstimator:         destFeeEstimator,
-		},
-		onchainConfig:         th.ExecOnchainConfig,
-		offchainConfig:        offchainConfig,
-		lggr:                  th.Lggr.Named("ExecutionReportingPlugin"),
-		snoozedRoots:          cache.NewSnoozedRoots(th.ExecOnchainConfig.PermissionLessExecutionThresholdDuration(), offchainConfig.RootSnoozeTime.Duration()),
-		inflightReports:       newInflightExecReportsContainer(offchainConfig.InflightCacheExpiry.Duration()),
-		destPriceRegistry:     th.Dest.PriceRegistry,
-		destWrappedNative:     th.Dest.WrappedNative.Address(),
-		cachedSourceFeeTokens: cache.NewCachedFeeTokens(th.SourceLP, th.Source.PriceRegistry, int64(offchainConfig.SourceFinalityDepth)),
-		cachedDestTokens:      cache.NewCachedSupportedTokens(th.DestLP, th.Dest.OffRamp, th.Dest.PriceRegistry, int64(offchainConfig.DestOptimisticConfirmations)),
-	}
-	return execTestHarness{
-		CCIPPluginTestHarness: th,
-		plugin:                &plugin,
-	}
-}
-
-func TestMaxExecutionReportSize(t *testing.T) {
-	// Ensure that given max payload size and max num tokens,
-	// Our report size is under the tx size limit.
-	th := setupExecTestHarness(t)
-	th.plugin.F = 1
-	mb := th.GenerateAndSendMessageBatch(t, 50, MaxPayloadLength, MaxTokensPerMessage)
-
-	// commit root
-	encoded, err := abihelpers.EncodeCommitReport(commit_store.CommitStoreCommitReport{
-		Interval:   mb.Interval,
-		MerkleRoot: mb.Root,
-		PriceUpdates: commit_store.InternalPriceUpdates{
-			TokenPriceUpdates: []commit_store.InternalTokenPriceUpdate{},
-			DestChainSelector: 0,
-			UsdPerUnitGas:     big.NewInt(0),
-		},
-	})
-	require.NoError(t, err)
-	latestEpocAndRound, err := th.Dest.CommitStoreHelper.GetLatestPriceEpochAndRound(nil)
-	require.NoError(t, err)
-	_, err = th.Dest.CommitStoreHelper.Report(th.Dest.User, encoded, big.NewInt(int64(latestEpocAndRound+1)))
-	require.NoError(t, err)
-	// double commit to ensure enough confirmations
-	th.CommitAndPollLogs(t)
-	th.CommitAndPollLogs(t)
-
-	fullReport, err := abihelpers.EncodeExecutionReport(evm_2_evm_offramp.InternalExecutionReport{
-		Messages:          mb.Messages,
-		OffchainTokenData: mb.TokenData,
-		Proofs:            mb.Proof.Hashes,
-		ProofFlagBits:     mb.ProofBits,
-	})
-	require.NoError(t, err)
-	// ensure "naive" full report would be bigger than limit
-	require.Greater(t, len(fullReport), MaxExecutionReportLength, "full execution report length")
-
-	observations := make([]ObservedMessage, len(mb.Messages))
-	for i, msg := range mb.Messages {
-		observations[i] = NewObservedMessage(msg.SequenceNumber, mb.TokenData[i])
-	}
-
-	// buildReport should cap the built report to fit in MaxExecutionReportLength
-	execReport, err := th.plugin.buildReport(testutils.Context(t), th.Lggr, observations)
-	require.NoError(t, err)
-	require.LessOrEqual(t, len(execReport), MaxExecutionReportLength, "built execution report length")
-}
-
-func TestExecutionReportToEthTxMetadata(t *testing.T) {
-	c := plugintesthelpers.SetupCCIPTestHarness(t)
-	tests := []struct {
-		name     string
-		msgBatch plugintesthelpers.MessageBatch
-		err      error
+func TestExecutionReportingPlugin_Observation(t *testing.T) {
+	testCases := []struct {
+		name              string
+		commitStorePaused bool
+		inflightReports   []InflightInternalExecutionReport
+		unexpiredReports  []ccipdata.Event[commit_store.CommitStoreReportAccepted]
+		sendRequests      []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]
+		executedSeqNums   []uint64
+		blessedRoots      map[[32]byte]bool
+		senderNonce       uint64
+		rateLimiterState  evm_2_evm_offramp.RateLimiterTokenBucket
+		expErr            bool
 	}{
 		{
-			"happy flow",
-			c.GenerateAndSendMessageBatch(t, 5, MaxPayloadLength, MaxTokensPerMessage),
-			nil,
+			name:              "commit store is down",
+			commitStorePaused: true,
+			expErr:            true,
+		},
+		{
+			name:              "happy flow",
+			commitStorePaused: false,
+			inflightReports:   []InflightInternalExecutionReport{},
+			unexpiredReports: []ccipdata.Event[commit_store.CommitStoreReportAccepted]{
+				{
+					Data: commit_store.CommitStoreReportAccepted{
+						Report: commit_store.CommitStoreCommitReport{
+							PriceUpdates: commit_store.InternalPriceUpdates{},
+							Interval:     commit_store.CommitStoreInterval{Min: 10, Max: 12},
+							MerkleRoot:   [32]byte{123},
+						},
+					},
+				},
+			},
+			blessedRoots: map[[32]byte]bool{
+				[32]byte{123}: true,
+			},
+			rateLimiterState: evm_2_evm_offramp.RateLimiterTokenBucket{
+				IsEnabled: false,
+			},
+			senderNonce: 9,
+			sendRequests: []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]{
+				{
+					Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{
+						Message: evm_2_evm_onramp.InternalEVM2EVMMessage{SequenceNumber: 10},
+					},
+				},
+				{
+					Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{
+						Message: evm_2_evm_onramp.InternalEVM2EVMMessage{SequenceNumber: 11},
+					},
+				},
+				{
+					Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{
+						Message: evm_2_evm_onramp.InternalEVM2EVMMessage{SequenceNumber: 12},
+					},
+				},
+			},
 		},
 	}
-	for _, tc := range tests {
+
+	ctx := testutils.Context(t)
+	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			encExecReport, err := abihelpers.EncodeExecutionReport(evm_2_evm_offramp.InternalExecutionReport{
-				Messages:          tc.msgBatch.Messages,
-				OffchainTokenData: tc.msgBatch.TokenData,
-				Proofs:            tc.msgBatch.Proof.Hashes,
-				ProofFlagBits:     tc.msgBatch.ProofBits,
+			p := &ExecutionReportingPlugin{}
+			p.inflightReports = newInflightExecReportsContainer(time.Minute)
+			p.inflightReports.reports = tc.inflightReports
+			p.lggr = logger.TestLogger(t)
+
+			commitStore, commitStoreAddr := testhelpers.NewFakeCommitStore(t, 1)
+			commitStore.SetPaused(tc.commitStorePaused)
+			commitStore.SetBlessedRoots(tc.blessedRoots)
+			p.config.commitStore = commitStore
+
+			offRamp, offRampAddr := testhelpers.NewFakeOffRamp(t)
+			offRamp.SetRateLimiterState(tc.rateLimiterState)
+			p.config.offRamp = offRamp
+
+			destReader := ccipdata.NewMockReader(t)
+			destReader.On("GetAcceptedCommitReportsGteTimestamp", ctx, commitStoreAddr, mock.Anything, 0).
+				Return(tc.unexpiredReports, nil).Maybe()
+			destReader.On("LatestBlock", ctx).Return(int64(1234), nil).Maybe()
+			var executionEvents []ccipdata.Event[evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged]
+			for _, seqNum := range tc.executedSeqNums {
+				executionEvents = append(executionEvents, ccipdata.Event[evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged]{
+					Data: evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged{SequenceNumber: seqNum},
+				})
+			}
+			destReader.On("GetExecutionStateChangesBetweenSeqNums", ctx, offRampAddr, mock.Anything, mock.Anything, 0).
+				Return(executionEvents, nil).Maybe()
+			p.config.destReader = destReader
+
+			onRamp, onRampAddr := testhelpers.NewFakeOnRamp(t)
+			p.config.onRamp = onRamp
+
+			sourceReader := ccipdata.NewMockReader(t)
+			sourceReader.On("GetSendRequestsBetweenSeqNums", ctx, onRampAddr, mock.Anything, mock.Anything, 0).
+				Return(tc.sendRequests, nil).Maybe()
+			p.config.sourceReader = sourceReader
+
+			cachedDestTokens := cache.NewMockAutoSync[cache.CachedTokens](t)
+			cachedDestTokens.On("Get", ctx).Return(cache.CachedTokens{
+				SupportedTokens: map[common.Address]common.Address{},
+				FeeTokens:       []common.Address{},
+			}, nil).Maybe()
+			p.cachedDestTokens = cachedDestTokens
+
+			priceRegistry, _ := testhelpers.NewFakePriceRegistry(t)
+			priceRegistry.SetTokenPrices([]price_registry.InternalTimestampedPackedUint224{
+				{Value: big.NewInt(123), Timestamp: uint32(time.Now().Unix())},
 			})
-			require.NoError(t, err)
-			txMeta, err := ExecutionReportToEthTxMeta(encExecReport)
-			if tc.err != nil {
-				require.Equal(t, tc.err.Error(), err.Error())
+			p.destPriceRegistry = priceRegistry
+			p.config.sourcePriceRegistry = priceRegistry
+
+			sourceFeeTokens := cache.NewMockAutoSync[[]common.Address](t)
+			sourceFeeTokens.On("Get", ctx).Return([]common.Address{}, nil).Maybe()
+			p.cachedSourceFeeTokens = sourceFeeTokens
+
+			p.snoozedRoots = cache.NewSnoozedRoots(time.Minute, time.Minute)
+
+			_, err := p.Observation(ctx, types.ReportTimestamp{}, types.Query{})
+			if tc.expErr {
+				assert.Error(t, err)
 				return
 			}
-			require.NoError(t, err)
-			require.NotNil(t, txMeta)
-			require.Len(t, txMeta.MessageIDs, len(tc.msgBatch.Messages))
+			assert.NoError(t, err)
 		})
 	}
 }
 
-func TestUpdateSourceToDestTokenMapping(t *testing.T) {
-	expectedNewBlockNumber := int64(10000)
-	logs := []logpoller.Log{{BlockNumber: expectedNewBlockNumber}}
-	mockDestLP := &lpMocks.LogPoller{}
-
-	mockDestLP.On("LatestLogEventSigsAddrsWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(logs, nil)
-	mockDestLP.On("LatestBlock", mock.Anything).Return(expectedNewBlockNumber, nil)
-
-	sourceToken, destToken := common.HexToAddress("111111"), common.HexToAddress("222222")
-
-	mockOffRamp := &mock_contracts.EVM2EVMOffRampInterface{}
-	mockOffRamp.On("Address").Return(common.HexToAddress("0x01"))
-	mockOffRamp.On("GetSupportedTokens", mock.Anything).Return([]common.Address{sourceToken}, nil)
-	mockOffRamp.On("GetDestinationToken", mock.Anything, sourceToken).Return(destToken, nil)
-
-	mockPriceRegistry := &mock_contracts.PriceRegistryInterface{}
-	mockPriceRegistry.On("Address").Return(common.HexToAddress("0x02"))
-	mockPriceRegistry.On("GetFeeTokens", mock.Anything).Return([]common.Address{}, nil)
-
-	plugin := ExecutionReportingPlugin{
-		config: ExecutionPluginConfig{
-			destLP:  mockDestLP,
-			offRamp: mockOffRamp,
-		},
-		cachedDestTokens: cache.NewCachedSupportedTokens(mockDestLP, mockOffRamp, mockPriceRegistry, 0),
-	}
-
-	value, err := plugin.cachedDestTokens.Get(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, destToken, value.SupportedTokens[sourceToken])
-}
-
-func TestExecObservation(t *testing.T) {
-	th := setupExecTestHarness(t)
-	th.plugin.F = 1
-	mb := th.GenerateAndSendMessageBatch(t, 2, 10, 1)
-
-	// commit root
-	encoded, err := abihelpers.EncodeCommitReport(commit_store.CommitStoreCommitReport{
-		Interval:   mb.Interval,
-		MerkleRoot: mb.Root,
-		PriceUpdates: commit_store.InternalPriceUpdates{
-			TokenPriceUpdates: []commit_store.InternalTokenPriceUpdate{},
-			DestChainSelector: 0,
-			UsdPerUnitGas:     big.NewInt(0),
-		},
-	})
-	require.NoError(t, err)
-	latestEpocAndRound, err := th.Dest.CommitStoreHelper.GetLatestPriceEpochAndRound(nil)
-	require.NoError(t, err)
-	_, err = th.Dest.CommitStoreHelper.Report(th.Dest.User, encoded, big.NewInt(int64(latestEpocAndRound+1)))
-	require.NoError(t, err)
-	// double commit to ensure enough confirmations
-	th.CommitAndPollLogs(t)
-	th.CommitAndPollLogs(t)
-
-	expectedObservations := NewExecutionObservation([]ObservedMessage{
-		{SeqNr: 1, MsgData: MsgData{TokenData: [][]byte{{}}}},
-		{SeqNr: 2, MsgData: MsgData{TokenData: [][]byte{{}}}},
-	})
-	tests := []struct {
+func TestExecutionReportingPlugin_Report(t *testing.T) {
+	testCases := []struct {
 		name            string
-		commitStoreDown bool
-		expected        *ExecutionObservation
-		expectedError   bool
+		f               int
+		committedSeqNum uint64
+		observations    []ExecutionObservation
+
+		expectingSomeReport bool
+		expectedReport      evm_2_evm_offramp.InternalExecutionReport
+		expectingSomeErr    bool
 	}{
 		{
-			"base",
-			false,
-			&expectedObservations,
-			false,
+			name:            "not enough observations to form consensus",
+			f:               5,
+			committedSeqNum: 5,
+			observations: []ExecutionObservation{
+				{Messages: map[uint64]MsgData{3: {}, 4: {}}},
+				{Messages: map[uint64]MsgData{3: {}, 4: {}}},
+			},
+			expectingSomeErr:    false,
+			expectingSomeReport: false,
 		},
 		{
-			"commitStore down",
-			true,
-			nil,
-			true,
+			name:                "zero observations",
+			f:                   0,
+			committedSeqNum:     5,
+			observations:        []ExecutionObservation{},
+			expectingSomeErr:    false,
+			expectingSomeReport: false,
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.commitStoreDown && !isCommitStoreDownNow(testutils.Context(t), th.Lggr, th.Dest.CommitStore) {
-				_, err := th.Dest.CommitStore.Pause(th.Dest.User)
-				require.NoError(t, err)
-				th.CommitAndPollLogs(t)
-			} else if !tt.commitStoreDown && isCommitStoreDownNow(testutils.Context(t), th.Lggr, th.Dest.CommitStore) {
-				_, err := th.Dest.CommitStore.Unpause(th.Dest.User)
-				require.NoError(t, err)
-				th.CommitAndPollLogs(t)
-			}
+	ctx := testutils.Context(t)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := ExecutionReportingPlugin{}
+			p.lggr = logger.TestLogger(t)
+			p.F = tc.f
 
-			gotObs, err := th.plugin.Observation(testutils.Context(t), ocrtypes.ReportTimestamp{}, ocrtypes.Query{})
+			commitStore, _ := testhelpers.NewFakeCommitStore(t, tc.committedSeqNum)
 
-			if tt.expectedError {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-			}
+			p.config.commitStore = commitStore
 
-			var decodedObservation *ExecutionObservation
-			if gotObs != nil {
-				decodedObservation = new(ExecutionObservation)
-				err = json.Unmarshal(gotObs, decodedObservation)
-				require.NoError(t, err)
-
-			}
-			assert.Equal(t, tt.expected, decodedObservation)
-		})
-	}
-}
-
-func TestExecReport(t *testing.T) {
-	th := setupExecTestHarness(t)
-	th.plugin.F = 1
-	mb := th.GenerateAndSendMessageBatch(t, 2, 10, 1)
-
-	// commit root
-	encoded, err := abihelpers.EncodeCommitReport(commit_store.CommitStoreCommitReport{
-		Interval:   mb.Interval,
-		MerkleRoot: mb.Root,
-		PriceUpdates: commit_store.InternalPriceUpdates{
-			TokenPriceUpdates: []commit_store.InternalTokenPriceUpdate{},
-			DestChainSelector: 0,
-			UsdPerUnitGas:     big.NewInt(0),
-		},
-	})
-	require.NoError(t, err)
-	execReport := mb.ToExecutionReport()
-
-	latestEpocAndRound, err := th.Dest.CommitStoreHelper.GetLatestPriceEpochAndRound(nil)
-	require.NoError(t, err)
-	_, err = th.Dest.CommitStoreHelper.Report(th.Dest.User, encoded, big.NewInt(int64(latestEpocAndRound+1)))
-	require.NoError(t, err)
-	// double commit to ensure enough confirmations
-	th.CommitAndPollLogs(t)
-	th.CommitAndPollLogs(t)
-
-	tests := []struct {
-		name                 string
-		commitStoreDown      bool
-		observations         [][]ObservedMessage
-		expectedShouldReport bool
-		expectedReport       *evm_2_evm_offramp.InternalExecutionReport
-		expectedError        bool
-	}{
-		{
-			"base",
-			false,
-			[][]ObservedMessage{
-				{NewObservedMessage(1, [][]byte{{}}), NewObservedMessage(2, [][]byte{{}})},
-				{NewObservedMessage(1, [][]byte{{}}), NewObservedMessage(2, [][]byte{{}})},
-			},
-			true,
-			&execReport,
-			false,
-		},
-		{
-			"partial observation",
-			false,
-			[][]ObservedMessage{
-				{NewObservedMessage(1, [][]byte{{}}), NewObservedMessage(2, [][]byte{{}})},
-				{NewObservedMessage(1, [][]byte{{}})},
-			},
-			true,
-			func() *evm_2_evm_offramp.InternalExecutionReport {
-				mb2 := mb
-				mb2.Messages = mb.Messages[:1]
-				mb2.Messages = mb.Messages[:1]
-				mb2.TokenData = mb.TokenData[:1]
-				mb2.Interval = commit_store.CommitStoreInterval{Min: 1, Max: 1}
-				mb2.Proof, err = mb2.Tree.Prove([]int{0})
+			observations := make([]types.AttributedObservation, len(tc.observations))
+			for i := range observations {
+				b, err := json.Marshal(tc.observations[i])
 				assert.NoError(t, err)
-				mb2.ProofBits = abihelpers.ProofFlagsToBits(mb2.Proof.SourceFlags)
-				report := mb2.ToExecutionReport()
-				return &report
-			}(),
-			false,
-		},
-		{
-			"empty",
-			false,
-			[][]ObservedMessage{
-				{NewObservedMessage(1, [][]byte{{}}), NewObservedMessage(2, [][]byte{{}})},
-				{},
-			},
-			false,
-			nil,
-			false,
-		},
-		{
-			"unknown seqNr",
-			false,
-			[][]ObservedMessage{
-				{NewObservedMessage(1, [][]byte{{}}), NewObservedMessage(2, [][]byte{{}}), NewObservedMessage(3, [][]byte{{}})},
-				{NewObservedMessage(1, [][]byte{{}}), NewObservedMessage(2, [][]byte{{}}), NewObservedMessage(3, [][]byte{{}})},
-			},
-			false,
-			nil,
-			true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var obs []ocrtypes.AttributedObservation
-			for _, o := range tt.observations {
-				encoded, err := NewExecutionObservation(o).Marshal()
-				require.NoError(t, err)
-				obs = append(obs, ocrtypes.AttributedObservation{Observation: encoded})
+				observations[i] = types.AttributedObservation{Observation: b, Observer: commontypes.OracleID(i + 1)}
 			}
-			gotShouldReport, gotReport, err := th.plugin.Report(testutils.Context(t), ocrtypes.ReportTimestamp{}, ocrtypes.Query{}, obs)
 
-			if tt.expectedError {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
+			_, _, err := p.Report(ctx, types.ReportTimestamp{}, types.Query{}, observations)
+			if tc.expectingSomeErr {
+				assert.Error(t, err)
+				return
 			}
-			require.Equal(t, tt.expectedShouldReport, gotShouldReport)
-
-			var encodedReport ocrtypes.Report
-			if tt.expectedReport != nil {
-				encodedReport, err = abihelpers.EncodeExecutionReport(*tt.expectedReport)
-				require.NoError(t, err)
-			}
-			assert.Equal(t, encodedReport, gotReport)
+			assert.NoError(t, err)
 		})
 	}
+
 }
 
-func TestExecShouldAcceptFinalizedReport(t *testing.T) {
+func TestExecutionReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 	msg := evm_2_evm_offramp.InternalEVM2EVMMessage{
 		SequenceNumber: 12,
 		FeeTokenAmount: big.NewInt(1e9),
@@ -443,7 +260,7 @@ func TestExecShouldAcceptFinalizedReport(t *testing.T) {
 	encodedReport, err := abihelpers.EncodeExecutionReport(report)
 	require.NoError(t, err)
 
-	mockOffRamp := &mock_contracts.EVM2EVMOffRampInterface{}
+	mockOffRamp, _ := testhelpers.NewFakeOffRamp(t)
 	plugin := ExecutionReportingPlugin{
 		config: ExecutionPluginConfig{
 			offRamp: mockOffRamp,
@@ -465,7 +282,7 @@ func TestExecShouldAcceptFinalizedReport(t *testing.T) {
 	assert.Equal(t, false, should)
 }
 
-func TestExecShouldTransmitAcceptedReport(t *testing.T) {
+func TestExecutionReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 	msg := evm_2_evm_offramp.InternalEVM2EVMMessage{
 		SequenceNumber: 12,
 		FeeTokenAmount: big.NewInt(1e9),
@@ -512,9 +329,85 @@ func TestExecShouldTransmitAcceptedReport(t *testing.T) {
 	assert.Equal(t, false, should)
 }
 
-func TestBuildBatch(t *testing.T) {
+func TestExecutionReportingPlugin_buildReport(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	const numMessages = 100
+	const tokensPerMessage = 20
+	const bytesPerMessage = 1000
+
+	executionReport := generateExecutionReport(t, numMessages, tokensPerMessage, bytesPerMessage)
+	encodedReport, err := abihelpers.EncodeExecutionReport(executionReport)
+	assert.NoError(t, err)
+	// ensure "naive" full report would be bigger than limit
+	assert.Greater(t, len(encodedReport), MaxExecutionReportLength, "full execution report length")
+
+	observations := make([]ObservedMessage, len(executionReport.Messages))
+	for i, msg := range executionReport.Messages {
+		observations[i] = NewObservedMessage(msg.SequenceNumber, executionReport.OffchainTokenData[i])
+	}
+
+	// ensure that buildReport should cap the built report to fit in MaxExecutionReportLength
+	p := &ExecutionReportingPlugin{}
+	p.lggr = logger.TestLogger(t)
+
+	commitStore, commitStoreAddress := testhelpers.NewFakeCommitStore(t, executionReport.Messages[len(executionReport.Messages)-1].SequenceNumber+1)
+	commitStore.On("Verify", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(big.NewInt(math.MaxInt64), nil)
+	p.config.commitStore = commitStore
+
+	destReader := ccipdata.NewMockReader(t)
+	destReader.On("GetAcceptedCommitReportsGteSeqNum", ctx, commitStoreAddress, observations[0].SeqNr, 0).
+		Return([]ccipdata.Event[commit_store.CommitStoreReportAccepted]{
+			{
+				Data: commit_store.CommitStoreReportAccepted{
+					Report: commit_store.CommitStoreCommitReport{
+						Interval: commit_store.CommitStoreInterval{
+							Min: observations[0].SeqNr,
+							Max: observations[len(observations)-1].SeqNr,
+						},
+					},
+				},
+			},
+		}, nil)
+	p.config.destReader = destReader
+
+	p.config.leafHasher = leafHasher123{}
+
+	onRamp, onRampAddr := testhelpers.NewFakeOnRamp(t)
+	p.config.onRamp = onRamp
+
+	sendReqs := make([]ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested], len(observations))
+	for i := range observations {
+		sendReqs[i] = ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]{
+			Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{Message: evm_2_evm_onramp.InternalEVM2EVMMessage{
+				SourceChainSelector: math.MaxUint64,
+				SequenceNumber:      uint64(i + 1),
+				FeeTokenAmount:      big.NewInt(math.MaxInt64),
+				Sender:              utils.RandomAddress(),
+				Nonce:               math.MaxUint64,
+				GasLimit:            big.NewInt(math.MaxInt64),
+				Strict:              false,
+				Receiver:            utils.RandomAddress(),
+				Data:                bytes.Repeat([]byte{0}, bytesPerMessage),
+				TokenAmounts:        nil,
+				FeeToken:            utils.RandomAddress(),
+				MessageId:           [32]byte{12},
+			}},
+		}
+	}
+	sourceReader := ccipdata.NewMockReader(t)
+	sourceReader.On("GetSendRequestsBetweenSeqNums",
+		ctx, onRampAddr, observations[0].SeqNr, observations[len(observations)-1].SeqNr, 0).Return(sendReqs, nil)
+	p.config.sourceReader = sourceReader
+
+	execReport, err := p.buildReport(ctx, p.lggr, observations)
+	assert.NoError(t, err)
+	assert.LessOrEqual(t, len(execReport), MaxExecutionReportLength, "built execution report length")
+}
+
+func TestExecutionReportingPlugin_buildBatch(t *testing.T) {
 	c, _ := testhelpers.SetupChain(t)
-	mockOffRamp := mock_contracts.EVM2EVMOffRampInterface{}
+	offRamp, _ := testhelpers.NewFakeOffRamp(t)
 	// We do this just to have the parsing available.
 	onRamp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress("0x1"), c)
 	require.NoError(t, err)
@@ -525,9 +418,8 @@ func TestBuildBatch(t *testing.T) {
 	srcNative := common.HexToAddress("0xc")
 	plugin := ExecutionReportingPlugin{
 		config: ExecutionPluginConfig{
-			offRamp: &mockOffRamp,
-			// We use a real onRamp for parsing
-			onRamp: onRamp,
+			offRamp: offRamp,
+			onRamp:  onRamp,
 		},
 		destWrappedNative: destNative,
 		offchainConfig: ccipconfig.ExecOffchainConfig{
@@ -745,10 +637,7 @@ func TestBuildBatch(t *testing.T) {
 	for _, tc := range tt {
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
-			for sender, nonce := range tc.offRampNoncesBySender {
-				mockOffRamp.On("GetSenderNonce", mock.Anything, sender).Return(nonce, nil)
-			}
-
+			offRamp.SetSenderNonces(tc.offRampNoncesBySender)
 			seqNrs := plugin.buildBatch(
 				lggr,
 				commitReportWithSendRequests{sendRequestsWithMeta: tc.reqs},
@@ -763,6 +652,508 @@ func TestBuildBatch(t *testing.T) {
 			assert.Equal(t, tc.expectedSeqNrs, seqNrs)
 		})
 	}
+}
+
+func TestExecutionReportingPlugin_isRateLimitEnoughForTokenPool(t *testing.T) {
+	testCases := []struct {
+		name                    string
+		destTokenPoolRateLimits map[common.Address]*big.Int
+		tokenAmounts            []evm_2_evm_offramp.ClientEVMTokenAmount
+		inflightTokenAmounts    map[common.Address]*big.Int
+		srcToDestToken          map[common.Address]common.Address
+		exp                     bool
+	}{
+		{
+			name: "base",
+			destTokenPoolRateLimits: map[common.Address]*big.Int{
+				common.HexToAddress("10"): big.NewInt(100),
+				common.HexToAddress("20"): big.NewInt(50),
+			},
+			tokenAmounts: []evm_2_evm_offramp.ClientEVMTokenAmount{
+				{Token: common.HexToAddress("1"), Amount: big.NewInt(50)},
+				{Token: common.HexToAddress("2"), Amount: big.NewInt(20)},
+			},
+			srcToDestToken: map[common.Address]common.Address{
+				common.HexToAddress("1"): common.HexToAddress("10"),
+				common.HexToAddress("2"): common.HexToAddress("20"),
+			},
+			inflightTokenAmounts: map[common.Address]*big.Int{
+				common.HexToAddress("1"): big.NewInt(20),
+				common.HexToAddress("2"): big.NewInt(30),
+			},
+			exp: true,
+		},
+		{
+			name: "rate limit hit",
+			destTokenPoolRateLimits: map[common.Address]*big.Int{
+				common.HexToAddress("10"): big.NewInt(100),
+				common.HexToAddress("20"): big.NewInt(50),
+			},
+			srcToDestToken: map[common.Address]common.Address{
+				common.HexToAddress("1"): common.HexToAddress("10"),
+				common.HexToAddress("2"): common.HexToAddress("20"),
+			},
+			tokenAmounts: []evm_2_evm_offramp.ClientEVMTokenAmount{
+				{Token: common.HexToAddress("1"), Amount: big.NewInt(50)},
+				{Token: common.HexToAddress("2"), Amount: big.NewInt(51)},
+			},
+			exp: true,
+		},
+		{
+			name: "rate limit hit, inflight included",
+			destTokenPoolRateLimits: map[common.Address]*big.Int{
+				common.HexToAddress("10"): big.NewInt(100),
+				common.HexToAddress("20"): big.NewInt(50),
+			},
+			srcToDestToken: map[common.Address]common.Address{
+				common.HexToAddress("1"): common.HexToAddress("10"),
+				common.HexToAddress("2"): common.HexToAddress("20"),
+			},
+			tokenAmounts: []evm_2_evm_offramp.ClientEVMTokenAmount{
+				{Token: common.HexToAddress("1"), Amount: big.NewInt(50)},
+				{Token: common.HexToAddress("2"), Amount: big.NewInt(20)},
+			},
+			inflightTokenAmounts: map[common.Address]*big.Int{
+				common.HexToAddress("1"): big.NewInt(51),
+				common.HexToAddress("2"): big.NewInt(30),
+			},
+			exp: true,
+		},
+		{
+			destTokenPoolRateLimits: map[common.Address]*big.Int{},
+			tokenAmounts: []evm_2_evm_offramp.ClientEVMTokenAmount{
+				{Token: common.HexToAddress("1"), Amount: big.NewInt(50)},
+				{Token: common.HexToAddress("2"), Amount: big.NewInt(20)},
+			},
+			srcToDestToken: map[common.Address]common.Address{
+				common.HexToAddress("1"): common.HexToAddress("10"),
+				common.HexToAddress("2"): common.HexToAddress("20"),
+			},
+			inflightTokenAmounts: map[common.Address]*big.Int{
+				common.HexToAddress("1"): big.NewInt(20),
+				common.HexToAddress("2"): big.NewInt(30),
+			},
+			name: "rate limit not applied to token",
+			exp:  false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &ExecutionReportingPlugin{lggr: logger.TestLogger(t)}
+			p.isRateLimitEnoughForTokenPool(tc.destTokenPoolRateLimits, tc.tokenAmounts, tc.inflightTokenAmounts, tc.srcToDestToken)
+		})
+	}
+}
+
+func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
+	tk1 := utils.RandomAddress()
+	tk1dest := utils.RandomAddress()
+	tk1pool := utils.RandomAddress()
+
+	tk2 := utils.RandomAddress()
+	tk2dest := utils.RandomAddress()
+	tk2pool := utils.RandomAddress()
+
+	testCases := []struct {
+		name              string
+		tokenAmounts      []evm_2_evm_offramp.ClientEVMTokenAmount
+		sourceToDestToken map[common.Address]common.Address
+		destPools         map[common.Address]common.Address
+		poolRateLimits    map[common.Address]custom_token_pool.RateLimiterTokenBucket
+
+		expRateLimits map[common.Address]*big.Int
+		expErr        bool
+	}{
+		{
+			name: "happy flow",
+			tokenAmounts: []evm_2_evm_offramp.ClientEVMTokenAmount{
+				{Token: tk1},
+				{Token: tk2},
+				{Token: tk1},
+				{Token: tk1},
+			},
+			sourceToDestToken: map[common.Address]common.Address{
+				tk1: tk1dest,
+				tk2: tk2dest,
+			},
+			destPools: map[common.Address]common.Address{
+				tk1dest: tk1pool,
+				tk2dest: tk2pool,
+			},
+			poolRateLimits: map[common.Address]custom_token_pool.RateLimiterTokenBucket{
+				tk1pool: {Tokens: big.NewInt(1000), IsEnabled: true},
+				tk2pool: {Tokens: big.NewInt(2000), IsEnabled: true},
+			},
+			expRateLimits: map[common.Address]*big.Int{
+				tk1dest: big.NewInt(1000),
+				tk2dest: big.NewInt(2000),
+			},
+			expErr: false,
+		},
+		{
+			name: "token missing from source to dest mapping",
+			tokenAmounts: []evm_2_evm_offramp.ClientEVMTokenAmount{
+				{Token: tk1},
+				{Token: tk2}, // <-- missing form sourceToDestToken
+			},
+			sourceToDestToken: map[common.Address]common.Address{
+				tk1: tk1dest,
+			},
+			destPools: map[common.Address]common.Address{
+				tk1dest: tk1pool,
+			},
+			poolRateLimits: map[common.Address]custom_token_pool.RateLimiterTokenBucket{
+				tk1pool: {Tokens: big.NewInt(1000), IsEnabled: true},
+			},
+			expRateLimits: map[common.Address]*big.Int{
+				tk1dest: big.NewInt(1000),
+			},
+			expErr: false,
+		},
+		{
+			name: "pool is disabled",
+			tokenAmounts: []evm_2_evm_offramp.ClientEVMTokenAmount{
+				{Token: tk1},
+				{Token: tk2},
+			},
+			sourceToDestToken: map[common.Address]common.Address{
+				tk1: tk1dest,
+				tk2: tk2dest,
+			},
+			destPools: map[common.Address]common.Address{
+				tk1dest: tk1pool,
+				tk2dest: tk2pool,
+			},
+			poolRateLimits: map[common.Address]custom_token_pool.RateLimiterTokenBucket{
+				tk1pool: {Tokens: big.NewInt(1000), IsEnabled: true},
+				tk2pool: {Tokens: big.NewInt(2000), IsEnabled: false}, // <--- pool disabled
+			},
+			expRateLimits: map[common.Address]*big.Int{
+				tk1dest: big.NewInt(1000),
+			},
+			expErr: false,
+		},
+	}
+
+	ctx := testutils.Context(t)
+	lggr := logger.TestLogger(t)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &ExecutionReportingPlugin{}
+			p.lggr = lggr
+
+			offRamp, offRampAddr := testhelpers.NewFakeOffRamp(t)
+			offRamp.SetTokenPools(tc.destPools)
+			p.config.offRamp = offRamp
+
+			p.customTokenPoolFactory = func(ctx context.Context, poolAddress common.Address, _ bind.ContractBackend) (custom_token_pool.CustomTokenPoolInterface, error) {
+				mp := &mockPool{}
+				mp.On("CurrentOffRampRateLimiterState", mock.Anything, offRampAddr).Return(tc.poolRateLimits[poolAddress], nil)
+				return mp, nil
+			}
+
+			rateLimits, err := p.destPoolRateLimits(ctx, []commitReportWithSendRequests{
+				{
+					sendRequestsWithMeta: []evm2EVMOnRampCCIPSendRequestedWithMeta{
+						{
+							InternalEVM2EVMMessage: evm_2_evm_offramp.InternalEVM2EVMMessage{
+								TokenAmounts: tc.tokenAmounts,
+							},
+						},
+					},
+				},
+			}, tc.sourceToDestToken)
+			if tc.expErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expRateLimits, rateLimits)
+		})
+	}
+}
+
+func TestExecutionReportingPlugin_estimateDestinationGasPrice(t *testing.T) {
+	testCases := []struct {
+		name      string
+		evmFee    gas.EvmFee
+		evmFeeErr error
+
+		expRes *big.Int
+		expErr bool
+	}{
+		{
+			name: "dynamic fee cap has precedence over legacy",
+			evmFee: gas.EvmFee{
+				Legacy:        assets.NewWei(big.NewInt(1000)),
+				DynamicFeeCap: assets.NewWei(big.NewInt(2000)),
+			},
+			expRes: big.NewInt(2000),
+		},
+		{
+			name: "legacy is used if dynamic fee cap is not provided",
+			evmFee: gas.EvmFee{
+				Legacy: assets.NewWei(big.NewInt(1000)),
+			},
+			expRes: big.NewInt(1000),
+		},
+		{
+			name:      "stop on error",
+			evmFeeErr: errors.New("some error"),
+			expErr:    true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &ExecutionReportingPlugin{}
+			mockEstimator := mocks.NewEvmFeeEstimator(t)
+			mockEstimator.On("GetFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.evmFee, uint32(0), tc.evmFeeErr)
+			p.config.destGasEstimator = mockEstimator
+
+			res, err := p.estimateDestinationGasPrice(testutils.Context(t))
+			if tc.expErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tc.expRes, res)
+		})
+	}
+}
+
+func TestExecutionReportingPlugin_getReportsWithSendRequests(t *testing.T) {
+	testCases := []struct {
+		name                string
+		reports             []commit_store.CommitStoreCommitReport
+		expQueryMin         uint64 // expected min/max used in the query to get ccipevents
+		expQueryMax         uint64
+		onchainEvents       []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]
+		destLatestBlock     int64
+		destExecutedSeqNums []uint64
+
+		expReports []commitReportWithSendRequests
+		expErr     bool
+	}{
+		{
+			name:       "no reports",
+			reports:    nil,
+			expReports: nil,
+			expErr:     false,
+		},
+		{
+			name: "two reports happy flow",
+			reports: []commit_store.CommitStoreCommitReport{
+				{
+					Interval:   commit_store.CommitStoreInterval{Min: 1, Max: 2},
+					MerkleRoot: [32]byte{100},
+				},
+				{
+					Interval:   commit_store.CommitStoreInterval{Min: 3, Max: 3},
+					MerkleRoot: [32]byte{200},
+				},
+			},
+			expQueryMin: 1,
+			expQueryMax: 3,
+			onchainEvents: []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]{
+				{Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{
+					Message: evm_2_evm_onramp.InternalEVM2EVMMessage{SequenceNumber: 1},
+				}},
+				{Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{
+					Message: evm_2_evm_onramp.InternalEVM2EVMMessage{SequenceNumber: 2},
+				}},
+				{Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{
+					Message: evm_2_evm_onramp.InternalEVM2EVMMessage{SequenceNumber: 3},
+				}},
+			},
+			destLatestBlock:     10_000,
+			destExecutedSeqNums: []uint64{1},
+			expReports: []commitReportWithSendRequests{
+				{
+					commitReport: commit_store.CommitStoreCommitReport{
+						Interval:   commit_store.CommitStoreInterval{Min: 1, Max: 2},
+						MerkleRoot: [32]byte{100},
+					},
+					sendRequestsWithMeta: []evm2EVMOnRampCCIPSendRequestedWithMeta{
+						{
+							InternalEVM2EVMMessage: evm_2_evm_offramp.InternalEVM2EVMMessage{SequenceNumber: 1},
+							executed:               true,
+							finalized:              true,
+						},
+						{
+							InternalEVM2EVMMessage: evm_2_evm_offramp.InternalEVM2EVMMessage{SequenceNumber: 2},
+							executed:               false,
+							finalized:              false,
+						},
+					},
+				},
+				{
+					commitReport: commit_store.CommitStoreCommitReport{
+						Interval:   commit_store.CommitStoreInterval{Min: 3, Max: 3},
+						MerkleRoot: [32]byte{200},
+					},
+					sendRequestsWithMeta: []evm2EVMOnRampCCIPSendRequestedWithMeta{
+						{
+							InternalEVM2EVMMessage: evm_2_evm_offramp.InternalEVM2EVMMessage{SequenceNumber: 3},
+							executed:               false,
+							finalized:              false,
+						},
+					},
+				},
+			},
+			expErr: false,
+		},
+	}
+
+	ctx := testutils.Context(t)
+	lggr := logger.TestLogger(t)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := &ExecutionReportingPlugin{}
+			p.lggr = lggr
+
+			onRamp, onRampAddr := testhelpers.NewFakeOnRamp(t)
+			p.config.onRamp = onRamp
+
+			offRamp, offRampAddr := testhelpers.NewFakeOffRamp(t)
+			p.config.offRamp = offRamp
+
+			sourceReader := ccipdata.NewMockReader(t)
+			sourceReader.On("GetSendRequestsBetweenSeqNums", ctx, onRampAddr, tc.expQueryMin, tc.expQueryMax, 0).
+				Return(tc.onchainEvents, nil).Maybe()
+			p.config.sourceReader = sourceReader
+
+			destReader := ccipdata.NewMockReader(t)
+			destReader.On("LatestBlock", ctx).Return(tc.destLatestBlock, nil).Maybe()
+			var executedEvents []ccipdata.Event[evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged]
+			for _, executedSeqNum := range tc.destExecutedSeqNums {
+				executedEvents = append(executedEvents, ccipdata.Event[evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged]{
+					Data:      evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged{SequenceNumber: executedSeqNum},
+					BlockMeta: ccipdata.BlockMeta{BlockNumber: tc.destLatestBlock - 10},
+				})
+			}
+			destReader.On("GetExecutionStateChangesBetweenSeqNums", ctx, offRampAddr, tc.expQueryMin, tc.expQueryMax, 0).Return(executedEvents, nil).Maybe()
+			p.config.destReader = destReader
+
+			populatedReports, err := p.getReportsWithSendRequests(ctx, tc.reports)
+			if tc.expErr {
+				assert.Error(t, err)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, len(tc.expReports), len(populatedReports))
+			for i, expReport := range tc.expReports {
+				assert.Equal(t, len(expReport.sendRequestsWithMeta), len(populatedReports[i].sendRequestsWithMeta))
+				for j, expReq := range expReport.sendRequestsWithMeta {
+					assert.Equal(t, expReq.executed, populatedReports[i].sendRequestsWithMeta[j].executed)
+					assert.Equal(t, expReq.finalized, populatedReports[i].sendRequestsWithMeta[j].finalized)
+					assert.Equal(t, expReq.SequenceNumber, populatedReports[i].sendRequestsWithMeta[j].SequenceNumber)
+				}
+			}
+		})
+	}
+}
+
+func TestExecutionReportingPluginFactory_UpdateLogPollerFilters(t *testing.T) {
+	const numFilters = 10
+	filters := make([]logpoller.Filter, numFilters)
+	for i := range filters {
+		filters[i] = logpoller.Filter{
+			Name:      fmt.Sprintf("filter-%d", i),
+			EventSigs: []common.Hash{common.HexToHash(fmt.Sprintf("%d", i))},
+			Addresses: []common.Address{common.HexToAddress(fmt.Sprintf("%d", i))},
+			Retention: time.Duration(i) * time.Second,
+		}
+	}
+
+	destLP := lpMocks.NewLogPoller(t)
+	sourceLP := lpMocks.NewLogPoller(t)
+
+	onRamp, _ := testhelpers.NewFakeOnRamp(t)
+	sourcePriceRegistry, _ := testhelpers.NewFakePriceRegistry(t)
+	commitStore, _ := testhelpers.NewFakeCommitStore(t, 1)
+	offRamp, _ := testhelpers.NewFakeOffRamp(t)
+
+	destPriceRegistryAddr := utils.RandomAddress()
+
+	rf := &ExecutionReportingPluginFactory{
+		filtersMu:          &sync.Mutex{},
+		sourceChainFilters: filters[:5],
+		destChainFilters:   filters[5:10],
+		config: ExecutionPluginConfig{
+			destLP:              destLP,
+			sourceLP:            sourceLP,
+			onRamp:              onRamp,
+			commitStore:         commitStore,
+			offRamp:             offRamp,
+			sourcePriceRegistry: sourcePriceRegistry,
+		},
+	}
+
+	for _, f := range getExecutionPluginSourceLpChainFilters(onRamp.Address(), sourcePriceRegistry.Address()) {
+		sourceLP.On("RegisterFilter", f).Return(nil)
+	}
+	for _, f := range getExecutionPluginDestLpChainFilters(commitStore.Address(), offRamp.Address(), destPriceRegistryAddr) {
+		destLP.On("RegisterFilter", f).Return(nil)
+	}
+	for _, f := range rf.sourceChainFilters[1:] { // zero address is skipped
+		sourceLP.On("UnregisterFilter", f.Name, mock.Anything).Return(nil)
+	}
+	for _, f := range rf.destChainFilters {
+		destLP.On("UnregisterFilter", f.Name, mock.Anything).Return(nil)
+	}
+
+	err := rf.UpdateLogPollerFilters(destPriceRegistryAddr)
+	assert.NoError(t, err)
+}
+
+func TestExecutionReportToEthTxMeta(t *testing.T) {
+	t.Run("happy flow", func(t *testing.T) {
+		executionReport := generateExecutionReport(t, 10, 3, 1000)
+		encExecReport, err := abihelpers.EncodeExecutionReport(executionReport)
+		assert.NoError(t, err)
+		txMeta, err := ExecutionReportToEthTxMeta(encExecReport)
+		assert.NoError(t, err)
+		assert.Len(t, txMeta.MessageIDs, len(executionReport.Messages))
+	})
+
+	t.Run("invalid report", func(t *testing.T) {
+		_, err := ExecutionReportToEthTxMeta([]byte("whatever"))
+		assert.Error(t, err)
+	})
+}
+
+func TestUpdateSourceToDestTokenMapping(t *testing.T) {
+	expectedNewBlockNumber := int64(10000)
+	logs := []logpoller.Log{{BlockNumber: expectedNewBlockNumber}}
+	mockDestLP := &lpMocks.LogPoller{}
+
+	mockDestLP.On("LatestLogEventSigsAddrsWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(logs, nil)
+	mockDestLP.On("LatestBlock", mock.Anything).Return(expectedNewBlockNumber, nil)
+
+	sourceToken, destToken := common.HexToAddress("111111"), common.HexToAddress("222222")
+
+	mockOffRamp := &mock_contracts.EVM2EVMOffRampInterface{}
+	mockOffRamp.On("Address").Return(common.HexToAddress("0x01"))
+	mockOffRamp.On("GetSupportedTokens", mock.Anything).Return([]common.Address{sourceToken}, nil)
+	mockOffRamp.On("GetDestinationToken", mock.Anything, sourceToken).Return(destToken, nil)
+
+	mockPriceRegistry := &mock_contracts.PriceRegistryInterface{}
+	mockPriceRegistry.On("Address").Return(common.HexToAddress("0x02"))
+	mockPriceRegistry.On("GetFeeTokens", mock.Anything).Return([]common.Address{}, nil)
+
+	plugin := ExecutionReportingPlugin{
+		config: ExecutionPluginConfig{
+			destLP:  mockDestLP,
+			offRamp: mockOffRamp,
+		},
+		cachedDestTokens: cache.NewCachedSupportedTokens(mockDestLP, mockOffRamp, mockPriceRegistry, 0),
+	}
+
+	value, err := plugin.cachedDestTokens.Get(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, destToken, value.SupportedTokens[sourceToken])
 }
 
 func Test_calculateObservedMessagesConsensus(t *testing.T) {
@@ -957,11 +1348,8 @@ func Test_getTokensPrices(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			priceReg := mock_contracts.NewPriceRegistryInterface(t)
-
-			priceReg.On("GetTokenPrices", mock.Anything, append(tc.feeTokens, tc.tokens...)).
-				Return(tc.retPrices, nil)
-			priceReg.On("Address").Return(common.HexToAddress("1234"), nil)
+			priceReg, _ := testhelpers.NewFakePriceRegistry(t)
+			priceReg.SetTokenPrices(tc.retPrices)
 
 			prices, err := getTokensPrices(context.Background(), tc.feeTokens, priceReg, tc.tokens)
 			if tc.expErr {
@@ -1021,158 +1409,6 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 			assert.Equalf(t, tt.want, got, "calculateMessageMaxGas(%v, %v, %v, %v)", tt.args.gasLimit, tt.args.numRequests, tt.args.dataLen, tt.args.numTokens)
 		})
 	}
-}
-
-func TestExecutionReportingPlugin_isRateLimitEnoughForTokenPool(t *testing.T) {
-	testCases := []struct {
-		name                    string
-		destTokenPoolRateLimits map[common.Address]*big.Int
-		tokenAmounts            []evm_2_evm_offramp.ClientEVMTokenAmount
-		inflightTokenAmounts    map[common.Address]*big.Int
-		srcToDestToken          map[common.Address]common.Address
-		exp                     bool
-	}{
-		{
-			name: "base",
-			destTokenPoolRateLimits: map[common.Address]*big.Int{
-				common.HexToAddress("10"): big.NewInt(100),
-				common.HexToAddress("20"): big.NewInt(50),
-			},
-			tokenAmounts: []evm_2_evm_offramp.ClientEVMTokenAmount{
-				{Token: common.HexToAddress("1"), Amount: big.NewInt(50)},
-				{Token: common.HexToAddress("2"), Amount: big.NewInt(20)},
-			},
-			srcToDestToken: map[common.Address]common.Address{
-				common.HexToAddress("1"): common.HexToAddress("10"),
-				common.HexToAddress("2"): common.HexToAddress("20"),
-			},
-			inflightTokenAmounts: map[common.Address]*big.Int{
-				common.HexToAddress("1"): big.NewInt(20),
-				common.HexToAddress("2"): big.NewInt(30),
-			},
-			exp: true,
-		},
-		{
-			name: "rate limit hit",
-			destTokenPoolRateLimits: map[common.Address]*big.Int{
-				common.HexToAddress("10"): big.NewInt(100),
-				common.HexToAddress("20"): big.NewInt(50),
-			},
-			srcToDestToken: map[common.Address]common.Address{
-				common.HexToAddress("1"): common.HexToAddress("10"),
-				common.HexToAddress("2"): common.HexToAddress("20"),
-			},
-			tokenAmounts: []evm_2_evm_offramp.ClientEVMTokenAmount{
-				{Token: common.HexToAddress("1"), Amount: big.NewInt(50)},
-				{Token: common.HexToAddress("2"), Amount: big.NewInt(51)},
-			},
-			exp: true,
-		},
-		{
-			name: "rate limit hit, inflight included",
-			destTokenPoolRateLimits: map[common.Address]*big.Int{
-				common.HexToAddress("10"): big.NewInt(100),
-				common.HexToAddress("20"): big.NewInt(50),
-			},
-			srcToDestToken: map[common.Address]common.Address{
-				common.HexToAddress("1"): common.HexToAddress("10"),
-				common.HexToAddress("2"): common.HexToAddress("20"),
-			},
-			tokenAmounts: []evm_2_evm_offramp.ClientEVMTokenAmount{
-				{Token: common.HexToAddress("1"), Amount: big.NewInt(50)},
-				{Token: common.HexToAddress("2"), Amount: big.NewInt(20)},
-			},
-			inflightTokenAmounts: map[common.Address]*big.Int{
-				common.HexToAddress("1"): big.NewInt(51),
-				common.HexToAddress("2"): big.NewInt(30),
-			},
-			exp: true,
-		},
-		{
-			destTokenPoolRateLimits: map[common.Address]*big.Int{},
-			tokenAmounts: []evm_2_evm_offramp.ClientEVMTokenAmount{
-				{Token: common.HexToAddress("1"), Amount: big.NewInt(50)},
-				{Token: common.HexToAddress("2"), Amount: big.NewInt(20)},
-			},
-			srcToDestToken: map[common.Address]common.Address{
-				common.HexToAddress("1"): common.HexToAddress("10"),
-				common.HexToAddress("2"): common.HexToAddress("20"),
-			},
-			inflightTokenAmounts: map[common.Address]*big.Int{
-				common.HexToAddress("1"): big.NewInt(20),
-				common.HexToAddress("2"): big.NewInt(30),
-			},
-			name: "rate limit not applied to token",
-			exp:  false,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			p := &ExecutionReportingPlugin{lggr: logger.TestLogger(t)}
-			p.isRateLimitEnoughForTokenPool(tc.destTokenPoolRateLimits, tc.tokenAmounts, tc.inflightTokenAmounts, tc.srcToDestToken)
-		})
-	}
-}
-
-func TestExecutionReportingPluginFactory_UpdateLogPollerFilters(t *testing.T) {
-	const numFilters = 10
-	filters := make([]logpoller.Filter, numFilters)
-	for i := range filters {
-		filters[i] = logpoller.Filter{
-			Name:      fmt.Sprintf("filter-%d", i),
-			EventSigs: []common.Hash{common.HexToHash(fmt.Sprintf("%d", i))},
-			Addresses: []common.Address{common.HexToAddress(fmt.Sprintf("%d", i))},
-			Retention: time.Duration(i) * time.Second,
-		}
-	}
-
-	destLP := lpMocks.NewLogPoller(t)
-	sourceLP := lpMocks.NewLogPoller(t)
-
-	onRamp := mock_contracts.NewEVM2EVMOnRampInterface(t)
-	onRamp.On("Address").Return(utils.RandomAddress(), nil)
-
-	sourcePriceRegistry := mock_contracts.NewPriceRegistryInterface(t)
-	sourcePriceRegistry.On("Address").Return(utils.RandomAddress(), nil)
-
-	commitStore := mock_contracts.NewCommitStoreInterface(t)
-	commitStore.On("Address").Return(utils.RandomAddress(), nil)
-
-	offRamp := mock_contracts.NewEVM2EVMOffRampInterface(t)
-	offRamp.On("Address").Return(utils.RandomAddress(), nil)
-
-	destPriceRegistryAddr := utils.RandomAddress()
-
-	rf := &ExecutionReportingPluginFactory{
-		filtersMu:          &sync.Mutex{},
-		sourceChainFilters: filters[:5],
-		destChainFilters:   filters[5:10],
-		config: ExecutionPluginConfig{
-			destLP:              destLP,
-			sourceLP:            sourceLP,
-			onRamp:              onRamp,
-			commitStore:         commitStore,
-			offRamp:             offRamp,
-			sourcePriceRegistry: sourcePriceRegistry,
-		},
-	}
-
-	for _, f := range getExecutionPluginSourceLpChainFilters(onRamp.Address(), sourcePriceRegistry.Address()) {
-		sourceLP.On("RegisterFilter", f).Return(nil)
-	}
-	for _, f := range getExecutionPluginDestLpChainFilters(commitStore.Address(), offRamp.Address(), destPriceRegistryAddr) {
-		destLP.On("RegisterFilter", f).Return(nil)
-	}
-	for _, f := range rf.sourceChainFilters[1:] { // zero address is skipped
-		sourceLP.On("UnregisterFilter", f.Name, mock.Anything).Return(nil)
-	}
-	for _, f := range rf.destChainFilters {
-		destLP.On("UnregisterFilter", f.Name, mock.Anything).Return(nil)
-	}
-
-	err := rf.UpdateLogPollerFilters(destPriceRegistryAddr)
-	assert.NoError(t, err)
 }
 
 func Test_inflightAggregates(t *testing.T) {
@@ -1296,4 +1532,209 @@ func Test_inflightAggregates(t *testing.T) {
 			assert.True(t, reflect.DeepEqual(tc.expInflightTokenAmounts, inflightTokenAmounts))
 		})
 	}
+}
+
+func Test_commitReportWithSendRequests_validate(t *testing.T) {
+	testCases := []struct {
+		name           string
+		reportInterval commit_store.CommitStoreInterval
+		numReqs        int
+		expValid       bool
+	}{
+		{
+			name:           "valid report",
+			reportInterval: commit_store.CommitStoreInterval{Min: 10, Max: 20},
+			numReqs:        11,
+			expValid:       true,
+		},
+		{
+			name:           "report with one request",
+			reportInterval: commit_store.CommitStoreInterval{Min: 1234, Max: 1234},
+			numReqs:        1,
+			expValid:       true,
+		},
+		{
+			name:           "request is missing",
+			reportInterval: commit_store.CommitStoreInterval{Min: 1234, Max: 1234},
+			numReqs:        0,
+			expValid:       false,
+		},
+		{
+			name:           "requests are missing",
+			reportInterval: commit_store.CommitStoreInterval{Min: 1, Max: 10},
+			numReqs:        5,
+			expValid:       false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			rep := commitReportWithSendRequests{
+				commitReport: commit_store.CommitStoreCommitReport{
+					Interval: tc.reportInterval,
+				},
+				sendRequestsWithMeta: make([]evm2EVMOnRampCCIPSendRequestedWithMeta, tc.numReqs),
+			}
+			err := rep.validate()
+			isValid := err == nil
+			assert.Equal(t, tc.expValid, isValid)
+		})
+	}
+}
+
+func Test_commitReportWithSendRequests_allRequestsAreExecutedAndFinalized(t *testing.T) {
+	testCases := []struct {
+		name   string
+		reqs   []evm2EVMOnRampCCIPSendRequestedWithMeta
+		expRes bool
+	}{
+		{
+			name: "all requests executed and finalized",
+			reqs: []evm2EVMOnRampCCIPSendRequestedWithMeta{
+				{executed: true, finalized: true},
+				{executed: true, finalized: true},
+				{executed: true, finalized: true},
+			},
+			expRes: true,
+		},
+		{
+			name:   "true when there are zero requests",
+			reqs:   []evm2EVMOnRampCCIPSendRequestedWithMeta{},
+			expRes: true,
+		},
+		{
+			name: "some request not executed",
+			reqs: []evm2EVMOnRampCCIPSendRequestedWithMeta{
+				{executed: true, finalized: true},
+				{executed: true, finalized: true},
+				{executed: false, finalized: true},
+			},
+			expRes: false,
+		},
+		{
+			name: "some request not finalized",
+			reqs: []evm2EVMOnRampCCIPSendRequestedWithMeta{
+				{executed: true, finalized: true},
+				{executed: true, finalized: true},
+				{executed: true, finalized: false},
+			},
+			expRes: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			rep := commitReportWithSendRequests{sendRequestsWithMeta: tc.reqs}
+			res := rep.allRequestsAreExecutedAndFinalized()
+			assert.Equal(t, tc.expRes, res)
+		})
+	}
+}
+
+func Test_commitReportWithSendRequests_sendReqFits(t *testing.T) {
+	testCases := []struct {
+		name   string
+		req    evm2EVMOnRampCCIPSendRequestedWithMeta
+		report commit_store.CommitStoreCommitReport
+		expRes bool
+	}{
+		{
+			name: "all requests executed and finalized",
+			req: evm2EVMOnRampCCIPSendRequestedWithMeta{
+				InternalEVM2EVMMessage: evm_2_evm_offramp.InternalEVM2EVMMessage{SequenceNumber: 1},
+			},
+			report: commit_store.CommitStoreCommitReport{
+				Interval: commit_store.CommitStoreInterval{Min: 1, Max: 10},
+			},
+			expRes: true,
+		},
+		{
+			name: "all requests executed and finalized",
+			req: evm2EVMOnRampCCIPSendRequestedWithMeta{
+				InternalEVM2EVMMessage: evm_2_evm_offramp.InternalEVM2EVMMessage{SequenceNumber: 10},
+			},
+			report: commit_store.CommitStoreCommitReport{
+				Interval: commit_store.CommitStoreInterval{Min: 1, Max: 10},
+			},
+			expRes: true,
+		},
+		{
+			name: "all requests executed and finalized",
+			req: evm2EVMOnRampCCIPSendRequestedWithMeta{
+				InternalEVM2EVMMessage: evm_2_evm_offramp.InternalEVM2EVMMessage{SequenceNumber: 11},
+			},
+			report: commit_store.CommitStoreCommitReport{
+				Interval: commit_store.CommitStoreInterval{Min: 1, Max: 10},
+			},
+			expRes: false,
+		},
+		{
+			name: "all requests executed and finalized",
+			req: evm2EVMOnRampCCIPSendRequestedWithMeta{
+				InternalEVM2EVMMessage: evm_2_evm_offramp.InternalEVM2EVMMessage{SequenceNumber: 10},
+			},
+			report: commit_store.CommitStoreCommitReport{
+				Interval: commit_store.CommitStoreInterval{Min: 10, Max: 10},
+			},
+			expRes: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			r := &commitReportWithSendRequests{commitReport: tc.report}
+			assert.Equal(t, tc.expRes, r.sendReqFits(tc.req))
+		})
+	}
+}
+
+// generateExecutionReport generates an execution report that can be used in tests
+func generateExecutionReport(t *testing.T, numMsgs, tokensPerMsg, bytesPerMsg int) evm_2_evm_offramp.InternalExecutionReport {
+	messages := make([]evm_2_evm_offramp.InternalEVM2EVMMessage, numMsgs)
+
+	offChainTokenData := make([][][]byte, numMsgs)
+	for i := range messages {
+		tokenAmounts := make([]evm_2_evm_offramp.ClientEVMTokenAmount, tokensPerMsg)
+		for j := range tokenAmounts {
+			tokenAmounts[j] = evm_2_evm_offramp.ClientEVMTokenAmount{
+				Token:  utils.RandomAddress(),
+				Amount: big.NewInt(math.MaxInt64),
+			}
+		}
+
+		messages[i] = evm_2_evm_offramp.InternalEVM2EVMMessage{
+			SourceChainSelector: rand.Uint64(),
+			SequenceNumber:      uint64(i + 1),
+			FeeTokenAmount:      big.NewInt(rand.Int64()),
+			Sender:              utils.RandomAddress(),
+			Nonce:               rand.Uint64(),
+			GasLimit:            big.NewInt(rand.Int64()),
+			Strict:              false,
+			Receiver:            utils.RandomAddress(),
+			Data:                bytes.Repeat([]byte{1}, bytesPerMsg),
+			TokenAmounts:        tokenAmounts,
+			FeeToken:            utils.RandomAddress(),
+			MessageId:           utils.RandomBytes32(),
+		}
+
+		data := []byte(`{"foo": "bar"}`)
+		offChainTokenData[i] = [][]byte{data, data, data}
+	}
+
+	return evm_2_evm_offramp.InternalExecutionReport{
+		Messages:          messages,
+		OffchainTokenData: offChainTokenData,
+		Proofs:            make([][32]byte, numMsgs),
+		ProofFlagBits:     big.NewInt(rand.Int64()),
+	}
+}
+
+type mockPool struct {
+	custom_token_pool.CustomTokenPoolInterface
+	mock.Mock
+}
+
+func (mp *mockPool) CurrentOffRampRateLimiterState(opts *bind.CallOpts, offRamp common.Address) (custom_token_pool.RateLimiterTokenBucket, error) {
+	args := mp.Called(opts, offRamp)
+	return args.Get(0).(custom_token_pool.RateLimiterTokenBucket), args.Error(1)
 }

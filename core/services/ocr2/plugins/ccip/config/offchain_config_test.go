@@ -109,7 +109,8 @@ func TestExecOffchainConfig_Encoding(t *testing.T) {
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			encode, err := EncodeOffchainConfig(&tc.want)
+			exp := tc.want
+			encode, err := EncodeOffchainConfig(&exp)
 			require.NoError(t, err)
 			got, err := DecodeOffchainConfig[ExecOffchainConfig](encode)
 
