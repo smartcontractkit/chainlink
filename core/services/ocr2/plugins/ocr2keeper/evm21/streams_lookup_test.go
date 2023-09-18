@@ -244,7 +244,7 @@ func TestEvmRegistry_StreamsLookup(t *testing.T) {
 					"to":   r.addr.Hex(),
 					"data": hexutil.Bytes(payload),
 				}
-				client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, hexutil.EncodeUint64(uint64(blockNum))).Return(nil).
+				client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, hexutil.EncodeBig(big.NewInt(int64(blockNum)))).Return(nil).
 					Run(func(args mock.Arguments) {
 						b := args.Get(1).(*hexutil.Bytes)
 						*b = tt.checkCallbackResp
