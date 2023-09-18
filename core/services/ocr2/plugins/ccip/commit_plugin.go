@@ -14,7 +14,7 @@ import (
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
 	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipevents"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/oraclelib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
@@ -106,8 +106,8 @@ func NewCommitServices(lggr logger.Logger, jb job.Job, chainSet evm.LegacyChainC
 			lggr:                commitLggr,
 			sourceLP:            sourceChain.LogPoller(),
 			destLP:              destChain.LogPoller(),
-			sourceEvents:        ccipevents.NewLogPollerClient(sourceChain.LogPoller(), commitLggr, sourceChain.Client()),
-			destEvents:          ccipevents.NewLogPollerClient(destChain.LogPoller(), commitLggr, destChain.Client()),
+			sourceReader:        ccipdata.NewLogPollerReader(sourceChain.LogPoller(), commitLggr, sourceChain.Client()),
+			destReader:          ccipdata.NewLogPollerReader(destChain.LogPoller(), commitLggr, destChain.Client()),
 			offRamp:             offRamp,
 			onRampAddress:       onRamp.Address(),
 			priceGetter:         priceGetterObject,

@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -117,14 +118,12 @@ func TestCallOrigin(t *testing.T) {
 	dst2 := common.HexToAddress("21")
 
 	testCases := []struct {
-		name      string
-		srcTokens []common.Address
-		srcToDst  map[common.Address]common.Address
-		expErr    bool
+		name     string
+		srcToDst map[common.Address]common.Address
+		expErr   bool
 	}{
 		{
-			name:      "base",
-			srcTokens: []common.Address{src1, src2},
+			name: "base",
 			srcToDst: map[common.Address]common.Address{
 				src1: dst1,
 				src2: dst2,
@@ -132,8 +131,7 @@ func TestCallOrigin(t *testing.T) {
 			expErr: false,
 		},
 		{
-			name:      "dup dst token",
-			srcTokens: []common.Address{src1, src2},
+			name: "dup dst token",
 			srcToDst: map[common.Address]common.Address{
 				src1: dst1,
 				src2: dst1,
@@ -144,11 +142,8 @@ func TestCallOrigin(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			offRamp := mock_contracts.NewEVM2EVMOffRampInterface(t)
-			offRamp.On("GetSupportedTokens", mock.Anything).Return(tc.srcTokens, nil)
-			for src, dst := range tc.srcToDst {
-				offRamp.On("GetDestinationToken", mock.Anything, src).Return(dst, nil)
-			}
+			offRamp, _ := testhelpers.NewFakeOffRamp(t)
+			offRamp.SetSourceToDestTokens(tc.srcToDst)
 			o := supportedTokensOrigin{offRamp: offRamp}
 			srcToDst, err := o.CallOrigin(context.Background())
 

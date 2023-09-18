@@ -34,7 +34,7 @@ func TestEvictingElements(t *testing.T) {
 	k1 := [32]byte{1}
 	c.Snooze(k1)
 
-	time.Sleep(1 * time.Second)
+	time.Sleep(10 * time.Millisecond)
 
 	assert.False(t, c.IsSnoozed(k1))
 }

@@ -1,4 +1,4 @@
-package ccipevents
+package ccipdata
 
 import (
 	"context"
@@ -6,6 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
@@ -21,8 +22,10 @@ type BlockMeta struct {
 	BlockNumber    int64
 }
 
-// Client can be used to fetch CCIP related parsed on-chain events.
-type Client interface {
+// Client can be used to fetch CCIP related parsed on-chain data.
+//
+//go:generate mockery --quiet --name Reader --output . --filename mock.go --inpackage --case=underscore
+type Reader interface {
 	// GetSendRequestsGteSeqNum returns all the message send requests with sequence number greater than or equal to the provided.
 	// If checkFinalityTags is set to true then confs param is ignored, the latest finalized block is used in the query.
 	GetSendRequestsGteSeqNum(ctx context.Context, onRamp common.Address, seqNum uint64, checkFinalityTags bool, confs int) ([]Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested], error)
@@ -38,6 +41,12 @@ type Client interface {
 
 	// GetExecutionStateChangesBetweenSeqNums returns all the execution state change events for the provided message sequence numbers (inclusive).
 	GetExecutionStateChangesBetweenSeqNums(ctx context.Context, offRamp common.Address, seqNumMin, seqNumMax uint64, confs int) ([]Event[evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged], error)
+
+	// GetAcceptedCommitReportsGteSeqNum returns all the accepted commit reports that have sequence number greater than or equal to the provided.
+	GetAcceptedCommitReportsGteSeqNum(ctx context.Context, commitStoreAddress common.Address, seqNum uint64, confs int) ([]Event[commit_store.CommitStoreReportAccepted], error)
+
+	// GetAcceptedCommitReportsGteTimestamp returns all the commit reports with timestamp greater than or equal to the provided.
+	GetAcceptedCommitReportsGteTimestamp(ctx context.Context, commitStoreAddress common.Address, ts time.Time, confs int) ([]Event[commit_store.CommitStoreReportAccepted], error)
 
 	// LatestBlock returns the latest known/parsed block of the underlying implementation.
 	LatestBlock(ctx context.Context) (int64, error)

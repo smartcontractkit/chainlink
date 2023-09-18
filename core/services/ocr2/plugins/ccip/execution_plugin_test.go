@@ -2,7 +2,6 @@ package ccip
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,9 +12,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
-	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 )
 
 func TestGetExecutionPluginFilterNamesFromSpec(t *testing.T) {
@@ -66,29 +64,19 @@ func TestGetExecutionPluginFilterNamesFromSpec(t *testing.T) {
 }
 
 func TestGetExecutionPluginFilterNames(t *testing.T) {
-	specContractID := common.HexToAddress("0xdafea492d9c6733ae3d56b7ed1adb60692c98bc1") // off-ramp addr
-	onRampAddr := common.HexToAddress("0xdafea492d9c6733ae3d56b7ed1adb60692c98bc2")
 	commitStoreAddr := common.HexToAddress("0xdafea492d9c6733ae3d56b7ed1adb60692c98bc3")
 	srcPriceRegAddr := common.HexToAddress("0xdafea492d9c6733ae3d56b7ed1adb60692c98bc9")
 	dstPriceRegAddr := common.HexToAddress("0xdafea492d9c6733ae3d56b7ed1adb60692c98b19")
 
-	mockOffRamp := mock_contracts.NewEVM2EVMOffRampInterface(t)
-	mockOffRamp.On("Address").Return(specContractID)
-	mockOffRamp.On("GetDynamicConfig", mock.Anything).Return(
-		evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig{
-			PriceRegistry: dstPriceRegAddr,
-		}, nil)
+	mockOffRamp, offRampAddr := testhelpers.NewFakeOffRamp(t)
+	mockOffRamp.SetDynamicConfig(evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig{PriceRegistry: dstPriceRegAddr})
 
-	mockOnRamp := mock_contracts.NewEVM2EVMOnRampInterface(t)
-	mockOnRamp.On("TypeAndVersion", mock.Anything).Return(fmt.Sprintf("%s %s", ccipconfig.EVM2EVMOnRamp, "1.2.0"), nil)
-	mockOnRamp.On("GetDynamicConfig", mock.Anything).Return(
-		evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
-			PriceRegistry: srcPriceRegAddr,
-		}, nil)
+	mockOnRamp, onRampAddr := testhelpers.NewFakeOnRamp(t)
+	mockOnRamp.SetDynamicCfg(evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{PriceRegistry: srcPriceRegAddr})
 
 	srcLP := mocklp.NewLogPoller(t)
 	srcFilters := []string{
-		"Exec ccip sends - 0xdafea492D9c6733aE3d56B7ED1aDb60692C98bc2",
+		"Exec ccip sends - " + onRampAddr.String(),
 		"Fee token added - 0xdAFea492D9c6733aE3d56B7ed1ADb60692c98bC9",
 		"Fee token removed - 0xdAFea492D9c6733aE3d56B7ed1ADb60692c98bC9",
 	}
@@ -99,9 +87,9 @@ func TestGetExecutionPluginFilterNames(t *testing.T) {
 	dstLP := mocklp.NewLogPoller(t)
 	dstFilters := []string{
 		"Exec report accepts - 0xdafEa492d9C6733aE3D56b7eD1aDb60692c98bc3",
-		"Exec execution state changes - 0xdafeA492d9c6733Ae3d56B7ed1AdB60692C98bC1",
-		"Token pool added - 0xdafeA492d9c6733Ae3d56B7ed1AdB60692C98bC1",
-		"Token pool removed - 0xdafeA492d9c6733Ae3d56B7ed1AdB60692C98bC1",
+		"Exec execution state changes - " + offRampAddr.String(),
+		"Token pool added - " + offRampAddr.String(),
+		"Token pool removed - " + offRampAddr.String(),
 		"Fee token added - 0xdaFEa492D9C6733Ae3D56b7ed1adB60692C98b19",
 		"Fee token removed - 0xdaFEa492D9C6733Ae3D56b7ed1adB60692C98b19",
 	}

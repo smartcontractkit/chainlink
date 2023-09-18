@@ -1,4 +1,4 @@
-package ccipevents
+package ccipdata
 
 import (
 	"context"
@@ -20,7 +20,7 @@ import (
 )
 
 func TestLogPollerClient_loadDependency(t *testing.T) {
-	c := &LogPollerClient{}
+	c := &LogPollerReader{}
 
 	someAddr := utils.RandomAddress()
 
@@ -90,7 +90,7 @@ func TestLogPollerClient_GetSendRequestsGteSeqNum(t *testing.T) {
 			mock.Anything,
 		).Return([]logpoller.Log{}, nil)
 
-		c := &LogPollerClient{lp: lp}
+		c := &LogPollerReader{lp: lp}
 		events, err := c.GetSendRequestsGteSeqNum(
 			context.Background(),
 			onRampAddr,
@@ -119,7 +119,7 @@ func TestLogPollerClient_GetSendRequestsGteSeqNum(t *testing.T) {
 		cl := evmClientMocks.NewClient(t)
 		cl.On("HeaderByNumber", mock.Anything, mock.Anything).Return(h, nil)
 
-		c := &LogPollerClient{lp: lp, client: cl}
+		c := &LogPollerReader{lp: lp, client: cl}
 		events, err := c.GetSendRequestsGteSeqNum(
 			context.Background(),
 			onRampAddr,

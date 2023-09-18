@@ -96,3 +96,5 @@ contracts/yarn.lock
 /core/scripts/ccip/json/credentials
 /core/scripts/ccip/revert-reason/bin/ccip-revert-reason
 
+# dependencies generated after running `go mod vendor`
+vendor/
