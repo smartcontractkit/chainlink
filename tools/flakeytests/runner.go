@@ -45,8 +45,9 @@ func NewRunner(readers []io.Reader, reporter reporter, numReruns int) *Runner {
 }
 
 func runGoTest(pkg string, tests []string, numReruns int, w io.Writer) error {
+	pkg = strings.Replace(pkg, "github.com/smartcontractkit/chainlink/v2", "", -1)
 	testFilter := strings.Join(tests, "|")
-	cmd := exec.Command("./tools/bin/go_core_tests", fmt.Sprintf("./%s", pkg)) //#nosec
+	cmd := exec.Command("./tools/bin/go_core_tests", fmt.Sprintf(".%s", pkg)) //#nosec
 	cmd.Env = append(os.Environ(), fmt.Sprintf("TEST_FLAGS=-count %d -run %s", numReruns, testFilter))
 	cmd.Stdout = io.MultiWriter(os.Stdout, w)
 	cmd.Stderr = io.MultiWriter(os.Stderr, w)
@@ -65,13 +66,7 @@ type TestEvent struct {
 func newEvent(b []byte) (*TestEvent, error) {
 	e := &TestEvent{}
 	err := json.Unmarshal(b, e)
-	if err != nil {
-		return nil, err
-	}
-
-	e.Package = strings.Replace(e.Package, "github.com/smartcontractkit/chainlink/v2/", "", -1)
-	return e, nil
-
+	return e, err
 }
 
 func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {

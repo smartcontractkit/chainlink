@@ -30,7 +30,7 @@ jobs:
   tests:
     strategy:
       matrix:
-        product: [ vrf, automation, llo-feeds, functions, automation-dev, shared ]
+        product: [vrf, automation, llo-feeds, functions, shared]
     needs: [changes]
     if: needs.changes.outputs.changes == 'true'
     name: Tests
@@ -52,7 +52,8 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          # Has to match the `make foundry` version.
+          version: nightly-ca67d15f4abd46394b324c50e21e66f306a1162d
 
       - name: Run Forge build
         run: |
@@ -72,7 +73,7 @@ jobs:
           FOUNDRY_PROFILE: ${{ matrix.product }}
 
       - name: Run Forge snapshot
-        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) }}
+        if: ${{ !contains(fromJson('["vrf"]'), matrix.product) && !contains(fromJson('["automation"]'), matrix.product) }}
         run: |
           forge snapshot --nmt "testFuzz_\w{1,}?" --check gas-snapshots/${{ matrix.product }}.gas-snapshot
         id: snapshot

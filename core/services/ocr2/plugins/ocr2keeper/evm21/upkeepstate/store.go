@@ -132,9 +132,8 @@ func (u *upkeepStateStore) Start(pctx context.Context) error {
 }
 
 func (u *upkeepStateStore) flush(ctx context.Context) {
-	cloneRecords := make([]persistedStateRecord, len(u.pendingRecords))
-
 	u.mu.Lock()
+	cloneRecords := make([]persistedStateRecord, len(u.pendingRecords))
 	copy(cloneRecords, u.pendingRecords)
 	u.pendingRecords = []persistedStateRecord{}
 	u.mu.Unlock()

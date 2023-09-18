@@ -34,7 +34,7 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *orm {
 
 // CreateForwarder creates the Forwarder address associated with the current EVM chain id.
 func (o *orm) CreateForwarder(addr common.Address, evmChainId utils.Big) (fwd Forwarder, err error) {
-	sql := `INSERT INTO evm_forwarders (address, evm_chain_id, created_at, updated_at) VALUES ($1, $2, now(), now()) RETURNING *`
+	sql := `INSERT INTO evm.forwarders (address, evm_chain_id, created_at, updated_at) VALUES ($1, $2, now(), now()) RETURNING *`
 	err = o.q.Get(&fwd, sql, addr, evmChainId)
 	return fwd, err
 }
@@ -50,7 +50,7 @@ func (o *orm) DeleteForwarder(id int64, cleanup func(tx pg.Queryer, evmChainID i
 
 	var rowsAffected int64
 	err = o.q.Transaction(func(tx pg.Queryer) error {
-		err = tx.Get(&dest, `SELECT evm_chain_id, address FROM evm_forwarders WHERE id = $1`, id)
+		err = tx.Get(&dest, `SELECT evm_chain_id, address FROM evm.forwarders WHERE id = $1`, id)
 		if err != nil {
 			return err
 		}
@@ -60,7 +60,7 @@ func (o *orm) DeleteForwarder(id int64, cleanup func(tx pg.Queryer, evmChainID i
 			}
 		}
 
-		result, err2 := o.q.Exec(`DELETE FROM evm_forwarders WHERE id = $1`, id)
+		result, err2 := o.q.Exec(`DELETE FROM evm.forwarders WHERE id = $1`, id)
 		// If the forwarder wasn't found, we still want to delete the filter.
 		// In that case, the transaction must return nil, even though DeleteForwarder
 		// will return sql.ErrNoRows
@@ -80,12 +80,12 @@ func (o *orm) DeleteForwarder(id int64, cleanup func(tx pg.Queryer, evmChainID i
 
 // FindForwarders returns all forwarder addresses from offset up until limit.
 func (o *orm) FindForwarders(offset, limit int) (fwds []Forwarder, count int, err error) {
-	sql := `SELECT count(*) FROM evm_forwarders`
+	sql := `SELECT count(*) FROM evm.forwarders`
 	if err = o.q.Get(&count, sql); err != nil {
 		return
 	}
 
-	sql = `SELECT * FROM evm_forwarders ORDER BY created_at DESC, id DESC LIMIT $1 OFFSET $2`
+	sql = `SELECT * FROM evm.forwarders ORDER BY created_at DESC, id DESC LIMIT $1 OFFSET $2`
 	if err = o.q.Select(&fwds, sql, limit, offset); err != nil {
 		return
 	}
@@ -94,7 +94,7 @@ func (o *orm) FindForwarders(offset, limit int) (fwds []Forwarder, count int, er
 
 // FindForwardersByChain returns all forwarder addresses for a chain.
 func (o *orm) FindForwardersByChain(evmChainId utils.Big) (fwds []Forwarder, err error) {
-	sql := `SELECT * FROM evm_forwarders where evm_chain_id = $1 ORDER BY created_at DESC, id DESC`
+	sql := `SELECT * FROM evm.forwarders where evm_chain_id = $1 ORDER BY created_at DESC, id DESC`
 	err = o.q.Select(&fwds, sql, evmChainId)
 	return
 }
@@ -108,7 +108,7 @@ func (o *orm) FindForwardersInListByChain(evmChainId utils.Big, addrs []common.A
 	}
 
 	query, args, err := sqlx.Named(`
-		SELECT * FROM evm_forwarders 
+		SELECT * FROM evm.forwarders 
 		WHERE evm_chain_id = :chainid
 		AND address IN (:addresses)
 		ORDER BY created_at DESC, id DESC`,
