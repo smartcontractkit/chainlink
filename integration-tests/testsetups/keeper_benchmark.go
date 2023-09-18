@@ -41,13 +41,15 @@ type KeeperBenchmarkTest struct {
 	Inputs       KeeperBenchmarkTestInputs
 	TestReporter testreporters.KeeperBenchmarkTestReporter
 
-	t   *testing.T
-	log zerolog.Logger
+	t             *testing.T
+	log           zerolog.Logger
+	startingBlock *big.Int
 
 	keeperRegistries        []contracts.KeeperRegistry
 	keeperRegistrars        []contracts.KeeperRegistrar
 	keeperConsumerContracts []contracts.AutomationConsumerBenchmark
 	upkeepIDs               [][]*big.Int
+	filterQuery             geth.FilterQuery
 
 	env              *environment.Environment
 	namespace        string
@@ -60,6 +62,7 @@ type KeeperBenchmarkTest struct {
 	gasFeed   contracts.MockGasFeed
 }
 
+// UpkeepConfig dictates details of how the test's upkeep contracts should be called and configured
 type UpkeepConfig struct {
 	NumberOfUpkeeps     int   // Number of upkeep contracts
 	BlockRange          int64 // How many blocks to run the test for
@@ -70,6 +73,8 @@ type UpkeepConfig struct {
 	FirstEligibleBuffer int64 // How many blocks to add to randomised first eligible block, set to 0 to disable randomised first eligible block
 }
 
+// PreDeployedContracts are contracts that are already deployed on a (usually) live testnet chain, so re-deployment
+// in unnecessary
 type PreDeployedContracts struct {
 	RegistryAddress  string
 	RegistrarAddress string
@@ -221,6 +226,9 @@ func (k *KeeperBenchmarkTest) Run() {
 		"NumberOfRegistries":  len(k.keeperRegistries),
 	}
 	inputs := k.Inputs
+	startingBlock, err := k.chainClient.LatestBlockNumber(context.Background())
+	require.NoError(k.t, err, "Error getting latest block number")
+	k.startingBlock = big.NewInt(0).SetUint64(startingBlock)
 	startTime := time.Now()
 
 	nodesWithoutBootstrap := k.chainlinkNodes[1:]
@@ -277,9 +285,9 @@ func (k *KeeperBenchmarkTest) Run() {
 	}()
 	logSubscriptionStop := make(chan bool)
 	for rIndex := range k.keeperRegistries {
-		k.subscribeToUpkeepPerformedEvent(k.t, logSubscriptionStop, &k.TestReporter, rIndex)
+		k.observeUpkeepEvents(rIndex)
 	}
-	err := k.chainClient.WaitForEvents()
+	err = k.chainClient.WaitForEvents()
 	require.NoError(k.t, err, "Error waiting for keeper subscriptions")
 	close(logSubscriptionStop)
 
@@ -314,15 +322,25 @@ func (k *KeeperBenchmarkTest) Run() {
 	k.log.Info().Str("Run Time", endTime.Sub(startTime).String()).Msg("Finished Keeper Benchmark Test")
 }
 
-// subscribeToUpkeepPerformedEvent subscribes to the event log for UpkeepPerformed event and
-// counts the number of times it was unsuccessful
-func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
-	t *testing.T,
-	doneChan chan bool,
-	metricsReporter *testreporters.KeeperBenchmarkTestReporter,
-	rIndex int,
+// TearDownVals returns the networks that the test is running on
+func (k *KeeperBenchmarkTest) TearDownVals(t *testing.T) (
+	*testing.T,
+	string,
+	[]*client.ChainlinkK8sClient,
+	reportModel.TestReporter,
+	blockchain.EVMClient,
 ) {
-	l := logging.GetTestLogger(t)
+	return t, k.namespace, k.chainlinkNodes, &k.TestReporter, k.chainClient
+}
+
+// *********************
+// ****** Helpers ******
+// *********************
+
+// observeUpkeepEvents subscribes to Upkeep events on deployed registries and logs them
+// WARNING: This should only be used for observation and logging. This isn't a reliable way to build a final report
+// due to how fragile subscriptions can be
+func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
 	contractABI, err := keeper_registry_wrapper1_1.KeeperRegistryMetaData.GetAbi()
 	require.NoError(k.t, err, "Error getting ABI")
 	switch k.Inputs.RegistryVersions[rIndex] {
@@ -376,9 +394,8 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
 							Str("From", parsedLog.From.String()).
 							Str("Registry", k.keeperRegistries[rIndex].Address()).
 							Msg("Got successful Upkeep Performed log on Registry")
-
 					} else {
-						l.Warn().
+						k.log.Warn().
 							Str("Upkeep ID", parsedLog.Id.String()).
 							Bool("Success", parsedLog.Success).
 							Str("From", parsedLog.From.String()).
@@ -389,31 +406,27 @@ func (k *KeeperBenchmarkTest) subscribeToUpkeepPerformedEvent(
 				} else if eventDetails.Name == "StaleUpkeepReport" {
 					parsedLog, err := k.keeperRegistries[rIndex].ParseStaleUpkeepReportLog(&vLog)
 					require.NoError(k.t, err, "Parsing stale upkeep report log shouldn't fail")
-					l.Warn().
+					k.log.Warn().
 						Str("Upkeep ID", parsedLog.Id.String()).
 						Str("Registry", k.keeperRegistries[rIndex].Address()).
 						Msg("Got stale Upkeep report log on Registry")
 					numStaleReports++
 				}
-
-			case <-doneChan:
-				metricsReporter.NumRevertedUpkeeps = numRevertedUpkeeps
-				metricsReporter.NumStaleUpkeepReports = numStaleReports
-				return
 			}
 		}
 	}()
 }
 
-// TearDownVals returns the networks that the test is running on
-func (k *KeeperBenchmarkTest) TearDownVals(t *testing.T) (
-	*testing.T,
-	string,
-	[]*client.ChainlinkK8sClient,
-	reportModel.TestReporter,
-	blockchain.EVMClient,
-) {
-	return t, k.namespace, k.chainlinkNodes, &k.TestReporter, k.chainClient
+func (k *KeeperBenchmarkTest) setFilterQuery() error {
+	if len(k.keeperRegistries) == 0 {
+		return fmt.Errorf("No registries deployed")
+	}
+	k.filterQuery = geth.FilterQuery{
+		Addresses: []common.Address{common.HexToAddress(k.keeperRegistries[0].Address())},
+		FromBlock: k.startingBlock,
+		Topics:    [][]common.Hash{{}},
+	}
+
 }
 
 // ensureValues ensures that all values needed to run the test are present

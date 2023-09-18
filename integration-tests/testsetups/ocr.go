@@ -4,7 +4,6 @@ package testsetups
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"os"
@@ -32,10 +31,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -358,7 +356,7 @@ func (o *OCRSoakTest) LoadState() error {
 	}
 
 	testState := &OCRSoakTestState{}
-	saveData, err := ioutil.ReadFile(saveFileLocation)
+	saveData, err := os.ReadFile(saveFileLocation)
 	if err != nil {
 		return err
 	}
