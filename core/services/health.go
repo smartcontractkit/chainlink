@@ -21,7 +21,7 @@ type (
 	// Checker provides a service which can be probed for system health.
 	Checker interface {
 		// Register a service for health checks.
-		Register(name string, service Checkable) error
+		Register(service Checkable) error
 		// Unregister a service.
 		Unregister(name string) error
 		// IsReady returns the current readiness of the system.
@@ -176,8 +176,9 @@ func (c *checker) update() {
 	uptimeSeconds.Add(interval.Seconds())
 }
 
-func (c *checker) Register(name string, service Checkable) error {
-	if service == nil || name == "" {
+func (c *checker) Register(service Checkable) error {
+	name := service.Name()
+	if name == "" {
 		return errors.Errorf("misconfigured check %#v for %v", name, service)
 	}
 
