@@ -10,7 +10,9 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 
+	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -22,9 +24,11 @@ func NewFeeder(
 	coordinator Coordinator,
 	bhs BHS,
 	lp logpoller.LogPoller,
+	headBroadcaster httypes.HeadBroadcasterRegistry,
 	trustedBHSBatchSize int32,
 	waitBlocks int,
 	lookbackBlocks int,
+	heartbeatPeriodTime int,
 	latestBlock func(ctx context.Context) (uint64, error),
 ) *Feeder {
 	return &Feeder{
@@ -40,6 +44,8 @@ func NewFeeder(
 		storedTrusted:       make(map[uint64]common.Hash),
 		lastRunBlock:        0,
 		wgStored:            sync.WaitGroup{},
+		heartbeatPeriodTime: heartbeatPeriodTime,
+		headBroadcaster:     headBroadcaster,
 	}
 }
 
@@ -55,12 +61,53 @@ type Feeder struct {
 	lookbackBlocks      int
 	latestBlock         func(ctx context.Context) (uint64, error)
 
+	// heartbeatPeriodTime is a heartbeat period in seconds by which
+	// the feeder will always store a blockhash, even if there are no
+	// unfulfilled requests. This is to ensure that there are blockhashes
+	// in the store to start from if we ever need to run backwards mode.
+	heartbeatPeriodTime int
+	// we rely on the head broadcaster for the heartbeat stores
+	// rather than the log poller to have some
+	// redundancy, in case the log poller starts misbehaving.
+	headBroadcaster httypes.HeadBroadcasterRegistry
+	// storeEarliest is the last time at which we stored a heartbeat
+	// blockhash for.
+	storeEarliest time.Time
+
 	stored        map[uint64]struct{}    // used for trustless feeder
 	storedTrusted map[uint64]common.Hash // used for trusted feeder
 	lastRunBlock  uint64
 	wgStored      sync.WaitGroup
 	batchLock     sync.Mutex
 	errsLock      sync.Mutex
+}
+
+func (f *Feeder) subscribeHeadBroadcaster() {
+	f.headBroadcaster.Subscribe(f)
+}
+
+// OnNewLongestChain implements HeadTrackable
+// note that the ctx has a timeout of 2 seconds
+// the below code cannot exceed that else we start missing
+// heartbeat bh's.
+func (f *Feeder) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
+	if diff := head.Timestamp.Sub(f.storeEarliest); diff.Seconds() >= float64(f.heartbeatPeriodTime) {
+		f.lggr.Infow("storing heartbeat blockhash",
+			"latestHead", head.Number,
+			"heartbeatPeriodTime (in seconds)", f.heartbeatPeriodTime,
+			"storeEarliest", f.storeEarliest,
+		)
+		if err := f.bhs.Store(ctx, uint64(head.Number)); err != nil {
+			f.lggr.Errorw("failed to store heartbeat blockhash",
+				"err", err,
+				"latestHead", head.Number,
+				"heartbeatPeriodTime (in seconds)", f.heartbeatPeriodTime,
+				"storeEarliest", f.storeEarliest,
+			)
+		} else {
+			f.storeEarliest = head.Timestamp
+		}
+	}
 }
 
 // Run the feeder.

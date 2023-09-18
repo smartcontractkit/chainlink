@@ -68,6 +68,12 @@ func ValidatedSpec(tomlString string) (job.Job, error) {
 	if spec.RunTimeout == 0 {
 		spec.RunTimeout = 30 * time.Second
 	}
+	if spec.HeartbeatPeriodTime < 0 {
+		return jb, errors.New(`"heartbeatPeriodTime" must be greater than 0`)
+	}
+	if spec.HeartbeatPeriodTime == 0 {
+		spec.HeartbeatPeriodTime = 600 // "sensible" default - 10 minutes
+	}
 
 	// Validation
 	if spec.WaitBlocks >= spec.LookbackBlocks {
