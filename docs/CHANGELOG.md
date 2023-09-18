@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+### Added
+- Added multichain telemetry support. All nodes have to remove the following configuration fields:
+  - `TelemetryIngress.URL`
+  - `TelemetryIngress.ServerPubKey`
+  
+  All nodes have to add the following configuration fields for each network-chainID pair they want to send telemetry for:
+  ```toml
+  [[TelemetryIngressEndpoint]]
+  Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
+  ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
+  URL = '...'
+  ServerPubKey = '...'
+  ```
+  
 ### Removed
 
 - Removed support for sending telemetry to the deprecated Explorer service. All nodes will have to remove `Explorer` related keys from TOML configuration and env vars. 
