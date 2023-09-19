@@ -72,6 +72,11 @@ type Feeder struct {
 }
 
 func (f *Feeder) StartHeartbeats(ctx context.Context) {
+	if f.heartbeatPeriodTime == 0 {
+		f.lggr.Infow("Not starting heartbeat blockhash using storeEarliest")
+		return
+	}
+	f.lggr.Infow("Starting heartbeat blockhash using storeEarliest")
 	timer := time.NewTimer(time.Duration(f.heartbeatPeriodTime) * time.Second)
 	for {
 		select {

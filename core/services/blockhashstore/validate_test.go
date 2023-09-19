@@ -67,7 +67,7 @@ evmChainID = "4"`,
 				require.NoError(t, err)
 				require.Equal(t, int32(100), os.BlockhashStoreSpec.WaitBlocks)
 				require.Equal(t, int32(200), os.BlockhashStoreSpec.LookbackBlocks)
-				require.Equal(t, int32(600), os.BlockhashStoreSpec.HeartbeatPeriodTime)
+				require.Equal(t, int32(0), os.BlockhashStoreSpec.HeartbeatPeriodTime)
 				require.Nil(t, os.BlockhashStoreSpec.FromAddresses)
 				require.Equal(t, 30*time.Second, os.BlockhashStoreSpec.PollPeriod)
 				require.Equal(t, 30*time.Second, os.BlockhashStoreSpec.RunTimeout)
