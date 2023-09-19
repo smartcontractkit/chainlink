@@ -20,7 +20,7 @@ require (
 	github.com/rs/zerolog v1.30.0
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-env v0.37.1-0.20230919160127-3848d580aca0
-	github.com/smartcontractkit/chainlink-testing-framework v1.17.2-0.20230919161814-e5504e766f25
+	github.com/smartcontractkit/chainlink-testing-framework v1.17.2-0.20230919165956-0c6e3ddcb1b4
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230918212407-dbd4e505b3e6
 	github.com/smartcontractkit/ocr2keepers v0.7.24
@@ -373,7 +373,7 @@ require (
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
 	github.com/rogpeppe/go-internal v1.11.0 // indirect
-	github.com/russross/blackfriday v1.6.0 // indirect
+	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
 	github.com/scylladb/go-reflectx v1.0.1 // indirect
 	github.com/sean-/seed v0.0.0-20170313163322-e2103e2c3529 // indirect
