@@ -1,19 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-<<<<<<<< HEAD:contracts/src/v0.8/dev/automation/2_1/AutomationRegistrar2_1.sol
-import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
-import {IKeeperRegistryMaster} from "./interfaces/IKeeperRegistryMaster.sol";
-import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
-import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
-import {IERC677Receiver} from "../../../shared/interfaces/IERC677Receiver.sol";
-========
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 import {IKeeperRegistryMaster} from "../interfaces/v2_1/IKeeperRegistryMaster.sol";
 import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {IERC677Receiver} from "../../shared/interfaces/IERC677Receiver.sol";
->>>>>>>> 9f19654c08 (Prefix contract dir names which start w/ a digit (#10655)):contracts/src/v0.8/automation/v2_1/AutomationRegistrar2_1.sol
 
 /**
  * @notice Contract to accept requests for upkeep registrations

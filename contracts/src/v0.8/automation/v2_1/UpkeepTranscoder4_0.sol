@@ -5,13 +5,8 @@ pragma solidity 0.8.16;
 import {UpkeepTranscoderInterfaceV2} from "../../../automation/interfaces/UpkeepTranscoderInterfaceV2.sol";
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 import {KeeperRegistryBase2_1 as R21} from "./KeeperRegistryBase2_1.sol";
-<<<<<<<< HEAD:contracts/src/v0.8/dev/automation/2_1/UpkeepTranscoder4_0.sol
-import {IAutomationForwarder} from "./interfaces/IAutomationForwarder.sol";
-import {AutomationRegistryBaseInterface, UpkeepInfo} from "../../../automation/interfaces/2_0/AutomationRegistryInterface2_0.sol";
-========
 import {IAutomationForwarder} from "../interfaces/IAutomationForwarder.sol";
 import {AutomationRegistryBaseInterface, UpkeepInfo} from "../interfaces/v2_0/AutomationRegistryInterface2_0.sol";
->>>>>>>> 9f19654c08 (Prefix contract dir names which start w/ a digit (#10655)):contracts/src/v0.8/automation/v2_1/UpkeepTranscoder4_0.sol
 
 enum RegistryVersion {
   V12,
