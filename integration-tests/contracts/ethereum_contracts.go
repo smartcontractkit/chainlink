@@ -2297,7 +2297,7 @@ func (e *EthereumMercuryVerifierProxy) Address() string {
 	return e.address.Hex()
 }
 
-func (e *EthereumMercuryVerifierProxy) Verify(signedReport []byte, value *big.Int) (*types.Transaction, error) {
+func (e *EthereumMercuryVerifierProxy) Verify(signedReport []byte, parameterPayload []byte, value *big.Int) (*types.Transaction, error) {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if value != nil {
 		opts.Value = value
@@ -2305,14 +2305,14 @@ func (e *EthereumMercuryVerifierProxy) Verify(signedReport []byte, value *big.In
 	if err != nil {
 		return nil, err
 	}
-	tx, err := e.instance.Verify(opts, signedReport)
+	tx, err := e.instance.Verify(opts, parameterPayload, signedReport)
 	if err != nil {
 		return nil, err
 	}
 	return tx, e.client.ProcessTransaction(tx)
 }
 
-func (e *EthereumMercuryVerifierProxy) VerifyBulk(signedReports [][]byte, value *big.Int) (*types.Transaction, error) {
+func (e *EthereumMercuryVerifierProxy) VerifyBulk(signedReports [][]byte, parameterPayload []byte, value *big.Int) (*types.Transaction, error) {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if value != nil {
 		opts.Value = value
@@ -2320,7 +2320,7 @@ func (e *EthereumMercuryVerifierProxy) VerifyBulk(signedReports [][]byte, value 
 	if err != nil {
 		return nil, err
 	}
-	tx, err := e.instance.VerifyBulk(opts, signedReports)
+	tx, err := e.instance.VerifyBulk(opts, signedReports, parameterPayload)
 	if err != nil {
 		return nil, err
 	}
