@@ -391,16 +391,18 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 	var retryable bool
 	var err error
 
+	// Used for checkCallback, and if specified a mercury request.
+	lookup := &StreamsLookup{
+		feedParamKey: request.feedParamKey,
+		feeds:        request.feeds,
+		timeParamKey: request.timeParamKey,
+		time:         request.time,
+		extraData:    request.extraData,
+		upkeepId:     request.upkeepId,
+		block:        request.block,
+	}
+
 	if request.useMercury {
-		lookup := &StreamsLookup{
-			feedParamKey: request.feedParamKey,
-			feeds:        request.feeds,
-			timeParamKey: request.timeParamKey,
-			time:         request.time,
-			extraData:    request.extraData,
-			upkeepId:     request.upkeepId,
-			block:        request.block,
-		}
 		state, reason, values, retryable, err = r.doMercuryRequest(ctx, lookup, lggr)
 		if err != nil {
 			lggr.Errorf("upkeep %s retryable %v doMercuryRequest: %s", request.upkeepId, retryable, err.Error())
@@ -469,7 +471,7 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 	lggr.Infof("upkeep %s composerRequest Functions args [%d]: %s, %s, %v",
 		request.upkeepId, i, string(rawReportsArg), string(mercuryArg), request.functionsArguments)
 	concatenatedReports := strings.Join(rawReports, ",") // TODO: replace with Functions call
-	abiEncode, err := utils.ABIEncode(`[{"type":"string"},{"type":"bytes"}]`, concatenatedReports, request.extraData)
+	encodedFunctionsResult, err := utils.ABIEncode(`[{"type":"string"},{"type":"bytes"}]`, concatenatedReports, request.extraData)
 	if err != nil {
 		lggr.Errorf("upkeep %s retryable %v abi encode packing: %s", request.upkeepId, retryable, err.Error())
 		checkResults[i].Retryable = false
@@ -477,11 +479,43 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
 		return
 	}
-	lggr.Infof("upkeep %s composerRequest performData [%d]: %s", request.upkeepId, i, hexutil.Encode(abiEncode))
+
+	lggr.Infof("upkeep %s composerRequest encodedFunctionsResult [%d]: %s", request.upkeepId, i, hexutil.Encode(encodedFunctionsResult))
+
+	state, retryable, checkCallbackBytes, err := r.checkCallback(ctx, [][]byte{encodedFunctionsResult}, lookup)
+	if err != nil {
+		lggr.Errorf("at block %d upkeep %s checkCallback err: %s", lookup.block, lookup.upkeepId, err.Error())
+		checkResults[i].Retryable = retryable
+		checkResults[i].PipelineExecutionState = uint8(state)
+		return
+	}
+
+	lggr.Infof("checkCallback checkCallbackBytes=%s", hexutil.Encode(checkCallbackBytes))
+
+	state, needed, performData, failureReason, _, err := r.packer.UnpackCheckCallbackResult(checkCallbackBytes)
+	if err != nil {
+		lggr.Errorf("at block %d upkeep %s UnpackCheckCallbackResult err: %s", lookup.block, lookup.upkeepId, err.Error())
+		checkResults[i].PipelineExecutionState = uint8(state)
+		return
+	}
+
+	if failureReason == uint8(encoding.UpkeepFailureReasonMercuryCallbackReverted) {
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryCallbackReverted)
+		lggr.Debugf("at block %d upkeep %s composer callback reverts", lookup.block, lookup.upkeepId)
+		return
+	}
+
+	if !needed {
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonUpkeepNotNeeded)
+		lggr.Debugf("at block %d upkeep %s callback reports upkeep not needed", lookup.block, lookup.upkeepId)
+		return
+	}
+
+	lggr.Infof("upkeep %s composerRequest performData [%d]: %s", request.upkeepId, i, hexutil.Encode(performData))
 
 	checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonNone)
 	checkResults[i].Eligible = true
-	checkResults[i].PerformData = abiEncode
+	checkResults[i].PerformData = performData
 }
 
 // decodeComposerRequest decodes the revert error ComposerRequestV1(string scriptHash, string[] functionsArguments, bool useMercury, string feedParamKey, string[] feeds, string timeParamKey, uint256 time, byte[] extraData)

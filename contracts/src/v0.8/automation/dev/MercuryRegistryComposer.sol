@@ -123,9 +123,16 @@ contract MercuryRegistryComposer is ConfirmedOwner, AutomationCompatibleInterfac
     revert ComposerRequestV1("TODO_SCRIPT_HASH", functionsArguments, true, c_feedParamKey, feeds, c_timeParamKey, blockNumber, "");
   }
 
-  // Use deviated off-chain values to update on-chain state.
-  function performUpkeep(bytes calldata performData) external override {
-    (string memory values /* bytes memory lookupData */, ) = abi.decode(performData, (string, bytes));
+  // Modified checkCallback function that matches the StreamsLookupCompatibleInterface, but
+  // accepts the result of a functions call to correctly ABI-encode it. This is a stopgap
+  // function only intended to exist while Functions does not yet implement more sophisticated
+  // ABI-encoding.
+  function checkCallback(
+    bytes[] memory data,
+    bytes memory lookupData
+  ) external view override returns (bool, bytes memory) {
+    require(data.length == 1, "should only have one item for abi-decoding");
+    (string memory values /* bytes memory lookupData */, ) = abi.decode(data[0], (string, bytes));
 
     // Parse the comma separated string of hex-encoded mercury proofs.
     strings.slice memory s = strings.toSlice(values);
@@ -135,12 +142,25 @@ contract MercuryRegistryComposer is ConfirmedOwner, AutomationCompatibleInterfac
         parts[i] = s.split(delim).toString();
     }
 
+    // Convert the hex strings to byte arrays.
+    bytes[] memory reports = new bytes[](parts.length);
     for (uint256 i = 0; i < parts.length; i++) {
       // Convert the hex-encoded proof to bytes.
       bytes memory value = fromHex(parts[i]);
+      reports[i] = value;
+    }
+  
+    // Return the well-formatted performData.
+    bytes memory performData = abi.encode(reports, lookupData);
+    return (reports.length > 0, performData);
+  }
 
+  // Use deviated off-chain values to update on-chain state.
+  function performUpkeep(bytes calldata performData) external override {
+    (bytes[] memory values /* bytes memory lookupData */, ) = abi.decode(performData, (bytes[], bytes));
+    for (uint256 i = 0; i < values.length; i++) {
       // Verify and decode the Mercury report.
-      Report memory report = abi.decode(s_verifier.verify(value), (Report));
+      Report memory report = abi.decode(s_verifier.verify(values[i]), (Report));
       string memory feedId = bytes32ToHexString(abi.encodePacked(report.feedId));
 
       // Feeds that have been removed between checkUpkeep and performUpkeep should not be updated.

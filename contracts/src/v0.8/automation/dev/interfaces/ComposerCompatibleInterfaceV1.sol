@@ -12,4 +12,18 @@ interface ComposerCompatibleInterfaceV1 {
         uint256 time, // mercury: specific value of the time key
         bytes extraData // any extra data to be used
     );
+
+   /**
+   * @notice any contract which wants to utilize ComposerRequestV1 feature needs to
+   * implement this interface as well as the automation compatible interface.
+   * @param values an array containing the abi encoded result of a Functions call.
+   * @param extraData context data from composer process.
+   * @return upkeepNeeded boolean to indicate whether the keeper should call performUpkeep or not.
+   * @return performData bytes that the keeper should call performUpkeep with, if
+   * upkeep is needed. If you would like to encode data to decode later, try `abi.encode`.
+   */
+  function checkCallback(
+    bytes[] memory values,
+    bytes memory extraData
+  ) external view returns (bool upkeepNeeded, bytes memory performData);
 }

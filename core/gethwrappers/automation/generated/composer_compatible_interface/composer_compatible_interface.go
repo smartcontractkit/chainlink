@@ -29,7 +29,7 @@ var (
 )
 
 var ComposerCompatibleInterfaceV1MetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"internalType\":\"string\",\"name\":\"scriptHash\",\"type\":\"string\"},{\"internalType\":\"string[]\",\"name\":\"functionsArguments\",\"type\":\"string[]\"},{\"internalType\":\"bool\",\"name\":\"useMercury\",\"type\":\"bool\"},{\"internalType\":\"string\",\"name\":\"feedParamKey\",\"type\":\"string\"},{\"internalType\":\"string[]\",\"name\":\"feeds\",\"type\":\"string[]\"},{\"internalType\":\"string\",\"name\":\"timeParamKey\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"time\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"extraData\",\"type\":\"bytes\"}],\"name\":\"ComposerRequestV1\",\"type\":\"error\"}]",
+	ABI: "[{\"inputs\":[{\"internalType\":\"string\",\"name\":\"scriptHash\",\"type\":\"string\"},{\"internalType\":\"string[]\",\"name\":\"functionsArguments\",\"type\":\"string[]\"},{\"internalType\":\"bool\",\"name\":\"useMercury\",\"type\":\"bool\"},{\"internalType\":\"string\",\"name\":\"feedParamKey\",\"type\":\"string\"},{\"internalType\":\"string[]\",\"name\":\"feeds\",\"type\":\"string[]\"},{\"internalType\":\"string\",\"name\":\"timeParamKey\",\"type\":\"string\"},{\"internalType\":\"uint256\",\"name\":\"time\",\"type\":\"uint256\"},{\"internalType\":\"bytes\",\"name\":\"extraData\",\"type\":\"bytes\"}],\"name\":\"ComposerRequestV1\",\"type\":\"error\"},{\"inputs\":[{\"internalType\":\"bytes[]\",\"name\":\"values\",\"type\":\"bytes[]\"},{\"internalType\":\"bytes\",\"name\":\"extraData\",\"type\":\"bytes\"}],\"name\":\"checkCallback\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
 }
 
 var ComposerCompatibleInterfaceV1ABI = ComposerCompatibleInterfaceV1MetaData.ABI
@@ -150,10 +150,49 @@ func (_ComposerCompatibleInterfaceV1 *ComposerCompatibleInterfaceV1TransactorRaw
 	return _ComposerCompatibleInterfaceV1.Contract.contract.Transact(opts, method, params...)
 }
 
+func (_ComposerCompatibleInterfaceV1 *ComposerCompatibleInterfaceV1Caller) CheckCallback(opts *bind.CallOpts, values [][]byte, extraData []byte) (CheckCallback,
+
+	error) {
+	var out []interface{}
+	err := _ComposerCompatibleInterfaceV1.contract.Call(opts, &out, "checkCallback", values, extraData)
+
+	outstruct := new(CheckCallback)
+	if err != nil {
+		return *outstruct, err
+	}
+
+	outstruct.UpkeepNeeded = *abi.ConvertType(out[0], new(bool)).(*bool)
+	outstruct.PerformData = *abi.ConvertType(out[1], new([]byte)).(*[]byte)
+
+	return *outstruct, err
+
+}
+
+func (_ComposerCompatibleInterfaceV1 *ComposerCompatibleInterfaceV1Session) CheckCallback(values [][]byte, extraData []byte) (CheckCallback,
+
+	error) {
+	return _ComposerCompatibleInterfaceV1.Contract.CheckCallback(&_ComposerCompatibleInterfaceV1.CallOpts, values, extraData)
+}
+
+func (_ComposerCompatibleInterfaceV1 *ComposerCompatibleInterfaceV1CallerSession) CheckCallback(values [][]byte, extraData []byte) (CheckCallback,
+
+	error) {
+	return _ComposerCompatibleInterfaceV1.Contract.CheckCallback(&_ComposerCompatibleInterfaceV1.CallOpts, values, extraData)
+}
+
+type CheckCallback struct {
+	UpkeepNeeded bool
+	PerformData  []byte
+}
+
 func (_ComposerCompatibleInterfaceV1 *ComposerCompatibleInterfaceV1) Address() common.Address {
 	return _ComposerCompatibleInterfaceV1.address
 }
 
 type ComposerCompatibleInterfaceV1Interface interface {
+	CheckCallback(opts *bind.CallOpts, values [][]byte, extraData []byte) (CheckCallback,
+
+		error)
+
 	Address() common.Address
 }
