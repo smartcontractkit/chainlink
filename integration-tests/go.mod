@@ -19,8 +19,8 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.30.0
 	github.com/slack-go/slack v0.12.2
-	github.com/smartcontractkit/chainlink-env v0.36.0
-	github.com/smartcontractkit/chainlink-testing-framework v1.17.0
+	github.com/smartcontractkit/chainlink-env v0.37.1-0.20230919160127-3848d580aca0
+	github.com/smartcontractkit/chainlink-testing-framework v1.17.2-0.20230919161814-e5504e766f25
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230816220705-665e93233ae5
 	github.com/smartcontractkit/ocr2keepers v0.7.23
@@ -473,15 +473,15 @@ require (
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
-	k8s.io/api v0.26.2 // indirect
+	k8s.io/api v0.26.9 // indirect
 	k8s.io/apiextensions-apiserver v0.25.3 // indirect
-	k8s.io/apimachinery v0.26.2 // indirect
-	k8s.io/cli-runtime v0.25.11 // indirect
-	k8s.io/client-go v0.26.2 // indirect
-	k8s.io/component-base v0.26.2 // indirect
+	k8s.io/apimachinery v0.26.9 // indirect
+	k8s.io/cli-runtime v0.26.9 // indirect
+	k8s.io/client-go v0.26.9 // indirect
+	k8s.io/component-base v0.26.9 // indirect
 	k8s.io/klog/v2 v2.90.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d // indirect
-	k8s.io/kubectl v0.25.11 // indirect
+	k8s.io/kubectl v0.26.9 // indirect
 	k8s.io/utils v0.0.0-20230308161112-d77c459e9343 // indirect
 	nhooyr.io/websocket v1.8.7 // indirect
 	pgregory.net/rapid v0.5.5 // indirect
