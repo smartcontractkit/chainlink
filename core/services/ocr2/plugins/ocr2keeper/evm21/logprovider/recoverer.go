@@ -409,9 +409,13 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 	}
 	filteredLogs := r.filterFinalizedStates(f, logs, states)
 
-	added, alreadyPending := r.populatePending(f, filteredLogs)
+	added, alreadyPending, ok := r.populatePending(f, filteredLogs)
 	if added > 0 {
 		r.lggr.Debugw("found missed logs", "added", added, "alreadyPending", alreadyPending, "upkeepID", f.upkeepID)
+	}
+	if !ok {
+		r.lggr.Debugw("failed to add all logs to pending", "upkeepID", f.upkeepID)
+		return nil
 	}
 	r.filterStore.UpdateFilters(func(uf1, uf2 upkeepFilter) upkeepFilter {
 		uf1.lastRePollBlock = end
@@ -423,13 +427,15 @@ func (r *logRecoverer) recoverFilter(ctx context.Context, f upkeepFilter, startB
 }
 
 // populatePending adds the logs to the pending list if they are not already pending.
-// returns the number of logs added and the number of logs that were already pending.
-func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.Log) (int, int) {
+// returns the number of logs added, the number of logs that were already pending,
+// and a flag that indicates whether some errors happened while we are trying to add to pending q.
+func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.Log) (int, int, bool) {
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
 	pendingSizeBefore := len(r.pending)
 	alreadyPending := 0
+	errs := make([]error, 0)
 	for _, log := range filteredLogs {
 		trigger := logToTrigger(log)
 		// Set the checkBlock and Hash to zero so that the checkPipeline uses the latest block
@@ -462,9 +468,11 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 				visitedAt: time.Now(),
 				payload:   payload,
 			}
+		} else {
+			errs = append(errs, err)
 		}
 	}
-	return len(r.pending) - pendingSizeBefore, alreadyPending
+	return len(r.pending) - pendingSizeBefore, alreadyPending, len(errs) == 0
 }
 
 // filterFinalizedStates filters out the log upkeeps that have already been completed (performed or ineligible).
