@@ -78,13 +78,13 @@ func (_m *Checker) IsReady() (bool, map[string]error) {
 	return r0, r1
 }
 
-// Register provides a mock function with given fields: name, service
-func (_m *Checker) Register(name string, service services.Checkable) error {
-	ret := _m.Called(name, service)
+// Register provides a mock function with given fields: service
+func (_m *Checker) Register(service services.Checkable) error {
+	ret := _m.Called(service)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(string, services.Checkable) error); ok {
-		r0 = rf(name, service)
+	if rf, ok := ret.Get(0).(func(services.Checkable) error); ok {
+		r0 = rf(service)
 	} else {
 		r0 = ret.Error(0)
 	}
