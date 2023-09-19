@@ -103,6 +103,11 @@ func (r *EvmRegistry) verifyCheckBlock(_ context.Context, checkBlock, upkeepId *
 	var ok bool
 	// verify check block number and hash are valid
 	h, ok = r.bs.queryBlocksMap(checkBlock.Int64())
+	// if this block number/hash combo exists in block subscriber, this check block and hash still exist on chain and are valid
+	if ok && h == checkHash.Hex() {
+		r.lggr.Debugf("check block hash %s exists on chain at block number %d for upkeepId %s", checkHash.Hex(), checkBlock, upkeepId)
+		return encoding.NoPipelineError, false
+	}
 	if !ok {
 		r.lggr.Warnf("check block %s does not exist in block subscriber for upkeepId %s, querying eth client", checkBlock, upkeepId)
 		b, err := r.getBlockHash(checkBlock)
