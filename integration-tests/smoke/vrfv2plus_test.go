@@ -36,13 +36,13 @@ func TestVRFv2PlusBilling(t *testing.T) {
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeedAddress, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, vrfv2plus_constants.LinkEthFeedResponse)
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, vrfv2plus_constants.LinkEthFeedResponse)
 	require.NoError(t, err, "error deploying mock ETH/LINK feed")
 
-	linkAddress, err := actions.DeployLINKToken(env.ContractDeployer)
+	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	vrfv2PlusContracts, subID, vrfv2PlusData, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress, 1)
+	vrfv2PlusContracts, subID, vrfv2PlusData, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkToken, mockETHLinkFeed, 1)
 	require.NoError(t, err, "error setting up VRF v2 Plus env")
 
 	subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
@@ -118,6 +118,84 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		require.NoError(t, err)
 		subBalanceAfterRequest := subscription.EthBalance
 		require.Equal(t, expectedSubBalanceWei, subBalanceAfterRequest)
+
+		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
+		require.NoError(t, err, "error reading job runs")
+		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
+
+		status, err := vrfv2PlusContracts.LoadTestConsumers[0].GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
+		require.NoError(t, err, "error getting rand request status")
+		require.True(t, status.Fulfilled)
+		l.Debug().Interface("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+
+		require.Equal(t, vrfv2plus_constants.NumberOfWords, uint32(len(status.RandomWords)))
+		for _, w := range status.RandomWords {
+			l.Info().Str("Output", w.String()).Msg("Randomness fulfilled")
+			require.Equal(t, w.Cmp(big.NewInt(0)), 1, "Expected the VRF job give an answer bigger than 0")
+		}
+	})
+
+	t.Run("VRFV2 Plus With Direct Funding (VRFV2PlusWrapper)", func(t *testing.T) {
+
+		wrapperContracts, err := vrfv2plus.DeployVRFV2PlusDirectFundingContracts(
+			env.ContractDeployer,
+			env.EVMClient,
+			linkToken.Address(),
+			mockETHLinkFeed.Address(),
+			vrfv2PlusContracts.Coordinator,
+			1,
+		)
+		require.NoError(t, err)
+
+		err = wrapperContracts.Wrapper.SetConfig(
+			vrfv2plus_constants.WrapperGasOverhead,
+			vrfv2plus_constants.CoordinatorGasOverhead,
+			vrfv2plus_constants.WrapperPremiumPercentage,
+			vrfv2PlusData.VRFV2PlusKeyData.KeyHash,
+			vrfv2plus_constants.WrapperMaxNumberOfWords,
+		)
+
+		require.NoError(t, err)
+
+		//fund sub
+		wrapperSubID, err := wrapperContracts.Wrapper.GetSubID(context.Background())
+		require.NoError(t, err)
+
+		err = vrfv2plus.FundSubscription(env, linkToken, vrfv2PlusContracts.Coordinator, wrapperSubID)
+		require.NoError(t, err)
+
+		//fund consumer with Link
+		err = linkToken.Transfer(
+			wrapperContracts.LoadTestConsumers[0].Address(),
+			vrfv2plus_constants.WrapperConsumerFundingAmountLink,
+		)
+		require.NoError(t, err)
+		//fund consumer with Eth
+		err = wrapperContracts.LoadTestConsumers[0].Fund(vrfv2plus_constants.WrapperConsumerFundingAmountNativeToken)
+		require.NoError(t, err)
+
+		//start test
+		var isNativeBilling = false
+		subBalanceBeforeRequest := subscription.Balance
+
+		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
+		require.NoError(t, err, "error reading job runs")
+
+		randomWordsFulfilledEvent, err := vrfv2plus.DirectFundingRequestRandomnessAndWaitForFulfillment(
+			wrapperContracts.LoadTestConsumers[0],
+			vrfv2PlusContracts.Coordinator,
+			vrfv2PlusData,
+			subID,
+			isNativeBilling,
+			l,
+		)
+		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+
+		expectedSubBalanceJuels := new(big.Int).Sub(subBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
+		subscription, err = vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
+		require.NoError(t, err, "error getting subscription information")
+		subBalanceAfterRequest := subscription.Balance
+		require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
 
 		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
 		require.NoError(t, err, "error reading job runs")
