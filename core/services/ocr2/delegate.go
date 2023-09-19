@@ -1000,7 +1000,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		d.cfg.JobPipeline().MaxSuccessfulRuns(),
 	)
 
-	return []job.ServiceCtx{
+	automationServices := []job.ServiceCtx{
 		runResultSaver,
 		keeperProvider,
 		services.Registry(),
@@ -1010,7 +1010,26 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		services.UpkeepStateStore(),
 		services.TransmitEventProvider(),
 		pluginService,
-	}, nil
+	}
+
+	if cfg.CaptureAutomationCustomTelemetry {
+		hb := chain.HeadBroadcaster()
+		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
+		rAddr := ethkey.MustEIP55Address(spec.ContractID).Address()
+		customTelemService, custErr := ocr2keeper.NewAutomationCustomTelemetryService(
+			endpoint,
+			hb,
+			lggr,
+			chain,
+			rAddr,
+		)
+		if custErr != nil {
+			return nil, custErr
+		}
+		automationServices = append(automationServices, customTelemService)
+	}
+
+	return automationServices, nil
 }
 
 func (d *Delegate) newServicesOCR2Keepers20(
@@ -1146,7 +1165,6 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		pluginService,
 	}
 
-	// if d.cfg.OCR2().CaptureAutomationCustomTelemetry() {
 	if cfg.CaptureAutomationCustomTelemetry {
 		hb := chain.HeadBroadcaster()
 		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
