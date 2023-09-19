@@ -69,14 +69,8 @@ Enabled = true
 Enabled = true
 [Keeper]
 TurnLookBack = 0
-[Keeper.Registry]
-CheckGasOverhead = 200000
-PerformGasOverhead = 1000000
 [[EVM]]
 ChainID = '%d'
-[EVM.OCR2]
-[EVM.OCR2.Automation]
-GasLimit = 7000000
 [[EVM.Nodes]]
 Name = 'node-0'
 WSURL = '%s'
