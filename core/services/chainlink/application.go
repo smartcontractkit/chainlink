@@ -216,8 +216,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
 
-	healthChecker := services.NewChecker()
-
 	telemetryManager := telemetry.NewManager(cfg.TelemetryIngress(), keyStore.CSA(), globalLogger)
 	srvcs = append(srvcs, telemetryManager)
 
