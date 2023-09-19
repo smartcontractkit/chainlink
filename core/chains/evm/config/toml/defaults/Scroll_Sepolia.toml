@@ -13,6 +13,7 @@ PriceMin = '0'
 # Never bump gas on Scroll
 BumpThreshold = 0
 
+
 [GasEstimator.BlockHistory]
 # Force an error if someone enables the estimator by accident; we never want to run the block history estimator on Scroll
 BlockHistorySize = 0
