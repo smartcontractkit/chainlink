@@ -17,26 +17,38 @@ const (
 )
 
 type PerformanceConfig struct {
-	Soak             *Soak            `toml:"Soak"`
-	SecretsSoak      *SecretsSoak     `toml:"SecretsSoak"`
-	RealSoak         *RealSoak        `toml:"RealSoak"`
-	Stress           *Stress          `toml:"Stress"`
-	SecretsStress    *SecretsStress   `toml:"SecretsStress"`
-	RealStress       *RealStress      `toml:"RealStress"`
-	GatewayListSoak  *GatewayListSoak `toml:"GatewayListSoak"`
-	GatewaySetSoak   *GatewaySetSoak  `toml:"GatewaySetSoak"`
-	Common           *Common          `toml:"Common"`
-	MumbaiPrivateKey string
+	Soak            *Soak            `toml:"Soak"`
+	SecretsSoak     *SecretsSoak     `toml:"SecretsSoak"`
+	RealSoak        *RealSoak        `toml:"RealSoak"`
+	Stress          *Stress          `toml:"Stress"`
+	SecretsStress   *SecretsStress   `toml:"SecretsStress"`
+	RealStress      *RealStress      `toml:"RealStress"`
+	GatewayListSoak *GatewayListSoak `toml:"GatewayListSoak"`
+	GatewaySetSoak  *GatewaySetSoak  `toml:"GatewaySetSoak"`
+	Common          *Common          `toml:"Common"`
+	Networks        *Networks        `toml:"Networks"`
+	SelectedNetwork *Network         `toml:"SelectedNetwork"`
+	PrivateKey      string
+}
+
+type Networks struct {
+	MumbaiStaging *Network `toml:"MumbaiStaging"`
+	Mumbai        *Network `toml:"Mumbai"`
+	Fuji          *Network `toml:"Fuji"`
+	Sepolia       *Network `toml:"Sepolia"`
+}
+
+type Network struct {
+	DONID          string `toml:"don_id"`
+	LINKTokenAddr  string `toml:"link_token_addr"`
+	Coordinator    string `toml:"coordinator_addr"`
+	Router         string `toml:"router_addr"`
+	LoadTestClient string `toml:"client_addr"`
+	SubscriptionID uint64 `toml:"subscription_id"`
 }
 
 type Common struct {
 	Funding
-	LINKTokenAddr                   string `toml:"link_token_addr"`
-	Coordinator                     string `toml:"coordinator_addr"`
-	Router                          string `toml:"router_addr"`
-	LoadTestClient                  string `toml:"client_addr"`
-	SubscriptionID                  uint64 `toml:"subscription_id"`
-	DONID                           string `toml:"don_id"`
 	GatewayURL                      string `toml:"gateway_url"`
 	Receiver                        string `toml:"receiver"`
 	FunctionsCallPayloadHTTP        string `toml:"functions_call_payload_http"`
@@ -109,16 +121,30 @@ func ReadConfig() (*PerformanceConfig, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, ErrUnmarshalPerfConfig)
 	}
-	log.Debug().Interface("PerformanceConfig", cfg).Msg("Parsed performance config")
-	mpk := os.Getenv("MUMBAI_KEYS")
-	murls := os.Getenv("MUMBAI_URLS")
+	var keys, urls string
 	snet := os.Getenv("SELECTED_NETWORKS")
-	if mpk == "" || murls == "" || snet == "" {
+	log.Warn().Str("NET", snet).Send()
+	switch snet {
+	case "MUMBAI":
+		keys = os.Getenv("MUMBAI_KEYS")
+		urls = os.Getenv("MUMBAI_URLS")
+		cfg.SelectedNetwork = cfg.Networks.Mumbai
+	case "AVALANCHE_FUJI":
+		keys = os.Getenv("AVALANCHE_FUJI_KEYS")
+		urls = os.Getenv("AVALANCHE_FUJI_URLS")
+		cfg.SelectedNetwork = cfg.Networks.Fuji
+	case "SEPOLIA":
+		keys = os.Getenv("SEPOLIA_KEYS")
+		urls = os.Getenv("SEPOLIA_URLS")
+		cfg.SelectedNetwork = cfg.Networks.Sepolia
+	}
+	if keys == "" || urls == "" || snet == "" {
 		return nil, errors.New(
 			"ensure variables are set:\nMUMBAI_KEYS variable, private keys, comma separated\nSELECTED_NETWORKS=MUMBAI\nMUMBAI_URLS variable, websocket urls, comma separated",
 		)
 	} else {
-		cfg.MumbaiPrivateKey = mpk
+		cfg.PrivateKey = keys
 	}
+	log.Debug().Interface("PerformanceConfig", cfg).Msg("Parsed performance config")
 	return cfg, nil
 }

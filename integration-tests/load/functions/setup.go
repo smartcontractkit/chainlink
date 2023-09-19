@@ -2,22 +2,16 @@ package loadfunctions
 
 import (
 	"crypto/ecdsa"
-	"math/big"
-	mrand "math/rand"
-	"os"
-	"strconv"
-	"time"
-
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/go-resty/resty/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/tdh2/go/tdh2/tdh2easy"
+	"math/big"
+	"os"
 )
 
 type FunctionsTest struct {
@@ -66,28 +60,28 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 	if err != nil {
 		return nil, err
 	}
-	lt, err := cl.LoadLINKToken(cfg.Common.LINKTokenAddr)
+	lt, err := cl.LoadLINKToken(cfg.SelectedNetwork.LINKTokenAddr)
 	if err != nil {
 		return nil, err
 	}
-	coord, err := cl.LoadFunctionsCoordinator(cfg.Common.Coordinator)
+	coord, err := cl.LoadFunctionsCoordinator(cfg.SelectedNetwork.Coordinator)
 	if err != nil {
 		return nil, err
 	}
-	router, err := cl.LoadFunctionsRouter(cfg.Common.Router)
+	router, err := cl.LoadFunctionsRouter(cfg.SelectedNetwork.Router)
 	if err != nil {
 		return nil, err
 	}
 	var loadTestClient contracts.FunctionsLoadTestClient
-	if cfg.Common.LoadTestClient != "" {
-		loadTestClient, err = cl.LoadFunctionsLoadTestClient(cfg.Common.LoadTestClient)
+	if cfg.SelectedNetwork.LoadTestClient != "" {
+		loadTestClient, err = cl.LoadFunctionsLoadTestClient(cfg.SelectedNetwork.LoadTestClient)
 	} else {
-		loadTestClient, err = cd.DeployFunctionsLoadTestClient(cfg.Common.Router)
+		loadTestClient, err = cd.DeployFunctionsLoadTestClient(cfg.SelectedNetwork.Router)
 	}
 	if err != nil {
 		return nil, err
 	}
-	if cfg.Common.SubscriptionID == 0 {
+	if cfg.SelectedNetwork.SubscriptionID == 0 {
 		log.Info().Msg("Creating new subscription")
 		subID, err := router.CreateSubscriptionWithConsumer(loadTestClient.Address())
 		if err != nil {
@@ -101,67 +95,67 @@ func SetupLocalLoadTestEnv(cfg *PerformanceConfig) (*FunctionsTest, error) {
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to transferAndCall router, LINK funding")
 		}
-		cfg.Common.SubscriptionID = subID
+		cfg.SelectedNetwork.SubscriptionID = subID
 	}
 	pKey, pubKey, err := parseEthereumPrivateKey(os.Getenv("MUMBAI_KEYS"))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to load Ethereum private key")
 	}
-	tpk, err := coord.GetThresholdPublicKey()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get Threshold public key")
-	}
-	log.Info().Hex("ThresholdPublicKeyBytesHex", tpk).Msg("Loaded coordinator keys")
-	donPubKey, err := coord.GetDONPublicKey()
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get DON public key")
-	}
-	log.Info().Hex("DONPublicKeyHex", donPubKey).Msg("Loaded DON key")
-	tdh2pk, err := ParseTDH2Key(tpk)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal tdh2 public key")
-	}
-	var encryptedSecrets string
-	if cfg.Common.Secrets != "" {
-		encryptedSecrets, err = EncryptS4Secrets(pKey, tdh2pk, donPubKey, cfg.Common.Secrets)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to generate tdh2 secrets")
-		}
-		slotID, slotVersion, err := UploadS4Secrets(resty.New(), &S4SecretsCfg{
-			GatewayURL:            cfg.Common.GatewayURL,
-			PrivateKey:            cfg.MumbaiPrivateKey,
-			MessageID:             strconv.Itoa(mrand.Intn(100000-1) + 1),
-			Method:                "secrets_set",
-			DonID:                 cfg.Common.DONID,
-			S4SetSlotID:           uint(mrand.Intn(5)),
-			S4SetVersion:          uint64(time.Now().UnixNano()),
-			S4SetExpirationPeriod: 60 * 60 * 1000,
-			S4SetPayload:          encryptedSecrets,
-		})
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to upload secrets to S4")
-		}
-		cfg.Common.SecretsSlotID = slotID
-		cfg.Common.SecretsVersionID = slotVersion
-		log.Info().
-			Uint8("SlotID", slotID).
-			Uint64("SlotVersion", slotVersion).
-			Msg("Set new secret")
-	}
+	//tpk, err := coord.GetThresholdPublicKey()
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "failed to get Threshold public key")
+	//}
+	//log.Info().Hex("ThresholdPublicKeyBytesHex", tpk).Msg("Loaded coordinator keys")
+	//donPubKey, err := coord.GetDONPublicKey()
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "failed to get DON public key")
+	//}
+	//log.Info().Hex("DONPublicKeyHex", donPubKey).Msg("Loaded DON key")
+	//tdh2pk, err := ParseTDH2Key(tpk)
+	//if err != nil {
+	//	return nil, errors.Wrap(err, "failed to unmarshal tdh2 public key")
+	//}
+	//var encryptedSecrets string
+	//if cfg.Common.Secrets != "" {
+	//	encryptedSecrets, err = EncryptS4Secrets(pKey, tdh2pk, donPubKey, cfg.Common.Secrets)
+	//	if err != nil {
+	//		return nil, errors.Wrap(err, "failed to generate tdh2 secrets")
+	//	}
+	//	slotID, slotVersion, err := UploadS4Secrets(resty.New(), &S4SecretsCfg{
+	//		GatewayURL:            cfg.Common.GatewayURL,
+	//		PrivateKey:            cfg.PrivateKey,
+	//		MessageID:             strconv.Itoa(mrand.Intn(100000-1) + 1),
+	//		Method:                "secrets_set",
+	//		DonID:                 cfg.SelectedNetwork.DONID,
+	//		S4SetSlotID:           uint(mrand.Intn(5)),
+	//		S4SetVersion:          uint64(time.Now().UnixNano()),
+	//		S4SetExpirationPeriod: 60 * 60 * 1000,
+	//		S4SetPayload:          encryptedSecrets,
+	//	})
+	//	if err != nil {
+	//		return nil, errors.Wrap(err, "failed to upload secrets to S4")
+	//	}
+	//	cfg.Common.SecretsSlotID = slotID
+	//	cfg.Common.SecretsVersionID = slotVersion
+	//	log.Info().
+	//		Uint8("SlotID", slotID).
+	//		Uint64("SlotVersion", slotVersion).
+	//		Msg("Set new secret")
+	//}
 	return &FunctionsTest{
-		EVMClient:                 bc,
-		ContractDeployer:          cd,
-		ContractLoader:            cl,
-		LinkToken:                 lt,
-		Coordinator:               coord,
-		Router:                    router,
-		LoadTestClient:            loadTestClient,
-		EthereumPrivateKey:        pKey,
-		EthereumPublicKey:         pubKey,
-		ThresholdPublicKey:        tdh2pk,
-		ThresholdPublicKeyBytes:   tpk,
-		ThresholdEncryptedSecrets: encryptedSecrets,
-		DONPublicKey:              donPubKey,
+		EVMClient:          bc,
+		ContractDeployer:   cd,
+		ContractLoader:     cl,
+		LinkToken:          lt,
+		Coordinator:        coord,
+		Router:             router,
+		LoadTestClient:     loadTestClient,
+		EthereumPrivateKey: pKey,
+		EthereumPublicKey:  pubKey,
+		//ThresholdPublicKey:        tdh2pk,
+		//ThresholdPublicKeyBytes:   tpk,
+		//ThresholdEncryptedSecrets: encryptedSecrets,
+		//DONPublicKey:              donPubKey,
 	}, nil
 }
 

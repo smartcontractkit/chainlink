@@ -36,19 +36,50 @@ duration = "10m"
 rps = 95
 duration = "10m"
 
-[Common]
-# Polygon Mumbai only for now
-receiver = "0x3098B6665589959711A48a6bAe5B7F2908f6a3bE"
+[Networks]
+
+[Networks.MumbaiStaging]
 don_id = "fun-staging-mumbai-1"
-gateway_url = "https://gateway-stg-one.main.stage.cldev.sh"
 link_token_addr = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
 coordinator_addr = "0x6D6a83BB356b7242E88C1A2b290102fde26590D0"
 router_addr = "0x2673266D3Cd08b53494B5a92B66DEec7F1408E7A"
+client_addr = "0x89D4b58D859a536D0B888ecD5093eF5FF9e4F977"
+subscription_id = 47
+
+[Networks.Mumbai]
+don_id = "fun-polygon-mumbai-1"
+link_token_addr = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
+coordinator_addr = "0xb586788f650B57820D0DFA18BAe9160C4AE9eAa9"
+router_addr = "0x6E2dc0F9DB014aE19888F539E59285D2Ea04244C"
+client_addr = "0x23D474ECdb15C8c530544616F98aFd089B1B112a"
+subscription_id = 20
+
+[Networks.Fuji]
+don_id = "fun-avalanche-fuji-1"
+link_token_addr = "0x0b9d5D9136855f6FEc3c0993feE6E9CE8a297846"
+coordinator_addr = "0xb586788f650B57820D0DFA18BAe9160C4AE9eAa9"
+router_addr = "0xA9d587a00A31A52Ed70D6026794a8FC5E2F5dCb0"
+client_addr = "0x1043Eee3E635827c466f68D434b8e474fd64a25B"
+subscription_id = 3
+
+[Networks.Sepolia]
+don_id = "fun-ethereum-sepolia-1"
+link_token_addr = "0x779877a7b0d9e8603169ddbd7836e478b4624789"
+coordinator_addr = "0xb586788f650B57820D0DFA18BAe9160C4AE9eAa9"
+router_addr = "0xb83E47C2bC239B3bf370bc41e1459A34b41238D0"
+client_addr = "0x196B9593D05D4859E1729801e714E2B073AE7aFb"
+subscription_id = 14
+
+[Common]
+gateway_url = "https://gateway-stg-one.main.stage.cldev.sh"
+receiver = "0x3098B6665589959711A48a6bAe5B7F2908f6a3bE"
+
+# Polygon Mumbai only for now
 
 # comment "client_addr" and "subscription_id" and test will create a new pair
 # get it from logs and save
-client_addr = "0x89D4b58D859a536D0B888ecD5093eF5FF9e4F977"
-subscription_id = 47
+client_addr = "0xB8E52057F039418C8830127914442602CB872754"
+subscription_id = 2
 sub_funds = 10
 
 functions_call_payload_with_secrets = "return Functions.encodeString(JSON.stringify(secrets))"
@@ -66,7 +97,9 @@ const response = await Functions.makeHttpRequest({ url: 'http://dummyjson.com/pr
 return Functions.encodeString(JSON.stringify(secrets));
 """
 secrets_slot_id = 0
-secrets_version = 1693945705
+secrets_version = 1694555391
+# staging
+#secrets_version = 1693945705
 
 # uncomment to upload new secrets to s4 and use it in your run
 # TODO: not working now

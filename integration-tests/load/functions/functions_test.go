@@ -1,6 +1,7 @@
 package loadfunctions
 
 import (
+	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 	"testing"
@@ -41,8 +42,8 @@ func TestFunctionsLoad(t *testing.T) {
 					cfg.Common.SecretsSlotID,
 					cfg.Common.SecretsVersionID,
 					[]string{},
-					cfg.Common.SubscriptionID,
-					StringToByte32(cfg.Common.DONID),
+					cfg.SelectedNetwork.SubscriptionID,
+					StringToByte32(cfg.SelectedNetwork.DONID),
 				),
 				Labels:     labels,
 				LokiConfig: wasp.NewEnvLokiConfig(),
@@ -71,8 +72,8 @@ func TestFunctionsLoad(t *testing.T) {
 					cfg.Common.SecretsSlotID,
 					cfg.Common.SecretsVersionID,
 					[]string{},
-					cfg.Common.SubscriptionID,
-					StringToByte32(cfg.Common.DONID),
+					cfg.SelectedNetwork.SubscriptionID,
+					StringToByte32(cfg.SelectedNetwork.DONID),
 				),
 				Labels:     labels,
 				LokiConfig: wasp.NewEnvLokiConfig(),
@@ -101,8 +102,8 @@ func TestFunctionsLoad(t *testing.T) {
 					cfg.Common.SecretsSlotID,
 					cfg.Common.SecretsVersionID,
 					[]string{},
-					cfg.Common.SubscriptionID,
-					StringToByte32(cfg.Common.DONID),
+					cfg.SelectedNetwork.SubscriptionID,
+					StringToByte32(cfg.SelectedNetwork.DONID),
 				),
 				Labels:     labels,
 				LokiConfig: wasp.NewEnvLokiConfig(),
@@ -131,8 +132,8 @@ func TestFunctionsLoad(t *testing.T) {
 					cfg.Common.SecretsSlotID,
 					cfg.Common.SecretsVersionID,
 					[]string{},
-					cfg.Common.SubscriptionID,
-					StringToByte32(cfg.Common.DONID),
+					cfg.SelectedNetwork.SubscriptionID,
+					StringToByte32(cfg.SelectedNetwork.DONID),
 				),
 				Labels:     labels,
 				LokiConfig: wasp.NewEnvLokiConfig(),
@@ -161,13 +162,15 @@ func TestFunctionsLoad(t *testing.T) {
 					cfg.Common.SecretsSlotID,
 					cfg.Common.SecretsVersionID,
 					[]string{"1", "2", "3", "4"},
-					cfg.Common.SubscriptionID,
-					StringToByte32(cfg.Common.DONID),
+					cfg.SelectedNetwork.SubscriptionID,
+					StringToByte32(cfg.SelectedNetwork.DONID),
 				),
 				Labels:     labels,
 				LokiConfig: wasp.NewEnvLokiConfig(),
 			})).
 			Run(true)
+		log.Warn().Msg("Awaiting all requests to be processed")
+		time.Sleep(5 * time.Minute)
 		require.NoError(t, err)
 	})
 
@@ -191,13 +194,15 @@ func TestFunctionsLoad(t *testing.T) {
 					cfg.Common.SecretsSlotID,
 					cfg.Common.SecretsVersionID,
 					[]string{"1", "2", "3", "4"},
-					cfg.Common.SubscriptionID,
-					StringToByte32(cfg.Common.DONID),
+					cfg.SelectedNetwork.SubscriptionID,
+					StringToByte32(cfg.SelectedNetwork.DONID),
 				),
 				Labels:     labels,
 				LokiConfig: wasp.NewEnvLokiConfig(),
 			})).
 			Run(true)
 		require.NoError(t, err)
+		log.Warn().Msg("Awaiting all requests to be processed")
+		time.Sleep(5 * time.Minute)
 	})
 }
