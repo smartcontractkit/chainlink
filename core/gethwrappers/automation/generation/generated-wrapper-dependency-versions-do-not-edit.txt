@@ -1,4 +1,4 @@
 GETH_VERSION: 1.12.0
 composer_compatible_interface: ../../../contracts/solc/v0.8.16/ComposerCompatibleInterfaceV1.abi ../../../contracts/solc/v0.8.16/ComposerCompatibleInterfaceV1.bin e2a85204c5fd8f8aeeb66d8e526916f1e150c19d734a964f3795f01733646722
-mercury_registry_composer: ../../../contracts/solc/v0.8.16/MercuryRegistryComposer.abi ../../../contracts/solc/v0.8.16/MercuryRegistryComposer.bin bcaf7960e4e8b9184b117acab09830020f5a1382b4e6f84d6eaf5b9ef1c3849d
-streams_lookup_upkeep: ../../../contracts/solc/v0.8.16/StreamsLookupUpkeep.abi ../../../contracts/solc/v0.8.16/StreamsLookupUpkeep.bin c2819e217f642037a9318be7ba1dc86e89af92ee9d8452e7bb8885c196ca18fd
+mercury_registry_composer: ../../../contracts/solc/v0.8.16/MercuryRegistryComposer.abi ../../../contracts/solc/v0.8.16/MercuryRegistryComposer.bin 96503f4a5915fc9008fa423270c4a6afc644f4e5276b44970a316b1765941160
+streams_lookup_upkeep: ../../../contracts/solc/v0.8.16/StreamsLookupUpkeep.abi ../../../contracts/solc/v0.8.16/StreamsLookupUpkeep.bin b1a598963cacac51ed4706538d0f142bdc0d94b9a4b13e2d402131cdf05c9bcf
