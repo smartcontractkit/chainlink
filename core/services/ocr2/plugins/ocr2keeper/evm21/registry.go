@@ -337,14 +337,16 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(logTriggerIDs []*big.Int) er
 	for _, id := range logTriggerIDs {
 		logBlock, ok := configSetBlockNumbers[id.String()]
 		if !ok {
-			r.lggr.Warnf("unable to find finalized config set block number for %s, skipping refresh", id.String())
-			continue
+			r.lggr.Warnf("unable to find finalized config set block number for %s, using 0 as config start block", id.String())
+			// Use zero as config update block so it can be updated if an actual event is found later
+			logBlock = 0
 		}
 
 		config, ok := perUpkeepConfig[id.String()]
 		if !ok {
-			r.lggr.Warnf("unable to find per finalized log config for %s, skipping refresh", id.String())
-			continue
+			r.lggr.Warnf("unable to find per finalized log config for %s, will fetch latest config from chain", id.String())
+			// Set it to empty bytes so that latest config is fetched within r.updateTriggerConfig
+			config = []byte{}
 		}
 
 		// In case an upkeep was paused then unpaused after a config set event, start the config from the unpaused block number

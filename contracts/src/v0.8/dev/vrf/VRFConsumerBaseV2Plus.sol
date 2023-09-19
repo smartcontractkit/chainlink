@@ -103,7 +103,7 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
   error OnlyOwnerOrCoordinator(address have, address owner, address coordinator);
   error ZeroAddress();
 
-  IVRFMigratableCoordinatorV2Plus internal s_vrfCoordinator;
+  IVRFMigratableCoordinatorV2Plus public s_vrfCoordinator;
 
   /**
    * @param _vrfCoordinator address of VRFCoordinator contract
