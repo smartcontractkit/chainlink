@@ -20,6 +20,7 @@ block_number = 12345
 solc_version = '0.8.19'
 src = 'src/v0.8/functions'
 test = 'src/v0.8/functions/tests'
+gas_price = 3000000000
 
 [profile.vrf]
 optimizer_runs = 1000
