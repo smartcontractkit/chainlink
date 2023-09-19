@@ -10,7 +10,6 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -23,7 +22,6 @@ func NewFeeder(
 	coordinator Coordinator,
 	bhs BHS,
 	lp logpoller.LogPoller,
-	headBroadcaster httypes.HeadBroadcasterRegistry,
 	trustedBHSBatchSize int32,
 	waitBlocks int,
 	lookbackBlocks int,

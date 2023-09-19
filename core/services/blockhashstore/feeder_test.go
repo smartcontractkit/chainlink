@@ -12,7 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
@@ -247,13 +246,11 @@ func TestFeeder(t *testing.T) {
 			}
 
 			lp := &mocklp.LogPoller{}
-			hb := commonmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
 			feeder := NewFeeder(
 				logger.TestLogger(t),
 				coordinator,
 				&test.bhs,
 				lp,
-				hb,
 				0,
 				test.wait,
 				test.lookback,
@@ -342,13 +339,11 @@ func TestFeederWithLogPollerVRFv1(t *testing.T) {
 			).Return(fulfillmentLogs, nil)
 
 			// Instantiate feeder.
-			hb := commonmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
 			feeder := NewFeeder(
 				logger.TestLogger(t),
 				coordinator,
 				&test.bhs,
 				lp,
-				hb,
 				0,
 				test.wait,
 				test.lookback,
@@ -441,13 +436,11 @@ func TestFeederWithLogPollerVRFv2(t *testing.T) {
 			).Return(fulfillmentLogs, nil)
 
 			// Instantiate feeder.
-			hb := commonmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
 			feeder := NewFeeder(
 				logger.TestLogger(t),
 				coordinator,
 				&test.bhs,
 				lp,
-				hb,
 				0,
 				test.wait,
 				test.lookback,
@@ -540,13 +533,11 @@ func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
 			).Return(fulfillmentLogs, nil)
 
 			// Instantiate feeder.
-			hb := commonmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
 			feeder := NewFeeder(
 				logger.TestLogger(t),
 				coordinator,
 				&test.bhs,
 				lp,
-				hb,
 				0,
 				test.wait,
 				test.lookback,
@@ -576,13 +567,11 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 	bhs := &TestBHS{}
 
 	lp := &mocklp.LogPoller{}
-	hb := commonmocks.NewHeadBroadcaster[*evmtypes.Head, common.Hash](t)
 	feeder := NewFeeder(
 		logger.TestLogger(t),
 		coordinator,
 		bhs,
 		lp,
-		hb,
 		0,
 		100,
 		200,
