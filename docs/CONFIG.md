@@ -1456,6 +1456,46 @@ DisableRateLimiting = false # Default
 ```
 DisableRateLimiting skips ratelimiting on asset requests.
 
+## Tracing
+```toml
+[Tracing]
+Enabled = false # Default
+CollectorTarget = "localhost:4317" # Example
+NodeID = "NodeID" # Example
+```
+
+
+### Enabled
+```toml
+Enabled = false # Default
+```
+Enabled turns trace collection on or off. On requires an OTEL Tracing Collector.
+
+### CollectorTarget
+```toml
+CollectorTarget = "localhost:4317" # Example
+```
+CollectorTarget is the logical address of the OTEL Tracing Collector.
+
+### NodeID
+```toml
+NodeID = "NodeID" # Example
+```
+NodeID is an unique name for this node relative to any other node traces are collected for.
+
+## Tracing.Attributes
+```toml
+[Tracing.Attributes]
+user = "test" # Example
+```
+Tracing.Attributes are user specified key-value pairs to associate in the context of the traces
+
+### user
+```toml
+user = "test" # Example
+```
+user is an example user specified key-value pair
+
 ## EVM
 EVM defaults depend on ChainID:
 

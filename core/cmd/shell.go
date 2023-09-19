@@ -60,11 +60,15 @@ var (
 	grpcOpts        loop.GRPCOpts
 )
 
-func initGlobals(cfg config.Prometheus) {
-	// Avoid double initializations.
+func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing) {
+	// Avoid double initializations, but does not prevent SetupTelemetry from being called multiple times.
 	initGlobalsOnce.Do(func() {
-		prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfg.AuthToken()))
-		grpcOpts = loop.SetupTelemetry(nil) // default prometheus.Registerer
+		prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfgProm.AuthToken()))
+		grpcOpts = loop.SetupTelemetry(nil, loop.TracingConfig{
+			Enabled: cfgTracing.Enabled(),
+			CollectorTarget: cfgTracing.CollectorTarget(),
+			NodeAttributes: cfgTracing.Attributes(),
+		}) // default prometheus.Registerer
 	})
 }
 
@@ -126,7 +130,7 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
-	initGlobals(cfg.Prometheus())
+	initGlobals(cfg.Prometheus(), cfg.Tracing())
 
 	err = migrate.SetMigrationENVVars(cfg)
 	if err != nil {

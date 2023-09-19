@@ -49,9 +49,17 @@ type Server struct {
 }
 
 func newServer(loggerName string) (*Server, error) {
+	envCfg, err := GetEnvConfig()
+	if err != nil {
+		return nil, fmt.Errorf("error getting environment configuration: %w", err)
+	}
 	s := &Server{
 		// default prometheus.Registerer
-		GRPCOpts: loop.SetupTelemetry(nil),
+		GRPCOpts: loop.SetupTelemetry(nil, loop.TracingConfig{
+			Enabled: envCfg.TracingEnabled(),
+			CollectorTarget: envCfg.TracingCollectorTarget(),
+			NodeAttributes: envCfg.TracingAttributes(),
+		}),
 	}
 
 	lggr, err := loop.NewLogger()

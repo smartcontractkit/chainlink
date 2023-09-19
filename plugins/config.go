@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"strconv"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 )
@@ -41,26 +42,49 @@ func (pc *registarConfig) RegisterLOOP(loopID string, cmdName string) (func() *e
 	return cmdFn, pc.grpcOpts, nil
 }
 
-// EnvConfig is the configuration interface between the application and the LOOP executable. The values
-// are fully resolved and static and passed via the environment.
+// EnvConfig is the configuration interface between the application and the LOOP executable.
+// The values are fully resolved and static and passed via the environment.
 type EnvConfig interface {
 	PrometheusPort() int
+
+	// Enables trace generation and collection on the plugin
+	TracingEnabled() bool
+
+	// The logical address of the trace collector
+	TracingCollectorTarget() string
+
+	// Attributes to be added to the node's tracing context
+	TracingAttributes() map[string]string
 }
 
 // SetCmdEnvFromConfig sets LOOP-specific vars in the env of the given cmd.
+// This method is consumed by the host.
 func SetCmdEnvFromConfig(cmd *exec.Cmd, cfg EnvConfig) {
-	forward := func(name string) {
-		if v, ok := os.LookupEnv(name); ok {
-			cmd.Env = append(cmd.Env, name+"="+v)
+	keysInCurEnv := []string{"CL_LOG_SQL_MIGRATIONS"}
+	injectEnv := map[string]string{
+		"CL_PROMETHEUS_PORT":       strconv.Itoa(cfg.PrometheusPort()),
+		"TRACING_ENABLED":          strconv.FormatBool(cfg.TracingEnabled()),
+		"TRACING_COLLECTOR_TARGET": cfg.TracingCollectorTarget(),
+	}
+
+	for k, v := range cfg.TracingAttributes() {
+		injectEnv["TRACING_ATTRIBUTE_"+k] = v
+	}
+
+	// TODO: Remove once we can use skipHostEnv in hashicorp/go-plugin v1.5.0
+	for _, k := range keysInCurEnv {
+		if v, ok := os.LookupEnv(k); ok {
+			cmd.Env = append(cmd.Env, k+"="+v)
 		}
 	}
-	forward("CL_LOG_SQL_MIGRATIONS")
-	cmd.Env = append(cmd.Env,
-		"CL_PROMETHEUS_PORT="+strconv.FormatInt(int64(cfg.PrometheusPort()), 10),
-	)
+
+	for k, v := range injectEnv {
+		cmd.Env = append(cmd.Env, k+"="+v)
+	}
 }
 
 // GetEnvConfig deserializes LOOP-specific environment variables to an EnvConfig
+// This method is consumed by the plugin.
 func GetEnvConfig() (EnvConfig, error) {
 	promPortStr := os.Getenv("CL_PROMETHEUS_PORT")
 	promPort, err := strconv.Atoi(promPortStr)
@@ -68,20 +92,54 @@ func GetEnvConfig() (EnvConfig, error) {
 		return nil, fmt.Errorf("failed to parse CL_PROMETHEUS_PORT = %q: %w", promPortStr, err)
 	}
 
-	return NewEnvConfig(promPort), nil
+	var tracingEnabled bool
+	tracingEnabledString := os.Getenv("TRACING_ENABLED")
+	if tracingEnabledString == "" {
+		tracingEnabled = false
+	} else {
+		tracingEnabled, err = strconv.ParseBool(tracingEnabledString)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse TRACING_ENABLED = %q: %w", tracingEnabledString, err)
+		}
+	}
+
+	tracingCollectorTarget := os.Getenv("TRACING_COLLECTOR_TARGET")
+
+	tracingAttributes := make(map[string]string)
+	for _, env := range os.Environ() {
+		if strings.HasPrefix(env, "TRACING_ATTRIBUTE_") {
+			tracingAttributes[strings.TrimPrefix(env, "TRACING_ATTRIBUTE_")] = os.Getenv(env)
+		}
+	}
+
+	return &envConfig{
+		prometheusPort:         promPort,
+		tracingEnabled:         tracingEnabled,
+		tracingCollectorTarget: tracingCollectorTarget,
+		tracingAttributes:      tracingAttributes,
+	}, nil
 }
 
 // envConfig is an implementation of EnvConfig.
 type envConfig struct {
-	prometheusPort int
-}
-
-func NewEnvConfig(prometheusPort int) EnvConfig {
-	return &envConfig{
-		prometheusPort: prometheusPort,
-	}
+	prometheusPort         int
+	tracingEnabled         bool
+	tracingCollectorTarget string
+	tracingAttributes      map[string]string
 }
 
 func (e *envConfig) PrometheusPort() int {
 	return e.prometheusPort
+}
+
+func (e *envConfig) TracingEnabled() bool {
+	return e.tracingEnabled
+}
+
+func (e *envConfig) TracingCollectorTarget() string {
+	return e.tracingCollectorTarget
+}
+
+func (e *envConfig) TracingAttributes() map[string]string {
+	return e.tracingAttributes
 }

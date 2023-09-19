@@ -45,7 +45,9 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		return nil, ErrExists
 	}
 	nextPort := pluginDefaultPort + len(m.registry)
-	envCfg := NewEnvConfig(nextPort)
+	envCfg := &envConfig{
+		prometheusPort: nextPort,
+	}
 
 	m.registry[id] = &RegisteredLoop{Name: id, EnvCfg: envCfg}
 	m.lggr.Debugf("Registered loopp %q with config %v, port %d", id, envCfg, envCfg.PrometheusPort())

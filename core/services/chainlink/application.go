@@ -642,6 +642,7 @@ func (app *ChainlinkApplication) WakeSessionReaper() {
 	app.SessionReaper.WakeUp()
 }
 
+// TODO: Since V1 suffixed API names are missing, update naming to remove V2 suffix?
 func (app *ChainlinkApplication) AddJobV2(ctx context.Context, j *job.Job) error {
 	return app.jobSpawner.CreateJob(j, pg.WithParentCtx(ctx))
 }

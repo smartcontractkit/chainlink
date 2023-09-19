@@ -540,3 +540,15 @@ InfiniteDepthQueries = false # Default
 # DisableRateLimiting skips ratelimiting on asset requests.
 DisableRateLimiting = false # Default
 
+[Tracing]
+# Enabled turns trace collection on or off. On requires an OTEL Tracing Collector.
+Enabled = false # Default
+# CollectorTarget is the logical address of the OTEL Tracing Collector.
+CollectorTarget = "localhost:4317" # Example
+# NodeID is an unique name for this node relative to any other node traces are collected for.
+NodeID = "NodeID" # Example
+
+# Tracing.Attributes are user specified key-value pairs to associate in the context of the traces
+[Tracing.Attributes]
+# user is an example user specified key-value pair
+user = "test" # Example

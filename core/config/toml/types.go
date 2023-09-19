@@ -52,6 +52,7 @@ type Core struct {
 	Pyroscope        Pyroscope        `toml:",omitempty"`
 	Sentry           Sentry           `toml:",omitempty"`
 	Insecure         Insecure         `toml:",omitempty"`
+	Tracing          Tracing          `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -85,6 +86,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.Pyroscope.setFrom(&f.Pyroscope)
 	c.Sentry.setFrom(&f.Sentry)
 	c.Insecure.setFrom(&f.Insecure)
+	c.Tracing.setFrom(&f.Tracing)
 }
 
 func (c *Core) ValidateConfig() (err error) {
@@ -1300,4 +1302,26 @@ func (t *ThresholdKeyShareSecrets) validateMerge(f *ThresholdKeyShareSecrets) (e
 	}
 
 	return err
+}
+
+type Tracing struct {
+	Enabled *bool
+	CollectorTarget *string
+	NodeID *string
+	Attributes *map[string]string
+}
+
+func (t *Tracing) setFrom(f *Tracing) {
+	if v := f.Enabled; v != nil {
+		t.Enabled = f.Enabled
+	}
+	if v := f.CollectorTarget; v != nil {
+		t.CollectorTarget = f.CollectorTarget
+	}
+	if v := f.NodeID; v != nil {
+		t.NodeID = f.NodeID
+	}
+	if v := f.Attributes; v != nil {
+		t.Attributes = f.Attributes
+	}
 }

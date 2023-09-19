@@ -505,4 +505,13 @@ func (g *generalConfig) Threshold() coreconfig.Threshold {
 	return &thresholdConfig{s: g.secrets.Threshold}
 }
 
+func (g *generalConfig) Tracing() coreconfig.Tracing {
+	return &tracingConfig{s: g.c.Tracing}
+}
+
 var zeroSha256Hash = models.Sha256Hash{}
+
+var (
+	zeroURL        = url.URL{}
+	zeroSha256Hash = models.Sha256Hash{}
+)
