@@ -171,12 +171,12 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @inheritdoc IVerifierFeeManager
   function processFee(
     bytes calldata payload,
-    bytes calldata feePayload,
+    bytes calldata parameterPayload,
     address subscriber
   ) external payable override onlyProxy {
     (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(
       payload,
-      feePayload,
+      parameterPayload,
       subscriber
     );
 
@@ -198,7 +198,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   /// @inheritdoc IVerifierFeeManager
   function processFeeBulk(
     bytes[] calldata payloads,
-    bytes calldata feePayload,
+    bytes calldata parameterPayload,
     address subscriber
   ) external payable override onlyProxy {
     FeeAndReward[] memory feesAndRewards = new IFeeManager.FeeAndReward[](payloads.length);
@@ -211,7 +211,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     for (uint256 i; i < payloads.length; ++i) {
       (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(
         payloads[i],
-        feePayload,
+        parameterPayload,
         subscriber
       );
 
@@ -371,7 +371,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
   function _processFee(
     bytes calldata payload,
-    bytes calldata quotePayload,
+    bytes calldata parameterPayload,
     address subscriber
   ) internal view returns (Common.Asset memory, Common.Asset memory, uint256) {
     if (subscriber == address(this)) revert InvalidAddress();
@@ -386,7 +386,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     address quote;
     if (_getReportVersion(feedId) != REPORT_V1) {
       //decode the quote from the bytes
-      (quote) = abi.decode(quotePayload, (address));
+      (quote) = abi.decode(parameterPayload, (address));
     }
 
     //decode the fee, it will always be native or LINK
