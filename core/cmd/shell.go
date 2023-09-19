@@ -133,7 +133,7 @@ type ChainlinkAppFactory struct{}
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
 	initGlobals(cfg.Prometheus())
 
-	// TODO TO BE REMOVED IN v2.7.0
+	// TODO TO BE REMOVED IN v2.9.0
 	err = evmChainIDMigration(cfg, db.DB, appLggr)
 	if err != nil {
 		return nil, err
@@ -301,7 +301,7 @@ func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbacku
 	return err
 }
 
-// evmChainIDMigration TODO TO BE REMOVED IN v2.7.0. This is a helper function for evmChainID 0195 migration in v2.6.0 only, so that we don't have to inject evmChainID into goose.
+// evmChainIDMigration TODO TO BE REMOVED IN v2.9.0. This is a helper function for evmChainID 0195 migration, so that we don't have to inject evmChainID into goose.
 func evmChainIDMigration(generalConfig chainlink.GeneralConfig, db *sql.DB, lggr logger.Logger) error {
 	migrationVer, err := migrate.Current(db, lggr)
 	if err != nil {
