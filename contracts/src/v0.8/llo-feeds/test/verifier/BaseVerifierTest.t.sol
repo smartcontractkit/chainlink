@@ -163,7 +163,7 @@ contract BaseTest is Test {
       );
   }
 
-  function _generateEncodedBlob(
+  function _generateV1EncodedBlob(
     V1Report memory report,
     bytes32[3] memory reportContext,
     Signer[] memory signers
@@ -336,11 +336,10 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
       );
   }
 
-  function _generateEncodedBlobWithQuote(
+  function _generateV3EncodedBlob(
     V3Report memory report,
     bytes32[3] memory reportContext,
-    Signer[] memory signers,
-    bytes memory quote
+    Signer[] memory signers
   ) internal pure returns (bytes memory) {
     bytes memory reportBytes = _encodeReport(report);
     (bytes32[] memory rs, bytes32[] memory ss, bytes32 rawVs) = _generateSignerSignatures(
@@ -348,12 +347,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
       reportContext,
       signers
     );
-
-    return abi.encode(reportContext, reportBytes, rs, ss, rawVs, quote);
-  }
-
-  function _generateQuote(address billingAddress) internal pure returns (bytes memory) {
-    return abi.encode(billingAddress);
+    return abi.encode(reportContext, reportBytes, rs, ss, rawVs);
   }
 
   function _generateV1Report() internal view returns (V1Report memory) {
@@ -409,20 +403,25 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     changePrank(originalAddr);
   }
 
-  function _verify(bytes memory payload, uint256 wrappedNativeValue, address sender) internal {
+  function _verify(bytes memory payload, address feeAddress, uint256 wrappedNativeValue, address sender) internal {
     address originalAddr = msg.sender;
     changePrank(sender);
 
-    s_verifierProxy.verify{value: wrappedNativeValue}(payload);
+    s_verifierProxy.verify{value: wrappedNativeValue}(payload, abi.encode(feeAddress));
 
     changePrank(originalAddr);
   }
 
-  function _verifyBulk(bytes[] memory payload, uint256 wrappedNativeValue, address sender) internal {
+  function _verifyBulk(
+    bytes[] memory payload,
+    address feeAddress,
+    uint256 wrappedNativeValue,
+    address sender
+  ) internal {
     address originalAddr = msg.sender;
     changePrank(sender);
 
-    s_verifierProxy.verifyBulk{value: wrappedNativeValue}(payload);
+    s_verifierProxy.verifyBulk{value: wrappedNativeValue}(payload, abi.encode(feeAddress));
 
     changePrank(originalAddr);
   }
