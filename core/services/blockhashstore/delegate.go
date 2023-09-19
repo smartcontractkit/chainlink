@@ -68,8 +68,8 @@ func (d *Delegate) getChainFromSpec(jb job.Job, qopts ...pg.QOpt) (evm.Chain, er
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
-	chain, err := d.getChainFromSpec(jb)
+func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+	chain, err := d.getChainFromSpec(jb, qopts...)
 	if err != nil {
 		return nil, err
 	}
@@ -201,7 +201,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 // AfterJobCreated satisfies the job.Delegate interface.
 func (d *Delegate) AfterJobCreated(spec job.Job) {}
 
-func (d *Delegate) OnCreateJob(jb job.Job, opts pg.QOpt) error {
+func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
 	chain, err := d.getChainFromSpec(jb)
 	if err != nil {
 		d.logger.Error(err)
@@ -211,14 +211,14 @@ func (d *Delegate) OnCreateJob(jb job.Job, opts pg.QOpt) error {
 	lp := chain.LogPoller()
 	if jb.BlockhashStoreSpec.CoordinatorV1Address == nil {
 		filter := NewV1LogFilter(jb.BlockhashStoreSpec.CoordinatorV1Address.Address())
-		lp.RegisterFilter(filter, opts)
+		lp.RegisterFilter(filter, pg.WithQueryer(q))
 		if err != nil {
 			return errors.Wrapf(err, "Failed to register filter %v", filter)
 		}
 	}
 	if jb.BlockhashStoreSpec.CoordinatorV2Address == nil {
 		filter := NewV2LogFilter(jb.BlockhashStoreSpec.CoordinatorV2Address.Address())
-		lp.RegisterFilter(filter, opts)
+		lp.RegisterFilter(filter, pg.WithQueryer(q))
 		if err != nil {
 			return errors.Wrapf(err, "Failed to register filter %v", filter)
 		}
@@ -234,7 +234,7 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {}
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
 // OnDeleteJob satisfies the job.Delegate interface.
-func (d *Delegate) OnDeleteJob(jb job.Job, opts pg.QOpt) error {
+func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error {
 	chain, err := d.getChainFromSpec(jb)
 	if err != nil {
 		d.logger.Error(err)
@@ -244,14 +244,14 @@ func (d *Delegate) OnDeleteJob(jb job.Job, opts pg.QOpt) error {
 	lp := chain.LogPoller()
 	if jb.BlockhashStoreSpec.CoordinatorV1Address == nil {
 		filter := NewV1LogFilter(jb.BlockhashStoreSpec.CoordinatorV1Address.Address())
-		err = lp.UnregisterFilter(filter.Name, opts)
+		err = lp.UnregisterFilter(filter.Name, pg.WithQueryer(q))
 		if err != nil {
 			return errors.Wrapf(err, "Failed to unregister filter %s", filter.Name)
 		}
 	}
 	if jb.BlockhashStoreSpec.CoordinatorV2Address == nil {
 		filter := NewV2LogFilter(jb.BlockhashStoreSpec.CoordinatorV2Address.Address())
-		err = lp.UnregisterFilter(filter.Name, opts)
+		err = lp.UnregisterFilter(filter.Name, pg.WithQueryer(q))
 		if err != nil {
 			return errors.Wrapf(err, "Failed to unregister filter %s", filter.Name)
 		}

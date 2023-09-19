@@ -67,7 +67,7 @@ func (cc *EVMForwardersController) Track(c *gin.Context) {
 		if err != nil {
 			return err
 		}
-		chain, err2 := cc.App.GetChains().EVM.Get(request.EVMChainID.ToInt())
+		chain, err2 := cc.App.GetRelayers().LegacyEVMChains().Get(request.EVMChainID.String())
 		if err2 != nil {
 			return err2
 		}
@@ -75,7 +75,7 @@ func (cc *EVMForwardersController) Track(c *gin.Context) {
 		if chain.LogPoller() == logpoller.LogPollerDisabled {
 			return errors.New("Log poller must be enabled to add or use forwarders")
 		}
-		return chain.LogPoller().RegisterFilter(forwarders.NewLogFilter(fwd.Address), tx)
+		return chain.LogPoller().RegisterFilter(forwarders.NewLogFilter(fwd.Address), pg.WithQueryer(tx))
 	})
 
 	if err != nil {

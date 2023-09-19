@@ -290,7 +290,7 @@ func (d *Delegate) filtersFromSpec(spec *job.OCR2OracleSpec, extJobID uuid.UUID)
 	return filters
 }
 
-func (d *Delegate) OnCreateJob(jb job.Job, opts pg.QOpt) error {
+func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
 		d.lggr.Error(ErrNonOCR2JobType{jb})
@@ -311,7 +311,7 @@ func (d *Delegate) OnCreateJob(jb job.Job, opts pg.QOpt) error {
 
 	for _, filter := range filters {
 		d.lggr.Debugf("Registering new filter %s", filter)
-		if err := lp.RegisterFilter(filter, opts); err != nil {
+		if err := lp.RegisterFilter(filter, pg.WithQueryer(q)); err != nil {
 			return errors.Wrapf(err, "Failed to register filter %s", filter)
 		}
 	}
