@@ -74,8 +74,6 @@ type LegacyChains struct {
 //
 //go:generate mockery --quiet --name LegacyChainContainer --output ./mocks/ --case=underscore
 type LegacyChainContainer interface {
-	SetDefault(Chain)
-	Default() (Chain, error)
 	Get(id string) (Chain, error)
 	Len() int
 	List(ids ...string) ([]Chain, error)
@@ -100,27 +98,14 @@ func (c *LegacyChains) ChainNodeConfigs() evmtypes.Configs {
 	return c.cfgs
 }
 
-// TODO BCR-2510 this may not be needed if EVM is not enabled by default
-func (c *LegacyChains) SetDefault(dflt Chain) {
-	c.dflt = dflt
-}
-
-func (c *LegacyChains) Default() (Chain, error) {
-	if c.dflt == nil {
-		return nil, fmt.Errorf("no default chain specified")
-	}
-	return c.dflt, nil
-}
-
 // backward compatibility.
 // eth keys are represented as multiple types in the code base;
-// *big.Int, string, and int64. this lead to special 'default' handling
-// of nil big.Int and empty string.
+// *big.Int, string, and int64.
 //
 // TODO BCF-2507 unify the type system
 func (c *LegacyChains) Get(id string) (Chain, error) {
 	if id == nilBigInt.String() || id == emptyString {
-		return c.Default()
+		return nil, fmt.Errorf("invalid chain id requested: %q", id)
 	}
 	return c.ChainsKV.Get(id)
 }
