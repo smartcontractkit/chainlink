@@ -12,7 +12,6 @@ import (
 
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -45,7 +44,6 @@ func NewFeeder(
 		lastRunBlock:        0,
 		wgStored:            sync.WaitGroup{},
 		heartbeatPeriodTime: heartbeatPeriodTime,
-		headBroadcaster:     headBroadcaster,
 	}
 }
 
@@ -66,13 +64,6 @@ type Feeder struct {
 	// unfulfilled requests. This is to ensure that there are blockhashes
 	// in the store to start from if we ever need to run backwards mode.
 	heartbeatPeriodTime int
-	// we rely on the head broadcaster for the heartbeat stores
-	// rather than the log poller to have some
-	// redundancy, in case the log poller starts misbehaving.
-	headBroadcaster httypes.HeadBroadcasterRegistry
-	// storeEarliest is the last time at which we stored a heartbeat
-	// blockhash for.
-	storeEarliest time.Time
 
 	stored        map[uint64]struct{}    // used for trustless feeder
 	storedTrusted map[uint64]common.Hash // used for trusted feeder
@@ -82,36 +73,34 @@ type Feeder struct {
 	errsLock      sync.Mutex
 }
 
-func (f *Feeder) subscribeHeadBroadcaster() {
-	f.headBroadcaster.Subscribe(f)
-}
-
-// OnNewLongestChain implements HeadTrackable
-// note that the ctx has a timeout of 2 seconds
-// the below code cannot exceed that else we start missing
-// heartbeat bh's.
-func (f *Feeder) OnNewLongestChain(ctx context.Context, head *evmtypes.Head) {
-	if diff := head.Timestamp.Sub(f.storeEarliest); diff.Seconds() >= float64(f.heartbeatPeriodTime) {
-		f.lggr.Infow("storing heartbeat blockhash",
-			"latestHead", head.Number,
-			"heartbeatPeriodTime (in seconds)", f.heartbeatPeriodTime,
-			"storeEarliest", f.storeEarliest,
-		)
-		if err := f.bhs.Store(ctx, uint64(head.Number)); err != nil {
-			f.lggr.Errorw("failed to store heartbeat blockhash",
-				"err", err,
-				"latestHead", head.Number,
+func (f *Feeder) startHeartbeats(ctx context.Context) {
+	timer := time.NewTimer(time.Duration(f.heartbeatPeriodTime) * time.Second)
+	for alive := true; alive; {
+		select {
+		case <-timer.C:
+			f.lggr.Infow("storing heartbeat blockhash",
 				"heartbeatPeriodTime (in seconds)", f.heartbeatPeriodTime,
-				"storeEarliest", f.storeEarliest,
+				"calling BHSContract::storeEarliest",
 			)
-		} else {
-			f.storeEarliest = head.Timestamp
+			if err := f.bhs.StoreEarliest(ctx); err != nil {
+				f.lggr.Errorw("failed to store heartbeat blockhash",
+					"err", err,
+					"heartbeatPeriodTime (in seconds)", f.heartbeatPeriodTime,
+					"BHSContract::storeEarliest",
+				)
+			}
+		case <-ctx.Done():
+			alive = false
+			timer.Stop()
+			break
 		}
 	}
 }
 
 // Run the feeder.
 func (f *Feeder) Run(ctx context.Context) error {
+	go f.startHeartbeats(ctx)
+
 	latestBlock, err := f.latestBlock(ctx)
 	if err != nil {
 		f.lggr.Errorw("Failed to fetch current block number", "err", err)
