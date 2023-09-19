@@ -13,16 +13,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type Client interface {
-	services.ServiceCtx
-	Send(payload synchronization.TelemPayload)
-}
+//// Client encapsulates all the functionality needed to
+//// send telemetry to the ingress server using wsrpc
+//type Client interface {
+//	services.ServiceCtx
+//	Send(context.Context, synchronization.TelemPayload)
+//}
 
 type Manager struct {
 	utils.StartStopOnce
@@ -44,7 +45,7 @@ type telemetryEndpoint struct {
 	ChainID string
 	Network string
 	URL     *url.URL
-	client  Client
+	client  synchronization.TelemetryService
 	PubKey  string
 }
 
@@ -143,7 +144,7 @@ func (m *Manager) addEndpoint(e config.TelemetryIngressEndpoint) error {
 		return errors.Errorf("cannot add telemetry endpoint for network %q and chainID %q, endpoint already exists", e.Network(), e.ChainID())
 	}
 
-	var tClient Client
+	var tClient synchronization.TelemetryService
 	if m.useBatchSend {
 		tClient = synchronization.NewTelemetryIngressBatchClient(e.URL(), e.ServerPubKey(), m.ks, m.logging, m.lggr, m.bufferSize, m.maxBatchSize, m.sendInterval, m.sendTimeout, m.uniConn)
 	} else {

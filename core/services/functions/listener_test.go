@@ -54,7 +54,7 @@ type FunctionsListenerUniverse struct {
 	eaClient         *functions_mocks.ExternalAdapterClient
 	pluginORM        *functions_mocks.ORM
 	logBroadcaster   *log_mocks.Broadcaster
-	ingressClient    *sync_mocks.TelemetryIngressClient
+	ingressClient    *sync_mocks.TelemetryService
 	decryptor        *threshold_mocks.Decryptor
 	logPollerWrapper *evmrelay_mocks.LogPollerWrapper
 	contractVersion  uint32
@@ -130,7 +130,7 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 
 	contractAddress := "0xa"
 
-	ingressClient := sync_mocks.NewTelemetryIngressClient(t)
+	ingressClient := sync_mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
 	monEndpoint := ingressAgent.GenMonitoringEndpoint(contractAddress, synchronization.FunctionsRequests, "test-network", "test-chainID")
 

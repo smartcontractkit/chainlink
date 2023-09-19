@@ -90,13 +90,13 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 	})
 
 	// Send telemetry
-	telemIngressClient.Send(telemPayload1)
-	telemIngressClient.Send(telemPayload2)
-	telemIngressClient.Send(telemPayload3)
+	telemIngressClient.Send(telemPayload1.Ctx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType)
+	telemIngressClient.Send(telemPayload2.Ctx, telemPayload2.Telemetry, telemPayload2.ContractID, telemPayload2.TelemType)
+	telemIngressClient.Send(telemPayload3.Ctx, telemPayload3.Telemetry, telemPayload3.ContractID, telemPayload3.TelemType)
 	time.Sleep(sendInterval * 2)
-	telemIngressClient.Send(telemPayload1)
-	telemIngressClient.Send(telemPayload1)
-	telemIngressClient.Send(telemPayload2)
+	telemIngressClient.Send(telemPayload1.Ctx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType)
+	telemIngressClient.Send(telemPayload1.Ctx, telemPayload1.Telemetry, telemPayload1.ContractID, telemPayload1.TelemType)
+	telemIngressClient.Send(telemPayload2.Ctx, telemPayload2.Telemetry, telemPayload2.ContractID, telemPayload2.TelemType)
 
 	// Wait for the telemetry to be handled
 	g.Eventually(func() []uint32 {

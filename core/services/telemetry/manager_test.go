@@ -233,9 +233,14 @@ func TestCorrectEndpointRouting(t *testing.T) {
 	tm.endpoints = make([]*telemetryEndpoint, len(testEndpoints))
 	clientSent := make([]synchronization.TelemPayload, 0)
 	for i, e := range testEndpoints {
-		clientMock := mocks2.NewTelemetryIngressBatchClient(t)
-		clientMock.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
-			clientSent = append(clientSent, args[0].(synchronization.TelemPayload))
+		clientMock := mocks2.NewTelemetryService(t)
+		clientMock.On("Send", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
+			clientSent = append(clientSent, synchronization.TelemPayload{
+				Ctx:        args[0].(context.Context),
+				Telemetry:  args[1].([]byte),
+				ContractID: args[2].(string),
+				TelemType:  args[3].(synchronization.TelemetryType),
+			})
 		})
 
 		tm.endpoints[i] = &telemetryEndpoint{
@@ -276,8 +281,6 @@ func TestCorrectEndpointRouting(t *testing.T) {
 		require.Equal(t, 0, obsLogs.Len())
 
 		require.Equal(t, i+1, len(clientSent))
-		require.Equal(t, e.network, clientSent[i].Network)
-		require.Equal(t, e.chainID, clientSent[i].ChainID)
 		require.Equal(t, contractID, clientSent[i].ContractID)
 		require.Equal(t, telemType, string(clientSent[i].TelemType))
 		require.Equal(t, []byte(e.chainID), clientSent[i].Telemetry)

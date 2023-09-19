@@ -12,11 +12,11 @@ var _ MonitoringEndpointGenerator = &IngressAgentBatchWrapper{}
 
 // IngressAgentBatchWrapper provides monitoring endpoint generation for the telemetry batch client
 type IngressAgentBatchWrapper struct {
-	telemetryIngressBatchClient synchronization.TelemetryIngressBatchClient
+	telemetryIngressBatchClient synchronization.TelemetryService
 }
 
 // NewIngressAgentBatchWrapper creates a new IngressAgentBatchWrapper with the provided telemetry batch client
-func NewIngressAgentBatchWrapper(telemetryIngressBatchClient synchronization.TelemetryIngressBatchClient) *IngressAgentBatchWrapper {
+func NewIngressAgentBatchWrapper(telemetryIngressBatchClient synchronization.TelemetryService) *IngressAgentBatchWrapper {
 	return &IngressAgentBatchWrapper{telemetryIngressBatchClient}
 }
 
@@ -27,7 +27,7 @@ func (t *IngressAgentBatchWrapper) GenMonitoringEndpoint(contractID string, tele
 
 // IngressAgentBatch allows for sending batch telemetry for a given contractID
 type IngressAgentBatch struct {
-	telemetryIngressBatchClient synchronization.TelemetryIngressBatchClient
+	telemetryIngressBatchClient synchronization.TelemetryService
 	contractID                  string
 	telemType                   synchronization.TelemetryType
 	network                     string
@@ -35,7 +35,7 @@ type IngressAgentBatch struct {
 }
 
 // NewIngressAgentBatch creates a new IngressAgentBatch with the given batch client and contractID
-func NewIngressAgentBatch(telemetryIngressBatchClient synchronization.TelemetryIngressBatchClient, contractID string, telemType synchronization.TelemetryType, network string, chainID string) *IngressAgentBatch {
+func NewIngressAgentBatch(telemetryIngressBatchClient synchronization.TelemetryService, contractID string, telemType synchronization.TelemetryType, network string, chainID string) *IngressAgentBatch {
 	return &IngressAgentBatch{
 		telemetryIngressBatchClient,
 		contractID,
@@ -47,13 +47,5 @@ func NewIngressAgentBatch(telemetryIngressBatchClient synchronization.TelemetryI
 
 // SendLog sends a telemetry log to the ingress server
 func (t *IngressAgentBatch) SendLog(telemetry []byte) {
-	payload := synchronization.TelemPayload{
-		Ctx:        context.Background(),
-		Telemetry:  telemetry,
-		ContractID: t.contractID,
-		TelemType:  t.telemType,
-		Network:    t.network,
-		ChainID:    t.chainID,
-	}
-	t.telemetryIngressBatchClient.Send(payload)
+	t.telemetryIngressBatchClient.Send(context.Background(), telemetry, t.contractID, t.telemType)
 }
