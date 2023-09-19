@@ -3610,7 +3610,7 @@ GasLimit = 5300000
 
 </p></details>
 
-<details><summary>Celo Testnet (44787)</summary><p>
+<details><summary>Celo Alfajores (44787)</summary><p>
 
 ```toml
 AutoCreateKey = true
