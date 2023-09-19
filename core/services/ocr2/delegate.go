@@ -1146,7 +1146,8 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		pluginService,
 	}
 
-	if d.cfg.OCR2().CaptureAutomationCustomTelemetry() {
+	// if d.cfg.OCR2().CaptureAutomationCustomTelemetry() {
+	if cfg.CaptureAutomationCustomTelemetry {
 		hb := chain.HeadBroadcaster()
 		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
 		rAddr := ethkey.MustEIP55Address(spec.ContractID).Address()
