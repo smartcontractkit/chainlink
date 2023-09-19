@@ -23,6 +23,7 @@ var (
 		Name: "client_rpc_node_states",
 		Help: "The number of RPC nodes currently in the given state for the given chain",
 	}, []string{"network", "chainId", "state"})
+	ErroringNodeError = fmt.Errorf("no live nodes available")
 )
 
 const (
@@ -53,7 +54,7 @@ type MultiNode[
 	Dial(context.Context) error
 	Close() error
 	NodeStates() map[string]string
-	SelectNode() Node[CHAIN_ID, HEAD, RPC]
+	SelectNode() (Node[CHAIN_ID, HEAD, RPC], error)
 	NodesAsSendOnlys() []SendOnlyNode[CHAIN_ID, RPC]
 	WrapSendOnlyTransaction(ctx context.Context, lggr logger.Logger, tx TX, n SendOnlyNode[CHAIN_ID, RPC],
 		f func(ctx context.Context, lggr logger.Logger, tx TX, n SendOnlyNode[CHAIN_ID, RPC]))
@@ -135,7 +136,7 @@ func NewMultiNode[
 }
 
 // selectNode returns the active Node, if it is still NodeStateAlive, otherwise it selects a new one from the NodeSelector.
-func (c *multiNode[CHAIN_ID, HEAD, RPC, TX]) SelectNode() (node Node[CHAIN_ID, HEAD, RPC]) {
+func (c *multiNode[CHAIN_ID, HEAD, RPC, TX]) SelectNode() (node Node[CHAIN_ID, HEAD, RPC], err error) {
 	c.activeMu.RLock()
 	node = c.activeNode
 	c.activeMu.RUnlock()
@@ -155,12 +156,10 @@ func (c *multiNode[CHAIN_ID, HEAD, RPC, TX]) SelectNode() (node Node[CHAIN_ID, H
 
 	if c.activeNode == nil {
 		c.logger.Criticalw("No live RPC nodes available", "NodeSelectionMode", c.nodeSelector.Name())
-		errmsg := fmt.Errorf("no live nodes available for chain %s", c.chainID.String())
-		c.SvcErrBuffer.Append(errmsg)
-		return &erroringNode[CHAIN_ID, HEAD, RPC]{errMsg: errmsg.Error()}
+		err = ErroringNodeError
 	}
 
-	return c.activeNode
+	return c.activeNode, err
 }
 
 func (c *multiNode[CHAIN_ID, HEAD, RPC, TX]) Dial(ctx context.Context) error {
@@ -171,7 +170,7 @@ func (c *multiNode[CHAIN_ID, HEAD, RPC, TX]) Dial(ctx context.Context) error {
 		var ms services.MultiStart
 		for _, n := range c.nodes {
 			if n.ConfiguredChainID().String() != c.chainID.String() {
-				return ms.CloseBecause(errors.Errorf("node %s has chain ID %s which does not match client chain ID of %s", n.String(), n.ConfiguredChainID().String(), c.chainID.String()))
+				return ms.CloseBecause(errors.Errorf("node %s has configured chain ID %s which does not match multinode configured chain ID of %s", n.String(), n.ConfiguredChainID().String(), c.chainID.String()))
 			}
 			rawNode, ok := n.(*node[CHAIN_ID, HEAD, RPC])
 			if ok {
@@ -188,7 +187,7 @@ func (c *multiNode[CHAIN_ID, HEAD, RPC, TX]) Dial(ctx context.Context) error {
 		}
 		for _, s := range c.sendonlys {
 			if s.ConfiguredChainID().String() != c.chainID.String() {
-				return ms.CloseBecause(errors.Errorf("sendonly node %s has chain ID %s which does not match client chain ID of %s", s.String(), s.ConfiguredChainID().String(), c.chainID.String()))
+				return ms.CloseBecause(errors.Errorf("sendonly node %s has configured chain ID %s which does not match multinode configured chain ID of %s", s.String(), s.ConfiguredChainID().String(), c.chainID.String()))
 			}
 			if err := ms.Start(ctx, s); err != nil {
 				return err

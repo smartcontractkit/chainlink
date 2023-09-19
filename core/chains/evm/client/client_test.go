@@ -63,6 +63,13 @@ func mustNewClients(t *testing.T, wsURL string, sendonlys ...url.URL) []evmclien
 	return clients
 }
 
+func mustNewClientsWithChainID(t *testing.T, wsURL string, chainID *big.Int, sendonlys ...url.URL) []evmclient.Client {
+	var clients []evmclient.Client
+	clients = append(clients, mustNewClientWithChainID(t, wsURL, chainID, sendonlys...))
+	clients = append(clients, mustNewChainClientWithChainID(t, wsURL, chainID, sendonlys...))
+	return clients
+}
+
 func TestEthClient_TransactionReceipt(t *testing.T) {
 	t.Parallel()
 
@@ -775,23 +782,25 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 		return
 	})
 
-	ethClient := mustNewClientWithChainID(t, wsURL, chainId)
-	err := ethClient.Dial(testutils.Context(t))
-	require.NoError(t, err)
+	clients := mustNewClientsWithChainID(t, wsURL, chainId)
+	for _, ethClient := range clients {
+		err := ethClient.Dial(testutils.Context(t))
+		require.NoError(t, err)
 
-	headCh := make(chan *evmtypes.Head)
-	sub, err := ethClient.SubscribeNewHead(ctx, headCh)
-	require.NoError(t, err)
-	defer sub.Unsubscribe()
+		headCh := make(chan *evmtypes.Head)
+		sub, err := ethClient.SubscribeNewHead(ctx, headCh)
+		require.NoError(t, err)
 
-	select {
-	case err := <-sub.Err():
-		t.Fatal(err)
-	case <-ctx.Done():
-		t.Fatal(ctx.Err())
-	case h := <-headCh:
-		require.NotNil(t, h.EVMChainID)
-		require.Zero(t, chainId.Cmp(h.EVMChainID.ToInt()))
+		select {
+		case err := <-sub.Err():
+			t.Fatal(err)
+		case <-ctx.Done():
+			t.Fatal(ctx.Err())
+		case h := <-headCh:
+			require.NotNil(t, h.EVMChainID)
+			require.Zero(t, chainId.Cmp(h.EVMChainID.ToInt()))
+		}
+		sub.Unsubscribe()
 	}
 }
 

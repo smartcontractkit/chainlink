@@ -44,7 +44,7 @@ type Client[
 		HEAD,
 	]
 	BatchCallContextAll(ctx context.Context, b []any) error
-	NodeRPC() RPC_CLIENT
+	NodeRPC() (rpc RPC_CLIENT, err error)
 	ConfiguredChainID() CHAIN_ID
 	IsL2() bool
 	NodeStates() map[string]string
@@ -134,23 +134,35 @@ func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, 
 	return nil
 }
 
-func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) NodeRPC() RPC_CLIENT {
-	return c.multiNode.SelectNode().RPC()
+func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) NodeRPC() (rpc RPC_CLIENT, err error) {
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return rpc, err
+	}
+	return n.RPC(), nil
 }
 
 func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) BalanceAt(ctx context.Context, account ADDR, blockNumber *big.Int) (*big.Int, error) {
-	return c.multiNode.SelectNode().RPC().BalanceAt(ctx, account, blockNumber)
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return nil, err
+	}
+	return n.RPC().BalanceAt(ctx, account, blockNumber)
 }
 
 func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) BatchCallContext(ctx context.Context, b []any) error {
-	return c.multiNode.SelectNode().RPC().BatchCallContext(ctx, b)
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return err
+	}
+	return n.RPC().BatchCallContext(ctx, b)
 }
 
 func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) BatchCallContextAll(ctx context.Context, b []any) error {
 	var wg sync.WaitGroup
 	defer wg.Wait()
 
-	main := c.multiNode.SelectNode()
+	main, selectionErr := c.multiNode.SelectNode()
 	for _, n := range c.multiNode.NodesAsSendOnlys() {
 		if n == main {
 			// main node is used at the end for the return value
@@ -169,6 +181,9 @@ func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, 
 		}(n)
 	}
 
+	if selectionErr != nil {
+		return selectionErr
+	}
 	return main.RPC().BatchCallContext(ctx, b)
 }
 
@@ -180,16 +195,28 @@ func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, 
 	c.multiNode.Close()
 }
 
-func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) BlockByHash(ctx context.Context, hash BLOCK_HASH) (HEAD, error) {
-	return c.multiNode.SelectNode().RPC().BlockByHash(ctx, hash)
+func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) BlockByHash(ctx context.Context, hash BLOCK_HASH) (h HEAD, err error) {
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return h, err
+	}
+	return n.RPC().BlockByHash(ctx, hash)
 }
 
-func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) BlockByNumber(ctx context.Context, number *big.Int) (HEAD, error) {
-	return c.multiNode.SelectNode().RPC().BlockByNumber(ctx, number)
+func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) BlockByNumber(ctx context.Context, number *big.Int) (h HEAD, err error) {
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return h, err
+	}
+	return n.RPC().BlockByNumber(ctx, number)
 }
 
 func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
-	return c.multiNode.SelectNode().RPC().CallContext(ctx, result, method, args...)
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return err
+	}
+	return n.RPC().CallContext(ctx, result, method, args...)
 }
 
 func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) CallContract(
@@ -197,49 +224,85 @@ func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, 
 	attempt interface{},
 	blockNumber *big.Int,
 ) (rpcErr []byte, extractErr error) {
-	return c.multiNode.SelectNode().RPC().CallContract(ctx, attempt, blockNumber)
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return rpcErr, err
+	}
+	return n.RPC().CallContract(ctx, attempt, blockNumber)
 }
 
 // ChainID makes a direct RPC call. In most cases it should be better to use the configured chain id instead by
 // calling ConfiguredChainID.
-func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) ChainID(ctx context.Context) (CHAIN_ID, error) {
-	return c.multiNode.SelectNode().RPC().ChainID(ctx)
+func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) ChainID(ctx context.Context) (id CHAIN_ID, err error) {
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return id, err
+	}
+	return n.RPC().ChainID(ctx)
 }
 
-func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) CodeAt(ctx context.Context, account ADDR, blockNumber *big.Int) ([]byte, error) {
-	return c.multiNode.SelectNode().RPC().CodeAt(ctx, account, blockNumber)
+func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) CodeAt(ctx context.Context, account ADDR, blockNumber *big.Int) (code []byte, err error) {
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return code, err
+	}
+	return n.RPC().CodeAt(ctx, account, blockNumber)
 }
 
-func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) ConfiguredChainID() CHAIN_ID {
-	return c.multiNode.SelectNode().ConfiguredChainID()
+func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) ConfiguredChainID() (id CHAIN_ID) {
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return id
+	}
+	return n.ConfiguredChainID()
 }
 
 func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) EstimateGas(ctx context.Context, call any) (gas uint64, err error) {
-	return c.multiNode.SelectNode().RPC().EstimateGas(ctx, call)
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return gas, err
+	}
+	return n.RPC().EstimateGas(ctx, call)
 }
 
-func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) FilterEvents(ctx context.Context, query EVENT_OPS) ([]EVENT, error) {
-	return c.multiNode.SelectNode().RPC().FilterEvents(ctx, query)
+func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) FilterEvents(ctx context.Context, query EVENT_OPS) (e []EVENT, err error) {
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return e, err
+	}
+	return n.RPC().FilterEvents(ctx, query)
 }
 
 func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) IsL2() bool {
 	return c.ChainType().IsL2()
 }
 
-func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) LatestBlockHeight(ctx context.Context) (*big.Int, error) {
-	return c.multiNode.SelectNode().RPC().LatestBlockHeight(ctx)
+func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) LatestBlockHeight(ctx context.Context) (h *big.Int, err error) {
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return h, err
+	}
+	return n.RPC().LatestBlockHeight(ctx)
 }
 
-func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) LINKBalance(ctx context.Context, accountAddress ADDR, linkAddress ADDR) (*assets.Link, error) {
-	return c.multiNode.SelectNode().RPC().LINKBalance(ctx, accountAddress, linkAddress)
+func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) LINKBalance(ctx context.Context, accountAddress ADDR, linkAddress ADDR) (b *assets.Link, err error) {
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return b, err
+	}
+	return n.RPC().LINKBalance(ctx, accountAddress, linkAddress)
 }
 
 func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) NodeStates() map[string]string {
 	return c.multiNode.NodeStates()
 }
 
-func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error) {
-	return c.multiNode.SelectNode().RPC().PendingSequenceAt(ctx, addr)
+func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) PendingSequenceAt(ctx context.Context, addr ADDR) (s SEQ, err error) {
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return s, err
+	}
+	return n.RPC().PendingSequenceAt(ctx, addr)
 }
 
 func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) SendEmptyTransaction(
@@ -250,11 +313,15 @@ func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, 
 	fee FEE,
 	fromAddress ADDR,
 ) (txhash string, err error) {
-	return c.multiNode.SelectNode().RPC().SendEmptyTransaction(ctx, newTxAttempt, seq, gasLimit, fee, fromAddress)
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return txhash, err
+	}
+	return n.RPC().SendEmptyTransaction(ctx, newTxAttempt, seq, gasLimit, fee, fromAddress)
 }
 
 func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) SendTransaction(ctx context.Context, tx TX) error {
-	main := c.multiNode.SelectNode()
+	main, err := c.multiNode.SelectNode()
 	for _, n := range c.multiNode.NodesAsSendOnlys() {
 		if n == main {
 			// main node is used at the end for the return value
@@ -268,6 +335,9 @@ func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, 
 		c.multiNode.WrapSendOnlyTransaction(ctx, c.logger, tx, n, c.sendOnlyTransaction)
 	}
 
+	if err != nil {
+		return err
+	}
 	return main.RPC().SendTransaction(ctx, tx)
 }
 
@@ -280,26 +350,50 @@ func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, 
 	}
 }
 
-func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) SequenceAt(ctx context.Context, account ADDR, blockNumber *big.Int) (SEQ, error) {
-	return c.multiNode.SelectNode().RPC().SequenceAt(ctx, account, blockNumber)
+func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) SequenceAt(ctx context.Context, account ADDR, blockNumber *big.Int) (s SEQ, err error) {
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return s, err
+	}
+	return n.RPC().SequenceAt(ctx, account, blockNumber)
 }
 
 func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) SimulateTransaction(ctx context.Context, tx TX) error {
-	return c.multiNode.SelectNode().RPC().SimulateTransaction(ctx, tx)
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return err
+	}
+	return n.RPC().SimulateTransaction(ctx, tx)
 }
 
-func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (types.Subscription, error) {
-	return c.multiNode.SelectNode().RPC().Subscribe(ctx, channel, args)
+func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (s types.Subscription, err error) {
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return s, err
+	}
+	return n.RPC().Subscribe(ctx, channel, args...)
 }
 
-func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) TokenBalance(ctx context.Context, account ADDR, tokenAddr ADDR) (*big.Int, error) {
-	return c.multiNode.SelectNode().RPC().TokenBalance(ctx, account, tokenAddr)
+func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) TokenBalance(ctx context.Context, account ADDR, tokenAddr ADDR) (b *big.Int, err error) {
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return b, err
+	}
+	return n.RPC().TokenBalance(ctx, account, tokenAddr)
 }
 
-func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) TransactionByHash(ctx context.Context, txHash TX_HASH) (TX, error) {
-	return c.multiNode.SelectNode().RPC().TransactionByHash(ctx, txHash)
+func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) TransactionByHash(ctx context.Context, txHash TX_HASH) (tx TX, err error) {
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return tx, err
+	}
+	return n.RPC().TransactionByHash(ctx, txHash)
 }
 
-func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) TransactionReceipt(ctx context.Context, txHash TX_HASH) (TX_RECEIPT, error) {
-	return c.multiNode.SelectNode().RPC().TransactionReceipt(ctx, txHash)
+func (c *client[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) TransactionReceipt(ctx context.Context, txHash TX_HASH) (txr TX_RECEIPT, err error) {
+	n, err := c.multiNode.SelectNode()
+	if err != nil {
+		return txr, err
+	}
+	return n.RPC().TransactionReceipt(ctx, txHash)
 }

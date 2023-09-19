@@ -97,13 +97,21 @@ func (c *chainClient) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem
 }
 
 // TODO-1663: return custom Block type instead of geth's once client.go is deprecated.
-func (c *chainClient) BlockByHash(ctx context.Context, hash common.Hash) (*types.Block, error) {
-	return c.evmClient.NodeRPC().BlockByHashGeth(ctx, hash)
+func (c *chainClient) BlockByHash(ctx context.Context, hash common.Hash) (b *types.Block, err error) {
+	rpc, err := c.evmClient.NodeRPC()
+	if err != nil {
+		return b, err
+	}
+	return rpc.BlockByHashGeth(ctx, hash)
 }
 
 // TODO-1663: return custom Block type instead of geth's once client.go is deprecated.
-func (c *chainClient) BlockByNumber(ctx context.Context, number *big.Int) (*types.Block, error) {
-	return c.evmClient.NodeRPC().BlockByNumberGeth(ctx, number)
+func (c *chainClient) BlockByNumber(ctx context.Context, number *big.Int) (b *types.Block, err error) {
+	rpc, err := c.evmClient.NodeRPC()
+	if err != nil {
+		return b, err
+	}
+	return rpc.BlockByNumberGeth(ctx, number)
 }
 
 func (c *chainClient) CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error {
@@ -143,12 +151,20 @@ func (c *chainClient) FilterLogs(ctx context.Context, q ethereum.FilterQuery) ([
 	return c.evmClient.FilterEvents(ctx, q)
 }
 
-func (c *chainClient) HeaderByHash(ctx context.Context, h common.Hash) (*types.Header, error) {
-	return c.evmClient.NodeRPC().HeaderByHash(ctx, h)
+func (c *chainClient) HeaderByHash(ctx context.Context, h common.Hash) (head *types.Header, err error) {
+	rpc, err := c.evmClient.NodeRPC()
+	if err != nil {
+		return head, err
+	}
+	return rpc.HeaderByHash(ctx, h)
 }
 
-func (c *chainClient) HeaderByNumber(ctx context.Context, n *big.Int) (*types.Header, error) {
-	return c.evmClient.NodeRPC().HeaderByNumber(ctx, n)
+func (c *chainClient) HeaderByNumber(ctx context.Context, n *big.Int) (head *types.Header, err error) {
+	rpc, err := c.evmClient.NodeRPC()
+	if err != nil {
+		return head, err
+	}
+	return rpc.HeaderByNumber(ctx, n)
 }
 
 func (c *chainClient) HeadByHash(ctx context.Context, h common.Hash) (*evmtypes.Head, error) {
@@ -175,8 +191,12 @@ func (c *chainClient) NodeStates() map[string]string {
 	return c.evmClient.NodeStates()
 }
 
-func (c *chainClient) PendingCodeAt(ctx context.Context, account common.Address) ([]byte, error) {
-	return c.evmClient.NodeRPC().PendingCodeAt(ctx, account)
+func (c *chainClient) PendingCodeAt(ctx context.Context, account common.Address) (b []byte, err error) {
+	rpc, err := c.evmClient.NodeRPC()
+	if err != nil {
+		return b, err
+	}
+	return rpc.PendingCodeAt(ctx, account)
 }
 
 // TODO-1663: change this to evmtypes.Nonce(int64) once client.go is deprecated.
@@ -198,20 +218,37 @@ func (c *chainClient) SequenceAt(ctx context.Context, account common.Address, bl
 	return c.evmClient.SequenceAt(ctx, account, blockNumber)
 }
 
-func (c *chainClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (ethereum.Subscription, error) {
-	return c.evmClient.NodeRPC().SubscribeFilterLogs(ctx, q, ch)
+func (c *chainClient) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (s ethereum.Subscription, err error) {
+	rpc, err := c.evmClient.NodeRPC()
+	if err != nil {
+		return s, err
+	}
+	return rpc.SubscribeFilterLogs(ctx, q, ch)
 }
 
 func (c *chainClient) SubscribeNewHead(ctx context.Context, ch chan<- *evmtypes.Head) (ethereum.Subscription, error) {
-	return c.evmClient.Subscribe(ctx, ch)
+	csf := newChainIDSubForwarder(c.ConfiguredChainID(), ch)
+	err := csf.start(c.evmClient.Subscribe(ctx, csf.srcCh, "newHeads"))
+	if err != nil {
+		return nil, err
+	}
+	return csf, nil
 }
 
-func (c *chainClient) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
-	return c.evmClient.NodeRPC().SuggestGasPrice(ctx)
+func (c *chainClient) SuggestGasPrice(ctx context.Context) (p *big.Int, err error) {
+	rpc, err := c.evmClient.NodeRPC()
+	if err != nil {
+		return p, err
+	}
+	return rpc.SuggestGasPrice(ctx)
 }
 
-func (c *chainClient) SuggestGasTipCap(ctx context.Context) (*big.Int, error) {
-	return c.evmClient.NodeRPC().SuggestGasTipCap(ctx)
+func (c *chainClient) SuggestGasTipCap(ctx context.Context) (t *big.Int, err error) {
+	rpc, err := c.evmClient.NodeRPC()
+	if err != nil {
+		return t, err
+	}
+	return rpc.SuggestGasTipCap(ctx)
 }
 
 func (c *chainClient) TokenBalance(ctx context.Context, address common.Address, contractAddress common.Address) (*big.Int, error) {
@@ -223,7 +260,11 @@ func (c *chainClient) TransactionByHash(ctx context.Context, txHash common.Hash)
 }
 
 // TODO-1663: return custom Receipt type instead of geth's once client.go is deprecated.
-func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	//return c.evmClient.TransactionReceipt(ctx, txHash)
-	return c.evmClient.NodeRPC().TransactionReceiptGeth(ctx, txHash)
+func (c *chainClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (r *types.Receipt, err error) {
+	rpc, err := c.evmClient.NodeRPC()
+	if err != nil {
+		return r, err
+	}
+	//return rpc.TransactionReceipt(ctx, txHash)
+	return rpc.TransactionReceiptGeth(ctx, txHash)
 }

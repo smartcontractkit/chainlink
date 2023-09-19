@@ -55,12 +55,10 @@ type NodeClient[
 	CHAIN_ID types.ID,
 	HEAD Head,
 ] interface {
-	Close()
-	ChainID(context.Context) (CHAIN_ID, error)
-	Dial(callerCtx context.Context) error
+	connection[CHAIN_ID, HEAD]
+
 	DialHTTP() error
 	DisconnectAll()
-	Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (types.Subscription, error)
 	ClientVersion(context.Context) (string, error)
 }
 
@@ -78,6 +76,8 @@ type ClientAPI[
 	FEE feetypes.Fee,
 	HEAD types.Head[BLOCK_HASH],
 ] interface {
+	connection[CHAIN_ID, HEAD]
+
 	// Account
 	BalanceAt(ctx context.Context, accountAddress ADDR, blockNumber *big.Int) (*big.Int, error)
 	TokenBalance(ctx context.Context, accountAddress ADDR, tokenAddress ADDR) (*big.Int, error)
@@ -108,10 +108,6 @@ type ClientAPI[
 	// Events
 	FilterEvents(ctx context.Context, query EVENT_OPS) ([]EVENT, error)
 
-	// Connection
-	Close()
-	Dial(ctx context.Context) error
-
 	// Misc
 	BatchCallContext(ctx context.Context, b []any) error
 	CallContract(
@@ -120,7 +116,15 @@ type ClientAPI[
 		blockNumber *big.Int,
 	) (rpcErr []byte, extractErr error)
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
-	ChainID(ctx context.Context) (CHAIN_ID, error)
 	CodeAt(ctx context.Context, account ADDR, blockNumber *big.Int) ([]byte, error)
+}
+
+type connection[
+	CHAIN_ID types.ID,
+	HEAD Head,
+] interface {
+	Close()
+	ChainID(ctx context.Context) (CHAIN_ID, error)
+	Dial(ctx context.Context) error
 	Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (types.Subscription, error)
 }
