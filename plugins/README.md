@@ -24,7 +24,7 @@ Images built from this Dockerfile can otherwise be used normally, provided that 
 LOOPPs communicate over GRPC, which always includes a `context.Context` and requires realistic timeouts. Placeholder/dummy
 values (e.g. `MaxDurationQuery = 0`) will not work and must be updated to realistic values. In lieu of reconfiguring already
 deployed contracts on Solana, the environment variable `CL_MIN_OCR2_MAX_DURATION_QUERY` can be set establish a new minimum
-via libocr's [LocalConfig.MinOCR2MaxDureationQuery](https://pkg.go.dev/github.com/smartcontractkit/libocr/offchainreporting2plus/types#LocalConfig).
+via libocr's [LocalConfig.MinOCR2MaxDurationQuery](https://pkg.go.dev/github.com/smartcontractkit/libocr/offchainreporting2plus/types#LocalConfig).
 If left unset, the default value is `100ms`.
 
 #### Prometheus
