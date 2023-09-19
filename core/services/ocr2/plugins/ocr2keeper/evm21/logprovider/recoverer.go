@@ -46,7 +46,7 @@ var (
 	blockTimeUpdateCadence = 10 * time.Minute
 	// maxPendingPayloadsPerUpkeep is the number of logs we can have pending for a single upkeep
 	// at any given time
-	maxPendingPayloadsPerUpkeep = 100
+	maxPendingPayloadsPerUpkeep = 500
 )
 
 type LogRecoverer interface {
