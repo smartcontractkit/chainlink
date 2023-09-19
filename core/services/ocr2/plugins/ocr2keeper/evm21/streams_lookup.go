@@ -418,17 +418,17 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 	for j, v := range values {
 		lggr.Infof("upkeep %s doMercuryRequest values[%d]: %s", request.upkeepId, j, hexutil.Encode(v))
 
-		interfaces, err := utils.ABIDecode(reportType, v)
-		if err != nil {
-			lggr.Errorf("upkeep %s retryable %v interface decode: %s", request.upkeepId, retryable, err.Error())
+		interfaces, err2 := utils.ABIDecode(reportType, v)
+		if err2 != nil {
+			lggr.Errorf("upkeep %s retryable %v interface decode: %s", request.upkeepId, retryable, err2.Error())
 			checkResults[i].Retryable = false
 			checkResults[i].PipelineExecutionState = uint8(encoding.PackUnpackDecodeFailed)
 			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
 			return
 		}
-		innerInterfaces, err := utils.ABIDecode(innerReportType, interfaces[1].([]byte))
-		if err != nil {
-			lggr.Errorf("upkeep %s retryable %v inner abi decode: %s", request.upkeepId, retryable, err.Error())
+		innerInterfaces, err2 := utils.ABIDecode(innerReportType, interfaces[1].([]byte))
+		if err2 != nil {
+			lggr.Errorf("upkeep %s retryable %v inner abi decode: %s", request.upkeepId, retryable, err2.Error())
 			checkResults[i].Retryable = false
 			checkResults[i].PipelineExecutionState = uint8(encoding.PackUnpackDecodeFailed)
 			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
