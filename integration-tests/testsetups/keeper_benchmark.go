@@ -49,7 +49,6 @@ type KeeperBenchmarkTest struct {
 	keeperRegistrars        []contracts.KeeperRegistrar
 	keeperConsumerContracts []contracts.AutomationConsumerBenchmark
 	upkeepIDs               [][]*big.Int
-	filterQuery             geth.FilterQuery
 
 	env              *environment.Environment
 	namespace        string
@@ -284,7 +283,6 @@ func (k *KeeperBenchmarkTest) Run() {
 	}()
 
 	// Main test loop
-	k.setFilterQuery()
 	require.NoError(k.t, err, "Setting filter query shouldn't fail")
 	for rIndex := range k.keeperRegistries {
 		k.observeUpkeepEvents(rIndex)
@@ -292,31 +290,53 @@ func (k *KeeperBenchmarkTest) Run() {
 	err = k.chainClient.WaitForEvents()
 	require.NoError(k.t, err, "Error waiting for keeper subscriptions")
 
-	// Collect test metrics
-	var (
-		logs    []types.Log
-		timeout = 5 * time.Second
-	)
-
-	// This RPC call can possibly time out or otherwise die. Failure is not an option, keep retrying to get our stats.
-	for {
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		logs, err = k.chainClient.FilterLogs(ctx, k.filterQuery)
-		cancel()
-		if err != nil {
-			k.log.Error().Err(err).
-				Interface("Filter Query", k.filterQuery).
-				Str("Timeout", timeout.String()).
-				Msg("Error getting logs from chain, trying again")
-			continue
+	// Collect test metrics for each registry
+	registryLogs := make([][]types.Log, len(k.keeperRegistries))
+	for rIndex := range k.keeperRegistries {
+		var (
+			logs        []types.Log
+			timeout     = 5 * time.Second
+			contractABI = k.contractABI(rIndex)
+			addr        = k.keeperRegistries[rIndex].Address()
+			filterQuery = geth.FilterQuery{
+				Addresses: []common.Address{common.HexToAddress(addr)},
+				FromBlock: k.startingBlock,
+				Topics:    [][]common.Hash{{contractABI.Events["UpkeepPerformed"].ID}, {contractABI.Events["StaleUpkeepReport"].ID}},
+			}
+			err = fmt.Errorf("initial error") // to ensure our for loop runs at least once
+		)
+		for err != nil { // This RPC call can possibly time out or otherwise die. Failure is not an option, keep retrying to get our stats.
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			logs, err = k.chainClient.FilterLogs(ctx, filterQuery)
+			cancel()
+			if err != nil {
+				k.log.Error().Err(err).
+					Interface("Filter Query", filterQuery).
+					Str("Timeout", timeout.String()).
+					Msg("Error getting logs from chain, trying again")
+			} else {
+				k.log.Info().Int("Log Count", len(logs)).Str("Registry Address", addr).Msg("Collected logs")
+			}
 		}
-		k.log.Info().Int("Log Count", len(logs)).Msg("Collected logs from chain")
-		break
+		registryLogs[rIndex] = logs
 	}
 
-	contractABI := k.contractABI(0)
-	for _, log := range logs {
-		eventDetails := contractABI.EventByID(log.Topics[0])
+	// Count reverts and stale upkeeps
+	for rIndex := range k.keeperRegistries {
+		contractABI := k.contractABI(rIndex)
+		for _, log := range registryLogs[rIndex] {
+			eventDetails, err := contractABI.EventByID(log.Topics[0])
+			require.NoError(k.t, err, "Getting event details for subscribed log shouldn't fail")
+			if eventDetails.Name == "UpkeepPerformed" {
+				parsedLog, err := k.keeperRegistries[rIndex].ParseUpkeepPerformedLog(&log)
+				require.NoError(k.t, err, "Parsing upkeep performed log shouldn't fail")
+				if !parsedLog.Success {
+					k.TestReporter.NumRevertedUpkeeps++
+				}
+			} else if eventDetails.Name == "StaleUpkeepReport" {
+				k.TestReporter.NumStaleUpkeepReports++
+			}
+		}
 	}
 
 	for _, chainlinkNode := range k.chainlinkNodes {
@@ -370,8 +390,17 @@ func (k *KeeperBenchmarkTest) TearDownVals(t *testing.T) (
 // due to how fragile subscriptions can be
 func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
 	eventLogs := make(chan types.Log)
+	registryAddresses := make([]common.Address, len(k.keeperRegistries))
+	for index, registry := range k.keeperRegistries {
+		registryAddresses[index] = common.HexToAddress(registry.Address())
+	}
+	filterQuery := geth.FilterQuery{
+		Addresses: registryAddresses,
+		FromBlock: k.startingBlock,
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	sub, err := k.chainClient.SubscribeFilterLogs(ctx, k.filterQuery, eventLogs)
+	sub, err := k.chainClient.SubscribeFilterLogs(ctx, filterQuery, eventLogs)
 	cancel()
 	require.NoError(k.t, err, "Subscribing to upkeep performed events log shouldn't fail")
 	contractABI := k.contractABI(rIndex)
@@ -381,10 +410,10 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
 			select {
 			case err := <-sub.Err():
 				for err != nil {
-					k.log.Error().Err(err).Interface("Query", k.filterQuery).Msg("Error while subscribing to Keeper Event Logs. Resubscribing...")
+					k.log.Error().Err(err).Interface("Query", filterQuery).Msg("Error while subscribing to Keeper Event Logs. Resubscribing...")
 
 					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-					sub, err = k.chainClient.SubscribeFilterLogs(ctx, k.filterQuery, eventLogs)
+					sub, err = k.chainClient.SubscribeFilterLogs(ctx, filterQuery, eventLogs)
 					cancel()
 				}
 				log.Info().Msg("Resubscribed to Keeper Event Logs")
@@ -459,18 +488,6 @@ func (k *KeeperBenchmarkTest) contractABI(rIndex int) *abi.ABI {
 	}
 	require.NoError(k.t, err, "Getting contract ABI shouldn't fail")
 	return contractABI
-}
-
-// setFilterQuery sets the filter query for the test to watch for events on contracts
-func (k *KeeperBenchmarkTest) setFilterQuery() {
-	registryAddresses := make([]common.Address, len(k.keeperRegistries))
-	for index, registry := range k.keeperRegistries {
-		registryAddresses[index] = common.HexToAddress(registry.Address())
-	}
-	k.filterQuery = geth.FilterQuery{
-		Addresses: registryAddresses,
-		FromBlock: k.startingBlock,
-	}
 }
 
 // ensureValues ensures that all values needed to run the test are present
