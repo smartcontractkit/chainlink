@@ -2268,10 +2268,10 @@ github.com/smartcontractkit/go-plugin v0.0.0-20230605132010-0f4d515d1472 h1:x3kN
 github.com/smartcontractkit/go-plugin v0.0.0-20230605132010-0f4d515d1472/go.mod h1:6/1TEzT0eQznvI/gV2CM29DLSkAK/e58mUWKVsPaph0=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f h1:hgJif132UCdjo8u43i7iPN1/MFnu49hv7lFGFftCHKU=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f/go.mod h1:MvMXoufZAtqExNexqi4cjrNYE9MefKddKylxjS+//n0=
-github.com/smartcontractkit/libocr v0.0.0-20230816220705-665e93233ae5 h1:rzbqGoScs9VHGnyCKF7AoQEuUfwJnzcKmGIfaczeanA=
-github.com/smartcontractkit/libocr v0.0.0-20230816220705-665e93233ae5/go.mod h1:2lyRkw/qLQgUWlrWWmq5nj0y90rWeO6Y+v+fCakRgb0=
-github.com/smartcontractkit/ocr2keepers v0.7.23 h1:hvMCHm9zTOKGELc40n+JLGmbiW1tkFnHW17qAtoVews=
-github.com/smartcontractkit/ocr2keepers v0.7.23/go.mod h1:AjcIEKeNnU7NRlvnuMCTjBIQ1kpW0YHhlFdeDa/3hs0=
+github.com/smartcontractkit/libocr v0.0.0-20230918212407-dbd4e505b3e6 h1:w+8TI2Vcm3vk8XQz40ddcwy9BNZgoakXIby35Y54iDU=
+github.com/smartcontractkit/libocr v0.0.0-20230918212407-dbd4e505b3e6/go.mod h1:2lyRkw/qLQgUWlrWWmq5nj0y90rWeO6Y+v+fCakRgb0=
+github.com/smartcontractkit/ocr2keepers v0.7.24 h1:d1HcCpsBcBSC9MC9qdjzsm/NSAnnavcZAvAqPAAa75Q=
+github.com/smartcontractkit/ocr2keepers v0.7.24/go.mod h1:4e1ZDRz7fpLgcRUjJpq+5mkoD0ga11BxrSp2JTWKADQ=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687 h1:NwC3SOc25noBTe1KUQjt45fyTIuInhoE2UfgcHAdihM=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687/go.mod h1:YYZq52t4wcHoMQeITksYsorD+tZcOyuVU5+lvot3VFM=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
