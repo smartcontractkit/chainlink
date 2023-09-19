@@ -116,6 +116,55 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 	reportBytes, err := codec.EncodeReport(processedRequests)
 	require.NoError(t, err)
 
+	// success
 	require.NoError(t, ot.Transmit(testutils.Context(t), ocrtypes.ReportContext{}, reportBytes, []ocrtypes.AttributedOnchainSignature{}))
 	require.Equal(t, coordinatorAddress, ocrTransmitter.toAddress)
+
+	// failure on too many signatures
+	signatures := []ocrtypes.AttributedOnchainSignature{}
+	for i := 0; i < 33; i++ {
+		signatures = append(signatures, ocrtypes.AttributedOnchainSignature{})
+	}
+	require.Error(t, ot.Transmit(testutils.Context(t), ocrtypes.ReportContext{}, reportBytes, signatures))
+}
+
+func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
+	t.Parallel()
+
+	contractVersion := uint32(1)
+	configuredDestAddress, coordinatorAddress1, coordinatorAddress2 := testutils.NewAddress(), testutils.NewAddress(), testutils.NewAddress()
+	lggr := logger.TestLogger(t)
+	c := evmclimocks.NewClient(t)
+	lp := lpmocks.NewLogPoller(t)
+	contractABI, _ := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
+	lp.On("RegisterFilter", mock.Anything).Return(nil)
+
+	ocrTransmitter := mockTransmitter{}
+	ot, err := functions.NewFunctionsContractTransmitter(c, contractABI, &ocrTransmitter, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
+		return &txmgr.TxMeta{}, nil
+	}, contractVersion)
+	require.NoError(t, err)
+	require.NoError(t, ot.UpdateRoutes(configuredDestAddress, configuredDestAddress))
+
+	reqId1, err := hex.DecodeString("110102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
+	require.NoError(t, err)
+	reqId2, err := hex.DecodeString("220102030405060708090a0b0c0d0e0f000102030405060708090a0b0c0d0e0f")
+	require.NoError(t, err)
+	processedRequests := []*encoding.ProcessedRequest{
+		{
+			RequestID:           reqId1,
+			CoordinatorContract: coordinatorAddress1.Bytes(),
+		},
+		{
+			RequestID:           reqId2,
+			CoordinatorContract: coordinatorAddress2.Bytes(),
+		},
+	}
+	codec, err := encoding.NewReportCodec(contractVersion)
+	require.NoError(t, err)
+	reportBytes, err := codec.EncodeReport(processedRequests)
+	require.NoError(t, err)
+
+	require.NoError(t, ot.Transmit(testutils.Context(t), ocrtypes.ReportContext{}, reportBytes, []ocrtypes.AttributedOnchainSignature{}))
+	require.Equal(t, coordinatorAddress1, ocrTransmitter.toAddress)
 }

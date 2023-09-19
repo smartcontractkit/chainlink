@@ -1,7 +1,7 @@
 pragma solidity 0.8.16;
 
 import "../automation/interfaces/AutomationCompatibleInterface.sol";
-import "../dev/automation/2_1/interfaces/StreamsLookupCompatibleInterface.sol";
+import "../automation/interfaces/StreamsLookupCompatibleInterface.sol";
 import {ArbSys} from "../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 
 interface IVerifierProxy {
@@ -93,7 +93,7 @@ contract StreamsLookupUpkeep is AutomationCompatibleInterface, StreamsLookupComp
       return (false, data);
     }
     uint256 timeParam;
-    if (keccak256(abi.encodePacked(timeParamKey)) == keccak256(abi.encodePacked("feedIdHex"))) {
+    if (keccak256(abi.encodePacked(feedParamKey)) == keccak256(abi.encodePacked("feedIdHex"))) {
       if (useArbBlock) {
         timeParam = ARB_SYS.arbBlockNumber();
       } else {

@@ -17,7 +17,6 @@ type ChainsKV[T types.ChainService] struct {
 var ErrNoSuchChainID = errors.New("chain id does not exist")
 
 func NewChainsKV[T types.ChainService](cs map[string]T) *ChainsKV[T] {
-
 	return &ChainsKV[T]{
 		chains: cs,
 	}

@@ -108,6 +108,10 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 			// user contract did not revert with StreamsLookup error
 			continue
 		}
+		if r.mercury.cred == nil {
+			lggr.Errorf("at block %d upkeep %s tries to access mercury server but mercury credential is not configured", block, upkeepId)
+			continue
+		}
 
 		if len(l.feeds) == 0 {
 			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
@@ -216,22 +220,44 @@ func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int
 		return encoding.NoPipelineError, encoding.UpkeepFailureReasonNone, false, allowed.(bool), nil
 	}
 
-	cfg, err := r.registry.GetUpkeepPrivilegeConfig(opts, upkeepId)
+	payload, err := r.packer.PackGetUpkeepPrivilegeConfig(upkeepId)
+	if err != nil {
+		// pack error, no retryable
+		r.lggr.Warnf("failed to pack getUpkeepPrivilegeConfig data for upkeepId %s: %s", upkeepId, err)
+
+		return encoding.PackUnpackDecodeFailed, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to pack upkeepId: %w", err)
+	}
+
+	var resultBytes hexutil.Bytes
+	args := map[string]interface{}{
+		"to":   r.addr.Hex(),
+		"data": hexutil.Bytes(payload),
+	}
+
+	// call checkCallback function at the block which OCR3 has agreed upon
+	err = r.client.CallContext(opts.Context, &resultBytes, "eth_call", args, opts.BlockNumber)
 	if err != nil {
 		return encoding.RpcFlakyFailure, encoding.UpkeepFailureReasonNone, true, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
 	}
+
+	cfg, err := r.packer.UnpackGetUpkeepPrivilegeConfig(resultBytes)
+	if err != nil {
+		return encoding.PackUnpackDecodeFailed, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
+	}
+
 	if len(cfg) == 0 {
 		r.mercury.allowListCache.Set(upkeepId.String(), false, cache.DefaultExpiration)
 		return encoding.NoPipelineError, encoding.UpkeepFailureReasonMercuryAccessNotAllowed, false, false, fmt.Errorf("upkeep privilege config is empty")
 	}
 
-	var a UpkeepPrivilegeConfig
-	err = json.Unmarshal(cfg, &a)
-	if err != nil {
+	var privilegeConfig UpkeepPrivilegeConfig
+	if err := json.Unmarshal(cfg, &privilegeConfig); err != nil {
 		return encoding.MercuryUnmarshalError, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to unmarshal privilege config: %v", err)
 	}
-	r.mercury.allowListCache.Set(upkeepId.String(), a.MercuryEnabled, cache.DefaultExpiration)
-	return encoding.NoPipelineError, encoding.UpkeepFailureReasonNone, false, a.MercuryEnabled, nil
+
+	r.mercury.allowListCache.Set(upkeepId.String(), privilegeConfig.MercuryEnabled, cache.DefaultExpiration)
+
+	return encoding.NoPipelineError, encoding.UpkeepFailureReasonNone, false, privilegeConfig.MercuryEnabled, nil
 }
 
 // decodeStreamsLookup decodes the revert error StreamsLookup(string feedParamKey, string[] feeds, string feedParamKey, uint256 time, byte[] extraData)
@@ -328,7 +354,7 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 		sl.feedParamKey: {sl.feeds[index]},
 		sl.timeParamKey: {sl.time.String()},
 	}
-	mercuryURL := r.mercury.cred.URL
+	mercuryURL := r.mercury.cred.LegacyURL
 	reqUrl := fmt.Sprintf("%s%s%s", mercuryURL, mercuryPathV02, q.Encode())
 	lggr.Debugf("request URL for upkeep %s feed %s: %s", sl.upkeepId.String(), sl.feeds[index], reqUrl)
 
@@ -383,6 +409,8 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 				state = encoding.InvalidMercuryRequest
 				return fmt.Errorf("at block %s upkeep %s received status code %d for feed %s", sl.time.String(), sl.upkeepId.String(), resp.StatusCode, sl.feeds[index])
 			}
+
+			lggr.Debugf("at block %s upkeep %s received status code %d from mercury v0.2 with BODY=%s", sl.time.String(), sl.upkeepId.String(), resp.StatusCode, hexutil.Encode(body))
 
 			var m MercuryV02Response
 			err1 = json.Unmarshal(body, &m)
@@ -506,6 +534,8 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				state = encoding.InvalidMercuryRequest
 				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3", sl.time.String(), sl.upkeepId.String(), resp.StatusCode)
 			}
+
+			lggr.Debugf("at block %s upkeep %s received status code %d from mercury v0.3 with BODY=%s", sl.time.String(), sl.upkeepId.String(), resp.StatusCode, hexutil.Encode(body))
 
 			var response MercuryV03Response
 			err1 = json.Unmarshal(body, &response)

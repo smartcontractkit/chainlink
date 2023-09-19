@@ -72,7 +72,7 @@ const (
 	backoffFactor = 1.3
 
 	V2ReservedLinkQuery = `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
-		FROM eth_txes
+		FROM evm.txes
 		WHERE meta->>'MaxLink' IS NOT NULL
 		AND evm_chain_id = $1
 		AND CAST(meta->>'SubId' AS NUMERIC) = $2
@@ -80,7 +80,7 @@ const (
 		GROUP BY meta->>'SubId'`
 
 	V2PlusReservedLinkQuery = `SELECT SUM(CAST(meta->>'MaxLink' AS NUMERIC(78, 0)))
-		FROM eth_txes
+		FROM evm.txes
 		WHERE meta->>'MaxLink' IS NOT NULL
 		AND evm_chain_id = $1
 		AND CAST(meta->>'GlobalSubId' AS NUMERIC) = $2
@@ -88,7 +88,7 @@ const (
 		GROUP BY meta->>'GlobalSubId'`
 
 	V2PlusReservedEthQuery = `SELECT SUM(CAST(meta->>'MaxEth' AS NUMERIC(78, 0)))
-		FROM eth_txes
+		FROM evm.txes
 		WHERE meta->>'MaxEth' IS NOT NULL
 		AND evm_chain_id = $1
 		AND CAST(meta->>'GlobalSubId' AS NUMERIC) = $2
@@ -923,7 +923,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 				RequestTxHash: &requestTxHash,
 				// No max link since simulation failed
 			},
-		}, pg.WithQueryer(tx), pg.WithParentCtx(ctx))
+		})
 		return err
 	})
 	return
@@ -1137,7 +1137,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 						VRFCoordinatorAddress: &coordinatorAddress,
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw().BlockNumber),
 					},
-				}, pg.WithQueryer(tx), pg.WithParentCtx(ctx))
+				})
 				return err
 			})
 			if err != nil {
@@ -1415,6 +1415,7 @@ func (lsn *listenerV2) simulateFulfillment(
 			"name":          lsn.job.Name.ValueOrZero(),
 			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
 			"maxGasPrice":   maxGasPriceWei.ToInt().String(),
+			"evmChainID":    lsn.job.VRFSpec.EVMChainID.String(),
 		},
 		"jobRun": map[string]interface{}{
 			"logBlockHash":   req.req.Raw().BlockHash.Bytes(),

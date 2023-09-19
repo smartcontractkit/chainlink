@@ -13,17 +13,15 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
@@ -87,8 +85,6 @@ func TestAutomationBasic(t *testing.T) {
 
 func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0":             ethereum.RegistryVersion_2_0,
 		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
@@ -100,6 +96,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			l := logging.GetTestLogger(t)
 
 			var (
 				upgradeImage   string
@@ -215,7 +212,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 
 func TestSetUpkeepTriggerConfig(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 		t, "set-trigger-config", ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, false,
@@ -431,8 +428,6 @@ func TestAutomationAddFunds(t *testing.T) {
 
 func TestAutomationPauseUnPause(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
@@ -443,6 +438,7 @@ func TestAutomationPauseUnPause(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "pause-unpause", registryVersion, defaultOCRRegistryConfig, false,
 			)
@@ -515,8 +511,6 @@ func TestAutomationPauseUnPause(t *testing.T) {
 
 func TestAutomationRegisterUpkeep(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
@@ -527,6 +521,7 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "register-upkeep", registryVersion, defaultOCRRegistryConfig, false,
 			)
@@ -588,7 +583,6 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 
 func TestAutomationPauseRegistry(t *testing.T) {
 	t.Parallel()
-
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
@@ -646,8 +640,6 @@ func TestAutomationPauseRegistry(t *testing.T) {
 
 func TestAutomationKeeperNodesDown(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
@@ -658,6 +650,7 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			l := logging.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "keeper-nodes-down", registryVersion, defaultOCRRegistryConfig, false,
 			)
@@ -733,7 +726,6 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 
 func TestAutomationPerformSimulation(t *testing.T) {
 	t.Parallel()
-
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
@@ -797,8 +789,6 @@ func TestAutomationPerformSimulation(t *testing.T) {
 
 func TestAutomationCheckPerformGasLimit(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
@@ -809,6 +799,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			l := logging.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "gas-limit", registryVersion, defaultOCRRegistryConfig, false,
 			)
@@ -889,7 +880,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			highCheckGasLimit := automationDefaultRegistryConfig
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
 			highCheckGasLimit.RegistryVersion = registryVersion
-			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(t, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 30*time.Second)
+			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 30*time.Second)
 			require.NoError(t, err, "Error building OCR config")
 
 			err = registry.SetConfig(highCheckGasLimit, ocrConfig)
@@ -911,8 +902,6 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 
 func TestUpdateCheckData(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
 		"registry_2_0": ethereum.RegistryVersion_2_0,
 		"registry_2_1": ethereum.RegistryVersion_2_1,
@@ -923,6 +912,7 @@ func TestUpdateCheckData(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
 				t, "update-check-data", registryVersion, defaultOCRRegistryConfig, false,
 			)
@@ -998,12 +988,13 @@ func setupAutomationTestDocker(
 	contracts.KeeperRegistrar,
 	*test_env.CLClusterTestEnv,
 ) {
+	l := logging.GetTestLogger(t)
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
 	network := networks.SelectedNetwork
 
 	// build the node config
-	clNodeConfig := node.NewConfig(node.BaseConf)
+	clNodeConfig := node.NewConfig(node.NewBaseConfig())
 	syncInterval := models.MustMakeDuration(5 * time.Minute)
 	clNodeConfig.Feature.LogPoller = it_utils.Ptr[bool](true)
 	clNodeConfig.OCR2.Enabled = it_utils.Ptr[bool](true)
@@ -1016,6 +1007,7 @@ func setupAutomationTestDocker(
 
 	// launch the environment
 	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestLogger(t).
 		WithGeth().
 		WithMockServer(1).
 		WithCLNodes(5).
@@ -1048,9 +1040,9 @@ func setupAutomationTestDocker(
 	err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(defaultAmountOfUpkeeps))))
 	require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-	err = actions.CreateOCRKeeperJobsLocal(nodeClients, registry.Address(), network.ChainID, 0, registryVersion)
+	err = actions.CreateOCRKeeperJobsLocal(l, nodeClients, registry.Address(), network.ChainID, 0, registryVersion)
 	require.NoError(t, err, "Error creating OCR Keeper Jobs")
-	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(t, workerNodes, registryConfig, registrar.Address(), 30*time.Second)
+	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, workerNodes, registryConfig, registrar.Address(), 30*time.Second)
 	require.NoError(t, err, "Error building OCR config vars")
 	err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
 	require.NoError(t, err, "Registry config should be set successfully")

@@ -17,6 +17,8 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
@@ -160,6 +162,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	amount := "100.5"
 	to := "0x342156c8d3bA54Abc67920d35ba1d1e67201aC9C"
 	require.NoError(t, set.Parse([]string{amount, fromAddress.Hex(), to}))
+	require.NoError(t, set.Set("id", evmtest.MustGetDefaultChainID(t, app.Config.EVMConfigs()).String()))
 
 	cliapp := cli.NewApp()
 	c := cli.NewContext(cliapp, set, nil)
@@ -167,7 +170,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	assert.NoError(t, client.SendEther(c))
 
 	dbEvmTx := txmgr.DbEthTx{}
-	require.NoError(t, db.Get(&dbEvmTx, `SELECT * FROM eth_txes`))
+	require.NoError(t, db.Get(&dbEvmTx, `SELECT * FROM evm.txes`))
 	require.Equal(t, "100.500000000000000000", dbEvmTx.Value.String())
 	require.Equal(t, fromAddress, dbEvmTx.FromAddress)
 	require.Equal(t, to, dbEvmTx.ToAddress.String())
@@ -179,7 +182,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("%d", *dbEvmTx.Nonce), output.Nonce)
 
 	dbEvmTxAttempt := txmgr.DbEthTxAttempt{}
-	require.NoError(t, db.Get(&dbEvmTxAttempt, `SELECT * FROM eth_tx_attempts`))
+	require.NoError(t, db.Get(&dbEvmTxAttempt, `SELECT * FROM evm.tx_attempts`))
 	assert.Equal(t, dbEvmTxAttempt.Hash, output.Hash)
 }
 
@@ -215,6 +218,7 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	set := flag.NewFlagSet("sendether", 0)
 	cltest.FlagSetApplyFromAction(client.SendEther, set, "")
 
+	require.NoError(t, set.Set("id", testutils.FixtureChainID.String()))
 	require.NoError(t, set.Set("wei", "false"))
 
 	amount := "1000000000000000000"
@@ -231,7 +235,7 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	assert.NoError(t, client.SendEther(c))
 
 	dbEvmTx := txmgr.DbEthTx{}
-	require.NoError(t, db.Get(&dbEvmTx, `SELECT * FROM eth_txes`))
+	require.NoError(t, db.Get(&dbEvmTx, `SELECT * FROM evm.txes`))
 	require.Equal(t, "1.000000000000000000", dbEvmTx.Value.String())
 	require.Equal(t, fromAddress, dbEvmTx.FromAddress)
 	require.Equal(t, to, dbEvmTx.ToAddress.String())
@@ -243,6 +247,6 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	assert.Equal(t, fmt.Sprintf("%d", *dbEvmTx.Nonce), output.Nonce)
 
 	dbEvmTxAttempt := txmgr.DbEthTxAttempt{}
-	require.NoError(t, db.Get(&dbEvmTxAttempt, `SELECT * FROM eth_tx_attempts`))
+	require.NoError(t, db.Get(&dbEvmTxAttempt, `SELECT * FROM evm.tx_attempts`))
 	assert.Equal(t, dbEvmTxAttempt.Hash, output.Hash)
 }
