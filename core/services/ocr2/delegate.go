@@ -258,12 +258,12 @@ func (d *Delegate) getLogPoller(spec *job.OCR2OracleSpec) evmlogpoller.LogPoller
 func (d *Delegate) filtersFromSpec(spec *job.OCR2OracleSpec, extJobID uuid.UUID) (filters []evmlogpoller.Filter) {
 	var err error
 	switch spec.PluginType {
-	case job.OCR2VRF:
+	case types.OCR2VRF:
 		filters, err = ocr2coordinator.FiltersFromSpec(spec)
 		if err != nil {
 			d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
 		}
-	case job.OCR2Keeper:
+	case types.OCR2Keeper:
 		filters, err = ocr2keeper.FiltersFromSpec20(spec)
 		if err != nil {
 			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)
@@ -290,7 +290,7 @@ func (d *Delegate) filtersFromSpec(spec *job.OCR2OracleSpec, extJobID uuid.UUID)
 	return filters
 }
 
-func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
+func (d *Delegate) OnCreateJob(jb job.Job, opts pg.QOpt) error {
 	spec := jb.OCR2OracleSpec
 	if spec == nil {
 		d.lggr.Error(ErrNonOCR2JobType{jb})
@@ -311,7 +311,7 @@ func (d *Delegate) OnCreateJob(jb job.Job, q pg.Queryer) error {
 
 	for _, filter := range filters {
 		d.lggr.Debugf("Registering new filter %s", filter)
-		if err := lp.RegisterFilter(filter, q); err != nil {
+		if err := lp.RegisterFilter(filter, opts); err != nil {
 			return errors.Wrapf(err, "Failed to register filter %s", filter)
 		}
 	}
@@ -366,7 +366,7 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 
 	var filters []evmlogpoller.Filter
 	switch spec.PluginType {
-	case job.OCR2VRF:
+	case types.OCR2VRF:
 		filters := d.filtersFromSpec(jb.OCR2OracleSpec, jb.ExternalJobID)
 		if filters == nil {
 			return nil
@@ -374,7 +374,7 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 		if err != nil {
 			d.lggr.Errorw("failed to derive ocr2vrf filter names from spec", "err", err, "spec", spec)
 		}
-	case job.OCR2Keeper:
+	case types.OCR2Keeper:
 		filters, err = ocr2keeper.FiltersFromSpec20(spec)
 		if err != nil {
 			d.lggr.Errorw("failed to derive ocr2keeper filter names from spec", "err", err, "spec", spec)

@@ -195,7 +195,7 @@ func FiltersFromRelayArgs(args relaytypes.RelayArgs) (filters []logpoller.Filter
 	}
 
 	if relayConfig.FeedID != nil {
-		filters = []logpoller.Filter{mercury.NewConfigPollerFilter(addr.Address())}
+		filters = []logpoller.Filter{mercury.NewConfigPollerFilter(addr.Address(), *relayConfig.FeedID)}
 	} else {
 		var transmitterFilter logpoller.Filter
 		transmitterFilter, err = newTransmitterFilter(addr.Address())
