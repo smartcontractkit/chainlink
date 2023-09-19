@@ -283,6 +283,7 @@ func (k *KeeperBenchmarkTest) Run() {
 		}
 	}()
 
+	// Main test loop
 	k.setFilterQuery()
 	require.NoError(k.t, err, "Setting filter query shouldn't fail")
 	for rIndex := range k.keeperRegistries {
@@ -290,6 +291,33 @@ func (k *KeeperBenchmarkTest) Run() {
 	}
 	err = k.chainClient.WaitForEvents()
 	require.NoError(k.t, err, "Error waiting for keeper subscriptions")
+
+	// Collect test metrics
+	var (
+		logs    []types.Log
+		timeout = 5 * time.Second
+	)
+
+	// This RPC call can possibly time out or otherwise die. Failure is not an option, keep retrying to get our stats.
+	for {
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		logs, err = k.chainClient.FilterLogs(ctx, k.filterQuery)
+		cancel()
+		if err != nil {
+			k.log.Error().Err(err).
+				Interface("Filter Query", k.filterQuery).
+				Str("Timeout", timeout.String()).
+				Msg("Error getting logs from chain, trying again")
+			continue
+		}
+		k.log.Info().Int("Log Count", len(logs)).Msg("Collected logs from chain")
+		break
+	}
+
+	contractABI := k.contractABI(0)
+	for _, log := range logs {
+		eventDetails := contractABI.EventByID(log.Topics[0])
+	}
 
 	for _, chainlinkNode := range k.chainlinkNodes {
 		txData, err := chainlinkNode.MustReadTransactionAttempts()
@@ -346,8 +374,7 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
 	sub, err := k.chainClient.SubscribeFilterLogs(ctx, k.filterQuery, eventLogs)
 	cancel()
 	require.NoError(k.t, err, "Subscribing to upkeep performed events log shouldn't fail")
-	contractABI, err := k.contractABI(rIndex)
-	require.NoError(k.t, err, "Getting contract ABI shouldn't fail")
+	contractABI := k.contractABI(rIndex)
 
 	go func() {
 		for {
@@ -367,6 +394,12 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
 				if eventDetails.Name != "UpkeepPerformed" && eventDetails.Name != "StaleUpkeepReport" {
 					// Skip non upkeepPerformed Logs
 					continue
+				}
+				if vLog.Removed {
+					k.log.Warn().
+						Str("Name", eventDetails.Name).
+						Str("Registry", k.keeperRegistries[rIndex].Address()).
+						Msg("Got removed log")
 				}
 				if eventDetails.Name == "UpkeepPerformed" {
 					parsedLog, err := k.keeperRegistries[rIndex].ParseUpkeepPerformedLog(&vLog)
@@ -395,12 +428,17 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
 						Str("Registry", k.keeperRegistries[rIndex].Address()).
 						Msg("Got stale Upkeep report log on Registry")
 				}
+			case <-k.chainClient.ConnectionIssue():
+				k.log.Warn().Msg("RPC connection issue detected.")
+			case <-k.chainClient.ConnectionRestored():
+				k.log.Info().Msg("RPC connection restored.")
 			}
 		}
 	}()
 }
 
-func (k *KeeperBenchmarkTest) contractABI(rIndex int) (*abi.ABI, error) {
+// contractABI returns the ABI of the proper keeper registry contract
+func (k *KeeperBenchmarkTest) contractABI(rIndex int) *abi.ABI {
 	var (
 		contractABI *abi.ABI
 		err         error
@@ -419,7 +457,8 @@ func (k *KeeperBenchmarkTest) contractABI(rIndex int) (*abi.ABI, error) {
 	default:
 		contractABI, err = keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
 	}
-	return contractABI, err
+	require.NoError(k.t, err, "Getting contract ABI shouldn't fail")
+	return contractABI
 }
 
 // setFilterQuery sets the filter query for the test to watch for events on contracts
