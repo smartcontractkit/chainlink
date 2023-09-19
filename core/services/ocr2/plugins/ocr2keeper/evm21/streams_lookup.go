@@ -101,10 +101,10 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 
 		// Try to decode the revert error into streams lookup format. User upkeeps can revert with any reason, see if they
 		// tried to call mercury
-		lggr.Infof("at block %d upkeep %s trying to decodeStreamsLookup performData=%s", block, upkeepId, hexutil.Encode(checkResults[i].PerformData))
+		lggr.Infof("at time param %d upkeep %s trying to decodeStreamsLookup performData=%s", block, upkeepId, hexutil.Encode(checkResults[i].PerformData))
 		l, err := r.decodeStreamsLookup(res.PerformData)
 		if err != nil {
-			lggr.Warnf("at block %d upkeep %s decodeStreamsLookup failed: %v", block, upkeepId, err)
+			lggr.Warnf("at time param %d upkeep %s decodeStreamsLookup failed: %v", block, upkeepId, err)
 			// user contract did not revert with StreamsLookup error
 			continue
 		}
@@ -115,7 +115,7 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 
 		if len(l.feeds) == 0 {
 			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
-			lggr.Warnf("at block %s upkeep %s has empty feeds array", block, upkeepId)
+			lggr.Warnf("at time param %s upkeep %s has empty feeds array", block, upkeepId)
 			continue
 		}
 		// mercury permission checking for v0.3 is done by mercury server
@@ -138,7 +138,7 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 			}
 		} else if l.feedParamKey != feedIDs || l.timeParamKey != timestamp {
 			// if mercury version cannot be determined, set failure reason
-			lggr.Warnf("at block %d upkeep %s NOT allowed to query Mercury server", block, upkeepId)
+			lggr.Warnf("at time param %d upkeep %s NOT allowed to query Mercury server", block, upkeepId)
 			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
 			continue
 		}
@@ -147,7 +147,7 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 		// the block here is exclusively used to call checkCallback at this block, not to be confused with the block number
 		// in the revert for mercury v0.2, which is denoted by time in the struct bc starting from v0.3, only timestamp will be supported
 		l.block = uint64(block.Int64())
-		lggr.Infof("at block %d upkeep %s decodeStreamsLookup feedKey=%s timeKey=%s feeds=%v time=%s extraData=%s", block, upkeepId, l.feedParamKey, l.timeParamKey, l.feeds, l.time, hexutil.Encode(l.extraData))
+		lggr.Infof("at time param %d upkeep %s decodeStreamsLookup feedKey=%s timeKey=%s feeds=%v time=%s extraData=%s", block, upkeepId, l.feedParamKey, l.timeParamKey, l.feeds, l.time, hexutil.Encode(l.extraData))
 		lookups[i] = l
 	}
 
@@ -180,7 +180,7 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 
 	state, retryable, mercuryBytes, err := r.checkCallback(ctx, values, lookup)
 	if err != nil {
-		lggr.Errorf("at block %d upkeep %s checkCallback err: %s", lookup.block, lookup.upkeepId, err.Error())
+		lggr.Errorf("at time param %d upkeep %s checkCallback err: %s", lookup.block, lookup.upkeepId, err.Error())
 		checkResults[i].Retryable = retryable
 		checkResults[i].PipelineExecutionState = uint8(state)
 		return
@@ -189,27 +189,27 @@ func (r *EvmRegistry) doLookup(ctx context.Context, wg *sync.WaitGroup, lookup *
 
 	state, needed, performData, failureReason, _, err := r.packer.UnpackCheckCallbackResult(mercuryBytes)
 	if err != nil {
-		lggr.Errorf("at block %d upkeep %s UnpackCheckCallbackResult err: %s", lookup.block, lookup.upkeepId, err.Error())
+		lggr.Errorf("at time param %d upkeep %s UnpackCheckCallbackResult err: %s", lookup.block, lookup.upkeepId, err.Error())
 		checkResults[i].PipelineExecutionState = uint8(state)
 		return
 	}
 
 	if failureReason == uint8(encoding.UpkeepFailureReasonMercuryCallbackReverted) {
 		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryCallbackReverted)
-		lggr.Debugf("at block %d upkeep %s mercury callback reverts", lookup.block, lookup.upkeepId)
+		lggr.Debugf("at time param %d upkeep %s mercury callback reverts", lookup.block, lookup.upkeepId)
 		return
 	}
 
 	if !needed {
 		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonUpkeepNotNeeded)
-		lggr.Debugf("at block %d upkeep %s callback reports upkeep not needed", lookup.block, lookup.upkeepId)
+		lggr.Debugf("at time param %d upkeep %s callback reports upkeep not needed", lookup.block, lookup.upkeepId)
 		return
 	}
 
 	checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonNone)
 	checkResults[i].Eligible = true
 	checkResults[i].PerformData = performData
-	lggr.Infof("at block %d upkeep %s successful with perform data: %s", lookup.block, lookup.upkeepId, hexutil.Encode(performData))
+	lggr.Infof("at time param %d upkeep %s successful with perform data: %s", lookup.block, lookup.upkeepId, hexutil.Encode(performData))
 }
 
 // allowedToUseMercury retrieves upkeep's administrative offchain config and decode a mercuryEnabled bool to indicate if
@@ -388,8 +388,6 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 				return fmt.Errorf("at block %s upkeep %s received status code %d for feed %s", sl.time.String(), sl.upkeepId.String(), resp.StatusCode, sl.feeds[index])
 			}
 
-			lggr.Debugf("at block %s upkeep %s received status code %d from mercury v0.2 with BODY=%s", sl.time.String(), sl.upkeepId.String(), resp.StatusCode, hexutil.Encode(body))
-
 			var m MercuryV02Response
 			err1 = json.Unmarshal(body, &m)
 			if err1 != nil {
@@ -436,14 +434,9 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 
 // multiFeedsRequest sends a Mercury v0.3 request for a multi-feed report
 func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryData, sl *StreamsLookup, lggr logger.Logger) {
-	// this won't work bc q.Encode() will encode commas as '%2C' but the server is strictly expecting a comma separated list
-	//q := url.Values{
-	//	feedIDs:   {strings.Join(sl.feeds, ",")},
-	//	timestamp: {sl.time.String()},
-	//}
 	params := fmt.Sprintf("%s=%s&%s=%s", feedIDs, strings.Join(sl.feeds, ","), timestamp, sl.time.String())
 	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV03, params)
-	lggr.Debugf("request URL for upkeep %s userId %s: %s", sl.upkeepId.String(), r.mercury.cred.Username, reqUrl)
+	lggr.Debugf("request URL for upkeep %s feedIDs %s: %s", sl.upkeepId.String(), strings.Join(sl.feeds, ","), reqUrl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
 	if err != nil {
@@ -512,8 +505,6 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 				state = encoding.InvalidMercuryRequest
 				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3", sl.time.String(), sl.upkeepId.String(), resp.StatusCode)
 			}
-
-			lggr.Debugf("at block %s upkeep %s received status code %d from mercury v0.3 with BODY=%s", sl.time.String(), sl.upkeepId.String(), resp.StatusCode, hexutil.Encode(body))
 
 			var response MercuryV03Response
 			err1 = json.Unmarshal(body, &response)
