@@ -80,6 +80,7 @@ type Config struct {
 	UseArbBlockNumber               bool                   `mapstructure:"USE_ARB_BLOCK_NUMBER"`
 	VerifiableLoadContractAddress   string                 `mapstructure:"VERIFIABLE_LOAD_CONTRACT_ADDRESS"`
 	UpkeepType                      UpkeepType             `mapstructure:"UPKEEP_TYPE"`
+	UseComposer                     bool                   `mapstructure:"USE_COMPOSER"`
 
 	// Node config scraping and verification
 	NodeConfigURL string `mapstructure:"NODE_CONFIG_URL"`
@@ -164,6 +165,7 @@ func init() {
 	viper.SetDefault("UPKEEP_COUNT", 5)
 	viper.SetDefault("UPKEEP_TYPE", 0) // conditional upkeep
 	viper.SetDefault("KEEPERS_COUNT", 2)
+	viper.SetDefault("USE_COMPOSER", false)
 
 	viper.SetDefault("FEED_DECIMALS", 18)
 	viper.SetDefault("MUST_TAKE_TURNS", true)

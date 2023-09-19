@@ -5,28 +5,20 @@ import "../interfaces/AutomationCompatibleInterface.sol";
 import "./interfaces/ComposerCompatibleInterfaceV1.sol";
 import "../../ChainSpecificUtil.sol";
 import "../../vendor/openzeppelin-contracts/contracts/utils/Strings.sol";
+import "../../vendor/Strings.sol";
 
 /*--------------------------------------------------------------------------------------------------------------------+
-| Mercury + Automation                                                                                                |
+| Composer-Compatible Mercury Milestone 3                                                                             |
 | ________________                                                                                                    |
 | This implementation allows for an on-chain registry of price feed data to be maintained and updated by Automation   |
-| nodes. The upkeep provides the following advantages:                                                                |
-|   - Node operator savings. The single committee of automation nodes is able to update all price feed data using     |
-|     off-chain feed data.                                                                                            |
-|   - Fetch batches of price data. All price feed data is held on the same contract, so a contract that needs         |
-|     multiple sets of feed data can fetch them while paying for only one external call.                              |
-|   - Scalability. Feeds can be added or removed from the contract with a single contract call, and the number of     |
-|     feeds that the registry can store is unbounded.                                                                 |
-|                                                                                                                     |
-| Key Contracts:                                                                                                      |
-|   - `MercuryRegistry.sol` - stores price feed data and implements core logic.                                       |
-|   - `MercuryRegistryBatchUpkeep.sol` - enables batching for the registry.                                           |
-|   - `MercuryRegistry.t.sol` - contains foundry tests to demonstrate various flows.                                  |
-|                                                                                                                     |
+| and Functions nodes. The upkeep provides the following advantages:                                                  |                                                                                          |
 | TODO:                                                                                                               |
+|   - Stop using stringified performData when possible.                                                               |
 |   - Optimize gas consumption.                                                                                       |
 -+---------------------------------------------------------------------------------------------------------------------*/
 contract MercuryRegistryComposer is ConfirmedOwner, AutomationCompatibleInterface, ComposerCompatibleInterfaceV1 {
+  using strings for strings.slice;
+
   error DuplicateFeed(string feedId);
   error FeedNotActive(string feedId);
   error StaleReport(string feedId, uint32 currentTimestamp, uint32 incomingTimestamp);
@@ -133,10 +125,22 @@ contract MercuryRegistryComposer is ConfirmedOwner, AutomationCompatibleInterfac
 
   // Use deviated off-chain values to update on-chain state.
   function performUpkeep(bytes calldata performData) external override {
-    (bytes[] memory values /* bytes memory lookupData */, ) = abi.decode(performData, (bytes[], bytes));
-    for (uint256 i = 0; i < values.length; i++) {
+    (string memory values /* bytes memory lookupData */, ) = abi.decode(performData, (string, bytes));
+
+    // Parse the comma separated string of hex-encoded mercury proofs.
+    strings.slice memory s = strings.toSlice(values);
+    strings.slice memory delim = strings.toSlice(",");
+    string[] memory parts = new string[](s.count(delim) + 1);
+    for(uint i = 0; i < parts.length; i++) {
+        parts[i] = s.split(delim).toString();
+    }
+
+    for (uint256 i = 0; i < parts.length; i++) {
+      // Convert the hex-encoded proof to bytes.
+      bytes memory value = fromHex(parts[i]);
+
       // Verify and decode the Mercury report.
-      Report memory report = abi.decode(s_verifier.verify(values[i]), (Report));
+      Report memory report = abi.decode(s_verifier.verify(value), (Report));
       string memory feedId = bytes32ToHexString(abi.encodePacked(report.feedId));
 
       // Feeds that have been removed between checkUpkeep and performUpkeep should not be updated.
@@ -191,6 +195,32 @@ contract MercuryRegistryComposer is ConfirmedOwner, AutomationCompatibleInterfac
       converted[i * 2 + 1] = _base[uint8(buffer[i]) % _base.length];
     }
     return string(abi.encodePacked("0x", converted));
+  }
+
+  // Convert an hexadecimal character to their value
+  function fromHexChar(uint8 c) public pure returns (uint8) {
+      if (bytes1(c) >= bytes1("0") && bytes1(c) <= bytes1("9")) {
+          return c - uint8(bytes1("0"));
+      }
+      if (bytes1(c) >= bytes1("a") && bytes1(c) <= bytes1("f")) {
+          return 10 + c - uint8(bytes1("a"));
+      }
+      if (bytes1(c) >= bytes1("A") && bytes1(c) <= bytes1("F")) {
+          return 10 + c - uint8(bytes1("A"));
+      }
+      revert("fail");
+  }
+
+  // Convert an hexadecimal string to raw bytes
+  function fromHex(string memory s) public pure returns (bytes memory) {
+      bytes memory ss = bytes(s);
+      require(ss.length%2 == 0); // length must be even
+      bytes memory r = new bytes(ss.length/2);
+      for (uint i=0; i<ss.length/2; ++i) {
+          r[i] = bytes1(fromHexChar(uint8(ss[2*i])) * 16 +
+                      fromHexChar(uint8(ss[2*i+1])));
+      }
+      return r;
   }
 
   function addFeeds(

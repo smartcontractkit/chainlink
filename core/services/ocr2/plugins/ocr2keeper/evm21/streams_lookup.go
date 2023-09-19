@@ -47,6 +47,12 @@ const (
 	totalAttempt        = 3
 )
 
+// Mercury report ABIs used to decode data off-chain.
+const (
+	innerReportType = `[{"type":"bytes32"},{"type":"uint32"},{"type":"int192"},{"type":"int192"},{"type":"int192"},{"type":"uint64"},{"type":"bytes32"},{"type":"uint64"},{"type":"uint64"}]`
+	reportType      = `[{ "type": "bytes32[3]" },{ "type": "bytes" },{ "type": "bytes32[]" },{ "type": "bytes32[]" },{ "type": "bytes32" }]`
+)
+
 type StreamsLookup struct {
 	feedParamKey string
 	feeds        []string
@@ -403,69 +409,84 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 			checkResults[i].IneligibilityReason = uint8(reason)
 			return
 		}
+	}
 
-		var reportData []MercuryReportStruct
-		for j, v := range values {
-			lggr.Infof("upkeep %s doMercuryRequest values[%d]: %s", request.upkeepId, j, hexutil.Encode(v))
-			const innerReportType = `[{"type":"bytes32"},{"type":"uint32"},{"type":"int192"},{"type":"int192"},{"type":"int192"},{"type":"uint64"},{"type":"bytes32"},{"type":"uint64"},{"type":"uint64"}]`
-			const reportType = `[{ "type": "bytes32[3]" },{ "type": "bytes" },{ "type": "bytes32[]" },{ "type": "bytes32[]" },{ "type": "bytes32" }]`
-			interfaces, err := utils.ABIDecode(reportType, v)
-			if err != nil {
-				panic(err)
-			}
-			innerInterfaces, err := utils.ABIDecode(innerReportType, interfaces[1].([]byte))
-			if err != nil {
-				panic(err)
-			}
-			fmt.Println("DATA_FROM_VALUE")
-			fmt.Println(common.Hash(innerInterfaces[0].([32]byte)).String())
-			fmt.Println(innerInterfaces[1].(uint32))
-			fmt.Println(innerInterfaces[2].(*big.Int))
-			fmt.Println(innerInterfaces[3].(*big.Int))
-			fmt.Println(innerInterfaces[4].(*big.Int))
-			fmt.Println(innerInterfaces[5].(uint64))
-			reportData = append(reportData, MercuryReportStruct{
-				ObservationsTimestamp: innerInterfaces[1].(uint32),
-				Price:                 innerInterfaces[2].(*big.Int),
-				Bid:                   innerInterfaces[3].(*big.Int),
-				Ask:                   innerInterfaces[4].(*big.Int),
-			})
-		}
+	var rawReports []string
+	var reportData []MercuryReportStruct
+	for j, v := range values {
+		lggr.Infof("upkeep %s doMercuryRequest values[%d]: %s", request.upkeepId, j, hexutil.Encode(v))
 
-		mercuryArg, err := json.Marshal(reportData)
+		interfaces, err := utils.ABIDecode(reportType, v)
 		if err != nil {
-			fmt.Println("ERROR MARSHALLING DATA", err)
-		}
-
-		// THIS PRINTS OUR MERCURY ARGUMENT AND THE ON-CHAIN PRICE DATA.
-		fmt.Println("MERCURY_ARG", string(mercuryArg), request.functionsArguments)
-
-		// SIM START
-		// AT THIS POINT, FUNCTIONS SHOULD BE CALLED VIA GATEWAY TO DO SOMETHING WITH THE REVERT ARGUMENTS AND MERCURY DATA.
-		// UNTIL THEN, THE MERCURY REPORTS ARE SIMPLY PASSED BACK AS PERFORM DATA.
-
-		abiEncode, err := utils.ABIEncode(`[{"type":"bytes[]"},{"type":"bytes"}]`, values, lookup.extraData)
-		if err != nil {
-			lggr.Errorf("upkeep %s retryable %v abi encode packing: %s", request.upkeepId, retryable, err.Error())
+			lggr.Errorf("upkeep %s retryable %v interface decode: %s", request.upkeepId, retryable, err.Error())
 			checkResults[i].Retryable = false
 			checkResults[i].PipelineExecutionState = uint8(encoding.PackUnpackDecodeFailed)
 			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
 			return
 		}
-
-		// SIM END
-
-		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonNone)
-		checkResults[i].Eligible = true
-		checkResults[i].PerformData = abiEncode
+		innerInterfaces, err := utils.ABIDecode(innerReportType, interfaces[1].([]byte))
+		if err != nil {
+			lggr.Errorf("upkeep %s retryable %v inner abi decode: %s", request.upkeepId, retryable, err.Error())
+			checkResults[i].Retryable = false
+			checkResults[i].PipelineExecutionState = uint8(encoding.PackUnpackDecodeFailed)
+			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
+			return
+		}
+		reportData = append(reportData, MercuryReportStruct{
+			ObservationsTimestamp: innerInterfaces[1].(uint32),
+			Price:                 innerInterfaces[2].(*big.Int),
+			Bid:                   innerInterfaces[3].(*big.Int),
+			Ask:                   innerInterfaces[4].(*big.Int),
+		})
+		rawReports = append(rawReports, common.Bytes2Hex(v))
 	}
+
+	mercuryArg, err := json.Marshal(reportData)
+	if err != nil {
+		lggr.Errorf("upkeep %s retryable %v report data json marshal: %s", request.upkeepId, retryable, err.Error())
+		checkResults[i].Retryable = false
+		checkResults[i].PipelineExecutionState = uint8(encoding.PackUnpackDecodeFailed)
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
+		return
+	}
+
+	rawReportsArg, err := json.Marshal(rawReports)
+	if err != nil {
+		lggr.Errorf("upkeep %s retryable %v raw report data json marshal: %s", request.upkeepId, retryable, err.Error())
+		checkResults[i].Retryable = false
+		checkResults[i].PipelineExecutionState = uint8(encoding.PackUnpackDecodeFailed)
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
+		return
+	}
+
+	// AT THIS POINT, FUNCTIONS SHOULD BE CALLED VIA GATEWAY TO DO SOMETHING WITH THE REVERT ARGUMENTS AND MERCURY DATA.
+	// UNTIL THEN, THE MERCURY REPORTS ARE STRINGIFIED AND THEN ABI-ENCODED INTO PERFORM DATA.
+	// ARG[0]: Full raw reports if mercury is requested, otherwise an empty string array
+	// ARG[1]: Parsed mercury report info
+	// ARG[2..n]: User-provided args
+	// Response: A string. Currently, Functions does not support direct ABI-encoding, so results must be passed back
+	// on-chain in a stringified manner.
+	lggr.Infof("upkeep %s composerRequest Functions args [%d]: %s, %s, %v",
+		request.upkeepId, i, string(rawReportsArg), string(mercuryArg), request.functionsArguments)
+	concatenatedReports := strings.Join(rawReports, ",") // TODO: replace with Functions call
+	abiEncode, err := utils.ABIEncode(`[{"type":"string"},{"type":"bytes"}]`, concatenatedReports, request.extraData)
+	if err != nil {
+		lggr.Errorf("upkeep %s retryable %v abi encode packing: %s", request.upkeepId, retryable, err.Error())
+		checkResults[i].Retryable = false
+		checkResults[i].PipelineExecutionState = uint8(encoding.PackUnpackDecodeFailed)
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
+		return
+	}
+	lggr.Infof("upkeep %s composerRequest performData [%d]: %s", request.upkeepId, i, hexutil.Encode(abiEncode))
+
+	checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonNone)
+	checkResults[i].Eligible = true
+	checkResults[i].PerformData = abiEncode
 }
 
-// decodeStreamsLookup decodes the revert error StreamsLookup(string feedParamKey, string[] feeds, string feedParamKey, uint256 time, byte[] extraData)
+// decodeComposerRequest decodes the revert error ComposerRequestV1(string scriptHash, string[] functionsArguments, bool useMercury, string feedParamKey, string[] feeds, string timeParamKey, uint256 time, byte[] extraData)
 func (r *EvmRegistry) decodeComposerRequest(data []byte) (*ComposerRequestV1, error) {
 	e := r.composer.abi.Errors["ComposerRequestV1"]
-	fmt.Println("DATA", hexutil.Encode(data))
-	fmt.Println(e)
 	unpack, err := e.Unpack(data)
 	if err != nil {
 		return nil, fmt.Errorf("unpack error: %w", err)

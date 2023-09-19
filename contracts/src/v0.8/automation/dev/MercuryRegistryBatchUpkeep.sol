@@ -1,4 +1,4 @@
-pragma solidity 0.8.16;
+pragma solidity 0.8.6;
 
 import "../../shared/access/ConfirmedOwner.sol";
 import "../interfaces/AutomationCompatibleInterface.sol";

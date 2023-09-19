@@ -28,6 +28,7 @@ import (
 	registry20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_streams_lookup_upkeep_wrapper"
@@ -583,15 +584,25 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 					common.HexToAddress(k.cfg.Registrar),
 					k.cfg.UseArbBlockNumber,
 				)
-			} else {
+			} else if k.cfg.UseComposer {
 				upkeepAddr, deployUpkeepTx, _, err = mercury_registry_composer.DeployMercuryRegistryComposer(
 					k.buildTxOpts(ctx),
 					k.client,
-					[]string{"0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-					[]string{"BTC/USD Feed"},
-					[]*big.Int{big.NewInt(0).SetUint64(10_000)},
-					[]uint32{30},
+					[]string{"0x4254432d5553442d415242495452554d2d544553544e45540000000000000000", "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					[]string{"BTC/USD Feed", "ETH/USD Feed"},
+					[]*big.Int{big.NewInt(0).SetUint64(10_000), big.NewInt(0).SetUint64(10_000)},
+					[]uint32{30, 30},
 					common.HexToAddress("0x09DFf56A4fF44e0f4436260A04F5CFa65636A481"),
+				)
+			} else {
+				upkeepAddr, deployUpkeepTx, _, err = streams_lookup_upkeep_wrapper.DeployStreamsLookupUpkeep(
+					k.buildTxOpts(ctx),
+					k.client,
+					big.NewInt(k.cfg.UpkeepTestRange),
+					big.NewInt(k.cfg.UpkeepInterval),
+					true,  /* useArbBlock */
+					true,  /* staging */
+					false, /* verify mercury response */
 				)
 			}
 			if err != nil {
