@@ -397,6 +397,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 		err           error
 		ethCalls      map[string]bool
 		receipts      map[string]*types.Receipt
+		poller        logpoller.LogPoller
 		ethCallErrors map[string]error
 	}{
 		{
@@ -472,6 +473,15 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 				uid1.String(): true,
 			},
 			receipts: map[string]*types.Receipt{},
+			poller: &mockLogPoller{
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
+					return []logpoller.LogPollerBlock{
+						{
+							BlockHash: common.HexToHash("0xcba5cf9e2bb32373c76015384e1098912d9510a72481c78057fcb088209167de"),
+						},
+					}, nil
+				},
+			},
 			ethCallErrors: map[string]error{
 				uid1.String(): fmt.Errorf("error"),
 			},
@@ -486,8 +496,9 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			}
 			bs.latestBlock.Store(&tc.latestBlock)
 			e := &EvmRegistry{
-				lggr: lggr,
-				bs:   bs,
+				lggr:   lggr,
+				bs:     bs,
+				poller: tc.poller,
 			}
 			client := new(evmClientMocks.Client)
 			for _, i := range tc.inputs {
