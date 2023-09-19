@@ -42,24 +42,6 @@ type NodeConfig interface {
 	SyncThreshold() uint32
 }
 
-type NodeClient[
-	CHAIN_ID types.ID,
-	HEAD Head,
-] interface {
-	Close()
-	ChainID(context.Context) (CHAIN_ID, error)
-	Dial(callerCtx context.Context) error
-	DialHTTP() error
-	DisconnectAll()
-	Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (types.Subscription, error)
-	ClientVersion(context.Context) (string, error)
-}
-
-type Head interface {
-	BlockNumber() int64
-	BlockDifficulty() *utils.Big
-}
-
 type Node[
 	CHAIN_ID types.ID,
 	HEAD Head,

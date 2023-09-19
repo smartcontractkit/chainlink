@@ -7,6 +7,7 @@ import (
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // RPC includes all the necessary methods for a multi-node client to interact directly with any RPC endpoint.
@@ -43,6 +44,27 @@ type RPC[
 	]
 }
 
+// Head is the interface required by the NodeClient
+type Head interface {
+	BlockNumber() int64
+	BlockDifficulty() *utils.Big
+}
+
+// NodeClient includes all the necessary RPC methods required by a node.
+type NodeClient[
+	CHAIN_ID types.ID,
+	HEAD Head,
+] interface {
+	Close()
+	ChainID(context.Context) (CHAIN_ID, error)
+	Dial(callerCtx context.Context) error
+	DialHTTP() error
+	DisconnectAll()
+	Subscribe(ctx context.Context, channel chan<- HEAD, args ...interface{}) (types.Subscription, error)
+	ClientVersion(context.Context) (string, error)
+}
+
+// ClientAPI includes all the direct RPC methods required by the generalized common client to implement its own.
 type ClientAPI[
 	CHAIN_ID types.ID,
 	SEQ types.Sequence,
@@ -56,7 +78,6 @@ type ClientAPI[
 	FEE feetypes.Fee,
 	HEAD types.Head[BLOCK_HASH],
 ] interface {
-	// Underlying RPC methods required by generalized client.
 	// Account
 	BalanceAt(ctx context.Context, accountAddress ADDR, blockNumber *big.Int) (*big.Int, error)
 	TokenBalance(ctx context.Context, accountAddress ADDR, tokenAddress ADDR) (*big.Int, error)
