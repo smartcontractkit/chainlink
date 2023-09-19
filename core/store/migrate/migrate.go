@@ -15,6 +15,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate/migrations" // Invoke init() functions within migrations pkg.
 )
@@ -130,4 +131,15 @@ func Status(db *sql.DB, lggr logger.Logger) error {
 
 func Create(db *sql.DB, name, migrationType string) error {
 	return goose.Create(db, "core/store/migrate/migrations", name, migrationType)
+}
+
+// SetMigrationENVVars is used to inject values from config to goose migrations via env.
+func SetMigrationENVVars(generalConfig chainlink.GeneralConfig) error {
+	if generalConfig.EVMEnabled() {
+		err := os.Setenv(migrations.EVMChainIDNotNullMigrationHelper, generalConfig.EVMConfigs()[0].ChainID.String())
+		if err != nil {
+			panic(errors.Wrap(err, "failed to set migrations env variables"))
+		}
+	}
+	return nil
 }

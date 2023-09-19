@@ -3,6 +3,7 @@ package migrations
 import (
 	"context"
 	"database/sql"
+	"os"
 
 	"github.com/pkg/errors"
 	"github.com/pressly/goose/v3"
@@ -13,6 +14,8 @@ func init() {
 }
 
 const (
+	EVMChainIDNotNullMigrationHelper = "EVM_CHAINID_MIGRATION_HELPER_ENV_VAR"
+
 	addNullConstraintsToSpecs = `
 	ALTER TABLE direct_request_specs ALTER COLUMN evm_chain_id SET NOT NULL;
 	ALTER TABLE flux_monitor_specs ALTER COLUMN evm_chain_id SET NOT NULL;
@@ -36,6 +39,25 @@ const (
 
 // nolint
 func Up195(ctx context.Context, tx *sql.Tx) error {
+	chainID, set := os.LookupEnv(EVMChainIDNotNullMigrationHelper)
+	if set {
+		updateQueries := []string{
+			`UPDATE direct_request_specs SET evm_chain_id = $1 WHERE evm_chain_id IS NULL;`,
+			`UPDATE flux_monitor_specs SET evm_chain_id = $1 WHERE evm_chain_id IS NULL;`,
+			`UPDATE ocr_oracle_specs SET evm_chain_id = $1 WHERE evm_chain_id IS NULL;`,
+			`UPDATE keeper_specs SET evm_chain_id = $1 WHERE evm_chain_id IS NULL;`,
+			`UPDATE vrf_specs SET evm_chain_id = $1 WHERE evm_chain_id IS NULL;`,
+			`UPDATE blockhash_store_specs SET evm_chain_id = $1 WHERE evm_chain_id IS NULL;`,
+			`UPDATE block_header_feeder_specs SET evm_chain_id = $1 WHERE evm_chain_id IS NULL;`,
+		}
+		for i := range updateQueries {
+			_, err := tx.Exec(updateQueries[i], chainID)
+			if err != nil {
+				return errors.Wrap(err, "failed to set missing evm chain ids")
+			}
+		}
+	}
+
 	_, err := tx.ExecContext(ctx, addNullConstraintsToSpecs)
 	return errors.Wrap(err, "failed to add null constraints")
 }
