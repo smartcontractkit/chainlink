@@ -104,15 +104,15 @@ contract MercuryRegistryComposer is ConfirmedOwner, AutomationCompatibleInterfac
 
     // Pass current on-chain data as an argument to the Functions DON.
     string memory currentMercuryData = "";
-    for (uint256 i; i < feeds.length; i ++) {
+    for (uint256 i; i < feeds.length; i++) {
       Feed memory feed = s_feedMapping[feeds[i]];
       string memory entry = string.concat(
-        "(" , 
+        "(",
         Strings.toString(uint192(feed.price)),
-        ",", 
-        Strings.toString(feed.observationsTimestamp), 
-        ",", 
-        Strings.toString(uint192(feed.deviationPercentagePPM)),  
+        ",",
+        Strings.toString(feed.observationsTimestamp),
+        ",",
+        Strings.toString(uint192(feed.deviationPercentagePPM)),
         ")"
       );
       currentMercuryData = string.concat(currentMercuryData, entry, i == feeds.length - 1 ? "" : ",");
@@ -120,7 +120,16 @@ contract MercuryRegistryComposer is ConfirmedOwner, AutomationCompatibleInterfac
     functionsArguments[0] = currentMercuryData;
 
     // Emit Composer request revert.
-    revert ComposerRequestV1("TODO_SCRIPT_HASH", functionsArguments, true, c_feedParamKey, feeds, c_timeParamKey, blockNumber, "");
+    revert ComposerRequestV1(
+      "TODO_SCRIPT_HASH",
+      functionsArguments,
+      true,
+      c_feedParamKey,
+      feeds,
+      c_timeParamKey,
+      blockNumber,
+      ""
+    );
   }
 
   // Modified checkCallback function that matches the StreamsLookupCompatibleInterface, but
@@ -138,8 +147,8 @@ contract MercuryRegistryComposer is ConfirmedOwner, AutomationCompatibleInterfac
     strings.slice memory s = strings.toSlice(values);
     strings.slice memory delim = strings.toSlice(",");
     string[] memory parts = new string[](s.count(delim) + 1);
-    for(uint i = 0; i < parts.length; i++) {
-        parts[i] = s.split(delim).toString();
+    for (uint i = 0; i < parts.length; i++) {
+      parts[i] = s.split(delim).toString();
     }
 
     // Convert the hex strings to byte arrays.
@@ -149,7 +158,7 @@ contract MercuryRegistryComposer is ConfirmedOwner, AutomationCompatibleInterfac
       bytes memory value = fromHex(parts[i]);
       reports[i] = value;
     }
-  
+
     // Return the well-formatted performData.
     bytes memory performData = abi.encode(reports, lookupData);
     return (reports.length > 0, performData);
@@ -219,28 +228,27 @@ contract MercuryRegistryComposer is ConfirmedOwner, AutomationCompatibleInterfac
 
   // Convert an hexadecimal character to their value
   function fromHexChar(uint8 c) public pure returns (uint8) {
-      if (bytes1(c) >= bytes1("0") && bytes1(c) <= bytes1("9")) {
-          return c - uint8(bytes1("0"));
-      }
-      if (bytes1(c) >= bytes1("a") && bytes1(c) <= bytes1("f")) {
-          return 10 + c - uint8(bytes1("a"));
-      }
-      if (bytes1(c) >= bytes1("A") && bytes1(c) <= bytes1("F")) {
-          return 10 + c - uint8(bytes1("A"));
-      }
-      revert("fail");
+    if (bytes1(c) >= bytes1("0") && bytes1(c) <= bytes1("9")) {
+      return c - uint8(bytes1("0"));
+    }
+    if (bytes1(c) >= bytes1("a") && bytes1(c) <= bytes1("f")) {
+      return 10 + c - uint8(bytes1("a"));
+    }
+    if (bytes1(c) >= bytes1("A") && bytes1(c) <= bytes1("F")) {
+      return 10 + c - uint8(bytes1("A"));
+    }
+    revert("fail");
   }
 
   // Convert an hexadecimal string to raw bytes
   function fromHex(string memory s) public pure returns (bytes memory) {
-      bytes memory ss = bytes(s);
-      require(ss.length%2 == 0); // length must be even
-      bytes memory r = new bytes(ss.length/2);
-      for (uint i=0; i<ss.length/2; ++i) {
-          r[i] = bytes1(fromHexChar(uint8(ss[2*i])) * 16 +
-                      fromHexChar(uint8(ss[2*i+1])));
-      }
-      return r;
+    bytes memory ss = bytes(s);
+    require(ss.length % 2 == 0); // length must be even
+    bytes memory r = new bytes(ss.length / 2);
+    for (uint i = 0; i < ss.length / 2; ++i) {
+      r[i] = bytes1(fromHexChar(uint8(ss[2 * i])) * 16 + fromHexChar(uint8(ss[2 * i + 1])));
+    }
+    return r;
   }
 
   function addFeeds(
