@@ -330,6 +330,7 @@ type BlockhashStoreSpec struct {
 	CoordinatorV2PlusAddress       *ethkey.EIP55Address  `json:"coordinatorV2PlusAddress"`
 	WaitBlocks                     int32                 `json:"waitBlocks"`
 	LookbackBlocks                 int32                 `json:"lookbackBlocks"`
+	HeartbeatPeriodTime            int32                 `json:"heartbeatPeriodTime"`
 	BlockhashStoreAddress          ethkey.EIP55Address   `json:"blockhashStoreAddress"`
 	TrustedBlockhashStoreAddress   *ethkey.EIP55Address  `json:"trustedBlockhashStoreAddress"`
 	TrustedBlockhashStoreBatchSize int32                 `json:"trustedBlockhashStoreBatchSize"`
@@ -349,6 +350,7 @@ func NewBlockhashStoreSpec(spec *job.BlockhashStoreSpec) *BlockhashStoreSpec {
 		CoordinatorV2PlusAddress:       spec.CoordinatorV2PlusAddress,
 		WaitBlocks:                     spec.WaitBlocks,
 		LookbackBlocks:                 spec.LookbackBlocks,
+		HeartbeatPeriodTime:            spec.HeartbeatPeriodTime,
 		BlockhashStoreAddress:          spec.BlockhashStoreAddress,
 		TrustedBlockhashStoreAddress:   spec.TrustedBlockhashStoreAddress,
 		TrustedBlockhashStoreBatchSize: spec.TrustedBlockhashStoreBatchSize,
