@@ -16,8 +16,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-// ORM represents the persistent data access layer used by the log poller. At this moment, it's a bit leaky, because
-// it exposes some of the database implementation details (e.g. pg.Q). Ideally it should be agnostic and could be applied to any persistence layer
+// ORM represents the persistent data access layer used by the log poller. At this moment, it's a bit leaky abstraction, because
+// it exposes some of the database implementation details (e.g. pg.Q). Ideally it should be agnostic and could be applied to any persistence layer.
+// What is more, LogPoller should not be aware of the underlying database implementation and delegate all the queries to the ORM.
 type ORM interface {
 	Q() pg.Q
 	InsertLogs(logs []Log, qopts ...pg.QOpt) error
@@ -59,7 +60,7 @@ type DbORM struct {
 	q       pg.Q
 }
 
-// NewORM creates an DbORM scoped to chainID.
+// NewORM creates a DbORM scoped to chainID.
 func NewORM(chainID *big.Int, db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *DbORM {
 	namedLogger := lggr.Named("Configs")
 	q := pg.NewQ(db, namedLogger, cfg)
