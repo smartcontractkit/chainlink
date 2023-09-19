@@ -21,6 +21,7 @@ jobs:
           filters: |
             src:
               - 'contracts/src/v0.8/**/*'
+              - 'contracts/test/v0.8/foundry/**/*'
               - '.github/workflows/solidity-foundry.yml'
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
