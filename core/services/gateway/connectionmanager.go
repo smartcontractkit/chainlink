@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -22,6 +24,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+var promHeartbeatsSent = promauto.NewGaugeVec(prometheus.GaugeOpts{
+	Name: "gateway_heartbeats_sent",
+	Help: "Metric to track the number of successful node heartbeates per DON",
+}, []string{"don_id"})
 
 // ConnectionManager holds all connections between Gateway and Nodes.
 type ConnectionManager interface {
@@ -96,7 +103,7 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock utils.Clock, lgg
 			codec:      codec,
 			nodes:      nodes,
 			shutdownCh: make(chan struct{}),
-			lggr:       lggr,
+			lggr:       lggr.Named("DONConnectionManager." + donConfig.DonId),
 		}
 	}
 	connMgr := &connectionManager{
@@ -300,6 +307,7 @@ func (m *donConnectionManager) heartbeatLoop(intervalSec uint32) {
 					errorCount++
 				}
 			}
+			promHeartbeatsSent.WithLabelValues(m.donConfig.DonId).Set(float64(len(m.nodes) - errorCount))
 			m.lggr.Infow("sent heartbeat to nodes", "donID", m.donConfig.DonId, "errCount", errorCount)
 		}
 	}

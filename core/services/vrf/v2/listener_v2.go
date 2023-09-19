@@ -923,7 +923,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 				RequestTxHash: &requestTxHash,
 				// No max link since simulation failed
 			},
-		}, pg.WithQueryer(tx), pg.WithParentCtx(ctx))
+		})
 		return err
 	})
 	return
@@ -1137,7 +1137,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 						VRFCoordinatorAddress: &coordinatorAddress,
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw().BlockNumber),
 					},
-				}, pg.WithQueryer(tx), pg.WithParentCtx(ctx))
+				})
 				return err
 			})
 			if err != nil {
@@ -1415,6 +1415,7 @@ func (lsn *listenerV2) simulateFulfillment(
 			"name":          lsn.job.Name.ValueOrZero(),
 			"publicKey":     lsn.job.VRFSpec.PublicKey[:],
 			"maxGasPrice":   maxGasPriceWei.ToInt().String(),
+			"evmChainID":    lsn.job.VRFSpec.EVMChainID.String(),
 		},
 		"jobRun": map[string]interface{}{
 			"logBlockHash":   req.req.Raw().BlockHash.Bytes(),
