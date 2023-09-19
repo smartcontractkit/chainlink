@@ -21,7 +21,7 @@ func Test_FeaturesController_List(t *testing.T) {
 		c.Feature.UICSAKeys = &csa
 	}))
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	resp, cleanup := client.Get("/v2/features")
 	t.Cleanup(cleanup)
