@@ -99,25 +99,21 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
 func (r *EvmRegistry) verifyCheckBlock(_ context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
-	var h string
-	var ok bool
 	// verify check block number and hash are valid
-	h, ok = r.bs.queryBlocksMap(checkBlock.Int64())
+	h, ok := r.bs.queryBlocksMap(checkBlock.Int64())
 	// if this block number/hash combo exists in block subscriber, this check block and hash still exist on chain and are valid
+	// the block hash in block subscriber might be slightly outdated, if it doesn't match then we fetch the latest from RPC.
 	if ok && h == checkHash.Hex() {
 		r.lggr.Debugf("check block hash %s exists on chain at block number %d for upkeepId %s", checkHash.Hex(), checkBlock, upkeepId)
 		return encoding.NoPipelineError, false
 	}
-	if !ok {
-		r.lggr.Warnf("check block %s does not exist in block subscriber for upkeepId %s, querying eth client", checkBlock, upkeepId)
-		b, err := r.getBlockHash(checkBlock)
-		if err != nil {
-			r.lggr.Warnf("failed to query block %s: %s", checkBlock, err.Error())
-			return encoding.RpcFlakyFailure, true
-		}
-		h = b.Hex()
+	r.lggr.Warnf("check block %s does not exist in block subscriber or hash does not match for upkeepId %s. this may be caused by block subscriber outdated due to re-org, querying eth client to confirm", checkBlock, upkeepId)
+	b, err := r.getBlockHash(checkBlock)
+	if err != nil {
+		r.lggr.Warnf("failed to query block %s: %s", checkBlock, err.Error())
+		return encoding.RpcFlakyFailure, true
 	}
-	if checkHash.Hex() != h {
+	if checkHash.Hex() != b.Hex() {
 		r.lggr.Warnf("check block %s hash do not match. %s from block subscriber vs %s from trigger for upkeepId %s", checkBlock, h, checkHash.Hex(), upkeepId)
 		return encoding.CheckBlockInvalid, false
 	}
@@ -132,13 +128,14 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 	if logBlockNumber != 0 {
 		h, ok := r.bs.queryBlocksMap(logBlockNumber)
 		// if this block number/hash combo exists in block subscriber, this block and tx still exists on chain and is valid
+		// the block hash in block subscriber might be slightly outdated, if it doesn't match then we fetch the latest from RPC.
 		if ok && h == logBlockHash.Hex() {
 			r.lggr.Debugf("tx hash %s exists on chain at block number %d, block hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockHash.Hex(), logBlockNumber, upkeepId)
 			return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
 		}
 		// if this block does not exist in the block subscriber, the block which this log lived on was probably re-orged
 		// hence, check eth client for this log's tx hash to confirm
-		r.lggr.Debugf("log block %d does not exist in block subscriber for upkeepId %s, querying eth client", logBlockNumber, upkeepId)
+		r.lggr.Debugf("log block %d does not exist in block subscriber or block hash does not match for upkeepId %s. this may be caused by block subscriber outdated due to re-org, querying eth client to confirm", logBlockNumber, upkeepId)
 	} else {
 		r.lggr.Debugf("log block not provided, querying eth client for tx hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 	}
