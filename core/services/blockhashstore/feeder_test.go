@@ -236,6 +236,23 @@ var (
 	}
 )
 
+// Context returns a context with the test's deadline, if available.
+func TestContext(tb testing.TB) context.Context {
+	ctx := context.Background()
+	var cancel func()
+	switch t := tb.(type) {
+	case *testing.T:
+		if d, ok := t.Deadline(); ok {
+			ctx, cancel = context.WithDeadline(ctx, d)
+		}
+	}
+	if cancel == nil {
+		ctx, cancel = context.WithCancel(ctx)
+	}
+	tb.Cleanup(cancel)
+	return ctx
+}
+
 func TestFeeder(t *testing.T) {
 
 	for _, test := range tests {
@@ -258,7 +275,7 @@ func TestFeeder(t *testing.T) {
 				func(ctx context.Context) (uint64, error) {
 					return test.latest, nil
 				})
-			go feeder.StartHeartbeats(context.Background())
+			go feeder.StartHeartbeats(TestContext(t))
 
 			err := feeder.Run(testutils.Context(t))
 			if test.expectedErrMsg == "" {
@@ -352,7 +369,7 @@ func TestFeederWithLogPollerVRFv1(t *testing.T) {
 				func(ctx context.Context) (uint64, error) {
 					return test.latest, nil
 				})
-			go feeder.StartHeartbeats(context.Background())
+			go feeder.StartHeartbeats(TestContext(t))
 
 			// Run feeder and assert correct results.
 			err = feeder.Run(testutils.Context(t))
@@ -450,7 +467,7 @@ func TestFeederWithLogPollerVRFv2(t *testing.T) {
 				func(ctx context.Context) (uint64, error) {
 					return test.latest, nil
 				})
-			go feeder.StartHeartbeats(context.Background())
+			go feeder.StartHeartbeats(TestContext(t))
 
 			// Run feeder and assert correct results.
 			err = feeder.Run(testutils.Context(t))
@@ -548,7 +565,7 @@ func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
 				func(ctx context.Context) (uint64, error) {
 					return test.latest, nil
 				})
-			go feeder.StartHeartbeats(context.Background())
+			go feeder.StartHeartbeats(TestContext(t))
 
 			// Run feeder and assert correct results.
 			err = feeder.Run(testutils.Context(t))
@@ -583,7 +600,7 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 		func(ctx context.Context) (uint64, error) {
 			return 250, nil
 		})
-	go feeder.StartHeartbeats(context.Background())
+	go feeder.StartHeartbeats(TestContext(t))
 
 	// Should store block 100
 	require.NoError(t, feeder.Run(testutils.Context(t)))
