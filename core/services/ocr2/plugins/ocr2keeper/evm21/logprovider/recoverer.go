@@ -1,6 +1,7 @@
 package logprovider
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"errors"
@@ -43,6 +44,9 @@ var (
 	recoveryLogsBurst  = int64(500)
 	// blockTimeUpdateCadence is the cadence at which the chain's blocktime is re-calculated
 	blockTimeUpdateCadence = 10 * time.Minute
+	// maxPendingPayloadsPerUpkeep is the number of logs we can have pending for a single upkeep
+	// at any given time
+	maxPendingPayloadsPerUpkeep = 100
 )
 
 type LogRecoverer interface {
@@ -453,11 +457,12 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 			continue
 		}
 		// r.lggr.Debugw("adding a payload to pending", "payload", payload)
-		r.visited[wid] = visitedRecord{
-			visitedAt: time.Now(),
-			payload:   payload,
+		if err := r.addPending(payload); err != nil {
+			r.visited[wid] = visitedRecord{
+				visitedAt: time.Now(),
+				payload:   payload,
+			}
 		}
-		r.addPending(payload)
 	}
 	return len(r.pending) - pendingSizeBefore, alreadyPending
 }
@@ -619,9 +624,10 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 				removed++
 				continue
 			}
-			r.addPending(rec.payload)
-			rec.visitedAt = time.Now()
-			r.visited[ids[i]] = rec
+			if err := r.addPending(rec.payload); err != nil {
+				rec.visitedAt = time.Now()
+				r.visited[ids[i]] = rec
+			}
 		default:
 			delete(r.visited, ids[i])
 			removed++
@@ -637,17 +643,26 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 
 // addPending adds a payload to the pending list if it's not already there.
 // NOTE: the lock must be held before calling this function.
-func (r *logRecoverer) addPending(payload ocr2keepers.UpkeepPayload) {
+func (r *logRecoverer) addPending(payload ocr2keepers.UpkeepPayload) error {
 	var exist bool
 	pending := r.pending
+	upkeepPayloads := 0
+	upkeepID := payload.UpkeepID
 	for _, p := range pending {
+		if bytes.Equal(p.UpkeepID[:], upkeepID[:]) {
+			upkeepPayloads++
+		}
 		if p.WorkID == payload.WorkID {
 			exist = true
 		}
 	}
+	if upkeepPayloads >= maxPendingPayloadsPerUpkeep {
+		return fmt.Errorf("upkeep %v has too many payloads in pending queue", upkeepID)
+	}
 	if !exist {
 		r.pending = append(pending, payload)
 	}
+	return nil
 }
 
 // removePending removes a payload from the pending list.
