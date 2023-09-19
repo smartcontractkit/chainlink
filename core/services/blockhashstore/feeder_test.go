@@ -258,6 +258,7 @@ func TestFeeder(t *testing.T) {
 				func(ctx context.Context) (uint64, error) {
 					return test.latest, nil
 				})
+			go feeder.StartHeartbeats(context.Background())
 
 			err := feeder.Run(testutils.Context(t))
 			if test.expectedErrMsg == "" {
@@ -351,6 +352,7 @@ func TestFeederWithLogPollerVRFv1(t *testing.T) {
 				func(ctx context.Context) (uint64, error) {
 					return test.latest, nil
 				})
+			go feeder.StartHeartbeats(context.Background())
 
 			// Run feeder and assert correct results.
 			err = feeder.Run(testutils.Context(t))
@@ -448,6 +450,7 @@ func TestFeederWithLogPollerVRFv2(t *testing.T) {
 				func(ctx context.Context) (uint64, error) {
 					return test.latest, nil
 				})
+			go feeder.StartHeartbeats(context.Background())
 
 			// Run feeder and assert correct results.
 			err = feeder.Run(testutils.Context(t))
@@ -545,6 +548,7 @@ func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
 				func(ctx context.Context) (uint64, error) {
 					return test.latest, nil
 				})
+			go feeder.StartHeartbeats(context.Background())
 
 			// Run feeder and assert correct results.
 			err = feeder.Run(testutils.Context(t))
@@ -579,6 +583,7 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 		func(ctx context.Context) (uint64, error) {
 			return 250, nil
 		})
+	go feeder.StartHeartbeats(context.Background())
 
 	// Should store block 100
 	require.NoError(t, feeder.Run(testutils.Context(t)))

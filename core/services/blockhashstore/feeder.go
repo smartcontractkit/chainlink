@@ -71,34 +71,27 @@ type Feeder struct {
 	errsLock      sync.Mutex
 }
 
-func (f *Feeder) startHeartbeats(ctx context.Context) {
+func (f *Feeder) StartHeartbeats(ctx context.Context) {
 	timer := time.NewTimer(time.Duration(f.heartbeatPeriodTime) * time.Second)
-	for alive := true; alive; {
+	for {
 		select {
 		case <-timer.C:
-			f.lggr.Infow("storing heartbeat blockhash",
-				"heartbeatPeriodTime (in seconds)", f.heartbeatPeriodTime,
-				"calling BHSContract::storeEarliest",
-			)
+			f.lggr.Infow("storing heartbeat blockhash using storeEarliest",
+				"heartbeatPeriodSeconds", f.heartbeatPeriodTime)
 			if err := f.bhs.StoreEarliest(ctx); err != nil {
-				f.lggr.Errorw("failed to store heartbeat blockhash",
-					"err", err,
-					"heartbeatPeriodTime (in seconds)", f.heartbeatPeriodTime,
-					"BHSContract::storeEarliest",
-				)
+				f.lggr.Infow("failed to store heartbeat blockhash using storeEarliest",
+					"heartbeatPeriodSeconds", f.heartbeatPeriodTime,
+					"err", err)
 			}
 		case <-ctx.Done():
-			alive = false
 			timer.Stop()
-			break
+			return
 		}
 	}
 }
 
 // Run the feeder.
 func (f *Feeder) Run(ctx context.Context) error {
-	go f.startHeartbeats(ctx)
-
 	latestBlock, err := f.latestBlock(ctx)
 	if err != nil {
 		f.lggr.Errorw("Failed to fetch current block number", "err", err)
