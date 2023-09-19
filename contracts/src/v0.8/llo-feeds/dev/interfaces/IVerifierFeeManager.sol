@@ -19,7 +19,11 @@ interface IVerifierFeeManager is IERC165 {
    * @param parameterPayload fee payload
    * @param subscriber address of the user to process fee for
    */
-  function processFeeBulk(bytes[] calldata payloads, bytes calldata parameterPayload, address subscriber) external payable;
+  function processFeeBulk(
+    bytes[] calldata payloads,
+    bytes calldata parameterPayload,
+    address subscriber
+  ) external payable;
 
   /**
    * @notice Sets the fee recipients according to the fee manager
