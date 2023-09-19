@@ -108,6 +108,12 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, lggr logger.Lo
 	return r, nil
 }
 
+func (r *EvmRegistry) registerEvents(chainID uint64, addr common.Address) error {
+	// Add log filters for the log poller so that it can poll and find the logs that
+	// we need
+	return r.poller.RegisterFilter(UpkeepFilter(addr))
+}
+
 var upkeepStateEvents = []common.Hash{
 	keeper_registry_wrapper2_0.KeeperRegistryUpkeepRegistered{}.Topic(),  // adds new upkeep id to registry
 	keeper_registry_wrapper2_0.KeeperRegistryUpkeepReceived{}.Topic(),    // adds new upkeep id to registry via migration
