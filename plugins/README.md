@@ -29,6 +29,29 @@ If left unset, the default value is `100ms`.
 
 #### Prometheus
 
+
+LOOPPs are dynamic, and so must be monitoring. 
+We use Plugin discovery to dynamically determine what to monitor based on what plugins are running
+and we route external prom scraping to the plugins without exposing them directly
+
+The endpoints are
+
+`/discovery` : HTTP Service Discovery [https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_sd_config]
+Prometheus server is configured to poll this url to discover new endpoints to monitor. The node serves the response based on what plugins are running,
+
+`/plugins/<name>/metrics`: The node acts as very thin middleware to route from Prometheus server scrape requests to individual plugin /metrics endpoint
+Once a plugin is discovered via the discovery mechanism above, the Prometheus service calls the target endpoint at the scrape interval
+The node acts as middleware to route the request to the /metrics endpoint of the requested plugin
+
+The simplest change to monitor LOOPPs is to add a service discovery to the scrape configuration
+- job_name: 'chainlink_node'
+  ...
++  http_sd_configs:
++      - url: "http://127.0.0.1:6688/discovery"
++        refresh_interval: 30s
+
+
+See the Prometheus documentation for full details [https://prometheus.io/docs/prometheus/latest/configuration/configuration/#http_sd_config]
 LOOPPs are dynamic, and so must be monitoring. 
 We use Plugin discovery to dynamically determine what to monitor based on what plugins are running
 and we route external prom scraping to the plugins without exposing them directly
