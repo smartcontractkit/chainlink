@@ -18,6 +18,12 @@ type RunResultSaver struct {
 	logger            logger.Logger
 }
 
+func (r *RunResultSaver) HealthReport() map[string]error {
+	return map[string]error{r.Name(): r.Healthy()}
+}
+
+func (r *RunResultSaver) Name() string { return r.logger.Name() }
+
 func NewResultRunSaver(runResults <-chan pipeline.Run, pipelineRunner pipeline.Runner, done chan struct{},
 	logger logger.Logger, maxSuccessfulRuns uint64,
 ) *RunResultSaver {
@@ -26,7 +32,7 @@ func NewResultRunSaver(runResults <-chan pipeline.Run, pipelineRunner pipeline.R
 		runResults:        runResults,
 		pipelineRunner:    pipelineRunner,
 		done:              done,
-		logger:            logger,
+		logger:            logger.Named("RunResultSaver"),
 	}
 }
 
