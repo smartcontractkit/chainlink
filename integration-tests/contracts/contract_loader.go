@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 )
@@ -30,8 +32,10 @@ type ContractLoader interface {
 	LoadFunctionsLoadTestClient(addr string) (FunctionsLoadTestClient, error)
 
 	// Mercury
-	LoadMercuryVerifier(addr string) (MercuryVerifier, error)
-	LoadMercuryVerifierProxy(addr string) (MercuryVerifierProxy, error)
+	LoadMercuryVerifier(addr common.Address) (MercuryVerifier, error)
+	LoadMercuryVerifierProxy(addr common.Address) (MercuryVerifierProxy, error)
+	LoadMercuryFeeManager(addr common.Address) (MercuryFeeManager, error)
+	LoadMercuryRewardManager(addr common.Address) (MercuryRewardManager, error)
 }
 
 // NewContractLoader returns an instance of a contract Loader based on the client type
@@ -204,8 +208,8 @@ func (e *EthereumContractLoader) LoadAuthorizedForwarder(address common.Address)
 }
 
 // LoadMercuryVerifier returns Verifier contract deployed on given address
-func (e *EthereumContractLoader) LoadMercuryVerifier(addr string) (MercuryVerifier, error) {
-	instance, err := e.client.LoadContract("Mercury Verifier", common.HexToAddress(addr), func(
+func (e *EthereumContractLoader) LoadMercuryVerifier(addr common.Address) (MercuryVerifier, error) {
+	instance, err := e.client.LoadContract("Mercury Verifier", addr, func(
 		address common.Address,
 		backend bind.ContractBackend,
 	) (interface{}, error) {
@@ -217,13 +221,13 @@ func (e *EthereumContractLoader) LoadMercuryVerifier(addr string) (MercuryVerifi
 	return &EthereumMercuryVerifier{
 		client:   e.client,
 		instance: instance.(*verifier.Verifier),
-		address:  common.HexToAddress(addr),
+		address:  addr,
 	}, err
 }
 
 // LoadMercuryVerifierProxy returns VerifierProxy contract deployed on given address
-func (e *EthereumContractLoader) LoadMercuryVerifierProxy(addr string) (MercuryVerifierProxy, error) {
-	instance, err := e.client.LoadContract("Mercury Verifier Proxy", common.HexToAddress(addr), func(
+func (e *EthereumContractLoader) LoadMercuryVerifierProxy(addr common.Address) (MercuryVerifierProxy, error) {
+	instance, err := e.client.LoadContract("Mercury Verifier Proxy", addr, func(
 		address common.Address,
 		backend bind.ContractBackend,
 	) (interface{}, error) {
@@ -235,6 +239,40 @@ func (e *EthereumContractLoader) LoadMercuryVerifierProxy(addr string) (MercuryV
 	return &EthereumMercuryVerifierProxy{
 		client:   e.client,
 		instance: instance.(*verifier_proxy.VerifierProxy),
-		address:  common.HexToAddress(addr),
+		address:  addr,
+	}, err
+}
+
+func (e *EthereumContractLoader) LoadMercuryFeeManager(addr common.Address) (MercuryFeeManager, error) {
+	instance, err := e.client.LoadContract("Mercury Fee Manager", addr, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return fee_manager.NewFeeManager(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumMercuryFeeManager{
+		client:   e.client,
+		instance: instance.(*fee_manager.FeeManager),
+		address:  addr,
+	}, err
+}
+
+func (e *EthereumContractLoader) LoadMercuryRewardManager(addr common.Address) (MercuryRewardManager, error) {
+	instance, err := e.client.LoadContract("Mercury Reward Manager", addr, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return reward_manager.NewRewardManager(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumMercuryRewardManager{
+		client:   e.client,
+		instance: instance.(*reward_manager.RewardManager),
+		address:  addr,
 	}, err
 }

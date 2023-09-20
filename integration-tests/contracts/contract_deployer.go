@@ -51,6 +51,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 )
@@ -119,6 +121,8 @@ type ContractDeployer interface {
 	DeployKeeperGasWrapperMock() (KeeperGasWrapperMock, error)
 	DeployMercuryVerifierContract(verifierProxyAddr common.Address) (MercuryVerifier, error)
 	DeployMercuryVerifierProxyContract(accessControllerAddr common.Address) (MercuryVerifierProxy, error)
+	DeployMercuryFeeManager(linkAddress common.Address, nativeAddress common.Address, proxyAddress common.Address, rewardManagerAddress common.Address) (MercuryFeeManager, error)
+	DeployMercuryRewardManager(linkAddress common.Address) (MercuryRewardManager, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -1449,7 +1453,6 @@ func (e *EthereumContractDeployer) DeployMercuryVerifierContract(verifierProxyAd
 	if err != nil {
 		return nil, err
 	}
-
 	return &EthereumMercuryVerifier{
 		client:   e.client,
 		instance: instance.(*verifier.Verifier),
@@ -1468,10 +1471,45 @@ func (e *EthereumContractDeployer) DeployMercuryVerifierProxyContract(accessCont
 	if err != nil {
 		return nil, err
 	}
-
 	return &EthereumMercuryVerifierProxy{
 		client:   e.client,
 		instance: instance.(*verifier_proxy.VerifierProxy),
+		address:  *address,
+		l:        e.l,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployMercuryFeeManager(linkAddress common.Address, nativeAddress common.Address, proxyAddress common.Address, rewardManagerAddress common.Address) (MercuryFeeManager, error) {
+	address, _, instance, err := e.client.DeployContract("Mercury Fee Manager", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return fee_manager.DeployFeeManager(auth, backend, linkAddress, nativeAddress, proxyAddress, rewardManagerAddress)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumMercuryFeeManager{
+		client:   e.client,
+		instance: instance.(*fee_manager.FeeManager),
+		address:  *address,
+		l:        e.l,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployMercuryRewardManager(linkAddress common.Address) (MercuryRewardManager, error) {
+	address, _, instance, err := e.client.DeployContract("Mercury Reward Manager", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return reward_manager.DeployRewardManager(auth, backend, linkAddress)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumMercuryRewardManager{
+		client:   e.client,
+		instance: instance.(*reward_manager.RewardManager),
 		address:  *address,
 		l:        e.l,
 	}, err

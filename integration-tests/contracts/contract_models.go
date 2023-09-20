@@ -377,6 +377,17 @@ type MercuryVerifier interface {
 
 type MercuryVerifierProxy interface {
 	Address() common.Address
+	InitializeVerifier(verifierAddress common.Address) (*types.Transaction, error)
 	Verify(signedReport []byte, parameterPayload []byte, value *big.Int) (*types.Transaction, error)
 	VerifyBulk(signedReports [][]byte, parameterPayload []byte, value *big.Int) (*types.Transaction, error)
+	SetFeeManager(feeManager common.Address) (*types.Transaction, error)
+}
+
+type MercuryFeeManager interface {
+	Address() common.Address
+}
+
+type MercuryRewardManager interface {
+	Address() common.Address
+	SetFeeManager(feeManager common.Address) (*types.Transaction, error)
 }

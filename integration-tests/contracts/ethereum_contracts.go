@@ -47,6 +47,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 )
@@ -2311,6 +2313,18 @@ func (e *EthereumMercuryVerifierProxy) Address() common.Address {
 	return e.address
 }
 
+func (e *EthereumMercuryVerifierProxy) InitializeVerifier(verifierAddress common.Address) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.InitializeVerifier(opts, verifierAddress)
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
+}
+
 func (e *EthereumMercuryVerifierProxy) Verify(signedReport []byte, parameterPayload []byte, value *big.Int) (*types.Transaction, error) {
 	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if value != nil {
@@ -2335,6 +2349,52 @@ func (e *EthereumMercuryVerifierProxy) VerifyBulk(signedReports [][]byte, parame
 		return nil, err
 	}
 	tx, err := e.instance.VerifyBulk(opts, signedReports, parameterPayload)
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
+}
+
+func (e *EthereumMercuryVerifierProxy) SetFeeManager(feeManager common.Address) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.SetFeeManager(opts, feeManager)
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
+}
+
+type EthereumMercuryFeeManager struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *fee_manager.FeeManager
+	l        zerolog.Logger
+}
+
+func (e *EthereumMercuryFeeManager) Address() common.Address {
+	return e.address
+}
+
+type EthereumMercuryRewardManager struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *reward_manager.RewardManager
+	l        zerolog.Logger
+}
+
+func (e *EthereumMercuryRewardManager) Address() common.Address {
+	return e.address
+}
+
+func (e *EthereumMercuryRewardManager) SetFeeManager(feeManager common.Address) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.SetFeeManager(opts, feeManager)
 	if err != nil {
 		return nil, err
 	}
