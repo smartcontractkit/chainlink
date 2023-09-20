@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -136,7 +137,7 @@ func Create(db *sql.DB, name, migrationType string) error {
 // SetMigrationENVVars is used to inject values from config to goose migrations via env.
 func SetMigrationENVVars(generalConfig chainlink.GeneralConfig) error {
 	if generalConfig.EVMEnabled() {
-		err := os.Setenv(migrations.EVMChainIDNotNullMigrationHelper, generalConfig.EVMConfigs()[0].ChainID.String())
+		err := os.Setenv(env.EVMChainIDNotNullMigration0195, generalConfig.EVMConfigs()[0].ChainID.String())
 		if err != nil {
 			panic(errors.Wrap(err, "failed to set migrations env variables"))
 		}

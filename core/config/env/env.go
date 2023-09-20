@@ -36,6 +36,8 @@ var (
 	PyroscopeAuthToken           = Secret("CL_PYROSCOPE_AUTH_TOKEN")
 	PrometheusAuthToken          = Secret("CL_PROMETHEUS_AUTH_TOKEN")
 	ThresholdKeyShare            = Secret("CL_THRESHOLD_KEY_SHARE")
+	// Migrations env vars
+	EVMChainIDNotNullMigration0195 = "CL_EVM_CHAINID_NOT_NULL_MIGRATION_0195"
 )
 
 type Var string

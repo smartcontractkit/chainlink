@@ -7,6 +7,8 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/pressly/goose/v3"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 )
 
 // No need to scan migration script
@@ -16,8 +18,6 @@ func init() {
 }
 
 const (
-	EVMChainIDNotNullMigrationHelper = "EVM_CHAINID_MIGRATION_HELPER_ENV_VAR"
-
 	addNullConstraintsToSpecs = `
 	ALTER TABLE direct_request_specs ALTER COLUMN evm_chain_id SET NOT NULL;
 	ALTER TABLE flux_monitor_specs ALTER COLUMN evm_chain_id SET NOT NULL;
@@ -41,7 +41,7 @@ const (
 
 // nolint
 func Up195(ctx context.Context, tx *sql.Tx) error {
-	chainID, set := os.LookupEnv(EVMChainIDNotNullMigrationHelper)
+	chainID, set := os.LookupEnv(env.EVMChainIDNotNullMigration0195)
 	if set {
 		updateQueries := []string{
 			`UPDATE direct_request_specs SET evm_chain_id = $1 WHERE evm_chain_id IS NULL;`,

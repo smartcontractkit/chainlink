@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -23,7 +24,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
-	"github.com/smartcontractkit/chainlink/v2/core/store/migrate/migrations"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -423,7 +423,7 @@ func TestSetMigrationENVVars(t *testing.T) {
 
 		require.NoError(t, migrate.SetMigrationENVVars(testConfig))
 
-		actualChainID := os.Getenv(migrations.EVMChainIDNotNullMigrationHelper)
+		actualChainID := os.Getenv(env.EVMChainIDNotNullMigration0195)
 		require.Equal(t, actualChainID, chainID.String())
 	})
 
@@ -433,7 +433,7 @@ func TestSetMigrationENVVars(t *testing.T) {
 
 		require.NoError(t, migrate.SetMigrationENVVars(testConfig))
 
-		actualChainID := os.Getenv(migrations.EVMChainIDNotNullMigrationHelper)
+		actualChainID := os.Getenv(env.EVMChainIDNotNullMigration0195)
 		require.Equal(t, actualChainID, chainID.String())
 	})
 }
