@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 )
 
@@ -29,16 +30,18 @@ func (ssl *serverSideLogic) wsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func TestWSConnectionWrapper_ClientReconnect(t *testing.T) {
+	ctx := testutils.Context(t)
+	lggr := logger.TestLogger(t)
 	// server
-	ssl := &serverSideLogic{connWrapper: network.NewWSConnectionWrapper()}
-	require.NoError(t, ssl.connWrapper.Start())
+	ssl := &serverSideLogic{connWrapper: network.NewWSConnectionWrapper(lggr)}
+	require.NoError(t, ssl.connWrapper.Start(ctx))
 	s := httptest.NewServer(http.HandlerFunc(ssl.wsHandler))
 	serverURL := "ws" + strings.TrimPrefix(s.URL, "http")
 	defer s.Close()
 
 	// client
-	clientConnWrapper := network.NewWSConnectionWrapper()
-	require.NoError(t, clientConnWrapper.Start())
+	clientConnWrapper := network.NewWSConnectionWrapper(lggr)
+	require.NoError(t, clientConnWrapper.Start(ctx))
 
 	// connect, write a message, disconnect
 	conn, _, err := websocket.DefaultDialer.Dial(serverURL, nil)
