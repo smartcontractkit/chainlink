@@ -501,7 +501,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			var hb types3.HeadBroadcaster
 			var lp logpoller.LogPoller
 
-			bs := NewBlockSubscriber(hb, lp, lggr)
+			bs := NewBlockSubscriber(hb, lp, 1000, lggr)
 
 			registry := &EvmRegistry{
 				addr:             common.BigToAddress(big.NewInt(1)),

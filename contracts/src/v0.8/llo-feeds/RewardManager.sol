@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {IRewardManager} from "./interfaces/IRewardManager.sol";
-import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC20.sol";
-import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
-import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
-import {Common} from "../../libraries/Common.sol";
-import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IERC20} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC20.sol";
+import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
+import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
+import {Common} from "../libraries/Common.sol";
+import {SafeERC20} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
  * @title RewardManager
@@ -76,7 +76,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
   // @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "RewardManager 1.0.0";
+    return "RewardManager 1.1.0";
   }
 
   // @inheritdoc IERC165
@@ -104,7 +104,9 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     uint256 totalFeeAmount;
     for (uint256 i; i < payments.length; ++i) {
       unchecked {
-        //the total amount for any ERC20 asset cannot exceed 2^256 - 1
+        //the total amount for any ERC-20 asset cannot exceed 2^256 - 1
+        //see https://github.com/OpenZeppelin/openzeppelin-contracts/blob/36bf1e46fa811f0f07d38eb9cfbc69a955f300ce/contracts/token/ERC20/ERC20.sol#L266
+        //for example implementation.
         s_totalRewardRecipientFees[payments[i].poolId] += payments[i].amount;
 
         //tally the total payable fees
@@ -210,8 +212,6 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
 
       //ensure the reward recipient address is not zero
       if (recipientAddress == address(0)) revert InvalidAddress();
-      //ensure the weight is not zero
-      if (recipientWeight == 0) revert InvalidWeights();
 
       //save/overwrite the weight for the reward recipient
       s_rewardRecipientWeights[poolId][recipientAddress] = recipientWeight;
@@ -242,9 +242,6 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
       address recipientAddress = newRewardRecipients[i].addr;
       //get the existing weight
       uint256 existingWeight = s_rewardRecipientWeights[poolId][recipientAddress];
-
-      //if the existing weight is 0, the recipient isn't part of this configuration
-      if (existingWeight == 0) revert InvalidAddress();
 
       //if a recipient is updated, the rewards must be claimed first as they can't claim previous fees at the new weight
       _claimRewards(newRewardRecipients[i].addr, poolIds);
