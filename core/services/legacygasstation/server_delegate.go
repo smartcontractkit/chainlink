@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 )
 
 type (
@@ -61,12 +60,8 @@ func (d *Delegate) RequestRouter() RequestRouter {
 }
 
 func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
-	if jb.LegacyGasStationServerSpec == nil || jb.PipelineSpec == nil {
-		return nil, errors.Errorf("ServicesForSpec expects a LegacyGasStationServerSpec and PipelineSpec, got %+v", jb)
-	}
-	pl, err := jb.PipelineSpec.Pipeline()
-	if err != nil {
-		return nil, err
+	if jb.LegacyGasStationServerSpec == nil {
+		return nil, errors.Errorf("ServicesForSpec expects a LegacyGasStationServerSpec, got %+v", jb)
 	}
 	service := &gasStationService{
 		spec: jb,
@@ -75,7 +70,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		ks:   d.ks,
 		q:    d.q,
 		db:   d.db,
-		pl:   pl,
 		lggr: d.lggr,
 	}
 	return []job.ServiceCtx{service}, nil
@@ -88,7 +82,6 @@ type gasStationService struct {
 	ks   keystore.Eth
 	q    pg.Q
 	db   *sqlx.DB
-	pl   *pipeline.Pipeline
 	lggr logger.Logger
 }
 
@@ -133,6 +126,8 @@ func (s *gasStationService) Start(context.Context) error {
 		s.ks,
 		s.spec.LegacyGasStationServerSpec.FromAddresses,
 		s.spec.LegacyGasStationServerSpec.EVMChainID.ToInt().Uint64(),
+		chain.Config().EVM(),
+		chain.Client(),
 	)
 	if err != nil {
 		return err

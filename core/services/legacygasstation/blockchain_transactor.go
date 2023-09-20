@@ -2,6 +2,7 @@ package legacygasstation
 
 import (
 	"context"
+	"encoding/hex"
 	"math/big"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
@@ -65,7 +66,7 @@ func (t *blockchainTransactor) CreateAndStoreTransaction(
 	}
 
 	// idempotencyKey is unique because payload contains nonce that can only be used once
-	idempotencyKey := string(crypto.Keccak256(payload)[:])
+	idempotencyKey := hex.EncodeToString(crypto.Keccak256(payload)[:])
 
 	txmTx, err := t.txm.CreateTransaction(txmgr.TxRequest{
 		IdempotencyKey: &idempotencyKey,

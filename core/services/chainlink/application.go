@@ -688,7 +688,7 @@ func (app *ChainlinkApplication) SecretGenerator() SecretGenerator {
 }
 
 func (app *ChainlinkApplication) LegacyGasStationRequestRouter() lgsservice.RequestRouter {
-	return app.LegacyGasStationRequestRouter()
+	return app.lgsRequestRouter
 }
 
 // WakeSessionReaper wakes up the reaper to do its reaping.

@@ -35,6 +35,8 @@ func NewBlockchainClient(
 	gethks keystore.Eth,
 	fromAddresses []ethkey.EIP55Address,
 	chainID uint64,
+	cfg config.EVM,
+	client client.Client,
 ) (*BlockchainClient, error) {
 	return &BlockchainClient{
 		lggr:          lggr,
@@ -42,6 +44,8 @@ func NewBlockchainClient(
 		gethks:        gethks,
 		fromAddresses: fromAddresses,
 		chainID:       chainID,
+		cfg:           cfg,
+		client:        client,
 	}, nil
 }
 
@@ -58,9 +62,6 @@ func (c *BlockchainClient) EstimateGas(
 	c.lggr.Debugw("estimate gas details",
 		"toAddress", address,
 		"fromAddress", fromAddress,
-		"gasPrice", c.cfg.GasEstimator().PriceMax().ToInt(),
-		"GasTipCap", c.cfg.GasEstimator().TipCapDefault().ToInt(),
-		"GasFeeCap", c.cfg.GasEstimator().FeeCapDefault().ToInt(),
 	)
 	gasLimit, err := c.client.EstimateGas(ctx, ethereum.CallMsg{
 		From: fromAddress,
@@ -79,6 +80,8 @@ func (c *BlockchainClient) EstimateGas(
 	return uint32(gasLimit), nil
 }
 
+// SimulateTransaction makes eth_call to simulate transaction
+// TODO: look into accepting optional parameters (gas, gasPrice, value)
 func (c *BlockchainClient) SimulateTransaction(
 	ctx context.Context,
 	address gethcommon.Address,
@@ -94,18 +97,12 @@ func (c *BlockchainClient) SimulateTransaction(
 		"toAddress", address,
 		"fromAddress", fromAddress,
 		"gasLimit", gasLimit,
-		"gasPrice", c.cfg.GasEstimator().PriceMax().ToInt(),
-		"GasTipCap", c.cfg.GasEstimator().TipCapDefault().ToInt(),
-		"GasFeeCap", c.cfg.GasEstimator().FeeCapDefault().ToInt(),
 	)
 	_, err = c.client.CallContract(ctx, ethereum.CallMsg{
-		To:        &address,
-		From:      fromAddress,
-		Data:      payload,
-		Gas:       uint64(gasLimit),
-		GasPrice:  c.cfg.GasEstimator().PriceMax().ToInt(),
-		GasTipCap: c.cfg.GasEstimator().TipCapDefault().ToInt(),
-		GasFeeCap: c.cfg.GasEstimator().FeeCapDefault().ToInt(),
+		To:   &address,
+		From: fromAddress,
+		Data: payload,
+		Gas:  uint64(gasLimit),
 	}, nil /*blocknumber*/)
 
 	return err
