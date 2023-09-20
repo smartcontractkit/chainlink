@@ -10,6 +10,7 @@ import "../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../interfaces/VRFV2PlusWrapperInterface.sol";
 import "./VRFV2PlusWrapperConsumerBase.sol";
 import "../../ChainSpecificUtil.sol";
+import "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
 
 /**
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
@@ -18,8 +19,12 @@ import "../../ChainSpecificUtil.sol";
 contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBaseV2Plus, VRFV2PlusWrapperInterface {
   event WrapperFulfillmentFailed(uint256 indexed requestId, address indexed consumer);
 
+  error WrappedNativeAlreadySet();
   error LinkAlreadySet();
   error FailedToTransferLink();
+
+  // The wrapped native token that is accepted for transfers.
+  IERC20 public s_wrappedNative;
 
   LinkTokenInterface public s_link;
   AggregatorV3Interface public s_linkEthFeed;
@@ -40,6 +45,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // lastRequestId is the request ID of the most recent VRF V2 request made by this wrapper. This
   // should only be relied on within the same transaction the request was made.
   uint256 public override lastRequestId;
+
+  // Tracks the wrapped native balance on the contract. Incremented when a request is made.
+  uint256 public s_wrappedNativeBalance;
 
   // Configuration fetched from VRFCoordinatorV2
 
@@ -122,6 +130,18 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       revert LinkAlreadySet();
     }
     s_link = LinkTokenInterface(link);
+  }
+
+  /**
+   * @notice set the wrapped native token to be used by this wrapper
+   * @param wrappedNative address of the wrapped native token
+   */
+  function setWrappedNative(address wrappedNative) external onlyOwner {
+    // Disallow re-setting wrapped native
+    if (address(s_wrappedNative) != address(0)) {
+      revert WrappedNativeAlreadySet();
+    }
+    s_wrappedNative = IERC20(wrappedNative);
   }
 
   /**
@@ -357,15 +377,13 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     lastRequestId = requestId;
   }
 
-  function requestRandomWordsInNative(
+  function requestRandomWordsInNativeInternal(
     uint32 _callbackGasLimit,
     uint16 _requestConfirmations,
     uint32 _numWords
-  ) external payable override returns (uint256 requestId) {
-    uint32 eip150Overhead = getEIP150Overhead(_callbackGasLimit);
-    uint256 price = calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);
-    require(msg.value >= price, "fee too low");
+  ) internal returns (uint256 requestId) {
     require(_numWords <= s_maxNumWords, "numWords too high");
+    uint32 eip150Overhead = getEIP150Overhead(_callbackGasLimit);
     VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
       keyHash: s_keyHash,
       subId: SUBSCRIPTION_ID,
@@ -375,6 +393,44 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
     });
     requestId = COORDINATOR.requestRandomWords(req);
+    s_callbacks[requestId] = Callback({
+      callbackAddress: msg.sender,
+      callbackGasLimit: _callbackGasLimit,
+      requestGasPrice: tx.gasprice
+    });
+  }
+
+  function requestRandomWordsInWrappedNative(
+    uint32 _callbackGasLimit,
+    uint16 _requestConfirmations,
+    uint32 _numWords
+  ) external payable returns (uint256 requestId) {
+    require(address(s_wrappedNative) != address(0), "wrapped native not set");
+    uint256 price = calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);
+
+    // User is obligated to transfer wrapped native to this contract matching the estimated
+    // native price of the request.
+    uint256 amountPaid = s_wrappedNativeBalance - s_wrappedNative.balanceOf(address(this));
+    require(amountPaid >= price, "fee too low");
+
+    requestId = requestRandomWordsInNativeInternal(_callbackGasLimit, _requestConfirmations, _numWords);
+
+    // Update balance to be canonical.
+    s_wrappedNativeBalance += amountPaid;
+
+    return requestId;
+  }
+
+  function requestRandomWordsInNative(
+    uint32 _callbackGasLimit,
+    uint16 _requestConfirmations,
+    uint32 _numWords
+  ) external payable override returns (uint256 requestId) {
+    uint256 price = calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);
+    require(msg.value >= price, "fee too low");
+  
+    requestId = requestRandomWordsInNativeInternal(_callbackGasLimit, _requestConfirmations, _numWords);
+  
     s_callbacks[requestId] = Callback({
       callbackAddress: msg.sender,
       callbackGasLimit: _callbackGasLimit,
