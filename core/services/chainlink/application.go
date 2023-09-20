@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	lgsservice "github.com/smartcontractkit/chainlink/v2/core/services/legacygasstation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -103,6 +104,8 @@ type Application interface {
 	ID() uuid.UUID
 
 	SecretGenerator() SecretGenerator
+
+	LegacyGasStationRequestRouter() lgsservice.RequestRouter
 }
 
 // ChainlinkApplication contains fields for the JobSubscriber, Scheduler,
@@ -135,6 +138,7 @@ type ChainlinkApplication struct {
 	secretGenerator          SecretGenerator
 	profiler                 *pyroscope.Profiler
 	loopRegistry             *plugins.LoopRegistry
+	lgsRequestRouter         lgsservice.RequestRouter
 
 	started     bool
 	startStopMu sync.Mutex
@@ -324,8 +328,22 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				legacyEVMChains,
 				keyStore.Eth(),
 				globalLogger),
+			job.LegacyGasStationServer: lgsservice.NewServerDelegate(
+				globalLogger,
+				legacyEVMChains,
+				keyStore.Eth(),
+				db,
+				cfg.Database(),
+			),
+			job.LegacyGasStationSidecar: lgsservice.NewSidecarDelegate(
+				globalLogger,
+				legacyEVMChains,
+				keyStore.Eth(),
+				db,
+			),
 		}
 		webhookJobRunner = delegates[job.Webhook].(*webhook.Delegate).WebhookJobRunner()
+		lgsRequestRouter = delegates[job.LegacyGasStationServer].(*lgsservice.Delegate).RequestRouter()
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
@@ -468,7 +486,8 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		profiler:                 profiler,
 		loopRegistry:             loopRegistry,
 
-		sqlxDB: opts.SqlxDB,
+		sqlxDB:           opts.SqlxDB,
+		lgsRequestRouter: lgsRequestRouter,
 
 		// NOTE: Can keep things clean by putting more things in srvcs instead of manually start/closing
 		srvcs: srvcs,
@@ -666,6 +685,10 @@ func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalI
 
 func (app *ChainlinkApplication) SecretGenerator() SecretGenerator {
 	return app.secretGenerator
+}
+
+func (app *ChainlinkApplication) LegacyGasStationRequestRouter() lgsservice.RequestRouter {
+	return app.LegacyGasStationRequestRouter()
 }
 
 // WakeSessionReaper wakes up the reaper to do its reaping.

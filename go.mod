@@ -66,6 +66,8 @@ require (
 	github.com/shirou/gopsutil/v3 v3.23.8
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
+	github.com/smartcontractkit/capital-markets-projects v0.0.0-20230831194533-ea1d534cfa37
+	github.com/smartcontractkit/capital-markets-projects/lib v0.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230913032705-f924d753cc47
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230918134006-2119b4e577d1
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230831134610-680240b97aca
@@ -79,6 +81,7 @@ require (
 	github.com/smartcontractkit/wsrpc v0.7.2
 	github.com/spf13/cast v1.5.1
 	github.com/stretchr/testify v1.8.4
+	github.com/test-go/testify v1.1.4
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
 	github.com/tidwall/gjson v1.16.0
 	github.com/ugorji/go/codec v1.2.11
@@ -90,12 +93,12 @@ require (
 	go.dedis.ch/kyber/v3 v3.1.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.24.0
-	golang.org/x/crypto v0.11.0
+	golang.org/x/crypto v0.12.0
 	golang.org/x/exp v0.0.0-20230713183714-613f0c0eb8a1
 	golang.org/x/net v0.12.0
 	golang.org/x/sync v0.3.0
-	golang.org/x/term v0.10.0
-	golang.org/x/text v0.11.0
+	golang.org/x/term v0.11.0
+	golang.org/x/text v0.12.0
 	golang.org/x/time v0.3.0
 	golang.org/x/tools v0.11.0
 	gonum.org/v1/gonum v0.13.0
@@ -212,7 +215,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/yamux v0.0.0-20200609203250-aecfd211c9ce // indirect
 	github.com/holiman/bloomfilter/v2 v2.0.3 // indirect
-	github.com/holiman/uint256 v1.2.2 // indirect
+	github.com/holiman/uint256 v1.2.3 // indirect
 	github.com/huandu/skiplist v1.2.0 // indirect
 	github.com/huandu/xstrings v1.4.0 // indirect
 	github.com/huin/goupnp v1.0.3 // indirect
@@ -382,4 +385,8 @@ replace (
 
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
+
+	github.com/smartcontractkit/capital-markets-projects => /Users/jinbang/development/capital-markets-projects
+
+	github.com/smartcontractkit/capital-markets-projects/lib => /Users/jinbang/development/capital-markets-projects/lib
 )

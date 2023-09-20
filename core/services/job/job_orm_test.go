@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services/legacygasstation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -393,6 +394,59 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		cltest.AssertCount(t, db, "webhook_specs", 0)
 		cltest.AssertCount(t, db, "external_initiator_webhook_specs", 0)
 		cltest.AssertCount(t, db, "jobs", 0)
+	})
+
+	t.Run("it creates and deletes records for legacy gas station server job", func(t *testing.T) {
+		jb, err := legacygasstation.ValidatedServerSpec(
+			testspecs.GenerateLegacyGasStationServerSpec(testspecs.LegacyGasStationServerSpecParams{}).Toml())
+		require.NoError(t, err)
+
+		err = jobORM.CreateJob(&jb)
+		require.NoError(t, err)
+		savedJob, err := jobORM.FindJob(testutils.Context(t), jb.ID)
+		require.NoError(t, err)
+		require.Equal(t, jb.ID, savedJob.ID)
+		require.Equal(t, jb.Type, savedJob.Type)
+		require.Equal(t, jb.LegacyGasStationServerSpec.ID, savedJob.LegacyGasStationServerSpec.ID)
+		require.Equal(t, jb.LegacyGasStationServerSpec.ForwarderAddress, savedJob.LegacyGasStationServerSpec.ForwarderAddress)
+		require.Equal(t, jb.LegacyGasStationServerSpec.EVMChainID, savedJob.LegacyGasStationServerSpec.EVMChainID)
+		require.Equal(t, jb.LegacyGasStationServerSpec.CCIPChainSelector, savedJob.LegacyGasStationServerSpec.CCIPChainSelector)
+		require.Equal(t, jb.LegacyGasStationServerSpec.FromAddresses, savedJob.LegacyGasStationServerSpec.FromAddresses)
+		err = jobORM.DeleteJob(jb.ID)
+		require.NoError(t, err)
+		_, err = jobORM.FindJob(testutils.Context(t), jb.ID)
+		require.Error(t, err)
+	})
+
+	t.Run("it creates and deletes records for legacy gas station sidecar jobs", func(t *testing.T) {
+		jb, err := legacygasstation.ValidatedSidecarSpec(
+			testspecs.GenerateLegacyGasStationSidecarSpec(testspecs.LegacyGasStationSidecarSpecParams{
+				ClientCertificate: ptr("clientCertificate"),
+				ClientKey:         ptr("clientKey"),
+			}).Toml())
+		require.NoError(t, err)
+
+		err = jobORM.CreateJob(&jb)
+		require.NoError(t, err)
+		savedJob, err := jobORM.FindJob(testutils.Context(t), jb.ID)
+		require.NoError(t, err)
+		require.Equal(t, jb.ID, savedJob.ID)
+		require.Equal(t, jb.Type, savedJob.Type)
+		require.Equal(t, jb.LegacyGasStationSidecarSpec.ID, savedJob.LegacyGasStationSidecarSpec.ID)
+		require.Equal(t, jb.LegacyGasStationSidecarSpec.ForwarderAddress, savedJob.LegacyGasStationSidecarSpec.ForwarderAddress)
+		require.Equal(t, jb.LegacyGasStationSidecarSpec.OffRampAddress, savedJob.LegacyGasStationSidecarSpec.OffRampAddress)
+		require.Equal(t, jb.LegacyGasStationSidecarSpec.LookbackBlocks, savedJob.LegacyGasStationSidecarSpec.LookbackBlocks)
+		require.Equal(t, jb.LegacyGasStationSidecarSpec.PollPeriod, savedJob.LegacyGasStationSidecarSpec.PollPeriod)
+		require.Equal(t, jb.LegacyGasStationSidecarSpec.RunTimeout, savedJob.LegacyGasStationSidecarSpec.RunTimeout)
+		require.Equal(t, jb.LegacyGasStationSidecarSpec.EVMChainID, savedJob.LegacyGasStationSidecarSpec.EVMChainID)
+		require.Equal(t, jb.LegacyGasStationSidecarSpec.CCIPChainSelector, savedJob.LegacyGasStationSidecarSpec.CCIPChainSelector)
+		require.Equal(t, jb.LegacyGasStationSidecarSpec.StatusUpdateURL, savedJob.LegacyGasStationSidecarSpec.StatusUpdateURL)
+		require.Equal(t, jb.LegacyGasStationSidecarSpec.ClientCertificate, savedJob.LegacyGasStationSidecarSpec.ClientCertificate)
+		require.Equal(t, jb.LegacyGasStationSidecarSpec.ClientKey, savedJob.LegacyGasStationSidecarSpec.ClientKey)
+		err = jobORM.DeleteJob(jb.ID)
+		require.NoError(t, err)
+		_, err = jobORM.FindJob(testutils.Context(t), jb.ID)
+		require.Error(t, err)
 	})
 
 	t.Run("does not allow to delete external initiators if they have referencing external_initiator_webhook_specs", func(t *testing.T) {

@@ -86,6 +86,7 @@ func NewRouter(app chainlink.Application, prometheus *ginprom.Prometheus) (*gin.
 	sessionRoutes(app, api)
 	v2Routes(app, api)
 	loopRoutes(app, api)
+	legacyGasStationRoutes(app, api)
 
 	guiAssetRoutes(engine, config.Insecure().DisableRateLimiting(), app.GetLogger())
 
@@ -676,5 +677,16 @@ func prometheusHandler(token string, h http.Handler) gin.HandlerFunc {
 		}
 
 		h.ServeHTTP(c.Writer, c.Request)
+	}
+}
+
+func legacyGasStationRoutes(app chainlink.Application, r *gin.RouterGroup) {
+	if app.GetConfig().Feature().EAL() {
+		group := r.Group("/gasstation")
+		lgsc := LegacyGasStationController{
+			requestRouter: app.LegacyGasStationRequestRouter(),
+			lggr:          app.GetLogger(),
+		}
+		group.Any("send_transaction", lgsc.SendTransaction)
 	}
 }

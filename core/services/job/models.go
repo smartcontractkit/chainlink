@@ -708,6 +708,15 @@ type LegacyGasStationSidecarSpec struct {
 	// CCIPChainSelector is the CCIP chain selector that corresponds to EVMChainID param
 	CCIPChainSelector *utils.Big `toml:"ccipChainSelector"`
 
+	// StatusUpdateURL is the endpoint URL where the sidecar posts status updates
+	StatusUpdateURL string `toml:"statusUpdateURL"`
+
+	// ClientCertificate is the x.509 certificate used for mTLS connection with StatusUpdateURL
+	ClientCertificate *string `toml:"clientCertificate"`
+
+	// ClientCertificate is the x.509 key used for mTLS connection with StatusUpdateURL
+	ClientKey *string `toml:"clientKey"`
+
 	// CreatedAt is the time this job was created.
 	CreatedAt time.Time `toml:"-"`
 

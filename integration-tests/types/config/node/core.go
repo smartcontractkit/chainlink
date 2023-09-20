@@ -56,6 +56,7 @@ func NewBaseConfig() *chainlink.Config {
 				LogPoller:    utils2.Ptr(true),
 				FeedsManager: utils2.Ptr(true),
 				UICSAKeys:    utils2.Ptr(true),
+				EAL:          utils2.Ptr(true),
 			},
 			P2P: toml.P2P{},
 		},
