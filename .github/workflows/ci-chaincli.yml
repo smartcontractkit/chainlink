@@ -28,6 +28,11 @@ jobs:
         with:
           version: v1.54.2
           working-directory: core/scripts/chaincli
+          # We already cache these directories in setup-go
+          skip-pkg-cache: true
+          skip-build-cache: true
+          # only-new-issues is only applicable to PRs, otherwise it is always set to false
+          only-new-issues: true
           args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
       - name: Store lint report artifact
         if: always()
