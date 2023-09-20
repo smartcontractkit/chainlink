@@ -496,7 +496,6 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 	isNativeBilling bool,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled, error) {
-
 	if isNativeBilling {
 		_, err := consumer.RequestRandomnessNative(
 			vrfv2plus_constants.MinimumConfirmations,
@@ -518,8 +517,11 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 			return nil, errors.Wrap(err, ErrRequestRandomnessDirectFundingLinkPayment)
 		}
 	}
-
-	return WaitForRequestAndFulfillmentEvents(consumer.Address(), coordinator, vrfv2PlusData, subID, l)
+	wrapperAddress, err := consumer.GetWrapper(context.Background())
+	if err != nil {
+		return nil, errors.Wrap(err, "error getting wrapper address")
+	}
+	return WaitForRequestAndFulfillmentEvents(wrapperAddress.String(), coordinator, vrfv2PlusData, subID, l)
 }
 
 func WaitForRequestAndFulfillmentEvents(

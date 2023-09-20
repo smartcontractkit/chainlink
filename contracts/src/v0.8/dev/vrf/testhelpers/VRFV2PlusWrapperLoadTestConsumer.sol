@@ -142,4 +142,8 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
         (bool success,) = payable(owner()).call{value: amount}("");
         require(success, "withdrawNative failed");
     }
+
+    function getWrapper() external view returns (VRFV2PlusWrapperInterface) {
+        return VRF_V2_PLUS_WRAPPER;
+    }
 }

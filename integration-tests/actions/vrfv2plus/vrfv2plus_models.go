@@ -30,6 +30,6 @@ type VRFV2PlusContracts struct {
 }
 
 type VRFV2PlusWrapperContracts struct {
-	Wrapper           contracts.VRFV2PlusWrapper
+	VRFV2PlusWrapper  contracts.VRFV2PlusWrapper
 	LoadTestConsumers []contracts.VRFv2PlusWrapperLoadTestConsumer
 }

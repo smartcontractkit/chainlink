@@ -298,7 +298,7 @@ func (v *EthereumVRFCoordinatorV2Plus) WaitForRandomWordsRequestedEvent(keyHash 
 		case err := <-subscription.Err():
 			return nil, err
 		case <-time.After(timeout):
-			return nil, fmt.Errorf("timeout waiting for RandomWordsFulfilled event")
+			return nil, fmt.Errorf("timeout waiting for RandomWordsRequested event")
 		case randomWordsFulfilledEvent := <-randomWordsFulfilledEventsChannel:
 			return randomWordsFulfilledEvent, nil
 		}
@@ -813,6 +813,13 @@ func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) GetRequestStatus(ctx context.
 
 func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) GetLastRequestId(ctx context.Context) (*big.Int, error) {
 	return v.consumer.SLastRequestId(&bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	})
+}
+
+func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) GetWrapper(ctx context.Context) (common.Address, error) {
+	return v.consumer.GetWrapper(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})

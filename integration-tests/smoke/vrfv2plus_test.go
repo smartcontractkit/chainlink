@@ -147,19 +147,26 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		)
 		require.NoError(t, err)
 
-		err = wrapperContracts.Wrapper.SetConfig(
+		err = env.EVMClient.WaitForEvents()
+		require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
+
+		err = wrapperContracts.VRFV2PlusWrapper.SetConfig(
 			vrfv2plus_constants.WrapperGasOverhead,
 			vrfv2plus_constants.CoordinatorGasOverhead,
 			vrfv2plus_constants.WrapperPremiumPercentage,
 			vrfv2PlusData.VRFV2PlusKeyData.KeyHash,
 			vrfv2plus_constants.WrapperMaxNumberOfWords,
 		)
-
 		require.NoError(t, err)
+
+		err = env.EVMClient.WaitForEvents()
+		require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
 
 		//fund sub
-		wrapperSubID, err := wrapperContracts.Wrapper.GetSubID(context.Background())
+		wrapperSubID, err := wrapperContracts.VRFV2PlusWrapper.GetSubID(context.Background())
 		require.NoError(t, err)
+		err = env.EVMClient.WaitForEvents()
+		require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
 
 		err = vrfv2plus.FundSubscription(env, linkToken, vrfv2PlusContracts.Coordinator, wrapperSubID)
 		require.NoError(t, err)
@@ -167,12 +174,18 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		//fund consumer with Link
 		err = linkToken.Transfer(
 			wrapperContracts.LoadTestConsumers[0].Address(),
-			vrfv2plus_constants.WrapperConsumerFundingAmountLink,
+			big.NewInt(0).Mul(big.NewInt(1e18), vrfv2plus_constants.WrapperConsumerFundingAmountLink),
 		)
 		require.NoError(t, err)
+		err = env.EVMClient.WaitForEvents()
+		require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
+
+		//todo - fails with
 		//fund consumer with Eth
-		err = wrapperContracts.LoadTestConsumers[0].Fund(vrfv2plus_constants.WrapperConsumerFundingAmountNativeToken)
-		require.NoError(t, err)
+		//err = wrapperContracts.LoadTestConsumers[0].Fund(vrfv2plus_constants.WrapperConsumerFundingAmountNativeToken)
+		//require.NoError(t, err)
+		//err = env.EVMClient.WaitForEvents()
+		//require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
 
 		//start test
 		var isNativeBilling = false
@@ -185,14 +198,14 @@ func TestVRFv2PlusBilling(t *testing.T) {
 			wrapperContracts.LoadTestConsumers[0],
 			vrfv2PlusContracts.Coordinator,
 			vrfv2PlusData,
-			subID,
+			wrapperSubID,
 			isNativeBilling,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
 
 		expectedSubBalanceJuels := new(big.Int).Sub(subBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
-		subscription, err = vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
+		subscription, err = vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), wrapperSubID)
 		require.NoError(t, err, "error getting subscription information")
 		subBalanceAfterRequest := subscription.Balance
 		require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
@@ -201,7 +214,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		require.NoError(t, err, "error reading job runs")
 		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 
-		status, err := vrfv2PlusContracts.LoadTestConsumers[0].GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
+		status, err := wrapperContracts.LoadTestConsumers[0].GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
 		l.Debug().Interface("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
