@@ -58,9 +58,10 @@ type EnvConfig interface {
 }
 
 // SetCmdEnvFromConfig sets LOOP-specific vars in the env of the given cmd.
+// It also, due to the plugin library, forwards all env vars from the host automatically.
+// TODO: BCF-2662: Remove once we can use skipHostEnv in hashicorp/go-plugin v1.5.0
 // This method is consumed by the host.
 func SetCmdEnvFromConfig(cmd *exec.Cmd, cfg EnvConfig) {
-	keysInCurEnv := []string{"CL_LOG_SQL_MIGRATIONS"}
 	injectEnv := map[string]string{
 		"CL_PROMETHEUS_PORT":       strconv.Itoa(cfg.PrometheusPort()),
 		"TRACING_ENABLED":          strconv.FormatBool(cfg.TracingEnabled()),
@@ -69,13 +70,6 @@ func SetCmdEnvFromConfig(cmd *exec.Cmd, cfg EnvConfig) {
 
 	for k, v := range cfg.TracingAttributes() {
 		injectEnv["TRACING_ATTRIBUTE_"+k] = v
-	}
-
-	// TODO: Remove once we can use skipHostEnv in hashicorp/go-plugin v1.5.0
-	for _, k := range keysInCurEnv {
-		if v, ok := os.LookupEnv(k); ok {
-			cmd.Env = append(cmd.Env, k+"="+v)
-		}
 	}
 
 	for k, v := range injectEnv {
