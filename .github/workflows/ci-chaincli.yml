@@ -9,8 +9,8 @@ on:
       - "core/scripts/chaincli/**"
 
 jobs:
-  ci-lint:
-    name: ci-lint
+  golangci:
+    name: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
