@@ -464,12 +464,12 @@ func (r *logRecoverer) populatePending(f upkeepFilter, filteredLogs []logpoller.
 		}
 		// r.lggr.Debugw("adding a payload to pending", "payload", payload)
 		if err := r.addPending(payload); err != nil {
+			errs = append(errs, err)
+		} else {
 			r.visited[wid] = visitedRecord{
 				visitedAt: time.Now(),
 				payload:   payload,
 			}
-		} else {
-			errs = append(errs, err)
 		}
 	}
 	return len(r.pending) - pendingSizeBefore, alreadyPending, len(errs) == 0
@@ -632,7 +632,7 @@ func (r *logRecoverer) tryExpire(ctx context.Context, ids ...string) error {
 				removed++
 				continue
 			}
-			if err := r.addPending(rec.payload); err != nil {
+			if err := r.addPending(rec.payload); err == nil {
 				rec.visitedAt = time.Now()
 				r.visited[ids[i]] = rec
 			}
@@ -655,9 +655,8 @@ func (r *logRecoverer) addPending(payload ocr2keepers.UpkeepPayload) error {
 	var exist bool
 	pending := r.pending
 	upkeepPayloads := 0
-	upkeepID := payload.UpkeepID
 	for _, p := range pending {
-		if bytes.Equal(p.UpkeepID[:], upkeepID[:]) {
+		if bytes.Equal(p.UpkeepID[:], payload.UpkeepID[:]) {
 			upkeepPayloads++
 		}
 		if p.WorkID == payload.WorkID {
@@ -665,7 +664,7 @@ func (r *logRecoverer) addPending(payload ocr2keepers.UpkeepPayload) error {
 		}
 	}
 	if upkeepPayloads >= maxPendingPayloadsPerUpkeep {
-		return fmt.Errorf("upkeep %v has too many payloads in pending queue", upkeepID)
+		return fmt.Errorf("upkeep %v has too many payloads in pending queue", payload.UpkeepID)
 	}
 	if !exist {
 		r.pending = append(pending, payload)
