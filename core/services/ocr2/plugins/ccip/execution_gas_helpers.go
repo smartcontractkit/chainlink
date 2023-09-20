@@ -4,6 +4,8 @@ import (
 	"math"
 	"math/big"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 )
 
 const (
@@ -68,7 +70,7 @@ func computeExecCost(gasLimit *big.Int, execGasPriceEstimate, tokenPriceUSD *big
 	execGasEstimate := new(big.Int).Add(big.NewInt(FEE_BOOSTING_OVERHEAD_GAS), gasLimit)
 	execGasEstimate.Mul(execGasEstimate, execGasPriceEstimate)
 
-	return calculateUsdPerUnitGas(execGasEstimate, tokenPriceUSD)
+	return ccipcalc.CalculateUsdPerUnitGas(execGasEstimate, tokenPriceUSD)
 }
 
 // waitBoostedFee boosts the given fee according to the time passed since the msg was sent.
