@@ -51,6 +51,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 )
 
 // ContractDeployer is an interface for abstracting the contract deployment methods across network implementations
@@ -115,6 +117,8 @@ type ContractDeployer interface {
 	DeployKeeperRegistry11Mock() (KeeperRegistry11Mock, error)
 	DeployKeeperRegistrar12Mock() (KeeperRegistrar12Mock, error)
 	DeployKeeperGasWrapperMock() (KeeperGasWrapperMock, error)
+	DeployMercuryVerifierContract(verifierProxyAddr common.Address) (MercuryVerifier, error)
+	DeployMercuryVerifierProxyContract(accessControllerAddr common.Address) (MercuryVerifierProxy, error)
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
@@ -1431,6 +1435,44 @@ func (e *EthereumContractDeployer) DeployOffchainAggregatorV2(
 		client:   e.client,
 		contract: instance.(*ocr2aggregator.OCR2Aggregator),
 		address:  address,
+		l:        e.l,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployMercuryVerifierContract(verifierProxyAddr common.Address) (MercuryVerifier, error) {
+	address, _, instance, err := e.client.DeployContract("Mercury Verifier", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return verifier.DeployVerifier(auth, backend, verifierProxyAddr)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &EthereumMercuryVerifier{
+		client:   e.client,
+		instance: instance.(*verifier.Verifier),
+		address:  *address,
+		l:        e.l,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployMercuryVerifierProxyContract(accessControllerAddr common.Address) (MercuryVerifierProxy, error) {
+	address, _, instance, err := e.client.DeployContract("Mercury Verifier Proxy", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return verifier_proxy.DeployVerifierProxy(auth, backend, accessControllerAddr)
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &EthereumMercuryVerifierProxy{
+		client:   e.client,
+		instance: instance.(*verifier_proxy.VerifierProxy),
+		address:  *address,
 		l:        e.l,
 	}, err
 }

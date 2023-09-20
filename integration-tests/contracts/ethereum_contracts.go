@@ -2269,10 +2269,11 @@ type EthereumMercuryVerifier struct {
 	address  common.Address
 	client   blockchain.EVMClient
 	instance *verifier.Verifier
+	l        zerolog.Logger
 }
 
-func (e *EthereumMercuryVerifier) Address() string {
-	return e.address.Hex()
+func (e *EthereumMercuryVerifier) Address() common.Address {
+	return e.address
 }
 
 func (e *EthereumMercuryVerifier) Verify(signedReport []byte, sender common.Address) error {
@@ -2287,14 +2288,27 @@ func (e *EthereumMercuryVerifier) Verify(signedReport []byte, sender common.Addr
 	return e.client.ProcessTransaction(tx)
 }
 
+func (e *EthereumMercuryVerifier) SetConfig(feedId [32]byte, signers []common.Address, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte, recipientAddressesAndWeights []verifier.CommonAddressAndWeight) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.SetConfig(opts, feedId, signers, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, recipientAddressesAndWeights)
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
+}
+
 type EthereumMercuryVerifierProxy struct {
 	address  common.Address
 	client   blockchain.EVMClient
 	instance *verifier_proxy.VerifierProxy
+	l        zerolog.Logger
 }
 
-func (e *EthereumMercuryVerifierProxy) Address() string {
-	return e.address.Hex()
+func (e *EthereumMercuryVerifierProxy) Address() common.Address {
+	return e.address
 }
 
 func (e *EthereumMercuryVerifierProxy) Verify(signedReport []byte, parameterPayload []byte, value *big.Int) (*types.Transaction, error) {

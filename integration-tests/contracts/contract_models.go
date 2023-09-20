@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/functions_billing_registry_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 )
 
 type FluxAggregatorOptions struct {
@@ -369,12 +370,13 @@ type FunctionsLoadTestClient interface {
 }
 
 type MercuryVerifier interface {
-	Address() string
+	Address() common.Address
 	Verify(signedReport []byte, sender common.Address) error
+	SetConfig(feedId [32]byte, signers []common.Address, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte, recipientAddressesAndWeights []verifier.CommonAddressAndWeight) (*types.Transaction, error)
 }
 
 type MercuryVerifierProxy interface {
-	Address() string
+	Address() common.Address
 	Verify(signedReport []byte, parameterPayload []byte, value *big.Int) (*types.Transaction, error)
 	VerifyBulk(signedReports [][]byte, parameterPayload []byte, value *big.Int) (*types.Transaction, error)
 }
