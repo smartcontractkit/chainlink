@@ -476,6 +476,11 @@ func (_m *Node) PendingNonceAt(ctx context.Context, account common.Address) (uin
 	return r0, r1
 }
 
+// SafeDisconnectAll provides a mock function with given fields:
+func (_m *Node) UnsubscribeAll() {
+	_m.Called()
+}
+
 // SendTransaction provides a mock function with given fields: ctx, tx
 func (_m *Node) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	ret := _m.Called(ctx, tx)

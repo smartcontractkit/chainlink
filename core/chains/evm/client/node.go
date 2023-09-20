@@ -94,6 +94,7 @@ type Node interface {
 	Name() string
 	ChainID() *big.Int
 	Order() int32
+	UnsubscribeAll()
 
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -376,6 +377,14 @@ func (n *node) disconnectAll() {
 	if n.ws.rpc != nil {
 		n.ws.rpc.Close()
 	}
+	n.cancelInflightRequests()
+	n.unsubscribeAll()
+}
+
+// UnsubscribeAll disconnects all clients connected to the node while holding the n.stateMu lock
+func (n *node) UnsubscribeAll() {
+	n.stateMu.Lock()
+	defer n.stateMu.Unlock()
 	n.cancelInflightRequests()
 	n.unsubscribeAll()
 }

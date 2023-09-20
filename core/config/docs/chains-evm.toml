@@ -311,6 +311,7 @@ PollInterval = '10s' # Default
 # SelectionMode controls node selection strategy:
 # - HighestHead: use the node with the highest head number
 # - RoundRobin: rotate through nodes, per-request
+# - PriorityLevel: use the node with the smallest order number
 # - TotalDifficulty: use the node with the greatest total difficulty
 SelectionMode = 'HighestHead' # Default
 # SyncThreshold controls how far a node may lag behind the best node before being marked out-of-sync.
@@ -318,6 +319,12 @@ SelectionMode = 'HighestHead' # Default
 #
 # Set to 0 to disable this check.
 SyncThreshold = 5 # Default
+# SwitchToBestNodeInterval interval in which to check and force internal services to use the "best" node as
+# defined by the SelectionMode
+# Setting this to a low value might cause RPC to switch to aggresivly
+#
+# Set to '0s' to disable
+SwitchToBestNodeInterval = '0s' # Default
 
 [EVM.OCR]
 # ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.

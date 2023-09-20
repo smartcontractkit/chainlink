@@ -926,6 +926,7 @@ PollFailureThreshold = 5
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 13
+SwitchToBestNodeInterval = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 11

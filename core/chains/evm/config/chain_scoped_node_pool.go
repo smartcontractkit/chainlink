@@ -25,3 +25,7 @@ func (n *nodePoolConfig) SelectionMode() string {
 func (n *nodePoolConfig) SyncThreshold() uint32 {
 	return *n.c.SyncThreshold
 }
+
+func (n *nodePoolConfig) SwitchToBestNodeInterval() time.Duration {
+	return n.c.SwitchToBestNodeInterval.Duration()
+}

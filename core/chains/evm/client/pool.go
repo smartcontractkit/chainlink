@@ -51,20 +51,22 @@ type NodeSelector interface {
 type PoolConfig interface {
 	NodeSelectionMode() string
 	NodeNoNewHeadsThreshold() time.Duration
+	SwitchToBestNodeInterval() time.Duration
 }
 
 // Pool represents an abstraction over one or more primary nodes
 // It is responsible for liveness checking and balancing queries across live nodes
 type Pool struct {
 	utils.StartStopOnce
-	nodes               []Node
-	sendonlys           []SendOnlyNode
-	chainID             *big.Int
-	chainType           config.ChainType
-	logger              logger.Logger
-	selectionMode       string
-	noNewHeadsThreshold time.Duration
-	nodeSelector        NodeSelector
+	nodes                    []Node
+	sendonlys                []SendOnlyNode
+	chainID                  *big.Int
+	chainType                config.ChainType
+	logger                   logger.Logger
+	selectionMode            string
+	noNewHeadsThreshold      time.Duration
+	nodeSelector             NodeSelector
+	switchToBestNodeInterval time.Duration
 
 	activeMu   sync.RWMutex
 	activeNode Node
@@ -73,7 +75,7 @@ type Pool struct {
 	wg     sync.WaitGroup
 }
 
-func NewPool(logger logger.Logger, selectionMode string, noNewHeadsTreshold time.Duration, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
+func NewPool(logger logger.Logger, selectionMode string, switchToBestNodeInterval time.Duration, noNewHeadsTreshold time.Duration, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
 	if chainID == nil {
 		panic("chainID is required")
 	}
@@ -96,15 +98,16 @@ func NewPool(logger logger.Logger, selectionMode string, noNewHeadsTreshold time
 	lggr := logger.Named("Pool").With("evmChainID", chainID.String())
 
 	p := &Pool{
-		nodes:               nodes,
-		sendonlys:           sendonlys,
-		chainID:             chainID,
-		chainType:           chainType,
-		logger:              lggr,
-		selectionMode:       selectionMode,
-		noNewHeadsThreshold: noNewHeadsTreshold,
-		nodeSelector:        nodeSelector,
-		chStop:              make(chan struct{}),
+		nodes:                    nodes,
+		sendonlys:                sendonlys,
+		chainID:                  chainID,
+		chainType:                chainType,
+		logger:                   lggr,
+		selectionMode:            selectionMode,
+		noNewHeadsThreshold:      noNewHeadsTreshold,
+		nodeSelector:             nodeSelector,
+		chStop:                   make(chan struct{}),
+		switchToBestNodeInterval: switchToBestNodeInterval,
 	}
 
 	p.logger.Debugf("The pool is configured to use NodeSelectionMode: %s", selectionMode)
@@ -150,6 +153,13 @@ func (p *Pool) Dial(ctx context.Context) error {
 		p.wg.Add(1)
 		go p.runLoop()
 
+		if p.switchToBestNodeInterval.Seconds() > 0 {
+			p.logger.Infof("The pool will switch to best node every %s", p.switchToBestNodeInterval.String())
+			go p.switchToBestNodeLoop()
+		} else {
+			p.logger.Debug("Best node switching is disabled")
+		}
+
 		return nil
 	})
 }
@@ -170,6 +180,25 @@ func (p *Pool) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty 
 		}
 	}
 	return
+}
+
+func (p *Pool) switchToBestNodeLoop() {
+	switchTicker := time.NewTicker(p.switchToBestNodeInterval)
+	defer switchTicker.Stop()
+
+	for {
+		select {
+		case <-switchTicker.C:
+			bestNode := p.nodeSelector.Select()
+			for _, n := range p.nodes {
+				if n.State() == NodeStateAlive && n != bestNode {
+					n.UnsubscribeAll()
+				}
+			}
+		case <-p.chStop:
+			return
+		}
+	}
 }
 
 func (p *Pool) runLoop() {

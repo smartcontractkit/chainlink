@@ -20,6 +20,8 @@ type erroringNode struct {
 	errMsg string
 }
 
+func (e *erroringNode) UnsubscribeAll() {}
+
 func (e *erroringNode) ChainID() (chainID *big.Int) { return nil }
 
 func (e *erroringNode) Start(ctx context.Context) error { return errors.New(e.errMsg) }
