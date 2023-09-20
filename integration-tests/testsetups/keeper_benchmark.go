@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"os"
+	"os/signal"
+	"syscall"
 	"testing"
 	"time"
 
@@ -294,14 +297,12 @@ func (k *KeeperBenchmarkTest) Run() {
 	registryLogs := make([][]types.Log, len(k.keeperRegistries))
 	for rIndex := range k.keeperRegistries {
 		var (
-			logs    []types.Log
-			timeout = 5 * time.Second
-			// contractABI = k.contractABI(rIndex)
+			logs        []types.Log
+			timeout     = 5 * time.Second
 			addr        = k.keeperRegistries[rIndex].Address()
 			filterQuery = geth.FilterQuery{
 				Addresses: []common.Address{common.HexToAddress(addr)},
 				FromBlock: k.startingBlock,
-				// Topics:    [][]common.Hash{{contractABI.Events["UpkeepPerformed"].ID}, {contractABI.Events["StaleUpkeepReport"].ID}},
 			}
 			err = fmt.Errorf("initial error") // to ensure our for loop runs at least once
 		)
@@ -327,10 +328,16 @@ func (k *KeeperBenchmarkTest) Run() {
 		for _, l := range registryLogs[rIndex] {
 			log := l
 			eventDetails, err := contractABI.EventByID(log.Topics[0])
-			require.NoError(k.t, err, "Getting event details for subscribed log shouldn't fail")
+			if err != nil {
+				k.log.Error().Err(err).Str("Log Hash", log.TxHash.Hex()).Msg("Error getting event details for log, report data inaccurate")
+				break
+			}
 			if eventDetails.Name == "UpkeepPerformed" {
 				parsedLog, err := k.keeperRegistries[rIndex].ParseUpkeepPerformedLog(&log)
-				require.NoError(k.t, err, "Parsing upkeep performed log shouldn't fail")
+				if err != nil {
+					k.log.Error().Err(err).Str("Log Hash", log.TxHash.Hex()).Msg("Error parsing upkeep performed log, report data inaccurate")
+					break
+				}
 				if !parsedLog.Success {
 					k.TestReporter.NumRevertedUpkeeps++
 				}
@@ -406,9 +413,14 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
 	require.NoError(k.t, err, "Subscribing to upkeep performed events log shouldn't fail")
 	contractABI := k.contractABI(rIndex)
 
+	interruption := make(chan os.Signal, 1)
+	signal.Notify(interruption, os.Kill, os.Interrupt, syscall.SIGTERM)
+
 	go func() {
 		for {
 			select {
+			case <-interruption:
+				k.log.Warn().Msg("Received interrupt signal, test container restarting. Dashboard view will be inaccurate.")
 			case err := <-sub.Err():
 				for err != nil {
 					k.log.Error().Err(err).Interface("Query", filterQuery).Msg("Error while subscribing to Keeper Event Logs. Resubscribing...")
