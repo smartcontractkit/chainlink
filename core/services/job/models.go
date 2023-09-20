@@ -577,7 +577,7 @@ type BlockhashStoreSpec struct {
 	// a blockhash into the blockhash store contract.
 	// This is so that we always have a blockhash to anchor to in the event we need to do a
 	// backwards mode on the contract.
-	HeartbeatPeriodTime int32 `toml:"heartbeatPeriodTime"`
+	HeartbeatPeriod time.Duration `toml:"heartbeatPeriod"`
 
 	// BlockhashStoreAddress is the address of the BlockhashStore contract to store blockhashes
 	// into.

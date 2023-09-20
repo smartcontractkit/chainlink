@@ -25,7 +25,7 @@ func NewFeeder(
 	trustedBHSBatchSize int32,
 	waitBlocks int,
 	lookbackBlocks int,
-	heartbeatPeriodTime int,
+	heartbeatPeriod time.Duration,
 	latestBlock func(ctx context.Context) (uint64, error),
 ) *Feeder {
 	return &Feeder{
@@ -41,7 +41,7 @@ func NewFeeder(
 		storedTrusted:       make(map[uint64]common.Hash),
 		lastRunBlock:        0,
 		wgStored:            sync.WaitGroup{},
-		heartbeatPeriodTime: heartbeatPeriodTime,
+		heartbeatPeriod:     heartbeatPeriod,
 	}
 }
 
@@ -61,7 +61,7 @@ type Feeder struct {
 	// the feeder will always store a blockhash, even if there are no
 	// unfulfilled requests. This is to ensure that there are blockhashes
 	// in the store to start from if we ever need to run backwards mode.
-	heartbeatPeriodTime int
+	heartbeatPeriod time.Duration
 
 	stored        map[uint64]struct{}    // used for trustless feeder
 	storedTrusted map[uint64]common.Hash // used for trusted feeder
@@ -72,20 +72,20 @@ type Feeder struct {
 }
 
 func (f *Feeder) StartHeartbeats(ctx context.Context) {
-	if f.heartbeatPeriodTime == 0 {
+	if f.heartbeatPeriod == 0 {
 		f.lggr.Infow("Not starting heartbeat blockhash using storeEarliest")
 		return
 	}
 	f.lggr.Infow("Starting heartbeat blockhash using storeEarliest")
-	timer := time.NewTimer(time.Duration(f.heartbeatPeriodTime) * time.Second)
+	timer := time.NewTimer(f.heartbeatPeriod)
 	for {
 		select {
 		case <-timer.C:
 			f.lggr.Infow("storing heartbeat blockhash using storeEarliest",
-				"heartbeatPeriodSeconds", f.heartbeatPeriodTime)
+				"heartbeatPeriodSeconds", f.heartbeatPeriod.Seconds())
 			if err := f.bhs.StoreEarliest(ctx); err != nil {
 				f.lggr.Infow("failed to store heartbeat blockhash using storeEarliest",
-					"heartbeatPeriodSeconds", f.heartbeatPeriodTime,
+					"heartbeatPeriodSeconds", f.heartbeatPeriod.Seconds(),
 					"err", err)
 			}
 		case <-ctx.Done():

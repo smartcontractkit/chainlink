@@ -67,7 +67,7 @@ evmChainID = "4"`,
 				require.NoError(t, err)
 				require.Equal(t, int32(100), os.BlockhashStoreSpec.WaitBlocks)
 				require.Equal(t, int32(200), os.BlockhashStoreSpec.LookbackBlocks)
-				require.Equal(t, int32(0), os.BlockhashStoreSpec.HeartbeatPeriodTime)
+				require.Equal(t, time.Duration(0), os.BlockhashStoreSpec.HeartbeatPeriod)
 				require.Nil(t, os.BlockhashStoreSpec.FromAddresses)
 				require.Equal(t, 30*time.Second, os.BlockhashStoreSpec.PollPeriod)
 				require.Equal(t, 30*time.Second, os.BlockhashStoreSpec.RunTimeout)
@@ -81,13 +81,13 @@ name = "heartbeat-blocks-test"
 coordinatorV1Address = "0x1F72B4A5DCf7CC6d2E38423bF2f4BFA7db97d139"
 coordinatorV2Address = "0x2be990eE17832b59E0086534c5ea2459Aa75E38F"
 blockhashStoreAddress = "0x3e20Cef636EdA7ba135bCbA4fe6177Bd3cE0aB17"
-heartbeatPeriodTime = 650
+heartbeatPeriod = "650s"
 evmChainID = "4"`,
 			assertion: func(t *testing.T, os job.Job, err error) {
 				require.NoError(t, err)
 				require.Equal(t, int32(100), os.BlockhashStoreSpec.WaitBlocks)
 				require.Equal(t, int32(200), os.BlockhashStoreSpec.LookbackBlocks)
-				require.Equal(t, int32(650), os.BlockhashStoreSpec.HeartbeatPeriodTime)
+				require.Equal(t, time.Duration(650)*time.Second, os.BlockhashStoreSpec.HeartbeatPeriod)
 				require.Nil(t, os.BlockhashStoreSpec.FromAddresses)
 				require.Equal(t, 30*time.Second, os.BlockhashStoreSpec.PollPeriod)
 				require.Equal(t, 30*time.Second, os.BlockhashStoreSpec.RunTimeout)

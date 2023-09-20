@@ -779,7 +779,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 						RunTimeout:                     37 * time.Second,
 						WaitBlocks:                     100,
 						LookbackBlocks:                 200,
-						HeartbeatPeriodTime:            450,
+						HeartbeatPeriod:                450 * time.Second,
 						BlockhashStoreAddress:          blockhashStoreAddress,
 						TrustedBlockhashStoreAddress:   &trustedBlockhashStoreAddress,
 						TrustedBlockhashStoreBatchSize: trustedBlockhashStoreBatchSize,
@@ -806,7 +806,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 									blockhashStoreAddress
 									trustedBlockhashStoreAddress
 									trustedBlockhashStoreBatchSize
-									heartbeatPeriodTime
+									heartbeatPeriod
 								}
 							}
 						}
@@ -831,7 +831,7 @@ func TestResolver_BlockhashStoreSpec(t *testing.T) {
 							"blockhashStoreAddress": "0xb26A6829D454336818477B946f03Fb21c9706f3A",
 							"trustedBlockhashStoreAddress": "0x0ad9FE7a58216242a8475ca92F222b0640E26B63",
 							"trustedBlockhashStoreBatchSize": 20,
-							"heartbeatPeriodTime": 450
+							"heartbeatPeriod": "7m30s"
 						}
 					}
 				}
