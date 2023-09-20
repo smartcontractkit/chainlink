@@ -7,7 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
@@ -100,7 +100,7 @@ func TestChaosCCIP(t *testing.T) {
 		in := in
 		t.Run(in.testName, func(t *testing.T) {
 			t.Parallel()
-			l := utils.GetTestLogger(t)
+			l := logging.GetTestLogger(t)
 			testCfg := testsetups.NewCCIPTestConfig(t, l, testsetups.Chaos)
 			var (
 				numOfCommitNodes = 5
