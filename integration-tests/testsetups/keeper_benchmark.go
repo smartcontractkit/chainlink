@@ -294,14 +294,14 @@ func (k *KeeperBenchmarkTest) Run() {
 	registryLogs := make([][]types.Log, len(k.keeperRegistries))
 	for rIndex := range k.keeperRegistries {
 		var (
-			logs        []types.Log
-			timeout     = 5 * time.Second
-			contractABI = k.contractABI(rIndex)
+			logs    []types.Log
+			timeout = 5 * time.Second
+			// contractABI = k.contractABI(rIndex)
 			addr        = k.keeperRegistries[rIndex].Address()
 			filterQuery = geth.FilterQuery{
 				Addresses: []common.Address{common.HexToAddress(addr)},
 				FromBlock: k.startingBlock,
-				Topics:    [][]common.Hash{{contractABI.Events["UpkeepPerformed"].ID}, {contractABI.Events["StaleUpkeepReport"].ID}},
+				// Topics:    [][]common.Hash{{contractABI.Events["UpkeepPerformed"].ID}, {contractABI.Events["StaleUpkeepReport"].ID}},
 			}
 			err = fmt.Errorf("initial error") // to ensure our for loop runs at least once
 		)
