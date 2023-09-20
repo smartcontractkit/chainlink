@@ -138,6 +138,12 @@ type listener struct {
 	utils.StartStopOnce
 }
 
+func (l *listener) HealthReport() map[string]error {
+	return map[string]error{l.Name(): l.Healthy()}
+}
+
+func (l *listener) Name() string { return l.logger.Name() }
+
 // Start complies with job.Service
 func (l *listener) Start(context.Context) error {
 	return l.StartOnce("DirectRequestListener", func() error {
