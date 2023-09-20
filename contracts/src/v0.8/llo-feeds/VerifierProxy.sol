@@ -117,7 +117,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "VerifierProxy 1.2.0";
+    return "VerifierProxy 2.0.0";
   }
 
   /// @inheritdoc IVerifierProxy

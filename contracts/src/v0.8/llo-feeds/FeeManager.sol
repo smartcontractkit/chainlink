@@ -160,7 +160,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "FeeManager 1.1.0";
+    return "FeeManager 2.0.0";
   }
 
   /// @inheritdoc IERC165
