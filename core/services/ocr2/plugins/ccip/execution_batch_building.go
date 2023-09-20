@@ -35,7 +35,7 @@ func getProofData(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	leaves, err = leavesFromIntervals(lggr, interval, hashLeaf, sendReqs)
+	leaves, err = hashlib.LeavesFromIntervals(lggr, interval, hashLeaf, sendReqs)
 	if err != nil {
 		return nil, nil, nil, err
 	}

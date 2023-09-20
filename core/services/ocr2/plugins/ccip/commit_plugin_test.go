@@ -18,6 +18,7 @@ import (
 	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestGetCommitPluginFilterNamesFromSpec(t *testing.T) {
@@ -34,7 +35,7 @@ func TestGetCommitPluginFilterNamesFromSpec(t *testing.T) {
 		{
 			description: "invalid config",
 			spec: &job.OCR2OracleSpec{
-				ContractID:   zeroAddress.String(),
+				ContractID:   utils.ZeroAddress.String(),
 				PluginConfig: map[string]interface{}{},
 			},
 			expectingErr: true,
@@ -49,7 +50,7 @@ func TestGetCommitPluginFilterNamesFromSpec(t *testing.T) {
 		{
 			description: "valid config",
 			spec: &job.OCR2OracleSpec{
-				ContractID:   zeroAddress.String(),
+				ContractID:   utils.ZeroAddress.String(),
 				PluginConfig: map[string]interface{}{},
 				RelayConfig: map[string]interface{}{
 					"chainID": 1234.0,

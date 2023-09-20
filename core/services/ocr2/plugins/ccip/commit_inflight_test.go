@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -22,7 +23,7 @@ func TestCommitInflight(t *testing.T) {
 	c.inFlightPriceUpdates = append(c.inFlightPriceUpdates, InflightPriceUpdate{
 		priceUpdates:  commit_store.InternalPriceUpdates{DestChainSelector: 0}, // skipped when destChainSelector is 0
 		createdAt:     time.Now(),
-		epochAndRound: mergeEpochAndRound(2, 4),
+		epochAndRound: ccipcalc.MergeEpochAndRound(2, 4),
 	})
 
 	// Initially should be empty
@@ -80,7 +81,7 @@ func TestCommitInflight(t *testing.T) {
 			UsdPerUnitGas:     big.NewInt(999),
 		},
 		createdAt:     time.Now(),
-		epochAndRound: mergeEpochAndRound(999, 99),
+		epochAndRound: ccipcalc.MergeEpochAndRound(999, 99),
 	})
 	latestInflightTokenPriceUpdates = c.latestInflightTokenPriceUpdates()
 	require.Equal(t, len(latestInflightTokenPriceUpdates), 1)
@@ -104,12 +105,12 @@ func Test_inflightCommitReportsContainer_expire(t *testing.T) {
 			{
 				priceUpdates:  commit_store.InternalPriceUpdates{DestChainSelector: 100},
 				createdAt:     time.Now().Add(-PRICE_EXPIRY_MULTIPLIER * time.Minute),
-				epochAndRound: mergeEpochAndRound(10, 5),
+				epochAndRound: ccipcalc.MergeEpochAndRound(10, 5),
 			},
 			{
 				priceUpdates:  commit_store.InternalPriceUpdates{DestChainSelector: 200},
 				createdAt:     time.Now().Add(-PRICE_EXPIRY_MULTIPLIER * time.Second),
-				epochAndRound: mergeEpochAndRound(20, 5),
+				epochAndRound: ccipcalc.MergeEpochAndRound(20, 5),
 			},
 		},
 	}
@@ -120,5 +121,5 @@ func Test_inflightCommitReportsContainer_expire(t *testing.T) {
 	assert.True(t, exists)
 
 	assert.Len(t, c.inFlightPriceUpdates, 1)
-	assert.Equal(t, mergeEpochAndRound(20, 5), c.inFlightPriceUpdates[0].epochAndRound)
+	assert.Equal(t, ccipcalc.MergeEpochAndRound(20, 5), c.inFlightPriceUpdates[0].epochAndRound)
 }

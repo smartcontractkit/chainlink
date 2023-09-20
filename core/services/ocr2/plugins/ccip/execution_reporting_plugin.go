@@ -33,7 +33,9 @@ import (
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/contractutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/logpollerutil"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/observability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -163,7 +165,7 @@ func (r *ExecutionReportingPlugin) Query(context.Context, types.ReportTimestamp)
 
 func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp types.ReportTimestamp, query types.Query) (types.Observation, error) {
 	lggr := r.lggr.Named("ExecutionObservation")
-	if isCommitStoreDownNow(ctx, lggr, r.config.commitStore) {
+	if contractutil.IsCommitStoreDownNow(ctx, lggr, r.config.commitStore) {
 		return nil, ErrCommitStoreIsDown
 	}
 	// Expire any inflight reports.
@@ -204,22 +206,22 @@ func (rf *ExecutionReportingPluginFactory) UpdateLogPollerFilters(destPriceRegis
 
 	// source chain filters
 	sourceFiltersBefore, sourceFiltersNow := rf.sourceChainFilters, getExecutionPluginSourceLpChainFilters(rf.config.onRamp.Address(), rf.config.sourcePriceRegistry.Address())
-	created, deleted := filtersDiff(sourceFiltersBefore, sourceFiltersNow)
-	if err := unregisterLpFilters(rf.config.sourceLP, deleted, qopts...); err != nil {
+	created, deleted := logpollerutil.FiltersDiff(sourceFiltersBefore, sourceFiltersNow)
+	if err := logpollerutil.UnregisterLpFilters(rf.config.sourceLP, deleted, qopts...); err != nil {
 		return err
 	}
-	if err := registerLpFilters(rf.config.sourceLP, created, qopts...); err != nil {
+	if err := logpollerutil.RegisterLpFilters(rf.config.sourceLP, created, qopts...); err != nil {
 		return err
 	}
 	rf.sourceChainFilters = sourceFiltersNow
 
 	// destination chain filters
 	destFiltersBefore, destFiltersNow := rf.destChainFilters, getExecutionPluginDestLpChainFilters(rf.config.commitStore.Address(), rf.config.offRamp.Address(), destPriceRegistry)
-	created, deleted = filtersDiff(destFiltersBefore, destFiltersNow)
-	if err := unregisterLpFilters(rf.config.destLP, deleted, qopts...); err != nil {
+	created, deleted = logpollerutil.FiltersDiff(destFiltersBefore, destFiltersNow)
+	if err := logpollerutil.UnregisterLpFilters(rf.config.destLP, deleted, qopts...); err != nil {
 		return err
 	}
-	if err := registerLpFilters(rf.config.destLP, created, qopts...); err != nil {
+	if err := logpollerutil.RegisterLpFilters(rf.config.destLP, created, qopts...); err != nil {
 		return err
 	}
 	rf.destChainFilters = destFiltersNow
@@ -255,28 +257,28 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 	// Since this will only increase over time, the highest observed value will
 	// always be the lower bound of what would be available on chain
 	// since we already account for inflight txs.
-	getAllowedTokenAmount := LazyFetch(func() (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
+	getAllowedTokenAmount := cache.LazyFetch(func() (evm_2_evm_offramp.RateLimiterTokenBucket, error) {
 		return r.config.offRamp.CurrentRateLimiterState(&bind.CallOpts{Context: ctx})
 	})
 	sourceToDestTokens, supportedDestTokens, err := r.sourceDestinationTokens(ctx)
 	if err != nil {
 		return nil, err
 	}
-	getSourceTokensPrices := LazyFetch(func() (map[common.Address]*big.Int, error) {
+	getSourceTokensPrices := cache.LazyFetch(func() (map[common.Address]*big.Int, error) {
 		sourceFeeTokens, err1 := r.cachedSourceFeeTokens.Get(ctx)
 		if err1 != nil {
 			return nil, err1
 		}
 		return getTokensPrices(ctx, sourceFeeTokens, r.config.sourcePriceRegistry, []common.Address{r.config.sourceWrappedNativeToken})
 	})
-	getDestTokensPrices := LazyFetch(func() (map[common.Address]*big.Int, error) {
+	getDestTokensPrices := cache.LazyFetch(func() (map[common.Address]*big.Int, error) {
 		dstTokens, err1 := r.cachedDestTokens.Get(ctx)
 		if err1 != nil {
 			return nil, err1
 		}
 		return getTokensPrices(ctx, dstTokens.FeeTokens, r.destPriceRegistry, append(supportedDestTokens, r.destWrappedNative))
 	})
-	getDestGasPrice := LazyFetch(func() (*big.Int, error) {
+	getDestGasPrice := cache.LazyFetch(func() (*big.Int, error) {
 		return r.estimateDestinationGasPrice(ctx)
 	})
 
@@ -292,7 +294,7 @@ func (r *ExecutionReportingPlugin) getExecutableObservations(ctx context.Context
 		return nil, err
 	}
 
-	getDestPoolRateLimits := LazyFetch(func() (map[common.Address]*big.Int, error) {
+	getDestPoolRateLimits := cache.LazyFetch(func() (map[common.Address]*big.Int, error) {
 		return r.destPoolRateLimits(ctx, unexpiredReportsWithSendReqs, sourceToDestTokens)
 	})
 
@@ -469,7 +471,7 @@ func (r *ExecutionReportingPlugin) buildBatch(
 	aggregateTokenLimit *big.Int,
 	sourceTokenPricesUSD map[common.Address]*big.Int,
 	destTokenPricesUSD map[common.Address]*big.Int,
-	execGasPriceEstimate LazyFunction[*big.Int],
+	execGasPriceEstimate cache.LazyFunction[*big.Int],
 	sourceToDestToken map[common.Address]common.Address,
 	destTokenPoolRateLimits map[common.Address]*big.Int,
 ) (executableMessages []ObservedMessage) {
@@ -931,7 +933,7 @@ func calculateObservedMessagesConsensus(observations []ExecutionObservation, f i
 	tally := make(map[tallyKey]tallyVal)
 	for _, obs := range observations {
 		for seqNr, msgData := range obs.Messages {
-			tokenDataHash, err := bytesOfBytesKeccak(msgData.TokenData)
+			tokenDataHash, err := hashlib.BytesOfBytesKeccak(msgData.TokenData)
 			if err != nil {
 				return nil, fmt.Errorf("bytes of bytes keccak: %w", err)
 			}
@@ -984,7 +986,7 @@ func (r *ExecutionReportingPlugin) ShouldAcceptFinalizedReport(ctx context.Conte
 		lggr.Errorw("Unable to decode report", "err", err)
 		return false, err
 	}
-	lggr = lggr.With("messageIDs", getMessageIDsAsHexString(messages))
+	lggr = lggr.With("messageIDs", contractutil.GetMessageIDsAsHexString(messages))
 
 	// If the first message is executed already, this execution report is stale, and we do not accept it.
 	stale, err := r.isStaleReport(messages)
@@ -1010,7 +1012,7 @@ func (r *ExecutionReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Cont
 		lggr.Errorw("Unable to decode report", "err", err)
 		return false, nil
 	}
-	lggr = lggr.With("messageIDs", getMessageIDsAsHexString(messages))
+	lggr = lggr.With("messageIDs", contractutil.GetMessageIDsAsHexString(messages))
 
 	// If report is not stale we transmit.
 	// When the executeTransmitter enqueues the tx for tx manager,
