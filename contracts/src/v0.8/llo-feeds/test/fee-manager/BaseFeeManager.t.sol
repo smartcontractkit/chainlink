@@ -2,13 +2,13 @@
 pragma solidity 0.8.16;
 
 import {Test} from "forge-std/Test.sol";
-import {FeeManager} from "../../dev/FeeManager.sol";
-import {IFeeManager} from "../../dev/interfaces/IFeeManager.sol";
-import {RewardManager} from "../../dev/RewardManager.sol";
+import {FeeManager} from "../../FeeManager.sol";
+import {IFeeManager} from "../../interfaces/IFeeManager.sol";
+import {RewardManager} from "../../RewardManager.sol";
 import {Common} from "../../../libraries/Common.sol";
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/mocks/ERC20Mock.sol";
 import {WERC20Mock} from "../../../shared/mocks/WERC20Mock.sol";
-import {IRewardManager} from "../../dev/interfaces/IRewardManager.sol";
+import {IRewardManager} from "../../interfaces/IRewardManager.sol";
 import {FeeManagerProxy} from "../mocks/FeeManagerProxy.sol";
 
 /**
