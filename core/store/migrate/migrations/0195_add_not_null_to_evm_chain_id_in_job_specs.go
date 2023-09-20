@@ -11,8 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 )
 
-// No need to scan migration script
-// START-NOSCAN
 func init() {
 	goose.AddMigrationContext(Up195, Down195)
 }
