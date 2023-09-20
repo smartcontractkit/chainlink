@@ -164,6 +164,39 @@ func (_m *LogPoller) IndexedLogsByBlockRange(start int64, end int64, eventSig co
 	return r0, r1
 }
 
+// IndexedLogsByTxHash provides a mock function with given fields: eventSig, txHash, qopts
+func (_m *LogPoller) IndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, eventSig, txHash)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 []logpoller.Log
+	var r1 error
+	if rf, ok := ret.Get(0).(func(common.Hash, common.Hash, ...pg.QOpt) ([]logpoller.Log, error)); ok {
+		return rf(eventSig, txHash, qopts...)
+	}
+	if rf, ok := ret.Get(0).(func(common.Hash, common.Hash, ...pg.QOpt) []logpoller.Log); ok {
+		r0 = rf(eventSig, txHash, qopts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]logpoller.Log)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(common.Hash, common.Hash, ...pg.QOpt) error); ok {
+		r1 = rf(eventSig, txHash, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // IndexedLogsCreatedAfter provides a mock function with given fields: eventSig, address, topicIndex, topicValues, after, confs, qopts
 func (_m *LogPoller) IndexedLogsCreatedAfter(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, after time.Time, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 	_va := make([]interface{}, len(qopts))

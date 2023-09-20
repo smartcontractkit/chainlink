@@ -516,6 +516,22 @@ func (o *ORM) SelectIndexedLogsCreatedAfter(address common.Address, eventSig com
 	return logs, nil
 }
 
+func (o *ORM) SelectIndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	q := o.q.WithOpts(qopts...)
+	var logs []Log
+	err := q.Select(&logs, `
+		SELECT * FROM evm.logs 
+			WHERE evm.logs.evm_chain_id = $1
+			AND tx_hash = $2
+			AND event_sig = $3
+			ORDER BY (evm.logs.block_number, evm.logs.log_index)`,
+		utils.NewBig(o.chainID), txHash.Bytes(), eventSig.Bytes())
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
 // SelectIndexedLogsWithSigsExcluding query's for logs that have signature A and exclude logs that have a corresponding signature B, matching is done based on the topic index both logs should be inside the block range and have the minimum number of confirmations
 func (o *ORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIndex int, address common.Address, startBlock, endBlock int64, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	if err := validateTopicIndex(topicIndex); err != nil {
