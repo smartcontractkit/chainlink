@@ -2,6 +2,8 @@ package flakeytests
 
 import (
 	"io"
+	"os"
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -273,4 +275,39 @@ func TestRunner_RerunWithNonZeroExitCodeDoesntStopCommand(t *testing.T) {
 	calls := index
 	assert.Equal(t, 2, calls)
 	assert.Equal(t, m.entries["github.com/smartcontractkit/chainlink/v2/core/assets"], []string{"TestLink"})
+}
+
+// Used for integration tests
+func TestSkippedForTests(t *testing.T) {
+	if os.Getenv("FLAKEY_TEST_RUNNER_RUN_FIXTURE_TEST") != "1" {
+		t.Skip()
+	}
+
+	go func() {
+		panic("skipped test")
+	}()
+}
+
+func TestParsesPanicCorrectly(t *testing.T) {
+	output := `{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/tools/flakeytests/","Test":"TestSkippedForTests","Elapsed":0}`
+
+	tc := &testCommand{
+		repo:    "github.com/smartcontractkit/chainlink/v2",
+		command: "../../tools/bin/go_core_tests",
+		overrides: func(cmd *exec.Cmd) {
+			cmd.Env = append(cmd.Env, "FLAKEY_TEST_RUNNER_RUN_FIXTURE_TEST=1")
+		},
+	}
+	m := newMockReporter()
+	r := &Runner{
+		numReruns: 2,
+		readers:   []io.Reader{strings.NewReader(output)},
+		runTestFn: tc.run,
+		parse:     parseOutput,
+		reporter:  m,
+	}
+
+	err := r.Run()
+	require.NoError(t, err)
+	assert.Equal(t, m.entries["github.com/smartcontractkit/chainlink/v2/tools/flakeytests"], []string{"TestSkippedForTests"})
 }

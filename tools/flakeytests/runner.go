@@ -35,22 +35,33 @@ type runTestCmd func(pkg string, testNames []string, numReruns int, w io.Writer)
 type parseFn func(readers ...io.Reader) (map[string]map[string]int, error)
 
 func NewRunner(readers []io.Reader, reporter reporter, numReruns int) *Runner {
+	tc := &testCommand{
+		repo:    "github.com/smartcontractkit/chainlink/v2",
+		command: "./tools/bin/go_core_tests",
+	}
 	return &Runner{
 		readers:   readers,
 		numReruns: numReruns,
-		runTestFn: runGoTest,
+		runTestFn: tc.run,
 		parse:     parseOutput,
 		reporter:  reporter,
 	}
 }
 
-func runGoTest(pkg string, tests []string, numReruns int, w io.Writer) error {
-	pkg = strings.Replace(pkg, "github.com/smartcontractkit/chainlink/v2", "", -1)
+type testCommand struct {
+	command   string
+	repo      string
+	overrides func(*exec.Cmd)
+}
+
+func (t *testCommand) run(pkg string, tests []string, w io.Writer) error {
+	pkg = strings.Replace(pkg, t.repo, "", -1)
 	testFilter := strings.Join(tests, "|")
-	cmd := exec.Command("./tools/bin/go_core_tests", fmt.Sprintf(".%s", pkg)) //#nosec
-	cmd.Env = append(os.Environ(), fmt.Sprintf("TEST_FLAGS=-count %d -run %s", numReruns, testFilter))
+	cmd := exec.Command(t.command, fmt.Sprintf(".%s", pkg)) //#nosec
+	cmd.Env = append(os.Environ(), fmt.Sprintf("TEST_FLAGS=-run %s", testFilter))
 	cmd.Stdout = io.MultiWriter(os.Stdout, w)
 	cmd.Stderr = io.MultiWriter(os.Stderr, w)
+	t.overrides(cmd)
 	return cmd.Run()
 }
 
