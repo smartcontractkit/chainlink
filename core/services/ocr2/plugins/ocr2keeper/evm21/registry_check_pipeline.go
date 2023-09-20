@@ -244,10 +244,11 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		if req.Error != nil {
 			latestBlock := r.bs.latestBlock.Load()
 			checkBlock, _, _ := r.getBlockAndUpkeepId(payloads[index].UpkeepID, payloads[index].Trigger)
-			// primitive way of checking errors
-			if strings.Contains(req.Error.Error(), "header not found") && int64(latestBlock.Number)-checkBlock.Int64() > checkBlockTooOldRange {
+			// Exploratory: remove reliance on primitive way of checking errors
+			blockNotFound := (strings.Contains(req.Error.Error(), "header not found") || strings.Contains(req.Error.Error(), "missing trie node"))
+			if blockNotFound && int64(latestBlock.Number)-checkBlock.Int64() > checkBlockTooOldRange {
 				// Check block not found in RPC and it is too old, non-retryable error
-				r.lggr.Warnf("header not found error encountered in check result for upkeepId %s, check block %d, latest block %d: %s", results[index].UpkeepID.String(), checkBlock.Int64(), int64(latestBlock.Number), req.Error)
+				r.lggr.Warnf("block not found error encountered in check result for upkeepId %s, check block %d, latest block %d: %s", results[index].UpkeepID.String(), checkBlock.Int64(), int64(latestBlock.Number), req.Error)
 				results[index].Retryable = false
 				results[index].PipelineExecutionState = uint8(encoding.CheckBlockTooOld)
 			} else {
