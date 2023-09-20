@@ -235,7 +235,7 @@ func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int
 	}
 
 	// call checkCallback function at the block which OCR3 has agreed upon
-	err = r.client.CallContext(opts.Context, &resultBytes, "eth_call", args, opts.BlockNumber)
+	err = r.client.CallContext(opts.Context, &resultBytes, "eth_call", args, hexutil.EncodeBig(opts.BlockNumber))
 	if err != nil {
 		return encoding.RpcFlakyFailure, encoding.UpkeepFailureReasonNone, true, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
 	}
