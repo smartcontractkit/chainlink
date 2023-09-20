@@ -289,8 +289,8 @@ func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 	}).Return(nil)
 
 	var sentMessage []byte
-	uni.ingressClient.On("Send", mock.Anything).Return().Run(func(args mock.Arguments) {
-		sentMessage = args[0].(synchronization.TelemPayload).Telemetry
+	uni.ingressClient.On("Send", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
+		sentMessage = args[1].([]byte)
 	})
 
 	uni.service.HandleLog(log)

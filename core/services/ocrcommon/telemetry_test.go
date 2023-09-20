@@ -554,8 +554,8 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEAMercury, "test-network", "test-chainID")
 
 	var sentMessage []byte
-	ingressClient.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
-		sentMessage = args[0].(synchronization.TelemPayload).Telemetry
+	ingressClient.On("Send", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
+		sentMessage = args[1].([]byte)
 		wg.Done()
 	})
 
