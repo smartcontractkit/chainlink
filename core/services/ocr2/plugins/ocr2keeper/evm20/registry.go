@@ -332,6 +332,9 @@ func (r *EvmRegistry) initialize() error {
 		}
 
 		offset += batch
+
+		// Do not bombard RPC will calls, wait a bit
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	r.mu.Lock()
