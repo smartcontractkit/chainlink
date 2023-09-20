@@ -689,7 +689,11 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 
 	switch requestData.SecretsLocation {
 	case LocationInline:
-		l.logger.Warnw("request used Inline secrets location, processing with no secrets", "requestID", requestIDStr)
+		if len(requestData.Secrets) > 0 {
+			l.logger.Warnw("request used Inline secrets location, processing with no secrets", "requestID", requestIDStr)
+		} else {
+			l.logger.Debugw("request does not use any secrets", "requestID", requestIDStr)
+		}
 		return "", nil, nil
 	case LocationRemote:
 		thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestIDStr, l.job.Name.ValueOrZero())
