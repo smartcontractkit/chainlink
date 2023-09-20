@@ -23,3 +23,6 @@ BlockHistorySize = 0
 
 [NodePool]
 SyncThreshold = 10
+
+[OCR2.Automation]
+GasLimit = 14500000

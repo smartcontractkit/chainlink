@@ -966,12 +966,6 @@ func (lp *logPoller) LogsDataWordGreaterThan(eventSig common.Hash, address commo
 	return lp.orm.SelectDataWordGreaterThan(address, eventSig, wordIndex, wordValueMin, confs, qopts...)
 }
 
-// LogsUntilBlockHashDataWordGreaterThan note index is 0 based.
-// If the blockhash is not found (i.e. a stale fork) it will error.
-func (lp *logPoller) LogsUntilBlockHashDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, untilBlockHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
-	return lp.orm.SelectUntilBlockHashDataWordGreaterThan(address, eventSig, wordIndex, wordValueMin, untilBlockHash, qopts...)
-}
-
 // LogsDataWordRange note index is 0 based.
 func (lp *logPoller) LogsDataWordRange(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin, wordValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectDataWordRange(address, eventSig, wordIndex, wordValueMin, wordValueMax, confs, qopts...)
@@ -981,6 +975,12 @@ func (lp *logPoller) LogsDataWordRange(eventSig common.Hash, address common.Addr
 // Only works for integer topics.
 func (lp *logPoller) IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return lp.orm.SelectIndexLogsTopicGreaterThan(address, eventSig, topicIndex, topicValueMin, confs, qopts...)
+}
+
+// LogsUntilBlockHashDataWordGreaterThan note index is 0 based.
+// If the blockhash is not found (i.e. a stale fork) it will error.
+func (lp *logPoller) LogsUntilBlockHashDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, untilBlockHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	return lp.orm.SelectUntilBlockHashDataWordGreaterThan(address, eventSig, wordIndex, wordValueMin, untilBlockHash, qopts...)
 }
 
 func (lp *logPoller) IndexedLogsTopicRange(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, topicValueMax common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {

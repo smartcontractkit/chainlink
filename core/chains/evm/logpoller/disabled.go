@@ -85,10 +85,6 @@ func (disabled) LogsDataWordGreaterThan(eventSig common.Hash, address common.Add
 	return nil, ErrDisabled
 }
 
-func (disabled) LogsUntilBlockHashDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, untilBlockHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
-	return nil, ErrDisabled
-}
-
 func (d disabled) IndexedLogsWithSigsExcluding(address common.Address, eventSigA, eventSigB common.Hash, topicIndex int, fromBlock, toBlock int64, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return nil, ErrDisabled
 }
@@ -103,4 +99,8 @@ func (d disabled) IndexedLogsCreatedAfter(eventSig common.Hash, address common.A
 
 func (d disabled) LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
 	return 0, ErrDisabled
+}
+
+func (d disabled) LogsUntilBlockHashDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, untilBlockHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	return nil, ErrDisabled
 }
