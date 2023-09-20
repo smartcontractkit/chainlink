@@ -475,7 +475,6 @@ func (g *generalConfig) RootDir() string {
 func (g *generalConfig) TelemetryIngress() coreconfig.TelemetryIngress {
 	return &telemetryIngressConfig{
 		c: g.c.TelemetryIngress,
-		e: g.c.TelemetryIngressEndpoint,
 	}
 }
 

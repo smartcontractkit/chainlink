@@ -99,7 +99,7 @@ SendTimeout = '10s' # Default
 # UseBatchSend toggles sending telemetry to the ingress server using the batch client.
 UseBatchSend = true # Default
 
-[[TelemetryIngressEndpoint]] # Example
+[[TelemetryIngress.Endpoints]] # Example
 # Network aka EVM, Solana, Starknet
 Network = 'EVM' # Example
 # ChainID of the network

@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
   All nodes have to add the following configuration fields for each network-chainID pair they want to send telemetry for:
   ```toml
-  [[TelemetryIngressEndpoint]]
+  [[TelemetryIngress.Endpoints]]
   Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
   ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
   URL = '...'

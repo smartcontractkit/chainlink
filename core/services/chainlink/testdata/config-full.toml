@@ -41,7 +41,7 @@ SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
 
-[[TelemetryIngressEndpoint]]
+[[TelemetryIngress.Endpoints]]
 Network = 'EVM'
 ChainID = '1'
 URL = 'https://prom.test'

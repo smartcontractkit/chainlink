@@ -41,11 +41,11 @@ SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
 
-[[TelemetryIngressEndpoint]]
+[[TelemetryIngress.Endpoints]]
 Network = 'EVM'
 ChainID = '1'
-URL = 'https://prom.test'
-ServerPubKey = 'test-pub-key'
+URL = 'https://endpoint-1.test'
+ServerPubKey = 'test-pub-key-1'
 
 [AuditLogger]
 Enabled = true

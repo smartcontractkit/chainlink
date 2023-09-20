@@ -12,7 +12,6 @@ var _ config.TelemetryIngress = (*telemetryIngressConfig)(nil)
 
 type telemetryIngressConfig struct {
 	c toml.TelemetryIngress
-	e toml.TelemetryIngressEndpoints
 }
 
 type telemetryIngressEndpointConfig struct {
@@ -49,8 +48,10 @@ func (t *telemetryIngressConfig) UseBatchSend() bool {
 
 func (t *telemetryIngressConfig) Endpoints() []config.TelemetryIngressEndpoint {
 	var endpoints []config.TelemetryIngressEndpoint
-	for _, e := range t.e {
-		endpoints = append(endpoints, &telemetryIngressEndpointConfig{c: *e})
+	for _, e := range t.c.Endpoints {
+		endpoints = append(endpoints, &telemetryIngressEndpointConfig{
+			c: e,
+		})
 	}
 	return endpoints
 }

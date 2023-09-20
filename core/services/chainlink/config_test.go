@@ -276,16 +276,14 @@ func TestConfig_Marshal(t *testing.T) {
 		SendInterval: models.MustNewDuration(time.Minute),
 		SendTimeout:  models.MustNewDuration(5 * time.Second),
 		UseBatchSend: ptr(true),
-	}
-
-	full.TelemetryIngressEndpoint = toml.TelemetryIngressEndpoints{
-		ptr(toml.TelemetryIngressEndpoint{
+		Endpoints: []toml.TelemetryIngressEndpoint{{
 			Network:      ptr("EVM"),
 			ChainID:      ptr("1"),
 			ServerPubKey: ptr("test-pub-key"),
-			URL:          mustURL("https://prom.test"),
-		}),
+			URL:          mustURL("https://prom.test")},
+		},
 	}
+
 	full.Log = toml.Log{
 		Level:       ptr(toml.LogLevel(zapcore.DPanicLevel)),
 		JSONConsole: ptr(true),
@@ -695,8 +693,8 @@ MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
-`},
-		{"TelemetryIngressEndpoint", Config{Core: toml.Core{TelemetryIngressEndpoint: full.TelemetryIngressEndpoint}}, `[[TelemetryIngressEndpoint]]
+
+[[TelemetryIngress.Endpoints]]
 Network = 'EVM'
 ChainID = '1'
 URL = 'https://prom.test'
