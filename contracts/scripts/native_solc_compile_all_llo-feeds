@@ -27,8 +27,8 @@ compileContract () {
 
 compileContract llo-feeds/Verifier.sol
 compileContract llo-feeds/VerifierProxy.sol
-compileContract llo-feeds/dev/FeeManager.sol
-compileContract llo-feeds/dev/RewardManager.sol
+compileContract llo-feeds/FeeManager.sol
+compileContract llo-feeds/RewardManager.sol
 
 #Test | Mocks
 compileContract llo-feeds/test/mocks/ErroredVerifier.sol
