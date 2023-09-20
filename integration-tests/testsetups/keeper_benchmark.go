@@ -290,7 +290,7 @@ func (k *KeeperBenchmarkTest) Run() {
 	err = k.chainClient.WaitForEvents()
 	require.NoError(k.t, err, "Error waiting for keeper subscriptions")
 
-	// Collect test metrics for each registry
+	// Collect logs for each registry to calculate test metrics
 	registryLogs := make([][]types.Log, len(k.keeperRegistries))
 	for rIndex := range k.keeperRegistries {
 		var (
@@ -324,7 +324,8 @@ func (k *KeeperBenchmarkTest) Run() {
 	// Count reverts and stale upkeeps
 	for rIndex := range k.keeperRegistries {
 		contractABI := k.contractABI(rIndex)
-		for _, log := range registryLogs[rIndex] {
+		for _, l := range registryLogs[rIndex] {
+			log := l
 			eventDetails, err := contractABI.EventByID(log.Topics[0])
 			require.NoError(k.t, err, "Getting event details for subscribed log shouldn't fail")
 			if eventDetails.Name == "UpkeepPerformed" {
