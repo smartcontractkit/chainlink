@@ -10,7 +10,7 @@ import (
 )
 
 // No need to scan migration script
-// BEGIN-NOSCAN
+// START-NOSCAN
 func init() {
 	goose.AddMigrationContext(Up195, Down195)
 }
@@ -71,5 +71,3 @@ func Down195(ctx context.Context, tx *sql.Tx) error {
 	}
 	return nil
 }
-
-// END-NOSCAN
