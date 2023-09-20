@@ -144,6 +144,15 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				Trigger:  ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
 				WorkID:   "work",
 			},
+			poller: &mockLogPoller{
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
+					return []logpoller.LogPollerBlock{
+						{
+							BlockHash: common.HexToHash("0xcba5cf9e2bb32373c76015384e1098912d9510a72481c78057fcb088209167de"),
+						},
+					}, nil
+				},
+			},
 			blocks: map[int64]string{
 				500: "0xa518faeadcc423338c62572da84dda35fe44b34f521ce88f6081b703b250cca4",
 			},
@@ -388,6 +397,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 		err           error
 		ethCalls      map[string]bool
 		receipts      map[string]*types.Receipt
+		poller        logpoller.LogPoller
 		ethCallErrors map[string]error
 	}{
 		{
@@ -463,6 +473,15 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 				uid1.String(): true,
 			},
 			receipts: map[string]*types.Receipt{},
+			poller: &mockLogPoller{
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
+					return []logpoller.LogPollerBlock{
+						{
+							BlockHash: common.HexToHash("0xcba5cf9e2bb32373c76015384e1098912d9510a72481c78057fcb088209167de"),
+						},
+					}, nil
+				},
+			},
 			ethCallErrors: map[string]error{
 				uid1.String(): fmt.Errorf("error"),
 			},
@@ -477,8 +496,9 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			}
 			bs.latestBlock.Store(&tc.latestBlock)
 			e := &EvmRegistry{
-				lggr: lggr,
-				bs:   bs,
+				lggr:   lggr,
+				bs:     bs,
+				poller: tc.poller,
 			}
 			client := new(evmClientMocks.Client)
 			for _, i := range tc.inputs {
