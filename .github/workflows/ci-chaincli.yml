@@ -39,7 +39,7 @@ jobs:
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
         with:
           name: golangci-lint-report
-          path: golangci-lint-report.xml
+          path: core/scripts/chaincli/golangci-lint-report.xml
       - name: Collect Metrics
         if: always()
         uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
