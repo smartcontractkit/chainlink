@@ -9,8 +9,8 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
-// BEGIN-NOSCAN No need to scan migration script
-
+// No need to scan migration script
+// BEGIN-NOSCAN
 func init() {
 	goose.AddMigrationContext(Up195, Down195)
 }
