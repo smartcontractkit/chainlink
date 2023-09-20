@@ -69,7 +69,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 
 	// Make the request
 	{
-		client := app.NewHTTPClient(cltest.APIEmailAdmin)
+		client := app.NewHTTPClient(&cltest.User{})
 		body := strings.NewReader(`{"data":{"result":"123.45"}}`)
 		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", body)
 		defer cleanup()
@@ -130,7 +130,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 
 	// Make the request (authorized as user)
 	{
-		client := app.NewHTTPClient(cltest.APIEmailAdmin)
+		client := app.NewHTTPClient(&cltest.User{})
 		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", nil)
 		defer cleanup()
 		cltest.AssertServerResponse(t, response, http.StatusOK)
@@ -243,7 +243,7 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	response, cleanup := client.Get("/v2/jobs/1/runs/invalid-run-ID")
 	defer cleanup()
@@ -263,7 +263,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient, cltest.DefaultP2PKey)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
