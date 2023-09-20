@@ -180,7 +180,6 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		err = env.EVMClient.WaitForEvents()
 		require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
 
-		//todo - fails with "Transaction failed and was reverted!", "error on sending block header to receivers: transaction failed and was reverted"
 		//fund consumer with Eth
 		err = wrapperContracts.LoadTestConsumers[0].Fund(vrfv2plus_constants.WrapperConsumerFundingAmountNativeToken)
 		require.NoError(t, err)
