@@ -10,11 +10,7 @@ import {UpkeepCounter} from "../mocks/UpkeepCounter.sol";
 import {BaseTest} from "./BaseTest.t.sol";
 
 // in contracts directory, run
-<<<<<<<< HEAD:contracts/src/v0.8/dev/automation/2_1/test/AutomationForwarder.t.sol
 // forge test --match-path src/v0.8/dev/automation/2_1/test/AutomationForwarder.t.sol
-========
-// forge test --match-path src/v0.8/automation/v2_1/test/AutomationForwarder.t.sol
->>>>>>>> 9f19654c08 (Prefix contract dir names which start w/ a digit (#10655)):contracts/src/v0.8/automation/v2_1/test/AutomationForwarder.t.sol
 
 contract AutomationForwarderSetUp is BaseTest {
   IAutomationForwarder internal forwarder;

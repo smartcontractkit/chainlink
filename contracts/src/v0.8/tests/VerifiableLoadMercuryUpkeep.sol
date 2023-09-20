@@ -2,7 +2,7 @@
 pragma solidity 0.8.16;
 
 import "./VerifiableLoadBase.sol";
-import "../dev/automation/2_1/interfaces/FeedLookupCompatibleInterface.sol";
+import "../dev/automation/v2_1/interfaces/FeedLookupCompatibleInterface.sol";
 
 contract VerifiableLoadMercuryUpkeep is VerifiableLoadBase, FeedLookupCompatibleInterface {
   string[] public feedsHex = [

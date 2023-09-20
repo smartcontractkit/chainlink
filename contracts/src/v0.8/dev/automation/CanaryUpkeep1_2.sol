@@ -2,7 +2,7 @@
 pragma solidity 0.8.6;
 
 import "../../automation/interfaces/KeeperCompatibleInterface.sol";
-import "../../automation/interfaces/1_2/KeeperRegistryInterface1_2.sol";
+import "../../automation/interfaces/v1_2/KeeperRegistryInterface1_2.sol";
 import "../../shared/access/ConfirmedOwner.sol";
 
 error NoKeeperNodes();
