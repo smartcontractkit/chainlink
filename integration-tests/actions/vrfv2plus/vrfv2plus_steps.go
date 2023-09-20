@@ -345,6 +345,89 @@ func SetupVRFV2PlusEnvironment(
 	return vrfv2PlusContracts, subID, &data, nil
 }
 
+func SetupVRFV2PlusWrapperEnvironment(
+	env *test_env.CLClusterTestEnv,
+	linkToken contracts.LinkToken,
+	mockETHLinkFeed contracts.MockETHLINKFeed,
+	coordinator contracts.VRFCoordinatorV2Plus,
+	keyHash [32]byte,
+	wrapperConsumerContractsAmount int,
+) (*VRFV2PlusWrapperContracts, *big.Int, error) {
+
+	wrapperContracts, err := DeployVRFV2PlusDirectFundingContracts(
+		env.ContractDeployer,
+		env.EVMClient,
+		linkToken.Address(),
+		mockETHLinkFeed.Address(),
+		coordinator,
+		wrapperConsumerContractsAmount,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = env.EVMClient.WaitForEvents()
+
+	if err != nil {
+		return nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+	}
+
+	err = wrapperContracts.VRFV2PlusWrapper.SetConfig(
+		vrfv2plus_constants.WrapperGasOverhead,
+		vrfv2plus_constants.CoordinatorGasOverhead,
+		vrfv2plus_constants.WrapperPremiumPercentage,
+		keyHash,
+		vrfv2plus_constants.WrapperMaxNumberOfWords,
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+	}
+
+	//fund sub
+	wrapperSubID, err := wrapperContracts.VRFV2PlusWrapper.GetSubID(context.Background())
+	if err != nil {
+		return nil, nil, err
+	}
+
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+	}
+
+	err = FundSubscription(env, linkToken, coordinator, wrapperSubID)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	//fund consumer with Link
+	err = linkToken.Transfer(
+		wrapperContracts.LoadTestConsumers[0].Address(),
+		big.NewInt(0).Mul(big.NewInt(1e18), vrfv2plus_constants.WrapperConsumerFundingAmountLink),
+	)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+	}
+
+	//fund consumer with Eth
+	err = wrapperContracts.LoadTestConsumers[0].Fund(vrfv2plus_constants.WrapperConsumerFundingAmountNativeToken)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = env.EVMClient.WaitForEvents()
+	if err != nil {
+		return nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
+	}
+	return wrapperContracts, wrapperSubID, nil
+}
 func CreateSubAndFindSubID(env *test_env.CLClusterTestEnv, coordinator contracts.VRFCoordinatorV2Plus) (*big.Int, error) {
 	err := coordinator.CreateSubscription()
 	if err != nil {

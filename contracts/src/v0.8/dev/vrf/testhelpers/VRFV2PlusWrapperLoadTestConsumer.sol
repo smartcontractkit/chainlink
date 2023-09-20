@@ -116,10 +116,10 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
 
     function getRequestStatus(
         uint256 _requestId
-    ) external view returns (uint256 paid, bool fulfilled, uint256[] memory randomWords, uint requestTimestamp, uint fulfilmentTimestamp) {
+    ) external view returns (uint256 paid, bool fulfilled, uint256[] memory randomWords, uint requestTimestamp, uint fulfilmentTimestamp , uint256 requestBlockNumber, uint256 fulfilmentBlockNumber) {
         require(s_requests[_requestId].paid > 0, "request not found");
         RequestStatus memory request = s_requests[_requestId];
-        return (request.paid, request.fulfilled, request.randomWords, request.requestTimestamp, request.fulfilmentTimestamp);
+        return (request.paid, request.fulfilled, request.randomWords, request.requestTimestamp, request.fulfilmentTimestamp, request.requestBlockNumber, request.fulfilmentBlockNumber);
     }
 
     function reset() external {
