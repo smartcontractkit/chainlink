@@ -224,6 +224,15 @@ func TestConfig_Marshal(t *testing.T) {
 				InfiniteDepthQueries: ptr(false),
 				DisableRateLimiting:  ptr(false),
 			},
+			Tracing: toml.Tracing{
+				Enabled:         ptr(true),
+				CollectorTarget: ptr("localhost:4317"),
+				NodeID:          ptr("clc-ocr-sol-devnet-node-1"),
+				Attributes: &map[string]string{
+					"test": "load",
+					"user": "chainlink-user",
+				},
+			},
 		},
 	}
 
@@ -653,6 +662,15 @@ DevWebServer = false
 OCRDevelopmentMode = false
 InfiniteDepthQueries = false
 DisableRateLimiting = false
+
+[Tracing]
+Enabled = true
+CollectorTarget = 'localhost:4317'
+NodeID = 'clc-ocr-sol-devnet-node-1'
+
+[Tracing.Attributes]
+test = 'load'
+user = 'chainlink-user'
 `},
 		{"AuditLogger", Config{Core: toml.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
 Enabled = true

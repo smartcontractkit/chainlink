@@ -7,24 +7,24 @@ import (
 
 func TestGetEnvConfig(t *testing.T) {
 	cases := []struct {
-		name                    string
-		envVars                 map[string]string
-		expectError             bool
-		expectedPrometheusPort  int
-		expectedTracingEnabled  bool
+		name                           string
+		envVars                        map[string]string
+		expectError                    bool
+		expectedPrometheusPort         int
+		expectedTracingEnabled         bool
 		expectedTracingCollectorTarget string
 	}{
 		{
 			name: "All variables set correctly",
 			envVars: map[string]string{
-				"CL_PROMETHEUS_PORT":      "8080",
-				"TRACING_ENABLED":         "true",
+				"CL_PROMETHEUS_PORT":       "8080",
+				"TRACING_ENABLED":          "true",
 				"TRACING_COLLECTOR_TARGET": "some_target",
 				"TRACING_ATTRIBUTE_XYZ":    "value",
 			},
-			expectError: false,
-			expectedPrometheusPort: 8080,
-			expectedTracingEnabled: true,
+			expectError:                    false,
+			expectedPrometheusPort:         8080,
+			expectedTracingEnabled:         true,
 			expectedTracingCollectorTarget: "some_target",
 		},
 		{

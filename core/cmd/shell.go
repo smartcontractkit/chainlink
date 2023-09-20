@@ -65,9 +65,9 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing) {
 	initGlobalsOnce.Do(func() {
 		prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfgProm.AuthToken()))
 		grpcOpts = loop.SetupTelemetry(nil, loop.TracingConfig{
-			Enabled: cfgTracing.Enabled(),
+			Enabled:         cfgTracing.Enabled(),
 			CollectorTarget: cfgTracing.CollectorTarget(),
-			NodeAttributes: cfgTracing.Attributes(),
+			NodeAttributes:  cfgTracing.Attributes(),
 		}) // default prometheus.Registerer
 	})
 }

@@ -1305,10 +1305,10 @@ func (t *ThresholdKeyShareSecrets) validateMerge(f *ThresholdKeyShareSecrets) (e
 }
 
 type Tracing struct {
-	Enabled *bool
+	Enabled         *bool
 	CollectorTarget *string
-	NodeID *string
-	Attributes *map[string]string
+	NodeID          *string
+	Attributes      *map[string]string
 }
 
 func (t *Tracing) setFrom(f *Tracing) {

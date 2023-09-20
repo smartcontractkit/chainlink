@@ -253,6 +253,13 @@ OCRDevelopmentMode = false
 InfiniteDepthQueries = false
 DisableRateLimiting = false
 
+[Tracing]
+Enabled = false
+CollectorTarget = ''
+NodeID = ''
+
+[Tracing.Attributes]
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true
