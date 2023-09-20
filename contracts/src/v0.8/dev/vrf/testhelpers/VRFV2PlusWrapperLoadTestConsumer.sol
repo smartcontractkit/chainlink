@@ -146,4 +146,10 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
     function getWrapper() external view returns (VRFV2PlusWrapperInterface) {
         return VRF_V2_PLUS_WRAPPER;
     }
+
+    receive() external payable {}
+
+    function getBalance() public view returns(uint){
+        return address(this).balance;
+    }
 }

@@ -189,6 +189,8 @@ func TestVRFv2PlusBilling(t *testing.T) {
 
 		//start test
 		var isNativeBilling = false
+		subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), wrapperSubID)
+		require.NoError(t, err, "error getting subscription information")
 		subBalanceBeforeRequest := subscription.Balance
 
 		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
