@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import "../../dev/interfaces/IFeeManager.sol";
+import "../../interfaces/IFeeManager.sol";
 
 contract FeeManagerProxy {
   IFeeManager internal i_feeManager;
