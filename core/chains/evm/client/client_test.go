@@ -22,7 +22,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 
-	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -520,7 +520,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, clienttypes.Fatal)
+			assert.Equal(t, errType, commonclient.Fatal)
 		}
 	})
 
@@ -548,7 +548,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, clienttypes.TransactionAlreadyKnown)
+			assert.Equal(t, errType, commonclient.TransactionAlreadyKnown)
 		}
 	})
 
@@ -575,7 +575,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.NoError(t, err)
-			assert.Equal(t, errType, clienttypes.Successful)
+			assert.Equal(t, errType, commonclient.Successful)
 		}
 	})
 
@@ -603,7 +603,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, clienttypes.Underpriced)
+			assert.Equal(t, errType, commonclient.Underpriced)
 		}
 	})
 
@@ -631,7 +631,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, clienttypes.Unsupported)
+			assert.Equal(t, errType, commonclient.Unsupported)
 		}
 	})
 
@@ -659,7 +659,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, clienttypes.Retryable)
+			assert.Equal(t, errType, commonclient.Retryable)
 		}
 	})
 
@@ -687,7 +687,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, clienttypes.InsufficientFunds)
+			assert.Equal(t, errType, commonclient.InsufficientFunds)
 		}
 	})
 
@@ -715,7 +715,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, clienttypes.ExceedsMaxFee)
+			assert.Equal(t, errType, commonclient.ExceedsMaxFee)
 		}
 	})
 
@@ -743,7 +743,7 @@ func TestEthClient_SendTransactionReturnCode(t *testing.T) {
 
 			errType, err := ethClient.SendTransactionReturnCode(testutils.Context(t), tx, fromAddress)
 			assert.Error(t, err)
-			assert.Equal(t, errType, clienttypes.Unknown)
+			assert.Equal(t, errType, commonclient.Unknown)
 		}
 	})
 }
@@ -802,6 +802,113 @@ func TestEthClient_SubscribeNewHead(t *testing.T) {
 		}
 		sub.Unsubscribe()
 	}
+}
+
+func TestEthClient_ErroringClient(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	var emptyChainID *big.Int
+
+	// Empty node means there are no active nodes to select from, causing client to always return error.
+	erroringClient := evmclient.NewChainClientWithEmptyNode(t, commonclient.NodeSelectionMode_RoundRobin, time.Second*0, testutils.FixtureChainID)
+
+	_, err := erroringClient.BalanceAt(ctx, common.Address{}, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	err = erroringClient.BatchCallContext(ctx, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	err = erroringClient.BatchCallContextAll(ctx, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.BlockByHash(ctx, common.Hash{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.BlockByNumber(ctx, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	err = erroringClient.CallContext(ctx, nil, "")
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.CallContract(ctx, ethereum.CallMsg{}, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	// TODO-1663: test actual ChainID() call once client.go is deprecated.
+	id, err := erroringClient.ChainID()
+	require.Equal(t, id, emptyChainID)
+	//require.Equal(t, err, commonclient.ErroringNodeError)
+	require.Equal(t, err, nil)
+
+	_, err = erroringClient.CodeAt(ctx, common.Address{}, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	id = erroringClient.ConfiguredChainID()
+	require.Equal(t, id, emptyChainID)
+
+	err = erroringClient.Dial(ctx)
+	require.ErrorContains(t, err, "failed to dial multiNode")
+
+	_, err = erroringClient.EstimateGas(ctx, ethereum.CallMsg{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.FilterLogs(ctx, ethereum.FilterQuery{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.HeaderByHash(ctx, common.Hash{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.HeaderByNumber(ctx, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.HeadByHash(ctx, common.Hash{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.HeadByNumber(ctx, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.LINKBalance(ctx, common.Address{}, common.Address{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.LatestBlockHeight(ctx)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.PendingCodeAt(ctx, common.Address{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.PendingNonceAt(ctx, common.Address{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	err = erroringClient.SendTransaction(ctx, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	code, err := erroringClient.SendTransactionReturnCode(ctx, nil, common.Address{})
+	require.Equal(t, code, commonclient.Unknown)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.SequenceAt(ctx, common.Address{}, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.SubscribeFilterLogs(ctx, ethereum.FilterQuery{}, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.SubscribeNewHead(ctx, nil)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.SuggestGasPrice(ctx)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.SuggestGasTipCap(ctx)
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.TokenBalance(ctx, common.Address{}, common.Address{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.TransactionByHash(ctx, common.Hash{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
+	_, err = erroringClient.TransactionReceipt(ctx, common.Hash{})
+	require.Equal(t, err, commonclient.ErroringNodeError)
+
 }
 
 const headResult = evmclient.HeadResult

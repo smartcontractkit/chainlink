@@ -103,6 +103,20 @@ func NewChainClientWithTestNode(
 	return c, nil
 }
 
+func NewChainClientWithEmptyNode(
+	t *testing.T,
+	selectionMode string,
+	noNewHeadsThreshold time.Duration,
+	chainID *big.Int,
+) Client {
+
+	lggr := logger.TestLogger(t)
+
+	var chainType commonconfig.ChainType
+	c := NewChainClient(lggr, selectionMode, noNewHeadsThreshold, nil, nil, chainID, chainType)
+	t.Cleanup(c.Close)
+	return c
+}
 func Wrap(err error, s string) error {
 	return wrap(err, s)
 }

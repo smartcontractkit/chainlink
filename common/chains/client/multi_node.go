@@ -135,7 +135,7 @@ func NewMultiNode[
 	return c
 }
 
-// selectNode returns the active Node, if it is still NodeStateAlive, otherwise it selects a new one from the NodeSelector.
+// SelectNode returns the active Node, if it is still NodeStateAlive, otherwise it selects a new one from the NodeSelector.
 func (c *multiNode[CHAIN_ID, HEAD, RPC, TX]) SelectNode() (node Node[CHAIN_ID, HEAD, RPC], err error) {
 	c.activeMu.RLock()
 	node = c.activeNode
