@@ -336,3 +336,46 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 	assert.False(t, p.ChainType().IsL2())
 	require.NoError(t, p.BatchCallContextAll(ctx, b))
 }
+
+func TestUnit_Pool_SwitchToBestNode(t *testing.T) {
+	t.Parallel()
+
+	n1 := evmmocks.NewNode(t)
+	n2 := evmmocks.NewNode(t)
+	nodes := []evmclient.Node{n1, n2}
+	isAlive := true
+
+	n1.On("String").Maybe().Return("n1")
+	n2.On("String").Maybe().Return("n2")
+	n1.On("Close").Maybe().Return(nil)
+	n2.On("Close").Maybe().Return(nil)
+	n2.On("UnsubscribeAll").Return()
+	n2.On("SubscribersCount").Return(int32(1))
+
+	n1.On("Start", mock.Anything).Return(nil).Once()
+	n1.On("State").Return(func() evmclient.NodeState {
+		if isAlive {
+			return evmclient.NodeStateAlive
+		}
+		return evmclient.NodeStateOutOfSync
+	})
+	n1.On("Order").Return(int32(1))
+	n1.On("ChainID").Return(testutils.FixtureChainID).Once()
+
+	n2.On("Start", mock.Anything).Return(nil).Once()
+	n2.On("State").Return(evmclient.NodeStateAlive)
+	n2.On("Order").Return(int32(2))
+	n2.On("ChainID").Return(testutils.FixtureChainID).Once()
+
+	lggr, observedLogs := logger.TestLoggerObserved(t, zap.InfoLevel)
+	p := evmclient.NewPool(lggr, "PriorityLevel", time.Second*2, time.Second*0, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID, "")
+	require.NoError(t, p.Dial(testutils.Context(t)))
+	t.Cleanup(func() { assert.NoError(t, p.Close()) })
+
+	testutils.WaitForLogMessage(t, observedLogs, "The pool will switch to best node every 2s")
+	isAlive = false
+	testutils.WaitForLogMessage(t, observedLogs, "At least one EVM primary node is dead")
+	isAlive = true
+	testutils.WaitForLogMessage(t, observedLogs, `Switching to best node from "n2" to "n1"`)
+
+}

@@ -191,6 +191,7 @@ var (
 )
 
 func TestConfig_Marshal(t *testing.T) {
+	zeroSeconds := models.MustMakeDuration(time.Second * 0)
 	second := models.MustMakeDuration(time.Second)
 	minute := models.MustMakeDuration(time.Minute)
 	hour := models.MustMakeDuration(time.Hour)
@@ -524,10 +525,11 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 
 				NodePool: evmcfg.NodePool{
-					PollFailureThreshold: ptr[uint32](5),
-					PollInterval:         &minute,
-					SelectionMode:        &selectionMode,
-					SyncThreshold:        ptr[uint32](13),
+					PollFailureThreshold:     ptr[uint32](5),
+					PollInterval:             &minute,
+					SelectionMode:            &selectionMode,
+					SyncThreshold:            ptr[uint32](13),
+					SwitchToBestNodeInterval: &zeroSeconds,
 				},
 				OCR: evmcfg.OCR{
 					ContractConfirmations:              ptr[uint16](11),

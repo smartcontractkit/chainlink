@@ -94,6 +94,7 @@ type Node interface {
 	Name() string
 	ChainID() *big.Int
 	Order() int32
+	SubscribersCount() int32
 	UnsubscribeAll()
 
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
@@ -379,6 +380,10 @@ func (n *node) disconnectAll() {
 	}
 	n.cancelInflightRequests()
 	n.unsubscribeAll()
+}
+
+func (n *node) SubscribersCount() int32 {
+	return int32(len(n.subs))
 }
 
 // UnsubscribeAll disconnects all clients connected to the node while holding the n.stateMu lock

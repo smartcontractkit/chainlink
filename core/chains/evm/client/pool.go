@@ -182,6 +182,16 @@ func (p *Pool) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty 
 	return
 }
 
+func (p *Pool) switchToBestNode() {
+	bestNode := p.nodeSelector.Select()
+	for _, n := range p.nodes {
+		if n.State() == NodeStateAlive && n != bestNode && n.SubscribersCount() > 0 {
+			p.logger.Infof("Switching to best node from %q to %q", n.String(), bestNode.String())
+			n.UnsubscribeAll()
+		}
+	}
+}
+
 func (p *Pool) switchToBestNodeLoop() {
 	switchTicker := time.NewTicker(p.switchToBestNodeInterval)
 	defer switchTicker.Stop()
@@ -189,12 +199,7 @@ func (p *Pool) switchToBestNodeLoop() {
 	for {
 		select {
 		case <-switchTicker.C:
-			bestNode := p.nodeSelector.Select()
-			for _, n := range p.nodes {
-				if n.State() == NodeStateAlive && n != bestNode {
-					n.UnsubscribeAll()
-				}
-			}
+			p.switchToBestNode()
 		case <-p.chStop:
 			return
 		}
