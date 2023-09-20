@@ -71,16 +71,26 @@ type Feeder struct {
 	errsLock      sync.Mutex
 }
 
+type Timer interface {
+	After(d time.Duration) <-chan time.Time
+}
+
+type realTimer struct{}
+
+func (r *realTimer) After(d time.Duration) <-chan time.Time {
+	return time.After(d)
+}
+
 func (f *Feeder) StartHeartbeats(ctx context.Context) {
 	if f.heartbeatPeriod == 0 {
 		f.lggr.Infow("Not starting heartbeat blockhash using storeEarliest")
 		return
 	}
 	f.lggr.Infow("Starting heartbeat blockhash using storeEarliest")
-	timer := time.NewTimer(f.heartbeatPeriod)
+	timer := realTimer{}
 	for {
 		select {
-		case <-timer.C:
+		case <-timer.After(f.heartbeatPeriod):
 			f.lggr.Infow("storing heartbeat blockhash using storeEarliest",
 				"heartbeatPeriodSeconds", f.heartbeatPeriod.Seconds())
 			if err := f.bhs.StoreEarliest(ctx); err != nil {
@@ -89,7 +99,6 @@ func (f *Feeder) StartHeartbeats(ctx context.Context) {
 					"err", err)
 			}
 		case <-ctx.Done():
-			timer.Stop()
 			return
 		}
 	}
