@@ -24,7 +24,8 @@ Keystore = '................' # Required
 
 [Mercury.Credentials.cred1]
 # URL = 'http://host.docker.internal:3000/reports'
-URL = 'localhost:1338'
+LegacyURL = 'http://localhost:53299'
+URL = 'http://localhost:53299'
 Username = 'node'
 Password = 'nodepass'
 `

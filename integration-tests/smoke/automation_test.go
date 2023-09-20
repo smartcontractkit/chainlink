@@ -2,6 +2,7 @@ package smoke
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"os"
@@ -27,6 +28,7 @@ import (
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -131,16 +133,24 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				isLogTrigger,
 			)
 
-			l.Info().Msg("Waiting for all upkeeps to be performed")
-			gom := gomega.NewGomegaWithT(t)
-
 			for i := 0; i < len(upkeepIDs); i++ {
-				err := consumers[i].Start()
-				if err != nil {
+				if isLogTrigger {
+					// Enable mercury for log trigger based upkeeps
+					privilegeConfigBytes, _ := json.Marshal(evm21.UpkeepPrivilegeConfig{
+						MercuryEnabled: true,
+					})
+					if err := registry.SetUpkeepPrivilegeConfig(upkeepIDs[i], privilegeConfigBytes); err != nil {
+						return
+					}
+				}
+
+				if err := consumers[i].Start(); err != nil {
 					return
 				}
 			}
 
+			l.Info().Msg("Waiting for all upkeeps to be performed")
+			gom := gomega.NewGomegaWithT(t)
 			startTime := time.Now()
 			// TODO Tune this timeout window after stress testing
 			gom.Eventually(func(g gomega.Gomega) {
@@ -880,7 +890,8 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			highCheckGasLimit := automationDefaultRegistryConfig
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
 			highCheckGasLimit.RegistryVersion = registryVersion
-			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 30*time.Second)
+
+			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 30*time.Second, registry.RegistryOwnerAddress())
 			require.NoError(t, err, "Error building OCR config")
 
 			err = registry.SetConfig(highCheckGasLimit, ocrConfig)
@@ -1042,7 +1053,7 @@ func setupAutomationTestDocker(
 
 	err = actions.CreateOCRKeeperJobsLocal(l, nodeClients, registry.Address(), network.ChainID, 0, registryVersion)
 	require.NoError(t, err, "Error creating OCR Keeper Jobs")
-	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, workerNodes, registryConfig, registrar.Address(), 30*time.Second)
+	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, workerNodes, registryConfig, registrar.Address(), 30*time.Second, registry.RegistryOwnerAddress())
 	require.NoError(t, err, "Error building OCR config vars")
 	err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
 	require.NoError(t, err, "Registry config should be set successfully")

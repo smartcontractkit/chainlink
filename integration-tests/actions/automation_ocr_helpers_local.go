@@ -12,14 +12,15 @@ import (
 	"github.com/rs/zerolog"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	ocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2keepers20config "github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/ocr2keepers/pkg/v3/config"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -32,8 +33,9 @@ func BuildAutoOCR2ConfigVarsLocal(
 	registryConfig contracts.KeeperRegistrySettings,
 	registrar string,
 	deltaStage time.Duration,
+	registryOwnerAddress common.Address,
 ) (contracts.OCRv2Config, error) {
-	return BuildAutoOCR2ConfigVarsWithKeyIndexLocal(l, chainlinkNodes, registryConfig, registrar, deltaStage, 0)
+	return BuildAutoOCR2ConfigVarsWithKeyIndexLocal(l, chainlinkNodes, registryConfig, registrar, deltaStage, 0, registryOwnerAddress)
 }
 
 func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
@@ -43,6 +45,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 	registrar string,
 	deltaStage time.Duration,
 	keyIndex int,
+	registryOwnerAddress common.Address,
 ) (contracts.OCRv2Config, error) {
 	S, oracleIdentities, err := GetOracleIdentitiesWithKeyIndexLocal(chainlinkNodes, keyIndex)
 	if err != nil {
@@ -146,7 +149,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
-	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar)
+	onchainConfig, err := registryConfig.EncodeOnChainConfig(registrar, registryOwnerAddress)
 	if err != nil {
 		return contracts.OCRv2Config{}, err
 	}

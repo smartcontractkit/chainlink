@@ -234,7 +234,7 @@ func (k *KeeperBenchmarkTest) Run(t *testing.T) {
 			txKeyId = 0
 		}
 		ocrConfig, err := actions.BuildAutoOCR2ConfigVarsWithKeyIndex(
-			t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, k.keeperRegistrars[rIndex].Address(), k.Inputs.DeltaStage, txKeyId,
+			t, nodesWithoutBootstrap, *inputs.KeeperRegistrySettings, k.keeperRegistrars[rIndex].Address(), k.Inputs.DeltaStage, txKeyId, common.Address{},
 		)
 		require.NoError(t, err, "Building OCR config shouldn't fail")
 
