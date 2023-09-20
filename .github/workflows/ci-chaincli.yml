@@ -15,7 +15,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Setup Go
-        uses: ./.github/actions/setup-go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: "core/scripts/go.mod"
+          cache: true
       - name: Build binary for chaincli
         run: go build ./core/scripts/chaincli
       - name: golangci-lint
