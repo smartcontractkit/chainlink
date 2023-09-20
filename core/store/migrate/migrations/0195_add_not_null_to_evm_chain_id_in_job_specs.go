@@ -9,6 +9,8 @@ import (
 	"github.com/pressly/goose/v3"
 )
 
+// BEGIN-NOSCAN No need to scan migration script
+
 func init() {
 	goose.AddMigrationContext(Up195, Down195)
 }
@@ -69,3 +71,5 @@ func Down195(ctx context.Context, tx *sql.Tx) error {
 	}
 	return nil
 }
+
+// END-NOSCAN
