@@ -20,7 +20,7 @@ import (
 
 var (
 	promCurrentHead = promauto.NewGaugeVec(prometheus.GaugeOpts{
-		Name: "head_tracker_current_head",
+		Name: "head_tracker_highest_head",
 		Help: "The highest seen head number",
 	}, []string{"evmChainID"})
 
