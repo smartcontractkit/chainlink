@@ -2,7 +2,9 @@ package blockhashstore
 
 import (
 	"context"
+	"fmt"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
@@ -25,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	loggermocks "github.com/smartcontractkit/chainlink/v2/core/logger/mocks"
 )
 
 const (
@@ -253,47 +256,111 @@ func GetTestContext(t *testing.T) context.Context {
 }
 
 func TestStartHeartbeats(t *testing.T) {
-	coordinator := &TestCoordinator{
-		RequestEvents:     tests[0].requests,
-		FulfillmentEvents: tests[0].fulfillments,
-	}
+	t.Run("happy path", func(t *testing.T) {
+		coordinator := &TestCoordinator{
+			RequestEvents:     tests[0].requests,
+			FulfillmentEvents: tests[0].fulfillments,
+		}
+		lp := &mocklp.LogPoller{}
+		expectedDuration := 600 * time.Second
+		mockBHS := bhsmocks.NewBHS(t)
+		mockLogger := loggermocks.NewLogger(t)
+		feeder := NewFeeder(
+			mockLogger,
+			coordinator,
+			mockBHS,
+			lp, // Not used for this test
+			0,
+			25,  // Not used for this test
+			100, // Not used for this test
+			expectedDuration,
+			func(ctx context.Context) (uint64, error) {
+				return tests[0].latest, nil
+			})
 
-	lp := &mocklp.LogPoller{}
-	expectedDuration := 600 * time.Second
-	bhs := bhsmocks.NewBHS(t)
-	feeder := NewFeeder(
-		logger.TestLogger(t),
-		coordinator,
-		bhs,
-		lp,
-		0,
-		25,  // Not used for this test
-		100, // Not used for this test
-		expectedDuration,
-		func(ctx context.Context) (uint64, error) {
-			return tests[0].latest, nil
-		})
+		ctx, cancel := context.WithCancel(testutils.Context(t))
+		mockTimer := bhsmocks.NewTimer(t)
 
-	ctx, cancel := context.WithCancel(testutils.Context(t))
-	mockTimer := bhsmocks.NewTimer(t)
+		mockBHS.On("StoreEarliest", ctx).Return(nil).Once()
+		mockTimer.On("After", expectedDuration).Return(func() <-chan time.Time {
+			c := make(chan time.Time)
+			close(c)
+			return c
+		}()).Once()
+		mockTimer.On("After", expectedDuration).Return(func() <-chan time.Time {
+			c := make(chan time.Time)
+			return c
+		}()).Run(func(args mock.Arguments) {
+			cancel()
+		}).Once()
+		mockLogger.On("Infow", "Starting heartbeat blockhash using storeEarliest").Once()
+		mockLogger.On("Infow", "storing heartbeat blockhash using storeEarliest",
+			"heartbeatPeriodSeconds", expectedDuration.Seconds()).Once()
+		require.Len(t, mockLogger.ExpectedCalls, 2)
+		require.Len(t, mockTimer.ExpectedCalls, 2)
+		defer mockTimer.AssertExpectations(t)
+		defer mockBHS.AssertExpectations(t)
+		defer mockLogger.AssertExpectations(t)
 
-	bhs.On("StoreEarliest", ctx).Return(nil).Once()
-	mockTimer.On("After", expectedDuration).Return(func() <-chan time.Time {
-		c := make(chan time.Time)
-		close(c)
-		return c
-	}()).Once()
-	mockTimer.On("After", expectedDuration).Return(func() <-chan time.Time {
-		c := make(chan time.Time)
-		return c
-	}()).Run(func(args mock.Arguments) {
-		cancel()
-	}).Once()
-	require.Len(t, mockTimer.ExpectedCalls, 2)
-	defer mockTimer.AssertExpectations(t)
-	defer bhs.AssertExpectations(t)
+		wgBHS := sync.WaitGroup{}
+		wgBHS.Add(1)
+		feeder.StartHeartbeats(ctx, mockTimer, &wgBHS)
+	})
 
-	feeder.StartHeartbeats(ctx, mockTimer)
+	t.Run("sad path", func(t *testing.T) {
+		coordinator := &TestCoordinator{
+			RequestEvents:     tests[0].requests,
+			FulfillmentEvents: tests[0].fulfillments,
+		}
+		lp := &mocklp.LogPoller{}
+		expectedDuration := 600 * time.Second
+		expectedError := fmt.Errorf("insufficient gas")
+		mockBHS := bhsmocks.NewBHS(t)
+		mockLogger := loggermocks.NewLogger(t)
+		feeder := NewFeeder(
+			mockLogger,
+			coordinator,
+			mockBHS,
+			lp, // Not used for this test
+			0,
+			25,  // Not used for this test
+			100, // Not used for this test
+			expectedDuration,
+			func(ctx context.Context) (uint64, error) {
+				return tests[0].latest, nil
+			})
+
+		ctx, cancel := context.WithCancel(testutils.Context(t))
+		mockTimer := bhsmocks.NewTimer(t)
+
+		mockBHS.On("StoreEarliest", ctx).Return(expectedError).Once()
+		mockTimer.On("After", expectedDuration).Return(func() <-chan time.Time {
+			c := make(chan time.Time)
+			close(c)
+			return c
+		}()).Once()
+		mockTimer.On("After", expectedDuration).Return(func() <-chan time.Time {
+			c := make(chan time.Time)
+			return c
+		}()).Run(func(args mock.Arguments) {
+			cancel()
+		}).Once()
+		mockLogger.On("Infow", "Starting heartbeat blockhash using storeEarliest").Once()
+		mockLogger.On("Infow", "storing heartbeat blockhash using storeEarliest",
+			"heartbeatPeriodSeconds", expectedDuration.Seconds()).Once()
+		mockLogger.On("Infow", "failed to store heartbeat blockhash using storeEarliest",
+			"heartbeatPeriodSeconds", expectedDuration.Seconds(),
+			"err", expectedError).Once()
+		require.Len(t, mockLogger.ExpectedCalls, 3)
+		require.Len(t, mockTimer.ExpectedCalls, 2)
+		defer mockTimer.AssertExpectations(t)
+		defer mockBHS.AssertExpectations(t)
+		defer mockLogger.AssertExpectations(t)
+
+		wgBHS := sync.WaitGroup{}
+		wgBHS.Add(1)
+		feeder.StartHeartbeats(ctx, mockTimer, &wgBHS)
+	})
 }
 
 func TestFeeder(t *testing.T) {

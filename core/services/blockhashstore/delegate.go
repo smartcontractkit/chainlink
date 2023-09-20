@@ -3,6 +3,7 @@ package blockhashstore
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -200,6 +201,7 @@ type service struct {
 	utils.StartStopOnce
 	feeder     *Feeder
 	done       chan struct{}
+	wgBHS      sync.WaitGroup
 	pollPeriod time.Duration
 	runTimeout time.Duration
 	logger     logger.Logger
@@ -213,9 +215,10 @@ func (s *service) Start(context.Context) error {
 		s.logger.Infow("Starting BHS feeder")
 		ticker := time.NewTicker(utils.WithJitter(s.pollPeriod))
 		s.parentCtx, s.cancel = context.WithCancel(context.Background())
-		go s.feeder.StartHeartbeats(s.parentCtx, &realTimer{})
+		s.wgBHS.Add(2)
+		go s.feeder.StartHeartbeats(s.parentCtx, &realTimer{}, &s.wgBHS)
 		go func() {
-			defer close(s.done)
+			defer s.wgBHS.Done()
 			defer ticker.Stop()
 			for {
 				select {
@@ -235,7 +238,7 @@ func (s *service) Close() error {
 	return s.StopOnce("BHS Feeder Service", func() error {
 		s.logger.Infow("Stopping BHS feeder")
 		s.cancel()
-		<-s.done
+		s.wgBHS.Wait()
 		return nil
 	})
 }
