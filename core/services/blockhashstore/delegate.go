@@ -213,7 +213,7 @@ func (s *service) Start(context.Context) error {
 		s.logger.Infow("Starting BHS feeder")
 		ticker := time.NewTicker(utils.WithJitter(s.pollPeriod))
 		s.parentCtx, s.cancel = context.WithCancel(context.Background())
-		go s.feeder.StartHeartbeats(s.parentCtx)
+		go s.feeder.StartHeartbeats(s.parentCtx, &realTimer{})
 		go func() {
 			defer close(s.done)
 			defer ticker.Stop()

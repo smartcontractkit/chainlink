@@ -71,6 +71,7 @@ type Feeder struct {
 	errsLock      sync.Mutex
 }
 
+//go:generate mockery --quiet --name Timer --output ./mocks/ --case=underscore
 type Timer interface {
 	After(d time.Duration) <-chan time.Time
 }
@@ -81,16 +82,16 @@ func (r *realTimer) After(d time.Duration) <-chan time.Time {
 	return time.After(d)
 }
 
-func (f *Feeder) StartHeartbeats(ctx context.Context) {
+func (f *Feeder) StartHeartbeats(ctx context.Context, timer Timer) {
 	if f.heartbeatPeriod == 0 {
 		f.lggr.Infow("Not starting heartbeat blockhash using storeEarliest")
 		return
 	}
 	f.lggr.Infow("Starting heartbeat blockhash using storeEarliest")
-	timer := realTimer{}
 	for {
+		after := timer.After(f.heartbeatPeriod)
 		select {
-		case <-timer.After(f.heartbeatPeriod):
+		case <-after:
 			f.lggr.Infow("storing heartbeat blockhash using storeEarliest",
 				"heartbeatPeriodSeconds", f.heartbeatPeriod.Seconds())
 			if err := f.bhs.StoreEarliest(ctx); err != nil {

@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	bhsmocks "github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore/mocks"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
@@ -250,6 +252,50 @@ func GetTestContext(t *testing.T) context.Context {
 	return ctx
 }
 
+func TestStartHeartbeats(t *testing.T) {
+	coordinator := &TestCoordinator{
+		RequestEvents:     tests[0].requests,
+		FulfillmentEvents: tests[0].fulfillments,
+	}
+
+	lp := &mocklp.LogPoller{}
+	expectedDuration := 600 * time.Second
+	bhs := bhsmocks.NewBHS(t)
+	feeder := NewFeeder(
+		logger.TestLogger(t),
+		coordinator,
+		bhs,
+		lp,
+		0,
+		25,  // Not used for this test
+		100, // Not used for this test
+		expectedDuration,
+		func(ctx context.Context) (uint64, error) {
+			return tests[0].latest, nil
+		})
+
+	ctx, cancel := context.WithCancel(testutils.Context(t))
+	mockTimer := bhsmocks.NewTimer(t)
+
+	bhs.On("StoreEarliest", ctx).Return(nil).Once()
+	mockTimer.On("After", expectedDuration).Return(func() <-chan time.Time {
+		c := make(chan time.Time)
+		close(c)
+		return c
+	}()).Once()
+	mockTimer.On("After", expectedDuration).Return(func() <-chan time.Time {
+		c := make(chan time.Time)
+		return c
+	}()).Run(func(args mock.Arguments) {
+		cancel()
+	}).Once()
+	require.Len(t, mockTimer.ExpectedCalls, 2)
+	defer mockTimer.AssertExpectations(t)
+	defer bhs.AssertExpectations(t)
+
+	feeder.StartHeartbeats(ctx, mockTimer)
+}
+
 func TestFeeder(t *testing.T) {
 
 	for _, test := range tests {
@@ -268,11 +314,10 @@ func TestFeeder(t *testing.T) {
 				0,
 				test.wait,
 				test.lookback,
-				600,
+				600*time.Second,
 				func(ctx context.Context) (uint64, error) {
 					return test.latest, nil
 				})
-			go feeder.StartHeartbeats(GetTestContext(t))
 
 			err := feeder.Run(testutils.Context(t))
 			if test.expectedErrMsg == "" {
@@ -362,11 +407,10 @@ func TestFeederWithLogPollerVRFv1(t *testing.T) {
 				0,
 				test.wait,
 				test.lookback,
-				600,
+				600*time.Second,
 				func(ctx context.Context) (uint64, error) {
 					return test.latest, nil
 				})
-			go feeder.StartHeartbeats(GetTestContext(t))
 
 			// Run feeder and assert correct results.
 			err = feeder.Run(testutils.Context(t))
@@ -460,11 +504,10 @@ func TestFeederWithLogPollerVRFv2(t *testing.T) {
 				0,
 				test.wait,
 				test.lookback,
-				600,
+				600*time.Second,
 				func(ctx context.Context) (uint64, error) {
 					return test.latest, nil
 				})
-			go feeder.StartHeartbeats(GetTestContext(t))
 
 			// Run feeder and assert correct results.
 			err = feeder.Run(testutils.Context(t))
@@ -558,11 +601,10 @@ func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
 				0,
 				test.wait,
 				test.lookback,
-				600,
+				600*time.Second,
 				func(ctx context.Context) (uint64, error) {
 					return test.latest, nil
 				})
-			go feeder.StartHeartbeats(GetTestContext(t))
 
 			// Run feeder and assert correct results.
 			err = feeder.Run(testutils.Context(t))
@@ -593,11 +635,10 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 		0,
 		100,
 		200,
-		600,
+		600*time.Second,
 		func(ctx context.Context) (uint64, error) {
 			return 250, nil
 		})
-	go feeder.StartHeartbeats(GetTestContext(t))
 
 	// Should store block 100
 	require.NoError(t, feeder.Run(testutils.Context(t)))
