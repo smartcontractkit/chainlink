@@ -108,7 +108,7 @@ jobs:
       - name: Print Chainlink Image Built
         if: needs.changes.outputs.src == 'true'
         run: |
-          echo "### chainlink node image tag used for this test run :link:" >>$GITHUB_STEP_SUMMARY
+          echo "### Chainlink node image tag used for this test run :link:" >>$GITHUB_STEP_SUMMARY
           echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
 
   build-test-image:
@@ -169,6 +169,7 @@ jobs:
           MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu20.04-8cores-32GB 1)
           COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
           echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+
   eth-smoke-tests-matrix-automation:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
@@ -237,6 +238,7 @@ jobs:
           this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
+
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
@@ -587,7 +589,7 @@ jobs:
 #    steps:
 #      - name: Check if image exists
 #        id: check-image
-#        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
+#        uses: smartcontractkit/chainlink-github-actions/docker/image-exists@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
 #        with:
 #          repository: chainlink-solana-tests
 #          tag: ${{ needs.get_solana_sha.outputs.sha }}
@@ -730,7 +732,7 @@ jobs:
 #          ref: ${{ needs.get_solana_sha.outputs.sha }}
 #      - name: Run Tests
 #        if: needs.changes.outputs.src == 'true'
-#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
 #        with:
 #          test_command_to_run: export ENV_JOB_IMAGE=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }} && make test_smoke
 #          cl_repo: ${{ env.CHAINLINK_IMAGE }}
@@ -770,7 +772,6 @@ jobs:
 #      CHAINLINK_ENV_USER: ${{ github.actor }}
 #      TEST_LOG_LEVEL: debug
 #      EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
-#      TEST_EVM_KEYS: ${{ secrets.QA_EVM_KEYS }}
 #
 #      OPTIMISM_GOERLI_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_URLS }}
 #      OPTIMISM_GOERLI_HTTP_URLS: ${{ secrets.QA_OPTIMISM_GOERLI_HTTP_URLS }}
@@ -793,7 +794,7 @@ jobs:
 #          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
 #      ## Only run OCR smoke test for now
 #      - name: Run Tests
-#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
 #        env:
 #          PYROSCOPE_SERVER: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
 #          PYROSCOPE_ENVIRONMENT: ci-smoke-ocr-evm-${{ matrix.testnet }} # TODO: Only for OCR for now
@@ -809,7 +810,7 @@ jobs:
 #          token: ${{ secrets.GITHUB_TOKEN }}
 #          go_mod_path: ./integration-tests/go.mod
 #          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-#          cache_restore_only: 'true'
+#          cache_restore_only: "true"
 #          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
 #          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
 #          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
@@ -827,7 +828,7 @@ jobs:
 #
 #  testnet-smoke-tests-notify:
 #    name: Live Testnet Start Slack Thread
-#    if: success() || failure()
+#    if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) && needs.*.result != 'skipped' }}
 #    environment: integration
 #    outputs:
 #      thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -879,6 +880,7 @@ jobs:
 #
 #  testnet-smoke-tests-results:
 #    name: Post Live Testnet Smoke Test Results
+#    if: ${{ github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) && needs.*.result != 'skipped' }}
 #    environment: integration
 #    permissions:
 #      checks: write
@@ -948,4 +950,3 @@ jobs:
 #          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
 #
 #  ### End Live Testnet Section
-#

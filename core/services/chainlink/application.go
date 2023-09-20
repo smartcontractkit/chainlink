@@ -178,7 +178,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
-	// LOOPs can be be created as options, in the  case of LOOP relayers, or
+	// LOOPs can be created as options, in the  case of LOOP relayers, or
 	// as OCR2 job implementations, in the case of Median today.
 	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
 	// we need to initialize in case we serve OCR2 LOOPs
@@ -216,8 +216,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	} else {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
-
-	healthChecker := services.NewChecker()
 
 	telemetryIngressClient := synchronization.TelemetryIngressClient(&synchronization.NoopTelemetryIngressClient{})
 	telemetryIngressBatchClient := synchronization.TelemetryIngressBatchClient(&synchronization.NoopTelemetryIngressBatchClient{})
@@ -421,29 +419,40 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 	}
 
-	var feedsService feeds.Service
+	var feedsService feeds.Service = &feeds.NullService{}
 	if cfg.Feature().FeedsManager() {
-		feedsORM := feeds.NewORM(db, opts.Logger, cfg.Database())
-		feedsService = feeds.NewService(
-			feedsORM,
-			jobORM,
-			db,
-			jobSpawner,
-			keyStore,
-			cfg.Insecure(),
-			cfg.JobPipeline(),
-			cfg.OCR(),
-			cfg.OCR2(),
-			cfg.Database(),
-			legacyEVMChains,
-			globalLogger,
-			opts.Version,
-		)
-	} else {
-		feedsService = &feeds.NullService{}
+		if keys, err := opts.KeyStore.CSA().GetAll(); err != nil {
+			globalLogger.Warn("[Feeds Service] Unable to start without CSA key", "err", err)
+		} else if len(keys) == 0 {
+			globalLogger.Warn("[Feeds Service] Unable to start without CSA key")
+		} else {
+			feedsORM := feeds.NewORM(db, opts.Logger, cfg.Database())
+			feedsService = feeds.NewService(
+				feedsORM,
+				jobORM,
+				db,
+				jobSpawner,
+				keyStore,
+				cfg.Insecure(),
+				cfg.JobPipeline(),
+				cfg.OCR(),
+				cfg.OCR2(),
+				cfg.Database(),
+				legacyEVMChains,
+				globalLogger,
+				opts.Version,
+			)
+		}
 	}
 
-	app := &ChainlinkApplication{
+	healthChecker := services.NewChecker()
+	for _, s := range srvcs {
+		if err := healthChecker.Register(s); err != nil {
+			return nil, err
+		}
+	}
+
+	return &ChainlinkApplication{
 		relayers:                 opts.RelayerChainInteroperators,
 		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
@@ -472,27 +481,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		// NOTE: Can keep things clean by putting more things in srvcs instead of manually start/closing
 		srvcs: srvcs,
-	}
-
-	for _, service := range app.srvcs {
-		checkable := service.(services.Checkable)
-		if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
-			return nil, err
-		}
-	}
-
-	// To avoid subscribing chain services twice, we only subscribe them if OCR2 is not enabled.
-	// If it's enabled, they are going to be registered with relayers by default.
-	if !cfg.OCR2().Enabled() {
-		for _, service := range app.relayers.Services() {
-			checkable := service.(services.Checkable)
-			if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return app, nil
+	}, nil
 }
 
 func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {

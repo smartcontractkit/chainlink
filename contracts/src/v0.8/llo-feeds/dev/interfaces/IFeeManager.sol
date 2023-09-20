@@ -10,13 +10,13 @@ interface IFeeManager is IERC165, IVerifierFeeManager {
    * @notice Calculate the applied fee and the reward from a report. If the sender is a subscriber, they will receive a discount.
    * @param subscriber address trying to verify
    * @param report report to calculate the fee for
-   * @param quote any metadata required to fetch the fee
+   * @param quoteAddress address of the quote payment token
    * @return (fee, reward, totalDiscount) fee and the reward data with the discount applied
    */
   function getFeeAndReward(
     address subscriber,
     bytes memory report,
-    Quote memory quote
+    address quoteAddress
   ) external returns (Common.Asset memory, Common.Asset memory, uint256);
 
   /**

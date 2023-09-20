@@ -380,6 +380,26 @@ func (o *ORM) SelectDataWordGreaterThan(address common.Address, eventSig common.
 	return logs, nil
 }
 
+func (o *ORM) SelectIndexLogsTopicGreaterThan(address common.Address, eventSig common.Hash, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	if err := validateTopicIndex(topicIndex); err != nil {
+		return nil, err
+	}
+
+	var logs []Log
+	q := o.q.WithOpts(qopts...)
+	err := q.Select(&logs,
+		`SELECT * FROM evm.logs 
+			WHERE evm.logs.evm_chain_id = $1
+			AND address = $2 AND event_sig = $3
+			AND topics[$4] >= $5
+			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $6
+			ORDER BY (evm.logs.block_number, evm.logs.log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, topicValueMin.Bytes(), confs)
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
 func (o *ORM) SelectUntilBlockHashDataWordGreaterThan(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin common.Hash, untilBlockHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
 	var logs []Log
 	q := o.q.WithOpts(qopts...)
@@ -399,26 +419,6 @@ func (o *ORM) SelectUntilBlockHashDataWordGreaterThan(address common.Address, ev
 			AND block_number <= $6 
 			ORDER BY (block_number, log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), wordIndex, wordValueMin.Bytes(), block.BlockNumber)
 	})
-	if err != nil {
-		return nil, err
-	}
-	return logs, nil
-}
-
-func (o *ORM) SelectIndexLogsTopicGreaterThan(address common.Address, eventSig common.Hash, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
-	if err := validateTopicIndex(topicIndex); err != nil {
-		return nil, err
-	}
-
-	var logs []Log
-	q := o.q.WithOpts(qopts...)
-	err := q.Select(&logs,
-		`SELECT * FROM evm.logs 
-			WHERE evm.logs.evm_chain_id = $1
-			AND address = $2 AND event_sig = $3
-			AND topics[$4] >= $5
-			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $6
-			ORDER BY (evm.logs.block_number, evm.logs.log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, topicValueMin.Bytes(), confs)
 	if err != nil {
 		return nil, err
 	}
