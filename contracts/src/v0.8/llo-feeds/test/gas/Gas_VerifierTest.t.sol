@@ -5,7 +5,7 @@ import {BaseTest, BaseTestWithConfiguredVerifierAndFeeManager} from "../verifier
 import {Verifier} from "../../Verifier.sol";
 import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
 import {Common} from "../../../libraries/Common.sol";
-import {IRewardManager} from "../../dev/interfaces/IRewardManager.sol";
+import {IRewardManager} from "../../interfaces/IRewardManager.sol";
 
 contract Verifier_setConfig is BaseTest {
   address[] internal s_signerAddrs;

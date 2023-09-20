@@ -7,7 +7,7 @@ import {VerifierProxy} from "../../VerifierProxy.sol";
 import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
 import {IERC165} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
 import {Common} from "../../../libraries/Common.sol";
-import {FeeManager} from "../../dev/FeeManager.sol";
+import {FeeManager} from "../../FeeManager.sol";
 
 contract VerifierProxyInitializeVerifierTest is BaseTestWithConfiguredVerifierAndFeeManager {
   function test_setFeeManagerZeroAddress() public {
