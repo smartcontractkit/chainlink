@@ -79,7 +79,7 @@ Check `.profiles` to understand what is uploaded in profiles `runner` and `node`
 
 # Helm
 If you would like to use `helm` directly, please uncomment data in `values-raw-helm.yaml`
-## Install
+## Install from local files
 ```
 helm install -f values-raw-helm.yaml cl-cluster .
 ```
@@ -87,6 +87,21 @@ Forward all apps (in another terminal)
 ```
 sudo kubefwd svc
 ```
+Then you can connect and run your tests
+
+## Install from release
+Add the repository
+```
+helm repo add chainlink-cluster https://raw.githubusercontent.com/smartcontractkit/chainlink/helm-release/
+helm repo update
+```
+Install
+```
+helm install -f values-raw-helm.yaml cl-cluster chainlink-cluster/chainlink-cluster --version v0.1.1
+```
+
+## Create a new release
+Bump version in `Chart.yml` add your changes and add `helm_release` label to any PR to trigger a release
 
 ## Helm Test
 ```
