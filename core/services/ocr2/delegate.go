@@ -293,7 +293,7 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 		}
 		return nil
 	case types.CCIPExecution:
-		err = ccip.UnregisterExecPluginLpFilters(context.Background(), spec, d.legacyChains, pg.WithQueryer(q))
+		err = ccip.UnregisterExecPluginLpFilters(context.Background(), d.lggr, spec, d.legacyChains, pg.WithQueryer(q))
 		if err != nil {
 			d.lggr.Errorw("failed to unregister ccip exec plugin filters", "err", err, "spec", spec)
 		}

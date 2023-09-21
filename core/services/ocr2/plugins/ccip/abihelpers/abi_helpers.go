@@ -45,6 +45,8 @@ var EventSignatures struct {
 	FeeTokenAdded        common.Hash
 	FeeTokenRemoved      common.Hash
 
+	USDCMessageSent common.Hash
+
 	// offset || sourceChainID || seqNum || ...
 	SendRequestedSequenceNumberWord int
 	// offset || priceUpdatesOffset || minSeqNum || maxSeqNum || merkleRoot
@@ -128,6 +130,8 @@ func init() {
 		panic("missing event 'manuallyExecute'")
 	}
 	ExecutionReportArgs = manuallyExecuteMethod.Inputs[:1]
+
+	EventSignatures.USDCMessageSent = utils.Keccak256Fixed([]byte("MessageSent(bytes)"))
 }
 
 func MessagesFromExecutionReport(report types.Report) ([]evm_2_evm_offramp.InternalEVM2EVMMessage, error) {

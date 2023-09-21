@@ -133,3 +133,47 @@ func TestLogPollerClient_GetSendRequestsGteSeqNum(t *testing.T) {
 		cl.AssertExpectations(t)
 	})
 }
+
+func TestLogPollerClient_GetLastUSDCMessagePriorToLogIndexInTx(t *testing.T) {
+	txHash := utils.RandomAddress().Hash()
+	ccipLogIndex := int64(100)
+
+	expectedData := []byte("-1")
+
+	t.Run("multiple found", func(t *testing.T) {
+		lp := mocks.NewLogPoller(t)
+		lp.On("IndexedLogsByTxHash",
+			abihelpers.EventSignatures.USDCMessageSent,
+			txHash,
+			mock.Anything,
+		).Return([]logpoller.Log{
+			{LogIndex: ccipLogIndex - 2, Data: []byte("-2")},
+			{LogIndex: ccipLogIndex - 1, Data: expectedData},
+			{LogIndex: ccipLogIndex, Data: []byte("0")},
+			{LogIndex: ccipLogIndex + 1, Data: []byte("1")},
+		}, nil)
+
+		c := &LogPollerReader{lp: lp}
+		usdcMessageData, err := c.GetLastUSDCMessagePriorToLogIndexInTx(context.Background(), ccipLogIndex, txHash)
+		assert.NoError(t, err)
+		assert.Equal(t, expectedData, usdcMessageData)
+
+		lp.AssertExpectations(t)
+	})
+
+	t.Run("none found", func(t *testing.T) {
+		lp := mocks.NewLogPoller(t)
+		lp.On("IndexedLogsByTxHash",
+			abihelpers.EventSignatures.USDCMessageSent,
+			txHash,
+			mock.Anything,
+		).Return([]logpoller.Log{}, nil)
+
+		c := &LogPollerReader{lp: lp}
+		usdcMessageData, err := c.GetLastUSDCMessagePriorToLogIndexInTx(context.Background(), ccipLogIndex, txHash)
+		assert.Errorf(t, err, fmt.Sprintf("no USDC message found prior to log index %d in tx %s", ccipLogIndex, txHash.Hex()))
+		assert.Nil(t, usdcMessageData)
+
+		lp.AssertExpectations(t)
+	})
+}
