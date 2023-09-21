@@ -231,7 +231,7 @@ func (o *ORM) SelectLogsByBlockRangeFilter(start, end int64, address common.Addr
 }
 
 // SelectLogsCreatedAfter finds logs created after some timestamp.
-func (o *ORM) SelectLogsCreatedAfter(eventSig []byte, address common.Address, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ORM) SelectLogsCreatedAfter(address common.Address, eventSig common.Hash, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	minBlock, maxBlock, err := o.blocksRangeAfterTimestamp(after, confs, qopts...)
 	if err != nil {
 		return nil, err

@@ -1243,8 +1243,8 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		},
 	}
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			logs, err := th.ORM.SelectLogsCreatedAfter(event[:], address, tt.after, tt.confs)
+		t.Run("SelectLogsCreatedAfter"+tt.name, func(t *testing.T) {
+			logs, err := th.ORM.SelectLogsCreatedAfter(address, event, tt.after, tt.confs)
 			require.NoError(t, err)
 			assert.Len(t, logs, len(tt.expectedLogs))
 
@@ -1254,7 +1254,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 			}
 		})
 
-		t.Run(tt.name, func(t *testing.T) {
+		t.Run("SelectIndexedLogsCreatedAfter"+tt.name, func(t *testing.T) {
 			logs, err := th.ORM.SelectIndexedLogsCreatedAfter(address, event, 0, []common.Hash{event}, tt.after, tt.confs)
 			require.NoError(t, err)
 			assert.Len(t, logs, len(tt.expectedLogs))
