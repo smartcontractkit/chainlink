@@ -89,6 +89,14 @@ func TestNotPublishingDatasetSizeInCaseOfError(t *testing.T) {
 	require.Equal(t, 0, counterFromGaugeByLabels(lp.datasetSize, "420", "errorQuery"))
 }
 
+func TestMetricsAreProperlyPopulatedForWrites(t *testing.T) {
+	lp := createObservedPollLogger(t, 420)
+	require.NoError(t, withObservedExec(lp, "execQuery", func() error { return nil }))
+	require.Error(t, withObservedExec(lp, "execQuery", func() error { return fmt.Errorf("error") }))
+
+	require.Equal(t, 2, counterFromHistogramByLabels(t, lp.queryDuration, "420", "execQuery"))
+}
+
 func createObservedPollLogger(t *testing.T, chainId int64) *ObservedORM {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 	db := pgtest.NewSqlxDB(t)
