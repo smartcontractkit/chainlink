@@ -182,7 +182,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		require.NoError(t, err, "error getting wrapper consumer balance")
 		require.Equal(t, expectedWrapperConsumerJuelsBalance, wrapperConsumerJuelsBalanceAfterRequest)
 
-		//todo: investigate why this fails
+		//todo: uncomment when VRF-651 will be fixed
 		//require.Equal(t, 1, consumerStatus.Paid.Cmp(randomWordsFulfilledEvent.Payment), "Expected Consumer contract pay more than the Coordinator Sub")
 		l.Debug().
 			Interface("Consumer Balance Before Request (Juels)", wrapperConsumerJuelsBalanceBeforeRequest).
@@ -240,7 +240,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		require.NoError(t, err, "error getting wrapper consumer balance")
 		require.Equal(t, expectedWrapperConsumerWeiBalance, wrapperConsumerBalanceAfterRequestWei)
 
-		//todo: investigate why this fails
+		//todo: uncomment when VRF-651 will be fixed
 		//require.Equal(t, 1, consumerStatus.Paid.Cmp(randomWordsFulfilledEvent.Payment), "Expected Consumer contract pay more than the Coordinator Sub")
 		l.Debug().
 			Interface("Consumer Balance Before Request (WEI)", wrapperConsumerBalanceBeforeRequestWei).
