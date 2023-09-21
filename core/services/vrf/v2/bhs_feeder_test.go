@@ -96,6 +96,10 @@ func TestStartHeartbeats(t *testing.T) {
 		diff := heartbeatPeriod + 1*time.Second
 		t.Logf("Sleeping %.2f seconds before checking blockhash in BHS added by BHS_Heartbeats_Service\n", diff.Seconds())
 		time.Sleep(diff)
-		verifyBlockhashStored(t, uni.coordinatorV2UniverseCommon, uint64(initTxns+18-256))
+		// storeEarliest in BHS contract stores blocktip - 256 in the Blockhash Store (BHS)
+		// before the initTxns:260 txns sent by the loop above, 18 txns are sent by
+		// newVRFCoordinatorV2Universe method. block tip is initTxns + 18
+		blockTip := initTxns + 18
+		verifyBlockhashStored(t, uni.coordinatorV2UniverseCommon, uint64(blockTip-256))
 	})
 }
