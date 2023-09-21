@@ -2,6 +2,8 @@ name: Helm Publish
 
 on:
   push:
+    tags:
+      - "helm-release-v**"
 
 jobs:
   build:
