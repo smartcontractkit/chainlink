@@ -110,6 +110,12 @@ func (o *ObservedLogPoller) IndexedLogsCreatedAfter(eventSig common.Hash, addres
 	})
 }
 
+func (o *ObservedLogPoller) IndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	return withObservedQueryAndResults(o, "IndexedLogsByTxHash", func() ([]Log, error) {
+		return o.LogPoller.IndexedLogsByTxHash(eventSig, txHash, qopts...)
+	})
+}
+
 func (o *ObservedLogPoller) IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return withObservedQueryAndResults(o, "IndexedLogsTopicGreaterThan", func() ([]Log, error) {
 		return o.LogPoller.IndexedLogsTopicGreaterThan(eventSig, address, topicIndex, topicValueMin, confs, qopts...)
