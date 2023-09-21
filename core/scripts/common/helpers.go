@@ -214,6 +214,11 @@ func explorerLinkPrefix(chainID int64) (prefix string) {
 	case 1666700000, 1666700001, 1666700002, 1666700003: // Harmony testnet
 		prefix = "https://explorer.testnet.harmony.one"
 
+	case 84531:
+		prefix = "https://goerli.basescan.org"
+	case 8453:
+		prefix = "https://basescan.org"
+
 	default: // Unknown chain, return prefix as-is
 		prefix = ""
 	}
@@ -410,7 +415,7 @@ func BinarySearch(top, bottom *big.Int, test func(amount *big.Int) bool) *big.In
 	return bottom
 }
 
-// Get RLP encoded headers of a list of block numbers
+// GetRlpHeaders gets RLP encoded headers of a list of block numbers
 // Makes RPC network call eth_getBlockByNumber to blockchain RPC node
 // to fetch header info
 func GetRlpHeaders(env Environment, blockNumbers []*big.Int, getParentBlocks bool) (headers [][]byte, hashes []string, err error) {
