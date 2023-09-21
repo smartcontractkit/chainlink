@@ -241,20 +241,6 @@ var (
 	}
 )
 
-// Context returns a context with the test's deadline, if available.
-func GetTestContext(t *testing.T) context.Context {
-	ctx := context.Background()
-	var cancel func()
-	if d, ok := t.Deadline(); ok {
-		ctx, cancel = context.WithDeadline(ctx, d)
-	}
-	if cancel == nil {
-		ctx, cancel = context.WithCancel(ctx)
-	}
-	t.Cleanup(cancel)
-	return ctx
-}
-
 func TestStartHeartbeats(t *testing.T) {
 	t.Run("happy path", func(t *testing.T) {
 		coordinator := &TestCoordinator{
@@ -293,7 +279,7 @@ func TestStartHeartbeats(t *testing.T) {
 		}()).Run(func(args mock.Arguments) {
 			cancel()
 		}).Once()
-		mockLogger.On("Infow", "Starting heartbeat blockhash using storeEarliest").Once()
+		mockLogger.On("Infow", "Starting heartbeat blockhash using storeEarliest every 10m0s").Once()
 		mockLogger.On("Infow", "storing heartbeat blockhash using storeEarliest",
 			"heartbeatPeriodSeconds", expectedDuration.Seconds()).Once()
 		require.Len(t, mockLogger.ExpectedCalls, 2)
@@ -345,7 +331,7 @@ func TestStartHeartbeats(t *testing.T) {
 		}()).Run(func(args mock.Arguments) {
 			cancel()
 		}).Once()
-		mockLogger.On("Infow", "Starting heartbeat blockhash using storeEarliest").Once()
+		mockLogger.On("Infow", "Starting heartbeat blockhash using storeEarliest every 10m0s").Once()
 		mockLogger.On("Infow", "storing heartbeat blockhash using storeEarliest",
 			"heartbeatPeriodSeconds", expectedDuration.Seconds()).Once()
 		mockLogger.On("Infow", "failed to store heartbeat blockhash using storeEarliest",
