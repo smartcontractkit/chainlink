@@ -61,7 +61,6 @@ func TestStartHeartbeats(t *testing.T) {
 	})
 
 	heartbeatPeriod := 5 * time.Second
-	// lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
 	t.Run("bhs_feeder_startheartbeats_happy_path", func(tt *testing.T) {
 		coordinatorAddress := uni.rootContractAddress

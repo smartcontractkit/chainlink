@@ -241,20 +241,15 @@ var (
 )
 
 func TestStartHeartbeats(t *testing.T) {
-	t.Run("happy path", func(t *testing.T) {
-		coordinator := &TestCoordinator{
-			RequestEvents:     tests[0].requests,
-			FulfillmentEvents: tests[0].fulfillments,
-		}
-		lp := &mocklp.LogPoller{}
+	t.Run("bhs_heartbeat_happy_path", func(t *testing.T) {
 		expectedDuration := 600 * time.Second
 		mockBHS := bhsmocks.NewBHS(t)
 		mockLogger := loggermocks.NewLogger(t)
 		feeder := NewFeeder(
 			mockLogger,
-			coordinator,
+			&TestCoordinator{}, // Not used for this test
 			mockBHS,
-			lp, // Not used for this test
+			&mocklp.LogPoller{}, // Not used for this test
 			0,
 			25,  // Not used for this test
 			100, // Not used for this test
@@ -290,21 +285,16 @@ func TestStartHeartbeats(t *testing.T) {
 		feeder.StartHeartbeats(ctx, mockTimer)
 	})
 
-	t.Run("sad path", func(t *testing.T) {
-		coordinator := &TestCoordinator{
-			RequestEvents:     tests[0].requests,
-			FulfillmentEvents: tests[0].fulfillments,
-		}
-		lp := &mocklp.LogPoller{}
+	t.Run("bhs_heartbeat_sad_path_store_earliest_err", func(t *testing.T) {
 		expectedDuration := 600 * time.Second
 		expectedError := fmt.Errorf("insufficient gas")
 		mockBHS := bhsmocks.NewBHS(t)
 		mockLogger := loggermocks.NewLogger(t)
 		feeder := NewFeeder(
 			mockLogger,
-			coordinator,
+			&TestCoordinator{}, // Not used for this test
 			mockBHS,
-			lp, // Not used for this test
+			&mocklp.LogPoller{}, // Not used for this test
 			0,
 			25,  // Not used for this test
 			100, // Not used for this test
@@ -336,6 +326,36 @@ func TestStartHeartbeats(t *testing.T) {
 			"err", expectedError).Once()
 		require.Len(t, mockLogger.ExpectedCalls, 3)
 		require.Len(t, mockTimer.ExpectedCalls, 2)
+		defer mockTimer.AssertExpectations(t)
+		defer mockBHS.AssertExpectations(t)
+		defer mockLogger.AssertExpectations(t)
+
+		feeder.StartHeartbeats(ctx, mockTimer)
+	})
+
+	t.Run("bhs_heartbeat_sad_path_heartbeat_0", func(t *testing.T) {
+		expectedDuration := 0 * time.Second
+		mockBHS := bhsmocks.NewBHS(t)
+		mockLogger := loggermocks.NewLogger(t)
+		feeder := NewFeeder(
+			mockLogger,
+			&TestCoordinator{}, // Not used for this test
+			mockBHS,
+			&mocklp.LogPoller{}, // Not used for this test
+			0,
+			25,  // Not used for this test
+			100, // Not used for this test
+			expectedDuration,
+			func(ctx context.Context) (uint64, error) {
+				return tests[0].latest, nil
+			})
+
+		ctx, _ := context.WithCancel(testutils.Context(t))
+		mockTimer := bhsmocks.NewTimer(t)
+		mockLogger.On("Infow", "Not starting heartbeat blockhash using storeEarliest").Once()
+		require.Len(t, mockLogger.ExpectedCalls, 1)
+		require.Len(t, mockBHS.ExpectedCalls, 0)
+		require.Len(t, mockTimer.ExpectedCalls, 0)
 		defer mockTimer.AssertExpectations(t)
 		defer mockBHS.AssertExpectations(t)
 		defer mockLogger.AssertExpectations(t)
