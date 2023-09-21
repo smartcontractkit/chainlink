@@ -86,7 +86,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
         native: true
       });
       s_requestCount++;
-      requestHeights[requestId] = ChainSpecificUtil.getBlockNumber();
+      requestHeights[requestId] = requestBlockNumber;
       emit WrapperRequestMade(requestId, paid);
     }
   }
