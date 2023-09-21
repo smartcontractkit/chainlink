@@ -1235,6 +1235,12 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 			after:        future,
 			expectedLogs: []expectedLog{},
 		},
+		{
+			name:         "returns empty dataset when too many confirmations are required",
+			confs:        3,
+			after:        past.Add(-time.Hour),
+			expectedLogs: []expectedLog{},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
