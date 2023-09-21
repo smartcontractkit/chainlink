@@ -593,6 +593,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 					[]*big.Int{big.NewInt(0).SetUint64(10_000), big.NewInt(0).SetUint64(10_000)},
 					[]uint32{30, 30},
 					common.HexToAddress("0x09DFf56A4fF44e0f4436260A04F5CFa65636A481"),
+					k.cfg.ComposerScriptHash,
 				)
 			} else {
 				upkeepAddr, deployUpkeepTx, _, err = streams_lookup_upkeep_wrapper.DeployStreamsLookupUpkeep(

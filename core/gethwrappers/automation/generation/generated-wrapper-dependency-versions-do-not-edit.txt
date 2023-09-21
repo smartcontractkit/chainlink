@@ -1,3 +1,3 @@
 GETH_VERSION: 1.12.0
 composer_compatible_interface: ../../../contracts/solc/v0.8.16/ComposerCompatibleInterfaceV1.abi ../../../contracts/solc/v0.8.16/ComposerCompatibleInterfaceV1.bin cc888e2d0b6e6ca8b83cc5de95e1f0a8e61588c64ff56b04a61dd39e1749bc2e
-mercury_registry_composer: ../../../contracts/solc/v0.8.16/MercuryRegistryComposer.abi ../../../contracts/solc/v0.8.16/MercuryRegistryComposer.bin 7a4fd9d69e19da74050fb77ce8d2bc7657bd7d985883c7638ef0aa84fce24722
+mercury_registry_composer: ../../../contracts/solc/v0.8.16/MercuryRegistryComposer.abi ../../../contracts/solc/v0.8.16/MercuryRegistryComposer.bin 0c04a7b0f3941cf896cd679f4237f3c1d0af3991f74fc7aac9b48b7c83a38850

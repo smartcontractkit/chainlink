@@ -108,6 +108,14 @@ type MercuryData struct {
 	State     encoding.PipelineExecutionState
 }
 
+type FunctionsScriptData struct {
+	Index     int
+	Error     error
+	Retryable bool
+	Response  string
+	State     encoding.PipelineExecutionState
+}
+
 // UpkeepPrivilegeConfig represents the administrative offchain config for each upkeep. It can be set by s_upkeepPrivilegeManager
 // role on the registry. Upkeeps allowed to use Mercury server will have this set to true.
 type UpkeepPrivilegeConfig struct {
@@ -466,11 +474,22 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 	// ARG[0]: Full raw reports if mercury is requested, otherwise an empty string array
 	// ARG[1]: Parsed mercury report info
 	// ARG[2..n]: User-provided args
+	// Script: fetched from the url currently contained in the `scriptHash` field of the request. In the future,
+	// Functions will store the scripts.
 	// Response: A string. Currently, Functions does not support direct ABI-encoding, so results must be passed back
 	// on-chain in a stringified manner.
-	lggr.Infof("upkeep %s composerRequest Functions args [%d]: %s, %s, %v",
+	script, err := r.functionsScriptRequest(ctx, i, request, lggr)
+	if err != nil {
+		lggr.Errorf("upkeep %s abi getting script: %s", request.upkeepId, err.Error())
+		checkResults[i].Retryable = false
+		checkResults[i].PipelineExecutionState = uint8(encoding.MercuryFlakyFailure)
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
+		return
+	}
+	lggr.Infof("upkeep %s composerRequest Functions args [%d]: %s, %s, %v.",
 		request.upkeepId, i, string(rawReportsArg), string(mercuryArg), request.functionsArguments)
-	concatenatedReports := strings.Join(rawReports, ",") // TODO: replace with Functions call
+	lggr.Infof("upkeep %s Functions script: %s", *script)
+	concatenatedReports := strings.Join(rawReports, ",") // TODO: replace with Functions callR
 	encodedFunctionsResult, err := utils.ABIEncode(`[{"type":"string"},{"type":"bytes"}]`, concatenatedReports, request.extraData)
 	if err != nil {
 		lggr.Errorf("upkeep %s retryable %v abi encode packing: %s", request.upkeepId, retryable, err.Error())
@@ -537,6 +556,24 @@ func (r *EvmRegistry) decodeComposerRequest(data []byte) (*ComposerRequestV1, er
 		time:               *abi.ConvertType(errorParameters[6], new(*big.Int)).(**big.Int),
 		extraData:          *abi.ConvertType(errorParameters[7], new([]byte)).(*[]byte),
 	}, nil
+}
+
+// functionsScriptRequest fetches a functions script to run.
+func (r *EvmRegistry) functionsScriptRequest(ctx context.Context, index int, composerReq *ComposerRequestV1, lggr logger.Logger) (*string, error) {
+	reqUrl := composerReq.scriptHash
+	lggr.Debugf("request URL for upkeep %s composer script: %s", composerReq.upkeepId.String(), reqUrl)
+	resp, err := http.Get(reqUrl)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	script := string(body)
+	return &script, nil
 }
 
 func (r *EvmRegistry) checkCallback(ctx context.Context, values [][]byte, lookup *StreamsLookup) (encoding.PipelineExecutionState, bool, hexutil.Bytes, error) {

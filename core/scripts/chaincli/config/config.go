@@ -81,6 +81,7 @@ type Config struct {
 	VerifiableLoadContractAddress   string                 `mapstructure:"VERIFIABLE_LOAD_CONTRACT_ADDRESS"`
 	UpkeepType                      UpkeepType             `mapstructure:"UPKEEP_TYPE"`
 	UseComposer                     bool                   `mapstructure:"USE_COMPOSER"`
+	ComposerScriptHash              string                 `mapstructure:"COMPOSER_SCRIPT_HASH"`
 
 	// Node config scraping and verification
 	NodeConfigURL string `mapstructure:"NODE_CONFIG_URL"`
@@ -166,6 +167,7 @@ func init() {
 	viper.SetDefault("UPKEEP_TYPE", 0) // conditional upkeep
 	viper.SetDefault("KEEPERS_COUNT", 2)
 	viper.SetDefault("USE_COMPOSER", false)
+	viper.SetDefault("COMPOSER_SCRIPT_HASH", "")
 
 	viper.SetDefault("FEED_DECIMALS", 18)
 	viper.SetDefault("MUST_TAKE_TURNS", true)

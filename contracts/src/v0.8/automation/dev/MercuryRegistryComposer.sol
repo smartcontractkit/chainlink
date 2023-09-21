@@ -68,14 +68,18 @@ contract MercuryRegistryComposer is ConfirmedOwner, AutomationCompatibleInterfac
   string[] public s_feeds; // list of feed Ids
   mapping(string => Feed) public s_feedMapping; // mapping of feed Ids to stored feed data
 
+  string private s_scriptHash;
+
   constructor(
     string[] memory feedIds,
     string[] memory feedNames,
     int192[] memory deviationPercentagePPMs,
     uint32[] memory stalenessSeconds,
-    address verifier
+    address verifier,
+    string memory scriptHash
   ) ConfirmedOwner(msg.sender) {
     s_verifier = IVerifierProxy(verifier);
+    s_scriptHash = scriptHash;
 
     // Store desired feeds.
     setFeeds(feedIds, feedNames, deviationPercentagePPMs, stalenessSeconds);
@@ -121,7 +125,7 @@ contract MercuryRegistryComposer is ConfirmedOwner, AutomationCompatibleInterfac
 
     // Emit Composer request revert.
     revert ComposerRequestV1(
-      "TODO_SCRIPT_HASH",
+      s_scriptHash,
       functionsArguments,
       true,
       c_feedParamKey,
