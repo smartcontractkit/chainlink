@@ -8,6 +8,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
+      - name: Create packages and repo index
+        run: |
+          git config user.name github-actions
+          git config user.email github-actions@github.com
       - uses: J12934/helm-gh-pages-action@master
         with:
-          access-token: ${{ secrets.GITHUB_TOKEN }}
+          charts-folder: charts
+          deploy-branch: helm-release
+          access-token: ${{ secrets.HELM_PUSH_TOKEN }}
