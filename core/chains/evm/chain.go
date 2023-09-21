@@ -142,7 +142,6 @@ type AppConfig interface {
 
 type ChainRelayExtenderConfig struct {
 	Logger   logger.Logger
-	DB       *sqlx.DB
 	KeyStore keystore.Eth
 	*RelayerConfig
 }
@@ -158,6 +157,8 @@ type RelayerConfig struct {
 	MailMon          *utils.MailboxMonitor
 	GasEstimator     gas.EvmFeeEstimator
 
+	DB *sqlx.DB
+
 	// TODO BCF-2513 remove test code from the API
 	// Gen-functions are useful for dependency injection by tests
 	GenEthClient      func(*big.Int) client.Client
@@ -168,6 +169,24 @@ type RelayerConfig struct {
 	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
 }
 
+func (r RelayerConfig) validate() error {
+	var err error
+	if r.AppConfig == nil {
+		err = errors.Join(err, fmt.Errorf("nil AppConfig"))
+	}
+	if r.EventBroadcaster == nil {
+		err = errors.Join(err, fmt.Errorf("nil EventBroadcaster"))
+	}
+
+	if r.MailMon == nil {
+		err = errors.Join(err, fmt.Errorf("nil MailMon"))
+	}
+
+	if r.DB == nil {
+		err = errors.Join(err, fmt.Errorf("nil DB"))
+	}
+	return err
+}
 func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExtenderConfig) (Chain, error) {
 	chainID := chain.ChainID
 	l := opts.Logger.With("evmChainID", chainID.String())
@@ -180,6 +199,7 @@ func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExt
 }
 
 func newChain(ctx context.Context, cfg *evmconfig.ChainScoped, nodes []*toml.Node, opts ChainRelayExtenderConfig) (*chain, error) {
+
 	chainID, chainType := cfg.EVM().ChainID(), cfg.EVM().ChainType()
 	l := opts.Logger
 	var client evmclient.Client

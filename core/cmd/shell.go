@@ -154,15 +154,18 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	// create the relayer-chain interoperators from application configuration
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:       appLggr,
-		DB:           db,
 		QConfig:      cfg.Database(),
 		LoopRegistry: loopRegistry,
 		GRPCOpts:     grpcOpts,
 	}
 
+	evmScopedDB, err := pg.OpenUnlockedDB(cfg.AppID(), cfg.Database(), pg.WithSchema("evm")) //pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
+	if err != nil {
+		return nil, err
+	}
 	evmFactoryCfg := chainlink.EVMFactoryConfig{
 		CSAETHKeystore: keyStore,
-		RelayerConfig:  &evm.RelayerConfig{AppConfig: cfg, EventBroadcaster: eventBroadcaster, MailMon: mailMon},
+		RelayerConfig:  &evm.RelayerConfig{AppConfig: cfg, EventBroadcaster: eventBroadcaster, MailMon: mailMon, DB: evmScopedDB},
 	}
 	// evm always enabled for backward compatibility
 	// TODO BCF-2510 this needs to change in order to clear the path for EVM extraction

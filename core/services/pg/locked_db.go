@@ -2,6 +2,7 @@ package pg
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"time"
 
@@ -18,7 +19,7 @@ import (
 
 // LockedDB bounds DB connection and DB locks.
 type LockedDB interface {
-	Open(ctx context.Context) error
+	Open(ctx context.Context, opts ...ConnectionOpt) error
 	Close() error
 	DB() *sqlx.DB
 }
@@ -53,7 +54,7 @@ func NewLockedDB(appID uuid.UUID, cfg LockedDBConfig, lockCfg config.Lock, lggr 
 // OpenUnlockedDB just opens DB connection, without any DB locks.
 // This should be used carefully, when we know we don't need any locks.
 // Currently this is used by RebroadcastTransactions command only.
-func OpenUnlockedDB(appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
+func OpenUnlockedDB(appID uuid.UUID, cfg LockedDBConfig, opts ...ConnectionOpt) (db *sqlx.DB, err error) {
 	return openDB(appID, cfg)
 }
 
@@ -61,7 +62,7 @@ func OpenUnlockedDB(appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error
 // If any of the steps fails or ctx is cancelled, it reverts everything.
 // This is a blocking function and it may execute long due to DB locks acquisition.
 // NOT THREAD SAFE
-func (l *lockedDb) Open(ctx context.Context) (err error) {
+func (l *lockedDb) Open(ctx context.Context, opts ...ConnectionOpt) (err error) {
 	// If Open succeeded previously, db will not be nil
 	if l.db != nil {
 		l.lggr.Panic("calling Open() twice")
@@ -139,10 +140,27 @@ func (l lockedDb) DB() *sqlx.DB {
 	return l.db
 }
 
-func openDB(appID uuid.UUID, cfg LockedDBConfig) (db *sqlx.DB, err error) {
+func openDB(appID uuid.UUID, cfg LockedDBConfig, opts ...ConnectionOpt) (db *sqlx.DB, err error) {
 	uri := cfg.URL()
 	static.SetConsumerName(&uri, "App", &appID)
 	dialect := cfg.Dialect()
-	db, err = NewConnection(uri.String(), dialect, cfg)
+	connStr := uri.String()
+	for _, opt := range opts {
+		opt(&connStr)
+	}
+	db, err = NewConnection(connStr, dialect, cfg)
 	return
+}
+
+type ConnectionOpt func(*string)
+
+func WithSchema(schema string) ConnectionOpt {
+	return func(url *string) {
+		u := withSchema(*url, schema)
+		url = &u
+	}
+}
+
+func withSchema(conn, schema string) string {
+	return fmt.Sprintf("%s&options=-csearch_path=%s", conn, schema)
 }

@@ -41,8 +41,8 @@ import (
 
 func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtenderConfig, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
 	f := chainlink.RelayerFactory{
-		Logger:       opts.Logger,
-		DB:           opts.DB,
+		Logger: opts.Logger,
+		//DB:           opts.DB,
 		QConfig:      opts.AppConfig.Database(),
 		LoopRegistry: plugins.NewLoopRegistry(opts.Logger),
 	}
@@ -86,13 +86,14 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			lggr := logger.TestLogger(t)
 
 			opts := evm.ChainRelayExtenderConfig{
-				Logger:   lggr,
-				DB:       db,
+				Logger: lggr,
+
 				KeyStore: keyStore.Eth(),
 				RelayerConfig: &evm.RelayerConfig{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					MailMon:          &utils.MailboxMonitor{},
+					DB:               pgtest.NewEVMScopedDB(t),
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)
@@ -191,13 +192,13 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			lggr := logger.TestLogger(t)
 			opts := evm.ChainRelayExtenderConfig{
 				Logger:   lggr,
-				DB:       db,
 				KeyStore: keyStore.Eth(),
 				RelayerConfig: &evm.RelayerConfig{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 
 					MailMon: &utils.MailboxMonitor{},
+					DB:      pgtest.NewEVMScopedDB(t),
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)

@@ -27,7 +27,6 @@ import (
 
 type RelayerFactory struct {
 	logger.Logger
-	*sqlx.DB
 	pg.QConfig
 	*plugins.LoopRegistry
 	loop.GRPCOpts
@@ -40,13 +39,21 @@ type EVMFactoryConfig struct {
 
 func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (map[relay.ID]evmrelay.LoopRelayAdapter, error) {
 	// TODO impl EVM loop. For now always 'fallback' to an adapter and embedded chain
-
+	/*
+		if config.DBConn == "" {
+			u := config.AppConfig.Database().URL()
+			config.DBConn = withSchema((&u).String(), "evm")
+		}
+		db, err := sqlx.Open(string(dialects.Postgres), config.DBConn)
+		if err != nil {
+			return nil, err
+		}
+	*/
 	relayers := make(map[relay.ID]evmrelay.LoopRelayAdapter)
 
 	// override some common opts with the factory values. this seems weird... maybe other signatures should change, or this should take a different type...
 	ccOpts := evm.ChainRelayExtenderConfig{
 		Logger:        r.Logger.Named("EVM"),
-		DB:            r.DB,
 		KeyStore:      config.CSAETHKeystore.Eth(),
 		RelayerConfig: config.RelayerConfig,
 	}
@@ -209,9 +216,16 @@ type CosmosFactoryConfig struct {
 	Keystore keystore.Cosmos
 	cosmos.CosmosConfigs
 	EventBroadcaster pg.EventBroadcaster
+	DB               *sqlx.DB
 }
 
 func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConfig) (map[relay.ID]cosmos.LoopRelayerChainer, error) {
+	/*
+		db, err := sqlx.Open(string(dialects.Postgres), config.DBConn)
+		if err != nil {
+			return nil, err
+		}
+	*/
 	relayers := make(map[relay.ID]cosmos.LoopRelayerChainer)
 
 	var (
@@ -226,7 +240,6 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 		opts := cosmos.ChainOpts{
 			QueryConfig:      r.QConfig,
 			Logger:           lggr.Named(relayId.ChainID),
-			DB:               r.DB,
 			KeyStore:         loopKs,
 			EventBroadcaster: config.EventBroadcaster,
 		}
@@ -241,4 +254,8 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 	}
 	return relayers, nil
 
+}
+
+func withSchema(conn, schema string) string {
+	return fmt.Sprintf("%s&options=-csearch_path=%s", conn, schema)
 }

@@ -1,6 +1,7 @@
 package pg
 
 import (
+	"encoding/json"
 	"fmt"
 	"time"
 
@@ -19,6 +20,11 @@ type ConnectionConfig interface {
 	MaxIdleConns() int
 }
 
+type ConnectionScope struct {
+	URL  string
+	UUID string
+}
+
 func NewConnection(uri string, dialect dialects.DialectName, config ConnectionConfig) (db *sqlx.DB, err error) {
 	if dialect == dialects.TransactionWrappedPostgres {
 		// Dbtx uses the uri as a unique identifier for each transaction. Each ORM
@@ -28,7 +34,15 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 		// We can happily throw away the original uri here because if we are using
 		// txdb it should have already been set at the point where we called
 		// txdb.Register
-		uri = uuid.New().String()
+		s := ConnectionScope{
+			URL:  uri,
+			UUID: uuid.New().String(),
+		}
+		b, err := json.Marshal(&s)
+		if err != nil {
+			return nil, err
+		}
+		uri = string(b)
 	}
 
 	// Initialize sql/sqlx

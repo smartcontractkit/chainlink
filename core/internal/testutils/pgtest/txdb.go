@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/store/dialects"
 )
 
@@ -35,6 +37,7 @@ import (
 // store to use the raw DialectPostgres dialect and setup a one-use database.
 // See heavyweight.FullTestDB() as a convenience function to help you do this,
 // but please use sparingly because as it's name implies, it is expensive.
+var defaultDBURL string // global used to create a [NewSqlxDB]
 func init() {
 	testing.Init()
 	if !flag.Parsed() {
@@ -44,12 +47,12 @@ func init() {
 		// -short tests don't need a DB
 		return
 	}
-	dbURL := string(env.DatabaseURL.Get())
-	if dbURL == "" {
+	defaultDBURL = string(env.DatabaseURL.Get())
+	if defaultDBURL == "" {
 		panic("you must provide a CL_DATABASE_URL environment variable")
 	}
 
-	parsed, err := url.Parse(dbURL)
+	parsed, err := url.Parse(defaultDBURL)
 	if err != nil {
 		panic(err)
 	}
@@ -63,8 +66,8 @@ func init() {
 	}
 	name := string(dialects.TransactionWrappedPostgres)
 	sql.Register(name, &txDriver{
-		dbURL: dbURL,
-		conns: make(map[string]*conn),
+		dbURL: defaultDBURL,
+		conns: make(map[string]map[string]*conn),
 	})
 	sqlx.BindDriver(name, sqlx.DOLLAR)
 }
@@ -75,34 +78,47 @@ var _ driver.Conn = &conn{}
 // when the Close is called, transaction is rolled back
 type txDriver struct {
 	sync.Mutex
-	db    *sql.DB
-	conns map[string]*conn
+	db    map[string]*sql.DB          // url -> db
+	conns map[string]map[string]*conn // url -> (uuid -> db) so we can close per url
 
 	dbURL string
 }
 
-func (d *txDriver) Open(dsn string) (driver.Conn, error) {
+// jsonConnectionScope must be a json-encoded [ConnectionScope]. The Open interface requires
+// a string
+func (d *txDriver) Open(jsonConnectionScope string) (driver.Conn, error) {
 	d.Lock()
 	defer d.Unlock()
-	// Open real db connection if its the first call
-	if d.db == nil {
-		db, err := sql.Open("pgx", d.dbURL)
-		if err != nil {
-			return nil, err
-		}
-		d.db = db
+	var scope pg.ConnectionScope
+	err := json.Unmarshal([]byte(jsonConnectionScope), &scope)
+	if err != nil {
+		return nil, fmt.Errorf("pgtest tx driver failed to parse connection string %s: must be json encoded scope: %w", jsonConnectionScope, err)
 	}
-	c, exists := d.conns[dsn]
-	if !exists || !c.tryOpen() {
-		tx, err := d.db.Begin()
+	// initialize dbs if the first call
+	if d.db == nil {
+		d.db = make(map[string]*sql.DB)
+	}
+	db, exists := d.db[scope.URL]
+	if !exists {
+		db, err = sql.Open("pgx", scope.URL)
 		if err != nil {
 			return nil, err
 		}
-		c = &conn{tx: tx, opened: 1}
+		d.db[scope.URL] = db
+		d.conns[scope.URL] = make(map[string]*conn)
+	}
+
+	c, exists := d.conns[scope.URL][scope.UUID]
+	if !exists || !c.tryOpen() {
+		tx, err := db.Begin()
+		if err != nil {
+			return nil, err
+		}
+		c = &conn{tx: tx, opened: 1, scope: scope}
 		c.removeSelf = func() error {
 			return d.deleteConn(c)
 		}
-		d.conns[dsn] = c
+		d.conns[scope.URL][scope.UUID] = c
 	}
 	return c, nil
 }
@@ -114,22 +130,23 @@ func (d *txDriver) deleteConn(c *conn) error {
 	d.Lock()
 	defer d.Unlock()
 
-	if d.conns[c.dsn] != c {
+	if d.conns[c.scope.URL][c.scope.UUID] != c {
 		return nil // already been replaced
 	}
-	delete(d.conns, c.dsn)
-	if len(d.conns) == 0 && d.db != nil {
-		if err := d.db.Close(); err != nil {
+	delete(d.conns[c.scope.URL], c.scope.UUID)
+	if len(d.conns[c.scope.URL]) == 0 && d.db[c.scope.URL] != nil {
+		if err := d.db[c.scope.URL].Close(); err != nil {
 			return err
 		}
-		d.db = nil
+		delete(d.db, c.scope.URL)
 	}
 	return nil
 }
 
 type conn struct {
 	sync.Mutex
-	dsn        string
+	//dsn        string
+	scope      pg.ConnectionScope
 	tx         *sql.Tx // tx may be shared by many conns, definitive one lives in the map keyed by DSN on the txDriver. Do not modify from conn
 	closed     bool
 	opened     int

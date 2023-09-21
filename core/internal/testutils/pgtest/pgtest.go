@@ -2,6 +2,8 @@ package pgtest
 
 import (
 	"database/sql"
+	"encoding/json"
+	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -29,15 +31,42 @@ func NewSqlDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func NewSqlxDB(t testing.TB) *sqlx.DB {
+func NewEVMScopedDB(t testing.TB) *sqlx.DB {
+	// hack to scope to evm schema
+	url := withSchema(defaultDBURL, "evm")
+	return NewSqlxDB(t, WithURL(url))
+}
+
+func withSchema(conn, schema string) string {
+	return fmt.Sprintf("%s&options=-csearch_path=%s", conn, schema)
+}
+
+func NewSqlxDB(t testing.TB, opts ...ConnectionOpt) *sqlx.DB {
 	testutils.SkipShortDB(t)
-	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), uuid.New().String())
+	conn := &pg.ConnectionScope{
+		UUID: uuid.New().String(),
+		URL:  defaultDBURL,
+	}
+	for _, opt := range opts {
+		opt(conn)
+	}
+	enc, err := json.Marshal(conn)
+	require.NoError(t, err)
+	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), string(enc))
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
 	db.MapperFunc(reflectx.CamelToSnakeASCII)
 
 	return db
+}
+
+type ConnectionOpt func(conn *pg.ConnectionScope)
+
+func WithURL(url string) ConnectionOpt {
+	return func(conn *pg.ConnectionScope) {
+		conn.URL = url
+	}
 }
 
 func MustExec(t *testing.T, db *sqlx.DB, stmt string, args ...interface{}) {

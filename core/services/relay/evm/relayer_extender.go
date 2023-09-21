@@ -145,7 +145,6 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 		privOpts := evmchain.ChainRelayExtenderConfig{
 			Logger:        opts.Logger.Named(cid),
 			RelayerConfig: opts.RelayerConfig,
-			DB:            opts.DB,
 			KeyStore:      opts.KeyStore,
 		}
 
@@ -160,6 +159,9 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 			chain: chain,
 		}
 		result = append(result, s)
+	}
+	if err != nil {
+		return nil, err
 	}
 	return newChainRelayerExtsFromSlice(result, opts.AppConfig), nil
 }
