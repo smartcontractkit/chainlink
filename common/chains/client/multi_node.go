@@ -140,7 +140,7 @@ func (c *multiNode[CHAIN_ID, HEAD, RPC, TX]) SelectNode() (node Node[CHAIN_ID, H
 	c.activeMu.RLock()
 	node = c.activeNode
 	c.activeMu.RUnlock()
-	if node != nil && node.State() == nodeStateAlive {
+	if node != nil && node.State() == NodeStateAlive {
 		return // still alive
 	}
 
@@ -148,7 +148,7 @@ func (c *multiNode[CHAIN_ID, HEAD, RPC, TX]) SelectNode() (node Node[CHAIN_ID, H
 	c.activeMu.Lock()
 	defer c.activeMu.Unlock()
 	node = c.activeNode
-	if node != nil && node.State() == nodeStateAlive {
+	if node != nil && node.State() == NodeStateAlive {
 		return // another goroutine beat us here
 	}
 
@@ -234,7 +234,7 @@ func (c *multiNode[CHAIN_ID, HEAD, RPC, TX]) NodeStates() (states map[string]str
 func (c *multiNode[CHAIN_ID, HEAD, RPC, TX]) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *utils.Big) {
 	totalDifficulty = utils.NewBigI(0)
 	for _, n := range c.nodes {
-		if s, num, td := n.StateAndLatest(); s == nodeStateAlive {
+		if s, num, td := n.StateAndLatest(); s == NodeStateAlive {
 			nLiveNodes++
 			if num > blockNumber {
 				blockNumber = num
@@ -281,7 +281,7 @@ func (c *multiNode[CHAIN_ID, HEAD, RPC, TX]) report() {
 		state := n.State()
 		nodeStates[i] = nodeWithState{n.String(), state.String()}
 		total++
-		if state != nodeStateAlive {
+		if state != NodeStateAlive {
 			dead++
 		}
 		counts[state]++

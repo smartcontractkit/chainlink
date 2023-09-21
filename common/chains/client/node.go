@@ -181,7 +181,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) Start(startCtx context.Context) error {
 // Node lifecycle is synchronous: only one goroutine should be running at a
 // time.
 func (n *node[CHAIN_ID, HEAD, RPC]) start(startCtx context.Context) {
-	if n.state != nodeStateUndialed {
+	if n.state != NodeStateUndialed {
 		panic(fmt.Sprintf("cannot dial node with state %v", n.state))
 	}
 
@@ -190,7 +190,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) start(startCtx context.Context) {
 		n.declareUnreachable()
 		return
 	}
-	n.setState(nodeStateDialed)
+	n.setState(NodeStateDialed)
 
 	if err := n.verify(startCtx); errors.Is(err, errInvalidChainID) {
 		n.lfcLog.Errorw("Verify failed: Node has the wrong chain ID", "err", err)
@@ -216,7 +216,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verify(callerCtx context.Context) (err error
 
 	st := n.State()
 	switch st {
-	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID:
+	case NodeStateDialed, NodeStateOutOfSync, NodeStateInvalidChainID:
 	default:
 		panic(fmt.Sprintf("cannot verify node in state %v", st))
 	}
@@ -252,7 +252,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) Close() error {
 		defer n.stateMu.Unlock()
 
 		n.cancelNodeCtx()
-		n.state = nodeStateClosed
+		n.state = NodeStateClosed
 		return nil
 	})
 }

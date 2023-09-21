@@ -12,27 +12,27 @@ import (
 var (
 	promPoolRPCNodeTransitionsToAlive = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_alive",
-		Help: transitionString(nodeStateAlive),
+		Help: transitionString(NodeStateAlive),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToInSync = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_in_sync",
-		Help: fmt.Sprintf("%s to %s", transitionString(nodeStateOutOfSync), nodeStateAlive),
+		Help: fmt.Sprintf("%s to %s", transitionString(NodeStateOutOfSync), NodeStateAlive),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToOutOfSync = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_out_of_sync",
-		Help: transitionString(nodeStateOutOfSync),
+		Help: transitionString(NodeStateOutOfSync),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToUnreachable = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_unreachable",
-		Help: transitionString(nodeStateUnreachable),
+		Help: transitionString(NodeStateUnreachable),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToInvalidChainID = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_invalid_chain_id",
-		Help: transitionString(nodeStateInvalidChainID),
+		Help: transitionString(NodeStateInvalidChainID),
 	}, []string{"chainID", "nodeName"})
 	promPoolRPCNodeTransitionsToUnusable = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "pool_rpc_node_num_transitions_to_unusable",
-		Help: transitionString(nodeStateUnusable),
+		Help: transitionString(NodeStateUnusable),
 	}, []string{"chainID", "nodeName"})
 )
 
@@ -42,21 +42,21 @@ type NodeState int
 
 func (n NodeState) String() string {
 	switch n {
-	case nodeStateUndialed:
+	case NodeStateUndialed:
 		return "Undialed"
-	case nodeStateDialed:
+	case NodeStateDialed:
 		return "Dialed"
-	case nodeStateInvalidChainID:
+	case NodeStateInvalidChainID:
 		return "InvalidChainID"
-	case nodeStateAlive:
+	case NodeStateAlive:
 		return "Alive"
-	case nodeStateUnreachable:
+	case NodeStateUnreachable:
 		return "Unreachable"
-	case nodeStateUnusable:
+	case NodeStateUnusable:
 		return "Unusable"
-	case nodeStateOutOfSync:
+	case NodeStateOutOfSync:
 		return "OutOfSync"
-	case nodeStateClosed:
+	case NodeStateClosed:
 		return "Closed"
 	default:
 		return fmt.Sprintf("NodeState(%d)", n)
@@ -70,33 +70,33 @@ func (n NodeState) GoString() string {
 
 const (
 	// NodeStateUndialed is the first state of a virgin node
-	nodeStateUndialed = NodeState(iota)
+	NodeStateUndialed = NodeState(iota)
 	// NodeStateDialed is after a node has successfully dialed but before it has verified the correct chain ID
-	nodeStateDialed
+	NodeStateDialed
 	// NodeStateInvalidChainID is after chain ID verification failed
-	nodeStateInvalidChainID
+	NodeStateInvalidChainID
 	// NodeStateAlive is a healthy node after chain ID verification succeeded
-	nodeStateAlive
+	NodeStateAlive
 	// NodeStateUnreachable is a node that cannot be dialed or has disconnected
-	nodeStateUnreachable
+	NodeStateUnreachable
 	// NodeStateOutOfSync is a node that is accepting connections but exceeded
 	// the failure threshold without sending any new heads. It will be
 	// disconnected, then put into a revive loop and re-awakened after redial
 	// if a new head arrives
-	nodeStateOutOfSync
+	NodeStateOutOfSync
 	// NodeStateUnusable is a sendonly node that has an invalid URL that can never be reached
-	nodeStateUnusable
+	NodeStateUnusable
 	// NodeStateClosed is after the connection has been closed and the node is at the end of its lifecycle
-	nodeStateClosed
-	// nodeStateLen tracks the number of states
-	nodeStateLen
+	NodeStateClosed
+	// NodeStateLen tracks the number of states
+	NodeStateLen
 )
 
 // allNodeStates represents all possible states a node can be in
 var allNodeStates []NodeState
 
 func init() {
-	for s := NodeState(0); s < nodeStateLen; s++ {
+	for s := NodeState(0); s < NodeStateLen; s++ {
 		allNodeStates = append(allNodeStates, s)
 	}
 }
@@ -131,7 +131,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) setState(s NodeState) {
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareAlive() {
 	n.transitionToAlive(func() {
-		n.lfcLog.Infow("RPC Node is online", "nodeState", n.state)
+		n.lfcLog.Infow("RPC Node is online", "NodeState", n.state)
 		n.wg.Add(1)
 		go n.aliveLoop()
 	})
@@ -141,14 +141,14 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToAlive(fn func()) {
 	promPoolRPCNodeTransitionsToAlive.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	if n.state == nodeStateClosed {
+	if n.state == NodeStateClosed {
 		return
 	}
 	switch n.state {
-	case nodeStateDialed, nodeStateInvalidChainID:
-		n.state = nodeStateAlive
+	case NodeStateDialed, NodeStateInvalidChainID:
+		n.state = NodeStateAlive
 	default:
-		panic(transitionFail(n.state, nodeStateAlive))
+		panic(transitionFail(n.state, NodeStateAlive))
 	}
 	fn()
 }
@@ -157,7 +157,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToAlive(fn func()) {
 // pool consumers again
 func (n *node[CHAIN_ID, HEAD, RPC]) declareInSync() {
 	n.transitionToInSync(func() {
-		n.lfcLog.Infow("RPC Node is back in sync", "nodeState", n.state)
+		n.lfcLog.Infow("RPC Node is back in sync", "NodeState", n.state)
 		n.wg.Add(1)
 		go n.aliveLoop()
 	})
@@ -168,14 +168,14 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInSync(fn func()) {
 	promPoolRPCNodeTransitionsToInSync.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	if n.state == nodeStateClosed {
+	if n.state == NodeStateClosed {
 		return
 	}
 	switch n.state {
-	case nodeStateOutOfSync:
-		n.state = nodeStateAlive
+	case NodeStateOutOfSync:
+		n.state = NodeStateAlive
 	default:
-		panic(transitionFail(n.state, nodeStateAlive))
+		panic(transitionFail(n.state, NodeStateAlive))
 	}
 	fn()
 }
@@ -184,7 +184,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInSync(fn func()) {
 // clients and making it unavailable for use until back in-sync.
 func (n *node[CHAIN_ID, HEAD, RPC]) declareOutOfSync(isOutOfSync func(num int64, td *utils.Big) bool) {
 	n.transitionToOutOfSync(func() {
-		n.lfcLog.Errorw("RPC Node is out of sync", "nodeState", n.state)
+		n.lfcLog.Errorw("RPC Node is out of sync", "NodeState", n.state)
 		n.wg.Add(1)
 		go n.outOfSyncLoop(isOutOfSync)
 	})
@@ -194,22 +194,22 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToOutOfSync(fn func()) {
 	promPoolRPCNodeTransitionsToOutOfSync.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	if n.state == nodeStateClosed {
+	if n.state == NodeStateClosed {
 		return
 	}
 	switch n.state {
-	case nodeStateAlive:
+	case NodeStateAlive:
 		n.disconnectAll()
-		n.state = nodeStateOutOfSync
+		n.state = NodeStateOutOfSync
 	default:
-		panic(transitionFail(n.state, nodeStateOutOfSync))
+		panic(transitionFail(n.state, NodeStateOutOfSync))
 	}
 	fn()
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareUnreachable() {
 	n.transitionToUnreachable(func() {
-		n.lfcLog.Errorw("RPC Node is unreachable", "nodeState", n.state)
+		n.lfcLog.Errorw("RPC Node is unreachable", "NodeState", n.state)
 		n.wg.Add(1)
 		go n.unreachableLoop()
 	})
@@ -219,22 +219,22 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToUnreachable(fn func()) {
 	promPoolRPCNodeTransitionsToUnreachable.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	if n.state == nodeStateClosed {
+	if n.state == NodeStateClosed {
 		return
 	}
 	switch n.state {
-	case nodeStateUndialed, nodeStateDialed, nodeStateAlive, nodeStateOutOfSync, nodeStateInvalidChainID:
+	case NodeStateUndialed, NodeStateDialed, NodeStateAlive, NodeStateOutOfSync, NodeStateInvalidChainID:
 		n.disconnectAll()
-		n.state = nodeStateUnreachable
+		n.state = NodeStateUnreachable
 	default:
-		panic(transitionFail(n.state, nodeStateUnreachable))
+		panic(transitionFail(n.state, NodeStateUnreachable))
 	}
 	fn()
 }
 
 func (n *node[CHAIN_ID, HEAD, RPC]) declareInvalidChainID() {
 	n.transitionToInvalidChainID(func() {
-		n.lfcLog.Errorw("RPC Node has the wrong chain ID", "nodeState", n.state)
+		n.lfcLog.Errorw("RPC Node has the wrong chain ID", "NodeState", n.state)
 		n.wg.Add(1)
 		go n.invalidChainIDLoop()
 	})
@@ -244,15 +244,15 @@ func (n *node[CHAIN_ID, HEAD, RPC]) transitionToInvalidChainID(fn func()) {
 	promPoolRPCNodeTransitionsToInvalidChainID.WithLabelValues(n.chainID.String(), n.name).Inc()
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	if n.state == nodeStateClosed {
+	if n.state == NodeStateClosed {
 		return
 	}
 	switch n.state {
-	case nodeStateDialed, nodeStateOutOfSync:
+	case NodeStateDialed, NodeStateOutOfSync:
 		n.disconnectAll()
-		n.state = nodeStateInvalidChainID
+		n.state = NodeStateInvalidChainID
 	default:
-		panic(transitionFail(n.state, nodeStateInvalidChainID))
+		panic(transitionFail(n.state, NodeStateInvalidChainID))
 	}
 	fn()
 }

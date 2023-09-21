@@ -61,7 +61,7 @@ func (s priorityLevelNodeSelector[CHAIN_ID, HEAD, RPC]) Name() string {
 func (s priorityLevelNodeSelector[CHAIN_ID, HEAD, RPC]) getHighestPriorityAliveTier() []nodeWithPriority[CHAIN_ID, HEAD, RPC] {
 	var nodes []nodeWithPriority[CHAIN_ID, HEAD, RPC]
 	for _, n := range s.nodes {
-		if n.State() == nodeStateAlive {
+		if n.State() == NodeStateAlive {
 			nodes = append(nodes, nodeWithPriority[CHAIN_ID, HEAD, RPC]{n, n.Order()})
 		}
 	}

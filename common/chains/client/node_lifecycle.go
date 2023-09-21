@@ -74,8 +74,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) aliveLoop() {
 		// sanity check
 		state := n.State()
 		switch state {
-		case nodeStateAlive:
-		case nodeStateClosed:
+		case NodeStateAlive:
+		case NodeStateClosed:
 			return
 		default:
 			panic(fmt.Sprintf("aliveLoop can only run for node in Alive state, got: %s", state))
@@ -258,8 +258,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) outOfSyncLoop(isOutOfSync func(num int64, td
 		// sanity check
 		state := n.State()
 		switch state {
-		case nodeStateOutOfSync:
-		case nodeStateClosed:
+		case NodeStateOutOfSync:
+		case NodeStateClosed:
 			return
 		default:
 			panic(fmt.Sprintf("outOfSyncLoop can only run for node in OutOfSync state, got: %s", state))
@@ -337,8 +337,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 		// sanity check
 		state := n.State()
 		switch state {
-		case nodeStateUnreachable:
-		case nodeStateClosed:
+		case NodeStateUnreachable:
+		case NodeStateClosed:
 			return
 		default:
 			panic(fmt.Sprintf("unreachableLoop can only run for node in Unreachable state, got: %s", state))
@@ -365,7 +365,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) unreachableLoop() {
 				continue
 			}
 
-			n.setState(nodeStateDialed)
+			n.setState(NodeStateDialed)
 
 			err = n.verify(n.nodeCtx)
 
@@ -393,8 +393,8 @@ func (n *node[CHAIN_ID, HEAD, RPC]) invalidChainIDLoop() {
 		// sanity check
 		state := n.State()
 		switch state {
-		case nodeStateInvalidChainID:
-		case nodeStateClosed:
+		case NodeStateInvalidChainID:
+		case NodeStateClosed:
 			return
 		default:
 			panic(fmt.Sprintf("invalidChainIDLoop can only run for node in InvalidChainID state, got: %s", state))

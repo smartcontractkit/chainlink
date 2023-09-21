@@ -171,11 +171,11 @@ func (n *nullClient[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_O
 }
 
 func (n *nullClient[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) State() NodeState {
-	return nodeStateUnreachable
+	return NodeStateUnreachable
 }
 
 func (n *nullClient[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) StateAndLatest() (NodeState, int64, *utils.Big) {
-	return nodeStateUnreachable, -1, nil
+	return NodeStateUnreachable, -1, nil
 }
 
 func (n *nullClient[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, SUB]) Order() int32 {

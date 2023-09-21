@@ -25,6 +25,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+var _ commonclient.RPC[
+	*big.Int,
+	evmtypes.Nonce,
+	common.Address,
+	common.Hash,
+	*types.Transaction,
+	common.Hash,
+	types.Log,
+	ethereum.FilterQuery,
+	*evmtypes.Receipt,
+	*assets.Wei,
+	*evmtypes.Head,
+] = &rpcClient{}
+
 type rpcClient struct {
 	rpcLog  logger.Logger
 	name    string
