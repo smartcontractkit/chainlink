@@ -606,6 +606,7 @@ type BlockhashStoreSpecParams struct {
 	CoordinatorV2Address           string
 	CoordinatorV2PlusAddress       string
 	WaitBlocks                     int
+	HeartbeatPeriod                time.Duration
 	LookbackBlocks                 int
 	BlockhashStoreAddress          string
 	TrustedBlockhashStoreAddress   string
@@ -704,11 +705,12 @@ pollPeriod = "%s"
 runTimeout = "%s"
 evmChainID = "%d"
 fromAddresses = %s
+heartbeatPeriod = "%s"
 `
 	toml := fmt.Sprintf(template, params.Name, params.CoordinatorV1Address,
 		params.CoordinatorV2Address, params.CoordinatorV2PlusAddress, params.WaitBlocks, params.LookbackBlocks,
 		params.BlockhashStoreAddress, params.TrustedBlockhashStoreAddress, params.TrustedBlockhashStoreBatchSize, params.PollPeriod.String(), params.RunTimeout.String(),
-		params.EVMChainID, formattedFromAddresses)
+		params.EVMChainID, formattedFromAddresses, params.HeartbeatPeriod.String())
 
 	return BlockhashStoreSpec{BlockhashStoreSpecParams: params, toml: toml}
 }
