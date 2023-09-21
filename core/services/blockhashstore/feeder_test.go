@@ -350,7 +350,6 @@ func TestStartHeartbeats(t *testing.T) {
 				return tests[0].latest, nil
 			})
 
-		ctx, _ := context.WithCancel(testutils.Context(t))
 		mockTimer := bhsmocks.NewTimer(t)
 		mockLogger.On("Infow", "Not starting heartbeat blockhash using storeEarliest").Once()
 		require.Len(t, mockLogger.ExpectedCalls, 1)
@@ -360,7 +359,7 @@ func TestStartHeartbeats(t *testing.T) {
 		defer mockBHS.AssertExpectations(t)
 		defer mockLogger.AssertExpectations(t)
 
-		feeder.StartHeartbeats(ctx, mockTimer)
+		feeder.StartHeartbeats(testutils.Context(t), mockTimer)
 	})
 }
 
