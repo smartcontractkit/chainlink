@@ -50,10 +50,10 @@ func TestVRFv2PlusBilling(t *testing.T) {
 	require.NoError(t, err, "error getting subscription information")
 
 	l.Debug().
-		Interface("Juels Balance", subscription.Balance).
-		Interface("Native Token Balance", subscription.EthBalance).
-		Interface("Subscription ID", subID).
-		Interface("Subscription Owner", subscription.Owner.String()).
+		Str("Juels Balance", subscription.Balance.String()).
+		Str("Native Token Balance", subscription.EthBalance.String()).
+		Str("Subscription ID", subID.String()).
+		Str("Subscription Owner", subscription.Owner.String()).
 		Interface("Subscription Consumers", subscription.Consumers).
 		Msg("Subscription Data")
 
@@ -88,7 +88,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		status, err := vrfv2PlusContracts.LoadTestConsumers[0].GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
-		l.Debug().Interface("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
 		require.Equal(t, vrfv2plus_constants.NumberOfWords, uint32(len(status.RandomWords)))
 		for _, w := range status.RandomWords {
@@ -127,7 +127,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		status, err := vrfv2PlusContracts.LoadTestConsumers[0].GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
-		l.Debug().Interface("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+		l.Debug().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
 
 		require.Equal(t, vrfv2plus_constants.NumberOfWords, uint32(len(status.RandomWords)))
 		for _, w := range status.RandomWords {
@@ -185,16 +185,16 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		//todo: uncomment when VRF-651 will be fixed
 		//require.Equal(t, 1, consumerStatus.Paid.Cmp(randomWordsFulfilledEvent.Payment), "Expected Consumer contract pay more than the Coordinator Sub")
 		l.Debug().
-			Interface("Consumer Balance Before Request (Juels)", wrapperConsumerJuelsBalanceBeforeRequest).
-			Interface("Consumer Balance After Request (Juels)", wrapperConsumerJuelsBalanceAfterRequest).
-			Interface("Fulfilment Status", consumerStatus.Fulfilled).
-			Interface("Paid in Juels by Consumer Contract", consumerStatus.Paid).
-			Interface("Paid in Juels by Coordinator Sub", randomWordsFulfilledEvent.Payment).
-			Interface("RequestTimestamp", consumerStatus.RequestTimestamp).
-			Interface("FulfilmentTimestamp", consumerStatus.FulfilmentTimestamp).
-			Interface("RequestBlockNumber", consumerStatus.RequestBlockNumber).
-			Interface("FulfilmentBlockNumber", consumerStatus.FulfilmentBlockNumber).
-			Interface("TX Hash", randomWordsFulfilledEvent.Raw.TxHash).
+			Str("Consumer Balance Before Request (Juels)", wrapperConsumerJuelsBalanceBeforeRequest.String()).
+			Str("Consumer Balance After Request (Juels)", wrapperConsumerJuelsBalanceAfterRequest.String()).
+			Bool("Fulfilment Status", consumerStatus.Fulfilled).
+			Str("Paid in Juels by Consumer Contract", consumerStatus.Paid.String()).
+			Str("Paid in Juels by Coordinator Sub", randomWordsFulfilledEvent.Payment.String()).
+			Str("RequestTimestamp", consumerStatus.RequestTimestamp.String()).
+			Str("FulfilmentTimestamp", consumerStatus.FulfilmentTimestamp.String()).
+			Str("RequestBlockNumber", consumerStatus.RequestBlockNumber.String()).
+			Str("FulfilmentBlockNumber", consumerStatus.FulfilmentBlockNumber.String()).
+			Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
 			Msg("Random Words Request Fulfilment Status")
 
 		require.Equal(t, vrfv2plus_constants.NumberOfWords, uint32(len(consumerStatus.RandomWords)))
@@ -243,16 +243,16 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		//todo: uncomment when VRF-651 will be fixed
 		//require.Equal(t, 1, consumerStatus.Paid.Cmp(randomWordsFulfilledEvent.Payment), "Expected Consumer contract pay more than the Coordinator Sub")
 		l.Debug().
-			Interface("Consumer Balance Before Request (WEI)", wrapperConsumerBalanceBeforeRequestWei).
-			Interface("Consumer Balance After Request (WEI)", wrapperConsumerBalanceAfterRequestWei).
-			Interface("Fulfilment Status", consumerStatus.Fulfilled).
-			Interface("Paid in Juels by Consumer Contract", consumerStatus.Paid).
-			Interface("Paid in Juels by Coordinator Sub", randomWordsFulfilledEvent.Payment).
-			Interface("RequestTimestamp", consumerStatus.RequestTimestamp).
-			Interface("FulfilmentTimestamp", consumerStatus.FulfilmentTimestamp).
-			Interface("RequestBlockNumber", consumerStatus.RequestBlockNumber).
-			Interface("FulfilmentBlockNumber", consumerStatus.FulfilmentBlockNumber).
-			Interface("TX Hash", randomWordsFulfilledEvent.Raw.TxHash).
+			Str("Consumer Balance Before Request (WEI)", wrapperConsumerBalanceBeforeRequestWei.String()).
+			Str("Consumer Balance After Request (WEI)", wrapperConsumerBalanceAfterRequestWei.String()).
+			Bool("Fulfilment Status", consumerStatus.Fulfilled).
+			Str("Paid in Juels by Consumer Contract", consumerStatus.Paid.String()).
+			Str("Paid in Juels by Coordinator Sub", randomWordsFulfilledEvent.Payment.String()).
+			Str("RequestTimestamp", consumerStatus.RequestTimestamp.String()).
+			Str("FulfilmentTimestamp", consumerStatus.FulfilmentTimestamp.String()).
+			Str("RequestBlockNumber", consumerStatus.RequestBlockNumber.String()).
+			Str("FulfilmentBlockNumber", consumerStatus.FulfilmentBlockNumber.String()).
+			Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
 			Msg("Random Words Request Fulfilment Status")
 
 		require.Equal(t, vrfv2plus_constants.NumberOfWords, uint32(len(consumerStatus.RandomWords)))
@@ -295,10 +295,10 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	require.NoError(t, err, "error getting subscription information")
 
 	l.Debug().
-		Interface("Juels Balance", subscription.Balance).
-		Interface("Native Token Balance", subscription.EthBalance).
-		Interface("Subscription ID", subID).
-		Interface("Subscription Owner", subscription.Owner.String()).
+		Str("Juels Balance", subscription.Balance.String()).
+		Str("Native Token Balance", subscription.EthBalance.String()).
+		Str("Subscription ID", subID.String()).
+		Str("Subscription Owner", subscription.Owner.String()).
 		Interface("Subscription Consumers", subscription.Consumers).
 		Msg("Subscription Data")
 
@@ -382,11 +382,11 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	require.NoError(t, err, "error getting subscription information")
 
 	l.Debug().
-		Interface("New Coordinator", newCoordinator.Address()).
-		Interface("Subscription ID", subID).
-		Interface("Juels Balance", migratedSubscription.Balance).
-		Interface("Native Token Balance", migratedSubscription.EthBalance).
-		Interface("Subscription Owner", migratedSubscription.Owner.String()).
+		Str("New Coordinator", newCoordinator.Address()).
+		Str("Subscription ID", subID.String()).
+		Str("Juels Balance", migratedSubscription.Balance.String()).
+		Str("Native Token Balance", migratedSubscription.EthBalance.String()).
+		Str("Subscription Owner", migratedSubscription.Owner.String()).
 		Interface("Subscription Consumers", migratedSubscription.Consumers).
 		Msg("Subscription Data After Migration to New Coordinator")
 
@@ -396,8 +396,8 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		require.NoError(t, err, "error getting Coordinator from Consumer contract")
 		require.Equal(t, newCoordinator.Address(), coordinatorAddressInConsumerAfterMigration.String())
 		l.Debug().
-			Interface("Consumer", consumer.Address()).
-			Interface("Coordinator", coordinatorAddressInConsumerAfterMigration).
+			Str("Consumer", consumer.Address()).
+			Str("Coordinator", coordinatorAddressInConsumerAfterMigration.String()).
 			Msg("Coordinator Address in Consumer After Migration")
 	}
 

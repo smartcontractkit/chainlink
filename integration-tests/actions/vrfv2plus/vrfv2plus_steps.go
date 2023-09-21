@@ -543,13 +543,13 @@ func RequestRandomnessAndWaitForFulfillmentUpgraded(
 	}
 
 	l.Debug().
-		Interface("Request ID", randomWordsRequestedEvent.RequestId).
-		Interface("Subscription ID", randomWordsRequestedEvent.SubId).
-		Interface("Sender Address", randomWordsRequestedEvent.Sender.String()).
+		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
+		Str("Subscription ID", randomWordsRequestedEvent.SubId.String()).
+		Str("Sender Address", randomWordsRequestedEvent.Sender.String()).
 		Interface("Keyhash", randomWordsRequestedEvent.KeyHash).
-		Interface("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
-		Interface("Number of Words", randomWordsRequestedEvent.NumWords).
-		Interface("Minimum Request Confirmations", randomWordsRequestedEvent.MinimumRequestConfirmations).
+		Uint32("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
+		Uint32("Number of Words", randomWordsRequestedEvent.NumWords).
+		Uint16("Minimum Request Confirmations", randomWordsRequestedEvent.MinimumRequestConfirmations).
 		Msg("RandomnessRequested Event")
 
 	randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
@@ -562,10 +562,10 @@ func RequestRandomnessAndWaitForFulfillmentUpgraded(
 	}
 
 	l.Debug().
-		Interface("Total Payment in Juels", randomWordsFulfilledEvent.Payment).
-		Interface("TX Hash", randomWordsFulfilledEvent.Raw.TxHash).
-		Interface("Subscription ID", randomWordsFulfilledEvent.SubID).
-		Interface("Request ID", randomWordsFulfilledEvent.RequestId).
+		Str("Total Payment in Juels", randomWordsFulfilledEvent.Payment.String()).
+		Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
+		Str("Subscription ID", randomWordsFulfilledEvent.SubID.String()).
+		Str("Request ID", randomWordsFulfilledEvent.RequestId.String()).
 		Bool("Success", randomWordsFulfilledEvent.Success).
 		Msg("RandomWordsFulfilled Event (TX metadata)")
 	return randomWordsFulfilledEvent, err
@@ -625,13 +625,13 @@ func WaitForRequestAndFulfillmentEvents(
 	}
 
 	l.Debug().
-		Interface("Request ID", randomWordsRequestedEvent.RequestId).
-		Interface("Subscription ID", randomWordsRequestedEvent.SubId).
-		Interface("Sender Address", randomWordsRequestedEvent.Sender.String()).
+		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
+		Str("Subscription ID", randomWordsRequestedEvent.SubId.String()).
+		Str("Sender Address", randomWordsRequestedEvent.Sender.String()).
 		Interface("Keyhash", randomWordsRequestedEvent.KeyHash).
-		Interface("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
-		Interface("Number of Words", randomWordsRequestedEvent.NumWords).
-		Interface("Minimum Request Confirmations", randomWordsRequestedEvent.MinimumRequestConfirmations).
+		Uint32("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
+		Uint32("Number of Words", randomWordsRequestedEvent.NumWords).
+		Uint16("Minimum Request Confirmations", randomWordsRequestedEvent.MinimumRequestConfirmations).
 		Msg("RandomnessRequested Event")
 
 	randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
@@ -644,10 +644,10 @@ func WaitForRequestAndFulfillmentEvents(
 	}
 
 	l.Debug().
-		Interface("Total Payment in Juels", randomWordsFulfilledEvent.Payment).
-		Interface("TX Hash", randomWordsFulfilledEvent.Raw.TxHash).
-		Interface("Subscription ID", randomWordsFulfilledEvent.SubID).
-		Interface("Request ID", randomWordsFulfilledEvent.RequestId).
+		Str("Total Payment in Juels", randomWordsFulfilledEvent.Payment.String()).
+		Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
+		Str("Subscription ID", randomWordsFulfilledEvent.SubID.String()).
+		Str("Request ID", randomWordsFulfilledEvent.RequestId.String()).
 		Bool("Success", randomWordsFulfilledEvent.Success).
 		Msg("RandomWordsFulfilled Event (TX metadata)")
 	return randomWordsFulfilledEvent, err
