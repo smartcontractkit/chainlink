@@ -194,7 +194,7 @@ func (tc *telemetryIngressClient) getCSAPrivateKey() (privkey []byte, err error)
 // throwing away messages once buffer is full
 func (tc *telemetryIngressClient) Send(ctx context.Context, telemData []byte, contractID string, telemType TelemetryType) {
 	payload := TelemPayload{
-		Ctx:        ctx,
+		Ctx:        context.Background(),
 		Telemetry:  telemData,
 		TelemType:  telemType,
 		ContractID: contractID,

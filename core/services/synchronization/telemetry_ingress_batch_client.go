@@ -30,7 +30,7 @@ func (NoopTelemetryIngressBatchClient) Close() error { return nil }
 // Send is a no-op
 func (NoopTelemetryIngressBatchClient) Send(TelemPayload) {}
 
-// Healthy is a no-op
+// HealthReport is a no-op
 func (NoopTelemetryIngressBatchClient) HealthReport() map[string]error { return map[string]error{} }
 func (NoopTelemetryIngressBatchClient) Name() string                   { return "NoopTelemetryIngressBatchClient" }
 
@@ -158,15 +158,15 @@ func (tc *telemetryIngressBatchClient) HealthReport() map[string]error {
 
 // getCSAPrivateKey gets the client's CSA private key
 func (tc *telemetryIngressBatchClient) getCSAPrivateKey() (privkey []byte, err error) {
-	keys, err := tc.ks.GetAll()
+	csaKeys, err := tc.ks.GetAll()
 	if err != nil {
 		return privkey, err
 	}
-	if len(keys) < 1 {
+	if len(csaKeys) < 1 {
 		return privkey, errors.New("CSA key does not exist")
 	}
 
-	return keys[0].Raw(), nil
+	return csaKeys[0].Raw(), nil
 }
 
 // Send directs incoming telmetry messages to the worker responsible for pushing it to
@@ -178,7 +178,7 @@ func (tc *telemetryIngressBatchClient) Send(ctx context.Context, telemData []byt
 		return
 	}
 	payload := TelemPayload{
-		Ctx:        ctx,
+		Ctx:        context.Background(),
 		Telemetry:  telemData,
 		TelemType:  telemType,
 		ContractID: contractID,
