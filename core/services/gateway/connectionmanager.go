@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.uber.org/multierr"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -51,6 +52,18 @@ type connectionManager struct {
 	connAttemptsMu     sync.Mutex
 	lggr               logger.Logger
 }
+
+func (m *connectionManager) HealthReport() map[string]error {
+	hr := map[string]error{m.Name(): m.Healthy()}
+	for _, d := range m.dons {
+		for _, n := range d.nodes {
+			maps.Copy(hr, n.conn.HealthReport())
+		}
+	}
+	return hr
+}
+
+func (m *connectionManager) Name() string { return m.lggr.Name() }
 
 type donConnectionManager struct {
 	donConfig  *config.DONConfig
@@ -93,7 +106,7 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock utils.Clock, lgg
 			if ok {
 				return nil, fmt.Errorf("duplicate node address %s in DON %s", nodeAddress, donConfig.DonId)
 			}
-			nodes[nodeAddress] = &nodeState{conn: network.NewWSConnectionWrapper()}
+			nodes[nodeAddress] = &nodeState{conn: network.NewWSConnectionWrapper(lggr)}
 			if nodes[nodeAddress].conn == nil {
 				return nil, fmt.Errorf("error creating WSConnectionWrapper for node %s", nodeAddress)
 			}
@@ -128,7 +141,7 @@ func (m *connectionManager) Start(ctx context.Context) error {
 		for _, donConnMgr := range m.dons {
 			donConnMgr.closeWait.Add(len(donConnMgr.nodes))
 			for nodeAddress, nodeState := range donConnMgr.nodes {
-				if err := nodeState.conn.Start(); err != nil {
+				if err := nodeState.conn.Start(ctx); err != nil {
 					return err
 				}
 				go donConnMgr.readLoop(nodeAddress, nodeState)

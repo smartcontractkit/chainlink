@@ -1093,40 +1093,75 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 
 func TestLogRecoverer_pending(t *testing.T) {
 	tests := []struct {
-		name  string
-		exist []ocr2keepers.UpkeepPayload
-		new   []ocr2keepers.UpkeepPayload
-		want  []ocr2keepers.UpkeepPayload
+		name         string
+		maxPerUpkeep int
+		exist        []ocr2keepers.UpkeepPayload
+		new          []ocr2keepers.UpkeepPayload
+		errored      []bool
+		want         []ocr2keepers.UpkeepPayload
 	}{
 		{
-			"empty",
-			[]ocr2keepers.UpkeepPayload{},
-			[]ocr2keepers.UpkeepPayload{},
-			[]ocr2keepers.UpkeepPayload{},
+			name:         "empty",
+			maxPerUpkeep: 10,
+			exist:        []ocr2keepers.UpkeepPayload{},
+			new:          []ocr2keepers.UpkeepPayload{},
+			errored:      []bool{},
+			want:         []ocr2keepers.UpkeepPayload{},
 		},
 		{
-			"add new and existing",
-			[]ocr2keepers.UpkeepPayload{
+			name:         "add new and existing",
+			maxPerUpkeep: 10,
+			exist: []ocr2keepers.UpkeepPayload{
 				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
 			},
-			[]ocr2keepers.UpkeepPayload{
+			new: []ocr2keepers.UpkeepPayload{
 				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
 				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
 			},
-			[]ocr2keepers.UpkeepPayload{
+			errored: []bool{false, false},
+			want: []ocr2keepers.UpkeepPayload{
 				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
 				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+			},
+		},
+		{
+			name:         "exceed limits for upkeep",
+			maxPerUpkeep: 3,
+			exist: []ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "3", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+			},
+			new: []ocr2keepers.UpkeepPayload{
+				{WorkID: "4", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+			},
+			errored: []bool{true},
+			want: []ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "3", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
 			},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			origMaxPendingPayloadsPerUpkeep := maxPendingPayloadsPerUpkeep
+			maxPendingPayloadsPerUpkeep = tc.maxPerUpkeep
+			defer func() {
+				maxPendingPayloadsPerUpkeep = origMaxPendingPayloadsPerUpkeep
+			}()
+
 			r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, nil, NewOptions(200))
 			r.lock.Lock()
 			r.pending = tc.exist
-			for _, p := range tc.new {
-				r.addPending(p)
+			for i, p := range tc.new {
+				err := r.addPending(p)
+				if tc.errored[i] {
+					require.Error(t, err)
+					continue
+				}
+				require.NoError(t, err)
 			}
 			pending := r.pending
 			require.GreaterOrEqual(t, len(pending), len(tc.new))

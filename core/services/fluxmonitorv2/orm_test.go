@@ -185,8 +185,9 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		payload  = []byte{1, 0, 0}
 		gasLimit = uint32(21000)
 	)
-
+	idempotencyKey := uuid.New().String()
 	txm.On("CreateTransaction", txmgr.TxRequest{
+		IdempotencyKey: &idempotencyKey,
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: payload,
@@ -195,5 +196,5 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		Strategy:       strategy,
 	}).Return(txmgr.Tx{}, nil).Once()
 
-	require.NoError(t, orm.CreateEthTransaction(from, to, payload, gasLimit))
+	require.NoError(t, orm.CreateEthTransaction(from, to, payload, gasLimit, &idempotencyKey))
 }
