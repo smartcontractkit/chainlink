@@ -38,7 +38,7 @@ import (
 )
 
 func firstHead(t *testing.T, db *sqlx.DB) (h evmtypes.Head) {
-	if err := db.Get(&h, `SELECT * FROM evm.heads ORDER BY number ASC LIMIT 1`); err != nil {
+	if err := db.Get(&h, `SELECT * FROM heads ORDER BY number ASC LIMIT 1`); err != nil {
 		t.Fatal(err)
 	}
 	return h
@@ -47,7 +47,7 @@ func firstHead(t *testing.T, db *sqlx.DB) (h evmtypes.Head) {
 func TestHeadTracker_New(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := pgtest.NewEVMScopedDB(t)
 	logger := logger.TestLogger(t)
 	config := configtest.NewGeneralConfig(t, nil)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
@@ -71,7 +71,7 @@ func TestHeadTracker_New(t *testing.T) {
 func TestHeadTracker_Save_InsertsAndTrimsTable(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
+	db := pgtest.NewEVMScopedDB(t)
 	logger := logger.TestLogger(t)
 	config := cltest.NewTestChainScopedConfig(t)
 
