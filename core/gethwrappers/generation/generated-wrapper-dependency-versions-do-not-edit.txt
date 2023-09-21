@@ -40,8 +40,6 @@ keeper_registry_wrapper1_3: ../../contracts/solc/v0.8.6/KeeperRegistry1_3.abi ..
 keeper_registry_wrapper2_0: ../../contracts/solc/v0.8.6/KeeperRegistry2_0.abi ../../contracts/solc/v0.8.6/KeeperRegistry2_0.bin c32dea7d5ef66b7c58ddc84ddf69aa44df1b3ae8601fbc271c95be4ff5853056
 keeper_registry_wrapper_2_1: ../../contracts/solc/v0.8.16/KeeperRegistry2_1.abi ../../contracts/solc/v0.8.16/KeeperRegistry2_1.bin 604e4a0cd980c713929b523b999462a3aa0ed06f96ff563a4c8566cf59c8445b
 keepers_vrf_consumer: ../../contracts/solc/v0.8.6/KeepersVRFConsumer.abi ../../contracts/solc/v0.8.6/KeepersVRFConsumer.bin fa75572e689c9e84705c63e8dbe1b7b8aa1a8fe82d66356c4873d024bb9166e8
-llo_feeds: ../../contracts/solc/v0.8.16/VerifierProxy.abi ../../contracts/solc/v0.8.16/VerifierProxy.bin 250e4066936535d57d8e3859dfd33fddc7abc525b0f81e1fe87d96f00663a74f
-llo_feeds_test: ../../contracts/solc/v0.8.16/ExposedVerifier.abi ../../contracts/solc/v0.8.16/ExposedVerifier.bin 6932cea8f2738e874d3ec9e1a4231d2421704030c071d9e15dd2f7f08482c246
 log_emitter: ../../contracts/solc/v0.8.19/LogEmitter.abi ../../contracts/solc/v0.8.19/LogEmitter.bin 244ba13730c036de0b02beef4e3d9c9a96946ce353c27f366baecc7f5be5a6fd
 log_triggered_streams_lookup_wrapper: ../../contracts/solc/v0.8.16/LogTriggeredStreamsLookup.abi ../../contracts/solc/v0.8.16/LogTriggeredStreamsLookup.bin dfe5f8800251b464cd13f7ef966698ab7f0d8f6a5387520f09b602cfbf48f123
 log_upkeep_counter_wrapper: ../../contracts/solc/v0.8.6/LogUpkeepCounter.abi ../../contracts/solc/v0.8.6/LogUpkeepCounter.bin 42426bbb83f96dfbe55fc576d6c65020eaeed690e2289cf99b0c4aa810a5f4ec
