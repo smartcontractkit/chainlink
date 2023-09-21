@@ -410,7 +410,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
     // User is obligated to transfer wrapped native to this contract matching the estimated
     // native price of the request.
-    uint256 amountPaid = s_wrappedNativeBalance - s_wrappedNative.balanceOf(address(this));
+    uint256 amountPaid = s_wrappedNative.balanceOf(address(this)) - s_wrappedNativeBalance;
     require(amountPaid >= price, "fee too low");
 
     requestId = requestRandomWordsInNativeInternal(_callbackGasLimit, _requestConfirmations, _numWords);
