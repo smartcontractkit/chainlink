@@ -56,6 +56,8 @@ func main() {
 	switch os.Args[1] {
 	case "smoke":
 		smokeTestVRF(e)
+	case "smoke-bhs":
+		smokeTestBHS(e)
 	case "manual-fulfill":
 		cmd := flag.NewFlagSet("manual-fulfill", flag.ExitOnError)
 		// In order to get the tx data for a fulfillment transaction, you can grep the

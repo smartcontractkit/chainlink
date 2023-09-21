@@ -20,6 +20,8 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_sub_owner"
@@ -370,6 +372,96 @@ func smokeTestVRF(e helpers.Environment) {
 		fmt.Println("call contract", "r", r, "err", err)
 		rpcError, err := evmclient.ExtractRPCError(err)
 		fmt.Println("extracting rpc error", rpcError.String(), err)
+		os.Exit(1)
+	}
+
+	fmt.Println("\nfulfillment successful")
+}
+
+func smokeTestBHS(e helpers.Environment) {
+	smokeCmd := flag.NewFlagSet("smoke-bhs", flag.ExitOnError)
+
+	// optional args
+	bhsAddress := smokeCmd.String("bhs-address", "", "address of blockhash store")
+	batchBHSAddress := smokeCmd.String("batch-bhs-address", "", "address of batch blockhash store")
+
+	helpers.ParseArgs(smokeCmd, os.Args[2:])
+
+	var bhsContractAddress common.Address
+	if len(*bhsAddress) == 0 {
+		fmt.Println("\nDeploying BHS...")
+		bhsContractAddress = deployBHS(e)
+	} else {
+		bhsContractAddress = common.HexToAddress(*bhsAddress)
+	}
+
+	var batchBHSContractAddress common.Address
+	if len(*batchBHSAddress) == 0 {
+		fmt.Println("\nDeploying Batch BHS...")
+		batchBHSContractAddress = deployBatchBHS(e, bhsContractAddress)
+	} else {
+		batchBHSContractAddress = common.HexToAddress(*batchBHSAddress)
+	}
+
+	bhs, err := blockhash_store.NewBlockhashStore(bhsContractAddress, e.Ec)
+	helpers.PanicErr(err)
+
+	batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(batchBHSContractAddress, e.Ec)
+	helpers.PanicErr(err)
+	batchBHS.Address()
+
+	fmt.Println("\nexecuting storeEarliest")
+	tx, err := bhs.StoreEarliest(e.Owner)
+	helpers.PanicErr(err)
+	seReceipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "storeEarliest on", bhsContractAddress.String())
+	var anchorBlockNumber *big.Int
+	if seReceipt.Status != 1 {
+		fmt.Println("storeEarliest failed")
+		os.Exit(1)
+	} else {
+		fmt.Println("storeEarliest succeeded, checking BH is there")
+		bh, err := bhs.GetBlockhash(nil, seReceipt.BlockNumber.Sub(seReceipt.BlockNumber, big.NewInt(256)))
+		helpers.PanicErr(err)
+		fmt.Println("blockhash stored by storeEarliest:", hexutil.Encode(bh[:]))
+		anchorBlockNumber = seReceipt.BlockNumber
+	}
+	if anchorBlockNumber == nil {
+		panic("no anchor block number")
+	}
+
+	fmt.Println("\nexecuting store(n)")
+	latestHead, err := e.Ec.HeaderByNumber(context.Background(), nil)
+	helpers.PanicErr(err)
+	toStore := latestHead.Number.Sub(latestHead.Number, big.NewInt(1))
+	tx, err = bhs.Store(e.Owner, toStore)
+	helpers.PanicErr(err)
+	sReceipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "store on", bhsContractAddress.String())
+	if sReceipt.Status != 1 {
+		fmt.Println("store failed")
+		os.Exit(1)
+	} else {
+		fmt.Println("store succeeded, checking BH is there")
+		bh, err := bhs.GetBlockhash(nil, toStore)
+		helpers.PanicErr(err)
+		fmt.Println("blockhash stored by store:", hexutil.Encode(bh[:]))
+	}
+
+	fmt.Println("\nexecuting storeVerifyHeader")
+	headers, _, err := helpers.GetRlpHeaders(e, []*big.Int{anchorBlockNumber}, false)
+	helpers.PanicErr(err)
+
+	toStore = anchorBlockNumber.Sub(anchorBlockNumber, big.NewInt(1))
+	tx, err = bhs.StoreVerifyHeader(e.Owner, toStore, headers[0])
+	helpers.PanicErr(err)
+	svhReceipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "storeVerifyHeader on", bhsContractAddress.String())
+	if svhReceipt.Status != 1 {
+		fmt.Println("storeVerifyHeader failed")
+		os.Exit(1)
+	} else {
+		fmt.Println("storeVerifyHeader succeeded, checking BH is there")
+		bh, err := bhs.GetBlockhash(nil, toStore)
+		helpers.PanicErr(err)
+		fmt.Println("blockhash stored by storeVerifyHeader:", hexutil.Encode(bh[:]))
 	}
 }
 
