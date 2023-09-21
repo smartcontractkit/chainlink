@@ -2,6 +2,7 @@ package plugins
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"strconv"
@@ -77,33 +78,57 @@ func SetCmdEnvFromConfig(cmd *exec.Cmd, cfg EnvConfig) {
 	}
 }
 
-// GetEnvConfig deserializes LOOP-specific environment variables to an EnvConfig
-// This method is consumed by the plugin.
-func GetEnvConfig() (EnvConfig, error) {
-	promPortStr := os.Getenv("CL_PROMETHEUS_PORT")
-	promPort, err := strconv.Atoi(promPortStr)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse CL_PROMETHEUS_PORT = %q: %w", promPortStr, err)
-	}
-
-	var tracingEnabled bool
+// isTracingEnabled parses and validates the TRACING_ENABLED environment variable.
+func getTracingEnabled() (bool, error) {
 	tracingEnabledString := os.Getenv("TRACING_ENABLED")
 	if tracingEnabledString == "" {
-		tracingEnabled = false
-	} else {
-		tracingEnabled, err = strconv.ParseBool(tracingEnabledString)
-		if err != nil {
-			return nil, fmt.Errorf("failed to parse TRACING_ENABLED = %q: %w", tracingEnabledString, err)
-		}
+		return false, nil
 	}
+	return strconv.ParseBool(tracingEnabledString)
+}
 
+// getValidCollectorTarget validates TRACING_COLLECTOR_TARGET as a URL.
+func getValidCollectorTarget() (string, error) {
 	tracingCollectorTarget := os.Getenv("TRACING_COLLECTOR_TARGET")
+	_, err := url.ParseRequestURI(tracingCollectorTarget)
+	if err != nil {
+		return "", fmt.Errorf("invalid TRACING_COLLECTOR_TARGET: %w", err)
+	}
+	return tracingCollectorTarget, nil
+}
 
+// getTracingAttributes collects attributes prefixed with TRACING_ATTRIBUTE_.
+func getTracingAttributes() map[string]string {
 	tracingAttributes := make(map[string]string)
 	for _, env := range os.Environ() {
 		if strings.HasPrefix(env, "TRACING_ATTRIBUTE_") {
 			tracingAttributes[strings.TrimPrefix(env, "TRACING_ATTRIBUTE_")] = os.Getenv(env)
 		}
+	}
+	return tracingAttributes
+}
+
+// GetEnvConfig deserializes LOOP-specific environment variables to an EnvConfig.
+func GetEnvConfig() (EnvConfig, error) {
+	promPortStr := os.Getenv("CL_PROMETHEUS_PORT")
+	promPort, err := strconv.Atoi(promPortStr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse CL_PROMETHEUS_PORT: %w", err)
+	}
+
+	tracingEnabled, err := getTracingEnabled()
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse TRACING_ENABLED: %w", err)
+	}
+
+	var tracingCollectorTarget string
+	var tracingAttributes map[string]string
+	if tracingEnabled {
+		tracingCollectorTarget, err = getValidCollectorTarget()
+		if err != nil {
+			return nil, err
+		}
+		tracingAttributes = getTracingAttributes()
 	}
 
 	return &envConfig{

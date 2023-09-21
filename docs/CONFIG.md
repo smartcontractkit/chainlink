@@ -1486,15 +1486,15 @@ NodeID is an unique name for this node relative to any other node traces are col
 ## Tracing.Attributes
 ```toml
 [Tracing.Attributes]
-user = "test" # Example
+env = "test" # Example
 ```
 Tracing.Attributes are user specified key-value pairs to associate in the context of the traces
 
-### user
+### env
 ```toml
-user = "test" # Example
+env = "test" # Example
 ```
-user is an example user specified key-value pair
+env is an example user specified key-value pair
 
 ## EVM
 EVM defaults depend on ChainID:

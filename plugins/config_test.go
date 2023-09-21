@@ -1,7 +1,6 @@
 package plugins
 
 import (
-	"os"
 	"testing"
 )
 
@@ -19,13 +18,13 @@ func TestGetEnvConfig(t *testing.T) {
 			envVars: map[string]string{
 				"CL_PROMETHEUS_PORT":       "8080",
 				"TRACING_ENABLED":          "true",
-				"TRACING_COLLECTOR_TARGET": "some_target",
+				"TRACING_COLLECTOR_TARGET": "some:target",
 				"TRACING_ATTRIBUTE_XYZ":    "value",
 			},
 			expectError:                    false,
 			expectedPrometheusPort:         8080,
 			expectedTracingEnabled:         true,
-			expectedTracingCollectorTarget: "some_target",
+			expectedTracingCollectorTarget: "some:target",
 		},
 		{
 			name: "CL_PROMETHEUS_PORT parse error",
@@ -47,8 +46,7 @@ func TestGetEnvConfig(t *testing.T) {
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			for k, v := range tc.envVars {
-				os.Setenv(k, v)
-				defer os.Unsetenv(k)
+				t.Setenv(k, v)
 			}
 
 			config, err := GetEnvConfig()
