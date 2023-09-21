@@ -21,6 +21,7 @@ import (
 // inside this module. To achieve this, we direct webpack to output all of the compiled assets
 // in this module's folder under the "assets" directory.
 
+//go:embed "assets"
 var uiEmbedFs embed.FS
 
 // assetFs is the singleton file system instance that is used to serve the static
