@@ -369,8 +369,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	})
 
 	rf := chainlink.RelayerFactory{
-		Logger: lggr,
-		//	DB:           pgtest.NewSqlxDB(t),
+		Logger:       lggr,
 		QConfig:      tConfig.Database(),
 		LoopRegistry: reg,
 	}
@@ -456,8 +455,7 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 		}
 	})
 	rf := chainlink.RelayerFactory{
-		Logger: lggr,
-		//DB:           pgtest.NewSqlxDB(t),
+		Logger:       lggr,
 		QConfig:      tConfig.Database(),
 		LoopRegistry: reg,
 	}

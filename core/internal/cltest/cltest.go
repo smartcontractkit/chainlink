@@ -386,8 +386,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	loopRegistry := plugins.NewLoopRegistry(lggr)
 
 	relayerFactory := chainlink.RelayerFactory{
-		Logger: lggr,
-		//	DB:           db,
+		Logger:       lggr,
 		QConfig:      cfg.Database(),
 		LoopRegistry: loopRegistry,
 		GRPCOpts:     loop.GRPCOpts{},

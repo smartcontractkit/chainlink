@@ -173,8 +173,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	factory := chainlink.RelayerFactory{
-		Logger: lggr,
-		//DB:           db,
+		Logger:       lggr,
 		QConfig:      cfg.Database(),
 		LoopRegistry: plugins.NewLoopRegistry(lggr),
 		GRPCOpts:     loop.GRPCOpts{},
@@ -224,109 +223,109 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			},
 			expectedRelayerNetworks: map[relay.Network]struct{}{relay.EVM: {}},
 		},
-		/*
-			{name: "2 solana chain with 2 node",
 
-				initFuncs: []chainlink.CoreRelayerChainInitFunc{
-					chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
-						Keystore:      keyStore.Solana(),
-						SolanaConfigs: cfg.SolanaConfigs()}),
-				},
-				expectedSolanaChainCnt: 2,
-				expectedSolanaNodeCnt:  2,
-				expectedSolanaRelayerIds: []relay.ID{
-					{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID1)},
-					{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID2)},
-				},
-				expectedRelayerNetworks: map[relay.Network]struct{}{relay.Solana: {}},
-			},
+		{name: "2 solana chain with 2 node",
 
-			{name: "2 starknet chain with 4 nodes",
-
-				initFuncs: []chainlink.CoreRelayerChainInitFunc{
-					chainlink.InitStarknet(testctx, factory, chainlink.StarkNetFactoryConfig{
-						Keystore:        keyStore.StarkNet(),
-						StarknetConfigs: cfg.StarknetConfigs()}),
-				},
-				expectedStarknetChainCnt: 2,
-				expectedStarknetNodeCnt:  4,
-				expectedStarknetRelayerIds: []relay.ID{
-					{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID1)},
-					{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID2)},
-				},
-				expectedRelayerNetworks: map[relay.Network]struct{}{relay.StarkNet: {}},
-			},
-
-			{
-				name: "2 cosmos chains with 2 nodes",
-				initFuncs: []chainlink.CoreRelayerChainInitFunc{
-					chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
-						Keystore:         keyStore.Cosmos(),
-						CosmosConfigs:    cfg.CosmosConfigs(),
-						EventBroadcaster: pg.NewNullEventBroadcaster()}),
-				},
-				expectedCosmosChainCnt: 2,
-				expectedCosmosNodeCnt:  2,
-				expectedCosmosRelayerIds: []relay.ID{
-					{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID1)},
-					{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID2)},
-				},
-				expectedRelayerNetworks: map[relay.Network]struct{}{relay.Cosmos: {}},
-			},
-
-			{name: "all chains",
-
-				initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
+			initFuncs: []chainlink.CoreRelayerChainInitFunc{
+				chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
 					Keystore:      keyStore.Solana(),
 					SolanaConfigs: cfg.SolanaConfigs()}),
-					chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
-						RelayerConfig: &evm.RelayerConfig{
-							AppConfig:        cfg,
-							EventBroadcaster: pg.NewNullEventBroadcaster(),
-							MailMon:          &utils.MailboxMonitor{},
-						},
-						CSAETHKeystore: keyStore,
-					}),
-					chainlink.InitStarknet(testctx, factory, chainlink.StarkNetFactoryConfig{
-						Keystore:        keyStore.StarkNet(),
-						StarknetConfigs: cfg.StarknetConfigs()}),
-					chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
-						Keystore:         keyStore.Cosmos(),
-						CosmosConfigs:    cfg.CosmosConfigs(),
-						EventBroadcaster: pg.NewNullEventBroadcaster(),
-					}),
-				},
-				expectedEVMChainCnt: 2,
-				expectedEVMNodeCnt:  3,
-				expectedEVMRelayerIds: []relay.ID{
-					{Network: relay.EVM, ChainID: relay.ChainID(evmChainID1.String())},
-					{Network: relay.EVM, ChainID: relay.ChainID(evmChainID2.String())},
-				},
-
-				expectedSolanaChainCnt: 2,
-				expectedSolanaNodeCnt:  2,
-				expectedSolanaRelayerIds: []relay.ID{
-					{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID1)},
-					{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID2)},
-				},
-
-				expectedStarknetChainCnt: 2,
-				expectedStarknetNodeCnt:  4,
-				expectedStarknetRelayerIds: []relay.ID{
-					{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID1)},
-					{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID2)},
-				},
-
-				expectedCosmosChainCnt: 2,
-				expectedCosmosNodeCnt:  2,
-				expectedCosmosRelayerIds: []relay.ID{
-					{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID1)},
-					{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID2)},
-				},
-
-				expectedRelayerNetworks: map[relay.Network]struct{}{relay.EVM: {}, relay.Cosmos: {}, relay.Solana: {}, relay.StarkNet: {}},
 			},
-		*/
+			expectedSolanaChainCnt: 2,
+			expectedSolanaNodeCnt:  2,
+			expectedSolanaRelayerIds: []relay.ID{
+				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID1)},
+				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID2)},
+			},
+			expectedRelayerNetworks: map[relay.Network]struct{}{relay.Solana: {}},
+		},
+
+		{name: "2 starknet chain with 4 nodes",
+
+			initFuncs: []chainlink.CoreRelayerChainInitFunc{
+				chainlink.InitStarknet(testctx, factory, chainlink.StarkNetFactoryConfig{
+					Keystore:        keyStore.StarkNet(),
+					StarknetConfigs: cfg.StarknetConfigs()}),
+			},
+			expectedStarknetChainCnt: 2,
+			expectedStarknetNodeCnt:  4,
+			expectedStarknetRelayerIds: []relay.ID{
+				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID1)},
+				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID2)},
+			},
+			expectedRelayerNetworks: map[relay.Network]struct{}{relay.StarkNet: {}},
+		},
+
+		{
+			name: "2 cosmos chains with 2 nodes",
+			initFuncs: []chainlink.CoreRelayerChainInitFunc{
+				chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
+					Keystore:         keyStore.Cosmos(),
+					CosmosConfigs:    cfg.CosmosConfigs(),
+					EventBroadcaster: pg.NewNullEventBroadcaster()}),
+			},
+			expectedCosmosChainCnt: 2,
+			expectedCosmosNodeCnt:  2,
+			expectedCosmosRelayerIds: []relay.ID{
+				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID1)},
+				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID2)},
+			},
+			expectedRelayerNetworks: map[relay.Network]struct{}{relay.Cosmos: {}},
+		},
+
+		{name: "all chains",
+
+			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
+				Keystore:      keyStore.Solana(),
+				SolanaConfigs: cfg.SolanaConfigs()}),
+				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
+					RelayerConfig: &evm.RelayerConfig{
+						AppConfig:        cfg,
+						EventBroadcaster: pg.NewNullEventBroadcaster(),
+						MailMon:          &utils.MailboxMonitor{},
+						DB:               pgtest.NewEVMScopedDB(t),
+					},
+					CSAETHKeystore: keyStore,
+				}),
+				chainlink.InitStarknet(testctx, factory, chainlink.StarkNetFactoryConfig{
+					Keystore:        keyStore.StarkNet(),
+					StarknetConfigs: cfg.StarknetConfigs()}),
+				chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
+					Keystore:         keyStore.Cosmos(),
+					CosmosConfigs:    cfg.CosmosConfigs(),
+					EventBroadcaster: pg.NewNullEventBroadcaster(),
+				}),
+			},
+			expectedEVMChainCnt: 2,
+			expectedEVMNodeCnt:  3,
+			expectedEVMRelayerIds: []relay.ID{
+				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID1.String())},
+				{Network: relay.EVM, ChainID: relay.ChainID(evmChainID2.String())},
+			},
+
+			expectedSolanaChainCnt: 2,
+			expectedSolanaNodeCnt:  2,
+			expectedSolanaRelayerIds: []relay.ID{
+				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID1)},
+				{Network: relay.Solana, ChainID: relay.ChainID(solanaChainID2)},
+			},
+
+			expectedStarknetChainCnt: 2,
+			expectedStarknetNodeCnt:  4,
+			expectedStarknetRelayerIds: []relay.ID{
+				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID1)},
+				{Network: relay.StarkNet, ChainID: relay.ChainID(starknetChainID2)},
+			},
+
+			expectedCosmosChainCnt: 2,
+			expectedCosmosNodeCnt:  2,
+			expectedCosmosRelayerIds: []relay.ID{
+				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID1)},
+				{Network: relay.Cosmos, ChainID: relay.ChainID(cosmosChainID2)},
+			},
+
+			expectedRelayerNetworks: map[relay.Network]struct{}{relay.EVM: {}, relay.Cosmos: {}, relay.Solana: {}, relay.StarkNet: {}},
+		},
 	}
 	for _, tt := range tests {
 		tt := tt

@@ -169,7 +169,7 @@ type RelayerConfig struct {
 	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
 }
 
-func (r RelayerConfig) validate() error {
+func (r RelayerConfig) Validate() error {
 	var err error
 	if r.AppConfig == nil {
 		err = errors.Join(err, fmt.Errorf("nil AppConfig"))

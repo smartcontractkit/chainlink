@@ -3,7 +3,6 @@ package pgtest
 import (
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
@@ -32,13 +31,9 @@ func NewSqlDB(t *testing.T) *sql.DB {
 }
 
 func NewEVMScopedDB(t testing.TB) *sqlx.DB {
-	// hack to scope to evm schema
-	url := withSchema(defaultDBURL, "evm")
+	// hack to scope to evm schema. the value "evm" will need to be dynamic to support multiple relayers
+	url := pg.SchemaScopedConnection(defaultDBURL, "evm")
 	return NewSqlxDB(t, WithURL(url))
-}
-
-func withSchema(conn, schema string) string {
-	return fmt.Sprintf("%s&options=-csearch_path=%s", conn, schema)
 }
 
 func NewSqlxDB(t testing.TB, opts ...ConnectionOpt) *sqlx.DB {

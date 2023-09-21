@@ -2,8 +2,8 @@ package pg
 
 import (
 	"context"
-	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -154,13 +154,32 @@ func openDB(appID uuid.UUID, cfg LockedDBConfig, opts ...ConnectionOpt) (db *sql
 
 type ConnectionOpt func(*string)
 
+// WithSchema scopes the current url connection string to the given schema
 func WithSchema(schema string) ConnectionOpt {
 	return func(url *string) {
-		u := withSchema(*url, schema)
+		u := SchemaScopedConnection(*url, schema)
 		url = &u
 	}
 }
 
-func withSchema(conn, schema string) string {
-	return fmt.Sprintf("%s&options=-csearch_path=%s", conn, schema)
+// WithURL sets the url connection string
+func WithURL(override string) ConnectionOpt {
+	return func(url *string) {
+		url = &override
+	}
+}
+
+func SchemaScopedConnection(conn, schema string) string {
+	// documentation on this options is limited; find by searching the official postgres docs
+	// https://www.postgresql.org/docs/16/app-psql.html
+
+	//TODO real parsing for connection query string
+	opt := "options=-csearch_path=" + schema
+	// assume the conn has a query string that we can append to
+	seperator := "&"
+	if !strings.Contains(conn, "?") {
+		// no query string, so make one
+		seperator = "?"
+	}
+	return conn + seperator + opt
 }

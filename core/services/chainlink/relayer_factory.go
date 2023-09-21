@@ -2,6 +2,7 @@ package chainlink
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/pelletier/go-toml/v2"
@@ -37,18 +38,30 @@ type EVMFactoryConfig struct {
 	evmrelay.CSAETHKeystore
 }
 
+// TODO plumb the generic validator here maybe
+func (c EVMFactoryConfig) Validate() error {
+	var err error
+	if c.RelayerConfig == nil {
+		err = errors.Join(err, fmt.Errorf("nil RelayerConfig"))
+	} else {
+		err = errors.Join(err, c.RelayerConfig.Validate())
+	}
+	if c.CSAETHKeystore == nil {
+		err = errors.Join(err, fmt.Errorf("nil CSAETH Keystore"))
+	}
+	if err != nil {
+		err = fmt.Errorf("invalid EVMFactoryConfig: %w", err)
+	}
+	return err
+}
+
 func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (map[relay.ID]evmrelay.LoopRelayAdapter, error) {
 	// TODO impl EVM loop. For now always 'fallback' to an adapter and embedded chain
-	/*
-		if config.DBConn == "" {
-			u := config.AppConfig.Database().URL()
-			config.DBConn = withSchema((&u).String(), "evm")
-		}
-		db, err := sqlx.Open(string(dialects.Postgres), config.DBConn)
-		if err != nil {
-			return nil, err
-		}
-	*/
+
+	err := config.Validate()
+	if err != nil {
+		return nil, err
+	}
 	relayers := make(map[relay.ID]evmrelay.LoopRelayAdapter)
 
 	// override some common opts with the factory values. this seems weird... maybe other signatures should change, or this should take a different type...
@@ -220,12 +233,6 @@ type CosmosFactoryConfig struct {
 }
 
 func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConfig) (map[relay.ID]cosmos.LoopRelayerChainer, error) {
-	/*
-		db, err := sqlx.Open(string(dialects.Postgres), config.DBConn)
-		if err != nil {
-			return nil, err
-		}
-	*/
 	relayers := make(map[relay.ID]cosmos.LoopRelayerChainer)
 
 	var (
@@ -254,8 +261,4 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 	}
 	return relayers, nil
 
-}
-
-func withSchema(conn, schema string) string {
-	return fmt.Sprintf("%s&options=-csearch_path=%s", conn, schema)
 }
