@@ -1,7 +1,12 @@
 # Chainlink cluster
 Example CL nodes cluster for system level tests
 
-Enter the shell
+Install `kubefwd` (no nixpkg for it yet, planned)
+```
+brew install txn2/tap/kubefwd
+```
+
+Enter the shell (from the root project dir)
 ```
 nix develop
 ```
@@ -20,9 +25,6 @@ export DEVSPACE_IMAGE="${aws_account}.dkr.ecr.us-west-2.amazonaws.com/chainlink-
 ```
 Enter the shell and deploy
 ```
-nix develop
-cd charts/chainlink-cluster
-
 # set your unique namespace if it's a new cluster
 devspace use namespace cl-cluster
 devspace deploy
@@ -76,10 +78,14 @@ After that all the changes will be synced automatically
 Check `.profiles` to understand what is uploaded in profiles `runner` and `node`
 
 # Helm
-If you would like to use `helm` directly, please uncomment data in `values.yaml`
+If you would like to use `helm` directly, please uncomment data in `values-raw-helm.yaml`
 ## Install
 ```
 helm install -f values-raw-helm.yaml cl-cluster .
+```
+Forward all apps (in another terminal)
+```
+sudo kubefwd svc
 ```
 
 ## Helm Test
