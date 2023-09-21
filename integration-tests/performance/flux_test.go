@@ -19,8 +19,7 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -30,15 +29,15 @@ import (
 )
 
 func TestFluxPerformance(t *testing.T) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	testEnvironment, testNetwork := setupFluxTest(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
 
-	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
+	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
@@ -100,6 +99,7 @@ func TestFluxPerformance(t *testing.T) {
 		fluxSpec := &client.FluxMonitorJobSpec{
 			Name:              fmt.Sprintf("flux-monitor-%s", adapterUUID),
 			ContractAddress:   fluxInstance.Address(),
+			EVMChainID:        chainClient.GetChainID().String(),
 			Threshold:         0,
 			AbsoluteThreshold: 0,
 			PollTimerPeriod:   15 * time.Second, // min 15s
@@ -116,7 +116,7 @@ func TestFluxPerformance(t *testing.T) {
 			return
 		}
 		fluxRoundTimeout := 2 * time.Minute
-		fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout)
+		fluxRound := contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(1), fluxRoundTimeout, l)
 		chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
 		err = chainClient.WaitForEvents()
 		require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
@@ -134,7 +134,7 @@ func TestFluxPerformance(t *testing.T) {
 		require.Equal(t, int64(3), data.AllocatedFunds.Int64(),
 			"Expected allocated funds to be %d, but found %d", int64(3), data.AllocatedFunds.Int64())
 
-		fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout)
+		fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout, l)
 		chainClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
 		err = mockServer.SetValuePath(adapterPath, 1e10)
 		require.NoError(t, err, "Setting value path in mock server shouldn't fail")

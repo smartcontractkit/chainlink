@@ -65,7 +65,7 @@ func (o *orm) BatchInsertRecords(state []persistedStateRecord, qopts ...pg.QOpt)
 		})
 	}
 
-	return q.ExecQNamed(`INSERT INTO evm_upkeep_states
+	return q.ExecQNamed(`INSERT INTO evm.upkeep_states
 (evm_chain_id, work_id, completion_state, block_number, inserted_at, upkeep_id, ineligibility_reason) VALUES
 (:evm_chain_id, :work_id, :completion_state, :block_number, :inserted_at, :upkeep_id, :ineligibility_reason) ON CONFLICT (evm_chain_id, work_id) DO NOTHING`, rows)
 }
@@ -76,7 +76,7 @@ func (o *orm) SelectStatesByWorkIDs(workIDs []string, qopts ...pg.QOpt) (states 
 	q := o.q.WithOpts(qopts...)
 
 	err = q.Select(&states, `SELECT upkeep_id, work_id, completion_state, block_number, ineligibility_reason, inserted_at
-	  FROM evm_upkeep_states
+	  FROM evm.upkeep_states
 	  WHERE work_id = ANY($1) AND evm_chain_id = $2::NUMERIC`, pq.Array(workIDs), o.chainID)
 
 	if err != nil {
@@ -89,7 +89,7 @@ func (o *orm) SelectStatesByWorkIDs(workIDs []string, qopts ...pg.QOpt) (states 
 // DeleteExpired prunes stored states older than to the provided time
 func (o *orm) DeleteExpired(expired time.Time, qopts ...pg.QOpt) error {
 	q := o.q.WithOpts(qopts...)
-	_, err := q.Exec(`DELETE FROM evm_upkeep_states WHERE inserted_at <= $1 AND evm_chain_id::NUMERIC = $2`, expired, o.chainID)
+	_, err := q.Exec(`DELETE FROM evm.upkeep_states WHERE inserted_at <= $1 AND evm_chain_id::NUMERIC = $2`, expired, o.chainID)
 
 	return err
 }

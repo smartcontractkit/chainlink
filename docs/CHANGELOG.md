@@ -9,25 +9,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+### Removed
+
+- Removed support for sending telemetry to the deprecated Explorer service. All nodes will have to remove `Explorer` related keys from TOML configuration and env vars. 
+- Removed default evmChainID logic where evmChainID was implicitly injected into the jobspecs based on node EVM chainID toml configuration. All newly created jobs(that have evmChainID field) will have to explicitly define evmChainID in the jobspec.
+- Removed keyset migration that migrated v1 keys to v2 keys. All keys should've been migrated by now, and we don't permit creation of new v1 keys anymore
+
+ All nodes will have to remove the following secret configurations: 
+ * `Explorer.AccessKey`
+ * `Explorer.Secret` 
+ 
+ All nodes will have to remove the following configuration field: `ExplorerURL`
+
 ### Fixed
- - Unauthenticated users executing CLI commands previously generated a confusing error log, which is now removed:
+- Unauthenticated users executing CLI commands previously generated a confusing error log, which is now removed:
 ```[ERROR] Error in transaction, rolling back: session missing or expired, please login again pg/transaction.go:118 ```
- - Fixed a bug that was preventing job runs to be displayed when the job `chainID` was disabled.
+- Fixed a bug that was preventing job runs to be displayed when the job `chainID` was disabled.
+- `chainlink txs evm create` returns a transaction hash for the attempted transaction in the CLI. Previously only the sender, recipient and `unstarted` state were returned.
+- Fixed a bug when when `evmChainId` is requested instead of `id` or `evm-chain-id` in CLI error verbatim
+
+## 2.5.0 - UNRELEASED
+=======
+
+- Unauthenticated users executing CLI commands previously generated a confusing error log, which is now removed:
+  ```
+  [ERROR] Error in transaction, rolling back: session missing or expired, please login again pg/transaction.go:118
+  ```
+- Fixed a bug that was preventing job runs to be displayed when the job `chainID` was disabled.
 - `chainlink txs evm create` returns a transaction hash for the attempted transaction in the CLI. Previously only the sender, receipient and `unstarted` state were returned.
 
-...
-## 2.5.0 - UNRELEASED
+### Added
+
+- New prometheus metrics for mercury:
+    - `mercury_price_feed_missing`
+    - `mercury_price_feed_errors`
+  Nops may wish to add alerting on these.
+
+<!-- unreleasedstop -->
 
 ### Upcoming Required Configuration Change
 
 - Starting in 2.6.0, chainlink nodes will no longer allow insecure configuration for production builds. Any TOML configuration that sets the following line will fail validation checks in `node start` or `node validate`:
+
 ```
 AllowSimplePasswords=true
 ```
 
 - To migrate on production builds, update the database password set in Database.URL to be 16 - 50 characters without leading or trailing whitespace. URI parsing rules apply to the chosen password - refer to [RFC 3986](https://datatracker.ietf.org/doc/html/rfc3986) for special character escape rules.
 
-<!-- unreleasedstop -->
+### Added
+
+- Various Functions improvements
 
 ## 2.4.0 - 2023-08-21
 

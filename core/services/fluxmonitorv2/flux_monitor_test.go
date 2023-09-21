@@ -445,6 +445,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 								"databaseID":    int32(0),
 								"externalJobID": uuid.UUID{},
 								"name":          "",
+								"evmChainID":    testutils.FixtureChainID.String(),
 							},
 						},
 					), mock.Anything).
@@ -1882,6 +1883,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 						"databaseID":    int32(0),
 						"externalJobID": uuid.UUID{},
 						"name":          "",
+						"evmChainID":    testutils.FixtureChainID.String(),
 					},
 				},
 			), mock.Anything).

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/patrickmn/go-cache"
@@ -184,14 +185,30 @@ func TestEvmRegistry_StreamsLookup(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
+			client := new(evmClientMocks.Client)
+			r.client = client
 
 			if !tt.cachedAdminCfg && !tt.hasError {
-				mockReg := mocks.NewRegistry(t)
 				cfg := UpkeepPrivilegeConfig{MercuryEnabled: tt.hasPermission}
-				b, err := json.Marshal(cfg)
-				assert.Nil(t, err)
-				mockReg.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return(b, nil)
-				r.registry = mockReg
+				bCfg, err := json.Marshal(cfg)
+				require.Nil(t, err)
+
+				bContractCfg, err := r.abi.Methods["getUpkeepPrivilegeConfig"].Outputs.PackValues([]interface{}{bCfg})
+				require.Nil(t, err)
+
+				payload, err := r.abi.Pack("getUpkeepPrivilegeConfig", upkeepId)
+				require.Nil(t, err)
+
+				args := map[string]interface{}{
+					"to":   r.addr.Hex(),
+					"data": hexutil.Bytes(payload),
+				}
+
+				client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, mock.AnythingOfType("*big.Int")).Return(nil).
+					Run(func(args mock.Arguments) {
+						b := args.Get(1).(*hexutil.Bytes)
+						*b = bContractCfg
+					}).Once()
 			}
 
 			if len(tt.blobs) > 0 {
@@ -227,13 +244,11 @@ func TestEvmRegistry_StreamsLookup(t *testing.T) {
 					"to":   r.addr.Hex(),
 					"data": hexutil.Bytes(payload),
 				}
-				client := new(evmClientMocks.Client)
 				client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, hexutil.EncodeUint64(uint64(blockNum))).Return(nil).
 					Run(func(args mock.Arguments) {
 						b := args.Get(1).(*hexutil.Bytes)
 						*b = tt.checkCallbackResp
 					}).Once()
-				r.client = client
 			}
 
 			got := r.streamsLookup(context.Background(), tt.input)
@@ -337,24 +352,59 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := setupEVMRegistry(t)
 
+			client := new(evmClientMocks.Client)
+			r.client = client
+
 			if tt.cached {
 				r.mercury.allowListCache.Set(upkeepId.String(), tt.allowed, cache.DefaultExpiration)
 			} else {
 				if tt.err != nil {
-					mockReg := mocks.NewRegistry(t)
-					mockReg.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return(tt.config, tt.ethCallErr)
-					r.registry = mockReg
+					bContractCfg, err := r.abi.Methods["getUpkeepPrivilegeConfig"].Outputs.PackValues([]interface{}{tt.config})
+					require.Nil(t, err)
+
+					payload, err := r.abi.Pack("getUpkeepPrivilegeConfig", upkeepId)
+					require.Nil(t, err)
+
+					args := map[string]interface{}{
+						"to":   r.addr.Hex(),
+						"data": hexutil.Bytes(payload),
+					}
+
+					client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, mock.AnythingOfType("*big.Int")).
+						Return(tt.ethCallErr).
+						Run(func(args mock.Arguments) {
+							b := args.Get(1).(*hexutil.Bytes)
+							*b = bContractCfg
+						}).Once()
 				} else {
-					mockReg := mocks.NewRegistry(t)
 					cfg := UpkeepPrivilegeConfig{MercuryEnabled: tt.allowed}
-					b, err := json.Marshal(cfg)
-					assert.Nil(t, err)
-					mockReg.On("GetUpkeepPrivilegeConfig", mock.Anything, upkeepId).Return(b, nil)
-					r.registry = mockReg
+					bCfg, err := json.Marshal(cfg)
+					require.Nil(t, err)
+
+					bContractCfg, err := r.abi.Methods["getUpkeepPrivilegeConfig"].Outputs.PackValues([]interface{}{bCfg})
+					require.Nil(t, err)
+
+					payload, err := r.abi.Pack("getUpkeepPrivilegeConfig", upkeepId)
+					require.Nil(t, err)
+
+					args := map[string]interface{}{
+						"to":   r.addr.Hex(),
+						"data": hexutil.Bytes(payload),
+					}
+
+					client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, mock.AnythingOfType("*big.Int")).Return(nil).
+						Run(func(args mock.Arguments) {
+							b := args.Get(1).(*hexutil.Bytes)
+							*b = bContractCfg
+						}).Once()
 				}
 			}
 
-			state, reason, retryable, allowed, err := r.allowedToUseMercury(nil, upkeepId)
+			opts := &bind.CallOpts{
+				BlockNumber: big.NewInt(10),
+			}
+
+			state, reason, retryable, allowed, err := r.allowedToUseMercury(opts, upkeepId)
 			assert.Equal(t, tt.err, err)
 			assert.Equal(t, tt.allowed, allowed)
 			assert.Equal(t, tt.state, state)

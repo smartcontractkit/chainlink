@@ -125,7 +125,6 @@ type ChainlinkApplication struct {
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
 	shutdownOnce             sync.Once
-	explorerClient           synchronization.ExplorerClient
 	srvcs                    []services.ServiceCtx
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
@@ -222,21 +221,10 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	telemetryIngressClient := synchronization.TelemetryIngressClient(&synchronization.NoopTelemetryIngressClient{})
 	telemetryIngressBatchClient := synchronization.TelemetryIngressBatchClient(&synchronization.NoopTelemetryIngressBatchClient{})
-	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
-	if cfg.Explorer().URL() != nil && cfg.TelemetryIngress().URL() != nil {
-		globalLogger.Warn("Both ExplorerUrl and TelemetryIngress.Url are set, defaulting to Explorer")
-	}
-
-	if cfg.Explorer().URL() != nil {
-		explorerClient = synchronization.NewExplorerClient(cfg.Explorer().URL(), cfg.Explorer().AccessKey(), cfg.Explorer().Secret(), globalLogger)
-		monitoringEndpointGen = telemetry.NewExplorerAgent(explorerClient)
-	}
-
 	ticfg := cfg.TelemetryIngress()
-	// Use Explorer over TelemetryIngress if both URLs are set
-	if cfg.Explorer().URL() == nil && ticfg.URL() != nil {
+	if ticfg.URL() != nil {
 		if ticfg.UseBatchSend() {
 			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(ticfg.URL(),
 				ticfg.ServerPubKey(), keyStore.CSA(), ticfg.Logging(), globalLogger, ticfg.BufferSize(), ticfg.MaxBatchSize(), ticfg.SendInterval(), ticfg.SendTimeout(), ticfg.UniConn())
@@ -248,7 +236,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
 		}
 	}
-	srvcs = append(srvcs, explorerClient, telemetryIngressClient, telemetryIngressBatchClient)
+	srvcs = append(srvcs, telemetryIngressClient, telemetryIngressBatchClient)
 
 	backupCfg := cfg.Database().Backup()
 	if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.Frequency() > 0 {
@@ -471,7 +459,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		KeyStore:                 keyStore,
 		SessionReaper:            sessions.NewSessionReaper(db.DB, cfg.WebServer(), globalLogger),
 		ExternalInitiatorManager: externalInitiatorManager,
-		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
 		logger:                   globalLogger,
@@ -750,6 +737,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					"externalJobID": jb.ExternalJobID,
 					"name":          jb.Name.ValueOrZero(),
 					"publicKey":     jb.VRFSpec.PublicKey[:],
+					"evmChainID":    jb.VRFSpec.EVMChainID.String(),
 				},
 				"jobRun": map[string]interface{}{
 					"meta":           meta,

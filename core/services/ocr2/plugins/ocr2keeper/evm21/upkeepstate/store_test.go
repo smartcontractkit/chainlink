@@ -350,7 +350,7 @@ func TestUpkeepStateStore_SetSelectIntegration(t *testing.T) {
 			t.Cleanup(func() {
 				t.Log("cleaning up database")
 
-				if _, err := db.Exec(`DELETE FROM evm_upkeep_states`); err != nil {
+				if _, err := db.Exec(`DELETE FROM evm.upkeep_states`); err != nil {
 					t.Logf("error in cleanup: %s", err)
 				}
 			})

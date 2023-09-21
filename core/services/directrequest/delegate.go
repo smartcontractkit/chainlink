@@ -339,6 +339,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 	ctx, cancel := runCloserChannel.NewCtx()
 	defer cancel()
 
+	evmChainID := lb.EVMChainID()
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jobSpec": map[string]interface{}{
 			"databaseID":    l.job.ID,
@@ -347,6 +348,7 @@ func (l *listener) handleOracleRequest(request *operator_wrapper.OperatorOracleR
 			"pipelineSpec": &pipeline.Spec{
 				ForwardingAllowed: l.job.ForwardingAllowed,
 			},
+			"evmChainID": evmChainID.String(),
 		},
 		"jobRun": map[string]interface{}{
 			"meta":                  meta,

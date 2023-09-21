@@ -1,18 +1,21 @@
 package test_env
 
 import (
+	"fmt"
 	"math/big"
 	"os"
+	"testing"
 
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
@@ -29,6 +32,8 @@ type CLTestEnvBuilder struct {
 	externalAdapterCount int
 	customNodeCsaKeys    []string
 	defaultNodeCsaKeys   []string
+	l                    zerolog.Logger
+	t                    *testing.T
 
 	/* funding */
 	ETHFunds *big.Float
@@ -37,7 +42,14 @@ type CLTestEnvBuilder struct {
 func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	return &CLTestEnvBuilder{
 		externalAdapterCount: 1,
+		l:                    log.Logger,
 	}
+}
+
+func (b *CLTestEnvBuilder) WithTestLogger(t *testing.T) *CLTestEnvBuilder {
+	b.t = t
+	b.l = logging.GetTestLogger(t)
+	return b
 }
 
 func (b *CLTestEnvBuilder) WithLogWatcher() *CLTestEnvBuilder {
@@ -95,7 +107,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 }
 
 func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
-	log.Info().
+	b.l.Info().
 		Bool("hasGeth", b.hasGeth).
 		Bool("hasMockServer", b.hasMockServer).
 		Int("externalAdapterCount", b.externalAdapterCount).
@@ -107,7 +119,7 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 	var te *CLClusterTestEnv
 	var err error
 	if cfg != nil {
-		te, err = NewTestEnvFromCfg(cfg)
+		te, err = NewTestEnvFromCfg(b.l, cfg)
 		if err != nil {
 			return nil, err
 		}
@@ -116,6 +128,10 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 		if err != nil {
 			return nil, err
 		}
+	}
+
+	if b.t != nil {
+		te.WithTestLogger(b.t)
 	}
 
 	if b.hasLogWatch {
@@ -136,19 +152,23 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 		}
 	}
 	if b.nonDevGethNetworks != nil {
-		te.WithPrivateGethChain(b.nonDevGethNetworks)
-		err := te.StartPrivateGethChain()
+		te.WithPrivateChain(b.nonDevGethNetworks)
+		err := te.StartPrivateChain()
 		if err != nil {
 			return te, err
 		}
-		var nonDevGethNetworks []blockchain.EVMNetwork
-		for i, n := range te.PrivateGethChain {
-			nonDevGethNetworks = append(nonDevGethNetworks, *n.NetworkConfig)
-			nonDevGethNetworks[i].URLs = []string{n.PrimaryNode.InternalWsUrl}
-			nonDevGethNetworks[i].HTTPURLs = []string{n.PrimaryNode.InternalHttpUrl}
+		var nonDevNetworks []blockchain.EVMNetwork
+		for i, n := range te.PrivateChain {
+			primaryNode := n.GetPrimaryNode()
+			if primaryNode == nil {
+				return te, errors.WithStack(fmt.Errorf("Primary node is nil in PrivateChain interface"))
+			}
+			nonDevNetworks = append(nonDevNetworks, *n.GetNetworkConfig())
+			nonDevNetworks[i].URLs = []string{primaryNode.GetInternalWsUrl()}
+			nonDevNetworks[i].HTTPURLs = []string{primaryNode.GetInternalHttpUrl()}
 		}
-		if nonDevGethNetworks == nil {
-			return nil, errors.New("cannot create nodes with custom config without nonDevGethNetworks")
+		if nonDevNetworks == nil {
+			return nil, errors.New("cannot create nodes with custom config without nonDevNetworks")
 		}
 
 		err = te.StartClNodes(b.clNodeConfig, b.clNodesCount)
@@ -167,20 +187,20 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 
 	}
 
-	bc, err := blockchain.NewEVMClientFromNetwork(networkConfig)
+	bc, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)
 	if err != nil {
 		return nil, err
 	}
 
 	te.EVMClient = bc
 
-	cd, err := contracts.NewContractDeployer(bc)
+	cd, err := contracts.NewContractDeployer(bc, b.l)
 	if err != nil {
 		return nil, err
 	}
 	te.ContractDeployer = cd
 
-	cl, err := contracts.NewContractLoader(bc)
+	cl, err := contracts.NewContractLoader(bc, b.l)
 	if err != nil {
 		return nil, err
 	}

@@ -45,8 +45,9 @@ func NewRunner(readers []io.Reader, reporter reporter, numReruns int) *Runner {
 }
 
 func runGoTest(pkg string, tests []string, numReruns int, w io.Writer) error {
+	pkg = strings.Replace(pkg, "github.com/smartcontractkit/chainlink/v2", "", -1)
 	testFilter := strings.Join(tests, "|")
-	cmd := exec.Command("./tools/bin/go_core_tests", fmt.Sprintf("./%s", pkg)) //#nosec
+	cmd := exec.Command("./tools/bin/go_core_tests", fmt.Sprintf(".%s", pkg)) //#nosec
 	cmd.Env = append(os.Environ(), fmt.Sprintf("TEST_FLAGS=-count %d -run %s", numReruns, testFilter))
 	cmd.Stdout = io.MultiWriter(os.Stdout, w)
 	cmd.Stderr = io.MultiWriter(os.Stderr, w)
@@ -65,13 +66,7 @@ type TestEvent struct {
 func newEvent(b []byte) (*TestEvent, error) {
 	e := &TestEvent{}
 	err := json.Unmarshal(b, e)
-	if err != nil {
-		return nil, err
-	}
-
-	e.Package = strings.Replace(e.Package, "github.com/smartcontractkit/chainlink/v2/", "", -1)
-	return e, nil
-
+	return e, err
 }
 
 func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
@@ -84,14 +79,21 @@ func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
 				continue
 			}
 
+			// Skip the line if doesn't start with a "{" --
+			// this mean it isn't JSON output.
 			if !strings.HasPrefix(string(t), "{") {
 				continue
 			}
 
 			e, err := newEvent(t)
 			if err != nil {
-
 				return nil, err
+			}
+
+			// We're only interested in test failures, for which
+			// both Package and Test would be present.
+			if e.Package == "" || e.Test == "" {
+				continue
 			}
 
 			switch e.Action {
@@ -133,9 +135,12 @@ func (r *Runner) runTests(failedTests map[string]map[string]int) (io.Reader, err
 		err := r.runTestFn(pkg, ts, r.numReruns, &out)
 		if err != nil {
 			log.Printf("Test command errored: %s\n", err)
+			// There was an error because the command failed with a non-zero
+			// exit code. This could just mean that the test failed again, so let's
+			// keep going.
 			var exErr exitCoder
 			if errors.As(err, &exErr) && exErr.ExitCode() > 0 {
-				return &out, nil
+				continue
 			}
 			return &out, err
 		}

@@ -261,7 +261,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
   bytes32 internal v1ConfigDigest;
   bytes32 internal v3ConfigDigest;
 
-  struct V2Report {
+  struct V3Report {
     // The feed ID the report has data for
     bytes32 feedId;
     // The time the median value was observed on
@@ -321,14 +321,14 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     rewardManager.setFeeManager(address(feeManager));
   }
 
-  function _encodeReport(V2Report memory report) internal pure returns (bytes memory) {
+  function _encodeReport(V3Report memory report) internal pure returns (bytes memory) {
     return
       abi.encode(
         report.feedId,
         report.observationsTimestamp,
         report.validFromTimestamp,
-        report.linkFee,
         report.nativeFee,
+        report.linkFee,
         report.expiresAt,
         report.benchmarkPrice,
         report.bid,
@@ -337,7 +337,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
   }
 
   function _generateEncodedBlobWithQuote(
-    V2Report memory report,
+    V3Report memory report,
     bytes32[3] memory reportContext,
     Signer[] memory signers,
     bytes memory quote
@@ -371,14 +371,14 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
       );
   }
 
-  function _generateV3Report() internal view returns (V2Report memory) {
+  function _generateV3Report() internal view returns (V3Report memory) {
     return
-      V2Report({
+      V3Report({
         feedId: FEED_ID_V3,
         observationsTimestamp: OBSERVATIONS_TIMESTAMP,
         validFromTimestamp: uint32(block.timestamp),
-        linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
         nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
+        linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
         expiresAt: uint32(block.timestamp),
         benchmarkPrice: MEDIAN,
         bid: BID,

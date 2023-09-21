@@ -16,6 +16,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -604,6 +605,92 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 	cltest.AssertCount(t, db, "jobs", 0)
 }
 
+func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
+	config := configtest.NewGeneralConfig(t, nil)
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config.Database())
+
+	lggr := logger.TestLogger(t)
+	pipelineORM := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db, lggr, config.Database())
+
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
+
+	t.Run("evm chain id validation for ocr works", func(t *testing.T) {
+		jb := job.Job{
+			Type:          job.OffchainReporting,
+			OCROracleSpec: &job.OCROracleSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for direct request works", func(t *testing.T) {
+		jb := job.Job{
+			Type:              job.DirectRequest,
+			DirectRequestSpec: &job.DirectRequestSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for flux monitor works", func(t *testing.T) {
+		jb := job.Job{
+			Type:            job.FluxMonitor,
+			FluxMonitorSpec: &job.FluxMonitorSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for keepers works", func(t *testing.T) {
+		jb := job.Job{
+			Type:       job.Keeper,
+			KeeperSpec: &job.KeeperSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for vrf works", func(t *testing.T) {
+		jb := job.Job{
+			Type:    job.VRF,
+			VRFSpec: &job.VRFSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for block hash store works", func(t *testing.T) {
+		jb := job.Job{
+			Type:               job.BlockhashStore,
+			BlockhashStoreSpec: &job.BlockhashStoreSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for block header feeder works", func(t *testing.T) {
+		jb := job.Job{
+			Type:                  job.BlockHeaderFeeder,
+			BlockHeaderFeederSpec: &job.BlockHeaderFeederSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for legacy gas station server spec works", func(t *testing.T) {
+		jb := job.Job{
+			Type:                       job.LegacyGasStationServer,
+			LegacyGasStationServerSpec: &job.LegacyGasStationServerSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for legacy gas station sidecar spec works", func(t *testing.T) {
+		jb := job.Job{
+			Type:                        job.LegacyGasStationSidecar,
+			LegacyGasStationSidecarSpec: &job.LegacyGasStationSidecarSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+}
+
 func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	customChainID := utils.NewBig(testutils.NewRandomEVMChainID())
 
@@ -628,16 +715,15 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
-	defaultChainID := config.DefaultChainID()
-
+	// defaultChainID is deprecated
+	defaultChainID := customChainID
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 
-	// EVMChainID will default to 0, but we want to override that
-	// with nil later to represent a job spec with no chain id
 	spec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 		Name:               "job1",
+		EVMChainID:         testutils.FixtureChainID.String(),
 		DS1BridgeName:      bridge.Name.String(),
 		DS2BridgeName:      bridge2.Name.String(),
 		TransmitterAddress: address.Hex(),
@@ -646,40 +732,30 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	jb, err := ocr.ValidatedOracleSpecToml(legacyChains, spec.Toml())
 	require.NoError(t, err)
 
-	// 2nd job with no Chain ID
-	spec2 := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-		Name:               "job2",
-		DS1BridgeName:      bridge.Name.String(),
-		DS2BridgeName:      bridge2.Name.String(),
-		TransmitterAddress: address.Hex(),
-	})
-	jb2, err := ocr.ValidatedOracleSpecToml(legacyChains, spec2.Toml())
-	require.NoError(t, err)
-
 	// Default Chain Job
 	externalJobID := uuid.NullUUID{UUID: uuid.New(), Valid: true}
-	spec3 := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-		Name:               "job3",
+	spec2 := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+		Name:               "job2",
 		EVMChainID:         defaultChainID.String(),
 		DS1BridgeName:      bridge.Name.String(),
 		DS2BridgeName:      bridge2.Name.String(),
 		TransmitterAddress: address.Hex(),
 		JobID:              externalJobID.UUID.String(),
 	})
-	jb3, err := ocr.ValidatedOracleSpecToml(legacyChains, spec3.Toml())
+	jb2, err := ocr.ValidatedOracleSpecToml(legacyChains, spec2.Toml())
 	require.NoError(t, err)
 
 	// Custom Chain Job
 	externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
-	spec4 := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-		Name:               "job4",
+	spec3 := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+		Name:               "job3",
 		EVMChainID:         customChainID.String(),
 		DS1BridgeName:      bridge.Name.String(),
 		DS2BridgeName:      bridge2.Name.String(),
 		TransmitterAddress: address.Hex(),
 		JobID:              externalJobID.UUID.String(),
 	})
-	jb4, err := ocr.ValidatedOracleSpecToml(legacyChains, spec4.Toml())
+	jb3, err := ocr.ValidatedOracleSpecToml(legacyChains, spec3.Toml())
 	require.NoError(t, err)
 
 	t.Run("with legacy NULL chain id", func(t *testing.T) {
@@ -692,32 +768,23 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 		cltest.AssertCount(t, db, "ocr_oracle_specs", 1)
 		cltest.AssertCount(t, db, "jobs", 1)
 
-		jb2.OCROracleSpec.EVMChainID = nil
-		err = jobORM.CreateJob(&jb2) // try adding job for same contract with no chain id in spec
+		err = jobORM.CreateJob(&jb2) // try adding job for same contract with default chain id
 		require.Error(t, err)
-		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb2.OCROracleSpec.ContractAddress, defaultChainID.String()), err.Error())
+		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %d", jb2.OCROracleSpec.ContractAddress, jb2.OCROracleSpec.EVMChainID.ToInt()), err.Error())
 
-		err = jobORM.CreateJob(&jb3) // try adding job for same contract with default chain id
+		err = jobORM.CreateJob(&jb3) // Try adding job with custom chain id
 		require.Error(t, err)
 		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %d", jb3.OCROracleSpec.ContractAddress, jb3.OCROracleSpec.EVMChainID.ToInt()), err.Error())
-
-		err = jobORM.CreateJob(&jb4) // Try adding job with custom chain id
-		require.Error(t, err)
-		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %d", jb4.OCROracleSpec.ContractAddress, jb4.OCROracleSpec.EVMChainID.ToInt()), err.Error())
 	})
 
 	require.NoError(t, jobORM.DeleteJob(jb.ID))
 
 	t.Run("with a set chain id", func(t *testing.T) {
-		err = jobORM.CreateJob(&jb4) // Add job with custom chain id
+		err = jobORM.CreateJob(&jb3) // Add job with custom chain id
 		require.NoError(t, err)
 
 		cltest.AssertCount(t, db, "ocr_oracle_specs", 1)
 		cltest.AssertCount(t, db, "jobs", 1)
-
-		jb.OCROracleSpec.EVMChainID = nil
-		err = jobORM.CreateJob(&jb)
-		require.NoError(t, err) // should be able to add same contract address on default chain by omitting chain id
 
 		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
 		spec3.JobID = externalJobID.UUID.String()
@@ -728,11 +795,11 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb3.OCROracleSpec.ContractAddress, defaultChainID.String()), err.Error())
 
 		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
-		spec4.JobID = externalJobID.UUID.String()
-		jb5, err := ocr.ValidatedOracleSpecToml(legacyChains, spec4.Toml())
+		spec3.JobID = externalJobID.UUID.String()
+		jb4, err := ocr.ValidatedOracleSpecToml(legacyChains, spec3.Toml())
 		require.NoError(t, err)
 
-		err = jobORM.CreateJob(&jb5) // Try to add duplicate job with custom id
+		err = jobORM.CreateJob(&jb4) // Try to add duplicate job with custom id
 		require.Error(t, err)
 		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb4.OCROracleSpec.ContractAddress, customChainID), err.Error())
 	})

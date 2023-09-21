@@ -4,17 +4,14 @@ package actions
 import (
 	"encoding/json"
 	"fmt"
-	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
-	"github.com/stretchr/testify/require"
+	"github.com/rs/zerolog"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
@@ -30,24 +27,23 @@ import (
 )
 
 func BuildAutoOCR2ConfigVarsLocal(
-	t *testing.T,
+	l zerolog.Logger,
 	chainlinkNodes []*client.ChainlinkClient,
 	registryConfig contracts.KeeperRegistrySettings,
 	registrar string,
 	deltaStage time.Duration,
 ) (contracts.OCRv2Config, error) {
-	return BuildAutoOCR2ConfigVarsWithKeyIndexLocal(t, chainlinkNodes, registryConfig, registrar, deltaStage, 0)
+	return BuildAutoOCR2ConfigVarsWithKeyIndexLocal(l, chainlinkNodes, registryConfig, registrar, deltaStage, 0)
 }
 
 func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
-	t *testing.T,
+	l zerolog.Logger,
 	chainlinkNodes []*client.ChainlinkClient,
 	registryConfig contracts.KeeperRegistrySettings,
 	registrar string,
 	deltaStage time.Duration,
 	keyIndex int,
 ) (contracts.OCRv2Config, error) {
-	l := utils.GetTestLogger(t)
 	S, oracleIdentities, err := GetOracleIdentitiesWithKeyIndexLocal(chainlinkNodes, keyIndex)
 	if err != nil {
 		return contracts.OCRv2Config{}, err
@@ -136,13 +132,17 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 
 	var signers []common.Address
 	for _, signer := range signerOnchainPublicKeys {
-		require.Equal(t, 20, len(signer), "OnChainPublicKey '%v' has wrong length for address", signer)
+		if len(signer) != 20 {
+			return contracts.OCRv2Config{}, fmt.Errorf("OnChainPublicKey '%v' has wrong length for address", signer)
+		}
 		signers = append(signers, common.BytesToAddress(signer))
 	}
 
 	var transmitters []common.Address
 	for _, transmitter := range transmitterAccounts {
-		require.True(t, common.IsHexAddress(string(transmitter)), "TransmitAccount '%s' is not a valid Ethereum address", string(transmitter))
+		if !common.IsHexAddress(string(transmitter)) {
+			return contracts.OCRv2Config{}, fmt.Errorf("TransmitAccount '%s' is not a valid Ethereum address", string(transmitter))
+		}
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
 
@@ -164,6 +164,7 @@ func BuildAutoOCR2ConfigVarsWithKeyIndexLocal(
 
 // CreateOCRKeeperJobs bootstraps the first node and to the other nodes sends ocr jobs
 func CreateOCRKeeperJobsLocal(
+	l zerolog.Logger,
 	chainlinkNodes []*client.ChainlinkClient,
 	registryAddr string,
 	chainID int64,
@@ -173,7 +174,7 @@ func CreateOCRKeeperJobsLocal(
 	bootstrapNode := chainlinkNodes[0]
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 	if err != nil {
-		log.Error().Err(err).Msg("Shouldn't fail reading P2P keys from bootstrap node")
+		l.Error().Err(err).Msg("Shouldn't fail reading P2P keys from bootstrap node")
 		return err
 	}
 	bootstrapP2PId := bootstrapP2PIds.Data[0].Attributes.PeerID
@@ -201,7 +202,7 @@ func CreateOCRKeeperJobsLocal(
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
 	if err != nil {
-		log.Error().Err(err).Msg("Shouldn't fail creating bootstrap job on bootstrap node")
+		l.Error().Err(err).Msg("Shouldn't fail creating bootstrap job on bootstrap node")
 		return err
 	}
 
@@ -209,12 +210,12 @@ func CreateOCRKeeperJobsLocal(
 	for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
 		nodeTransmitterAddress, err := chainlinkNodes[nodeIndex].EthAddresses()
 		if err != nil {
-			log.Error().Err(err).Msgf("Shouldn't fail getting primary ETH address from OCR node %d", nodeIndex+1)
+			l.Error().Err(err).Msgf("Shouldn't fail getting primary ETH address from OCR node %d", nodeIndex+1)
 			return err
 		}
 		nodeOCRKeys, err := chainlinkNodes[nodeIndex].MustReadOCR2Keys()
 		if err != nil {
-			log.Error().Err(err).Msgf("Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
+			l.Error().Err(err).Msgf("Shouldn't fail getting OCR keys from OCR node %d", nodeIndex+1)
 			return err
 		}
 		var nodeOCRKeyId []string
@@ -248,11 +249,11 @@ func CreateOCRKeeperJobsLocal(
 
 		_, err = chainlinkNodes[nodeIndex].MustCreateJob(&autoOCR2JobSpec)
 		if err != nil {
-			log.Error().Err(err).Msgf("Shouldn't fail creating OCR Task job on OCR node %d err: %+v", nodeIndex+1, err)
+			l.Error().Err(err).Msgf("Shouldn't fail creating OCR Task job on OCR node %d err: %+v", nodeIndex+1, err)
 			return err
 		}
 
 	}
-	log.Info().Msg("Done creating OCR automation jobs")
+	l.Info().Msg("Done creating OCR automation jobs")
 	return nil
 }

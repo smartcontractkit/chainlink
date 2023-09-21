@@ -2,8 +2,8 @@
 pragma solidity 0.8.16;
 
 import "./VerifiableLoadBase.sol";
-import "../dev/automation/2_1/interfaces/ILogAutomation.sol";
-import "../dev/automation/2_1/interfaces/StreamsLookupCompatibleInterface.sol";
+import "../automation/interfaces/ILogAutomation.sol";
+import "../automation/interfaces/StreamsLookupCompatibleInterface.sol";
 
 contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, StreamsLookupCompatibleInterface, ILogAutomation {
   bool public useMercury;
@@ -55,7 +55,7 @@ contract VerifiableLoadLogTriggerUpkeep is VerifiableLoadBase, StreamsLookupComp
       }
 
       uint256 timeParam;
-      if (keccak256(abi.encodePacked(timeParamKey)) == keccak256(abi.encodePacked("feedIdHex"))) {
+      if (keccak256(abi.encodePacked(feedParamKey)) == keccak256(abi.encodePacked("feedIdHex"))) {
         timeParam = blockNum;
       } else {
         // assume this will be feedIDs for v0.3

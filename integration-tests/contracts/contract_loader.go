@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
@@ -34,20 +35,20 @@ type ContractLoader interface {
 }
 
 // NewContractLoader returns an instance of a contract Loader based on the client type
-func NewContractLoader(bcClient blockchain.EVMClient) (ContractLoader, error) {
+func NewContractLoader(bcClient blockchain.EVMClient, logger zerolog.Logger) (ContractLoader, error) {
 	switch clientImpl := bcClient.Get().(type) {
 	case *blockchain.EthereumClient:
-		return NewEthereumContractLoader(clientImpl), nil
+		return NewEthereumContractLoader(clientImpl, logger), nil
 	case *blockchain.KlaytnClient:
-		return &KlaytnContractLoader{NewEthereumContractLoader(clientImpl)}, nil
+		return &KlaytnContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	case *blockchain.MetisClient:
-		return &MetisContractLoader{NewEthereumContractLoader(clientImpl)}, nil
+		return &MetisContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	case *blockchain.ArbitrumClient:
-		return &ArbitrumContractLoader{NewEthereumContractLoader(clientImpl)}, nil
+		return &ArbitrumContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	case *blockchain.PolygonClient:
-		return &PolygonContractLoader{NewEthereumContractLoader(clientImpl)}, nil
+		return &PolygonContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	case *blockchain.OptimismClient:
-		return &OptimismContractLoader{NewEthereumContractLoader(clientImpl)}, nil
+		return &OptimismContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract Loader, register blockchain client in NewContractLoader")
 }
@@ -55,6 +56,7 @@ func NewContractLoader(bcClient blockchain.EVMClient) (ContractLoader, error) {
 // EthereumContractLoader provides the implementations for deploying ETH (EVM) based contracts
 type EthereumContractLoader struct {
 	client blockchain.EVMClient
+	l      zerolog.Logger
 }
 
 // KlaytnContractLoader wraps ethereum contract deployments for Klaytn
@@ -83,9 +85,10 @@ type OptimismContractLoader struct {
 }
 
 // NewEthereumContractLoader returns an instantiated instance of the ETH contract Loader
-func NewEthereumContractLoader(ethClient blockchain.EVMClient) *EthereumContractLoader {
+func NewEthereumContractLoader(ethClient blockchain.EVMClient, logger zerolog.Logger) *EthereumContractLoader {
 	return &EthereumContractLoader{
 		client: ethClient,
+		l:      logger,
 	}
 }
 
@@ -104,6 +107,7 @@ func (e *EthereumContractLoader) LoadLINKToken(addr string) (LinkToken, error) {
 		client:   e.client,
 		instance: instance.(*link_token_interface.LinkToken),
 		address:  common.HexToAddress(addr),
+		l:        e.l,
 	}, err
 }
 
@@ -140,6 +144,7 @@ func (e *EthereumContractLoader) LoadFunctionsRouter(addr string) (FunctionsRout
 		client:   e.client,
 		instance: instance.(*functions_router.FunctionsRouter),
 		address:  common.HexToAddress(addr),
+		l:        e.l,
 	}, err
 }
 
@@ -176,6 +181,7 @@ func (e *EthereumContractLoader) LoadOperatorContract(address common.Address) (O
 		address:  address,
 		client:   e.client,
 		operator: instance.(*operator_wrapper.Operator),
+		l:        e.l,
 	}, err
 }
 

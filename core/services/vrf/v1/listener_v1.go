@@ -416,6 +416,7 @@ func (lsn *Listener) ProcessRequest(ctx context.Context, req request) bool {
 			"name":          lsn.Job.Name.ValueOrZero(),
 			"publicKey":     lsn.Job.VRFSpec.PublicKey[:],
 			"from":          lsn.fromAddresses(),
+			"evmChainID":    lsn.Job.VRFSpec.EVMChainID.String(),
 		},
 		"jobRun": map[string]interface{}{
 			"logBlockHash":   req.req.Raw.BlockHash[:],

@@ -31,8 +31,6 @@ var (
 	DatabaseAllowSimplePasswords = Var("CL_DATABASE_ALLOW_SIMPLE_PASSWORDS")
 	DatabaseURL                  = Secret("CL_DATABASE_URL")
 	DatabaseBackupURL            = Secret("CL_DATABASE_BACKUP_URL")
-	ExplorerAccessKey            = Secret("CL_EXPLORER_ACCESS_KEY")
-	ExplorerSecret               = Secret("CL_EXPLORER_SECRET")
 	PasswordKeystore             = Secret("CL_PASSWORD_KEYSTORE")
 	PasswordVRF                  = Secret("CL_PASSWORD_VRF")
 	PyroscopeAuthToken           = Secret("CL_PYROSCOPE_AUTH_TOKEN")

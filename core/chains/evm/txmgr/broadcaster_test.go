@@ -618,7 +618,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_OptimisticLockingOnEthTx(t *testi
 		}
 
 		// Simulate a "PruneQueue" call
-		assert.NoError(t, utils.JustError(db.Exec(`DELETE FROM eth_txes WHERE state = 'unstarted'`)))
+		assert.NoError(t, utils.JustError(db.Exec(`DELETE FROM evm.txes WHERE state = 'unstarted'`)))
 
 		close(chBlock)
 	}()
@@ -729,7 +729,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_ResumingFromCrash(t *testing.T) {
 		eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, evmcfg, &testCheckerFactory{}, false)
 
 		// Crashed right after we commit the database transaction that saved
-		// the nonce to the eth_tx so evm_key_states.next_nonce has not been
+		// the nonce to the eth_tx so evm.key_states.next_nonce has not been
 		// incremented yet
 		inProgressEthTx := cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, firstNonce, fromAddress)
 
@@ -1009,7 +1009,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// We assume success and hand off to eth confirmer to eventually mark it as failed
 		var latestID int64
 		var etx1 txmgr.Tx
-		require.NoError(t, db.Get(&latestID, "SELECT max(id) FROM eth_txes"))
+		require.NoError(t, db.Get(&latestID, "SELECT max(id) FROM evm.txes"))
 		etx1, err = txStore.FindTxWithAttempts(latestID)
 		require.NoError(t, err)
 		require.NotNil(t, etx1.BroadcastAt)
@@ -1056,7 +1056,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 			// Check that the key had its nonce reset
 			var nonce int64
-			err := db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
+			err = db.Get(&nonce, `SELECT next_nonce FROM evm.key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
 			require.NoError(t, err)
 			// Saved NextNonce must be the same as before because this transaction
 			// was not accepted by the eth node and never can be
@@ -1126,7 +1126,6 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), evmcfg.EVM().GasEstimator().BlockHistory(), lggr), evmcfg.EVM().GasEstimator().EIP1559DynamicFees())
 					txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg.EVM().GasEstimator(), ethKeyStore, estimator)
 					eb = txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), evmcfg.Database().Listener(), ethKeyStore, eventBroadcaster, txBuilder, nil, lggr, &testCheckerFactory{}, false)
-					require.NoError(t, err)
 					{
 						retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
 						assert.NoError(t, err)
@@ -1174,7 +1173,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 
 		// Check that the key had its nonce reset
 		var nonce int64
-		err := db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
+		err = db.Get(&nonce, `SELECT next_nonce FROM evm.key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
 		require.NoError(t, err)
 		// Saved NextNonce must be the same as before because this transaction
 		// was not accepted by the eth node and never can be
@@ -1479,7 +1478,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.True(t, retryable)
 
 		// TEARDOWN: Clear out the unsent tx before the next test
-		pgtest.MustExec(t, db, `DELETE FROM eth_txes WHERE nonce = $1`, localNextNonce)
+		pgtest.MustExec(t, db, `DELETE FROM evm.txes WHERE nonce = $1`, localNextNonce)
 	})
 
 	t.Run("eth tx is left in progress if eth node returns insufficient eth", func(t *testing.T) {
@@ -1510,7 +1509,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
 	})
 
-	pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
+	pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
 
 	t.Run("eth tx is left in progress if nonce is too high", func(t *testing.T) {
 		localNextNonce := getLocalNextNonce(t, ethKeyStore, fromAddress)
@@ -1538,7 +1537,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.Equal(t, txmgrtypes.TxAttemptInProgress, attempt.State)
 		assert.Nil(t, attempt.BroadcastBeforeBlockNum)
 
-		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
+		pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
 	})
 
 	t.Run("eth node returns underpriced transaction and bumping gas doesn't increase it in EIP-1559 mode", func(t *testing.T) {
@@ -1568,7 +1567,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		require.Contains(t, err.Error(), "bumped gas tip cap of 1 wei is less than or equal to original gas tip cap of 1 wei")
 		assert.True(t, retryable)
 
-		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
+		pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
 	})
 
 	t.Run("eth node returns underpriced transaction in EIP-1559 mode, bumps until inclusion", func(t *testing.T) {
@@ -1617,7 +1616,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		assert.False(t, retryable)
 
 		// TEARDOWN: Clear out the unsent tx before the next test
-		pgtest.MustExec(t, db, `DELETE FROM eth_txes WHERE nonce = $1`, localNextNonce)
+		pgtest.MustExec(t, db, `DELETE FROM evm.txes WHERE nonce = $1`, localNextNonce)
 	})
 
 }
@@ -1672,7 +1671,7 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_KeystoreErrors(t *testing.T) {
 
 		// Check that the key did not have its nonce incremented
 		var nonce int64
-		err = db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
+		err = db.Get(&nonce, `SELECT next_nonce FROM evm.key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
 		require.NoError(t, err)
 		require.Equal(t, int64(localNonce), nonce)
 	})
@@ -1704,7 +1703,7 @@ func TestEthBroadcaster_IncrementNextNonce(t *testing.T) {
 
 	// Nonce bumped to 1
 	var nonce int64
-	err := db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, keyState.Address.Address())
+	err := db.Get(&nonce, `SELECT next_nonce FROM evm.key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, keyState.Address.Address())
 	require.NoError(t, err)
 	require.Equal(t, int64(1), nonce)
 }
@@ -1771,7 +1770,7 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 	sub := pgmocks.NewSubscription(t)
 	sub.On("Events").Return(make(<-chan pg.Event))
 	sub.On("Close")
-	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
+	eventBroadcaster.On("Subscribe", "evm.insert_on_txes", "").Return(sub, nil)
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), evmcfg.EVM().GasEstimator().BlockHistory(), lggr), evmcfg.EVM().GasEstimator().EIP1559DynamicFees())
 	checkerFactory := &testCheckerFactory{}
 
@@ -1808,12 +1807,12 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 
 		// Check keyState to make sure it has correct nonce assigned
 		var nonce int64
-		err := db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
+		err := db.Get(&nonce, `SELECT next_nonce FROM evm.key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
 		require.NoError(t, err)
 		assert.Equal(t, int64(ethNodeNonce), nonce)
 
 		// The disabled key did not get updated
-		err = db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, disabledAddress)
+		err = db.Get(&nonce, `SELECT next_nonce FROM evm.key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, disabledAddress)
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), nonce)
 	})
@@ -1842,12 +1841,12 @@ func TestEthBroadcaster_SyncNonce(t *testing.T) {
 
 		// Check keyState to make sure it has correct nonce assigned
 		var nonce int64
-		err := db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
+		err := db.Get(&nonce, `SELECT next_nonce FROM evm.key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, fromAddress)
 		require.NoError(t, err)
 		assert.Equal(t, int64(ethNodeNonce), nonce)
 
 		// The disabled key did not get updated
-		err = db.Get(&nonce, `SELECT next_nonce FROM evm_key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, disabledAddress)
+		err = db.Get(&nonce, `SELECT next_nonce FROM evm.key_states WHERE address = $1 ORDER BY created_at ASC, id ASC`, disabledAddress)
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), nonce)
 	})

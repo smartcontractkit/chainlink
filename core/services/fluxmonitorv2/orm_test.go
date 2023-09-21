@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
@@ -161,6 +162,7 @@ func makeJob(t *testing.T) *job.Job {
 			IdleTimerDisabled: false,
 			CreatedAt:         time.Now(),
 			UpdatedAt:         time.Now(),
+			EVMChainID:        (*utils.Big)(testutils.FixtureChainID),
 		},
 	}
 }

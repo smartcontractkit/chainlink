@@ -78,15 +78,15 @@ func TestTxm(t *testing.T) {
 	logCfg := pgtest.NewQConfig(true)
 	chainID := cosmostest.RandomChainID()
 	two := int64(2)
-	feeToken := "ucosm"
+	gasToken := "ucosm"
 	cfg := &cosmos.CosmosConfig{Chain: coscfg.Chain{
 		MaxMsgsPerBatch: &two,
-		FeeToken:        &feeToken,
+		GasToken:        &gasToken,
 	}}
 	cfg.SetDefaults()
 	gpe := cosmosclient.NewMustGasPriceEstimator([]cosmosclient.GasPricesEstimator{
 		cosmosclient.NewFixedGasPriceEstimator(map[string]cosmostypes.DecCoin{
-			cfg.FeeToken(): cosmostypes.NewDecCoinFromDec(cfg.FeeToken(), cosmostypes.MustNewDecFromStr("0.01")),
+			cfg.GasToken(): cosmostypes.NewDecCoinFromDec(cfg.GasToken(), cosmostypes.MustNewDecFromStr("0.01")),
 		},
 			lggr.(logger.SugaredLogger),
 		),

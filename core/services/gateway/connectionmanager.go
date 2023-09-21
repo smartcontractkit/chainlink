@@ -87,13 +87,16 @@ func NewConnectionManager(gwConfig *config.GatewayConfig, clock utils.Clock, lgg
 				return nil, fmt.Errorf("duplicate node address %s in DON %s", nodeAddress, donConfig.DonId)
 			}
 			nodes[nodeAddress] = &nodeState{conn: network.NewWSConnectionWrapper()}
+			if nodes[nodeAddress].conn == nil {
+				return nil, fmt.Errorf("error creating WSConnectionWrapper for node %s", nodeAddress)
+			}
 		}
 		dons[donConfig.DonId] = &donConnectionManager{
 			donConfig:  &donConfig,
 			codec:      codec,
 			nodes:      nodes,
 			shutdownCh: make(chan struct{}),
-			lggr:       lggr,
+			lggr:       lggr.Named("DONConnectionManager." + donConfig.DonId),
 		}
 	}
 	connMgr := &connectionManager{
@@ -232,11 +235,18 @@ func (m *donConnectionManager) SetHandler(handler handlers.Handler) {
 }
 
 func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress string, msg *api.Message) error {
+	if msg == nil {
+		return errors.New("nil message")
+	}
 	data, err := m.codec.EncodeRequest(msg)
 	if err != nil {
 		return fmt.Errorf("error encoding request for node %s: %v", nodeAddress, err)
 	}
-	return m.nodes[nodeAddress].conn.Write(ctx, websocket.BinaryMessage, data)
+	nodeState := m.nodes[nodeAddress]
+	if nodeState == nil {
+		return fmt.Errorf("node %s not found", nodeAddress)
+	}
+	return nodeState.conn.Write(ctx, websocket.BinaryMessage, data)
 }
 
 func (m *donConnectionManager) readLoop(nodeAddress string, nodeState *nodeState) {

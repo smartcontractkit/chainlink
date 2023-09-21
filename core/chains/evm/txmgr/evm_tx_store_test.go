@@ -55,7 +55,7 @@ func TestORM_TransactionsWithAttempts(t *testing.T) {
 	cltest.MustCreateUnstartedGeneratedTx(t, txStore, from, &cltest.FixtureChainID)
 
 	var count int
-	err := db.Get(&count, `SELECT count(*) FROM eth_txes`)
+	err := db.Get(&count, `SELECT count(*) FROM evm.txes`)
 	require.NoError(t, err)
 	require.Equal(t, 3, count)
 
@@ -100,7 +100,7 @@ func TestORM_Transactions(t *testing.T) {
 	cltest.MustCreateUnstartedGeneratedTx(t, txStore, from, &cltest.FixtureChainID)
 
 	var count int
-	err := db.Get(&count, `SELECT count(*) FROM eth_txes`)
+	err := db.Get(&count, `SELECT count(*) FROM evm.txes`)
 	require.NoError(t, err)
 	require.Equal(t, 3, count)
 
@@ -130,7 +130,7 @@ func TestORM(t *testing.T) {
 		err = orm.InsertTx(&etx)
 		require.NoError(t, err)
 		assert.Greater(t, int(etx.ID), 0)
-		cltest.AssertCount(t, db, "eth_txes", 1)
+		cltest.AssertCount(t, db, "evm.txes", 1)
 	})
 	var attemptL txmgr.TxAttempt
 	var attemptD txmgr.TxAttempt
@@ -139,7 +139,7 @@ func TestORM(t *testing.T) {
 		err = orm.InsertTxAttempt(&attemptD)
 		require.NoError(t, err)
 		assert.Greater(t, int(attemptD.ID), 0)
-		cltest.AssertCount(t, db, "eth_tx_attempts", 1)
+		cltest.AssertCount(t, db, "evm.tx_attempts", 1)
 
 		attemptL = cltest.NewLegacyEthTxAttempt(t, etx.ID)
 		attemptL.State = txmgrtypes.TxAttemptBroadcast
@@ -147,7 +147,7 @@ func TestORM(t *testing.T) {
 		err = orm.InsertTxAttempt(&attemptL)
 		require.NoError(t, err)
 		assert.Greater(t, int(attemptL.ID), 0)
-		cltest.AssertCount(t, db, "eth_tx_attempts", 2)
+		cltest.AssertCount(t, db, "evm.tx_attempts", 2)
 	})
 	var r txmgr.Receipt
 	t.Run("InsertReceipt", func(t *testing.T) {
@@ -156,7 +156,7 @@ func TestORM(t *testing.T) {
 		r.ID = id
 		require.NoError(t, err)
 		assert.Greater(t, int(r.ID), 0)
-		cltest.AssertCount(t, db, "eth_receipts", 1)
+		cltest.AssertCount(t, db, "evm.receipts", 1)
 	})
 	t.Run("FindTxWithAttempts", func(t *testing.T) {
 		etx, err = orm.FindTxWithAttempts(etx.ID)
@@ -217,11 +217,11 @@ func TestORM_FindTxAttemptConfirmedByTxIDs(t *testing.T) {
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, orm, 4, from) // tx5
 
 	var count int
-	err = db.Get(&count, `SELECT count(*) FROM eth_txes`)
+	err = db.Get(&count, `SELECT count(*) FROM evm.txes`)
 	require.NoError(t, err)
 	require.Equal(t, 5, count)
 
-	err = db.Get(&count, `SELECT count(*) FROM eth_tx_attempts`)
+	err = db.Get(&count, `SELECT count(*) FROM evm.tx_attempts`)
 	require.NoError(t, err)
 	require.Equal(t, 4, count)
 
@@ -385,7 +385,7 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 	headNum := int64(9000)
 	var err error
 
-	t.Run("saves block num to unconfirmed eth_tx_attempts without one", func(t *testing.T) {
+	t.Run("saves block num to unconfirmed evm.tx_attempts without one", func(t *testing.T) {
 		// Do the thing
 		require.NoError(t, txStore.SetBroadcastBeforeBlockNum(headNum, chainID))
 
@@ -397,7 +397,7 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 		assert.Equal(t, int64(9000), *attempt.BroadcastBeforeBlockNum)
 	})
 
-	t.Run("does not change eth_tx_attempts that already have BroadcastBeforeBlockNum set", func(t *testing.T) {
+	t.Run("does not change evm.tx_attempts that already have BroadcastBeforeBlockNum set", func(t *testing.T) {
 		n := int64(42)
 		attempt := newBroadcastLegacyEthTxAttempt(t, etx.ID, 2)
 		attempt.BroadcastBeforeBlockNum = &n
@@ -414,10 +414,10 @@ func TestORM_SetBroadcastBeforeBlockNum(t *testing.T) {
 		assert.Equal(t, int64(42), *attempt.BroadcastBeforeBlockNum)
 	})
 
-	t.Run("only updates eth_tx_attempts for the current chain", func(t *testing.T) {
+	t.Run("only updates evm.tx_attempts for the current chain", func(t *testing.T) {
 		require.NoError(t, ethKeyStore.Add(fromAddress, testutils.SimulatedChainID))
 		require.NoError(t, ethKeyStore.Enable(fromAddress, testutils.SimulatedChainID))
-		etxThisChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress, cfg.DefaultChainID())
+		etxThisChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress, cfg.EVM().ChainID())
 		etxOtherChain := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress, testutils.SimulatedChainID)
 
 		require.NoError(t, txStore.SetBroadcastBeforeBlockNum(headNum, chainID))
@@ -654,11 +654,11 @@ func TestORM_FindReceiptsPendingConfirmation(t *testing.T) {
 	pgtest.MustExec(t, db, `UPDATE pipeline_runs SET state = 'suspended' WHERE id = $1`, run.ID)
 
 	etx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 3, 1, fromAddress)
-	pgtest.MustExec(t, db, `UPDATE eth_txes SET meta='{"FailOnRevert": true}'`)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET meta='{"FailOnRevert": true}'`)
 	attempt := etx.TxAttempts[0]
 	cltest.MustInsertEthReceipt(t, txStore, head.Number-minConfirmations, head.Hash, attempt.Hash)
 
-	pgtest.MustExec(t, db, `UPDATE eth_txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
+	pgtest.MustExec(t, db, `UPDATE evm.txes SET pipeline_task_run_id = $1, min_confirmations = $2 WHERE id = $3`, &tr.ID, minConfirmations, etx.ID)
 
 	receiptsPlus, err := txStore.FindReceiptsPendingConfirmation(testutils.Context(t), head.Number, ethClient.ConfiguredChainID())
 	require.NoError(t, err)
@@ -1021,8 +1021,8 @@ func TestEthConfirmer_FindTxsRequiringResubmissionDueToInsufficientEth(t *testin
 	})
 
 	t.Run("does not return confirmed or fatally errored eth_txes", func(t *testing.T) {
-		pgtest.MustExec(t, db, `UPDATE eth_txes SET state='confirmed' WHERE id = $1`, etx1.ID)
-		pgtest.MustExec(t, db, `UPDATE eth_txes SET state='fatal_error', nonce=NULL, error='foo', broadcast_at=NULL, initial_broadcast_at=NULL WHERE id = $1`, etx2.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET state='confirmed' WHERE id = $1`, etx1.ID)
+		pgtest.MustExec(t, db, `UPDATE evm.txes SET state='fatal_error', nonce=NULL, error='foo', broadcast_at=NULL, initial_broadcast_at=NULL WHERE id = $1`, etx2.ID)
 
 		etxs, err := txStore.FindTxsRequiringResubmissionDueToInsufficientFunds(fromAddress, &cltest.FixtureChainID)
 		require.NoError(t, err)
@@ -1102,7 +1102,7 @@ func TestORM_LoadEthTxesAttempts(t *testing.T) {
 		newAttempt := cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
 		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&newAttempt)
 		err := q.Transaction(func(tx pg.Queryer) error {
-			const insertEthTxAttemptSQL = `INSERT INTO eth_tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap) VALUES (
+			const insertEthTxAttemptSQL = `INSERT INTO evm.tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap) VALUES (
 				:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap
 				) RETURNING *`
 			_, err := tx.NamedExec(insertEthTxAttemptSQL, dbAttempt)
@@ -1262,7 +1262,7 @@ func TestORM_UpdateTxUnstartedToInProgress(t *testing.T) {
 
 		attempt := cltest.NewLegacyEthTxAttempt(t, etx.ID)
 
-		err := q.ExecQ("DELETE FROM eth_txes WHERE id = $1", etx.ID)
+		err := q.ExecQ("DELETE FROM evm.txes WHERE id = $1", etx.ID)
 		require.NoError(t, err)
 
 		err = txStore.UpdateTxUnstartedToInProgress(&etx, &attempt)
@@ -1574,10 +1574,10 @@ func TestORM_CreateTransaction(t *testing.T) {
 		assert.Equal(t, big.Int(assets.NewEthValue(0)), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
 
-		cltest.AssertCount(t, db, "eth_txes", 1)
+		cltest.AssertCount(t, db, "evm.txes", 1)
 
 		var dbEthTx txmgr.DbEthTx
-		require.NoError(t, db.Get(&dbEthTx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+		require.NoError(t, db.Get(&dbEthTx, `SELECT * FROM evm.txes ORDER BY id ASC LIMIT 1`))
 
 		assert.Equal(t, dbEthTx.State, txmgrcommon.TxUnstarted)
 		assert.Equal(t, gasLimit, dbEthTx.GasLimit)

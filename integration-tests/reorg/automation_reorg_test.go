@@ -17,9 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -124,7 +124,7 @@ const (
  * normal pace after the event.
  */
 func TestAutomationReorg(t *testing.T) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	network := networks.SelectedNetwork
 
 	cd, err := chainlink.NewDeployment(numberOfNodes, defaultAutomationSettings)
@@ -147,9 +147,9 @@ func TestAutomationReorg(t *testing.T) {
 		return
 	}
 
-	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
+	chainClient, err := blockchain.NewEVMClient(network, testEnvironment, l)
 	require.NoError(t, err, "Error connecting to blockchain")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Error building contract deployer")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")

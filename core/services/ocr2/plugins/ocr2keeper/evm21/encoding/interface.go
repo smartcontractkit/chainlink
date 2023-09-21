@@ -54,4 +54,6 @@ type Packer interface {
 	UnpackLogTriggerConfig(raw []byte) (automation_utils_2_1.LogTriggerConfig, error)
 	PackReport(report automation_utils_2_1.KeeperRegistryBase21Report) ([]byte, error)
 	UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistryBase21Report, error)
+	PackGetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error)
+	UnpackGetUpkeepPrivilegeConfig(resp []byte) ([]byte, error)
 }

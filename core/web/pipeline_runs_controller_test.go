@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"testing"
@@ -149,7 +150,12 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
-	response, cleanup := client.Get("/v2/pipeline/runs")
+	url := url.URL{Path: "/v2/pipeline/runs"}
+	query := url.Query()
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	url.RawQuery = query.Encode()
+
+	response, cleanup := client.Get(url.String())
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -266,6 +272,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	schemaVersion      = 1
 	externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
 	contractAddress    = "%s"
+	evmChainID		   = "0"
 	p2pBootstrapPeers  = [
 		"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 	]

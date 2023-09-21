@@ -72,7 +72,7 @@ WSURL = 'wss://web.socket/test/bar'
 [[Cosmos]]
 ChainID = 'Ibiza-808'
 Bech32Prefix = 'wasm'
-FeeToken = 'ucosm'
+GasToken = 'ucosm'
 MaxMsgsPerBatch = 13
 
 [[Cosmos.Nodes]]
@@ -83,7 +83,7 @@ TendermintURL = 'http://columbus.cosmos.com'
 ChainID = 'Malaga-420'
 Bech32Prefix = 'wasm'
 BlocksUntilTxTimeout = 20
-FeeToken = 'ucosm'
+GasToken = 'ucosm'
 
 [[Cosmos.Nodes]]
 Name = 'secondary'

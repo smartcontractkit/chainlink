@@ -31,12 +31,6 @@ solc_version = '0.8.6'
 optimizer_runs = 10000
 src = 'src/v0.8/automation'
 test = 'src/v0.8/automation/test'
-solc_version = '0.8.6'
-
-[profile.automation-dev]
-optimizer_runs = 10000
-src = 'src/v0.8/dev/automation'
-test = 'src/v0.8/dev/automation/test'
 
 [profile.llo-feeds]
 optimizer_runs = 1000000

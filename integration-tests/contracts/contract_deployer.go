@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -116,30 +117,32 @@ type ContractDeployer interface {
 }
 
 // NewContractDeployer returns an instance of a contract deployer based on the client type
-func NewContractDeployer(bcClient blockchain.EVMClient) (ContractDeployer, error) {
+func NewContractDeployer(bcClient blockchain.EVMClient, logger zerolog.Logger) (ContractDeployer, error) {
 	switch clientImpl := bcClient.Get().(type) {
 	case *blockchain.EthereumClient:
-		return NewEthereumContractDeployer(clientImpl), nil
+		return NewEthereumContractDeployer(clientImpl, logger), nil
 	case *blockchain.KlaytnClient:
-		return &KlaytnContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+		return &KlaytnContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.MetisClient:
-		return &MetisContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+		return &MetisContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.ArbitrumClient:
-		return &MetisContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+		return &MetisContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.OptimismClient:
-		return &OptimismContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+		return &OptimismContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.RSKClient:
-		return &RSKContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+		return &RSKContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.PolygonClient:
-		return &PolygonContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+		return &PolygonContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.CeloClient:
-		return &CeloContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+		return &CeloContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.QuorumClient:
-		return &QuorumContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+		return &QuorumContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.BSCClient:
-		return &BSCContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+		return &BSCContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.ScrollClient:
-		return &ScrollContractDeployer{NewEthereumContractDeployer(clientImpl)}, nil
+		return &ScrollContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+	case *blockchain.MantleClient:
+		return &MantleContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -147,6 +150,7 @@ func NewContractDeployer(bcClient blockchain.EVMClient) (ContractDeployer, error
 // EthereumContractDeployer provides the implementations for deploying ETH (EVM) based contracts
 type EthereumContractDeployer struct {
 	client blockchain.EVMClient
+	l      zerolog.Logger
 }
 
 // KlaytnContractDeployer wraps ethereum contract deployments for Klaytn
@@ -194,10 +198,15 @@ type ScrollContractDeployer struct {
 	*EthereumContractDeployer
 }
 
+type MantleContractDeployer struct {
+	*EthereumContractDeployer
+}
+
 // NewEthereumContractDeployer returns an instantiated instance of the ETH contract deployer
-func NewEthereumContractDeployer(ethClient blockchain.EVMClient) *EthereumContractDeployer {
+func NewEthereumContractDeployer(ethClient blockchain.EVMClient, logger zerolog.Logger) *EthereumContractDeployer {
 	return &EthereumContractDeployer{
 		client: ethClient,
+		l:      logger,
 	}
 }
 
@@ -451,6 +460,7 @@ func (e *EthereumContractDeployer) DeployLinkTokenContract() (LinkToken, error) 
 		client:   e.client,
 		instance: instance.(*link_token_interface.LinkToken),
 		address:  *linkTokenAddress,
+		l:        e.l,
 	}, err
 }
 
@@ -469,6 +479,7 @@ func (e *EthereumContractDeployer) LoadLinkToken(address common.Address) (LinkTo
 		address:  address,
 		client:   e.client,
 		instance: instance.(*link_token_interface.LinkToken),
+		l:        e.l,
 	}, err
 }
 
@@ -551,6 +562,7 @@ func (e *EthereumContractDeployer) DeployOffChainAggregator(
 		client:  e.client,
 		ocr:     instance.(*offchainaggregator.OffchainAggregator),
 		address: address,
+		l:       e.l,
 	}, err
 }
 
@@ -569,6 +581,7 @@ func (e *EthereumContractDeployer) LoadOffChainAggregator(address *common.Addres
 		address: address,
 		client:  e.client,
 		ocr:     instance.(*offchainaggregator.OffchainAggregator),
+		l:       e.l,
 	}, err
 }
 
@@ -1423,5 +1436,6 @@ func (e *EthereumContractDeployer) DeployOffchainAggregatorV2(
 		client:   e.client,
 		contract: instance.(*ocr2aggregator.OCR2Aggregator),
 		address:  address,
+		l:        e.l,
 	}, err
 }

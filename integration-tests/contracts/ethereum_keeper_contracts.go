@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	goabi "github.com/umbracle/ethgo/abi"
 
@@ -204,6 +204,7 @@ type EthereumKeeperRegistry struct {
 	registry2_0 *keeper_registry_wrapper2_0.KeeperRegistry
 	registry2_1 *i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMaster
 	address     *common.Address
+	l           zerolog.Logger
 }
 
 func (v *EthereumKeeperRegistry) Address() string {
@@ -777,7 +778,7 @@ func (v *EthereumKeeperRegistry) CancelUpkeep(id *big.Int) error {
 		}
 	}
 
-	log.Info().
+	v.l.Info().
 		Str("Upkeep ID", strconv.FormatInt(id.Int64(), 10)).
 		Str("From", v.client.GetDefaultWallet().Address()).
 		Str("TX Hash", tx.Hash().String()).
@@ -1132,6 +1133,7 @@ type KeeperConsumerRoundConfirmer struct {
 	doneChan     chan struct{}
 	context      context.Context
 	cancel       context.CancelFunc
+	l            zerolog.Logger
 }
 
 // NewKeeperConsumerRoundConfirmer provides a new instance of a KeeperConsumerRoundConfirmer
@@ -1139,6 +1141,7 @@ func NewKeeperConsumerRoundConfirmer(
 	contract KeeperConsumer,
 	counterValue int,
 	timeout time.Duration,
+	logger zerolog.Logger,
 ) *KeeperConsumerRoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &KeeperConsumerRoundConfirmer{
@@ -1147,6 +1150,7 @@ func NewKeeperConsumerRoundConfirmer(
 		doneChan:     make(chan struct{}),
 		context:      ctx,
 		cancel:       ctxCancel,
+		l:            logger,
 	}
 }
 
@@ -1156,7 +1160,7 @@ func (o *KeeperConsumerRoundConfirmer) ReceiveHeader(_ blockchain.NodeHeader) er
 	if err != nil {
 		return err
 	}
-	l := log.Info().
+	l := o.l.Info().
 		Str("Contract Address", o.instance.Address()).
 		Int64("Upkeeps", upkeeps.Int64()).
 		Int("Required upkeeps", o.upkeepsValue)
@@ -1200,6 +1204,7 @@ type KeeperConsumerPerformanceRoundConfirmer struct {
 
 	metricsReporter *testreporters.KeeperBlockTimeTestReporter // Testreporter to track results
 	complete        bool
+	l               zerolog.Logger
 }
 
 // NewKeeperConsumerPerformanceRoundConfirmer provides a new instance of a KeeperConsumerPerformanceRoundConfirmer
@@ -1209,6 +1214,7 @@ func NewKeeperConsumerPerformanceRoundConfirmer(
 	expectedBlockCadence int64, // Expected to upkeep every 5/10/20 blocks, for example
 	blockRange int64,
 	metricsReporter *testreporters.KeeperBlockTimeTestReporter,
+	logger zerolog.Logger,
 ) *KeeperConsumerPerformanceRoundConfirmer {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &KeeperConsumerPerformanceRoundConfirmer{
@@ -1226,6 +1232,7 @@ func NewKeeperConsumerPerformanceRoundConfirmer(
 		metricsReporter:             metricsReporter,
 		complete:                    false,
 		lastBlockNum:                0,
+		l:                           logger,
 	}
 }
 
@@ -1248,22 +1255,22 @@ func (o *KeeperConsumerPerformanceRoundConfirmer) ReceiveHeader(receivedHeader b
 		return err
 	}
 	if isEligible {
-		log.Trace().
+		o.l.Trace().
 			Str("Contract Address", o.instance.Address()).
 			Int64("Upkeeps Performed", upkeepCount.Int64()).
 			Msg("Upkeep Now Eligible")
 	}
 	if upkeepCount.Int64() >= o.expectedUpkeepCount { // Upkeep was successful
 		if o.blocksSinceSuccessfulUpkeep < o.blockCadence { // If there's an early upkeep, that's weird
-			log.Error().
+			o.l.Error().
 				Str("Contract Address", o.instance.Address()).
 				Int64("Upkeeps Performed", upkeepCount.Int64()).
 				Int64("Expected Cadence", o.blockCadence).
 				Int64("Actual Cadence", o.blocksSinceSuccessfulUpkeep).
-				Err(errors.New("Found an early Upkeep"))
-			return fmt.Errorf("Found an early Upkeep on contract %s", o.instance.Address())
+				Err(errors.New("found an early Upkeep"))
+			return fmt.Errorf("found an early Upkeep on contract %s", o.instance.Address())
 		} else if o.blocksSinceSuccessfulUpkeep == o.blockCadence { // Perfectly timed upkeep
-			log.Info().
+			o.l.Info().
 				Str("Contract Address", o.instance.Address()).
 				Int64("Upkeeps Performed", upkeepCount.Int64()).
 				Int64("Expected Cadence", o.blockCadence).
@@ -1271,7 +1278,7 @@ func (o *KeeperConsumerPerformanceRoundConfirmer) ReceiveHeader(receivedHeader b
 				Msg("Successful Upkeep on Expected Cadence")
 			o.totalSuccessfulUpkeeps++
 		} else { // Late upkeep
-			log.Warn().
+			o.l.Warn().
 				Str("Contract Address", o.instance.Address()).
 				Int64("Upkeeps Performed", upkeepCount.Int64()).
 				Int64("Expected Cadence", o.blockCadence).
@@ -1286,7 +1293,7 @@ func (o *KeeperConsumerPerformanceRoundConfirmer) ReceiveHeader(receivedHeader b
 
 	if o.blocksSinceSubscription > o.blockRange {
 		if o.blocksSinceSuccessfulUpkeep > o.blockCadence {
-			log.Warn().
+			o.l.Warn().
 				Str("Contract Address", o.instance.Address()).
 				Int64("Upkeeps Performed", upkeepCount.Int64()).
 				Int64("Expected Cadence", o.blockCadence).
@@ -1296,7 +1303,7 @@ func (o *KeeperConsumerPerformanceRoundConfirmer) ReceiveHeader(receivedHeader b
 				Msg("Finished Watching for Upkeeps While Waiting on a Late Upkeep")
 			o.allMissedUpkeeps = append(o.allMissedUpkeeps, o.blocksSinceSuccessfulUpkeep-o.blockCadence)
 		} else {
-			log.Info().
+			o.l.Info().
 				Str("Contract Address", o.instance.Address()).
 				Int64("Upkeeps Performed", upkeepCount.Int64()).
 				Int64("Total Blocks Watched", o.blocksSinceSubscription).
@@ -1365,6 +1372,7 @@ type KeeperConsumerBenchmarkRoundConfirmer struct {
 	upkeepCount             int64   // The count of upkeeps done so far
 	allCheckDelays          []int64 // Tracks the amount of blocks missed before an upkeep since it became eligible
 	complete                bool
+	l                       zerolog.Logger
 }
 
 // NewKeeperConsumerBenchmarkRoundConfirmer provides a new instance of a KeeperConsumerBenchmarkRoundConfirmer
@@ -1378,6 +1386,7 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 	metricsReporter *testreporters.KeeperBenchmarkTestReporter,
 	upkeepIndex int64,
 	firstEligibleuffer int64,
+	logger zerolog.Logger,
 ) *KeeperConsumerBenchmarkRoundConfirmer {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &KeeperConsumerBenchmarkRoundConfirmer{
@@ -1399,6 +1408,7 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 		upkeepIndex:             upkeepIndex,
 		firstBlockNum:           0,
 		firstEligibleuffer:      firstEligibleuffer,
+		l:                       logger,
 	}
 }
 
@@ -1423,7 +1433,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 		if upkeepCount.Int64() != o.upkeepCount+1 {
 			return errors.New("upkeep count increased by more than 1 in a single block")
 		}
-		log.Info().
+		o.l.Info().
 			Uint64("Block_Number", receivedHeader.Number.Uint64()).
 			Str("Upkeep_ID", o.upkeepID.String()).
 			Str("Contract_Address", o.instance.Address()).
@@ -1433,7 +1443,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 			Msg("Upkeep Performed")
 
 		if o.blocksSinceEligible > o.upkeepSLA {
-			log.Warn().
+			o.l.Warn().
 				Uint64("Block_Number", receivedHeader.Number.Uint64()).
 				Str("Upkeep_ID", o.upkeepID.String()).
 				Str("Contract_Address", o.instance.Address()).
@@ -1456,7 +1466,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 		if o.blocksSinceEligible == 0 {
 			// First time this upkeep became eligible
 			o.countEligible++
-			log.Info().
+			o.l.Info().
 				Uint64("Block_Number", receivedHeader.Number.Uint64()).
 				Str("Upkeep_ID", o.upkeepID.String()).
 				Str("Contract_Address", o.instance.Address()).
@@ -1469,7 +1479,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 	if o.blocksSinceSubscription >= o.blockRange || int64(o.lastBlockNum-o.firstBlockNum) >= o.blockRange {
 		if o.blocksSinceEligible > 0 {
 			if o.blocksSinceEligible > o.upkeepSLA {
-				log.Warn().
+				o.l.Warn().
 					Uint64("Block_Number", receivedHeader.Number.Uint64()).
 					Str("Upkeep_ID", o.upkeepID.String()).
 					Str("Contract_Address", o.instance.Address()).
@@ -1478,7 +1488,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 					Msg("Upkeep remained eligible at end of test and missed SLA")
 				o.countMissed++
 			} else {
-				log.Info().
+				o.l.Info().
 					Uint64("Block_Number", receivedHeader.Number.Uint64()).
 					Str("Upkeep_ID", o.upkeepID.String()).
 					Str("Contract_Address", o.instance.Address()).
@@ -1490,7 +1500,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 			o.allCheckDelays = append(o.allCheckDelays, o.blocksSinceEligible)
 		}
 
-		log.Info().
+		o.l.Info().
 			Uint64("Block_Number", receivedHeader.Number.Uint64()).
 			Str("Upkeep_ID", o.upkeepID.String()).
 			Str("Contract_Address", o.instance.Address()).

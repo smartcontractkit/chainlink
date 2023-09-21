@@ -110,23 +110,13 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 		}
 
 		legacyMap := make(map[string]evm.Chain)
-		var defaultChain evm.Chain
-
 		for id, a := range adapters {
 			// adapter is a service
 			op.srvs = append(op.srvs, a)
 			op.loopRelayers[id] = a
 			legacyMap[id.ChainID] = a.Chain()
-			if a.Default() {
-				defaultChain = a.Chain()
-			}
-
 		}
 		op.legacyChains.EVMChains = evm.NewLegacyChains(legacyMap, config.AppConfig.EVMConfigs())
-		// TODO BCF-2510 this may not be necessary if EVM is not enabled by default
-		if defaultChain != nil {
-			op.legacyChains.EVMChains.SetDefault(defaultChain)
-		}
 		return nil
 	}
 }

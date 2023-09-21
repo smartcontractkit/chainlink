@@ -10,7 +10,7 @@ import {Common} from "../../libraries/Common.sol";
 import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
 
 /**
- * @title FeeManager
+ * @title RewardManager
  * @author Michael Fletcher
  * @author Austin Born
  * @notice This contract will be used to reward any configured recipients within a pool. Recipients will receive a share of their pool relative to their configured weight.
@@ -34,7 +34,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
   bytes32[] public s_registeredPoolIds;
 
   // @dev The address for the LINK contract
-  address private immutable i_linkAddress;
+  address public immutable i_linkAddress;
 
   // The total weight of all RewardRecipients. 1e18 = 100% of the pool fees
   uint64 private constant PERCENTAGE_SCALAR = 1e18;

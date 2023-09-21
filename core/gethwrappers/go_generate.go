@@ -107,6 +107,7 @@ package gethwrappers
 
 // VRF V2Plus
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2Plus.abi ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2Plus.bin BatchVRFCoordinatorV2Plus batch_vrf_coordinator_v2plus
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/TrustedBlockhashStore.abi ../../contracts/solc/v0.8.6/TrustedBlockhashStore.bin TrustedBlockhashStore trusted_blockhash_store
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2PlusConsumerExample.abi ../../contracts/solc/v0.8.6/VRFV2PlusConsumerExample.bin VRFV2PlusConsumerExample vrfv2plus_consumer_example
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFCoordinatorV2Plus.abi ../../contracts/solc/v0.8.6/VRFCoordinatorV2Plus.bin VRFCoordinatorV2Plus vrf_coordinator_v2plus
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2PlusWrapper.abi ../../contracts/solc/v0.8.6/VRFV2PlusWrapper.bin VRFV2PlusWrapper vrfv2plus_wrapper

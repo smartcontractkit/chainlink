@@ -16,9 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -29,9 +28,10 @@ import (
 
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestLogger(t).
 		WithGeth().
 		WithMockServer(1).
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
@@ -43,7 +43,7 @@ func TestOCRv2Basic(t *testing.T) {
 		Build()
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		if err := env.Cleanup(); err != nil {
+		if err := env.Cleanup(t); err != nil {
 			l.Error().Err(err).Msg("Error cleaning up test environment")
 		}
 	})
@@ -81,7 +81,7 @@ func TestOCRv2Basic(t *testing.T) {
 	err = actions.ConfigureOCRv2AggregatorContracts(env.EVMClient, ocrv2Config, aggregatorContracts)
 	require.NoError(t, err, "Error configuring OCRv2 aggregator contracts")
 
-	err = actions.StartNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5)
+	err = actions.StartNewOCR2Round(1, aggregatorContracts, env.EVMClient, time.Minute*5, l)
 	require.NoError(t, err, "Error starting new OCR2 round")
 	roundData, err := aggregatorContracts[0].GetRound(context.Background(), big.NewInt(1))
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
@@ -92,7 +92,7 @@ func TestOCRv2Basic(t *testing.T) {
 
 	err = env.MockServer.Client.SetValuePath("ocr2", 10)
 	require.NoError(t, err)
-	err = actions.StartNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5)
+	err = actions.StartNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5, l)
 	require.NoError(t, err)
 
 	roundData, err = aggregatorContracts[0].GetRound(context.Background(), big.NewInt(2))

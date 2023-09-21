@@ -743,7 +743,7 @@ func (lp *logPoller) getCurrentBlockMaybeHandleReorg(ctx context.Context, curren
 		// that applications see them and take action upon it, however that
 		// results in significantly slower reads since we must then compute
 		// the canonical set per read. Typically, if an application took action on a log
-		// it would be saved elsewhere e.g. eth_txes, so it seems better to just support the fast reads.
+		// it would be saved elsewhere e.g. evm.txes, so it seems better to just support the fast reads.
 		// Its also nicely analogous to reading from the chain itself.
 		err2 = lp.orm.q.WithOpts(pg.WithParentCtx(ctx)).Transaction(func(tx pg.Queryer) error {
 			// These deletes are bounded by reorg depth, so they are

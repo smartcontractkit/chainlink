@@ -1,8 +1,10 @@
 package functions
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync/atomic"
@@ -137,9 +139,20 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 		if len(requests[0].CoordinatorContract) != common.AddressLength {
 			return fmt.Errorf("FunctionsContractTransmitter: incorrect length of CoordinatorContract field: %d", len(requests[0].CoordinatorContract))
 		}
-		// NOTE: this is incorrect if batch contains requests destined for different contracts (unlikely)
-		// it will be fixed when we get rid of batching
 		destinationContract.SetBytes(requests[0].CoordinatorContract)
+		if destinationContract == (common.Address{}) {
+			return errors.New("FunctionsContractTransmitter: destination coordinator contract is zero")
+		}
+		// Sanity check - every report should contain requests with the same coordinator contract.
+		for _, req := range requests[1:] {
+			if !bytes.Equal(req.CoordinatorContract, destinationContract.Bytes()) {
+				oc.lggr.Errorw("FunctionsContractTransmitter: non-uniform coordinator addresses in a batch - still sending to a single destination",
+					"requestID", hex.EncodeToString(req.RequestID),
+					"destinationContract", destinationContract,
+					"requestCoordinator", hex.EncodeToString(req.CoordinatorContract),
+				)
+			}
+		}
 		oc.lggr.Debugw("FunctionsContractTransmitter: ready", "nRequests", len(requests), "coordinatorContract", destinationContract.Hex())
 	} else {
 		return fmt.Errorf("unsupported contract version: %d", oc.contractVersion)

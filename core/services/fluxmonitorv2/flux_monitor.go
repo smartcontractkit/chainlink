@@ -735,6 +735,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 			"databaseID":    fm.jobSpec.ID,
 			"externalJobID": fm.jobSpec.ExternalJobID,
 			"name":          fm.jobSpec.Name.ValueOrZero(),
+			"evmChainID":    fm.chainID.String(),
 		},
 		"jobRun": map[string]interface{}{
 			"meta": metaDataForBridge,
@@ -938,6 +939,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 			"databaseID":    fm.jobSpec.ID,
 			"externalJobID": fm.jobSpec.ExternalJobID,
 			"name":          fm.jobSpec.Name.ValueOrZero(),
+			"evmChainID":    fm.chainID.String(),
 		},
 		"jobRun": map[string]interface{}{
 			"meta": metaDataForBridge,

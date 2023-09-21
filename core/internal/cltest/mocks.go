@@ -429,7 +429,5 @@ func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg 
 
 func NewLegacyChainsWithChain(ch evm.Chain, cfg evm.AppConfig) evm.LegacyChainContainer {
 	m := map[string]evm.Chain{ch.ID().String(): ch}
-	legacyChains := evm.NewLegacyChains(m, cfg.EVMConfigs())
-	legacyChains.SetDefault(ch)
-	return legacyChains
+	return evm.NewLegacyChains(m, cfg.EVMConfigs())
 }
