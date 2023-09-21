@@ -2,7 +2,7 @@ ChainID = '5001'
 
 FinalityDepth = 1
 LogPollInterval = '2s'
-MinIncomingConfirmations = 1
+MinIncomingConfirmations = 0
 # Blocks are only emitted when a transaction happens / no empty blocks
 NoNewHeadsThreshold = '0'
 
