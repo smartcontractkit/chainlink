@@ -59,13 +59,21 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 	if err != nil {
 		return nil, err
 	}
-	networks := []string{network.Name}
+	n := []string{network.Name}
 	return &CLClusterTestEnv{
+		Geth:       test_env.NewGeth(n),
+		MockServer: test_env.NewMockServer(n),
 		Network:    network,
-		Geth:       test_env.NewGeth(networks),
-		MockServer: test_env.NewMockServer(networks),
 		l:          log.Logger,
 	}, nil
+}
+
+func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTestEnv {
+	te.Cfg = cfg
+	n := []string{te.Network.Name}
+	te.Geth = test_env.NewGeth(n, test_env.WithContainerName(cfg.Geth.ContainerName))
+	te.MockServer = test_env.NewMockServer(n, test_env.WithContainerName(cfg.MockServer.ContainerName))
+	return te
 }
 
 func (te *CLClusterTestEnv) WithTestLogger(t *testing.T) *CLClusterTestEnv {
@@ -74,23 +82,6 @@ func (te *CLClusterTestEnv) WithTestLogger(t *testing.T) *CLClusterTestEnv {
 	te.Geth.WithTestLogger(t)
 	te.MockServer.WithTestLogger(t)
 	return te
-}
-
-func NewTestEnvFromCfg(l zerolog.Logger, cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
-	utils.SetupCoreDockerEnvLogger()
-	network, err := docker.CreateNetwork(log.Logger)
-	if err != nil {
-		return nil, err
-	}
-	networks := []string{network.Name}
-	l.Info().Interface("Cfg", cfg).Send()
-	return &CLClusterTestEnv{
-		Cfg:        cfg,
-		Network:    network,
-		Geth:       test_env.NewGeth(networks, test_env.WithContainerName(cfg.Geth.ContainerName)),
-		MockServer: test_env.NewMockServer(networks, test_env.WithContainerName(cfg.MockServer.ContainerName)),
-		l:          log.Logger,
-	}, nil
 }
 
 func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
@@ -123,7 +114,7 @@ func (te *CLClusterTestEnv) StartPrivateChain() error {
 	for _, chain := range te.PrivateChain {
 		primaryNode := chain.GetPrimaryNode()
 		if primaryNode == nil {
-			return errors.WithStack(fmt.Errorf("Primary node is nil in PrivateChain interface"))
+			return errors.WithStack(fmt.Errorf("primary node is nil in PrivateChain interface"))
 		}
 		err := primaryNode.Start()
 		if err != nil {
