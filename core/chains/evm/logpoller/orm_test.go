@@ -1087,16 +1087,16 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 	th := SetupTH(t, 2, 3, 2)
 	event1 := EmitterABI.Events["Log1"].ID
 	event2 := EmitterABI.Events["Log2"].ID
-	address1 := common.HexToAddress("0xA")
-	address2 := common.HexToAddress("0xB")
+	address1 := utils.RandomAddress()
+	address2 := utils.RandomAddress()
 
 	require.NoError(t, th.ORM.InsertLogs([]logpoller.Log{
-		GenLog(th.ChainID, 1, 1, "0x1", event1[:], address1),
-		GenLog(th.ChainID, 2, 1, "0x2", event2[:], address2),
-		GenLog(th.ChainID, 2, 2, "0x4", event2[:], address2),
-		GenLog(th.ChainID, 2, 3, "0x6", event2[:], address2),
+		GenLog(th.ChainID, 1, 1, utils.RandomAddress().String(), event1[:], address1),
+		GenLog(th.ChainID, 2, 1, utils.RandomAddress().String(), event2[:], address2),
+		GenLog(th.ChainID, 2, 2, utils.RandomAddress().String(), event2[:], address2),
+		GenLog(th.ChainID, 2, 3, utils.RandomAddress().String(), event2[:], address2),
 	}))
-	require.NoError(t, th.ORM.InsertBlock(common.HexToHash("0x1"), 3, time.Now()))
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 3, time.Now()))
 
 	tests := []struct {
 		name                string
@@ -1168,6 +1168,95 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 			blockNumber, err := th.ORM.SelectLatestBlockNumberEventSigsAddrsWithConfs(tt.fromBlock, tt.events, tt.addrs, tt.confs)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedBlockNumber, blockNumber)
+		})
+	}
+}
+
+func TestSelectLogsCreatedAfter(t *testing.T) {
+	th := SetupTH(t, 2, 3, 2)
+	event := EmitterABI.Events["Log1"].ID
+	address := utils.RandomAddress()
+
+	past := time.Date(2010, 1, 1, 12, 12, 12, 0, time.UTC)
+	now := time.Date(2020, 1, 1, 12, 12, 12, 0, time.UTC)
+	future := time.Date(2030, 1, 1, 12, 12, 12, 0, time.UTC)
+
+	require.NoError(t, th.ORM.InsertLogs([]logpoller.Log{
+		GenLog(th.ChainID, 1, 1, utils.RandomAddress().String(), event[:], address),
+		GenLog(th.ChainID, 1, 2, utils.RandomAddress().String(), event[:], address),
+		GenLog(th.ChainID, 2, 2, utils.RandomAddress().String(), event[:], address),
+		GenLog(th.ChainID, 1, 3, utils.RandomAddress().String(), event[:], address),
+	}))
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 1, past))
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 2, now))
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 3, future))
+
+	type expectedLog struct {
+		block int64
+		log   int64
+	}
+
+	tests := []struct {
+		name         string
+		confs        int
+		after        time.Time
+		expectedLogs []expectedLog
+	}{
+		{
+			name:  "picks logs after block 1",
+			confs: 0,
+			after: past.Add(-time.Hour),
+			expectedLogs: []expectedLog{
+				{block: 2, log: 1},
+				{block: 2, log: 2},
+				{block: 3, log: 1},
+			},
+		},
+		{
+			name:  "skips blocks with not enough confirmations",
+			confs: 1,
+			after: past.Add(-time.Hour),
+			expectedLogs: []expectedLog{
+				{block: 2, log: 1},
+				{block: 2, log: 2},
+			},
+		},
+		{
+			name:  "limits number of blocks by block_timestamp",
+			confs: 0,
+			after: now.Add(-time.Hour),
+			expectedLogs: []expectedLog{
+				{block: 3, log: 1},
+			},
+		},
+		{
+			name:         "returns empty dataset for future timestamp",
+			confs:        0,
+			after:        future,
+			expectedLogs: []expectedLog{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logs, err := th.ORM.SelectLogsCreatedAfter(event[:], address, tt.after, tt.confs)
+			require.NoError(t, err)
+			assert.Len(t, logs, len(tt.expectedLogs))
+
+			for i, log := range logs {
+				assert.Equal(t, tt.expectedLogs[i].block, log.BlockNumber)
+				assert.Equal(t, tt.expectedLogs[i].log, log.LogIndex)
+			}
+		})
+
+		t.Run(tt.name, func(t *testing.T) {
+			logs, err := th.ORM.SelectIndexedLogsCreatedAfter(address, event, 0, []common.Hash{event}, tt.after, tt.confs)
+			require.NoError(t, err)
+			assert.Len(t, logs, len(tt.expectedLogs))
+
+			for i, log := range logs {
+				assert.Equal(t, tt.expectedLogs[i].block, log.BlockNumber)
+				assert.Equal(t, tt.expectedLogs[i].log, log.LogIndex)
+			}
 		})
 	}
 }

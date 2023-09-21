@@ -232,20 +232,26 @@ func (o *ORM) SelectLogsByBlockRangeFilter(start, end int64, address common.Addr
 
 // SelectLogsCreatedAfter finds logs created after some timestamp.
 func (o *ORM) SelectLogsCreatedAfter(eventSig []byte, address common.Address, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
+	minBlock, maxBlock, err := o.blocksRangeAfterTimestamp(after, confs, qopts...)
+	if err != nil {
+		return nil, err
+	}
+
 	var logs []Log
 	q := o.q.WithOpts(qopts...)
-	err := q.Select(&logs, `
+	err = q.Select(&logs, `
 		SELECT * FROM evm.logs 
 			WHERE evm_chain_id = $1 
 			AND address = $2 
 			AND event_sig = $3 	
-			AND created_at > $4
-			AND (block_number + $5) <= (SELECT COALESCE(block_number, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1)
-			ORDER BY created_at ASC`, utils.NewBig(o.chainID), address, eventSig, after, confs)
+			AND block_number > $4
+			AND block_number <= $5
+			ORDER BY (block_number, log_index)`, utils.NewBig(o.chainID), address, eventSig, minBlock, maxBlock)
 	if err != nil {
 		return nil, err
 	}
 	return logs, nil
+
 }
 
 // SelectLogsWithSigsByBlockRangeFilter finds the logs in the given block range with the given event signatures
@@ -498,18 +504,24 @@ func validateTopicIndex(index int) error {
 }
 
 func (o *ORM) SelectIndexedLogsCreatedAfter(address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
-	q := o.q.WithOpts(qopts...)
+	minBlock, maxBlock, err := o.blocksRangeAfterTimestamp(after, confs, qopts...)
+	if err != nil {
+		return nil, err
+	}
+
 	var logs []Log
+	q := o.q.WithOpts(qopts...)
 	topicValuesBytes := concatBytes(topicValues)
 	// Add 1 since postgresql arrays are 1-indexed.
-	err := q.Select(&logs, `
+	err = q.Select(&logs, `
 		SELECT * FROM evm.logs 
 			WHERE evm.logs.evm_chain_id = $1
-			AND address = $2 AND event_sig = $3
+			AND address = $2 
+			AND event_sig = $3
 			AND topics[$4] = ANY($5)
-			AND created_at > $6
-			AND block_number <= (SELECT COALESCE(block_number, 0) FROM evm.log_poller_blocks WHERE evm_chain_id = $1 ORDER BY block_number DESC LIMIT 1) - $7
-			ORDER BY created_at ASC`, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, topicValuesBytes, after, confs)
+			AND block_number > $6
+			AND block_number <= $7
+			ORDER BY (block_number, log_index)`, utils.NewBig(o.chainID), address, eventSig.Bytes(), topicIndex+1, topicValuesBytes, minBlock, maxBlock)
 	if err != nil {
 		return nil, err
 	}
@@ -569,7 +581,27 @@ func (o *ORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topicIn
 		return nil, err
 	}
 	return logs, nil
+}
 
+func (o *ORM) blocksRangeAfterTimestamp(after time.Time, confs int, qopts ...pg.QOpt) (int64, int64, error) {
+	type blockRange struct {
+		MinBlockNumber int64 `db:"min_block"`
+		MaxBlockNumber int64 `db:"max_block"`
+	}
+
+	var br blockRange
+	q := o.q.WithOpts(qopts...)
+	err := q.Get(&br, `
+		SELECT 
+		    coalesce(min(block_number), 0) as min_block, 
+		    coalesce(max(block_number), 0) as max_block
+		FROM evm.log_poller_blocks 
+		WHERE evm_chain_id = $1
+		AND block_timestamp > $2`, utils.NewBig(o.chainID), after)
+	if err != nil {
+		return 0, 0, err
+	}
+	return br.MinBlockNumber, br.MaxBlockNumber - int64(confs), nil
 }
 
 type bytesProducer interface {
