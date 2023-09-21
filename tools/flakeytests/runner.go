@@ -20,37 +20,53 @@ var (
 )
 
 type Runner struct {
-	readers   []io.Reader
-	numReruns int
-	runTestFn runTestCmd
-	parse     parseFn
-	reporter  reporter
+	readers     []io.Reader
+	testCommand tester
+	numReruns   int
+	parse       parseFn
+	reporter    reporter
+}
+
+type tester interface {
+	test(pkg string, tests []string, w io.Writer) error
 }
 
 type reporter interface {
-	Report(map[string][]string) error
+	Report(map[string]map[string]struct{}) error
 }
 
-type runTestCmd func(pkg string, testNames []string, numReruns int, w io.Writer) error
 type parseFn func(readers ...io.Reader) (map[string]map[string]int, error)
 
 func NewRunner(readers []io.Reader, reporter reporter, numReruns int) *Runner {
-	return &Runner{
-		readers:   readers,
+	tc := &testCommand{
+		repo:      "github.com/smartcontractkit/chainlink/v2",
+		command:   "./tools/bin/go_core_tests",
 		numReruns: numReruns,
-		runTestFn: runGoTest,
-		parse:     parseOutput,
-		reporter:  reporter,
+	}
+	return &Runner{
+		readers:     readers,
+		numReruns:   numReruns,
+		testCommand: tc,
+		parse:       parseOutput,
+		reporter:    reporter,
 	}
 }
 
-func runGoTest(pkg string, tests []string, numReruns int, w io.Writer) error {
-	pkg = strings.Replace(pkg, "github.com/smartcontractkit/chainlink/v2", "", -1)
+type testCommand struct {
+	command   string
+	repo      string
+	numReruns int
+	overrides func(*exec.Cmd)
+}
+
+func (t *testCommand) test(pkg string, tests []string, w io.Writer) error {
+	replacedPkg := strings.Replace(pkg, t.repo, "", -1)
 	testFilter := strings.Join(tests, "|")
-	cmd := exec.Command("./tools/bin/go_core_tests", fmt.Sprintf(".%s", pkg)) //#nosec
-	cmd.Env = append(os.Environ(), fmt.Sprintf("TEST_FLAGS=-count %d -run %s", numReruns, testFilter))
+	cmd := exec.Command(t.command, fmt.Sprintf(".%s", replacedPkg)) //#nosec
+	cmd.Env = append(os.Environ(), fmt.Sprintf("TEST_FLAGS=-count=%d -run %s", t.numReruns, testFilter))
 	cmd.Stdout = io.MultiWriter(os.Stdout, w)
 	cmd.Stderr = io.MultiWriter(os.Stderr, w)
+	t.overrides(cmd)
 	return cmd.Run()
 }
 
@@ -123,8 +139,9 @@ type exitCoder interface {
 	ExitCode() int
 }
 
-func (r *Runner) runTests(failedTests map[string]map[string]int) (io.Reader, error) {
-	var out bytes.Buffer
+func (r *Runner) runTests(failedTests map[string]map[string]int) (map[string]map[string]struct{}, error) {
+	suspectedFlakes := map[string]map[string]struct{}{}
+
 	for pkg, tests := range failedTests {
 		ts := []string{}
 		for test := range tests {
@@ -132,21 +149,40 @@ func (r *Runner) runTests(failedTests map[string]map[string]int) (io.Reader, err
 		}
 
 		log.Printf("Executing test command with parameters: pkg=%s, tests=%+v, numReruns=%d\n", pkg, ts, r.numReruns)
-		err := r.runTestFn(pkg, ts, r.numReruns, &out)
-		if err != nil {
-			log.Printf("Test command errored: %s\n", err)
-			// There was an error because the command failed with a non-zero
-			// exit code. This could just mean that the test failed again, so let's
-			// keep going.
-			var exErr exitCoder
-			if errors.As(err, &exErr) && exErr.ExitCode() > 0 {
-				continue
+		for i := 0; i < r.numReruns; i++ {
+			var out bytes.Buffer
+
+			err := r.testCommand.test(pkg, ts, &out)
+			if err != nil {
+				log.Printf("Test command errored: %s\n", err)
+				// There was an error because the command failed with a non-zero
+				// exit code. This could just mean that the test failed again, so let's
+				// keep going.
+				var exErr exitCoder
+				if errors.As(err, &exErr) && exErr.ExitCode() > 0 {
+					continue
+				}
+				return suspectedFlakes, err
 			}
-			return &out, err
+
+			fr, err := r.parse(&out)
+			if err != nil {
+				return nil, err
+			}
+
+			for t := range tests {
+				failures := fr[pkg][t]
+				if failures == 0 {
+					if suspectedFlakes[pkg] == nil {
+						suspectedFlakes[pkg] = map[string]struct{}{}
+					}
+					suspectedFlakes[pkg][t] = struct{}{}
+				}
+			}
 		}
 	}
 
-	return &out, nil
+	return suspectedFlakes, nil
 }
 
 func (r *Runner) Run() error {
@@ -155,26 +191,9 @@ func (r *Runner) Run() error {
 		return err
 	}
 
-	output, err := r.runTests(failedTests)
+	suspectedFlakes, err := r.runTests(failedTests)
 	if err != nil {
 		return err
-	}
-
-	failedReruns, err := r.parse(output)
-	if err != nil {
-		return err
-	}
-
-	suspectedFlakes := map[string][]string{}
-	// A test is flakey if it appeared in the list of original flakey tests
-	// and doesn't appear in the reruns, or if it hasn't failed each additional
-	// run, i.e. if it hasn't twice after being re-run.
-	for pkg, t := range failedTests {
-		for test := range t {
-			if failedReruns[pkg][test] != r.numReruns {
-				suspectedFlakes[pkg] = append(suspectedFlakes[pkg], test)
-			}
-		}
 	}
 
 	if len(suspectedFlakes) > 0 {

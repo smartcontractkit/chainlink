@@ -2,8 +2,8 @@
 pragma solidity 0.8.16;
 
 import {Test} from "forge-std/Test.sol";
-import {FeeManager} from "../../dev/FeeManager.sol";
-import {IFeeManager} from "../../dev/interfaces/IFeeManager.sol";
+import {FeeManager} from "../../FeeManager.sol";
+import {IFeeManager} from "../../interfaces/IFeeManager.sol";
 import {Common} from "../../../libraries/Common.sol";
 import "./BaseFeeManager.t.sol";
 

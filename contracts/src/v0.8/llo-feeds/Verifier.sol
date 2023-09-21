@@ -195,7 +195,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "Verifier 1.1.0";
+    return "Verifier 1.2.0";
   }
 
   /// @inheritdoc IVerifier

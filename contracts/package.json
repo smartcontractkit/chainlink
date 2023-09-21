@@ -1,6 +1,6 @@
 {
   "name": "@chainlink/contracts",
-  "version": "0.6.1",
+  "version": "0.7.1",
   "description": "Chainlink smart contracts",
   "author": "Chainlink devs",
   "license": "MIT",
@@ -17,7 +17,7 @@
     "coverage": "hardhat coverage",
     "prepublishOnly": "pnpm compile && ./scripts/prepublish_generate_abi_folder",
     "publish-beta": "pnpm publish --tag beta",
-    "publish-prod": "npm dist-tag add @chainlink/contracts@0.6.1 latest"
+    "publish-prod": "npm dist-tag add @chainlink/contracts@0.7.1 latest"
   },
   "files": [
     "src/",

@@ -9,12 +9,12 @@ import {ErroredVerifier} from "../mocks/ErroredVerifier.sol";
 import {Verifier} from "../../Verifier.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
-import {FeeManager} from "../../dev/FeeManager.sol";
+import {FeeManager} from "../../FeeManager.sol";
 import {Common} from "../../../libraries/Common.sol";
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/mocks/ERC20Mock.sol";
 import {WERC20Mock} from "../../../shared/mocks/WERC20Mock.sol";
-import {FeeManager} from "../../dev/FeeManager.sol";
-import {RewardManager} from "../../dev/RewardManager.sol";
+import {FeeManager} from "../../FeeManager.sol";
+import {RewardManager} from "../../RewardManager.sol";
 
 contract BaseTest is Test {
   uint256 internal constant MAX_ORACLES = 31;
