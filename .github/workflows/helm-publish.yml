@@ -1,20 +1,17 @@
 name: Helm Publish
 
 on:
-  push:
-    tags:
-      - helm-v**
+  pull_request:
+    types: [ labeled ]
 
 jobs:
-  build:
+  helm_release:
+    if: ${{ github.event.label.name == 'helm_release' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v1
-      - name: Create packages and repo index
-        run: |
-          git config user.name github-actions
-          git config user.email github-actions@github.com
-      - uses: J12934/helm-gh-pages-action@master
+      - name: Release helm chart
+        uses: J12934/helm-gh-pages-action@master
         with:
           charts-folder: charts
           deploy-branch: helm-release
