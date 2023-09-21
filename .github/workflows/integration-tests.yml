@@ -807,7 +807,7 @@ jobs:
 
   testnet-smoke-tests-notify:
     name: Live Testnet Start Slack Thread
-    if: ${{ always() && needs.testnet-smoke-tests-matrix.result != 'skipped' }}
+    if: ${{ always() && needs.testnet-smoke-tests-matrix.result != 'skipped' && needs.testnet-smoke-tests-matrix.result != 'cancelled' }}
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -859,7 +859,7 @@ jobs:
 
   testnet-smoke-tests-results:
     name: Post Live Testnet Smoke Test Results
-    if: ${{ always() && needs.testnet-smoke-tests-notify.result != 'skipped' }}
+    if: ${{ always() && needs.testnet-smoke-tests-matrix.result != 'skipped' && needs.testnet-smoke-tests-matrix.result != 'cancelled' }}
     environment: integration
     permissions:
       checks: write
