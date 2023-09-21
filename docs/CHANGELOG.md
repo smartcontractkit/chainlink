@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Temporary helper function for proper migration of evmChainID not null in specs, that fills in missing chainIDs. This needs to be removed after one version after everyone migrated properly. For proper migrations all nodes must upgrade sequentially without skipping this version.
+- Helper migrations function for injecting env vars into goose migrations. This was done to inject chainID into evm chain id not null in specs migrations.
 
 ### Removed
 
