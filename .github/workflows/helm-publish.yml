@@ -1,0 +1,13 @@
+name: Helm Publish
+
+on:
+  push:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v1
+      - uses: J12934/helm-gh-pages-action@master
+        with:
+          access-token: ${{ secrets.GITHUB_TOKEN }}
