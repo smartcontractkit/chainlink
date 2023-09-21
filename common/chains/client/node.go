@@ -42,6 +42,7 @@ type NodeConfig interface {
 	SyncThreshold() uint32
 }
 
+//go:generate mockery --quiet --name Node --output ./mocks/ --case=underscore
 type Node[
 	CHAIN_ID types.ID,
 	HEAD Head,

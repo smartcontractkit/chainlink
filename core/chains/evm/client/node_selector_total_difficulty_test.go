@@ -1,10 +1,14 @@
 package client_test
 
 import (
+	"math/big"
 	"testing"
 
+	commonclient "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	commonmocks "github.com/smartcontractkit/chainlink/v2/common/chains/client/mocks"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -170,6 +174,171 @@ func TestTotalDifficultyNodeSelectorWithOrder(t *testing.T) {
 
 		nodes := []evmclient.Node{node1, node2, node3, node4}
 		selector := evmclient.NewTotalDifficultyNodeSelector(nodes)
+		//Should select the third node as it has the highest td and will win the priority tie-breaker
+		assert.Same(t, nodes[2], selector.Select())
+	})
+}
+
+func TestCommonTotalDifficultyNodeSelectorName(t *testing.T) {
+	selector := commonclient.NewTotalDifficultyNodeSelector[*big.Int, *evmtypes.Head, evmRPC](nil)
+	assert.Equal(t, selector.Name(), commonclient.NodeSelectionMode_TotalDifficulty)
+}
+
+func TestCommonTotalDifficultyNodeSelector(t *testing.T) {
+	t.Parallel()
+
+	var nodes []commonclient.Node[*big.Int, *evmtypes.Head, evmRPC]
+
+	for i := 0; i < 3; i++ {
+		node := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+		if i == 0 {
+			// first node is out of sync
+			node.On("StateAndLatest").Return(commonclient.NodeStateOutOfSync, int64(-1), nil)
+		} else if i == 1 {
+			// second node is alive
+			node.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(1), utils.NewBigI(7))
+		} else {
+			// third node is alive and best
+			node.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(2), utils.NewBigI(8))
+		}
+		node.On("Order").Maybe().Return(int32(1))
+		nodes = append(nodes, node)
+	}
+
+	selector := commonclient.NewTotalDifficultyNodeSelector(nodes)
+	assert.Same(t, nodes[2], selector.Select())
+
+	t.Run("stick to the same node", func(t *testing.T) {
+		node := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+		// fourth node is alive (same as 3rd)
+		node.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(2), utils.NewBigI(8))
+		node.On("Order").Maybe().Return(int32(1))
+		nodes = append(nodes, node)
+
+		selector := commonclient.NewTotalDifficultyNodeSelector(nodes)
+		assert.Same(t, nodes[2], selector.Select())
+	})
+
+	t.Run("another best node", func(t *testing.T) {
+		node := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+		// fifth node is alive (better than 3rd and 4th)
+		node.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(3), utils.NewBigI(11))
+		node.On("Order").Maybe().Return(int32(1))
+		nodes = append(nodes, node)
+
+		selector := commonclient.NewTotalDifficultyNodeSelector(nodes)
+		assert.Same(t, nodes[4], selector.Select())
+	})
+
+	t.Run("nodes never update latest block number", func(t *testing.T) {
+		node1 := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+		node1.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(-1), nil)
+		node1.On("Order").Maybe().Return(int32(1))
+		node2 := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+		node2.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(-1), nil)
+		node2.On("Order").Maybe().Return(int32(1))
+		nodes := []commonclient.Node[*big.Int, *evmtypes.Head, evmRPC]{node1, node2}
+
+		selector := commonclient.NewTotalDifficultyNodeSelector(nodes)
+		assert.Same(t, node1, selector.Select())
+	})
+}
+
+func TestCommonTotalDifficultyNodeSelector_None(t *testing.T) {
+	t.Parallel()
+
+	var nodes []commonclient.Node[*big.Int, *evmtypes.Head, evmRPC]
+
+	for i := 0; i < 3; i++ {
+		node := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+		if i == 0 {
+			// first node is out of sync
+			node.On("StateAndLatest").Return(commonclient.NodeStateOutOfSync, int64(-1), nil)
+		} else {
+			// others are unreachable
+			node.On("StateAndLatest").Return(commonclient.NodeStateUnreachable, int64(1), utils.NewBigI(7))
+		}
+		nodes = append(nodes, node)
+	}
+
+	selector := commonclient.NewTotalDifficultyNodeSelector(nodes)
+	assert.Nil(t, selector.Select())
+}
+
+func TestCommonTotalDifficultyNodeSelectorWithOrder(t *testing.T) {
+	t.Parallel()
+
+	var nodes []commonclient.Node[*big.Int, *evmtypes.Head, evmRPC]
+
+	t.Run("same td and order", func(t *testing.T) {
+		for i := 0; i < 3; i++ {
+			node := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+			node.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(1), utils.NewBigI(10))
+			node.On("Order").Return(int32(2))
+			nodes = append(nodes, node)
+		}
+		selector := commonclient.NewTotalDifficultyNodeSelector(nodes)
+		//Should select the first node because all things are equal
+		assert.Same(t, nodes[0], selector.Select())
+	})
+
+	t.Run("same td but different order", func(t *testing.T) {
+		node1 := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+		node1.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(3), utils.NewBigI(10))
+		node1.On("Order").Return(int32(3))
+
+		node2 := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+		node2.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(3), utils.NewBigI(10))
+		node2.On("Order").Return(int32(1))
+
+		node3 := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+		node3.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(3), utils.NewBigI(10))
+		node3.On("Order").Return(int32(2))
+
+		nodes := []commonclient.Node[*big.Int, *evmtypes.Head, evmRPC]{node1, node2, node3}
+		selector := commonclient.NewTotalDifficultyNodeSelector(nodes)
+		//Should select the second node as it has the highest priority
+		assert.Same(t, nodes[1], selector.Select())
+	})
+
+	t.Run("different td but same order", func(t *testing.T) {
+		node1 := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+		node1.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(1), utils.NewBigI(10))
+		node1.On("Order").Maybe().Return(int32(3))
+
+		node2 := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+		node2.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(1), utils.NewBigI(11))
+		node2.On("Order").Maybe().Return(int32(3))
+
+		node3 := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+		node3.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(1), utils.NewBigI(12))
+		node3.On("Order").Return(int32(3))
+
+		nodes := []commonclient.Node[*big.Int, *evmtypes.Head, evmRPC]{node1, node2, node3}
+		selector := commonclient.NewTotalDifficultyNodeSelector(nodes)
+		//Should select the third node as it has the highest td
+		assert.Same(t, nodes[2], selector.Select())
+	})
+
+	t.Run("different head and different order", func(t *testing.T) {
+		node1 := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+		node1.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(1), utils.NewBigI(100))
+		node1.On("Order").Maybe().Return(int32(4))
+
+		node2 := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+		node2.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(1), utils.NewBigI(110))
+		node2.On("Order").Maybe().Return(int32(5))
+
+		node3 := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+		node3.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(1), utils.NewBigI(110))
+		node3.On("Order").Maybe().Return(int32(1))
+
+		node4 := commonmocks.NewNode[*big.Int, *evmtypes.Head, evmRPC](t)
+		node4.On("StateAndLatest").Return(commonclient.NodeStateAlive, int64(1), utils.NewBigI(105))
+		node4.On("Order").Maybe().Return(int32(2))
+
+		nodes := []commonclient.Node[*big.Int, *evmtypes.Head, evmRPC]{node1, node2, node3, node4}
+		selector := commonclient.NewTotalDifficultyNodeSelector(nodes)
 		//Should select the third node as it has the highest td and will win the priority tie-breaker
 		assert.Same(t, nodes[2], selector.Select())
 	})
