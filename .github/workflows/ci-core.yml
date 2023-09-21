@@ -109,7 +109,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
         with:
-          name: go_core_tests_${{ matrix.cmd }}_logs
+          name: ${{ matrix.cmd }}_logs
           path: |
             ./output.txt
             ./output-short.txt
