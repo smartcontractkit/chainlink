@@ -945,7 +945,7 @@ func (c *feedLookupUpkeepController) VerifyEnv(
 	for _, contract := range c.contracts {
 		_, err := contract.CheckLog(c.contractsOwner, log_triggered_streams_lookup_wrapper.Log{
 			Index:       big.NewInt(0),
-			TxIndex:     big.NewInt(0),
+			Timestamp:   big.NewInt(123),
 			TxHash:      common.HexToHash("0x1"),
 			BlockNumber: big.NewInt(0),
 			BlockHash:   common.HexToHash("0x14"),

@@ -7,7 +7,7 @@ import {IVerifier} from "./interfaces/IVerifier.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {AccessControllerInterface} from "../shared/interfaces/AccessControllerInterface.sol";
 import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
-import {IVerifierFeeManager} from "./dev/interfaces/IVerifierFeeManager.sol";
+import {IVerifierFeeManager} from "./interfaces/IVerifierFeeManager.sol";
 import {Common} from "../libraries/Common.sol";
 
 /**
@@ -117,7 +117,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "VerifierProxy 1.1.0";
+    return "VerifierProxy 2.0.0";
   }
 
   /// @inheritdoc IVerifierProxy

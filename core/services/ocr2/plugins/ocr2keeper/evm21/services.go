@@ -78,7 +78,7 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 	logProvider, logRecoverer := logprovider.New(lggr, client.LogPoller(), client.Client(), utilsABI, services.upkeepState, finalityDepth)
 	services.logProvider = logProvider
 	services.logRecoverer = logRecoverer
-	services.blockSub = NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), lggr)
+	services.blockSub = NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), finalityDepth, lggr)
 
 	services.keyring = NewOnchainKeyringV3Wrapper(keyring)
 
