@@ -217,6 +217,25 @@ func (c *LogPollerReader) GetExecutionStateChangesBetweenSeqNums(ctx context.Con
 	)
 }
 
+func (c *LogPollerReader) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, txHash common.Hash) ([]byte, error) {
+	logs, err := c.lp.IndexedLogsByTxHash(
+		abihelpers.EventSignatures.USDCMessageSent,
+		txHash,
+		pg.WithParentCtx(ctx),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range logs {
+		current := logs[len(logs)-i-1]
+		if current.LogIndex < logIndex {
+			return current.Data, nil
+		}
+	}
+	return nil, errors.Errorf("no USDC message found prior to log index %d in tx %s", logIndex, txHash.Hex())
+}
+
 func (c *LogPollerReader) LatestBlock(ctx context.Context) (int64, error) {
 	return c.lp.LatestBlock(pg.WithParentCtx(ctx))
 }

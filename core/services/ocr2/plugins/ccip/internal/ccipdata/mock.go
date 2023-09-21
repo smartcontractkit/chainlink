@@ -128,6 +128,32 @@ func (_m *MockReader) GetGasPriceUpdatesCreatedAfter(ctx context.Context, priceR
 	return r0, r1
 }
 
+// GetLastUSDCMessagePriorToLogIndexInTx provides a mock function with given fields: ctx, logIndex, txHash
+func (_m *MockReader) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, txHash common.Hash) ([]byte, error) {
+	ret := _m.Called(ctx, logIndex, txHash)
+
+	var r0 []byte
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, int64, common.Hash) ([]byte, error)); ok {
+		return rf(ctx, logIndex, txHash)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, int64, common.Hash) []byte); ok {
+		r0 = rf(ctx, logIndex, txHash)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]byte)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, int64, common.Hash) error); ok {
+		r1 = rf(ctx, logIndex, txHash)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // GetSendRequestsBetweenSeqNums provides a mock function with given fields: ctx, onRamp, seqNumMin, seqNumMax, confs
 func (_m *MockReader) GetSendRequestsBetweenSeqNums(ctx context.Context, onRamp common.Address, seqNumMin uint64, seqNumMax uint64, confs int) ([]Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested], error) {
 	ret := _m.Called(ctx, onRamp, seqNumMin, seqNumMax, confs)
