@@ -1,9 +1,19 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+/**
+ * @member index the index of the log in the block. 0 for the first log
+ * @member timestamp the timestamp of the block containing the log
+ * @member txHash the hash of the transaction containing the log
+ * @member blockNumber the number of the block containing the log
+ * @member blockHash the hash of the block containing the log
+ * @member source the address of the contract that emitted the log
+ * @member topics the indexed topics of the log
+ * @member data the data of the log
+ */
 struct Log {
   uint256 index;
-  uint256 txIndex;
+  uint256 timestamp;
   bytes32 txHash;
   uint256 blockNumber;
   bytes32 blockHash;

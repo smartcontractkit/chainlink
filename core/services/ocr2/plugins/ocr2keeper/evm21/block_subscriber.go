@@ -50,12 +50,13 @@ type BlockSubscriber struct {
 	latestBlock      atomic.Pointer[ocr2keepers.BlockKey]
 	blockHistorySize int64
 	blockSize        int64
+	finalityDepth    uint32
 	lggr             logger.Logger
 }
 
 var _ ocr2keepers.BlockSubscriber = &BlockSubscriber{}
 
-func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, lggr logger.Logger) *BlockSubscriber {
+func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, finalityDepth uint32, lggr logger.Logger) *BlockSubscriber {
 	return &BlockSubscriber{
 		threadCtrl:       utils.NewThreadControl(),
 		hb:               hb,
@@ -65,6 +66,7 @@ func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, lggr
 		blocks:           map[int64]string{},
 		blockHistorySize: blockHistorySize,
 		blockSize:        lookbackDepth,
+		finalityDepth:    finalityDepth,
 		latestBlock:      atomic.Pointer[ocr2keepers.BlockKey]{},
 		lggr:             lggr.Named("BlockSubscriber"),
 	}
@@ -226,10 +228,13 @@ func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
 	// head parent is a linked list with EVM finality depth
 	// when re-org happens, new heads will have pointers to the new blocks
 	i := int64(0)
-	for cp := h; ; cp = cp.Parent {
-		if cp == nil || bs.blocks[cp.Number] == cp.Hash.Hex() {
-			break
-		}
+	for cp := h; cp != nil; cp = cp.Parent {
+		// we don't stop when a matching (block number/hash) entry is seen in the map because parent linked list may be
+		// cut short during a re-org if head broadcaster backfill is not complete. This can cause some re-orged blocks
+		// left in the map. for example, re-org happens for block 98, 99, 100. next head 101 from broadcaster has parent list
+		// of 100, so block 100 and 101 are updated. when next head 102 arrives, it has full parent history of finality depth.
+		// if we stop when we see a block number/hash match, we won't look back and correct block 98 and 99.
+		// hence, we make a compromise here and check previous max(finality depth, blockSize) blocks and update the map.
 		existingHash, ok := bs.blocks[cp.Number]
 		if !ok {
 			bs.lggr.Debugf("filling block %d with new hash %s", cp.Number, cp.Hash.Hex())
@@ -238,7 +243,7 @@ func (bs *BlockSubscriber) processHead(h *evmtypes.Head) {
 		}
 		bs.blocks[cp.Number] = cp.Hash.Hex()
 		i++
-		if i > bs.blockSize {
+		if i > int64(bs.finalityDepth) || i > bs.blockSize {
 			break
 		}
 	}
