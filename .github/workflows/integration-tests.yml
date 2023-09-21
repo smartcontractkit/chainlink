@@ -3,8 +3,8 @@ on:
   merge_group:
   pull_request:
   schedule:
-    - cron: "0 0 * * *"
-    # - cron: "0 * * * *" # DEBUG: Run every hour to nail down flakes
+    # - cron: "0 0 * * *"
+    - cron: "0 * * * *" # DEBUG: Run every hour to nail down flakes
   push:
     tags:
       - "*"
@@ -107,7 +107,7 @@ jobs:
       - name: Print Chainlink Image Built
         if: needs.changes.outputs.src == 'true'
         run: |
-          echo "### chainlink node image tag used for this test run :link:" >>$GITHUB_STEP_SUMMARY
+          echo "### Chainlink node image tag used for this test run :link:" >>$GITHUB_STEP_SUMMARY
           echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
 
   build-test-image:
@@ -168,6 +168,7 @@ jobs:
           MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu20.04-8cores-32GB 1)
           COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
           echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+
   eth-smoke-tests-matrix-automation:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
@@ -235,6 +236,7 @@ jobs:
           this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
+
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
@@ -805,7 +807,7 @@ jobs:
 
   testnet-smoke-tests-notify:
     name: Live Testnet Start Slack Thread
-    if: success() || failure()
+    if: ${{ always() && needs.testnet-smoke-tests-matrix.result != 'skipped' }}
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -857,6 +859,7 @@ jobs:
 
   testnet-smoke-tests-results:
     name: Post Live Testnet Smoke Test Results
+    if: ${{ always() && needs.testnet-smoke-tests-notify.result != 'skipped' }}
     environment: integration
     permissions:
       checks: write

@@ -12,6 +12,27 @@ const (
 	FatalError
 )
 
+func (e ErrorCode) String() string {
+	switch e {
+	case NoError:
+		return "NoError"
+	case UserMessageParseError:
+		return "UserMessageParseError"
+	case UnsupportedDONIdError:
+		return "UnsupportedDONIdError"
+	case HandlerError:
+		return "HandlerError"
+	case RequestTimeoutError:
+		return "RequestTimeoutError"
+	case NodeReponseEncodingError:
+		return "NodeReponseEncodingError"
+	case FatalError:
+		return "FatalError"
+	default:
+		return "UnknownError"
+	}
+}
+
 // See https://www.jsonrpc.org/specification#error_object
 func ToJsonRPCErrorCode(errorCode ErrorCode) int {
 	gatewayErrorToJsonRPCError := map[ErrorCode]int{

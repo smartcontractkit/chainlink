@@ -27,7 +27,7 @@ func main() {
 	p := &pluginRelayer{Base: plugins.Base{Logger: s.Logger}}
 	defer s.Logger.ErrorIfFn(p.Close, "Failed to close")
 
-	s.MustRegister(p.Name(), p)
+	s.MustRegister(p)
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)

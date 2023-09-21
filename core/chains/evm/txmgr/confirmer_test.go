@@ -122,7 +122,7 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	estimator := gasmocks.NewEvmEstimator(t)
 	lggr := logger.TestLogger(t)
 	ge := config.EVM().GasEstimator()
-	feeEstimator := gas.NewWrappedEvmEstimator(estimator, ge.EIP1559DynamicFees())
+	feeEstimator := gas.NewWrappedEvmEstimator(estimator, ge.EIP1559DynamicFees(), nil)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
 	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), config.Database(), ethKeyStore, txBuilder, lggr)
 	ctx := testutils.Context(t)
@@ -1645,7 +1645,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		estimator := gasmocks.NewEvmEstimator(t)
 		estimator.On("BumpLegacyGas", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, uint32(0), pkgerrors.Wrapf(commonfee.ErrConnectivity, "transaction..."))
 		ge := ccfg.EVM().GasEstimator()
-		feeEstimator := gas.NewWrappedEvmEstimator(estimator, ge.EIP1559DynamicFees())
+		feeEstimator := gas.NewWrappedEvmEstimator(estimator, ge.EIP1559DynamicFees(), nil)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()
@@ -1690,7 +1690,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		estimator.On("BumpDynamicFee", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(gas.DynamicFee{}, uint32(0), pkgerrors.Wrapf(commonfee.ErrConnectivity, "transaction..."))
 		// Create confirmer with necessary state
 		ge := ccfg.EVM().GasEstimator()
-		feeEstimator := gas.NewWrappedEvmEstimator(estimator, ge.EIP1559DynamicFees())
+		feeEstimator := gas.NewWrappedEvmEstimator(estimator, ge.EIP1559DynamicFees(), nil)
 		txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, kst, feeEstimator)
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", &cltest.FixtureChainID).Return(addresses, nil).Maybe()

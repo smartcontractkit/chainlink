@@ -126,6 +126,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 				obs.LinkPrice.Val = relaymercuryv3.MissingPrice
 			} else if obs.LinkPrice.Err != nil {
 				mercurytypes.PriceFeedErrorCount.WithLabelValues(ds.linkFeedID.String()).Inc()
+				ds.lggr.Errorw("Mercury server returned error querying LINK price feed", "err", obs.LinkPrice.Err, "linkFeedID", ds.linkFeedID)
 			}
 		}()
 	}
@@ -143,6 +144,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 				obs.NativePrice.Val = relaymercuryv3.MissingPrice
 			} else if obs.NativePrice.Err != nil {
 				mercurytypes.PriceFeedErrorCount.WithLabelValues(ds.nativeFeedID.String()).Inc()
+				ds.lggr.Errorw("Mercury server returned error querying native price feed", "err", obs.NativePrice.Err, "nativeFeedID", ds.nativeFeedID)
 			}
 		}()
 	}

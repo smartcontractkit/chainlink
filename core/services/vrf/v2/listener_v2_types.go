@@ -193,7 +193,7 @@ func (lsn *listenerV2) processBatch(
 				GlobalSubID:     txMetaGlobalSubID,
 				RequestTxHashes: txHashes,
 			},
-		}, pg.WithQueryer(tx))
+		})
 
 		return errors.Wrap(err, "create batch fulfillment eth transaction")
 	})

@@ -54,44 +54,13 @@ jobs:
           this-job-name: lint
         continue-on-error: true
 
-  split-packages:
-    name: Split Go Tests
-    runs-on: ubuntu-latest
-    outputs:
-      splits: ${{ steps.split.outputs.splits }}
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
-      - name: Setup Go
-        uses: ./.github/actions/setup-go
-        with:
-          only-modules: "true"
-      - name: Touching core/web/assets/index.html
-        run: mkdir -p core/web/assets && touch core/web/assets/index.html
-      - name: Generate splits
-        id: split
-        uses: ./.github/actions/split-tests
-        with:
-          config: ./ci.json
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Split Go Tests
-        continue-on-error: true
-
   core:
-    needs: [split-packages]
     strategy:
       fail-fast: false
       matrix:
         cmd: ["go_core_tests", "go_core_race_tests"]
-        split: ${{ fromJson(needs.split-packages.outputs.splits) }}
-    name: Core Tests (${{ matrix.cmd }}) ${{ matrix.split.id }}
-    runs-on: ubuntu-latest
+    name: Core Tests (${{ matrix.cmd }})
+    runs-on: ubuntu20.04-64cores-256GB
     env:
       CL_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
@@ -129,10 +98,10 @@ jobs:
         env:
           OUTPUT_FILE: ./output.txt
           USE_TEE: false
-        run: ./tools/bin/${{ matrix.cmd }} "${{ matrix.split.pkgs }}"
+        run: ./tools/bin/${{ matrix.cmd }} ./...
       - name: Print Filtered Test Results
         if: failure()
-        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
+        uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
         with:
           results-file: ./output.txt
           output-file: ./output-short.txt
@@ -140,7 +109,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
         with:
-          name: ${{ matrix.cmd }}_${{ matrix.split.idx }}_logs
+          name: ${{ matrix.cmd }}_logs
           path: |
             ./output.txt
             ./output-short.txt
@@ -150,33 +119,6 @@ jobs:
         if: always()
         run: docker compose logs postgres
         working-directory: ./.github/actions/setup-postgres
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: Core Tests (${{ matrix.cmd }}) ${{ matrix.split.id }}
-          test-results-file: '{"testType":"go","filePath":"./output.txt"}'
-        continue-on-error: true
-
-  # Satisfy required check for core tests
-  # while still allowing for adjustable splitting
-  core-complete:
-    needs: [core]
-    name: Core Tests (${{ matrix.cmd }})
-    runs-on: ubuntu-latest
-    if: always()
-    strategy:
-      fail-fast: false
-      matrix:
-        cmd: ["go_core_tests", "go_core_race_tests"]
-    steps:
-      - run: echo "${{ matrix.cmd }} have finished"
-      - name: Check test results
-        if: needs.core.result != 'success'
-        run: exit 1
       - name: Notify Slack
         if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && github.event.schedule != '' }}
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
@@ -193,6 +135,7 @@ jobs:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Core Tests (${{ matrix.cmd }})
+          test-results-file: '{"testType":"go","filePath":"./output.txt"}'
         continue-on-error: true
 
   detect-flakey-tests:
@@ -266,8 +209,8 @@ jobs:
         id: sonarqube_report_paths
         shell: bash
         run: |
-          echo "sonarqube_tests_report_paths=$(find go_core_tests_*_logs -name output.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
-          echo "sonarqube_coverage_report_paths=$(find go_core_tests_*_logs -name coverage.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
+          echo "sonarqube_tests_report_paths=$(find go_core_tests_logs -name output.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
+          echo "sonarqube_coverage_report_paths=$(find go_core_tests_logs -name coverage.txt | paste -sd "," -)" >> $GITHUB_OUTPUT
       - name: SonarQube Scan
         uses: sonarsource/sonarqube-scan-action@69c1a75940dec6249b86dace6b630d3a2ae9d2a7 # v2.0.1
         with:
@@ -290,11 +233,17 @@ jobs:
 
   clean:
     name: Clean Go Tidy & Generate
+    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     runs-on: ubuntu-latest
     defaults:
       run:
         shell: bash
     steps:
+      - name: Check for Skip Tests Label
+        if: contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')
+        run: |
+          echo "## \`skip-smoke-tests\` label is active, skipping E2E smoke tests" >>$GITHUB_STEP_SUMMARY
+          exit 0
       - uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           fetch-depth: 0

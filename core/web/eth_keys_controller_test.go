@@ -56,7 +56,7 @@ func TestETHKeysController_Index_Success(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	resp, cleanup := client.Get("/v2/keys/evm")
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -100,7 +100,7 @@ func TestETHKeysController_Index_Errors(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	resp, cleanup := client.Get("/v2/keys/eth")
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -134,7 +134,7 @@ func TestETHKeysController_Index_Disabled(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	resp, cleanup := client.Get("/v2/keys/eth")
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -169,7 +169,7 @@ func TestETHKeysController_Index_NotDev(t *testing.T) {
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	resp, cleanup := client.Get("/v2/keys/eth")
 	defer cleanup()
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -194,7 +194,7 @@ func TestETHKeysController_Index_NoAccounts(t *testing.T) {
 	app := cltest.NewApplication(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	resp, cleanup := client.Get("/v2/keys/eth")
 	defer cleanup()
@@ -224,7 +224,7 @@ func TestETHKeysController_CreateSuccess(t *testing.T) {
 	linkBalance := assets.NewLinkFromJuels(42)
 	ethClient.On("LINKBalance", mock.Anything, mock.Anything, mock.Anything).Return(linkBalance, nil)
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -266,7 +266,7 @@ func TestETHKeysController_ChainSuccess_UpdateNonce(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
 	query := chainURL.Query()
 
@@ -310,7 +310,7 @@ func TestETHKeysController_ChainSuccess_Disable(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
 	query := chainURL.Query()
 
@@ -354,7 +354,7 @@ func TestETHKeysController_ChainSuccess_Enable(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
 	query := chainURL.Query()
 
@@ -418,7 +418,7 @@ func TestETHKeysController_ChainSuccess_ResetWithAbandon(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 0, count)
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
 	query := chainURL.Query()
 
@@ -463,7 +463,7 @@ func TestETHKeysController_ChainFailure_InvalidAbandon(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
 	query := chainURL.Query()
 
@@ -497,7 +497,7 @@ func TestETHKeysController_ChainFailure_InvalidEnabled(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
 	query := chainURL.Query()
 
@@ -528,7 +528,7 @@ func TestETHKeysController_ChainFailure_InvalidAddress(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
 	query := chainURL.Query()
 
@@ -558,7 +558,7 @@ func TestETHKeysController_ChainFailure_MissingAddress(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
 	query := chainURL.Query()
 
@@ -588,7 +588,7 @@ func TestETHKeysController_ChainFailure_InvalidChainID(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
 	query := chainURL.Query()
 
@@ -621,7 +621,7 @@ func TestETHKeysController_ChainFailure_MissingChainID(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
 	query := chainURL.Query()
 
@@ -654,7 +654,7 @@ func TestETHKeysController_ChainFailure_InvalidNonce(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	chainURL := url.URL{Path: "/v2/keys/evm/chain"}
 	query := chainURL.Query()
 
@@ -690,7 +690,7 @@ func TestETHKeysController_DeleteSuccess(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	chainURL := url.URL{Path: "/v2/keys/evm/" + addr0.Hex()}
 	resp, cleanup := client.Delete(chainURL.String())
 	defer cleanup()
@@ -732,7 +732,7 @@ func TestETHKeysController_DeleteFailure_InvalidAddress(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	chainURL := url.URL{Path: "/v2/keys/evm" + "/bad_address"}
 
 	resp, cleanup := client.Delete(chainURL.String())
@@ -753,7 +753,7 @@ func TestETHKeysController_DeleteFailure_KeyMissing(t *testing.T) {
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	chainURL := url.URL{Path: "/v2/keys/evm/" + testutils.NewAddress().Hex()}
 
 	resp, cleanup := client.Delete(chainURL.String())

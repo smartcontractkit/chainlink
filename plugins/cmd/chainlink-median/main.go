@@ -20,7 +20,7 @@ func main() {
 	p := median.NewPlugin(s.Logger)
 	defer s.Logger.ErrorIfFn(p.Close, "Failed to close")
 
-	s.MustRegister(p.Name(), p)
+	s.MustRegister(p)
 
 	stop := make(chan struct{})
 	defer close(stop)

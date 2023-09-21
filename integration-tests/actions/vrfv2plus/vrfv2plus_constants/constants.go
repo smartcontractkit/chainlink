@@ -2,6 +2,7 @@ package vrfv2plus_constants
 
 import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
 	"math/big"
 )
 
@@ -19,6 +20,11 @@ var (
 	GasAfterPaymentCalculation              = uint32(33825)
 
 	VRFCoordinatorV2PlusFeeConfig = vrf_coordinator_v2plus.VRFCoordinatorV2PlusFeeConfig{
+		FulfillmentFlatFeeLinkPPM: 500,
+		FulfillmentFlatFeeEthPPM:  500,
+	}
+
+	VRFCoordinatorV2PlusUpgradedVersionFeeConfig = vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionFeeConfig{
 		FulfillmentFlatFeeLinkPPM: 500,
 		FulfillmentFlatFeeEthPPM:  500,
 	}

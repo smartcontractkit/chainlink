@@ -241,6 +241,12 @@ type listenerV2 struct {
 	deduper *vrfcommon.LogDeduper
 }
 
+func (lsn *listenerV2) HealthReport() map[string]error {
+	return map[string]error{lsn.Name(): lsn.Healthy()}
+}
+
+func (lsn *listenerV2) Name() string { return lsn.l.Name() }
+
 // Start starts listenerV2.
 func (lsn *listenerV2) Start(ctx context.Context) error {
 	return lsn.StartOnce("VRFListenerV2", func() error {
@@ -923,7 +929,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 				RequestTxHash: &requestTxHash,
 				// No max link since simulation failed
 			},
-		}, pg.WithQueryer(tx), pg.WithParentCtx(ctx))
+		})
 		return err
 	})
 	return
@@ -1137,7 +1143,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 						VRFCoordinatorAddress: &coordinatorAddress,
 						VRFRequestBlockNumber: new(big.Int).SetUint64(p.req.req.Raw().BlockNumber),
 					},
-				}, pg.WithQueryer(tx), pg.WithParentCtx(ctx))
+				})
 				return err
 			})
 			if err != nil {
