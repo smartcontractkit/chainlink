@@ -83,8 +83,7 @@ func (r *realTimer) After(d time.Duration) <-chan time.Time {
 	return time.After(d)
 }
 
-func (f *Feeder) StartHeartbeats(ctx context.Context, timer Timer, wgBHS *sync.WaitGroup) {
-	defer wgBHS.Done()
+func (f *Feeder) StartHeartbeats(ctx context.Context, timer Timer) {
 	if f.heartbeatPeriod == 0 {
 		f.lggr.Infow("Not starting heartbeat blockhash using storeEarliest")
 		return

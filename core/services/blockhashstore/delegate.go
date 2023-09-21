@@ -180,7 +180,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		pollPeriod: jb.BlockhashStoreSpec.PollPeriod,
 		runTimeout: jb.BlockhashStoreSpec.RunTimeout,
 		logger:     log,
-		done:       make(chan struct{}),
 	}}, nil
 }
 
@@ -200,8 +199,7 @@ func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 type service struct {
 	utils.StartStopOnce
 	feeder     *Feeder
-	done       chan struct{}
-	wgBHS      sync.WaitGroup
+	wg         sync.WaitGroup
 	pollPeriod time.Duration
 	runTimeout time.Duration
 	logger     logger.Logger
@@ -215,10 +213,13 @@ func (s *service) Start(context.Context) error {
 		s.logger.Infow("Starting BHS feeder")
 		ticker := time.NewTicker(utils.WithJitter(s.pollPeriod))
 		s.parentCtx, s.cancel = context.WithCancel(context.Background())
-		s.wgBHS.Add(2)
-		go s.feeder.StartHeartbeats(s.parentCtx, &realTimer{}, &s.wgBHS)
+		s.wg.Add(2)
 		go func() {
-			defer s.wgBHS.Done()
+			defer s.wg.Done()
+			s.feeder.StartHeartbeats(s.parentCtx, &realTimer{})
+		}()
+		go func() {
+			defer s.wg.Done()
 			defer ticker.Stop()
 			for {
 				select {
@@ -238,7 +239,7 @@ func (s *service) Close() error {
 	return s.StopOnce("BHS Feeder Service", func() error {
 		s.logger.Infow("Stopping BHS feeder")
 		s.cancel()
-		s.wgBHS.Wait()
+		s.wg.Wait()
 		return nil
 	})
 }

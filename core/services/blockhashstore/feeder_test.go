@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"sync"
 	"testing"
 	"time"
 
@@ -288,9 +287,7 @@ func TestStartHeartbeats(t *testing.T) {
 		defer mockBHS.AssertExpectations(t)
 		defer mockLogger.AssertExpectations(t)
 
-		wgBHS := sync.WaitGroup{}
-		wgBHS.Add(1)
-		feeder.StartHeartbeats(ctx, mockTimer, &wgBHS)
+		feeder.StartHeartbeats(ctx, mockTimer)
 	})
 
 	t.Run("sad path", func(t *testing.T) {
@@ -343,9 +340,7 @@ func TestStartHeartbeats(t *testing.T) {
 		defer mockBHS.AssertExpectations(t)
 		defer mockLogger.AssertExpectations(t)
 
-		wgBHS := sync.WaitGroup{}
-		wgBHS.Add(1)
-		feeder.StartHeartbeats(ctx, mockTimer, &wgBHS)
+		feeder.StartHeartbeats(ctx, mockTimer)
 	})
 }
 

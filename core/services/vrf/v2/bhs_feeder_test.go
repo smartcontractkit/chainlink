@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -65,31 +64,11 @@ func TestStartHeartbeats(t *testing.T) {
 	// lggr, logs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 
 	t.Run("bhs_feeder_startheartbeats_happy_path", func(tt *testing.T) {
-		// consumerContracts := uni.consumerContracts
-		// consumerContractAddresses := uni.consumerContractAddresses
-		coordinator := uni.rootContract
 		coordinatorAddress := uni.rootContractAddress
-		batchCoordinatorAddress := uni.batchCoordinatorContractAddress
-		vrfOwnerAddress := ptr(uni.vrfOwnerAddress)
 		vrfVersion := vrfcommon.V2
 
 		app := cltest.NewApplicationWithConfigV2AndKeyOnSimulatedBlockchain(t, config, uni.backend, keys...)
 		require.NoError(t, app.Start(testutils.Context(t)))
-
-		// Create VRF job.
-		vrfJobs := createVRFJobs(
-			t,
-			[][]ethkey.KeyV2{{vrfKey}},
-			app,
-			coordinator,
-			coordinatorAddress,
-			batchCoordinatorAddress,
-			uni.coordinatorV2UniverseCommon,
-			vrfOwnerAddress,
-			vrfVersion,
-			false,
-			gasLanePriceWei)
-		_ = vrfJobs[0].VRFSpec.PublicKey.MustHash()
 
 		var (
 			v2CoordinatorAddress     string
@@ -112,34 +91,12 @@ func TestStartHeartbeats(t *testing.T) {
 
 		initTxns := 260
 		// Wait 260 blocks.
-		for i := 0; i < initTxns+1; i++ {
+		for i := 0; i < initTxns; i++ {
 			uni.backend.Commit()
 		}
-		diff := heartbeatPeriod + 2*time.Second
+		diff := heartbeatPeriod + 1*time.Second
 		t.Logf("Sleeping %.2f seconds before checking blockhash in BHS added by BHS_Heartbeats_Service\n", diff.Seconds())
 		time.Sleep(diff)
-		verifyBlockhashStored(t, uni.coordinatorV2UniverseCommon, uint64(initTxns+20-256))
+		verifyBlockhashStored(t, uni.coordinatorV2UniverseCommon, uint64(initTxns+18-256))
 	})
 }
-
-// Send eth from prefunded account.
-// Amount is number of ETH not wei.
-// func sendWei(t *testing.T, key ethkey.KeyV2, ec *backends.SimulatedBackend, to common.Address, wei *big.Int) {
-// 	nonce, err := ec.PendingNonceAt(testutils.Context(t), key.Address)
-// 	require.NoError(t, err)
-// 	tx := gethtypes.NewTx(&gethtypes.DynamicFeeTx{
-// 		ChainID:   big.NewInt(1337),
-// 		Nonce:     nonce,
-// 		GasTipCap: big.NewInt(1),
-// 		GasFeeCap: assets.GWei(10).ToInt(), // block base fee in sim
-// 		Gas:       uint64(21_000),
-// 		To:        &to,
-// 		Value:     wei,
-// 		Data:      nil,
-// 	})
-// 	signedTx, err := gethtypes.SignTx(tx, gethtypes.NewLondonSigner(big.NewInt(1337)), key.ToEcdsaPrivKey())
-// 	require.NoError(t, err)
-// 	err = ec.SendTransaction(testutils.Context(t), signedTx)
-// 	require.NoError(t, err)
-// 	ec.Commit()
-// }
