@@ -2262,7 +2262,23 @@ func (e *EthereumFunctionsLoadTestClient) SendRequestWithDONHostedSecrets(times 
 	if err != nil {
 		return err
 	}
-	return e.client.ProcessTransaction(tx)
+	if err := e.client.ProcessTransaction(tx); err != nil {
+		rev, _, err := e.client.RevertReasonFromTx(tx.Hash(), functions_load_test_client.FunctionsLoadTestClientABI)
+		log.Info().
+			Interface("RevertReason", rev).
+			Interface("RevertErr", err).
+			Interface("Nonce", opts.Nonce).
+			Interface("GasLimit", opts.GasLimit).
+			Interface("GasPrice", opts.GasPrice).
+			Interface("GasFeeCap", opts.GasFeeCap).
+			Interface("GasTipCap", opts.GasTipCap).
+			Send()
+		if err != nil {
+			return err
+		}
+		return err
+	}
+	return nil
 }
 
 type EthereumMercuryVerifier struct {

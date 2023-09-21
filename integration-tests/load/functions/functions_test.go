@@ -22,7 +22,7 @@ func TestFunctionsLoad(t *testing.T) {
 
 	MonitorLoadStats(t, ft, labels)
 
-	t.Run("mumbai functions soak test http", func(t *testing.T) {
+	t.Run("functions soak test http", func(t *testing.T) {
 		_, err := wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
@@ -52,7 +52,7 @@ func TestFunctionsLoad(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("mumbai functions stress test http", func(t *testing.T) {
+	t.Run("functions stress test http", func(t *testing.T) {
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
@@ -82,7 +82,7 @@ func TestFunctionsLoad(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("mumbai functions soak test only secrets", func(t *testing.T) {
+	t.Run("functions soak test only secrets", func(t *testing.T) {
 		_, err := wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
@@ -112,7 +112,7 @@ func TestFunctionsLoad(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("mumbai functions stress test only secrets", func(t *testing.T) {
+	t.Run("functions stress test only secrets", func(t *testing.T) {
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
@@ -142,7 +142,7 @@ func TestFunctionsLoad(t *testing.T) {
 		require.NoError(t, err)
 	})
 
-	t.Run("mumbai functions soak test real", func(t *testing.T) {
+	t.Run("functions soak test real", func(t *testing.T) {
 		_, err := wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,
@@ -170,11 +170,11 @@ func TestFunctionsLoad(t *testing.T) {
 			})).
 			Run(true)
 		log.Warn().Msg("Awaiting all requests to be processed")
-		time.Sleep(5 * time.Minute)
+		time.Sleep(10 * time.Minute)
 		require.NoError(t, err)
 	})
 
-	t.Run("mumbai functions stress test real", func(t *testing.T) {
+	t.Run("functions stress test real", func(t *testing.T) {
 		_, err = wasp.NewProfile().
 			Add(wasp.NewGenerator(&wasp.Config{
 				T:                     t,

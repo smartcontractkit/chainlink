@@ -128,11 +128,29 @@ func ReadConfig() (*PerformanceConfig, error) {
 	case "MUMBAI":
 		keys = os.Getenv("MUMBAI_KEYS")
 		urls = os.Getenv("MUMBAI_URLS")
-		cfg.SelectedNetwork = cfg.Networks.Mumbai
+		_, isSet := os.LookupEnv("FUNCTIONS_STAGING")
+		if isSet {
+			cfg.SelectedNetwork = cfg.Networks.MumbaiStaging
+		} else {
+			cfg.SelectedNetwork = cfg.Networks.Mumbai
+		}
 	case "AVALANCHE_FUJI":
 		keys = os.Getenv("AVALANCHE_FUJI_KEYS")
 		urls = os.Getenv("AVALANCHE_FUJI_URLS")
 		cfg.SelectedNetwork = cfg.Networks.Fuji
+		//networks.AvalancheFuji = blockchain.EVMNetwork{
+		//	Name:                      "Avalanche Fuji",
+		//	SupportsEIP1559:           true,
+		//	ClientImplementation:      blockchain.EthereumClientImplementation,
+		//	ChainID:                   43113,
+		//	Simulated:                 false,
+		//	ChainlinkTransactionLimit: 100000000,
+		//	Timeout:                   blockchain.JSONStrDuration{Duration: time.Minute},
+		//	MinimumConfirmations:      1,
+		//	GasEstimationBuffer:       100000000,
+		//	FinalityDepth:             35,
+		//	DefaultGasLimit:           900000000000,
+		//}
 	case "SEPOLIA":
 		keys = os.Getenv("SEPOLIA_KEYS")
 		urls = os.Getenv("SEPOLIA_URLS")

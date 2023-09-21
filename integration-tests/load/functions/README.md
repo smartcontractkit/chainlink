@@ -32,12 +32,12 @@ Load test client can execute `78 calls per request` at max (gas limit)
 
 Functions tests:
 ```
-go test -v -run TestFunctionsLoad/mumbai_functions_soak_test_http
-go test -v -run TestFunctionsLoad/mumbai_functions_stress_test_http
-go test -v -run TestFunctionsLoad/mumbai_functions_soak_test_only_secrets
-go test -v -run TestFunctionsLoad/mumbai_functions_stress_test_only_secrets
-go test -v -run TestFunctionsLoad/mumbai_functions_soak_test_real
-go test -v -run TestFunctionsLoad/mumbai_functions_stress_test_real
+go test -v -run TestFunctionsLoad/functions_soak_test_http
+go test -v -run TestFunctionsLoad/functions_stress_test_http
+go test -v -run TestFunctionsLoad/functions_soak_test_only_secrets
+go test -v -run TestFunctionsLoad/functions_stress_test_only_secrets
+go test -v -run TestFunctionsLoad/functions_soak_test_real
+go test -v -run TestFunctionsLoad/functions_stress_test_real
 ```
 
 Gateway tests:

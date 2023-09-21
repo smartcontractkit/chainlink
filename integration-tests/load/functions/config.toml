@@ -15,18 +15,18 @@ duration = "10m"
 
 [SecretsStress]
 rps = 1
-requests_per_call = 40
+requests_per_call = 60
 duration = "10m"
 
 [RealSoak]
 rps = 1
 requests_per_call = 20
-duration = "10m"
+duration = "4h"
 
 [RealStress]
 rps = 1
 requests_per_call = 40
-duration = "10m"
+duration = "4h"
 
 [GatewayListSoak]
 rps = 95
@@ -97,7 +97,7 @@ const response = await Functions.makeHttpRequest({ url: 'http://dummyjson.com/pr
 return Functions.encodeString(JSON.stringify(secrets));
 """
 secrets_slot_id = 0
-secrets_version = 1694555391
+secrets_version = 1694702797
 # staging
 #secrets_version = 1693945705
 
