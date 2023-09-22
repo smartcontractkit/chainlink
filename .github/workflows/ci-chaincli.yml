@@ -10,42 +10,16 @@ on:
 
 jobs:
   golangci:
+    if: ${{ github.event_name == 'pull_request' ||  github.event_name == 'schedule' }}
     name: chaincli-lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Setup Go
-        uses: actions/setup-go@v4
+      - name: Golang Lint
+        uses: ./.github/actions/ci-golang-lint
         with:
-          go-version-file: "core/scripts/go.mod"
-          cache: true
-      - name: Touching core/web/assets/index.html
-        run: mkdir -p core/web/assets && touch core/web/assets/index.html
-      - name: Build binary for chaincli
-        working-directory: core/scripts/chaincli
-        run: go build
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3.7.0
-        with:
-          version: v1.54.2
+          name: chaincli-lint
           working-directory: core/scripts/chaincli
-          # We already cache these directories in setup-go
-          skip-pkg-cache: true
-          skip-build-cache: true
-          # only-new-issues is only applicable to PRs, otherwise it is always set to false
-          only-new-issues: true
-          args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
-      - name: Store lint report artifact
-        if: always()
-        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
-        with:
-          name: golangci-lint-report
-          path: core/scripts/chaincli/golangci-lint-report.xml
-      - name: Collect Metrics
-        if: always()
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: chaincli-lint
-        continue-on-error: true
+          go-version-file: core/scripts/go.mod
+          go-module-file: core/scripts/go.sum
+          gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_CLOUD_HOST }}
