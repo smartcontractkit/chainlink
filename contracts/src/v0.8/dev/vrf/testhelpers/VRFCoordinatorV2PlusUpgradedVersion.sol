@@ -476,7 +476,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     uint256 weiPerUnitGas
   ) internal view returns (uint96) {
     // Will return non-zero on chains that have this enabled
-    uint256 l1CostWei = ChainSpecificUtil.getCurrentTxL1GasFees();
+    uint256 l1CostWei = ChainSpecificUtil.getCurrentTxL1GasFees(msg.data);
     // calculate the payment without the premium
     uint256 baseFeeWei = weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft());
     // calculate the flat fee in wei
@@ -498,7 +498,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
     // Will return non-zero on chains that have this enabled
-    uint256 l1CostWei = ChainSpecificUtil.getCurrentTxL1GasFees();
+    uint256 l1CostWei = ChainSpecificUtil.getCurrentTxL1GasFees(msg.data);
     // (1e18 juels/link) ((wei/gas * gas) + l1wei) / (wei/link) = juels
     uint256 paymentNoFee = (1e18 * (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft()) + l1CostWei)) /
       uint256(weiPerUnitLink);
@@ -633,44 +633,12 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     emit CoordinatorRegistered(target);
   }
 
-  function migrate(uint256 subId, address newCoordinator) external nonReentrant {
-    if (!isTargetRegistered(newCoordinator)) {
-      revert CoordinatorNotRegistered(newCoordinator);
-    }
-    (uint96 balance, uint96 ethBalance, , address owner, address[] memory consumers) = getSubscription(subId);
-    require(owner == msg.sender, "Not subscription owner");
-    require(!pendingRequestExists(subId), "Pending request exists");
-
-    V1MigrationData memory migrationData = V1MigrationData({
-      fromVersion: migrationVersion(),
-      subId: subId,
-      subOwner: owner,
-      consumers: consumers,
-      linkBalance: balance,
-      ethBalance: ethBalance
-    });
-    bytes memory encodedData = abi.encode(migrationData);
-    deleteSubscription(subId);
-    IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: ethBalance}(encodedData);
-
-    // Only transfer LINK if the token is active and there is a balance.
-    if (address(LINK) != address(0) && balance != 0) {
-      require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
-    }
-
-    // despite the fact that we follow best practices this is still probably safest
-    // to prevent any re-entrancy possibilities.
-    s_config.reentrancyLock = true;
-    for (uint256 i = 0; i < consumers.length; i++) {
-      IVRFMigratableConsumerV2Plus(consumers[i]).setCoordinator(newCoordinator);
-    }
-    s_config.reentrancyLock = false;
-
-    emit MigrationCompleted(newCoordinator, subId);
+  function migrate(uint256 /* subId */, address /* newCoordinator */) external view nonReentrant {
+    require(false, "not implemented");
   }
 
   function migrationVersion() public pure returns (uint8 version) {
-    return 1;
+    return 2;
   }
 
   /**
