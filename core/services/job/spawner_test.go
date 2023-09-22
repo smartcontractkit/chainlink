@@ -284,7 +284,14 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 		chain := evmtest.MustGetDefaultChain(t, legacyChains)
 
-		evmRelayer := evmrelayer.NewRelayer(testopts.DB, chain, testopts.GeneralConfig.Database(), lggr, keyStore, pg.NewNullEventBroadcaster())
+		evmRelayer, err := evmrelayer.NewRelayer(lggr, chain, evmrelayer.RelayerOpts{
+			DB:               db,
+			QConfig:          testopts.GeneralConfig.Database(),
+			CSAETHKeystore:   keyStore,
+			EventBroadcaster: pg.NewNullEventBroadcaster(),
+		})
+		assert.NoError(t, err)
+
 		testRelayGetter := &relayGetter{
 			e: relayExtenders.Slice()[0],
 			r: evmRelayer,
@@ -306,7 +313,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			jobOCR2VRF.Type: delegateOCR2,
 		}, db, lggr, nil)
 
-		err := spawner.CreateJob(jobOCR2VRF)
+		err = spawner.CreateJob(jobOCR2VRF)
 		require.NoError(t, err)
 		jobSpecID := jobOCR2VRF.ID
 		delegateOCR2.jobID = jobOCR2VRF.ID

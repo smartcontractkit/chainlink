@@ -386,17 +386,16 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:       lggr,
-		DB:           db,
-		QConfig:      cfg.Database(),
 		LoopRegistry: loopRegistry,
 		GRPCOpts:     loop.GRPCOpts{},
 	}
 
 	evmOpts := chainlink.EVMFactoryConfig{
-		RelayerConfig: &evm.RelayerConfig{
+		ChainOpts: &evm.ChainOpts{
 			AppConfig:        cfg,
 			EventBroadcaster: eventBroadcaster,
 			MailMon:          mailMon,
+			DB:               db,
 		},
 		CSAETHKeystore: keyStore,
 	}
@@ -423,6 +422,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			Keystore:         keyStore.Cosmos(),
 			CosmosConfigs:    cfg.CosmosConfigs(),
 			EventBroadcaster: eventBroadcaster,
+			DB:               db,
+			QConfig:          cfg.Database(),
 		}
 		initOps = append(initOps, chainlink.InitCosmos(testCtx, relayerFactory, cosmosCfg))
 	}

@@ -2,9 +2,11 @@ package chainlink
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/pelletier/go-toml/v2"
+
 	"github.com/smartcontractkit/sqlx"
 
 	pkgcosmos "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos"
@@ -27,14 +29,12 @@ import (
 
 type RelayerFactory struct {
 	logger.Logger
-	*sqlx.DB
-	pg.QConfig
 	*plugins.LoopRegistry
 	loop.GRPCOpts
 }
 
 type EVMFactoryConfig struct {
-	*evm.RelayerConfig
+	*evm.ChainOpts
 	evmrelay.CSAETHKeystore
 }
 
@@ -45,10 +45,9 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 
 	// override some common opts with the factory values. this seems weird... maybe other signatures should change, or this should take a different type...
 	ccOpts := evm.ChainRelayExtenderConfig{
-		Logger:        r.Logger.Named("EVM"),
-		DB:            r.DB,
-		KeyStore:      config.CSAETHKeystore.Eth(),
-		RelayerConfig: config.RelayerConfig,
+		Logger:    r.Logger.Named("EVM"),
+		KeyStore:  config.CSAETHKeystore.Eth(),
+		ChainOpts: config.ChainOpts,
 	}
 
 	evmRelayExtenders, err := evmrelay.NewChainRelayerExtenders(ctx, ccOpts)
@@ -58,15 +57,28 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(evmRelayExtenders)
 	for _, ext := range evmRelayExtenders.Slice() {
 		relayID := relay.ID{Network: relay.EVM, ChainID: relay.ChainID(ext.Chain().ID().String())}
-		chain, err := legacyChains.Get(relayID.ChainID)
-		if err != nil {
-			return nil, err
+		chain, err2 := legacyChains.Get(relayID.ChainID)
+		if err2 != nil {
+			return nil, err2
 		}
-		relayer := evmrelay.NewLoopRelayServerAdapter(evmrelay.NewRelayer(ccOpts.DB, chain, r.QConfig, ccOpts.Logger, config.CSAETHKeystore, ccOpts.EventBroadcaster), ext)
-		relayers[relayID] = relayer
+
+		relayerOpts := evmrelay.RelayerOpts{
+			DB:               ccOpts.DB,
+			QConfig:          ccOpts.AppConfig.Database(),
+			CSAETHKeystore:   config.CSAETHKeystore,
+			EventBroadcaster: ccOpts.EventBroadcaster,
+		}
+		relayer, err2 := evmrelay.NewRelayer(ccOpts.Logger, chain, relayerOpts)
+		if err2 != nil {
+			err = errors.Join(err, err2)
+			continue
+		}
+
+		relayers[relayID] = evmrelay.NewLoopRelayServerAdapter(relayer, ext)
 	}
 
-	return relayers, nil
+	// always return err because it is accumulating individual errors
+	return relayers, err
 }
 
 type SolanaFactoryConfig struct {
@@ -209,9 +221,39 @@ type CosmosFactoryConfig struct {
 	Keystore keystore.Cosmos
 	cosmos.CosmosConfigs
 	EventBroadcaster pg.EventBroadcaster
+	*sqlx.DB
+	pg.QConfig
+}
+
+func (c CosmosFactoryConfig) Validate() error {
+	var err error
+	if c.Keystore == nil {
+		err = errors.Join(err, fmt.Errorf("nil Keystore"))
+	}
+	if len(c.CosmosConfigs) == 0 {
+		err = errors.Join(err, fmt.Errorf("no CosmosConfigs provided"))
+	}
+	if c.EventBroadcaster == nil {
+		err = errors.Join(err, fmt.Errorf("nil EventBroadcaster"))
+	}
+	if c.DB == nil {
+		err = errors.Join(err, fmt.Errorf("nil DB"))
+	}
+	if c.QConfig == nil {
+		err = errors.Join(err, fmt.Errorf("nil QConfig"))
+	}
+
+	if err != nil {
+		err = fmt.Errorf("invalid CosmosFactoryConfig: %w", err)
+	}
+	return err
 }
 
 func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConfig) (map[relay.ID]cosmos.LoopRelayerChainer, error) {
+	err := config.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("cannot create Cosmos relayer: %w", err)
+	}
 	relayers := make(map[relay.ID]cosmos.LoopRelayerChainer)
 
 	var (
@@ -224,9 +266,9 @@ func (r *RelayerFactory) NewCosmos(ctx context.Context, config CosmosFactoryConf
 		relayId := relay.ID{Network: relay.Cosmos, ChainID: relay.ChainID(*chainCfg.ChainID)}
 
 		opts := cosmos.ChainOpts{
-			QueryConfig:      r.QConfig,
+			QueryConfig:      config.QConfig,
 			Logger:           lggr.Named(relayId.ChainID),
-			DB:               r.DB,
+			DB:               config.DB,
 			KeyStore:         loopKs,
 			EventBroadcaster: config.EventBroadcaster,
 		}
