@@ -181,7 +181,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 	assert.Equal(t, dbEvmTx.Value.String(), output.Value)
 	assert.Equal(t, fmt.Sprintf("%d", *dbEvmTx.Nonce), output.Nonce)
 
-	dbEvmTxAttempt := txmgr.DbEthTxAttempt{}
+	var dbEvmTxAttempt txmgr.DbEthTxAttempt
 	require.NoError(t, db.Get(&dbEvmTxAttempt, `SELECT * FROM evm.tx_attempts`))
 	assert.Equal(t, dbEvmTxAttempt.Hash, output.Hash)
 }
@@ -246,7 +246,7 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 	assert.Equal(t, dbEvmTx.Value.String(), output.Value)
 	assert.Equal(t, fmt.Sprintf("%d", *dbEvmTx.Nonce), output.Nonce)
 
-	dbEvmTxAttempt := txmgr.DbEthTxAttempt{}
+	var dbEvmTxAttempt txmgr.DbEthTxAttempt
 	require.NoError(t, db.Get(&dbEvmTxAttempt, `SELECT * FROM evm.tx_attempts`))
 	assert.Equal(t, dbEvmTxAttempt.Hash, output.Hash)
 }

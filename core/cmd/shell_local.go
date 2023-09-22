@@ -712,7 +712,7 @@ func (s *Shell) validateDB(c *cli.Context) error {
 }
 
 // ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
-// in secrets TOML. This is useful to setup the database for testing
+// in secrets TOML. This is useful to set up the database for testing
 func (s *Shell) ResetDatabase(c *cli.Context) error {
 	cfg := s.Config.Database()
 	parsed := cfg.URL()
@@ -819,7 +819,7 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 	return
 }
 
-// PrepareTestDatabase calls ResetDatabase then loads fixtures required for local
+// PrepareTestDatabaseUserOnly calls ResetDatabase then loads only user fixtures required for local
 // testing against testnets. Does not include fake chain fixtures.
 func (s *Shell) PrepareTestDatabaseUserOnly(c *cli.Context) error {
 	if err := s.ResetDatabase(c); err != nil {
@@ -852,7 +852,7 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 	return nil
 }
 
-// VersionDatabase displays the current database version.
+// RollbackDatabase rolls back the database via down migrations.
 func (s *Shell) RollbackDatabase(c *cli.Context) error {
 	var version null.Int
 	if c.Args().Present() {
