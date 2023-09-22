@@ -769,7 +769,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	}
 
 	err = fm.q.Transaction(func(tx pg.Queryer) error {
-		if err2 := fm.runner.InsertFinishedRun(&run, false, pg.WithQueryer(tx)); err2 != nil {
+		if err2 := fm.runner.InsertFinishedRun(run, false, pg.WithQueryer(tx)); err2 != nil {
 			return err2
 		}
 		if err2 := fm.queueTransactionForTxm(tx, run.ID, answer, roundState.RoundId, &log); err2 != nil {
@@ -993,7 +993,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	}
 
 	err = fm.q.Transaction(func(tx pg.Queryer) error {
-		if err2 := fm.runner.InsertFinishedRun(&run, true, pg.WithQueryer(tx)); err2 != nil {
+		if err2 := fm.runner.InsertFinishedRun(run, true, pg.WithQueryer(tx)); err2 != nil {
 			return err2
 		}
 		if err2 := fm.queueTransactionForTxm(tx, run.ID, answer, roundState.RoundId, nil); err2 != nil {
