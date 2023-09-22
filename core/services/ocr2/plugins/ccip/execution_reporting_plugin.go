@@ -645,12 +645,13 @@ func getTokenData(ctx context.Context, lggr logger.Logger, msg internal.EVM2EVMO
 		tknData, err2 := offchainTokenDataProvider.ReadTokenData(ctx, msg)
 		if err2 != nil {
 			if errors.Is(err2, tokendata.ErrNotReady) {
-				lggr.Infof("Token data not ready yet for token %s", token.Token.Hex())
+				lggr.Infow("Token data not ready yet", "token", token.Token.Hex())
 				return [][]byte{}, false, nil
 			}
 			return [][]byte{}, false, err2
 		}
 
+		lggr.Infow("Token data retrieved", "token", token.Token.Hex())
 		tokenData = append(tokenData, tknData)
 	}
 	return tokenData, true, nil

@@ -230,6 +230,7 @@ func (c *LogPollerReader) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Cont
 	for i := range logs {
 		current := logs[len(logs)-i-1]
 		if current.LogIndex < logIndex {
+			c.lggr.Infow("Found USDC message", "logIndex", current.LogIndex, "txHash", current.TxHash.Hex(), "log", current)
 			return current.Data, nil
 		}
 	}

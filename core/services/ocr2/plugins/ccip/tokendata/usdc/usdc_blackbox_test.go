@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata/usdc"
@@ -82,7 +83,7 @@ func TestUSDCReader_ReadTokenData(t *testing.T) {
 	attestationURI, err := url.ParseRequestURI(ts.URL)
 	require.NoError(t, err)
 
-	usdcService := usdc.NewUSDCTokenDataReader(&eventsClient, mockUSDCTokenAddress, mockMsgTransmitter, mockOnRampAddress, attestationURI)
+	usdcService := usdc.NewUSDCTokenDataReader(logger.TestLogger(t), &eventsClient, mockUSDCTokenAddress, mockMsgTransmitter, mockOnRampAddress, attestationURI)
 	attestation, err := usdcService.ReadTokenData(context.Background(), internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
 		InternalEVM2EVMMessage: evm_2_evm_offramp.InternalEVM2EVMMessage{
 			SequenceNumber: seqNum,

@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -22,6 +23,7 @@ import (
 )
 
 type TokenDataReader struct {
+	lggr               logger.Logger
 	sourceChainEvents  ccipdata.Reader
 	attestationApi     *url.URL
 	messageTransmitter common.Address
@@ -53,8 +55,9 @@ const (
 
 var _ tokendata.Reader = &TokenDataReader{}
 
-func NewUSDCTokenDataReader(sourceChainEvents ccipdata.Reader, usdcTokenAddress, usdcMessageTransmitterAddress, onRampAddress common.Address, usdcAttestationApi *url.URL) *TokenDataReader {
+func NewUSDCTokenDataReader(lggr logger.Logger, sourceChainEvents ccipdata.Reader, usdcTokenAddress, usdcMessageTransmitterAddress, onRampAddress common.Address, usdcAttestationApi *url.URL) *TokenDataReader {
 	return &TokenDataReader{
+		lggr:                 lggr.With("tokenDataProvider", "usdc"),
 		sourceChainEvents:    sourceChainEvents,
 		attestationApi:       usdcAttestationApi,
 		messageTransmitter:   usdcMessageTransmitterAddress,
@@ -81,12 +84,14 @@ func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg internal.EVM2EV
 }
 
 func (s *TokenDataReader) getUpdatedAttestation(ctx context.Context, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) (attestationResponse, error) {
-	messageBody, err := s.getUSDCMessageBody(ctx, msg)
+	messageBodyHash, err := s.getUSDCMessageBodyHash(ctx, msg)
 	if err != nil {
 		return attestationResponse{}, errors.Wrap(err, "failed getting the USDC message body")
 	}
 
-	response, err := s.callAttestationApi(ctx, messageBody)
+	s.lggr.Infow("Calling attestation API", "messageBody", messageBodyHash, "messageID", msg.MessageId)
+
+	response, err := s.callAttestationApi(ctx, messageBodyHash)
 	if err != nil {
 		return attestationResponse{}, errors.Wrap(err, "failed calling usdc attestation API ")
 	}
@@ -94,7 +99,7 @@ func (s *TokenDataReader) getUpdatedAttestation(ctx context.Context, msg interna
 	return response, nil
 }
 
-func (s *TokenDataReader) getUSDCMessageBody(ctx context.Context, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) ([32]byte, error) {
+func (s *TokenDataReader) getUSDCMessageBodyHash(ctx context.Context, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) ([32]byte, error) {
 	s.usdcMessageHashCacheMutex.Lock()
 	defer s.usdcMessageHashCacheMutex.Unlock()
 
@@ -106,6 +111,8 @@ func (s *TokenDataReader) getUSDCMessageBody(ctx context.Context, msg internal.E
 	if err != nil {
 		return [32]byte{}, err
 	}
+
+	s.lggr.Infow("Got USDC message body", "messageBody", usdcMessageBody, "messageID", msg.MessageId)
 
 	msgBodyHash := utils.Keccak256Fixed(usdcMessageBody)
 
