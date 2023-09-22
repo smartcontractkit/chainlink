@@ -103,3 +103,4 @@ vrfv2plus_malicious_migrator: ../../contracts/solc/v0.8.6/VRFV2PlusMaliciousMigr
 vrfv2plus_reverting_example: ../../contracts/solc/v0.8.6/VRFV2PlusRevertingExample.abi ../../contracts/solc/v0.8.6/VRFV2PlusRevertingExample.bin 34743ac1dd5e2c9d210b2bd721ebd4dff3c29c548f05582538690dde07773589
 vrfv2plus_wrapper: ../../contracts/solc/v0.8.6/VRFV2PlusWrapper.abi ../../contracts/solc/v0.8.6/VRFV2PlusWrapper.bin 9099bc6d78c20ba502e2265d88825225649fa8a3402cb238f24f344ff239231a
 vrfv2plus_wrapper_consumer_example: ../../contracts/solc/v0.8.6/VRFV2PlusWrapperConsumerExample.abi ../../contracts/solc/v0.8.6/VRFV2PlusWrapperConsumerExample.bin d4ddf86da21b87c013f551b2563ab68712ea9d4724894664d5778f6b124f4e78
+vrfv2plus_wrapper_load_test_consumer: ../../contracts/solc/v0.8.6/VRFV2PlusWrapperLoadTestConsumer.abi ../../contracts/solc/v0.8.6/VRFV2PlusWrapperLoadTestConsumer.bin 8212afe0f981cd0820f46f1e2e98219ce5d1b1eeae502730dbb52b8638f9ad44
