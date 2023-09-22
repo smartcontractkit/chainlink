@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -75,11 +76,14 @@ func TestUSDCReader_ReadTokenData(t *testing.T) {
 		},
 	}, nil)
 
+	expectedBody, err := hexutil.Decode("0x000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000f80000000000000001000000020000000000048d71000000000000000000000000eb08f243e5d3fcff26a9e38ae5520a669f4019d000000000000000000000000023a04d5935ed8bc8e3eb78db3541f0abfb001c6e0000000000000000000000006cb3ed9b441eb674b58495c8b3324b59faff5243000000000000000000000000000000005425890298aed601595a70ab815c96711a31bc65000000000000000000000000ab4f961939bfe6a93567cc57c59eed7084ce2131000000000000000000000000000000000000000000000000000000000000271000000000000000000000000035e08285cfed1ef159236728f843286c55fc08610000000000000000")
+	require.NoError(t, err)
+
 	eventsClient.On("GetLastUSDCMessagePriorToLogIndexInTx",
 		mock.Anything,
 		logIndex,
 		common.Hash(txHash),
-	).Return(attestationBytes, nil)
+	).Return(expectedBody, nil)
 	attestationURI, err := url.ParseRequestURI(ts.URL)
 	require.NoError(t, err)
 
