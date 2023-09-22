@@ -3,6 +3,9 @@ package vrfv2plus
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
@@ -14,11 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
-	"math/big"
-	"time"
 )
 
 var (
@@ -67,7 +68,7 @@ func DeployVRFV2PlusContracts(
 	if err != nil {
 		return nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
-	coordinator, err := contractDeployer.DeployVRFCoordinatorV2Plus(bhs.Address())
+	coordinator, err := contractDeployer.DeployVRFCoordinatorV2_5(bhs.Address())
 	if err != nil {
 		return nil, errors.Wrap(err, ErrDeployCoordinator)
 	}
@@ -223,7 +224,7 @@ func SetupVRFV2PlusEnvironment(
 		}
 	}
 
-	err = vrfv2PlusContracts.Coordinator.SetLINKAndLINKETHFeed(linkAddress.Address(), mockETHLinkFeedAddress.Address())
+	err = vrfv2PlusContracts.Coordinator.SetLINKAndLINKNativeFeed(linkAddress.Address(), mockETHLinkFeedAddress.Address())
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrSetLinkETHLinkFeed)
 	}
@@ -342,7 +343,7 @@ func GetCoordinatorTotalBalance(coordinator contracts.VRFCoordinatorV2Plus) (lin
 
 func FundSubscription(env *test_env.CLClusterTestEnv, linkAddress contracts.LinkToken, coordinator contracts.VRFCoordinatorV2Plus, subID *big.Int) error {
 	//Native Billing
-	err := coordinator.FundSubscriptionWithEth(subID, big.NewInt(0).Mul(vrfv2plus_constants.VRFSubscriptionFundingAmountNativeToken, big.NewInt(1e18)))
+	err := coordinator.FundSubscriptionWithNative(subID, big.NewInt(0).Mul(vrfv2plus_constants.VRFSubscriptionFundingAmountNativeToken, big.NewInt(1e18)))
 	if err != nil {
 		return errors.Wrap(err, ErrFundSubWithNativeToken)
 	}
@@ -366,7 +367,7 @@ func RequestRandomnessAndWaitForFulfillment(
 	subID *big.Int,
 	isNativeBilling bool,
 	l zerolog.Logger,
-) (*vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled, error) {
+) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error) {
 	_, err := consumer.RequestRandomness(
 		vrfv2PlusData.KeyHash,
 		subID,
@@ -412,7 +413,7 @@ func RequestRandomnessAndWaitForFulfillment(
 	l.Debug().
 		Interface("Total Payment in Juels", randomWordsFulfilledEvent.Payment).
 		Interface("TX Hash", randomWordsFulfilledEvent.Raw.TxHash).
-		Interface("Subscription ID", randomWordsFulfilledEvent.SubID).
+		Interface("Subscription ID", randomWordsFulfilledEvent.SubId).
 		Interface("Request ID", randomWordsFulfilledEvent.RequestId).
 		Bool("Success", randomWordsFulfilledEvent.Success).
 		Msg("RandomWordsFulfilled Event (TX metadata)")

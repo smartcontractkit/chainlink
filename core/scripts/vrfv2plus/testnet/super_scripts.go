@@ -17,7 +17,7 @@ import (
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 )
 
@@ -132,7 +132,7 @@ func deployUniverse(e helpers.Environment) {
 	fmt.Println("\nDeploying Coordinator...")
 	coordinatorAddress = deployCoordinator(e, *linkAddress, bhsContractAddress.String(), *linkEthAddress)
 
-	coordinator, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(coordinatorAddress, e.Ec)
+	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 
 	fmt.Println("\nDeploying Batch Coordinator...")
@@ -147,9 +147,9 @@ func deployUniverse(e helpers.Environment) {
 		uint32(*stalenessSeconds),
 		uint32(*gasAfterPayment),
 		fallbackWeiPerUnitLink,
-		vrf_coordinator_v2plus.VRFCoordinatorV2PlusFeeConfig{
-			FulfillmentFlatFeeLinkPPM: uint32(*flatFeeLinkPPM),
-			FulfillmentFlatFeeEthPPM:  uint32(*flatFeeEthPPM),
+		vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
+			FulfillmentFlatFeeLinkPPM:   uint32(*flatFeeLinkPPM),
+			FulfillmentFlatFeeNativePPM: uint32(*flatFeeEthPPM),
 		},
 	)
 
@@ -264,7 +264,7 @@ func deployWrapperUniverse(e helpers.Environment) {
 		common.HexToAddress(*linkAddress),
 		wrapper)
 
-	coordinator, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(common.HexToAddress(*coordinatorAddress), e.Ec)
+	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 	helpers.PanicErr(err)
 
 	eoaFundSubscription(e, *coordinator, *linkAddress, amount, subID)

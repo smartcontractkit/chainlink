@@ -1,9 +1,10 @@
 package vrfv2plus_constants
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
 	"math/big"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
 )
 
 var (
@@ -19,13 +20,13 @@ var (
 	StalenessSeconds                        = uint32(86400)
 	GasAfterPaymentCalculation              = uint32(33825)
 
-	VRFCoordinatorV2PlusFeeConfig = vrf_coordinator_v2plus.VRFCoordinatorV2PlusFeeConfig{
-		FulfillmentFlatFeeLinkPPM: 500,
-		FulfillmentFlatFeeEthPPM:  500,
+	VRFCoordinatorV2PlusFeeConfig = vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
+		FulfillmentFlatFeeLinkPPM:   500,
+		FulfillmentFlatFeeNativePPM: 500,
 	}
 
 	VRFCoordinatorV2PlusUpgradedVersionFeeConfig = vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionFeeConfig{
-		FulfillmentFlatFeeLinkPPM: 500,
-		FulfillmentFlatFeeEthPPM:  500,
+		FulfillmentFlatFeeLinkPPM:   500,
+		FulfillmentFlatFeeNativePPM: 500,
 	}
 )

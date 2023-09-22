@@ -2,10 +2,11 @@ package smoke
 
 import (
 	"context"
-	"github.com/pkg/errors"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/pkg/errors"
 
 	"github.com/stretchr/testify/require"
 
@@ -202,7 +203,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		vrfv2plus_constants.VRFCoordinatorV2PlusUpgradedVersionFeeConfig,
 	)
 
-	err = newCoordinator.SetLINKAndLINKETHFeed(linkAddress.Address(), mockETHLinkFeedAddress.Address())
+	err = newCoordinator.SetLINKAndLINKNativeFeed(linkAddress.Address(), mockETHLinkFeedAddress.Address())
 	require.NoError(t, err, vrfv2plus.ErrSetLinkETHLinkFeed)
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
