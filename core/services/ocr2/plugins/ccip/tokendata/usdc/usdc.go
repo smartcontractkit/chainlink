@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -88,7 +89,7 @@ func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg internal.EVM2EV
 	}
 
 	if response.Status == attestationStatusSuccess {
-		attestationBytes, err := hex.DecodeString(response.Attestation)
+		attestationBytes, err := hex.DecodeString(strings.TrimPrefix(response.Attestation, "0x"))
 		if err != nil {
 			return nil, fmt.Errorf("decode response attestation: %w", err)
 		}
