@@ -840,19 +840,7 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 		return s.errorOut(errDBURLMissing)
 	}
 
-	// TODO TO BE REMOVED IN v2.7.0
-	db, err := sql.Open(string(dialects.Postgres), parsed.String())
-	if err != nil {
-		return fmt.Errorf("unable to open postgres database for evmChainID helper migration: %+v", err)
-	}
-	defer func() {
-		if cerr := db.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	// TODO TO BE REMOVED IN v2.7.0
-	err = evmChainIDMigration(s.Config, db, s.Logger)
+	err := migrate.SetMigrationENVVars(s.Config)
 	if err != nil {
 		return err
 	}

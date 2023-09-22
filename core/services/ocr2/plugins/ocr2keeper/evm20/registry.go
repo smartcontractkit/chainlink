@@ -52,7 +52,7 @@ var (
 	ErrContextCancelled              = fmt.Errorf("context was cancelled")
 	ErrABINotParsable                = fmt.Errorf("error parsing abi")
 	ActiveUpkeepIDBatchSize    int64 = 1000
-	FetchUpkeepConfigBatchSize       = 10
+	FetchUpkeepConfigBatchSize       = 50
 	separator                        = "|"
 	reInitializationDelay            = 15 * time.Minute
 	logEventLookback           int64 = 250
@@ -332,6 +332,9 @@ func (r *EvmRegistry) initialize() error {
 		}
 
 		offset += batch
+
+		// Do not bombard RPC will calls, wait a bit
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	r.mu.Lock()

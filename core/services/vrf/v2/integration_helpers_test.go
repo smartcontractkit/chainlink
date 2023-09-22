@@ -241,7 +241,7 @@ func testMultipleConsumersNeedBHS(
 
 	_ = vrftesthelpers.CreateAndStartBHSJob(
 		t, bhsKeyAddresses, app, uni.bhsContractAddress.String(), "",
-		v2CoordinatorAddress, v2PlusCoordinatorAddress, "", 0, 200, 100)
+		v2CoordinatorAddress, v2PlusCoordinatorAddress, "", 0, 200, 0, 100)
 
 	// Ensure log poller is ready and has all logs.
 	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
@@ -391,7 +391,7 @@ func testMultipleConsumersNeedTrustedBHS(
 	}
 	_ = vrftesthelpers.CreateAndStartBHSJob(
 		t, bhsKeyAddressesStrings, app, "", "",
-		v2CoordinatorAddress, v2PlusCoordinatorAddress, uni.trustedBhsContractAddress.String(), 20, 1000, waitBlocks)
+		v2CoordinatorAddress, v2PlusCoordinatorAddress, uni.trustedBhsContractAddress.String(), 20, 1000, 0, waitBlocks)
 
 	// Ensure log poller is ready and has all logs.
 	chain := app.GetRelayers().LegacyEVMChains().Slice()[0]
