@@ -19,7 +19,7 @@ jobs:
         uses: ./.github/actions/ci-golang-lint
         with:
           name: chaincli-lint
-          working-directory: core/scripts/chaincli
+          go-directory: core/scripts/chaincli
           go-version-file: core/scripts/go.mod
           go-module-file: core/scripts/go.sum
           gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
