@@ -354,7 +354,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 			}))
 	} else {
 		testEnvironment.
-			AddHelm(ethereum.New(&ethereum.Props{
+			AddHelm(ethereum.NewVersioned("0.2.0", &ethereum.Props{
 				NetworkName: testNetwork.Name,
 				Simulated:   testNetwork.Simulated,
 				WsURLs:      testNetwork.URLs,
