@@ -328,7 +328,12 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @param _data is the abi-encoded VRF request parameters: uint32 callbackGasLimit,
    *        uint16 requestConfirmations, and uint32 numWords.
    */
-  function onTokenTransfer(address _sender, uint256 _amount, bytes calldata _data) external onlyConfiguredNotDisabled {
+  function onTokenTransfer(
+    address _sender,
+    uint256 _amount,
+    bytes calldata _data,
+    bytes calldata extraArgs
+    ) external onlyConfiguredNotDisabled {
     require(msg.sender == address(s_link), "only callable from LINK");
 
     (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords) = abi.decode(
@@ -346,7 +351,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       requestConfirmations: requestConfirmations,
       callbackGasLimit: callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
       numWords: numWords,
-      extraArgs: "" // empty extraArgs defaults to link payment
+      extraArgs: extraArgs // empty extraArgs defaults to link payment
     });
     uint256 requestId = COORDINATOR.requestRandomWords(req);
     s_callbacks[requestId] = Callback({
@@ -360,7 +365,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   function requestRandomWordsInNative(
     uint32 _callbackGasLimit,
     uint16 _requestConfirmations,
-    uint32 _numWords
+    uint32 _numWords,
+    bytes calldata extraArgs
   ) external payable override returns (uint256 requestId) {
     uint32 eip150Overhead = getEIP150Overhead(_callbackGasLimit);
     uint256 price = calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);
