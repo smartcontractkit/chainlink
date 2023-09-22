@@ -7,8 +7,8 @@ inputs:
   cache-version: 
     description: Set this to cache bust
     default: "1"
-  working-directory:
-    description: Set the working directory to run commands from
+  go-directory:
+    description: Set the go directory
     default: "."
   go-version-file:
     description: Set where the go version file is located at
@@ -23,7 +23,7 @@ runs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        working-directory: ${{ inputs.working-directory }}
+        working-directory: ${{ inputs.go-directory }}
         go-version-file: ${{ inputs.go-version-file }}
         cache: false
 
@@ -51,7 +51,7 @@ runs:
           ${{ steps.go-cache-dir.outputs.gomodcache }}
         # The lifetime of go modules is much higher than the build outputs, so we increase cache efficiency
         # here by not having the primary key contain the branch name
-        key: ${{ runner.os }}-gomod-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-file.output.path) }}
+        key: ${{ runner.os }}-gomod-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-path.output.path) }}
         restore-keys: |
           ${{ runner.os }}-gomod-${{ inputs.cache-version }}-
 
@@ -62,7 +62,7 @@ runs:
         path: |
           ${{ steps.go-cache-dir.outputs.gobuildcache }}
         # The lifetime of go build outputs is pretty short, so we make our primary cache key be the branch name
-        key: ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-file.output.path) }}-${{ steps.branch-name.outputs.current_branch }}
+        key: ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-path.output.path) }}-${{ steps.branch-name.outputs.current_branch }}
         restore-keys: |
-          ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-file.output.path) }}-
+          ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-${{ hashFiles(steps.go-module-path.output.path) }}-
           ${{ runner.os }}-gobuild-${{ inputs.cache-version }}-
