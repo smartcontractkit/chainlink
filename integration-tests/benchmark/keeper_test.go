@@ -339,7 +339,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 	if testNetwork.Name == networks.SimulatedEVMNonDev.Name {
 		networkDetailTOML = simulatedEVMNonDevTOML
 		testEnvironment.
-			AddHelm(reorg.NewVersioned("0.2.0", &reorg.Props{
+			AddHelm(reorg.New(&reorg.Props{
 				NetworkName: testNetwork.Name,
 				Values: map[string]interface{}{
 					"geth": map[string]interface{}{
@@ -354,7 +354,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 			}))
 	} else {
 		testEnvironment.
-			AddHelm(ethereum.NewVersioned("0.2.0", &ethereum.Props{
+			AddHelm(ethereum.New(&ethereum.Props{
 				NetworkName: testNetwork.Name,
 				Simulated:   testNetwork.Simulated,
 				WsURLs:      testNetwork.URLs,
