@@ -59,7 +59,7 @@ library ChainSpecificUtil {
   }
 
   /**
-    * @notice Return true if and only if the provided chain ID is an Arbitrum chain ID.
+   * @notice Return true if and only if the provided chain ID is an Arbitrum chain ID.
    */
   function isArbitrumChainId(uint256 chainId) internal pure returns (bool) {
     return
