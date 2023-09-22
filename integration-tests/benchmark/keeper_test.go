@@ -339,7 +339,7 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 	if testNetwork.Name == networks.SimulatedEVMNonDev.Name {
 		networkDetailTOML = simulatedEVMNonDevTOML
 		testEnvironment.
-			AddHelm(reorg.New(&reorg.Props{
+			AddHelm(reorg.NewVersioned("0.2.0", &reorg.Props{
 				NetworkName: testNetwork.Name,
 				Values: map[string]interface{}{
 					"geth": map[string]interface{}{
