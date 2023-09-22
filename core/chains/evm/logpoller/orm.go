@@ -45,6 +45,7 @@ func (o *ORM) InsertBlock(h common.Hash, n int64, t time.Time, qopts ...pg.QOpt)
 // If a second job tries to overwrite the same pair, this should fail.
 func (o *ORM) InsertFilter(filter Filter, qopts ...pg.QOpt) (err error) {
 	q := o.q.WithOpts(qopts...)
+
 	addresses := make([][]byte, 0)
 	events := make([][]byte, 0)
 
