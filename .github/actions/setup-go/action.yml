@@ -41,6 +41,7 @@ runs:
 
     - name: Set go module path
       id: go-module-path
+      shell: bash
       run: echo "path=./${{ inputs.go-module-file }}" >> $GITHUB_OUTPUT
 
     - uses: actions/cache@v3
