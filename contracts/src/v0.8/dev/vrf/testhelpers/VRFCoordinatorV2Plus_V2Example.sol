@@ -45,7 +45,11 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration {
 
   function getSubscription(
     uint256 subId
-  ) public view returns (uint96 linkBalance, uint96 nativeBalance, uint64 reqCount, address owner, address[] memory consumers) {
+  )
+    public
+    view
+    returns (uint96 linkBalance, uint96 nativeBalance, uint64 reqCount, address owner, address[] memory consumers)
+  {
     if (s_subscriptions[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -128,9 +132,7 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration {
    * Section: Request/Response
    **************************************************************************/
 
-  function requestRandomWords(
-    VRFV2PlusClient.RandomWordsRequest calldata req
-  ) external returns (uint256 requestId) {
+  function requestRandomWords(VRFV2PlusClient.RandomWordsRequest calldata req) external returns (uint256 requestId) {
     Subscription memory sub = s_subscriptions[req.subId];
     sub.reqCount = sub.reqCount + 1;
     return handleRequest(msg.sender);

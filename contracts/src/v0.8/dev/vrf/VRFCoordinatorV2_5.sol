@@ -48,7 +48,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   mapping(uint256 => bytes32) /* requestID */ /* commitment */ public s_requestCommitments;
   event ProvingKeyRegistered(bytes32 keyHash, address indexed oracle);
   event ProvingKeyDeregistered(bytes32 keyHash, address indexed oracle);
-    event RandomWordsRequested(
+  event RandomWordsRequested(
     bytes32 indexed keyHash,
     uint256 requestId,
     uint256 preSeed,
@@ -230,7 +230,9 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    * @return requestId - A unique identifier of the request. Can be used to match
    * a request to a response in fulfillRandomWords.
    */
-  function requestRandomWords(VRFV2PlusClient.RandomWordsRequest calldata req) external nonReentrant override returns (uint256) {
+  function requestRandomWords(
+    VRFV2PlusClient.RandomWordsRequest calldata req
+  ) external override nonReentrant returns (uint256) {
     // Input validation using the subscription storage.
     if (s_subscriptionConfigs[req.subId].owner == address(0)) {
       revert InvalidSubscription();

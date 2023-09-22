@@ -80,7 +80,7 @@ interface IVRFSubscriptionV2Plus {
    */
   function pendingRequestExists(uint256 subId) external view returns (bool);
 
-   /**
+  /**
    * @notice Paginate through all active VRF subscriptions.
    * @param startIndex index of the subscription to start from
    * @param maxCount maximum number of subscriptions to return, 0 to return all

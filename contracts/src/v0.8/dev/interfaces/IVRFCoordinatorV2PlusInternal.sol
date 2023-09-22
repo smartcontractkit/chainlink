@@ -7,7 +7,7 @@ import "./IVRFCoordinatorV2Plus.sol";
 // Future versions of VRF V2plus must conform to this interface
 // VRF coordinator doesn't directly inherit from this interface because solidity
 // imposes interface methods be external, whereas methods implementated VRF coordinator
-// are public. This is OK because IVRFCoordinatorV2PlusInternal doesn't have any solidity 
+// are public. This is OK because IVRFCoordinatorV2PlusInternal doesn't have any solidity
 // use case. It is only used to generate gethwrappers
 interface IVRFCoordinatorV2PlusInternal is IVRFCoordinatorV2Plus {
   event RandomWordsRequested(
