@@ -53,6 +53,7 @@ runs:
       run: go build
     - name: golangci-lint
       uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3.7.0
+      working-directory: ${{ inputs.go-directory }}
       with:
         version: v1.54.2
         # We already cache these directories in setup-go
