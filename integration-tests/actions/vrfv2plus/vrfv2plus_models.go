@@ -28,3 +28,8 @@ type VRFV2PlusContracts struct {
 	BHS               contracts.BlockHashStore
 	LoadTestConsumers []contracts.VRFv2PlusLoadTestConsumer
 }
+
+type VRFV2PlusWrapperContracts struct {
+	VRFV2PlusWrapper  contracts.VRFV2PlusWrapper
+	LoadTestConsumers []contracts.VRFv2PlusWrapperLoadTestConsumer
+}
