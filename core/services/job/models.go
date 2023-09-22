@@ -573,6 +573,12 @@ type BlockhashStoreSpec struct {
 	// WaitBlocks defines the minimum age of blocks whose hashes should be stored.
 	WaitBlocks int32 `toml:"waitBlocks"`
 
+	// HeartbeatPeriodTime defines the number of seconds by which we "heartbeat store"
+	// a blockhash into the blockhash store contract.
+	// This is so that we always have a blockhash to anchor to in the event we need to do a
+	// backwards mode on the contract.
+	HeartbeatPeriod time.Duration `toml:"heartbeatPeriod"`
+
 	// BlockhashStoreAddress is the address of the BlockhashStore contract to store blockhashes
 	// into.
 	BlockhashStoreAddress ethkey.EIP55Address `toml:"blockhashStoreAddress"`
