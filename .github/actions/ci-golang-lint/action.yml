@@ -53,7 +53,6 @@ runs:
       run: go build
     - name: golangci-lint
       uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3.7.0
-      working-directory: ${{ inputs.go-directory }}
       with:
         version: v1.54.2
         # We already cache these directories in setup-go
@@ -62,6 +61,7 @@ runs:
         # only-new-issues is only applicable to PRs, otherwise it is always set to false
         only-new-issues: true
         args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
+        working-directory: ${{ inputs.go-directory }}
     - name: Store lint report artifact
       if: always()
       uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
