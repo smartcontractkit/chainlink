@@ -119,8 +119,6 @@ jobs:
     defaults:
       run:
         working-directory: contracts
-    needs: [changes]
-    if: needs.changes.outputs.changes == 'true'
     name: Prettier Formatting
     runs-on: ubuntu-latest
     steps:
