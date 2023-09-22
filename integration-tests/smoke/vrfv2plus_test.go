@@ -51,7 +51,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 
 	l.Debug().
 		Interface("Juels Balance", subscription.Balance).
-		Interface("Native Token Balance", subscription.EthBalance).
+		Interface("Native Token Balance", subscription.NativeBalance).
 		Interface("Subscription ID", subID).
 		Interface("Subscription Owner", subscription.Owner.String()).
 		Interface("Subscription Consumers", subscription.Consumers).
@@ -99,7 +99,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 
 	t.Run("VRFV2 Plus With Native Billing", func(t *testing.T) {
 		var isNativeBilling = true
-		subNativeTokenBalanceBeforeRequest := subscription.EthBalance
+		subNativeTokenBalanceBeforeRequest := subscription.NativeBalance
 
 		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
 		require.NoError(t, err, "error reading job runs")
@@ -117,7 +117,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		expectedSubBalanceWei := new(big.Int).Sub(subNativeTokenBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
 		subscription, err = vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
 		require.NoError(t, err)
-		subBalanceAfterRequest := subscription.EthBalance
+		subBalanceAfterRequest := subscription.NativeBalance
 		require.Equal(t, expectedSubBalanceWei, subBalanceAfterRequest)
 
 		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
@@ -170,7 +170,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 	l.Debug().
 		Interface("Juels Balance", subscription.Balance).
-		Interface("Native Token Balance", subscription.EthBalance).
+		Interface("Native Token Balance", subscription.NativeBalance).
 		Interface("Subscription ID", subID).
 		Interface("Subscription Owner", subscription.Owner.String()).
 		Interface("Subscription Consumers", subscription.Consumers).
@@ -259,7 +259,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		Interface("New Coordinator", newCoordinator.Address()).
 		Interface("Subscription ID", subID).
 		Interface("Juels Balance", migratedSubscription.Balance).
-		Interface("Native Token Balance", migratedSubscription.EthBalance).
+		Interface("Native Token Balance", migratedSubscription.NativeBalance).
 		Interface("Subscription Owner", migratedSubscription.Owner.String()).
 		Interface("Subscription Consumers", migratedSubscription.Consumers).
 		Msg("Subscription Data After Migration to New Coordinator")
@@ -276,7 +276,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	}
 
 	//Verify old and migrated subs
-	require.Equal(t, oldSubscriptionBeforeMigration.EthBalance, migratedSubscription.EthBalance)
+	require.Equal(t, oldSubscriptionBeforeMigration.NativeBalance, migratedSubscription.NativeBalance)
 	require.Equal(t, oldSubscriptionBeforeMigration.Balance, migratedSubscription.Balance)
 	require.Equal(t, oldSubscriptionBeforeMigration.Owner, migratedSubscription.Owner)
 	require.Equal(t, oldSubscriptionBeforeMigration.Consumers, migratedSubscription.Consumers)
@@ -295,10 +295,10 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 	//Verify that total balances changed for Link and Eth for new and old coordinator
 	expectedLinkTotalBalanceForMigratedCoordinator := new(big.Int).Add(oldSubscriptionBeforeMigration.Balance, migratedCoordinatorLinkTotalBalanceBeforeMigration)
-	expectedEthTotalBalanceForMigratedCoordinator := new(big.Int).Add(oldSubscriptionBeforeMigration.EthBalance, migratedCoordinatorEthTotalBalanceBeforeMigration)
+	expectedEthTotalBalanceForMigratedCoordinator := new(big.Int).Add(oldSubscriptionBeforeMigration.NativeBalance, migratedCoordinatorEthTotalBalanceBeforeMigration)
 
 	expectedLinkTotalBalanceForOldCoordinator := new(big.Int).Sub(oldCoordinatorLinkTotalBalanceBeforeMigration, oldSubscriptionBeforeMigration.Balance)
-	expectedEthTotalBalanceForOldCoordinator := new(big.Int).Sub(oldCoordinatorEthTotalBalanceBeforeMigration, oldSubscriptionBeforeMigration.EthBalance)
+	expectedEthTotalBalanceForOldCoordinator := new(big.Int).Sub(oldCoordinatorEthTotalBalanceBeforeMigration, oldSubscriptionBeforeMigration.NativeBalance)
 	require.Equal(t, expectedLinkTotalBalanceForMigratedCoordinator, migratedCoordinatorLinkTotalBalanceAfterMigration)
 	require.Equal(t, expectedEthTotalBalanceForMigratedCoordinator, migratedCoordinatorEthTotalBalanceAfterMigration)
 	require.Equal(t, expectedLinkTotalBalanceForOldCoordinator, oldCoordinatorLinkTotalBalanceAfterMigration)
