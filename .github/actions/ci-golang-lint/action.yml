@@ -48,7 +48,7 @@ runs:
       run: go build ./...
     - name: Build binary
       if: ${{ inputs.go-directory != '.' }}
-      go-directory: ${{ inputs.go-directory }}
+      working-directory: ${{ inputs.go-directory }}
       shell: bash
       run: go build
     - name: golangci-lint
