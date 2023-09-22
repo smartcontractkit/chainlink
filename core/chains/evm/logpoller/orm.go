@@ -251,7 +251,6 @@ func (o *ORM) SelectLogsCreatedAfter(address common.Address, eventSig common.Has
 		return nil, err
 	}
 	return logs, nil
-
 }
 
 // SelectLogsWithSigsByBlockRangeFilter finds the logs in the given block range with the given event signatures
