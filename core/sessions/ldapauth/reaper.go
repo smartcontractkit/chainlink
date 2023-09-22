@@ -112,11 +112,11 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 			UserRole  sessions.UserRole
 		}
 		var existingSessions []LDAPSession
-		if err := tx.Select(&existingSessions, "SELECT user_email, user_role FROM ldap_sessions"); err != nil {
+		if err := tx.Select(&existingSessions, "SELECT user_email, user_role FROM ldap_sessions WHERE localauth_user = false"); err != nil {
 			return errors.Wrap(err, "Unable to query ldap_sessions table")
 		}
 		var existingAPITokens []LDAPSession
-		if err := tx.Select(&existingAPITokens, "SELECT user_email, user_role FROM ldap_user_api_tokens"); err != nil {
+		if err := tx.Select(&existingAPITokens, "SELECT user_email, user_role FROM ldap_user_api_tokens WHERE localauth_user = false"); err != nil {
 			return errors.Wrap(err, "Unable to query ldap_user_api_tokens table")
 		}
 

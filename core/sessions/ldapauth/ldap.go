@@ -13,7 +13,10 @@ This module relies on the two following local database tables:
 						  expiration is enforced
 
 User session and roles are cached and revalidated with the upstream service at the interval defined in
-the local LDAP config through the Application.sessionReaper implementation in reaper.go
+the local LDAP config through the Application.sessionReaper implementation in reaper.go.
+Changes to the upstream identity server will propogate through and update local tables (web sessions, API tokens)
+by either removing the entries or updating the roles. This sync happens for every auth endpoint hit, and
+via the defined sync interval. One goroutine is created to coordinate the sync timing in the New function
 
 This implementation is read only; user mutation actions such as Delete are not supported.
 
@@ -150,6 +153,26 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 	}
 
 	if len(result.Entries) == 0 {
+		// Provided email is not present in upstream LDAP server, local admin CLI auth is supported
+		// So query and check the users table as well before failing
+		err := l.q.Transaction(func(tx pg.Queryer) error {
+			var localUserRole sessions.UserRole
+			if err := tx.Get(&localUserRole, "SELECT role FROM users WHERE email = $1", email); err != nil {
+				return err
+			}
+			foundUser = sessions.User{
+				Email: email,
+				Role:  localUserRole,
+			}
+			return nil
+		})
+
+		// If the above query to the local users table was successful, return that local user's role
+		if err == nil {
+			return foundUser, nil
+		}
+
+		l.lggr.Warnf("No local users table user found with email %s", email)
 		return foundUser, errors.New("No users found with provided email")
 	}
 
@@ -414,9 +437,12 @@ func (l *ldapAuthenticator) CreateSession(sr sessions.SessionRequest) (string, e
 		returnErr = errors.New("Log in successful, but no assigned groups to assume role")
 	}
 
+	isLocalUser := false
 	if returnErr != nil {
 		// Unable to log in against LDAP server, attempt fallback local auth with credentials, case of local CLI Admin account
+		// Successful local user sessions can not be managed by the upstream server and have expiration handled by the reaper sync module
 		foundUser, returnErr = l.localLoginFallback(sr)
+		isLocalUser = true
 	}
 
 	// If err is still populate, return
@@ -431,13 +457,15 @@ func (l *ldapAuthenticator) CreateSession(sr sessions.SessionRequest) (string, e
 	// LDAP server
 	session := sessions.NewSession()
 	_, err = l.q.Exec(
-		"INSERT INTO ldap_sessions (id, user_email, user_role, created_at) VALUES ($1, $2, $3, now())",
+		"INSERT INTO ldap_sessions (id, user_email, user_role, localauth_user, created_at) VALUES ($1, $2, $3, $4, now())",
 		session.ID,
 		strings.ToLower(sr.Email),
 		foundUser.Role,
+		isLocalUser,
 	)
 	if err != nil {
-		return "", errors.Wrap(err, "unable to create new session in ldap_sessions table")
+		l.lggr.Errorf("unable to create new session in ldap_sessions table %v", err)
+		return "", errors.Wrap(err, "Error creating local LDAP session")
 	}
 
 	l.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]interface{}{"email": sr.Email})
@@ -474,13 +502,27 @@ func (l *ldapAuthenticator) TestPassword(email string, password string) error {
 		return errors.New("Unable to establish connection to LDAP server with provided URL and credentials")
 	}
 	defer conn.Close()
+
 	// Attempt to LDAP Bind with user provided credentials
 	escapedEmail := ldap.EscapeFilter(strings.ToLower(email))
 	searchBaseDN := fmt.Sprintf("%s=%s,%s,%s", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDN(), l.config.BaseDN())
-	if err := conn.Bind(searchBaseDN, password); err != nil {
+	err = conn.Bind(searchBaseDN, password)
+	if err != nil {
 		l.lggr.Infof("Error binding user authentication request in TestPassword call LDAP Bind: %v", err)
+	} else {
+		// LDAP Bind/login was succesful, return success case
+		return nil
+	}
+
+	// Fall back to test local users table in case of supported local CLI users as well
+	var hashedPassword string
+	if err := l.q.Get(&hashedPassword, "SELECT hashed_password FROM users WHERE lower(email) = lower($1)", email); err != nil {
 		return errors.New("Invalid credentials")
 	}
+	if !utils.CheckPasswordHash(password, hashedPassword) {
+		return errors.New("Invalid credentials")
+	}
+
 	return nil
 }
 
@@ -509,23 +551,36 @@ func (l *ldapAuthenticator) SetAuthToken(user *sessions.User, token *auth.Token)
 	}
 
 	err = l.q.Transaction(func(tx pg.Queryer) error {
+		// Is this user a local CLI Admin or upstream LDAP user?
+		// Check presence in local users table. Set localauth_user column true if present.
+		// This flag omits the session/token from being purged by the sync daemon/reaper.go
+		isLocalCLIAdmin := false
+		err := l.q.QueryRow("SELECT EXISTS (SELECT 1 FROM users WHERE email = $1)", user.Email).Scan(&isLocalCLIAdmin)
+		if err != nil {
+			return errors.Wrap(err, "Error checking user presence in users table")
+		}
+
 		// Remove any existing API tokens
 		if _, err := l.q.Exec("DELETE FROM ldap_user_api_tokens WHERE user_email = $1", user.Email); err != nil {
 			return errors.Wrap(err, "Error executing DELETE FROM ldap_user_api_tokens")
 		}
 		// Create new API token for user
 		_, err = l.q.Exec(
-			"INSERT INTO ldap_user_api_tokens (user_email, user_role, token_key, token_salt, token_hashed_secret, created_at) VALUES ($1, $2, $3, $4, $5, now())",
+			"INSERT INTO ldap_user_api_tokens (user_email, user_role, localauth_user, token_key, token_salt, token_hashed_secret, created_at) VALUES ($1, $2, $3, $4, $5, $6, now())",
 			user.Email,
 			user.Role,
+			isLocalCLIAdmin,
 			token.AccessKey,
 			salt,
 			hashedSecret,
 		)
+		if err != nil {
+			return errors.Wrap(err, "Failed insert into ldap_user_api_tokens")
+		}
 		return nil
 	})
 	if err != nil {
-		return errors.Wrap(err, "error removing potential existing token and new token creation")
+		return errors.New("Error creating API token")
 	}
 
 	l.auditLogger.Audit(audit.APITokenCreated, map[string]interface{}{"user": user.Email})

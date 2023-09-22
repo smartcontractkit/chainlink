@@ -253,7 +253,7 @@ func (c *UserController) NewAPIToken(ctx *gin.Context) {
 			return
 		}
 		c.App.GetLogger().Errorf("failed to obtain current user record: %s", err)
-		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("unable to creatae API token"))
+		jsonAPIError(ctx, http.StatusInternalServerError, errors.New("unable to create API token"))
 		return
 	}
 	// In order to create an API token, login validation with provided password must succeed
