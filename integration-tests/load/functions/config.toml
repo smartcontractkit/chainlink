@@ -21,12 +21,12 @@ duration = "10m"
 [RealSoak]
 rps = 1
 requests_per_call = 20
-duration = "4h"
+duration = "40m"
 
 [RealStress]
 rps = 1
-requests_per_call = 40
-duration = "4h"
+requests_per_call = 78
+duration = "1h"
 
 [GatewayListSoak]
 rps = 95
@@ -42,9 +42,9 @@ duration = "10m"
 don_id = "fun-staging-mumbai-1"
 link_token_addr = "0x326C977E6efc84E512bB9C30f76E30c160eD06FB"
 coordinator_addr = "0x6D6a83BB356b7242E88C1A2b290102fde26590D0"
-router_addr = "0x2673266D3Cd08b53494B5a92B66DEec7F1408E7A"
-client_addr = "0x89D4b58D859a536D0B888ecD5093eF5FF9e4F977"
-subscription_id = 47
+router_addr = "0xde13bf56ee3db63eea2f37fb85004a6d52357d30"
+client_addr = "0x5A9D99a2547284aF3987b0d646922d8F42d2Cfaf"
+subscription_id = 12
 
 [Networks.Mumbai]
 don_id = "fun-polygon-mumbai-1"
@@ -97,9 +97,9 @@ const response = await Functions.makeHttpRequest({ url: 'http://dummyjson.com/pr
 return Functions.encodeString(JSON.stringify(secrets));
 """
 secrets_slot_id = 0
-secrets_version = 1694702797
+#secrets_version = 1694702797
 # staging
-#secrets_version = 1693945705
+secrets_version = 1693945705
 
 # uncomment to upload new secrets to s4 and use it in your run
 # TODO: not working now
