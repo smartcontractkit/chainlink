@@ -34,7 +34,6 @@ runs:
     - name: Setup Go
       uses: ./.github/actions/setup-go
       with:
-        go-directory: ${{ inputs.go-directory }}
         only-modules: ${{ inputs.only-modules }}
         cache-version: ${{ inputs.cache-version }}
         go-version-file: ${{ inputs.go-version-file }}

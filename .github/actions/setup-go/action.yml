@@ -7,9 +7,6 @@ inputs:
   cache-version: 
     description: Set this to cache bust
     default: "1"
-  go-directory:
-    description: Set the go directory
-    default: "."
   go-version-file:
     description: Set where the go version file is located at
     default: "go.mod"
@@ -23,7 +20,6 @@ runs:
     - name: Set up Go
       uses: actions/setup-go@v4
       with:
-        working-directory: ${{ inputs.go-directory }}
         go-version-file: ${{ inputs.go-version-file }}
         cache: false
 
