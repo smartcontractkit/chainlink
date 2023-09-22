@@ -190,6 +190,7 @@ func getTokenDataProviders(lggr logger.Logger, pluginConfig ccipconfig.Execution
 
 		tokenDataProviders[pluginConfig.USDCConfig.SourceTokenAddress] = tokendata.NewCachedReader(
 			usdc.NewUSDCTokenDataReader(
+				lggr,
 				sourceChainEventClient,
 				pluginConfig.USDCConfig.SourceTokenAddress,
 				pluginConfig.USDCConfig.SourceMessageTransmitterAddress,

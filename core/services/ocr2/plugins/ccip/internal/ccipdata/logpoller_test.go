@@ -153,7 +153,7 @@ func TestLogPollerClient_GetLastUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 			{LogIndex: ccipLogIndex + 1, Data: []byte("1")},
 		}, nil)
 
-		c := &LogPollerReader{lp: lp}
+		c := &LogPollerReader{lp: lp, lggr: logger.TestLogger(t)}
 		usdcMessageData, err := c.GetLastUSDCMessagePriorToLogIndexInTx(context.Background(), ccipLogIndex, txHash)
 		assert.NoError(t, err)
 		assert.Equal(t, expectedData, usdcMessageData)
