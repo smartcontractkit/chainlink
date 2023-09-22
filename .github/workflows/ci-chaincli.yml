@@ -14,6 +14,7 @@ jobs:
     name: chaincli-lint
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
       - name: Golang Lint
         uses: ./.github/actions/ci-golang-lint
         with:
