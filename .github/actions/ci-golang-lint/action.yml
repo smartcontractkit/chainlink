@@ -40,13 +40,16 @@ runs:
         go-version-file: ${{ inputs.go-version-file }}
         go-module-file: ${{ inputs.go-module-file }}
     - name: Touching core/web/assets/index.html
+      shell: bash
       run: mkdir -p core/web/assets && touch core/web/assets/index.html
     - name: Build binary
       if: ${{ inputs.working-directory == '.' }}
+      shell: bash
       run: go build ./...
     - name: Build binary
       if: ${{ inputs.working-directory != '.' }}
       working-directory: ${{ inputs.working-directory }}
+      shell: bash
       run: go build
     - name: golangci-lint
       uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3.7.0
