@@ -19,6 +19,8 @@ jobs:
         with:
           go-version-file: "core/scripts/go.mod"
           cache: true
+      - name: Touching core/web/assets/index.html
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
       - name: Build binary for chaincli
         run: |
           cd core/scripts/chaincli
