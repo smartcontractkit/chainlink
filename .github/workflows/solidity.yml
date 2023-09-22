@@ -132,6 +132,7 @@ jobs:
         if: needs.changes.outputs.changes == 'true'
         run: pnpm prettier:check
       - name: Collect Metrics
+        if: needs.changes.outputs.changes == 'true'
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
         with:
