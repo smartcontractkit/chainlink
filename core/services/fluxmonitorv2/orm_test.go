@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
@@ -186,7 +187,7 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		gasLimit = uint32(21000)
 	)
 	idempotencyKey := uuid.New().String()
-	txm.On("CreateTransaction", txmgr.TxRequest{
+	txm.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
 		IdempotencyKey: &idempotencyKey,
 		FromAddress:    from,
 		ToAddress:      to,

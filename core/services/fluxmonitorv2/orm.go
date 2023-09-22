@@ -1,6 +1,7 @@
 package fluxmonitorv2
 
 import (
+	"context"
 	"database/sql"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -15,7 +16,7 @@ import (
 )
 
 type transmitter interface {
-	CreateTransaction(txRequest txmgr.TxRequest, qopts ...pg.QOpt) (tx txmgr.Tx, err error)
+	CreateTransaction(ctx context.Context, txRequest txmgr.TxRequest) (tx txmgr.Tx, err error)
 }
 
 //go:generate mockery --quiet --name ORM --output ./mocks/ --case=underscore
@@ -121,7 +122,7 @@ func (o *orm) CreateEthTransaction(
 	idempotencyKey *string,
 ) (err error) {
 
-	_, err = o.txm.CreateTransaction(txmgr.TxRequest{
+	_, err = o.txm.CreateTransaction(context.Background(), txmgr.TxRequest{
 		IdempotencyKey: idempotencyKey,
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,

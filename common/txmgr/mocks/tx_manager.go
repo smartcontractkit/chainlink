@@ -9,8 +9,6 @@ import (
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
 	txmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -37,30 +35,23 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Close(
 	return r0
 }
 
-// CreateTransaction provides a mock function with given fields: txRequest, qopts
-func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) CreateTransaction(txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], qopts ...pg.QOpt) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, txRequest)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+// CreateTransaction provides a mock function with given fields: ctx, txRequest
+func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) CreateTransaction(ctx context.Context, txRequest txmgrtypes.TxRequest[ADDR, TX_HASH]) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+	ret := _m.Called(ctx, txRequest)
 
 	var r0 txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(txmgrtypes.TxRequest[ADDR, TX_HASH], ...pg.QOpt) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
-		return rf(txRequest, qopts...)
+	if rf, ok := ret.Get(0).(func(context.Context, txmgrtypes.TxRequest[ADDR, TX_HASH]) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
+		return rf(ctx, txRequest)
 	}
-	if rf, ok := ret.Get(0).(func(txmgrtypes.TxRequest[ADDR, TX_HASH], ...pg.QOpt) txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(txRequest, qopts...)
+	if rf, ok := ret.Get(0).(func(context.Context, txmgrtypes.TxRequest[ADDR, TX_HASH]) txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
+		r0 = rf(ctx, txRequest)
 	} else {
 		r0 = ret.Get(0).(txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
 	}
 
-	if rf, ok := ret.Get(1).(func(txmgrtypes.TxRequest[ADDR, TX_HASH], ...pg.QOpt) error); ok {
-		r1 = rf(txRequest, qopts...)
+	if rf, ok := ret.Get(1).(func(context.Context, txmgrtypes.TxRequest[ADDR, TX_HASH]) error); ok {
+		r1 = rf(ctx, txRequest)
 	} else {
 		r1 = ret.Error(1)
 	}

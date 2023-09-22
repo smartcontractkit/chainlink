@@ -379,7 +379,12 @@ func (o *evmTxStore) preloadTxAttempts(txs []Tx) error {
 	return nil
 }
 
-func (o *evmTxStore) PreloadTxes(attempts []TxAttempt, qopts ...pg.QOpt) error {
+func (o *evmTxStore) PreloadTxes(attempts []TxAttempt) error {
+	return o.preloadTxesAtomic(attempts)
+}
+
+// Only to be used for atomic transactions internal to the tx store
+func (o *evmTxStore) preloadTxesAtomic(attempts []TxAttempt, qopts ...pg.QOpt) error {
 	ethTxM := make(map[int64]Tx)
 	for _, attempt := range attempts {
 		ethTxM[attempt.TxID] = Tx{}
@@ -543,7 +548,7 @@ func (o *evmTxStore) FindTxWithAttempts(etxID int64) (etx Tx, err error) {
 			return pkgerrors.Wrapf(err, "failed to find eth_tx with id %d", etxID)
 		}
 		dbEtx.ToTx(&etx)
-		if err = o.LoadTxAttempts(&etx, pg.WithQueryer(tx)); err != nil {
+		if err = o.loadTxAttemptsAtomic(&etx, pg.WithQueryer(tx)); err != nil {
 			return pkgerrors.Wrapf(err, "failed to load evm.tx_attempts for eth_tx with id %d", etxID)
 		}
 		if err = loadEthTxAttemptsReceipts(tx, &etx); err != nil {
@@ -569,6 +574,7 @@ func (o *evmTxStore) FindTxAttemptConfirmedByTxIDs(ids []int64) ([]TxAttempt, er
 	return txAttempts, pkgerrors.Wrap(err, "FindTxAttemptConfirmedByTxIDs failed")
 }
 
+// Only used internally for atomic transactions
 func (o *evmTxStore) LoadTxesAttempts(etxs []*Tx, qopts ...pg.QOpt) error {
 	qq := o.q.WithOpts(qopts...)
 	ethTxIDs := make([]int64, len(etxs))
@@ -591,7 +597,14 @@ func (o *evmTxStore) LoadTxesAttempts(etxs []*Tx, qopts ...pg.QOpt) error {
 	return nil
 }
 
-func (o *evmTxStore) LoadTxAttempts(etx *Tx, qopts ...pg.QOpt) error {
+func (o *evmTxStore) LoadTxAttempts(ctx context.Context, etx *Tx) error {
+	newCtx, cancel := o.mergeContexts(ctx)
+	defer cancel()
+	return o.loadTxAttemptsAtomic(etx, pg.WithParentCtx(newCtx))
+}
+
+// Only to be used for atomic transactions internal to the tx store
+func (o *evmTxStore) loadTxAttemptsAtomic(etx *Tx, qopts ...pg.QOpt) error {
 	return o.LoadTxesAttempts([]*Tx{etx}, qopts...)
 }
 
@@ -732,7 +745,7 @@ ORDER BY evm.txes.nonce ASC, evm.tx_attempts.gas_price DESC, evm.tx_attempts.gas
 			return pkgerrors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed to load evm.tx_attempts")
 		}
 		attempts = dbEthTxAttemptsToEthTxAttempts(dbAttempts)
-		err = o.PreloadTxes(attempts, pg.WithQueryer(tx))
+		err = o.preloadTxesAtomic(attempts, pg.WithQueryer(tx))
 		return pkgerrors.Wrap(err, "FindEthTxAttemptsRequiringReceiptFetch failed to load evm.txes")
 	}, pg.OptReadOnlyTx())
 	return
@@ -868,7 +881,9 @@ WHERE state = 'unconfirmed'
 }
 
 func (o *evmTxStore) GetInProgressTxAttempts(ctx context.Context, address common.Address, chainID *big.Int) (attempts []TxAttempt, err error) {
-	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	newCtx, cancel := o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		var dbAttempts []DbEthTxAttempt
 		err = tx.Select(&dbAttempts, `
@@ -880,7 +895,7 @@ WHERE evm.tx_attempts.state = 'in_progress' AND evm.txes.from_address = $1 AND e
 			return pkgerrors.Wrap(err, "getInProgressEthTxAttempts failed to load evm.tx_attempts")
 		}
 		attempts = dbEthTxAttemptsToEthTxAttempts(dbAttempts)
-		err = o.PreloadTxes(attempts, pg.WithQueryer(tx))
+		err = o.preloadTxesAtomic(attempts, pg.WithParentCtx(newCtx), pg.WithQueryer(tx))
 		return pkgerrors.Wrap(err, "getInProgressEthTxAttempts failed to load evm.txes")
 	}, pg.OptReadOnlyTx())
 	return attempts, pkgerrors.Wrap(err, "getInProgressEthTxAttempts failed")
@@ -889,7 +904,9 @@ WHERE evm.tx_attempts.state = 'in_progress' AND evm.txes.from_address = $1 AND e
 func (o *evmTxStore) FindReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error) {
 	var rs []dbReceiptPlus
 
-	err = o.q.SelectContext(ctx, &rs, `
+	newCtx, cancel := o.mergeContexts(ctx)
+	defer cancel()
+	err = o.q.SelectContext(newCtx, &rs, `
 	SELECT pipeline_task_runs.id, evm.receipts.receipt, COALESCE((evm.txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM pipeline_task_runs
 	INNER JOIN pipeline_runs ON pipeline_runs.id = pipeline_task_runs.pipeline_run_id
 	INNER JOIN evm.txes ON evm.txes.pipeline_task_run_id = pipeline_task_runs.id
@@ -929,7 +946,7 @@ SELECT * FROM evm.txes WHERE from_address = $1 AND nonce = $2 AND state IN ('con
 			return pkgerrors.Wrap(err, "FindEthTxWithNonce failed to load evm.txes")
 		}
 		dbEtx.ToTx(etx)
-		err = o.LoadTxAttempts(etx, pg.WithQueryer(tx))
+		err = o.loadTxAttemptsAtomic(etx, pg.WithQueryer(tx))
 		return pkgerrors.Wrap(err, "FindEthTxWithNonce failed to load evm.tx_attempts")
 	}, pg.OptReadOnlyTx())
 	if errors.Is(err, sql.ErrNoRows) {
@@ -1038,7 +1055,9 @@ func (o *evmTxStore) SaveSentAttempt(timeout time.Duration, attempt *TxAttempt, 
 }
 
 func (o *evmTxStore) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *TxAttempt, broadcastAt time.Time) error {
-	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	newCtx, cancel := o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
 	err := qq.Transaction(func(tx pg.Queryer) error {
 		if err := saveSentAttempt(tx, timeout, o.logger, attempt, broadcastAt); err != nil {
 			return err
@@ -1053,8 +1072,9 @@ func (o *evmTxStore) SaveConfirmedMissingReceiptAttempt(ctx context.Context, tim
 }
 
 func (o *evmTxStore) DeleteInProgressAttempt(ctx context.Context, attempt TxAttempt) error {
-	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-
+	newCtx, cancel := o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("DeleteInProgressAttempt: expected attempt state to be in_progress")
 	}
@@ -1106,7 +1126,9 @@ func (o *evmTxStore) FindTxsRequiringGasBump(ctx context.Context, address common
 	if gasBumpThreshold == 0 {
 		return
 	}
-	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	newCtx, cancel := o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		stmt := `
 SELECT evm.txes.* FROM evm.txes
@@ -1121,7 +1143,7 @@ ORDER BY nonce ASC
 		}
 		etxs = make([]*Tx, len(dbEtxs))
 		dbEthTxsToEvmEthTxPtrs(dbEtxs, etxs)
-		err = o.LoadTxesAttempts(etxs, pg.WithQueryer(tx))
+		err = o.LoadTxesAttempts(etxs, pg.WithParentCtx(newCtx), pg.WithQueryer(tx))
 		return pkgerrors.Wrap(err, "FindEthTxsRequiringGasBump failed to load evm.tx_attempts")
 	}, pg.OptReadOnlyTx())
 	return
@@ -1130,8 +1152,10 @@ ORDER BY nonce ASC
 // FindTxsRequiringResubmissionDueToInsufficientFunds returns transactions
 // that need to be re-sent because they hit an out-of-eth error on a previous
 // block
-func (o *evmTxStore) FindTxsRequiringResubmissionDueToInsufficientFunds(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (etxs []*Tx, err error) {
-	qq := o.q.WithOpts(qopts...)
+func (o *evmTxStore) FindTxsRequiringResubmissionDueToInsufficientFunds(ctx context.Context, address common.Address, chainID *big.Int) (etxs []*Tx, err error) {
+	newCtx, cancel := o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		var dbEtxs []DbEthTx
 		err = tx.Select(&dbEtxs, `
@@ -1145,7 +1169,7 @@ ORDER BY nonce ASC
 		}
 		etxs = make([]*Tx, len(dbEtxs))
 		dbEthTxsToEvmEthTxPtrs(dbEtxs, etxs)
-		err = o.LoadTxesAttempts(etxs, pg.WithQueryer(tx))
+		err = o.LoadTxesAttempts(etxs, pg.WithParentCtx(newCtx), pg.WithQueryer(tx))
 		return pkgerrors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load evm.tx_attempts")
 	}, pg.OptReadOnlyTx())
 	return
@@ -1158,8 +1182,7 @@ ORDER BY nonce ASC
 //
 // The job run will also be marked as errored in this case since we never got a
 // receipt and thus cannot pass on any transaction hash
-func (o *evmTxStore) MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID *big.Int, qopts ...pg.QOpt) error {
-	qq := o.q.WithOpts(qopts...)
+func (o *evmTxStore) MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID *big.Int) error {
 	// cutoffBlockNum is a block height
 	// Any 'confirmed_missing_receipt' eth_tx with all attempts older than this block height will be marked as errored
 	// We will not try to query for receipts for this transaction any more
@@ -1171,7 +1194,7 @@ func (o *evmTxStore) MarkOldTxesMissingReceiptAsErrored(blockNum int64, finality
 		return nil
 	}
 	// note: if QOpt passes in a sql.Tx this will reuse it
-	return qq.Transaction(func(q pg.Queryer) error {
+	return o.q.Transaction(func(q pg.Queryer) error {
 		type etx struct {
 			ID    int64
 			Nonce int64
@@ -1249,15 +1272,14 @@ GROUP BY e.id
 	})
 }
 
-func (o *evmTxStore) SaveReplacementInProgressAttempt(oldAttempt TxAttempt, replacementAttempt *TxAttempt, qopts ...pg.QOpt) error {
-	qq := o.q.WithOpts(qopts...)
+func (o *evmTxStore) SaveReplacementInProgressAttempt(oldAttempt TxAttempt, replacementAttempt *TxAttempt) error {
 	if oldAttempt.State != txmgrtypes.TxAttemptInProgress || replacementAttempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("expected attempts to be in_progress")
 	}
 	if oldAttempt.ID == 0 {
 		return errors.New("expected oldAttempt to have an ID")
 	}
-	return qq.Transaction(func(tx pg.Queryer) error {
+	return o.q.Transaction(func(tx pg.Queryer) error {
 		if _, err := tx.Exec(`DELETE FROM evm.tx_attempts WHERE id=$1`, oldAttempt.ID); err != nil {
 			return pkgerrors.Wrap(err, "saveReplacementInProgressAttempt failed to delete from evm.tx_attempts")
 		}
@@ -1274,17 +1296,14 @@ func (o *evmTxStore) SaveReplacementInProgressAttempt(oldAttempt TxAttempt, repl
 }
 
 // Finds earliest saved transaction that has yet to be broadcast from the given address
-func (o *evmTxStore) FindNextUnstartedTransactionFromAddress(etx *Tx, fromAddress common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
-	qq := o.q.WithOpts(qopts...)
+func (o *evmTxStore) FindNextUnstartedTransactionFromAddress(etx *Tx, fromAddress common.Address, chainID *big.Int) error {
 	var dbEtx DbEthTx
-	err := qq.Get(&dbEtx, `SELECT * FROM evm.txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC`, fromAddress, chainID.String())
+	err := o.q.Get(&dbEtx, `SELECT * FROM evm.txes WHERE from_address = $1 AND state = 'unstarted' AND evm_chain_id = $2 ORDER BY value ASC, created_at ASC, id ASC`, fromAddress, chainID.String())
 	dbEtx.ToTx(etx)
 	return pkgerrors.Wrap(err, "failed to FindNextUnstartedTransactionFromAddress")
 }
 
-func (o *evmTxStore) UpdateTxFatalError(etx *Tx, qopts ...pg.QOpt) error {
-	qq := o.q.WithOpts(qopts...)
-
+func (o *evmTxStore) UpdateTxFatalError(etx *Tx) error {
 	if etx.State != txmgr.TxInProgress {
 		return pkgerrors.Errorf("can only transition to fatal_error from in_progress, transaction is currently %s", etx.State)
 	}
@@ -1295,7 +1314,7 @@ func (o *evmTxStore) UpdateTxFatalError(etx *Tx, qopts ...pg.QOpt) error {
 	etx.Sequence = nil
 	etx.State = txmgr.TxFatalError
 
-	return qq.Transaction(func(tx pg.Queryer) error {
+	return o.q.Transaction(func(tx pg.Queryer) error {
 		if _, err := tx.Exec(`DELETE FROM evm.tx_attempts WHERE eth_tx_id = $1`, etx.ID); err != nil {
 			return pkgerrors.Wrapf(err, "saveFatallyErroredTransaction failed to delete eth_tx_attempt with eth_tx.ID %v", etx.ID)
 		}
@@ -1350,8 +1369,7 @@ func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(etx *Tx, attempt TxAtt
 }
 
 // Updates eth tx from unstarted to in_progress and inserts in_progress eth attempt
-func (o *evmTxStore) UpdateTxUnstartedToInProgress(etx *Tx, attempt *TxAttempt, qopts ...pg.QOpt) error {
-	qq := o.q.WithOpts(qopts...)
+func (o *evmTxStore) UpdateTxUnstartedToInProgress(etx *Tx, attempt *TxAttempt) error {
 	if etx.Sequence == nil {
 		return errors.New("in_progress transaction must have nonce")
 	}
@@ -1362,7 +1380,7 @@ func (o *evmTxStore) UpdateTxUnstartedToInProgress(etx *Tx, attempt *TxAttempt, 
 		return errors.New("attempt state must be in_progress")
 	}
 	etx.State = txmgr.TxInProgress
-	return qq.Transaction(func(tx pg.Queryer) error {
+	return o.q.Transaction(func(tx pg.Queryer) error {
 		// If a replay was triggered while unconfirmed transactions were pending, they will be marked as fatal_error => abandoned.
 		// In this case, we must remove the abandoned attempt from evm.tx_attempts before replacing it with a new one.  In any other
 		// case, we uphold the constraint, leaving the original tx attempt as-is and returning the constraint violation error.
@@ -1411,13 +1429,12 @@ func (o *evmTxStore) UpdateTxUnstartedToInProgress(etx *Tx, attempt *TxAttempt, 
 // an unfinished state because something went screwy the last time. Most likely
 // the node crashed in the middle of the ProcessUnstartedEthTxs loop.
 // It may or may not have been broadcast to an eth node.
-func (o *evmTxStore) GetTxInProgress(fromAddress common.Address, qopts ...pg.QOpt) (etx *Tx, err error) {
-	qq := o.q.WithOpts(qopts...)
+func (o *evmTxStore) GetTxInProgress(fromAddress common.Address) (etx *Tx, err error) {
 	etx = new(Tx)
 	if err != nil {
 		return etx, pkgerrors.Wrap(err, "getInProgressEthTx failed")
 	}
-	err = qq.Transaction(func(tx pg.Queryer) error {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
 		var dbEtx DbEthTx
 		err = tx.Get(&dbEtx, `SELECT * FROM evm.txes WHERE from_address = $1 and state = 'in_progress'`, fromAddress)
 		if errors.Is(err, sql.ErrNoRows) {
@@ -1427,7 +1444,7 @@ func (o *evmTxStore) GetTxInProgress(fromAddress common.Address, qopts ...pg.QOp
 			return pkgerrors.Wrap(err, "GetTxInProgress failed while loading eth tx")
 		}
 		dbEtx.ToTx(etx)
-		if err = o.LoadTxAttempts(etx, pg.WithQueryer(tx)); err != nil {
+		if err = o.loadTxAttemptsAtomic(etx, pg.WithQueryer(tx)); err != nil {
 			return pkgerrors.Wrap(err, "GetTxInProgress failed while loading EthTxAttempts")
 		}
 		if len(etx.TxAttempts) != 1 || etx.TxAttempts[0].State != txmgrtypes.TxAttemptInProgress {
@@ -1440,8 +1457,10 @@ func (o *evmTxStore) GetTxInProgress(fromAddress common.Address, qopts ...pg.QOp
 	return etx, pkgerrors.Wrap(err, "getInProgressEthTx failed")
 }
 
-func (o *evmTxStore) HasInProgressTransaction(account common.Address, chainID *big.Int, qopts ...pg.QOpt) (exists bool, err error) {
-	qq := o.q.WithOpts(qopts...)
+func (o *evmTxStore) HasInProgressTransaction(ctx context.Context, account common.Address, chainID *big.Int) (exists bool, err error) {
+	newCtx, cancel := o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
 	err = qq.Get(&exists, `SELECT EXISTS(SELECT 1 FROM evm.txes WHERE state = 'in_progress' AND from_address = $1 AND evm_chain_id = $2)`, account, chainID.String())
 	return exists, pkgerrors.Wrap(err, "hasInProgressTransaction failed")
 }
@@ -1466,25 +1485,26 @@ func (o *evmTxStore) UpdateKeyNextSequence(newNextNonce, currentNextNonce evmtyp
 	})
 }
 
-func (o *evmTxStore) countTransactionsWithState(fromAddress common.Address, state txmgrtypes.TxState, chainID *big.Int, qopts ...pg.QOpt) (count uint32, err error) {
-	qq := o.q.WithOpts(qopts...)
-	err = qq.Get(&count, `SELECT count(*) FROM evm.txes WHERE from_address = $1 AND state = $2 AND evm_chain_id = $3`,
+func (o *evmTxStore) countTransactionsWithState(fromAddress common.Address, state txmgrtypes.TxState, chainID *big.Int) (count uint32, err error) {
+	err = o.q.Get(&count, `SELECT count(*) FROM evm.txes WHERE from_address = $1 AND state = $2 AND evm_chain_id = $3`,
 		fromAddress, state, chainID.String())
 	return count, pkgerrors.Wrap(err, "failed to countTransactionsWithState")
 }
 
 // CountUnconfirmedTransactions returns the number of unconfirmed transactions
-func (o *evmTxStore) CountUnconfirmedTransactions(fromAddress common.Address, chainID *big.Int, qopts ...pg.QOpt) (count uint32, err error) {
-	return o.countTransactionsWithState(fromAddress, txmgr.TxUnconfirmed, chainID, qopts...)
+func (o *evmTxStore) CountUnconfirmedTransactions(fromAddress common.Address, chainID *big.Int) (count uint32, err error) {
+	return o.countTransactionsWithState(fromAddress, txmgr.TxUnconfirmed, chainID)
 }
 
 // CountUnstartedTransactions returns the number of unconfirmed transactions
-func (o *evmTxStore) CountUnstartedTransactions(fromAddress common.Address, chainID *big.Int, qopts ...pg.QOpt) (count uint32, err error) {
-	return o.countTransactionsWithState(fromAddress, txmgr.TxUnstarted, chainID, qopts...)
+func (o *evmTxStore) CountUnstartedTransactions(fromAddress common.Address, chainID *big.Int) (count uint32, err error) {
+	return o.countTransactionsWithState(fromAddress, txmgr.TxUnstarted, chainID)
 }
 
-func (o *evmTxStore) CheckTxQueueCapacity(fromAddress common.Address, maxQueuedTransactions uint64, chainID *big.Int, qopts ...pg.QOpt) (err error) {
-	qq := o.q.WithOpts(qopts...)
+func (o *evmTxStore) CheckTxQueueCapacity(ctx context.Context, fromAddress common.Address, maxQueuedTransactions uint64, chainID *big.Int) (err error) {
+	newCtx, cancel := o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
 	if maxQueuedTransactions == 0 {
 		return nil
 	}
@@ -1501,9 +1521,11 @@ func (o *evmTxStore) CheckTxQueueCapacity(fromAddress common.Address, maxQueuedT
 	return
 }
 
-func (o *evmTxStore) CreateTransaction(txRequest TxRequest, chainID *big.Int, qopts ...pg.QOpt) (tx Tx, err error) {
+func (o *evmTxStore) CreateTransaction(ctx context.Context, txRequest TxRequest, chainID *big.Int) (tx Tx, err error) {
+	newCtx, cancel := o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
 	var dbEtx DbEthTx
-	qq := o.q.WithOpts(qopts...)
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		if txRequest.PipelineTaskRunID != nil {
 
@@ -1528,7 +1550,7 @@ RETURNING "txes".*
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to insert evm tx")
 		}
 		var pruned int64
-		pruned, err = txRequest.Strategy.PruneQueue(o, pg.WithQueryer(tx))
+		pruned, err = txRequest.Strategy.PruneQueue(newCtx, o)
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to prune evm.txes")
 		}
@@ -1542,8 +1564,10 @@ RETURNING "txes".*
 	return etx, err
 }
 
-func (o *evmTxStore) PruneUnstartedTxQueue(queueSize uint32, subject uuid.UUID, qopts ...pg.QOpt) (n int64, err error) {
-	qq := o.q.WithOpts(qopts...)
+func (o *evmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (n int64, err error) {
+	newCtx, cancel := o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		res, err := qq.Exec(`
 DELETE FROM evm.txes
@@ -1623,4 +1647,17 @@ AND evm_chain_id = $2`, timeThreshold, chainID.String())
 func (o *evmTxStore) Abandon(chainID *big.Int, addr common.Address) error {
 	_, err := o.q.Exec(`UPDATE evm.txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, chainID.String(), addr)
 	return err
+}
+
+// Returns a context that contains the values of the provided context,
+// and which is canceled when either the provided contextg or TxStore parent context is canceled.
+func (o *evmTxStore) mergeContexts(ctx context.Context) (context.Context, context.CancelFunc) {
+	newCtx, cancel := context.WithCancelCause(ctx)
+	stop := context.AfterFunc(o.q.ParentCtx, func() {
+		cancel(context.Cause(o.q.ParentCtx))
+	})
+	return newCtx, func() {
+		stop()
+		cancel(context.Canceled)
+	}
 }

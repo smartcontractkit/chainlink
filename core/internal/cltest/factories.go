@@ -368,7 +368,7 @@ func MustCreateUnstartedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress c
 }
 
 func MustCreateUnstartedTxFromEvmTxRequest(t testing.TB, txStore txmgr.EvmTxStore, txRequest txmgr.TxRequest, chainID *big.Int) (tx txmgr.Tx) {
-	tx, err := txStore.CreateTransaction(txRequest, chainID)
+	tx, err := txStore.CreateTransaction(testutils.Context(t), txRequest, chainID)
 	require.NoError(t, err)
 	return tx
 }
