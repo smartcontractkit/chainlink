@@ -79,9 +79,9 @@ func (c *plugin) Query(ctx context.Context, ts types.ReportTimestamp) (types.Que
 	c.addressRange.Advance()
 
 	c.logger.Debug("S4StorageReporting Query", commontypes.LogFields{
-		"epoch": ts.Epoch,
-		"round": ts.Round,
-		"nRows": len(rows),
+		"epoch":         ts.Epoch,
+		"round":         ts.Round,
+		"nSnapshotRows": len(rows),
 	})
 
 	return queryBytes, err
@@ -129,18 +129,20 @@ func (c *plugin) Observation(ctx context.Context, ts types.ReportTimestamp, quer
 
 			snapshotVersionsMap := snapshotToVersionMap(snapshot)
 			toBeAdded := make([]rkey, 0)
+			// Add rows from query snapshot that have a higher version locally.
 			for _, qr := range queryRows {
 				address := UnmarshalAddress(qr.Address)
 				k := key{address: address.String(), slotID: uint(qr.Slotid)}
 				if version, ok := snapshotVersionsMap[k]; ok && version > qr.Version {
 					toBeAdded = append(toBeAdded, rkey{address: address, slotID: uint(qr.Slotid)})
-					delete(snapshotVersionsMap, k)
 				}
+				delete(snapshotVersionsMap, k)
 			}
 
 			if len(toBeAdded) > maxRemainingRows {
 				toBeAdded = toBeAdded[:maxRemainingRows]
 			} else {
+				// Add rows from query address range that exist locally but are missing from query snapshot.
 				for _, sr := range snapshot {
 					if !sr.Confirmed {
 						continue
@@ -180,6 +182,7 @@ func (c *plugin) Report(_ context.Context, ts types.ReportTimestamp, _ types.Que
 	promReportingPluginReport.WithLabelValues(c.config.ProductName).Inc()
 
 	reportMap := make(map[key]*Row)
+	reportKeys := []key{}
 
 	for _, ao := range aos {
 		observationRows, err := UnmarshalRows(ao.Observation)
@@ -202,11 +205,13 @@ func (c *plugin) Report(_ context.Context, ts types.ReportTimestamp, _ types.Que
 				continue
 			}
 			reportMap[mkey] = row
+			reportKeys = append(reportKeys, mkey)
 		}
 	}
 
 	reportRows := make([]*Row, 0)
-	for _, row := range reportMap {
+	for _, key := range reportKeys {
+		row := reportMap[key]
 		reportRows = append(reportRows, row)
 
 		if len(reportRows) >= int(c.config.MaxReportEntries) {

@@ -133,8 +133,7 @@ type ChainlinkAppFactory struct{}
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
 	initGlobals(cfg.Prometheus())
 
-	// TODO TO BE REMOVED IN v2.7.0
-	err = evmChainIDMigration(cfg, db.DB, appLggr)
+	err = migrate.SetMigrationENVVars(cfg)
 	if err != nil {
 		return nil, err
 	}
@@ -299,44 +298,6 @@ func takeBackupIfVersionUpgrade(dbUrl url.URL, rootDir string, cfg periodicbacku
 	defer ibhr.Stop()
 	err = databaseBackup.RunBackup(appv.String())
 	return err
-}
-
-// evmChainIDMigration TODO TO BE REMOVED IN v2.7.0. This is a helper function for evmChainID 0195 migration in v2.6.0 only, so that we don't have to inject evmChainID into goose.
-func evmChainIDMigration(generalConfig chainlink.GeneralConfig, db *sql.DB, lggr logger.Logger) error {
-	migrationVer, err := migrate.Current(db, lggr)
-	if err != nil {
-		return err
-	}
-	if migrationVer != 194 {
-		return nil
-	}
-
-	if generalConfig.EVMEnabled() {
-		if generalConfig.EVMConfigs() == nil {
-			return errors.New("evm configs are missing")
-		}
-		if generalConfig.EVMConfigs()[0] == nil {
-			return errors.New("evm config is nil")
-		}
-		updateQueries := []string{
-			`UPDATE direct_request_specs SET evm_chain_id = $1 WHERE evm_chain_id IS NULL;`,
-			`UPDATE flux_monitor_specs SET evm_chain_id = $1 WHERE evm_chain_id IS NULL;`,
-			`UPDATE ocr_oracle_specs SET evm_chain_id = $1 WHERE evm_chain_id IS NULL;`,
-			`UPDATE keeper_specs SET evm_chain_id = $1 WHERE evm_chain_id IS NULL;`,
-			`UPDATE vrf_specs SET evm_chain_id = $1 WHERE evm_chain_id IS NULL;`,
-			`UPDATE blockhash_store_specs SET evm_chain_id = $1 WHERE evm_chain_id IS NULL;`,
-			`UPDATE block_header_feeder_specs SET evm_chain_id = $1 WHERE evm_chain_id IS NULL;`,
-		}
-
-		chainID := generalConfig.EVMConfigs()[0].ChainID.String()
-		for i := range updateQueries {
-			_, err := db.Exec(updateQueries[i], chainID)
-			if err != nil {
-				return errors.Wrap(err, "failed to set missing evm chain ids")
-			}
-		}
-	}
-	return nil
 }
 
 // Runner implements the Run method.
