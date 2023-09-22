@@ -1,7 +1,6 @@
 package v2
 
 import (
-	"context"
 	"math/big"
 	"time"
 
@@ -114,6 +113,8 @@ func (lsn *listenerV2) processBatch(
 	fromAddress common.Address,
 ) (processedRequestIDs []string) {
 	start := time.Now()
+	ctx, cancel := lsn.chStop.NewCtx()
+	defer cancel()
 
 	// Enqueue a single batch tx for requests that we're able to fulfill based on whether
 	// they passed simulation or not.
@@ -180,7 +181,7 @@ func (lsn *listenerV2) processBatch(
 		for _, reqID := range batch.reqIDs {
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
 		}
-		ethTX, err = lsn.txm.CreateTransaction(context.Background(), txmgr.TxRequest{
+		ethTX, err = lsn.txm.CreateTransaction(ctx, txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.batchCoordinator.Address(),
 			EncodedPayload: payload,

@@ -151,23 +151,23 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Reset(
 	return r0
 }
 
-// SendNativeToken provides a mock function with given fields: chainID, from, to, value, gasLimit
-func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) SendNativeToken(chainID CHAIN_ID, from ADDR, to ADDR, value big.Int, gasLimit uint32) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
-	ret := _m.Called(chainID, from, to, value, gasLimit)
+// SendNativeToken provides a mock function with given fields: ctx, chainID, from, to, value, gasLimit
+func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) SendNativeToken(ctx context.Context, chainID CHAIN_ID, from ADDR, to ADDR, value big.Int, gasLimit uint32) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error) {
+	ret := _m.Called(ctx, chainID, from, to, value, gasLimit)
 
 	var r0 txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(CHAIN_ID, ADDR, ADDR, big.Int, uint32) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
-		return rf(chainID, from, to, value, gasLimit)
+	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID, ADDR, ADDR, big.Int, uint32) (txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], error)); ok {
+		return rf(ctx, chainID, from, to, value, gasLimit)
 	}
-	if rf, ok := ret.Get(0).(func(CHAIN_ID, ADDR, ADDR, big.Int, uint32) txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
-		r0 = rf(chainID, from, to, value, gasLimit)
+	if rf, ok := ret.Get(0).(func(context.Context, CHAIN_ID, ADDR, ADDR, big.Int, uint32) txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]); ok {
+		r0 = rf(ctx, chainID, from, to, value, gasLimit)
 	} else {
 		r0 = ret.Get(0).(txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE])
 	}
 
-	if rf, ok := ret.Get(1).(func(CHAIN_ID, ADDR, ADDR, big.Int, uint32) error); ok {
-		r1 = rf(chainID, from, to, value, gasLimit)
+	if rf, ok := ret.Get(1).(func(context.Context, CHAIN_ID, ADDR, ADDR, big.Int, uint32) error); ok {
+		r1 = rf(ctx, chainID, from, to, value, gasLimit)
 	} else {
 		r1 = ret.Error(1)
 	}

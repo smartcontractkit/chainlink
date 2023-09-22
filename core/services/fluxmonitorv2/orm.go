@@ -122,7 +122,7 @@ func (o *orm) CreateEthTransaction(
 	idempotencyKey *string,
 ) (err error) {
 
-	_, err = o.txm.CreateTransaction(context.Background(), txmgr.TxRequest{
+	_, err = o.txm.CreateTransaction(context.TODO(), txmgr.TxRequest{
 		IdempotencyKey: idempotencyKey,
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,

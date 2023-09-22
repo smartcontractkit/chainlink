@@ -57,10 +57,11 @@ func (s DropOldestStrategy) Subject() uuid.NullUUID {
 }
 
 func (s DropOldestStrategy) PruneQueue(ctx context.Context, pruneService txmgrtypes.UnstartedTxQueuePruner) (n int64, err error) {
-	newCtx, cancel := context.WithTimeout(ctx, s.queryTimeout)
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithTimeout(ctx, s.queryTimeout)
 	defer cancel()
 
-	n, err = pruneService.PruneUnstartedTxQueue(newCtx, s.queueSize, s.subject)
+	n, err = pruneService.PruneUnstartedTxQueue(ctx, s.queueSize, s.subject)
 	if err != nil {
 		return 0, errors.Wrap(err, "DropOldestStrategy#PruneQueue failed")
 	}

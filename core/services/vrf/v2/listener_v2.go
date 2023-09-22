@@ -917,7 +917,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 		requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
 		subID := p.req.req.SubID()
 		requestTxHash := p.req.req.Raw().TxHash
-		etx, err = lsn.txm.CreateTransaction(context.Background(), txmgr.TxRequest{
+		etx, err = lsn.txm.CreateTransaction(ctx, txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.vrfOwner.Address(),
 			EncodedPayload: txData,
@@ -1124,7 +1124,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
 				requestTxHash := p.req.req.Raw().TxHash
-				transaction, err = lsn.txm.CreateTransaction(context.Background(), txmgr.TxRequest{
+				transaction, err = lsn.txm.CreateTransaction(ctx, txmgr.TxRequest{
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
