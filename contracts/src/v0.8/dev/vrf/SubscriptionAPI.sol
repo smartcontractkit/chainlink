@@ -300,11 +300,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   }
 
   /**
-   * @notice Paginate through all active VRF subscriptions.
-   * @param startIndex index of the subscription to start from
-   * @param maxCount maximum number of subscriptions to return, 0 to return all
-   * @dev the order of IDs in the list is **not guaranteed**, therefore, if making successive calls, one
-   * @dev should consider keeping the blockheight constant to ensure a holistic picture of the contract state
+   * @inheritdoc IVRFSubscriptionV2Plus
    */
   function getActiveSubscriptionIds(
     uint256 startIndex,

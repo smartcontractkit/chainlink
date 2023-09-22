@@ -2,9 +2,13 @@
 pragma solidity ^0.8.0;
 import "./IVRFCoordinatorV2Plus.sol";
 
-// IVRFCoordinatorV2PlusInternal is the interface used by chainlink node
-// for backwards-compatibility for future versions of V2Plus
-// This interface should not be used by consumer conracts
+// IVRFCoordinatorV2PlusInternal is the interface used by chainlink core and should
+// not be used by consumer conracts
+// Future versions of VRF V2plus must conform to this interface
+// VRF coordinator doesn't directly inherit from this interface because solidity
+// imposes interface methods be external, whereas methods implementated VRF coordinator
+// are public. This is OK because IVRFCoordinatorV2PlusInternal doesn't have any solidity 
+// use case. It is only used to generate gethwrappers
 interface IVRFCoordinatorV2PlusInternal is IVRFCoordinatorV2Plus {
   event RandomWordsRequested(
     bytes32 indexed keyHash,
