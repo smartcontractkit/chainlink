@@ -35,7 +35,7 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *orm {
 // CreateForwarder creates the Forwarder address associated with the current EVM chain id.
 func (o *orm) CreateForwarder(addr common.Address, evmChainId utils.Big, qopts ...pg.QOpt) (fwd Forwarder, err error) {
 	q := o.q.WithOpts(qopts...)
-	sql := `INSERT INTO evm_forwarders (address, evm_chain_id, created_at, updated_at) VALUES ($1, $2, now(), now()) RETURNING *`
+	sql := `INSERT INTO evm.forwarders (address, evm_chain_id, created_at, updated_at) VALUES ($1, $2, now(), now()) RETURNING *`
 	err = q.Get(&fwd, sql, addr, evmChainId)
 	return fwd, err
 }
