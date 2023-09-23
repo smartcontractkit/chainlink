@@ -401,7 +401,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 
 	spec.CaptureEATelemetry = d.cfg.OCR2().CaptureEATelemetry()
 
-	runResults := make(chan pipeline.Run, d.cfg.JobPipeline().ResultWriteQueueDepth())
+	runResults := make(chan *pipeline.Run, d.cfg.JobPipeline().ResultWriteQueueDepth())
 
 	ctx := lggrCtx.ContextWithValues(context.Background())
 	switch spec.PluginType {
@@ -479,7 +479,7 @@ func (d *Delegate) newServicesMercury(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
-	runResults chan pipeline.Run,
+	runResults chan *pipeline.Run,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
@@ -565,7 +565,7 @@ func (d *Delegate) newServicesMedian(
 	ctx context.Context,
 	lggr logger.SugaredLogger,
 	jb job.Job,
-	runResults chan pipeline.Run,
+	runResults chan *pipeline.Run,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
@@ -677,7 +677,7 @@ func (d *Delegate) newServicesDKG(
 func (d *Delegate) newServicesOCR2VRF(
 	lggr logger.SugaredLogger,
 	jb job.Job,
-	runResults chan pipeline.Run,
+	runResults chan *pipeline.Run,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
@@ -865,7 +865,7 @@ func (d *Delegate) newServicesOCR2VRF(
 func (d *Delegate) newServicesOCR2Keepers(
 	lggr logger.SugaredLogger,
 	jb job.Job,
-	runResults chan pipeline.Run,
+	runResults chan *pipeline.Run,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
@@ -895,7 +895,7 @@ func (d *Delegate) newServicesOCR2Keepers(
 func (d *Delegate) newServicesOCR2Keepers21(
 	lggr logger.SugaredLogger,
 	jb job.Job,
-	runResults chan pipeline.Run,
+	runResults chan *pipeline.Run,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
@@ -1014,7 +1014,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 func (d *Delegate) newServicesOCR2Keepers20(
 	lggr logger.SugaredLogger,
 	jb job.Job,
-	runResults chan pipeline.Run,
+	runResults chan *pipeline.Run,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
 	ocrDB *db,
@@ -1148,7 +1148,7 @@ func (d *Delegate) newServicesOCR2Keepers20(
 func (d *Delegate) newServicesOCR2Functions(
 	lggr logger.SugaredLogger,
 	jb job.Job,
-	runResults chan pipeline.Run,
+	runResults chan *pipeline.Run,
 	bootstrapPeers []commontypes.BootstrapperLocator,
 	kb ocr2key.KeyBundle,
 	functionsOcrDB *db,

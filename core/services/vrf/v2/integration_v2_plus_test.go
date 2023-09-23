@@ -253,7 +253,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 		big.NewInt(1e16),                       // 0.01 eth per link fallbackLinkPrice
 		vrf_coordinator_v2plus.VRFCoordinatorV2PlusFeeConfig{
 			FulfillmentFlatFeeLinkPPM: uint32(1000), // 0.001 LINK premium
-			FulfillmentFlatFeeEthPPM:  uint32(5),    // 0.000005 ETH preimum
+			FulfillmentFlatFeeEthPPM:  uint32(5),    // 0.000005 ETH premium
 		},
 	)
 	require.NoError(t, err, "failed to set coordinator configuration")
