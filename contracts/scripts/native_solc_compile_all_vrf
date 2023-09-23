@@ -40,6 +40,7 @@ compileContract mocks/VRFCoordinatorMock.sol
 
 # VRF V2
 compileContract vrf/VRFConsumerBaseV2.sol
+compileContract vrf/testhelpers/ChainSpecificUtilHelper.sol
 compileContract vrf/testhelpers/VRFConsumerV2.sol
 compileContract vrf/testhelpers/VRFMaliciousConsumerV2.sol
 compileContract vrf/testhelpers/VRFTestHelper.sol
@@ -56,7 +57,7 @@ compileContract vrf/VRFOwner.sol
 
 # VRF V2Plus
 compileContract dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol
-compileContractAltOpts dev/vrf/VRFCoordinatorV2Plus.sol 500
+compileContractAltOpts dev/vrf/VRFCoordinatorV2Plus.sol 50
 compileContract dev/vrf/BatchVRFCoordinatorV2Plus.sol
 compileContract dev/vrf/VRFV2PlusWrapper.sol
 compileContract dev/vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol

@@ -95,7 +95,6 @@ library ChainSpecificUtil {
     if (isArbitrumChainId(chainid)) {
       return ARBGAS.getCurrentTxL1GasFees();
     } else if (isOptimismChainId(chainid)) {
-      // XXX: why is this padding needed?
       return OVM_GASPRICEORACLE.getL1Fee(bytes.concat(txCallData, L1_FEE_DATA_PADDING));
     }
     return 0;
@@ -112,6 +111,8 @@ library ChainSpecificUtil {
       // see https://developer.arbitrum.io/devs-how-tos/how-to-estimate-gas#where-do-we-get-all-this-information-from
       // for the justification behind the 140 number.
       return l1PricePerByte * (calldataSizeBytes + 140);
+    } else if (isOptimismChainId(chainid)) {
+      return calculateOptimismL1DataFee(calldataSizeBytes);
     }
     return 0;
   }
@@ -137,5 +138,23 @@ library ChainSpecificUtil {
       chainId == OP_SEPOLIA_CHAIN_ID ||
       chainId == BASE_MAINNET_CHAIN_ID ||
       chainId == BASE_GOERLI_CHAIN_ID;
+  }
+
+  function calculateOptimismL1DataFee(uint256 calldataSizeBytes) internal view returns (uint256) {
+    // from: https://community.optimism.io/docs/developers/build/transaction-fees/#the-l1-data-fee
+    // l1_data_fee = l1_gas_price * (tx_data_gas + fixed_overhead) * dynamic_overhead
+    // tx_data_gas = count_zero_bytes(tx_data) * 4 + count_non_zero_bytes(tx_data) * 16
+    // note counting zero bytes is a pretty expensive operation gas-wise, so we assume that at
+    // most 20% of the calldata size in bytes consists of zero bytes.
+    uint256 l1BaseFeeWei = OVM_GASPRICEORACLE.l1BaseFee();
+    uint256 numZeroBytes = calldataSizeBytes / 5;
+    uint256 numNonzeroBytes = calldataSizeBytes - numZeroBytes;
+    uint256 txDataGas = numZeroBytes * 4 + numNonzeroBytes * 16;
+    uint256 fixedOverhead = OVM_GASPRICEORACLE.overhead();
+    // note dynamic overhead is 0.684, which scales the data fee, however
+    // since there is no floating point arithmetic in solidity we multiply by 1000
+    // and then divide by 684 to get the same result.
+    uint256 l1DataFee = l1BaseFeeWei * (txDataGas + fixedOverhead) * 1000 / 684;
+    return l1DataFee;
   }
 }
