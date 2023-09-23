@@ -15,7 +15,7 @@ require (
 	github.com/lib/pq v1.10.9
 	github.com/manifoldco/promptui v0.9.0
 	github.com/onsi/gomega v1.27.8
-	github.com/pelletier/go-toml/v2 v2.0.9
+	github.com/pelletier/go-toml/v2 v2.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.30.0
 	github.com/slack-go/slack v0.12.2
