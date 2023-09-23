@@ -153,7 +153,7 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 			Values: map[string]any{
 				"geth": map[string]any{
 					"image": map[string]any{
-						"version": "1.10.8",
+						"version": "1.10.4",
 					},
 				},
 			},
