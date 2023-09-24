@@ -31,6 +31,9 @@ func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.Upke
 	for i := range keys {
 		if keys[i].Trigger.BlockNumber == 0 { // check block was not populated, use latest
 			latest := r.bs.latestBlock.Load()
+			if latest == nil {
+				return nil, fmt.Errorf("no latest block available")
+			}
 			copy(keys[i].Trigger.BlockHash[:], latest.Hash[:])
 			keys[i].Trigger.BlockNumber = latest.Number
 			r.lggr.Debugf("Check upkeep key had no trigger block number, using latest block %v", keys[i].Trigger.BlockNumber)
@@ -124,6 +127,13 @@ func (r *EvmRegistry) verifyCheckBlock(_ context.Context, checkBlock, upkeepId *
 func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPayload) (encoding.UpkeepFailureReason, encoding.PipelineExecutionState, bool) {
 	logBlockNumber := int64(p.Trigger.LogTriggerExtension.BlockNumber)
 	logBlockHash := common.BytesToHash(p.Trigger.LogTriggerExtension.BlockHash[:])
+	checkBlockHash := common.BytesToHash(p.Trigger.BlockHash[:])
+	if checkBlockHash.String() == logBlockHash.String() {
+		// log verification would be covered by checkBlock verification as they are the same. Return early from
+		// log verificaion. This also helps in preventing some racy conditions when rpc does not return the tx receipt
+		// for a very new log
+		return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
+	}
 	// if log block number is populated, check log block number and block hash
 	if logBlockNumber != 0 {
 		h, ok := r.bs.queryBlocksMap(logBlockNumber)
@@ -243,12 +253,16 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 		index := indices[i]
 		if req.Error != nil {
 			latestBlock := r.bs.latestBlock.Load()
+			latestBlockNumber := int64(0)
+			if latestBlock != nil {
+				latestBlockNumber = int64(latestBlock.Number)
+			}
 			checkBlock, _, _ := r.getBlockAndUpkeepId(payloads[index].UpkeepID, payloads[index].Trigger)
 			// Exploratory: remove reliance on primitive way of checking errors
 			blockNotFound := (strings.Contains(req.Error.Error(), "header not found") || strings.Contains(req.Error.Error(), "missing trie node"))
-			if blockNotFound && int64(latestBlock.Number)-checkBlock.Int64() > checkBlockTooOldRange {
+			if blockNotFound && latestBlockNumber-checkBlock.Int64() > checkBlockTooOldRange {
 				// Check block not found in RPC and it is too old, non-retryable error
-				r.lggr.Warnf("block not found error encountered in check result for upkeepId %s, check block %d, latest block %d: %s", results[index].UpkeepID.String(), checkBlock.Int64(), int64(latestBlock.Number), req.Error)
+				r.lggr.Warnf("block not found error encountered in check result for upkeepId %s, check block %d, latest block %d: %s", results[index].UpkeepID.String(), checkBlock.Int64(), latestBlockNumber, req.Error)
 				results[index].Retryable = false
 				results[index].PipelineExecutionState = uint8(encoding.CheckBlockTooOld)
 			} else {
