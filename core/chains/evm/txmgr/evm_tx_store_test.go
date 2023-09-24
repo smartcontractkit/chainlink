@@ -1100,7 +1100,8 @@ func TestORM_LoadEthTxesAttempts(t *testing.T) {
 		q := pg.NewQ(db, logger.TestLogger(t), cfg.Database())
 
 		newAttempt := cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
-		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&newAttempt)
+		var dbAttempt txmgr.DbEthTxAttempt
+		dbAttempt.FromTxAttempt(&newAttempt)
 		err := q.Transaction(func(tx pg.Queryer) error {
 			const insertEthTxAttemptSQL = `INSERT INTO evm.tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, broadcast_before_block_num, state, created_at, chain_specific_gas_limit, tx_type, gas_tip_cap, gas_fee_cap) VALUES (
 				:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :broadcast_before_block_num, :state, NOW(), :chain_specific_gas_limit, :tx_type, :gas_tip_cap, :gas_fee_cap
