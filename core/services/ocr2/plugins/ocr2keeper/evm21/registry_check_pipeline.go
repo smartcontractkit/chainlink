@@ -145,43 +145,23 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 	} else {
 		r.lggr.Debugf("log block not provided, querying eth client for tx hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 	}
-
-	latestBlock := r.bs.latestBlock.Load()
-	freshCheckBlock := latestBlock != nil && latestBlock.Number-p.Trigger.BlockNumber <= freshCheckBlockRange
 	// query eth client as a fallback
 	bn, bh, err := core.GetTxBlock(r.ctx, r.client, p.Trigger.LogTriggerExtension.TxHash)
 	if err != nil {
-		r.lggr.Warnf("failed to query tx hash %s for upkeepId %s: %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId, err.Error())
 		// primitive way of checking errors
 		if strings.Contains(err.Error(), "missing required field") || strings.Contains(err.Error(), "not found") {
-			// Tx hash was not found on chain, in case of freshCheckBlock it might be a flaky race condition
-			// otherwise return ineligible upkeep response
-			if freshCheckBlock {
-				return encoding.UpkeepFailureReasonNone, encoding.RpcFlakyFailure, true
-			} else {
-				return encoding.UpkeepFailureReasonTxHashNoLongerExists, encoding.NoPipelineError, false
-			}
+			return encoding.UpkeepFailureReasonTxHashNoLongerExists, encoding.NoPipelineError, false
 		}
-		// All other errors are considered as flaky RPC errors
+		r.lggr.Warnf("failed to query tx hash %s for upkeepId %s: %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId, err.Error())
 		return encoding.UpkeepFailureReasonNone, encoding.RpcFlakyFailure, true
 	}
 	if bn == nil {
-		// Empty receipt was returned, which indicates that the tx hash no longer exists on chain
-		// in case of freshCheckBlock it might be a flaky race condition
-		if freshCheckBlock {
-			return encoding.UpkeepFailureReasonNone, encoding.RpcFlakyFailure, true
-		} else {
-			r.lggr.Warnf("tx hash %s does not exist on chain for upkeepId %s.", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
-			return encoding.UpkeepFailureReasonTxHashNoLongerExists, encoding.NoPipelineError, false
-		}
+		r.lggr.Warnf("tx hash %s does not exist on chain for upkeepId %s.", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
+		return encoding.UpkeepFailureReasonTxHashNoLongerExists, encoding.NoPipelineError, false
 	}
 	if bh.Hex() != logBlockHash.Hex() {
-		if freshCheckBlock {
-			return encoding.UpkeepFailureReasonNone, encoding.RpcFlakyFailure, true
-		} else {
-			r.lggr.Warnf("tx hash %s reorged from expected blockhash %s to %s for upkeepId %s.", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockHash.Hex(), bh.Hex(), upkeepId)
-			return encoding.UpkeepFailureReasonTxHashReorged, encoding.NoPipelineError, false
-		}
+		r.lggr.Warnf("tx hash %s reorged from expected blockhash %s to %s for upkeepId %s.", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockHash.Hex(), bh.Hex(), upkeepId)
+		return encoding.UpkeepFailureReasonTxHashReorged, encoding.NoPipelineError, false
 	}
 	r.lggr.Debugf("tx hash %s exists on chain for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 	return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
