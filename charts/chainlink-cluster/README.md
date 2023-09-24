@@ -95,9 +95,15 @@ Add the repository
 helm repo add chainlink-cluster https://raw.githubusercontent.com/smartcontractkit/chainlink/helm-release/
 helm repo update
 ```
+Set default namespace
+```
+kubectl create ns cl-cluster
+kubectl config set-context --current --namespace cl-cluster
+```
+
 Install
 ```
-helm install -f values-raw-helm.yaml cl-cluster chainlink-cluster/chainlink-cluster --version v0.1.1
+helm install -f values-raw-helm.yaml cl-cluster chainlink-cluster/chainlink-cluster --version v0.1.2
 ```
 
 ## Create a new release
