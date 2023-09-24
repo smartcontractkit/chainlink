@@ -150,13 +150,6 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 			NetworkName: network.Name,
 			Simulated:   network.Simulated,
 			WsURLs:      network.URLs,
-			Values: map[string]any{
-				"geth": map[string]any{
-					"image": map[string]any{
-						"version": "1.10.4",
-					},
-				},
-			},
 		})).
 		AddHelmCharts(cd)
 	err = testEnvironment.Run()
