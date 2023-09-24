@@ -19,9 +19,6 @@ const (
 	// checkBlockTooOldRange is the number of blocks that can be behind the latest block before
 	// we return a CheckBlockTooOld error
 	checkBlockTooOldRange = 128
-	// block range till which a checkBlock is considered fresh where certain RPC issues are treated
-	// as retryable as they might have flaky race conditions
-	freshCheckBlockRange = 10
 )
 
 type checkResult struct {
@@ -130,6 +127,12 @@ func (r *EvmRegistry) verifyCheckBlock(_ context.Context, checkBlock, upkeepId *
 func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPayload) (encoding.UpkeepFailureReason, encoding.PipelineExecutionState, bool) {
 	logBlockNumber := int64(p.Trigger.LogTriggerExtension.BlockNumber)
 	logBlockHash := common.BytesToHash(p.Trigger.LogTriggerExtension.BlockHash[:])
+	checkBlockHash := common.BytesToHash(p.Trigger.BlockHash[:])
+	if checkBlockHash.String() == logBlockHash.String() {
+		// log verification would be covered by checkBlock verification as they are the same. Return early from
+		// log verificaion
+		return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
+	}
 	// if log block number is populated, check log block number and block hash
 	if logBlockNumber != 0 {
 		h, ok := r.bs.queryBlocksMap(logBlockNumber)
