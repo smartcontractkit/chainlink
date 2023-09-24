@@ -130,7 +130,8 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 	checkBlockHash := common.BytesToHash(p.Trigger.BlockHash[:])
 	if checkBlockHash.String() == logBlockHash.String() {
 		// log verification would be covered by checkBlock verification as they are the same. Return early from
-		// log verificaion
+		// log verificaion. This also helps in preventing some racy conditions when rpc does not return the tx receipt
+		// for a very new log
 		return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
 	}
 	// if log block number is populated, check log block number and block hash
