@@ -65,6 +65,19 @@ interface VRFV2PlusWrapperInterface {
   function requestRandomWordsInNative(
     uint32 _callbackGasLimit,
     uint16 _requestConfirmations,
+    uint32 _numWords
+  ) external payable returns (uint256 requestId);
+
+  /**
+   * @notice Requests randomness from the VRF V2 wrapper, paying in native token or LINK token.
+   *
+   * @param _callbackGasLimit is the gas limit for the request.
+   * @param _requestConfirmations number of request confirmations to wait before serving a request.
+   * @param _numWords is the number of words to request.
+   */
+  function requestRandomWords(
+    uint32 _callbackGasLimit,
+    uint16 _requestConfirmations,
     uint32 _numWords,
     bytes calldata extraArgs
   ) external payable returns (uint256 requestId);

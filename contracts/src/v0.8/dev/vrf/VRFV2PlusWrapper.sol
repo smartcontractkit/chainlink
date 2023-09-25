@@ -331,14 +331,16 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   function onTokenTransfer(
     address _sender,
     uint256 _amount,
-    bytes calldata _data,
-    bytes calldata extraArgs
+    bytes calldata _data
     ) external onlyConfiguredNotDisabled {
     require(msg.sender == address(s_link), "only callable from LINK");
 
-    (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords) = abi.decode(
+    (uint32 callbackGasLimit,
+      uint16 requestConfirmations,
+      uint32 numWords,
+      bytes memory extraArgs) = abi.decode(
       _data,
-      (uint32, uint16, uint32)
+      (uint32, uint16, uint32, bytes)
     );
     uint32 eip150Overhead = getEIP150Overhead(callbackGasLimit);
     int256 weiPerUnitLink = getFeedData();
@@ -362,11 +364,73 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     lastRequestId = requestId;
   }
 
-  function requestRandomWordsInNative(
+  /**
+   * @notice requestRandomWords is called by VRFV2PlusWrapperConsumerBase for making VRF
+   *         requests through direct billing method. Payment can be made using LINK tokens or
+   *         native tokens. ExtraArgs.nativePayment needs to be set accordingly. When 
+   *         ExtraArgs.nativePayment is false, LINK token needs to have been approved by sender
+   *         for VRFV2PlusWrapper contract to transferFrom sender to itself to pay for the request. 
+   *
+   * @dev If payment method is native token, reverts if payment too low. If payment
+   *      method is LINK token, reverts if transferFrom of estimated price fails.
+   *
+   * @param _callbackGasLimit is the gas limit that should be used when calling the consumer's
+   *        fulfillRandomWords function.
+   *
+   * @param _requestConfirmations is the number of confirmations to wait before fulfilling the
+   *        request. A higher number of confirmations increases security by reducing the likelihood
+   *        that a chain re-org changes a published randomness outcome.
+   *
+   * @param _numWords is the number of random words to request.
+   *
+   * @param extraArgs is VRFV2PlusClient::ExtraArgsV1 with the field nativePayment
+   *
+   */
+  function requestRandomWords(
     uint32 _callbackGasLimit,
     uint16 _requestConfirmations,
     uint32 _numWords,
     bytes calldata extraArgs
+  ) external payable override returns (uint256 requestId) {
+    require(_numWords <= s_maxNumWords, "numWords too high");
+
+    uint32 eip150Overhead = getEIP150Overhead(_callbackGasLimit);
+    bool nativePayment = abi.decode(extraArgs, (bool));
+    uint256 price;
+    if (nativePayment) {
+      // native payment
+      price = calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);
+      require(msg.value >= price, "fee too low");
+    } else {
+      // link payment
+      int256 weiPerUnitLink = getFeedData();
+      price = calculateRequestPriceInternal(_callbackGasLimit, tx.gasprice, weiPerUnitLink);
+      bool success = s_link.transferFrom(msg.sender, address(this), price);
+      require(success, "failed to transfer LINK to VRFV2PlusWrapper");
+    }
+    
+    VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+      keyHash: s_keyHash,
+      subId: SUBSCRIPTION_ID,
+      requestConfirmations: _requestConfirmations,
+      callbackGasLimit: _callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
+      numWords: _numWords,
+      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
+    });
+    requestId = COORDINATOR.requestRandomWords(req);
+    s_callbacks[requestId] = Callback({
+      callbackAddress: msg.sender,
+      callbackGasLimit: _callbackGasLimit,
+      requestGasPrice: tx.gasprice
+    });
+
+    return requestId;
+  }
+
+  function requestRandomWordsInNative(
+    uint32 _callbackGasLimit,
+    uint16 _requestConfirmations,
+    uint32 _numWords
   ) external payable override returns (uint256 requestId) {
     uint32 eip150Overhead = getEIP150Overhead(_callbackGasLimit);
     uint256 price = calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);

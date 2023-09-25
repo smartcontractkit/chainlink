@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../interfaces/VRFV2PlusWrapperInterface.sol";
+import "./libraries/VRFV2PlusClient.sol";
 
 /**
  *
@@ -75,28 +76,33 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     uint16 _requestConfirmations,
     uint32 _numWords
   ) internal returns (uint256 requestId) {
-    LINK.transferAndCall(
-      address(VRF_V2_PLUS_WRAPPER),
-      VRF_V2_PLUS_WRAPPER.calculateRequestPrice(_callbackGasLimit),
-      abi.encode(_callbackGasLimit, _requestConfirmations, _numWords)
-    );
-    return VRF_V2_PLUS_WRAPPER.lastRequestId();
+    uint256 requestPrice = VRF_V2_PLUS_WRAPPER.calculateRequestPrice(_callbackGasLimit);
+    bool success = LINK.approve(address(VRF_V2_PLUS_WRAPPER), requestPrice);
+    require(success, "failed to approce LINK for VRFV2PlusWrapper");
+    bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}));
+    return
+        VRF_V2_PLUS_WRAPPER.requestRandomWords(
+          _callbackGasLimit,
+          _requestConfirmations,
+          _numWords,
+          extraArgs
+        );
   }
 
   function requestRandomnessPayInNative(
     uint32 _callbackGasLimit,
     uint16 _requestConfirmations,
-    uint32 _numWords,
-    bytes calldata extraArgs
+    uint32 _numWords
   ) internal returns (uint256 requestId) {
     uint256 requestPrice = VRF_V2_PLUS_WRAPPER.calculateRequestPriceNative(_callbackGasLimit);
+    bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}));
     return
-      VRF_V2_PLUS_WRAPPER.requestRandomWordsInNative{value: requestPrice}(
-        _callbackGasLimit,
-        _requestConfirmations,
-        _numWords,
-        extraArgs
-      );
+        VRF_V2_PLUS_WRAPPER.requestRandomWords{value: requestPrice}(
+          _callbackGasLimit,
+          _requestConfirmations,
+          _numWords,
+          extraArgs
+        );
   }
 
   /**

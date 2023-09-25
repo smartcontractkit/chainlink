@@ -37,10 +37,9 @@ contract VRFV2PlusWrapperConsumerExample is VRFV2PlusWrapperConsumerBase, Confir
   function makeRequestNative(
     uint32 _callbackGasLimit,
     uint16 _requestConfirmations,
-    uint32 _numWords,
-    bytes calldata extraArgs
+    uint32 _numWords
   ) external onlyOwner returns (uint256 requestId) {
-    requestId = requestRandomnessPayInNative(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs);
+    requestId = requestRandomnessPayInNative(_callbackGasLimit, _requestConfirmations, _numWords);
     uint256 paid = VRF_V2_PLUS_WRAPPER.calculateRequestPriceNative(_callbackGasLimit);
     s_requests[requestId] = RequestStatus({paid: paid, randomWords: new uint256[](0), fulfilled: false, native: true});
     emit WrapperRequestMade(requestId, paid);
