@@ -226,9 +226,10 @@ func (c *plugin) Report(_ context.Context, ts types.ReportTimestamp, _ types.Que
 
 	promReportingPluginsReportRowsCount.WithLabelValues(c.config.ProductName).Set(float64(len(reportRows)))
 	c.logger.Debug("S4StorageReporting Report", commontypes.LogFields{
-		"epoch":       ts.Epoch,
-		"round":       ts.Round,
-		"nReportRows": len(reportRows),
+		"epoch":         ts.Epoch,
+		"round":         ts.Round,
+		"nReportRows":   len(reportRows),
+		"nObservations": len(aos),
 	})
 
 	return true, report, nil

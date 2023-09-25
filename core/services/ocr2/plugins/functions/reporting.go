@@ -62,6 +62,11 @@ var (
 		Help: "Metric to track number of reporting plugin Report calls",
 	}, []string{"jobID"})
 
+	promReportingPluginsReportNumObservations = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "functions_reporting_plugin_report_num_observations",
+		Help: "Metric to track number of observations available in the report phase",
+	}, []string{"jobID"})
+
 	promReportingAcceptReports = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "functions_reporting_plugin_accept",
 		Help: "Metric to track number of accepting reports",
@@ -265,6 +270,7 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 		"oracleID":      r.genericConfig.OracleID,
 		"nObservations": len(obs),
 	})
+	promReportingPluginsReportNumObservations.WithLabelValues(r.jobID.String()).Set(float64(len(obs)))
 
 	queryProto := &encoding.Query{}
 	err := proto.Unmarshal(query, queryProto)

@@ -181,7 +181,7 @@ type vrfPipelineResult struct {
 	// fundsNeeded indicates a "minimum balance" in juels or wei that must be held in the
 	// subscription's account in order to fulfill the request.
 	fundsNeeded   *big.Int
-	run           pipeline.Run
+	run           *pipeline.Run
 	payload       string
 	gasLimit      uint32
 	req           pendingRequest
@@ -1098,7 +1098,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 			ll.Infow("Enqueuing fulfillment")
 			var transaction txmgr.Tx
 			err = lsn.q.Transaction(func(tx pg.Queryer) error {
-				if err = lsn.pipelineRunner.InsertFinishedRun(&p.run, true, pg.WithQueryer(tx)); err != nil {
+				if err = lsn.pipelineRunner.InsertFinishedRun(p.run, true, pg.WithQueryer(tx)); err != nil {
 					return err
 				}
 				if err = lsn.logBroadcaster.MarkConsumed(p.req.lb, pg.WithQueryer(tx)); err != nil {
