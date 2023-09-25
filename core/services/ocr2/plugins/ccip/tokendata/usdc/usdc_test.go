@@ -108,23 +108,21 @@ func TestGetUSDCMessageBody(t *testing.T) {
 
 	require.Equal(t, expectedPostParse, hexutil.Encode(parsedBody))
 
-	expectedBodyHash := utils.Keccak256Fixed(parsedBody)
-
 	sourceChainEventsMock := ccipdata.MockReader{}
 	sourceChainEventsMock.On("GetLastUSDCMessagePriorToLogIndexInTx", mock.Anything, mock.Anything, mock.Anything).Return(expectedBody, nil)
 
 	usdcService := NewUSDCTokenDataReader(logger.TestLogger(t), &sourceChainEventsMock, mockUSDCTokenAddress, mockMsgTransmitter, mockOnRampAddress, nil)
 
 	// Make the first call and assert the underlying function is called
-	body, err := usdcService.getUSDCMessageBodyHash(context.Background(), internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{})
+	body, err := usdcService.getUSDCMessageBody(context.Background(), internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{})
 	require.NoError(t, err)
-	require.Equal(t, body, expectedBodyHash)
+	require.Equal(t, body, parsedBody)
 
 	sourceChainEventsMock.AssertNumberOfCalls(t, "GetLastUSDCMessagePriorToLogIndexInTx", 1)
 
 	// Make another call and assert that the cache is used
-	body, err = usdcService.getUSDCMessageBodyHash(context.Background(), internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{})
+	body, err = usdcService.getUSDCMessageBody(context.Background(), internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{})
 	require.NoError(t, err)
-	require.Equal(t, body, expectedBodyHash)
+	require.Equal(t, body, parsedBody)
 	sourceChainEventsMock.AssertNumberOfCalls(t, "GetLastUSDCMessagePriorToLogIndexInTx", 1)
 }
