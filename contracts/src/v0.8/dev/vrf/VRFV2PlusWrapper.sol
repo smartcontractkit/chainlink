@@ -328,17 +328,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @param _data is the abi-encoded VRF request parameters: uint32 callbackGasLimit,
    *        uint16 requestConfirmations, and uint32 numWords.
    */
-  function onTokenTransfer(
-    address _sender,
-    uint256 _amount,
-    bytes calldata _data
-    ) external onlyConfiguredNotDisabled {
+  function onTokenTransfer(address _sender, uint256 _amount, bytes calldata _data) external onlyConfiguredNotDisabled {
     require(msg.sender == address(s_link), "only callable from LINK");
 
-    (uint32 callbackGasLimit,
-      uint16 requestConfirmations,
-      uint32 numWords,
-      bytes memory extraArgs) = abi.decode(
+    (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords, bytes memory extraArgs) = abi.decode(
       _data,
       (uint32, uint16, uint32, bytes)
     );
@@ -367,9 +360,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   /**
    * @notice requestRandomWords is called by VRFV2PlusWrapperConsumerBase for making VRF
    *         requests through direct billing method. Payment can be made using LINK tokens or
-   *         native tokens. ExtraArgs.nativePayment needs to be set accordingly. When 
+   *         native tokens. ExtraArgs.nativePayment needs to be set accordingly. When
    *         ExtraArgs.nativePayment is false, LINK token needs to have been approved by sender
-   *         for VRFV2PlusWrapper contract to transferFrom sender to itself to pay for the request. 
+   *         for VRFV2PlusWrapper contract to transferFrom sender to itself to pay for the request.
    *
    * @dev If payment method is native token, reverts if payment too low. If payment
    *      method is LINK token, reverts if transferFrom of estimated price fails.
@@ -408,7 +401,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       bool success = s_link.transferFrom(msg.sender, address(this), price);
       require(success, "failed to transfer LINK to VRFV2PlusWrapper");
     }
-    
+
     VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
       keyHash: s_keyHash,
       subId: SUBSCRIPTION_ID,

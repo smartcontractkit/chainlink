@@ -80,13 +80,7 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     bool success = LINK.approve(address(VRF_V2_PLUS_WRAPPER), requestPrice);
     require(success, "failed to approce LINK for VRFV2PlusWrapper");
     bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}));
-    return
-        VRF_V2_PLUS_WRAPPER.requestRandomWords(
-          _callbackGasLimit,
-          _requestConfirmations,
-          _numWords,
-          extraArgs
-        );
+    return VRF_V2_PLUS_WRAPPER.requestRandomWords(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs);
   }
 
   function requestRandomnessPayInNative(
@@ -97,12 +91,12 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     uint256 requestPrice = VRF_V2_PLUS_WRAPPER.calculateRequestPriceNative(_callbackGasLimit);
     bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}));
     return
-        VRF_V2_PLUS_WRAPPER.requestRandomWords{value: requestPrice}(
-          _callbackGasLimit,
-          _requestConfirmations,
-          _numWords,
-          extraArgs
-        );
+      VRF_V2_PLUS_WRAPPER.requestRandomWords{value: requestPrice}(
+        _callbackGasLimit,
+        _requestConfirmations,
+        _numWords,
+        extraArgs
+      );
   }
 
   /**
