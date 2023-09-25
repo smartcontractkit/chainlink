@@ -373,6 +373,7 @@ type MercuryVerifier interface {
 	Address() common.Address
 	Verify(signedReport []byte, sender common.Address) error
 	SetConfig(feedId [32]byte, signers []common.Address, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte, recipientAddressesAndWeights []verifier.CommonAddressAndWeight) (*types.Transaction, error)
+	LatestConfigDetails(ctx context.Context, feedId [32]byte) (verifier.LatestConfigDetails, error)
 }
 
 type MercuryVerifierProxy interface {

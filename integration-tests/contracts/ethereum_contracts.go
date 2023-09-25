@@ -2297,10 +2297,26 @@ func (e *EthereumMercuryVerifier) SetConfig(feedId [32]byte, signers []common.Ad
 		return nil, err
 	}
 	tx, err := e.instance.SetConfig(opts, feedId, signers, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, recipientAddressesAndWeights)
+	e.l.Info().Err(err).Str("contractAddress", e.address.Hex()).Hex("feedId", feedId[:]).Msg("Called EthereumMercuryVerifier.SetConfig()")
 	if err != nil {
 		return nil, err
 	}
 	return tx, e.client.ProcessTransaction(tx)
+}
+
+func (e *EthereumMercuryVerifier) LatestConfigDetails(ctx context.Context, feedId [32]byte) (verifier.LatestConfigDetails, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	d, err := e.instance.LatestConfigDetails(opts, feedId)
+	e.l.Info().Err(err).Str("contractAddress", e.address.Hex()).Hex("feedId", feedId[:]).
+		Interface("details", d).
+		Msg("Called EthereumMercuryVerifier.LatestConfigDetails()")
+	if err != nil {
+		return verifier.LatestConfigDetails{}, err
+	}
+	return d, nil
 }
 
 type EthereumMercuryVerifierProxy struct {
@@ -2320,6 +2336,8 @@ func (e *EthereumMercuryVerifierProxy) InitializeVerifier(verifierAddress common
 		return nil, err
 	}
 	tx, err := e.instance.InitializeVerifier(opts, verifierAddress)
+	e.l.Info().Err(err).Str("contractAddress", e.address.Hex()).Str("verifierAddress", verifierAddress.Hex()).
+		Msg("Called EthereumMercuryVerifierProxy.InitializeVerifier()")
 	if err != nil {
 		return nil, err
 	}
