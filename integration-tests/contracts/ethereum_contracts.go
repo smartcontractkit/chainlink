@@ -2352,7 +2352,7 @@ func (e *EthereumMercuryVerifierProxy) Verify(signedReport []byte, parameterPayl
 	if err != nil {
 		return nil, err
 	}
-	tx, err := e.instance.Verify(opts, parameterPayload, signedReport)
+	tx, err := e.instance.Verify(opts, signedReport, parameterPayload)
 	if err != nil {
 		return nil, err
 	}
