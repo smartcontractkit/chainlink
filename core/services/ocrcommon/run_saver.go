@@ -12,7 +12,7 @@ type RunResultSaver struct {
 	utils.StartStopOnce
 
 	maxSuccessfulRuns uint64
-	runResults        <-chan pipeline.Run
+	runResults        <-chan *pipeline.Run
 	pipelineRunner    pipeline.Runner
 	done              chan struct{}
 	logger            logger.Logger
@@ -24,7 +24,7 @@ func (r *RunResultSaver) HealthReport() map[string]error {
 
 func (r *RunResultSaver) Name() string { return r.logger.Name() }
 
-func NewResultRunSaver(runResults <-chan pipeline.Run, pipelineRunner pipeline.Runner, done chan struct{},
+func NewResultRunSaver(runResults <-chan *pipeline.Run, pipelineRunner pipeline.Runner, done chan struct{},
 	logger logger.Logger, maxSuccessfulRuns uint64,
 ) *RunResultSaver {
 	return &RunResultSaver{
@@ -51,7 +51,7 @@ func (r *RunResultSaver) Start(context.Context) error {
 					r.logger.Tracew("RunSaver: saving job run", "run", run)
 					// We do not want save successful TaskRuns as OCR runs very frequently so a lot of records
 					// are produced and the successful TaskRuns do not provide value.
-					if err := r.pipelineRunner.InsertFinishedRun(&run, false); err != nil {
+					if err := r.pipelineRunner.InsertFinishedRun(run, false); err != nil {
 						r.logger.Errorw("error inserting finished results", "err", err)
 					}
 				case <-r.done:
@@ -73,7 +73,7 @@ func (r *RunResultSaver) Close() error {
 			select {
 			case run := <-r.runResults:
 				r.logger.Infow("RunSaver: saving job run before exiting", "run", run)
-				if err := r.pipelineRunner.InsertFinishedRun(&run, false); err != nil {
+				if err := r.pipelineRunner.InsertFinishedRun(run, false); err != nil {
 					r.logger.Errorw("error inserting finished results", "err", err)
 				}
 			default:

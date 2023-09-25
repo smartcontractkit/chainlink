@@ -81,7 +81,7 @@ func (t *pipelineTransmitter) CreateEthTransaction(ctx context.Context, toAddres
 	t.spec.PipelineSpec.DotDagSource = txObservationSource
 	run := pipeline.NewRun(*t.spec.PipelineSpec, vars)
 
-	if _, err := t.pr.Run(ctx, &run, t.lgr, true, nil); err != nil {
+	if _, err := t.pr.Run(ctx, run, t.lgr, true, nil); err != nil {
 		return errors.Wrap(err, "Skipped OCR transmission")
 	}
 
