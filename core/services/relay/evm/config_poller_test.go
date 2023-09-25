@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum"
-	"github.com/smartcontractkit/libocr/bigbigendian"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocrconfigurationstoreevmsimple"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -38,6 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -336,6 +336,9 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 			ConfigEncryptionPublicKey: utils.RandomBytes32(),
 		})
 	}
+	// Gnerate OnchainConfig
+	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(big.NewInt(0), big.NewInt(10))
+	require.NoError(t, err)
 	// Change the offramp config
 	signers, transmitters, threshold, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper2.ContractSetConfigArgsForTests(
 		2*time.Second,        // deltaProgress
@@ -353,7 +356,7 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 		50*time.Millisecond,
 		50*time.Millisecond,
 		1, // faults
-		generateDefaultOCR2OnchainConfig(t, big.NewInt(0), big.NewInt(10)),
+		onchainConfig,
 	)
 	require.NoError(t, err)
 	signerAddresses, err := OnchainPublicKeyToAddress(signers)
@@ -376,28 +379,4 @@ func addConfig(t *testing.T, user *bind.TransactOpts, configStoreContract *ocrco
 
 	_, err := configStoreContract.AddConfig(user, config)
 	require.NoError(t, err)
-}
-
-func generateDefaultOCR2OnchainConfig(t *testing.T, minValue *big.Int, maxValue *big.Int) []byte {
-	serializedConfig := make([]byte, 0)
-
-	s1, err := bigbigendian.SerializeSigned(1, big.NewInt(1)) //version
-	if err != nil {
-		t.Fatal(err)
-	}
-	serializedConfig = append(serializedConfig, s1...)
-
-	s2, err := bigbigendian.SerializeSigned(24, minValue) //min
-	if err != nil {
-		t.Fatal(err)
-	}
-	serializedConfig = append(serializedConfig, s2...)
-
-	s3, err := bigbigendian.SerializeSigned(24, maxValue) //max
-	if err != nil {
-		t.Fatal(err)
-	}
-	serializedConfig = append(serializedConfig, s3...)
-
-	return serializedConfig
 }
