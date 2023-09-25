@@ -24,12 +24,14 @@ import (
 	"github.com/onsi/gomega"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
-	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/libocr/bigbigendian"
+	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
+	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -238,12 +240,19 @@ func TestIntegration_OCR2(t *testing.T) {
 	require.NoError(t, err)
 	blockBeforeConfig, err := b.BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
-	signers, transmitters, threshold, onchainConfig, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
+	signers, transmitters, threshold, _, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
 		oracles,
 		1,
 		1000000000/100, // threshold PPB
 	)
 	require.NoError(t, err)
+
+	minAnswer, maxAnswer := new(big.Int), new(big.Int)
+	minAnswer.Exp(big.NewInt(-2), big.NewInt(191), nil)
+	maxAnswer.Exp(big.NewInt(2), big.NewInt(191), nil)
+	maxAnswer.Sub(maxAnswer, big.NewInt(1))
+
+	onchainConfig := generateDefaultOCR2OnchainConfig(t, minAnswer, maxAnswer)
 	lggr.Debugw("Setting Config on Oracle Contract",
 		"signers", signers,
 		"transmitters", transmitters,
@@ -506,12 +515,19 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 	require.NoError(t, err)
 	blockBeforeConfig, err := b.BlockByNumber(testutils.Context(t), nil)
 	require.NoError(t, err)
-	signers, effectiveTransmitters, threshold, onchainConfig, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
+	signers, effectiveTransmitters, threshold, _, encodedConfigVersion, encodedConfig, err := confighelper2.ContractSetConfigArgsForEthereumIntegrationTest(
 		oracles,
 		1,
 		1000000000/100, // threshold PPB
 	)
 	require.NoError(t, err)
+
+	minAnswer, maxAnswer := new(big.Int), new(big.Int)
+	minAnswer.Exp(big.NewInt(-2), big.NewInt(191), nil)
+	maxAnswer.Exp(big.NewInt(2), big.NewInt(191), nil)
+	maxAnswer.Sub(maxAnswer, big.NewInt(1))
+
+	onchainConfig := generateDefaultOCR2OnchainConfig(t, minAnswer, maxAnswer)
 
 	lggr.Debugw("Setting Config on Oracle Contract",
 		"signers", signers,
@@ -720,6 +736,30 @@ juelsPerFeeCoinSource = """
 	digestAndEpoch, err := ocrContract.LatestConfigDigestAndEpoch(nil)
 	require.NoError(t, err)
 	assert.Equal(t, digestAndEpoch.Epoch, epoch)
+}
+
+func generateDefaultOCR2OnchainConfig(t *testing.T, minValue *big.Int, maxValue *big.Int) []byte {
+	serializedConfig := make([]byte, 0)
+
+	s1, err := bigbigendian.SerializeSigned(1, big.NewInt(1)) //version
+	if err != nil {
+		t.Fatal(err)
+	}
+	serializedConfig = append(serializedConfig, s1...)
+
+	s2, err := bigbigendian.SerializeSigned(24, minValue) //min
+	if err != nil {
+		t.Fatal(err)
+	}
+	serializedConfig = append(serializedConfig, s2...)
+
+	s3, err := bigbigendian.SerializeSigned(24, maxValue) //max
+	if err != nil {
+		t.Fatal(err)
+	}
+	serializedConfig = append(serializedConfig, s3...)
+
+	return serializedConfig
 }
 
 func ptr[T any](v T) *T { return &v }
