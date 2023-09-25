@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {IFeeManager} from "./interfaces/IFeeManager.sol";
-import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
-import {IERC165} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
-import {Common} from "../../libraries/Common.sol";
+import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
+import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
+import {Common} from "../libraries/Common.sol";
 import {IRewardManager} from "./interfaces/IRewardManager.sol";
-import {IWERC20} from "../../shared/interfaces/IWERC20.sol";
-import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC20.sol";
-import {Math} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/Math.sol";
-import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
+import {IWERC20} from "../shared/interfaces/IWERC20.sol";
+import {IERC20} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC20.sol";
+import {Math} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/Math.sol";
+import {SafeERC20} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IVerifierFeeManager} from "./interfaces/IVerifierFeeManager.sol";
 
 /**
@@ -160,7 +160,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "FeeManager 1.0.0";
+    return "FeeManager 2.0.0";
   }
 
   /// @inheritdoc IERC165
@@ -169,8 +169,16 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifierFeeManager
-  function processFee(bytes calldata payload, address subscriber) external payable override onlyProxy {
-    (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(payload, subscriber);
+  function processFee(
+    bytes calldata payload,
+    bytes calldata parameterPayload,
+    address subscriber
+  ) external payable override onlyProxy {
+    (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(
+      payload,
+      parameterPayload,
+      subscriber
+    );
 
     if (fee.amount == 0) {
       _tryReturnChange(subscriber, msg.value);
@@ -188,7 +196,11 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   }
 
   /// @inheritdoc IVerifierFeeManager
-  function processFeeBulk(bytes[] calldata payloads, address subscriber) external payable override onlyProxy {
+  function processFeeBulk(
+    bytes[] calldata payloads,
+    bytes calldata parameterPayload,
+    address subscriber
+  ) external payable override onlyProxy {
     FeeAndReward[] memory feesAndRewards = new IFeeManager.FeeAndReward[](payloads.length);
 
     //keep track of the number of fees to prevent over initialising the FeePayment array within _convertToLinkAndNativeFees
@@ -199,6 +211,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     for (uint256 i; i < payloads.length; ++i) {
       (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(
         payloads[i],
+        parameterPayload,
         subscriber
       );
 
@@ -232,7 +245,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
   function getFeeAndReward(
     address subscriber,
     bytes memory report,
-    Quote memory quote
+    address quoteAddress
   ) public view returns (Common.Asset memory, Common.Asset memory, uint256) {
     Common.Asset memory fee;
     Common.Asset memory reward;
@@ -251,7 +264,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     }
 
     //verify the quote payload is a supported token
-    if (quote.quoteAddress != i_nativeAddress && quote.quoteAddress != i_linkAddress) {
+    if (quoteAddress != i_nativeAddress && quoteAddress != i_linkAddress) {
       revert InvalidQuote();
     }
 
@@ -270,14 +283,14 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     }
 
     //get the discount being applied
-    uint256 discount = s_subscriberDiscounts[subscriber][feedId][quote.quoteAddress];
+    uint256 discount = s_subscriberDiscounts[subscriber][feedId][quoteAddress];
 
     //the reward is always set in LINK
     reward.assetAddress = i_linkAddress;
     reward.amount = Math.ceilDiv(linkQuantity * (PERCENTAGE_SCALAR - discount), PERCENTAGE_SCALAR);
 
     //calculate either the LINK fee or native fee if it's within the report
-    if (quote.quoteAddress == i_linkAddress) {
+    if (quoteAddress == i_linkAddress) {
       fee.assetAddress = i_linkAddress;
       fee.amount = reward.amount;
     } else {
@@ -358,6 +371,7 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
 
   function _processFee(
     bytes calldata payload,
+    bytes calldata parameterPayload,
     address subscriber
   ) internal view returns (Common.Asset memory, Common.Asset memory, uint256) {
     if (subscriber == address(this)) revert InvalidAddress();
@@ -369,17 +383,10 @@ contract FeeManager is IFeeManager, ConfirmedOwner, TypeAndVersionInterface {
     bytes32 feedId = bytes32(report);
 
     //v1 doesn't need a quote payload, so skip the decoding
-    Quote memory quote;
+    address quote;
     if (_getReportVersion(feedId) != REPORT_V1) {
-      //all reports greater than v1 should have a quote payload
-      (, , , , , bytes memory quoteBytes) = abi.decode(
-        payload,
-        // reportContext, report, rs, ss, raw, quote
-        (bytes32[3], bytes, bytes32[], bytes32[], bytes32, bytes)
-      );
-
       //decode the quote from the bytes
-      (quote) = abi.decode(quoteBytes, (Quote));
+      (quote) = abi.decode(parameterPayload, (address));
     }
 
     //decode the fee, it will always be native or LINK

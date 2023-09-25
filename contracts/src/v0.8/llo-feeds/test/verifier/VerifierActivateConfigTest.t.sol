@@ -54,7 +54,7 @@ contract VerifierActivateConfigWithDeactivatedConfigTest is BaseTestWithMultiple
     s_verifier.activateConfig(FEED_ID, s_configDigestTwo);
     changePrank(address(s_verifierProxy));
 
-    bytes memory signedReport = _generateEncodedBlob(
+    bytes memory signedReport = _generateV1EncodedBlob(
       s_testReportOne,
       s_reportContext,
       _getSigners(FAULT_TOLERANCE_TWO + 1)

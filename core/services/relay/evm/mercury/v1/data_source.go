@@ -26,7 +26,7 @@ import (
 )
 
 type Runner interface {
-	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run pipeline.Run, trrs pipeline.TaskRunResults, err error)
+	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error)
 }
 
 // Fetcher fetcher data from Mercury server
@@ -40,7 +40,7 @@ type datasource struct {
 	jb             job.Job
 	spec           pipeline.Spec
 	lggr           logger.Logger
-	runResults     chan<- pipeline.Run
+	runResults     chan<- *pipeline.Run
 	orm            types.DataSourceORM
 	codec          reportcodec.ReportCodec
 	feedID         [32]byte
@@ -55,7 +55,7 @@ type datasource struct {
 
 var _ relaymercuryv1.DataSource = &datasource{}
 
-func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker types.ChainHeadTracker, fetcher Fetcher, initialBlockNumber *int64, feedID [32]byte) *datasource {
+func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, chainHeadTracker types.ChainHeadTracker, fetcher Fetcher, initialBlockNumber *int64, feedID [32]byte) *datasource {
 	return &datasource{pr, jb, spec, lggr, rr, orm, reportcodec.ReportCodec{}, feedID, sync.RWMutex{}, enhancedTelemChan, chainHeadTracker, fetcher, initialBlockNumber}
 }
 
@@ -115,7 +115,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		var run pipeline.Run
+		var run *pipeline.Run
 		run, trrs, err = ds.executeRun(ctx)
 		if err != nil {
 			err = fmt.Errorf("Observe failed while executing run: %w", err)
@@ -238,7 +238,7 @@ func setAsk(o *parseOutput, res pipeline.Result) error {
 
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
-func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.TaskRunResults, error) {
+func (ds *datasource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error) {
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jb": map[string]interface{}{
 			"databaseID":    ds.jb.ID,
@@ -249,7 +249,7 @@ func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.Ta
 
 	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
 	if err != nil {
-		return pipeline.Run{}, nil, pkgerrors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
+		return nil, nil, pkgerrors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
 
 	return run, trrs, err

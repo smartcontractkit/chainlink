@@ -308,8 +308,8 @@ func TestMercury_Observe(t *testing.T) {
 				trrs[i].Result.Value = "123"
 				trrs[i].Result.Error = nil
 			}
+			ch := make(chan *pipeline.Run, 1)
 
-			ch := make(chan pipeline.Run, 1)
 			ds.runResults = ch
 
 			_, err := ds.Observe(ctx, repts, false)

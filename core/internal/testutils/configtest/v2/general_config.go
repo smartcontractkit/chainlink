@@ -50,6 +50,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.Database.MaxIdleConns = ptr[int64](20)
 	c.Database.MaxOpenConns = ptr[int64](20)
 	c.Database.MigrateOnStartup = ptr(false)
+	c.Database.DefaultLockTimeout = models.MustNewDuration(1 * time.Minute)
 
 	c.JobPipeline.ReaperInterval = models.MustNewDuration(0)
 

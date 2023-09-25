@@ -261,6 +261,7 @@ func TestORM(t *testing.T) {
 		require.Equal(t, jb.BlockhashStoreSpec.CoordinatorV2PlusAddress, savedJob.BlockhashStoreSpec.CoordinatorV2PlusAddress)
 		require.Equal(t, jb.BlockhashStoreSpec.WaitBlocks, savedJob.BlockhashStoreSpec.WaitBlocks)
 		require.Equal(t, jb.BlockhashStoreSpec.LookbackBlocks, savedJob.BlockhashStoreSpec.LookbackBlocks)
+		require.Equal(t, jb.BlockhashStoreSpec.HeartbeatPeriod, savedJob.BlockhashStoreSpec.HeartbeatPeriod)
 		require.Equal(t, jb.BlockhashStoreSpec.BlockhashStoreAddress, savedJob.BlockhashStoreSpec.BlockhashStoreAddress)
 		require.Equal(t, jb.BlockhashStoreSpec.TrustedBlockhashStoreAddress, savedJob.BlockhashStoreSpec.TrustedBlockhashStoreAddress)
 		require.Equal(t, jb.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize, savedJob.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize)
@@ -775,33 +776,9 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 
-	spec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-		Name:               "job1",
-		EVMChainID:         testutils.FixtureChainID.String(),
-		DS1BridgeName:      bridge.Name.String(),
-		DS2BridgeName:      bridge2.Name.String(),
-		TransmitterAddress: address.Hex(),
-	})
-
-	jb, err := ocr.ValidatedOracleSpecToml(legacyChains, spec.Toml())
-	require.NoError(t, err)
-
-	// Default Chain Job
-	externalJobID := uuid.NullUUID{UUID: uuid.New(), Valid: true}
-	spec2 := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-		Name:               "job2",
-		EVMChainID:         defaultChainID.String(),
-		DS1BridgeName:      bridge.Name.String(),
-		DS2BridgeName:      bridge2.Name.String(),
-		TransmitterAddress: address.Hex(),
-		JobID:              externalJobID.UUID.String(),
-	})
-	jb2, err := ocr.ValidatedOracleSpecToml(legacyChains, spec2.Toml())
-	require.NoError(t, err)
-
 	// Custom Chain Job
-	externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
-	spec3 := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+	externalJobID := uuid.NullUUID{UUID: uuid.New(), Valid: true}
+	spec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 		Name:               "job3",
 		EVMChainID:         customChainID.String(),
 		DS1BridgeName:      bridge.Name.String(),
@@ -809,53 +786,32 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 		TransmitterAddress: address.Hex(),
 		JobID:              externalJobID.UUID.String(),
 	})
-	jb3, err := ocr.ValidatedOracleSpecToml(legacyChains, spec3.Toml())
+	jb, err := ocr.ValidatedOracleSpecToml(legacyChains, spec.Toml())
 	require.NoError(t, err)
 
-	t.Run("with legacy NULL chain id", func(t *testing.T) {
-		err = jobORM.CreateJob(&jb)
-		require.NoError(t, err)
-		_, err := db.ExecContext(testutils.Context(t),
-			"UPDATE ocr_oracle_specs o SET evm_chain_id=NULL FROM jobs j WHERE o.id = j.ocr_oracle_spec_id AND j.id=$1", jb.ID)
-		require.NoError(t, err)
-
-		cltest.AssertCount(t, db, "ocr_oracle_specs", 1)
-		cltest.AssertCount(t, db, "jobs", 1)
-
-		err = jobORM.CreateJob(&jb2) // try adding job for same contract with default chain id
-		require.Error(t, err)
-		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %d", jb2.OCROracleSpec.ContractAddress, jb2.OCROracleSpec.EVMChainID.ToInt()), err.Error())
-
-		err = jobORM.CreateJob(&jb3) // Try adding job with custom chain id
-		require.Error(t, err)
-		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %d", jb3.OCROracleSpec.ContractAddress, jb3.OCROracleSpec.EVMChainID.ToInt()), err.Error())
-	})
-
-	require.NoError(t, jobORM.DeleteJob(jb.ID))
-
 	t.Run("with a set chain id", func(t *testing.T) {
-		err = jobORM.CreateJob(&jb3) // Add job with custom chain id
+		err = jobORM.CreateJob(&jb) // Add job with custom chain id
 		require.NoError(t, err)
 
 		cltest.AssertCount(t, db, "ocr_oracle_specs", 1)
 		cltest.AssertCount(t, db, "jobs", 1)
 
 		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
-		spec3.JobID = externalJobID.UUID.String()
-		jb3a, err := ocr.ValidatedOracleSpecToml(legacyChains, spec3.Toml())
+		spec.JobID = externalJobID.UUID.String()
+		jba, err := ocr.ValidatedOracleSpecToml(legacyChains, spec.Toml())
 		require.NoError(t, err)
-		err = jobORM.CreateJob(&jb3a) // Try to add duplicate job with default id
+		err = jobORM.CreateJob(&jba) // Try to add duplicate job with default id
 		require.Error(t, err)
-		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb3.OCROracleSpec.ContractAddress, defaultChainID.String()), err.Error())
+		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb.OCROracleSpec.ContractAddress, defaultChainID.String()), err.Error())
 
 		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
-		spec3.JobID = externalJobID.UUID.String()
-		jb4, err := ocr.ValidatedOracleSpecToml(legacyChains, spec3.Toml())
+		spec.JobID = externalJobID.UUID.String()
+		jb2, err := ocr.ValidatedOracleSpecToml(legacyChains, spec.Toml())
 		require.NoError(t, err)
 
-		err = jobORM.CreateJob(&jb4) // Try to add duplicate job with custom id
+		err = jobORM.CreateJob(&jb2) // Try to add duplicate job with custom id
 		require.Error(t, err)
-		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb4.OCROracleSpec.ContractAddress, customChainID), err.Error())
+		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb2.OCROracleSpec.ContractAddress, customChainID), err.Error())
 	})
 }
 
@@ -1114,9 +1070,8 @@ func Test_FindJobs(t *testing.T) {
 func Test_FindJob(t *testing.T) {
 	t.Parallel()
 
-	// Create a config with multiple EVM chains.  The test fixtures already load a 1337 and the
-	// default EVM chain ID.  Additional chains will need additional fixture statements to add
-	// a chain to evm_chains.
+	// Create a config with multiple EVM chains. The test fixtures already load 1337
+	// Additional chains will need additional fixture statements to add a chain to evm_chains.
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		chainID := utils.NewBigI(1337)
 		enabled := true
@@ -1200,26 +1155,10 @@ func Test_FindJob(t *testing.T) {
 	jobOCR2WithFeedID2.Name = null.StringFrom("new name")
 	require.NoError(t, err)
 
-	// Create a job with the legacy null evm chain id.
-	jobWithNullChain, err := ocr.ValidatedOracleSpecToml(legacyChains,
-		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-			JobID:              uuid.New().String(),
-			ContractAddress:    "0xB47f9a6D281B2A82F8692F8dE058E4249363A6fc",
-			TransmitterAddress: address.Hex(),
-			Name:               "ocr legacy null chain id",
-			DS1BridgeName:      bridge.Name.String(),
-			DS2BridgeName:      bridge2.Name.String(),
-		}).Toml(),
-	)
-	require.NoError(t, err)
-
 	err = orm.CreateJob(&job)
 	require.NoError(t, err)
 
 	err = orm.CreateJob(&jobSameAddress)
-	require.NoError(t, err)
-
-	err = orm.CreateJob(&jobWithNullChain)
 	require.NoError(t, err)
 
 	err = orm.CreateJob(&jobOCR2)
@@ -1230,11 +1169,6 @@ func Test_FindJob(t *testing.T) {
 
 	// second ocr2 job with same contract id but different feed id
 	err = orm.CreateJob(&jobOCR2WithFeedID2)
-	require.NoError(t, err)
-
-	// Set the ChainID to null manually since we can't do this in the test helper
-	_, err = db.ExecContext(testutils.Context(t),
-		"UPDATE ocr_oracle_specs o SET evm_chain_id=NULL FROM jobs j WHERE o.id = j.ocr_oracle_spec_id AND j.id=$1", jobWithNullChain.ID)
 	require.NoError(t, err)
 
 	t.Run("by id", func(t *testing.T) {
@@ -1274,24 +1208,6 @@ func Test_FindJob(t *testing.T) {
 		_, err = orm.FindJobIDByAddress("not-existing", utils.NewBigI(0))
 		require.Error(t, err)
 		require.ErrorIs(t, err, sql.ErrNoRows)
-	})
-
-	t.Run("by address with legacy null evm chain id", func(t *testing.T) {
-		jbID, err := orm.FindJobIDByAddress(
-			jobWithNullChain.OCROracleSpec.ContractAddress,
-			jobWithNullChain.OCROracleSpec.EVMChainID,
-		)
-		require.NoError(t, err)
-
-		assert.Equal(t, jobWithNullChain.ID, jbID)
-
-		jbID, err = orm.FindJobIDByAddress(
-			jobWithNullChain.OCROracleSpec.ContractAddress,
-			utils.NewBig(nil),
-		)
-		require.NoError(t, err)
-
-		assert.Equal(t, jobWithNullChain.ID, jbID)
 	})
 
 	t.Run("by address yet chain scoped", func(t *testing.T) {

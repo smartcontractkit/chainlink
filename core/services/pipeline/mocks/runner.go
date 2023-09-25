@@ -66,19 +66,21 @@ func (_m *Runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec pipeline
 }
 
 // ExecuteRun provides a mock function with given fields: ctx, spec, vars, l
-func (_m *Runner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (pipeline.Run, pipeline.TaskRunResults, error) {
+func (_m *Runner) ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (*pipeline.Run, pipeline.TaskRunResults, error) {
 	ret := _m.Called(ctx, spec, vars, l)
 
-	var r0 pipeline.Run
+	var r0 *pipeline.Run
 	var r1 pipeline.TaskRunResults
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger) (pipeline.Run, pipeline.TaskRunResults, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger) (*pipeline.Run, pipeline.TaskRunResults, error)); ok {
 		return rf(ctx, spec, vars, l)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger) pipeline.Run); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger) *pipeline.Run); ok {
 		r0 = rf(ctx, spec, vars, l)
 	} else {
-		r0 = ret.Get(0).(pipeline.Run)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*pipeline.Run)
+		}
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context, pipeline.Spec, pipeline.Vars, logger.Logger) pipeline.TaskRunResults); ok {

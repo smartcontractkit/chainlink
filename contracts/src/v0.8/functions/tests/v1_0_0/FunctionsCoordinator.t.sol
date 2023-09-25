@@ -173,7 +173,7 @@ contract FunctionsBilling_EstimateCost is FunctionsSubscriptionSetup {
       callbackGasLimit,
       gasPriceWei
     );
-    uint96 expectedCostEstimate = 15725380;
+    uint96 expectedCostEstimate = 10873200;
     assertEq(costEstimate, expectedCostEstimate);
   }
 }

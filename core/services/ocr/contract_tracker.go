@@ -94,6 +94,12 @@ type (
 	}
 )
 
+func (t *OCRContractTracker) HealthReport() map[string]error {
+	return map[string]error{t.Name(): t.Healthy()}
+}
+
+func (t *OCRContractTracker) Name() string { return t.logger.Name() }
+
 // NewOCRContractTracker makes a new OCRContractTracker
 func NewOCRContractTracker(
 	contract *offchain_aggregator_wrapper.OffchainAggregator,

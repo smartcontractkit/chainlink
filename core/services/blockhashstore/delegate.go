@@ -3,6 +3,7 @@ package blockhashstore
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/pkg/errors"
@@ -165,6 +166,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		jb.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize,
 		int(jb.BlockhashStoreSpec.WaitBlocks),
 		int(jb.BlockhashStoreSpec.LookbackBlocks),
+		jb.BlockhashStoreSpec.HeartbeatPeriod,
 		func(ctx context.Context) (uint64, error) {
 			head, err := lp.LatestBlock(pg.WithParentCtx(ctx))
 			if err != nil {
@@ -178,7 +180,6 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		pollPeriod: jb.BlockhashStoreSpec.PollPeriod,
 		runTimeout: jb.BlockhashStoreSpec.RunTimeout,
 		logger:     log,
-		done:       make(chan struct{}),
 	}}, nil
 }
 
@@ -198,7 +199,7 @@ func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 type service struct {
 	utils.StartStopOnce
 	feeder     *Feeder
-	done       chan struct{}
+	wg         sync.WaitGroup
 	pollPeriod time.Duration
 	runTimeout time.Duration
 	logger     logger.Logger
@@ -212,8 +213,13 @@ func (s *service) Start(context.Context) error {
 		s.logger.Infow("Starting BHS feeder")
 		ticker := time.NewTicker(utils.WithJitter(s.pollPeriod))
 		s.parentCtx, s.cancel = context.WithCancel(context.Background())
+		s.wg.Add(2)
 		go func() {
-			defer close(s.done)
+			defer s.wg.Done()
+			s.feeder.StartHeartbeats(s.parentCtx, &realTimer{})
+		}()
+		go func() {
+			defer s.wg.Done()
 			defer ticker.Stop()
 			for {
 				select {
@@ -233,7 +239,7 @@ func (s *service) Close() error {
 	return s.StopOnce("BHS Feeder Service", func() error {
 		s.logger.Infow("Stopping BHS feeder")
 		s.cancel()
-		<-s.done
+		s.wg.Wait()
 		return nil
 	})
 }
