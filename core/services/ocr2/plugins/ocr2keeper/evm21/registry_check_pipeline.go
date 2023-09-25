@@ -252,8 +252,8 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 	for i, req := range checkReqs {
 		index := indices[i]
 		if req.Error != nil {
-			latestBlock := r.bs.latestBlock.Load()
 			latestBlockNumber := int64(0)
+			latestBlock := r.bs.latestBlock.Load()
 			if latestBlock != nil {
 				latestBlockNumber = int64(latestBlock.Number)
 			}
