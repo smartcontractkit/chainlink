@@ -36,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -78,7 +79,8 @@ func TestConfigPoller(t *testing.T) {
 	t.Cleanup(func() { lp.Close() })
 
 	t.Run("happy path", func(t *testing.T) {
-		cp, err := NewConfigPoller(lggr, ethClient, lp, ocrAddress, &configStoreContractAddr)
+		var cp evmRelayTypes.ConfigPoller
+		cp, err = NewConfigPoller(lggr, ethClient, lp, ocrAddress, &configStoreContractAddr)
 		require.NoError(t, err)
 		// Should have no config to begin with.
 		_, config, err := cp.LatestConfigDetails(testutils.Context(t))
@@ -143,7 +145,8 @@ func TestConfigPoller(t *testing.T) {
 		mp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, sql.ErrNoRows)
 
 		t.Run("if callLatestConfigDetails succeeds", func(t *testing.T) {
-			cp, err := newConfigPoller(lggr, ethClient, mp, ocrAddress, &configStoreContractAddr)
+			var cp evmRelayTypes.ConfigPoller
+			cp, err = newConfigPoller(lggr, ethClient, mp, ocrAddress, &configStoreContractAddr)
 			require.NoError(t, err)
 
 			t.Run("when config has not been set, returns zero values", func(t *testing.T) {
@@ -179,15 +182,16 @@ func TestConfigPoller(t *testing.T) {
 		t.Run("returns error if callLatestConfigDetails fails", func(t *testing.T) {
 			failingClient := new(evmClientMocks.Client)
 			failingClient.On("ConfiguredChainID").Return(big.NewInt(42))
-			failingClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("something exploded!"))
-			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr)
+			failingClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("something exploded"))
+			var cp *configPoller
+			cp, err = newConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr)
 			require.NoError(t, err)
 
 			cp.configStoreContractAddr = &configStoreContractAddr
 			cp.configStoreContract = configStoreContract
 
 			_, _, err = cp.LatestConfigDetails(testutils.Context(t))
-			assert.EqualError(t, err, "something exploded!")
+			assert.EqualError(t, err, "something exploded")
 
 			failingClient.AssertExpectations(t)
 		})
@@ -263,9 +267,6 @@ func TestConfigPoller(t *testing.T) {
 				newConfig, err := cp.LatestConfig(testutils.Context(t), 0)
 				require.NoError(t, err)
 
-				onchainDetails, err = ocrContract.LatestConfigDetails(nil)
-				require.NoError(t, err)
-
 				assert.Equal(t, onchainDetails.ConfigDigest, [32]byte(newConfig.ConfigDigest))
 				assert.Equal(t, contractConfig.Signers, newConfig.Signers)
 				assert.Equal(t, contractConfig.Transmitters, newConfig.Transmitters)
@@ -280,12 +281,12 @@ func TestConfigPoller(t *testing.T) {
 			failingClient.On("CallContract", mock.Anything, mock.MatchedBy(func(callArgs ethereum.CallMsg) bool {
 				// initial call to retrieve config store address from aggregator
 				return *callArgs.To == ocrAddress
-			}), mock.Anything).Return(nil, errors.New("something exploded!")).Once()
+			}), mock.Anything).Return(nil, errors.New("something exploded")).Once()
 			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr)
 			require.NoError(t, err)
 
 			_, err = cp.LatestConfig(testutils.Context(t), 0)
-			assert.EqualError(t, err, "failed to get latest config details: something exploded!")
+			assert.EqualError(t, err, "failed to get latest config details: something exploded")
 
 			failingClient.AssertExpectations(t)
 		})
@@ -371,5 +372,3 @@ func generateDefaultOCR2OnchainConfig(minValue *big.Int, maxValue *big.Int) []by
 
 	return serializedConfig
 }
-
-func ptr[T any](v T) *T { return &v }
