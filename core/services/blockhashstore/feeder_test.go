@@ -501,95 +501,14 @@ func TestFeederWithLogPollerVRFv2(t *testing.T) {
 func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 	var coordinatorAddress = common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			// Instantiate log poller & coordinator.
-			lp := &mocklp.LogPoller{}
-			lp.On("RegisterFilter", mock.Anything).Return(nil)
-			c, err := vrf_coordinator_v2plus_interface.NewIVRFCoordinatorV2PlusInternal(coordinatorAddress, nil)
-			require.NoError(t, err)
-			coordinator := &V2PlusCoordinator{
-				c:  c,
-				lp: lp,
-			}
-			// Assert search window.
-			latest := int64(test.latest)
-			fromBlock := mathutil.Max(latest-int64(test.lookback), 0)
-			toBlock := mathutil.Max(latest-int64(test.wait), 0)
-
-			// Construct request logs.
-			var requestLogs []logpoller.Log
-			for _, r := range test.requests {
-				if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) {
-					continue // do not include blocks outside our search window
-				}
-				reqId, ok := big.NewInt(0).SetString(r.ID, 10)
-				require.True(t, ok)
-				requestLogs = append(
-					requestLogs,
-					newRandomnessRequestedLogV2Plus(t, r.Block, reqId, coordinatorAddress),
-				)
-			}
-
-			// Construct fulfillment logs.
-			var fulfillmentLogs []logpoller.Log
-			for _, r := range test.fulfillments {
-				reqId, ok := big.NewInt(0).SetString(r.ID, 10)
-				require.True(t, ok)
-				fulfillmentLogs = append(
-					fulfillmentLogs,
-					newRandomnessFulfilledLogV2Plus(t, r.Block, reqId, coordinatorAddress),
-				)
-			}
-
-			// Mock log poller.
-			lp.On("LatestBlock", mock.Anything).
-				Return(latest, nil)
-			lp.On(
-				"LogsWithSigs",
-				fromBlock,
-				toBlock,
-				[]common.Hash{
-					vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsRequested{}.Topic(),
-				},
-				coordinatorAddress,
-				mock.Anything,
-			).Return(requestLogs, nil)
-			lp.On(
-				"LogsWithSigs",
-				fromBlock,
-				latest,
-				[]common.Hash{
-					vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled{}.Topic(),
-				},
-				coordinatorAddress,
-				mock.Anything,
-			).Return(fulfillmentLogs, nil)
-
-			// Instantiate feeder.
-			feeder := NewFeeder(
-				logger.TestLogger(t),
-				coordinator,
-				&test.bhs,
-				lp,
-				0,
-				test.wait,
-				test.lookback,
-				600*time.Second,
-				func(ctx context.Context) (uint64, error) {
-					return test.latest, nil
-				})
-
-			// Run feeder and assert correct results.
-			err = feeder.Run(testutils.Context(t))
-			if test.expectedErrMsg == "" {
-				require.NoError(t, err)
-			} else {
-				require.EqualError(t, err, test.expectedErrMsg)
-			}
-			require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-			require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
-		})
+	// Instantiate log poller & coordinator.
+	lp := &mocklp.LogPoller{}
+	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	c, err := vrf_coordinator_v2.NewVRFCoordinatorV2(coordinatorAddress, nil)
+	require.NoError(t, err)
+	coordinator := &V2Coordinator{
+		c:  c,
+		lp: lp,
 	}
 
 	// Assert search window.
@@ -683,7 +602,7 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 	// Instantiate log poller & coordinator.
 	lp := &mocklp.LogPoller{}
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
-	c, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(coordinatorAddress, nil)
+	c, err := vrf_coordinator_v2plus_interface.NewIVRFCoordinatorV2PlusInternal(coordinatorAddress, nil)
 	require.NoError(t, err)
 	coordinator := &V2PlusCoordinator{
 		c:  c,
@@ -728,7 +647,7 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 		fromBlock,
 		toBlock,
 		[]common.Hash{
-			vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested{}.Topic(),
+			vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsRequested{}.Topic(),
 		},
 		coordinatorAddress,
 		mock.Anything,
@@ -738,7 +657,7 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 		fromBlock,
 		latest,
 		[]common.Hash{
-			vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled{}.Topic(),
+			vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled{}.Topic(),
 		},
 		coordinatorAddress,
 		mock.Anything,
