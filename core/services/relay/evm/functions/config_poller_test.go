@@ -2,10 +2,11 @@ package functions_test
 
 import (
 	"encoding/binary"
-	"github.com/smartcontractkit/libocr/bigbigendian"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/libocr/bigbigendian"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -187,7 +188,7 @@ func setFunctionsConfig(t *testing.T, pluginConfig *functionsConfig.ReportingPlu
 		50*time.Millisecond,
 		50*time.Millisecond,
 		1, // faults
-		generateDefaultOCR2OnchainConfig(big.NewInt(0), big.NewInt(10)),
+		generateDefaultOCR2OnchainConfig(t, big.NewInt(0), big.NewInt(10)),
 	)
 
 	require.NoError(t, err)
@@ -207,24 +208,24 @@ func setFunctionsConfig(t *testing.T, pluginConfig *functionsConfig.ReportingPlu
 	}
 }
 
-func generateDefaultOCR2OnchainConfig(minValue *big.Int, maxValue *big.Int) []byte {
+func generateDefaultOCR2OnchainConfig(t *testing.T, minValue *big.Int, maxValue *big.Int) []byte {
 	serializedConfig := make([]byte, 0)
 
 	s1, err := bigbigendian.SerializeSigned(1, big.NewInt(1)) //version
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	serializedConfig = append(serializedConfig, s1...)
 
 	s2, err := bigbigendian.SerializeSigned(24, minValue) //min
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	serializedConfig = append(serializedConfig, s2...)
 
 	s3, err := bigbigendian.SerializeSigned(24, maxValue) //max
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	serializedConfig = append(serializedConfig, s3...)
 
