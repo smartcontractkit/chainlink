@@ -24,7 +24,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Golang Lint
-        uses: ./.github/actions/ci-golang-lint
+        uses: ./.github/actions/golangci-lint
         with:
           gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           gc-host: ${{ secrets.GRAFANA_CLOUD_HOST }}
