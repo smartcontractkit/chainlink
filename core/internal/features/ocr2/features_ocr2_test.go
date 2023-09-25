@@ -28,7 +28,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/libocr/bigbigendian"
 	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -45,6 +44,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -252,7 +252,8 @@ func TestIntegration_OCR2(t *testing.T) {
 	maxAnswer.Exp(big.NewInt(2), big.NewInt(191), nil)
 	maxAnswer.Sub(maxAnswer, big.NewInt(1))
 
-	onchainConfig := generateDefaultOCR2OnchainConfig(t, minAnswer, maxAnswer)
+	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
+	require.NoError(t, err)
 	lggr.Debugw("Setting Config on Oracle Contract",
 		"signers", signers,
 		"transmitters", transmitters,
@@ -527,7 +528,8 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 	maxAnswer.Exp(big.NewInt(2), big.NewInt(191), nil)
 	maxAnswer.Sub(maxAnswer, big.NewInt(1))
 
-	onchainConfig := generateDefaultOCR2OnchainConfig(t, minAnswer, maxAnswer)
+	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
+	require.NoError(t, err)
 
 	lggr.Debugw("Setting Config on Oracle Contract",
 		"signers", signers,
@@ -736,30 +738,6 @@ juelsPerFeeCoinSource = """
 	digestAndEpoch, err := ocrContract.LatestConfigDigestAndEpoch(nil)
 	require.NoError(t, err)
 	assert.Equal(t, digestAndEpoch.Epoch, epoch)
-}
-
-func generateDefaultOCR2OnchainConfig(t *testing.T, minValue *big.Int, maxValue *big.Int) []byte {
-	serializedConfig := make([]byte, 0)
-
-	s1, err := bigbigendian.SerializeSigned(1, big.NewInt(1)) //version
-	if err != nil {
-		t.Fatal(err)
-	}
-	serializedConfig = append(serializedConfig, s1...)
-
-	s2, err := bigbigendian.SerializeSigned(24, minValue) //min
-	if err != nil {
-		t.Fatal(err)
-	}
-	serializedConfig = append(serializedConfig, s2...)
-
-	s3, err := bigbigendian.SerializeSigned(24, maxValue) //max
-	if err != nil {
-		t.Fatal(err)
-	}
-	serializedConfig = append(serializedConfig, s3...)
-
-	return serializedConfig
 }
 
 func ptr[T any](v T) *T { return &v }

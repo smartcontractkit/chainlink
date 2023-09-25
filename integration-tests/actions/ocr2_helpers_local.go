@@ -4,7 +4,6 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
-	"math/big"
 	"strings"
 	"time"
 
@@ -17,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/libocr/bigbigendian"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -131,7 +130,7 @@ func CreateOCRv2JobsLocal(
 	return nil
 }
 
-func BuildMedianOCR2ConfigLocal(workerNodes []*client.ChainlinkClient) (*contracts.OCRv2Config, error) {
+func BuildMedianOCR2ConfigLocal(workerNodes []*client.ChainlinkClient, ocrOffchainOptions contracts.OffchainOptions) (*contracts.OCRv2Config, error) {
 	S, oracleIdentities, err := GetOracleIdentitiesWithKeyIndexLocal(workerNodes, 0)
 	if err != nil {
 		return nil, err
@@ -176,8 +175,7 @@ func BuildMedianOCR2ConfigLocal(workerNodes []*client.ChainlinkClient) (*contrac
 		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(string(account)))
 	}
 
-	minAnswer, maxAnswer := big.NewInt(1), big.NewInt(50000000000000000)
-	onchainConfig, err := generateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
+	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(ocrOffchainOptions.MinimumAnswer, ocrOffchainOptions.MaximumAnswer)
 
 	return &contracts.OCRv2Config{
 		Signers:               signerAddresses,
@@ -187,30 +185,6 @@ func BuildMedianOCR2ConfigLocal(workerNodes []*client.ChainlinkClient) (*contrac
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        []byte(fmt.Sprintf("0x%s", offchainConfig)),
 	}, err
-}
-
-func generateDefaultOCR2OnchainConfig(minValue *big.Int, maxValue *big.Int) ([]byte, error) {
-	serializedConfig := make([]byte, 0)
-
-	s1, err := bigbigendian.SerializeSigned(1, big.NewInt(1)) //version
-	if err != nil {
-		return nil, err
-	}
-	serializedConfig = append(serializedConfig, s1...)
-
-	s2, err := bigbigendian.SerializeSigned(24, minValue) //min
-	if err != nil {
-		return nil, err
-	}
-	serializedConfig = append(serializedConfig, s2...)
-
-	s3, err := bigbigendian.SerializeSigned(24, maxValue) //max
-	if err != nil {
-		return nil, err
-	}
-	serializedConfig = append(serializedConfig, s3...)
-
-	return serializedConfig, nil
 }
 
 func GetOracleIdentitiesWithKeyIndexLocal(
