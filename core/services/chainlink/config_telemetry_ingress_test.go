@@ -29,6 +29,6 @@ func TestTelemetryIngressConfig(t *testing.T) {
 	assert.Equal(t, 1, len(tec))
 	assert.Equal(t, "EVM", tec[0].Network())
 	assert.Equal(t, "1", tec[0].ChainID())
-	assert.Equal(t, "https://prom.test", tec[0].URL().String())
+	assert.Equal(t, "prom.test", tec[0].URL().String())
 	assert.Equal(t, "test-pub-key", tec[0].ServerPubKey())
 }

@@ -280,7 +280,7 @@ func TestConfig_Marshal(t *testing.T) {
 			Network:      ptr("EVM"),
 			ChainID:      ptr("1"),
 			ServerPubKey: ptr("test-pub-key"),
-			URL:          mustURL("https://prom.test")},
+			URL:          mustURL("prom.test")},
 		},
 	}
 
@@ -697,7 +697,7 @@ UseBatchSend = true
 [[TelemetryIngress.Endpoints]]
 Network = 'EVM'
 ChainID = '1'
-URL = 'https://prom.test'
+URL = 'prom.test'
 ServerPubKey = 'test-pub-key'
 `},
 

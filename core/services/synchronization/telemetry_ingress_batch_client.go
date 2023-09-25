@@ -178,7 +178,6 @@ func (tc *telemetryIngressBatchClient) Send(ctx context.Context, telemData []byt
 		return
 	}
 	payload := TelemPayload{
-		Ctx:        context.Background(),
 		Telemetry:  telemData,
 		TelemType:  telemType,
 		ContractID: contractID,

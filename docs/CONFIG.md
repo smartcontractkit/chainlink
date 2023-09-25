@@ -300,7 +300,7 @@ UseBatchSend toggles sending telemetry to the ingress server using the batch cli
 Network = 'EVM' # Example
 ChainID = '111551111' # Example
 ServerPubKey = 'test-pub-key-111551111-evm' # Example
-URL = 'http://localhost-111551111-evm:9000' # Example
+URL = 'localhost-111551111-evm:9000' # Example
 ```
 
 
@@ -324,7 +324,7 @@ ServerPubKey is the public key of the telemetry server.
 
 ### URL
 ```toml
-URL = 'http://localhost-111551111-evm:9000' # Example
+URL = 'localhost-111551111-evm:9000' # Example
 ```
 URL is where to send telemetry.
 

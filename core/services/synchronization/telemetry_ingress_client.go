@@ -131,6 +131,8 @@ func (tc *telemetryIngressClient) connect(ctx context.Context, clientPrivKey []b
 
 func (tc *telemetryIngressClient) handleTelemetry() {
 	go func() {
+		ctx, cancel := utils.StopChan(tc.chDone).NewCtx()
+		defer cancel()
 		for {
 			select {
 			case p := <-tc.chTelemetry:
@@ -141,7 +143,7 @@ func (tc *telemetryIngressClient) handleTelemetry() {
 					TelemetryType: string(p.TelemType),
 					SentAt:        time.Now().UnixNano(),
 				}
-				_, err := tc.telemClient.Telem(p.Ctx, telemReq)
+				_, err := tc.telemClient.Telem(ctx, telemReq)
 				if err != nil {
 					tc.lggr.Errorf("Could not send telemetry: %v", err)
 					continue
@@ -194,7 +196,6 @@ func (tc *telemetryIngressClient) getCSAPrivateKey() (privkey []byte, err error)
 // throwing away messages once buffer is full
 func (tc *telemetryIngressClient) Send(ctx context.Context, telemData []byte, contractID string, telemType TelemetryType) {
 	payload := TelemPayload{
-		Ctx:        context.Background(),
 		Telemetry:  telemData,
 		TelemType:  telemType,
 		ContractID: contractID,
