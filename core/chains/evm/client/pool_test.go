@@ -350,7 +350,7 @@ func TestUnit_Pool_SwitchToBestNode(t *testing.T) {
 	n1.On("Close").Maybe().Return(nil)
 	n2.On("Close").Maybe().Return(nil)
 	n2.On("UnsubscribeAll").Return()
-	n2.On("SubscribersCount").Return(int32(1))
+	n2.On("SubscribersCount").Return(int32(2))
 
 	n1.On("Start", mock.Anything).Return(nil).Once()
 	n1.On("State").Return(func() evmclient.NodeState {

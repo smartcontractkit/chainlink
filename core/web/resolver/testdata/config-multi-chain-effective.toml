@@ -356,6 +356,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
+SwitchToBestNodeInterval = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 4
@@ -434,6 +435,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+SwitchToBestNodeInterval = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 4

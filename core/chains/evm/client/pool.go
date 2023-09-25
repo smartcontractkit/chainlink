@@ -153,7 +153,7 @@ func (p *Pool) Dial(ctx context.Context) error {
 		p.wg.Add(1)
 		go p.runLoop()
 
-		if p.switchToBestNodeInterval.Seconds() > 0 {
+		if p.switchToBestNodeInterval.Seconds() > 0 && p.selectionMode != NodeSelectionMode_RoundRobin {
 			p.logger.Infof("The pool will switch to best node every %s", p.switchToBestNodeInterval.String())
 			go p.switchToBestNodeLoop()
 		} else {
@@ -185,7 +185,8 @@ func (p *Pool) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty 
 func (p *Pool) switchToBestNode() {
 	bestNode := p.nodeSelector.Select()
 	for _, n := range p.nodes {
-		if n.State() == NodeStateAlive && n != bestNode && n.SubscribersCount() > 0 {
+		// If a node is alive the SubscribersCount is guaranteed to be at least 1 because of the aliveLoop subscription
+		if n.State() == NodeStateAlive && n != bestNode && n.SubscribersCount() > 1 {
 			p.logger.Infof("Switching to best node from %q to %q", n.String(), bestNode.String())
 			n.UnsubscribeAll()
 		}
