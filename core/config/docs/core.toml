@@ -13,7 +13,7 @@ FeedsManager = true # Default
 LogPoller = false # Default
 # UICSAKeys enables CSA Keys in the UI.
 UICSAKeys = false # Default
-# EAL is an experimental feature that exposes API endpoints for reading and writing to blockchains.
+# EAL (Enterprise Abstraction Layer) exposes API endpoints for reading and writing to blockchains.
 EAL = false # Default
 
 [Database]

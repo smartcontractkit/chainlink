@@ -68,13 +68,12 @@ func (c *BlockchainClient) EstimateGas(
 		To:   &address,
 		Data: payload,
 	})
-	// TODO: change errors to constants in eal lib
 	if err != nil {
-		return 0, errors.Wrap(err, "failed to estimate gas")
+		return 0, errors.Wrap(err, EstimateGasErrorMsg)
 	}
 
 	if gasLimit > uint64(c.cfg.GasEstimator().LimitMax()) {
-		return 0, errors.New("estimated gas limit exceeds max")
+		return 0, errors.New(EstimateGasExceededErrorMsg)
 	}
 	// safe cast because gas estimator limit max is uint32
 	return uint32(gasLimit), nil
