@@ -598,9 +598,10 @@ func (o *evmTxStore) LoadTxesAttempts(etxs []*Tx, qopts ...pg.QOpt) error {
 }
 
 func (o *evmTxStore) LoadTxAttempts(ctx context.Context, etx *Tx) error {
-	newCtx, cancel := o.mergeContexts(ctx)
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
-	return o.loadTxAttemptsAtomic(etx, pg.WithParentCtx(newCtx))
+	return o.loadTxAttemptsAtomic(etx, pg.WithParentCtx(ctx))
 }
 
 // Only to be used for atomic transactions internal to the tx store
@@ -881,9 +882,10 @@ WHERE state = 'unconfirmed'
 }
 
 func (o *evmTxStore) GetInProgressTxAttempts(ctx context.Context, address common.Address, chainID *big.Int) (attempts []TxAttempt, err error) {
-	newCtx, cancel := o.mergeContexts(ctx)
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
-	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		var dbAttempts []DbEthTxAttempt
 		err = tx.Select(&dbAttempts, `
@@ -895,7 +897,7 @@ WHERE evm.tx_attempts.state = 'in_progress' AND evm.txes.from_address = $1 AND e
 			return pkgerrors.Wrap(err, "getInProgressEthTxAttempts failed to load evm.tx_attempts")
 		}
 		attempts = dbEthTxAttemptsToEthTxAttempts(dbAttempts)
-		err = o.preloadTxesAtomic(attempts, pg.WithParentCtx(newCtx), pg.WithQueryer(tx))
+		err = o.preloadTxesAtomic(attempts, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
 		return pkgerrors.Wrap(err, "getInProgressEthTxAttempts failed to load evm.txes")
 	}, pg.OptReadOnlyTx())
 	return attempts, pkgerrors.Wrap(err, "getInProgressEthTxAttempts failed")
@@ -904,9 +906,10 @@ WHERE evm.tx_attempts.state = 'in_progress' AND evm.txes.from_address = $1 AND e
 func (o *evmTxStore) FindReceiptsPendingConfirmation(ctx context.Context, blockNum int64, chainID *big.Int) (receiptsPlus []ReceiptPlus, err error) {
 	var rs []dbReceiptPlus
 
-	newCtx, cancel := o.mergeContexts(ctx)
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
-	err = o.q.SelectContext(newCtx, &rs, `
+	err = o.q.SelectContext(ctx, &rs, `
 	SELECT pipeline_task_runs.id, evm.receipts.receipt, COALESCE((evm.txes.meta->>'FailOnRevert')::boolean, false) "FailOnRevert" FROM pipeline_task_runs
 	INNER JOIN pipeline_runs ON pipeline_runs.id = pipeline_task_runs.pipeline_run_id
 	INNER JOIN evm.txes ON evm.txes.pipeline_task_run_id = pipeline_task_runs.id
@@ -1055,9 +1058,10 @@ func (o *evmTxStore) SaveSentAttempt(timeout time.Duration, attempt *TxAttempt, 
 }
 
 func (o *evmTxStore) SaveConfirmedMissingReceiptAttempt(ctx context.Context, timeout time.Duration, attempt *TxAttempt, broadcastAt time.Time) error {
-	newCtx, cancel := o.mergeContexts(ctx)
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
-	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err := qq.Transaction(func(tx pg.Queryer) error {
 		if err := saveSentAttempt(tx, timeout, o.logger, attempt, broadcastAt); err != nil {
 			return err
@@ -1072,9 +1076,10 @@ func (o *evmTxStore) SaveConfirmedMissingReceiptAttempt(ctx context.Context, tim
 }
 
 func (o *evmTxStore) DeleteInProgressAttempt(ctx context.Context, attempt TxAttempt) error {
-	newCtx, cancel := o.mergeContexts(ctx)
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
-	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	if attempt.State != txmgrtypes.TxAttemptInProgress {
 		return errors.New("DeleteInProgressAttempt: expected attempt state to be in_progress")
 	}
@@ -1126,9 +1131,10 @@ func (o *evmTxStore) FindTxsRequiringGasBump(ctx context.Context, address common
 	if gasBumpThreshold == 0 {
 		return
 	}
-	newCtx, cancel := o.mergeContexts(ctx)
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
-	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		stmt := `
 SELECT evm.txes.* FROM evm.txes
@@ -1143,7 +1149,7 @@ ORDER BY nonce ASC
 		}
 		etxs = make([]*Tx, len(dbEtxs))
 		dbEthTxsToEvmEthTxPtrs(dbEtxs, etxs)
-		err = o.LoadTxesAttempts(etxs, pg.WithParentCtx(newCtx), pg.WithQueryer(tx))
+		err = o.LoadTxesAttempts(etxs, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
 		return pkgerrors.Wrap(err, "FindEthTxsRequiringGasBump failed to load evm.tx_attempts")
 	}, pg.OptReadOnlyTx())
 	return
@@ -1153,9 +1159,10 @@ ORDER BY nonce ASC
 // that need to be re-sent because they hit an out-of-eth error on a previous
 // block
 func (o *evmTxStore) FindTxsRequiringResubmissionDueToInsufficientFunds(ctx context.Context, address common.Address, chainID *big.Int) (etxs []*Tx, err error) {
-	newCtx, cancel := o.mergeContexts(ctx)
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
-	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		var dbEtxs []DbEthTx
 		err = tx.Select(&dbEtxs, `
@@ -1169,7 +1176,7 @@ ORDER BY nonce ASC
 		}
 		etxs = make([]*Tx, len(dbEtxs))
 		dbEthTxsToEvmEthTxPtrs(dbEtxs, etxs)
-		err = o.LoadTxesAttempts(etxs, pg.WithParentCtx(newCtx), pg.WithQueryer(tx))
+		err = o.LoadTxesAttempts(etxs, pg.WithParentCtx(ctx), pg.WithQueryer(tx))
 		return pkgerrors.Wrap(err, "FindEthTxsRequiringResubmissionDueToInsufficientEth failed to load evm.tx_attempts")
 	}, pg.OptReadOnlyTx())
 	return
@@ -1458,9 +1465,10 @@ func (o *evmTxStore) GetTxInProgress(fromAddress common.Address) (etx *Tx, err e
 }
 
 func (o *evmTxStore) HasInProgressTransaction(ctx context.Context, account common.Address, chainID *big.Int) (exists bool, err error) {
-	newCtx, cancel := o.mergeContexts(ctx)
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
-	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Get(&exists, `SELECT EXISTS(SELECT 1 FROM evm.txes WHERE state = 'in_progress' AND from_address = $1 AND evm_chain_id = $2)`, account, chainID.String())
 	return exists, pkgerrors.Wrap(err, "hasInProgressTransaction failed")
 }
@@ -1502,9 +1510,10 @@ func (o *evmTxStore) CountUnstartedTransactions(fromAddress common.Address, chai
 }
 
 func (o *evmTxStore) CheckTxQueueCapacity(ctx context.Context, fromAddress common.Address, maxQueuedTransactions uint64, chainID *big.Int) (err error) {
-	newCtx, cancel := o.mergeContexts(ctx)
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
-	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	if maxQueuedTransactions == 0 {
 		return nil
 	}
@@ -1522,9 +1531,10 @@ func (o *evmTxStore) CheckTxQueueCapacity(ctx context.Context, fromAddress commo
 }
 
 func (o *evmTxStore) CreateTransaction(ctx context.Context, txRequest TxRequest, chainID *big.Int) (tx Tx, err error) {
-	newCtx, cancel := o.mergeContexts(ctx)
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
-	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	var dbEtx DbEthTx
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		if txRequest.PipelineTaskRunID != nil {
@@ -1550,7 +1560,7 @@ RETURNING "txes".*
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to insert evm tx")
 		}
 		var pruned int64
-		pruned, err = txRequest.Strategy.PruneQueue(newCtx, o)
+		pruned, err = txRequest.Strategy.PruneQueue(ctx, o)
 		if err != nil {
 			return pkgerrors.Wrap(err, "CreateEthTransaction failed to prune evm.txes")
 		}
@@ -1565,9 +1575,10 @@ RETURNING "txes".*
 }
 
 func (o *evmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint32, subject uuid.UUID) (n int64, err error) {
-	newCtx, cancel := o.mergeContexts(ctx)
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
-	qq := o.q.WithOpts(pg.WithParentCtx(newCtx))
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	err = qq.Transaction(func(tx pg.Queryer) error {
 		res, err := qq.Exec(`
 DELETE FROM evm.txes
@@ -1652,11 +1663,12 @@ func (o *evmTxStore) Abandon(chainID *big.Int, addr common.Address) error {
 // Returns a context that contains the values of the provided context,
 // and which is canceled when either the provided contextg or TxStore parent context is canceled.
 func (o *evmTxStore) mergeContexts(ctx context.Context) (context.Context, context.CancelFunc) {
-	newCtx, cancel := context.WithCancelCause(ctx)
+	var cancel context.CancelCauseFunc
+	ctx, cancel = context.WithCancelCause(ctx)
 	stop := context.AfterFunc(o.q.ParentCtx, func() {
 		cancel(context.Cause(o.q.ParentCtx))
 	})
-	return newCtx, func() {
+	return ctx, func() {
 		stop()
 		cancel(context.Canceled)
 	}
