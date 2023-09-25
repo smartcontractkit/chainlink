@@ -1469,8 +1469,8 @@ github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f h1:hgJ
 github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f/go.mod h1:MvMXoufZAtqExNexqi4cjrNYE9MefKddKylxjS+//n0=
 github.com/smartcontractkit/libocr v0.0.0-20230922131214-122accb19ea6 h1:eSo9r53fARv2MnIO5pqYvQOXMBsTlAwhHyQ6BAVp6bY=
 github.com/smartcontractkit/libocr v0.0.0-20230922131214-122accb19ea6/go.mod h1:2lyRkw/qLQgUWlrWWmq5nj0y90rWeO6Y+v+fCakRgb0=
-github.com/smartcontractkit/ocr2keepers v0.7.26 h1:8Usfdsa6GtliMQPThL1qb36d4J5xMyTCFJYgbGp4ecA=
-github.com/smartcontractkit/ocr2keepers v0.7.26/go.mod h1:4e1ZDRz7fpLgcRUjJpq+5mkoD0ga11BxrSp2JTWKADQ=
+github.com/smartcontractkit/ocr2keepers v0.7.27 h1:kwqMrzmEdq6gH4yqNuLQCbdlED0KaIjwZzu3FF+Gves=
+github.com/smartcontractkit/ocr2keepers v0.7.27/go.mod h1:1QGzJURnoWpysguPowOe2bshV0hNp1YX10HHlhDEsas=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687 h1:NwC3SOc25noBTe1KUQjt45fyTIuInhoE2UfgcHAdihM=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687/go.mod h1:YYZq52t4wcHoMQeITksYsorD+tZcOyuVU5+lvot3VFM=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
