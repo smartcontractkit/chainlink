@@ -5081,7 +5081,7 @@ SwitchToBestNodeInterval = '0s' # Default
 ```
 SwitchToBestNodeInterval interval in which to check and force internal services to use the "best" node as
 defined by the SelectionMode
-Setting this to a low value might cause RPC to switch to aggresivly
+Setting this to a low value might cause RPC to switch too aggressively
 
 Set to '0s' to disable
 
