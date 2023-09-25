@@ -45,7 +45,7 @@ mock_aggregator_proxy: ../../contracts/solc/v0.8.6/MockAggregatorProxy.abi ../..
 mock_ethlink_aggregator_wrapper: ../../contracts/solc/v0.6/MockETHLINKAggregator.abi ../../contracts/solc/v0.6/MockETHLINKAggregator.bin 1c52c24f797b8482aa12b8251dcea1c072827bd5b3426b822621261944b99ca0
 mock_gas_aggregator_wrapper: ../../contracts/solc/v0.6/MockGASAggregator.abi ../../contracts/solc/v0.6/MockGASAggregator.bin bacbb1ea4dc6beac0db8a13ca5c75e2fd61b903d70feea9b3b1c8b10fe8df4f3
 multiwordconsumer_wrapper: ../../contracts/solc/v0.7/MultiWordConsumer.abi ../../contracts/solc/v0.7/MultiWordConsumer.bin 6e68abdf614e3ed0f5066c1b5f9d7c1199f1e7c5c5251fe8a471344a59afc6ba
-offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5f97dc197fd4e2b999856b9b3fa7c2aaf0c700c71d7009d7d017d233bc855877
+offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5c8d6562e94166d4790f1ee6e4321d359d9f7262e6c5452a712b1f1c896f45cf
 operator_factory: ../../contracts/solc/v0.7/OperatorFactory.abi ../../contracts/solc/v0.7/OperatorFactory.bin 0bbac9ac2e45f988b8365a83a36dff97534c14d315ebe5a1fc725d87f00c15d5
 operator_wrapper: ../../contracts/solc/v0.7/Operator.abi ../../contracts/solc/v0.7/Operator.bin 45036dc5046de66ba03f57b48ef8b629700e863af388cb509b2fa259989762e8
 oracle_wrapper: ../../contracts/solc/v0.6/Oracle.abi ../../contracts/solc/v0.6/Oracle.bin 7af2fbac22a6e8c2847e8e685a5400cac5101d72ddf5365213beb79e4dede43a
