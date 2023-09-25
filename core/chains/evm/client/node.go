@@ -382,6 +382,7 @@ func (n *node) disconnectAll() {
 	n.unsubscribeAll()
 }
 
+// SubscribersCount returns the number of client subscribed to the node
 func (n *node) SubscribersCount() int32 {
 	return int32(len(n.subs))
 }
