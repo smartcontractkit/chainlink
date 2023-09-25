@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Temporary helper function for proper migration of evmChainID not null in specs, that fills in missing chainIDs. This needs to be removed after one version after everyone migrated properly. For proper migrations all nodes must upgrade sequentially without skipping this version.
+- Helper migrations function for injecting env vars into goose migrations. This was done to inject chainID into evm chain id not null in specs migrations.
 
 ### Removed
 
@@ -32,6 +32,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `chainlink txs evm create` returns a transaction hash for the attempted transaction in the CLI. Previously only the sender, recipient and `unstarted` state were returned.
 - Fixed a bug where `evmChainId` is requested instead of `id` or `evm-chain-id` in CLI error verbatim
 - Fixed a bug that would cause the node to shut down while performing backup
+- Fixed health checker to include more services in the prometheus `health` metric and HTTP `/health` endpoint 
 
 ## 2.5.0 - UNRELEASED
 =======

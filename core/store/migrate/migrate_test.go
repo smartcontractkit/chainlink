@@ -1,6 +1,8 @@
 package migrate_test
 
 import (
+	"math/big"
+	"os"
 	"testing"
 	"time"
 
@@ -11,13 +13,19 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
+	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 var migrationDir = "migrations"
@@ -400,4 +408,32 @@ func TestMigrate(t *testing.T) {
 	ver, err = migrate.Current(db.DB, lggr)
 	require.NoError(t, err)
 	require.Equal(t, int64(99), ver)
+}
+
+func TestSetMigrationENVVars(t *testing.T) {
+	t.Run("ValidEVMConfig", func(t *testing.T) {
+		chainID := utils.NewBig(big.NewInt(1337))
+		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			evmEnabled := true
+			c.EVM = evmcfg.EVMConfigs{&evmcfg.EVMConfig{
+				ChainID: chainID,
+				Enabled: &evmEnabled,
+			}}
+		})
+
+		require.NoError(t, migrate.SetMigrationENVVars(testConfig))
+
+		actualChainID := os.Getenv(env.EVMChainIDNotNullMigration0195)
+		require.Equal(t, actualChainID, chainID.String())
+	})
+
+	t.Run("EVMConfigMissing", func(t *testing.T) {
+		chainID := utils.NewBig(big.NewInt(1337))
+		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) { c.EVM = nil })
+
+		require.NoError(t, migrate.SetMigrationENVVars(testConfig))
+
+		actualChainID := os.Getenv(env.EVMChainIDNotNullMigration0195)
+		require.Equal(t, actualChainID, chainID.String())
+	})
 }
