@@ -189,7 +189,7 @@ func (cp *configPoller) LatestConfig(ctx context.Context, changedInBlock uint64)
 	if len(lgs) == 0 {
 		if cp.isConfigStoreAvailable() {
 			// Fallback to RPC call in case logs have been pruned
-			return cp.callReadConfigFromStore(ctx, changedInBlock)
+			return cp.callReadConfigFromStore(ctx)
 		}
 		return ocrtypes.ContractConfig{}, fmt.Errorf("no logs found for config on contract %s (chain %s) at block %d", cp.aggregatorContractAddr.Hex(), cp.client.ConfiguredChainID().String(), changedInBlock)
 	}
@@ -229,14 +229,14 @@ func (cp *configPoller) callLatestConfigDetails(ctx context.Context) (changedInB
 }
 
 // RPC call to read config from config store contract
-func (cp *configPoller) callReadConfigFromStore(ctx context.Context, expectChangedInBlock uint64) (cfg ocrtypes.ContractConfig, err error) {
+func (cp *configPoller) callReadConfigFromStore(ctx context.Context) (cfg ocrtypes.ContractConfig, err error) {
 	_, configDigest, err := cp.LatestConfigDetails(ctx)
 	if err != nil {
 		failedRPCContractCalls.WithLabelValues(cp.client.ConfiguredChainID().String(), cp.aggregatorContractAddr.Hex()).Inc()
 		return cfg, fmt.Errorf("failed to get latest config details: %w", err)
 	}
 	if configDigest == (ocrtypes.ConfigDigest{}) {
-		return cfg, nil
+		return cfg, fmt.Errorf("config details missing while trying to lookup config in store; no logs found for contract %s (chain %s)", cp.aggregatorContractAddr.Hex(), cp.client.ConfiguredChainID().String())
 	}
 
 	storedConfig, err := cp.configStoreContract.ReadConfig(&bind.CallOpts{

@@ -78,7 +78,17 @@ func TestConfigPoller(t *testing.T) {
 	require.NoError(t, lp.Start(ctx))
 	t.Cleanup(func() { lp.Close() })
 
-	t.Run("happy path", func(t *testing.T) {
+	t.Run("LatestConfig errors if there is no config in logs and config store is unconfigured", func(t *testing.T) {
+		var cp evmRelayTypes.ConfigPoller
+		cp, err = NewConfigPoller(lggr, ethClient, lp, ocrAddress, nil)
+		require.NoError(t, err)
+
+		_, err = cp.LatestConfig(testutils.Context(t), 0)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "no logs found for config on contract")
+	})
+
+	t.Run("happy path (with config store)", func(t *testing.T) {
 		var cp evmRelayTypes.ConfigPoller
 		cp, err = NewConfigPoller(lggr, ethClient, lp, ocrAddress, &configStoreContractAddr)
 		require.NoError(t, err)
@@ -86,8 +96,11 @@ func TestConfigPoller(t *testing.T) {
 		_, config, err := cp.LatestConfigDetails(testutils.Context(t))
 		require.NoError(t, err)
 		require.Equal(t, ocrtypes2.ConfigDigest{}, config)
+		// Should error because there are no logs for config at block 0
 		_, err = cp.LatestConfig(testutils.Context(t), 0)
 		require.Error(t, err)
+		assert.Contains(t, err.Error(), "config details missing while trying to lookup config in store")
+
 		// Set the config
 		contractConfig := setConfig(t, median.OffchainConfig{
 			AlphaReportInfinite: false,
@@ -223,11 +236,11 @@ func TestConfigPoller(t *testing.T) {
 			cp, err := newConfigPoller(lggr, ethClient, mp, ocrAddress, &configStoreContractAddr)
 			require.NoError(t, err)
 
-			t.Run("when config has not been set, returns zero values", func(t *testing.T) {
-				contractConfig, err := cp.LatestConfig(testutils.Context(t), 0)
-				require.NoError(t, err)
+			t.Run("when config has not been set, returns error", func(t *testing.T) {
+				_, err := cp.LatestConfig(testutils.Context(t), 0)
+				require.Error(t, err)
 
-				assert.Equal(t, ocrtypes.ConfigDigest{}, contractConfig.ConfigDigest)
+				assert.Contains(t, err.Error(), "config details missing while trying to lookup config in store")
 			})
 			t.Run("when config has been set, returns config", func(t *testing.T) {
 				b.Commit()
