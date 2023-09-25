@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/werc20_mock"
 )
 
 // ContractLoader is an interface for abstracting the contract loading methods across network implementations
@@ -36,6 +37,8 @@ type ContractLoader interface {
 	LoadMercuryVerifierProxy(addr common.Address) (MercuryVerifierProxy, error)
 	LoadMercuryFeeManager(addr common.Address) (MercuryFeeManager, error)
 	LoadMercuryRewardManager(addr common.Address) (MercuryRewardManager, error)
+
+	LoadWERC20Mock(addr common.Address) (WERC20Mock, error)
 }
 
 // NewContractLoader returns an instance of a contract Loader based on the client type
@@ -273,6 +276,23 @@ func (e *EthereumContractLoader) LoadMercuryRewardManager(addr common.Address) (
 	return &EthereumMercuryRewardManager{
 		client:   e.client,
 		instance: instance.(*reward_manager.RewardManager),
+		address:  addr,
+	}, err
+}
+
+func (e *EthereumContractLoader) LoadWERC20Mock(addr common.Address) (WERC20Mock, error) {
+	instance, err := e.client.LoadContract("WERC20 Mock", addr, func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return werc20_mock.NewWERC20Mock(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumWERC20Mock{
+		client:   e.client,
+		instance: instance.(*werc20_mock.WERC20Mock),
 		address:  addr,
 	}, err
 }

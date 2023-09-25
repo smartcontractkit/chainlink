@@ -51,6 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/werc20_mock"
 )
 
 // EthereumOracle oracle for "directrequest" job tests
@@ -2361,6 +2362,7 @@ func (e *EthereumMercuryVerifierProxy) SetFeeManager(feeManager common.Address) 
 		return nil, err
 	}
 	tx, err := e.instance.SetFeeManager(opts, feeManager)
+	e.l.Info().Err(err).Str("feeManager", feeManager.Hex()).Msg("Called MercuryVerifierProxy.SetFeeManager()")
 	if err != nil {
 		return nil, err
 	}
@@ -2395,8 +2397,50 @@ func (e *EthereumMercuryRewardManager) SetFeeManager(feeManager common.Address) 
 		return nil, err
 	}
 	tx, err := e.instance.SetFeeManager(opts, feeManager)
+	e.l.Info().Err(err).Str("feeManager", feeManager.Hex()).Msg("Called EthereumMercuryRewardManager.SetFeeManager()")
 	if err != nil {
 		return nil, err
 	}
 	return tx, e.client.ProcessTransaction(tx)
+}
+
+type EthereumWERC20Mock struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *werc20_mock.WERC20Mock
+	l        zerolog.Logger
+}
+
+func (e *EthereumWERC20Mock) Address() common.Address {
+	return e.address
+}
+
+func (l *EthereumWERC20Mock) Approve(to string, amount *big.Int) error {
+	opts, err := l.client.TransactionOpts(l.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	l.l.Info().
+		Str("From", l.client.GetDefaultWallet().Address()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Uint64("Nonce", opts.Nonce.Uint64()).
+		Msg("Approving LINK Transfer")
+	tx, err := l.instance.Approve(opts, common.HexToAddress(to), amount)
+	if err != nil {
+		return err
+	}
+	return l.client.ProcessTransaction(tx)
+}
+
+func (l *EthereumWERC20Mock) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(l.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	balance, err := l.instance.BalanceOf(opts, common.HexToAddress(addr))
+	if err != nil {
+		return nil, err
+	}
+	return balance, nil
 }

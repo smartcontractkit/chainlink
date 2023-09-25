@@ -391,3 +391,9 @@ type MercuryRewardManager interface {
 	Address() common.Address
 	SetFeeManager(feeManager common.Address) (*types.Transaction, error)
 }
+
+type WERC20Mock interface {
+	Address() common.Address
+	BalanceOf(ctx context.Context, addr string) (*big.Int, error)
+	Approve(to string, amount *big.Int) error
+}

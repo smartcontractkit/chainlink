@@ -55,6 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/werc20_mock"
 )
 
 // ContractDeployer is an interface for abstracting the contract deployment methods across network implementations
@@ -64,6 +65,7 @@ type ContractDeployer interface {
 	DeployFlags(rac string) (Flags, error)
 	DeployFluxAggregatorContract(linkAddr string, fluxOptions FluxAggregatorOptions) (FluxAggregator, error)
 	DeployLinkTokenContract() (LinkToken, error)
+	DeployWERC20Mock() (WERC20Mock, error)
 	LoadLinkToken(address common.Address) (LinkToken, error)
 	DeployOffChainAggregator(linkAddr string, offchainOptions OffchainOptions) (OffchainAggregator, error)
 	LoadOffChainAggregator(address *common.Address) (OffchainAggregator, error)
@@ -1510,6 +1512,24 @@ func (e *EthereumContractDeployer) DeployMercuryRewardManager(linkAddress common
 	return &EthereumMercuryRewardManager{
 		client:   e.client,
 		instance: instance.(*reward_manager.RewardManager),
+		address:  *address,
+		l:        e.l,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployWERC20Mock() (WERC20Mock, error) {
+	address, _, instance, err := e.client.DeployContract("WERC20 Mock", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return werc20_mock.DeployWERC20Mock(auth, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumWERC20Mock{
+		client:   e.client,
+		instance: instance.(*werc20_mock.WERC20Mock),
 		address:  *address,
 		l:        e.l,
 	}, err
