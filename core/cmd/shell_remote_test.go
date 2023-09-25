@@ -656,7 +656,7 @@ func TestShell_AutoLogin(t *testing.T) {
 	require.NoError(t, err)
 
 	// Expire the session and then try again
-	pgtest.MustExec(t, app.GetSqlxDB(), "TRUNCATE sessions")
+	pgtest.MustExec(t, app.GetSqlxDB(), "delete from sessions where email = $1", user.Email)
 	err = client.ListJobs(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)
 }
