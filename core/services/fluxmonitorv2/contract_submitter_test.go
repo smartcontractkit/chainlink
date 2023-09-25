@@ -37,6 +37,6 @@ func TestFluxAggregatorContractSubmitter_Submit(t *testing.T) {
 	idempotencyKey := uuid.New().String()
 	orm.On("CreateEthTransaction", fromAddress, toAddress, payload, gasLimit, &idempotencyKey).Return(nil)
 
-	err = submitter.Submit(roundID, submission, &idempotencyKey)
+	err = submitter.Submit(testutils.Context(t), roundID, submission, &idempotencyKey)
 	assert.NoError(t, err)
 }

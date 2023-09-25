@@ -27,7 +27,7 @@ type ORM interface {
 	DeleteFluxMonitorRoundsBackThrough(aggregator common.Address, roundID uint32) error
 	FindOrCreateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, newRoundLogs uint) (FluxMonitorRoundStatsV2, error)
 	UpdateFluxMonitorRoundStats(aggregator common.Address, roundID uint32, runID int64, newRoundLogsAddition uint, qopts ...pg.QOpt) error
-	CreateEthTransaction(fromAddress, toAddress common.Address, payload []byte, gasLimit uint32, idempotencyKey *string) error
+	CreateEthTransaction(ctx context.Context, fromAddress, toAddress common.Address, payload []byte, gasLimit uint32, idempotencyKey *string) error
 	CountFluxMonitorRoundStats() (count int, err error)
 }
 
@@ -115,6 +115,7 @@ func (o *orm) CountFluxMonitorRoundStats() (count int, err error) {
 
 // CreateEthTransaction creates an ethereum transaction for the Txm to pick up
 func (o *orm) CreateEthTransaction(
+	ctx context.Context,
 	fromAddress common.Address,
 	toAddress common.Address,
 	payload []byte,
@@ -122,7 +123,7 @@ func (o *orm) CreateEthTransaction(
 	idempotencyKey *string,
 ) (err error) {
 
-	_, err = o.txm.CreateTransaction(context.TODO(), txmgr.TxRequest{
+	_, err = o.txm.CreateTransaction(ctx, txmgr.TxRequest{
 		IdempotencyKey: idempotencyKey,
 		FromAddress:    fromAddress,
 		ToAddress:      toAddress,
