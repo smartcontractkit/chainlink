@@ -209,7 +209,7 @@ func setFunctionsConfig(t *testing.T, pluginConfig *functionsConfig.ReportingPlu
 }
 
 func generateDefaultOCR2OnchainConfig(t *testing.T, minValue *big.Int, maxValue *big.Int) []byte {
-	serializedConfig := make([]byte, 0)
+	var serializedConfig []byte
 
 	s1, err := bigbigendian.SerializeSigned(1, big.NewInt(1)) //version
 	if err != nil {
