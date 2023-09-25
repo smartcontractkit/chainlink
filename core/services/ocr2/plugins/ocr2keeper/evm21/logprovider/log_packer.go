@@ -28,7 +28,7 @@ func (p *logEventsPacker) PackLogData(log logpoller.Log) ([]byte, error) {
 	}
 	b, err := p.abi.Pack("_log", &automation_utils_2_1.Log{
 		Index:       big.NewInt(log.LogIndex),
-		TxIndex:     big.NewInt(0), // Exploratory: Add this to the logpoller and pass correct value
+		Timestamp:   big.NewInt(log.BlockTimestamp.Unix()),
 		TxHash:      log.TxHash,
 		BlockNumber: big.NewInt(log.BlockNumber),
 		BlockHash:   log.BlockHash,

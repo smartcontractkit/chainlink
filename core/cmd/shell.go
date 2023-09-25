@@ -133,6 +133,11 @@ type ChainlinkAppFactory struct{}
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
 	initGlobals(cfg.Prometheus())
 
+	err = migrate.SetMigrationENVVars(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
 	if err != nil {
 		return nil, err

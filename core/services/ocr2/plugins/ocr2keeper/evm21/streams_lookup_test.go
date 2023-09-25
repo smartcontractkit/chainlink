@@ -204,7 +204,7 @@ func TestEvmRegistry_StreamsLookup(t *testing.T) {
 					"data": hexutil.Bytes(payload),
 				}
 
-				client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, mock.AnythingOfType("*big.Int")).Return(nil).
+				client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, mock.AnythingOfType("string")).Return(nil).
 					Run(func(args mock.Arguments) {
 						b := args.Get(1).(*hexutil.Bytes)
 						*b = bContractCfg
@@ -370,7 +370,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 						"data": hexutil.Bytes(payload),
 					}
 
-					client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, mock.AnythingOfType("*big.Int")).
+					client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, mock.AnythingOfType("string")).
 						Return(tt.ethCallErr).
 						Run(func(args mock.Arguments) {
 							b := args.Get(1).(*hexutil.Bytes)
@@ -392,7 +392,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 						"data": hexutil.Bytes(payload),
 					}
 
-					client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, mock.AnythingOfType("*big.Int")).Return(nil).
+					client.On("CallContext", mock.Anything, mock.AnythingOfType("*hexutil.Bytes"), "eth_call", args, mock.AnythingOfType("string")).Return(nil).
 						Run(func(args mock.Arguments) {
 							b := args.Get(1).(*hexutil.Bytes)
 							*b = bContractCfg

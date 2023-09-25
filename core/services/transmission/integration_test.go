@@ -63,7 +63,7 @@ func deployTransmissionUniverse(t *testing.T) *EntryPointUniverse {
 	holder1Key := cltest.MustGenerateRandomKey(t)
 	t.Log("Holder key:", holder1Key.String())
 
-	// Construct simulated blockchain environmnet.
+	// Construct simulated blockchain environment.
 	holder1Transactor, err := bind.NewKeyedTransactorWithChainID(holder1Key.ToEcdsaPrivKey(), testutils.SimulatedChainID)
 	require.NoError(t, err)
 	var (

@@ -4,6 +4,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -100,7 +102,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		orm := NewTestORM(t, db, legacyChains, pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db, lggr, config.Database()), keyStore, config.Database())
 		a := utils.NewDependentAwaiter()
 		a.AddDependents(1)
-		spawner := job.NewSpawner(orm, config.Database(), map[job.Type]job.Delegate{}, db, lggr, []utils.DependentAwaiter{a})
+		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{}, db, lggr, []utils.DependentAwaiter{a})
 		// Starting the spawner should signal to the dependents
 		result := make(chan bool)
 		go func() {
@@ -139,7 +141,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		dB := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, legacyChains, logger.TestLogger(t), config.Database(), mailMon)
 		delegateB := &delegate{jobB.Type, []job.ServiceCtx{serviceB1, serviceB2}, 0, make(chan struct{}), dB}
 
-		spawner := job.NewSpawner(orm, config.Database(), map[job.Type]job.Delegate{
+		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{
 			jobA.Type: delegateA,
 			jobB.Type: delegateB,
 		}, db, lggr, nil)
@@ -189,7 +191,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, legacyChains, logger.TestLogger(t), config.Database(), mailMon)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, nil, d}
-		spawner := job.NewSpawner(orm, config.Database(), map[job.Type]job.Delegate{
+		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{
 			jobA.Type: delegateA,
 		}, db, lggr, nil)
 
@@ -223,7 +225,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 		d := ocr.NewDelegate(nil, orm, nil, nil, nil, monitoringEndpoint, legacyChains, logger.TestLogger(t), config.Database(), mailMon)
 		delegateA := &delegate{jobA.Type, []job.ServiceCtx{serviceA1, serviceA2}, 0, nil, d}
-		spawner := job.NewSpawner(orm, config.Database(), map[job.Type]job.Delegate{
+		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{
 			jobA.Type: delegateA,
 		}, db, lggr, nil)
 
@@ -300,7 +302,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			keyStore.OCR2(), keyStore.DKGSign(), keyStore.DKGEncrypt(), ethKeyStore, testRelayGetter, mailMon, nil)
 		delegateOCR2 := &delegate{jobOCR2VRF.Type, []job.ServiceCtx{}, 0, nil, d}
 
-		spawner := job.NewSpawner(orm, config.Database(), map[job.Type]job.Delegate{
+		spawner := job.NewSpawner(orm, config.Database(), noopChecker{}, map[job.Type]job.Delegate{
 			jobOCR2VRF.Type: delegateOCR2,
 		}, db, lggr, nil)
 
@@ -322,3 +324,17 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		spawner.Close()
 	})
 }
+
+type noopChecker struct{}
+
+func (n noopChecker) Register(service services.Checkable) error { return nil }
+
+func (n noopChecker) Unregister(name string) error { return nil }
+
+func (n noopChecker) IsReady() (ready bool, errors map[string]error) { return true, nil }
+
+func (n noopChecker) IsHealthy() (healthy bool, errors map[string]error) { return true, nil }
+
+func (n noopChecker) Start() error { return nil }
+
+func (n noopChecker) Close() error { return nil }

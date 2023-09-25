@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"golang.org/x/exp/maps"
+
 	"github.com/gorilla/websocket"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -59,6 +61,16 @@ type gatewayConnector struct {
 	lggr        logger.Logger
 }
 
+func (c *gatewayConnector) HealthReport() map[string]error {
+	m := map[string]error{c.Name(): c.Healthy()}
+	for _, g := range c.gateways {
+		maps.Copy(m, g.conn.HealthReport())
+	}
+	return m
+}
+
+func (c *gatewayConnector) Name() string { return c.lggr.Name() }
+
 type gatewayState struct {
 	conn     network.WSConnectionWrapper
 	config   ConnectorGatewayConfig
@@ -102,7 +114,7 @@ func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler Gateway
 			return nil, err
 		}
 		gateway := &gatewayState{
-			conn:     network.NewWSConnectionWrapper(),
+			conn:     network.NewWSConnectionWrapper(lggr),
 			config:   gw,
 			url:      parsedURL,
 			wsClient: network.NewWebSocketClient(config.WsClientConfig, connector, lggr),
@@ -189,7 +201,7 @@ func (c *gatewayConnector) Start(ctx context.Context) error {
 		}
 		for _, gatewayState := range c.gateways {
 			gatewayState := gatewayState
-			if err := gatewayState.conn.Start(); err != nil {
+			if err := gatewayState.conn.Start(ctx); err != nil {
 				return err
 			}
 			c.closeWait.Add(2)

@@ -2,10 +2,10 @@
 pragma solidity 0.8.16;
 
 import {Test} from "forge-std/Test.sol";
-import {FeeManager} from "../../dev/FeeManager.sol";
+import {FeeManager} from "../../FeeManager.sol";
 import {Common} from "../../../libraries/Common.sol";
 import "./BaseFeeManager.t.sol";
-import {IRewardManager} from "../../dev/interfaces/IRewardManager.sol";
+import {IRewardManager} from "../../interfaces/IRewardManager.sol";
 
 /**
  * @title BaseFeeManagerTest
@@ -19,24 +19,24 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_nonAdminProxyUserCannotProcessFee() public {
     //get the default payload
-    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(getLinkAddress()));
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     //should revert as the user is not the owner
     vm.expectRevert(UNAUTHORIZED_ERROR);
 
     //process the fee
-    ProcessFeeAsUser(payload, USER, 0, USER);
+    ProcessFeeAsUser(payload, USER, address(link), 0, USER);
   }
 
   function test_processFeeAsProxy() public {
     //get the default payload
-    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(getLinkAddress()));
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     //approve the link to be transferred from the from the subscriber to the rewardManager
     approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
 
     //processing the fee will transfer the link from the user to the rewardManager
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(link), 0);
 
     //check the link has been transferred
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
@@ -47,35 +47,35 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_processFeeIfSubscriberIsSelf() public {
     //get the default payload
-    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(getLinkAddress()));
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     //expect a revert due to the feeManager being the subscriber
     vm.expectRevert(INVALID_ADDRESS_ERROR);
 
     //process the fee will fail due to assertion
-    processFee(payload, address(feeManager), 0);
+    processFee(payload, address(feeManager), address(native), 0);
   }
 
   function test_processFeeWithWithEmptyQuotePayload() public {
     //get the default payload
-    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), bytes(""));
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     //expect a revert as the quote is invalid
     vm.expectRevert();
 
     //processing the fee will transfer the link by default
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(0), 0);
   }
 
   function test_processFeeWithWithZeroQuotePayload() public {
     //get the default payload
-    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(INVALID_ADDRESS));
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     //expect a revert as the quote is invalid
     vm.expectRevert(INVALID_QUOTE_ERROR);
 
     //processing the fee will transfer the link by default
-    processFee(payload, USER, 0);
+    processFee(payload, USER, INVALID_ADDRESS, 0);
   }
 
   function test_processFeeWithWithCorruptQuotePayload() public {
@@ -92,23 +92,23 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     vm.expectRevert();
 
     //processing the fee will not withdraw anything as there is no fee to collect
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(link), 0);
   }
 
   function test_processFeeDefaultReportsStillVerifiesWithEmptyQuote() public {
     //get the default payload
-    bytes memory payload = getPayload(getV1Report(DEFAULT_FEED_1_V1), bytes(""));
+    bytes memory payload = getPayload(getV1Report(DEFAULT_FEED_1_V1));
 
     //processing the fee will transfer the link from the user to the rewardManager
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(0), 0);
   }
 
   function test_processFeeWithDefaultReportPayloadAndQuoteStillVerifies() public {
     //get the default payload
-    bytes memory payload = getPayload(getV1Report(DEFAULT_FEED_1_V1), getQuotePayload(getLinkAddress()));
+    bytes memory payload = getPayload(getV1Report(DEFAULT_FEED_1_V1));
 
     //processing the fee will not withdraw anything as there is no fee to collect
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(link), 0);
   }
 
   function test_processFeeNative() public {
@@ -116,13 +116,13 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
 
     //get the default payload
-    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     //approve the native to be transferred from the user
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
 
     //processing the fee will transfer the native from the user to the feeManager
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(native), 0);
 
     //check the native has been transferred
     assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE);
@@ -142,7 +142,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE / 2);
 
     //get the default payload
-    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     //approve the native to be transferred from the user
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
@@ -157,7 +157,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     emit InsufficientLink(contractFees);
 
     //processing the fee will transfer the native from the user to the feeManager
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(native), 0);
 
     //check the native has been transferred
     assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE);
@@ -175,10 +175,10 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
 
     //get the default payload
-    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     //only the proxy or admin can call processFee, they will pass in the native value on the users behalf
-    processFee(payload, USER, DEFAULT_REPORT_NATIVE_FEE);
+    processFee(payload, USER, address(native), DEFAULT_REPORT_NATIVE_FEE);
 
     //check the native has been transferred and converted to wrapped native
     assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE);
@@ -199,13 +199,13 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
 
     //get the default payload
-    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     //expect a revert as not enough funds
     vm.expectRevert(INVALID_DEPOSIT_ERROR);
 
     //only the proxy or admin can call processFee, they will pass in the native value on the users behalf
-    processFee(payload, USER, DEFAULT_REPORT_NATIVE_FEE - 1);
+    processFee(payload, USER, address(native), DEFAULT_REPORT_NATIVE_FEE - 1);
   }
 
   function test_processFeeWithUnwrappedNativeLinkAddress() public {
@@ -213,13 +213,13 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
 
     //get the default payload
-    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(getLinkAddress()));
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     //expect a revert as not enough funds
     vm.expectRevert(INSUFFICIENT_ALLOWANCE_ERROR);
 
     //the change will be returned and the user will attempted to be billed in LINK
-    processFee(payload, USER, DEFAULT_REPORT_NATIVE_FEE - 1);
+    processFee(payload, USER, address(link), DEFAULT_REPORT_NATIVE_FEE - 1);
   }
 
   function test_processFeeWithUnwrappedNativeLinkAddressExcessiveFee() public {
@@ -227,10 +227,10 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, PROXY);
 
     //get the default payload
-    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(getLinkAddress()));
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     //call processFee from the proxy to test whether the funds are returned to the subscriber. In reality, the funds would be returned to the caller of the proxy.
-    processFee(payload, PROXY, DEFAULT_REPORT_NATIVE_FEE);
+    processFee(payload, PROXY, address(link), DEFAULT_REPORT_NATIVE_FEE);
 
     //check the native unwrapped is no longer in the account
     assertEq(getNativeBalance(address(feeManager)), 0);
@@ -251,10 +251,10 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
 
     //get the default payload
-    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     //call processFee from the proxy to test whether the funds are returned to the subscriber. In reality, the funds would be returned to the caller of the proxy.
-    processFee(payload, PROXY, DEFAULT_REPORT_NATIVE_FEE * 2);
+    processFee(payload, PROXY, address(native), DEFAULT_REPORT_NATIVE_FEE * 2);
 
     //check the native has been transferred and converted to wrapped native
     assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE);
@@ -272,13 +272,13 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_processFeeUsesCorrectDigest() public {
     //get the default payload
-    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(getLinkAddress()));
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     //approve the link to be transferred from the from the subscriber to the rewardManager
     approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
 
     //processing the fee will transfer the link from the user to the rewardManager
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(link), 0);
 
     //check the link has been transferred
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
@@ -301,18 +301,18 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     );
 
     //processing the fee will transfer the link from the user to the rewardManager
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(0), 0);
   }
 
   function test_V2PayloadVerifies() public {
     //get the default payload
-    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V2), getQuotePayload(getLinkAddress()));
+    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V2));
 
     //approve the link to be transferred from the from the subscriber to the rewardManager
     approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
 
     //processing the fee will transfer the link from the user to the rewardManager
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(link), 0);
 
     //check the link has been transferred
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
@@ -323,62 +323,60 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_V2PayloadWithoutQuoteFails() public {
     //get the default payload
-    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V2), bytes(""));
+    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V2));
 
     //expect a revert as the quote is invalid
     vm.expectRevert();
 
     //processing the fee will transfer the link from the user to the rewardManager
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(0), 0);
   }
 
   function test_V2PayloadWithoutZeroFee() public {
     //get the default payload
-    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V2), getQuotePayload(getLinkAddress()));
+    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V2));
 
     //expect a revert as the quote is invalid
     vm.expectRevert();
 
     //processing the fee will transfer the link from the user to the rewardManager
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(link), 0);
   }
 
   function test_processFeeWithInvalidReportVersionFailsToDecode() public {
     bytes memory data = abi.encode(0x0000100000000000000000000000000000000000000000000000000000000000);
 
     //get the default payload
-    bytes memory payload = getPayload(data, getQuotePayload(getLinkAddress()));
+    bytes memory payload = getPayload(data);
 
     //serialization will fail as there is no report to decode
     vm.expectRevert();
 
     //processing the fee will not withdraw anything as there is no fee to collect
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(link), 0);
   }
 
   function test_processFeeWithZeroNativeNonZeroLinkWithNativeQuote() public {
     //get the default payload
     bytes memory payload = getPayload(
-      getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, DEFAULT_REPORT_LINK_FEE, 0),
-      getQuotePayload(getNativeAddress())
+      getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, DEFAULT_REPORT_LINK_FEE, 0)
     );
 
     //call processFee should not revert as the fee is 0
-    processFee(payload, PROXY, 0);
+    processFee(payload, PROXY, address(native), 0);
   }
 
   function test_processFeeWithZeroNativeNonZeroLinkWithLinkQuote() public {
     //get the default payload
     bytes memory payload = getPayload(
-      getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, DEFAULT_REPORT_LINK_FEE, 0),
-      getQuotePayload(getLinkAddress())
+      getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, DEFAULT_REPORT_LINK_FEE, 0)
     );
 
     //approve the link to be transferred from the from the subscriber to the rewardManager
     approveLink(address(rewardManager), DEFAULT_REPORT_LINK_FEE, USER);
 
     //processing the fee will transfer the link to the rewardManager from the user
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(link), 0);
 
     //check the link has been transferred
     assertEq(getLinkBalance(address(rewardManager)), DEFAULT_REPORT_LINK_FEE);
@@ -393,15 +391,14 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
     //get the default payload
     bytes memory payload = getPayload(
-      getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, 0, DEFAULT_REPORT_NATIVE_FEE),
-      getQuotePayload(getNativeAddress())
+      getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, 0, DEFAULT_REPORT_NATIVE_FEE)
     );
 
     //approve the native to be transferred from the user
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
 
     //processing the fee will transfer the native from the user to the feeManager
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(native), 0);
 
     //check the native has been transferred
     assertEq(getNativeBalance(address(feeManager)), DEFAULT_REPORT_NATIVE_FEE);
@@ -419,23 +416,21 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
   function test_processFeeWithZeroLinkNonZeroNativeWithLinkQuote() public {
     //get the default payload
     bytes memory payload = getPayload(
-      getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, 0, DEFAULT_REPORT_NATIVE_FEE),
-      getQuotePayload(getLinkAddress())
+      getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, 0, DEFAULT_REPORT_NATIVE_FEE)
     );
 
     //call processFee should not revert as the fee is 0
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(link), 0);
   }
 
   function test_processFeeWithZeroNativeNonZeroLinkReturnsChange() public {
     //get the default payload
     bytes memory payload = getPayload(
-      getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, 0, DEFAULT_REPORT_NATIVE_FEE),
-      getQuotePayload(getLinkAddress())
+      getV3ReportWithCustomExpiryAndFee(DEFAULT_FEED_1_V3, block.timestamp, 0, DEFAULT_REPORT_NATIVE_FEE)
     );
 
     //call processFee should not revert as the fee is 0
-    processFee(payload, USER, DEFAULT_REPORT_NATIVE_FEE);
+    processFee(payload, USER, address(link), DEFAULT_REPORT_NATIVE_FEE);
 
     //check the change has been returned
     assertEq(USER.balance, DEFAULT_NATIVE_MINT_QUANTITY);
@@ -443,10 +438,9 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_V1PayloadVerifiesAndReturnsChange() public {
     //emulate a V1 payload with no quote
-    bytes memory quotePayload;
-    bytes memory payload = getPayload(getV1Report(DEFAULT_FEED_1_V1), quotePayload);
+    bytes memory payload = getPayload(getV1Report(DEFAULT_FEED_1_V1));
 
-    processFee(payload, USER, DEFAULT_REPORT_NATIVE_FEE);
+    processFee(payload, USER, address(0), DEFAULT_REPORT_NATIVE_FEE);
 
     //Fee manager should not contain any native
     assertEq(address(feeManager).balance, 0);
@@ -461,13 +455,13 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     mintLink(address(feeManager), DEFAULT_REPORT_LINK_FEE);
 
     //set the subscriber discount to 50%
-    setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, getNativeAddress(), FEE_SCALAR / 2, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(native), FEE_SCALAR / 2, ADMIN);
 
     //approve the native to be transferred from the user
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE / 2, USER);
 
     //get the default payload
-    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     Common.Asset memory fee = getFee(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
     Common.Asset memory reward = getReward(getV3Report(DEFAULT_FEED_1_V3), getNativeQuote(), USER);
@@ -478,7 +472,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     emit DiscountApplied(DEFAULT_CONFIG_DIGEST, USER, fee, reward, appliedDiscount);
 
     //call processFee should not revert as the fee is 0
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(native), 0);
   }
 
   function test_processFeeWithNoDiscountDoesNotEmitEvent() public {
@@ -489,10 +483,10 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
 
     //get the default payload
-    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+    bytes memory payload = getPayload(getV3Report(DEFAULT_FEED_1_V3));
 
     //call processFee should not revert as the fee is 0
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(native), 0);
 
     //no logs should have been emitted
     assertEq(vm.getRecordedLogs().length, 0);

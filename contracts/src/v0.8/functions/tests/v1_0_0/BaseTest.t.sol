@@ -11,6 +11,10 @@ contract BaseTest is Test {
   uint256 internal STRANGER_PRIVATE_KEY = 0x2;
   address internal STRANGER_ADDRESS = vm.addr(STRANGER_PRIVATE_KEY);
 
+  uint256 TX_GASPRICE_START = 3000000000; // 3 gwei
+
+  uint72 constant JUELS_PER_LINK = 1e18;
+
   function setUp() public virtual {
     // BaseTest.setUp is often called multiple times from tests' setUp due to inheritance.
     if (s_baseTestInitialized) return;

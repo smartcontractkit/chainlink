@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+### Added
+
+- Helper migrations function for injecting env vars into goose migrations. This was done to inject chainID into evm chain id not null in specs migrations.
+
 ### Removed
 
 - Removed support for sending telemetry to the deprecated Explorer service. All nodes will have to remove `Explorer` related keys from TOML configuration and env vars. 
@@ -26,7 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ```[ERROR] Error in transaction, rolling back: session missing or expired, please login again pg/transaction.go:118 ```
 - Fixed a bug that was preventing job runs to be displayed when the job `chainID` was disabled.
 - `chainlink txs evm create` returns a transaction hash for the attempted transaction in the CLI. Previously only the sender, recipient and `unstarted` state were returned.
-- Fixed a bug when when `evmChainId` is requested instead of `id` or `evm-chain-id` in CLI error verbatim
+- Fixed a bug where `evmChainId` is requested instead of `id` or `evm-chain-id` in CLI error verbatim
+- Fixed a bug that would cause the node to shut down while performing backup
+- Fixed health checker to include more services in the prometheus `health` metric and HTTP `/health` endpoint 
 
 ## 2.5.0 - UNRELEASED
 =======
