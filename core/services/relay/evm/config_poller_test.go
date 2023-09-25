@@ -12,6 +12,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
@@ -28,6 +29,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -36,51 +38,62 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestConfigPoller(t *testing.T) {
-	key, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	user, err := bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
-	require.NoError(t, err)
-	b := backends.NewSimulatedBackend(core.GenesisAlloc{
-		user.From: {Balance: big.NewInt(1000000000000000000)}},
-		5*ethconfig.Defaults.Miner.GasCeil)
-	linkTokenAddress, _, _, err := link_token_interface.DeployLinkToken(user, b)
-	require.NoError(t, err)
-	accessAddress, _, _, err := testoffchainaggregator2.DeploySimpleWriteAccessController(user, b)
-	require.NoError(t, err, "failed to deploy test access controller contract")
-	ocrAddress, _, ocrContract, err := ocr2aggregator.DeployOCR2Aggregator(
-		user,
-		b,
-		linkTokenAddress,
-		big.NewInt(0),
-		big.NewInt(10),
-		accessAddress,
-		accessAddress,
-		9,
-		"TEST",
-	)
-	require.NoError(t, err)
-	configStoreContractAddr, _, configStoreContract, err := ocrconfigurationstoreevmsimple.DeployOCRConfigurationStoreEVMSimple(user, b)
-	require.NoError(t, err)
-	b.Commit()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := pgtest.NewQConfig(false)
-	ethClient := evmclient.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 	lggr := logger.TestLogger(t)
-	ctx := testutils.Context(t)
-	lorm := logpoller.NewORM(testutils.SimulatedChainID, db, lggr, cfg)
-	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
-	require.NoError(t, lp.Start(ctx))
-	t.Cleanup(func() { lp.Close() })
+	var ethClient *client.SimulatedBackendClient
+	var lp logpoller.LogPoller
+	var ocrAddress common.Address
+	var ocrContract *ocr2aggregator.OCR2Aggregator
+	var configStoreContractAddr common.Address
+	var configStoreContract *ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimple
+	var user *bind.TransactOpts
+	var b *backends.SimulatedBackend
+	var linkTokenAddress common.Address
+	var accessAddress common.Address
+
+	{
+		key, err := crypto.GenerateKey()
+		require.NoError(t, err)
+		user, err = bind.NewKeyedTransactorWithChainID(key, big.NewInt(1337))
+		require.NoError(t, err)
+		b = backends.NewSimulatedBackend(core.GenesisAlloc{
+			user.From: {Balance: big.NewInt(1000000000000000000)}},
+			5*ethconfig.Defaults.Miner.GasCeil)
+		linkTokenAddress, _, _, err = link_token_interface.DeployLinkToken(user, b)
+		require.NoError(t, err)
+		accessAddress, _, _, err = testoffchainaggregator2.DeploySimpleWriteAccessController(user, b)
+		require.NoError(t, err, "failed to deploy test access controller contract")
+		ocrAddress, _, ocrContract, err = ocr2aggregator.DeployOCR2Aggregator(
+			user,
+			b,
+			linkTokenAddress,
+			big.NewInt(0),
+			big.NewInt(10),
+			accessAddress,
+			accessAddress,
+			9,
+			"TEST",
+		)
+		require.NoError(t, err)
+		configStoreContractAddr, _, configStoreContract, err = ocrconfigurationstoreevmsimple.DeployOCRConfigurationStoreEVMSimple(user, b)
+		require.NoError(t, err)
+		b.Commit()
+
+		db := pgtest.NewSqlxDB(t)
+		cfg := pgtest.NewQConfig(false)
+		ethClient = evmclient.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
+		ctx := testutils.Context(t)
+		lorm := logpoller.NewORM(testutils.SimulatedChainID, db, lggr, cfg)
+		lp = logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
+		require.NoError(t, lp.Start(ctx))
+		t.Cleanup(func() { lp.Close() })
+	}
 
 	t.Run("LatestConfig errors if there is no config in logs and config store is unconfigured", func(t *testing.T) {
-		var cp evmRelayTypes.ConfigPoller
-		cp, err = NewConfigPoller(lggr, ethClient, lp, ocrAddress, nil)
+		cp, err := NewConfigPoller(lggr, ethClient, lp, ocrAddress, nil)
 		require.NoError(t, err)
 
 		_, err = cp.LatestConfig(testutils.Context(t), 0)
@@ -89,13 +102,12 @@ func TestConfigPoller(t *testing.T) {
 	})
 
 	t.Run("happy path (with config store)", func(t *testing.T) {
-		var cp evmRelayTypes.ConfigPoller
-		cp, err = NewConfigPoller(lggr, ethClient, lp, ocrAddress, &configStoreContractAddr)
+		cp, err := NewConfigPoller(lggr, ethClient, lp, ocrAddress, &configStoreContractAddr)
 		require.NoError(t, err)
 		// Should have no config to begin with.
-		_, config, err := cp.LatestConfigDetails(testutils.Context(t))
+		_, configDigest, err := cp.LatestConfigDetails(testutils.Context(t))
 		require.NoError(t, err)
-		require.Equal(t, ocrtypes2.ConfigDigest{}, config)
+		require.Equal(t, ocrtypes2.ConfigDigest{}, configDigest)
 		// Should error because there are no logs for config at block 0
 		_, err = cp.LatestConfig(testutils.Context(t), 0)
 		require.Error(t, err)
@@ -137,19 +149,22 @@ func TestConfigPoller(t *testing.T) {
 		assert.Equal(t, contractConfig.OffchainConfig, newConfig.OffchainConfig)
 	})
 
-	ocrAddress, _, ocrContract, err = ocr2aggregator.DeployOCR2Aggregator(
-		user,
-		b,
-		linkTokenAddress,
-		big.NewInt(0),
-		big.NewInt(10),
-		accessAddress,
-		accessAddress,
-		9,
-		"TEST",
-	)
-	require.NoError(t, err)
-	b.Commit()
+	{
+		var err error
+		ocrAddress, _, ocrContract, err = ocr2aggregator.DeployOCR2Aggregator(
+			user,
+			b,
+			linkTokenAddress,
+			big.NewInt(0),
+			big.NewInt(10),
+			accessAddress,
+			accessAddress,
+			9,
+			"TEST",
+		)
+		require.NoError(t, err)
+		b.Commit()
+	}
 
 	t.Run("LatestConfigDetails, when logs have been pruned and config store contract is configured", func(t *testing.T) {
 		// Give it a log poller that will never return logs
@@ -158,8 +173,7 @@ func TestConfigPoller(t *testing.T) {
 		mp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, sql.ErrNoRows)
 
 		t.Run("if callLatestConfigDetails succeeds", func(t *testing.T) {
-			var cp evmRelayTypes.ConfigPoller
-			cp, err = newConfigPoller(lggr, ethClient, mp, ocrAddress, &configStoreContractAddr)
+			cp, err := newConfigPoller(lggr, ethClient, mp, ocrAddress, &configStoreContractAddr)
 			require.NoError(t, err)
 
 			t.Run("when config has not been set, returns zero values", func(t *testing.T) {
@@ -196,8 +210,7 @@ func TestConfigPoller(t *testing.T) {
 			failingClient := new(evmClientMocks.Client)
 			failingClient.On("ConfiguredChainID").Return(big.NewInt(42))
 			failingClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("something exploded"))
-			var cp *configPoller
-			cp, err = newConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr)
+			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr)
 			require.NoError(t, err)
 
 			cp.configStoreContractAddr = &configStoreContractAddr
@@ -210,20 +223,23 @@ func TestConfigPoller(t *testing.T) {
 		})
 	})
 
-	// deploy it again to reset to empty config
-	ocrAddress, _, ocrContract, err = ocr2aggregator.DeployOCR2Aggregator(
-		user,
-		b,
-		linkTokenAddress,
-		big.NewInt(0),
-		big.NewInt(10),
-		accessAddress,
-		accessAddress,
-		9,
-		"TEST",
-	)
-	require.NoError(t, err)
-	b.Commit()
+	{
+		var err error
+		// deploy it again to reset to empty config
+		ocrAddress, _, ocrContract, err = ocr2aggregator.DeployOCR2Aggregator(
+			user,
+			b,
+			linkTokenAddress,
+			big.NewInt(0),
+			big.NewInt(10),
+			accessAddress,
+			accessAddress,
+			9,
+			"TEST",
+		)
+		require.NoError(t, err)
+		b.Commit()
+	}
 
 	t.Run("LatestConfig, when logs have been pruned and config store contract is configured", func(t *testing.T) {
 		// Give it a log poller that will never return logs
@@ -337,7 +353,7 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 		50*time.Millisecond,
 		50*time.Millisecond,
 		1, // faults
-		generateDefaultOCR2OnchainConfig(big.NewInt(0), big.NewInt(10)),
+		generateDefaultOCR2OnchainConfig(t, big.NewInt(0), big.NewInt(10)),
 	)
 	require.NoError(t, err)
 	signerAddresses, err := OnchainPublicKeyToAddress(signers)
@@ -362,24 +378,24 @@ func addConfig(t *testing.T, user *bind.TransactOpts, configStoreContract *ocrco
 	require.NoError(t, err)
 }
 
-func generateDefaultOCR2OnchainConfig(minValue *big.Int, maxValue *big.Int) []byte {
+func generateDefaultOCR2OnchainConfig(t *testing.T, minValue *big.Int, maxValue *big.Int) []byte {
 	serializedConfig := make([]byte, 0)
 
 	s1, err := bigbigendian.SerializeSigned(1, big.NewInt(1)) //version
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	serializedConfig = append(serializedConfig, s1...)
 
 	s2, err := bigbigendian.SerializeSigned(24, minValue) //min
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	serializedConfig = append(serializedConfig, s2...)
 
 	s3, err := bigbigendian.SerializeSigned(24, maxValue) //max
 	if err != nil {
-		panic(err)
+		t.Fatal(err)
 	}
 	serializedConfig = append(serializedConfig, s3...)
 
