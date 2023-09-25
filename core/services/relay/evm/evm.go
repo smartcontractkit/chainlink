@@ -72,16 +72,16 @@ type RelayerOpts struct {
 func (c RelayerOpts) Validate() error {
 	var err error
 	if c.DB == nil {
-		err = errors.Join(err, fmt.Errorf("nil DB"))
+		err = errors.Join(err, errors.New("nil DB"))
 	}
 	if c.QConfig == nil {
-		err = errors.Join(err, fmt.Errorf("nil QConfig"))
+		err = errors.Join(err, errors.New("nil QConfig"))
 	}
 	if c.CSAETHKeystore == nil {
-		err = errors.Join(err, fmt.Errorf("nil Keystore"))
+		err = errors.Join(err, errors.New("nil Keystore"))
 	}
 	if c.EventBroadcaster == nil {
-		err = errors.Join(err, fmt.Errorf("nil Eventbroadcaster"))
+		err = errors.Join(err, errors.New("nil Eventbroadcaster"))
 	}
 
 	if err != nil {

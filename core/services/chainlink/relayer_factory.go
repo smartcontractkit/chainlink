@@ -34,7 +34,7 @@ type RelayerFactory struct {
 }
 
 type EVMFactoryConfig struct {
-	*evm.ChainOpts
+	evm.ChainOpts
 	evmrelay.CSAETHKeystore
 }
 

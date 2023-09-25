@@ -86,7 +86,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 			opts := evm.ChainRelayExtenderConfig{
 				Logger:   lggr,
 				KeyStore: keyStore.Eth(),
-				ChainOpts: &evm.ChainOpts{
+				ChainOpts: evm.ChainOpts{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					MailMon:          &utils.MailboxMonitor{},
@@ -190,7 +190,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			opts := evm.ChainRelayExtenderConfig{
 				Logger:   lggr,
 				KeyStore: keyStore.Eth(),
-				ChainOpts: &evm.ChainOpts{
+				ChainOpts: evm.ChainOpts{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					MailMon:          &utils.MailboxMonitor{},

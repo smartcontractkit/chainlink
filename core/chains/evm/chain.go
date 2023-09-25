@@ -143,21 +143,16 @@ type AppConfig interface {
 type ChainRelayExtenderConfig struct {
 	Logger   logger.Logger
 	KeyStore keystore.Eth
-	*ChainOpts
+	ChainOpts
 }
 
 func (c ChainRelayExtenderConfig) Validate() error {
-	var err error
+	err := c.ChainOpts.Validate()
 	if c.Logger == nil {
-		err = errors.Join(err, fmt.Errorf("nil Logger"))
+		err = errors.Join(err, errors.New("nil Logger"))
 	}
 	if c.KeyStore == nil {
-		err = errors.Join(err, fmt.Errorf("nil Keystore"))
-	}
-	if c.ChainOpts == nil {
-		err = errors.Join(err, fmt.Errorf("nil ChainOpts"))
-	} else {
-		err = errors.Join(err, c.ChainOpts.Validate())
+		err = errors.Join(err, errors.New("nil Keystore"))
 	}
 
 	if err != nil {
@@ -188,16 +183,16 @@ type ChainOpts struct {
 func (o ChainOpts) Validate() error {
 	var err error
 	if o.AppConfig == nil {
-		err = errors.Join(err, fmt.Errorf("nil AppConfig"))
+		err = errors.Join(err, errors.New("nil AppConfig"))
 	}
 	if o.EventBroadcaster == nil {
-		err = errors.Join(err, fmt.Errorf("nil EventBroadcaster"))
+		err = errors.Join(err, errors.New("nil EventBroadcaster"))
 	}
 	if o.MailMon == nil {
-		err = errors.Join(err, fmt.Errorf("nil MailMon"))
+		err = errors.Join(err, errors.New("nil MailMon"))
 	}
 	if o.DB == nil {
-		err = errors.Join(err, fmt.Errorf("nil DB"))
+		err = errors.Join(err, errors.New("nil DB"))
 	}
 	if err != nil {
 		err = fmt.Errorf("invalid ChainOpts: %w", err)

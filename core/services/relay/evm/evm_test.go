@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
-func TestRelayerOpts_Valigdate(t *testing.T) {
+func TestRelayerOpts_Validate(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	type fields struct {
 		DB               *sqlx.DB

@@ -205,7 +205,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		{name: "2 evm chains with 3 nodes",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
-					ChainOpts: &evm.ChainOpts{
+					ChainOpts: evm.ChainOpts{
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
 						MailMon:          &utils.MailboxMonitor{},
@@ -280,7 +280,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Keystore:      keyStore.Solana(),
 				SolanaConfigs: cfg.SolanaConfigs()}),
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
-					ChainOpts: &evm.ChainOpts{
+					ChainOpts: evm.ChainOpts{
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
 						MailMon:          &utils.MailboxMonitor{},

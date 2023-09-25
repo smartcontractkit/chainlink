@@ -391,7 +391,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	}
 
 	evmOpts := chainlink.EVMFactoryConfig{
-		ChainOpts: &evm.ChainOpts{
+		ChainOpts: evm.ChainOpts{
 			AppConfig:        cfg,
 			EventBroadcaster: eventBroadcaster,
 			MailMon:          mailMon,
