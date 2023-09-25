@@ -27,6 +27,7 @@ import (
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // MockSubscription a mock subscription
@@ -306,6 +307,18 @@ func MustRandomUser(t testing.TB) sessions.User {
 		logger.TestLogger(t).Panic(err)
 	}
 	return r
+}
+
+func NewUserWithSession(t testing.TB, orm sessions.ORM) sessions.User {
+	u := MustRandomUser(t)
+	require.NoError(t, orm.CreateUser(&u))
+
+	_, err := orm.CreateSession(sessions.SessionRequest{
+		Email:    u.Email,
+		Password: Password,
+	})
+	require.NoError(t, err)
+	return u
 }
 
 // CreateUserWithRole inserts a new user with specified role and associated test DB email into the test DB

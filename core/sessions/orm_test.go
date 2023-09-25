@@ -97,13 +97,13 @@ func TestORM_DeleteUser(t *testing.T) {
 	t.Parallel()
 	_, orm := setupORM(t)
 
-	_, err := orm.FindUser(cltest.APIEmailAdmin)
+	u := cltest.MustRandomUser(t)
+	require.NoError(t, orm.CreateUser(&u))
+
+	err := orm.DeleteUser(u.Email)
 	require.NoError(t, err)
 
-	err = orm.DeleteUser(cltest.APIEmailAdmin)
-	require.NoError(t, err)
-
-	_, err = orm.FindUser(cltest.APIEmailAdmin)
+	_, err = orm.FindUser(u.Email)
 	require.Error(t, err)
 }
 
@@ -112,14 +112,17 @@ func TestORM_DeleteUserSession(t *testing.T) {
 
 	db, orm := setupORM(t)
 
+	u := cltest.MustRandomUser(t)
+	require.NoError(t, orm.CreateUser(&u))
+
 	session := sessions.NewSession()
-	_, err := db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, cltest.APIEmailAdmin)
+	_, err := db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, u.Email)
 	require.NoError(t, err)
 
 	err = orm.DeleteUserSession(session.ID)
 	require.NoError(t, err)
 
-	_, err = orm.FindUser(cltest.APIEmailAdmin)
+	_, err = orm.FindUser(u.Email)
 	require.NoError(t, err)
 
 	sessions, err := orm.Sessions(0, 10)
@@ -130,14 +133,17 @@ func TestORM_DeleteUserSession(t *testing.T) {
 func TestORM_DeleteUserCascade(t *testing.T) {
 	db, orm := setupORM(t)
 
+	u := cltest.MustRandomUser(t)
+	require.NoError(t, orm.CreateUser(&u))
+
 	session := sessions.NewSession()
-	_, err := db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, cltest.APIEmailAdmin)
+	_, err := db.Exec("INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, now(), now())", session.ID, u.Email)
 	require.NoError(t, err)
 
-	err = orm.DeleteUser(cltest.APIEmailAdmin)
+	err = orm.DeleteUser(u.Email)
 	require.NoError(t, err)
 
-	_, err = orm.FindUser(cltest.APIEmailAdmin)
+	_, err = orm.FindUser(u.Email)
 	require.Error(t, err)
 
 	sessions, err := orm.Sessions(0, 10)
