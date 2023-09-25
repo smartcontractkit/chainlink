@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Helper migrations function for injecting env vars into goose migrations. This was done to inject chainID into evm chain id not null in specs migrations.
-- Added new configuration field named `SwitchToBestNodeInterval` for `EVM.NodePool` that will periodically check if internal services are connected to the "best" (as defined by the `SelectionMode`) node and switch to it if necessary. Seting this value to `0s` will disable this feature.
+- Added new configuration field named `SwitchToBestNodeInterval` for `EVM.NodePool` that will periodically check if internal services are connected to the "best" (as defined by the `SelectionMode`) node and switch to it if necessary. Setting this value to `0s` will disable this feature.
 
 ### Removed
 
