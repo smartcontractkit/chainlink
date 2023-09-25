@@ -4,6 +4,10 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
+	"math/big"
+	"strings"
+	"time"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -14,13 +18,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/libocr/bigbigendian"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
-	"strings"
-	"time"
 )
 
 func CreateOCRv2JobsLocal(
@@ -133,7 +136,7 @@ func BuildMedianOCR2ConfigLocal(workerNodes []*client.ChainlinkClient) (*contrac
 	if err != nil {
 		return nil, err
 	}
-	signerKeys, transmitterAccounts, f_, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
+	signerKeys, transmitterAccounts, f_, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		30*time.Second,   // deltaProgress time.Duration,
 		30*time.Second,   // deltaResend time.Duration,
 		10*time.Second,   // deltaRound time.Duration,
@@ -173,6 +176,9 @@ func BuildMedianOCR2ConfigLocal(workerNodes []*client.ChainlinkClient) (*contrac
 		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(string(account)))
 	}
 
+	minAnswer, maxAnswer := big.NewInt(1), big.NewInt(50000000000000000)
+	onchainConfig, err := generateDefaultOCR2OnchainConfig(minAnswer, maxAnswer)
+
 	return &contracts.OCRv2Config{
 		Signers:               signerAddresses,
 		Transmitters:          transmitterAddresses,
@@ -180,7 +186,31 @@ func BuildMedianOCR2ConfigLocal(workerNodes []*client.ChainlinkClient) (*contrac
 		OnchainConfig:         onchainConfig,
 		OffchainConfigVersion: offchainConfigVersion,
 		OffchainConfig:        []byte(fmt.Sprintf("0x%s", offchainConfig)),
-	}, nil
+	}, err
+}
+
+func generateDefaultOCR2OnchainConfig(minValue *big.Int, maxValue *big.Int) ([]byte, error) {
+	serializedConfig := make([]byte, 0)
+
+	s1, err := bigbigendian.SerializeSigned(1, big.NewInt(1)) //version
+	if err != nil {
+		return nil, err
+	}
+	serializedConfig = append(serializedConfig, s1...)
+
+	s2, err := bigbigendian.SerializeSigned(24, minValue) //min
+	if err != nil {
+		return nil, err
+	}
+	serializedConfig = append(serializedConfig, s2...)
+
+	s3, err := bigbigendian.SerializeSigned(24, maxValue) //max
+	if err != nil {
+		return nil, err
+	}
+	serializedConfig = append(serializedConfig, s3...)
+
+	return serializedConfig, nil
 }
 
 func GetOracleIdentitiesWithKeyIndexLocal(
