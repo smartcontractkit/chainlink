@@ -1,6 +1,8 @@
 package templates
 
 import (
+	"fmt"
+
 	"github.com/google/uuid"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/templates"
 )
@@ -14,20 +16,26 @@ type NodeSecretsTemplate struct {
 	PgPassword string
 }
 
-func (c NodeSecretsTemplate) String() (string, error) {
+func (c NodeSecretsTemplate) GenerateNodeSecretsString(mercuryCred string) (string, error) {
 	tpl := `
 [Database]
 URL = 'postgresql://postgres:{{ .PgPassword }}@{{ .PgHost }}:{{ .PgPort }}/{{ .PgDbName }}?sslmode=disable' # Required
 
 [Password]
-Keystore = '................' # Required
+Keystore = '................' # Required`
 
+	if mercuryCred != "" {
+		// Use the provided mercuryCred
+		tpl += fmt.Sprintf(`%s`, mercuryCred)
+	} else {
+		// Use the default
+		tpl += `
 [Mercury.Credentials.cred1]
 # URL = 'http://host.docker.internal:3000/reports'
-LegacyURL = 'http://localhost:53299'
-URL = 'http://localhost:53299'
+URL = 'localhost:1338'
 Username = 'node'
-Password = 'nodepass'
-`
+Password = 'nodepass'`
+	}
+
 	return templates.MarshalTemplate(c, uuid.NewString(), tpl)
 }

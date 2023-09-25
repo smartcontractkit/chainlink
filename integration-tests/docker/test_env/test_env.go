@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -154,7 +155,7 @@ func (te *CLClusterTestEnv) GetAPIs() []*client.ChainlinkClient {
 }
 
 // StartClNodes start one bootstrap node and {count} OCR nodes
-func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int) error {
+func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int, secretsConfig string) error {
 	eg := &errgroup.Group{}
 	nodes := make(chan *ClNode, count)
 
@@ -167,7 +168,7 @@ func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int
 				nodeContainerName = te.Cfg.Nodes[nodeIndex].NodeContainerName
 				dbContainerName = te.Cfg.Nodes[nodeIndex].DbContainerName
 			}
-			n := NewClNode([]string{te.Network.Name}, nodeConfig,
+			n := NewClNode([]string{te.Network.Name}, nodeConfig, secretsConfig,
 				WithNodeContainerName(nodeContainerName),
 				WithDbContainerName(dbContainerName),
 			)
