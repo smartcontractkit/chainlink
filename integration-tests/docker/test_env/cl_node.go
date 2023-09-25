@@ -378,7 +378,7 @@ func (n *ClNode) getContainerRequest(secrets string) (
 	return &tc.ContainerRequest{
 		Name:         n.ContainerName,
 		Image:        fmt.Sprintf("%s:%s", n.ContainerImage, n.ContainerVersion),
-		ExposedPorts: []string{"6688/tcp"},
+		ExposedPorts: []string{"6688/tcp", "50051/tcp"},
 		Entrypoint: []string{"chainlink",
 			"-c", configPath,
 			"-s", secretsPath,
