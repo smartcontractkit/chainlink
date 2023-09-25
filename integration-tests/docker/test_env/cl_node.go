@@ -82,7 +82,7 @@ func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
+func NewClNode(networks []string, nodeConfig *chainlink.Config, secretsConfig string, opts ...ClNodeOption) *ClNode {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
 	pgDb := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
@@ -91,9 +91,10 @@ func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOp
 			ContainerName: nodeDefaultCName,
 			Networks:      networks,
 		},
-		NodeConfig: nodeConfig,
-		PostgresDb: pgDb,
-		l:          log.Logger,
+		NodeConfig:            nodeConfig,
+		NodeSecretsConfigTOML: secretsConfig,
+		PostgresDb:            pgDb,
+		l:                     log.Logger,
 	}
 	for _, opt := range opts {
 		opt(n)
@@ -237,16 +238,19 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return err
 	}
+
+	// If the node secrets TOML is not set, generate it with the default template
 	nodeSecretsToml, err := templates.NodeSecretsTemplate{
 		PgDbName:   n.PostgresDb.DbName,
 		PgHost:     n.PostgresDb.ContainerName,
 		PgPort:     n.PostgresDb.Port,
 		PgPassword: n.PostgresDb.Password,
-	}.String()
+	}.GenerateNodeSecretsString(n.NodeSecretsConfigTOML)
 	if err != nil {
 		return err
 	}
 	n.NodeSecretsConfigTOML = nodeSecretsToml
+
 	cReq, err := n.getContainerRequest()
 	if err != nil {
 		return err

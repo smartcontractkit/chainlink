@@ -1005,13 +1005,22 @@ func setupAutomationTestDocker(
 	clNodeConfig.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
 	clNodeConfig.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
 
-	// launch the environment
+	secretsConfig := `
+	[Mercury.Credentials.cred1]
+	LegacyURL = 'http://localhost:53299'
+	URL = 'http://localhost:53299'
+	Username = 'node22'
+	Password = 'nodepass'
+	`
+
+	//launch the environment
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
 		WithGeth().
 		WithMockServer(1).
 		WithCLNodes(5).
 		WithCLNodeConfig(clNodeConfig).
+		WithSecretsConfig(secretsConfig).
 		WithFunding(big.NewFloat(.5)).
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
