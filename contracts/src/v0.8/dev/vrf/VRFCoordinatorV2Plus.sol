@@ -198,7 +198,8 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     if (extraArgs.length == 0) {
       return VRFV2PlusClient.ExtraArgsV1({nativePayment: false});
     }
-    return abi.decode(extraArgs, (VRFV2PlusClient.ExtraArgsV1));
+    if (bytes4(extraArgs) != VRFV2PlusClient.EXTRA_ARGS_V1_TAG) revert InvalidExtraArgsTag();
+    return abi.decode(extraArgs[4:], (VRFV2PlusClient.ExtraArgsV1));
   }
 
   /**

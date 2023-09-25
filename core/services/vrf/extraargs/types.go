@@ -14,7 +14,7 @@ const boolAbiType = `[{ "type": "bool" }]`
 var extraArgsV1Tag = crypto.Keccak256([]byte("VRF ExtraArgsV1"))[:4]
 
 func FromExtraArgsV1(extraArgs []byte) (nativePayment bool, err error) {
-	decodedBool, err := utils.ABIDecode(boolAbiType, extraArgs)
+	decodedBool, err := utils.ABIDecode(boolAbiType, extraArgs[functionSignatureLength:])
 	if err != nil {
 		return false, fmt.Errorf("failed to decode 0x%x to bool", extraArgs[functionSignatureLength:])
 	}
@@ -30,5 +30,5 @@ func ExtraArgsV1(nativePayment bool) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return encodedArgs, nil
+	return append(extraArgsV1Tag, encodedArgs...), nil
 }

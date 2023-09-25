@@ -29,8 +29,8 @@ var (
 )
 
 var VRFV2PlusClientMetaData = &bind.MetaData{
-	ABI: "[]",
-	Bin: "0x602d6037600b82828239805160001a607314602a57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe73000000000000000000000000000000000000000030146080604052600080fdfea164736f6c6343000806000a",
+	ABI: "[{\"inputs\":[],\"name\":\"EXTRA_ARGS_V1_TAG\",\"outputs\":[{\"internalType\":\"bytes4\",\"name\":\"\",\"type\":\"bytes4\"}],\"stateMutability\":\"view\",\"type\":\"function\"}]",
+	Bin: "0x6088610038600b82828239805160001a607314602b57634e487b7160e01b600052600060045260246000fd5b30600052607381538281f3fe730000000000000000000000000000000000000000301460806040526004361060335760003560e01c8063f7514ab4146038575b600080fd5b605e7f92fd13387c7fe7befbc38d303d6468778fb9731bc4583f17d92989c6fcfdeaaa81565b6040516001600160e01b0319909116815260200160405180910390f3fea164736f6c6343000806000a",
 }
 
 var VRFV2PlusClientABI = VRFV2PlusClientMetaData.ABI
@@ -169,10 +169,34 @@ func (_VRFV2PlusClient *VRFV2PlusClientTransactorRaw) Transact(opts *bind.Transa
 	return _VRFV2PlusClient.Contract.contract.Transact(opts, method, params...)
 }
 
+func (_VRFV2PlusClient *VRFV2PlusClientCaller) EXTRAARGSV1TAG(opts *bind.CallOpts) ([4]byte, error) {
+	var out []interface{}
+	err := _VRFV2PlusClient.contract.Call(opts, &out, "EXTRA_ARGS_V1_TAG")
+
+	if err != nil {
+		return *new([4]byte), err
+	}
+
+	out0 := *abi.ConvertType(out[0], new([4]byte)).(*[4]byte)
+
+	return out0, err
+
+}
+
+func (_VRFV2PlusClient *VRFV2PlusClientSession) EXTRAARGSV1TAG() ([4]byte, error) {
+	return _VRFV2PlusClient.Contract.EXTRAARGSV1TAG(&_VRFV2PlusClient.CallOpts)
+}
+
+func (_VRFV2PlusClient *VRFV2PlusClientCallerSession) EXTRAARGSV1TAG() ([4]byte, error) {
+	return _VRFV2PlusClient.Contract.EXTRAARGSV1TAG(&_VRFV2PlusClient.CallOpts)
+}
+
 func (_VRFV2PlusClient *VRFV2PlusClient) Address() common.Address {
 	return _VRFV2PlusClient.address
 }
 
 type VRFV2PlusClientInterface interface {
+	EXTRAARGSV1TAG(opts *bind.CallOpts) ([4]byte, error)
+
 	Address() common.Address
 }

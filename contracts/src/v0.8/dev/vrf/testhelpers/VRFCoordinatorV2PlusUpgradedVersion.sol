@@ -41,6 +41,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
   error IncorrectCommitment();
   error BlockhashNotInStore(uint256 blockNum);
   error PaymentTooLarge();
+  error InvalidExtraArgsTag();
   /// @notice emitted when version in the request doesn't match expected version
   error InvalidVersion(uint8 requestVersion, uint8 expectedVersion);
   /// @notice emitted when transferred balance (msg.value) does not match the metadata in V1MigrationData
@@ -192,7 +193,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     if (extraArgs.length == 0) {
       return VRFV2PlusClient.ExtraArgsV1({nativePayment: false});
     }
-    return abi.decode(extraArgs, (VRFV2PlusClient.ExtraArgsV1));
+    if (bytes4(extraArgs) != VRFV2PlusClient.EXTRA_ARGS_V1_TAG) revert InvalidExtraArgsTag();
+    return abi.decode(extraArgs[4:], (VRFV2PlusClient.ExtraArgsV1));
   }
 
   /**

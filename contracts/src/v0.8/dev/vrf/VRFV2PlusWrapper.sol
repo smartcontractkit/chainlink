@@ -395,7 +395,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     require(_numWords <= s_maxNumWords, "numWords too high");
 
     uint32 eip150Overhead = getEIP150Overhead(_callbackGasLimit);
-    bool nativePayment = abi.decode(extraArgs, (bool));
+    bool nativePayment = abi.decode(extraArgs[4:36], (bool));
     uint256 price;
     if (nativePayment) {
       // native payment
@@ -415,7 +415,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       requestConfirmations: _requestConfirmations,
       callbackGasLimit: _callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
       numWords: _numWords,
-      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
+      extraArgs: extraArgs
     });
     requestId = COORDINATOR.requestRandomWords(req);
     s_callbacks[requestId] = Callback({
