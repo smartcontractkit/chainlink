@@ -43,7 +43,7 @@ func TestHasher(t *testing.T) {
 	require.NoError(t, err)
 
 	// NOTE: Must match spec
-	require.Equal(t, "e0f22328cc83d50c2861629eaabcad5b39e8d30ba163228ff3574a0a229f5c9f", hex.EncodeToString(hash[:]))
+	require.Equal(t, "46ad031bfb052db2e4a2514fed8dc480b98e5ce4acb55d5640d91407e0d8a3e9", hex.EncodeToString(hash[:]))
 
 	message = evm_2_evm_onramp.InternalEVM2EVMMessage{
 		SourceChainSelector: sourceChainSelector,
@@ -70,7 +70,7 @@ func TestHasher(t *testing.T) {
 	require.NoError(t, err)
 
 	// NOTE: Must match spec
-	require.Equal(t, "7de96e00e1cf9753877faf459a68e9ee4fd901e50c2a3cd524586bf0cb3accf5", hex.EncodeToString(hash[:]))
+	require.Equal(t, "4362a13a42e52ff5ce4324e7184dc7aa41704c3146bc842d35d95b94b32a78b6", hex.EncodeToString(hash[:]))
 }
 
 func TestMetaDataHash(t *testing.T) {

@@ -83,33 +83,56 @@ func (t *LeafHasher) HashLeaf(log types.Log) ([32]byte, error) {
 		return [32]byte{}, err
 	}
 
+	bytesArray, err := abi.NewType("bytes[]", "bytes[]", nil)
+	if err != nil {
+		return [32]byte{}, err
+	}
+
+	encodedSourceTokenData, err := abi.Arguments{abi.Argument{Type: bytesArray}}.PackValues([]interface{}{event.Message.SourceTokenData})
+	if err != nil {
+		return [32]byte{}, err
+	}
+
+	packedFixedSizeValues, err := ABIEncode(
+		`[
+{"name": "sender", "type":"address"},
+{"name": "receiver", "type":"address"},
+{"name": "sequenceNumber", "type":"uint64"},
+{"name": "gasLimit", "type":"uint256"},
+{"name": "strict", "type":"bool"},
+{"name": "nonce", "type":"uint64"},
+{"name": "feeToken","type": "address"},
+{"name": "feeTokenAmount","type": "uint256"}
+]`,
+		event.Message.Sender,
+		event.Message.Receiver,
+		event.Message.SequenceNumber,
+		event.Message.GasLimit,
+		event.Message.Strict,
+		event.Message.Nonce,
+		event.Message.FeeToken,
+		event.Message.FeeTokenAmount,
+	)
+	if err != nil {
+		return [32]byte{}, err
+	}
+	fixedSizeValuesHash := t.ctx.Hash(packedFixedSizeValues)
+
 	packedValues, err := ABIEncode(
 		`[
 {"name": "leafDomainSeparator","type":"bytes1"},
 {"name": "metadataHash", "type":"bytes32"},
-{"name": "sequenceNumber", "type":"uint64"},
-{"name": "nonce", "type":"uint64"},
-{"name": "sender", "type":"address"},
-{"name": "receiver", "type":"address"},
+{"name": "fixedSizeValuesHash", "type":"bytes32"},
 {"name": "dataHash", "type":"bytes32"},
 {"name": "tokenAmountsHash", "type":"bytes32"},
-{"name": "gasLimit", "type":"uint256"},
-{"name": "strict", "type":"bool"},
-{"name": "feeToken","type": "address"},
-{"name": "feeTokenAmount","type": "uint256"}
+{"name": "sourceTokenDataHash", "type":"bytes32"}
 ]`,
 		LeafDomainSeparator,
 		t.metaDataHash,
-		event.Message.SequenceNumber,
-		event.Message.Nonce,
-		event.Message.Sender,
-		event.Message.Receiver,
+		fixedSizeValuesHash,
 		t.ctx.Hash(event.Message.Data),
 		t.ctx.Hash(encodedTokens),
-		event.Message.GasLimit,
-		event.Message.Strict,
-		event.Message.FeeToken,
-		event.Message.FeeTokenAmount,
+		t.ctx.Hash(encodedSourceTokenData),
 	)
 	if err != nil {
 		return [32]byte{}, err
@@ -127,7 +150,7 @@ func NewLeafHasher(sourceChainId uint64, destChainId uint64, onRampId common.Add
 	geABI, _ := abi.JSON(strings.NewReader(OnRampABI))
 	return &LeafHasher{
 		geABI:        geABI,
-		metaDataHash: getMetaDataHash(ctx, ctx.Hash([]byte("EVM2EVMMessageEvent")), sourceChainId, onRampId, destChainId),
+		metaDataHash: getMetaDataHash(ctx, ctx.Hash([]byte("EVM2EVMMessageHashV2")), sourceChainId, onRampId, destChainId),
 		ctx:          ctx,
 	}
 }

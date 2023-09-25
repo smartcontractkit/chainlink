@@ -81,28 +81,31 @@ library Internal {
     });
   }
 
-  bytes32 internal constant EVM_2_EVM_MESSAGE_HASH = keccak256("EVM2EVMMessageEvent");
+  bytes32 internal constant EVM_2_EVM_MESSAGE_HASH = keccak256("EVM2EVMMessageHashV2");
 
   function _hash(EVM2EVMMessage memory original, bytes32 metadataHash) internal pure returns (bytes32) {
-    /// @dev Fields split into 2 abi.encode calls due to number of parameters triggering stack too deep.
-    /// If a dynamic type, e.g. an array is to be added, make sure it is placed in the last abi.encode call.
+    // Fixed-size message fields are included in nested hash to reduce stack pressure.
+    // This hashing scheme is also used by RMN. If changing it, please notify RMN.
     return
       keccak256(
-        bytes.concat(
-          abi.encode(
-            MerkleMultiProof.LEAF_DOMAIN_SEPARATOR,
-            metadataHash,
-            original.sequenceNumber,
-            original.nonce,
-            original.sender,
-            original.receiver,
-            keccak256(original.data),
-            keccak256(abi.encode(original.tokenAmounts)),
-            keccak256(abi.encode(original.sourceTokenData)),
-            original.gasLimit,
-            original.strict
+        abi.encode(
+          MerkleMultiProof.LEAF_DOMAIN_SEPARATOR,
+          metadataHash,
+          keccak256(
+            abi.encode(
+              original.sender,
+              original.receiver,
+              original.sequenceNumber,
+              original.gasLimit,
+              original.strict,
+              original.nonce,
+              original.feeToken,
+              original.feeTokenAmount
+            )
           ),
-          abi.encode(original.feeToken, original.feeTokenAmount)
+          keccak256(original.data),
+          keccak256(abi.encode(original.tokenAmounts)),
+          keccak256(abi.encode(original.sourceTokenData))
         )
       );
   }

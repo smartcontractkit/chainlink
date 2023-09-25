@@ -36,16 +36,17 @@ type ICommitStoreInterval struct {
 
 type InternalEVM2EVMMessage struct {
 	SourceChainSelector uint64
-	SequenceNumber      uint64
-	FeeTokenAmount      *big.Int
 	Sender              common.Address
-	Nonce               uint64
+	Receiver            common.Address
+	SequenceNumber      uint64
 	GasLimit            *big.Int
 	Strict              bool
-	Receiver            common.Address
+	Nonce               uint64
+	FeeToken            common.Address
+	FeeTokenAmount      *big.Int
 	Data                []byte
 	TokenAmounts        []ClientEVMTokenAmount
-	FeeToken            common.Address
+	SourceTokenData     [][]byte
 	MessageId           [32]byte
 }
 

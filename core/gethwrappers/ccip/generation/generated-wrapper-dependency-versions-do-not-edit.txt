@@ -5,9 +5,9 @@ burn_mint_token_pool: ../../../contracts/solc/v0.8.19/BurnMintTokenPool.abi ../.
 commit_store: ../../../contracts/solc/v0.8.19/CommitStore.abi ../../../contracts/solc/v0.8.19/CommitStore.bin 7d80f085f8249ef15e0850bf03698806c972125156f3476a1dafca54598f7f4d
 commit_store_helper: ../../../contracts/solc/v0.8.19/CommitStoreHelper.abi ../../../contracts/solc/v0.8.19/CommitStoreHelper.bin 0891a1662bda54db424d12e80a56533cfd9859f7d94a3be147ad3caa46cad072
 custom_token_pool: ../../../contracts/solc/v0.8.19/CustomTokenPool.abi ../../../contracts/solc/v0.8.19/CustomTokenPool.bin 79ab937aa4493bf31fb0e57affd00555aad75205c90268e89674c28ea9e5e48f
-evm_2_evm_offramp: ../../../contracts/solc/v0.8.19/EVM2EVMOffRamp.abi ../../../contracts/solc/v0.8.19/EVM2EVMOffRamp.bin 961730100a969932fc978daef9e2671b83097296fb8c6e6bea72eb02a772ea09
-evm_2_evm_offramp_helper: ../../../contracts/solc/v0.8.19/EVM2EVMOffRampHelper.abi ../../../contracts/solc/v0.8.19/EVM2EVMOffRampHelper.bin f1c84550cfad0faf5c92109a105a4d75260f994d21b5d681a69de681fba0d822
-evm_2_evm_onramp: ../../../contracts/solc/v0.8.19/EVM2EVMOnRamp.abi ../../../contracts/solc/v0.8.19/EVM2EVMOnRamp.bin ef9d29e8ee6a380d64396f69e4612f1c0e1a5f5a1fc6abb5f9b7a545d254eab5
+evm_2_evm_offramp: ../../../contracts/solc/v0.8.19/EVM2EVMOffRamp.abi ../../../contracts/solc/v0.8.19/EVM2EVMOffRamp.bin 8a0bd8a428ae8d071d326a2d4e1f7a2d35da08fef7307b6e1f15e108eb23770e
+evm_2_evm_offramp_helper: ../../../contracts/solc/v0.8.19/EVM2EVMOffRampHelper.abi ../../../contracts/solc/v0.8.19/EVM2EVMOffRampHelper.bin 9e06fb409bcc9b1728c1a327d404640796c2834e7798728224b8ad4e5745c4a7
+evm_2_evm_onramp: ../../../contracts/solc/v0.8.19/EVM2EVMOnRamp.abi ../../../contracts/solc/v0.8.19/EVM2EVMOnRamp.bin 9623760aeacc020a7c5b1ebf67147db69a361b1344b23ad540df49c4b668c408
 lock_release_token_pool: ../../../contracts/solc/v0.8.19/LockReleaseTokenPool.abi ../../../contracts/solc/v0.8.19/LockReleaseTokenPool.bin 7f7a28f55f9fb63669cd8038a7f99e31431acd6d15ddeeb6a77188eb0bf85d58
 maybe_revert_message_receiver: ../../../contracts/solc/v0.8.19/MaybeRevertMessageReceiver.abi ../../../contracts/solc/v0.8.19/MaybeRevertMessageReceiver.bin aaa90eac8cc555ee4b0fbe57d1fb8d72d6689b29510b238177c97ab9b7979ac5
 mock_arm_contract: ../../../contracts/solc/v0.8.19/MockARM.abi ../../../contracts/solc/v0.8.19/MockARM.bin efcf4cb260a2b6a6e189639f62bb50ab650a135715c1fcd42c92dfa9d04aa0e3
