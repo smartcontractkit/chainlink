@@ -169,7 +169,8 @@ func (cp *configPoller) LatestConfigDetails(ctx context.Context) (changedInBlock
 				// Fallback to RPC call in case logs have been pruned and configStoreContract is available
 				return cp.callLatestConfigDetails(ctx)
 			}
-			err = nil // log not found means return zero config digest
+			// log not found means return zero config digest
+			return 0, ocrtypes.ConfigDigest{}, nil
 		}
 		return 0, ocrtypes.ConfigDigest{}, err
 	}
