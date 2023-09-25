@@ -274,7 +274,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) (services []job
 			effectiveTransmitterAddress,
 		)
 
-		runResults := make(chan pipeline.Run, chain.Config().JobPipeline().ResultWriteQueueDepth())
+		runResults := make(chan *pipeline.Run, chain.Config().JobPipeline().ResultWriteQueueDepth())
 
 		var configOverrider ocrtypes.ConfigOverrider
 		configOverriderService, err := d.maybeCreateConfigOverrider(lggr, chain, concreteSpec.ContractAddress)

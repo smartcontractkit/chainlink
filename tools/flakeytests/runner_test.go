@@ -1,7 +1,6 @@
 package flakeytests
 
 import (
-	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -317,26 +316,65 @@ func TestSkippedForTests(t *testing.T) {
 	}()
 }
 
+// Used for integration tests
+func TestSkippedForTests_Success(t *testing.T) {
+	if os.Getenv("FLAKEY_TEST_RUNNER_RUN_FIXTURE_TEST") != "1" {
+		t.Skip()
+	}
+
+	assert.True(t, true)
+}
+
 func TestParsesPanicCorrectly(t *testing.T) {
 	output := `{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/tools/flakeytests/","Test":"TestSkippedForTests","Elapsed":0}`
 
 	m := newMockReporter()
+	tc := &testCommand{
+		repo:    "github.com/smartcontractkit/chainlink/v2/tools/flakeytests",
+		command: "../bin/go_core_tests",
+		overrides: func(cmd *exec.Cmd) {
+			cmd.Env = append(cmd.Env, "FLAKEY_TESTRUNNER_RUN_FIXTURE_TEST=1")
+			cmd.Stdout = io.Discard
+			cmd.Stderr = io.Discard
+		},
+	}
 	r := &Runner{
-		numReruns: 2,
-		readers:   []io.Reader{strings.NewReader(output)},
-		testCommand: testAdapter(func(pkg string, tests []string, w io.Writer) error {
-			pkg = strings.Replace(pkg, "github.com/smartcontractkit/chainlink/v2/tools/flakeytests", "", -1)
-			testFilter := strings.Join(tests, "|")
-			cmd := exec.Command("../bin/go_core_tests", fmt.Sprintf(".%s", pkg)) //#nosec
-			cmd.Env = append(os.Environ(), "FLAKEY_TESTRUNNER_RUN_FIXTURE_TEST=1", fmt.Sprintf("TEST_FLAGS=-run %s", testFilter))
-			return cmd.Run()
-		}),
-		parse:    parseOutput,
-		reporter: m,
+		numReruns:   2,
+		readers:     []io.Reader{strings.NewReader(output)},
+		testCommand: tc,
+		parse:       parseOutput,
+		reporter:    m,
 	}
 
 	err := r.Run()
 	require.NoError(t, err)
 	_, ok := m.entries["github.com/smartcontractkit/chainlink/v2/tools/flakeytests"]["TestSkippedForTests"]
+	assert.False(t, ok)
+}
+
+func TestIntegration(t *testing.T) {
+	output := `{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/tools/flakeytests/","Test":"TestSkippedForTests_Success","Elapsed":0}`
+
+	m := newMockReporter()
+	tc := &testCommand{
+		repo:    "github.com/smartcontractkit/chainlink/v2/tools/flakeytests",
+		command: "../bin/go_core_tests",
+		overrides: func(cmd *exec.Cmd) {
+			cmd.Env = append(cmd.Env, "FLAKEY_TESTRUNNER_RUN_FIXTURE_TEST=1")
+			cmd.Stdout = io.Discard
+			cmd.Stderr = io.Discard
+		},
+	}
+	r := &Runner{
+		numReruns:   2,
+		readers:     []io.Reader{strings.NewReader(output)},
+		testCommand: tc,
+		parse:       parseOutput,
+		reporter:    m,
+	}
+
+	err := r.Run()
+	require.NoError(t, err)
+	_, ok := m.entries["github.com/smartcontractkit/chainlink/v2/tools/flakeytests"]["TestSkippedForTests_Success"]
 	assert.False(t, ok)
 }

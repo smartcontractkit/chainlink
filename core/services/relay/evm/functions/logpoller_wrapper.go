@@ -30,6 +30,7 @@ type logPollerWrapper struct {
 	subscribers         map[string]evmRelayTypes.RouteUpdateSubscriber
 	activeCoordinator   common.Address
 	proposedCoordinator common.Address
+	blockOffset         int64
 	nextBlock           int64
 	mu                  sync.Mutex
 	closeWait           sync.WaitGroup
@@ -44,10 +45,15 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 	if err != nil {
 		return nil, err
 	}
+	blockOffset := int64(pluginConfig.MinIncomingConfirmations) - 1
+	if blockOffset < 0 {
+		blockOffset = 0
+	}
 
 	return &logPollerWrapper{
 		routerContract: routerContract,
 		pluginConfig:   pluginConfig,
+		blockOffset:    blockOffset,
 		logPoller:      logPoller,
 		client:         client,
 		subscribers:    make(map[string]evmRelayTypes.RouteUpdateSubscriber),
@@ -66,11 +72,11 @@ func (l *logPollerWrapper) Start(context.Context) error {
 			l.proposedCoordinator = l.routerContract.Address()
 		} else if l.pluginConfig.ContractVersion == 1 {
 			nextBlock, err := l.logPoller.LatestBlock()
-			l.nextBlock = nextBlock
 			if err != nil {
 				l.lggr.Errorw("LogPollerWrapper: LatestBlock() failed, starting from 0", "error", err)
 			} else {
 				l.lggr.Debugw("LogPollerWrapper: LatestBlock() got starting block", "block", nextBlock)
+				l.nextBlock = nextBlock - l.blockOffset
 			}
 			l.closeWait.Add(1)
 			go l.checkForRouteUpdates()
@@ -116,6 +122,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 		l.mu.Unlock()
 		return nil, nil, err
 	}
+	latest -= l.blockOffset
 	if latest >= nextBlock {
 		l.nextBlock = latest + 1
 	}
