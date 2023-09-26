@@ -97,7 +97,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   struct Callback {
     address callbackAddress;
     uint32 callbackGasLimit;
-    uint256 requestGasPrice;
+    uint64 requestGasPrice;
   }
   mapping(uint256 => Callback) /* requestID */ /* callback */ public s_callbacks;
 
@@ -356,7 +356,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     s_callbacks[requestId] = Callback({
       callbackAddress: _sender,
       callbackGasLimit: callbackGasLimit,
-      requestGasPrice: tx.gasprice
+      requestGasPrice: uint64(tx.gasprice)
     });
     lastRequestId = requestId;
   }
@@ -382,7 +382,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     s_callbacks[requestId] = Callback({
       callbackAddress: msg.sender,
       callbackGasLimit: _callbackGasLimit,
-      requestGasPrice: tx.gasprice
+      requestGasPrice: uint64(tx.gasprice)
     });
 
     return requestId;
