@@ -9,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	libcommon "github.com/smartcontractkit/capital-markets-projects/lib/common"
+	"github.com/smartcontractkit/capital-markets-projects/lib/web/jsonrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -25,7 +26,7 @@ type BlockchainClient struct {
 	gethks        keystore.Eth
 	fromAddresses []ethkey.EIP55Address
 	chainID       uint64
-	cfg           config.EVM
+	maxGasLimit   uint32
 	client        client.Client
 }
 
@@ -44,7 +45,7 @@ func NewBlockchainClient(
 		gethks:        gethks,
 		fromAddresses: fromAddresses,
 		chainID:       chainID,
-		cfg:           cfg,
+		maxGasLimit:   cfg.GasEstimator().LimitMax(),
 		client:        client,
 	}, nil
 }
@@ -69,11 +70,11 @@ func (c *BlockchainClient) EstimateGas(
 		Data: payload,
 	})
 	if err != nil {
-		return 0, errors.Wrap(err, EstimateGasErrorMsg)
+		return 0, err
 	}
 
-	if gasLimit > uint64(c.cfg.GasEstimator().LimitMax()) {
-		return 0, errors.New(EstimateGasExceededErrorMsg)
+	if gasLimit > uint64(c.maxGasLimit) {
+		return 0, errors.New(jsonrpc.EstimateGasExceededErrorMsg)
 	}
 	// safe cast because gas estimator limit max is uint32
 	return uint32(gasLimit), nil
