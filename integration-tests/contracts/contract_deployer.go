@@ -169,12 +169,20 @@ func NewContractDeployer(bcClient blockchain.EVMClient, logger zerolog.Logger) (
 		return &ScrollContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.PolygonZkEvmClient:
 		return &PolygonZkEvmContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+<<<<<<< HEAD
 	case *blockchain.LineaClient:
 		return &LineaContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.FantomClient:
 		return &FantomContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+<<<<<<< HEAD
 	case *blockchain.KromaClient:
 		return &KromaContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+=======
+=======
+	case *blockchain.WeMixClient:
+		return &WeMixContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+>>>>>>> 4b069998f8 (Adds WeMix testnet config)
+>>>>>>> 673b7a894b (Adds WeMix testnet config)
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -243,6 +251,10 @@ type FantomContractDeployer struct {
 }
 
 type KromaContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type WeMixContractDeployer struct {
 	*EthereumContractDeployer
 }
 
