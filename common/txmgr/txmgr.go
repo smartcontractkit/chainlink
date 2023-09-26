@@ -222,7 +222,9 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reset(call
 // - marks all pending and inflight transactions fatally errored (note: at this point all transactions are either confirmed or fatally errored)
 // this must not be run while Broadcaster or Confirmer are running
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abandon(addr ADDR) (err error) {
-	err = b.txStore.Abandon(b.chainID, addr)
+	ctx, cancel := utils.StopChan(b.chStop).NewCtx()
+	defer cancel()
+	err = b.txStore.Abandon(ctx, b.chainID, addr)
 	return errors.Wrapf(err, "abandon failed to update txes for key %s", addr.String())
 }
 
@@ -439,7 +441,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTran
 	// Skipping CreateTransaction to avoid double send
 	if txRequest.IdempotencyKey != nil {
 		var existingTx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
-		existingTx, err = b.txStore.FindTxWithIdempotencyKey(*txRequest.IdempotencyKey, b.chainID)
+		existingTx, err = b.txStore.FindTxWithIdempotencyKey(ctx, *txRequest.IdempotencyKey, b.chainID)
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
 			return tx, errors.Wrap(err, "Failed to search for transaction with IdempotencyKey")
 		}

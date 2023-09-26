@@ -98,7 +98,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			// Ensure the eth transaction gets confirmed on chain.
 			gomega.NewWithT(t).Eventually(func() bool {
 				orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
-				uc, err2 := orm.CountUnconfirmedTransactions(key1.Address, testutils.SimulatedChainID)
+				uc, err2 := orm.CountUnconfirmedTransactions(testutils.Context(t), key1.Address, testutils.SimulatedChainID)
 				require.NoError(t, err2)
 				return uc == 0
 			}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
@@ -215,7 +215,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	// Ensure the eth transaction gets confirmed on chain.
 	gomega.NewWithT(t).Eventually(func() bool {
 		orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
-		uc, err2 := orm.CountUnconfirmedTransactions(key.Address, testutils.SimulatedChainID)
+		uc, err2 := orm.CountUnconfirmedTransactions(testutils.Context(t), key.Address, testutils.SimulatedChainID)
 		require.NoError(t, err2)
 		return uc == 0
 	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())

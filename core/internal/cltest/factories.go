@@ -458,7 +458,7 @@ func MustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStore txmgr.T
 		BlockNumber:      big.NewInt(nonce),
 		TransactionIndex: uint(1),
 	}
-	err := txStore.SaveFetchedReceipts([]*evmtypes.Receipt{&receipt}, &chainID)
+	err := txStore.SaveFetchedReceipts(testutils.Context(t), []*evmtypes.Receipt{&receipt}, &chainID)
 	require.NoError(t, err)
 	return etx
 }

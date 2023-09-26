@@ -28,13 +28,13 @@ type EvmTxStore struct {
 	mock.Mock
 }
 
-// Abandon provides a mock function with given fields: id, addr
-func (_m *EvmTxStore) Abandon(id *big.Int, addr common.Address) error {
-	ret := _m.Called(id, addr)
+// Abandon provides a mock function with given fields: ctx, id, addr
+func (_m *EvmTxStore) Abandon(ctx context.Context, id *big.Int, addr common.Address) error {
+	ret := _m.Called(ctx, id, addr)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*big.Int, common.Address) error); ok {
-		r0 = rf(id, addr)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, common.Address) error); ok {
+		r0 = rf(ctx, id, addr)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -61,23 +61,23 @@ func (_m *EvmTxStore) Close() {
 	_m.Called()
 }
 
-// CountUnconfirmedTransactions provides a mock function with given fields: fromAddress, chainID
-func (_m *EvmTxStore) CountUnconfirmedTransactions(fromAddress common.Address, chainID *big.Int) (uint32, error) {
-	ret := _m.Called(fromAddress, chainID)
+// CountUnconfirmedTransactions provides a mock function with given fields: ctx, fromAddress, chainID
+func (_m *EvmTxStore) CountUnconfirmedTransactions(ctx context.Context, fromAddress common.Address, chainID *big.Int) (uint32, error) {
+	ret := _m.Called(ctx, fromAddress, chainID)
 
 	var r0 uint32
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Address, *big.Int) (uint32, error)); ok {
-		return rf(fromAddress, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (uint32, error)); ok {
+		return rf(ctx, fromAddress, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(common.Address, *big.Int) uint32); ok {
-		r0 = rf(fromAddress, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) uint32); ok {
+		r0 = rf(ctx, fromAddress, chainID)
 	} else {
 		r0 = ret.Get(0).(uint32)
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Address, *big.Int) error); ok {
-		r1 = rf(fromAddress, chainID)
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
+		r1 = rf(ctx, fromAddress, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -85,23 +85,23 @@ func (_m *EvmTxStore) CountUnconfirmedTransactions(fromAddress common.Address, c
 	return r0, r1
 }
 
-// CountUnstartedTransactions provides a mock function with given fields: fromAddress, chainID
-func (_m *EvmTxStore) CountUnstartedTransactions(fromAddress common.Address, chainID *big.Int) (uint32, error) {
-	ret := _m.Called(fromAddress, chainID)
+// CountUnstartedTransactions provides a mock function with given fields: ctx, fromAddress, chainID
+func (_m *EvmTxStore) CountUnstartedTransactions(ctx context.Context, fromAddress common.Address, chainID *big.Int) (uint32, error) {
+	ret := _m.Called(ctx, fromAddress, chainID)
 
 	var r0 uint32
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Address, *big.Int) (uint32, error)); ok {
-		return rf(fromAddress, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) (uint32, error)); ok {
+		return rf(ctx, fromAddress, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(common.Address, *big.Int) uint32); ok {
-		r0 = rf(fromAddress, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, *big.Int) uint32); ok {
+		r0 = rf(ctx, fromAddress, chainID)
 	} else {
 		r0 = ret.Get(0).(uint32)
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Address, *big.Int) error); ok {
-		r1 = rf(fromAddress, chainID)
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, *big.Int) error); ok {
+		r1 = rf(ctx, fromAddress, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -147,13 +147,13 @@ func (_m *EvmTxStore) DeleteInProgressAttempt(ctx context.Context, attempt types
 	return r0
 }
 
-// FindNextUnstartedTransactionFromAddress provides a mock function with given fields: etx, fromAddress, chainID
-func (_m *EvmTxStore) FindNextUnstartedTransactionFromAddress(etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], fromAddress common.Address, chainID *big.Int) error {
-	ret := _m.Called(etx, fromAddress, chainID)
+// FindNextUnstartedTransactionFromAddress provides a mock function with given fields: ctx, etx, fromAddress, chainID
+func (_m *EvmTxStore) FindNextUnstartedTransactionFromAddress(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], fromAddress common.Address, chainID *big.Int) error {
+	ret := _m.Called(ctx, etx, fromAddress, chainID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], common.Address, *big.Int) error); ok {
-		r0 = rf(etx, fromAddress, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], common.Address, *big.Int) error); ok {
+		r0 = rf(ctx, etx, fromAddress, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -187,25 +187,25 @@ func (_m *EvmTxStore) FindReceiptsPendingConfirmation(ctx context.Context, block
 	return r0, r1
 }
 
-// FindTransactionsConfirmedInBlockRange provides a mock function with given fields: highBlockNumber, lowBlockNumber, chainID
-func (_m *EvmTxStore) FindTransactionsConfirmedInBlockRange(highBlockNumber int64, lowBlockNumber int64, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
-	ret := _m.Called(highBlockNumber, lowBlockNumber, chainID)
+// FindTransactionsConfirmedInBlockRange provides a mock function with given fields: ctx, highBlockNumber, lowBlockNumber, chainID
+func (_m *EvmTxStore) FindTransactionsConfirmedInBlockRange(ctx context.Context, highBlockNumber int64, lowBlockNumber int64, chainID *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, highBlockNumber, lowBlockNumber, chainID)
 
 	var r0 []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(int64, int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
-		return rf(highBlockNumber, lowBlockNumber, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) ([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, highBlockNumber, lowBlockNumber, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(int64, int64, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
-		r0 = rf(highBlockNumber, lowBlockNumber, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, int64, *big.Int) []*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, highBlockNumber, lowBlockNumber, chainID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(int64, int64, *big.Int) error); ok {
-		r1 = rf(highBlockNumber, lowBlockNumber, chainID)
+	if rf, ok := ret.Get(1).(func(context.Context, int64, int64, *big.Int) error); ok {
+		r1 = rf(ctx, highBlockNumber, lowBlockNumber, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -265,25 +265,25 @@ func (_m *EvmTxStore) FindTxAttemptConfirmedByTxIDs(ids []int64) ([]types.TxAtte
 	return r0, r1
 }
 
-// FindTxAttemptsConfirmedMissingReceipt provides a mock function with given fields: chainID
-func (_m *EvmTxStore) FindTxAttemptsConfirmedMissingReceipt(chainID *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
-	ret := _m.Called(chainID)
+// FindTxAttemptsConfirmedMissingReceipt provides a mock function with given fields: ctx, chainID
+func (_m *EvmTxStore) FindTxAttemptsConfirmedMissingReceipt(ctx context.Context, chainID *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, chainID)
 
 	var r0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
-		return rf(chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(*big.Int) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
-		r0 = rf(chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, chainID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*big.Int) error); ok {
-		r1 = rf(chainID)
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(ctx, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -291,25 +291,25 @@ func (_m *EvmTxStore) FindTxAttemptsConfirmedMissingReceipt(chainID *big.Int) ([
 	return r0, r1
 }
 
-// FindTxAttemptsRequiringReceiptFetch provides a mock function with given fields: chainID
-func (_m *EvmTxStore) FindTxAttemptsRequiringReceiptFetch(chainID *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
-	ret := _m.Called(chainID)
+// FindTxAttemptsRequiringReceiptFetch provides a mock function with given fields: ctx, chainID
+func (_m *EvmTxStore) FindTxAttemptsRequiringReceiptFetch(ctx context.Context, chainID *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, chainID)
 
 	var r0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
-		return rf(chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(*big.Int) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
-		r0 = rf(chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, chainID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*big.Int) error); ok {
-		r1 = rf(chainID)
+	if rf, ok := ret.Get(1).(func(context.Context, *big.Int) error); ok {
+		r1 = rf(ctx, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -317,25 +317,25 @@ func (_m *EvmTxStore) FindTxAttemptsRequiringReceiptFetch(chainID *big.Int) ([]t
 	return r0, r1
 }
 
-// FindTxAttemptsRequiringResend provides a mock function with given fields: olderThan, maxInFlightTransactions, chainID, address
-func (_m *EvmTxStore) FindTxAttemptsRequiringResend(olderThan time.Time, maxInFlightTransactions uint32, chainID *big.Int, address common.Address) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
-	ret := _m.Called(olderThan, maxInFlightTransactions, chainID, address)
+// FindTxAttemptsRequiringResend provides a mock function with given fields: ctx, olderThan, maxInFlightTransactions, chainID, address
+func (_m *EvmTxStore) FindTxAttemptsRequiringResend(ctx context.Context, olderThan time.Time, maxInFlightTransactions uint32, chainID *big.Int, address common.Address) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, olderThan, maxInFlightTransactions, chainID, address)
 
 	var r0 []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(time.Time, uint32, *big.Int, common.Address) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
-		return rf(olderThan, maxInFlightTransactions, chainID, address)
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, uint32, *big.Int, common.Address) ([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, olderThan, maxInFlightTransactions, chainID, address)
 	}
-	if rf, ok := ret.Get(0).(func(time.Time, uint32, *big.Int, common.Address) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
-		r0 = rf(olderThan, maxInFlightTransactions, chainID, address)
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, uint32, *big.Int, common.Address) []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, olderThan, maxInFlightTransactions, chainID, address)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(time.Time, uint32, *big.Int, common.Address) error); ok {
-		r1 = rf(olderThan, maxInFlightTransactions, chainID, address)
+	if rf, ok := ret.Get(1).(func(context.Context, time.Time, uint32, *big.Int, common.Address) error); ok {
+		r1 = rf(ctx, olderThan, maxInFlightTransactions, chainID, address)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -393,25 +393,25 @@ func (_m *EvmTxStore) FindTxWithAttempts(etxID int64) (types.Tx[*big.Int, common
 	return r0, r1
 }
 
-// FindTxWithIdempotencyKey provides a mock function with given fields: idempotencyKey, chainID
-func (_m *EvmTxStore) FindTxWithIdempotencyKey(idempotencyKey string, chainID *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
-	ret := _m.Called(idempotencyKey, chainID)
+// FindTxWithIdempotencyKey provides a mock function with given fields: ctx, idempotencyKey, chainID
+func (_m *EvmTxStore) FindTxWithIdempotencyKey(ctx context.Context, idempotencyKey string, chainID *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, idempotencyKey, chainID)
 
 	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(string, *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
-		return rf(idempotencyKey, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, string, *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, idempotencyKey, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(string, *big.Int) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
-		r0 = rf(idempotencyKey, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, string, *big.Int) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, idempotencyKey, chainID)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(string, *big.Int) error); ok {
-		r1 = rf(idempotencyKey, chainID)
+	if rf, ok := ret.Get(1).(func(context.Context, string, *big.Int) error); ok {
+		r1 = rf(ctx, idempotencyKey, chainID)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -419,25 +419,25 @@ func (_m *EvmTxStore) FindTxWithIdempotencyKey(idempotencyKey string, chainID *b
 	return r0, r1
 }
 
-// FindTxWithSequence provides a mock function with given fields: fromAddress, seq
-func (_m *EvmTxStore) FindTxWithSequence(fromAddress common.Address, seq evmtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
-	ret := _m.Called(fromAddress, seq)
+// FindTxWithSequence provides a mock function with given fields: ctx, fromAddress, seq
+func (_m *EvmTxStore) FindTxWithSequence(ctx context.Context, fromAddress common.Address, seq evmtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, fromAddress, seq)
 
 	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Address, evmtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
-		return rf(fromAddress, seq)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, evmtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, fromAddress, seq)
 	}
-	if rf, ok := ret.Get(0).(func(common.Address, evmtypes.Nonce) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
-		r0 = rf(fromAddress, seq)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, evmtypes.Nonce) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, fromAddress, seq)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Address, evmtypes.Nonce) error); ok {
-		r1 = rf(fromAddress, seq)
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address, evmtypes.Nonce) error); ok {
+		r1 = rf(ctx, fromAddress, seq)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -523,25 +523,25 @@ func (_m *EvmTxStore) GetInProgressTxAttempts(ctx context.Context, address commo
 	return r0, r1
 }
 
-// GetTxInProgress provides a mock function with given fields: fromAddress
-func (_m *EvmTxStore) GetTxInProgress(fromAddress common.Address) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
-	ret := _m.Called(fromAddress)
+// GetTxInProgress provides a mock function with given fields: ctx, fromAddress
+func (_m *EvmTxStore) GetTxInProgress(ctx context.Context, fromAddress common.Address) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(ctx, fromAddress)
 
 	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	var r1 error
-	if rf, ok := ret.Get(0).(func(common.Address) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
-		return rf(fromAddress)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(ctx, fromAddress)
 	}
-	if rf, ok := ret.Get(0).(func(common.Address) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
-		r0 = rf(fromAddress)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(ctx, fromAddress)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(common.Address) error); ok {
-		r1 = rf(fromAddress)
+	if rf, ok := ret.Get(1).(func(context.Context, common.Address) error); ok {
+		r1 = rf(ctx, fromAddress)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -587,13 +587,13 @@ func (_m *EvmTxStore) LoadTxAttempts(ctx context.Context, etx *types.Tx[*big.Int
 	return r0
 }
 
-// MarkAllConfirmedMissingReceipt provides a mock function with given fields: chainID
-func (_m *EvmTxStore) MarkAllConfirmedMissingReceipt(chainID *big.Int) error {
-	ret := _m.Called(chainID)
+// MarkAllConfirmedMissingReceipt provides a mock function with given fields: ctx, chainID
+func (_m *EvmTxStore) MarkAllConfirmedMissingReceipt(ctx context.Context, chainID *big.Int) error {
+	ret := _m.Called(ctx, chainID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*big.Int) error); ok {
-		r0 = rf(chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) error); ok {
+		r0 = rf(ctx, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -601,13 +601,13 @@ func (_m *EvmTxStore) MarkAllConfirmedMissingReceipt(chainID *big.Int) error {
 	return r0
 }
 
-// MarkOldTxesMissingReceiptAsErrored provides a mock function with given fields: blockNum, finalityDepth, chainID
-func (_m *EvmTxStore) MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalityDepth uint32, chainID *big.Int) error {
-	ret := _m.Called(blockNum, finalityDepth, chainID)
+// MarkOldTxesMissingReceiptAsErrored provides a mock function with given fields: ctx, blockNum, finalityDepth, chainID
+func (_m *EvmTxStore) MarkOldTxesMissingReceiptAsErrored(ctx context.Context, blockNum int64, finalityDepth uint32, chainID *big.Int) error {
+	ret := _m.Called(ctx, blockNum, finalityDepth, chainID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(int64, uint32, *big.Int) error); ok {
-		r0 = rf(blockNum, finalityDepth, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, uint32, *big.Int) error); ok {
+		r0 = rf(ctx, blockNum, finalityDepth, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -615,13 +615,13 @@ func (_m *EvmTxStore) MarkOldTxesMissingReceiptAsErrored(blockNum int64, finalit
 	return r0
 }
 
-// PreloadTxes provides a mock function with given fields: attempts
-func (_m *EvmTxStore) PreloadTxes(attempts []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
-	ret := _m.Called(attempts)
+// PreloadTxes provides a mock function with given fields: ctx, attempts
+func (_m *EvmTxStore) PreloadTxes(ctx context.Context, attempts []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
+	ret := _m.Called(ctx, attempts)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func([]types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
-		r0 = rf(attempts)
+	if rf, ok := ret.Get(0).(func(context.Context, []types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
+		r0 = rf(ctx, attempts)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -653,13 +653,13 @@ func (_m *EvmTxStore) PruneUnstartedTxQueue(ctx context.Context, queueSize uint3
 	return r0, r1
 }
 
-// ReapTxHistory provides a mock function with given fields: minBlockNumberToKeep, timeThreshold, chainID
-func (_m *EvmTxStore) ReapTxHistory(minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {
-	ret := _m.Called(minBlockNumberToKeep, timeThreshold, chainID)
+// ReapTxHistory provides a mock function with given fields: ctx, minBlockNumberToKeep, timeThreshold, chainID
+func (_m *EvmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {
+	ret := _m.Called(ctx, minBlockNumberToKeep, timeThreshold, chainID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(int64, time.Time, *big.Int) error); ok {
-		r0 = rf(minBlockNumberToKeep, timeThreshold, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, time.Time, *big.Int) error); ok {
+		r0 = rf(ctx, minBlockNumberToKeep, timeThreshold, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -681,13 +681,13 @@ func (_m *EvmTxStore) SaveConfirmedMissingReceiptAttempt(ctx context.Context, ti
 	return r0
 }
 
-// SaveFetchedReceipts provides a mock function with given fields: receipts, chainID
-func (_m *EvmTxStore) SaveFetchedReceipts(receipts []*evmtypes.Receipt, chainID *big.Int) error {
-	ret := _m.Called(receipts, chainID)
+// SaveFetchedReceipts provides a mock function with given fields: ctx, receipts, chainID
+func (_m *EvmTxStore) SaveFetchedReceipts(ctx context.Context, receipts []*evmtypes.Receipt, chainID *big.Int) error {
+	ret := _m.Called(ctx, receipts, chainID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func([]*evmtypes.Receipt, *big.Int) error); ok {
-		r0 = rf(receipts, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, []*evmtypes.Receipt, *big.Int) error); ok {
+		r0 = rf(ctx, receipts, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -695,13 +695,13 @@ func (_m *EvmTxStore) SaveFetchedReceipts(receipts []*evmtypes.Receipt, chainID 
 	return r0
 }
 
-// SaveInProgressAttempt provides a mock function with given fields: attempt
-func (_m *EvmTxStore) SaveInProgressAttempt(attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
-	ret := _m.Called(attempt)
+// SaveInProgressAttempt provides a mock function with given fields: ctx, attempt
+func (_m *EvmTxStore) SaveInProgressAttempt(ctx context.Context, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
+	ret := _m.Called(ctx, attempt)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
-		r0 = rf(attempt)
+	if rf, ok := ret.Get(0).(func(context.Context, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
+		r0 = rf(ctx, attempt)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -709,13 +709,13 @@ func (_m *EvmTxStore) SaveInProgressAttempt(attempt *types.TxAttempt[*big.Int, c
 	return r0
 }
 
-// SaveInsufficientFundsAttempt provides a mock function with given fields: timeout, attempt, broadcastAt
-func (_m *EvmTxStore) SaveInsufficientFundsAttempt(timeout time.Duration, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], broadcastAt time.Time) error {
-	ret := _m.Called(timeout, attempt, broadcastAt)
+// SaveInsufficientFundsAttempt provides a mock function with given fields: ctx, timeout, attempt, broadcastAt
+func (_m *EvmTxStore) SaveInsufficientFundsAttempt(ctx context.Context, timeout time.Duration, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], broadcastAt time.Time) error {
+	ret := _m.Called(ctx, timeout, attempt, broadcastAt)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], time.Time) error); ok {
-		r0 = rf(timeout, attempt, broadcastAt)
+	if rf, ok := ret.Get(0).(func(context.Context, time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], time.Time) error); ok {
+		r0 = rf(ctx, timeout, attempt, broadcastAt)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -723,13 +723,13 @@ func (_m *EvmTxStore) SaveInsufficientFundsAttempt(timeout time.Duration, attemp
 	return r0
 }
 
-// SaveReplacementInProgressAttempt provides a mock function with given fields: oldAttempt, replacementAttempt
-func (_m *EvmTxStore) SaveReplacementInProgressAttempt(oldAttempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], replacementAttempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
-	ret := _m.Called(oldAttempt, replacementAttempt)
+// SaveReplacementInProgressAttempt provides a mock function with given fields: ctx, oldAttempt, replacementAttempt
+func (_m *EvmTxStore) SaveReplacementInProgressAttempt(ctx context.Context, oldAttempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], replacementAttempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
+	ret := _m.Called(ctx, oldAttempt, replacementAttempt)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
-		r0 = rf(oldAttempt, replacementAttempt)
+	if rf, ok := ret.Get(0).(func(context.Context, types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
+		r0 = rf(ctx, oldAttempt, replacementAttempt)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -737,13 +737,13 @@ func (_m *EvmTxStore) SaveReplacementInProgressAttempt(oldAttempt types.TxAttemp
 	return r0
 }
 
-// SaveSentAttempt provides a mock function with given fields: timeout, attempt, broadcastAt
-func (_m *EvmTxStore) SaveSentAttempt(timeout time.Duration, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], broadcastAt time.Time) error {
-	ret := _m.Called(timeout, attempt, broadcastAt)
+// SaveSentAttempt provides a mock function with given fields: ctx, timeout, attempt, broadcastAt
+func (_m *EvmTxStore) SaveSentAttempt(ctx context.Context, timeout time.Duration, attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], broadcastAt time.Time) error {
+	ret := _m.Called(ctx, timeout, attempt, broadcastAt)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], time.Time) error); ok {
-		r0 = rf(timeout, attempt, broadcastAt)
+	if rf, ok := ret.Get(0).(func(context.Context, time.Duration, *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], time.Time) error); ok {
+		r0 = rf(ctx, timeout, attempt, broadcastAt)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -751,13 +751,13 @@ func (_m *EvmTxStore) SaveSentAttempt(timeout time.Duration, attempt *types.TxAt
 	return r0
 }
 
-// SetBroadcastBeforeBlockNum provides a mock function with given fields: blockNum, chainID
-func (_m *EvmTxStore) SetBroadcastBeforeBlockNum(blockNum int64, chainID *big.Int) error {
-	ret := _m.Called(blockNum, chainID)
+// SetBroadcastBeforeBlockNum provides a mock function with given fields: ctx, blockNum, chainID
+func (_m *EvmTxStore) SetBroadcastBeforeBlockNum(ctx context.Context, blockNum int64, chainID *big.Int) error {
+	ret := _m.Called(ctx, blockNum, chainID)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(int64, *big.Int) error); ok {
-		r0 = rf(blockNum, chainID)
+	if rf, ok := ret.Get(0).(func(context.Context, int64, *big.Int) error); ok {
+		r0 = rf(ctx, blockNum, chainID)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -864,13 +864,13 @@ func (_m *EvmTxStore) TxAttempts(offset int, limit int) ([]types.TxAttempt[*big.
 	return r0, r1, r2
 }
 
-// UpdateBroadcastAts provides a mock function with given fields: now, etxIDs
-func (_m *EvmTxStore) UpdateBroadcastAts(now time.Time, etxIDs []int64) error {
-	ret := _m.Called(now, etxIDs)
+// UpdateBroadcastAts provides a mock function with given fields: ctx, now, etxIDs
+func (_m *EvmTxStore) UpdateBroadcastAts(ctx context.Context, now time.Time, etxIDs []int64) error {
+	ret := _m.Called(ctx, now, etxIDs)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(time.Time, []int64) error); ok {
-		r0 = rf(now, etxIDs)
+	if rf, ok := ret.Get(0).(func(context.Context, time.Time, []int64) error); ok {
+		r0 = rf(ctx, now, etxIDs)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -920,13 +920,13 @@ func (_m *EvmTxStore) UpdateTxAttemptInProgressToBroadcast(etx *types.Tx[*big.In
 	return r0
 }
 
-// UpdateTxFatalError provides a mock function with given fields: etx
-func (_m *EvmTxStore) UpdateTxFatalError(etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
-	ret := _m.Called(etx)
+// UpdateTxFatalError provides a mock function with given fields: ctx, etx
+func (_m *EvmTxStore) UpdateTxFatalError(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
+	ret := _m.Called(ctx, etx)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
-		r0 = rf(etx)
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
+		r0 = rf(ctx, etx)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -934,13 +934,13 @@ func (_m *EvmTxStore) UpdateTxFatalError(etx *types.Tx[*big.Int, common.Address,
 	return r0
 }
 
-// UpdateTxForRebroadcast provides a mock function with given fields: etx, etxAttempt
-func (_m *EvmTxStore) UpdateTxForRebroadcast(etx types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], etxAttempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
-	ret := _m.Called(etx, etxAttempt)
+// UpdateTxForRebroadcast provides a mock function with given fields: ctx, etx, etxAttempt
+func (_m *EvmTxStore) UpdateTxForRebroadcast(ctx context.Context, etx types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], etxAttempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
+	ret := _m.Called(ctx, etx, etxAttempt)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
-		r0 = rf(etx, etxAttempt)
+	if rf, ok := ret.Get(0).(func(context.Context, types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
+		r0 = rf(ctx, etx, etxAttempt)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -948,13 +948,13 @@ func (_m *EvmTxStore) UpdateTxForRebroadcast(etx types.Tx[*big.Int, common.Addre
 	return r0
 }
 
-// UpdateTxUnstartedToInProgress provides a mock function with given fields: etx, attempt
-func (_m *EvmTxStore) UpdateTxUnstartedToInProgress(etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
-	ret := _m.Called(etx, attempt)
+// UpdateTxUnstartedToInProgress provides a mock function with given fields: ctx, etx, attempt
+func (_m *EvmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], attempt *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error {
+	ret := _m.Called(ctx, etx, attempt)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
-		r0 = rf(etx, attempt)
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], *types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) error); ok {
+		r0 = rf(ctx, etx, attempt)
 	} else {
 		r0 = ret.Error(0)
 	}
@@ -962,13 +962,13 @@ func (_m *EvmTxStore) UpdateTxUnstartedToInProgress(etx *types.Tx[*big.Int, comm
 	return r0
 }
 
-// UpdateTxsUnconfirmed provides a mock function with given fields: ids
-func (_m *EvmTxStore) UpdateTxsUnconfirmed(ids []int64) error {
-	ret := _m.Called(ids)
+// UpdateTxsUnconfirmed provides a mock function with given fields: ctx, ids
+func (_m *EvmTxStore) UpdateTxsUnconfirmed(ctx context.Context, ids []int64) error {
+	ret := _m.Called(ctx, ids)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func([]int64) error); ok {
-		r0 = rf(ids)
+	if rf, ok := ret.Get(0).(func(context.Context, []int64) error); ok {
+		r0 = rf(ctx, ids)
 	} else {
 		r0 = ret.Error(0)
 	}
