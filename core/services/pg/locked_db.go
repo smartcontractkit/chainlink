@@ -3,7 +3,6 @@ package pg
 import (
 	"context"
 	"net/url"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -142,44 +141,47 @@ func (l lockedDb) DB() *sqlx.DB {
 
 func openDB(appID uuid.UUID, cfg LockedDBConfig, opts ...ConnectionOpt) (db *sqlx.DB, err error) {
 	uri := cfg.URL()
+
 	static.SetConsumerName(&uri, "App", &appID)
 	dialect := cfg.Dialect()
-	connStr := uri.String()
 	for _, opt := range opts {
-		opt(&connStr)
+		opt(&uri)
 	}
-	db, err = NewConnection(connStr, dialect, cfg)
+	db, err = NewConnection(uri.String(), dialect, cfg)
 	return
 }
 
-type ConnectionOpt func(*string)
+type ConnectionOpt func(*url.URL) error
 
 // WithSchema scopes the current url connection string to the given schema
 func WithSchema(schema string) ConnectionOpt {
-	return func(url *string) {
-		u := SchemaScopedConnection(*url, schema)
-		url = &u
+	return func(url *url.URL) (err error) {
+		url, err = SchemaScopedConnection(*url, schema)
+		return
 	}
 }
 
 // WithURL sets the url connection string
 func WithURL(override string) ConnectionOpt {
-	return func(url *string) {
-		url = &override
+	return func(url *url.URL) (err error) {
+		url, err = url.Parse(override)
+		return
 	}
 }
 
-func SchemaScopedConnection(conn, schema string) string {
+func SchemaScopedConnection(conn url.URL, schema string) (*url.URL, error) {
 	// documentation on this options is limited; find by searching the official postgres docs
 	// https://www.postgresql.org/docs/16/app-psql.html
 
 	//TODO real parsing for connection query string
-	opt := "options=-csearch_path=" + schema
-	// assume the conn has a query string that we can append to
-	seperator := "&"
-	if !strings.Contains(conn, "?") {
-		// no query string, so make one
-		seperator = "?"
+	opt := "options=-csearch_path="
+	u, err := url.Parse(conn.String())
+	if err != nil {
+		return nil, err
 	}
-	return conn + seperator + opt
+	queryVals := u.Query()
+	queryVals.Add(opt, schema)
+
+	u.RawQuery = queryVals.Encode()
+	return u, nil
 }

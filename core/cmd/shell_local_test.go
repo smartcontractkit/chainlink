@@ -90,7 +90,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					MailMon:          &utils.MailboxMonitor{},
-					DB:               pgtest.NewEVMScopedDB(t),
+					DB:               evmtest.NewScopedDB(t, cfg.Database()),
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)
@@ -195,7 +195,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 
 					MailMon: &utils.MailboxMonitor{},
-					DB:      pgtest.NewEVMScopedDB(t),
+					DB:      evmtest.NewScopedDB(t, cfg.Database()),
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)

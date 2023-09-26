@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"database/sql/driver"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
@@ -37,7 +36,7 @@ import (
 // store to use the raw DialectPostgres dialect and setup a one-use database.
 // See heavyweight.FullTestDB() as a convenience function to help you do this,
 // but please use sparingly because as it's name implies, it is expensive.
-var defaultDBURL string // global used to create a [NewSqlxDB]
+var defaultDBURL *url.URL // global used to create a [NewSqlxDB]
 func init() {
 	testing.Init()
 	if !flag.Parsed() {
@@ -47,26 +46,25 @@ func init() {
 		// -short tests don't need a DB
 		return
 	}
-	defaultDBURL = string(env.DatabaseURL.Get())
-	if defaultDBURL == "" {
+	envDBURL := string(env.DatabaseURL.Get())
+	if envDBURL == "" {
 		panic("you must provide a CL_DATABASE_URL environment variable")
 	}
-
-	parsed, err := url.Parse(defaultDBURL)
+	var err error
+	defaultDBURL, err = url.Parse(envDBURL)
 	if err != nil {
 		panic(err)
 	}
-	if parsed.Path == "" {
-		msg := fmt.Sprintf("invalid %[1]s: `%[2]s`. You must set %[1]s env var to point to your test database. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %[1]s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", env.DatabaseURL, parsed.String())
+	if defaultDBURL.Path == "" {
+		msg := fmt.Sprintf("invalid %[1]s: `%[2]s`. You must set %[1]s env var to point to your test database. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %[1]s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", env.DatabaseURL, defaultDBURL.String())
 		panic(msg)
 	}
-	if !strings.HasSuffix(parsed.Path, "_test") {
-		msg := fmt.Sprintf("cannot run tests against database named `%s`. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", parsed.Path[1:], env.DatabaseURL)
+	if !strings.HasSuffix(defaultDBURL.Path, "_test") {
+		msg := fmt.Sprintf("cannot run tests against database named `%s`. Note that the test database MUST end in `_test` to differentiate from a possible production DB. HINT: Try %s=postgresql://postgres@localhost:5432/chainlink_test?sslmode=disable", defaultDBURL.Path[1:], env.DatabaseURL)
 		panic(msg)
 	}
 	name := string(dialects.TransactionWrappedPostgres)
 	sql.Register(name, &txDriver{
-		dbURL: defaultDBURL,
 		conns: make(map[string]map[string]*conn),
 	})
 	sqlx.BindDriver(name, sqlx.DOLLAR)
@@ -80,45 +78,60 @@ type txDriver struct {
 	sync.Mutex
 	db    map[string]*sql.DB          // url -> db
 	conns map[string]map[string]*conn // url -> (uuid -> db) so we can close per url
-
-	dbURL string
 }
 
-// jsonConnectionScope must be a json-encoded [ConnectionScope]. The Open interface requires
-// a string
-func (d *txDriver) Open(jsonConnectionScope string) (driver.Conn, error) {
+func cleanseURL(u *url.URL) {
+	q := u.Query()
+	q.Del("uuid")
+	u.RawQuery = q.Encode()
+
+}
+func (d *txDriver) Open(connection string) (driver.Conn, error) {
 	d.Lock()
 	defer d.Unlock()
-	var scope pg.ConnectionScope
-	err := json.Unmarshal([]byte(jsonConnectionScope), &scope)
+
+	dbURL, err := url.Parse(connection)
 	if err != nil {
-		return nil, fmt.Errorf("pgtest tx driver failed to parse connection string %s: must be json encoded scope: %w", jsonConnectionScope, err)
+		return nil, fmt.Errorf("pgtest tx driver failed to parse connection string %s: %w", connection, err)
 	}
+
+	// tx db requires client connection to self-identify a uuid for connection routing
+	// extract in and track the resulting url for scoping connections
+	queryVals := dbURL.Query()
+	uuid := queryVals.Get("uuid")
+	if uuid == "" {
+		return nil, fmt.Errorf("txdb can open connection: missing `uuid` query parameter in connection string %s", connection)
+	}
+	queryVals.Del("uuid")
+	dbURL.RawQuery = queryVals.Encode() // encode is sorted
+
+	endpt := dbURL.String()
+
 	// initialize dbs if the first call
 	if d.db == nil {
 		d.db = make(map[string]*sql.DB)
 	}
-	db, exists := d.db[scope.URL]
+	db, exists := d.db[endpt]
 	if !exists {
-		db, err = sql.Open("pgx", scope.URL)
+		db, err = sql.Open("pgx", endpt)
 		if err != nil {
 			return nil, err
 		}
-		d.db[scope.URL] = db
-		d.conns[scope.URL] = make(map[string]*conn)
+		d.db[endpt] = db
+		d.conns[endpt] = make(map[string]*conn)
 	}
 
-	c, exists := d.conns[scope.URL][scope.UUID]
+	c, exists := d.conns[endpt][uuid]
 	if !exists || !c.tryOpen() {
 		tx, err := db.Begin()
 		if err != nil {
 			return nil, err
 		}
-		c = &conn{tx: tx, opened: 1, scope: scope}
+		c = &conn{tx: tx, opened: 1, scope: pg.ConnectionScope{Endpoint: endpt, UUID: uuid}}
 		c.removeSelf = func() error {
 			return d.deleteConn(c)
 		}
-		d.conns[scope.URL][scope.UUID] = c
+		d.conns[endpt][uuid] = c
 	}
 	return c, nil
 }
@@ -130,15 +143,15 @@ func (d *txDriver) deleteConn(c *conn) error {
 	d.Lock()
 	defer d.Unlock()
 
-	if d.conns[c.scope.URL][c.scope.UUID] != c {
+	if d.conns[c.scope.Endpoint][c.scope.UUID] != c {
 		return nil // already been replaced
 	}
-	delete(d.conns[c.scope.URL], c.scope.UUID)
-	if len(d.conns[c.scope.URL]) == 0 && d.db[c.scope.URL] != nil {
-		if err := d.db[c.scope.URL].Close(); err != nil {
+	delete(d.conns[c.scope.Endpoint], c.scope.UUID)
+	if len(d.conns[c.scope.Endpoint]) == 0 && d.db[c.scope.Endpoint] != nil {
+		if err := d.db[c.scope.Endpoint].Close(); err != nil {
 			return err
 		}
-		delete(d.db, c.scope.URL)
+		delete(d.db, c.scope.Endpoint)
 	}
 	return nil
 }

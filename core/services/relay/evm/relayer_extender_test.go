@@ -34,7 +34,7 @@ func TestChainRelayExtenders(t *testing.T) {
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
 
-	opts := evmtest.NewChainRelayExtOpts(t, evmtest.TestChainOpts{DB: pgtest.NewEVMScopedDB(t), KeyStore: kst.Eth(), GeneralConfig: cfg})
+	opts := evmtest.NewChainRelayExtOpts(t, evmtest.TestChainOpts{DB: evmtest.NewScopedDB(t, cfg.Database()), KeyStore: kst.Eth(), GeneralConfig: cfg})
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
 		return cltest.NewEthMocksWithStartupAssertions(t)
 	}

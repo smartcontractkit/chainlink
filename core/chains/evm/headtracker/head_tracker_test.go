@@ -47,9 +47,9 @@ func firstHead(t *testing.T, db *sqlx.DB) (h evmtypes.Head) {
 func TestHeadTracker_New(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewEVMScopedDB(t)
+	config := cltest.NewTestChainScopedConfig(t)
+	db := evmtest.NewScopedDB(t, config.Database())
 	logger := logger.TestLogger(t)
-	config := configtest.NewGeneralConfig(t, nil)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(cltest.Head(0), nil)
 
@@ -71,9 +71,9 @@ func TestHeadTracker_New(t *testing.T) {
 func TestHeadTracker_Save_InsertsAndTrimsTable(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewEVMScopedDB(t)
-	logger := logger.TestLogger(t)
 	config := cltest.NewTestChainScopedConfig(t)
+	db := evmtest.NewScopedDB(t, config.Database())
+	logger := logger.TestLogger(t)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	orm := headtracker.NewORM(db, logger, config.Database(), cltest.FixtureChainID)

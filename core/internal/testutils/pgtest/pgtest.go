@@ -2,7 +2,7 @@ package pgtest
 
 import (
 	"database/sql"
-	"encoding/json"
+	"net/url"
 	"testing"
 
 	"github.com/google/uuid"
@@ -30,24 +30,23 @@ func NewSqlDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func NewEVMScopedDB(t testing.TB) *sqlx.DB {
-	// hack to scope to evm schema. the value "evm" will need to be dynamic to support multiple relayers
-	url := pg.SchemaScopedConnection(defaultDBURL, "evm")
-	return NewSqlxDB(t, WithURL(url))
+func uniqueConnection(t testing.TB) *url.URL {
+	url := testutils.MustParseURL(t, defaultDBURL.String())
+	// inject uuid by default because the transaction wrapped driver requires it
+	q := url.Query()
+	q.Add("uuid", uuid.New().String())
+	url.RawQuery = q.Encode()
+	return url
 }
 
 func NewSqlxDB(t testing.TB, opts ...ConnectionOpt) *sqlx.DB {
 	testutils.SkipShortDB(t)
-	conn := &pg.ConnectionScope{
-		UUID: uuid.New().String(),
-		URL:  defaultDBURL,
-	}
+
+	url := uniqueConnection(t)
 	for _, opt := range opts {
-		opt(conn)
+		opt(url)
 	}
-	enc, err := json.Marshal(conn)
-	require.NoError(t, err)
-	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), string(enc))
+	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), url.String())
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
@@ -56,11 +55,11 @@ func NewSqlxDB(t testing.TB, opts ...ConnectionOpt) *sqlx.DB {
 	return db
 }
 
-type ConnectionOpt func(conn *pg.ConnectionScope)
+type ConnectionOpt func(*url.URL)
 
-func WithURL(url string) ConnectionOpt {
-	return func(conn *pg.ConnectionScope) {
-		conn.URL = url
+func WithURL(override url.URL) ConnectionOpt {
+	return func(u *url.URL) {
+		u = &override
 	}
 }
 

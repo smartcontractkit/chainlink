@@ -1,8 +1,8 @@
 package pg
 
 import (
-	"encoding/json"
 	"fmt"
+	"net/url"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,8 +21,8 @@ type ConnectionConfig interface {
 }
 
 type ConnectionScope struct {
-	URL  string
-	UUID string
+	Endpoint string
+	UUID     string
 }
 
 func NewConnection(uri string, dialect dialects.DialectName, config ConnectionConfig) (db *sqlx.DB, err error) {
@@ -31,18 +31,14 @@ func NewConnection(uri string, dialect dialects.DialectName, config ConnectionCo
 		// should be encapsulated in it's own transaction, and thus needs its own
 		// unique id.
 		//
-		// We can happily throw away the original uri here because if we are using
-		// txdb it should have already been set at the point where we called
-		// txdb.Register
-		s := ConnectionScope{
-			URL:  uri,
-			UUID: uuid.New().String(),
-		}
-		b, err := json.Marshal(&s)
+		u, err := url.Parse(uri)
 		if err != nil {
 			return nil, err
 		}
-		uri = string(b)
+		q := u.Query()
+		q.Add("uuid", uuid.New().String())
+		u.RawQuery = q.Encode()
+		uri = u.String()
 	}
 
 	// Initialize sql/sqlx

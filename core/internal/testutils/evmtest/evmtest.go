@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"github.com/test-go/testify/assert"
 	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
@@ -30,7 +31,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -367,4 +370,11 @@ func (r *RawSub[T]) TrySend(t T) {
 	case <-r.err:
 	case r.ch <- t:
 	}
+}
+
+func NewScopedDB(t testing.TB, cfg config.Database) *sqlx.DB {
+	// hack to scope to evm schema. the value "evm" will need to be dynamic to support multiple relayers
+	url, err := pg.SchemaScopedConnection(cfg.URL(), "evm")
+	assert.NoError(t, err, "failed to create evm scoped db")
+	return pgtest.NewSqlxDB(t, pgtest.WithURL(*url))
 }

@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -209,7 +210,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
 						MailMon:          &utils.MailboxMonitor{},
-						DB:               pgtest.NewEVMScopedDB(t),
+						DB:               evmtest.NewScopedDB(t, cfg.Database()),
 					},
 					CSAETHKeystore: keyStore,
 				}),
@@ -284,7 +285,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
 						MailMon:          &utils.MailboxMonitor{},
-						DB:               pgtest.NewEVMScopedDB(t),
+						DB:               evmtest.NewScopedDB(t, cfg.Database()),
 					},
 					CSAETHKeystore: keyStore,
 				}),
