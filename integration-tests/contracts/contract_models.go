@@ -397,4 +397,6 @@ type WERC20Mock interface {
 	Address() common.Address
 	BalanceOf(ctx context.Context, addr string) (*big.Int, error)
 	Approve(to string, amount *big.Int) error
+	Transfer(to string, amount *big.Int) error
+	Mint(account common.Address, amount *big.Int) (*types.Transaction, error)
 }

@@ -2462,3 +2462,37 @@ func (l *EthereumWERC20Mock) BalanceOf(ctx context.Context, addr string) (*big.I
 	}
 	return balance, nil
 }
+
+func (l *EthereumWERC20Mock) Transfer(to string, amount *big.Int) error {
+	opts, err := l.client.TransactionOpts(l.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	l.l.Info().
+		Str("From", l.client.GetDefaultWallet().Address()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Uint64("Nonce", opts.Nonce.Uint64()).
+		Msg("EthereumWERC20Mock.Transfer()")
+	tx, err := l.instance.Transfer(opts, common.HexToAddress(to), amount)
+	if err != nil {
+		return err
+	}
+	return l.client.ProcessTransaction(tx)
+}
+
+func (l *EthereumWERC20Mock) Mint(account common.Address, amount *big.Int) (*types.Transaction, error) {
+	opts, err := l.client.TransactionOpts(l.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	l.l.Info().
+		Str("account", account.Hex()).
+		Str("amount", amount.String()).
+		Msg("EthereumWERC20Mock.Mint()")
+	tx, err := l.instance.Mint(opts, account, amount)
+	if err != nil {
+		return tx, err
+	}
+	return tx, l.client.ProcessTransaction(tx)
+}
