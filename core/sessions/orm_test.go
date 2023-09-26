@@ -34,8 +34,8 @@ func TestORM_FindUser(t *testing.T) {
 	t.Parallel()
 
 	db, orm := setupORM(t)
-	user1 := cltest.MustNewUser(t, "test1@email1.net", cltest.Password)
-	user2 := cltest.MustNewUser(t, "test2@email2.net", cltest.Password)
+	user1 := cltest.MustRandomUser(t)
+	user2 := cltest.MustRandomUser(t)
 
 	require.NoError(t, orm.CreateUser(&user1))
 	require.NoError(t, orm.CreateUser(&user2))
@@ -56,12 +56,11 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 		sessionID       string
 		sessionDuration time.Duration
 		wantError       string
-		wantEmail       string
 	}{
-		{"authorized", "correctID", cltest.MustParseDuration(t, "3m"), "", "have@email"},
-		{"expired", "correctID", cltest.MustParseDuration(t, "0m"), sessions.ErrUserSessionExpired.Error(), ""},
-		{"incorrect", "wrong", cltest.MustParseDuration(t, "3m"), sessions.ErrUserSessionExpired.Error(), ""},
-		{"empty", "", cltest.MustParseDuration(t, "3m"), sessions.ErrEmptySessionID.Error(), ""},
+		{"authorized", "correctID", cltest.MustParseDuration(t, "3m"), ""},
+		{"expired", "correctID", cltest.MustParseDuration(t, "0m"), sessions.ErrUserSessionExpired.Error()},
+		{"incorrect", "wrong", cltest.MustParseDuration(t, "3m"), sessions.ErrUserSessionExpired.Error()},
+		{"empty", "", cltest.MustParseDuration(t, "3m"), sessions.ErrEmptySessionID.Error()},
 	}
 
 	for _, test := range tests {
@@ -69,7 +68,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 			db := pgtest.NewSqlxDB(t)
 			orm := sessions.NewORM(db, test.sessionDuration, logger.TestLogger(t), pgtest.NewQConfig(true), &audit.AuditLoggerService{})
 
-			user := cltest.MustNewUser(t, "have@email", cltest.Password)
+			user := cltest.MustRandomUser(t)
 			require.NoError(t, orm.CreateUser(&user))
 
 			prevSession := cltest.NewSession("correctID")
@@ -83,7 +82,7 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 				require.EqualError(t, err, test.wantError)
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, test.wantEmail, actual.Email)
+				assert.Equal(t, user.Email, actual.Email)
 				var bumpedSession sessions.Session
 				err = db.Get(&bumpedSession, "SELECT * FROM sessions WHERE ID = $1", prevSession.ID)
 				require.NoError(t, err)

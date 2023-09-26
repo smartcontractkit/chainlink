@@ -321,37 +321,6 @@ func NewUserWithSession(t testing.TB, orm sessions.ORM) sessions.User {
 	return u
 }
 
-// CreateUserWithRole inserts a new user with specified role and associated test DB email into the test DB
-func CreateUserWithRole(t testing.TB, role sessions.UserRole) sessions.User {
-	email := ""
-	switch role {
-	case sessions.UserRoleAdmin:
-		email = APIEmailAdmin
-	case sessions.UserRoleEdit:
-		email = APIEmailEdit
-	case sessions.UserRoleRun:
-		email = APIEmailRun
-	case sessions.UserRoleView:
-		email = APIEmailViewOnly
-	default:
-		t.Fatal("Unexpected role for CreateUserWithRole")
-	}
-
-	r, err := sessions.NewUser(email, Password, role)
-	if err != nil {
-		logger.TestLogger(t).Panic(err)
-	}
-	return r
-}
-
-func MustNewUser(t *testing.T, email, password string) sessions.User {
-	r, err := sessions.NewUser(email, password, sessions.UserRoleAdmin)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return r
-}
-
 type MockAPIInitializer struct {
 	t     testing.TB
 	Count int
