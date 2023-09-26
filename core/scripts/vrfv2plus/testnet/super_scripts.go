@@ -284,6 +284,10 @@ func smokeTestVRF(e helpers.Environment) {
 	wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(wrapperAddress, e.Ec)
 	helpers.PanicErr(err)
 
+	tx, err = wrapper.SetConfig(e.Owner, 50_000, 50_000, 25, keyHash, 10)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "set wrapper config on", wrapperAddress.String())
+
 	wrapperSubID, err := wrapper.SUBSCRIPTIONID(nil)
 	helpers.PanicErr(err)
 
@@ -361,7 +365,7 @@ func smokeTestVRF(e helpers.Environment) {
 
 	// generate the VRF proof, follow the same process as the node
 	// we assume there is enough funds in the subscription to pay for the gas
-	calldata := generateProof(rwrLog)
+	calldata := generateProof(key, rwrLog)
 
 	receipt, txHash := sendTx(e, coordinatorAddress, calldata)
 	if receipt.Status != 1 {
@@ -415,7 +419,7 @@ func smokeTestVRF(e helpers.Environment) {
 
 	// generate the VRF proof, follow the same process as the node
 	// we assume there is enough funds in the subscription to pay for the gas
-	calldata = generateProof(rwrLog2)
+	calldata = generateProof(key, rwrLog2)
 	receipt, txHash = sendTx(e, coordinatorAddress, calldata)
 	if receipt.Status != 1 {
 		fmt.Println("wrapper fulfillment tx failed, extracting revert reason")
@@ -438,7 +442,7 @@ func smokeTestVRF(e helpers.Environment) {
 	fmt.Println("\nwrapper link request fulfillment successful")
 }
 
-func generateProof(rwrLog *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested) (calldata []byte) {
+func generateProof(key vrfkey.KeyV2, rwrLog *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested) (calldata []byte) {
 	// generate the VRF proof, follow the same process as the node
 	// we assume there is enough funds in the subscription to pay for the gas
 	preSeed, err := proof.BigToSeed(rwrLog.PreSeed)
