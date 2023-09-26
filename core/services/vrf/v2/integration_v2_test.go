@@ -497,7 +497,7 @@ func subscribeVRF(
 	require.NoError(t, err)
 
 	if nativePayment {
-		require.Equal(t, fundingAmount.String(), sub.EthBalance().String())
+		require.Equal(t, fundingAmount.String(), sub.NativeBalance().String())
 	} else {
 		require.Equal(t, fundingAmount.String(), sub.Balance().String())
 	}

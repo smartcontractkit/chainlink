@@ -290,7 +290,7 @@ func (d *Delegate) cleanupEVM(jb job.Job, q pg.Queryer, relayID relay.ID) error 
 
 	rargs := types.RelayArgs{
 		ExternalJobID: jb.ExternalJobID,
-		JobID:         spec.ID,
+		JobID:         jb.ID,
 		ContractID:    spec.ContractID,
 		New:           false,
 		RelayConfig:   spec.RelayConfig.Bytes(),
@@ -517,7 +517,7 @@ func (d *Delegate) newServicesMercury(
 	provider, err2 := relayer.NewPluginProvider(ctx,
 		types.RelayArgs{
 			ExternalJobID: jb.ExternalJobID,
-			JobID:         spec.ID,
+			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
 			RelayConfig:   spec.RelayConfig.Bytes(),
@@ -634,7 +634,7 @@ func (d *Delegate) newServicesDKG(
 	dkgProvider, err2 := ocr2vrfRelayer.NewDKGProvider(
 		types.RelayArgs{
 			ExternalJobID: jb.ExternalJobID,
-			JobID:         spec.ID,
+			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
 			RelayConfig:   spec.RelayConfig.Bytes(),
@@ -719,7 +719,7 @@ func (d *Delegate) newServicesOCR2VRF(
 	vrfProvider, err2 := ocr2vrfRelayer.NewOCR2VRFProvider(
 		types.RelayArgs{
 			ExternalJobID: jb.ExternalJobID,
-			JobID:         spec.ID,
+			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
 			RelayConfig:   spec.RelayConfig.Bytes(),
@@ -734,7 +734,7 @@ func (d *Delegate) newServicesOCR2VRF(
 	dkgProvider, err2 := ocr2vrfRelayer.NewDKGProvider(
 		types.RelayArgs{
 			ExternalJobID: jb.ExternalJobID,
-			JobID:         spec.ID,
+			JobID:         jb.ID,
 			ContractID:    cfg.DKGContractAddress,
 			RelayConfig:   spec.RelayConfig.Bytes(),
 		}, types.PluginArgs{
@@ -1177,7 +1177,7 @@ func (d *Delegate) newServicesOCR2Functions(
 			chain,
 			types.RelayArgs{
 				ExternalJobID: jb.ExternalJobID,
-				JobID:         spec.ID,
+				JobID:         jb.ID,
 				ContractID:    spec.ContractID,
 				RelayConfig:   spec.RelayConfig.Bytes(),
 				New:           d.isNewlyCreatedJob,

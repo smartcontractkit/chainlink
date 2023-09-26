@@ -42,7 +42,7 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
 
   function createSubscriptionAndFundNative() external payable {
     subscribe();
-    s_vrfCoordinatorApiV1.fundSubscriptionWithEth{value: msg.value}(s_subId);
+    s_vrfCoordinatorApiV1.fundSubscriptionWithNative{value: msg.value}(s_subId);
   }
 
   function createSubscriptionAndFund(uint96 amount) external {
@@ -58,7 +58,7 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
 
   function topUpSubscriptionNative() external payable {
     require(s_subId != 0, "sub not set");
-    s_vrfCoordinatorApiV1.fundSubscriptionWithEth{value: msg.value}(s_subId);
+    s_vrfCoordinatorApiV1.fundSubscriptionWithNative{value: msg.value}(s_subId);
   }
 
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
