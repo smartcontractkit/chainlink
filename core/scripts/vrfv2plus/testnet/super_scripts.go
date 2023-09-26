@@ -25,6 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_sub_owner"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
@@ -273,7 +275,41 @@ func smokeTestVRF(e helpers.Environment) {
 	helpers.PanicErr(err)
 	fmt.Printf("Subscription %+v\n", s)
 
+	fmt.Println("\ndeploying the wrapper...")
+	wrapperAddress, tx, _, err := vrfv2plus_wrapper.DeployVRFV2PlusWrapper(
+		e.Owner, e.Ec, common.HexToAddress(*linkAddress), common.HexToAddress(*linkEthAddress), coordinatorAddress)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "deploy wrapper on", wrapperAddress.String())
+
+	wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(wrapperAddress, e.Ec)
+	helpers.PanicErr(err)
+
+	wrapperSubID, err := wrapper.SUBSCRIPTIONID(nil)
+	helpers.PanicErr(err)
+
+	// fund wrapper subscription
+	fmt.Println("\nfunding wrapper subscription...")
+	eoaFundSubscription(e, *coordinator, *linkAddress, subscriptionBalance, wrapperSubID)
+	fmt.Println("\nwrapper subscription funded")
+
+	fmt.Println("\ndeploying wrapper consumer...")
+	wrapperConsumerAddr, tx, _, err := vrfv2plus_wrapper_consumer_example.DeployVRFV2PlusWrapperConsumerExample(e.Owner, e.Ec, common.HexToAddress(*linkAddress), wrapperAddress)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "deploy wrapper consumer on", wrapperConsumerAddr.String())
+
+	wrapperConsumer, err := vrfv2plus_wrapper_consumer_example.NewVRFV2PlusWrapperConsumerExample(wrapperConsumerAddr, e.Ec)
+	helpers.PanicErr(err)
+
+	// fund wrapper consumer example with link
+	fmt.Println("\nfunding wrapper consumer example with link...")
+	linkToken, err := link_token_interface.NewLinkToken(common.HexToAddress(*linkAddress), e.Ec)
+	helpers.PanicErr(err)
+	tx, err = linkToken.Transfer(e.Owner, wrapperConsumerAddr, subscriptionBalance)
+	helpers.PanicErr(err)
+	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "transfer link to wrapper consumer example on", wrapperConsumerAddr.String())
+
 	fmt.Println(
+		"\n----------------------------------------------",
 		"\nDeployment complete.",
 		"\nLINK Token contract address:", *linkAddress,
 		"\nLINK/ETH Feed contract address:", *linkEthAddress,
@@ -283,13 +319,20 @@ func smokeTestVRF(e helpers.Environment) {
 		"\nBatch VRF Coordinator Address:", batchCoordinatorAddress,
 		"\nVRF Consumer Address:", consumerAddress,
 		"\nVRF Subscription Id:", subID,
-		"\nVRF Subscription Balance:", *subscriptionBalanceString,
+		"\nVRF Subscription Balance:", subscriptionBalance,
+		"\nVRF Wrapper Address:", wrapperAddress,
+		"\nVRF Wrapper Subscription Id:", wrapperSubID,
+		"\nVRF Wrapper Subscription Balance:", subscriptionBalance,
+		"\nVRF Wrapper Consumer Address:", wrapperConsumerAddr,
+		"\nVRF Wrapper Consumer Link Balance:", subscriptionBalance,
+		"\n----------------------------------------------",
 	)
 
 	fmt.Println("making a request on consumer", consumerAddress)
 	consumer, err := vrf_v2plus_sub_owner.NewVRFV2PlusExternalSubOwnerExample(consumerAddress, e.Ec)
 	helpers.PanicErr(err)
 	tx, err = consumer.RequestRandomWords(e.Owner, subID, 100_000, 3, 3, provingKeyRegisteredLog.KeyHash, false)
+	helpers.PanicErr(err)
 	receipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "request random words from", consumerAddress.String())
 	fmt.Println("request blockhash:", receipt.BlockHash)
 
@@ -316,6 +359,86 @@ func smokeTestVRF(e helpers.Environment) {
 	fmt.Println("sender:", rwrLog.Sender)
 	fmt.Println("extra args:", hexutil.Encode(rwrLog.ExtraArgs))
 
+	// generate the VRF proof, follow the same process as the node
+	// we assume there is enough funds in the subscription to pay for the gas
+	calldata := generateProof(rwrLog)
+
+	receipt, txHash := sendTx(e, coordinatorAddress, calldata)
+	if receipt.Status != 1 {
+		fmt.Println("fulfillment tx failed, extracting revert reason")
+		tx, _, err := e.Ec.TransactionByHash(context.Background(), txHash)
+		helpers.PanicErr(err)
+		call := ethereum.CallMsg{
+			From:     e.Owner.From,
+			To:       tx.To(),
+			Data:     tx.Data(),
+			Gas:      tx.Gas(),
+			GasPrice: tx.GasPrice(),
+		}
+		r, err := e.Ec.CallContract(context.Background(), call, receipt.BlockNumber)
+		fmt.Println("call contract", "r", r, "err", err)
+		rpcError, err := evmclient.ExtractRPCError(err)
+		fmt.Println("extracting rpc error", rpcError.String(), err)
+		os.Exit(1)
+	}
+
+	fmt.Println("\nfulfillment successful")
+
+	fmt.Println("\nmaking request on wrapper consumer in link")
+	tx, err = wrapperConsumer.MakeRequest(e.Owner, 100_000, 3, 3)
+	helpers.PanicErr(err)
+	receipt = helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "make request on", wrapperConsumerAddr.String())
+	fmt.Println("request blockhash:", receipt.BlockHash)
+
+	// extract the RandomWordsRequested log from the receipt logs
+	var rwrLog2 *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested
+	for _, log := range receipt.Logs {
+		if log.Address == coordinatorAddress {
+			var err error
+			rwrLog2, err = coordinator.ParseRandomWordsRequested(*log)
+			if err != nil {
+				continue
+			}
+		}
+	}
+	if rwrLog2 == nil {
+		panic("no RandomWordsRequested log found")
+	}
+
+	fmt.Println("key hash:", hexutil.Encode(rwrLog2.KeyHash[:]))
+	fmt.Println("request id:", rwrLog2.RequestId)
+	fmt.Println("preseed:", rwrLog2.PreSeed)
+	fmt.Println("num words:", rwrLog2.NumWords)
+	fmt.Println("callback gas limit:", rwrLog2.CallbackGasLimit)
+	fmt.Println("sender:", rwrLog2.Sender)
+	fmt.Println("extra args:", hexutil.Encode(rwrLog2.ExtraArgs))
+
+	// generate the VRF proof, follow the same process as the node
+	// we assume there is enough funds in the subscription to pay for the gas
+	calldata = generateProof(rwrLog2)
+	receipt, txHash = sendTx(e, coordinatorAddress, calldata)
+	if receipt.Status != 1 {
+		fmt.Println("wrapper fulfillment tx failed, extracting revert reason")
+		tx, _, err := e.Ec.TransactionByHash(context.Background(), txHash)
+		helpers.PanicErr(err)
+		call := ethereum.CallMsg{
+			From:     e.Owner.From,
+			To:       tx.To(),
+			Data:     tx.Data(),
+			Gas:      tx.Gas(),
+			GasPrice: tx.GasPrice(),
+		}
+		r, err := e.Ec.CallContract(context.Background(), call, receipt.BlockNumber)
+		fmt.Println("call contract", "r", r, "err", err)
+		rpcError, err := evmclient.ExtractRPCError(err)
+		fmt.Println("extracting rpc error", rpcError.String(), err)
+		os.Exit(1)
+	}
+
+	fmt.Println("\nwrapper link request fulfillment successful")
+}
+
+func generateProof(rwrLog *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested) (calldata []byte) {
 	// generate the VRF proof, follow the same process as the node
 	// we assume there is enough funds in the subscription to pay for the gas
 	preSeed, err := proof.BigToSeed(rwrLog.PreSeed)
@@ -356,26 +479,7 @@ func smokeTestVRF(e helpers.Environment) {
 	fmt.Println("request commitment sender:", rc.Sender)
 	fmt.Println("request commitment extra args:", hexutil.Encode(rc.ExtraArgs))
 
-	receipt, txHash := sendTx(e, coordinatorAddress, b)
-	if receipt.Status != 1 {
-		fmt.Println("fulfillment tx failed, extracting revert reason")
-		tx, _, err := e.Ec.TransactionByHash(context.Background(), txHash)
-		helpers.PanicErr(err)
-		call := ethereum.CallMsg{
-			From:     e.Owner.From,
-			To:       tx.To(),
-			Data:     tx.Data(),
-			Gas:      tx.Gas(),
-			GasPrice: tx.GasPrice(),
-		}
-		r, err := e.Ec.CallContract(context.Background(), call, receipt.BlockNumber)
-		fmt.Println("call contract", "r", r, "err", err)
-		rpcError, err := evmclient.ExtractRPCError(err)
-		fmt.Println("extracting rpc error", rpcError.String(), err)
-		os.Exit(1)
-	}
-
-	fmt.Println("\nfulfillment successful")
+	return b
 }
 
 func smokeTestBHS(e helpers.Environment) {
