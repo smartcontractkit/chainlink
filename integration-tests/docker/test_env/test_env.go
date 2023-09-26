@@ -68,6 +68,8 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 	}, nil
 }
 
+// WithTestEnvConfig sets the test environment cfg.
+// Sets up the Geth and MockServer containers with the provided cfg.
 func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTestEnv {
 	te.Cfg = cfg
 	n := []string{te.Network.Name}

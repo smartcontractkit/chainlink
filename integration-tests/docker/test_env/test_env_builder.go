@@ -48,6 +48,10 @@ func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	}
 }
 
+// WithTestEnv sets the test environment to use for the test.
+// If nil, a new test environment is created.
+// If not nil, the test environment is used as-is.
+// If TEST_ENV_CONFIG_PATH is set, the test environment is created with the config at that path.
 func (b *CLTestEnvBuilder) WithTestEnv(te *CLClusterTestEnv) (*CLTestEnvBuilder, error) {
 	envConfigPath, isSet := os.LookupEnv("TEST_ENV_CONFIG_PATH")
 	var cfg *TestEnvConfig
@@ -74,6 +78,8 @@ func (b *CLTestEnvBuilder) WithTestEnv(te *CLClusterTestEnv) (*CLTestEnvBuilder,
 	return b, nil
 }
 
+// WithTestLogger sets the test logger to use for the test.
+// Useful for parallel tests so the logging will be separated correctly in the results views.
 func (b *CLTestEnvBuilder) WithTestLogger(t *testing.T) *CLTestEnvBuilder {
 	b.t = t
 	b.l = logging.GetTestLogger(t)
@@ -121,6 +127,7 @@ func (b *CLTestEnvBuilder) WithMockServer(externalAdapterCount int) *CLTestEnvBu
 	return b
 }
 
+// WithNonEVM sets the test environment to not use EVM when built.
 func (b *CLTestEnvBuilder) WithNonEVM() *CLTestEnvBuilder {
 	b.isNonEVM = true
 	return b
