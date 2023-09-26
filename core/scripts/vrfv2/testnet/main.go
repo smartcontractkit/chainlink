@@ -17,6 +17,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
@@ -1330,6 +1331,33 @@ func main() {
 		blockNumber := cmd.Int("block-number", -1, "block number")
 		helpers.ParseArgs(cmd, os.Args[2:])
 		_ = helpers.CalculateLatestBlockHeader(e, *blockNumber)
+	case "closest-block":
+		cmd := flag.NewFlagSet("closest-block", flag.ExitOnError)
+		blockNumber := cmd.Uint64("block-number", 0, "block number")
+		batchBHSAddress := cmd.String("batch-bhs-address", "", "address of the batch blockhash store")
+		batchSize := cmd.Uint64("batch-size", 100, "batch size")
+		helpers.ParseArgs(cmd, os.Args[2:], "block-number", "batch-bhs-address")
+		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchBHSAddress), e.Ec)
+		helpers.PanicErr(err)
+		startBlock := *blockNumber + 1
+		endBlock := startBlock + *batchSize
+		for {
+			var blockRange []*big.Int
+			for i := startBlock; i <= endBlock; i++ {
+				blockRange = append(blockRange, big.NewInt(int64(i)))
+			}
+			fmt.Println("Searching range", startBlock, "-", endBlock, "inclusive")
+			hashes, err := batchBHS.GetBlockhashes(nil, blockRange)
+			helpers.PanicErr(err)
+			for i, hash := range hashes {
+				if hash != (common.Hash{}) {
+					fmt.Println("found closest block:", startBlock+uint64(i), "hash:", hexutil.Encode(hash[:]))
+					return
+				}
+			}
+			startBlock = endBlock + 1
+			endBlock = startBlock + *batchSize
+		}
 	case "wrapper-universe-deploy":
 		scripts.DeployWrapperUniverse(e)
 	default:
