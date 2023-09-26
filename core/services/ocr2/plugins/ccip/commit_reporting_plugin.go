@@ -3,6 +3,7 @@ package ccip
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sort"
@@ -496,7 +497,7 @@ func (r *CommitReportingPlugin) Report(ctx context.Context, epochAndRound types.
 		return false, nil, err
 	}
 	lggr.Infow("Report",
-		"merkleRoot", report.MerkleRoot,
+		"merkleRoot", hex.EncodeToString(report.MerkleRoot[:]),
 		"minSeqNr", report.Interval.Min,
 		"maxSeqNr", report.Interval.Max,
 		"tokenPriceUpdates", report.PriceUpdates.TokenPriceUpdates,
