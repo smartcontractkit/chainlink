@@ -168,7 +168,8 @@ func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int
 				nodeContainerName = te.Cfg.Nodes[nodeIndex].NodeContainerName
 				dbContainerName = te.Cfg.Nodes[nodeIndex].DbContainerName
 			}
-			n := NewClNode([]string{te.Network.Name}, nodeConfig, secretsConfig,
+			n := NewClNode([]string{te.Network.Name}, nodeConfig,
+				WithSecrets(secretsConfig),
 				WithNodeContainerName(nodeContainerName),
 				WithDbContainerName(dbContainerName),
 			)
