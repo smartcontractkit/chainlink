@@ -67,6 +67,7 @@ type Pool struct {
 	noNewHeadsThreshold time.Duration
 	nodeSelector        NodeSelector
 	leaseDuration       time.Duration
+	leaseTicker         *time.Ticker
 
 	activeMu   sync.RWMutex
 	activeNode Node
@@ -155,6 +156,7 @@ func (p *Pool) Dial(ctx context.Context) error {
 
 		if p.leaseDuration.Seconds() > 0 && p.selectionMode != NodeSelectionMode_RoundRobin {
 			p.logger.Infof("The pool will switch to best node every %s", p.leaseDuration.String())
+			p.wg.Add(1)
 			go p.checkLeaseLoop()
 		} else {
 			p.logger.Info("Best node switching is disabled")
@@ -195,12 +197,13 @@ func (p *Pool) checkLease() {
 }
 
 func (p *Pool) checkLeaseLoop() {
-	switchTicker := time.NewTicker(p.leaseDuration)
-	defer switchTicker.Stop()
+	defer p.wg.Done()
+	p.leaseTicker = time.NewTicker(p.leaseDuration)
+	defer p.leaseTicker.Stop()
 
 	for {
 		select {
-		case <-switchTicker.C:
+		case <-p.leaseTicker.C:
 			p.checkLease()
 		case <-p.chStop:
 			return
@@ -307,6 +310,9 @@ func (p *Pool) selectNode() (node Node) {
 		return &erroringNode{errMsg: errmsg.Error()}
 	}
 
+	if p.leaseTicker != nil {
+		p.leaseTicker.Reset(p.leaseDuration)
+	}
 	return p.activeNode
 }
 
