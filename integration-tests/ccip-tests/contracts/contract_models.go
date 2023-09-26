@@ -43,15 +43,6 @@ type ERC20Token struct {
 	ContractAddress common.Address
 }
 
-func (token *ERC20Token) Copy(client blockchain.EVMClient) *ERC20Token {
-	newIns := token.instance
-	return &ERC20Token{
-		client:          client,
-		instance:        newIns,
-		ContractAddress: token.ContractAddress,
-	}
-}
-
 func (token *ERC20Token) Address() string {
 	return token.ContractAddress.Hex()
 }
@@ -111,15 +102,6 @@ type LinkToken struct {
 	client     blockchain.EVMClient
 	instance   *link_token_interface.LinkToken
 	EthAddress common.Address
-}
-
-func (token *LinkToken) Copy(client blockchain.EVMClient) *LinkToken {
-	newToken := *token.instance
-	return &LinkToken{
-		client:     client,
-		instance:   &newToken,
-		EthAddress: token.EthAddress,
-	}
 }
 
 func (token *LinkToken) Address() string {
@@ -182,15 +164,6 @@ type LockReleaseTokenPool struct {
 	client     blockchain.EVMClient
 	Instance   *lock_release_token_pool.LockReleaseTokenPool
 	EthAddress common.Address
-}
-
-func (pool *LockReleaseTokenPool) Copy(client blockchain.EVMClient) *LockReleaseTokenPool {
-	newIns := *pool.Instance
-	return &LockReleaseTokenPool{
-		client:     client,
-		Instance:   &newIns,
-		EthAddress: pool.EthAddress,
-	}
 }
 
 func (pool *LockReleaseTokenPool) Address() string {
@@ -357,15 +330,6 @@ type ARM struct {
 	EthAddress common.Address
 }
 
-func (arm *ARM) Copy(client blockchain.EVMClient) *ARM {
-	newArm := *arm.Instance
-	return &ARM{
-		client:     client,
-		Instance:   &newArm,
-		EthAddress: arm.EthAddress,
-	}
-}
-
 func (arm *ARM) Address() string {
 	return arm.EthAddress.Hex()
 }
@@ -468,15 +432,6 @@ func (c *PriceRegistry) Address() string {
 	return c.EthAddress.Hex()
 }
 
-func (c *PriceRegistry) Copy(client blockchain.EVMClient) *PriceRegistry {
-	newIns := *c.Instance
-	return &PriceRegistry{
-		client:     client,
-		Instance:   &newIns,
-		EthAddress: c.EthAddress,
-	}
-}
-
 func (c *PriceRegistry) AddPriceUpdater(addr common.Address) error {
 	opts, err := c.client.TransactionOpts(c.client.GetDefaultWallet())
 	if err != nil {
@@ -529,15 +484,6 @@ type Router struct {
 	client     blockchain.EVMClient
 	Instance   *router.Router
 	EthAddress common.Address
-}
-
-func (r *Router) Copy(client blockchain.EVMClient) *Router {
-	ri := *r.Instance
-	return &Router{
-		client:     client,
-		Instance:   &ri,
-		EthAddress: r.EthAddress,
-	}
 }
 
 func (r *Router) Address() string {

@@ -3,6 +3,7 @@ package node
 import (
 	"bytes"
 	_ "embed"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -36,7 +37,15 @@ func NewConfigFromToml(tomlConfig []byte, opts ...node.NodeConfigOpt) (*chainlin
 func WithPrivateEVMs(networks []blockchain.EVMNetwork) node.NodeConfigOpt {
 	var evmConfigs []*evmcfg.EVMConfig
 	for _, network := range networks {
-		evmConfigs = append(evmConfigs, &evmcfg.EVMConfig{
+		var evmNodes []*evmcfg.Node
+		for i := range network.URLs {
+			evmNodes = append(evmNodes, &evmcfg.Node{
+				Name:    itutils.Ptr(fmt.Sprintf("%s-%d", network.Name, i)),
+				WSURL:   itutils.MustURL(network.URLs[i]),
+				HTTPURL: itutils.MustURL(network.HTTPURLs[i]),
+			})
+		}
+		evmConfig := &evmcfg.EVMConfig{
 			ChainID: utils.NewBig(big.NewInt(network.ChainID)),
 			Chain: evmcfg.Chain{
 				AutoCreateKey:      itutils.Ptr(true),
@@ -48,15 +57,10 @@ func WithPrivateEVMs(networks []blockchain.EVMNetwork) node.NodeConfigOpt {
 				},
 				GasEstimator: WithCCIPGasEstimator(network.ChainID),
 			},
-			Nodes: []*evmcfg.Node{
-				{
-					Name:     itutils.Ptr(network.Name),
-					WSURL:    itutils.MustURL(network.URLs[0]),
-					HTTPURL:  itutils.MustURL(network.HTTPURLs[0]),
-					SendOnly: itutils.Ptr(false),
-				},
-			},
-		})
+			Nodes: evmNodes,
+		}
+
+		evmConfigs = append(evmConfigs, evmConfig)
 	}
 	return func(c *chainlink.Config) {
 		c.EVM = evmConfigs
@@ -72,13 +76,31 @@ func WithCCIPGasEstimator(chainId int64) evmcfg.GasEstimator {
 	switch chainId {
 	case 421613:
 		cfg.LimitDefault = itutils.Ptr(uint32(100000000))
+		cfg.BumpThreshold = itutils.Ptr(uint32(60))
+		cfg.BumpPercent = itutils.Ptr(uint16(20))
+		cfg.BumpMin = assets.GWei(100)
+		cfg.PriceMax = assets.GWei(400)
 	case 420:
 		cfg.BumpThreshold = itutils.Ptr(uint32(60))
 		cfg.BumpPercent = itutils.Ptr(uint16(20))
 		cfg.BumpMin = assets.GWei(100)
-	case 5:
-		cfg.PriceMax = assets.GWei(500)
-		cfg.FeeCapDefault = assets.GWei(500)
+		cfg.PriceMax = assets.GWei(150)
+		cfg.FeeCapDefault = assets.GWei(150)
+		cfg.BlockHistory.BlockHistorySize = itutils.Ptr(uint16(200))
+		cfg.BlockHistory.EIP1559FeeCapBufferBlocks = itutils.Ptr(uint16(0))
+	case 84531:
+		cfg.BumpThreshold = itutils.Ptr(uint32(60))
+		cfg.BumpPercent = itutils.Ptr(uint16(20))
+		cfg.BumpMin = assets.GWei(100)
+		cfg.PriceMax = assets.GWei(150)
+		cfg.FeeCapDefault = assets.GWei(150)
+		cfg.BlockHistory.BlockHistorySize = itutils.Ptr(uint16(200))
+		cfg.BlockHistory.EIP1559FeeCapBufferBlocks = itutils.Ptr(uint16(0))
+	case 43113:
+		cfg.BumpThreshold = itutils.Ptr(uint32(60))
+	case 11155111:
+		cfg.BlockHistory.BlockHistorySize = itutils.Ptr(uint16(200))
+		cfg.BlockHistory.EIP1559FeeCapBufferBlocks = itutils.Ptr(uint16(0))
 	}
 
 	return cfg

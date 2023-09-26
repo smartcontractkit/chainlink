@@ -165,6 +165,16 @@ func (l *loadArgs) AddMoreLanesToRun() {
 // LaneLoadCfg channel should receive a lane whenever the deployment is complete.
 func (l *loadArgs) Start() {
 	l.LoadStarterWg.Add(1)
+	waitForLoadRun := func(gen *wasp.Generator, ccipLoad *CCIPE2ELoad) error {
+		_, failed := gen.Wait()
+		if failed {
+			return fmt.Errorf("load run is failed")
+		}
+		if len(gen.Errors()) > 0 {
+			return fmt.Errorf("error in load sequence call %v", gen.Errors())
+		}
+		return nil
+	}
 	go func() {
 		defer l.LoadStarterWg.Done()
 		loadCount := 0
@@ -211,14 +221,7 @@ func (l *loadArgs) Start() {
 				l.ccipLoad = append(l.ccipLoad, ccipLoad)
 				l.loadRunner = append(l.loadRunner, loadRunner)
 				l.RunnerWg.Go(func() error {
-					_, failed := loadRunner.Wait()
-					if failed {
-						return fmt.Errorf("load run is failed")
-					}
-					if len(loadRunner.Errors()) > 0 {
-						return fmt.Errorf("error in load sequence call %v", loadRunner.Errors())
-					}
-					return nil
+					return waitForLoadRun(loadRunner, ccipLoad)
 				})
 				if loadCount == len(l.TestCfg.NetworkPairs)*2 {
 					l.lggr.Info().Msg("load is running for all lanes now")

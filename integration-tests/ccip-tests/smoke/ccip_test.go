@@ -35,7 +35,6 @@ func TestSmokeCCIPForBidirectionalLane(t *testing.T) {
 		if TestCfg.MsgType == actions.TokenTransfer {
 			setUpOutput.Balance.Verify(t)
 		}
-		setUpOutput.TearDown()
 	})
 	for i := range setUpOutput.Lanes {
 		tcs = append(tcs, subtestInput{
@@ -56,10 +55,12 @@ func TestSmokeCCIPForBidirectionalLane(t *testing.T) {
 		tc := testcase
 		t.Run(tc.testName, func(t *testing.T) {
 			t.Parallel()
+			tc.lane.Test = t
 			l.Info().
 				Str("Source", tc.lane.SourceNetworkName).
 				Str("Destination", tc.lane.DestNetworkName).
 				Msgf("Starting lane %s -> %s", tc.lane.SourceNetworkName, tc.lane.DestNetworkName)
+
 			tc.lane.RecordStateBeforeTransfer()
 			err := tc.lane.SendRequests(1, TestCfg.MsgType)
 			require.NoError(t, err)

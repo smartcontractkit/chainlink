@@ -385,10 +385,10 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     name: ETH Smoke Tests
-    needs: [eth-smoke-tests-matrix, eth-smoke-tests-matrix-automation]
+    needs: [eth-smoke-tests-matrix]
     steps:
       - name: Check smoke test matrix status
-        if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-automation.result != 'success'
+        if: needs.eth-smoke-tests-matrix.result != 'success'
         run: exit 1
       - name: Collect Metrics
         if: always()

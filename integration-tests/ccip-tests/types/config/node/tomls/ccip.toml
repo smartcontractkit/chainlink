@@ -3,7 +3,7 @@ LogPoller = true
 CCIP = true
 
 [Log]
-Level = 'info'
+Level = 'debug'
 JSONConsole = true
 
 [Log.File]
@@ -16,7 +16,7 @@ SecureCookies = false
 
 [WebServer.RateLimit]
 Authenticated = 2000
-Unauthenticated = 100
+Unauthenticated = 1000
 
 [WebServer.TLS]
 HTTPSPort = 0

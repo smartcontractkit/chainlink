@@ -44,11 +44,15 @@ type CCIPContractsDeployer struct {
 }
 
 // NewCCIPContractsDeployer returns an instance of a contract deployer for CCIP
-func NewCCIPContractsDeployer(bcClient blockchain.EVMClient, logger zerolog.Logger) (*CCIPContractsDeployer, error) {
+func NewCCIPContractsDeployer(logger zerolog.Logger, bcClient blockchain.EVMClient) (*CCIPContractsDeployer, error) {
 	return &CCIPContractsDeployer{
 		evmClient:   bcClient,
 		EthDeployer: contracts.NewEthereumContractDeployer(bcClient, logger),
 	}, nil
+}
+
+func (e *CCIPContractsDeployer) Client() blockchain.EVMClient {
+	return e.evmClient
 }
 
 func (e *CCIPContractsDeployer) DeployLinkTokenContract() (*LinkToken, error) {

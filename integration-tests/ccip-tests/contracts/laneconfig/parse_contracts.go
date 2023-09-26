@@ -18,16 +18,15 @@ var (
 )
 
 type CommonContracts struct {
-	IsNativeFeeToken        bool     `json:"is_native_fee_token,omitempty"`
-	IsMockARM               bool     `json:"is_mock_arm,omitempty"`
-	FeeToken                string   `json:"fee_token"`
-	BridgeTokens            []string `json:"bridge_tokens"`
-	BridgeTokenPools        []string `json:"bridge_tokens_pools"`
-	ARM                     string   `json:"arm"`
-	Router                  string   `json:"router"`
-	PriceRegistry           string   `json:"price_registry"`
-	PriceUpdatesToWatchFrom uint64   `json:"price_updates_started_at"`
-	WrappedNative           string   `json:"wrapped_native"`
+	IsNativeFeeToken bool     `json:"is_native_fee_token,omitempty"`
+	IsMockARM        bool     `json:"is_mock_arm,omitempty"`
+	FeeToken         string   `json:"fee_token"`
+	BridgeTokens     []string `json:"bridge_tokens"`
+	BridgeTokenPools []string `json:"bridge_tokens_pools"`
+	ARM              string   `json:"arm"`
+	Router           string   `json:"router"`
+	PriceRegistry    string   `json:"price_registry"`
+	WrappedNative    string   `json:"wrapped_native"`
 }
 
 type SourceContracts struct {
@@ -43,8 +42,10 @@ type DestContracts struct {
 
 type LaneConfig struct {
 	CommonContracts
-	SrcContracts  map[uint64]SourceContracts `json:"src_contracts"`  // key destination chain id
-	DestContracts map[uint64]DestContracts   `json:"dest_contracts"` // key source chain id
+	SrcContractsMu  *sync.Mutex                `json:"-"`
+	SrcContracts    map[string]SourceContracts `json:"src_contracts"` // key destination chain id
+	DestContractsMu *sync.Mutex                `json:"-"`
+	DestContracts   map[string]DestContracts   `json:"dest_contracts"` // key source chain id
 }
 
 func (l *LaneConfig) Validate() error {
@@ -54,22 +55,18 @@ func (l *LaneConfig) Validate() error {
 		laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for arm"))
 	}
 
-	if l.FeeToken == "" || !common.IsHexAddress(l.FeeToken) {
+	if l.FeeToken != "" && !common.IsHexAddress(l.FeeToken) {
 		laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for fee_token"))
 	}
-	if len(l.BridgeTokens) < 1 {
-		laneConfigError = multierr.Append(laneConfigError, errors.New("must set at least 1 bridge_tokens"))
-	}
+
 	for _, token := range l.BridgeTokens {
-		if token == "" || !common.IsHexAddress(token) {
+		if token != "" && !common.IsHexAddress(token) {
 			laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for bridge_tokens"))
 		}
 	}
-	if len(l.BridgeTokenPools) < 1 {
-		laneConfigError = multierr.Append(laneConfigError, errors.New("must set at least 1 bridge_tokens_pools"))
-	}
+
 	for _, pool := range l.BridgeTokenPools {
-		if pool == "" || !common.IsHexAddress(pool) {
+		if pool != "" && !common.IsHexAddress(pool) {
 			laneConfigError = multierr.Append(laneConfigError, errors.New("must set proper address for bridge_tokens_pools"))
 		}
 	}
@@ -89,15 +86,73 @@ type Lanes struct {
 	LaneConfigs map[string]*LaneConfig `json:"lane_configs"`
 }
 
-func (l *Lanes) ReadLaneConfig(networkA string) (*LaneConfig, error) {
+func (l *Lanes) ReadLaneConfig(networkA string) *LaneConfig {
 	laneMu.Lock()
 	defer laneMu.Unlock()
-	_, ok := l.LaneConfigs[networkA]
+	cfg, ok := l.LaneConfigs[networkA]
 	if !ok {
-		l.LaneConfigs[networkA] = &LaneConfig{}
-
+		l.LaneConfigs[networkA] = &LaneConfig{
+			SrcContracts:    make(map[string]SourceContracts),
+			DestContracts:   make(map[string]DestContracts),
+			SrcContractsMu:  &sync.Mutex{},
+			DestContractsMu: &sync.Mutex{},
+		}
+		return l.LaneConfigs[networkA]
 	}
-	return l.LaneConfigs[networkA], nil
+	if cfg.SrcContractsMu == nil {
+		l.LaneConfigs[networkA].SrcContractsMu = &sync.Mutex{}
+	}
+	if cfg.DestContractsMu == nil {
+		l.LaneConfigs[networkA].DestContractsMu = &sync.Mutex{}
+	}
+	return l.LaneConfigs[networkA]
+}
+
+// CopyCommonContracts copies network config for common contracts from fromNetwork to toNetwork
+// if the toNetwork already exists, it does nothing
+// If reuse is set to false, it only retains the token contracts
+func (l *Lanes) CopyCommonContracts(fromNetwork, toNetwork string, reuse, isTokenTransfer bool) {
+	laneMu.Lock()
+	defer laneMu.Unlock()
+	// if the toNetwork already exists, return
+	if _, ok := l.LaneConfigs[toNetwork]; ok {
+		return
+	}
+	existing, ok := l.LaneConfigs[fromNetwork]
+	if !ok {
+		l.LaneConfigs[toNetwork] = &LaneConfig{
+			SrcContracts:    make(map[string]SourceContracts),
+			DestContracts:   make(map[string]DestContracts),
+			SrcContractsMu:  &sync.Mutex{},
+			DestContractsMu: &sync.Mutex{},
+		}
+		return
+	}
+	cfg := &LaneConfig{
+		SrcContracts:    make(map[string]SourceContracts),
+		SrcContractsMu:  &sync.Mutex{},
+		DestContractsMu: &sync.Mutex{},
+		DestContracts:   make(map[string]DestContracts),
+		CommonContracts: CommonContracts{
+			FeeToken:      existing.FeeToken,
+			WrappedNative: existing.WrappedNative,
+		},
+	}
+	// if reuse is set to true, it copies all the common contracts except the router
+	if reuse {
+		cfg.CommonContracts.PriceRegistry = existing.PriceRegistry
+		cfg.CommonContracts.ARM = existing.ARM
+		cfg.CommonContracts.IsNativeFeeToken = existing.IsNativeFeeToken
+		cfg.CommonContracts.IsMockARM = existing.IsMockARM
+	}
+	// if it is a token transfer, it copies the bridge token contracts
+	if isTokenTransfer {
+		cfg.CommonContracts.BridgeTokens = existing.BridgeTokens
+		if reuse {
+			cfg.CommonContracts.BridgeTokenPools = existing.BridgeTokenPools
+		}
+	}
+	l.LaneConfigs[toNetwork] = cfg
 }
 
 func (l *Lanes) WriteLaneConfig(networkA string, cfg *LaneConfig) error {

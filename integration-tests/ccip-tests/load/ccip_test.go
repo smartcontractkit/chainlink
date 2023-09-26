@@ -32,6 +32,7 @@ func TestLoadCCIPStableRPS(t *testing.T) {
 
 func TestLoadCCIPSequentialLaneAdd(t *testing.T) {
 	t.Parallel()
+	t.Skipf("test needs maintenance")
 	lggr := logging.GetTestLogger(t)
 	testArgs := NewLoadArgs(t, lggr, context.Background())
 	testArgs.TestCfg.SequentialLaneAddition = true

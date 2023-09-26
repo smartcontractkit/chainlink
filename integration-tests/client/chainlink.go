@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
-
-	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-resty/resty/v2"
@@ -91,6 +90,14 @@ func initRestyClient(url string, email string, password string, timeout *time.Du
 // URL Chainlink instance http url
 func (c *ChainlinkClient) URL() string {
 	return c.Config.URL
+}
+
+func (c *ChainlinkClient) SetLogger(l zerolog.Logger) {
+	c.l = l
+}
+
+func (c *ChainlinkClient) AddRetryAttempt(retryCount int) {
+	c.APIClient.RetryCount = retryCount
 }
 
 // CreateJobRaw creates a Chainlink job based on the provided spec string
