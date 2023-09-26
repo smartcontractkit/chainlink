@@ -6,7 +6,9 @@
 
 ## 0.8.0 - UNRELEASED
 
-...
+### Changed
+
+- Add a re-entrancy guard to VRFCoordinatorV2Mock to mimic VRFCoordinatorV2's behavior (#10585)
 
 ## 0.7.1 - 2023-09-20
 
