@@ -90,9 +90,9 @@ func NewCoreRelayerChainInteroperators(initFuncs ...CoreRelayerChainInitFunc) (*
 		srvs:         make([]services.ServiceCtx, 0),
 	}
 	for _, initFn := range initFuncs {
-		err2 := initFn(cr)
-		if err2 != nil {
-			return nil, err2
+		err := initFn(cr)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return cr, nil

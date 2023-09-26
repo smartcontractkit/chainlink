@@ -14,7 +14,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   /// @dev may not be provided upon construction on some chains due to lack of availability
   LinkTokenInterface public LINK;
   /// @dev may not be provided upon construction on some chains due to lack of availability
-  AggregatorV3Interface public LINK_ETH_FEED;
+  AggregatorV3Interface public LINK_NATIVE_FEED;
 
   // We need to maintain a list of consuming addresses.
   // This bound ensures we are able to loop over them as needed.
@@ -31,9 +31,9 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   error MustBeRequestedOwner(address proposedOwner);
   error BalanceInvariantViolated(uint256 internalBalance, uint256 externalBalance); // Should never happen
   event FundsRecovered(address to, uint256 amount);
-  event EthFundsRecovered(address to, uint256 amount);
+  event NativeFundsRecovered(address to, uint256 amount);
   error LinkAlreadySet();
-  error FailedToSendEther();
+  error FailedToSendNative();
   error FailedToTransferLink();
   error IndexOutOfRange();
   error LinkNotSet();
@@ -45,7 +45,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     uint96 balance; // Common link balance used for all consumer requests.
     // a uint96 is large enough to hold around ~8e28 wei, or 80 billion ether.
     // That should be enough to cover most (if not all) subscriptions.
-    uint96 ethBalance; // Common eth balance used for all consumer requests.
+    uint96 nativeBalance; // Common native balance used for all consumer requests.
     uint64 reqCount;
   }
   // We use the config for the mgmt APIs
@@ -64,7 +64,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   mapping(address => mapping(uint256 => uint64)) /* consumer */ /* subId */ /* nonce */ internal s_consumers;
   mapping(uint256 => SubscriptionConfig) /* subId */ /* subscriptionConfig */ internal s_subscriptionConfigs;
   mapping(uint256 => Subscription) /* subId */ /* subscription */ internal s_subscriptions;
-  // subscription nonce used to construct subID. Rises monotonically
+  // subscription nonce used to construct subId. Rises monotonically
   uint64 public s_currentSubNonce;
   // track all subscription id's that were created by this contract
   // note: access should be through the getActiveSubscriptionIds() view function
@@ -78,20 +78,20 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   // A discrepancy with this contract's link balance indicates someone
   // sent tokens using transfer and so we may need to use recoverFunds.
   uint96 public s_totalBalance;
-  // s_totalEthBalance tracks the total eth sent to/from
-  // this contract through fundSubscription, cancelSubscription and oracleWithdrawEth.
-  // A discrepancy with this contract's eth balance indicates someone
-  // sent eth using transfer and so we may need to use recoverEthFunds.
-  uint96 public s_totalEthBalance;
+  // s_totalNativeBalance tracks the total native sent to/from
+  // this contract through fundSubscription, cancelSubscription and oracleWithdrawNative.
+  // A discrepancy with this contract's native balance indicates someone
+  // sent native using transfer and so we may need to use recoverNativeFunds.
+  uint96 public s_totalNativeBalance;
   mapping(address => uint96) /* oracle */ /* LINK balance */ internal s_withdrawableTokens;
-  mapping(address => uint96) /* oracle */ /* ETH balance */ internal s_withdrawableEth;
+  mapping(address => uint96) /* oracle */ /* native balance */ internal s_withdrawableNative;
 
   event SubscriptionCreated(uint256 indexed subId, address owner);
   event SubscriptionFunded(uint256 indexed subId, uint256 oldBalance, uint256 newBalance);
-  event SubscriptionFundedWithEth(uint256 indexed subId, uint256 oldEthBalance, uint256 newEthBalance);
+  event SubscriptionFundedWithNative(uint256 indexed subId, uint256 oldNativeBalance, uint256 newNativeBalance);
   event SubscriptionConsumerAdded(uint256 indexed subId, address consumer);
   event SubscriptionConsumerRemoved(uint256 indexed subId, address consumer);
-  event SubscriptionCanceled(uint256 indexed subId, address to, uint256 amountLink, uint256 amountEth);
+  event SubscriptionCanceled(uint256 indexed subId, address to, uint256 amountLink, uint256 amountNative);
   event SubscriptionOwnerTransferRequested(uint256 indexed subId, address from, address to);
   event SubscriptionOwnerTransferred(uint256 indexed subId, address from, address to);
 
@@ -128,18 +128,18 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   constructor() ConfirmedOwner(msg.sender) {}
 
   /**
-   * @notice set the LINK token contract and link eth feed to be
+   * @notice set the LINK token contract and link native feed to be
    * used by this coordinator
    * @param link - address of link token
-   * @param linkEthFeed address of the link eth feed
+   * @param linkNativeFeed address of the link native feed
    */
-  function setLINKAndLINKETHFeed(address link, address linkEthFeed) external onlyOwner {
+  function setLINKAndLINKNativeFeed(address link, address linkNativeFeed) external onlyOwner {
     // Disallow re-setting link token because the logic wouldn't really make sense
     if (address(LINK) != address(0)) {
       revert LinkAlreadySet();
     }
     LINK = LinkTokenInterface(link);
-    LINK_ETH_FEED = AggregatorV3Interface(linkEthFeed);
+    LINK_NATIVE_FEED = AggregatorV3Interface(linkNativeFeed);
   }
 
   /**
@@ -183,12 +183,12 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   }
 
   /**
-   * @notice Recover eth sent with transfer/call/send instead of fundSubscription.
-   * @param to address to send eth to
+   * @notice Recover native sent with transfer/call/send instead of fundSubscription.
+   * @param to address to send native to
    */
-  function recoverEthFunds(address payable to) external onlyOwner {
+  function recoverNativeFunds(address payable to) external onlyOwner {
     uint256 externalBalance = address(this).balance;
-    uint256 internalBalance = uint256(s_totalEthBalance);
+    uint256 internalBalance = uint256(s_totalNativeBalance);
     if (internalBalance > externalBalance) {
       revert BalanceInvariantViolated(internalBalance, externalBalance);
     }
@@ -196,9 +196,9 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
       uint256 amount = externalBalance - internalBalance;
       (bool sent, ) = to.call{value: amount}("");
       if (!sent) {
-        revert FailedToSendEther();
+        revert FailedToSendNative();
       }
-      emit EthFundsRecovered(to, amount);
+      emit NativeFundsRecovered(to, amount);
     }
     // If the balances are equal, nothing to be done.
   }
@@ -223,20 +223,20 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   }
 
   /*
-   * @notice Oracle withdraw ETH earned through fulfilling requests
+   * @notice Oracle withdraw native earned through fulfilling requests
    * @param recipient where to send the funds
    * @param amount amount to withdraw
    */
-  function oracleWithdrawEth(address payable recipient, uint96 amount) external nonReentrant {
-    if (s_withdrawableEth[msg.sender] < amount) {
+  function oracleWithdrawNative(address payable recipient, uint96 amount) external nonReentrant {
+    if (s_withdrawableNative[msg.sender] < amount) {
       revert InsufficientBalance();
     }
     // Prevent re-entrancy by updating state before transfer.
-    s_withdrawableEth[msg.sender] -= amount;
-    s_totalEthBalance -= amount;
+    s_withdrawableNative[msg.sender] -= amount;
+    s_totalNativeBalance -= amount;
     (bool sent, ) = recipient.call{value: amount}("");
     if (!sent) {
-      revert FailedToSendEther();
+      revert FailedToSendNative();
     }
   }
 
@@ -262,7 +262,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
   /**
    * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function fundSubscriptionWithEth(uint256 subId) external payable override nonReentrant {
+  function fundSubscriptionWithNative(uint256 subId) external payable override nonReentrant {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
@@ -270,10 +270,10 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     // anyone can fund a subscription.
     // We also do not check that msg.value > 0, since that's just a no-op
     // and would be a waste of gas on the caller's part.
-    uint256 oldEthBalance = s_subscriptions[subId].ethBalance;
-    s_subscriptions[subId].ethBalance += uint96(msg.value);
-    s_totalEthBalance += uint96(msg.value);
-    emit SubscriptionFundedWithEth(subId, oldEthBalance, oldEthBalance + msg.value);
+    uint256 oldNativeBalance = s_subscriptions[subId].nativeBalance;
+    s_subscriptions[subId].nativeBalance += uint96(msg.value);
+    s_totalNativeBalance += uint96(msg.value);
+    emit SubscriptionFundedWithNative(subId, oldNativeBalance, oldNativeBalance + msg.value);
   }
 
   /**
@@ -285,14 +285,14 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     public
     view
     override
-    returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers)
+    returns (uint96 balance, uint96 nativeBalance, uint64 reqCount, address owner, address[] memory consumers)
   {
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
     return (
       s_subscriptions[subId].balance,
-      s_subscriptions[subId].ethBalance,
+      s_subscriptions[subId].nativeBalance,
       s_subscriptions[subId].reqCount,
       s_subscriptionConfigs[subId].owner,
       s_subscriptionConfigs[subId].consumers
@@ -329,7 +329,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     s_currentSubNonce++;
     // Initialize storage variables.
     address[] memory consumers = new address[](0);
-    s_subscriptions[subId] = Subscription({balance: 0, ethBalance: 0, reqCount: 0});
+    s_subscriptions[subId] = Subscription({balance: 0, nativeBalance: 0, reqCount: 0});
     s_subscriptionConfigs[subId] = SubscriptionConfig({
       owner: msg.sender,
       requestedOwner: address(0),
@@ -392,11 +392,11 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     emit SubscriptionConsumerAdded(subId, consumer);
   }
 
-  function deleteSubscription(uint256 subId) internal returns (uint96 balance, uint96 ethBalance) {
+  function deleteSubscription(uint256 subId) internal returns (uint96 balance, uint96 nativeBalance) {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     Subscription memory sub = s_subscriptions[subId];
     balance = sub.balance;
-    ethBalance = sub.ethBalance;
+    nativeBalance = sub.nativeBalance;
     // Note bounded by MAX_CONSUMERS;
     // If no consumers, does nothing.
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
@@ -406,12 +406,12 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     delete s_subscriptions[subId];
     s_subIds.remove(subId);
     s_totalBalance -= balance;
-    s_totalEthBalance -= ethBalance;
-    return (balance, ethBalance);
+    s_totalNativeBalance -= nativeBalance;
+    return (balance, nativeBalance);
   }
 
   function cancelSubscriptionHelper(uint256 subId, address to) internal {
-    (uint96 balance, uint96 ethBalance) = deleteSubscription(subId);
+    (uint96 balance, uint96 nativeBalance) = deleteSubscription(subId);
 
     // Only withdraw LINK if the token is active and there is a balance.
     if (address(LINK) != address(0) && balance != 0) {
@@ -420,12 +420,12 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
       }
     }
 
-    // send eth to the "to" address using call
-    (bool success, ) = to.call{value: uint256(ethBalance)}("");
+    // send native to the "to" address using call
+    (bool success, ) = to.call{value: uint256(nativeBalance)}("");
     if (!success) {
-      revert FailedToSendEther();
+      revert FailedToSendNative();
     }
-    emit SubscriptionCanceled(subId, to, balance, ethBalance);
+    emit SubscriptionCanceled(subId, to, balance, nativeBalance);
   }
 
   modifier onlySubOwner(uint256 subId) {
