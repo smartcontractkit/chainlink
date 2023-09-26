@@ -128,7 +128,6 @@ func WithP2Pv2() NodeConfigOpt {
 }
 
 func WithTracing() NodeConfigOpt {
-	
 	return func(c *chainlink.Config) {
 		c.Tracing = toml.Tracing{
 			Enabled: utils2.Ptr(true),

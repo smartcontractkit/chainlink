@@ -101,7 +101,7 @@ func TestOCRv2Basic(t *testing.T) {
 		roundData.Answer.Int64(),
 	)
 
-	require.Equal(t, 1, 2)
+	//require.Equal(t, 1, 2)
 }
 
 func setupOCR2Test(t *testing.T, forwardersEnabled bool) (

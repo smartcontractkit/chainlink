@@ -55,7 +55,6 @@ ENV XDG_CACHE_HOME /home/${CHAINLINK_USER}/.cache
 RUN mkdir -p ${XDG_CACHE_HOME}
 
 EXPOSE 6688
-EXPOSE 50051
 ENTRYPOINT ["chainlink"]
 
 HEALTHCHECK CMD curl -f http://localhost:6688/health || exit 1
