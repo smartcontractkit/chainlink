@@ -97,6 +97,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   struct Callback {
     address callbackAddress;
     uint32 callbackGasLimit;
+    // Reducing requestGasPrice from uint256 to uint64 slots Callback struct
+    // into a single word, thus saving an entire SSTORE and leading to 21K
+    // gas cost saving. 18 ETH would be the max gas price we can process.
+    // GasPrice is unlikely to be more than 14 ETH on most chains
     uint64 requestGasPrice;
   }
   mapping(uint256 => Callback) /* requestID */ /* callback */ public s_callbacks;
