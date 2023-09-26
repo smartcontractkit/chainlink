@@ -18,7 +18,7 @@ func TestIngressAgent(t *testing.T) {
 
 	// Handle the Send call and store the telem
 	var telemPayload synchronization.TelemPayload
-	telemetryClient.On("Send", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
+	telemetryClient.On("Send", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
 		telemPayload = synchronization.TelemPayload{
 			Telemetry:  args[1].([]byte),
 			ContractID: args[2].(string),

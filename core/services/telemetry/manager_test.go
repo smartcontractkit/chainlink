@@ -234,7 +234,7 @@ func TestCorrectEndpointRouting(t *testing.T) {
 	clientSent := make([]synchronization.TelemPayload, 0)
 	for i, e := range testEndpoints {
 		clientMock := mocks2.NewTelemetryService(t)
-		clientMock.On("Send", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
+		clientMock.On("Send", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
 			clientSent = append(clientSent, synchronization.TelemPayload{
 				Telemetry:  args[1].([]byte),
 				ContractID: args[2].(string),

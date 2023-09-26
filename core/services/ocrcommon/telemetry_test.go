@@ -191,7 +191,7 @@ func TestSendEATelemetry(t *testing.T) {
 	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA, "test-network", "test-chainID")
 
 	var sentMessage []byte
-	ingressClient.On("Send", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
+	ingressClient.On("Send", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
 		sentMessage = args[1].([]byte)
 		wg.Done()
 	})
@@ -305,7 +305,7 @@ func TestCollectAndSend(t *testing.T) {
 	ingressClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
 	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA, "test-network", "test-chainID")
-	ingressClient.On("Send", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
+	ingressClient.On("Send", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
 		wg.Done()
 	})
 
@@ -554,7 +554,7 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEAMercury, "test-network", "test-chainID")
 
 	var sentMessage []byte
-	ingressClient.On("Send", mock.AnythingOfType("*context.emptyCtx"), mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
+	ingressClient.On("Send", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
 		sentMessage = args[1].([]byte)
 		wg.Done()
 	})
