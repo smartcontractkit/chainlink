@@ -5,6 +5,7 @@ import (
 	"math/big"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"testing"
 	"time"
 
@@ -337,13 +338,21 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 	require.NoError(t, p.BatchCallContextAll(ctx, b))
 }
 
-func TestUnit_Pool_SwitchToBestNode(t *testing.T) {
+func TestUnit_Pool_LeaseDuration(t *testing.T) {
 	t.Parallel()
 
 	n1 := evmmocks.NewNode(t)
 	n2 := evmmocks.NewNode(t)
 	nodes := []evmclient.Node{n1, n2}
-	isAlive := true
+	type nodeStateSwitch struct {
+		isAlive bool
+		mu      sync.RWMutex
+	}
+
+	nodeSwitch := nodeStateSwitch{
+		isAlive: true,
+		mu:      sync.RWMutex{},
+	}
 
 	n1.On("String").Maybe().Return("n1")
 	n2.On("String").Maybe().Return("n2")
@@ -354,7 +363,9 @@ func TestUnit_Pool_SwitchToBestNode(t *testing.T) {
 
 	n1.On("Start", mock.Anything).Return(nil).Once()
 	n1.On("State").Return(func() evmclient.NodeState {
-		if isAlive {
+		nodeSwitch.mu.RLock()
+		defer nodeSwitch.mu.RUnlock()
+		if nodeSwitch.isAlive {
 			return evmclient.NodeStateAlive
 		}
 		return evmclient.NodeStateOutOfSync
@@ -373,9 +384,13 @@ func TestUnit_Pool_SwitchToBestNode(t *testing.T) {
 	t.Cleanup(func() { assert.NoError(t, p.Close()) })
 
 	testutils.WaitForLogMessage(t, observedLogs, "The pool will switch to best node every 2s")
-	isAlive = false
+	nodeSwitch.mu.Lock()
+	nodeSwitch.isAlive = false
+	nodeSwitch.mu.Unlock()
 	testutils.WaitForLogMessage(t, observedLogs, "At least one EVM primary node is dead")
-	isAlive = true
+	nodeSwitch.mu.Lock()
+	nodeSwitch.isAlive = true
+	nodeSwitch.mu.Unlock()
 	testutils.WaitForLogMessage(t, observedLogs, `Switching to best node from "n2" to "n1"`)
 
 }
