@@ -253,6 +253,16 @@ func (c *plugin) ShouldAcceptFinalizedReport(ctx context.Context, ts types.Repor
 			Confirmed:  true,
 			Signature:  row.Signature,
 		}
+
+		now := time.Now().UnixMilli()
+		if now > ormRow.Expiration {
+			c.logger.Error("Received an expired entry in a report, not saving", commontypes.LogFields{
+				"expirationTs": ormRow.Expiration,
+				"nowTs":        now,
+			})
+			continue
+		}
+
 		err = c.orm.Update(ormRow, pg.WithParentCtx(ctx))
 		if err != nil && !errors.Is(err, s4.ErrVersionTooLow) {
 			c.logger.Error("Failed to Update a row in ShouldAcceptFinalizedReport()", commontypes.LogFields{"err": err})
