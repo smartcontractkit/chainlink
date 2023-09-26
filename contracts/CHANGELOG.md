@@ -3,6 +3,7 @@
 ## Unreleased
 
 ...
+- Update npm dependencies, @openzeppelin/contracts and @openzeppelin/contracts-upgradeable to v4.9.3
 
 ## 0.7.1 - 2023-09-20
 
