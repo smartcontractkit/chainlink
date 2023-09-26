@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
@@ -419,12 +418,19 @@ func main() {
 		}
 
 		if *startBlock == -1 {
-			tx, err2 := bhs.StoreEarliest(e.Owner)
-			helpers.PanicErr(err2)
-			receipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "Store Earliest")
-			// storeEarliest will store receipt block number minus 256 which is the earliest block
-			// the blockhash() instruction will work on.
-			*startBlock = receipt.BlockNumber.Int64() - 256
+			closestBlock, err2 := scripts.ClosestBlock(e, common.HexToAddress(*batchAddr), uint64(*endBlock), uint64(*batchSize))
+			// found a block with blockhash stored that's more recent that end block
+			if err2 == nil {
+				*startBlock = int64(closestBlock)
+			} else {
+				fmt.Println("encountered error while looking for closest block:", err2)
+				tx, err2 := bhs.StoreEarliest(e.Owner)
+				helpers.PanicErr(err2)
+				receipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "Store Earliest")
+				// storeEarliest will store receipt block number minus 256 which is the earliest block
+				// the blockhash() instruction will work on.
+				*startBlock = receipt.BlockNumber.Int64() - 256
+			}
 		}
 
 		// Check if the provided start block is in the BHS. If it's not, print out an appropriate
@@ -1337,27 +1343,8 @@ func main() {
 		batchBHSAddress := cmd.String("batch-bhs-address", "", "address of the batch blockhash store")
 		batchSize := cmd.Uint64("batch-size", 100, "batch size")
 		helpers.ParseArgs(cmd, os.Args[2:], "block-number", "batch-bhs-address")
-		batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(common.HexToAddress(*batchBHSAddress), e.Ec)
+		_, err := scripts.ClosestBlock(e, common.HexToAddress(*batchBHSAddress), *blockNumber, *batchSize)
 		helpers.PanicErr(err)
-		startBlock := *blockNumber + 1
-		endBlock := startBlock + *batchSize
-		for {
-			var blockRange []*big.Int
-			for i := startBlock; i <= endBlock; i++ {
-				blockRange = append(blockRange, big.NewInt(int64(i)))
-			}
-			fmt.Println("Searching range", startBlock, "-", endBlock, "inclusive")
-			hashes, err := batchBHS.GetBlockhashes(nil, blockRange)
-			helpers.PanicErr(err)
-			for i, hash := range hashes {
-				if hash != (common.Hash{}) {
-					fmt.Println("found closest block:", startBlock+uint64(i), "hash:", hexutil.Encode(hash[:]))
-					return
-				}
-			}
-			startBlock = endBlock + 1
-			endBlock = startBlock + *batchSize
-		}
 	case "wrapper-universe-deploy":
 		scripts.DeployWrapperUniverse(e)
 	default:
