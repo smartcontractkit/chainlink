@@ -199,10 +199,13 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Start(ctx 
 
 // Reset stops Broadcaster/Confirmer, executes callback, then starts them again
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reset(addr ADDR, abandon bool) (err error) {
+
+	b.logger.Debugf("Txm reset called with abandon $1", abandon)
 	ok := b.IfStarted(func() {
 		done := make(chan error)
 		f := func() {
 			if abandon {
+				b.logger.Debugf("Txm reset and abandoning pending transactions")
 				err = b.abandon(addr)
 			}
 		}
@@ -222,6 +225,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Reset(addr
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) abandon(addr ADDR) (err error) {
 	ctx, cancel := utils.StopChan(b.chStop).NewCtx()
 	defer cancel()
+	b.logger.Debugf("Txm calling TxStore to abadon all pending transactions")
 	err = b.txStore.Abandon(ctx, b.chainID, addr)
 	return pkgerrors.Wrapf(err, "abandon failed to update txes for key %s", addr.String())
 }

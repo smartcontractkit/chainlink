@@ -1763,6 +1763,7 @@ func (o *evmTxStore) Abandon(ctx context.Context, chainID *big.Int, addr common.
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	o.logger.Debugf("Abandoning all txs that are not confirmed")
 	_, err := qq.Exec(`UPDATE evm.txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, chainID.String(), addr)
 	return err
 }

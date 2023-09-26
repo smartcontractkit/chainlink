@@ -22,6 +22,8 @@ on:
           - "SCROLL_MAINNET"
           - "MUMBAI"
           - "POLYGON_MAINNET"   
+          - "WEMIX_TESTNET"
+          - "WEMIX_MAINNET"
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false

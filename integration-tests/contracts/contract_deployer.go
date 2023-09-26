@@ -159,6 +159,8 @@ func NewContractDeployer(bcClient blockchain.EVMClient, logger zerolog.Logger) (
 		return &ScrollContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.PolygonZkEvmClient:
 		return &PolygonZkEvmContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+	case *blockchain.WeMixClient:
+		return &WeMixContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -215,6 +217,10 @@ type ScrollContractDeployer struct {
 }
 
 type PolygonZkEvmContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type WeMixContractDeployer struct {
 	*EthereumContractDeployer
 }
 
