@@ -2,8 +2,11 @@ package pg_test
 
 import (
 	"context"
+	"net/url"
 	"testing"
 	"time"
+
+	"github.com/test-go/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -101,4 +104,15 @@ func TestOpenUnlockedDB(t *testing.T) {
 
 	require.NoError(t, db1.Close())
 	require.NoError(t, db2.Close())
+}
+
+func TestConnectionOpt(t *testing.T) {
+	t.Parallel()
+
+	url := new(url.URL)
+	override, err := url.Parse("postgres://postgres:password@localhost:5432/chainlink_dev_test?sslmode=disable")
+	require.NoError(t, err)
+	pg.WithURL(*override)(url)
+
+	assert.EqualValues(t, override, url)
 }

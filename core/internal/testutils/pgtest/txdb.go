@@ -80,12 +80,6 @@ type txDriver struct {
 	conns map[string]map[string]*conn // url -> (uuid -> db) so we can close per url
 }
 
-func cleanseURL(u *url.URL) {
-	q := u.Query()
-	q.Del("uuid")
-	u.RawQuery = q.Encode()
-
-}
 func (d *txDriver) Open(connection string) (driver.Conn, error) {
 	d.Lock()
 	defer d.Unlock()

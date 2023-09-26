@@ -2,11 +2,12 @@ package pg
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"net/url"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -71,7 +72,7 @@ func (l *lockedDb) Open(ctx context.Context, opts ...ConnectionOpt) (err error) 
 	l.db, err = openDB(l.appID, l.cfg)
 	if err != nil {
 		// l.db will be nil in case of error
-		return errors.Wrap(err, "failed to open db")
+		return fmt.Errorf("failed to open db: %w", err)
 	}
 	revert := func() {
 		// Let Open() return the actual error, while l.Close() error is just logged.
@@ -99,7 +100,7 @@ func (l *lockedDb) Open(ctx context.Context, opts ...ConnectionOpt) (err error) 
 		l.leaseLock = NewLeaseLock(l.db, l.appID, l.lggr, cfg)
 		if err = l.leaseLock.TakeAndHold(ctx); err != nil {
 			defer revert()
-			return errors.Wrap(err, "failed to take initial lease on database")
+			return fmt.Errorf("failed to take initial lease on database: %w", err)
 		}
 	}
 
@@ -145,7 +146,7 @@ func openDB(appID uuid.UUID, cfg LockedDBConfig, opts ...ConnectionOpt) (db *sql
 	static.SetConsumerName(&uri, "App", &appID)
 	dialect := cfg.Dialect()
 	for _, opt := range opts {
-		opt(&uri)
+		err = errors.Join(err, opt(&uri))
 	}
 	db, err = NewConnection(uri.String(), dialect, cfg)
 	return
@@ -156,32 +157,28 @@ type ConnectionOpt func(*url.URL) error
 // WithSchema scopes the current url connection string to the given schema
 func WithSchema(schema string) ConnectionOpt {
 	return func(url *url.URL) (err error) {
-		url, err = SchemaScopedConnection(*url, schema)
+		*url = SchemaScopedConnection(*url, schema)
 		return
 	}
 }
 
 // WithURL sets the url connection string
-func WithURL(override string) ConnectionOpt {
+func WithURL(override url.URL) ConnectionOpt {
 	return func(url *url.URL) (err error) {
-		url, err = url.Parse(override)
+		(*url) = override
 		return
 	}
 }
 
-func SchemaScopedConnection(conn url.URL, schema string) (*url.URL, error) {
+func SchemaScopedConnection(conn url.URL, schema string) url.URL {
 	// documentation on this options is limited; find by searching the official postgres docs
 	// https://www.postgresql.org/docs/16/app-psql.html
 
-	//TODO real parsing for connection query string
+	u := conn
 	opt := "options=-csearch_path="
-	u, err := url.Parse(conn.String())
-	if err != nil {
-		return nil, err
-	}
 	queryVals := u.Query()
 	queryVals.Add(opt, schema)
 
 	u.RawQuery = queryVals.Encode()
-	return u, nil
+	return u
 }

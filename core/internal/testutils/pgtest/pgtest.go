@@ -39,12 +39,12 @@ func uniqueConnection(t testing.TB) *url.URL {
 	return url
 }
 
-func NewSqlxDB(t testing.TB, opts ...ConnectionOpt) *sqlx.DB {
+func NewSqlxDB(t testing.TB, opts ...pg.ConnectionOpt) *sqlx.DB {
 	testutils.SkipShortDB(t)
 
 	url := uniqueConnection(t)
 	for _, opt := range opts {
-		opt(url)
+		assert.NoError(t, opt(url))
 	}
 	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), url.String())
 	require.NoError(t, err)
@@ -53,14 +53,6 @@ func NewSqlxDB(t testing.TB, opts ...ConnectionOpt) *sqlx.DB {
 	db.MapperFunc(reflectx.CamelToSnakeASCII)
 
 	return db
-}
-
-type ConnectionOpt func(*url.URL)
-
-func WithURL(override url.URL) ConnectionOpt {
-	return func(u *url.URL) {
-		u = &override
-	}
 }
 
 func MustExec(t *testing.T, db *sqlx.DB, stmt string, args ...interface{}) {
