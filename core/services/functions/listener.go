@@ -724,7 +724,7 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 			Version: donSecrets.Version,
 		})
 		if err != nil {
-			return "", errors.Wrap(err, "failed to fetch S4 record for a secret"), nil
+			return "", errors.Wrap(err, "failed to fetch DONHosted secrets"), nil
 		}
 		secrets = record.Payload
 	}
