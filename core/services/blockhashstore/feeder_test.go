@@ -23,7 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	loggermocks "github.com/smartcontractkit/chainlink/v2/core/logger/mocks"
@@ -31,37 +31,22 @@ import (
 
 const (
 	// VRF-only events.
-	randomWordsRequestedV2Plus          string = "RandomWordsRequested"
-	randomWordsFulfilledV2Plus          string = "RandomWordsFulfilled"
-	randomWordsRequestedV2              string = "RandomWordsRequested"
-	randomWordsFulfilledV2              string = "RandomWordsFulfilled"
-	randomWordsRequestedV1              string = "RandomnessRequest"
-	randomWordsFulfilledV1              string = "RandomnessRequestFulfilled"
-	randomnessFulfillmentRequestedEvent string = "RandomnessFulfillmentRequested"
-	randomWordsFulfilledEvent           string = "RandomWordsFulfilled"
-	newTransmissionEvent                string = "NewTransmission"
-	outputsServedEvent                  string = "OutputsServed"
+	randomWordsRequestedV2Plus string = "RandomWordsRequested"
+	randomWordsFulfilledV2Plus string = "RandomWordsFulfilled"
+	randomWordsRequestedV2     string = "RandomWordsRequested"
+	randomWordsFulfilledV2     string = "RandomWordsFulfilled"
+	randomWordsRequestedV1     string = "RandomnessRequest"
+	randomWordsFulfilledV1     string = "RandomnessRequestFulfilled"
 )
 
 var (
-	vrfCoordinatorV2PlusABI = evmtypes.MustGetABI(vrf_coordinator_v2plus.VRFCoordinatorV2PlusMetaData.ABI)
+	vrfCoordinatorV2PlusABI = evmtypes.MustGetABI(vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalMetaData.ABI)
 	vrfCoordinatorV2ABI     = evmtypes.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2MetaData.ABI)
 	vrfCoordinatorV1ABI     = evmtypes.MustGetABI(solidity_vrf_coordinator_interface.VRFCoordinatorMetaData.ABI)
 
 	_     Coordinator = &TestCoordinator{}
 	_     BHS         = &TestBHS{}
-	tests             = []struct {
-		name                    string
-		requests                []Event
-		fulfillments            []Event
-		wait                    int
-		lookback                int
-		latest                  uint64
-		bhs                     TestBHS
-		expectedStored          []uint64
-		expectedStoredMapBlocks []uint64 // expected state of stored map in Feeder struct
-		expectedErrMsg          string
-	}{
+	tests             = []testCase{
 		{
 			name:                    "single unfulfilled request",
 			requests:                []Event{{Block: 150, ID: "1000"}},
@@ -363,327 +348,344 @@ func TestStartHeartbeats(t *testing.T) {
 	})
 }
 
+type testCase struct {
+	name                    string
+	requests                []Event
+	fulfillments            []Event
+	wait                    int
+	lookback                int
+	latest                  uint64
+	bhs                     TestBHS
+	expectedStored          []uint64
+	expectedStoredMapBlocks []uint64 // expected state of stored map in Feeder struct
+	expectedErrMsg          string
+}
+
 func TestFeeder(t *testing.T) {
-
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			coordinator := &TestCoordinator{
-				RequestEvents:     test.requests,
-				FulfillmentEvents: test.fulfillments,
-			}
-
-			lp := &mocklp.LogPoller{}
-			feeder := NewFeeder(
-				logger.TestLogger(t),
-				coordinator,
-				&test.bhs,
-				lp,
-				0,
-				test.wait,
-				test.lookback,
-				600*time.Second,
-				func(ctx context.Context) (uint64, error) {
-					return test.latest, nil
-				})
-
-			err := feeder.Run(testutils.Context(t))
-			if test.expectedErrMsg == "" {
-				require.NoError(t, err)
-			} else {
-				require.EqualError(t, err, test.expectedErrMsg)
-			}
-
-			require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-			require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
-		})
+		t.Run(test.name, test.testFeeder)
 	}
+}
+
+func (test testCase) testFeeder(t *testing.T) {
+	coordinator := &TestCoordinator{
+		RequestEvents:     test.requests,
+		FulfillmentEvents: test.fulfillments,
+	}
+
+	lp := &mocklp.LogPoller{}
+	feeder := NewFeeder(
+		logger.TestLogger(t),
+		coordinator,
+		&test.bhs,
+		lp,
+		0,
+		test.wait,
+		test.lookback,
+		600*time.Second,
+		func(ctx context.Context) (uint64, error) {
+			return test.latest, nil
+		})
+
+	err := feeder.Run(testutils.Context(t))
+	if test.expectedErrMsg == "" {
+		require.NoError(t, err)
+	} else {
+		require.EqualError(t, err, test.expectedErrMsg)
+	}
+
+	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
+	require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
 }
 
 func TestFeederWithLogPollerVRFv1(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.name, test.testFeederWithLogPollerVRFv1)
+	}
+}
 
+func (test testCase) testFeederWithLogPollerVRFv1(t *testing.T) {
 	var coordinatorAddress = common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			// Instantiate log poller & coordinator.
-			lp := &mocklp.LogPoller{}
-			lp.On("RegisterFilter", mock.Anything).Return(nil)
-			c, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(coordinatorAddress, nil)
-			require.NoError(t, err)
-			coordinator := &V1Coordinator{
-				c:  c,
-				lp: lp,
-			}
-
-			// Assert search window.
-			latest := int64(test.latest)
-			fromBlock := mathutil.Max(latest-int64(test.lookback), 0)
-			toBlock := mathutil.Max(latest-int64(test.wait), 0)
-
-			// Construct request logs.
-			var requestLogs []logpoller.Log
-			for _, r := range test.requests {
-				if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) {
-					continue // do not include blocks outside our search window
-				}
-				requestLogs = append(
-					requestLogs,
-					newRandomnessRequestedLogV1(t, r.Block, r.ID, coordinatorAddress),
-				)
-			}
-
-			// Construct fulfillment logs.
-			var fulfillmentLogs []logpoller.Log
-			for _, r := range test.fulfillments {
-				fulfillmentLogs = append(
-					fulfillmentLogs,
-					newRandomnessFulfilledLogV1(t, r.Block, r.ID, coordinatorAddress),
-				)
-			}
-
-			// Mock log poller.
-			lp.On("LatestBlock", mock.Anything).
-				Return(latest, nil)
-			lp.On(
-				"LogsWithSigs",
-				fromBlock,
-				toBlock,
-				[]common.Hash{
-					solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(),
-				},
-				coordinatorAddress,
-				mock.Anything,
-			).Return(requestLogs, nil)
-			lp.On(
-				"LogsWithSigs",
-				fromBlock,
-				latest,
-				[]common.Hash{
-					solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
-				},
-				coordinatorAddress,
-				mock.Anything,
-			).Return(fulfillmentLogs, nil)
-
-			// Instantiate feeder.
-			feeder := NewFeeder(
-				logger.TestLogger(t),
-				coordinator,
-				&test.bhs,
-				lp,
-				0,
-				test.wait,
-				test.lookback,
-				600*time.Second,
-				func(ctx context.Context) (uint64, error) {
-					return test.latest, nil
-				})
-
-			// Run feeder and assert correct results.
-			err = feeder.Run(testutils.Context(t))
-			if test.expectedErrMsg == "" {
-				require.NoError(t, err)
-			} else {
-				require.EqualError(t, err, test.expectedErrMsg)
-			}
-			require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-			require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
-		})
+	// Instantiate log poller & coordinator.
+	lp := &mocklp.LogPoller{}
+	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	c, err := solidity_vrf_coordinator_interface.NewVRFCoordinator(coordinatorAddress, nil)
+	require.NoError(t, err)
+	coordinator := &V1Coordinator{
+		c:  c,
+		lp: lp,
 	}
+
+	// Assert search window.
+	latest := int64(test.latest)
+	fromBlock := mathutil.Max(latest-int64(test.lookback), 0)
+	toBlock := mathutil.Max(latest-int64(test.wait), 0)
+
+	// Construct request logs.
+	var requestLogs []logpoller.Log
+	for _, r := range test.requests {
+		if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) {
+			continue // do not include blocks outside our search window
+		}
+		requestLogs = append(
+			requestLogs,
+			newRandomnessRequestedLogV1(t, r.Block, r.ID, coordinatorAddress),
+		)
+	}
+
+	// Construct fulfillment logs.
+	var fulfillmentLogs []logpoller.Log
+	for _, r := range test.fulfillments {
+		fulfillmentLogs = append(
+			fulfillmentLogs,
+			newRandomnessFulfilledLogV1(t, r.Block, r.ID, coordinatorAddress),
+		)
+	}
+
+	// Mock log poller.
+	lp.On("LatestBlock", mock.Anything).
+		Return(latest, nil)
+	lp.On(
+		"LogsWithSigs",
+		fromBlock,
+		toBlock,
+		[]common.Hash{
+			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequest{}.Topic(),
+		},
+		coordinatorAddress,
+		mock.Anything,
+	).Return(requestLogs, nil)
+	lp.On(
+		"LogsWithSigs",
+		fromBlock,
+		latest,
+		[]common.Hash{
+			solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled{}.Topic(),
+		},
+		coordinatorAddress,
+		mock.Anything,
+	).Return(fulfillmentLogs, nil)
+
+	// Instantiate feeder.
+	feeder := NewFeeder(
+		logger.TestLogger(t),
+		coordinator,
+		&test.bhs,
+		lp,
+		0,
+		test.wait,
+		test.lookback,
+		600*time.Second,
+		func(ctx context.Context) (uint64, error) {
+			return test.latest, nil
+		})
+
+	// Run feeder and assert correct results.
+	err = feeder.Run(testutils.Context(t))
+	if test.expectedErrMsg == "" {
+		require.NoError(t, err)
+	} else {
+		require.EqualError(t, err, test.expectedErrMsg)
+	}
+	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
+	require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
 }
 
 func TestFeederWithLogPollerVRFv2(t *testing.T) {
-
-	var coordinatorAddress = common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
-
 	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			// Instantiate log poller & coordinator.
-			lp := &mocklp.LogPoller{}
-			lp.On("RegisterFilter", mock.Anything).Return(nil)
-			c, err := vrf_coordinator_v2.NewVRFCoordinatorV2(coordinatorAddress, nil)
-			require.NoError(t, err)
-			coordinator := &V2Coordinator{
-				c:  c,
-				lp: lp,
-			}
-
-			// Assert search window.
-			latest := int64(test.latest)
-			fromBlock := mathutil.Max(latest-int64(test.lookback), 0)
-			toBlock := mathutil.Max(latest-int64(test.wait), 0)
-
-			// Construct request logs.
-			var requestLogs []logpoller.Log
-			for _, r := range test.requests {
-				if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) {
-					continue // do not include blocks outside our search window
-				}
-				reqId, ok := big.NewInt(0).SetString(r.ID, 10)
-				require.True(t, ok)
-				requestLogs = append(
-					requestLogs,
-					newRandomnessRequestedLogV2(t, r.Block, reqId, coordinatorAddress),
-				)
-			}
-
-			// Construct fulfillment logs.
-			var fulfillmentLogs []logpoller.Log
-			for _, r := range test.fulfillments {
-				reqId, ok := big.NewInt(0).SetString(r.ID, 10)
-				require.True(t, ok)
-				fulfillmentLogs = append(
-					fulfillmentLogs,
-					newRandomnessFulfilledLogV2(t, r.Block, reqId, coordinatorAddress),
-				)
-			}
-
-			// Mock log poller.
-			lp.On("LatestBlock", mock.Anything).
-				Return(latest, nil)
-			lp.On(
-				"LogsWithSigs",
-				fromBlock,
-				toBlock,
-				[]common.Hash{
-					vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
-				},
-				coordinatorAddress,
-				mock.Anything,
-			).Return(requestLogs, nil)
-			lp.On(
-				"LogsWithSigs",
-				fromBlock,
-				latest,
-				[]common.Hash{
-					vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
-				},
-				coordinatorAddress,
-				mock.Anything,
-			).Return(fulfillmentLogs, nil)
-
-			// Instantiate feeder.
-			feeder := NewFeeder(
-				logger.TestLogger(t),
-				coordinator,
-				&test.bhs,
-				lp,
-				0,
-				test.wait,
-				test.lookback,
-				600*time.Second,
-				func(ctx context.Context) (uint64, error) {
-					return test.latest, nil
-				})
-
-			// Run feeder and assert correct results.
-			err = feeder.Run(testutils.Context(t))
-			if test.expectedErrMsg == "" {
-				require.NoError(t, err)
-			} else {
-				require.EqualError(t, err, test.expectedErrMsg)
-			}
-			require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-			require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
-		})
+		t.Run(test.name, test.testFeederWithLogPollerVRFv2)
 	}
 }
 
-func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
-
+func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 	var coordinatorAddress = common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			// Instantiate log poller & coordinator.
-			lp := &mocklp.LogPoller{}
-			lp.On("RegisterFilter", mock.Anything).Return(nil)
-			c, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(coordinatorAddress, nil)
-			require.NoError(t, err)
-			coordinator := &V2PlusCoordinator{
-				c:  c,
-				lp: lp,
-			}
-
-			// Assert search window.
-			latest := int64(test.latest)
-			fromBlock := mathutil.Max(latest-int64(test.lookback), 0)
-			toBlock := mathutil.Max(latest-int64(test.wait), 0)
-
-			// Construct request logs.
-			var requestLogs []logpoller.Log
-			for _, r := range test.requests {
-				if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) {
-					continue // do not include blocks outside our search window
-				}
-				reqId, ok := big.NewInt(0).SetString(r.ID, 10)
-				require.True(t, ok)
-				requestLogs = append(
-					requestLogs,
-					newRandomnessRequestedLogV2Plus(t, r.Block, reqId, coordinatorAddress),
-				)
-			}
-
-			// Construct fulfillment logs.
-			var fulfillmentLogs []logpoller.Log
-			for _, r := range test.fulfillments {
-				reqId, ok := big.NewInt(0).SetString(r.ID, 10)
-				require.True(t, ok)
-				fulfillmentLogs = append(
-					fulfillmentLogs,
-					newRandomnessFulfilledLogV2Plus(t, r.Block, reqId, coordinatorAddress),
-				)
-			}
-
-			// Mock log poller.
-			lp.On("LatestBlock", mock.Anything).
-				Return(latest, nil)
-			lp.On(
-				"LogsWithSigs",
-				fromBlock,
-				toBlock,
-				[]common.Hash{
-					vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested{}.Topic(),
-				},
-				coordinatorAddress,
-				mock.Anything,
-			).Return(requestLogs, nil)
-			lp.On(
-				"LogsWithSigs",
-				fromBlock,
-				latest,
-				[]common.Hash{
-					vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled{}.Topic(),
-				},
-				coordinatorAddress,
-				mock.Anything,
-			).Return(fulfillmentLogs, nil)
-
-			// Instantiate feeder.
-			feeder := NewFeeder(
-				logger.TestLogger(t),
-				coordinator,
-				&test.bhs,
-				lp,
-				0,
-				test.wait,
-				test.lookback,
-				600*time.Second,
-				func(ctx context.Context) (uint64, error) {
-					return test.latest, nil
-				})
-
-			// Run feeder and assert correct results.
-			err = feeder.Run(testutils.Context(t))
-			if test.expectedErrMsg == "" {
-				require.NoError(t, err)
-			} else {
-				require.EqualError(t, err, test.expectedErrMsg)
-			}
-			require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
-			require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
-		})
+	// Instantiate log poller & coordinator.
+	lp := &mocklp.LogPoller{}
+	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	c, err := vrf_coordinator_v2.NewVRFCoordinatorV2(coordinatorAddress, nil)
+	require.NoError(t, err)
+	coordinator := &V2Coordinator{
+		c:  c,
+		lp: lp,
 	}
+
+	// Assert search window.
+	latest := int64(test.latest)
+	fromBlock := mathutil.Max(latest-int64(test.lookback), 0)
+	toBlock := mathutil.Max(latest-int64(test.wait), 0)
+
+	// Construct request logs.
+	var requestLogs []logpoller.Log
+	for _, r := range test.requests {
+		if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) {
+			continue // do not include blocks outside our search window
+		}
+		reqId, ok := big.NewInt(0).SetString(r.ID, 10)
+		require.True(t, ok)
+		requestLogs = append(
+			requestLogs,
+			newRandomnessRequestedLogV2(t, r.Block, reqId, coordinatorAddress),
+		)
+	}
+
+	// Construct fulfillment logs.
+	var fulfillmentLogs []logpoller.Log
+	for _, r := range test.fulfillments {
+		reqId, ok := big.NewInt(0).SetString(r.ID, 10)
+		require.True(t, ok)
+		fulfillmentLogs = append(
+			fulfillmentLogs,
+			newRandomnessFulfilledLogV2(t, r.Block, reqId, coordinatorAddress),
+		)
+	}
+
+	// Mock log poller.
+	lp.On("LatestBlock", mock.Anything).
+		Return(latest, nil)
+	lp.On(
+		"LogsWithSigs",
+		fromBlock,
+		toBlock,
+		[]common.Hash{
+			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsRequested{}.Topic(),
+		},
+		coordinatorAddress,
+		mock.Anything,
+	).Return(requestLogs, nil)
+	lp.On(
+		"LogsWithSigs",
+		fromBlock,
+		latest,
+		[]common.Hash{
+			vrf_coordinator_v2.VRFCoordinatorV2RandomWordsFulfilled{}.Topic(),
+		},
+		coordinatorAddress,
+		mock.Anything,
+	).Return(fulfillmentLogs, nil)
+
+	// Instantiate feeder.
+	feeder := NewFeeder(
+		logger.TestLogger(t),
+		coordinator,
+		&test.bhs,
+		lp,
+		0,
+		test.wait,
+		test.lookback,
+		600*time.Second,
+		func(ctx context.Context) (uint64, error) {
+			return test.latest, nil
+		})
+
+	// Run feeder and assert correct results.
+	err = feeder.Run(testutils.Context(t))
+	if test.expectedErrMsg == "" {
+		require.NoError(t, err)
+	} else {
+		require.EqualError(t, err, test.expectedErrMsg)
+	}
+	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
+	require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
+}
+
+func TestFeederWithLogPollerVRFv2Plus(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.name, test.testFeederWithLogPollerVRFv2Plus)
+	}
+}
+
+func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
+	var coordinatorAddress = common.HexToAddress("0x514910771AF9Ca656af840dff83E8264EcF986CA")
+
+	// Instantiate log poller & coordinator.
+	lp := &mocklp.LogPoller{}
+	lp.On("RegisterFilter", mock.Anything).Return(nil)
+	c, err := vrf_coordinator_v2plus_interface.NewIVRFCoordinatorV2PlusInternal(coordinatorAddress, nil)
+	require.NoError(t, err)
+	coordinator := &V2PlusCoordinator{
+		c:  c,
+		lp: lp,
+	}
+
+	// Assert search window.
+	latest := int64(test.latest)
+	fromBlock := mathutil.Max(latest-int64(test.lookback), 0)
+	toBlock := mathutil.Max(latest-int64(test.wait), 0)
+
+	// Construct request logs.
+	var requestLogs []logpoller.Log
+	for _, r := range test.requests {
+		if r.Block < uint64(fromBlock) || r.Block > uint64(toBlock) {
+			continue // do not include blocks outside our search window
+		}
+		reqId, ok := big.NewInt(0).SetString(r.ID, 10)
+		require.True(t, ok)
+		requestLogs = append(
+			requestLogs,
+			newRandomnessRequestedLogV2Plus(t, r.Block, reqId, coordinatorAddress),
+		)
+	}
+
+	// Construct fulfillment logs.
+	var fulfillmentLogs []logpoller.Log
+	for _, r := range test.fulfillments {
+		reqId, ok := big.NewInt(0).SetString(r.ID, 10)
+		require.True(t, ok)
+		fulfillmentLogs = append(
+			fulfillmentLogs,
+			newRandomnessFulfilledLogV2Plus(t, r.Block, reqId, coordinatorAddress),
+		)
+	}
+
+	// Mock log poller.
+	lp.On("LatestBlock", mock.Anything).
+		Return(latest, nil)
+	lp.On(
+		"LogsWithSigs",
+		fromBlock,
+		toBlock,
+		[]common.Hash{
+			vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsRequested{}.Topic(),
+		},
+		coordinatorAddress,
+		mock.Anything,
+	).Return(requestLogs, nil)
+	lp.On(
+		"LogsWithSigs",
+		fromBlock,
+		latest,
+		[]common.Hash{
+			vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled{}.Topic(),
+		},
+		coordinatorAddress,
+		mock.Anything,
+	).Return(fulfillmentLogs, nil)
+
+	// Instantiate feeder.
+	feeder := NewFeeder(
+		logger.TestLogger(t),
+		coordinator,
+		&test.bhs,
+		lp,
+		0,
+		test.wait,
+		test.lookback,
+		600*time.Second,
+		func(ctx context.Context) (uint64, error) {
+			return test.latest, nil
+		})
+
+	// Run feeder and assert correct results.
+	err = feeder.Run(testutils.Context(t))
+	if test.expectedErrMsg == "" {
+		require.NoError(t, err)
+	} else {
+		require.EqualError(t, err, test.expectedErrMsg)
+	}
+	require.ElementsMatch(t, test.expectedStored, test.bhs.Stored)
+	require.ElementsMatch(t, test.expectedStoredMapBlocks, maps.Keys(feeder.stored))
 }
 
 func TestFeeder_CachesStoredBlocks(t *testing.T) {
@@ -965,7 +967,7 @@ func newRandomnessRequestedLogV2Plus(
 	requestID *big.Int,
 	coordinatorAddress common.Address,
 ) logpoller.Log {
-	e := vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested{
+	e := vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsRequested{
 		RequestId:                   requestID,
 		PreSeed:                     big.NewInt(0),
 		MinimumRequestConfirmations: 0,
@@ -1053,7 +1055,7 @@ func newRandomnessFulfilledLogV2Plus(
 	requestID *big.Int,
 	coordinatorAddress common.Address,
 ) logpoller.Log {
-	e := vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled{
+	e := vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled{
 		RequestId:  requestID,
 		OutputSeed: big.NewInt(0),
 		Payment:    big.NewInt(0),
@@ -1061,7 +1063,7 @@ func newRandomnessFulfilledLogV2Plus(
 		Raw: types.Log{
 			BlockNumber: requestBlock,
 		},
-		SubID: big.NewInt(0),
+		SubId: big.NewInt(0),
 	}
 	var unindexed abi.Arguments
 	for _, a := range vrfCoordinatorV2PlusABI.Events[randomWordsFulfilledV2Plus].Inputs {
@@ -1094,7 +1096,7 @@ func newRandomnessFulfilledLogV2Plus(
 
 	topic1, err := requestIdArg.Pack(e.RequestId)
 	require.NoError(t, err)
-	topic2, err := subIdArg.Pack(e.SubID)
+	topic2, err := subIdArg.Pack(e.SubId)
 	require.NoError(t, err)
 
 	topic0 := vrfCoordinatorV2PlusABI.Events[randomWordsFulfilledV2Plus].ID

@@ -10,8 +10,9 @@ import "../../ChainSpecificUtil.sol";
 import "./SubscriptionAPI.sol";
 import "./libraries/VRFV2PlusClient.sol";
 import "../interfaces/IVRFCoordinatorV2PlusMigration.sol";
+import "../interfaces/IVRFCoordinatorV2Plus.sol";
 
-contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
+contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   /// @dev should always be available
   BlockhashStoreInterface public immutable BLOCKHASH_STORE;
 
@@ -58,10 +59,11 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     bytes extraArgs,
     address indexed sender
   );
+
   event RandomWordsFulfilled(
     uint256 indexed requestId,
     uint256 outputSeed,
-    uint256 indexed subID,
+    uint256 indexed subId,
     uint96 payment,
     bool success
   );
@@ -73,9 +75,9 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     // Flat fee charged per fulfillment in millionths of link
     // So fee range is [0, 2^32/10^6].
     uint32 fulfillmentFlatFeeLinkPPM;
-    // Flat fee charged per fulfillment in millionths of eth.
+    // Flat fee charged per fulfillment in millionths of native.
     // So fee range is [0, 2^32/10^6].
-    uint32 fulfillmentFlatFeeEthPPM;
+    uint32 fulfillmentFlatFeeNativePPM;
   }
   event ConfigSet(
     uint16 minimumRequestConfirmations,
@@ -139,9 +141,9 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
    * @notice Sets the configuration of the vrfv2 coordinator
    * @param minimumRequestConfirmations global min for request confirmations
    * @param maxGasLimit global max for request gas limit
-   * @param stalenessSeconds if the eth/link feed is more stale then this, use the fallback price
+   * @param stalenessSeconds if the native/link feed is more stale then this, use the fallback price
    * @param gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
-   * @param fallbackWeiPerUnitLink fallback eth/link price in the case of a stale feed
+   * @param fallbackWeiPerUnitLink fallback native/link price in the case of a stale feed
    * @param feeConfig fee configuration
    */
   function setConfig(
@@ -224,11 +226,13 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
    * in your fulfillRandomWords callback. Note these numbers are expanded in a
    * secure way by the VRFCoordinator from a single random value supplied by the oracle.
    * extraArgs - Encoded extra arguments that has a boolean flag for whether payment
-   * should be made in ETH or LINK. Payment in LINK is only available if the LINK token is available to this contract.
+   * should be made in native or LINK. Payment in LINK is only available if the LINK token is available to this contract.
    * @return requestId - A unique identifier of the request. Can be used to match
    * a request to a response in fulfillRandomWords.
    */
-  function requestRandomWords(VRFV2PlusClient.RandomWordsRequest calldata req) external nonReentrant returns (uint256) {
+  function requestRandomWords(
+    VRFV2PlusClient.RandomWordsRequest calldata req
+  ) external override nonReentrant returns (uint256) {
     // Input validation using the subscription storage.
     if (s_subscriptionConfigs[req.subId].owner == address(0)) {
       revert InvalidSubscription();
@@ -427,11 +431,11 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
         nativePayment
       );
       if (nativePayment) {
-        if (s_subscriptions[rc.subId].ethBalance < payment) {
+        if (s_subscriptions[rc.subId].nativeBalance < payment) {
           revert InsufficientBalance();
         }
-        s_subscriptions[rc.subId].ethBalance -= payment;
-        s_withdrawableEth[s_provingKeys[output.keyHash]] += payment;
+        s_subscriptions[rc.subId].nativeBalance -= payment;
+        s_withdrawableNative[s_provingKeys[output.keyHash]] += payment;
       } else {
         if (s_subscriptions[rc.subId].balance < payment) {
           revert InsufficientBalance();
@@ -456,10 +460,10 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
   ) internal view returns (uint96) {
     if (nativePayment) {
       return
-        calculatePaymentAmountEth(
+        calculatePaymentAmountNative(
           startGas,
           gasAfterPaymentCalculation,
-          s_feeConfig.fulfillmentFlatFeeEthPPM,
+          s_feeConfig.fulfillmentFlatFeeNativePPM,
           weiPerUnitGas
         );
     }
@@ -472,7 +476,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       );
   }
 
-  function calculatePaymentAmountEth(
+  function calculatePaymentAmountNative(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
     uint32 fulfillmentFlatFeePPM,
@@ -517,7 +521,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
     int256 weiPerUnitLink;
-    (, weiPerUnitLink, , timestamp, ) = LINK_ETH_FEED.latestRoundData();
+    (, weiPerUnitLink, , timestamp, ) = LINK_NATIVE_FEED.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
     if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
@@ -525,16 +529,10 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     return weiPerUnitLink;
   }
 
-  /*
-   * @notice Check to see if there exists a request commitment consumers
-   * for all consumers and keyhashes for a given sub.
-   * @param subId - ID of the subscription
-   * @return true if there exists at least one unfulfilled request for the subscription, false
-   * otherwise.
-   * @dev Looping is bounded to MAX_CONSUMERS*(number of keyhashes).
-   * @dev Used to disable subscription canceling while outstanding request are present.
+  /**
+   * @inheritdoc IVRFSubscriptionV2Plus
    */
-  function pendingRequestExists(uint256 subId) public view returns (bool) {
+  function pendingRequestExists(uint256 subId) public view override returns (bool) {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
       for (uint256 j = 0; j < s_provingKeyHashes.length; j++) {
@@ -619,7 +617,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     address subOwner;
     address[] consumers;
     uint96 linkBalance;
-    uint96 ethBalance;
+    uint96 nativeBalance;
   }
 
   function isTargetRegistered(address target) internal view returns (bool) {
@@ -657,7 +655,7 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
     if (!isTargetRegistered(newCoordinator)) {
       revert CoordinatorNotRegistered(newCoordinator);
     }
-    (uint96 balance, uint96 ethBalance, , address owner, address[] memory consumers) = getSubscription(subId);
+    (uint96 balance, uint96 nativeBalance, , address owner, address[] memory consumers) = getSubscription(subId);
     require(owner == msg.sender, "Not subscription owner");
     require(!pendingRequestExists(subId), "Pending request exists");
 
@@ -667,11 +665,11 @@ contract VRFCoordinatorV2Plus is VRF, SubscriptionAPI {
       subOwner: owner,
       consumers: consumers,
       linkBalance: balance,
-      ethBalance: ethBalance
+      nativeBalance: nativeBalance
     });
     bytes memory encodedData = abi.encode(migrationData);
     deleteSubscription(subId);
-    IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: ethBalance}(encodedData);
+    IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: nativeBalance}(encodedData);
 
     // Only transfer LINK if the token is active and there is a balance.
     if (address(LINK) != address(0) && balance != 0) {

@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
@@ -73,7 +74,8 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		transmitters = append(transmitters, forwarderCommonAddress.Hex())
 	}
 
-	ocrInstances, err := actions.DeployOCRv2Contracts(1, linkTokenContract, env.ContractDeployer, transmitters, env.EVMClient)
+	ocrOffchainOptions := contracts.DefaultOffChainAggregatorOptions()
+	ocrInstances, err := actions.DeployOCRv2Contracts(1, linkTokenContract, env.ContractDeployer, transmitters, env.EVMClient, ocrOffchainOptions)
 	require.NoError(t, err, "Error deploying OCRv2 contracts with forwarders")
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
@@ -83,7 +85,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes)
+	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
 	require.NoError(t, err, "Error building OCRv2 config")
 	ocrv2Config.Transmitters = authorizedForwarders
 
