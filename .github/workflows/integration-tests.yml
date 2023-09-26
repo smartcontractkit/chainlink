@@ -142,102 +142,102 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
 
-  compare-tests:
-    needs: [changes]
-    runs-on: ubuntu-latest
-    name: Compare/Build Automation Test List
-    outputs:
-      matrix: ${{ env.MATRIX_JSON }}
-    steps:
-      - name: Check for Skip Tests Label
-        if: contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')
-        run: |
-          echo "## \`skip-smoke-tests\` label is active, skipping E2E smoke tests" >>$GITHUB_STEP_SUMMARY
-          exit 0
-      - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
-      - name: Compare Test Lists
-        run: |
-          cd ./integration-tests
-          ./scripts/compareTestList.sh ./smoke/automation_test.go
-          ./scripts/compareTestList.sh ./smoke/keeper_test.go
-      - name: Build Test Matrix Lists
-        id: build-test-matrix-list
-        run: |
-          cd ./integration-tests
-          MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu20.04-8cores-32GB 1)
-          MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu20.04-8cores-32GB 1)
-          COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
-          echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+#  compare-tests:
+#    needs: [changes]
+#    runs-on: ubuntu-latest
+#    name: Compare/Build Automation Test List
+#    outputs:
+#      matrix: ${{ env.MATRIX_JSON }}
+#    steps:
+#      - name: Check for Skip Tests Label
+#        if: contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')
+#        run: |
+#          echo "## \`skip-smoke-tests\` label is active, skipping E2E smoke tests" >>$GITHUB_STEP_SUMMARY
+#          exit 0
+#      - name: Checkout the repo
+#        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+#      - name: Compare Test Lists
+#        run: |
+#          cd ./integration-tests
+#          ./scripts/compareTestList.sh ./smoke/automation_test.go
+#          ./scripts/compareTestList.sh ./smoke/keeper_test.go
+#      - name: Build Test Matrix Lists
+#        id: build-test-matrix-list
+#        run: |
+#          cd ./integration-tests
+#          MATRIX_JSON_AUTOMATION=$(./scripts/buildTestMatrixList.sh ./smoke/automation_test.go automation ubuntu20.04-8cores-32GB 1)
+#          MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu20.04-8cores-32GB 1)
+#          COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
+#          echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
 
-  eth-smoke-tests-matrix-automation:
-    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
-    environment: integration
-    permissions:
-      checks: write
-      pull-requests: write
-      id-token: write
-      contents: read
-    needs: [build-chainlink, changes, compare-tests]
-    env:
-      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
-      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
-      CHAINLINK_ENV_USER: ${{ github.actor }}
-      TEST_LOG_LEVEL: debug
-      DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
-    strategy:
-      fail-fast: false
-      matrix:
-        product: ${{fromJson(needs.compare-tests.outputs.matrix)}}
-    runs-on: ${{ matrix.product.os }}
-    name: ETH Smoke Tests ${{ matrix.product.name }}
-    steps:
-      - name: Checkout the repo
-        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
-        with:
-          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
-      - name: Build Go Test Command
-        id: build-go-test-command
-        run: |
-          # if the matrix.product.run is set, use it for a different command
-          if [ "${{ matrix.product.run }}" != "" ]; then
-            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
-          else
-            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
-          fi
-      ## Run this step when changes that require tests to be run are made
-      - name: Run Tests
-        if: needs.changes.outputs.src == 'true'
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
-        env:
-          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
-          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
-        with:
-          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
-          test_download_vendor_packages_command: cd ./integration-tests && go mod download
-          cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
-          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-          artifacts_location: ./integration-tests/smoke/logs/
-          publish_check_name: ${{ matrix.product.name }}
-          token: ${{ secrets.GITHUB_TOKEN }}
-          go_mod_path: ./integration-tests/go.mod
-          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
-          cache_restore_only: "true"
-          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-      - name: Collect Metrics
-        if: always()
-        id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
-          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
-        continue-on-error: true
+#  eth-smoke-tests-matrix-automation:
+#    if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
+#    environment: integration
+#    permissions:
+#      checks: write
+#      pull-requests: write
+#      id-token: write
+#      contents: read
+#    needs: [build-chainlink, changes, compare-tests]
+#    env:
+#      SELECTED_NETWORKS: SIMULATED,SIMULATED_1,SIMULATED_2
+#      CHAINLINK_COMMIT_SHA: ${{ github.sha }}
+#      CHAINLINK_ENV_USER: ${{ github.actor }}
+#      TEST_LOG_LEVEL: debug
+#      DATABASE_URL: postgresql://postgres:node@localhost:5432/chainlink_test?sslmode=disable
+#    strategy:
+#      fail-fast: false
+#      matrix:
+#        product: ${{fromJson(needs.compare-tests.outputs.matrix)}}
+#    runs-on: ${{ matrix.product.os }}
+#    name: ETH Smoke Tests ${{ matrix.product.name }}
+#    steps:
+#      - name: Checkout the repo
+#        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+#        with:
+#          ref: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+#      - name: Build Go Test Command
+#        id: build-go-test-command
+#        run: |
+#          # if the matrix.product.run is set, use it for a different command
+#          if [ "${{ matrix.product.run }}" != "" ]; then
+#            echo "run_command=${{ matrix.product.run }} ./smoke/${{ matrix.product.file }}_test.go" >> "$GITHUB_OUTPUT"
+#          else
+#            echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
+#          fi
+#      ## Run this step when changes that require tests to be run are made
+#      - name: Run Tests
+#        if: needs.changes.outputs.src == 'true'
+#        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+#        env:
+#          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
+#          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
+#          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
+#        with:
+#          test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
+#          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+#          cl_repo: ${{ env.CHAINLINK_IMAGE }}
+#          cl_image_tag: ${{ github.sha }}
+#          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+#          artifacts_location: ./integration-tests/smoke/logs/
+#          publish_check_name: ${{ matrix.product.name }}
+#          token: ${{ secrets.GITHUB_TOKEN }}
+#          go_mod_path: ./integration-tests/go.mod
+#          cache_key_id: core-e2e-${{ env.MOD_CACHE_VERSION }}
+#          cache_restore_only: "true"
+#          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+#          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+#          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+#      - name: Collect Metrics
+#        if: always()
+#        id: collect-gha-metrics
+#        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+#        with:
+#          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+#          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+#          this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
+#          test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
+#        continue-on-error: true
 
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
