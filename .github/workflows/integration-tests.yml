@@ -92,7 +92,10 @@ jobs:
         TRACING_SSH_SERVER: ${{ secrets.TRACING_SSH_SERVER }}
       run: |
           eval $(ssh-agent)
-          echo "$TRACING_SSH_KEY" | base64 --decode | ssh-add -
+          echo "test"
+          echo "$TRACING_SSH_KEY" | wc -c
+          echo "$TRACING_SSH_KEY" | tr -d '\r' | wc -c
+          echo "$TRACING_SSH_KEY" | tr -d '\r' | base64 --decode | ssh-add -
           # f: background process
           # N: do not execute a remote command
           # R: remote port forwarding
