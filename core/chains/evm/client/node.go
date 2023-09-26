@@ -384,6 +384,8 @@ func (n *node) disconnectAll() {
 
 // SubscribersCount returns the number of client subscribed to the node
 func (n *node) SubscribersCount() int32 {
+	n.stateMu.RLock()
+	defer n.stateMu.RUnlock()
 	return int32(len(n.subs))
 }
 

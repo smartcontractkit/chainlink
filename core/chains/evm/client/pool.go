@@ -157,7 +157,7 @@ func (p *Pool) Dial(ctx context.Context) error {
 			p.logger.Infof("The pool will switch to best node every %s", p.leaseDuration.String())
 			go p.checkLeaseLoop()
 		} else {
-			p.logger.Debug("Best node switching is disabled")
+			p.logger.Info("Best node switching is disabled")
 		}
 
 		return nil

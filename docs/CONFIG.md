@@ -5079,9 +5079,10 @@ Set to 0 to disable this check.
 ```toml
 LeaseDuration = '0s' # Default
 ```
-LeaseDuration is the maximum period an internal service can use a node that is not considered the "best" node as
-defined by the SelectionMode. It also controls how often the lease check is done.
-Setting this to a low value might cause RPC to switch too aggressively.
+LeaseDuration is the maximum duration that the selected "best" node (as defined by SelectionMode) will be used,
+before switching to a better one if available. It also controls how often the lease check is done.
+Setting this to a low value (under 1m) might cause RPC to switch too aggressively.
+Recommended value is over 5m
 
 Set to '0s' to disable
 
