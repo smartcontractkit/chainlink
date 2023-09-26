@@ -27,7 +27,6 @@ Keystore = '................' # Required
 	{{ .CustomSecrets }}
 {{ else }}
 [Mercury.Credentials.cred1]
-# URL = 'http://host.docker.internal:3000/reports'
 URL = 'localhost:1338'
 Username = 'node'
 Password = 'nodepass'
