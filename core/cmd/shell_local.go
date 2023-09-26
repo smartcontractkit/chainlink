@@ -294,10 +294,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	err := s.Config.Validate()
 	if err != nil {
-		if err.Error() != "invalid secrets: Database.AllowSimplePasswords: invalid value (true): insecure configs are not allowed on secure builds" {
-			return errors.Wrap(err, "config validation failed")
-		}
-		lggr.Errorf("Notification for upcoming configuration change: %v", err)
+		return errors.Wrap(err, "config validation failed")
 	}
 
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
@@ -622,10 +619,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	err = s.Config.Validate()
 	if err != nil {
-		if err.Error() != "invalid secrets: Database.AllowSimplePasswords: invalid value (true): insecure configs are not allowed on secure builds" {
-			return s.errorOut(fmt.Errorf("error validating configuration: %+v", err))
-		}
-		lggr.Errorf("Notification for required upcoming configuration change: %v", err)
+		return s.errorOut(fmt.Errorf("error validating configuration: %+v", err))
 	}
 
 	err = keyStore.Unlock(s.Config.Password().Keystore())
