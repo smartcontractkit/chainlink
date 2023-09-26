@@ -76,6 +76,8 @@ type KeeperRegistry interface {
 	UnpauseUpkeep(id *big.Int) error
 	UpdateCheckData(id *big.Int, newCheckData []byte) error
 	SetUpkeepTriggerConfig(id *big.Int, triggerConfig []byte) error
+	SetUpkeepPrivilegeConfig(id *big.Int, privilegeConfig []byte) error
+	RegistryOwnerAddress() common.Address
 }
 
 type KeeperConsumer interface {
@@ -218,7 +220,7 @@ func (v *EthereumKeeperRegistry) Fund(ethAmount *big.Float) error {
 	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
-func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string) ([]byte, error) {
+func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registryOwnerAddress common.Address) ([]byte, error) {
 	if rcs.RegistryVersion == ethereum.RegistryVersion_2_1 {
 		onchainConfigStruct := registry21.KeeperRegistryBase21OnchainConfig{
 			PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
@@ -235,7 +237,7 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string) ([]byte
 			FallbackLinkPrice:      rcs.FallbackLinkPrice,
 			Transcoder:             common.Address{},
 			Registrars:             []common.Address{common.HexToAddress(registrar)},
-			UpkeepPrivilegeManager: common.Address{},
+			UpkeepPrivilegeManager: registryOwnerAddress,
 		}
 		encodedOnchainConfig, err := utilsABI.Methods["_onChainConfig"].Inputs.Pack(&onchainConfigStruct)
 
@@ -259,6 +261,10 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string) ([]byte
 		}, configType)
 		return onchainConfig, err
 	}
+}
+
+func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
+	return common.HexToAddress(v.client.GetDefaultWallet().Address())
 }
 
 func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrConfig OCRv2Config) error {
@@ -921,6 +927,26 @@ func (v *EthereumKeeperRegistry) SetUpkeepTriggerConfig(id *big.Int, triggerConf
 		return v.client.ProcessTransaction(tx)
 	default:
 		return fmt.Errorf("SetUpkeepTriggerConfig is not supported by keeper registry version %d", v.version)
+	}
+}
+
+// SetUpkeepPrivilegeConfig sets the privilege config of an upkeep (only for version 2.1)
+func (v *EthereumKeeperRegistry) SetUpkeepPrivilegeConfig(id *big.Int, privilegeConfig []byte) error {
+
+	switch v.version {
+	case ethereum.RegistryVersion_2_1:
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry2_1.SetUpkeepPrivilegeConfig(opts, id, privilegeConfig)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	default:
+		return fmt.Errorf("SetUpkeepPrivilegeConfig is not supported by keeper registry version %d", v.version)
 	}
 }
 
