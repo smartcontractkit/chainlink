@@ -14,11 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Helper migrations function for injecting env vars into goose migrations. This was done to inject chainID into evm chain id not null in specs migrations.
 - OCR2 jobs now support querying the state contract for configurations if it has been deployed. This can help on chains such as BSC which "manage" state bloat by arbitrarily deleting logs older than a certain date. In this case, if logs are missing we will query the contract directly and retrieve the latest config from chain state. Chainlink will perform no extra RPC calls unless the job spec has this feature explicitly enabled. On chains that require this, nops may see an increase in RPC calls. This can be enabled for OCR2 jobs by specifying `ConfigContractAddress` in the relay config TOML.
 
-- Added multichain telemetry support. All nodes have to remove the following configuration fields:
-    - `TelemetryIngress.URL`
-    - `TelemetryIngress.ServerPubKey`
-
-  All nodes have to add the following configuration fields for each network-chainID pair they want to send telemetry for:
+- Added multichain telemetry support. Each network/chainID pair must be configured using the new fields:
   ```toml
   [[TelemetryIngress.Endpoints]]
   Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
@@ -26,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   URL = '...'
   ServerPubKey = '...'
   ```
+  These replace `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`, which are no longer allowed.
 
 ### Removed
 
@@ -38,6 +35,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
  * `Explorer.Secret` 
  
  All nodes will have to remove the following configuration field: `ExplorerURL`
+
+- Removed `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. They are no longer valid, and will prevent a node from booting. Use `TelemetryIngress.Endpoints` instead.
 
 ### Fixed
 - Unauthenticated users executing CLI commands previously generated a confusing error log, which is now removed:
