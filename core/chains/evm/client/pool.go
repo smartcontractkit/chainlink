@@ -51,22 +51,22 @@ type NodeSelector interface {
 type PoolConfig interface {
 	NodeSelectionMode() string
 	NodeNoNewHeadsThreshold() time.Duration
-	SwitchToBestNodeInterval() time.Duration
+	LeaseDuration() time.Duration
 }
 
 // Pool represents an abstraction over one or more primary nodes
 // It is responsible for liveness checking and balancing queries across live nodes
 type Pool struct {
 	utils.StartStopOnce
-	nodes                    []Node
-	sendonlys                []SendOnlyNode
-	chainID                  *big.Int
-	chainType                config.ChainType
-	logger                   logger.Logger
-	selectionMode            string
-	noNewHeadsThreshold      time.Duration
-	nodeSelector             NodeSelector
-	switchToBestNodeInterval time.Duration
+	nodes               []Node
+	sendonlys           []SendOnlyNode
+	chainID             *big.Int
+	chainType           config.ChainType
+	logger              logger.Logger
+	selectionMode       string
+	noNewHeadsThreshold time.Duration
+	nodeSelector        NodeSelector
+	leaseDuration       time.Duration
 
 	activeMu   sync.RWMutex
 	activeNode Node
@@ -75,7 +75,7 @@ type Pool struct {
 	wg     sync.WaitGroup
 }
 
-func NewPool(logger logger.Logger, selectionMode string, switchToBestNodeInterval time.Duration, noNewHeadsTreshold time.Duration, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
+func NewPool(logger logger.Logger, selectionMode string, leaseDuration time.Duration, noNewHeadsTreshold time.Duration, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
 	if chainID == nil {
 		panic("chainID is required")
 	}
@@ -98,16 +98,16 @@ func NewPool(logger logger.Logger, selectionMode string, switchToBestNodeInterva
 	lggr := logger.Named("Pool").With("evmChainID", chainID.String())
 
 	p := &Pool{
-		nodes:                    nodes,
-		sendonlys:                sendonlys,
-		chainID:                  chainID,
-		chainType:                chainType,
-		logger:                   lggr,
-		selectionMode:            selectionMode,
-		noNewHeadsThreshold:      noNewHeadsTreshold,
-		nodeSelector:             nodeSelector,
-		chStop:                   make(chan struct{}),
-		switchToBestNodeInterval: switchToBestNodeInterval,
+		nodes:               nodes,
+		sendonlys:           sendonlys,
+		chainID:             chainID,
+		chainType:           chainType,
+		logger:              lggr,
+		selectionMode:       selectionMode,
+		noNewHeadsThreshold: noNewHeadsTreshold,
+		nodeSelector:        nodeSelector,
+		chStop:              make(chan struct{}),
+		leaseDuration:       leaseDuration,
 	}
 
 	p.logger.Debugf("The pool is configured to use NodeSelectionMode: %s", selectionMode)
@@ -153,9 +153,9 @@ func (p *Pool) Dial(ctx context.Context) error {
 		p.wg.Add(1)
 		go p.runLoop()
 
-		if p.switchToBestNodeInterval.Seconds() > 0 && p.selectionMode != NodeSelectionMode_RoundRobin {
-			p.logger.Infof("The pool will switch to best node every %s", p.switchToBestNodeInterval.String())
-			go p.switchToBestNodeLoop()
+		if p.leaseDuration.Seconds() > 0 && p.selectionMode != NodeSelectionMode_RoundRobin {
+			p.logger.Infof("The pool will switch to best node every %s", p.leaseDuration.String())
+			go p.checkLeaseLoop()
 		} else {
 			p.logger.Debug("Best node switching is disabled")
 		}
@@ -182,10 +182,11 @@ func (p *Pool) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty 
 	return
 }
 
-func (p *Pool) switchToBestNode() {
+func (p *Pool) checkLease() {
 	bestNode := p.nodeSelector.Select()
 	for _, n := range p.nodes {
-		// If a node is alive the SubscribersCount is guaranteed to be at least 1 because of the aliveLoop subscription
+		// Terminate client subscriptions. Services are responsible for reconnecting, which will be routed to the new
+		// best node. Only terminate connections with more than 1 subscription to account for the aliveLoop subscription
 		if n.State() == NodeStateAlive && n != bestNode && n.SubscribersCount() > 1 {
 			p.logger.Infof("Switching to best node from %q to %q", n.String(), bestNode.String())
 			n.UnsubscribeAll()
@@ -193,14 +194,14 @@ func (p *Pool) switchToBestNode() {
 	}
 }
 
-func (p *Pool) switchToBestNodeLoop() {
-	switchTicker := time.NewTicker(p.switchToBestNodeInterval)
+func (p *Pool) checkLeaseLoop() {
+	switchTicker := time.NewTicker(p.leaseDuration)
 	defer switchTicker.Stop()
 
 	for {
 		select {
 		case <-switchTicker.C:
-			p.switchToBestNode()
+			p.checkLease()
 		case <-p.chStop:
 			return
 		}

@@ -327,7 +327,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 4

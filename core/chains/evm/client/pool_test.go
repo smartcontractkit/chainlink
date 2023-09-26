@@ -25,9 +25,9 @@ import (
 )
 
 type poolConfig struct {
-	selectionMode            string
-	noNewHeadsThreshold      time.Duration
-	switchToBestNodeInterval time.Duration
+	selectionMode       string
+	noNewHeadsThreshold time.Duration
+	leaseDuration       time.Duration
 }
 
 func (c poolConfig) NodeSelectionMode() string {
@@ -38,14 +38,14 @@ func (c poolConfig) NodeNoNewHeadsThreshold() time.Duration {
 	return c.noNewHeadsThreshold
 }
 
-func (c poolConfig) SwitchToBestNodeInterval() time.Duration {
-	return c.switchToBestNodeInterval
+func (c poolConfig) LeaseDuration() time.Duration {
+	return c.leaseDuration
 }
 
 var defaultConfig evmclient.PoolConfig = &poolConfig{
-	selectionMode:            evmclient.NodeSelectionMode_RoundRobin,
-	noNewHeadsThreshold:      0,
-	switchToBestNodeInterval: time.Second * 0,
+	selectionMode:       evmclient.NodeSelectionMode_RoundRobin,
+	noNewHeadsThreshold: 0,
+	leaseDuration:       time.Second * 0,
 }
 
 func TestPool_Dial(t *testing.T) {
@@ -163,7 +163,7 @@ func TestPool_Dial(t *testing.T) {
 			for i, n := range test.sendNodes {
 				sendNodes[i] = n.newSendOnlyNode(t, test.sendNodeChainID)
 			}
-			p := evmclient.NewPool(logger.TestLogger(t), defaultConfig.NodeSelectionMode(), defaultConfig.SwitchToBestNodeInterval(), time.Second*0, nodes, sendNodes, test.poolChainID, "")
+			p := evmclient.NewPool(logger.TestLogger(t), defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, sendNodes, test.poolChainID, "")
 			err := p.Dial(ctx)
 			if err == nil {
 				t.Cleanup(func() { assert.NoError(t, p.Close()) })
@@ -256,7 +256,7 @@ func TestUnit_Pool_RunLoop(t *testing.T) {
 	nodes := []evmclient.Node{n1, n2, n3}
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, zap.ErrorLevel)
-	p := evmclient.NewPool(lggr, defaultConfig.NodeSelectionMode(), defaultConfig.SwitchToBestNodeInterval(), time.Second*0, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID, "")
+	p := evmclient.NewPool(lggr, defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, []evmclient.SendOnlyNode{}, &cltest.FixtureChainID, "")
 
 	n1.On("String").Maybe().Return("n1")
 	n2.On("String").Maybe().Return("n2")
@@ -330,7 +330,7 @@ func TestUnit_Pool_BatchCallContextAll(t *testing.T) {
 		sendonlys = append(sendonlys, s)
 	}
 
-	p := evmclient.NewPool(logger.TestLogger(t), defaultConfig.NodeSelectionMode(), defaultConfig.SwitchToBestNodeInterval(), time.Second*0, nodes, sendonlys, &cltest.FixtureChainID, "")
+	p := evmclient.NewPool(logger.TestLogger(t), defaultConfig.NodeSelectionMode(), defaultConfig.LeaseDuration(), time.Second*0, nodes, sendonlys, &cltest.FixtureChainID, "")
 
 	assert.True(t, p.ChainType().IsValid())
 	assert.False(t, p.ChainType().IsL2())

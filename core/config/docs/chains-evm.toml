@@ -319,12 +319,12 @@ SelectionMode = 'HighestHead' # Default
 #
 # Set to 0 to disable this check.
 SyncThreshold = 5 # Default
-# SwitchToBestNodeInterval interval in which to check and force internal services to use the "best" node as
+# LeaseDuration interval in which to check and force internal subscriptions to use the "best" node as
 # defined by the SelectionMode
 # Setting this to a low value might cause RPC to switch too aggressively
 #
 # Set to '0s' to disable
-SwitchToBestNodeInterval = '0s' # Default
+LeaseDuration = '0s' # Default
 
 [EVM.OCR]
 # ContractConfirmations sets `OCR.ContractConfirmations` for this EVM chain.

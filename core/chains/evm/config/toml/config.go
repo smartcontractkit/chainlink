@@ -685,11 +685,11 @@ func (t *HeadTracker) setFrom(f *HeadTracker) {
 }
 
 type NodePool struct {
-	PollFailureThreshold     *uint32
-	PollInterval             *models.Duration
-	SelectionMode            *string
-	SyncThreshold            *uint32
-	SwitchToBestNodeInterval *models.Duration
+	PollFailureThreshold *uint32
+	PollInterval         *models.Duration
+	SelectionMode        *string
+	SyncThreshold        *uint32
+	LeaseDuration        *models.Duration
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -705,8 +705,8 @@ func (p *NodePool) setFrom(f *NodePool) {
 	if v := f.SyncThreshold; v != nil {
 		p.SyncThreshold = v
 	}
-	if v := f.SwitchToBestNodeInterval; v != nil {
-		p.SwitchToBestNodeInterval = v
+	if v := f.LeaseDuration; v != nil {
+		p.LeaseDuration = v
 	}
 }
 

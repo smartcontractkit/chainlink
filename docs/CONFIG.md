@@ -1490,7 +1490,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -1569,7 +1569,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -1648,7 +1648,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -1727,7 +1727,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -1807,7 +1807,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -1886,7 +1886,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -1965,7 +1965,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2045,7 +2045,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2124,7 +2124,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2202,7 +2202,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2280,7 +2280,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2359,7 +2359,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2439,7 +2439,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2518,7 +2518,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2597,7 +2597,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2676,7 +2676,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -2756,7 +2756,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -2835,7 +2835,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -2913,7 +2913,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -2992,7 +2992,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3070,7 +3070,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3149,7 +3149,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -3227,7 +3227,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3306,7 +3306,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3386,7 +3386,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3465,7 +3465,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3544,7 +3544,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3623,7 +3623,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3702,7 +3702,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3781,7 +3781,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -3860,7 +3860,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3940,7 +3940,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -4020,7 +4020,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -4098,7 +4098,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -4176,7 +4176,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -4255,7 +4255,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -4334,7 +4334,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -4413,7 +4413,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 5
-SwitchToBestNodeInterval = '0s'
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 4
@@ -5034,7 +5034,7 @@ PollFailureThreshold = 5 # Default
 PollInterval = '10s' # Default
 SelectionMode = 'HighestHead' # Default
 SyncThreshold = 5 # Default
-SwitchToBestNodeInterval = '0s' # Default
+LeaseDuration = '0s' # Default
 ```
 The node pool manages multiple RPC endpoints.
 
@@ -5075,11 +5075,11 @@ Depending on `SelectionMode`, this represents a difference in the number of bloc
 
 Set to 0 to disable this check.
 
-### SwitchToBestNodeInterval
+### LeaseDuration
 ```toml
-SwitchToBestNodeInterval = '0s' # Default
+LeaseDuration = '0s' # Default
 ```
-SwitchToBestNodeInterval interval in which to check and force internal services to use the "best" node as
+LeaseDuration interval in which to check and force internal subscriptions to use the "best" node as
 defined by the SelectionMode
 Setting this to a low value might cause RPC to switch too aggressively
 
