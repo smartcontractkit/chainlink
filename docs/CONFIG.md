@@ -3311,12 +3311,12 @@ BlockBackfillSkip = false
 FinalityDepth = 1
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
-LogPollInterval = '1s'
+LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
 NonceAutoSync = true
-NoNewHeadsThreshold = '1s'
+NoNewHeadsThreshold = '30s'
 RPCDefaultBatchSize = 250
 RPCBlockQueryDelay = 1
 

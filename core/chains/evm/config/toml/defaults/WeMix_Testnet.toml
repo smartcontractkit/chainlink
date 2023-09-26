@@ -1,10 +1,12 @@
 ChainID = '1112'
 FinalityDepth = 1
-LogPollInterval = '1s'
 MinIncomingConfirmations = 1
 # WeMix emits a block every 1 second, regardless of transactions
-NoNewHeadsThreshold = '1s'
-OCR.ContractConfirmations = 1
+LogPollInterval = '3s'
+NoNewHeadsThreshold = '30s'
+
+[OCR]
+ContractConfirmations = 1
 
 [GasEstimator]
 EIP1559DynamicFees = true
