@@ -174,7 +174,6 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 	factory := chainlink.RelayerFactory{
 		Logger:       lggr,
-		QConfig:      cfg.Database(),
 		LoopRegistry: plugins.NewLoopRegistry(lggr),
 		GRPCOpts:     loop.GRPCOpts{},
 	}
@@ -206,7 +205,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		{name: "2 evm chains with 3 nodes",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
-					RelayerConfig: &evm.RelayerConfig{
+					ChainOpts: evm.ChainOpts{
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
 						MailMon:          &utils.MailboxMonitor{},
@@ -262,7 +261,9 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
 					Keystore:         keyStore.Cosmos(),
 					CosmosConfigs:    cfg.CosmosConfigs(),
-					EventBroadcaster: pg.NewNullEventBroadcaster()}),
+					EventBroadcaster: pg.NewNullEventBroadcaster(),
+					DB:               db,
+					QConfig:          cfg.Database()}),
 			},
 			expectedCosmosChainCnt: 2,
 			expectedCosmosNodeCnt:  2,
@@ -279,7 +280,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				Keystore:      keyStore.Solana(),
 				SolanaConfigs: cfg.SolanaConfigs()}),
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
-					RelayerConfig: &evm.RelayerConfig{
+					ChainOpts: evm.ChainOpts{
 						AppConfig:        cfg,
 						EventBroadcaster: pg.NewNullEventBroadcaster(),
 						MailMon:          &utils.MailboxMonitor{},
@@ -294,6 +295,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					Keystore:         keyStore.Cosmos(),
 					CosmosConfigs:    cfg.CosmosConfigs(),
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
+					DB:               db,
+					QConfig:          cfg.Database(),
 				}),
 			},
 			expectedEVMChainCnt: 2,

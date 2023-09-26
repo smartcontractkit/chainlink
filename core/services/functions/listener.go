@@ -142,6 +142,12 @@ type FunctionsListener struct {
 	logPollerWrapper   evmrelayTypes.LogPollerWrapper
 }
 
+func (l *FunctionsListener) HealthReport() map[string]error {
+	return map[string]error{l.Name(): l.Healthy()}
+}
+
+func (l *FunctionsListener) Name() string { return l.logger.Name() }
+
 func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
@@ -718,7 +724,7 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 			Version: donSecrets.Version,
 		})
 		if err != nil {
-			return "", errors.Wrap(err, "failed to fetch S4 record for a secret"), nil
+			return "", errors.Wrap(err, "failed to fetch DONHosted secrets"), nil
 		}
 		secrets = record.Payload
 	}

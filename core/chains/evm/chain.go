@@ -143,21 +143,32 @@ type AppConfig interface {
 type ChainRelayExtenderConfig struct {
 	Logger   logger.Logger
 	KeyStore keystore.Eth
-	*RelayerConfig
+	ChainOpts
 }
 
-// options for the relayer factory.
-// TODO BCF-2508 clean up configuration of chain and relayer after BCF-2440
-// the factory wants to own the logger and db
-// the factory creates extenders, which need the same and more opts
-type RelayerConfig struct {
+func (c ChainRelayExtenderConfig) Validate() error {
+	err := c.ChainOpts.Validate()
+	if c.Logger == nil {
+		err = errors.Join(err, errors.New("nil Logger"))
+	}
+	if c.KeyStore == nil {
+		err = errors.Join(err, errors.New("nil Keystore"))
+	}
+
+	if err != nil {
+		err = fmt.Errorf("invalid ChainRelayerExtenderConfig: %w", err)
+	}
+	return err
+}
+
+type ChainOpts struct {
 	AppConfig AppConfig
 
 	EventBroadcaster pg.EventBroadcaster
 	MailMon          *utils.MailboxMonitor
 	GasEstimator     gas.EvmFeeEstimator
 
-	DB *sqlx.DB
+	*sqlx.DB
 
 	// TODO BCF-2513 remove test code from the API
 	// Gen-functions are useful for dependency injection by tests
@@ -169,25 +180,31 @@ type RelayerConfig struct {
 	GenGasEstimator   func(*big.Int) gas.EvmFeeEstimator
 }
 
-func (r RelayerConfig) Validate() error {
+func (o ChainOpts) Validate() error {
 	var err error
-	if r.AppConfig == nil {
-		err = errors.Join(err, fmt.Errorf("nil AppConfig"))
+	if o.AppConfig == nil {
+		err = errors.Join(err, errors.New("nil AppConfig"))
 	}
-	if r.EventBroadcaster == nil {
-		err = errors.Join(err, fmt.Errorf("nil EventBroadcaster"))
+	if o.EventBroadcaster == nil {
+		err = errors.Join(err, errors.New("nil EventBroadcaster"))
 	}
-
-	if r.MailMon == nil {
-		err = errors.Join(err, fmt.Errorf("nil MailMon"))
+	if o.MailMon == nil {
+		err = errors.Join(err, errors.New("nil MailMon"))
 	}
-
-	if r.DB == nil {
-		err = errors.Join(err, fmt.Errorf("nil DB"))
+	if o.DB == nil {
+		err = errors.Join(err, errors.New("nil DB"))
+	}
+	if err != nil {
+		err = fmt.Errorf("invalid ChainOpts: %w", err)
 	}
 	return err
 }
+
 func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayExtenderConfig) (Chain, error) {
+	err := opts.Validate()
+	if err != nil {
+		return nil, err
+	}
 	chainID := chain.ChainID
 	l := opts.Logger.With("evmChainID", chainID.String())
 	if !chain.IsEnabled() {
@@ -477,15 +494,4 @@ func newPrimary(cfg evmconfig.NodePool, noNewHeadsThreshold time.Duration, lggr 
 	}
 
 	return evmclient.NewNode(cfg, noNewHeadsThreshold, lggr, (url.URL)(*n.WSURL), (*url.URL)(n.HTTPURL), *n.Name, id, chainID, *n.Order), nil
-}
-
-func (opts *ChainRelayExtenderConfig) Check() error {
-	if opts.Logger == nil {
-		return errors.New("logger must be non-nil")
-	}
-	if opts.AppConfig == nil {
-		return errors.New("config must be non-nil")
-	}
-
-	return nil
 }

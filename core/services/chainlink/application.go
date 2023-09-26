@@ -404,11 +404,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Off-chain reporting v2 disabled")
 	}
 
+	healthChecker := services.NewChecker()
+
 	var lbs []utils.DependentAwaiter
 	for _, c := range legacyEVMChains.Slice() {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
-	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), delegates, db, globalLogger, lbs)
+	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), healthChecker, delegates, db, globalLogger, lbs)
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	// We start the log poller after the job spawner
@@ -419,33 +421,28 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		}
 	}
 
-	var feedsService feeds.Service = &feeds.NullService{}
+	var feedsService feeds.Service
 	if cfg.Feature().FeedsManager() {
-		if keys, err := opts.KeyStore.CSA().GetAll(); err != nil {
-			globalLogger.Warn("[Feeds Service] Unable to start without CSA key", "err", err)
-		} else if len(keys) == 0 {
-			globalLogger.Warn("[Feeds Service] Unable to start without CSA key")
-		} else {
-			feedsORM := feeds.NewORM(db, opts.Logger, cfg.Database())
-			feedsService = feeds.NewService(
-				feedsORM,
-				jobORM,
-				db,
-				jobSpawner,
-				keyStore,
-				cfg.Insecure(),
-				cfg.JobPipeline(),
-				cfg.OCR(),
-				cfg.OCR2(),
-				cfg.Database(),
-				legacyEVMChains,
-				globalLogger,
-				opts.Version,
-			)
-		}
+		feedsORM := feeds.NewORM(db, opts.Logger, cfg.Database())
+		feedsService = feeds.NewService(
+			feedsORM,
+			jobORM,
+			db,
+			jobSpawner,
+			keyStore,
+			cfg.Insecure(),
+			cfg.JobPipeline(),
+			cfg.OCR(),
+			cfg.OCR2(),
+			cfg.Database(),
+			legacyEVMChains,
+			globalLogger,
+			opts.Version,
+		)
+	} else {
+		feedsService = &feeds.NullService{}
 	}
 
-	healthChecker := services.NewChecker()
 	for _, s := range srvcs {
 		if err := healthChecker.Register(s); err != nil {
 			return nil, err

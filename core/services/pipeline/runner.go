@@ -38,7 +38,7 @@ type Runner interface {
 
 	// ExecuteRun executes a new run in-memory according to a spec and returns the results.
 	// We expect spec.JobID and spec.JobName to be set for logging/prometheus.
-	ExecuteRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger) (run Run, trrs TaskRunResults, err error)
+	ExecuteRun(ctx context.Context, spec Spec, vars Vars, l logger.Logger) (run *Run, trrs TaskRunResults, err error)
 	// InsertFinishedRun saves the run results in the database.
 	InsertFinishedRun(run *Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error
 	InsertFinishedRuns(runs []*Run, saveSuccessfulTaskRuns bool, qopts ...pg.QOpt) error
@@ -196,8 +196,8 @@ func (err ErrRunPanicked) Error() string {
 	return fmt.Sprintf("goroutine panicked when executing run: %v", err.v)
 }
 
-func NewRun(spec Spec, vars Vars) Run {
-	return Run{
+func NewRun(spec Spec, vars Vars) *Run {
+	return &Run{
 		State:          RunStatusRunning,
 		PipelineSpec:   spec,
 		PipelineSpecID: spec.ID,
@@ -218,16 +218,16 @@ func (r *runner) ExecuteRun(
 	spec Spec,
 	vars Vars,
 	l logger.Logger,
-) (Run, TaskRunResults, error) {
+) (*Run, TaskRunResults, error) {
 	run := NewRun(spec, vars)
 
-	pipeline, err := r.initializePipeline(&run)
+	pipeline, err := r.initializePipeline(run)
 
 	if err != nil {
 		return run, nil, err
 	}
 
-	taskRunResults := r.run(ctx, pipeline, &run, vars, l)
+	taskRunResults := r.run(ctx, pipeline, run, vars, l)
 
 	if run.Pending {
 		return run, nil, pkgerrors.Wrapf(err, "unexpected async run for spec ID %v, tried executing via ExecuteAndInsertFinishedRun", spec.ID)
@@ -505,7 +505,7 @@ func (r *runner) ExecuteAndInsertFinishedRun(ctx context.Context, spec Spec, var
 		return 0, finalResult, nil
 	}
 
-	if err = r.orm.InsertFinishedRun(&run, saveSuccessfulTaskRuns); err != nil {
+	if err = r.orm.InsertFinishedRun(run, saveSuccessfulTaskRuns); err != nil {
 		return 0, finalResult, pkgerrors.Wrapf(err, "error inserting finished results for spec ID %v", spec.ID)
 	}
 	return run.ID, finalResult, nil

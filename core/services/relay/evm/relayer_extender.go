@@ -118,7 +118,7 @@ func (s *ChainRelayerExt) Ready() (err error) {
 }
 
 func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExtenderConfig) (*ChainRelayerExtenders, error) {
-	if err := opts.Check(); err != nil {
+	if err := opts.Validate(); err != nil {
 		return nil, err
 	}
 
@@ -143,15 +143,15 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 
 		cid := enabled[i].ChainID.String()
 		privOpts := evmchain.ChainRelayExtenderConfig{
-			Logger:        opts.Logger.Named(cid),
-			RelayerConfig: opts.RelayerConfig,
-			KeyStore:      opts.KeyStore,
+			Logger:    opts.Logger.Named(cid),
+			ChainOpts: opts.ChainOpts,
+			KeyStore:  opts.KeyStore,
 		}
 
 		privOpts.Logger.Infow(fmt.Sprintf("Loading chain %s", cid), "evmChainID", cid)
 		chain, err2 := evmchain.NewTOMLChain(ctx, enabled[i], privOpts)
 		if err2 != nil {
-			err = multierr.Combine(err, err2)
+			err = multierr.Combine(err, fmt.Errorf("failed to create chain %s: %w", cid, err2))
 			continue
 		}
 
@@ -160,8 +160,6 @@ func NewChainRelayerExtenders(ctx context.Context, opts evmchain.ChainRelayExten
 		}
 		result = append(result, s)
 	}
-	if err != nil {
-		return nil, err
-	}
-	return newChainRelayerExtsFromSlice(result, opts.AppConfig), nil
+	// always return because it's accumulating errors
+	return newChainRelayerExtsFromSlice(result, opts.AppConfig), err
 }

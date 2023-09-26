@@ -83,7 +83,7 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayEx
 	opts := evm.ChainRelayExtenderConfig{
 		Logger:   logger.TestLogger(t),
 		KeyStore: testopts.KeyStore,
-		RelayerConfig: &evm.RelayerConfig{
+		ChainOpts: evm.ChainOpts{
 			AppConfig:        testopts.GeneralConfig,
 			EventBroadcaster: pg.NewNullEventBroadcaster(),
 			MailMon:          testopts.MailMon,
