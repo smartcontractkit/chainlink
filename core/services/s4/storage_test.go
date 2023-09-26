@@ -217,7 +217,8 @@ func TestStorage_List(t *testing.T) {
 		},
 	}
 
-	addressRange := s4.NewSingleAddressRange(utils.NewBig(address.Big()))
+	addressRange, err := s4.NewSingleAddressRange(utils.NewBig(address.Big()))
+	assert.NoError(t, err)
 	ormMock.On("GetSnapshot", addressRange, mock.Anything).Return(ormRows, nil)
 
 	rows, err := storage.List(testutils.Context(t), address)

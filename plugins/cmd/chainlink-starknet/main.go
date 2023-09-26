@@ -21,7 +21,7 @@ const (
 )
 
 func main() {
-	s := plugins.StartServer(loggerName)
+	s := plugins.MustNewStartedServer(loggerName)
 	defer s.Stop()
 
 	p := &pluginRelayer{Base: plugins.Base{Logger: s.Logger}}

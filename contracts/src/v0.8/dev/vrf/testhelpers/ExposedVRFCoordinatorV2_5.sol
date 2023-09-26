@@ -2,13 +2,13 @@
 pragma solidity ^0.8.4;
 
 import "../../../vrf/VRF.sol";
-import {VRFCoordinatorV2Plus} from "../VRFCoordinatorV2Plus.sol";
+import {VRFCoordinatorV2_5} from "../VRFCoordinatorV2_5.sol";
 import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 
-contract ExposedVRFCoordinatorV2Plus is VRFCoordinatorV2Plus {
+contract ExposedVRFCoordinatorV2_5 is VRFCoordinatorV2_5 {
   using EnumerableSet for EnumerableSet.UintSet;
 
-  constructor(address blockhashStore) VRFCoordinatorV2Plus(blockhashStore) {}
+  constructor(address blockhashStore) VRFCoordinatorV2_5(blockhashStore) {}
 
   function computeRequestIdExternal(
     bytes32 keyHash,
@@ -46,8 +46,8 @@ contract ExposedVRFCoordinatorV2Plus is VRFCoordinatorV2Plus {
     s_totalBalance = newBalance;
   }
 
-  function setTotalEthBalanceTestingOnlyXXX(uint96 newBalance) external {
-    s_totalEthBalance = newBalance;
+  function setTotalNativeBalanceTestingOnlyXXX(uint96 newBalance) external {
+    s_totalNativeBalance = newBalance;
   }
 
   function setWithdrawableTokensTestingOnlyXXX(address oracle, uint96 newBalance) external {
@@ -58,11 +58,11 @@ contract ExposedVRFCoordinatorV2Plus is VRFCoordinatorV2Plus {
     return s_withdrawableTokens[oracle];
   }
 
-  function setWithdrawableEthTestingOnlyXXX(address oracle, uint96 newBalance) external {
-    s_withdrawableEth[oracle] = newBalance;
+  function setWithdrawableNativeTestingOnlyXXX(address oracle, uint96 newBalance) external {
+    s_withdrawableNative[oracle] = newBalance;
   }
 
-  function getWithdrawableEthTestingOnlyXXX(address oracle) external view returns (uint96) {
-    return s_withdrawableEth[oracle];
+  function getWithdrawableNativeTestingOnlyXXX(address oracle) external view returns (uint96) {
+    return s_withdrawableNative[oracle];
   }
 }

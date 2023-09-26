@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Temporary helper function for proper migration of evmChainID not null in specs, that fills in missing chainIDs. This needs to be removed after one version after everyone migrated properly. For proper migrations all nodes must upgrade sequentially without skipping this version.
+- Simple password use in production builds is now disallowed - nodes with this configuration will not boot and will not pass config validation. 
+- Helper migrations function for injecting env vars into goose migrations. This was done to inject chainID into evm chain id not null in specs migrations.
+- OCR2 jobs now support querying the state contract for configurations if it has been deployed. This can help on chains such as BSC which "manage" state bloat by arbitrarily deleting logs older than a certain date. In this case, if logs are missing we will query the contract directly and retrieve the latest config from chain state. Chainlink will perform no extra RPC calls unless the job spec has this feature explicitly enabled. On chains that require this, nops may see an increase in RPC calls. This can be enabled for OCR2 jobs by specifying `ConfigContractAddress` in the relay config TOML.
 
 ### Removed
 
@@ -32,9 +34,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `chainlink txs evm create` returns a transaction hash for the attempted transaction in the CLI. Previously only the sender, recipient and `unstarted` state were returned.
 - Fixed a bug where `evmChainId` is requested instead of `id` or `evm-chain-id` in CLI error verbatim
 - Fixed a bug that would cause the node to shut down while performing backup
+- Fixed health checker to include more services in the prometheus `health` metric and HTTP `/health` endpoint
 
-## 2.5.0 - UNRELEASED
-=======
+<!-- unreleasedstop -->
+
+## 2.5.0 - 2023-09-13
 
 - Unauthenticated users executing CLI commands previously generated a confusing error log, which is now removed:
   ```
@@ -49,8 +53,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `mercury_price_feed_missing`
     - `mercury_price_feed_errors`
   Nops may wish to add alerting on these.
-
-<!-- unreleasedstop -->
 
 ### Upcoming Required Configuration Change
 
