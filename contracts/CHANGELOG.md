@@ -14,6 +14,8 @@
 - Update Data Streams proxy and billing interfaces for better UX (#10603)
 - Allow new reward recipients to be added to pools in Data Streams reward management (#10658)
 - Reorganize Data Streams contracts (llo-feeds/) (#10727)
+- Release automation 2.1 contracts (#10587)
+  - Note: consumers should only use IKeeperRegistryMaster when interacting with the registry contract
 
 ## 0.7.1 - 2023-09-20
 
