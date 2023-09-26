@@ -58,6 +58,12 @@ type ClNode struct {
 
 type ClNodeOption = func(c *ClNode)
 
+func WithSecrets(secretsTOML string) ClNodeOption {
+	return func(c *ClNode) {
+		c.NodeSecretsConfigTOML = secretsTOML
+	}
+}
+
 // Sets custom node container name if name is not empty
 func WithNodeContainerName(name string) ClNodeOption {
 	return func(c *ClNode) {
@@ -82,7 +88,7 @@ func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, nodeConfig *chainlink.Config, secretsConfig string, opts ...ClNodeOption) *ClNode {
+func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
 	pgDb := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
@@ -91,10 +97,9 @@ func NewClNode(networks []string, nodeConfig *chainlink.Config, secretsConfig st
 			ContainerName: nodeDefaultCName,
 			Networks:      networks,
 		},
-		NodeConfig:            nodeConfig,
-		NodeSecretsConfigTOML: secretsConfig,
-		PostgresDb:            pgDb,
-		l:                     log.Logger,
+		NodeConfig: nodeConfig,
+		PostgresDb: pgDb,
+		l:          log.Logger,
 	}
 	for _, opt := range opts {
 		opt(n)
@@ -241,17 +246,17 @@ func (n *ClNode) StartContainer() error {
 
 	// If the node secrets TOML is not set, generate it with the default template
 	nodeSecretsToml, err := templates.NodeSecretsTemplate{
-		PgDbName:   n.PostgresDb.DbName,
-		PgHost:     n.PostgresDb.ContainerName,
-		PgPort:     n.PostgresDb.Port,
-		PgPassword: n.PostgresDb.Password,
-	}.GenerateNodeSecretsString(n.NodeSecretsConfigTOML)
+		PgDbName:      n.PostgresDb.DbName,
+		PgHost:        n.PostgresDb.ContainerName,
+		PgPort:        n.PostgresDb.Port,
+		PgPassword:    n.PostgresDb.Password,
+		CustomSecrets: n.NodeSecretsConfigTOML,
+	}.String()
 	if err != nil {
 		return err
 	}
-	n.NodeSecretsConfigTOML = nodeSecretsToml
 
-	cReq, err := n.getContainerRequest()
+	cReq, err := n.getContainerRequest(nodeSecretsToml)
 	if err != nil {
 		return err
 	}
@@ -306,7 +311,7 @@ func (n *ClNode) StartContainer() error {
 	return nil
 }
 
-func (n *ClNode) getContainerRequest() (
+func (n *ClNode) getContainerRequest(secrets string) (
 	*tc.ContainerRequest, error) {
 	configFile, err := os.CreateTemp("", "node_config")
 	if err != nil {
@@ -324,7 +329,7 @@ func (n *ClNode) getContainerRequest() (
 	if err != nil {
 		return nil, err
 	}
-	_, err = secretsFile.WriteString(n.NodeSecretsConfigTOML)
+	_, err = secretsFile.WriteString(secrets)
 	if err != nil {
 		return nil, err
 	}

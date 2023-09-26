@@ -1,8 +1,6 @@
 package templates
 
 import (
-	"fmt"
-
 	"github.com/google/uuid"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils/templates"
 )
@@ -10,32 +8,30 @@ import (
 // NodeSecretsTemplate are used as text templates because of secret redacted fields of chainlink.Secrets
 // secret fields can't be marshalled as a plain text
 type NodeSecretsTemplate struct {
-	PgDbName   string
-	PgHost     string
-	PgPort     string
-	PgPassword string
+	PgDbName      string
+	PgHost        string
+	PgPort        string
+	PgPassword    string
+	CustomSecrets string
 }
 
-func (c NodeSecretsTemplate) GenerateNodeSecretsString(mercuryCred string) (string, error) {
+func (c NodeSecretsTemplate) String() (string, error) {
 	tpl := `
 [Database]
 URL = 'postgresql://postgres:{{ .PgPassword }}@{{ .PgHost }}:{{ .PgPort }}/{{ .PgDbName }}?sslmode=disable' # Required
 
 [Password]
-Keystore = '................' # Required`
+Keystore = '................' # Required
 
-	if mercuryCred != "" {
-		// Use the provided mercuryCred
-		tpl += fmt.Sprintf(`%s`, mercuryCred)
-	} else {
-		// Use the default
-		tpl += `
+{{ if .CustomSecrets }}
+	{{ .CustomSecrets }}
+{{ else }}
 [Mercury.Credentials.cred1]
 # URL = 'http://host.docker.internal:3000/reports'
 URL = 'localhost:1338'
 Username = 'node'
-Password = 'nodepass'`
-	}
-
+Password = 'nodepass'
+{{ end }}
+`
 	return templates.MarshalTemplate(c, uuid.NewString(), tpl)
 }
