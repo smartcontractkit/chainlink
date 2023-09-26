@@ -37,16 +37,26 @@ func (h *hclSinkAdapter) named(name string) logger.Logger {
 	return v.(func() logger.Logger)()
 }
 
+func removeArg(args []interface{}, key string) ([]interface{}, string) {
+	if len(args) < 2 {
+		return args, ""
+	}
+	for i := 0; i+1 < len(args); i += 2 {
+		if args[i] == key {
+			if v, ok := (args)[i+1].(string); ok {
+				return slices.Delete(args, i, i+2), v
+			}
+			break
+		}
+	}
+	return args, ""
+}
+
 func (h *hclSinkAdapter) Accept(_ string, level hclog.Level, msg string, args ...interface{}) {
 	l := h.l
-	for i := 0; i+1 < len(args); i += 2 {
-		if args[i] == "logger" {
-			if name, ok := args[i+1].(string); ok {
-				l = h.named(name)
-				args = slices.Delete(args, i, i+1)
-				break
-			}
-		}
+	var name string
+	if args, name = removeArg(args, "logger"); name != "" {
+		l = h.named(name)
 	}
 	switch level {
 	case hclog.NoLevel:
