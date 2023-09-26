@@ -18,6 +18,7 @@ on:
           - "BSC_TESTNET"
           - "SCROLL_SEPOLIA"
           - "SCROLL_MAINNET"
+          - "KROMA_MAINNET"
           - "KROMA_SEPOLIA"
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
