@@ -94,7 +94,7 @@ type ContractDeployer interface {
 	DeployVRFV2PlusWrapperLoadTestConsumer(linkAddr string, vrfV2PlusWrapperAddr string) (VRFv2PlusWrapperLoadTestConsumer, error)
 	DeployVRFCoordinator(linkAddr string, bhsAddr string) (VRFCoordinator, error)
 	DeployVRFCoordinatorV2(linkAddr string, bhsAddr string, linkEthFeedAddr string) (VRFCoordinatorV2, error)
-	DeployVRFCoordinatorV2Plus(bhsAddr string) (VRFCoordinatorV2Plus, error)
+	DeployVRFCoordinatorV2_5(bhsAddr string) (VRFCoordinatorV2_5, error)
 	DeployVRFCoordinatorV2PlusUpgradedVersion(bhsAddr string) (VRFCoordinatorV2PlusUpgradedVersion, error)
 	DeployVRFV2PlusWrapper(linkAddr string, linkEthFeedAddr string, coordinatorAddr string) (VRFV2PlusWrapper, error)
 	DeployDKG() (DKG, error)

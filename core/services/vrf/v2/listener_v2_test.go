@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 
@@ -468,7 +468,7 @@ func TestListener_handleLog(tt *testing.T) {
 			FromAddresses:       []string{"0xF2982b7Ef6E3D8BB738f8Ea20502229781f6Ad97"},
 		}).Toml())
 		require.NoError(t, err)
-		fulfilledLog := vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled{
+		fulfilledLog := vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled{
 			RequestId: big.NewInt(requestID),
 			Raw:       types.Log{BlockNumber: blockNumber},
 		}

@@ -2192,8 +2192,8 @@ github.com/pelletier/go-toml v1.2.0/go.mod h1:5z9KED0ma1S8pY6P1sdut58dfprrGBbd/9
 github.com/pelletier/go-toml v1.7.0/go.mod h1:vwGMzjaWMwyfHwgIBhI2YUM4fB6nL6lVAvS1LBMMhTE=
 github.com/pelletier/go-toml v1.9.5 h1:4yBQzkHv+7BHq2PQUZF3Mx0IYxG7LsP222s7Agd3ve8=
 github.com/pelletier/go-toml v1.9.5/go.mod h1:u1nR/EPcESfeI/szUZKdtJ0xRNbUoANCkoOuaOx1Y+c=
-github.com/pelletier/go-toml/v2 v2.0.9 h1:uH2qQXheeefCCkuBBSLi7jCiSmj3VRh2+Goq2N7Xxu0=
-github.com/pelletier/go-toml/v2 v2.0.9/go.mod h1:tJU2Z3ZkXwnxa4DPO899bsyIoywizdUvyaeZurnPPDc=
+github.com/pelletier/go-toml/v2 v2.1.0 h1:FnwAJ4oYMvbT/34k9zzHuZNrhlz48GB3/s6at6/MHO4=
+github.com/pelletier/go-toml/v2 v2.1.0/go.mod h1:tJU2Z3ZkXwnxa4DPO899bsyIoywizdUvyaeZurnPPDc=
 github.com/peterbourgon/diskv v2.0.1+incompatible h1:UBdAOUP5p4RWqPBg048CAvpKN+vxiaj6gdUUzhl4XmI=
 github.com/peterbourgon/diskv v2.0.1+incompatible/go.mod h1:uqqh8zWWbv1HBMNONnaR/tNboyR3/BZd58JJSHlUSCU=
 github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5/go.mod h1:jvVRKCrJTQWu0XVbaOlby/2lO20uSCHEMzzplHXte1o=
@@ -2360,8 +2360,8 @@ github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230913032705-f924d753cc4
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230913032705-f924d753cc47/go.mod h1:xMwqRdj5vqYhCJXgKVqvyAwdcqM6ZAEhnwEQ4Khsop8=
 github.com/smartcontractkit/chainlink-env v0.36.0 h1:CFOjs0c0y3lrHi/fl5qseCH9EQa5W/6CFyOvmhe2VnA=
 github.com/smartcontractkit/chainlink-env v0.36.0/go.mod h1:NbRExHmJGnKSYXmvNuJx5VErSx26GtE1AEN/CRzYOg8=
-github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230918212835-8a0b08df72a3 h1:FonaZ1kgRK0yY7D0jF5pL3K+0DYUnKcnStOOcIN+Hhg=
-github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230918212835-8a0b08df72a3/go.mod h1:gWclxGW7rLkbjXn7FGizYlyKhp/boekto4MEYGyiMG4=
+github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230926113942-a871b2976dc1 h1:Db333w+fSm2e18LMikcIQHIZqgxZruW9uCUGJLUC9mI=
+github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230926113942-a871b2976dc1/go.mod h1:gWclxGW7rLkbjXn7FGizYlyKhp/boekto4MEYGyiMG4=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230831134610-680240b97aca h1:x7M0m512gtXw5Z4B1WJPZ52VgshoIv+IvHqQ8hsH4AE=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230831134610-680240b97aca/go.mod h1:RIUJXn7EVp24TL2p4FW79dYjyno23x5mjt1nKN+5WEk=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230901115736-bbabe542a918 h1:ByVauKFXphRlSNG47lNuxZ9aicu+r8AoNp933VRPpCw=
@@ -2372,10 +2372,10 @@ github.com/smartcontractkit/go-plugin v0.0.0-20230605132010-0f4d515d1472 h1:x3kN
 github.com/smartcontractkit/go-plugin v0.0.0-20230605132010-0f4d515d1472/go.mod h1:6/1TEzT0eQznvI/gV2CM29DLSkAK/e58mUWKVsPaph0=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f h1:hgJif132UCdjo8u43i7iPN1/MFnu49hv7lFGFftCHKU=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f/go.mod h1:MvMXoufZAtqExNexqi4cjrNYE9MefKddKylxjS+//n0=
-github.com/smartcontractkit/libocr v0.0.0-20230918212407-dbd4e505b3e6 h1:w+8TI2Vcm3vk8XQz40ddcwy9BNZgoakXIby35Y54iDU=
-github.com/smartcontractkit/libocr v0.0.0-20230918212407-dbd4e505b3e6/go.mod h1:2lyRkw/qLQgUWlrWWmq5nj0y90rWeO6Y+v+fCakRgb0=
-github.com/smartcontractkit/ocr2keepers v0.7.26 h1:8Usfdsa6GtliMQPThL1qb36d4J5xMyTCFJYgbGp4ecA=
-github.com/smartcontractkit/ocr2keepers v0.7.26/go.mod h1:4e1ZDRz7fpLgcRUjJpq+5mkoD0ga11BxrSp2JTWKADQ=
+github.com/smartcontractkit/libocr v0.0.0-20230922131214-122accb19ea6 h1:eSo9r53fARv2MnIO5pqYvQOXMBsTlAwhHyQ6BAVp6bY=
+github.com/smartcontractkit/libocr v0.0.0-20230922131214-122accb19ea6/go.mod h1:2lyRkw/qLQgUWlrWWmq5nj0y90rWeO6Y+v+fCakRgb0=
+github.com/smartcontractkit/ocr2keepers v0.7.27 h1:kwqMrzmEdq6gH4yqNuLQCbdlED0KaIjwZzu3FF+Gves=
+github.com/smartcontractkit/ocr2keepers v0.7.27/go.mod h1:1QGzJURnoWpysguPowOe2bshV0hNp1YX10HHlhDEsas=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687 h1:NwC3SOc25noBTe1KUQjt45fyTIuInhoE2UfgcHAdihM=
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687/go.mod h1:YYZq52t4wcHoMQeITksYsorD+tZcOyuVU5+lvot3VFM=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=

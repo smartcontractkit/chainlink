@@ -2,11 +2,12 @@ package smoke
 
 import (
 	"context"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 
 	"github.com/stretchr/testify/require"
 
@@ -26,7 +27,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		WithTestLogger(t).
 		WithGeth().
 		WithCLNodes(1).
-		WithFunding(vrfv2plus_constants.ChainlinkNodeFundingAmountEth).
+		WithFunding(vrfv2plus_constants.ChainlinkNodeFundingAmountNative).
 		Build()
 	require.NoError(t, err, "error creating test env")
 	t.Cleanup(func() {
@@ -37,21 +38,21 @@ func TestVRFv2PlusBilling(t *testing.T) {
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, vrfv2plus_constants.LinkEthFeedResponse)
+	mockETHLinkFeed, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, vrfv2plus_constants.LinkNativeFeedResponse)
 	require.NoError(t, err, "error deploying mock ETH/LINK feed")
 
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	vrfv2PlusContracts, subID, vrfv2PlusData, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkToken, mockETHLinkFeed, 1)
-	require.NoError(t, err, "error setting up VRF v2 Plus env")
+	vrfv2PlusContracts, subID, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(env, linkToken, mockETHLinkFeed, 1)
+	require.NoError(t, err, "error setting up VRF v2_5 env")
 
 	subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
 	require.NoError(t, err, "error getting subscription information")
 
 	l.Debug().
 		Str("Juels Balance", subscription.Balance.String()).
-		Str("Native Token Balance", subscription.EthBalance.String()).
+		Str("Native Token Balance", subscription.NativeBalance.String()).
 		Str("Subscription ID", subID.String()).
 		Str("Subscription Owner", subscription.Owner.String()).
 		Interface("Subscription Consumers", subscription.Consumers).
@@ -99,7 +100,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 
 	t.Run("VRFV2 Plus With Native Billing", func(t *testing.T) {
 		var isNativeBilling = true
-		subNativeTokenBalanceBeforeRequest := subscription.EthBalance
+		subNativeTokenBalanceBeforeRequest := subscription.NativeBalance
 
 		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
 		require.NoError(t, err, "error reading job runs")
@@ -117,7 +118,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		expectedSubBalanceWei := new(big.Int).Sub(subNativeTokenBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
 		subscription, err = vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
 		require.NoError(t, err)
-		subBalanceAfterRequest := subscription.EthBalance
+		subBalanceAfterRequest := subscription.NativeBalance
 		require.Equal(t, expectedSubBalanceWei, subBalanceAfterRequest)
 
 		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
@@ -212,7 +213,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 
 		wrapperSubscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), wrapperSubID)
 		require.NoError(t, err, "error getting subscription information")
-		subBalanceBeforeRequest := wrapperSubscription.EthBalance
+		subBalanceBeforeRequest := wrapperSubscription.NativeBalance
 
 		randomWordsFulfilledEvent, err := vrfv2plus.DirectFundingRequestRandomnessAndWaitForFulfillment(
 			wrapperContracts.LoadTestConsumers[0],
@@ -227,7 +228,7 @@ func TestVRFv2PlusBilling(t *testing.T) {
 		expectedSubBalanceWei := new(big.Int).Sub(subBalanceBeforeRequest, randomWordsFulfilledEvent.Payment)
 		wrapperSubscription, err = vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), wrapperSubID)
 		require.NoError(t, err, "error getting subscription information")
-		subBalanceAfterRequest := wrapperSubscription.EthBalance
+		subBalanceAfterRequest := wrapperSubscription.NativeBalance
 		require.Equal(t, expectedSubBalanceWei, subBalanceAfterRequest)
 
 		consumerStatus, err := wrapperContracts.LoadTestConsumers[0].GetRequestStatus(context.Background(), randomWordsFulfilledEvent.RequestId)
@@ -271,7 +272,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		WithTestLogger(t).
 		WithGeth().
 		WithCLNodes(1).
-		WithFunding(vrfv2plus_constants.ChainlinkNodeFundingAmountEth).
+		WithFunding(vrfv2plus_constants.ChainlinkNodeFundingAmountNative).
 		Build()
 	require.NoError(t, err, "error creating test env")
 	t.Cleanup(func() {
@@ -282,21 +283,21 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 	env.ParallelTransactions(true)
 
-	mockETHLinkFeedAddress, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, vrfv2plus_constants.LinkEthFeedResponse)
+	mockETHLinkFeedAddress, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, vrfv2plus_constants.LinkNativeFeedResponse)
 	require.NoError(t, err, "error deploying mock ETH/LINK feed")
 
 	linkAddress, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	vrfv2PlusContracts, subID, vrfv2PlusData, err := vrfv2plus.SetupVRFV2PlusEnvironment(env, linkAddress, mockETHLinkFeedAddress, 2)
-	require.NoError(t, err, "error setting up VRF v2 Plus env")
+	vrfv2PlusContracts, subID, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(env, linkAddress, mockETHLinkFeedAddress, 2)
+	require.NoError(t, err, "error setting up VRF v2_5 env")
 
 	subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
 	require.NoError(t, err, "error getting subscription information")
 
 	l.Debug().
 		Str("Juels Balance", subscription.Balance.String()).
-		Str("Native Token Balance", subscription.EthBalance.String()).
+		Str("Native Token Balance", subscription.NativeBalance.String()).
 		Str("Subscription ID", subID.String()).
 		Str("Subscription Owner", subscription.Owner.String()).
 		Interface("Subscription Consumers", subscription.Consumers).
@@ -325,12 +326,12 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		vrfv2plus_constants.MaxGasLimitVRFCoordinatorConfig,
 		vrfv2plus_constants.StalenessSeconds,
 		vrfv2plus_constants.GasAfterPaymentCalculation,
-		vrfv2plus_constants.LinkEthFeedResponse,
+		vrfv2plus_constants.LinkNativeFeedResponse,
 		vrfv2plus_constants.VRFCoordinatorV2PlusUpgradedVersionFeeConfig,
 	)
 
-	err = newCoordinator.SetLINKAndLINKETHFeed(linkAddress.Address(), mockETHLinkFeedAddress.Address())
-	require.NoError(t, err, vrfv2plus.ErrSetLinkETHLinkFeed)
+	err = newCoordinator.SetLINKAndLINKNativeFeed(linkAddress.Address(), mockETHLinkFeedAddress.Address())
+	require.NoError(t, err, vrfv2plus.ErrSetLinkNativeLinkFeed)
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
 
@@ -385,7 +386,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		Str("New Coordinator", newCoordinator.Address()).
 		Str("Subscription ID", subID.String()).
 		Str("Juels Balance", migratedSubscription.Balance.String()).
-		Str("Native Token Balance", migratedSubscription.EthBalance.String()).
+		Str("Native Token Balance", migratedSubscription.NativeBalance.String()).
 		Str("Subscription Owner", migratedSubscription.Owner.String()).
 		Interface("Subscription Consumers", migratedSubscription.Consumers).
 		Msg("Subscription Data After Migration to New Coordinator")
@@ -402,7 +403,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	}
 
 	//Verify old and migrated subs
-	require.Equal(t, oldSubscriptionBeforeMigration.EthBalance, migratedSubscription.EthBalance)
+	require.Equal(t, oldSubscriptionBeforeMigration.NativeBalance, migratedSubscription.NativeBalance)
 	require.Equal(t, oldSubscriptionBeforeMigration.Balance, migratedSubscription.Balance)
 	require.Equal(t, oldSubscriptionBeforeMigration.Owner, migratedSubscription.Owner)
 	require.Equal(t, oldSubscriptionBeforeMigration.Consumers, migratedSubscription.Consumers)
@@ -421,10 +422,10 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 	//Verify that total balances changed for Link and Eth for new and old coordinator
 	expectedLinkTotalBalanceForMigratedCoordinator := new(big.Int).Add(oldSubscriptionBeforeMigration.Balance, migratedCoordinatorLinkTotalBalanceBeforeMigration)
-	expectedEthTotalBalanceForMigratedCoordinator := new(big.Int).Add(oldSubscriptionBeforeMigration.EthBalance, migratedCoordinatorEthTotalBalanceBeforeMigration)
+	expectedEthTotalBalanceForMigratedCoordinator := new(big.Int).Add(oldSubscriptionBeforeMigration.NativeBalance, migratedCoordinatorEthTotalBalanceBeforeMigration)
 
 	expectedLinkTotalBalanceForOldCoordinator := new(big.Int).Sub(oldCoordinatorLinkTotalBalanceBeforeMigration, oldSubscriptionBeforeMigration.Balance)
-	expectedEthTotalBalanceForOldCoordinator := new(big.Int).Sub(oldCoordinatorEthTotalBalanceBeforeMigration, oldSubscriptionBeforeMigration.EthBalance)
+	expectedEthTotalBalanceForOldCoordinator := new(big.Int).Sub(oldCoordinatorEthTotalBalanceBeforeMigration, oldSubscriptionBeforeMigration.NativeBalance)
 	require.Equal(t, expectedLinkTotalBalanceForMigratedCoordinator, migratedCoordinatorLinkTotalBalanceAfterMigration)
 	require.Equal(t, expectedEthTotalBalanceForMigratedCoordinator, migratedCoordinatorEthTotalBalanceAfterMigration)
 	require.Equal(t, expectedLinkTotalBalanceForOldCoordinator, oldCoordinatorLinkTotalBalanceAfterMigration)
