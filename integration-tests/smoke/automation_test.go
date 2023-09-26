@@ -1018,8 +1018,9 @@ func setupAutomationTestDocker(
 
 	secretsConfig := `
 	[Mercury.Credentials.cred1]
+	LegacyURL = 'http://localhost:53299'
 	URL = 'http://localhost:53299'
-	Username = 'node22'
+	Username = 'node'
 	Password = 'nodepass'
 	`
 
