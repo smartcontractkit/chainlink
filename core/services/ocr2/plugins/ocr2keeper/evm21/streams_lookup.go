@@ -66,10 +66,10 @@ type MercuryV03Response struct {
 }
 
 type MercuryV03Report struct {
-	FeedID                []byte `json:"feedID"` // feed id in hex
+	FeedID                string `json:"feedID"` // feed id in hex encoded
 	ValidFromTimestamp    uint32 `json:"validFromTimestamp"`
 	ObservationsTimestamp uint32 `json:"observationsTimestamp"`
-	FullReport            []byte `json:"fullReport"` // the actual mercury report of this feed, can be sent to verifier
+	FullReport            string `json:"fullReport"` // the actual hex encoded mercury report of this feed, can be sent to verifier
 }
 
 type MercuryData struct {
@@ -533,7 +533,8 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			}
 			var reportBytes [][]byte
 			for _, rsp := range response.Reports {
-				reportBytes = append(reportBytes, rsp.FullReport)
+				b, _ := hexutil.Decode(rsp.FullReport)
+				reportBytes = append(reportBytes, b)
 			}
 			ch <- MercuryData{
 				Index:     0,
