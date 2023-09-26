@@ -6,7 +6,12 @@
 
 ## 0.8.0 - UNRELEASED
 
-...
+### Changed
+
+- Enhanced support for destination configs in Data Streams verifiers (#10472)
+- Update Data Streams proxy and billing interfaces for better UX (#10603)
+- Allow new reward recipients to be added to pools in Data Streams reward management (#10658)
+- Reorganize Data Streams contracts (llo-feeds/) (#10727)
 
 ## 0.7.1 - 2023-09-20
 
