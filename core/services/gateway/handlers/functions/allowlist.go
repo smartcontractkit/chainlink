@@ -2,6 +2,7 @@ package functions
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync"
@@ -177,7 +178,7 @@ func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *b
 	if err != nil {
 		return errors.Wrap(err, "unexpected error during functions_router.GetAllowListId")
 	}
-	a.lggr.Debugw("successfully fetched allowlist route ID", "id", tosID)
+	a.lggr.Debugw("successfully fetched allowlist route ID", "id", hex.EncodeToString(tosID[:]))
 	if tosID == [32]byte{} {
 		return errors.New("allowlist route ID has not been set")
 	}

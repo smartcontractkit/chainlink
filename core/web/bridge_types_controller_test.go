@@ -105,7 +105,8 @@ func TestValidateBridgeType(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.description, func(t *testing.T) {
-			result := web.ValidateBridgeType(&test.request)
+			req := test.request
+			result := web.ValidateBridgeType(&req)
 			assert.Equal(t, test.want, result)
 		})
 	}

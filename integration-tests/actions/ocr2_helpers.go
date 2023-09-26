@@ -35,12 +35,13 @@ func DeployOCRv2Contracts(
 	contractDeployer contracts.ContractDeployer,
 	transmitters []string,
 	client blockchain.EVMClient,
+	ocrOptions contracts.OffchainOptions,
 ) ([]contracts.OffchainAggregatorV2, error) {
 	var ocrInstances []contracts.OffchainAggregatorV2
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
 		ocrInstance, err := contractDeployer.DeployOffchainAggregatorV2(
 			linkTokenContract.Address(),
-			contracts.DefaultOffChainAggregatorOptions(),
+			ocrOptions,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("OCRv2 instance deployment have failed: %w", err)

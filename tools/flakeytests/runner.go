@@ -41,7 +41,7 @@ func NewRunner(readers []io.Reader, reporter reporter, numReruns int) *Runner {
 	tc := &testCommand{
 		repo:      "github.com/smartcontractkit/chainlink/v2",
 		command:   "./tools/bin/go_core_tests",
-		numReruns: numReruns,
+		overrides: func(*exec.Cmd) {},
 	}
 	return &Runner{
 		readers:     readers,
@@ -55,7 +55,6 @@ func NewRunner(readers []io.Reader, reporter reporter, numReruns int) *Runner {
 type testCommand struct {
 	command   string
 	repo      string
-	numReruns int
 	overrides func(*exec.Cmd)
 }
 
@@ -63,7 +62,7 @@ func (t *testCommand) test(pkg string, tests []string, w io.Writer) error {
 	replacedPkg := strings.Replace(pkg, t.repo, "", -1)
 	testFilter := strings.Join(tests, "|")
 	cmd := exec.Command(t.command, fmt.Sprintf(".%s", replacedPkg)) //#nosec
-	cmd.Env = append(os.Environ(), fmt.Sprintf("TEST_FLAGS=-count=%d -run %s", t.numReruns, testFilter))
+	cmd.Env = append(os.Environ(), fmt.Sprintf("TEST_FLAGS=-run %s", testFilter))
 	cmd.Stdout = io.MultiWriter(os.Stdout, w)
 	cmd.Stderr = io.MultiWriter(os.Stderr, w)
 	t.overrides(cmd)
