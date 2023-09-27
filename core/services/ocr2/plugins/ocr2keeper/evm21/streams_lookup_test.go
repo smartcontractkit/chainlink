@@ -681,16 +681,16 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			response: &MercuryV03Response{
 				Reports: []MercuryV03Report{
 					{
-						FeedID:                hexutil.MustDecode("0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
 						ValidFromTimestamp:    123456,
 						ObservationsTimestamp: 123456,
-						FullReport:            hexutil.MustDecode("0xab2123dc00000012"),
+						FullReport:            "0xab2123dc00000012",
 					},
 					{
-						FeedID:                hexutil.MustDecode("0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"),
+						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
 						ValidFromTimestamp:    123458,
 						ObservationsTimestamp: 123458,
-						FullReport:            hexutil.MustDecode("0xab2123dc00000016"),
+						FullReport:            "0xab2123dc00000016",
 					},
 				},
 			},
@@ -711,19 +711,48 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			response: &MercuryV03Response{
 				Reports: []MercuryV03Report{
 					{
-						FeedID:                hexutil.MustDecode("0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
 						ValidFromTimestamp:    123456,
 						ObservationsTimestamp: 123456,
-						FullReport:            hexutil.MustDecode("0xab2123dc00000012"),
+						FullReport:            "0xab2123dc00000012",
 					},
 					{
-						FeedID:                hexutil.MustDecode("0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"),
+						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
 						ValidFromTimestamp:    123458,
 						ObservationsTimestamp: 123458,
-						FullReport:            hexutil.MustDecode("0xab2123dc00000019"),
+						FullReport:            "0xab2123dc00000019",
 					},
 				},
 			},
+		},
+		{
+			name: "failure - fail to decode reportBlob",
+			lookup: &StreamsLookup{
+				feedParamKey: feedIDs,
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: timestamp,
+				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
+			},
+			response: &MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            "qerwiu", // invalid hex blob
+					},
+					{
+						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123458,
+						ObservationsTimestamp: 123458,
+						FullReport:            "0xab2123dc00000016",
+					},
+				},
+			},
+			statusCode:   http.StatusOK,
+			retryable:    false,
+			errorMessage: "All attempts fail:\n#1: hex string without 0x prefix",
 		},
 		{
 			name: "failure - returns retryable",
@@ -789,26 +818,26 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			firstResponse: &MercuryV03Response{
 				Reports: []MercuryV03Report{
 					{
-						FeedID:                hexutil.MustDecode("0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
 						ValidFromTimestamp:    123456,
 						ObservationsTimestamp: 123456,
-						FullReport:            hexutil.MustDecode("0xab2123dc00000012"),
+						FullReport:            "0xab2123dc00000012",
 					},
 				},
 			},
 			response: &MercuryV03Response{
 				Reports: []MercuryV03Report{
 					{
-						FeedID:                hexutil.MustDecode("0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"),
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
 						ValidFromTimestamp:    123456,
 						ObservationsTimestamp: 123456,
-						FullReport:            hexutil.MustDecode("0xab2123dc00000012"),
+						FullReport:            "0xab2123dc00000012",
 					},
 					{
-						FeedID:                hexutil.MustDecode("0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"),
+						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
 						ValidFromTimestamp:    123458,
 						ObservationsTimestamp: 123458,
-						FullReport:            hexutil.MustDecode("0xab2123dc00000019"),
+						FullReport:            "0xab2123dc00000019",
 					},
 				},
 			},
@@ -880,7 +909,8 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 				assert.Nil(t, m.Error)
 				var reports [][]byte
 				for _, rsp := range tt.response.Reports {
-					reports = append(reports, rsp.FullReport)
+					b, _ := hexutil.Decode(rsp.FullReport)
+					reports = append(reports, b)
 				}
 				assert.Equal(t, reports, m.Bytes)
 			}
