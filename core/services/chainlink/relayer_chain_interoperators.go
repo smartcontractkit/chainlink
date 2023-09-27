@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -35,6 +36,7 @@ type RelayerChainInteroperators interface {
 
 	LoopRelayerStorer
 	LegacyChainer
+	LegacyEVM() evm.LegacyContainer
 	ChainsNodesStatuser
 }
 
@@ -79,6 +81,7 @@ type CoreRelayerChainInteroperators struct {
 	loopRelayers map[relay.ID]loop.Relayer
 	legacyChains legacyChains
 
+	legacyEVM evm.LegacyContainer
 	// we keep an explicit list of services because the legacy implementations have more than
 	// just the relayer service
 	srvs []services.ServiceCtx
@@ -116,7 +119,11 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 			op.loopRelayers[id] = a
 			legacyMap[id.ChainID] = a.Chain()
 		}
-		op.legacyChains.EVMChains = evm.NewLegacyChains(legacyMap, config.AppConfig.EVMConfigs())
+
+		chains := evm.NewLegacyChains(legacyMap, config.AppConfig.EVMConfigs())
+		op.legacyChains.EVMChains = chains
+		txmORM := txmgr.NewTxStore(config.DB, factory.Logger, config.AppConfig.Database())
+		op.legacyEVM = evm.NewLegacyContainerImpl(config.DB, txmORM, chains)
 		return nil
 	}
 }
@@ -336,6 +343,10 @@ func (rs *CoreRelayerChainInteroperators) List(filter FilterFn) RelayerChainInte
 	return &CoreRelayerChainInteroperators{
 		loopRelayers: matches,
 	}
+}
+
+func (rs *CoreRelayerChainInteroperators) LegacyEVM() evm.LegacyContainer {
+	return rs.legacyEVM
 }
 
 // Returns a slice of [loop.Relayer]. A typically usage pattern to is

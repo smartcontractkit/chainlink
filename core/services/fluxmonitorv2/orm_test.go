@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
@@ -85,22 +86,24 @@ func TestORM_UpdateFluxMonitorRoundStats(t *testing.T) {
 	t.Parallel()
 
 	cfg := configtest.NewGeneralConfig(t, nil)
-	db := pgtest.NewSqlxDB(t)
 
-	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+	coredb := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, coredb, cfg.Database())
+
+	evmdb := evmtestdb.NewScopedDB(t, cfg.Database())
 	lggr := logger.TestLogger(t)
 
 	// Instantiate a real pipeline ORM because we need to create a pipeline run
 	// for the foreign key constraint of the stats record
-	pipelineORM := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	bridgeORM := bridges.NewORM(db, lggr, cfg.Database())
+	pipelineORM := pipeline.NewORM(coredb, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+	bridgeORM := bridges.NewORM(coredb, lggr, cfg.Database())
 
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: db, KeyStore: keyStore.Eth()})
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{GeneralConfig: cfg, DB: evmdb, KeyStore: keyStore.Eth()})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	// Instantiate a real job ORM because we need to create a job to satisfy
 	// a check in pipeline.CreateRun
-	jobORM := job.NewORM(db, legacyChains, pipelineORM, bridgeORM, keyStore, lggr, cfg.Database())
-	orm := newORM(t, db, cfg.Database(), nil)
+	jobORM := job.NewORM(coredb, legacyChains, pipelineORM, bridgeORM, keyStore, lggr, cfg.Database())
+	orm := newORM(t, coredb, cfg.Database(), nil)
 
 	address := testutils.NewAddress()
 	var roundID uint32 = 1

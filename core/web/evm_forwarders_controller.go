@@ -25,7 +25,7 @@ type EVMForwardersController struct {
 
 // Index lists EVM forwarders.
 func (cc *EVMForwardersController) Index(c *gin.Context, size, page, offset int) {
-	orm := forwarders.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger(), cc.App.GetConfig().Database())
+	orm := forwarders.NewORM(cc.App.GetRelayers().LegacyEVM().DB(), cc.App.GetLogger(), cc.App.GetConfig().Database())
 	fwds, count, err := orm.FindForwarders(0, size)
 
 	if err != nil {
@@ -55,7 +55,7 @@ func (cc *EVMForwardersController) Track(c *gin.Context) {
 		jsonAPIError(c, http.StatusUnprocessableEntity, err)
 		return
 	}
-	orm := forwarders.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger(), cc.App.GetConfig().Database())
+	orm := forwarders.NewORM(cc.App.GetRelayers().LegacyEVM().DB(), cc.App.GetLogger(), cc.App.GetConfig().Database())
 	fwd, err := orm.CreateForwarder(request.Address, *request.EVMChainID)
 
 	if err != nil {
@@ -94,7 +94,7 @@ func (cc *EVMForwardersController) Delete(c *gin.Context) {
 		return chain.LogPoller().UnregisterFilter(forwarders.FilterName(addr), pg.WithQueryer(tx))
 	}
 
-	orm := forwarders.NewORM(cc.App.GetSqlxDB(), cc.App.GetLogger(), cc.App.GetConfig().Database())
+	orm := forwarders.NewORM(cc.App.GetRelayers().LegacyEVM().DB(), cc.App.GetLogger(), cc.App.GetConfig().Database())
 	err = orm.DeleteForwarder(id, filterCleanup)
 
 	if err != nil {

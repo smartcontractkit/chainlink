@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/chains/evm/db"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -28,8 +29,8 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) *orm {
-	return &orm{pg.NewQ(db, lggr, cfg)}
+func NewORM(db *evmdb.ScopedDB, lggr logger.Logger, cfg pg.QConfig) *orm {
+	return &orm{pg.NewQ(db.SqlxDB(), lggr, cfg)}
 }
 
 // CreateForwarder creates the Forwarder address associated with the current EVM chain id.

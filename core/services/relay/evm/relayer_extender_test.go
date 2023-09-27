@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -34,7 +35,7 @@ func TestChainRelayExtenders(t *testing.T) {
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
 
-	opts := evmtest.NewChainRelayExtOpts(t, evmtest.TestChainOpts{DB: evmtest.NewScopedDB(t, cfg.Database()), KeyStore: kst.Eth(), GeneralConfig: cfg})
+	opts := evmtest.NewChainRelayExtOpts(t, evmtest.TestChainOpts{DB: evmtestdb.NewScopedDB(t, cfg.Database()), KeyStore: kst.Eth(), GeneralConfig: cfg})
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
 		return cltest.NewEthMocksWithStartupAssertions(t)
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/feeds"
@@ -1477,7 +1478,8 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 		lggr           = logger.TestLogger(t)
 		pipelineORM    = pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM      = bridges.NewORM(db, lggr, config.Database())
-		relayExtenders = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+		evmdb          = evmtestdb.NewScopedDB(t, config.Database())
+		relayExtenders = evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: evmdb, GeneralConfig: config, KeyStore: keyStore.Eth()})
 	)
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	orm := job.NewORM(db, legacyChains, pipelineORM, bridgeORM, keyStore, lggr, config.Database())

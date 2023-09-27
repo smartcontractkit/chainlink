@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
@@ -53,8 +54,9 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Feature.LogPoller = func(b bool) *bool { return &b }(true)
 	})
-	db := pgtest.NewSqlxDB(t)
-	kst := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+	coredb := pgtest.NewSqlxDB(t)
+	evmdb := evmtestdb.NewScopedDB(t, cfg.Database())
+	kst := cltest.NewKeyStore(t, coredb, cfg.Database()).Eth()
 	sendingKey, _ := cltest.MustAddRandomKeyToKeystore(t, kst)
 	lp := &mocklp.LogPoller{}
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
@@ -63,7 +65,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	relayExtenders := evmtest.NewChainRelayExtenders(
 		t,
 		evmtest.TestChainOpts{
-			DB:            db,
+			DB:            evmdb,
 			KeyStore:      kst,
 			GeneralConfig: cfg,
 			Client:        ethClient,

@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"github.com/smartcontractkit/sqlx"
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 
@@ -24,6 +23,7 @@ import (
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/chains/evm/db"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -48,7 +48,7 @@ import (
 var _ relaytypes.Relayer = &Relayer{}
 
 type Relayer struct {
-	db               *sqlx.DB
+	db               *evmdb.ScopedDB
 	chain            evm.Chain
 	lggr             logger.Logger
 	ks               CSAETHKeystore
@@ -63,7 +63,7 @@ type CSAETHKeystore interface {
 }
 
 type RelayerOpts struct {
-	*sqlx.DB
+	DB *evmdb.ScopedDB
 	pg.QConfig
 	CSAETHKeystore
 	pg.EventBroadcaster
@@ -187,7 +187,10 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	default:
 		return nil, fmt.Errorf("invalid feed version %d", feedID.Version())
 	}
-	transmitter := mercury.NewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.db, r.pgCfg, transmitterCodec)
+	// KRR note to self: this is going to break because the mercury transmitter is using db tables outside the `evm` schema but mercury is using the relayer's db which is scoped to evm.
+	// this new provider code should be passed a connection string and make it's own DB. might need some sort of DB manager so that multiple providers can share the same DB object. not sure
+	// how many times NewProvider is called.
+	transmitter := mercury.NewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.db.SqlxDB(), r.pgCfg, transmitterCodec)
 
 	return NewMercuryProvider(configWatcher, transmitter, reportCodecV1, reportCodecV2, reportCodecV3, r.lggr), nil
 }
@@ -512,7 +515,8 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 		return nil, err
 	}
 
-	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.db, r.lggr)
+	// KRR note to self: this is going to break because the queries that use the `db` are not scoped to the `evm` schema
+	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.db.SqlxDB(), r.lggr)
 	if err != nil {
 		return nil, err
 	}

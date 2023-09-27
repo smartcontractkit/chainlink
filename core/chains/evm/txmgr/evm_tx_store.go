@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/chains/evm/db"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -320,13 +321,13 @@ func dbEthTxAttemptsToEthTxAttempts(dbEthTxAttempt []DbEthTxAttempt) []TxAttempt
 }
 
 func NewTxStore(
-	db *sqlx.DB,
+	db *evmdb.ScopedDB,
 	lggr logger.Logger,
 	cfg pg.QConfig,
 ) *evmTxStore {
 	namedLogger := lggr.Named("TxmStore")
 	ctx, cancel := context.WithCancel(context.Background())
-	q := pg.NewQ(db, namedLogger, cfg, pg.WithParentCtx(ctx))
+	q := pg.NewQ(db.SqlxDB(), namedLogger, cfg, pg.WithParentCtx(ctx))
 	return &evmTxStore{
 		q:         q,
 		logger:    namedLogger,

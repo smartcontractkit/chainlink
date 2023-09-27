@@ -35,6 +35,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/chains/evm/db"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -152,7 +153,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		GRPCOpts:     grpcOpts,
 	}
 
-	evmScopedDB, err := pg.OpenUnlockedDB(cfg.AppID(), cfg.Database(), pg.WithSchema("evm")) //pg.NewLockedDB(cfg.AppID(), cfg.Database(), cfg.Database().Lock(), lggr)
+	evmScopedDB, err := evmdb.NewScopedDB(cfg.AppID(), cfg.Database())
 	if err != nil {
 		return nil, err
 	}

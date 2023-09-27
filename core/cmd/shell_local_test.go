@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -90,7 +91,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					MailMon:          &utils.MailboxMonitor{},
-					DB:               evmtest.NewScopedDB(t, cfg.Database()),
+					DB:               evmtestdb.NewScopedDB(t, cfg.Database()),
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)
@@ -195,7 +196,7 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 
 					MailMon: &utils.MailboxMonitor{},
-					DB:      evmtest.NewScopedDB(t, cfg.Database()),
+					DB:      evmtestdb.NewScopedDB(t, cfg.Database()),
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)

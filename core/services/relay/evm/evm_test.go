@@ -3,9 +3,9 @@ package evm_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/chains/evm/db"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -14,7 +14,7 @@ import (
 func TestRelayerOpts_Validate(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	type fields struct {
-		DB               *sqlx.DB
+		DB               *evmdb.ScopedDB
 		QConfig          pg.QConfig
 		CSAETHKeystore   evm.CSAETHKeystore
 		EventBroadcaster pg.EventBroadcaster

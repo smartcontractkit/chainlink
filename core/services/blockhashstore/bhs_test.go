@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
@@ -24,17 +25,18 @@ import (
 )
 
 func TestStoreRotatesFromAddresses(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	kst := cltest.NewKeyStore(t, db, cfg.Database())
+	evmdb := evmtestdb.NewScopedDB(t, cfg.Database())
+	coredb := pgtest.NewSqlxDB(t)
+	kst := cltest.NewKeyStore(t, coredb, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: evmdb, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	chain, err := legacyChains.Get(cltest.FixtureChainID.String())
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
-	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
+	ks := keystore.New(coredb, utils.FastScryptParams, lggr, cfg.Database())
 	require.NoError(t, ks.Unlock("blah"))
 	k1, err := ks.Eth().Create(&cltest.FixtureChainID)
 	require.NoError(t, err)

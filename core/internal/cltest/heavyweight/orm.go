@@ -18,7 +18,9 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/chains/evm/db"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -42,7 +44,12 @@ func FullTestDBNoFixturesV2(t *testing.T, name string, overrideFn func(c *chainl
 func FullTestDBEmptyV2(t *testing.T, name string, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
 	return prepareFullTestDBV2(t, name, true, false, overrideFn)
 }
-
+func EVMDB(t *testing.T, cfg config.Database) *evmdb.ScopedDB {
+	evmConn := evmdb.ScopedConnection(cfg.URL())
+	edb, err := pg.NewConnection(evmConn.String(), dialects.Postgres, cfg)
+	require.NoError(t, err)
+	return &evmdb.ScopedDB{edb}
+}
 func prepareFullTestDBV2(t *testing.T, name string, empty bool, loadFixtures bool, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
 	testutils.SkipShort(t, "FullTestDB")
 

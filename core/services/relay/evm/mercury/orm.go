@@ -54,6 +54,7 @@ func (o *orm) InsertTransmitRequest(req *pb.TransmitRequest, jobID int32, report
 	wg.Add(2)
 	var err1, err2 error
 
+	// KRR note to self: this is going to break because mercury is inside the evm relayer and the evm relayer is being scoped to the `evm` schema
 	go func() {
 		defer wg.Done()
 		err1 = q.ExecQ(`

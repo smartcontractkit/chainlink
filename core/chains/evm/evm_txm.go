@@ -3,10 +3,9 @@ package evm
 import (
 	"fmt"
 
-	"github.com/smartcontractkit/sqlx"
-
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/chains/evm/db"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -14,7 +13,7 @@ import (
 )
 
 func newEvmTxm(
-	db *sqlx.DB,
+	db *evmdb.ScopedDB,
 	cfg evmconfig.EVM,
 	evmRPCEnabled bool,
 	databaseConfig txmgr.DatabaseConfig,

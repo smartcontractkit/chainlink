@@ -175,9 +175,8 @@ func SchemaScopedConnection(conn url.URL, schema string) url.URL {
 	// https://www.postgresql.org/docs/16/app-psql.html
 
 	u := conn
-	opt := "options=-csearch_path="
 	queryVals := u.Query()
-	queryVals.Add(opt, schema)
+	queryVals.Add("options", "-csearch_path="+schema)
 
 	u.RawQuery = queryVals.Encode()
 	return u

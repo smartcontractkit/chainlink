@@ -14,6 +14,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
 
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/chains/evm/db"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -240,8 +241,12 @@ func (s *Shell) ConfigureOCR2VRFNode(c *cli.Context, owner *bind.TransactOpts, e
 			return nil, err
 		}
 
+		evmDB, err := evmdb.NewScopedDB(s.Config.AppID(), s.Config.Database())
+		if err != nil {
+			return nil, err
+		}
 		// Create forwarder for management in forwarder_manager.go.
-		orm := forwarders.NewORM(ldb.DB(), lggr, s.Config.Database())
+		orm := forwarders.NewORM(evmDB, lggr, s.Config.Database())
 		_, err = orm.CreateForwarder(common.HexToAddress(forwarderAddress), *utils.NewBigI(chainID))
 		if err != nil {
 			return nil, err

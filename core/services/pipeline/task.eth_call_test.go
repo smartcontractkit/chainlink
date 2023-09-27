@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
@@ -254,12 +254,12 @@ func TestETHCallTask(t *testing.T) {
 			lggr := logger.TestLogger(t)
 
 			keyStore := keystoremocks.NewEth(t)
-			txManager := txmmocks.NewMockEvmTxManager(t)
-			db := pgtest.NewSqlxDB(t)
 
 			var legacyChains evm.LegacyChainContainer
 			if test.expectedErrorCause != nil || test.expectedErrorContains != "" {
-				exts := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
+				txManager := txmmocks.NewMockEvmTxManager(t)
+				evmdb := evmtestdb.NewScopedDB(t, cfg.Database())
+				exts := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: evmdb, GeneralConfig: cfg, TxManager: txManager, KeyStore: keyStore})
 				legacyChains = evmrelay.NewLegacyChainsFromRelayerExtenders(exts)
 			} else {
 				legacyChains = cltest.NewLegacyChainsWithMockChain(t, ethClient, cfg)

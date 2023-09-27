@@ -109,15 +109,15 @@ type Application interface {
 // and Store. The JobSubscriber and Scheduler are also available
 // in the services package, but the Store has its own package.
 type ChainlinkApplication struct {
-	relayers                 *CoreRelayerChainInteroperators
-	EventBroadcaster         pg.EventBroadcaster
-	jobORM                   job.ORM
-	jobSpawner               job.Spawner
-	pipelineORM              pipeline.ORM
-	pipelineRunner           pipeline.Runner
-	bridgeORM                bridges.ORM
-	sessionORM               sessions.ORM
-	txmStorageService        txmgr.EvmTxStore
+	relayers         *CoreRelayerChainInteroperators
+	EventBroadcaster pg.EventBroadcaster
+	jobORM           job.ORM
+	jobSpawner       job.Spawner
+	pipelineORM      pipeline.ORM
+	pipelineRunner   pipeline.Runner
+	bridgeORM        bridges.ORM
+	sessionORM       sessions.ORM
+	//txmStorageService        txmgr.EvmTxStore
 	FeedsService             feeds.Service
 	webhookJobRunner         webhook.JobRunner
 	Config                   GeneralConfig
@@ -269,7 +269,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		mercuryORM     = mercury.NewORM(db, globalLogger, cfg.Database())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, legacyEVMChains, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
-		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
 	)
 
 	for _, chain := range legacyEVMChains.Slice() {
@@ -458,7 +457,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		pipelineORM:              pipelineORM,
 		bridgeORM:                bridgeORM,
 		sessionORM:               sessionORM,
-		txmStorageService:        txmORM,
 		FeedsService:             feedsService,
 		Config:                   cfg,
 		webhookJobRunner:         webhookJobRunner,
@@ -635,7 +633,7 @@ func (app *ChainlinkApplication) SessionORM() sessions.ORM {
 
 // TODO BCF-2516 remove this all together remove EVM specifics
 func (app *ChainlinkApplication) EVMORM() evmtypes.Configs {
-	return app.GetRelayers().LegacyEVMChains().ChainNodeConfigs()
+	return app.GetRelayers().LegacyEVM().Chains().ChainNodeConfigs()
 }
 
 func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
@@ -643,7 +641,7 @@ func (app *ChainlinkApplication) PipelineORM() pipeline.ORM {
 }
 
 func (app *ChainlinkApplication) TxmStorageService() txmgr.EvmTxStore {
-	return app.txmStorageService
+	return app.GetRelayers().LegacyEVM().TxmORM()
 }
 
 func (app *ChainlinkApplication) GetExternalInitiatorManager() webhook.ExternalInitiatorManager {

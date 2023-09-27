@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -42,11 +42,12 @@ func (c *config) BlockEmissionIdleWarningThreshold() time.Duration {
 }
 
 func configureSaver(t *testing.T) (httypes.HeadSaver, headtracker.ORM) {
-	db := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
+
+	evmdb := evmtestdb.NewScopedDB(t, cfg.Database())
 	htCfg := &config{finalityDepth: uint32(1)}
-	orm := headtracker.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
+	orm := headtracker.NewORM(evmdb, lggr, cfg.Database(), cltest.FixtureChainID)
 	saver := headtracker.NewHeadSaver(lggr, orm, htCfg, &headTrackerConfig{historyDepth: 6})
 	return saver, orm
 }

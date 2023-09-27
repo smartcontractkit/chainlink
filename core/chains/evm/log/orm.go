@@ -9,8 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/sqlx"
-
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/chains/evm/db"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -53,8 +52,8 @@ type orm struct {
 
 var _ ORM = (*orm)(nil)
 
-func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig, evmChainID big.Int) *orm {
-	return &orm{pg.NewQ(db, lggr, cfg), *utils.NewBig(&evmChainID)}
+func NewORM(db *evmdb.ScopedDB, lggr logger.Logger, cfg pg.QConfig, evmChainID big.Int) *orm {
+	return &orm{pg.NewQ(db.SqlxDB(), lggr, cfg), *utils.NewBig(&evmChainID)}
 }
 
 func (o *orm) WasBroadcastConsumed(blockHash common.Hash, logIndex uint, jobID int32, qopts ...pg.QOpt) (consumed bool, err error) {

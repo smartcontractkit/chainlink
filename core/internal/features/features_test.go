@@ -56,6 +56,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -828,7 +829,7 @@ func setupForwarderEnabledNode(
 	b.Commit()
 
 	// add forwarder address to be tracked in db
-	forwarderORM := forwarders.NewORM(app.GetSqlxDB(), logger.TestLogger(t), config.Database())
+	forwarderORM := forwarders.NewORM(app.GetRelayers().LegacyEVM().DB(), logger.TestLogger(t), config.Database())
 	chainID := utils.Big(*b.Blockchain().Config().ChainID)
 	_, err = forwarderORM.CreateForwarder(forwarder, chainID)
 	require.NoError(t, err)
@@ -1327,11 +1328,12 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("ConfiguredChainID").Return(big.NewInt(client.NullClientChainID)).Maybe()
 	chchNewHeads := make(chan evmtest.RawSub[*evmtypes.Head], 1)
 
-	db := pgtest.NewSqlxDB(t)
-	kst := cltest.NewKeyStore(t, db, cfg.Database())
+	coredb := pgtest.NewSqlxDB(t)
+	kst := cltest.NewKeyStore(t, coredb, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
 
-	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: cfg})
+	evmdb := evmtestdb.NewScopedDB(t, cfg.Database())
+	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: evmdb, KeyStore: kst.Eth(), Client: ethClient, GeneralConfig: cfg})
 
 	b41 := evmtypes.Block{
 		Number:       41,

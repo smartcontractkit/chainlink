@@ -1,4 +1,4 @@
-package evm
+package evm_test
 
 import (
 	"database/sql"
@@ -28,6 +28,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
@@ -35,9 +37,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -82,18 +85,18 @@ func TestConfigPoller(t *testing.T) {
 		require.NoError(t, err)
 		b.Commit()
 
-		db := pgtest.NewSqlxDB(t)
-		cfg := pgtest.NewQConfig(false)
+		cfg := configtest.NewTestGeneralConfig(t)
+		evmdb := evmtestdb.NewScopedDB(t, cfg.Database())
 		ethClient = evmclient.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 		ctx := testutils.Context(t)
-		lorm := logpoller.NewORM(testutils.SimulatedChainID, db, lggr, cfg)
+		lorm := logpoller.NewORM(testutils.SimulatedChainID, evmdb, lggr, cfg.Database())
 		lp = logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
 		require.NoError(t, lp.Start(ctx))
 		t.Cleanup(func() { lp.Close() })
 	}
 
 	t.Run("LatestConfig errors if there is no config in logs and config store is unconfigured", func(t *testing.T) {
-		cp, err := NewConfigPoller(lggr, ethClient, lp, ocrAddress, nil)
+		cp, err := evmrelay.NewConfigPoller(lggr, ethClient, lp, ocrAddress, nil)
 		require.NoError(t, err)
 
 		_, err = cp.LatestConfig(testutils.Context(t), 0)
@@ -102,7 +105,7 @@ func TestConfigPoller(t *testing.T) {
 	})
 
 	t.Run("happy path (with config store)", func(t *testing.T) {
-		cp, err := NewConfigPoller(lggr, ethClient, lp, ocrAddress, &configStoreContractAddr)
+		cp, err := evmrelay.NewConfigPoller(lggr, ethClient, lp, ocrAddress, &configStoreContractAddr)
 		require.NoError(t, err)
 		// Should have no config to begin with.
 		_, configDigest, err := cp.LatestConfigDetails(testutils.Context(t))
@@ -173,7 +176,7 @@ func TestConfigPoller(t *testing.T) {
 		mp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, sql.ErrNoRows)
 
 		t.Run("if callLatestConfigDetails succeeds", func(t *testing.T) {
-			cp, err := newConfigPoller(lggr, ethClient, mp, ocrAddress, &configStoreContractAddr)
+			cp, err := evmrelay.NewConfigPoller(lggr, ethClient, mp, ocrAddress, &configStoreContractAddr)
 			require.NoError(t, err)
 
 			t.Run("when config has not been set, returns zero values", func(t *testing.T) {
@@ -210,11 +213,8 @@ func TestConfigPoller(t *testing.T) {
 			failingClient := new(evmClientMocks.Client)
 			failingClient.On("ConfiguredChainID").Return(big.NewInt(42))
 			failingClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(nil, errors.New("something exploded"))
-			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr)
+			cp, err := evmrelay.NewConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr)
 			require.NoError(t, err)
-
-			cp.configStoreContractAddr = &configStoreContractAddr
-			cp.configStoreContract = configStoreContract
 
 			_, _, err = cp.LatestConfigDetails(testutils.Context(t))
 			assert.EqualError(t, err, "something exploded")
@@ -249,7 +249,7 @@ func TestConfigPoller(t *testing.T) {
 		mp.On("LatestLogByEventSigWithConfs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(nil, sql.ErrNoRows)
 
 		t.Run("if callReadConfig succeeds", func(t *testing.T) {
-			cp, err := newConfigPoller(lggr, ethClient, mp, ocrAddress, &configStoreContractAddr)
+			cp, err := evmrelay.NewConfigPoller(lggr, ethClient, mp, ocrAddress, &configStoreContractAddr)
 			require.NoError(t, err)
 
 			t.Run("when config has not been set, returns error", func(t *testing.T) {
@@ -271,9 +271,9 @@ func TestConfigPoller(t *testing.T) {
 					DeltaC:              10,
 				}, ocrContract, user)
 
-				signerAddresses, err := OnchainPublicKeyToAddress(contractConfig.Signers)
+				signerAddresses, err := evmrelay.OnchainPublicKeyToAddress(contractConfig.Signers)
 				require.NoError(t, err)
-				transmitterAddresses, err := AccountToAddress(contractConfig.Transmitters)
+				transmitterAddresses, err := evmrelay.AccountToAddress(contractConfig.Transmitters)
 				require.NoError(t, err)
 
 				configuration := ocrconfigurationstoreevmsimple.OCRConfigurationStoreEVMSimpleConfigurationEVMSimple{
@@ -311,7 +311,7 @@ func TestConfigPoller(t *testing.T) {
 				// initial call to retrieve config store address from aggregator
 				return *callArgs.To == ocrAddress
 			}), mock.Anything).Return(nil, errors.New("something exploded")).Once()
-			cp, err := newConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr)
+			cp, err := evmrelay.NewConfigPoller(lggr, failingClient, mp, ocrAddress, &configStoreContractAddr)
 			require.NoError(t, err)
 
 			_, err = cp.LatestConfig(testutils.Context(t), 0)
@@ -359,9 +359,9 @@ func setConfig(t *testing.T, pluginConfig median.OffchainConfig, ocrContract *oc
 		onchainConfig,
 	)
 	require.NoError(t, err)
-	signerAddresses, err := OnchainPublicKeyToAddress(signers)
+	signerAddresses, err := evmrelay.OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
-	transmitterAddresses, err := AccountToAddress(transmitters)
+	transmitterAddresses, err := evmrelay.AccountToAddress(transmitters)
 	require.NoError(t, err)
 	_, err = ocrContract.SetConfig(user, signerAddresses, transmitterAddresses, threshold, onchainConfig, offchainConfigVersion, offchainConfig)
 	require.NoError(t, err)

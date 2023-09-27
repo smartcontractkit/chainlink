@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/cron"
@@ -25,15 +26,15 @@ import (
 func TestCronV2Pipeline(t *testing.T) {
 	runner := pipelinemocks.NewRunner(t)
 	cfg := configtest.NewTestGeneralConfig(t)
-	db := pgtest.NewSqlxDB(t)
-
-	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-	relayerExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: evmtest.NewEthClientMockWithDefaultChain(t), KeyStore: keyStore.Eth()})
+	coredb := pgtest.NewSqlxDB(t)
+	evmdb := evmtestdb.NewScopedDB(t, cfg.Database())
+	keyStore := cltest.NewKeyStore(t, coredb, cfg.Database())
+	relayerExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: evmdb, GeneralConfig: cfg, Client: evmtest.NewEthClientMockWithDefaultChain(t), KeyStore: keyStore.Eth()})
 	lggr := logger.TestLogger(t)
-	orm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
-	btORM := bridges.NewORM(db, lggr, cfg.Database())
+	orm := pipeline.NewORM(coredb, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
+	btORM := bridges.NewORM(coredb, lggr, cfg.Database())
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayerExtenders)
-	jobORM := job.NewORM(db, legacyChains, orm, btORM, keyStore, lggr, cfg.Database())
+	jobORM := job.NewORM(coredb, legacyChains, orm, btORM, keyStore, lggr, cfg.Database())
 
 	jb := &job.Job{
 		Type:          job.Cron,

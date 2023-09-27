@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -33,8 +34,8 @@ var SimpleOracleCallABI = evmtypes.MustGetABI(operator_wrapper.OperatorABI).Meth
 
 func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
+	db := evmtestdb.NewScopedDB(t, cfg.Database())
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	owner := testutils.MustNewSimTransactor(t)
 
@@ -92,8 +93,8 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 
 func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewTestGeneralConfig(t)
+	db := evmtestdb.NewScopedDB(t, cfg.Database())
 	evmcfg := evmtest.NewChainScopedConfig(t, cfg)
 	owner := testutils.MustNewSimTransactor(t)
 	ec := backends.NewSimulatedBackend(map[common.Address]core.GenesisAccount{

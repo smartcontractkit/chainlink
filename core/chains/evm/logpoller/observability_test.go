@@ -15,6 +15,8 @@ import (
 	"github.com/prometheus/client_golang/prometheus/testutil"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -98,7 +100,7 @@ func TestMetricsAreProperlyPopulatedWithLabels(t *testing.T) {
 func TestNotPublishingDatasetSizeInCaseOfError(t *testing.T) {
 	lp := createObservedPollLogger(t, 420)
 
-	_, err := withObservedQueryAndResults(lp, "errorQuery", func() ([]string, error) { return nil, fmt.Errorf("error") })
+	_, err := WithObservedQueryAndResults(lp, "errorQuery", func() ([]string, error) { return nil, fmt.Errorf("error") })
 	require.Error(t, err)
 
 	require.Equal(t, 1, counterFromHistogramByLabels(t, lp.queryDuration, "420", "errorQuery"))
@@ -107,7 +109,7 @@ func TestNotPublishingDatasetSizeInCaseOfError(t *testing.T) {
 
 func createObservedPollLogger(t *testing.T, chainId int64) *ObservedLogPoller {
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
-	db := pgtest.NewSqlxDB(t)
+	db := evmtestdb.NewScopedDB(t, configtest.NewTestGeneralConfig(t).Database())
 	orm := NewORM(big.NewInt(chainId), db, lggr, pgtest.NewQConfig(true))
 	return NewObservedLogPoller(
 		orm, nil, lggr, 1, 1, 1, 1, 1000,

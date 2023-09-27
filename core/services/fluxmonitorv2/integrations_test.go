@@ -27,6 +27,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/chains/evm/db"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	faw "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
@@ -404,7 +405,7 @@ func assertPipelineRunCreated(t *testing.T, db *sqlx.DB, roundID int64, result i
 	return run
 }
 
-func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *sqlx.DB, pipelineSpecID int32, blockNumber uint64, cfg pg.QConfig) {
+func checkLogWasConsumed(t *testing.T, fa fluxAggregatorUniverse, db *evmdb.ScopedDB, pipelineSpecID int32, blockNumber uint64, cfg pg.QConfig) {
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	lggr.Infof("Waiting for log on block: %v, job id: %v", blockNumber, pipelineSpecID)
@@ -559,7 +560,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
 			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-			checkLogWasConsumed(t, fa, app.GetSqlxDB(), int32(jobId), receiptBlock, app.GetConfig().Database())
+			checkLogWasConsumed(t, fa, app.GetRelayers().LegacyEVM().DB(), int32(jobId), receiptBlock, app.GetConfig().Database())
 
 			lggr.Info("Updating price to 103")
 			// Change reported price to a value outside the deviation
@@ -588,7 +589,7 @@ func TestFluxMonitor_Deviation(t *testing.T) {
 			// Need to wait until NewRound log is consumed - otherwise there is a chance
 			// it will arrive after the next answer is submitted, and cause
 			// DeleteFluxMonitorRoundsBackThrough to delete previous stats
-			checkLogWasConsumed(t, fa, app.GetSqlxDB(), int32(jobId), receiptBlock, app.GetConfig().Database())
+			checkLogWasConsumed(t, fa, app.GetRelayers().LegacyEVM().DB(), int32(jobId), receiptBlock, app.GetConfig().Database())
 
 			// Should not received a submission as it is inside the deviation
 			reportPrice.Store(104)

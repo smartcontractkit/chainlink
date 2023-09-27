@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -47,7 +47,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 		c.EVM[0].HeadTracker.SamplingInterval = &models.Duration{}
 	})
 	evmCfg := evmtest.NewChainScopedConfig(t, cfg)
-	db := pgtest.NewSqlxDB(t)
+	evmdb := evmtestdb.NewScopedDB(t, cfg.Database())
 	logger := logger.TestLogger(t)
 
 	sub := commonmocks.NewSubscription(t)
@@ -69,7 +69,7 @@ func TestHeadBroadcaster_Subscribe(t *testing.T) {
 	checker2 := &cltest.MockHeadTrackable{}
 
 	hb := headtracker.NewHeadBroadcaster(logger)
-	orm := headtracker.NewORM(db, logger, cfg.Database(), *ethClient.ConfiguredChainID())
+	orm := headtracker.NewORM(evmdb, logger, cfg.Database(), *ethClient.ConfiguredChainID())
 	hs := headtracker.NewHeadSaver(logger, orm, evmCfg.EVM(), evmCfg.EVM().HeadTracker())
 	mailMon := utils.NewMailboxMonitor(t.Name())
 	ht := headtracker.NewHeadTracker(logger, ethClient, evmCfg.EVM(), evmCfg.EVM().HeadTracker(), hb, hs, mailMon)

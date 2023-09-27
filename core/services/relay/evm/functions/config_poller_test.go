@@ -27,6 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -72,14 +74,15 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	)
 	require.NoError(t, err)
 	b.Commit()
-	db := pgtest.NewSqlxDB(t)
-	defer db.Close()
+
 	cfg := pgtest.NewQConfig(false)
 	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	defer ethClient.Close()
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
-	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
+	evmdb := evmtestdb.NewScopedDB(t, configtest.NewTestGeneralConfig(t).Database())
+	defer evmdb.Close()
+	lorm := logpoller.NewORM(big.NewInt(1337), evmdb, lggr, cfg)
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
 	defer lp.Close()
 	require.NoError(t, lp.Start(ctx))

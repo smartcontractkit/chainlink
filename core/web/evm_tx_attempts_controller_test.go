@@ -20,7 +20,7 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
+	txStore := cltest.NewTestTxStore(t, app.GetRelayers().LegacyEVM().DB(), app.GetConfig().Database())
 	client := app.NewHTTPClient(&cltest.User{})
 
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)

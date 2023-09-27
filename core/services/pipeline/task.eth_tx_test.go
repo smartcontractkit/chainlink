@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -566,14 +566,14 @@ func TestETHTxTask(t *testing.T) {
 
 			keyStore := keystoremocks.NewEth(t)
 			txManager := txmmocks.NewMockEvmTxManager(t)
-			db := pgtest.NewSqlxDB(t)
 			cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.LimitDefault = ptr(defaultGasLimit)
 				c.EVM[0].GasEstimator.LimitJobType.DR = ptr(drJobTypeGasLimit)
 			})
 			lggr := logger.TestLogger(t)
 
-			relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg,
+			evmdb := evmtestdb.NewScopedDB(t, cfg.Database())
+			relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: evmdb, GeneralConfig: cfg,
 				TxManager: txManager, KeyStore: keyStore})
 			legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 

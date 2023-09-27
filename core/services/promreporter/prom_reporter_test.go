@@ -9,6 +9,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/services/promreporter"
 
 	"github.com/stretchr/testify/assert"
@@ -55,10 +56,11 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 	})
 
 	t.Run("with unconfirmed evm.txes", func(t *testing.T) {
-		db := pgtest.NewSqlxDB(t)
+		coredb := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewGeneralConfig(t, nil)
-		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
-		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
+		evmdb := evmtestdb.NewScopedDB(t, cfg.Database())
+		txStore := cltest.NewTestTxStore(t, evmdb, cfg.Database())
+		ethKeyStore := cltest.NewKeyStore(t, coredb, cfg.Database()).Eth()
 		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
 
 		var subscribeCalls atomic.Int32
@@ -75,14 +77,14 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 				subscribeCalls.Add(1)
 			}).
 			Return()
-		reporter := promreporter.NewPromReporter(db.DB, logger.TestLogger(t), backend, 10*time.Millisecond)
+		reporter := promreporter.NewPromReporter(coredb.DB, logger.TestLogger(t), backend, 10*time.Millisecond)
 		require.NoError(t, reporter.Start(testutils.Context(t)))
 		defer func() { assert.NoError(t, reporter.Close()) }()
 
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, fromAddress)
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 1, fromAddress)
 		cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, fromAddress)
-		require.NoError(t, utils.JustError(db.Exec(`UPDATE evm.tx_attempts SET broadcast_before_block_num = 7 WHERE eth_tx_id = $1`, etx.ID)))
+		require.NoError(t, utils.JustError(coredb.Exec(`UPDATE evm.tx_attempts SET broadcast_before_block_num = 7 WHERE eth_tx_id = $1`, etx.ID)))
 
 		head := newHead()
 		reporter.OnNewLongestChain(testutils.Context(t), &head)

@@ -9,7 +9,6 @@ import (
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/pelletier/go-toml/v2"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slices"
@@ -24,15 +23,15 @@ import (
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	evmtoml "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/chains/evm/db"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -64,7 +63,7 @@ type TestChainOpts struct {
 	LogPoller      logpoller.LogPoller
 	GeneralConfig  evm.AppConfig
 	HeadTracker    httypes.HeadTracker
-	DB             *sqlx.DB
+	DB             *evmdb.ScopedDB
 	TxManager      txmgr.TxManager
 	KeyStore       keystore.Eth
 	MailMon        *utils.MailboxMonitor
@@ -369,9 +368,4 @@ func (r *RawSub[T]) TrySend(t T) {
 	case <-r.err:
 	case r.ch <- t:
 	}
-}
-
-func NewScopedDB(t testing.TB, cfg config.Database) *sqlx.DB {
-	u := pg.SchemaScopedConnection(cfg.URL(), "evm")
-	return pgtest.NewSqlxDB(t, pg.WithURL(u))
 }

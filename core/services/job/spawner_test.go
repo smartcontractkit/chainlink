@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -95,8 +96,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		}).
 		Return(nil).Maybe()
 
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
-	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	legacyChains := setupLegacyEVMChains(t, config, keyStore.Eth())
 	t.Run("should respect its dependents", func(t *testing.T) {
 		lggr := logger.TestLogger(t)
 		orm := NewTestORM(t, db, legacyChains, pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns()), bridges.NewORM(db, lggr, config.Database()), keyStore, config.Database())
@@ -270,8 +270,9 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 			c.Feature.LogPoller = func(b bool) *bool { return &b }(true)
 		})
 		lp := &mocklp.LogPoller{}
+		evmdb := evmtestdb.NewScopedDB(t, config.Database())
 		testopts := evmtest.TestChainOpts{
-			DB:            db,
+			DB:            evmdb,
 			Client:        ethClient,
 			GeneralConfig: config,
 			LogPoller:     lp,
@@ -285,7 +286,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 		chain := evmtest.MustGetDefaultChain(t, legacyChains)
 
 		evmRelayer, err := evmrelayer.NewRelayer(lggr, chain, evmrelayer.RelayerOpts{
-			DB:               db,
+			DB:               evmdb,
 			QConfig:          testopts.GeneralConfig.Database(),
 			CSAETHKeystore:   keyStore,
 			EventBroadcaster: pg.NewNullEventBroadcaster(),

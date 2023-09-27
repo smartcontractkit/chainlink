@@ -1,4 +1,4 @@
-package forwarders
+package forwarders_test
 
 import (
 	"database/sql"
@@ -9,27 +9,30 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/chains/evm/db"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	"github.com/smartcontractkit/sqlx"
 )
 
 type TestORM struct {
-	ORM
-	db *sqlx.DB
+	forwarders.ORM
+	db *evmdb.ScopedDB
 }
 
 func setupORM(t *testing.T) *TestORM {
 	t.Helper()
 
 	var (
-		db   = pgtest.NewSqlxDB(t)
+		cfg  = configtest.NewTestGeneralConfig(t)
+		db   = evmtestdb.NewScopedDB(t, cfg.Database())
 		lggr = logger.TestLogger(t)
-		orm  = NewORM(db, lggr, pgtest.NewQConfig(true))
+		orm  = forwarders.NewORM(db, lggr, pgtest.NewQConfig(true))
 	)
 
 	return &TestORM{ORM: orm, db: db}

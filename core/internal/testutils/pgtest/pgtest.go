@@ -30,24 +30,26 @@ func NewSqlDB(t *testing.T) *sql.DB {
 	return db
 }
 
-func uniqueConnection(t testing.TB) *url.URL {
-	url := testutils.MustParseURL(t, defaultDBURL.String())
-	// inject uuid by default because the transaction wrapped driver requires it
-	q := url.Query()
-	q.Add("uuid", uuid.New().String())
-	url.RawQuery = q.Encode()
-	return url
+func withUUID() pg.ConnectionOpt {
+	return func(u *url.URL) error {
+		q := u.Query()
+		q.Add("uuid", uuid.New().String())
+		u.RawQuery = q.Encode()
+		return nil
+	}
 }
 
 func NewSqlxDB(t testing.TB, opts ...pg.ConnectionOpt) *sqlx.DB {
 	testutils.SkipShortDB(t)
 
-	url := uniqueConnection(t)
+	url := testutils.MustParseURL(t, defaultDBURL.String())
+	// tx wrapped db driver requires a uuid
+	opts = append(opts, withUUID())
 	for _, opt := range opts {
 		assert.NoError(t, opt(url))
 	}
-	db, err := sqlx.Open(string(dialects.TransactionWrappedPostgres), url.String())
-	require.NoError(t, err)
+	db := sqlx.MustConnect(string(dialects.TransactionWrappedPostgres), url.String())
+
 	t.Cleanup(func() { assert.NoError(t, db.Close()) })
 
 	db.MapperFunc(reflectx.CamelToSnakeASCII)

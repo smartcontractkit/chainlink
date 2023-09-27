@@ -11,8 +11,6 @@ import (
 	"go.uber.org/multierr"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/sqlx"
-
 	gotoml "github.com/pelletier/go-toml/v2"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
@@ -22,6 +20,7 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/chains/evm/db"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
@@ -162,13 +161,14 @@ func (c ChainRelayExtenderConfig) Validate() error {
 }
 
 type ChainOpts struct {
+	// TODO BCF-2509 does this need the entire app config?
 	AppConfig AppConfig
 
 	EventBroadcaster pg.EventBroadcaster
 	MailMon          *utils.MailboxMonitor
 	GasEstimator     gas.EvmFeeEstimator
 
-	*sqlx.DB
+	DB *evmdb.ScopedDB
 
 	// TODO BCF-2513 remove test code from the API
 	// Gen-functions are useful for dependency injection by tests

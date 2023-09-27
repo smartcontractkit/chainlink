@@ -18,6 +18,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/chains/evm/db"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
@@ -163,12 +164,13 @@ func SetupTH(t *testing.T, feedID common.Hash) TestHarness {
 	require.NoError(t, err)
 	b.Commit()
 
-	db := pgtest.NewSqlxDB(t)
 	cfg := pgtest.NewQConfig(false)
 	ethClient := evmclient.NewSimulatedBackendClient(t, b, big.NewInt(1337))
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
-	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
+	// explicitly scope the db rather than use evmtestdb.NewScopedDB because that requires a config, which causes an import cycle
+	evmScopedDB := &evmdb.ScopedDB{pgtest.NewSqlxDB(t, evmdb.UseEVMSchema())}
+	lorm := logpoller.NewORM(big.NewInt(1337), evmScopedDB, lggr, cfg)
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
 	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
 	subscription := pgmocks.NewSubscription(t)

@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -43,8 +44,9 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	require.NoError(t, keyStore.OCR2().Add(cltest.DefaultOCR2Key))
 	lggr := logger.TestLogger(t)
 
+	evmdb := evmtestdb.NewScopedDB(t, config.Database())
 	txManager := txmmocks.NewMockEvmTxManager(t)
-	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth(), TxManager: txManager})
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: evmdb, GeneralConfig: config, KeyStore: keyStore.Eth(), TxManager: txManager})
 	require.True(t, relayExtenders.Len() > 0)
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 
