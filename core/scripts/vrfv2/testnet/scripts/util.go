@@ -243,6 +243,7 @@ func ClosestBlock(e helpers.Environment, batchBHSAddress common.Address, blockMi
 		for i, hash := range hashes {
 			if hash != (common.Hash{}) {
 				fmt.Println("found closest block:", startBlock+uint64(i), "hash:", hexutil.Encode(hash[:]))
+				fmt.Println("distance from missing block:", startBlock+uint64(i)-blockMissingBlockhash)
 				return startBlock + uint64(i), nil
 			}
 		}

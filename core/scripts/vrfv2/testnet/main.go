@@ -483,6 +483,7 @@ func main() {
 			helpers.PanicErr(err)
 
 			fmt.Println("received receipt, continuing")
+			fmt.Println("there are", len(blockRange)-j, "blocks left to store")
 		}
 		fmt.Println("done")
 	case "latest-head":
