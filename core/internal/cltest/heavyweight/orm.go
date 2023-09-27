@@ -29,21 +29,21 @@ import (
 
 // FullTestDBV2 creates a pristine DB which runs in a separate database than the normal
 // unit tests, so you can do things like use other Postgres connection types with it.
-func FullTestDBV2(t *testing.T, name string, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
+func FullTestDBV2(t testing.TB, name string, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
 	return prepareFullTestDBV2(t, name, false, true, overrideFn)
 }
 
 // FullTestDBNoFixturesV2 is the same as FullTestDB, but it does not load fixtures.
-func FullTestDBNoFixturesV2(t *testing.T, name string, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
+func FullTestDBNoFixturesV2(t testing.TB, name string, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
 	return prepareFullTestDBV2(t, name, false, false, overrideFn)
 }
 
 // FullTestDBEmptyV2 creates an empty DB (without migrations).
-func FullTestDBEmptyV2(t *testing.T, name string, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
+func FullTestDBEmptyV2(t testing.TB, name string, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
 	return prepareFullTestDBV2(t, name, true, false, overrideFn)
 }
 
-func prepareFullTestDBV2(t *testing.T, name string, empty bool, loadFixtures bool, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
+func prepareFullTestDBV2(t testing.TB, name string, empty bool, loadFixtures bool, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
 	testutils.SkipShort(t, "FullTestDB")
 
 	if empty && loadFixtures {
