@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
 	chainlinkutils "github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -379,6 +380,10 @@ func SetupVRFV2PlusWrapperEnvironment(
 		vrfv2plus_constants.WrapperPremiumPercentage,
 		keyHash,
 		vrfv2plus_constants.WrapperMaxNumberOfWords,
+		vrfv2plus_constants.StalenessSeconds,
+		assets.GWei(50_000_000).ToInt(),
+		vrfv2plus_constants.VRFCoordinatorV2_5FeeConfig.FulfillmentFlatFeeLinkPPM,
+		vrfv2plus_constants.VRFCoordinatorV2_5FeeConfig.FulfillmentFlatFeeNativePPM,
 	)
 	if err != nil {
 		return nil, nil, err
