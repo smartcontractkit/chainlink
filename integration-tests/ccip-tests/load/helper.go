@@ -272,7 +272,7 @@ func (l *loadArgs) TearDown() {
 		for i := range l.ccipLoad {
 			l.ccipLoad[i].ReportAcceptedLog()
 		}
-		l.TestSetupArgs.TearDown()
+		require.NoError(l.t, l.TestSetupArgs.TearDown())
 	}
 }
 

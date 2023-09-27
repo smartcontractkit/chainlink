@@ -583,6 +583,26 @@ type SourceCCIPModule struct {
 	NewFinalizedBlockTimestamp atomic.Time
 }
 
+func (sourceCCIP *SourceCCIPModule) PayCCIPFeeToOwnerAddress() error {
+	isNativeFee := sourceCCIP.Common.FeeToken.EthAddress == common.HexToAddress("0x0")
+	if isNativeFee {
+		err := sourceCCIP.OnRamp.WithdrawNonLinkFees(sourceCCIP.Common.WrappedNative)
+		if err != nil {
+			return err
+		}
+	} else {
+		err := sourceCCIP.OnRamp.SetNops()
+		if err != nil {
+			return err
+		}
+		err = sourceCCIP.OnRamp.PayNops()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (sourceCCIP *SourceCCIPModule) LoadContracts(conf *laneconfig.LaneConfig) {
 	if conf != nil {
 		cfg, ok := conf.SrcContracts[sourceCCIP.DestNetworkName]
@@ -609,6 +629,7 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 	if err != nil {
 		return err
 	}
+
 	sourceCCIP.LoadContracts(lane)
 	// update transfer amount array length to be equal to the number of tokens
 	// each index in TransferAmount array corresponds to the amount to be transferred for the token at the same index in BridgeTokens array
@@ -1711,7 +1732,7 @@ func (lane *CCIPLane) StartEventWatchers() error {
 	return nil
 }
 
-func (lane *CCIPLane) CleanUp() {
+func (lane *CCIPLane) CleanUp(clearFees bool) error {
 	lane.Logger.Info().Msg("Cleaning up lane")
 	if !lane.Source.Common.ChainClient.NetworkSimulated() &&
 		lane.Source.Common.ChainClient.GetNetworkConfig().FinalityDepth == 0 {
@@ -1720,8 +1741,18 @@ func (lane *CCIPLane) CleanUp() {
 	for _, sub := range lane.Subscriptions {
 		sub.Unsubscribe()
 	}
-	require.NoError(lane.Test, lane.DestChain.Close())
-	require.NoError(lane.Test, lane.SourceChain.Close())
+	// recover fees from onRamp contract
+	if clearFees && !lane.Source.Common.ChainClient.NetworkSimulated() {
+		err := lane.Source.PayCCIPFeeToOwnerAddress()
+		if err != nil {
+			return err
+		}
+	}
+	err := lane.Dest.Common.ChainClient.Close()
+	if err != nil {
+		return err
+	}
+	return lane.Source.Common.ChainClient.Close()
 }
 
 // DeployNewCCIPLane sets up a lane and initiates lane.Source and lane.Destination

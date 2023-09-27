@@ -135,9 +135,9 @@ func TestChaosCCIP(t *testing.T) {
 			require.NoError(t, err)
 			t.Cleanup(func() {
 				if chaosId != "" {
-					testEnvironment.Chaos.Stop(chaosId)
+					require.NoError(t, testEnvironment.Chaos.Stop(chaosId))
 				}
-				tearDown()
+				require.NoError(t, tearDown())
 			})
 			lane.RecordStateBeforeTransfer()
 			// Now send the ccip-request while the chaos is at play
@@ -145,7 +145,7 @@ func TestChaosCCIP(t *testing.T) {
 			require.NoError(t, err)
 			if in.waitForChaosRecovery {
 				// wait for chaos to be recovered before further validation
-				testEnvironment.Chaos.WaitForAllRecovered(chaosId, 1*time.Minute)
+				require.NoError(t, testEnvironment.Chaos.WaitForAllRecovered(chaosId, 1*time.Minute))
 			} else {
 				l.Info().Msg("proceeding without waiting for chaos recovery")
 			}

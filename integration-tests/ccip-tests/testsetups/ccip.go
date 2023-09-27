@@ -518,7 +518,7 @@ type CCIPTestSetUpOutputs struct {
 	Reporter                 *testreporters.CCIPTestReporter
 	LaneConfigFile           string
 	LaneConfig               *laneconfig.Lanes
-	TearDown                 func()
+	TearDown                 func() error
 	Env                      *actions.CCIPTestEnv
 	Balance                  *actions.BalanceSheet
 	BootstrapAdded           *atomic.Bool
@@ -1081,13 +1081,23 @@ func CCIPDefaultTestSetUp(
 	// start event watchers for all lanes
 	setUpArgs.StartEventWatchers()
 
-	setUpArgs.TearDown = func() {
+	setUpArgs.TearDown = func() error {
+		var errs error
 		for _, lanes := range setUpArgs.Lanes {
-			lanes.ForwardLane.CleanUp()
+			// if existing deployment is true, don't attempt to pay ccip fees
+			err := lanes.ForwardLane.CleanUp(!setUpArgs.Cfg.ExistingDeployment)
+			if err != nil {
+				errs = multierr.Append(errs, err)
+			}
 			if lanes.ReverseLane != nil {
-				lanes.ReverseLane.CleanUp()
+				// if existing deployment is true, don't attempt to pay ccip fees
+				err := lanes.ReverseLane.CleanUp(!setUpArgs.Cfg.ExistingDeployment)
+				if err != nil {
+					errs = multierr.Append(errs, err)
+				}
 			}
 		}
+		return errs
 	}
 	lggr.Info().Msg("Test setup completed")
 	return setUpArgs

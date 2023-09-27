@@ -1064,6 +1064,7 @@
     "Base Goerli-1": {
       "is_mock_arm": true,
       "fee_token": "0xD886E2286Fd1073df82462ea1822119600Af80b6",
+      "is_native_fee_token" : true,
       "bridge_tokens": null,
       "bridge_tokens_pools": null,
       "arm": "0x1E5b6ce8EB1071B2B1686ddd241fE6a3c07560DE",
@@ -1123,6 +1124,7 @@
     "Base Goerli-2": {
       "is_mock_arm": true,
       "fee_token": "0xD886E2286Fd1073df82462ea1822119600Af80b6",
+      "is_native_fee_token" : true,
       "bridge_tokens": null,
       "bridge_tokens_pools": null,
       "arm": "0xE42597d226Eab595893f1ad1B0d7F58d7F1Cc375",
@@ -1182,6 +1184,7 @@
     "Base Goerli-3": {
       "is_mock_arm": true,
       "fee_token": "0xD886E2286Fd1073df82462ea1822119600Af80b6",
+      "is_native_fee_token" : true,
       "bridge_tokens": null,
       "bridge_tokens_pools": null,
       "arm": "0xE42597d226Eab595893f1ad1B0d7F58d7F1Cc375",
@@ -1241,6 +1244,7 @@
     "Base Goerli-4": {
       "is_mock_arm": true,
       "fee_token": "0xD886E2286Fd1073df82462ea1822119600Af80b6",
+      "is_native_fee_token" : true,
       "bridge_tokens": null,
       "bridge_tokens_pools": null,
       "arm": "0xE42597d226Eab595893f1ad1B0d7F58d7F1Cc375",

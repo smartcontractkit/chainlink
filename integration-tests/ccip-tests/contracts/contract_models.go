@@ -580,6 +580,48 @@ func (onRamp *OnRamp) Address() string {
 	return onRamp.EthAddress.Hex()
 }
 
+func (onRamp *OnRamp) SetNops() error {
+	opts, err := onRamp.client.TransactionOpts(onRamp.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	owner := common.HexToAddress(onRamp.client.GetDefaultWallet().Address())
+	// set the payee to the default wallet
+	tx, err := onRamp.Instance.SetNops(opts, []evm_2_evm_onramp.EVM2EVMOnRampNopAndWeight{{
+		Nop:    owner,
+		Weight: 1,
+	}})
+	if err != nil {
+		return err
+	}
+	return onRamp.client.ProcessTransaction(tx)
+}
+
+func (onRamp *OnRamp) PayNops() error {
+	opts, err := onRamp.client.TransactionOpts(onRamp.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := onRamp.Instance.PayNops(opts)
+	if err != nil {
+		return err
+	}
+	return onRamp.client.ProcessTransaction(tx)
+}
+
+func (onRamp *OnRamp) WithdrawNonLinkFees(wrappedNative common.Address) error {
+	opts, err := onRamp.client.TransactionOpts(onRamp.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	owner := common.HexToAddress(onRamp.client.GetDefaultWallet().Address())
+	tx, err := onRamp.Instance.WithdrawNonLinkFees(opts, wrappedNative, owner)
+	if err != nil {
+		return err
+	}
+	return onRamp.client.ProcessTransaction(tx)
+}
+
 func (onRamp *OnRamp) SetRateLimit(rlConfig evm_2_evm_onramp.RateLimiterConfig) error {
 	opts, err := onRamp.client.TransactionOpts(onRamp.client.GetDefaultWallet())
 	if err != nil {

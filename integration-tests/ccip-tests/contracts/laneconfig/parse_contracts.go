@@ -134,8 +134,9 @@ func (l *Lanes) CopyCommonContracts(fromNetwork, toNetwork string, reuse, isToke
 		DestContractsMu: &sync.Mutex{},
 		DestContracts:   make(map[string]DestContracts),
 		CommonContracts: CommonContracts{
-			FeeToken:      existing.FeeToken,
-			WrappedNative: existing.WrappedNative,
+			FeeToken:         existing.FeeToken,
+			WrappedNative:    existing.WrappedNative,
+			IsNativeFeeToken: existing.IsNativeFeeToken,
 		},
 	}
 	// if reuse is set to true, it copies all the common contracts except the router

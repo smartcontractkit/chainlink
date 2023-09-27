@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/chaos"
 	a "github.com/smartcontractkit/chainlink-env/pkg/alias"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 )
@@ -24,7 +25,7 @@ func TestLoadCCIPStableRPS(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		log.Info().Msg("Tearing down the environment")
-		testArgs.TestSetupArgs.TearDown()
+		require.NoError(t, testArgs.TestSetupArgs.TearDown())
 	})
 	testArgs.TriggerLoad()
 	testArgs.Wait()
@@ -46,7 +47,7 @@ func TestLoadCCIPSequentialLaneAdd(t *testing.T) {
 	}
 	t.Cleanup(func() {
 		log.Info().Msg("Tearing down the environment")
-		testArgs.TestSetupArgs.TearDown()
+		require.NoError(t, testArgs.TestSetupArgs.TearDown())
 	})
 	testArgs.TriggerLoad()
 	testArgs.AddMoreLanesToRun()
@@ -108,7 +109,7 @@ func TestLoadCCIPStableRequestTriggeringWithPodChaos(t *testing.T) {
 			}
 			t.Cleanup(func() {
 				log.Info().Msg("Tearing down the environment")
-				testArgs.TestSetupArgs.TearDown()
+				require.NoError(t, testArgs.TestSetupArgs.TearDown())
 			})
 			testArgs.SanityCheck()
 			testArgs.TriggerLoad()
