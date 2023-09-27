@@ -191,8 +191,14 @@ func (p *Pool) checkLease() {
 		// best node. Only terminate connections with more than 1 subscription to account for the aliveLoop subscription
 		if n.State() == NodeStateAlive && n != bestNode && n.SubscribersCount() > 1 {
 			p.logger.Infof("Switching to best node from %q to %q", n.String(), bestNode.String())
-			n.UnsubscribeAll()
+			n.UnsubscribeAllExceptAliveLoop()
 		}
+	}
+
+	if bestNode != p.activeNode {
+		p.activeMu.Lock()
+		p.activeNode = bestNode
+		p.activeMu.Unlock()
 	}
 }
 
@@ -359,7 +365,7 @@ func (p *Pool) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error
 	return main.BatchCallContext(ctx, b)
 }
 
-// Wrapped Geth client methods
+// SendTransaction wrapped Geth client methods
 func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	main := p.selectNode()
 	var all []SendOnlyNode

@@ -358,7 +358,7 @@ func TestUnit_Pool_LeaseDuration(t *testing.T) {
 	n2.On("String").Maybe().Return("n2")
 	n1.On("Close").Maybe().Return(nil)
 	n2.On("Close").Maybe().Return(nil)
-	n2.On("UnsubscribeAll").Return()
+	n2.On("UnsubscribeAllExceptAliveLoop").Return()
 	n2.On("SubscribersCount").Return(int32(2))
 
 	n1.On("Start", mock.Anything).Return(nil).Once()

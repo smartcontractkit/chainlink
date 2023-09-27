@@ -709,8 +709,8 @@ func (_m *Node) TransactionReceipt(ctx context.Context, txHash common.Hash) (*ty
 	return r0, r1
 }
 
-// UnsubscribeAll provides a mock function with given fields:
-func (_m *Node) UnsubscribeAll() {
+// UnsubscribeAllExceptAliveLoop provides a mock function with given fields:
+func (_m *Node) UnsubscribeAllExceptAliveLoop() {
 	_m.Called()
 }
 

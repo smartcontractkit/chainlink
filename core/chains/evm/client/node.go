@@ -95,7 +95,7 @@ type Node interface {
 	ChainID() *big.Int
 	Order() int32
 	SubscribersCount() int32
-	UnsubscribeAll()
+	UnsubscribeAllExceptAliveLoop()
 
 	CallContext(ctx context.Context, result interface{}, method string, args ...interface{}) error
 	BatchCallContext(ctx context.Context, b []rpc.BatchElem) error
@@ -154,6 +154,9 @@ type node struct {
 	// Need to track subscriptions because closing the RPC does not (always?)
 	// close the underlying subscription
 	subs []ethereum.Subscription
+
+	// Need to track the aliveLoop subscription, so we do not cancel it when checking lease
+	aliveLoopSub ethereum.Subscription
 
 	// chStopInFlight can be closed to immediately cancel all in-flight requests on
 	// this node. Closing and replacing should be serialized through
@@ -389,12 +392,17 @@ func (n *node) SubscribersCount() int32 {
 	return int32(len(n.subs))
 }
 
-// UnsubscribeAll disconnects all clients connected to the node while holding the n.stateMu lock
-func (n *node) UnsubscribeAll() {
+// UnsubscribeAllExceptAliveLoop disconnects all subscriptions to the node except the alive loop subscription
+// while holding the n.stateMu lock
+func (n *node) UnsubscribeAllExceptAliveLoop() {
 	n.stateMu.Lock()
 	defer n.stateMu.Unlock()
-	n.cancelInflightRequests()
-	n.unsubscribeAll()
+
+	for _, s := range n.subs {
+		if s != n.aliveLoopSub {
+			s.Unsubscribe()
+		}
+	}
 }
 
 // cancelInflightRequests closes and replaces the chStopInFlight

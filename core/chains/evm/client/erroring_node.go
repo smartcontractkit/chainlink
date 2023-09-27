@@ -20,11 +20,11 @@ type erroringNode struct {
 	errMsg string
 }
 
+func (e *erroringNode) UnsubscribeAllExceptAliveLoop() {}
+
 func (e *erroringNode) SubscribersCount() int32 {
 	return 0
 }
-
-func (e *erroringNode) UnsubscribeAll() {}
 
 func (e *erroringNode) ChainID() (chainID *big.Int) { return nil }
 
