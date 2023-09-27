@@ -54,6 +54,7 @@ jobs:
     outputs:
       src: ${{ steps.changes.outputs.src }}
   tracing:
+    environment: integration
     runs-on: ubuntu-latest
     steps:
     - name: Checkout code

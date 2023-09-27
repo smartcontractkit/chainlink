@@ -11,6 +11,8 @@ services:
       - "4317:4317" # otlp grpc
     depends_on:
       - tempo
+    networks:
+      - tracing-network
 
   # .. Which accepts requests from grafana ...
   tempo:
@@ -21,6 +23,8 @@ services:
       - ./tempo-data:/tmp/tempo
     ports:
       - "4317"  # otlp grpc
+    networks:
+      - tracing-network
 
   grafana:
     image: grafana/grafana:9.4.3
@@ -33,3 +37,10 @@ services:
       - GF_FEATURE_TOGGLES_ENABLE=traceqlEditor
     ports:
       - "3000:3000"
+    networks:
+      - tracing-network
+
+networks:
+  tracing-network:
+    name: tracing
+    driver: bridge

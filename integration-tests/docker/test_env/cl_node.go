@@ -387,6 +387,7 @@ func (n *ClNode) getContainerRequest(secrets string) (
 			"-a", apiCredsPath,
 		},
 		Networks: n.Networks,
+		NetworkMode: "tracing",
 		WaitingFor: tcwait.ForHTTP("/health").
 			WithPort("6688/tcp").
 			WithStartupTimeout(90 * time.Second).
