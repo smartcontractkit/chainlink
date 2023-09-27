@@ -23,7 +23,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework v1.16.5-0.20230908202859-e75102cf5f40
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20230922131214-122accb19ea6
-	github.com/smartcontractkit/ocr2keepers v1.0.0-alpha.0.0.20230927075140-c781596bd315
+	github.com/smartcontractkit/ocr2keepers v1.0.0-alpha.0.0.20230927122904-84c86293f315
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/wasp v0.3.0
@@ -513,4 +513,4 @@ replace (
 	github.com/sercand/kuberesolver v2.4.0+incompatible => github.com/sercand/kuberesolver/v5 v5.1.0
 )
 
-replace github.com/smartcontractkit/libocr => github.com/ferglor/libocr v0.0.0-20230927075024-4e920bd3af01
+replace github.com/smartcontractkit/libocr => github.com/ferglor/libocr v0.0.0-20230927122816-ee285b2154ce
