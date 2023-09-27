@@ -384,4 +384,4 @@ replace (
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
 )
 
-replace github.com/smartcontractkit/libocr => github.com/ferglor/libocr v0.0.0-20230927122816-ee285b2154ce
+replace github.com/smartcontractkit/libocr => github.com/ferglor/libocr v0.0.0-20230927173455-81b40031b6f1

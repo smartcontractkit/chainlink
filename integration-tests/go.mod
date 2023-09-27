@@ -513,4 +513,4 @@ replace (
 	github.com/sercand/kuberesolver v2.4.0+incompatible => github.com/sercand/kuberesolver/v5 v5.1.0
 )
 
-replace github.com/smartcontractkit/libocr => github.com/ferglor/libocr v0.0.0-20230927122816-ee285b2154ce
+replace github.com/smartcontractkit/libocr => github.com/ferglor/libocr v0.0.0-20230927173455-81b40031b6f1
