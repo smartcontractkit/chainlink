@@ -76,17 +76,17 @@ jobs:
       if: steps.check-label.outputs.trace == 'true'
       run: |
         # Create network
-        docker network create tracing_network
+        docker network create --driver bridge tracing
 
         # Start Grafana
         cd ./.github/tracing
-        docker run -d --network=tracing_network --name=grafana -p 3000:3000 -v $PWD/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml -e GF_AUTH_ANONYMOUS_ENABLED=true -e GF_AUTH_ANONYMOUS_ORG_ROLE=Admin -e GF_AUTH_DISABLE_LOGIN_FORM=true -e GF_FEATURE_TOGGLES_ENABLE=traceqlEditor grafana/grafana:9.4.3
+        docker run -d --network=tracing --name=grafana -p 3000:3000 -v $PWD/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml -e GF_AUTH_ANONYMOUS_ENABLED=true -e GF_AUTH_ANONYMOUS_ORG_ROLE=Admin -e GF_AUTH_DISABLE_LOGIN_FORM=true -e GF_FEATURE_TOGGLES_ENABLE=traceqlEditor grafana/grafana:9.4.3
 
         # Start Tempo
-        docker run -d --network=tracing_network --name=tempo -v ./tempo.yaml:/etc/tempo.yaml -v $PWD/tempo-data:/tmp/tempo grafana/tempo:latest -config.file=/etc/tempo.yaml
+        docker run -d --network=tracing --name=tempo -v ./tempo.yaml:/etc/tempo.yaml -v $PWD/tempo-data:/tmp/tempo grafana/tempo:latest -config.file=/etc/tempo.yaml
 
         # Start OpenTelemetry Collector
-        docker run -d --network=tracing_network --name=otel-collector -v $PWD/otel-collector.yaml:/etc/otel-collector.yaml -p 4317:4317 otel/opentelemetry-collector:0.61.0 --config=/etc/otel-collector.yaml
+        docker run -d --network=tracing --name=otel-collector -v $PWD/otel-collector.yaml:/etc/otel-collector.yaml -p 4317:4317 otel/opentelemetry-collector:0.61.0 --config=/etc/otel-collector.yaml
     - name: Reverse SSH Tunneling
       env: 
         TRACING_SSH_KEY: ${{ secrets.TRACING_SSH_KEY }}
@@ -104,10 +104,10 @@ jobs:
           echo "To view Grafana locally:"
           echo "ssh -i /path/to/key -L 8000:localhost:3001 user-gha@$TRACING_SSH_SERVER"
           echo "Then visit http://localhost:8000 in a browser"
-          - name: Show Grafana Logs
-          if: steps.check-label.outputs.trace == 'true'
-          run: |
-              docker logs grafana
+    - name: Show Grafana Logs
+      if: steps.check-label.outputs.trace == 'true'
+      run: |
+          docker logs grafana
     - name: Show Tempo Logs
       if: steps.check-label.outputs.trace == 'true'
       run: |
@@ -119,7 +119,7 @@ jobs:
     - name: Set sleep time to use in future steps
       if: steps.check-label.outputs.trace == 'true'
       run: |
-        echo "SLEEP_TIME=300" >> "$GITHUB_ENV"
+        echo "SLEEP_TIME=2400" >> "$GITHUB_ENV"
     - name: Keep action running to view traces
       if: steps.check-label.outputs.trace == 'true'
       run: |

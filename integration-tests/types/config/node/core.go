@@ -131,7 +131,7 @@ func WithTracing() NodeConfigOpt {
 	return func(c *chainlink.Config) {
 		c.Tracing = toml.Tracing{
 			Enabled: utils2.Ptr(true),
-			CollectorTarget: utils2.Ptr("localhost:4317"),
+			CollectorTarget: utils2.Ptr("otel-collector:4317"),
 			// ksortable unique id
 			NodeID: 		 utils2.Ptr(ksuid.New().String()),
 			Attributes:      utils2.Ptr(map[string]string{

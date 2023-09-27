@@ -100,8 +100,6 @@ func TestOCRv2Basic(t *testing.T) {
 		"Expected latest answer from OCR contract to be 10 but got %d",
 		roundData.Answer.Int64(),
 	)
-
-	//require.Equal(t, 1, 2)
 }
 
 func setupOCR2Test(t *testing.T, forwardersEnabled bool) (
