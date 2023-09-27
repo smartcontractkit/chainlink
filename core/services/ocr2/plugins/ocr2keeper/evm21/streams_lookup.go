@@ -506,6 +506,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			} else if resp.StatusCode == 420 {
 				// in 0.3, this will happen when missing/malformed query args, missing or bad required headers, non-existent feeds, or no permissions for feeds
 				retryable = false
+				state = encoding.InvalidMercuryRequest
 				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by missing/malformed query args, missing or bad required headers, non-existent feeds, or no permissions for feeds", sl.time.String(), sl.upkeepId.String(), resp.StatusCode)
 			} else if resp.StatusCode != http.StatusOK {
 				retryable = false
@@ -533,7 +534,13 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			}
 			var reportBytes [][]byte
 			for _, rsp := range response.Reports {
-				b, _ := hexutil.Decode(rsp.FullReport)
+				b, err := hexutil.Decode(rsp.FullReport)
+				if err != nil {
+					lggr.Warnf("at timestamp %s upkeep %s failed to decode reportBlob %s: %v", sl.time.String(), sl.upkeepId.String(), rsp.FullReport, err)
+					retryable = false
+					state = encoding.InvalidMercuryResponse
+					return err
+				}
 				reportBytes = append(reportBytes, b)
 			}
 			ch <- MercuryData{
