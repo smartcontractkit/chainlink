@@ -68,7 +68,7 @@ func (s *Server) start() error {
 	if err != nil {
 		return fmt.Errorf("error getting environment configuration: %w", err)
 	}
-	s.PromServer = NewPromServer(envCfg.PrometheusPort(), s.lggr)
+	s.PromServer = NewPromServer(envCfg.PrometheusPort(), s.Logger)
 	err = s.PromServer.Start()
 	if err != nil {
 		return fmt.Errorf("error starting prometheus server: %w", err)

@@ -3,11 +3,14 @@ package scripts
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
+
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
@@ -211,4 +214,40 @@ func EoaLoadTestConsumerWithMetricsDeploy(e helpers.Environment, consumerCoordin
 	)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func ClosestBlock(e helpers.Environment, batchBHSAddress common.Address, blockMissingBlockhash uint64, batchSize uint64) (uint64, error) {
+	batchBHS, err := batch_blockhash_store.NewBatchBlockhashStore(batchBHSAddress, e.Ec)
+	if err != nil {
+		return 0, err
+	}
+	startBlock := blockMissingBlockhash + 1
+	endBlock := startBlock + batchSize
+	for {
+		latestBlock, err := e.Ec.HeaderByNumber(context.Background(), nil)
+		if err != nil {
+			return 0, err
+		}
+		if latestBlock.Number.Uint64() < endBlock {
+			return 0, errors.New("closest block with blockhash not found")
+		}
+		var blockRange []*big.Int
+		for i := startBlock; i <= endBlock; i++ {
+			blockRange = append(blockRange, big.NewInt(int64(i)))
+		}
+		fmt.Println("Searching range", startBlock, "-", endBlock, "inclusive")
+		hashes, err := batchBHS.GetBlockhashes(nil, blockRange)
+		if err != nil {
+			return 0, err
+		}
+		for i, hash := range hashes {
+			if hash != (common.Hash{}) {
+				fmt.Println("found closest block:", startBlock+uint64(i), "hash:", hexutil.Encode(hash[:]))
+				fmt.Println("distance from missing block:", startBlock+uint64(i)-blockMissingBlockhash)
+				return startBlock + uint64(i), nil
+			}
+		}
+		startBlock = endBlock + 1
+		endBlock = startBlock + batchSize
+	}
 }
