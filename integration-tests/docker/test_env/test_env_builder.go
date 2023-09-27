@@ -27,6 +27,7 @@ type CLTestEnvBuilder struct {
 	hasMockServer        bool
 	hasForwarders        bool
 	clNodeConfig         *chainlink.Config
+	secretsConfig        string
 	nonDevGethNetworks   []blockchain.EVMNetwork
 	clNodesCount         int
 	externalAdapterCount int
@@ -121,6 +122,11 @@ func (b *CLTestEnvBuilder) WithCLNodeConfig(cfg *chainlink.Config) *CLTestEnvBui
 	return b
 }
 
+func (b *CLTestEnvBuilder) WithSecretsConfig(secrets string) *CLTestEnvBuilder {
+	b.secretsConfig = secrets
+	return b
+}
+
 func (b *CLTestEnvBuilder) WithMockServer(externalAdapterCount int) *CLTestEnvBuilder {
 	b.hasMockServer = true
 	b.externalAdapterCount = externalAdapterCount
@@ -193,6 +199,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 
 		err = b.te.StartClNodes(b.clNodeConfig, b.clNodesCount)
+		err = te.StartClNodes(b.clNodeConfig, b.clNodesCount, b.secretsConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -257,6 +264,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 
 		err := b.te.StartClNodes(cfg, b.clNodesCount)
+		err := te.StartClNodes(cfg, b.clNodesCount, b.secretsConfig)
 		if err != nil {
 			return nil, err
 		}

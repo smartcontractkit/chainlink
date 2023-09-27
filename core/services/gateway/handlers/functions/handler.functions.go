@@ -230,10 +230,10 @@ func (h *functionsHandler) processSecretsResponse(response *api.Message, respons
 	if _, exists := responseData.responses[response.Body.Sender]; exists {
 		return nil, nil, errors.New("duplicate response")
 	}
-	responseData.responses[response.Body.Sender] = response
 	if response.Body.Method != responseData.request.Body.Method {
 		return nil, responseData, errors.New("invalid method")
 	}
+	responseData.responses[response.Body.Sender] = response
 	var responsePayload SecretsResponseBase
 	err := json.Unmarshal(response.Body.Payload, &responsePayload)
 	if err != nil {
