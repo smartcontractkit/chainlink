@@ -18,6 +18,11 @@ ALL_FOUNDRY_PRODUCTS = llo-feeds functions shared ccip
 snapshot: ## Make a snapshot for a specific product.
 	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --nmt "testFuzz_\w{1,}?" --snap gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
 
+.PHONY: snapshot-diff
+snapshot-diff: ## Make a snapshot for a specific product.
+	export FOUNDRY_PROFILE=$(FOUNDRY_PROFILE) && forge snapshot --nmt "testFuzz_\w{1,}?" --diff gas-snapshots/$(FOUNDRY_PROFILE).gas-snapshot
+
+
 .PHONY: snapshot-all
 snapshot-all: ## Make a snapshot for all products.
 	for foundry_profile in $(ALL_FOUNDRY_PRODUCTS) ; do \

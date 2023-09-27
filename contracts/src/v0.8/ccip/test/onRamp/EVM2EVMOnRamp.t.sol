@@ -432,6 +432,15 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     s_onRamp.forwardFromRouter(message, 0, STRANGER);
   }
 
+  function testCannotSendZeroTokensReverts() public {
+    Client.EVM2AnyMessage memory message = _generateEmptyMessage();
+    message.tokenAmounts = new Client.EVMTokenAmount[](1);
+    message.tokenAmounts[0].amount = 0;
+    message.tokenAmounts[0].token = s_sourceTokens[0];
+    vm.expectRevert(EVM2EVMOnRamp.CannotSendZeroTokens.selector);
+    s_onRamp.forwardFromRouter(message, 0, STRANGER);
+  }
+
   function testUnsupportedTokenReverts() public {
     address wrongToken = address(1);
 
@@ -479,6 +488,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     address fakeToken = address(1);
     message.tokenAmounts = new Client.EVMTokenAmount[](1);
     message.tokenAmounts[0].token = fakeToken;
+    message.tokenAmounts[0].amount = 1;
 
     vm.expectRevert(abi.encodeWithSelector(AggregateRateLimiter.PriceNotFoundForToken.selector, fakeToken));
 
