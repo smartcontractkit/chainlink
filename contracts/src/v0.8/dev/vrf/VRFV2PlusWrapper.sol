@@ -21,17 +21,11 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   error LinkAlreadySet();
   error FailedToTransferLink();
 
-  LinkTokenInterface public s_link;
-  AggregatorV3Interface public s_linkNativeFeed;
-  ExtendedVRFCoordinatorV2PlusInterface public immutable COORDINATOR;
+  // s_keyHash is the key hash to use when requesting randomness. Fees are paid based on current gas
+  // fees, so this should be set to the highest gas lane on the network.
+  bytes32 s_keyHash;
+
   uint256 public immutable SUBSCRIPTION_ID;
-  /// @dev this is the size of a VRF v2 fulfillment's calldata abi-encoded in bytes.
-  /// @dev proofSize = 13 words = 13 * 256 = 3328 bits
-  /// @dev commitmentSize = 5 words = 5 * 256 = 1280 bits
-  /// @dev dataSize = proofSize + commitmentSize = 4608 bits
-  /// @dev selector = 32 bits
-  /// @dev total data size = 4608 bits + 32 bits = 4640 bits = 580 bytes
-  uint32 public s_fulfillmentTxSizeBytes = 580;
 
   // 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100)
   // and some arithmetic operations.
@@ -40,16 +34,6 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // lastRequestId is the request ID of the most recent VRF V2 request made by this wrapper. This
   // should only be relied on within the same transaction the request was made.
   uint256 public override lastRequestId;
-
-  // Configuration fetched from VRFCoordinatorV2
-
-  // s_configured tracks whether this contract has been configured. If not configured, randomness
-  // requests cannot be made.
-  bool public s_configured;
-
-  // s_disabled disables the contract when true. When disabled, new VRF requests cannot be made
-  // but existing ones can still be fulfilled.
-  bool public s_disabled;
 
   // s_fallbackWeiPerUnitLink is the backup LINK exchange rate used when the LINK/NATIVE feed is
   // stale.
@@ -67,11 +51,23 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // charges.
   uint32 private s_fulfillmentFlatFeeNativePPM;
 
+  LinkTokenInterface public s_link;
+
   // Other configuration
 
   // s_wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
   // function. The cost for this gas is passed to the user.
   uint32 private s_wrapperGasOverhead;
+
+  // Configuration fetched from VRFCoordinatorV2
+
+  /// @dev this is the size of a VRF v2 fulfillment's calldata abi-encoded in bytes.
+  /// @dev proofSize = 13 words = 13 * 256 = 3328 bits
+  /// @dev commitmentSize = 5 words = 5 * 256 = 1280 bits
+  /// @dev dataSize = proofSize + commitmentSize = 4608 bits
+  /// @dev selector = 32 bits
+  /// @dev total data size = 4608 bits + 32 bits = 4640 bits = 580 bytes
+  uint32 public s_fulfillmentTxSizeBytes = 580;
 
   // s_coordinatorGasOverhead reflects the gas overhead of the coordinator's fulfillRandomWords
   // function. The cost for this gas is billed to the subscription, and must therefor be included
@@ -79,21 +75,33 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // payment calculation in the coordinator.
   uint32 private s_coordinatorGasOverhead;
 
+  AggregatorV3Interface public s_linkNativeFeed;
+
+  // s_configured tracks whether this contract has been configured. If not configured, randomness
+  // requests cannot be made.
+  bool public s_configured;
+
+  // s_disabled disables the contract when true. When disabled, new VRF requests cannot be made
+  // but existing ones can still be fulfilled.
+  bool public s_disabled;
+
   // s_wrapperPremiumPercentage is the premium ratio in percentage. For example, a value of 0
   // indicates no premium. A value of 15 indicates a 15 percent premium.
   uint8 private s_wrapperPremiumPercentage;
 
-  // s_keyHash is the key hash to use when requesting randomness. Fees are paid based on current gas
-  // fees, so this should be set to the highest gas lane on the network.
-  bytes32 s_keyHash;
-
   // s_maxNumWords is the max number of words that can be requested in a single wrapped VRF request.
   uint8 s_maxNumWords;
+
+  ExtendedVRFCoordinatorV2PlusInterface public immutable COORDINATOR;
 
   struct Callback {
     address callbackAddress;
     uint32 callbackGasLimit;
-    uint256 requestGasPrice;
+    // Reducing requestGasPrice from uint256 to uint64 slots Callback struct
+    // into a single word, thus saving an entire SSTORE and leading to 21K
+    // gas cost saving. 18 ETH would be the max gas price we can process.
+    // GasPrice is unlikely to be more than 14 ETH on most chains
+    uint64 requestGasPrice;
   }
   mapping(uint256 => Callback) /* requestID */ /* callback */ public s_callbacks;
 
@@ -352,7 +360,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     s_callbacks[requestId] = Callback({
       callbackAddress: _sender,
       callbackGasLimit: callbackGasLimit,
-      requestGasPrice: tx.gasprice
+      requestGasPrice: uint64(tx.gasprice)
     });
     lastRequestId = requestId;
   }
@@ -378,7 +386,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     s_callbacks[requestId] = Callback({
       callbackAddress: msg.sender,
       callbackGasLimit: _callbackGasLimit,
-      requestGasPrice: tx.gasprice
+      requestGasPrice: uint64(tx.gasprice)
     });
 
     return requestId;
