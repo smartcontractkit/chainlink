@@ -1,7 +1,6 @@
 package sessions_test
 
 import (
-	"database/sql"
 	"testing"
 	"time"
 
@@ -11,8 +10,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
-	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -35,7 +34,9 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	orm := sessions.NewORM(db, config.SessionTimeout().Duration(), lggr, pgtest.NewQConfig(true), audit.NoopLogger)
 
-	r := sessions.NewSessionReaper(db.DB, config, lggr)
+	rw := sessions.NewSessionReaperWorker(db.DB, config, lggr)
+	r := utils.NewSleeperTask(rw)
+
 	t.Cleanup(func() {
 		assert.NoError(t, r.Stop())
 	})
@@ -54,34 +55,30 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			t.Cleanup(func() {
-				clearSessions(t, db.DB)
-			})
+			user := cltest.MustRandomUser(t)
+			require.NoError(t, orm.CreateUser(&user))
 
-			_, err := db.Exec("INSERT INTO sessions (last_used, email, id, created_at) VALUES ($1, $2, $3, now())", test.lastUsed, cltest.APIEmailAdmin, test.name)
+			session := sessions.NewSession()
+			session.Email = user.Email
+
+			_, err := db.Exec("INSERT INTO sessions (last_used, email, id, created_at) VALUES ($1, $2, $3, now())", test.lastUsed, user.Email, test.name)
 			require.NoError(t, err)
 
+			t.Cleanup(func() {
+				_, err2 := db.Exec("DELETE FROM sessions where email = $1", user.Email)
+				require.NoError(t, err2)
+			})
+
 			r.WakeUp()
+			<-rw.RunSignal()
+			sessions, err := orm.Sessions(0, 10)
+			assert.NoError(t, err)
 
 			if test.wantReap {
-				gomega.NewWithT(t).Eventually(func() []sessions.Session {
-					sessions, err := orm.Sessions(0, 10)
-					assert.NoError(t, err)
-					return sessions
-				}).Should(gomega.HaveLen(0))
+				assert.Len(t, sessions, 0)
 			} else {
-				gomega.NewWithT(t).Consistently(func() []sessions.Session {
-					sessions, err := orm.Sessions(0, 10)
-					assert.NoError(t, err)
-					return sessions
-				}).Should(gomega.HaveLen(1))
+				assert.Len(t, sessions, 1)
 			}
 		})
 	}
-}
-
-// clearSessions removes all sessions.
-func clearSessions(t *testing.T, db *sql.DB) {
-	_, err := db.Exec("DELETE FROM sessions")
-	require.NoError(t, err)
 }

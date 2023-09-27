@@ -808,9 +808,5 @@ func (n *Node) SetFrom(f *Node) {
 }
 
 func ChainIDInt64(cid relay.ChainID) (int64, error) {
-	i, err := strconv.Atoi(cid)
-	if err != nil {
-		return int64(0), err
-	}
-	return int64(i), nil
+	return strconv.ParseInt(cid, 10, 64)
 }
