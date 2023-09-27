@@ -4,6 +4,7 @@ pragma solidity ^0.8.6;
 import "../VRFV2PlusWrapperConsumerBase.sol";
 import "../../../shared/access/ConfirmedOwner.sol";
 import "../../../ChainSpecificUtil.sol";
+import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 
 contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, ConfirmedOwner {
   uint256 public s_responseCount;
@@ -70,7 +71,8 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
     uint16 _requestCount
   ) external onlyOwner {
     for (uint16 i = 0; i < _requestCount; i++) {
-      uint256 requestId = requestRandomnessPayInNative(_callbackGasLimit, _requestConfirmations, _numWords);
+      bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}));
+      uint256 requestId = requestRandomnessPayInNative(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs);
       s_lastRequestId = requestId;
 
       uint256 requestBlockNumber = ChainSpecificUtil.getBlockNumber();

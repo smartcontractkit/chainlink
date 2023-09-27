@@ -10,6 +10,7 @@ import "../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../interfaces/VRFV2PlusWrapperInterface.sol";
 import "./VRFV2PlusWrapperConsumerBase.sol";
 import "../../ChainSpecificUtil.sol";
+import {console} from "forge-std/console.sol";
 
 /**
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
@@ -358,10 +359,12 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   function onTokenTransfer(address _sender, uint256 _amount, bytes calldata _data) external onlyConfiguredNotDisabled {
     require(msg.sender == address(s_link), "only callable from LINK");
 
-    (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords) = abi.decode(
+    (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords, bytes memory extraArgs) = abi.decode(
       _data,
-      (uint32, uint16, uint32)
+      (uint32, uint16, uint32, bytes)
     );
+    bool nativePayment = abi.decode(removeDomainSeparator(extraArgs), (bool));
+    require(!nativePayment, "nativePayment not false in onTokenTransfer call");
     uint32 eip150Overhead = getEIP150Overhead(callbackGasLimit);
     int256 weiPerUnitLink = getFeedData();
     uint256 price = calculateRequestPriceInternal(callbackGasLimit, tx.gasprice, weiPerUnitLink);
@@ -373,7 +376,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       requestConfirmations: requestConfirmations,
       callbackGasLimit: callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
       numWords: numWords,
-      extraArgs: "" // empty extraArgs defaults to link payment
+      extraArgs: extraArgs // empty extraArgs defaults to link payment
     });
     uint256 requestId = s_vrfCoordinator.requestRandomWords(req);
     s_callbacks[requestId] = Callback({
@@ -384,11 +387,23 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     lastRequestId = requestId;
   }
 
+  function removeDomainSeparator(bytes memory bytesInput) public view returns(bytes memory newBytes){
+    newBytes = new bytes(bytesInput.length);
+    for(uint8 i=4; i<36; ++i) {
+      newBytes[i-4] = bytesInput[i];
+    }
+    return newBytes;
+  }
+
   function requestRandomWordsInNative(
     uint32 _callbackGasLimit,
     uint16 _requestConfirmations,
-    uint32 _numWords
+    uint32 _numWords,
+    bytes memory extraArgs
   ) external payable override returns (uint256 requestId) {
+    bool nativePayment = abi.decode(removeDomainSeparator(extraArgs), (bool));
+    require(nativePayment, "nativePayment not true in requestRandomWordsInNative call");
+
     uint32 eip150Overhead = getEIP150Overhead(_callbackGasLimit);
     uint256 price = calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);
     require(msg.value >= price, "fee too low");
@@ -399,7 +414,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       requestConfirmations: _requestConfirmations,
       callbackGasLimit: _callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
       numWords: _numWords,
-      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
+      extraArgs: extraArgs
     });
     requestId = s_vrfCoordinator.requestRandomWords(req);
     s_callbacks[requestId] = Callback({
