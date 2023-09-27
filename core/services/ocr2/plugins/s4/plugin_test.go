@@ -235,6 +235,21 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		assert.NoError(t, err) // errors just logged
 		assert.False(t, should)
 	})
+
+	t.Run("don't save expired", func(t *testing.T) {
+		ormRows := make([]*s4_svc.Row, 0)
+		rows := generateTestRows(t, 2, -time.Minute)
+
+		report, err := proto.Marshal(&s4.Rows{
+			Rows: rows,
+		})
+		assert.NoError(t, err)
+
+		should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, report)
+		assert.NoError(t, err)
+		assert.False(t, should)
+		assert.Equal(t, 0, len(ormRows))
+	})
 }
 
 func TestPlugin_Query(t *testing.T) {

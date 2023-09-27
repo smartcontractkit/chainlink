@@ -945,7 +945,7 @@ func (lp *logPoller) LogsWithSigs(start, end int64, eventSigs []common.Hash, add
 }
 
 func (lp *logPoller) LogsCreatedAfter(eventSig common.Hash, address common.Address, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
-	return lp.orm.SelectLogsCreatedAfter(eventSig[:], address, after, confs, qopts...)
+	return lp.orm.SelectLogsCreatedAfter(address, eventSig, after, confs, qopts...)
 }
 
 // IndexedLogs finds all the logs that have a topic value in topicValues at index topicIndex.
