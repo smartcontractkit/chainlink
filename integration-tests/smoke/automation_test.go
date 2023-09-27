@@ -991,6 +991,7 @@ func setupAutomationTestDocker(
 	registryVersion ethereum.KeeperRegistryVersion,
 	registryConfig contracts.KeeperRegistrySettings,
 	statefulDb bool,
+	isMercury bool,
 ) (
 	blockchain.EVMClient,
 	[]*client.ChainlinkClient,
@@ -1017,31 +1018,60 @@ func setupAutomationTestDocker(
 	clNodeConfig.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
 	clNodeConfig.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
 
-	secretsConfig := `
-	[Mercury.Credentials.cred1]
-	LegacyURL = 'http://localhost:53299'
-	URL = 'http://localhost:53299'
-	Username = 'node'
-	Password = 'nodepass'
-	`
-
 	//launch the environment
-	env, err := test_env.NewCLTestEnvBuilder().
-		WithTestLogger(t).
-		WithGeth().
-		WithCLNodes(5).
-		WithCLNodeConfig(clNodeConfig).
-		WithSecretsConfig(secretsConfig).
-		WithFunding(big.NewFloat(.5)).
-		Build()
-	require.NoError(t, err, "Error deploying test environment")
-	env.ParallelTransactions(true)
+	var env *test_env.CLClusterTestEnv
+	var err error
+	clNodesCount := 5
+	if isMercury {
+		env, err = test_env.NewCLTestEnvBuilder().
+			WithTestLogger(t).
+			WithGeth().
+			WithMockServer(1).
+			WithFunding(big.NewFloat(.5)).
+			Build()
+		require.NoError(t, err, "Error deploying test environment for Mercury")
 
-	txCost, err := env.EVMClient.EstimateCostForChainlinkOperations(1000)
-	require.NoError(t, err, "Error estimating cost for Chainlink Operations")
+		secretsConfig := `
+		[Mercury.Credentials.cred1]
+		LegacyURL = '%s'
+		URL = '%s'
+		Username = 'node'
+		Password = 'nodepass'`
+		secretsConfig = fmt.Sprintf(secretsConfig, env.MockServer.InternalEndpoint, env.MockServer.InternalEndpoint)
+
+		var httpUrls []string
+		var wsUrls []string
+		if network.Simulated {
+			httpUrls = []string{env.Geth.InternalHttpUrl}
+			wsUrls = []string{env.Geth.InternalWsUrl}
+		} else {
+			httpUrls = network.HTTPURLs
+			wsUrls = network.URLs
+		}
+
+		node.SetChainConfig(clNodeConfig, wsUrls, httpUrls, network, false)
+
+		err = env.StartClNodes(clNodeConfig, clNodesCount, secretsConfig)
+		require.NoError(t, err, "Error starting CL nodes test environment for Mercury")
+
+		output := `{"chainlinkBlob":"0x0001c38d71fed6c320b90e84b6f559459814d068e2a1700adc931ca9717d4fe70000000000000000000000000000000000000000000000000000000001a80b52b4bf1233f9cb71144a253a1791b202113c4ab4a92fa1b176d684b4959666ff8200000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001004254432d5553442d415242495452554d2d544553544e4554000000000000000000000000000000000000000000000000000000000000000000000000645570be000000000000000000000000000000000000000000000000000002af2b818dc5000000000000000000000000000000000000000000000000000002af2426faf3000000000000000000000000000000000000000000000000000002af32dc209700000000000000000000000000000000000000000000000000000000012130f8df0a9745bb6ad5e2df605e158ba8ad8a33ef8a0acf9851f0f01668a3a3f2b68600000000000000000000000000000000000000000000000000000000012130f60000000000000000000000000000000000000000000000000000000000000002c4a7958dce105089cf5edb68dad7dcfe8618d7784eb397f97d5a5fade78c11a58275aebda478968e545f7e3657aba9dcbe8d44605e4c6fde3e24edd5e22c94270000000000000000000000000000000000000000000000000000000000000002459c12d33986018a8959566d145225f0c4a4e61a9a3f50361ccff397899314f0018162cf10cd89897635a0bb62a822355bd199d09f4abe76e4d05261bb44733d"}`
+		env.MockServer.Client.SetStringValuePath("/client", output)
+	} else {
+		env, err = test_env.NewCLTestEnvBuilder().
+			WithTestLogger(t).
+			WithGeth().
+			WithMockServer(1).
+			WithCLNodes(clNodesCount).
+			WithCLNodeConfig(clNodeConfig).
+			WithFunding(big.NewFloat(.5)).
+			Build()
+		require.NoError(t, err, "Error deploying test environment")
+	}
+
+	env.ParallelTransactions(true)
 	nodeClients := env.ClCluster.NodeAPIs()
 	workerNodes := nodeClients[1:]
-	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, txCost)
+	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(1.0))
 	require.NoError(t, err, "Error funding Chainlink nodes")
 
 	linkToken, err := env.ContractDeployer.DeployLinkTokenContract()
