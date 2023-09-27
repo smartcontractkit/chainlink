@@ -10,7 +10,6 @@ import "../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../interfaces/VRFV2PlusWrapperInterface.sol";
 import "./VRFV2PlusWrapperConsumerBase.sol";
 import "../../ChainSpecificUtil.sol";
-import {console} from "forge-std/console.sol";
 
 /**
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
@@ -387,10 +386,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     lastRequestId = requestId;
   }
 
-  function removeDomainSeparator(bytes memory bytesInput) public view returns(bytes memory newBytes){
+  function removeDomainSeparator(bytes memory bytesInput) public view returns (bytes memory newBytes) {
     newBytes = new bytes(bytesInput.length);
-    for(uint8 i=4; i<36; ++i) {
-      newBytes[i-4] = bytesInput[i];
+    for (uint8 i = 4; i < 36; ++i) {
+      newBytes[i - 4] = bytesInput[i];
     }
     return newBytes;
   }
