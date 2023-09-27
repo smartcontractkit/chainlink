@@ -726,6 +726,35 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 			},
 		},
 		{
+			name: "failure - fail to decode reportBlob",
+			lookup: &StreamsLookup{
+				feedParamKey: feedIDs,
+				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				timeParamKey: timestamp,
+				time:         big.NewInt(123456),
+				upkeepId:     upkeepId,
+			},
+			response: &MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            "qerwiu", // invalid hex blob
+					},
+					{
+						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123458,
+						ObservationsTimestamp: 123458,
+						FullReport:            "0xab2123dc00000016",
+					},
+				},
+			},
+			statusCode:   http.StatusOK,
+			retryable:    false,
+			errorMessage: "All attempts fail:\n#1: hex string without 0x prefix",
+		},
+		{
 			name: "failure - returns retryable",
 			lookup: &StreamsLookup{
 				feedParamKey: feedIDs,
