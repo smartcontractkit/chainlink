@@ -303,7 +303,7 @@ require (
 	github.com/shirou/gopsutil/v3 v3.23.8 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 // indirect
-	github.com/smartcontractkit/chain-selectors v1.0.1 // indirect
+	github.com/smartcontractkit/chain-selectors v1.0.2 // indirect
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230913032705-f924d753cc47 // indirect
 	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230918212835-8a0b08df72a3 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230831134610-680240b97aca // indirect
