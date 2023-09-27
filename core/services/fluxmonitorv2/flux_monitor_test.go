@@ -455,7 +455,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 							},
 						},
 					), mock.Anything).
-					Return(run, pipeline.TaskRunResults{
+					Return(&run, pipeline.TaskRunResults{
 						{
 							Result: pipeline.Result{
 								Value: decimal.NewFromInt(answers.polledAnswer),
@@ -584,7 +584,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 	tm.orm.On("MostRecentFluxMonitorRoundID", contractAddress).Return(uint32(4), nil)
 
 	// Round 1
-	run := pipeline.Run{ID: 1}
+	run := &pipeline.Run{ID: 1}
 	tm.orm.
 		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(1), mock.Anything).
 		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
@@ -624,7 +624,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		Return(nil).Once()
 
 	// Round 3
-	run = pipeline.Run{ID: 2}
+	run = &pipeline.Run{ID: 2}
 	tm.orm.
 		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(3), mock.Anything).
 		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
@@ -663,7 +663,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 		Return(nil).Once()
 
 	// Round 4
-	run = pipeline.Run{ID: 3}
+	run = &pipeline.Run{ID: 3}
 	tm.orm.
 		On("FindOrCreateFluxMonitorRoundStats", contractAddress, uint32(4), mock.Anything).
 		Return(fluxmonitorv2.FluxMonitorRoundStatsV2{
@@ -1484,7 +1484,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			answer  = 100
 		)
 
-		run := pipeline.Run{ID: 1}
+		run := &pipeline.Run{ID: 1}
 
 		tm.keyStore.On("EnabledKeysForChain", testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
 		tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
@@ -1600,7 +1600,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			answer  = 100
 		)
 
-		run := pipeline.Run{ID: 1}
+		run := &pipeline.Run{ID: 1}
 		tm.keyStore.On("EnabledKeysForChain", testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
 		tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 
@@ -1696,7 +1696,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			roundID      = 3
 			answer       = 100
 		)
-		run := pipeline.Run{ID: 1}
+		run := &pipeline.Run{ID: 1}
 		tm.keyStore.On("EnabledKeysForChain", testutils.FixtureChainID).Return([]ethkey.KeyV2{{Address: nodeAddr}}, nil).Once()
 		tm.logBroadcaster.On("IsConnected").Return(true).Maybe()
 
@@ -1901,7 +1901,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 					},
 				},
 			), mock.Anything).
-			Return(pipeline.Run{ID: runID}, pipeline.TaskRunResults{
+			Return(&pipeline.Run{ID: runID}, pipeline.TaskRunResults{
 				{
 					Result: pipeline.Result{
 						Value: decimal.NewFromInt(fetchedAnswer),

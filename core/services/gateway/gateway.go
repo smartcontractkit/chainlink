@@ -132,6 +132,9 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte) (rawRes
 	if err != nil {
 		return newError(g.codec, "", api.UserMessageParseError, err.Error())
 	}
+	if msg == nil {
+		return newError(g.codec, "", api.UserMessageParseError, "nil message")
+	}
 	if err = msg.Validate(); err != nil {
 		return newError(g.codec, msg.Body.MessageId, api.UserMessageParseError, err.Error())
 	}

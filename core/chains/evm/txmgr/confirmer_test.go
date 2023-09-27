@@ -1399,7 +1399,8 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	etx1 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt1_1 := etx1.TxAttempts[0]
-	dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt1_1)
+	var dbAttempt txmgr.DbEthTxAttempt
+	dbAttempt.FromTxAttempt(&attempt1_1)
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, tooNew, attempt1_1.ID))
 	attempt1_2 := newBroadcastLegacyEthTxAttempt(t, etx1.ID)
 	attempt1_2.BroadcastBeforeBlockNum = &onTheMoney
@@ -1416,7 +1417,8 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt2_1 := etx2.TxAttempts[0]
-	dbAttempt = txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt2_1)
+	dbAttempt = txmgr.DbEthTxAttempt{}
+	dbAttempt.FromTxAttempt(&attempt2_1)
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, tooNew, attempt2_1.ID))
 
 	t.Run("returns nothing when the transaction has attempts that are too new", func(t *testing.T) {
@@ -1463,13 +1465,15 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt3_1 := etx3.TxAttempts[0]
-	dbAttempt = txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt3_1)
+	dbAttempt = txmgr.DbEthTxAttempt{}
+	dbAttempt.FromTxAttempt(&attempt3_1)
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt3_1.ID))
 
 	// NOTE: It should ignore qualifying eth_txes from a different address
 	etxOther := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 0, otherAddress)
 	attemptOther1 := etxOther.TxAttempts[0]
-	dbAttempt = txmgr.DbEthTxAttemptFromEthTxAttempt(&attemptOther1)
+	dbAttempt = txmgr.DbEthTxAttempt{}
+	dbAttempt.FromTxAttempt(&attemptOther1)
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attemptOther1.ID))
 
 	t.Run("returns the transaction if it is unconfirmed with an attempt that is older than gasBumpThreshold blocks", func(t *testing.T) {
@@ -1519,14 +1523,16 @@ func TestEthConfirmer_FindTxsRequiringRebroadcast(t *testing.T) {
 	etx4 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt4_1 := etx4.TxAttempts[0]
-	dbAttempt = txmgr.DbEthTxAttemptFromEthTxAttempt(&attemptOther1)
+	dbAttempt = txmgr.DbEthTxAttempt{}
+	dbAttempt.FromTxAttempt(&attempt4_1)
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt4_1.ID))
 
 	t.Run("ignores pending transactions for another key", func(t *testing.T) {
 		// Re-use etx3 nonce for another key, it should not affect the results for this key
 		etxOther := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, (*etx3.Sequence).Int64(), otherAddress)
 		aOther := etxOther.TxAttempts[0]
-		dbAttempt = txmgr.DbEthTxAttemptFromEthTxAttempt(&aOther)
+		dbAttempt = txmgr.DbEthTxAttempt{}
+		dbAttempt.FromTxAttempt(&aOther)
 		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, aOther.ID))
 
 		etxs, err := ec.FindTxsRequiringRebroadcast(testutils.Context(t), lggr, evmFromAddress, currentHead, gasBumpThreshold, 6, 0, &cltest.FixtureChainID)
@@ -1659,7 +1665,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress, originalBroadcastAt)
 		attempt1 := etx.TxAttempts[0]
-		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt1)
+		var dbAttempt txmgr.DbEthTxAttempt
+		dbAttempt.FromTxAttempt(&attempt1)
 		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1.ID))
 
 		// Send transaction and assume success.
@@ -1703,7 +1710,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t, txStore, nonce, fromAddress, originalBroadcastAt)
 		attempt1 := etx.TxAttempts[0]
-		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt1)
+		var dbAttempt txmgr.DbEthTxAttempt
+		dbAttempt.FromTxAttempt(&attempt1)
 		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1.ID))
 
 		// Send transaction and assume success.
@@ -1974,7 +1982,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		require.Equal(t, txmgrtypes.TxAttemptBroadcast, etx.TxAttempts[3].State)
 	})
 
-	// Mark original tx as confirmed so we won't pick it up any more
+	// Mark original tx as confirmed, so we won't pick it up anymore
 	pgtest.MustExec(t, db, `UPDATE evm.txes SET state = 'confirmed'`)
 
 	etx2 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
@@ -2083,7 +2091,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 		assert.Equal(t, txmgrtypes.TxAttemptBroadcast, etx2.TxAttempts[2].State)
 	})
 
-	// Original tx is confirmed so we won't pick it up any more
+	// Original tx is confirmed, so we won't pick it up anymore
 	etx3 := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt3_1 := etx3.TxAttempts[0]
@@ -2214,7 +2222,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == *etx3.Sequence && gasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.Successful, errors.New("already known")).Once() // we already submitted at this price, now its time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
+		}), fromAddress).Return(clienttypes.Successful, errors.New("already known")).Once() // we already submitted at this price, now it's time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
 
 		// Do the thing
 		require.NoError(t, ec2.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2245,7 +2253,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *types.Transaction) bool {
 			return evmtypes.Nonce(tx.Nonce()) == *etx3.Sequence && gasPrice.Cmp(tx.GasPrice()) == 0
-		}), fromAddress).Return(clienttypes.Successful, errors.New("already known")).Once() // we already submitted at this price, now its time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
+		}), fromAddress).Return(clienttypes.Successful, errors.New("already known")).Once() // we already submitted at this price, now it's time to bump and submit again but since we simply resubmitted rather than increasing gas price, geth already knows about this tx
 
 		// Do the thing
 		require.NoError(t, ec2.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
@@ -2430,7 +2438,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 		nonce++
 		legacyAttempt := etx.TxAttempts[0]
-		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&legacyAttempt)
+		var dbAttempt txmgr.DbEthTxAttempt
+		dbAttempt.FromTxAttempt(&legacyAttempt)
 		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, legacyAttempt.ID))
 
 		// Fail a few times with terminally underpriced
@@ -2462,7 +2471,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastDynamicFeeAttempt(t, txStore, nonce, fromAddress)
 		nonce++
 		dxFeeAttempt := etx.TxAttempts[0]
-		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&dxFeeAttempt)
+		var dbAttempt txmgr.DbEthTxAttempt
+		dbAttempt.FromTxAttempt(&dxFeeAttempt)
 		require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, dxFeeAttempt.ID))
 
 		// Fail a few times with terminally underpriced
@@ -2513,7 +2523,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WhenOutOfEth(t *testing.T) {
 	etx := cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, nonce, fromAddress)
 	nonce++
 	attempt1_1 := etx.TxAttempts[0]
-	dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt1_1)
+	var dbAttempt txmgr.DbEthTxAttempt
+	dbAttempt.FromTxAttempt(&attempt1_1)
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1 WHERE id=$2 RETURNING *`, oldEnough, attempt1_1.ID))
 	var attempt1_2 txmgr.TxAttempt
 
