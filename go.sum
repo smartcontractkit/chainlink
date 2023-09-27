@@ -254,8 +254,8 @@ github.com/smartcontractkit/go-plugin v0.0.0-20230605132010-0f4d515d1472 h1:x3kN
 github.com/smartcontractkit/go-plugin v0.0.0-20230605132010-0f4d515d1472/go.mod h1:6/1TEzT0eQznvI/gV2CM29DLSkAK/e58mUWKVsPaph0=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f h1:hgJif132UCdjo8u43i7iPN1/MFnu49hv7lFGFftCHKU=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f/go.mod h1:MvMXoufZAtqExNexqi4cjrNYE9MefKddKylxjS+//n0=
-github.com/smartcontractkit/libocr v0.0.0-20230802221916-2271752fa829 h1:fzefK1SzoRSHzZduOCzIJ2kmkBMPKwIf3FgeBlw7Jjk=
-github.com/smartcontractkit/libocr v0.0.0-20230802221916-2271752fa829/go.mod h1:2lyRkw/qLQgUWlrWWmq5nj0y90rWeO6Y+v+fCakRgb0=
+github.com/smartcontractkit/libocr v0.0.0-20230922131214-122accb19ea6 h1:eSo9r53fARv2MnIO5pqYvQOXMBsTlAwhHyQ6BAVp6bY=
+github.com/smartcontractkit/libocr v0.0.0-20230922131214-122accb19ea6/go.mod h1:2lyRkw/qLQgUWlrWWmq5nj0y90rWeO6Y+v+fCakRgb0=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=
 github.com/stretchr/objx v0.4.0/go.mod h1:YvHI0jy2hoMjB+UWwv71VJQ9isScKT/TqJzVSSt89Yw=
 github.com/stretchr/objx v0.5.0 h1:1zr/of2m5FGMsad5YfcqgdqdWrIhu+EBEJRhR1U7z/c=
