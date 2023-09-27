@@ -198,8 +198,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, errors.New("cannot create nodes with custom config without nonDevNetworks")
 		}
 
-		err = b.te.StartClNodes(b.clNodeConfig, b.clNodesCount)
-		err = te.StartClNodes(b.clNodeConfig, b.clNodesCount, b.secretsConfig)
+		err = b.te.StartClNodes(b.clNodeConfig, b.clNodesCount, b.secretsConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -263,8 +262,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			node.SetChainConfig(cfg, wsUrls, httpUrls, networkConfig, b.hasForwarders)
 		}
 
-		err := b.te.StartClNodes(cfg, b.clNodesCount)
-		err := te.StartClNodes(cfg, b.clNodesCount, b.secretsConfig)
+		err := b.te.StartClNodes(cfg, b.clNodesCount, b.secretsConfig)
 		if err != nil {
 			return nil, err
 		}
