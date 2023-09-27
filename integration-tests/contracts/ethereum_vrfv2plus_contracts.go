@@ -745,7 +745,16 @@ func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32, coordinatorGasOverhead uint32, wrapperPremiumPercentage uint8, keyHash [32]byte, maxNumWords uint8) error {
+func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32,
+	coordinatorGasOverhead uint32,
+	wrapperPremiumPercentage uint8,
+	keyHash [32]byte,
+	maxNumWords uint8,
+	stalenessSeconds uint32,
+	fallbackWeiPerUnitLink *big.Int,
+	fulfillmentFlatFeeLinkPPM uint32,
+	fulfillmentFlatFeeNativePPM uint32,
+) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -757,6 +766,10 @@ func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32, coordina
 		wrapperPremiumPercentage,
 		keyHash,
 		maxNumWords,
+		stalenessSeconds,
+		fallbackWeiPerUnitLink,
+		fulfillmentFlatFeeLinkPPM,
+		fulfillmentFlatFeeNativePPM,
 	)
 	if err != nil {
 		return err
