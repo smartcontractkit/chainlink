@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -1680,6 +1681,40 @@ func (v *EthereumKeeperConsumer) Fund(ethAmount *big.Float) error {
 }
 
 func (v *EthereumKeeperConsumer) Counter(ctx context.Context) (*big.Int, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	cnt, err := v.consumer.Counter(opts)
+	if err != nil {
+		return nil, err
+	}
+	return cnt, nil
+}
+
+type EthereumAutomationStreamsLookupUpkeepConsumer struct {
+	client   blockchain.EVMClient
+	consumer *streams_lookup_upkeep_wrapper.StreamsLookupUpkeep
+	address  *common.Address
+}
+
+func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Start() error {
+	return nil
+}
+
+func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Fund(ethAmount *big.Float) error {
+	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
+}
+
+func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Counter(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,

@@ -407,7 +407,8 @@ func DeployKeeperConsumers(t *testing.T, contractDeployer contracts.ContractDepl
 		var err error
 
 		if isLogTrigger {
-			keeperConsumerInstance, err = contractDeployer.DeployAutomationLogTriggerConsumer(big.NewInt(1000)) // 1000 block test range
+			//keeperConsumerInstance, err = contractDeployer.DeployAutomationLogTriggerConsumer(big.NewInt(1000)) // 1000 block test range
+			keeperConsumerInstance, err = contractDeployer.DeployAutomationStreamsLookupUpkeepConsumer(big.NewInt(1000), big.NewInt(5), true, true, false) // 1000 block test range
 		} else {
 			keeperConsumerInstance, err = contractDeployer.DeployKeeperConsumer(big.NewInt(5))
 		}
