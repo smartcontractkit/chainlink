@@ -66,7 +66,7 @@ contract PriceRegistry is IPriceRegistry, OwnerIsCreator, TypeAndVersionInterfac
   }
 
   // ================================================================
-  // |                     Price calculations                       |
+  // │                     Price calculations                       │
   // ================================================================
 
   // @inheritdoc IPriceRegistry
@@ -147,7 +147,7 @@ contract PriceRegistry is IPriceRegistry, OwnerIsCreator, TypeAndVersionInterfac
   }
 
   // ================================================================
-  // |                         Fee tokens                           |
+  // │                         Fee tokens                           │
   // ================================================================
 
   /// @notice Get the list of fee tokens.
@@ -185,7 +185,7 @@ contract PriceRegistry is IPriceRegistry, OwnerIsCreator, TypeAndVersionInterfac
   }
 
   // ================================================================
-  // |                       Price updates                          |
+  // │                       Price updates                          │
   // ================================================================
 
   // @inheritdoc IPriceRegistry
@@ -211,7 +211,7 @@ contract PriceRegistry is IPriceRegistry, OwnerIsCreator, TypeAndVersionInterfac
   }
 
   // ================================================================
-  // |                           Access                             |
+  // │                           Access                             │
   // ================================================================
 
   /// @notice Get the list of price updaters.

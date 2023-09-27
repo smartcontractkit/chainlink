@@ -99,7 +99,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator, IERC165 {
   }
 
   // ================================================================
-  // |                      Ramp permissions                        |
+  // │                      Ramp permissions                        │
   // ================================================================
 
   /// @notice Checks whether something is a permissioned onRamp on this contract.
@@ -189,7 +189,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator, IERC165 {
   }
 
   // ================================================================
-  // |                        Rate limiting                         |
+  // │                        Rate limiting                         │
   // ================================================================
 
   /// @notice Consumes outbound rate limiting capacity in this pool
@@ -231,7 +231,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator, IERC165 {
   }
 
   // ================================================================
-  // |                           Access                             |
+  // │                           Access                             │
   // ================================================================
 
   /// @notice Checks whether the msg.sender is a permissioned onRamp on this contract
@@ -249,7 +249,7 @@ abstract contract TokenPool is IPool, OwnerIsCreator, IERC165 {
   }
 
   // ================================================================
-  // |                          Allowlist                           |
+  // │                          Allowlist                           │
   // ================================================================
 
   modifier checkAllowList(address sender) {

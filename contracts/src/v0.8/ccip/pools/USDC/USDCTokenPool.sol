@@ -33,15 +33,15 @@ contract USDCTokenPool is TokenPool {
   // A domain is a USDC representation of a chain.
   struct DomainUpdate {
     bytes32 allowedCaller; //       Address allowed to mint on the domain
-    uint32 domainIdentifier; // --┐ Unique domain ID
-    uint64 destChainSelector; //  | The destination chain for this domain
-    bool enabled; // -------------┘ Whether the domain is enabled
+    uint32 domainIdentifier; // ──╮ Unique domain ID
+    uint64 destChainSelector; //  │ The destination chain for this domain
+    bool enabled; // ─────────────╯ Whether the domain is enabled
   }
 
   // Contains the contracts for sending and receiving USDC tokens
   struct USDCConfig {
-    uint32 version; // ----------┐ CCTP internal version
-    address tokenMessenger; // --┘ Contract to burn tokens
+    uint32 version; // ──────────╮ CCTP internal version
+    address tokenMessenger; // ──╯ Contract to burn tokens
     address messageTransmitter; // Contract to mint tokens
   }
 
@@ -62,8 +62,8 @@ contract USDCTokenPool is TokenPool {
   // A domain is a USDC representation of a chain.
   struct Domain {
     bytes32 allowedCaller; //      Address allowed to mint on the domain
-    uint32 domainIdentifier; // -┐ Unique domain ID
-    bool enabled; // ------------┘ Whether the domain is enabled
+    uint32 domainIdentifier; // ─╮ Unique domain ID
+    bool enabled; // ────────────╯ Whether the domain is enabled
   }
 
   // A mapping of CCIP chain identifiers to destination domains
@@ -203,7 +203,7 @@ contract USDCTokenPool is TokenPool {
   }
 
   // ================================================================
-  // |                           Config                             |
+  // │                           Config                             │
   // ================================================================
 
   /// @notice Gets the current config

@@ -71,7 +71,7 @@ contract Router is IRouter, IRouterClient, TypeAndVersionInterface, OwnerIsCreat
   }
 
   // ================================================================
-  // |                       Message sending                        |
+  // │                       Message sending                        │
   // ================================================================
 
   /// @inheritdoc IRouterClient
@@ -145,7 +145,7 @@ contract Router is IRouter, IRouterClient, TypeAndVersionInterface, OwnerIsCreat
   }
 
   // ================================================================
-  // |                      Message execution                       |
+  // │                      Message execution                       │
   // ================================================================
 
   /// @inheritdoc IRouter
@@ -218,7 +218,7 @@ contract Router is IRouter, IRouterClient, TypeAndVersionInterface, OwnerIsCreat
   }
 
   // ================================================================
-  // |                           Config                             |
+  // │                           Config                             │
   // ================================================================
 
   /// @notice Gets the wrapped representation of the native fee coin.
@@ -316,7 +316,7 @@ contract Router is IRouter, IRouterClient, TypeAndVersionInterface, OwnerIsCreat
   }
 
   // ================================================================
-  // |                           Access                             |
+  // │                           Access                             │
   // ================================================================
 
   /// @notice only lets permissioned offRamps execute

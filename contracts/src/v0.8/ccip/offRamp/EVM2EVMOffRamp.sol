@@ -76,10 +76,10 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersion
 
   /// @notice Static offRamp config
   struct StaticConfig {
-    address commitStore; // --------┐  CommitStore address on the destination chain
-    uint64 chainSelector; // -------┘  Destination chainSelector
-    uint64 sourceChainSelector; // -┐  Source chainSelector
-    address onRamp; // -------------┘  OnRamp address on the source chain
+    address commitStore; // ────────╮  CommitStore address on the destination chain
+    uint64 chainSelector; // ───────╯  Destination chainSelector
+    uint64 sourceChainSelector; // ─╮  Source chainSelector
+    address onRamp; // ─────────────╯  OnRamp address on the source chain
     address prevOffRamp; //            Address of previous-version OffRamp
     address armProxy; //               ARM proxy address
   }
@@ -87,11 +87,11 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersion
   /// @notice Dynamic offRamp config
   /// @dev since OffRampConfig is part of OffRampConfigChanged event, if changing it, we should update the ABI on Atlas
   struct DynamicConfig {
-    uint32 permissionLessExecutionThresholdSeconds; // -┐ Waiting time before manual execution is enabled
-    address router; // ---------------------------------┘ Router address
-    address priceRegistry; // -----┐ Price registry address
-    uint16 maxTokensLength; //     | Maximum number of ERC20 token transfers that can be included per message
-    uint32 maxDataSize; // --------┘ Maximum payload data size
+    uint32 permissionLessExecutionThresholdSeconds; // ─╮ Waiting time before manual execution is enabled
+    address router; // ─────────────────────────────────╯ Router address
+    address priceRegistry; // ─────╮ Price registry address
+    uint16 maxTokensLength; //     │ Maximum number of ERC20 token transfers that can be included per message
+    uint32 maxDataSize; // ────────╯ Maximum payload data size
   }
 
   // STATIC CONFIG
@@ -168,7 +168,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersion
   }
 
   // ================================================================
-  // |                          Messaging                           |
+  // │                          Messaging                           │
   // ================================================================
 
   // The size of the execution state in bits
@@ -431,7 +431,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersion
   }
 
   // ================================================================
-  // |                           Config                             |
+  // │                           Config                             │
   // ================================================================
 
   /// @notice Returns the static config.
@@ -476,7 +476,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersion
   }
 
   // ================================================================
-  // |                      Tokens and pools                        |
+  // │                      Tokens and pools                        │
   // ================================================================
 
   /// @notice Get all supported source tokens
@@ -616,7 +616,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersion
   }
 
   // ================================================================
-  // |                        Access and ARM                        |
+  // │                        Access and ARM                        │
   // ================================================================
 
   /// @notice Reverts as this contract should not access CCIP messages

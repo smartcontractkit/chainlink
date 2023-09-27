@@ -16,6 +16,7 @@ contract AggregateRateLimiter is OwnerIsCreator {
   using USDPriceWith18Decimals for uint224;
 
   error PriceNotFoundForToken(address token);
+
   event AdminSet(address newAdmin);
 
   // The address of the token limit admin that has the same permissions as the owner.
@@ -67,7 +68,7 @@ contract AggregateRateLimiter is OwnerIsCreator {
   }
 
   // ================================================================
-  // |                           Access                             |
+  // │                           Access                             │
   // ================================================================
 
   /// @notice Gets the token limit admin address.

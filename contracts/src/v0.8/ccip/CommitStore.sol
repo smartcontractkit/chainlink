@@ -27,8 +27,8 @@ contract CommitStore is ICommitStore, TypeAndVersionInterface, OCR2Base {
 
   /// @notice Static commit store config
   struct StaticConfig {
-    uint64 chainSelector; // -------┐  Destination chainSelector
-    uint64 sourceChainSelector; // -┘  Source chainSelector
+    uint64 chainSelector; // ───────╮  Destination chainSelector
+    uint64 sourceChainSelector; // ─╯  Source chainSelector
     address onRamp; // OnRamp address on the source chain
     address armProxy; // ARM proxy address
   }
@@ -40,8 +40,8 @@ contract CommitStore is ICommitStore, TypeAndVersionInterface, OCR2Base {
 
   /// @notice a sequenceNumber interval
   struct Interval {
-    uint64 min; // ---┐ Minimum sequence number, inclusive
-    uint64 max; // ---┘ Maximum sequence number, inclusive
+    uint64 min; // ───╮ Minimum sequence number, inclusive
+    uint64 max; // ───╯ Maximum sequence number, inclusive
   }
 
   /// @notice Report that is committed by the observing DON at the committing phase
@@ -98,7 +98,7 @@ contract CommitStore is ICommitStore, TypeAndVersionInterface, OCR2Base {
   }
 
   // ================================================================
-  // |                        Verification                          |
+  // │                        Verification                          │
   // ================================================================
 
   /// @notice Returns the next expected sequence number.
@@ -218,7 +218,7 @@ contract CommitStore is ICommitStore, TypeAndVersionInterface, OCR2Base {
   }
 
   // ================================================================
-  // |                           Config                             |
+  // │                           Config                             │
   // ================================================================
 
   /// @notice Returns the static commit store config.
@@ -264,7 +264,7 @@ contract CommitStore is ICommitStore, TypeAndVersionInterface, OCR2Base {
   }
 
   // ================================================================
-  // |                        Access and ARM                        |
+  // │                        Access and ARM                        │
   // ================================================================
 
   /// @notice Single function to check the status of the commitStore.
