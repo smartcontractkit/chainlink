@@ -47,12 +47,12 @@ library ChainSpecificUtil {
   // ------------ End Optimism Constants ------------
 
   /**
-    * @notice Returns the blockhash for the given blockNumber.
-    * @notice If the blockNumber is more than 256 blocks in the past, returns the empty string.
-    * @notice When on a known Arbitrum chain, it uses ArbSys.arbBlockHash to get the blockhash.
-    * @notice Otherwise, it uses the blockhash opcode.
-    * @notice Note that the blockhash opcode will return the L2 blockhash on Optimism.
-  */
+   * @notice Returns the blockhash for the given blockNumber.
+   * @notice If the blockNumber is more than 256 blocks in the past, returns the empty string.
+   * @notice When on a known Arbitrum chain, it uses ArbSys.arbBlockHash to get the blockhash.
+   * @notice Otherwise, it uses the blockhash opcode.
+   * @notice Note that the blockhash opcode will return the L2 blockhash on Optimism.
+   */
   function getBlockhash(uint64 blockNumber) internal view returns (bytes32) {
     uint256 chainid = block.chainid;
     if (
@@ -69,26 +69,30 @@ library ChainSpecificUtil {
   }
 
   /**
-    * @notice Returns the block number of the current block.
-    * @notice When on a known Arbitrum chain, it uses ArbSys.arbBlockNumber to get the block number.
-    * @notice Otherwise, it uses the block.number opcode.
-    * @notice Note that the block.number opcode will return the L2 block number on Optimism.
+   * @notice Returns the block number of the current block.
+   * @notice When on a known Arbitrum chain, it uses ArbSys.arbBlockNumber to get the block number.
+   * @notice Otherwise, it uses the block.number opcode.
+   * @notice Note that the block.number opcode will return the L2 block number on Optimism.
    */
   function getBlockNumber() internal view returns (uint256) {
     uint256 chainid = block.chainid;
-    if (chainid == ARB_MAINNET_CHAIN_ID || chainid == ARB_GOERLI_TESTNET_CHAIN_ID) {
+    if (
+      chainid == ARB_MAINNET_CHAIN_ID ||
+      chainid == ARB_GOERLI_TESTNET_CHAIN_ID ||
+      chainid == ARB_SEPOLIA_TESTNET_CHAIN_ID
+    ) {
       return ARBSYS.arbBlockNumber();
     }
     return block.number;
   }
 
   /**
-    * @notice Returns the L1 fees that will be paid for the current transaction, given any calldata
-    * @notice for the current transaction.
-    * @notice When on a known Arbitrum chain, it uses ArbGas.getCurrentTxL1GasFees to get the fees.
-    * @notice On Arbitrum, the provided calldata is not used to calculate the fees.
-    * @notice On Optimism, the provided calldata is passed to the OVM_GasPriceOracle predeploy
-    * @notice and getL1Fee is called to get the fees.
+   * @notice Returns the L1 fees that will be paid for the current transaction, given any calldata
+   * @notice for the current transaction.
+   * @notice When on a known Arbitrum chain, it uses ArbGas.getCurrentTxL1GasFees to get the fees.
+   * @notice On Arbitrum, the provided calldata is not used to calculate the fees.
+   * @notice On Optimism, the provided calldata is passed to the OVM_GasPriceOracle predeploy
+   * @notice and getL1Fee is called to get the fees.
    */
   function getCurrentTxL1GasFees(bytes memory txCallData) internal view returns (uint256) {
     uint256 chainid = block.chainid;
@@ -128,8 +132,8 @@ library ChainSpecificUtil {
   }
 
   /**
-    * @notice Return true if and only if the provided chain ID is an Optimism chain ID.
-    * @notice Note that optimism chain id's are also OP stack chain id's.
+   * @notice Return true if and only if the provided chain ID is an Optimism chain ID.
+   * @notice Note that optimism chain id's are also OP stack chain id's.
    */
   function isOptimismChainId(uint256 chainId) internal pure returns (bool) {
     return
@@ -144,17 +148,22 @@ library ChainSpecificUtil {
     // from: https://community.optimism.io/docs/developers/build/transaction-fees/#the-l1-data-fee
     // l1_data_fee = l1_gas_price * (tx_data_gas + fixed_overhead) * dynamic_overhead
     // tx_data_gas = count_zero_bytes(tx_data) * 4 + count_non_zero_bytes(tx_data) * 16
-    // note counting zero bytes is a pretty expensive operation gas-wise, so we assume that at
-    // most 20% of the calldata size in bytes consists of zero bytes.
+    // note we conservatively assume all non-zero bytes.
     uint256 l1BaseFeeWei = OVM_GASPRICEORACLE.l1BaseFee();
-    uint256 numZeroBytes = calldataSizeBytes / 5;
+    uint256 numZeroBytes = 0;
     uint256 numNonzeroBytes = calldataSizeBytes - numZeroBytes;
     uint256 txDataGas = numZeroBytes * 4 + numNonzeroBytes * 16;
     uint256 fixedOverhead = OVM_GASPRICEORACLE.overhead();
-    // note dynamic overhead is 0.684, which scales the data fee, however
-    // since there is no floating point arithmetic in solidity we multiply by 1000
-    // and then divide by 684 to get the same result.
-    uint256 l1DataFee = l1BaseFeeWei * (txDataGas + fixedOverhead) * 1000 / 684;
+
+    // The scalar is some value like 0.684, but is represented as
+    // that times 10 ^ number of scalar decimals.
+    // e.g scalar = 0.684 * 10^6
+    // The divisor is used to divide that and have a net result of the true scalar.
+    uint256 scalar = OVM_GASPRICEORACLE.scalar();
+    uint256 scalarDecimals = OVM_GASPRICEORACLE.decimals();
+    uint256 divisor = 10 ** scalarDecimals;
+
+    uint256 l1DataFee = (l1BaseFeeWei * (txDataGas + fixedOverhead) * scalar) / divisor;
     return l1DataFee;
   }
 }

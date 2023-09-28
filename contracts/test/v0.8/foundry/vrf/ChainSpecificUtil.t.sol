@@ -60,37 +60,40 @@ contract ChainSpecificUtilTest is BaseTest {
       vm.mockCall(
         ARBSYS_ADDR,
         abi.encodeWithSelector(ArbSys.arbBlockNumber.selector),
-        abi.encode(expectedBlockNumber + 1));
+        abi.encode(expectedBlockNumber + 1)
+      );
       vm.mockCall(
         ARBSYS_ADDR,
         abi.encodeWithSelector(ArbSys.arbBlockHash.selector, expectedBlockNumber),
-        abi.encodePacked(expectedBlockHash));
+        abi.encodePacked(expectedBlockHash)
+      );
       bytes32 actualBlockHash = ChainSpecificUtil.getBlockhash(uint64(expectedBlockNumber));
       assertEq(expectedBlockHash, actualBlockHash, "incorrect blockhash");
     }
   }
 
   function testGetBlockhashOptimism() public {
-    // set optimism chain id
+    // Optimism L2 block hash is simply blockhash()
+    bytes32 actualBlockhash = ChainSpecificUtil.getBlockhash(uint64(block.number - 1));
+    assertEq(blockhash(block.number - 1), actualBlockhash);
   }
 
   function testGetBlockNumberArbitrum() public {
-    uint256[3] memory chainIds = [ARB_MAINNET_CHAIN_ID, ARB_GOERLI_TESTNET_CHAIN_ID, ARB_SEPOLIA_TESTNET_CHAIN_ID];
+    uint256[2] memory chainIds = [ARB_MAINNET_CHAIN_ID, ARB_GOERLI_TESTNET_CHAIN_ID];
     uint256[3] memory expectedBlockNumbers = [uint256(10), 11, 12];
     for (uint256 i = 0; i < chainIds.length; i++) {
       vm.chainId(chainIds[i]);
       uint256 expectedBlockNumber = expectedBlockNumbers[i];
-      vm.mockCall(
-        ARBSYS_ADDR,
-        abi.encodeWithSelector(ArbSys.arbBlockNumber.selector),
-        abi.encode(expectedBlockNumber));
+      vm.mockCall(ARBSYS_ADDR, abi.encodeWithSelector(ArbSys.arbBlockNumber.selector), abi.encode(expectedBlockNumber));
       uint256 actualBlockNumber = ChainSpecificUtil.getBlockNumber();
       assertEq(expectedBlockNumber, actualBlockNumber, "incorrect block number");
     }
   }
 
   function testGetBlockNumberOptimism() public {
-
+    // Optimism L2 block number is simply block.number
+    uint256 actualBlockNumber = ChainSpecificUtil.getBlockNumber();
+    assertEq(block.number, actualBlockNumber);
   }
 
   function testGetCurrentTxL1GasFeesArbitrum() public {
@@ -102,7 +105,8 @@ contract ChainSpecificUtilTest is BaseTest {
       vm.mockCall(
         ARBGAS_ADDR,
         abi.encodeWithSelector(ArbGasInfo.getCurrentTxL1GasFees.selector),
-        abi.encode(expectedGasFee));
+        abi.encode(expectedGasFee)
+      );
       uint256 actualGasFee = ChainSpecificUtil.getCurrentTxL1GasFees("");
       assertEq(expectedGasFee, actualGasFee, "incorrect gas fees");
     }
@@ -111,10 +115,13 @@ contract ChainSpecificUtilTest is BaseTest {
   function testGetCurrentTxL1GasFeesOptimism() public {
     // set optimism chain id
     uint256[5] memory chainIds = [
-      OP_MAINNET_CHAIN_ID, OP_GOERLI_CHAIN_ID, OP_SEPOLIA_CHAIN_ID,
-      BASE_MAINNET_CHAIN_ID, BASE_GOERLI_CHAIN_ID];
-    uint256[5] memory expectedGasFees = [
-      uint256(10 gwei), 12 gwei, 14 gwei, 16 gwei, 18 gwei];
+      OP_MAINNET_CHAIN_ID,
+      OP_GOERLI_CHAIN_ID,
+      OP_SEPOLIA_CHAIN_ID,
+      BASE_MAINNET_CHAIN_ID,
+      BASE_GOERLI_CHAIN_ID
+    ];
+    uint256[5] memory expectedGasFees = [uint256(10 gwei), 12 gwei, 14 gwei, 16 gwei, 18 gwei];
     for (uint256 i = 0; i < chainIds.length; i++) {
       vm.chainId(chainIds[i]);
       uint256 expectedL1Fee = expectedGasFees[i];
@@ -122,17 +129,67 @@ contract ChainSpecificUtilTest is BaseTest {
       vm.mockCall(
         OVM_GASPRICEORACLE_ADDR,
         abi.encodeWithSelector(OVM_GasPriceOracle.getL1Fee.selector, bytes.concat(someCalldata, L1_FEE_DATA_PADDING)),
-        abi.encode(expectedL1Fee));
+        abi.encode(expectedL1Fee)
+      );
       uint256 actualL1Fee = ChainSpecificUtil.getCurrentTxL1GasFees(someCalldata);
       assertEq(expectedL1Fee, actualL1Fee, "incorrect gas fees");
     }
   }
 
   function testGetL1CalldataGasCostArbitrum() public {
+    uint256[3] memory chainIds = [ARB_MAINNET_CHAIN_ID, ARB_GOERLI_TESTNET_CHAIN_ID, ARB_SEPOLIA_TESTNET_CHAIN_ID];
+    for (uint256 i = 0; i < chainIds.length; i++) {
+      vm.chainId(chainIds[i]);
+      vm.mockCall(
+        ARBGAS_ADDR,
+        abi.encodeWithSelector(ArbGasInfo.getPricesInWei.selector),
+        abi.encode(0, 10, 0, 0, 0, 0)
+      );
 
+      // fee = l1PricePerByte * (calldataSizeBytes + 140)
+      // fee = 10 * (10 + 140) = 1500
+      uint256 dataFee = ChainSpecificUtil.getL1CalldataGasCost(10);
+      assertEq(dataFee, 1500);
+    }
   }
 
   function testGetL1CalldataGasCostOptimism() public {
+    uint256[5] memory chainIds = [
+      OP_MAINNET_CHAIN_ID,
+      OP_GOERLI_CHAIN_ID,
+      OP_SEPOLIA_CHAIN_ID,
+      BASE_MAINNET_CHAIN_ID,
+      BASE_GOERLI_CHAIN_ID
+    ];
+    for (uint256 i = 0; i < chainIds.length; i++) {
+      vm.chainId(chainIds[i]);
+      vm.mockCall(
+        OVM_GASPRICEORACLE_ADDR,
+        abi.encodeWithSelector(bytes4(hex"519b4bd3")), // l1BaseFee()
+        abi.encode(10)
+      );
+      vm.mockCall(
+        OVM_GASPRICEORACLE_ADDR,
+        abi.encodeWithSelector(bytes4(hex"0c18c162")), // overhead()
+        abi.encode(160)
+      );
+      vm.mockCall(
+        OVM_GASPRICEORACLE_ADDR,
+        abi.encodeWithSelector(bytes4(hex"f45e65d8")), // scalar()
+        abi.encode(500_000)
+      );
+      vm.mockCall(
+        OVM_GASPRICEORACLE_ADDR,
+        abi.encodeWithSelector(bytes4(hex"313ce567")), // decimals()
+        abi.encode(6)
+      );
 
+      // tx_data_gas = count_zero_bytes(tx_data) * 4 + count_non_zero_bytes(tx_data) * 16
+      // tx_data_gas = 0 * 4 + 10 * 16 = 160
+      // l1_data_fee = l1_gas_price * (tx_data_gas + fixed_overhead) * dynamic_overhead
+      // l1_data_fee = 10 * (160 + 160) * 500_000 / 1_000_000 = 1600
+      uint256 dataFee = ChainSpecificUtil.getL1CalldataGasCost(10);
+      assertEq(dataFee, 1600);
+    }
   }
 }
