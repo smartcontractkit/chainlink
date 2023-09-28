@@ -156,7 +156,7 @@ func (te *CLClusterTestEnv) GetAPIs() []*client.ChainlinkClient {
 }
 
 // StartClNodes start one bootstrap node and {count} OCR nodes
-func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int) error {
+func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int, secretsConfig string) error {
 	eg := &errgroup.Group{}
 	nodes := make(chan *ClNode, count)
 
@@ -170,6 +170,7 @@ func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int
 				dbContainerName = te.Cfg.Nodes[nodeIndex].DbContainerName
 			}
 			n := NewClNode([]string{te.Network.Name}, nodeConfig,
+				WithSecrets(secretsConfig),
 				WithNodeContainerName(nodeContainerName),
 				WithDbContainerName(dbContainerName),
 			)

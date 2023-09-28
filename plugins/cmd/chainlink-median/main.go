@@ -14,7 +14,7 @@ const (
 )
 
 func main() {
-	s := plugins.StartServer(loggerName)
+	s := plugins.MustNewStartedServer(loggerName)
 	defer s.Stop()
 
 	p := median.NewPlugin(s.Logger)

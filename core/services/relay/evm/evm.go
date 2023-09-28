@@ -3,13 +3,14 @@ package evm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
@@ -61,17 +62,49 @@ type CSAETHKeystore interface {
 	Eth() keystore.Eth
 }
 
-func NewRelayer(db *sqlx.DB, chain evm.Chain, cfg pg.QConfig, lggr logger.Logger, ks CSAETHKeystore, eventBroadcaster pg.EventBroadcaster) *Relayer {
+type RelayerOpts struct {
+	*sqlx.DB
+	pg.QConfig
+	CSAETHKeystore
+	pg.EventBroadcaster
+}
+
+func (c RelayerOpts) Validate() error {
+	var err error
+	if c.DB == nil {
+		err = errors.Join(err, errors.New("nil DB"))
+	}
+	if c.QConfig == nil {
+		err = errors.Join(err, errors.New("nil QConfig"))
+	}
+	if c.CSAETHKeystore == nil {
+		err = errors.Join(err, errors.New("nil Keystore"))
+	}
+	if c.EventBroadcaster == nil {
+		err = errors.Join(err, errors.New("nil Eventbroadcaster"))
+	}
+
+	if err != nil {
+		err = fmt.Errorf("invalid RelayerOpts: %w", err)
+	}
+	return err
+}
+
+func NewRelayer(lggr logger.Logger, chain evm.Chain, opts RelayerOpts) (*Relayer, error) {
+	err := opts.Validate()
+	if err != nil {
+		return nil, fmt.Errorf("cannot create evm relayer: %w", err)
+	}
 	lggr = lggr.Named("Relayer")
 	return &Relayer{
-		db:               db,
+		db:               opts.DB,
 		chain:            chain,
 		lggr:             lggr,
-		ks:               ks,
+		ks:               opts.CSAETHKeystore,
 		mercuryPool:      wsrpc.NewPool(lggr),
-		eventBroadcaster: eventBroadcaster,
-		pgCfg:            cfg,
-	}
+		eventBroadcaster: opts.EventBroadcaster,
+		pgCfg:            opts.QConfig,
+	}, nil
 }
 
 func (r *Relayer) Name() string {
@@ -107,11 +140,11 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 
 	var mercuryConfig mercuryconfig.PluginConfig
 	if err := json.Unmarshal(pargs.PluginConfig, &mercuryConfig); err != nil {
-		return nil, errors.WithStack(err)
+		return nil, pkgerrors.WithStack(err)
 	}
 
 	if relayConfig.FeedID == nil {
-		return nil, errors.New("FeedID must be specified")
+		return nil, pkgerrors.New("FeedID must be specified")
 	}
 	feedID := mercuryutils.FeedID(*relayConfig.FeedID)
 
@@ -120,15 +153,15 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	}
 	configWatcher, err := newConfigProvider(r.lggr, r.chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
-		return nil, errors.WithStack(err)
+		return nil, pkgerrors.WithStack(err)
 	}
 
 	if !relayConfig.EffectiveTransmitterID.Valid {
-		return nil, errors.New("EffectiveTransmitterID must be specified")
+		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
 	}
 	privKey, err := r.ks.CSA().Get(relayConfig.EffectiveTransmitterID.String)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to get CSA key for mercury connection")
+		return nil, pkgerrors.Wrap(err, "failed to get CSA key for mercury connection")
 	}
 
 	client, err := r.mercuryPool.Checkout(context.Background(), privKey, mercuryConfig.ServerPubKey, mercuryConfig.ServerURL())
@@ -190,7 +223,7 @@ func FilterNamesFromRelayArgs(args relaytypes.RelayArgs) (filterNames []string, 
 	}
 	var relayConfig types.RelayConfig
 	if err = json.Unmarshal(args.RelayConfig, &relayConfig); err != nil {
-		return nil, errors.WithStack(err)
+		return nil, pkgerrors.WithStack(err)
 	}
 
 	if relayConfig.FeedID != nil {
@@ -289,13 +322,13 @@ func (c *configWatcher) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 
 func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpts, eventBroadcaster pg.EventBroadcaster) (*configWatcher, error) {
 	if !common.IsHexAddress(opts.ContractID) {
-		return nil, errors.Errorf("invalid contractID, expected hex address")
+		return nil, pkgerrors.Errorf("invalid contractID, expected hex address")
 	}
 
-	contractAddress := common.HexToAddress(opts.ContractID)
+	aggregatorAddress := common.HexToAddress(opts.ContractID)
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorMetaData.ABI))
 	if err != nil {
-		return nil, errors.Wrap(err, "could not get contract ABI JSON")
+		return nil, pkgerrors.Wrap(err, "could not get contract ABI JSON")
 	}
 	var cp types.ConfigPoller
 
@@ -307,14 +340,18 @@ func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpt
 		cp, err = mercury.NewConfigPoller(
 			lggr,
 			chain.LogPoller(),
-			contractAddress,
+			aggregatorAddress,
 			*relayConfig.FeedID,
 			eventBroadcaster,
+			// TODO: Does mercury need to support config contract? DF-19182
 		)
 	} else {
-		cp, err = NewConfigPoller(lggr,
+		cp, err = NewConfigPoller(
+			lggr,
+			chain.Client(),
 			chain.LogPoller(),
-			contractAddress,
+			aggregatorAddress,
+			relayConfig.ConfigContractAddress,
 		)
 	}
 	if err != nil {
@@ -324,15 +361,15 @@ func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpt
 	var offchainConfigDigester ocrtypes.OffchainConfigDigester
 	if relayConfig.FeedID != nil {
 		// Mercury
-		offchainConfigDigester = mercury.NewOffchainConfigDigester(*relayConfig.FeedID, chain.Config().EVM().ChainID(), contractAddress)
+		offchainConfigDigester = mercury.NewOffchainConfigDigester(*relayConfig.FeedID, chain.Config().EVM().ChainID(), aggregatorAddress)
 	} else {
 		// Non-mercury
 		offchainConfigDigester = evmutil.EVMOffchainConfigDigester{
 			ChainID:         chain.Config().EVM().ChainID().Uint64(),
-			ContractAddress: contractAddress,
+			ContractAddress: aggregatorAddress,
 		}
 	}
-	return newConfigWatcher(lggr, contractAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, opts.New), nil
+	return newConfigWatcher(lggr, aggregatorAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, opts.New), nil
 }
 
 func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth, reportToEthMeta ReportToEthMetadata) (*contractTransmitter, error) {
@@ -343,23 +380,23 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 	var fromAddresses []common.Address
 	sendingKeys := relayConfig.SendingKeys
 	if !relayConfig.EffectiveTransmitterID.Valid {
-		return nil, errors.New("EffectiveTransmitterID must be specified")
+		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
 	}
 	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterID.String)
 
 	sendingKeysLength := len(sendingKeys)
 	if sendingKeysLength == 0 {
-		return nil, errors.New("no sending keys provided")
+		return nil, pkgerrors.New("no sending keys provided")
 	}
 
 	// If we are using multiple sending keys, then a forwarder is needed to rotate transmissions.
 	// Ensure that this forwarder is not set to a local sending key, and ensure our sending keys are enabled.
 	for _, s := range sendingKeys {
 		if sendingKeysLength > 1 && s == effectiveTransmitterAddress.String() {
-			return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")
+			return nil, pkgerrors.New("the transmitter is a local sending key with transaction forwarding enabled")
 		}
 		if err := ethKeystore.CheckEnabled(common.HexToAddress(s), configWatcher.chain.Config().EVM().ChainID()); err != nil {
-			return nil, errors.Wrap(err, "one of the sending keys given is not enabled")
+			return nil, pkgerrors.Wrap(err, "one of the sending keys given is not enabled")
 		}
 		fromAddresses = append(fromAddresses, common.HexToAddress(s))
 	}
@@ -390,7 +427,7 @@ func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, tran
 	)
 
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create transmitter")
+		return nil, pkgerrors.Wrap(err, "failed to create transmitter")
 	}
 
 	return NewOCRContractTransmitter(
@@ -411,7 +448,7 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 	}
 
 	if !relayConfig.EffectiveTransmitterID.Valid {
-		return nil, errors.New("EffectiveTransmitterID must be specified")
+		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
 	}
 	effectiveTransmitterAddress := common.HexToAddress(relayConfig.EffectiveTransmitterID.String)
 	transmitterAddress := common.HexToAddress(transmitterID)

@@ -418,12 +418,19 @@ func main() {
 		}
 
 		if *startBlock == -1 {
-			tx, err2 := bhs.StoreEarliest(e.Owner)
-			helpers.PanicErr(err2)
-			receipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "Store Earliest")
-			// storeEarliest will store receipt block number minus 256 which is the earliest block
-			// the blockhash() instruction will work on.
-			*startBlock = receipt.BlockNumber.Int64() - 256
+			closestBlock, err2 := scripts.ClosestBlock(e, common.HexToAddress(*batchAddr), uint64(*endBlock), uint64(*batchSize))
+			// found a block with blockhash stored that's more recent that end block
+			if err2 == nil {
+				*startBlock = int64(closestBlock)
+			} else {
+				fmt.Println("encountered error while looking for closest block:", err2)
+				tx, err2 := bhs.StoreEarliest(e.Owner)
+				helpers.PanicErr(err2)
+				receipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "Store Earliest")
+				// storeEarliest will store receipt block number minus 256 which is the earliest block
+				// the blockhash() instruction will work on.
+				*startBlock = receipt.BlockNumber.Int64() - 256
+			}
 		}
 
 		// Check if the provided start block is in the BHS. If it's not, print out an appropriate
@@ -476,6 +483,7 @@ func main() {
 			helpers.PanicErr(err)
 
 			fmt.Println("received receipt, continuing")
+			fmt.Println("there are", len(blockRange)-j, "blocks left to store")
 		}
 		fmt.Println("done")
 	case "latest-head":
@@ -1330,6 +1338,14 @@ func main() {
 		blockNumber := cmd.Int("block-number", -1, "block number")
 		helpers.ParseArgs(cmd, os.Args[2:])
 		_ = helpers.CalculateLatestBlockHeader(e, *blockNumber)
+	case "closest-block":
+		cmd := flag.NewFlagSet("closest-block", flag.ExitOnError)
+		blockNumber := cmd.Uint64("block-number", 0, "block number")
+		batchBHSAddress := cmd.String("batch-bhs-address", "", "address of the batch blockhash store")
+		batchSize := cmd.Uint64("batch-size", 100, "batch size")
+		helpers.ParseArgs(cmd, os.Args[2:], "block-number", "batch-bhs-address")
+		_, err := scripts.ClosestBlock(e, common.HexToAddress(*batchBHSAddress), *blockNumber, *batchSize)
+		helpers.PanicErr(err)
 	case "wrapper-universe-deploy":
 		scripts.DeployWrapperUniverse(e)
 	default:

@@ -134,8 +134,8 @@ func (r *relayerAdapter) Ready() (err error) {
 
 func (r *relayerAdapter) HealthReport() map[string]error {
 	hr := make(map[string]error)
-	maps.Copy(r.Relayer.HealthReport(), hr)
-	maps.Copy(r.RelayerExt.HealthReport(), hr)
+	maps.Copy(hr, r.Relayer.HealthReport())
+	maps.Copy(hr, r.RelayerExt.HealthReport())
 	return hr
 }
 
