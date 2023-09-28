@@ -4,13 +4,10 @@ import (
 	"context"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
@@ -19,15 +16,11 @@ import (
 
 func getProofData(
 	ctx context.Context,
-	lggr logger.Logger,
-	hashLeaf hashlib.LeafHasherInterface[[32]byte],
-	onRampAddress common.Address,
-	sourceReader ccipdata.Reader,
+	sourceReader ccipdata.OnRampReader,
 	interval commit_store.CommitStoreInterval,
-) (sendReqsInRoot []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested], leaves [][32]byte, tree *merklemulti.Tree[[32]byte], err error) {
+) (sendReqsInRoot []ccipdata.Event[ccipdata.EVM2EVMMessage], leaves [][32]byte, tree *merklemulti.Tree[[32]byte], err error) {
 	sendReqs, err := sourceReader.GetSendRequestsBetweenSeqNums(
 		ctx,
-		onRampAddress,
 		interval.Min,
 		interval.Max,
 		0, // no need for confirmations, commitReport was already confirmed and we need all msgs in it
@@ -35,9 +28,9 @@ func getProofData(
 	if err != nil {
 		return nil, nil, nil, err
 	}
-	leaves, err = hashlib.LeavesFromIntervals(lggr, interval, hashLeaf, sendReqs)
-	if err != nil {
-		return nil, nil, nil, err
+	leaves = make([][32]byte, 0, len(sendReqs))
+	for _, req := range sendReqs {
+		leaves = append(leaves, req.Data.Hash)
 	}
 	tree, err = merklemulti.NewTree(hashlib.NewKeccakCtx(), leaves)
 	if err != nil {

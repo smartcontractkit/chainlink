@@ -59,20 +59,21 @@ type update struct {
 }
 
 type CommitPluginConfig struct {
-	lggr                     logger.Logger
-	sourceLP, destLP         logpoller.LogPoller
-	sourceReader             ccipdata.Reader
-	destReader               ccipdata.Reader
-	offRamp                  evm_2_evm_offramp.EVM2EVMOffRampInterface
-	onRampAddress            common.Address
-	commitStore              commit_store.CommitStoreInterface
-	priceGetter              pricegetter.PriceGetter
-	sourceChainSelector      uint64
-	sourceNative             common.Address
-	sourceFeeEstimator       gas.EvmFeeEstimator
-	sourceClient, destClient evmclient.Client
-	leafHasher               hashlib.LeafHasherInterface[[32]byte]
-	checkFinalityTags        bool
+	lggr logger.Logger
+	// Source
+	onRampReader        ccipdata.OnRampReader
+	sourceChainSelector uint64
+	sourceNative        common.Address
+	sourceFeeEstimator  gas.EvmFeeEstimator
+	// Dest
+	destLP         logpoller.LogPoller
+	destReader     ccipdata.Reader
+	offRamp        evm_2_evm_offramp.EVM2EVMOffRampInterface
+	commitStore    commit_store.CommitStoreInterface
+	destClient     evmclient.Client
+	destChainEVMID *big.Int
+	// Offchain
+	priceGetter pricegetter.PriceGetter
 }
 
 type CommitReportingPlugin struct {
@@ -90,9 +91,9 @@ type CommitReportingPluginFactory struct {
 	config CommitPluginConfig
 
 	// We keep track of the registered filters
-	sourceChainFilters []logpoller.Filter
-	destChainFilters   []logpoller.Filter
-	filtersMu          *sync.Mutex
+	// TODO: Can push this down into the readers
+	destChainFilters []logpoller.Filter
+	filtersMu        *sync.Mutex
 }
 
 // NewCommitReportingPluginFactory return a new CommitReportingPluginFactory.
@@ -208,24 +209,14 @@ func (r *CommitReportingPlugin) Observation(ctx context.Context, epochAndRound t
 
 // UpdateLogPollerFilters updates the log poller filters for the source and destination chains.
 // pass zeroAddress if destPriceRegistry is unknown, filters with zero address are omitted.
+// TODO: Should be able to Close and re-create readers to abstract filters.
 func (rf *CommitReportingPluginFactory) UpdateLogPollerFilters(destPriceRegistry common.Address, qopts ...pg.QOpt) error {
 	rf.filtersMu.Lock()
 	defer rf.filtersMu.Unlock()
 
-	// source chain filters
-	sourceFiltersBefore, sourceFiltersNow := rf.sourceChainFilters, getCommitPluginSourceLpFilters(rf.config.onRampAddress)
-	created, deleted := logpollerutil.FiltersDiff(sourceFiltersBefore, sourceFiltersNow)
-	if err := logpollerutil.UnregisterLpFilters(rf.config.sourceLP, deleted, qopts...); err != nil {
-		return err
-	}
-	if err := logpollerutil.RegisterLpFilters(rf.config.sourceLP, created, qopts...); err != nil {
-		return err
-	}
-	rf.sourceChainFilters = sourceFiltersNow
-
 	// destination chain filters
 	destFiltersBefore, destFiltersNow := rf.destChainFilters, getCommitPluginDestLpFilters(destPriceRegistry, rf.config.offRamp.Address())
-	created, deleted = logpollerutil.FiltersDiff(destFiltersBefore, destFiltersNow)
+	created, deleted := logpollerutil.FiltersDiff(destFiltersBefore, destFiltersNow)
 	if err := logpollerutil.UnregisterLpFilters(rf.config.destLP, deleted, qopts...); err != nil {
 		return err
 	}
@@ -243,7 +234,7 @@ func (r *CommitReportingPlugin) calculateMinMaxSequenceNumbers(ctx context.Conte
 		return 0, 0, err
 	}
 
-	msgRequests, err := r.config.sourceReader.GetSendRequestsGteSeqNum(ctx, r.config.onRampAddress, nextInflightMin, r.config.checkFinalityTags, int(r.offchainConfig.SourceFinalityDepth))
+	msgRequests, err := r.config.onRampReader.GetSendRequestsGteSeqNum(ctx, nextInflightMin, int(r.offchainConfig.SourceFinalityDepth))
 	if err != nil {
 		return 0, 0, err
 	}
@@ -253,7 +244,7 @@ func (r *CommitReportingPlugin) calculateMinMaxSequenceNumbers(ctx context.Conte
 	}
 	seqNrs := make([]uint64, 0, len(msgRequests))
 	for _, msgReq := range msgRequests {
-		seqNrs = append(seqNrs, msgReq.Data.Message.SequenceNumber)
+		seqNrs = append(seqNrs, msgReq.Data.SequenceNumber)
 	}
 
 	minSeqNr := seqNrs[0]
@@ -662,9 +653,8 @@ func (r *CommitReportingPlugin) buildReport(ctx context.Context, lggr logger.Log
 
 	// Logs are guaranteed to be in order of seq num, since these are finalized logs only
 	// and the contract's seq num is auto-incrementing.
-	sendRequests, err := r.config.sourceReader.GetSendRequestsBetweenSeqNums(
+	sendRequests, err := r.config.onRampReader.GetSendRequestsBetweenSeqNums(
 		ctx,
-		r.config.onRampAddress,
 		interval.Min,
 		interval.Max,
 		int(r.offchainConfig.SourceFinalityDepth),
@@ -672,19 +662,22 @@ func (r *CommitReportingPlugin) buildReport(ctx context.Context, lggr logger.Log
 	if err != nil {
 		return commit_store.CommitStoreCommitReport{}, err
 	}
-
-	leaves, err := hashlib.LeavesFromIntervals(lggr, interval, r.config.leafHasher, sendRequests)
-	if err != nil {
-		return commit_store.CommitStoreCommitReport{}, err
-	}
-
-	if len(leaves) == 0 {
-		lggr.Warn("No leaves found in interval",
+	if len(sendRequests) == 0 {
+		lggr.Warn("No messages found in interval",
 			"minSeqNr", interval.Min,
 			"maxSeqNr", interval.Max)
 		return commit_store.CommitStoreCommitReport{}, fmt.Errorf("tried building a tree without leaves")
 	}
 
+	leaves := make([][32]byte, 0, len(sendRequests))
+	var seqNrs []uint64
+	for _, req := range sendRequests {
+		leaves = append(leaves, req.Data.Hash)
+		seqNrs = append(seqNrs, req.Data.SequenceNumber)
+	}
+	if !ccipcalc.ContiguousReqs(lggr, interval.Min, interval.Max, seqNrs) {
+		return commit_store.CommitStoreCommitReport{}, errors.Errorf("do not have full range [%v, %v] have %v", interval.Min, interval.Max, seqNrs)
+	}
 	tree, err := merklemulti.NewTree(hashlib.NewKeccakCtx(), leaves)
 	if err != nil {
 		return commit_store.CommitStoreCommitReport{}, err

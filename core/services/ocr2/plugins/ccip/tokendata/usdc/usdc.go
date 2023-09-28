@@ -11,11 +11,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
@@ -25,9 +23,8 @@ import (
 )
 
 const (
-	apiVersion               = "v1"
-	attestationPath          = "attestations"
-	MESSAGE_SENT_FILTER_NAME = "USDC message sent"
+	apiVersion      = "v1"
+	attestationPath = "attestations"
 )
 
 type attestationStatus string
@@ -36,20 +33,6 @@ const (
 	attestationStatusSuccess attestationStatus = "complete"
 	attestationStatusPending attestationStatus = "pending_confirmations"
 )
-
-// usdcPayload has to match the onchain event emitted by the USDC message transmitter
-type usdcPayload []byte
-
-func (d usdcPayload) AbiString() string {
-	return `[{"type": "bytes"}]`
-}
-
-func (d usdcPayload) Validate() error {
-	if len(d) == 0 {
-		return errors.New("must be non-empty")
-	}
-	return nil
-}
 
 // messageAndAttestation has to match the onchain struct `MessageAndAttestation` in the
 // USDC token pool.
@@ -80,13 +63,9 @@ func (m messageAndAttestation) Validate() error {
 }
 
 type TokenDataReader struct {
-	lggr               logger.Logger
-	sourceChainEvents  ccipdata.Reader
-	attestationApi     *url.URL
-	messageTransmitter common.Address
-	sourceToken        common.Address
-	onRampAddress      common.Address
-
+	lggr           logger.Logger
+	usdcReader     ccipdata.USDCReader
+	attestationApi *url.URL
 	// Cache of sequence number -> usdc message body
 	usdcMessageHashCache      map[uint64][]byte
 	usdcMessageHashCacheMutex sync.Mutex
@@ -99,14 +78,11 @@ type attestationResponse struct {
 
 var _ tokendata.Reader = &TokenDataReader{}
 
-func NewUSDCTokenDataReader(lggr logger.Logger, sourceChainEvents ccipdata.Reader, usdcTokenAddress, usdcMessageTransmitterAddress, onRampAddress common.Address, usdcAttestationApi *url.URL) *TokenDataReader {
+func NewUSDCTokenDataReader(lggr logger.Logger, usdcReader ccipdata.USDCReader, usdcAttestationApi *url.URL) *TokenDataReader {
 	return &TokenDataReader{
-		lggr:                 lggr.With("tokenDataProvider", "usdc"),
-		sourceChainEvents:    sourceChainEvents,
+		lggr:                 lggr,
+		usdcReader:           usdcReader,
 		attestationApi:       usdcAttestationApi,
-		messageTransmitter:   usdcMessageTransmitterAddress,
-		onRampAddress:        onRampAddress,
-		sourceToken:          usdcTokenAddress,
 		usdcMessageHashCache: make(map[uint64][]byte),
 	}
 }
@@ -160,29 +136,15 @@ func (s *TokenDataReader) getUSDCMessageBody(ctx context.Context, msg internal.E
 		return body, nil
 	}
 
-	usdcMessageBody, err := s.sourceChainEvents.GetLastUSDCMessagePriorToLogIndexInTx(ctx, int64(msg.LogIndex), msg.TxHash)
+	parsedMsgBody, err := s.usdcReader.GetLastUSDCMessagePriorToLogIndexInTx(ctx, int64(msg.LogIndex), msg.TxHash)
 	if err != nil {
 		return []byte{}, err
 	}
-
-	parsedMsgBody, err := decodeUSDCMessageSent(usdcMessageBody)
-	if err != nil {
-		return []byte{}, errors.Wrap(err, "failed parsing solidity struct")
-	}
-
 	s.lggr.Infow("Got USDC message body", "messageBody", hexutil.Encode(parsedMsgBody), "messageID", hexutil.Encode(msg.MessageId[:]))
 
 	// Save the attempt in the cache in case the external call fails
 	s.usdcMessageHashCache[msg.SequenceNumber] = parsedMsgBody
 	return parsedMsgBody, nil
-}
-
-func decodeUSDCMessageSent(logData []byte) ([]byte, error) {
-	decodeAbiStruct, err := abihelpers.DecodeAbiStruct[usdcPayload](logData)
-	if err != nil {
-		return nil, err
-	}
-	return decodeAbiStruct, nil
 }
 
 func (s *TokenDataReader) callAttestationApi(ctx context.Context, usdcMessageHash [32]byte) (attestationResponse, error) {
@@ -215,12 +177,6 @@ func (s *TokenDataReader) callAttestationApi(ctx context.Context, usdcMessageHas
 	return response, nil
 }
 
-func (s *TokenDataReader) GetSourceLogPollerFilters() []logpoller.Filter {
-	return []logpoller.Filter{
-		{
-			Name:      logpoller.FilterName(MESSAGE_SENT_FILTER_NAME, s.messageTransmitter.Hex()),
-			EventSigs: []common.Hash{abihelpers.EventSignatures.USDCMessageSent},
-			Addresses: []common.Address{s.messageTransmitter},
-		},
-	}
+func (s *TokenDataReader) Close() error {
+	return s.usdcReader.Close()
 }

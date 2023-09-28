@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/merklemulti"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -1358,7 +1359,7 @@ func (args *ManualExecArgs) execute(report *commit_store.CommitStoreCommitReport
 	seqNr := args.seqNr
 	// Build a merkle tree for the report
 	mctx := hashlib.NewKeccakCtx()
-	leafHasher := hashlib.NewLeafHasher(args.SourceChainID, args.DestChainID, common.HexToAddress(args.OnRamp), mctx)
+	leafHasher := ccipdata.NewLeafHasherV1_2_0(args.SourceChainID, args.DestChainID, common.HexToAddress(args.OnRamp), mctx, &evm_2_evm_onramp.EVM2EVMOnRamp{})
 	onRampContract, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(args.OnRamp), args.SourceChain)
 	if err != nil {
 		return nil, err
@@ -1385,7 +1386,7 @@ func (args *ManualExecArgs) execute(report *commit_store.CommitStoreCommitReport
 			leaves = append(leaves, hash)
 			if sendRequestedIterator.Event.Message.SequenceNumber == seqNr {
 				fmt.Printf("Found proving %d %+v\n", curr, sendRequestedIterator.Event.Message)
-				msg, err2 := abihelpers.DecodeOffRampMessage(sendRequestedIterator.Event.Raw.Data)
+				msg, err2 := ccipdata.DecodeOffRampMessageV1_2_0(sendRequestedIterator.Event.Raw.Data)
 				if err2 != nil {
 					return nil, err2
 				}
@@ -1474,14 +1475,4 @@ func GetBalance(t *testing.T, chain bind.ContractBackend, tokenAddr common.Addre
 	bal, err := token.BalanceOf(nil, addr)
 	require.NoError(t, err)
 	return bal
-}
-
-func GenerateCCIPSendLog(t *testing.T, message evm_2_evm_onramp.InternalEVM2EVMMessage) types.Log {
-	pack, err := abihelpers.MessageArgs.Pack(message)
-	require.NoError(t, err)
-
-	return types.Log{
-		Topics: []common.Hash{abihelpers.EventSignatures.SendRequested},
-		Data:   pack,
-	}
 }

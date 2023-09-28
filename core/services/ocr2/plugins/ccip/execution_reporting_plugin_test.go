@@ -55,7 +55,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 		commitStorePaused bool
 		inflightReports   []InflightInternalExecutionReport
 		unexpiredReports  []ccipdata.Event[commit_store.CommitStoreReportAccepted]
-		sendRequests      []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]
+		sendRequests      []ccipdata.Event[ccipdata.EVM2EVMMessage]
 		executedSeqNums   []uint64
 		blessedRoots      map[[32]byte]bool
 		senderNonce       uint64
@@ -89,21 +89,15 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 				IsEnabled: false,
 			},
 			senderNonce: 9,
-			sendRequests: []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]{
+			sendRequests: []ccipdata.Event[ccipdata.EVM2EVMMessage]{
 				{
-					Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{
-						Message: evm_2_evm_onramp.InternalEVM2EVMMessage{SequenceNumber: 10},
-					},
+					Data: ccipdata.EVM2EVMMessage{SequenceNumber: 10},
 				},
 				{
-					Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{
-						Message: evm_2_evm_onramp.InternalEVM2EVMMessage{SequenceNumber: 11},
-					},
+					Data: ccipdata.EVM2EVMMessage{SequenceNumber: 11},
 				},
 				{
-					Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{
-						Message: evm_2_evm_onramp.InternalEVM2EVMMessage{SequenceNumber: 12},
-					},
+					Data: ccipdata.EVM2EVMMessage{SequenceNumber: 12},
 				},
 			},
 		},
@@ -140,13 +134,18 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 				Return(executionEvents, nil).Maybe()
 			p.config.destReader = destReader
 
-			onRamp, onRampAddr := testhelpers.NewFakeOnRamp(t)
+			onRamp, _ := testhelpers.NewFakeOnRamp(t)
 			p.config.onRamp = onRamp
 
-			sourceReader := ccipdata.NewMockReader(t)
-			sourceReader.On("GetSendRequestsBetweenSeqNums", ctx, onRampAddr, mock.Anything, mock.Anything, 0).
+			sourceReader := ccipdata.NewMockOnRampReader(t)
+			sourceReader.On("GetSendRequestsBetweenSeqNums", ctx, mock.Anything, mock.Anything, 0).
 				Return(tc.sendRequests, nil).Maybe()
-			p.config.sourceReader = sourceReader
+			if !tc.expErr {
+				sourceReader.On("ToOffRampMessage", mock.Anything).Return(&evm_2_evm_offramp.InternalEVM2EVMMessage{SequenceNumber: 10}, nil)
+				sourceReader.On("ToOffRampMessage", mock.Anything).Return(&evm_2_evm_offramp.InternalEVM2EVMMessage{SequenceNumber: 11}, nil)
+				sourceReader.On("ToOffRampMessage", mock.Anything).Return(&evm_2_evm_offramp.InternalEVM2EVMMessage{SequenceNumber: 12}, nil)
+			}
+			p.config.onRampReader = sourceReader
 
 			cachedDestTokens := cache.NewMockAutoSync[cache.CachedTokens](t)
 			cachedDestTokens.On("Get", ctx).Return(cache.CachedTokens{
@@ -373,34 +372,36 @@ func TestExecutionReportingPlugin_buildReport(t *testing.T) {
 		}, nil)
 	p.config.destReader = destReader
 
-	p.config.leafHasher = leafHasher123{}
-
-	onRamp, onRampAddr := testhelpers.NewFakeOnRamp(t)
+	onRamp, _ := testhelpers.NewFakeOnRamp(t)
 	p.config.onRamp = onRamp
 
-	sendReqs := make([]ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested], len(observations))
+	sendReqs := make([]ccipdata.Event[ccipdata.EVM2EVMMessage], len(observations))
+	sourceReader := ccipdata.NewMockOnRampReader(t)
 	for i := range observations {
-		sendReqs[i] = ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]{
-			Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{Message: evm_2_evm_onramp.InternalEVM2EVMMessage{
-				SourceChainSelector: math.MaxUint64,
-				SequenceNumber:      uint64(i + 1),
-				FeeTokenAmount:      big.NewInt(math.MaxInt64),
-				Sender:              utils.RandomAddress(),
-				Nonce:               math.MaxUint64,
-				GasLimit:            big.NewInt(math.MaxInt64),
-				Strict:              false,
-				Receiver:            utils.RandomAddress(),
-				Data:                bytes.Repeat([]byte{0}, bytesPerMessage),
-				TokenAmounts:        nil,
-				FeeToken:            utils.RandomAddress(),
-				MessageId:           [32]byte{12},
-			}},
+		msg := evm_2_evm_offramp.InternalEVM2EVMMessage{
+			SourceChainSelector: math.MaxUint64,
+			SequenceNumber:      uint64(i + 1),
+			FeeTokenAmount:      big.NewInt(math.MaxInt64),
+			Sender:              utils.RandomAddress(),
+			Nonce:               math.MaxUint64,
+			GasLimit:            big.NewInt(math.MaxInt64),
+			Strict:              false,
+			Receiver:            utils.RandomAddress(),
+			Data:                bytes.Repeat([]byte{0}, bytesPerMessage),
+			TokenAmounts:        nil,
+			FeeToken:            utils.RandomAddress(),
+			MessageId:           [32]byte{12},
 		}
+		sendReqs[i] = ccipdata.Event[ccipdata.EVM2EVMMessage]{
+			Data: ccipdata.EVM2EVMMessage{
+				SequenceNumber: msg.SequenceNumber,
+			},
+		}
+		sourceReader.On("ToOffRampMessage", mock.Anything).Return(&msg, nil)
 	}
-	sourceReader := ccipdata.NewMockReader(t)
 	sourceReader.On("GetSendRequestsBetweenSeqNums",
-		ctx, onRampAddr, observations[0].SeqNr, observations[len(observations)-1].SeqNr, 0).Return(sendReqs, nil)
-	p.config.sourceReader = sourceReader
+		ctx, observations[0].SeqNr, observations[len(observations)-1].SeqNr, 0).Return(sendReqs, nil)
+	p.config.onRampReader = sourceReader
 
 	execReport, err := p.buildReport(ctx, p.lggr, observations)
 	assert.NoError(t, err)
@@ -932,7 +933,7 @@ func TestExecutionReportingPlugin_getReportsWithSendRequests(t *testing.T) {
 		reports             []commit_store.CommitStoreCommitReport
 		expQueryMin         uint64 // expected min/max used in the query to get ccipevents
 		expQueryMax         uint64
-		onchainEvents       []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]
+		onchainEvents       []ccipdata.Event[ccipdata.EVM2EVMMessage]
 		destLatestBlock     int64
 		destExecutedSeqNums []uint64
 
@@ -959,16 +960,10 @@ func TestExecutionReportingPlugin_getReportsWithSendRequests(t *testing.T) {
 			},
 			expQueryMin: 1,
 			expQueryMax: 3,
-			onchainEvents: []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]{
-				{Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{
-					Message: evm_2_evm_onramp.InternalEVM2EVMMessage{SequenceNumber: 1},
-				}},
-				{Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{
-					Message: evm_2_evm_onramp.InternalEVM2EVMMessage{SequenceNumber: 2},
-				}},
-				{Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{
-					Message: evm_2_evm_onramp.InternalEVM2EVMMessage{SequenceNumber: 3},
-				}},
+			onchainEvents: []ccipdata.Event[ccipdata.EVM2EVMMessage]{
+				{Data: ccipdata.EVM2EVMMessage{SequenceNumber: 1}},
+				{Data: ccipdata.EVM2EVMMessage{SequenceNumber: 2}},
+				{Data: ccipdata.EVM2EVMMessage{SequenceNumber: 3}},
 			},
 			destLatestBlock:     10_000,
 			destExecutedSeqNums: []uint64{1},
@@ -1016,24 +1011,29 @@ func TestExecutionReportingPlugin_getReportsWithSendRequests(t *testing.T) {
 			p := &ExecutionReportingPlugin{}
 			p.lggr = lggr
 
-			onRamp, onRampAddr := testhelpers.NewFakeOnRamp(t)
+			onRamp, _ := testhelpers.NewFakeOnRamp(t)
 			p.config.onRamp = onRamp
 
 			offRamp, offRampAddr := testhelpers.NewFakeOffRamp(t)
 			p.config.offRamp = offRamp
 
-			sourceReader := ccipdata.NewMockReader(t)
-			sourceReader.On("GetSendRequestsBetweenSeqNums", ctx, onRampAddr, tc.expQueryMin, tc.expQueryMax, 0).
+			sourceReader := ccipdata.NewMockOnRampReader(t)
+			sourceReader.On("GetSendRequestsBetweenSeqNums", ctx, tc.expQueryMin, tc.expQueryMax, 0).
 				Return(tc.onchainEvents, nil).Maybe()
-			p.config.sourceReader = sourceReader
+			if len(tc.expReports) > 1 {
+				sourceReader.On("ToOffRampMessage", mock.Anything).Return(&evm_2_evm_offramp.InternalEVM2EVMMessage{SequenceNumber: 1}, nil).Once()
+				sourceReader.On("ToOffRampMessage", mock.Anything).Return(&evm_2_evm_offramp.InternalEVM2EVMMessage{SequenceNumber: 2}, nil).Once()
+				sourceReader.On("ToOffRampMessage", mock.Anything).Return(&evm_2_evm_offramp.InternalEVM2EVMMessage{SequenceNumber: 3}, nil).Once()
+			}
+			p.config.onRampReader = sourceReader
 
 			destReader := ccipdata.NewMockReader(t)
 			destReader.On("LatestBlock", ctx).Return(tc.destLatestBlock, nil).Maybe()
 			var executedEvents []ccipdata.Event[evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged]
 			for _, executedSeqNum := range tc.destExecutedSeqNums {
 				executedEvents = append(executedEvents, ccipdata.Event[evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged]{
-					Data:      evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged{SequenceNumber: executedSeqNum},
-					BlockMeta: ccipdata.BlockMeta{BlockNumber: tc.destLatestBlock - 10},
+					Data: evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged{SequenceNumber: executedSeqNum},
+					Meta: ccipdata.Meta{BlockNumber: tc.destLatestBlock - 10},
 				})
 			}
 			destReader.On("GetExecutionStateChangesBetweenSeqNums", ctx, offRampAddr, tc.expQueryMin, tc.expQueryMax, 0).Return(executedEvents, nil).Maybe()
@@ -1097,7 +1097,7 @@ func TestExecutionReportingPluginFactory_UpdateLogPollerFilters(t *testing.T) {
 		},
 	}
 
-	for _, f := range getExecutionPluginSourceLpChainFilters(onRamp.Address(), sourcePriceRegistry.Address(), tokenDataProviders) {
+	for _, f := range getExecutionPluginSourceLpChainFilters(sourcePriceRegistry.Address()) {
 		sourceLP.On("RegisterFilter", f).Return(nil)
 	}
 	for _, f := range getExecutionPluginDestLpChainFilters(commitStore.Address(), offRamp.Address(), destPriceRegistryAddr) {

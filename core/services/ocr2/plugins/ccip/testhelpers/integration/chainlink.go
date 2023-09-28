@@ -28,6 +28,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	ctfClient "github.com/smartcontractkit/chainlink/integration-tests/client"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	v2 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
@@ -47,6 +48,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
@@ -155,9 +157,9 @@ func (node *Node) EventuallyHasReqSeqNum(t *testing.T, ccipContracts *CCIPIntegr
 		ccipContracts.Source.Chain.Commit()
 		ccipContracts.Dest.Chain.Commit()
 		lgs, err := c.LogPoller().LogsDataWordRange(
-			abihelpers.EventSignatures.SendRequested,
+			ccipdata.CCIPSendRequestEventSigV1_2_0,
 			onRamp,
-			abihelpers.EventSignatures.SendRequestedSequenceNumberWord,
+			ccipdata.CCIPSendRequestSeqNumIndexV1_2_0,
 			abihelpers.EvmWord(uint64(seqNum)),
 			abihelpers.EvmWord(uint64(seqNum)),
 			1,
