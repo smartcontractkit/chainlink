@@ -20,6 +20,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
   error LinkAlreadySet();
   error FailedToTransferLink();
+  error IncorrectExtraArgsLength(uint16 expectedLength, uint16 actualLength);
+  error NativePaymentInOnTokenTransfer();
+  error LINKPaymentInRequestRandomWordsInNative();
 
   /* Storage Slot 1: BEGIN */
   // s_keyHash is the key hash to use when requesting randomness. Fees are paid based on current gas
@@ -362,8 +365,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       _data,
       (uint32, uint16, uint32, bytes)
     );
-    bool nativePayment = abi.decode(removeDomainSeparator(extraArgs), (bool));
-    require(!nativePayment, "nativePayment not false in onTokenTransfer call");
+    checkPaymentMode(extraArgs, true);
     uint32 eip150Overhead = getEIP150Overhead(callbackGasLimit);
     int256 weiPerUnitLink = getFeedData();
     uint256 price = calculateRequestPriceInternal(callbackGasLimit, tx.gasprice, weiPerUnitLink);
@@ -386,22 +388,26 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     lastRequestId = requestId;
   }
 
-  function removeDomainSeparator(bytes memory bytesInput) public view returns (bytes memory newBytes) {
-    newBytes = new bytes(bytesInput.length);
-    for (uint8 i = 4; i < 36; ++i) {
-      newBytes[i - 4] = bytesInput[i];
+  function checkPaymentMode(bytes memory extraArgs, bool isLinkMode) public pure {
+    if (extraArgs.length < 36) {
+      revert IncorrectExtraArgsLength(36, uint16(extraArgs.length));
     }
-    return newBytes;
+    bool nativePayment = extraArgs[35] == hex"01";
+    if (nativePayment && isLinkMode) {
+      revert NativePaymentInOnTokenTransfer();
+    }
+    if (!nativePayment && !isLinkMode) {
+      revert LINKPaymentInRequestRandomWordsInNative();
+    }
   }
 
   function requestRandomWordsInNative(
     uint32 _callbackGasLimit,
     uint16 _requestConfirmations,
     uint32 _numWords,
-    bytes memory extraArgs
+    bytes calldata extraArgs
   ) external payable override returns (uint256 requestId) {
-    bool nativePayment = abi.decode(removeDomainSeparator(extraArgs), (bool));
-    require(nativePayment, "nativePayment not true in requestRandomWordsInNative call");
+    checkPaymentMode(extraArgs, false);
 
     uint32 eip150Overhead = getEIP150Overhead(_callbackGasLimit);
     uint256 price = calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);
