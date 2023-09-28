@@ -150,9 +150,9 @@ func (o *ObservedORM) SelectLogsWithSigs(start, end int64, address common.Addres
 	})
 }
 
-func (o *ObservedORM) SelectLogsCreatedAfter(eventSig common.Hash, address common.Address, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
+func (o *ObservedORM) SelectLogsCreatedAfter(address common.Address, eventSig common.Hash, after time.Time, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectLogsCreatedAfter", func() ([]Log, error) {
-		return o.ORM.SelectLogsCreatedAfter(eventSig, address, after, confs, qopts...)
+		return o.ORM.SelectLogsCreatedAfter(address, eventSig, after, confs, qopts...)
 	})
 }
 

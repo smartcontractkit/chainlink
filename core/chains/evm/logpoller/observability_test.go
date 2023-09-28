@@ -32,13 +32,15 @@ func TestMultipleMetricsArePublished(t *testing.T) {
 	_, _ = lp.SelectIndexedLogsWithSigsExcluding(common.Hash{}, common.Hash{}, 1, common.Address{}, 0, 1, 1, pg.WithParentCtx(ctx))
 	_, _ = lp.SelectLogsDataWordRange(common.Address{}, common.Hash{}, 0, common.Hash{}, common.Hash{}, 1, pg.WithParentCtx(ctx))
 	_, _ = lp.SelectLogsDataWordGreaterThan(common.Address{}, common.Hash{}, 0, common.Hash{}, 1, pg.WithParentCtx(ctx))
-	_, _ = lp.SelectLogsCreatedAfter(common.Hash{}, common.Address{}, time.Now(), 0, pg.WithParentCtx(ctx))
+	_, _ = lp.SelectLogsCreatedAfter(common.Address{}, common.Hash{}, time.Now(), 0, pg.WithParentCtx(ctx))
 	_, _ = lp.SelectLatestLogByEventSigWithConfs(common.Hash{}, common.Address{}, 0, pg.WithParentCtx(ctx))
 	_, _ = lp.SelectLatestLogEventSigsAddrsWithConfs(0, []common.Address{{}}, []common.Hash{{}}, 1, pg.WithParentCtx(ctx))
 	_, _ = lp.SelectIndexedLogsCreatedAfter(common.Address{}, common.Hash{}, 0, []common.Hash{}, time.Now(), 0, pg.WithParentCtx(ctx))
 	_, _ = lp.SelectLogsUntilBlockHashDataWordGreaterThan(common.Address{}, common.Hash{}, 0, common.Hash{}, common.Hash{}, pg.WithParentCtx(ctx))
+	_ = lp.InsertLogs([]Log{}, pg.WithParentCtx(ctx))
+	_ = lp.InsertBlock(common.Hash{}, 0, time.Now(), pg.WithParentCtx(ctx))
 
-	require.Equal(t, 12, testutil.CollectAndCount(lp.queryDuration))
+	require.Equal(t, 14, testutil.CollectAndCount(lp.queryDuration))
 	require.Equal(t, 10, testutil.CollectAndCount(lp.datasetSize))
 	resetMetrics(*lp)
 }

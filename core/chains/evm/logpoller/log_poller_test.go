@@ -43,7 +43,7 @@ func logRuntime(t testing.TB, start time.Time) {
 	t.Log("runtime", time.Since(start))
 }
 
-func populateDatabase(t testing.TB, o *logpoller.ORM, chainID *big.Int) (common.Hash, common.Address, common.Address) {
+func populateDatabase(t testing.TB, o *logpoller.DbORM, chainID *big.Int) (common.Hash, common.Address, common.Address) {
 	event1 := EmitterABI.Events["Log1"].ID
 	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
 	address2 := common.HexToAddress("0x6E225058950f237371261C985Db6bDe26df2200E")
