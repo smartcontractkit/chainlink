@@ -1,4 +1,4 @@
-FROM golang:1.21-bullseye
+FROM golang:1.20.5-bullseye
 
 ARG SRCROOT=/usr/local/src/chainlink
 WORKDIR ${SRCROOT}
