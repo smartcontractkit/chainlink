@@ -261,8 +261,8 @@ func DeployAutoOCRRegistryAndRegistrar(
 	return registry, registrar
 }
 
-func DeployConsumers(t *testing.T, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32, isLogTrigger bool) ([]contracts.KeeperConsumer, []*big.Int) {
-	upkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfUpkeeps, isLogTrigger)
+func DeployConsumers(t *testing.T, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, linkToken contracts.LinkToken, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfUpkeeps int, linkFundsForEachUpkeep *big.Int, upkeepGasLimit uint32, isLogTrigger bool, isMercury bool) ([]contracts.KeeperConsumer, []*big.Int) {
+	upkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfUpkeeps, isLogTrigger, isMercury)
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())

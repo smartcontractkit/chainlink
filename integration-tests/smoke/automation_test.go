@@ -91,6 +91,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 		"registry_2_0":             ethereum.RegistryVersion_2_0,
 		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
 		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
+		"registry_2_1_mercury":     ethereum.RegistryVersion_2_1,
 	}
 
 	for n, rv := range registryVersions {
@@ -114,12 +115,14 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				}
 				testName = "node-upgrade"
 			}
-			chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupAutomationTestDocker(
-				t, testName, registryVersion, defaultOCRRegistryConfig, nodeUpgrade,
-			)
 
-			// Use the name to determine if this is a log trigger or not
+			// Use the name to determine if this is a log trigger or mercury
 			isLogTrigger := name == "registry_2_1_logtrigger"
+			isMercury := name == "registry_2_1_mercury"
+
+			chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupAutomationTestDocker(
+				t, testName, registryVersion, defaultOCRRegistryConfig, nodeUpgrade, isMercury,
+			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
 				t,
@@ -132,11 +135,12 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				big.NewInt(automationDefaultLinkFunds),
 				automationDefaultUpkeepGasLimit,
 				isLogTrigger,
+				isMercury,
 			)
 
 			for i := 0; i < len(upkeepIDs); i++ {
-				if isLogTrigger {
-					// Enable mercury for log trigger based upkeeps
+				if isMercury {
+					// Enable mercury
 					privilegeConfigBytes, _ := json.Marshal(evm21.UpkeepPrivilegeConfig{
 						MercuryEnabled: true,
 					})
@@ -226,7 +230,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-		t, "set-trigger-config", ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, false,
+		t, "set-trigger-config", ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, false, false,
 	)
 
 	consumers, upkeepIDs := actions.DeployConsumers(
@@ -240,6 +244,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 		big.NewInt(automationDefaultLinkFunds),
 		automationDefaultUpkeepGasLimit,
 		true,
+		false,
 	)
 
 	// Start log trigger based upkeeps for all consumers
@@ -400,10 +405,10 @@ func TestAutomationAddFunds(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "add-funds", registryVersion, defaultOCRRegistryConfig, false,
+				t, "add-funds", registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(1), automationDefaultUpkeepGasLimit, false)
+			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(1), automationDefaultUpkeepGasLimit, false, false)
 
 			gom := gomega.NewGomegaWithT(t)
 			// Since the upkeep is currently underfunded, check that it doesn't get executed
@@ -451,10 +456,10 @@ func TestAutomationPauseUnPause(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "pause-unpause", registryVersion, defaultOCRRegistryConfig, false,
+				t, "pause-unpause", registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
+			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
 
 			gom := gomega.NewGomegaWithT(t)
 			gom.Eventually(func(g gomega.Gomega) {
@@ -534,10 +539,10 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "register-upkeep", registryVersion, defaultOCRRegistryConfig, false,
+				t, "register-upkeep", registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
+			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
 
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
 			gom := gomega.NewGomegaWithT(t)
@@ -605,10 +610,10 @@ func TestAutomationPauseRegistry(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "pause-registry", registryVersion, defaultOCRRegistryConfig, false,
+				t, "pause-registry", registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
+			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
 			gom := gomega.NewGomegaWithT(t)
 
 			// Observe that the upkeeps which are initially registered are performing
@@ -663,10 +668,10 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "keeper-nodes-down", registryVersion, defaultOCRRegistryConfig, false,
+				t, "keeper-nodes-down", registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
+			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
 			gom := gomega.NewGomegaWithT(t)
 			nodesWithoutBootstrap := chainlinkNodes[1:]
 
@@ -748,7 +753,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "perform-simulation", registryVersion, defaultOCRRegistryConfig, false,
+				t, "perform-simulation", registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			consumersPerformance, _ := actions.DeployPerformanceConsumers(
@@ -812,7 +817,7 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "gas-limit", registryVersion, defaultOCRRegistryConfig, false,
+				t, "gas-limit", registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			consumersPerformance, upkeepIDs := actions.DeployPerformanceConsumers(
@@ -926,7 +931,7 @@ func TestUpdateCheckData(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "update-check-data", registryVersion, defaultOCRRegistryConfig, false,
+				t, "update-check-data", registryVersion, defaultOCRRegistryConfig, false, false,
 			)
 
 			performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerConsumers(
@@ -1029,7 +1034,7 @@ func setupAutomationTestDocker(
 			WithMockServer(1).
 			WithFunding(big.NewFloat(.5)).
 			Build()
-		require.NoError(t, err, "Error deploying test environment for Mercury")
+		require.NoError(t, err, "Error deploying test environment")
 
 		secretsConfig := `
 		[Mercury.Credentials.cred1]
@@ -1051,11 +1056,11 @@ func setupAutomationTestDocker(
 
 		node.SetChainConfig(clNodeConfig, wsUrls, httpUrls, network, false)
 
-		err = env.StartClNodes(clNodeConfig, clNodesCount, secretsConfig)
-		require.NoError(t, err, "Error starting CL nodes test environment for Mercury")
+		err = env.StartClNodes(clNodeConfig, 5, secretsConfig)
+		require.NoError(t, err, "Error deploying test environment")
 
 		output := `{"chainlinkBlob":"0x0001c38d71fed6c320b90e84b6f559459814d068e2a1700adc931ca9717d4fe70000000000000000000000000000000000000000000000000000000001a80b52b4bf1233f9cb71144a253a1791b202113c4ab4a92fa1b176d684b4959666ff8200000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001004254432d5553442d415242495452554d2d544553544e4554000000000000000000000000000000000000000000000000000000000000000000000000645570be000000000000000000000000000000000000000000000000000002af2b818dc5000000000000000000000000000000000000000000000000000002af2426faf3000000000000000000000000000000000000000000000000000002af32dc209700000000000000000000000000000000000000000000000000000000012130f8df0a9745bb6ad5e2df605e158ba8ad8a33ef8a0acf9851f0f01668a3a3f2b68600000000000000000000000000000000000000000000000000000000012130f60000000000000000000000000000000000000000000000000000000000000002c4a7958dce105089cf5edb68dad7dcfe8618d7784eb397f97d5a5fade78c11a58275aebda478968e545f7e3657aba9dcbe8d44605e4c6fde3e24edd5e22c94270000000000000000000000000000000000000000000000000000000000000002459c12d33986018a8959566d145225f0c4a4e61a9a3f50361ccff397899314f0018162cf10cd89897635a0bb62a822355bd199d09f4abe76e4d05261bb44733d"}`
-		env.MockServer.Client.SetStringValuePath("/client", output)
+		env.MockServer.Client.SetAnyValuePath("/client", []byte(output))
 	} else {
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestLogger(t).
