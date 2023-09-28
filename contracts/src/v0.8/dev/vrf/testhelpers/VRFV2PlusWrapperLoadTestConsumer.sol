@@ -43,7 +43,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
     uint16 _requestCount
   ) external onlyOwner {
     for (uint16 i = 0; i < _requestCount; i++) {
-      bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}));
+      bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}));
       uint256 requestId = requestRandomness(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs);
       s_lastRequestId = requestId;
 
