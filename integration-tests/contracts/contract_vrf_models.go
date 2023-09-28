@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
@@ -54,10 +54,10 @@ type VRFCoordinatorV2 interface {
 	GetSubscription(ctx context.Context, subID uint64) (vrf_coordinator_v2.GetSubscription, error)
 }
 
-type VRFCoordinatorV2Plus interface {
-	SetLINKAndLINKETHFeed(
+type VRFCoordinatorV2_5 interface {
+	SetLINKAndLINKNativeFeed(
 		link string,
-		linkEthFeed string,
+		linkNativeFeed string,
 	) error
 	SetConfig(
 		minimumRequestConfirmations uint16,
@@ -65,7 +65,7 @@ type VRFCoordinatorV2Plus interface {
 		stalenessSeconds uint32,
 		gasAfterPaymentCalculation uint32,
 		fallbackWeiPerUnitLink *big.Int,
-		feeConfig vrf_coordinator_v2plus.VRFCoordinatorV2PlusFeeConfig,
+		feeConfig vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig,
 	) error
 	RegisterProvingKey(
 		oracleAddr string,
@@ -77,21 +77,21 @@ type VRFCoordinatorV2Plus interface {
 	Migrate(subId *big.Int, coordinatorAddress string) error
 	RegisterMigratableCoordinator(migratableCoordinatorAddress string) error
 	AddConsumer(subId *big.Int, consumerAddress string) error
-	FundSubscriptionWithEth(subId *big.Int, nativeTokenAmount *big.Int) error
+	FundSubscriptionWithNative(subId *big.Int, nativeTokenAmount *big.Int) error
 	Address() string
-	GetSubscription(ctx context.Context, subID *big.Int) (vrf_coordinator_v2plus.GetSubscription, error)
+	GetSubscription(ctx context.Context, subID *big.Int) (vrf_coordinator_v2_5.GetSubscription, error)
 	GetNativeTokenTotalBalance(ctx context.Context) (*big.Int, error)
 	GetLinkTotalBalance(ctx context.Context) (*big.Int, error)
 	FindSubscriptionID() (*big.Int, error)
-	WaitForRandomWordsFulfilledEvent(subID []*big.Int, requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled, error)
-	WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []*big.Int, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested, error)
-	WaitForMigrationCompletedEvent(timeout time.Duration) (*vrf_coordinator_v2plus.VRFCoordinatorV2PlusMigrationCompleted, error)
+	WaitForRandomWordsFulfilledEvent(subID []*big.Int, requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error)
+	WaitForRandomWordsRequestedEvent(keyHash [][32]byte, subID []*big.Int, sender []common.Address, timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested, error)
+	WaitForMigrationCompletedEvent(timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted, error)
 }
 
 type VRFCoordinatorV2PlusUpgradedVersion interface {
-	SetLINKAndLINKETHFeed(
+	SetLINKAndLINKNativeFeed(
 		link string,
-		linkEthFeed string,
+		linkNativeFeed string,
 	) error
 	SetConfig(
 		minimumRequestConfirmations uint16,
@@ -112,7 +112,7 @@ type VRFCoordinatorV2PlusUpgradedVersion interface {
 	Migrate(subId *big.Int, coordinatorAddress string) error
 	RegisterMigratableCoordinator(migratableCoordinatorAddress string) error
 	AddConsumer(subId *big.Int, consumerAddress string) error
-	FundSubscriptionWithEth(subId *big.Int, nativeTokenAmount *big.Int) error
+	FundSubscriptionWithNative(subId *big.Int, nativeTokenAmount *big.Int) error
 	Address() string
 	GetSubscription(ctx context.Context, subID *big.Int) (vrf_v2plus_upgraded_version.GetSubscription, error)
 	GetActiveSubscriptionIds(ctx context.Context, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
@@ -124,7 +124,7 @@ type VRFCoordinatorV2PlusUpgradedVersion interface {
 
 type VRFV2PlusWrapper interface {
 	Address() string
-	SetConfig(wrapperGasOverhead uint32, coordinatorGasOverhead uint32, wrapperPremiumPercentage uint8, keyHash [32]byte, maxNumWords uint8) error
+	SetConfig(wrapperGasOverhead uint32, coordinatorGasOverhead uint32, wrapperPremiumPercentage uint8, keyHash [32]byte, maxNumWords uint8, stalenessSeconds uint32, fallbackWeiPerUnitLink *big.Int, fulfillmentFlatFeeLinkPPM uint32, fulfillmentFlatFeeNativePPM uint32) error
 	GetSubID(ctx context.Context) (*big.Int, error)
 }
 

@@ -294,10 +294,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	err := s.Config.Validate()
 	if err != nil {
-		if err.Error() != "invalid secrets: Database.AllowSimplePasswords: invalid value (true): insecure configs are not allowed on secure builds" {
-			return errors.Wrap(err, "config validation failed")
-		}
-		lggr.Errorf("Notification for upcoming configuration change: %v", err)
+		return errors.Wrap(err, "config validation failed")
 	}
 
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
@@ -622,10 +619,7 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 
 	err = s.Config.Validate()
 	if err != nil {
-		if err.Error() != "invalid secrets: Database.AllowSimplePasswords: invalid value (true): insecure configs are not allowed on secure builds" {
-			return s.errorOut(fmt.Errorf("error validating configuration: %+v", err))
-		}
-		lggr.Errorf("Notification for required upcoming configuration change: %v", err)
+		return s.errorOut(fmt.Errorf("error validating configuration: %+v", err))
 	}
 
 	err = keyStore.Unlock(s.Config.Password().Keystore())
@@ -712,7 +706,7 @@ func (s *Shell) validateDB(c *cli.Context) error {
 }
 
 // ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
-// in secrets TOML. This is useful to setup the database for testing
+// in secrets TOML. This is useful to set up the database for testing
 func (s *Shell) ResetDatabase(c *cli.Context) error {
 	cfg := s.Config.Database()
 	parsed := cfg.URL()
@@ -819,7 +813,7 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 	return
 }
 
-// PrepareTestDatabase calls ResetDatabase then loads fixtures required for local
+// PrepareTestDatabaseUserOnly calls ResetDatabase then loads only user fixtures required for local
 // testing against testnets. Does not include fake chain fixtures.
 func (s *Shell) PrepareTestDatabaseUserOnly(c *cli.Context) error {
 	if err := s.ResetDatabase(c); err != nil {
@@ -852,7 +846,7 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 	return nil
 }
 
-// VersionDatabase displays the current database version.
+// RollbackDatabase rolls back the database via down migrations.
 func (s *Shell) RollbackDatabase(c *cli.Context) error {
 	var version null.Int
 	if c.Args().Present() {
