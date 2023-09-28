@@ -16,6 +16,14 @@
 - Reorganize Data Streams contracts (llo-feeds/) (#10727)
 - Release automation 2.1 contracts (#10587)
   - Note: consumers should only use IKeeperRegistryMaster when interacting with the registry contract
+- Fix Functions v1 OracleWithdrawAll to correctly use transmitters (#10392)
+- Clean up unused Functions v1 code: FunctionsBilling.sol maxCallbackGasLimit & FunctionsRequest.sol requestSignature (#10509)
+- Fix Functions v1 FunctionsBilling.sol gas price naming to reflect that it is in wei, not gwei (#10509)
+- Use Natspec comment lines in Functions v1 contracts (#10567)
+- Functions v1 Subscriptions now require a minimum number of requests to release a deposit amount (#10513)
+- Fix Functions v1 Subscriptions add consumer checks for when maximum consumers changes in contract configuration (#10511)
+- Functions v1 Router no longer reverts during fulfillment on an invalid client (#10511)
+- Functions v1 Coordinator oracleWithdrawAll checks for 0 balances (#10511)
 
 ## 0.7.1 - 2023-09-20
 
