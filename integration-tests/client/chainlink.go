@@ -1174,28 +1174,37 @@ func CreateNodeKeysBundle(nodes []*ChainlinkClient, chainName string, chainId st
 				return nil, nil, err
 			}
 		}
-		keys, _, err := n.ReadOCR2Keys()
+		// TO-DO tmp will remove
+		//keys, _, err := n.ReadOCR2Keys()
+		//if err != nil {
+		//	return nil, nil, err
+		//}
+		//var ocr2Key *OCR2Key
+		//for _, key := range keys.Data {
+		//	if key.Attributes.ChainType == chainName {
+		//		ocr2Key = &OCR2Key{Data: key}
+		//		break
+		//	}
+		//}
+
+		ocrKeys, err := n.MustReadOCRKeys()
 		if err != nil {
 			return nil, nil, err
 		}
-		var ocrKey *OCR2Key
-		for _, key := range keys.Data {
-			if key.Attributes.ChainType == chainName {
-				ocrKey = &OCR2Key{Data: key}
-				break
-			}
-		}
 
-		if ocrKey == nil {
-			return nil, nil, fmt.Errorf("no OCR key found for chain %s", chainName)
-		}
+		// TO-DO tmp will remove
+		//if ocr2Key == nil {
+		//	return nil, nil, fmt.Errorf("no OCR2 key found for chain %s", chainName)
+		//}
 		ethAddress, err := n.PrimaryEthAddressForChain(chainId)
 		if err != nil {
 			return nil, nil, err
 		}
 		bundle := NodeKeysBundle{
-			PeerID:     peerID,
-			OCR2Key:    *ocrKey,
+			PeerID:  peerID,
+			OCRKeys: *ocrKeys,
+			// TO-DO tmp will remove
+			//OCR2Key:    *ocr2Key,
 			TXKey:      *txKey,
 			P2PKeys:    *p2pkeys,
 			EthAddress: ethAddress,

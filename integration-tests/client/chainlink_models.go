@@ -81,6 +81,7 @@ type TaskRun struct {
 
 type NodeKeysBundle struct {
 	OCR2Key    OCR2Key
+	OCRKeys    OCRKeys
 	PeerID     string
 	TXKey      TxKey
 	P2PKeys    P2PKeys
