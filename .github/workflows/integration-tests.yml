@@ -102,8 +102,9 @@ jobs:
           # R: remote port forwarding
           ssh -o StrictHostKeyChecking=no -f -N -R 3001:localhost:3000 user-gha@$TRACING_SSH_SERVER
           echo "To view Grafana locally:"
-          echo "ssh -i /path/to/key -L 8000:localhost:3001 user-gha@$TRACING_SSH_SERVER"
-          echo "Then visit http://localhost:8000 in a browser"
+          echo "ssh -N -L 8000:localhost:3001 user-gha@$TRACING_SSH_SERVER"
+          echo "Then visit http://localhost:8000 in a browser."
+          echo "If you are unable to connect, check with the security team that you have access to the tracing server."
     - name: Show Grafana Logs
       if: steps.check-label.outputs.trace == 'true'
       run: |
@@ -443,6 +444,10 @@ jobs:
     name: ETH Smoke Tests
     needs: [eth-smoke-tests-matrix, eth-smoke-tests-matrix-automation]
     steps:
+      - name: Check docker network
+        if: always()
+        run: |
+          docker network ls
       - name: Check smoke test matrix status
         if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-automation.result != 'success'
         run: exit 1
