@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/protobuf/proto"
@@ -14,10 +13,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
+	relaymercuryv2 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
+	relaymercuryv3 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v3"
 )
 
 type eaTelemetry struct {
@@ -35,9 +37,15 @@ type EnhancedTelemetryData struct {
 }
 
 type EnhancedTelemetryMercuryData struct {
-	TaskRunResults pipeline.TaskRunResults
-	Observation    relaymercuryv1.Observation
-	RepTimestamp   ocrtypes.ReportTimestamp
+	V1Observation              *relaymercuryv1.Observation
+	V2Observation              *relaymercuryv2.Observation
+	V3Observation              *relaymercuryv3.Observation
+	TaskRunResults             pipeline.TaskRunResults
+	RepTimestamp               ocrtypes.ReportTimestamp
+	FeedVersion                mercuryutils.FeedVersion
+	FetchMaxFinalizedTimestamp bool
+	IsLinkFeed                 bool
+	IsNativeFeed               bool
 }
 
 type EnhancedTelemetryService[T EnhancedTelemetryData | EnhancedTelemetryMercuryData] struct {
@@ -68,13 +76,13 @@ func (e *EnhancedTelemetryService[T]) Start(context.Context) error {
 			for {
 				select {
 				case t := <-e.chTelem:
-					switch any(t).(type) {
+					switch v := any(t).(type) {
 					case EnhancedTelemetryData:
-						s := any(t).(EnhancedTelemetryData)
-						e.collectEATelemetry(s.TaskRunResults, s.FinalResults, s.RepTimestamp)
+						e.collectEATelemetry(v.TaskRunResults, v.FinalResults, v.RepTimestamp)
 					case EnhancedTelemetryMercuryData:
-						s := any(t).(EnhancedTelemetryMercuryData)
-						e.collectMercuryEnhancedTelemetry(s.Observation, s.TaskRunResults, s.RepTimestamp)
+						e.collectMercuryEnhancedTelemetry(v)
+					default:
+						e.lggr.Errorf("unrecognised telemetry data type: %T", t)
 					}
 				case <-e.chDone:
 					return
@@ -223,14 +231,19 @@ func (e *EnhancedTelemetryService[T]) collectAndSend(trrs *pipeline.TaskRunResul
 			continue
 		}
 
+		if trr.Result.Error != nil {
+			e.lggr.Warnw(fmt.Sprintf("cannot get bridge response from bridge task, job %d, id %s", e.job.ID, trr.Task.DotID()), "err", trr.Result.Error)
+			continue
+		}
 		bridgeRawResponse, ok := trr.Result.Value.(string)
 		if !ok {
-			e.lggr.Warnf("cannot get bridge response from bridge task, job %d, id %s", e.job.ID, trr.Task.DotID())
+			e.lggr.Warnf("cannot parse bridge response from bridge task, job %d, id %s: expected string, got: %v (type %T)", e.job.ID, trr.Task.DotID(), trr.Result.Value, trr.Result.Value)
 			continue
 		}
 		eaTelem, err := parseEATelemetry([]byte(bridgeRawResponse))
 		if err != nil {
-			e.lggr.Warnf("cannot parse EA telemetry, job %d, id %s", e.job.ID, trr.Task.DotID())
+			e.lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry, job %d, id %s", e.job.ID, trr.Task.DotID()), "err", err)
+			continue
 		}
 		value := e.getParsedValue(trrs, trr)
 
@@ -253,7 +266,7 @@ func (e *EnhancedTelemetryService[T]) collectAndSend(trrs *pipeline.TaskRunResul
 
 		bytes, err := proto.Marshal(t)
 		if err != nil {
-			e.lggr.Warnf("protobuf marshal failed %v", err.Error())
+			e.lggr.Warnw("protobuf marshal failed", "err", err)
 			continue
 		}
 
@@ -263,14 +276,80 @@ func (e *EnhancedTelemetryService[T]) collectAndSend(trrs *pipeline.TaskRunResul
 
 // collectMercuryEnhancedTelemetry checks if enhanced telemetry should be collected, fetches the information needed and
 // sends the telemetry
-func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(obs relaymercuryv1.Observation, trrs pipeline.TaskRunResults, repts ocrtypes.ReportTimestamp) {
+func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(d EnhancedTelemetryMercuryData) {
 	if e.monitoringEndpoint == nil {
 		return
 	}
 
-	obsBenchmarkPrice, obsBid, obsAsk, obsBlockNum, obsBlockHash, obsBlockTimestamp := e.getFinalValues(obs)
+	// v1 fields
+	var bn int64
+	var bh string
+	var bt uint64
+	// v1+v2+v3 fields
+	var bp int64
+	//v1+v3 fields
+	var bid, ask int64
+	// v2+v3 fields
+	var mfts, lp, np int64
 
-	for _, trr := range trrs {
+	switch {
+	case d.V1Observation != nil:
+		obs := *d.V1Observation
+		if obs.CurrentBlockNum.Err == nil {
+			bn = obs.CurrentBlockNum.Val
+		}
+		if obs.CurrentBlockHash.Err == nil {
+			bh = common.BytesToHash(obs.CurrentBlockHash.Val).Hex()
+		}
+		if obs.CurrentBlockTimestamp.Err == nil {
+			bt = obs.CurrentBlockTimestamp.Val
+		}
+		if obs.BenchmarkPrice.Err == nil && obs.BenchmarkPrice.Val != nil {
+			bp = obs.BenchmarkPrice.Val.Int64()
+		}
+		if obs.Bid.Err == nil && obs.Bid.Val != nil {
+			bid = obs.Bid.Val.Int64()
+		}
+		if obs.Ask.Err == nil && obs.Ask.Val != nil {
+			ask = obs.Ask.Val.Int64()
+		}
+	case d.V2Observation != nil:
+		obs := *d.V2Observation
+		if obs.MaxFinalizedTimestamp.Err == nil {
+			mfts = obs.MaxFinalizedTimestamp.Val
+		}
+		if obs.LinkPrice.Err == nil && obs.LinkPrice.Val != nil {
+			lp = obs.LinkPrice.Val.Int64()
+		}
+		if obs.NativePrice.Err == nil && obs.NativePrice.Val != nil {
+			np = obs.NativePrice.Val.Int64()
+		}
+		if obs.BenchmarkPrice.Err == nil && obs.BenchmarkPrice.Val != nil {
+			bp = obs.BenchmarkPrice.Val.Int64()
+		}
+	case d.V3Observation != nil:
+		obs := *d.V3Observation
+		if obs.MaxFinalizedTimestamp.Err == nil {
+			mfts = obs.MaxFinalizedTimestamp.Val
+		}
+		if obs.LinkPrice.Err == nil && obs.LinkPrice.Val != nil {
+			lp = obs.LinkPrice.Val.Int64()
+		}
+		if obs.NativePrice.Err == nil && obs.NativePrice.Val != nil {
+			np = obs.NativePrice.Val.Int64()
+		}
+		if obs.BenchmarkPrice.Err == nil && obs.BenchmarkPrice.Val != nil {
+			bp = obs.BenchmarkPrice.Val.Int64()
+		}
+		if obs.Bid.Err == nil && obs.Bid.Val != nil {
+			bid = obs.Bid.Val.Int64()
+		}
+		if obs.Ask.Err == nil && obs.Ask.Val != nil {
+			ask = obs.Ask.Val.Int64()
+		}
+	}
+
+	for _, trr := range d.TaskRunResults {
 		if trr.Task.Type() != pipeline.TaskTypeBridge {
 			continue
 		}
@@ -287,16 +366,18 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(obs relaym
 		}
 
 		assetSymbol := e.getAssetSymbolFromRequestData(bridgeTask.RequestData)
-		benchmarkPrice, bidPrice, askPrice := e.getPricesFromResults(trr, &trrs)
+		benchmarkPrice, bidPrice, askPrice := e.getPricesFromResults(trr, d.TaskRunResults)
 
 		t := &telem.EnhancedEAMercury{
 			DataSource:                    eaTelem.DataSource,
 			DpBenchmarkPrice:              benchmarkPrice,
 			DpBid:                         bidPrice,
 			DpAsk:                         askPrice,
-			CurrentBlockNumber:            obsBlockNum,
-			CurrentBlockHash:              common.BytesToHash(obsBlockHash).String(),
-			CurrentBlockTimestamp:         obsBlockTimestamp,
+			CurrentBlockNumber:            bn,
+			CurrentBlockHash:              bh,
+			CurrentBlockTimestamp:         bt,
+			FetchMaxFinalizedTimestamp:    d.FetchMaxFinalizedTimestamp,
+			MaxFinalizedTimestamp:         mfts,
 			BridgeTaskRunStartedTimestamp: trr.CreatedAt.UnixMilli(),
 			BridgeTaskRunEndedTimestamp:   trr.FinishedAt.Time.UnixMilli(),
 			ProviderRequestedTimestamp:    eaTelem.ProviderRequestedTimestamp,
@@ -304,13 +385,18 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(obs relaym
 			ProviderDataStreamEstablished: eaTelem.ProviderDataStreamEstablished,
 			ProviderIndicatedTime:         eaTelem.ProviderIndicatedTime,
 			Feed:                          e.job.OCR2OracleSpec.FeedID.Hex(),
-			ObservationBenchmarkPrice:     obsBenchmarkPrice,
-			ObservationBid:                obsBid,
-			ObservationAsk:                obsAsk,
-			ConfigDigest:                  repts.ConfigDigest.Hex(),
-			Round:                         int64(repts.Round),
-			Epoch:                         int64(repts.Epoch),
+			ObservationBenchmarkPrice:     bp,
+			ObservationBid:                bid,
+			ObservationAsk:                ask,
+			IsLinkFeed:                    d.IsLinkFeed,
+			LinkPrice:                     lp,
+			IsNativeFeed:                  d.IsNativeFeed,
+			NativePrice:                   np,
+			ConfigDigest:                  d.RepTimestamp.ConfigDigest.Hex(),
+			Round:                         int64(d.RepTimestamp.Round),
+			Epoch:                         int64(d.RepTimestamp.Epoch),
 			AssetSymbol:                   assetSymbol,
+			Version:                       uint32(d.FeedVersion),
 		}
 
 		bytes, err := proto.Marshal(t)
@@ -343,16 +429,16 @@ func (e *EnhancedTelemetryService[T]) getAssetSymbolFromRequestData(requestData 
 }
 
 // ShouldCollectEnhancedTelemetryMercury checks if enhanced telemetry should be collected and sent
-func ShouldCollectEnhancedTelemetryMercury(job *job.Job) bool {
-	if job.Type.String() == pipeline.OffchainReporting2JobType && job.OCR2OracleSpec != nil {
-		return job.OCR2OracleSpec.CaptureEATelemetry
+func ShouldCollectEnhancedTelemetryMercury(jb job.Job) bool {
+	if jb.Type.String() == pipeline.OffchainReporting2JobType && jb.OCR2OracleSpec != nil {
+		return jb.OCR2OracleSpec.CaptureEATelemetry
 	}
 	return false
 }
 
 // getPricesFromResults parses the pipeline.TaskRunResults for pipeline.TaskTypeJSONParse and gets the benchmarkPrice,
 // bid and ask. This functions expects the pipeline.TaskRunResults to be correctly ordered
-func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.TaskRunResult, allTasks *pipeline.TaskRunResults) (float64, float64, float64) {
+func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults) (float64, float64, float64) {
 	var benchmarkPrice, askPrice, bidPrice float64
 	var err error
 	//We rely on task results to be sorted in the correct order
@@ -422,6 +508,13 @@ func (e *EnhancedTelemetryService[T]) getFinalValues(obs relaymercuryv1.Observat
 	}
 
 	return benchmarkPrice, bid, ask, obs.CurrentBlockNum.Val, obs.CurrentBlockHash.Val, obs.CurrentBlockTimestamp.Val
+}
+
+// MaybeEnqueueEnhancedTelem sends data to the telemetry channel for processing
+func MaybeEnqueueEnhancedTelem(jb job.Job, ch chan<- EnhancedTelemetryMercuryData, data EnhancedTelemetryMercuryData) {
+	if ShouldCollectEnhancedTelemetryMercury(jb) {
+		EnqueueEnhancedTelem[EnhancedTelemetryMercuryData](ch, data)
+	}
 }
 
 // EnqueueEnhancedTelem sends data to the telemetry channel for processing

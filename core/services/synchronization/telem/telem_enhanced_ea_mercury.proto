@@ -5,23 +5,42 @@ option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/sync
 package telem;
 
 message EnhancedEAMercury {
+  uint32 version = 29;
+
   string data_source=1;
   double dp_benchmark_price=2;
   double dp_bid=3;
   double dp_ask=4;
+
+  // v1 fields (block range)
   int64 current_block_number=5;
   string current_block_hash=6;
   uint64 current_block_timestamp=7;
+
+  // v2+v3 fields (timestamp range)
+  bool fetch_max_finalized_timestamp = 22;
+  int64 max_finalized_timestamp=23;
+  uint32 observation_timestamp=24;
+  bool is_link_feed=25;
+  int64 link_price=26;
+  bool is_native_feed=27;
+  int64 native_price=28;
+
   int64 bridge_task_run_started_timestamp=8;
   int64 bridge_task_run_ended_timestamp=9;
   int64 provider_requested_timestamp=10;
   int64 provider_received_timestamp=11;
   int64 provider_data_stream_established=12;
   int64 provider_indicated_time=13;
+
   string feed=14;
+
+  // v1+v2+v3
   int64 observation_benchmark_price=15;
+  // v1+v3
   int64 observation_bid=16;
   int64 observation_ask=17;
+
   string config_digest = 18;
   int64 round=19;
   int64 epoch=20;
