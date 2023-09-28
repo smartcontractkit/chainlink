@@ -1703,7 +1703,17 @@ func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Address() string {
 }
 
 func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Start() error {
-	return nil
+	// Invoke mercury v0.2
+	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+
+	tx, err := v.consumer.SetParamKeys(txOpts, "feedIdHex", "blockNumber")
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
 }
 
 func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Fund(ethAmount *big.Float) error {
