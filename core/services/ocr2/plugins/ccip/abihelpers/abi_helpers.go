@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -29,9 +28,8 @@ const (
 	ExecutionStateFailure
 )
 
+// TODO: Deprecate in favour of version specific types
 var EventSignatures struct {
-	// OnRamp
-	SendRequested common.Hash
 	// CommitStore
 	ReportAccepted common.Hash
 	// OffRamp
@@ -45,10 +43,6 @@ var EventSignatures struct {
 	FeeTokenAdded        common.Hash
 	FeeTokenRemoved      common.Hash
 
-	USDCMessageSent common.Hash
-
-	// offset || sourceChainID || seqNum || ...
-	SendRequestedSequenceNumberWord int
 	// offset || priceUpdatesOffset || minSeqNum || maxSeqNum || merkleRoot
 	ReportAcceptedMaxSequenceNumberWord int
 	// sig || seqNum || messageId || ...
@@ -62,7 +56,7 @@ var (
 	ExecutionReportArgs abi.Arguments
 )
 
-func getIDOrPanic(name string, abi2 abi.ABI) common.Hash {
+func GetIDOrPanic(name string, abi2 abi.ABI) common.Hash {
 	event, ok := abi2.Events[name]
 	if !ok {
 		panic(fmt.Sprintf("missing event %s", name))
@@ -70,58 +64,31 @@ func getIDOrPanic(name string, abi2 abi.ABI) common.Hash {
 	return event.ID
 }
 
-func getTupleNamedElem(name string, arg abi.Argument) *abi.Type {
-	if arg.Type.T != abi.TupleTy {
-		return nil
-	}
-	for i, elem := range arg.Type.TupleElems {
-		if arg.Type.TupleRawNames[i] == name {
-			return elem
-		}
-	}
-	return nil
-}
-
 func init() {
-	onRampABI, err := abi.JSON(strings.NewReader(evm_2_evm_onramp.EVM2EVMOnRampABI))
-	if err != nil {
-		panic(err)
-	}
-	EventSignatures.SendRequested = getIDOrPanic("CCIPSendRequested", onRampABI)
-	EventSignatures.SendRequestedSequenceNumberWord = 4
-
 	commitStoreABI, err := abi.JSON(strings.NewReader(commit_store.CommitStoreABI))
 	if err != nil {
 		panic(err)
 	}
-	EventSignatures.ReportAccepted = getIDOrPanic("ReportAccepted", commitStoreABI)
+	EventSignatures.ReportAccepted = GetIDOrPanic("ReportAccepted", commitStoreABI)
 	EventSignatures.ReportAcceptedMaxSequenceNumberWord = 3
 
 	offRampABI, err := abi.JSON(strings.NewReader(evm_2_evm_offramp.EVM2EVMOffRampABI))
 	if err != nil {
 		panic(err)
 	}
-	EventSignatures.ExecutionStateChanged = getIDOrPanic("ExecutionStateChanged", offRampABI)
+	EventSignatures.ExecutionStateChanged = GetIDOrPanic("ExecutionStateChanged", offRampABI)
 	EventSignatures.ExecutionStateChangedSequenceNumberIndex = 1
-	EventSignatures.PoolAdded = getIDOrPanic("PoolAdded", offRampABI)
-	EventSignatures.PoolRemoved = getIDOrPanic("PoolRemoved", offRampABI)
+	EventSignatures.PoolAdded = GetIDOrPanic("PoolAdded", offRampABI)
+	EventSignatures.PoolRemoved = GetIDOrPanic("PoolRemoved", offRampABI)
 
 	priceRegistryABI, err := abi.JSON(strings.NewReader(price_registry.PriceRegistryABI))
 	if err != nil {
 		panic(err)
 	}
-	EventSignatures.UsdPerUnitGasUpdated = getIDOrPanic("UsdPerUnitGasUpdated", priceRegistryABI)
-	EventSignatures.UsdPerTokenUpdated = getIDOrPanic("UsdPerTokenUpdated", priceRegistryABI)
-	EventSignatures.FeeTokenAdded = getIDOrPanic("FeeTokenAdded", priceRegistryABI)
-	EventSignatures.FeeTokenRemoved = getIDOrPanic("FeeTokenRemoved", priceRegistryABI)
-
-	// arguments
-	MessageArgs = onRampABI.Events["CCIPSendRequested"].Inputs
-	tokenAmountsTy := getTupleNamedElem("tokenAmounts", MessageArgs[0])
-	if tokenAmountsTy == nil {
-		panic(fmt.Sprintf("missing component '%s' in tuple %+v", "tokenAmounts", MessageArgs))
-	}
-	TokenAmountsArgs = abi.Arguments{{Type: *tokenAmountsTy, Name: "tokenAmounts"}}
+	EventSignatures.UsdPerUnitGasUpdated = GetIDOrPanic("UsdPerUnitGasUpdated", priceRegistryABI)
+	EventSignatures.UsdPerTokenUpdated = GetIDOrPanic("UsdPerTokenUpdated", priceRegistryABI)
+	EventSignatures.FeeTokenAdded = GetIDOrPanic("FeeTokenAdded", priceRegistryABI)
+	EventSignatures.FeeTokenRemoved = GetIDOrPanic("FeeTokenRemoved", priceRegistryABI)
 
 	CommitReportArgs = commitStoreABI.Events["ReportAccepted"].Inputs
 
@@ -130,8 +97,6 @@ func init() {
 		panic("missing event 'manuallyExecute'")
 	}
 	ExecutionReportArgs = manuallyExecuteMethod.Inputs[:1]
-
-	EventSignatures.USDCMessageSent = utils.Keccak256Fixed([]byte("MessageSent(bytes)"))
 }
 
 func MessagesFromExecutionReport(report types.Report) ([]evm_2_evm_offramp.InternalEVM2EVMMessage, error) {
@@ -140,88 +105,6 @@ func MessagesFromExecutionReport(report types.Report) ([]evm_2_evm_offramp.Inter
 		return nil, err
 	}
 	return decodedExecutionReport.Messages, nil
-}
-
-func DecodeOffRampMessage(b []byte) (*evm_2_evm_offramp.InternalEVM2EVMMessage, error) {
-	unpacked, err := MessageArgs.Unpack(b)
-	if err != nil {
-		return nil, err
-	}
-	if len(unpacked) == 0 {
-		return nil, fmt.Errorf("no message found when unpacking")
-	}
-
-	// Note must use unnamed type here
-	receivedCp, ok := unpacked[0].(struct {
-		SourceChainSelector uint64         `json:"sourceChainSelector"`
-		Sender              common.Address `json:"sender"`
-		Receiver            common.Address `json:"receiver"`
-		SequenceNumber      uint64         `json:"sequenceNumber"`
-		GasLimit            *big.Int       `json:"gasLimit"`
-		Strict              bool           `json:"strict"`
-		Nonce               uint64         `json:"nonce"`
-		FeeToken            common.Address `json:"feeToken"`
-		FeeTokenAmount      *big.Int       `json:"feeTokenAmount"`
-		Data                []uint8        `json:"data"`
-		TokenAmounts        []struct {
-			Token  common.Address `json:"token"`
-			Amount *big.Int       `json:"amount"`
-		} `json:"tokenAmounts"`
-		SourceTokenData [][]byte `json:"sourceTokenData"`
-		MessageId       [32]byte `json:"messageId"`
-	})
-	if !ok {
-		return nil, fmt.Errorf("invalid format have %T want %T", unpacked[0], receivedCp)
-	}
-	var tokensAndAmounts []evm_2_evm_offramp.ClientEVMTokenAmount
-	for _, tokenAndAmount := range receivedCp.TokenAmounts {
-		tokensAndAmounts = append(tokensAndAmounts, evm_2_evm_offramp.ClientEVMTokenAmount{
-			Token:  tokenAndAmount.Token,
-			Amount: tokenAndAmount.Amount,
-		})
-	}
-
-	return &evm_2_evm_offramp.InternalEVM2EVMMessage{
-		SourceChainSelector: receivedCp.SourceChainSelector,
-		Sender:              receivedCp.Sender,
-		Receiver:            receivedCp.Receiver,
-		SequenceNumber:      receivedCp.SequenceNumber,
-		GasLimit:            receivedCp.GasLimit,
-		Strict:              receivedCp.Strict,
-		Nonce:               receivedCp.Nonce,
-		FeeToken:            receivedCp.FeeToken,
-		FeeTokenAmount:      receivedCp.FeeTokenAmount,
-		Data:                receivedCp.Data,
-		TokenAmounts:        tokensAndAmounts,
-		SourceTokenData:     receivedCp.SourceTokenData,
-		MessageId:           receivedCp.MessageId,
-	}, nil
-}
-
-func OnRampMessageToOffRampMessage(msg evm_2_evm_onramp.InternalEVM2EVMMessage) evm_2_evm_offramp.InternalEVM2EVMMessage {
-	tokensAndAmounts := make([]evm_2_evm_offramp.ClientEVMTokenAmount, len(msg.TokenAmounts))
-	for i, tokenAndAmount := range msg.TokenAmounts {
-		tokensAndAmounts[i] = evm_2_evm_offramp.ClientEVMTokenAmount{
-			Token:  tokenAndAmount.Token,
-			Amount: tokenAndAmount.Amount,
-		}
-	}
-
-	return evm_2_evm_offramp.InternalEVM2EVMMessage{
-		SourceChainSelector: msg.SourceChainSelector,
-		Sender:              msg.Sender,
-		Receiver:            msg.Receiver,
-		SequenceNumber:      msg.SequenceNumber,
-		GasLimit:            msg.GasLimit,
-		Strict:              msg.Strict,
-		Nonce:               msg.Nonce,
-		FeeToken:            msg.FeeToken,
-		FeeTokenAmount:      msg.FeeTokenAmount,
-		Data:                msg.Data,
-		TokenAmounts:        tokensAndAmounts,
-		SourceTokenData:     msg.SourceTokenData,
-		MessageId:           msg.MessageId,
-	}
 }
 
 // ProofFlagsToBits transforms a list of boolean proof flags to a *big.Int

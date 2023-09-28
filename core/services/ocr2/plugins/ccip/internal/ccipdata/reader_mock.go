@@ -10,8 +10,6 @@ import (
 
 	evm_2_evm_offramp "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 
-	evm_2_evm_onramp "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
-
 	mock "github.com/stretchr/testify/mock"
 
 	price_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
@@ -121,84 +119,6 @@ func (_m *MockReader) GetGasPriceUpdatesCreatedAfter(ctx context.Context, priceR
 
 	if rf, ok := ret.Get(1).(func(context.Context, common.Address, uint64, time.Time, int) error); ok {
 		r1 = rf(ctx, priceRegistry, chainSelector, ts, confs)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetLastUSDCMessagePriorToLogIndexInTx provides a mock function with given fields: ctx, logIndex, txHash
-func (_m *MockReader) GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, txHash common.Hash) ([]byte, error) {
-	ret := _m.Called(ctx, logIndex, txHash)
-
-	var r0 []byte
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, int64, common.Hash) ([]byte, error)); ok {
-		return rf(ctx, logIndex, txHash)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, int64, common.Hash) []byte); ok {
-		r0 = rf(ctx, logIndex, txHash)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]byte)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, int64, common.Hash) error); ok {
-		r1 = rf(ctx, logIndex, txHash)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetSendRequestsBetweenSeqNums provides a mock function with given fields: ctx, onRamp, seqNumMin, seqNumMax, confs
-func (_m *MockReader) GetSendRequestsBetweenSeqNums(ctx context.Context, onRamp common.Address, seqNumMin uint64, seqNumMax uint64, confs int) ([]Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested], error) {
-	ret := _m.Called(ctx, onRamp, seqNumMin, seqNumMax, confs)
-
-	var r0 []Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, uint64, uint64, int) ([]Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested], error)); ok {
-		return rf(ctx, onRamp, seqNumMin, seqNumMax, confs)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, uint64, uint64, int) []Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]); ok {
-		r0 = rf(ctx, onRamp, seqNumMin, seqNumMax, confs)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, common.Address, uint64, uint64, int) error); ok {
-		r1 = rf(ctx, onRamp, seqNumMin, seqNumMax, confs)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// GetSendRequestsGteSeqNum provides a mock function with given fields: ctx, onRamp, seqNum, checkFinalityTags, confs
-func (_m *MockReader) GetSendRequestsGteSeqNum(ctx context.Context, onRamp common.Address, seqNum uint64, checkFinalityTags bool, confs int) ([]Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested], error) {
-	ret := _m.Called(ctx, onRamp, seqNum, checkFinalityTags, confs)
-
-	var r0 []Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]
-	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, uint64, bool, int) ([]Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested], error)); ok {
-		return rf(ctx, onRamp, seqNum, checkFinalityTags, confs)
-	}
-	if rf, ok := ret.Get(0).(func(context.Context, common.Address, uint64, bool, int) []Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]); ok {
-		r0 = rf(ctx, onRamp, seqNum, checkFinalityTags, confs)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested])
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(context.Context, common.Address, uint64, bool, int) error); ok {
-		r1 = rf(ctx, onRamp, seqNum, checkFinalityTags, confs)
 	} else {
 		r1 = ret.Error(1)
 	}

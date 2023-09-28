@@ -1,21 +1,15 @@
 package ccipdata
 
 import (
-	"context"
 	"fmt"
-	"math/big"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 
-	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -72,108 +66,4 @@ func Test_parseLogs(t *testing.T) {
 		assert.Equal(t, int(i)*1000, int(ev.BlockNumber))
 		assert.Greater(t, ev.BlockTimestamp, time.Now().Add(-time.Minute))
 	}
-}
-
-func TestLogPollerClient_GetSendRequestsGteSeqNum(t *testing.T) {
-	onRampAddr := utils.RandomAddress()
-	seqNum := uint64(100)
-	confs := 4
-
-	t.Run("using confs", func(t *testing.T) {
-		lp := mocks.NewLogPoller(t)
-		lp.On("LogsDataWordGreaterThan",
-			abihelpers.EventSignatures.SendRequested,
-			onRampAddr,
-			abihelpers.EventSignatures.SendRequestedSequenceNumberWord,
-			abihelpers.EvmWord(seqNum),
-			confs,
-			mock.Anything,
-		).Return([]logpoller.Log{}, nil)
-
-		c := &LogPollerReader{lp: lp}
-		events, err := c.GetSendRequestsGteSeqNum(
-			context.Background(),
-			onRampAddr,
-			seqNum,
-			false,
-			confs,
-		)
-		assert.NoError(t, err)
-		assert.Empty(t, events)
-		lp.AssertExpectations(t)
-	})
-
-	t.Run("using latest confirmed block", func(t *testing.T) {
-		h := &types.Header{Number: big.NewInt(100000)}
-
-		lp := mocks.NewLogPoller(t)
-		lp.On("LogsUntilBlockHashDataWordGreaterThan",
-			abihelpers.EventSignatures.SendRequested,
-			onRampAddr,
-			abihelpers.EventSignatures.SendRequestedSequenceNumberWord,
-			abihelpers.EvmWord(seqNum),
-			h.Hash(),
-			mock.Anything,
-		).Return([]logpoller.Log{}, nil)
-
-		cl := evmClientMocks.NewClient(t)
-		cl.On("HeaderByNumber", mock.Anything, mock.Anything).Return(h, nil)
-
-		c := &LogPollerReader{lp: lp, client: cl}
-		events, err := c.GetSendRequestsGteSeqNum(
-			context.Background(),
-			onRampAddr,
-			seqNum,
-			true,
-			confs,
-		)
-		assert.NoError(t, err)
-		assert.Empty(t, events)
-		lp.AssertExpectations(t)
-		cl.AssertExpectations(t)
-	})
-}
-
-func TestLogPollerClient_GetLastUSDCMessagePriorToLogIndexInTx(t *testing.T) {
-	txHash := utils.RandomAddress().Hash()
-	ccipLogIndex := int64(100)
-
-	expectedData := []byte("-1")
-
-	t.Run("multiple found", func(t *testing.T) {
-		lp := mocks.NewLogPoller(t)
-		lp.On("IndexedLogsByTxHash",
-			abihelpers.EventSignatures.USDCMessageSent,
-			txHash,
-			mock.Anything,
-		).Return([]logpoller.Log{
-			{LogIndex: ccipLogIndex - 2, Data: []byte("-2")},
-			{LogIndex: ccipLogIndex - 1, Data: expectedData},
-			{LogIndex: ccipLogIndex, Data: []byte("0")},
-			{LogIndex: ccipLogIndex + 1, Data: []byte("1")},
-		}, nil)
-
-		c := &LogPollerReader{lp: lp, lggr: logger.TestLogger(t)}
-		usdcMessageData, err := c.GetLastUSDCMessagePriorToLogIndexInTx(context.Background(), ccipLogIndex, txHash)
-		assert.NoError(t, err)
-		assert.Equal(t, expectedData, usdcMessageData)
-
-		lp.AssertExpectations(t)
-	})
-
-	t.Run("none found", func(t *testing.T) {
-		lp := mocks.NewLogPoller(t)
-		lp.On("IndexedLogsByTxHash",
-			abihelpers.EventSignatures.USDCMessageSent,
-			txHash,
-			mock.Anything,
-		).Return([]logpoller.Log{}, nil)
-
-		c := &LogPollerReader{lp: lp}
-		usdcMessageData, err := c.GetLastUSDCMessagePriorToLogIndexInTx(context.Background(), ccipLogIndex, txHash)
-		assert.Errorf(t, err, fmt.Sprintf("no USDC message found prior to log index %d in tx %s", ccipLogIndex, txHash.Hex()))
-		assert.Nil(t, usdcMessageData)
-
-		lp.AssertExpectations(t)
-	})
 }

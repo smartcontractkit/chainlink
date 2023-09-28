@@ -58,7 +58,7 @@ var (
 type ExecutionPluginConfig struct {
 	lggr                     logger.Logger
 	sourceLP, destLP         logpoller.LogPoller
-	sourceReader             ccipdata.Reader
+	onRampReader             ccipdata.OnRampReader
 	destReader               ccipdata.Reader
 	onRamp                   evm_2_evm_onramp.EVM2EVMOnRampInterface
 	offRamp                  evm_2_evm_offramp.EVM2EVMOffRampInterface
@@ -67,8 +67,8 @@ type ExecutionPluginConfig struct {
 	sourceWrappedNativeToken common.Address
 	destClient               evmclient.Client
 	sourceClient             evmclient.Client
+	destChainEVMID           *big.Int
 	destGasEstimator         gas.EvmFeeEstimator
-	leafHasher               hashlib.LeafHasherInterface[[32]byte]
 	tokenDataProviders       map[common.Address]tokendata.Reader
 }
 
@@ -203,15 +203,14 @@ func (r *ExecutionReportingPlugin) Observation(ctx context.Context, timestamp ty
 
 // UpdateLogPollerFilters updates the log poller filters for the source and destination chains.
 // pass zeroAddress if dstPriceRegistry is unknown, filters with zero address are omitted.
+// TODO: Should be able to Close and re-create readers to abstract filters.
 func (rf *ExecutionReportingPluginFactory) UpdateLogPollerFilters(destPriceRegistry common.Address, qopts ...pg.QOpt) error {
 	rf.filtersMu.Lock()
 	defer rf.filtersMu.Unlock()
 
 	// source chain filters
 	sourceFiltersBefore, sourceFiltersNow := rf.sourceChainFilters, getExecutionPluginSourceLpChainFilters(
-		rf.config.onRamp.Address(),
 		rf.config.sourcePriceRegistry.Address(),
-		rf.config.tokenDataProviders,
 	)
 	created, deleted := logpollerutil.FiltersDiff(sourceFiltersBefore, sourceFiltersNow)
 	if err := logpollerutil.UnregisterLpFilters(rf.config.sourceLP, deleted, qopts...); err != nil {
@@ -776,11 +775,10 @@ func (r *ExecutionReportingPlugin) getReportsWithSendRequests(
 	// use errgroup to fetch send request logs and executed sequence numbers in parallel
 	eg := &errgroup.Group{}
 
-	var sendRequests []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]
+	var sendRequests []ccipdata.Event[ccipdata.EVM2EVMMessage]
 	eg.Go(func() error {
-		sendReqs, err := r.config.sourceReader.GetSendRequestsBetweenSeqNums(
+		sendReqs, err := r.config.onRampReader.GetSendRequestsBetweenSeqNums(
 			ctx,
-			r.config.onRamp.Address(),
 			intervalMin,
 			intervalMax,
 			int(r.offchainConfig.SourceFinalityDepth),
@@ -821,19 +819,22 @@ func (r *ExecutionReportingPlugin) getReportsWithSendRequests(
 	}
 
 	for _, sendReq := range sendRequests {
-		msg := abihelpers.OnRampMessageToOffRampMessage(sendReq.Data.Message)
+		msg, err := r.config.onRampReader.ToOffRampMessage(sendReq.Data)
+		if err != nil {
+			return nil, err
+		}
 
 		// if value exists in the map then it's executed
 		// if value exists, and it's true then it's considered finalized
 		finalized, executed := executedSeqNums[msg.SequenceNumber]
 
 		reqWithMeta := internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-			InternalEVM2EVMMessage: msg,
+			InternalEVM2EVMMessage: *msg,
 			BlockTimestamp:         sendReq.BlockTimestamp,
 			Executed:               executed,
 			Finalized:              finalized,
-			LogIndex:               sendReq.Data.Raw.Index,
-			TxHash:                 sendReq.Data.Raw.TxHash,
+			LogIndex:               sendReq.LogIndex,
+			TxHash:                 sendReq.TxHash,
 		}
 
 		// attach the msg to the appropriate reports
@@ -871,15 +872,15 @@ func (r *ExecutionReportingPlugin) buildReport(ctx context.Context, lggr logger.
 	}
 	lggr.Infow("Building execution report", "observations", observedMessages, "merkleRoot", hexutil.Encode(commitReport.MerkleRoot[:]), "report", commitReport)
 
-	sendReqsInRoot, leaves, tree, err := getProofData(ctx, lggr, r.config.leafHasher, r.config.onRamp.Address(), r.config.sourceReader, commitReport.Interval)
+	sendReqsInRoot, leaves, tree, err := getProofData(ctx, r.config.onRampReader, commitReport.Interval)
 	if err != nil {
 		return nil, err
 	}
 
 	messages := make([]*evm_2_evm_offramp.InternalEVM2EVMMessage, len(sendReqsInRoot))
 	for i, msg := range sendReqsInRoot {
-		offRampMsg := abihelpers.OnRampMessageToOffRampMessage(msg.Data.Message)
-		messages[i] = &offRampMsg
+		offRampMsg, _ := r.config.onRampReader.ToOffRampMessage(msg.Data)
+		messages[i] = offRampMsg
 	}
 
 	// cap messages which fits MaxExecutionReportLength (after serialized)

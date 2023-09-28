@@ -10,8 +10,6 @@ import (
 	"testing"
 	"time"
 
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/leanovate/gopter"
@@ -27,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -54,7 +51,7 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 		commitStoreIsPaused bool
 		commitStoreSeqNum   uint64
 		tokenPrices         map[common.Address]*big.Int
-		sendReqs            []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]
+		sendReqs            []ccipdata.Event[ccipdata.EVM2EVMMessage]
 		tokenDecimals       map[common.Address]uint8
 		fee                 *big.Int
 
@@ -68,9 +65,9 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 				someTokenAddr:         big.NewInt(2),
 				sourceNativeTokenAddr: big.NewInt(2),
 			},
-			sendReqs: []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]{
-				{Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{Message: evm_2_evm_onramp.InternalEVM2EVMMessage{SequenceNumber: 54}}},
-				{Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{Message: evm_2_evm_onramp.InternalEVM2EVMMessage{SequenceNumber: 55}}},
+			sendReqs: []ccipdata.Event[ccipdata.EVM2EVMMessage]{
+				{Data: ccipdata.EVM2EVMMessage{SequenceNumber: 54}},
+				{Data: ccipdata.EVM2EVMMessage{SequenceNumber: 55}},
 			},
 			fee: big.NewInt(100),
 			tokenDecimals: map[common.Address]uint8{
@@ -97,15 +94,14 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 	ctx := testutils.Context(t)
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			onRampAddress := utils.RandomAddress()
 			sourceFinalityDepth := 10
 
 			commitStore, _ := testhelpers.NewFakeCommitStore(t, tc.commitStoreSeqNum)
 			commitStore.SetPaused(tc.commitStoreIsPaused)
 
-			sourceReader := ccipdata.NewMockReader(t)
+			onRampReader := ccipdata.NewMockOnRampReader(t)
 			if len(tc.sendReqs) > 0 {
-				sourceReader.On("GetSendRequestsGteSeqNum", ctx, onRampAddress, tc.commitStoreSeqNum, false, sourceFinalityDepth).
+				onRampReader.On("GetSendRequestsGteSeqNum", ctx, tc.commitStoreSeqNum, sourceFinalityDepth).
 					Return(tc.sendReqs, nil)
 			}
 
@@ -133,9 +129,8 @@ func TestCommitReportingPlugin_Observation(t *testing.T) {
 			p.lggr = logger.TestLogger(t)
 			p.inflightReports = newInflightCommitReportsContainer(time.Hour)
 			p.config.commitStore = commitStore
-			p.config.onRampAddress = onRampAddress
 			p.offchainConfig.SourceFinalityDepth = uint32(sourceFinalityDepth)
-			p.config.sourceReader = sourceReader
+			p.config.onRampReader = onRampReader
 			p.tokenDecimalsCache = tokenDecimalsCache
 			p.config.priceGetter = priceGet
 			p.config.sourceFeeEstimator = sourceFeeEst
@@ -164,7 +159,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 		f                 int
 		gasPriceUpdates   []ccipdata.Event[price_registry.PriceRegistryUsdPerUnitGasUpdated]
 		tokenPriceUpdates []ccipdata.Event[price_registry.PriceRegistryUsdPerTokenUpdated]
-		sendRequests      []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]
+		sendRequests      []ccipdata.Event[ccipdata.EVM2EVMMessage]
 
 		expCommitReport *commit_store.CommitStoreCommitReport
 		expSeqNumRange  commit_store.CommitStoreInterval
@@ -177,18 +172,16 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 				{Interval: commit_store.CommitStoreInterval{Min: 1, Max: 1}},
 			},
 			f: 1,
-			sendRequests: []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]{
+			sendRequests: []ccipdata.Event[ccipdata.EVM2EVMMessage]{
 				{
-					Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{
-						Message: evm_2_evm_onramp.InternalEVM2EVMMessage{
-							SequenceNumber: 1,
-						},
+					Data: ccipdata.EVM2EVMMessage{
+						SequenceNumber: 1,
 					},
 				},
 			},
 			expSeqNumRange: commit_store.CommitStoreInterval{Min: 1, Max: 1},
 			expCommitReport: &commit_store.CommitStoreCommitReport{
-				MerkleRoot: [32]byte{123},
+				MerkleRoot: [32]byte{},
 				Interval:   commit_store.CommitStoreInterval{Min: 1, Max: 1},
 				PriceUpdates: commit_store.InternalPriceUpdates{
 					TokenPriceUpdates: nil,
@@ -204,7 +197,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 				{Interval: commit_store.CommitStoreInterval{Min: 1, Max: 1}},
 			},
 			f:              1,
-			sendRequests:   []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]{{}},
+			sendRequests:   []ccipdata.Event[ccipdata.EVM2EVMMessage]{{}},
 			expSeqNumRange: commit_store.CommitStoreInterval{Min: 1, Max: 1},
 			expErr:         true,
 		},
@@ -224,14 +217,13 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 				{Interval: commit_store.CommitStoreInterval{Min: 2, Max: 2}},
 			},
 			f:              1,
-			sendRequests:   []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]{{}},
+			sendRequests:   []ccipdata.Event[ccipdata.EVM2EVMMessage]{{}},
 			expSeqNumRange: commit_store.CommitStoreInterval{Min: 2, Max: 2},
 			expErr:         true,
 		},
 	}
 
 	ctx := testutils.Context(t)
-	onRampAddress := utils.RandomAddress()
 	sourceChainSelector := rand.Int()
 
 	for _, tc := range testCases {
@@ -242,9 +234,9 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			destReader.On("GetGasPriceUpdatesCreatedAfter", ctx, destPriceRegistryAddress, uint64(sourceChainSelector), mock.Anything, 0).Return(tc.gasPriceUpdates, nil)
 			destReader.On("GetTokenPriceUpdatesCreatedAfter", ctx, destPriceRegistryAddress, mock.Anything, 0).Return(tc.tokenPriceUpdates, nil)
 
-			sourceReader := ccipdata.NewMockReader(t)
+			onRampReader := ccipdata.NewMockOnRampReader(t)
 			if len(tc.sendRequests) > 0 {
-				sourceReader.On("GetSendRequestsBetweenSeqNums", ctx, onRampAddress, tc.expSeqNumRange.Min, tc.expSeqNumRange.Max, 0).Return(tc.sendRequests, nil)
+				onRampReader.On("GetSendRequestsBetweenSeqNums", ctx, tc.expSeqNumRange.Min, tc.expSeqNumRange.Max, 0).Return(tc.sendRequests, nil)
 			}
 
 			p := &CommitReportingPlugin{}
@@ -252,10 +244,8 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 			p.inflightReports = newInflightCommitReportsContainer(time.Minute)
 			p.destPriceRegistry = destPriceRegistry
 			p.config.destReader = destReader
-			p.config.sourceReader = sourceReader
-			p.config.onRampAddress = onRampAddress
+			p.config.onRampReader = onRampReader
 			p.config.sourceChainSelector = uint64(sourceChainSelector)
-			p.config.leafHasher = &leafHasher123{}
 
 			aos := make([]types.AttributedObservation, 0, len(tc.observations))
 			for _, o := range tc.observations {
@@ -1034,17 +1024,17 @@ func TestCommitReportingPlugin_calculateMinMaxSequenceNumbers(t *testing.T) {
 				}
 			}
 
-			sourceReader := ccipdata.NewMockReader(t)
-			var sendReqs []ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]
+			onRampReader := ccipdata.NewMockOnRampReader(t)
+			var sendReqs []ccipdata.Event[ccipdata.EVM2EVMMessage]
 			for _, seqNum := range tc.msgSeqNums {
-				sendReqs = append(sendReqs, ccipdata.Event[evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested]{
-					Data: evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{
-						Message: evm_2_evm_onramp.InternalEVM2EVMMessage{SequenceNumber: seqNum},
+				sendReqs = append(sendReqs, ccipdata.Event[ccipdata.EVM2EVMMessage]{
+					Data: ccipdata.EVM2EVMMessage{
+						SequenceNumber: seqNum,
 					},
 				})
 			}
-			sourceReader.On("GetSendRequestsGteSeqNum", ctx, mock.Anything, tc.expQueryMin, false, 0).Return(sendReqs, nil)
-			p.config.sourceReader = sourceReader
+			onRampReader.On("GetSendRequestsGteSeqNum", ctx, tc.expQueryMin, 0).Return(sendReqs, nil)
+			p.config.onRampReader = onRampReader
 
 			minSeqNum, maxSeqNum, err := p.calculateMinMaxSequenceNumbers(ctx, lggr)
 			if tc.expErr {
@@ -1411,11 +1401,4 @@ func TestCommitReportToEthTxMeta(t *testing.T) {
 			require.EqualValues(t, tc.expectedRange, txMeta.SeqNumbers)
 		})
 	}
-}
-
-// leafHasher123 always returns '123' followed by zeroes in HashLeaf method.
-type leafHasher123 struct{}
-
-func (h leafHasher123) HashLeaf(_ gethtypes.Log) ([32]byte, error) {
-	return [32]byte{123}, nil
 }

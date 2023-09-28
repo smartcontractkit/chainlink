@@ -5,9 +5,7 @@ package tokendata
 import (
 	context "context"
 
-	logpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	internal "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
-
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -16,17 +14,15 @@ type MockReader struct {
 	mock.Mock
 }
 
-// GetSourceLogPollerFilters provides a mock function with given fields:
-func (_m *MockReader) GetSourceLogPollerFilters() []logpoller.Filter {
+// Close provides a mock function with given fields:
+func (_m *MockReader) Close() error {
 	ret := _m.Called()
 
-	var r0 []logpoller.Filter
-	if rf, ok := ret.Get(0).(func() []logpoller.Filter); ok {
+	var r0 error
+	if rf, ok := ret.Get(0).(func() error); ok {
 		r0 = rf()
 	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]logpoller.Filter)
-		}
+		r0 = ret.Error(0)
 	}
 
 	return r0
