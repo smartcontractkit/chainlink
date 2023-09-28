@@ -150,7 +150,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 
 	// Create BHS Job and start it
 	bhsJob := vrftesthelpers.CreateAndStartBHSJob(t, sendingKeys, app, cu.BHSContractAddress.String(),
-		cu.RootContractAddress.String(), "", "", "", 0, 200, 0)
+		cu.RootContractAddress.String(), "", "", "", 0, 200, 0, 100)
 
 	// Ensure log poller is ready and has all logs.
 	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
