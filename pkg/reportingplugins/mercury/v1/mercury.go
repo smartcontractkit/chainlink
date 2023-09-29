@@ -379,10 +379,6 @@ func (rp *reportingPlugin) validateReport(rf ReportFields) error {
 	)
 }
 
-func (rp *reportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, repts types.ReportTimestamp, report types.Report) (bool, error) {
-	return true, nil
-}
-
 func (rp *reportingPlugin) Close() error {
 	return nil
 }
