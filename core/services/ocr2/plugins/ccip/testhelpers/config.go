@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-const PermissionLessExecutionThresholdSeconds = 20 * 60
+var PermissionLessExecutionThresholdSeconds = uint32(FirstBlockAge.Seconds())
 
 func (c *CCIPContracts) CreateDefaultCommitOnchainConfig(t *testing.T) []byte {
 	config, err := abihelpers.EncodeAbiStruct(ccipconfig.CommitOnchainConfig{
