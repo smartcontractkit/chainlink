@@ -3,6 +3,7 @@ FinalityDepth = 1
 NoNewHeadsThreshold = '6m'
 MinIncomingConfirmations = 1
 LogPollInterval = '30s'
+RPCBlockQueryDelay = 10
 
 [OCR]
 ContractConfirmations = 1
