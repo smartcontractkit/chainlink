@@ -441,7 +441,7 @@ func ShouldCollectEnhancedTelemetryMercury(jb job.Job) bool {
 func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.TaskRunResult, allTasks pipeline.TaskRunResults) (float64, float64, float64) {
 	var benchmarkPrice, askPrice, bidPrice float64
 	var err error
-	//We rely on task results to be sorted in the correct order
+	// We rely on task results to be sorted in the correct order
 	benchmarkPriceTask := allTasks.GetNextTaskOf(startTask)
 	if benchmarkPriceTask == nil {
 		e.lggr.Warnf("cannot parse enhanced EA telemetry benchmark price, task is nil, job %d, id %s", e.job.ID)
@@ -459,11 +459,7 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.Ta
 	}
 
 	bidTask := allTasks.GetNextTaskOf(*benchmarkPriceTask)
-	if bidTask == nil {
-		e.lggr.Warnf("cannot parse enhanced EA telemetry bid price, task is nil, job %d, id %s", e.job.ID)
-		return benchmarkPrice, 0, 0
-	}
-	if bidTask.Task.Type() == pipeline.TaskTypeJSONParse {
+	if bidTask != nil && bidTask.Task.Type() == pipeline.TaskTypeJSONParse {
 		if bidTask.Result.Error != nil {
 			e.lggr.Warnw(fmt.Sprintf("got error for enhanced EA telemetry bid price, job %d, id %s: %s", e.job.ID, bidTask.Task.DotID(), bidTask.Result.Error), "err", bidTask.Result.Error)
 		} else {
@@ -475,11 +471,7 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.Ta
 	}
 
 	askTask := allTasks.GetNextTaskOf(*bidTask)
-	if askTask == nil {
-		e.lggr.Warnf("cannot parse enhanced EA telemetry ask price, task is nil, job %d, id %s", e.job.ID)
-		return benchmarkPrice, bidPrice, 0
-	}
-	if askTask.Task.Type() == pipeline.TaskTypeJSONParse {
+	if askTask != nil && askTask.Task.Type() == pipeline.TaskTypeJSONParse {
 		if bidTask.Result.Error != nil {
 			e.lggr.Warnw(fmt.Sprintf("got error for enhanced EA telemetry ask price, job %d, id %s: %s", e.job.ID, askTask.Task.DotID(), askTask.Result.Error), "err", askTask.Result.Error)
 		} else {
