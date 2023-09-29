@@ -4,6 +4,7 @@ import (
 	"context"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
@@ -17,6 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
+// FirstBlockAge is used to compute first block's timestamp in SimulatedBackend (time.Now() - FirstBlockAge)
+const FirstBlockAge = 24 * time.Hour
+
 func SetupChain(t *testing.T) (*backends.SimulatedBackend, *bind.TransactOpts) {
 	key, err := crypto.GenerateKey()
 	require.NoError(t, err)
@@ -25,6 +29,15 @@ func SetupChain(t *testing.T) (*backends.SimulatedBackend, *bind.TransactOpts) {
 	chain := backends.NewSimulatedBackend(core.GenesisAlloc{
 		user.From: {Balance: new(big.Int).Mul(big.NewInt(1000), big.NewInt(1e18))}},
 		ethconfig.Defaults.Miner.GasCeil)
+	// CCIP relies on block timestamps, but SimulatedBackend uses by default clock starting from 1970-01-01
+	// This trick is used to move the clock closer to the current time. We set first block to be X hours ago.
+	// Tests create plenty of transactions so this number can't be too low, every new block mined will tick the clock,
+	// if you mine more than "X hours" transactions, SimulatedBackend will panic because generated timestamps will be in the future.
+	// IMPORTANT: Any adjustments to FirstBlockAge will automatically update PermissionLessExecutionThresholdSeconds in tests
+	blockTime := time.UnixMilli(int64(chain.Blockchain().CurrentHeader().Time))
+	err = chain.AdjustTime(time.Since(blockTime) - FirstBlockAge)
+	require.NoError(t, err)
+	chain.Commit()
 	return chain, user
 }
 
