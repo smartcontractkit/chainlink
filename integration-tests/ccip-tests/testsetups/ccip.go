@@ -1150,7 +1150,7 @@ func DeployLocalCluster(
 		if err != nil {
 			return err
 		}
-		return env.StartClNodes(toml, int(noOfCLNodes))
+		return env.StartClNodes(toml, int(noOfCLNodes), "")
 	}
 	return env, deployCL
 }

@@ -388,8 +388,8 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.New("evm chain id must be defined")
 			}
 			var specID int32
-			sql := `INSERT INTO blockhash_store_specs (coordinator_v1_address, coordinator_v2_address, coordinator_v2_plus_address, trusted_blockhash_store_address, trusted_blockhash_store_batch_size, wait_blocks, lookback_blocks, blockhash_store_address, poll_period, run_timeout, evm_chain_id, from_addresses, created_at, updated_at)
-			VALUES (:coordinator_v1_address, :coordinator_v2_address, :coordinator_v2_plus_address, :trusted_blockhash_store_address, :trusted_blockhash_store_batch_size, :wait_blocks, :lookback_blocks, :blockhash_store_address, :poll_period, :run_timeout, :evm_chain_id, :from_addresses, NOW(), NOW())
+			sql := `INSERT INTO blockhash_store_specs (coordinator_v1_address, coordinator_v2_address, coordinator_v2_plus_address, trusted_blockhash_store_address, trusted_blockhash_store_batch_size, wait_blocks, lookback_blocks, heartbeat_period, blockhash_store_address, poll_period, run_timeout, evm_chain_id, from_addresses, created_at, updated_at)
+			VALUES (:coordinator_v1_address, :coordinator_v2_address, :coordinator_v2_plus_address, :trusted_blockhash_store_address, :trusted_blockhash_store_batch_size, :wait_blocks, :lookback_blocks, :heartbeat_period, :blockhash_store_address, :poll_period, :run_timeout, :evm_chain_id, :from_addresses, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, toBlockhashStoreSpecRow(jb.BlockhashStoreSpec)); err != nil {
 				return errors.Wrap(err, "failed to create BlockhashStore spec")

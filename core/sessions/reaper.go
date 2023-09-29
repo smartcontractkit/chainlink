@@ -13,6 +13,10 @@ type sessionReaper struct {
 	db     *sql.DB
 	config SessionReaperConfig
 	lggr   logger.Logger
+
+	// Receive from this for testing via sr.RunSignal()
+	// to be notified after each reaper run.
+	runSignal chan struct{}
 }
 
 type SessionReaperConfig interface {
@@ -22,11 +26,18 @@ type SessionReaperConfig interface {
 
 // NewSessionReaper creates a reaper that cleans stale sessions from the store.
 func NewSessionReaper(db *sql.DB, config SessionReaperConfig, lggr logger.Logger) utils.SleeperTask {
-	return utils.NewSleeperTask(&sessionReaper{
+	return utils.NewSleeperTask(NewSessionReaperWorker(db, config, lggr))
+}
+
+func NewSessionReaperWorker(db *sql.DB, config SessionReaperConfig, lggr logger.Logger) *sessionReaper {
+	return &sessionReaper{
 		db,
 		config,
 		lggr.Named("SessionReaper"),
-	})
+
+		// For testing only.
+		make(chan struct{}, 10),
+	}
 }
 
 func (sr *sessionReaper) Name() string {
@@ -39,6 +50,11 @@ func (sr *sessionReaper) Work() {
 	err := sr.deleteStaleSessions(recordCreationStaleThreshold)
 	if err != nil {
 		sr.lggr.Error("unable to reap stale sessions: ", err)
+	}
+
+	select {
+	case sr.runSignal <- struct{}{}:
+	default:
 	}
 }
 

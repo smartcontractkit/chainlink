@@ -276,10 +276,12 @@ func setupNodeCCIP(
 		}
 		c.Log.Level = &loglevel
 		c.Feature.CCIP = &trueRef
+		c.Feature.UICSAKeys = &trueRef
 		c.OCR.Enabled = &falseRef
 		c.OCR.DefaultTransactionQueueDepth = pointer.Uint32(200)
 		c.OCR2.Enabled = &trueRef
 		c.Feature.LogPoller = &trueRef
+		c.P2P.V1.Enabled = &falseRef
 		c.P2P.V2.Enabled = &trueRef
 		c.P2P.V2.DeltaDial = models.MustNewDuration(500 * time.Millisecond)
 		c.P2P.V2.DeltaReconcile = models.MustNewDuration(5 * time.Second)
@@ -319,7 +321,7 @@ func setupNodeCCIP(
 	}
 	mailMon := utils.NewMailboxMonitor("CCIP")
 	evmOpts := chainlink.EVMFactoryConfig{
-		RelayerConfig: &evm.RelayerConfig{
+		ChainOpts: evm.ChainOpts{
 			AppConfig:        config,
 			EventBroadcaster: eventBroadcaster,
 			GenEthClient: func(chainID *big.Int) client.Client {
@@ -332,14 +334,13 @@ func setupNodeCCIP(
 				return nil
 			},
 			MailMon: mailMon,
+			DB:      db,
 		},
 		CSAETHKeystore: simEthKeyStore,
 	}
 	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"))
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:       lggr,
-		DB:           db,
-		QConfig:      config.Database(),
 		LoopRegistry: loopRegistry,
 		GRPCOpts:     loop.GRPCOpts{},
 	}
@@ -360,13 +361,12 @@ func setupNodeCCIP(
 		RelayerChainInteroperators: relayChainInterops,
 		Logger:                     lggr,
 		ExternalInitiatorManager:   nil,
-		CloseLogger: func() error {
-			return nil
-		},
-		UnrestrictedHTTPClient: &http.Client{},
-		RestrictedHTTPClient:   &http.Client{},
-		AuditLogger:            audit.NoopLogger,
-		MailMon:                mailMon,
+		CloseLogger:                lggr.Sync,
+		UnrestrictedHTTPClient:     &http.Client{},
+		RestrictedHTTPClient:       &http.Client{},
+		AuditLogger:                audit.NoopLogger,
+		MailMon:                    mailMon,
+		LoopRegistry:               plugins.NewLoopRegistry(lggr),
 	})
 	require.NoError(t, err)
 	require.NoError(t, app.GetKeyStore().Unlock("password"))

@@ -28,8 +28,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/trusted_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_plus_upgradeable_example"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2_upgradeable_example"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_plus_v2_example"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_malicious_consumer_v2_plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_single_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_sub_owner"
@@ -104,7 +105,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 		vrfv2plus_consumer_example.VRFV2PlusConsumerExampleABI))
 	require.NoError(t, err)
 	coordinatorABI, err := abi.JSON(strings.NewReader(
-		vrf_coordinator_v2plus.VRFCoordinatorV2PlusABI))
+		vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalABI))
 	require.NoError(t, err)
 	backend := cltest.NewSimulatedBackend(t, genesisData, gasLimit)
 	// Deploy link
@@ -136,12 +137,12 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 		bhsAddr = trustedBHSAddress
 	}
 	coordinatorAddress, _, coordinatorContract, err :=
-		vrf_coordinator_v2plus.DeployVRFCoordinatorV2Plus(
+		vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
 			neil, backend, bhsAddr)
 	require.NoError(t, err, "failed to deploy VRFCoordinatorV2 contract to simulated ethereum blockchain")
 	backend.Commit()
 
-	_, err = coordinatorContract.SetLINKAndLINKETHFeed(neil, linkAddress, linkEthFeed)
+	_, err = coordinatorContract.SetLINKAndLINKNativeFeed(neil, linkAddress, linkEthFeed)
 	require.NoError(t, err)
 	backend.Commit()
 
@@ -251,9 +252,9 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 		uint32(60*60*24),                       // stalenessSeconds
 		uint32(v22.GasAfterPaymentCalculation), // gasAfterPaymentCalculation
 		big.NewInt(1e16),                       // 0.01 eth per link fallbackLinkPrice
-		vrf_coordinator_v2plus.VRFCoordinatorV2PlusFeeConfig{
-			FulfillmentFlatFeeLinkPPM: uint32(1000), // 0.001 LINK premium
-			FulfillmentFlatFeeEthPPM:  uint32(5),    // 0.000005 ETH preimum
+		vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
+			FulfillmentFlatFeeLinkPPM:   uint32(1000), // 0.001 LINK premium
+			FulfillmentFlatFeeNativePPM: uint32(5),    // 0.000005 ETH premium
 		},
 	)
 	require.NoError(t, err, "failed to set coordinator configuration")
@@ -272,7 +273,7 @@ func newVRFCoordinatorV2PlusUniverse(t *testing.T, key ethkey.KeyV2, numConsumer
 			consumerProxyContractAddress: proxiedConsumer.Address(),
 			proxyAdminAddress:            proxyAdminAddress,
 
-			rootContract:                     v22.NewCoordinatorV2Plus(coordinatorContract),
+			rootContract:                     v22.NewCoordinatorV2_5(coordinatorContract),
 			rootContractAddress:              coordinatorAddress,
 			linkContract:                     linkContract,
 			linkContractAddress:              linkAddress,
@@ -717,16 +718,16 @@ func TestVRFV2PlusIntegration_ExternalOwnerConsumerExample(t *testing.T) {
 	require.NoError(t, err)
 	backend.Commit()
 	coordinatorAddress, _, coordinator, err :=
-		vrf_coordinator_v2plus.DeployVRFCoordinatorV2Plus(
+		vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
 			owner, backend, common.Address{}) //bhs not needed for this test
 	require.NoError(t, err)
-	_, err = coordinator.SetConfig(owner, uint16(1), uint32(10000), 1, 1, big.NewInt(10), vrf_coordinator_v2plus.VRFCoordinatorV2PlusFeeConfig{
-		FulfillmentFlatFeeLinkPPM: 0,
-		FulfillmentFlatFeeEthPPM:  0,
+	_, err = coordinator.SetConfig(owner, uint16(1), uint32(10000), 1, 1, big.NewInt(10), vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
+		FulfillmentFlatFeeLinkPPM:   0,
+		FulfillmentFlatFeeNativePPM: 0,
 	})
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = coordinator.SetLINKAndLINKETHFeed(owner, linkAddress, linkEthFeed)
+	_, err = coordinator.SetLINKAndLINKNativeFeed(owner, linkAddress, linkEthFeed)
 	require.NoError(t, err)
 	backend.Commit()
 	consumerAddress, _, consumer, err := vrf_v2plus_sub_owner.DeployVRFV2PlusExternalSubOwnerExample(owner, backend, coordinatorAddress, linkAddress)
@@ -787,11 +788,11 @@ func TestVRFV2PlusIntegration_SimpleConsumerExample(t *testing.T) {
 	require.NoError(t, err)
 	backend.Commit()
 	coordinatorAddress, _, coordinator, err :=
-		vrf_coordinator_v2plus.DeployVRFCoordinatorV2Plus(
+		vrf_coordinator_v2_5.DeployVRFCoordinatorV25(
 			owner, backend, common.Address{}) // bhs not needed for this test
 	require.NoError(t, err)
 	backend.Commit()
-	_, err = coordinator.SetLINKAndLINKETHFeed(owner, linkAddress, linkEthFeed)
+	_, err = coordinator.SetLINKAndLINKNativeFeed(owner, linkAddress, linkEthFeed)
 	require.NoError(t, err)
 	backend.Commit()
 	consumerAddress, _, consumer, err := vrf_v2plus_single_consumer.DeployVRFV2PlusSingleConsumerExample(owner, backend, coordinatorAddress, linkAddress, 1, 1, 1, [32]byte{}, false)
@@ -1137,7 +1138,7 @@ func setupSubscriptionAndFund(
 	require.NoError(t, err, "failed to fund sub")
 	uni.backend.Commit()
 
-	_, err = uni.rootContract.FundSubscriptionWithEth(consumer, subID, nativeAmount)
+	_, err = uni.rootContract.FundSubscriptionWithNative(consumer, subID, nativeAmount)
 	require.NoError(t, err, "failed to fund sub with native")
 	uni.backend.Commit()
 
@@ -1238,12 +1239,12 @@ func TestVRFV2PlusIntegration_Migration(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, subV1.Balance(), totalLinkBalance)
-	require.Equal(t, subV1.EthBalance(), totalNativeBalance)
+	require.Equal(t, subV1.NativeBalance(), totalNativeBalance)
 	require.Equal(t, subV1.Balance(), linkContractBalance)
-	require.Equal(t, subV1.EthBalance(), balance)
+	require.Equal(t, subV1.NativeBalance(), balance)
 
 	require.Equal(t, subV1.Balance(), subV2.LinkBalance)
-	require.Equal(t, subV1.EthBalance(), subV2.NativeBalance)
+	require.Equal(t, subV1.NativeBalance(), subV2.NativeBalance)
 	require.Equal(t, subV1.Owner(), subV2.Owner)
 	require.Equal(t, len(subV1.Consumers()), len(subV2.Consumers))
 	for i, c := range subV1.Consumers() {

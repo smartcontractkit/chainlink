@@ -17,7 +17,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
   VRF,
   SubscriptionAPI,
   IVRFCoordinatorV2PlusMigration,
-  IVRFMigratableCoordinatorV2Plus
+  IVRFCoordinatorV2Plus
 {
   using EnumerableSet for EnumerableSet.UintSet;
   /// @dev should always be available
@@ -89,9 +89,9 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     // Flat fee charged per fulfillment in millionths of link
     // So fee range is [0, 2^32/10^6].
     uint32 fulfillmentFlatFeeLinkPPM;
-    // Flat fee charged per fulfillment in millionths of eth.
+    // Flat fee charged per fulfillment in millionths of native.
     // So fee range is [0, 2^32/10^6].
-    uint32 fulfillmentFlatFeeEthPPM;
+    uint32 fulfillmentFlatFeeNativePPM;
   }
 
   event ConfigSet(
@@ -134,9 +134,9 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
    * @notice Sets the configuration of the vrfv2 coordinator
    * @param minimumRequestConfirmations global min for request confirmations
    * @param maxGasLimit global max for request gas limit
-   * @param stalenessSeconds if the eth/link feed is more stale then this, use the fallback price
+   * @param stalenessSeconds if the native/link feed is more stale then this, use the fallback price
    * @param gasAfterPaymentCalculation gas used in doing accounting after completing the gas measurement
-   * @param fallbackWeiPerUnitLink fallback eth/link price in the case of a stale feed
+   * @param fallbackWeiPerUnitLink fallback native/link price in the case of a stale feed
    * @param feeConfig fee configuration
    */
   function setConfig(
@@ -219,7 +219,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
    * in your fulfillRandomWords callback. Note these numbers are expanded in a
    * secure way by the VRFCoordinator from a single random value supplied by the oracle.
    * extraArgs - Encoded extra arguments that has a boolean flag for whether payment
-   * should be made in ETH or LINK. Payment in LINK is only available if the LINK token is available to this contract.
+   * should be made in native or LINK. Payment in LINK is only available if the LINK token is available to this contract.
    * @return requestId - A unique identifier of the request. Can be used to match
    * a request to a response in fulfillRandomWords.
    */
@@ -424,11 +424,11 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
         nativePayment
       );
       if (nativePayment) {
-        if (s_subscriptions[rc.subId].ethBalance < payment) {
+        if (s_subscriptions[rc.subId].nativeBalance < payment) {
           revert InsufficientBalance();
         }
-        s_subscriptions[rc.subId].ethBalance -= payment;
-        s_withdrawableEth[s_provingKeys[output.keyHash]] += payment;
+        s_subscriptions[rc.subId].nativeBalance -= payment;
+        s_withdrawableNative[s_provingKeys[output.keyHash]] += payment;
       } else {
         if (s_subscriptions[rc.subId].balance < payment) {
           revert InsufficientBalance();
@@ -453,10 +453,10 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
   ) internal view returns (uint96) {
     if (nativePayment) {
       return
-        calculatePaymentAmountEth(
+        calculatePaymentAmountNative(
           startGas,
           gasAfterPaymentCalculation,
-          s_feeConfig.fulfillmentFlatFeeEthPPM,
+          s_feeConfig.fulfillmentFlatFeeNativePPM,
           weiPerUnitGas
         );
     }
@@ -469,7 +469,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       );
   }
 
-  function calculatePaymentAmountEth(
+  function calculatePaymentAmountNative(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
     uint32 fulfillmentFlatFeePPM,
@@ -514,7 +514,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
     int256 weiPerUnitLink;
-    (, weiPerUnitLink, , timestamp, ) = LINK_ETH_FEED.latestRoundData();
+    (, weiPerUnitLink, , timestamp, ) = LINK_NATIVE_FEED.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
     if (staleFallback && stalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
@@ -531,7 +531,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
    * @dev Looping is bounded to MAX_CONSUMERS*(number of keyhashes).
    * @dev Used to disable subscription canceling while outstanding request are present.
    */
-  function pendingRequestExists(uint256 subId) public view returns (bool) {
+  function pendingRequestExists(uint256 subId) public view override returns (bool) {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
       for (uint256 j = 0; j < s_provingKeyHashes.length; j++) {
@@ -613,7 +613,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     address subOwner;
     address[] consumers;
     uint96 linkBalance;
-    uint96 ethBalance;
+    uint96 nativeBalance;
   }
 
   function isTargetRegistered(address target) internal view returns (bool) {
@@ -637,7 +637,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     if (!isTargetRegistered(newCoordinator)) {
       revert CoordinatorNotRegistered(newCoordinator);
     }
-    (uint96 balance, uint96 ethBalance, , address owner, address[] memory consumers) = getSubscription(subId);
+    (uint96 balance, uint96 nativeBalance, , address owner, address[] memory consumers) = getSubscription(subId);
     require(owner == msg.sender, "Not subscription owner");
     require(!pendingRequestExists(subId), "Pending request exists");
 
@@ -647,11 +647,11 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       subOwner: owner,
       consumers: consumers,
       linkBalance: balance,
-      ethBalance: ethBalance
+      nativeBalance: nativeBalance
     });
     bytes memory encodedData = abi.encode(migrationData);
     deleteSubscription(subId);
-    IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: ethBalance}(encodedData);
+    IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: nativeBalance}(encodedData);
 
     // Only transfer LINK if the token is active and there is a balance.
     if (address(LINK) != address(0) && balance != 0) {
@@ -683,8 +683,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       revert InvalidVersion(migrationData.fromVersion, 1);
     }
 
-    if (msg.value != uint256(migrationData.ethBalance)) {
-      revert InvalidNativeBalance(msg.value, migrationData.ethBalance);
+    if (msg.value != uint256(migrationData.nativeBalance)) {
+      revert InvalidNativeBalance(msg.value, migrationData.nativeBalance);
     }
 
     // it should be impossible to have a subscription id collision, for two reasons:
@@ -704,7 +704,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     }
 
     s_subscriptions[migrationData.subId] = Subscription({
-      ethBalance: migrationData.ethBalance,
+      nativeBalance: migrationData.nativeBalance,
       balance: migrationData.linkBalance,
       reqCount: 0
     });
@@ -715,7 +715,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     });
 
     s_totalBalance += uint96(migrationData.linkBalance);
-    s_totalEthBalance += uint96(migrationData.ethBalance);
+    s_totalNativeBalance += uint96(migrationData.nativeBalance);
 
     s_subIds.add(migrationData.subId);
   }
