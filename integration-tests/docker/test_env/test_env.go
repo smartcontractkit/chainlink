@@ -249,6 +249,45 @@ func (te *CLClusterTestEnv) Cleanup(t *testing.T) error {
 		return errors.New("chainlink nodes are nil, unable to return funds from chainlink nodes")
 	}
 
+	// TODO: This is an imperfect and temporary solution, see TT-590 for a more sustainable solution
+	// Collect logs if the test fails, or if we just want them
+	if t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
+		folder := fmt.Sprintf("./logs/%s-%s", t.Name(), time.Now().Format("2006-01-02T15-04-05"))
+		if err := os.MkdirAll(folder, os.ModePerm); err != nil {
+			return err
+		}
+
+		te.l.Info().Msg("Collecting test logs")
+		eg := &errgroup.Group{}
+		for _, n := range te.CLNodes {
+			node := n
+			eg.Go(func() error {
+				logFileName := filepath.Join(folder, fmt.Sprintf("node-%s.log", node.ContainerName))
+				logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY, 0644)
+				if err != nil {
+					return err
+				}
+				defer logFile.Close()
+				logReader, err := node.Container.Logs(context.Background())
+				if err != nil {
+					return err
+				}
+				_, err = io.Copy(logFile, logReader)
+				if err != nil {
+					return err
+				}
+				te.l.Info().Str("Node", node.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
+				return nil
+			})
+		}
+
+		if err := eg.Wait(); err != nil {
+			return err
+		}
+
+		te.l.Info().Str("Logs Location", folder).Msg("Wrote test logs")
+	}
+
 	// Check if we need to return funds
 	if te.EVMClient.NetworkSimulated() {
 		te.l.Info().Str("Network Name", te.EVMClient.GetNetworkName()).
@@ -277,47 +316,6 @@ func (te *CLClusterTestEnv) Cleanup(t *testing.T) error {
 			}
 		}
 	}
-
-	// TODO: This is an imperfect and temporary solution, see TT-590 for a more sustainable solution
-	// Collect logs if the test failed
-	if !t.Failed() {
-		return nil
-	}
-
-	folder := fmt.Sprintf("./logs/%s-%s", t.Name(), time.Now().Format("2006-01-02T15-04-05"))
-	if err := os.MkdirAll(folder, os.ModePerm); err != nil {
-		return err
-	}
-
-	te.l.Warn().Msg("Test failed, collecting logs")
-	eg := &errgroup.Group{}
-	for _, n := range te.CLNodes {
-		node := n
-		eg.Go(func() error {
-			logFileName := filepath.Join(folder, fmt.Sprintf("node-%s.log", node.ContainerName))
-			logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				return err
-			}
-			defer logFile.Close()
-			logReader, err := node.Container.Logs(context.Background())
-			if err != nil {
-				return err
-			}
-			_, err = io.Copy(logFile, logReader)
-			if err != nil {
-				return err
-			}
-			te.l.Info().Str("Node", node.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
-			return nil
-		})
-	}
-
-	if err := eg.Wait(); err != nil {
-		return err
-	}
-
-	te.l.Info().Str("Logs Location", folder).Msg("Wrote Logs for Failed Test")
 
 	return nil
 }
