@@ -20,7 +20,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
   error LinkAlreadySet();
   error FailedToTransferLink();
-  error IncorrectExtraArgsLength(uint16 expectedLength, uint16 actualLength);
+  error IncorrectExtraArgsLength(uint16 expectedMinimumLength, uint16 actualLength);
   error NativePaymentInOnTokenTransfer();
   error LINKPaymentInRequestRandomWordsInNative();
 
@@ -107,6 +107,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
   // s_maxNumWords is the max number of words that can be requested in a single wrapped VRF request.
   uint8 s_maxNumWords;
+
+  uint16 private constant EXPECTED_MIN_LENGTH = 36;
   /* Storage Slot 8: END */
 
   struct Callback {
@@ -389,9 +391,20 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   }
 
   function checkPaymentMode(bytes memory extraArgs, bool isLinkMode) public pure {
-    if (extraArgs.length < 36) {
-      revert IncorrectExtraArgsLength(36, uint16(extraArgs.length));
+    // If extraArgs is empty, payment mode is LINK by default
+    if (extraArgs.length == 0) {
+      if (!isLinkMode) {
+        revert LINKPaymentInRequestRandomWordsInNative();
+      }
+      return;
     }
+    if (extraArgs.length < EXPECTED_MIN_LENGTH) {
+      revert IncorrectExtraArgsLength(EXPECTED_MIN_LENGTH, uint16(extraArgs.length));
+    }
+    // ExtraArgsV1 only has struct {bool nativePayment} as of now
+    // The following condition checks if nativePayment in abi.encode of
+    // ExtraArgsV1 matches the appropriate function call (onTokenTransfer
+    // for LINK and requestRandomWordsInNative for Native payment)
     bool nativePayment = extraArgs[35] == hex"01";
     if (nativePayment && isLinkMode) {
       revert NativePaymentInOnTokenTransfer();
