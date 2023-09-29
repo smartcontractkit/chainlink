@@ -10,7 +10,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -34,8 +33,7 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	orm := sessions.NewORM(db, config.SessionTimeout().Duration(), lggr, pgtest.NewQConfig(true), audit.NoopLogger)
 
-	rw := sessions.NewSessionReaperWorker(db.DB, config, lggr)
-	r := utils.NewSleeperTask(rw)
+	r := sessions.NewSessionReaper(db.DB, config, lggr)
 
 	t.Cleanup(func() {
 		assert.NoError(t, r.Stop())
@@ -70,7 +68,9 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 			})
 
 			r.WakeUp()
-			<-rw.RunSignal()
+			<-r.(interface {
+				WorkDone() <-chan struct{}
+			}).WorkDone()
 			sessions, err := orm.Sessions(0, 10)
 			assert.NoError(t, err)
 

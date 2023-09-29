@@ -555,14 +555,13 @@ func (o *OCRSoakTest) setFilterQuery() {
 func (o *OCRSoakTest) observeOCREvents() error {
 	eventLogs := make(chan types.Log)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
 	eventSub, err := o.chainClient.SubscribeFilterLogs(ctx, o.filterQuery, eventLogs)
+	cancel()
 	if err != nil {
 		return err
 	}
 
 	go func() {
-		defer cancel()
 		for {
 			select {
 			case event := <-eventLogs:
@@ -589,6 +588,7 @@ func (o *OCRSoakTest) observeOCREvents() error {
 						Msg("Error while subscribed to OCR Logs. Resubscribing")
 					ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
 					eventSub, err = o.chainClient.SubscribeFilterLogs(ctx, o.filterQuery, eventLogs)
+					cancel()
 				}
 			}
 		}
