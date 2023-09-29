@@ -379,35 +379,6 @@ func (rp *reportingPlugin) validateReport(rf ReportFields) error {
 	)
 }
 
-func (rp *reportingPlugin) ShouldAcceptFinalizedReport(ctx context.Context, repts types.ReportTimestamp, report types.Report) (bool, error) {
-	reportEpochRound := mercury.EpochRound{Epoch: repts.Epoch, Round: repts.Round}
-	if !rp.latestAcceptedEpochRound.Less(reportEpochRound) {
-		rp.logger.Debugw("ShouldAcceptFinalizedReport() = false, report is stale",
-			"latestAcceptedEpochRound", rp.latestAcceptedEpochRound,
-			"reportEpochRound", reportEpochRound,
-		)
-		return false, nil
-	}
-
-	if !(len(report) <= rp.maxReportLength) {
-		rp.logger.Warnw("report violates MaxReportLength limit set by ReportCodec",
-			"reportEpochRound", reportEpochRound,
-			"reportLength", len(report),
-			"maxReportLength", rp.maxReportLength,
-		)
-		return false, nil
-	}
-
-	rp.logger.Debugw("ShouldAcceptFinalizedReport() = true",
-		"reportEpochRound", reportEpochRound,
-		"latestAcceptedEpochRound", rp.latestAcceptedEpochRound,
-	)
-
-	rp.latestAcceptedEpochRound = reportEpochRound
-
-	return true, nil
-}
-
 func (rp *reportingPlugin) ShouldTransmitAcceptedReport(ctx context.Context, repts types.ReportTimestamp, report types.Report) (bool, error) {
 	return true, nil
 }
