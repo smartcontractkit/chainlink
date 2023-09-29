@@ -206,25 +206,12 @@ func (t *tokenToDecimals) Copy(value map[common.Address]uint8) map[common.Addres
 // CallOrigin Generates the token to decimal mapping for dest tokens and fee tokens.
 // NOTE: this queries token decimals n times, where n is the number of tokens whose decimals are not already cached.
 func (t *tokenToDecimals) CallOrigin(ctx context.Context) (map[common.Address]uint8, error) {
-	mapping := make(map[common.Address]uint8)
-
-	destTokens, err := t.offRamp.GetDestinationTokens(&bind.CallOpts{Context: ctx})
+	destTokens, err := getDestinationAndFeeTokens(ctx, t.offRamp, t.priceRegistry)
 	if err != nil {
 		return nil, err
 	}
 
-	feeTokens, err := t.priceRegistry.GetFeeTokens(&bind.CallOpts{Context: ctx})
-	if err != nil {
-		return nil, err
-	}
-
-	// In case if a fee token is not an offramp dest token, we still want to update its decimals and price
-	for _, feeToken := range feeTokens {
-		if !slices.Contains(destTokens, feeToken) {
-			destTokens = append(destTokens, feeToken)
-		}
-	}
-
+	mapping := make(map[common.Address]uint8, len(destTokens))
 	for _, token := range destTokens {
 		if decimals, exists := t.getCachedDecimals(token); exists {
 			mapping[token] = decimals
@@ -245,6 +232,26 @@ func (t *tokenToDecimals) CallOrigin(ctx context.Context) (map[common.Address]ui
 		mapping[token] = decimals
 	}
 	return mapping, nil
+}
+
+func getDestinationAndFeeTokens(ctx context.Context, offRamp evm_2_evm_offramp.EVM2EVMOffRampInterface, priceRegistry price_registry.PriceRegistryInterface) ([]common.Address, error) {
+	destTokens, err := offRamp.GetDestinationTokens(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, err
+	}
+
+	feeTokens, err := priceRegistry.GetFeeTokens(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, feeToken := range feeTokens {
+		if !slices.Contains(destTokens, feeToken) {
+			destTokens = append(destTokens, feeToken)
+		}
+	}
+
+	return destTokens, nil
 }
 
 func (t *tokenToDecimals) getCachedDecimals(token common.Address) (uint8, bool) {

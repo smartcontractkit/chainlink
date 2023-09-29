@@ -51,7 +51,13 @@ func (o *FakeOffRamp) SetSenderNonces(senderNonces map[common.Address]uint64) {
 }
 
 func (o *FakeOffRamp) GetPoolByDestToken(opts *bind.CallOpts, destToken common.Address) (common.Address, error) {
-	return getOffRampVal(o, func(o *FakeOffRamp) (common.Address, error) { return o.tokenToPool[destToken], nil })
+	return getOffRampVal(o, func(o *FakeOffRamp) (common.Address, error) {
+		addr, exists := o.tokenToPool[destToken]
+		if !exists {
+			return common.Address{}, errors.New("not found")
+		}
+		return addr, nil
+	})
 }
 
 func (o *FakeOffRamp) SetTokenPools(tokenToPool map[common.Address]common.Address) {
@@ -89,6 +95,16 @@ func (o *FakeOffRamp) GetDestinationToken(opts *bind.CallOpts, sourceToken commo
 			return common.Address{}, errors.New("token does not exist")
 		}
 		return addr, nil
+	})
+}
+
+func (o *FakeOffRamp) GetDestinationTokens(opts *bind.CallOpts) ([]common.Address, error) {
+	return getOffRampVal(o, func(o *FakeOffRamp) ([]common.Address, error) {
+		tokens := make([]common.Address, 0, len(o.sourceToDestTokens))
+		for _, dst := range o.sourceToDestTokens {
+			tokens = append(tokens, dst)
+		}
+		return tokens, nil
 	})
 }
 
