@@ -57,6 +57,7 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 		unexpiredReports  []ccipdata.Event[commit_store.CommitStoreReportAccepted]
 		sendRequests      []ccipdata.Event[ccipdata.EVM2EVMMessage]
 		executedSeqNums   []uint64
+		tokenPoolsMapping map[common.Address]common.Address
 		blessedRoots      map[[32]byte]bool
 		senderNonce       uint64
 		rateLimiterState  evm_2_evm_offramp.RateLimiterTokenBucket
@@ -88,7 +89,8 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			rateLimiterState: evm_2_evm_offramp.RateLimiterTokenBucket{
 				IsEnabled: false,
 			},
-			senderNonce: 9,
+			tokenPoolsMapping: map[common.Address]common.Address{},
+			senderNonce:       9,
 			sendRequests: []ccipdata.Event[ccipdata.EVM2EVMMessage]{
 				{
 					Data: ccipdata.EVM2EVMMessage{SequenceNumber: 10},
@@ -160,6 +162,10 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 			})
 			p.destPriceRegistry = priceRegistry
 			p.config.sourcePriceRegistry = priceRegistry
+
+			cachedTokenPools := cache.NewMockAutoSync[map[common.Address]common.Address](t)
+			cachedTokenPools.On("Get", ctx).Return(tc.tokenPoolsMapping, nil).Maybe()
+			p.cachedTokenPools = cachedTokenPools
 
 			sourceFeeTokens := cache.NewMockAutoSync[[]common.Address](t)
 			sourceFeeTokens.On("Get", ctx).Return([]common.Address{}, nil).Maybe()
@@ -765,6 +771,7 @@ func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
 		sourceToDestToken map[common.Address]common.Address
 		destPools         map[common.Address]common.Address
 		poolRateLimits    map[common.Address]custom_token_pool.RateLimiterTokenBucket
+		destPoolsCacheErr error
 
 		expRateLimits map[common.Address]*big.Int
 		expErr        bool
@@ -838,6 +845,20 @@ func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
 			},
 			expErr: false,
 		},
+		{
+			name:              "dest pool cache error",
+			tokenAmounts:      []evm_2_evm_offramp.ClientEVMTokenAmount{{Token: tk1}},
+			sourceToDestToken: map[common.Address]common.Address{tk1: tk1dest},
+			destPoolsCacheErr: errors.New("some random error"),
+			expErr:            true,
+		},
+		{
+			name:              "pool for token not found",
+			tokenAmounts:      []evm_2_evm_offramp.ClientEVMTokenAmount{{Token: tk1}},
+			sourceToDestToken: map[common.Address]common.Address{tk1: tk1dest},
+			destPools:         map[common.Address]common.Address{},
+			expErr:            true,
+		},
 	}
 
 	ctx := testutils.Context(t)
@@ -846,6 +867,10 @@ func TestExecutionReportingPlugin_destPoolRateLimits(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			p := &ExecutionReportingPlugin{}
 			p.lggr = lggr
+
+			tokenPoolsCache := cache.NewMockAutoSync[map[common.Address]common.Address](t)
+			tokenPoolsCache.On("Get", ctx).Return(tc.destPools, tc.destPoolsCacheErr).Maybe()
+			p.cachedTokenPools = tokenPoolsCache
 
 			offRamp, offRampAddr := testhelpers.NewFakeOffRamp(t)
 			offRamp.SetTokenPools(tc.destPools)

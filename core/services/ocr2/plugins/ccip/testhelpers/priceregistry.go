@@ -16,6 +16,7 @@ type FakePriceRegistry struct {
 	*mock_contracts.PriceRegistryInterface
 
 	tokenPrices []price_registry.InternalTimestampedPackedUint224
+	feeTokens   []common.Address
 
 	mu sync.RWMutex
 }
@@ -37,6 +38,14 @@ func (p *FakePriceRegistry) GetTokenPrices(opts *bind.CallOpts, tokens []common.
 	return getPriceRegistryVal(p, func(p *FakePriceRegistry) ([]price_registry.InternalTimestampedPackedUint224, error) {
 		return p.tokenPrices, nil
 	})
+}
+
+func (p *FakePriceRegistry) SetFeeTokens(tokens []common.Address) {
+	setPriceRegistryVal(p, func(p *FakePriceRegistry) { p.feeTokens = tokens })
+}
+
+func (p *FakePriceRegistry) GetFeeTokens(opts *bind.CallOpts) ([]common.Address, error) {
+	return getPriceRegistryVal(p, func(p *FakePriceRegistry) ([]common.Address, error) { return p.feeTokens, nil })
 }
 
 func getPriceRegistryVal[T any](p *FakePriceRegistry, getter func(p *FakePriceRegistry) (T, error)) (T, error) {
