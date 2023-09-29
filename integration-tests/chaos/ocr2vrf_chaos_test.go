@@ -34,7 +34,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 	loadedNetwork := networks.SelectedNetwork
 
 	defaultOCR2VRFSettings := map[string]interface{}{
-		"replicas": "6",
+		"replicas": 6,
 		"toml": client.AddNetworkDetailedConfig(
 			config.BaseOCR2Config,
 			config.DefaultOCR2VRFNetworkDetailTomlConfig,

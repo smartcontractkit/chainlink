@@ -77,7 +77,7 @@ LimitDefault = 5_000_000`
 					"networkId": "1337",
 				},
 				"miner": map[string]interface{}{
-					"replicas": "2",
+					"replicas": 2,
 				},
 			},
 		},
