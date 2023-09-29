@@ -77,7 +77,7 @@ LimitDefault = 5_000_000`
 					"networkId": "1337",
 				},
 				"miner": map[string]interface{}{
-					"replicas": "2",
+					"replicas": 2,
 				},
 			},
 		},
@@ -126,9 +126,9 @@ const (
 func TestAutomationReorg(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	network := networks.SelectedNetwork
+	defaultAutomationSettings["replicas"] = numberOfNodes
+	cd := chainlink.New(0, defaultAutomationSettings)
 
-	cd, err := chainlink.NewDeployment(numberOfNodes, defaultAutomationSettings)
-	require.NoError(t, err, "Error creating chainlink deployment")
 	testEnvironment := environment.
 		New(&environment.Config{
 			NamespacePrefix: fmt.Sprintf("automation-reorg-%d", automationReorgBlocks),
@@ -139,8 +139,8 @@ func TestAutomationReorg(t *testing.T) {
 			Name:    "geth-blockscout",
 			WsURL:   activeEVMNetwork.URL,
 			HttpURL: activeEVMNetwork.HTTPURLs[0]})).
-		AddHelmCharts(cd)
-	err = testEnvironment.Run()
+		AddHelm(cd)
+	err := testEnvironment.Run()
 	require.NoError(t, err, "Error setting up test environment")
 
 	if testEnvironment.WillUseRemoteRunner() {

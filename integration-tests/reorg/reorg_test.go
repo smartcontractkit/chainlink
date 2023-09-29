@@ -125,11 +125,12 @@ func TestDirectRequestReorg(t *testing.T) {
 	time.Sleep(90 * time.Second)
 	activeEVMNetwork = networks.SimulatedEVMNonDev
 	netCfg := fmt.Sprintf(networkDRTOML, EVMFinalityDepth, EVMTrackerHistoryDepth)
-	chainlinkDeployment, err := chainlink.NewDeployment(1, map[string]interface{}{
-		"toml": client.AddNetworkDetailedConfig(baseDRTOML, netCfg, activeEVMNetwork),
+	chainlinkDeployment := chainlink.New(0, map[string]interface{}{
+		"replicas": 1,
+		"toml":     client.AddNetworkDetailedConfig(baseDRTOML, netCfg, activeEVMNetwork),
 	})
-	require.NoError(t, err, "Error building Chainlink deployment")
-	err = testEnvironment.AddHelmCharts(chainlinkDeployment).Run()
+
+	err = testEnvironment.AddHelm(chainlinkDeployment).Run()
 	require.NoError(t, err, "Error adding to test environment")
 
 	chainClient, err := blockchain.NewEVMClient(networkSettings, testEnvironment, l)
