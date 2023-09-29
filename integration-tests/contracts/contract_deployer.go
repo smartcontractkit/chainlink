@@ -55,7 +55,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/werc20_mock"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/werc20_mock"
 )
 
 // ContractDeployer is an interface for abstracting the contract deployment methods across network implementations
