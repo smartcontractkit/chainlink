@@ -7,6 +7,7 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
+	"github.com/test-go/testify/assert"
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
@@ -16,19 +17,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
 )
 
-func bootstrapPersistenceManager(t *testing.T) (*PersistenceManager, *observer.ObservedLogs) {
+func bootstrapPersistenceManager(t *testing.T, jobID int32) (*PersistenceManager, *observer.ObservedLogs) {
 	t.Helper()
 	db := pgtest.NewSqlxDB(t)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS mercury_transmit_requests_job_id_fkey DEFERRED`)
 	pgtest.MustExec(t, db, `SET CONSTRAINTS feed_latest_reports_job_id_fkey DEFERRED`)
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 	orm := NewORM(db, lggr, pgtest.NewQConfig(true))
-	return NewPersistenceManager(lggr, orm, 0, 2, 5*time.Millisecond, 5*time.Millisecond), observedLogs
+	return NewPersistenceManager(lggr, orm, jobID, 2, 5*time.Millisecond, 5*time.Millisecond), observedLogs
 }
 
 func TestPersistenceManager(t *testing.T) {
 	ctx := context.Background()
-	pm, _ := bootstrapPersistenceManager(t)
+	pm, _ := bootstrapPersistenceManager(t, 0)
 
 	reports := sampleReports
 
@@ -52,11 +53,19 @@ func TestPersistenceManager(t *testing.T) {
 	require.Equal(t, []*Transmission{
 		{Req: &pb.TransmitRequest{Payload: reports[1]}},
 	}, transmissions)
+
+	t.Run("scopes load to only transmissions with matching job ID", func(t *testing.T) {
+		pm2, _ := bootstrapPersistenceManager(t, 1)
+		transmissions, err = pm2.Load(ctx)
+		require.NoError(t, err)
+
+		assert.Len(t, transmissions, 0)
+	})
 }
 
 func TestPersistenceManagerAsyncDelete(t *testing.T) {
 	ctx := context.Background()
-	pm, observedLogs := bootstrapPersistenceManager(t)
+	pm, observedLogs := bootstrapPersistenceManager(t, 0)
 
 	reports := sampleReports
 
@@ -97,7 +106,7 @@ func TestPersistenceManagerAsyncDelete(t *testing.T) {
 
 func TestPersistenceManagerPrune(t *testing.T) {
 	ctx := context.Background()
-	pm, observedLogs := bootstrapPersistenceManager(t)
+	pm, observedLogs := bootstrapPersistenceManager(t, 0)
 
 	reports := sampleReports
 

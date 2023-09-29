@@ -78,7 +78,7 @@ func (pm *PersistenceManager) AsyncDelete(req *pb.TransmitRequest) {
 }
 
 func (pm *PersistenceManager) Load(ctx context.Context) ([]*Transmission, error) {
-	return pm.orm.GetTransmitRequests(pg.WithParentCtx(ctx))
+	return pm.orm.GetTransmitRequests(pm.jobID, pg.WithParentCtx(ctx))
 }
 
 func (pm *PersistenceManager) runFlushDeletesLoop() {

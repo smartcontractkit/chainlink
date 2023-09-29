@@ -23,7 +23,7 @@ import (
 type ORM interface {
 	InsertTransmitRequest(req *pb.TransmitRequest, jobID int32, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error
 	DeleteTransmitRequests(reqs []*pb.TransmitRequest, qopts ...pg.QOpt) error
-	GetTransmitRequests(qopts ...pg.QOpt) ([]*Transmission, error)
+	GetTransmitRequests(jobID int32, qopts ...pg.QOpt) ([]*Transmission, error)
 	PruneTransmitRequests(maxSize int, qopts ...pg.QOpt) error
 	LatestReport(ctx context.Context, feedID [32]byte, qopts ...pg.QOpt) (report []byte, err error)
 }
@@ -49,6 +49,11 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ORM {
 
 // InsertTransmitRequest inserts one transmit request if the payload does not exist already.
 func (o *orm) InsertTransmitRequest(req *pb.TransmitRequest, jobID int32, reportCtx ocrtypes.ReportContext, qopts ...pg.QOpt) error {
+	feedID, err := FeedIDFromReport(req.Payload)
+	if err != nil {
+		return err
+	}
+
 	q := o.q.WithOpts(qopts...)
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -57,16 +62,12 @@ func (o *orm) InsertTransmitRequest(req *pb.TransmitRequest, jobID int32, report
 	go func() {
 		defer wg.Done()
 		err1 = q.ExecQ(`
-		INSERT INTO mercury_transmit_requests (payload, payload_hash, config_digest, epoch, round, extra_hash, job_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
+		INSERT INTO mercury_transmit_requests (payload, payload_hash, config_digest, epoch, round, extra_hash, job_id, feed_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, &8)
 		ON CONFLICT (payload_hash) DO NOTHING
-	`, req.Payload, hashPayload(req.Payload), reportCtx.ConfigDigest[:], reportCtx.Epoch, reportCtx.Round, reportCtx.ExtraHash[:], jobID)
+	`, req.Payload, hashPayload(req.Payload), reportCtx.ConfigDigest[:], reportCtx.Epoch, reportCtx.Round, reportCtx.ExtraHash[:], jobID, feedID[:])
 	}()
 
-	feedID, err := FeedIDFromReport(req.Payload)
-	if err != nil {
-		return err
-	}
 	go func() {
 		defer wg.Done()
 		err2 = q.ExecQ(`
@@ -101,15 +102,16 @@ func (o *orm) DeleteTransmitRequests(reqs []*pb.TransmitRequest, qopts ...pg.QOp
 }
 
 // GetTransmitRequests returns all transmit requests in chronologically descending order.
-func (o *orm) GetTransmitRequests(qopts ...pg.QOpt) ([]*Transmission, error) {
+func (o *orm) GetTransmitRequests(jobID int32, qopts ...pg.QOpt) ([]*Transmission, error) {
 	q := o.q.WithOpts(qopts...)
 	// The priority queue uses epoch and round to sort transmissions so order by
 	// the same fields here for optimal insertion into the pq.
 	rows, err := q.QueryContext(q.ParentCtx, `
 		SELECT payload, config_digest, epoch, round, extra_hash
 		FROM mercury_transmit_requests
+		WHERE job_id = $1
 		ORDER BY epoch DESC, round DESC
-	`)
+	`, jobID)
 	if err != nil {
 		return nil, err
 	}
