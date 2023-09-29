@@ -126,7 +126,7 @@ func setupOCR2Test(t *testing.T, forwardersEnabled bool) (
 		toml = client.AddNetworksConfig(config.BaseOCR2Config, testNetwork)
 	}
 
-	chainlinkChart := chainlink.New(6, map[string]interface{}{
+	chainlinkChart := chainlink.New(0, map[string]interface{}{
 		"replicas": 6,
 		"toml":     toml,
 	})

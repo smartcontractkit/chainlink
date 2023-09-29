@@ -153,7 +153,7 @@ TurnLookBack = 0
 SyncInterval = '5s'
 PerformGasOverhead = 150_000`
 	networkName := strings.ReplaceAll(strings.ToLower(network.Name), " ", "-")
-	cd := chainlink.New(5, map[string]interface{}{
+	cd := chainlink.New(0, map[string]interface{}{
 		"replicas": 5,
 		"toml":     client.AddNetworksConfig(baseTOML, network),
 	})
