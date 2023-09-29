@@ -3,6 +3,7 @@ package ocrcommon
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -361,9 +362,13 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.Ta
 		return 0, 0, 0
 	}
 	if benchmarkPriceTask.Task.Type() == pipeline.TaskTypeJSONParse {
-		benchmarkPrice, ok = benchmarkPriceTask.Result.Value.(float64)
-		if !ok {
-			e.lggr.Warnf("cannot parse enhanced EA telemetry benchmark price, job %d, id %s", e.job.ID, benchmarkPriceTask.Task.DotID())
+		if benchmarkPriceTask.Result.Error != nil {
+			e.lggr.Warnw(fmt.Sprintf("got error for enhanced EA telemetry benchmark price, job %d, id %s: %s", e.job.ID, benchmarkPriceTask.Task.DotID(), benchmarkPriceTask.Result.Error), "err", benchmarkPriceTask.Result.Error)
+		} else {
+			benchmarkPrice, ok = benchmarkPriceTask.Result.Value.(float64)
+			if !ok {
+				e.lggr.Warnf("cannot parse enhanced EA telemetry benchmark price, job %d, id %s (expected float64, got type: %T)", e.job.ID, benchmarkPriceTask.Task.DotID(), benchmarkPriceTask.Result.Value)
+			}
 		}
 	}
 
@@ -373,9 +378,13 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.Ta
 		return 0, 0, 0
 	}
 	if bidTask.Task.Type() == pipeline.TaskTypeJSONParse {
-		bidPrice, ok = bidTask.Result.Value.(float64)
-		if !ok {
-			e.lggr.Warnf("cannot parse enhanced EA telemetry bid price, job %d, id %s", e.job.ID, bidTask.Task.DotID())
+		if bidTask.Result.Error != nil {
+			e.lggr.Warnw(fmt.Sprintf("got error for enhanced EA telemetry bid price, job %d, id %s: %s", e.job.ID, bidTask.Task.DotID(), bidTask.Result.Error), "err", bidTask.Result.Error)
+		} else {
+			bidPrice, ok = bidTask.Result.Value.(float64)
+			if !ok {
+				e.lggr.Warnf("cannot parse enhanced EA telemetry bid price, job %d, id %s (expected float64, got type: %T)", e.job.ID, bidTask.Task.DotID(), bidTask.Result.Value)
+			}
 		}
 	}
 
@@ -385,9 +394,13 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.Ta
 		return 0, 0, 0
 	}
 	if askTask.Task.Type() == pipeline.TaskTypeJSONParse {
-		askPrice, ok = askTask.Result.Value.(float64)
-		if !ok {
-			e.lggr.Warnf("cannot parse enhanced EA telemetry ask price, job %d, id %s", e.job.ID, askTask.Task.DotID())
+		if bidTask.Result.Error != nil {
+			e.lggr.Warnw(fmt.Sprintf("got error for enhanced EA telemetry ask price, job %d, id %s: %s", e.job.ID, askTask.Task.DotID(), askTask.Result.Error), "err", askTask.Result.Error)
+		} else {
+			askPrice, ok = askTask.Result.Value.(float64)
+			if !ok {
+				e.lggr.Warnf("cannot parse enhanced EA telemetry ask price, job %d, id %s (expected float64, got type: %T)", e.job.ID, askTask.Task.DotID(), askTask.Result.Value)
+			}
 		}
 	}
 

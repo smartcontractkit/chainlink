@@ -31,7 +31,7 @@ var (
 )
 
 // Validate that filters stored in log_filters_table match the filters stored in memory
-func validateFiltersTable(t *testing.T, lp *logPoller, orm *ORM) {
+func validateFiltersTable(t *testing.T, lp *logPoller, orm *DbORM) {
 	filters, err := orm.LoadFilters()
 	require.NoError(t, err)
 	require.Equal(t, len(filters), len(lp.filters))
