@@ -1102,12 +1102,12 @@ contract EVM2EVMOffRamp__trialExecute is EVM2EVMOffRampSetup {
     IERC20 dstToken0 = IERC20(s_destTokens[0]);
     uint256 startingBalance = dstToken0.balanceOf(message.receiver);
 
-    (Internal.MessageExecutionState newState, bytes memory error) = s_offRamp.trialExecute(
+    (Internal.MessageExecutionState newState, bytes memory err) = s_offRamp.trialExecute(
       message,
       new bytes[](message.tokenAmounts.length)
     );
     assertEq(uint256(Internal.MessageExecutionState.SUCCESS), uint256(newState));
-    assertEq("", error);
+    assertEq("", err);
 
     // Check that the tokens were transferred
     assertEq(startingBalance + amounts[0], dstToken0.balanceOf(message.receiver));
@@ -1126,20 +1126,18 @@ contract EVM2EVMOffRamp__trialExecute is EVM2EVMOffRampSetup {
     Internal.EVM2EVMMessage memory message = _generateAny2EVMMessageWithTokens(1, amounts);
     MaybeRevertingBurnMintTokenPool(s_destPools[1]).setShouldRevert(errorMessage);
 
-    (Internal.MessageExecutionState newState, bytes memory error) = s_offRamp.trialExecute(
+    (Internal.MessageExecutionState newState, bytes memory err) = s_offRamp.trialExecute(
       message,
       new bytes[](message.tokenAmounts.length)
     );
     assertEq(uint256(Internal.MessageExecutionState.FAILURE), uint256(newState));
-    assertEq(abi.encodeWithSelector(EVM2EVMOffRamp.TokenHandlingError.selector, errorMessage), error);
+    assertEq(abi.encodeWithSelector(EVM2EVMOffRamp.TokenHandlingError.selector, errorMessage), err);
 
     // Expect the balance to remain the same
     assertEq(startingBalance, dstToken0.balanceOf(OWNER));
   }
 
-  // Reverts
-
-  function testRateLimitErrorReverts() public {
+  function testRateLimitErrorSuccess() public {
     uint256[] memory amounts = new uint256[](2);
     amounts[0] = 1000;
     amounts[1] = 50;
@@ -1149,14 +1147,12 @@ contract EVM2EVMOffRamp__trialExecute is EVM2EVMOffRampSetup {
     Internal.EVM2EVMMessage memory message = _generateAny2EVMMessageWithTokens(1, amounts);
     MaybeRevertingBurnMintTokenPool(s_destPools[1]).setShouldRevert(errorMessage);
 
-    vm.expectRevert(
-      abi.encodeWithSelector(
-        EVM2EVMOffRamp.ExecutionError.selector,
-        abi.encodeWithSelector(EVM2EVMOffRamp.TokenRateLimitError.selector, errorMessage)
-      )
+    (Internal.MessageExecutionState newState, bytes memory err) = s_offRamp.trialExecute(
+      message,
+      new bytes[](message.tokenAmounts.length)
     );
-
-    s_offRamp.trialExecute(message, new bytes[](message.tokenAmounts.length));
+    assertEq(uint256(Internal.MessageExecutionState.FAILURE), uint256(newState));
+    assertEq(abi.encodeWithSelector(EVM2EVMOffRamp.TokenHandlingError.selector, errorMessage), err);
   }
 }
 
@@ -1244,7 +1240,7 @@ contract EVM2EVMOffRamp__releaseOrMintTokens is EVM2EVMOffRampSetup {
     for (uint256 i = 0; i < rateLimitErrors.length; ++i) {
       MaybeRevertingBurnMintTokenPool(s_destPools[1]).setShouldRevert(rateLimitErrors[i]);
 
-      vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.TokenRateLimitError.selector, rateLimitErrors[i]));
+      vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.TokenHandlingError.selector, rateLimitErrors[i]));
 
       s_offRamp.releaseOrMintTokens(
         srcTokenAmounts,

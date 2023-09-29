@@ -5,8 +5,8 @@ burn_mint_token_pool: ../../../contracts/solc/v0.8.19/BurnMintTokenPool.abi ../.
 commit_store: ../../../contracts/solc/v0.8.19/CommitStore.abi ../../../contracts/solc/v0.8.19/CommitStore.bin 7d80f085f8249ef15e0850bf03698806c972125156f3476a1dafca54598f7f4d
 commit_store_helper: ../../../contracts/solc/v0.8.19/CommitStoreHelper.abi ../../../contracts/solc/v0.8.19/CommitStoreHelper.bin 0891a1662bda54db424d12e80a56533cfd9859f7d94a3be147ad3caa46cad072
 custom_token_pool: ../../../contracts/solc/v0.8.19/CustomTokenPool.abi ../../../contracts/solc/v0.8.19/CustomTokenPool.bin 79ab937aa4493bf31fb0e57affd00555aad75205c90268e89674c28ea9e5e48f
-evm_2_evm_offramp: ../../../contracts/solc/v0.8.19/EVM2EVMOffRamp.abi ../../../contracts/solc/v0.8.19/EVM2EVMOffRamp.bin 8a0bd8a428ae8d071d326a2d4e1f7a2d35da08fef7307b6e1f15e108eb23770e
-evm_2_evm_offramp_helper: ../../../contracts/solc/v0.8.19/EVM2EVMOffRampHelper.abi ../../../contracts/solc/v0.8.19/EVM2EVMOffRampHelper.bin 9e06fb409bcc9b1728c1a327d404640796c2834e7798728224b8ad4e5745c4a7
+evm_2_evm_offramp: ../../../contracts/solc/v0.8.19/EVM2EVMOffRamp.abi ../../../contracts/solc/v0.8.19/EVM2EVMOffRamp.bin bfea579e0b5100b6e90c2ea4d1533789ff037104fd03ba590e135772a0cf0997
+evm_2_evm_offramp_helper: ../../../contracts/solc/v0.8.19/EVM2EVMOffRampHelper.abi ../../../contracts/solc/v0.8.19/EVM2EVMOffRampHelper.bin fe22966f5d97a8f386a4f01f901a308592336ea52c8fd06311f4bf1a961033ad
 evm_2_evm_onramp: ../../../contracts/solc/v0.8.19/EVM2EVMOnRamp.abi ../../../contracts/solc/v0.8.19/EVM2EVMOnRamp.bin 1c21fbc9b49521a9a783c40b0674297bfcb18a64100dae10173682e38ea199fc
 lock_release_token_pool: ../../../contracts/solc/v0.8.19/LockReleaseTokenPool.abi ../../../contracts/solc/v0.8.19/LockReleaseTokenPool.bin 7f7a28f55f9fb63669cd8038a7f99e31431acd6d15ddeeb6a77188eb0bf85d58
 maybe_revert_message_receiver: ../../../contracts/solc/v0.8.19/MaybeRevertMessageReceiver.abi ../../../contracts/solc/v0.8.19/MaybeRevertMessageReceiver.bin aaa90eac8cc555ee4b0fbe57d1fb8d72d6689b29510b238177c97ab9b7979ac5
