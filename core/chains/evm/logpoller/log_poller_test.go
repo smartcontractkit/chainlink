@@ -43,7 +43,7 @@ func logRuntime(t testing.TB, start time.Time) {
 	t.Log("runtime", time.Since(start))
 }
 
-func populateDatabase(t testing.TB, o *logpoller.ORM, chainID *big.Int) (common.Hash, common.Address, common.Address) {
+func populateDatabase(t testing.TB, o *logpoller.DbORM, chainID *big.Int) (common.Hash, common.Address, common.Address) {
 	event1 := EmitterABI.Events["Log1"].ID
 	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
 	address2 := common.HexToAddress("0x6E225058950f237371261C985Db6bDe26df2200E")
@@ -110,7 +110,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 
 	func() {
 		defer logRuntime(t, time.Now())
-		_, err1 := o.SelectLogsByBlockRangeFilter(750000, 800000, address1, event1)
+		_, err1 := o.SelectLogs(750000, 800000, address1, event1)
 		require.NoError(t, err1)
 	}()
 	func() {
@@ -123,7 +123,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 	require.NoError(t, o.InsertBlock(common.HexToHash("0x10"), 1000000, time.Now()))
 	func() {
 		defer logRuntime(t, time.Now())
-		lgs, err1 := o.SelectDataWordRange(address1, event1, 0, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
+		lgs, err1 := o.SelectLogsDataWordRange(address1, event1, 0, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
 		require.NoError(t, err1)
 		// 10 since every other log is for address1
 		assert.Equal(t, 10, len(lgs))
@@ -138,7 +138,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 
 	func() {
 		defer logRuntime(t, time.Now())
-		lgs, err1 := o.SelectIndexLogsTopicRange(address1, event1, 1, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
+		lgs, err1 := o.SelectIndexedLogsTopicRange(address1, event1, 1, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
 		require.NoError(t, err1)
 		assert.Equal(t, 10, len(lgs))
 	}()
