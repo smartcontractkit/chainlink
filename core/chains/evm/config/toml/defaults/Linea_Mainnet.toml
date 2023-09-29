@@ -6,6 +6,7 @@ NoNewHeadsThreshold = '0'
 
 [GasEstimator]
 BumpPercent = 40
+PriceMin = '400 mwei'
 
 [Transactions]
 # increase resend time to align with finality
