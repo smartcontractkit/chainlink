@@ -1,10 +1,13 @@
 package loadvrfv2
 
 import (
+	"context"
+	"fmt"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2_actions"
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 	"testing"
+	"time"
 )
 
 func TestVRFV2Load(t *testing.T) {
@@ -48,6 +51,20 @@ func TestVRFV2Load(t *testing.T) {
 			Add(wasp.NewGenerator(singleFeedConfig)).
 			Run(true)
 		require.NoError(t, err)
+
+		metrics, err := vrfv2Contracts.LoadTestConsumer.GetLoadTestMetrics(context.Background())
+		require.NoError(t, err)
+		//todo - remove this part - need to wait until all requests are fulfilled
+		if metrics.RequestCount.Cmp(metrics.FulfilmentCount) == 1 {
+			fmt.Println("Waiting for all requests to be fulfilled")
+			time.Sleep(3 * time.Second)
+			newMetrics, err := vrfv2Contracts.LoadTestConsumer.GetLoadTestMetrics(context.Background())
+			require.NoError(t, err)
+
+			fmt.Println("Request count:", newMetrics.RequestCount, "FulfilmentCount:", newMetrics.FulfilmentCount)
+
+			require.Equal(t, newMetrics.RequestCount, newMetrics.FulfilmentCount)
+		}
 	})
 
 	// what are the limits for one "job", figuring out the max/optimal performance params by increasing RPS and varying configuration

@@ -156,6 +156,7 @@ func SetupLocalLoadTestEnv(nodesFunding *big.Float, subFundingLINK *big.Int) (*t
 		WithMockServer(1).
 		WithCLNodes(1).
 		WithFunding(nodesFunding).
+		WithLogWatcher().
 		Build()
 	if err != nil {
 		return nil, nil, [32]byte{}, err
