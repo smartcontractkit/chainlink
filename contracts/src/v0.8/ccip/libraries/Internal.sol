@@ -65,8 +65,8 @@ library Internal {
   uint256 public constant MESSAGE_FIXED_BYTES = 32 * 17;
 
   /// @dev Each token transfer adds 1 EVMTokenAmount and 1 bytes.
-  /// When abiEncoded, each EVMTokenAmount takes 2 slots, each bytes takes 2 slots.
-  uint256 public constant MESSAGE_BYTES_PER_TOKEN = 32 * 4;
+  /// When abiEncoded, each EVMTokenAmount takes 2 slots, each bytes takes 2 slots, excl bytes contents
+  uint256 public constant MESSAGE_FIXED_BYTES_PER_TOKEN = 32 * 4;
 
   function _toAny2EVMMessage(
     EVM2EVMMessage memory original,

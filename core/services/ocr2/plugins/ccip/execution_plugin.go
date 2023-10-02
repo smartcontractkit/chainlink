@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -68,7 +69,7 @@ func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet evm.Lega
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "get chainset")
 	}
-	offRamp, err := contractutil.LoadOffRamp(common.HexToAddress(spec.ContractID), ExecPluginLabel, destChain.Client())
+	offRamp, _, err := contractutil.LoadOffRamp(common.HexToAddress(spec.ContractID), ExecPluginLabel, destChain.Client())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed loading offRamp")
 	}
@@ -84,15 +85,15 @@ func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet evm.Lega
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to open source chain")
 	}
-	commitStore, err := contractutil.LoadCommitStore(offRampConfig.CommitStore, ExecPluginLabel, destChain.Client())
+	commitStore, commitStoreVersion, err := contractutil.LoadCommitStore(offRampConfig.CommitStore, ExecPluginLabel, destChain.Client())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed loading commitStore")
 	}
-	onRamp, err := contractutil.LoadOnRamp(offRampConfig.OnRamp, ExecPluginLabel, sourceChain.Client())
+	onRamp, onRampVersion, err := contractutil.LoadOnRamp(offRampConfig.OnRamp, ExecPluginLabel, sourceChain.Client())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed loading onRamp")
 	}
-	dynamicOnRampConfig, err := contractutil.LoadOnRampDynamicConfig(onRamp, sourceChain.Client())
+	dynamicOnRampConfig, err := contractutil.LoadOnRampDynamicConfig(onRamp, onRampVersion, sourceChain.Client())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed loading onRamp config")
 	}
@@ -135,8 +136,10 @@ func jobSpecToExecPluginConfig(lggr logger.Logger, jb job.Job, chainSet evm.Lega
 			onRampReader:             onRampReader,
 			destReader:               ccipdata.NewLogPollerReader(destChain.LogPoller(), execLggr, destChain.Client()),
 			onRamp:                   onRamp,
+			onRampVersion:            onRampVersion,
 			offRamp:                  offRamp,
 			commitStore:              commitStore,
+			commitStoreVersion:       commitStoreVersion,
 			sourcePriceRegistry:      sourcePriceRegistry,
 			sourceWrappedNativeToken: sourceWrappedNative,
 			destClient:               destChain.Client(),
@@ -298,7 +301,21 @@ func unregisterExecutionPluginLpFilters(
 		return err
 	}
 
-	onRampDynCfg, err := contractutil.LoadOnRampDynamicConfig(sourceOnRamp, sourceChainClient)
+	// TODO stopgap solution before compatibility phase-2
+	tvStr, err := sourceOnRamp.TypeAndVersion(&bind.CallOpts{Context: ctx})
+	if err != nil {
+		return err
+	}
+	_, versionStr, err := ccipconfig.ParseTypeAndVersion(tvStr)
+	if err != nil {
+		return err
+	}
+	version, err := semver.NewVersion(versionStr)
+	if err != nil {
+		return err
+	}
+
+	onRampDynCfg, err := contractutil.LoadOnRampDynamicConfig(sourceOnRamp, *version, sourceChainClient)
 	if err != nil {
 		return err
 	}

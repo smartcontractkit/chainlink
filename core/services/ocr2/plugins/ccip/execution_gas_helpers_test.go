@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func TestOverheadGas(t *testing.T) {
@@ -66,45 +65,6 @@ func TestMaxGasOverHeadGas(t *testing.T) {
 		if !reflect.DeepEqual(tc.want, got) {
 			t.Fatalf("expected: %v, got: %v", tc.want, got)
 		}
-	}
-}
-
-func TestComputeExecCost(t *testing.T) {
-	tests := []struct {
-		name            string
-		gasLimit        *big.Int
-		execGasEstimate *big.Int
-		tokenPriceUSD   *big.Int
-		execCostUsd     *big.Int
-	}{
-		{
-			"happy flow",
-			big.NewInt(3_000_000),
-			big.NewInt(2e10),
-			big.NewInt(6e18),
-			big.NewInt(384e15),
-		},
-		{
-			"low usd price",
-			big.NewInt(3_000_000),
-			big.NewInt(2e10),
-			big.NewInt(6e15),
-			big.NewInt(384e12),
-		},
-		{
-			"zero token price",
-			big.NewInt(3_000_000),
-			big.NewInt(2e10),
-			big.NewInt(0),
-			big.NewInt(0),
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			execCostUsd := computeExecCost(tc.gasLimit, tc.execGasEstimate, tc.tokenPriceUSD)
-			require.Equal(t, tc.execCostUsd, execCostUsd)
-		})
 	}
 }
 

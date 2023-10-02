@@ -67,20 +67,22 @@ func (c *inflightCommitReportsContainer) maxInflightSeqNr() uint64 {
 	return max
 }
 
-// latestGasPriceUpdate return the latest inflight gas price update or nil if there is no inflight gas price update.
-func (c *inflightCommitReportsContainer) getLatestInflightGasPriceUpdate() *update {
+// getLatestInflightGasPriceUpdate returns the latest inflight gas price update, and bool flag on if update exists.
+func (c *inflightCommitReportsContainer) getLatestInflightGasPriceUpdate() (update, bool) {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
-	var latestGasPriceUpdate *update
+	updateFound := false
+	latestGasPriceUpdate := update{}
 	var latestEpochAndRound uint64
 	for _, inflight := range c.inFlightPriceUpdates {
 		if inflight.priceUpdates.DestChainSelector == 0 {
 			// Price updates did not include a gas price
 			continue
 		}
-		if latestGasPriceUpdate == nil || inflight.epochAndRound > latestEpochAndRound {
+		if !updateFound || inflight.epochAndRound > latestEpochAndRound {
 			// First price found or found later update, set it
-			latestGasPriceUpdate = &update{
+			updateFound = true
+			latestGasPriceUpdate = update{
 				timestamp: inflight.createdAt,
 				value:     inflight.priceUpdates.UsdPerUnitGas,
 			}
@@ -88,7 +90,7 @@ func (c *inflightCommitReportsContainer) getLatestInflightGasPriceUpdate() *upda
 			continue
 		}
 	}
-	return latestGasPriceUpdate
+	return latestGasPriceUpdate, updateFound
 }
 
 // latestInflightTokenPriceUpdates returns a map of the latest token price updates

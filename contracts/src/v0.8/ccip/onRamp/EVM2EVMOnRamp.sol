@@ -81,9 +81,9 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     address router; // ─────────────────────────╮ Router address
     uint16 maxTokensLength; //                  │ Maximum number of ERC20 token transfers per message
     uint32 destGasOverhead; //                  │ Extra gas charged on top of the gasLimit
-    uint16 destGasPerPayloadByte; //            │ Destination chain gas charged per byte of `data` payload
-    uint32 destDataAvailabilityOverheadGas; //  │ Extra data availability gas charged on top of message data
-    uint16 destGasPerDataAvailabilityByte; // ──╯ Amount of gas to charge per byte of data that needs availability
+    uint16 destGasPerPayloadByte; //            │ Destination chain gas charged for passing each byte of `data` payload to receiver
+    uint32 destDataAvailabilityOverheadGas; //  │ Extra data availability gas charged on top of the message, e.g. for OCR
+    uint16 destGasPerDataAvailabilityByte; // ──╯ Amount of gas to charge per byte of message data that needs availability
     uint16 destDataAvailabilityMultiplier; // ──╮ Multiplier for data availability gas, multiples of 1e-4, or 0.0001
     address priceRegistry; //                   │ Price registry address
     uint32 maxDataSize; //                      │ Maximum payload data size, max 4GB
@@ -116,7 +116,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   struct TokenTransferFeeConfig {
     uint16 ratio; // ───────────────────╮ Ratio of token transfer value to charge as fee, multiples of 0.1bps, or 1e-5
     uint32 destGasOverhead; //          │ Gas charged to execute the token transfer on the destination chain
-    uint32 destBytesOverhead; // ───────╯ Extra data availability bytes on top of transfer data, e.g. USDC offchain data
+    uint32 destBytesOverhead; // ───────╯ Extra data availability bytes on top of fixed transfer data, e.g. USDC source token data and offchain data
   }
 
   /// @dev Same as TokenTransferFeeConfig
@@ -125,7 +125,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     address token; // ──────────────────╮ Token address
     uint16 ratio; //                    │ Ratio of token transfer value to charge as fee, multiples of 0.1bps, or 1e-5
     uint32 destGasOverhead; //          │ Gas charged to execute the token transfer on the destination chain
-    uint32 destBytesOverhead; // ───────╯ Extra data availability bytes on top of transfer data, e.g. USDC offchain data
+    uint32 destBytesOverhead; // ───────╯ Extra data availability bytes on top of fixed transfer data, e.g. USDC source token data and offchain data
   }
 
   /// @dev Nop address and weight, used to set the nops and their weights
@@ -559,9 +559,10 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   ) internal view returns (uint256 dataAvailabilityCostUSD) {
     uint256 dataAvailabilityLengthBytes = Internal.MESSAGE_FIXED_BYTES +
       messageDataLength +
-      (numberOfTokens * Internal.MESSAGE_BYTES_PER_TOKEN) +
+      (numberOfTokens * Internal.MESSAGE_FIXED_BYTES_PER_TOKEN) +
       tokenTransferBytesOverhead;
 
+    // destDataAvailabilityOverheadGas is a separate config value for flexibility to be updated independently of message cost.
     uint256 dataAvailabilityGas = (dataAvailabilityLengthBytes * s_dynamicConfig.destGasPerDataAvailabilityByte) +
       s_dynamicConfig.destDataAvailabilityOverheadGas;
 

@@ -14,6 +14,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+const (
+	FakeOnRampVersion = "1.2.0"
+)
+
 type FakeOnRamp struct {
 	*mock_contracts.EVM2EVMOnRampInterface
 
@@ -32,7 +36,7 @@ func NewFakeOnRamp(t *testing.T) (*FakeOnRamp, common.Address) {
 }
 
 func (o *FakeOnRamp) TypeAndVersion(opts *bind.CallOpts) (string, error) {
-	return fmt.Sprintf("%s %s", ccipconfig.EVM2EVMOnRamp, "1.2.0"), nil
+	return fmt.Sprintf("%s %s", ccipconfig.EVM2EVMOnRamp, FakeOnRampVersion), nil
 }
 
 func (o *FakeOnRamp) SetDynamicCfg(cfg evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig) {

@@ -705,7 +705,7 @@ contract EVM2EVMOnRamp_getDataAvailabilityCostUSD is EVM2EVMOnRamp_getFeeSetup {
 
     uint256 dataAvailabilityLengthBytes = Internal.MESSAGE_FIXED_BYTES +
       100 +
-      (5 * Internal.MESSAGE_BYTES_PER_TOKEN) +
+      (5 * Internal.MESSAGE_FIXED_BYTES_PER_TOKEN) +
       50;
     uint256 dataAvailabilityGas = dynamicConfig.destDataAvailabilityOverheadGas +
       dynamicConfig.destGasPerDataAvailabilityByte *
@@ -757,7 +757,7 @@ contract EVM2EVMOnRamp_getDataAvailabilityCostUSD is EVM2EVMOnRamp_getFeeSetup {
 
     uint256 dataAvailabilityLengthBytes = Internal.MESSAGE_FIXED_BYTES +
       messageDataLength +
-      (numberOfTokens * Internal.MESSAGE_BYTES_PER_TOKEN) +
+      (numberOfTokens * Internal.MESSAGE_FIXED_BYTES_PER_TOKEN) +
       tokenTransferBytesOverhead;
 
     uint256 dataAvailabilityGas = destDataAvailabilityOverheadGas +

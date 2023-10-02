@@ -20,6 +20,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `destDataAvailabilityOverheadGas` is the extra data availability gas charged on top of message data.
     - `destGasPerDataAvailabilityByte` is the amount of gas to charge per byte of data that needs data availability.
     - `destDataAvailabilityMultiplier` is the multiplier for data availability gas. It is in multiples of 1e-4, or 0.0001. It can represent calldata compression factor on Optimistic Rollups.
+- MessageId hashing logic updated.
+  - the new `sourceTokenData` field is added to the hash.
+  - fixed-size fields are hashed in nested hash function.
+- CommitStore OffchainConfig fields updated.
+  - New fields `GasPriceHeartBeat`, `DAGasPriceDeviationPPB`, `ExecGasPriceDeviationPPB`, `TokenPriceHeartBeat`, `TokenPriceDeviationPPB` added
+  - Old Fields `FeeUpdateHeartBeat`, `FeeUpdateDeviationPPB` removed.
 
 ### Removed
 
