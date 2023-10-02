@@ -51,7 +51,7 @@ func (l *loadArgs) Setup(sameCommitAndExec bool) {
 	lggr := l.lggr
 	var setUpArgs *testsetups.CCIPTestSetUpOutputs
 	if !l.TestCfg.ExistingDeployment {
-		replicas := int64(6)
+		replicas := 6
 		if !sameCommitAndExec {
 			replicas = 12
 		}
