@@ -852,7 +852,7 @@ func CCIPDefaultTestSetUp(
 	t *testing.T,
 	lggr zerolog.Logger,
 	envName string,
-	numOfCLNodes int64,
+	numOfCLNodes int,
 	transferAmounts []*big.Int,
 	tokenDeployerFns []blockchain.ContractDeployer,
 	numOfCommitNodes int, commitAndExecOnSameDON, bidirectional bool,
@@ -907,7 +907,7 @@ func CCIPDefaultTestSetUp(
 			}
 		} else {
 			clProps := make(map[string]interface{})
-			clProps["replicas"] = strconv.FormatInt(numOfCLNodes, 10)
+			clProps["replicas"] = numOfCLNodes
 			clProps["db"] = inputs.CLNodeDBResourceProfile
 			clProps["chainlink"] = map[string]interface{}{
 				"resources": inputs.CLNodeResourceProfile,
@@ -1125,7 +1125,7 @@ func CCIPExistingDeploymentTestSetUp(
 
 func DeployLocalCluster(
 	t *testing.T,
-	noOfCLNodes int64,
+	noOfCLNodes int,
 	networks []blockchain.EVMNetwork,
 ) (*test_env.CLClusterTestEnv, func() error) {
 	env, err := test_env.NewCLTestEnvBuilder().
@@ -1150,7 +1150,7 @@ func DeployLocalCluster(
 		if err != nil {
 			return err
 		}
-		return env.StartClNodes(toml, int(noOfCLNodes), "")
+		return env.StartClNodes(toml, noOfCLNodes, "")
 	}
 	return env, deployCL
 }

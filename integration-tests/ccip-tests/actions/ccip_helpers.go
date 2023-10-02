@@ -5,7 +5,6 @@ import (
 	_ "embed"
 	"fmt"
 	"math/big"
-	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -2181,7 +2180,7 @@ func (c *CCIPTestEnv) ChaosLabelForCLNodes(t *testing.T) {
 	for i := c.commitNodeStartIndex; i < len(c.CLNodes); i++ {
 		labelSelector := map[string]string{
 			"app":      "chainlink-0",
-			"instance": strconv.Itoa(i),
+			"instance": fmt.Sprintf("node-%d", i),
 		}
 		// commit node starts from index 2
 		if i >= c.commitNodeStartIndex && i < c.commitNodeStartIndex+c.numOfCommitNodes {

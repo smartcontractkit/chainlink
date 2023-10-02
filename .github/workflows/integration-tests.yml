@@ -695,7 +695,7 @@ jobs:
 #    strategy:
 #      matrix:
 #        image:
-#          - name: (base)
+#          - name: (legacy)
 #            tag-suffix: ""
 #          - name: (plugins)
 #            tag-suffix: -plugins
