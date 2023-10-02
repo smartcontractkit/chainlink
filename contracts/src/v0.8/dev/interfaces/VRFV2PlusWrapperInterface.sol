@@ -65,6 +65,7 @@ interface VRFV2PlusWrapperInterface {
   function requestRandomWordsInNative(
     uint32 _callbackGasLimit,
     uint16 _requestConfirmations,
-    uint32 _numWords
+    uint32 _numWords,
+    bytes memory extraArgs
   ) external payable returns (uint256 requestId);
 }

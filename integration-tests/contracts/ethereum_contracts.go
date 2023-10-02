@@ -39,8 +39,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/werc20_mock"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
@@ -2268,10 +2271,11 @@ type EthereumMercuryVerifier struct {
 	address  common.Address
 	client   blockchain.EVMClient
 	instance *verifier.Verifier
+	l        zerolog.Logger
 }
 
-func (e *EthereumMercuryVerifier) Address() string {
-	return e.address.Hex()
+func (e *EthereumMercuryVerifier) Address() common.Address {
+	return e.address
 }
 
 func (e *EthereumMercuryVerifier) Verify(signedReport []byte, sender common.Address) error {
@@ -2286,14 +2290,57 @@ func (e *EthereumMercuryVerifier) Verify(signedReport []byte, sender common.Addr
 	return e.client.ProcessTransaction(tx)
 }
 
+func (e *EthereumMercuryVerifier) SetConfig(feedId [32]byte, signers []common.Address, offchainTransmitters [][32]byte, f uint8, onchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte, recipientAddressesAndWeights []verifier.CommonAddressAndWeight) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.SetConfig(opts, feedId, signers, offchainTransmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, recipientAddressesAndWeights)
+	e.l.Info().Err(err).Str("contractAddress", e.address.Hex()).Hex("feedId", feedId[:]).Msg("Called EthereumMercuryVerifier.SetConfig()")
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
+}
+
+func (e *EthereumMercuryVerifier) LatestConfigDetails(ctx context.Context, feedId [32]byte) (verifier.LatestConfigDetails, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	d, err := e.instance.LatestConfigDetails(opts, feedId)
+	e.l.Info().Err(err).Str("contractAddress", e.address.Hex()).Hex("feedId", feedId[:]).
+		Interface("details", d).
+		Msg("Called EthereumMercuryVerifier.LatestConfigDetails()")
+	if err != nil {
+		return verifier.LatestConfigDetails{}, err
+	}
+	return d, nil
+}
+
 type EthereumMercuryVerifierProxy struct {
 	address  common.Address
 	client   blockchain.EVMClient
 	instance *verifier_proxy.VerifierProxy
+	l        zerolog.Logger
 }
 
-func (e *EthereumMercuryVerifierProxy) Address() string {
-	return e.address.Hex()
+func (e *EthereumMercuryVerifierProxy) Address() common.Address {
+	return e.address
+}
+
+func (e *EthereumMercuryVerifierProxy) InitializeVerifier(verifierAddress common.Address) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.InitializeVerifier(opts, verifierAddress)
+	e.l.Info().Err(err).Str("contractAddress", e.address.Hex()).Str("verifierAddress", verifierAddress.Hex()).
+		Msg("Called EthereumMercuryVerifierProxy.InitializeVerifier()")
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
 }
 
 func (e *EthereumMercuryVerifierProxy) Verify(signedReport []byte, parameterPayload []byte, value *big.Int) (*types.Transaction, error) {
@@ -2304,7 +2351,7 @@ func (e *EthereumMercuryVerifierProxy) Verify(signedReport []byte, parameterPayl
 	if err != nil {
 		return nil, err
 	}
-	tx, err := e.instance.Verify(opts, parameterPayload, signedReport)
+	tx, err := e.instance.Verify(opts, signedReport, parameterPayload)
 	if err != nil {
 		return nil, err
 	}
@@ -2324,4 +2371,127 @@ func (e *EthereumMercuryVerifierProxy) VerifyBulk(signedReports [][]byte, parame
 		return nil, err
 	}
 	return tx, e.client.ProcessTransaction(tx)
+}
+
+func (e *EthereumMercuryVerifierProxy) SetFeeManager(feeManager common.Address) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.SetFeeManager(opts, feeManager)
+	e.l.Info().Err(err).Str("feeManager", feeManager.Hex()).Msg("Called MercuryVerifierProxy.SetFeeManager()")
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
+}
+
+type EthereumMercuryFeeManager struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *fee_manager.FeeManager
+	l        zerolog.Logger
+}
+
+func (e *EthereumMercuryFeeManager) Address() common.Address {
+	return e.address
+}
+
+type EthereumMercuryRewardManager struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *reward_manager.RewardManager
+	l        zerolog.Logger
+}
+
+func (e *EthereumMercuryRewardManager) Address() common.Address {
+	return e.address
+}
+
+func (e *EthereumMercuryRewardManager) SetFeeManager(feeManager common.Address) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	tx, err := e.instance.SetFeeManager(opts, feeManager)
+	e.l.Info().Err(err).Str("feeManager", feeManager.Hex()).Msg("Called EthereumMercuryRewardManager.SetFeeManager()")
+	if err != nil {
+		return nil, err
+	}
+	return tx, e.client.ProcessTransaction(tx)
+}
+
+type EthereumWERC20Mock struct {
+	address  common.Address
+	client   blockchain.EVMClient
+	instance *werc20_mock.WERC20Mock
+	l        zerolog.Logger
+}
+
+func (e *EthereumWERC20Mock) Address() common.Address {
+	return e.address
+}
+
+func (l *EthereumWERC20Mock) Approve(to string, amount *big.Int) error {
+	opts, err := l.client.TransactionOpts(l.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	l.l.Info().
+		Str("From", l.client.GetDefaultWallet().Address()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Uint64("Nonce", opts.Nonce.Uint64()).
+		Msg("Approving LINK Transfer")
+	tx, err := l.instance.Approve(opts, common.HexToAddress(to), amount)
+	if err != nil {
+		return err
+	}
+	return l.client.ProcessTransaction(tx)
+}
+
+func (l *EthereumWERC20Mock) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(l.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	balance, err := l.instance.BalanceOf(opts, common.HexToAddress(addr))
+	if err != nil {
+		return nil, err
+	}
+	return balance, nil
+}
+
+func (l *EthereumWERC20Mock) Transfer(to string, amount *big.Int) error {
+	opts, err := l.client.TransactionOpts(l.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	l.l.Info().
+		Str("From", l.client.GetDefaultWallet().Address()).
+		Str("To", to).
+		Str("Amount", amount.String()).
+		Uint64("Nonce", opts.Nonce.Uint64()).
+		Msg("EthereumWERC20Mock.Transfer()")
+	tx, err := l.instance.Transfer(opts, common.HexToAddress(to), amount)
+	if err != nil {
+		return err
+	}
+	return l.client.ProcessTransaction(tx)
+}
+
+func (l *EthereumWERC20Mock) Mint(account common.Address, amount *big.Int) (*types.Transaction, error) {
+	opts, err := l.client.TransactionOpts(l.client.GetDefaultWallet())
+	if err != nil {
+		return nil, err
+	}
+	l.l.Info().
+		Str("account", account.Hex()).
+		Str("amount", amount.String()).
+		Msg("EthereumWERC20Mock.Mint()")
+	tx, err := l.instance.Mint(opts, account, amount)
+	if err != nil {
+		return tx, err
+	}
+	return tx, l.client.ProcessTransaction(tx)
 }

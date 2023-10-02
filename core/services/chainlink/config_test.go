@@ -191,6 +191,7 @@ var (
 )
 
 func TestConfig_Marshal(t *testing.T) {
+	zeroSeconds := models.MustMakeDuration(time.Second * 0)
 	second := models.MustMakeDuration(time.Second)
 	minute := models.MustMakeDuration(time.Minute)
 	hour := models.MustMakeDuration(time.Hour)
@@ -528,6 +529,7 @@ func TestConfig_Marshal(t *testing.T) {
 					PollInterval:         &minute,
 					SelectionMode:        &selectionMode,
 					SyncThreshold:        ptr[uint32](13),
+					LeaseDuration:        &zeroSeconds,
 				},
 				OCR: evmcfg.OCR{
 					ContractConfirmations:              ptr[uint16](11),
@@ -926,6 +928,7 @@ PollFailureThreshold = 5
 PollInterval = '1m0s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 13
+LeaseDuration = '0s'
 
 [EVM.OCR]
 ContractConfirmations = 11
