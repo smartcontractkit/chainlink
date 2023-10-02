@@ -4,7 +4,6 @@ package testsetups
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
 	"math/big"
 	"math/rand"
 	"os"
@@ -359,7 +358,7 @@ func (o *OCRSoakTest) LoadState() error {
 	}
 
 	testState := &OCRSoakTestState{}
-	saveData, err := ioutil.ReadFile(saveFileLocation)
+	saveData, err := os.ReadFile(saveFileLocation)
 	if err != nil {
 		return err
 	}
