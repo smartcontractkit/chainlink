@@ -193,8 +193,9 @@ Enabled = true`
 	})
 
 	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("performance-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		Test:            t,
+		NamespacePrefix:    fmt.Sprintf("performance-flux-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:               t,
+		PreventPodEviction: true,
 	}).
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
