@@ -3,6 +3,7 @@ pragma solidity ^0.8.6;
 
 import "../VRFV2PlusWrapperConsumerBase.sol";
 import "../../../shared/access/ConfirmedOwner.sol";
+import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 
 contract VRFV2PlusWrapperConsumerExample is VRFV2PlusWrapperConsumerBase, ConfirmedOwner {
   event WrappedRequestFulfilled(uint256 requestId, uint256[] randomWords, uint256 payment);
@@ -27,7 +28,8 @@ contract VRFV2PlusWrapperConsumerExample is VRFV2PlusWrapperConsumerBase, Confir
     uint16 _requestConfirmations,
     uint32 _numWords
   ) external onlyOwner returns (uint256 requestId) {
-    requestId = requestRandomness(_callbackGasLimit, _requestConfirmations, _numWords);
+    bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}));
+    requestId = requestRandomness(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs);
     uint256 paid = VRF_V2_PLUS_WRAPPER.calculateRequestPrice(_callbackGasLimit);
     s_requests[requestId] = RequestStatus({paid: paid, randomWords: new uint256[](0), fulfilled: false, native: false});
     emit WrapperRequestMade(requestId, paid);
@@ -39,7 +41,8 @@ contract VRFV2PlusWrapperConsumerExample is VRFV2PlusWrapperConsumerBase, Confir
     uint16 _requestConfirmations,
     uint32 _numWords
   ) external onlyOwner returns (uint256 requestId) {
-    requestId = requestRandomnessPayInNative(_callbackGasLimit, _requestConfirmations, _numWords);
+    bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}));
+    requestId = requestRandomnessPayInNative(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs);
     uint256 paid = VRF_V2_PLUS_WRAPPER.calculateRequestPriceNative(_callbackGasLimit);
     s_requests[requestId] = RequestStatus({paid: paid, randomWords: new uint256[](0), fulfilled: false, native: true});
     emit WrapperRequestMade(requestId, paid);
