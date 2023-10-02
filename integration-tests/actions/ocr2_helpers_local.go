@@ -10,7 +10,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"golang.org/x/sync/errgroup"
+	"gopkg.in/guregu/null.v4"
+
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -18,11 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"golang.org/x/sync/errgroup"
-	"gopkg.in/guregu/null.v4"
 )
 
 func CreateOCRv2JobsLocal(
@@ -270,4 +272,39 @@ func GetOracleIdentitiesWithKeyIndexLocal(
 	}
 
 	return S, oracleIdentities, eg.Wait()
+}
+
+func DeleteAllOCR2JobsAndBridges(nodes []*client.ChainlinkClient) error {
+	for _, node := range nodes {
+		if node == nil {
+			return fmt.Errorf("found a nil chainlink node in the list of chainlink nodes while tearing down: %v", nodes)
+		}
+		jobs, _, err := node.ReadJobs()
+		if err != nil {
+			return errors.Wrap(err, "error reading jobs from chainlink node")
+		}
+		for _, maps := range jobs.Data {
+			if _, ok := maps["id"]; !ok {
+				return errors.Errorf("error reading job id from chainlink node's jobs %+v", jobs.Data)
+			}
+			id := maps["id"].(string)
+			_, err := node.DeleteJob(id)
+			if err != nil {
+				return errors.Wrap(err, "error deleting job from chainlink node")
+			}
+		}
+
+		bridges, _, err := node.GetBridges()
+		if err != nil {
+			return err
+		}
+		for _, b := range bridges.Data {
+			_, err = node.DeleteBridge(b.Attributes.Name)
+			if err != nil {
+				return err
+			}
+		}
+
+	}
+	return nil
 }

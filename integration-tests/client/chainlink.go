@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
-
-	"os"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/go-resty/resty/v2"
@@ -1204,6 +1203,22 @@ func (c *ChainlinkClient) GetForwarders() (*Forwarders, *http.Response, error) {
 	resp, err := c.APIClient.R().
 		SetResult(response).
 		Get("/v2/nodes/evm/forwarders")
+	if err != nil {
+		return nil, nil, err
+	}
+	err = VerifyStatusCode(resp.StatusCode(), http.StatusOK)
+	if err != nil {
+		return nil, nil, err
+	}
+	return response, resp.RawResponse, err
+}
+
+func (c *ChainlinkClient) GetBridges() (*Bridges, *http.Response, error) {
+	response := &Bridges{}
+	c.l.Info().Str(NodeURL, c.Config.URL).Msg("Getting bridges")
+	resp, err := c.APIClient.R().
+		SetResult(response).
+		Get("/v2/bridge_types")
 	if err != nil {
 		return nil, nil, err
 	}

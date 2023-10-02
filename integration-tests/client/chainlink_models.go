@@ -106,6 +106,11 @@ type BridgeTypeData struct {
 	Attributes BridgeTypeAttributes `json:"attributes"`
 }
 
+// Bridges is the model that represents the bridges when read on a Chainlink node
+type Bridges struct {
+	Data []BridgeTypeData `json:"data"`
+}
+
 // BridgeTypeAttributes is the model that represents the bridge when read or created on a Chainlink node
 type BridgeTypeAttributes struct {
 	Name        string `json:"name"`

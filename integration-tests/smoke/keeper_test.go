@@ -1132,3 +1132,72 @@ func setupKeeperTest(t *testing.T) (
 
 	return env.EVMClient, env.GetAPIs(), env.ContractDeployer, linkTokenContract, env
 }
+
+func TestKeeperJobReplacement(t *testing.T) {
+	t.Parallel()
+	registryVersions := []ethereum.KeeperRegistryVersion{
+		ethereum.RegistryVersion_1_1,
+		ethereum.RegistryVersion_1_2,
+		ethereum.RegistryVersion_1_3,
+	}
+
+	for _, rv := range registryVersions {
+		registryVersion := rv
+		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			t.Parallel()
+			l := logging.GetTestLogger(t)
+			chainClient, chainlinkNodes, contractDeployer, linkToken, _ := setupKeeperTest(t)
+			registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
+				t,
+				registryVersion,
+				keeperDefaultRegistryConfig,
+				keeperDefaultUpkeepsToDeploy,
+				keeperDefaultUpkeepGasLimit,
+				linkToken,
+				contractDeployer,
+				chainClient,
+				big.NewInt(keeperDefaultLinkFunds),
+			)
+			gom := gomega.NewGomegaWithT(t)
+
+			_, err := actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, chainClient.GetChainID().String())
+			require.NoError(t, err, "Error creating keeper jobs")
+			err = chainClient.WaitForEvents()
+			require.NoError(t, err, "Error creating keeper jobs")
+
+			gom.Eventually(func(g gomega.Gomega) error {
+				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(context.Background())
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
+					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(10)),
+						"Expected consumer counter to be greater than 10, but got %d", counter.Int64())
+					l.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
+				}
+				return nil
+			}, "5m", "1s").Should(gomega.Succeed())
+
+			for _, n := range chainlinkNodes {
+				_, err = n.DeleteJob(fmt.Sprintf("keeper-test-%s", registry.Address()))
+				require.NoError(t, err)
+			}
+
+			_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, chainClient.GetChainID().String())
+			require.NoError(t, err, "Error creating keeper jobs")
+			err = chainClient.WaitForEvents()
+			require.NoError(t, err, "Error creating keeper jobs")
+
+			gom.Eventually(func(g gomega.Gomega) error {
+				// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are greater than 10
+				for i := 0; i < len(upkeepIDs); i++ {
+					counter, err := consumers[i].Counter(context.Background())
+					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
+					g.Expect(counter.Int64()).Should(gomega.BeNumerically(">", int64(10)),
+						"Expected consumer counter to be greater than 10, but got %d", counter.Int64())
+					l.Info().Int64("Upkeep counter", counter.Int64()).Msg("Number of upkeeps performed")
+				}
+				return nil
+			}, "5m", "1s").Should(gomega.Succeed())
+		})
+	}
+}
