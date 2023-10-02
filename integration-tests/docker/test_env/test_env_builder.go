@@ -35,6 +35,8 @@ type CLTestEnvBuilder struct {
 	defaultNodeCsaKeys   []string
 	l                    zerolog.Logger
 	t                    *testing.T
+	te                   *CLClusterTestEnv
+	isNonEVM             bool
 
 	/* funding */
 	ETHFunds *big.Float
@@ -47,6 +49,38 @@ func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	}
 }
 
+// WithTestEnv sets the test environment to use for the test.
+// If nil, a new test environment is created.
+// If not nil, the test environment is used as-is.
+// If TEST_ENV_CONFIG_PATH is set, the test environment is created with the config at that path.
+func (b *CLTestEnvBuilder) WithTestEnv(te *CLClusterTestEnv) (*CLTestEnvBuilder, error) {
+	envConfigPath, isSet := os.LookupEnv("TEST_ENV_CONFIG_PATH")
+	var cfg *TestEnvConfig
+	var err error
+	if isSet {
+		cfg, err = NewTestEnvConfigFromFile(envConfigPath)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if te != nil {
+		b.te = te
+	} else {
+		b.te, err = NewTestEnv()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if cfg != nil {
+		b.te = b.te.WithTestEnvConfig(cfg)
+	}
+	return b, nil
+}
+
+// WithTestLogger sets the test logger to use for the test.
+// Useful for parallel tests so the logging will be separated correctly in the results views.
 func (b *CLTestEnvBuilder) WithTestLogger(t *testing.T) *CLTestEnvBuilder {
 	b.t = t
 	b.l = logging.GetTestLogger(t)
@@ -99,20 +133,20 @@ func (b *CLTestEnvBuilder) WithMockServer(externalAdapterCount int) *CLTestEnvBu
 	return b
 }
 
+// WithNonEVM sets the test environment to not use EVM when built.
+func (b *CLTestEnvBuilder) WithNonEVM() *CLTestEnvBuilder {
+	b.isNonEVM = true
+	return b
+}
+
 func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
-	envConfigPath, isSet := os.LookupEnv("TEST_ENV_CONFIG_PATH")
-	if isSet {
-		cfg, err := NewTestEnvConfigFromFile(envConfigPath)
+	if b.te == nil {
+		var err error
+		b, err = b.WithTestEnv(nil)
 		if err != nil {
 			return nil, err
 		}
-		_ = os.Setenv("TESTCONTAINERS_RYUK_DISABLED", "true")
-		return b.buildNewEnv(cfg)
 	}
-	return b.buildNewEnv(nil)
-}
-
-func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
 	b.l.Info().
 		Bool("hasGeth", b.hasGeth).
 		Bool("hasMockServer", b.hasMockServer).
@@ -122,52 +156,39 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 		Strs("defaultNodeCsaKeys", b.defaultNodeCsaKeys).
 		Msg("Building CL cluster test environment..")
 
-	var te *CLClusterTestEnv
 	var err error
-	if cfg != nil {
-		te, err = NewTestEnvFromCfg(b.l, cfg)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		te, err = NewTestEnv()
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	if b.t != nil {
-		te.WithTestLogger(b.t)
+		b.te.WithTestLogger(b.t)
 	}
 
 	if b.hasLogWatch {
-		te.LogWatch, err = logwatch.NewLogWatch(nil, nil)
+		b.te.LogWatch, err = logwatch.NewLogWatch(nil, nil)
 		if err != nil {
 			return nil, err
 		}
 	}
 
 	if b.hasMockServer {
-		err = te.StartMockServer()
+		err = b.te.StartMockServer()
 		if err != nil {
 			return nil, err
 		}
-		err = te.MockServer.SetExternalAdapterMocks(b.externalAdapterCount)
+		err = b.te.MockServer.SetExternalAdapterMocks(b.externalAdapterCount)
 		if err != nil {
 			return nil, err
 		}
 	}
 	if b.nonDevGethNetworks != nil {
-		te.WithPrivateChain(b.nonDevGethNetworks)
-		err := te.StartPrivateChain()
+		b.te.WithPrivateChain(b.nonDevGethNetworks)
+		err := b.te.StartPrivateChain()
 		if err != nil {
-			return te, err
+			return b.te, err
 		}
 		var nonDevNetworks []blockchain.EVMNetwork
-		for i, n := range te.PrivateChain {
+		for i, n := range b.te.PrivateChain {
 			primaryNode := n.GetPrimaryNode()
 			if primaryNode == nil {
-				return te, errors.WithStack(fmt.Errorf("Primary node is nil in PrivateChain interface"))
+				return b.te, errors.WithStack(fmt.Errorf("primary node is nil in PrivateChain interface"))
 			}
 			nonDevNetworks = append(nonDevNetworks, *n.GetNetworkConfig())
 			nonDevNetworks[i].URLs = []string{primaryNode.GetInternalWsUrl()}
@@ -177,40 +198,41 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 			return nil, errors.New("cannot create nodes with custom config without nonDevNetworks")
 		}
 
-		err = te.StartClNodes(b.clNodeConfig, b.clNodesCount, b.secretsConfig)
+		err = b.te.StartClNodes(b.clNodeConfig, b.clNodesCount, b.secretsConfig)
 		if err != nil {
 			return nil, err
 		}
-		return te, nil
+		return b.te, nil
 	}
 	networkConfig := networks.SelectedNetwork
 	var internalDockerUrls test_env.InternalDockerUrls
 	if b.hasGeth && networkConfig.Simulated {
-		networkConfig, internalDockerUrls, err = te.StartGeth()
+		networkConfig, internalDockerUrls, err = b.te.StartGeth()
 		if err != nil {
 			return nil, err
 		}
 
 	}
 
-	bc, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)
-	if err != nil {
-		return nil, err
-	}
+	if !b.isNonEVM {
+		bc, err := blockchain.NewEVMClientFromNetwork(networkConfig, b.l)
+		if err != nil {
+			return nil, err
+		}
 
-	te.EVMClient = bc
+		b.te.EVMClient = bc
+		cd, err := contracts.NewContractDeployer(bc, b.l)
+		if err != nil {
+			return nil, err
+		}
+		b.te.ContractDeployer = cd
 
-	cd, err := contracts.NewContractDeployer(bc, b.l)
-	if err != nil {
-		return nil, err
+		cl, err := contracts.NewContractLoader(bc, b.l)
+		if err != nil {
+			return nil, err
+		}
+		b.te.ContractLoader = cl
 	}
-	te.ContractDeployer = cd
-
-	cl, err := contracts.NewContractLoader(bc, b.l)
-	if err != nil {
-		return nil, err
-	}
-	te.ContractLoader = cl
 
 	var nodeCsaKeys []string
 
@@ -225,26 +247,27 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 				node.WithP2Pv1(),
 			)
 		}
-		//node.SetDefaultSimulatedGeth(cfg, te.Geth.InternalWsUrl, te.Geth.InternalHttpUrl, b.hasForwarders)
 
-		var httpUrls []string
-		var wsUrls []string
-		if networkConfig.Simulated {
-			httpUrls = []string{internalDockerUrls.HttpUrl}
-			wsUrls = []string{internalDockerUrls.WsUrl}
-		} else {
-			httpUrls = networkConfig.HTTPURLs
-			wsUrls = networkConfig.URLs
+		if !b.isNonEVM {
+			var httpUrls []string
+			var wsUrls []string
+			if networkConfig.Simulated {
+				httpUrls = []string{internalDockerUrls.HttpUrl}
+				wsUrls = []string{internalDockerUrls.WsUrl}
+			} else {
+				httpUrls = networkConfig.HTTPURLs
+				wsUrls = networkConfig.URLs
+			}
+
+			node.SetChainConfig(cfg, wsUrls, httpUrls, networkConfig, b.hasForwarders)
 		}
 
-		node.SetChainConfig(cfg, wsUrls, httpUrls, networkConfig, b.hasForwarders)
-
-		err := te.StartClNodes(cfg, b.clNodesCount, b.secretsConfig)
+		err := b.te.StartClNodes(cfg, b.clNodesCount, b.secretsConfig)
 		if err != nil {
 			return nil, err
 		}
 
-		nodeCsaKeys, err = te.GetNodeCSAKeys()
+		nodeCsaKeys, err = b.te.GetNodeCSAKeys()
 		if err != nil {
 			return nil, err
 		}
@@ -252,12 +275,12 @@ func (b *CLTestEnvBuilder) buildNewEnv(cfg *TestEnvConfig) (*CLClusterTestEnv, e
 	}
 
 	if b.hasGeth && b.clNodesCount > 0 && b.ETHFunds != nil {
-		te.ParallelTransactions(true)
-		defer te.ParallelTransactions(false)
-		if err := te.FundChainlinkNodes(b.ETHFunds); err != nil {
+		b.te.ParallelTransactions(true)
+		defer b.te.ParallelTransactions(false)
+		if err := b.te.FundChainlinkNodes(b.ETHFunds); err != nil {
 			return nil, err
 		}
 	}
 
-	return te, nil
+	return b.te, nil
 }
