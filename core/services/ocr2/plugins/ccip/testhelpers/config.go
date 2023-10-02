@@ -29,12 +29,15 @@ func (c *CCIPContracts) CreateDefaultCommitOffchainConfig(t *testing.T) []byte {
 
 func (c *CCIPContracts) createCommitOffchainConfig(t *testing.T, feeUpdateHearBeat time.Duration, inflightCacheExpiry time.Duration) []byte {
 	config, err := ccipconfig.EncodeOffchainConfig(ccipconfig.CommitOffchainConfig{
-		SourceFinalityDepth:   1,
-		DestFinalityDepth:     1,
-		FeeUpdateHeartBeat:    models.MustMakeDuration(feeUpdateHearBeat),
-		FeeUpdateDeviationPPB: 1,
-		MaxGasPrice:           200e9,
-		InflightCacheExpiry:   models.MustMakeDuration(inflightCacheExpiry),
+		SourceFinalityDepth:      1,
+		DestFinalityDepth:        1,
+		GasPriceHeartBeat:        models.MustMakeDuration(feeUpdateHearBeat),
+		DAGasPriceDeviationPPB:   1,
+		ExecGasPriceDeviationPPB: 1,
+		TokenPriceHeartBeat:      models.MustMakeDuration(feeUpdateHearBeat),
+		TokenPriceDeviationPPB:   1,
+		MaxGasPrice:              200e9,
+		InflightCacheExpiry:      models.MustMakeDuration(inflightCacheExpiry),
 	})
 	require.NoError(t, err)
 	return config

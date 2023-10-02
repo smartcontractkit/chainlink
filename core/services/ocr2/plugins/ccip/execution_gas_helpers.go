@@ -4,8 +4,6 @@ import (
 	"math"
 	"math/big"
 	"time"
-
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 )
 
 const (
@@ -28,6 +26,9 @@ const (
 	EXECUTION_STATE_PROCESSING_OVERHEAD_GAS = 2_100 + // COLD_SLOAD_COST for first reading the state
 		20_000 + // SSTORE_SET_GAS for writing from 0 (untouched) to non-zero (in-progress)
 		100 //# SLOAD_GAS = WARM_STORAGE_READ_COST for rewriting from non-zero (in-progress) to non-zero (success/failure)
+	EVM_MESSAGE_FIXED_BYTES     = 448 // Byte size of fixed-size fields in EVM2EVMMessage
+	EVM_MESSAGE_BYTES_PER_TOKEN = 128 // Byte size of each token transfer, consisting of 1 EVMTokenAmount and 1 bytes, excl length of bytes
+	DA_MULTIPLIER_BASE          = int64(10000)
 )
 
 // return the size of bytes for msg tokens
@@ -63,14 +64,6 @@ func maxGasOverHeadGas(numMsgs, dataLength, numTokens int) uint64 {
 	merkleGasShare := uint64(merkleProofBytes * CALLDATA_GAS_PER_BYTE)
 
 	return overheadGas(dataLength, numTokens) + merkleGasShare
-}
-
-// computeExecCost calculates the costs for next execution, and converts to USD value scaled by 1e18 (e.g. 5$ = 5e18).
-func computeExecCost(gasLimit *big.Int, execGasPriceEstimate, tokenPriceUSD *big.Int) *big.Int {
-	execGasEstimate := new(big.Int).Add(big.NewInt(FEE_BOOSTING_OVERHEAD_GAS), gasLimit)
-	execGasEstimate.Mul(execGasEstimate, execGasPriceEstimate)
-
-	return ccipcalc.CalculateUsdPerUnitGas(execGasEstimate, tokenPriceUSD)
 }
 
 // waitBoostedFee boosts the given fee according to the time passed since the msg was sent.

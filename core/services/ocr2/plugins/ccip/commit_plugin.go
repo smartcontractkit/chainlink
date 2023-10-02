@@ -63,7 +63,7 @@ func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Run
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "get chainset")
 	}
-	commitStore, err := contractutil.LoadCommitStore(common.HexToAddress(spec.ContractID), CommitPluginLabel, destChain.Client())
+	commitStore, commitStoreVersion, err := contractutil.LoadCommitStore(common.HexToAddress(spec.ContractID), CommitPluginLabel, destChain.Client())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed loading commitStore")
 	}
@@ -79,7 +79,7 @@ func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Run
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "unable to open source chain")
 	}
-	offRamp, err := contractutil.LoadOffRamp(common.HexToAddress(pluginConfig.OffRamp), CommitPluginLabel, destChain.Client())
+	offRamp, _, err := contractutil.LoadOffRamp(common.HexToAddress(pluginConfig.OffRamp), CommitPluginLabel, destChain.Client())
 	if err != nil {
 		return nil, nil, errors.Wrap(err, "failed loading offRamp")
 	}
@@ -121,6 +121,7 @@ func jobSpecToCommitPluginConfig(lggr logger.Logger, jb job.Job, pr pipeline.Run
 			sourceChainSelector: staticConfig.SourceChainSelector,
 			destClient:          destChain.Client(),
 			commitStore:         commitStore,
+			commitStoreVersion:  commitStoreVersion,
 		}, &BackfillArgs{
 			sourceLP:         sourceChain.LogPoller(),
 			destLP:           destChain.LogPoller(),

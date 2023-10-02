@@ -15,6 +15,51 @@ type OffchainConfig interface {
 // Do not change the JSON format of this struct without consulting with
 // the RDD people first.
 type CommitOffchainConfig struct {
+	SourceFinalityDepth      uint32
+	DestFinalityDepth        uint32
+	GasPriceHeartBeat        models.Duration
+	DAGasPriceDeviationPPB   uint32
+	ExecGasPriceDeviationPPB uint32
+	TokenPriceHeartBeat      models.Duration
+	TokenPriceDeviationPPB   uint32
+	MaxGasPrice              uint64
+	InflightCacheExpiry      models.Duration
+}
+
+func (c CommitOffchainConfig) Validate() error {
+	if c.SourceFinalityDepth == 0 {
+		return errors.New("must set SourceFinalityDepth")
+	}
+	if c.DestFinalityDepth == 0 {
+		return errors.New("must set DestFinalityDepth")
+	}
+	if c.GasPriceHeartBeat.Duration() == 0 {
+		return errors.New("must set GasPriceHeartBeat")
+	}
+	if c.DAGasPriceDeviationPPB == 0 {
+		return errors.New("must set DAGasPriceDeviationPPB")
+	}
+	if c.ExecGasPriceDeviationPPB == 0 {
+		return errors.New("must set ExecGasPriceDeviationPPB")
+	}
+	if c.TokenPriceHeartBeat.Duration() == 0 {
+		return errors.New("must set TokenPriceHeartBeat")
+	}
+	if c.TokenPriceDeviationPPB == 0 {
+		return errors.New("must set TokenPriceDeviationPPB")
+	}
+	if c.MaxGasPrice == 0 {
+		return errors.New("must set MaxGasPrice")
+	}
+	if c.InflightCacheExpiry.Duration() == 0 {
+		return errors.New("must set InflightCacheExpiry")
+	}
+
+	return nil
+}
+
+// CommitOffchainConfigV1 is a legacy version of CommitOffchainConfig, used for CommitStore version 1.0.0 and 1.1.0
+type CommitOffchainConfigV1 struct {
 	SourceFinalityDepth   uint32
 	DestFinalityDepth     uint32
 	FeeUpdateHeartBeat    models.Duration
@@ -23,7 +68,7 @@ type CommitOffchainConfig struct {
 	InflightCacheExpiry   models.Duration
 }
 
-func (c CommitOffchainConfig) Validate() error {
+func (c CommitOffchainConfigV1) Validate() error {
 	if c.SourceFinalityDepth == 0 {
 		return errors.New("must set SourceFinalityDepth")
 	}
