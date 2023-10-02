@@ -151,8 +151,9 @@ HTTPWriteTimout = '300s'`
 	})
 
 	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		Test:            t,
+		NamespacePrefix:    fmt.Sprintf("smoke-vrf-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:               t,
+		PreventPodEviction: true,
 	}).
 		AddHelm(evmConfig).
 		AddHelm(cd)
