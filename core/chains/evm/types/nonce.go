@@ -18,6 +18,6 @@ func (n Nonce) String() string {
 	return strconv.FormatInt(n.Int64(), 10)
 }
 
-func (n Nonce) Increment() Nonce {
+func (n Nonce) Next() Nonce {
 	return Nonce(n + 1)
 }

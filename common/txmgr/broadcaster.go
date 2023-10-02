@@ -343,7 +343,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) load
 
 			nextSequenceMap[address] = seq
 		} else {
-			nextSequenceMap[address] = seq.Increment()
+			nextSequenceMap[address] = seq.Next()
 		}
 	}
 
@@ -829,7 +829,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Incr
 	if !exists {
 		return errors.New(fmt.Sprint("address not found in next sequence map: ", address))
 	}
-	eb.nextSequenceMap[address] = seq.Increment()
+	eb.nextSequenceMap[address] = seq.Next()
 	return nil
 }
 
