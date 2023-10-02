@@ -15,12 +15,16 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
@@ -436,4 +440,140 @@ func TestSetMigrationENVVars(t *testing.T) {
 		actualChainID := os.Getenv(env.EVMChainIDNotNullMigration0195)
 		require.Equal(t, actualChainID, chainID.String())
 	})
+}
+
+func TestDatabaseBackFillWithMigration200(t *testing.T) {
+	_, db := heavyweight.FullTestDBEmptyV2(t, migrationDir, nil)
+
+	err := goose.UpTo(db.DB, migrationDir, 199)
+	require.NoError(t, err)
+
+	simulatedOrm := logpoller.NewORM(testutils.SimulatedChainID, db, logger.TestLogger(t), pgtest.NewQConfig(true))
+	require.NoError(t, simulatedOrm.InsertBlock(testutils.Random32Byte(), 10, time.Now(), 0), err)
+	require.NoError(t, simulatedOrm.InsertBlock(testutils.Random32Byte(), 51, time.Now(), 0), err)
+	require.NoError(t, simulatedOrm.InsertBlock(testutils.Random32Byte(), 90, time.Now(), 0), err)
+	require.NoError(t, simulatedOrm.InsertBlock(testutils.Random32Byte(), 120, time.Now(), 23), err)
+
+	baseOrm := logpoller.NewORM(big.NewInt(int64(84531)), db, logger.TestLogger(t), pgtest.NewQConfig(true))
+	require.NoError(t, baseOrm.InsertBlock(testutils.Random32Byte(), 400, time.Now(), 0), err)
+
+	klaytnOrm := logpoller.NewORM(big.NewInt(int64(1001)), db, logger.TestLogger(t), pgtest.NewQConfig(true))
+	require.NoError(t, klaytnOrm.InsertBlock(testutils.Random32Byte(), 100, time.Now(), 0), err)
+
+	err = goose.UpTo(db.DB, migrationDir, 200)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name                       string
+		blockNumber                int64
+		expectedLastFinalizedBlock int64
+		orm                        *logpoller.DbORM
+	}{
+		{
+			name:                       "last finalized block not changed if finality is too deep",
+			blockNumber:                10,
+			expectedLastFinalizedBlock: 0,
+			orm:                        simulatedOrm,
+		},
+		{
+			name:                       "last finalized block is updated for first block",
+			blockNumber:                51,
+			expectedLastFinalizedBlock: 1,
+			orm:                        simulatedOrm,
+		},
+		{
+			name:                       "last finalized block is updated",
+			blockNumber:                90,
+			expectedLastFinalizedBlock: 40,
+			orm:                        simulatedOrm,
+		},
+		{
+			name:                       "last finalized block is not changed when finality is set",
+			blockNumber:                120,
+			expectedLastFinalizedBlock: 23,
+			orm:                        simulatedOrm,
+		},
+		{
+			name:                       "use non default finality depth for chain 84531",
+			blockNumber:                400,
+			expectedLastFinalizedBlock: 200,
+			orm:                        baseOrm,
+		},
+		{
+			name:                       "use default finality depth for chain 1001",
+			blockNumber:                100,
+			expectedLastFinalizedBlock: 99,
+			orm:                        klaytnOrm,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			block, err := tt.orm.SelectBlockByNumber(tt.blockNumber)
+			require.NoError(t, err)
+			require.Equal(t, tt.expectedLastFinalizedBlock, block.LastFinalizedBlockNumber)
+		})
+	}
+}
+
+func BenchmarkBackfillingRecordsWithMigration200(b *testing.B) {
+	chainCount := 2
+	// By default, log poller keeps up to 100_000 blocks in the database, this is the pessimistic case
+	maxLogsSize := 100_000
+	// Disable Goose logging for benchmarking
+	goose.SetLogger(goose.NopLogger())
+	_, db := heavyweight.FullTestDBEmptyV2(b, migrationDir, nil)
+
+	err := goose.UpTo(db.DB, migrationDir, 199)
+	require.NoError(b, err)
+
+	q := pg.NewQ(db, logger.NullLogger, pgtest.NewQConfig(true))
+	for j := 0; j < chainCount; j++ {
+		// Insert 100_000 block to database, can't do all at once, so batching by 10k
+		var blocks []logpoller.LogPollerBlock
+		for i := 0; i < maxLogsSize; i++ {
+			blocks = append(blocks, logpoller.LogPollerBlock{
+				EvmChainId:               utils.NewBigI(int64(j + 1)),
+				BlockHash:                testutils.Random32Byte(),
+				BlockNumber:              int64(i + 1000),
+				LastFinalizedBlockNumber: 0,
+			})
+		}
+		batchInsertSize := 10_000
+		for i := 0; i < maxLogsSize; i += batchInsertSize {
+			start, end := i, i+batchInsertSize
+			if end > maxLogsSize {
+				end = maxLogsSize
+			}
+
+			err = q.ExecQNamed(`
+			INSERT INTO evm.log_poller_blocks
+				(evm_chain_id, block_hash, block_number, last_finalized_block_number, block_timestamp, created_at)
+			VALUES 
+				(:evm_chain_id, :block_hash, :block_number, :last_finalized_block_number, NOW(), NOW())
+			ON CONFLICT DO NOTHING`, blocks[start:end])
+			require.NoError(b, err)
+		}
+	}
+
+	b.ResetTimer()
+
+	// 1. Measure time of migration 200
+	// 2. Goose down to 199
+	// 3. Reset last_finalized_block_number to 0
+	// Repeat 1-3
+	for i := 0; i < b.N; i++ {
+		b.StartTimer()
+		err = goose.UpTo(db.DB, migrationDir, 200)
+		require.NoError(b, err)
+		b.StopTimer()
+
+		// Cleanup
+		err = goose.DownTo(db.DB, migrationDir, 199)
+		require.NoError(b, err)
+
+		err = q.ExecQ(`
+			UPDATE evm.log_poller_blocks
+			SET last_finalized_block_number = 0`)
+		require.NoError(b, err)
+	}
 }

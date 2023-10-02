@@ -76,7 +76,7 @@ func populateDatabase(t testing.TB, o *logpoller.DbORM, chainID *big.Int) (commo
 
 		}
 		require.NoError(t, o.InsertLogs(logs))
-		require.NoError(t, o.InsertBlock(utils.RandomAddress().Hash(), int64((j+1)*1000-1), startDate.Add(time.Duration(j*1000)*time.Hour)))
+		require.NoError(t, o.InsertBlock(utils.RandomAddress().Hash(), int64((j+1)*1000-1), startDate.Add(time.Duration(j*1000)*time.Hour), 0))
 	}
 
 	return event1, address1, address2
@@ -120,7 +120,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 	}()
 
 	// Confirm all the logs.
-	require.NoError(t, o.InsertBlock(common.HexToHash("0x10"), 1000000, time.Now()))
+	require.NoError(t, o.InsertBlock(common.HexToHash("0x10"), 1000000, time.Now(), 0))
 	func() {
 		defer logRuntime(t, time.Now())
 		lgs, err1 := o.SelectLogsDataWordRange(address1, event1, 0, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
@@ -145,7 +145,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 }
 
 func TestLogPoller_Integration(t *testing.T) {
-	th := SetupTH(t, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2)
 	th.Client.Commit() // Block 2. Ensure we have finality number of blocks
 
 	err := th.LogPoller.RegisterFilter(logpoller.Filter{"Integration test", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1}, 0})
@@ -221,7 +221,7 @@ func TestLogPoller_Integration(t *testing.T) {
 // for the same block hash.  We should be able to handle this without missing any logs, as
 // long as the logs returned for finalized blocks are consistent.
 func Test_BackupLogPoller(t *testing.T) {
-	th := SetupTH(t, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2)
 	// later, we will need at least 32 blocks filled with logs for cache invalidation
 	for i := int64(0); i < 32; i++ {
 		// to invalidate geth's internal read-cache, a matching log must be found in the bloom Filter
@@ -363,7 +363,7 @@ func Test_BackupLogPoller(t *testing.T) {
 func TestLogPoller_BlockTimestamps(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
-	th := SetupTH(t, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2)
 
 	addresses := []common.Address{th.EmitterAddress1, th.EmitterAddress2}
 	topics := []common.Hash{EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}
@@ -468,7 +468,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 		}, 10e6)
 		_, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 		require.NoError(t, err)
-		lp := logpoller.NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, int64(finalityDepth), 3, 2, 1000)
+		lp := logpoller.NewLogPoller(orm, client.NewSimulatedBackendClient(t, ec, chainID), lggr, 15*time.Second, false, int64(finalityDepth), 3, 2, 1000)
 		for i := 0; i < finalityDepth; i++ { // Have enough blocks that we could reorg the full finalityDepth-1.
 			ec.Commit()
 		}
@@ -535,7 +535,7 @@ func TestLogPoller_SynchronizedWithGeth(t *testing.T) {
 
 func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 	t.Parallel()
-	th := SetupTH(t, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2)
 
 	// Set up a log poller listening for log emitter logs.
 	err := th.LogPoller.RegisterFilter(logpoller.Filter{
@@ -751,7 +751,7 @@ func TestLogPoller_PollAndSaveLogs(t *testing.T) {
 
 func TestLogPoller_LoadFilters(t *testing.T) {
 	t.Parallel()
-	th := SetupTH(t, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2)
 
 	filter1 := logpoller.Filter{"first Filter", []common.Hash{
 		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2}, 0}
@@ -802,7 +802,7 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 
 func TestLogPoller_GetBlocks_Range(t *testing.T) {
 	t.Parallel()
-	th := SetupTH(t, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2)
 
 	err := th.LogPoller.RegisterFilter(logpoller.Filter{"GetBlocks Test", []common.Hash{
 		EmitterABI.Events["Log1"].ID, EmitterABI.Events["Log2"].ID}, []common.Address{th.EmitterAddress1, th.EmitterAddress2}, 0},
@@ -912,7 +912,7 @@ func TestLogPoller_GetBlocks_Range(t *testing.T) {
 
 func TestGetReplayFromBlock(t *testing.T) {
 	t.Parallel()
-	th := SetupTH(t, 2, 3, 2)
+	th := SetupTH(t, false, 2, 3, 2)
 	// Commit a few blocks
 	for i := 0; i < 10; i++ {
 		th.Client.Commit()
@@ -973,7 +973,7 @@ func TestLogPoller_DBErrorHandling(t *testing.T) {
 	ec.Commit()
 	ec.Commit()
 
-	lp := logpoller.NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID2), lggr, 1*time.Hour, 2, 3, 2, 1000)
+	lp := logpoller.NewLogPoller(o, client.NewSimulatedBackendClient(t, ec, chainID2), lggr, 1*time.Hour, false, 2, 3, 2, 1000)
 
 	err = lp.Replay(ctx, 5) // block number too high
 	require.ErrorContains(t, err, "Invalid replay block number")
@@ -1076,7 +1076,7 @@ func TestTooManyLogResults(t *testing.T) {
 	chainID := testutils.NewRandomEVMChainID()
 	db := pgtest.NewSqlxDB(t)
 	o := logpoller.NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
-	lp := logpoller.NewLogPoller(o, ec, lggr, 1*time.Hour, 2, 20, 10, 1000)
+	lp := logpoller.NewLogPoller(o, ec, lggr, 1*time.Hour, false, 2, 20, 10, 1000)
 	expected := []int64{10, 5, 2, 1}
 
 	clientErr := client.JsonError{
@@ -1153,11 +1153,122 @@ func TestTooManyLogResults(t *testing.T) {
 	assert.Contains(t, crit[0].Message, "Too many log results in a single block")
 }
 
+func Test_PollAndQueryFinalizedBlocks(t *testing.T) {
+	t.Parallel()
+	ctx := testutils.Context(t)
+	firstBatchLen := 3
+	secondBatchLen := 5
+
+	th := SetupTH(t, true, 2, 3, 2)
+
+	eventSig := EmitterABI.Events["Log1"].ID
+	err := th.LogPoller.RegisterFilter(logpoller.Filter{
+		Name:      "GetBlocks Test",
+		EventSigs: []common.Hash{eventSig},
+		Addresses: []common.Address{th.EmitterAddress1}},
+	)
+	require.NoError(t, err)
+
+	// Generate block that will be finalized
+	for i := 0; i < firstBatchLen; i++ {
+		_, err1 := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		require.NoError(t, err1)
+		th.Client.Commit()
+	}
+
+	// Mark current head as finalized
+	h := th.Client.Blockchain().CurrentHeader()
+	th.Client.Blockchain().SetFinalized(h)
+
+	// Generate next blocks, not marked as finalized
+	for i := 0; i < secondBatchLen; i++ {
+		_, err1 := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		require.NoError(t, err1)
+		th.Client.Commit()
+	}
+
+	currentBlock := th.PollAndSaveLogs(ctx, 1)
+	require.Equal(t, int(currentBlock), firstBatchLen+secondBatchLen+2)
+
+	finalizedLogs, err := th.LogPoller.LogsDataWordGreaterThan(
+		eventSig,
+		th.EmitterAddress1,
+		0,
+		common.Hash{},
+		logpoller.Finalized,
+	)
+	require.NoError(t, err)
+	require.Len(t, finalizedLogs, firstBatchLen)
+
+	numberOfConfirmations := 1
+	logsByConfs, err := th.LogPoller.LogsDataWordGreaterThan(
+		eventSig,
+		th.EmitterAddress1,
+		0,
+		common.Hash{},
+		logpoller.Confirmations(numberOfConfirmations),
+	)
+	require.NoError(t, err)
+	require.Len(t, logsByConfs, firstBatchLen+secondBatchLen-numberOfConfirmations)
+}
+
+func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
+	ctx := testutils.Context(t)
+	numberOfBlocks := 10
+
+	tests := []struct {
+		name                       string
+		useFinalityTag             bool
+		finalityDepth              int64
+		expectedLastFinalizedBlock int64
+	}{
+		{
+			name:                       "using fixed finality depth",
+			useFinalityTag:             false,
+			finalityDepth:              2,
+			expectedLastFinalizedBlock: int64(numberOfBlocks - 2),
+		},
+		{
+			name:                       "setting last finalized block number to 0 if finality is too deep",
+			useFinalityTag:             false,
+			finalityDepth:              20,
+			expectedLastFinalizedBlock: 0,
+		},
+		{
+			name:                       "using finality from chain",
+			useFinalityTag:             true,
+			finalityDepth:              0,
+			expectedLastFinalizedBlock: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			th := SetupTH(t, tt.useFinalityTag, tt.finalityDepth, 3, 2)
+			// Mark first block as finalized
+			h := th.Client.Blockchain().CurrentHeader()
+			th.Client.Blockchain().SetFinalized(h)
+
+			// Create a couple of blocks
+			for i := 0; i < numberOfBlocks-1; i++ {
+				th.Client.Commit()
+			}
+
+			th.PollAndSaveLogs(ctx, 1)
+
+			latestBlock, err := th.ORM.SelectLatestBlock()
+			require.NoError(t, err)
+			require.Equal(t, int64(numberOfBlocks), latestBlock.BlockNumber)
+			require.Equal(t, tt.expectedLastFinalizedBlock, latestBlock.LastFinalizedBlockNumber)
+		})
+	}
+
+}
+
 func Test_CreatedAfterQueriesWithBackfill(t *testing.T) {
 	emittedLogs := 60
 	finalityDepth := 10
 	ctx := testutils.Context(t)
-	th := SetupTH(t, int64(finalityDepth), 3, 2)
+	th := SetupTH(t, false, int64(finalityDepth), 3, 2)
 
 	header, err := th.Client.HeaderByNumber(ctx, nil)
 	require.NoError(t, err)
