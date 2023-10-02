@@ -42,6 +42,7 @@ All nodes will have to remove the following configuration field: `ExplorerURL`
 - Fixed a bug where `evmChainId` is requested instead of `id` or `evm-chain-id` in CLI error verbatim
 - Fixed a bug that would cause the node to shut down while performing backup
 - Fixed health checker to include more services in the prometheus `health` metric and HTTP `/health` endpoint
+- Fixed a bug where prices would not be parsed correctly in telemetry data
 
 <!-- unreleasedstop -->
 
