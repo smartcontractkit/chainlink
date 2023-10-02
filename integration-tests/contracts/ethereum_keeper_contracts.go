@@ -1703,7 +1703,7 @@ func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Address() string {
 }
 
 func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Start() error {
-	// Invoke mercury v0.2
+	// For this consumer upkeep, we use this Start() function to set ParamKeys so as to run mercury v0.2
 	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
