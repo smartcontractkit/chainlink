@@ -81,7 +81,7 @@ describe('CronUpkeep', () => {
     )
     cronDelegate = await cronDelegateFactory.deploy()
     const cronExternalFactory = await ethers.getContractFactory(
-      'src/v0.8/libraries/external/Cron.sol:Cron',
+      'src/v0.8/automation/libraries/external/Cron.sol:Cron',
       admin,
     )
     const cronExternalLib = await cronExternalFactory.deploy()
@@ -321,12 +321,10 @@ describe('CronUpkeep', () => {
     it('creates jobs with sequential IDs', async () => {
       const cronString1 = '0 * * * *'
       const cronString2 = '0 1,2,3 */4 5-6 1-2'
-      const encodedSpec1 = await cronFactoryContract.encodeCronString(
-        cronString1,
-      )
-      const encodedSpec2 = await cronFactoryContract.encodeCronString(
-        cronString2,
-      )
+      const encodedSpec1 =
+        await cronFactoryContract.encodeCronString(cronString1)
+      const encodedSpec2 =
+        await cronFactoryContract.encodeCronString(cronString2)
       const nextTick1 = (
         await cronTestHelper.calculateNextTick(cronString1)
       ).toNumber()
@@ -521,7 +519,7 @@ describe.skip('Cron Gas Usage', () => {
     )
     const cronDelegate = await cronDelegateFactory.deploy()
     const cronExternalFactory = await ethers.getContractFactory(
-      'src/v0.8/libraries/external/Cron.sol:Cron',
+      'src/v0.8/automation/libraries/external/Cron.sol:Cron',
       admin,
     )
     const cronExternalLib = await cronExternalFactory.deploy()

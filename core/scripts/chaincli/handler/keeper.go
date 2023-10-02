@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	registrylogic20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
 	registrylogica21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_a_wrapper_2_1"
@@ -26,10 +27,10 @@ import (
 	registry20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_mercury_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
@@ -250,6 +251,13 @@ func (k *Keeper) VerifyContract(params ...string) {
 
 // deployRegistry21 deploys a version 2.1 keeper registry
 func (k *Keeper) deployRegistry21(ctx context.Context, verify bool) (common.Address, *iregistry21.IKeeperRegistryMaster) {
+	automationForwarderLogicAddr, tx, _, err := automationForwarderLogic.DeployAutomationForwarderLogic(k.buildTxOpts(ctx), k.client)
+	if err != nil {
+		log.Fatal("Deploy AutomationForwarderLogic failed: ", err)
+	}
+	k.waitDeployment(ctx, tx)
+	log.Println("AutomationForwarderLogic deployed:", automationForwarderLogicAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, tx.Hash()))
+
 	registryLogicBAddr, tx, _, err := registrylogicb21.DeployKeeperRegistryLogicB(
 		k.buildTxOpts(ctx),
 		k.client,
@@ -257,12 +265,13 @@ func (k *Keeper) deployRegistry21(ctx context.Context, verify bool) (common.Addr
 		common.HexToAddress(k.cfg.LinkTokenAddr),
 		common.HexToAddress(k.cfg.LinkETHFeedAddr),
 		common.HexToAddress(k.cfg.FastGasFeedAddr),
+		automationForwarderLogicAddr,
 	)
 	if err != nil {
 		log.Fatal("DeployAbi failed: ", err)
 	}
 	k.waitDeployment(ctx, tx)
-	log.Println("KeeperRegistryLogicB 2.1 Logic deployed:", registryLogicBAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, tx.Hash()))
+	log.Println("KeeperRegistry LogicB 2.1 deployed:", registryLogicBAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, tx.Hash()))
 
 	// verify KeeperRegistryLogicB
 	if verify {
@@ -279,7 +288,7 @@ func (k *Keeper) deployRegistry21(ctx context.Context, verify bool) (common.Addr
 		log.Fatal("DeployAbi failed: ", err)
 	}
 	k.waitDeployment(ctx, tx)
-	log.Println("KeeperRegistryLogicA 2.1 Logic deployed:", registryLogicAAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, tx.Hash()))
+	log.Println("KeeperRegistry LogicA 2.1 deployed:", registryLogicAAddr.Hex(), "-", helpers.ExplorerLink(k.cfg.ChainID, tx.Hash()))
 
 	// verify KeeperRegistryLogicA
 	if verify {
@@ -520,6 +529,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		var upkeepAddr common.Address
 		var deployUpkeepTx *types.Transaction
 		var registerUpkeepTx *types.Transaction
+		var logUpkeepCounter *log_upkeep_counter_wrapper.LogUpkeepCounter
 		var checkData []byte
 		var err error
 		switch k.cfg.UpkeepType {
@@ -567,19 +577,21 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 				log.Fatal(err)
 			}
 			if k.cfg.VerifiableLoadTest {
-				upkeepAddr, deployUpkeepTx, _, err = verifiable_load_mercury_upkeep_wrapper.DeployVerifiableLoadMercuryUpkeep(
+				upkeepAddr, deployUpkeepTx, _, err = verifiable_load_streams_lookup_upkeep_wrapper.DeployVerifiableLoadStreamsLookupUpkeep(
 					k.buildTxOpts(ctx),
 					k.client,
 					common.HexToAddress(k.cfg.Registrar),
 					k.cfg.UseArbBlockNumber,
 				)
 			} else {
-				upkeepAddr, deployUpkeepTx, _, err = mercury_upkeep_wrapper.DeployMercuryUpkeep(
+				upkeepAddr, deployUpkeepTx, _, err = streams_lookup_upkeep_wrapper.DeployStreamsLookupUpkeep(
 					k.buildTxOpts(ctx),
 					k.client,
 					big.NewInt(k.cfg.UpkeepTestRange),
 					big.NewInt(k.cfg.UpkeepInterval),
-					false,
+					true,  /* useArbBlock */
+					true,  /* staging */
+					false, /* verify mercury response */
 				)
 			}
 			if err != nil {
@@ -594,7 +606,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 				log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
 			}
 		case config.LogTrigger:
-			upkeepAddr, deployUpkeepTx, _, err = log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
+			upkeepAddr, deployUpkeepTx, logUpkeepCounter, err = log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
 				k.buildTxOpts(ctx),
 				k.client,
 				big.NewInt(k.cfg.UpkeepTestRange),
@@ -622,6 +634,16 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			if err != nil {
 				log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
 			}
+
+			// Start up log trigger cycle
+			logUpkeepStartTx, err := logUpkeepCounter.Start(k.buildTxOpts(ctx))
+			if err != nil {
+				log.Fatal("failed to start log upkeep counter", err)
+			}
+			if err := k.waitTx(ctx, logUpkeepStartTx); err != nil {
+				log.Fatalf("Log upkeep Start() failed for upkeepId: %s, error is %s", upkeepAddr.Hex(), err.Error())
+			}
+			log.Println(i, upkeepAddr.Hex(), ": Log upkeep successfully started - ", helpers.ExplorerLink(k.cfg.ChainID, logUpkeepStartTx.Hash()))
 		default:
 			log.Fatal("unexpected upkeep type")
 		}
@@ -697,7 +719,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		log.Printf("registry version is %s", v)
 		log.Printf("active upkeep ids: %v", activeUpkeepIds)
 
-		adminBytes, err := json.Marshal(evm.AdminOffchainConfig{
+		adminBytes, err := json.Marshal(evm.UpkeepPrivilegeConfig{
 			MercuryEnabled: true,
 		})
 		if err != nil {

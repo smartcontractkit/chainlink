@@ -135,7 +135,7 @@ func TestScheduler(t *testing.T) {
 		require.NoError(t, err)
 		vars := NewVarsFrom(nil)
 		run := NewRun(Spec{}, vars)
-		s := newScheduler(p, &run, vars, logger.TestLogger(t))
+		s := newScheduler(p, run, vars, logger.TestLogger(t))
 
 		go s.Run()
 

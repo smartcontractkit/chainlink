@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../../interfaces/LinkTokenInterface.sol";
+import "../../../shared/interfaces/LinkTokenInterface.sol";
 import "../../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../VRFConsumerBaseV2Plus.sol";
 
@@ -11,6 +11,7 @@ contract VRFV2PlusRevertingExample is VRFConsumerBaseV2Plus {
   uint256 public s_requestId;
   IVRFCoordinatorV2Plus COORDINATOR;
   LinkTokenInterface LINKTOKEN;
+  uint256 public s_subId;
   uint256 public s_gasAvailable;
 
   constructor(address vrfCoordinator, address link) VRFConsumerBaseV2Plus(vrfCoordinator) {
@@ -46,7 +47,7 @@ contract VRFV2PlusRevertingExample is VRFConsumerBaseV2Plus {
 
   function requestRandomness(
     bytes32 keyHash,
-    uint64 subId,
+    uint256 subId,
     uint16 minReqConfs,
     uint32 callbackGasLimit,
     uint32 numWords
@@ -61,9 +62,5 @@ contract VRFV2PlusRevertingExample is VRFConsumerBaseV2Plus {
     });
     s_requestId = COORDINATOR.requestRandomWords(req);
     return s_requestId;
-  }
-
-  function getSubId() external view returns (uint64) {
-    return s_subId;
   }
 }

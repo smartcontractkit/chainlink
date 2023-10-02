@@ -25,13 +25,16 @@ var (
 // the example contracts used for the integration tests.
 type VRFConsumerContract interface {
 	CreateSubscriptionAndFund(opts *bind.TransactOpts, fundingJuels *big.Int) (*gethtypes.Transaction, error)
-	SSubId(opts *bind.CallOpts) (uint64, error)
+	CreateSubscriptionAndFundNative(opts *bind.TransactOpts, fundingAmount *big.Int) (*gethtypes.Transaction, error)
+	SSubId(opts *bind.CallOpts) (*big.Int, error)
 	SRequestId(opts *bind.CallOpts) (*big.Int, error)
-	RequestRandomness(opts *bind.TransactOpts, keyHash [32]byte, subID uint64, minReqConfs uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*gethtypes.Transaction, error)
+	RequestRandomness(opts *bind.TransactOpts, keyHash [32]byte, subID *big.Int, minReqConfs uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*gethtypes.Transaction, error)
 	SRandomWords(opts *bind.CallOpts, randomwordIdx *big.Int) (*big.Int, error)
 	TopUpSubscription(opts *bind.TransactOpts, amount *big.Int) (*gethtypes.Transaction, error)
+	TopUpSubscriptionNative(opts *bind.TransactOpts, amount *big.Int) (*gethtypes.Transaction, error)
 	SGasAvailable(opts *bind.CallOpts) (*big.Int, error)
 	UpdateSubscription(opts *bind.TransactOpts, consumers []common.Address) (*gethtypes.Transaction, error)
+	SetSubID(opts *bind.TransactOpts, subID *big.Int) (*gethtypes.Transaction, error)
 }
 
 type ConsumerType string
@@ -143,26 +146,38 @@ func (c *vrfConsumerContract) CreateSubscriptionAndFund(opts *bind.TransactOpts,
 	return nil, errors.New("CreateSubscriptionAndFund is not supported")
 }
 
-func (c *vrfConsumerContract) SSubId(opts *bind.CallOpts) (uint64, error) {
+func (c *vrfConsumerContract) SSubId(opts *bind.CallOpts) (*big.Int, error) {
 	if c.consumerType == VRFConsumerV2 {
-		return c.vrfConsumerV2.SSubId(opts)
+		subID, err := c.vrfConsumerV2.SSubId(opts)
+		if err != nil {
+			return nil, err
+		}
+		return new(big.Int).SetUint64(subID), nil
 	}
 	if c.consumerType == VRFV2PlusConsumer {
-		return c.vrfV2PlusConsumer.GetSubId(opts)
+		return c.vrfV2PlusConsumer.SSubId(opts)
 	}
 	if c.consumerType == UpgradeableConsumer {
-		return c.upgradeableConsumer.SSubId(opts)
+		subID, err := c.upgradeableConsumer.SSubId(opts)
+		if err != nil {
+			return nil, err
+		}
+		return new(big.Int).SetUint64(subID), nil
 	}
 	if c.consumerType == UpgradeableConsumerPlus {
 		return c.upgradeableConsumerPlus.SSubId(opts)
 	}
 	if c.consumerType == RevertingConsumer {
-		return c.revertingConsumer.SSubId(opts)
+		subID, err := c.revertingConsumer.SSubId(opts)
+		if err != nil {
+			return nil, err
+		}
+		return new(big.Int).SetUint64(subID), nil
 	}
 	if c.consumerType == RevertingConsumerPlus {
-		return c.revertingConsumerPlus.GetSubId(opts)
+		return c.revertingConsumerPlus.SSubId(opts)
 	}
-	return 0, errors.New("SSubId is not supported")
+	return nil, errors.New("SSubId is not supported")
 }
 
 func (c *vrfConsumerContract) SRequestId(opts *bind.CallOpts) (*big.Int, error) {
@@ -193,7 +208,7 @@ func (c *vrfConsumerContract) SRequestId(opts *bind.CallOpts) (*big.Int, error) 
 	return nil, errors.New("SRequestId is not supported")
 }
 
-func (c *vrfConsumerContract) RequestRandomness(opts *bind.TransactOpts, keyHash [32]byte, subID uint64, minReqConfs uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*gethtypes.Transaction, error) {
+func (c *vrfConsumerContract) RequestRandomness(opts *bind.TransactOpts, keyHash [32]byte, subID *big.Int, minReqConfs uint16, callbackGasLimit uint32, numWords uint32, payInEth bool) (*gethtypes.Transaction, error) {
 	if c.consumerType == VRFV2PlusConsumer {
 		return c.vrfV2PlusConsumer.RequestRandomWords(opts, callbackGasLimit, minReqConfs, numWords, keyHash, payInEth)
 	}
@@ -201,10 +216,10 @@ func (c *vrfConsumerContract) RequestRandomness(opts *bind.TransactOpts, keyHash
 		return nil, errors.New("eth payment not supported")
 	}
 	if c.consumerType == VRFConsumerV2 {
-		return c.vrfConsumerV2.RequestRandomness(opts, keyHash, subID, minReqConfs, callbackGasLimit, numWords)
+		return c.vrfConsumerV2.RequestRandomness(opts, keyHash, subID.Uint64(), minReqConfs, callbackGasLimit, numWords)
 	}
 	if c.consumerType == UpgradeableConsumer {
-		return c.upgradeableConsumer.RequestRandomness(opts, keyHash, subID, minReqConfs, callbackGasLimit, numWords)
+		return c.upgradeableConsumer.RequestRandomness(opts, keyHash, subID.Uint64(), minReqConfs, callbackGasLimit, numWords)
 	}
 	if c.consumerType == UpgradeableConsumerPlus {
 		return c.upgradeableConsumerPlus.RequestRandomness(opts, keyHash, subID, minReqConfs, callbackGasLimit, numWords)
@@ -216,7 +231,7 @@ func (c *vrfConsumerContract) RequestRandomness(opts *bind.TransactOpts, keyHash
 		return c.maliciousConsumerPlus.RequestRandomness(opts, keyHash)
 	}
 	if c.consumerType == RevertingConsumer {
-		return c.revertingConsumer.RequestRandomness(opts, keyHash, subID, minReqConfs, callbackGasLimit, numWords)
+		return c.revertingConsumer.RequestRandomness(opts, keyHash, subID.Uint64(), minReqConfs, callbackGasLimit, numWords)
 	}
 	if c.consumerType == RevertingConsumerPlus {
 		return c.revertingConsumerPlus.RequestRandomness(opts, keyHash, subID, minReqConfs, callbackGasLimit, numWords)
@@ -285,4 +300,31 @@ func (c *vrfConsumerContract) UpdateSubscription(opts *bind.TransactOpts, consum
 		return c.vrfV2PlusConsumer.UpdateSubscription(opts, consumers)
 	}
 	return nil, errors.New("UpdateSubscription is not supported")
+}
+
+func (c *vrfConsumerContract) SetSubID(opts *bind.TransactOpts, subID *big.Int) (*gethtypes.Transaction, error) {
+	if c.consumerType == VRFV2PlusConsumer {
+		return c.vrfV2PlusConsumer.SetSubId(opts, subID)
+	}
+	return nil, errors.New("SetSubID is not supported")
+}
+
+func (c *vrfConsumerContract) CreateSubscriptionAndFundNative(opts *bind.TransactOpts, fundingAmount *big.Int) (*gethtypes.Transaction, error) {
+	if c.consumerType == VRFV2PlusConsumer {
+		// copy object to not mutate original opts
+		o := *opts
+		o.Value = fundingAmount
+		return c.vrfV2PlusConsumer.CreateSubscriptionAndFundNative(&o)
+	}
+	return nil, errors.New("CreateSubscriptionAndFundNative is not supported")
+}
+
+func (c *vrfConsumerContract) TopUpSubscriptionNative(opts *bind.TransactOpts, amount *big.Int) (*gethtypes.Transaction, error) {
+	if c.consumerType == VRFV2PlusConsumer {
+		// copy object to not mutate original opts
+		o := *opts
+		o.Value = amount
+		return c.vrfV2PlusConsumer.TopUpSubscriptionNative(&o)
+	}
+	return nil, errors.New("TopUpSubscriptionNative is not supported")
 }

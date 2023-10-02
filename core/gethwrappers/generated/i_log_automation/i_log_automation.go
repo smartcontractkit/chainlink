@@ -30,7 +30,7 @@ var (
 
 type Log struct {
 	Index       *big.Int
-	TxIndex     *big.Int
+	Timestamp   *big.Int
 	TxHash      [32]byte
 	BlockNumber *big.Int
 	BlockHash   [32]byte
@@ -40,7 +40,7 @@ type Log struct {
 }
 
 var ILogAutomationMetaData = &bind.MetaData{
-	ABI: "[{\"inputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"index\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"txIndex\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"txHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"source\",\"type\":\"address\"},{\"internalType\":\"bytes32[]\",\"name\":\"topics\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"internalType\":\"structLog\",\"name\":\"log\",\"type\":\"tuple\"}],\"name\":\"checkLog\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"}],\"name\":\"performUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
+	ABI: "[{\"inputs\":[{\"components\":[{\"internalType\":\"uint256\",\"name\":\"index\",\"type\":\"uint256\"},{\"internalType\":\"uint256\",\"name\":\"timestamp\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"txHash\",\"type\":\"bytes32\"},{\"internalType\":\"uint256\",\"name\":\"blockNumber\",\"type\":\"uint256\"},{\"internalType\":\"bytes32\",\"name\":\"blockHash\",\"type\":\"bytes32\"},{\"internalType\":\"address\",\"name\":\"source\",\"type\":\"address\"},{\"internalType\":\"bytes32[]\",\"name\":\"topics\",\"type\":\"bytes32[]\"},{\"internalType\":\"bytes\",\"name\":\"data\",\"type\":\"bytes\"}],\"internalType\":\"structLog\",\"name\":\"log\",\"type\":\"tuple\"},{\"internalType\":\"bytes\",\"name\":\"checkData\",\"type\":\"bytes\"}],\"name\":\"checkLog\",\"outputs\":[{\"internalType\":\"bool\",\"name\":\"upkeepNeeded\",\"type\":\"bool\"},{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"}],\"stateMutability\":\"nonpayable\",\"type\":\"function\"},{\"inputs\":[{\"internalType\":\"bytes\",\"name\":\"performData\",\"type\":\"bytes\"}],\"name\":\"performUpkeep\",\"outputs\":[],\"stateMutability\":\"nonpayable\",\"type\":\"function\"}]",
 }
 
 var ILogAutomationABI = ILogAutomationMetaData.ABI
@@ -161,16 +161,16 @@ func (_ILogAutomation *ILogAutomationTransactorRaw) Transact(opts *bind.Transact
 	return _ILogAutomation.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_ILogAutomation *ILogAutomationTransactor) CheckLog(opts *bind.TransactOpts, log Log) (*types.Transaction, error) {
-	return _ILogAutomation.contract.Transact(opts, "checkLog", log)
+func (_ILogAutomation *ILogAutomationTransactor) CheckLog(opts *bind.TransactOpts, log Log, checkData []byte) (*types.Transaction, error) {
+	return _ILogAutomation.contract.Transact(opts, "checkLog", log, checkData)
 }
 
-func (_ILogAutomation *ILogAutomationSession) CheckLog(log Log) (*types.Transaction, error) {
-	return _ILogAutomation.Contract.CheckLog(&_ILogAutomation.TransactOpts, log)
+func (_ILogAutomation *ILogAutomationSession) CheckLog(log Log, checkData []byte) (*types.Transaction, error) {
+	return _ILogAutomation.Contract.CheckLog(&_ILogAutomation.TransactOpts, log, checkData)
 }
 
-func (_ILogAutomation *ILogAutomationTransactorSession) CheckLog(log Log) (*types.Transaction, error) {
-	return _ILogAutomation.Contract.CheckLog(&_ILogAutomation.TransactOpts, log)
+func (_ILogAutomation *ILogAutomationTransactorSession) CheckLog(log Log, checkData []byte) (*types.Transaction, error) {
+	return _ILogAutomation.Contract.CheckLog(&_ILogAutomation.TransactOpts, log, checkData)
 }
 
 func (_ILogAutomation *ILogAutomationTransactor) PerformUpkeep(opts *bind.TransactOpts, performData []byte) (*types.Transaction, error) {
@@ -190,7 +190,7 @@ func (_ILogAutomation *ILogAutomation) Address() common.Address {
 }
 
 type ILogAutomationInterface interface {
-	CheckLog(opts *bind.TransactOpts, log Log) (*types.Transaction, error)
+	CheckLog(opts *bind.TransactOpts, log Log, checkData []byte) (*types.Transaction, error)
 
 	PerformUpkeep(opts *bind.TransactOpts, performData []byte) (*types.Transaction, error)
 

@@ -41,7 +41,7 @@ func newBatchFulfillment(result vrfPipelineResult, fromAddress common.Address, v
 		},
 		totalGasLimit: result.gasLimit,
 		runs: []*pipeline.Run{
-			&result.run,
+			result.run,
 		},
 		reqIDs: []*big.Int{
 			result.req.req.RequestID(),
@@ -95,7 +95,7 @@ func (b *batchFulfillments) addRun(result vrfPipelineResult, fromAddress common.
 			currBatch.proofs = append(currBatch.proofs, result.proof)
 			currBatch.commitments = append(currBatch.commitments, result.reqCommitment)
 			currBatch.totalGasLimit += result.gasLimit
-			currBatch.runs = append(currBatch.runs, &result.run)
+			currBatch.runs = append(currBatch.runs, result.run)
 			currBatch.reqIDs = append(currBatch.reqIDs, result.req.req.RequestID())
 			currBatch.lbs = append(currBatch.lbs, result.req.lb)
 			currBatch.maxFees = append(currBatch.maxFees, result.maxFee)
@@ -106,7 +106,7 @@ func (b *batchFulfillments) addRun(result vrfPipelineResult, fromAddress common.
 
 func (lsn *listenerV2) processBatch(
 	l logger.Logger,
-	subID uint64,
+	subID *big.Int,
 	startBalanceNoReserveLink *big.Int,
 	maxCallbackGasLimit uint32,
 	batch *batchFulfillment,
@@ -117,9 +117,12 @@ func (lsn *listenerV2) processBatch(
 	// Enqueue a single batch tx for requests that we're able to fulfill based on whether
 	// they passed simulation or not.
 	var (
-		payload []byte
-		err     error
+		payload           []byte
+		err               error
+		txMetaSubID       *uint64
+		txMetaGlobalSubID *string
 	)
+
 	if batch.version == vrfcommon.V2 {
 		payload, err = batchCoordinatorV2ABI.Pack("fulfillRandomWords", ToV2Proofs(batch.proofs), ToV2Commitments(batch.commitments))
 		if err != nil {
@@ -128,6 +131,7 @@ func (lsn *listenerV2) processBatch(
 				"err", err, "proofs", batch.proofs, "commitments", batch.commitments)
 			return
 		}
+		txMetaSubID = ptr(subID.Uint64())
 	} else if batch.version == vrfcommon.V2Plus {
 		payload, err = batchCoordinatorV2PlusABI.Pack("fulfillRandomWords", ToV2PlusProofs(batch.proofs), ToV2PlusCommitments(batch.commitments))
 		if err != nil {
@@ -136,6 +140,7 @@ func (lsn *listenerV2) processBatch(
 				"err", err, "proofs", batch.proofs, "commitments", batch.commitments)
 			return
 		}
+		txMetaGlobalSubID = ptr(subID.String())
 	} else {
 		panic("batch version should be v2 or v2plus")
 	}
@@ -184,10 +189,11 @@ func (lsn *listenerV2) processBatch(
 				RequestIDs:      reqIDHashes,
 				MaxLink:         &maxLink,
 				MaxEth:          &maxEth,
-				SubID:           &subID,
+				SubID:           txMetaSubID,
+				GlobalSubID:     txMetaGlobalSubID,
 				RequestTxHashes: txHashes,
 			},
-		}, pg.WithQueryer(tx))
+		})
 
 		return errors.Wrap(err, "create batch fulfillment eth transaction")
 	})

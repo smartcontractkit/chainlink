@@ -89,37 +89,6 @@ operator-ui: ## Fetch the frontend
 abigen: ## Build & install abigen.
 	./tools/bin/build_abigen
 
-.PHONY: go-solidity-wrappers
-go-solidity-wrappers: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
-	./contracts/scripts/native_solc_compile_all
-	go generate ./core/gethwrappers
-
-.PHONY: go-solidity-wrappers-transmission
-go-solidity-wrappers-transmission: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
-	./contracts/scripts/transmission/native_solc_compile_all_transmission
-	go generate ./core/gethwrappers/transmission
-
-.PHONY: go-solidity-wrappers-ocr2vrf
-go-solidity-wrappers-ocr2vrf: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
-	./contracts/scripts/native_solc_compile_all_ocr2vrf
-	# replace the go:generate_disabled directive with the regular go:generate directive
-	sed -i '' 's/go:generate_disabled/go:generate/g' core/gethwrappers/ocr2vrf/go_generate.go
-	go generate ./core/gethwrappers/ocr2vrf
-	go generate ./core/internal/mocks
-	# put the go:generate_disabled directive back
-	sed -i '' 's/go:generate/go:generate_disabled/g' core/gethwrappers/ocr2vrf/go_generate.go
-
-
-.PHONY: go-solidity-wrappers-functions
-go-solidity-wrappers-functions: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
-	./contracts/scripts/native_solc_compile_all_functions
-	go generate ./core/gethwrappers/functions/go_generate.go
-
-.PHONY: go-solidity-wrappers-llo
-go-solidity-wrappers-llo: pnpmdep abigen ## Recompiles solidity contracts and their go wrappers.
-	./contracts/scripts/native_solc_compile_all_llo
-	go generate ./core/gethwrappers/go_generate_llo.go
-
 .PHONY: generate
 generate: abigen codecgen mockery ## Execute all go:generate commands.
 	go generate -x ./...
@@ -176,11 +145,9 @@ config-docs: ## Generate core node configuration documentation
 
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.53.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > golangci-lint-output.txt
+	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.54.2 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 > ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
-.PHONY: snapshot
-snapshot:
-	cd ./contracts && forge snapshot --match-test _gas
 
 GORELEASER_CONFIG ?= .goreleaser.yaml
 

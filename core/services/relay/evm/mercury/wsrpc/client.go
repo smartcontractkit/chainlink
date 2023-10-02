@@ -238,7 +238,7 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 	w.logger.Trace("Transmit")
 	start := time.Now()
 	if err = w.waitForReady(ctx); err != nil {
-		return nil, errors.Wrap(err, "Transmit failed")
+		return nil, errors.Wrap(err, "Transmit call failed")
 	}
 	resp, err = w.client.Transmit(ctx, req)
 	if errors.Is(err, context.DeadlineExceeded) {
@@ -272,10 +272,10 @@ func (w *client) Transmit(ctx context.Context, req *pb.TransmitRequest) (resp *p
 		w.consecutiveTimeoutCnt.Store(0)
 	}
 	if err != nil {
-		w.logger.Warnw("Transmit failed", "err", err, "resp", resp)
+		w.logger.Warnw("Transmit call failed due to networking error", "err", err, "resp", resp)
 		incRequestStatusMetric(statusFailed)
 	} else {
-		w.logger.Debugw("Transmit succeeded", "resp", resp)
+		w.logger.Tracew("Transmit call succeeded", "resp", resp)
 		incRequestStatusMetric(statusSuccess)
 		setRequestLatencyMetric(float64(time.Since(start).Milliseconds()))
 	}

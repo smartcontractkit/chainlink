@@ -4,8 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"go.uber.org/multierr"
+
+	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -15,6 +21,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+var promRequest = promauto.NewCounterVec(prometheus.CounterOpts{
+	Name: "gateway_request",
+	Help: "Metric to track received requests and response codes",
+}, []string{"response_code"})
 
 type Gateway interface {
 	job.ServiceCtx
@@ -59,6 +70,12 @@ func NewGatewayFromConfig(config *config.GatewayConfig, handlerFactory HandlerFa
 		if donConnMgr == nil {
 			return nil, fmt.Errorf("connection manager ID %s not found", donConfig.DonId)
 		}
+		for idx, nodeConfig := range donConfig.Members {
+			donConfig.Members[idx].Address = strings.ToLower(nodeConfig.Address)
+			if !common.IsHexAddress(nodeConfig.Address) {
+				return nil, fmt.Errorf("invalid node address %s", nodeConfig.Address)
+			}
+		}
 		handler, err := handlerFactory.NewHandler(donConfig.HandlerName, donConfig.HandlerConfig, &donConfig, donConnMgr)
 		if err != nil {
 			return nil, err
@@ -75,7 +92,7 @@ func NewGateway(codec api.Codec, httpServer gw_net.HttpServer, handlers map[stri
 		httpServer: httpServer,
 		handlers:   handlers,
 		connMgr:    connMgr,
-		lggr:       lggr.Named("gateway"),
+		lggr:       lggr.Named("Gateway"),
 	}
 	httpServer.SetHTTPRequestHandler(gw)
 	return gw
@@ -115,6 +132,9 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte) (rawRes
 	if err != nil {
 		return newError(g.codec, "", api.UserMessageParseError, err.Error())
 	}
+	if msg == nil {
+		return newError(g.codec, "", api.UserMessageParseError, "nil message")
+	}
 	if err = msg.Validate(); err != nil {
 		return newError(g.codec, msg.Body.MessageId, api.UserMessageParseError, err.Error())
 	}
@@ -127,7 +147,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte) (rawRes
 	responseCh := make(chan handlers.UserCallbackPayload, 1)
 	err = handler.HandleUserMessage(ctx, msg, responseCh)
 	if err != nil {
-		return newError(g.codec, msg.Body.MessageId, api.InternalHandlerError, err.Error())
+		return newError(g.codec, msg.Body.MessageId, api.HandlerError, err.Error())
 	}
 	// await response
 	var response handlers.UserCallbackPayload
@@ -145,6 +165,7 @@ func (g *gateway) ProcessRequest(ctx context.Context, rawRequest []byte) (rawRes
 	if err != nil {
 		return newError(g.codec, msg.Body.MessageId, api.NodeReponseEncodingError, "")
 	}
+	promRequest.WithLabelValues(api.NoError.String()).Inc()
 	return rawResponse, api.ToHttpErrorCode(api.NoError)
 }
 
@@ -152,8 +173,10 @@ func newError(codec api.Codec, id string, errCode api.ErrorCode, errMsg string) 
 	rawResponse, err := codec.EncodeNewErrorResponse(id, api.ToJsonRPCErrorCode(errCode), errMsg, nil)
 	if err != nil {
 		// we're not even able to encode a valid JSON response
+		promRequest.WithLabelValues(api.FatalError.String()).Inc()
 		return []byte("fatal error"), api.ToHttpErrorCode(api.FatalError)
 	}
+	promRequest.WithLabelValues(errCode.String()).Inc()
 	return rawResponse, api.ToHttpErrorCode(errCode)
 }
 

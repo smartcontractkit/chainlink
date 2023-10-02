@@ -116,20 +116,6 @@ func (_m *Master) IsEmpty() (bool, error) {
 	return r0, r1
 }
 
-// Migrate provides a mock function with given fields: vrfPassword, f
-func (_m *Master) Migrate(vrfPassword string, f keystore.DefaultEVMChainIDFunc) error {
-	ret := _m.Called(vrfPassword, f)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(string, keystore.DefaultEVMChainIDFunc) error); ok {
-		r0 = rf(vrfPassword, f)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
 // OCR provides a mock function with given fields:
 func (_m *Master) OCR() keystore.OCR {
 	ret := _m.Called()

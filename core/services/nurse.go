@@ -67,7 +67,7 @@ const (
 func NewNurse(cfg Config, log logger.Logger) *Nurse {
 	return &Nurse{
 		cfg:      cfg,
-		log:      log.Named("nurse"),
+		log:      log.Named("Nurse"),
 		checks:   make(map[string]CheckFunc),
 		chGather: make(chan gatherRequest, 1),
 		chStop:   make(chan struct{}),
@@ -75,7 +75,7 @@ func NewNurse(cfg Config, log logger.Logger) *Nurse {
 }
 
 func (n *Nurse) Start() error {
-	return n.StartOnce("nurse", func() error {
+	return n.StartOnce("Nurse", func() error {
 		// This must be set *once*, and it must occur as early as possible
 		if n.cfg.MemProfileRate() != runtime.MemProfileRate {
 			runtime.MemProfileRate = n.cfg.BlockProfileRate()
@@ -137,7 +137,7 @@ func (n *Nurse) Start() error {
 }
 
 func (n *Nurse) Close() error {
-	return n.StopOnce("nurse", func() error {
+	return n.StopOnce("Nurse", func() error {
 		n.log.Debug("Nurse closing...")
 		defer n.log.Debug("Nurse closed")
 		close(n.chStop)

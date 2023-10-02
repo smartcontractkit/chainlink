@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../interfaces/IVRFMigratableCoordinatorV2Plus.sol";
+import "../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../interfaces/IVRFMigratableConsumerV2Plus.sol";
-import "../../ConfirmedOwner.sol";
+import "../../shared/access/ConfirmedOwner.sol";
 
 /** ****************************************************************************
  * @notice Interface for contracts using VRF randomness
@@ -46,7 +46,7 @@ import "../../ConfirmedOwner.sol";
  * @dev and your consumer contract as a consumer of it (see VRFCoordinatorInterface
  * @dev subscription management functions).
  * @dev Call requestRandomWords(keyHash, subId, minimumRequestConfirmations,
- * @dev callbackGasLimit, numWords, nativePayment),
+ * @dev callbackGasLimit, numWords, extraArgs),
  * @dev see (IVRFCoordinatorV2Plus for a description of the arguments).
  *
  * @dev Once the VRFCoordinatorV2Plus has received and validated the oracle's response
@@ -103,14 +103,13 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
   error OnlyOwnerOrCoordinator(address have, address owner, address coordinator);
   error ZeroAddress();
 
-  IVRFMigratableCoordinatorV2Plus internal s_vrfCoordinator;
-  uint64 internal s_subId;
+  IVRFCoordinatorV2Plus public s_vrfCoordinator;
 
   /**
    * @param _vrfCoordinator address of VRFCoordinator contract
    */
   constructor(address _vrfCoordinator) ConfirmedOwner(msg.sender) {
-    s_vrfCoordinator = IVRFMigratableCoordinatorV2Plus(_vrfCoordinator);
+    s_vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
   }
 
   /**
@@ -142,9 +141,8 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
   /**
    * @inheritdoc IVRFMigratableConsumerV2Plus
    */
-  function setConfig(address _vrfCoordinator, uint64 _subId) public override onlyOwnerOrCoordinator {
-    s_vrfCoordinator = IVRFMigratableCoordinatorV2Plus(_vrfCoordinator);
-    s_subId = _subId;
+  function setCoordinator(address _vrfCoordinator) public override onlyOwnerOrCoordinator {
+    s_vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
   }
 
   modifier onlyOwnerOrCoordinator() {

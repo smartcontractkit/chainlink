@@ -209,17 +209,15 @@ func NewApp(s *Shell) *cli.App {
 				if c.IsSet("config") {
 					if s.configFilesIsSet || s.secretsFileIsSet {
 						return errNoDuplicateFlags
-					} else {
-						s.configFiles = c.StringSlice("config")
 					}
+					s.configFiles = c.StringSlice("config")
 				}
 
 				if c.IsSet("secrets") {
 					if s.configFilesIsSet || s.secretsFileIsSet {
 						return errNoDuplicateFlags
-					} else {
-						s.secretsFiles = c.StringSlice("secrets")
 					}
+					s.secretsFiles = c.StringSlice("secrets")
 				}
 
 				// flags here, or ENV VAR only

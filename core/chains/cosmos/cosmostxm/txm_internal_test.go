@@ -6,6 +6,7 @@ import (
 	"time"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
+	tmtypes "github.com/cometbft/cometbft/proto/tendermint/types"
 	tmservicetypes "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
 	cosmostypes "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
@@ -13,7 +14,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	tmtypes "github.com/tendermint/tendermint/proto/tendermint/types"
 	"go.uber.org/zap/zapcore"
 
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/cosmostest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -53,35 +54,49 @@ func TestTxm(t *testing.T) {
 	lggr := testutils.LoggerAssertMaxLevel(t, zapcore.ErrorLevel)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewQConfig(true))
 	require.NoError(t, ks.Unlock("blah"))
-	k1, err := ks.Cosmos().Create()
+
+	for i := 0; i < 4; i++ {
+		_, err := ks.Cosmos().Create()
+		require.NoError(t, err)
+	}
+
+	loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
+	adapter := cosmostxm.NewKeystoreAdapter(loopKs, "wasm")
+	accounts, err := adapter.Accounts(testutils.Context(t))
 	require.NoError(t, err)
-	sender1, err := cosmostypes.AccAddressFromBech32(k1.PublicKeyStr())
+	require.Equal(t, len(accounts), 4)
+
+	sender1, err := cosmostypes.AccAddressFromBech32(accounts[0])
 	require.NoError(t, err)
-	k2, err := ks.Cosmos().Create()
+	sender2, err := cosmostypes.AccAddressFromBech32(accounts[1])
 	require.NoError(t, err)
-	sender2, err := cosmostypes.AccAddressFromBech32(k2.PublicKeyStr())
+	contract, err := cosmostypes.AccAddressFromBech32(accounts[2])
 	require.NoError(t, err)
-	contract, err := cosmostypes.AccAddressFromBech32("cosmos1z94322r480rhye2atp8z7v0wm37pk36ghzkdnd")
+	contract2, err := cosmostypes.AccAddressFromBech32(accounts[3])
 	require.NoError(t, err)
-	contract2, err := cosmostypes.AccAddressFromBech32("cosmos1pe6e59rzm5upts599wl8hrvh95afy859yrcva8")
-	require.NoError(t, err)
+
 	logCfg := pgtest.NewQConfig(true)
 	chainID := cosmostest.RandomChainID()
 	two := int64(2)
+	gasToken := "ucosm"
 	cfg := &cosmos.CosmosConfig{Chain: coscfg.Chain{
 		MaxMsgsPerBatch: &two,
+		GasToken:        &gasToken,
 	}}
 	cfg.SetDefaults()
 	gpe := cosmosclient.NewMustGasPriceEstimator([]cosmosclient.GasPricesEstimator{
 		cosmosclient.NewFixedGasPriceEstimator(map[string]cosmostypes.DecCoin{
-			"uatom": cosmostypes.NewDecCoinFromDec("uatom", cosmostypes.MustNewDecFromStr("0.01")),
-		}),
+			cfg.GasToken(): cosmostypes.NewDecCoinFromDec(cfg.GasToken(), cosmostypes.MustNewDecFromStr("0.01")),
+		},
+			lggr.(logger.SugaredLogger),
+		),
 	}, lggr)
 
 	t.Run("single msg", func(t *testing.T) {
 		tc := newReaderWriterMock(t)
 		tcFn := func() (cosmosclient.ReaderWriter, error) { return tc, nil }
-		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Cosmos(), lggr, logCfg, nil)
+		loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
+		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfg, loopKs, lggr, logCfg, nil)
 
 		// Enqueue a single msg, then send it in a batch
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`1`), sender1, contract))
@@ -117,7 +132,8 @@ func TestTxm(t *testing.T) {
 	t.Run("two msgs different accounts", func(t *testing.T) {
 		tc := newReaderWriterMock(t)
 		tcFn := func() (cosmosclient.ReaderWriter, error) { return tc, nil }
-		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Cosmos(), lggr, pgtest.NewQConfig(true), nil)
+		loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
+		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfg, loopKs, lggr, pgtest.NewQConfig(true), nil)
 
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`0`), sender1, contract))
 		require.NoError(t, err)
@@ -172,7 +188,8 @@ func TestTxm(t *testing.T) {
 	t.Run("two msgs different contracts", func(t *testing.T) {
 		tc := newReaderWriterMock(t)
 		tcFn := func() (cosmosclient.ReaderWriter, error) { return tc, nil }
-		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Cosmos(), lggr, pgtest.NewQConfig(true), nil)
+		loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
+		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfg, loopKs, lggr, pgtest.NewQConfig(true), nil)
 
 		id1, err := txm.Enqueue(contract.String(), generateExecuteMsg(t, []byte(`0`), sender1, contract))
 		require.NoError(t, err)
@@ -235,7 +252,8 @@ func TestTxm(t *testing.T) {
 			TxResponse: &cosmostypes.TxResponse{TxHash: "0x123"},
 		}, errors.New("not found")).Twice()
 		tcFn := func() (cosmosclient.ReaderWriter, error) { return tc, nil }
-		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Cosmos(), lggr, pgtest.NewQConfig(true), nil)
+		loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
+		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfg, loopKs, lggr, pgtest.NewQConfig(true), nil)
 		i, err := txm.ORM().InsertMsg("blah", "", []byte{0x01})
 		require.NoError(t, err)
 		txh := "0x123"
@@ -265,7 +283,8 @@ func TestTxm(t *testing.T) {
 			TxResponse: &cosmostypes.TxResponse{TxHash: txHash3},
 		}, nil).Once()
 		tcFn := func() (cosmosclient.ReaderWriter, error) { return tc, nil }
-		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfg, ks.Cosmos(), lggr, pgtest.NewQConfig(true), nil)
+		loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
+		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfg, loopKs, lggr, pgtest.NewQConfig(true), nil)
 
 		// Insert and broadcast 3 msgs with different txhashes.
 		id1, err := txm.ORM().InsertMsg("blah", "", []byte{0x01})
@@ -308,7 +327,8 @@ func TestTxm(t *testing.T) {
 			TxMsgTimeout:    &timeout,
 		}}
 		cfgShortExpiry.SetDefaults()
-		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfgShortExpiry, ks.Cosmos(), lggr, pgtest.NewQConfig(true), nil)
+		loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
+		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfgShortExpiry, loopKs, lggr, pgtest.NewQConfig(true), nil)
 
 		// Send a single one expired
 		id1, err := txm.ORM().InsertMsg("blah", "", []byte{0x03})
@@ -353,7 +373,8 @@ func TestTxm(t *testing.T) {
 			MaxMsgsPerBatch: &two,
 		}}
 		cfgMaxMsgs.SetDefaults()
-		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfgMaxMsgs, ks.Cosmos(), lggr, pgtest.NewQConfig(true), nil)
+		loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks.Cosmos()}
+		txm := cosmostxm.NewTxm(db, tcFn, *gpe, chainID, cfgMaxMsgs, loopKs, lggr, pgtest.NewQConfig(true), nil)
 
 		// Leftover started is processed
 		msg1 := generateExecuteMsg(t, []byte{0x03}, sender1, contract)

@@ -32,7 +32,6 @@ var ErrUnsupported = errors.New("unsupported with config v2")
 type Core struct {
 	// General/misc
 	AppID               uuid.UUID `toml:"-"` // random or test
-	ExplorerURL         *models.URL
 	InsecureFastScrypt  *bool
 	RootDir             *string
 	ShutdownGracePeriod *models.Duration
@@ -57,9 +56,6 @@ type Core struct {
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
 func (c *Core) SetFrom(f *Core) {
-	if v := f.ExplorerURL; v != nil {
-		c.ExplorerURL = v
-	}
 	if v := f.InsecureFastScrypt; v != nil {
 		c.InsecureFastScrypt = v
 	}
@@ -102,7 +98,6 @@ func (c *Core) ValidateConfig() (err error) {
 
 type Secrets struct {
 	Database   DatabaseSecrets          `toml:",omitempty"`
-	Explorer   ExplorerSecrets          `toml:",omitempty"`
 	Password   Passwords                `toml:",omitempty"`
 	Pyroscope  PyroscopeSecrets         `toml:",omitempty"`
 	Prometheus PrometheusSecrets        `toml:",omitempty"`
@@ -148,6 +143,8 @@ func validateDBURL(dbURI url.URL) error {
 func (d *DatabaseSecrets) ValidateConfig() (err error) {
 	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
 		err = multierr.Append(err, configutils.ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
+	} else if *d.AllowSimplePasswords && build.IsProd() {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "AllowSimplePasswords", Value: true, Msg: "insecure configs are not allowed on secure builds"})
 	} else if !*d.AllowSimplePasswords {
 		if verr := validateDBURL((url.URL)(*d.URL)); verr != nil {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "URL", Value: "*****", Msg: dbURLPasswordComplexity(verr)})
@@ -190,39 +187,6 @@ func (d *DatabaseSecrets) validateMerge(f *DatabaseSecrets) (err error) {
 
 	if d.URL != nil && f.URL != nil {
 		err = multierr.Append(err, configutils.ErrOverride{Name: "URL"})
-	}
-
-	return err
-}
-
-type ExplorerSecrets struct {
-	AccessKey *models.Secret
-	Secret    *models.Secret
-}
-
-func (e *ExplorerSecrets) SetFrom(f *ExplorerSecrets) (err error) {
-	err = e.validateMerge(f)
-	if err != nil {
-		return err
-	}
-
-	if v := f.AccessKey; v != nil {
-		e.AccessKey = v
-	}
-	if v := f.Secret; v != nil {
-		e.Secret = v
-	}
-
-	return nil
-}
-
-func (e *ExplorerSecrets) validateMerge(f *ExplorerSecrets) (err error) {
-	if e.AccessKey != nil && f.AccessKey != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "AccessKey"})
-	}
-
-	if e.Secret != nil && f.Secret != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "Secret"})
 	}
 
 	return err
@@ -791,6 +755,7 @@ type OCR2 struct {
 	DatabaseTimeout                    *models.Duration
 	KeyBundleID                        *models.Sha256Hash
 	CaptureEATelemetry                 *bool
+	CaptureAutomationCustomTelemetry   *bool
 	DefaultTransactionQueueDepth       *uint32
 	SimulateTransactions               *bool
 	TraceLogging                       *bool
@@ -823,6 +788,9 @@ func (o *OCR2) setFrom(f *OCR2) {
 	}
 	if v := f.CaptureEATelemetry; v != nil {
 		o.CaptureEATelemetry = v
+	}
+	if v := f.CaptureAutomationCustomTelemetry; v != nil {
+		o.CaptureAutomationCustomTelemetry = v
 	}
 	if v := f.DefaultTransactionQueueDepth; v != nil {
 		o.DefaultTransactionQueueDepth = v
@@ -1209,8 +1177,13 @@ func (ins *Insecure) setFrom(f *Insecure) {
 }
 
 type MercuryCredentials struct {
-	URL      *models.SecretURL
+	// LegacyURL is the legacy base URL for mercury v0.2 API
+	LegacyURL *models.SecretURL
+	// URL is the base URL for mercury v0.3 API
+	URL *models.SecretURL
+	// Username is the user id for mercury credential
 	Username *models.Secret
+	// Password is the user secret key for mercury credential
 	Password *models.Secret
 }
 
@@ -1255,6 +1228,10 @@ func (m *MercurySecrets) ValidateConfig() (err error) {
 		}
 		if creds.URL == nil || creds.URL.URL() == nil {
 			err = multierr.Append(err, configutils.ErrMissing{Name: "URL", Msg: "must be provided and non-empty"})
+			continue
+		}
+		if creds.LegacyURL != nil && creds.LegacyURL.URL() == nil {
+			err = multierr.Append(err, configutils.ErrMissing{Name: "Legacy URL", Msg: "must be a valid URL"})
 			continue
 		}
 		s := creds.URL.URL().String()

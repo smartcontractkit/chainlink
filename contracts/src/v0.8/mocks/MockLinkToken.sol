@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {ERC677ReceiverInterface} from "../interfaces/ERC677ReceiverInterface.sol";
+import {IERC677Receiver} from "../shared/interfaces/IERC677Receiver.sol";
 
 contract MockLinkToken {
   uint256 private constant TOTAL_SUPPLY = 1_000_000_000 * 1e18;
@@ -48,7 +48,7 @@ contract MockLinkToken {
   }
 
   function contractFallback(address _to, uint256 _value, bytes calldata _data) private {
-    ERC677ReceiverInterface receiver = ERC677ReceiverInterface(_to);
+    IERC677Receiver receiver = IERC677Receiver(_to);
     receiver.onTokenTransfer(msg.sender, _value, _data);
   }
 }

@@ -1,0 +1,45 @@
+name: Operator UI CI
+on:
+  pull_request:
+
+jobs:
+  check-gql:
+    permissions:
+      id-token: write
+      contents: read
+      # To allow writing comments to the current PR
+      pull-requests: write
+
+    name: Breaking Changes GQL Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@v1
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Breaking Changes GQL Check
+        continue-on-error: true
+
+      - name: Assume role capable of dispatching action
+        uses: aws-actions/configure-aws-credentials@5fd3084fc36e372ff1fff382a39b10d03659f355 # v2.2.0
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_CHAINLINK_CI_OPERATOR_UI_ACCESS_TOKEN_ISSUER_ROLE_ARN }}
+          role-duration-seconds: 3600
+          role-session-name: operator-ui-ci.check-gql
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Get Github Token
+        id: get-gh-token
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@main
+        with:
+          url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+
+      - uses: convictional/trigger-workflow-and-wait@f69fa9eedd3c62a599220f4d5745230e237904be #v1.6.5
+        with:
+          owner: smartcontractkit
+          repo: operator-ui
+          github_token: ${{ steps.get-gh-token.outputs.access-token }}
+          workflow_file_name: chainlink-ci.yml
+          client_payload: '{"ref": "${{ github.event.pull_request.head.sha }}"}'

@@ -3,12 +3,20 @@ set -o pipefail
 set +e
 
 SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
-OUTPUT_FILE="./output.txt"
+OUTPUT_FILE=${OUTPUT_FILE:-"./output.txt"}
+USE_TEE="${USE_TEE:-true}"
 
 echo "Failed tests and panics: ---------------------"
 echo ""
 GO_LDFLAGS=$(bash tools/bin/ldflags)
-go test -ldflags "$GO_LDFLAGS" -tags test,integration $TEST_FLAGS -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt  $1 | tee $OUTPUT_FILE
+use_tee() {
+  if [ "$USE_TEE" = "true" ]; then
+    tee "$@"
+  else
+    cat > "$@"
+  fi
+}
+go test -json -ldflags "$GO_LDFLAGS" -tags test,integration $TEST_FLAGS -covermode=atomic -coverpkg=./... -coverprofile=coverage.txt $1 | use_tee $OUTPUT_FILE
 EXITCODE=${PIPESTATUS[0]}
 
 # Assert no known sensitive strings present in test logger output

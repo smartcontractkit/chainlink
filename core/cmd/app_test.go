@@ -145,7 +145,6 @@ func Test_initServerConfig(t *testing.T) {
 				fileNames: []string{testtomlutils.WriteTOMLFile(t, testConfigFileContents, "test.toml")},
 				secretsFiles: []string{
 					"../services/chainlink/testdata/mergingsecretsdata/secrets-database.toml",
-					"../services/chainlink/testdata/mergingsecretsdata/secrets-explorer.toml",
 					"../services/chainlink/testdata/mergingsecretsdata/secrets-password.toml",
 					"../services/chainlink/testdata/mergingsecretsdata/secrets-pyroscope.toml",
 					"../services/chainlink/testdata/mergingsecretsdata/secrets-prometheus.toml",
@@ -164,18 +163,6 @@ func Test_initServerConfig(t *testing.T) {
 				secretsFiles: []string{
 					"../testdata/mergingsecretsdata/secrets-database.toml",
 					"../testdata/mergingsecretsdata/secrets-database.toml",
-				},
-			},
-			wantErr: true,
-		},
-		{
-			name: "reading multiple secrets with overrides: Explorer",
-			args: args{
-				opts:      new(chainlink.GeneralConfigOpts),
-				fileNames: []string{testtomlutils.WriteTOMLFile(t, testConfigFileContents, "test.toml")},
-				secretsFiles: []string{
-					"../testdata/mergingsecretsdata/secrets-explorer.toml",
-					"../testdata/mergingsecretsdata/secrets-explorer.toml",
 				},
 			},
 			wantErr: true,

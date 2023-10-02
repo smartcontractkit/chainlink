@@ -54,27 +54,27 @@ before(async () => {
   roles = (await getUsers()).roles
 
   functionsOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/0_0_0/testhelpers/FunctionsOracleHelper.sol:FunctionsOracleHelper',
+    'src/v0.8/functions/tests/v0_0_0/testhelpers/FunctionsOracleHelper.sol:FunctionsOracleHelper',
     roles.defaultAccount,
   )
 
   clientTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/0_0_0/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
+    'src/v0.8/functions/tests/v0_0_0/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
     roles.consumer,
   )
 
   functionsBillingRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/0_0_0/testhelpers/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
+    'src/v0.8/functions/tests/v0_0_0/testhelpers/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
     roles.consumer,
   )
 
   linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
+    'src/v0.8/mocks/MockLinkToken.sol:MockLinkToken',
     roles.consumer,
   )
 
   mockAggregatorV3Factory = await ethers.getContractFactory(
-    'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
+    'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
     roles.consumer,
   )
 })

@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -28,8 +29,9 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 	require.NoError(t, kst.Unlock(cltest.Password))
-	chainSet := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
-	chain, err := chainSet.Get(&cltest.FixtureChainID)
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, KeyStore: kst.Eth(), GeneralConfig: cfg, Client: ethClient})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	chain, err := legacyChains.Get(cltest.FixtureChainID.String())
 	require.NoError(t, err)
 	lggr := logger.TestLogger(t)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
@@ -50,6 +52,7 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 		fromAddresses,
 		txm,
 		store,
+		nil,
 		&cltest.FixtureChainID,
 		ks.Eth(),
 	)

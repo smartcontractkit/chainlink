@@ -94,7 +94,7 @@ func compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources(
 	t *testing.T, versionInfo ContractVersion,
 ) {
 	hash := VersionHash(versionInfo.AbiPath, versionInfo.BinaryPath)
-	recompileCommand := fmt.Sprintf("(cd %s; make go-solidity-wrappers)", rootDir)
+	recompileCommand := fmt.Sprintf("(cd %s/contracts; make wrappers-all)", rootDir)
 	assert.Equal(t, versionInfo.Hash, hash,
 		utils.BoxOutput(`compiled %s and/or %s has changed; please rerun
 %s,
@@ -122,7 +122,7 @@ func init() {
 	}
 	fmt.Printf("some solidity artifacts missing (%s); rebuilding...",
 		solidityArtifactsMissing)
-	// Don't want to run "make go-solidity-wrappers" here, because that would
+	// Don't want to run "make wrappers-all" here, because that would
 	// result in an infinite loop
 	cmd := exec.Command("bash", "-c", compileCommand)
 	cmd.Stdout = os.Stdout

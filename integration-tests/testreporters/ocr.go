@@ -19,7 +19,7 @@ import (
 
 // OCRSoakTestReporter collates all OCRAnswerUpdated events into a single report
 type OCRSoakTestReporter struct {
-	TestDuration      time.Duration
+	StartTime         time.Time
 	AnomaliesDetected bool
 
 	anomalies   [][]string
@@ -34,37 +34,38 @@ type TimeLineEvent interface {
 	CSV() [][]string
 }
 
-// RPCIssue is a single RPC issue, either a disconnect or reconnect
-type RPCIssue struct {
-	StartTime time.Time
-	Message   string
+// TestIssue is a single RPC issue, either a disconnect or reconnect
+type TestIssue struct {
+	StartTime time.Time `toml:"startTime"`
+	Message   string    `toml:"message"`
 }
 
-func (r *RPCIssue) Time() time.Time {
+func (r *TestIssue) Time() time.Time {
 	return r.StartTime
 }
 
-func (r *RPCIssue) CSV() [][]string {
-	return [][]string{{r.StartTime.Format("2006-01-02 15:04:05.00 MST"), r.Message}}
+func (r *TestIssue) CSV() [][]string {
+	return [][]string{{r.StartTime.Format("2006-01-02 15:04:05.00 MST"), "Test Issue!", r.Message}}
 }
 
-// OCRTestState indicates that a round per contract should complete within this time with this answer
-type OCRTestState struct {
-	StartTime      time.Time
-	EndTime        time.Time // Time when the round should end, only used for analysis
-	Answer         int64
-	anomalous      bool
-	anomalies      [][]string
-	FoundEvents    map[string][]*FoundEvent // Address -> FoundEvents, possible to have multiple found events per round, and need to call it out
-	TimeLineEvents []TimeLineEvent
+// OCRRoundState indicates that a round per contract should complete within this time with this answer
+type OCRRoundState struct {
+	StartTime      time.Time                `toml:"startTime"`
+	EndTime        time.Time                `toml:"endTime"` // Time when the round should end, only used for analysis
+	Answer         int64                    `toml:"answer"`
+	Anomalous      bool                     `toml:"anomalous"`   // Whether the round was anomalous
+	FoundEvents    map[string][]*FoundEvent `toml:"foundEvents"` // Address -> FoundEvents, possible to have multiple found events per round, and need to call it out
+	TimeLineEvents []TimeLineEvent          `toml:"timeLineEvents"`
+
+	anomalies [][]string
 }
 
-func (e *OCRTestState) Time() time.Time {
+func (e *OCRRoundState) Time() time.Time {
 	return e.StartTime
 }
 
 // CSV returns a CSV representation of the test state and all events
-func (e *OCRTestState) CSV() [][]string {
+func (e *OCRRoundState) CSV() [][]string {
 	rows := [][]string{{e.StartTime.Format("2006-01-02 15:04:05.00 MST"), fmt.Sprintf("Expecting new Answer: %d", e.Answer)}}
 	for _, anomaly := range e.anomalies {
 		rows = append(rows, anomaly)
@@ -76,31 +77,31 @@ func (e *OCRTestState) CSV() [][]string {
 // 1. There is a FoundEvent for every address
 // 2. There is only one FoundEvent for every address
 // 3. The answer is correct
-func (e *OCRTestState) Validate() bool {
+func (e *OCRRoundState) Validate() bool {
 	anomalies := [][]string{}
 	for address, eventList := range e.FoundEvents {
 		if len(eventList) == 0 {
-			e.anomalous = true
+			e.Anomalous = true
 			anomalies = append(anomalies, []string{
-				e.StartTime.Format("2006-01-02 15:04:05.00 MST"), fmt.Sprintf("No AnswerUpdated for address '%s'", address),
+				e.StartTime.Format("2006-01-02 15:04:05.00 MST"), "Anomaly Found!", fmt.Sprintf("No AnswerUpdated for address '%s'", address),
 			})
 		} else if len(eventList) > 1 {
-			e.anomalous = true
-			anomalies = append(anomalies, []string{e.StartTime.Format("2006-01-02 15:04:05.00 MST"),
+			e.Anomalous = true
+			anomalies = append(anomalies, []string{e.StartTime.Format("2006-01-02 15:04:05.00 MST"), "Anomaly Found!",
 				fmt.Sprintf("Multiple AnswerUpdated for address '%s', possible double-transmission", address)},
 			)
 		} else {
 			event := eventList[0]
 			if event.Answer != e.Answer {
-				e.anomalous = true
-				anomalies = append(e.anomalies, []string{e.StartTime.Format("2006-01-02 15:04:05.00 MST"),
+				e.Anomalous = true
+				anomalies = append(e.anomalies, []string{e.StartTime.Format("2006-01-02 15:04:05.00 MST"), "Anomaly Found!",
 					fmt.Sprintf("FoundEvent for address '%s' has wrong answer '%d'", address, event.Answer)},
 				)
 			}
 		}
 	}
 	e.anomalies = anomalies
-	return e.anomalous
+	return e.Anomalous
 }
 
 // FoundEvent is a single round update event
@@ -128,7 +129,7 @@ func (a *FoundEvent) CSV() [][]string {
 }
 
 // RecordEvents takes in a list of test states and RPC issues, orders them, and records them in the timeline
-func (o *OCRSoakTestReporter) RecordEvents(testStates []*OCRTestState, rpcIssues []*RPCIssue) {
+func (o *OCRSoakTestReporter) RecordEvents(testStates []*OCRRoundState, testIssues []*TestIssue) {
 	events := []TimeLineEvent{}
 	for _, expectedEvent := range testStates {
 		if expectedEvent.Validate() {
@@ -138,11 +139,12 @@ func (o *OCRSoakTestReporter) RecordEvents(testStates []*OCRTestState, rpcIssues
 		events = append(events, expectedEvent)
 		events = append(events, expectedEvent.TimeLineEvents...)
 	}
-	if len(rpcIssues) > 0 {
+	if len(testIssues) > 0 {
 		o.AnomaliesDetected = true
 	}
-	for _, rpcIssue := range rpcIssues {
-		events = append(events, rpcIssue)
+	for _, testIssue := range testIssues {
+		events = append(events, testIssue)
+		o.anomalies = append(o.anomalies, testIssue.CSV()...)
 	}
 	sort.Slice(events, func(i, j int) bool {
 		return events[i].Time().Before(events[j].Time())
@@ -178,8 +180,10 @@ func (o *OCRSoakTestReporter) WriteReport(folderLocation string) error {
 	err = ocrReportWriter.Write([]string{
 		"Namespace",
 		o.namespace,
+		"Started At",
+		o.StartTime.Format("2006-01-02 15:04:05.00 MST"),
 		"Test Duration",
-		o.TestDuration.String(),
+		time.Since(o.StartTime).String(),
 	})
 	if err != nil {
 		return err
@@ -245,7 +249,7 @@ func (o *OCRSoakTestReporter) SendSlackNotification(t *testing.T, slackClient *s
 		headerText = ":warning: OCR Soak Test Found Anomalies :warning:"
 	}
 	messageBlocks := testreporters.CommonSlackNotificationBlocks(
-		headerText, o.namespace, o.csvLocation,
+		headerText, fmt.Sprintf("%s | Test took: %s", o.namespace, time.Since(o.StartTime).Truncate(time.Second).String()), o.csvLocation,
 	)
 	ts, err := testreporters.SendSlackMessage(slackClient, slack.MsgOptionBlocks(messageBlocks...))
 	if err != nil {

@@ -14,10 +14,11 @@ library ChainSpecificUtil {
   ArbGasInfo private constant ARBGAS = ArbGasInfo(ARBGAS_ADDR);
   uint256 private constant ARB_MAINNET_CHAIN_ID = 42161;
   uint256 private constant ARB_GOERLI_TESTNET_CHAIN_ID = 421613;
+  uint256 private constant ARB_SEPOLIA_TESTNET_CHAIN_ID = 421614;
 
   function getBlockhash(uint64 blockNumber) internal view returns (bytes32) {
     uint256 chainid = block.chainid;
-    if (chainid == ARB_MAINNET_CHAIN_ID || chainid == ARB_GOERLI_TESTNET_CHAIN_ID) {
+    if (isArbitrumChainId(chainid)) {
       if ((getBlockNumber() - blockNumber) > 256 || blockNumber >= getBlockNumber()) {
         return "";
       }
@@ -28,7 +29,7 @@ library ChainSpecificUtil {
 
   function getBlockNumber() internal view returns (uint256) {
     uint256 chainid = block.chainid;
-    if (chainid == ARB_MAINNET_CHAIN_ID || chainid == ARB_GOERLI_TESTNET_CHAIN_ID) {
+    if (isArbitrumChainId(chainid)) {
       return ARBSYS.arbBlockNumber();
     }
     return block.number;
@@ -36,7 +37,7 @@ library ChainSpecificUtil {
 
   function getCurrentTxL1GasFees() internal view returns (uint256) {
     uint256 chainid = block.chainid;
-    if (chainid == ARB_MAINNET_CHAIN_ID || chainid == ARB_GOERLI_TESTNET_CHAIN_ID) {
+    if (isArbitrumChainId(chainid)) {
       return ARBGAS.getCurrentTxL1GasFees();
     }
     return 0;
@@ -48,12 +49,22 @@ library ChainSpecificUtil {
    */
   function getL1CalldataGasCost(uint256 calldataSizeBytes) internal view returns (uint256) {
     uint256 chainid = block.chainid;
-    if (chainid == ARB_MAINNET_CHAIN_ID || chainid == ARB_GOERLI_TESTNET_CHAIN_ID) {
+    if (isArbitrumChainId(chainid)) {
       (, uint256 l1PricePerByte, , , , ) = ARBGAS.getPricesInWei();
       // see https://developer.arbitrum.io/devs-how-tos/how-to-estimate-gas#where-do-we-get-all-this-information-from
       // for the justification behind the 140 number.
       return l1PricePerByte * (calldataSizeBytes + 140);
     }
     return 0;
+  }
+
+  /**
+   * @notice Return true if and only if the provided chain ID is an Arbitrum chain ID.
+   */
+  function isArbitrumChainId(uint256 chainId) internal pure returns (bool) {
+    return
+      chainId == ARB_MAINNET_CHAIN_ID ||
+      chainId == ARB_GOERLI_TESTNET_CHAIN_ID ||
+      chainId == ARB_SEPOLIA_TESTNET_CHAIN_ID;
   }
 }

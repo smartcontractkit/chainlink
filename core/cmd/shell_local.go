@@ -370,25 +370,14 @@ func (s *Shell) runNode(c *cli.Context) error {
 		return errors.Wrap(err, "error authenticating keystore")
 	}
 
-	evmChainSet := app.GetChains().EVM
-	// By passing in a function we can be lazy trying to look up a default
-	// chain - if there are no existing keys, there is no need to check for
-	// a chain ID
-	DefaultEVMChainIDFunc := func() (*big.Int, error) {
-		def, err2 := evmChainSet.Default()
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "cannot get default EVM chain ID; no default EVM chain available")
-		}
-		return def.ID(), nil
-	}
-	err = keyStore.Migrate(s.Config.Password().VRF(), DefaultEVMChainIDFunc)
+	legacyEVMChains := app.GetRelayers().LegacyEVMChains()
 
 	if s.Config.EVMEnabled() {
+		chainList, err := legacyEVMChains.List()
 		if err != nil {
-			return errors.Wrap(err, "error migrating keystore")
+			return fmt.Errorf("error listing legacy evm chains: %w", err)
 		}
-
-		for _, ch := range evmChainSet.Chains() {
+		for _, ch := range chainList {
 			if ch.Config().EVM().AutoCreateKey() {
 				lggr.Debugf("AutoCreateKey=true, will ensure EVM key for chain %s", ch.ID())
 				err2 := app.GetKeyStore().Eth().EnsureKeys(ch.ID())
@@ -604,7 +593,10 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
-	chain, err := app.GetChains().EVM.Get(chainID)
+	// TODO: BCF-2511 once the dust settles on BCF-2440/1 evaluate how the
+	// [loop.Relayer] interface needs to be extended to support programming similar to
+	// this pattern but in a chain-agnostic way
+	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -714,7 +706,7 @@ func (s *Shell) validateDB(c *cli.Context) error {
 }
 
 // ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
-// in secrets TOML. This is useful to setup the database for testing
+// in secrets TOML. This is useful to set up the database for testing
 func (s *Shell) ResetDatabase(c *cli.Context) error {
 	cfg := s.Config.Database()
 	parsed := cfg.URL()
@@ -821,7 +813,7 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 	return
 }
 
-// PrepareTestDatabase calls ResetDatabase then loads fixtures required for local
+// PrepareTestDatabaseUserOnly calls ResetDatabase then loads only user fixtures required for local
 // testing against testnets. Does not include fake chain fixtures.
 func (s *Shell) PrepareTestDatabaseUserOnly(c *cli.Context) error {
 	if err := s.ResetDatabase(c); err != nil {
@@ -842,6 +834,11 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 		return s.errorOut(errDBURLMissing)
 	}
 
+	err := migrate.SetMigrationENVVars(s.Config)
+	if err != nil {
+		return err
+	}
+
 	s.Logger.Infof("Migrating database: %#v", parsed.String())
 	if err := migrateDB(cfg, s.Logger); err != nil {
 		return s.errorOut(err)
@@ -849,7 +846,7 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 	return nil
 }
 
-// VersionDatabase displays the current database version.
+// RollbackDatabase rolls back the database via down migrations.
 func (s *Shell) RollbackDatabase(c *cli.Context) error {
 	var version null.Int
 	if c.Args().Present() {
@@ -1025,6 +1022,7 @@ func migrateDB(config dbConfig, lggr logger.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
+
 	if err = migrate.Migrate(db.DB, lggr); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}

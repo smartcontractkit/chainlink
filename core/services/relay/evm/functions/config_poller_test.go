@@ -21,6 +21,7 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	functionsConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -40,7 +41,9 @@ func TestFunctionsConfigPoller(t *testing.T) {
 	t.Run("ThresholdPlugin", func(t *testing.T) {
 		runTest(t, functions.ThresholdPlugin, functions.ThresholdDigestPrefix)
 	})
-	// TODO: Test config poller for S4Plugin (requires S4Plugin to be implemented & corresponding updates to pluginConfig)
+	t.Run("S4Plugin", func(t *testing.T) {
+		runTest(t, functions.S4Plugin, functions.S4DigestPrefix)
+	})
 }
 
 func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDigestPrefix ocrtypes2.ConfigDigestPrefix) {
@@ -80,12 +83,15 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
 	defer lp.Close()
 	require.NoError(t, lp.Start(ctx))
-	logPoller, err := functions.NewFunctionsConfigPoller(pluginType, lp, ocrAddress, lggr)
+	configPoller, err := functions.NewFunctionsConfigPoller(pluginType, lp, lggr)
 	require.NoError(t, err)
+	require.NoError(t, configPoller.UpdateRoutes(ocrAddress, ocrAddress))
 	// Should have no config to begin with.
-	_, config, err := logPoller.LatestConfigDetails(testutils.Context(t))
+	_, config, err := configPoller.LatestConfigDetails(testutils.Context(t))
 	require.NoError(t, err)
 	require.Equal(t, ocrtypes2.ConfigDigest{}, config)
+	_, err = configPoller.LatestConfig(testutils.Context(t), 0)
+	require.Error(t, err)
 
 	pluginConfig := &functionsConfig.ReportingPluginConfigWrapper{
 		Config: &functionsConfig.ReportingPluginConfig{
@@ -119,13 +125,13 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	var digest [32]byte
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		b.Commit()
-		configBlock, digest, err = logPoller.LatestConfigDetails(testutils.Context(t))
+		configBlock, digest, err = configPoller.LatestConfigDetails(testutils.Context(t))
 		require.NoError(t, err)
 		return ocrtypes2.ConfigDigest{} != digest
 	}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
 
 	// Assert the config returned is the one we configured.
-	newConfig, err := logPoller.LatestConfig(testutils.Context(t), configBlock)
+	newConfig, err := configPoller.LatestConfig(testutils.Context(t), configBlock)
 	require.NoError(t, err)
 
 	// Get actual configDigest value from contracts
@@ -165,6 +171,9 @@ func setFunctionsConfig(t *testing.T, pluginConfig *functionsConfig.ReportingPlu
 	pluginConfigBytes, err := functionsConfig.EncodeReportingPluginConfig(pluginConfig)
 	require.NoError(t, err)
 
+	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(big.NewInt(0), big.NewInt(10))
+	require.NoError(t, err)
+
 	signers, transmitters, threshold, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper2.ContractSetConfigArgsForTests(
 		2*time.Second,        // deltaProgress
 		1*time.Second,        // deltaResend
@@ -181,7 +190,7 @@ func setFunctionsConfig(t *testing.T, pluginConfig *functionsConfig.ReportingPlu
 		50*time.Millisecond,
 		50*time.Millisecond,
 		1, // faults
-		nil,
+		onchainConfig,
 	)
 
 	require.NoError(t, err)

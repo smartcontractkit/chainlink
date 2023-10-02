@@ -9,10 +9,12 @@
 /core/internal @samsondav @jmank88
 
 # Chains
+/common @smartcontractkit/integrations
 /core/chains/evm @samsondav @prashantkumar1982
 /core/chains/evm/headtracker @pinebit @samsondav @prashantkumar1982
 /core/chains/evm/client @samsondav @prashantkumar1982
 /core/chains/evm/log @jmank88 @prashantkumar1982 @connorwstein
+/core/chains/evm/logpoller @reductionista @connorwstein
 /core/chains/cosmos @archseer @cfal
 
 # Services
@@ -23,7 +25,8 @@
 /core/services/health @samsondav
 /core/services/job @connorwstein
 /core/services/keystore @RyanRHall
-/core/services/offchainreporting @connorwstein @samsondav
+/core/services/ocr* @connorwstein @samsondav
+/core/services/ocr2 @jmank88 @krehermann
 /core/services/periodicbackup @PiotrTrzpil @samsondav
 /core/services/pg @samsondav
 /core/services/pipeline @connorwstein @prashantkumar1982
@@ -43,8 +46,16 @@
 
 /core/services/webhook @samsondav
 
-# Chainlink Functions related services
-core/services/ocr2/plugins/functions @bolekk @justinkaseman @KuphJr @pinebit
+# Chainlink Functions
+core/services/functions @smartcontractkit/functions
+core/services/ocr2/plugins/functions @smartcontractkit/functions
+core/services/s4 @pinebit @bolekk
+core/service/ocr2/plugins/s4 @pinebit @bolekk
+core/services/ocr2/plugins/threshold @KuphJr @bolekk
+core/services/relay/evm/functions.go @bolekk @justinkaseman @KuphJr
+core/services/relay/evm/functions @bolekk @justinkaseman @KuphJr
+core/scripts/functions @smartcontractkit/functions
+core/scripts/gateway @bolekk @pinebit
 
 # API
 /core/web @jkongie
@@ -59,8 +70,10 @@ core/services/ocr2/plugins/functions @bolekk @justinkaseman @KuphJr @pinebit
 /contracts/ @se3000 @connorwstein
 /contracts/**/*Keeper* @smartcontractkit/keepers
 /contracts/**/*Upkeep* @smartcontractkit/keepers
-/contracts/**/*Functions* @bolekk @justinkaseman @KuphJr @pinebit
-/contracts/src/v0.8/functions @bolekk @justinkaseman @KuphJr @pinebit
+/contracts/**/*Functions* @smartcontractkit/functions
+/contracts/src/v0.8/functions @smartcontractkit/functions
+contracts/test/v0.8/functions @smartcontractkit/functions
+/contracts/src/v0.8/llo-feeds @austinborn @Fletch153
 
 # Tests
 /integration-tests/ @smartcontractkit/test-tooling-team
@@ -93,3 +106,6 @@ flake.lock @smartcontractkit/prodsec-public
 ./core/config @samsondav @jmank88
 ./docs/CONFIG.md @samsondav @jmank88 @dwightjl
 ./internal/config/docs.toml @samsondav @jmank88 @dwightjl
+
+# LOOP Plugins
+/plugins @jmank88 @krehermann

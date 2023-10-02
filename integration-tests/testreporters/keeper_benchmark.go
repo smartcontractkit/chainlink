@@ -28,6 +28,7 @@ type KeeperBenchmarkTestReporter struct {
 	ReportMutex                    sync.Mutex
 	AttemptedChainlinkTransactions []*client.TransactionsData `json:"attemptedChainlinkTransactions"`
 	NumRevertedUpkeeps             int64
+	NumStaleUpkeepReports          int64
 	Summary                        KeeperBenchmarkTestSummary `json:"summary"`
 
 	namespace                 string
@@ -60,8 +61,10 @@ type KeeperBenchmarkTestMetrics struct {
 	Delay                         map[string]interface{} `json:"delay"`
 	PercentWithinSLA              float64                `json:"percentWithinSLA"`
 	PercentRevert                 float64                `json:"percentRevert"`
+	PercentStale                  float64                `json:"percentStale"`
 	TotalTimesEligible            int64                  `json:"totalTimesEligible"`
 	TotalTimesPerformed           int64                  `json:"totalTimesPerformed"`
+	TotalStaleReports             int64                  `json:"totalStaleReports"`
 	AverageActualPerformsPerBlock float64                `json:"averageActualPerformsPerBlock"`
 }
 
@@ -91,7 +94,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 	defer keeperReportFile.Close()
 
 	keeperReportWriter := csv.NewWriter(keeperReportFile)
-	var totalEligibleCount, totalPerformed, totalMissedSLA, totalReverted int64
+	var totalEligibleCount, totalPerformed, totalMissedSLA, totalReverted, totalStaleReports int64
 	var allDelays []int64
 	for _, report := range k.Reports {
 		totalEligibleCount += report.TotalEligibleCount
@@ -101,10 +104,12 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 		allDelays = append(allDelays, report.AllCheckDelays...)
 	}
 	totalReverted = k.NumRevertedUpkeeps
+	totalStaleReports = k.NumStaleUpkeepReports
 	pctWithinSLA := (1.0 - float64(totalMissedSLA)/float64(totalEligibleCount)) * 100
-	var pctReverted float64
+	var pctReverted, pctStale float64
 	if totalPerformed > 0 {
 		pctReverted = (float64(totalReverted) / float64(totalPerformed)) * 100
+		pctStale = (float64(totalStaleReports) / float64(totalPerformed)) * 100
 	}
 
 	err = keeperReportWriter.Write([]string{"Full Test Summary"})
@@ -115,6 +120,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 		"Total Times Eligible",
 		"Total Performed",
 		"Total Reverted",
+		"Total Stale Reports",
 		"Average Perform Delay",
 		"Median Perform Delay",
 		"90th pct Perform Delay",
@@ -122,6 +128,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 		"Max Perform Delay",
 		"Percent Within SLA",
 		"Percent Revert",
+		"Percent Stale",
 	})
 	if err != nil {
 		return err
@@ -131,6 +138,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 		fmt.Sprint(totalEligibleCount),
 		fmt.Sprint(totalPerformed),
 		fmt.Sprint(totalReverted),
+		fmt.Sprint(totalStaleReports),
 		fmt.Sprintf("%.2f", avg),
 		fmt.Sprint(median),
 		fmt.Sprint(ninetyPct),
@@ -138,6 +146,7 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 		fmt.Sprint(max),
 		fmt.Sprintf("%.2f%%", pctWithinSLA),
 		fmt.Sprintf("%.2f%%", pctReverted),
+		fmt.Sprintf("%.2f%%", pctStale),
 	})
 	if err != nil {
 		return err
@@ -216,6 +225,8 @@ func (k *KeeperBenchmarkTestReporter) WriteReport(folderLocation string) error {
 	k.Summary.Metrics.PercentRevert = pctReverted
 	k.Summary.Metrics.TotalTimesEligible = totalEligibleCount
 	k.Summary.Metrics.TotalTimesPerformed = totalPerformed
+	k.Summary.Metrics.TotalStaleReports = totalStaleReports
+	k.Summary.Metrics.PercentStale = pctStale
 	k.Summary.Metrics.AverageActualPerformsPerBlock = float64(totalPerformed) / float64(k.Summary.TestInputs["BlockRange"].(int64))
 
 	// TODO: Set test expectations

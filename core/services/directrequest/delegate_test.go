@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	pipeline_mocks "github.com/smartcontractkit/chainlink/v2/core/services/pipeline/mocks"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -43,10 +44,11 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	})
 	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, MailMon: mailMon, KeyStore: keyStore.Eth()})
+	relayerExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, MailMon: mailMon, KeyStore: keyStore.Eth()})
 
 	lggr := logger.TestLogger(t)
-	delegate := directrequest.NewDelegate(lggr, runner, nil, cc, mailMon)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayerExtenders)
+	delegate := directrequest.NewDelegate(lggr, runner, nil, legacyChains, mailMon)
 
 	t.Run("Spec without DirectRequestSpec", func(t *testing.T) {
 		spec := job.Job{}
@@ -55,7 +57,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	})
 
 	t.Run("Spec with DirectRequestSpec", func(t *testing.T) {
-		spec := job.Job{DirectRequestSpec: &job.DirectRequestSpec{}, PipelineSpec: &pipeline.Spec{}}
+		spec := job.Job{DirectRequestSpec: &job.DirectRequestSpec{EVMChainID: (*utils.Big)(testutils.FixtureChainID)}, PipelineSpec: &pipeline.Spec{}}
 		services, err := delegate.ServicesForSpec(spec)
 		require.NoError(t, err)
 		assert.Len(t, services, 1)
@@ -82,21 +84,20 @@ func NewDirectRequestUniverseWithConfig(t *testing.T, cfg chainlink.GeneralConfi
 
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster, MailMon: mailMon, KeyStore: keyStore.Eth()})
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg, Client: ethClient, LogBroadcaster: broadcaster, MailMon: mailMon, KeyStore: keyStore.Eth()})
 	lggr := logger.TestLogger(t)
 	orm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, cfg.Database())
-
-	jobORM := job.NewORM(db, cc, orm, btORM, keyStore, lggr, cfg.Database())
-	delegate := directrequest.NewDelegate(lggr, runner, orm, cc, mailMon)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	jobORM := job.NewORM(db, legacyChains, orm, btORM, keyStore, lggr, cfg.Database())
+	delegate := directrequest.NewDelegate(lggr, runner, orm, legacyChains, mailMon)
 
 	jb := cltest.MakeDirectRequestJobSpec(t)
 	jb.ExternalJobID = uuid.New()
 	if specF != nil {
 		specF(jb)
 	}
-	err := jobORM.CreateJob(jb)
-	require.NoError(t, err)
+	require.NoError(t, jobORM.CreateJob(jb))
 	serviceArray, err := delegate.ServicesForSpec(*jb)
 	require.NoError(t, err)
 	assert.Len(t, serviceArray, 1)
@@ -142,6 +143,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("ReceiptsRoot").Return(common.Hash{})
 		log.On("TransactionsRoot").Return(common.Hash{})
 		log.On("StateRoot").Return(common.Hash{})
+		log.On("EVMChainID").Return(*big.NewInt(0))
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		logOracleRequest := operator_wrapper.OperatorOracleRequest{
@@ -202,6 +204,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		}).Maybe()
 		log.On("DecodedLog").Return(&logOracleRequest).Maybe()
 		log.On("String").Return("")
+		log.On("EVMChainID").Return(*big.NewInt(0))
 		uni.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Maybe()
 
 		err := uni.service.Start(testutils.Context(t))
@@ -294,6 +297,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		runLog.On("ReceiptsRoot").Return(common.Hash{})
 		runLog.On("TransactionsRoot").Return(common.Hash{})
 		runLog.On("StateRoot").Return(common.Hash{})
+		runLog.On("EVMChainID").Return(*big.NewInt(0))
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		logOracleRequest := operator_wrapper.OperatorOracleRequest{
@@ -363,6 +367,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("ReceiptsRoot").Return(common.Hash{})
 		log.On("TransactionsRoot").Return(common.Hash{})
 		log.On("StateRoot").Return(common.Hash{})
+		log.On("EVMChainID").Return(*big.NewInt(0))
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		logOracleRequest := operator_wrapper.OperatorOracleRequest{
@@ -455,6 +460,7 @@ func TestDelegate_ServicesListenerHandleLog(t *testing.T) {
 		log.On("ReceiptsRoot").Return(common.Hash{})
 		log.On("TransactionsRoot").Return(common.Hash{})
 		log.On("StateRoot").Return(common.Hash{})
+		log.On("EVMChainID").Return(*big.NewInt(0))
 
 		uni.logBroadcaster.On("WasAlreadyConsumed", mock.Anything, mock.Anything).Return(false, nil)
 		logOracleRequest := operator_wrapper.OperatorOracleRequest{

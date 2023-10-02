@@ -33,6 +33,8 @@ type Event struct {
 }
 
 // BHS defines an interface for interacting with a BlockhashStore contract.
+//
+//go:generate mockery --quiet --name BHS --output ./mocks/ --case=underscore
 type BHS interface {
 	// Store the hash associated with blockNum.
 	Store(ctx context.Context, blockNum uint64) error
@@ -42,6 +44,10 @@ type BHS interface {
 
 	// StoreEarliest stores the earliest possible blockhash (i.e. block.number - 256)
 	StoreEarliest(ctx context.Context) error
+
+	IsTrusted() bool
+
+	StoreTrusted(ctx context.Context, blockNums []uint64, blockhashes []common.Hash, recentBlock uint64, recentBlockhash common.Hash) error
 }
 
 func GetUnfulfilledBlocksAndRequests(

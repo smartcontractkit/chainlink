@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/joho/godotenv"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions"
@@ -27,7 +29,18 @@ func main() {
 	s4SetVersion := flag.Uint64("s4_set_version", 0, "S4 set version")
 	s4SetExpirationPeriod := flag.Int64("s4_set_expiration_period", 60*60*1000, "S4 how long until the entry expires from now (in milliseconds)")
 	s4SetPayload := flag.String("s4_set_payload", "", "S4 set payload")
+	repeat := flag.Bool("repeat", false, "Repeat sending the request every 10 seconds")
 	flag.Parse()
+
+	if privateKey == nil || *privateKey == "" {
+		if err := godotenv.Load(); err != nil {
+			panic(err)
+		}
+
+		privateKeyEnvVar := os.Getenv("PRIVATE_KEY")
+		privateKey = &privateKeyEnvVar
+		fmt.Println("Loaded private key from .env")
+	}
 
 	// validate key and extract address
 	key, err := crypto.HexToECDSA(*privateKey)
@@ -77,8 +90,7 @@ func main() {
 		},
 	}
 
-	err = msg.Sign(key)
-	if err != nil {
+	if err = msg.Sign(key); err != nil {
 		fmt.Println("error signing message", err)
 		return
 	}
@@ -88,26 +100,44 @@ func main() {
 		fmt.Println("error JSON-RPC encoding", err)
 		return
 	}
-	req, err := http.NewRequestWithContext(context.Background(), "POST", *gatewayURL, bytes.NewBuffer(rawMsg))
-	if err != nil {
-		fmt.Println("error creating an HTTP request", err)
+
+	createRequest := func() (req *http.Request, err error) {
+		req, err = http.NewRequestWithContext(context.Background(), "POST", *gatewayURL, bytes.NewBuffer(rawMsg))
+		if err == nil {
+			req.Header.Set("Content-Type", "application/json")
+		}
 		return
 	}
-	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println("error sending a request", err)
-		return
-	}
-	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("error sending a request", err)
-		return
+	sendRequest := func() {
+		req, err := createRequest()
+		if err != nil {
+			fmt.Println("error creating a request", err)
+			return
+		}
+
+		resp, err := client.Do(req)
+		if err != nil {
+			fmt.Println("error sending a request", err)
+			return
+		}
+		defer resp.Body.Close()
+
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			fmt.Println("error sending a request", err)
+			return
+		}
+
+		fmt.Println(string(body))
 	}
 
-	fmt.Println(string(body))
+	sendRequest()
+
+	for *repeat {
+		time.Sleep(10 * time.Second)
+		sendRequest()
+	}
 }

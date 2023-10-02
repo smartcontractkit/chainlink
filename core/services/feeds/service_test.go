@@ -31,6 +31,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/versioning"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -72,6 +73,7 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name              = "example OCR1 spec"
 externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+evmChainID 		   = 0
 contractAddress    = "0x613a38AC1659769640aaE063C651F48E0250454C"
 p2pBootstrapPeers  = [
 	"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
@@ -147,7 +149,7 @@ type TestService struct {
 	p2pKeystore  *ksmocks.P2P
 	ocr1Keystore *ksmocks.OCR
 	ocr2Keystore *ksmocks.OCR2
-	cc           evm.ChainSet
+	legacyChains evm.LegacyChainContainer
 }
 
 func setupTestService(t *testing.T) *TestService {
@@ -178,14 +180,15 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	keyStore := new(ksmocks.Master)
 	scopedConfig := evmtest.NewChainScopedConfig(t, gcfg)
 	ethKeyStore := cltest.NewKeyStore(t, db, gcfg.Database()).Eth()
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{GeneralConfig: gcfg,
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: gcfg,
 		HeadTracker: headtracker.NullTracker, KeyStore: ethKeyStore})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	keyStore.On("Eth").Return(ethKeyStore)
 	keyStore.On("CSA").Return(csaKeystore)
 	keyStore.On("P2P").Return(p2pKeystore)
 	keyStore.On("OCR").Return(ocr1Keystore)
 	keyStore.On("OCR2").Return(ocr2Keystore)
-	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, scopedConfig.Insecure(), scopedConfig.JobPipeline(), scopedConfig.OCR(), scopedConfig.OCR2(), scopedConfig.Database(), cc, lggr, "1.0.0")
+	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, scopedConfig.Insecure(), scopedConfig.JobPipeline(), scopedConfig.OCR(), scopedConfig.OCR2(), scopedConfig.Database(), legacyChains, lggr, "1.0.0")
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
@@ -199,7 +202,7 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 		p2pKeystore:  p2pKeystore,
 		ocr1Keystore: ocr1Keystore,
 		ocr2Keystore: ocr2Keystore,
-		cc:           cc,
+		legacyChains: legacyChains,
 	}
 }
 
@@ -813,6 +816,7 @@ func Test_Service_DeleteJob(t *testing.T) {
 			before: func(svc *TestService) {
 				svc.orm.On("GetJobProposalByRemoteUUID", approved.RemoteUUID).Return(&approved, nil)
 				svc.orm.On("DeleteProposal", approved.ID, mock.Anything).Return(nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
 			args:   args,
 			wantID: approved.ID,
@@ -953,6 +957,7 @@ answer1      [type=median index=0];
 				svc.orm.On("GetJobProposalByRemoteUUID", pendingProposal.RemoteUUID).Return(pendingProposal, nil)
 				svc.orm.On("GetLatestSpec", pendingSpec.JobProposalID).Return(pendingSpec, nil)
 				svc.orm.On("RevokeSpec", pendingSpec.ID, mock.Anything).Return(nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
 			args:   args,
 			wantID: pendingProposal.ID,
@@ -969,6 +974,7 @@ answer1      [type=median index=0];
 					Definition:    defn,
 				}, nil)
 				svc.orm.On("RevokeSpec", pendingSpec.ID, mock.Anything).Return(nil)
+				svc.orm.On("CountJobProposalsByStatus").Return(&feeds.JobProposalCounts{}, nil)
 			},
 			args:   args,
 			wantID: pendingProposal.ID,
@@ -1117,9 +1123,10 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 	require.NoError(t, err)
 
 	var (
-		multiaddr = "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"
-		mgr       = &feeds.FeedsManager{ID: 1}
-		ccfg      = feeds.ChainConfig{
+		multiaddr     = "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju"
+		mgr           = &feeds.FeedsManager{ID: 1}
+		forwarderAddr = "0x0002"
+		ccfg          = feeds.ChainConfig{
 			ID:             100,
 			FeedsManagerID: mgr.ID,
 			ChainID:        "42",
@@ -1136,9 +1143,10 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 				KeyBundleID: null.StringFrom(ocrKey.GetID()),
 			},
 			OCR2Config: feeds.OCR2ConfigModel{
-				Enabled:     true,
-				IsBootstrap: true,
-				Multiaddr:   null.StringFrom(multiaddr),
+				Enabled:          true,
+				IsBootstrap:      true,
+				Multiaddr:        null.StringFrom(multiaddr),
+				ForwarderAddress: null.StringFrom(forwarderAddr),
 				Plugins: feeds.Plugins{
 					Commit:  true,
 					Execute: true,
@@ -1186,9 +1194,10 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 					},
 				},
 				Ocr2Config: &proto.OCR2Config{
-					Enabled:     true,
-					IsBootstrap: ccfg.OCR2Config.IsBootstrap,
-					Multiaddr:   multiaddr,
+					Enabled:          true,
+					IsBootstrap:      ccfg.OCR2Config.IsBootstrap,
+					Multiaddr:        multiaddr,
+					ForwarderAddress: &forwarderAddr,
 					Plugins: &proto.OCR2Config_Plugins{
 						Commit:  ccfg.OCR2Config.Plugins.Commit,
 						Execute: ccfg.OCR2Config.Plugins.Execute,

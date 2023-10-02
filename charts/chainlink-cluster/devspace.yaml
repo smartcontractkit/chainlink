@@ -19,7 +19,7 @@ pipelines:
     run: |-
       run_dependencies --all                            # 1. Deploy any projects this project needs (see "dependencies")
       ensure_pull_secrets --all                         # 2. Ensure pull secrets
-      build_images --all -t $(git describe --always)    # 3. Build, tag (git commit hash) and push all images (see "images")
+      build_images --all -t $(git rev-parse --short HEAD)    # 3. Build, tag (git commit hash) and push all images (see "images")
       create_deployments --all                          # 4. Deploy Helm charts and manifests specfied as "deployments"
 
 images:
@@ -43,6 +43,7 @@ deployments:
           image: ${DEVSPACE_IMAGE}
           stateful: false
         geth:
+          version: v1.12.0
           wsrpc-port: 8546
           httprpc-port: 8544
           networkid: 1337

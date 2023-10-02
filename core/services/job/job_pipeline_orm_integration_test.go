@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -150,21 +151,20 @@ func TestPipelineORM_Integration(t *testing.T) {
 		clearJobsDb(t, db)
 		orm := pipeline.NewORM(db, logger.TestLogger(t), cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 		btORM := bridges.NewORM(db, logger.TestLogger(t), cfg.Database())
-		cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{Client: evmtest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config, KeyStore: ethKeyStore})
-		runner := pipeline.NewRunner(orm, btORM, config.JobPipeline(), cfg.WebServer(), cc, nil, nil, lggr, nil, nil)
+		relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{Client: evmtest.NewEthClientMockWithDefaultChain(t), DB: db, GeneralConfig: config, KeyStore: ethKeyStore})
+		legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+		runner := pipeline.NewRunner(orm, btORM, config.JobPipeline(), cfg.WebServer(), legacyChains, nil, nil, lggr, nil, nil)
 
-		jobORM := NewTestORM(t, db, cc, orm, btORM, keyStore, cfg.Database())
+		jobORM := NewTestORM(t, db, legacyChains, orm, btORM, keyStore, cfg.Database())
 
 		dbSpec := makeVoterTurnoutOCRJobSpec(t, transmitterAddress, bridge.Name.String(), bridge2.Name.String())
 
 		// Need a job in order to create a run
-		err := jobORM.CreateJob(dbSpec)
-		require.NoError(t, err)
+		require.NoError(t, jobORM.CreateJob(dbSpec))
 
 		var pipelineSpecs []pipeline.Spec
 		sql := `SELECT * FROM pipeline_specs;`
-		err = db.Select(&pipelineSpecs, sql)
-		require.NoError(t, err)
+		require.NoError(t, db.Select(&pipelineSpecs, sql))
 		require.Len(t, pipelineSpecs, 1)
 		require.Equal(t, dbSpec.PipelineSpecID, pipelineSpecs[0].ID)
 		pipelineSpecID := pipelineSpecs[0].ID

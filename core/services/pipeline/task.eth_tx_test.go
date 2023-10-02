@@ -11,6 +11,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -22,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func TestETHTxTask(t *testing.T) {
@@ -63,7 +65,7 @@ func TestETHTxTask(t *testing.T) {
 			"12345",
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
 			`0`,
-			"",
+			"0",
 			`{"CheckerType": "vrf_v2", "VRFCoordinatorAddress": "0x2E396ecbc8223Ebc16EC45136228AE5EDB649943"}`,
 			nil,
 			false,
@@ -105,7 +107,7 @@ func TestETHTxTask(t *testing.T) {
 			"$(gasLimit)",
 			`{ "jobID": $(jobID), "requestID": $(requestID), "requestTxHash": $(requestTxHash) }`,
 			`0`,
-			"",
+			"0",
 			"",
 			nil,
 			false,
@@ -148,7 +150,7 @@ func TestETHTxTask(t *testing.T) {
 			"$(gasLimit)",
 			`{ "jobID": $(jobID), "requestID": $(requestID), "requestTxHash": $(requestTxHash) }`,
 			"$(minConfirmations)",
-			"",
+			"0",
 			"",
 			nil,
 			false,
@@ -180,7 +182,7 @@ func TestETHTxTask(t *testing.T) {
 			"$(gasLimit)",
 			`$(requestData)`,
 			`0`,
-			"",
+			"0",
 			"",
 			nil,
 			false,
@@ -225,7 +227,7 @@ func TestETHTxTask(t *testing.T) {
 			"$(gasLimit)",
 			`$(requestData)`,
 			`0`,
-			"",
+			"0",
 			"",
 			nil,
 			false,
@@ -270,7 +272,7 @@ func TestETHTxTask(t *testing.T) {
 			"12345",
 			`{}`,
 			`0`,
-			"",
+			"0",
 			"",
 			nil,
 			false,
@@ -300,7 +302,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
 			`0`,
-			"",
+			"0",
 			"",
 			nil, // spec does not override gas limit
 			false,
@@ -334,7 +336,7 @@ func TestETHTxTask(t *testing.T) {
 			"",
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
 			`0`,
-			"",
+			"0",
 			"",
 			&specGasLimit,
 			false,
@@ -368,7 +370,7 @@ func TestETHTxTask(t *testing.T) {
 			"$(gasLimit)",
 			`$(requestData)`,
 			`0`,
-			"",
+			"0",
 			"",
 			nil,
 			false,
@@ -398,7 +400,7 @@ func TestETHTxTask(t *testing.T) {
 			"12345",
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
 			`0`,
-			"",
+			"0",
 			"",
 			nil,
 			false,
@@ -433,7 +435,7 @@ func TestETHTxTask(t *testing.T) {
 			"12345",
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8", "foo": "bar" }`,
 			`0`,
-			"",
+			"0",
 			"",
 			nil,
 			false,
@@ -450,7 +452,7 @@ func TestETHTxTask(t *testing.T) {
 			"12345",
 			`{ "jobID": "asdf", "requestID": 123, "requestTxHash": true }`,
 			`0`,
-			"",
+			"0",
 			"",
 			nil,
 			false,
@@ -467,7 +469,7 @@ func TestETHTxTask(t *testing.T) {
 			"12345",
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
 			`0`,
-			"",
+			"0",
 			"",
 			nil,
 			false,
@@ -484,7 +486,7 @@ func TestETHTxTask(t *testing.T) {
 			"12345",
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
 			`0`,
-			"",
+			"0",
 			"",
 			nil,
 			false,
@@ -501,7 +503,7 @@ func TestETHTxTask(t *testing.T) {
 			"12345",
 			`{ "jobID": 321, "requestID": "0x5198616554d738d9485d1a7cf53b2f33e09c3bbc8fe9ac0020bd672cd2bc15d2", "requestTxHash": "0xc524fafafcaec40652b1f84fca09c231185437d008d195fccf2f51e64b7062f8" }`,
 			`3`,
-			"",
+			"0",
 			"",
 			nil,
 			false,
@@ -541,7 +543,7 @@ func TestETHTxTask(t *testing.T) {
 			nil,
 			func(keyStore *keystoremocks.Eth, txManager *txmmocks.MockEvmTxManager) {
 			},
-			nil, nil, "not found", pipeline.RunInfo{IsRetryable: true},
+			nil, nil, chains.ErrNoSuchChainID.Error(), pipeline.RunInfo{IsRetryable: true},
 		},
 	}
 
@@ -571,11 +573,12 @@ func TestETHTxTask(t *testing.T) {
 			})
 			lggr := logger.TestLogger(t)
 
-			cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg,
+			relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: cfg,
 				TxManager: txManager, KeyStore: keyStore})
+			legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 
 			test.setupClientMocks(keyStore, txManager)
-			task.HelperSetDependencies(cc, keyStore, test.specGasLimit, pipeline.DirectRequestJobType)
+			task.HelperSetDependencies(legacyChains, keyStore, test.specGasLimit, pipeline.DirectRequestJobType)
 
 			result, runInfo := task.Run(testutils.Context(t), lggr, test.vars, test.inputs)
 			assert.Equal(t, test.expectedRunInfo, runInfo)

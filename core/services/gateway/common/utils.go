@@ -4,8 +4,9 @@ import (
 	"crypto/ecdsa"
 	"encoding/binary"
 
-	"github.com/ethereum/go-ethereum/crypto"
 	"golang.org/x/exp/slices"
+
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func Uint32ToBytes(val uint32) []byte {
@@ -27,19 +28,28 @@ func StringToAlignedBytes(input string, size int) []byte {
 
 func AlignedBytesToString(data []byte) string {
 	idx := slices.IndexFunc(data, func(b byte) bool { return b == 0 })
+	if idx == -1 {
+		return string(data)
+	}
 	return string(data[:idx])
 }
 
+func flatten(data ...[]byte) []byte {
+	var result []byte
+	for _, d := range data {
+		result = append(result, d...)
+	}
+	return result
+}
+
 func SignData(privateKey *ecdsa.PrivateKey, data ...[]byte) ([]byte, error) {
-	hash := crypto.Keccak256Hash(data...)
-	return crypto.Sign(hash.Bytes(), privateKey)
+	return utils.GenerateEthSignature(privateKey, flatten(data...))
 }
 
 func ExtractSigner(signature []byte, data ...[]byte) (signerAddress []byte, err error) {
-	hash := crypto.Keccak256Hash(data...)
-	ecdsaPubKey, err := crypto.SigToPub(hash.Bytes(), signature)
+	addr, err := utils.GetSignersEthAddress(flatten(data...), signature)
 	if err != nil {
 		return nil, err
 	}
-	return crypto.PubkeyToAddress(*ecdsaPubKey).Bytes(), nil
+	return addr.Bytes(), nil
 }

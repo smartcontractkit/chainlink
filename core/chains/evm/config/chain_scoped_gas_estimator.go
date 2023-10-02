@@ -25,7 +25,7 @@ func (g *gasEstimatorConfig) PriceMaxKey(addr gethcommon.Address) *assets.Wei {
 	}
 
 	chainSpecific := g.c.PriceMax
-	if keySpecific != nil && !keySpecific.IsZero() && keySpecific.Cmp(chainSpecific) < 0 {
+	if keySpecific != nil && keySpecific.Cmp(chainSpecific) < 0 {
 		return keySpecific
 	}
 

@@ -13,10 +13,12 @@ import (
 
 func req(id int, result []byte, err []byte) *encoding.ProcessedRequest {
 	return &encoding.ProcessedRequest{
-		RequestID:        []byte(strconv.Itoa(id)),
-		Result:           result,
-		Error:            err,
-		CallbackGasLimit: 0,
+		RequestID:           []byte(strconv.Itoa(id)),
+		Result:              result,
+		Error:               err,
+		CallbackGasLimit:    0,
+		CoordinatorContract: []byte{},
+		OnchainMetadata:     []byte{},
 	}
 }
 
@@ -24,12 +26,14 @@ func reqS(id int, result string, err string) *encoding.ProcessedRequest {
 	return req(id, []byte(result), []byte(err))
 }
 
-func reqMeta(id int, result []byte, err []byte, callbackGas uint32) *encoding.ProcessedRequest {
+func reqMeta(id int, result []byte, err []byte, callbackGas uint32, coordinatorContract []byte, onchainMeta []byte) *encoding.ProcessedRequest {
 	return &encoding.ProcessedRequest{
-		RequestID:        []byte(strconv.Itoa(id)),
-		Result:           result,
-		Error:            err,
-		CallbackGasLimit: callbackGas,
+		RequestID:           []byte(strconv.Itoa(id)),
+		Result:              result,
+		Error:               err,
+		CallbackGasLimit:    callbackGas,
+		CoordinatorContract: coordinatorContract,
+		OnchainMetadata:     onchainMeta,
 	}
 }
 
@@ -117,23 +121,23 @@ func TestAggregate_Successful(t *testing.T) {
 			"Metadata With Results",
 			config.AggregationMethod_AGGREGATION_MEDIAN,
 			[]*encoding.ProcessedRequest{
-				reqMeta(21, []byte{1}, []byte{}, 100),
-				reqMeta(21, []byte{1}, []byte{}, 90),
-				reqMeta(21, []byte{1}, []byte{}, 100),
-				reqMeta(21, []byte{1}, []byte{}, 100),
+				reqMeta(21, []byte{1}, []byte{}, 100, []byte{2}, []byte{4}),
+				reqMeta(21, []byte{1}, []byte{}, 90, []byte{2}, []byte{4}),
+				reqMeta(21, []byte{1}, []byte{}, 100, []byte{0}, []byte{4}),
+				reqMeta(21, []byte{1}, []byte{}, 100, []byte{2}, []byte{1}),
 			},
-			reqMeta(21, []byte{1}, []byte{}, 100),
+			reqMeta(21, []byte{1}, []byte{}, 100, []byte{2}, []byte{4}),
 		},
 		{
 			"Metadata With Errors",
 			config.AggregationMethod_AGGREGATION_MEDIAN,
 			[]*encoding.ProcessedRequest{
-				reqMeta(21, []byte{}, []byte{2}, 90),
-				reqMeta(21, []byte{}, []byte{2}, 100),
-				reqMeta(21, []byte{}, []byte{2}, 100),
-				reqMeta(21, []byte{}, []byte{2}, 100),
+				reqMeta(21, []byte{}, []byte{2}, 90, []byte{0}, []byte{4}),
+				reqMeta(21, []byte{}, []byte{2}, 100, []byte{2}, []byte{4}),
+				reqMeta(21, []byte{}, []byte{2}, 100, []byte{2}, []byte{1}),
+				reqMeta(21, []byte{}, []byte{2}, 100, []byte{2}, []byte{4}),
 			},
-			reqMeta(21, []byte{}, []byte{2}, 100),
+			reqMeta(21, []byte{}, []byte{2}, 100, []byte{2}, []byte{4}),
 		},
 	}
 

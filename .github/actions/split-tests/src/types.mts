@@ -22,13 +22,6 @@ export interface Split {
   id: string;
 }
 
-export interface GoSplit extends Split {
-  /**
-   * A space delimited list of packages to run within this split
-   */
-  pkgs: string;
-}
-
 export interface SoliditySplit extends Split {
   /**
    * A string that contains a whitespace delimited list of tests to run
@@ -45,19 +38,6 @@ export interface SoliditySplit extends Split {
    * @example {test/foo.test.ts,test/bar.test.ts}
    */
   coverageTests: string;
-}
-
-export type GoSplits = GoSplit[];
-
-/**
- * Configuration file for golang tests
- */
-export interface GolangConfig {
-  type: "golang";
-  /**
-   * The number of splits to run tests across
-   */
-  numOfSplits: number;
 }
 
 /**

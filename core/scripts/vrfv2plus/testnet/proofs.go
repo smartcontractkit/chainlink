@@ -5,12 +5,15 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"math/big"
 	"os"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/shopspring/decimal"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/extraargs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 )
 
@@ -59,7 +62,7 @@ func generateProofForV2Plus(e helpers.Environment) {
 	blockNum := deployCmd.Uint64("block-num", 0, "block number of VRF request")
 	senderString := deployCmd.String("sender", "", "requestor of VRF request")
 	secretKeyString := deployCmd.String("secret-key", "10", "secret key for VRF V2Key")
-	subId := deployCmd.Uint64("sub-id", 1, "subscription Id for VRF request")
+	subId := deployCmd.String("sub-id", "1", "subscription Id for VRF request")
 	callbackGasLimit := deployCmd.Uint64("gas-limit", 1_000_000, "callback gas limit for VRF request")
 	numWords := deployCmd.Uint64("num-words", 1, "number of words for VRF request")
 	nativePayment := deployCmd.Bool("native-payment", false, "requestor of VRF request")
@@ -97,21 +100,29 @@ func generateProofForV2Plus(e helpers.Environment) {
 	if err != nil {
 		helpers.PanicErr(fmt.Errorf("unable to parse preseed: %w", err))
 	}
-	preSeedData := proof.PreSeedDataV2{
+
+	parsedSubId, ok := new(big.Int).SetString(*subId, 10)
+	if !ok {
+		helpers.PanicErr(fmt.Errorf("unable to parse subID: %s %w", *subId, err))
+	}
+	extraArgs, err := extraargs.ExtraArgsV1(*nativePayment)
+	helpers.PanicErr(err)
+	preSeedData := proof.PreSeedDataV2Plus{
 		PreSeed:          preSeed,
 		BlockHash:        blockHash,
 		BlockNum:         *blockNum,
-		SubId:            *subId,
+		SubId:            parsedSubId,
 		CallbackGasLimit: uint32(*callbackGasLimit),
 		NumWords:         uint32(*numWords),
 		Sender:           sender,
+		ExtraArgs:        extraArgs,
 	}
-	finalSeed := proof.FinalSeedV2(preSeedData)
+	finalSeed := proof.FinalSeedV2Plus(preSeedData)
 	p, err := key.GenerateProof(finalSeed)
 	if err != nil {
 		helpers.PanicErr(fmt.Errorf("unable to generate proof: %w", err))
 	}
-	onChainProof, rc, err := proof.GenerateProofResponseFromProofV2Plus(p, preSeedData, *nativePayment)
+	onChainProof, rc, err := proof.GenerateProofResponseFromProofV2Plus(p, preSeedData)
 	if err != nil {
 		helpers.PanicErr(fmt.Errorf("unable to generate proof response: %w", err))
 	}
@@ -144,6 +155,6 @@ func generateProofForV2Plus(e helpers.Environment) {
 		rc.CallbackGasLimit,
 		rc.NumWords,
 		rc.Sender,
-		rc.NativePayment,
+		hexutil.Encode(rc.ExtraArgs),
 	)
 }

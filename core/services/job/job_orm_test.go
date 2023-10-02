@@ -10,10 +10,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
+
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -35,6 +38,7 @@ import (
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
@@ -79,8 +83,9 @@ func TestORM(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: ethKeyStore})
-	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: ethKeyStore})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 	borm := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
@@ -211,9 +216,23 @@ func TestORM(t *testing.T) {
 	})
 
 	t.Run("creates a job with a direct request spec", func(t *testing.T) {
-		tree, err := toml.LoadFile("../../testdata/tomlspecs/direct-request-spec.toml")
-		require.NoError(t, err)
-		jb, err := directrequest.ValidatedDirectRequestSpec(tree.String())
+		drSpec := fmt.Sprintf(`
+		type                = "directrequest"
+		schemaVersion       = 1
+		evmChainID          = "0"
+		name                = "example eth request event spec"
+		contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
+		externalJobID       = "%s"
+		observationSource   = """
+		    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
+		    ds1_merge    [type=merge left="{}"]
+		    ds1_parse    [type=jsonparse path="USD"];
+		    ds1_multiply [type=multiply times=100];
+		    ds1 -> ds1_parse -> ds1_multiply;
+		"""
+		`, uuid.New())
+
+		jb, err := directrequest.ValidatedDirectRequestSpec(drSpec)
 		require.NoError(t, err)
 		err = orm.CreateJob(&jb)
 		require.NoError(t, err)
@@ -251,9 +270,13 @@ func TestORM(t *testing.T) {
 		require.Equal(t, jb.BlockhashStoreSpec.ID, savedJob.BlockhashStoreSpec.ID)
 		require.Equal(t, jb.BlockhashStoreSpec.CoordinatorV1Address, savedJob.BlockhashStoreSpec.CoordinatorV1Address)
 		require.Equal(t, jb.BlockhashStoreSpec.CoordinatorV2Address, savedJob.BlockhashStoreSpec.CoordinatorV2Address)
+		require.Equal(t, jb.BlockhashStoreSpec.CoordinatorV2PlusAddress, savedJob.BlockhashStoreSpec.CoordinatorV2PlusAddress)
 		require.Equal(t, jb.BlockhashStoreSpec.WaitBlocks, savedJob.BlockhashStoreSpec.WaitBlocks)
 		require.Equal(t, jb.BlockhashStoreSpec.LookbackBlocks, savedJob.BlockhashStoreSpec.LookbackBlocks)
+		require.Equal(t, jb.BlockhashStoreSpec.HeartbeatPeriod, savedJob.BlockhashStoreSpec.HeartbeatPeriod)
 		require.Equal(t, jb.BlockhashStoreSpec.BlockhashStoreAddress, savedJob.BlockhashStoreSpec.BlockhashStoreAddress)
+		require.Equal(t, jb.BlockhashStoreSpec.TrustedBlockhashStoreAddress, savedJob.BlockhashStoreSpec.TrustedBlockhashStoreAddress)
+		require.Equal(t, jb.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize, savedJob.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize)
 		require.Equal(t, jb.BlockhashStoreSpec.PollPeriod, savedJob.BlockhashStoreSpec.PollPeriod)
 		require.Equal(t, jb.BlockhashStoreSpec.RunTimeout, savedJob.BlockhashStoreSpec.RunTimeout)
 		require.Equal(t, jb.BlockhashStoreSpec.EVMChainID, savedJob.BlockhashStoreSpec.EVMChainID)
@@ -308,8 +331,9 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	pipelineORM := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, lggr, config.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 	scopedConfig := evmtest.NewChainScopedConfig(t, config)
 	korm := keeper.NewORM(db, logger.TestLogger(t), scopedConfig.Database())
 
@@ -318,7 +342,7 @@ func TestORM_DeleteJob_DeletesAssociatedRecords(t *testing.T) {
 		_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 
 		_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-		jb, err := ocr.ValidatedOracleSpecToml(cc, testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			TransmitterAddress: address.Hex(),
 			DS1BridgeName:      bridge.Name.String(),
 			DS2BridgeName:      bridge2.Name.String(),
@@ -407,8 +431,10 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	pipelineORM := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, lggr, config.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	fromAddresses := []string{cltest.NewEIP55Address().String(), cltest.NewEIP55Address().String()}
 	jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
@@ -479,6 +505,91 @@ func TestORM_CreateJob_VRFV2(t *testing.T) {
 	cltest.AssertCount(t, db, "jobs", 0)
 }
 
+func TestORM_CreateJob_VRFV2Plus(t *testing.T) {
+	config := configtest.NewTestGeneralConfig(t)
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config.Database())
+	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
+
+	lggr := logger.TestLogger(t)
+	pipelineORM := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db, lggr, config.Database())
+	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
+
+	fromAddresses := []string{cltest.NewEIP55Address().String(), cltest.NewEIP55Address().String()}
+	jb, err := vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(
+		testspecs.VRFSpecParams{
+			VRFVersion:          vrfcommon.V2Plus,
+			RequestedConfsDelay: 10,
+			FromAddresses:       fromAddresses,
+			ChunkSize:           25,
+			BackoffInitialDelay: time.Minute,
+			BackoffMaxDelay:     time.Hour,
+			GasLanePrice:        assets.GWei(100),
+		}).
+		Toml())
+	require.NoError(t, err)
+
+	require.NoError(t, jobORM.CreateJob(&jb))
+	cltest.AssertCount(t, db, "vrf_specs", 1)
+	cltest.AssertCount(t, db, "jobs", 1)
+	var requestedConfsDelay int64
+	require.NoError(t, db.Get(&requestedConfsDelay, `SELECT requested_confs_delay FROM vrf_specs LIMIT 1`))
+	require.Equal(t, int64(10), requestedConfsDelay)
+	var batchFulfillmentEnabled bool
+	require.NoError(t, db.Get(&batchFulfillmentEnabled, `SELECT batch_fulfillment_enabled FROM vrf_specs LIMIT 1`))
+	require.False(t, batchFulfillmentEnabled)
+	var batchFulfillmentGasMultiplier float64
+	require.NoError(t, db.Get(&batchFulfillmentGasMultiplier, `SELECT batch_fulfillment_gas_multiplier FROM vrf_specs LIMIT 1`))
+	require.Equal(t, float64(1.0), batchFulfillmentGasMultiplier)
+	var requestTimeout time.Duration
+	require.NoError(t, db.Get(&requestTimeout, `SELECT request_timeout FROM vrf_specs LIMIT 1`))
+	require.Equal(t, 24*time.Hour, requestTimeout)
+	var backoffInitialDelay time.Duration
+	require.NoError(t, db.Get(&backoffInitialDelay, `SELECT backoff_initial_delay FROM vrf_specs LIMIT 1`))
+	require.Equal(t, time.Minute, backoffInitialDelay)
+	var backoffMaxDelay time.Duration
+	require.NoError(t, db.Get(&backoffMaxDelay, `SELECT backoff_max_delay FROM vrf_specs LIMIT 1`))
+	require.Equal(t, time.Hour, backoffMaxDelay)
+	var chunkSize int
+	require.NoError(t, db.Get(&chunkSize, `SELECT chunk_size FROM vrf_specs LIMIT 1`))
+	require.Equal(t, 25, chunkSize)
+	var gasLanePrice assets.Wei
+	require.NoError(t, db.Get(&gasLanePrice, `SELECT gas_lane_price FROM vrf_specs LIMIT 1`))
+	require.Equal(t, jb.VRFSpec.GasLanePrice, &gasLanePrice)
+	var fa pq.ByteaArray
+	require.NoError(t, db.Get(&fa, `SELECT from_addresses FROM vrf_specs LIMIT 1`))
+	var actual []string
+	for _, b := range fa {
+		actual = append(actual, common.BytesToAddress(b).String())
+	}
+	require.ElementsMatch(t, fromAddresses, actual)
+	var vrfOwnerAddress ethkey.EIP55Address
+	require.Error(t, db.Get(&vrfOwnerAddress, `SELECT vrf_owner_address FROM vrf_specs LIMIT 1`))
+	require.NoError(t, jobORM.DeleteJob(jb.ID))
+	cltest.AssertCount(t, db, "vrf_specs", 0)
+	cltest.AssertCount(t, db, "jobs", 0)
+
+	jb, err = vrfcommon.ValidatedVRFSpec(testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		VRFVersion:     vrfcommon.V2Plus,
+		RequestTimeout: 1 * time.Hour,
+		FromAddresses:  fromAddresses,
+	}).Toml())
+	require.NoError(t, err)
+	require.NoError(t, jobORM.CreateJob(&jb))
+	cltest.AssertCount(t, db, "vrf_specs", 1)
+	cltest.AssertCount(t, db, "jobs", 1)
+	require.NoError(t, db.Get(&requestedConfsDelay, `SELECT requested_confs_delay FROM vrf_specs LIMIT 1`))
+	require.Equal(t, int64(0), requestedConfsDelay)
+	require.NoError(t, db.Get(&requestTimeout, `SELECT request_timeout FROM vrf_specs LIMIT 1`))
+	require.Equal(t, 1*time.Hour, requestTimeout)
+	require.NoError(t, jobORM.DeleteJob(jb.ID))
+	cltest.AssertCount(t, db, "vrf_specs", 0)
+	cltest.AssertCount(t, db, "jobs", 0)
+}
+
 func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 	config := configtest.NewTestGeneralConfig(t)
 	db := pgtest.NewSqlxDB(t)
@@ -488,8 +599,9 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	pipelineORM := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, lggr, config.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	jb, err := ocrbootstrap.ValidatedBootstrapSpecToml(testspecs.OCRBootstrapSpec)
 	require.NoError(t, err)
@@ -505,6 +617,92 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 	require.NoError(t, jobORM.DeleteJob(jb.ID))
 	cltest.AssertCount(t, db, "bootstrap_specs", 0)
 	cltest.AssertCount(t, db, "jobs", 0)
+}
+
+func TestORM_CreateJob_EVMChainID_Validation(t *testing.T) {
+	config := configtest.NewGeneralConfig(t, nil)
+	db := pgtest.NewSqlxDB(t)
+	keyStore := cltest.NewKeyStore(t, db, config.Database())
+
+	lggr := logger.TestLogger(t)
+	pipelineORM := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
+	bridgesORM := bridges.NewORM(db, lggr, config.Database())
+
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
+
+	t.Run("evm chain id validation for ocr works", func(t *testing.T) {
+		jb := job.Job{
+			Type:          job.OffchainReporting,
+			OCROracleSpec: &job.OCROracleSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for direct request works", func(t *testing.T) {
+		jb := job.Job{
+			Type:              job.DirectRequest,
+			DirectRequestSpec: &job.DirectRequestSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for flux monitor works", func(t *testing.T) {
+		jb := job.Job{
+			Type:            job.FluxMonitor,
+			FluxMonitorSpec: &job.FluxMonitorSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for keepers works", func(t *testing.T) {
+		jb := job.Job{
+			Type:       job.Keeper,
+			KeeperSpec: &job.KeeperSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for vrf works", func(t *testing.T) {
+		jb := job.Job{
+			Type:    job.VRF,
+			VRFSpec: &job.VRFSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for block hash store works", func(t *testing.T) {
+		jb := job.Job{
+			Type:               job.BlockhashStore,
+			BlockhashStoreSpec: &job.BlockhashStoreSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for block header feeder works", func(t *testing.T) {
+		jb := job.Job{
+			Type:                  job.BlockHeaderFeeder,
+			BlockHeaderFeederSpec: &job.BlockHeaderFeederSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for legacy gas station server spec works", func(t *testing.T) {
+		jb := job.Job{
+			Type:                       job.LegacyGasStationServer,
+			LegacyGasStationServerSpec: &job.LegacyGasStationServerSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
+
+	t.Run("evm chain id validation for legacy gas station sidecar spec works", func(t *testing.T) {
+		jb := job.Job{
+			Type:                        job.LegacyGasStationSidecar,
+			LegacyGasStationSidecarSpec: &job.LegacyGasStationSidecarSpec{},
+		}
+		assert.Equal(t, "CreateJobFailed: evm chain id must be defined", jobORM.CreateJob(&jb).Error())
+	})
 }
 
 func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
@@ -527,116 +725,52 @@ func TestORM_CreateJob_OCR_DuplicatedContractAddress(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, lggr, config.Database())
 
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
-	defaultChainID := config.DefaultChainID()
-
+	// defaultChainID is deprecated
+	defaultChainID := customChainID
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 
-	// EVMChainID will default to 0, but we want to override that
-	// with nil later to represent a job spec with no chain id
-	spec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-		Name:               "job1",
-		DS1BridgeName:      bridge.Name.String(),
-		DS2BridgeName:      bridge2.Name.String(),
-		TransmitterAddress: address.Hex(),
-	})
-
-	jb, err := ocr.ValidatedOracleSpecToml(cc, spec.Toml())
-	require.NoError(t, err)
-
-	// 2nd job with no Chain ID
-	spec2 := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-		Name:               "job2",
-		DS1BridgeName:      bridge.Name.String(),
-		DS2BridgeName:      bridge2.Name.String(),
-		TransmitterAddress: address.Hex(),
-	})
-	jb2, err := ocr.ValidatedOracleSpecToml(cc, spec2.Toml())
-	require.NoError(t, err)
-
-	// Default Chain Job
-	externalJobID := uuid.NullUUID{UUID: uuid.New(), Valid: true}
-	spec3 := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-		Name:               "job3",
-		EVMChainID:         defaultChainID.String(),
-		DS1BridgeName:      bridge.Name.String(),
-		DS2BridgeName:      bridge2.Name.String(),
-		TransmitterAddress: address.Hex(),
-		JobID:              externalJobID.UUID.String(),
-	})
-	jb3, err := ocr.ValidatedOracleSpecToml(cc, spec3.Toml())
-	require.NoError(t, err)
-
 	// Custom Chain Job
-	externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
-	spec4 := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-		Name:               "job4",
+	externalJobID := uuid.NullUUID{UUID: uuid.New(), Valid: true}
+	spec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
+		Name:               "job3",
 		EVMChainID:         customChainID.String(),
 		DS1BridgeName:      bridge.Name.String(),
 		DS2BridgeName:      bridge2.Name.String(),
 		TransmitterAddress: address.Hex(),
 		JobID:              externalJobID.UUID.String(),
 	})
-	jb4, err := ocr.ValidatedOracleSpecToml(cc, spec4.Toml())
+	jb, err := ocr.ValidatedOracleSpecToml(legacyChains, spec.Toml())
 	require.NoError(t, err)
 
-	t.Run("with legacy NULL chain id", func(t *testing.T) {
-		err = jobORM.CreateJob(&jb)
-		require.NoError(t, err)
-		_, err := db.ExecContext(testutils.Context(t),
-			"UPDATE ocr_oracle_specs o SET evm_chain_id=NULL FROM jobs j WHERE o.id = j.ocr_oracle_spec_id AND j.id=$1", jb.ID)
-		require.NoError(t, err)
-
-		cltest.AssertCount(t, db, "ocr_oracle_specs", 1)
-		cltest.AssertCount(t, db, "jobs", 1)
-
-		jb2.OCROracleSpec.EVMChainID = nil
-		err = jobORM.CreateJob(&jb2) // try adding job for same contract with no chain id in spec
-		require.Error(t, err)
-		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb2.OCROracleSpec.ContractAddress, defaultChainID.String()), err.Error())
-
-		err = jobORM.CreateJob(&jb3) // try adding job for same contract with default chain id
-		require.Error(t, err)
-		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %d", jb3.OCROracleSpec.ContractAddress, jb3.OCROracleSpec.EVMChainID.ToInt()), err.Error())
-
-		err = jobORM.CreateJob(&jb4) // Try adding job with custom chain id
-		require.Error(t, err)
-		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %d", jb4.OCROracleSpec.ContractAddress, jb4.OCROracleSpec.EVMChainID.ToInt()), err.Error())
-	})
-
-	require.NoError(t, jobORM.DeleteJob(jb.ID))
-
 	t.Run("with a set chain id", func(t *testing.T) {
-		err = jobORM.CreateJob(&jb4) // Add job with custom chain id
+		err = jobORM.CreateJob(&jb) // Add job with custom chain id
 		require.NoError(t, err)
 
 		cltest.AssertCount(t, db, "ocr_oracle_specs", 1)
 		cltest.AssertCount(t, db, "jobs", 1)
 
-		jb.OCROracleSpec.EVMChainID = nil
-		err = jobORM.CreateJob(&jb)
-		require.NoError(t, err) // should be able to add same contract address on default chain by omitting chain id
+		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
+		spec.JobID = externalJobID.UUID.String()
+		jba, err := ocr.ValidatedOracleSpecToml(legacyChains, spec.Toml())
+		require.NoError(t, err)
+		err = jobORM.CreateJob(&jba) // Try to add duplicate job with default id
+		require.Error(t, err)
+		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb.OCROracleSpec.ContractAddress, defaultChainID.String()), err.Error())
 
 		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
-		spec3.JobID = externalJobID.UUID.String()
-		jb3a, err := ocr.ValidatedOracleSpecToml(cc, spec3.Toml())
-		require.NoError(t, err)
-		err = jobORM.CreateJob(&jb3a) // Try to add duplicate job with default id
-		require.Error(t, err)
-		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb3.OCROracleSpec.ContractAddress, defaultChainID.String()), err.Error())
-
-		externalJobID = uuid.NullUUID{UUID: uuid.New(), Valid: true}
-		spec4.JobID = externalJobID.UUID.String()
-		jb5, err := ocr.ValidatedOracleSpecToml(cc, spec4.Toml())
+		spec.JobID = externalJobID.UUID.String()
+		jb2, err := ocr.ValidatedOracleSpecToml(legacyChains, spec.Toml())
 		require.NoError(t, err)
 
-		err = jobORM.CreateJob(&jb5) // Try to add duplicate job with custom id
+		err = jobORM.CreateJob(&jb2) // Try to add duplicate job with custom id
 		require.Error(t, err)
-		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb4.OCROracleSpec.ContractAddress, customChainID), err.Error())
+		assert.Equal(t, fmt.Sprintf("CreateJobFailed: a job with contract address %s already exists for chain ID %s", jb2.OCROracleSpec.ContractAddress, customChainID), err.Error())
 	})
 }
 
@@ -660,8 +794,9 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, lggr, config.Database())
 
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
@@ -702,7 +837,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	require.Error(t, err)
 }
 
-func TestORM_CreateJob_OCR2_Sending_Keys_TransmitterID_Validations(t *testing.T) {
+func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing.T) {
 	customChainID := utils.NewBig(testutils.NewRandomEVMChainID())
 
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -722,8 +857,10 @@ func TestORM_CreateJob_OCR2_Sending_Keys_TransmitterID_Validations(t *testing.T)
 	pipelineORM := pipeline.NewORM(db, lggr, config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, lggr, config.Database())
 
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	jobORM := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	require.True(t, relayExtenders.Len() > 0)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
 	require.NoError(t, err)
@@ -738,7 +875,7 @@ func TestORM_CreateJob_OCR2_Sending_Keys_TransmitterID_Validations(t *testing.T)
 		jb.OCR2OracleSpec.TransmitterID = null.String{}
 		_, address2 := cltest.MustInsertRandomKey(t, keyStore.Eth())
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = interface{}([]any{address.String(), address2.String(), common.HexToAddress("0X0").String()})
-		assert.Equal(t, "CreateJobFailed: no EVM key matching: \"0x0000000000000000000000000000000000000000\": no such transmitter key exists", jobORM.CreateJob(&jb).Error())
+		assert.Equal(t, "CreateJobFailed: no EVM key matching: \"0x0000000000000000000000000000000000000000\": no such sending key exists", jobORM.CreateJob(&jb).Error())
 
 		jb.OCR2OracleSpec.RelayConfig["sendingKeys"] = interface{}([]any{1, 2, 3})
 		assert.Equal(t, "CreateJobFailed: sending keys are of wrong type", jobORM.CreateJob(&jb).Error())
@@ -757,6 +894,71 @@ func TestORM_CreateJob_OCR2_Sending_Keys_TransmitterID_Validations(t *testing.T)
 	})
 }
 
+func TestORM_ValidateKeyStoreMatch(t *testing.T) {
+	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {})
+
+	keyStore := cltest.NewKeyStore(t, pgtest.NewSqlxDB(t), config.Database())
+	require.NoError(t, keyStore.OCR2().Add(cltest.DefaultOCR2Key))
+
+	jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
+	require.NoError(t, err)
+
+	t.Run("test ETH key validation", func(t *testing.T) {
+		jb.OCR2OracleSpec.Relay = relay.EVM
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no EVM key matching: \"bad key\"")
+
+		_, evmKey := cltest.MustInsertRandomKey(t, keyStore.Eth())
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, evmKey.String())
+		require.NoError(t, err)
+	})
+
+	t.Run("test Cosmos key validation", func(t *testing.T) {
+		jb.OCR2OracleSpec.Relay = relay.Cosmos
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no Cosmos key matching: \"bad key\"")
+
+		cosmosKey, err := keyStore.Cosmos().Create()
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, cosmosKey.ID())
+		require.NoError(t, err)
+	})
+
+	t.Run("test Solana key validation", func(t *testing.T) {
+		jb.OCR2OracleSpec.Relay = relay.Solana
+
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no Solana key matching: \"bad key\"")
+
+		solanaKey, err := keyStore.Solana().Create()
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, solanaKey.ID())
+		require.NoError(t, err)
+	})
+
+	t.Run("test Starknet key validation", func(t *testing.T) {
+		jb.OCR2OracleSpec.Relay = relay.StarkNet
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no Starknet key matching: \"bad key\"")
+
+		starkNetKey, err := keyStore.StarkNet().Create()
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, starkNetKey.ID())
+		require.NoError(t, err)
+	})
+
+	t.Run("test Mercury ETH key validation", func(t *testing.T) {
+		jb.OCR2OracleSpec.PluginType = types.Mercury
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		require.EqualError(t, err, "no CSA key matching: \"bad key\"")
+
+		csaKey, err := keyStore.CSA().Create()
+		require.NoError(t, err)
+		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, csaKey.ID())
+		require.NoError(t, err)
+	})
+}
+
 func Test_FindJobs(t *testing.T) {
 	t.Parallel()
 
@@ -768,14 +970,15 @@ func Test_FindJobs(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	jb1, err := ocr.ValidatedOracleSpecToml(cc,
+	jb1, err := ocr.ValidatedOracleSpecToml(legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              uuid.New().String(),
 			TransmitterAddress: address.Hex(),
@@ -826,9 +1029,8 @@ func Test_FindJobs(t *testing.T) {
 func Test_FindJob(t *testing.T) {
 	t.Parallel()
 
-	// Create a config with multiple EVM chains.  The test fixtures already load a 1337 and the
-	// default EVM chain ID.  Additional chains will need additional fixture statements to add
-	// a chain to evm_chains.
+	// Create a config with multiple EVM chains. The test fixtures already load 1337
+	// Additional chains will need additional fixture statements to add a chain to evm_chains.
 	config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		chainID := utils.NewBigI(1337)
 		enabled := true
@@ -848,8 +1050,9 @@ func Test_FindJob(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
@@ -858,7 +1061,7 @@ func Test_FindJob(t *testing.T) {
 	// Must uniquely name the OCR Specs to properly insert a new job in the job table.
 	externalJobID := uuid.New()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	job, err := ocr.ValidatedOracleSpecToml(cc,
+	job, err := ocr.ValidatedOracleSpecToml(legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			Name:               "orig ocr spec",
@@ -869,7 +1072,7 @@ func Test_FindJob(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	jobSameAddress, err := ocr.ValidatedOracleSpecToml(cc,
+	jobSameAddress, err := ocr.ValidatedOracleSpecToml(legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              uuid.New().String(),
 			TransmitterAddress: address.Hex(),
@@ -893,8 +1096,8 @@ func Test_FindJob(t *testing.T) {
 
 	jobOCR2.OCR2OracleSpec.PluginConfig["juelsPerFeeCoinSource"] = juelsPerFeeCoinSource
 
-	ocr2WithFeedID1 := "0x0000000000000000000000000000000000000000000000000000000000000001"
-	ocr2WithFeedID2 := "0x0000000000000000000000000000000000000000000000000000000000000002"
+	ocr2WithFeedID1 := "0x0001000000000000000000000000000000000000000000000000000000000001"
+	ocr2WithFeedID2 := "0x0001000000000000000000000000000000000000000000000000000000000002"
 	jobOCR2WithFeedID1, err := ocr2validate.ValidatedOracleSpecToml(
 		config.OCR2(),
 		config.Insecure(),
@@ -911,26 +1114,10 @@ func Test_FindJob(t *testing.T) {
 	jobOCR2WithFeedID2.Name = null.StringFrom("new name")
 	require.NoError(t, err)
 
-	// Create a job with the legacy null evm chain id.
-	jobWithNullChain, err := ocr.ValidatedOracleSpecToml(cc,
-		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
-			JobID:              uuid.New().String(),
-			ContractAddress:    "0xB47f9a6D281B2A82F8692F8dE058E4249363A6fc",
-			TransmitterAddress: address.Hex(),
-			Name:               "ocr legacy null chain id",
-			DS1BridgeName:      bridge.Name.String(),
-			DS2BridgeName:      bridge2.Name.String(),
-		}).Toml(),
-	)
-	require.NoError(t, err)
-
 	err = orm.CreateJob(&job)
 	require.NoError(t, err)
 
 	err = orm.CreateJob(&jobSameAddress)
-	require.NoError(t, err)
-
-	err = orm.CreateJob(&jobWithNullChain)
 	require.NoError(t, err)
 
 	err = orm.CreateJob(&jobOCR2)
@@ -941,11 +1128,6 @@ func Test_FindJob(t *testing.T) {
 
 	// second ocr2 job with same contract id but different feed id
 	err = orm.CreateJob(&jobOCR2WithFeedID2)
-	require.NoError(t, err)
-
-	// Set the ChainID to null manually since we can't do this in the test helper
-	_, err = db.ExecContext(testutils.Context(t),
-		"UPDATE ocr_oracle_specs o SET evm_chain_id=NULL FROM jobs j WHERE o.id = j.ocr_oracle_spec_id AND j.id=$1", jobWithNullChain.ID)
 	require.NoError(t, err)
 
 	t.Run("by id", func(t *testing.T) {
@@ -985,24 +1167,6 @@ func Test_FindJob(t *testing.T) {
 		_, err = orm.FindJobIDByAddress("not-existing", utils.NewBigI(0))
 		require.Error(t, err)
 		require.ErrorIs(t, err, sql.ErrNoRows)
-	})
-
-	t.Run("by address with legacy null evm chain id", func(t *testing.T) {
-		jbID, err := orm.FindJobIDByAddress(
-			jobWithNullChain.OCROracleSpec.ContractAddress,
-			jobWithNullChain.OCROracleSpec.EVMChainID,
-		)
-		require.NoError(t, err)
-
-		assert.Equal(t, jobWithNullChain.ID, jbID)
-
-		jbID, err = orm.FindJobIDByAddress(
-			jobWithNullChain.OCROracleSpec.ContractAddress,
-			utils.NewBig(nil),
-		)
-		require.NoError(t, err)
-
-		assert.Equal(t, jobWithNullChain.ID, jbID)
 	})
 
 	t.Run("by address yet chain scoped", func(t *testing.T) {
@@ -1064,11 +1228,13 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
 	require.NoError(t, err)
+	jb.DirectRequestSpec.EVMChainID = utils.NewBigI(0)
 
 	err = orm.CreateJob(&jb)
 	require.NoError(t, err)
@@ -1091,6 +1257,27 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, jbs, 0)
 	})
+
+	t.Run("with chainID disabled", func(t *testing.T) {
+		newCfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0] = &evmcfg.EVMConfig{
+				ChainID: utils.NewBigI(0),
+				Enabled: ptr(false),
+			}
+			c.EVM = append(c.EVM, &evmcfg.EVMConfig{
+				ChainID: utils.NewBigI(123123123),
+				Enabled: ptr(true),
+			})
+		})
+		relayExtenders2 := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: newCfg, KeyStore: keyStore.Eth()})
+		legacyChains2 := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders2)
+
+		orm2 := NewTestORM(t, db, legacyChains2, pipelineORM, bridgesORM, keyStore, config.Database())
+
+		jbs, err := orm2.FindJobsByPipelineSpecIDs([]int32{jb.PipelineSpecID})
+		require.NoError(t, err)
+		assert.Len(t, jbs, 1)
+	})
 }
 
 func Test_FindPipelineRuns(t *testing.T) {
@@ -1104,15 +1291,16 @@ func Test_FindPipelineRuns(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 
 	externalJobID := uuid.New()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	jb, err := ocr.ValidatedOracleSpecToml(cc,
+	jb, err := ocr.ValidatedOracleSpecToml(legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			TransmitterAddress: address.Hex(),
@@ -1164,15 +1352,16 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 
 	externalJobID := uuid.New()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	jb, err := ocr.ValidatedOracleSpecToml(cc,
+	jb, err := ocr.ValidatedOracleSpecToml(legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			TransmitterAddress: address.Hex(),
@@ -1224,8 +1413,9 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, lggr, config.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
@@ -1237,7 +1427,7 @@ func Test_FindPipelineRunIDsByJobID(t *testing.T) {
 		key, err := ethkey.NewV2()
 
 		require.NoError(t, err)
-		jb, err = ocr.ValidatedOracleSpecToml(cc,
+		jb, err = ocr.ValidatedOracleSpecToml(legacyChains,
 			testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 				JobID:              jobID,
 				Name:               fmt.Sprintf("Job #%v", jobID),
@@ -1331,15 +1521,16 @@ func Test_FindPipelineRunsByIDs(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 
 	externalJobID := uuid.New()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	jb, err := ocr.ValidatedOracleSpecToml(cc,
+	jb, err := ocr.ValidatedOracleSpecToml(legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			TransmitterAddress: address.Hex(),
@@ -1388,8 +1579,9 @@ func Test_FindPipelineRunByID(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
 	require.NoError(t, err)
@@ -1432,8 +1624,9 @@ func Test_FindJobWithoutSpecErrors(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
 	require.NoError(t, err)
@@ -1470,8 +1663,9 @@ func Test_FindSpecErrorsByJobIDs(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
 	require.NoError(t, err)
@@ -1505,15 +1699,16 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	bridgesORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	orm := NewTestORM(t, db, cc, pipelineORM, bridgesORM, keyStore, config.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
 	_, bridge := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 	_, bridge2 := cltest.MustCreateBridge(t, db, cltest.BridgeOpts{}, config.Database())
 
 	externalJobID := uuid.New()
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
-	jb, err := ocr.ValidatedOracleSpecToml(cc,
+	jb, err := ocr.ValidatedOracleSpecToml(legacyChains,
 		testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
 			JobID:              externalJobID.String(),
 			TransmitterAddress: address.Hex(),

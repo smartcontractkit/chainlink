@@ -28,6 +28,7 @@ Initial set of commands:
 
 - `generate-ocr2config` generates `FunctionsOracleConfig.json` that is consumed by contracts tooling.
   - If manual configuration is preferred instead of automatically fetching the required parameters from the nodes, create a file that follows the same format as `src/sample_keys.json` and enter the required parameters which can be found on each node's Key Management page in the UI. Note that the bootstrap node is not included in this file. The path to this file should be entered for the `-keys` parameter instead of using the `-nodes` parameter.
+  - When using the `-nodes` parameter, a `DONPublicKeys.json` file will be generated.  This can be used to simplify the creation of the `keyGenConfig.json` file when generating threshold keys with the [Functions admin tooling](https://github.com/smartcontractkit/functions-admin-tooling/blob/main/threshold_key_manager/README.md).
   - Use `src/sample_config.json` as a template for the `-config` file.
 - `generate-jobspecs` generates Job Specs (toml) for each node based on its role.
   - Jobspecs can also be created manually by swapping the relevant values in the `toml` files.
@@ -41,13 +42,13 @@ Each command has its own parameters. Simply run a command without parameters to 
 
 - The current implementation expects a single bootstrap node and a few oracle nodes.
   Bootstrap node must come first in the nodes list file.
-- You may or may not specify `https://` prefix for hosts, the tool will handle this.
+- You must provide the `http://` or `https://` prefix for hosts
 - Any command would terminate immediately with the first issue detected.
 - `deploy-jobspecs` command does NOT check for the existing jobs, be careful.
 - `deploy-jobspecs` command does not deploy bridges, they should exist prior to execution.
 - The tooling does not interact with chains/contracts.
 
-5. Future enhancements
+1. Future enhancements
 
 - Add `deploy-bridges` command.
 - For NOPs: make commands to run against a single node with terminal authorization.

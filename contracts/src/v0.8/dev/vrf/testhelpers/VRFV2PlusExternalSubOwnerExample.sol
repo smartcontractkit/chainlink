@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../../interfaces/LinkTokenInterface.sol";
+import "../../../shared/interfaces/LinkTokenInterface.sol";
 import "../../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../VRFConsumerBaseV2Plus.sol";
 
@@ -26,7 +26,7 @@ contract VRFV2PlusExternalSubOwnerExample is VRFConsumerBaseV2Plus {
   }
 
   function requestRandomWords(
-    uint64 subId,
+    uint256 subId,
     uint32 callbackGasLimit,
     uint16 requestConfirmations,
     uint32 numWords,

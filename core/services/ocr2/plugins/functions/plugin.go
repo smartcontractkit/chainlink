@@ -13,9 +13,9 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
@@ -28,6 +28,7 @@ import (
 	s4_plugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
+	evmrelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -45,6 +46,7 @@ type FunctionsServicesConfig struct {
 	URLsMonEndpoint   commontypes.MonitoringEndpoint
 	EthKeystore       keystore.Eth
 	ThresholdKeyShare []byte
+	LogPollerWrapper  evmrelayTypes.LogPollerWrapper
 }
 
 const (
@@ -67,11 +69,6 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 	}
 
 	allServices := []job.ServiceCtx{}
-	contractAddress := common.HexToAddress(conf.Job.OCR2OracleSpec.ContractID)
-	oracleContract, err := ocr2dr_oracle.NewOCR2DROracle(contractAddress, conf.Chain.Client())
-	if err != nil {
-		return nil, errors.Wrapf(err, "Functions: failed to create a FunctionsOracle wrapper for address: %v", contractAddress)
-	}
 
 	var decryptor threshold.Decryptor
 	// thresholdOracleArgs nil check will be removed once the Threshold plugin is fully integrated w/ Functions
@@ -106,8 +103,9 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 	listenerLogger := conf.Logger.Named("FunctionsListener")
 	bridgeAccessor := functions.NewBridgeAccessor(conf.BridgeORM, FunctionsBridgeName, MaxAdapterResponseBytes)
 	functionsListener := functions.NewFunctionsListener(
-		oracleContract,
 		conf.Job,
+		conf.Chain.Client(),
+		conf.Job.OCR2OracleSpec.ContractID,
 		bridgeAccessor,
 		pluginORM,
 		pluginConfig,
@@ -117,13 +115,15 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 		conf.MailMon,
 		conf.URLsMonEndpoint,
 		decryptor,
+		conf.LogPollerWrapper,
 	)
 	allServices = append(allServices, functionsListener)
 
 	functionsOracleArgs.ReportingPluginFactory = FunctionsReportingPluginFactory{
-		Logger:    functionsOracleArgs.Logger,
-		PluginORM: pluginORM,
-		JobID:     conf.Job.ExternalJobID,
+		Logger:          functionsOracleArgs.Logger,
+		PluginORM:       pluginORM,
+		JobID:           conf.Job.ExternalJobID,
+		ContractVersion: pluginConfig.ContractVersion,
 	}
 	functionsReportingPluginOracle, err := libocr2.NewOracle(*functionsOracleArgs)
 	if err != nil {
@@ -131,17 +131,21 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 	}
 	allServices = append(allServices, job.NewServiceAdapter(functionsReportingPluginOracle))
 
-	if pluginConfig.GatewayConnectorConfig != nil && s4Storage != nil && pluginConfig.OnchainAllowlist != nil && pluginConfig.RateLimiter != nil {
+	if pluginConfig.GatewayConnectorConfig != nil && s4Storage != nil && pluginConfig.OnchainAllowlist != nil && pluginConfig.RateLimiter != nil && pluginConfig.OnchainSubscriptions != nil {
 		allowlist, err2 := gwFunctions.NewOnchainAllowlist(conf.Chain.Client(), *pluginConfig.OnchainAllowlist, conf.Logger)
 		if err2 != nil {
-			return nil, errors.Wrap(err, "failed to call NewOnchainAllowlist while creating a Functions Reporting Plugin")
+			return nil, errors.Wrap(err, "failed to create OnchainAllowlist")
 		}
 		rateLimiter, err2 := hc.NewRateLimiter(*pluginConfig.RateLimiter)
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to create a RateLimiter")
 		}
+		subscriptions, err2 := gwFunctions.NewOnchainSubscriptions(conf.Chain.Client(), *pluginConfig.OnchainSubscriptions, conf.Logger)
+		if err2 != nil {
+			return nil, errors.Wrap(err, "failed to create a OnchainSubscriptions")
+		}
 		connectorLogger := conf.Logger.Named("GatewayConnector").With("jobName", conf.Job.PipelineSpec.JobName)
-		connector, err2 := NewConnector(pluginConfig.GatewayConnectorConfig, conf.EthKeystore, conf.Chain.ID(), s4Storage, allowlist, rateLimiter, connectorLogger)
+		connector, err2 := NewConnector(pluginConfig.GatewayConnectorConfig, conf.EthKeystore, conf.Chain.ID(), s4Storage, allowlist, rateLimiter, subscriptions, pluginConfig.MinimumSubscriptionBalance, connectorLogger)
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to create a GatewayConnector")
 		}
@@ -168,7 +172,7 @@ func NewFunctionsServices(functionsOracleArgs, thresholdOracleArgs, s4OracleArgs
 	return allServices, nil
 }
 
-func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, chainID *big.Int, s4Storage s4.Storage, allowlist gwFunctions.OnchainAllowlist, rateLimiter *hc.RateLimiter, lggr logger.Logger) (connector.GatewayConnector, error) {
+func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, chainID *big.Int, s4Storage s4.Storage, allowlist gwFunctions.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions gwFunctions.OnchainSubscriptions, minimumBalance assets.Link, lggr logger.Logger) (connector.GatewayConnector, error) {
 	enabledKeys, err := ethKeystore.EnabledKeysForChain(chainID)
 	if err != nil {
 		return nil, err
@@ -181,7 +185,7 @@ func NewConnector(gwcCfg *connector.ConnectorConfig, ethKeystore keystore.Eth, c
 	signerKey := enabledKeys[idx].ToEcdsaPrivKey()
 	nodeAddress := enabledKeys[idx].ID()
 
-	handler, err := functions.NewFunctionsConnectorHandler(nodeAddress, signerKey, s4Storage, allowlist, rateLimiter, lggr)
+	handler, err := functions.NewFunctionsConnectorHandler(nodeAddress, signerKey, s4Storage, allowlist, rateLimiter, subscriptions, minimumBalance, lggr)
 	if err != nil {
 		return nil, err
 	}

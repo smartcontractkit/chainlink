@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+# commit on branch releases/v0.40.x
+GIT_TAG="v0.40.1"
+
+CHECKOUT_DIR="${HOME}/wasmd-checkout"
+BUILD_DIR="${HOME}/wasmd-build"
+
+git clone https://github.com/CosmWasm/wasmd --branch "releases/v0.40.x" "${CHECKOUT_DIR}"
+cd "${CHECKOUT_DIR}"
+git checkout "${GIT_TAG}"
+GOPATH="${BUILD_DIR}" make install

@@ -261,7 +261,8 @@ func (b *BlockHistoryEstimator) GetLegacyGas(_ context.Context, _ []byte, gasLim
 			"Using Evm.GasEstimator.PriceDefault as fallback.", "blocks", b.getBlockHistoryNumbers())
 		gasPrice = b.eConfig.PriceDefault()
 	}
-	gasPrice, chainSpecificGasLimit = capGasPrice(gasPrice, maxGasPriceWei, b.eConfig.PriceMax(), gasLimit, b.eConfig.LimitMultiplier())
+	gasPrice = capGasPrice(gasPrice, maxGasPriceWei, b.eConfig.PriceMax())
+	chainSpecificGasLimit, err = commonfee.ApplyMultiplier(gasLimit, b.eConfig.LimitMultiplier())
 	return
 }
 
@@ -287,7 +288,7 @@ func (b *BlockHistoryEstimator) getTipCap() *assets.Wei {
 func (b *BlockHistoryEstimator) BumpLegacyGas(_ context.Context, originalGasPrice *assets.Wei, gasLimit uint32, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumpedGasPrice *assets.Wei, chainSpecificGasLimit uint32, err error) {
 	if b.bhConfig.CheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
-			if errors.Is(err, ErrConnectivity) {
+			if errors.Is(err, commonfee.ErrConnectivity) {
 				b.logger.Criticalw(BumpingHaltedLabel, "err", err)
 				b.SvcErrBuffer.Append(err)
 				promBlockHistoryEstimatorConnectivityFailureCount.WithLabelValues(b.chainID.String(), "legacy").Inc()
@@ -375,11 +376,11 @@ func (b *BlockHistoryEstimator) checkConnectivity(attempts []EvmPriorAttempt) er
 				}
 			}
 			if sufficientFeeCap && attempt.DynamicFee.TipCap.Cmp(tipCap) > 0 {
-				return errors.Wrapf(ErrConnectivity, "transaction %s has tip cap of %s, which is above percentile=%d%% (percentile tip cap: %s) for blocks %d thru %d (checking %d blocks)", attempt.TxHash, attempt.DynamicFee.TipCap, percentile, tipCap, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
+				return errors.Wrapf(commonfee.ErrConnectivity, "transaction %s has tip cap of %s, which is above percentile=%d%% (percentile tip cap: %s) for blocks %d thru %d (checking %d blocks)", attempt.TxHash, attempt.DynamicFee.TipCap, percentile, tipCap, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
 			}
 		} else {
 			if attempt.GasPrice.Cmp(gasPrice) > 0 {
-				return errors.Wrapf(ErrConnectivity, "transaction %s has gas price of %s, which is above percentile=%d%% (percentile price: %s) for blocks %d thru %d (checking %d blocks)", attempt.TxHash, attempt.GasPrice, percentile, gasPrice, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
+				return errors.Wrapf(commonfee.ErrConnectivity, "transaction %s has gas price of %s, which is above percentile=%d%% (percentile price: %s) for blocks %d thru %d (checking %d blocks)", attempt.TxHash, attempt.GasPrice, percentile, gasPrice, blockHistory[l-1].Number, blockHistory[0].Number, expectInclusionWithinBlocks)
 
 			}
 		}
@@ -395,7 +396,10 @@ func (b *BlockHistoryEstimator) GetDynamicFee(_ context.Context, gasLimit uint32
 	var feeCap *assets.Wei
 	var tipCap *assets.Wei
 	ok := b.IfStarted(func() {
-		chainSpecificGasLimit = commonfee.ApplyMultiplier(gasLimit, b.eConfig.LimitMultiplier())
+		chainSpecificGasLimit, err = commonfee.ApplyMultiplier(gasLimit, b.eConfig.LimitMultiplier())
+		if err != nil {
+			return
+		}
 		b.priceMu.RLock()
 		defer b.priceMu.RUnlock()
 		tipCap = b.tipCap
@@ -460,7 +464,7 @@ func calcFeeCap(latestAvailableBaseFeePerGas *assets.Wei, bufferBlocks int, tipC
 func (b *BlockHistoryEstimator) BumpDynamicFee(_ context.Context, originalFee DynamicFee, originalGasLimit uint32, maxGasPriceWei *assets.Wei, attempts []EvmPriorAttempt) (bumped DynamicFee, chainSpecificGasLimit uint32, err error) {
 	if b.bhConfig.CheckInclusionBlocks() > 0 {
 		if err = b.checkConnectivity(attempts); err != nil {
-			if errors.Is(err, ErrConnectivity) {
+			if errors.Is(err, commonfee.ErrConnectivity) {
 				b.logger.Criticalw(BumpingHaltedLabel, "err", err)
 				b.SvcErrBuffer.Append(err)
 				promBlockHistoryEstimatorConnectivityFailureCount.WithLabelValues(b.chainID.String(), "eip1559").Inc()

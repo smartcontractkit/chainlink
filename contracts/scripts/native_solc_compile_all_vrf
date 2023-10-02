@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo " ┌──────────────────────────────────────────────┐"
+echo " │          Compiling VRF contracts...          │"
+echo " └──────────────────────────────────────────────┘"
+
+SOLC_VERSION="0.8.6"
+OPTIMIZE_RUNS=1000000
+
+SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
+ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
+python3 -m pip install --require-hashes -r $SCRIPTPATH/requirements.txt
+
+solc-select install $SOLC_VERSION
+solc-select use $SOLC_VERSION
+export SOLC_VERSION=$SOLC_VERSION
+
+compileContract () {
+  solc @openzeppelin/=$ROOT/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
+      -o $ROOT/contracts/solc/v$SOLC_VERSION \
+      --abi --bin --allow-paths $ROOT/contracts/src/v0.8,$ROOT/contracts/node_modules\
+      $ROOT/contracts/src/v0.8/$1
+}
+
+compileContractAltOpts () {
+  solc @openzeppelin/=$ROOT/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs $2 --metadata-hash none \
+      -o $ROOT/contracts/solc/v$SOLC_VERSION \
+      --abi --bin --allow-paths $ROOT/contracts/src/v0.8,$ROOT/contracts/node_modules\
+      $ROOT/contracts/src/v0.8/$1
+}
+
+# VRF
+compileContract vrf/VRFRequestIDBase.sol
+compileContract vrf/VRFConsumerBase.sol
+compileContract vrf/testhelpers/VRFConsumer.sol
+compileContract vrf/testhelpers/VRFRequestIDBaseTestHelper.sol
+compileContract mocks/VRFCoordinatorMock.sol
+
+# VRF V2
+compileContract vrf/VRFConsumerBaseV2.sol
+compileContract vrf/testhelpers/VRFConsumerV2.sol
+compileContract vrf/testhelpers/VRFMaliciousConsumerV2.sol
+compileContract vrf/testhelpers/VRFTestHelper.sol
+compileContract vrf/testhelpers/VRFV2RevertingExample.sol
+compileContract vrf/testhelpers/VRFV2ProxyAdmin.sol
+compileContract vrf/testhelpers/VRFV2TransparentUpgradeableProxy.sol
+compileContract vrf/testhelpers/VRFConsumerV2UpgradeableExample.sol
+compileContract vrf/BatchBlockhashStore.sol
+compileContract vrf/BatchVRFCoordinatorV2.sol
+compileContract vrf/testhelpers/VRFCoordinatorV2TestHelper.sol
+compileContractAltOpts vrf/VRFCoordinatorV2.sol 10000
+compileContract mocks/VRFCoordinatorV2Mock.sol
+compileContract vrf/VRFOwner.sol
+
+# VRF V2Plus
+compileContract dev/interfaces/IVRFCoordinatorV2PlusInternal.sol
+compileContract dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol
+compileContractAltOpts dev/vrf/VRFCoordinatorV2_5.sol 500
+compileContract dev/vrf/BatchVRFCoordinatorV2Plus.sol
+compileContract dev/vrf/VRFV2PlusWrapper.sol
+compileContract dev/vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
+compileContract dev/vrf/testhelpers/VRFMaliciousConsumerV2Plus.sol
+compileContract dev/vrf/testhelpers/VRFV2PlusExternalSubOwnerExample.sol
+compileContract dev/vrf/testhelpers/VRFV2PlusSingleConsumerExample.sol
+compileContract dev/vrf/testhelpers/VRFV2PlusWrapperConsumerExample.sol
+compileContract dev/vrf/testhelpers/VRFV2PlusRevertingExample.sol
+compileContract dev/vrf/testhelpers/VRFConsumerV2PlusUpgradeableExample.sol
+compileContract dev/vrf/testhelpers/VRFV2PlusMaliciousMigrator.sol
+compileContract dev/vrf/libraries/VRFV2PlusClient.sol
+compileContract dev/vrf/testhelpers/VRFCoordinatorV2Plus_V2Example.sol
+compileContract dev/vrf/TrustedBlockhashStore.sol
+compileContract dev/vrf/testhelpers/VRFV2PlusLoadTestWithMetrics.sol
+compileContractAltOpts dev/vrf/testhelpers/VRFCoordinatorV2PlusUpgradedVersion.sol 5
+compileContract dev/vrf/testhelpers/VRFV2PlusWrapperLoadTestConsumer.sol
+
+# VRF V2 Wrapper
+compileContract vrf/VRFV2Wrapper.sol
+compileContract interfaces/VRFV2WrapperInterface.sol
+compileContract vrf/VRFV2WrapperConsumerBase.sol
+compileContract vrf/testhelpers/VRFV2WrapperConsumerExample.sol
+
+# VRF Consumers and Mocks
+compileContract vrf/testhelpers/VRFExternalSubOwnerExample.sol
+compileContract vrf/testhelpers/VRFSingleConsumerExample.sol
+compileContract vrf/testhelpers/VRFOwnerlessConsumerExample.sol
+compileContract vrf/testhelpers/VRFLoadTestOwnerlessConsumer.sol
+compileContract vrf/testhelpers/VRFLoadTestExternalSubOwner.sol
+compileContract vrf/testhelpers/VRFV2LoadTestWithMetrics.sol
+compileContract vrf/testhelpers/VRFV2OwnerTestConsumer.sol

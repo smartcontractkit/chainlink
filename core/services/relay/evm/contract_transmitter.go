@@ -93,6 +93,9 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	var rs [][32]byte
 	var ss [][32]byte
 	var vs [32]byte
+	if len(signatures) > 32 {
+		return errors.New("too many signatures, maximum is 32")
+	}
 	for i, as := range signatures {
 		r, s, v, err := evmutil.SplitSignature(as.Signature)
 		if err != nil {
@@ -137,6 +140,9 @@ func parseTransmitted(log []byte) ([32]byte, uint32, error) {
 	transmitted, err := args.Unpack(log)
 	if err != nil {
 		return [32]byte{}, 0, err
+	}
+	if len(transmitted) < 2 {
+		return [32]byte{}, 0, errors.New("transmitted event log has too few arguments")
 	}
 	configDigest := *abi.ConvertType(transmitted[0], new([32]byte)).(*[32]byte)
 	epoch := *abi.ConvertType(transmitted[1], new(uint32)).(*uint32)

@@ -13,6 +13,7 @@ const (
 	templatesDir          = "templates"
 	artefactsDir          = "artefacts"
 	ocr2ConfigJson        = "FunctionsOracleConfig.json"
+	ocr2PublicKeysJSON    = "OCR2PublicKeys.json"
 	bootstrapSpecTemplate = "bootstrap.toml"
 	oracleSpecTemplate    = "oracle.toml"
 )

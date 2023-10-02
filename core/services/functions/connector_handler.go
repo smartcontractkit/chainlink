@@ -6,6 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
@@ -21,13 +24,15 @@ import (
 type functionsConnectorHandler struct {
 	utils.StartStopOnce
 
-	connector   connector.GatewayConnector
-	signerKey   *ecdsa.PrivateKey
-	nodeAddress string
-	storage     s4.Storage
-	allowlist   functions.OnchainAllowlist
-	rateLimiter *hc.RateLimiter
-	lggr        logger.Logger
+	connector      connector.GatewayConnector
+	signerKey      *ecdsa.PrivateKey
+	nodeAddress    string
+	storage        s4.Storage
+	allowlist      functions.OnchainAllowlist
+	rateLimiter    *hc.RateLimiter
+	subscriptions  functions.OnchainSubscriptions
+	minimumBalance assets.Link
+	lggr           logger.Logger
 }
 
 var (
@@ -35,17 +40,19 @@ var (
 	_ connector.GatewayConnectorHandler = &functionsConnectorHandler{}
 )
 
-func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist functions.OnchainAllowlist, rateLimiter *hc.RateLimiter, lggr logger.Logger) (*functionsConnectorHandler, error) {
-	if signerKey == nil || storage == nil || allowlist == nil || rateLimiter == nil {
-		return nil, fmt.Errorf("signerKey, storage, allowlist and rateLimiter must be non-nil")
+func NewFunctionsConnectorHandler(nodeAddress string, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist functions.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions functions.OnchainSubscriptions, minimumBalance assets.Link, lggr logger.Logger) (*functionsConnectorHandler, error) {
+	if signerKey == nil || storage == nil || allowlist == nil || rateLimiter == nil || subscriptions == nil {
+		return nil, fmt.Errorf("signerKey, storage, allowlist, rateLimiter and subscriptions must be non-nil")
 	}
 	return &functionsConnectorHandler{
-		nodeAddress: nodeAddress,
-		signerKey:   signerKey,
-		storage:     storage,
-		allowlist:   allowlist,
-		rateLimiter: rateLimiter,
-		lggr:        lggr.Named("functionsConnectorHandler"),
+		nodeAddress:    nodeAddress,
+		signerKey:      signerKey,
+		storage:        storage,
+		allowlist:      allowlist,
+		rateLimiter:    rateLimiter,
+		subscriptions:  subscriptions,
+		minimumBalance: minimumBalance,
+		lggr:           lggr.Named("FunctionsConnectorHandler"),
 	}, nil
 }
 
@@ -68,6 +75,10 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 		h.lggr.Errorw("request rate-limited", "id", gatewayId, "address", fromAddr)
 		return
 	}
+	if balance, err := h.subscriptions.GetMaxUserBalance(fromAddr); err != nil || balance.Cmp(h.minimumBalance.ToInt()) < 0 {
+		h.lggr.Errorw("user subscription has insufficient balance", "id", gatewayId, "address", fromAddr, "balance", balance, "minBalance", h.minimumBalance)
+		return
+	}
 
 	h.lggr.Debugw("handling gateway request", "id", gatewayId, "method", body.Method)
 
@@ -83,13 +94,18 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 
 func (h *functionsConnectorHandler) Start(ctx context.Context) error {
 	return h.StartOnce("FunctionsConnectorHandler", func() error {
-		return h.allowlist.Start(ctx)
+		if err := h.allowlist.Start(ctx); err != nil {
+			return err
+		}
+		return h.subscriptions.Start(ctx)
 	})
 }
 
 func (h *functionsConnectorHandler) Close() error {
-	return h.StopOnce("FunctionsConnectorHandler", func() error {
-		return h.allowlist.Close()
+	return h.StopOnce("FunctionsConnectorHandler", func() (err error) {
+		err = multierr.Combine(err, h.allowlist.Close())
+		err = multierr.Combine(err, h.subscriptions.Close())
+		return
 	})
 }
 

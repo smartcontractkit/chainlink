@@ -11,14 +11,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/jackc/pgconn"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
-	"go.uber.org/zap/zaptest/observer"
-	"golang.org/x/exp/slices"
 
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
@@ -34,7 +31,7 @@ var (
 )
 
 // Validate that filters stored in log_filters_table match the filters stored in memory
-func validateFiltersTable(t *testing.T, lp *logPoller, orm *ORM) {
+func validateFiltersTable(t *testing.T, lp *logPoller, orm *DbORM) {
 	filters, err := orm.LoadFilters()
 	require.NoError(t, err)
 	require.Equal(t, len(filters), len(lp.filters))
@@ -58,14 +55,9 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
-	lp := NewLogPoller(orm, nil, lggr, time.Hour, 1, 1, 2, 1000)
-
-	db.Close()
-	db = pgtest.NewSqlxDB(t)
-	orm = NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 
 	// Set up a test chain with a log emitting contract deployed.
-	lp = NewLogPoller(orm, nil, lggr, time.Hour, 1, 1, 2, 1000)
+	lp := NewLogPoller(orm, nil, lggr, time.Hour, 1, 1, 2, 1000)
 
 	// We expect a zero Filter if nothing registered yet.
 	f := lp.Filter(nil, nil, nil)
@@ -101,7 +93,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	validateFiltersTable(t, lp, orm)
 
 	// Removing non-existence Filter should log error but return nil
-	err = lp.UnregisterFilter("Filter doesn't exist", nil)
+	err = lp.UnregisterFilter("Filter doesn't exist")
 	require.NoError(t, err)
 	require.Equal(t, observedLogs.Len(), 1)
 	require.Contains(t, observedLogs.TakeAll()[0].Entry.Message, "not found")
@@ -115,16 +107,16 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	require.True(t, ok, "'Emitter Log 1 + 2 dupe' Filter missing")
 
 	// Removing an existing Filter should remove it from both memory and db
-	err = lp.UnregisterFilter("Emitter Log 1 + 2", nil)
+	err = lp.UnregisterFilter("Emitter Log 1 + 2")
 	require.NoError(t, err)
 	_, ok = lp.filters["Emitter Log 1 + 2"]
 	require.False(t, ok, "'Emitter Log 1 Filter' should have been removed by UnregisterFilter()")
 	require.Len(t, lp.filters, 2)
 	validateFiltersTable(t, lp, orm)
 
-	err = lp.UnregisterFilter("Emitter Log 1 + 2 dupe", nil)
+	err = lp.UnregisterFilter("Emitter Log 1 + 2 dupe")
 	require.NoError(t, err)
-	err = lp.UnregisterFilter("Emitter Log 1", nil)
+	err = lp.UnregisterFilter("Emitter Log 1")
 	require.NoError(t, err)
 	assert.Len(t, lp.filters, 0)
 	filters, err := lp.orm.LoadFilters()
@@ -136,26 +128,6 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 	assert.Equal(t, lp.Filter(nil, nil, nil).Addresses[0], common.HexToAddress("0x0000000000000000000000000000000000000000"))
 	assert.Len(t, lp.Filter(nil, nil, nil).Topics, 1)
 	assert.Len(t, lp.Filter(nil, nil, nil).Topics[0], 0)
-}
-
-func assertForeignConstraintError(t *testing.T, observedLog observer.LoggedEntry,
-	table string, constraint string) {
-
-	assert.Equal(t, "SQL ERROR", observedLog.Entry.Message)
-
-	i := slices.IndexFunc(observedLog.Context, func(f zapcore.Field) bool {
-		return f.Key == "err"
-	})
-	require.GreaterOrEqual(t, i, 0)
-	field := observedLog.Context[i]
-	require.Equal(t, zapcore.ErrorType, field.Type)
-	err, ok := field.Interface.(error)
-	var pgErr *pgconn.PgError
-	require.True(t, errors.As(err, &pgErr))
-	require.True(t, ok)
-	assert.Equal(t, "23503", pgErr.SQLState()) // foreign key constraint violation code
-	assert.Equal(t, table, pgErr.TableName)
-	assert.Equal(t, constraint, pgErr.ConstraintName)
 }
 
 func TestLogPoller_ConvertLogs(t *testing.T) {

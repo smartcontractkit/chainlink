@@ -2,10 +2,13 @@ package toml
 
 import (
 	"fmt"
+	"net/url"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -23,6 +26,12 @@ func TestMercurySecrets_valid(t *testing.T) {
 				URL:      models.MustSecretURL("HTTPS://GOOGLE.COM"),
 				Username: models.NewSecret("new user1"),
 				Password: models.NewSecret("new password2"),
+			},
+			"cred3": {
+				LegacyURL: models.MustSecretURL("https://abc.com"),
+				URL:       models.MustSecretURL("HTTPS://GOOGLE1.COM"),
+				Username:  models.NewSecret("new user1"),
+				Password:  models.NewSecret("new password2"),
 			},
 		},
 	}
@@ -93,6 +102,80 @@ func Test_validateDBURL(t *testing.T) {
 				assert.Nil(t, err)
 			} else {
 				assert.EqualError(t, err, test.wantErr)
+			}
+		})
+	}
+}
+
+func TestValidateConfig(t *testing.T) {
+	validUrl := models.URL(url.URL{Scheme: "https", Host: "localhost"})
+	validSecretURL := *models.NewSecretURL(&validUrl)
+
+	invalidEmptyUrl := models.URL(url.URL{})
+	invalidEmptySecretURL := *models.NewSecretURL(&invalidEmptyUrl)
+
+	invalidBackupURL := models.URL(url.URL{Scheme: "http", Host: "localhost"})
+	invalidBackupSecretURL := *models.NewSecretURL(&invalidBackupURL)
+
+	tests := []struct {
+		name                string
+		input               *DatabaseSecrets
+		skip                bool
+		expectedErrContains []string
+	}{
+		{
+			name: "Nil URL",
+			input: &DatabaseSecrets{
+				URL: nil,
+			},
+			expectedErrContains: []string{"URL: empty: must be provided and non-empty"},
+		},
+		{
+			name: "Empty URL",
+			input: &DatabaseSecrets{
+				URL: &invalidEmptySecretURL,
+			},
+			expectedErrContains: []string{"URL: empty: must be provided and non-empty"},
+		},
+		{
+			name: "Insecure Password in Production",
+			input: &DatabaseSecrets{
+				URL:                  &validSecretURL,
+				AllowSimplePasswords: &[]bool{true}[0],
+			},
+			skip:                !build.IsProd(),
+			expectedErrContains: []string{"insecure configs are not allowed on secure builds"},
+		},
+		{
+			name: "Invalid Backup URL with Simple Passwords Not Allowed",
+			input: &DatabaseSecrets{
+				URL:                  &validSecretURL,
+				BackupURL:            &invalidBackupSecretURL,
+				AllowSimplePasswords: &[]bool{false}[0],
+			},
+			expectedErrContains: []string{"missing or insufficiently complex password"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// needed while -tags test is supported
+			if tt.skip {
+				t.SkipNow()
+			}
+			err := tt.input.ValidateConfig()
+			if err == nil && len(tt.expectedErrContains) > 0 {
+				t.Errorf("expected errors but got none")
+				return
+			}
+
+			if err != nil {
+				errStr := err.Error()
+				for _, expectedErrSubStr := range tt.expectedErrContains {
+					if !strings.Contains(errStr, expectedErrSubStr) {
+						t.Errorf("expected error to contain substring %q but got %v", expectedErrSubStr, errStr)
+					}
+				}
 			}
 		})
 	}

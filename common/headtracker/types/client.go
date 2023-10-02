@@ -9,6 +9,7 @@ import (
 
 type Client[H types.Head[BLOCK_HASH], S types.Subscription, ID types.ID, BLOCK_HASH types.Hashable] interface {
 	HeadByNumber(ctx context.Context, number *big.Int) (head H, err error)
+	HeadByHash(ctx context.Context, hash BLOCK_HASH) (head H, err error)
 	// ConfiguredChainID returns the chain ID that the node is configured to connect to
 	ConfiguredChainID() (id ID)
 	// SubscribeNewHead is the method in which the client receives new Head.

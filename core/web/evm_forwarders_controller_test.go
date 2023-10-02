@@ -32,7 +32,7 @@ func setupEVMForwardersControllerTest(t *testing.T, overrideFn func(c *chainlink
 	app := cltest.NewApplicationWithConfig(t, configtest.NewGeneralConfig(t, overrideFn))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	return &TestEVMForwardersController{
 		app:    app,
@@ -69,7 +69,7 @@ func Test_EVMForwardersController_Track(t *testing.T) {
 
 	assert.Equal(t, resource.Address, address)
 
-	require.Len(t, controller.app.Chains.EVM.Chains(), 1)
+	require.Len(t, controller.app.GetRelayers().LegacyEVMChains().Slice(), 1)
 
 	resp, cleanup = controller.client.Delete("/v2/nodes/evm/forwarders/" + resource.ID)
 	t.Cleanup(cleanup)

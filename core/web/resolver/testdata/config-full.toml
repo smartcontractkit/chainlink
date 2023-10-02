@@ -1,4 +1,3 @@
-ExplorerURL = 'http://explorer.url'
 InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
@@ -118,6 +117,7 @@ ContractTransmitterTransmitTimeout = '1m0s'
 DatabaseTimeout = '8s'
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000'
 CaptureEATelemetry = false
+CaptureAutomationCustomTelemetry = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false
@@ -318,11 +318,12 @@ SendOnly = true
 [[Cosmos]]
 ChainID = 'Malaga-420'
 Enabled = true
+Bech32Prefix = 'wasm'
 BlockRate = '1m0s'
 BlocksUntilTxTimeout = 12
 ConfirmPollPeriod = '1s'
 FallbackGasPrice = '0.001'
-FCDURL = 'http://cosmos.com'
+GasToken = 'ucosm'
 GasLimitMultiplier = '1.2'
 MaxMsgsPerBatch = 17
 OCR2CachePollPeriod = '1m0s'

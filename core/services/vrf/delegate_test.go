@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
@@ -49,18 +50,18 @@ import (
 )
 
 type vrfUniverse struct {
-	jrm       job.ORM
-	pr        pipeline.Runner
-	prm       pipeline.ORM
-	lb        *log_mocks.Broadcaster
-	ec        *evmclimocks.Client
-	ks        keystore.Master
-	vrfkey    vrfkey.KeyV2
-	submitter common.Address
-	txm       *txmmocks.MockEvmTxManager
-	hb        httypes.HeadBroadcaster
-	cc        evm.ChainSet
-	cid       big.Int
+	jrm          job.ORM
+	pr           pipeline.Runner
+	prm          pipeline.ORM
+	lb           *log_mocks.Broadcaster
+	ec           *evmclimocks.Client
+	ks           keystore.Master
+	vrfkey       vrfkey.KeyV2
+	submitter    common.Address
+	txm          *txmmocks.MockEvmTxManager
+	hb           httypes.HeadBroadcaster
+	legacyChains evm.LegacyChainContainer
+	cid          big.Int
 }
 
 func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniverse {
@@ -77,10 +78,11 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	btORM := bridges.NewORM(db, lggr, cfg.Database())
 	txm := txmmocks.NewMockEvmTxManager(t)
 	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
-	cc := evmtest.NewChainSet(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
-	jrm := job.NewORM(db, cc, prm, btORM, ks, lggr, cfg.Database())
+	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
+	jrm := job.NewORM(db, legacyChains, prm, btORM, ks, lggr, cfg.Database())
 	t.Cleanup(func() { jrm.Close() })
-	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), cc, ks.Eth(), ks.VRF(), lggr, nil, nil)
+	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ks.Eth(), ks.VRF(), lggr, nil, nil)
 	require.NoError(t, ks.Unlock(testutils.Password))
 	k, err := ks.Eth().Create(testutils.FixtureChainID)
 	require.NoError(t, err)
@@ -90,18 +92,18 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	require.NoError(t, err)
 
 	return vrfUniverse{
-		jrm:       jrm,
-		pr:        pr,
-		prm:       prm,
-		lb:        lb,
-		ec:        ec,
-		ks:        ks,
-		vrfkey:    vrfkey,
-		submitter: submitter,
-		txm:       txm,
-		hb:        hb,
-		cc:        cc,
-		cid:       *ec.ConfiguredChainID(),
+		jrm:          jrm,
+		pr:           pr,
+		prm:          prm,
+		lb:           lb,
+		ec:           ec,
+		ks:           ks,
+		vrfkey:       vrfkey,
+		submitter:    submitter,
+		txm:          txm,
+		hb:           hb,
+		legacyChains: legacyChains,
+		cid:          *ec.ConfiguredChainID(),
 	}
 }
 
@@ -149,11 +151,11 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 		vuni.ks,
 		vuni.pr,
 		vuni.prm,
-		vuni.cc,
+		vuni.legacyChains,
 		logger.TestLogger(t),
 		cfg.Database(),
 		mailMon)
-	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String()})
+	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{PublicKey: vuni.vrfkey.PublicKey.String(), EVMChainID: testutils.FixtureChainID.String()})
 	jb, err := vrfcommon.ValidatedVRFSpec(vs.Toml())
 	require.NoError(t, err)
 	err = vuni.jrm.CreateJob(&jb)
@@ -411,7 +413,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 
 	// Ensure we have NOT queued up an eth transaction
 	var ethTxes []txmgr.DbEthTx
-	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM eth_txes;`)
+	err = vuni.prm.GetQ().Select(&ethTxes, `SELECT * FROM evm.txes;`)
 	require.NoError(t, err)
 	require.Len(t, ethTxes, 0)
 }
@@ -672,4 +674,38 @@ func Test_FromAddressMaxGasPricesAllEqual(t *testing.T) {
 
 		assert.False(tt, vrf.FromAddressMaxGasPricesAllEqual(jb, cfg.PriceMaxKey))
 	})
+}
+
+func Test_VRFV2PlusServiceFailsWhenVRFOwnerProvided(t *testing.T) {
+	db := pgtest.NewSqlxDB(t)
+	cfg := configtest.NewTestGeneralConfig(t)
+	vuni := buildVrfUni(t, db, cfg)
+
+	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
+
+	vd := vrf.NewDelegate(
+		db,
+		vuni.ks,
+		vuni.pr,
+		vuni.prm,
+		vuni.legacyChains,
+		logger.TestLogger(t),
+		cfg.Database(),
+		mailMon)
+	chain, err := vuni.legacyChains.Get(testutils.FixtureChainID.String())
+	require.NoError(t, err)
+	vs := testspecs.GenerateVRFSpec(testspecs.VRFSpecParams{
+		VRFVersion:    vrfcommon.V2Plus,
+		PublicKey:     vuni.vrfkey.PublicKey.String(),
+		FromAddresses: []string{string(vuni.submitter.Hex())},
+		GasLanePrice:  chain.Config().EVM().GasEstimator().PriceMax(),
+	})
+	toml := "vrfOwnerAddress=\"0xF62fEFb54a0af9D32CDF0Db21C52710844c7eddb\"\n" + vs.Toml()
+	jb, err := vrfcommon.ValidatedVRFSpec(toml)
+	require.NoError(t, err)
+	err = vuni.jrm.CreateJob(&jb)
+	require.NoError(t, err)
+	_, err = vd.ServicesForSpec(jb)
+	require.Error(t, err)
+	require.Equal(t, "VRF Owner is not supported for VRF V2 Plus", err.Error())
 }

@@ -735,6 +735,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 			"databaseID":    fm.jobSpec.ID,
 			"externalJobID": fm.jobSpec.ExternalJobID,
 			"name":          fm.jobSpec.Name.ValueOrZero(),
+			"evmChainID":    fm.chainID.String(),
 		},
 		"jobRun": map[string]interface{}{
 			"meta": metaDataForBridge,
@@ -768,7 +769,7 @@ func (fm *FluxMonitor) respondToNewRoundLog(log flux_aggregator_wrapper.FluxAggr
 	}
 
 	err = fm.q.Transaction(func(tx pg.Queryer) error {
-		if err2 := fm.runner.InsertFinishedRun(&run, false, pg.WithQueryer(tx)); err2 != nil {
+		if err2 := fm.runner.InsertFinishedRun(run, false, pg.WithQueryer(tx)); err2 != nil {
 			return err2
 		}
 		if err2 := fm.queueTransactionForTxm(tx, run.ID, answer, roundState.RoundId, &log); err2 != nil {
@@ -938,6 +939,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 			"databaseID":    fm.jobSpec.ID,
 			"externalJobID": fm.jobSpec.ExternalJobID,
 			"name":          fm.jobSpec.Name.ValueOrZero(),
+			"evmChainID":    fm.chainID.String(),
 		},
 		"jobRun": map[string]interface{}{
 			"meta": metaDataForBridge,
@@ -991,7 +993,7 @@ func (fm *FluxMonitor) pollIfEligible(pollReq PollRequestType, deviationChecker 
 	}
 
 	err = fm.q.Transaction(func(tx pg.Queryer) error {
-		if err2 := fm.runner.InsertFinishedRun(&run, true, pg.WithQueryer(tx)); err2 != nil {
+		if err2 := fm.runner.InsertFinishedRun(run, true, pg.WithQueryer(tx)); err2 != nil {
 			return err2
 		}
 		if err2 := fm.queueTransactionForTxm(tx, run.ID, answer, roundState.RoundId, nil); err2 != nil {
@@ -1071,13 +1073,16 @@ func (fm *FluxMonitor) initialRoundState() flux_aggregator_wrapper.OracleRoundSt
 }
 
 func (fm *FluxMonitor) queueTransactionForTxm(tx pg.Queryer, runID int64, answer decimal.Decimal, roundID uint32, log *flux_aggregator_wrapper.FluxAggregatorNewRound) error {
+	// Use pipeline run ID to generate globally unique key that can correlate this run to a Tx
+	idempotencyKey := fmt.Sprintf("fluxmonitor-%d", runID)
 	// Submit the Eth Tx
 	err := fm.contractSubmitter.Submit(
 		new(big.Int).SetInt64(int64(roundID)),
 		answer.BigInt(),
-		pg.WithQueryer(tx),
+		&idempotencyKey,
 	)
 	if err != nil {
+		fm.logger.Errorw("failed to submit Tx to TXM", "err", err)
 		return err
 	}
 

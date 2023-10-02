@@ -4,7 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"google.golang.org/protobuf/proto"
@@ -19,20 +21,22 @@ import (
 )
 
 type FunctionsReportingPluginFactory struct {
-	Logger    commontypes.Logger
-	PluginORM functions.ORM
-	JobID     uuid.UUID
+	Logger          commontypes.Logger
+	PluginORM       functions.ORM
+	JobID           uuid.UUID
+	ContractVersion uint32
 }
 
 var _ types.ReportingPluginFactory = (*FunctionsReportingPluginFactory)(nil)
 
 type functionsReporting struct {
-	logger         commontypes.Logger
-	pluginORM      functions.ORM
-	jobID          uuid.UUID
-	reportCodec    *encoding.ReportCodec
-	genericConfig  *types.ReportingPluginConfig
-	specificConfig *config.ReportingPluginConfigWrapper
+	logger          commontypes.Logger
+	pluginORM       functions.ORM
+	jobID           uuid.UUID
+	reportCodec     encoding.ReportCodec
+	genericConfig   *types.ReportingPluginConfig
+	specificConfig  *config.ReportingPluginConfigWrapper
+	contractVersion uint32
 }
 
 var _ types.ReportingPlugin = &functionsReporting{}
@@ -56,6 +60,11 @@ var (
 	promReportingPluginsReport = promauto.NewCounterVec(prometheus.CounterOpts{
 		Name: "functions_reporting_plugin_report",
 		Help: "Metric to track number of reporting plugin Report calls",
+	}, []string{"jobID"})
+
+	promReportingPluginsReportNumObservations = promauto.NewGaugeVec(prometheus.GaugeOpts{
+		Name: "functions_reporting_plugin_report_num_observations",
+		Help: "Metric to track number of observations available in the report phase",
 	}, []string{"jobID"})
 
 	promReportingAcceptReports = promauto.NewCounterVec(prometheus.CounterOpts{
@@ -88,7 +97,7 @@ func (f FunctionsReportingPluginFactory) NewReportingPlugin(rpConfig types.Repor
 		})
 		return nil, types.ReportingPluginInfo{}, err
 	}
-	codec, err := encoding.NewReportCodec()
+	codec, err := encoding.NewReportCodec(f.ContractVersion)
 	if err != nil {
 		f.Logger.Error("unable to create a report codec object", commontypes.LogFields{})
 		return nil, types.ReportingPluginInfo{}, err
@@ -103,15 +112,31 @@ func (f FunctionsReportingPluginFactory) NewReportingPlugin(rpConfig types.Repor
 		},
 	}
 	plugin := functionsReporting{
-		logger:         f.Logger,
-		pluginORM:      f.PluginORM,
-		jobID:          f.JobID,
-		reportCodec:    codec,
-		genericConfig:  &rpConfig,
-		specificConfig: pluginConfig,
+		logger:          f.Logger,
+		pluginORM:       f.PluginORM,
+		jobID:           f.JobID,
+		reportCodec:     codec,
+		genericConfig:   &rpConfig,
+		specificConfig:  pluginConfig,
+		contractVersion: f.ContractVersion,
 	}
 	promReportingPlugins.WithLabelValues(f.JobID.String()).Inc()
 	return &plugin, info, nil
+}
+
+// Check if requestCoordinator can be included together with reportCoordinator.
+// Return new reportCoordinator (if previous was nil) and error.
+func ShouldIncludeCoordinator(requestCoordinator *common.Address, reportCoordinator *common.Address) (*common.Address, error) {
+	if requestCoordinator == nil || *requestCoordinator == (common.Address{}) {
+		return reportCoordinator, errors.New("missing/zero request coordinator address")
+	}
+	if reportCoordinator == nil {
+		return requestCoordinator, nil
+	}
+	if *reportCoordinator != *requestCoordinator {
+		return reportCoordinator, errors.New("coordinator contract address mismatch")
+	}
+	return reportCoordinator, nil
 }
 
 // Query() complies with ReportingPlugin
@@ -129,8 +154,21 @@ func (r *functionsReporting) Query(ctx context.Context, ts types.ReportTimestamp
 
 	queryProto := encoding.Query{}
 	var idStrs []string
+	var reportCoordinator *common.Address
 	for _, result := range results {
 		result := result
+		if r.contractVersion == 1 {
+			reportCoordinator, err = ShouldIncludeCoordinator(result.CoordinatorContractAddress, reportCoordinator)
+			if err != nil {
+				r.logger.Debug("FunctionsReporting Query: skipping request with mismatched coordinator contract address", commontypes.LogFields{
+					"requestID":          formatRequestId(result.RequestID[:]),
+					"requestCoordinator": result.CoordinatorContractAddress,
+					"reportCoordinator":  reportCoordinator,
+					"error":              err,
+				})
+				continue
+			}
+		}
 		queryProto.RequestIDs = append(queryProto.RequestIDs, result.RequestID[:])
 		idStrs = append(idStrs, formatRequestId(result.RequestID[:]))
 	}
@@ -193,12 +231,20 @@ func (r *functionsReporting) Observation(ctx context.Context, ts types.ReportTim
 		// NOTE: ignoring TIMED_OUT requests, which potentially had ready results
 		if localResult.State == functions.RESULT_READY {
 			resultProto := encoding.ProcessedRequest{
-				RequestID: localResult.RequestID[:],
-				Result:    localResult.Result,
-				Error:     localResult.Error,
+				RequestID:       localResult.RequestID[:],
+				Result:          localResult.Result,
+				Error:           localResult.Error,
+				OnchainMetadata: localResult.OnchainMetadata,
 			}
-			if localResult.CallbackGasLimit != nil {
+			if r.contractVersion == 1 {
+				if localResult.CallbackGasLimit == nil || localResult.CoordinatorContractAddress == nil {
+					r.logger.Error("FunctionsReporting Observation missing required v1 fields", commontypes.LogFields{
+						"requestID": formatRequestId(id[:]),
+					})
+					continue
+				}
 				resultProto.CallbackGasLimit = *localResult.CallbackGasLimit
+				resultProto.CoordinatorContract = localResult.CoordinatorContractAddress[:]
 			}
 			observationProto.ProcessedRequests = append(observationProto.ProcessedRequests, &resultProto)
 			idStrs = append(idStrs, formatRequestId(localResult.RequestID[:]))
@@ -224,6 +270,7 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 		"oracleID":      r.genericConfig.OracleID,
 		"nObservations": len(obs),
 	})
+	promReportingPluginsReportNumObservations.WithLabelValues(r.jobID.String()).Set(float64(len(obs)))
 
 	queryProto := &encoding.Query{}
 	err := proto.Unmarshal(query, queryProto)
@@ -277,6 +324,7 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 	var allAggregated []*encoding.ProcessedRequest
 	var allIdStrs []string
 	var totalCallbackGas uint32
+	var reportCoordinator *common.Address
 	for _, reqId := range uniqueQueryIds {
 		observations := reqIdToObservationList[reqId]
 		if !CanAggregate(r.genericConfig.N, r.genericConfig.F, observations) {
@@ -319,6 +367,20 @@ func (r *functionsReporting) Report(ctx context.Context, ts types.ReportTimestam
 			"requestID":     reqId,
 			"nObservations": len(observations),
 		})
+		if r.contractVersion == 1 {
+			var requestCoordinator common.Address
+			requestCoordinator.SetBytes(aggregated.CoordinatorContract)
+			reportCoordinator, err = ShouldIncludeCoordinator(&requestCoordinator, reportCoordinator)
+			if err != nil {
+				r.logger.Error("FunctionsReporting Report: skipping request with mismatched coordinator contract address", commontypes.LogFields{
+					"requestID":          reqId,
+					"requestCoordinator": requestCoordinator,
+					"reportCoordinator":  reportCoordinator,
+					"error":              err,
+				})
+				continue
+			}
+		}
 		allAggregated = append(allAggregated, aggregated)
 		allIdStrs = append(allIdStrs, reqId)
 	}
@@ -428,12 +490,12 @@ func (r *functionsReporting) ShouldTransmitAcceptedReport(ctx context.Context, t
 			needTransmissionIds = append(needTransmissionIds, reqIdStr)
 			continue
 		}
-		if request.State == functions.TIMED_OUT || request.State == functions.CONFIRMED {
-			r.logger.Debug("FunctionsReporting ShouldTransmitAcceptedReport: request is not FINALIZED any more. Not transmitting.",
-				commontypes.LogFields{
-					"requestID": reqIdStr,
-					"state":     request.State.String(),
-				})
+		if request.State == functions.CONFIRMED {
+			r.logger.Debug("FunctionsReporting ShouldTransmitAcceptedReport: request already CONFIRMED. Not transmitting.", commontypes.LogFields{"requestID": reqIdStr})
+			continue
+		}
+		if request.State == functions.TIMED_OUT {
+			r.logger.Debug("FunctionsReporting ShouldTransmitAcceptedReport: request already TIMED_OUT. Not transmitting.", commontypes.LogFields{"requestID": reqIdStr})
 			continue
 		}
 		if request.State == functions.IN_PROGRESS || request.State == functions.RESULT_READY {

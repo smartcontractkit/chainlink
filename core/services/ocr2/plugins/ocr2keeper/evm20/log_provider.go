@@ -10,9 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
-	"github.com/smartcontractkit/ocr2keepers/pkg/encoding"
 	pluginutils "github.com/smartcontractkit/ocr2keepers/pkg/util"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
+	"github.com/smartcontractkit/ocr2keepers/pkg/v2/encoding"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"

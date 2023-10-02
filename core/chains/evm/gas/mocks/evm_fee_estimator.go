@@ -3,15 +3,19 @@
 package mocks
 
 import (
-	context "context"
+	big "math/big"
 
 	assets "github.com/smartcontractkit/chainlink/v2/core/assets"
+
+	context "context"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 
 	gas "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 
 	mock "github.com/stretchr/testify/mock"
+
+	rollups "github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 
 	types "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 )
@@ -104,6 +108,39 @@ func (_m *EvmFeeEstimator) GetFee(ctx context.Context, calldata []byte, feeLimit
 	return r0, r1, r2
 }
 
+// GetMaxCost provides a mock function with given fields: ctx, amount, calldata, feeLimit, maxFeePrice, opts
+func (_m *EvmFeeEstimator) GetMaxCost(ctx context.Context, amount assets.Eth, calldata []byte, feeLimit uint32, maxFeePrice *assets.Wei, opts ...types.Opt) (*big.Int, error) {
+	_va := make([]interface{}, len(opts))
+	for _i := range opts {
+		_va[_i] = opts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, amount, calldata, feeLimit, maxFeePrice)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 *big.Int
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, assets.Eth, []byte, uint32, *assets.Wei, ...types.Opt) (*big.Int, error)); ok {
+		return rf(ctx, amount, calldata, feeLimit, maxFeePrice, opts...)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, assets.Eth, []byte, uint32, *assets.Wei, ...types.Opt) *big.Int); ok {
+		r0 = rf(ctx, amount, calldata, feeLimit, maxFeePrice, opts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*big.Int)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, assets.Eth, []byte, uint32, *assets.Wei, ...types.Opt) error); ok {
+		r1 = rf(ctx, amount, calldata, feeLimit, maxFeePrice, opts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // HealthReport provides a mock function with given fields:
 func (_m *EvmFeeEstimator) HealthReport() map[string]error {
 	ret := _m.Called()
@@ -114,6 +151,22 @@ func (_m *EvmFeeEstimator) HealthReport() map[string]error {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(map[string]error)
+		}
+	}
+
+	return r0
+}
+
+// L1Oracle provides a mock function with given fields:
+func (_m *EvmFeeEstimator) L1Oracle() rollups.L1Oracle {
+	ret := _m.Called()
+
+	var r0 rollups.L1Oracle
+	if rf, ok := ret.Get(0).(func() rollups.L1Oracle); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(rollups.L1Oracle)
 		}
 	}
 

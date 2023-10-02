@@ -14,12 +14,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	ocr2config "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
+	ocr3confighelper "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/umbracle/ethgo/abi"
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 
-	offchain "github.com/smartcontractkit/ocr2keepers/pkg/config"
+	offchain20config "github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -148,7 +149,7 @@ func (d *v20KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	}
 	wg.Wait()
 
-	offC, err := json.Marshal(offchain.OffchainConfig{
+	offC, err := json.Marshal(offchain20config.OffchainConfig{
 		PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
 		MinConfirmations:     1,
 	})
@@ -288,7 +289,7 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 	}
 	wg.Wait()
 
-	offC, err := json.Marshal(offchain.OffchainConfig{
+	offC, err := json.Marshal(offchain20config.OffchainConfig{
 		PerformLockoutWindow: 100 * 3 * 1000, // ~100 block lockout (on mumbai)
 		MinConfirmations:     1,
 		MercuryLookup:        d.cfg.UpkeepType == config.Mercury || d.cfg.UpkeepType == config.LogTriggeredFeedLookup,
@@ -297,11 +298,13 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		panic(err)
 	}
 
-	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := ocr2config.ContractSetConfigArgsForTests(
+	signerOnchainPublicKeys, transmitterAccounts, f, _, offchainConfigVersion, offchainConfig, err := ocr3confighelper.ContractSetConfigArgsForTests(
 		5*time.Second,         // deltaProgress time.Duration,
 		10*time.Second,        // deltaResend time.Duration,
+		400*time.Millisecond,  // deltaInitial time.Duration,
 		2500*time.Millisecond, // deltaRound time.Duration,
 		40*time.Millisecond,   // deltaGrace time.Duration,
+		300*time.Millisecond,  // deltaCertifiedCommitRequest time.Duration,
 		30*time.Second,        // deltaStage time.Duration,
 		50,                    // rMax uint8,
 		S,                     // s []int,
@@ -309,7 +312,6 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		offC,                  // reportingPluginConfig []byte,
 		20*time.Millisecond,   // maxDurationQuery time.Duration,
 		1600*time.Millisecond, // maxDurationObservation time.Duration,
-		800*time.Millisecond,  // maxDurationReport time.Duration,
 		20*time.Millisecond,   // maxDurationShouldAcceptFinalizedReport time.Duration,
 		20*time.Millisecond,   // maxDurationShouldTransmitAcceptedReport time.Duration,
 		1,                     // f int,
@@ -353,7 +355,7 @@ func (d *v21KeeperDeployer) SetKeepers(opts *bind.TransactOpts, cls []cmd.HTTPCl
 		UpkeepPrivilegeManager: common.HexToAddress(d.cfg.UpkeepPrivilegeManager),
 	}
 
-	return d.IKeeperRegistryMasterInterface.SetConfig(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
+	return d.IKeeperRegistryMasterInterface.SetConfigTypeSafe(opts, signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig)
 }
 
 // legacy support function

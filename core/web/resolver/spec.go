@@ -794,9 +794,28 @@ func (b *BlockhashStoreSpecResolver) LookbackBlocks() int32 {
 	return b.spec.LookbackBlocks
 }
 
+// HeartbeatPeriod returns the job's HeartbeatPeriod param.
+func (b *BlockhashStoreSpecResolver) HeartbeatPeriod() string {
+	return b.spec.HeartbeatPeriod.String()
+}
+
 // BlockhashStoreAddress returns the job's BlockhashStoreAddress param.
 func (b *BlockhashStoreSpecResolver) BlockhashStoreAddress() string {
 	return b.spec.BlockhashStoreAddress.String()
+}
+
+// TrustedBlockhashStoreAddress returns the address of the job's TrustedBlockhashStoreAddress, if any.
+func (b *BlockhashStoreSpecResolver) TrustedBlockhashStoreAddress() *string {
+	if b.spec.TrustedBlockhashStoreAddress == nil {
+		return nil
+	}
+	addr := b.spec.TrustedBlockhashStoreAddress.String()
+	return &addr
+}
+
+// BatchBlockhashStoreAddress returns the job's BatchBlockhashStoreAddress param.
+func (b *BlockhashStoreSpecResolver) TrustedBlockhashStoreBatchSize() int32 {
+	return b.spec.TrustedBlockhashStoreBatchSize
 }
 
 // PollPeriod return's the job's PollPeriod param.

@@ -28,27 +28,27 @@ before(async () => {
   roles = (await getUsers()).roles
 
   functionsOracleFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/0_0_0/testhelpers/FunctionsOracleHelper.sol:FunctionsOracleHelper',
+    'src/v0.8/functions/tests/v0_0_0/testhelpers/FunctionsOracleHelper.sol:FunctionsOracleHelper',
     roles.defaultAccount,
   )
 
   clientTestHelperFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/0_0_0/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
+    'src/v0.8/functions/tests/v0_0_0/testhelpers/FunctionsClientTestHelper.sol:FunctionsClientTestHelper',
     roles.consumer,
   )
 
   functionsBillingRegistryFactory = await ethers.getContractFactory(
-    'src/v0.8/functions/tests/0_0_0/testhelpers/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
+    'src/v0.8/functions/tests/v0_0_0/testhelpers/FunctionsBillingRegistryWithInit.sol:FunctionsBillingRegistryWithInit',
     roles.defaultAccount,
   )
 
   linkTokenFactory = await ethers.getContractFactory(
-    'src/v0.4/LinkToken.sol:LinkToken',
+    'src/v0.8/mocks/MockLinkToken.sol:MockLinkToken',
     roles.consumer,
   )
 
   mockAggregatorV3Factory = await ethers.getContractFactory(
-    'src/v0.7/tests/MockV3Aggregator.sol:MockV3Aggregator',
+    'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
     roles.consumer,
   )
 })
@@ -351,9 +351,8 @@ describe('FunctionsOracle', () => {
     })
 
     it('#estimateCost correctly estimates cost [ @skip-coverage ]', async () => {
-      const [subscriptionBalanceBefore] = await registry.getSubscription(
-        subscriptionId,
-      )
+      const [subscriptionBalanceBefore] =
+        await registry.getSubscription(subscriptionId)
 
       const request = await client
         .connect(roles.oracleNode)
@@ -376,9 +375,8 @@ describe('FunctionsOracle', () => {
         .withArgs(requestId, transmitter)
         .to.emit(registry, 'BillingEnd')
 
-      const [subscriptionBalanceAfter] = await registry.getSubscription(
-        subscriptionId,
-      )
+      const [subscriptionBalanceAfter] =
+        await registry.getSubscription(subscriptionId)
 
       const feeData = await ethers.provider.getFeeData()
       const estimatedCost = await client.estimateJuelCost(

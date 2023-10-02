@@ -77,7 +77,7 @@ func TestShell_TrackEVMForwarder(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.TrackForwarder, set, "")
 
 	require.NoError(t, set.Set("address", "0x5431F5F973781809D18643b87B44921b11355d81"))
-	require.NoError(t, set.Set("evmChainID", id.String()))
+	require.NoError(t, set.Set("evm-chain-id", id.String()))
 
 	err := client.TrackForwarder(cli.NewContext(nil, set, nil))
 	require.NoError(t, err)
@@ -122,7 +122,7 @@ func TestShell_TrackEVMForwarder_BadAddress(t *testing.T) {
 	cltest.FlagSetApplyFromAction(client.TrackForwarder, set, "")
 
 	require.NoError(t, set.Set("address", "0xWrongFormatAddress"))
-	require.NoError(t, set.Set("evmChainID", id.String()))
+	require.NoError(t, set.Set("evm-chain-id", id.String()))
 
 	err := client.TrackForwarder(cli.NewContext(nil, set, nil))
 	require.Contains(t, err.Error(), "could not decode address: invalid hex string")

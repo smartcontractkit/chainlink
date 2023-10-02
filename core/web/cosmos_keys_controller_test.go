@@ -41,7 +41,7 @@ func TestCosmosKeysController_Create_HappyPath(t *testing.T) {
 
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	keyStore := app.GetKeyStore()
 
 	response, cleanup := client.Post("/v2/keys/cosmos", nil)
@@ -98,7 +98,7 @@ func setupCosmosKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, key
 	require.NoError(t, app.Start(testutils.Context(t)))
 	require.NoError(t, app.KeyStore.Cosmos().Add(cltest.DefaultCosmosKey))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	return client, app.GetKeyStore()
 }

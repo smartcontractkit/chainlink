@@ -11,11 +11,15 @@ type mercuryConfig struct {
 
 func (m *mercuryConfig) Credentials(credName string) *models.MercuryCredentials {
 	if mc, ok := m.s.Credentials[credName]; ok {
-		return &models.MercuryCredentials{
+		c := &models.MercuryCredentials{
 			URL:      mc.URL.URL().String(),
-			Username: string(*mc.Username),
 			Password: string(*mc.Password),
+			Username: string(*mc.Username),
 		}
+		if mc.LegacyURL != nil && mc.LegacyURL.URL() != nil {
+			c.LegacyURL = mc.LegacyURL.URL().String()
+		}
+		return c
 	}
 	return nil
 }

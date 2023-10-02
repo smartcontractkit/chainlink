@@ -2,6 +2,7 @@ type                = "directrequest"
 schemaVersion       = 1
 name                = "example eth request event spec"
 contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
+evmChainID          = "1337"
 externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F47"
 observationSource   = """
     decode_log   [type=ethabidecodelog

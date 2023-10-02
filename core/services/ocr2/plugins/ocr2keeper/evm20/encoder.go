@@ -6,8 +6,8 @@ import (
 	"reflect"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
-	"github.com/smartcontractkit/ocr2keepers/pkg/encoding"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v2"
+	"github.com/smartcontractkit/ocr2keepers/pkg/v2/encoding"
 )
 
 type EVMAutomationEncoder20 struct {

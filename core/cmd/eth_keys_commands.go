@@ -169,7 +169,7 @@ func (ps EthKeyPresenters) RenderTable(rt RendererTable) error {
 // ListETHKeys renders the active account address with its ETH & LINK balance
 func (s *Shell) ListETHKeys(_ *cli.Context) (err error) {
 	resp, err := s.HTTP.Get("/v2/keys/evm")
-	
+
 	if err != nil {
 		return s.errorOut(err)
 	}

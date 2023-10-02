@@ -11,6 +11,7 @@ import { IKeeperRegistryMaster__factory as IKeeperRegistryMasterFactory } from '
 import { IAutomationRegistryConsumer__factory as IAutomationRegistryConsumerFactory } from '../../../typechain/factories/IAutomationRegistryConsumer__factory'
 import { MigratableKeeperRegistryInterface__factory as MigratableKeeperRegistryInterfaceFactory } from '../../../typechain/factories/MigratableKeeperRegistryInterface__factory'
 import { MigratableKeeperRegistryInterfaceV2__factory as MigratableKeeperRegistryInterfaceV2Factory } from '../../../typechain/factories/MigratableKeeperRegistryInterfaceV2__factory'
+import { OCR2Abstract__factory as OCR2AbstractFactory } from '../../../typechain/factories/OCR2Abstract__factory'
 
 type Entry = {
   inputs?: any[]
@@ -86,7 +87,7 @@ describe('IKeeperRegistryMaster', () => {
     const checksum = ethers.utils.id(compositeABIs.join(''))
     const knownChecksum = fs
       .readFileSync(
-        'src/v0.8/dev/automation/2_1/interfaces/IKeeperRegistryMaster.sol',
+        'src/v0.8/automation/interfaces/v2_1/IKeeperRegistryMaster.sol',
       )
       .toString()
       .slice(17, 83) // checksum located at top of file
@@ -141,6 +142,13 @@ describe('IKeeperRegistryMaster', () => {
     assertSatisfiesInterface(
       IKeeperRegistryMasterFactory.abi,
       MigratableKeeperRegistryInterfaceV2Factory.abi,
+    )
+  })
+
+  it('satisfies the OCR2Abstract interface', async () => {
+    assertSatisfiesInterface(
+      IKeeperRegistryMasterFactory.abi,
+      OCR2AbstractFactory.abi,
     )
   })
 })

@@ -15,10 +15,10 @@ import (
 	"go.uber.org/multierr"
 
 	clienttypes "github.com/smartcontractkit/chainlink/v2/common/chains/client"
+	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/label"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -517,7 +517,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bat
 		}
 	}
 
-	lggr := ec.lggr.Named("batchFetchReceipts").With("blockNum", blockNum)
+	lggr := ec.lggr.Named("BatchFetchReceipts").With("blockNum", blockNum)
 
 	txReceipts, txErrs, err := ec.client.BatchGetReceipts(ctx, attempts)
 	if err != nil {
@@ -758,7 +758,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) att
 		}
 		attempt, err = ec.bumpGas(ctx, etx, etx.TxAttempts)
 
-		if gas.IsBumpErr(err) {
+		if commonfee.IsBumpErr(err) {
 			lggr.Errorw("Failed to bump gas", append(logFields, "err", err)...)
 			// Do not create a new attempt if bumping gas would put us over the limit or cause some other problem
 			// Instead try to resubmit the previous attempt, and keep resubmitting until its accepted
@@ -801,7 +801,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bum
 		return bumpedAttempt, err
 	}
 
-	if errors.Is(errors.Cause(err), gas.ErrBumpGasExceedsLimit) {
+	if errors.Is(errors.Cause(err), commonfee.ErrBumpFeeExceedsLimit) {
 		promGasBumpExceedsLimit.WithLabelValues(ec.chainID.String()).Inc()
 	}
 

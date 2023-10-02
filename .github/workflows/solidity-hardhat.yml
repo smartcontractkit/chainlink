@@ -1,0 +1,177 @@
+name: Solidity-Hardhat
+
+on:
+  merge_group:
+  push:
+
+env:
+  NODE_OPTIONS: --max_old_space_size=8192
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      changes: ${{ steps.changes.outputs.src }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
+        id: changes
+        with:
+          filters: |
+            src:
+              - 'contracts/src/!(v0.8/(llo-feeds|ccip)/**)/**/*'
+              - 'contracts/test/**/*'
+              - 'contracts/package.json'
+              - 'contracts/hardhat.config.ts'
+              - 'contracts/ci.json'
+              - '.github/workflows/solidity-hardhat.yml'
+
+  split-tests:
+    name: Split Solidity Tests
+    runs-on: ubuntu-latest
+    outputs:
+      splits: ${{ steps.split.outputs.splits }}
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - name: Generate splits
+        id: split
+        uses: ./.github/actions/split-tests
+        with:
+          config: ./contracts/ci.json
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Split Solidity Tests
+        continue-on-error: true
+
+  solidity-coverage-splits:
+    needs: [changes, split-tests]
+    if: needs.changes.outputs.changes == 'true'
+    name: Solidity Coverage ${{ matrix.split.id }} ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
+    strategy:
+      fail-fast: false
+      matrix:
+        split: ${{ fromJson(needs.split-tests.outputs.splits) }}
+    runs-on: ubuntu20.04-4cores-16GB
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - name: Setup Hardhat
+        uses: ./.github/actions/setup-hardhat
+        with:
+          namespace: coverage
+      - name: Run coverage
+        env:
+          SPLIT: ${{ matrix.split.coverageTests }}
+        shell: bash
+        run: pnpm coverage --testfiles "$SPLIT"
+        working-directory: contracts
+      - name: Push coverage
+        run: ./tools/bin/codecov -f ./contracts/coverage.json
+      - name: Rename coverage
+        run: mv ./contracts/coverage.json ./contracts/coverage-${{ matrix.split.idx }}.json
+      - name: Upload coverage
+        uses: actions/upload-artifact@v3
+        with:
+          name: solidity-coverage-${{ matrix.split.idx }}
+          path: ./contracts/coverage-${{ matrix.split.idx }}.json
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solidity Coverage ${{ matrix.split.id }}
+        continue-on-error: true
+
+  solidity-coverage:
+    needs: [changes, solidity-coverage-splits]
+    if: needs.changes.outputs.changes == 'true'
+    name: Solidity Coverage ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - name: Make coverage directory
+        run: mkdir ./contracts/coverage-reports
+      - name: Download coverage
+        uses: actions/download-artifact@v3
+        with:
+          path: ./contracts/coverage-reports
+      - name: Display structure of downloaded files
+        run: ls -R coverage-reports
+        working-directory: contracts
+      - name: Generate merged report
+        run: pnpm istanbul report text text-summary
+        working-directory: contracts
+
+  solidity-splits:
+    needs: [changes, split-tests]
+    if: needs.changes.outputs.changes == 'true'
+    name: Solidity ${{ matrix.split.id }} ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
+    strategy:
+      fail-fast: false
+      matrix:
+        split: ${{ fromJson(needs.split-tests.outputs.splits) }}
+    runs-on: ubuntu20.04-4cores-16GB
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+      - name: Setup NodeJS
+        uses: ./.github/actions/setup-nodejs
+      - name: Setup Hardhat
+        uses: ./.github/actions/setup-hardhat
+        with:
+          namespace: coverage
+      - name: Run tests
+        env:
+          SPLIT: ${{ matrix.split.tests }}
+        working-directory: contracts
+        run: pnpm test -- $SPLIT
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solidity ${{ matrix.split.id }}
+        continue-on-error: true
+
+  solidity:
+    needs: [changes, solidity-splits]
+    name: Solidity
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - run: echo 'Solidity tests finished!'
+      - name: Check test results
+        run: |
+          if [[ "${{ needs.changes.result }}" = "failure" || "${{ needs.solidity-splits.result }}" = "failure" ]]; then
+            echo "One or more changes / solidity-splits jobs failed"
+            exit 1
+          else
+            echo "All test jobs passed successfully"
+          fi
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solidity
+        continue-on-error: true

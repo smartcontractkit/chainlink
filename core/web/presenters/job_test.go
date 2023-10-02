@@ -53,6 +53,10 @@ func TestJob(t *testing.T) {
 	batchBHSAddress, err := ethkey.NewEIP55Address("0xF6bB415b033D19EFf24A872a4785c6e1C4426103")
 	require.NoError(t, err)
 
+	trustedBlockhashStoreAddress, err := ethkey.NewEIP55Address("0x0ad9FE7a58216242a8475ca92F222b0640E26B63")
+	require.NoError(t, err)
+	trustedBlockhashStoreBatchSize := int32(20)
+
 	var specGasLimit uint32 = 1000
 
 	testCases := []struct {
@@ -472,17 +476,20 @@ func TestJob(t *testing.T) {
 			job: job.Job{
 				ID: 1,
 				BlockhashStoreSpec: &job.BlockhashStoreSpec{
-					ID:                       1,
-					CoordinatorV1Address:     &v1CoordAddress,
-					CoordinatorV2Address:     &v2CoordAddress,
-					CoordinatorV2PlusAddress: &v2PlusCoordAddress,
-					WaitBlocks:               123,
-					LookbackBlocks:           223,
-					BlockhashStoreAddress:    contractAddress,
-					PollPeriod:               25 * time.Second,
-					RunTimeout:               10 * time.Second,
-					EVMChainID:               utils.NewBigI(4),
-					FromAddresses:            []ethkey.EIP55Address{fromAddress},
+					ID:                             1,
+					CoordinatorV1Address:           &v1CoordAddress,
+					CoordinatorV2Address:           &v2CoordAddress,
+					CoordinatorV2PlusAddress:       &v2PlusCoordAddress,
+					WaitBlocks:                     123,
+					LookbackBlocks:                 223,
+					HeartbeatPeriod:                375 * time.Second,
+					BlockhashStoreAddress:          contractAddress,
+					PollPeriod:                     25 * time.Second,
+					RunTimeout:                     10 * time.Second,
+					EVMChainID:                     utils.NewBigI(4),
+					FromAddresses:                  []ethkey.EIP55Address{fromAddress},
+					TrustedBlockhashStoreAddress:   &trustedBlockhashStoreAddress,
+					TrustedBlockhashStoreBatchSize: trustedBlockhashStoreBatchSize,
 				},
 				PipelineSpec: &pipeline.Spec{
 					ID:           1,
@@ -520,7 +527,10 @@ func TestJob(t *testing.T) {
 							"coordinatorV2PlusAddress": "0x92B5e28Ac583812874e4271380c7d070C5FB6E6b",
 							"waitBlocks": 123,
 							"lookbackBlocks": 223,
+							"heartbeatPeriod": 375000000000,
 							"blockhashStoreAddress": "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba",
+							"trustedBlockhashStoreAddress": "0x0ad9FE7a58216242a8475ca92F222b0640E26B63",
+							"trustedBlockhashStoreBatchSize": 20,
 							"pollPeriod": 25000000000,
 							"runTimeout": 10000000000,
 							"evmChainID": "4",

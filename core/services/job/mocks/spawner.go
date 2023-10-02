@@ -146,13 +146,20 @@ func (_m *Spawner) Start(_a0 context.Context) error {
 	return r0
 }
 
-// StartService provides a mock function with given fields: ctx, spec
-func (_m *Spawner) StartService(ctx context.Context, spec job.Job) error {
-	ret := _m.Called(ctx, spec)
+// StartService provides a mock function with given fields: ctx, spec, qopts
+func (_m *Spawner) StartService(ctx context.Context, spec job.Job, qopts ...pg.QOpt) error {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, ctx, spec)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, job.Job) error); ok {
-		r0 = rf(ctx, spec)
+	if rf, ok := ret.Get(0).(func(context.Context, job.Job, ...pg.QOpt) error); ok {
+		r0 = rf(ctx, spec, qopts...)
 	} else {
 		r0 = ret.Error(0)
 	}

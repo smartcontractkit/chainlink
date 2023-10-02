@@ -1,0 +1,10 @@
+GETH_VERSION: 1.12.0
+errored_verifier: ../../../contracts/solc/v0.8.16/ErroredVerifier.abi ../../../contracts/solc/v0.8.16/ErroredVerifier.bin 510d18a58bfda646be35e46491baf73041eb333a349615465b20e2b5b41c5f73
+exposed_verifier: ../../../contracts/solc/v0.8.16/ExposedVerifier.abi ../../../contracts/solc/v0.8.16/ExposedVerifier.bin 6932cea8f2738e874d3ec9e1a4231d2421704030c071d9e15dd2f7f08482c246
+fee_manager: ../../../contracts/solc/v0.8.16/FeeManager.abi ../../../contracts/solc/v0.8.16/FeeManager.bin 1b852df75bfabcc2b57539e84309cd57f9e693a2bb6b25a50e4a6101ccf32c49
+llo_feeds: ../../../contracts/solc/v0.8.16/FeeManager.abi ../../../contracts/solc/v0.8.16/FeeManager.bin cb71e018f67e49d7bc0e194c822204dfd59f79ff42e4fc8fd8ab63f3acd71361
+llo_feeds_test: ../../../contracts/solc/v0.8.16/ExposedVerifier.abi ../../../contracts/solc/v0.8.16/ExposedVerifier.bin 6932cea8f2738e874d3ec9e1a4231d2421704030c071d9e15dd2f7f08482c246
+reward_manager: ../../../contracts/solc/v0.8.16/RewardManager.abi ../../../contracts/solc/v0.8.16/RewardManager.bin db73e9062b17a1d5aa14c06881fe2be49bd95b00b7f1a8943910c5e4ded5b221
+verifier: ../../../contracts/solc/v0.8.16/Verifier.abi ../../../contracts/solc/v0.8.16/Verifier.bin df12786bbeccf3a8f3389479cf93c055b4efd5904b9f99a4835f81af43fe62bf
+verifier_proxy: ../../../contracts/solc/v0.8.16/VerifierProxy.abi ../../../contracts/solc/v0.8.16/VerifierProxy.bin 6393443d0a323f2dbe9687dc30fd77f8dfa918944b61c651759746ff2d76e4e5
+werc20_mock: ../../../contracts/solc/v0.8.19/WERC20Mock.abi ../../../contracts/solc/v0.8.19/WERC20Mock.bin ff2ca3928b2aa9c412c892cb8226c4d754c73eeb291bb7481c32c48791b2aa94

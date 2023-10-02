@@ -56,7 +56,12 @@ cd <YOUR LOCAL CHAINLINK REPO>/core/scripts/vrfv2/testnet
 To deploy a full VRF environment on-chain, run:
 
 ```shell
-go run . deploy-universe --link-address=$LINK --link-eth-feed=$LINK_ETH_FEED --subscription-balance=<SUBSCRIPTION AMOUNT> --uncompressed-pub-key=$PUB_KEY --oracle-address=$ORACLE_ADDRESS
+go run . deploy-universe \
+--sending-key-funding-amount 100000000000000000 \
+--subscription-balance=10000000000000000000 \
+--uncompressed-pub-key=<VRF Uncompressed Public Key> \
+--vrf-primary-node-sending-keys="<sending-key1-address,sending-key2-address>" \
+--batch-fulfillment-enabled false
 ```
 
 ## Deploying the Consumer Contract

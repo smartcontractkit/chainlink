@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cometbft/cometbft/libs/rand"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
@@ -20,15 +21,17 @@ import (
 	"github.com/leanovate/gopter/prop"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"github.com/tendermint/tendermint/libs/rand"
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -36,23 +39,17 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func logRuntime(t *testing.T, start time.Time) {
+func logRuntime(t testing.TB, start time.Time) {
 	t.Log("runtime", time.Since(start))
 }
 
-func TestPopulateLoadedDB(t *testing.T) {
-	t.Skip("Only for local load testing and query analysis")
-	lggr := logger.TestLogger(t)
-	_, db := heavyweight.FullTestDBV2(t, "logs_scale", nil)
-	chainID := big.NewInt(137)
-
-	o := logpoller.NewORM(big.NewInt(137), db, lggr, pgtest.NewQConfig(true))
+func populateDatabase(t testing.TB, o *logpoller.DbORM, chainID *big.Int) (common.Hash, common.Address, common.Address) {
 	event1 := EmitterABI.Events["Log1"].ID
 	address1 := common.HexToAddress("0x2ab9a2Dc53736b361b72d900CdF9F78F9406fbbb")
 	address2 := common.HexToAddress("0x6E225058950f237371261C985Db6bDe26df2200E")
+	startDate := time.Date(2010, 1, 1, 12, 12, 12, 0, time.UTC)
 
-	// We start at 1 just so block number > 0
-	for j := 1; j < 1000; j++ {
+	for j := 1; j < 100; j++ {
 		var logs []logpoller.Log
 		// Max we can insert per batch
 		for i := 0; i < 1000; i++ {
@@ -60,23 +57,60 @@ func TestPopulateLoadedDB(t *testing.T) {
 			if (i+(1000*j))%2 == 0 {
 				addr = address2
 			}
+			blockNumber := int64(i + (1000 * j))
+			blockTimestamp := startDate.Add(time.Duration(j*1000) * time.Hour)
+
 			logs = append(logs, logpoller.Log{
-				EvmChainId:  utils.NewBig(chainID),
-				LogIndex:    1,
-				BlockHash:   common.HexToHash(fmt.Sprintf("0x%d", i+(1000*j))),
-				BlockNumber: int64(i + (1000 * j)),
-				EventSig:    event1,
-				Topics:      [][]byte{event1[:], logpoller.EvmWord(uint64(i + 1000*j)).Bytes()},
-				Address:     addr,
-				TxHash:      common.HexToHash("0x1234"),
-				Data:        logpoller.EvmWord(uint64(i + 1000*j)).Bytes(),
+				EvmChainId:     utils.NewBig(chainID),
+				LogIndex:       1,
+				BlockHash:      common.HexToHash(fmt.Sprintf("0x%d", i+(1000*j))),
+				BlockNumber:    blockNumber,
+				BlockTimestamp: blockTimestamp,
+				EventSig:       event1,
+				Topics:         [][]byte{event1[:], logpoller.EvmWord(uint64(i + 1000*j)).Bytes()},
+				Address:        addr,
+				TxHash:         utils.RandomAddress().Hash(),
+				Data:           logpoller.EvmWord(uint64(i + 1000*j)).Bytes(),
+				CreatedAt:      blockTimestamp,
 			})
+
 		}
 		require.NoError(t, o.InsertLogs(logs))
+		require.NoError(t, o.InsertBlock(utils.RandomAddress().Hash(), int64((j+1)*1000-1), startDate.Add(time.Duration(j*1000)*time.Hour)))
 	}
+
+	return event1, address1, address2
+}
+
+func BenchmarkSelectLogsCreatedAfter(b *testing.B) {
+	chainId := big.NewInt(137)
+	_, db := heavyweight.FullTestDBV2(b, "logs_scale", nil)
+	o := logpoller.NewORM(chainId, db, logger.TestLogger(b), pgtest.NewQConfig(false))
+	event, address, _ := populateDatabase(b, o, chainId)
+
+	// Setting searchDate to pick around 5k logs
+	searchDate := time.Date(2020, 1, 1, 12, 12, 12, 0, time.UTC)
+
+	b.ResetTimer()
+
+	for i := 0; i < b.N; i++ {
+		logs, err := o.SelectLogsCreatedAfter(address, event, searchDate, 500)
+		require.NotZero(b, len(logs))
+		require.NoError(b, err)
+	}
+}
+
+func TestPopulateLoadedDB(t *testing.T) {
+	t.Skip("Only for local load testing and query analysis")
+	_, db := heavyweight.FullTestDBV2(t, "logs_scale", nil)
+	chainID := big.NewInt(137)
+
+	o := logpoller.NewORM(big.NewInt(137), db, logger.TestLogger(t), pgtest.NewQConfig(true))
+	event1, address1, address2 := populateDatabase(t, o, chainID)
+
 	func() {
 		defer logRuntime(t, time.Now())
-		_, err1 := o.SelectLogsByBlockRangeFilter(750000, 800000, address1, event1)
+		_, err1 := o.SelectLogs(750000, 800000, address1, event1)
 		require.NoError(t, err1)
 	}()
 	func() {
@@ -89,7 +123,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 	require.NoError(t, o.InsertBlock(common.HexToHash("0x10"), 1000000, time.Now()))
 	func() {
 		defer logRuntime(t, time.Now())
-		lgs, err1 := o.SelectDataWordRange(address1, event1, 0, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
+		lgs, err1 := o.SelectLogsDataWordRange(address1, event1, 0, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
 		require.NoError(t, err1)
 		// 10 since every other log is for address1
 		assert.Equal(t, 10, len(lgs))
@@ -104,7 +138,7 @@ func TestPopulateLoadedDB(t *testing.T) {
 
 	func() {
 		defer logRuntime(t, time.Now())
-		lgs, err1 := o.SelectIndexLogsTopicRange(address1, event1, 1, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
+		lgs, err1 := o.SelectIndexedLogsTopicRange(address1, event1, 1, logpoller.EvmWord(500000), logpoller.EvmWord(500020), 0)
 		require.NoError(t, err1)
 		assert.Equal(t, 10, len(lgs))
 	}()
@@ -220,10 +254,10 @@ func Test_BackupLogPoller(t *testing.T) {
 	require.NoError(t, err)
 
 	defer func() {
-		assert.NoError(t, th.LogPoller.UnregisterFilter("filter1", nil))
+		assert.NoError(t, th.LogPoller.UnregisterFilter("filter1"))
 	}()
 	defer func() {
-		assert.NoError(t, th.LogPoller.UnregisterFilter("filter2", nil))
+		assert.NoError(t, th.LogPoller.UnregisterFilter("filter2"))
 	}()
 
 	// generate some tx's with logs
@@ -757,6 +791,13 @@ func TestLogPoller_LoadFilters(t *testing.T) {
 	require.True(t, ok)
 	assert.True(t, filter.Contains(&filter3))
 	assert.True(t, filter3.Contains(&filter))
+
+	t.Run("HasFilter", func(t *testing.T) {
+		assert.True(t, th.LogPoller.HasFilter("first Filter"))
+		assert.True(t, th.LogPoller.HasFilter("second Filter"))
+		assert.True(t, th.LogPoller.HasFilter("third Filter"))
+		assert.False(t, th.LogPoller.HasFilter("fourth Filter"))
+	})
 }
 
 func TestLogPoller_GetBlocks_Range(t *testing.T) {
@@ -1020,4 +1061,94 @@ func TestNotifyAfterInsert(t *testing.T) {
 			return false
 		}
 	})
+}
+
+type getLogErrData struct {
+	From  string
+	To    string
+	Limit int
+}
+
+func TestTooManyLogResults(t *testing.T) {
+	ctx := testutils.Context(t)
+	ec := evmtest.NewEthClientMockWithDefaultChain(t)
+	lggr, obs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+	chainID := testutils.NewRandomEVMChainID()
+	db := pgtest.NewSqlxDB(t)
+	o := logpoller.NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
+	lp := logpoller.NewLogPoller(o, ec, lggr, 1*time.Hour, 2, 20, 10, 1000)
+	expected := []int64{10, 5, 2, 1}
+
+	clientErr := client.JsonError{
+		Code:    -32005,
+		Data:    getLogErrData{"0x100E698", "0x100E6D4", 10000},
+		Message: "query returned more than 10000 results. Try with this block range [0x100E698, 0x100E6D4].",
+	}
+
+	call1 := ec.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
+		if blockNumber == nil {
+			return &evmtypes.Head{Number: 300}, nil // Simulate currentBlock = 300
+		}
+		return &evmtypes.Head{Number: blockNumber.Int64()}, nil
+	})
+
+	call2 := ec.On("FilterLogs", mock.Anything, mock.Anything).Return(func(ctx context.Context, fq ethereum.FilterQuery) (logs []types.Log, err error) {
+		if fq.BlockHash != nil {
+			return []types.Log{}, nil // succeed when single block requested
+		}
+		from := fq.FromBlock.Uint64()
+		to := fq.ToBlock.Uint64()
+		if to-from >= 4 {
+			return []types.Log{}, &clientErr // return "too many results" error if block range spans 4 or more blocks
+		}
+		return logs, err
+	})
+
+	addr := testutils.NewAddress()
+	err := lp.RegisterFilter(logpoller.Filter{"Integration test", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{addr}, 0})
+	require.NoError(t, err)
+	lp.PollAndSaveLogs(ctx, 5)
+	block, err2 := o.SelectLatestBlock()
+	require.NoError(t, err2)
+	assert.Equal(t, int64(298), block.BlockNumber)
+
+	logs := obs.FilterLevelExact(zapcore.WarnLevel).FilterMessageSnippet("halving block range batch size").FilterFieldKey("newBatchSize").All()
+	// Should have tried again 3 times--first reducing batch size to 10, then 5, then 2
+	require.Len(t, logs, 3)
+	for i, s := range expected[:3] {
+		assert.Equal(t, s, logs[i].ContextMap()["newBatchSize"])
+	}
+
+	obs.TakeAll()
+	call1.Unset()
+	call2.Unset()
+
+	// Now jump to block 500, but return error no matter how small the block range gets.
+	//  Should exit the loop with a critical error instead of hanging.
+	call1.On("HeadByNumber", mock.Anything, mock.Anything).Return(func(ctx context.Context, blockNumber *big.Int) (*evmtypes.Head, error) {
+		if blockNumber == nil {
+			return &evmtypes.Head{Number: 500}, nil // Simulate currentBlock = 300
+		}
+		return &evmtypes.Head{Number: blockNumber.Int64()}, nil
+	})
+	call2.On("FilterLogs", mock.Anything, mock.Anything).Return(func(ctx context.Context, fq ethereum.FilterQuery) (logs []types.Log, err error) {
+		if fq.BlockHash != nil {
+			return []types.Log{}, nil // succeed when single block requested
+		}
+		return []types.Log{}, &clientErr // return "too many results" error if block range spans 4 or more blocks
+	})
+
+	lp.PollAndSaveLogs(ctx, 298)
+	block, err2 = o.SelectLatestBlock()
+	require.NoError(t, err2)
+	assert.Equal(t, int64(298), block.BlockNumber)
+	warns := obs.FilterMessageSnippet("halving block range").FilterLevelExact(zapcore.WarnLevel).All()
+	crit := obs.FilterMessageSnippet("failed to retrieve logs").FilterLevelExact(zapcore.DPanicLevel).All()
+	require.Len(t, warns, 4)
+	for i, s := range expected {
+		assert.Equal(t, s, warns[i].ContextMap()["newBatchSize"])
+	}
+
+	require.Len(t, crit, 1)
+	assert.Contains(t, crit[0].Message, "Too many log results in a single block")
 }

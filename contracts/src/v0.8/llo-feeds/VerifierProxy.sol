@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.16;
 
-import {ConfirmedOwner} from "../ConfirmedOwner.sol";
+import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {IVerifierProxy} from "./interfaces/IVerifierProxy.sol";
 import {IVerifier} from "./interfaces/IVerifier.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
-import {AccessControllerInterface} from "../interfaces/AccessControllerInterface.sol";
-import {IERC165} from "../shared/vendor/IERC165.sol";
+import {AccessControllerInterface} from "../shared/interfaces/AccessControllerInterface.sol";
+import {IERC165} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/interfaces/IERC165.sol";
+import {IVerifierFeeManager} from "./interfaces/IVerifierFeeManager.sol";
+import {Common} from "../libraries/Common.sol";
 
 /**
  * The verifier proxy contract is the gateway for all report verification requests
@@ -37,6 +39,11 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @param newAccessController The new access controller address
   event AccessControllerSet(address oldAccessController, address newAccessController);
 
+  /// @notice This event is emitted when a new fee manager is set
+  /// @param oldFeeManager The old fee manager address
+  /// @param newFeeManager The new fee manager address
+  event FeeManagerSet(address oldFeeManager, address newFeeManager);
+
   /// @notice This error is thrown whenever an address tries
   /// to exeecute a transaction that it is not authorized to do so
   error AccessForbidden();
@@ -58,9 +65,16 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// not conform to the verifier interface
   error VerifierInvalid();
 
+  /// @notice This error is thrown when the fee manager at an address does
+  /// not conform to the fee manager interface
+  error FeeManagerInvalid();
+
   /// @notice This error is thrown whenever a verifier is not found
   /// @param configDigest The digest for which a verifier is not found
   error VerifierNotFound(bytes32 configDigest);
+
+  /// @notice This error is thrown whenever billing fails.
+  error BadVerification();
 
   /// @notice Mapping of authorized verifiers
   mapping(address => bool) private s_initializedVerifiers;
@@ -69,20 +83,21 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   mapping(bytes32 => address) private s_verifiersByConfig;
 
   /// @notice The contract to control addresses that are allowed to verify reports
-  AccessControllerInterface private s_accessController;
+  AccessControllerInterface public s_accessController;
+
+  /// @notice The contract to control fees for report verification
+  IVerifierFeeManager public s_feeManager;
 
   constructor(AccessControllerInterface accessController) ConfirmedOwner(msg.sender) {
     s_accessController = accessController;
   }
 
-  /// @dev reverts if the caller does not have access by the accessController contract or is the contract itself.
   modifier checkAccess() {
     AccessControllerInterface ac = s_accessController;
     if (address(ac) != address(0) && !ac.hasAccess(msg.sender, msg.data)) revert AccessForbidden();
     _;
   }
 
-  /// @dev only allow verified addresses to call this function
   modifier onlyInitializedVerifier() {
     if (!s_initializedVerifiers[msg.sender]) revert AccessForbidden();
     _;
@@ -94,8 +109,6 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
     _;
   }
 
-  /// @notice Reverts if the config digest has already been assigned
-  /// a verifier
   modifier onlyUnsetConfigDigest(bytes32 configDigest) {
     address configDigestVerifier = s_verifiersByConfig[configDigest];
     if (configDigestVerifier != address(0)) revert ConfigDigestAlreadySet(configDigest, configDigestVerifier);
@@ -104,44 +117,52 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "VerifierProxy 1.0.0";
+    return "VerifierProxy 2.0.0";
   }
-
-  //***************************//
-  //       Admin Functions     //
-  //***************************//
-
-  /// @notice This function can be called by the contract admin to set
-  /// the proxy's access controller contract
-  /// @param accessController The new access controller to set
-  /// @dev The access controller can be set to the zero address to allow
-  /// all addresses to verify reports
-  function setAccessController(AccessControllerInterface accessController) external onlyOwner {
-    address oldAccessController = address(s_accessController);
-    s_accessController = accessController;
-    emit AccessControllerSet(oldAccessController, address(accessController));
-  }
-
-  /// @notice Returns the current access controller
-  /// @return accessController The current access controller contract
-  /// the proxy is using to gate access
-  function getAccessController() external view returns (AccessControllerInterface accessController) {
-    return s_accessController;
-  }
-
-  //***************************//
-  //  Verification Functions   //
-  //***************************//
 
   /// @inheritdoc IVerifierProxy
-  /// @dev Contract skips checking whether or not the current verifier
-  /// is valid as it checks this before a new verifier is set.
-  function verify(bytes calldata signedReport) external override checkAccess returns (bytes memory verifierResponse) {
-    // First 32 bytes of the signed report is the config digest.
-    bytes32 configDigest = bytes32(signedReport);
+  function verify(
+    bytes calldata payload,
+    bytes calldata parameterPayload
+  ) external payable checkAccess returns (bytes memory) {
+    IVerifierFeeManager feeManager = s_feeManager;
+
+    // Bill the verifier
+    if (address(feeManager) != address(0)) {
+      feeManager.processFee{value: msg.value}(payload, parameterPayload, msg.sender);
+    }
+
+    return _verify(payload);
+  }
+
+  /// @inheritdoc IVerifierProxy
+  function verifyBulk(
+    bytes[] calldata payloads,
+    bytes calldata parameterPayload
+  ) external payable checkAccess returns (bytes[] memory verifiedReports) {
+    IVerifierFeeManager feeManager = s_feeManager;
+
+    // Bill the verifier
+    if (address(feeManager) != address(0)) {
+      feeManager.processFeeBulk{value: msg.value}(payloads, parameterPayload, msg.sender);
+    }
+
+    //verify the reports
+    verifiedReports = new bytes[](payloads.length);
+    for (uint256 i; i < payloads.length; ++i) {
+      verifiedReports[i] = _verify(payloads[i]);
+    }
+
+    return verifiedReports;
+  }
+
+  function _verify(bytes calldata payload) internal returns (bytes memory verifiedReport) {
+    // First 32 bytes of the signed report is the config digest
+    bytes32 configDigest = bytes32(payload);
     address verifierAddress = s_verifiersByConfig[configDigest];
     if (verifierAddress == address(0)) revert VerifierNotFound(configDigest);
-    return IVerifier(verifierAddress).verify(signedReport, msg.sender);
+
+    return IVerifier(verifierAddress).verify(payload, msg.sender);
   }
 
   /// @inheritdoc IVerifierProxy
@@ -155,9 +176,20 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @inheritdoc IVerifierProxy
   function setVerifier(
     bytes32 currentConfigDigest,
-    bytes32 newConfigDigest
+    bytes32 newConfigDigest,
+    Common.AddressAndWeight[] calldata addressesAndWeights
   ) external override onlyUnsetConfigDigest(newConfigDigest) onlyInitializedVerifier {
     s_verifiersByConfig[newConfigDigest] = msg.sender;
+
+    // Empty recipients array will be ignored and must be set off chain
+    if (addressesAndWeights.length > 0) {
+      if (address(s_feeManager) == address(0)) {
+        revert ZeroAddress();
+      }
+
+      s_feeManager.setFeeRecipients(newConfigDigest, addressesAndWeights);
+    }
+
     emit VerifierSet(currentConfigDigest, newConfigDigest, msg.sender);
   }
 
@@ -172,5 +204,26 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, TypeAndVersionInterfac
   /// @inheritdoc IVerifierProxy
   function getVerifier(bytes32 configDigest) external view override returns (address) {
     return s_verifiersByConfig[configDigest];
+  }
+
+  /// @inheritdoc IVerifierProxy
+  function setAccessController(AccessControllerInterface accessController) external onlyOwner {
+    address oldAccessController = address(s_accessController);
+    s_accessController = accessController;
+    emit AccessControllerSet(oldAccessController, address(accessController));
+  }
+
+  /// @inheritdoc IVerifierProxy
+  function setFeeManager(IVerifierFeeManager feeManager) external onlyOwner {
+    if (address(feeManager) == address(0)) revert ZeroAddress();
+
+    if (
+      !IERC165(feeManager).supportsInterface(IVerifierFeeManager.processFee.selector) ||
+      !IERC165(feeManager).supportsInterface(IVerifierFeeManager.processFeeBulk.selector)
+    ) revert FeeManagerInvalid();
+
+    address oldFeeManager = address(s_feeManager);
+    s_feeManager = IVerifierFeeManager(feeManager);
+    emit FeeManagerSet(oldFeeManager, address(feeManager));
   }
 }

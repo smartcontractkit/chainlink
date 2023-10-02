@@ -9,7 +9,6 @@ interface IVRFCoordinatorV2PlusMigration {
    * @notice only callable by older versions of coordinator
    * @notice supports transfer of native currency
    * @param encodedData - user data from older version of coordinator
-   * @return subId
    */
-  function onMigration(bytes calldata encodedData) external payable returns (uint64 subId);
+  function onMigration(bytes calldata encodedData) external payable;
 }

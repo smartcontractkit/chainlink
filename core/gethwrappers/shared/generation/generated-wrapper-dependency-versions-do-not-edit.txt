@@ -1,0 +1,5 @@
+GETH_VERSION: 1.12.0
+burn_mint_erc677: ../../../contracts/solc/v0.8.19/BurnMintERC677.abi ../../../contracts/solc/v0.8.19/BurnMintERC677.bin 405c9016171e614b17e10588653ef8d33dcea21dd569c3fddc596a46fcff68a3
+erc20: ../../../contracts/solc/v0.8.19/ERC20.abi ../../../contracts/solc/v0.8.19/ERC20.bin 5b1a93d9b24f250e49a730c96335a8113c3f7010365cba578f313b483001d4fc
+link_token: ../../../contracts/solc/v0.8.19/LinkToken.abi ../../../contracts/solc/v0.8.19/LinkToken.bin c0ef9b507103aae541ebc31d87d051c2764ba9d843076b30ec505d37cdfffaba
+werc20_mock: ../../../contracts/solc/v0.8.19/WERC20Mock.abi ../../../contracts/solc/v0.8.19/WERC20Mock.bin ff2ca3928b2aa9c412c892cb8226c4d754c73eeb291bb7481c32c48791b2aa94

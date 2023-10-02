@@ -1,0 +1,8 @@
+[[EVM]]
+ChainID = "11155111"
+
+[[EVM.Nodes]]
+HTTPURL = "<RPC HTTP URL>"
+Name = "RPC Node"
+SendOnly = false
+WSURL = "<RPC WS URL>"

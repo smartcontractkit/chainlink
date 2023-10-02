@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../../interfaces/LinkTokenInterface.sol";
+import "../../../shared/interfaces/LinkTokenInterface.sol";
 import "../../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../../VRFConsumerBaseV2Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable-4.7.3/proxy/utils/Initializable.sol";
@@ -11,7 +11,7 @@ contract VRFConsumerV2PlusUpgradeableExample is Initializable, VRFConsumerBaseV2
   uint256 public s_requestId;
   IVRFCoordinatorV2Plus public COORDINATOR;
   LinkTokenInterface public LINKTOKEN;
-  uint64 public s_subId;
+  uint256 public s_subId;
   uint256 public s_gasAvailable;
 
   function initialize(address _vrfCoordinator, address _link) public initializer {
@@ -51,7 +51,7 @@ contract VRFConsumerV2PlusUpgradeableExample is Initializable, VRFConsumerBaseV2
 
   function requestRandomness(
     bytes32 keyHash,
-    uint64 subId,
+    uint256 subId,
     uint16 minReqConfs,
     uint32 callbackGasLimit,
     uint32 numWords

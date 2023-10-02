@@ -13,14 +13,14 @@ import (
 	"go.uber.org/multierr"
 
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 )
 
 var (
-	vrfCoordinatorV2PlusABI = evmtypes.MustGetABI(vrf_coordinator_v2plus.VRFCoordinatorV2PlusABI)
+	vrfCoordinatorV2PlusABI = evmtypes.MustGetABI(vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalABI)
 )
 
 // VRFTaskV2Plus is identical to VRFTaskV2 except that it uses the V2Plus VRF
@@ -81,7 +81,7 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid requestId")}, runInfo
 	}
-	subID, ok := logValues["subId"].(uint64)
+	subID, ok := logValues["subId"].(*big.Int)
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid subId")}, runInfo
 	}
@@ -97,9 +97,9 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	if !ok {
 		return Result{Error: errors.Wrapf(ErrBadInput, "invalid sender")}, runInfo
 	}
-	nativePayment, ok := logValues["nativePayment"].(bool)
+	extraArgs, ok := logValues["extraArgs"].([]byte)
 	if !ok {
-		return Result{Error: errors.Wrapf(ErrBadInput, "invalid nativePayment")}, runInfo
+		return Result{Error: errors.Wrapf(ErrBadInput, "invalid extraArgs")}, runInfo
 	}
 	pk, err := secp256k1.NewPublicKeyFromBytes(pubKey)
 	if err != nil {
@@ -117,7 +117,7 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, _ logger.Logger, vars Vars, input
 	if len(requestBlockHash) != common.HashLength {
 		return Result{Error: fmt.Errorf("invalid BlockHash length %d expected %d", len(requestBlockHash), common.HashLength)}, runInfo
 	}
-	preSeedData := proof.PreSeedDataV2{
+	preSeedData := proof.PreSeedDataV2Plus{
 		PreSeed:          preSeed,
 		BlockHash:        common.BytesToHash(requestBlockHash),
 		BlockNum:         uint64(requestBlockNumber),
@@ -125,14 +125,15 @@ func (t *VRFTaskV2Plus) Run(_ context.Context, _ logger.Logger, vars Vars, input
 		CallbackGasLimit: callbackGasLimit,
 		NumWords:         numWords,
 		Sender:           sender,
+		ExtraArgs:        extraArgs,
 	}
-	finalSeed := proof.FinalSeedV2(preSeedData)
+	finalSeed := proof.FinalSeedV2Plus(preSeedData)
 	id := hexutil.Encode(pk[:])
 	p, err := t.keyStore.GenerateProof(id, finalSeed)
 	if err != nil {
 		return Result{Error: err}, retryableRunInfo()
 	}
-	onChainProof, rc, err := proof.GenerateProofResponseFromProofV2Plus(p, preSeedData, nativePayment)
+	onChainProof, rc, err := proof.GenerateProofResponseFromProofV2Plus(p, preSeedData)
 	if err != nil {
 		return Result{Error: err}, retryableRunInfo()
 	}

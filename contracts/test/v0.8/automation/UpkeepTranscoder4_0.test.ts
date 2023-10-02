@@ -10,19 +10,39 @@ import { getUsers, Personas } from '../../test-helpers/setup'
 import { KeeperRegistryLogic2_0__factory as KeeperRegistryLogic20Factory } from '../../../typechain/factories/KeeperRegistryLogic2_0__factory'
 import { KeeperRegistry1_3__factory as KeeperRegistry1_3Factory } from '../../../typechain/factories/KeeperRegistry1_3__factory'
 import { KeeperRegistryLogic1_3__factory as KeeperRegistryLogicFactory } from '../../../typechain/factories/KeeperRegistryLogic1_3__factory'
+import { UpkeepTranscoder4_0__factory as UpkeepTranscoderFactory } from '../../../typechain/factories/UpkeepTranscoder4_0__factory'
 import { toWei } from '../../test-helpers/helpers'
 import { loadFixture } from '@nomicfoundation/hardhat-network-helpers'
 import {
-  LinkToken,
-  MockV3Aggregator,
+  IKeeperRegistryMaster,
   KeeperRegistry1_2,
   KeeperRegistry1_3,
   KeeperRegistry2_0,
-  IKeeperRegistryMaster,
+  LinkToken,
+  MockV3Aggregator,
   UpkeepMock,
 } from '../../../typechain'
-import {} from '../../../typechain'
 import { deployRegistry21 } from './helpers'
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+/*********************************** TRANSCODER v4.0 IS FROZEN ************************************/
+
+// We are leaving the original tests enabled, however as automation v2.1 is still actively being deployed
+
+describe('UpkeepTranscoder v4.0 - Frozen [ @skip-coverage ]', () => {
+  it('has not changed', () => {
+    assert.equal(
+      ethers.utils.id(UpkeepTranscoderFactory.bytecode),
+      '0xf22c4701b0088e6e69c389a34a22041a69f00890a89246e3c2a6d38172222dae',
+      'UpkeepTranscoder bytecode has changed',
+    )
+  })
+})
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+//////////////////////////////////////////////////////////////////////////////////////////////////
 
 let transcoder: UpkeepTranscoder
 let linkTokenFactory: LinkTokenFactory
@@ -96,7 +116,7 @@ async function getUpkeepID(tx: any): Promise<BigNumber> {
   return receipt.events[0].args.id
 }
 
-const encodeConfig = (config: any) => {
+const encodeConfig20 = (config: any) => {
   return ethers.utils.defaultAbiCoder.encode(
     [
       'tuple(uint32 paymentPremiumPPB,uint32 flatFeeMicroLink,uint32 checkGasLimit,uint24 stalenessSeconds\
@@ -119,42 +139,9 @@ const encodeUpkeepV12 = (ids: number[], upkeeps: any[], checkDatas: any[]) => {
   )
 }
 
-const encodeUpkeepV13 = (ids: number[], upkeeps: any[], checkDatas: any[]) => {
-  return ethers.utils.defaultAbiCoder.encode(
-    [
-      'uint256[]',
-      'tuple(uint96,address,uint96,address,uint32,uint32,address,bool)[]',
-      'bytes[]',
-    ],
-    [ids, upkeeps, checkDatas],
-  )
-}
-
-const encodeUpkeepV21 = (
-  ids: number[],
-  upkeeps: any[],
-  admins: string[],
-  checkDatas: string[],
-  triggerConfigs: string[],
-  offchainConfigs: string[],
-) => {
-  return ethers.utils.defaultAbiCoder.encode(
-    [
-      'uint256[]',
-      'tuple(bool,uint32,uint32,address,uint96,uint96,uint32,address)[]',
-      'address[]',
-      'bytes[]',
-      'bytes[]',
-      'bytes[]',
-    ],
-    [ids, upkeeps, admins, checkDatas, triggerConfigs, offchainConfigs],
-  )
-}
-
 async function deployRegistry1_2(): Promise<[BigNumber, KeeperRegistry1_2]> {
-  const keeperRegistryFactory = await ethers.getContractFactory(
-    'KeeperRegistry1_2',
-  )
+  const keeperRegistryFactory =
+    await ethers.getContractFactory('KeeperRegistry1_2')
   const registry12 = await keeperRegistryFactory
     .connect(owner)
     .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {
@@ -266,7 +253,7 @@ async function deployRegistry2_0(): Promise<[BigNumber, KeeperRegistry2_0]> {
       signerAddresses,
       keeperAddresses,
       f,
-      encodeConfig(config),
+      encodeConfig20(config),
       offchainVersion,
       offchainBytes,
     )
@@ -315,9 +302,7 @@ async function deployRegistry2_1() {
 
   await registry
     .connect(owner)
-    [
-      'setConfig(address[],address[],uint8,(uint32,uint32,uint32,uint24,uint16,uint96,uint32,uint32,uint32,uint32,uint256,uint256,address,address[],address),uint64,bytes)'
-    ](
+    .setConfigTypeSafe(
       signerAddresses,
       keeperAddresses,
       f,
@@ -344,7 +329,9 @@ const setup = async () => {
   )
   transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
 
-  linkTokenFactory = await ethers.getContractFactory('LinkToken')
+  linkTokenFactory = await ethers.getContractFactory(
+    'src/v0.4/LinkToken.sol:LinkToken',
+  )
   linkToken = await linkTokenFactory.connect(owner).deploy()
   // need full path because there are two contracts with name MockV3Aggregator
   const mockV3AggregatorFactory = (await ethers.getContractFactory(
@@ -500,46 +487,28 @@ describe('UpkeepTranscoder4_0', () => {
       )
     })
 
-    context('when from and to versions are correct', () => {
-      it('transcodes v1.2 upkeeps to v2.1 properly, regardless of toVersion value', async () => {
-        const data = await transcoder.transcodeUpkeeps(
+    context('when from version is correct', () => {
+      // note this is a bugfix - the "to" version should be accounted for in
+      // future versions of the transcoder
+      it('transcodes to v2.1, regardless of toVersion value', async () => {
+        const data1 = await transcoder.transcodeUpkeeps(
           UpkeepFormat.V12,
           UpkeepFormat.V12,
           encodeUpkeepV12(idx, upkeepsV12, ['0xabcd', '0xffff']),
         )
-        assert.equal(
-          encodeUpkeepV21(
-            idx,
-            upkeepsV21,
-            admins,
-            ['0xabcd', '0xffff'],
-            ['0x', '0x'],
-            ['0x', '0x'],
-          ),
-          data,
-        )
-      })
-
-      it('transcodes v1.3 upkeeps to v2.1 properly, regardless of toVersion value', async () => {
-        const data = await transcoder.transcodeUpkeeps(
+        const data2 = await transcoder.transcodeUpkeeps(
+          UpkeepFormat.V12,
           UpkeepFormat.V13,
-          UpkeepFormat.V13,
-          encodeUpkeepV13(idx, upkeepsV13, ['0xabcd', '0xffff']),
+          encodeUpkeepV12(idx, upkeepsV12, ['0xabcd', '0xffff']),
         )
-        assert.equal(
-          encodeUpkeepV21(
-            idx,
-            upkeepsV21,
-            admins,
-            ['0xabcd', '0xffff'],
-            ['0x', '0x'],
-            ['0x', '0x'],
-          ),
-          data,
+        const data3 = await transcoder.transcodeUpkeeps(
+          UpkeepFormat.V12,
+          100,
+          encodeUpkeepV12(idx, upkeepsV12, ['0xabcd', '0xffff']),
         )
+        assert.equal(data1, data2)
+        assert.equal(data1, data3)
       })
-
-      // DEV cannot test raw transcoding 2.0 => 2.1 because transcodeUpkeeps is not pure
 
       it('migrates upkeeps from 1.2 registry to 2.1', async () => {
         await linkToken
@@ -656,9 +625,6 @@ describe('UpkeepTranscoder4_0', () => {
         expect((await registry20.getUpkeep(id20)).checkData).to.equal(
           randomBytes,
         )
-        expect((await registry20.getUpkeep(id20)).offchainConfig).to.equal(
-          randomBytes,
-        )
         expect((await registry20.getState()).state.numUpkeeps).to.equal(1)
 
         await registry20
@@ -679,9 +645,6 @@ describe('UpkeepTranscoder4_0', () => {
           toWei('1000'),
         )
         expect((await registry21.getUpkeep(id20)).checkData).to.equal(
-          randomBytes,
-        )
-        expect((await registry21.getUpkeep(id20)).offchainConfig).to.equal(
           randomBytes,
         )
         expect(await registry21.getUpkeepTriggerConfig(id20)).to.equal('0x')

@@ -89,7 +89,7 @@ runs:
         cosign-release: ${{ inputs.cosign-version }}
     - name: Login to docker registry
       if: inputs.enable-docker-publish == 'true'
-      uses: docker/login-action@42d299face0c5c43a0487c477f595ac9cf22f1a7 # v1.12.0
+      uses: docker/login-action@465a07811f14bebb1938fbed4728c6a1ff8901fc # v2.2.0
       with:
         registry: ${{ inputs.docker-registry }}
     - name: Goreleaser release

@@ -3,7 +3,6 @@ package chainlink
 import (
 	_ "embed"
 	"fmt"
-	"math/big"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -313,15 +312,6 @@ func (g *generalConfig) EVMRPCEnabled() bool {
 	return false
 }
 
-func (g *generalConfig) DefaultChainID() *big.Int {
-	for _, c := range g.c.EVM {
-		if c.IsEnabled() {
-			return (*big.Int)(c.ChainID)
-		}
-	}
-	return nil
-}
-
 func (g *generalConfig) SolanaEnabled() bool {
 	for _, c := range g.c.Solana {
 		if c.IsEnabled() {
@@ -407,18 +397,6 @@ func (g *generalConfig) Database() coreconfig.Database {
 
 func (g *generalConfig) ShutdownGracePeriod() time.Duration {
 	return g.c.ShutdownGracePeriod.Duration()
-}
-
-func (g *generalConfig) Explorer() config.Explorer {
-	return &explorerConfig{s: g.secrets.Explorer, explorerURL: g.c.ExplorerURL}
-}
-
-func (g *generalConfig) ExplorerURL() *url.URL {
-	u := (*url.URL)(g.c.ExplorerURL)
-	if *u == zeroURL {
-		u = nil
-	}
-	return u
 }
 
 func (g *generalConfig) FluxMonitor() config.FluxMonitor {

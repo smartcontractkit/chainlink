@@ -17,9 +17,10 @@ block_timestamp = 1234567890
 block_number = 12345
 
 [profile.functions]
-solc_version = '0.8.6'
+solc_version = '0.8.19'
 src = 'src/v0.8/functions'
 test = 'src/v0.8/functions/tests'
+gas_price = 3000000000
 
 [profile.vrf]
 optimizer_runs = 1000
@@ -31,6 +32,20 @@ solc_version = '0.8.6'
 optimizer_runs = 10000
 src = 'src/v0.8/automation'
 test = 'src/v0.8/automation/test'
-solc_version = '0.8.6'
+
+[profile.llo-feeds]
+optimizer_runs = 1000000
+src = 'src/v0.8/llo-feeds'
+test = 'src/v0.8/llo-feeds/test'
+solc_version = '0.8.16'
+# We cannot turn on deny_warnings = true as that will
+# hide any CI failure
+
+[profile.shared]
+optimizer_runs = 1000000
+src = 'src/v0.8/shared'
+test = 'src/v0.8/shared/test'
+solc_version = '0.8.19'
+
 
 # See more config options https://github.com/foundry-rs/foundry/tree/master/config

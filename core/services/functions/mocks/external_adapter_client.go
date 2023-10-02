@@ -49,43 +49,43 @@ func (_m *ExternalAdapterClient) FetchEncryptedSecrets(ctx context.Context, encr
 	return r0, r1, r2
 }
 
-// RunComputation provides a mock function with given fields: ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, requestData
-func (_m *ExternalAdapterClient) RunComputation(ctx context.Context, requestId string, jobName string, subscriptionOwner string, subscriptionId uint64, nodeProvidedSecrets string, requestData *functions.RequestData) ([]byte, []byte, []string, error) {
-	ret := _m.Called(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, requestData)
+// RunComputation provides a mock function with given fields: ctx, requestId, jobName, subscriptionOwner, subscriptionId, flags, nodeProvidedSecrets, requestData
+func (_m *ExternalAdapterClient) RunComputation(ctx context.Context, requestId string, jobName string, subscriptionOwner string, subscriptionId uint64, flags functions.RequestFlags, nodeProvidedSecrets string, requestData *functions.RequestData) ([]byte, []byte, []string, error) {
+	ret := _m.Called(ctx, requestId, jobName, subscriptionOwner, subscriptionId, flags, nodeProvidedSecrets, requestData)
 
 	var r0 []byte
 	var r1 []byte
 	var r2 []string
 	var r3 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, uint64, string, *functions.RequestData) ([]byte, []byte, []string, error)); ok {
-		return rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, requestData)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, uint64, functions.RequestFlags, string, *functions.RequestData) ([]byte, []byte, []string, error)); ok {
+		return rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, flags, nodeProvidedSecrets, requestData)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, uint64, string, *functions.RequestData) []byte); ok {
-		r0 = rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, requestData)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, string, uint64, functions.RequestFlags, string, *functions.RequestData) []byte); ok {
+		r0 = rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, flags, nodeProvidedSecrets, requestData)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]byte)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, uint64, string, *functions.RequestData) []byte); ok {
-		r1 = rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, requestData)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, string, uint64, functions.RequestFlags, string, *functions.RequestData) []byte); ok {
+		r1 = rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, flags, nodeProvidedSecrets, requestData)
 	} else {
 		if ret.Get(1) != nil {
 			r1 = ret.Get(1).([]byte)
 		}
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, string, string, string, uint64, string, *functions.RequestData) []string); ok {
-		r2 = rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, requestData)
+	if rf, ok := ret.Get(2).(func(context.Context, string, string, string, uint64, functions.RequestFlags, string, *functions.RequestData) []string); ok {
+		r2 = rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, flags, nodeProvidedSecrets, requestData)
 	} else {
 		if ret.Get(2) != nil {
 			r2 = ret.Get(2).([]string)
 		}
 	}
 
-	if rf, ok := ret.Get(3).(func(context.Context, string, string, string, uint64, string, *functions.RequestData) error); ok {
-		r3 = rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, nodeProvidedSecrets, requestData)
+	if rf, ok := ret.Get(3).(func(context.Context, string, string, string, uint64, functions.RequestFlags, string, *functions.RequestData) error); ok {
+		r3 = rf(ctx, requestId, jobName, subscriptionOwner, subscriptionId, flags, nodeProvidedSecrets, requestData)
 	} else {
 		r3 = ret.Error(3)
 	}

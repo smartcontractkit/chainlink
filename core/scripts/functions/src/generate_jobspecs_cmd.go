@@ -28,10 +28,13 @@ func (g *generateJobSpecs) Run(args []string) {
 	nodesFile := fs.String("nodes", "", "a file containing nodes urls, logins and passwords")
 	chainID := fs.Int64("chainid", 80001, "chain id")
 	p2pPort := fs.Int64("p2pport", 6690, "p2p port")
-	contractAddress := fs.String("contract", "", "oracle contract address")
+	donID := fs.String("donid", "", "don id string")
+	routerAddress := fs.String("contract", "", "router contract address")
 	truncateHostname := fs.Bool("truncateboothostname", false, "truncate host name to first segment (needed for staging DONs)")
+	gatewayID := fs.String("gatewayid", "", "gateway id string")
+	gatewayURL := fs.String("gatewayurl", "", "gateway url string")
 	err := fs.Parse(args)
-	if err != nil || nodesFile == nil || *nodesFile == "" || contractAddress == nil || *contractAddress == "" {
+	if err != nil || nodesFile == nil || *nodesFile == "" || routerAddress == nil || *routerAddress == "" {
 		fs.Usage()
 		os.Exit(1)
 	}
@@ -44,7 +47,7 @@ func (g *generateJobSpecs) Run(args []string) {
 	helpers.PanicErr(err)
 
 	bootHost := nodes[0].url.Host
-	lines = replacePlaceholders(lines, *chainID, *p2pPort, *contractAddress, bootHost, &bootstrapNode, &bootstrapNode, *truncateHostname)
+	lines = replacePlaceholders(lines, *donID, *chainID, *p2pPort, *routerAddress, bootHost, &bootstrapNode, &bootstrapNode, *truncateHostname, *gatewayID, *gatewayURL)
 	outputPath := filepath.Join(artefactsDir, bootHost+".toml")
 	err = writeLines(lines, outputPath)
 	helpers.PanicErr(err)
@@ -53,7 +56,7 @@ func (g *generateJobSpecs) Run(args []string) {
 	lines, err = readLines(filepath.Join(templatesDir, oracleSpecTemplate))
 	helpers.PanicErr(err)
 	for i := 1; i < len(nodes); i++ {
-		oracleLines := replacePlaceholders(lines, *chainID, *p2pPort, *contractAddress, bootHost, &bootstrapNode, &nca[i], *truncateHostname)
+		oracleLines := replacePlaceholders(lines, *donID, *chainID, *p2pPort, *routerAddress, bootHost, &bootstrapNode, &nca[i], *truncateHostname, *gatewayID, *gatewayURL)
 		outputPath := filepath.Join(artefactsDir, nodes[i].url.Host+".toml")
 		err = writeLines(oracleLines, outputPath)
 		helpers.PanicErr(err)
@@ -61,7 +64,7 @@ func (g *generateJobSpecs) Run(args []string) {
 	}
 }
 
-func replacePlaceholders(lines []string, chainID, p2pPort int64, contractAddress, bootHost string, boot *NodeKeys, node *NodeKeys, truncateHostname bool) (output []string) {
+func replacePlaceholders(lines []string, donID string, chainID, p2pPort int64, routerAddress, bootHost string, boot *NodeKeys, node *NodeKeys, truncateHostname bool, gatewayID string, gatewayURL string) (output []string) {
 	chainIDStr := strconv.FormatInt(chainID, 10)
 	if truncateHostname {
 		bootHost = bootHost[:strings.IndexByte(bootHost, '.')]
@@ -70,11 +73,14 @@ func replacePlaceholders(lines []string, chainID, p2pPort int64, contractAddress
 	ts := time.Now().UTC().Format("2006-01-02T15:04")
 	for _, l := range lines {
 		l = strings.Replace(l, "{{chain_id}}", chainIDStr, 1)
-		l = strings.Replace(l, "{{oracle_contract_address}}", contractAddress, 1)
+		l = strings.Replace(l, "{{router_contract_address}}", routerAddress, 1)
 		l = strings.Replace(l, "{{node_eth_address}}", node.EthAddress, 1)
 		l = strings.Replace(l, "{{ocr2_key_bundle_id}}", node.OCR2BundleID, 1)
 		l = strings.Replace(l, "{{p2p_bootstrapper}}", bootstrapper, 1)
 		l = strings.Replace(l, "{{timestamp}}", ts, 1)
+		l = strings.Replace(l, "{{don_id}}", donID, 1)
+		l = strings.Replace(l, "{{gateway_id}}", gatewayID, 1)
+		l = strings.Replace(l, "{{gateway_url}}", gatewayURL, 1)
 		output = append(output, l)
 	}
 	return

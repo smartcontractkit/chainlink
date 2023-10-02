@@ -20,7 +20,6 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	cnull "github.com/smartcontractkit/chainlink/v2/core/null"
@@ -546,23 +545,13 @@ func CheckInputs(inputs []Result, minLen, maxLen, maxErrors int) ([]interface{},
 	return vals, nil
 }
 
-func getChainByString(chainSet evm.ChainSet, str string) (evm.Chain, error) {
-	if str == "" {
-		return chainSet.Default()
-	}
-	id, ok := new(big.Int).SetString(str, 10)
-	if !ok {
-		return nil, pkgerrors.Errorf("invalid EVM chain ID: %s", str)
-	}
-	return chainSet.Get(id)
-}
+var ErrInvalidEVMChainID = errors.New("invalid EVM chain ID")
 
-func SelectGasLimit(cfg config.ChainScopedConfig, jobType string, specGasLimit *uint32) uint32 {
+func SelectGasLimit(ge config.GasEstimator, jobType string, specGasLimit *uint32) uint32 {
 	if specGasLimit != nil {
 		return *specGasLimit
 	}
 
-	ge := cfg.EVM().GasEstimator()
 	jt := ge.LimitJobType()
 	var jobTypeGasLimit *uint32
 	switch jobType {

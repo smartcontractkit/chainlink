@@ -336,3 +336,7 @@ export async function reset() {
     params: [],
   })
 }
+
+export function randomAddress() {
+  return ethers.Wallet.createRandom().address
+}

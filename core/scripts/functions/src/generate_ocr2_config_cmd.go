@@ -32,6 +32,7 @@ type ThresholdOffchainConfig struct {
 	RequestCountLimit         uint32
 	RequestTotalBytesLimit    uint32
 	RequireLocalRequestCheck  bool
+	K                         uint32
 }
 
 type S4ReportingPluginConfig struct {
@@ -79,6 +80,7 @@ type NodeKeys struct {
 	OCR2OnchainPublicKey  string // ocr2on_evm_<key>
 	OCR2OffchainPublicKey string // ocr2off_evm_<key>
 	OCR2ConfigPublicKey   string // ocr2cfg_evm_<key>
+	CSAPublicKey          string
 }
 
 type orc2drOracleConfig struct {
@@ -102,23 +104,14 @@ func (g *generateOCR2Config) Name() string {
 }
 
 func mustParseJSONConfigFile(fileName string) (output TopLevelConfigSource) {
-	jsonFile, err := os.Open(fileName)
-	if err != nil {
-		panic(err)
-	}
-	defer jsonFile.Close()
-	bytes, err := io.ReadAll(jsonFile)
-	if err != nil {
-		panic(err)
-	}
-	err = json.Unmarshal(bytes, &output)
-	if err != nil {
-		panic(err)
-	}
-	return
+	return mustParseJSON[TopLevelConfigSource](fileName)
 }
 
 func mustParseKeysFile(fileName string) (output []NodeKeys) {
+	return mustParseJSON[[]NodeKeys](fileName)
+}
+
+func mustParseJSON[T any](fileName string) (output T) {
 	jsonFile, err := os.Open(fileName)
 	if err != nil {
 		panic(err)
@@ -155,6 +148,17 @@ func (g *generateOCR2Config) Run(args []string) {
 	} else {
 		nodes := mustReadNodesList(*nodesFile)
 		nca = mustFetchNodesKeys(*chainID, nodes)[1:] // ignore boot node
+
+		nodePublicKeys, err := json.MarshalIndent(nca, "", " ")
+		if err != nil {
+			panic(err)
+		}
+		filepath := filepath.Join(artefactsDir, ocr2PublicKeysJSON)
+		err = os.WriteFile(filepath, nodePublicKeys, 0600)
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("Functions OCR2 public keys have been saved to:", filepath)
 	}
 
 	onchainPubKeys := []common.Address{}
@@ -220,6 +224,7 @@ func (g *generateOCR2Config) Run(args []string) {
 				RequestCountLimit:         cfg.ThresholdOffchainConfig.RequestCountLimit,
 				RequestTotalBytesLimit:    cfg.ThresholdOffchainConfig.RequestTotalBytesLimit,
 				RequireLocalRequestCheck:  cfg.ThresholdOffchainConfig.RequireLocalRequestCheck,
+				K:                         cfg.ThresholdOffchainConfig.K,
 			},
 			S4PluginConfig: &config.S4ReportingPluginConfig{
 				MaxQueryLengthBytes:       cfg.S4ReportingPluginConfig.MaxQueryLengthBytes,

@@ -33,9 +33,11 @@ func (disabled) Replay(ctx context.Context, fromBlock int64) error { return ErrD
 
 func (disabled) ReplayAsync(fromBlock int64) {}
 
-func (disabled) RegisterFilter(filter Filter) error { return ErrDisabled }
+func (disabled) RegisterFilter(filter Filter, qopts ...pg.QOpt) error { return ErrDisabled }
 
-func (disabled) UnregisterFilter(name string, q pg.Queryer) error { return ErrDisabled }
+func (disabled) UnregisterFilter(name string, qopts ...pg.QOpt) error { return ErrDisabled }
+
+func (disabled) HasFilter(name string) bool { return false }
 
 func (disabled) LatestBlock(qopts ...pg.QOpt) (int64, error) { return -1, ErrDisabled }
 
@@ -67,6 +69,10 @@ func (disabled) IndexedLogsByBlockRange(start, end int64, eventSig common.Hash, 
 	return nil, ErrDisabled
 }
 
+func (d disabled) IndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	return nil, ErrDisabled
+}
+
 func (disabled) IndexedLogsTopicGreaterThan(eventSig common.Hash, address common.Address, topicIndex int, topicValueMin common.Hash, confs int, qopts ...pg.QOpt) ([]Log, error) {
 	return nil, ErrDisabled
 }
@@ -95,6 +101,10 @@ func (d disabled) IndexedLogsCreatedAfter(eventSig common.Hash, address common.A
 	return nil, ErrDisabled
 }
 
-func (d disabled) LatestBlockByEventSigsAddrsWithConfs(eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
+func (d disabled) LatestBlockByEventSigsAddrsWithConfs(fromBlock int64, eventSigs []common.Hash, addresses []common.Address, confs int, qopts ...pg.QOpt) (int64, error) {
 	return 0, ErrDisabled
+}
+
+func (d disabled) LogsUntilBlockHashDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, untilBlockHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
+	return nil, ErrDisabled
 }

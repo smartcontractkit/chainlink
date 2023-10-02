@@ -81,12 +81,12 @@ func (t *pipelineTransmitter) CreateEthTransaction(ctx context.Context, toAddres
 	t.spec.PipelineSpec.DotDagSource = txObservationSource
 	run := pipeline.NewRun(*t.spec.PipelineSpec, vars)
 
-	if _, err := t.pr.Run(ctx, &run, t.lgr, true, nil); err != nil {
+	if _, err := t.pr.Run(ctx, run, t.lgr, true, nil); err != nil {
 		return errors.Wrap(err, "Skipped OCR transmission")
 	}
 
 	if run.State != pipeline.RunStatusCompleted {
-		return fmt.Errorf("unexpected pipeline run state: %s", run.State)
+		return fmt.Errorf("unexpected pipeline run state: %s with fatal errors %w", run.State, run.FatalErrors.ToError())
 	}
 
 	return nil

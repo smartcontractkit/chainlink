@@ -38,6 +38,9 @@ type EVM interface {
 	OperatorFactoryAddress() string
 	RPCDefaultBatchSize() uint32
 	NodeNoNewHeadsThreshold() time.Duration
+
+	IsEnabled() bool
+	TOMLString() (string, error)
 }
 
 type OCR interface {
@@ -124,6 +127,8 @@ type NodePool interface {
 	SyncThreshold() uint32
 }
 
+// TODO BCF-2509 does the chainscopedconfig really need the entire app config?
+//
 //go:generate mockery --quiet --name ChainScopedConfig --output ./mocks/ --case=underscore
 type ChainScopedConfig interface {
 	config.AppConfig

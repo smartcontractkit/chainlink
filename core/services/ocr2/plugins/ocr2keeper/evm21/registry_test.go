@@ -2,153 +2,32 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg"
+	coreTypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
-	commonmocks "github.com/smartcontractkit/chainlink/v2/common/mocks"
+	types3 "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
-
-func TestGetActiveUpkeepIDs(t *testing.T) {
-	tests := []struct {
-		Name         string
-		LatestHead   int64
-		ActiveIDs    []string
-		ExpectedErr  error
-		ExpectedKeys []ocr2keepers.UpkeepIdentifier
-	}{
-		{Name: "NoActiveIDs", LatestHead: 1, ActiveIDs: []string{}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{}},
-		{Name: "AvailableActiveIDs", LatestHead: 1, ActiveIDs: []string{"8", "9", "3", "1"}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-			ocr2keepers.UpkeepIdentifier("8"),
-			ocr2keepers.UpkeepIdentifier("9"),
-			ocr2keepers.UpkeepIdentifier("3"),
-			ocr2keepers.UpkeepIdentifier("1"),
-		}},
-	}
-
-	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
-			actives := make(map[string]activeUpkeep)
-			for _, id := range test.ActiveIDs {
-				idNum := big.NewInt(0)
-				idNum.SetString(id, 10)
-				actives[id] = activeUpkeep{ID: idNum}
-			}
-
-			mht := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
-
-			rg := &EvmRegistry{
-				HeadProvider: HeadProvider{
-					ht: mht,
-				},
-				active: actives,
-			}
-
-			keys, err := rg.GetActiveUpkeepIDs(context.Background())
-
-			if test.ExpectedErr != nil {
-				assert.ErrorIs(t, err, test.ExpectedErr)
-			} else {
-				assert.Nil(t, err)
-			}
-
-			if len(test.ExpectedKeys) > 0 {
-				for _, key := range keys {
-					assert.Contains(t, test.ExpectedKeys, key)
-				}
-			} else {
-				assert.Equal(t, test.ExpectedKeys, keys)
-			}
-		})
-	}
-}
-
-func TestGetActiveUpkeepIDsByType(t *testing.T) {
-	tests := []struct {
-		Name         string
-		LatestHead   int64
-		ActiveIDs    []string
-		ExpectedErr  error
-		ExpectedKeys []ocr2keepers.UpkeepIdentifier
-		Triggers     []uint8
-	}{
-		{Name: "no active ids", LatestHead: 1, ActiveIDs: []string{}, ExpectedKeys: []ocr2keepers.UpkeepIdentifier{}},
-		{
-			Name:       "get log upkeeps",
-			LatestHead: 1,
-			ActiveIDs:  []string{"8", "32329108151019397958065800113404894502874153543356521479058624064899121404671"},
-			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-				ocr2keepers.UpkeepIdentifier("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
-			},
-			Triggers: []uint8{uint8(logTrigger)},
-		},
-		{
-			Name:       "get conditional upkeeps",
-			LatestHead: 1,
-			ActiveIDs:  []string{"8", "32329108151019397958065800113404894502874153543356521479058624064899121404671"},
-			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-				ocr2keepers.UpkeepIdentifier("8"),
-			},
-			Triggers: []uint8{uint8(conditionTrigger)},
-		},
-		{
-			Name:       "get multiple types of upkeeps",
-			LatestHead: 1,
-			ActiveIDs:  []string{"8", "32329108151019397958065800113404894502874153543356521479058624064899121404671"},
-			ExpectedKeys: []ocr2keepers.UpkeepIdentifier{
-				ocr2keepers.UpkeepIdentifier("8"),
-				ocr2keepers.UpkeepIdentifier("32329108151019397958065800113404894502874153543356521479058624064899121404671"),
-			},
-			Triggers: []uint8{uint8(logTrigger), uint8(conditionTrigger)},
-		},
-	}
-
-	for _, test := range tests {
-		t.Run(test.Name, func(t *testing.T) {
-			actives := make(map[string]activeUpkeep)
-			for _, id := range test.ActiveIDs {
-				idNum := big.NewInt(0)
-				idNum.SetString(id, 10)
-				actives[id] = activeUpkeep{ID: idNum}
-			}
-
-			mht := commonmocks.NewHeadTracker[*evmtypes.Head, common.Hash](t)
-
-			rg := &EvmRegistry{
-				HeadProvider: HeadProvider{
-					ht: mht,
-				},
-				active: actives,
-			}
-
-			keys, err := rg.GetActiveUpkeepIDsByType(context.Background(), test.Triggers...)
-
-			if test.ExpectedErr != nil {
-				assert.ErrorIs(t, err, test.ExpectedErr)
-			} else {
-				assert.Nil(t, err)
-			}
-
-			if len(test.ExpectedKeys) > 0 {
-				for _, key := range keys {
-					assert.Contains(t, test.ExpectedKeys, key)
-				}
-			} else {
-				assert.Equal(t, test.ExpectedKeys, keys)
-			}
-		})
-	}
-}
 
 func TestPollLogs(t *testing.T) {
 	tests := []struct {
@@ -281,7 +160,7 @@ func TestPollLogs(t *testing.T) {
 				chLog:         make(chan logpoller.Log, 10),
 			}
 
-			err := rg.pollLogs()
+			err := rg.pollUpkeepStateLogs()
 
 			assert.Equal(t, test.ExpectedLastPoll, rg.lastPollBlock)
 			if test.ExpectedErr != nil {
@@ -317,51 +196,368 @@ func TestPollLogs(t *testing.T) {
 	}
 }
 
-func TestRegistry_GetBlockAndUpkeepId(t *testing.T) {
-	r := &EvmRegistry{}
-	tests := []struct {
-		name       string
-		input      ocr2keepers.UpkeepPayload
-		wantBlock  *big.Int
-		wantUpkeep *big.Int
+func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
+	for _, tc := range []struct {
+		name             string
+		ids              []*big.Int
+		logEventProvider logprovider.LogEventProvider
+		poller           logpoller.LogPoller
+		registry         Registry
+		packer           encoding.Packer
+		expectsErr       bool
+		wantErr          error
 	}{
 		{
-			"happy flow",
-			ocr2keepers.UpkeepPayload{
-				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier([]byte("10")),
-				},
-				Trigger: ocr2keepers.Trigger{
-					BlockNumber: 1,
-					BlockHash:   common.Bytes2Hex([]byte{1, 2, 3, 4, 5, 6, 7, 8}),
+			name: "an error is returned when fetching indexed logs for IKeeperRegistryMasterUpkeepUnpaused errors",
+			ids: []*big.Int{
+				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+			},
+			logEventProvider: &mockLogEventProvider{
+				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
+					// of the ids specified in the test, only one is a valid log trigger upkeep
+					assert.Equal(t, 1, len(ids))
+					return ids, nil
 				},
 			},
-			big.NewInt(1),
-			big.NewInt(0).SetBytes([]byte("10")),
-		},
-		{
-			"empty block number",
-			ocr2keepers.UpkeepPayload{
-				Upkeep: ocr2keepers.ConfiguredUpkeep{
-					ID: ocr2keepers.UpkeepIdentifier([]byte("10")),
+			poller: &mockLogPoller{
+				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+					if eventSig == (iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic()) {
+						return nil, errors.New("indexed logs boom")
+					}
+					return nil, nil
 				},
 			},
-			big.NewInt(0),
-			big.NewInt(0).SetBytes([]byte("10")),
+			expectsErr: true,
+			wantErr:    errors.New("indexed logs boom"),
 		},
 		{
-			"empty payload",
-			ocr2keepers.UpkeepPayload{},
-			big.NewInt(0),
-			big.NewInt(0),
+			name: "an error is returned when fetching indexed logs for IKeeperRegistryMasterUpkeepTriggerConfigSet errors",
+			ids: []*big.Int{
+				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types.ConditionTrigger, "abc").BigInt(),
+				big.NewInt(-1),
+			},
+			logEventProvider: &mockLogEventProvider{
+				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
+					// of the ids specified in the test, only one is a valid log trigger upkeep
+					assert.Equal(t, 1, len(ids))
+					return ids, nil
+				},
+			},
+			poller: &mockLogPoller{
+				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+					if eventSig == (iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic()) {
+						return nil, errors.New("indexed logs boom")
+					}
+					return nil, nil
+				},
+			},
+			expectsErr: true,
+			wantErr:    errors.New("indexed logs boom"),
 		},
-	}
-
-	for _, tc := range tests {
+		{
+			name: "an error is returned when parsing the logs using the registry errors",
+			ids: []*big.Int{
+				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types.ConditionTrigger, "abc").BigInt(),
+				big.NewInt(-1),
+			},
+			logEventProvider: &mockLogEventProvider{
+				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
+					// of the ids specified in the test, only one is a valid log trigger upkeep
+					assert.Equal(t, 1, len(ids))
+					return ids, nil
+				},
+			},
+			poller: &mockLogPoller{
+				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+					return []logpoller.Log{
+						{},
+					}, nil
+				},
+			},
+			registry: &mockRegistry{
+				ParseLogFn: func(log coreTypes.Log) (generated.AbigenLog, error) {
+					return nil, errors.New("parse log boom")
+				},
+			},
+			expectsErr: true,
+			wantErr:    errors.New("parse log boom"),
+		},
+		{
+			name: "an error is returned when registering the filter errors",
+			ids: []*big.Int{
+				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types.ConditionTrigger, "abc").BigInt(),
+				big.NewInt(-1),
+			},
+			logEventProvider: &mockLogEventProvider{
+				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
+					// of the ids specified in the test, only one is a valid log trigger upkeep
+					assert.Equal(t, 1, len(ids))
+					return ids, nil
+				},
+				RegisterFilterFn: func(opts logprovider.FilterOptions) error {
+					return errors.New("register filter boom")
+				},
+			},
+			poller: &mockLogPoller{
+				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+					return []logpoller.Log{
+						{
+							BlockNumber: 1,
+						},
+						{
+							BlockNumber: 2,
+						},
+					}, nil
+				},
+			},
+			registry: &mockRegistry{
+				ParseLogFn: func(log coreTypes.Log) (generated.AbigenLog, error) {
+					if log.BlockNumber == 1 {
+						return &iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{
+							TriggerConfig: []byte{1, 2, 3},
+							Id:            core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+						}, nil
+					}
+					return &iregistry21.IKeeperRegistryMasterUpkeepUnpaused{
+						Id: core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+					}, nil
+				},
+				GetUpkeepTriggerConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+					return nil, nil
+				},
+			},
+			packer: &mockPacker{
+				UnpackLogTriggerConfigFn: func(raw []byte) (automation_utils_2_1.LogTriggerConfig, error) {
+					return automation_utils_2_1.LogTriggerConfig{}, nil
+				},
+			},
+			expectsErr: true,
+			wantErr:    errors.New("failed to update trigger config for upkeep id 452312848583266388373324160190187140521564213162920931037143039228013182976: failed to register log filter: register filter boom"),
+		},
+		{
+			name: "log trigger upkeeps are refreshed without error",
+			ids: []*big.Int{
+				core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+				core.GenUpkeepID(types.LogTrigger, "def").BigInt(),
+				core.GenUpkeepID(types.ConditionTrigger, "abc").BigInt(),
+				big.NewInt(-1),
+			},
+			logEventProvider: &mockLogEventProvider{
+				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
+					// of the ids specified in the test, only two are a valid log trigger upkeep
+					assert.Equal(t, 2, len(ids))
+					return ids, nil
+				},
+				RegisterFilterFn: func(opts logprovider.FilterOptions) error {
+					return nil
+				},
+			},
+			poller: &mockLogPoller{
+				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+					return []logpoller.Log{
+						{
+							BlockNumber: 2,
+						},
+						{
+							BlockNumber: 1,
+						},
+					}, nil
+				},
+			},
+			registry: &mockRegistry{
+				ParseLogFn: func(log coreTypes.Log) (generated.AbigenLog, error) {
+					if log.BlockNumber == 1 {
+						return &iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{
+							Id:            core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+							TriggerConfig: []byte{1, 2, 3},
+						}, nil
+					}
+					return &iregistry21.IKeeperRegistryMasterUpkeepUnpaused{
+						Id: core.GenUpkeepID(types.LogTrigger, "def").BigInt(),
+					}, nil
+				},
+				GetUpkeepTriggerConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+					return nil, nil
+				},
+			},
+			packer: &mockPacker{
+				UnpackLogTriggerConfigFn: func(raw []byte) (automation_utils_2_1.LogTriggerConfig, error) {
+					return automation_utils_2_1.LogTriggerConfig{}, nil
+				},
+			},
+		},
+		{
+			name: "log trigger upkeeps are refreshed in batch without error",
+			ids: func() []*big.Int {
+				res := []*big.Int{}
+				for i := 0; i < logTriggerRefreshBatchSize*3; i++ {
+					res = append(res, core.GenUpkeepID(types.LogTrigger, fmt.Sprintf("%d", i)).BigInt())
+				}
+				return res
+			}(),
+			logEventProvider: &mockLogEventProvider{
+				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
+					assert.Equal(t, logTriggerRefreshBatchSize, len(ids))
+					return ids, nil
+				},
+				RegisterFilterFn: func(opts logprovider.FilterOptions) error {
+					return nil
+				},
+			},
+			poller: &mockLogPoller{
+				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+					return []logpoller.Log{
+						{
+							BlockNumber: 2,
+						},
+						{
+							BlockNumber: 1,
+						},
+					}, nil
+				},
+			},
+			registry: &mockRegistry{
+				ParseLogFn: func(log coreTypes.Log) (generated.AbigenLog, error) {
+					if log.BlockNumber == 1 {
+						return &iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{
+							Id:            core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+							TriggerConfig: []byte{1, 2, 3},
+						}, nil
+					}
+					return &iregistry21.IKeeperRegistryMasterUpkeepUnpaused{
+						Id: core.GenUpkeepID(types.LogTrigger, "def").BigInt(),
+					}, nil
+				},
+				GetUpkeepTriggerConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+					return nil, nil
+				},
+			},
+			packer: &mockPacker{
+				UnpackLogTriggerConfigFn: func(raw []byte) (automation_utils_2_1.LogTriggerConfig, error) {
+					return automation_utils_2_1.LogTriggerConfig{}, nil
+				},
+			},
+		},
+		{
+			name: "log trigger upkeeps are refreshed in batch, with a partial batch without error",
+			ids: func() []*big.Int {
+				res := []*big.Int{}
+				for i := 0; i < logTriggerRefreshBatchSize+3; i++ {
+					res = append(res, core.GenUpkeepID(types.LogTrigger, fmt.Sprintf("%d", i)).BigInt())
+				}
+				return res
+			}(),
+			logEventProvider: &mockLogEventProvider{
+				RefreshActiveUpkeepsFn: func(ids ...*big.Int) ([]*big.Int, error) {
+					if len(ids) != logTriggerRefreshBatchSize {
+						assert.Equal(t, 3, len(ids))
+					}
+					return ids, nil
+				},
+				RegisterFilterFn: func(opts logprovider.FilterOptions) error {
+					return nil
+				},
+			},
+			poller: &mockLogPoller{
+				IndexedLogsFn: func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+					return []logpoller.Log{
+						{
+							BlockNumber: 2,
+						},
+						{
+							BlockNumber: 1,
+						},
+					}, nil
+				},
+			},
+			registry: &mockRegistry{
+				ParseLogFn: func(log coreTypes.Log) (generated.AbigenLog, error) {
+					if log.BlockNumber == 1 {
+						return &iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{
+							Id:            core.GenUpkeepID(types.LogTrigger, "abc").BigInt(),
+							TriggerConfig: []byte{1, 2, 3},
+						}, nil
+					}
+					return &iregistry21.IKeeperRegistryMasterUpkeepUnpaused{
+						Id: core.GenUpkeepID(types.LogTrigger, "def").BigInt(),
+					}, nil
+				},
+				GetUpkeepTriggerConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+					return nil, nil
+				},
+			},
+			packer: &mockPacker{
+				UnpackLogTriggerConfigFn: func(raw []byte) (automation_utils_2_1.LogTriggerConfig, error) {
+					return automation_utils_2_1.LogTriggerConfig{}, nil
+				},
+			},
+		},
+	} {
 		t.Run(tc.name, func(t *testing.T) {
-			block, upkeep := r.getBlockAndUpkeepId(tc.input)
-			assert.Equal(t, tc.wantBlock, block)
-			assert.Equal(t, tc.wantUpkeep, upkeep)
+			lggr := logger.TestLogger(t)
+			var hb types3.HeadBroadcaster
+			var lp logpoller.LogPoller
+
+			bs := NewBlockSubscriber(hb, lp, 1000, lggr)
+
+			registry := &EvmRegistry{
+				addr:             common.BigToAddress(big.NewInt(1)),
+				poller:           tc.poller,
+				logEventProvider: tc.logEventProvider,
+				chLog:            make(chan logpoller.Log, 10),
+				bs:               bs,
+				registry:         tc.registry,
+				packer:           tc.packer,
+				lggr:             lggr,
+			}
+
+			err := registry.refreshLogTriggerUpkeeps(tc.ids)
+			if tc.expectsErr {
+				assert.Error(t, err)
+				assert.Equal(t, err.Error(), tc.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
+}
+
+type mockLogEventProvider struct {
+	logprovider.LogEventProvider
+	RefreshActiveUpkeepsFn func(ids ...*big.Int) ([]*big.Int, error)
+	RegisterFilterFn       func(opts logprovider.FilterOptions) error
+}
+
+func (p *mockLogEventProvider) RefreshActiveUpkeeps(ids ...*big.Int) ([]*big.Int, error) {
+	return p.RefreshActiveUpkeepsFn(ids...)
+}
+
+func (p *mockLogEventProvider) RegisterFilter(ctx context.Context, opts logprovider.FilterOptions) error {
+	return p.RegisterFilterFn(opts)
+}
+
+type mockRegistry struct {
+	Registry
+	GetUpkeepTriggerConfigFn func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
+	ParseLogFn               func(log coreTypes.Log) (generated.AbigenLog, error)
+}
+
+func (r *mockRegistry) ParseLog(log coreTypes.Log) (generated.AbigenLog, error) {
+	return r.ParseLogFn(log)
+}
+
+func (r *mockRegistry) GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
+	return r.GetUpkeepTriggerConfigFn(opts, upkeepId)
+}
+
+type mockPacker struct {
+	encoding.Packer
+	UnpackLogTriggerConfigFn func(raw []byte) (automation_utils_2_1.LogTriggerConfig, error)
+}
+
+func (p *mockPacker) UnpackLogTriggerConfig(raw []byte) (automation_utils_2_1.LogTriggerConfig, error) {
+	return p.UnpackLogTriggerConfigFn(raw)
 }

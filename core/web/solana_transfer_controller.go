@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	solanamodels "github.com/smartcontractkit/chainlink/v2/core/store/models/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -22,8 +23,8 @@ type SolanaTransfersController struct {
 
 // Create sends SOL and other native coins from the Chainlink's account to a specified address.
 func (tc *SolanaTransfersController) Create(c *gin.Context) {
-	relayer := tc.App.GetChains().Solana
-	if relayer == nil {
+	relayers := tc.App.GetRelayers().List(chainlink.FilterRelayersByType(relay.Solana))
+	if relayers == nil {
 		jsonAPIError(c, http.StatusBadRequest, ErrSolanaNotEnabled)
 		return
 	}
@@ -47,7 +48,18 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 	}
 
 	amount := new(big.Int).SetUint64(tr.Amount)
-	err := relayer.SendTx(c, tr.SolanaChainID, tr.From.String(), tr.To.String(), amount, !tr.AllowHigherAmounts)
+	relayerID := relay.ID{Network: relay.Solana, ChainID: relay.ChainID(tr.SolanaChainID)}
+	relayer, err := relayers.Get(relayerID)
+	if err != nil {
+		if errors.Is(err, chainlink.ErrNoSuchRelayer) {
+			jsonAPIError(c, http.StatusBadRequest, err)
+			return
+		}
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
+	}
+
+	err = relayer.Transact(c, tr.From.String(), tr.To.String(), amount, !tr.AllowHigherAmounts)
 	if err != nil {
 		switch err {
 		case chains.ErrNotFound, chains.ErrChainIDEmpty:

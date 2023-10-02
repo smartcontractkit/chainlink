@@ -10,68 +10,52 @@ import (
 	"github.com/google/uuid"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 
 func TestRunLogBasic(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
-	testEnvironment, testNetwork := setupRunLogTest(t)
-	if testEnvironment.WillUseRemoteRunner() {
-		return
-	}
+	l := logging.GetTestLogger(t)
 
-	chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment)
-	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
-	require.NoError(t, err, "Deploying contracts shouldn't fail")
-	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
-	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")
+	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestLogger(t).
+		WithGeth().
+		WithMockServer(1).
+		WithCLNodes(1).
+		WithFunding(big.NewFloat(.1)).
+		Build()
+	require.NoError(t, err)
 	t.Cleanup(func() {
-		err := actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.ErrorLevel, chainClient)
-		require.NoError(t, err, "Error tearing down environment")
+		if err := env.Cleanup(t); err != nil {
+			l.Error().Err(err).Msg("Error cleaning up test environment")
+		}
 	})
 
-	mockServer, err := ctfClient.ConnectMockServer(testEnvironment)
-	require.NoError(t, err, "Error connecting to mockserver")
-	err = actions.FundChainlinkNodes(chainlinkNodes, chainClient, big.NewFloat(.01))
-	require.NoError(t, err, "Funding chainlink nodes with ETH shouldn't fail")
-
-	lt, err := contractDeployer.DeployLinkTokenContract()
+	lt, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	oracle, err := contractDeployer.DeployOracle(lt.Address())
+	oracle, err := env.ContractDeployer.DeployOracle(lt.Address())
 	require.NoError(t, err, "Deploying Oracle Contract shouldn't fail")
-	consumer, err := contractDeployer.DeployAPIConsumer(lt.Address())
+	consumer, err := env.ContractDeployer.DeployAPIConsumer(lt.Address())
 	require.NoError(t, err, "Deploying Consumer Contract shouldn't fail")
-	err = chainClient.SetDefaultWallet(0)
+	err = env.EVMClient.SetDefaultWallet(0)
 	require.NoError(t, err, "Setting default wallet shouldn't fail")
 	err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
 	require.NoError(t, err, "Transferring %d to consumer contract shouldn't fail", big.NewInt(2e18))
 
-	err = mockServer.SetValuePath("/variable", 5)
+	err = env.MockServer.Client.SetValuePath("/variable", 5)
 	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
 
 	jobUUID := uuid.New()
 
 	bta := client.BridgeTypeAttributes{
 		Name: fmt.Sprintf("five-%s", jobUUID.String()),
-		URL:  fmt.Sprintf("%s/variable", mockServer.Config.ClusterURL),
+		URL:  fmt.Sprintf("%s/variable", env.MockServer.Client.Config.ClusterURL),
 	}
-	err = chainlinkNodes[0].MustCreateBridge(&bta)
+	err = env.CLNodes[0].API.MustCreateBridge(&bta)
 	require.NoError(t, err, "Creating bridge shouldn't fail")
 
 	os := &client.DirectRequestTxPipelineSpec{
@@ -81,10 +65,11 @@ func TestRunLogBasic(t *testing.T) {
 	ost, err := os.String()
 	require.NoError(t, err, "Building observation source spec shouldn't fail")
 
-	_, err = chainlinkNodes[0].MustCreateJob(&client.DirectRequestJobSpec{
-		Name:                     "direct_request",
+	_, err = env.CLNodes[0].API.MustCreateJob(&client.DirectRequestJobSpec{
+		Name:                     fmt.Sprintf("direct-request-%s", uuid.NewString()),
 		MinIncomingConfirmations: "1",
 		ContractAddress:          oracle.Address(),
+		EVMChainID:               env.EVMClient.GetChainID().String(),
 		ExternalJobID:            jobUUID.String(),
 		ObservationSource:        ost,
 	})
@@ -97,7 +82,7 @@ func TestRunLogBasic(t *testing.T) {
 		oracle.Address(),
 		jobID,
 		big.NewInt(1e18),
-		fmt.Sprintf("%s/variable", mockServer.Config.ClusterURL),
+		fmt.Sprintf("%s/variable", env.MockServer.Client.Config.ClusterURL),
 		"data,result",
 		big.NewInt(100),
 	)
@@ -111,31 +96,4 @@ func TestRunLogBasic(t *testing.T) {
 		l.Debug().Int64("Data", d.Int64()).Msg("Found on chain")
 		g.Expect(d.Int64()).Should(gomega.BeNumerically("==", 5), "Expected the on-chain data to be 5, but found %d", d.Int64())
 	}, "2m", "1s").Should(gomega.Succeed())
-}
-
-func setupRunLogTest(t *testing.T) (testEnvironment *environment.Environment, testNetwork blockchain.EVMNetwork) {
-	testNetwork = networks.SelectedNetwork
-	evmConfig := ethereum.New(nil)
-	if !testNetwork.Simulated {
-		evmConfig = ethereum.New(&ethereum.Props{
-			NetworkName: testNetwork.Name,
-			Simulated:   testNetwork.Simulated,
-			WsURLs:      testNetwork.URLs,
-		})
-	}
-	cd, err := chainlink.NewDeployment(1, map[string]interface{}{
-		"toml": client.AddNetworksConfig("", testNetwork),
-	})
-	require.NoError(t, err, "Error creating chainlink deployment")
-	testEnvironment = environment.New(&environment.Config{
-		NamespacePrefix: fmt.Sprintf("smoke-runlog-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
-		Test:            t,
-	}).
-		AddHelm(mockservercfg.New(nil)).
-		AddHelm(mockserver.New(nil)).
-		AddHelm(evmConfig).
-		AddHelmCharts(cd)
-	err = testEnvironment.Run()
-	require.NoError(t, err, "Error running test environment")
-	return testEnvironment, testNetwork
 }

@@ -1,13 +1,16 @@
 package services_test
 
 import (
-	"fmt"
+	"net/http"
 	"testing"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
@@ -17,6 +20,8 @@ type boolCheck struct {
 	name    string
 	healthy bool
 }
+
+func (b boolCheck) Name() string { return b.name }
 
 func (b boolCheck) Ready() error {
 	if b.healthy {
@@ -53,8 +58,8 @@ func TestCheck(t *testing.T) {
 		}},
 	} {
 		c := services.NewChecker()
-		for i, check := range test.checks {
-			require.NoError(t, c.Register(fmt.Sprint(i), check))
+		for _, check := range test.checks {
+			require.NoError(t, c.Register(check))
 		}
 
 		require.NoError(t, c.Start())
@@ -64,4 +69,21 @@ func TestCheck(t *testing.T) {
 		assert.Equal(t, test.healthy, healthy, "case %d", i)
 		assert.Equal(t, test.expected, results, "case %d", i)
 	}
+}
+
+func TestNewInBackupHealthReport(t *testing.T) {
+	lggr, observed := logger.TestLoggerObserved(t, zapcore.InfoLevel)
+	ibhr := services.NewInBackupHealthReport(1234, lggr)
+
+	ibhr.Start()
+	require.Eventually(t, func() bool { return observed.Len() >= 1 }, time.Second*5, time.Millisecond*100)
+	require.Equal(t, "Starting InBackupHealthReport", observed.TakeAll()[0].Message)
+
+	res, err := http.Get("http://localhost:1234/health")
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNoContent, res.StatusCode)
+
+	ibhr.Stop()
+	require.Eventually(t, func() bool { return observed.Len() >= 1 }, time.Second*5, time.Millisecond*100)
+	require.Equal(t, "InBackupHealthReport shutdown complete", observed.TakeAll()[0].Message)
 }

@@ -1,4 +1,3 @@
-ExplorerURL = ''
 InsecureFastScrypt = false
 RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'
@@ -118,6 +117,7 @@ ContractTransmitterTransmitTimeout = '10s'
 DatabaseTimeout = '10s'
 KeyBundleID = '0000000000000000000000000000000000000000000000000000000000000000'
 CaptureEATelemetry = false
+CaptureAutomationCustomTelemetry = false
 DefaultTransactionQueueDepth = 1
 SimulateTransactions = false
 TraceLogging = false

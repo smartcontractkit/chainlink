@@ -404,6 +404,56 @@ func (_m *EvmTxStore) FindTxByHash(hash common.Hash) (*types.Tx[*big.Int, common
 	return r0, r1
 }
 
+// FindTxWithAttempts provides a mock function with given fields: etxID
+func (_m *EvmTxStore) FindTxWithAttempts(etxID int64) (types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(etxID)
+
+	var r0 types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(int64) (types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(etxID)
+	}
+	if rf, ok := ret.Get(0).(func(int64) types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(etxID)
+	} else {
+		r0 = ret.Get(0).(types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+	}
+
+	if rf, ok := ret.Get(1).(func(int64) error); ok {
+		r1 = rf(etxID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// FindTxWithIdempotencyKey provides a mock function with given fields: idempotencyKey, chainID
+func (_m *EvmTxStore) FindTxWithIdempotencyKey(idempotencyKey string, chainID *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
+	ret := _m.Called(idempotencyKey, chainID)
+
+	var r0 *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
+	var r1 error
+	if rf, ok := ret.Get(0).(func(string, *big.Int) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error)); ok {
+		return rf(idempotencyKey, chainID)
+	}
+	if rf, ok := ret.Get(0).(func(string, *big.Int) *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+		r0 = rf(idempotencyKey, chainID)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(string, *big.Int) error); ok {
+		r1 = rf(idempotencyKey, chainID)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
 // FindTxWithSequence provides a mock function with given fields: fromAddress, seq
 func (_m *EvmTxStore) FindTxWithSequence(fromAddress common.Address, seq evmtypes.Nonce) (*types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], error) {
 	ret := _m.Called(fromAddress, seq)
