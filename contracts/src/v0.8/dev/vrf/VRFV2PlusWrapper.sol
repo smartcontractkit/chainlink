@@ -20,6 +20,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
   error LinkAlreadySet();
   error FailedToTransferLink();
+  error IncorrectExtraArgsLength(uint16 expectedMinimumLength, uint16 actualLength);
+  error NativePaymentInOnTokenTransfer();
+  error LINKPaymentInRequestRandomWordsInNative();
 
   /* Storage Slot 1: BEGIN */
   // s_keyHash is the key hash to use when requesting randomness. Fees are paid based on current gas
@@ -104,6 +107,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
   // s_maxNumWords is the max number of words that can be requested in a single wrapped VRF request.
   uint8 s_maxNumWords;
+
+  uint16 private constant EXPECTED_MIN_LENGTH = 36;
   /* Storage Slot 8: END */
 
   struct Callback {
@@ -358,10 +363,11 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   function onTokenTransfer(address _sender, uint256 _amount, bytes calldata _data) external onlyConfiguredNotDisabled {
     require(msg.sender == address(s_link), "only callable from LINK");
 
-    (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords) = abi.decode(
+    (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords, bytes memory extraArgs) = abi.decode(
       _data,
-      (uint32, uint16, uint32)
+      (uint32, uint16, uint32, bytes)
     );
+    checkPaymentMode(extraArgs, true);
     uint32 eip150Overhead = getEIP150Overhead(callbackGasLimit);
     int256 weiPerUnitLink = getFeedData();
     uint256 price = calculateRequestPriceInternal(callbackGasLimit, tx.gasprice, weiPerUnitLink);
@@ -373,7 +379,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       requestConfirmations: requestConfirmations,
       callbackGasLimit: callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
       numWords: numWords,
-      extraArgs: "" // empty extraArgs defaults to link payment
+      extraArgs: extraArgs // empty extraArgs defaults to link payment
     });
     uint256 requestId = s_vrfCoordinator.requestRandomWords(req);
     s_callbacks[requestId] = Callback({
@@ -384,11 +390,38 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     lastRequestId = requestId;
   }
 
+  function checkPaymentMode(bytes memory extraArgs, bool isLinkMode) public pure {
+    // If extraArgs is empty, payment mode is LINK by default
+    if (extraArgs.length == 0) {
+      if (!isLinkMode) {
+        revert LINKPaymentInRequestRandomWordsInNative();
+      }
+      return;
+    }
+    if (extraArgs.length < EXPECTED_MIN_LENGTH) {
+      revert IncorrectExtraArgsLength(EXPECTED_MIN_LENGTH, uint16(extraArgs.length));
+    }
+    // ExtraArgsV1 only has struct {bool nativePayment} as of now
+    // The following condition checks if nativePayment in abi.encode of
+    // ExtraArgsV1 matches the appropriate function call (onTokenTransfer
+    // for LINK and requestRandomWordsInNative for Native payment)
+    bool nativePayment = extraArgs[35] == hex"01";
+    if (nativePayment && isLinkMode) {
+      revert NativePaymentInOnTokenTransfer();
+    }
+    if (!nativePayment && !isLinkMode) {
+      revert LINKPaymentInRequestRandomWordsInNative();
+    }
+  }
+
   function requestRandomWordsInNative(
     uint32 _callbackGasLimit,
     uint16 _requestConfirmations,
-    uint32 _numWords
+    uint32 _numWords,
+    bytes calldata extraArgs
   ) external payable override returns (uint256 requestId) {
+    checkPaymentMode(extraArgs, false);
+
     uint32 eip150Overhead = getEIP150Overhead(_callbackGasLimit);
     uint256 price = calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);
     require(msg.value >= price, "fee too low");
@@ -399,7 +432,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       requestConfirmations: _requestConfirmations,
       callbackGasLimit: _callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
       numWords: _numWords,
-      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
+      extraArgs: extraArgs
     });
     requestId = s_vrfCoordinator.requestRandomWords(req);
     s_callbacks[requestId] = Callback({
