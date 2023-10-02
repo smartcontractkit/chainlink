@@ -5079,7 +5079,7 @@ Set to 0 to disable this check.
 ```toml
 LeaseDuration = '0s' # Default
 ```
-LeaseDuration is the maximum duration that the selected "best" node (as defined by SelectionMode) will be used,
+LeaseDuration is the minimum duration that the selected "best" node (as defined by SelectionMode) will be used,
 before switching to a better one if available. It also controls how often the lease check is done.
 Setting this to a low value (under 1m) might cause RPC to switch too aggressively.
 Recommended value is over 5m
