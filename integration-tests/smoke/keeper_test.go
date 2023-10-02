@@ -1130,5 +1130,7 @@ func setupKeeperTest(t *testing.T) (
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
+	t.FailNow() // DEBUG: Checking for log upload issues!!
+
 	return env.EVMClient, env.GetAPIs(), env.ContractDeployer, linkTokenContract, env
 }
