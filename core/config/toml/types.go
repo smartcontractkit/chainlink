@@ -428,6 +428,9 @@ type TelemetryIngress struct {
 	SendTimeout  *models.Duration
 	UseBatchSend *bool
 	Endpoints    []TelemetryIngressEndpoint `toml:",omitempty"`
+
+	URL          *models.URL `toml:"-"` // Deprecated: Use TelemetryIngressEndpoint.URL instead, if this field is set it will trigger an error, only used to warn NOPs of change
+	ServerPubKey *string     `toml:"-"` // Deprecated: Use TelemetryIngressEndpoint.ServerPubKey instead, if this field is set it will trigger an error, only used to warn NOPs of change
 }
 
 type TelemetryIngressEndpoint struct {
@@ -462,6 +465,42 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	if v := f.Endpoints; v != nil {
 		t.Endpoints = v
 	}
+	if v := f.ServerPubKey; v != nil {
+		t.ServerPubKey = v
+	}
+	if v := f.URL; v != nil {
+		t.URL = v
+	}
+}
+
+func (t *TelemetryIngress) ValidateConfig() (err error) {
+	if !t.URL.IsZero() && *t.ServerPubKey != "" {
+		return configutils.ErrInvalid{Name: "URL", Value: t.URL.String(),
+			Msg: fmt.Sprintf(`TelemetryIngress.URL and TelemetryIngress.ServerPubKey are no longer allowed. Please use TelemetryIngress.Endpoints instead:
+			[[TelemetryIngress.Endpoints]]
+			Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
+			ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
+			URL = '%s'
+			ServerPubKey = '%s'`, t.URL.String(), *t.ServerPubKey)}
+	} else if !t.URL.IsZero() {
+		return configutils.ErrInvalid{Name: "URL", Value: t.URL.String(),
+			Msg: fmt.Sprintf(`TelemetryIngress.URL and TelemetryIngress.ServerPubKey are no longer allowed. Please use TelemetryIngress.Endpoints instead:
+			[[TelemetryIngress.Endpoints]]
+			Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
+			ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
+			URL = '%s'
+			ServerPubKey = '...'`, t.URL.String())}
+	} else if *t.ServerPubKey != "" {
+		return configutils.ErrInvalid{Name: "ServerPubKey", Value: *t.ServerPubKey,
+			Msg: fmt.Sprintf(`TelemetryIngress.URL and TelemetryIngress.ServerPubKey are no longer allowed. Please use TelemetryIngress.Endpoints instead:
+			[[TelemetryIngress.Endpoints]]
+			Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
+			ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
+			URL = '...'
+			ServerPubKey = '%s'`, *t.ServerPubKey)}
+	}
+
+	return nil
 }
 
 type AuditLogger struct {

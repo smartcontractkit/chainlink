@@ -1069,6 +1069,17 @@ func TestConfig_full(t *testing.T) {
 		}
 	}
 
+	// Except for TelemetryIngress.ServerPubKey as this will be removed in the future
+	// and its only use is to signal to NOPs that these fields are no longer allowed
+	if got.TelemetryIngress.ServerPubKey == nil {
+		got.TelemetryIngress.ServerPubKey = ptr("")
+	}
+	// Except for TelemetryIngress.URL as this will be removed in the future
+	// and its only use is to signal to NOPs that these fields are no longer allowed
+	if got.TelemetryIngress.URL == nil {
+		got.TelemetryIngress.URL = new(models.URL)
+	}
+
 	cfgtest.AssertFieldsNotNil(t, got)
 }
 

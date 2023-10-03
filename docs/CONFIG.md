@@ -294,7 +294,7 @@ UseBatchSend = true # Default
 ```
 UseBatchSend toggles sending telemetry to the ingress server using the batch client.
 
-## TelemetryIngress.Endpoints]] # Example
+## TelemetryIngress.Endpoints
 ```toml
 [[TelemetryIngress.Endpoints]] # Example
 Network = 'EVM' # Example
