@@ -77,10 +77,19 @@ func (o *DbORM) Q() pg.Q {
 
 // InsertBlock is idempotent to support replays.
 func (o *DbORM) InsertBlock(blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, qopts ...pg.QOpt) error {
-	q := o.q.WithOpts(qopts...)
-	err := q.ExecQ(`INSERT INTO evm.log_poller_blocks (evm_chain_id, block_hash, block_number, block_timestamp, created_at) 
-      VALUES ($1, $2, $3, $4,  NOW()) ON CONFLICT DO NOTHING`, utils.NewBig(o.chainID), blockHash[:], blockNumber, blockTimestamp)
-	return err
+	args, err := newQueryArgs(o.chainID).
+		withCustomHashArg("block_hash", blockHash).
+		withCustomArg("block_number", blockNumber).
+		withCustomArg("block_timestamp", blockTimestamp).
+		toArgs()
+	if err != nil {
+		return err
+	}
+	return o.q.WithOpts(qopts...).ExecQNamed(`
+			INSERT INTO evm.log_poller_blocks 
+				(evm_chain_id, block_hash, block_number, block_timestamp, created_at) 
+      		VALUES (:evm_chain_id, :block_hash, :block_number, :block_timestamp, NOW()) 
+			ON CONFLICT DO NOTHING`, args)
 }
 
 // InsertFilter is idempotent.
@@ -88,24 +97,26 @@ func (o *DbORM) InsertBlock(blockHash common.Hash, blockNumber int64, blockTimes
 // Each address/event pair must have a unique job id, so it may be removed when the job is deleted.
 // If a second job tries to overwrite the same pair, this should fail.
 func (o *DbORM) InsertFilter(filter Filter, qopts ...pg.QOpt) (err error) {
-	q := o.q.WithOpts(qopts...)
-	addresses := make([][]byte, 0)
-	events := make([][]byte, 0)
-
-	for _, addr := range filter.Addresses {
-		addresses = append(addresses, addr.Bytes())
+	args, err := newQueryArgs(o.chainID).
+		withCustomArg("name", filter.Name).
+		withCustomArg("retention", filter.Retention).
+		withAddressArray(filter.Addresses).
+		withEventSigArray(filter.EventSigs).
+		toArgs()
+	if err != nil {
+		return err
 	}
-	for _, ev := range filter.EventSigs {
-		events = append(events, ev.Bytes())
-	}
-	return q.ExecQ(`INSERT INTO evm.log_poller_filters
-	  (name, evm_chain_id, retention, created_at, address, event)
+	// '::' has to be escaped in the query string
+	// https://github.com/jmoiron/sqlx/issues/91, https://github.com/jmoiron/sqlx/issues/428
+	return o.q.WithOpts(qopts...).ExecQNamed(`
+		INSERT INTO evm.log_poller_filters
+	  		(name, evm_chain_id, retention, created_at, address, event)
 		SELECT * FROM
-			(SELECT $1, $2::NUMERIC, $3::BIGINT, NOW()) x,
-			(SELECT unnest($4::BYTEA[]) addr) a,
-			(SELECT unnest($5::BYTEA[]) ev) e
-		ON CONFLICT (name, evm_chain_id, address, event) DO UPDATE SET retention=$3::BIGINT;`,
-		filter.Name, utils.NewBig(o.chainID), filter.Retention, addresses, events)
+			(SELECT :name, :evm_chain_id ::::NUMERIC, :retention ::::BIGINT, NOW()) x,
+			(SELECT unnest(:address_array ::::BYTEA[]) addr) a,
+			(SELECT unnest(:event_sig_array ::::BYTEA[]) ev) e
+		ON CONFLICT (name, evm_chain_id, address, event) 
+		DO UPDATE SET retention=:retention ::::BIGINT`, args)
 }
 
 // DeleteFilter removes all events,address pairs associated with the Filter
