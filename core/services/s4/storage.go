@@ -98,7 +98,7 @@ func (s *storage) Get(ctx context.Context, key *Key) (*Record, *Metadata, error)
 		return nil, nil, err
 	}
 
-	if row.Expiration <= s.clock.Now().UnixMilli() {
+	if row.Version != key.Version || row.Expiration <= s.clock.Now().UnixMilli() {
 		return nil, nil, ErrNotFound
 	}
 
@@ -119,7 +119,11 @@ func (s *storage) Get(ctx context.Context, key *Key) (*Record, *Metadata, error)
 
 func (s *storage) List(ctx context.Context, address common.Address) ([]*SnapshotRow, error) {
 	bigAddress := utils.NewBig(address.Big())
-	return s.orm.GetSnapshot(NewSingleAddressRange(bigAddress), pg.WithParentCtx(ctx))
+	sar, err := NewSingleAddressRange(bigAddress)
+	if err != nil {
+		return nil, err
+	}
+	return s.orm.GetSnapshot(sar, pg.WithParentCtx(ctx))
 }
 
 func (s *storage) Put(ctx context.Context, key *Key, record *Record, signature []byte) error {

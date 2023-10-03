@@ -1,6 +1,6 @@
 module github.com/smartcontractkit/chainlink/v2
 
-go 1.20
+go 1.21
 
 require (
 	github.com/CosmWasm/wasmd v0.40.1
@@ -53,7 +53,7 @@ require (
 	github.com/onsi/gomega v1.27.8
 	github.com/patrickmn/go-cache v2.1.0+incompatible
 	github.com/pelletier/go-toml v1.9.5
-	github.com/pelletier/go-toml/v2 v2.0.9
+	github.com/pelletier/go-toml/v2 v2.1.0
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.15.0
 	github.com/prometheus/client_golang v1.16.0
@@ -67,11 +67,11 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230913032705-f924d753cc47
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230918134006-2119b4e577d1
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20230926113942-a871b2976dc1
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20230831134610-680240b97aca
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230901115736-bbabe542a918
-	github.com/smartcontractkit/libocr v0.0.0-20230816220705-665e93233ae5
-	github.com/smartcontractkit/ocr2keepers v0.7.23
+	github.com/smartcontractkit/libocr v0.0.0-20230922131214-122accb19ea6
+	github.com/smartcontractkit/ocr2keepers v0.7.27
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1

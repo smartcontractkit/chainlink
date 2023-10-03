@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_consumer_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_load_test_with_metrics"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"math/big"
 )
 
@@ -112,23 +111,6 @@ func (e *EthereumContractDeployer) DeployVRFv2LoadTestConsumer(coordinatorAddr s
 	return &EthereumVRFv2LoadTestConsumer{
 		client:   e.client,
 		consumer: instance.(*vrf_load_test_with_metrics.VRFV2LoadTestWithMetrics),
-		address:  address,
-	}, err
-}
-
-func (e *EthereumContractDeployer) DeployVRFv2PlusLoadTestConsumer(coordinatorAddr string) (VRFv2PlusLoadTestConsumer, error) {
-	address, _, instance, err := e.client.DeployContract("VRFV2PlusLoadTestWithMetrics", func(
-		auth *bind.TransactOpts,
-		backend bind.ContractBackend,
-	) (common.Address, *types.Transaction, interface{}, error) {
-		return vrf_v2plus_load_test_with_metrics.DeployVRFV2PlusLoadTestWithMetrics(auth, backend, common.HexToAddress(coordinatorAddr))
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &EthereumVRFv2PlusLoadTestConsumer{
-		client:   e.client,
-		consumer: instance.(*vrf_v2plus_load_test_with_metrics.VRFV2PlusLoadTestWithMetrics),
 		address:  address,
 	}, err
 }

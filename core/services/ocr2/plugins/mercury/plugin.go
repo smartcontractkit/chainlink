@@ -32,7 +32,7 @@ func NewServices(
 	jb job.Job,
 	ocr2Provider relaytypes.MercuryProvider,
 	pipelineRunner pipeline.Runner,
-	runResults chan pipeline.Run,
+	runResults chan *pipeline.Run,
 	lggr logger.Logger,
 	argsNoPlugin libocr2.MercuryOracleArgs,
 	cfg Config,

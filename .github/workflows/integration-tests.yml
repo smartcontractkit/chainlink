@@ -168,6 +168,7 @@ jobs:
           MATRIX_JSON_KEEPER=$(./scripts/buildTestMatrixList.sh ./smoke/keeper_test.go keeper ubuntu20.04-8cores-32GB 1)
           COMBINED_ARRAY=$(jq -c -n "$MATRIX_JSON_AUTOMATION + $MATRIX_JSON_KEEPER")
           echo "MATRIX_JSON=${COMBINED_ARRAY}" >> $GITHUB_ENV
+
   eth-smoke-tests-matrix-automation:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
@@ -235,6 +236,7 @@ jobs:
           this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
+
   eth-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
@@ -661,7 +663,7 @@ jobs:
       - run: echo "this exists so we don't have to run anything else if the build is skipped"
         if: needs.changes.outputs.src == 'false' || needs.solana-test-image-exists.outputs.exists == 'true'
 
-  solana-smoke-tests:
+  solana-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
     permissions:
@@ -672,7 +674,7 @@ jobs:
     strategy:
       matrix:
         image:
-          - name: ""
+          - name: (legacy)
             tag-suffix: ""
           - name: (plugins)
             tag-suffix: -plugins
@@ -729,6 +731,26 @@ jobs:
           name: test-log-solana
           path: /tmp/gotest.log
           retention-days: 7
+        continue-on-error: true
+
+  ### Used to check the required checks box when the matrix completes
+  solana-smoke-tests:
+    if: always()
+    runs-on: ubuntu-latest
+    name: Solana Smoke Tests
+    needs: [solana-smoke-tests-matrix]
+    steps:
+      - name: Check smoke test matrix status
+        if: needs.solana-smoke-tests-matrix.result != 'success'
+        run: exit 1
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solana Smoke Tests
         continue-on-error: true
   ### End Solana Section
 
@@ -805,7 +827,7 @@ jobs:
 
   testnet-smoke-tests-notify:
     name: Live Testnet Start Slack Thread
-    if: success() || failure()
+    if: ${{ always() && needs.testnet-smoke-tests-matrix.result != 'skipped' && needs.testnet-smoke-tests-matrix.result != 'cancelled' }}
     environment: integration
     outputs:
       thread_ts: ${{ steps.slack.outputs.thread_ts }}
@@ -857,6 +879,7 @@ jobs:
 
   testnet-smoke-tests-results:
     name: Post Live Testnet Smoke Test Results
+    if: ${{ always() && needs.testnet-smoke-tests-matrix.result != 'skipped' && needs.testnet-smoke-tests-matrix.result != 'cancelled' }}
     environment: integration
     permissions:
       checks: write

@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -73,7 +73,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
 func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.VRFSpec == nil || jb.PipelineSpec == nil {
 		return nil, errors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
 	}
@@ -94,7 +94,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 	if err != nil {
 		return nil, err
 	}
-	coordinatorV2Plus, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
+	coordinatorV2Plus, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, err
 	}
@@ -144,11 +144,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 			if vrfOwner != nil {
 				return nil, errors.New("VRF Owner is not supported for VRF V2 Plus")
 			}
-			linkEthFeedAddress, err := coordinatorV2Plus.LINKETHFEED(nil)
+			linkNativeFeedAddress, err := coordinatorV2Plus.LINKNATIVEFEED(nil)
 			if err != nil {
-				return nil, errors.Wrap(err, "LINKETHFEED")
+				return nil, errors.Wrap(err, "LINKNATIVEFEED")
 			}
-			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
+			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkNativeFeedAddress, chain.Client())
 			if err != nil {
 				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
 			}
@@ -161,7 +161,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 				chain.ID(),
 				chain.LogBroadcaster(),
 				d.q,
-				v2.NewCoordinatorV2Plus(coordinatorV2Plus),
+				v2.NewCoordinatorV2_5(coordinatorV2Plus),
 				batchCoordinatorV2,
 				vrfOwner,
 				aggregator,

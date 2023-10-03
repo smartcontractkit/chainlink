@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"go.uber.org/multierr"
+
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
@@ -92,13 +94,18 @@ func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, ga
 
 func (h *functionsConnectorHandler) Start(ctx context.Context) error {
 	return h.StartOnce("FunctionsConnectorHandler", func() error {
-		return h.allowlist.Start(ctx)
+		if err := h.allowlist.Start(ctx); err != nil {
+			return err
+		}
+		return h.subscriptions.Start(ctx)
 	})
 }
 
 func (h *functionsConnectorHandler) Close() error {
-	return h.StopOnce("FunctionsConnectorHandler", func() error {
-		return h.allowlist.Close()
+	return h.StopOnce("FunctionsConnectorHandler", func() (err error) {
+		err = multierr.Combine(err, h.allowlist.Close())
+		err = multierr.Combine(err, h.subscriptions.Close())
+		return
 	})
 }
 

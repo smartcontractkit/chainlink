@@ -359,7 +359,7 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBody, fetchBridge.Name.String(), submitBridge.Name.String())
 	body, _ := json.Marshal(web.CreateJobRequest{
@@ -382,7 +382,7 @@ func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/webhook-job-spec-with-empty-json.toml")
 	body, _ := json.Marshal(web.CreateJobRequest{
@@ -493,7 +493,7 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	var jb job.Job
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
@@ -555,7 +555,7 @@ func TestJobsController_Update_NonExistentID(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	var jb job.Job
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
@@ -635,7 +635,7 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 	vrfKeyStore := app.GetKeyStore().VRF()
 	_, err := vrfKeyStore.Create()
 	require.NoError(t, err)
@@ -656,7 +656,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	var jb job.Job
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String(), EVMChainID: testutils.FixtureChainID.String()})
@@ -670,7 +670,23 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	err = app.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 
-	erejb, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")))
+	drSpec := fmt.Sprintf(`
+		type                = "directrequest"
+		schemaVersion       = 1
+		evmChainID          = "0"
+		name                = "example eth request event spec"
+		contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
+		externalJobID       = "%s"
+		observationSource   = """
+		    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
+		    ds1_merge    [type=merge left="{}"]
+		    ds1_parse    [type=jsonparse path="USD"];
+		    ds1_multiply [type=multiply times=100];
+		    ds1 -> ds1_parse -> ds1_multiply;
+		"""
+		`, uuid.New())
+
+	erejb, err := directrequest.ValidatedDirectRequestSpec(drSpec)
 	require.NoError(t, err)
 	err = app.AddJobV2(testutils.Context(t), &erejb)
 	require.NoError(t, err)

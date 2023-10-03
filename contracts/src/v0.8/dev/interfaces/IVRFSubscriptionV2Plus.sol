@@ -49,9 +49,9 @@ interface IVRFSubscriptionV2Plus {
    * @dev    address(COORDINATOR),
    * @dev    amount,
    * @dev    abi.encode(subId));
-   * @dev Note to fund the subscription with ETH, use fundSubscriptionWithEth. Be sure
-   * @dev  to send ETH with the call, for example:
-   * @dev COORDINATOR.fundSubscriptionWithEth{value: amount}(subId);
+   * @dev Note to fund the subscription with Native, use fundSubscriptionWithNative. Be sure
+   * @dev  to send Native with the call, for example:
+   * @dev COORDINATOR.fundSubscriptionWithNative{value: amount}(subId);
    */
   function createSubscription() external returns (uint256 subId);
 
@@ -59,7 +59,7 @@ interface IVRFSubscriptionV2Plus {
    * @notice Get a VRF subscription.
    * @param subId - ID of the subscription
    * @return balance - LINK balance of the subscription in juels.
-   * @return ethBalance - ETH balance of the subscription in wei.
+   * @return nativeBalance - native balance of the subscription in wei.
    * @return reqCount - Requests count of subscription.
    * @return owner - owner of the subscription.
    * @return consumers - list of consumer address which are able to use this subscription.
@@ -69,7 +69,16 @@ interface IVRFSubscriptionV2Plus {
   )
     external
     view
-    returns (uint96 balance, uint96 ethBalance, uint64 reqCount, address owner, address[] memory consumers);
+    returns (uint96 balance, uint96 nativeBalance, uint64 reqCount, address owner, address[] memory consumers);
+
+  /*
+   * @notice Check to see if there exists a request commitment consumers
+   * for all consumers and keyhashes for a given sub.
+   * @param subId - ID of the subscription
+   * @return true if there exists at least one unfulfilled request for the subscription, false
+   * otherwise.
+   */
+  function pendingRequestExists(uint256 subId) external view returns (bool);
 
   /**
    * @notice Paginate through all active VRF subscriptions.
@@ -81,9 +90,9 @@ interface IVRFSubscriptionV2Plus {
   function getActiveSubscriptionIds(uint256 startIndex, uint256 maxCount) external view returns (uint256[] memory);
 
   /**
-   * @notice Fund a subscription with ETH.
+   * @notice Fund a subscription with native.
    * @param subId - ID of the subscription
    * @notice This method expects msg.value to be greater than 0.
    */
-  function fundSubscriptionWithEth(uint256 subId) external payable;
+  function fundSubscriptionWithNative(uint256 subId) external payable;
 }
