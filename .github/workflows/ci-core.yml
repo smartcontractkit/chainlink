@@ -85,7 +85,7 @@ jobs:
       - name: Download Go vendor packages
         run: go mod download
       - name: Build binary
-        run: go build -tags test -o chainlink.test .
+        run: go build -o chainlink.test .
       - name: Setup DB
         run: ./chainlink.test local db preparetest
       - name: Increase Race Timeout
@@ -163,7 +163,7 @@ jobs:
       - name: Download Go vendor packages
         run: go mod download
       - name: Build binary
-        run: go build -tags test -o chainlink.test .
+        run: go build -o chainlink.test .
       - name: Setup DB
         run: ./chainlink.test local db preparetest
       - name: Load test outputs
