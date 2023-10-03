@@ -17,7 +17,7 @@ require (
 	github.com/fatih/color v1.15.0
 	github.com/fxamacker/cbor/v2 v2.4.0
 	github.com/gagliardetto/solana-go v1.4.1-0.20220428092759-5250b4abbb27
-	github.com/getsentry/sentry-go v0.19.0
+	github.com/getsentry/sentry-go v0.24.1
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-contrib/expvar v0.0.1
 	github.com/gin-contrib/sessions v0.0.5
