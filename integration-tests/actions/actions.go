@@ -369,7 +369,7 @@ func ReturnFunds(chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient b
 			}
 			err = blockchainClient.ReturnFunds(decryptedKey.PrivateKey)
 			if err != nil {
-				return err
+				log.Error().Err(err).Str("Address", fundedKeys[0].Address).Msg("Error returning funds from Chainlink node")
 			}
 		}
 	}
