@@ -69,7 +69,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job) {
 func (d *Delegate) OnDeleteJob(jb job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(spec job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(spec job.Job) ([]job.ServiceCtx, error) {
 	service := &pseudoService{
 		spec:             spec,
 		webhookJobRunner: d.webhookJobRunner,
