@@ -12,6 +12,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/tools/txtar"
 )
 
+func TestPanic(t *testing.T) {
+	t.Run("panic", func(t *testing.T) {
+		helper()
+	})
+}
+
+func helper() {
+	panic("something happened")
+}
+
 func TestMain(m *testing.M) {
 	os.Exit(testscript.RunMain(m, map[string]func() int{
 		"chainlink": core.Main,
