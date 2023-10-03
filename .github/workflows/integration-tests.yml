@@ -663,7 +663,7 @@ jobs:
       - run: echo "this exists so we don't have to run anything else if the build is skipped"
         if: needs.changes.outputs.src == 'false' || needs.solana-test-image-exists.outputs.exists == 'true'
 
-  solana-smoke-tests:
+  solana-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
     permissions:
@@ -674,7 +674,7 @@ jobs:
     strategy:
       matrix:
         image:
-          - name: ""
+          - name: (legacy)
             tag-suffix: ""
           - name: (plugins)
             tag-suffix: -plugins
@@ -731,6 +731,26 @@ jobs:
           name: test-log-solana
           path: /tmp/gotest.log
           retention-days: 7
+        continue-on-error: true
+
+  ### Used to check the required checks box when the matrix completes
+  solana-smoke-tests:
+    if: always()
+    runs-on: ubuntu-latest
+    name: Solana Smoke Tests
+    needs: [solana-smoke-tests-matrix]
+    steps:
+      - name: Check smoke test matrix status
+        if: needs.solana-smoke-tests-matrix.result != 'success'
+        run: exit 1
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solana Smoke Tests
         continue-on-error: true
   ### End Solana Section
 

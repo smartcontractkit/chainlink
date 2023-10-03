@@ -39,7 +39,7 @@ var VRFV2PlusWrapperABI = VRFV2PlusWrapperMetaData.ABI
 
 var VRFV2PlusWrapperBin = VRFV2PlusWrapperMetaData.Bin
 
-func DeployVRFV2PlusWrapper(auth *bind.TransactOpts, backend bind.ContractBackend, _link common.Address, _linkEthFeed common.Address, _coordinator common.Address) (common.Address, *types.Transaction, *VRFV2PlusWrapper, error) {
+func DeployVRFV2PlusWrapper(auth *bind.TransactOpts, backend bind.ContractBackend, _link common.Address, _linkNativeFeed common.Address, _coordinator common.Address) (common.Address, *types.Transaction, *VRFV2PlusWrapper, error) {
 	parsed, err := VRFV2PlusWrapperMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, nil, nil, err
@@ -48,7 +48,7 @@ func DeployVRFV2PlusWrapper(auth *bind.TransactOpts, backend bind.ContractBacken
 		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
 	}
 
-	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(VRFV2PlusWrapperBin), backend, _link, _linkEthFeed, _coordinator)
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(VRFV2PlusWrapperBin), backend, _link, _linkNativeFeed, _coordinator)
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
@@ -171,28 +171,6 @@ func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactorRaw) Transact(opts *bind.Tran
 	return _VRFV2PlusWrapper.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_VRFV2PlusWrapper *VRFV2PlusWrapperCaller) COORDINATOR(opts *bind.CallOpts) (common.Address, error) {
-	var out []interface{}
-	err := _VRFV2PlusWrapper.contract.Call(opts, &out, "COORDINATOR")
-
-	if err != nil {
-		return *new(common.Address), err
-	}
-
-	out0 := *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
-
-	return out0, err
-
-}
-
-func (_VRFV2PlusWrapper *VRFV2PlusWrapperSession) COORDINATOR() (common.Address, error) {
-	return _VRFV2PlusWrapper.Contract.COORDINATOR(&_VRFV2PlusWrapper.CallOpts)
-}
-
-func (_VRFV2PlusWrapper *VRFV2PlusWrapperCallerSession) COORDINATOR() (common.Address, error) {
-	return _VRFV2PlusWrapper.Contract.COORDINATOR(&_VRFV2PlusWrapper.CallOpts)
-}
-
 func (_VRFV2PlusWrapper *VRFV2PlusWrapperCaller) SUBSCRIPTIONID(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
 	err := _VRFV2PlusWrapper.contract.Call(opts, &out, "SUBSCRIPTION_ID")
@@ -257,6 +235,26 @@ func (_VRFV2PlusWrapper *VRFV2PlusWrapperSession) CalculateRequestPriceNative(_c
 
 func (_VRFV2PlusWrapper *VRFV2PlusWrapperCallerSession) CalculateRequestPriceNative(_callbackGasLimit uint32) (*big.Int, error) {
 	return _VRFV2PlusWrapper.Contract.CalculateRequestPriceNative(&_VRFV2PlusWrapper.CallOpts, _callbackGasLimit)
+}
+
+func (_VRFV2PlusWrapper *VRFV2PlusWrapperCaller) CheckPaymentMode(opts *bind.CallOpts, extraArgs []byte, isLinkMode bool) error {
+	var out []interface{}
+	err := _VRFV2PlusWrapper.contract.Call(opts, &out, "checkPaymentMode", extraArgs, isLinkMode)
+
+	if err != nil {
+		return err
+	}
+
+	return err
+
+}
+
+func (_VRFV2PlusWrapper *VRFV2PlusWrapperSession) CheckPaymentMode(extraArgs []byte, isLinkMode bool) error {
+	return _VRFV2PlusWrapper.Contract.CheckPaymentMode(&_VRFV2PlusWrapper.CallOpts, extraArgs, isLinkMode)
+}
+
+func (_VRFV2PlusWrapper *VRFV2PlusWrapperCallerSession) CheckPaymentMode(extraArgs []byte, isLinkMode bool) error {
+	return _VRFV2PlusWrapper.Contract.CheckPaymentMode(&_VRFV2PlusWrapper.CallOpts, extraArgs, isLinkMode)
 }
 
 func (_VRFV2PlusWrapper *VRFV2PlusWrapperCaller) EstimateRequestPrice(opts *bind.CallOpts, _callbackGasLimit uint32, _requestGasPriceWei *big.Int) (*big.Int, error) {
@@ -396,7 +394,7 @@ func (_VRFV2PlusWrapper *VRFV2PlusWrapperCaller) SCallbacks(opts *bind.CallOpts,
 
 	outstruct.CallbackAddress = *abi.ConvertType(out[0], new(common.Address)).(*common.Address)
 	outstruct.CallbackGasLimit = *abi.ConvertType(out[1], new(uint32)).(*uint32)
-	outstruct.RequestGasPrice = *abi.ConvertType(out[2], new(*big.Int)).(**big.Int)
+	outstruct.RequestGasPrice = *abi.ConvertType(out[2], new(uint64)).(*uint64)
 
 	return *outstruct, err
 
@@ -502,9 +500,9 @@ func (_VRFV2PlusWrapper *VRFV2PlusWrapperCallerSession) SLink() (common.Address,
 	return _VRFV2PlusWrapper.Contract.SLink(&_VRFV2PlusWrapper.CallOpts)
 }
 
-func (_VRFV2PlusWrapper *VRFV2PlusWrapperCaller) SLinkEthFeed(opts *bind.CallOpts) (common.Address, error) {
+func (_VRFV2PlusWrapper *VRFV2PlusWrapperCaller) SLinkNativeFeed(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _VRFV2PlusWrapper.contract.Call(opts, &out, "s_linkEthFeed")
+	err := _VRFV2PlusWrapper.contract.Call(opts, &out, "s_linkNativeFeed")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -516,12 +514,12 @@ func (_VRFV2PlusWrapper *VRFV2PlusWrapperCaller) SLinkEthFeed(opts *bind.CallOpt
 
 }
 
-func (_VRFV2PlusWrapper *VRFV2PlusWrapperSession) SLinkEthFeed() (common.Address, error) {
-	return _VRFV2PlusWrapper.Contract.SLinkEthFeed(&_VRFV2PlusWrapper.CallOpts)
+func (_VRFV2PlusWrapper *VRFV2PlusWrapperSession) SLinkNativeFeed() (common.Address, error) {
+	return _VRFV2PlusWrapper.Contract.SLinkNativeFeed(&_VRFV2PlusWrapper.CallOpts)
 }
 
-func (_VRFV2PlusWrapper *VRFV2PlusWrapperCallerSession) SLinkEthFeed() (common.Address, error) {
-	return _VRFV2PlusWrapper.Contract.SLinkEthFeed(&_VRFV2PlusWrapper.CallOpts)
+func (_VRFV2PlusWrapper *VRFV2PlusWrapperCallerSession) SLinkNativeFeed() (common.Address, error) {
+	return _VRFV2PlusWrapper.Contract.SLinkNativeFeed(&_VRFV2PlusWrapper.CallOpts)
 }
 
 func (_VRFV2PlusWrapper *VRFV2PlusWrapperCaller) SVrfCoordinator(opts *bind.CallOpts) (common.Address, error) {
@@ -628,28 +626,28 @@ func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactorSession) RawFulfillRandomWord
 	return _VRFV2PlusWrapper.Contract.RawFulfillRandomWords(&_VRFV2PlusWrapper.TransactOpts, requestId, randomWords)
 }
 
-func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactor) RequestRandomWordsInNative(opts *bind.TransactOpts, _callbackGasLimit uint32, _requestConfirmations uint16, _numWords uint32) (*types.Transaction, error) {
-	return _VRFV2PlusWrapper.contract.Transact(opts, "requestRandomWordsInNative", _callbackGasLimit, _requestConfirmations, _numWords)
+func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactor) RequestRandomWordsInNative(opts *bind.TransactOpts, _callbackGasLimit uint32, _requestConfirmations uint16, _numWords uint32, extraArgs []byte) (*types.Transaction, error) {
+	return _VRFV2PlusWrapper.contract.Transact(opts, "requestRandomWordsInNative", _callbackGasLimit, _requestConfirmations, _numWords, extraArgs)
 }
 
-func (_VRFV2PlusWrapper *VRFV2PlusWrapperSession) RequestRandomWordsInNative(_callbackGasLimit uint32, _requestConfirmations uint16, _numWords uint32) (*types.Transaction, error) {
-	return _VRFV2PlusWrapper.Contract.RequestRandomWordsInNative(&_VRFV2PlusWrapper.TransactOpts, _callbackGasLimit, _requestConfirmations, _numWords)
+func (_VRFV2PlusWrapper *VRFV2PlusWrapperSession) RequestRandomWordsInNative(_callbackGasLimit uint32, _requestConfirmations uint16, _numWords uint32, extraArgs []byte) (*types.Transaction, error) {
+	return _VRFV2PlusWrapper.Contract.RequestRandomWordsInNative(&_VRFV2PlusWrapper.TransactOpts, _callbackGasLimit, _requestConfirmations, _numWords, extraArgs)
 }
 
-func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactorSession) RequestRandomWordsInNative(_callbackGasLimit uint32, _requestConfirmations uint16, _numWords uint32) (*types.Transaction, error) {
-	return _VRFV2PlusWrapper.Contract.RequestRandomWordsInNative(&_VRFV2PlusWrapper.TransactOpts, _callbackGasLimit, _requestConfirmations, _numWords)
+func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactorSession) RequestRandomWordsInNative(_callbackGasLimit uint32, _requestConfirmations uint16, _numWords uint32, extraArgs []byte) (*types.Transaction, error) {
+	return _VRFV2PlusWrapper.Contract.RequestRandomWordsInNative(&_VRFV2PlusWrapper.TransactOpts, _callbackGasLimit, _requestConfirmations, _numWords, extraArgs)
 }
 
-func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactor) SetConfig(opts *bind.TransactOpts, _wrapperGasOverhead uint32, _coordinatorGasOverhead uint32, _wrapperPremiumPercentage uint8, _keyHash [32]byte, _maxNumWords uint8) (*types.Transaction, error) {
-	return _VRFV2PlusWrapper.contract.Transact(opts, "setConfig", _wrapperGasOverhead, _coordinatorGasOverhead, _wrapperPremiumPercentage, _keyHash, _maxNumWords)
+func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactor) SetConfig(opts *bind.TransactOpts, _wrapperGasOverhead uint32, _coordinatorGasOverhead uint32, _wrapperPremiumPercentage uint8, _keyHash [32]byte, _maxNumWords uint8, stalenessSeconds uint32, fallbackWeiPerUnitLink *big.Int, fulfillmentFlatFeeLinkPPM uint32, fulfillmentFlatFeeNativePPM uint32) (*types.Transaction, error) {
+	return _VRFV2PlusWrapper.contract.Transact(opts, "setConfig", _wrapperGasOverhead, _coordinatorGasOverhead, _wrapperPremiumPercentage, _keyHash, _maxNumWords, stalenessSeconds, fallbackWeiPerUnitLink, fulfillmentFlatFeeLinkPPM, fulfillmentFlatFeeNativePPM)
 }
 
-func (_VRFV2PlusWrapper *VRFV2PlusWrapperSession) SetConfig(_wrapperGasOverhead uint32, _coordinatorGasOverhead uint32, _wrapperPremiumPercentage uint8, _keyHash [32]byte, _maxNumWords uint8) (*types.Transaction, error) {
-	return _VRFV2PlusWrapper.Contract.SetConfig(&_VRFV2PlusWrapper.TransactOpts, _wrapperGasOverhead, _coordinatorGasOverhead, _wrapperPremiumPercentage, _keyHash, _maxNumWords)
+func (_VRFV2PlusWrapper *VRFV2PlusWrapperSession) SetConfig(_wrapperGasOverhead uint32, _coordinatorGasOverhead uint32, _wrapperPremiumPercentage uint8, _keyHash [32]byte, _maxNumWords uint8, stalenessSeconds uint32, fallbackWeiPerUnitLink *big.Int, fulfillmentFlatFeeLinkPPM uint32, fulfillmentFlatFeeNativePPM uint32) (*types.Transaction, error) {
+	return _VRFV2PlusWrapper.Contract.SetConfig(&_VRFV2PlusWrapper.TransactOpts, _wrapperGasOverhead, _coordinatorGasOverhead, _wrapperPremiumPercentage, _keyHash, _maxNumWords, stalenessSeconds, fallbackWeiPerUnitLink, fulfillmentFlatFeeLinkPPM, fulfillmentFlatFeeNativePPM)
 }
 
-func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactorSession) SetConfig(_wrapperGasOverhead uint32, _coordinatorGasOverhead uint32, _wrapperPremiumPercentage uint8, _keyHash [32]byte, _maxNumWords uint8) (*types.Transaction, error) {
-	return _VRFV2PlusWrapper.Contract.SetConfig(&_VRFV2PlusWrapper.TransactOpts, _wrapperGasOverhead, _coordinatorGasOverhead, _wrapperPremiumPercentage, _keyHash, _maxNumWords)
+func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactorSession) SetConfig(_wrapperGasOverhead uint32, _coordinatorGasOverhead uint32, _wrapperPremiumPercentage uint8, _keyHash [32]byte, _maxNumWords uint8, stalenessSeconds uint32, fallbackWeiPerUnitLink *big.Int, fulfillmentFlatFeeLinkPPM uint32, fulfillmentFlatFeeNativePPM uint32) (*types.Transaction, error) {
+	return _VRFV2PlusWrapper.Contract.SetConfig(&_VRFV2PlusWrapper.TransactOpts, _wrapperGasOverhead, _coordinatorGasOverhead, _wrapperPremiumPercentage, _keyHash, _maxNumWords, stalenessSeconds, fallbackWeiPerUnitLink, fulfillmentFlatFeeLinkPPM, fulfillmentFlatFeeNativePPM)
 }
 
 func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactor) SetCoordinator(opts *bind.TransactOpts, _vrfCoordinator common.Address) (*types.Transaction, error) {
@@ -688,16 +686,16 @@ func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactorSession) SetLINK(link common.
 	return _VRFV2PlusWrapper.Contract.SetLINK(&_VRFV2PlusWrapper.TransactOpts, link)
 }
 
-func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactor) SetLinkEthFeed(opts *bind.TransactOpts, linkEthFeed common.Address) (*types.Transaction, error) {
-	return _VRFV2PlusWrapper.contract.Transact(opts, "setLinkEthFeed", linkEthFeed)
+func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactor) SetLinkNativeFeed(opts *bind.TransactOpts, linkNativeFeed common.Address) (*types.Transaction, error) {
+	return _VRFV2PlusWrapper.contract.Transact(opts, "setLinkNativeFeed", linkNativeFeed)
 }
 
-func (_VRFV2PlusWrapper *VRFV2PlusWrapperSession) SetLinkEthFeed(linkEthFeed common.Address) (*types.Transaction, error) {
-	return _VRFV2PlusWrapper.Contract.SetLinkEthFeed(&_VRFV2PlusWrapper.TransactOpts, linkEthFeed)
+func (_VRFV2PlusWrapper *VRFV2PlusWrapperSession) SetLinkNativeFeed(linkNativeFeed common.Address) (*types.Transaction, error) {
+	return _VRFV2PlusWrapper.Contract.SetLinkNativeFeed(&_VRFV2PlusWrapper.TransactOpts, linkNativeFeed)
 }
 
-func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactorSession) SetLinkEthFeed(linkEthFeed common.Address) (*types.Transaction, error) {
-	return _VRFV2PlusWrapper.Contract.SetLinkEthFeed(&_VRFV2PlusWrapper.TransactOpts, linkEthFeed)
+func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactorSession) SetLinkNativeFeed(linkNativeFeed common.Address) (*types.Transaction, error) {
+	return _VRFV2PlusWrapper.Contract.SetLinkNativeFeed(&_VRFV2PlusWrapper.TransactOpts, linkNativeFeed)
 }
 
 func (_VRFV2PlusWrapper *VRFV2PlusWrapperTransactor) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
@@ -1157,7 +1155,7 @@ type GetConfig struct {
 type SCallbacks struct {
 	CallbackAddress  common.Address
 	CallbackGasLimit uint32
-	RequestGasPrice  *big.Int
+	RequestGasPrice  uint64
 }
 
 func (_VRFV2PlusWrapper *VRFV2PlusWrapper) ParseLog(log types.Log) (generated.AbigenLog, error) {
@@ -1191,13 +1189,13 @@ func (_VRFV2PlusWrapper *VRFV2PlusWrapper) Address() common.Address {
 }
 
 type VRFV2PlusWrapperInterface interface {
-	COORDINATOR(opts *bind.CallOpts) (common.Address, error)
-
 	SUBSCRIPTIONID(opts *bind.CallOpts) (*big.Int, error)
 
 	CalculateRequestPrice(opts *bind.CallOpts, _callbackGasLimit uint32) (*big.Int, error)
 
 	CalculateRequestPriceNative(opts *bind.CallOpts, _callbackGasLimit uint32) (*big.Int, error)
+
+	CheckPaymentMode(opts *bind.CallOpts, extraArgs []byte, isLinkMode bool) error
 
 	EstimateRequestPrice(opts *bind.CallOpts, _callbackGasLimit uint32, _requestGasPriceWei *big.Int) (*big.Int, error)
 
@@ -1223,7 +1221,7 @@ type VRFV2PlusWrapperInterface interface {
 
 	SLink(opts *bind.CallOpts) (common.Address, error)
 
-	SLinkEthFeed(opts *bind.CallOpts) (common.Address, error)
+	SLinkNativeFeed(opts *bind.CallOpts) (common.Address, error)
 
 	SVrfCoordinator(opts *bind.CallOpts) (common.Address, error)
 
@@ -1239,9 +1237,9 @@ type VRFV2PlusWrapperInterface interface {
 
 	RawFulfillRandomWords(opts *bind.TransactOpts, requestId *big.Int, randomWords []*big.Int) (*types.Transaction, error)
 
-	RequestRandomWordsInNative(opts *bind.TransactOpts, _callbackGasLimit uint32, _requestConfirmations uint16, _numWords uint32) (*types.Transaction, error)
+	RequestRandomWordsInNative(opts *bind.TransactOpts, _callbackGasLimit uint32, _requestConfirmations uint16, _numWords uint32, extraArgs []byte) (*types.Transaction, error)
 
-	SetConfig(opts *bind.TransactOpts, _wrapperGasOverhead uint32, _coordinatorGasOverhead uint32, _wrapperPremiumPercentage uint8, _keyHash [32]byte, _maxNumWords uint8) (*types.Transaction, error)
+	SetConfig(opts *bind.TransactOpts, _wrapperGasOverhead uint32, _coordinatorGasOverhead uint32, _wrapperPremiumPercentage uint8, _keyHash [32]byte, _maxNumWords uint8, stalenessSeconds uint32, fallbackWeiPerUnitLink *big.Int, fulfillmentFlatFeeLinkPPM uint32, fulfillmentFlatFeeNativePPM uint32) (*types.Transaction, error)
 
 	SetCoordinator(opts *bind.TransactOpts, _vrfCoordinator common.Address) (*types.Transaction, error)
 
@@ -1249,7 +1247,7 @@ type VRFV2PlusWrapperInterface interface {
 
 	SetLINK(opts *bind.TransactOpts, link common.Address) (*types.Transaction, error)
 
-	SetLinkEthFeed(opts *bind.TransactOpts, linkEthFeed common.Address) (*types.Transaction, error)
+	SetLinkNativeFeed(opts *bind.TransactOpts, linkNativeFeed common.Address) (*types.Transaction, error)
 
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 

@@ -55,11 +55,7 @@ library ChainSpecificUtil {
    */
   function getBlockhash(uint64 blockNumber) internal view returns (bytes32) {
     uint256 chainid = block.chainid;
-    if (
-      chainid == ARB_MAINNET_CHAIN_ID ||
-      chainid == ARB_GOERLI_TESTNET_CHAIN_ID ||
-      chainid == ARB_SEPOLIA_TESTNET_CHAIN_ID
-    ) {
+    if (isArbitrumChainId(chainid)) {
       if ((getBlockNumber() - blockNumber) > 256 || blockNumber >= getBlockNumber()) {
         return "";
       }
@@ -76,11 +72,7 @@ library ChainSpecificUtil {
    */
   function getBlockNumber() internal view returns (uint256) {
     uint256 chainid = block.chainid;
-    if (
-      chainid == ARB_MAINNET_CHAIN_ID ||
-      chainid == ARB_GOERLI_TESTNET_CHAIN_ID ||
-      chainid == ARB_SEPOLIA_TESTNET_CHAIN_ID
-    ) {
+    if (isArbitrumChainId(chainid)) {
       return ARBSYS.arbBlockNumber();
     }
     return block.number;

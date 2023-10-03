@@ -31,8 +31,8 @@ var (
 )
 
 type VRFCoordinatorV2PlusUpgradedVersionFeeConfig struct {
-	FulfillmentFlatFeeLinkPPM uint32
-	FulfillmentFlatFeeEthPPM  uint32
+	FulfillmentFlatFeeLinkPPM   uint32
+	FulfillmentFlatFeeNativePPM uint32
 }
 
 type VRFCoordinatorV2PlusUpgradedVersionRequestCommitment struct {
@@ -250,9 +250,9 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionC
 	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.LINK(&_VRFCoordinatorV2PlusUpgradedVersion.CallOpts)
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionCaller) LINKETHFEED(opts *bind.CallOpts) (common.Address, error) {
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionCaller) LINKNATIVEFEED(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _VRFCoordinatorV2PlusUpgradedVersion.contract.Call(opts, &out, "LINK_ETH_FEED")
+	err := _VRFCoordinatorV2PlusUpgradedVersion.contract.Call(opts, &out, "LINK_NATIVE_FEED")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -264,12 +264,12 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionC
 
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionSession) LINKETHFEED() (common.Address, error) {
-	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.LINKETHFEED(&_VRFCoordinatorV2PlusUpgradedVersion.CallOpts)
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionSession) LINKNATIVEFEED() (common.Address, error) {
+	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.LINKNATIVEFEED(&_VRFCoordinatorV2PlusUpgradedVersion.CallOpts)
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionCallerSession) LINKETHFEED() (common.Address, error) {
-	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.LINKETHFEED(&_VRFCoordinatorV2PlusUpgradedVersion.CallOpts)
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionCallerSession) LINKNATIVEFEED() (common.Address, error) {
+	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.LINKNATIVEFEED(&_VRFCoordinatorV2PlusUpgradedVersion.CallOpts)
 }
 
 func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionCaller) MAXCONSUMERS(opts *bind.CallOpts) (uint16, error) {
@@ -396,7 +396,7 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionC
 	}
 
 	outstruct.Balance = *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
-	outstruct.EthBalance = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
+	outstruct.NativeBalance = *abi.ConvertType(out[1], new(*big.Int)).(**big.Int)
 	outstruct.ReqCount = *abi.ConvertType(out[2], new(uint64)).(*uint64)
 	outstruct.Owner = *abi.ConvertType(out[3], new(common.Address)).(*common.Address)
 	outstruct.Consumers = *abi.ConvertType(out[4], new([]common.Address)).(*[]common.Address)
@@ -614,7 +614,7 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionC
 	}
 
 	outstruct.FulfillmentFlatFeeLinkPPM = *abi.ConvertType(out[0], new(uint32)).(*uint32)
-	outstruct.FulfillmentFlatFeeEthPPM = *abi.ConvertType(out[1], new(uint32)).(*uint32)
+	outstruct.FulfillmentFlatFeeNativePPM = *abi.ConvertType(out[1], new(uint32)).(*uint32)
 
 	return *outstruct, err
 
@@ -720,9 +720,9 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionC
 	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.STotalBalance(&_VRFCoordinatorV2PlusUpgradedVersion.CallOpts)
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionCaller) STotalEthBalance(opts *bind.CallOpts) (*big.Int, error) {
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionCaller) STotalNativeBalance(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _VRFCoordinatorV2PlusUpgradedVersion.contract.Call(opts, &out, "s_totalEthBalance")
+	err := _VRFCoordinatorV2PlusUpgradedVersion.contract.Call(opts, &out, "s_totalNativeBalance")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -734,12 +734,12 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionC
 
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionSession) STotalEthBalance() (*big.Int, error) {
-	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.STotalEthBalance(&_VRFCoordinatorV2PlusUpgradedVersion.CallOpts)
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionSession) STotalNativeBalance() (*big.Int, error) {
+	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.STotalNativeBalance(&_VRFCoordinatorV2PlusUpgradedVersion.CallOpts)
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionCallerSession) STotalEthBalance() (*big.Int, error) {
-	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.STotalEthBalance(&_VRFCoordinatorV2PlusUpgradedVersion.CallOpts)
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionCallerSession) STotalNativeBalance() (*big.Int, error) {
+	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.STotalNativeBalance(&_VRFCoordinatorV2PlusUpgradedVersion.CallOpts)
 }
 
 func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactor) AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error) {
@@ -814,16 +814,16 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionT
 	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.FulfillRandomWords(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, proof, rc)
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactor) FundSubscriptionWithEth(opts *bind.TransactOpts, subId *big.Int) (*types.Transaction, error) {
-	return _VRFCoordinatorV2PlusUpgradedVersion.contract.Transact(opts, "fundSubscriptionWithEth", subId)
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactor) FundSubscriptionWithNative(opts *bind.TransactOpts, subId *big.Int) (*types.Transaction, error) {
+	return _VRFCoordinatorV2PlusUpgradedVersion.contract.Transact(opts, "fundSubscriptionWithNative", subId)
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionSession) FundSubscriptionWithEth(subId *big.Int) (*types.Transaction, error) {
-	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.FundSubscriptionWithEth(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, subId)
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionSession) FundSubscriptionWithNative(subId *big.Int) (*types.Transaction, error) {
+	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.FundSubscriptionWithNative(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, subId)
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactorSession) FundSubscriptionWithEth(subId *big.Int) (*types.Transaction, error) {
-	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.FundSubscriptionWithEth(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, subId)
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactorSession) FundSubscriptionWithNative(subId *big.Int) (*types.Transaction, error) {
+	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.FundSubscriptionWithNative(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, subId)
 }
 
 func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactor) OnMigration(opts *bind.TransactOpts, encodedData []byte) (*types.Transaction, error) {
@@ -862,16 +862,16 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionT
 	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.OracleWithdraw(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, recipient, amount)
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactor) OracleWithdrawEth(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _VRFCoordinatorV2PlusUpgradedVersion.contract.Transact(opts, "oracleWithdrawEth", recipient, amount)
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactor) OracleWithdrawNative(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _VRFCoordinatorV2PlusUpgradedVersion.contract.Transact(opts, "oracleWithdrawNative", recipient, amount)
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionSession) OracleWithdrawEth(recipient common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.OracleWithdrawEth(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, recipient, amount)
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionSession) OracleWithdrawNative(recipient common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.OracleWithdrawNative(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, recipient, amount)
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactorSession) OracleWithdrawEth(recipient common.Address, amount *big.Int) (*types.Transaction, error) {
-	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.OracleWithdrawEth(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, recipient, amount)
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactorSession) OracleWithdrawNative(recipient common.Address, amount *big.Int) (*types.Transaction, error) {
+	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.OracleWithdrawNative(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, recipient, amount)
 }
 
 func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactor) OwnerCancelSubscription(opts *bind.TransactOpts, subId *big.Int) (*types.Transaction, error) {
@@ -886,18 +886,6 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionT
 	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.OwnerCancelSubscription(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, subId)
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactor) RecoverEthFunds(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
-	return _VRFCoordinatorV2PlusUpgradedVersion.contract.Transact(opts, "recoverEthFunds", to)
-}
-
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionSession) RecoverEthFunds(to common.Address) (*types.Transaction, error) {
-	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.RecoverEthFunds(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, to)
-}
-
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactorSession) RecoverEthFunds(to common.Address) (*types.Transaction, error) {
-	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.RecoverEthFunds(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, to)
-}
-
 func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactor) RecoverFunds(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
 	return _VRFCoordinatorV2PlusUpgradedVersion.contract.Transact(opts, "recoverFunds", to)
 }
@@ -908,6 +896,18 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionS
 
 func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactorSession) RecoverFunds(to common.Address) (*types.Transaction, error) {
 	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.RecoverFunds(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, to)
+}
+
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactor) RecoverNativeFunds(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
+	return _VRFCoordinatorV2PlusUpgradedVersion.contract.Transact(opts, "recoverNativeFunds", to)
+}
+
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionSession) RecoverNativeFunds(to common.Address) (*types.Transaction, error) {
+	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.RecoverNativeFunds(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, to)
+}
+
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactorSession) RecoverNativeFunds(to common.Address) (*types.Transaction, error) {
+	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.RecoverNativeFunds(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, to)
 }
 
 func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactor) RegisterMigratableCoordinator(opts *bind.TransactOpts, target common.Address) (*types.Transaction, error) {
@@ -982,16 +982,16 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionT
 	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.SetConfig(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, minimumRequestConfirmations, maxGasLimit, stalenessSeconds, gasAfterPaymentCalculation, fallbackWeiPerUnitLink, feeConfig)
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactor) SetLINKAndLINKETHFeed(opts *bind.TransactOpts, link common.Address, linkEthFeed common.Address) (*types.Transaction, error) {
-	return _VRFCoordinatorV2PlusUpgradedVersion.contract.Transact(opts, "setLINKAndLINKETHFeed", link, linkEthFeed)
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactor) SetLINKAndLINKNativeFeed(opts *bind.TransactOpts, link common.Address, linkNativeFeed common.Address) (*types.Transaction, error) {
+	return _VRFCoordinatorV2PlusUpgradedVersion.contract.Transact(opts, "setLINKAndLINKNativeFeed", link, linkNativeFeed)
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionSession) SetLINKAndLINKETHFeed(link common.Address, linkEthFeed common.Address) (*types.Transaction, error) {
-	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.SetLINKAndLINKETHFeed(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, link, linkEthFeed)
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionSession) SetLINKAndLINKNativeFeed(link common.Address, linkNativeFeed common.Address) (*types.Transaction, error) {
+	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.SetLINKAndLINKNativeFeed(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, link, linkNativeFeed)
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactorSession) SetLINKAndLINKETHFeed(link common.Address, linkEthFeed common.Address) (*types.Transaction, error) {
-	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.SetLINKAndLINKETHFeed(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, link, linkEthFeed)
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactorSession) SetLINKAndLINKNativeFeed(link common.Address, linkNativeFeed common.Address) (*types.Transaction, error) {
+	return _VRFCoordinatorV2PlusUpgradedVersion.Contract.SetLINKAndLINKNativeFeed(&_VRFCoordinatorV2PlusUpgradedVersion.TransactOpts, link, linkNativeFeed)
 }
 
 func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionTransactor) TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error) {
@@ -1245,124 +1245,6 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionF
 	return event, nil
 }
 
-type VRFCoordinatorV2PlusUpgradedVersionEthFundsRecoveredIterator struct {
-	Event *VRFCoordinatorV2PlusUpgradedVersionEthFundsRecovered
-
-	contract *bind.BoundContract
-	event    string
-
-	logs chan types.Log
-	sub  ethereum.Subscription
-	done bool
-	fail error
-}
-
-func (it *VRFCoordinatorV2PlusUpgradedVersionEthFundsRecoveredIterator) Next() bool {
-
-	if it.fail != nil {
-		return false
-	}
-
-	if it.done {
-		select {
-		case log := <-it.logs:
-			it.Event = new(VRFCoordinatorV2PlusUpgradedVersionEthFundsRecovered)
-			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-				it.fail = err
-				return false
-			}
-			it.Event.Raw = log
-			return true
-
-		default:
-			return false
-		}
-	}
-
-	select {
-	case log := <-it.logs:
-		it.Event = new(VRFCoordinatorV2PlusUpgradedVersionEthFundsRecovered)
-		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
-			it.fail = err
-			return false
-		}
-		it.Event.Raw = log
-		return true
-
-	case err := <-it.sub.Err():
-		it.done = true
-		it.fail = err
-		return it.Next()
-	}
-}
-
-func (it *VRFCoordinatorV2PlusUpgradedVersionEthFundsRecoveredIterator) Error() error {
-	return it.fail
-}
-
-func (it *VRFCoordinatorV2PlusUpgradedVersionEthFundsRecoveredIterator) Close() error {
-	it.sub.Unsubscribe()
-	return nil
-}
-
-type VRFCoordinatorV2PlusUpgradedVersionEthFundsRecovered struct {
-	To     common.Address
-	Amount *big.Int
-	Raw    types.Log
-}
-
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionFilterer) FilterEthFundsRecovered(opts *bind.FilterOpts) (*VRFCoordinatorV2PlusUpgradedVersionEthFundsRecoveredIterator, error) {
-
-	logs, sub, err := _VRFCoordinatorV2PlusUpgradedVersion.contract.FilterLogs(opts, "EthFundsRecovered")
-	if err != nil {
-		return nil, err
-	}
-	return &VRFCoordinatorV2PlusUpgradedVersionEthFundsRecoveredIterator{contract: _VRFCoordinatorV2PlusUpgradedVersion.contract, event: "EthFundsRecovered", logs: logs, sub: sub}, nil
-}
-
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionFilterer) WatchEthFundsRecovered(opts *bind.WatchOpts, sink chan<- *VRFCoordinatorV2PlusUpgradedVersionEthFundsRecovered) (event.Subscription, error) {
-
-	logs, sub, err := _VRFCoordinatorV2PlusUpgradedVersion.contract.WatchLogs(opts, "EthFundsRecovered")
-	if err != nil {
-		return nil, err
-	}
-	return event.NewSubscription(func(quit <-chan struct{}) error {
-		defer sub.Unsubscribe()
-		for {
-			select {
-			case log := <-logs:
-
-				event := new(VRFCoordinatorV2PlusUpgradedVersionEthFundsRecovered)
-				if err := _VRFCoordinatorV2PlusUpgradedVersion.contract.UnpackLog(event, "EthFundsRecovered", log); err != nil {
-					return err
-				}
-				event.Raw = log
-
-				select {
-				case sink <- event:
-				case err := <-sub.Err():
-					return err
-				case <-quit:
-					return nil
-				}
-			case err := <-sub.Err():
-				return err
-			case <-quit:
-				return nil
-			}
-		}
-	}), nil
-}
-
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionFilterer) ParseEthFundsRecovered(log types.Log) (*VRFCoordinatorV2PlusUpgradedVersionEthFundsRecovered, error) {
-	event := new(VRFCoordinatorV2PlusUpgradedVersionEthFundsRecovered)
-	if err := _VRFCoordinatorV2PlusUpgradedVersion.contract.UnpackLog(event, "EthFundsRecovered", log); err != nil {
-		return nil, err
-	}
-	event.Raw = log
-	return event, nil
-}
-
 type VRFCoordinatorV2PlusUpgradedVersionFundsRecoveredIterator struct {
 	Event *VRFCoordinatorV2PlusUpgradedVersionFundsRecovered
 
@@ -1593,6 +1475,124 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionF
 func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionFilterer) ParseMigrationCompleted(log types.Log) (*VRFCoordinatorV2PlusUpgradedVersionMigrationCompleted, error) {
 	event := new(VRFCoordinatorV2PlusUpgradedVersionMigrationCompleted)
 	if err := _VRFCoordinatorV2PlusUpgradedVersion.contract.UnpackLog(event, "MigrationCompleted", log); err != nil {
+		return nil, err
+	}
+	event.Raw = log
+	return event, nil
+}
+
+type VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecoveredIterator struct {
+	Event *VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecovered
+
+	contract *bind.BoundContract
+	event    string
+
+	logs chan types.Log
+	sub  ethereum.Subscription
+	done bool
+	fail error
+}
+
+func (it *VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecoveredIterator) Next() bool {
+
+	if it.fail != nil {
+		return false
+	}
+
+	if it.done {
+		select {
+		case log := <-it.logs:
+			it.Event = new(VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecovered)
+			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+				it.fail = err
+				return false
+			}
+			it.Event.Raw = log
+			return true
+
+		default:
+			return false
+		}
+	}
+
+	select {
+	case log := <-it.logs:
+		it.Event = new(VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecovered)
+		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
+			it.fail = err
+			return false
+		}
+		it.Event.Raw = log
+		return true
+
+	case err := <-it.sub.Err():
+		it.done = true
+		it.fail = err
+		return it.Next()
+	}
+}
+
+func (it *VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecoveredIterator) Error() error {
+	return it.fail
+}
+
+func (it *VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecoveredIterator) Close() error {
+	it.sub.Unsubscribe()
+	return nil
+}
+
+type VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecovered struct {
+	To     common.Address
+	Amount *big.Int
+	Raw    types.Log
+}
+
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionFilterer) FilterNativeFundsRecovered(opts *bind.FilterOpts) (*VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecoveredIterator, error) {
+
+	logs, sub, err := _VRFCoordinatorV2PlusUpgradedVersion.contract.FilterLogs(opts, "NativeFundsRecovered")
+	if err != nil {
+		return nil, err
+	}
+	return &VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecoveredIterator{contract: _VRFCoordinatorV2PlusUpgradedVersion.contract, event: "NativeFundsRecovered", logs: logs, sub: sub}, nil
+}
+
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionFilterer) WatchNativeFundsRecovered(opts *bind.WatchOpts, sink chan<- *VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecovered) (event.Subscription, error) {
+
+	logs, sub, err := _VRFCoordinatorV2PlusUpgradedVersion.contract.WatchLogs(opts, "NativeFundsRecovered")
+	if err != nil {
+		return nil, err
+	}
+	return event.NewSubscription(func(quit <-chan struct{}) error {
+		defer sub.Unsubscribe()
+		for {
+			select {
+			case log := <-logs:
+
+				event := new(VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecovered)
+				if err := _VRFCoordinatorV2PlusUpgradedVersion.contract.UnpackLog(event, "NativeFundsRecovered", log); err != nil {
+					return err
+				}
+				event.Raw = log
+
+				select {
+				case sink <- event:
+				case err := <-sub.Err():
+					return err
+				case <-quit:
+					return nil
+				}
+			case err := <-sub.Err():
+				return err
+			case <-quit:
+				return nil
+			}
+		}
+	}), nil
+}
+
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionFilterer) ParseNativeFundsRecovered(log types.Log) (*VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecovered, error) {
+	event := new(VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecovered)
+	if err := _VRFCoordinatorV2PlusUpgradedVersion.contract.UnpackLog(event, "NativeFundsRecovered", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -2356,11 +2356,11 @@ func (it *VRFCoordinatorV2PlusUpgradedVersionSubscriptionCanceledIterator) Close
 }
 
 type VRFCoordinatorV2PlusUpgradedVersionSubscriptionCanceled struct {
-	SubId      *big.Int
-	To         common.Address
-	AmountLink *big.Int
-	AmountEth  *big.Int
-	Raw        types.Log
+	SubId        *big.Int
+	To           common.Address
+	AmountLink   *big.Int
+	AmountNative *big.Int
+	Raw          types.Log
 }
 
 func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionFilterer) FilterSubscriptionCanceled(opts *bind.FilterOpts, subId []*big.Int) (*VRFCoordinatorV2PlusUpgradedVersionSubscriptionCanceledIterator, error) {
@@ -2938,8 +2938,8 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionF
 	return event, nil
 }
 
-type VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEthIterator struct {
-	Event *VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEth
+type VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNativeIterator struct {
+	Event *VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNative
 
 	contract *bind.BoundContract
 	event    string
@@ -2950,7 +2950,7 @@ type VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEthIterator struct
 	fail error
 }
 
-func (it *VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEthIterator) Next() bool {
+func (it *VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNativeIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -2959,7 +2959,7 @@ func (it *VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEthIterator) 
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEth)
+			it.Event = new(VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNative)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -2974,7 +2974,7 @@ func (it *VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEthIterator) 
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEth)
+		it.Event = new(VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNative)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -2989,44 +2989,44 @@ func (it *VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEthIterator) 
 	}
 }
 
-func (it *VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEthIterator) Error() error {
+func (it *VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNativeIterator) Error() error {
 	return it.fail
 }
 
-func (it *VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEthIterator) Close() error {
+func (it *VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNativeIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEth struct {
-	SubId         *big.Int
-	OldEthBalance *big.Int
-	NewEthBalance *big.Int
-	Raw           types.Log
+type VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNative struct {
+	SubId            *big.Int
+	OldNativeBalance *big.Int
+	NewNativeBalance *big.Int
+	Raw              types.Log
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionFilterer) FilterSubscriptionFundedWithEth(opts *bind.FilterOpts, subId []*big.Int) (*VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEthIterator, error) {
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionFilterer) FilterSubscriptionFundedWithNative(opts *bind.FilterOpts, subId []*big.Int) (*VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNativeIterator, error) {
 
 	var subIdRule []interface{}
 	for _, subIdItem := range subId {
 		subIdRule = append(subIdRule, subIdItem)
 	}
 
-	logs, sub, err := _VRFCoordinatorV2PlusUpgradedVersion.contract.FilterLogs(opts, "SubscriptionFundedWithEth", subIdRule)
+	logs, sub, err := _VRFCoordinatorV2PlusUpgradedVersion.contract.FilterLogs(opts, "SubscriptionFundedWithNative", subIdRule)
 	if err != nil {
 		return nil, err
 	}
-	return &VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEthIterator{contract: _VRFCoordinatorV2PlusUpgradedVersion.contract, event: "SubscriptionFundedWithEth", logs: logs, sub: sub}, nil
+	return &VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNativeIterator{contract: _VRFCoordinatorV2PlusUpgradedVersion.contract, event: "SubscriptionFundedWithNative", logs: logs, sub: sub}, nil
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionFilterer) WatchSubscriptionFundedWithEth(opts *bind.WatchOpts, sink chan<- *VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEth, subId []*big.Int) (event.Subscription, error) {
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionFilterer) WatchSubscriptionFundedWithNative(opts *bind.WatchOpts, sink chan<- *VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNative, subId []*big.Int) (event.Subscription, error) {
 
 	var subIdRule []interface{}
 	for _, subIdItem := range subId {
 		subIdRule = append(subIdRule, subIdItem)
 	}
 
-	logs, sub, err := _VRFCoordinatorV2PlusUpgradedVersion.contract.WatchLogs(opts, "SubscriptionFundedWithEth", subIdRule)
+	logs, sub, err := _VRFCoordinatorV2PlusUpgradedVersion.contract.WatchLogs(opts, "SubscriptionFundedWithNative", subIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -3036,8 +3036,8 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionF
 			select {
 			case log := <-logs:
 
-				event := new(VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEth)
-				if err := _VRFCoordinatorV2PlusUpgradedVersion.contract.UnpackLog(event, "SubscriptionFundedWithEth", log); err != nil {
+				event := new(VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNative)
+				if err := _VRFCoordinatorV2PlusUpgradedVersion.contract.UnpackLog(event, "SubscriptionFundedWithNative", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -3058,9 +3058,9 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionF
 	}), nil
 }
 
-func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionFilterer) ParseSubscriptionFundedWithEth(log types.Log) (*VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEth, error) {
-	event := new(VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEth)
-	if err := _VRFCoordinatorV2PlusUpgradedVersion.contract.UnpackLog(event, "SubscriptionFundedWithEth", log); err != nil {
+func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionFilterer) ParseSubscriptionFundedWithNative(log types.Log) (*VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNative, error) {
+	event := new(VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNative)
+	if err := _VRFCoordinatorV2PlusUpgradedVersion.contract.UnpackLog(event, "SubscriptionFundedWithNative", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -3326,11 +3326,11 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersionF
 }
 
 type GetSubscription struct {
-	Balance    *big.Int
-	EthBalance *big.Int
-	ReqCount   uint64
-	Owner      common.Address
-	Consumers  []common.Address
+	Balance       *big.Int
+	NativeBalance *big.Int
+	ReqCount      uint64
+	Owner         common.Address
+	Consumers     []common.Address
 }
 type SConfig struct {
 	MinimumRequestConfirmations uint16
@@ -3340,8 +3340,8 @@ type SConfig struct {
 	GasAfterPaymentCalculation  uint32
 }
 type SFeeConfig struct {
-	FulfillmentFlatFeeLinkPPM uint32
-	FulfillmentFlatFeeEthPPM  uint32
+	FulfillmentFlatFeeLinkPPM   uint32
+	FulfillmentFlatFeeNativePPM uint32
 }
 
 func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersion) ParseLog(log types.Log) (generated.AbigenLog, error) {
@@ -3350,12 +3350,12 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersion)
 		return _VRFCoordinatorV2PlusUpgradedVersion.ParseConfigSet(log)
 	case _VRFCoordinatorV2PlusUpgradedVersion.abi.Events["CoordinatorRegistered"].ID:
 		return _VRFCoordinatorV2PlusUpgradedVersion.ParseCoordinatorRegistered(log)
-	case _VRFCoordinatorV2PlusUpgradedVersion.abi.Events["EthFundsRecovered"].ID:
-		return _VRFCoordinatorV2PlusUpgradedVersion.ParseEthFundsRecovered(log)
 	case _VRFCoordinatorV2PlusUpgradedVersion.abi.Events["FundsRecovered"].ID:
 		return _VRFCoordinatorV2PlusUpgradedVersion.ParseFundsRecovered(log)
 	case _VRFCoordinatorV2PlusUpgradedVersion.abi.Events["MigrationCompleted"].ID:
 		return _VRFCoordinatorV2PlusUpgradedVersion.ParseMigrationCompleted(log)
+	case _VRFCoordinatorV2PlusUpgradedVersion.abi.Events["NativeFundsRecovered"].ID:
+		return _VRFCoordinatorV2PlusUpgradedVersion.ParseNativeFundsRecovered(log)
 	case _VRFCoordinatorV2PlusUpgradedVersion.abi.Events["OwnershipTransferRequested"].ID:
 		return _VRFCoordinatorV2PlusUpgradedVersion.ParseOwnershipTransferRequested(log)
 	case _VRFCoordinatorV2PlusUpgradedVersion.abi.Events["OwnershipTransferred"].ID:
@@ -3376,8 +3376,8 @@ func (_VRFCoordinatorV2PlusUpgradedVersion *VRFCoordinatorV2PlusUpgradedVersion)
 		return _VRFCoordinatorV2PlusUpgradedVersion.ParseSubscriptionCreated(log)
 	case _VRFCoordinatorV2PlusUpgradedVersion.abi.Events["SubscriptionFunded"].ID:
 		return _VRFCoordinatorV2PlusUpgradedVersion.ParseSubscriptionFunded(log)
-	case _VRFCoordinatorV2PlusUpgradedVersion.abi.Events["SubscriptionFundedWithEth"].ID:
-		return _VRFCoordinatorV2PlusUpgradedVersion.ParseSubscriptionFundedWithEth(log)
+	case _VRFCoordinatorV2PlusUpgradedVersion.abi.Events["SubscriptionFundedWithNative"].ID:
+		return _VRFCoordinatorV2PlusUpgradedVersion.ParseSubscriptionFundedWithNative(log)
 	case _VRFCoordinatorV2PlusUpgradedVersion.abi.Events["SubscriptionOwnerTransferRequested"].ID:
 		return _VRFCoordinatorV2PlusUpgradedVersion.ParseSubscriptionOwnerTransferRequested(log)
 	case _VRFCoordinatorV2PlusUpgradedVersion.abi.Events["SubscriptionOwnerTransferred"].ID:
@@ -3396,16 +3396,16 @@ func (VRFCoordinatorV2PlusUpgradedVersionCoordinatorRegistered) Topic() common.H
 	return common.HexToHash("0xb7cabbfc11e66731fc77de0444614282023bcbd41d16781c753a431d0af01625")
 }
 
-func (VRFCoordinatorV2PlusUpgradedVersionEthFundsRecovered) Topic() common.Hash {
-	return common.HexToHash("0x879c9ea2b9d5345b84ccd12610b032602808517cebdb795007f3dcb4df377317")
-}
-
 func (VRFCoordinatorV2PlusUpgradedVersionFundsRecovered) Topic() common.Hash {
 	return common.HexToHash("0x59bfc682b673f8cbf945f1e454df9334834abf7dfe7f92237ca29ecb9b436600")
 }
 
 func (VRFCoordinatorV2PlusUpgradedVersionMigrationCompleted) Topic() common.Hash {
 	return common.HexToHash("0xd63ca8cb945956747ee69bfdc3ea754c24a4caf7418db70e46052f7850be4187")
+}
+
+func (VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecovered) Topic() common.Hash {
+	return common.HexToHash("0x4aed7c8eed0496c8c19ea2681fcca25741c1602342e38b045d9f1e8e905d2e9c")
 }
 
 func (VRFCoordinatorV2PlusUpgradedVersionOwnershipTransferRequested) Topic() common.Hash {
@@ -3448,8 +3448,8 @@ func (VRFCoordinatorV2PlusUpgradedVersionSubscriptionFunded) Topic() common.Hash
 	return common.HexToHash("0x1ced9348ff549fceab2ac57cd3a9de38edaaab274b725ee82c23e8fc8c4eec7a")
 }
 
-func (VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEth) Topic() common.Hash {
-	return common.HexToHash("0x3f1ddc3ab1bdb39001ad76ca51a0e6f57ce6627c69f251d1de41622847721cde")
+func (VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNative) Topic() common.Hash {
+	return common.HexToHash("0x7603b205d03651ee812f803fccde89f1012e545a9c99f0abfea9cedd0fd8e902")
 }
 
 func (VRFCoordinatorV2PlusUpgradedVersionSubscriptionOwnerTransferRequested) Topic() common.Hash {
@@ -3469,7 +3469,7 @@ type VRFCoordinatorV2PlusUpgradedVersionInterface interface {
 
 	LINK(opts *bind.CallOpts) (common.Address, error)
 
-	LINKETHFEED(opts *bind.CallOpts) (common.Address, error)
+	LINKNATIVEFEED(opts *bind.CallOpts) (common.Address, error)
 
 	MAXCONSUMERS(opts *bind.CallOpts) (uint16, error)
 
@@ -3515,7 +3515,7 @@ type VRFCoordinatorV2PlusUpgradedVersionInterface interface {
 
 	STotalBalance(opts *bind.CallOpts) (*big.Int, error)
 
-	STotalEthBalance(opts *bind.CallOpts) (*big.Int, error)
+	STotalNativeBalance(opts *bind.CallOpts) (*big.Int, error)
 
 	AcceptOwnership(opts *bind.TransactOpts) (*types.Transaction, error)
 
@@ -3529,7 +3529,7 @@ type VRFCoordinatorV2PlusUpgradedVersionInterface interface {
 
 	FulfillRandomWords(opts *bind.TransactOpts, proof VRFProof, rc VRFCoordinatorV2PlusUpgradedVersionRequestCommitment) (*types.Transaction, error)
 
-	FundSubscriptionWithEth(opts *bind.TransactOpts, subId *big.Int) (*types.Transaction, error)
+	FundSubscriptionWithNative(opts *bind.TransactOpts, subId *big.Int) (*types.Transaction, error)
 
 	OnMigration(opts *bind.TransactOpts, encodedData []byte) (*types.Transaction, error)
 
@@ -3537,13 +3537,13 @@ type VRFCoordinatorV2PlusUpgradedVersionInterface interface {
 
 	OracleWithdraw(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error)
 
-	OracleWithdrawEth(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error)
+	OracleWithdrawNative(opts *bind.TransactOpts, recipient common.Address, amount *big.Int) (*types.Transaction, error)
 
 	OwnerCancelSubscription(opts *bind.TransactOpts, subId *big.Int) (*types.Transaction, error)
 
-	RecoverEthFunds(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
-
 	RecoverFunds(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
+
+	RecoverNativeFunds(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 
 	RegisterMigratableCoordinator(opts *bind.TransactOpts, target common.Address) (*types.Transaction, error)
 
@@ -3557,7 +3557,7 @@ type VRFCoordinatorV2PlusUpgradedVersionInterface interface {
 
 	SetConfig(opts *bind.TransactOpts, minimumRequestConfirmations uint16, maxGasLimit uint32, stalenessSeconds uint32, gasAfterPaymentCalculation uint32, fallbackWeiPerUnitLink *big.Int, feeConfig VRFCoordinatorV2PlusUpgradedVersionFeeConfig) (*types.Transaction, error)
 
-	SetLINKAndLINKETHFeed(opts *bind.TransactOpts, link common.Address, linkEthFeed common.Address) (*types.Transaction, error)
+	SetLINKAndLINKNativeFeed(opts *bind.TransactOpts, link common.Address, linkNativeFeed common.Address) (*types.Transaction, error)
 
 	TransferOwnership(opts *bind.TransactOpts, to common.Address) (*types.Transaction, error)
 
@@ -3573,12 +3573,6 @@ type VRFCoordinatorV2PlusUpgradedVersionInterface interface {
 
 	ParseCoordinatorRegistered(log types.Log) (*VRFCoordinatorV2PlusUpgradedVersionCoordinatorRegistered, error)
 
-	FilterEthFundsRecovered(opts *bind.FilterOpts) (*VRFCoordinatorV2PlusUpgradedVersionEthFundsRecoveredIterator, error)
-
-	WatchEthFundsRecovered(opts *bind.WatchOpts, sink chan<- *VRFCoordinatorV2PlusUpgradedVersionEthFundsRecovered) (event.Subscription, error)
-
-	ParseEthFundsRecovered(log types.Log) (*VRFCoordinatorV2PlusUpgradedVersionEthFundsRecovered, error)
-
 	FilterFundsRecovered(opts *bind.FilterOpts) (*VRFCoordinatorV2PlusUpgradedVersionFundsRecoveredIterator, error)
 
 	WatchFundsRecovered(opts *bind.WatchOpts, sink chan<- *VRFCoordinatorV2PlusUpgradedVersionFundsRecovered) (event.Subscription, error)
@@ -3590,6 +3584,12 @@ type VRFCoordinatorV2PlusUpgradedVersionInterface interface {
 	WatchMigrationCompleted(opts *bind.WatchOpts, sink chan<- *VRFCoordinatorV2PlusUpgradedVersionMigrationCompleted) (event.Subscription, error)
 
 	ParseMigrationCompleted(log types.Log) (*VRFCoordinatorV2PlusUpgradedVersionMigrationCompleted, error)
+
+	FilterNativeFundsRecovered(opts *bind.FilterOpts) (*VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecoveredIterator, error)
+
+	WatchNativeFundsRecovered(opts *bind.WatchOpts, sink chan<- *VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecovered) (event.Subscription, error)
+
+	ParseNativeFundsRecovered(log types.Log) (*VRFCoordinatorV2PlusUpgradedVersionNativeFundsRecovered, error)
 
 	FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*VRFCoordinatorV2PlusUpgradedVersionOwnershipTransferRequestedIterator, error)
 
@@ -3651,11 +3651,11 @@ type VRFCoordinatorV2PlusUpgradedVersionInterface interface {
 
 	ParseSubscriptionFunded(log types.Log) (*VRFCoordinatorV2PlusUpgradedVersionSubscriptionFunded, error)
 
-	FilterSubscriptionFundedWithEth(opts *bind.FilterOpts, subId []*big.Int) (*VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEthIterator, error)
+	FilterSubscriptionFundedWithNative(opts *bind.FilterOpts, subId []*big.Int) (*VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNativeIterator, error)
 
-	WatchSubscriptionFundedWithEth(opts *bind.WatchOpts, sink chan<- *VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEth, subId []*big.Int) (event.Subscription, error)
+	WatchSubscriptionFundedWithNative(opts *bind.WatchOpts, sink chan<- *VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNative, subId []*big.Int) (event.Subscription, error)
 
-	ParseSubscriptionFundedWithEth(log types.Log) (*VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithEth, error)
+	ParseSubscriptionFundedWithNative(log types.Log) (*VRFCoordinatorV2PlusUpgradedVersionSubscriptionFundedWithNative, error)
 
 	FilterSubscriptionOwnerTransferRequested(opts *bind.FilterOpts, subId []*big.Int) (*VRFCoordinatorV2PlusUpgradedVersionSubscriptionOwnerTransferRequestedIterator, error)
 
