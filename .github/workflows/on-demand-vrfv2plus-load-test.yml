@@ -6,18 +6,19 @@ on:
         description: Network to run tests on
         type: choice
         options:
+          - "ETHEREUM_MAINNET"
           - "SIMULATED"
-          - "GOERLI"
+          - "SEPOLIA"
+          - "OPTIMISM_MAINNET"
           - "OPTIMISM_GOERLI"
+          - "ARBITRUM_MAINNET"
           - "ARBITRUM_GOERLI"
-          - "CELO_ALFAJORES"
-          - "CELO_MAINNET"
-          - "BASE_GOERLI"
-          - "BASE_MAINNET"
           - "BSC_MAINNET"
           - "BSC_TESTNET"
-          - "SCROLL_SEPOLIA"
-          - "SCROLL_MAINNET"
+          - "POLYGON_MAINNET"
+          - "MUMBAI"
+          - "AVALANCHE_FUJI"
+          - "AVALANCHE_MAINNET"
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
@@ -30,11 +31,6 @@ on:
         description: HTTP URL for the network (Skip for Simulated)
         required: false
         type: string
-#      slackMemberID:
-#        description: Slack Member ID (Not your @)
-#        required: true
-#        default: U01A2B2C3D4
-#        type: string
       chainlinkImage:
         description: Container image location for the Chainlink nodes
         required: true
@@ -51,10 +47,6 @@ on:
         description: How much to fund each Chainlink node (in ETH)
         required: false
         default: ".1"
-
-          
-          
-
 jobs:
   vrfv2plus_load_test:
     name: ${{ inputs.network }} VRFV2 Plus Load Test
@@ -67,9 +59,6 @@ jobs:
       contents: read
     env:
       SELECTED_NETWORKS: ${{ inputs.network }}
-#      SELECTED_TEST: ${{ inputs.test_type }}
-#      SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
-#      SLACK_CHANNEL: ${{ secrets.QA_SLACK_CHANNEL }}
       VRFV2PLUS_TEST_DURATION: ${{ inputs.testDuration }}
       VRFV2PLUS_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
       TEST_LOG_LEVEL: debug
@@ -99,7 +88,6 @@ jobs:
           echo EVM_URLS=$EVM_URLS >> $GITHUB_ENV
           echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
           echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
-          
 
       - name: Checkout code
         uses: actions/checkout@v3
@@ -107,6 +95,6 @@ jobs:
           fetch-depth: 0
       - name: Run E2E soak tests
         run: |
-          cd integration-tests/load/functions
+          cd integration-tests/load/vrfv2plus
           go test -v -timeout 15m -run TestVRFV2PlusLoad/vrfv2plus_soak_test
 

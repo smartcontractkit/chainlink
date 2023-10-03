@@ -18,7 +18,7 @@ type SingleHashGun struct {
 	logger          zerolog.Logger
 }
 
-func SingleFeedGun(
+func NewSingleHashGun(
 	contracts *vrfv2plus.VRFV2_5Contracts,
 	keyHash [32]byte,
 	subID *big.Int,
