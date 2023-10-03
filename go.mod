@@ -7,7 +7,7 @@ require (
 	github.com/google/uuid v1.3.0
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.0-rc.0
 	github.com/hashicorp/go-hclog v0.14.1
-	github.com/hashicorp/go-plugin v1.4.10
+	github.com/hashicorp/go-plugin v1.5.2
 	github.com/jpillora/backoff v1.0.0
 	github.com/linkedin/goavro/v2 v2.12.0
 	github.com/mwitkow/grpc-proxy v0.0.0-20230212185441-f345521cb9c9
@@ -67,7 +67,7 @@ require (
 
 replace (
 	// until merged upstream: https://github.com/hashicorp/go-plugin/pull/257
-	github.com/hashicorp/go-plugin => github.com/smartcontractkit/go-plugin v0.0.0-20230605132010-0f4d515d1472
+	github.com/hashicorp/go-plugin => github.com/smartcontractkit/go-plugin v0.0.0-20231003134350-e49dad63b306
 
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
