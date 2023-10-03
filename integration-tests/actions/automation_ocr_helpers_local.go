@@ -12,18 +12,18 @@ import (
 	"github.com/rs/zerolog"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	ocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2keepers20config "github.com/smartcontractkit/ocr2keepers/pkg/v2/config"
 	ocr2keepers30config "github.com/smartcontractkit/ocr2keepers/pkg/v3/config"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 func BuildAutoOCR2ConfigVarsLocal(
