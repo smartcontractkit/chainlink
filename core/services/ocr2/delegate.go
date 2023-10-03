@@ -213,7 +213,7 @@ func NewDelegate(
 		monitoringEndpointGen: monitoringEndpointGen,
 		legacyChains:          legacyChains,
 		cfg:                   cfg,
-		lggr:                  lggr,
+		lggr:                  lggr.Named("OCR2"),
 		ks:                    ks,
 		dkgSignKs:             dkgSignKs,
 		dkgEncryptKs:          dkgEncryptKs,
@@ -335,7 +335,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		lggrCtx.FeedID = *spec.FeedID
 		spec.RelayConfig["feedID"] = spec.FeedID
 	}
-	lggr := logger.Sugared(d.lggr.Named("OCR2").With(lggrCtx.Args()...))
+	lggr := logger.Sugared(d.lggr.Named(jb.ExternalJobID.String()).With(lggrCtx.Args()...))
 
 	rid, err := spec.RelayID()
 	if err != nil {
