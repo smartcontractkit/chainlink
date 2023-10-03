@@ -36,7 +36,6 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
   error ProvingKeyAlreadyRegistered(bytes32 keyHash);
   error NoSuchProvingKey(bytes32 keyHash);
   error InvalidLinkWeiPrice(int256 linkWei);
-  error InsufficientGasForConsumer(uint256 have, uint256 want);
   error NoCorrespondingRequest();
   error IncorrectCommitment();
   error BlockhashNotInStore(uint256 blockNum);
@@ -57,7 +56,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     bytes extraArgs;
   }
 
-  mapping(bytes32 => address) /* keyHash */ /* oracle */ public s_provingKeys;
+  mapping(bytes32 => address) /* keyHash */ /* oracle */ internal s_provingKeys;
   bytes32[] public s_provingKeyHashes;
   mapping(uint256 => bytes32) /* requestID */ /* commitment */ public s_requestCommitments;
 
@@ -81,9 +80,9 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     bool success
   );
 
-  int256 public s_fallbackWeiPerUnitLink;
+  int256 internal s_fallbackWeiPerUnitLink;
 
-  FeeConfig public s_feeConfig;
+  FeeConfig internal s_feeConfig;
 
   struct FeeConfig {
     // Flat fee charged per fulfillment in millionths of link
