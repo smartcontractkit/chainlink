@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"slices"
 	"sync"
 	"testing"
 	"time"
 
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"

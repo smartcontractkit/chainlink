@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -20,7 +21,6 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 	"go.uber.org/multierr"
-	"golang.org/x/exp/slices"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -503,8 +503,14 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		// first. This allows us to break out of the processing loop as early as possible
 		// in the event that a subscription is too underfunded to have it's
 		// requests processed.
-		slices.SortFunc(reqs, func(a, b pendingRequest) bool {
-			return a.req.CallbackGasLimit() < b.req.CallbackGasLimit()
+		slices.SortFunc(reqs, func(a, b pendingRequest) int {
+			if a.req.CallbackGasLimit() == b.req.CallbackGasLimit() {
+				return 0
+			}
+			if a.req.CallbackGasLimit() < b.req.CallbackGasLimit() {
+				return -1
+			}
+			return 1 // a.req.CallbackGasLimit() > b.req.CallbackGasLimit()
 		})
 
 		p := lsn.processRequestsPerSub(ctx, sID, startLinkBalance, startEthBalance, reqs, subIsActive)

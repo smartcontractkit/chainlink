@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
