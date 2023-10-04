@@ -9,7 +9,6 @@ import "../../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../interfaces/IVRFV2PlusWrapper.sol";
 import "./VRFV2PlusWrapperConsumerBase.sol";
-import {VRFCoordinatorV2_5} from "./VRFCoordinatorV2_5.sol";
 import "../../ChainSpecificUtil.sol";
 
 /**
@@ -569,7 +568,6 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
   function migrate(address newCoordinator) external onlyOwner {
     IMigration(address(s_vrfCoordinator)).migrate(SUBSCRIPTION_ID, newCoordinator);
-    s_vrfCoordinator.addConsumer(SUBSCRIPTION_ID, address(this));
   }
 }
 
