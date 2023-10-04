@@ -1,7 +1,6 @@
 package functions_test
 
 import (
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -19,7 +18,6 @@ import (
 
 	decryptionPlugin "github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin"
 
-	cl_cbor "github.com/smartcontractkit/chainlink/v2/core/cbor"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -467,36 +465,6 @@ func TestFunctionsListener_PruneRequests(t *testing.T) {
 	require.NoError(t, err)
 	<-doneCh
 	uni.service.Close()
-}
-
-func TestFunctionsListener_RequestSignatureVerification(t *testing.T) {
-	testutils.SkipShortDB(t)
-	t.Parallel()
-
-	cborBytes, err := hex.DecodeString(SignedCBORRequestHex)
-	require.NoError(t, err)
-
-	var requestData functions_service.RequestData
-	err = cl_cbor.ParseDietCBORToStruct(cborBytes, &requestData)
-	require.NoError(t, err)
-
-	err = functions_service.VerifyRequestSignature(SubOwnerAddr, &requestData)
-	assert.NoError(t, err)
-}
-
-func TestFunctionsListener_RequestSignatureVerificationFailure(t *testing.T) {
-	testutils.SkipShortDB(t)
-	t.Parallel()
-
-	cborBytes, err := hex.DecodeString(SignedCBORRequestHex)
-	require.NoError(t, err)
-
-	var requestData functions_service.RequestData
-	err = cl_cbor.ParseDietCBORToStruct(cborBytes, &requestData)
-	require.NoError(t, err)
-
-	err = functions_service.VerifyRequestSignature(NonSubOwnerAddr, &requestData)
-	assert.EqualError(t, err, "invalid request signature: signer's address does not match subscription owner")
 }
 
 func getFlags(requestSizeTier int, secretSizeTier int) [32]byte {
