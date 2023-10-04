@@ -316,7 +316,8 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 			strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"),
 			strings.ReplaceAll(strings.ToLower(RegistryToTest), "_", "-"),
 		),
-		Test: t,
+		Test:               t,
+		PreventPodEviction: true,
 	})
 	// propagate TEST_INPUTS to remote runner
 	if testEnvironment.WillUseRemoteRunner() {

@@ -82,13 +82,13 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayEx
 	require.NotNil(t, testopts.KeyStore)
 	opts := evm.ChainRelayExtenderConfig{
 		Logger:   logger.TestLogger(t),
-		DB:       testopts.DB,
 		KeyStore: testopts.KeyStore,
-		RelayerConfig: &evm.RelayerConfig{
+		ChainOpts: evm.ChainOpts{
 			AppConfig:        testopts.GeneralConfig,
 			EventBroadcaster: pg.NewNullEventBroadcaster(),
 			MailMon:          testopts.MailMon,
 			GasEstimator:     testopts.GasEstimator,
+			DB:               testopts.DB,
 		},
 	}
 	opts.GenEthClient = func(*big.Int) evmclient.Client {

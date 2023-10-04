@@ -497,7 +497,7 @@ func subscribeVRF(
 	require.NoError(t, err)
 
 	if nativePayment {
-		require.Equal(t, fundingAmount.String(), sub.EthBalance().String())
+		require.Equal(t, fundingAmount.String(), sub.NativeBalance().String())
 	} else {
 		require.Equal(t, fundingAmount.String(), sub.Balance().String())
 	}
@@ -803,7 +803,7 @@ func mineBatch(t *testing.T, requestIDs []*big.Int, subID *big.Int, backend *bac
 		require.NoError(t, err)
 		for _, tx := range txs {
 			var evmTx txmgr.Tx
-			txmgr.DbEthTxToEthTx(tx, &evmTx)
+			tx.ToTx(&evmTx)
 			meta, err := evmTx.GetMeta()
 			require.NoError(t, err)
 			for _, requestID := range meta.RequestIDs {
@@ -1320,7 +1320,6 @@ func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore(t *testing.T
 }
 
 func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore_AfterDelay(t *testing.T) {
-	t.Skip("TODO: VRF-616")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, true)
@@ -2105,7 +2104,8 @@ func TestStartingCountsV1(t *testing.T) {
 	sql := `INSERT INTO evm.txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, state, created_at, broadcast_at, initial_broadcast_at, meta, subject, evm_chain_id, min_confirmations, pipeline_task_run_id)
 VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :state, :created_at, :broadcast_at, :initial_broadcast_at, :meta, :subject, :evm_chain_id, :min_confirmations, :pipeline_task_run_id);`
 	for _, tx := range append(confirmedTxes, unconfirmedTxes...) {
-		dbEtx := txmgr.DbEthTxFromEthTx(&tx)
+		var dbEtx txmgr.DbEthTx
+		dbEtx.FromTx(&tx) //nolint:gosec // just copying fields
 		_, err = db.NamedExec(sql, &dbEtx)
 		require.NoError(t, err)
 	}
@@ -2143,10 +2143,10 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	sql = `INSERT INTO evm.tx_attempts (eth_tx_id, gas_price, signed_raw_tx, hash, state, created_at, chain_specific_gas_limit)
 		VALUES (:eth_tx_id, :gas_price, :signed_raw_tx, :hash, :state, :created_at, :chain_specific_gas_limit)`
 	for _, attempt := range txAttempts {
-		dbAttempt := txmgr.DbEthTxAttemptFromEthTxAttempt(&attempt) //nolint:gosec // just copying fields
+		var dbAttempt txmgr.DbEthTxAttempt
+		dbAttempt.FromTxAttempt(&attempt) //nolint:gosec // just copying fields
 		_, err = db.NamedExec(sql, &dbAttempt)
 		require.NoError(t, err)
-		txmgr.DbEthTxAttemptToEthTxAttempt(dbAttempt, &attempt) //nolint:gosec // just copying fields
 	}
 
 	// add evm.receipts
@@ -2164,7 +2164,7 @@ VALUES (:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit
 	sql = `INSERT INTO evm.receipts (block_hash, tx_hash, block_number, transaction_index, receipt, created_at)
 		VALUES (:block_hash, :tx_hash, :block_number, :transaction_index, :receipt, :created_at)`
 	for _, r := range receipts {
-		_, err := db.NamedExec(sql, &r)
+		_, err := db.NamedExec(sql, r)
 		require.NoError(t, err)
 	}
 
