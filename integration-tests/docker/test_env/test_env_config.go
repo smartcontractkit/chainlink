@@ -9,15 +9,8 @@ import (
 type TestEnvConfig struct {
 	Networks    []string          `json:"networks"`
 	Geth        GethConfig        `json:"geth"`
-	MockServer  MockServerConfig  `json:"mockserver"`
 	MockAdapter MockAdapterConfig `json:"mock_adapter"`
 	Nodes       []ClNodeConfig    `json:"nodes"`
-}
-
-// Deprecated: MockServerConfig is deprecated in favor of MockAdapterConfig
-type MockServerConfig struct {
-	ContainerName string   `json:"container_name"`
-	EAMockUrls    []string `json:"external_adapters_mock_urls"`
 }
 
 type MockAdapterConfig struct {
