@@ -34,10 +34,6 @@ graph LR
 
 The Master Interface is a deduped combination of all the interfaces from all contracts in the chain. We generate this interface programatically using the script `generate-automation-master-interface.ts`. This process is not a hardened one. Users of this script should take great care to ensure it's efficacy.
 
-### Future Improvements
-
-- We could use this script to change `checkUpkeep` from an executable function to a "view" function in the master interface - this would make interacting with the contract simpler in tests and (maybe) also from the core node.
-
 [size-limit-eip]: https://eips.ethereum.org/EIPS/eip-170
 [fallback]: https://docs.soliditylang.org/en/v0.8.12/contracts.html#fallback-function
 [delegatecall]: https://docs.soliditylang.org/en/v0.8.12/introduction-to-smart-contracts.html?highlight=delegatecall#delegatecall-callcode-and-libraries
