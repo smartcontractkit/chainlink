@@ -8,12 +8,10 @@ import (
 
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
-
 	starkChain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
@@ -23,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -164,7 +163,7 @@ func (c *chain) Ready() error {
 
 func (c *chain) HealthReport() map[string]error {
 	report := map[string]error{c.Name(): c.StartStopOnce.Healthy()}
-	maps.Copy(report, c.txm.HealthReport())
+	services.CopyHealth(report, c.txm.HealthReport())
 	return report
 }
 

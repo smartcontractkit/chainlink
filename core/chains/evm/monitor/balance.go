@@ -54,7 +54,7 @@ func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, log
 	chainId := ethClient.ConfiguredChainID()
 	bm := &balanceMonitor{
 		utils.StartStopOnce{},
-		logger,
+		logger.Named("BalanceMonitor"),
 		ethClient,
 		chainId,
 		chainId.String(),

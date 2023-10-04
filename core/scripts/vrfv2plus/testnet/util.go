@@ -205,6 +205,10 @@ func wrapperConfigure(
 	wrapperGasOverhead, coordinatorGasOverhead, premiumPercentage uint,
 	keyHash string,
 	maxNumWords uint,
+	fallbackWeiPerUnitLink *big.Int,
+	stalenessSeconds uint32,
+	fulfillmentFlatFeeLinkPPM uint32,
+	fulfillmentFlatFeeNativePPM uint32,
 ) {
 	wrapper, err := vrfv2plus_wrapper.NewVRFV2PlusWrapper(wrapperAddress, e.Ec)
 	helpers.PanicErr(err)
@@ -215,7 +219,13 @@ func wrapperConfigure(
 		uint32(coordinatorGasOverhead),
 		uint8(premiumPercentage),
 		common.HexToHash(keyHash),
-		uint8(maxNumWords))
+		uint8(maxNumWords),
+		stalenessSeconds,
+		fallbackWeiPerUnitLink,
+		fulfillmentFlatFeeLinkPPM,
+		fulfillmentFlatFeeNativePPM,
+	)
+
 	helpers.PanicErr(err)
 	helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID)
 }

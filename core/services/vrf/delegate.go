@@ -58,7 +58,7 @@ func NewDelegate(
 		pr:           pr,
 		porm:         porm,
 		legacyChains: legacyChains,
-		lggr:         lggr,
+		lggr:         lggr.Named("VRF"),
 		mailMon:      mailMon,
 	}
 }
@@ -119,7 +119,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 	}
 
-	l := d.lggr.With(
+	l := d.lggr.Named(jb.ExternalJobID.String()).With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
 		"coordinatorAddress", jb.VRFSpec.CoordinatorAddress,

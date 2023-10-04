@@ -1112,7 +1112,11 @@ func main() {
 		wrapperPremiumPercentage := cmd.Uint("wrapper-premium-percentage", 25, "gas premium charged by wrapper")
 		keyHash := cmd.String("key-hash", "", "the keyhash that wrapper requests should use")
 		maxNumWords := cmd.Uint("max-num-words", 10, "the keyhash that wrapper requests should use")
-		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address", "key-hash")
+		fallbackWeiPerUnitLink := cmd.String("fallback-wei-per-unit-link", "", "the fallback wei per unit link")
+		stalenessSeconds := cmd.Uint("staleness-seconds", 86400, "the number of seconds of staleness to allow")
+		fulfillmentFlatFeeLinkPPM := cmd.Uint("fulfillment-flat-fee-link-ppm", 500, "the link flat fee in ppm to charge for fulfillment")
+		fulfillmentFlatFeeNativePPM := cmd.Uint("fulfillment-flat-fee-native-ppm", 500, "the native flat fee in ppm to charge for fulfillment")
+		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address", "key-hash", "fallback-wei-per-unit-link")
 
 		wrapperConfigure(e,
 			common.HexToAddress(*wrapperAddress),
@@ -1120,7 +1124,11 @@ func main() {
 			*coordinatorGasOverhead,
 			*wrapperPremiumPercentage,
 			*keyHash,
-			*maxNumWords)
+			*maxNumWords,
+			decimal.RequireFromString(*fallbackWeiPerUnitLink).BigInt(),
+			uint32(*stalenessSeconds),
+			uint32(*fulfillmentFlatFeeLinkPPM),
+			uint32(*fulfillmentFlatFeeNativePPM))
 	case "wrapper-get-fulfillment-tx-size":
 		cmd := flag.NewFlagSet("wrapper-get-fulfillment-tx-size", flag.ExitOnError)
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")

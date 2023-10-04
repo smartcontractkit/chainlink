@@ -7,7 +7,7 @@ import "./VRFConsumerBaseV2Plus.sol";
 import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/IVRFCoordinatorV2Plus.sol";
-import "../interfaces/VRFV2PlusWrapperInterface.sol";
+import "../interfaces/IVRFV2PlusWrapper.sol";
 import "./VRFV2PlusWrapperConsumerBase.sol";
 import "../../ChainSpecificUtil.sol";
 
@@ -15,7 +15,7 @@ import "../../ChainSpecificUtil.sol";
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
  * @notice requests for randomness.
  */
-contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBaseV2Plus, VRFV2PlusWrapperInterface {
+contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBaseV2Plus, IVRFV2PlusWrapper {
   event WrapperFulfillmentFailed(uint256 indexed requestId, address indexed consumer);
 
   error LinkAlreadySet();

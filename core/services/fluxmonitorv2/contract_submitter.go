@@ -1,6 +1,7 @@
 package fluxmonitorv2
 
 import (
+	"context"
 	"math/big"
 
 	"github.com/pkg/errors"
@@ -16,7 +17,7 @@ var FluxAggregatorABI = evmtypes.MustGetABI(flux_aggregator_wrapper.FluxAggregat
 
 // ContractSubmitter defines an interface to submit an eth tx.
 type ContractSubmitter interface {
-	Submit(roundID *big.Int, submission *big.Int, idempotencyKey *string) error
+	Submit(ctx context.Context, roundID *big.Int, submission *big.Int, idempotencyKey *string) error
 }
 
 // FluxAggregatorContractSubmitter submits the polled answer in an eth tx.
@@ -50,7 +51,7 @@ func NewFluxAggregatorContractSubmitter(
 
 // Submit submits the answer by writing a EthTx for the txmgr to
 // pick up
-func (c *FluxAggregatorContractSubmitter) Submit(roundID *big.Int, submission *big.Int, idempotencyKey *string) error {
+func (c *FluxAggregatorContractSubmitter) Submit(ctx context.Context, roundID *big.Int, submission *big.Int, idempotencyKey *string) error {
 	fromAddress, err := c.keyStore.GetRoundRobinAddress(c.chainID)
 	if err != nil {
 		return err
@@ -62,7 +63,7 @@ func (c *FluxAggregatorContractSubmitter) Submit(roundID *big.Int, submission *b
 	}
 
 	return errors.Wrap(
-		c.orm.CreateEthTransaction(fromAddress, c.Address(), payload, c.gasLimit, idempotencyKey),
+		c.orm.CreateEthTransaction(ctx, fromAddress, c.Address(), payload, c.gasLimit, idempotencyKey),
 		"failed to send Eth transaction",
 	)
 }

@@ -87,7 +87,7 @@ func NewEvmRegistry(
 	return &EvmRegistry{
 		ctx:          context.Background(),
 		threadCtrl:   utils.NewThreadControl(),
-		lggr:         lggr.Named("EvmRegistry"),
+		lggr:         lggr.Named(RegistryServiceName),
 		poller:       client.LogPoller(),
 		addr:         addr,
 		client:       client.Client(),
@@ -299,11 +299,11 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(logTriggerIDs []*big.Int) er
 		logTriggerHashes = append(logTriggerHashes, common.BigToHash(id))
 	}
 
-	unpausedLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, int(r.finalityDepth), pg.WithParentCtx(r.ctx))
+	unpausedLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepUnpaused{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth), pg.WithParentCtx(r.ctx))
 	if err != nil {
 		return err
 	}
-	configSetLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, int(r.finalityDepth), pg.WithParentCtx(r.ctx))
+	configSetLogs, err := r.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterUpkeepTriggerConfigSet{}.Topic(), r.addr, 1, logTriggerHashes, logpoller.Confirmations(r.finalityDepth), pg.WithParentCtx(r.ctx))
 	if err != nil {
 		return err
 	}
