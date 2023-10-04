@@ -9,6 +9,7 @@ import "../../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../interfaces/IVRFV2PlusWrapper.sol";
 import "./VRFV2PlusWrapperConsumerBase.sol";
+import {VRFCoordinatorV2_5} from "./VRFCoordinatorV2_5.sol";
 import "../../ChainSpecificUtil.sol";
 
 /**
@@ -561,4 +562,16 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     require(!s_disabled, "wrapper is disabled");
     _;
   }
+
+  /***************************************************************************
+   * Section: Migration of VRFV2PlusWrapper to latest VRFV2PlusCoordinator
+   ***************************************************************************/
+
+  function migrate(address newCoordinator) external onlyOwner {
+    IMigration(address(s_vrfCoordinator)).migrate(SUBSCRIPTION_ID, newCoordinator);
+  }
+}
+
+interface IMigration {
+  function migrate(uint256 subId, address newCoordinator) external;
 }
