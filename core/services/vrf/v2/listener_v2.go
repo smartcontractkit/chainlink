@@ -504,13 +504,7 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		// in the event that a subscription is too underfunded to have it's
 		// requests processed.
 		slices.SortFunc(reqs, func(a, b pendingRequest) int {
-			if a.req.CallbackGasLimit() == b.req.CallbackGasLimit() {
-				return 0
-			}
-			if a.req.CallbackGasLimit() < b.req.CallbackGasLimit() {
-				return -1
-			}
-			return 1 // a.req.CallbackGasLimit() > b.req.CallbackGasLimit()
+			return cmp.Compare(a.req.CallbackGasLimit(), b.req.CallbackGasLimit())
 		})
 
 		p := lsn.processRequestsPerSub(ctx, sID, startLinkBalance, startEthBalance, reqs, subIsActive)
