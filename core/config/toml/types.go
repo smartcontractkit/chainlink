@@ -141,9 +141,13 @@ func validateDBURL(dbURI url.URL) error {
 }
 
 func (d *DatabaseSecrets) ValidateConfig() (err error) {
+	return d.validateConfig(build.Mode())
+}
+
+func (d *DatabaseSecrets) validateConfig(buildMode string) (err error) {
 	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
 		err = multierr.Append(err, configutils.ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
-	} else if *d.AllowSimplePasswords && build.IsProd() {
+	} else if *d.AllowSimplePasswords && buildMode == build.Prod {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "AllowSimplePasswords", Value: true, Msg: "insecure configs are not allowed on secure builds"})
 	} else if !*d.AllowSimplePasswords {
 		if verr := validateDBURL((url.URL)(*d.URL)); verr != nil {
@@ -1142,14 +1146,18 @@ type Insecure struct {
 }
 
 func (ins *Insecure) ValidateConfig() (err error) {
-	if build.IsDev() {
+	return ins.validateConfig(build.Mode())
+}
+
+func (ins *Insecure) validateConfig(buildMode string) (err error) {
+	if buildMode == build.Dev {
 		return
 	}
 	if ins.DevWebServer != nil && *ins.DevWebServer {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "DevWebServer", Value: *ins.DevWebServer, Msg: "insecure configs are not allowed on secure builds"})
 	}
-	// OCRDevelopmentMode is allowed on test builds.
-	if ins.OCRDevelopmentMode != nil && *ins.OCRDevelopmentMode && !build.IsTest() {
+	// OCRDevelopmentMode is allowed on dev/test builds.
+	if ins.OCRDevelopmentMode != nil && *ins.OCRDevelopmentMode && buildMode == build.Prod {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "OCRDevelopmentMode", Value: *ins.OCRDevelopmentMode, Msg: "insecure configs are not allowed on secure builds"})
 	}
 	if ins.InfiniteDepthQueries != nil && *ins.InfiniteDepthQueries {
