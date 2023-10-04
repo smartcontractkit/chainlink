@@ -3,7 +3,6 @@ package logprovider
 import (
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"golang.org/x/time/rate"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -14,9 +13,9 @@ import (
 
 // New creates a new log event provider and recoverer.
 // using default values for the options.
-func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, utilsABI abi.ABI, stateStore core.UpkeepStateReader, finalityDepth uint32) (LogEventProvider, LogRecoverer) {
+func New(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, stateStore core.UpkeepStateReader, finalityDepth uint32) (LogEventProvider, LogRecoverer) {
 	filterStore := NewUpkeepFilterStore()
-	packer := NewLogEventsPacker(utilsABI)
+	packer := NewLogEventsPacker()
 	opts := NewOptions(int64(finalityDepth))
 	provider := NewLogProvider(lggr, poller, packer, filterStore, opts)
 	recoverer := NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, opts)
