@@ -33,7 +33,7 @@ func GenLog(chainID *big.Int, logIndex int64, blockNum int64, blockHash string, 
 		BlockHash:   common.HexToHash(blockHash),
 		BlockNumber: blockNum,
 		EventSig:    common.BytesToHash(topic1),
-		Topics:      [][]byte{topic1},
+		Topics:      [][]byte{topic1, topic1},
 		Address:     address,
 		TxHash:      common.HexToHash("0x1234"),
 		Data:        append([]byte("hello "), byte(blockNum)),
@@ -92,9 +92,9 @@ func TestORM_GetBlocks_From_Range(t *testing.T) {
 		require.NoError(t, o1.InsertBlock(b.hash, b.number, time.Unix(b.timestamp, 0).UTC()))
 	}
 
-	var blockNumbers []uint64
+	var blockNumbers []int64
 	for _, b := range blocks {
-		blockNumbers = append(blockNumbers, uint64(b.number))
+		blockNumbers = append(blockNumbers, b.number)
 	}
 
 	lpBlocks, err := o1.GetBlocksRange(blockNumbers[0], blockNumbers[len(blockNumbers)-1])
@@ -124,9 +124,9 @@ func TestORM_GetBlocks_From_Range_Recent_Blocks(t *testing.T) {
 		require.NoError(t, o1.InsertBlock(b.hash, b.number, time.Now()))
 	}
 
-	var blockNumbers []uint64
+	var blockNumbers []int64
 	for _, b := range recentBlocks {
-		blockNumbers = append(blockNumbers, uint64(b.number))
+		blockNumbers = append(blockNumbers, b.number)
 	}
 
 	lpBlocks, err := o1.GetBlocksRange(blockNumbers[0], blockNumbers[len(blockNumbers)-1])
@@ -1102,7 +1102,7 @@ func TestSelectLatestBlockNumberEventSigsAddrsWithConfs(t *testing.T) {
 		name                string
 		events              []common.Hash
 		addrs               []common.Address
-		confs               int
+		confs               logpoller.Confirmations
 		fromBlock           int64
 		expectedBlockNumber int64
 	}{
@@ -1198,7 +1198,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		confs        int
+		confs        logpoller.Confirmations
 		after        time.Time
 		expectedLogs []expectedLog
 	}{
@@ -1255,7 +1255,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		})
 
 		t.Run("SelectIndexedLogsCreatedAfter"+tt.name, func(t *testing.T) {
-			logs, err := th.ORM.SelectIndexedLogsCreatedAfter(address, event, 0, []common.Hash{event}, tt.after, tt.confs)
+			logs, err := th.ORM.SelectIndexedLogsCreatedAfter(address, event, 1, []common.Hash{event}, tt.after, tt.confs)
 			require.NoError(t, err)
 			assert.Len(t, logs, len(tt.expectedLogs))
 
