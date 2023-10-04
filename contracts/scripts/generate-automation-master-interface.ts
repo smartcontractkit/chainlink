@@ -26,6 +26,14 @@ for (const abi of abis) {
     const id = utils.id(JSON.stringify(entry))
     if (!abiSet.has(id)) {
       abiSet.add(id)
+      if (
+        entry.type === 'function' &&
+        (entry.name === 'checkUpkeep' ||
+          entry.name === 'checkCallback' ||
+          entry.name === 'simulatePerformUpkeep')
+      ) {
+        entry.stateMutability = 'view' // override stateMutability for check / callback / simulate functions
+      }
       combinedABI.push(entry)
     }
   }

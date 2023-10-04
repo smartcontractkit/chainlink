@@ -142,6 +142,8 @@ github.com/ava-labs/avalanchego v1.10.1 h1:lBeamJ1iNq+p2oKg2nAs+A65m8vhSDjkiTDbw
 github.com/ava-labs/avalanchego v1.10.1/go.mod h1:ZvSXWlbkUKlbk3BsWx29a+8eVHe/WBsOxh55BSGoeRk=
 github.com/ava-labs/coreth v0.12.1 h1:EWSkFGHGVUxmu1pnSK/2pdcxaAVHbGspHqO3Ag+i7sA=
 github.com/ava-labs/coreth v0.12.1/go.mod h1:/5x54QlIKjlPebkdzTA5ic9wXdejbWOnQosztkv9jxo=
+github.com/avast/retry-go v3.0.0+incompatible h1:4SOWQ7Qs+oroOTQOYnAHqelpCO0biHSxpiH9JdtuBj0=
+github.com/avast/retry-go v3.0.0+incompatible/go.mod h1:XtSnn+n/sHqQIpZ10K1qAevBhOOCWBLXXy3hyiqqBrY=
 github.com/avast/retry-go/v4 v4.5.0 h1:QoRAZZ90cj5oni2Lsgl2GW8mNTnUCnmpx/iKpwVisHg=
 github.com/avast/retry-go/v4 v4.5.0/go.mod h1:7hLEXp0oku2Nir2xBAsg0PTphp9z71bN5Aq1fboC3+I=
 github.com/aws/aws-sdk-go v1.22.1/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=

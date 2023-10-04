@@ -8,8 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/maps"
-
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
@@ -215,9 +213,9 @@ func (e *WrappedEvmEstimator) Ready() error {
 
 func (e *WrappedEvmEstimator) HealthReport() map[string]error {
 	report := map[string]error{e.Name(): e.StartStopOnce.Healthy()}
-	maps.Copy(report, e.EvmEstimator.HealthReport())
+	services.CopyHealth(report, e.EvmEstimator.HealthReport())
 	if e.l1Oracle != nil {
-		maps.Copy(report, e.l1Oracle.HealthReport())
+		services.CopyHealth(report, e.l1Oracle.HealthReport())
 	}
 
 	return report

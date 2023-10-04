@@ -87,7 +87,7 @@ func NewEVMRegistryService(addr common.Address, client evm.Chain, lggr logger.Lo
 			hb:     client.HeadBroadcaster(),
 			chHead: make(chan ocr2keepers.BlockKey, 1),
 		},
-		lggr:     lggr,
+		lggr:     lggr.Named("AutomationRegistry"),
 		poller:   client.LogPoller(),
 		addr:     addr,
 		client:   client.Client(),

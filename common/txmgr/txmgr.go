@@ -10,7 +10,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/maps"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -263,13 +262,13 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HealthRepo
 
 	// only query if txm started properly
 	b.IfStarted(func() {
-		maps.Copy(report, b.broadcaster.HealthReport())
-		maps.Copy(report, b.confirmer.HealthReport())
-		maps.Copy(report, b.txAttemptBuilder.HealthReport())
+		services.CopyHealth(report, b.broadcaster.HealthReport())
+		services.CopyHealth(report, b.confirmer.HealthReport())
+		services.CopyHealth(report, b.txAttemptBuilder.HealthReport())
 	})
 
 	if b.txConfig.ForwardersEnabled() {
-		maps.Copy(report, b.fwdMgr.HealthReport())
+		services.CopyHealth(report, b.fwdMgr.HealthReport())
 	}
 	return report
 }

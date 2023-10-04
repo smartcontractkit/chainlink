@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/pkg/errors"
@@ -184,6 +185,11 @@ func (c *checker) Register(service Checkable) error {
 
 	c.srvMutex.Lock()
 	defer c.srvMutex.Unlock()
+	if testing.Testing() {
+		if orig, ok := c.services[name]; ok {
+			panic(fmt.Errorf("duplicate name %q: service names must be unique: types %T & %T", name, service, orig))
+		}
+	}
 	c.services[name] = service
 	return nil
 }
