@@ -23,8 +23,8 @@ type VRFV2PlusData struct {
 	ChainID           *big.Int
 }
 
-type VRFV2PlusContracts struct {
-	Coordinator       contracts.VRFCoordinatorV2Plus
+type VRFV2_5Contracts struct {
+	Coordinator       contracts.VRFCoordinatorV2_5
 	BHS               contracts.BlockHashStore
 	LoadTestConsumers []contracts.VRFv2PlusLoadTestConsumer
 }

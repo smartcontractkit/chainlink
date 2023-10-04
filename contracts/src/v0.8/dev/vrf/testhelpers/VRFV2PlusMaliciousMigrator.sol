@@ -2,14 +2,14 @@
 pragma solidity ^0.8.0;
 
 import "../../interfaces/IVRFMigratableConsumerV2Plus.sol";
-import "../../interfaces/IVRFMigratableCoordinatorV2Plus.sol";
+import "../../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../libraries/VRFV2PlusClient.sol";
 
 contract VRFV2PlusMaliciousMigrator is IVRFMigratableConsumerV2Plus {
-  IVRFMigratableCoordinatorV2Plus s_vrfCoordinator;
+  IVRFCoordinatorV2Plus s_vrfCoordinator;
 
   constructor(address _vrfCoordinator) {
-    s_vrfCoordinator = IVRFMigratableCoordinatorV2Plus(_vrfCoordinator);
+    s_vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
   }
 
   /**

@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_sub_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
@@ -141,7 +141,7 @@ func smokeTestVRF(e helpers.Environment) {
 		coordinatorAddress = common.HexToAddress(*coordinatorAddressStr)
 	}
 
-	coordinator, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(coordinatorAddress, e.Ec)
+	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 
 	var batchCoordinatorAddress common.Address
@@ -162,9 +162,9 @@ func smokeTestVRF(e helpers.Environment) {
 			uint32(*stalenessSeconds),
 			uint32(*gasAfterPayment),
 			fallbackWeiPerUnitLink,
-			vrf_coordinator_v2plus.VRFCoordinatorV2PlusFeeConfig{
-				FulfillmentFlatFeeLinkPPM: uint32(*flatFeeLinkPPM),
-				FulfillmentFlatFeeEthPPM:  uint32(*flatFeeEthPPM),
+			vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
+				FulfillmentFlatFeeLinkPPM:   uint32(*flatFeeLinkPPM),
+				FulfillmentFlatFeeNativePPM: uint32(*flatFeeEthPPM),
 			},
 		)
 	}
@@ -221,7 +221,7 @@ func smokeTestVRF(e helpers.Environment) {
 	tx, err := coordinator.RegisterProvingKey(e.Owner, e.Owner.From, [2]*big.Int{x, y})
 	helpers.PanicErr(err)
 	registerReceipt := helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "register proving key on", coordinatorAddress.String())
-	var provingKeyRegisteredLog *vrf_coordinator_v2plus.VRFCoordinatorV2PlusProvingKeyRegistered
+	var provingKeyRegisteredLog *vrf_coordinator_v2_5.VRFCoordinatorV25ProvingKeyRegistered
 	for _, log := range registerReceipt.Logs {
 		if log.Address == coordinatorAddress {
 			var err error
@@ -294,7 +294,7 @@ func smokeTestVRF(e helpers.Environment) {
 	fmt.Println("request blockhash:", receipt.BlockHash)
 
 	// extract the RandomWordsRequested log from the receipt logs
-	var rwrLog *vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsRequested
+	var rwrLog *vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested
 	for _, log := range receipt.Logs {
 		if log.Address == coordinatorAddress {
 			var err error
@@ -492,6 +492,8 @@ func deployUniverse(e helpers.Environment) {
 	// required flags
 	linkAddress := deployCmd.String("link-address", "", "address of link token")
 	linkEthAddress := deployCmd.String("link-eth-feed", "", "address of link eth feed")
+	bhsAddress := deployCmd.String("bhs-address", "", "address of blockhash store")
+	batchBHSAddress := deployCmd.String("batch-bhs-address", "", "address of batch blockhash store")
 	subscriptionBalanceString := deployCmd.String("subscription-balance", "1e19", "amount to fund subscription")
 
 	// optional flags
@@ -548,17 +550,27 @@ func deployUniverse(e helpers.Environment) {
 		linkEthAddress = &address
 	}
 
-	fmt.Println("\nDeploying BHS...")
-	bhsContractAddress := deployBHS(e)
+	var bhsContractAddress common.Address
+	if len(*bhsAddress) == 0 {
+		fmt.Println("\nDeploying BHS...")
+		bhsContractAddress = deployBHS(e)
+	} else {
+		bhsContractAddress = common.HexToAddress(*bhsAddress)
+	}
 
-	fmt.Println("\nDeploying Batch BHS...")
-	batchBHSAddress := deployBatchBHS(e, bhsContractAddress)
+	var batchBHSContractAddress common.Address
+	if len(*batchBHSAddress) == 0 {
+		fmt.Println("\nDeploying Batch BHS...")
+		batchBHSContractAddress = deployBatchBHS(e, bhsContractAddress)
+	} else {
+		batchBHSContractAddress = common.HexToAddress(*batchBHSAddress)
+	}
 
 	var coordinatorAddress common.Address
 	fmt.Println("\nDeploying Coordinator...")
 	coordinatorAddress = deployCoordinator(e, *linkAddress, bhsContractAddress.String(), *linkEthAddress)
 
-	coordinator, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(coordinatorAddress, e.Ec)
+	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
 
 	fmt.Println("\nDeploying Batch Coordinator...")
@@ -573,9 +585,9 @@ func deployUniverse(e helpers.Environment) {
 		uint32(*stalenessSeconds),
 		uint32(*gasAfterPayment),
 		fallbackWeiPerUnitLink,
-		vrf_coordinator_v2plus.VRFCoordinatorV2PlusFeeConfig{
-			FulfillmentFlatFeeLinkPPM: uint32(*flatFeeLinkPPM),
-			FulfillmentFlatFeeEthPPM:  uint32(*flatFeeEthPPM),
+		vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
+			FulfillmentFlatFeeLinkPPM:   uint32(*flatFeeLinkPPM),
+			FulfillmentFlatFeeNativePPM: uint32(*flatFeeEthPPM),
 		},
 	)
 
@@ -637,11 +649,12 @@ func deployUniverse(e helpers.Environment) {
 	)
 
 	fmt.Println(
+		"\n----------------------------",
 		"\nDeployment complete.",
 		"\nLINK Token contract address:", *linkAddress,
 		"\nLINK/ETH Feed contract address:", *linkEthAddress,
 		"\nBlockhash Store contract address:", bhsContractAddress,
-		"\nBatch Blockhash Store contract address:", batchBHSAddress,
+		"\nBatch Blockhash Store contract address:", batchBHSContractAddress,
 		"\nVRF Coordinator Address:", coordinatorAddress,
 		"\nBatch VRF Coordinator Address:", batchCoordinatorAddress,
 		"\nVRF Consumer Address:", consumerAddress,
@@ -651,6 +664,7 @@ func deployUniverse(e helpers.Environment) {
 		fmt.Sprintf("go run . eoa-request --consumer-address %s --sub-id %d --key-hash %s", consumerAddress, subID, keyHash),
 		"\nA node can now be configured to run a VRF job with the below job spec :\n",
 		formattedJobSpec,
+		"\n----------------------------",
 	)
 }
 
@@ -666,7 +680,11 @@ func deployWrapperUniverse(e helpers.Environment) {
 	maxNumWords := cmd.Uint("max-num-words", 10, "the keyhash that wrapper requests should use")
 	subFunding := cmd.String("sub-funding", "10000000000000000000", "amount to fund the subscription with")
 	consumerFunding := cmd.String("consumer-funding", "10000000000000000000", "amount to fund the consumer with")
-	helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-eth-feed", "coordinator-address", "key-hash")
+	fallbackWeiPerUnitLink := cmd.String("fallback-wei-per-unit-link", "", "the fallback wei per unit link")
+	stalenessSeconds := cmd.Uint("staleness-seconds", 86400, "the number of seconds of staleness to allow")
+	fulfillmentFlatFeeLinkPPM := cmd.Uint("fulfillment-flat-fee-link-ppm", 500, "the link flat fee in ppm to charge for fulfillment")
+	fulfillmentFlatFeeNativePPM := cmd.Uint("fulfillment-flat-fee-native-ppm", 500, "the native flat fee in ppm to charge for fulfillment")
+	helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-eth-feed", "coordinator-address", "key-hash", "fallback-wei-per-unit-link")
 
 	amount, s := big.NewInt(0).SetString(*subFunding, 10)
 	if !s {
@@ -684,13 +702,18 @@ func deployWrapperUniverse(e helpers.Environment) {
 		*coordinatorGasOverhead,
 		*wrapperPremiumPercentage,
 		*keyHash,
-		*maxNumWords)
+		*maxNumWords,
+		decimal.RequireFromString(*fallbackWeiPerUnitLink).BigInt(),
+		uint32(*stalenessSeconds),
+		uint32(*fulfillmentFlatFeeLinkPPM),
+		uint32(*fulfillmentFlatFeeNativePPM),
+	)
 
 	consumer := wrapperConsumerDeploy(e,
 		common.HexToAddress(*linkAddress),
 		wrapper)
 
-	coordinator, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(common.HexToAddress(*coordinatorAddress), e.Ec)
+	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(common.HexToAddress(*coordinatorAddress), e.Ec)
 	helpers.PanicErr(err)
 
 	eoaFundSubscription(e, *coordinator, *linkAddress, amount, subID)

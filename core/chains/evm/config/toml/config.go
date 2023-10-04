@@ -689,6 +689,7 @@ type NodePool struct {
 	PollInterval         *models.Duration
 	SelectionMode        *string
 	SyncThreshold        *uint32
+	LeaseDuration        *models.Duration
 }
 
 func (p *NodePool) setFrom(f *NodePool) {
@@ -703,6 +704,9 @@ func (p *NodePool) setFrom(f *NodePool) {
 	}
 	if v := f.SyncThreshold; v != nil {
 		p.SyncThreshold = v
+	}
+	if v := f.LeaseDuration; v != nil {
+		p.LeaseDuration = v
 	}
 }
 
@@ -804,9 +808,5 @@ func (n *Node) SetFrom(f *Node) {
 }
 
 func ChainIDInt64(cid relay.ChainID) (int64, error) {
-	i, err := strconv.Atoi(cid)
-	if err != nil {
-		return int64(0), err
-	}
-	return int64(i), nil
+	return strconv.ParseInt(cid, 10, 64)
 }

@@ -183,7 +183,7 @@ If you do end up modifying the migrations for the database, you will need to rer
 7. Run tests:
 
 ```bash
-go test -tags test ./...
+go test ./...
 ```
 
 #### Notes
