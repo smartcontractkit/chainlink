@@ -63,7 +63,7 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 		}
 	}
 
-	etx, err := chain.TxManager().SendNativeToken(chain.ID(), tr.FromAddress, tr.DestinationAddress, *tr.Amount.ToInt(), chain.Config().EVM().GasEstimator().LimitTransfer())
+	etx, err := chain.TxManager().SendNativeToken(c, chain.ID(), tr.FromAddress, tr.DestinationAddress, *tr.Amount.ToInt(), chain.Config().EVM().GasEstimator().LimitTransfer())
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("transaction failed: %v", err))
 		return

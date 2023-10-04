@@ -97,6 +97,8 @@ func (r *Reaper[CHAIN_ID]) SetLatestBlockNum(latestBlockNum int64) {
 
 // ReapTxes deletes old txes
 func (r *Reaper[CHAIN_ID]) ReapTxes(headNum int64) error {
+	ctx, cancel := utils.StopChan(r.chStop).NewCtx()
+	defer cancel()
 	threshold := r.txConfig.ReaperThreshold()
 	if threshold == 0 {
 		r.log.Debug("Transactions.ReaperThreshold  set to 0; skipping ReapTxes")
@@ -108,7 +110,7 @@ func (r *Reaper[CHAIN_ID]) ReapTxes(headNum int64) error {
 
 	r.log.Debugw(fmt.Sprintf("reaping old txes created before %s", timeThreshold.Format(time.RFC3339)), "ageThreshold", threshold, "timeThreshold", timeThreshold, "minBlockNumberToKeep", minBlockNumberToKeep)
 
-	if err := r.store.ReapTxHistory(minBlockNumberToKeep, timeThreshold, r.chainID); err != nil {
+	if err := r.store.ReapTxHistory(ctx, minBlockNumberToKeep, timeThreshold, r.chainID); err != nil {
 		return err
 	}
 
