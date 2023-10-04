@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"golang.org/x/exp/maps"
-
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
@@ -69,8 +67,8 @@ func (p *mercuryProvider) Name() string {
 
 func (p *mercuryProvider) HealthReport() map[string]error {
 	report := map[string]error{}
-	maps.Copy(report, p.configWatcher.HealthReport())
-	maps.Copy(report, p.transmitter.HealthReport())
+	services.CopyHealth(report, p.configWatcher.HealthReport())
+	services.CopyHealth(report, p.transmitter.HealthReport())
 	return report
 }
 
