@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	pkgsol "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
