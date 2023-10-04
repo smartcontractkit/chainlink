@@ -474,7 +474,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 					}).
 					Once()
 				tm.contractSubmitter.
-					On("Submit", big.NewInt(reportableRoundID), big.NewInt(answers.polledAnswer), buildIdempotencyKey(run.ID)).
+					On("Submit", mock.Anything, big.NewInt(reportableRoundID), big.NewInt(answers.polledAnswer), buildIdempotencyKey(run.ID)).
 					Return(nil).
 					Once()
 
@@ -609,7 +609,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			args.Get(0).(*pipeline.Run).ID = 1
 		}).Once()
 	tm.contractSubmitter.
-		On("Submit", big.NewInt(1), big.NewInt(fetchedValue), buildIdempotencyKey(run.ID)).
+		On("Submit", mock.Anything, big.NewInt(1), big.NewInt(fetchedValue), buildIdempotencyKey(run.ID)).
 		Return(nil).
 		Once()
 
@@ -649,7 +649,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			args.Get(0).(*pipeline.Run).ID = 2
 		}).Once()
 	tm.contractSubmitter.
-		On("Submit", big.NewInt(3), big.NewInt(fetchedValue), buildIdempotencyKey(run.ID)).
+		On("Submit", mock.Anything, big.NewInt(3), big.NewInt(fetchedValue), buildIdempotencyKey(run.ID)).
 		Return(nil).
 		Once()
 	tm.orm.
@@ -688,7 +688,7 @@ func TestPollingDeviationChecker_BuffersLogs(t *testing.T) {
 			args.Get(0).(*pipeline.Run).ID = 3
 		}).Once()
 	tm.contractSubmitter.
-		On("Submit", big.NewInt(4), big.NewInt(fetchedValue), buildIdempotencyKey(run.ID)).
+		On("Submit", mock.Anything, big.NewInt(4), big.NewInt(fetchedValue), buildIdempotencyKey(run.ID)).
 		Return(nil).
 		Once()
 	tm.orm.
@@ -1515,7 +1515,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 				args.Get(0).(*pipeline.Run).ID = 1
 			})
 		tm.logBroadcaster.On("MarkConsumed", mock.Anything, mock.Anything).Return(nil).Once()
-		tm.contractSubmitter.On("Submit", big.NewInt(roundID), big.NewInt(answer), buildIdempotencyKey(run.ID)).Return(nil).Once()
+		tm.contractSubmitter.On("Submit", mock.Anything, big.NewInt(roundID), big.NewInt(answer), buildIdempotencyKey(run.ID)).Return(nil).Once()
 		tm.orm.
 			On("UpdateFluxMonitorRoundStats",
 				contractAddress,
@@ -1642,7 +1642,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Run(func(args mock.Arguments) {
 				args.Get(0).(*pipeline.Run).ID = 1
 			})
-		tm.contractSubmitter.On("Submit", big.NewInt(roundID), big.NewInt(answer), buildIdempotencyKey(run.ID)).Return(nil).Once()
+		tm.contractSubmitter.On("Submit", mock.Anything, big.NewInt(roundID), big.NewInt(answer), buildIdempotencyKey(run.ID)).Return(nil).Once()
 		tm.orm.
 			On("UpdateFluxMonitorRoundStats",
 				contractAddress,
@@ -1738,7 +1738,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Run(func(args mock.Arguments) {
 				args.Get(0).(*pipeline.Run).ID = 1
 			})
-		tm.contractSubmitter.On("Submit", big.NewInt(roundID), big.NewInt(answer), buildIdempotencyKey(run.ID)).Return(nil).Once()
+		tm.contractSubmitter.On("Submit", mock.Anything, big.NewInt(roundID), big.NewInt(answer), buildIdempotencyKey(run.ID)).Return(nil).Once()
 		tm.orm.
 			On("UpdateFluxMonitorRoundStats",
 				contractAddress,
@@ -1811,7 +1811,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Once()
 
 		// and that should result in a new submission
-		tm.contractSubmitter.On("Submit", big.NewInt(olderRoundID), big.NewInt(answer), buildIdempotencyKey(run.ID)).Return(nil).Once()
+		tm.contractSubmitter.On("Submit", mock.Anything, big.NewInt(olderRoundID), big.NewInt(answer), buildIdempotencyKey(run.ID)).Return(nil).Once()
 
 		tm.orm.
 			On("UpdateFluxMonitorRoundStats",
@@ -1919,7 +1919,7 @@ func TestFluxMonitor_DrumbeatTicker(t *testing.T) {
 			}).
 			Once()
 		tm.contractSubmitter.
-			On("Submit", big.NewInt(int64(roundID)), answerBigInt, buildIdempotencyKey(runID)).
+			On("Submit", mock.Anything, big.NewInt(int64(roundID)), answerBigInt, buildIdempotencyKey(runID)).
 			Return(nil).
 			Once()
 

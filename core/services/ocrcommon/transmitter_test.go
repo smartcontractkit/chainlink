@@ -51,7 +51,7 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateTransaction", txmgr.TxRequest{
+	txm.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
 		FromAddress:      fromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
@@ -59,7 +59,7 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 		ForwarderAddress: common.Address{},
 		Meta:             nil,
 		Strategy:         strategy,
-	}, mock.Anything).Return(txmgr.Tx{}, nil).Once()
+	}).Return(txmgr.Tx{}, nil).Once()
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 }
 
@@ -93,7 +93,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 	)
 	require.NoError(t, err)
 
-	txm.On("CreateTransaction", txmgr.TxRequest{
+	txm.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
 		FromAddress:      fromAddress,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
@@ -101,8 +101,8 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 		ForwarderAddress: common.Address{},
 		Meta:             nil,
 		Strategy:         strategy,
-	}, mock.Anything).Return(txmgr.Tx{}, nil).Once()
-	txm.On("CreateTransaction", txmgr.TxRequest{
+	}).Return(txmgr.Tx{}, nil).Once()
+	txm.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
 		FromAddress:      fromAddress2,
 		ToAddress:        toAddress,
 		EncodedPayload:   payload,
@@ -110,7 +110,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 		ForwarderAddress: common.Address{},
 		Meta:             nil,
 		Strategy:         strategy,
-	}, mock.Anything).Return(txmgr.Tx{}, nil).Once()
+	}).Return(txmgr.Tx{}, nil).Once()
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 	require.NoError(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
 }
