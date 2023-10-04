@@ -16,11 +16,11 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/test"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils/tests"
 )
 
 func testPlugin[I any](t *testing.T, name string, p plugin.Plugin, testFn func(*testing.T, I)) {
-	ctx, cancel := context.WithCancel(utils.Context(t))
+	ctx, cancel := context.WithCancel(tests.Context(t))
 	defer cancel()
 
 	ch := make(chan *plugin.ReattachConfig, 1)

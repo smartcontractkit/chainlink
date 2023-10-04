@@ -14,7 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils/tests"
 )
 
 type StaticKeystore struct{}
@@ -149,7 +149,7 @@ func newRelayArgsWithProviderType(_type types.OCR2PluginType) types.RelayArgs {
 }
 
 func TestPluginRelayer(t *testing.T, p internal.PluginRelayer) {
-	ctx := utils.Context(t)
+	ctx := tests.Context(t)
 
 	t.Run("Relayer", func(t *testing.T) {
 		relayer, err := p.NewRelayer(ctx, ConfigTOML, StaticKeystore{})
@@ -161,7 +161,7 @@ func TestPluginRelayer(t *testing.T, p internal.PluginRelayer) {
 }
 
 func TestRelayer(t *testing.T, relayer internal.Relayer) {
-	ctx := utils.Context(t)
+	ctx := tests.Context(t)
 
 	t.Run("ConfigProvider", func(t *testing.T) {
 		t.Parallel()

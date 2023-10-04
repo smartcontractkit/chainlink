@@ -45,6 +45,7 @@ func (s startStopOnceState) String() string {
 }
 
 // StartStopOnce can be embedded in a struct to help implement types.Service.
+// Deprecated: use services.StateMachine
 type StartStopOnce struct {
 	state        atomic.Int32
 	sync.RWMutex // lock is held during startup/shutdown, RLock is held while executing functions dependent on a particular state

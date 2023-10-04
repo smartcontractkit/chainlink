@@ -4,6 +4,7 @@ import (
 	"context"
 )
 
+// Deprecated: use services.Service
 type Service interface {
 	Name() string
 	Start(context.Context) error

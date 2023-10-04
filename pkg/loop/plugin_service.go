@@ -9,13 +9,12 @@ import (
 	"time"
 
 	"github.com/hashicorp/go-plugin"
-	"golang.org/x/exp/maps"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
@@ -31,7 +30,7 @@ type grpcPlugin interface {
 
 // pluginService is a [types.Service] wrapper that maintains an internal [types.Service] created from a [grpcPlugin]
 // client instance by launching and re-launching as necessary.
-type pluginService[P grpcPlugin, S types.Service] struct {
+type pluginService[P grpcPlugin, S services.Service] struct {
 	utils.StartStopOnce
 
 	pluginName string
@@ -171,7 +170,7 @@ func (s *pluginService[P, S]) HealthReport() map[string]error {
 	select {
 	case <-s.serviceCh:
 		hr := map[string]error{s.Name(): s.Healthy()}
-		maps.Copy(hr, s.service.HealthReport())
+		services.CopyHealth(hr, s.service.HealthReport())
 		return hr
 	default:
 		return map[string]error{s.Name(): ErrPluginUnavailable}

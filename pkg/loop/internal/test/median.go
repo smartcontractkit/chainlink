@@ -16,7 +16,7 @@ import (
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-relay/pkg/utils/tests"
 )
 
 func TestPluginMedian(t *testing.T, p types.PluginMedian) {
@@ -29,7 +29,7 @@ type PluginMedianTest struct {
 
 func (m PluginMedianTest) TestPluginMedian(t *testing.T, p types.PluginMedian) {
 	t.Run("PluginMedian", func(t *testing.T) {
-		ctx := utils.Context(t)
+		ctx := tests.Context(t)
 		factory, err := p.NewMedianFactory(ctx, m.MedianProvider, &staticDataSource{value}, &staticDataSource{juelsPerFeeCoin}, &StaticErrorLog{})
 		require.NoError(t, err)
 
@@ -44,7 +44,7 @@ func TestReportingPluginFactory(t *testing.T, factory types.ReportingPluginFacto
 		assert.Equal(t, rpi, gotRPI)
 		t.Cleanup(func() { assert.NoError(t, rp.Close()) })
 		t.Run("ReportingPlugin", func(t *testing.T) {
-			ctx := utils.Context(t)
+			ctx := tests.Context(t)
 			gotQuery, err := rp.Query(ctx, reportContext.ReportTimestamp)
 			require.NoError(t, err)
 			assert.Equal(t, query, []byte(gotQuery))

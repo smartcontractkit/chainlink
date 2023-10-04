@@ -120,7 +120,7 @@ sequenceDiagram
 
 The `pluginService` type contains reusable automatic recovery code.
 
-`type pluginService[P grpcPlugin, S types.Service] struct`
+`type pluginService[P grpcPlugin, S services.Service] struct`
 
 Each plugin implements their own interface (Relayer, Median, etc.) with a new type that also embeds a `pluginService`.
 This new **service** type implements the original interface, but internally manages re-starting and re-connecting to the plugin

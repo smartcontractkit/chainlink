@@ -1,7 +1,7 @@
 package loop
 
 import (
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 )
 
 const KeepAliveTickDuration = keepAliveTickDuration
@@ -14,7 +14,7 @@ func (s *pluginService[P, S]) TestHook() TestPluginService[P, S] {
 }
 
 // TestPluginService supports Killing & Resetting a running *pluginService.
-type TestPluginService[P grpcPlugin, S types.Service] chan<- func(*pluginService[P, S])
+type TestPluginService[P grpcPlugin, S services.Service] chan<- func(*pluginService[P, S])
 
 func (ch TestPluginService[P, S]) Kill() {
 	done := make(chan struct{})
