@@ -220,7 +220,7 @@ func (b *broadcaster) Name() string {
 }
 
 func (b *broadcaster) HealthReport() map[string]error {
-	return map[string]error{b.Name(): b.StartStopOnce.Healthy()}
+	return map[string]error{b.Name(): b.Healthy()}
 }
 
 func (b *broadcaster) awaitInitialSubscribers() {

@@ -270,7 +270,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Name
 }
 
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) HealthReport() map[string]error {
-	return map[string]error{eb.Name(): eb.StartStopOnce.Healthy()}
+	return map[string]error{eb.Name(): eb.Healthy()}
 }
 
 // Trigger forces the monitor for a particular address to recheck for new txes

@@ -76,7 +76,7 @@ func (o *l2SuggestedPriceEstimator) Close() error {
 }
 
 func (o *l2SuggestedPriceEstimator) HealthReport() map[string]error {
-	return map[string]error{o.Name(): o.StartStopOnce.Healthy()}
+	return map[string]error{o.Name(): o.Healthy()}
 }
 
 func (o *l2SuggestedPriceEstimator) run() {
