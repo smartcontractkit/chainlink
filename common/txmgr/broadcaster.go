@@ -332,7 +332,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) load
 	for _, address := range addresses {
 		// Get the highest sequence from the tx table
 		// Will need to be incremented since this sequence is already used
-		seq, err := eb.txStore.FindHighestSequence(address, eb.chainID)
+		seq, err := eb.txStore.FindHighestSequence(ctx, address, eb.chainID)
 		if err != nil {
 			// Look for nonce on-chain if address not found in TxStore
 			// Returns the nonce that should be used for the next transaction so no need to increment
@@ -427,7 +427,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) moni
 	}
 }
 
-// syncSequence tries to sync the key sequence, retrying indefinitely until success
+// syncSequence tries to sync the key sequence, retrying indefinitely until success or stop signal is sent
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) SyncSequence(ctx context.Context, addr ADDR) {
 	sequenceSyncRetryBackoff := eb.newSequenceSyncBackoff()
 	localSequence, err := eb.GetNextSequence(addr)
@@ -437,40 +437,35 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Sync
 		return
 	}
 
-	newNextSequence, err := eb.sequenceSyncer.Sync(ctx, addr, localSequence)
-	if err != nil {
-		// Enter retry loop with backoff
-		var attempt int
-		eb.logger.Errorw("Failed to sync with on-chain sequence", "address", addr.String(), "attempt", attempt, "err", err)
-	loop:
-		for {
-			select {
-			case <-eb.chStop:
-				return
-			case <-time.After(sequenceSyncRetryBackoff.Duration()):
-				attempt++
-				newNextSequence, err = eb.sequenceSyncer.Sync(ctx, addr, localSequence)
-				_ = newNextSequence
-				if err != nil {
-					if attempt > 5 {
-						eb.logger.Criticalw("Failed to sync with on-chain sequence", "address", addr.String(), "attempt", attempt, "err", err)
-						eb.SvcErrBuffer.Append(err)
-					} else {
-						eb.logger.Warnw("Failed to sync with on-chain sequence", "address", addr.String(), "attempt", attempt, "err", err)
-					}
-					continue
-				}
-				break loop
-			}
-		}
-	}
-	if err == nil && localSequence.String() != newNextSequence.String() {
-		eb.logger.Infow("Fast-forward sequence", "address", addr, "newNextSequence", newNextSequence, "oldNextSequence", localSequence)
-		// Set new next sequence in the map
-		err = eb.SetNextSequence(addr, newNextSequence)
-		if err != nil {
-			eb.logger.Criticalw("Failed to set new sequence for address", "address", addr.String(), "sequence", newNextSequence.String(), "err", err)
+	// Enter loop with retries
+	var attempt int
+	for {
+		select {
+		case <-eb.chStop:
 			return
+		case <-time.After(sequenceSyncRetryBackoff.Duration()):
+			attempt++
+			newNextSequence, err := eb.sequenceSyncer.Sync(ctx, addr, localSequence)
+			if err != nil {
+				if attempt > 5 {
+					eb.logger.Criticalw("Failed to sync with on-chain sequence", "address", addr.String(), "attempt", attempt, "err", err)
+					eb.SvcErrBuffer.Append(err)
+				} else {
+					eb.logger.Warnw("Failed to sync with on-chain sequence", "address", addr.String(), "attempt", attempt, "err", err)
+				}
+				continue
+			}
+			// Found new sequence to use from on-chain
+			if localSequence.String() != newNextSequence.String() {
+				eb.logger.Infow("Fast-forward sequence", "address", addr, "newNextSequence", newNextSequence, "oldNextSequence", localSequence)
+				// Set new sequence in the map
+				err = eb.SetNextSequence(addr, newNextSequence)
+				if err != nil {
+					eb.logger.Criticalw("Failed to set new sequence for address", "address", addr.String(), "sequence", newNextSequence.String(), "err", err)
+				}
+			}
+			return
+
 		}
 	}
 }
@@ -650,7 +645,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 		// and hand off to the confirmer to get the receipt (or mark as
 		// failed).
 		observeTimeUntilBroadcast(eb.chainID, etx.CreatedAt, time.Now())
-		err = eb.txStore.UpdateTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, eb.IncrementNextSequence)
+		err = eb.txStore.UpdateTxAttemptInProgressToBroadcast(ctx, &etx, attempt, txmgrtypes.TxAttemptBroadcast, eb.IncrementNextSequence)
 		return err, true
 	case clienttypes.Underpriced:
 		return eb.tryAgainBumpingGas(ctx, lgr, err, etx, attempt, initialBroadcastAt)
@@ -696,7 +691,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) hand
 			// Despite the error, the RPC node considers the previously sent
 			// transaction to have been accepted. In this case, the right thing to
 			// do is assume success and hand off to Confirmer
-			err = eb.txStore.UpdateTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, eb.IncrementNextSequence)
+			err = eb.txStore.UpdateTxAttemptInProgressToBroadcast(ctx, &etx, attempt, txmgrtypes.TxAttemptBroadcast, eb.IncrementNextSequence)
 			return err, true
 		}
 		// Either the unknown error prevented the transaction from being mined, or

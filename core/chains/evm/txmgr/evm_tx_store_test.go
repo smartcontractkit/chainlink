@@ -1211,7 +1211,7 @@ func TestORM_UpdateTxAttemptInProgressToBroadcast(t *testing.T) {
 		i := int16(0)
 		etx.BroadcastAt = &time1
 		etx.InitialBroadcastAt = &time1
-		err := txStore.UpdateTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(_ common.Address) error {
+		err := txStore.UpdateTxAttemptInProgressToBroadcast(testutils.Context(t), &etx, attempt, txmgrtypes.TxAttemptBroadcast, func(_ common.Address) error {
 			i++
 			return nil
 		})

@@ -957,9 +957,14 @@ func (o *evmTxStore) FindReceiptsPendingConfirmation(ctx context.Context, blockN
 	return
 }
 
-func (o *evmTxStore) FindHighestSequence(fromAddress common.Address, chainId *big.Int) (nonce evmtypes.Nonce, err error) {
+func (o *evmTxStore) FindHighestSequence(ctx context.Context, fromAddress common.Address, chainId *big.Int) (nonce evmtypes.Nonce, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+
 	sql := `SELECT MAX(nonce) FROM evm.txes WHERE from_address = $1 and evm_chain_id = $2`
-	err = o.q.Get(&nonce, sql, fromAddress.String(), chainId.String())
+	err = qq.Get(&nonce, sql, fromAddress.String(), chainId.String())
 	return
 }
 
@@ -1420,7 +1425,11 @@ func (o *evmTxStore) UpdateTxFatalError(ctx context.Context, etx *Tx) error {
 
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
 // One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
-func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(etx *Tx, attempt TxAttempt, NewAttemptState txmgrtypes.TxAttemptState, incrementSeqFunc func(address common.Address) error) error {
+func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *Tx, attempt TxAttempt, NewAttemptState txmgrtypes.TxAttemptState, incrementSeqFunc func(address common.Address) error) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	if etx.BroadcastAt == nil {
 		return errors.New("unconfirmed transaction must have broadcast_at time")
 	}
@@ -1438,7 +1447,7 @@ func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(etx *Tx, attempt TxAtt
 	}
 	etx.State = txmgr.TxUnconfirmed
 	attempt.State = NewAttemptState
-	return o.q.Transaction(func(tx pg.Queryer) error {
+	return qq.Transaction(func(tx pg.Queryer) error {
 		var dbEtx DbEthTx
 		dbEtx.FromTx(etx)
 		if err := tx.Get(&dbEtx, `UPDATE evm.txes SET state=$1, error=$2, broadcast_at=$3, initial_broadcast_at=$4 WHERE id = $5 RETURNING *`, dbEtx.State, dbEtx.Error, dbEtx.BroadcastAt, dbEtx.InitialBroadcastAt, dbEtx.ID); err != nil {

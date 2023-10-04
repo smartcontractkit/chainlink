@@ -141,23 +141,23 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) DeleteInPro
 	return r0
 }
 
-// FindHighestSequence provides a mock function with given fields: fromAddress, chainId
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindHighestSequence(fromAddress ADDR, chainId CHAIN_ID) (SEQ, error) {
-	ret := _m.Called(fromAddress, chainId)
+// FindHighestSequence provides a mock function with given fields: ctx, fromAddress, chainId
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindHighestSequence(ctx context.Context, fromAddress ADDR, chainId CHAIN_ID) (SEQ, error) {
+	ret := _m.Called(ctx, fromAddress, chainId)
 
 	var r0 SEQ
 	var r1 error
-	if rf, ok := ret.Get(0).(func(ADDR, CHAIN_ID) (SEQ, error)); ok {
-		return rf(fromAddress, chainId)
+	if rf, ok := ret.Get(0).(func(context.Context, ADDR, CHAIN_ID) (SEQ, error)); ok {
+		return rf(ctx, fromAddress, chainId)
 	}
-	if rf, ok := ret.Get(0).(func(ADDR, CHAIN_ID) SEQ); ok {
-		r0 = rf(fromAddress, chainId)
+	if rf, ok := ret.Get(0).(func(context.Context, ADDR, CHAIN_ID) SEQ); ok {
+		r0 = rf(ctx, fromAddress, chainId)
 	} else {
 		r0 = ret.Get(0).(SEQ)
 	}
 
-	if rf, ok := ret.Get(1).(func(ADDR, CHAIN_ID) error); ok {
-		r1 = rf(fromAddress, chainId)
+	if rf, ok := ret.Get(1).(func(context.Context, ADDR, CHAIN_ID) error); ok {
+		r1 = rf(ctx, fromAddress, chainId)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -695,13 +695,13 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateBroad
 	return r0
 }
 
-// UpdateTxAttemptInProgressToBroadcast provides a mock function with given fields: etx, attempt, NewAttemptState, incrementSeqFunc
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxAttemptInProgressToBroadcast(etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], NewAttemptState txmgrtypes.TxAttemptState, incrementSeqFunc func(ADDR) error) error {
-	ret := _m.Called(etx, attempt, NewAttemptState, incrementSeqFunc)
+// UpdateTxAttemptInProgressToBroadcast provides a mock function with given fields: ctx, etx, attempt, NewAttemptState, incrementSeqFunc
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], NewAttemptState txmgrtypes.TxAttemptState, incrementSeqFunc func(ADDR) error) error {
+	ret := _m.Called(ctx, etx, attempt, NewAttemptState, incrementSeqFunc)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], txmgrtypes.TxAttemptState, func(ADDR) error) error); ok {
-		r0 = rf(etx, attempt, NewAttemptState, incrementSeqFunc)
+	if rf, ok := ret.Get(0).(func(context.Context, *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], txmgrtypes.TxAttemptState, func(ADDR) error) error); ok {
+		r0 = rf(ctx, etx, attempt, NewAttemptState, incrementSeqFunc)
 	} else {
 		r0 = ret.Error(0)
 	}

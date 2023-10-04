@@ -26,6 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Removed support for sending telemetry to the deprecated Explorer service. All nodes will have to remove `Explorer` related keys from TOML configuration and env vars.
 - Removed default evmChainID logic where evmChainID was implicitly injected into the jobspecs based on node EVM chainID toml configuration. All newly created jobs(that have evmChainID field) will have to explicitly define evmChainID in the jobspec.
 - Removed keyset migration that migrated v1 keys to v2 keys. All keys should've been migrated by now, and we don't permit creation of new v1 keys anymore
+- Removed the ability to set a next nonce value for an address through CLI
 
 All nodes will have to remove the following secret configurations:
 
