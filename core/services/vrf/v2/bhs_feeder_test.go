@@ -82,7 +82,7 @@ func TestStartHeartbeats(t *testing.T) {
 
 		_ = vrftesthelpers.CreateAndStartBHSJob(
 			t, bhsKeyAddresses, app, uni.bhsContractAddress.String(), "",
-			v2CoordinatorAddress, v2PlusCoordinatorAddress, "", 0, 200, heartbeatPeriod)
+			v2CoordinatorAddress, v2PlusCoordinatorAddress, "", 0, 200, heartbeatPeriod, 100)
 
 		// Ensure log poller is ready and has all logs.
 		require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())

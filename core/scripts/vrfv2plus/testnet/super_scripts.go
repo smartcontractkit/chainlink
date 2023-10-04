@@ -492,6 +492,8 @@ func deployUniverse(e helpers.Environment) {
 	// required flags
 	linkAddress := deployCmd.String("link-address", "", "address of link token")
 	linkEthAddress := deployCmd.String("link-eth-feed", "", "address of link eth feed")
+	bhsAddress := deployCmd.String("bhs-address", "", "address of blockhash store")
+	batchBHSAddress := deployCmd.String("batch-bhs-address", "", "address of batch blockhash store")
 	subscriptionBalanceString := deployCmd.String("subscription-balance", "1e19", "amount to fund subscription")
 
 	// optional flags
@@ -548,11 +550,21 @@ func deployUniverse(e helpers.Environment) {
 		linkEthAddress = &address
 	}
 
-	fmt.Println("\nDeploying BHS...")
-	bhsContractAddress := deployBHS(e)
+	var bhsContractAddress common.Address
+	if len(*bhsAddress) == 0 {
+		fmt.Println("\nDeploying BHS...")
+		bhsContractAddress = deployBHS(e)
+	} else {
+		bhsContractAddress = common.HexToAddress(*bhsAddress)
+	}
 
-	fmt.Println("\nDeploying Batch BHS...")
-	batchBHSAddress := deployBatchBHS(e, bhsContractAddress)
+	var batchBHSContractAddress common.Address
+	if len(*batchBHSAddress) == 0 {
+		fmt.Println("\nDeploying Batch BHS...")
+		batchBHSContractAddress = deployBatchBHS(e, bhsContractAddress)
+	} else {
+		batchBHSContractAddress = common.HexToAddress(*batchBHSAddress)
+	}
 
 	var coordinatorAddress common.Address
 	fmt.Println("\nDeploying Coordinator...")
@@ -637,11 +649,12 @@ func deployUniverse(e helpers.Environment) {
 	)
 
 	fmt.Println(
+		"\n----------------------------",
 		"\nDeployment complete.",
 		"\nLINK Token contract address:", *linkAddress,
 		"\nLINK/ETH Feed contract address:", *linkEthAddress,
 		"\nBlockhash Store contract address:", bhsContractAddress,
-		"\nBatch Blockhash Store contract address:", batchBHSAddress,
+		"\nBatch Blockhash Store contract address:", batchBHSContractAddress,
 		"\nVRF Coordinator Address:", coordinatorAddress,
 		"\nBatch VRF Coordinator Address:", batchCoordinatorAddress,
 		"\nVRF Consumer Address:", consumerAddress,
@@ -651,6 +664,7 @@ func deployUniverse(e helpers.Environment) {
 		fmt.Sprintf("go run . eoa-request --consumer-address %s --sub-id %d --key-hash %s", consumerAddress, subID, keyHash),
 		"\nA node can now be configured to run a VRF job with the below job spec :\n",
 		formattedJobSpec,
+		"\n----------------------------",
 	)
 }
 
@@ -666,7 +680,11 @@ func deployWrapperUniverse(e helpers.Environment) {
 	maxNumWords := cmd.Uint("max-num-words", 10, "the keyhash that wrapper requests should use")
 	subFunding := cmd.String("sub-funding", "10000000000000000000", "amount to fund the subscription with")
 	consumerFunding := cmd.String("consumer-funding", "10000000000000000000", "amount to fund the consumer with")
-	helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-eth-feed", "coordinator-address", "key-hash")
+	fallbackWeiPerUnitLink := cmd.String("fallback-wei-per-unit-link", "", "the fallback wei per unit link")
+	stalenessSeconds := cmd.Uint("staleness-seconds", 86400, "the number of seconds of staleness to allow")
+	fulfillmentFlatFeeLinkPPM := cmd.Uint("fulfillment-flat-fee-link-ppm", 500, "the link flat fee in ppm to charge for fulfillment")
+	fulfillmentFlatFeeNativePPM := cmd.Uint("fulfillment-flat-fee-native-ppm", 500, "the native flat fee in ppm to charge for fulfillment")
+	helpers.ParseArgs(cmd, os.Args[2:], "link-address", "link-eth-feed", "coordinator-address", "key-hash", "fallback-wei-per-unit-link")
 
 	amount, s := big.NewInt(0).SetString(*subFunding, 10)
 	if !s {
@@ -684,7 +702,12 @@ func deployWrapperUniverse(e helpers.Environment) {
 		*coordinatorGasOverhead,
 		*wrapperPremiumPercentage,
 		*keyHash,
-		*maxNumWords)
+		*maxNumWords,
+		decimal.RequireFromString(*fallbackWeiPerUnitLink).BigInt(),
+		uint32(*stalenessSeconds),
+		uint32(*fulfillmentFlatFeeLinkPPM),
+		uint32(*fulfillmentFlatFeeNativePPM),
+	)
 
 	consumer := wrapperConsumerDeploy(e,
 		common.HexToAddress(*linkAddress),

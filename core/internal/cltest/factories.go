@@ -368,7 +368,7 @@ func MustCreateUnstartedTx(t testing.TB, txStore txmgr.EvmTxStore, fromAddress c
 }
 
 func MustCreateUnstartedTxFromEvmTxRequest(t testing.TB, txStore txmgr.EvmTxStore, txRequest txmgr.TxRequest, chainID *big.Int) (tx txmgr.Tx) {
-	tx, err := txStore.CreateTransaction(txRequest, chainID)
+	tx, err := txStore.CreateTransaction(testutils.Context(t), txRequest, chainID)
 	require.NoError(t, err)
 	return tx
 }
@@ -458,7 +458,7 @@ func MustInsertConfirmedEthTxBySaveFetchedReceipts(t *testing.T, txStore txmgr.T
 		BlockNumber:      big.NewInt(nonce),
 		TransactionIndex: uint(1),
 	}
-	err := txStore.SaveFetchedReceipts([]*evmtypes.Receipt{&receipt}, &chainID)
+	err := txStore.SaveFetchedReceipts(testutils.Context(t), []*evmtypes.Receipt{&receipt}, &chainID)
 	require.NoError(t, err)
 	return etx
 }

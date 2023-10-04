@@ -108,8 +108,8 @@ var _ htrktypes.Client[*evmtypes.Head, ethereum.Subscription, *big.Int, common.H
 
 // NewClientWithNodes instantiates a client from a list of nodes
 // Currently only supports one primary
-func NewClientWithNodes(logger logger.Logger, selectionMode string, noNewHeadsThreshold time.Duration, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int, chainType config.ChainType) (*client, error) {
-	pool := NewPool(logger, selectionMode, noNewHeadsThreshold, primaryNodes, sendOnlyNodes, chainID, chainType)
+func NewClientWithNodes(logger logger.Logger, selectionMode string, leaseDuration time.Duration, noNewHeadsThreshold time.Duration, primaryNodes []Node, sendOnlyNodes []SendOnlyNode, chainID *big.Int, chainType config.ChainType) (*client, error) {
+	pool := NewPool(logger, selectionMode, leaseDuration, noNewHeadsThreshold, primaryNodes, sendOnlyNodes, chainID, chainType)
 	return &client{
 		logger: logger,
 		pool:   pool,

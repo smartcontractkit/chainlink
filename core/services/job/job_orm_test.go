@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
-	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
@@ -217,9 +216,23 @@ func TestORM(t *testing.T) {
 	})
 
 	t.Run("creates a job with a direct request spec", func(t *testing.T) {
-		tree, err := toml.LoadFile("../../testdata/tomlspecs/direct-request-spec.toml")
-		require.NoError(t, err)
-		jb, err := directrequest.ValidatedDirectRequestSpec(tree.String())
+		drSpec := fmt.Sprintf(`
+		type                = "directrequest"
+		schemaVersion       = 1
+		evmChainID          = "0"
+		name                = "example eth request event spec"
+		contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
+		externalJobID       = "%s"
+		observationSource   = """
+		    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
+		    ds1_merge    [type=merge left="{}"]
+		    ds1_parse    [type=jsonparse path="USD"];
+		    ds1_multiply [type=multiply times=100];
+		    ds1 -> ds1_parse -> ds1_multiply;
+		"""
+		`, uuid.New())
+
+		jb, err := directrequest.ValidatedDirectRequestSpec(drSpec)
 		require.NoError(t, err)
 		err = orm.CreateJob(&jb)
 		require.NoError(t, err)

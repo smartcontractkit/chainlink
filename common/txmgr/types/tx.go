@@ -1,6 +1,7 @@
 package types
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -16,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg/datatypes"
 )
 
@@ -29,7 +29,7 @@ type TxStrategy interface {
 	// PruneQueue is called after tx insertion
 	// It accepts the service responsible for deleting
 	// unstarted txs and deletion options
-	PruneQueue(pruneService UnstartedTxQueuePruner, qopt pg.QOpt) (n int64, err error)
+	PruneQueue(ctx context.Context, pruneService UnstartedTxQueuePruner) (n int64, err error)
 }
 
 type TxAttemptState int8

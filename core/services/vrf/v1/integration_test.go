@@ -98,7 +98,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			// Ensure the eth transaction gets confirmed on chain.
 			gomega.NewWithT(t).Eventually(func() bool {
 				orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
-				uc, err2 := orm.CountUnconfirmedTransactions(key1.Address, testutils.SimulatedChainID)
+				uc, err2 := orm.CountUnconfirmedTransactions(testutils.Context(t), key1.Address, testutils.SimulatedChainID)
 				require.NoError(t, err2)
 				return uc == 0
 			}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
@@ -150,7 +150,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 
 	// Create BHS Job and start it
 	bhsJob := vrftesthelpers.CreateAndStartBHSJob(t, sendingKeys, app, cu.BHSContractAddress.String(),
-		cu.RootContractAddress.String(), "", "", "", 0, 200, 0)
+		cu.RootContractAddress.String(), "", "", "", 0, 200, 0, 100)
 
 	// Ensure log poller is ready and has all logs.
 	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
@@ -215,7 +215,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	// Ensure the eth transaction gets confirmed on chain.
 	gomega.NewWithT(t).Eventually(func() bool {
 		orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
-		uc, err2 := orm.CountUnconfirmedTransactions(key.Address, testutils.SimulatedChainID)
+		uc, err2 := orm.CountUnconfirmedTransactions(testutils.Context(t), key.Address, testutils.SimulatedChainID)
 		require.NoError(t, err2)
 		return uc == 0
 	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())

@@ -34,7 +34,7 @@ func TestOCR2VRFChaos(t *testing.T) {
 	loadedNetwork := networks.SelectedNetwork
 
 	defaultOCR2VRFSettings := map[string]interface{}{
-		"replicas": "6",
+		"replicas": 6,
 		"toml": client.AddNetworkDetailedConfig(
 			config.BaseOCR2Config,
 			config.DefaultOCR2VRFNetworkDetailTomlConfig,
@@ -135,9 +135,9 @@ func TestOCR2VRFChaos(t *testing.T) {
 				return
 			}
 
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=", 1, 2, ChaosGroupMinority)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=node-", 1, 2, ChaosGroupMinority)
 			require.NoError(t, err)
-			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=", 3, 5, ChaosGroupMajority)
+			err = testEnvironment.Client.LabelChaosGroup(testEnvironment.Cfg.Namespace, "instance=node-", 3, 5, ChaosGroupMajority)
 			require.NoError(t, err)
 
 			chainClient, err := blockchain.NewEVMClient(testNetwork, testEnvironment, l)

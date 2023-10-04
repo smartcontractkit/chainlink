@@ -3,6 +3,7 @@
 package mocks
 
 import (
+	context "context"
 	big "math/big"
 
 	mock "github.com/stretchr/testify/mock"
@@ -13,13 +14,13 @@ type ContractSubmitter struct {
 	mock.Mock
 }
 
-// Submit provides a mock function with given fields: roundID, submission, idempotencyKey
-func (_m *ContractSubmitter) Submit(roundID *big.Int, submission *big.Int, idempotencyKey *string) error {
-	ret := _m.Called(roundID, submission, idempotencyKey)
+// Submit provides a mock function with given fields: ctx, roundID, submission, idempotencyKey
+func (_m *ContractSubmitter) Submit(ctx context.Context, roundID *big.Int, submission *big.Int, idempotencyKey *string) error {
+	ret := _m.Called(ctx, roundID, submission, idempotencyKey)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(*big.Int, *big.Int, *string) error); ok {
-		r0 = rf(roundID, submission, idempotencyKey)
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int, *big.Int, *string) error); ok {
+		r0 = rf(ctx, roundID, submission, idempotencyKey)
 	} else {
 		r0 = ret.Error(0)
 	}
