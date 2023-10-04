@@ -4,6 +4,27 @@
 
 ...
 
+## 0.8.0 - 2023-10-04
+
+### Changed
+
+
+- Add a re-entrancy guard to VRFCoordinatorV2Mock to mimic VRFCoordinatorV2's behavior (#10585)
+- Enhanced support for destination configs in Data Streams verifiers (#10472)
+- Update Data Streams proxy and billing interfaces for better UX (#10603)
+- Allow new reward recipients to be added to pools in Data Streams reward management (#10658)
+- Reorganize Data Streams contracts (llo-feeds/) (#10727)
+- Release automation 2.1 contracts (#10587)
+  - Note: consumers should only use IKeeperRegistryMaster when interacting with the registry contract
+- Fix Functions v1 OracleWithdrawAll to correctly use transmitters (#10392)
+- Clean up unused Functions v1 code: FunctionsBilling.sol maxCallbackGasLimit & FunctionsRequest.sol requestSignature (#10509)
+- Fix Functions v1 FunctionsBilling.sol gas price naming to reflect that it is in wei, not gwei (#10509)
+- Use Natspec comment lines in Functions v1 contracts (#10567)
+- Functions v1 Subscriptions now require a minimum number of requests to release a deposit amount (#10513)
+- Fix Functions v1 Subscriptions add consumer checks for when maximum consumers changes in contract configuration (#10511)
+- Functions v1 Router no longer reverts during fulfillment on an invalid client (#10511)
+- Functions v1 Coordinator oracleWithdrawAll checks for 0 balances (#10511)
+
 ## 0.7.1 - 2023-09-20
 
 ### Changed
