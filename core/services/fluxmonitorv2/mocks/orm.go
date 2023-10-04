@@ -3,8 +3,12 @@
 package mocks
 
 import (
+	context "context"
+
 	common "github.com/ethereum/go-ethereum/common"
+
 	fluxmonitorv2 "github.com/smartcontractkit/chainlink/v2/core/services/fluxmonitorv2"
+
 	mock "github.com/stretchr/testify/mock"
 
 	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -39,13 +43,13 @@ func (_m *ORM) CountFluxMonitorRoundStats() (int, error) {
 	return r0, r1
 }
 
-// CreateEthTransaction provides a mock function with given fields: fromAddress, toAddress, payload, gasLimit, idempotencyKey
-func (_m *ORM) CreateEthTransaction(fromAddress common.Address, toAddress common.Address, payload []byte, gasLimit uint32, idempotencyKey *string) error {
-	ret := _m.Called(fromAddress, toAddress, payload, gasLimit, idempotencyKey)
+// CreateEthTransaction provides a mock function with given fields: ctx, fromAddress, toAddress, payload, gasLimit, idempotencyKey
+func (_m *ORM) CreateEthTransaction(ctx context.Context, fromAddress common.Address, toAddress common.Address, payload []byte, gasLimit uint32, idempotencyKey *string) error {
+	ret := _m.Called(ctx, fromAddress, toAddress, payload, gasLimit, idempotencyKey)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(common.Address, common.Address, []byte, uint32, *string) error); ok {
-		r0 = rf(fromAddress, toAddress, payload, gasLimit, idempotencyKey)
+	if rf, ok := ret.Get(0).(func(context.Context, common.Address, common.Address, []byte, uint32, *string) error); ok {
+		r0 = rf(ctx, fromAddress, toAddress, payload, gasLimit, idempotencyKey)
 	} else {
 		r0 = ret.Error(0)
 	}
