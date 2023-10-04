@@ -90,8 +90,6 @@ func (a *arbitrumEstimator) Close() error {
 	})
 }
 
-func (a *arbitrumEstimator) Ready() error { return a.StartStopOnce.Ready() }
-
 func (a *arbitrumEstimator) HealthReport() map[string]error {
 	hp := map[string]error{a.Name(): a.Healthy()}
 	services.CopyHealth(hp, a.EvmEstimator.HealthReport())
