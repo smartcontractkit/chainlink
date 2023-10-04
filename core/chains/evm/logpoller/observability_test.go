@@ -35,7 +35,7 @@ func TestMultipleMetricsArePublished(t *testing.T) {
 	_, _ = lp.SelectLogsCreatedAfter(common.Address{}, common.Hash{}, time.Now(), 0, pg.WithParentCtx(ctx))
 	_, _ = lp.SelectLatestLogByEventSigWithConfs(common.Hash{}, common.Address{}, 0, pg.WithParentCtx(ctx))
 	_, _ = lp.SelectLatestLogEventSigsAddrsWithConfs(0, []common.Address{{}}, []common.Hash{{}}, 1, pg.WithParentCtx(ctx))
-	_, _ = lp.SelectIndexedLogsCreatedAfter(common.Address{}, common.Hash{}, 0, []common.Hash{}, time.Now(), 0, pg.WithParentCtx(ctx))
+	_, _ = lp.SelectIndexedLogsCreatedAfter(common.Address{}, common.Hash{}, 1, []common.Hash{}, time.Now(), 0, pg.WithParentCtx(ctx))
 	_, _ = lp.SelectLogsUntilBlockHashDataWordGreaterThan(common.Address{}, common.Hash{}, 0, common.Hash{}, common.Hash{}, pg.WithParentCtx(ctx))
 	_ = lp.InsertLogs([]Log{}, pg.WithParentCtx(ctx))
 	_ = lp.InsertBlock(common.Hash{}, 0, time.Now(), pg.WithParentCtx(ctx))
