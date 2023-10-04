@@ -569,6 +569,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
   function migrate(address newCoordinator) external onlyOwner {
     IMigration(address(s_vrfCoordinator)).migrate(SUBSCRIPTION_ID, newCoordinator);
+    s_vrfCoordinator.addConsumer(SUBSCRIPTION_ID, address(this));
   }
 }
 
