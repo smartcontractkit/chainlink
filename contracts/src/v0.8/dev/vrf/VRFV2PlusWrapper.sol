@@ -7,7 +7,7 @@ import "./VRFConsumerBaseV2Plus.sol";
 import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/IVRFCoordinatorV2Plus.sol";
-import "../interfaces/VRFV2PlusWrapperInterface.sol";
+import "../interfaces/IVRFV2PlusWrapper.sol";
 import "./VRFV2PlusWrapperConsumerBase.sol";
 import "../../ChainSpecificUtil.sol";
 
@@ -15,30 +15,44 @@ import "../../ChainSpecificUtil.sol";
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
  * @notice requests for randomness.
  */
-contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBaseV2Plus, VRFV2PlusWrapperInterface {
+contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBaseV2Plus, IVRFV2PlusWrapper {
   event WrapperFulfillmentFailed(uint256 indexed requestId, address indexed consumer);
 
   error LinkAlreadySet();
   error FailedToTransferLink();
+  error IncorrectExtraArgsLength(uint16 expectedMinimumLength, uint16 actualLength);
+  error NativePaymentInOnTokenTransfer();
+  error LINKPaymentInRequestRandomWordsInNative();
 
+  /* Storage Slot 1: BEGIN */
   // s_keyHash is the key hash to use when requesting randomness. Fees are paid based on current gas
   // fees, so this should be set to the highest gas lane on the network.
   bytes32 s_keyHash;
+  /* Storage Slot 1: END */
 
+  /* Storage Slot 2: BEGIN */
   uint256 public immutable SUBSCRIPTION_ID;
+  /* Storage Slot 2: END */
 
+  /* Storage Slot 3: BEGIN */
   // 5k is plenty for an EXTCODESIZE call (2600) + warm CALL (100)
   // and some arithmetic operations.
   uint256 private constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
+  /* Storage Slot 3: END */
 
+  /* Storage Slot 4: BEGIN */
   // lastRequestId is the request ID of the most recent VRF V2 request made by this wrapper. This
   // should only be relied on within the same transaction the request was made.
   uint256 public override lastRequestId;
+  /* Storage Slot 4: END */
 
+  /* Storage Slot 5: BEGIN */
   // s_fallbackWeiPerUnitLink is the backup LINK exchange rate used when the LINK/NATIVE feed is
   // stale.
   int256 private s_fallbackWeiPerUnitLink;
+  /* Storage Slot 5: END */
 
+  /* Storage Slot 6: BEGIN */
   // s_stalenessSeconds is the number of seconds before we consider the feed price to be stale and
   // fallback to fallbackWeiPerUnitLink.
   uint32 private s_stalenessSeconds;
@@ -52,9 +66,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   uint32 private s_fulfillmentFlatFeeNativePPM;
 
   LinkTokenInterface public s_link;
+  /* Storage Slot 6: END */
 
-  // Other configuration
-
+  /* Storage Slot 7: BEGIN */
   // s_wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
   // function. The cost for this gas is passed to the user.
   uint32 private s_wrapperGasOverhead;
@@ -76,7 +90,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   uint32 private s_coordinatorGasOverhead;
 
   AggregatorV3Interface public s_linkNativeFeed;
+  /* Storage Slot 7: END */
 
+  /* Storage Slot 8: BEGIN */
   // s_configured tracks whether this contract has been configured. If not configured, randomness
   // requests cannot be made.
   bool public s_configured;
@@ -92,7 +108,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   // s_maxNumWords is the max number of words that can be requested in a single wrapped VRF request.
   uint8 s_maxNumWords;
 
-  ExtendedVRFCoordinatorV2PlusInterface public immutable COORDINATOR;
+  uint16 private constant EXPECTED_MIN_LENGTH = 36;
+  /* Storage Slot 8: END */
 
   struct Callback {
     address callbackAddress;
@@ -103,7 +120,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // GasPrice is unlikely to be more than 14 ETH on most chains
     uint64 requestGasPrice;
   }
+  /* Storage Slot 9: BEGIN */
   mapping(uint256 => Callback) /* requestID */ /* callback */ public s_callbacks;
+
+  /* Storage Slot 9: END */
 
   constructor(address _link, address _linkNativeFeed, address _coordinator) VRFConsumerBaseV2Plus(_coordinator) {
     if (_link != address(0)) {
@@ -112,12 +132,11 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     if (_linkNativeFeed != address(0)) {
       s_linkNativeFeed = AggregatorV3Interface(_linkNativeFeed);
     }
-    COORDINATOR = ExtendedVRFCoordinatorV2PlusInterface(_coordinator);
 
     // Create this wrapper's subscription and add itself as a consumer.
-    uint256 subId = ExtendedVRFCoordinatorV2PlusInterface(_coordinator).createSubscription();
+    uint256 subId = s_vrfCoordinator.createSubscription();
     SUBSCRIPTION_ID = subId;
-    ExtendedVRFCoordinatorV2PlusInterface(_coordinator).addConsumer(subId, address(this));
+    s_vrfCoordinator.addConsumer(subId, address(this));
   }
 
   /**
@@ -169,7 +188,11 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     uint32 _coordinatorGasOverhead,
     uint8 _wrapperPremiumPercentage,
     bytes32 _keyHash,
-    uint8 _maxNumWords
+    uint8 _maxNumWords,
+    uint32 stalenessSeconds,
+    int256 fallbackWeiPerUnitLink,
+    uint32 fulfillmentFlatFeeLinkPPM,
+    uint32 fulfillmentFlatFeeNativePPM
   ) external onlyOwner {
     s_wrapperGasOverhead = _wrapperGasOverhead;
     s_coordinatorGasOverhead = _coordinatorGasOverhead;
@@ -179,9 +202,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     s_configured = true;
 
     // Get other configuration from coordinator
-    (, , s_stalenessSeconds, ) = COORDINATOR.s_config();
-    s_fallbackWeiPerUnitLink = COORDINATOR.s_fallbackWeiPerUnitLink();
-    (s_fulfillmentFlatFeeLinkPPM, s_fulfillmentFlatFeeNativePPM) = COORDINATOR.s_feeConfig();
+    s_stalenessSeconds = stalenessSeconds;
+    s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
+    s_fulfillmentFlatFeeLinkPPM = fulfillmentFlatFeeLinkPPM;
+    s_fulfillmentFlatFeeNativePPM = fulfillmentFlatFeeNativePPM;
   }
 
   /**
@@ -339,10 +363,11 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   function onTokenTransfer(address _sender, uint256 _amount, bytes calldata _data) external onlyConfiguredNotDisabled {
     require(msg.sender == address(s_link), "only callable from LINK");
 
-    (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords) = abi.decode(
+    (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords, bytes memory extraArgs) = abi.decode(
       _data,
-      (uint32, uint16, uint32)
+      (uint32, uint16, uint32, bytes)
     );
+    checkPaymentMode(extraArgs, true);
     uint32 eip150Overhead = getEIP150Overhead(callbackGasLimit);
     int256 weiPerUnitLink = getFeedData();
     uint256 price = calculateRequestPriceInternal(callbackGasLimit, tx.gasprice, weiPerUnitLink);
@@ -354,9 +379,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       requestConfirmations: requestConfirmations,
       callbackGasLimit: callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
       numWords: numWords,
-      extraArgs: "" // empty extraArgs defaults to link payment
+      extraArgs: extraArgs // empty extraArgs defaults to link payment
     });
-    uint256 requestId = COORDINATOR.requestRandomWords(req);
+    uint256 requestId = s_vrfCoordinator.requestRandomWords(req);
     s_callbacks[requestId] = Callback({
       callbackAddress: _sender,
       callbackGasLimit: callbackGasLimit,
@@ -365,11 +390,38 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     lastRequestId = requestId;
   }
 
+  function checkPaymentMode(bytes memory extraArgs, bool isLinkMode) public pure {
+    // If extraArgs is empty, payment mode is LINK by default
+    if (extraArgs.length == 0) {
+      if (!isLinkMode) {
+        revert LINKPaymentInRequestRandomWordsInNative();
+      }
+      return;
+    }
+    if (extraArgs.length < EXPECTED_MIN_LENGTH) {
+      revert IncorrectExtraArgsLength(EXPECTED_MIN_LENGTH, uint16(extraArgs.length));
+    }
+    // ExtraArgsV1 only has struct {bool nativePayment} as of now
+    // The following condition checks if nativePayment in abi.encode of
+    // ExtraArgsV1 matches the appropriate function call (onTokenTransfer
+    // for LINK and requestRandomWordsInNative for Native payment)
+    bool nativePayment = extraArgs[35] == hex"01";
+    if (nativePayment && isLinkMode) {
+      revert NativePaymentInOnTokenTransfer();
+    }
+    if (!nativePayment && !isLinkMode) {
+      revert LINKPaymentInRequestRandomWordsInNative();
+    }
+  }
+
   function requestRandomWordsInNative(
     uint32 _callbackGasLimit,
     uint16 _requestConfirmations,
-    uint32 _numWords
+    uint32 _numWords,
+    bytes calldata extraArgs
   ) external payable override returns (uint256 requestId) {
+    checkPaymentMode(extraArgs, false);
+
     uint32 eip150Overhead = getEIP150Overhead(_callbackGasLimit);
     uint256 price = calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);
     require(msg.value >= price, "fee too low");
@@ -380,9 +432,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       requestConfirmations: _requestConfirmations,
       callbackGasLimit: _callbackGasLimit + eip150Overhead + s_wrapperGasOverhead,
       numWords: _numWords,
-      extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}))
+      extraArgs: extraArgs
     });
-    requestId = COORDINATOR.requestRandomWords(req);
+    requestId = s_vrfCoordinator.requestRandomWords(req);
     s_callbacks[requestId] = Callback({
       callbackAddress: msg.sender,
       callbackGasLimit: _callbackGasLimit,
@@ -509,20 +561,4 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     require(!s_disabled, "wrapper is disabled");
     _;
   }
-}
-
-interface ExtendedVRFCoordinatorV2PlusInterface is IVRFCoordinatorV2Plus {
-  function s_config()
-    external
-    view
-    returns (
-      uint16 minimumRequestConfirmations,
-      uint32 maxGasLimit,
-      uint32 stalenessSeconds,
-      uint32 gasAfterPaymentCalculation
-    );
-
-  function s_fallbackWeiPerUnitLink() external view returns (int256);
-
-  function s_feeConfig() external view returns (uint32 fulfillmentFlatFeeLinkPPM, uint32 fulfillmentFlatFeeNativePPM);
 }

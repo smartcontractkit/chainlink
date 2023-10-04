@@ -416,7 +416,7 @@ var trrsMercury = pipeline.TaskRunResults{
 			BaseTask: pipeline.NewBaseTask(3, "ds3_ask", nil, nil, 3),
 		},
 		Result: pipeline.Result{
-			Value: float64(123456789.1),
+			Value: int64(321123),
 		},
 	},
 }
@@ -461,7 +461,7 @@ func TestGetPricesFromResults(t *testing.T) {
 	benchmarkPrice, bid, ask := e.getPricesFromResults(trrsMercury[0], &trrsMercury)
 	require.Equal(t, 123456.123456, benchmarkPrice)
 	require.Equal(t, 1234567.1234567, bid)
-	require.Equal(t, 123456789.1, ask)
+	require.Equal(t, float64(321123), ask)
 
 	benchmarkPrice, bid, ask = e.getPricesFromResults(trrsMercury[0], &pipeline.TaskRunResults{})
 	require.Equal(t, float64(0), benchmarkPrice)
@@ -601,7 +601,7 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 		DataSource:                    "data-source-name",
 		DpBenchmarkPrice:              123456.123456,
 		DpBid:                         1234567.1234567,
-		DpAsk:                         123456789.1,
+		DpAsk:                         321123,
 		CurrentBlockNumber:            123456789,
 		CurrentBlockHash:              common.HexToHash("0x123321").String(),
 		CurrentBlockTimestamp:         987654321,
