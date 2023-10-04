@@ -25,6 +25,7 @@ type CLTestEnvBuilder struct {
 	hasLogWatch          bool
 	hasGeth              bool
 	hasMockServer        bool
+	hasKillgrave         bool
 	hasForwarders        bool
 	clNodeConfig         *chainlink.Config
 	secretsConfig        string
@@ -127,9 +128,15 @@ func (b *CLTestEnvBuilder) WithSecretsConfig(secrets string) *CLTestEnvBuilder {
 	return b
 }
 
+// Deprecated: WithMockServer will be deprecated once killgrave has been fully integrated.
 func (b *CLTestEnvBuilder) WithMockServer(externalAdapterCount int) *CLTestEnvBuilder {
 	b.hasMockServer = true
 	b.externalAdapterCount = externalAdapterCount
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithMockAdapter() *CLTestEnvBuilder {
+	b.hasKillgrave = true
 	return b
 }
 
@@ -151,6 +158,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		Bool("hasGeth", b.hasGeth).
 		Bool("hasMockServer", b.hasMockServer).
 		Int("externalAdapterCount", b.externalAdapterCount).
+		Bool("hasKillgrave", b.hasKillgrave).
 		Int("clNodesCount", b.clNodesCount).
 		Strs("customNodeCsaKeys", b.customNodeCsaKeys).
 		Strs("defaultNodeCsaKeys", b.defaultNodeCsaKeys).
@@ -178,6 +186,13 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, err
 		}
 	}
+	if b.hasKillgrave {
+		err = b.te.StartMockAdapter()
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	if b.nonDevGethNetworks != nil {
 		b.te.WithPrivateChain(b.nonDevGethNetworks)
 		err := b.te.StartPrivateChain()

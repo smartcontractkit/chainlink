@@ -47,6 +47,7 @@ type CLClusterTestEnv struct {
 	Geth             *test_env.Geth          // for tests using --dev networks
 	PrivateChain     []test_env.PrivateChain // for tests using non-dev networks
 	MockServer       *test_env.MockServer
+	MockAdapter      *test_env.Killgrave
 	EVMClient        blockchain.EVMClient
 	ContractDeployer contracts.ContractDeployer
 	ContractLoader   contracts.ContractLoader
@@ -62,10 +63,11 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 	}
 	n := []string{network.Name}
 	return &CLClusterTestEnv{
-		Geth:       test_env.NewGeth(n),
-		MockServer: test_env.NewMockServer(n),
-		Network:    network,
-		l:          log.Logger,
+		Geth:        test_env.NewGeth(n),
+		MockServer:  test_env.NewMockServer(n),
+		MockAdapter: test_env.NewKillgrave(n, ""),
+		Network:     network,
+		l:           log.Logger,
 	}, nil
 }
 
@@ -74,8 +76,9 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTestEnv {
 	te.Cfg = cfg
 	n := []string{te.Network.Name}
-	te.Geth = test_env.NewGeth(n, test_env.WithContainerName(cfg.Geth.ContainerName))
-	te.MockServer = test_env.NewMockServer(n, test_env.WithContainerName(cfg.MockServer.ContainerName))
+	te.Geth = test_env.NewGeth(n, test_env.WithContainerName(te.Cfg.Geth.ContainerName))
+	te.MockServer = test_env.NewMockServer(n, test_env.WithContainerName(te.Cfg.MockServer.ContainerName))
+	te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName))
 	return te
 }
 
@@ -84,6 +87,7 @@ func (te *CLClusterTestEnv) WithTestLogger(t *testing.T) *CLClusterTestEnv {
 	te.l = logging.GetTestLogger(t)
 	te.Geth.WithTestLogger(t)
 	te.MockServer.WithTestLogger(t)
+	te.MockAdapter.WithTestLogger(t)
 	return te
 }
 
@@ -135,8 +139,13 @@ func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, test_env.Interna
 	return te.Geth.StartContainer()
 }
 
+// Deprecated: StartMockServer will be deprecated in favor of StartMockAdapter
 func (te *CLClusterTestEnv) StartMockServer() error {
 	return te.MockServer.StartContainer()
+}
+
+func (te *CLClusterTestEnv) StartMockAdapter() error {
+	return te.MockAdapter.StartContainer()
 }
 
 func (te *CLClusterTestEnv) GetAPIs() []*client.ChainlinkClient {
