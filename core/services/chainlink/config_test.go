@@ -276,6 +276,8 @@ func TestConfig_Marshal(t *testing.T) {
 		SendInterval: models.MustNewDuration(time.Minute),
 		SendTimeout:  models.MustNewDuration(5 * time.Second),
 		UseBatchSend: ptr(true),
+		URL:          ptr(models.URL{}),
+		ServerPubKey: ptr(""),
 		Endpoints: []toml.TelemetryIngressEndpoint{{
 			Network:      ptr("EVM"),
 			ChainID:      ptr("1"),
@@ -693,6 +695,8 @@ MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
+URL = ''
+ServerPubKey = ''
 
 [[TelemetryIngress.Endpoints]]
 Network = 'EVM'

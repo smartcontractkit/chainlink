@@ -40,6 +40,8 @@ MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
+URL = ''
+ServerPubKey = ''
 
 [[TelemetryIngress.Endpoints]]
 Network = 'EVM'

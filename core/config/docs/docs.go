@@ -124,7 +124,7 @@ func newTable(line string, desc lines) *table {
 
 func newArrayOfTables(line string, desc lines) *table {
 	t := &table{
-		name:  strings.Trim(strings.Trim(line, fieldExample), "[[]]"),
+		name:  strings.Trim(strings.Trim(line, fieldExample), "[]"),
 		codes: []string{line},
 		desc:  desc,
 	}

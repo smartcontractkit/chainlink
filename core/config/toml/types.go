@@ -429,8 +429,8 @@ type TelemetryIngress struct {
 	UseBatchSend *bool
 	Endpoints    []TelemetryIngressEndpoint `toml:",omitempty"`
 
-	URL          *models.URL `toml:"-"` // Deprecated: Use TelemetryIngressEndpoint.URL instead, if this field is set it will trigger an error, only used to warn NOPs of change
-	ServerPubKey *string     `toml:"-"` // Deprecated: Use TelemetryIngressEndpoint.ServerPubKey instead, if this field is set it will trigger an error, only used to warn NOPs of change
+	URL          *models.URL `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.URL instead, if this field is set it will trigger an error, only used to warn NOPs of change
+	ServerPubKey *string     `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.ServerPubKey instead, if this field is set it will trigger an error, only used to warn NOPs of change
 }
 
 type TelemetryIngressEndpoint struct {

@@ -48,12 +48,12 @@ func (t *telemetryIngressConfig) UseBatchSend() bool {
 
 // Deprecated: Use TelemetryIngressEndpoint.ServerPubKey instead, if this field is set it will trigger an error, only used to warn NOPs of change
 func (t *telemetryIngressConfig) ServerPubKey() string {
-	return t.ServerPubKey()
+	return *t.c.ServerPubKey
 }
 
 // Deprecated: Use TelemetryIngressEndpoint.URL instead, if this field is set it will trigger an error, only used to warn NOPs of change
 func (t *telemetryIngressConfig) URL() *url.URL {
-	return t.URL()
+	return t.c.URL.URL()
 }
 
 func (t *telemetryIngressConfig) Endpoints() []config.TelemetryIngressEndpoint {
