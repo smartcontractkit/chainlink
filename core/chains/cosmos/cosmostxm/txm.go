@@ -1,12 +1,12 @@
 package cosmostxm
 
 import (
+	"cmp"
 	"context"
 	"encoding/hex"
+	"slices"
 	"strings"
 	"time"
-
-	"slices"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
@@ -180,13 +180,7 @@ func (e *msgValidator) sortValid() {
 	slices.SortFunc(e.valid, func(a, b adapters.Msg) int {
 		ac, bc := a.CreatedAt, b.CreatedAt
 		if ac.Equal(bc) {
-			if a.ID < b.ID {
-				return -1
-			}
-			if a.ID > b.ID {
-				return 1
-			}
-			return 0
+			return cmp.Compare(a.ID, b.ID)
 		}
 		if ac.After(bc) {
 			return 1
