@@ -83,7 +83,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		return nil, errors.Wrapf(err, "DirectRequest: failed to create an operator wrapper for address: %v", concreteSpec.ContractAddress.Address().String())
 	}
 
-	svcLogger := d.logger.
+	svcLogger := d.logger.Named(jb.ExternalJobID.String()).
 		With(
 			"contract", concreteSpec.ContractAddress.Address().String(),
 			"jobName", jb.PipelineSpec.JobName,
@@ -92,7 +92,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		)
 
 	logListener := &listener{
-		logger:                   svcLogger.Named("DirectRequest"),
+		logger:                   svcLogger.Named("Listener"),
 		config:                   chain.Config().EVM(),
 		logBroadcaster:           chain.LogBroadcaster(),
 		oracle:                   oracle,

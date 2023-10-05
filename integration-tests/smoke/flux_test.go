@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -27,7 +28,7 @@ func TestFluxBasic(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
 		WithGeth().
-		WithMockServer(1).
+		WithMockAdapter().
 		WithCLNodes(3).
 		Build()
 	require.NoError(t, err)
@@ -43,8 +44,8 @@ func TestFluxBasic(t *testing.T) {
 
 	adapterUUID := uuid.NewString()
 	adapterPath := fmt.Sprintf("/variable-%s", adapterUUID)
-	err = env.MockServer.Client.SetValuePath(adapterPath, 1e5)
-	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
+	err = env.MockAdapter.SetAdapterBasedIntValuePath(adapterPath, []string{http.MethodPost}, 1e5)
+	require.NoError(t, err, "Setting mock adapter value path shouldn't fail")
 
 	lt, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
@@ -81,7 +82,7 @@ func TestFluxBasic(t *testing.T) {
 	require.NoError(t, err, "Getting oracle details from the Flux aggregator contract shouldn't fail")
 	l.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
 
-	adapterFullURL := fmt.Sprintf("%s%s", env.MockServer.Client.Config.ClusterURL, adapterPath)
+	adapterFullURL := fmt.Sprintf("%s%s", env.MockAdapter.InternalEndpoint, adapterPath)
 	l.Info().Str("AdapterFullURL", adapterFullURL).Send()
 	bta := &client.BridgeTypeAttributes{
 		Name: fmt.Sprintf("variable-%s", adapterUUID),
@@ -126,7 +127,7 @@ func TestFluxBasic(t *testing.T) {
 
 	fluxRound = contracts.NewFluxAggregatorRoundConfirmer(fluxInstance, big.NewInt(2), fluxRoundTimeout, l)
 	env.EVMClient.AddHeaderEventSubscription(fluxInstance.Address(), fluxRound)
-	err = env.MockServer.Client.SetValuePath(adapterPath, 1e10)
+	err = env.MockAdapter.SetAdapterBasedIntValuePath(adapterPath, []string{http.MethodPost}, 1e10)
 	require.NoError(t, err, "Setting value path in mock server shouldn't fail")
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")

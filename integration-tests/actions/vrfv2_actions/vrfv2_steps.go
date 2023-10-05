@@ -155,7 +155,7 @@ func SetupLocalLoadTestEnv(nodesFunding *big.Float, subFundingLINK *big.Int) (*t
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithGeth().
 		WithLogWatcher().
-		WithMockServer(1).
+		WithMockAdapter().
 		WithCLNodes(1).
 		WithFunding(nodesFunding).
 		WithLogWatcher().
