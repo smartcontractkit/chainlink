@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"math/big"
+	"slices"
 	"sync"
 	"testing"
 	"time"
@@ -17,7 +18,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
-	"golang.org/x/exp/slices"
 
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
