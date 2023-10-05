@@ -11,24 +11,19 @@ import (
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
 // NewCachedFeeTokens cache fee tokens returned from PriceRegistry
 func NewCachedFeeTokens(
 	lp logpoller.LogPoller,
-	priceRegistry price_registry.PriceRegistryInterface,
+	priceRegistry ccipdata.PriceRegistryReader,
 	optimisticConfirmations int64,
 ) *CachedChain[[]common.Address] {
 	return &CachedChain[[]common.Address]{
-		observedEvents: []common.Hash{
-			abihelpers.EventSignatures.FeeTokenAdded,
-			abihelpers.EventSignatures.FeeTokenRemoved,
-		},
+		observedEvents:          priceRegistry.FeeTokenEvents(),
 		logPoller:               lp,
 		address:                 []common.Address{priceRegistry.Address()},
 		optimisticConfirmations: optimisticConfirmations,
@@ -48,17 +43,12 @@ type CachedTokens struct {
 // when checking for changes in logpoller.LogPoller
 func NewCachedSupportedTokens(
 	lp logpoller.LogPoller,
-	offRamp evm_2_evm_offramp.EVM2EVMOffRampInterface,
-	priceRegistry price_registry.PriceRegistryInterface,
+	offRamp ccipdata.OffRampReader,
+	priceRegistry ccipdata.PriceRegistryReader,
 	optimisticConfirmations int64,
 ) *CachedChain[CachedTokens] {
 	return &CachedChain[CachedTokens]{
-		observedEvents: []common.Hash{
-			abihelpers.EventSignatures.FeeTokenAdded,
-			abihelpers.EventSignatures.FeeTokenRemoved,
-			abihelpers.EventSignatures.PoolAdded,
-			abihelpers.EventSignatures.PoolRemoved,
-		},
+		observedEvents:          append(priceRegistry.FeeTokenEvents(), offRamp.TokenEvents()...),
 		logPoller:               lp,
 		address:                 []common.Address{priceRegistry.Address(), offRamp.Address()},
 		optimisticConfirmations: optimisticConfirmations,
@@ -74,28 +64,23 @@ func NewCachedSupportedTokens(
 func NewTokenToDecimals(
 	lggr logger.Logger,
 	lp logpoller.LogPoller,
-	offRamp evm_2_evm_offramp.EVM2EVMOffRampInterface,
-	priceRegistry price_registry.PriceRegistryInterface,
+	offRamp ccipdata.OffRampReader,
+	priceRegistryReader ccipdata.PriceRegistryReader,
 	client evmclient.Client,
 	optimisticConfirmations int64,
 ) *CachedChain[map[common.Address]uint8] {
 	return &CachedChain[map[common.Address]uint8]{
-		observedEvents: []common.Hash{
-			abihelpers.EventSignatures.FeeTokenAdded,
-			abihelpers.EventSignatures.FeeTokenRemoved,
-			abihelpers.EventSignatures.PoolAdded,
-			abihelpers.EventSignatures.PoolRemoved,
-		},
+		observedEvents:          append(priceRegistryReader.FeeTokenEvents(), offRamp.TokenEvents()...),
 		logPoller:               lp,
-		address:                 []common.Address{priceRegistry.Address(), offRamp.Address()},
+		address:                 []common.Address{priceRegistryReader.Address(), offRamp.Address()},
 		optimisticConfirmations: optimisticConfirmations,
 		lock:                    &sync.RWMutex{},
 		value:                   make(map[common.Address]uint8),
 		lastChangeBlock:         0,
 		origin: &tokenToDecimals{
-			lggr:          lggr,
-			priceRegistry: priceRegistry,
-			offRamp:       offRamp,
+			lggr:                lggr,
+			priceRegistryReader: priceRegistryReader,
+			offRamp:             offRamp,
 			tokenFactory: func(token common.Address) (link_token_interface.LinkTokenInterface, error) {
 				return link_token_interface.NewLinkToken(token, client)
 			},
@@ -104,7 +89,7 @@ func NewTokenToDecimals(
 }
 
 type supportedTokensOrigin struct {
-	offRamp evm_2_evm_offramp.EVM2EVMOffRampInterface
+	offRamp ccipdata.OffRampReader
 }
 
 func (t *supportedTokensOrigin) Copy(value map[common.Address]common.Address) map[common.Address]common.Address {
@@ -115,7 +100,7 @@ func (t *supportedTokensOrigin) Copy(value map[common.Address]common.Address) ma
 // NOTE: this queries the offRamp n+1 times, where n is the number of enabled tokens.
 func (t *supportedTokensOrigin) CallOrigin(ctx context.Context) (map[common.Address]common.Address, error) {
 	srcToDstTokenMapping := make(map[common.Address]common.Address)
-	sourceTokens, err := t.offRamp.GetSupportedTokens(&bind.CallOpts{Context: ctx})
+	sourceTokens, err := t.offRamp.GetSupportedTokens(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +108,7 @@ func (t *supportedTokensOrigin) CallOrigin(ctx context.Context) (map[common.Addr
 	seenDestinationTokens := make(map[common.Address]struct{})
 
 	for _, sourceToken := range sourceTokens {
-		dst, err1 := t.offRamp.GetDestinationToken(&bind.CallOpts{Context: ctx}, sourceToken)
+		dst, err1 := t.offRamp.GetDestinationToken(ctx, sourceToken)
 		if err1 != nil {
 			return nil, err1
 		}
@@ -139,7 +124,7 @@ func (t *supportedTokensOrigin) CallOrigin(ctx context.Context) (map[common.Addr
 }
 
 type feeTokensOrigin struct {
-	priceRegistry price_registry.PriceRegistryInterface
+	priceRegistry ccipdata.PriceRegistryReader
 }
 
 func (t *feeTokensOrigin) Copy(value []common.Address) []common.Address {
@@ -147,7 +132,7 @@ func (t *feeTokensOrigin) Copy(value []common.Address) []common.Address {
 }
 
 func (t *feeTokensOrigin) CallOrigin(ctx context.Context) ([]common.Address, error) {
-	return t.priceRegistry.GetFeeTokens(&bind.CallOpts{Context: ctx})
+	return t.priceRegistry.GetFeeTokens(ctx)
 }
 
 func copyArray(source []common.Address) []common.Address {
@@ -192,11 +177,11 @@ func copyMap[M ~map[K]V, K comparable, V any](m M) M {
 }
 
 type tokenToDecimals struct {
-	lggr          logger.Logger
-	offRamp       evm_2_evm_offramp.EVM2EVMOffRampInterface
-	priceRegistry price_registry.PriceRegistryInterface
-	tokenFactory  func(address common.Address) (link_token_interface.LinkTokenInterface, error)
-	tokenDecimals sync.Map
+	lggr                logger.Logger
+	offRamp             ccipdata.OffRampReader
+	priceRegistryReader ccipdata.PriceRegistryReader
+	tokenFactory        func(address common.Address) (link_token_interface.LinkTokenInterface, error)
+	tokenDecimals       sync.Map
 }
 
 func (t *tokenToDecimals) Copy(value map[common.Address]uint8) map[common.Address]uint8 {
@@ -206,7 +191,7 @@ func (t *tokenToDecimals) Copy(value map[common.Address]uint8) map[common.Addres
 // CallOrigin Generates the token to decimal mapping for dest tokens and fee tokens.
 // NOTE: this queries token decimals n times, where n is the number of tokens whose decimals are not already cached.
 func (t *tokenToDecimals) CallOrigin(ctx context.Context) (map[common.Address]uint8, error) {
-	destTokens, err := getDestinationAndFeeTokens(ctx, t.offRamp, t.priceRegistry)
+	destTokens, err := getDestinationAndFeeTokens(ctx, t.offRamp, t.priceRegistryReader)
 	if err != nil {
 		return nil, err
 	}
@@ -234,13 +219,13 @@ func (t *tokenToDecimals) CallOrigin(ctx context.Context) (map[common.Address]ui
 	return mapping, nil
 }
 
-func getDestinationAndFeeTokens(ctx context.Context, offRamp evm_2_evm_offramp.EVM2EVMOffRampInterface, priceRegistry price_registry.PriceRegistryInterface) ([]common.Address, error) {
-	destTokens, err := offRamp.GetDestinationTokens(&bind.CallOpts{Context: ctx})
+func getDestinationAndFeeTokens(ctx context.Context, offRamp ccipdata.OffRampReader, priceRegistry ccipdata.PriceRegistryReader) ([]common.Address, error) {
+	destTokens, err := offRamp.GetDestinationTokens(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	feeTokens, err := priceRegistry.GetFeeTokens(&bind.CallOpts{Context: ctx})
+	feeTokens, err := priceRegistry.GetFeeTokens(ctx)
 	if err != nil {
 		return nil, err
 	}

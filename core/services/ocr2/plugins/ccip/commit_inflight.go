@@ -7,8 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
 const (
@@ -26,12 +26,13 @@ const (
 // we are able to obtain high throughput during happy path yet still naturally recover
 // if a reorg or issue causes onchain reverts.
 type InflightCommitReport struct {
-	report    commit_store.CommitStoreCommitReport
+	report    ccipdata.CommitStoreReport
 	createdAt time.Time
 }
 
 type InflightPriceUpdate struct {
-	priceUpdates  commit_store.InternalPriceUpdates
+	gasPrices     []ccipdata.GasPrice
+	tokenPrices   []ccipdata.TokenPrice
 	createdAt     time.Time
 	epochAndRound uint64
 }
@@ -68,6 +69,8 @@ func (c *inflightCommitReportsContainer) maxInflightSeqNr() uint64 {
 }
 
 // getLatestInflightGasPriceUpdate returns the latest inflight gas price update, and bool flag on if update exists.
+// Note we assume that reports contain either 1 or 0 gas prices.
+// If this assumption is broken, we will need to update this logic.
 func (c *inflightCommitReportsContainer) getLatestInflightGasPriceUpdate() (update, bool) {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
@@ -75,7 +78,7 @@ func (c *inflightCommitReportsContainer) getLatestInflightGasPriceUpdate() (upda
 	latestGasPriceUpdate := update{}
 	var latestEpochAndRound uint64
 	for _, inflight := range c.inFlightPriceUpdates {
-		if inflight.priceUpdates.DestChainSelector == 0 {
+		if len(inflight.gasPrices) == 0 {
 			// Price updates did not include a gas price
 			continue
 		}
@@ -84,7 +87,7 @@ func (c *inflightCommitReportsContainer) getLatestInflightGasPriceUpdate() (upda
 			updateFound = true
 			latestGasPriceUpdate = update{
 				timestamp: inflight.createdAt,
-				value:     inflight.priceUpdates.UsdPerUnitGas,
+				value:     inflight.gasPrices[0].Value,
 			}
 			latestEpochAndRound = inflight.epochAndRound
 			continue
@@ -100,20 +103,14 @@ func (c *inflightCommitReportsContainer) latestInflightTokenPriceUpdates() map[c
 	latestTokenPriceUpdates := make(map[common.Address]update)
 	latestEpochAndRounds := make(map[common.Address]uint64)
 	for _, inflight := range c.inFlightPriceUpdates {
-		for _, inflightTokenUpdate := range inflight.priceUpdates.TokenPriceUpdates {
-			if _, ok := latestTokenPriceUpdates[inflightTokenUpdate.SourceToken]; !ok {
-				latestTokenPriceUpdates[inflightTokenUpdate.SourceToken] = update{
-					value:     inflightTokenUpdate.UsdPerToken,
+		for _, inflightTokenUpdate := range inflight.tokenPrices {
+			_, ok := latestTokenPriceUpdates[inflightTokenUpdate.Token]
+			if !ok || inflight.epochAndRound > latestEpochAndRounds[inflightTokenUpdate.Token] {
+				latestTokenPriceUpdates[inflightTokenUpdate.Token] = update{
+					value:     inflightTokenUpdate.Value,
 					timestamp: inflight.createdAt,
 				}
-				latestEpochAndRounds[inflightTokenUpdate.SourceToken] = inflight.epochAndRound
-			}
-			if inflight.epochAndRound > latestEpochAndRounds[inflightTokenUpdate.SourceToken] {
-				latestTokenPriceUpdates[inflightTokenUpdate.SourceToken] = update{
-					value:     inflightTokenUpdate.UsdPerToken,
-					timestamp: inflight.createdAt,
-				}
-				latestEpochAndRounds[inflightTokenUpdate.SourceToken] = inflight.epochAndRound
+				latestEpochAndRounds[inflightTokenUpdate.Token] = inflight.epochAndRound
 			}
 		}
 	}
@@ -150,7 +147,7 @@ func (c *inflightCommitReportsContainer) expire(lggr logger.Logger) {
 		if timeSinceUpdate > c.cacheExpiry*PRICE_EXPIRY_MULTIPLIER {
 			// Happy path: inflight report was successfully transmitted onchain, we remove it from inflight and onchain state reflects inflight.
 			// Sad path: inflight report reverts onchain, we remove it from inflight, onchain state does not reflect the chains, so we retry.
-			lggr.Infow("Inflight price update expired", "updates", inFlightFeeUpdate.priceUpdates)
+			lggr.Infow("Inflight price update expired", "gasPrices", inFlightFeeUpdate.gasPrices, "tokenPrices", inFlightFeeUpdate.tokenPrices)
 		} else {
 			// If the update is still valid, we keep it in the inflight list.
 			stillInflight = append(stillInflight, inFlightFeeUpdate)
@@ -159,7 +156,7 @@ func (c *inflightCommitReportsContainer) expire(lggr logger.Logger) {
 	c.inFlightPriceUpdates = stillInflight
 }
 
-func (c *inflightCommitReportsContainer) add(lggr logger.Logger, report commit_store.CommitStoreCommitReport, epochAndRound uint64) error {
+func (c *inflightCommitReportsContainer) add(lggr logger.Logger, report ccipdata.CommitStoreReport, epochAndRound uint64) error {
 	c.locker.Lock()
 	defer c.locker.Unlock()
 
@@ -172,10 +169,11 @@ func (c *inflightCommitReportsContainer) add(lggr logger.Logger, report commit_s
 		}
 	}
 
-	if report.PriceUpdates.DestChainSelector != 0 || len(report.PriceUpdates.TokenPriceUpdates) != 0 {
-		lggr.Infow("Adding to inflight fee updates", "priceUpdates", report.PriceUpdates)
+	if len(report.GasPrices) != 0 || len(report.TokenPrices) != 0 {
+		lggr.Infow("Adding to inflight fee updates", "gasPrices", report.GasPrices, "tokenPrices", report.TokenPrices)
 		c.inFlightPriceUpdates = append(c.inFlightPriceUpdates, InflightPriceUpdate{
-			priceUpdates:  report.PriceUpdates,
+			gasPrices:     report.GasPrices,
+			tokenPrices:   report.TokenPrices,
 			createdAt:     time.Now(),
 			epochAndRound: epochAndRound,
 		})

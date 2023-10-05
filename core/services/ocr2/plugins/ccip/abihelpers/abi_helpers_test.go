@@ -4,18 +4,10 @@ import (
 	"fmt"
 	"math"
 	"math/big"
-	"math/rand"
 	"testing"
-
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
-	"github.com/test-go/testify/require"
-
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func TestProofFlagToBits(t *testing.T) {
@@ -60,52 +52,6 @@ func TestProofFlagToBits(t *testing.T) {
 		a := ProofFlagsToBits(tc.flags)
 		assert.Equal(t, tc.expected.String(), a.String())
 	}
-}
-
-func TestCommitReportEncoding(t *testing.T) {
-	report := commit_store.CommitStoreCommitReport{
-		PriceUpdates: commit_store.InternalPriceUpdates{
-			TokenPriceUpdates: []commit_store.InternalTokenPriceUpdate{
-				{
-					SourceToken: utils.RandomAddress(),
-					UsdPerToken: big.NewInt(9e18),
-				},
-			},
-			DestChainSelector: rand.Uint64(),
-			UsdPerUnitGas:     big.NewInt(2000e9),
-		},
-		MerkleRoot: [32]byte{123},
-		Interval:   commit_store.CommitStoreInterval{Min: 1, Max: 10},
-	}
-
-	encodedReport, err := EncodeCommitReport(report)
-	require.NoError(t, err)
-
-	decodedReport, err := DecodeCommitReport(encodedReport)
-	require.NoError(t, err)
-	require.Equal(t, report, decodedReport)
-}
-
-func TestExecutionReportEncoding(t *testing.T) {
-	// Note could consider some fancier testing here (fuzz/property)
-	// but I think that would essentially be testing geth's abi library
-	// as our encode/decode is a thin wrapper around that.
-	report := evm_2_evm_offramp.InternalExecutionReport{
-		Messages:          []evm_2_evm_offramp.InternalEVM2EVMMessage{},
-		OffchainTokenData: [][][]byte{{}},
-		Proofs:            [][32]byte{testutils.Random32Byte()},
-		ProofFlagBits:     big.NewInt(133),
-	}
-	encodeExecutionReport, err := EncodeExecutionReport(evm_2_evm_offramp.InternalExecutionReport{
-		Messages:          report.Messages,
-		OffchainTokenData: report.OffchainTokenData,
-		Proofs:            report.Proofs,
-		ProofFlagBits:     report.ProofFlagBits,
-	})
-	require.NoError(t, err)
-	decodeCommitReport, err := DecodeExecutionReport(encodeExecutionReport)
-	require.NoError(t, err)
-	require.Equal(t, report, decodeCommitReport)
 }
 
 func TestEvmWord(t *testing.T) {

@@ -17,8 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 )
@@ -100,7 +99,7 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 
 		executionLogs := ccipTH.AllNodesHaveExecutedSeqNums(t, currentSeqNum, currentSeqNum)
 		assert.Len(t, executionLogs, 1)
-		ccipTH.AssertExecState(t, executionLogs[0], abihelpers.ExecutionStateSuccess)
+		ccipTH.AssertExecState(t, executionLogs[0], testhelpers.ExecutionStateSuccess)
 
 		// Asserts
 		// 1) The total pool input == total pool output
@@ -205,7 +204,7 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 		// Should all be executed
 		executionLogs := ccipTH.AllNodesHaveExecutedSeqNums(t, currentSeqNum, currentSeqNum+n-1)
 		for _, execLog := range executionLogs {
-			ccipTH.AssertExecState(t, execLog, abihelpers.ExecutionStateSuccess)
+			ccipTH.AssertExecState(t, execLog, testhelpers.ExecutionStateSuccess)
 		}
 
 		currentSeqNum += n
@@ -237,7 +236,7 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 		ccipTH.AllNodesHaveReqSeqNum(t, currentSeqNum, onRampV1.Address())
 		ccipTH.EventuallyReportCommitted(t, currentSeqNum, commitStoreV1.Address())
 		executionLog := ccipTH.AllNodesHaveExecutedSeqNums(t, currentSeqNum, currentSeqNum, offRampV1.Address())
-		ccipTH.AssertExecState(t, executionLog[0], abihelpers.ExecutionStateSuccess, offRampV1.Address())
+		ccipTH.AssertExecState(t, executionLog[0], testhelpers.ExecutionStateSuccess, offRampV1.Address())
 
 		nonceAtOnRampV1, err := onRampV1.GetSenderNonce(nil, ccipTH.Source.User.From)
 		require.NoError(t, err, "getting nonce from onRamp")
@@ -384,7 +383,7 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 
 		executionLogs := ccipTH.AllNodesHaveExecutedSeqNums(t, currentSeqNum, currentSeqNum)
 		assert.Len(t, executionLogs, 1)
-		ccipTH.AssertExecState(t, executionLogs[0], abihelpers.ExecutionStateSuccess)
+		ccipTH.AssertExecState(t, executionLogs[0], testhelpers.ExecutionStateSuccess)
 		currentSeqNum++
 
 		// get the nop fee
@@ -504,15 +503,15 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 
 			executionLogs := ccipTH.AllNodesHaveExecutedSeqNums(t, i, i)
 			assert.Len(t, executionLogs, 1)
-			ccipTH.AssertExecState(t, executionLogs[0], abihelpers.ExecutionStateSuccess)
+			ccipTH.AssertExecState(t, executionLogs[0], testhelpers.ExecutionStateSuccess)
 		}
 
 		for i, node := range ccipTH.Nodes {
 			t.Logf("verifying node %d", i)
-			node.EventuallyNodeUsesNewCommitConfig(t, ccipTH, ccipconfig.CommitOnchainConfig{
+			node.EventuallyNodeUsesNewCommitConfig(t, ccipTH, ccipdata.CommitOnchainConfig{
 				PriceRegistry: ccipTH.Dest.PriceRegistry.Address(),
 			})
-			node.EventuallyNodeUsesNewExecConfig(t, ccipTH, ccipconfig.ExecOnchainConfig{
+			node.EventuallyNodeUsesNewExecConfig(t, ccipTH, ccipdata.ExecOnchainConfigV1_0_0{
 				PermissionLessExecutionThresholdSeconds: testhelpers.PermissionLessExecutionThresholdSeconds,
 				Router:                                  ccipTH.Dest.Router.Address(),
 				PriceRegistry:                           ccipTH.Dest.PriceRegistry.Address(),

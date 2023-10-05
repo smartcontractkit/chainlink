@@ -3,12 +3,10 @@ package ccip
 import (
 	"context"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/merklemulti"
@@ -17,8 +15,8 @@ import (
 func getProofData(
 	ctx context.Context,
 	sourceReader ccipdata.OnRampReader,
-	interval commit_store.CommitStoreInterval,
-) (sendReqsInRoot []ccipdata.Event[ccipdata.EVM2EVMMessage], leaves [][32]byte, tree *merklemulti.Tree[[32]byte], err error) {
+	interval ccipdata.CommitStoreInterval,
+) (sendReqsInRoot []ccipdata.Event[internal.EVM2EVMMessage], leaves [][32]byte, tree *merklemulti.Tree[[32]byte], err error) {
 	sendReqs, err := sourceReader.GetSendRequestsBetweenSeqNums(
 		ctx,
 		interval.Min,
@@ -40,43 +38,44 @@ func getProofData(
 }
 
 func buildExecutionReportForMessages(
-	msgsInRoot []*evm_2_evm_offramp.InternalEVM2EVMMessage,
+	msgsInRoot []ccipdata.Event[internal.EVM2EVMMessage],
 	leaves [][32]byte,
 	tree *merklemulti.Tree[[32]byte],
-	commitInterval commit_store.CommitStoreInterval,
+	commitInterval ccipdata.CommitStoreInterval,
 	observedMessages []ObservedMessage,
-) (report evm_2_evm_offramp.InternalExecutionReport, hashes [][32]byte, err error) {
+) (ccipdata.ExecReport, error) {
 	innerIdxs := make([]int, 0, len(observedMessages))
-	report.Messages = []evm_2_evm_offramp.InternalEVM2EVMMessage{}
+	var messages []internal.EVM2EVMMessage
+	var offchainTokenData [][][]byte
 	for _, observedMessage := range observedMessages {
 		if observedMessage.SeqNr < commitInterval.Min || observedMessage.SeqNr > commitInterval.Max {
 			// We only return messages from a single root (the root of the first message).
 			continue
 		}
 		innerIdx := int(observedMessage.SeqNr - commitInterval.Min)
-		report.Messages = append(report.Messages, *msgsInRoot[innerIdx])
-		report.OffchainTokenData = append(report.OffchainTokenData, observedMessage.TokenData)
-
+		messages = append(messages, msgsInRoot[innerIdx].Data)
+		offchainTokenData = append(offchainTokenData, observedMessage.TokenData)
 		innerIdxs = append(innerIdxs, innerIdx)
-		hashes = append(hashes, leaves[innerIdx])
 	}
 
 	merkleProof, err := tree.Prove(innerIdxs)
 	if err != nil {
-		return evm_2_evm_offramp.InternalExecutionReport{}, nil, err
+		return ccipdata.ExecReport{}, err
 	}
 
 	// any capped proof will have length <= this one, so we reuse it to avoid proving inside loop, and update later if changed
-	report.Proofs = merkleProof.Hashes
-	report.ProofFlagBits = abihelpers.ProofFlagsToBits(merkleProof.SourceFlags)
-
-	return report, hashes, nil
+	return ccipdata.ExecReport{
+		Messages:          messages,
+		Proofs:            merkleProof.Hashes,
+		ProofFlagBits:     abihelpers.ProofFlagsToBits(merkleProof.SourceFlags),
+		OffchainTokenData: offchainTokenData,
+	}, nil
 }
 
 // Validates the given message observations do not exceed the committed sequence numbers
-// in the commitStore.
-func validateSeqNumbers(serviceCtx context.Context, commitStore commit_store.CommitStoreInterface, observedMessages []ObservedMessage) error {
-	nextMin, err := commitStore.GetExpectedNextSequenceNumber(&bind.CallOpts{Context: serviceCtx})
+// in the commitStoreReader.
+func validateSeqNumbers(serviceCtx context.Context, commitStore ccipdata.CommitStoreReader, observedMessages []ObservedMessage) error {
+	nextMin, err := commitStore.GetExpectedNextSequenceNumber(serviceCtx)
 	if err != nil {
 		return err
 	}
@@ -90,18 +89,18 @@ func validateSeqNumbers(serviceCtx context.Context, commitStore commit_store.Com
 }
 
 // Gets the commit report from the saved logs for a given sequence number.
-func getCommitReportForSeqNum(ctx context.Context, destReader ccipdata.Reader, commitStore commit_store.CommitStoreInterface, seqNum uint64) (commit_store.CommitStoreCommitReport, error) {
-	acceptedReports, err := destReader.GetAcceptedCommitReportsGteSeqNum(ctx, commitStore.Address(), seqNum, 0)
+func getCommitReportForSeqNum(ctx context.Context, commitStoreReader ccipdata.CommitStoreReader, seqNum uint64) (ccipdata.CommitStoreReport, error) {
+	acceptedReports, err := commitStoreReader.GetAcceptedCommitReportsGteSeqNum(ctx, seqNum, 0)
 	if err != nil {
-		return commit_store.CommitStoreCommitReport{}, err
+		return ccipdata.CommitStoreReport{}, err
 	}
 
 	for _, acceptedReport := range acceptedReports {
-		reportInterval := acceptedReport.Data.Report.Interval
+		reportInterval := acceptedReport.Data.Interval
 		if reportInterval.Min <= seqNum && seqNum <= reportInterval.Max {
-			return acceptedReport.Data.Report, nil
+			return acceptedReport.Data, nil
 		}
 	}
 
-	return commit_store.CommitStoreCommitReport{}, errors.Errorf("seq number not committed")
+	return ccipdata.CommitStoreReport{}, errors.Errorf("seq number not committed")
 }

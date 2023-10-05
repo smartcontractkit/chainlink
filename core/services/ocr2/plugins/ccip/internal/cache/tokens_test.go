@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -77,17 +77,17 @@ func Test_tokenToDecimals(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			offRamp := &mock_contracts.EVM2EVMOffRampInterface{}
-			offRamp.On("GetDestinationTokens", mock.Anything).Return(tt.destTokens, nil)
+			offRampReader := ccipdata.NewMockOffRampReader(t)
+			offRampReader.On("GetDestinationTokens", mock.Anything).Return(tt.destTokens, nil)
 
-			priceRegistry := &mock_contracts.PriceRegistryInterface{}
-			priceRegistry.On("GetFeeTokens", mock.Anything).Return(tt.feeTokens, nil)
+			priceRegistryReader := ccipdata.NewMockPriceRegistryReader(t)
+			priceRegistryReader.On("GetFeeTokens", mock.Anything).Return(tt.feeTokens, nil)
 
 			tokenToDecimal := &tokenToDecimals{
-				lggr:          logger.TestLogger(t),
-				offRamp:       offRamp,
-				priceRegistry: priceRegistry,
-				tokenFactory:  createTokenFactory(tokenPriceMappings),
+				lggr:                logger.TestLogger(t),
+				offRamp:             offRampReader,
+				priceRegistryReader: priceRegistryReader,
+				tokenFactory:        createTokenFactory(tokenPriceMappings),
 			}
 
 			got, err := tokenToDecimal.CallOrigin(testutils.Context(t))
@@ -142,9 +142,14 @@ func TestCallOrigin(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			offRamp, _ := testhelpers.NewFakeOffRamp(t)
-			offRamp.SetSourceToDestTokens(tc.srcToDst)
-			o := supportedTokensOrigin{offRamp: offRamp}
+			offRampReader := ccipdata.NewMockOffRampReader(t)
+			srcTks := make([]common.Address, 0, len(tc.srcToDst))
+			for sourceTk, destTk := range tc.srcToDst {
+				offRampReader.On("GetDestinationToken", mock.Anything, sourceTk).Return(destTk, nil)
+				srcTks = append(srcTks, sourceTk)
+			}
+			offRampReader.On("GetSupportedTokens", mock.Anything).Return(srcTks, nil)
+			o := supportedTokensOrigin{offRamp: offRampReader}
 			srcToDst, err := o.CallOrigin(context.Background())
 
 			if tc.expErr {

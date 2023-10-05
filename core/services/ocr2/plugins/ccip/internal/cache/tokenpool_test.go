@@ -5,12 +5,14 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -75,9 +77,22 @@ func TestNewTokenPools(t *testing.T) {
 			mockLp := mocks.NewLogPoller(t)
 			mockLp.On("LatestBlock", mock.Anything).Return(int64(100), nil)
 
-			offRamp, _ := testhelpers.NewFakeOffRamp(t)
-			offRamp.SetSourceToDestTokens(tc.sourceToDestTokens)
-			offRamp.SetTokenPools(tc.tokenToPool)
+			offRamp := ccipdata.NewMockOffRampReader(t)
+			offRamp.On("TokenEvents").Return([]common.Hash{})
+			offRamp.On("Address").Return(utils.RandomAddress())
+			destTokens := make([]common.Address, 0, len(tc.sourceToDestTokens))
+			for _, tk := range tc.sourceToDestTokens {
+				destTokens = append(destTokens, tk)
+			}
+			for destToken, pool := range tc.tokenToPool {
+				offRamp.On("GetPoolByDestToken", mock.Anything, destToken).Return(pool, nil)
+			}
+			for _, destTk := range tc.sourceToDestTokens {
+				if _, exists := tc.tokenToPool[destTk]; !exists {
+					offRamp.On("GetPoolByDestToken", mock.Anything, destTk).Return(nil, errors.New("not found"))
+				}
+			}
+			offRamp.On("GetDestinationTokens", mock.Anything).Return(destTokens, nil)
 
 			priceReg, _ := testhelpers.NewFakePriceRegistry(t)
 			priceReg.SetFeeTokens(tc.feeTokens)
@@ -103,6 +118,7 @@ func Test_tokenPools_CallOrigin_concurrency(t *testing.T) {
 	numWorkers := rand.Intn(500)
 
 	sourceToDestTokens := make(map[common.Address]common.Address, numDestTokens)
+	destTokens := make([]common.Address, 0, numDestTokens)
 	tokenToPool := make(map[common.Address]common.Address)
 	for i := 0; i < numDestTokens; i++ {
 		sourceToken := utils.RandomAddress()
@@ -110,11 +126,14 @@ func Test_tokenPools_CallOrigin_concurrency(t *testing.T) {
 		destPool := utils.RandomAddress()
 		sourceToDestTokens[sourceToken] = destToken
 		tokenToPool[destToken] = destPool
+		destTokens = append(destTokens, destToken)
 	}
 
-	offRamp, _ := testhelpers.NewFakeOffRamp(t)
-	offRamp.SetSourceToDestTokens(sourceToDestTokens)
-	offRamp.SetTokenPools(tokenToPool)
+	offRamp := ccipdata.NewMockOffRampReader(t)
+	offRamp.On("GetDestinationTokens", mock.Anything).Return(destTokens, nil)
+	for destToken, pool := range tokenToPool {
+		offRamp.On("GetPoolByDestToken", mock.Anything, destToken).Return(pool, nil)
+	}
 
 	origin := newTokenPoolsOrigin(logger.TestLogger(t), offRamp, numWorkers)
 	res, err := origin.CallOrigin(testutils.Context(t))

@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
 var (
@@ -17,5 +18,5 @@ var (
 type Reader interface {
 	// ReadTokenData returns the attestation bytes if ready, and throws an error if not ready.
 	ReadTokenData(ctx context.Context, msg internal.EVM2EVMOnRampCCIPSendRequestedWithMeta) (tokenData []byte, err error)
-	Close() error
+	Close(qopts ...pg.QOpt) error
 }

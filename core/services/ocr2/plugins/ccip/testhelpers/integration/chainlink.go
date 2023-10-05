@@ -47,7 +47,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
-	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
@@ -85,7 +84,7 @@ func (node *Node) EventuallyNodeUsesUpdatedPriceRegistry(t *testing.T, ccipContr
 		ccipContracts.Source.Chain.Commit()
 		ccipContracts.Dest.Chain.Commit()
 		log, err := c.LogPoller().LatestLogByEventSigWithConfs(
-			abihelpers.EventSignatures.UsdPerUnitGasUpdated,
+			ccipdata.UsdPerUnitGasUpdatedV1_0_0,
 			ccipContracts.Dest.PriceRegistry.Address(),
 			0,
 			pg.WithParentCtx(testutils.Context(t)),
@@ -99,7 +98,7 @@ func (node *Node) EventuallyNodeUsesUpdatedPriceRegistry(t *testing.T, ccipContr
 	return log
 }
 
-func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts CCIPIntegrationTestHarness, commitCfg ccipconfig.CommitOnchainConfig) logpoller.Log {
+func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts CCIPIntegrationTestHarness, commitCfg ccipdata.CommitOnchainConfig) logpoller.Log {
 	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
 	var log logpoller.Log
@@ -113,7 +112,7 @@ func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts 
 			pg.WithParentCtx(testutils.Context(t)),
 		)
 		require.NoError(t, err)
-		var latestCfg ccipconfig.CommitOnchainConfig
+		var latestCfg ccipdata.CommitOnchainConfig
 		if log != nil {
 			latestCfg, err = DecodeCommitOnChainConfig(log.Data)
 			require.NoError(t, err)
@@ -124,7 +123,7 @@ func (node *Node) EventuallyNodeUsesNewCommitConfig(t *testing.T, ccipContracts 
 	return log
 }
 
-func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CCIPIntegrationTestHarness, execCfg ccipconfig.ExecOnchainConfig) logpoller.Log {
+func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CCIPIntegrationTestHarness, execCfg ccipdata.ExecOnchainConfigV1_0_0) logpoller.Log {
 	c, err := node.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(ccipContracts.Dest.ChainID, 10))
 	require.NoError(t, err)
 	var log logpoller.Log
@@ -138,7 +137,7 @@ func (node *Node) EventuallyNodeUsesNewExecConfig(t *testing.T, ccipContracts CC
 			pg.WithParentCtx(testutils.Context(t)),
 		)
 		require.NoError(t, err)
-		var latestCfg ccipconfig.ExecOnchainConfig
+		var latestCfg ccipdata.ExecOnchainConfigV1_0_0
 		if log != nil {
 			latestCfg, err = DecodeExecOnChainConfig(log.Data)
 			require.NoError(t, err)
@@ -184,9 +183,9 @@ func (node *Node) EventuallyHasExecutedSeqNums(t *testing.T, ccipContracts *CCIP
 		ccipContracts.Source.Chain.Commit()
 		ccipContracts.Dest.Chain.Commit()
 		lgs, err := c.LogPoller().IndexedLogsTopicRange(
-			abihelpers.EventSignatures.ExecutionStateChanged,
+			ccipdata.ExecutionStateChangedEventV1_0_0,
 			offRamp,
-			abihelpers.EventSignatures.ExecutionStateChangedSequenceNumberIndex,
+			ccipdata.ExecutionStateChangedSeqNrV1_0_0,
 			abihelpers.EvmWord(uint64(minSeqNum)),
 			abihelpers.EvmWord(uint64(maxSeqNum)),
 			1,
@@ -212,9 +211,9 @@ func (node *Node) ConsistentlySeqNumHasNotBeenExecuted(t *testing.T, ccipContrac
 		ccipContracts.Source.Chain.Commit()
 		ccipContracts.Dest.Chain.Commit()
 		lgs, err := c.LogPoller().IndexedLogsTopicRange(
-			abihelpers.EventSignatures.ExecutionStateChanged,
+			ccipdata.ExecutionStateChangedEventV1_0_0,
 			offRamp,
-			abihelpers.EventSignatures.ExecutionStateChangedSequenceNumberIndex,
+			ccipdata.ExecutionStateChangedSeqNrV1_0_0,
 			abihelpers.EvmWord(uint64(seqNum)),
 			abihelpers.EvmWord(uint64(seqNum)),
 			1,
@@ -541,7 +540,7 @@ func (c *CCIPIntegrationTestHarness) EventuallyExecutionStateChangedToSuccess(t 
 		it, err := offRamp.FilterExecutionStateChanged(&bind.FilterOpts{Start: blockNum}, seqNum, [][32]byte{})
 		require.NoError(t, err)
 		for it.Next() {
-			if abihelpers.MessageExecutionState(it.Event.State) == abihelpers.ExecutionStateSuccess {
+			if ccipdata.MessageExecutionState(it.Event.State) == ccipdata.ExecutionStateSuccess {
 				t.Logf("ExecutionStateChanged event found for seqNum %d", it.Event.SequenceNumber)
 				return true
 			}
@@ -707,28 +706,28 @@ func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeli
 
 	return jobParams
 }
-func DecodeCommitOnChainConfig(encoded []byte) (ccipconfig.CommitOnchainConfig, error) {
-	var onchainConfig ccipconfig.CommitOnchainConfig
+func DecodeCommitOnChainConfig(encoded []byte) (ccipdata.CommitOnchainConfig, error) {
+	var onchainConfig ccipdata.CommitOnchainConfig
 	unpacked, err := abihelpers.DecodeOCR2Config(encoded)
 	if err != nil {
 		return onchainConfig, err
 	}
 	onChainCfg := unpacked.OnchainConfig
-	onchainConfig, err = abihelpers.DecodeAbiStruct[ccipconfig.CommitOnchainConfig](onChainCfg)
+	onchainConfig, err = abihelpers.DecodeAbiStruct[ccipdata.CommitOnchainConfig](onChainCfg)
 	if err != nil {
 		return onchainConfig, err
 	}
 	return onchainConfig, nil
 }
 
-func DecodeExecOnChainConfig(encoded []byte) (ccipconfig.ExecOnchainConfig, error) {
-	var onchainConfig ccipconfig.ExecOnchainConfig
+func DecodeExecOnChainConfig(encoded []byte) (ccipdata.ExecOnchainConfigV1_0_0, error) {
+	var onchainConfig ccipdata.ExecOnchainConfigV1_0_0
 	unpacked, err := abihelpers.DecodeOCR2Config(encoded)
 	if err != nil {
 		return onchainConfig, errors.Wrap(err, "failed to unpack log data")
 	}
 	onChainCfg := unpacked.OnchainConfig
-	onchainConfig, err = abihelpers.DecodeAbiStruct[ccipconfig.ExecOnchainConfig](onChainCfg)
+	onchainConfig, err = abihelpers.DecodeAbiStruct[ccipdata.ExecOnchainConfigV1_0_0](onChainCfg)
 	if err != nil {
 		return onchainConfig, err
 	}

@@ -26,6 +26,7 @@ type FakeCommitStore struct {
 
 func NewFakeCommitStore(t *testing.T, nextSeqNum uint64) (*FakeCommitStore, common.Address) {
 	addr := utils.RandomAddress()
+	//mockCommitStore := mock_contracts.NewCommitStoreInterface(t)
 	mockCommitStore := mock_contracts.NewCommitStoreInterface(t)
 	mockCommitStore.On("Address").Return(addr).Maybe()
 

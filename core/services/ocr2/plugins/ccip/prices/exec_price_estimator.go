@@ -17,6 +17,14 @@ type ExecGasPriceEstimator struct {
 	deviationPPB int64
 }
 
+func NewExecGasPriceEstimator(estimator gas.EvmFeeEstimator, maxGasPrice *big.Int, deviationPPB int64) ExecGasPriceEstimator {
+	return ExecGasPriceEstimator{
+		estimator:    estimator,
+		maxGasPrice:  maxGasPrice,
+		deviationPPB: deviationPPB,
+	}
+}
+
 func (g ExecGasPriceEstimator) GetGasPrice(ctx context.Context) (GasPrice, error) {
 	gasPriceWei, _, err := g.estimator.GetFee(ctx, nil, 0, assets.NewWei(g.maxGasPrice))
 	if err != nil {

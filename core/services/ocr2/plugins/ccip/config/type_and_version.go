@@ -17,10 +17,12 @@ var (
 	EVM2EVMOnRamp  ContractType = "EVM2EVMOnRamp"
 	EVM2EVMOffRamp ContractType = "EVM2EVMOffRamp"
 	CommitStore    ContractType = "CommitStore"
+	PriceRegistry  ContractType = "PriceRegistry"
 	ContractTypes               = map[ContractType]struct{}{
 		EVM2EVMOffRamp: {},
 		EVM2EVMOnRamp:  {},
 		CommitStore:    {},
+		PriceRegistry:  {},
 	}
 )
 

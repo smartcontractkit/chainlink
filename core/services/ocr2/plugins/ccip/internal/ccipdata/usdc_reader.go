@@ -22,7 +22,7 @@ const (
 type USDCReader interface {
 	// GetLastUSDCMessagePriorToLogIndexInTx returns the last USDC message that was sent before the provided log index in the given transaction.
 	GetLastUSDCMessagePriorToLogIndexInTx(ctx context.Context, logIndex int64, txHash common.Hash) ([]byte, error)
-	Close() error
+	Close(qopts ...pg.QOpt) error
 }
 
 type USDCReaderImpl struct {
@@ -32,8 +32,8 @@ type USDCReaderImpl struct {
 	lggr            logger.Logger
 }
 
-func (u *USDCReaderImpl) Close() error {
-	return u.lp.UnregisterFilter(u.filterName)
+func (u *USDCReaderImpl) Close(qopts ...pg.QOpt) error {
+	return u.lp.UnregisterFilter(u.filterName, qopts...)
 }
 
 // usdcPayload has to match the onchain event emitted by the USDC message transmitter
