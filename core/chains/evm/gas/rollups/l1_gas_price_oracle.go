@@ -110,10 +110,8 @@ func (o *l1GasPriceOracle) Close() error {
 	})
 }
 
-func (o *l1GasPriceOracle) Ready() error { return o.StartStopOnce.Ready() }
-
 func (o *l1GasPriceOracle) HealthReport() map[string]error {
-	return map[string]error{o.Name(): o.StartStopOnce.Healthy()}
+	return map[string]error{o.Name(): o.Healthy()}
 }
 
 func (o *l1GasPriceOracle) run() {
