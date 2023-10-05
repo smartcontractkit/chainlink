@@ -5,18 +5,19 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -92,7 +93,9 @@ func (a *arbitrumEstimator) Close() error {
 func (a *arbitrumEstimator) Ready() error { return a.StartStopOnce.Ready() }
 
 func (a *arbitrumEstimator) HealthReport() map[string]error {
-	return map[string]error{a.Name(): a.StartStopOnce.Healthy()}
+	hp := map[string]error{a.Name(): a.Healthy()}
+	services.CopyHealth(hp, a.EvmEstimator.HealthReport())
+	return hp
 }
 
 // GetLegacyGas estimates both the gas price and the gas limit.

@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
