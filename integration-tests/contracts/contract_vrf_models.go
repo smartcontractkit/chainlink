@@ -2,7 +2,6 @@ package contracts
 
 import (
 	"context"
-
 	"math/big"
 	"time"
 

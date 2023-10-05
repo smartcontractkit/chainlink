@@ -37,6 +37,8 @@ require (
 	gopkg.in/guregu/null.v4 v4.0.0
 )
 
+replace github.com/smartcontractkit/chainlink-testing-framework => /Users/adamhamrick/Projects/chainlink-testing-framework
+
 // Pin K8s versions as their updates are highly disruptive and go mod keeps wanting to update them
 replace (
 	k8s.io/api => k8s.io/api v0.25.11
