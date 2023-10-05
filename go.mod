@@ -16,7 +16,7 @@ require (
 	github.com/ethereum/go-ethereum v1.12.0
 	github.com/fatih/color v1.15.0
 	github.com/fxamacker/cbor/v2 v2.4.0
-	github.com/gagliardetto/solana-go v1.4.1-0.20220428092759-5250b4abbb27
+	github.com/gagliardetto/solana-go v1.8.4
 	github.com/getsentry/sentry-go v0.19.0
 	github.com/gin-contrib/cors v1.4.0
 	github.com/gin-contrib/expvar v0.0.1
@@ -122,7 +122,6 @@ require (
 	github.com/VictoriaMetrics/fastcache v1.10.0 // indirect
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 // indirect
 	github.com/armon/go-metrics v0.4.1 // indirect
-	github.com/aybabtme/rgbterm v0.0.0-20170906152045-cc83f3b3ce59 // indirect
 	github.com/benbjohnson/clock v1.3.4 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/bgentry/speakeasy v0.1.1-0.20220910012023-760eaf8b6816 // indirect
@@ -164,7 +163,7 @@ require (
 	github.com/flynn/noise v0.0.0-20180327030543-2492fe189ae6 // indirect
 	github.com/fsnotify/fsnotify v1.6.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.2 // indirect
-	github.com/gagliardetto/binary v0.7.1 // indirect
+	github.com/gagliardetto/binary v0.7.7 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gballet/go-libpcsclite v0.0.0-20191108122812-4678299bea08 // indirect
 	github.com/gedex/inflector v0.0.0-20170307190818-16278e9db813 // indirect
@@ -324,6 +323,7 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/spf13/viper v1.15.0 // indirect
 	github.com/status-im/keycard-go v0.2.0 // indirect
+	github.com/streamingfast/logging v0.0.0-20220405224725-2755dab2ce75 // indirect
 	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/syndtr/goleveldb v1.0.1-0.20220721030215-126854af5e6d // indirect
@@ -347,6 +347,7 @@ require (
 	github.com/zondax/ledger-go v0.14.1 // indirect
 	go.dedis.ch/protobuf v1.0.11 // indirect
 	go.etcd.io/bbolt v1.3.7 // indirect
+	go.mongodb.org/mongo-driver v1.12.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.42.0 // indirect
 	go.opentelemetry.io/otel v1.16.0 // indirect
