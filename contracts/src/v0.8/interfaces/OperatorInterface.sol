@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./OracleInterface.sol";
-import "./ChainlinkRequestInterface.sol";
+import {OracleInterface} from "./OracleInterface.sol";
+import {ChainlinkRequestInterface} from "./ChainlinkRequestInterface.sol";
 
 interface OperatorInterface is OracleInterface, ChainlinkRequestInterface {
   function operatorRequest(

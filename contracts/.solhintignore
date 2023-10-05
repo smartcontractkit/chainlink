@@ -2,10 +2,8 @@
 ./src/v0.8/automation
 ./src/v0.8/dev
 ./src/v0.8/functions
-./src/v0.8/interfaces
-./src/v0.8/l2ep
+./src/v0.8/l2ep/dev
 ./src/v0.8/libraries
-./src/v0.8/llo-feeds
 ./src/v0.8/vrf
 
 # Temp ignore the following files as they contain issues.
@@ -22,6 +20,9 @@
 ./src/v0.8/**/*.t.sol
 ./src/v0.8/mocks
 ./src/v0.8/tests
+./src/v0.8/llo-feeds/test
+./src/v0.8/vrf/testhelpers
+./src/v0.8/functions/tests
 
 # Always ignore vendor
 ./src/v0.8/vendor
