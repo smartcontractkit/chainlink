@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/chain_specific_util_helper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
@@ -18,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/shopspring/decimal"
@@ -55,6 +57,50 @@ func main() {
 	e := helpers.SetupEnv(false)
 
 	switch os.Args[1] {
+	case "csu-deploy":
+		addr, tx, _, err := chain_specific_util_helper.DeployChainSpecificUtilHelper(e.Owner, e.Ec)
+		helpers.PanicErr(err)
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, "deploying chain specific util helper")
+		fmt.Println("deployed chain specific util helper at:", addr)
+	case "csu-block-number":
+		cmd := flag.NewFlagSet("csu-block-number", flag.ExitOnError)
+		csuAddress := cmd.String("csu-address", "", "address of the chain specific util helper contract")
+		helpers.ParseArgs(cmd, os.Args[2:], "csu-address")
+		csu, err := chain_specific_util_helper.NewChainSpecificUtilHelper(common.HexToAddress(*csuAddress), e.Ec)
+		helpers.PanicErr(err)
+		blockNumber, err := csu.GetBlockNumber(nil)
+		helpers.PanicErr(err)
+		fmt.Println("block number:", blockNumber)
+	case "csu-block-hash":
+		cmd := flag.NewFlagSet("csu-block-hash", flag.ExitOnError)
+		csuAddress := cmd.String("csu-address", "", "address of the chain specific util helper contract")
+		blockNumber := cmd.Uint64("block-number", 0, "block number to get the hash of")
+		helpers.ParseArgs(cmd, os.Args[2:], "csu-address")
+		csu, err := chain_specific_util_helper.NewChainSpecificUtilHelper(common.HexToAddress(*csuAddress), e.Ec)
+		helpers.PanicErr(err)
+		blockHash, err := csu.GetBlockhash(nil, *blockNumber)
+		helpers.PanicErr(err)
+		fmt.Println("block hash:", hexutil.Encode(blockHash[:]))
+	case "csu-current-tx-l1-gas-fees":
+		cmd := flag.NewFlagSet("csu-current-tx-l1-gas-fees", flag.ExitOnError)
+		csuAddress := cmd.String("csu-address", "", "address of the chain specific util helper contract")
+		calldata := cmd.String("calldata", "", "calldata to estimate gas fees for")
+		helpers.ParseArgs(cmd, os.Args[2:], "csu-address", "calldata")
+		csu, err := chain_specific_util_helper.NewChainSpecificUtilHelper(common.HexToAddress(*csuAddress), e.Ec)
+		helpers.PanicErr(err)
+		gasFees, err := csu.GetCurrentTxL1GasFees(nil, *calldata)
+		helpers.PanicErr(err)
+		fmt.Println("gas fees:", gasFees)
+	case "csu-l1-calldata-gas-cost":
+		cmd := flag.NewFlagSet("csu-l1-calldata-gas-cost", flag.ExitOnError)
+		csuAddress := cmd.String("csu-address", "", "address of the chain specific util helper contract")
+		calldataSize := cmd.String("calldata-size", "", "size of the calldata to estimate gas fees for")
+		helpers.ParseArgs(cmd, os.Args[2:], "csu-address", "calldata-size")
+		csu, err := chain_specific_util_helper.NewChainSpecificUtilHelper(common.HexToAddress(*csuAddress), e.Ec)
+		helpers.PanicErr(err)
+		gasCost, err := csu.GetL1CalldataGasCost(nil, decimal.RequireFromString(*calldataSize).BigInt())
+		helpers.PanicErr(err)
+		fmt.Println("gas cost:", gasCost)
 	case "smoke":
 		smokeTestVRF(e)
 	case "smoke-bhs":
@@ -1112,7 +1158,11 @@ func main() {
 		wrapperPremiumPercentage := cmd.Uint("wrapper-premium-percentage", 25, "gas premium charged by wrapper")
 		keyHash := cmd.String("key-hash", "", "the keyhash that wrapper requests should use")
 		maxNumWords := cmd.Uint("max-num-words", 10, "the keyhash that wrapper requests should use")
-		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address", "key-hash")
+		fallbackWeiPerUnitLink := cmd.String("fallback-wei-per-unit-link", "", "the fallback wei per unit link")
+		stalenessSeconds := cmd.Uint("staleness-seconds", 86400, "the number of seconds of staleness to allow")
+		fulfillmentFlatFeeLinkPPM := cmd.Uint("fulfillment-flat-fee-link-ppm", 500, "the link flat fee in ppm to charge for fulfillment")
+		fulfillmentFlatFeeNativePPM := cmd.Uint("fulfillment-flat-fee-native-ppm", 500, "the native flat fee in ppm to charge for fulfillment")
+		helpers.ParseArgs(cmd, os.Args[2:], "wrapper-address", "key-hash", "fallback-wei-per-unit-link")
 
 		wrapperConfigure(e,
 			common.HexToAddress(*wrapperAddress),
@@ -1120,7 +1170,11 @@ func main() {
 			*coordinatorGasOverhead,
 			*wrapperPremiumPercentage,
 			*keyHash,
-			*maxNumWords)
+			*maxNumWords,
+			decimal.RequireFromString(*fallbackWeiPerUnitLink).BigInt(),
+			uint32(*stalenessSeconds),
+			uint32(*fulfillmentFlatFeeLinkPPM),
+			uint32(*fulfillmentFlatFeeNativePPM))
 	case "wrapper-get-fulfillment-tx-size":
 		cmd := flag.NewFlagSet("wrapper-get-fulfillment-tx-size", flag.ExitOnError)
 		wrapperAddress := cmd.String("wrapper-address", "", "address of the VRFV2Wrapper contract")

@@ -2,26 +2,18 @@ package encoding
 
 import (
 	"math/big"
-	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
 func TestReportEncoder_EncodeExtract(t *testing.T) {
-	keepersABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
-	assert.Nil(t, err)
-	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
-	assert.Nil(t, err)
 	encoder := reportEncoder{
-		packer: NewAbiPacker(keepersABI, utilsABI),
+		packer: NewAbiPacker(),
 	}
 
 	tests := []struct {

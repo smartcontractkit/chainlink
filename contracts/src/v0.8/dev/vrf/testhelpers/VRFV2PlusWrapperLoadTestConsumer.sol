@@ -166,7 +166,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
     require(success, "withdrawNative failed");
   }
 
-  function getWrapper() external view returns (VRFV2PlusWrapperInterface) {
+  function getWrapper() external view returns (IVRFV2PlusWrapper) {
     return VRF_V2_PLUS_WRAPPER;
   }
 

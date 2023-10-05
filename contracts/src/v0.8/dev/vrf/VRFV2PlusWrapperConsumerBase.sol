@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "../../shared/interfaces/LinkTokenInterface.sol";
-import "../interfaces/VRFV2PlusWrapperInterface.sol";
+import "../interfaces/IVRFV2PlusWrapper.sol";
 
 /**
  *
@@ -32,7 +32,7 @@ abstract contract VRFV2PlusWrapperConsumerBase {
   error LINKAlreadySet();
 
   LinkTokenInterface internal LINK;
-  VRFV2PlusWrapperInterface internal VRF_V2_PLUS_WRAPPER;
+  IVRFV2PlusWrapper internal VRF_V2_PLUS_WRAPPER;
 
   /**
    * @param _link is the address of LinkToken
@@ -43,7 +43,7 @@ abstract contract VRFV2PlusWrapperConsumerBase {
       LINK = LinkTokenInterface(_link);
     }
 
-    VRF_V2_PLUS_WRAPPER = VRFV2PlusWrapperInterface(_vrfV2PlusWrapper);
+    VRF_V2_PLUS_WRAPPER = IVRFV2PlusWrapper(_vrfV2PlusWrapper);
   }
 
   /**
