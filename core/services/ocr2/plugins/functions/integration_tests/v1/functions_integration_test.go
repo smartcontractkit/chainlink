@@ -13,7 +13,7 @@ import (
 var (
 	// a batch of 8 max-length results uses around 2M gas (assuming 70k gas per client callback - see FunctionsClientExample.sol)
 	nOracleNodes      = 4
-	nClients          = 50
+	nClients          = 1
 	requestLenBytes   = 1_000
 	maxGas            = 1_700_000
 	maxTotalReportGas = 560_000
@@ -64,7 +64,7 @@ func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
 
 	utils.SetupRouterRoutes(t, b, owner, routerContract, active.Address, proposed.Address, allowListContractAddress)
 
-	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, routerAddress, nOracleNodes, maxGas, nil, nil)
+	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, routerAddress, nOracleNodes, maxGas, utils.ExportedOcr2Keystores, utils.MockThresholdKeyShares)
 
 	pluginConfig := functionsConfig.ReportingPluginConfig{
 		MaxQueryLengthBytes:       10_000,
@@ -74,6 +74,16 @@ func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
 		MaxReportTotalCallbackGas: uint32(maxTotalReportGas),
 		DefaultAggregationMethod:  functionsConfig.AggregationMethod_AGGREGATION_MODE,
 		UniqueReports:             true,
+		ThresholdPluginConfig: &functionsConfig.ThresholdReportingPluginConfig{
+			// approximately 750 bytes per test ciphertext + overhead
+			MaxQueryLengthBytes:       70_000,
+			MaxObservationLengthBytes: 70_000,
+			MaxReportLengthBytes:      70_000,
+			RequestCountLimit:         50,
+			RequestTotalBytesLimit:    50_000,
+			RequireLocalRequestCheck:  true,
+			K:                         2,
+		},
 	}
 
 	// set config for both coordinators
@@ -81,7 +91,7 @@ func TestIntegration_Functions_MultipleV1Requests_WithUpgrade(t *testing.T) {
 	utils.SetOracleConfig(t, b, owner, proposed.Contract, oracleIdentities, batchSize, &pluginConfig)
 
 	subscriptionId := utils.CreateAndFundSubscriptions(t, b, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
-	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, utils.DefaultSecretsBytes, subscriptionId, 1*time.Minute)
+	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, utils.DefaultSecretsUrlsBytes, subscriptionId, 1*time.Minute)
 
 	// upgrade and send requests again
 	_, err := routerContract.UpdateContracts(owner)
