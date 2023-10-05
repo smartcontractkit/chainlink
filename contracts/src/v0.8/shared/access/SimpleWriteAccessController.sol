@@ -13,7 +13,7 @@ import {AccessControllerInterface} from "../interfaces/AccessControllerInterface
  */
 contract SimpleWriteAccessController is AccessControllerInterface, ConfirmedOwner {
   bool public checkEnabled;
-  mapping(address => bool) internal accessList;
+  mapping(address => bool) internal s_accessList;
 
   event AddedAccess(address user);
   event RemovedAccess(address user);
@@ -29,7 +29,7 @@ contract SimpleWriteAccessController is AccessControllerInterface, ConfirmedOwne
    * @param _user The address to query
    */
   function hasAccess(address _user, bytes memory) public view virtual override returns (bool) {
-    return accessList[_user] || !checkEnabled;
+    return s_accessList[_user] || !checkEnabled;
   }
 
   /**
@@ -37,8 +37,8 @@ contract SimpleWriteAccessController is AccessControllerInterface, ConfirmedOwne
    * @param _user The address to add
    */
   function addAccess(address _user) external onlyOwner {
-    if (!accessList[_user]) {
-      accessList[_user] = true;
+    if (!s_accessList[_user]) {
+      s_accessList[_user] = true;
 
       emit AddedAccess(_user);
     }
@@ -49,8 +49,8 @@ contract SimpleWriteAccessController is AccessControllerInterface, ConfirmedOwne
    * @param _user The address to remove
    */
   function removeAccess(address _user) external onlyOwner {
-    if (accessList[_user]) {
-      accessList[_user] = false;
+    if (s_accessList[_user]) {
+      s_accessList[_user] = false;
 
       emit RemovedAccess(_user);
     }

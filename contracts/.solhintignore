@@ -6,8 +6,6 @@
 ./src/v0.8/l2ep
 ./src/v0.8/libraries
 ./src/v0.8/llo-feeds
-./src/v0.8/mocks
-./src/v0.8/tests
 ./src/v0.8/vrf
 
 # Temp ignore the following files as they contain issues.
@@ -16,10 +14,14 @@
 ./src/v0.8/KeepersVRFConsumer.sol
 ./src/v0.8/PermissionedForwardProxy.sol
 ./src/v0.8/ValidatorProxy.sol
+./src/v0.8/Chainlink.sol
+./src/v0.8/ChainSpecificUtil.sol
 
 
 # Ignore tests
 ./src/v0.8/**/*.t.sol
+./src/v0.8/mocks
+./src/v0.8/tests
 
 # Always ignore vendor
 ./src/v0.8/vendor
