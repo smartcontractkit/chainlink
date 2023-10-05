@@ -5,9 +5,8 @@ import (
 	"embed"
 	"log"
 	"path/filepath"
+	"slices"
 	"strings"
-
-	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -62,8 +61,8 @@ func init() {
 		defaults[id] = config.Chain
 		defaultNames[id] = strings.ReplaceAll(strings.TrimSuffix(fe.Name(), ".toml"), "_", " ")
 	}
-	slices.SortFunc(DefaultIDs, func(a, b *utils.Big) bool {
-		return a.Cmp(b) < 0
+	slices.SortFunc(DefaultIDs, func(a, b *utils.Big) int {
+		return a.Cmp(b)
 	})
 }
 

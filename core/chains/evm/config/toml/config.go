@@ -3,13 +3,13 @@ package toml
 import (
 	"fmt"
 	"net/url"
+	"slices"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/core/txpool"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
-	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
