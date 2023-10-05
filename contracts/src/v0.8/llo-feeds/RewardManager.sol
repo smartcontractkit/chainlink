@@ -199,7 +199,7 @@ contract RewardManager is IRewardManager, ConfirmedOwner, TypeAndVersionInterfac
     uint256 expectedWeight
   ) internal {
     //we can't update the weights if it contains duplicates
-    if (Common.hasDuplicateAddresses(rewardRecipientAndWeights)) revert InvalidAddress();
+    if (Common._hasDuplicateAddresses(rewardRecipientAndWeights)) revert InvalidAddress();
 
     //loop all the reward recipients and validate the weight and address
     uint256 totalWeight;

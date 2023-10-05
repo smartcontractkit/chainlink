@@ -6,7 +6,6 @@ import {AggregatorV3Interface} from "../../../../../interfaces/AggregatorV3Inter
 import {FunctionsBillingRegistryInterface} from "./FunctionsBillingRegistryInterface.sol";
 import {FunctionsOracleInterface} from "./FunctionsOracleInterface.sol";
 import {FunctionsClientInterface} from "./FunctionsClientInterface.sol";
-import {TypeAndVersionInterface} from "../../../../../interfaces/TypeAndVersionInterface.sol";
 import {IERC677Receiver} from "../../../../../shared/interfaces/IERC677Receiver.sol";
 import {AuthorizedOriginReceiverInterface} from "./AuthorizedOriginReceiverInterface.sol";
 import {ConfirmedOwnerUpgradeable} from "./ConfirmedOwnerUpgradeable.sol";
