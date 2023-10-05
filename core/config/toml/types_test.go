@@ -107,7 +107,7 @@ func Test_validateDBURL(t *testing.T) {
 	}
 }
 
-func TestValidateConfig(t *testing.T) {
+func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
 	validUrl := models.URL(url.URL{Scheme: "https", Host: "localhost"})
 	validSecretURL := *models.NewSecretURL(&validUrl)
 
@@ -120,7 +120,7 @@ func TestValidateConfig(t *testing.T) {
 	tests := []struct {
 		name                string
 		input               *DatabaseSecrets
-		skip                bool
+		buildMode           string
 		expectedErrContains []string
 	}{
 		{
@@ -143,7 +143,7 @@ func TestValidateConfig(t *testing.T) {
 				URL:                  &validSecretURL,
 				AllowSimplePasswords: &[]bool{true}[0],
 			},
-			skip:                !build.IsProd(),
+			buildMode:           build.Prod,
 			expectedErrContains: []string{"insecure configs are not allowed on secure builds"},
 		},
 		{
@@ -159,11 +159,11 @@ func TestValidateConfig(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// needed while -tags test is supported
-			if tt.skip {
-				t.SkipNow()
+			buildMode := build.Mode()
+			if tt.buildMode != "" {
+				buildMode = tt.buildMode
 			}
-			err := tt.input.ValidateConfig()
+			err := tt.input.validateConfig(buildMode)
 			if err == nil && len(tt.expectedErrContains) > 0 {
 				t.Errorf("expected errors but got none")
 				return

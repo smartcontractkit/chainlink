@@ -322,5 +322,5 @@ func (f *FwdMgr) Close() error {
 }
 
 func (f *FwdMgr) HealthReport() map[string]error {
-	return map[string]error{f.Name(): f.StartStopOnce.Healthy()}
+	return map[string]error{f.Name(): f.Healthy()}
 }

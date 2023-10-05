@@ -9,13 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"golang.org/x/exp/maps"
-
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-
 	"github.com/ethereum/go-ethereum"
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
@@ -24,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/maps"
 
 	commonmocks "github.com/smartcontractkit/chainlink/v2/common/types/mocks"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -31,9 +25,14 @@ import (
 	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -402,7 +401,7 @@ func TestHeadTracker_Start_LoadsLatestChain(t *testing.T) {
 
 	gomega.NewWithT(t).Eventually(func() bool {
 		report := ht.headTracker.HealthReport()
-		maps.Copy(report, ht.headBroadcaster.HealthReport())
+		services.CopyHealth(report, ht.headBroadcaster.HealthReport())
 		return !slices.ContainsFunc(maps.Values(report), func(e error) bool { return e != nil })
 	}, 5*time.Second, testutils.TestInterval).Should(gomega.Equal(true))
 

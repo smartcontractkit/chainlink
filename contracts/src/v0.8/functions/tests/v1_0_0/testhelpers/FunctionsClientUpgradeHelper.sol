@@ -41,6 +41,15 @@ contract FunctionsClientUpgradeHelper is FunctionsClient, ConfirmedOwner {
     return _sendRequest(FunctionsRequest.encodeCBOR(req), subscriptionId, callbackGasLimit, donId);
   }
 
+  function sendRequestBytes(
+    bytes memory data,
+    uint64 subscriptionId,
+    uint32 callbackGasLimit,
+    bytes32 donId
+  ) public returns (bytes32 requestId) {
+    return _sendRequest(data, subscriptionId, callbackGasLimit, donId);
+  }
+
   /**
    * @notice Same as sendRequest but for DONHosted secrets
    */
