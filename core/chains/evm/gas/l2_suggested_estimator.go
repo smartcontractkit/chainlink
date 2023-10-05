@@ -2,12 +2,12 @@ package gas
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"

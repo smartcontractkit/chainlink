@@ -1,14 +1,15 @@
 package cosmostxm
 
 import (
+	"cmp"
 	"context"
 	"encoding/hex"
+	"slices"
 	"strings"
 	"time"
 
 	"github.com/gogo/protobuf/proto"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -176,12 +177,15 @@ func (e *msgValidator) add(msg adapters.Msg) {
 }
 
 func (e *msgValidator) sortValid() {
-	slices.SortFunc(e.valid, func(a, b adapters.Msg) bool {
+	slices.SortFunc(e.valid, func(a, b adapters.Msg) int {
 		ac, bc := a.CreatedAt, b.CreatedAt
 		if ac.Equal(bc) {
-			return a.ID < b.ID
+			return cmp.Compare(a.ID, b.ID)
 		}
-		return ac.Before(bc)
+		if ac.After(bc) {
+			return 1
+		}
+		return -1 // ac.Before(bc)
 	})
 }
 
