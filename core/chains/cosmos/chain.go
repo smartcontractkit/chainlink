@@ -18,6 +18,7 @@ import (
 	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
@@ -204,11 +205,9 @@ func (c *chain) Ready() error {
 }
 
 func (c *chain) HealthReport() map[string]error {
-	return map[string]error{
-		c.Name(): multierr.Combine(
-			c.StartStopOnce.Healthy(),
-			c.txm.Healthy()),
-	}
+	m := map[string]error{c.Name(): c.Healthy()}
+	services.CopyHealth(m, c.txm.HealthReport())
+	return m
 }
 
 // ChainService interface

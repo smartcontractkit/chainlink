@@ -154,9 +154,7 @@ func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) Name() string {
 }
 
 func (ht *HeadTracker[HTH, S, ID, BLOCK_HASH]) HealthReport() map[string]error {
-	report := map[string]error{
-		ht.Name(): ht.StartStopOnce.Healthy(),
-	}
+	report := map[string]error{ht.Name(): ht.Healthy()}
 	services.CopyHealth(report, ht.headListener.HealthReport())
 	return report
 }
