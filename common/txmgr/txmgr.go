@@ -258,7 +258,7 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Name() str
 }
 
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) HealthReport() map[string]error {
-	report := map[string]error{b.Name(): b.StartStopOnce.Healthy()}
+	report := map[string]error{b.Name(): b.Healthy()}
 
 	// only query if txm started properly
 	b.IfStarted(func() {
