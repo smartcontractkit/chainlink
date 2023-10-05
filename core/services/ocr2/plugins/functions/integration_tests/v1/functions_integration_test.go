@@ -27,33 +27,6 @@ func TestIntegration_Functions_MultipleV1Requests_Success(t *testing.T) {
 
 	utils.SetupRouterRoutes(t, b, owner, routerContract, active.Address, proposed.Address, allowListContractAddress)
 
-	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, routerAddress, nOracleNodes, maxGas, nil, nil)
-
-	pluginConfig := functionsConfig.ReportingPluginConfig{
-		MaxQueryLengthBytes:       10_000,
-		MaxObservationLengthBytes: 15_000,
-		MaxReportLengthBytes:      15_000,
-		MaxRequestBatchSize:       uint32(batchSize),
-		MaxReportTotalCallbackGas: uint32(maxTotalReportGas),
-		DefaultAggregationMethod:  functionsConfig.AggregationMethod_AGGREGATION_MODE,
-		UniqueReports:             true,
-	}
-
-	// config for oracle contract
-	utils.SetOracleConfig(t, b, owner, active.Contract, oracleIdentities, batchSize, &pluginConfig)
-
-	subscriptionId := utils.CreateAndFundSubscriptions(t, b, owner, linkToken, routerAddress, routerContract, clientContracts, allowListContract)
-	b.Commit()
-	utils.ClientTestRequests(t, owner, b, linkToken, routerAddress, routerContract, allowListContract, clientContracts, requestLenBytes, utils.DefaultSecretsBytes, subscriptionId, 1*time.Minute)
-}
-
-func TestIntegration_Functions_MultipleV1Requests_ThresholdDecryptionSuccess(t *testing.T) {
-	// simulated chain with all contracts
-	owner, b, ticker, active, proposed, clientContracts, routerAddress, routerContract, linkToken, allowListContractAddress, allowListContract := utils.StartNewChainWithContracts(t, nClients)
-	defer ticker.Stop()
-
-	utils.SetupRouterRoutes(t, b, owner, routerContract, active.Address, proposed.Address, allowListContractAddress)
-
 	_, _, oracleIdentities := utils.CreateFunctionsNodes(t, owner, b, routerAddress, nOracleNodes, maxGas, utils.ExportedOcr2Keystores, utils.MockThresholdKeyShares)
 
 	pluginConfig := functionsConfig.ReportingPluginConfig{
