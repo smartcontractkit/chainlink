@@ -13,6 +13,7 @@ var RootCmd = &cobra.Command{
 
 func init() {
 	RootCmd.AddCommand(deployCmd)
+	RootCmd.AddCommand(debugCmd)
 	RootCmd.AddCommand(jobCmd)
 	RootCmd.AddCommand(logsCmd)
 	RootCmd.AddCommand(registryCmd)

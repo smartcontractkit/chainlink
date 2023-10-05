@@ -14,7 +14,6 @@ import (
 	"github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
@@ -387,7 +386,7 @@ func (c *chain) Ready() error {
 
 func (c *chain) HealthReport() map[string]error {
 	report := map[string]error{c.Name(): c.StartStopOnce.Healthy()}
-	maps.Copy(report, c.txm.HealthReport())
+	services.CopyHealth(report, c.txm.HealthReport())
 	return report
 }
 

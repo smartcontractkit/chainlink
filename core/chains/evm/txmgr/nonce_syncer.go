@@ -98,7 +98,7 @@ func (s nonceSyncerImpl) fastForwardNonceIfNecessary(ctx context.Context, addres
 	}
 
 	localNonce := keyNextNonce
-	hasInProgressTransaction, err := s.txStore.HasInProgressTransaction(address, s.chainID, pg.WithParentCtx(ctx))
+	hasInProgressTransaction, err := s.txStore.HasInProgressTransaction(ctx, address, s.chainID)
 
 	if err != nil {
 		return errors.Wrapf(err, "failed to query for in_progress transaction for address %s", address.String())

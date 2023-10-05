@@ -2,6 +2,7 @@ package smoke
 
 import (
 	"fmt"
+	"net/http"
 	"testing"
 
 	"github.com/google/uuid"
@@ -21,7 +22,7 @@ func TestCronBasic(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
 		WithGeth().
-		WithMockServer(1).
+		WithMockAdapter().
 		WithCLNodes(1).
 		Build()
 	require.NoError(t, err)
@@ -31,12 +32,12 @@ func TestCronBasic(t *testing.T) {
 		}
 	})
 
-	err = env.MockServer.Client.SetValuePath("/variable", 5)
-	require.NoError(t, err, "Setting value path in mockserver shouldn't fail")
+	err = env.MockAdapter.SetAdapterBasedIntValuePath("/variable", []string{http.MethodGet, http.MethodPost}, 5)
+	require.NoError(t, err, "Setting value path in mock adapter shouldn't fail")
 
 	bta := &client.BridgeTypeAttributes{
 		Name:        fmt.Sprintf("variable-%s", uuid.NewString()),
-		URL:         fmt.Sprintf("%s/variable", env.MockServer.InternalEndpoint),
+		URL:         fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
 		RequestData: "{}",
 	}
 	err = env.CLNodes[0].API.MustCreateBridge(bta)
@@ -51,6 +52,9 @@ func TestCronBasic(t *testing.T) {
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
 		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(job.Data.ID)
+		if err != nil {
+			l.Info().Err(err).Msg("error while waiting for job runs")
+		}
 		g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Reading Job run data shouldn't fail")
 
 		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 5), "Expected number of job runs to be greater than 5, but got %d", len(jobRuns.Data))
@@ -58,5 +62,5 @@ func TestCronBasic(t *testing.T) {
 		for _, jr := range jobRuns.Data {
 			g.Expect(jr.Attributes.Errors).Should(gomega.Equal([]interface{}{nil}), "Job run %s shouldn't have errors", jr.ID)
 		}
-	}, "20m", "3s").Should(gomega.Succeed())
+	}, "2m", "3s").Should(gomega.Succeed())
 }

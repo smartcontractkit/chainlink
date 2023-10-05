@@ -82,7 +82,7 @@ func NewLogProvider(
 	}
 
 	return &LogProvider{
-		logger:            logger,
+		logger:            logger.Named("AutomationLogProvider"),
 		logPoller:         logPoller,
 		registryAddress:   registryAddress,
 		lookbackBlocks:    lookbackBlocks,

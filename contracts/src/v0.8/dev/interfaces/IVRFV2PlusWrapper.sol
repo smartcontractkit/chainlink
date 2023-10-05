@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-interface VRFV2PlusWrapperInterface {
+interface IVRFV2PlusWrapper {
   /**
    * @return the request ID of the most recent VRF V2 request made by this wrapper. This should only
    * be relied option within the same transaction that the request was made.

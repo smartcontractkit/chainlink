@@ -2,4 +2,4 @@
 
 package build
 
-const mode = Dev
+func init() { mode = Dev }
