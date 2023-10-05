@@ -99,7 +99,7 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 		lggr.Infof("at block %d upkeep %s trying to DecodeStreamsLookupRequest performData=%s", block, upkeepId, hexutil.Encode(checkResults[i].PerformData))
 		streamsLookupErr, err := r.packer.DecodeStreamsLookupRequest(res.PerformData)
 		if err != nil {
-			lggr.Warnf("at block %d upkeep %s DecodeStreamsLookupRequest failed: %v", block, upkeepId, err)
+			lggr.Debugf("at block %d upkeep %s DecodeStreamsLookupRequest failed: %v", block, upkeepId, err)
 			// user contract did not revert with StreamsLookup error
 			continue
 		}
@@ -111,7 +111,7 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 
 		if len(l.Feeds) == 0 {
 			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
-			lggr.Warnf("at block %s upkeep %s has empty feeds array", block, upkeepId)
+			lggr.Debugf("at block %s upkeep %s has empty feeds array", block, upkeepId)
 			continue
 		}
 		// mercury permission checking for v0.3 is done by mercury server
@@ -128,13 +128,13 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 			}
 
 			if !allowed {
-				lggr.Warnf("at block %d upkeep %s NOT allowed to query Mercury server", block, upkeepId)
+				lggr.Debugf("at block %d upkeep %s NOT allowed to query Mercury server", block, upkeepId)
 				checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryAccessNotAllowed)
 				continue
 			}
 		} else if l.FeedParamKey != feedIDs || l.TimeParamKey != timestamp {
 			// if mercury version cannot be determined, set failure reason
-			lggr.Warnf("at block %d upkeep %s NOT allowed to query Mercury server", block, upkeepId)
+			lggr.Debugf("at block %d upkeep %s NOT allowed to query Mercury server", block, upkeepId)
 			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
 			continue
 		}
