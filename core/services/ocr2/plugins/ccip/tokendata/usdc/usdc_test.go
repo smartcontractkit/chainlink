@@ -20,9 +20,7 @@ import (
 )
 
 var (
-	mockOnRampAddress    = utils.RandomAddress()
-	mockUSDCTokenAddress = utils.RandomAddress()
-	mockMsgTransmitter   = utils.RandomAddress()
+	mockMsgTransmitter = utils.RandomAddress()
 )
 
 func TestUSDCReader_callAttestationApi(t *testing.T) {

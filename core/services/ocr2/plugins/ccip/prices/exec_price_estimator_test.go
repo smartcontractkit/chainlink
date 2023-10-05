@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 )
 
@@ -265,10 +264,10 @@ func TestExecPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 			gasPrice:           big.NewInt(1e9),  // 1 gwei
 			wrappedNativePrice: big.NewInt(1e18), // $1
 			msg: internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-				InternalEVM2EVMMessage: evm_2_evm_offramp.InternalEVM2EVMMessage{
+				EVM2EVMMessage: internal.EVM2EVMMessage{
 					GasLimit:     big.NewInt(100_000),
 					Data:         []byte{},
-					TokenAmounts: []evm_2_evm_offramp.ClientEVMTokenAmount{},
+					TokenAmounts: []internal.TokenAmount{},
 				},
 			},
 			expUSD: big.NewInt(300_000e9),
@@ -278,10 +277,10 @@ func TestExecPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 			gasPrice:           big.NewInt(1e9),  // 1 gwei
 			wrappedNativePrice: big.NewInt(1e18), // $1
 			msg: internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-				InternalEVM2EVMMessage: evm_2_evm_offramp.InternalEVM2EVMMessage{
+				EVM2EVMMessage: internal.EVM2EVMMessage{
 					GasLimit:     big.NewInt(100_000),
 					Data:         make([]byte, 1_000),
-					TokenAmounts: []evm_2_evm_offramp.ClientEVMTokenAmount{},
+					TokenAmounts: []internal.TokenAmount{},
 				},
 			},
 			expUSD: big.NewInt(316_000e9),
@@ -291,10 +290,10 @@ func TestExecPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 			gasPrice:           big.NewInt(1e9),  // 1 gwei
 			wrappedNativePrice: big.NewInt(1e18), // $1
 			msg: internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-				InternalEVM2EVMMessage: evm_2_evm_offramp.InternalEVM2EVMMessage{
+				EVM2EVMMessage: internal.EVM2EVMMessage{
 					GasLimit:     big.NewInt(100_000),
 					Data:         make([]byte, 1_000),
-					TokenAmounts: make([]evm_2_evm_offramp.ClientEVMTokenAmount, 5),
+					TokenAmounts: make([]internal.TokenAmount, 5),
 				},
 			},
 			expUSD: big.NewInt(366_000e9),
@@ -304,10 +303,10 @@ func TestExecPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 			gasPrice:           big.NewInt(1e9),  // 1 gwei
 			wrappedNativePrice: big.NewInt(1e18), // $1
 			msg: internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-				InternalEVM2EVMMessage: evm_2_evm_offramp.InternalEVM2EVMMessage{
+				EVM2EVMMessage: internal.EVM2EVMMessage{
 					GasLimit:     big.NewInt(0),
 					Data:         []byte{},
-					TokenAmounts: []evm_2_evm_offramp.ClientEVMTokenAmount{},
+					TokenAmounts: []internal.TokenAmount{},
 				},
 			},
 			expUSD: big.NewInt(200_000e9),
@@ -317,10 +316,10 @@ func TestExecPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 			gasPrice:           big.NewInt(1e9),  // 1 gwei
 			wrappedNativePrice: big.NewInt(2e18), // $1
 			msg: internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-				InternalEVM2EVMMessage: evm_2_evm_offramp.InternalEVM2EVMMessage{
+				EVM2EVMMessage: internal.EVM2EVMMessage{
 					GasLimit:     big.NewInt(0),
 					Data:         []byte{},
-					TokenAmounts: []evm_2_evm_offramp.ClientEVMTokenAmount{},
+					TokenAmounts: []internal.TokenAmount{},
 				},
 			},
 			expUSD: big.NewInt(400_000e9),
@@ -330,10 +329,10 @@ func TestExecPriceEstimator_EstimateMsgCostUSD(t *testing.T) {
 			gasPrice:           big.NewInt(0),    // 1 gwei
 			wrappedNativePrice: big.NewInt(1e18), // $1
 			msg: internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-				InternalEVM2EVMMessage: evm_2_evm_offramp.InternalEVM2EVMMessage{
+				EVM2EVMMessage: internal.EVM2EVMMessage{
 					GasLimit:     big.NewInt(0),
 					Data:         []byte{},
-					TokenAmounts: []evm_2_evm_offramp.ClientEVMTokenAmount{},
+					TokenAmounts: []internal.TokenAmount{},
 				},
 			},
 			expUSD: big.NewInt(0),

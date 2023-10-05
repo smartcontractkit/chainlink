@@ -1,12 +1,14 @@
 package evm
 
 import (
+	"github.com/ethereum/go-ethereum/common"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
+	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 
@@ -34,7 +36,16 @@ func NewCCIPCommitProvider(lggr logger.Logger, chainSet evm.Chain, rargs relayty
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(lggr, rargs, transmitterID, configWatcher, ks, ccip.CommitReportToEthTxMeta)
+	address := common.HexToAddress(relayOpts.ContractID)
+	typ, ver, err := ccipconfig.TypeAndVersion(address, chainSet.Client())
+	if err != nil {
+		return nil, err
+	}
+	fn, err := ccip.CommitReportToEthTxMeta(typ, ver)
+	if err != nil {
+		return nil, err
+	}
+	contractTransmitter, err := newContractTransmitter(lggr, rargs, transmitterID, configWatcher, ks, fn)
 	if err != nil {
 		return nil, err
 	}
@@ -62,7 +73,16 @@ func NewCCIPExecutionProvider(lggr logger.Logger, chainSet evm.Chain, rargs rela
 	if err != nil {
 		return nil, err
 	}
-	contractTransmitter, err := newContractTransmitter(lggr, rargs, transmitterID, configWatcher, ks, ccip.ExecutionReportToEthTxMeta)
+	address := common.HexToAddress(relayOpts.ContractID)
+	typ, ver, err := ccipconfig.TypeAndVersion(address, chainSet.Client())
+	if err != nil {
+		return nil, err
+	}
+	fn, err := ccip.ExecReportToEthTxMeta(typ, ver)
+	if err != nil {
+		return nil, err
+	}
+	contractTransmitter, err := newContractTransmitter(lggr, rargs, transmitterID, configWatcher, ks, fn)
 	if err != nil {
 		return nil, err
 	}

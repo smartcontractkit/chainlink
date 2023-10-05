@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/metatx"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 )
@@ -235,7 +234,7 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 
 		executionLogs := ccipContracts.AllNodesHaveExecutedSeqNums(t, geCurrentSeqNum, geCurrentSeqNum)
 		assert.Len(t, executionLogs, 1)
-		ccipContracts.AssertExecState(t, executionLogs[0], abihelpers.ExecutionStateSuccess)
+		ccipContracts.AssertExecState(t, executionLogs[0], testhelpers.ExecutionStateSuccess)
 
 		// source token is locked in the token pool
 		lockedTokenBal, err := sourceToken.BalanceOf(nil, sourcePoolAddress)

@@ -8,19 +8,19 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 )
 
 func TestGetMessageIDsAsHexString(t *testing.T) {
 	t.Run("base", func(t *testing.T) {
-		hashes := make([]common.Hash, 10)
+		hashes := make([]internal.Hash, 10)
 		for i := range hashes {
-			hashes[i] = common.HexToHash(strconv.Itoa(rand.Intn(100000)))
+			hashes[i] = internal.Hash(common.HexToHash(strconv.Itoa(rand.Intn(100000))))
 		}
 
-		msgs := make([]evm_2_evm_offramp.InternalEVM2EVMMessage, len(hashes))
+		msgs := make([]internal.EVM2EVMMessage, len(hashes))
 		for i := range msgs {
-			msgs[i] = evm_2_evm_offramp.InternalEVM2EVMMessage{MessageId: hashes[i]}
+			msgs[i] = internal.EVM2EVMMessage{MessageId: hashes[i]}
 		}
 
 		messageIDs := GetMessageIDsAsHexString(msgs)

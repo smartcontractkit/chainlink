@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
@@ -67,7 +66,7 @@ func TestUSDCReader_ReadTokenData(t *testing.T) {
 
 	usdcService := usdc.NewUSDCTokenDataReader(lggr, &usdcReader, attestationURI)
 	msgAndAttestation, err := usdcService.ReadTokenData(context.Background(), internal.EVM2EVMOnRampCCIPSendRequestedWithMeta{
-		InternalEVM2EVMMessage: evm_2_evm_offramp.InternalEVM2EVMMessage{
+		EVM2EVMMessage: internal.EVM2EVMMessage{
 			SequenceNumber: seqNum,
 		},
 		TxHash:   txHash,

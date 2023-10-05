@@ -5,28 +5,23 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
 func NewTokenPools(
 	lggr logger.Logger,
 	lp logpoller.LogPoller,
-	offRamp evm_2_evm_offramp.EVM2EVMOffRampInterface,
+	offRamp ccipdata.OffRampReader,
 	optimisticConfirmations int64,
 	numWorkers int,
 ) *CachedChain[map[common.Address]common.Address] {
 	return &CachedChain[map[common.Address]common.Address]{
-		observedEvents: []common.Hash{
-			abihelpers.EventSignatures.PoolAdded,
-			abihelpers.EventSignatures.PoolRemoved,
-		},
+		observedEvents:          offRamp.TokenEvents(),
 		logPoller:               lp,
 		address:                 []common.Address{offRamp.Address()},
 		optimisticConfirmations: optimisticConfirmations,
@@ -39,7 +34,7 @@ func NewTokenPools(
 
 func newTokenPoolsOrigin(
 	lggr logger.Logger,
-	offRamp evm_2_evm_offramp.EVM2EVMOffRampInterface,
+	offRamp ccipdata.OffRampReader,
 	numWorkers int) *tokenPools {
 	return &tokenPools{
 		lggr:       lggr,
@@ -50,7 +45,7 @@ func newTokenPoolsOrigin(
 
 type tokenPools struct {
 	lggr       logger.Logger
-	offRamp    evm_2_evm_offramp.EVM2EVMOffRampInterface
+	offRamp    ccipdata.OffRampReader
 	numWorkers int
 }
 
@@ -59,7 +54,7 @@ func (t *tokenPools) Copy(value map[common.Address]common.Address) map[common.Ad
 }
 
 func (t *tokenPools) CallOrigin(ctx context.Context) (map[common.Address]common.Address, error) {
-	destTokens, err := t.offRamp.GetDestinationTokens(&bind.CallOpts{Context: ctx})
+	destTokens, err := t.offRamp.GetDestinationTokens(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -72,7 +67,7 @@ func (t *tokenPools) CallOrigin(ctx context.Context) (map[common.Address]common.
 	for _, token := range destTokens {
 		token := token
 		eg.Go(func() error {
-			poolAddress, err := t.offRamp.GetPoolByDestToken(&bind.CallOpts{Context: ctx}, token)
+			poolAddress, err := t.offRamp.GetPoolByDestToken(ctx, token)
 			if err != nil {
 				return fmt.Errorf("get token pool for token '%s': %w", token, err)
 			}

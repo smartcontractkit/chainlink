@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas/rollups"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
@@ -18,6 +19,20 @@ type DAGasPriceEstimator struct {
 	daOverheadGas       int64
 	gasPerDAByte        int64
 	daMultiplier        int64
+}
+
+func NewDAGasPriceEstimator(
+	estimator gas.EvmFeeEstimator,
+	maxGasPrice *big.Int,
+	deviationPPB int64,
+	daDeviationPPB int64,
+) DAGasPriceEstimator {
+	return DAGasPriceEstimator{
+		execEstimator:       NewExecGasPriceEstimator(estimator, maxGasPrice, deviationPPB),
+		l1Oracle:            estimator.L1Oracle(),
+		priceEncodingLength: daGasPriceEncodingLength,
+		daDeviationPPB:      daDeviationPPB,
+	}
 }
 
 func (g DAGasPriceEstimator) GetGasPrice(ctx context.Context) (GasPrice, error) {

@@ -41,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/hashlib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/merklemulti"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -66,6 +67,99 @@ var (
 	DestChainID         = uint64(1337)
 	DestChainSelector   = uint64(3379446385462418246)
 )
+
+// Backwards compat, in principle these statuses are version dependent
+// TODO: Adjust integration tests to be version agnostic using readers
+var (
+	ExecutionStateSuccess = MessageExecutionState(ccipdata.ExecutionStateSuccess)
+	ExecutionStateFailure = MessageExecutionState(ccipdata.ExecutionStateFailure)
+)
+
+type MessageExecutionState ccipdata.MessageExecutionState
+type CommitOffchainConfig struct {
+	ccipdata.CommitOffchainConfigV1_2_0
+}
+
+func NewCommitOffchainConfig(SourceFinalityDepth uint32,
+	DestFinalityDepth uint32,
+	GasPriceHeartBeat models.Duration,
+	DAGasPriceDeviationPPB uint32,
+	ExecGasPriceDeviationPPB uint32,
+	TokenPriceHeartBeat models.Duration,
+	TokenPriceDeviationPPB uint32,
+	MaxGasPrice uint64,
+	InflightCacheExpiry models.Duration) CommitOffchainConfig {
+	return CommitOffchainConfig{ccipdata.CommitOffchainConfigV1_2_0{
+		SourceFinalityDepth:      SourceFinalityDepth,
+		DestFinalityDepth:        DestFinalityDepth,
+		GasPriceHeartBeat:        GasPriceHeartBeat,
+		DAGasPriceDeviationPPB:   DAGasPriceDeviationPPB,
+		ExecGasPriceDeviationPPB: ExecGasPriceDeviationPPB,
+		TokenPriceHeartBeat:      TokenPriceHeartBeat,
+		TokenPriceDeviationPPB:   TokenPriceDeviationPPB,
+		MaxGasPrice:              MaxGasPrice,
+		InflightCacheExpiry:      InflightCacheExpiry,
+	}}
+}
+
+type CommitOnchainConfig struct {
+	ccipdata.CommitOnchainConfig
+}
+
+func NewCommitOnchainConfig(
+	PriceRegistry common.Address,
+) CommitOnchainConfig {
+	return CommitOnchainConfig{ccipdata.CommitOnchainConfig{
+		PriceRegistry: PriceRegistry,
+	}}
+}
+
+type ExecOnchainConfig struct {
+	ccipdata.ExecOnchainConfigV1_0_0
+}
+
+func NewExecOnchainConfig(
+	PermissionLessExecutionThresholdSeconds uint32,
+	Router common.Address,
+	PriceRegistry common.Address,
+	MaxTokensLength uint16,
+	MaxDataSize uint32,
+) ExecOnchainConfig {
+	return ExecOnchainConfig{ccipdata.ExecOnchainConfigV1_0_0{
+		PermissionLessExecutionThresholdSeconds: PermissionLessExecutionThresholdSeconds,
+		Router:                                  Router,
+		PriceRegistry:                           PriceRegistry,
+		MaxTokensLength:                         MaxTokensLength,
+		MaxDataSize:                             MaxDataSize,
+	}}
+}
+
+type ExecOffchainConfig struct {
+	ccipdata.ExecOffchainConfig
+}
+
+func NewExecOffchainConfig(
+	SourceFinalityDepth uint32,
+	DestOptimisticConfirmations uint32,
+	DestFinalityDepth uint32,
+	BatchGasLimit uint32,
+	RelativeBoostPerWaitHour float64,
+	MaxGasPrice uint64,
+	InflightCacheExpiry models.Duration,
+	RootSnoozeTime models.Duration,
+) ExecOffchainConfig {
+	return ExecOffchainConfig{ccipdata.ExecOffchainConfig{
+		SourceFinalityDepth:         SourceFinalityDepth,
+		DestOptimisticConfirmations: DestOptimisticConfirmations,
+		DestFinalityDepth:           DestFinalityDepth,
+		BatchGasLimit:               BatchGasLimit,
+		RelativeBoostPerWaitHour:    RelativeBoostPerWaitHour,
+		MaxGasPrice:                 MaxGasPrice,
+		InflightCacheExpiry:         InflightCacheExpiry,
+		RootSnoozeTime:              RootSnoozeTime,
+	}}
+
+}
 
 type MaybeRevertReceiver struct {
 	Receiver *maybe_revert_message_receiver.MaybeRevertMessageReceiver
@@ -1169,7 +1263,7 @@ func (c *CCIPContracts) SendRequest(t *testing.T, msg router.ClientEVM2AnyMessag
 	return tx
 }
 
-func (c *CCIPContracts) AssertExecState(t *testing.T, log logpoller.Log, state abihelpers.MessageExecutionState, offRampOpts ...common.Address) {
+func (c *CCIPContracts) AssertExecState(t *testing.T, log logpoller.Log, state MessageExecutionState, offRampOpts ...common.Address) {
 	var offRamp *evm_2_evm_offramp.EVM2EVMOffRamp
 	var err error
 	if len(offRampOpts) > 0 {
@@ -1181,7 +1275,7 @@ func (c *CCIPContracts) AssertExecState(t *testing.T, log logpoller.Log, state a
 	}
 	executionStateChanged, err := offRamp.ParseExecutionStateChanged(log.ToGethLog())
 	require.NoError(t, err)
-	if abihelpers.MessageExecutionState(executionStateChanged.State) != state {
+	if MessageExecutionState(executionStateChanged.State) != state {
 		t.Log("Execution failed")
 		t.Fail()
 	}

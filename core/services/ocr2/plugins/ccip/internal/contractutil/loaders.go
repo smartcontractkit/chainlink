@@ -98,30 +98,3 @@ func LoadCommitStore(commitStoreAddress common.Address, pluginName string, clien
 	commitStore, err := observability.NewObservedCommitStore(commitStoreAddress, pluginName, client)
 	return commitStore, version, err
 }
-
-func DecodeCommitStoreOffchainConfig(version semver.Version, offchainConfig []byte) (ccipconfig.CommitOffchainConfig, error) {
-	switch version.String() {
-	case "1.0.0", "1.1.0":
-		offchainConfigV1, err := ccipconfig.DecodeOffchainConfig[ccipconfig.CommitOffchainConfigV1](offchainConfig)
-		if err != nil {
-			return ccipconfig.CommitOffchainConfig{}, err
-		}
-
-		return ccipconfig.CommitOffchainConfig{
-			SourceFinalityDepth:      offchainConfigV1.SourceFinalityDepth,
-			DestFinalityDepth:        offchainConfigV1.DestFinalityDepth,
-			GasPriceHeartBeat:        offchainConfigV1.FeeUpdateHeartBeat,
-			DAGasPriceDeviationPPB:   offchainConfigV1.FeeUpdateDeviationPPB,
-			ExecGasPriceDeviationPPB: offchainConfigV1.FeeUpdateDeviationPPB,
-			TokenPriceHeartBeat:      offchainConfigV1.FeeUpdateHeartBeat,
-			TokenPriceDeviationPPB:   offchainConfigV1.FeeUpdateDeviationPPB,
-			MaxGasPrice:              offchainConfigV1.MaxGasPrice,
-			InflightCacheExpiry:      offchainConfigV1.InflightCacheExpiry,
-		}, nil
-	case "1.2.0":
-		offchainConfig, err := ccipconfig.DecodeOffchainConfig[ccipconfig.CommitOffchainConfig](offchainConfig)
-		return offchainConfig, err
-	default:
-		return ccipconfig.CommitOffchainConfig{}, errors.Errorf("Invalid commitStore version: %s", version)
-	}
-}

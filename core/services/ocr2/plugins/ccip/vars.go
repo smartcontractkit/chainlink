@@ -11,4 +11,4 @@ const (
 	ExecPluginLabel      = "exec"
 )
 
-var ErrCommitStoreIsDown = errors.New("commitStore is down")
+var ErrCommitStoreIsDown = errors.New("commitStoreReader is down")

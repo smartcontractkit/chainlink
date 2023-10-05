@@ -20,7 +20,7 @@ type OnRampV1_1_0 struct {
 func NewOnRampV1_1_0(lggr logger.Logger, sourceSelector, destSelector uint64, onRampAddress common.Address, sourceLP logpoller.LogPoller, source client.Client, finalityTags bool) (*OnRampV1_1_0, error) {
 	onRamp, err := evm_2_evm_onramp_1_1_0.NewEVM2EVMOnRamp(onRampAddress, source)
 	if err != nil {
-		panic(err) // ABI failure ok to panic
+		return nil, err
 	}
 	onRamp100, err := NewOnRampV1_0_0(lggr, sourceSelector, destSelector, onRampAddress, sourceLP, source, finalityTags)
 	if err != nil {
@@ -32,7 +32,10 @@ func NewOnRampV1_1_0(lggr logger.Logger, sourceSelector, destSelector uint64, on
 	}, nil
 }
 
-func (o *OnRampV1_1_0) RouterAddress() common.Address {
-	config, _ := o.onRamp.GetDynamicConfig(nil)
-	return config.Router
+func (o *OnRampV1_1_0) RouterAddress() (common.Address, error) {
+	config, err := o.onRamp.GetDynamicConfig(nil)
+	if err != nil {
+		return common.Address{}, err
+	}
+	return config.Router, nil
 }

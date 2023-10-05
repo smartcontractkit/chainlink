@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/tokendata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -177,6 +178,6 @@ func (s *TokenDataReader) callAttestationApi(ctx context.Context, usdcMessageHas
 	return response, nil
 }
 
-func (s *TokenDataReader) Close() error {
-	return s.usdcReader.Close()
+func (s *TokenDataReader) Close(qopts ...pg.QOpt) error {
+	return s.usdcReader.Close(qopts...)
 }
