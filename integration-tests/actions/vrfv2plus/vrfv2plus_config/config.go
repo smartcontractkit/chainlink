@@ -29,6 +29,7 @@ type VRFV2PlusConfig struct {
 	WrapperConsumerFundingAmountLink        int64   `envconfig:"WRAPPER_CONSUMER_FUNDING_AMOUNT_LINK" default:"10"`
 
 	//LOAD/SOAK Test Config
-	TestDuration time.Duration `envconfig:"TEST_DURATION" default:"10s"` // How long to run the test for
-	RPS          int64         `envconfig:"RPS" default:"1"`             // How many requests per second to send
+	TestDuration          time.Duration `envconfig:"TEST_DURATION" default:"3m"` // How long to run the test for
+	RPS                   int64         `envconfig:"RPS" default:"1"`            // How many requests per second to send
+	RateLimitUnitDuration time.Duration `envconfig:"RATE_LIMIT_UNIT_DURATION" default:"1m"`
 }

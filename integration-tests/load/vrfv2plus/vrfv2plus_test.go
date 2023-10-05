@@ -74,9 +74,10 @@ func TestVRFV2PlusLoad(t *testing.T) {
 		Msg("Load Test Configs")
 
 	singleFeedConfig := &wasp.Config{
-		T:        t,
-		LoadType: wasp.RPS,
-		GenName:  "gun",
+		T:                     t,
+		LoadType:              wasp.RPS,
+		GenName:               "gun",
+		RateLimitUnitDuration: vrfv2PlusConfig.RateLimitUnitDuration,
 		Gun: NewSingleHashGun(
 			vrfv2PlusContracts,
 			vrfv2PlusData.KeyHash,
@@ -104,7 +105,7 @@ func TestVRFV2PlusLoad(t *testing.T) {
 		var wg sync.WaitGroup
 
 		wg.Add(1)
-		requestCount, fulfilmentCount, err := WaitForRequestCountEqualToFulfilmentCount(vrfv2PlusContracts.LoadTestConsumers[0], 2*time.Second, &wg)
+		requestCount, fulfilmentCount, err := WaitForRequestCountEqualToFulfilmentCount(vrfv2PlusContracts.LoadTestConsumers[0], 30*time.Second, &wg)
 		l.Info().
 			Interface("Request Count", requestCount).
 			Interface("Fulfilment Count", fulfilmentCount).

@@ -47,6 +47,18 @@ on:
         description: How much to fund each Chainlink node (in ETH)
         required: false
         default: ".1"
+      rps:
+        description: Requests Per Second
+        required: false
+        default: 1
+      rateLimitDuration:
+        description: How long to wait between requests
+        required: false
+        default: 1m
+      randomnessRequestCountPerRequest:
+        description: Randomness request Count per one TX request
+        required: false
+        default: 1
 jobs:
   vrfv2plus_load_test:
     name: ${{ inputs.network }} VRFV2 Plus Load Test
@@ -61,6 +73,10 @@ jobs:
       SELECTED_NETWORKS: ${{ inputs.network }}
       VRFV2PLUS_TEST_DURATION: ${{ inputs.testDuration }}
       VRFV2PLUS_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
+      VRFV2PLUS_RATE_LIMIT_UNIT_DURATION: ${{ inputs.rateLimitDuration }}
+      VRFV2PLUS_RPS: ${{ inputs.rps }}
+      VRFV2PLUS_RANDOMNESS_REQUEST_COUNT_PER_REQUEST: ${{ inputs.randomnessRequestCountPerRequest }}
+
       TEST_LOG_LEVEL: debug
       REF_NAME: ${{ github.head_ref || github.ref_name }}
       ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
@@ -96,5 +112,5 @@ jobs:
       - name: Run E2E soak tests
         run: |
           cd integration-tests/load/vrfv2plus
-          go test -v -timeout 15m -run TestVRFV2PlusLoad/vrfv2plus_soak_test
+          go test -v -timeout 8h -run TestVRFV2PlusLoad/vrfv2plus_soak_test
 

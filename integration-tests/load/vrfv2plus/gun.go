@@ -37,7 +37,6 @@ func NewSingleHashGun(
 // Call implements example gun call, assertions on response bodies should be done here
 func (m *SingleHashGun) Call(l *wasp.Generator) *wasp.CallResult {
 	//todo - should work with multiple consumers and consumers having different keyhashes and wallets
-
 	_, err := vrfv2plus.RequestRandomnessAndWaitForFulfillment(
 		m.contracts.LoadTestConsumers[0],
 		m.contracts.Coordinator,
