@@ -1,1 +1,26 @@
-node_modules/
+# Temp ignore the following folders as they contain issues.
+./src/v0.8/automation
+./src/v0.8/dev
+./src/v0.8/functions
+./src/v0.8/interfaces
+./src/v0.8/l2ep
+./src/v0.8/libraries
+./src/v0.8/llo-feeds
+./src/v0.8/mocks
+./src/v0.8/tests
+./src/v0.8/vrf
+
+# Temp ignore the following files as they contain issues.
+./src/v0.8/ChainlinkClient.sol
+./src/v0.8/Flags.sol
+./src/v0.8/KeepersVRFConsumer.sol
+./src/v0.8/PermissionedForwardProxy.sol
+./src/v0.8/ValidatorProxy.sol
+
+
+# Ignore tests
+./src/v0.8/**/*.t.sol
+
+# Always ignore vendor
+./src/v0.8/vendor
+./node_modules/

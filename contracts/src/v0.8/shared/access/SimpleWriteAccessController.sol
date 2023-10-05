@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./ConfirmedOwner.sol";
-import "../interfaces/AccessControllerInterface.sol";
+import {ConfirmedOwner} from "./ConfirmedOwner.sol";
+import {AccessControllerInterface} from "../interfaces/AccessControllerInterface.sol";
 
 /**
  * @title SimpleWriteAccessController
@@ -82,6 +82,7 @@ contract SimpleWriteAccessController is AccessControllerInterface, ConfirmedOwne
    * @dev reverts if the caller does not have access
    */
   modifier checkAccess() {
+    // solhint-disable-next-line custom-errors
     require(hasAccess(msg.sender, msg.data), "No access");
     _;
   }
