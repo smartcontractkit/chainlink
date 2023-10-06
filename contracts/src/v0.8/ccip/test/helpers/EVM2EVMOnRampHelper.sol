@@ -43,9 +43,8 @@ contract EVM2EVMOnRampHelper is EVM2EVMOnRamp, IgnoreContractSize {
   function getTokenTransferCost(
     address feeToken,
     uint224 feeTokenPrice,
-    Client.EVMTokenAmount[] calldata tokenAmounts,
-    FeeTokenConfig memory feeTokenConfig
+    Client.EVMTokenAmount[] calldata tokenAmounts
   ) external view returns (uint256, uint32, uint32) {
-    return _getTokenTransferCost(feeToken, feeTokenPrice, tokenAmounts, feeTokenConfig);
+    return _getTokenTransferCost(feeToken, feeTokenPrice, tokenAmounts);
   }
 }

@@ -343,28 +343,26 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfigArgs{
 			{
-				Token:                  c.Source.LinkToken.Address(),
-				NetworkFeeUSD:          1_00,
-				MinTokenTransferFeeUSD: 1_00,
-				MaxTokenTransferFeeUSD: 5000_00,
-				GasMultiplier:          1e18,
-				PremiumMultiplier:      9e17,
-				Enabled:                true,
+				Token:             c.Source.LinkToken.Address(),
+				NetworkFeeUSD:     1_00,
+				GasMultiplier:     1e18,
+				PremiumMultiplier: 9e17,
+				Enabled:           true,
 			},
 			{
-				Token:                  c.Source.WrappedNative.Address(),
-				NetworkFeeUSD:          1_00,
-				MinTokenTransferFeeUSD: 1_00,
-				MaxTokenTransferFeeUSD: 5000_00,
-				GasMultiplier:          1e18,
-				PremiumMultiplier:      1e18,
-				Enabled:                true,
+				Token:             c.Source.WrappedNative.Address(),
+				NetworkFeeUSD:     1_00,
+				GasMultiplier:     1e18,
+				PremiumMultiplier: 1e18,
+				Enabled:           true,
 			},
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
 			{
 				Token:             c.Source.LinkToken.Address(),
-				Ratio:             5_0, // 5 bps
+				MinFeeUSD:         50,           // $0.5
+				MaxFeeUSD:         1_000_000_00, // $ 1 million
+				Ratio:             5_0,          // 5 bps
 				DestGasOverhead:   34_000,
 				DestBytesOverhead: 0,
 			},
@@ -1027,28 +1025,26 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfigArgs{
 			{
-				Token:                  sourceLinkTokenAddress,
-				NetworkFeeUSD:          1_00,
-				MinTokenTransferFeeUSD: 1_00,
-				MaxTokenTransferFeeUSD: 5000_00,
-				GasMultiplier:          1e18,
-				PremiumMultiplier:      9e17,
-				Enabled:                true,
+				Token:             sourceLinkTokenAddress,
+				NetworkFeeUSD:     1_00,
+				GasMultiplier:     1e18,
+				PremiumMultiplier: 9e17,
+				Enabled:           true,
 			},
 			{
-				Token:                  sourceWeth9addr,
-				NetworkFeeUSD:          1_00,
-				MinTokenTransferFeeUSD: 1_00,
-				MaxTokenTransferFeeUSD: 5000_00,
-				GasMultiplier:          1e18,
-				PremiumMultiplier:      1e18,
-				Enabled:                true,
+				Token:             sourceWeth9addr,
+				NetworkFeeUSD:     1_00,
+				GasMultiplier:     1e18,
+				PremiumMultiplier: 1e18,
+				Enabled:           true,
 			},
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
 			{
 				Token:             sourceLinkTokenAddress,
-				Ratio:             5_0, // 5 bps
+				MinFeeUSD:         50,           // $0.5
+				MaxFeeUSD:         1_000_000_00, // $ 1 million
+				Ratio:             5_0,          // 5 bps
 				DestGasOverhead:   34_000,
 				DestBytesOverhead: 0,
 			},

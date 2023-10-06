@@ -652,7 +652,9 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 			})
 			tokenTransferFeeConfig = append(tokenTransferFeeConfig, evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
 				Token:             token.ContractAddress,
-				Ratio:             5_0, // 5 bps
+				MinFeeUSD:         50,           // $0.5
+				MaxFeeUSD:         1_000_000_00, // $ 1 million
+				Ratio:             5_0,          // 5 bps
 				DestGasOverhead:   34_000,
 				DestBytesOverhead: 0,
 			})
@@ -673,22 +675,18 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 			sourceCCIP.Common.RateLimiterConfig,
 			[]evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfigArgs{
 				{
-					Token:                  common.HexToAddress(sourceCCIP.Common.FeeToken.Address()),
-					NetworkFeeUSD:          1_00,
-					MinTokenTransferFeeUSD: 1_00,
-					MaxTokenTransferFeeUSD: 5000_00,
-					GasMultiplier:          GasFeeMultiplier,
-					PremiumMultiplier:      1e18,
-					Enabled:                true,
+					Token:             common.HexToAddress(sourceCCIP.Common.FeeToken.Address()),
+					NetworkFeeUSD:     1_00,
+					GasMultiplier:     GasFeeMultiplier,
+					PremiumMultiplier: 1e18,
+					Enabled:           true,
 				},
 				{
-					Token:                  sourceCCIP.Common.WrappedNative,
-					NetworkFeeUSD:          1_00,
-					MinTokenTransferFeeUSD: 1_00,
-					MaxTokenTransferFeeUSD: 5000_00,
-					GasMultiplier:          GasFeeMultiplier,
-					PremiumMultiplier:      1e18,
-					Enabled:                true,
+					Token:             sourceCCIP.Common.WrappedNative,
+					NetworkFeeUSD:     1_00,
+					GasMultiplier:     GasFeeMultiplier,
+					PremiumMultiplier: 1e18,
+					Enabled:           true,
 				},
 			},
 			tokenTransferFeeConfig,
