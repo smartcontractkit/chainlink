@@ -402,7 +402,6 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     address client
   ) private returns (CallbackResult memory) {
     bool destinationNoLongerExists;
-    // solhint-disable-next-line no-inline-assembly
     assembly {
       // solidity calls check that a contract actually exists at the destination, so we do the same
       destinationNoLongerExists := iszero(extcodesize(client))
@@ -432,7 +431,6 @@ contract FunctionsRouter is IFunctionsRouter, FunctionsSubscriptions, Pausable, 
     // allocate return data memory ahead of time
     bytes memory returnData = new bytes(MAX_CALLBACK_RETURN_BYTES);
 
-    // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
       // Compute g -= gasForCallExactCheck and check for underflow
