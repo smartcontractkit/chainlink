@@ -1718,10 +1718,12 @@ func TestEthBroadcaster_IncrementNextNonce(t *testing.T) {
 	ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
 	eb := NewTestEthBroadcaster(t, txStore, ethClient, kst, evmcfg, &testCheckerFactory{}, false)
 
-	require.NoError(t, eb.IncrementNextSequence(fromAddress))
+	nonce, err := eb.GetNextSequence(fromAddress)
+	require.NoError(t, err)
+	eb.IncrementNextSequence(fromAddress, nonce)
 
 	// Nonce bumped to 1
-	nonce, err := eb.GetNextSequence(fromAddress)
+	nonce, err = eb.GetNextSequence(fromAddress)
 	require.NoError(t, err)
 	require.Equal(t, int64(1), int64(nonce))
 }
@@ -1923,30 +1925,23 @@ func Test_IncrementNextNonce(t *testing.T) {
 	ethClient.On("PendingNonceAt", mock.Anything, addr1).Return(uint64(randNonce), nil).Once()
 	eb := NewTestEthBroadcaster(t, txStore, ethClient, ks, evmcfg, checkerFactory, false)
 
-	err := eb.IncrementNextSequence(addr1)
+	nonce, err := eb.GetNextSequence(addr1)
 	require.NoError(t, err)
+	eb.IncrementNextSequence(addr1, nonce)
 
-	var nonce types.Nonce
 	nonce, err = eb.GetNextSequence(addr1)
 	require.NoError(t, err)
 	assert.Equal(t, randNonce+1, int64(nonce))
 
-	err = eb.IncrementNextSequence(addr1)
+	eb.IncrementNextSequence(addr1, nonce)
+	nonce, err = eb.GetNextSequence(addr1)
 	require.NoError(t, err)
+	assert.Equal(t, randNonce+2, int64(nonce))
 
 	randAddr1 := utils.RandomAddress()
-	err = eb.IncrementNextSequence(randAddr1)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), fmt.Sprintf("address not found in next sequence map: %s", randAddr1.Hex()))
-
 	_, err = eb.GetNextSequence(randAddr1)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), fmt.Sprintf("address not found in next sequence map: %s", randAddr1.Hex()))
-
-	randAddr2 := utils.RandomAddress()
-	err = eb.IncrementNextSequence(randAddr2)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), fmt.Sprintf("address not found in next sequence map: %s", randAddr2.Hex()))
 
 	// verify it didnt get changed by any erroring calls
 	nonce, err = eb.GetNextSequence(addr1)
@@ -1973,18 +1968,11 @@ func Test_SetNextNonce(t *testing.T) {
 		nonce, err := eb.GetNextSequence(fromAddress)
 		require.NoError(t, err)
 		assert.Equal(t, int64(0), int64(nonce))
-		err = eb.SetNextSequence(fromAddress, evmtypes.Nonce(24))
-		require.NoError(t, err)
+		eb.SetNextSequence(fromAddress, evmtypes.Nonce(24))
 
 		newNextNonce, err := eb.GetNextSequence(fromAddress)
 		require.NoError(t, err)
 		assert.Equal(t, int64(24), int64(newNextNonce))
-	})
-
-	t.Run("address not found", func(t *testing.T) {
-		address := utils.RandomAddress()
-		err := eb.SetNextSequence(address, evmtypes.Nonce(100))
-		require.Error(t, err)
 	})
 }
 

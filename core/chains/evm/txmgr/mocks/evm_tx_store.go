@@ -900,13 +900,13 @@ func (_m *EvmTxStore) UpdateBroadcastAts(ctx context.Context, now time.Time, etx
 	return r0
 }
 
-// UpdateTxAttemptInProgressToBroadcast provides a mock function with given fields: ctx, etx, attempt, NewAttemptState, incrementSeqFunc
-func (_m *EvmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], attempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], NewAttemptState types.TxAttemptState, incrementSeqFunc func(common.Address) error) error {
-	ret := _m.Called(ctx, etx, attempt, NewAttemptState, incrementSeqFunc)
+// UpdateTxAttemptInProgressToBroadcast provides a mock function with given fields: ctx, etx, attempt, NewAttemptState
+func (_m *EvmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], attempt types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], NewAttemptState types.TxAttemptState) error {
+	ret := _m.Called(ctx, etx, attempt, NewAttemptState)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttemptState, func(common.Address) error) error); ok {
-		r0 = rf(ctx, etx, attempt, NewAttemptState, incrementSeqFunc)
+	if rf, ok := ret.Get(0).(func(context.Context, *types.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttempt[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], types.TxAttemptState) error); ok {
+		r0 = rf(ctx, etx, attempt, NewAttemptState)
 	} else {
 		r0 = ret.Error(0)
 	}

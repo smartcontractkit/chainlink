@@ -1425,7 +1425,7 @@ func (o *evmTxStore) UpdateTxFatalError(ctx context.Context, etx *Tx) error {
 
 // Updates eth attempt from in_progress to broadcast. Also updates the eth tx to unconfirmed.
 // One of the more complicated signatures. We have to accept variable pg.QOpt and QueryerFunc arguments
-func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *Tx, attempt TxAttempt, NewAttemptState txmgrtypes.TxAttemptState, incrementSeqFunc func(address common.Address) error) error {
+func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *Tx, attempt TxAttempt, NewAttemptState txmgrtypes.TxAttemptState) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -1458,9 +1458,6 @@ func (o *evmTxStore) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, e
 		dbAttempt.FromTxAttempt(&attempt)
 		if err := tx.Get(&dbAttempt, `UPDATE evm.tx_attempts SET state = $1 WHERE id = $2 RETURNING *`, dbAttempt.State, dbAttempt.ID); err != nil {
 			return pkgerrors.Wrap(err, "SaveEthTxAttempt failed to save eth_tx_attempt")
-		}
-		if err := incrementSeqFunc(etx.FromAddress); err != nil {
-			return pkgerrors.Wrap(err, "IncrementNextSequence failed to increment the next sequence in the broadcaster")
 		}
 		return nil
 	})
