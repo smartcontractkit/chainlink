@@ -201,7 +201,8 @@ func CreateOCRKeeperJobs(
 	}
 	_, err = bootstrapNode.MustCreateJob(bootstrapSpec)
 	require.NoError(t, err, "Shouldn't fail creating bootstrap job on bootstrap node")
-	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PId, bootstrapNode.Name(), 6690)
+	// TODO: Use service name returned by chainlink-env once that is available
+	P2Pv2Bootstrapper := fmt.Sprintf("%s@%s-node-1:%d", bootstrapP2PId, bootstrapNode.Name(), 6690)
 
 	for nodeIndex := 1; nodeIndex < len(chainlinkNodes); nodeIndex++ {
 		nodeTransmitterAddress, err := chainlinkNodes[nodeIndex].EthAddresses()
