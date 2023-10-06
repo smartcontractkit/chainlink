@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../interfaces/IVRFCoordinatorV2Plus.sol";
-import "../interfaces/IVRFMigratableConsumerV2Plus.sol";
-import "../../shared/access/ConfirmedOwner.sol";
+import {IVRFCoordinatorV2Plus} from "../interfaces/IVRFCoordinatorV2Plus.sol";
+import {IVRFMigratableConsumerV2Plus} from "../interfaces/IVRFMigratableConsumerV2Plus.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 
 /** ****************************************************************************
  * @notice Interface for contracts using VRF randomness
@@ -126,6 +126,7 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
    * @param requestId The Id initially returned by requestRandomness
    * @param randomWords the VRF output expanded to the requested number of words
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal virtual;
 
   // rawFulfillRandomness is called by VRFCoordinator when it receives a valid VRF

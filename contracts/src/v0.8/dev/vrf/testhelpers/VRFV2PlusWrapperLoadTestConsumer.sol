@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../VRFV2PlusWrapperConsumerBase.sol";
-import "../../../shared/access/ConfirmedOwner.sol";
-import "../../../ChainSpecificUtil.sol";
+import {VRFV2PlusWrapperConsumerBase} from "../VRFV2PlusWrapperConsumerBase.sol";
+import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
+import {ChainSpecificUtil} from "../../../ChainSpecificUtil.sol";
 import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
+import {IVRFV2PlusWrapper} from "../../interfaces/IVRFV2PlusWrapper.sol";
 
 contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, ConfirmedOwner {
   uint256 public s_responseCount;
@@ -13,7 +14,8 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
   uint256 public s_slowestFulfillment = 0;
   uint256 public s_fastestFulfillment = 999;
   uint256 public s_lastRequestId;
-  mapping(uint256 => uint256) requestHeights; // requestIds to block number when rand request was made
+  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
+  mapping(uint256 => uint256) internal requestHeights; // requestIds to block number when rand request was made
 
   event WrappedRequestFulfilled(uint256 requestId, uint256[] randomWords, uint256 payment);
   event WrapperRequestMade(uint256 indexed requestId, uint256 paid);
@@ -22,8 +24,8 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
     uint256 paid;
     bool fulfilled;
     uint256[] randomWords;
-    uint requestTimestamp;
-    uint fulfilmentTimestamp;
+    uint256 requestTimestamp;
+    uint256 fulfilmentTimestamp;
     uint256 requestBlockNumber;
     uint256 fulfilmentBlockNumber;
     bool native;
@@ -94,7 +96,9 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
     }
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
+    // solhint-disable-next-line custom-errors
     require(s_requests[_requestId].paid > 0, "request not found");
     uint256 fulfilmentBlockNumber = ChainSpecificUtil.getBlockNumber();
     uint256 requestDelay = fulfilmentBlockNumber - requestHeights[_requestId];
@@ -126,12 +130,13 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
       uint256 paid,
       bool fulfilled,
       uint256[] memory randomWords,
-      uint requestTimestamp,
-      uint fulfilmentTimestamp,
+      uint256 requestTimestamp,
+      uint256 fulfilmentTimestamp,
       uint256 requestBlockNumber,
       uint256 fulfilmentBlockNumber
     )
   {
+    // solhint-disable-next-line custom-errors
     require(s_requests[_requestId].paid > 0, "request not found");
     RequestStatus memory request = s_requests[_requestId];
     return (
@@ -163,6 +168,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
   /// @param amount the amount to withdraw, in wei
   function withdrawNative(uint256 amount) external onlyOwner {
     (bool success, ) = payable(owner()).call{value: amount}("");
+    // solhint-disable-next-line custom-errors
     require(success, "withdrawNative failed");
   }
 
@@ -172,7 +178,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
 
   receive() external payable {}
 
-  function getBalance() public view returns (uint) {
+  function getBalance() public view returns (uint256) {
     return address(this).balance;
   }
 }

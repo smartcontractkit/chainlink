@@ -2,7 +2,6 @@
 pragma solidity ^0.8.19;
 
 import {IFunctionsCoordinator} from "./interfaces/IFunctionsCoordinator.sol";
-import {IFunctionsBilling} from "./interfaces/IFunctionsBilling.sol";
 import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 
 import {FunctionsBilling} from "./FunctionsBilling.sol";

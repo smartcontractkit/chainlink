@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
-import "./IVRFCoordinatorV2Plus.sol";
+
+import {IVRFCoordinatorV2Plus} from "./IVRFCoordinatorV2Plus.sol";
 
 // IVRFCoordinatorV2PlusInternal is the interface used by chainlink core and should
 // not be used by consumer conracts
@@ -51,9 +52,11 @@ interface IVRFCoordinatorV2PlusInternal is IVRFCoordinatorV2Plus {
     uint256 zInv;
   }
 
+  // solhint-disable-next-line func-name-mixedcase
   function s_requestCommitments(uint256 requestID) external view returns (bytes32);
 
   function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external returns (uint96);
 
+  // solhint-disable-next-line func-name-mixedcase
   function LINK_NATIVE_FEED() external view returns (address);
 }

@@ -377,7 +377,6 @@ contract FunctionsBillingRegistry is
    * or reverts if at least gasAmount gas is not available.
    */
   function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
-    // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
       // GAS_FOR_CALL_EXACT_CHECK = 5000
