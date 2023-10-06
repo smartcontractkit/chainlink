@@ -2,16 +2,19 @@ package zksync
 
 import (
 	"fmt"
+	"math/big"
+	"strings"
+	"time"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet"
-	"math/big"
-	"strings"
 )
 
 type ZKSyncClient struct {
@@ -118,25 +121,35 @@ func (z *ZKSyncClient) SetConfig(ocrAddress, ocrConfigValues string) error {
 
 func (z *ZKSyncClient) FundNodes(chainlinkClient blockchain.EVMClient) error {
 	for _, key := range z.NKeys {
-		log.Info().Str("ZKSync", fmt.Sprintf("Funding ETH to: %s", key.TXKey.Data.ID)).Msg("Executing ZKSync command")
-		amount := big.NewFloat(100000000000000000)
-		gasEstimates, err := chainlinkClient.EstimateGas(ethereum.CallMsg{})
-		if err != nil {
-			return err
+		toAddress := common.HexToAddress(key.TXKey.Data.ID)
+		log.Info().Stringer("toAddress", toAddress).Msg("Funding node")
+		amount := big.NewInt(1e16)
+		callMsg := ethereum.CallMsg{
+			From:  common.HexToAddress(chainlinkClient.GetDefaultWallet().Address()),
+			To:    &toAddress,
+			Value: amount,
 		}
-		fmt.Println(key.TXKey.Data.ID)
-		err = chainlinkClient.Fund(key.TXKey.Data.ID, amount, gasEstimates)
+		log.Debug().Interface("CallMsg", callMsg).Msg("Estimating gas")
+		gasEstimates, err := chainlinkClient.EstimateGas(callMsg)
 		if err != nil {
-			log.Info().Str("ERRRRRRRR", fmt.Sprintf("Funding ETH to: %s", key.TXKey.Data.ID)).Msg("Executing ZKSync command")
-
-			return err
+			return fmt.Errorf("estimating gas: %w", err)
+		}
+		log.Debug().Stringer("toAddress", toAddress).Stringer("amount", amount).Interface("gasEstimates", gasEstimates).Msg("Transferring funds")
+		err = chainlinkClient.Fund(toAddress.String(), big.NewFloat(0).SetInt(amount), gasEstimates)
+		if err != nil {
+			return fmt.Errorf("funding %q: %w", toAddress, err)
 		}
 
-		//TO-DO Link funding seems to hang but tx is present on chain
-		//err = z.LinkContract.Transfer(key.TXKey.Data.ID, big.NewInt(100000000))
-		//if err != nil {
+		// Seems like there is a slight delay until the nonce is updated
+		time.Sleep(time.Second)
+
+		log.Info().Stringer("toAddress", toAddress).Stringer("amount", amount).Msg("Transferred funds")
+
+		// TO-DO Link funding seems to hang but tx is present on chain
+		// err = z.LinkContract.Transfer(key.TXKey.Data.ID, big.NewInt(100000000))
+		// if err != nil {
 		//	return err
-		//}
+		// }
 	}
 	return nil
 }
@@ -152,10 +165,10 @@ func (z *ZKSyncClient) DeployContracts(chainlinkClient blockchain.EVMClient, ocr
 	}
 	z.LinkContract, err = z.ContractLoader.LoadLINKToken(common.HexToAddress(z.LinkAddr).String())
 
-	//err = z.FundNodes(chainlinkClient)
-	//if err != nil {
-	//	return err
-	//}
+	err = z.FundNodes(chainlinkClient)
+	if err != nil {
+		return err
+	}
 
 	err = z.DeployAccessController()
 	if err != nil {

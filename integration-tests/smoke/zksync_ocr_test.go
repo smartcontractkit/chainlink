@@ -3,10 +3,6 @@ package smoke
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet"
-	"github.com/smartcontractkit/chainlink/integration-tests/l2/zksync"
 	"os"
 	"strings"
 	"testing"
@@ -18,6 +14,8 @@ import (
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -26,6 +24,8 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/gauntlet"
+	"github.com/smartcontractkit/chainlink/integration-tests/l2/zksync"
 )
 
 // WIP
@@ -65,7 +65,7 @@ func TestOCRZKSync(t *testing.T) {
 	require.NoError(t, err, "Creating mockserver clients shouldn't fail")
 
 	t.Cleanup(func() {
-		err = actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.DebugLevel)
+		err = actions.TeardownSuite(t, testEnvironment, utils.ProjectRoot, chainlinkNodes, nil, zapcore.DebugLevel, chainClient)
 		require.NoError(t, err, "Error tearing down environment")
 	})
 	chainClient.ParallelTransactions(true)
@@ -91,12 +91,10 @@ func TestOCRZKSync(t *testing.T) {
 	if err != nil {
 		require.NoError(t, err, "Error setting config")
 	}
-	err = actions.SetAllAdapterResponsesToTheSameValue(5, ocrInstance, chainlinkNodes, mockServer)
-	require.NoError(t, err)
 
 	bootstrapNode, workerNodes := chainlinkNodes[0], chainlinkNodes[1:]
 
-	err = actions.CreateOCRJobs(ocrInstance, bootstrapNode, workerNodes, 1, mockServer, "280")
+	err = actions.CreateOCRJobs(ocrInstance, bootstrapNode, workerNodes, 5, mockServer, "280")
 	require.NoError(t, err)
 
 	err = actions.StartNewRound(1, ocrInstance, chainClient, l)
