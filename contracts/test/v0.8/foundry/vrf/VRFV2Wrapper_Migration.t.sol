@@ -134,8 +134,13 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
     // subscription exists in V1 coordinator before migration
     uint256 subID = s_wrapper.SUBSCRIPTION_ID();
-    (uint96 balance, uint96 nativeBalance, uint64 reqCount, address owner, address[] memory consumers) = s_testCoordinator
-      .getSubscription(subID);
+    (
+      uint96 balance,
+      uint96 nativeBalance,
+      uint64 reqCount,
+      address owner,
+      address[] memory consumers
+    ) = s_testCoordinator.getSubscription(subID);
     assertEq(reqCount, 0);
     assertEq(balance, 0);
     assertEq(nativeBalance, 0);
@@ -237,8 +242,13 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
     // subscription exists in V1 coordinator before migration
     uint256 subID = s_wrapper.SUBSCRIPTION_ID();
-    (uint96 balance, uint96 nativeBalance, uint64 reqCount, address owner, address[] memory consumers) = s_testCoordinator
-      .getSubscription(subID);
+    (
+      uint96 balance,
+      uint96 nativeBalance,
+      uint64 reqCount,
+      address owner,
+      address[] memory consumers
+    ) = s_testCoordinator.getSubscription(subID);
     assertEq(reqCount, 0);
     assertEq(balance, 0);
     assertEq(nativeBalance, 0);
