@@ -2755,6 +2755,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
@@ -3227,6 +3228,7 @@ PollFailureThreshold = 5
 PollInterval = '10s'
 SelectionMode = 'HighestHead'
 SyncThreshold = 10
+LeaseDuration = '0s'
 
 [OCR]
 ContractConfirmations = 1
