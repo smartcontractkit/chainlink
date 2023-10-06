@@ -539,7 +539,6 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    */
   // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
-    // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
       // Compute g -= GAS_FOR_CALL_EXACT_CHECK and check for underflow

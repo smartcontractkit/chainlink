@@ -60,7 +60,6 @@ contract BlockhashStore {
     // As a consequence, the PARENTHASH is always at offset 4 of the rlp-encoded block header.
 
     bytes32 parentHash;
-    // solhint-disable-next-line no-inline-assembly
     assembly {
       parentHash := mload(add(header, 36)) // 36 = 32 byte offset for length prefix of ABI-encoded array
       //    +  4 byte offset of PARENTHASH (see above)

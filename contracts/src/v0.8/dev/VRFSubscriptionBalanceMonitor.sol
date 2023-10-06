@@ -125,7 +125,6 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
       }
     }
     if (count < watchList.length) {
-      // solhint-disable-next-line no-inline-assembly
       assembly {
         mstore(needsFunding, count)
       }
