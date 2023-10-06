@@ -3,6 +3,7 @@ pragma solidity ^0.8.6;
 
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
+import {IVRFV2PlusMigrate} from "../interfaces/IVRFV2PlusMigrate.sol";
 import {VRFConsumerBaseV2Plus} from "./VRFConsumerBaseV2Plus.sol";
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
 import {AggregatorV3Interface} from "../../interfaces/AggregatorV3Interface.sol";
@@ -577,5 +578,13 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // solhint-disable-next-line custom-errors
     require(!s_disabled, "wrapper is disabled");
     _;
+  }
+
+  /***************************************************************************
+   * Section: Migration of VRFV2PlusWrapper to latest VRFV2PlusCoordinator
+   ***************************************************************************/
+
+  function migrate(address newCoordinator) external onlyOwner {
+    IVRFV2PlusMigrate(address(s_vrfCoordinator)).migrate(SUBSCRIPTION_ID, newCoordinator);
   }
 }
