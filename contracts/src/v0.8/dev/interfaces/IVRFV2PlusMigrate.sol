@@ -10,6 +10,6 @@ interface IVRFV2PlusMigrate {
    * @notice implement IVRFCoordinatorV2PlusMigration.
    * @param subId the subscription ID to migrate
    * @param newCoordinator the vrf coordinator to migrate to
-  */
+   */
   function migrate(uint256 subId, address newCoordinator) external;
 }

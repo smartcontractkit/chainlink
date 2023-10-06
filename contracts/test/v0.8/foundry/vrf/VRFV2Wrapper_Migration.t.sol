@@ -128,7 +128,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
   function testMigrateWrapperLINKPayment() public {
     s_linkToken.transfer(address(s_consumer), DEFAULT_LINK_FUNDING);
-    
+
     uint256 subID = s_wrapper.SUBSCRIPTION_ID();
     address oldCoordinatorAddr = address(s_testCoordinator);
 
@@ -142,7 +142,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     assertEq(s_wrapper.typeAndVersion(), "VRFV2Wrapper 1.0.0");
 
     // subscription exists in V1 coordinator before migration
-    
+
     (
       uint96 balance,
       uint96 nativeBalance,
