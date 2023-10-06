@@ -8,6 +8,7 @@ import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
 import "../interfaces/IVRFCoordinatorV2Plus.sol";
 import "../interfaces/IVRFV2PlusWrapper.sol";
+import "../interfaces/IVRFV2PlusMigration.sol";
 import "./VRFV2PlusWrapperConsumerBase.sol";
 import "../../ChainSpecificUtil.sol";
 
@@ -567,11 +568,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    ***************************************************************************/
 
   function migrate(address newCoordinator) external onlyOwner {
-    IMigration(address(s_vrfCoordinator)).migrate(SUBSCRIPTION_ID, newCoordinator);
+    IVRFV2PlusMigration(address(s_vrfCoordinator)).migrate(SUBSCRIPTION_ID, newCoordinator);
     s_vrfCoordinator = IVRFCoordinatorV2Plus(newCoordinator);
   }
-}
-
-interface IMigration {
-  function migrate(uint256 subId, address newCoordinator) external;
 }
