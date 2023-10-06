@@ -213,7 +213,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     assertEq(wrapperCostEstimate, wrapperCostCalculation);
     assertEq(fulfilled, false);
     assertEq(native, false);
-    assertEq(s_linkToken.balanceOf(address(s_consumer)), 10 ether - expectedPaid);
+    assertEq(s_linkToken.balanceOf(address(s_consumer)), DEFAULT_LINK_FUNDING - expectedPaid);
 
     (, uint256 gasLimit, ) = s_wrapper.s_callbacks(requestId);
     assertEq(gasLimit, callbackGasLimit);
