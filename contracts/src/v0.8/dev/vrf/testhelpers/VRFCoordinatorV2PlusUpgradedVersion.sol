@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../../../shared/interfaces/LinkTokenInterface.sol";
-import "../../../interfaces/BlockhashStoreInterface.sol";
-import "../../../interfaces/TypeAndVersionInterface.sol";
-import "../../interfaces/IVRFCoordinatorV2Plus.sol";
-import "../../../vrf/VRF.sol";
-import "../VRFConsumerBaseV2Plus.sol";
-import "../../../ChainSpecificUtil.sol";
-import "../SubscriptionAPI.sol";
-import "../libraries/VRFV2PlusClient.sol";
-import "../../interfaces/IVRFCoordinatorV2PlusMigration.sol";
-import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import {BlockhashStoreInterface} from "../../../interfaces/BlockhashStoreInterface.sol";
+// solhint-disable-next-line no-unused-import
+import {IVRFCoordinatorV2Plus, IVRFSubscriptionV2Plus} from "../../interfaces/IVRFCoordinatorV2Plus.sol";
+import {VRF} from "../../../vrf/VRF.sol";
+import {VRFConsumerBaseV2Plus, IVRFMigratableConsumerV2Plus} from "../VRFConsumerBaseV2Plus.sol";
+import {ChainSpecificUtil} from "../../../ChainSpecificUtil.sol";
+import {SubscriptionAPI} from "../SubscriptionAPI.sol";
+import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
+import {IVRFCoordinatorV2PlusMigration} from "../../interfaces/IVRFCoordinatorV2PlusMigration.sol";
+import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 
 contract VRFCoordinatorV2PlusUpgradedVersion is
   VRF,
@@ -21,6 +20,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
 {
   using EnumerableSet for EnumerableSet.UintSet;
   /// @dev should always be available
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   BlockhashStoreInterface public immutable BLOCKHASH_STORE;
 
   // Set this maximum to 200 to give us a 56 block window to fulfill
@@ -292,6 +292,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     return requestId;
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function computeRequestId(
     bytes32 keyHash,
     address sender,
@@ -306,6 +307,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
     // solhint-disable-next-line no-inline-assembly
     assembly {
@@ -342,6 +344,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     uint256 randomness;
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function getRandomnessFromProof(
     Proof memory proof,
     RequestCommitment memory rc
@@ -445,6 +448,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     }
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function calculatePaymentAmount(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
@@ -469,6 +473,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       );
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function calculatePaymentAmountNative(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
@@ -486,6 +491,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
   }
 
   // Get the amount of gas used for fulfillment
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function calculatePaymentAmountLink(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
@@ -509,6 +515,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     return uint96(paymentNoFee + fee);
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function getFeedData() private view returns (int256) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
@@ -616,6 +623,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     uint96 nativeBalance;
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function isTargetRegistered(address target) internal view returns (bool) {
     for (uint256 i = 0; i < s_migrationTargets.length; i++) {
       if (s_migrationTargets[i] == target) {
@@ -638,7 +646,9 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       revert CoordinatorNotRegistered(newCoordinator);
     }
     (uint96 balance, uint96 nativeBalance, , address owner, address[] memory consumers) = getSubscription(subId);
+    // solhint-disable-next-line custom-errors
     require(owner == msg.sender, "Not subscription owner");
+    // solhint-disable-next-line custom-errors
     require(!pendingRequestExists(subId), "Pending request exists");
 
     V1MigrationData memory migrationData = V1MigrationData({
@@ -655,6 +665,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
 
     // Only transfer LINK if the token is active and there is a balance.
     if (address(LINK) != address(0) && balance != 0) {
+      // solhint-disable-next-line custom-errors
       require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
     }
 
@@ -699,7 +710,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       revert SubscriptionIDCollisionFound();
     }
 
-    for (uint i = 0; i < migrationData.consumers.length; i++) {
+    for (uint256 i = 0; i < migrationData.consumers.length; i++) {
       s_consumers[migrationData.consumers[i]][migrationData.subId] = 1;
     }
 
