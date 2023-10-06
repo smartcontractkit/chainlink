@@ -286,10 +286,7 @@ func (k *KeeperBenchmarkTest) Run() {
 	}()
 
 	// Main test loop
-	require.NoError(k.t, err, "Setting filter query shouldn't fail")
-	for rIndex := range k.keeperRegistries {
-		k.observeUpkeepEvents(rIndex)
-	}
+	k.observeUpkeepEvents()
 	err = k.chainClient.WaitForEvents()
 	require.NoError(k.t, err, "Error waiting for keeper subscriptions")
 
@@ -396,11 +393,13 @@ func (k *KeeperBenchmarkTest) TearDownVals(t *testing.T) (
 // observeUpkeepEvents subscribes to Upkeep events on deployed registries and logs them
 // WARNING: This should only be used for observation and logging. This isn't a reliable way to build a final report
 // due to how fragile subscriptions can be
-func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
+func (k *KeeperBenchmarkTest) observeUpkeepEvents() {
 	eventLogs := make(chan types.Log)
 	registryAddresses := make([]common.Address, len(k.keeperRegistries))
+	addressIndexMap := map[common.Address]int{}
 	for index, registry := range k.keeperRegistries {
 		registryAddresses[index] = common.HexToAddress(registry.Address())
+		addressIndexMap[registryAddresses[index]] = index
 	}
 	filterQuery := geth.FilterQuery{
 		Addresses: registryAddresses,
@@ -411,7 +410,6 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
 	sub, err := k.chainClient.SubscribeFilterLogs(ctx, filterQuery, eventLogs)
 	cancel()
 	require.NoError(k.t, err, "Subscribing to upkeep performed events log shouldn't fail")
-	contractABI := k.contractABI(rIndex)
 
 	interruption := make(chan os.Signal, 1)
 	signal.Notify(interruption, os.Kill, os.Interrupt, syscall.SIGTERM)
@@ -431,6 +429,12 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents(rIndex int) {
 				}
 				log.Info().Msg("Resubscribed to Keeper Event Logs")
 			case vLog := <-eventLogs:
+				rIndex, ok := addressIndexMap[vLog.Address]
+				if !ok {
+					k.log.Error().Str("Address", vLog.Address.Hex()).Msg("Received log from unknown registry")
+					continue
+				}
+				contractABI := k.contractABI(rIndex)
 				eventDetails, err := contractABI.EventByID(vLog.Topics[0])
 				require.NoError(k.t, err, "Getting event details for subscribed log shouldn't fail")
 				if eventDetails.Name != "UpkeepPerformed" && eventDetails.Name != "StaleUpkeepReport" {

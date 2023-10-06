@@ -194,5 +194,5 @@ run_test_with_local_image: build_docker_image
 .PHONY: adam_debug
 adam_debug:
 	TEST_SUITE="benchmark" \
-	TEST_INPUTS="REGISTRY=2_0,NUMBEROFNODES=6,NUMBEROFUPKEEPS=10,BLOCKRANGE=10000,BLOCKINTERVAL=1000,GRAFANA_DASHBOARD_URL=https://grafana.ops.prod.cldev.sh/d/Q8n6m1unz/chainlink-automation-benchmark-test?orgId=1,PERFORMGASTOBURN=1" \
+	TEST_INPUTS="REGISTRY=2_0,NUMBEROFNODES=6,NUMBEROFUPKEEPS=10,BLOCKRANGE=3600,BLOCKINTERVAL=60,GRAFANA_DASHBOARD_URL=https://grafana.ops.prod.cldev.sh/d/Q8n6m1unz/chainlink-automation-benchmark-test?orgId=1,PERFORMGASTOBURN=1" \
 	go test -timeout 300m -v -run ^TestAutomationBenchmark$  ./benchmark -count=1
