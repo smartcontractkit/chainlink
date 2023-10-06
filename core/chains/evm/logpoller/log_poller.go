@@ -403,7 +403,7 @@ func (lp *logPoller) Name() string {
 }
 
 func (lp *logPoller) HealthReport() map[string]error {
-	return map[string]error{lp.Name(): lp.StartStopOnce.Healthy()}
+	return map[string]error{lp.Name(): lp.Healthy()}
 }
 
 func (lp *logPoller) GetReplayFromBlock(ctx context.Context, requested int64) (int64, error) {

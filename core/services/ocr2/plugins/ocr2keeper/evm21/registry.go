@@ -62,7 +62,7 @@ type Registry interface {
 	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
 	GetUpkeepPrivilegeConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
 	GetUpkeepTriggerConfig(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error)
-	CheckCallback(opts *bind.TransactOpts, id *big.Int, values [][]byte, extraData []byte) (*coreTypes.Transaction, error)
+	CheckCallback(opts *bind.CallOpts, id *big.Int, values [][]byte, extraData []byte) (iregistry21.CheckCallback, error)
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
 }
 
@@ -75,7 +75,6 @@ func NewEvmRegistry(
 	lggr logger.Logger,
 	addr common.Address,
 	client evm.Chain,
-	streamsLookupCompatibleABI, keeperRegistryABI abi.ABI,
 	registry *iregistry21.IKeeperRegistryMaster,
 	mc *models.MercuryCredentials,
 	al ActiveUpkeepList,
@@ -87,20 +86,20 @@ func NewEvmRegistry(
 	return &EvmRegistry{
 		ctx:          context.Background(),
 		threadCtrl:   utils.NewThreadControl(),
-		lggr:         lggr.Named("EvmRegistry"),
+		lggr:         lggr.Named(RegistryServiceName),
 		poller:       client.LogPoller(),
 		addr:         addr,
 		client:       client.Client(),
 		logProcessed: make(map[string]bool),
 		registry:     registry,
-		abi:          keeperRegistryABI,
+		abi:          core.RegistryABI,
 		active:       al,
 		packer:       packer,
 		headFunc:     func(ocr2keepers.BlockKey) {},
 		chLog:        make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
 			cred:           mc,
-			abi:            streamsLookupCompatibleABI,
+			abi:            core.StreamsCompatibleABI,
 			allowListCache: cache.New(defaultAllowListExpiration, allowListCleanupInterval),
 		},
 		hc:               http.DefaultClient,

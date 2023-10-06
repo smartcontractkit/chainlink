@@ -26,7 +26,6 @@ func TestVRFBasic(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
 		WithGeth().
-		WithMockServer(1).
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
 		Build()
