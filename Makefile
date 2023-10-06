@@ -1,7 +1,6 @@
 .PHONY: gomodtidy
 gomodtidy:
 	go mod tidy
-	cd ./ops && go mod tidy
 
 .PHONY: godoc
 godoc:

@@ -45,16 +45,6 @@ jobs:
           name: golangci-lint-report
           if_no_artifact_found: warn
 
-      - name: Download Go OPS test reports
-        if: always()
-        uses: dawidd6/action-download-artifact@v2.27.0
-        with:
-          workflow: ops.yml
-          workflow_conclusion: ""
-          name_is_regexp: true
-          name: go-test-results
-          if_no_artifact_found: warn
-
       - name: Download Go PKG test reports
         if: always()
         uses: dawidd6/action-download-artifact@v2.27.0
