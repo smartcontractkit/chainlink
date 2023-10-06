@@ -86,6 +86,8 @@ contracts/test/v0.8/functions @smartcontractkit/functions
 /.github/workflows/integration-chaos-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/integration-tests-publish.yml @smartcontractkit/test-tooling-team
 /.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
+/.github/workflows/automation-ondemand-tests.yml @smartcontractkit/keepers
+/.github/workflows/automation-benchmark-tests.yml @smartcontractkit/keepers
 
 /core/chainlink.Dockerfile @smartcontractkit/prodsec-public
 
