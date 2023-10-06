@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
+// solhint-disable-next-line one-contract-per-file
 pragma solidity 0.8.6;
 
-import "../ChainSpecificUtil.sol";
+import {ChainSpecificUtil} from "../ChainSpecificUtil.sol";
 
 /**
  * @title BatchBlockhashStore
@@ -11,6 +12,7 @@ import "../ChainSpecificUtil.sol";
  *   in times of high network congestion.
  */
 contract BatchBlockhashStore {
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   BlockhashStore public immutable BHS;
 
   constructor(address blockhashStoreAddr) {
@@ -40,6 +42,7 @@ contract BatchBlockhashStore {
    * @param headers the rlp-encoded block headers of blockNumbers[i] + 1.
    */
   function storeVerifyHeader(uint256[] memory blockNumbers, bytes[] memory headers) public {
+    // solhint-disable-next-line custom-errors
     require(blockNumbers.length == headers.length, "input array arg lengths mismatch");
     for (uint256 i = 0; i < blockNumbers.length; i++) {
       BHS.storeVerifyHeader(blockNumbers[i], headers[i]);
@@ -70,6 +73,7 @@ contract BatchBlockhashStore {
    *   using the blockhash() instruction.
    * @param blockNumber the block number to check if it's storeable with blockhash()
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function storeableBlock(uint256 blockNumber) private view returns (bool) {
     // handle edge case on simulated chains which possibly have < 256 blocks total.
     return ChainSpecificUtil.getBlockNumber() <= 256 ? true : blockNumber >= (ChainSpecificUtil.getBlockNumber() - 256);

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
-import "../../shared/interfaces/LinkTokenInterface.sol";
-import "../../shared/access/ConfirmedOwner.sol";
-import "../../interfaces/AggregatorV3Interface.sol";
-import "../../shared/interfaces/IERC677Receiver.sol";
-import "../interfaces/IVRFSubscriptionV2Plus.sol";
+import {EnumerableSet} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {AggregatorV3Interface} from "../../interfaces/AggregatorV3Interface.sol";
+import {IERC677Receiver} from "../../shared/interfaces/IERC677Receiver.sol";
+import {IVRFSubscriptionV2Plus} from "../interfaces/IVRFSubscriptionV2Plus.sol";
 
 abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscriptionV2Plus {
   using EnumerableSet for EnumerableSet.UintSet;
@@ -392,6 +392,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     emit SubscriptionConsumerAdded(subId, consumer);
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function deleteSubscription(uint256 subId) internal returns (uint96 balance, uint96 nativeBalance) {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     Subscription memory sub = s_subscriptions[subId];
@@ -410,6 +411,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     return (balance, nativeBalance);
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function cancelSubscriptionHelper(uint256 subId, address to) internal {
     (uint96 balance, uint96 nativeBalance) = deleteSubscription(subId);
 

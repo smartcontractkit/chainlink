@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../../shared/interfaces/LinkTokenInterface.sol";
-import "../../interfaces/IVRFCoordinatorV2Plus.sol";
-import "../VRFConsumerBaseV2Plus.sol";
-import "../../../shared/access/ConfirmedOwner.sol";
+import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
+import {IVRFCoordinatorV2Plus} from "../../interfaces/IVRFCoordinatorV2Plus.sol";
+import {VRFConsumerBaseV2Plus} from "../VRFConsumerBaseV2Plus.sol";
+import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
+import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 
 /// @notice This contract is used for testing only and should not be used for production.
 contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
@@ -28,10 +29,12 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
 
   function getRandomness(uint256 requestId, uint256 idx) public view returns (uint256 randomWord) {
     Response memory resp = s_requests[requestId];
+    // solhint-disable-next-line custom-errors
     require(resp.requestId != 0, "request ID is incorrect");
     return resp.randomWords[idx];
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function subscribe() internal returns (uint256) {
     if (s_subId == 0) {
       s_subId = s_vrfCoordinatorApiV1.createSubscription();
@@ -52,16 +55,20 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
   }
 
   function topUpSubscription(uint96 amount) external {
+    // solhint-disable-next-line custom-errors
     require(s_subId != 0, "sub not set");
     s_linkToken.transferAndCall(address(s_vrfCoordinator), amount, abi.encode(s_subId));
   }
 
   function topUpSubscriptionNative() external payable {
+    // solhint-disable-next-line custom-errors
     require(s_subId != 0, "sub not set");
     s_vrfCoordinatorApiV1.fundSubscriptionWithNative{value: msg.value}(s_subId);
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+    // solhint-disable-next-line custom-errors
     require(requestId == s_recentRequestId, "request ID is incorrect");
     s_requests[requestId].randomWords = randomWords;
     s_requests[requestId].fulfilled = true;
@@ -94,6 +101,7 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
   }
 
   function updateSubscription(address[] memory consumers) external {
+    // solhint-disable-next-line custom-errors
     require(s_subId != 0, "subID not set");
     for (uint256 i = 0; i < consumers.length; i++) {
       s_vrfCoordinatorApiV1.addConsumer(s_subId, consumers[i]);

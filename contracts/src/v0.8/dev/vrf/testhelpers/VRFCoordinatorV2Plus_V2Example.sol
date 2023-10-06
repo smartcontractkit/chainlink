@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../../../shared/interfaces/LinkTokenInterface.sol";
-import "../../interfaces/IVRFCoordinatorV2PlusMigration.sol";
-import "../../interfaces/IVRFCoordinatorV2Plus.sol";
-import "../VRFConsumerBaseV2Plus.sol";
+import {IVRFCoordinatorV2PlusMigration} from "../../interfaces/IVRFCoordinatorV2PlusMigration.sol";
+import {VRFConsumerBaseV2Plus} from "../VRFConsumerBaseV2Plus.sol";
+import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 
 /// @dev this contract is only meant for testing migration
 /// @dev it is a simplified example of future version (V2) of VRFCoordinatorV2Plus
+// solhint-disable-next-line contract-name-camelcase
 contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration {
   error SubscriptionIDCollisionFound();
 
@@ -138,6 +138,7 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration {
     return handleRequest(msg.sender);
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function handleRequest(address requester) private returns (uint256) {
     s_requestId = s_requestId + 1;
     uint256 requestId = s_requestId;
