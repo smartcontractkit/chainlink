@@ -508,9 +508,7 @@ func deployUniverse(e helpers.Environment) {
 	flatFeeLinkPPM := deployCmd.Int64("flat-fee-link-ppm", 500, "fulfillment flat fee LINK ppm")
 	flatFeeEthPPM := deployCmd.Int64("flat-fee-eth-ppm", 500, "fulfillment flat fee ETH ppm")
 
-	helpers.ParseArgs(
-		deployCmd, os.Args[2:], "uncompressed-pub-key", "oracle-address",
-	)
+	helpers.ParseArgs(deployCmd, os.Args[2:])
 
 	fallbackWeiPerUnitLink := decimal.RequireFromString(*fallbackWeiPerUnitLinkString).BigInt()
 	subscriptionBalance := decimal.RequireFromString(*subscriptionBalanceString).BigInt()
@@ -519,24 +517,6 @@ func deployUniverse(e helpers.Environment) {
 	if strings.HasPrefix(*registerKeyUncompressedPubKey, "0x") {
 		*registerKeyUncompressedPubKey = strings.Replace(*registerKeyUncompressedPubKey, "0x", "04", 1)
 	}
-
-	// Generate compressed public key and key hash
-	pubBytes, err := hex.DecodeString(*registerKeyUncompressedPubKey)
-	helpers.PanicErr(err)
-	pk, err := crypto.UnmarshalPubkey(pubBytes)
-	helpers.PanicErr(err)
-	var pkBytes []byte
-	if big.NewInt(0).Mod(pk.Y, big.NewInt(2)).Uint64() != 0 {
-		pkBytes = append(pk.X.Bytes(), 1)
-	} else {
-		pkBytes = append(pk.X.Bytes(), 0)
-	}
-	var newPK secp256k1.PublicKey
-	copy(newPK[:], pkBytes)
-
-	compressedPkHex := hexutil.Encode(pkBytes)
-	keyHash, err := newPK.Hash()
-	helpers.PanicErr(err)
 
 	if len(*linkAddress) == 0 {
 		fmt.Println("\nDeploying LINK Token...")
@@ -594,7 +574,27 @@ func deployUniverse(e helpers.Environment) {
 	fmt.Println("\nConfig set, getting current config from deployed contract...")
 	printCoordinatorConfig(coordinator)
 
+	var compressedPkHex string
+	var keyHash common.Hash
 	if len(*registerKeyUncompressedPubKey) > 0 && len(*registerKeyOracleAddress) > 0 {
+		// Generate compressed public key and key hash
+		pubBytes, err := hex.DecodeString(*registerKeyUncompressedPubKey)
+		helpers.PanicErr(err)
+		pk, err := crypto.UnmarshalPubkey(pubBytes)
+		helpers.PanicErr(err)
+		var pkBytes []byte
+		if big.NewInt(0).Mod(pk.Y, big.NewInt(2)).Uint64() != 0 {
+			pkBytes = append(pk.X.Bytes(), 1)
+		} else {
+			pkBytes = append(pk.X.Bytes(), 0)
+		}
+		var newPK secp256k1.PublicKey
+		copy(newPK[:], pkBytes)
+
+		compressedPkHex = hexutil.Encode(pkBytes)
+		keyHash, err = newPK.Hash()
+		helpers.PanicErr(err)
+
 		fmt.Println("\nRegistering proving key...")
 		registerCoordinatorProvingKey(e, *coordinator, *registerKeyUncompressedPubKey, *registerKeyOracleAddress)
 

@@ -67,12 +67,12 @@ core/scripts/gateway @bolekk @pinebit
 /operator-ui/ @DeividasK @jkongie
 
 # Contracts
-/contracts/ @se3000 @connorwstein
+/contracts/ @se3000 @connorwstein @RensR
 /contracts/**/*Keeper* @smartcontractkit/keepers
 /contracts/**/*Upkeep* @smartcontractkit/keepers
 /contracts/**/*Functions* @smartcontractkit/functions
 /contracts/src/v0.8/functions @smartcontractkit/functions
-contracts/test/v0.8/functions @smartcontractkit/functions
+/contracts/test/v0.8/functions @smartcontractkit/functions
 /contracts/src/v0.8/llo-feeds @austinborn @Fletch153
 
 # Tests
@@ -86,6 +86,8 @@ contracts/test/v0.8/functions @smartcontractkit/functions
 /.github/workflows/integration-chaos-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/integration-tests-publish.yml @smartcontractkit/test-tooling-team
 /.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
+/.github/workflows/automation-ondemand-tests.yml @smartcontractkit/keepers
+/.github/workflows/automation-benchmark-tests.yml @smartcontractkit/keepers
 
 /core/chainlink.Dockerfile @smartcontractkit/prodsec-public
 

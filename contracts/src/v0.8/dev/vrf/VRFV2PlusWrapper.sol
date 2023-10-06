@@ -1,21 +1,22 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../../shared/access/ConfirmedOwner.sol";
-import "../../interfaces/TypeAndVersionInterface.sol";
-import "./VRFConsumerBaseV2Plus.sol";
-import "../../shared/interfaces/LinkTokenInterface.sol";
-import "../../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/IVRFCoordinatorV2Plus.sol";
-import "../interfaces/IVRFV2PlusWrapper.sol";
-import "../interfaces/IVRFV2PlusMigrate.sol";
-import "./VRFV2PlusWrapperConsumerBase.sol";
-import "../../ChainSpecificUtil.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
+import {IVRFV2PlusMigrate} from "../interfaces/IVRFV2PlusMigrate.sol";
+import {VRFConsumerBaseV2Plus} from "./VRFConsumerBaseV2Plus.sol";
+import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
+import {AggregatorV3Interface} from "../../interfaces/AggregatorV3Interface.sol";
+import {VRFV2PlusClient} from "./libraries/VRFV2PlusClient.sol";
+import {IVRFV2PlusWrapper} from "../interfaces/IVRFV2PlusWrapper.sol";
+import {VRFV2PlusWrapperConsumerBase} from "./VRFV2PlusWrapperConsumerBase.sol";
+import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
 
 /**
  * @notice A wrapper for VRFCoordinatorV2 that provides an interface better suited to one-off
  * @notice requests for randomness.
  */
+// solhint-disable-next-line max-states-count
 contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBaseV2Plus, IVRFV2PlusWrapper {
   event WrapperFulfillmentFailed(uint256 indexed requestId, address indexed consumer);
 
@@ -28,10 +29,11 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   /* Storage Slot 1: BEGIN */
   // s_keyHash is the key hash to use when requesting randomness. Fees are paid based on current gas
   // fees, so this should be set to the highest gas lane on the network.
-  bytes32 s_keyHash;
+  bytes32 internal s_keyHash;
   /* Storage Slot 1: END */
 
   /* Storage Slot 2: BEGIN */
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   uint256 public immutable SUBSCRIPTION_ID;
   /* Storage Slot 2: END */
 
@@ -107,7 +109,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   uint8 private s_wrapperPremiumPercentage;
 
   // s_maxNumWords is the max number of words that can be requested in a single wrapped VRF request.
-  uint8 s_maxNumWords;
+  uint8 internal s_maxNumWords;
 
   uint16 private constant EXPECTED_MIN_LENGTH = 36;
   /* Storage Slot 8: END */
@@ -308,6 +310,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     return calculateRequestPriceNativeInternal(_callbackGasLimit, _requestGasPriceWei);
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function calculateRequestPriceNativeInternal(uint256 _gas, uint256 _requestGasPrice) internal view returns (uint256) {
     // costWei is the base fee denominated in wei (native)
     // costWei takes into account the L1 posting costs of the VRF fulfillment
@@ -326,6 +329,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     return feeWithFlatFee;
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function calculateRequestPriceInternal(
     uint256 _gas,
     uint256 _requestGasPrice,
@@ -362,6 +366,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    *        uint16 requestConfirmations, and uint32 numWords.
    */
   function onTokenTransfer(address _sender, uint256 _amount, bytes calldata _data) external onlyConfiguredNotDisabled {
+    // solhint-disable-next-line custom-errors
     require(msg.sender == address(s_link), "only callable from LINK");
 
     (uint32 callbackGasLimit, uint16 requestConfirmations, uint32 numWords, bytes memory extraArgs) = abi.decode(
@@ -372,7 +377,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     uint32 eip150Overhead = getEIP150Overhead(callbackGasLimit);
     int256 weiPerUnitLink = getFeedData();
     uint256 price = calculateRequestPriceInternal(callbackGasLimit, tx.gasprice, weiPerUnitLink);
+    // solhint-disable-next-line custom-errors
     require(_amount >= price, "fee too low");
+    // solhint-disable-next-line custom-errors
     require(numWords <= s_maxNumWords, "numWords too high");
     VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
       keyHash: s_keyHash,
@@ -425,7 +432,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
     uint32 eip150Overhead = getEIP150Overhead(_callbackGasLimit);
     uint256 price = calculateRequestPriceNativeInternal(_callbackGasLimit, tx.gasprice);
+    // solhint-disable-next-line custom-errors
     require(msg.value >= price, "fee too low");
+    // solhint-disable-next-line custom-errors
     require(_numWords <= s_maxNumWords, "numWords too high");
     VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
       keyHash: s_keyHash,
@@ -467,6 +476,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    */
   function withdrawNative(address _recipient, uint256 _amount) external onlyOwner {
     (bool success, ) = payable(_recipient).call{value: _amount}("");
+    // solhint-disable-next-line custom-errors
     require(success, "failed to withdraw native");
   }
 
@@ -485,9 +495,11 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     s_disabled = true;
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
     Callback memory callback = s_callbacks[_requestId];
     delete s_callbacks[_requestId];
+    // solhint-disable-next-line custom-errors
     require(callback.callbackAddress != address(0), "request not found"); // This should never happen
 
     VRFV2PlusWrapperConsumerBase c;
@@ -499,6 +511,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     }
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function getFeedData() private view returns (int256) {
     bool staleFallback = s_stalenessSeconds > 0;
     uint256 timestamp;
@@ -508,6 +521,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     if (staleFallback && s_stalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
     }
+    // solhint-disable-next-line custom-errors
     require(weiPerUnitLink >= 0, "Invalid LINK wei price");
     return weiPerUnitLink;
   }
@@ -515,6 +529,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   /**
    * @dev Calculates extra amount of gas required for running an assembly call() post-EIP150.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function getEIP150Overhead(uint32 gas) private pure returns (uint32) {
     return gas / 63 + 1;
   }
@@ -523,8 +538,8 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
-    // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
       // Compute g -= GAS_FOR_CALL_EXACT_CHECK and check for underflow
@@ -558,7 +573,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   }
 
   modifier onlyConfiguredNotDisabled() {
+    // solhint-disable-next-line custom-errors
     require(s_configured, "wrapper is not configured");
+    // solhint-disable-next-line custom-errors
     require(!s_disabled, "wrapper is disabled");
     _;
   }
