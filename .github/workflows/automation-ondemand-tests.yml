@@ -160,10 +160,12 @@ jobs:
             echo "image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
             echo "version=${{ github.sha }}" >>$GITHUB_OUTPUT
             echo "upgrade_version=${{ github.sha }}" >>$GITHUB_OUTPUT
+            echo "upgrade_image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
           else
             echo "image=${{ inputs.chainlinkImage }}" >>$GITHUB_OUTPUT
             echo "version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
             echo "upgrade_version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
+            echo "upgrade_image=${{ inputs.chainlinkImage }}" >>$GITHUB_OUTPUT
           fi
           if [[ "${{ matrix.tests.name }}" == "upgrade" ]]; then
             echo "image=${{ inputs.chainlinkImageUpdate }}" >>$GITHUB_OUTPUT
@@ -177,8 +179,8 @@ jobs:
           PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
           SELECTED_NETWORKS: ${{ matrix.tests.network }}
           TEST_SUITE: ${{ matrix.tests.suite }}
-          TEST_UPGRADE_VERSION: ${{ steps.determine-build.outputs.upgrade_version }}
-          TEST_UPGRADE_IMAGE: ${{ env.CHAINLINK_IMAGE }}
+          UPGRADE_VERSION: ${{ steps.determine-build.outputs.upgrade_version }}
+          UPGRADE_IMAGE: ${{ steps.determine-build.outputs.upgrade_image }}
         with:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.tests.nodes }} ${{ matrix.tests.command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
