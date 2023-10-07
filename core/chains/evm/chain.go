@@ -64,7 +64,6 @@ var (
 // LegacyChains implements [LegacyChainContainer]
 type LegacyChains struct {
 	*chains.ChainsKV[Chain]
-	dflt Chain
 
 	cfgs toml.EVMConfigs
 }

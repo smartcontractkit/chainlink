@@ -3,7 +3,6 @@ package chainlink
 import (
 	_ "embed"
 	"fmt"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -506,7 +505,4 @@ func (g *generalConfig) Threshold() coreconfig.Threshold {
 	return &thresholdConfig{s: g.secrets.Threshold}
 }
 
-var (
-	zeroURL        = url.URL{}
-	zeroSha256Hash = models.Sha256Hash{}
-)
+var zeroSha256Hash = models.Sha256Hash{}
