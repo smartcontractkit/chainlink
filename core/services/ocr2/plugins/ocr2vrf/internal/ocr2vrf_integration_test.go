@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net"
 	"testing"
 	"time"
 
@@ -20,6 +19,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
+	"github.com/stretchr/testify/require"
+	"go.dedis.ch/kyber/v3"
+
 	"github.com/smartcontractkit/libocr/commontypes"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -27,9 +29,6 @@ import (
 	ocr2dkg "github.com/smartcontractkit/ocr2vrf/dkg"
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	ocr2vrftypes "github.com/smartcontractkit/ocr2vrf/types"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.dedis.ch/kyber/v3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
@@ -337,7 +336,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 
 	t.Log("Creating bootstrap node")
 
-	bootstrapNodePort := getFreePort(t)
+	bootstrapNodePort := testutils.GetFreePort(t)
 	bootstrapNode := setupNodeOCR2(t, uni.owner, bootstrapNodePort, "bootstrap", uni.backend, false, nil)
 	numNodes := 5
 
@@ -362,7 +361,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 				fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort),
 			}},
 		}
-		node := setupNodeOCR2(t, uni.owner, getFreePort(t), fmt.Sprintf("ocr2vrforacle%d", i), uni.backend, useForwarders, bootstrappers)
+		node := setupNodeOCR2(t, uni.owner, testutils.GetFreePort(t), fmt.Sprintf("ocr2vrforacle%d", i), uni.backend, useForwarders, bootstrappers)
 		sendingKeys = append(sendingKeys, node.sendingKeys)
 
 		dkgSignKey, err := node.app.GetKeyStore().DKGSign().Create()
@@ -873,17 +872,6 @@ func randomKeyID(t *testing.T) (r [32]byte) {
 	_, err := rand.Read(r[:])
 	require.NoError(t, err)
 	return
-}
-
-func getFreePort(t *testing.T) uint16 {
-	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
-	require.NoError(t, err)
-
-	l, err := net.ListenTCP("tcp", addr)
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, l.Close()) }()
-
-	return uint16(l.Addr().(*net.TCPAddr).Port)
 }
 
 func ptr[T any](v T) *T { return &v }
