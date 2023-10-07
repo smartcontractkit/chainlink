@@ -64,12 +64,12 @@ contract OptimismSequencerUptimeFeed is
    * @param initialStatus The initial status of the feed
    */
   constructor(address l1SenderAddress, address l2CrossDomainMessengerAddr, bool initialStatus) {
-    setL1Sender(l1SenderAddress);
+    _setL1Sender(l1SenderAddress);
     s_l2CrossDomainMessenger = IL2CrossDomainMessenger(l2CrossDomainMessengerAddr);
     uint64 timestamp = uint64(block.timestamp);
 
     // Initialise roundId == 1 as the first round
-    recordRound(1, initialStatus, timestamp);
+    _recordRound(1, initialStatus, timestamp);
   }
 
   /**
@@ -77,7 +77,7 @@ contract OptimismSequencerUptimeFeed is
    * @dev Mainly used for AggregatorV2V3Interface functions
    * @param roundId Round ID to check
    */
-  function isValidRound(uint256 roundId) private view returns (bool) {
+  function _isValidRound(uint256 roundId) private view returns (bool) {
     return roundId > 0 && roundId <= type(uint80).max && s_feedState.latestRoundId >= roundId;
   }
 
@@ -103,11 +103,11 @@ contract OptimismSequencerUptimeFeed is
    * @param to new L1 sender that will be allowed to call `updateStatus` on this contract
    */
   function transferL1Sender(address to) external virtual onlyOwner {
-    setL1Sender(to);
+    _setL1Sender(to);
   }
 
   /// @notice internal method that stores the L1 sender
-  function setL1Sender(address to) private {
+  function _setL1Sender(address to) private {
     address from = s_l1Sender;
     if (from != to) {
       s_l1Sender = to;
@@ -120,7 +120,7 @@ contract OptimismSequencerUptimeFeed is
    *
    * @param status The status flag to convert to an aggregator-compatible answer
    */
-  function getStatusAnswer(bool status) private pure returns (int256) {
+  function _getStatusAnswer(bool status) private pure returns (int256) {
     return status ? int256(1) : int256(0);
   }
 
@@ -131,7 +131,7 @@ contract OptimismSequencerUptimeFeed is
    * @param status Sequencer status
    * @param timestamp The L1 block timestamp of status update
    */
-  function recordRound(uint80 roundId, bool status, uint64 timestamp) private {
+  function _recordRound(uint80 roundId, bool status, uint64 timestamp) private {
     uint64 updatedAt = uint64(block.timestamp);
     Round memory nextRound = Round(status, timestamp, updatedAt);
     FeedState memory feedState = FeedState(roundId, status, timestamp, updatedAt);
@@ -140,7 +140,7 @@ contract OptimismSequencerUptimeFeed is
     s_feedState = feedState;
 
     emit NewRound(roundId, msg.sender, timestamp);
-    emit AnswerUpdated(getStatusAnswer(status), roundId, timestamp);
+    emit AnswerUpdated(_getStatusAnswer(status), roundId, timestamp);
   }
 
   /**
@@ -149,11 +149,11 @@ contract OptimismSequencerUptimeFeed is
    * @param roundId The round ID to update
    * @param status Sequencer status
    */
-  function updateRound(uint80 roundId, bool status) private {
+  function _updateRound(uint80 roundId, bool status) private {
     uint64 updatedAt = uint64(block.timestamp);
     s_rounds[roundId].updatedAt = updatedAt;
     s_feedState.updatedAt = updatedAt;
-    emit RoundUpdated(getStatusAnswer(status), updatedAt);
+    emit RoundUpdated(_getStatusAnswer(status), updatedAt);
   }
 
   /**
@@ -178,17 +178,17 @@ contract OptimismSequencerUptimeFeed is
     }
 
     if (feedState.latestStatus == status) {
-      updateRound(feedState.latestRoundId, status);
+      _updateRound(feedState.latestRoundId, status);
     } else {
       feedState.latestRoundId += 1;
-      recordRound(feedState.latestRoundId, status, timestamp);
+      _recordRound(feedState.latestRoundId, status, timestamp);
     }
   }
 
   /// @inheritdoc AggregatorInterface
   function latestAnswer() external view override checkAccess returns (int256) {
     FeedState memory feedState = s_feedState;
-    return getStatusAnswer(feedState.latestStatus);
+    return _getStatusAnswer(feedState.latestStatus);
   }
 
   /// @inheritdoc AggregatorInterface
@@ -205,8 +205,8 @@ contract OptimismSequencerUptimeFeed is
 
   /// @inheritdoc AggregatorInterface
   function getAnswer(uint256 roundId) external view override checkAccess returns (int256) {
-    if (isValidRound(roundId)) {
-      return getStatusAnswer(s_rounds[uint80(roundId)].status);
+    if (_isValidRound(roundId)) {
+      return _getStatusAnswer(s_rounds[uint80(roundId)].status);
     }
 
     revert NoDataPresent();
@@ -214,7 +214,7 @@ contract OptimismSequencerUptimeFeed is
 
   /// @inheritdoc AggregatorInterface
   function getTimestamp(uint256 roundId) external view override checkAccess returns (uint256) {
-    if (isValidRound(roundId)) {
+    if (_isValidRound(roundId)) {
       return s_rounds[uint80(roundId)].startedAt;
     }
 
@@ -231,9 +231,9 @@ contract OptimismSequencerUptimeFeed is
     checkAccess
     returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
   {
-    if (isValidRound(_roundId)) {
+    if (_isValidRound(_roundId)) {
       Round memory round = s_rounds[_roundId];
-      answer = getStatusAnswer(round.status);
+      answer = _getStatusAnswer(round.status);
       startedAt = uint256(round.startedAt);
       roundId = _roundId;
       updatedAt = uint256(round.updatedAt);
@@ -254,7 +254,7 @@ contract OptimismSequencerUptimeFeed is
     FeedState memory feedState = s_feedState;
 
     roundId = feedState.latestRoundId;
-    answer = getStatusAnswer(feedState.latestStatus);
+    answer = _getStatusAnswer(feedState.latestStatus);
     startedAt = feedState.startedAt;
     updatedAt = feedState.updatedAt;
     answeredInRound = roundId;

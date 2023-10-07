@@ -1,19 +1,17 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../../interfaces/AggregatorValidatorInterface.sol";
-import "../../../interfaces/TypeAndVersionInterface.sol";
-import "../../../shared/interfaces/AccessControllerInterface.sol";
-import "../../../interfaces/AggregatorV3Interface.sol";
-import "../../../shared/access/SimpleWriteAccessController.sol";
+import {AggregatorValidatorInterface} from "../../../interfaces/AggregatorValidatorInterface.sol";
+import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
+import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
+import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
 
 /* ./dev dependencies - to be moved from ./dev after audit */
-import "../interfaces/ArbitrumSequencerUptimeFeedInterface.sol";
-import "../../../dev/interfaces/FlagsInterface.sol";
-import "../interfaces/IArbitrumDelayedInbox.sol";
-import "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
-import "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
-import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import {ArbitrumSequencerUptimeFeedInterface} from "../interfaces/ArbitrumSequencerUptimeFeedInterface.sol";
+import {IArbitrumDelayedInbox} from "../interfaces/IArbitrumDelayedInbox.sol";
+import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
+import {ArbSys} from "../../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
+import {Address} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
 
 /**
  * @title ArbitrumValidator - makes xDomain L2 Flags contract call (using L2 xDomain Forwarder contract)
@@ -36,7 +34,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   }
 
   /// @dev Precompiled contract that exists in every Arbitrum chain at address(100). Exposes a variety of system-level functionality.
-  address constant ARBSYS_ADDR = address(0x0000000000000000000000000000000000000064);
+  address internal constant ARBSYS_ADDR = address(0x0000000000000000000000000000000000000064);
 
   int256 private constant ANSWER_SEQ_OFFLINE = 1;
 
@@ -85,7 +83,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param maxGas gas limit for immediate L2 execution attempt. A value around 1M should be sufficient
    * @param gasPriceBid maximum L2 gas price to pay
    * @param gasPriceL1FeedAddr address of the L1 gas price feed (used to approximate Arbitrum retryable ticket submission cost)
-   * @param paymentStrategy strategy describing how the contract pays for xDomain calls
+   * @param _paymentStrategy strategy describing how the contract pays for xDomain calls
    */
   constructor(
     address crossDomainMessengerAddr,
@@ -95,7 +93,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     uint256 gasPriceBid,
     uint256 baseFee,
     address gasPriceL1FeedAddr,
-    PaymentStrategy paymentStrategy
+    PaymentStrategy _paymentStrategy
   ) {
     require(crossDomainMessengerAddr != address(0), "Invalid xDomain Messenger address");
     require(l2ArbitrumSequencerUptimeFeedAddr != address(0), "Invalid ArbitrumSequencerUptimeFeed contract address");
@@ -104,7 +102,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     // Additional L2 payment configuration
     _setConfigAC(configACAddr);
     _setGasConfig(maxGas, gasPriceBid, baseFee, gasPriceL1FeedAddr);
-    _setPaymentStrategy(paymentStrategy);
+    _setPaymentStrategy(_paymentStrategy);
   }
 
   /**
@@ -231,10 +229,10 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   /**
    * @notice sets the payment strategy
    * @dev access control provided by `configAC`
-   * @param paymentStrategy strategy describing how the contract pays for xDomain calls
+   * @param _paymentStrategy strategy describing how the contract pays for xDomain calls
    */
-  function setPaymentStrategy(PaymentStrategy paymentStrategy) external onlyOwnerOrConfigAccess {
-    _setPaymentStrategy(paymentStrategy);
+  function setPaymentStrategy(PaymentStrategy _paymentStrategy) external onlyOwnerOrConfigAccess {
+    _setPaymentStrategy(_paymentStrategy);
   }
 
   /**
@@ -289,9 +287,9 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   }
 
   /// @notice internal method that stores the payment strategy
-  function _setPaymentStrategy(PaymentStrategy paymentStrategy) internal {
-    s_paymentStrategy = paymentStrategy;
-    emit PaymentStrategySet(paymentStrategy);
+  function _setPaymentStrategy(PaymentStrategy _paymentStrategy) internal {
+    s_paymentStrategy = _paymentStrategy;
+    emit PaymentStrategySet(_paymentStrategy);
   }
 
   /// @notice internal method that stores the gas configuration

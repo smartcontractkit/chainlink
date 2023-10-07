@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../shared/access/ConfirmedOwner.sol";
-import "./interfaces/CrossDomainOwnableInterface.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {CrossDomainOwnableInterface} from "./interfaces/CrossDomainOwnableInterface.sol";
 
 /**
  * @title The CrossDomainOwnable contract

@@ -70,7 +70,7 @@ contract ArbitrumSequencerUptimeFeed is
    * @param l1SenderAddress Address of the L1 contract that is permissioned to call this contract
    */
   constructor(address flagsAddress, address l1SenderAddress) {
-    setL1Sender(l1SenderAddress);
+    _setL1Sender(l1SenderAddress);
 
     FLAGS = FlagsInterface(flagsAddress);
   }
@@ -80,12 +80,12 @@ contract ArbitrumSequencerUptimeFeed is
    * @dev Mainly used for AggregatorV2V3Interface functions
    * @param roundId Round ID to check
    */
-  function isValidRound(uint256 roundId) private view returns (bool) {
+  function _isValidRound(uint256 roundId) private view returns (bool) {
     return roundId > 0 && roundId <= type(uint80).max && s_feedState.latestRoundId >= roundId;
   }
 
   /// @notice Check that this contract is initialised, otherwise throw
-  function requireInitialized(uint80 latestRoundId) private pure {
+  function _requireInitialized(uint80 latestRoundId) private pure {
     if (latestRoundId == 0) {
       revert Uninitialized();
     }
@@ -106,7 +106,7 @@ contract ArbitrumSequencerUptimeFeed is
     bool currentStatus = FLAGS.getFlag(FLAG_L2_SEQ_OFFLINE);
 
     // Initialise roundId == 1 as the first round
-    recordRound(1, currentStatus, timestamp);
+    _recordRound(1, currentStatus, timestamp);
 
     emit Initialized();
   }
@@ -133,11 +133,11 @@ contract ArbitrumSequencerUptimeFeed is
    * @param to new L1 sender that will be allowed to call `updateStatus` on this contract
    */
   function transferL1Sender(address to) external virtual onlyOwner {
-    setL1Sender(to);
+    _setL1Sender(to);
   }
 
   /// @notice internal method that stores the L1 sender
-  function setL1Sender(address to) private {
+  function _setL1Sender(address to) private {
     address from = s_l1Sender;
     if (from != to) {
       s_l1Sender = to;
@@ -159,14 +159,14 @@ contract ArbitrumSequencerUptimeFeed is
    *
    * @param status The status flag to convert to an aggregator-compatible answer
    */
-  function getStatusAnswer(bool status) private pure returns (int256) {
+  function _getStatusAnswer(bool status) private pure returns (int256) {
     return status ? int256(1) : int256(0);
   }
 
   /**
    * @notice Raise or lower the flag on the stored Flags contract.
    */
-  function forwardStatusToFlags(bool status) private {
+  function _forwardStatusToFlags(bool status) private {
     if (status) {
       FLAGS.raiseFlag(FLAG_L2_SEQ_OFFLINE);
     } else {
@@ -181,7 +181,7 @@ contract ArbitrumSequencerUptimeFeed is
    * @param status Sequencer status
    * @param timestamp Block timestamp of status update
    */
-  function recordRound(uint80 roundId, bool status, uint64 timestamp) private {
+  function _recordRound(uint80 roundId, bool status, uint64 timestamp) private {
     Round memory nextRound = Round(status, timestamp);
     FeedState memory feedState = FeedState(roundId, status, timestamp);
 
@@ -189,7 +189,7 @@ contract ArbitrumSequencerUptimeFeed is
     s_feedState = feedState;
 
     emit NewRound(roundId, msg.sender, timestamp);
-    emit AnswerUpdated(getStatusAnswer(status), roundId, timestamp);
+    emit AnswerUpdated(_getStatusAnswer(status), roundId, timestamp);
   }
 
   /**
@@ -201,7 +201,7 @@ contract ArbitrumSequencerUptimeFeed is
    */
   function updateStatus(bool status, uint64 timestamp) external override {
     FeedState memory feedState = s_feedState;
-    requireInitialized(feedState.latestRoundId);
+    _requireInitialized(feedState.latestRoundId);
     if (msg.sender != aliasedL1MessageSender()) {
       revert InvalidSender();
     }
@@ -214,37 +214,37 @@ contract ArbitrumSequencerUptimeFeed is
 
     // Prepare a new round with updated status
     feedState.latestRoundId += 1;
-    recordRound(feedState.latestRoundId, status, timestamp);
+    _recordRound(feedState.latestRoundId, status, timestamp);
 
-    forwardStatusToFlags(status);
+    _forwardStatusToFlags(status);
   }
 
   /// @inheritdoc AggregatorInterface
   function latestAnswer() external view override checkAccess returns (int256) {
     FeedState memory feedState = s_feedState;
-    requireInitialized(feedState.latestRoundId);
-    return getStatusAnswer(feedState.latestStatus);
+    _requireInitialized(feedState.latestRoundId);
+    return _getStatusAnswer(feedState.latestStatus);
   }
 
   /// @inheritdoc AggregatorInterface
   function latestTimestamp() external view override checkAccess returns (uint256) {
     FeedState memory feedState = s_feedState;
-    requireInitialized(feedState.latestRoundId);
+    _requireInitialized(feedState.latestRoundId);
     return feedState.latestTimestamp;
   }
 
   /// @inheritdoc AggregatorInterface
   function latestRound() external view override checkAccess returns (uint256) {
     FeedState memory feedState = s_feedState;
-    requireInitialized(feedState.latestRoundId);
+    _requireInitialized(feedState.latestRoundId);
     return feedState.latestRoundId;
   }
 
   /// @inheritdoc AggregatorInterface
   function getAnswer(uint256 roundId) external view override checkAccess returns (int256) {
-    requireInitialized(s_feedState.latestRoundId);
-    if (isValidRound(roundId)) {
-      return getStatusAnswer(s_rounds[uint80(roundId)].status);
+    _requireInitialized(s_feedState.latestRoundId);
+    if (_isValidRound(roundId)) {
+      return _getStatusAnswer(s_rounds[uint80(roundId)].status);
     }
 
     return 0;
@@ -252,8 +252,8 @@ contract ArbitrumSequencerUptimeFeed is
 
   /// @inheritdoc AggregatorInterface
   function getTimestamp(uint256 roundId) external view override checkAccess returns (uint256) {
-    requireInitialized(s_feedState.latestRoundId);
-    if (isValidRound(roundId)) {
+    _requireInitialized(s_feedState.latestRoundId);
+    if (_isValidRound(roundId)) {
       return s_rounds[uint80(roundId)].timestamp;
     }
 
@@ -270,11 +270,11 @@ contract ArbitrumSequencerUptimeFeed is
     checkAccess
     returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
   {
-    requireInitialized(s_feedState.latestRoundId);
+    _requireInitialized(s_feedState.latestRoundId);
 
-    if (isValidRound(_roundId)) {
+    if (_isValidRound(_roundId)) {
       Round memory round = s_rounds[_roundId];
-      answer = getStatusAnswer(round.status);
+      answer = _getStatusAnswer(round.status);
       startedAt = uint256(round.timestamp);
     } else {
       answer = 0;
@@ -294,10 +294,10 @@ contract ArbitrumSequencerUptimeFeed is
     returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)
   {
     FeedState memory feedState = s_feedState;
-    requireInitialized(feedState.latestRoundId);
+    _requireInitialized(feedState.latestRoundId);
 
     roundId = feedState.latestRoundId;
-    answer = getStatusAnswer(feedState.latestStatus);
+    answer = _getStatusAnswer(feedState.latestStatus);
     startedAt = feedState.latestTimestamp;
     updatedAt = startedAt;
     answeredInRound = roundId;
