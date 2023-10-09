@@ -15,8 +15,9 @@ import (
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"go.uber.org/multierr"
+
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -144,8 +145,6 @@ type EvmRegistry struct {
 	lastPollBlock    int64
 	ctx              context.Context
 	headFunc         func(ocr2keepers.BlockKey)
-	runState         int
-	runError         error
 	mercury          *MercuryConfig
 	hc               HttpClient
 	bs               *BlockSubscriber

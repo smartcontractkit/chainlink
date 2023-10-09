@@ -21,7 +21,7 @@ func Test_SendEveryStrategy(t *testing.T) {
 
 	assert.Equal(t, uuid.NullUUID{}, s.Subject())
 
-	n, err := s.PruneQueue(nil, nil)
+	n, err := s.PruneQueue(testutils.Context(t), nil)
 	assert.NoError(t, err)
 	assert.Equal(t, int64(0), n)
 }
