@@ -12,14 +12,11 @@ dependencies:
     specifier: ^0.5.21
     version: 0.5.37(ethers@5.6.1)
   '@openzeppelin/contracts':
-    specifier: ~4.3.3
-    version: 4.3.3
+    specifier: ~4.8.3
+    version: 4.8.3
   '@openzeppelin/contracts-upgradeable-4.7.3':
     specifier: npm:@openzeppelin/contracts-upgradeable@v4.7.3
     version: /@openzeppelin/contracts-upgradeable@4.7.3
-  '@openzeppelin/contracts-v0.7':
-    specifier: npm:@openzeppelin/contracts@v3.4.2
-    version: /@openzeppelin/contracts@3.4.2
 
 devDependencies:
   '@ethereum-waffle/mock-contract':
@@ -1448,12 +1445,8 @@ packages:
     resolution: {integrity: sha512-+wuegAMaLcZnLCJIvrVUDzA9z/Wp93f0Dla/4jJvIhijRrPabjQbZe6fWiECLaJyfn5ci9fqf9vTw3xpQOad2A==}
     dev: false
 
-  /@openzeppelin/contracts@3.4.2:
-    resolution: {integrity: sha512-z0zMCjyhhp4y7XKAcDAi3Vgms4T2PstwBdahiO0+9NaGICQKjynK3wduSRplTgk4LXmoO1yfDGO5RbjKYxtuxA==}
-    dev: false
-
-  /@openzeppelin/contracts@4.3.3:
-    resolution: {integrity: sha512-tDBopO1c98Yk7Cv/PZlHqrvtVjlgK5R4J6jxLwoO7qxK4xqOiZG+zSkIvGFpPZ0ikc3QOED3plgdqjgNTnBc7g==}
+  /@openzeppelin/contracts@4.8.3:
+    resolution: {integrity: sha512-bQHV8R9Me8IaJoJ2vPG4rXcL7seB7YVuskr4f+f5RyOStSZetwzkWtoqDMl5erkBJy0lDRUnIR2WIkPiC0GJlg==}
     dev: false
 
   /@openzeppelin/hardhat-upgrades@1.22.1(@nomiclabs/hardhat-ethers@2.2.3)(@nomiclabs/hardhat-etherscan@3.1.0)(ethers@5.6.1)(hardhat@2.17.3):
