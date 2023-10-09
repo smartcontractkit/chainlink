@@ -96,7 +96,7 @@ pragma solidity ^0.8.4;
  * @dev and so remains effective only in the case of unmodified oracle software).
  */
 
-import "@openzeppelin/contracts-upgradeable-4.7.3/proxy/utils/Initializable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable-4.7.3/proxy/utils/Initializable.sol";
 
 /**
  * @dev The VRFConsumerBaseV2Upgradable is an upgradable variant of VRFConsumerBaseV2
@@ -106,10 +106,12 @@ import "@openzeppelin/contracts-upgradeable-4.7.3/proxy/utils/Initializable.sol"
  */
 abstract contract VRFConsumerBaseV2Upgradeable is Initializable {
   error OnlyCoordinatorCanFulfill(address have, address want);
+  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
   address private vrfCoordinator;
 
   // See https://github.com/OpenZeppelin/openzeppelin-sdk/issues/37.
   // Each uint256 covers a single storage slot, see https://docs.soliditylang.org/en/latest/internals/layout_in_storage.html.
+  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
   uint256[49] private __gap;
 
   /**
@@ -117,8 +119,10 @@ abstract contract VRFConsumerBaseV2Upgradeable is Initializable {
    * @dev See https://docs.chain.link/docs/vrf/v2/supported-networks/ for coordinator
    * @dev addresses on your preferred network.
    */
+  // solhint-disable-next-line func-name-mixedcase
   function __VRFConsumerBaseV2_init(address _vrfCoordinator) internal onlyInitializing {
     if (_vrfCoordinator == address(0)) {
+      // solhint-disable-next-line custom-errors
       revert("must give valid coordinator address");
     }
 
@@ -139,6 +143,7 @@ abstract contract VRFConsumerBaseV2Upgradeable is Initializable {
    * @param requestId The Id initially returned by requestRandomness
    * @param randomWords the VRF output expanded to the requested number of words
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal virtual;
 
   // rawFulfillRandomness is called by VRFCoordinator when it receives a valid VRF

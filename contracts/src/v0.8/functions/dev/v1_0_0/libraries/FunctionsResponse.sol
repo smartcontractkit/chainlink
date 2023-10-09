@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {IFunctionsSubscriptions} from "../interfaces/IFunctionsSubscriptions.sol";
-
 /// @title Library of types that are used for fulfillment of a Functions request
 library FunctionsResponse {
   // Used to send request information from the Router to the Coordinator

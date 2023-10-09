@@ -10,6 +10,16 @@ on:
         description: Chainlink image repo to use (Leave empty to build from head/ref)
         required: false
         type: string
+      chainlinkVersionUpdate:
+        description: Chainlink image version to use initially for upgrade test
+        default: latest
+        required: true
+        type: string
+      chainlinkImageUpdate:
+        description: Chainlink image repo to use initially for upgrade test
+        required: true
+        default: public.ecr.aws/chainlink/chainlink
+        type: string
 
 env:
   ENV_JOB_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:${{ github.sha }}
@@ -156,8 +166,8 @@ jobs:
             echo "upgrade_version=${{ inputs.chainlinkVersion }}" >>$GITHUB_OUTPUT
           fi
           if [[ "${{ matrix.tests.name }}" == "upgrade" ]]; then
-            echo "image=${{ env.CHAINLINK_IMAGE }}" >>$GITHUB_OUTPUT
-            echo "version=develop" >>$GITHUB_OUTPUT
+            echo "image=${{ inputs.chainlinkImageUpdate }}" >>$GITHUB_OUTPUT
+            echo "version=${{ inputs.chainlinkVersionUpdate }}" >>$GITHUB_OUTPUT
           fi
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
@@ -174,6 +184,7 @@ jobs:
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ steps.determine-build.outputs.image }}
           cl_image_tag: ${{ steps.determine-build.outputs.version }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_location: ./integration-tests/${{ matrix.tests.suite }}/logs
           publish_check_name: Automation On Demand Results ${{ matrix.tests.name }}
           token: ${{ secrets.GITHUB_TOKEN }}

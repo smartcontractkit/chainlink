@@ -1,24 +1,28 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../../shared/interfaces/LinkTokenInterface.sol";
-import "../../interfaces/IVRFCoordinatorV2Plus.sol";
-import "../VRFConsumerBaseV2Plus.sol";
+import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
+import {IVRFCoordinatorV2Plus} from "../../interfaces/IVRFCoordinatorV2Plus.sol";
+import {VRFConsumerBaseV2Plus} from "../VRFConsumerBaseV2Plus.sol";
+import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 
 contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2Plus {
   uint256[] public s_randomWords;
   uint256 public s_requestId;
-  IVRFCoordinatorV2Plus COORDINATOR;
-  LinkTokenInterface LINKTOKEN;
+  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
+  IVRFCoordinatorV2Plus internal COORDINATOR;
+  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
+  LinkTokenInterface internal LINKTOKEN;
   uint256 public s_gasAvailable;
-  uint256 s_subId;
-  bytes32 s_keyHash;
+  uint256 internal s_subId;
+  bytes32 internal s_keyHash;
 
   constructor(address vrfCoordinator, address link) VRFConsumerBaseV2Plus(vrfCoordinator) {
     COORDINATOR = IVRFCoordinatorV2Plus(vrfCoordinator);
     LINKTOKEN = LinkTokenInterface(link);
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
     s_gasAvailable = gasleft();
     s_randomWords = randomWords;
@@ -45,6 +49,7 @@ contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2Plus {
   }
 
   function updateSubscription(address[] memory consumers) external {
+    // solhint-disable-next-line custom-errors
     require(s_subId != 0, "subID not set");
     for (uint256 i = 0; i < consumers.length; i++) {
       COORDINATOR.addConsumer(s_subId, consumers[i]);
