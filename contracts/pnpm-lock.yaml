@@ -12,8 +12,8 @@ dependencies:
     specifier: ^0.5.21
     version: 0.5.37(ethers@5.6.1)
   '@openzeppelin/contracts':
-    specifier: ~4.8.3
-    version: 4.8.3
+    specifier: ~4.9.3
+    version: 4.9.3
   '@openzeppelin/contracts-upgradeable-4.7.3':
     specifier: npm:@openzeppelin/contracts-upgradeable@v4.7.3
     version: /@openzeppelin/contracts-upgradeable@4.7.3
@@ -1445,8 +1445,8 @@ packages:
     resolution: {integrity: sha512-+wuegAMaLcZnLCJIvrVUDzA9z/Wp93f0Dla/4jJvIhijRrPabjQbZe6fWiECLaJyfn5ci9fqf9vTw3xpQOad2A==}
     dev: false
 
-  /@openzeppelin/contracts@4.8.3:
-    resolution: {integrity: sha512-bQHV8R9Me8IaJoJ2vPG4rXcL7seB7YVuskr4f+f5RyOStSZetwzkWtoqDMl5erkBJy0lDRUnIR2WIkPiC0GJlg==}
+  /@openzeppelin/contracts@4.9.3:
+    resolution: {integrity: sha512-He3LieZ1pP2TNt5JbkPA4PNT9WC3gOTOlDcFGJW4Le4QKqwmiNJCRt44APfxMxvq7OugU/cqYuPcSBzOw38DAg==}
     dev: false
 
   /@openzeppelin/hardhat-upgrades@1.22.1(@nomiclabs/hardhat-ethers@2.2.3)(@nomiclabs/hardhat-etherscan@3.1.0)(ethers@5.6.1)(hardhat@2.17.3):
