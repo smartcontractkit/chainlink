@@ -7,15 +7,15 @@ import (
 )
 
 type TestEnvConfig struct {
-	Networks   []string         `json:"networks"`
-	Geth       GethConfig       `json:"geth"`
-	MockServer MockServerConfig `json:"mockserver"`
-	Nodes      []ClNodeConfig   `json:"nodes"`
+	Networks    []string          `json:"networks"`
+	Geth        GethConfig        `json:"geth"`
+	MockAdapter MockAdapterConfig `json:"mock_adapter"`
+	Nodes       []ClNodeConfig    `json:"nodes"`
 }
 
-type MockServerConfig struct {
-	ContainerName string   `json:"container_name"`
-	EAMockUrls    []string `json:"external_adapters_mock_urls"`
+type MockAdapterConfig struct {
+	ContainerName string `json:"container_name"`
+	ImpostersPath string `json:"imposters_path"`
 }
 
 type GethConfig struct {

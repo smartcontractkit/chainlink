@@ -106,6 +106,8 @@ jobs:
         uses: ./.github/actions/setup-nodejs
       - name: Run pnpm lint
         run: pnpm lint
+      - name: Run solhint
+        run: pnpm solhint
       - name: Collect Metrics
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec

@@ -162,7 +162,7 @@ func (c *chain) Ready() error {
 }
 
 func (c *chain) HealthReport() map[string]error {
-	report := map[string]error{c.Name(): c.StartStopOnce.Healthy()}
+	report := map[string]error{c.Name(): c.Healthy()}
 	services.CopyHealth(report, c.txm.HealthReport())
 	return report
 }

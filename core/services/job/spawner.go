@@ -123,7 +123,7 @@ func (js *spawner) Name() string {
 }
 
 func (js *spawner) HealthReport() map[string]error {
-	return map[string]error{js.Name(): js.StartStopOnce.Healthy()}
+	return map[string]error{js.Name(): js.Healthy()}
 }
 
 func (js *spawner) startAllServices(ctx context.Context) {

@@ -1,20 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../shared/interfaces/LinkTokenInterface.sol";
-import "../interfaces/BlockhashStoreInterface.sol";
-import "../interfaces/AggregatorV3Interface.sol";
-import "../interfaces/VRFCoordinatorV2Interface.sol";
-import "../interfaces/TypeAndVersionInterface.sol";
-import "../shared/interfaces/IERC677Receiver.sol";
-import "./VRF.sol";
-import "../shared/access/ConfirmedOwner.sol";
-import "./VRFConsumerBaseV2.sol";
-import "../ChainSpecificUtil.sol";
+import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
+import {BlockhashStoreInterface} from "../interfaces/BlockhashStoreInterface.sol";
+import {AggregatorV3Interface} from "../interfaces/AggregatorV3Interface.sol";
+import {VRFCoordinatorV2Interface} from "../interfaces/VRFCoordinatorV2Interface.sol";
+import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
+import {IERC677Receiver} from "../shared/interfaces/IERC677Receiver.sol";
+import {VRF} from "./VRF.sol";
+import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
+import {VRFConsumerBaseV2} from "./VRFConsumerBaseV2.sol";
+import {ChainSpecificUtil} from "../ChainSpecificUtil.sol";
 
 contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCoordinatorV2Interface, IERC677Receiver {
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   LinkTokenInterface public immutable LINK;
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   AggregatorV3Interface public immutable LINK_ETH_FEED;
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   BlockhashStoreInterface public immutable BLOCKHASH_STORE;
 
   // We need to maintain a list of consuming addresses.
@@ -413,6 +416,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     return s_requestCommitments[requestId];
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function computeRequestId(
     bytes32 keyHash,
     address sender,
@@ -427,8 +431,8 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
-    // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
       // Compute g -= GAS_FOR_CALL_EXACT_CHECK and check for underflow
@@ -457,6 +461,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     return success;
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function getRandomnessFromProof(
     Proof memory proof,
     RequestCommitment memory rc
@@ -569,6 +574,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
   }
 
   // Get the amount of gas used for fulfillment
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function calculatePaymentAmount(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
@@ -581,7 +587,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
     // Will return non-zero on chains that have this enabled
-    uint256 l1CostWei = ChainSpecificUtil.getCurrentTxL1GasFees();
+    uint256 l1CostWei = ChainSpecificUtil.getCurrentTxL1GasFees(msg.data);
     // (1e18 juels/link) ((wei/gas * gas) + l1wei) / (wei/link) = juels
     uint256 paymentNoFee = (1e18 * (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft()) + l1CostWei)) /
       uint256(weiPerUnitLink);
@@ -592,6 +598,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     return uint96(paymentNoFee + fee);
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function getFeedData() private view returns (int256) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
@@ -766,6 +773,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     cancelSubscriptionHelper(subId, to);
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function cancelSubscriptionHelper(uint64 subId, address to) private nonReentrant {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     Subscription memory sub = s_subscriptions[subId];

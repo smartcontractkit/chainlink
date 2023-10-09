@@ -6,7 +6,6 @@ import "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbGasInfo.sol";
 import "../../vendor/@eth-optimism/contracts/v0.8.6/contracts/L2/predeploys/OVM_GasPriceOracle.sol";
 import {ArbSys} from "../../vendor/@arbitrum/nitro-contracts/src/precompiles/ArbSys.sol";
 import "../ExecutionPrevention.sol";
-import {OnchainConfig, State, UpkeepFailureReason} from "../interfaces/v2_0/AutomationRegistryInterface2_0.sol";
 import "../../shared/access/ConfirmedOwner.sol";
 import "../../interfaces/AggregatorV3Interface.sol";
 import "../../shared/interfaces/LinkTokenInterface.sol";

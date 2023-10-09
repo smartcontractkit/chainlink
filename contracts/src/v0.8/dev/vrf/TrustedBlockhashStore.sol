@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.6;
 
-import "../../ChainSpecificUtil.sol";
-import "../../shared/access/ConfirmedOwner.sol";
-import "./BlockhashStore.sol";
+import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {BlockhashStore} from "./BlockhashStore.sol";
 
 contract TrustedBlockhashStore is ConfirmedOwner, BlockhashStore {
   error NotInWhitelist();

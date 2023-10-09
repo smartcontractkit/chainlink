@@ -2,11 +2,11 @@
 
 pragma solidity 0.8.6;
 
-import "../shared/access/ConfirmedOwner.sol";
-import "../automation/interfaces/KeeperCompatibleInterface.sol";
-import "../interfaces/VRFCoordinatorV2Interface.sol";
-import "../shared/interfaces/LinkTokenInterface.sol";
-import "@openzeppelin/contracts/security/Pausable.sol";
+import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
+import {AutomationCompatibleInterface as KeeperCompatibleInterface} from "../automation/interfaces/AutomationCompatibleInterface.sol";
+import {VRFCoordinatorV2Interface} from "../interfaces/VRFCoordinatorV2Interface.sol";
+import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
+import {Pausable} from "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
  * @title The VRFSubscriptionBalanceMonitor contract.
@@ -197,6 +197,7 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
    * @param payee the address to pay
    */
   function withdraw(uint256 amount, address payable payee) external onlyOwner {
+    // solhint-disable-next-line custom-errors, reason-string
     require(payee != address(0));
     emit FundsWithdrawn(amount, payee);
     LINKTOKEN.transfer(payee, amount);
@@ -206,6 +207,7 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
    * @notice Sets the LINK token address.
    */
   function setLinkTokenAddress(address linkTokenAddress) public onlyOwner {
+    // solhint-disable-next-line custom-errors, reason-string
     require(linkTokenAddress != address(0));
     emit LinkTokenAddressUpdated(address(LINKTOKEN), linkTokenAddress);
     LINKTOKEN = LinkTokenInterface(linkTokenAddress);
@@ -215,6 +217,7 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
    * @notice Sets the VRF coordinator address.
    */
   function setVRFCoordinatorV2Address(address coordinatorAddress) public onlyOwner {
+    // solhint-disable-next-line custom-errors, reason-string
     require(coordinatorAddress != address(0));
     emit VRFCoordinatorV2AddressUpdated(address(COORDINATOR), coordinatorAddress);
     COORDINATOR = VRFCoordinatorV2Interface(coordinatorAddress);
@@ -224,6 +227,7 @@ contract VRFSubscriptionBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompat
    * @notice Sets the keeper registry address.
    */
   function setKeeperRegistryAddress(address keeperRegistryAddress) public onlyOwner {
+    // solhint-disable-next-line custom-errors, reason-string
     require(keeperRegistryAddress != address(0));
     emit KeeperRegistryAddressUpdated(s_keeperRegistryAddress, keeperRegistryAddress);
     s_keeperRegistryAddress = keeperRegistryAddress;

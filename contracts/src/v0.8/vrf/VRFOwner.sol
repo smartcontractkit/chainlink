@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
+// solhint-disable-next-line one-contract-per-file
 pragma solidity ^0.8.6;
 
 import {ConfirmedOwner} from "../shared/access/ConfirmedOwner.sol";
 import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
-import "./VRFTypes.sol";
+import {VRFTypes} from "./VRFTypes.sol";
 
 // Taken from VRFCoordinatorV2.sol
 // Must be abi-compatible with what's there
@@ -109,6 +110,7 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
   event RandomWordsForced(uint256 indexed requestId, uint64 indexed subId, address indexed sender);
 
   constructor(address _vrfCoordinator) ConfirmedOwner(msg.sender) {
+    // solhint-disable-next-line custom-errors
     require(_vrfCoordinator != address(0), "vrf coordinator address must be non-zero");
     s_vrfCoordinator = IVRFCoordinatorV2(_vrfCoordinator);
   }
@@ -192,6 +194,7 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
    * @param fallbackWeiPerUnitLink fallback eth/link price in the case of a stale feed
    * @param feeConfig fee tier configuration
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function setConfigPrivate(
     uint16 minimumRequestConfirmations,
     uint32 maxGasLimit,
@@ -233,6 +236,7 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
    * @dev when too many local variables are in the same scope.
    * @return Config struct containing all relevant configs from the VRF coordinator.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function getConfigs() private view returns (Config memory) {
     (
       uint16 minimumRequestConfirmations,
@@ -338,6 +342,7 @@ contract VRFOwner is ConfirmedOwner, AuthorizedReceiver {
    * @param proofSeed the proof seed
    * @dev Refer to VRFCoordinatorV2.getRandomnessFromProof for original implementation.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function requestIdFromProof(uint256[2] memory publicKey, uint256 proofSeed) private view returns (uint256) {
     bytes32 keyHash = s_vrfCoordinator.hashOfKey(publicKey);
     uint256 requestId = uint256(keccak256(abi.encode(keyHash, proofSeed)));
