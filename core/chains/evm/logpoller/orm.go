@@ -75,20 +75,20 @@ func (o *DbORM) Q() pg.Q {
 }
 
 // InsertBlock is idempotent to support replays.
-func (o *DbORM) InsertBlock(blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, lastFinalizedBlock int64, qopts ...pg.QOpt) error {
+func (o *DbORM) InsertBlock(blockHash common.Hash, blockNumber int64, blockTimestamp time.Time, finalizedBlock int64, qopts ...pg.QOpt) error {
 	args, err := newQueryArgs(o.chainID).
 		withCustomHashArg("block_hash", blockHash).
 		withCustomArg("block_number", blockNumber).
 		withCustomArg("block_timestamp", blockTimestamp).
-		withCustomArg("last_finalized_block_number", lastFinalizedBlock).
+		withCustomArg("finalized_block_number", finalizedBlock).
 		toArgs()
 	if err != nil {
 		return err
 	}
 	return o.q.WithOpts(qopts...).ExecQNamed(`
 			INSERT INTO evm.log_poller_blocks 
-				(evm_chain_id, block_hash, block_number, block_timestamp, last_finalized_block_number, created_at) 
-      		VALUES (:evm_chain_id, :block_hash, :block_number, :block_timestamp, :last_finalized_block_number, NOW()) 
+				(evm_chain_id, block_hash, block_number, block_timestamp, finalized_block_number, created_at) 
+      		VALUES (:evm_chain_id, :block_hash, :block_number, :block_timestamp, :finalized_block_number, NOW()) 
 			ON CONFLICT DO NOTHING`, args)
 }
 
@@ -684,15 +684,17 @@ func (o *DbORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topic
 func nestedBlockNumberQuery(confs Confirmations) string {
 	if confs == Finalized {
 		return `
-				(SELECT COALESCE(last_finalized_block_number, 0) 
+				(SELECT finalized_block_number 
 				FROM evm.log_poller_blocks 
 				WHERE evm_chain_id = :evm_chain_id 
-				ORDER BY block_number DESC LIMIT 1)`
+				ORDER BY block_number DESC LIMIT 1) `
 	}
+	// Intentionally wrap with greatest() function and don't return negative block numbers when :confs > :block_number
+	// It doesn't impact logic of the outer query, because block numbers are never less or equal to 0 (guarded by log_poller_blocks_block_number_check)
 	return `
-			(SELECT COALESCE(block_number, 0) 
+			(SELECT greatest(block_number - :confs, 0) 
 			FROM evm.log_poller_blocks 	
 			WHERE evm_chain_id = :evm_chain_id 
-			ORDER BY block_number DESC LIMIT 1) - :confs`
+			ORDER BY block_number DESC LIMIT 1) `
 
 }

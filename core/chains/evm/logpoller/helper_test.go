@@ -63,6 +63,9 @@ func SetupTH(t testing.TB, useFinalityTag bool, finalityDepth, backfillBatchSize
 	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
 	// Set it to some insanely high value to not interfere with any tests.
 	esc := client.NewSimulatedBackendClient(t, ec, chainID)
+	// Mark genesis block as finalized to avoid any nulls in the tests
+	head := esc.Backend().Blockchain().CurrentHeader()
+	esc.Backend().Blockchain().SetFinalized(head)
 	lp := logpoller.NewLogPoller(o, esc, lggr, 1*time.Hour, useFinalityTag, finalityDepth, backfillBatchSize, rpcBatchSize, 1000)
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)

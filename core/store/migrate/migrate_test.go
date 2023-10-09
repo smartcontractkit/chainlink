@@ -464,53 +464,53 @@ func TestDatabaseBackFillWithMigration200(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name                       string
-		blockNumber                int64
-		expectedLastFinalizedBlock int64
-		orm                        *logpoller.DbORM
+		name                   string
+		blockNumber            int64
+		expectedFinalizedBlock int64
+		orm                    *logpoller.DbORM
 	}{
 		{
-			name:                       "last finalized block not changed if finality is too deep",
-			blockNumber:                10,
-			expectedLastFinalizedBlock: 0,
-			orm:                        simulatedOrm,
+			name:                   "last finalized block not changed if finality is too deep",
+			blockNumber:            10,
+			expectedFinalizedBlock: 0,
+			orm:                    simulatedOrm,
 		},
 		{
-			name:                       "last finalized block is updated for first block",
-			blockNumber:                51,
-			expectedLastFinalizedBlock: 1,
-			orm:                        simulatedOrm,
+			name:                   "last finalized block is updated for first block",
+			blockNumber:            51,
+			expectedFinalizedBlock: 1,
+			orm:                    simulatedOrm,
 		},
 		{
-			name:                       "last finalized block is updated",
-			blockNumber:                90,
-			expectedLastFinalizedBlock: 40,
-			orm:                        simulatedOrm,
+			name:                   "last finalized block is updated",
+			blockNumber:            90,
+			expectedFinalizedBlock: 40,
+			orm:                    simulatedOrm,
 		},
 		{
-			name:                       "last finalized block is not changed when finality is set",
-			blockNumber:                120,
-			expectedLastFinalizedBlock: 23,
-			orm:                        simulatedOrm,
+			name:                   "last finalized block is not changed when finality is set",
+			blockNumber:            120,
+			expectedFinalizedBlock: 23,
+			orm:                    simulatedOrm,
 		},
 		{
-			name:                       "use non default finality depth for chain 84531",
-			blockNumber:                400,
-			expectedLastFinalizedBlock: 200,
-			orm:                        baseOrm,
+			name:                   "use non default finality depth for chain 84531",
+			blockNumber:            400,
+			expectedFinalizedBlock: 200,
+			orm:                    baseOrm,
 		},
 		{
-			name:                       "use default finality depth for chain 1001",
-			blockNumber:                100,
-			expectedLastFinalizedBlock: 99,
-			orm:                        klaytnOrm,
+			name:                   "use default finality depth for chain 1001",
+			blockNumber:            100,
+			expectedFinalizedBlock: 99,
+			orm:                    klaytnOrm,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			block, err := tt.orm.SelectBlockByNumber(tt.blockNumber)
 			require.NoError(t, err)
-			require.Equal(t, tt.expectedLastFinalizedBlock, block.LastFinalizedBlockNumber)
+			require.Equal(t, tt.expectedFinalizedBlock, block.FinalizedBlockNumber)
 		})
 	}
 }
@@ -532,10 +532,10 @@ func BenchmarkBackfillingRecordsWithMigration200(b *testing.B) {
 		var blocks []logpoller.LogPollerBlock
 		for i := 0; i < maxLogsSize; i++ {
 			blocks = append(blocks, logpoller.LogPollerBlock{
-				EvmChainId:               utils.NewBigI(int64(j + 1)),
-				BlockHash:                testutils.Random32Byte(),
-				BlockNumber:              int64(i + 1000),
-				LastFinalizedBlockNumber: 0,
+				EvmChainId:           utils.NewBigI(int64(j + 1)),
+				BlockHash:            testutils.Random32Byte(),
+				BlockNumber:          int64(i + 1000),
+				FinalizedBlockNumber: 0,
 			})
 		}
 		batchInsertSize := 10_000
@@ -547,9 +547,9 @@ func BenchmarkBackfillingRecordsWithMigration200(b *testing.B) {
 
 			err = q.ExecQNamed(`
 			INSERT INTO evm.log_poller_blocks
-				(evm_chain_id, block_hash, block_number, last_finalized_block_number, block_timestamp, created_at)
+				(evm_chain_id, block_hash, block_number, finalized_block_number, block_timestamp, created_at)
 			VALUES 
-				(:evm_chain_id, :block_hash, :block_number, :last_finalized_block_number, NOW(), NOW())
+				(:evm_chain_id, :block_hash, :block_number, :finalized_block_number, NOW(), NOW())
 			ON CONFLICT DO NOTHING`, blocks[start:end])
 			require.NoError(b, err)
 		}
@@ -573,7 +573,7 @@ func BenchmarkBackfillingRecordsWithMigration200(b *testing.B) {
 
 		err = q.ExecQ(`
 			UPDATE evm.log_poller_blocks
-			SET last_finalized_block_number = 0`)
+			SET finalized_block_number = 0`)
 		require.NoError(b, err)
 	}
 }

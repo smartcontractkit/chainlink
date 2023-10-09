@@ -561,10 +561,12 @@ func (c *SimulatedBackendClient) BatchCallContext(ctx context.Context, b []rpc.B
 			case *evmtypes.Head:
 				res.Number = header.Number.Int64()
 				res.Hash = header.Hash()
+				res.ParentHash = header.ParentHash
 				res.Timestamp = time.Unix(int64(header.Time), 0).UTC()
 			case *evmtypes.Block:
 				res.Number = header.Number.Int64()
 				res.Hash = header.Hash()
+				res.ParentHash = header.ParentHash
 				res.Timestamp = time.Unix(int64(header.Time), 0).UTC()
 			default:
 				return fmt.Errorf("SimulatedBackendClient Unexpected Type %T", elem.Result)
@@ -715,10 +717,8 @@ func (c *SimulatedBackendClient) fetchHeader(ctx context.Context, blockNumOrTag 
 	case rpc.SafeBlockNumber.String():
 		return c.b.Blockchain().CurrentSafeBlock(), nil
 	case rpc.LatestBlockNumber.String():
-		return c.b.Blockchain().CurrentBlock(), nil
+		return c.b.Blockchain().CurrentHeader(), nil
 	case rpc.FinalizedBlockNumber.String():
-		block := c.b.Blockchain().CurrentFinalBlock()
-		fmt.Println(block)
 		return c.b.Blockchain().CurrentFinalBlock(), nil
 	default:
 		blockNum, ok := new(big.Int).SetString(blockNumOrTag, 0)

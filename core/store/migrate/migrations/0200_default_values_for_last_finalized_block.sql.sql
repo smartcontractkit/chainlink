@@ -27,7 +27,7 @@ WITH variables AS (
 )
 
 UPDATE evm.log_poller_blocks AS lpb
-SET last_finalized_block_number = greatest(lpb.block_number - v.finality_depth, 0)
+SET finalized_block_number = greatest(lpb.block_number - v.finality_depth, 0)
 FROM variables v
 WHERE lpb.evm_chain_id = v.evm_chain_id
-  AND lpb.last_finalized_block_number = 0;
+  AND lpb.finalized_block_number = 0;

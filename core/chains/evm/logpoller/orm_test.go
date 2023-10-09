@@ -1273,3 +1273,31 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		})
 	}
 }
+
+func TestNestedLogPollerBlocksQuery(t *testing.T) {
+	th := SetupTH(t, false, 2, 3, 2)
+	event := EmitterABI.Events["Log1"].ID
+	address := utils.RandomAddress()
+
+	require.NoError(t, th.ORM.InsertLogs([]logpoller.Log{
+		GenLog(th.ChainID, 1, 8, utils.RandomAddress().String(), event[:], address),
+	}))
+
+	// Empty logs when block are not persisted
+	logs, err := th.ORM.SelectIndexedLogs(address, event, 1, []common.Hash{event}, logpoller.Unconfirmed)
+	require.NoError(t, err)
+	require.Len(t, logs, 0)
+
+	// Persist block
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 10, time.Now(), 0))
+
+	// Check if query actually works well with provided dataset
+	logs, err = th.ORM.SelectIndexedLogs(address, event, 1, []common.Hash{event}, logpoller.Unconfirmed)
+	require.NoError(t, err)
+	require.Len(t, logs, 1)
+
+	// Empty logs when number of confirmations is too deep
+	logs, err = th.ORM.SelectIndexedLogs(address, event, 1, []common.Hash{event}, logpoller.Confirmations(4))
+	require.NoError(t, err)
+	require.Len(t, logs, 0)
+}
