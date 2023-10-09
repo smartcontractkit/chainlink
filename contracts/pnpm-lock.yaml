@@ -14,9 +14,9 @@ dependencies:
   '@openzeppelin/contracts':
     specifier: ~4.9.3
     version: 4.9.3
-  '@openzeppelin/contracts-upgradeable-4.7.3':
-    specifier: npm:@openzeppelin/contracts-upgradeable@v4.7.3
-    version: /@openzeppelin/contracts-upgradeable@4.7.3
+  '@openzeppelin/contracts-upgradeable':
+    specifier: ~4.7.3
+    version: 4.7.3
 
 devDependencies:
   '@ethereum-waffle/mock-contract':

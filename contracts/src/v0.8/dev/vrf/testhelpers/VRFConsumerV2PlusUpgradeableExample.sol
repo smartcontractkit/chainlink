@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {IVRFCoordinatorV2Plus} from "../../interfaces/IVRFCoordinatorV2Plus.sol";
 import {VRFConsumerBaseV2Upgradeable} from "../../VRFConsumerBaseV2Upgradeable.sol";
-import {Initializable} from "@openzeppelin/contracts-upgradeable-4.7.3/proxy/utils/Initializable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 
 contract VRFConsumerV2PlusUpgradeableExample is Initializable, VRFConsumerBaseV2Upgradeable {
