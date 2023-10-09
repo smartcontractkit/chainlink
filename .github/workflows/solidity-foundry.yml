@@ -30,6 +30,7 @@ jobs:
 
   tests:
     strategy:
+      fail-fast: false
       matrix:
         product: [vrf, automation, llo-feeds, functions, shared]
     needs: [changes]
