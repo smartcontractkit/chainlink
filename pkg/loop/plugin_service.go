@@ -67,7 +67,25 @@ func (s *pluginService[P, S]) init(pluginName string, p P, newService func(conte
 func (s *pluginService[P, S]) keepAlive() {
 	defer s.wg.Done()
 
-	s.lggr.Debugw("Staring keepAlive", "tick", keepAliveTickDuration)
+	s.lggr.Debugw("Starting keepAlive", "tick", keepAliveTickDuration)
+
+	check := func() {
+		c := s.client
+		cp := s.clientProtocol
+		if c != nil && !c.Exited() && cp != nil {
+			// launched
+			err := cp.Ping()
+			if err == nil {
+				return // healthy
+			}
+			s.lggr.Errorw("Relaunching unhealthy plugin", "err", err)
+		}
+		if err := s.tryLaunch(cp); err != nil {
+			s.lggr.Errorw("Failed to launch plugin", "err", err)
+		}
+	}
+
+	check() // no delay
 
 	t := time.NewTicker(keepAliveTickDuration)
 	defer t.Stop()
@@ -76,19 +94,7 @@ func (s *pluginService[P, S]) keepAlive() {
 		case <-s.stopCh:
 			return
 		case <-t.C:
-			c := s.client
-			cp := s.clientProtocol
-			if c != nil && !c.Exited() && cp != nil {
-				// launched
-				err := cp.Ping()
-				if err == nil {
-					continue // healthy
-				}
-				s.lggr.Errorw("Relaunching unhealthy plugin", "err", err)
-			}
-			if err := s.tryLaunch(cp); err != nil {
-				s.lggr.Errorw("Failed to launch plugin", "err", err)
-			}
+			check()
 		case fn := <-s.testInterrupt:
 			fn(s)
 		}
