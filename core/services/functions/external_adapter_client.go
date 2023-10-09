@@ -62,23 +62,14 @@ type bridgeAccessor struct {
 var _ BridgeAccessor = (*bridgeAccessor)(nil)
 
 type requestPayload struct {
-	Endpoint            string           `json:"endpoint"`
-	RequestId           string           `json:"requestId"`
-	JobName             string           `json:"jobName"`
-	SubscriptionOwner   string           `json:"subscriptionOwner"`
-	SubscriptionId      uint64           `json:"subscriptionId"`
-	Flags               RequestFlags     `json:"flags"` // marshalled as an array of numbers
-	NodeProvidedSecrets string           `json:"nodeProvidedSecrets"`
-	Data                *computationData `json:"data"`
-}
-
-type computationData struct {
-	Source          string   `json:"source" cbor:"source"`
-	Language        int      `json:"language" cbor:"language"`
-	CodeLocation    int      `json:"codeLocation" cbor:"codeLocation"`
-	SecretsLocation int      `json:"secretsLocation" cbor:"secretsLocation"`
-	Args            []string `json:"args,omitempty" cbor:"args"`
-	BytesArgs       [][]byte `json:"bytesArgs,omitempty" cbor:"bytesArgs"`
+	Endpoint            string       `json:"endpoint"`
+	RequestId           string       `json:"requestId"`
+	JobName             string       `json:"jobName"`
+	SubscriptionOwner   string       `json:"subscriptionOwner"`
+	SubscriptionId      uint64       `json:"subscriptionId"`
+	Flags               RequestFlags `json:"flags"` // marshalled as an array of numbers
+	NodeProvidedSecrets string       `json:"nodeProvidedSecrets"`
+	Data                *RequestData `json:"data"`
 }
 
 type secretsPayload struct {
@@ -138,6 +129,7 @@ func (ea *externalAdapterClient) RunComputation(
 	nodeProvidedSecrets string,
 	requestData *RequestData,
 ) (userResult, userError []byte, domains []string, err error) {
+	requestData.Secrets = nil // secrets are passed in nodeProvidedSecrets
 
 	payload := requestPayload{
 		Endpoint:            "lambda",
@@ -147,14 +139,7 @@ func (ea *externalAdapterClient) RunComputation(
 		SubscriptionId:      subscriptionId,
 		Flags:               flags,
 		NodeProvidedSecrets: nodeProvidedSecrets,
-		Data: &computationData{
-			Source:          requestData.Source,
-			Language:        requestData.Language,
-			CodeLocation:    requestData.CodeLocation,
-			SecretsLocation: requestData.SecretsLocation,
-			Args:            requestData.Args,
-			BytesArgs:       requestData.BytesArgs,
-		},
+		Data:                requestData,
 	}
 
 	userResult, userError, domains, err = ea.request(ctx, payload, requestId, jobName, "run_computation")
