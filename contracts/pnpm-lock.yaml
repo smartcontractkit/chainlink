@@ -15,8 +15,8 @@ dependencies:
     specifier: ~4.9.3
     version: 4.9.3
   '@openzeppelin/contracts-upgradeable':
-    specifier: ~4.7.3
-    version: 4.7.3
+    specifier: ~4.9.3
+    version: 4.9.3
 
 devDependencies:
   '@ethereum-waffle/mock-contract':
@@ -1441,8 +1441,8 @@ packages:
       fs-extra: 8.1.0
     dev: true
 
-  /@openzeppelin/contracts-upgradeable@4.7.3:
-    resolution: {integrity: sha512-+wuegAMaLcZnLCJIvrVUDzA9z/Wp93f0Dla/4jJvIhijRrPabjQbZe6fWiECLaJyfn5ci9fqf9vTw3xpQOad2A==}
+  /@openzeppelin/contracts-upgradeable@4.9.3:
+    resolution: {integrity: sha512-jjaHAVRMrE4UuZNfDwjlLGDxTHWIOwTJS2ldnc278a0gevfXfPr8hxKEVBGFBE96kl2G3VHDZhUimw/+G3TG2A==}
     dev: false
 
   /@openzeppelin/contracts@4.9.3:

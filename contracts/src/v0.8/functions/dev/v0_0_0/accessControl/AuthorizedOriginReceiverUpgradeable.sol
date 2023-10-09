@@ -2,7 +2,7 @@
 pragma solidity ^0.8.6;
 
 import {EnumerableSet} from "../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
-import {Initializable} from "../../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import {IAuthorizedOriginReceiver} from "./interfaces/IAuthorizedOriginReceiver.sol";
 
 /**
