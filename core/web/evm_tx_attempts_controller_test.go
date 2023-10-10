@@ -23,7 +23,7 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
 	client := app.NewHTTPClient(&cltest.User{})
 
-	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth(), 0)
+	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 1, 2, from)

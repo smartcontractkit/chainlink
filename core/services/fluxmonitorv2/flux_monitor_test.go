@@ -278,7 +278,7 @@ func withORM(orm fluxmonitorv2.ORM) func(*setupOptions) {
 func setupStoreWithKey(t *testing.T) (*sqlx.DB, common.Address) {
 	db := pgtest.NewSqlxDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, pgtest.NewQConfig(true)).Eth()
-	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	_, nodeAddr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	return db, nodeAddr
 }
@@ -287,7 +287,7 @@ func setupStoreWithKey(t *testing.T) (*sqlx.DB, common.Address) {
 func setupFullDBWithKey(t *testing.T, name string) (*sqlx.DB, common.Address) {
 	cfg, db := heavyweight.FullTestDBV2(t, name, nil)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-	_, nodeAddr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	_, nodeAddr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	return db, nodeAddr
 }
