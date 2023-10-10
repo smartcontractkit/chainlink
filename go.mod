@@ -33,6 +33,7 @@ require (
 	github.com/grafana/pyroscope-go v1.0.2
 	github.com/graph-gophers/dataloader v5.0.0+incompatible
 	github.com/graph-gophers/graphql-go v1.3.0
+	github.com/hashicorp/consul/sdk v0.14.1
 	github.com/hashicorp/go-plugin v1.5.2
 	github.com/hdevalence/ed25519consensus v0.1.0
 	github.com/jackc/pgconn v1.14.1

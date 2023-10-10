@@ -20,6 +20,7 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
@@ -227,7 +228,7 @@ type Node struct {
 func StartNewNode(
 	t *testing.T,
 	owner *bind.TransactOpts,
-	port uint16,
+	port int,
 	dbName string,
 	b *backends.SimulatedBackend,
 	maxGas uint32,
@@ -465,11 +466,12 @@ func CreateFunctionsNodes(
 		require.Fail(t, "ocr2Keystores and thresholdKeyShares must have the same length")
 	}
 
-	bootstrapPort := testutils.GetFreePort(t)
+	bootstrapPort := freeport.GetOne(t)
 	bootstrapNode = StartNewNode(t, owner, bootstrapPort, "bootstrap", b, uint32(maxGas), nil, nil, "")
 	AddBootstrapJob(t, bootstrapNode.App, oracleContractAddress)
 
 	// oracle nodes with jobs, bridges and mock EAs
+	ports := freeport.GetN(t, nOracleNodes)
 	for i := 0; i < nOracleNodes; i++ {
 		var thresholdKeyShare string
 		if len(thresholdKeyShares) == 0 {
@@ -483,8 +485,7 @@ func CreateFunctionsNodes(
 		} else {
 			ocr2Keystore = ocr2Keystores[i]
 		}
-		nodePort := testutils.GetFreePort(t)
-		oracleNode := StartNewNode(t, owner, nodePort, fmt.Sprintf("oracle%d", i), b, uint32(maxGas), []commontypes.BootstrapperLocator{
+		oracleNode := StartNewNode(t, owner, ports[i], fmt.Sprintf("oracle%d", i), b, uint32(maxGas), []commontypes.BootstrapperLocator{
 			{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapPort)}},
 		}, ocr2Keystore, thresholdKeyShare)
 		oracleNodes = append(oracleNodes, oracleNode.App)

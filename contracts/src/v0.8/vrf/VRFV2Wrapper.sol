@@ -7,8 +7,8 @@ import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol
 import {VRFConsumerBaseV2} from "./VRFConsumerBaseV2.sol";
 import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
 import {AggregatorV3Interface} from "../interfaces/AggregatorV3Interface.sol";
-import {VRFCoordinatorV2Interface} from "../interfaces/VRFCoordinatorV2Interface.sol";
-import {VRFV2WrapperInterface} from "../interfaces/VRFV2WrapperInterface.sol";
+import {VRFCoordinatorV2Interface} from "./interfaces/VRFCoordinatorV2Interface.sol";
+import {VRFV2WrapperInterface} from "./interfaces/VRFV2WrapperInterface.sol";
 import {VRFV2WrapperConsumerBase} from "./VRFV2WrapperConsumerBase.sol";
 import {ChainSpecificUtil} from "../ChainSpecificUtil.sol";
 
