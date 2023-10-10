@@ -2,10 +2,10 @@
 // A mock for testing code that relies on VRFCoordinatorV2.
 pragma solidity ^0.8.4;
 
-import "../shared/interfaces/LinkTokenInterface.sol";
-import "../interfaces/VRFCoordinatorV2Interface.sol";
-import "../vrf/VRFConsumerBaseV2.sol";
-import "../shared/access/ConfirmedOwner.sol";
+import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
+import {VRFCoordinatorV2Interface} from "../interfaces/VRFCoordinatorV2Interface.sol";
+import {VRFConsumerBaseV2} from "../VRFConsumerBaseV2.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 
 contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface, ConfirmedOwner {
   uint96 public immutable BASE_FEE;

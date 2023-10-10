@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {VRFV2PlusClient} from "../vrf/libraries/VRFV2PlusClient.sol";
+import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 import {IVRFSubscriptionV2Plus} from "./IVRFSubscriptionV2Plus.sol";
 
 // Interface that enables consumers of VRFCoordinatorV2Plus to be future-proof for upgrades

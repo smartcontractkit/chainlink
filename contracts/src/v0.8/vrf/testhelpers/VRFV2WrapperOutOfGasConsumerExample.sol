@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../VRFV2WrapperConsumerBase.sol";
-import "../../shared/access/ConfirmedOwner.sol";
+import {VRFV2WrapperConsumerBase} from "../VRFV2WrapperConsumerBase.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 
 contract VRFV2WrapperOutOfGasConsumerExample is VRFV2WrapperConsumerBase, ConfirmedOwner {
   constructor(
@@ -18,7 +18,7 @@ contract VRFV2WrapperOutOfGasConsumerExample is VRFV2WrapperConsumerBase, Confir
     return requestRandomness(_callbackGasLimit, _requestConfirmations, _numWords);
   }
 
-  function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal view override {
+  function fulfillRandomWords(uint256 /* _requestId */, uint256[] memory /* _randomWords */) internal view override {
     while (gasleft() > 0) {}
   }
 }

@@ -1,26 +1,29 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
-import {VRFCoordinatorV2Interface} from "../interfaces/VRFCoordinatorV2Interface.sol";
-import {VRFConsumerBaseV2Upgradeable} from "../dev/VRFConsumerBaseV2Upgradeable.sol";
+import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
+import {IVRFCoordinatorV2Plus} from "../interfaces/IVRFCoordinatorV2Plus.sol";
+import {VRFConsumerBaseV2Upgradeable} from "../VRFConsumerBaseV2Upgradeable.sol";
 import {Initializable} from "@openzeppelin/contracts-upgradeable-4.7.3/proxy/utils/Initializable.sol";
+import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 
-contract VRFConsumerV2UpgradeableExample is Initializable, VRFConsumerBaseV2Upgradeable {
+contract VRFConsumerV2PlusUpgradeableExample is Initializable, VRFConsumerBaseV2Upgradeable {
   uint256[] public s_randomWords;
   uint256 public s_requestId;
-  VRFCoordinatorV2Interface public COORDINATOR;
+  IVRFCoordinatorV2Plus public COORDINATOR;
   LinkTokenInterface public LINKTOKEN;
-  uint64 public s_subId;
+  uint256 public s_subId;
   uint256 public s_gasAvailable;
 
   function initialize(address _vrfCoordinator, address _link) public initializer {
     __VRFConsumerBaseV2_init(_vrfCoordinator);
-    COORDINATOR = VRFCoordinatorV2Interface(_vrfCoordinator);
+    COORDINATOR = IVRFCoordinatorV2Plus(_vrfCoordinator);
     LINKTOKEN = LinkTokenInterface(_link);
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+    // solhint-disable-next-line custom-errors
     require(requestId == s_requestId, "request ID is incorrect");
 
     s_gasAvailable = gasleft();
@@ -37,12 +40,14 @@ contract VRFConsumerV2UpgradeableExample is Initializable, VRFConsumerBaseV2Upgr
   }
 
   function topUpSubscription(uint96 amount) external {
+    // solhint-disable-next-line custom-errors
     require(s_subId != 0, "sub not set");
     // Approve the link transfer.
     LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_subId));
   }
 
   function updateSubscription(address[] memory consumers) external {
+    // solhint-disable-next-line custom-errors
     require(s_subId != 0, "subID not set");
     for (uint256 i = 0; i < consumers.length; i++) {
       COORDINATOR.addConsumer(s_subId, consumers[i]);
@@ -51,12 +56,20 @@ contract VRFConsumerV2UpgradeableExample is Initializable, VRFConsumerBaseV2Upgr
 
   function requestRandomness(
     bytes32 keyHash,
-    uint64 subId,
+    uint256 subId,
     uint16 minReqConfs,
     uint32 callbackGasLimit,
     uint32 numWords
   ) external returns (uint256) {
-    s_requestId = COORDINATOR.requestRandomWords(keyHash, subId, minReqConfs, callbackGasLimit, numWords);
+    VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+      keyHash: keyHash,
+      subId: subId,
+      requestConfirmations: minReqConfs,
+      callbackGasLimit: callbackGasLimit,
+      numWords: numWords,
+      extraArgs: "" // empty extraArgs defaults to link payment
+    });
+    s_requestId = COORDINATOR.requestRandomWords(req);
     return s_requestId;
   }
 }

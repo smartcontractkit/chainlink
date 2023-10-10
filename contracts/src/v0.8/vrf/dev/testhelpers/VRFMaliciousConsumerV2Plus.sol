@@ -2,20 +2,20 @@
 pragma solidity ^0.8.0;
 
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
-import {IVRFCoordinatorV2Plus} from "../../interfaces/IVRFCoordinatorV2Plus.sol";
+import {IVRFCoordinatorV2Plus} from "../interfaces/IVRFCoordinatorV2Plus.sol";
 import {VRFConsumerBaseV2Plus} from "../VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 
-// VRFV2RevertingExample will always revert. Used for testing only, useless in prod.
-contract VRFV2PlusRevertingExample is VRFConsumerBaseV2Plus {
+contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2Plus {
   uint256[] public s_randomWords;
   uint256 public s_requestId;
   // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
   IVRFCoordinatorV2Plus internal COORDINATOR;
   // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
   LinkTokenInterface internal LINKTOKEN;
-  uint256 public s_subId;
   uint256 public s_gasAvailable;
+  uint256 internal s_subId;
+  bytes32 internal s_keyHash;
 
   constructor(address vrfCoordinator, address link) VRFConsumerBaseV2Plus(vrfCoordinator) {
     COORDINATOR = IVRFCoordinatorV2Plus(vrfCoordinator);
@@ -23,9 +23,20 @@ contract VRFV2PlusRevertingExample is VRFConsumerBaseV2Plus {
   }
 
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function fulfillRandomWords(uint256, uint256[] memory) internal pure override {
-    // solhint-disable-next-line custom-errors, reason-string
-    revert();
+  function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+    s_gasAvailable = gasleft();
+    s_randomWords = randomWords;
+    s_requestId = requestId;
+    VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+      keyHash: s_keyHash,
+      subId: s_subId,
+      requestConfirmations: 1,
+      callbackGasLimit: 200000,
+      numWords: 1,
+      extraArgs: "" // empty extraArgs defaults to link payment
+    });
+    // Should revert
+    COORDINATOR.requestRandomWords(req);
   }
 
   function createSubscriptionAndFund(uint96 amount) external {
@@ -33,13 +44,6 @@ contract VRFV2PlusRevertingExample is VRFConsumerBaseV2Plus {
       s_subId = COORDINATOR.createSubscription();
       COORDINATOR.addConsumer(s_subId, address(this));
     }
-    // Approve the link transfer.
-    LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_subId));
-  }
-
-  function topUpSubscription(uint96 amount) external {
-    // solhint-disable-next-line custom-errors
-    require(s_subId != 0, "sub not set");
     // Approve the link transfer.
     LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_subId));
   }
@@ -52,22 +56,16 @@ contract VRFV2PlusRevertingExample is VRFConsumerBaseV2Plus {
     }
   }
 
-  function requestRandomness(
-    bytes32 keyHash,
-    uint256 subId,
-    uint16 minReqConfs,
-    uint32 callbackGasLimit,
-    uint32 numWords
-  ) external returns (uint256) {
+  function requestRandomness(bytes32 keyHash) external returns (uint256) {
+    s_keyHash = keyHash;
     VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
       keyHash: keyHash,
-      subId: subId,
-      requestConfirmations: minReqConfs,
-      callbackGasLimit: callbackGasLimit,
-      numWords: numWords,
+      subId: s_subId,
+      requestConfirmations: 1,
+      callbackGasLimit: 500000,
+      numWords: 1,
       extraArgs: "" // empty extraArgs defaults to link payment
     });
-    s_requestId = COORDINATOR.requestRandomWords(req);
-    return s_requestId;
+    return COORDINATOR.requestRandomWords(req);
   }
 }
