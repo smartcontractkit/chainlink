@@ -218,7 +218,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
     });
 
     commitment.requestId = _computeRequestId(commitment, request.initiatedRequests + 1);
-    
+
     s_requestCommitments[commitment.requestId] = keccak256(abi.encode(commitment));
 
     return commitment;
