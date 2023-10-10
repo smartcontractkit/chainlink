@@ -474,8 +474,9 @@ describe('KeeperRegistry2_1', () => {
       'src/v0.8/tests/MockV3Aggregator.sol:MockV3Aggregator',
     )) as unknown as MockV3AggregatorFactory
     upkeepMockFactory = await ethers.getContractFactory('UpkeepMock')
-    upkeepAutoFunderFactory =
-      await ethers.getContractFactory('UpkeepAutoFunder')
+    upkeepAutoFunderFactory = await ethers.getContractFactory(
+      'UpkeepAutoFunder',
+    )
     mockArbGasInfoFactory = await ethers.getContractFactory('MockArbGasInfo')
     mockOVMGasPriceOracleFactory = await ethers.getContractFactory(
       'MockOVMGasPriceOracle',

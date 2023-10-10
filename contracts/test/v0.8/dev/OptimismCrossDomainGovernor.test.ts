@@ -46,8 +46,9 @@ before(async () => {
 
 describe('OptimismCrossDomainGovernor', () => {
   beforeEach(async () => {
-    crossDomainMessenger =
-      await crossDomainMessengerFactory.deploy(l1OwnerAddress)
+    crossDomainMessenger = await crossDomainMessengerFactory.deploy(
+      l1OwnerAddress,
+    )
     governor = await governorFactory.deploy(
       crossDomainMessenger.address,
       l1OwnerAddress,

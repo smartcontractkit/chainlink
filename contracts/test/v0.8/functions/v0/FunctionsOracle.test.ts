@@ -351,8 +351,9 @@ describe('FunctionsOracle', () => {
     })
 
     it('#estimateCost correctly estimates cost [ @skip-coverage ]', async () => {
-      const [subscriptionBalanceBefore] =
-        await registry.getSubscription(subscriptionId)
+      const [subscriptionBalanceBefore] = await registry.getSubscription(
+        subscriptionId,
+      )
 
       const request = await client
         .connect(roles.oracleNode)
@@ -375,8 +376,9 @@ describe('FunctionsOracle', () => {
         .withArgs(requestId, transmitter)
         .to.emit(registry, 'BillingEnd')
 
-      const [subscriptionBalanceAfter] =
-        await registry.getSubscription(subscriptionId)
+      const [subscriptionBalanceAfter] = await registry.getSubscription(
+        subscriptionId,
+      )
 
       const feeData = await ethers.provider.getFeeData()
       const estimatedCost = await client.estimateJuelCost(

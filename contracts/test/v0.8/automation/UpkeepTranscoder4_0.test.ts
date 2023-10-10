@@ -140,8 +140,9 @@ const encodeUpkeepV12 = (ids: number[], upkeeps: any[], checkDatas: any[]) => {
 }
 
 async function deployRegistry1_2(): Promise<[BigNumber, KeeperRegistry1_2]> {
-  const keeperRegistryFactory =
-    await ethers.getContractFactory('KeeperRegistry1_2')
+  const keeperRegistryFactory = await ethers.getContractFactory(
+    'KeeperRegistry1_2',
+  )
   const registry12 = await keeperRegistryFactory
     .connect(owner)
     .deploy(linkToken.address, linkEthFeed.address, gasPriceFeed.address, {

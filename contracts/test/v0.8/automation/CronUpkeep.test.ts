@@ -321,10 +321,12 @@ describe('CronUpkeep', () => {
     it('creates jobs with sequential IDs', async () => {
       const cronString1 = '0 * * * *'
       const cronString2 = '0 1,2,3 */4 5-6 1-2'
-      const encodedSpec1 =
-        await cronFactoryContract.encodeCronString(cronString1)
-      const encodedSpec2 =
-        await cronFactoryContract.encodeCronString(cronString2)
+      const encodedSpec1 = await cronFactoryContract.encodeCronString(
+        cronString1,
+      )
+      const encodedSpec2 = await cronFactoryContract.encodeCronString(
+        cronString2,
+      )
       const nextTick1 = (
         await cronTestHelper.calculateNextTick(cronString1)
       ).toNumber()
