@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -57,7 +56,7 @@ func setUp(t *testing.T, updateFrequencySec uint32) (*lpmocks.LogPoller, types.L
 		ContractUpdateCheckFrequencySec: updateFrequencySec,
 		ContractVersion:                 1,
 	}
-	lpWrapper, err := functions.NewLogPollerWrapper(gethcommon.Address{}, config, client, lp, lggr)
+	lpWrapper, err := functions.NewLogPollerWrapper(common.Address{}, config, client, lp, lggr)
 	require.NoError(t, err)
 
 	lp.On("LatestBlock").Return(logpoller.LogPollerBlock{BlockNumber: int64(100)}, nil)

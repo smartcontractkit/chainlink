@@ -23,6 +23,7 @@ type PluginConfig struct {
 	EnableRequestSignatureCheck        bool                                  `json:"enableRequestSignatureCheck"`
 	DONID                              string                                `json:"donID"`
 	ContractVersion                    uint32                                `json:"contractVersion"`
+	PastBlocksToPoll                   uint32                                `json:"pastBlocksToPoll"`
 	MinIncomingConfirmations           uint32                                `json:"minIncomingConfirmations"`
 	RequestTimeoutSec                  uint32                                `json:"requestTimeoutSec"`
 	RequestTimeoutCheckFrequencySec    uint32                                `json:"requestTimeoutCheckFrequencySec"`

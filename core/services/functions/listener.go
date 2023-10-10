@@ -298,7 +298,7 @@ func (l *FunctionsListener) handleOracleRequestV1(request *evmrelayTypes.OracleR
 	}
 	if err := l.pluginORM.CreateRequest(newReq, pg.WithParentCtx(ctx)); err != nil {
 		if errors.Is(err, ErrDuplicateRequestID) {
-			l.logger.Warnw("handleOracleRequestV1: received a log with duplicate request ID", "requestID", formatRequestId(request.RequestId), "err", err)
+			l.logger.Tracew("handleOracleRequestV1: received a log with a request ID that is already in the database", "requestID", formatRequestId(request.RequestId), "err", err)
 		} else {
 			l.logger.Errorw("handleOracleRequestV1: failed to create a DB entry for new request", "requestID", formatRequestId(request.RequestId), "err", err)
 		}

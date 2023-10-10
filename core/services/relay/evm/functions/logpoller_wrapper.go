@@ -31,8 +31,8 @@ type logPollerWrapper struct {
 	subscribers         map[string]evmRelayTypes.RouteUpdateSubscriber
 	activeCoordinator   common.Address
 	proposedCoordinator common.Address
+	pastBlocksToPoll    int64
 	blockOffset         int64
-	nextBlock           int64
 	mu                  sync.Mutex
 	closeWait           sync.WaitGroup
 	stopCh              utils.StopChan
@@ -52,14 +52,15 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 	}
 
 	return &logPollerWrapper{
-		routerContract: routerContract,
-		pluginConfig:   pluginConfig,
-		blockOffset:    blockOffset,
-		logPoller:      logPoller,
-		client:         client,
-		subscribers:    make(map[string]evmRelayTypes.RouteUpdateSubscriber),
-		stopCh:         make(utils.StopChan),
-		lggr:           lggr,
+		routerContract:   routerContract,
+		pluginConfig:     pluginConfig,
+		pastBlocksToPoll: int64(pluginConfig.PastBlocksToPoll),
+		blockOffset:      blockOffset,
+		logPoller:        logPoller,
+		client:           client,
+		subscribers:      make(map[string]evmRelayTypes.RouteUpdateSubscriber),
+		stopCh:           make(utils.StopChan),
+		lggr:             lggr,
 	}, nil
 }
 
@@ -72,13 +73,6 @@ func (l *logPollerWrapper) Start(context.Context) error {
 			l.activeCoordinator = l.routerContract.Address()
 			l.proposedCoordinator = l.routerContract.Address()
 		} else if l.pluginConfig.ContractVersion == 1 {
-			nextBlock, err := l.logPoller.LatestBlock()
-			if err != nil {
-				l.lggr.Errorw("LogPollerWrapper: LatestBlock() failed, starting from 0", "error", err)
-			} else {
-				l.lggr.Debugw("LogPollerWrapper: LatestBlock() got starting block", "block", nextBlock)
-				l.nextBlock = nextBlock.BlockNumber - l.blockOffset
-			}
 			l.closeWait.Add(1)
 			go l.checkForRouteUpdates()
 		}
@@ -117,17 +111,17 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 	if l.proposedCoordinator != (common.Address{}) && l.activeCoordinator != l.proposedCoordinator {
 		coordinators = append(coordinators, l.proposedCoordinator)
 	}
-	nextBlock := l.nextBlock
 	latest, err := l.logPoller.LatestBlock()
 	if err != nil {
 		l.mu.Unlock()
 		return nil, nil, err
 	}
-	latestBlockNumber := latest.BlockNumber
-	latestBlockNumber -= l.blockOffset
-	if latestBlockNumber >= nextBlock {
-		l.nextBlock = latestBlockNumber + 1
+	latestBlockNum := latest.BlockNumber
+	startBlockNum := latestBlockNum - l.pastBlocksToPoll
+	if startBlockNum < 0 {
+		startBlockNum = 0
 	}
+	latestBlockNum -= l.blockOffset
 	l.mu.Unlock()
 
 	// outside of the lock
@@ -137,20 +131,16 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 		l.lggr.Debug("LatestEvents: no non-zero coordinators to check")
 		return resultsReq, resultsResp, errors.New("no non-zero coordinators to check")
 	}
-	if latestBlockNumber < nextBlock {
-		l.lggr.Debugw("LatestEvents: no new blocks to check", "latest", latest, "nextBlock", nextBlock)
-		return resultsReq, resultsResp, nil
-	}
 
 	for _, coordinator := range coordinators {
-		requestLogs, err := l.logPoller.Logs(nextBlock, latestBlockNumber, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), coordinator)
+		requestLogs, err := l.logPoller.Logs(startBlockNum, latestBlockNum, functions_coordinator.FunctionsCoordinatorOracleRequest{}.Topic(), coordinator)
 		if err != nil {
-			l.lggr.Errorw("LatestEvents: fetching request logs from LogPoller failed", "latest", latest, "nextBlock", nextBlock)
+			l.lggr.Errorw("LatestEvents: fetching request logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", latestBlockNum)
 			return nil, nil, err
 		}
-		responseLogs, err := l.logPoller.Logs(nextBlock, latestBlockNumber, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
+		responseLogs, err := l.logPoller.Logs(startBlockNum, latestBlockNum, functions_coordinator.FunctionsCoordinatorOracleResponse{}.Topic(), coordinator)
 		if err != nil {
-			l.lggr.Errorw("LatestEvents: fetching response logs from LogPoller failed", "latest", latest, "nextBlock", nextBlock)
+			l.lggr.Errorw("LatestEvents: fetching response logs from LogPoller failed", "startBlock", startBlockNum, "endBlock", latestBlockNum)
 			return nil, nil, err
 		}
 
@@ -241,7 +231,7 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 		}
 	}
 
-	l.lggr.Debugw("LatestEvents: done", "nRequestLogs", len(resultsReq), "nResponseLogs", len(resultsResp), "nextBlock", nextBlock, "latest", latest)
+	l.lggr.Debugw("LatestEvents: done", "nRequestLogs", len(resultsReq), "nResponseLogs", len(resultsResp), "startBlock", startBlockNum, "endBlock", latestBlockNum)
 	return resultsReq, resultsResp, nil
 }
 
