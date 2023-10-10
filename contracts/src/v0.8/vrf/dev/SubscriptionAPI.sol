@@ -6,7 +6,7 @@ import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 import {AggregatorV3Interface} from "../../interfaces/AggregatorV3Interface.sol";
 import {IERC677Receiver} from "../../shared/interfaces/IERC677Receiver.sol";
-import {IVRFSubscriptionV2Plus} from "../interfaces/IVRFSubscriptionV2Plus.sol";
+import {IVRFSubscriptionV2Plus} from "./interfaces/IVRFSubscriptionV2Plus.sol";
 
 abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscriptionV2Plus {
   using EnumerableSet for EnumerableSet.UintSet;

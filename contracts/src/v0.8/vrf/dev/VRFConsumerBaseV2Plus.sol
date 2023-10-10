@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import {IVRFCoordinatorV2Plus} from "../interfaces/IVRFCoordinatorV2Plus.sol";
-import {IVRFMigratableConsumerV2Plus} from "../interfaces/IVRFMigratableConsumerV2Plus.sol";
+import {IVRFCoordinatorV2Plus} from "./interfaces/IVRFCoordinatorV2Plus.sol";
+import {IVRFMigratableConsumerV2Plus} from "./interfaces/IVRFMigratableConsumerV2Plus.sol";
 import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 
 /** ****************************************************************************

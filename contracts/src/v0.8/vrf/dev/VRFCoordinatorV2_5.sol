@@ -1,24 +1,18 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import {BlockhashStoreInterface} from "../../../interfaces/BlockhashStoreInterface.sol";
+import {BlockhashStoreInterface} from "../interfaces/BlockhashStoreInterface.sol";
+import {VRF} from "../../vrf/VRF.sol";
+import {VRFConsumerBaseV2Plus, IVRFMigratableConsumerV2Plus} from "./VRFConsumerBaseV2Plus.sol";
+import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
+import {SubscriptionAPI} from "./SubscriptionAPI.sol";
+import {VRFV2PlusClient} from "./libraries/VRFV2PlusClient.sol";
+import {IVRFCoordinatorV2PlusMigration} from "./interfaces/IVRFCoordinatorV2PlusMigration.sol";
 // solhint-disable-next-line no-unused-import
-import {IVRFCoordinatorV2Plus, IVRFSubscriptionV2Plus} from "../../interfaces/IVRFCoordinatorV2Plus.sol";
-import {VRF} from "../../../vrf/VRF.sol";
-import {VRFConsumerBaseV2Plus, IVRFMigratableConsumerV2Plus} from "../VRFConsumerBaseV2Plus.sol";
-import {ChainSpecificUtil} from "../../../ChainSpecificUtil.sol";
-import {SubscriptionAPI} from "../SubscriptionAPI.sol";
-import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
-import {IVRFCoordinatorV2PlusMigration} from "../../interfaces/IVRFCoordinatorV2PlusMigration.sol";
-import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import {IVRFCoordinatorV2Plus, IVRFSubscriptionV2Plus} from "./interfaces/IVRFCoordinatorV2Plus.sol";
 
-contract VRFCoordinatorV2PlusUpgradedVersion is
-  VRF,
-  SubscriptionAPI,
-  IVRFCoordinatorV2PlusMigration,
-  IVRFCoordinatorV2Plus
-{
-  using EnumerableSet for EnumerableSet.UintSet;
+// solhint-disable-next-line contract-name-camelcase
+contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   /// @dev should always be available
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   BlockhashStoreInterface public immutable BLOCKHASH_STORE;
@@ -36,17 +30,12 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
   error ProvingKeyAlreadyRegistered(bytes32 keyHash);
   error NoSuchProvingKey(bytes32 keyHash);
   error InvalidLinkWeiPrice(int256 linkWei);
+  error InsufficientGasForConsumer(uint256 have, uint256 want);
   error NoCorrespondingRequest();
   error IncorrectCommitment();
   error BlockhashNotInStore(uint256 blockNum);
   error PaymentTooLarge();
   error InvalidExtraArgsTag();
-  /// @notice emitted when version in the request doesn't match expected version
-  error InvalidVersion(uint8 requestVersion, uint8 expectedVersion);
-  /// @notice emitted when transferred balance (msg.value) does not match the metadata in V1MigrationData
-  error InvalidNativeBalance(uint256 transferredValue, uint96 expectedValue);
-  error SubscriptionIDCollisionFound();
-
   struct RequestCommitment {
     uint64 blockNum;
     uint256 subId;
@@ -55,12 +44,11 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     address sender;
     bytes extraArgs;
   }
-
-  mapping(bytes32 => address) /* keyHash */ /* oracle */ internal s_provingKeys;
+  mapping(bytes32 => address) /* keyHash */ /* oracle */ public s_provingKeys;
   bytes32[] public s_provingKeyHashes;
   mapping(uint256 => bytes32) /* requestID */ /* commitment */ public s_requestCommitments;
-
   event ProvingKeyRegistered(bytes32 keyHash, address indexed oracle);
+  event ProvingKeyDeregistered(bytes32 keyHash, address indexed oracle);
   event RandomWordsRequested(
     bytes32 indexed keyHash,
     uint256 requestId,
@@ -72,18 +60,18 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     bytes extraArgs,
     address indexed sender
   );
+
   event RandomWordsFulfilled(
     uint256 indexed requestId,
     uint256 outputSeed,
-    uint256 indexed subID,
+    uint256 indexed subId,
     uint96 payment,
     bool success
   );
 
-  int256 internal s_fallbackWeiPerUnitLink;
+  int256 public s_fallbackWeiPerUnitLink;
 
-  FeeConfig internal s_feeConfig;
-
+  FeeConfig public s_feeConfig;
   struct FeeConfig {
     // Flat fee charged per fulfillment in millionths of link
     // So fee range is [0, 2^32/10^6].
@@ -92,7 +80,6 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     // So fee range is [0, 2^32/10^6].
     uint32 fulfillmentFlatFeeNativePPM;
   }
-
   event ConfigSet(
     uint16 minimumRequestConfirmations,
     uint32 maxGasLimit,
@@ -119,6 +106,28 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     s_provingKeys[kh] = oracle;
     s_provingKeyHashes.push(kh);
     emit ProvingKeyRegistered(kh, oracle);
+  }
+
+  /**
+   * @notice Deregisters a proving key to an oracle.
+   * @param publicProvingKey key that oracle can use to submit vrf fulfillments
+   */
+  function deregisterProvingKey(uint256[2] calldata publicProvingKey) external onlyOwner {
+    bytes32 kh = hashOfKey(publicProvingKey);
+    address oracle = s_provingKeys[kh];
+    if (oracle == address(0)) {
+      revert NoSuchProvingKey(kh);
+    }
+    delete s_provingKeys[kh];
+    for (uint256 i = 0; i < s_provingKeyHashes.length; i++) {
+      if (s_provingKeyHashes[i] == kh) {
+        bytes32 last = s_provingKeyHashes[s_provingKeyHashes.length - 1];
+        // Copy last element and overwrite kh to be deleted with it
+        s_provingKeyHashes[i] = last;
+        s_provingKeyHashes.pop();
+      }
+    }
+    emit ProvingKeyDeregistered(kh, oracle);
   }
 
   /**
@@ -527,14 +536,8 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     return weiPerUnitLink;
   }
 
-  /*
-   * @notice Check to see if there exists a request commitment consumers
-   * for all consumers and keyhashes for a given sub.
-   * @param subId - ID of the subscription
-   * @return true if there exists at least one unfulfilled request for the subscription, false
-   * otherwise.
-   * @dev Looping is bounded to MAX_CONSUMERS*(number of keyhashes).
-   * @dev Used to disable subscription canceling while outstanding request are present.
+  /**
+   * @inheritdoc IVRFSubscriptionV2Plus
    */
   function pendingRequestExists(uint256 subId) public view override returns (bool) {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
@@ -600,6 +603,9 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
   /// @dev Emitted when new coordinator is registered as migratable target
   event CoordinatorRegistered(address coordinatorAddress);
 
+  /// @dev Emitted when new coordinator is deregistered
+  event CoordinatorDeregistered(address coordinatorAddress);
+
   /// @notice emitted when migration to new coordinator completes successfully
   /// @param newCoordinator coordinator address after migration
   /// @param subId subscription ID
@@ -637,6 +643,20 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     }
     s_migrationTargets.push(target);
     emit CoordinatorRegistered(target);
+  }
+
+  function deregisterMigratableCoordinator(address target) external onlyOwner {
+    uint256 nTargets = s_migrationTargets.length;
+    for (uint256 i = 0; i < nTargets; i++) {
+      if (s_migrationTargets[i] == target) {
+        s_migrationTargets[i] = s_migrationTargets[nTargets - 1];
+        s_migrationTargets[nTargets - 1] = target;
+        s_migrationTargets.pop();
+        emit CoordinatorDeregistered(target);
+        return;
+      }
+    }
+    revert CoordinatorNotRegistered(target);
   }
 
   function migrate(uint256 subId, address newCoordinator) external nonReentrant {
@@ -679,53 +699,6 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
   }
 
   function migrationVersion() public pure returns (uint8 version) {
-    return 2;
-  }
-
-  /**
-   * @inheritdoc IVRFCoordinatorV2PlusMigration
-   */
-  function onMigration(bytes calldata encodedData) external payable override {
-    V1MigrationData memory migrationData = abi.decode(encodedData, (V1MigrationData));
-
-    if (migrationData.fromVersion != 1) {
-      revert InvalidVersion(migrationData.fromVersion, 1);
-    }
-
-    if (msg.value != uint256(migrationData.nativeBalance)) {
-      revert InvalidNativeBalance(msg.value, migrationData.nativeBalance);
-    }
-
-    // it should be impossible to have a subscription id collision, for two reasons:
-    // 1. the subscription ID is calculated using inputs that cannot be replicated under different
-    // conditions.
-    // 2. once a subscription is migrated it is deleted from the previous coordinator, so it cannot
-    // be migrated again.
-    // however, we should have this check here in case the `migrate` function on
-    // future coordinators "forgets" to delete subscription data allowing re-migration of the same
-    // subscription.
-    if (s_subscriptionConfigs[migrationData.subId].owner != address(0)) {
-      revert SubscriptionIDCollisionFound();
-    }
-
-    for (uint256 i = 0; i < migrationData.consumers.length; i++) {
-      s_consumers[migrationData.consumers[i]][migrationData.subId] = 1;
-    }
-
-    s_subscriptions[migrationData.subId] = Subscription({
-      nativeBalance: migrationData.nativeBalance,
-      balance: migrationData.linkBalance,
-      reqCount: 0
-    });
-    s_subscriptionConfigs[migrationData.subId] = SubscriptionConfig({
-      owner: migrationData.subOwner,
-      consumers: migrationData.consumers,
-      requestedOwner: address(0)
-    });
-
-    s_totalBalance += uint96(migrationData.linkBalance);
-    s_totalNativeBalance += uint96(migrationData.nativeBalance);
-
-    s_subIds.add(migrationData.subId);
+    return 1;
   }
 }
