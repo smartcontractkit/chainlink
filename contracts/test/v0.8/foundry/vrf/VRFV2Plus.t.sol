@@ -4,12 +4,12 @@ import "../BaseTest.t.sol";
 import {VRF} from "../../../../src/v0.8/vrf/VRF.sol";
 import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
-import {ExposedVRFCoordinatorV2_5} from "../../../../src/v0.8/dev/vrf/testhelpers/ExposedVRFCoordinatorV2_5.sol";
-import {VRFCoordinatorV2_5} from "../../../../src/v0.8/dev/vrf/VRFCoordinatorV2_5.sol";
-import {SubscriptionAPI} from "../../../../src/v0.8/dev/vrf/SubscriptionAPI.sol";
-import {BlockhashStore} from "../../../../src/v0.8/dev/BlockhashStore.sol";
-import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol";
-import {VRFV2PlusClient} from "../../../../src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
+import {ExposedVRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/testhelpers/ExposedVRFCoordinatorV2_5.sol";
+import {VRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/VRFCoordinatorV2_5.sol";
+import {SubscriptionAPI} from "../../../../src/v0.8/vrf/dev/SubscriptionAPI.sol";
+import {BlockhashStore} from "../../../../src/v0.8/vrf/dev/BlockhashStore.sol";
+import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFV2PlusConsumerExample.sol";
+import {VRFV2PlusClient} from "../../../../src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 import {console} from "forge-std/console.sol";
 import {VmSafe} from "forge-std/Vm.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol"; // for Math.ceilDiv

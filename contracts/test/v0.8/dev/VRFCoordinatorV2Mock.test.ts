@@ -23,7 +23,7 @@ describe('VRFCoordinatorV2Mock', () => {
     random = accounts[2]
 
     const vrfCoordinatorV2MockFactory = await ethers.getContractFactory(
-      'src/v0.8/mocks/VRFCoordinatorV2Mock.sol:VRFCoordinatorV2Mock',
+      'src/v0.8/vrf/mocks/VRFCoordinatorV2Mock.sol:VRFCoordinatorV2Mock',
       accounts[0],
     )
     vrfCoordinatorV2Mock = await vrfCoordinatorV2MockFactory.deploy(

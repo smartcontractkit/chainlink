@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
-import {IVRFV2PlusWrapper} from "../interfaces/IVRFV2PlusWrapper.sol";
+import {IVRFV2PlusWrapper} from "./interfaces/IVRFV2PlusWrapper.sol";
 
 /**
  *

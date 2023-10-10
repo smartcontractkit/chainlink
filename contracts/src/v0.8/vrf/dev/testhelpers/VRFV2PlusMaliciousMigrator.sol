@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity ^0.8.0;
 
-import {IVRFMigratableConsumerV2Plus} from "../../interfaces/IVRFMigratableConsumerV2Plus.sol";
-import {IVRFCoordinatorV2Plus} from "../../interfaces/IVRFCoordinatorV2Plus.sol";
+import {IVRFMigratableConsumerV2Plus} from "../interfaces/IVRFMigratableConsumerV2Plus.sol";
+import {IVRFCoordinatorV2Plus} from "../interfaces/IVRFCoordinatorV2Plus.sol";
 import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 
 contract VRFV2PlusMaliciousMigrator is IVRFMigratableConsumerV2Plus {

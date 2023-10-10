@@ -2,7 +2,7 @@
 // solhint-disable-next-line one-contract-per-file
 pragma solidity 0.8.6;
 
-import {VRFTypes} from "../../vrf/VRFTypes.sol";
+import {VRFTypes} from "../VRFTypes.sol";
 
 /**
  * @title BatchVRFCoordinatorV2Plus
