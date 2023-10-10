@@ -697,7 +697,7 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 		if err != nil {
 			return "", nil, errors.Wrap(err, "failed to fetch encrypted secrets")
 		}
-		if userError != nil {
+		if len(userError) > 0 {
 			return "", errors.New(string(userError)), nil
 		}
 		secrets = thresholdEncSecrets
