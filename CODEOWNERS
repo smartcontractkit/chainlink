@@ -1,5 +1,5 @@
 # CODEOWNERS Best Practices
-# 1. Per Github docs: "Order is important; the last matching pattern takes the most precedence." 
+# 1. Per Github docs: "Order is important; the last matching pattern takes the most precedence."
 # Please define less specific codeowner paths before more specific codeowner paths in order for the more specific rule to have priority
 
 # Misc
@@ -37,6 +37,10 @@
 # VRF-related services
 /core/services/vrf @smartcontractkit/vrf-team
 /core/services/blockhashstore @smartcontractkit/vrf-team
+/core/services/blockheaderfeeder @smartcontractkit/vrf-team
+/core/services/pipeline/task.vrf.go @smartcontractkit/vrf-team
+/core/services/pipeline/task.vrfv2.go @smartcontractkit/vrf-team
+/core/services/pipeline/task.vrfv2plus.go @smartcontractkit/vrf-team
 /core/services/ocr2/plugins/dkg @smartcontractkit/vrf-team
 /core/services/ocr2/plugins/ocr2vrf @smartcontractkit/vrf-team
 
@@ -67,13 +71,17 @@ core/scripts/gateway @bolekk @pinebit
 /operator-ui/ @DeividasK @jkongie
 
 # Contracts
-/contracts/ @se3000 @connorwstein
+/contracts/ @se3000 @connorwstein @RensR
 /contracts/**/*Keeper* @smartcontractkit/keepers
 /contracts/**/*Upkeep* @smartcontractkit/keepers
 /contracts/**/*Functions* @smartcontractkit/functions
 /contracts/src/v0.8/functions @smartcontractkit/functions
-contracts/test/v0.8/functions @smartcontractkit/functions
+/contracts/test/v0.8/functions @smartcontractkit/functions
 /contracts/src/v0.8/llo-feeds @austinborn @Fletch153
+/contracts/src/v0.8/vrf @smartcontractkit/vrf-team
+/contracts/src/v0.8/dev/vrf @smartcontractkit/vrf-team
+/contracts/src/v0.8/dev/BlockhashStore.sol @smartcontractkit/vrf-team
+/contracts/src/v0.8/dev/VRFConsumerBaseV2Upgradeable.sol @smartcontractkit/vrf-team
 
 # Tests
 /integration-tests/ @smartcontractkit/test-tooling-team
@@ -86,6 +94,8 @@ contracts/test/v0.8/functions @smartcontractkit/functions
 /.github/workflows/integration-chaos-tests.yml @smartcontractkit/test-tooling-team
 /.github/workflows/integration-tests-publish.yml @smartcontractkit/test-tooling-team
 /.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
+/.github/workflows/automation-ondemand-tests.yml @smartcontractkit/keepers
+/.github/workflows/automation-benchmark-tests.yml @smartcontractkit/keepers
 
 /core/chainlink.Dockerfile @smartcontractkit/prodsec-public
 
