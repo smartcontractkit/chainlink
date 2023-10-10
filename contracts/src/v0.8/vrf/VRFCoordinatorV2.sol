@@ -2,7 +2,7 @@
 pragma solidity ^0.8.4;
 
 import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
-import {BlockhashStoreInterface} from "../interfaces/BlockhashStoreInterface.sol";
+import {BlockhashStoreInterface} from "./interfaces/BlockhashStoreInterface.sol";
 import {AggregatorV3Interface} from "../interfaces/AggregatorV3Interface.sol";
 import {VRFCoordinatorV2Interface} from "./interfaces/VRFCoordinatorV2Interface.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";

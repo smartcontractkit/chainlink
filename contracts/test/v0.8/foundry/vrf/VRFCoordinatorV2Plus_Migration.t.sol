@@ -1,14 +1,14 @@
 pragma solidity 0.8.6;
 
 import "../BaseTest.t.sol";
-import {VRFCoordinatorV2Plus_V2Example} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFCoordinatorV2Plus_V2Example.sol";
-import {ExposedVRFCoordinatorV2_5} from "../../../../src/v0.8/dev/vrf/testhelpers/ExposedVRFCoordinatorV2_5.sol";
-import {VRFCoordinatorV2_5} from "../../../../src/v0.8/dev/vrf/VRFCoordinatorV2_5.sol";
-import {SubscriptionAPI} from "../../../../src/v0.8/dev/vrf/SubscriptionAPI.sol";
-import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusConsumerExample.sol";
+import {VRFCoordinatorV2Plus_V2Example} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFCoordinatorV2Plus_V2Example.sol";
+import {ExposedVRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/testhelpers/ExposedVRFCoordinatorV2_5.sol";
+import {VRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/VRFCoordinatorV2_5.sol";
+import {SubscriptionAPI} from "../../../../src/v0.8/vrf/dev/SubscriptionAPI.sol";
+import {VRFV2PlusConsumerExample} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFV2PlusConsumerExample.sol";
 import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
-import {VRFV2PlusMaliciousMigrator} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusMaliciousMigrator.sol";
+import {VRFV2PlusMaliciousMigrator} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFV2PlusMaliciousMigrator.sol";
 
 contract VRFCoordinatorV2Plus_Migration is BaseTest {
   uint256 internal constant DEFAULT_LINK_FUNDING = 10 ether; // 10 LINK

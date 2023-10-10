@@ -12,7 +12,7 @@ import "../../../../src/v0.8/vendor/entrypoint/interfaces/IEntryPoint.sol";
 import "../../../../src/v0.8/dev/transmission/ERC-4337/SCALibrary.sol";
 import "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import "../../../../src/v0.8/shared/interfaces/LinkTokenInterface.sol";
-import "../../../../src/v0.8/mocks/VRFCoordinatorMock.sol";
+import "../../../../src/v0.8/vrf/mocks/VRFCoordinatorMock.sol";
 import "../../../../src/v0.8/tests/MockV3Aggregator.sol";
 import "../../../../src/v0.8/vrf/testhelpers/VRFConsumer.sol";
 

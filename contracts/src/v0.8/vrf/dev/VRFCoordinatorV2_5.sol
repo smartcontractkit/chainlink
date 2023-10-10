@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import {IBlockhashStore} from "./interfaces/IBlockhashStore.sol";
+import {BlockhashStoreInterface} from "../interfaces/BlockhashStoreInterface.sol";
 import {VRF} from "../../vrf/VRF.sol";
 import {VRFConsumerBaseV2Plus, IVRFMigratableConsumerV2Plus} from "./VRFConsumerBaseV2Plus.sol";
 import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
@@ -15,7 +15,7 @@ import {IVRFCoordinatorV2Plus, IVRFSubscriptionV2Plus} from "./interfaces/IVRFCo
 contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   /// @dev should always be available
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
-  IBlockhashStore public immutable BLOCKHASH_STORE;
+  BlockhashStoreInterface public immutable BLOCKHASH_STORE;
 
   // Set this maximum to 200 to give us a 56 block window to fulfill
   // the request before requiring the block hash feeder.
@@ -90,7 +90,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   );
 
   constructor(address blockhashStore) SubscriptionAPI() {
-    BLOCKHASH_STORE = IBlockhashStore(blockhashStore);
+    BLOCKHASH_STORE = BlockhashStoreInterface(blockhashStore);
   }
 
   /**

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import {BlockhashStoreInterface} from "../../../interfaces/BlockhashStoreInterface.sol";
+import {BlockhashStoreInterface} from "../../interfaces/BlockhashStoreInterface.sol";
 // solhint-disable-next-line no-unused-import
 import {IVRFCoordinatorV2Plus, IVRFSubscriptionV2Plus} from "../interfaces/IVRFCoordinatorV2Plus.sol";
 import {VRF} from "../../../vrf/VRF.sol";

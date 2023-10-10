@@ -74,7 +74,7 @@ vrf_consumer_v2_plus_upgradeable_example: ../../contracts/solc/v0.8.6/VRFConsume
 vrf_consumer_v2_upgradeable_example: ../../contracts/solc/v0.8.6/VRFConsumerV2UpgradeableExample.abi ../../contracts/solc/v0.8.6/VRFConsumerV2UpgradeableExample.bin f1790a9a2f2a04c730593e483459709cb89e897f8a19d7a3ac0cfe6a97265e6e
 vrf_coordinator_mock: ../../contracts/solc/v0.8.6/VRFCoordinatorMock.abi ../../contracts/solc/v0.8.6/VRFCoordinatorMock.bin 5c495cf8df1f46d8736b9150cdf174cce358cb8352f60f0d5bb9581e23920501
 vrf_coordinator_v2: ../../contracts/solc/v0.8.6/VRFCoordinatorV2.abi ../../contracts/solc/v0.8.6/VRFCoordinatorV2.bin 295f35ce282060317dfd01f45959f5a2b05ba26913e422fbd4fb6bf90b107006
-vrf_coordinator_v2_5: ../../contracts/solc/v0.8.6/VRFCoordinatorV2_5.abi ../../contracts/solc/v0.8.6/VRFCoordinatorV2_5.bin a977964cf2b0df91929dff05a935912181394edc3c141ac25e20f21f9c5830c8
+vrf_coordinator_v2_5: ../../contracts/solc/v0.8.6/VRFCoordinatorV2_5.abi ../../contracts/solc/v0.8.6/VRFCoordinatorV2_5.bin b0e7c42a30b36d9d31fa9a3f26bad7937152e3dddee5bd8dd3d121390c879ab6
 vrf_coordinator_v2_plus_v2_example: ../../contracts/solc/v0.8.6/VRFCoordinatorV2Plus_V2Example.abi ../../contracts/solc/v0.8.6/VRFCoordinatorV2Plus_V2Example.bin 4a5b86701983b1b65f0a8dfa116b3f6d75f8f706fa274004b57bdf5992e4cec3
 vrf_coordinator_v2plus: ../../contracts/solc/v0.8.6/VRFCoordinatorV2Plus.abi ../../contracts/solc/v0.8.6/VRFCoordinatorV2Plus.bin e4409bbe361258273458a5c99408b3d7f0cc57a2560dee91c0596cc6d6f738be
 vrf_coordinator_v2plus_interface: ../../contracts/solc/v0.8.6/IVRFCoordinatorV2PlusInternal.abi ../../contracts/solc/v0.8.6/IVRFCoordinatorV2PlusInternal.bin 834a2ce0e83276372a0e1446593fd89798f4cf6dc95d4be0113e99fadf61558b
