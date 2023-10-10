@@ -289,7 +289,9 @@ func (v *EthereumVRFConsumerV2) GasAvailable() (*big.Int, error) {
 }
 
 func (v *EthereumVRFConsumerV2) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{
+		To: v.address,
+	})
 	if err != nil {
 		return err
 	}

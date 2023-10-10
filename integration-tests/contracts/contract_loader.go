@@ -96,6 +96,11 @@ type PolygonZkEvmContractLoader struct {
 	*EthereumContractLoader
 }
 
+// PolygonZKEVMContractLoader wraps for Polygon zkEVM
+type PolygonZKEVMContractLoader struct {
+	*EthereumContractLoader
+}
+
 // NewEthereumContractLoader returns an instantiated instance of the ETH contract Loader
 func NewEthereumContractLoader(ethClient blockchain.EVMClient, logger zerolog.Logger) *EthereumContractLoader {
 	return &EthereumContractLoader{

@@ -175,7 +175,9 @@ func (v *EthereumVRFConsumer) Address() string {
 }
 
 func (v *EthereumVRFConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{
+		To: v.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -277,7 +279,9 @@ func (f *VRFConsumerRoundConfirmer) Wait() error {
 
 // Fund sends specified currencies to the contract
 func (v *EthereumVRF) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{
+		To: v.address,
+	})
 	if err != nil {
 		return err
 	}
