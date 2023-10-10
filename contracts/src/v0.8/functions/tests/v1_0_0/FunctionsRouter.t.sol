@@ -1114,7 +1114,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
       ) // TODO: build this programatically
     });
 
-    _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1, false, 1);
+    _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1, true, 1);
   }
 
   function test_Fulfill_SuccessUserCallbackRunsOutOfGas() public {
@@ -1152,7 +1152,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
       callbackReturnData: new bytes(0)
     });
 
-    _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1, false, 1);
+    _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1, true, 1);
   }
 
   function test_Fulfill_SuccessClientNoLongerExists() public {
@@ -1177,7 +1177,6 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
     bool checkTopic2SubscriptionId = true;
     bool checkTopic3 = false;
     bool checkData = true;
-    // Un-commenting this code does not work
     vm.expectEmit(checkTopic1RequestId, checkTopic2SubscriptionId, checkTopic3, checkData);
     emit RequestProcessed({
       requestId: s_requests[requestToFulfill].requestId,
@@ -1190,7 +1189,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
       callbackReturnData: new bytes(0)
     });
 
-    _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1, false, 1);
+    _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1, true, 1);
   }
 
   function test_Fulfill_SuccessFulfilled() public {
@@ -1222,7 +1221,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
       err: err,
       callbackReturnData: new bytes(0)
     });
-    _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1, false);
+    _reportAndStore(requestNumberKeys, results, errors);
   }
 }
 
