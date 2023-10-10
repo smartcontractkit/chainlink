@@ -23,36 +23,11 @@ jobs:
     runs-on: ubuntu20.04-8cores-32GB
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Go
-        uses: ./.github/actions/setup-go
-      - name: Touching core/web/assets/index.html
-        run: mkdir -p core/web/assets && touch core/web/assets/index.html
-      - name: Build binary
-        run: go build ./...
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3.7.0
+      - name: Golang Lint
+        uses: ./.github/actions/golangci-lint
         with:
-          version: v1.54.2
-          # We already cache these directories in setup-go
-          skip-pkg-cache: true
-          skip-build-cache: true
-          # only-new-issues is only applicable to PRs, otherwise it is always set to false
-          only-new-issues: true
-          args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
-      - name: Store lint report artifact
-        if: always()
-        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
-        with:
-          name: golangci-lint-report
-          path: golangci-lint-report.xml
-      - name: Collect Metrics
-        if: always()
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: lint
-        continue-on-error: true
+          gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_CLOUD_HOST }}
 
   core:
     strategy:
