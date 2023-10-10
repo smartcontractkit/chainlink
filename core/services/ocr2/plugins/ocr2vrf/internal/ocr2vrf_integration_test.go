@@ -18,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 	"go.dedis.ch/kyber/v3"
@@ -217,7 +218,7 @@ func setupOCR2VRFContracts(
 func setupNodeOCR2(
 	t *testing.T,
 	owner *bind.TransactOpts,
-	port uint16,
+	port int,
 	dbName string,
 	b *backends.SimulatedBackend,
 	useForwarders bool,
@@ -336,7 +337,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 
 	t.Log("Creating bootstrap node")
 
-	bootstrapNodePort := testutils.GetFreePort(t)
+	bootstrapNodePort := freeport.GetOne(t)
 	bootstrapNode := setupNodeOCR2(t, uni.owner, bootstrapNodePort, "bootstrap", uni.backend, false, nil)
 	numNodes := 5
 
@@ -354,6 +355,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 		dkgSigners            []dkgsignkey.Key
 		sendingKeys           [][]string
 	)
+	ports := freeport.GetN(t, numNodes)
 	for i := 0; i < numNodes; i++ {
 		// Supply the bootstrap IP and port as a V2 peer address
 		bootstrappers := []commontypes.BootstrapperLocator{
@@ -361,7 +363,7 @@ func runOCR2VRFTest(t *testing.T, useForwarders bool) {
 				fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort),
 			}},
 		}
-		node := setupNodeOCR2(t, uni.owner, testutils.GetFreePort(t), fmt.Sprintf("ocr2vrforacle%d", i), uni.backend, useForwarders, bootstrappers)
+		node := setupNodeOCR2(t, uni.owner, ports[i], fmt.Sprintf("ocr2vrforacle%d", i), uni.backend, useForwarders, bootstrappers)
 		sendingKeys = append(sendingKeys, node.sendingKeys)
 
 		dkgSignKey, err := node.app.GetKeyStore().DKGSign().Create()

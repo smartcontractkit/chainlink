@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
@@ -785,7 +786,9 @@ func (v *EthereumVRFV2PlusWrapper) GetSubID(ctx context.Context) (*big.Int, erro
 }
 
 func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{
+		To: v.address,
+	})
 	if err != nil {
 		return err
 	}

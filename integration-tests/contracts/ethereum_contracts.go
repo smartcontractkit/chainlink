@@ -5,27 +5,19 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-
-	"strings"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
@@ -52,6 +44,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/werc20_mock"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 // EthereumOracle oracle for "directrequest" job tests
@@ -66,7 +65,9 @@ func (e *EthereumOracle) Address() string {
 }
 
 func (e *EthereumOracle) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{
+		To: e.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -106,7 +107,9 @@ func (e *EthereumAPIConsumer) RoundID(ctx context.Context) (*big.Int, error) {
 }
 
 func (e *EthereumAPIConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{
+		To: e.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -158,7 +161,9 @@ func (f *EthereumStaking) Address() string {
 
 // Fund sends specified currencies to the contract
 func (f *EthereumStaking) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{
+		To: f.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -902,7 +907,9 @@ func (f *EthereumFluxAggregator) Address() string {
 
 // Fund sends specified currencies to the contract
 func (f *EthereumFluxAggregator) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{
+		To: f.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -1193,7 +1200,9 @@ type EthereumLinkToken struct {
 
 // Fund the LINK Token contract with ETH to distribute the token
 func (l *EthereumLinkToken) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := l.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := l.client.EstimateGas(ethereum.CallMsg{
+		To: &l.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -1290,7 +1299,9 @@ type EthereumOffchainAggregator struct {
 
 // Fund sends specified currencies to the contract
 func (o *EthereumOffchainAggregator) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := o.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := o.client.EstimateGas(ethereum.CallMsg{
+		To: o.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -1960,7 +1971,9 @@ func (e *EthereumOffchainAggregatorV2) Address() string {
 }
 
 func (e *EthereumOffchainAggregatorV2) Fund(nativeAmount *big.Float) error {
-	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{
+		To: e.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -2238,10 +2251,7 @@ func (e *EthereumFunctionsLoadTestClient) ResetStats() error {
 	if err != nil {
 		return err
 	}
-	if err := e.client.ProcessTransaction(tx); err != nil {
-		return err
-	}
-	return nil
+	return e.client.ProcessTransaction(tx)
 }
 
 func (e *EthereumFunctionsLoadTestClient) SendRequest(times uint32, source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error {
@@ -2433,66 +2443,66 @@ func (e *EthereumWERC20Mock) Address() common.Address {
 	return e.address
 }
 
-func (l *EthereumWERC20Mock) Approve(to string, amount *big.Int) error {
-	opts, err := l.client.TransactionOpts(l.client.GetDefaultWallet())
+func (e *EthereumWERC20Mock) Approve(to string, amount *big.Int) error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
-	l.l.Info().
-		Str("From", l.client.GetDefaultWallet().Address()).
+	e.l.Info().
+		Str("From", e.client.GetDefaultWallet().Address()).
 		Str("To", to).
 		Str("Amount", amount.String()).
 		Uint64("Nonce", opts.Nonce.Uint64()).
 		Msg("Approving LINK Transfer")
-	tx, err := l.instance.Approve(opts, common.HexToAddress(to), amount)
+	tx, err := e.instance.Approve(opts, common.HexToAddress(to), amount)
 	if err != nil {
 		return err
 	}
-	return l.client.ProcessTransaction(tx)
+	return e.client.ProcessTransaction(tx)
 }
 
-func (l *EthereumWERC20Mock) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
+func (e *EthereumWERC20Mock) BalanceOf(ctx context.Context, addr string) (*big.Int, error) {
 	opts := &bind.CallOpts{
-		From:    common.HexToAddress(l.client.GetDefaultWallet().Address()),
+		From:    common.HexToAddress(e.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	}
-	balance, err := l.instance.BalanceOf(opts, common.HexToAddress(addr))
+	balance, err := e.instance.BalanceOf(opts, common.HexToAddress(addr))
 	if err != nil {
 		return nil, err
 	}
 	return balance, nil
 }
 
-func (l *EthereumWERC20Mock) Transfer(to string, amount *big.Int) error {
-	opts, err := l.client.TransactionOpts(l.client.GetDefaultWallet())
+func (e *EthereumWERC20Mock) Transfer(to string, amount *big.Int) error {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return err
 	}
-	l.l.Info().
-		Str("From", l.client.GetDefaultWallet().Address()).
+	e.l.Info().
+		Str("From", e.client.GetDefaultWallet().Address()).
 		Str("To", to).
 		Str("Amount", amount.String()).
 		Uint64("Nonce", opts.Nonce.Uint64()).
 		Msg("EthereumWERC20Mock.Transfer()")
-	tx, err := l.instance.Transfer(opts, common.HexToAddress(to), amount)
+	tx, err := e.instance.Transfer(opts, common.HexToAddress(to), amount)
 	if err != nil {
 		return err
 	}
-	return l.client.ProcessTransaction(tx)
+	return e.client.ProcessTransaction(tx)
 }
 
-func (l *EthereumWERC20Mock) Mint(account common.Address, amount *big.Int) (*types.Transaction, error) {
-	opts, err := l.client.TransactionOpts(l.client.GetDefaultWallet())
+func (e *EthereumWERC20Mock) Mint(account common.Address, amount *big.Int) (*types.Transaction, error) {
+	opts, err := e.client.TransactionOpts(e.client.GetDefaultWallet())
 	if err != nil {
 		return nil, err
 	}
-	l.l.Info().
+	e.l.Info().
 		Str("account", account.Hex()).
 		Str("amount", amount.String()).
 		Msg("EthereumWERC20Mock.Mint()")
-	tx, err := l.instance.Mint(opts, account, amount)
+	tx, err := e.instance.Mint(opts, account, amount)
 	if err != nil {
 		return tx, err
 	}
-	return tx, l.client.ProcessTransaction(tx)
+	return tx, e.client.ProcessTransaction(tx)
 }

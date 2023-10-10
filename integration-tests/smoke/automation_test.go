@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -105,10 +104,11 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				testName       = "basic-upkeep"
 			)
 			if nodeUpgrade {
-				upgradeImage, err = utils.GetEnv("UPGRADE_IMAGE")
-				require.NoError(t, err, "Error getting upgrade image")
-				upgradeVersion, err = utils.GetEnv("UPGRADE_VERSION")
-				require.NoError(t, err, "Error getting upgrade version")
+				upgradeImage = os.Getenv("UPGRADE_IMAGE")
+				upgradeVersion = os.Getenv("UPGRADE_VERSION")
+				if len(upgradeImage) == 0 || len(upgradeVersion) == 0 {
+					t.Fatal("UPGRADE_IMAGE and UPGRADE_VERSION must be set to upgrade nodes")
+				}
 				testName = "node-upgrade"
 			}
 			chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupAutomationTestDocker(
