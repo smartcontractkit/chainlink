@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -105,10 +104,11 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				testName       = "basic-upkeep"
 			)
 			if nodeUpgrade {
-				upgradeImage, err = utils.GetEnv("UPGRADE_IMAGE")
-				require.NoError(t, err, "Error getting upgrade image")
-				upgradeVersion, err = utils.GetEnv("UPGRADE_VERSION")
-				require.NoError(t, err, "Error getting upgrade version")
+				upgradeImage = os.Getenv("UPGRADE_IMAGE")
+				upgradeVersion = os.Getenv("UPGRADE_VERSION")
+				if len(upgradeImage) == 0 || len(upgradeVersion) == 0 {
+					t.Fatal("UPGRADE_IMAGE and UPGRADE_VERSION must be set to upgrade nodes")
+				}
 				testName = "node-upgrade"
 			}
 			chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupAutomationTestDocker(
@@ -1005,13 +1005,21 @@ func setupAutomationTestDocker(
 	clNodeConfig.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
 	clNodeConfig.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
 
-	// launch the environment
+	secretsConfig := `
+	[Mercury.Credentials.cred1]
+	LegacyURL = 'http://localhost:53299'
+	URL = 'http://localhost:53299'
+	Username = 'node'
+	Password = 'nodepass'
+	`
+
+	//launch the environment
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
 		WithGeth().
-		WithMockServer(1).
 		WithCLNodes(5).
 		WithCLNodeConfig(clNodeConfig).
+		WithSecretsConfig(secretsConfig).
 		WithFunding(big.NewFloat(.5)).
 		Build()
 	require.NoError(t, err, "Error deploying test environment")

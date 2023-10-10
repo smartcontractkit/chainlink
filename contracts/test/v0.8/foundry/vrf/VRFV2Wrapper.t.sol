@@ -4,12 +4,12 @@ import "../BaseTest.t.sol";
 import {VRF} from "../../../../src/v0.8/vrf/VRF.sol";
 import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
-import {ExposedVRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/testhelpers/ExposedVRFCoordinatorV2Plus.sol";
-import {VRFV2PlusWrapperConsumerBase} from "../../../../src/v0.8/dev/vrf/VRFV2PlusWrapperConsumerBase.sol";
-import {VRFV2PlusWrapperConsumerExample} from "../../../../src/v0.8/dev/vrf/testhelpers/VRFV2PlusWrapperConsumerExample.sol";
-import {VRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/VRFCoordinatorV2Plus.sol";
-import {VRFV2PlusWrapper} from "../../../../src/v0.8/dev/vrf/VRFV2PlusWrapper.sol";
-import {VRFV2PlusClient} from "../../../../src/v0.8/dev/vrf/libraries/VRFV2PlusClient.sol";
+import {ExposedVRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/testhelpers/ExposedVRFCoordinatorV2_5.sol";
+import {VRFV2PlusWrapperConsumerBase} from "../../../../src/v0.8/vrf/dev/VRFV2PlusWrapperConsumerBase.sol";
+import {VRFV2PlusWrapperConsumerExample} from "../../../../src/v0.8/vrf/dev/testhelpers/VRFV2PlusWrapperConsumerExample.sol";
+import {VRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/VRFCoordinatorV2_5.sol";
+import {VRFV2PlusWrapper} from "../../../../src/v0.8/vrf/dev/VRFV2PlusWrapper.sol";
+import {VRFV2PlusClient} from "../../../../src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 import {console} from "forge-std/console.sol";
 
 contract VRFV2PlusWrapperTest is BaseTest {
@@ -18,14 +18,14 @@ contract VRFV2PlusWrapperTest is BaseTest {
   uint32 wrapperGasOverhead = 10_000;
   uint32 coordinatorGasOverhead = 20_000;
 
-  ExposedVRFCoordinatorV2Plus s_testCoordinator;
+  ExposedVRFCoordinatorV2_5 s_testCoordinator;
   MockLinkToken s_linkToken;
-  MockV3Aggregator s_linkEthFeed;
+  MockV3Aggregator s_linkNativeFeed;
   VRFV2PlusWrapper s_wrapper;
   VRFV2PlusWrapperConsumerExample s_consumer;
 
-  VRFCoordinatorV2Plus.FeeConfig basicFeeConfig =
-    VRFCoordinatorV2Plus.FeeConfig({fulfillmentFlatFeeLinkPPM: 0, fulfillmentFlatFeeEthPPM: 0});
+  VRFCoordinatorV2_5.FeeConfig basicFeeConfig =
+    VRFCoordinatorV2_5.FeeConfig({fulfillmentFlatFeeLinkPPM: 0, fulfillmentFlatFeeNativePPM: 0});
 
   function setUp() public override {
     BaseTest.setUp();
@@ -35,24 +35,24 @@ contract VRFV2PlusWrapperTest is BaseTest {
     vm.deal(LINK_WHALE, 10_000 ether);
     changePrank(LINK_WHALE);
 
-    // Deploy link token and link/eth feed.
+    // Deploy link token and link/native feed.
     s_linkToken = new MockLinkToken();
-    s_linkEthFeed = new MockV3Aggregator(18, 500000000000000000); // .5 ETH (good for testing)
+    s_linkNativeFeed = new MockV3Aggregator(18, 500000000000000000); // .5 ETH (good for testing)
 
     // Deploy coordinator and consumer.
-    s_testCoordinator = new ExposedVRFCoordinatorV2Plus(address(0));
-    s_wrapper = new VRFV2PlusWrapper(address(s_linkToken), address(s_linkEthFeed), address(s_testCoordinator));
+    s_testCoordinator = new ExposedVRFCoordinatorV2_5(address(0));
+    s_wrapper = new VRFV2PlusWrapper(address(s_linkToken), address(s_linkNativeFeed), address(s_testCoordinator));
     s_consumer = new VRFV2PlusWrapperConsumerExample(address(s_linkToken), address(s_wrapper));
 
     // Configure the coordinator.
-    s_testCoordinator.setLINKAndLINKETHFeed(address(s_linkToken), address(s_linkEthFeed));
+    s_testCoordinator.setLINKAndLINKNativeFeed(address(s_linkToken), address(s_linkNativeFeed));
     setConfigCoordinator(basicFeeConfig);
     setConfigWrapper();
 
     s_testCoordinator.s_config();
   }
 
-  function setConfigCoordinator(VRFCoordinatorV2Plus.FeeConfig memory feeConfig) internal {
+  function setConfigCoordinator(VRFCoordinatorV2_5.FeeConfig memory feeConfig) internal {
     s_testCoordinator.setConfig(
       0, // minRequestConfirmations
       2_500_000, // maxGasLimit
@@ -69,7 +69,11 @@ contract VRFV2PlusWrapperTest is BaseTest {
       coordinatorGasOverhead, // coordinator gas overhead
       0, // premium percentage
       vrfKeyHash, // keyHash
-      10 // max number of words
+      10, // max number of words,
+      1, // stalenessSeconds
+      50000000000000000, // fallbackWeiPerUnitLink
+      0, // fulfillmentFlatFeeLinkPPM
+      0 // fulfillmentFlatFeeNativePPM
     );
     (
       ,
@@ -100,14 +104,14 @@ contract VRFV2PlusWrapperTest is BaseTest {
     address indexed sender
   );
 
-  function testSetLinkAndLinkEthFeed() public {
+  function testSetLinkAndLinkNativeFeed() public {
     VRFV2PlusWrapper wrapper = new VRFV2PlusWrapper(address(0), address(0), address(s_testCoordinator));
 
-    // Set LINK and LINK/ETH feed on wrapper.
+    // Set LINK and LINK/Native feed on wrapper.
     wrapper.setLINK(address(s_linkToken));
-    wrapper.setLinkEthFeed(address(s_linkEthFeed));
+    wrapper.setLinkNativeFeed(address(s_linkNativeFeed));
     assertEq(address(wrapper.s_link()), address(s_linkToken));
-    assertEq(address(wrapper.s_linkEthFeed()), address(s_linkEthFeed));
+    assertEq(address(wrapper.s_linkNativeFeed()), address(s_linkNativeFeed));
 
     // Revert for subsequent assignment.
     vm.expectRevert(VRFV2PlusWrapper.LinkAlreadySet.selector);
@@ -124,7 +128,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
 
   function testRequestAndFulfillRandomWordsNativeWrapper() public {
     // Fund subscription.
-    s_testCoordinator.fundSubscriptionWithEth{value: 10 ether}(s_wrapper.SUBSCRIPTION_ID());
+    s_testCoordinator.fundSubscriptionWithNative{value: 10 ether}(s_wrapper.SUBSCRIPTION_ID());
     vm.deal(address(s_consumer), 10 ether);
 
     // Get type and version.
@@ -222,7 +226,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
     uint32 expectedPaid = (callbackGasLimit + wrapperGasOverhead + coordinatorGasOverhead) * 2;
     uint256 wrapperCostEstimate = s_wrapper.estimateRequestPrice(callbackGasLimit, tx.gasprice);
     uint256 wrapperCostCalculation = s_wrapper.calculateRequestPrice(callbackGasLimit);
-    assertEq(paid, expectedPaid); // 1_030_000 * 2 for link/eth ratio
+    assertEq(paid, expectedPaid); // 1_030_000 * 2 for link/native ratio
     assertEq(uint256(paid), wrapperCostEstimate);
     assertEq(wrapperCostEstimate, wrapperCostCalculation);
     assertEq(fulfilled, false);

@@ -2,7 +2,6 @@
 pragma solidity ^0.8.4;
 
 import {AddressAliasHelper} from "../../../vendor/arb-bridge-eth/v0.8.0-custom/contracts/libraries/AddressAliasHelper.sol";
-import {ForwarderInterface} from "./../interfaces/ForwarderInterface.sol";
 import {AggregatorInterface} from "../../../interfaces/AggregatorInterface.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
 import {AggregatorV2V3Interface} from "../../../interfaces/AggregatorV2V3Interface.sol";
@@ -10,7 +9,6 @@ import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterfa
 import {FlagsInterface} from "./../../../dev/interfaces/FlagsInterface.sol";
 import {ArbitrumSequencerUptimeFeedInterface} from "../interfaces/ArbitrumSequencerUptimeFeedInterface.sol";
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
-import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 
 /**
  * @title ArbitrumSequencerUptimeFeed - L2 sequencer uptime status aggregator

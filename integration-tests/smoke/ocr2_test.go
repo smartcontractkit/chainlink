@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
 	"testing"
 	"time"
@@ -34,7 +35,7 @@ func TestOCRv2Basic(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
 		WithGeth().
-		WithMockServer(1).
+		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
 			node.WithOCR2(),
 			node.WithP2Pv2(),
@@ -74,7 +75,7 @@ func TestOCRv2Basic(t *testing.T) {
 	aggregatorContracts, err := actions.DeployOCRv2Contracts(1, linkToken, env.ContractDeployer, transmitters, env.EVMClient, ocrOffchainOptions)
 	require.NoError(t, err, "Error deploying OCRv2 aggregator contracts")
 
-	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockServer.Client, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), false)
+	err = actions.CreateOCRv2JobsLocal(aggregatorContracts, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), false)
 	require.NoError(t, err, "Error creating OCRv2 jobs")
 
 	ocrv2Config, err := actions.BuildMedianOCR2ConfigLocal(workerNodes, ocrOffchainOptions)
@@ -92,7 +93,7 @@ func TestOCRv2Basic(t *testing.T) {
 		roundData.Answer.Int64(),
 	)
 
-	err = env.MockServer.Client.SetValuePath("ocr2", 10)
+	err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, 10)
 	require.NoError(t, err)
 	err = actions.StartNewOCR2Round(2, aggregatorContracts, env.EVMClient, time.Minute*5, l)
 	require.NoError(t, err)
@@ -126,10 +127,10 @@ func setupOCR2Test(t *testing.T, forwardersEnabled bool) (
 		toml = client.AddNetworksConfig(config.BaseOCR2Config, testNetwork)
 	}
 
-	chainlinkChart, err := chainlink.NewDeployment(6, map[string]interface{}{
-		"toml": toml,
+	chainlinkChart := chainlink.New(0, map[string]interface{}{
+		"replicas": 6,
+		"toml":     toml,
 	})
-	require.NoError(t, err, "Error creating chainlink deployment")
 
 	testEnvironment = environment.New(&environment.Config{
 		NamespacePrefix: fmt.Sprintf("smoke-ocr2-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
@@ -138,8 +139,8 @@ func setupOCR2Test(t *testing.T, forwardersEnabled bool) (
 		AddHelm(mockservercfg.New(nil)).
 		AddHelm(mockserver.New(nil)).
 		AddHelm(evmConfig).
-		AddHelmCharts(chainlinkChart)
-	err = testEnvironment.Run()
+		AddHelm(chainlinkChart)
+	err := testEnvironment.Run()
 	require.NoError(t, err, "Error running test environment")
 	return testEnvironment, testNetwork
 }

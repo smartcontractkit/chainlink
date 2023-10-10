@@ -3,8 +3,9 @@
 package mocks
 
 import (
+	context "context"
+
 	types "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	mock "github.com/stretchr/testify/mock"
 
 	uuid "github.com/google/uuid"
@@ -15,23 +16,23 @@ type TxStrategy struct {
 	mock.Mock
 }
 
-// PruneQueue provides a mock function with given fields: pruneService, qopt
-func (_m *TxStrategy) PruneQueue(pruneService types.UnstartedTxQueuePruner, qopt pg.QOpt) (int64, error) {
-	ret := _m.Called(pruneService, qopt)
+// PruneQueue provides a mock function with given fields: ctx, pruneService
+func (_m *TxStrategy) PruneQueue(ctx context.Context, pruneService types.UnstartedTxQueuePruner) (int64, error) {
+	ret := _m.Called(ctx, pruneService)
 
 	var r0 int64
 	var r1 error
-	if rf, ok := ret.Get(0).(func(types.UnstartedTxQueuePruner, pg.QOpt) (int64, error)); ok {
-		return rf(pruneService, qopt)
+	if rf, ok := ret.Get(0).(func(context.Context, types.UnstartedTxQueuePruner) (int64, error)); ok {
+		return rf(ctx, pruneService)
 	}
-	if rf, ok := ret.Get(0).(func(types.UnstartedTxQueuePruner, pg.QOpt) int64); ok {
-		r0 = rf(pruneService, qopt)
+	if rf, ok := ret.Get(0).(func(context.Context, types.UnstartedTxQueuePruner) int64); ok {
+		r0 = rf(ctx, pruneService)
 	} else {
 		r0 = ret.Get(0).(int64)
 	}
 
-	if rf, ok := ret.Get(1).(func(types.UnstartedTxQueuePruner, pg.QOpt) error); ok {
-		r1 = rf(pruneService, qopt)
+	if rf, ok := ret.Get(1).(func(context.Context, types.UnstartedTxQueuePruner) error); ok {
+		r1 = rf(ctx, pruneService)
 	} else {
 		r1 = ret.Error(1)
 	}

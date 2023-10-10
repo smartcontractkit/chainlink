@@ -204,7 +204,7 @@ func (s *Shell) CreateUser(c *cli.Context) (err error) {
 	}()
 	var links jsonapi.Links
 	var users AdminUsersPresenters
-	if err := s.deserializeAPIResponse(resp, &users, &links); err != nil {
+	if err = s.deserializeAPIResponse(resp, &users, &links); err != nil {
 		return s.errorOut(err)
 	}
 	for _, user := range users {
@@ -316,8 +316,7 @@ func (s *Shell) Profile(c *cli.Context) error {
 
 	genDir := filepath.Join(baseDir, fmt.Sprintf("debuginfo-%s", time.Now().Format(time.RFC3339)))
 
-	err := os.Mkdir(genDir, 0o755)
-	if err != nil {
+	if err := os.Mkdir(genDir, 0o755); err != nil {
 		return s.errorOut(err)
 	}
 	var wgPprof sync.WaitGroup

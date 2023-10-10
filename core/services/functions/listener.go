@@ -490,15 +490,6 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID Request
 	requestIDStr := formatRequestId(requestID)
 	l.logger.Infow("processing request", "requestID", requestIDStr)
 
-	if l.pluginConfig.ContractVersion == 1 && l.pluginConfig.EnableRequestSignatureCheck {
-		err := VerifyRequestSignature(subscriptionOwner, requestData)
-		if err != nil {
-			l.logger.Errorw("invalid request signature", "requestID", requestIDStr, "err", err)
-			l.setError(ctx, requestID, USER_ERROR, []byte(err.Error()))
-			return
-		}
-	}
-
 	eaClient, err := l.bridgeAccessor.NewExternalAdapterClient()
 	if err != nil {
 		l.logger.Errorw("failed to create ExternalAdapterClient", "requestID", requestIDStr, "err", err)
@@ -724,7 +715,7 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 			Version: donSecrets.Version,
 		})
 		if err != nil {
-			return "", errors.Wrap(err, "failed to fetch S4 record for a secret"), nil
+			return "", errors.Wrap(err, "failed to fetch DONHosted secrets"), nil
 		}
 		secrets = record.Payload
 	}

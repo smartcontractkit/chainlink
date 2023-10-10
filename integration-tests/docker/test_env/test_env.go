@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -45,7 +46,7 @@ type CLClusterTestEnv struct {
 	CLNodes          []*ClNode
 	Geth             *test_env.Geth          // for tests using --dev networks
 	PrivateChain     []test_env.PrivateChain // for tests using non-dev networks
-	MockServer       *test_env.MockServer
+	MockAdapter      *test_env.Killgrave
 	EVMClient        blockchain.EVMClient
 	ContractDeployer contracts.ContractDeployer
 	ContractLoader   contracts.ContractLoader
@@ -59,38 +60,31 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 	if err != nil {
 		return nil, err
 	}
-	networks := []string{network.Name}
+	n := []string{network.Name}
 	return &CLClusterTestEnv{
-		Network:    network,
-		Geth:       test_env.NewGeth(networks),
-		MockServer: test_env.NewMockServer(networks),
-		l:          log.Logger,
+		Geth:        test_env.NewGeth(n),
+		MockAdapter: test_env.NewKillgrave(n, ""),
+		Network:     network,
+		l:           log.Logger,
 	}, nil
+}
+
+// WithTestEnvConfig sets the test environment cfg.
+// Sets up the Geth and MockAdapter containers with the provided cfg.
+func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTestEnv {
+	te.Cfg = cfg
+	n := []string{te.Network.Name}
+	te.Geth = test_env.NewGeth(n, test_env.WithContainerName(te.Cfg.Geth.ContainerName))
+	te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName))
+	return te
 }
 
 func (te *CLClusterTestEnv) WithTestLogger(t *testing.T) *CLClusterTestEnv {
 	te.t = t
 	te.l = logging.GetTestLogger(t)
 	te.Geth.WithTestLogger(t)
-	te.MockServer.WithTestLogger(t)
+	te.MockAdapter.WithTestLogger(t)
 	return te
-}
-
-func NewTestEnvFromCfg(l zerolog.Logger, cfg *TestEnvConfig) (*CLClusterTestEnv, error) {
-	utils.SetupCoreDockerEnvLogger()
-	network, err := docker.CreateNetwork(log.Logger)
-	if err != nil {
-		return nil, err
-	}
-	networks := []string{network.Name}
-	l.Info().Interface("Cfg", cfg).Send()
-	return &CLClusterTestEnv{
-		Cfg:        cfg,
-		Network:    network,
-		Geth:       test_env.NewGeth(networks, test_env.WithContainerName(cfg.Geth.ContainerName)),
-		MockServer: test_env.NewMockServer(networks, test_env.WithContainerName(cfg.MockServer.ContainerName)),
-		l:          log.Logger,
-	}, nil
 }
 
 func (te *CLClusterTestEnv) ParallelTransactions(enabled bool) {
@@ -123,7 +117,7 @@ func (te *CLClusterTestEnv) StartPrivateChain() error {
 	for _, chain := range te.PrivateChain {
 		primaryNode := chain.GetPrimaryNode()
 		if primaryNode == nil {
-			return errors.WithStack(fmt.Errorf("Primary node is nil in PrivateChain interface"))
+			return errors.WithStack(fmt.Errorf("primary node is nil in PrivateChain interface"))
 		}
 		err := primaryNode.Start()
 		if err != nil {
@@ -141,8 +135,8 @@ func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, test_env.Interna
 	return te.Geth.StartContainer()
 }
 
-func (te *CLClusterTestEnv) StartMockServer() error {
-	return te.MockServer.StartContainer()
+func (te *CLClusterTestEnv) StartMockAdapter() error {
+	return te.MockAdapter.StartContainer()
 }
 
 func (te *CLClusterTestEnv) GetAPIs() []*client.ChainlinkClient {
@@ -154,7 +148,7 @@ func (te *CLClusterTestEnv) GetAPIs() []*client.ChainlinkClient {
 }
 
 // StartClNodes start one bootstrap node and {count} OCR nodes
-func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int) error {
+func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int, secretsConfig string) error {
 	eg := &errgroup.Group{}
 	nodes := make(chan *ClNode, count)
 
@@ -168,6 +162,7 @@ func (te *CLClusterTestEnv) StartClNodes(nodeConfig *chainlink.Config, count int
 				dbContainerName = te.Cfg.Nodes[nodeIndex].DbContainerName
 			}
 			n := NewClNode([]string{te.Network.Name}, nodeConfig,
+				WithSecrets(secretsConfig),
 				WithNodeContainerName(nodeContainerName),
 				WithDbContainerName(dbContainerName),
 			)
@@ -246,6 +241,45 @@ func (te *CLClusterTestEnv) Cleanup(t *testing.T) error {
 		return errors.New("chainlink nodes are nil, unable to return funds from chainlink nodes")
 	}
 
+	// TODO: This is an imperfect and temporary solution, see TT-590 for a more sustainable solution
+	// Collect logs if the test fails, or if we just want them
+	if t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
+		folder := fmt.Sprintf("./logs/%s-%s", t.Name(), time.Now().Format("2006-01-02T15-04-05"))
+		if err := os.MkdirAll(folder, os.ModePerm); err != nil {
+			return err
+		}
+
+		te.l.Info().Msg("Collecting test logs")
+		eg := &errgroup.Group{}
+		for _, n := range te.CLNodes {
+			node := n
+			eg.Go(func() error {
+				logFileName := filepath.Join(folder, fmt.Sprintf("node-%s.log", node.ContainerName))
+				logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY, 0644)
+				if err != nil {
+					return err
+				}
+				defer logFile.Close()
+				logReader, err := node.Container.Logs(context.Background())
+				if err != nil {
+					return err
+				}
+				_, err = io.Copy(logFile, logReader)
+				if err != nil {
+					return err
+				}
+				te.l.Info().Str("Node", node.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
+				return nil
+			})
+		}
+
+		if err := eg.Wait(); err != nil {
+			return err
+		}
+
+		te.l.Info().Str("Logs Location", folder).Msg("Wrote test logs")
+	}
+
 	// Check if we need to return funds
 	if te.EVMClient.NetworkSimulated() {
 		te.l.Info().Str("Network Name", te.EVMClient.GetNetworkName()).
@@ -274,47 +308,6 @@ func (te *CLClusterTestEnv) Cleanup(t *testing.T) error {
 			}
 		}
 	}
-
-	// TODO: This is an imperfect and temporary solution, see TT-590 for a more sustainable solution
-	// Collect logs if the test failed
-	if !t.Failed() {
-		return nil
-	}
-
-	folder := fmt.Sprintf("./logs/%s-%s", t.Name(), time.Now().Format("2006-01-02T15-04-05"))
-	if err := os.MkdirAll(folder, os.ModePerm); err != nil {
-		return err
-	}
-
-	te.l.Warn().Msg("Test failed, collecting logs")
-	eg := &errgroup.Group{}
-	for _, n := range te.CLNodes {
-		node := n
-		eg.Go(func() error {
-			logFileName := filepath.Join(folder, fmt.Sprintf("node-%s.log", node.ContainerName))
-			logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY, 0644)
-			if err != nil {
-				return err
-			}
-			defer logFile.Close()
-			logReader, err := node.Container.Logs(context.Background())
-			if err != nil {
-				return err
-			}
-			_, err = io.Copy(logFile, logReader)
-			if err != nil {
-				return err
-			}
-			te.l.Info().Str("Node", node.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
-			return nil
-		})
-	}
-
-	if err := eg.Wait(); err != nil {
-		return err
-	}
-
-	te.l.Info().Str("Logs Location", folder).Msg("Wrote Logs for Failed Test")
 
 	return nil
 }

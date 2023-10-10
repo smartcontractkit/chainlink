@@ -33,13 +33,16 @@ import (
 func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	t.Parallel()
 
+	app := cltest.NewApplicationEVMDisabled(t)
+	u := cltest.NewUserWithSession(t, app.SessionORM())
+
 	tests := []struct {
 		name, email, pwd string
 	}{
 		{"bad email", "notreal", cltest.Password},
-		{"bad pwd", cltest.APIEmailAdmin, "mostcommonwrongpwdever"},
+		{"bad pwd", u.Email, "mostcommonwrongpwdever"},
 		{"bad both", "notreal", "mostcommonwrongpwdever"},
-		{"correct", cltest.APIEmailAdmin, cltest.Password},
+		{"correct", u.Email, cltest.Password},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -63,14 +66,16 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
+	u := cltest.NewUserWithSession(t, app.SessionORM())
+
 	tests := []struct {
 		name, email, pwd string
 		wantError        bool
 	}{
 		{"bad email", "notreal", cltest.Password, true},
-		{"bad pwd", cltest.APIEmailAdmin, "mostcommonwrongpwdever", true},
+		{"bad pwd", u.Email, "mostcommonwrongpwdever", true},
 		{"bad both", "notreal", "mostcommonwrongpwdever", true},
-		{"success", cltest.APIEmailAdmin, cltest.Password, false},
+		{"success", u.Email, cltest.Password, false},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -370,8 +375,6 @@ func TestSetupSolanaRelayer(t *testing.T) {
 
 	rf := chainlink.RelayerFactory{
 		Logger:       lggr,
-		DB:           pgtest.NewSqlxDB(t),
-		QConfig:      tConfig.Database(),
 		LoopRegistry: reg,
 	}
 
@@ -457,8 +460,6 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 	})
 	rf := chainlink.RelayerFactory{
 		Logger:       lggr,
-		DB:           pgtest.NewSqlxDB(t),
-		QConfig:      tConfig.Database(),
 		LoopRegistry: reg,
 	}
 

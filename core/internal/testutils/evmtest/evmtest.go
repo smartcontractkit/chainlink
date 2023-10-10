@@ -3,6 +3,7 @@ package evmtest
 import (
 	"fmt"
 	"math/big"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -12,7 +13,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
@@ -82,13 +82,13 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayEx
 	require.NotNil(t, testopts.KeyStore)
 	opts := evm.ChainRelayExtenderConfig{
 		Logger:   logger.TestLogger(t),
-		DB:       testopts.DB,
 		KeyStore: testopts.KeyStore,
-		RelayerConfig: &evm.RelayerConfig{
+		ChainOpts: evm.ChainOpts{
 			AppConfig:        testopts.GeneralConfig,
 			EventBroadcaster: pg.NewNullEventBroadcaster(),
 			MailMon:          testopts.MailMon,
 			GasEstimator:     testopts.GasEstimator,
+			DB:               testopts.DB,
 		},
 	}
 	opts.GenEthClient = func(*big.Int) evmclient.Client {

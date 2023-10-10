@@ -1,49 +1,49 @@
 pragma solidity 0.8.6;
 
 import "../BaseTest.t.sol";
-import {ExposedVRFCoordinatorV2Plus} from "../../../../src/v0.8/dev/vrf/testhelpers/ExposedVRFCoordinatorV2Plus.sol";
-import {SubscriptionAPI} from "../../../../src/v0.8/dev/vrf/SubscriptionAPI.sol";
+import {ExposedVRFCoordinatorV2_5} from "../../../../src/v0.8/vrf/dev/testhelpers/ExposedVRFCoordinatorV2_5.sol";
+import {SubscriptionAPI} from "../../../../src/v0.8/vrf/dev/SubscriptionAPI.sol";
 import {MockLinkToken} from "../../../../src/v0.8/mocks/MockLinkToken.sol";
 import {MockV3Aggregator} from "../../../../src/v0.8/tests/MockV3Aggregator.sol";
 import "@openzeppelin/contracts/utils/Strings.sol"; // for Strings.toString
 
 contract VRFV2PlusSubscriptionAPITest is BaseTest {
   event SubscriptionFunded(uint256 indexed subId, uint256 oldBalance, uint256 newBalance);
-  event SubscriptionFundedWithEth(uint256 indexed subId, uint256 oldEthBalance, uint256 newEthBalance);
-  event SubscriptionCanceled(uint256 indexed subId, address to, uint256 amountLink, uint256 amountEth);
+  event SubscriptionFundedWithNative(uint256 indexed subId, uint256 oldNativeBalance, uint256 newNativeBalance);
+  event SubscriptionCanceled(uint256 indexed subId, address to, uint256 amountLink, uint256 amountNative);
   event FundsRecovered(address to, uint256 amountLink);
-  event EthFundsRecovered(address to, uint256 amountEth);
+  event NativeFundsRecovered(address to, uint256 amountNative);
   event SubscriptionOwnerTransferRequested(uint256 indexed subId, address from, address to);
   event SubscriptionOwnerTransferred(uint256 indexed subId, address from, address to);
   event SubscriptionConsumerAdded(uint256 indexed subId, address consumer);
 
-  ExposedVRFCoordinatorV2Plus s_subscriptionAPI;
+  ExposedVRFCoordinatorV2_5 s_subscriptionAPI;
 
   function setUp() public override {
     BaseTest.setUp();
     address bhs = makeAddr("bhs");
-    s_subscriptionAPI = new ExposedVRFCoordinatorV2Plus(bhs);
+    s_subscriptionAPI = new ExposedVRFCoordinatorV2_5(bhs);
   }
 
   function testDefaultState() public {
     assertEq(address(s_subscriptionAPI.LINK()), address(0));
-    assertEq(address(s_subscriptionAPI.LINK_ETH_FEED()), address(0));
+    assertEq(address(s_subscriptionAPI.LINK_NATIVE_FEED()), address(0));
     assertEq(s_subscriptionAPI.s_currentSubNonce(), 0);
     assertEq(s_subscriptionAPI.getActiveSubscriptionIdsLength(), 0);
     assertEq(s_subscriptionAPI.s_totalBalance(), 0);
-    assertEq(s_subscriptionAPI.s_totalEthBalance(), 0);
+    assertEq(s_subscriptionAPI.s_totalNativeBalance(), 0);
   }
 
-  function testSetLINKAndLINKETHFeed() public {
+  function testSetLINKAndLINKNativeFeed() public {
     address link = makeAddr("link");
-    address linkEthFeed = makeAddr("linkEthFeed");
-    s_subscriptionAPI.setLINKAndLINKETHFeed(link, linkEthFeed);
+    address linkNativeFeed = makeAddr("linkNativeFeed");
+    s_subscriptionAPI.setLINKAndLINKNativeFeed(link, linkNativeFeed);
     assertEq(address(s_subscriptionAPI.LINK()), link);
-    assertEq(address(s_subscriptionAPI.LINK_ETH_FEED()), linkEthFeed);
+    assertEq(address(s_subscriptionAPI.LINK_NATIVE_FEED()), linkNativeFeed);
 
     // try setting it again, should revert
     vm.expectRevert(SubscriptionAPI.LinkAlreadySet.selector);
-    s_subscriptionAPI.setLINKAndLINKETHFeed(link, linkEthFeed);
+    s_subscriptionAPI.setLINKAndLINKNativeFeed(link, linkNativeFeed);
   }
 
   function testOwnerCancelSubscriptionNoFunds() public {
@@ -88,8 +88,8 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     // fund the subscription with ether
     vm.deal(subOwner, 10 ether);
     vm.expectEmit(true, false, false, true);
-    emit SubscriptionFundedWithEth(subId, 0, 5 ether);
-    s_subscriptionAPI.fundSubscriptionWithEth{value: 5 ether}(subId);
+    emit SubscriptionFundedWithNative(subId, 0, 5 ether);
+    s_subscriptionAPI.fundSubscriptionWithNative{value: 5 ether}(subId);
 
     // change back to owner and cancel the subscription
     changePrank(OWNER);
@@ -100,9 +100,9 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     // assert that the subscription no longer exists
     assertEq(s_subscriptionAPI.getActiveSubscriptionIdsLength(), 0);
     assertEq(s_subscriptionAPI.getSubscriptionConfig(subId).owner, address(0));
-    assertEq(s_subscriptionAPI.getSubscriptionStruct(subId).ethBalance, 0);
+    assertEq(s_subscriptionAPI.getSubscriptionStruct(subId).nativeBalance, 0);
 
-    // check the ether balance of the subOwner, should be 10 ether
+    // check the native balance of the subOwner, should be 10 ether
     assertEq(address(subOwner).balance, 10 ether);
   }
 
@@ -113,7 +113,7 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
 
     // Create link token and set the link token on the subscription api object
     MockLinkToken linkToken = new MockLinkToken();
-    s_subscriptionAPI.setLINKAndLINKETHFeed(address(linkToken), address(0));
+    s_subscriptionAPI.setLINKAndLINKNativeFeed(address(linkToken), address(0));
     assertEq(address(s_subscriptionAPI.LINK()), address(linkToken));
 
     // Create the subscription from a separate address
@@ -151,7 +151,7 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
 
     // Create link token and set the link token on the subscription api object
     MockLinkToken linkToken = new MockLinkToken();
-    s_subscriptionAPI.setLINKAndLINKETHFeed(address(linkToken), address(0));
+    s_subscriptionAPI.setLINKAndLINKNativeFeed(address(linkToken), address(0));
     assertEq(address(s_subscriptionAPI.LINK()), address(linkToken));
 
     // Create the subscription from a separate address
@@ -172,8 +172,8 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     vm.deal(subOwner, 10 ether);
     changePrank(subOwner);
     vm.expectEmit(true, false, false, true);
-    emit SubscriptionFundedWithEth(subId, 0, 5 ether);
-    s_subscriptionAPI.fundSubscriptionWithEth{value: 5 ether}(subId);
+    emit SubscriptionFundedWithNative(subId, 0, 5 ether);
+    s_subscriptionAPI.fundSubscriptionWithNative{value: 5 ether}(subId);
 
     // change back to owner and cancel the subscription
     changePrank(OWNER);
@@ -185,12 +185,12 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     assertEq(s_subscriptionAPI.getActiveSubscriptionIdsLength(), 0);
     assertEq(s_subscriptionAPI.getSubscriptionConfig(subId).owner, address(0));
     assertEq(s_subscriptionAPI.getSubscriptionStruct(subId).balance, 0);
-    assertEq(s_subscriptionAPI.getSubscriptionStruct(subId).ethBalance, 0);
+    assertEq(s_subscriptionAPI.getSubscriptionStruct(subId).nativeBalance, 0);
 
     // check the link balance of the sub owner, should be 5 LINK
     assertEq(linkToken.balanceOf(subOwner), 5 ether, "link balance incorrect");
     // check the ether balance of the sub owner, should be 10 ether
-    assertEq(address(subOwner).balance, 10 ether, "eth balance incorrect");
+    assertEq(address(subOwner).balance, 10 ether, "native balance incorrect");
   }
 
   function testRecoverFundsLINKNotSet() public {
@@ -208,7 +208,7 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
 
     // Create link token and set the link token on the subscription api object
     MockLinkToken linkToken = new MockLinkToken();
-    s_subscriptionAPI.setLINKAndLINKETHFeed(address(linkToken), address(0));
+    s_subscriptionAPI.setLINKAndLINKNativeFeed(address(linkToken), address(0));
     assertEq(address(s_subscriptionAPI.LINK()), address(linkToken));
 
     // set the total balance to be greater than the external balance
@@ -230,7 +230,7 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
 
     // Create link token and set the link token on the subscription api object
     MockLinkToken linkToken = new MockLinkToken();
-    s_subscriptionAPI.setLINKAndLINKETHFeed(address(linkToken), address(0));
+    s_subscriptionAPI.setLINKAndLINKNativeFeed(address(linkToken), address(0));
     assertEq(address(s_subscriptionAPI.LINK()), address(linkToken));
 
     // transfer 10 LINK to the contract to recover
@@ -250,7 +250,7 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
 
     // Create link token and set the link token on the subscription api object
     MockLinkToken linkToken = new MockLinkToken();
-    s_subscriptionAPI.setLINKAndLINKETHFeed(address(linkToken), address(0));
+    s_subscriptionAPI.setLINKAndLINKNativeFeed(address(linkToken), address(0));
     assertEq(address(s_subscriptionAPI.LINK()), address(linkToken));
 
     // create a subscription and fund it with 5 LINK
@@ -272,29 +272,29 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     assertEq(linkToken.balanceOf(address(s_subscriptionAPI)), s_subscriptionAPI.s_totalBalance());
   }
 
-  function testRecoverEthFundsBalanceInvariantViolated() public {
+  function testRecoverNativeFundsBalanceInvariantViolated() public {
     // set the total balance to be greater than the external balance
     // so that we trigger the invariant violation
     // note that this field is not modifiable in the actual contracts
     // other than through onTokenTransfer or similar functions
-    s_subscriptionAPI.setTotalEthBalanceTestingOnlyXXX(100 ether);
+    s_subscriptionAPI.setTotalNativeBalanceTestingOnlyXXX(100 ether);
 
     // call recoverFunds
     vm.expectRevert(abi.encodeWithSelector(SubscriptionAPI.BalanceInvariantViolated.selector, 100 ether, 0));
-    s_subscriptionAPI.recoverEthFunds(payable(OWNER));
+    s_subscriptionAPI.recoverNativeFunds(payable(OWNER));
   }
 
-  function testRecoverEthFundsAmountToTransfer() public {
+  function testRecoverNativeFundsAmountToTransfer() public {
     // transfer 10 LINK to the contract to recover
     vm.deal(address(s_subscriptionAPI), 10 ether);
 
     // call recoverFunds
     vm.expectEmit(true, false, false, true);
-    emit EthFundsRecovered(OWNER, 10 ether);
-    s_subscriptionAPI.recoverEthFunds(payable(OWNER));
+    emit NativeFundsRecovered(OWNER, 10 ether);
+    s_subscriptionAPI.recoverNativeFunds(payable(OWNER));
   }
 
-  function testRecoverEthFundsNothingToTransfer() public {
+  function testRecoverNativeFundsNothingToTransfer() public {
     // create a subscription and fund it with 5 ether
     address subOwner = makeAddr("subOwner");
     changePrank(subOwner);
@@ -306,13 +306,13 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     vm.deal(subOwner, 5 ether);
     changePrank(subOwner);
     vm.expectEmit(true, false, false, true);
-    emit SubscriptionFundedWithEth(subId, 0, 5 ether);
-    s_subscriptionAPI.fundSubscriptionWithEth{value: 5 ether}(subId);
+    emit SubscriptionFundedWithNative(subId, 0, 5 ether);
+    s_subscriptionAPI.fundSubscriptionWithNative{value: 5 ether}(subId);
 
-    // call recoverEthFunds, nothing should happen because external balance == internal balance
+    // call recoverNativeFunds, nothing should happen because external balance == internal balance
     changePrank(OWNER);
-    s_subscriptionAPI.recoverEthFunds(payable(OWNER));
-    assertEq(address(s_subscriptionAPI).balance, s_subscriptionAPI.s_totalEthBalance());
+    s_subscriptionAPI.recoverNativeFunds(payable(OWNER));
+    assertEq(address(s_subscriptionAPI).balance, s_subscriptionAPI.s_totalNativeBalance());
   }
 
   function testOracleWithdrawNoLink() public {
@@ -325,7 +325,7 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     // CASE: link token set, trying to withdraw
     // more than balance
     MockLinkToken linkToken = new MockLinkToken();
-    s_subscriptionAPI.setLINKAndLINKETHFeed(address(linkToken), address(0));
+    s_subscriptionAPI.setLINKAndLINKNativeFeed(address(linkToken), address(0));
     assertEq(address(s_subscriptionAPI.LINK()), address(linkToken));
 
     // call oracleWithdraw
@@ -337,7 +337,7 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     // CASE: link token set, trying to withdraw
     // less than balance
     MockLinkToken linkToken = new MockLinkToken();
-    s_subscriptionAPI.setLINKAndLINKETHFeed(address(linkToken), address(0));
+    s_subscriptionAPI.setLINKAndLINKNativeFeed(address(linkToken), address(0));
     assertEq(address(s_subscriptionAPI.LINK()), address(linkToken));
 
     // transfer 10 LINK to the contract to withdraw
@@ -364,16 +364,16 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     assertEq(s_subscriptionAPI.s_totalBalance(), 9 ether, "total balance incorrect");
   }
 
-  function testOracleWithdrawEthInsufficientBalance() public {
+  function testOracleWithdrawNativeInsufficientBalance() public {
     // CASE: trying to withdraw more than balance
     // should revert with InsufficientBalance
 
-    // call oracleWithdrawEth
+    // call oracleWithdrawNative
     vm.expectRevert(SubscriptionAPI.InsufficientBalance.selector);
-    s_subscriptionAPI.oracleWithdrawEth(payable(OWNER), 1 ether);
+    s_subscriptionAPI.oracleWithdrawNative(payable(OWNER), 1 ether);
   }
 
-  function testOracleWithdrawEthSufficientBalance() public {
+  function testOracleWithdrawNativeSufficientBalance() public {
     // CASE: trying to withdraw less than balance
     // should withdraw successfully
 
@@ -382,22 +382,22 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
 
     // set the withdrawable eth of the oracle to be 1 ether
     address oracle = makeAddr("oracle");
-    s_subscriptionAPI.setWithdrawableEthTestingOnlyXXX(oracle, 1 ether);
-    assertEq(s_subscriptionAPI.getWithdrawableEthTestingOnlyXXX(oracle), 1 ether);
+    s_subscriptionAPI.setWithdrawableNativeTestingOnlyXXX(oracle, 1 ether);
+    assertEq(s_subscriptionAPI.getWithdrawableNativeTestingOnlyXXX(oracle), 1 ether);
 
     // set the total balance to be the same as the eth balance for consistency
     // (this is not necessary for the test, but just to be sane)
-    s_subscriptionAPI.setTotalEthBalanceTestingOnlyXXX(10 ether);
+    s_subscriptionAPI.setTotalNativeBalanceTestingOnlyXXX(10 ether);
 
-    // call oracleWithdrawEth from oracle address
+    // call oracleWithdrawNative from oracle address
     changePrank(oracle);
-    s_subscriptionAPI.oracleWithdrawEth(payable(oracle), 1 ether);
-    // assert eth balance of oracle
-    assertEq(address(oracle).balance, 1 ether, "oracle eth balance incorrect");
+    s_subscriptionAPI.oracleWithdrawNative(payable(oracle), 1 ether);
+    // assert native balance of oracle
+    assertEq(address(oracle).balance, 1 ether, "oracle native balance incorrect");
     // assert state of subscription api
-    assertEq(s_subscriptionAPI.getWithdrawableEthTestingOnlyXXX(oracle), 0, "oracle withdrawable eth incorrect");
+    assertEq(s_subscriptionAPI.getWithdrawableNativeTestingOnlyXXX(oracle), 0, "oracle withdrawable native incorrect");
     // assert that total balance is changed by the withdrawn amount
-    assertEq(s_subscriptionAPI.s_totalEthBalance(), 9 ether, "total eth balance incorrect");
+    assertEq(s_subscriptionAPI.s_totalNativeBalance(), 9 ether, "total native balance incorrect");
   }
 
   function testOnTokenTransferCallerNotLink() public {
@@ -408,7 +408,7 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
   function testOnTokenTransferInvalidCalldata() public {
     // create and set link token on subscription api
     MockLinkToken linkToken = new MockLinkToken();
-    s_subscriptionAPI.setLINKAndLINKETHFeed(address(linkToken), address(0));
+    s_subscriptionAPI.setLINKAndLINKNativeFeed(address(linkToken), address(0));
     assertEq(address(s_subscriptionAPI.LINK()), address(linkToken));
 
     // call link.transferAndCall with invalid calldata
@@ -419,7 +419,7 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
   function testOnTokenTransferInvalidSubscriptionId() public {
     // create and set link token on subscription api
     MockLinkToken linkToken = new MockLinkToken();
-    s_subscriptionAPI.setLINKAndLINKETHFeed(address(linkToken), address(0));
+    s_subscriptionAPI.setLINKAndLINKNativeFeed(address(linkToken), address(0));
     assertEq(address(s_subscriptionAPI.LINK()), address(linkToken));
 
     // generate bogus sub id
@@ -434,7 +434,7 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     // happy path link funding test
     // create and set link token on subscription api
     MockLinkToken linkToken = new MockLinkToken();
-    s_subscriptionAPI.setLINKAndLINKETHFeed(address(linkToken), address(0));
+    s_subscriptionAPI.setLINKAndLINKNativeFeed(address(linkToken), address(0));
     assertEq(address(s_subscriptionAPI.LINK()), address(linkToken));
 
     // create a subscription and fund it with 5 LINK
@@ -455,40 +455,40 @@ contract VRFV2PlusSubscriptionAPITest is BaseTest {
     assertEq(s_subscriptionAPI.getSubscriptionStruct(subId).balance, 5 ether);
   }
 
-  function testFundSubscriptionWithEthInvalidSubscriptionId() public {
+  function testFundSubscriptionWithNativeInvalidSubscriptionId() public {
     // CASE: invalid subscription id
     // should revert with InvalidSubscription
 
     uint256 subId = uint256(keccak256("idontexist"));
 
-    // try to fund the subscription with ether, should fail
+    // try to fund the subscription with native, should fail
     address funder = makeAddr("funder");
     vm.deal(funder, 5 ether);
     changePrank(funder);
     vm.expectRevert(SubscriptionAPI.InvalidSubscription.selector);
-    s_subscriptionAPI.fundSubscriptionWithEth{value: 5 ether}(subId);
+    s_subscriptionAPI.fundSubscriptionWithNative{value: 5 ether}(subId);
   }
 
-  function testFundSubscriptionWithEth() public {
+  function testFundSubscriptionWithNative() public {
     // happy path test
-    // funding subscription with ether
+    // funding subscription with native
 
-    // create a subscription and fund it with ether
+    // create a subscription and fund it with native
     address subOwner = makeAddr("subOwner");
     changePrank(subOwner);
     uint64 nonceBefore = s_subscriptionAPI.s_currentSubNonce();
     uint256 subId = s_subscriptionAPI.createSubscription();
     assertEq(s_subscriptionAPI.s_currentSubNonce(), nonceBefore + 1);
 
-    // fund the subscription with ether
+    // fund the subscription with native
     vm.deal(subOwner, 5 ether);
     changePrank(subOwner);
     vm.expectEmit(true, false, false, true);
-    emit SubscriptionFundedWithEth(subId, 0, 5 ether);
-    s_subscriptionAPI.fundSubscriptionWithEth{value: 5 ether}(subId);
+    emit SubscriptionFundedWithNative(subId, 0, 5 ether);
+    s_subscriptionAPI.fundSubscriptionWithNative{value: 5 ether}(subId);
 
     // assert that the subscription is funded
-    assertEq(s_subscriptionAPI.getSubscriptionStruct(subId).ethBalance, 5 ether);
+    assertEq(s_subscriptionAPI.getSubscriptionStruct(subId).nativeBalance, 5 ether);
   }
 
   function testCreateSubscription() public {

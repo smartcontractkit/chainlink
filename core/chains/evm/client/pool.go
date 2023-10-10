@@ -51,6 +51,7 @@ type NodeSelector interface {
 type PoolConfig interface {
 	NodeSelectionMode() string
 	NodeNoNewHeadsThreshold() time.Duration
+	LeaseDuration() time.Duration
 }
 
 // Pool represents an abstraction over one or more primary nodes
@@ -65,6 +66,8 @@ type Pool struct {
 	selectionMode       string
 	noNewHeadsThreshold time.Duration
 	nodeSelector        NodeSelector
+	leaseDuration       time.Duration
+	leaseTicker         *time.Ticker
 
 	activeMu   sync.RWMutex
 	activeNode Node
@@ -73,7 +76,7 @@ type Pool struct {
 	wg     sync.WaitGroup
 }
 
-func NewPool(logger logger.Logger, selectionMode string, noNewHeadsTreshold time.Duration, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
+func NewPool(logger logger.Logger, selectionMode string, leaseDuration time.Duration, noNewHeadsTreshold time.Duration, nodes []Node, sendonlys []SendOnlyNode, chainID *big.Int, chainType config.ChainType) *Pool {
 	if chainID == nil {
 		panic("chainID is required")
 	}
@@ -105,6 +108,7 @@ func NewPool(logger logger.Logger, selectionMode string, noNewHeadsTreshold time
 		noNewHeadsThreshold: noNewHeadsTreshold,
 		nodeSelector:        nodeSelector,
 		chStop:              make(chan struct{}),
+		leaseDuration:       leaseDuration,
 	}
 
 	p.logger.Debugf("The pool is configured to use NodeSelectionMode: %s", selectionMode)
@@ -150,6 +154,14 @@ func (p *Pool) Dial(ctx context.Context) error {
 		p.wg.Add(1)
 		go p.runLoop()
 
+		if p.leaseDuration.Seconds() > 0 && p.selectionMode != NodeSelectionMode_RoundRobin {
+			p.logger.Infof("The pool will switch to best node every %s", p.leaseDuration.String())
+			p.wg.Add(1)
+			go p.checkLeaseLoop()
+		} else {
+			p.logger.Info("Best node switching is disabled")
+		}
+
 		return nil
 	})
 }
@@ -170,6 +182,39 @@ func (p *Pool) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty 
 		}
 	}
 	return
+}
+
+func (p *Pool) checkLease() {
+	bestNode := p.nodeSelector.Select()
+	for _, n := range p.nodes {
+		// Terminate client subscriptions. Services are responsible for reconnecting, which will be routed to the new
+		// best node. Only terminate connections with more than 1 subscription to account for the aliveLoop subscription
+		if n.State() == NodeStateAlive && n != bestNode && n.SubscribersCount() > 1 {
+			p.logger.Infof("Switching to best node from %q to %q", n.String(), bestNode.String())
+			n.UnsubscribeAllExceptAliveLoop()
+		}
+	}
+
+	if bestNode != p.activeNode {
+		p.activeMu.Lock()
+		p.activeNode = bestNode
+		p.activeMu.Unlock()
+	}
+}
+
+func (p *Pool) checkLeaseLoop() {
+	defer p.wg.Done()
+	p.leaseTicker = time.NewTicker(p.leaseDuration)
+	defer p.leaseTicker.Stop()
+
+	for {
+		select {
+		case <-p.leaseTicker.C:
+			p.checkLease()
+		case <-p.chStop:
+			return
+		}
+	}
 }
 
 func (p *Pool) runLoop() {
@@ -271,6 +316,9 @@ func (p *Pool) selectNode() (node Node) {
 		return &erroringNode{errMsg: errmsg.Error()}
 	}
 
+	if p.leaseTicker != nil {
+		p.leaseTicker.Reset(p.leaseDuration)
+	}
 	return p.activeNode
 }
 
@@ -317,7 +365,7 @@ func (p *Pool) BatchCallContextAll(ctx context.Context, b []rpc.BatchElem) error
 	return main.BatchCallContext(ctx, b)
 }
 
-// Wrapped Geth client methods
+// SendTransaction wrapped Geth client methods
 func (p *Pool) SendTransaction(ctx context.Context, tx *types.Transaction) error {
 	main := p.selectNode()
 	var all []SendOnlyNode

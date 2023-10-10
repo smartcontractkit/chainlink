@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/exp/maps"
+	"github.com/smartcontractkit/chainlink/v2/core/services"
 
 	"github.com/gorilla/websocket"
 
@@ -64,7 +64,7 @@ type gatewayConnector struct {
 func (c *gatewayConnector) HealthReport() map[string]error {
 	m := map[string]error{c.Name(): c.Healthy()}
 	for _, g := range c.gateways {
-		maps.Copy(m, g.conn.HealthReport())
+		services.CopyHealth(m, g.conn.HealthReport())
 	}
 	return m
 }
@@ -79,7 +79,7 @@ type gatewayState struct {
 }
 
 func NewGatewayConnector(config *ConnectorConfig, signer Signer, handler GatewayConnectorHandler, clock utils.Clock, lggr logger.Logger) (GatewayConnector, error) {
-	if signer == nil || handler == nil || clock == nil {
+	if config == nil || signer == nil || handler == nil || clock == nil || lggr == nil {
 		return nil, errors.New("nil dependency")
 	}
 	if len(config.DonId) == 0 || len(config.DonId) > int(network.HandshakeDonIdLen) {

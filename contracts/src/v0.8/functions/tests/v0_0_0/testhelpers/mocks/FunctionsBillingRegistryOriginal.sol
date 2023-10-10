@@ -6,7 +6,6 @@ import {AggregatorV3Interface} from "../../../../../interfaces/AggregatorV3Inter
 import {FunctionsOracleInterface} from "./FunctionsOracleInterface.sol";
 import {FunctionsBillingRegistryInterface} from "./FunctionsBillingRegistryInterface.sol";
 import {FunctionsClientInterface} from "./FunctionsClientInterface.sol";
-import {TypeAndVersionInterface} from "../../../../../interfaces/TypeAndVersionInterface.sol";
 import {IERC677Receiver} from "../../../../../shared/interfaces/IERC677Receiver.sol";
 import {AuthorizedOriginReceiverInterface} from "./AuthorizedOriginReceiverInterface.sol";
 import {ConfirmedOwnerUpgradeable} from "./ConfirmedOwnerUpgradeable.sol";
@@ -372,7 +371,6 @@ contract FunctionsBillingRegistryOriginal is
    * or reverts if at least gasAmount gas is not available.
    */
   function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
-    // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
       // GAS_FOR_CALL_EXACT_CHECK = 5000

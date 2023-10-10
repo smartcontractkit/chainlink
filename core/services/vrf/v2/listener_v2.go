@@ -1,11 +1,13 @@
 package v2
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -20,7 +22,6 @@ import (
 	heaps "github.com/theodesp/go-heaps"
 	"github.com/theodesp/go-heaps/pairing"
 	"go.uber.org/multierr"
-	"golang.org/x/exp/slices"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -34,7 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -50,7 +51,7 @@ var (
 	_                         log.Listener   = &listenerV2{}
 	_                         job.ServiceCtx = &listenerV2{}
 	coordinatorV2ABI                         = evmtypes.MustGetABI(vrf_coordinator_v2.VRFCoordinatorV2ABI)
-	coordinatorV2PlusABI                     = evmtypes.MustGetABI(vrf_coordinator_v2plus.VRFCoordinatorV2PlusABI)
+	coordinatorV2PlusABI                     = evmtypes.MustGetABI(vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalABI)
 	batchCoordinatorV2ABI                    = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 	batchCoordinatorV2PlusABI                = evmtypes.MustGetABI(batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusABI)
 	vrfOwnerABI                              = evmtypes.MustGetABI(vrf_owner.VRFOwnerMetaData.ABI)
@@ -493,7 +494,7 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 			// Happy path - sub is active.
 			startLinkBalance = sub.Balance()
 			if sub.Version() == vrfcommon.V2Plus {
-				startEthBalance = sub.EthBalance()
+				startEthBalance = sub.NativeBalance()
 			}
 			subIsActive = true
 		}
@@ -503,8 +504,8 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 		// first. This allows us to break out of the processing loop as early as possible
 		// in the event that a subscription is too underfunded to have it's
 		// requests processed.
-		slices.SortFunc(reqs, func(a, b pendingRequest) bool {
-			return a.req.CallbackGasLimit() < b.req.CallbackGasLimit()
+		slices.SortFunc(reqs, func(a, b pendingRequest) int {
+			return cmp.Compare(a.req.CallbackGasLimit(), b.req.CallbackGasLimit())
 		})
 
 		p := lsn.processRequestsPerSub(ctx, sID, startLinkBalance, startEthBalance, reqs, subIsActive)
@@ -917,7 +918,7 @@ func (lsn *listenerV2) enqueueForceFulfillment(
 		requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
 		subID := p.req.req.SubID()
 		requestTxHash := p.req.req.Raw().TxHash
-		etx, err = lsn.txm.CreateTransaction(txmgr.TxRequest{
+		etx, err = lsn.txm.CreateTransaction(ctx, txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.vrfOwner.Address(),
 			EncodedPayload: txData,
@@ -1124,7 +1125,7 @@ func (lsn *listenerV2) processRequestsPerSubHelper(
 				requestID := common.BytesToHash(p.req.req.RequestID().Bytes())
 				coordinatorAddress := lsn.coordinator.Address()
 				requestTxHash := p.req.req.Raw().TxHash
-				transaction, err = lsn.txm.CreateTransaction(txmgr.TxRequest{
+				transaction, err = lsn.txm.CreateTransaction(ctx, txmgr.TxRequest{
 					FromAddress:    fromAddress,
 					ToAddress:      lsn.coordinator.Address(),
 					EncodedPayload: hexutil.MustDecode(p.payload),
@@ -1496,7 +1497,7 @@ func (lsn *listenerV2) simulateFulfillment(
 		if trr.Task.Type() == pipeline.TaskTypeVRFV2Plus {
 			m := trr.Result.Value.(map[string]interface{})
 			res.payload = m["output"].(string)
-			res.proof = FromV2PlusProof(m["proof"].(vrf_coordinator_v2plus.VRFProof))
+			res.proof = FromV2PlusProof(m["proof"].(vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalProof))
 			res.reqCommitment = NewRequestCommitment(m["requestCommitment"])
 		}
 
@@ -1598,7 +1599,7 @@ func (lsn *listenerV2) handleLog(lb log.Broadcast, minConfs uint32) {
 		return
 	}
 
-	if v, ok := lb.DecodedLog().(*vrf_coordinator_v2plus.VRFCoordinatorV2PlusRandomWordsFulfilled); ok {
+	if v, ok := lb.DecodedLog().(*vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalRandomWordsFulfilled); ok {
 		lsn.l.Debugw("Received fulfilled log", "reqID", v.RequestId, "success", v.Success)
 		consumed, err := lsn.logBroadcaster.WasAlreadyConsumed(lb)
 		if err != nil {

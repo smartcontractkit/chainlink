@@ -222,9 +222,8 @@ func newVRFCoordinatorV2Universe(t *testing.T, key ethkey.KeyV2, numConsumers in
 	backend.Commit()
 
 	// Deploy old VRF v2 coordinator from bytecode
-	err, oldRootContractAddress, oldRootContract := deployOldCoordinator(
+	oldRootContractAddress, oldRootContract := deployOldCoordinator(
 		t, linkAddress, bhsAddress, linkEthFeed, backend, neil)
-	require.NoError(t, err)
 
 	// Deploy the VRFOwner contract, which will own the VRF coordinator
 	// in some tests.
@@ -423,7 +422,6 @@ func deployOldCoordinator(
 	backend *backends.SimulatedBackend,
 	neil *bind.TransactOpts,
 ) (
-	error,
 	common.Address,
 	*vrf_coordinator_v2.VRFCoordinatorV2,
 ) {
@@ -447,7 +445,7 @@ func deployOldCoordinator(
 	require.NotEqual(t, common.HexToAddress("0x0"), oldRootContractAddress, "old vrf coordinator address equal to zero address, deployment failed")
 	oldRootContract, err := vrf_coordinator_v2.NewVRFCoordinatorV2(oldRootContractAddress, backend)
 	require.NoError(t, err, "could not create wrapper object for old vrf coordinator v2")
-	return err, oldRootContractAddress, oldRootContract
+	return oldRootContractAddress, oldRootContract
 }
 
 // Send eth from prefunded account.
@@ -497,7 +495,7 @@ func subscribeVRF(
 	require.NoError(t, err)
 
 	if nativePayment {
-		require.Equal(t, fundingAmount.String(), sub.EthBalance().String())
+		require.Equal(t, fundingAmount.String(), sub.NativeBalance().String())
 	} else {
 		require.Equal(t, fundingAmount.String(), sub.Balance().String())
 	}
@@ -1320,7 +1318,6 @@ func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore(t *testing.T
 }
 
 func TestVRFV2Integration_SingleConsumer_NeedsTrustedBlockhashStore_AfterDelay(t *testing.T) {
-	t.Skip("TODO: VRF-616")
 	t.Parallel()
 	ownerKey := cltest.MustGenerateRandomKey(t)
 	uni := newVRFCoordinatorV2PlusUniverse(t, ownerKey, 2, true)

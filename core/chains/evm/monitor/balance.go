@@ -47,12 +47,14 @@ type (
 	NullBalanceMonitor struct{}
 )
 
+var _ BalanceMonitor = (*balanceMonitor)(nil)
+
 // NewBalanceMonitor returns a new balanceMonitor
-func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, logger logger.Logger) BalanceMonitor {
+func NewBalanceMonitor(ethClient evmclient.Client, ethKeyStore keystore.Eth, logger logger.Logger) *balanceMonitor {
 	chainId := ethClient.ConfiguredChainID()
 	bm := &balanceMonitor{
 		utils.StartStopOnce{},
-		logger,
+		logger.Named("BalanceMonitor"),
 		ethClient,
 		chainId,
 		chainId.String(),
@@ -89,7 +91,7 @@ func (bm *balanceMonitor) Name() string {
 }
 
 func (bm *balanceMonitor) HealthReport() map[string]error {
-	return map[string]error{bm.Name(): bm.StartStopOnce.Healthy()}
+	return map[string]error{bm.Name(): bm.Healthy()}
 }
 
 // OnNewLongestChain checks the balance for each key

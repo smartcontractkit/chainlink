@@ -60,7 +60,7 @@ jobs:
       - name: Download Go vendor packages
         run: go mod download
       - name: Build binary
-        run: go build -tags test -o chainlink.test .
+        run: go build -o chainlink.test .
       - name: Setup DB
         run: ./chainlink.test local db preparetest
       - name: Increase Race Timeout
@@ -75,11 +75,14 @@ jobs:
           USE_TEE: false
         run: ./tools/bin/${{ matrix.cmd }} ./...
       - name: Print Filtered Test Results
-        if: failure()
+        if: ${{ failure() && matrix.cmd == 'go_core_tests' }}
         uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
         with:
           results-file: ./output.txt
           output-file: ./output-short.txt
+      - name: Print Races
+        if: ${{ failure() && matrix.cmd == 'go_core_race_tests' }}
+        run: find race.* | xargs cat
       - name: Store logs artifacts
         if: always()
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
@@ -138,7 +141,7 @@ jobs:
       - name: Download Go vendor packages
         run: go mod download
       - name: Build binary
-        run: go build -tags test -o chainlink.test .
+        run: go build -o chainlink.test .
       - name: Setup DB
         run: ./chainlink.test local db preparetest
       - name: Load test outputs

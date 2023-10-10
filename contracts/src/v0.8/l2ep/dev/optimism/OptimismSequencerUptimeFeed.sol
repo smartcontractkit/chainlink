@@ -7,7 +7,6 @@ import {AggregatorV2V3Interface} from "../../../interfaces/AggregatorV2V3Interfa
 import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
 import {OptimismSequencerUptimeFeedInterface} from "./../interfaces/OptimismSequencerUptimeFeedInterface.sol";
 import {SimpleReadAccessController} from "../../../shared/access/SimpleReadAccessController.sol";
-import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 import {IL2CrossDomainMessenger} from "@eth-optimism/contracts/L2/messaging/IL2CrossDomainMessenger.sol";
 
 /**
