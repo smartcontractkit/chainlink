@@ -15,8 +15,7 @@ Before starting, you will need:
 The example .env in this repo is for the Polygon Mumbai testnet. You can use [this faucet](https://faucets.chain.link/mumbai) to send testnet LINK
 to your wallet ahead of executing the next steps
 
->Note: Be careful with your key. When using testnets, it's best to use a separate
->account that does not hold real funds.
+>Note: Be careful with your key. When using testnets, it's best to use a separate account that does not hold real funds.
 
 ## Run OCR2Keepers locally
 
