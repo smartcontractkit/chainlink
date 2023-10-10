@@ -156,7 +156,7 @@ type TxAttempt[
 	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ types.Sequence[SEQ],
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	ID    int64
@@ -182,7 +182,7 @@ type Tx[
 	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ types.Sequence[SEQ],
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	ID             int64

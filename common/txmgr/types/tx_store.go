@@ -27,7 +27,7 @@ type TxStore[
 	// Represents a onchain receipt object that a chain's RPC returns
 	R ChainReceipt[TX_HASH, BLOCK_HASH],
 	// Represents the sequence type for a chain. For example, nonce for EVM.
-	SEQ types.Sequence[SEQ],
+	SEQ types.Sequence,
 	// Represents the chain specific fee type
 	FEE feetypes.Fee,
 ] interface {
@@ -51,7 +51,7 @@ type TransactionStore[
 	CHAIN_ID types.ID,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	SEQ types.Sequence[SEQ],
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
 	CountUnconfirmedTransactions(ctx context.Context, fromAddress ADDR, chainID CHAIN_ID) (count uint32, err error)

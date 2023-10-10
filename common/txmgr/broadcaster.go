@@ -60,7 +60,7 @@ type TransmitCheckerFactory[
 	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ types.Sequence[SEQ],
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
 	// BuildChecker builds a new TransmitChecker based on the given spec.
@@ -72,7 +72,7 @@ type TransmitChecker[
 	CHAIN_ID types.ID,
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ types.Sequence[SEQ],
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
 
@@ -102,7 +102,7 @@ type Broadcaster[
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	SEQ types.Sequence[SEQ],
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	logger  logger.Logger
@@ -144,8 +144,9 @@ type Broadcaster[
 
 	parseAddr func(string) (ADDR, error)
 
-	sequenceLock    *sync.RWMutex
-	nextSequenceMap map[ADDR]SEQ
+	sequenceLock         *sync.RWMutex
+	nextSequenceMap      map[ADDR]SEQ
+	generateNextSequence types.GenerateNextSequenceFunc[SEQ]
 }
 
 func NewBroadcaster[
@@ -154,7 +155,7 @@ func NewBroadcaster[
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	SEQ types.Sequence[SEQ],
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ](
 	txStore txmgrtypes.TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE],
@@ -171,6 +172,7 @@ func NewBroadcaster[
 	checkerFactory TransmitCheckerFactory[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE],
 	autoSyncSequence bool,
 	parseAddress func(string) (ADDR, error),
+	generateNextSequence types.GenerateNextSequenceFunc[SEQ],
 ) *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE] {
 	logger = logger.Named("Broadcaster")
 	b := &Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]{
@@ -193,6 +195,7 @@ func NewBroadcaster[
 	}
 
 	b.processUnstartedTxsImpl = b.processUnstartedTxs
+	b.generateNextSequence = generateNextSequence
 	return b
 }
 
@@ -343,7 +346,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) load
 
 			nextSequenceMap[address] = seq
 		} else {
-			nextSequenceMap[address] = seq.Next()
+			nextSequenceMap[address] = eb.generateNextSequence(seq)
 		}
 	}
 
@@ -839,7 +842,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) GetN
 func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) IncrementNextSequence(address ADDR, seq SEQ) {
 	eb.sequenceLock.Lock()
 	defer eb.sequenceLock.Unlock()
-	eb.nextSequenceMap[address] = seq.Next()
+	eb.nextSequenceMap[address] = eb.generateNextSequence(seq)
 }
 
 // Used to set the next sequence explicitly to a certain value

@@ -13,7 +13,7 @@ type KeyStore[
 	// Chain ID type
 	CHAIN_ID types.ID,
 	// Chain's sequence type. For example, EVM chains use nonce, bitcoin uses UTXO.
-	SEQ types.Sequence[SEQ],
+	SEQ types.Sequence,
 ] interface {
 	CheckEnabled(address ADDR, chainID CHAIN_ID) error
 	EnabledAddressesForChain(chainId CHAIN_ID) ([]ADDR, error)

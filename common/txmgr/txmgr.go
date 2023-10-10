@@ -35,7 +35,7 @@ type TxManager[
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	SEQ types.Sequence[SEQ],
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
 	types.HeadTrackable[HEAD, BLOCK_HASH]
@@ -64,7 +64,7 @@ type Txm[
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence[SEQ],
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	utils.StartStopOnce
@@ -108,7 +108,7 @@ func NewTxm[
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
 	R txmgrtypes.ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence[SEQ],
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ](
 	chainId CHAIN_ID,
@@ -515,7 +515,7 @@ type NullTxManager[
 	HEAD types.Head[BLOCK_HASH],
 	ADDR types.Hashable,
 	TX_HASH, BLOCK_HASH types.Hashable,
-	SEQ types.Sequence[SEQ],
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] struct {
 	ErrMsg string

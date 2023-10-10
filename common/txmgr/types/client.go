@@ -19,7 +19,7 @@ type TxmClient[
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
 	R ChainReceipt[TX_HASH, BLOCK_HASH],
-	SEQ types.Sequence[SEQ],
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
 	ChainClient[CHAIN_ID, ADDR, SEQ]
@@ -38,7 +38,7 @@ type TransactionClient[
 	ADDR types.Hashable,
 	TX_HASH types.Hashable,
 	BLOCK_HASH types.Hashable,
-	SEQ types.Sequence[SEQ],
+	SEQ types.Sequence,
 	FEE feetypes.Fee,
 ] interface {
 	ChainClient[CHAIN_ID, ADDR, SEQ]
@@ -79,7 +79,7 @@ type TransactionClient[
 type ChainClient[
 	CHAIN_ID types.ID,
 	ADDR types.Hashable,
-	SEQ types.Sequence[SEQ],
+	SEQ types.Sequence,
 ] interface {
 	ConfiguredChainID() CHAIN_ID
 	PendingSequenceAt(ctx context.Context, addr ADDR) (SEQ, error)
