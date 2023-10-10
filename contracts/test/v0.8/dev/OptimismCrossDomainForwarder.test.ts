@@ -40,9 +40,8 @@ before(async () => {
 
 describe('OptimismCrossDomainForwarder', () => {
   beforeEach(async () => {
-    crossDomainMessenger = await crossDomainMessengerFactory.deploy(
-      l1OwnerAddress,
-    )
+    crossDomainMessenger =
+      await crossDomainMessengerFactory.deploy(l1OwnerAddress)
     forwarder = await forwarderFactory.deploy(
       crossDomainMessenger.address,
       l1OwnerAddress,
