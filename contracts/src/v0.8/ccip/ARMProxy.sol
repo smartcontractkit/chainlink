@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 
 import {OwnerIsCreator} from "./../shared/access/OwnerIsCreator.sol";
 
@@ -10,7 +10,7 @@ import {OwnerIsCreator} from "./../shared/access/OwnerIsCreator.sol";
 /// since each contract need not store an ARM address in storage. That way
 /// we can add ARM queries along many code paths for increased defense in depth
 /// with minimal additional cost.
-contract ARMProxy is OwnerIsCreator, TypeAndVersionInterface {
+contract ARMProxy is OwnerIsCreator, ITypeAndVersion {
   error ZeroAddressNotAllowed();
 
   event ARMSet(address arm);

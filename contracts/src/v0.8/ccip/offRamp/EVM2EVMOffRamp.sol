@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {TypeAndVersionInterface} from "../../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 import {ICommitStore} from "../interfaces/ICommitStore.sol";
 import {IARM} from "../interfaces/IARM.sol";
 import {IPool} from "../interfaces/pools/IPool.sol";
@@ -28,7 +28,7 @@ import {ERC165Checker} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts
 /// @dev OCR2BaseNoChecks is used to save gas, signatures are not required as the offramp can only execute
 /// messages which are committed in the commitStore. We still make use of OCR2 as an executor whitelist
 /// and turn-taking mechanism.
-contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, TypeAndVersionInterface, OCR2BaseNoChecks {
+contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersion, OCR2BaseNoChecks {
   using Address for address;
   using ERC165Checker for address;
   using EnumerableMapAddresses for EnumerableMapAddresses.AddressToAddressMap;

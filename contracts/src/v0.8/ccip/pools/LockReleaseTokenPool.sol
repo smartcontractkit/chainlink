@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+
 import {TokenPool} from "./TokenPool.sol";
 
 import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
@@ -10,7 +12,7 @@ import {SafeERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/tok
 /// Because of lock/unlock requiring liquidity, this pool contract also has function to add and remove
 /// liquidity. This allows for proper bookkeeping for both user and liquidity provider balances.
 /// @dev One token per LockReleaseTokenPool.
-contract LockReleaseTokenPool is TokenPool {
+contract LockReleaseTokenPool is TokenPool, ITypeAndVersion {
   using SafeERC20 for IERC20;
 
   event LiquidityAdded(address indexed provider, uint256 indexed amount);
@@ -19,6 +21,9 @@ contract LockReleaseTokenPool is TokenPool {
   error InsufficientLiquidity();
   error WithdrawalTooHigh();
   error LiquidityNotAccepted();
+
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
+  string public constant override typeAndVersion = "LockReleaseTokenPool 1.2.0";
 
   /// @dev The unique lock release pool flag to signal through EIP 165.
   bytes4 private constant LOCK_RELEASE_INTERFACE_ID = bytes4(keccak256("LockReleaseTokenPool"));

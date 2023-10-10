@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
+import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 import {IPriceRegistry} from "./interfaces/IPriceRegistry.sol";
-import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 
 import {OwnerIsCreator} from "./../shared/access/OwnerIsCreator.sol";
 import {Internal} from "./libraries/Internal.sol";
@@ -12,7 +12,7 @@ import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/ut
 
 /// @notice The PriceRegistry contract responsibility is to store the current gas price in USD for a given destination chain,
 /// and the price of a token in USD allowing the owner or priceUpdater to update this value.
-contract PriceRegistry is IPriceRegistry, OwnerIsCreator, TypeAndVersionInterface {
+contract PriceRegistry is IPriceRegistry, OwnerIsCreator, ITypeAndVersion {
   using EnumerableSet for EnumerableSet.AddressSet;
   using USDPriceWith18Decimals for uint224;
 

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
-import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
+import {ITypeAndVersion} from "../shared/interfaces/ITypeAndVersion.sol";
 import {IRouterClient} from "./interfaces/IRouterClient.sol";
 import {IRouter} from "./interfaces/IRouter.sol";
 import {IEVM2AnyOnRamp} from "./interfaces/IEVM2AnyOnRamp.sol";
@@ -19,7 +19,7 @@ import {IERC20} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC
 /// @title Router
 /// @notice This is the entry point for the end user wishing to send data across chains.
 /// @dev This contract is used as a router for both on-ramps and off-ramps
-contract Router is IRouter, IRouterClient, TypeAndVersionInterface, OwnerIsCreator {
+contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
   using SafeERC20 for IERC20;
   using EnumerableMap for EnumerableMap.AddressToUintMap;
 

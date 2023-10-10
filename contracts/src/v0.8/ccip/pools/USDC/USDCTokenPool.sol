@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity 0.8.19;
 
+import {ITypeAndVersion} from "../../../shared/interfaces/ITypeAndVersion.sol";
 import {IBurnMintERC20} from "../../../shared/token/ERC20/IBurnMintERC20.sol";
 import {ITokenMessenger} from "./ITokenMessenger.sol";
 import {IMessageReceiver} from "./IMessageReceiver.sol";
@@ -9,7 +10,7 @@ import {TokenPool} from "../TokenPool.sol";
 
 /// @notice This pool mints and burns USDC tokens through the Cross Chain Transfer
 /// Protocol (CCTP).
-contract USDCTokenPool is TokenPool {
+contract USDCTokenPool is TokenPool, ITypeAndVersion {
   event DomainsSet(DomainUpdate[]);
   event ConfigSet(USDCConfig);
 
@@ -49,6 +50,9 @@ contract USDCTokenPool is TokenPool {
     uint64 nonce;
     uint32 sourceDomain;
   }
+
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
+  string public constant override typeAndVersion = "USDCTokenPool 1.2.0";
 
   uint32 public immutable i_localDomainIdentifier;
   uint32 public constant SUPPORTED_USDC_VERSION = 0;
