@@ -105,9 +105,10 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			)
 			if nodeUpgrade {
 				upgradeImage = os.Getenv("UPGRADE_IMAGE")
-				//require.NoError(t, err, "Error getting upgrade image")
 				upgradeVersion = os.Getenv("UPGRADE_VERSION")
-				//require.NoError(t, err, "Error getting upgrade version")
+				if len(upgradeImage) == 0 || len(upgradeVersion) == 0 {
+					t.Fatal("UPGRADE_IMAGE and UPGRADE_VERSION must be set to upgrade nodes")
+				}
 				testName = "node-upgrade"
 			}
 			chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupAutomationTestDocker(
