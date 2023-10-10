@@ -2,6 +2,7 @@ package resolver
 
 import (
 	"github.com/graph-gophers/graphql-go"
+
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 

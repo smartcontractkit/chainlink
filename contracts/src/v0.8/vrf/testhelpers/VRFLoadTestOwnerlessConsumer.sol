@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../VRFConsumerBase.sol";
-import "../../shared/interfaces/IERC677Receiver.sol";
+import {VRFConsumerBase} from "../VRFConsumerBase.sol";
+import {IERC677Receiver} from "../../shared/interfaces/IERC677Receiver.sol";
 
 /**
  * @title The VRFLoadTestOwnerlessConsumer contract.

@@ -22,11 +22,13 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
 	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -102,7 +104,7 @@ func setupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBa
 func setupNodeOCR2(
 	t *testing.T,
 	owner *bind.TransactOpts,
-	port uint16,
+	port int,
 	dbName string,
 	useForwarder bool,
 	b *backends.SimulatedBackend,
@@ -191,9 +193,7 @@ func TestIntegration_OCR2(t *testing.T) {
 	owner, b, ocrContractAddress, ocrContract := setupOCR2Contracts(t)
 
 	lggr := logger.TestLogger(t)
-	// Note it's plausible these ports could be occupied on a CI machine.
-	// May need a port randomize + retry approach if we observe collisions.
-	bootstrapNodePort := uint16(29999)
+	bootstrapNodePort := freeport.GetOne(t)
 	bootstrapNode := setupNodeOCR2(t, owner, bootstrapNodePort, "bootstrap", false /* useForwarders */, b, nil)
 
 	var (
@@ -202,8 +202,9 @@ func TestIntegration_OCR2(t *testing.T) {
 		kbs          []ocr2key.KeyBundle
 		apps         []*cltest.TestApplication
 	)
-	for i := uint16(0); i < 4; i++ {
-		node := setupNodeOCR2(t, owner, bootstrapNodePort+1+i, fmt.Sprintf("oracle%d", i), false /* useForwarders */, b, []commontypes.BootstrapperLocator{
+	ports := freeport.GetN(t, 4)
+	for i := 0; i < 4; i++ {
+		node := setupNodeOCR2(t, owner, ports[i], fmt.Sprintf("oracle%d", i), false /* useForwarders */, b, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapNode.peerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		})
@@ -462,9 +463,7 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 	owner, b, ocrContractAddress, ocrContract := setupOCR2Contracts(t)
 
 	lggr := logger.TestLogger(t)
-	// Note it's plausible these ports could be occupied on a CI machine.
-	// May need a port randomize + retry approach if we observe collisions.
-	bootstrapNodePort := uint16(29898)
+	bootstrapNodePort := freeport.GetOne(t)
 	bootstrapNode := setupNodeOCR2(t, owner, bootstrapNodePort, "bootstrap", true /* useForwarders */, b, nil)
 
 	var (
@@ -474,8 +473,9 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 		kbs                []ocr2key.KeyBundle
 		apps               []*cltest.TestApplication
 	)
+	ports := freeport.GetN(t, 4)
 	for i := uint16(0); i < 4; i++ {
-		node := setupNodeOCR2(t, owner, bootstrapNodePort+1+i, fmt.Sprintf("oracle%d", i), true /* useForwarders */, b, []commontypes.BootstrapperLocator{
+		node := setupNodeOCR2(t, owner, ports[i], fmt.Sprintf("oracle%d", i), true /* useForwarders */, b, []commontypes.BootstrapperLocator{
 			// Supply the bootstrap IP and port as a V2 peer address
 			{PeerID: bootstrapNode.peerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
 		})

@@ -6,8 +6,8 @@ import {ERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/E
 contract WERC20Mock is ERC20 {
   constructor() ERC20("WERC20Mock", "WERC") {}
 
-  event Deposit(address indexed dst, uint wad);
-  event Withdrawal(address indexed src, uint wad);
+  event Deposit(address indexed dst, uint256 wad);
+  event Withdrawal(address indexed src, uint256 wad);
 
   receive() external payable {
     deposit();
@@ -18,7 +18,8 @@ contract WERC20Mock is ERC20 {
     emit Deposit(msg.sender, msg.value);
   }
 
-  function withdraw(uint wad) public {
+  function withdraw(uint256 wad) public {
+    // solhint-disable-next-line custom-errors, reason-string
     require(balanceOf(msg.sender) >= wad);
     _burn(msg.sender, wad);
     payable(msg.sender).transfer(wad);
