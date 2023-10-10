@@ -97,6 +97,7 @@ func (n *node) aliveLoop() {
 		n.declareUnreachable()
 		return
 	}
+	n.aliveLoopSub = sub
 	defer sub.Unsubscribe()
 
 	var outOfSyncT *time.Ticker
