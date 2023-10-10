@@ -57,7 +57,7 @@ func NewContractLoader(bcClient blockchain.EVMClient, logger zerolog.Logger) (Co
 	case *blockchain.OptimismClient:
 		return &OptimismContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	case *blockchain.PolygonZkEvmClient:
-		return &PolygonZKEVMContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
+		return &PolygonZkEvmContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract Loader, register blockchain client in NewContractLoader")
 }
@@ -90,6 +90,9 @@ type PolygonContractLoader struct {
 
 // OptimismContractLoader wraps for Optimism
 type OptimismContractLoader struct {
+	*EthereumContractLoader
+}
+type PolygonZkEvmContractLoader struct {
 	*EthereumContractLoader
 }
 
