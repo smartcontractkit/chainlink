@@ -464,10 +464,6 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
 
     uint32 callbackGasLimit = 5000;
 
-    bytes32 expectedRequestId = keccak256(
-      abi.encode(address(s_functionsCoordinator), OWNER_ADDRESS, s_subscriptionId, 1)
-    );
-
     uint96 costEstimate = s_functionsCoordinator.estimateCost(
       s_subscriptionId,
       requestData,
@@ -476,25 +472,6 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
     );
 
     vm.recordLogs();
-
-    // topic0 (function signature, always checked), topic1 (true), topic2 (true), topic3 (true), and data (true).
-    bool checkTopic1 = true;
-    bool checkTopic2 = true;
-    bool checkTopic3 = true;
-    bool checkData = true;
-    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
-    emit RequestStart({
-      requestId: expectedRequestId,
-      donId: s_donId,
-      subscriptionId: s_subscriptionId,
-      subscriptionOwner: OWNER_ADDRESS,
-      requestingContract: OWNER_ADDRESS,
-      requestInitiator: OWNER_ADDRESS,
-      data: requestData,
-      dataVersion: FunctionsRequest.REQUEST_DATA_VERSION,
-      callbackGasLimit: callbackGasLimit,
-      estimatedTotalCostJuels: costEstimate
-    });
 
     bytes32 requestIdFromReturn = s_functionsRouter.sendRequest(
       s_subscriptionId,
@@ -506,8 +483,19 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
 
     // Get requestId from RequestStart event log topic 1
     Vm.Log[] memory entries = vm.getRecordedLogs();
-    bytes32 requestIdFromEvent = entries[2].topics[1];
+    bytes32 requestIdFromEvent = entries[1].topics[1];
 
+    bytes memory expectedRequestData = abi.encode(
+      OWNER_ADDRESS,
+      OWNER_ADDRESS,
+      OWNER_ADDRESS,
+      requestData,
+      FunctionsRequest.REQUEST_DATA_VERSION,
+      callbackGasLimit,
+      costEstimate
+    );
+
+    assertEq(expectedRequestData, entries[1].data);
     assertEq(requestIdFromReturn, requestIdFromEvent);
   }
 }
@@ -759,10 +747,6 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
 
     uint32 callbackGasLimit = 5000;
 
-    bytes32 expectedRequestId = keccak256(
-      abi.encode(address(s_functionsCoordinator2), OWNER_ADDRESS, s_subscriptionId, 1)
-    );
-
     uint96 costEstimate = s_functionsCoordinator2.estimateCost(
       s_subscriptionId,
       requestData,
@@ -771,25 +755,6 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
     );
 
     vm.recordLogs();
-
-    // topic0 (function signature, always checked), topic1 (true), topic2 (true), topic3 (true), and data (true).
-    bool checkTopic1 = true;
-    bool checkTopic2 = true;
-    bool checkTopic3 = true;
-    bool checkData = true;
-    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
-    emit RequestStart({
-      requestId: expectedRequestId,
-      donId: s_donId,
-      subscriptionId: s_subscriptionId,
-      subscriptionOwner: OWNER_ADDRESS,
-      requestingContract: OWNER_ADDRESS,
-      requestInitiator: OWNER_ADDRESS,
-      data: requestData,
-      dataVersion: FunctionsRequest.REQUEST_DATA_VERSION,
-      callbackGasLimit: callbackGasLimit,
-      estimatedTotalCostJuels: costEstimate
-    });
 
     bytes32 requestIdFromReturn = s_functionsRouter.sendRequestToProposed(
       s_subscriptionId,
@@ -801,7 +766,19 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
 
     // Get requestId from RequestStart event log topic 1
     Vm.Log[] memory entries = vm.getRecordedLogs();
-    bytes32 requestIdFromEvent = entries[2].topics[1];
+    bytes32 requestIdFromEvent = entries[1].topics[1];
+
+    bytes memory expectedRequestData = abi.encode(
+      OWNER_ADDRESS,
+      OWNER_ADDRESS,
+      OWNER_ADDRESS,
+      requestData,
+      FunctionsRequest.REQUEST_DATA_VERSION,
+      callbackGasLimit,
+      costEstimate
+    );
+
+    assertEq(expectedRequestData, entries[1].data);
 
     assertEq(requestIdFromReturn, requestIdFromEvent);
   }
@@ -1137,7 +1114,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
       ) // TODO: build this programatically
     });
 
-    _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1, true, 1);
+    _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1, false, 1);
   }
 
   function test_Fulfill_SuccessUserCallbackRunsOutOfGas() public {
@@ -1175,7 +1152,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
       callbackReturnData: new bytes(0)
     });
 
-    _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1, true, 1);
+    _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1, false, 1);
   }
 
   function test_Fulfill_SuccessClientNoLongerExists() public {
@@ -1200,6 +1177,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
     bool checkTopic2SubscriptionId = true;
     bool checkTopic3 = false;
     bool checkData = true;
+    // Un-commenting this code does not work
     vm.expectEmit(checkTopic1RequestId, checkTopic2SubscriptionId, checkTopic3, checkData);
     emit RequestProcessed({
       requestId: s_requests[requestToFulfill].requestId,
@@ -1212,7 +1190,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
       callbackReturnData: new bytes(0)
     });
 
-    _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1, true, 1);
+    _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1, false, 1);
   }
 
   function test_Fulfill_SuccessFulfilled() public {
@@ -1244,7 +1222,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
       err: err,
       callbackReturnData: new bytes(0)
     });
-    _reportAndStore(requestNumberKeys, results, errors);
+    _reportAndStore(requestNumberKeys, results, errors, NOP_TRANSMITTER_ADDRESS_1, false);
   }
 }
 

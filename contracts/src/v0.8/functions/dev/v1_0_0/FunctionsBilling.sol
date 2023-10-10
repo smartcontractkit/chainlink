@@ -203,13 +203,6 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       revert InsufficientBalance();
     }
 
-    bytes32 requestId = _computeRequestId(
-      address(this),
-      request.requestingContract,
-      request.subscriptionId,
-      request.initiatedRequests + 1
-    );
-
     commitment = FunctionsResponse.Commitment({
       adminFee: request.adminFee,
       coordinator: address(this),
@@ -218,13 +211,15 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
       callbackGasLimit: request.callbackGasLimit,
       estimatedTotalCostJuels: estimatedTotalCostJuels,
       timeoutTimestamp: uint32(block.timestamp + config.requestTimeoutSeconds),
-      requestId: requestId,
+      requestId: bytes32(0), // requestId is computed after hashing the commitment data
       donFee: donFee,
       gasOverheadBeforeCallback: config.gasOverheadBeforeCallback,
       gasOverheadAfterCallback: config.gasOverheadAfterCallback
     });
 
-    s_requestCommitments[requestId] = keccak256(abi.encode(commitment));
+    commitment.requestId = _computeRequestId(commitment, request.initiatedRequests + 1);
+    
+    s_requestCommitments[commitment.requestId] = keccak256(abi.encode(commitment));
 
     return commitment;
   }
@@ -232,12 +227,10 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
   /// @notice Generate a keccak hash request ID
   /// @dev uses the number of requests that the consumer of a subscription has sent as a nonce
   function _computeRequestId(
-    address don,
-    address client,
-    uint64 subscriptionId,
+    FunctionsResponse.Commitment memory commitmentWithoutRequestId,
     uint64 nonce
   ) private pure returns (bytes32) {
-    return keccak256(abi.encode(don, client, subscriptionId, nonce));
+    return keccak256(abi.encode(commitmentWithoutRequestId, nonce));
   }
 
   /// @notice Finalize billing process for an Functions request by sending a callback to the Client contract and then charging the subscription

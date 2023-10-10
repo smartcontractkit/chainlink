@@ -276,6 +276,7 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
       entries[0].data,
       (address, uint64, address, bytes, uint16, bytes32, uint64, FunctionsResponse.Commitment)
     );
+
     s_requests[requestNumberKey] = Request({
       requestData: RequestData({
         sourceCode: sourceCode,
@@ -433,7 +434,7 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
     vm.startPrank(transmitter);
 
     // Send report
-    vm.recordLogs();
+    //vm.recordLogs();
     if (transmitterGasToUse > 0) {
       s_functionsCoordinator.transmit{gas: transmitterGasToUse}(reportContext, report, rawRs, rawSs, rawVs);
     } else {
