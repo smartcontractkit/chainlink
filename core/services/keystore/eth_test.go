@@ -231,24 +231,24 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	//   enabled - simulated
 	// - key 4
 	//   enabled - fixture
-	k1, _ := cltest.MustInsertRandomKey(t, ethKeyStore, []utils.Big{})
+	k1, _ := cltest.MustInsertRandomKeyNoChains(t, ethKeyStore)
 	require.NoError(t, ethKeyStore.Add(k1.Address, testutils.FixtureChainID))
 	require.NoError(t, ethKeyStore.Add(k1.Address, testutils.SimulatedChainID))
 	require.NoError(t, ethKeyStore.Enable(k1.Address, testutils.FixtureChainID))
 	require.NoError(t, ethKeyStore.Enable(k1.Address, testutils.SimulatedChainID))
 
-	k2, _ := cltest.MustInsertRandomKey(t, ethKeyStore, []utils.Big{})
+	k2, _ := cltest.MustInsertRandomKeyNoChains(t, ethKeyStore)
 	require.NoError(t, ethKeyStore.Add(k2.Address, testutils.FixtureChainID))
 	require.NoError(t, ethKeyStore.Add(k2.Address, testutils.SimulatedChainID))
 	require.NoError(t, ethKeyStore.Enable(k2.Address, testutils.FixtureChainID))
 	require.NoError(t, ethKeyStore.Enable(k2.Address, testutils.SimulatedChainID))
 	require.NoError(t, ethKeyStore.Disable(k2.Address, testutils.SimulatedChainID))
 
-	k3, _ := cltest.MustInsertRandomKey(t, ethKeyStore, []utils.Big{})
+	k3, _ := cltest.MustInsertRandomKeyNoChains(t, ethKeyStore)
 	require.NoError(t, ethKeyStore.Add(k3.Address, testutils.SimulatedChainID))
 	require.NoError(t, ethKeyStore.Enable(k3.Address, testutils.SimulatedChainID))
 
-	k4, _ := cltest.MustInsertRandomKey(t, ethKeyStore, []utils.Big{})
+	k4, _ := cltest.MustInsertRandomKeyNoChains(t, ethKeyStore)
 	require.NoError(t, ethKeyStore.Add(k4.Address, testutils.FixtureChainID))
 	require.NoError(t, ethKeyStore.Enable(k4.Address, testutils.FixtureChainID))
 
@@ -335,7 +335,7 @@ func Test_EthKeyStore_SignTx(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db, config.Database())
 	ethKeyStore := keyStore.Eth()
 
-	k, _ := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	k, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	chainID := big.NewInt(evmclient.NullClientChainID)
 	tx := types.NewTransaction(0, testutils.NewAddress(), big.NewInt(53), 21000, big.NewInt(1000000000), []byte{1, 2, 3, 4})
@@ -623,9 +623,9 @@ func Test_EthKeyStore_Reset(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 	ks := keyStore.Eth()
 
-	k1, addr1 := cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
-	cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
-	cltest.MustInsertRandomKey(t, ks, testutils.SimulatedChainID)
+	k1, addr1 := cltest.MustInsertRandomKey(t, ks)
+	cltest.MustInsertRandomKey(t, ks)
+	cltest.MustInsertRandomKey(t, ks, *utils.NewBig(testutils.SimulatedChainID))
 
 	newNonce := testutils.NewRandomPositiveInt64()
 
@@ -687,8 +687,8 @@ func Test_NextSequence(t *testing.T) {
 	ks := keyStore.Eth()
 	randNonce := testutils.NewRandomPositiveInt64()
 
-	_, addr1 := cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID, randNonce)
-	cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
+	_, addr1 := cltest.RandomKey{Nonce: randNonce}.MustInsert(t, ks)
+	cltest.MustInsertRandomKey(t, ks)
 
 	nonce, err := ks.NextSequence(addr1, testutils.FixtureChainID)
 	require.NoError(t, err)
@@ -718,9 +718,9 @@ func Test_IncrementNextSequence(t *testing.T) {
 	ks := keyStore.Eth()
 	randNonce := testutils.NewRandomPositiveInt64()
 
-	_, addr1 := cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID, randNonce)
+	_, addr1 := cltest.RandomKey{Nonce: randNonce}.MustInsert(t, ks)
 	evmAddr1 := addr1
-	cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
+	cltest.MustInsertRandomKey(t, ks)
 
 	err := ks.IncrementNextSequence(evmAddr1, testutils.FixtureChainID, evmtypes.Nonce(randNonce-1))
 	assert.ErrorIs(t, err, sql.ErrNoRows)
@@ -762,9 +762,9 @@ func Test_EthKeyStore_Delete(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "Key not found")
 
-	_, addr1 := cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
-	_, addr2 := cltest.MustInsertRandomKey(t, ks, testutils.FixtureChainID)
-	cltest.MustInsertRandomKey(t, ks, testutils.SimulatedChainID)
+	_, addr1 := cltest.MustInsertRandomKey(t, ks)
+	_, addr2 := cltest.MustInsertRandomKey(t, ks)
+	cltest.MustInsertRandomKey(t, ks, *utils.NewBig(testutils.SimulatedChainID))
 	require.NoError(t, ks.Add(addr1, testutils.SimulatedChainID))
 	require.NoError(t, ks.Enable(addr1, testutils.SimulatedChainID))
 
@@ -814,20 +814,20 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 	//   enabled - simulated
 	// - key 4
 	//   enabled - fixture
-	k1, addr1 := cltest.MustInsertRandomKey(t, ks, []utils.Big{})
+	k1, addr1 := cltest.MustInsertRandomKeyNoChains(t, ks)
 	require.NoError(t, ks.Add(k1.Address, testutils.SimulatedChainID))
 	require.NoError(t, ks.Add(k1.Address, testutils.FixtureChainID))
 	require.NoError(t, ks.Enable(k1.Address, testutils.SimulatedChainID))
 	require.NoError(t, ks.Enable(k1.Address, testutils.FixtureChainID))
 
-	k2, addr2 := cltest.MustInsertRandomKey(t, ks, []utils.Big{})
+	k2, addr2 := cltest.MustInsertRandomKeyNoChains(t, ks)
 	require.NoError(t, ks.Add(k2.Address, testutils.FixtureChainID))
 	require.NoError(t, ks.Add(k2.Address, testutils.SimulatedChainID))
 	require.NoError(t, ks.Enable(k2.Address, testutils.FixtureChainID))
 	require.NoError(t, ks.Enable(k2.Address, testutils.SimulatedChainID))
 	require.NoError(t, ks.Disable(k2.Address, testutils.SimulatedChainID))
 
-	k3, addr3 := cltest.MustInsertRandomKey(t, ks, []utils.Big{})
+	k3, addr3 := cltest.MustInsertRandomKeyNoChains(t, ks)
 	require.NoError(t, ks.Add(k3.Address, testutils.SimulatedChainID))
 	require.NoError(t, ks.Enable(k3.Address, testutils.SimulatedChainID))
 

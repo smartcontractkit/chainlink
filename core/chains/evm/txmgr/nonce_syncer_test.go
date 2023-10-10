@@ -13,10 +13,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/sqlx"
 )
 
 func Test_NonceSyncer_Sync(t *testing.T) {
@@ -29,7 +30,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		txStore := cltest.NewTxStore(t, db, cfg.Database())
 
-		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+		_, from := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
 			return from == addr
@@ -55,7 +56,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		txStore := cltest.NewTxStore(t, db, cfg.Database())
 
-		_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+		_, from := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
 			return from == addr
@@ -80,7 +81,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-		k1, _ := cltest.MustInsertRandomKey(t, ethKeyStore, int64(32))
+		k1, _ := cltest.RandomKey{Nonce: 32}.MustInsert(t, ethKeyStore)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
 			return k1.Address == addr
@@ -105,8 +106,8 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-		_, key1 := cltest.MustInsertRandomKey(t, ethKeyStore, int64(0))
-		_, key2 := cltest.MustInsertRandomKey(t, ethKeyStore, int64(32))
+		_, key1 := cltest.MustInsertRandomKey(t, ethKeyStore)
+		_, key2 := cltest.RandomKey{Nonce: 32}.MustInsert(t, ethKeyStore)
 
 		ethClient.On("PendingNonceAt", mock.Anything, mock.MatchedBy(func(addr common.Address) bool {
 			// Nothing to do for key2
@@ -133,7 +134,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-		_, key1 := cltest.MustInsertRandomKey(t, ethKeyStore, int64(0))
+		_, key1 := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		cltest.MustInsertInProgressEthTxWithAttempt(t, txStore, 1, key1)
 
