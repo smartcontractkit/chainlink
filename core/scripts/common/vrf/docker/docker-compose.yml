@@ -132,9 +132,9 @@ services:
 
 secrets:
   node_password:
-    file: ./secrets/password.txt
+    file: secrets/password.txt
   apicredentials:
-    file: ./secrets/apicredentials
+    file: secrets/apicredentials
 
 volumes:
   docker-compose-db:
