@@ -144,7 +144,7 @@ type Broadcaster[
 
 	parseAddr func(string) (ADDR, error)
 
-	sequenceLock         *sync.RWMutex
+	sequenceLock         sync.RWMutex
 	nextSequenceMap      map[ADDR]SEQ
 	generateNextSequence types.GenerateNextSequenceFunc[SEQ]
 }
@@ -191,7 +191,6 @@ func NewBroadcaster[
 		checkerFactory:   checkerFactory,
 		autoSyncSequence: autoSyncSequence,
 		parseAddr:        parseAddress,
-		sequenceLock:     &sync.RWMutex{},
 	}
 
 	b.processUnstartedTxsImpl = b.processUnstartedTxs
