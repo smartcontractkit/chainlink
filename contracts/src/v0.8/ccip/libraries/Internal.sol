@@ -8,13 +8,17 @@ import {MerkleMultiProof} from "../libraries/MerkleMultiProof.sol";
 library Internal {
   struct PriceUpdates {
     TokenPriceUpdate[] tokenPriceUpdates;
-    uint64 destChainSelector; // ──╮ Destination chain selector
-    uint224 usdPerUnitGas; // ─────╯ 1e18 USD per smallest unit (e.g. wei) of destination chain gas
+    GasPriceUpdate[] gasPriceUpdates;
   }
 
   struct TokenPriceUpdate {
     address sourceToken; // Source token
     uint224 usdPerToken; // 1e18 USD per smallest unit of token
+  }
+
+  struct GasPriceUpdate {
+    uint64 destChainSelector; // Destination chain selector
+    uint224 usdPerUnitGas; // 1e18 USD per smallest unit (e.g. wei) of destination chain gas
   }
 
   struct TimestampedPackedUint224 {

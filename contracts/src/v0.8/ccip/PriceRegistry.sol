@@ -190,9 +190,9 @@ contract PriceRegistry is IPriceRegistry, OwnerIsCreator, TypeAndVersionInterfac
 
   // @inheritdoc IPriceRegistry
   function updatePrices(Internal.PriceUpdates calldata priceUpdates) external override requireUpdaterOrOwner {
-    uint256 priceUpdatesLength = priceUpdates.tokenPriceUpdates.length;
+    uint256 tokenUpdatesLength = priceUpdates.tokenPriceUpdates.length;
 
-    for (uint256 i = 0; i < priceUpdatesLength; ++i) {
+    for (uint256 i = 0; i < tokenUpdatesLength; ++i) {
       Internal.TokenPriceUpdate memory update = priceUpdates.tokenPriceUpdates[i];
       s_usdPerToken[update.sourceToken] = Internal.TimestampedPackedUint224({
         value: update.usdPerToken,
@@ -201,12 +201,15 @@ contract PriceRegistry is IPriceRegistry, OwnerIsCreator, TypeAndVersionInterfac
       emit UsdPerTokenUpdated(update.sourceToken, update.usdPerToken, block.timestamp);
     }
 
-    if (priceUpdates.destChainSelector != 0) {
-      s_usdPerUnitGasByDestChainSelector[priceUpdates.destChainSelector] = Internal.TimestampedPackedUint224({
-        value: priceUpdates.usdPerUnitGas,
+    uint256 gasUpdatesLength = priceUpdates.gasPriceUpdates.length;
+
+    for (uint256 i = 0; i < gasUpdatesLength; ++i) {
+      Internal.GasPriceUpdate memory update = priceUpdates.gasPriceUpdates[i];
+      s_usdPerUnitGasByDestChainSelector[update.destChainSelector] = Internal.TimestampedPackedUint224({
+        value: update.usdPerUnitGas,
         timestamp: uint32(block.timestamp)
       });
-      emit UsdPerUnitGasUpdated(priceUpdates.destChainSelector, priceUpdates.usdPerUnitGas, block.timestamp);
+      emit UsdPerUnitGasUpdated(update.destChainSelector, update.usdPerUnitGas, block.timestamp);
     }
   }
 

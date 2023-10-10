@@ -453,7 +453,7 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     // the proper revert point. This must be called by the owner.
     changePrank(OWNER);
 
-    Internal.PriceUpdates memory priceUpdates = getSinglePriceUpdateStruct(wrongToken, 1);
+    Internal.PriceUpdates memory priceUpdates = getSingleTokenPriceUpdateStruct(wrongToken, 1);
     s_priceRegistry.updatePrices(priceUpdates);
 
     // Change back to the router

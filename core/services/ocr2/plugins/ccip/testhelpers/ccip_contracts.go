@@ -454,8 +454,12 @@ func (c *CCIPContracts) DeployNewPriceRegistry(t *testing.T) {
 				UsdPerToken: big.NewInt(1e18), // 1usd
 			},
 		},
-		DestChainSelector: c.Source.ChainSelector,
-		UsdPerUnitGas:     big.NewInt(2000e9), // $2000 per eth * 1gwei = 2000e9
+		GasPriceUpdates: []price_registry.InternalGasPriceUpdate{
+			{
+				DestChainSelector: c.Source.ChainSelector,
+				UsdPerUnitGas:     big.NewInt(2000e9), // $2000 per eth * 1gwei = 2000e9
+			},
+		},
 	}
 	_, err = c.Dest.PriceRegistry.UpdatePrices(c.Dest.User, priceUpdates)
 	require.NoError(t, err)
@@ -706,8 +710,12 @@ func (c *CCIPContracts) SetupLockAndMintTokenPool(
 				UsdPerToken: big.NewInt(1e18), // 1usd
 			},
 		},
-		DestChainSelector: c.Dest.ChainSelector,
-		UsdPerUnitGas:     big.NewInt(2000e9), // $2000 per eth * 1gwei = 2000e9,
+		GasPriceUpdates: []price_registry.InternalGasPriceUpdate{
+			{
+				DestChainSelector: c.Dest.ChainSelector,
+				UsdPerUnitGas:     big.NewInt(2000e9), // $2000 per eth * 1gwei = 2000e9,
+			},
+		},
 	})
 	if err != nil {
 		return [20]byte{}, nil, err
@@ -737,8 +745,12 @@ func (c *CCIPContracts) SetupLockAndMintTokenPool(
 				UsdPerToken: big.NewInt(5),
 			},
 		},
-		DestChainSelector: c.Source.ChainSelector,
-		UsdPerUnitGas:     big.NewInt(0),
+		GasPriceUpdates: []price_registry.InternalGasPriceUpdate{
+			{
+				DestChainSelector: c.Source.ChainSelector,
+				UsdPerUnitGas:     big.NewInt(0),
+			},
+		},
 	})
 	if err != nil {
 		return [20]byte{}, nil, err
@@ -763,8 +775,12 @@ func (c *CCIPContracts) SetupLockAndMintTokenPool(
 				UsdPerToken: big.NewInt(5),
 			},
 		},
-		DestChainSelector: 0,
-		UsdPerUnitGas:     big.NewInt(0),
+		GasPriceUpdates: []price_registry.InternalGasPriceUpdate{
+			{
+				DestChainSelector: 0,
+				UsdPerUnitGas:     big.NewInt(0),
+			},
+		},
 	})
 	if err != nil {
 		return [20]byte{}, nil, err
@@ -977,8 +993,12 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 				UsdPerToken: new(big.Int).Mul(big.NewInt(1e18), big.NewInt(2)), // TODO make this 2000USD and once we figure out the fee and exec cost discrepancy
 			},
 		},
-		DestChainSelector: destChainSelector,
-		UsdPerUnitGas:     big.NewInt(2000e9), // $2000 per eth * 1gwei = 2000e9
+		GasPriceUpdates: []price_registry.InternalGasPriceUpdate{
+			{
+				DestChainSelector: destChainSelector,
+				UsdPerUnitGas:     big.NewInt(2000e9), // $2000 per eth * 1gwei = 2000e9
+			},
+		},
 	}
 
 	_, err = srcPriceRegistry.UpdatePrices(sourceUser, prices)
@@ -1115,8 +1135,12 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			{SourceToken: destCustomTokenAddress, UsdPerToken: big.NewInt(5e18)}, // 5usd
 			{SourceToken: destWeth9addr, UsdPerToken: big.NewInt(2e18)},          // 2usd
 		},
-		DestChainSelector: sourceChainSelector,
-		UsdPerUnitGas:     big.NewInt(2000e9), // $2000 per eth * 1gwei = 2000e9
+		GasPriceUpdates: []price_registry.InternalGasPriceUpdate{
+			{
+				DestChainSelector: sourceChainSelector,
+				UsdPerUnitGas:     big.NewInt(2000e9), // $2000 per eth * 1gwei = 2000e9
+			},
+		},
 	}
 
 	_, err = destPriceRegistry.UpdatePrices(destUser, destPrices)

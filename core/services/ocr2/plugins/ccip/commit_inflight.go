@@ -68,32 +68,27 @@ func (c *inflightCommitReportsContainer) maxInflightSeqNr() uint64 {
 	return max
 }
 
-// getLatestInflightGasPriceUpdate returns the latest inflight gas price update, and bool flag on if update exists.
-// Note we assume that reports contain either 1 or 0 gas prices.
-// If this assumption is broken, we will need to update this logic.
-func (c *inflightCommitReportsContainer) getLatestInflightGasPriceUpdate() (update, bool) {
+// latestInflightGasPriceUpdates returns a map of the latest gas price updates.
+func (c *inflightCommitReportsContainer) latestInflightGasPriceUpdates() map[uint64]update {
 	c.locker.RLock()
 	defer c.locker.RUnlock()
-	updateFound := false
-	latestGasPriceUpdate := update{}
-	var latestEpochAndRound uint64
+	latestGasPriceUpdates := make(map[uint64]update)
+	latestEpochAndRounds := make(map[uint64]uint64)
+
 	for _, inflight := range c.inFlightPriceUpdates {
-		if len(inflight.gasPrices) == 0 {
-			// Price updates did not include a gas price
-			continue
-		}
-		if !updateFound || inflight.epochAndRound > latestEpochAndRound {
-			// First price found or found later update, set it
-			updateFound = true
-			latestGasPriceUpdate = update{
-				timestamp: inflight.createdAt,
-				value:     inflight.gasPrices[0].Value,
+		for _, inflightGasUpdate := range inflight.gasPrices {
+			_, ok := latestGasPriceUpdates[inflightGasUpdate.DestChainSelector]
+			if !ok || inflight.epochAndRound > latestEpochAndRounds[inflightGasUpdate.DestChainSelector] {
+				latestGasPriceUpdates[inflightGasUpdate.DestChainSelector] = update{
+					value:     inflightGasUpdate.Value,
+					timestamp: inflight.createdAt,
+				}
+				latestEpochAndRounds[inflightGasUpdate.DestChainSelector] = inflight.epochAndRound
 			}
-			latestEpochAndRound = inflight.epochAndRound
-			continue
 		}
 	}
-	return latestGasPriceUpdate, updateFound
+
+	return latestGasPriceUpdates
 }
 
 // latestInflightTokenPriceUpdates returns a map of the latest token price updates

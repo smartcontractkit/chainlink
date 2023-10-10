@@ -32,7 +32,7 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
     TokenSetup.setUp();
     PriceRegistrySetup.setUp();
 
-    s_priceRegistry.updatePrices(getSinglePriceUpdateStruct(CUSTOM_TOKEN, CUSTOM_TOKEN_PRICE));
+    s_priceRegistry.updatePrices(getSingleTokenPriceUpdateStruct(CUSTOM_TOKEN, CUSTOM_TOKEN_PRICE));
 
     address WETH = s_sourceRouter.getWrappedNative();
 

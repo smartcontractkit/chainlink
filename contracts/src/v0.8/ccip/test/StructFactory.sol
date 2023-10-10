@@ -181,7 +181,7 @@ contract StructFactory {
     return RateLimiter.Config({isEnabled: true, capacity: 100e28, rate: 1e15});
   }
 
-  function getSinglePriceUpdateStruct(
+  function getSingleTokenPriceUpdateStruct(
     address token,
     uint224 price
   ) internal pure returns (Internal.PriceUpdates memory) {
@@ -190,11 +190,36 @@ contract StructFactory {
 
     Internal.PriceUpdates memory priceUpdates = Internal.PriceUpdates({
       tokenPriceUpdates: tokenPriceUpdates,
-      destChainSelector: 0,
-      usdPerUnitGas: 0
+      gasPriceUpdates: new Internal.GasPriceUpdate[](0)
     });
 
     return priceUpdates;
+  }
+
+  function getSingleGasPriceUpdateStruct(
+    uint64 chainSelector,
+    uint224 usdPerUnitGas
+  ) internal pure returns (Internal.PriceUpdates memory) {
+    Internal.GasPriceUpdate[] memory gasPriceUpdates = new Internal.GasPriceUpdate[](1);
+    gasPriceUpdates[0] = Internal.GasPriceUpdate({destChainSelector: chainSelector, usdPerUnitGas: usdPerUnitGas});
+
+    Internal.PriceUpdates memory priceUpdates = Internal.PriceUpdates({
+      tokenPriceUpdates: new Internal.TokenPriceUpdate[](0),
+      gasPriceUpdates: gasPriceUpdates
+    });
+
+    return priceUpdates;
+  }
+
+  function getSingleTokenAndGasPriceUpdateStruct(
+    address token,
+    uint224 price,
+    uint64 chainSelector,
+    uint224 usdPerUnitGas
+  ) internal pure returns (Internal.PriceUpdates memory) {
+    Internal.PriceUpdates memory update = getSingleTokenPriceUpdateStruct(token, price);
+    update.gasPriceUpdates = getSingleGasPriceUpdateStruct(chainSelector, usdPerUnitGas).gasPriceUpdates;
+    return update;
   }
 
   function getPriceUpdatesStruct(
@@ -209,8 +234,7 @@ contract StructFactory {
     }
     Internal.PriceUpdates memory priceUpdates = Internal.PriceUpdates({
       tokenPriceUpdates: tokenPriceUpdates,
-      destChainSelector: 0,
-      usdPerUnitGas: 0
+      gasPriceUpdates: new Internal.GasPriceUpdate[](0)
     });
 
     return priceUpdates;
@@ -221,8 +245,7 @@ contract StructFactory {
     return
       Internal.PriceUpdates({
         tokenPriceUpdates: new Internal.TokenPriceUpdate[](0),
-        destChainSelector: 0,
-        usdPerUnitGas: 0
+        gasPriceUpdates: new Internal.GasPriceUpdate[](0)
       });
   }
 }

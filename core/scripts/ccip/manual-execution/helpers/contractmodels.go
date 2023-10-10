@@ -18,10 +18,14 @@ type ICommitStoreCommitReport struct {
 	MerkleRoot   [32]byte
 }
 
+type InternalGasPriceUpdate struct {
+	DestChainSelector uint64
+	UsdPerUnitGas     *big.Int
+}
+
 type InternalPriceUpdates struct {
 	TokenPriceUpdates []InternalTokenPriceUpdate
-	DestChainId       uint64
-	UsdPerUnitGas     *big.Int
+	GasPriceUpdates   []InternalGasPriceUpdate
 }
 
 type InternalTokenPriceUpdate struct {

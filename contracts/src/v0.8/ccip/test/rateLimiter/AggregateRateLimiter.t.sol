@@ -22,7 +22,7 @@ contract AggregateTokenLimiterSetup is BaseTest, PriceRegistrySetup {
     BaseTest.setUp();
     PriceRegistrySetup.setUp();
 
-    Internal.PriceUpdates memory priceUpdates = getSinglePriceUpdateStruct(TOKEN, TOKEN_PRICE);
+    Internal.PriceUpdates memory priceUpdates = getSingleTokenPriceUpdateStruct(TOKEN, TOKEN_PRICE);
     s_priceRegistry.updatePrices(priceUpdates);
 
     s_config = RateLimiter.Config({isEnabled: true, rate: 5, capacity: 100});

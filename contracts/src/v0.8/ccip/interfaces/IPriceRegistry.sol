@@ -4,7 +4,7 @@ pragma solidity ^0.8.0;
 import {Internal} from "../libraries/Internal.sol";
 
 interface IPriceRegistry {
-  /// @notice Update the price for given tokens and destination chain.
+  /// @notice Update the price for given tokens and gas prices for given chains.
   /// @param priceUpdates The price updates to apply.
   function updatePrices(Internal.PriceUpdates memory priceUpdates) external;
 

@@ -346,7 +346,7 @@ contract CommitStore_report is CommitStoreSetup {
     uint64 max1 = 12;
 
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getSinglePriceUpdateStruct(s_sourceFeeToken, 4e18),
+      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       interval: CommitStore.Interval(1, max1),
       merkleRoot: "test #2"
     });
@@ -367,7 +367,7 @@ contract CommitStore_report is CommitStoreSetup {
       .value;
 
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getSinglePriceUpdateStruct(s_sourceFeeToken, 4e18),
+      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       interval: CommitStore.Interval(1, maxSeq),
       merkleRoot: "stale report 1"
     });
@@ -397,9 +397,23 @@ contract CommitStore_report is CommitStoreSetup {
     );
   }
 
-  function testOnlyPriceUpdatesSuccess() public {
+  function testOnlyTokenPriceUpdatesSuccess() public {
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getSinglePriceUpdateStruct(s_sourceFeeToken, 4e18),
+      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
+      interval: CommitStore.Interval(0, 0),
+      merkleRoot: ""
+    });
+
+    vm.expectEmit();
+    emit UsdPerTokenUpdated(s_sourceFeeToken, 4e18, block.timestamp);
+
+    s_commitStore.report(abi.encode(report), ++s_latestEpochAndRound);
+    assertEq(s_latestEpochAndRound, s_commitStore.getLatestPriceEpochAndRound());
+  }
+
+  function testOnlyGasPriceUpdatesSuccess() public {
+    CommitStore.CommitReport memory report = CommitStore.CommitReport({
+      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       interval: CommitStore.Interval(0, 0),
       merkleRoot: ""
     });
@@ -417,7 +431,7 @@ contract CommitStore_report is CommitStoreSetup {
     uint224 tokenPrice2 = 5e18;
 
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getSinglePriceUpdateStruct(s_sourceFeeToken, tokenPrice1),
+      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, tokenPrice1),
       interval: CommitStore.Interval(0, 0),
       merkleRoot: ""
     });
@@ -429,7 +443,7 @@ contract CommitStore_report is CommitStoreSetup {
     assertEq(s_latestEpochAndRound, s_commitStore.getLatestPriceEpochAndRound());
 
     report = CommitStore.CommitReport({
-      priceUpdates: getSinglePriceUpdateStruct(s_sourceFeeToken, tokenPrice2),
+      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, tokenPrice2),
       interval: CommitStore.Interval(1, maxSeq),
       merkleRoot: "stale report"
     });
@@ -502,7 +516,7 @@ contract CommitStore_report is CommitStoreSetup {
 
   function testZeroEpochAndRoundReverts() public {
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getSinglePriceUpdateStruct(s_sourceFeeToken, 4e18),
+      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       interval: CommitStore.Interval(0, 0),
       merkleRoot: bytes32(0)
     });
@@ -514,7 +528,7 @@ contract CommitStore_report is CommitStoreSetup {
 
   function testOnlyPriceUpdateStaleReportReverts() public {
     CommitStore.CommitReport memory report = CommitStore.CommitReport({
-      priceUpdates: getSinglePriceUpdateStruct(s_sourceFeeToken, 4e18),
+      priceUpdates: getSingleTokenPriceUpdateStruct(s_sourceFeeToken, 4e18),
       interval: CommitStore.Interval(0, 0),
       merkleRoot: bytes32(0)
     });
