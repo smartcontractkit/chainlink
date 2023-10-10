@@ -5,27 +5,19 @@ import (
 	"encoding/hex"
 	"fmt"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-
-	"strings"
-
-	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/pkg/errors"
-
-	"github.com/smartcontractkit/chainlink/integration-tests/client"
-	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
@@ -52,6 +44,13 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/werc20_mock"
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/client"
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 // EthereumOracle oracle for "directrequest" job tests
