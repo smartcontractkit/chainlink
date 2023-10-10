@@ -3,13 +3,15 @@ name: publish
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
     branches:
       - ccip-develop
       - deployment-test
 
 jobs:
   build-and-publish:
+    # Do not trigger from versioned tags.
+    if: ${{ ! startsWith(github.ref, 'refs/tags/v') }}
     environment: publish
     permissions:
       id-token: write
@@ -39,21 +41,83 @@ jobs:
           role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
           aws-region: ${{ secrets.AWS_REGION }}
       - name: Login to ECR
-        uses: docker/login-action@42d299face0c5c43a0487c477f595ac9cf22f1a7 #v1.12.0
+        uses: docker/login-action@42d299face0c5c43a0487c477f595ac9cf22f1a7 # v1.12.0
         with:
           registry: ${{ secrets.AWS_ECR_REPO_URL }}
-      # We add SemVer build metadata to indicate the core version in a git tag
-      # like: v0.2.0-beta.0+core2.0.0
-      # The plus "+" sign is invalid for Docker images so we replace it with a
-      # hyphen "-". We also remove the leading "v" prefix from the tag.
+      - name: Docker meta
+        id: docker_meta
+        uses: docker/metadata-action@507c2f2dc502c992ad446e3d7a5dfbe311567a96 # v4.3.0
+        with:
+          images: ${{ secrets.AWS_ECR_REPO_URL }} # list of Docker images to use as base name for tags
+          tags: |
+            type=sha,enable={{is_default_branch}}
+            type=sha,format=long,enable={{is_default_branch}}
+      - name: Fetch operator-ui
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: make operator-ui
+      - name: Build and push
+        id: docker_build
+        uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5 # v3.2.0
+        with:
+          context: .
+          push: true
+          file: ./core/chainlink.Dockerfile
+          tags: ${{ steps.docker_meta.outputs.tags }}
+          labels: ${{ steps.docker_meta.outputs.labels }}
+          build-args: |
+            CHAINLINK_USER=chainlink
+  build-and-publish-release:
+    # Trigger only from versioned tags.
+    if: ${{ startsWith(github.ref, 'refs/tags/v') }}
+    environment: publish
+    env:
+      # Public ECR is only available in us-east-1; not a secret.
+      AWS_REGION: us-east-1
+      AWS_ECR_REPO_PUBLIC_REGISTRY: public.ecr.aws
+    permissions:
+      id-token: write
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@8163dcea2f01a0a8fec84b284406ff7af1d2e1c0
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: build-and-publish-release
+        continue-on-error: true
+
+      - name: Checkout the repo
+        uses: actions/checkout@24cb9080177205b6e8c946b17badbe402adc938f # v3.4.0
+      - name: Set up Docker Buildx
+        id: buildx
+        uses: docker/setup-buildx-action@94ab11c41e45d028884a99163086648e898eed25 # v1.6.0
+        with:
+          version: latest
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@67fbcbb121271f7775d2e7715933280b06314838 # v1.7.0
+        with:
+          role-to-assume: ${{ secrets.AWS_OIDC_IAM_ROLE_PROD_PUBLISH_ARN }}
+          role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Login to ECR
+        uses: docker/login-action@42d299face0c5c43a0487c477f595ac9cf22f1a7 # v1.12.0
+        with:
+          registry: ${{ env.AWS_ECR_REPO_PUBLIC_REGISTRY }}
+      # We use the core SemVer version and then append the the CCIP version in
+      # a git tag like: v2.5.0-ccip1.1.1
+      # We also remove the leading "v" prefix from the tag and convert any "+"
+      # to "-".
       - name: Generate Docker image version tag
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
         id: generate-docker-image-tag
         shell: bash
         run: |
           # The "#v" removes the "v" prefix from the ref name
           GITHUB_REF_NAME="${GITHUB_REF_NAME#v}"
-          # Replace "+" with "-" to make it a valid Docker tag
+          # Replace any "+" with "-" to make it a valid Docker tag
           GITHUB_REF_NAME="${GITHUB_REF_NAME//+/-}"
           OUTPUT="type=raw,value=${GITHUB_REF_NAME},enable=true"
           echo "tag=${OUTPUT}" | tee -a "${GITHUB_OUTPUT}"
@@ -61,17 +125,14 @@ jobs:
         id: docker_meta
         uses: docker/metadata-action@507c2f2dc502c992ad446e3d7a5dfbe311567a96 # v4.3.0
         with:
-          images: ${{ secrets.AWS_ECR_REPO_URL }} # list of Docker images to use as base name for tags
+          images: ${{ env.AWS_ECR_REPO_PUBLIC_REGISTRY }}/w0i8p0z9/chainlink-ccip
           tags: |
-            type=sha
-            type=sha,format=long
-            type=raw,value=latest,enable={{is_default_branch}}
             ${{ steps.generate-docker-image-tag.outputs.tag }}
       - name: Fetch operator-ui
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
-        run: make operator-ui 
+        run: make operator-ui
       - name: Build and push
         id: docker_build
         uses: docker/build-push-action@c56af957549030174b10d6867f20e78cfd7debc5 # v3.2.0
