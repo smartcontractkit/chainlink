@@ -55,7 +55,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	})
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-	sendingKey, _ := cltest.MustAddRandomKeyToKeystore(t, kst)
+	sendingKey, _ := cltest.MustInsertRandomKey(t, kst)
 	lp := &mocklp.LogPoller{}
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
 	lp.On("LatestBlock", mock.Anything, mock.Anything).Return(int64(0), nil)

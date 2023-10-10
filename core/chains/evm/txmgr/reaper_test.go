@@ -47,7 +47,7 @@ func TestReaper_ReapTxes(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	_, from := cltest.MustInsertRandomKey(t, ethKeyStore)
 	var nonce int64
 	oneDayAgo := time.Now().Add(-24 * time.Hour)
 

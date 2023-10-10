@@ -271,8 +271,6 @@ func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestAppli
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
 func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
-	t.Helper()
-
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
 
 	chainID := *utils.NewBig(&FixtureChainID)
@@ -284,12 +282,14 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 	}
 
 	if len(app.Keys) == 0 {
-		k, _ := MustInsertRandomKey(t, app.KeyStore.Eth(), 0, chainID)
+		k, _ := MustInsertRandomKey(t, app.KeyStore.Eth(), chainID)
 		app.Keys = []ethkey.KeyV2{k}
 	} else {
 		id, ks := chainID.ToInt(), app.KeyStore.Eth()
 		for _, k := range app.Keys {
-			MustAddKeyToKeystore(t, k, id, ks)
+			ks.XXXTestingOnlyAdd(k)
+			require.NoError(t, ks.Add(k.Address, id))
+			require.NoError(t, ks.Enable(k.Address, id))
 		}
 	}
 
