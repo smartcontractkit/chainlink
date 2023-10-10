@@ -484,6 +484,8 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
     // Get requestId from RequestStart event log topic 1
     Vm.Log[] memory entries = vm.getRecordedLogs();
     bytes32 requestIdFromEvent = entries[1].topics[1];
+    bytes32 donIdFromEvent = entries[1].topics[2];
+    bytes32 subscriptionIdFromEvent = entries[1].topics[3];
 
     bytes memory expectedRequestData = abi.encode(
       OWNER_ADDRESS,
@@ -495,8 +497,10 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
       costEstimate
     );
 
-    assertEq(expectedRequestData, entries[1].data);
     assertEq(requestIdFromReturn, requestIdFromEvent);
+    assertEq(donIdFromEvent, s_donId);
+    assertEq(subscriptionIdFromEvent, bytes32(uint256(s_subscriptionId)));
+    assertEq(expectedRequestData, entries[1].data);
   }
 }
 
@@ -767,6 +771,8 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
     // Get requestId from RequestStart event log topic 1
     Vm.Log[] memory entries = vm.getRecordedLogs();
     bytes32 requestIdFromEvent = entries[1].topics[1];
+    bytes32 donIdFromEvent = entries[1].topics[2];
+    bytes32 subscriptionIdFromEvent = entries[1].topics[3];
 
     bytes memory expectedRequestData = abi.encode(
       OWNER_ADDRESS,
@@ -778,8 +784,10 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
       costEstimate
     );
 
-    assertEq(expectedRequestData, entries[1].data);
     assertEq(requestIdFromReturn, requestIdFromEvent);
+    assertEq(donIdFromEvent, s_donId);
+    assertEq(subscriptionIdFromEvent, bytes32(uint256(s_subscriptionId)));
+    assertEq(expectedRequestData, entries[1].data);
   }
 }
 
