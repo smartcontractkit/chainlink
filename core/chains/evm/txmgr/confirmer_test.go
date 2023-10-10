@@ -2412,8 +2412,6 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		require.NoError(t, ec.RebroadcastWhereNecessary(testutils.Context(t), currentHead))
 	})
 
-	realKst := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-
 	t.Run("multiple gas bumps with existing broadcast attempts are retried with more gas until success in legacy mode", func(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		ec := cltest.NewEthConfirmer(t, txStore, ethClient, evmcfg, kst, nil)
@@ -2439,7 +2437,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		).Run(func(args mock.Arguments) {
 			unsignedLegacyTx := args.Get(1).(*types.Transaction)
 			// Use the real keystore to do the actual signing
-			thisSignedLegacyTx, err := realKst.SignTx(fromAddress, unsignedLegacyTx, testutils.FixtureChainID)
+			thisSignedLegacyTx, err := ethKeyStore.SignTx(fromAddress, unsignedLegacyTx, testutils.FixtureChainID)
 			require.NoError(t, err)
 			*signedLegacyTx = *thisSignedLegacyTx
 		}).Times(4) // 3 failures 1 success
@@ -2471,7 +2469,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_TerminallyUnderpriced_ThenGoesTh
 		).Run(func(args mock.Arguments) {
 			unsignedDxFeeTx := args.Get(1).(*types.Transaction)
 			// Use the real keystore to do the actual signing
-			thisSignedDxFeeTx, err := realKst.SignTx(fromAddress, unsignedDxFeeTx, testutils.FixtureChainID)
+			thisSignedDxFeeTx, err := ethKeyStore.SignTx(fromAddress, unsignedDxFeeTx, testutils.FixtureChainID)
 			require.NoError(t, err)
 			*signedDxFeeTx = *thisSignedDxFeeTx
 		}).Times(4) // 3 failures 1 success

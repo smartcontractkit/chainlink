@@ -177,32 +177,6 @@ func (_m *VRF) GetAll() ([]vrfkey.KeyV2, error) {
 	return r0, r1
 }
 
-// GetV1KeysAsV2 provides a mock function with given fields: password
-func (_m *VRF) GetV1KeysAsV2(password string) ([]vrfkey.KeyV2, error) {
-	ret := _m.Called(password)
-
-	var r0 []vrfkey.KeyV2
-	var r1 error
-	if rf, ok := ret.Get(0).(func(string) ([]vrfkey.KeyV2, error)); ok {
-		return rf(password)
-	}
-	if rf, ok := ret.Get(0).(func(string) []vrfkey.KeyV2); ok {
-		r0 = rf(password)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]vrfkey.KeyV2)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func(string) error); ok {
-		r1 = rf(password)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // Import provides a mock function with given fields: keyJSON, password
 func (_m *VRF) Import(keyJSON []byte, password string) (vrfkey.KeyV2, error) {
 	ret := _m.Called(keyJSON, password)
