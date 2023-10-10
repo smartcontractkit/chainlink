@@ -779,7 +779,6 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
     );
 
     assertEq(expectedRequestData, entries[1].data);
-
     assertEq(requestIdFromReturn, requestIdFromEvent);
   }
 }
