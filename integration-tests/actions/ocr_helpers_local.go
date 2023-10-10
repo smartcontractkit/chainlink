@@ -35,7 +35,10 @@ func FundChainlinkNodesLocal(
 		if err != nil {
 			return err
 		}
-		gasEstimates, err := client.EstimateGas(ethereum.CallMsg{})
+		toAddr := common.HexToAddress(toAddress)
+		gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
+			To: &toAddr,
+		})
 		if err != nil {
 			return err
 		}

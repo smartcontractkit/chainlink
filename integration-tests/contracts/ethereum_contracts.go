@@ -65,7 +65,9 @@ func (e *EthereumOracle) Address() string {
 }
 
 func (e *EthereumOracle) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{
+		To: e.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -105,7 +107,9 @@ func (e *EthereumAPIConsumer) RoundID(ctx context.Context) (*big.Int, error) {
 }
 
 func (e *EthereumAPIConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{
+		To: e.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -157,7 +161,9 @@ func (f *EthereumStaking) Address() string {
 
 // Fund sends specified currencies to the contract
 func (f *EthereumStaking) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{
+		To: f.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -901,7 +907,9 @@ func (f *EthereumFluxAggregator) Address() string {
 
 // Fund sends specified currencies to the contract
 func (f *EthereumFluxAggregator) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := f.client.EstimateGas(ethereum.CallMsg{
+		To: f.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -1192,7 +1200,9 @@ type EthereumLinkToken struct {
 
 // Fund the LINK Token contract with ETH to distribute the token
 func (l *EthereumLinkToken) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := l.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := l.client.EstimateGas(ethereum.CallMsg{
+		To: &l.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -1289,7 +1299,9 @@ type EthereumOffchainAggregator struct {
 
 // Fund sends specified currencies to the contract
 func (o *EthereumOffchainAggregator) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := o.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := o.client.EstimateGas(ethereum.CallMsg{
+		To: o.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -1959,7 +1971,9 @@ func (e *EthereumOffchainAggregatorV2) Address() string {
 }
 
 func (e *EthereumOffchainAggregatorV2) Fund(nativeAmount *big.Float) error {
-	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := e.client.EstimateGas(ethereum.CallMsg{
+		To: e.address,
+	})
 	if err != nil {
 		return err
 	}
