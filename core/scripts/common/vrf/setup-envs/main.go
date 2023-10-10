@@ -6,11 +6,15 @@ import (
 	"flag"
 	"fmt"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/shopspring/decimal"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/constants"
-	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/scripts"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
+	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
+	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2/testnet/v2scripts"
+	"github.com/smartcontractkit/chainlink/core/scripts/vrfv2plus/testnet/v2plusscripts"
 	clcmd "github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 	"github.com/urfave/cli"
 	"io"
@@ -54,7 +58,7 @@ func main() {
 	bhsNodeURL := flag.String("bhs-node-url", "", "remote node URL")
 	bhsBackupNodeURL := flag.String("bhs-backup-node-url", "", "remote node URL")
 	bhfNodeURL := flag.String("bhf-node-url", "", "remote node URL")
-	nodeSendingKeyFundingAmount := flag.Int64("sending-key-funding-amount", constants.NodeSendingKeyFundingAmountGwei, "remote node URL")
+	nodeSendingKeyFundingAmount := flag.String("sending-key-funding-amount", constants.NodeSendingKeyFundingAmount, "sending key funding amount")
 
 	vrfPrimaryCredsFile := flag.String("vrf-primary-creds-file", "", "Creds to authenticate to the node")
 	vrfBackupCredsFile := flag.String("vrf-bk-creds-file", "", "Creds to authenticate to the node")
@@ -65,12 +69,15 @@ func main() {
 	numEthKeys := flag.Int("num-eth-keys", 5, "Number of eth keys to create")
 	maxGasPriceGwei := flag.Int("max-gas-price-gwei", -1, "Max gas price gwei of the eth keys")
 	numVRFKeys := flag.Int("num-vrf-keys", 1, "Number of vrf keys to create")
-
-	deployContracts := flag.Bool("deploy-contracts", true, "whether to deploy contracts and create jobs")
-
 	batchFulfillmentEnabled := flag.Bool("batch-fulfillment-enabled", constants.BatchFulfillmentEnabled, "whether to enable batch fulfillment on Cl node")
-	minConfs := flag.Int("min-confs", constants.MinConfs, "minimum confirmations")
 
+	vrfVersion := flag.String("vrf-version", "v2", "VRF version to use")
+	deployContractsAndCreateJobs := flag.Bool("deploy-contracts-and-create-jobs", false, "whether to deploy contracts and create jobs")
+
+	subscriptionBalanceJuelsString := flag.String("subscription-balance", constants.SubscriptionBalanceJuels, "amount to fund subscription with Link token (Juels)")
+	subscriptionBalanceNativeWeiString := flag.String("subscription-balance-native", constants.SubscriptionBalanceNativeWei, "amount to fund subscription with native token (Wei)")
+
+	minConfs := flag.Int("min-confs", constants.MinConfs, "minimum confirmations")
 	linkAddress := flag.String("link-address", "", "address of link token")
 	linkEthAddress := flag.String("link-eth-feed", "", "address of link eth feed")
 	bhsContractAddressString := flag.String("bhs-address", "", "address of BHS contract")
@@ -80,41 +87,50 @@ func main() {
 
 	e := helpers.SetupEnv(false)
 	flag.Parse()
-	nodesMap := make(map[string]scripts.Node)
+	nodesMap := make(map[string]model.Node)
+
+	if *vrfVersion != "v2" && *vrfVersion != "v2plus" {
+		panic(fmt.Sprintf("Invalid VRF Version `%s`. Only `v2` and `v2plus` are supported", *vrfVersion))
+	}
+	fmt.Println("Using VRF Version:", *vrfVersion)
+
+	fundingAmount := decimal.RequireFromString(*nodeSendingKeyFundingAmount).BigInt()
+	subscriptionBalanceJuels := decimal.RequireFromString(*subscriptionBalanceJuelsString).BigInt()
+	subscriptionBalanceNativeWei := decimal.RequireFromString(*subscriptionBalanceNativeWeiString).BigInt()
 
 	if *vrfPrimaryNodeURL != "" {
-		nodesMap[scripts.VRFPrimaryNodeName] = scripts.Node{
+		nodesMap[model.VRFPrimaryNodeName] = model.Node{
 			URL:                     *vrfPrimaryNodeURL,
-			SendingKeyFundingAmount: *big.NewInt(*nodeSendingKeyFundingAmount),
+			SendingKeyFundingAmount: fundingAmount,
 			CredsFile:               *vrfPrimaryCredsFile,
 		}
 	}
 	if *vrfBackupNodeURL != "" {
-		nodesMap[scripts.VRFBackupNodeName] = scripts.Node{
+		nodesMap[model.VRFBackupNodeName] = model.Node{
 			URL:                     *vrfBackupNodeURL,
-			SendingKeyFundingAmount: *big.NewInt(*nodeSendingKeyFundingAmount),
+			SendingKeyFundingAmount: fundingAmount,
 			CredsFile:               *vrfBackupCredsFile,
 		}
 	}
 	if *bhsNodeURL != "" {
-		nodesMap[scripts.BHSNodeName] = scripts.Node{
+		nodesMap[model.BHSNodeName] = model.Node{
 			URL:                     *bhsNodeURL,
-			SendingKeyFundingAmount: *big.NewInt(*nodeSendingKeyFundingAmount),
+			SendingKeyFundingAmount: fundingAmount,
 			CredsFile:               *bhsCredsFile,
 		}
 	}
 	if *bhsBackupNodeURL != "" {
-		nodesMap[scripts.BHSBackupNodeName] = scripts.Node{
+		nodesMap[model.BHSBackupNodeName] = model.Node{
 			URL:                     *bhsBackupNodeURL,
-			SendingKeyFundingAmount: *big.NewInt(*nodeSendingKeyFundingAmount),
+			SendingKeyFundingAmount: fundingAmount,
 			CredsFile:               *bhsBackupCredsFile,
 		}
 	}
 
 	if *bhfNodeURL != "" {
-		nodesMap[scripts.BHFNodeName] = scripts.Node{
+		nodesMap[model.BHFNodeName] = model.Node{
 			URL:                     *bhfNodeURL,
-			SendingKeyFundingAmount: *big.NewInt(*nodeSendingKeyFundingAmount),
+			SendingKeyFundingAmount: fundingAmount,
 			CredsFile:               *bhfCredsFile,
 		}
 	}
@@ -124,14 +140,14 @@ func main() {
 
 		client, app := connectToNode(&node.URL, output, node.CredsFile)
 		ethKeys := createETHKeysIfNeeded(client, app, output, numEthKeys, &node.URL, maxGasPriceGwei)
-		if key == scripts.VRFPrimaryNodeName {
+		if key == model.VRFPrimaryNodeName {
 			vrfKeys := createVRFKeyIfNeeded(client, app, output, numVRFKeys, &node.URL)
 			node.VrfKeys = mapVrfKeysToStringArr(vrfKeys)
 			printVRFKeyData(vrfKeys)
 			exportVRFKey(client, app, vrfKeys[0], output)
 		}
 
-		if key == scripts.VRFBackupNodeName {
+		if key == model.VRFBackupNodeName {
 			vrfKeys := getVRFKeys(client, app, output)
 			node.VrfKeys = mapVrfKeysToStringArr(vrfKeys)
 		}
@@ -141,23 +157,12 @@ func main() {
 		fundNodesIfNeeded(node, key, e)
 		nodesMap[key] = node
 	}
-	importVRFKeyToNodeIfSet(vrfBackupNodeURL, nodesMap, output, nodesMap[scripts.VRFBackupNodeName].CredsFile)
-	fmt.Println()
+	importVRFKeyToNodeIfSet(vrfBackupNodeURL, nodesMap, output, nodesMap[model.VRFBackupNodeName].CredsFile)
+	fmt.Println("deployContractsAndCreateJobs", *deployContractsAndCreateJobs)
 
-	if *deployContracts {
-		feeConfig := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
-			FulfillmentFlatFeeLinkPPMTier1: uint32(constants.FlatFeeTier1),
-			FulfillmentFlatFeeLinkPPMTier2: uint32(constants.FlatFeeTier2),
-			FulfillmentFlatFeeLinkPPMTier3: uint32(constants.FlatFeeTier3),
-			FulfillmentFlatFeeLinkPPMTier4: uint32(constants.FlatFeeTier4),
-			FulfillmentFlatFeeLinkPPMTier5: uint32(constants.FlatFeeTier5),
-			ReqsForTier2:                   big.NewInt(constants.ReqsForTier2),
-			ReqsForTier3:                   big.NewInt(constants.ReqsForTier3),
-			ReqsForTier4:                   big.NewInt(constants.ReqsForTier4),
-			ReqsForTier5:                   big.NewInt(constants.ReqsForTier5),
-		}
+	if *deployContractsAndCreateJobs {
 
-		contractAddresses := scripts.ContractAddresses{
+		contractAddresses := model.ContractAddresses{
 			LinkAddress:             *linkAddress,
 			LinkEthAddress:          *linkEthAddress,
 			BhsContractAddress:      common.HexToAddress(*bhsContractAddressString),
@@ -166,24 +171,65 @@ func main() {
 			BatchCoordinatorAddress: common.HexToAddress(*batchCoordinatorAddressString),
 		}
 
-		coordinatorConfig := scripts.CoordinatorConfig{
-			MinConfs:               minConfs,
-			MaxGasLimit:            &constants.MaxGasLimit,
-			StalenessSeconds:       &constants.StalenessSeconds,
-			GasAfterPayment:        &constants.GasAfterPayment,
-			FallbackWeiPerUnitLink: constants.FallbackWeiPerUnitLink,
-			FeeConfig:              feeConfig,
-		}
+		var jobSpecs model.JobSpecs
 
-		jobSpecs := scripts.VRFV2DeployUniverse(
-			e,
-			constants.SubscriptionBalanceJuels,
-			&nodesMap[scripts.VRFPrimaryNodeName].VrfKeys[0],
-			contractAddresses,
-			coordinatorConfig,
-			*batchFulfillmentEnabled,
-			nodesMap,
-		)
+		switch *vrfVersion {
+		case "v2":
+			feeConfigV2 := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
+				FulfillmentFlatFeeLinkPPMTier1: uint32(constants.FlatFeeTier1),
+				FulfillmentFlatFeeLinkPPMTier2: uint32(constants.FlatFeeTier2),
+				FulfillmentFlatFeeLinkPPMTier3: uint32(constants.FlatFeeTier3),
+				FulfillmentFlatFeeLinkPPMTier4: uint32(constants.FlatFeeTier4),
+				FulfillmentFlatFeeLinkPPMTier5: uint32(constants.FlatFeeTier5),
+				ReqsForTier2:                   big.NewInt(constants.ReqsForTier2),
+				ReqsForTier3:                   big.NewInt(constants.ReqsForTier3),
+				ReqsForTier4:                   big.NewInt(constants.ReqsForTier4),
+				ReqsForTier5:                   big.NewInt(constants.ReqsForTier5),
+			}
+
+			coordinatorConfigV2 := v2scripts.CoordinatorConfigV2{
+				MinConfs:               minConfs,
+				MaxGasLimit:            &constants.MaxGasLimit,
+				StalenessSeconds:       &constants.StalenessSeconds,
+				GasAfterPayment:        &constants.GasAfterPayment,
+				FallbackWeiPerUnitLink: constants.FallbackWeiPerUnitLink,
+				FeeConfig:              feeConfigV2,
+			}
+
+			jobSpecs = v2scripts.VRFV2DeployUniverse(
+				e,
+				subscriptionBalanceJuels,
+				&nodesMap[model.VRFPrimaryNodeName].VrfKeys[0],
+				contractAddresses,
+				coordinatorConfigV2,
+				*batchFulfillmentEnabled,
+				nodesMap,
+			)
+		case "v2plus":
+			feeConfigV2Plus := vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
+				FulfillmentFlatFeeLinkPPM:   uint32(constants.FlatFeeLinkPPM),
+				FulfillmentFlatFeeNativePPM: uint32(constants.FlatFeeNativePPM),
+			}
+			coordinatorConfigV2Plus := v2plusscripts.CoordinatorConfigV2Plus{
+				MinConfs:               minConfs,
+				MaxGasLimit:            &constants.MaxGasLimit,
+				StalenessSeconds:       &constants.StalenessSeconds,
+				GasAfterPayment:        &constants.GasAfterPayment,
+				FallbackWeiPerUnitLink: constants.FallbackWeiPerUnitLink,
+				FeeConfig:              feeConfigV2Plus,
+			}
+
+			jobSpecs = v2plusscripts.VRFV2PlusDeployUniverse(
+				e,
+				subscriptionBalanceJuels,
+				subscriptionBalanceNativeWei,
+				&nodesMap[model.VRFPrimaryNodeName].VrfKeys[0],
+				contractAddresses,
+				coordinatorConfigV2Plus,
+				*batchFulfillmentEnabled,
+				nodesMap,
+			)
+		}
 
 		for key, node := range nodesMap {
 			client, app := connectToNode(&node.URL, output, node.CredsFile)
@@ -196,41 +242,43 @@ func main() {
 				deleteJob(jobID, client, app, output)
 			}
 			//CREATE JOBS
+
 			switch key {
-			case scripts.VRFPrimaryNodeName:
+			case model.VRFPrimaryNodeName:
 				createJob(jobSpecs.VRFPrimaryNode, client, app, output)
-			case scripts.VRFBackupNodeName:
+			case model.VRFBackupNodeName:
 				createJob(jobSpecs.VRFBackupyNode, client, app, output)
-			case scripts.BHSNodeName:
+			case model.BHSNodeName:
 				createJob(jobSpecs.BHSNode, client, app, output)
-			case scripts.BHSBackupNodeName:
+			case model.BHSBackupNodeName:
 				createJob(jobSpecs.BHSBackupNode, client, app, output)
-			case scripts.BHFNodeName:
+			case model.BHFNodeName:
 				createJob(jobSpecs.BHFNode, client, app, output)
 			}
 		}
 	}
-
 }
 
-func fundNodesIfNeeded(node scripts.Node, key string, e helpers.Environment) {
-	if node.SendingKeyFundingAmount.Int64() > 0 {
-		fmt.Println("\nFunding", key, "Node's Sending Keys...")
+func fundNodesIfNeeded(node model.Node, key string, e helpers.Environment) {
+	if node.SendingKeyFundingAmount.Cmp(big.NewInt(0)) == 1 {
+		fmt.Println("\nFunding", key, "Node's Sending Keys. Need to fund each key with", node.SendingKeyFundingAmount, "wei")
 		for _, sendingKey := range node.SendingKeys {
-			fundingToSendWei := node.SendingKeyFundingAmount.Int64() - sendingKey.BalanceEth.Int64()
-			if fundingToSendWei > 0 {
-				helpers.FundNode(e, sendingKey.Address, big.NewInt(fundingToSendWei))
+			fundingToSendWei := new(big.Int).Sub(node.SendingKeyFundingAmount, sendingKey.BalanceEth)
+			if fundingToSendWei.Cmp(big.NewInt(0)) == 1 {
+				helpers.FundNode(e, sendingKey.Address, fundingToSendWei)
 			} else {
-				fmt.Println("\nSkipping Funding", sendingKey.Address, "since it has", sendingKey.BalanceEth.Int64(), "wei")
+				fmt.Println("\nSkipping Funding", sendingKey.Address, "since it has", sendingKey.BalanceEth.String(), "wei")
 			}
 		}
+	} else {
+		fmt.Println("\nSkipping Funding", key, "Node's Sending Keys since funding amount is 0 wei")
 	}
 }
 
-func importVRFKeyToNodeIfSet(vrfBackupNodeURL *string, nodes map[string]scripts.Node, output *bytes.Buffer, file string) {
+func importVRFKeyToNodeIfSet(vrfBackupNodeURL *string, nodes map[string]model.Node, output *bytes.Buffer, file string) {
 	if *vrfBackupNodeURL != "" {
-		vrfBackupNode := nodes[scripts.VRFBackupNodeName]
-		vrfPrimaryNode := nodes[scripts.VRFBackupNodeName]
+		vrfBackupNode := nodes[model.VRFBackupNodeName]
+		vrfPrimaryNode := nodes[model.VRFBackupNodeName]
 
 		if len(vrfBackupNode.VrfKeys) == 0 || vrfPrimaryNode.VrfKeys[0] != vrfBackupNode.VrfKeys[0] {
 			client, app := connectToNode(&vrfBackupNode.URL, output, file)
@@ -335,10 +383,10 @@ func printETHKeyData(ethKeys []presenters.ETHKeyResource) {
 	}
 }
 
-func mapEthKeysToSendingKeyArr(ethKeys []presenters.ETHKeyResource) []scripts.SendingKey {
-	var sendingKeys []scripts.SendingKey
+func mapEthKeysToSendingKeyArr(ethKeys []presenters.ETHKeyResource) []model.SendingKey {
+	var sendingKeys []model.SendingKey
 	for _, ethKey := range ethKeys {
-		sendingKey := scripts.SendingKey{Address: ethKey.Address, BalanceEth: *ethKey.EthBalance.ToInt()}
+		sendingKey := model.SendingKey{Address: ethKey.Address, BalanceEth: ethKey.EthBalance.ToInt()}
 		sendingKeys = append(sendingKeys, sendingKey)
 	}
 	return sendingKeys
