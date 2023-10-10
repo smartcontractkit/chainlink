@@ -27,9 +27,8 @@ func TestCommitInflight(t *testing.T) {
 	})
 
 	// Initially should be empty
-	inflightUpdate, hasUpdate := c.getLatestInflightGasPriceUpdate()
-	assert.Equal(t, inflightUpdate, update{})
-	assert.False(t, hasUpdate)
+	inflightGasUpdates := c.latestInflightGasPriceUpdates()
+	assert.Equal(t, 0, len(inflightGasUpdates))
 	assert.Equal(t, uint64(0), c.maxInflightSeqNr())
 
 	epochAndRound := uint64(1)
@@ -43,9 +42,9 @@ func TestCommitInflight(t *testing.T) {
 			{DestChainSelector: 123, Value: big.NewInt(999)},
 		},
 	}, epochAndRound))
-	inflightUpdate, hasUpdate = c.getLatestInflightGasPriceUpdate()
-	assert.Equal(t, big.NewInt(999), inflightUpdate.value)
-	assert.True(t, hasUpdate)
+	inflightGasUpdates = c.latestInflightGasPriceUpdates()
+	assert.Equal(t, 1, len(inflightGasUpdates))
+	assert.Equal(t, big.NewInt(999), inflightGasUpdates[123].value)
 	assert.Equal(t, uint64(2), c.maxInflightSeqNr())
 	epochAndRound++
 
@@ -58,9 +57,10 @@ func TestCommitInflight(t *testing.T) {
 			{DestChainSelector: 321, Value: big.NewInt(888)},
 		},
 	}, epochAndRound))
-	inflightUpdate, hasUpdate = c.getLatestInflightGasPriceUpdate()
-	assert.Equal(t, big.NewInt(888), inflightUpdate.value)
-	assert.True(t, hasUpdate)
+	inflightGasUpdates = c.latestInflightGasPriceUpdates()
+	assert.Equal(t, 2, len(inflightGasUpdates))
+	assert.Equal(t, big.NewInt(999), inflightGasUpdates[123].value)
+	assert.Equal(t, big.NewInt(888), inflightGasUpdates[321].value)
 	assert.Equal(t, uint64(4), c.maxInflightSeqNr())
 	epochAndRound++
 
@@ -73,9 +73,11 @@ func TestCommitInflight(t *testing.T) {
 			},
 		}}, epochAndRound))
 
-	inflightUpdate, hasUpdate = c.getLatestInflightGasPriceUpdate()
-	assert.Equal(t, big.NewInt(1), inflightUpdate.value)
-	assert.True(t, hasUpdate)
+	inflightGasUpdates = c.latestInflightGasPriceUpdates()
+	assert.Equal(t, 3, len(inflightGasUpdates))
+	assert.Equal(t, big.NewInt(999), inflightGasUpdates[123].value)
+	assert.Equal(t, big.NewInt(888), inflightGasUpdates[321].value)
+	assert.Equal(t, big.NewInt(1), inflightGasUpdates[1].value)
 	assert.Equal(t, uint64(4), c.maxInflightSeqNr())
 	epochAndRound++
 
@@ -88,7 +90,7 @@ func TestCommitInflight(t *testing.T) {
 				Value: big.NewInt(10),
 			},
 		},
-		GasPrices: []ccipdata.GasPrice{{}},
+		GasPrices: []ccipdata.GasPrice{},
 	}, epochAndRound))
 	// Apply cache price to existing
 	latestInflightTokenPriceUpdates := c.latestInflightTokenPriceUpdates()
@@ -112,6 +114,11 @@ func TestCommitInflight(t *testing.T) {
 	latestInflightTokenPriceUpdates = c.latestInflightTokenPriceUpdates()
 	require.Equal(t, len(latestInflightTokenPriceUpdates), 1)
 	assert.Equal(t, big.NewInt(9999), latestInflightTokenPriceUpdates[token].value)
+	inflightGasUpdates = c.latestInflightGasPriceUpdates()
+	assert.Equal(t, 3, len(inflightGasUpdates))
+	assert.Equal(t, big.NewInt(999), inflightGasUpdates[123].value)
+	assert.Equal(t, big.NewInt(888), inflightGasUpdates[321].value)
+	assert.Equal(t, big.NewInt(999), inflightGasUpdates[1].value)
 }
 
 func Test_inflightCommitReportsContainer_expire(t *testing.T) {

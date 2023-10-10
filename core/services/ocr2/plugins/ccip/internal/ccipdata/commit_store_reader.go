@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
@@ -97,31 +98,18 @@ func NewCommitStoreReader(lggr logger.Logger, address common.Address, ec client.
 	}
 }
 
-// Backwards compat for tests
-func DecodeCommitReport(verStr string, report []byte) (CommitStoreReport, error) {
-	switch verStr {
-	case v1_0_0, v1_1_0, v1_2_0:
-		commitStoreABI := abihelpers.MustParseABI(commit_store.CommitStoreABI)
-		return decodeCommitReportV1_0_0(abihelpers.MustGetEventInputs(ReportAccepted, commitStoreABI), report)
-		// TODO: 1.2 will split
-	default:
-		return CommitStoreReport{}, errors.Errorf("got unexpected version %v", verStr)
-	}
-}
-
 func EncodeCommitReport(report CommitStoreReport) ([]byte, error) {
 	commitStoreABI := abihelpers.MustParseABI(commit_store.CommitStoreABI)
-	return encodeCommitReportV1_0_0(abihelpers.MustGetEventInputs(ReportAccepted, commitStoreABI), report)
-	// TODO: 1.2 will split
+	return encodeCommitReportV1_2_0(abihelpers.MustGetEventInputs(ReportAccepted, commitStoreABI), report)
 }
 
 func CommitReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (func(report []byte) (*txmgr.TxMeta, error), error) {
 	if typ != ccipconfig.CommitStore {
 		return nil, errors.Errorf("expected %v got %v", ccipconfig.CommitStore, typ)
 	}
-	commitStoreABI := abihelpers.MustParseABI(commit_store.CommitStoreABI)
 	switch ver.String() {
-	case v1_0_0, v1_1_0, v1_2_0:
+	case v1_0_0, v1_1_0:
+		commitStoreABI := abihelpers.MustParseABI(commit_store_1_0_0.CommitStoreABI)
 		return func(report []byte) (*txmgr.TxMeta, error) {
 			commitReport, err := decodeCommitReportV1_0_0(abihelpers.MustGetEventInputs(ReportAccepted, commitStoreABI), report)
 			if err != nil {
@@ -129,7 +117,15 @@ func CommitReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (f
 			}
 			return commitReportToEthTxMeta(commitReport)
 		}, nil
-		// TODO: 1.2 will split
+	case v1_2_0:
+		commitStoreABI := abihelpers.MustParseABI(commit_store.CommitStoreABI)
+		return func(report []byte) (*txmgr.TxMeta, error) {
+			commitReport, err := decodeCommitReportV1_2_0(abihelpers.MustGetEventInputs(ReportAccepted, commitStoreABI), report)
+			if err != nil {
+				return nil, err
+			}
+			return commitReportToEthTxMeta(commitReport)
+		}, nil
 	default:
 		return nil, errors.Errorf("got unexpected version %v", ver.String())
 	}

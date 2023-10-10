@@ -402,9 +402,9 @@ func (r *CommitReportingPlugin) getLatestTokenPriceUpdates(ctx context.Context, 
 // If an update is found, it is not expected to contain a nil value. If no updates found, empty update with nil value is returned.
 func (r *CommitReportingPlugin) getLatestGasPriceUpdate(ctx context.Context, now time.Time, checkInflight bool) (gasUpdate update, error error) {
 	if checkInflight {
-		latestInflightGasPriceUpdate, latestUpdateFound := r.inflightReports.getLatestInflightGasPriceUpdate()
-		if latestUpdateFound {
-			gasUpdate = latestInflightGasPriceUpdate
+		latestInflightGasPriceUpdates := r.inflightReports.latestInflightGasPriceUpdates()
+		if inflightUpdate, exists := latestInflightGasPriceUpdates[r.sourceChainSelector]; exists {
+			gasUpdate = inflightUpdate
 			r.lggr.Infow("Latest gas price from inflight", "gasPriceUpdateVal", gasUpdate.value, "gasPriceUpdateTs", gasUpdate.timestamp)
 
 			// Gas price can fluctuate frequently, many updates may be in flight.
@@ -670,6 +670,7 @@ func (r *CommitReportingPlugin) calculatePriceUpdates(observations []CommitObser
 		}
 	}
 	if shouldUpdate {
+		// Although onchain interface accepts multi gas updates, we only do 1 gas price per report for now.
 		gasPrices = append(gasPrices, ccipdata.GasPrice{DestChainSelector: destChainSelector, Value: newGasPrice})
 	}
 
@@ -806,6 +807,11 @@ func (r *CommitReportingPlugin) isStaleReport(ctx context.Context, lggr logger.L
 	if !hasGasPriceUpdate && !hasTokenPriceUpdates {
 		return true
 	}
+	// Commit plugin currently only supports 1 gas price per report. If report contains more than 1, reject the report.
+	if len(report.GasPrices) > 1 {
+		lggr.Errorw("Report is stale because it contains more than 1 gas price update", "GasPriceUpdates", report.GasPrices)
+		return true
+	}
 
 	// We consider a price update as stale when, there isn't an update or there is an update that is stale.
 	gasPriceStale := !hasGasPriceUpdate || r.isStaleGasPrice(ctx, lggr, report.GasPrices[0], checkInflight)
@@ -870,7 +876,7 @@ func (r *CommitReportingPlugin) isStaleGasPrice(ctx context.Context, lggr logger
 		if !gasPriceDeviated {
 			lggr.Infow("Report is stale because of gas price",
 				"latestGasPriceUpdate", latestGasPrice.value,
-				"usdPerUnitGas", gasPrice.Value,
+				"currentUsdPerUnitGas", gasPrice.Value,
 				"destChainSelector", gasPrice.DestChainSelector)
 			return true
 		}

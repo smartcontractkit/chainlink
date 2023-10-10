@@ -14,18 +14,26 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-func TestCommitReportEncodingV1_0_0(t *testing.T) {
+func TestCommitReportEncodingV_1_2_0(t *testing.T) {
 	report := CommitStoreReport{
 		TokenPrices: []TokenPrice{
 			{
 				Token: utils.RandomAddress(),
 				Value: big.NewInt(9e18),
 			},
+			{
+				Token: utils.RandomAddress(),
+				Value: big.NewInt(1e18),
+			},
 		},
 		GasPrices: []GasPrice{
 			{
 				DestChainSelector: rand.Uint64(),
 				Value:             big.NewInt(2000e9),
+			},
+			{
+				DestChainSelector: rand.Uint64(),
+				Value:             big.NewInt(3000e9),
 			},
 		},
 		MerkleRoot: [32]byte{123},
@@ -35,7 +43,7 @@ func TestCommitReportEncodingV1_0_0(t *testing.T) {
 	lp := mocks.NewLogPoller(t)
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
 
-	c, err := NewCommitStoreV1_0_0(logger.TestLogger(t), randomAddress(), nil, lp, nil)
+	c, err := NewCommitStoreV1_2_0(logger.TestLogger(t), randomAddress(), nil, lp, nil)
 	assert.NoError(t, err)
 
 	encodedReport, err := c.EncodeCommitReport(report)
@@ -44,6 +52,5 @@ func TestCommitReportEncodingV1_0_0(t *testing.T) {
 
 	decodedReport, err := c.DecodeCommitReport(encodedReport)
 	require.NoError(t, err)
-	require.Equal(t, report.TokenPrices, decodedReport.TokenPrices)
 	require.Equal(t, report, decodedReport)
 }

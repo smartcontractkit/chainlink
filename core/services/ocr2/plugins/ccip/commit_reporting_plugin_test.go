@@ -1338,6 +1338,7 @@ func TestCommitReportingPlugin_calculateMinMaxSequenceNumbers(t *testing.T) {
 
 func TestCommitReportingPlugin_getLatestGasPriceUpdate(t *testing.T) {
 	now := time.Now()
+	chainSelector := uint64(1234)
 
 	testCases := []struct {
 		name                   string
@@ -1383,6 +1384,7 @@ func TestCommitReportingPlugin_getLatestGasPriceUpdate(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			p := &CommitReportingPlugin{}
+			p.sourceChainSelector = chainSelector
 			p.inflightReports = newInflightCommitReportsContainer(time.Minute)
 			p.lggr = lggr
 			destPriceRegistry := ccipdata.NewMockPriceRegistryReader(t)
@@ -1394,7 +1396,7 @@ func TestCommitReportingPlugin_getLatestGasPriceUpdate(t *testing.T) {
 					InflightPriceUpdate{
 						createdAt: tc.inflightGasPriceUpdate.timestamp,
 						gasPrices: []ccipdata.GasPrice{{
-							DestChainSelector: 1234,
+							DestChainSelector: chainSelector,
 							Value:             tc.inflightGasPriceUpdate.value,
 						}},
 					},
@@ -1412,7 +1414,7 @@ func TestCommitReportingPlugin_getLatestGasPriceUpdate(t *testing.T) {
 					})
 				}
 				destReader := ccipdata.NewMockPriceRegistryReader(t)
-				destReader.On("GetGasPriceUpdatesCreatedAfter", ctx, uint64(0), mock.Anything, 0).Return(events, nil)
+				destReader.On("GetGasPriceUpdatesCreatedAfter", ctx, chainSelector, mock.Anything, 0).Return(events, nil)
 				p.destPriceRegistryReader = destReader
 			}
 
