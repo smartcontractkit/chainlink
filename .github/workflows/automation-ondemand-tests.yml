@@ -140,8 +140,8 @@ jobs:
             command: -run ^TestAutomationReorg$ ./reorg
           - name: upgrade
             suite: smoke
-            nodes: 1
-            os: ubuntu-latest
+            nodes: 3
+            os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-automation-on-demand-upgrade
             network: SIMULATED
             command: -run ^TestAutomationNodeUpgrade$ ./smoke
