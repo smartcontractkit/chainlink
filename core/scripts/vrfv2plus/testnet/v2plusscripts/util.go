@@ -134,7 +134,6 @@ func EoaFundSubWithLink(
 func EoaFundSubWithNative(e helpers.Environment, coordinatorAddress common.Address, subID *big.Int, amount *big.Int) {
 	coordinator, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(coordinatorAddress, e.Ec)
 	helpers.PanicErr(err)
-	fmt.Println("!!!!!!!Funding amount:", amount.String())
 	e.Owner.Value = amount
 	tx, err := coordinator.FundSubscriptionWithNative(e.Owner, subID)
 	helpers.PanicErr(err)

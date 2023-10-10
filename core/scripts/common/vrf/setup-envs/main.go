@@ -158,7 +158,6 @@ func main() {
 		nodesMap[key] = node
 	}
 	importVRFKeyToNodeIfSet(vrfBackupNodeURL, nodesMap, output, nodesMap[model.VRFBackupNodeName].CredsFile)
-	fmt.Println("deployContractsAndCreateJobs", *deployContractsAndCreateJobs)
 
 	if *deployContractsAndCreateJobs {
 
