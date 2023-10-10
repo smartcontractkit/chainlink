@@ -164,7 +164,7 @@ func TestTransmitCheckers(t *testing.T) {
 				mock.AnythingOfType("*hexutil.Bytes"), "eth_call",
 				mock.MatchedBy(func(callarg map[string]interface{}) bool {
 					return fmt.Sprintf("%s", callarg["value"]) == "0x282" // 642
-				}), "latest").Return(errors.New("error!")).Once()
+				}), "latest").Return(errors.New("error")).Once()
 
 			// Non-revert errors are logged but should not prevent transmission, and do not need
 			// to be passed to the caller

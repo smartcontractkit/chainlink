@@ -23,10 +23,11 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/libocr/commontypes"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 
 	testoffchainaggregator2 "github.com/smartcontractkit/libocr/gethwrappers2/testocr2aggregator"
 	confighelper2 "github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -191,9 +192,7 @@ func TestIntegration_OCR2(t *testing.T) {
 	owner, b, ocrContractAddress, ocrContract := setupOCR2Contracts(t)
 
 	lggr := logger.TestLogger(t)
-	// Note it's plausible these ports could be occupied on a CI machine.
-	// May need a port randomize + retry approach if we observe collisions.
-	bootstrapNodePort := uint16(29999)
+	bootstrapNodePort := testutils.GetFreePort(t)
 	bootstrapNode := setupNodeOCR2(t, owner, bootstrapNodePort, "bootstrap", false /* useForwarders */, b, nil)
 
 	var (
@@ -462,9 +461,7 @@ func TestIntegration_OCR2_ForwarderFlow(t *testing.T) {
 	owner, b, ocrContractAddress, ocrContract := setupOCR2Contracts(t)
 
 	lggr := logger.TestLogger(t)
-	// Note it's plausible these ports could be occupied on a CI machine.
-	// May need a port randomize + retry approach if we observe collisions.
-	bootstrapNodePort := uint16(29898)
+	bootstrapNodePort := testutils.GetFreePort(t)
 	bootstrapNode := setupNodeOCR2(t, owner, bootstrapNodePort, "bootstrap", true /* useForwarders */, b, nil)
 
 	var (

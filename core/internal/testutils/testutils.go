@@ -10,6 +10,7 @@ import (
 	"math"
 	"math/big"
 	mrand "math/rand"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -24,9 +25,10 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/tidwall/gjson"
 	"go.uber.org/zap/zaptest/observer"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -449,4 +451,17 @@ func MustDecodeBase64(s string) (b []byte) {
 		panic(err)
 	}
 	return
+}
+
+// GetFreePort returns a free port.
+// NOTE: This approach is technically incorrect because the returned port
+// can still be taken by the time the caller attempts to bind to it.
+// Unfortunately, we can't specify zero port in P2P.V2.ListenAddresses at the moment.
+func GetFreePort(t *testing.T) uint16 {
+	addr, err := net.ResolveTCPAddr("tcp", "localhost:0")
+	require.NoError(t, err)
+	listener, err := net.ListenTCP("tcp", addr)
+	require.NoError(t, err)
+	require.NoError(t, listener.Close())
+	return uint16(listener.Addr().(*net.TCPAddr).Port)
 }
