@@ -2,14 +2,17 @@
 // Example of a single consumer contract which owns the subscription.
 pragma solidity ^0.8.0;
 
-import "../../../shared/interfaces/LinkTokenInterface.sol";
-import "../../interfaces/IVRFCoordinatorV2Plus.sol";
-import "../VRFConsumerBaseV2Plus.sol";
+import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
+import {IVRFCoordinatorV2Plus} from "../../interfaces/IVRFCoordinatorV2Plus.sol";
+import {VRFConsumerBaseV2Plus} from "../VRFConsumerBaseV2Plus.sol";
+import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 
 /// @notice This contract is used for testing only and should not be used for production.
 contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
-  IVRFCoordinatorV2Plus COORDINATOR;
-  LinkTokenInterface LINKTOKEN;
+  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
+  IVRFCoordinatorV2Plus internal COORDINATOR;
+  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
+  LinkTokenInterface internal LINKTOKEN;
 
   struct RequestConfig {
     uint256 subId;
@@ -22,7 +25,7 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
   RequestConfig public s_requestConfig;
   uint256[] public s_randomWords;
   uint256 public s_requestId;
-  address s_owner;
+  address internal s_owner;
 
   constructor(
     address vrfCoordinator,
@@ -47,7 +50,9 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
     subscribe();
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
+    // solhint-disable-next-line custom-errors
     require(requestId == s_requestId, "request ID is incorrect");
     s_randomWords = randomWords;
   }

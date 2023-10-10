@@ -23,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/shopspring/decimal"
-	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -174,7 +173,7 @@ func TestIntegration_MercuryV1(t *testing.T) {
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := int64(19700)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend, clientCSAKeys[n])
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n])
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
@@ -184,10 +183,7 @@ func TestIntegration_MercuryV1(t *testing.T) {
 		nodes   []Node
 	)
 	for i := int64(0); i < int64(n); i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), []commontypes.BootstrapperLocator{
-			// Supply the bootstrap IP and port as a V2 peer address
-			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		}, backend, clientCSAKeys[i])
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i])
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb,
@@ -525,7 +521,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := int64(20700)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend, clientCSAKeys[n])
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n])
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
@@ -535,10 +531,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 		nodes   []Node
 	)
 	for i := int64(0); i < int64(n); i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), []commontypes.BootstrapperLocator{
-			// Supply the bootstrap IP and port as a V2 peer address
-			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		}, backend, clientCSAKeys[i])
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i])
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb,
@@ -803,7 +796,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 
 	// Setup bootstrap + oracle nodes
 	bootstrapNodePort := int64(21700)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", nil, backend, clientCSAKeys[n])
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, observedLogs := setupNode(t, bootstrapNodePort, "bootstrap_mercury", backend, clientCSAKeys[n])
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 	logObservers = append(logObservers, observedLogs)
 
@@ -813,10 +806,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 		nodes   []Node
 	)
 	for i := int64(0); i < int64(n); i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), []commontypes.BootstrapperLocator{
-			// Supply the bootstrap IP and port as a V2 peer address
-			{PeerID: bootstrapPeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapNodePort)}},
-		}, backend, clientCSAKeys[i])
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, bootstrapNodePort+i+1, fmt.Sprintf("oracle_mercury%d", i), backend, clientCSAKeys[i])
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb,

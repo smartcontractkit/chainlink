@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../../ChainSpecificUtil.sol";
-import "../../interfaces/IVRFCoordinatorV2Plus.sol";
-import "../VRFConsumerBaseV2Plus.sol";
-import "../../../shared/access/ConfirmedOwner.sol";
+import {ChainSpecificUtil} from "../../../ChainSpecificUtil.sol";
+import {VRFConsumerBaseV2Plus} from "../VRFConsumerBaseV2Plus.sol";
+import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 
 /**
  * @title The VRFLoadTestExternalSubOwner contract.
@@ -17,13 +16,14 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
   uint256 public s_slowestFulfillment = 0;
   uint256 public s_fastestFulfillment = 999;
   uint256 public s_lastRequestId;
-  mapping(uint256 => uint256) requestHeights; // requestIds to block number when rand request was made
+  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
+  mapping(uint256 => uint256) internal requestHeights; // requestIds to block number when rand request was made
 
   struct RequestStatus {
     bool fulfilled;
     uint256[] randomWords;
-    uint requestTimestamp;
-    uint fulfilmentTimestamp;
+    uint256 requestTimestamp;
+    uint256 fulfilmentTimestamp;
     uint256 requestBlockNumber;
     uint256 fulfilmentBlockNumber;
   }
@@ -32,6 +32,7 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
 
   constructor(address _vrfCoordinator) VRFConsumerBaseV2Plus(_vrfCoordinator) {}
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
     uint256 fulfilmentBlockNumber = ChainSpecificUtil.getBlockNumber();
     uint256 requestDelay = fulfilmentBlockNumber - requestHeights[_requestId];
@@ -105,8 +106,8 @@ contract VRFV2PlusLoadTestWithMetrics is VRFConsumerBaseV2Plus {
     returns (
       bool fulfilled,
       uint256[] memory randomWords,
-      uint requestTimestamp,
-      uint fulfilmentTimestamp,
+      uint256 requestTimestamp,
+      uint256 fulfilmentTimestamp,
       uint256 requestBlockNumber,
       uint256 fulfilmentBlockNumber
     )

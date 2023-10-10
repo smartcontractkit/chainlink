@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../shared/interfaces/LinkTokenInterface.sol";
-import "../interfaces/IVRFV2PlusWrapper.sol";
+import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
+import {IVRFV2PlusWrapper} from "../interfaces/IVRFV2PlusWrapper.sol";
 
 /**
  *
@@ -31,7 +31,9 @@ import "../interfaces/IVRFV2PlusWrapper.sol";
 abstract contract VRFV2PlusWrapperConsumerBase {
   error LINKAlreadySet();
 
+  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
   LinkTokenInterface internal LINK;
+  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
   IVRFV2PlusWrapper internal VRF_V2_PLUS_WRAPPER;
 
   /**
@@ -70,6 +72,7 @@ abstract contract VRFV2PlusWrapperConsumerBase {
    *
    * @return requestId is the VRF V2+ request ID of the newly created randomness request.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function requestRandomness(
     uint32 _callbackGasLimit,
     uint16 _requestConfirmations,
@@ -84,6 +87,7 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     return VRF_V2_PLUS_WRAPPER.lastRequestId();
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function requestRandomnessPayInNative(
     uint32 _callbackGasLimit,
     uint16 _requestConfirmations,
@@ -107,9 +111,11 @@ abstract contract VRFV2PlusWrapperConsumerBase {
    * @param _requestId is the VRF V2 request ID.
    * @param _randomWords is the randomness result.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal virtual;
 
   function rawFulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) external {
+    // solhint-disable-next-line custom-errors
     require(msg.sender == address(VRF_V2_PLUS_WRAPPER), "only VRF V2 Plus wrapper can fulfill");
     fulfillRandomWords(_requestId, _randomWords);
   }

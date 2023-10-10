@@ -8,10 +8,11 @@ import (
 	"testing"
 	"time"
 
-	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -561,11 +562,11 @@ func (_m *mockORM) setErr(err error) {
 	_m.err = err
 }
 
-func (_m *mockORM) BatchInsertRecords(state []persistedStateRecord, _ ...pg.QOpt) error {
+func (_m *mockORM) BatchInsertRecords(state []persistedStateRecord, opts ...pg.QOpt) error {
 	return nil
 }
 
-func (_m *mockORM) SelectStatesByWorkIDs(workIDs []string, _ ...pg.QOpt) ([]persistedStateRecord, error) {
+func (_m *mockORM) SelectStatesByWorkIDs(workIDs []string, opts ...pg.QOpt) ([]persistedStateRecord, error) {
 	_m.lock.Lock()
 	defer _m.lock.Unlock()
 
@@ -575,7 +576,7 @@ func (_m *mockORM) SelectStatesByWorkIDs(workIDs []string, _ ...pg.QOpt) ([]pers
 	return res, _m.err
 }
 
-func (_m *mockORM) DeleteExpired(tm time.Time, _ ...pg.QOpt) error {
+func (_m *mockORM) DeleteExpired(tm time.Time, opts ...pg.QOpt) error {
 	_m.lock.Lock()
 	defer _m.lock.Unlock()
 

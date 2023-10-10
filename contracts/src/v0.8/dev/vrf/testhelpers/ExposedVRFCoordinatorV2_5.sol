@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../../../vrf/VRF.sol";
 import {VRFCoordinatorV2_5} from "../VRFCoordinatorV2_5.sol";
-import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
+import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableSet.sol";
 
+// solhint-disable-next-line contract-name-camelcase
 contract ExposedVRFCoordinatorV2_5 is VRFCoordinatorV2_5 {
   using EnumerableSet for EnumerableSet.UintSet;
 

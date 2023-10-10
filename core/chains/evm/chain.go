@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"go.uber.org/multierr"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/sqlx"
 
@@ -65,7 +64,6 @@ var (
 // LegacyChains implements [LegacyChainContainer]
 type LegacyChains struct {
 	*chains.ChainsKV[Chain]
-	dflt Chain
 
 	cfgs toml.EVMConfigs
 }
@@ -377,16 +375,14 @@ func (c *chain) Name() string {
 }
 
 func (c *chain) HealthReport() map[string]error {
-	report := map[string]error{
-		c.Name(): c.StartStopOnce.Healthy(),
-	}
-	maps.Copy(report, c.txm.HealthReport())
-	maps.Copy(report, c.headBroadcaster.HealthReport())
-	maps.Copy(report, c.headTracker.HealthReport())
-	maps.Copy(report, c.logBroadcaster.HealthReport())
+	report := map[string]error{c.Name(): c.Healthy()}
+	services.CopyHealth(report, c.txm.HealthReport())
+	services.CopyHealth(report, c.headBroadcaster.HealthReport())
+	services.CopyHealth(report, c.headTracker.HealthReport())
+	services.CopyHealth(report, c.logBroadcaster.HealthReport())
 
 	if c.balanceMonitor != nil {
-		maps.Copy(report, c.balanceMonitor.HealthReport())
+		services.CopyHealth(report, c.balanceMonitor.HealthReport())
 	}
 
 	return report

@@ -1,1 +1,32 @@
-node_modules/
+# 368 warnings
+#./src/v0.8/automation
+# 302 warnings
+#./src/v0.8/dev
+# 91 warnings
+#./src/v0.8/functions
+# 91 warnings
+#./src/v0.8/l2ep/dev
+# 116 warnings
+#./src/v0.8/vrf
+
+# Temp ignore the following files as they contain issues.
+./src/v0.8/ChainlinkClient.sol
+./src/v0.8/Flags.sol
+./src/v0.8/KeepersVRFConsumer.sol
+./src/v0.8/PermissionedForwardProxy.sol
+./src/v0.8/ValidatorProxy.sol
+./src/v0.8/Chainlink.sol
+./src/v0.8/ChainSpecificUtil.sol
+
+
+# Ignore tests, this should not be the long term plan but is OK in the short term
+./src/v0.8/**/*.t.sol
+./src/v0.8/mocks
+./src/v0.8/tests
+./src/v0.8/llo-feeds/test
+./src/v0.8/vrf/testhelpers
+./src/v0.8/functions/tests
+
+# Always ignore vendor
+./src/v0.8/vendor
+./node_modules/

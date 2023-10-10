@@ -1,19 +1,20 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.4;
 
-import "../../shared/interfaces/LinkTokenInterface.sol";
-import "../../interfaces/BlockhashStoreInterface.sol";
-import "../../interfaces/TypeAndVersionInterface.sol";
-import "../../vrf/VRF.sol";
-import "./VRFConsumerBaseV2Plus.sol";
-import "../../ChainSpecificUtil.sol";
-import "./SubscriptionAPI.sol";
-import "./libraries/VRFV2PlusClient.sol";
-import "../interfaces/IVRFCoordinatorV2PlusMigration.sol";
-import "../interfaces/IVRFCoordinatorV2Plus.sol";
+import {BlockhashStoreInterface} from "../../interfaces/BlockhashStoreInterface.sol";
+import {VRF} from "../../vrf/VRF.sol";
+import {VRFConsumerBaseV2Plus, IVRFMigratableConsumerV2Plus} from "./VRFConsumerBaseV2Plus.sol";
+import {ChainSpecificUtil} from "../../ChainSpecificUtil.sol";
+import {SubscriptionAPI} from "./SubscriptionAPI.sol";
+import {VRFV2PlusClient} from "./libraries/VRFV2PlusClient.sol";
+import {IVRFCoordinatorV2PlusMigration} from "../interfaces/IVRFCoordinatorV2PlusMigration.sol";
+// solhint-disable-next-line no-unused-import
+import {IVRFCoordinatorV2Plus, IVRFSubscriptionV2Plus} from "../interfaces/IVRFCoordinatorV2Plus.sol";
 
+// solhint-disable-next-line contract-name-camelcase
 contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   /// @dev should always be available
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   BlockhashStoreInterface public immutable BLOCKHASH_STORE;
 
   // Set this maximum to 200 to give us a 56 block window to fulfill
@@ -299,6 +300,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     return requestId;
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function computeRequestId(
     bytes32 keyHash,
     address sender,
@@ -313,8 +315,8 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
-    // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
       // Compute g -= GAS_FOR_CALL_EXACT_CHECK and check for underflow
@@ -349,6 +351,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 randomness;
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function getRandomnessFromProof(
     Proof memory proof,
     RequestCommitment memory rc
@@ -452,6 +455,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     }
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function calculatePaymentAmount(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
@@ -476,6 +480,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       );
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function calculatePaymentAmountNative(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
@@ -483,7 +488,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 weiPerUnitGas
   ) internal view returns (uint96) {
     // Will return non-zero on chains that have this enabled
-    uint256 l1CostWei = ChainSpecificUtil.getCurrentTxL1GasFees();
+    uint256 l1CostWei = ChainSpecificUtil.getCurrentTxL1GasFees(msg.data);
     // calculate the payment without the premium
     uint256 baseFeeWei = weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft());
     // calculate the flat fee in wei
@@ -493,6 +498,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   }
 
   // Get the amount of gas used for fulfillment
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function calculatePaymentAmountLink(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
@@ -505,7 +511,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
     // Will return non-zero on chains that have this enabled
-    uint256 l1CostWei = ChainSpecificUtil.getCurrentTxL1GasFees();
+    uint256 l1CostWei = ChainSpecificUtil.getCurrentTxL1GasFees(msg.data);
     // (1e18 juels/link) ((wei/gas * gas) + l1wei) / (wei/link) = juels
     uint256 paymentNoFee = (1e18 * (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft()) + l1CostWei)) /
       uint256(weiPerUnitLink);
@@ -516,6 +522,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     return uint96(paymentNoFee + fee);
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
   function getFeedData() private view returns (int256) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
@@ -620,6 +627,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint96 nativeBalance;
   }
 
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function isTargetRegistered(address target) internal view returns (bool) {
     for (uint256 i = 0; i < s_migrationTargets.length; i++) {
       if (s_migrationTargets[i] == target) {
@@ -656,7 +664,9 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       revert CoordinatorNotRegistered(newCoordinator);
     }
     (uint96 balance, uint96 nativeBalance, , address owner, address[] memory consumers) = getSubscription(subId);
+    // solhint-disable-next-line custom-errors
     require(owner == msg.sender, "Not subscription owner");
+    // solhint-disable-next-line custom-errors
     require(!pendingRequestExists(subId), "Pending request exists");
 
     V1MigrationData memory migrationData = V1MigrationData({
@@ -673,6 +683,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
     // Only transfer LINK if the token is active and there is a balance.
     if (address(LINK) != address(0) && balance != 0) {
+      // solhint-disable-next-line custom-errors
       require(LINK.transfer(address(newCoordinator), balance), "insufficient funds");
     }
 
