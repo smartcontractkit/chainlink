@@ -132,8 +132,6 @@ func (k *KeeperBenchmarkTest) Setup(t *testing.T, env *environment.Environment) 
 		}
 	}
 
-	var ()
-
 	c := inputs.Contracts
 
 	if common.IsHexAddress(c.LinkTokenAddress) {
