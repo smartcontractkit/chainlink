@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -139,9 +138,6 @@ func (z *ZKSyncClient) FundNodes(chainlinkClient blockchain.EVMClient) error {
 		if err != nil {
 			return fmt.Errorf("funding %q: %w", toAddress, err)
 		}
-
-		// Seems like there is a slight delay until the nonce is updated
-		time.Sleep(time.Second)
 
 		log.Info().Stringer("toAddress", toAddress).Stringer("amount", amount).Msg("Transferred funds")
 
