@@ -43,7 +43,10 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 )
 
-const saveFileLocation = "/persistence/ocr-soak-test-state.toml"
+const (
+	saveFileLocation    = "/persistence/ocr-soak-test-state.toml"
+	interruptedExitCode = 3
+)
 
 // OCRSoakTest defines a typical OCR soak test
 type OCRSoakTest struct {
@@ -130,9 +133,10 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 	}
 	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"))
 	baseEnvironmentConfig := &environment.Config{
-		TTL:             time.Hour * 720, // 30 days,
-		NamespacePrefix: nsPre,
-		Test:            o.t,
+		TTL:                time.Hour * 720, // 30 days,
+		NamespacePrefix:    nsPre,
+		Test:               o.t,
+		PreventPodEviction: true,
 	}
 
 	cd := chainlink.New(0, map[string]any{
@@ -485,7 +489,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 				o.log.Error().Err(err).Msg("Error saving state")
 			}
 			o.log.Warn().Str("Time Taken", time.Since(saveStart).String()).Msg("Saved state")
-			os.Exit(2) // Exit with code 2 to indicate test was interrupted, not just a normal failure
+			os.Exit(interruptedExitCode) // Exit with interrupted code to indicate test was interrupted, not just a normal failure
 		case <-endTest:
 			return
 		case <-newRoundTrigger.C:

@@ -29,7 +29,7 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	gasLimit := uint32(1000)
 	chainID := big.NewInt(0)
@@ -70,8 +70,8 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	gasLimit := uint32(1000)
 	chainID := big.NewInt(0)
@@ -153,8 +153,8 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore
 	cfg := configtest.NewTestGeneralConfig(t)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	gasLimit := uint32(1000)
 	chainID := big.NewInt(0)
