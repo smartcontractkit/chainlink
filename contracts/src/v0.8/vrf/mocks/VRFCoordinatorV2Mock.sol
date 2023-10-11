@@ -2,10 +2,13 @@
 // A mock for testing code that relies on VRFCoordinatorV2.
 pragma solidity ^0.8.4;
 
-import "../shared/interfaces/LinkTokenInterface.sol";
-import "../interfaces/VRFCoordinatorV2Interface.sol";
-import "../vrf/VRFConsumerBaseV2.sol";
-import "../shared/access/ConfirmedOwner.sol";
+import {VRFCoordinatorV2Interface} from "../interfaces/VRFCoordinatorV2Interface.sol";
+import {VRFConsumerBaseV2} from "../VRFConsumerBaseV2.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+
+// solhint-disable chainlink-solidity/prefix-immutable-variables-with-i
+// solhint-disable custom-errors
+// solhint-disable avoid-low-level-calls
 
 contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface, ConfirmedOwner {
   uint96 public immutable BASE_FEE;
@@ -43,22 +46,22 @@ contract VRFCoordinatorV2Mock is VRFCoordinatorV2Interface, ConfirmedOwner {
     bool reentrancyLock;
   }
   Config private s_config;
-  uint64 s_currentSubId;
-  uint256 s_nextRequestId = 1;
-  uint256 s_nextPreSeed = 100;
+  uint64 internal s_currentSubId;
+  uint256 internal s_nextRequestId = 1;
+  uint256 internal s_nextPreSeed = 100;
   struct Subscription {
     address owner;
     uint96 balance;
   }
-  mapping(uint64 => Subscription) s_subscriptions; /* subId */ /* subscription */
-  mapping(uint64 => address[]) s_consumers; /* subId */ /* consumers */
+  mapping(uint64 => Subscription) internal s_subscriptions; /* subId */ /* subscription */
+  mapping(uint64 => address[]) internal s_consumers; /* subId */ /* consumers */
 
   struct Request {
     uint64 subId;
     uint32 callbackGasLimit;
     uint32 numWords;
   }
-  mapping(uint256 => Request) s_requests; /* requestId */ /* request */
+  mapping(uint256 => Request) internal s_requests; /* requestId */ /* request */
 
   constructor(uint96 _baseFee, uint96 _gasPriceLink) ConfirmedOwner(msg.sender) {
     BASE_FEE = _baseFee;

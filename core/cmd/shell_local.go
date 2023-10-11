@@ -292,8 +292,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	s.Config.LogConfiguration(lggr.Debugf)
 
-	err := s.Config.Validate()
-	if err != nil {
+	if err := s.Config.Validate(); err != nil {
 		return errors.Wrap(err, "config validation failed")
 	}
 
