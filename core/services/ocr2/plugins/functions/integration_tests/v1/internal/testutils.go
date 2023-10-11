@@ -23,7 +23,6 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -495,9 +494,9 @@ func mockEALambdaExecutionResponse(t *testing.T, request map[string]any) []byte 
 	data := request["data"].(map[string]any)
 	require.Equal(t, functions.LanguageJavaScript, int(data["language"].(float64)))
 	require.Equal(t, functions.LocationInline, int(data["codeLocation"].(float64)))
-	require.Equal(t, functions.LocationRemote, int(data["secretsLocation"].(float64)))
-	if data["secrets"] != DefaultSecretsBase64 && request["nodeProvidedSecrets"] != fmt.Sprintf(`{"0x0":"%s"}`, DefaultSecretsBase64) {
-		assert.Fail(t, "expected secrets or nodeProvidedSecrets to be '%s'", DefaultSecretsBase64)
+	if len(request["nodeProvidedSecrets"].(string)) > 0 {
+		require.Equal(t, functions.LocationRemote, int(data["secretsLocation"].(float64)))
+		require.Equal(t, fmt.Sprintf(`{"0x0":"%s"}`, DefaultSecretsBase64), request["nodeProvidedSecrets"].(string))
 	}
 	args := data["args"].([]interface{})
 	require.Equal(t, 2, len(args))
