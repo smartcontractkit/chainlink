@@ -133,9 +133,10 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 	}
 	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"))
 	baseEnvironmentConfig := &environment.Config{
-		TTL:             time.Hour * 720, // 30 days,
-		NamespacePrefix: nsPre,
-		Test:            o.t,
+		TTL:                time.Hour * 720, // 30 days,
+		NamespacePrefix:    nsPre,
+		Test:               o.t,
+		PreventPodEviction: true,
 	}
 
 	cd := chainlink.New(0, map[string]any{
