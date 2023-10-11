@@ -55,7 +55,7 @@ func TestRunner(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, db, pgtest.NewQConfig(true))
 
 	ethKeyStore := keyStore.Eth()
-	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 
 	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
