@@ -869,54 +869,23 @@ func main() {
 		runs := request.Uint("runs", 1, "number of runs to do. total randomness requests will be (requests * runs).")
 		helpers.ParseArgs(request, os.Args[2:], "consumer-address", "sub-id", "key-hash")
 		keyHashBytes := common.HexToHash(*keyHash)
-		consumer, err := vrf_v2plus_load_test_with_metrics.NewVRFV2PlusLoadTestWithMetrics(
+		v2plusscripts.LoadTestRequestRandomness(
+			e,
 			common.HexToAddress(*consumerAddress),
-			e.Ec)
-		helpers.PanicErr(err)
-		var txes []*types.Transaction
-		for i := 0; i < int(*runs); i++ {
-			tx, err := consumer.RequestRandomWords(
-				e.Owner,
-				decimal.RequireFromString(*subID).BigInt(),
-				uint16(*requestConfirmations),
-				keyHashBytes,
-				uint32(*cbGasLimit),
-				*nativePaymentEnabled,
-				uint32(*numWords),
-				uint16(*requests),
-			)
-			helpers.PanicErr(err)
-			fmt.Printf("TX %d: %s\n", i+1, helpers.ExplorerLink(e.ChainID, tx.Hash()))
-			txes = append(txes, tx)
-		}
-		fmt.Println("Total number of requests sent:", (*requests)*(*runs))
-		fmt.Println("fetching receipts for all transactions")
-		for i, tx := range txes {
-			helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("load test %d", i+1))
-		}
+			decimal.RequireFromString(*subID).BigInt(),
+			*requestConfirmations,
+			keyHashBytes,
+			*cbGasLimit,
+			*nativePaymentEnabled,
+			*numWords,
+			*requests,
+			*runs,
+		)
 	case "eoa-load-test-read-metrics":
 		request := flag.NewFlagSet("eoa-load-test-read-metrics", flag.ExitOnError)
 		consumerAddress := request.String("consumer-address", "", "consumer address")
 		helpers.ParseArgs(request, os.Args[2:], "consumer-address")
-		consumer, err := vrf_v2plus_load_test_with_metrics.NewVRFV2PlusLoadTestWithMetrics(
-			common.HexToAddress(*consumerAddress),
-			e.Ec)
-		helpers.PanicErr(err)
-		responseCount, err := consumer.SResponseCount(nil)
-		helpers.PanicErr(err)
-		fmt.Println("Response Count: ", responseCount)
-		requestCount, err := consumer.SRequestCount(nil)
-		helpers.PanicErr(err)
-		fmt.Println("Request Count: ", requestCount)
-		averageFulfillmentInMillions, err := consumer.SAverageFulfillmentInMillions(nil)
-		helpers.PanicErr(err)
-		fmt.Println("Average Fulfillment In Millions: ", averageFulfillmentInMillions)
-		slowestFulfillment, err := consumer.SSlowestFulfillment(nil)
-		helpers.PanicErr(err)
-		fmt.Println("Slowest Fulfillment: ", slowestFulfillment)
-		fastestFulfillment, err := consumer.SFastestFulfillment(nil)
-		helpers.PanicErr(err)
-		fmt.Println("Fastest Fulfillment: ", fastestFulfillment)
+		v2plusscripts.GetLoadTestMetricsFromConsumer(common.HexToAddress(*consumerAddress), e)
 	case "eoa-load-test-reset-metrics":
 		request := flag.NewFlagSet("eoa-load-test-reset-metrics", flag.ExitOnError)
 		consumerAddress := request.String("consumer-address", "", "consumer address")

@@ -21,6 +21,8 @@ import (
 	"math/big"
 	"os"
 	"strings"
+	"sync"
+	"time"
 )
 
 func newApp(remoteNodeURL string, writer io.Writer) (*clcmd.Shell, *cli.App) {
@@ -171,7 +173,7 @@ func main() {
 		}
 
 		var jobSpecs model.JobSpecs
-
+		var randRequestConfig v2plusscripts.RandRequestConfig
 		switch *vrfVersion {
 		case "v2":
 			feeConfigV2 := vrf_coordinator_v2.VRFCoordinatorV2FeeConfig{
@@ -218,7 +220,7 @@ func main() {
 				FeeConfig:              feeConfigV2Plus,
 			}
 
-			jobSpecs = v2plusscripts.VRFV2PlusDeployUniverse(
+			jobSpecs, randRequestConfig = v2plusscripts.VRFV2PlusDeployUniverse(
 				e,
 				subscriptionBalanceJuels,
 				subscriptionBalanceNativeWei,
@@ -230,32 +232,74 @@ func main() {
 			)
 		}
 
-		for key, node := range nodesMap {
-			client, app := connectToNode(&node.URL, output, node.CredsFile)
-
-			//GET ALL JOBS
-			jobIDs := getAllJobIDs(client, app, output)
-
-			//DELETE ALL EXISTING JOBS
-			for _, jobID := range jobIDs {
-				deleteJob(jobID, client, app, output)
-			}
-			//CREATE JOBS
-
-			switch key {
-			case model.VRFPrimaryNodeName:
-				createJob(jobSpecs.VRFPrimaryNode, client, app, output)
-			case model.VRFBackupNodeName:
-				createJob(jobSpecs.VRFBackupyNode, client, app, output)
-			case model.BHSNodeName:
-				createJob(jobSpecs.BHSNode, client, app, output)
-			case model.BHSBackupNodeName:
-				createJob(jobSpecs.BHSBackupNode, client, app, output)
-			case model.BHFNodeName:
-				createJob(jobSpecs.BHFNode, client, app, output)
-			}
+		createJobs(nodesMap, output, jobSpecs)
+		if *vrfVersion == "v2plus" {
+			verifyRandomnessRequestFulfills(e, randRequestConfig)
 		}
 	}
+}
+
+func createJobs(nodesMap map[string]model.Node, output *bytes.Buffer, jobSpecs model.JobSpecs) {
+	for key, node := range nodesMap {
+		client, app := connectToNode(&node.URL, output, node.CredsFile)
+
+		//GET ALL JOBS
+		jobIDs := getAllJobIDs(client, app, output)
+
+		//DELETE ALL EXISTING JOBS
+		for _, jobID := range jobIDs {
+			deleteJob(jobID, client, app, output)
+		}
+		//CREATE JOBS
+
+		switch key {
+		case model.VRFPrimaryNodeName:
+			createJob(jobSpecs.VRFPrimaryNode, client, app, output)
+		case model.VRFBackupNodeName:
+			createJob(jobSpecs.VRFBackupyNode, client, app, output)
+		case model.BHSNodeName:
+			createJob(jobSpecs.BHSNode, client, app, output)
+		case model.BHSBackupNodeName:
+			createJob(jobSpecs.BHSBackupNode, client, app, output)
+		case model.BHFNodeName:
+			createJob(jobSpecs.BHFNode, client, app, output)
+		}
+	}
+}
+
+func verifyRandomnessRequestFulfills(e helpers.Environment, randRequestConfig v2plusscripts.RandRequestConfig) {
+
+	time.Sleep(10 * time.Second)
+	v2plusscripts.LoadTestRequestRandomness(
+		e,
+		randRequestConfig.ConsumerAddress,
+		randRequestConfig.SubID,
+		randRequestConfig.MinConfs,
+		randRequestConfig.KeyHash,
+		constants.CallBackGasLimit,
+		false,
+		1,
+		1,
+		1,
+	)
+	//
+	//v2plusscripts.LoadTestRequestRandomness(
+	//	e,
+	//	randRequestConfig.ConsumerAddress,
+	//	randRequestConfig.SubID,
+	//	randRequestConfig.MinConfs,
+	//	randRequestConfig.KeyHash,
+	//	constants.CallBackGasLimit,
+	//	false,
+	//	1,
+	//	1,
+	//	1,
+	//)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	_, _, err := v2plusscripts.WaitForRequestCountEqualToFulfilmentCount(e, randRequestConfig.ConsumerAddress, 30*time.Second, &wg)
+	helpers.PanicErr(err)
+	wg.Wait()
 }
 
 func fundNodesIfNeeded(node model.Node, key string, e helpers.Environment) {

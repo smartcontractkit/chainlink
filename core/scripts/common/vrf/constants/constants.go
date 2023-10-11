@@ -31,4 +31,8 @@ var (
 	//vrfv2plus
 	FlatFeeLinkPPM   = int64(500)
 	FlatFeeNativePPM = int64(500)
+
+	//consumer
+	CallBackGasLimit = uint(1_000_000)
+	IsNativePayment  = false
 )

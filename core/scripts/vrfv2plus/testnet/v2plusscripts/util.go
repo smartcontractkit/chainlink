@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
 	"math/big"
+	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,6 +25,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_consumer_example"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+type VRFLoadTestMetrics struct {
+	RequestCount                 *big.Int
+	FulfilmentCount              *big.Int
+	AverageFulfillmentInMillions *big.Int
+	SlowestFulfillment           *big.Int
+	FastestFulfillment           *big.Int
+}
 
 func DeployBHS(e helpers.Environment) (blockhashStoreAddress common.Address) {
 	_, tx, _, err := blockhash_store.DeployBlockhashStore(e.Owner, e.Ec)
@@ -270,4 +281,128 @@ func EoaV2PlusLoadTestConsumerWithMetricsDeploy(e helpers.Environment, consumerC
 	)
 	helpers.PanicErr(err)
 	return helpers.ConfirmContractDeployed(context.Background(), e.Ec, tx, e.ChainID)
+}
+
+func LoadTestRequestRandomness(
+	e helpers.Environment,
+	consumerAddress common.Address,
+	subID *big.Int,
+	requestConfirmations uint,
+	keyHashBytes common.Hash,
+	cbGasLimit uint,
+	nativePaymentEnabled bool,
+	numWords uint,
+	requests uint,
+	runs uint,
+) {
+	consumer, err := vrf_v2plus_load_test_with_metrics.NewVRFV2PlusLoadTestWithMetrics(
+		consumerAddress,
+		e.Ec)
+	helpers.PanicErr(err)
+	var txes []*types.Transaction
+	for i := 0; i < int(runs); i++ {
+
+		//todo - debug
+		fmt.Println("consumer", consumer.Address().String())
+		fmt.Println("e.Owner", e.Owner)
+		fmt.Println("subID", subID)
+		fmt.Println("requestConfirmations", requestConfirmations)
+		fmt.Println("keyHashBytes", keyHashBytes)
+		fmt.Println("cbGasLimit", cbGasLimit)
+		fmt.Println("nativePaymentEnabled", nativePaymentEnabled)
+		fmt.Println("numWords", numWords)
+		fmt.Println("requests", requests)
+
+		//todo - fails with "execution reverted" when calling this function from setup-env script,
+		//even though when I run the same command in the console it works (go run . eoa-load-test-request-with-metrics )
+		tx, err := consumer.RequestRandomWords(
+			e.Owner,
+			subID,
+			uint16(requestConfirmations),
+			keyHashBytes,
+			uint32(cbGasLimit),
+			nativePaymentEnabled,
+			uint32(numWords),
+			uint16(requests),
+		)
+		fmt.Println("tx", tx)
+		helpers.PanicErr(err)
+		fmt.Printf("TX %d: %s\n", i+1, helpers.ExplorerLink(e.ChainID, tx.Hash()))
+		txes = append(txes, tx)
+	}
+	fmt.Println("Total number of requests sent:", (requests)*(runs))
+	fmt.Println("fetching receipts for all transactions")
+	for i, tx := range txes {
+		helpers.ConfirmTXMined(context.Background(), e.Ec, tx, e.ChainID, fmt.Sprintf("load test %d", i+1))
+	}
+}
+
+func WaitForRequestCountEqualToFulfilmentCount(e helpers.Environment, consumerAddress common.Address, timeout time.Duration, wg *sync.WaitGroup) (*big.Int, *big.Int, error) {
+	metricsChannel := make(chan *VRFLoadTestMetrics)
+	metricsErrorChannel := make(chan error)
+
+	testContext, testCancel := context.WithTimeout(context.Background(), timeout)
+	defer testCancel()
+
+	ticker := time.NewTicker(time.Second * 1)
+	var metrics *VRFLoadTestMetrics
+	for {
+		select {
+		case <-testContext.Done():
+			ticker.Stop()
+			wg.Done()
+			return metrics.RequestCount, metrics.FulfilmentCount,
+				fmt.Errorf("timeout waiting for rand request and fulfilments to be equal AFTER performance test was executed. Request Count: %d, Fulfilment Count: %d",
+					metrics.RequestCount.Uint64(), metrics.FulfilmentCount.Uint64())
+		case <-ticker.C:
+			go getLoadTestMetrics(e, consumerAddress, metricsChannel)
+		case metrics = <-metricsChannel:
+			if metrics.RequestCount.Cmp(metrics.FulfilmentCount) == 0 {
+				wg.Done()
+				return metrics.RequestCount, metrics.FulfilmentCount, nil
+			}
+		case err := <-metricsErrorChannel:
+			wg.Done()
+			return nil, nil, err
+		}
+	}
+}
+
+func getLoadTestMetrics(
+	e helpers.Environment,
+	consumerAddress common.Address,
+	metricsChannel chan *VRFLoadTestMetrics,
+) {
+	metrics := GetLoadTestMetricsFromConsumer(consumerAddress, e)
+	metricsChannel <- metrics
+}
+
+func GetLoadTestMetricsFromConsumer(consumerAddress common.Address, e helpers.Environment) *VRFLoadTestMetrics {
+	consumer, err := vrf_v2plus_load_test_with_metrics.NewVRFV2PlusLoadTestWithMetrics(
+		consumerAddress,
+		e.Ec)
+	helpers.PanicErr(err)
+	responseCount, err := consumer.SResponseCount(nil)
+	helpers.PanicErr(err)
+	fmt.Println("Response Count: ", responseCount)
+	requestCount, err := consumer.SRequestCount(nil)
+	helpers.PanicErr(err)
+	fmt.Println("Request Count: ", requestCount)
+	averageFulfillmentInMillions, err := consumer.SAverageFulfillmentInMillions(nil)
+	helpers.PanicErr(err)
+	fmt.Println("Average Fulfillment In Millions: ", averageFulfillmentInMillions)
+	slowestFulfillment, err := consumer.SSlowestFulfillment(nil)
+	helpers.PanicErr(err)
+	fmt.Println("Slowest Fulfillment: ", slowestFulfillment)
+	fastestFulfillment, err := consumer.SFastestFulfillment(nil)
+	helpers.PanicErr(err)
+	fmt.Println("Fastest Fulfillment: ", fastestFulfillment)
+
+	return &VRFLoadTestMetrics{
+		requestCount,
+		responseCount,
+		averageFulfillmentInMillions,
+		slowestFulfillment,
+		fastestFulfillment,
+	}
 }

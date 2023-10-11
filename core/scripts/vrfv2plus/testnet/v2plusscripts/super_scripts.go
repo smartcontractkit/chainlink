@@ -6,6 +6,12 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"github.com/ethereum/go-ethereum"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/constants"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/jobs"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
@@ -15,13 +21,6 @@ import (
 	"math/big"
 	"os"
 	"strings"
-
-	"github.com/ethereum/go-ethereum"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/shopspring/decimal"
 
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
@@ -44,6 +43,13 @@ type CoordinatorConfigV2Plus struct {
 	GasAfterPayment        *int64
 	FallbackWeiPerUnitLink *big.Int
 	FeeConfig              vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig
+}
+
+type RandRequestConfig struct {
+	ConsumerAddress common.Address
+	SubID           *big.Int
+	KeyHash         common.Hash
+	MinConfs        uint
 }
 
 func SmokeTestVRF(e helpers.Environment) {
@@ -554,7 +560,8 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	}
 }
 
-func VRFV2PlusDeployUniverse(e helpers.Environment,
+func VRFV2PlusDeployUniverse(
+	e helpers.Environment,
 	subscriptionBalanceJuels *big.Int,
 	subscriptionBalanceNativeWei *big.Int,
 	registerKeyUncompressedPubKey *string,
@@ -562,7 +569,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	coordinatorConfig CoordinatorConfigV2Plus,
 	batchFulfillmentEnabled bool,
 	nodesMap map[string]model.Node,
-) model.JobSpecs {
+) (model.JobSpecs, RandRequestConfig) {
 	// Put key in ECDSA format
 	if strings.HasPrefix(*registerKeyUncompressedPubKey, "0x") {
 		*registerKeyUncompressedPubKey = strings.Replace(*registerKeyUncompressedPubKey, "0x", "04", 1)
@@ -758,12 +765,18 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	)
 
 	return model.JobSpecs{
-		VRFPrimaryNode: formattedVrfV2PlusPrimaryJobSpec,
-		VRFBackupyNode: formattedVrfV2PlusBackupJobSpec,
-		BHSNode:        formattedBHSJobSpec,
-		BHSBackupNode:  formattedBHSBackupJobSpec,
-		BHFNode:        formattedBHFJobSpec,
-	}
+			VRFPrimaryNode: formattedVrfV2PlusPrimaryJobSpec,
+			VRFBackupyNode: formattedVrfV2PlusBackupJobSpec,
+			BHSNode:        formattedBHSJobSpec,
+			BHSBackupNode:  formattedBHSBackupJobSpec,
+			BHFNode:        formattedBHFJobSpec,
+		},
+		RandRequestConfig{
+			ConsumerAddress: consumerAddress,
+			SubID:           subID,
+			KeyHash:         keyHash,
+			MinConfs:        uint(*coordinatorConfig.MinConfs),
+		}
 }
 
 func DeployWrapperUniverse(e helpers.Environment) {
