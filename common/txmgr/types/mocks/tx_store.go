@@ -141,8 +141,8 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) DeleteInPro
 	return r0
 }
 
-// FindHighestSequence provides a mock function with given fields: ctx, fromAddress, chainId
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindHighestSequence(ctx context.Context, fromAddress ADDR, chainId CHAIN_ID) (SEQ, error) {
+// FindLatestSequence provides a mock function with given fields: ctx, fromAddress, chainId
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence(ctx context.Context, fromAddress ADDR, chainId CHAIN_ID) (SEQ, error) {
 	ret := _m.Called(ctx, fromAddress, chainId)
 
 	var r0 SEQ

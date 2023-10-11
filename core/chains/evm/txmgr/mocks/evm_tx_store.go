@@ -145,8 +145,8 @@ func (_m *EvmTxStore) DeleteInProgressAttempt(ctx context.Context, attempt types
 	return r0
 }
 
-// FindHighestSequence provides a mock function with given fields: ctx, fromAddress, chainId
-func (_m *EvmTxStore) FindHighestSequence(ctx context.Context, fromAddress common.Address, chainId *big.Int) (evmtypes.Nonce, error) {
+// FindLatestSequence provides a mock function with given fields: ctx, fromAddress, chainId
+func (_m *EvmTxStore) FindLatestSequence(ctx context.Context, fromAddress common.Address, chainId *big.Int) (evmtypes.Nonce, error) {
 	ret := _m.Called(ctx, fromAddress, chainId)
 
 	var r0 evmtypes.Nonce

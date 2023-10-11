@@ -334,7 +334,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) load
 	for _, address := range addresses {
 		// Get the highest sequence from the tx table
 		// Will need to be incremented since this sequence is already used
-		seq, err := eb.txStore.FindHighestSequence(ctx, address, eb.chainID)
+		seq, err := eb.txStore.FindLatestSequence(ctx, address, eb.chainID)
 		if err != nil {
 			// Look for nonce on-chain if no tx found for address in TxStore or if error occurred
 			// Returns the nonce that should be used for the next transaction so no need to increment
