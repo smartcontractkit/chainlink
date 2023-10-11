@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
@@ -9,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"math/big"
 	"net/http"
 	"net/url"
@@ -81,6 +83,7 @@ type MercuryReportStruct struct {
 	Price                 *big.Int `json:"price"`
 	Bid                   *big.Int `json:"bid"`
 	Ask                   *big.Int `json:"ask"`
+	FeedId                string   `json:"feed_id"`
 }
 
 // MercuryV02Response represents a JSON structure used by Mercury v0.2
@@ -410,6 +413,7 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 		block:        request.block,
 	}
 
+	// Fetch mercury data if requested.
 	if request.useMercury {
 		state, reason, values, retryable, err = r.doMercuryRequest(ctx, lookup, lggr)
 		if err != nil {
@@ -421,6 +425,8 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 		}
 	}
 
+	// Convert Mercury reports data into a slice of formatted structs, and also a slice of the raw report data.
+	// These can then be consumed by Functions to be later posted on-chain, or to trigger some other logic.
 	var rawReports []string
 	var reportData []MercuryReportStruct
 	for j, v := range values {
@@ -447,10 +453,10 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 			Price:                 innerInterfaces[2].(*big.Int),
 			Bid:                   innerInterfaces[3].(*big.Int),
 			Ask:                   innerInterfaces[4].(*big.Int),
+			FeedId:                request.feeds[j],
 		})
 		rawReports = append(rawReports, common.Bytes2Hex(v))
 	}
-
 	mercuryArg, err := json.Marshal(reportData)
 	if err != nil {
 		lggr.Errorf("upkeep %s retryable %v report data json marshal: %s", request.upkeepId, retryable, err.Error())
@@ -459,7 +465,6 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
 		return
 	}
-
 	rawReportsArg, err := json.Marshal(rawReports)
 	if err != nil {
 		lggr.Errorf("upkeep %s retryable %v raw report data json marshal: %s", request.upkeepId, retryable, err.Error())
@@ -469,15 +474,7 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 		return
 	}
 
-	// AT THIS POINT, FUNCTIONS SHOULD BE CALLED VIA GATEWAY TO DO SOMETHING WITH THE REVERT ARGUMENTS AND MERCURY DATA.
-	// UNTIL THEN, THE MERCURY REPORTS ARE STRINGIFIED AND THEN ABI-ENCODED INTO PERFORM DATA.
-	// ARG[0]: Full raw reports if mercury is requested, otherwise an empty string array
-	// ARG[1]: Parsed mercury report info
-	// ARG[2..n]: User-provided args
-	// Script: fetched from the url currently contained in the `scriptHash` field of the request. In the future,
-	// Functions will store the scripts.
-	// Response: A string. Currently, Functions does not support direct ABI-encoding, so results must be passed back
-	// on-chain in a stringified manner.
+	// Fetch Functions script.
 	script, err := r.functionsScriptRequest(ctx, i, request, lggr)
 	if err != nil {
 		lggr.Errorf("upkeep %s abi getting script: %s", request.upkeepId, err.Error())
@@ -486,10 +483,40 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
 		return
 	}
-	lggr.Infof("upkeep %s composerRequest Functions args [%d]: %s, %s, %v.",
-		request.upkeepId, i, string(rawReportsArg), string(mercuryArg), request.functionsArguments)
-	lggr.Infof("upkeep %s Functions script: %s", *script)
-	concatenatedReports := strings.Join(rawReports, ",") // TODO: replace with Functions callR
+	userArgs, err := json.Marshal(request.functionsArguments)
+	if err != nil {
+		lggr.Errorf("upkeep %s marshalling user args: %v, %s", request.upkeepId, request.functionsArguments, err.Error())
+		checkResults[i].Retryable = false
+		checkResults[i].PipelineExecutionState = uint8(encoding.PackUnpackDecodeFailed)
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
+		return
+	}
+
+	// Make Functions request with user arguments, formatted mercury data, raw mercury reports, and the Functions script.
+	var finalReports []string
+	functionsResponse, err := r.functionsRequest(ctx, string(mercuryArg), string(userArgs), string(rawReportsArg), *script)
+	if err != nil {
+		lggr.Errorf("upkeep %s getting functions response: %v, %s", request.upkeepId, request.functionsArguments, err.Error())
+		checkResults[i].Retryable = true
+		checkResults[i].PipelineExecutionState = uint8(encoding.MercuryFlakyFailure)
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonSimulationFailed)
+		return
+	}
+
+	// TODO START: Remove this custom logic once the Functions DON returns reports larger than 256 bytes
+	bs, err := hex.DecodeString((*functionsResponse)[2:])
+	if err != nil {
+		panic(err)
+	}
+	decodedStrings := strings.Split(string(bs), ",")
+	for _, s := range decodedStrings {
+		numericIndex, _ := strconv.Atoi(s)
+		finalReports = append(finalReports, rawReports[numericIndex])
+	}
+	concatenatedReports := strings.Join(finalReports, ",")
+	// TODO END
+
+	// Encode the result into a string.
 	encodedFunctionsResult, err := utils.ABIEncode(`[{"type":"string"},{"type":"bytes"}]`, concatenatedReports, request.extraData)
 	if err != nil {
 		lggr.Errorf("upkeep %s retryable %v abi encode packing: %s", request.upkeepId, retryable, err.Error())
@@ -498,9 +525,9 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
 		return
 	}
-
 	lggr.Infof("upkeep %s composerRequest encodedFunctionsResult [%d]: %s", request.upkeepId, i, hexutil.Encode(encodedFunctionsResult))
 
+	// Use checkCallback to decode the string result from Functions into an abi-encoded performData. This saves gas.
 	state, retryable, checkCallbackBytes, err := r.checkCallback(ctx, [][]byte{encodedFunctionsResult}, lookup)
 	if err != nil {
 		lggr.Errorf("at block %d upkeep %s checkCallback err: %s", lookup.block, lookup.upkeepId, err.Error())
@@ -508,9 +535,7 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 		checkResults[i].PipelineExecutionState = uint8(state)
 		return
 	}
-
 	lggr.Infof("checkCallback checkCallbackBytes=%s", hexutil.Encode(checkCallbackBytes))
-
 	state, needed, performData, failureReason, _, err := r.packer.UnpackCheckCallbackResult(checkCallbackBytes)
 	if err != nil {
 		lggr.Errorf("at block %d upkeep %s UnpackCheckCallbackResult err: %s", lookup.block, lookup.upkeepId, err.Error())
@@ -574,6 +599,129 @@ func (r *EvmRegistry) functionsScriptRequest(ctx context.Context, index int, com
 
 	script := string(body)
 	return &script, nil
+}
+
+type RequestBody struct {
+	Jsonrpc string `json:"jsonrpc"`
+	Id      string `json:"id"`
+	Method  string `json:"method"`
+	Params  Params `json:"params"`
+}
+
+type Params struct {
+	Body Body `json:"body"`
+}
+
+type Body struct {
+	DonID   string  `json:"don_id"`
+	Sender  string  `json:"sender"`
+	Payload Payload `json:"payload"`
+}
+
+type Payload struct {
+	Data Data `json:"data"`
+}
+
+type Data struct {
+	Source string   `json:"source"`
+	Args   []string `json:"args"`
+}
+
+type Response struct {
+	JSONRPC string `json:"jsonrpc"`
+	ID      string `json:"id"`
+	Result  Result `json:"result"`
+	Error   Error  `json:"error"`
+}
+
+type Error struct {
+	Message string `json:"message"`
+}
+
+type Result struct {
+	Signature string       `json:"signature"`
+	Body      ResponseBody `json:"body"`
+}
+
+type ResponseBody struct {
+	MessageID string          `json:"message_id"`
+	Method    string          `json:"method"`
+	DonID     string          `json:"don_id"`
+	Receiver  string          `json:"receiver"`
+	Payload   ResponsePayload `json:"payload"`
+	Sender    string          `json:"sender"`
+}
+
+type ResponsePayload struct {
+	Report    string   `json:"report"`
+	Rs        []string `json:"rs"`
+	Ss        []string `json:"ss"`
+	Vs        string   `json:"vs"`
+	RequestID string   `json:"requestId"`
+	Result    string   `json:"result"`
+	Error     string   `json:"error"`
+}
+
+// functionsScriptRequest fetches a functions script to run.
+func (r *EvmRegistry) functionsRequest(ctx context.Context, mercuryArgs, userArgs, rawReports, script string) (*string, error) {
+
+	// TODO: move this to TOML/env
+	url := "[ENTER_GATEWAY_URL_HERE]"
+
+	r.lggr.Infof("upkeepcomposerRequest Functions args: %s, %s, %s, %s",
+		rawReports, mercuryArgs, userArgs, script)
+
+	requestBody := RequestBody{
+		Jsonrpc: "2.0",
+		Id:      utils.RandUint256().String(),
+		Method:  "request",
+		Params: Params{
+			Body: Body{
+				DonID:  "fun-experimental-1",
+				Sender: "0x336152a0FdB8F6240802E6E375C29c9e1Ca76927",
+				Payload: Payload{
+					Data: Data{
+						Source: script,
+						Args: []string{
+							rawReports,
+							mercuryArgs,
+							userArgs,
+						},
+					},
+				},
+			},
+		},
+	}
+
+	jsonBody, err := json.Marshal(requestBody)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var response Response
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		fmt.Println("Error unmarshalling:", err)
+		return nil, err
+	}
+
+	if len(response.Error.Message) > 0 {
+		fmt.Println("Error unmarshalling:", response.Error.Message)
+		return nil, errors.New(response.Error.Message)
+	}
+
+	return &response.Result.Body.Payload.Result, nil
 }
 
 func (r *EvmRegistry) checkCallback(ctx context.Context, values [][]byte, lookup *StreamsLookup) (encoding.PipelineExecutionState, bool, hexutil.Bytes, error) {

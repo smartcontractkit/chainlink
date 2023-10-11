@@ -50,10 +50,11 @@ const (
 	csaKeysEndpoint              = "/v2/keys/csa"
 )
 
+// TODO: remove this when this is no longer an in-development POC.
 const (
 	nodeTOML = `[Log]
 JSONConsole = true
-Level = 'debug'
+Level = 'info'
 [WebServer]
 AllowOrigins = '*'
 SecureCookies = false

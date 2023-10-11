@@ -111,13 +111,15 @@ contract MercuryRegistryComposer is ConfirmedOwner, AutomationCompatibleInterfac
     for (uint256 i; i < feeds.length; i++) {
       Feed memory feed = s_feedMapping[feeds[i]];
       string memory entry = string.concat(
-        "(",
+        feed.feedId,
+        "-",
         Strings.toString(uint192(feed.price)),
-        ",",
+        "-",
         Strings.toString(feed.observationsTimestamp),
-        ",",
+        "-",
         Strings.toString(uint192(feed.deviationPercentagePPM)),
-        ")"
+        "-",
+        Strings.toString(uint192(feed.stalenessSeconds))
       );
       currentMercuryData = string.concat(currentMercuryData, entry, i == feeds.length - 1 ? "" : ",");
     }
