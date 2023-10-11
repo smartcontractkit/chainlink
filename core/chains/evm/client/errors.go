@@ -465,3 +465,15 @@ func NewSendErrorReturnCode(err error, lggr logger.Logger, tx *types.Transaction
 	}
 	return clienttypes.Unknown, err
 }
+
+// NewSendOnlyErrorReturnCode handles SendOnly nodes error codes. In that case, we don't assume there is another transaction that will be correctly
+// priced.
+func NewSendOnlyErrorReturnCode(err error) (clienttypes.SendTxReturnCode, error) {
+	sendError := NewSendError(err)
+	if sendError == nil || sendError.IsNonceTooLowError() || sendError.IsTransactionAlreadyMined() || sendError.IsTransactionAlreadyInMempool() {
+		// Nonce too low or transaction known errors are expected since
+		// the primary SendTransaction may well have succeeded already
+		return clienttypes.Successful, err
+	}
+	return clienttypes.Fatal, err
+}
