@@ -2,9 +2,17 @@ package soak
 
 import (
 	"fmt"
+	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"go.uber.org/zap/zapcore"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +26,7 @@ import (
 
 // WIP
 func TestOCRZKSync(t *testing.T) {
+
 	l := logging.GetTestLogger(t)
 
 	l1RpcUrl, isSet := os.LookupEnv("L1_RPC_URL")
@@ -29,8 +38,8 @@ func TestOCRZKSync(t *testing.T) {
 	timeBetweenRounds, isSet := os.LookupEnv("OCR_TIME_BETWEEN_ROUNDS")
 	require.Equal(t, isSet, true, "OCR_TIME_BETWEEN_ROUNDS should be defined")
 
-	testEnvironment, testNetwork, err := zksync.SetupOCRTest(t)
-	require.NoError(t, err, "Deploying env should not fail")
+	testEnvironment, testNetwork := DeployEnvironment(t)
+
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
@@ -75,4 +84,37 @@ func TestOCRZKSync(t *testing.T) {
 		}
 		round++
 	}
+}
+
+func DeployEnvironment(t *testing.T) (*environment.Environment, blockchain.EVMNetwork) {
+	network := networks.SelectedNetwork // Environment currently being used to soak test on
+	nsPre := "soak-ocr-"
+
+	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"))
+	baseEnvironmentConfig := &environment.Config{
+		TTL:             time.Hour * 720, // 30 days,
+		NamespacePrefix: nsPre,
+		Test:            t,
+	}
+
+	cd := chainlink.New(0, map[string]any{
+		"replicas": 6,
+		"toml":     client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, config.DefaultOCRNetworkDetailTomlConfig, network),
+		"db": map[string]any{
+			"stateful": true, // stateful DB by default for soak tests
+		},
+	})
+
+	testEnvironment := environment.New(baseEnvironmentConfig).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(ethereum.New(&ethereum.Props{
+			NetworkName: network.Name,
+			Simulated:   network.Simulated,
+			WsURLs:      network.URLs,
+		})).
+		AddHelm(cd)
+	err := testEnvironment.Run()
+	require.NoError(t, err, "Error launching test environment")
+	return testEnvironment, network
 }

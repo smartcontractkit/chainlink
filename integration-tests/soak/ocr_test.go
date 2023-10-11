@@ -1,9 +1,8 @@
 package soak
 
 import (
-	"testing"
-
 	"github.com/stretchr/testify/require"
+	"testing"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
