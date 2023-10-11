@@ -4,13 +4,13 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/chains/evm/db"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/mocks"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -35,8 +35,9 @@ func TestChainOpts_Validate(t *testing.T) {
 		AppConfig        evm.AppConfig
 		EventBroadcaster pg.EventBroadcaster
 		MailMon          *utils.MailboxMonitor
-		DB               *sqlx.DB
+		DB               *evmdb.ScopedDB
 	}
+	cfg := configtest.NewTestGeneralConfig(t)
 	tests := []struct {
 		name    string
 		fields  fields
@@ -45,10 +46,10 @@ func TestChainOpts_Validate(t *testing.T) {
 		{
 			name: "valid",
 			fields: fields{
-				AppConfig:        configtest.NewTestGeneralConfig(t),
+				AppConfig:        cfg,
 				EventBroadcaster: pg.NewNullEventBroadcaster(),
 				MailMon:          &utils.MailboxMonitor{},
-				DB:               pgtest.NewSqlxDB(t),
+				DB:               evmtestdb.NewScopedDB(t, cfg.Database()),
 			},
 		},
 		{

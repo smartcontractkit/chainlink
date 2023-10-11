@@ -52,7 +52,7 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.ErrorLevel)
 	chainID := testutils.NewRandomEVMChainID()
-	db := pgtest.NewSqlxDB(t)
+	db := evmtestdb.NewScopedDBWithOpts(t)
 
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 

@@ -29,7 +29,8 @@ func (s *ScopedDB) SqlxDB() *sqlx.DB {
 }
 
 func ScopedConnection(dbURL url.URL) (evmScopedConnection url.URL) {
-	return pg.SchemaScopedConnection(dbURL, schema)
+	// hacking, include public schema
+	return pg.SchemaScopedConnection(dbURL, schema, "public")
 }
 
 func UseEVMSchema() pg.ConnectionOpt {

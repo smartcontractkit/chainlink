@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -44,7 +45,8 @@ func TestReaper_ReapTxes(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	evmDB := evmtestdb.NewScopedDBWithOpts(t, evmtestdb.DBConfig(cfg.Database()))
+	txStore := cltest.NewTestTxStore(t, evmDB, cfg.Database())
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)

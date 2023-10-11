@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -170,13 +171,14 @@ func WithURL(override url.URL) ConnectionOpt {
 	}
 }
 
-func SchemaScopedConnection(conn url.URL, schema string) url.URL {
+func SchemaScopedConnection(conn url.URL, schema ...string) url.URL {
 	// documentation on this options is limited; find by searching the official postgres docs
 	// https://www.postgresql.org/docs/16/app-psql.html
 
+	schemas := strings.Join(schema, ",")
 	u := conn
 	queryVals := u.Query()
-	queryVals.Add("options", "-csearch_path="+schema)
+	queryVals.Add("options", "-csearch_path="+schemas)
 
 	u.RawQuery = queryVals.Encode()
 	return u

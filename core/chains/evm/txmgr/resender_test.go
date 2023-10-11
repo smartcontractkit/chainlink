@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -41,7 +42,8 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
 	_, fromAddress3 := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	txStore := cltest.NewTestTxStore(t, db, logCfg)
+	evmDB := evmtestdb.NewScopedDBWithOpts(t)
+	txStore := cltest.NewTestTxStore(t, evmDB, logCfg)
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
 
@@ -118,7 +120,8 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
-	txStore := cltest.NewTestTxStore(t, db, logCfg)
+	evmDB := evmtestdb.NewScopedDBWithOpts(t, evmtestdb.DBConfig(cfg.Database()))
+	txStore := cltest.NewTestTxStore(t, evmDB, logCfg)
 
 	originalBroadcastAt := time.Unix(1616509100, 0)
 	er := txmgr.NewEvmResender(lggr, txStore, txmgr.NewEvmTxmClient(ethClient), ethKeyStore, 100*time.Millisecond, ccfg.EVM(), ccfg.EVM().Transactions())
@@ -148,7 +151,8 @@ func Test_EthResender_Start(t *testing.T) {
 		// Set batch size low to test batching
 		c.EVM[0].RPCDefaultBatchSize = ptr[uint32](1)
 	})
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	evmDB := evmtestdb.NewScopedDBWithOpts(t, evmtestdb.DBConfig(cfg.Database()))
+	txStore := cltest.NewTestTxStore(t, evmDB, cfg.Database())
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 	ccfg := evmtest.NewChainScopedConfig(t, cfg)
 	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)

@@ -292,7 +292,8 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
-	txStore := cltest.NewTestTxStore(t, sqlxDB, config.Database())
+	evmDB := heavyweight.EVMDB(t, config.Database())
+	txStore := cltest.NewTestTxStore(t, evmDB, config.Database())
 	cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 7, 42, fromAddress)
 
 	lggr := logger.TestLogger(t)
@@ -370,11 +371,12 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 				c.Insecure.OCRDevelopmentMode = nil
 			})
 
+			evmDB := heavyweight.EVMDB(t, config.Database())
 			keyStore := cltest.NewKeyStore(t, sqlxDB, config.Database())
 
 			_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth(), 0)
 
-			txStore := cltest.NewTestTxStore(t, sqlxDB, config.Database())
+			txStore := cltest.NewTestTxStore(t, evmDB, config.Database())
 			cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, int64(test.nonce), 42, fromAddress)
 
 			lggr := logger.TestLogger(t)

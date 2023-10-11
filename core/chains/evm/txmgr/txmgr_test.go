@@ -17,13 +17,12 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/sqlx"
-
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
+	evmdb "github.com/smartcontractkit/chainlink/v2/core/chains/evm/db"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -33,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
+	evmtestdb "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest/db"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -43,7 +43,7 @@ import (
 )
 
 func makeTestEvmTxm(
-	t *testing.T, db *sqlx.DB, ethClient evmclient.Client, estimator gas.EvmFeeEstimator, ccfg txmgr.ChainConfig, fcfg txmgr.FeeConfig, txConfig evmconfig.Transactions, dbConfig txmgr.DatabaseConfig, listenerConfig txmgr.ListenerConfig, keyStore keystore.Eth, eventBroadcaster pg.EventBroadcaster) (txmgr.TxManager, error) {
+	t *testing.T, db *evmdb.ScopedDB, ethClient evmclient.Client, estimator gas.EvmFeeEstimator, ccfg txmgr.ChainConfig, fcfg txmgr.FeeConfig, txConfig evmconfig.Transactions, dbConfig txmgr.DatabaseConfig, listenerConfig txmgr.ListenerConfig, keyStore keystore.Eth, eventBroadcaster pg.EventBroadcaster) (txmgr.TxManager, error) {
 	lggr := logger.TestLogger(t)
 	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
 
@@ -73,7 +73,7 @@ func makeTestEvmTxm(
 
 func TestTxm_SendNativeToken_DoesNotSendToZero(t *testing.T) {
 	t.Parallel()
-	db := pgtest.NewSqlxDB(t)
+	coredb := pgtest.NewSqlxDB(t)
 
 	from := utils.ZeroAddress
 	to := utils.ZeroAddress
@@ -81,10 +81,11 @@ func TestTxm_SendNativeToken_DoesNotSendToZero(t *testing.T) {
 
 	config, dbConfig, evmConfig := makeConfigs(t)
 
-	keyStore := cltest.NewKeyStore(t, db, dbConfig).Eth()
+	keyStore := cltest.NewKeyStore(t, coredb, dbConfig).Eth()
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
-	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), keyStore, nil)
+	evmdb := evmtestdb.NewScopedDB(t, dbConfig)
+	txm, err := makeTestEvmTxm(t, evmdb, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), keyStore, nil)
 	require.NoError(t, err)
 
 	_, err = txm.SendNativeToken(big.NewInt(0), from, to, *value, 21000)
@@ -97,7 +98,8 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	evmdb := evmtestdb.NewScopedDB(t, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, evmdb, cfg.Database())
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 
 	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth(), 0)
@@ -110,7 +112,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
 	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
-	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth(), nil)
+	txm, err := makeTestEvmTxm(t, evmdb, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth(), nil)
 	require.NoError(t, err)
 
 	t.Run("with queue under capacity inserts eth_tx", func(t *testing.T) {
@@ -293,12 +295,12 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	})
 
 	t.Run("forwards tx when a proper forwarder is set up", func(t *testing.T) {
-		pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
-		pgtest.MustExec(t, db, `DELETE FROM evm.forwarders`)
+		pgtest.MustExec(t, evmdb.SqlxDB(), `DELETE FROM txes`)
+		pgtest.MustExec(t, evmdb.SqlxDB(), `DELETE FROM forwarders`)
 		evmConfig.maxQueued = uint64(1)
 
 		// Create mock forwarder, mock authorizedsenders call.
-		form := forwarders.NewORM(db, logger.TestLogger(t), cfg.Database())
+		form := forwarders.NewORM(evmdb, logger.TestLogger(t), cfg.Database())
 		fwdrAddr := testutils.NewAddress()
 		fwdr, err := form.CreateForwarder(fwdrAddr, utils.Big(cltest.FixtureChainID))
 		require.NoError(t, err)
@@ -509,7 +511,8 @@ func makeConfigs(t *testing.T) (*mockConfig, *databaseConfig, *evmConfig) {
 func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	evmdb := evmtestdb.NewScopedDB(t, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, evmdb, cfg.Database())
 	etKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
 	thisKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
@@ -525,7 +528,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	kst := cltest.NewKeyStore(t, db, dbConfig)
 	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
-	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth(), nil)
+	txm, err := makeTestEvmTxm(t, evmdb, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth(), nil)
 	require.NoError(t, err)
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
@@ -597,7 +600,6 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 }
 
 func TestTxm_Lifecycle(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 	kst := ksmocks.NewEth(t)
@@ -617,7 +619,8 @@ func TestTxm_Lifecycle(t *testing.T) {
 	unsub := cltest.NewAwaiter()
 	kst.On("SubscribeToKeyChanges").Return(keyChangeCh, unsub.ItHappened)
 	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
-	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst, eventBroadcaster)
+	evmdb := evmtestdb.NewScopedDB(t, dbConfig)
+	txm, err := makeTestEvmTxm(t, evmdb, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst, eventBroadcaster)
 	require.NoError(t, err)
 
 	head := cltest.Head(42)
@@ -676,7 +679,8 @@ func TestTxm_Reset(t *testing.T) {
 
 	_, addr := cltest.MustInsertRandomKey(t, kst.Eth(), 5)
 	_, addr2 := cltest.MustInsertRandomKey(t, kst.Eth(), 3)
-	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
+	evmdb := evmtestdb.NewScopedDB(t, cfg.Database())
+	txStore := cltest.NewTestTxStore(t, evmdb, cfg.Database())
 	// 4 confirmed tx from addr1
 	for i := int64(0); i < 4; i++ {
 		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, i, i*42+1, addr)
@@ -698,7 +702,7 @@ func TestTxm_Reset(t *testing.T) {
 	eventBroadcaster.On("Subscribe", "evm.insert_on_txes", "").Return(sub, nil)
 
 	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, cfg.EVM(), cfg.EVM().GasEstimator())
-	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), cfg.Database(), cfg.Database().Listener(), kst.Eth(), eventBroadcaster)
+	txm, err := makeTestEvmTxm(t, evmdb, ethClient, estimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), cfg.Database(), cfg.Database().Listener(), kst.Eth(), eventBroadcaster)
 	require.NoError(t, err)
 
 	cltest.MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t, txStore, 2, addr2)

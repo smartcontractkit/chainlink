@@ -31,7 +31,7 @@ func TestShell_IndexTransactions(t *testing.T) {
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
-	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
+	txStore := cltest.NewTestTxStore(t, app.GetRelayers().LegacyEVM().DB(), app.GetConfig().Database())
 	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
 	attempt := tx.TxAttempts[0]
 
@@ -69,10 +69,9 @@ func TestShell_ShowTransaction(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	client, r := app.NewShellAndRenderer()
 
-	db := app.GetSqlxDB()
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
-	txStore := cltest.NewTestTxStore(t, db, app.GetConfig().Database())
+	txStore := cltest.NewTestTxStore(t, app.GetRelayers().LegacyEVM().DB(), app.GetConfig().Database())
 	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
 	attempt := tx.TxAttempts[0]
 
@@ -96,7 +95,7 @@ func TestShell_IndexTxAttempts(t *testing.T) {
 
 	_, from := cltest.MustAddRandomKeyToKeystore(t, app.KeyStore.Eth())
 
-	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
+	txStore := cltest.NewTestTxStore(t, app.GetRelayers().LegacyEVM().DB(), app.GetConfig().Database())
 	tx := cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 1, from)
 
 	// page 1
