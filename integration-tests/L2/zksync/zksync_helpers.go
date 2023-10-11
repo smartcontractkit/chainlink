@@ -1,14 +1,26 @@
 package zksync
 
 import (
+	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink-env/environment"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
+	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/config"
 	"math/big"
+	"os"
 	"strings"
+	"testing"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+	helmEth "github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -32,6 +44,10 @@ type ZKSyncClient struct {
 	PeerIds              []string
 	OcrConfigPubKeys     []string
 	Client               blockchain.EVMClient
+	OcrInstance          []contracts.OffchainAggregator
+	ChainClient          blockchain.EVMClient
+	ChainlinkNodes       []*client.ChainlinkK8sClient
+	Mockserver           *ctfClient.MockserverClient
 }
 
 func Setup(L2RPC string, privateKey string, client blockchain.EVMClient) (*ZKSyncClient, error) {
@@ -213,4 +229,127 @@ func (z *ZKSyncClient) DeployContracts(chainlinkClient blockchain.EVMClient, ocr
 	}
 
 	return nil
+}
+
+func (z *ZKSyncClient) DeployOCRFeed(testEnvironment *environment.Environment, chainClient blockchain.EVMClient, chainlinkNodes []*client.ChainlinkK8sClient, testNetwork blockchain.EVMNetwork, l zerolog.Logger) error {
+	z.ChainClient = chainClient
+	z.ChainlinkNodes = chainlinkNodes
+
+	var chainlinkClients []*client.ChainlinkClient
+	for _, k8sClient := range z.ChainlinkNodes {
+		chainlinkClients = append(chainlinkClients, k8sClient.ChainlinkClient)
+	}
+
+	err := z.CreateKeys(chainlinkClients)
+	if err != nil {
+		return err
+	}
+
+	err = z.DeployContracts(chainClient, gauntlet.DefaultOcrContract(), gauntlet.DefaultOcrConfig(), l)
+	if err != nil {
+		return err
+	}
+
+	z.Mockserver, err = ctfClient.ConnectMockServer(testEnvironment)
+	if err != nil {
+		return err
+	}
+	chainClient.ParallelTransactions(true)
+
+	err = chainClient.WaitForEvents()
+	if err != nil {
+		return err
+	}
+	z.OcrInstance = []contracts.OffchainAggregator{
+		z.OCRContract,
+	}
+
+	// Set Config
+	transmitterAddresses, err := actions.ChainlinkNodeAddresses(z.ChainlinkNodes[1:])
+	if err != nil {
+		return err
+	}
+
+	// Exclude the first node, which will be used as a bootstrapper
+	err = z.OcrInstance[0].SetConfig(
+		z.ChainlinkNodes[1:],
+		contracts.DefaultOffChainAggregatorConfig(len(z.ChainlinkNodes[1:])),
+		transmitterAddresses,
+	)
+	if err != nil {
+		return err
+	}
+
+	bootstrapNode, workerNodes := z.ChainlinkNodes[0], z.ChainlinkNodes[1:]
+
+	err = actions.CreateOCRJobs(z.OcrInstance, bootstrapNode, workerNodes, 5, z.Mockserver, "280")
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (z *ZKSyncClient) RequestOCRRound(roundNumber int64, value int, l zerolog.Logger) (*big.Int, error) {
+	err := actions.SetAllAdapterResponsesToTheSameValue(value, z.OcrInstance, z.ChainlinkNodes, z.Mockserver)
+	if err != nil {
+		return nil, err
+	}
+	err = actions.StartNewRound(roundNumber, z.OcrInstance, z.ChainClient, l)
+	if err != nil {
+		return nil, err
+	}
+
+	answer, err := z.OcrInstance[0].GetLatestAnswer(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	return answer, nil
+}
+
+func SetupOCRTest(t *testing.T) (
+	testEnvironment *environment.Environment,
+	testNetwork blockchain.EVMNetwork,
+	err error,
+) {
+	var ocrEnvVars = map[string]any{}
+	testNetwork = networks.SelectedNetwork
+	evmConfig := helmEth.New(nil)
+	if !testNetwork.Simulated {
+		evmConfig = helmEth.New(&helmEth.Props{
+			NetworkName: testNetwork.Name,
+			Simulated:   testNetwork.Simulated,
+			WsURLs:      testNetwork.URLs,
+		})
+		// For if we end up using env vars
+		ocrEnvVars["ETH_URL"] = testNetwork.URLs[0]
+		ocrEnvVars["ETH_HTTP_URL"] = testNetwork.HTTPURLs[0]
+		ocrEnvVars["ETH_CHAIN_ID"] = fmt.Sprint(testNetwork.ChainID)
+	}
+	chainlinkChart := chainlink.New(0, map[string]interface{}{
+		"toml":     client.AddNetworkDetailedConfig(config.BaseOCRP2PV1Config, config.DefaultOCRNetworkDetailTomlConfig, testNetwork),
+		"replicas": 6,
+	})
+
+	useEnvVars := strings.ToLower(os.Getenv("TEST_USE_ENV_VAR_CONFIG"))
+	if useEnvVars == "true" {
+		chainlinkChart = chainlink.NewVersioned(0, "0.0.11", map[string]any{
+			"replicas": 6,
+			"env":      ocrEnvVars,
+		})
+	}
+
+	testEnvironment = environment.New(&environment.Config{
+		NamespacePrefix: fmt.Sprintf("smoke-ocr-%s", strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-")),
+		Test:            t,
+	}).
+		AddHelm(mockservercfg.New(nil)).
+		AddHelm(mockserver.New(nil)).
+		AddHelm(evmConfig).
+		AddHelm(chainlinkChart)
+	err = testEnvironment.Run()
+	if err != nil {
+		return nil, testNetwork, err
+	}
+	return testEnvironment, testNetwork, nil
 }

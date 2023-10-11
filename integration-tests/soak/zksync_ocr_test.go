@@ -1,10 +1,12 @@
-package smoke
+package soak
 
 import (
+	"fmt"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"go.uber.org/zap/zapcore"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
@@ -18,14 +20,20 @@ import (
 func TestOCRZKSync(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
+	l1RpcUrl, isSet := os.LookupEnv("L1_RPC_URL")
+	require.Equal(t, isSet, true, "L1_RPC_URL should be defined")
+
+	testDuration, isSet := os.LookupEnv("TEST_DURATION")
+	require.Equal(t, isSet, true, "TEST_DURATION should be defined")
+
+	timeBetweenRounds, isSet := os.LookupEnv("OCR_TIME_BETWEEN_ROUNDS")
+	require.Equal(t, isSet, true, "OCR_TIME_BETWEEN_ROUNDS should be defined")
+
 	testEnvironment, testNetwork, err := zksync.SetupOCRTest(t)
 	require.NoError(t, err, "Deploying env should not fail")
 	if testEnvironment.WillUseRemoteRunner() {
 		return
 	}
-
-	l1RpcUrl, isSet := os.LookupEnv("L1_RPC_URL")
-	require.Equal(t, isSet, true, "L1_RPC_URL should be defined")
 
 	// Adding L1 URL to HTTPURLs
 	testNetwork.HTTPURLs = append(testNetwork.HTTPURLs, l1RpcUrl)
@@ -48,11 +56,23 @@ func TestOCRZKSync(t *testing.T) {
 		require.NoError(t, err, "Error tearing down environment")
 	})
 
-	answer, err := zkClient.RequestOCRRound(1, 10, l)
-	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
-	require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
+	duration, err := time.ParseDuration(testDuration)
+	require.NoError(t, err, "Error parsing test duration")
 
-	answer, err = zkClient.RequestOCRRound(2, 10, l)
-	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
-	require.Equal(t, int64(10), answer.Int64(), "Expected latest answer from OCR contract to be 10 but got %d", answer.Int64())
+	waitBetweenRounds, err := time.ParseDuration(timeBetweenRounds)
+	require.NoError(t, err, "Error parsing time between rounds duration")
+
+	endTime := time.Now().Add(duration)
+	round := 1
+	for ; time.Now().Before(endTime); time.Sleep(waitBetweenRounds) {
+		l.Info().Msg(fmt.Sprintf("Starting round %d", round))
+		answer, err := zkClient.RequestOCRRound(int64(round), 10, l)
+		if err != nil {
+			l.Error().Err(err)
+		}
+		if answer.Int64() != int64(10) {
+			l.Error().Int64("Expected answer to be 10 but got", answer.Int64())
+		}
+		round++
+	}
 }
