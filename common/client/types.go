@@ -29,7 +29,7 @@ type RPC[
 		CHAIN_ID,
 		HEAD,
 	]
-	ClientAPI[
+	clientAPI[
 		CHAIN_ID,
 		SEQ,
 		ADDR,
@@ -66,8 +66,8 @@ type NodeClient[
 	UnsubscribeAllExceptAliveLoop()
 }
 
-// ClientAPI includes all the direct RPC methods required by the generalized common client to implement its own.
-type ClientAPI[
+// clientAPI includes all the direct RPC methods required by the generalized common client to implement its own.
+type clientAPI[
 	CHAIN_ID types.ID,
 	SEQ types.Sequence,
 	ADDR types.Hashable,

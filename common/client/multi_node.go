@@ -65,7 +65,7 @@ type MultiNode[
 	HEAD types.Head[BLOCK_HASH],
 	RPC_CLIENT RPC[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD],
 ] interface {
-	ClientAPI[
+	clientAPI[
 		CHAIN_ID,
 		SEQ,
 		ADDR,
