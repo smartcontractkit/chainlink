@@ -89,14 +89,6 @@ var (
 				"memory": "4Gi",
 			},
 		},
-		"additionalArgs": []string{
-			"-c",
-			"shared_buffers=1536MB",
-			"-c",
-			"effective_cache_size=4096MB",
-			"-c",
-			"work_mem=64MB",
-		},
 	}
 	NodeFundingForLoad = big.NewFloat(20)
 	DefaultNodeFunding = big.NewFloat(1)
@@ -404,6 +396,17 @@ func NewCCIPTestConfig(t *testing.T, lggr zerolog.Logger, tType string) *CCIPTes
 	dbMem, _ := utils.GetEnv("CCIP_DB_MEM")
 	dbCPU, _ := utils.GetEnv("CCIP_DB_CPU")
 	DONDBResourceProfile["resources"] = SetResourceProfile("2", "4Gi", dbCPU, dbMem)
+
+	dbArgs, _ := utils.GetEnv("CCIP_DB_ARGS")
+	if dbArgs != "" {
+		args := strings.Split(dbArgs, ",")
+		var formattedArgs []string
+		for _, arg := range args {
+			formattedArgs = append(formattedArgs, "-c")
+			formattedArgs = append(formattedArgs, arg)
+		}
+		DONDBResourceProfile["additionalArgs"] = formattedArgs
+	}
 
 	ccipTOML, _ := utils.GetEnv("CCIP_TOML_PATH")
 	if ccipTOML != "" {
