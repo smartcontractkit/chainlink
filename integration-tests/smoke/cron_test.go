@@ -26,11 +26,6 @@ func TestCronBasic(t *testing.T) {
 		WithCLNodes(1).
 		Build()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := env.Cleanup(t); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 
 	err = env.MockAdapter.SetAdapterBasedIntValuePath("/variable", []string{http.MethodGet, http.MethodPost}, 5)
 	require.NoError(t, err, "Setting value path in mock adapter shouldn't fail")

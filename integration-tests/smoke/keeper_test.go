@@ -1105,7 +1105,6 @@ func setupKeeperTest(t *testing.T) (
 	clNodeConfig.Keeper.TurnLookBack = &turnLookBack
 	clNodeConfig.Keeper.Registry.SyncInterval = &syncInterval
 	clNodeConfig.Keeper.Registry.PerformGasOverhead = &performGasOverhead
-	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
@@ -1115,11 +1114,6 @@ func setupKeeperTest(t *testing.T) (
 		WithFunding(big.NewFloat(.5)).
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
-	t.Cleanup(func() {
-		if err := env.Cleanup(t); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 
 	env.ParallelTransactions(true)
 

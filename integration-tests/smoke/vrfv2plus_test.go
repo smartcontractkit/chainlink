@@ -2,11 +2,12 @@ package smoke
 
 import (
 	"context"
-	"github.com/kelseyhightower/envconfig"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
 	"math/big"
 	"testing"
 	"time"
+
+	"github.com/kelseyhightower/envconfig"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_upgraded_version"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
@@ -36,11 +37,6 @@ func TestVRFv2Plus(t *testing.T) {
 		WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
 		Build()
 	require.NoError(t, err, "error creating test env")
-	t.Cleanup(func() {
-		if err := env.Cleanup(t); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 
 	env.ParallelTransactions(true)
 
@@ -289,12 +285,6 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
 		Build()
 	require.NoError(t, err, "error creating test env")
-	t.Cleanup(func() {
-		if err := env.Cleanup(t); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
-
 	env.ParallelTransactions(true)
 
 	mockETHLinkFeedAddress, err := actions.DeployMockETHLinkFeed(env.ContractDeployer, big.NewInt(vrfv2PlusConfig.LinkNativeFeedResponse))
