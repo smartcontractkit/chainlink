@@ -731,15 +731,11 @@ jobs:
           CONTAINER_ID=$(docker create "$IMAGE_NAME")
 
           # Copy the artifacts from the container
-          docker cp "$CONTAINER_ID:/go/testdir/${{env.CONTRACT_ARTIFACTS_PATH}}/" "./contracts/target/"
+          mkdir -p ./${{env.CONTRACT_ARTIFACTS_PATH}}/
+          docker cp "$CONTAINER_ID:/go/testdir/${{env.CONTRACT_ARTIFACTS_PATH}}/" "./${{env.CONTRACT_ARTIFACTS_PATH}}/../"
 
           # Remove the created container
           docker rm "$CONTAINER_ID"
-          pwd
-          ls
-          ls ./contracts/
-          ls ./contracts/target/
-
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
