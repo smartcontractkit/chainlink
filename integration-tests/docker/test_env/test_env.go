@@ -257,7 +257,7 @@ func (te *CLClusterTestEnv) Cleanup() error {
 			Msg("Network is a simulated network. Skipping fund return.")
 	} else {
 		if err := te.returnFunds(); err != nil {
-			te.l.Error().Err(err).Msg("Error returning funds from chainlink nodes during cleanup")
+			return err
 		}
 	}
 
