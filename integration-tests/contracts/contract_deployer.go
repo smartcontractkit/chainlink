@@ -754,8 +754,10 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion eth_con
 		) (common.Address, *types.Transaction, interface{}, error) {
 			// set default TriggerType to 0(conditional), AutoApproveConfigType to 2(auto approve enabled), AutoApproveMaxAllowed to 1000
 			triggerConfigs := []registrar21.AutomationRegistrar21InitialTriggerConfig{
-				{TriggerType: 0, AutoApproveType: 2, AutoApproveMaxAllowed: 1000},
-				{TriggerType: 1, AutoApproveType: 2, AutoApproveMaxAllowed: 1000},
+				{TriggerType: 0, AutoApproveType: registrarSettings.AutoApproveConfigType,
+					AutoApproveMaxAllowed: uint32(registrarSettings.AutoApproveMaxAllowed)},
+				{TriggerType: 1, AutoApproveType: registrarSettings.AutoApproveConfigType,
+					AutoApproveMaxAllowed: uint32(registrarSettings.AutoApproveMaxAllowed)},
 			}
 
 			return registrar21.DeployAutomationRegistrar(
