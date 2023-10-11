@@ -26,7 +26,6 @@ import (
 
 // WIP
 func TestOCRZKSync(t *testing.T) {
-
 	l := logging.GetTestLogger(t)
 
 	l1RpcUrl, isSet := os.LookupEnv("L1_RPC_URL")
