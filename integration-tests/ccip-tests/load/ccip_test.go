@@ -18,7 +18,7 @@ func TestLoadCCIPStableRPS(t *testing.T) {
 	t.Parallel()
 	lggr := logging.GetTestLogger(t)
 	testArgs := NewLoadArgs(t, lggr, context.Background())
-	testArgs.Setup(true)
+	testArgs.Setup(true, 5, 5)
 	// if the test runs on remote runner
 	if len(testArgs.TestSetupArgs.Lanes) == 0 {
 		return
@@ -40,7 +40,7 @@ func TestLoadCCIPSequentialLaneAdd(t *testing.T) {
 	if len(testArgs.TestCfg.NetworkPairs) <= 1 {
 		t.Skip("Skipping the test as there are not enough network pairs to run the test")
 	}
-	testArgs.Setup(true)
+	testArgs.Setup(true, 5, 5)
 	// if the test runs on remote runner
 	if len(testArgs.TestSetupArgs.Lanes) == 0 {
 		return
@@ -51,6 +51,50 @@ func TestLoadCCIPSequentialLaneAdd(t *testing.T) {
 	})
 	testArgs.TriggerLoad()
 	testArgs.AddMoreLanesToRun()
+	testArgs.Wait()
+}
+
+func TestLoadCCIPStableRequestTriggeringWithNetworkChaos(t *testing.T) {
+	t.Parallel()
+	lggr := logging.GetTestLogger(t)
+	testArgs := NewLoadArgs(t, lggr, context.Background())
+	testArgs.Setup(true, 16, 16)
+	// if the test runs on remote runner
+	if len(testArgs.TestSetupArgs.Lanes) == 0 {
+		return
+	}
+	t.Cleanup(func() {
+		log.Info().Msg("Tearing down the environment")
+		require.NoError(t, testArgs.TestSetupArgs.TearDown())
+	})
+	testEnv := testArgs.TestSetupArgs.Env
+	require.NotNil(t, testEnv)
+	require.NotNil(t, testEnv.K8Env)
+
+	// apply network chaos so that chainlink's RPC calls are affected by some network delay for the duration of the test
+	var gethNetworksLabels []string
+	for _, net := range testArgs.TestCfg.SelectedNetworks {
+		gethNetworksLabels = append(gethNetworksLabels, actions.GethLabel(net.Name))
+	}
+	testEnv.ChaosLabelForAllGeth(t, gethNetworksLabels)
+	chaosId, err := testEnv.K8Env.Chaos.Run(
+		chaos.NewNetworkLatency(
+			testEnv.K8Env.Cfg.Namespace, &chaos.Props{
+				FromLabels:  &map[string]*string{"geth": a.Str(actions.ChaosGroupCCIPGeth)},
+				ToLabels:    &map[string]*string{"app": a.Str("chainlink-0")},
+				DurationStr: testArgs.TestCfg.TestDuration.String(),
+				Delay:       "300ms",
+			}))
+	require.NoError(t, err)
+
+	t.Cleanup(func() {
+		if chaosId != "" {
+			require.NoError(t, testEnv.K8Env.Chaos.Stop(chaosId))
+		}
+	})
+
+	// now trigger the load
+	testArgs.TriggerLoad()
 	testArgs.Wait()
 }
 
@@ -102,7 +146,7 @@ func TestLoadCCIPStableRequestTriggeringWithPodChaos(t *testing.T) {
 			testArgs.TestCfg.Load.TimeUnit = 1 * time.Second
 			testArgs.TestCfg.Load.RequestPerUnitTime = []int64{2}
 
-			testArgs.Setup(false)
+			testArgs.Setup(false, 5, 5)
 			// if the test runs on remote runner
 			if len(testArgs.TestSetupArgs.Lanes) == 0 {
 				return

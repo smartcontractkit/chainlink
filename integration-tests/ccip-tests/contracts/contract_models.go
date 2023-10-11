@@ -520,7 +520,11 @@ func (r *Router) CCIPSend(destChainSelector uint64, msg router.ClientEVM2AnyMess
 		opts.Value = valueForNative
 	}
 
-	tx, err := r.Instance.CcipSend(opts, destChainSelector, msg)
+	return r.Instance.CcipSend(opts, destChainSelector, msg)
+}
+
+func (r *Router) CCIPSendAndProcessTx(destChainSelector uint64, msg router.ClientEVM2AnyMessage, valueForNative *big.Int) (*types.Transaction, error) {
+	tx, err := r.CCIPSend(destChainSelector, msg, valueForNative)
 	if err != nil {
 		return nil, err
 	}

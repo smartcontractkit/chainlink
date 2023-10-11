@@ -505,7 +505,31 @@ func (e *CCIPContractsDeployer) DeployWrappedNative() (*common.Address, error) {
 	return address, err
 }
 
-func DefaultOffChainAggregatorV2Config(numberNodes int) contracts.OffChainAggregatorV2Config {
+var OCR2ParamsForCommit = contracts.OffChainAggregatorV2Config{
+	DeltaProgress:                           2 * time.Minute,
+	DeltaResend:                             5 * time.Second,
+	DeltaRound:                              75 * time.Second,
+	DeltaGrace:                              5 * time.Second,
+	MaxDurationQuery:                        100 * time.Millisecond,
+	MaxDurationObservation:                  35 * time.Second,
+	MaxDurationReport:                       10 * time.Second,
+	MaxDurationShouldAcceptFinalizedReport:  5 * time.Second,
+	MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
+}
+
+var OCR2ParamsForExec = contracts.OffChainAggregatorV2Config{
+	DeltaProgress:                           100 * time.Second,
+	DeltaResend:                             5 * time.Second,
+	DeltaRound:                              40 * time.Second,
+	DeltaGrace:                              5 * time.Second,
+	MaxDurationQuery:                        100 * time.Millisecond,
+	MaxDurationObservation:                  20 * time.Second,
+	MaxDurationReport:                       8 * time.Second,
+	MaxDurationShouldAcceptFinalizedReport:  5 * time.Second,
+	MaxDurationShouldTransmitAcceptedReport: 8 * time.Second,
+}
+
+func OffChainAggregatorV2ConfigWithNodes(numberNodes int, inflightExpiry time.Duration, cfg contracts.OffChainAggregatorV2Config) contracts.OffChainAggregatorV2Config {
 	if numberNodes <= 4 {
 		log.Err(fmt.Errorf("insufficient number of nodes (%d) supplied for OCR, need at least 5", numberNodes)).
 			Int("Number Chainlink Nodes", numberNodes).
@@ -523,20 +547,20 @@ func DefaultOffChainAggregatorV2Config(numberNodes int) contracts.OffChainAggreg
 		faultyNodes = 1
 	}
 	return contracts.OffChainAggregatorV2Config{
-		DeltaProgress:                           70 * time.Second,
-		DeltaResend:                             5 * time.Second,
-		DeltaRound:                              30 * time.Second,
-		DeltaGrace:                              2 * time.Second,
-		DeltaStage:                              40 * time.Second,
+		DeltaProgress:                           cfg.DeltaProgress,
+		DeltaResend:                             cfg.DeltaResend,
+		DeltaRound:                              cfg.DeltaRound,
+		DeltaGrace:                              cfg.DeltaGrace,
+		DeltaStage:                              inflightExpiry,
 		RMax:                                    3,
 		S:                                       s,
 		F:                                       faultyNodes,
 		Oracles:                                 []ocrConfigHelper2.OracleIdentityExtra{},
-		MaxDurationQuery:                        5 * time.Second,
-		MaxDurationObservation:                  32 * time.Second,
-		MaxDurationReport:                       20 * time.Second,
-		MaxDurationShouldAcceptFinalizedReport:  10 * time.Second,
-		MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
+		MaxDurationQuery:                        cfg.MaxDurationQuery,
+		MaxDurationObservation:                  cfg.MaxDurationObservation,
+		MaxDurationReport:                       cfg.MaxDurationReport,
+		MaxDurationShouldAcceptFinalizedReport:  cfg.MaxDurationShouldAcceptFinalizedReport,
+		MaxDurationShouldTransmitAcceptedReport: cfg.MaxDurationShouldTransmitAcceptedReport,
 		OnchainConfig:                           []byte{},
 	}
 }
@@ -549,10 +573,12 @@ func stripKeyPrefix(key string) string {
 	return key
 }
 
-func NewOffChainAggregatorV2Config[T ccipconfig.OffchainConfig](
+func NewOffChainAggregatorV2ConfigForCCIPPlugin[T ccipconfig.OffchainConfig](
 	nodes []*client.CLNodesWithKeys,
 	offchainCfg T,
 	onchainCfg abihelpers.AbiDefined,
+	ocr2Params contracts.OffChainAggregatorV2Config,
+	inflightExpiry time.Duration,
 ) (
 	signers []common.Address,
 	transmitters []common.Address,
@@ -563,7 +589,7 @@ func NewOffChainAggregatorV2Config[T ccipconfig.OffchainConfig](
 	err error,
 ) {
 	oracleIdentities := make([]ocrConfigHelper2.OracleIdentityExtra, 0)
-	ocrConfig := DefaultOffChainAggregatorV2Config(len(nodes))
+	ocrConfig := OffChainAggregatorV2ConfigWithNodes(len(nodes), inflightExpiry, ocr2Params)
 	var onChainKeys []ocrtypes2.OnchainPublicKey
 	for i, nodeWithKeys := range nodes {
 		ocr2Key := nodeWithKeys.KeysBundle.OCR2Key.Data
