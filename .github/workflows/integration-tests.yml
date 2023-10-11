@@ -111,7 +111,7 @@ jobs:
           echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
 
   build-test-image:
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || contains(join(github.event.pull_request.labels.*.name, ' '), 'build-test-image')
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || contains(join(github.event.pull_request.labels.*.name, ' '), 'build-test-image')
     environment: integration
     permissions:
       id-token: write
