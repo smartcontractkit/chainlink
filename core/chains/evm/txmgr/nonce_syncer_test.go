@@ -28,7 +28,7 @@ func Test_NonceSyncer_Sync(t *testing.T) {
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	 	_, from := cltest.MustInsertRandomKey(t, ethKeyStore)
+		_, from := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		ns := txmgr.NewNonceSyncer(txStore, logger.TestLogger(t), ethClient)
 

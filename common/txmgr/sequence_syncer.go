@@ -7,5 +7,5 @@ import (
 )
 
 type SequenceSyncer[ADDR types.Hashable, TX_HASH types.Hashable, BLOCK_HASH types.Hashable, SEQ types.Sequence] interface {
-	Sync(ctx context.Context, addr ADDR, localNonce SEQ) (SEQ, error)
+	Sync(ctx context.Context, addr ADDR, localSequence SEQ) (SEQ, error)
 }

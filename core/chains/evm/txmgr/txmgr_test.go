@@ -669,8 +669,6 @@ func TestTxm_Reset(t *testing.T) {
 	}
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	ethClient.On("PendingNonceAt", mock.Anything, addr).Return(uint64(0), nil)
-	ethClient.On("PendingNonceAt", mock.Anything, addr2).Return(uint64(0), nil)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil)
 	ethClient.On("BatchCallContextAll", mock.Anything, mock.Anything).Return(nil).Maybe()
 	eventBroadcaster := pgmocks.NewEventBroadcaster(t)

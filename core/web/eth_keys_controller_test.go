@@ -336,7 +336,6 @@ func TestETHKeysController_ChainSuccess_Enable(t *testing.T) {
 	t.Parallel()
 
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
-	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].NonceAutoSync = ptr(false)
 		c.EVM[0].BalanceMonitor.Enabled = ptr(false)

@@ -962,9 +962,8 @@ func (o *evmTxStore) FindHighestSequence(ctx context.Context, fromAddress common
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
-
-	sql := `SELECT MAX(nonce) FROM evm.txes WHERE from_address = $1 and evm_chain_id = $2`
-	err = qq.Get(&nonce, sql, fromAddress.String(), chainId.String())
+	sql := `SELECT nonce FROM evm.txes WHERE from_address = $1 AND evm_chain_id = $2 AND nonce IS NOT NULL ORDER BY nonce DESC LIMIT 1`
+	err = qq.Get(&nonce, sql, fromAddress, chainId.String())
 	return
 }
 

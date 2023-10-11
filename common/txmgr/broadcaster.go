@@ -245,7 +245,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) star
 	defer eb.sequenceLock.Unlock()
 	eb.nextSequenceMap, err = eb.loadNextSequenceMap(eb.enabledAddresses)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "Broadcaster: failed to load next sequence map")
 	}
 
 	eb.isStarted = true
@@ -336,7 +336,7 @@ func (eb *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) load
 		// Will need to be incremented since this sequence is already used
 		seq, err := eb.txStore.FindHighestSequence(ctx, address, eb.chainID)
 		if err != nil {
-			// Look for nonce on-chain if address not found in TxStore
+			// Look for nonce on-chain if no tx found for address in TxStore or if error occurred
 			// Returns the nonce that should be used for the next transaction so no need to increment
 			seq, err = eb.client.PendingSequenceAt(ctx, address)
 			if err != nil {
