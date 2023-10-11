@@ -33,7 +33,6 @@ func TestOCRBasic(t *testing.T) {
 
 	linkTokenContract, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
-	require.Equal(t, 2, 1, "This is a test to see if the test runner is working") // DEBUG
 
 	ocrInstances, err := actions.DeployOCRContractsLocal(1, linkTokenContract, env.ContractDeployer, workerNodes, env.EVMClient)
 	require.NoError(t, err)
