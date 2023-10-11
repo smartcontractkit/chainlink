@@ -730,11 +730,15 @@ jobs:
           # Create a container without starting it
           CONTAINER_ID=$(docker create "$IMAGE_NAME")
 
-          # Copy the specified file and directory from the container to the host
-          docker cp "$CONTAINER_ID:/go/testdir/contracts/target/deploy/" "./contracts/target/"
+          # Copy the artifacts from the container
+          docker cp "$CONTAINER_ID:/go/testdir/${{env.CONTRACT_ARTIFACTS_PATH}}/" "./contracts/target/"
 
           # Remove the created container
           docker rm "$CONTAINER_ID"
+          pwd
+          ls
+          ls ./contracts/
+          ls ./contracts/target/
 
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
