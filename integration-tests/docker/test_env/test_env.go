@@ -244,40 +244,9 @@ func (te *CLClusterTestEnv) Cleanup() error {
 	// TODO: This is an imperfect and temporary solution, see TT-590 for a more sustainable solution
 	// Collect logs if the test fails, or if we just want them
 	if te.t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
-		folder := fmt.Sprintf("./logs/%s-%s", te.t.Name(), time.Now().Format("2006-01-02T15-04-05"))
-		if err := os.MkdirAll(folder, os.ModePerm); err != nil {
+		if err := te.collectTestLogs(); err != nil {
 			return err
 		}
-
-		te.l.Info().Msg("Collecting test logs")
-		eg := &errgroup.Group{}
-		for _, n := range te.CLNodes {
-			node := n
-			eg.Go(func() error {
-				logFileName := filepath.Join(folder, fmt.Sprintf("node-%s.log", node.ContainerName))
-				logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY, 0644)
-				if err != nil {
-					return err
-				}
-				defer logFile.Close()
-				logReader, err := node.Container.Logs(context.Background())
-				if err != nil {
-					return err
-				}
-				_, err = io.Copy(logFile, logReader)
-				if err != nil {
-					return err
-				}
-				te.l.Info().Str("Node", node.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
-				return nil
-			})
-		}
-
-		if err := eg.Wait(); err != nil {
-			return err
-		}
-
-		te.l.Info().Str("Logs Location", folder).Msg("Wrote test logs")
 	}
 
 	if te.EVMClient == nil {
@@ -287,29 +256,78 @@ func (te *CLClusterTestEnv) Cleanup() error {
 			Str("Network Name", te.EVMClient.GetNetworkName()).
 			Msg("Network is a simulated network. Skipping fund return.")
 	} else {
-		te.l.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
-		for _, chainlinkNode := range te.CLNodes {
-			fundedKeys, err := chainlinkNode.API.ExportEVMKeysForChain(te.EVMClient.GetChainID().String())
+		if err := te.returnFunds(); err != nil {
+			te.l.Error().Err(err).Msg("Error returning funds from chainlink nodes during cleanup")
+		}
+	}
+
+	return nil
+}
+
+// collectTestLogs collects the logs from all the Chainlink nodes in the test environment and writes them to local files
+func (te *CLClusterTestEnv) collectTestLogs() error {
+	te.l.Info().Msg("Collecting test logs")
+	folder := fmt.Sprintf("./logs/%s-%s", te.t.Name(), time.Now().Format("2006-01-02T15-04-05"))
+	if err := os.MkdirAll(folder, os.ModePerm); err != nil {
+		return err
+	}
+
+	eg := &errgroup.Group{}
+	for _, n := range te.CLNodes {
+		node := n
+		eg.Go(func() error {
+			logFileName := filepath.Join(folder, fmt.Sprintf("node-%s.log", node.ContainerName))
+			logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				return err
 			}
-			for _, key := range fundedKeys {
-				keyToDecrypt, err := json.Marshal(key)
-				if err != nil {
-					return err
-				}
-				// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
-				// issues. So we avoid running in parallel; slower, but safer.
-				decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
-				if err != nil {
-					return err
-				}
-				if err = te.EVMClient.ReturnFunds(decryptedKey.PrivateKey); err != nil {
-					return err
-				}
+			defer logFile.Close()
+			logReader, err := node.Container.Logs(context.Background())
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(logFile, logReader)
+			if err != nil {
+				return err
+			}
+			te.l.Info().Str("Node", node.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	te.l.Info().Str("Logs Location", folder).Msg("Wrote test logs")
+	return nil
+}
+
+func (te *CLClusterTestEnv) returnFunds() error {
+	te.l.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
+	for _, chainlinkNode := range te.CLNodes {
+		fundedKeys, err := chainlinkNode.API.ExportEVMKeysForChain(te.EVMClient.GetChainID().String())
+		if err != nil {
+			return err
+		}
+		for _, key := range fundedKeys {
+			keyToDecrypt, err := json.Marshal(key)
+			if err != nil {
+				return err
+			}
+			// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
+			// issues. So we avoid running in parallel; slower, but safer.
+			decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
+			if err != nil {
+				return err
+			}
+			if err = te.EVMClient.ReturnFunds(decryptedKey.PrivateKey); err != nil {
+				// If we fail to return funds from one, go on to try the others anyway
+				te.l.Error().Err(err).Str("Node", chainlinkNode.ContainerName).Msg("Error returning funds from node")
 			}
 		}
 	}
 
+	te.l.Info().Msg("Returned funds from Chainlink nodes")
 	return nil
 }
