@@ -234,6 +234,8 @@ func main() {
 
 		createJobs(nodesMap, output, jobSpecs)
 		if *vrfVersion == "v2plus" {
+			//todo - fails with "execution reverted" when calling this function from setup-env script,
+			//even though when I run the same command in the console it works (go run . eoa-load-test-request-with-metrics )
 			verifyRandomnessRequestFulfills(e, randRequestConfig)
 		}
 	}
@@ -270,6 +272,8 @@ func createJobs(nodesMap map[string]model.Node, output *bytes.Buffer, jobSpecs m
 func verifyRandomnessRequestFulfills(e helpers.Environment, randRequestConfig v2plusscripts.RandRequestConfig) {
 
 	time.Sleep(10 * time.Second)
+	//todo - fails with "execution reverted" when calling this function from setup-env script,
+	//even though when I run the same command in the console it works (go run . eoa-load-test-request-with-metrics )
 	v2plusscripts.LoadTestRequestRandomness(
 		e,
 		randRequestConfig.ConsumerAddress,
@@ -290,7 +294,7 @@ func verifyRandomnessRequestFulfills(e helpers.Environment, randRequestConfig v2
 	//	randRequestConfig.MinConfs,
 	//	randRequestConfig.KeyHash,
 	//	constants.CallBackGasLimit,
-	//	false,
+	//	true,
 	//	1,
 	//	1,
 	//	1,
