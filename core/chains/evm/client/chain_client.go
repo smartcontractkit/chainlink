@@ -34,7 +34,7 @@ type chainClient struct {
 		*evmtypes.Receipt,
 		*assets.Wei,
 		*evmtypes.Head,
-		*rpcClient,
+		RPCCLient,
 	]
 	logger logger.Logger
 }
@@ -44,8 +44,8 @@ func NewChainClient(
 	selectionMode string,
 	leaseDuration time.Duration,
 	noNewHeadsThreshold time.Duration,
-	nodes []commonclient.Node[*big.Int, *evmtypes.Head, *rpcClient],
-	sendonlys []commonclient.SendOnlyNode[*big.Int, *rpcClient],
+	nodes []commonclient.Node[*big.Int, *evmtypes.Head, RPCCLient],
+	sendonlys []commonclient.SendOnlyNode[*big.Int, RPCCLient],
 	chainID *big.Int,
 	chainType config.ChainType,
 ) Client {
@@ -61,7 +61,7 @@ func NewChainClient(
 		*evmtypes.Receipt,
 		*assets.Wei,
 		*evmtypes.Head,
-		*rpcClient,
+		RPCCLient,
 	](
 		logger,
 		selectionMode,

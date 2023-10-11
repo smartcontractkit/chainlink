@@ -26,19 +26,31 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var _ commonclient.RPC[
-	*big.Int,
-	evmtypes.Nonce,
-	common.Address,
-	common.Hash,
-	*types.Transaction,
-	common.Hash,
-	types.Log,
-	ethereum.FilterQuery,
-	*evmtypes.Receipt,
-	*assets.Wei,
-	*evmtypes.Head,
-] = &rpcClient{}
+// RPCCLient includes all the necessary generalized RPC methods along with any additional chain-specific methods.
+type RPCCLient interface {
+	commonclient.RPC[
+		*big.Int,
+		evmtypes.Nonce,
+		common.Address,
+		common.Hash,
+		*types.Transaction,
+		common.Hash,
+		types.Log,
+		ethereum.FilterQuery,
+		*evmtypes.Receipt,
+		*assets.Wei,
+		*evmtypes.Head,
+	]
+	BlockByHashGeth(ctx context.Context, hash common.Hash) (b *types.Block, err error)
+	BlockByNumberGeth(ctx context.Context, number *big.Int) (b *types.Block, err error)
+	HeaderByHash(ctx context.Context, h common.Hash) (head *types.Header, err error)
+	HeaderByNumber(ctx context.Context, n *big.Int) (head *types.Header, err error)
+	PendingCodeAt(ctx context.Context, account common.Address) (b []byte, err error)
+	SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery, ch chan<- types.Log) (s ethereum.Subscription, err error)
+	SuggestGasPrice(ctx context.Context) (p *big.Int, err error)
+	SuggestGasTipCap(ctx context.Context) (t *big.Int, err error)
+	TransactionReceiptGeth(ctx context.Context, txHash common.Hash) (r *types.Receipt, err error)
+}
 
 type rpcClient struct {
 	rpcLog  logger.Logger
@@ -74,7 +86,7 @@ func NewRPCClient(
 	id int32,
 	chainID *big.Int,
 	tier clienttypes.NodeTier,
-) *rpcClient {
+) RPCCLient {
 	r := new(rpcClient)
 	r.name = name
 	r.id = id

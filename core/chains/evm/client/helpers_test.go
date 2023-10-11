@@ -91,18 +91,18 @@ func NewChainClientWithTestNode(
 	lggr := logger.TestLogger(t)
 	rpc := NewRPCClient(lggr, *parsed, rpcHTTPURL, "eth-primary-rpc-0", id, chainID, clienttypes.Primary)
 
-	n := commonclient.NewNode[*big.Int, *evmtypes.Head, *rpcClient](
+	n := commonclient.NewNode[*big.Int, *evmtypes.Head, RPCCLient](
 		nodeCfg, noNewHeadsThreshold, lggr, *parsed, rpcHTTPURL, "eth-primary-node-0", id, chainID, 1, rpc, "EVM")
-	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, *rpcClient]{n}
+	primaries := []commonclient.Node[*big.Int, *evmtypes.Head, RPCCLient]{n}
 
-	var sendonlys []commonclient.SendOnlyNode[*big.Int, *rpcClient]
+	var sendonlys []commonclient.SendOnlyNode[*big.Int, RPCCLient]
 	for i, u := range sendonlyRPCURLs {
 		if u.Scheme != "http" && u.Scheme != "https" {
 			return nil, errors.Errorf("sendonly ethereum rpc url scheme must be http(s): %s", u.String())
 		}
 		var empty url.URL
 		rpc := NewRPCClient(lggr, empty, &sendonlyRPCURLs[i], fmt.Sprintf("eth-sendonly-rpc-%d", i), id, chainID, clienttypes.Secondary)
-		s := commonclient.NewSendOnlyNode[*big.Int, *rpcClient](
+		s := commonclient.NewSendOnlyNode[*big.Int, RPCCLient](
 			lggr, u, fmt.Sprintf("eth-sendonly-%d", i), chainID, rpc)
 		sendonlys = append(sendonlys, s)
 	}
