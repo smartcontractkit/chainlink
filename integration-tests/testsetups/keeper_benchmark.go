@@ -420,12 +420,21 @@ func (k *KeeperBenchmarkTest) observeUpkeepEvents() {
 			case <-interruption:
 				k.log.Warn().Msg("Received interrupt signal, test container restarting. Dashboard view will be inaccurate.")
 			case err := <-sub.Err():
-				for err != nil {
-					k.log.Error().Err(err).Interface("Query", filterQuery).Msg("Error while subscribing to Keeper Event Logs. Resubscribing...")
+				backoff := time.Second
+				for err != nil { // Keep retrying until we get a successful subscription
+					k.log.Error().
+						Err(err).
+						Interface("Query", filterQuery).
+						Str("Backoff", backoff.String()).
+						Msg("Error while subscribing to Keeper Event Logs. Resubscribing...")
 
-					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					ctx, cancel := context.WithTimeout(context.Background(), backoff)
 					sub, err = k.chainClient.SubscribeFilterLogs(ctx, filterQuery, eventLogs)
 					cancel()
+					if err != nil {
+						time.Sleep(backoff)
+						backoff = time.Duration(math.Min(float64(backoff)*2, float64(30*time.Second)))
+					}
 				}
 				log.Info().Msg("Resubscribed to Keeper Event Logs")
 			case vLog := <-eventLogs:
