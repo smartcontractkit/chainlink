@@ -171,6 +171,12 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 	}
 
+	b.t.Cleanup(func() {
+		if err := b.te.Cleanup(); err != nil {
+			b.l.Error().Err(err).Msg("Error cleaning up test environment")
+		}
+	})
+
 	if b.nonDevGethNetworks != nil {
 		b.te.WithPrivateChain(b.nonDevGethNetworks)
 		err := b.te.StartPrivateChain()

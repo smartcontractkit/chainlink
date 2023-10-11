@@ -30,11 +30,6 @@ func TestVRFBasic(t *testing.T) {
 		WithFunding(big.NewFloat(.1)).
 		Build()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := env.Cleanup(t); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 	env.ParallelTransactions(true)
 
 	lt, err := actions.DeployLINKToken(env.ContractDeployer)
