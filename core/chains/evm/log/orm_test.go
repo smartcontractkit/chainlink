@@ -26,7 +26,7 @@ func TestORM_broadcasts(t *testing.T) {
 
 	orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
 
-	_, addr := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	_, addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 	specV2 := cltest.MustInsertV2JobSpec(t, db, addr)
 
 	const selectQuery = `SELECT consumed FROM log_broadcasts
@@ -165,10 +165,10 @@ func TestORM_MarkUnconsumed(t *testing.T) {
 
 	orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
 
-	_, addr1 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	_, addr1 := cltest.MustInsertRandomKey(t, ethKeyStore)
 	job1 := cltest.MustInsertV2JobSpec(t, db, addr1)
 
-	_, addr2 := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	_, addr2 := cltest.MustInsertRandomKey(t, ethKeyStore)
 	job2 := cltest.MustInsertV2JobSpec(t, db, addr2)
 
 	logBefore := cltest.RandomLog(t)

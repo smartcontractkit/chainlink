@@ -32,11 +32,6 @@ func TestFluxBasic(t *testing.T) {
 		WithCLNodes(3).
 		Build()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := env.Cleanup(t); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 
 	nodeAddresses, err := env.ChainlinkNodeAddresses()
 	require.NoError(t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")

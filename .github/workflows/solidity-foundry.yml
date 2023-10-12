@@ -30,6 +30,7 @@ jobs:
 
   tests:
     strategy:
+      fail-fast: false
       matrix:
         product: [vrf, automation, llo-feeds, functions, shared]
     needs: [changes]
@@ -54,7 +55,7 @@ jobs:
         uses: foundry-rs/foundry-toolchain@v1
         with:
           # Has to match the `make foundry` version.
-          version: nightly-ca67d15f4abd46394b324c50e21e66f306a1162d
+          version: nightly-e0722a10b45859892ec3b998df958a9edc77c202
 
       - name: Run Forge build
         run: |
