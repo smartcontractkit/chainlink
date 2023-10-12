@@ -16,6 +16,5 @@ ResendAfterThreshold = '3m'
 [HeadTracker]
 HistoryDepth = 350
 
-# Linea uses 200 blocks to estimate gas price
 [GasEstimator.BlockHistory]
-BlockHistorySize = 200
+BlockHistorySize = 25
