@@ -4,8 +4,6 @@
 #./src/v0.8/dev
 # 91 warnings
 #./src/v0.8/functions
-# 91 warnings
-#./src/v0.8/l2ep/dev
 
 
 # Ignore tests, this should not be the long term plan but is OK in the short term
