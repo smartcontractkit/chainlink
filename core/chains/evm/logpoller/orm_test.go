@@ -1175,19 +1175,19 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 	event := EmitterABI.Events["Log1"].ID
 	address := utils.RandomAddress()
 
-	past := time.Date(2010, 1, 1, 12, 12, 12, 0, time.UTC)
-	now := time.Date(2020, 1, 1, 12, 12, 12, 0, time.UTC)
-	future := time.Date(2030, 1, 1, 12, 12, 12, 0, time.UTC)
+	block1ts := time.Date(2010, 1, 1, 12, 12, 12, 0, time.UTC)
+	block2ts := time.Date(2020, 1, 1, 12, 12, 12, 0, time.UTC)
+	block3ts := time.Date(2030, 1, 1, 12, 12, 12, 0, time.UTC)
 
 	require.NoError(t, th.ORM.InsertLogs([]logpoller.Log{
-		GenLogWithTimestamp(th.ChainID, 1, 1, utils.RandomAddress().String(), event[:], address, past),
-		GenLogWithTimestamp(th.ChainID, 1, 2, utils.RandomAddress().String(), event[:], address, now),
-		GenLogWithTimestamp(th.ChainID, 2, 2, utils.RandomAddress().String(), event[:], address, now),
-		GenLogWithTimestamp(th.ChainID, 1, 3, utils.RandomAddress().String(), event[:], address, future),
+		GenLogWithTimestamp(th.ChainID, 1, 1, utils.RandomAddress().String(), event[:], address, block1ts),
+		GenLogWithTimestamp(th.ChainID, 1, 2, utils.RandomAddress().String(), event[:], address, block2ts),
+		GenLogWithTimestamp(th.ChainID, 2, 2, utils.RandomAddress().String(), event[:], address, block2ts),
+		GenLogWithTimestamp(th.ChainID, 1, 3, utils.RandomAddress().String(), event[:], address, block3ts),
 	}))
-	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 1, past, 0))
-	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 2, now, 1))
-	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 3, future, 2))
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 1, block1ts, 0))
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 2, block2ts, 1))
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 3, block3ts, 2))
 
 	type expectedLog struct {
 		block int64
@@ -1203,7 +1203,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		{
 			name:  "picks logs after block 1",
 			confs: 0,
-			after: past,
+			after: block1ts,
 			expectedLogs: []expectedLog{
 				{block: 2, log: 1},
 				{block: 2, log: 2},
@@ -1213,7 +1213,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		{
 			name:  "skips blocks with not enough confirmations",
 			confs: 1,
-			after: past,
+			after: block1ts,
 			expectedLogs: []expectedLog{
 				{block: 2, log: 1},
 				{block: 2, log: 2},
@@ -1222,7 +1222,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		{
 			name:  "limits number of blocks by block_timestamp",
 			confs: 0,
-			after: now,
+			after: block2ts,
 			expectedLogs: []expectedLog{
 				{block: 3, log: 1},
 			},
@@ -1230,19 +1230,19 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		{
 			name:         "returns empty dataset for future timestamp",
 			confs:        0,
-			after:        future,
+			after:        block3ts,
 			expectedLogs: []expectedLog{},
 		},
 		{
 			name:         "returns empty dataset when too many confirmations are required",
 			confs:        3,
-			after:        past,
+			after:        block1ts,
 			expectedLogs: []expectedLog{},
 		},
 		{
 			name:  "returns only finalized log",
 			confs: logpoller.Finalized,
-			after: past.Add(-time.Hour),
+			after: block1ts,
 			expectedLogs: []expectedLog{
 				{block: 2, log: 1},
 				{block: 2, log: 2},

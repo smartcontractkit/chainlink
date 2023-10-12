@@ -1570,68 +1570,96 @@ func Test_PollAndSavePersistsFinalityInBlocks(t *testing.T) {
 	}
 }
 
+func Test_CreatedAfterQueriesWithBackfill(t *testing.T) {
+	emittedLogs := 60
+	ctx := testutils.Context(t)
+
+	tests := []struct {
+		name          string
+		finalityDepth int64
+		finalityTag   bool
+	}{
+		{
+			name:          "fixed finality depth without finality tag",
+			finalityDepth: 10,
+			finalityTag:   false,
+		},
+		{
+			name:          "chain finality in use",
+			finalityDepth: 0,
+			finalityTag:   true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			th := SetupTH(t, tt.finalityTag, tt.finalityDepth, 3, 2)
+
+			header, err := th.Client.HeaderByNumber(ctx, nil)
+			require.NoError(t, err)
+
+			genesisBlockTime := time.UnixMilli(int64(header.Time))
+
+			// Emit some logs in blocks
+			for i := 0; i < emittedLogs; i++ {
+				_, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
+				require.NoError(t, err)
+				th.Client.Commit()
+			}
+
+			// First PollAndSave, no filters are registered
+			currentBlock := th.PollAndSaveLogs(ctx, 1)
+
+			err = th.LogPoller.RegisterFilter(logpoller.Filter{
+				Name:      "Test Emitter",
+				EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID},
+				Addresses: []common.Address{th.EmitterAddress1},
+			})
+			require.NoError(t, err)
+
+			// Emit blocks to cover finality depth, because backup always backfill up to the one block before last finalized
+			for i := 0; i < int(tt.finalityDepth)+1; i++ {
+				bh := th.Client.Commit()
+				markBlockAsFinalizedByHash(t, th, bh)
+			}
+
+			// LogPoller should backfill entire history
+			th.LogPoller.BackupPollAndSaveLogs(ctx, 100)
+			require.NoError(t, err)
+
+			// Make sure that all logs are backfilled
+			logs, err := th.LogPoller.Logs(
+				0,
+				currentBlock,
+				EmitterABI.Events["Log1"].ID,
+				th.EmitterAddress1,
+				pg.WithParentCtx(testutils.Context(t)),
+			)
+			require.NoError(t, err)
+			require.Len(t, logs, emittedLogs)
+
+			// We should get all the logs by the block_timestamp
+			logs, err = th.LogPoller.LogsCreatedAfter(
+				EmitterABI.Events["Log1"].ID,
+				th.EmitterAddress1,
+				genesisBlockTime,
+				0,
+				pg.WithParentCtx(testutils.Context(t)),
+			)
+			require.NoError(t, err)
+			require.Len(t, logs, emittedLogs)
+		})
+	}
+}
+
 func markBlockAsFinalized(t *testing.T, th TestHarness, blockNumber int64) {
 	b, err := th.Client.BlockByNumber(testutils.Context(t), big.NewInt(blockNumber))
 	require.NoError(t, err)
 	th.Client.Blockchain().SetFinalized(b.Header())
 }
 
-func Test_CreatedAfterQueriesWithBackfill(t *testing.T) {
-	emittedLogs := 60
-	finalityDepth := 10
-	ctx := testutils.Context(t)
-	th := SetupTH(t, false, int64(finalityDepth), 3, 2)
-
-	header, err := th.Client.HeaderByNumber(ctx, nil)
+func markBlockAsFinalizedByHash(t *testing.T, th TestHarness, blockHash common.Hash) {
+	b, err := th.Client.BlockByHash(testutils.Context(t), blockHash)
 	require.NoError(t, err)
-
-	genesisBlockTime := time.UnixMilli(int64(header.Time))
-
-	// Emit some logs in blocks
-	for i := 0; i < emittedLogs; i++ {
-		_, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err)
-		th.Client.Commit()
-	}
-
-	// First PollAndSave, no filters are registered
-	currentBlock := th.PollAndSaveLogs(ctx, 1)
-
-	err = th.LogPoller.RegisterFilter(logpoller.Filter{
-		Name:      "Test Emitter",
-		EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID},
-		Addresses: []common.Address{th.EmitterAddress1},
-	})
-	require.NoError(t, err)
-
-	// Emit blocks to cover finality depth, because backup always backfill up to the one block before last finalized
-	for i := 0; i < finalityDepth+1; i++ {
-		th.Client.Commit()
-	}
-
-	// LogPoller should backfill entire history
-	th.LogPoller.BackupPollAndSaveLogs(ctx, 100)
-	require.NoError(t, err)
-
-	// Make sure that all logs are backfilled
-	logs, err := th.LogPoller.Logs(
-		0,
-		currentBlock,
-		EmitterABI.Events["Log1"].ID,
-		th.EmitterAddress1,
-		pg.WithParentCtx(testutils.Context(t)),
-	)
-	require.NoError(t, err)
-	require.Len(t, logs, emittedLogs)
-
-	// We should get all the logs by the block_timestamp
-	logs, err = th.LogPoller.LogsCreatedAfter(
-		EmitterABI.Events["Log1"].ID,
-		th.EmitterAddress1,
-		genesisBlockTime,
-		0,
-		pg.WithParentCtx(testutils.Context(t)),
-	)
-	require.NoError(t, err)
-	require.Len(t, logs, emittedLogs)
+	th.Client.Blockchain().SetFinalized(b.Header())
 }
