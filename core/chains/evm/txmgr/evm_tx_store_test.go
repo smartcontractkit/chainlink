@@ -122,12 +122,10 @@ func TestORM(t *testing.T) {
 	orm := cltest.NewTestTxStore(t, db, cfg.Database())
 	_, fromAddress := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
-	var err error
 	var etx txmgr.Tx
 	t.Run("InsertTx", func(t *testing.T) {
 		etx = cltest.NewEthTx(t, fromAddress)
-		err = orm.InsertTx(&etx)
-		require.NoError(t, err)
+		require.NoError(t, orm.InsertTx(&etx))
 		assert.Greater(t, int(etx.ID), 0)
 		cltest.AssertCount(t, db, "evm.txes", 1)
 	})
@@ -135,16 +133,14 @@ func TestORM(t *testing.T) {
 	var attemptD txmgr.TxAttempt
 	t.Run("InsertTxAttempt", func(t *testing.T) {
 		attemptD = cltest.NewDynamicFeeEthTxAttempt(t, etx.ID)
-		err = orm.InsertTxAttempt(&attemptD)
-		require.NoError(t, err)
+		require.NoError(t, orm.InsertTxAttempt(&attemptD))
 		assert.Greater(t, int(attemptD.ID), 0)
 		cltest.AssertCount(t, db, "evm.tx_attempts", 1)
 
 		attemptL = cltest.NewLegacyEthTxAttempt(t, etx.ID)
 		attemptL.State = txmgrtypes.TxAttemptBroadcast
 		attemptL.TxFee = gas.EvmFee{Legacy: assets.NewWeiI(42)}
-		err = orm.InsertTxAttempt(&attemptL)
-		require.NoError(t, err)
+		require.NoError(t, orm.InsertTxAttempt(&attemptL))
 		assert.Greater(t, int(attemptL.ID), 0)
 		cltest.AssertCount(t, db, "evm.tx_attempts", 2)
 	})
@@ -158,6 +154,7 @@ func TestORM(t *testing.T) {
 		cltest.AssertCount(t, db, "evm.receipts", 1)
 	})
 	t.Run("FindTxWithAttempts", func(t *testing.T) {
+		var err error
 		etx, err = orm.FindTxWithAttempts(etx.ID)
 		require.NoError(t, err)
 		require.Len(t, etx.TxAttempts, 2)
