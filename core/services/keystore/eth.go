@@ -12,7 +12,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -32,10 +31,6 @@ type Eth interface {
 	Enable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error
 	Disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error
 	Add(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error
-	Reset(address common.Address, chainID *big.Int, nonce int64, qopts ...pg.QOpt) error
-
-	NextSequence(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (evmtypes.Nonce, error)
-	IncrementNextSequence(address common.Address, chainID *big.Int, currentNonce evmtypes.Nonce, qopts ...pg.QOpt) error
 
 	EnsureKeys(chainIDs ...*big.Int) error
 	SubscribeToKeyChanges() (ch chan struct{}, unsub func())
@@ -182,51 +177,6 @@ func (ks *eth) Export(id string, password string) ([]byte, error) {
 	return key.ToEncryptedJSON(password, ks.scryptParams)
 }
 
-// Get the next nonce for the given key and chain. It is safest to always to go the DB for this
-func (ks *eth) NextSequence(address common.Address, chainID *big.Int, qopts ...pg.QOpt) (nonce evmtypes.Nonce, err error) {
-	if !ks.exists(address) {
-		return evmtypes.Nonce(0), errors.Errorf("key with address %s does not exist", address.String())
-	}
-	nonceVal, err := ks.orm.getNextNonce(address, chainID, qopts...)
-	if err != nil {
-		return evmtypes.Nonce(0), errors.Wrap(err, "NextSequence failed")
-	}
-	ks.lock.Lock()
-	defer ks.lock.Unlock()
-	state, exists := ks.keyStates.KeyIDChainID[address.String()][chainID.String()]
-	if !exists {
-		return evmtypes.Nonce(0), errors.Errorf("state not found for address %s, chainID %s", address, chainID.String())
-	}
-	if state.Disabled {
-		return evmtypes.Nonce(0), errors.Errorf("state is disabled for address %s, chainID %s", address, chainID.String())
-	}
-	// Always clobber the memory nonce with the DB nonce
-	state.NextNonce = nonceVal
-	return evmtypes.Nonce(nonceVal), nil
-}
-
-// IncrementNextNonce increments keys.next_nonce by 1
-func (ks *eth) IncrementNextSequence(address common.Address, chainID *big.Int, currentSequence evmtypes.Nonce, qopts ...pg.QOpt) error {
-	if !ks.exists(address) {
-		return errors.Errorf("key with address %s does not exist", address.String())
-	}
-	incrementedNonce, err := ks.orm.incrementNextNonce(address, chainID, currentSequence.Int64(), qopts...)
-	if err != nil {
-		return errors.Wrap(err, "failed IncrementNextNonce")
-	}
-	ks.lock.Lock()
-	defer ks.lock.Unlock()
-	state, exists := ks.keyStates.KeyIDChainID[address.String()][chainID.String()]
-	if !exists {
-		return errors.Errorf("state not found for address %s, chainID %s", address, chainID.String())
-	}
-	if state.Disabled {
-		return errors.Errorf("state is disabled for address %s, chainID %s", address, chainID.String())
-	}
-	state.NextNonce = incrementedNonce
-	return nil
-}
-
 func (ks *eth) Add(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
@@ -240,8 +190,8 @@ func (ks *eth) Add(address common.Address, chainID *big.Int, qopts ...pg.QOpt) e
 // caller must hold lock!
 func (ks *eth) addKey(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
 	state := new(ethkey.State)
-	sql := `INSERT INTO evm.key_states (address, next_nonce, disabled, evm_chain_id, created_at, updated_at)
-			VALUES ($1, 0, false, $2, NOW(), NOW()) 
+	sql := `INSERT INTO evm.key_states (address, disabled, evm_chain_id, created_at, updated_at)
+			VALUES ($1, false, $2, NOW(), NOW()) 
 			RETURNING *;`
 	q := ks.orm.q.WithOpts(qopts...)
 	if err := q.Get(state, sql, address, chainID.String()); err != nil {
@@ -292,37 +242,13 @@ func (ks *eth) disable(address common.Address, chainID *big.Int, qopts ...pg.QOp
 	state := new(ethkey.State)
 	q := ks.orm.q.WithOpts(qopts...)
 	sql := `UPDATE evm.key_states SET disabled = false, updated_at = NOW() WHERE address = $1 AND evm_chain_id = $2
-			RETURNING id, next_nonce, address, evm_chain_id, disabled, created_at, updated_at;`
+			RETURNING id, address, evm_chain_id, disabled, created_at, updated_at;`
 	if err := q.Get(state, sql, address, chainID.String()); err != nil {
 		return errors.Wrap(err, "failed to enable state")
 	}
 
 	ks.keyStates.disable(address, chainID, state.UpdatedAt)
 	ks.notify()
-	return nil
-}
-
-// Reset the key/chain nonce to the given one
-func (ks *eth) Reset(address common.Address, chainID *big.Int, nonce int64, qopts ...pg.QOpt) error {
-	q := ks.orm.q.WithOpts(qopts...)
-	res, err := q.Exec(`UPDATE evm.key_states SET next_nonce = $1 WHERE address = $2 AND evm_chain_id = $3`, nonce, address, chainID.String())
-	if err != nil {
-		return errors.Wrap(err, "failed to reset state")
-	}
-	rowsAffected, err := res.RowsAffected()
-	if err != nil {
-		return errors.Wrap(err, "failed to get RowsAffected")
-	}
-	if rowsAffected == 0 {
-		return errors.Errorf("key state not found with address %s and chainID %s", address.Hex(), chainID.String())
-	}
-	ks.lock.Lock()
-	defer ks.lock.Unlock()
-	state, exists := ks.keyStates.KeyIDChainID[address.Hex()][chainID.String()]
-	if !exists {
-		return errors.Errorf("state not found for address %s, chainID %s", address.Hex(), chainID.String())
-	}
-	state.NextNonce = nonce
 	return nil
 }
 
@@ -554,25 +480,24 @@ func (ks *eth) EnabledAddressesForChain(chainID *big.Int) (addresses []common.Ad
 	return
 }
 
-func (ks *eth) getV1KeysAsV2() (keys []ethkey.KeyV2, nonces []int64, fundings []bool, _ error) {
+func (ks *eth) getV1KeysAsV2() (keys []ethkey.KeyV2, fundings []bool, _ error) {
 	v1Keys, err := ks.orm.GetEncryptedV1EthKeys()
 	if err != nil {
-		return nil, nil, nil, errors.Wrap(err, "failed to get encrypted v1 eth keys")
+		return nil, nil, errors.Wrap(err, "failed to get encrypted v1 eth keys")
 	}
 	if len(v1Keys) == 0 {
-		return nil, nil, nil, nil
+		return nil, nil, nil
 	}
 	for _, keyV1 := range v1Keys {
 		dKey, err := keystore.DecryptKey(keyV1.JSON, ks.password)
 		if err != nil {
-			return nil, nil, nil, errors.Wrapf(err, "could not decrypt eth key %s", keyV1.Address.Hex())
+			return nil, nil, errors.Wrapf(err, "could not decrypt eth key %s", keyV1.Address.Hex())
 		}
 		keyV2 := ethkey.FromPrivateKey(dKey.PrivateKey)
 		keys = append(keys, keyV2)
-		nonces = append(nonces, keyV1.NextNonce)
 		fundings = append(fundings, keyV1.IsFunding)
 	}
-	return keys, nonces, fundings, nil
+	return keys, fundings, nil
 }
 
 // XXXTestingOnlySetState is only used in tests to manually update a key's state
@@ -587,7 +512,7 @@ func (ks *eth) XXXTestingOnlySetState(state ethkey.State) {
 		panic(fmt.Sprintf("key not found with ID %s", state.KeyID()))
 	}
 	*existingState = state
-	sql := `UPDATE evm.key_states SET address = :address, next_nonce = :next_nonce, is_disabled = :is_disabled, evm_chain_id = :evm_chain_id, updated_at = NOW()
+	sql := `UPDATE evm.key_states SET address = :address, is_disabled = :is_disabled, evm_chain_id = :evm_chain_id, updated_at = NOW()
 	WHERE address = :address;`
 	_, err := ks.orm.q.NamedExec(sql, state)
 	if err != nil {
