@@ -39,9 +39,12 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   int256 private constant ANSWER_SEQ_OFFLINE = 1;
 
   /// @notice The address of Arbitrum's DelayedInbox
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable CROSS_DOMAIN_MESSENGER;
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable L2_SEQ_STATUS_RECORDER;
   // L2 xDomain alias address of this contract
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable L2_ALIAS = AddressAliasHelper.applyL1ToL2Alias(address(this));
 
   PaymentStrategy private s_paymentStrategy;
@@ -95,7 +98,9 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
     address gasPriceL1FeedAddr,
     PaymentStrategy _paymentStrategy
   ) {
+    // solhint-disable-next-line custom-errors
     require(crossDomainMessengerAddr != address(0), "Invalid xDomain Messenger address");
+    // solhint-disable-next-line custom-errors
     require(l2ArbitrumSequencerUptimeFeedAddr != address(0), "Invalid ArbitrumSequencerUptimeFeed contract address");
     CROSS_DOMAIN_MESSENGER = crossDomainMessengerAddr;
     L2_SEQ_STATUS_RECORDER = l2ArbitrumSequencerUptimeFeedAddr;
@@ -294,8 +299,11 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   /// @notice internal method that stores the gas configuration
   function _setGasConfig(uint256 maxGas, uint256 gasPriceBid, uint256 baseFee, address gasPriceL1FeedAddr) internal {
+    // solhint-disable-next-line custom-errors
     require(maxGas > 0, "Max gas is zero");
+    // solhint-disable-next-line custom-errors
     require(gasPriceBid > 0, "Gas price bid is zero");
+    // solhint-disable-next-line custom-errors
     require(gasPriceL1FeedAddr != address(0), "Gas price Aggregator is zero address");
     s_gasConfig = GasConfig(maxGas, gasPriceBid, baseFee, gasPriceL1FeedAddr);
     emit GasConfigSet(maxGas, gasPriceBid, gasPriceL1FeedAddr);
@@ -335,6 +343,7 @@ contract ArbitrumValidator is TypeAndVersionInterface, AggregatorValidatorInterf
 
   /// @dev reverts if the caller does not have access to change the configuration
   modifier onlyOwnerOrConfigAccess() {
+    // solhint-disable-next-line custom-errors
     require(
       msg.sender == owner() || (address(s_configAC) != address(0) && s_configAC.hasAccess(msg.sender, msg.data)),
       "No access"

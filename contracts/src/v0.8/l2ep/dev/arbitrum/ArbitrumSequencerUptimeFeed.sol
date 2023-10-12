@@ -53,11 +53,15 @@ contract ArbitrumSequencerUptimeFeed is
   address public constant FLAG_L2_SEQ_OFFLINE =
     address(bytes20(bytes32(uint256(keccak256("chainlink.flags.arbitrum-seq-offline")) - 1)));
 
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   uint8 public constant override decimals = 0;
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override description = "L2 Sequencer Uptime Status Feed";
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   uint256 public constant override version = 1;
 
   /// @dev Flags contract to raise/lower flags on, during status transitions
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   FlagsInterface public immutable FLAGS;
   /// @dev L1 address
   address private s_l1Sender;

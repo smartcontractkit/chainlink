@@ -46,8 +46,11 @@ contract OptimismSequencerUptimeFeed is
   /// @dev Emitted when a updateStatus is called without the status changing
   event RoundUpdated(int256 status, uint64 updatedAt);
 
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   uint8 public constant override decimals = 0;
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override description = "L2 Sequencer Uptime Status Feed";
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   uint256 public constant override version = 1;
 
   /// @dev L1 address
@@ -56,6 +59,7 @@ contract OptimismSequencerUptimeFeed is
   FeedState private s_feedState = FeedState({latestRoundId: 0, latestStatus: false, startedAt: 0, updatedAt: 0});
   mapping(uint80 => Round) private s_rounds;
 
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   IL2CrossDomainMessenger private immutable s_l2CrossDomainMessenger;
 
   /**
