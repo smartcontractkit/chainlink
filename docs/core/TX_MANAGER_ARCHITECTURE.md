@@ -4,28 +4,28 @@
 
 ## Finite state machine
 
-### `eth_txes.state`
+### `evm.txes.state`
 
 `unstarted`
 |
 |
 v
 `in_progress` (only one per key)
-|                  \
-|                   \
-v                    v
-`fatal_error`     `unconfirmed`
-                    |   ^
-                    |   |
-                    v   |
-                  `confirmed`
+| \
+| \
+v v
+`fatal_error` `unconfirmed`
+| ^
+| |
+v |
+`confirmed`
 
 ### `eth_tx_attempts.state`
 
 `in_progress`
-|   ^
-|   |
-v   |
+| ^
+| |
+v |
 `broadcast`
 
 # Data structures
@@ -42,7 +42,7 @@ EB - EthBroadcaster
 
 EC - EthConfirmer
 
-`eth_txes` has five possible states:
+`evm.txes` has five possible states:
 
 - EB ⚫️ `unstarted`
 - EB 🟠 `in_progress`
@@ -57,12 +57,6 @@ EC - EthConfirmer
 
 An attempt may have 0 or more `eth_receipts` indicating that the transaction has been mined into a block. This block may or may not exist as part of the canonical longest chain.
 
-`keys` has a field:
-
-- `next_nonce`
-
-Which tracks the nonce that is available to use for the next transaction. It is only updated after a successful broadcast has occurred.
-
 # Components
 
 BulletproofTxManager is split into three components, each of which has a clearly delineated set of responsibilities.
@@ -71,7 +65,7 @@ BulletproofTxManager is split into three components, each of which has a clearly
 
 Conceptually, **EthTx** defines the transaction.
 
-**EthTx** is responsible for generating the transaction criteria and inserting the initial `unstarted` row into the `eth_txes` table.
+**EthTx** is responsible for generating the transaction criteria and inserting the initial `unstarted` row into the `evm.txes` table.
 
 **EthTx** guarantees that the transaction is defined with the following criteria:
 
@@ -87,9 +81,9 @@ EthTx should wait until it's transaction confirms before marking the task as com
 
 ## EthBroadcaster
 
-Conceptually, **EthBroadcaster** assigns a nonce to a transaction and ensures that it is valid. It alone controls the `keys.next_nonce` field.
+Conceptually, **EthBroadcaster** assigns a nonce to a transaction and ensures that it is valid. It alone maintains the next usable sequence for a transaction.
 
-**EthBroadcaster** monitors `eth_txes` for transactions that need to be broadcast, assigns nonces and ensures that at least one eth node somewhere has placed the transaction into its mempool.
+**EthBroadcaster** monitors `evm.txes` for transactions that need to be broadcast, assigns nonces and ensures that at least one eth node somewhere has placed the transaction into its mempool.
 
 It does not guarantee eventual confirmation!
 
@@ -97,8 +91,8 @@ A whole host of other things can subsequently go wrong such as transactions bein
 
 **EthBroadcaster** makes the following guarantees:
 
-- A gapless, monotonically increasing sequence of nonces for `eth_txes` (scoped to key).
-- Transition of `eth_txes` from `unstarted` to either `fatal_error` or `unconfirmed`.
+- A gapless, monotonically increasing sequence of nonces for `evm.txes` (scoped to key).
+- Transition of `evm.txes` from `unstarted` to either `fatal_error` or `unconfirmed`.
 - If final state is `fatal_error` then the nonce is unassigned, and it is impossible that this transaction could ever be mined into a block.
 - If final state is `unconfirmed` then a saved `eth_transaction_attempt` exists.
 - If final state is `unconfirmed` then an eth node somewhere has accepted this transaction into its mempool at least once.
@@ -132,7 +126,7 @@ Find all transactions confirmed within the past `ETH_FINALITY_DEPTH` blocks and 
 **EthConfirmer** makes the following guarantees:
 
 - All transactions will eventually be confirmed on the canonical longest chain, unless a reorg occurs that is deeper than `ETH_FINALITY_DEPTH` blocks.
-- In the case that an external wallet used the nonce, we will ensure that *a* transaction exists at this nonce up to a depth of `ETH_FINALITY_DEPTH` blocks but it most likely will not be the transaction in our database.
+- In the case that an external wallet used the nonce, we will ensure that _a_ transaction exists at this nonce up to a depth of `ETH_FINALITY_DEPTH` blocks but it most likely will not be the transaction in our database.
 
 Note that since checking for inclusion in the longest chain can now be done cheaply, without any calls to the eth node, `ETH_FINALITY_DEPTH` can be set to something quite large without penalty (e.g. 50 or 100).
 
