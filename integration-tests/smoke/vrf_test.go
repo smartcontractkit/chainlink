@@ -114,13 +114,12 @@ func TestVRFJobReplacement(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
 		WithGeth().
-		WithMockServer(1).
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
 		Build()
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		if err := env.Cleanup(t); err != nil {
+		if err := env.Cleanup(); err != nil {
 			l.Error().Err(err).Msg("Error cleaning up test environment")
 		}
 	})

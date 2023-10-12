@@ -67,22 +67,22 @@ func TestCronJobReplacement(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
 		WithGeth().
-		WithMockServer(1).
+		WithMockAdapter().
 		WithCLNodes(1).
 		Build()
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		if err := env.Cleanup(t); err != nil {
+		if err := env.Cleanup(); err != nil {
 			l.Error().Err(err).Msg("Error cleaning up test environment")
 		}
 	})
 
-	err = env.MockServer.Client.SetValuePath("/variable", 5)
+	err = env.MockAdapter.SetAdapterBasedIntValuePath("/variable", []string{http.MethodGet, http.MethodPost}, 5)
 	require.NoError(t, err, "Setting value path in mockserver shouldn't fail")
 
 	bta := &client.BridgeTypeAttributes{
 		Name:        fmt.Sprintf("variable-%s", uuid.NewString()),
-		URL:         fmt.Sprintf("%s/variable", env.MockServer.InternalEndpoint),
+		URL:         fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
 		RequestData: "{}",
 	}
 	err = env.CLNodes[0].API.MustCreateBridge(bta)
