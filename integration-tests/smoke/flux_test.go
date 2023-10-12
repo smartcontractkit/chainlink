@@ -23,6 +23,7 @@ import (
 
 func TestFluxBasic(t *testing.T) {
 	t.Parallel()
+
 	l := logging.GetTestLogger(t)
 
 	env, err := test_env.NewCLTestEnvBuilder().
