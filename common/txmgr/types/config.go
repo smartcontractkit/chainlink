@@ -16,8 +16,9 @@ type TransactionManagerTransactionsConfig interface {
 	BroadcasterTransactionsConfig
 	ConfirmerTransactionsConfig
 	ResenderTransactionsConfig
-	ReaperTransactionsConfig
 
+	ReaperInterval() time.Duration
+	ReaperThreshold() time.Duration
 	ForwardersEnabled() bool
 	MaxQueued() uint64
 }
@@ -71,9 +72,4 @@ type ResenderChainConfig interface {
 type ResenderTransactionsConfig interface {
 	ResendAfterThreshold() time.Duration
 	MaxInFlight() uint32
-}
-
-type ReaperTransactionsConfig interface {
-	ReaperInterval() time.Duration
-	ReaperThreshold() time.Duration
 }
