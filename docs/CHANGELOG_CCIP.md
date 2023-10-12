@@ -12,6 +12,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- USDC Support
+  - Added `USDC` token pool
+  - Jobspec changes to support USDC information
+- Added TypeAndVersion to all token pools & price registry
+
 ### Changed
 - PriceUpdate now accepts an array of gas price update
   - Removed `destChainSelector` and `usdPerUnitGas` from PriceUpdates
@@ -42,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - A new `maxPoolGas` field is added to OffRamp **DynamicConfig** to store this gas limit.
 - OnRamp will revert with `SourceTokenDataTooLarge` if TokenPool returns too much data.
   - The revert threshold is `destBytesOverhead` in **TokenTransferFeeConfig**.
+
 
 
 ### Removed
