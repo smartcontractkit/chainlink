@@ -68,12 +68,20 @@ jobs:
         run: |
           echo "TIMEOUT=10m" >> $GITHUB_ENV
           echo "COUNT=50" >> $GITHUB_ENV
+      - name: Build test runner
+        run: go build ./tools/tests/cmd/runner
       - name: Run tests
         id: run-tests
         env:
-          OUTPUT_FILE: ./output.txt
+          GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
           USE_TEE: false
-        run: TEST_FLAGS="-p 1 -parallel 1" ./tools/bin/${{ matrix.cmd }} ./...
+          OUTPUT_FILE: ./output.txt
+        run: |
+          ./runner \
+            -grafana_auth=$GRAFANA_CLOUD_BASIC_AUTH \
+            -grafana_host=$GRAFANA_CLOUD_HOST \
+            -count=10 \
       - name: Print Filtered Test Results
         if: ${{ failure() && matrix.cmd == 'go_core_tests' }}
         uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13

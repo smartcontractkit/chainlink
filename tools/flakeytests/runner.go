@@ -47,7 +47,7 @@ func NewRunner(readers []io.Reader, reporter reporter, numReruns int) *Runner {
 		readers:     readers,
 		numReruns:   numReruns,
 		testCommand: tc,
-		parse:       parseOutput,
+		parse:       ParseOutput,
 		reporter:    reporter,
 	}
 }
@@ -84,7 +84,7 @@ func newEvent(b []byte) (*TestEvent, error) {
 	return e, err
 }
 
-func parseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
+func ParseOutput(readers ...io.Reader) (map[string]map[string]int, error) {
 	tests := map[string]map[string]int{}
 	for _, r := range readers {
 		s := bufio.NewScanner(r)

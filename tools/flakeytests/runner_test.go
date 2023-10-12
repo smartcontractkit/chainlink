@@ -29,7 +29,7 @@ func TestParser(t *testing.T) {
 `
 
 	r := strings.NewReader(output)
-	ts, err := parseOutput(r)
+	ts, err := ParseOutput(r)
 	require.NoError(t, err)
 
 	assert.Len(t, ts, 1)
@@ -44,7 +44,7 @@ func TestParser_SkipsNonJSON(t *testing.T) {
 `
 
 	r := strings.NewReader(output)
-	ts, err := parseOutput(r)
+	ts, err := ParseOutput(r)
 	require.NoError(t, err)
 
 	assert.Len(t, ts, 1)
@@ -58,7 +58,7 @@ func TestParser_PanicDueToLogging(t *testing.T) {
 `
 
 	r := strings.NewReader(output)
-	ts, err := parseOutput(r)
+	ts, err := ParseOutput(r)
 	require.NoError(t, err)
 
 	assert.Len(t, ts, 1)
@@ -83,7 +83,7 @@ func TestParser_SuccessfulOutput(t *testing.T) {
 `
 
 	r := strings.NewReader(output)
-	ts, err := parseOutput(r)
+	ts, err := ParseOutput(r)
 	require.NoError(t, err)
 	assert.Len(t, ts, 0)
 }
@@ -111,7 +111,7 @@ func TestRunner_WithFlake(t *testing.T) {
 			i++
 			return err
 		}),
-		parse:    parseOutput,
+		parse:    ParseOutput,
 		reporter: m,
 	}
 
@@ -146,7 +146,7 @@ func TestRunner_WithFailedPackage(t *testing.T) {
 			i++
 			return err
 		}),
-		parse:    parseOutput,
+		parse:    ParseOutput,
 		reporter: m,
 	}
 
@@ -174,7 +174,7 @@ func TestRunner_AllFailures(t *testing.T) {
 			_, err := w.Write([]byte(rerunOutput))
 			return err
 		}),
-		parse:    parseOutput,
+		parse:    ParseOutput,
 		reporter: m,
 	}
 
@@ -200,7 +200,7 @@ func TestRunner_RerunSuccessful(t *testing.T) {
 			i++
 			return err
 		}),
-		parse:    parseOutput,
+		parse:    ParseOutput,
 		reporter: m,
 	}
 
@@ -222,7 +222,7 @@ func TestRunner_RootLevelTest(t *testing.T) {
 			_, err := w.Write([]byte(rerunOutput))
 			return err
 		}),
-		parse:    parseOutput,
+		parse:    ParseOutput,
 		reporter: m,
 	}
 
@@ -249,7 +249,7 @@ func TestRunner_RerunFailsWithNonzeroExitCode(t *testing.T) {
 			i++
 			return err
 		}),
-		parse:    parseOutput,
+		parse:    ParseOutput,
 		reporter: m,
 	}
 
@@ -286,7 +286,7 @@ func TestRunner_RerunWithNonZeroExitCodeDoesntStopCommand(t *testing.T) {
 			index++
 			return err
 		}),
-		parse:    parseOutput,
+		parse:    ParseOutput,
 		reporter: m,
 	}
 
@@ -336,7 +336,7 @@ func TestParsesPanicCorrectly(t *testing.T) {
 		numReruns:   2,
 		readers:     []io.Reader{strings.NewReader(output)},
 		testCommand: tc,
-		parse:       parseOutput,
+		parse:       ParseOutput,
 		reporter:    m,
 	}
 
@@ -363,7 +363,7 @@ func TestIntegration(t *testing.T) {
 		numReruns:   2,
 		readers:     []io.Reader{strings.NewReader(output)},
 		testCommand: tc,
-		parse:       parseOutput,
+		parse:       ParseOutput,
 		reporter:    m,
 	}
 

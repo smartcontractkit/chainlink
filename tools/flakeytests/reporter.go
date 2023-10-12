@@ -78,7 +78,7 @@ func (l *LokiReporter) createRequest(flakeyTests map[string]map[string]struct{})
 		Streams: []stream{
 			{
 				Stream: map[string]string{
-					"app":     "flakey-test-reporter",
+					"app":     "flakey-test-reporter-run-serially",
 					"command": l.command,
 				},
 				Values: vs,
