@@ -11,7 +11,7 @@ import {FunctionsRouterSetup} from "./Setup.t.sol";
 /// @notice #constructor
 contract FunctionsCoordinator_Constructor is FunctionsRouterSetup {
   function test_Constructor_Success() public {
-    assertEq(s_functionsCoordinator.typeAndVersion(), "Functions Coordinator v1.0.0");
+    assertEq(s_functionsCoordinator.typeAndVersion(), "Functions Coordinator v1.1.0");
     assertEq(s_functionsCoordinator.owner(), OWNER_ADDRESS);
   }
 }
