@@ -88,6 +88,10 @@ LeaseRefreshInterval = '1s' # Default
 UniConn = true # Default
 # Logging toggles verbose logging of the raw telemetry messages being sent.
 Logging = false # Default
+# ServerPubKey is the public key of the telemetry server. This field will be removed in a furture version
+ServerPubKey = 'test-pub-key' # Example
+# URL is where to send telemetry. This field will be removed in a furture version
+URL = 'https://prom.test' # Example
 # BufferSize is the number of telemetry messages to buffer before dropping new ones.
 BufferSize = 100 # Default
 # MaxBatchSize is the maximum number of messages to batch into one telemetry request.

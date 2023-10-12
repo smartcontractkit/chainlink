@@ -244,6 +244,8 @@ LeaseRefreshInterval determines how often to refresh the lease lock. Also contro
 [TelemetryIngress]
 UniConn = true # Default
 Logging = false # Default
+ServerPubKey = 'test-pub-key' # Example
+URL = 'https://prom.test' # Example
 BufferSize = 100 # Default
 MaxBatchSize = 50 # Default
 SendInterval = '500ms' # Default
@@ -263,6 +265,18 @@ UniConn toggles which ws connection style is used.
 Logging = false # Default
 ```
 Logging toggles verbose logging of the raw telemetry messages being sent.
+
+### ServerPubKey
+```toml
+ServerPubKey = 'test-pub-key' # Example
+```
+ServerPubKey is the public key of the telemetry server. This field will be removed in a furture version
+
+### URL
+```toml
+URL = 'https://prom.test' # Example
+```
+URL is where to send telemetry. This field will be removed in a furture version
 
 ### BufferSize
 ```toml
