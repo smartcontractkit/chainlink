@@ -76,7 +76,7 @@ func (r *Reaper) work() {
 	if latestBlockNum < 0 {
 		return
 	}
-	err := r.ReapTxes(latestBlockNum)
+	err := r.reapTxes(latestBlockNum)
 	if err != nil {
 		r.log.Error("unable to reap old txes: ", err)
 	}
@@ -94,13 +94,13 @@ func (r *Reaper) SetLatestBlockNum(latestBlockNum int64) {
 	}
 }
 
-// ReapTxes deletes old txes
-func (r *Reaper) ReapTxes(headNum int64) error {
+// reapTxes deletes old txes
+func (r *Reaper) reapTxes(headNum int64) error {
 	ctx, cancel := utils.StopChan(r.chStop).NewCtx()
 	defer cancel()
 	threshold := r.reaperThreshold
 	if threshold == 0 {
-		r.log.Debug("Transactions.ReaperThreshold set to 0; skipping ReapTxes")
+		r.log.Debug("Transactions.ReaperThreshold set to 0; skipping reapTxes")
 		return nil
 	}
 	minBlockNumberToKeep := headNum - int64(r.finalityDepth)
@@ -113,7 +113,7 @@ func (r *Reaper) ReapTxes(headNum int64) error {
 		return err
 	}
 
-	r.log.Debugf("ReapTxes completed in %v", time.Since(mark))
+	r.log.Debugf("reapTxes completed in %v", time.Since(mark))
 
 	return nil
 }

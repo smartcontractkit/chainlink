@@ -1727,11 +1727,11 @@ AND evm.txes.created_at < $3
 AND evm.txes.state = 'confirmed'
 AND evm_chain_id = $4`, minBlockNumberToKeep, limit, timeThreshold, o.chainID.String())
 		if err != nil {
-			return count, pkgerrors.Wrap(err, "ReapTxes failed to delete old confirmed evm.txes")
+			return count, pkgerrors.Wrap(err, "reapTxes failed to delete old confirmed evm.txes")
 		}
 		rowsAffected, err := res.RowsAffected()
 		if err != nil {
-			return count, pkgerrors.Wrap(err, "ReapTxes failed to get rows affected")
+			return count, pkgerrors.Wrap(err, "reapTxes failed to get rows affected")
 		}
 		return uint(rowsAffected), err
 	})
@@ -1746,11 +1746,11 @@ WHERE created_at < $1
 AND state = 'fatal_error'
 AND evm_chain_id = $2`, timeThreshold, o.chainID.String())
 		if err != nil {
-			return count, pkgerrors.Wrap(err, "ReapTxes failed to delete old fatally errored evm.txes")
+			return count, pkgerrors.Wrap(err, "reapTxes failed to delete old fatally errored evm.txes")
 		}
 		rowsAffected, err := res.RowsAffected()
 		if err != nil {
-			return count, pkgerrors.Wrap(err, "ReapTxes failed to get rows affected")
+			return count, pkgerrors.Wrap(err, "reapTxes failed to get rows affected")
 		}
 		return uint(rowsAffected), err
 	})
