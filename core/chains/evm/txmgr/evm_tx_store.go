@@ -1703,7 +1703,7 @@ id < (
 	return
 }
 
-func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID *big.Int) error {
+func (o *evmTxStore) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time) error {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -1725,7 +1725,7 @@ WHERE evm.tx_attempts.eth_tx_id = evm.txes.id
 AND evm.tx_attempts.hash = old_enough_receipts.tx_hash
 AND evm.txes.created_at < $3
 AND evm.txes.state = 'confirmed'
-AND evm_chain_id = $4`, minBlockNumberToKeep, limit, timeThreshold, chainID.String())
+AND evm_chain_id = $4`, minBlockNumberToKeep, limit, timeThreshold, o.chainID.String())
 		if err != nil {
 			return count, pkgerrors.Wrap(err, "ReapTxes failed to delete old confirmed evm.txes")
 		}
@@ -1744,7 +1744,7 @@ AND evm_chain_id = $4`, minBlockNumberToKeep, limit, timeThreshold, chainID.Stri
 DELETE FROM evm.txes
 WHERE created_at < $1
 AND state = 'fatal_error'
-AND evm_chain_id = $2`, timeThreshold, chainID.String())
+AND evm_chain_id = $2`, timeThreshold, o.chainID.String())
 		if err != nil {
 			return count, pkgerrors.Wrap(err, "ReapTxes failed to delete old fatally errored evm.txes")
 		}

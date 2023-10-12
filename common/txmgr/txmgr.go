@@ -85,7 +85,7 @@ type Txm[
 	chSubbed chan struct{}
 	wg       sync.WaitGroup
 
-	reaper           *Reaper[CHAIN_ID]
+	reaper           *Reaper
 	resender         *Resender[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	broadcaster      *Broadcaster[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
 	confirmer        *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]
@@ -150,7 +150,7 @@ func NewTxm[
 		b.logger.Info("Resender: Disabled")
 	}
 	if txCfg.ReaperThreshold() > 0 && txCfg.ReaperInterval() > 0 {
-		b.reaper = NewReaper[CHAIN_ID](lggr, b.txStore, cfg, txCfg, chainId)
+		b.reaper = NewReaper(lggr, b.txStore, cfg, txCfg)
 	} else {
 		b.logger.Info("TxReaper: Disabled")
 	}

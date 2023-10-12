@@ -32,7 +32,7 @@ type TxStore[
 	FEE feetypes.Fee,
 ] interface {
 	UnstartedTxQueuePruner
-	TxHistoryReaper[CHAIN_ID]
+	TxHistoryReaper
 	TransactionStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, SEQ, FEE]
 
 	// methods for saving & retreiving receipts
@@ -91,8 +91,8 @@ type TransactionStore[
 	UpdateTxForRebroadcast(ctx context.Context, etx Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], etxAttempt TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) error
 }
 
-type TxHistoryReaper[CHAIN_ID types.ID] interface {
-	ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time, chainID CHAIN_ID) error
+type TxHistoryReaper interface {
+	ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time) error
 }
 
 type UnstartedTxQueuePruner interface {

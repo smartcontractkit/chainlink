@@ -20,7 +20,7 @@ type (
 	Confirmer              = txmgr.Confirmer[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
 	Broadcaster            = txmgr.Broadcaster[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	Resender               = txmgr.Resender[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
-	Reaper                 = txmgr.Reaper[*big.Int]
+	Reaper                 = txmgr.Reaper
 	TxStore                = txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
 	TransactionStore       = txmgrtypes.TransactionStore[common.Address, *big.Int, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	KeyStore               = txmgrtypes.KeyStore[common.Address, *big.Int, evmtypes.Nonce]

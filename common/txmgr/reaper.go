@@ -6,17 +6,15 @@ import (
 	"time"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 // Reaper handles periodic database cleanup for Txm
-type Reaper[CHAIN_ID types.ID] struct {
-	store          txmgrtypes.TxHistoryReaper[CHAIN_ID]
+type Reaper struct {
+	store          txmgrtypes.TxHistoryReaper
 	config         txmgrtypes.ReaperChainConfig
 	txConfig       txmgrtypes.ReaperTransactionsConfig
-	chainID        CHAIN_ID
 	log            logger.Logger
 	latestBlockNum atomic.Int64
 	trigger        chan struct{}
@@ -25,12 +23,11 @@ type Reaper[CHAIN_ID types.ID] struct {
 }
 
 // NewReaper instantiates a new reaper object
-func NewReaper[CHAIN_ID types.ID](lggr logger.Logger, store txmgrtypes.TxHistoryReaper[CHAIN_ID], config txmgrtypes.ReaperChainConfig, txConfig txmgrtypes.ReaperTransactionsConfig, chainID CHAIN_ID) *Reaper[CHAIN_ID] {
-	r := &Reaper[CHAIN_ID]{
+func NewReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper, config txmgrtypes.ReaperChainConfig, txConfig txmgrtypes.ReaperTransactionsConfig) *Reaper {
+	r := &Reaper{
 		store,
 		config,
 		txConfig,
-		chainID,
 		lggr.Named("Reaper"),
 		atomic.Int64{},
 		make(chan struct{}, 1),
@@ -42,19 +39,19 @@ func NewReaper[CHAIN_ID types.ID](lggr logger.Logger, store txmgrtypes.TxHistory
 }
 
 // Start the reaper. Should only be called once.
-func (r *Reaper[CHAIN_ID]) Start() {
+func (r *Reaper) Start() {
 	r.log.Debugf("started with age threshold %v and interval %v", r.txConfig.ReaperThreshold(), r.txConfig.ReaperInterval())
 	go r.runLoop()
 }
 
 // Stop the reaper. Should only be called once.
-func (r *Reaper[CHAIN_ID]) Stop() {
+func (r *Reaper) Stop() {
 	r.log.Debug("stopping")
 	close(r.chStop)
 	<-r.chDone
 }
 
-func (r *Reaper[CHAIN_ID]) runLoop() {
+func (r *Reaper) runLoop() {
 	defer close(r.chDone)
 	ticker := time.NewTicker(utils.WithJitter(r.txConfig.ReaperInterval()))
 	defer ticker.Stop()
@@ -72,7 +69,7 @@ func (r *Reaper[CHAIN_ID]) runLoop() {
 	}
 }
 
-func (r *Reaper[CHAIN_ID]) work() {
+func (r *Reaper) work() {
 	latestBlockNum := r.latestBlockNum.Load()
 	if latestBlockNum < 0 {
 		return
@@ -84,7 +81,7 @@ func (r *Reaper[CHAIN_ID]) work() {
 }
 
 // SetLatestBlockNum should be called on every new highest block number
-func (r *Reaper[CHAIN_ID]) SetLatestBlockNum(latestBlockNum int64) {
+func (r *Reaper) SetLatestBlockNum(latestBlockNum int64) {
 	if latestBlockNum < 0 {
 		panic(fmt.Sprintf("latestBlockNum must be 0 or greater, got: %d", latestBlockNum))
 	}
@@ -96,7 +93,7 @@ func (r *Reaper[CHAIN_ID]) SetLatestBlockNum(latestBlockNum int64) {
 }
 
 // ReapTxes deletes old txes
-func (r *Reaper[CHAIN_ID]) ReapTxes(headNum int64) error {
+func (r *Reaper) ReapTxes(headNum int64) error {
 	ctx, cancel := utils.StopChan(r.chStop).NewCtx()
 	defer cancel()
 	threshold := r.txConfig.ReaperThreshold()
@@ -110,7 +107,7 @@ func (r *Reaper[CHAIN_ID]) ReapTxes(headNum int64) error {
 
 	r.log.Debugw(fmt.Sprintf("reaping old txes created before %s", timeThreshold.Format(time.RFC3339)), "ageThreshold", threshold, "timeThreshold", timeThreshold, "minBlockNumberToKeep", minBlockNumberToKeep)
 
-	if err := r.store.ReapTxHistory(ctx, minBlockNumberToKeep, timeThreshold, r.chainID); err != nil {
+	if err := r.store.ReapTxHistory(ctx, minBlockNumberToKeep, timeThreshold); err != nil {
 		return err
 	}
 
