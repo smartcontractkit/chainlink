@@ -315,27 +315,25 @@ func (o *DbORM) SelectLogs(start, end int64, address common.Address, eventSig co
 
 // SelectLogsCreatedAfter finds logs created after some timestamp.
 func (o *DbORM) SelectLogsCreatedAfter(address common.Address, eventSig common.Hash, after time.Time, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
-	startBlock, endBlock, err := o.blocksRangeAfterTimestamp(after, confs, qopts...)
-	if err != nil {
-		return nil, err
-	}
 	args, err := newQueryArgsForEvent(o.chainID, address, eventSig).
-		withStartBlock(startBlock).
-		withEndBlock(endBlock).
+		withBlockTimestampAfter(after).
+		withConfs(confs).
 		toArgs()
 	if err != nil {
 		return nil, err
 	}
-	var logs []Log
-	err = o.q.WithOpts(qopts...).SelectNamed(&logs, `
+
+	query := fmt.Sprintf(`
 		SELECT * FROM evm.logs 
 				WHERE evm_chain_id = :evm_chain_id
 				AND address = :address
 				AND event_sig = :event_sig
-				AND block_number > :start_block
-				AND block_number <= :end_block
-				ORDER BY (block_number, log_index)`, args)
-	if err != nil {
+				AND block_timestamp > :block_timestamp_after
+				AND block_number <= %s
+				ORDER BY (block_number, log_index)`, nestedBlockNumberQuery())
+
+	var logs []Log
+	if err = o.q.WithOpts(qopts...).SelectNamed(&logs, query, args); err != nil {
 		return nil, err
 	}
 	return logs, nil
@@ -594,30 +592,28 @@ func (o *DbORM) SelectIndexedLogsByBlockRange(start, end int64, address common.A
 }
 
 func (o *DbORM) SelectIndexedLogsCreatedAfter(address common.Address, eventSig common.Hash, topicIndex int, topicValues []common.Hash, after time.Time, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
-	startBlock, endBlock, err := o.blocksRangeAfterTimestamp(after, confs, qopts...)
-	if err != nil {
-		return nil, err
-	}
 	args, err := newQueryArgsForEvent(o.chainID, address, eventSig).
-		withStartBlock(startBlock).
-		withEndBlock(endBlock).
+		withBlockTimestampAfter(after).
+		withConfs(confs).
 		withTopicIndex(topicIndex).
 		withTopicValues(topicValues).
 		toArgs()
 	if err != nil {
 		return nil, err
 	}
-	var logs []Log
-	err = o.q.WithOpts(qopts...).SelectNamed(&logs, `
+
+	query := fmt.Sprintf(`
 		SELECT * FROM evm.logs 
 			WHERE evm_chain_id = :evm_chain_id
 			AND address = :address
 			AND event_sig = :event_sig
 			AND topics[:topic_index] = ANY(:topic_values)
-			AND block_number > :start_block
-			AND block_number <= :end_block
-			ORDER BY (block_number, log_index)`, args)
-	if err != nil {
+			AND block_timestamp > :block_timestamp_after
+			AND block_number <= %s
+			ORDER BY (block_number, log_index)`, nestedBlockNumberQuery())
+
+	var logs []Log
+	if err = o.q.WithOpts(qopts...).SelectNamed(&logs, query, args); err != nil {
 		return nil, err
 	}
 	return logs, nil
@@ -683,32 +679,6 @@ func (o *DbORM) SelectIndexedLogsWithSigsExcluding(sigA, sigB common.Hash, topic
 		return nil, err
 	}
 	return logs, nil
-}
-
-func (o *DbORM) blocksRangeAfterTimestamp(after time.Time, confs Confirmations, qopts ...pg.QOpt) (int64, int64, error) {
-	args, err := newQueryArgs(o.chainID).
-		withBlockTimestampAfter(after).
-		toArgs()
-	if err != nil {
-		return 0, 0, err
-	}
-
-	var blocks []LogPollerBlock
-	err = o.q.WithOpts(qopts...).SelectNamed(&blocks, `
-		SELECT * FROM evm.log_poller_blocks 
-		WHERE evm_chain_id = :evm_chain_id
-		AND block_number in (
-		    SELECT unnest(array[min(block_number), max(block_number)]) FROM evm.log_poller_blocks 
-				WHERE evm_chain_id = :evm_chain_id
-				AND block_timestamp > :block_timestamp_after) 
-		order by block_number`, args)
-	if err != nil {
-		return 0, 0, err
-	}
-	if len(blocks) != 2 {
-		return 0, 0, nil
-	}
-	return blocks[0].BlockNumber, blocks[1].BlockNumber - int64(confs), nil
 }
 
 func (o *DbORM) SelectLogsUntilBlockHashDataWordGreaterThan(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin common.Hash, untilBlockHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
