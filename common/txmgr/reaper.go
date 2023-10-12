@@ -13,7 +13,7 @@ import (
 // Reaper handles periodic database cleanup for Txm
 type Reaper struct {
 	store          txmgrtypes.TxHistoryReaper
-	config         txmgrtypes.ReaperChainConfig
+	finalityDepth  uint32
 	txConfig       txmgrtypes.ReaperTransactionsConfig
 	log            logger.Logger
 	latestBlockNum atomic.Int64
@@ -23,10 +23,10 @@ type Reaper struct {
 }
 
 // NewReaper instantiates a new reaper object
-func NewReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper, config txmgrtypes.ReaperChainConfig, txConfig txmgrtypes.ReaperTransactionsConfig) *Reaper {
+func NewReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper, finalityDepth uint32, txConfig txmgrtypes.ReaperTransactionsConfig) *Reaper {
 	r := &Reaper{
 		store,
-		config,
+		finalityDepth,
 		txConfig,
 		lggr.Named("Reaper"),
 		atomic.Int64{},
@@ -101,7 +101,7 @@ func (r *Reaper) ReapTxes(headNum int64) error {
 		r.log.Debug("Transactions.ReaperThreshold  set to 0; skipping ReapTxes")
 		return nil
 	}
-	minBlockNumberToKeep := headNum - int64(r.config.FinalityDepth())
+	minBlockNumberToKeep := headNum - int64(r.finalityDepth)
 	mark := time.Now()
 	timeThreshold := mark.Add(-threshold)
 

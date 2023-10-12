@@ -95,8 +95,8 @@ func NewEvmResender(
 }
 
 // NewEvmReaper instantiates a new EVM-specific reaper object
-func NewEvmReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper, config EvmReaperConfig, txConfig txmgrtypes.ReaperTransactionsConfig, chainID *big.Int) *Reaper {
-	return txmgr.NewReaper(lggr, store, config, txConfig)
+func NewEvmReaper(lggr logger.Logger, store txmgrtypes.TxHistoryReaper, finalityDepth uint32, txConfig txmgrtypes.ReaperTransactionsConfig, chainID *big.Int) *Reaper {
+	return txmgr.NewReaper(lggr, store, finalityDepth, txConfig)
 }
 
 // NewEvmConfirmer instantiates a new EVM confirmer
