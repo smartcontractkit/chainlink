@@ -67,14 +67,14 @@ contract ChainSpecificUtilTest is BaseTest {
         abi.encodeWithSelector(ArbSys.arbBlockHash.selector, expectedBlockNumber),
         abi.encodePacked(expectedBlockHash)
       );
-      bytes32 actualBlockHash = ChainSpecificUtil.getBlockhash(uint64(expectedBlockNumber));
+      bytes32 actualBlockHash = ChainSpecificUtil._getBlockhash(uint64(expectedBlockNumber));
       assertEq(expectedBlockHash, actualBlockHash, "incorrect blockhash");
     }
   }
 
   function testGetBlockhashOptimism() public {
     // Optimism L2 block hash is simply blockhash()
-    bytes32 actualBlockhash = ChainSpecificUtil.getBlockhash(uint64(block.number - 1));
+    bytes32 actualBlockhash = ChainSpecificUtil._getBlockhash(uint64(block.number - 1));
     assertEq(blockhash(block.number - 1), actualBlockhash);
   }
 
@@ -85,14 +85,14 @@ contract ChainSpecificUtilTest is BaseTest {
       vm.chainId(chainIds[i]);
       uint256 expectedBlockNumber = expectedBlockNumbers[i];
       vm.mockCall(ARBSYS_ADDR, abi.encodeWithSelector(ArbSys.arbBlockNumber.selector), abi.encode(expectedBlockNumber));
-      uint256 actualBlockNumber = ChainSpecificUtil.getBlockNumber();
+      uint256 actualBlockNumber = ChainSpecificUtil._getBlockNumber();
       assertEq(expectedBlockNumber, actualBlockNumber, "incorrect block number");
     }
   }
 
   function testGetBlockNumberOptimism() public {
     // Optimism L2 block number is simply block.number
-    uint256 actualBlockNumber = ChainSpecificUtil.getBlockNumber();
+    uint256 actualBlockNumber = ChainSpecificUtil._getBlockNumber();
     assertEq(block.number, actualBlockNumber);
   }
 
@@ -107,7 +107,7 @@ contract ChainSpecificUtilTest is BaseTest {
         abi.encodeWithSelector(ArbGasInfo.getCurrentTxL1GasFees.selector),
         abi.encode(expectedGasFee)
       );
-      uint256 actualGasFee = ChainSpecificUtil.getCurrentTxL1GasFees("");
+      uint256 actualGasFee = ChainSpecificUtil._getCurrentTxL1GasFees("");
       assertEq(expectedGasFee, actualGasFee, "incorrect gas fees");
     }
   }
@@ -131,7 +131,7 @@ contract ChainSpecificUtilTest is BaseTest {
         abi.encodeWithSelector(OVM_GasPriceOracle.getL1Fee.selector, bytes.concat(someCalldata, L1_FEE_DATA_PADDING)),
         abi.encode(expectedL1Fee)
       );
-      uint256 actualL1Fee = ChainSpecificUtil.getCurrentTxL1GasFees(someCalldata);
+      uint256 actualL1Fee = ChainSpecificUtil._getCurrentTxL1GasFees(someCalldata);
       assertEq(expectedL1Fee, actualL1Fee, "incorrect gas fees");
     }
   }
@@ -148,7 +148,7 @@ contract ChainSpecificUtilTest is BaseTest {
 
       // fee = l1PricePerByte * (calldataSizeBytes + 140)
       // fee = 10 * (10 + 140) = 1500
-      uint256 dataFee = ChainSpecificUtil.getL1CalldataGasCost(10);
+      uint256 dataFee = ChainSpecificUtil._getL1CalldataGasCost(10);
       assertEq(dataFee, 1500);
     }
   }
@@ -188,7 +188,7 @@ contract ChainSpecificUtilTest is BaseTest {
       // tx_data_gas = 0 * 4 + 10 * 16 = 160
       // l1_data_fee = l1_gas_price * (tx_data_gas + fixed_overhead) * dynamic_overhead
       // l1_data_fee = 10 * (160 + 160) * 500_000 / 1_000_000 = 1600
-      uint256 dataFee = ChainSpecificUtil.getL1CalldataGasCost(10);
+      uint256 dataFee = ChainSpecificUtil._getL1CalldataGasCost(10);
       assertEq(dataFee, 1600);
     }
   }
