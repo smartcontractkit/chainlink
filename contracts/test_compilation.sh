@@ -6,7 +6,11 @@ while true; do
   echo "Iteration: $count"
   rm -rf ~/.cache/hardhat-nodejs/compilers-v2
   pnpm i >/dev/null 2>&1
-  pnpm link ~/src/cl/hardhat/packages/hardhat-core >/dev/null 2>&1
+  # Run this if FIX is specified
+  if [ "$1" == "FIX" ]; then
+    pnpm link ~/src/cl/hardhat/packages/hardhat-core >/dev/null 2>&1
+  fi
+
   pnpm clean >/dev/null 2>&1
   pnpm compile >logs-iter-$count.log 2>&1
   exit_status=$?
