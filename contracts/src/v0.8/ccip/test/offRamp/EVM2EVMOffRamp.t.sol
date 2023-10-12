@@ -4,6 +4,7 @@ pragma solidity 0.8.19;
 import "../helpers/receivers/MaybeRevertMessageReceiver.sol";
 import "./EVM2EVMOffRampSetup.t.sol";
 import "../../Router.sol";
+import {CallWithExactGas} from "../../libraries/CallWithExactGas.sol";
 import "../helpers/receivers/ConformingReceiver.sol";
 import "../helpers/receivers/MaybeRevertMessageReceiverNo165.sol";
 import "../helpers/receivers/ReentrancyAbuser.sol";
@@ -106,7 +107,7 @@ contract EVM2EVMOffRamp_constructor is EVM2EVMOffRampSetup {
 
     vm.expectRevert(EVM2EVMOffRamp.ZeroAddressNotAllowed.selector);
 
-    RateLimiter.Config memory rateLimiterConfig = RateLimiter.Config({isEnabled: true, rate: 1e20, capacity: 1e20});
+    RateLimiter.Config memory rateLimitConfig = RateLimiter.Config({isEnabled: true, rate: 1e20, capacity: 1e20});
 
     s_offRamp = new EVM2EVMOffRampHelper(
       EVM2EVMOffRamp.StaticConfig({
@@ -119,7 +120,7 @@ contract EVM2EVMOffRamp_constructor is EVM2EVMOffRampSetup {
       }),
       getCastedSourceTokens(),
       pools,
-      rateLimiterConfig
+      rateLimitConfig
     );
   }
 
@@ -588,7 +589,12 @@ contract EVM2EVMOffRamp_execute is EVM2EVMOffRampSetup {
 
     Internal.ExecutionReport memory executionReport = _generateReportFromMessages(messages);
 
-    vm.expectRevert(abi.encodeWithSelector(EVM2EVMOffRamp.ExecutionError.selector, ""));
+    vm.expectRevert(
+      abi.encodeWithSelector(
+        EVM2EVMOffRamp.ExecutionError.selector,
+        abi.encodeWithSelector(CallWithExactGas.NotEnoughGasForCall.selector)
+      )
+    );
     s_offRamp.execute(executionReport, new uint256[](0));
   }
 }

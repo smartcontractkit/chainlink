@@ -5,6 +5,7 @@ import "./EVM2EVMOnRampSetup.t.sol";
 import {EVM2EVMOnRamp} from "../../onRamp/EVM2EVMOnRamp.sol";
 import {USDPriceWith18Decimals} from "../../libraries/USDPriceWith18Decimals.sol";
 import {MockTokenPool} from "../mocks/MockTokenPool.sol";
+import {MaybeRevertingBurnMintTokenPool} from "../helpers/MaybeRevertingBurnMintTokenPool.sol";
 
 /// @notice #constructor
 contract EVM2EVMOnRamp_constructor is EVM2EVMOnRampSetup {
@@ -540,6 +541,55 @@ contract EVM2EVMOnRamp_forwardFromRouter is EVM2EVMOnRampSetup {
     vm.expectRevert(EVM2EVMOnRamp.MaxFeeBalanceReached.selector);
 
     s_onRamp.forwardFromRouter(message, MAX_NOP_FEES_JUELS + 1, OWNER);
+  }
+
+  function testSourceTokenDataTooLargeReverts() public {
+    address sourceETH = s_sourceTokens[1];
+    changePrank(OWNER);
+
+    MaybeRevertingBurnMintTokenPool newPool = new MaybeRevertingBurnMintTokenPool(
+      BurnMintERC677(sourceETH),
+      new address[](0),
+      address(s_mockARM)
+    );
+    // Allow Pool to burn/mint Eth
+    BurnMintERC677(sourceETH).grantMintAndBurnRoles(address(newPool));
+    // Pool will be burning its own balance
+    deal(address(sourceETH), address(newPool), type(uint256).max);
+
+    // Set destBytesOverhead to 0, and let tokenPool return 1 byte
+    EVM2EVMOnRamp.TokenTransferFeeConfigArgs[]
+      memory tokenTransferFeeConfigArgs = new EVM2EVMOnRamp.TokenTransferFeeConfigArgs[](1);
+    tokenTransferFeeConfigArgs[0] = EVM2EVMOnRamp.TokenTransferFeeConfigArgs({
+      token: sourceETH,
+      minFeeUSD: 1,
+      maxFeeUSD: 0,
+      ratio: 0,
+      destGasOverhead: 0,
+      destBytesOverhead: 0
+    });
+    s_onRamp.setTokenTransferFeeConfig(tokenTransferFeeConfigArgs);
+    newPool.setSourceTokenData(new bytes(1));
+
+    // Add TokenPool to OnRamp
+    Internal.PoolUpdate[] memory removePool = new Internal.PoolUpdate[](1);
+    removePool[0] = Internal.PoolUpdate({token: address(sourceETH), pool: s_sourcePools[1]});
+    Internal.PoolUpdate[] memory addPool = new Internal.PoolUpdate[](1);
+    addPool[0] = Internal.PoolUpdate({token: address(sourceETH), pool: address(newPool)});
+    s_onRamp.applyPoolUpdates(removePool, addPool);
+
+    // Whitelist OnRamp in TokenPool
+    TokenPool.RampUpdate[] memory onRamps = new TokenPool.RampUpdate[](1);
+    onRamps[0] = TokenPool.RampUpdate({ramp: address(s_onRamp), allowed: true, rateLimiterConfig: rateLimiterConfig()});
+    newPool.applyRampUpdates(onRamps, new TokenPool.RampUpdate[](0));
+
+    Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(address(sourceETH), 1000);
+
+    // only call OnRamp from Router
+    changePrank(address(s_sourceRouter));
+
+    vm.expectRevert(abi.encodeWithSelector(EVM2EVMOnRamp.SourceTokenDataTooLarge.selector, sourceETH));
+    s_onRamp.forwardFromRouter(message, 0, OWNER);
   }
 }
 

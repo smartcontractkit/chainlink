@@ -98,6 +98,8 @@ func NewCommitStoreReader(lggr logger.Logger, address common.Address, ec client.
 	}
 }
 
+// EncodeCommitReport is only used in tests
+// TODO should remove it and update tests to use Reader interface.
 func EncodeCommitReport(report CommitStoreReport) ([]byte, error) {
 	commitStoreABI := abihelpers.MustParseABI(commit_store.CommitStoreABI)
 	return encodeCommitReportV1_2_0(abihelpers.MustGetEventInputs(ReportAccepted, commitStoreABI), report)

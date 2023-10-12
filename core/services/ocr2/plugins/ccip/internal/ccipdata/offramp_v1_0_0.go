@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/gas"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
@@ -35,12 +35,53 @@ const (
 
 var (
 	_                                OffRampReader = &OffRampV1_0_0{}
-	ExecutionStateChangedEventV1_0_0               = abihelpers.MustGetEventID("ExecutionStateChanged", abihelpers.MustParseABI(evm_2_evm_offramp.EVM2EVMOffRampABI))
+	ExecutionStateChangedEventV1_0_0               = abihelpers.MustGetEventID("ExecutionStateChanged", abihelpers.MustParseABI(evm_2_evm_offramp_1_0_0.EVM2EVMOffRampABI))
 	ExecutionStateChangedSeqNrV1_0_0               = 1
 )
 
+type ExecOnchainConfigV1_0_0 evm_2_evm_offramp_1_0_0.EVM2EVMOffRampDynamicConfig
+
+func (d ExecOnchainConfigV1_0_0) AbiString() string {
+	return `
+	[
+		{
+			"components": [
+				{"name": "permissionLessExecutionThresholdSeconds", "type": "uint32"},
+				{"name": "router", "type": "address"},
+				{"name": "priceRegistry", "type": "address"},
+				{"name": "maxTokensLength", "type": "uint16"},
+				{"name": "maxDataSize", "type": "uint32"}
+			],
+			"type": "tuple"
+		}
+	]`
+}
+
+func (d ExecOnchainConfigV1_0_0) Validate() error {
+	if d.PermissionLessExecutionThresholdSeconds == 0 {
+		return errors.New("must set PermissionLessExecutionThresholdSeconds")
+	}
+	if d.Router == (common.Address{}) {
+		return errors.New("must set Router address")
+	}
+	if d.PriceRegistry == (common.Address{}) {
+		return errors.New("must set PriceRegistry address")
+	}
+	if d.MaxTokensLength == 0 {
+		return errors.New("must set MaxTokensLength")
+	}
+	if d.MaxDataSize == 0 {
+		return errors.New("must set MaxDataSize")
+	}
+	return nil
+}
+
+func (d ExecOnchainConfigV1_0_0) PermissionLessExecutionThresholdDuration() time.Duration {
+	return time.Duration(d.PermissionLessExecutionThresholdSeconds) * time.Second
+}
+
 type OffRampV1_0_0 struct {
-	offRamp             *evm_2_evm_offramp.EVM2EVMOffRamp
+	offRamp             *evm_2_evm_offramp_1_0_0.EVM2EVMOffRamp
 	addr                common.Address
 	lp                  logpoller.LogPoller
 	lggr                logger.Logger
@@ -167,16 +208,16 @@ func (o *OffRampV1_0_0) GetExecutionStateChangesBetweenSeqNums(ctx context.Conte
 }
 
 func encodeExecutionReportV1_0_0(args abi.Arguments, report ExecReport) ([]byte, error) {
-	var msgs []evm_2_evm_offramp.InternalEVM2EVMMessage
+	var msgs []evm_2_evm_offramp_1_0_0.InternalEVM2EVMMessage
 	for _, msg := range report.Messages {
-		var ta []evm_2_evm_offramp.ClientEVMTokenAmount
+		var ta []evm_2_evm_offramp_1_0_0.ClientEVMTokenAmount
 		for _, tokenAndAmount := range msg.TokenAmounts {
-			ta = append(ta, evm_2_evm_offramp.ClientEVMTokenAmount{
+			ta = append(ta, evm_2_evm_offramp_1_0_0.ClientEVMTokenAmount{
 				Token:  tokenAndAmount.Token,
 				Amount: tokenAndAmount.Amount,
 			})
 		}
-		msgs = append(msgs, evm_2_evm_offramp.InternalEVM2EVMMessage{
+		msgs = append(msgs, evm_2_evm_offramp_1_0_0.InternalEVM2EVMMessage{
 			SourceChainSelector: msg.SourceChainSelector,
 			Sender:              msg.Sender,
 			Receiver:            msg.Receiver,
@@ -188,12 +229,11 @@ func encodeExecutionReportV1_0_0(args abi.Arguments, report ExecReport) ([]byte,
 			FeeTokenAmount:      msg.FeeTokenAmount,
 			Data:                msg.Data,
 			TokenAmounts:        ta,
-			SourceTokenData:     msg.SourceTokenData,
 			MessageId:           msg.MessageId,
 		})
 	}
 
-	rep := evm_2_evm_offramp.InternalExecutionReport{
+	rep := evm_2_evm_offramp_1_0_0.InternalExecutionReport{
 		Messages:          msgs,
 		OffchainTokenData: report.OffchainTokenData,
 		Proofs:            report.Proofs,
@@ -214,30 +254,30 @@ func decodeExecReportV1_0_0(args abi.Arguments, report []byte) (ExecReport, erro
 	if len(unpacked) == 0 {
 		return ExecReport{}, errors.New("assumptionViolation: expected at least one element")
 	}
-	// Must be anonymous struct here
+
 	erStruct, ok := unpacked[0].(struct {
 		Messages []struct {
 			SourceChainSelector uint64         `json:"sourceChainSelector"`
-			Sender              common.Address `json:"sender"`
-			Receiver            common.Address `json:"receiver"`
 			SequenceNumber      uint64         `json:"sequenceNumber"`
+			FeeTokenAmount      *big.Int       `json:"feeTokenAmount"`
+			Sender              common.Address `json:"sender"`
+			Nonce               uint64         `json:"nonce"`
 			GasLimit            *big.Int       `json:"gasLimit"`
 			Strict              bool           `json:"strict"`
-			Nonce               uint64         `json:"nonce"`
-			FeeToken            common.Address `json:"feeToken"`
-			FeeTokenAmount      *big.Int       `json:"feeTokenAmount"`
+			Receiver            common.Address `json:"receiver"`
 			Data                []uint8        `json:"data"`
 			TokenAmounts        []struct {
 				Token  common.Address `json:"token"`
 				Amount *big.Int       `json:"amount"`
 			} `json:"tokenAmounts"`
-			SourceTokenData [][]byte `json:"sourceTokenData"`
-			MessageId       [32]byte `json:"messageId"`
+			FeeToken  common.Address `json:"feeToken"`
+			MessageId [32]uint8      `json:"messageId"`
 		} `json:"messages"`
-		OffchainTokenData [][][]byte  `json:"offchainTokenData"`
+		OffchainTokenData [][][]uint8 `json:"offchainTokenData"`
 		Proofs            [][32]uint8 `json:"proofs"`
 		ProofFlagBits     *big.Int    `json:"proofFlagBits"`
 	})
+
 	if !ok {
 		return ExecReport{}, fmt.Errorf("got %T", unpacked[0])
 	}
@@ -263,7 +303,6 @@ func decodeExecReportV1_0_0(args abi.Arguments, report []byte) (ExecReport, erro
 			FeeTokenAmount:      msg.FeeTokenAmount,
 			Data:                msg.Data,
 			TokenAmounts:        tokensAndAmounts,
-			SourceTokenData:     msg.SourceTokenData,
 			// TODO: Not needed for plugins, but should be recomputed for consistency.
 			// Requires the offramp knowing about onramp version
 			Hash: [32]byte{},
@@ -286,16 +325,16 @@ func (o *OffRampV1_0_0) DecodeExecutionReport(report []byte) (ExecReport, error)
 }
 
 func (o *OffRampV1_0_0) TokenEvents() []common.Hash {
-	offRampABI := abihelpers.MustParseABI(evm_2_evm_offramp.EVM2EVMOffRampABI)
+	offRampABI := abihelpers.MustParseABI(evm_2_evm_offramp_1_0_0.EVM2EVMOffRampABI)
 	return []common.Hash{abihelpers.MustGetEventID("PoolAdded", offRampABI), abihelpers.MustGetEventID("PoolRemoved", offRampABI)}
 }
 
 func NewOffRampV1_0_0(lggr logger.Logger, addr common.Address, ec client.Client, lp logpoller.LogPoller, estimator gas.EvmFeeEstimator) (*OffRampV1_0_0, error) {
-	offRamp, err := evm_2_evm_offramp.NewEVM2EVMOffRamp(addr, ec)
+	offRamp, err := evm_2_evm_offramp_1_0_0.NewEVM2EVMOffRamp(addr, ec)
 	if err != nil {
 		return nil, err
 	}
-	offRampABI := abihelpers.MustParseABI(evm_2_evm_offramp.EVM2EVMOffRampABI)
+	offRampABI := abihelpers.MustParseABI(evm_2_evm_offramp_1_0_0.EVM2EVMOffRampABI)
 	executionStateChangedSequenceNumberIndex := 1
 	executionReportArgs := abihelpers.MustGetMethodInputs("manuallyExecute", offRampABI)[:1]
 	var filters = []logpoller.Filter{

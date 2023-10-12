@@ -6,6 +6,15 @@ import {MerkleMultiProof} from "../libraries/MerkleMultiProof.sol";
 
 // Library for CCIP internal definitions common to multiple contracts.
 library Internal {
+  /// @dev The minimum amount of gas to perform the call with exact gas.
+  /// We include this in the offramp so that we can redeploy to adjust it
+  /// should a hardfork change the gas costs of relevant opcodes in callWithExactGas.
+  uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
+  // @dev We limit return data to a selector plus 4 words. This is to avoid
+  // malicious contracts from returning large amounts of data and causing
+  // repeated out-of-gas scenarios.
+  uint16 internal constant MAX_RET_BYTES = 4 + 4 * 32;
+
   struct PriceUpdates {
     TokenPriceUpdate[] tokenPriceUpdates;
     GasPriceUpdate[] gasPriceUpdates;

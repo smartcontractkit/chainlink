@@ -13,6 +13,7 @@ import {IAny2EVMOffRamp} from "../interfaces/IAny2EVMOffRamp.sol";
 import {Client} from "../libraries/Client.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
+import {CallWithExactGas} from "../libraries/CallWithExactGas.sol";
 import {OCR2BaseNoChecks} from "../ocr/OCR2BaseNoChecks.sol";
 import {AggregateRateLimiter} from "../AggregateRateLimiter.sol";
 import {EnumerableMapAddresses} from "../../shared/enumerable/EnumerableMapAddresses.sol";
@@ -51,7 +52,6 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   error CanOnlySelfCall();
   error ReceiverError(bytes error);
   error TokenHandlingError(bytes error);
-  error TokenRateLimitError(bytes error);
   error EmptyReport();
   error BadARMSignal();
   error InvalidMessageId();
@@ -91,16 +91,13 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     address router; // ─────────────────────────────────╯ Router address
     address priceRegistry; // ─────╮ Price registry address
     uint16 maxTokensLength; //     │ Maximum number of ERC20 token transfers that can be included per message
-    uint32 maxDataSize; // ────────╯ Maximum payload data size
+    uint32 maxDataSize; //         │ Maximum payload data size
+    uint32 maxPoolGas; // ─────────╯ Maximum amount of gas passed on to token pool when calling releaseOrMint
   }
 
   // STATIC CONFIG
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "EVM2EVMOffRamp 1.2.0";
-  /// @dev The minimum amount of gas to perform the call with exact gas.
-  /// We include this in the offramp so that we can redeploy to adjust it
-  /// should a hardfork change the gas costs of relevant opcodes in callWithExactGas.
-  uint16 private constant GAS_FOR_CALL_EXACT_CHECK = 5_000;
   /// @dev Commit store address on the destination chain
   address internal immutable i_commitStore;
   /// @dev ChainSelector of the source chain
@@ -332,7 +329,13 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
       // Although we expect only valid messages will be committed, we check again
       // when executing as a defense in depth measure.
       bytes[] memory offchainTokenData = report.offchainTokenData[i];
-      _isWellFormed(message, offchainTokenData.length);
+      _isWellFormed(
+        message.sequenceNumber,
+        message.sourceChainSelector,
+        message.tokenAmounts.length,
+        message.data.length,
+        offchainTokenData.length
+      );
 
       _setExecutionState(message.sequenceNumber, Internal.MessageExecutionState.IN_PROGRESS);
       (Internal.MessageExecutionState newState, bytes memory returnData) = _trialExecute(message, offchainTokenData);
@@ -357,19 +360,28 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   }
 
   /// @notice Does basic message validation. Should never fail.
-  /// @param message The message to be validated.
+  /// @param sequenceNumber Sequence number of the message.
+  /// @param sourceChainSelector SourceChainSelector of the message.
+  /// @param numberOfTokens Length of tokenAmounts array in the message.
+  /// @param dataLength Length of data field in the message.
+  /// @param offchainTokenDataLength Length of offchainTokenData array.
   /// @dev reverts on validation failures.
-  function _isWellFormed(Internal.EVM2EVMMessage memory message, uint256 offchainTokenDataLength) private view {
-    if (message.sourceChainSelector != i_sourceChainSelector) revert InvalidSourceChain(message.sourceChainSelector);
-    if (message.tokenAmounts.length > uint256(s_dynamicConfig.maxTokensLength))
-      revert UnsupportedNumberOfTokens(message.sequenceNumber);
-    if (message.tokenAmounts.length != offchainTokenDataLength) revert TokenDataMismatch(message.sequenceNumber);
-    if (message.data.length > uint256(s_dynamicConfig.maxDataSize))
-      revert MessageTooLarge(uint256(s_dynamicConfig.maxDataSize), message.data.length);
+  function _isWellFormed(
+    uint64 sequenceNumber,
+    uint64 sourceChainSelector,
+    uint256 numberOfTokens,
+    uint256 dataLength,
+    uint256 offchainTokenDataLength
+  ) private view {
+    if (sourceChainSelector != i_sourceChainSelector) revert InvalidSourceChain(sourceChainSelector);
+    if (numberOfTokens > uint256(s_dynamicConfig.maxTokensLength)) revert UnsupportedNumberOfTokens(sequenceNumber);
+    if (numberOfTokens != offchainTokenDataLength) revert TokenDataMismatch(sequenceNumber);
+    if (dataLength > uint256(s_dynamicConfig.maxDataSize))
+      revert MessageTooLarge(uint256(s_dynamicConfig.maxDataSize), dataLength);
   }
 
   /// @notice Try executing a message.
-  /// @param message Client.Any2EVMMessage memory message.
+  /// @param message Internal.EVM2EVMMessage memory message.
   /// @param offchainTokenData Data provided by the DON for token transfers.
   /// @return the new state of the message, being either SUCCESS or FAILURE.
   /// @return revert data in bytes if CCIP receiver reverted during execution.
@@ -397,7 +409,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   /// @param offchainTokenData Token transfer data to be passed to TokenPool.
   /// @dev We make this external and callable by the contract itself, in order to try/catch
   /// its execution and enforce atomicity among successful message processing and token transfer.
-  /// @dev We use 165 to check for the ccipReceive interface to permit sending tokens to contracts
+  /// @dev We use ERC-165 to check for the ccipReceive interface to permit sending tokens to contracts
   /// (for example smart contract wallets) without an associated message.
   function executeSingleMessage(Internal.EVM2EVMMessage memory message, bytes[] memory offchainTokenData) external {
     if (msg.sender != address(this)) revert CanOnlySelfCall();
@@ -417,7 +429,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
 
     (bool success, bytes memory returnData) = IRouter(s_dynamicConfig.router).routeMessage(
       Internal._toAny2EVMMessage(message, destTokenAmounts),
-      GAS_FOR_CALL_EXACT_CHECK,
+      Internal.GAS_FOR_CALL_EXACT_CHECK,
       message.gasLimit,
       message.receiver
     );
@@ -502,9 +514,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   /// @param sourceToken The source token
   /// @return the destination token
   function getDestinationToken(IERC20 sourceToken) external view returns (IERC20) {
-    (bool success, address pool) = s_poolsBySourceToken.tryGet(address(sourceToken));
-    if (!success) revert UnsupportedToken(sourceToken);
-    return IPool(pool).getToken();
+    return getPoolBySourceToken(sourceToken).getToken();
   }
 
   /// @notice Get a token pool by its dest token
@@ -566,7 +576,10 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
 
   /// @notice Uses pools to release or mint a number of different tokens to a receiver address.
   /// @param sourceTokenAmounts List of tokens and amount values to be released/minted.
+  /// @param originalSender The message sender.
   /// @param receiver The address that will receive the tokens.
+  /// @param sourceTokenData Array of token data returned by token pools on the source chain.
+  /// @param offchainTokenData Array of token data fetched offchain by the DON.
   /// @dev This function wrappes the token pool call in a try catch block to gracefully handle
   /// any non-rate limiting errors that may occur. If we encounter a rate limiting related error
   /// we bubble it up. If we encounter a non-rate limiting error we wrap it in a TokenHandlingError.
@@ -580,22 +593,31 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     Client.EVMTokenAmount[] memory destTokenAmounts = new Client.EVMTokenAmount[](sourceTokenAmounts.length);
     for (uint256 i = 0; i < sourceTokenAmounts.length; ++i) {
       IPool pool = getPoolBySourceToken(IERC20(sourceTokenAmounts[i].token));
+      uint256 sourceTokenAmount = sourceTokenAmounts[i].amount;
 
-      try
-        pool.releaseOrMint(
+      // Call the pool with exact gas to increase resistance against malicious tokens or token pools.
+      // _callWithExactGas also protects against return data bombs by capping the return data size
+      // at MAX_RET_BYTES.
+      (bool success, bytes memory returnData) = CallWithExactGas._callWithExactGas(
+        abi.encodeWithSelector(
+          pool.releaseOrMint.selector,
           originalSender,
           receiver,
-          sourceTokenAmounts[i].amount,
+          sourceTokenAmount,
           i_sourceChainSelector,
           abi.encode(sourceTokenData[i], offchainTokenData[i])
-        )
-      {} catch (bytes memory err) {
-        /// @dev wrap and rethrow the error so we can catch it lower in the stack
-        revert TokenHandlingError(err);
-      }
+        ),
+        address(pool),
+        s_dynamicConfig.maxPoolGas,
+        Internal.MAX_RET_BYTES,
+        Internal.GAS_FOR_CALL_EXACT_CHECK
+      );
+
+      // wrap and rethrow the error so we can catch it lower in the stack
+      if (!success) revert TokenHandlingError(returnData);
 
       destTokenAmounts[i].token = address(pool.getToken());
-      destTokenAmounts[i].amount = sourceTokenAmounts[i].amount;
+      destTokenAmounts[i].amount = sourceTokenAmount;
     }
     _rateLimitValue(destTokenAmounts, IPriceRegistry(s_dynamicConfig.priceRegistry));
     return destTokenAmounts;

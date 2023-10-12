@@ -10,6 +10,8 @@ import {IWrappedNative} from "./interfaces/IWrappedNative.sol";
 import {IAny2EVMMessageReceiver} from "./interfaces/IAny2EVMMessageReceiver.sol";
 
 import {Client} from "./libraries/Client.sol";
+import {Internal} from "./libraries/Internal.sol";
+import {CallWithExactGas} from "./libraries/CallWithExactGas.sol";
 import {OwnerIsCreator} from "./../shared/access/OwnerIsCreator.sol";
 
 import {EnumerableMap} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableMap.sol";
@@ -149,13 +151,7 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
   // ================================================================
 
   /// @inheritdoc IRouter
-  /// @dev Handles the edge case where we want to pass a specific amount of gas,
-  /// @dev but EIP-150 sends all but 1/64 of the remaining gas instead so the user gets
-  /// @dev less gas than they paid for. The other 2 parts of EIP-150 do not apply since
-  /// @dev a) we hard code value=0 and b) we ensure code already exists.
-  /// @dev If we revert instead, then that will never happen.
-  /// @dev Separately we capture the return data up to a maximum size to avoid return bombs,
-  /// @dev borrowed from https://github.com/nomad-xyz/ExcessivelySafeCall/blob/main/src/ExcessivelySafeCall.sol.
+  /// @dev _callWithExactGas protects against return data bombs by capping the return data size at MAX_RET_BYTES.
   function routeMessage(
     Client.Any2EVMMessage calldata message,
     uint16 gasForCallExactCheck,
@@ -171,48 +167,15 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     // We encode here instead of the offRamps to constrain specifically what functions
     // can be called from the router.
     bytes memory data = abi.encodeWithSelector(IAny2EVMMessageReceiver.ccipReceive.selector, message);
-    // allocate retData memory ahead of time
-    retData = new bytes(MAX_RET_BYTES);
 
-    // solhint-disable-next-line no-inline-assembly
-    assembly {
-      // solidity calls check that a contract actually exists at the destination, so we do the same
-      // Note we do this check prior to measuring gas so gasForCallExactCheck (our "cushion")
-      // doesn't need to account for it.
-      if iszero(extcodesize(receiver)) {
-        revert(0, 0)
-      }
+    (success, retData) = CallWithExactGas._callWithExactGas(
+      data,
+      receiver,
+      gasLimit,
+      Internal.MAX_RET_BYTES,
+      gasForCallExactCheck
+    );
 
-      let g := gas()
-      // Compute g -= gasForCallExactCheck and check for underflow
-      // The gas actually passed to the callee is _min(gasAmount, 63//64*gas available).
-      // We want to ensure that we revert if gasAmount >  63//64*gas available
-      // as we do not want to provide them with less, however that check itself costs
-      // gas. gasForCallExactCheck ensures we have at least enough gas to be able
-      // to revert if gasAmount >  63//64*gas available.
-      if lt(g, gasForCallExactCheck) {
-        revert(0, 0)
-      }
-      g := sub(g, gasForCallExactCheck)
-      // if g - g//64 <= gasAmount, revert
-      // (we subtract g//64 because of EIP-150)
-      if iszero(gt(sub(g, div(g, 64)), gasLimit)) {
-        revert(0, 0)
-      }
-      // call and return whether we succeeded. ignore return data
-      // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
-      success := call(gasLimit, receiver, 0, add(data, 0x20), mload(data), 0, 0)
-
-      // limit our copy to MAX_RET_BYTES bytes
-      let toCopy := returndatasize()
-      if gt(toCopy, MAX_RET_BYTES) {
-        toCopy := MAX_RET_BYTES
-      }
-      // Store the length of the copied bytes
-      mstore(retData, toCopy)
-      // copy the bytes from retData[0:_toCopy]
-      returndatacopy(add(retData, 0x20), 0, toCopy)
-    }
     emit MessageExecuted(message.messageId, message.sourceChainSelector, msg.sender, keccak256(data));
     return (success, retData);
   }

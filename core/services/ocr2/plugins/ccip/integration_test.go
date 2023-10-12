@@ -511,12 +511,13 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 			node.EventuallyNodeUsesNewCommitConfig(t, ccipTH, ccipdata.CommitOnchainConfig{
 				PriceRegistry: ccipTH.Dest.PriceRegistry.Address(),
 			})
-			node.EventuallyNodeUsesNewExecConfig(t, ccipTH, ccipdata.ExecOnchainConfigV1_0_0{
+			node.EventuallyNodeUsesNewExecConfig(t, ccipTH, ccipdata.ExecOnchainConfigV1_2_0{
 				PermissionLessExecutionThresholdSeconds: testhelpers.PermissionLessExecutionThresholdSeconds,
 				Router:                                  ccipTH.Dest.Router.Address(),
 				PriceRegistry:                           ccipTH.Dest.PriceRegistry.Address(),
 				MaxDataSize:                             1e5,
 				MaxTokensLength:                         5,
+				MaxPoolGas:                              200_000,
 			})
 			node.EventuallyNodeUsesUpdatedPriceRegistry(t, ccipTH)
 		}

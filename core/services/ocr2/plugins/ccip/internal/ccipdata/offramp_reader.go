@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
@@ -73,45 +74,12 @@ type ExecOnchainConfig struct {
 	PermissionLessExecutionThresholdSeconds time.Duration
 }
 
-type ExecOnchainConfigV1_0_0 evm_2_evm_offramp.EVM2EVMOffRampDynamicConfig
-
-func (d ExecOnchainConfigV1_0_0) AbiString() string {
-	return `
-	[
-		{
-			"components": [
-				{"name": "permissionLessExecutionThresholdSeconds", "type": "uint32"},
-				{"name": "router", "type": "address"},
-				{"name": "priceRegistry", "type": "address"},
-				{"name": "maxTokensLength", "type": "uint16"},
-				{"name": "maxDataSize", "type": "uint32"}
-			],
-			"type": "tuple"
-		}
-	]`
-}
-
-func (d ExecOnchainConfigV1_0_0) Validate() error {
-	if d.PermissionLessExecutionThresholdSeconds == 0 {
+func (c ExecOnchainConfig) Validate() error {
+	if c.PermissionLessExecutionThresholdSeconds == 0 {
 		return errors.New("must set PermissionLessExecutionThresholdSeconds")
 	}
-	if d.Router == (common.Address{}) {
-		return errors.New("must set Router address")
-	}
-	if d.PriceRegistry == (common.Address{}) {
-		return errors.New("must set PriceRegistry address")
-	}
-	if d.MaxTokensLength == 0 {
-		return errors.New("must set MaxTokensLength")
-	}
-	if d.MaxDataSize == 0 {
-		return errors.New("must set MaxDataSize")
-	}
-	return nil
-}
 
-func (d ExecOnchainConfigV1_0_0) PermissionLessExecutionThresholdDuration() time.Duration {
-	return time.Duration(d.PermissionLessExecutionThresholdSeconds) * time.Second
+	return nil
 }
 
 type ExecutionStateChanged struct {
@@ -170,7 +138,7 @@ func NewOffRampReader(lggr logger.Logger, addr common.Address, destClient client
 	default:
 		return nil, errors.Errorf("unsupported offramp version %v", version.String())
 	}
-	// TODO can validate it points to the correct onramp version using srcClinet
+	// TODO can validate it pointing to the correct version
 }
 
 func ExecReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (func(report []byte) (*txmgr.TxMeta, error), error) {
@@ -178,11 +146,19 @@ func ExecReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (fun
 		return nil, errors.Errorf("expected %v got %v", ccipconfig.EVM2EVMOffRamp, typ)
 	}
 	switch ver.String() {
-	case v1_0_0, v1_1_0, v1_2_0:
-		// ABI remains the same across all offramp versions.
-		offRampABI := abihelpers.MustParseABI(evm_2_evm_offramp.EVM2EVMOffRampABI)
+	case v1_0_0, v1_1_0:
+		offRampABI := abihelpers.MustParseABI(evm_2_evm_offramp_1_0_0.EVM2EVMOffRampABI)
 		return func(report []byte) (*txmgr.TxMeta, error) {
 			execReport, err := decodeExecReportV1_0_0(abihelpers.MustGetMethodInputs(ManuallyExecute, offRampABI)[:1], report)
+			if err != nil {
+				return nil, err
+			}
+			return execReportToEthTxMeta(execReport)
+		}, nil
+	case v1_2_0:
+		offRampABI := abihelpers.MustParseABI(evm_2_evm_offramp.EVM2EVMOffRampABI)
+		return func(report []byte) (*txmgr.TxMeta, error) {
+			execReport, err := decodeExecReportV1_2_0(abihelpers.MustGetMethodInputs(ManuallyExecute, offRampABI)[:1], report)
 			if err != nil {
 				return nil, err
 			}
@@ -193,10 +169,11 @@ func ExecReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (fun
 	}
 }
 
+// EncodeExecutionReport is only used in tests
+// TODO should remove it and update tests to use Reader interface.
 func EncodeExecutionReport(report ExecReport) ([]byte, error) {
 	offRampABI := abihelpers.MustParseABI(evm_2_evm_offramp.EVM2EVMOffRampABI)
-	return encodeExecutionReportV1_0_0(abihelpers.MustGetMethodInputs(ManuallyExecute, offRampABI)[:1], report)
-	// TODO: 1.2 will split
+	return encodeExecutionReportV1_2_0(abihelpers.MustGetMethodInputs(ManuallyExecute, offRampABI)[:1], report)
 }
 
 func execReportToEthTxMeta(execReport ExecReport) (*txmgr.TxMeta, error) {

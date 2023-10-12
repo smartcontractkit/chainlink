@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `TokenPriceHeartBeat` specifies an update heartbeat threshold for token prices
     - `TokenPriceDeviationPPB` specifies deviation PPB threshold for token price.
   - Old Fields `FeeUpdateHeartBeat`, `FeeUpdateDeviationPPB` removed. They are replaced by the fields above.
+- OffRamp caps gas passed on to TokenPool when calling `releaseOrMint`.
+  - A new `maxPoolGas` field is added to OffRamp **DynamicConfig** to store this gas limit.
+- OnRamp will revert with `SourceTokenDataTooLarge` if TokenPool returns too much data.
+  - The revert threshold is `destBytesOverhead` in **TokenTransferFeeConfig**.
+
 
 ### Removed
 

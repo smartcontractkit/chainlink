@@ -114,6 +114,7 @@ contract StructFactory {
   uint32 internal constant EXECUTION_DELAY_SECONDS = 0;
   uint32 internal constant MAX_DATA_SIZE = 30_000;
   uint16 internal constant MAX_TOKENS_LENGTH = 5;
+  uint32 internal constant MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS = 200_000;
   uint16 internal constant GAS_FOR_CALL_EXACT_CHECK = 5000;
   uint32 internal constant PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS = 500;
   uint32 internal constant MAX_GAS_LIMIT = 4_000_000;
@@ -128,11 +129,12 @@ contract StructFactory {
   ) internal pure returns (EVM2EVMOffRamp.DynamicConfig memory) {
     return
       EVM2EVMOffRamp.DynamicConfig({
+        permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
         router: router,
-        maxDataSize: MAX_DATA_SIZE,
         priceRegistry: priceRegistry,
         maxTokensLength: MAX_TOKENS_LENGTH,
-        permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS
+        maxDataSize: MAX_DATA_SIZE,
+        maxPoolGas: MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS
       });
   }
 

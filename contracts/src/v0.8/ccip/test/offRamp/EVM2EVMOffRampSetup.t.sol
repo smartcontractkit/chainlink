@@ -205,10 +205,11 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
   }
 
   function _assertSameConfig(EVM2EVMOffRamp.DynamicConfig memory a, EVM2EVMOffRamp.DynamicConfig memory b) public {
-    assertEq(a.maxDataSize, b.maxDataSize);
-    assertEq(a.maxTokensLength, b.maxTokensLength);
     assertEq(a.permissionLessExecutionThresholdSeconds, b.permissionLessExecutionThresholdSeconds);
     assertEq(a.router, b.router);
     assertEq(a.priceRegistry, b.priceRegistry);
+    assertEq(a.maxTokensLength, b.maxTokensLength);
+    assertEq(a.maxDataSize, b.maxDataSize);
+    assertEq(a.maxPoolGas, b.maxPoolGas);
   }
 }

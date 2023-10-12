@@ -1993,8 +1993,8 @@ func SetOCR2Configs(commitNodes, execNodes []*client.CLNodesWithKeys, destCCIP D
 				destCCIP.Common.PriceRegistry.EthAddress,
 				5,
 				50000,
+				200_000,
 			), contracts.OCR2ParamsForExec, 3*time.Minute)
-
 		if err != nil {
 			return errors.WithStack(err)
 		}
