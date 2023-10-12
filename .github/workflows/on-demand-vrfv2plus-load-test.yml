@@ -38,27 +38,22 @@ on:
       chainlinkVersion:
         description: Container image version for the Chainlink nodes
         required: true
-        default: "2.5.0"
+        default: "2.6.0-beta0"
       testDuration:
         description: Duration of the test (time string)
-        required: false
-        default: 1m
-      chainlinkNodeFunding:
-        description: How much to fund each Chainlink node (in ETH)
-        required: false
-        default: ".1"
-      rps:
-        description: Requests Per Second
-        required: false
-        default: 1
-      rateLimitDuration:
-        description: How long to wait between requests
         required: false
         default: 1m
       randomnessRequestCountPerRequest:
         description: Randomness request Count per one TX request
         required: false
         default: 1
+      useExistingEnv:
+        description: Whether to deploy a new contracts or use an existing one
+        required: false
+        default: false
+      configBase64:
+        description: TOML config in base64
+        required: false
 jobs:
   vrfv2plus_load_test:
     name: ${{ inputs.network }} VRFV2 Plus Load Test
@@ -72,15 +67,15 @@ jobs:
     env:
       SELECTED_NETWORKS: ${{ inputs.network }}
       VRFV2PLUS_TEST_DURATION: ${{ inputs.testDuration }}
-      VRFV2PLUS_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
-      VRFV2PLUS_RATE_LIMIT_UNIT_DURATION: ${{ inputs.rateLimitDuration }}
-      VRFV2PLUS_RPS: ${{ inputs.rps }}
+      VRFV2PLUS_RATE_LIMIT_UNIT_DURATION: 1m
+      VRFV2PLUS_RPS: 1
       VRFV2PLUS_RANDOMNESS_REQUEST_COUNT_PER_REQUEST: ${{ inputs.randomnessRequestCountPerRequest }}
-
+      VRFV2PLUS_USE_EXISTING_ENV: ${{ inputs.useExistingEnv }}
+      CONFIG: ${{ inputs.configBase64 }}
       TEST_LOG_LEVEL: debug
       REF_NAME: ${{ github.head_ref || github.ref_name }}
-      ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
-
+      CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
+      CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
       WASP_LOG_LEVEL: info
     steps:
       - name: Collect Metrics
