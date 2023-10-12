@@ -32,4 +32,10 @@ type VRFV2PlusConfig struct {
 	TestDuration          time.Duration `envconfig:"TEST_DURATION" default:"3m"` // How long to run the test for
 	RPS                   int64         `envconfig:"RPS" default:"1"`            // How many requests per second to send
 	RateLimitUnitDuration time.Duration `envconfig:"RATE_LIMIT_UNIT_DURATION" default:"1m"`
+	//Using existing environment and contracts
+	UseExistingEnv     bool   `envconfig:"USE_EXISTING_ENV" default:"false"` // Whether to use an existing environment or create a new one
+	CoordinatorAddress string `envconfig:"COORDINATOR_ADDRESS" default:""`   // Coordinator address
+	ConsumerAddress    string `envconfig:"CONSUMER_ADDRESS" default:""`      // Consumer address
+	SubID              string `envconfig:"SUB_ID" default:""`                // Subscription ID
+	KeyHash            string `envconfig:"KEY_HASH" default:""`
 }

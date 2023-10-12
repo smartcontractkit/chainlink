@@ -1,11 +1,11 @@
 package loadvrfv2plus
 
 import (
+	"encoding/base64"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	"math/big"
 	"os"
 )
 
@@ -17,20 +17,31 @@ const (
 )
 
 type PerformanceConfig struct {
-	Soak       *Soak       `toml:"Soak"`
-	Load       *Load       `toml:"Load"`
-	SoakVolume *SoakVolume `toml:"SoakVolume"`
-	LoadVolume *LoadVolume `toml:"LoadVolume"`
-	Common     *Common     `toml:"Common"`
+	Soak              *Soak              `toml:"Soak"`
+	Load              *Load              `toml:"Load"`
+	SoakVolume        *SoakVolume        `toml:"SoakVolume"`
+	LoadVolume        *LoadVolume        `toml:"LoadVolume"`
+	Common            *Common            `toml:"Common"`
+	ExistingEnvConfig *ExistingEnvConfig `toml:"ExistingEnvConfig"`
+}
+
+type ExistingEnvConfig struct {
+	CoordinatorAddress string `toml:"coordinator_address"`
+	ConsumerAddress    string `toml:"consumer_address"`
+	SubID              string `toml:"sub_id"`
+	KeyHash            string `toml:"key_hash"`
 }
 
 type Common struct {
 	Funding
+	IsNativePayment      bool   `toml:"is_native_payment"`
+	MinimumConfirmations uint16 `toml:"minimum_confirmations"`
 }
 
 type Funding struct {
-	NodeFunds *big.Float `toml:"node_funds"`
-	SubFunds  *big.Int   `toml:"sub_funds"`
+	NodeFunds      float64 `toml:"node_funds"`
+	SubFundsLink   int64   `toml:"sub_funds_link"`
+	SubFundsNative int64   `toml:"sub_funds_native"`
 }
 
 type Soak struct {
@@ -61,14 +72,22 @@ type LoadVolume struct {
 
 func ReadConfig() (*PerformanceConfig, error) {
 	var cfg *PerformanceConfig
-	d, err := os.ReadFile(DefaultConfigFilename)
-	if err != nil {
-		return nil, errors.Wrap(err, ErrReadPerfConfig)
+	rawConfig := os.Getenv("CONFIG")
+	var d []byte
+	var err error
+	if rawConfig == "" {
+		d, err = os.ReadFile(DefaultConfigFilename)
+		if err != nil {
+			return nil, errors.Wrap(err, ErrReadPerfConfig)
+		}
+	} else {
+		d, err = base64.StdEncoding.DecodeString(rawConfig)
 	}
 	err = toml.Unmarshal(d, &cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, ErrUnmarshalPerfConfig)
 	}
-	log.Debug().Interface("PerformanceConfig", cfg).Msg("Parsed performance config")
+
+	log.Debug().Interface("Config", cfg).Msg("Parsed config")
 	return cfg, nil
 }
