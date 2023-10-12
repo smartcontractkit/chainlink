@@ -64,6 +64,9 @@ func encodeCommitReportV1_0_0(commitReportArgs abi.Arguments, report CommitStore
 	}
 	var usdPerUnitGas = big.NewInt(0)
 	var destChainSelector = uint64(0)
+	if len(report.GasPrices) > 1 {
+		return []byte{}, errors.Errorf("CommitStore V1_0_0 can only accept 1 gas price, received: %d", len(report.GasPrices))
+	}
 	if len(report.GasPrices) > 0 {
 		usdPerUnitGas = report.GasPrices[0].Value
 		destChainSelector = report.GasPrices[0].DestChainSelector
