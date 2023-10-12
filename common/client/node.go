@@ -42,16 +42,15 @@ type NodeConfig interface {
 	SyncThreshold() uint32
 }
 
-//go:generate mockery --quiet --name Node --output ./mocks/ --case=underscore
 type Node[
 	CHAIN_ID types.ID,
 	HEAD Head,
 	RPC NodeClient[CHAIN_ID, HEAD],
 ] interface {
-	// State returns NodeState
-	State() NodeState
-	// StateAndLatest returns NodeState with the latest received block number & total difficulty.
-	StateAndLatest() (NodeState, int64, *utils.Big)
+	// State returns nodeState
+	State() nodeState
+	// StateAndLatest returns nodeState with the latest received block number & total difficulty.
+	StateAndLatest() (nodeState, int64, *utils.Big)
 	// Name is a unique identifier for this node.
 	Name() string
 	String() string
@@ -85,7 +84,7 @@ type node[
 	rpc RPC
 
 	stateMu sync.RWMutex // protects state* fields
-	state   NodeState
+	state   nodeState
 	// Each node is tracking the last received head number and total difficulty
 	stateLatestBlockNumber     int64
 	stateLatestTotalDifficulty *utils.Big
@@ -186,7 +185,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) Close() error {
 		defer n.stateMu.Unlock()
 
 		n.cancelNodeCtx()
-		n.state = NodeStateClosed
+		n.state = nodeStateClosed
 		return nil
 	})
 }
@@ -208,7 +207,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) Start(startCtx context.Context) error {
 // Node lifecycle is synchronous: only one goroutine should be running at a
 // time.
 func (n *node[CHAIN_ID, HEAD, RPC]) start(startCtx context.Context) {
-	if n.state != NodeStateUndialed {
+	if n.state != nodeStateUndialed {
 		panic(fmt.Sprintf("cannot dial node with state %v", n.state))
 	}
 
@@ -217,7 +216,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) start(startCtx context.Context) {
 		n.declareUnreachable()
 		return
 	}
-	n.setState(NodeStateDialed)
+	n.setState(nodeStateDialed)
 
 	if err := n.verify(startCtx); errors.Is(err, errInvalidChainID) {
 		n.lfcLog.Errorw("Verify failed: Node has the wrong chain ID", "err", err)
@@ -243,7 +242,7 @@ func (n *node[CHAIN_ID, HEAD, RPC]) verify(callerCtx context.Context) (err error
 
 	st := n.State()
 	switch st {
-	case NodeStateDialed, NodeStateOutOfSync, NodeStateInvalidChainID:
+	case nodeStateDialed, nodeStateOutOfSync, nodeStateInvalidChainID:
 	default:
 		panic(fmt.Sprintf("cannot verify node in state %v", st))
 	}

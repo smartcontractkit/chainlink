@@ -25,7 +25,7 @@ func (s highestHeadNodeSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, HE
 	var highestHeadNodes []Node[CHAIN_ID, HEAD, RPC]
 	for _, n := range s {
 		state, currentHeadNumber, _ := n.StateAndLatest()
-		if state == NodeStateAlive && currentHeadNumber >= highestHeadNumber {
+		if state == nodeStateAlive && currentHeadNumber >= highestHeadNumber {
 			if highestHeadNumber < currentHeadNumber {
 				highestHeadNumber = currentHeadNumber
 				highestHeadNodes = nil

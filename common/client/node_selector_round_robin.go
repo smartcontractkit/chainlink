@@ -28,7 +28,7 @@ func NewRoundRobinSelector[
 func (s *roundRobinSelector[CHAIN_ID, HEAD, RPC]) Select() Node[CHAIN_ID, HEAD, RPC] {
 	var liveNodes []Node[CHAIN_ID, HEAD, RPC]
 	for _, n := range s.nodes {
-		if n.State() == NodeStateAlive {
+		if n.State() == nodeStateAlive {
 			liveNodes = append(liveNodes, n)
 		}
 	}

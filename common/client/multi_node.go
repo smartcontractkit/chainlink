@@ -256,12 +256,12 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 
 }
 
-// selectNode returns the active Node, if it is still NodeStateAlive, otherwise it selects a new one from the NodeSelector.
+// selectNode returns the active Node, if it is still nodeStateAlive, otherwise it selects a new one from the NodeSelector.
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) selectNode() (node Node[CHAIN_ID, HEAD, RPC_CLIENT], err error) {
 	c.activeMu.RLock()
 	node = c.activeNode
 	c.activeMu.RUnlock()
-	if node != nil && node.State() == NodeStateAlive {
+	if node != nil && node.State() == nodeStateAlive {
 		return // still alive
 	}
 
@@ -269,7 +269,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	c.activeMu.Lock()
 	defer c.activeMu.Unlock()
 	node = c.activeNode
-	if node != nil && node.State() == NodeStateAlive {
+	if node != nil && node.State() == nodeStateAlive {
 		return // another goroutine beat us here
 	}
 
@@ -290,7 +290,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) nLiveNodes() (nLiveNodes int, blockNumber int64, totalDifficulty *utils.Big) {
 	totalDifficulty = utils.NewBigI(0)
 	for _, n := range c.nodes {
-		if s, num, td := n.StateAndLatest(); s == NodeStateAlive {
+		if s, num, td := n.StateAndLatest(); s == nodeStateAlive {
 			nLiveNodes++
 			if num > blockNumber {
 				blockNumber = num
@@ -308,7 +308,7 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	for _, n := range c.nodes {
 		// Terminate client subscriptions. Services are responsible for reconnecting, which will be routed to the new
 		// best node. Only terminate connections with more than 1 subscription to account for the aliveLoop subscription
-		if n.State() == NodeStateAlive && n != bestNode && n.SubscribersCount() > 1 {
+		if n.State() == nodeStateAlive && n != bestNode && n.SubscribersCount() > 1 {
 			c.logger.Infof("Switching to best node from %q to %q", n.String(), bestNode.String())
 			n.UnsubscribeAllExceptAliveLoop()
 		}
@@ -364,13 +364,13 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 	}
 
 	var total, dead int
-	counts := make(map[NodeState]int)
+	counts := make(map[nodeState]int)
 	nodeStates := make([]nodeWithState, len(c.nodes))
 	for i, n := range c.nodes {
 		state := n.State()
 		nodeStates[i] = nodeWithState{n.String(), state.String()}
 		total++
-		if state != NodeStateAlive {
+		if state != nodeStateAlive {
 			dead++
 		}
 		counts[state]++
