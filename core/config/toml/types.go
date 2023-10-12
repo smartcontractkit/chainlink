@@ -433,8 +433,8 @@ type TelemetryIngress struct {
 	UseBatchSend *bool
 	Endpoints    []TelemetryIngressEndpoint `toml:",omitempty"`
 
-	URL          *models.URL `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.URL instead, if this field is set it will trigger an error, only used to warn NOPs of change
-	ServerPubKey *string     `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.ServerPubKey instead, if this field is set it will trigger an error, only used to warn NOPs of change
+	URL          *models.URL `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.URL instead, this field will be removed in future versions
+	ServerPubKey *string     `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.ServerPubKey instead, this field will be removed in future versions
 }
 
 type TelemetryIngressEndpoint struct {
@@ -478,30 +478,14 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 }
 
 func (t *TelemetryIngress) ValidateConfig() (err error) {
-	if !t.URL.IsZero() && *t.ServerPubKey != "" {
+	if (!t.URL.IsZero() || *t.ServerPubKey != "") && len(t.Endpoints) > 0 {
 		return configutils.ErrInvalid{Name: "URL", Value: t.URL.String(),
-			Msg: fmt.Sprintf(`TelemetryIngress.URL and TelemetryIngress.ServerPubKey are no longer allowed. Please use TelemetryIngress.Endpoints instead:
-			[[TelemetryIngress.Endpoints]]
-			Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
-			ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
-			URL = '%s'
-			ServerPubKey = '%s'`, t.URL.String(), *t.ServerPubKey)}
-	} else if !t.URL.IsZero() {
-		return configutils.ErrInvalid{Name: "URL", Value: t.URL.String(),
-			Msg: fmt.Sprintf(`TelemetryIngress.URL and TelemetryIngress.ServerPubKey are no longer allowed. Please use TelemetryIngress.Endpoints instead:
-			[[TelemetryIngress.Endpoints]]
-			Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
-			ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
-			URL = '%s'
-			ServerPubKey = '...'`, t.URL.String())}
-	} else if *t.ServerPubKey != "" {
-		return configutils.ErrInvalid{Name: "ServerPubKey", Value: *t.ServerPubKey,
-			Msg: fmt.Sprintf(`TelemetryIngress.URL and TelemetryIngress.ServerPubKey are no longer allowed. Please use TelemetryIngress.Endpoints instead:
+			Msg: `Cannot set both TelemetryIngress.URL and TelemetryIngress.ServerPubKey alongside TelemetryIngress.Endpoints. Please use only TelemetryIngress.Endpoints:
 			[[TelemetryIngress.Endpoints]]
 			Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
 			ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
 			URL = '...'
-			ServerPubKey = '%s'`, *t.ServerPubKey)}
+			ServerPubKey = '...'`}
 	}
 
 	return nil

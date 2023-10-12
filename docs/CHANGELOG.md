@@ -20,7 +20,11 @@ ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
 URL = '...'
 ServerPubKey = '...'
 ```
-These replace `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`, which are no longer allowed.
+These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Setting `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` alongside `[[TelemetryIngress.Endpoints]]` will prevent the node from booting. Only one way of configuring telemetry endpoints is supported.
+
+### Upcoming Required Configuration Change
+
+- Starting in 2.8.0, chainlink nodes will no longer allow `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
 
 ## 2.6.0 - UNRELEASED
 
@@ -42,8 +46,6 @@ All nodes will have to remove the following secret configurations:
 - `Explorer.Secret`
 
 All nodes will have to remove the following configuration field: `ExplorerURL`
-
-- Removed `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. They are no longer valid, and will prevent a node from booting. Use `TelemetryIngress.Endpoints` instead.
 
 ### Fixed
 

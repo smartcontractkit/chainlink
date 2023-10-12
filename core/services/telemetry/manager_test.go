@@ -22,6 +22,7 @@ import (
 	mocks3 "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -200,6 +201,7 @@ func TestNewManager(t *testing.T) {
 func TestCorrectEndpointRouting(t *testing.T) {
 	tic := setupMockConfig(t, true)
 	tic.On("Endpoints").Return(nil)
+	tic.On("URL").Return(nil)
 
 	lggr, obsLogs := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 	ks := mocks3.NewCSA(t)
@@ -285,4 +287,55 @@ func TestCorrectEndpointRouting(t *testing.T) {
 		require.Equal(t, []byte(e.chainID), clientSent[i].Telemetry)
 	}
 
+}
+
+func TestLegacyMode(t *testing.T) {
+	tic := setupMockConfig(t, true)
+	tic.On("Endpoints").Return(nil)
+	url, err := models.ParseURL("test.test")
+	require.NoError(t, err)
+	tic.On("URL").Return(url.URL())
+	tic.On("ServerPubKey").Return("some-pub-key")
+
+	lggr, obsLogs := logger.TestLoggerObserved(t, zapcore.InfoLevel)
+	ks := mocks3.NewCSA(t)
+
+	tm := NewManager(tic, ks, lggr)
+	require.Equal(t, true, tm.legacyMode)
+	require.Len(t, tm.endpoints, 1)
+
+	clientSent := make([]synchronization.TelemPayload, 0)
+	clientMock := mocks2.NewTelemetryService(t)
+	clientMock.On("Send", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
+		clientSent = append(clientSent, synchronization.TelemPayload{
+			Telemetry:  args[1].([]byte),
+			ContractID: args[2].(string),
+			TelemType:  args[3].(synchronization.TelemetryType),
+		})
+	})
+	tm.endpoints[0].client = clientMock
+
+	e := tm.GenMonitoringEndpoint("some-contractID", "some-type", "unknown-network", "unknown-chainID")
+	require.Equal(t, "*telemetry.IngressAgentBatch", reflect.TypeOf(e).String())
+
+	e.SendLog([]byte("endpoint-1-message-1"))
+	e.SendLog([]byte("endpoint-1-message-2"))
+	e.SendLog([]byte("endpoint-1-message-3"))
+	require.Len(t, clientSent, 3)
+
+	e2 := tm.GenMonitoringEndpoint("another-contractID", "another-type", "another-unknown-network", "another-unknown-chainID")
+	require.Equal(t, "*telemetry.IngressAgentBatch", reflect.TypeOf(e).String())
+
+	e2.SendLog([]byte("endpoint-2-message-1"))
+	e2.SendLog([]byte("endpoint-2-message-2"))
+	e2.SendLog([]byte("endpoint-2-message-3"))
+	require.Len(t, clientSent, 6)
+
+	require.Equal(t, 1, obsLogs.Len()) // Deprecation warning for TelemetryIngress.URL and TelemetryIngress.ServerPubKey
+	require.Equal(t, []byte("endpoint-1-message-1"), clientSent[0].Telemetry)
+	require.Equal(t, []byte("endpoint-1-message-2"), clientSent[1].Telemetry)
+	require.Equal(t, []byte("endpoint-1-message-3"), clientSent[2].Telemetry)
+	require.Equal(t, []byte("endpoint-2-message-1"), clientSent[3].Telemetry)
+	require.Equal(t, []byte("endpoint-2-message-2"), clientSent[4].Telemetry)
+	require.Equal(t, []byte("endpoint-2-message-3"), clientSent[5].Telemetry)
 }
