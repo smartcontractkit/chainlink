@@ -224,7 +224,7 @@ func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts,
 		MaxSupportedRequestDataVersion:      uint16(1),
 		FulfillmentGasPriceOverEstimationBP: uint32(1_000),
 		FallbackNativePerUnitLink:           big.NewInt(5_000_000_000_000_000),
-		MinimumEstimateGasPrice:             uint32(1_000_000_000),
+		MinimumEstimateGasPrice:             big.NewInt(1_000_000_000),
 	}
 	require.NoError(t, err)
 	coordinatorAddress, _, coordinatorContract, err := functions_coordinator.DeployFunctionsCoordinator(owner, b, routerAddress, coordinatorConfig, linkEthFeedAddr)
