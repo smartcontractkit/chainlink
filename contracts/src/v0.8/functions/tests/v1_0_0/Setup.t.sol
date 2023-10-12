@@ -75,7 +75,7 @@ contract FunctionsRouterSetup is BaseTest {
         maxSupportedRequestDataVersion: 1,
         fulfillmentGasPriceOverEstimationBP: 5000,
         fallbackNativePerUnitLink: 5000000000000000,
-        minimumEstimateGasPrice: 1000000000 // 1 gwei
+        minimumEstimateGasPriceWei: 1000000000 // 1 gwei
       });
   }
 

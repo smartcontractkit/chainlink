@@ -98,7 +98,7 @@ export type CoordinatorConfig = {
   maxSupportedRequestDataVersion: number
   fulfillmentGasPriceOverEstimationBP: number
   fallbackNativePerUnitLink: BigNumber
-  minimumEstimateGasPrice: number
+  minimumEstimateGasPriceWei: number
 }
 const fallbackNativePerUnitLink = 5000000000000000
 export const coordinatorConfig: CoordinatorConfig = {
@@ -110,7 +110,7 @@ export const coordinatorConfig: CoordinatorConfig = {
   maxSupportedRequestDataVersion: 1,
   fulfillmentGasPriceOverEstimationBP: 0,
   fallbackNativePerUnitLink: BigNumber.from(fallbackNativePerUnitLink),
-  minimumEstimateGasPrice: 1000000000,
+  minimumEstimateGasPriceWei: 1000000000,
 }
 export const accessControlMockPublicKey = ethers.utils.getAddress(
   '0x32237412cC0321f56422d206e505dB4B3871AF5c',
