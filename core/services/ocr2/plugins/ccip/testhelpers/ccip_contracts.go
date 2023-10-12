@@ -115,7 +115,7 @@ func NewCommitOnchainConfig(
 }
 
 type ExecOnchainConfig struct {
-	ccipdata.ExecOnchainConfigV1_0_0
+	ccipdata.ExecOnchainConfigV1_2_0
 }
 
 func NewExecOnchainConfig(
@@ -124,13 +124,15 @@ func NewExecOnchainConfig(
 	PriceRegistry common.Address,
 	MaxTokensLength uint16,
 	MaxDataSize uint32,
+	MaxPoolGas uint32,
 ) ExecOnchainConfig {
-	return ExecOnchainConfig{ccipdata.ExecOnchainConfigV1_0_0{
+	return ExecOnchainConfig{ccipdata.ExecOnchainConfigV1_2_0{
 		PermissionLessExecutionThresholdSeconds: PermissionLessExecutionThresholdSeconds,
 		Router:                                  Router,
 		PriceRegistry:                           PriceRegistry,
 		MaxTokensLength:                         MaxTokensLength,
 		MaxDataSize:                             MaxDataSize,
+		MaxPoolGas:                              MaxPoolGas,
 	}}
 }
 
