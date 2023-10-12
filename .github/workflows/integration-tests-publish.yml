@@ -1,10 +1,7 @@
 name: Integration Tests Publish
 # Publish the compiled integration tests
-
 on:
   push:
-    branches:
-      - ccip-develop
   workflow_dispatch:
 
 env:
@@ -31,10 +28,15 @@ jobs:
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
           ref: ${{ github.event.pull_request.head.sha }}
+      - name: Collect other tags
+        if: startsWith(github.ref, 'refs/tags/v')
+        id: collect_other_tags
+        run: |
+          echo 'release_tag="${{ format('{0}.dkr.ecr.{1}.amazonaws.com/chainlink-ccip-tests:{2}', secrets.QA_AWS_ACCOUNT_NUMBER, secrets.QA_AWS_REGION, github.ref_name) }}"' >> $GITHUB_OUTPUT
       - name: Build Image
         uses: ./.github/actions/build-test-image
         with:
-          other_tags: ${{ env.ECR_TAG }}
+          other_tags: ${{ env.ECR_TAG }},${{steps.collect_other_tags.outputs.release_tag}}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
