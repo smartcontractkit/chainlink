@@ -84,7 +84,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     uint32 destGasOverhead; //                  │ Extra gas charged on top of the gasLimit
     uint16 destGasPerPayloadByte; //            │ Destination chain gas charged for passing each byte of `data` payload to receiver
     uint32 destDataAvailabilityOverheadGas; // ─╯ Extra data availability gas charged on top of the message, e.g. for OCR
-    uint16 destGasPerDataAvailabilityByte; // ──╮Amount of gas to charge per byte of message data that needs availability
+    uint16 destGasPerDataAvailabilityByte; // ──╮ Amount of gas to charge per byte of message data that needs availability
     uint16 destDataAvailabilityMultiplier; //   │ Multiplier for data availability gas, multiples of 1e-4, or 0.0001
     address priceRegistry; //                   │ Price registry address
     uint32 maxDataSize; //                      │ Maximum payload data size, max 4GB
@@ -94,8 +94,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   /// @dev Struct to hold the execution fee configuration for a fee token
   struct FeeTokenConfig {
     uint32 networkFeeUSD; // ───────────╮ Flat network fee to charge for messages,  multiples of 0.01 USD
-    uint64 gasMultiplier; //            │ Price multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost.
-    uint64 premiumMultiplier; //        │ Multiplier for fee-token-specific premiums
+    uint64 gasMultiplier; //            │ Multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost.
+    uint64 premiumMultiplier; //        │ Multiplier for fee-token-specific premiums, 1e18 based
     bool enabled; // ───────────────────╯ Whether this fee token is enabled
   }
 
@@ -104,8 +104,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   struct FeeTokenConfigArgs {
     address token; // ──────────────────╮ Token address
     uint32 networkFeeUSD; //            │ Flat network fee to charge for messages,  multiples of 0.01 USD
-    uint64 gasMultiplier; // ───────────╯ Price multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost
-    uint64 premiumMultiplier; // ───────╮ Multiplier for fee-token-specific premiums
+    uint64 gasMultiplier; // ───────────╯ Multiplier for gas costs, 1e18 based so 11e17 = 10% extra cost
+    uint64 premiumMultiplier; // ───────╮ Multiplier for fee-token-specific premiums, 1e18 based
     bool enabled; // ───────────────────╯ Whether this fee token is enabled
   }
 
@@ -527,7 +527,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
     // Calculate execution gas fee on destination chain in USD with 36 decimals.
     // We add the message gas limit, the overhead gas, and the data availability gas together.
-    // We then multiple this destination gas total with the gas multiplier and convert it into USD.
+    // We then multiply this destination gas total with the gas multiplier and convert it into USD.
     uint256 executionCostUSD = executionGasPrice *
       ((extraArgs.gasLimit +
         s_dynamicConfig.destGasOverhead +
@@ -535,7 +535,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
         tokenTransferGas) * feeTokenConfig.gasMultiplier);
 
     uint256 dataAvailabilityCostUSD = 0;
-    // Only calculate data availability cost if multiplier is non-zero.
+    // Only calculate data availability cost if data availability multiplier is non-zero.
     // The multiplier should be set to 0 if destination chain does not charge data availability cost.
     if (s_dynamicConfig.destDataAvailabilityMultiplier > 0) {
       uint112 dataAvailabilityGasPrice = uint112(packedGasPrice >> Internal.GAS_PRICE_BITS);
