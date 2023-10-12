@@ -58,7 +58,7 @@ func NewDelegate(
 		pr:           pr,
 		porm:         porm,
 		legacyChains: legacyChains,
-		lggr:         lggr,
+		lggr:         lggr.Named("VRF"),
 		mailMon:      mailMon,
 	}
 }
@@ -73,7 +73,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
 func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.VRFSpec == nil || jb.PipelineSpec == nil {
 		return nil, errors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
 	}
@@ -119,7 +119,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		}
 	}
 
-	l := d.lggr.With(
+	l := d.lggr.Named(jb.ExternalJobID.String()).With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
 		"coordinatorAddress", jb.VRFSpec.CoordinatorAddress,

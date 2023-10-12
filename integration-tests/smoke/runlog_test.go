@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -24,16 +25,11 @@ func TestRunLogBasic(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
 		WithGeth().
-		WithMockServer(1).
+		WithMockAdapter().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
 		Build()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := env.Cleanup(t); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 
 	lt, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
@@ -46,14 +42,14 @@ func TestRunLogBasic(t *testing.T) {
 	err = lt.Transfer(consumer.Address(), big.NewInt(2e18))
 	require.NoError(t, err, "Transferring %d to consumer contract shouldn't fail", big.NewInt(2e18))
 
-	err = env.MockServer.Client.SetValuePath("/variable", 5)
-	require.NoError(t, err, "Setting mockserver value path shouldn't fail")
+	err = env.MockAdapter.SetAdapterBasedIntValuePath("/variable", []string{http.MethodPost}, 5)
+	require.NoError(t, err, "Setting mock adapter value path shouldn't fail")
 
 	jobUUID := uuid.New()
 
 	bta := client.BridgeTypeAttributes{
 		Name: fmt.Sprintf("five-%s", jobUUID.String()),
-		URL:  fmt.Sprintf("%s/variable", env.MockServer.Client.Config.ClusterURL),
+		URL:  fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
 	}
 	err = env.CLNodes[0].API.MustCreateBridge(&bta)
 	require.NoError(t, err, "Creating bridge shouldn't fail")
@@ -82,7 +78,7 @@ func TestRunLogBasic(t *testing.T) {
 		oracle.Address(),
 		jobID,
 		big.NewInt(1e18),
-		fmt.Sprintf("%s/variable", env.MockServer.Client.Config.ClusterURL),
+		fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
 		"data,result",
 		big.NewInt(100),
 	)

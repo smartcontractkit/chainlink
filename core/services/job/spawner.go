@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	pkgerrors "github.com/pkg/errors"
+
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -63,7 +64,7 @@ type (
 		// job. In case a given job type relies upon well-defined startup/shutdown
 		// ordering for services, they are started in the order they are given
 		// and stopped in reverse order.
-		ServicesForSpec(spec Job, qopts ...pg.QOpt) ([]ServiceCtx, error)
+		ServicesForSpec(spec Job) ([]ServiceCtx, error)
 		AfterJobCreated(spec Job)
 		BeforeJobDeleted(spec Job)
 		// OnDeleteJob will be called from within DELETE db transaction.  Any db
@@ -122,7 +123,7 @@ func (js *spawner) Name() string {
 }
 
 func (js *spawner) HealthReport() map[string]error {
-	return map[string]error{js.Name(): js.StartStopOnce.Healthy()}
+	return map[string]error{js.Name(): js.Healthy()}
 }
 
 func (js *spawner) startAllServices(ctx context.Context) {
@@ -208,7 +209,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job, qopts ...pg.QOpt) e
 		jb.PipelineSpec.GasLimit = &jb.GasLimit.Uint32
 	}
 
-	srvs, err := delegate.ServicesForSpec(jb, qopts...)
+	srvs, err := delegate.ServicesForSpec(jb)
 	if err != nil {
 		lggr.Errorw("Error creating services for job", "err", err)
 		cctx, cancel := js.chStop.NewCtx()
@@ -384,7 +385,7 @@ func (n *NullDelegate) JobType() Type {
 }
 
 // ServicesForSpec does no-op.
-func (n *NullDelegate) ServicesForSpec(spec Job, qopts ...pg.QOpt) (s []ServiceCtx, err error) {
+func (n *NullDelegate) ServicesForSpec(spec Job) (s []ServiceCtx, err error) {
 	return
 }
 

@@ -160,8 +160,9 @@ PerformGasOverhead = 150_000`
 
 	testEnvironment := environment.New(
 		&environment.Config{
-			NamespacePrefix: fmt.Sprintf("performance-keeper-%s-%s", testName, networkName),
-			Test:            t,
+			NamespacePrefix:    fmt.Sprintf("performance-keeper-%s-%s", testName, networkName),
+			Test:               t,
+			PreventPodEviction: true,
 		},
 	).
 		AddHelm(mockservercfg.New(nil)).

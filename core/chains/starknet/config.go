@@ -3,11 +3,11 @@ package starknet
 import (
 	"fmt"
 	"net/url"
+	"slices"
 	"time"
 
 	"github.com/pelletier/go-toml/v2"
 	"go.uber.org/multierr"
-	"golang.org/x/exp/slices"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 

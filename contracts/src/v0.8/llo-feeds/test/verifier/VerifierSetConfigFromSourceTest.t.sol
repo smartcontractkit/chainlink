@@ -2,8 +2,6 @@
 pragma solidity 0.8.16;
 
 import {BaseTest, BaseTestWithMultipleConfiguredDigests} from "./BaseVerifierTest.t.sol";
-import {Verifier} from "../../Verifier.sol";
-import {VerifierProxy} from "../../VerifierProxy.sol";
 import {Common} from "../../../libraries/Common.sol";
 
 contract VerifierSetConfigFromSourceTest is BaseTest {

@@ -87,7 +87,7 @@ func TestTxm_SendNativeToken_DoesNotSendToZero(t *testing.T) {
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), keyStore, nil)
 	require.NoError(t, err)
 
-	_, err = txm.SendNativeToken(big.NewInt(0), from, to, *value, 21000)
+	_, err = txm.SendNativeToken(testutils.Context(t), big.NewInt(0), from, to, *value, 21000)
 	require.Error(t, err)
 	require.EqualError(t, err, "cannot send native token to zero address")
 }
@@ -100,7 +100,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 
-	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth(), 0)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 	toAddress := testutils.NewAddress()
 	gasLimit := uint32(1000)
 	payload := []byte{1, 2, 3}
@@ -117,9 +117,9 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		subject := uuid.New()
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
-		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(int64(0), nil)
 		evmConfig.maxQueued = uint64(1)
-		etx, err := txm.CreateTransaction(txmgr.TxRequest{
+		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -155,7 +155,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 	t.Run("with queue at capacity does not insert eth_tx", func(t *testing.T) {
 		evmConfig.maxQueued = uint64(1)
-		_, err := txm.CreateTransaction(txmgr.TxRequest{
+		_, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
@@ -170,7 +170,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	t.Run("doesn't insert eth_tx if a matching tx already exists for that pipeline_task_run_id", func(t *testing.T) {
 		evmConfig.maxQueued = uint64(3)
 		id := uuid.New()
-		tx1, err := txm.CreateTransaction(txmgr.TxRequest{
+		tx1, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
@@ -180,7 +180,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		tx2, err := txm.CreateTransaction(txmgr.TxRequest{
+		tx2, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
 			EncodedPayload:    []byte{1, 2, 3},
@@ -195,7 +195,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 	t.Run("returns error if eth key state is missing or doesn't match chain ID", func(t *testing.T) {
 		rndAddr := testutils.NewAddress()
-		_, err := txm.CreateTransaction(txmgr.TxRequest{
+		_, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    rndAddr,
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
@@ -207,7 +207,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 		_, otherAddress := cltest.MustInsertRandomKey(t, kst.Eth(), *utils.NewBigI(1337))
 
-		_, err = txm.CreateTransaction(txmgr.TxRequest{
+		_, err = txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    otherAddress,
 			ToAddress:      testutils.NewAddress(),
 			EncodedPayload: []byte{1, 2, 3},
@@ -225,7 +225,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			CheckerType: txmgr.TransmitCheckerTypeSimulate,
 		}
 		evmConfig.maxQueued = uint64(1)
-		etx, err := txm.CreateTransaction(txmgr.TxRequest{
+		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -268,7 +268,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			CheckerType:           txmgr.TransmitCheckerTypeVRFV2,
 			VRFCoordinatorAddress: testutils.NewAddressPtr(),
 		}
-		etx, err := txm.CreateTransaction(txmgr.TxRequest{
+		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -304,7 +304,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, fwdr.Address, fwdrAddr)
 
-		etx, err := txm.CreateTransaction(txmgr.TxRequest{
+		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:      fromAddress,
 			ToAddress:        toAddress,
 			EncodedPayload:   payload,
@@ -328,7 +328,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		evmConfig.maxQueued = uint64(3)
 		id := uuid.New()
 		idempotencyKey := "1"
-		_, err := txm.CreateTransaction(txmgr.TxRequest{
+		_, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			IdempotencyKey:    &idempotencyKey,
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
@@ -344,7 +344,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		evmConfig.maxQueued = uint64(3)
 		id := uuid.New()
 		idempotencyKey := "2"
-		tx1, err := txm.CreateTransaction(txmgr.TxRequest{
+		tx1, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			IdempotencyKey:    &idempotencyKey,
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
@@ -355,7 +355,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		})
 		assert.NoError(t, err)
 
-		tx2, err := txm.CreateTransaction(txmgr.TxRequest{
+		tx2, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			IdempotencyKey:    &idempotencyKey,
 			FromAddress:       fromAddress,
 			ToAddress:         testutils.NewAddress(),
@@ -512,8 +512,8 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	etKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	thisKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
-	otherKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
+	thisKey, _ := cltest.RandomKey{Nonce: 1}.MustInsert(t, etKeyStore)
+	otherKey, _ := cltest.RandomKey{Nonce: 1}.MustInsert(t, etKeyStore)
 
 	fromAddress := thisKey.Address
 	evmFromAddress := fromAddress
@@ -535,16 +535,16 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, otherKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
-		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(int64(0), nil)
 
-		etx, err := txm.CreateTransaction(txmgr.TxRequest{
+		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
 			FeeLimit:       gasLimit,
 			Meta:           nil,
 			Strategy:       strategy,
-		}, pg.WithParentCtx(context.Background()))
+		})
 		assert.NoError(t, err)
 
 		require.Equal(t, payload, etx.EncodedPayload)
@@ -559,9 +559,9 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		cltest.MustInsertUnconfirmedEthTxWithInsufficientEthAttempt(t, txStore, 0, thisKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
-		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(int64(0), nil)
 
-		etx, err := txm.CreateTransaction(txmgr.TxRequest{
+		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -580,10 +580,10 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		cltest.MustInsertConfirmedEthTxWithLegacyAttempt(t, txStore, 0, 42, thisKey.Address)
 		strategy := newMockTxStrategy(t)
 		strategy.On("Subject").Return(uuid.NullUUID{})
-		strategy.On("PruneQueue", mock.Anything, mock.AnythingOfType("pg.QOpt")).Return(int64(0), nil)
+		strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(int64(0), nil)
 
 		evmConfig.maxQueued = uint64(1)
-		etx, err := txm.CreateTransaction(txmgr.TxRequest{
+		etx, err := txm.CreateTransaction(testutils.Context(t), txmgr.TxRequest{
 			FromAddress:    evmFromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
@@ -674,8 +674,8 @@ func TestTxm_Reset(t *testing.T) {
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 
-	_, addr := cltest.MustInsertRandomKey(t, kst.Eth(), 5)
-	_, addr2 := cltest.MustInsertRandomKey(t, kst.Eth(), 3)
+	_, addr := cltest.RandomKey{Nonce: 5}.MustInsert(t, kst.Eth())
+	_, addr2 := cltest.RandomKey{Nonce: 3}.MustInsert(t, kst.Eth())
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	// 4 confirmed tx from addr1
 	for i := int64(0); i < 4; i++ {

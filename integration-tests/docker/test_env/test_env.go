@@ -46,7 +46,7 @@ type CLClusterTestEnv struct {
 	CLNodes          []*ClNode
 	Geth             *test_env.Geth          // for tests using --dev networks
 	PrivateChain     []test_env.PrivateChain // for tests using non-dev networks
-	MockServer       *test_env.MockServer
+	MockAdapter      *test_env.Killgrave
 	EVMClient        blockchain.EVMClient
 	ContractDeployer contracts.ContractDeployer
 	ContractLoader   contracts.ContractLoader
@@ -62,20 +62,20 @@ func NewTestEnv() (*CLClusterTestEnv, error) {
 	}
 	n := []string{network.Name}
 	return &CLClusterTestEnv{
-		Geth:       test_env.NewGeth(n),
-		MockServer: test_env.NewMockServer(n),
-		Network:    network,
-		l:          log.Logger,
+		Geth:        test_env.NewGeth(n),
+		MockAdapter: test_env.NewKillgrave(n, ""),
+		Network:     network,
+		l:           log.Logger,
 	}, nil
 }
 
 // WithTestEnvConfig sets the test environment cfg.
-// Sets up the Geth and MockServer containers with the provided cfg.
+// Sets up the Geth and MockAdapter containers with the provided cfg.
 func (te *CLClusterTestEnv) WithTestEnvConfig(cfg *TestEnvConfig) *CLClusterTestEnv {
 	te.Cfg = cfg
 	n := []string{te.Network.Name}
-	te.Geth = test_env.NewGeth(n, test_env.WithContainerName(cfg.Geth.ContainerName))
-	te.MockServer = test_env.NewMockServer(n, test_env.WithContainerName(cfg.MockServer.ContainerName))
+	te.Geth = test_env.NewGeth(n, test_env.WithContainerName(te.Cfg.Geth.ContainerName))
+	te.MockAdapter = test_env.NewKillgrave(n, te.Cfg.MockAdapter.ImpostersPath, test_env.WithContainerName(te.Cfg.MockAdapter.ContainerName))
 	return te
 }
 
@@ -83,7 +83,7 @@ func (te *CLClusterTestEnv) WithTestLogger(t *testing.T) *CLClusterTestEnv {
 	te.t = t
 	te.l = logging.GetTestLogger(t)
 	te.Geth.WithTestLogger(t)
-	te.MockServer.WithTestLogger(t)
+	te.MockAdapter.WithTestLogger(t)
 	return te
 }
 
@@ -135,8 +135,8 @@ func (te *CLClusterTestEnv) StartGeth() (blockchain.EVMNetwork, test_env.Interna
 	return te.Geth.StartContainer()
 }
 
-func (te *CLClusterTestEnv) StartMockServer() error {
-	return te.MockServer.StartContainer()
+func (te *CLClusterTestEnv) StartMockAdapter() error {
+	return te.MockAdapter.StartContainer()
 }
 
 func (te *CLClusterTestEnv) GetAPIs() []*client.ChainlinkClient {
@@ -231,83 +231,103 @@ func (te *CLClusterTestEnv) Terminate() error {
 	return nil
 }
 
-// Cleanup cleans the environment up after it's done being used, mainly for returning funds when on live networks.
-// Intended to be used as part of t.Cleanup() in tests.
-func (te *CLClusterTestEnv) Cleanup(t *testing.T) error {
-	if te.EVMClient == nil {
-		return errors.New("blockchain client is nil, unable to return funds from chainlink nodes")
+// Cleanup cleans the environment up after it's done being used, mainly for returning funds when on live networks and logs.
+func (te *CLClusterTestEnv) Cleanup() error {
+	te.l.Info().Msg("Cleaning up test environment")
+	if te.t == nil {
+		return errors.New("cannot cleanup test environment without a testing.T")
 	}
 	if te.CLNodes == nil {
-		return errors.New("chainlink nodes are nil, unable to return funds from chainlink nodes")
+		return errors.New("chainlink nodes are nil, unable cleanup chainlink nodes")
 	}
 
 	// TODO: This is an imperfect and temporary solution, see TT-590 for a more sustainable solution
 	// Collect logs if the test fails, or if we just want them
-	if t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
-		folder := fmt.Sprintf("./logs/%s-%s", t.Name(), time.Now().Format("2006-01-02T15-04-05"))
-		if err := os.MkdirAll(folder, os.ModePerm); err != nil {
+	if te.t.Failed() || os.Getenv("TEST_LOG_COLLECT") == "true" {
+		if err := te.collectTestLogs(); err != nil {
 			return err
 		}
-
-		te.l.Info().Msg("Collecting test logs")
-		eg := &errgroup.Group{}
-		for _, n := range te.CLNodes {
-			node := n
-			eg.Go(func() error {
-				logFileName := filepath.Join(folder, fmt.Sprintf("node-%s.log", node.ContainerName))
-				logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY, 0644)
-				if err != nil {
-					return err
-				}
-				defer logFile.Close()
-				logReader, err := node.Container.Logs(context.Background())
-				if err != nil {
-					return err
-				}
-				_, err = io.Copy(logFile, logReader)
-				if err != nil {
-					return err
-				}
-				te.l.Info().Str("Node", node.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
-				return nil
-			})
-		}
-
-		if err := eg.Wait(); err != nil {
-			return err
-		}
-
-		te.l.Info().Str("Logs Location", folder).Msg("Wrote test logs")
 	}
 
-	// Check if we need to return funds
-	if te.EVMClient.NetworkSimulated() {
-		te.l.Info().Str("Network Name", te.EVMClient.GetNetworkName()).
+	if te.EVMClient == nil {
+		return errors.New("evm client is nil, unable to return funds from chainlink nodes during cleanup")
+	} else if te.EVMClient.NetworkSimulated() {
+		te.l.Info().
+			Str("Network Name", te.EVMClient.GetNetworkName()).
 			Msg("Network is a simulated network. Skipping fund return.")
 	} else {
-		te.l.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
-		for _, chainlinkNode := range te.CLNodes {
-			fundedKeys, err := chainlinkNode.API.ExportEVMKeysForChain(te.EVMClient.GetChainID().String())
+		if err := te.returnFunds(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// collectTestLogs collects the logs from all the Chainlink nodes in the test environment and writes them to local files
+func (te *CLClusterTestEnv) collectTestLogs() error {
+	te.l.Info().Msg("Collecting test logs")
+	folder := fmt.Sprintf("./logs/%s-%s", te.t.Name(), time.Now().Format("2006-01-02T15-04-05"))
+	if err := os.MkdirAll(folder, os.ModePerm); err != nil {
+		return err
+	}
+
+	eg := &errgroup.Group{}
+	for _, n := range te.CLNodes {
+		node := n
+		eg.Go(func() error {
+			logFileName := filepath.Join(folder, fmt.Sprintf("node-%s.log", node.ContainerName))
+			logFile, err := os.OpenFile(logFileName, os.O_CREATE|os.O_WRONLY, 0644)
 			if err != nil {
 				return err
 			}
-			for _, key := range fundedKeys {
-				keyToDecrypt, err := json.Marshal(key)
-				if err != nil {
-					return err
-				}
-				// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
-				// issues. So we avoid running in parallel; slower, but safer.
-				decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
-				if err != nil {
-					return err
-				}
-				if err = te.EVMClient.ReturnFunds(decryptedKey.PrivateKey); err != nil {
-					return err
-				}
+			defer logFile.Close()
+			logReader, err := node.Container.Logs(context.Background())
+			if err != nil {
+				return err
+			}
+			_, err = io.Copy(logFile, logReader)
+			if err != nil {
+				return err
+			}
+			te.l.Info().Str("Node", node.ContainerName).Str("File", logFileName).Msg("Wrote Logs")
+			return nil
+		})
+	}
+
+	if err := eg.Wait(); err != nil {
+		return err
+	}
+
+	te.l.Info().Str("Logs Location", folder).Msg("Wrote test logs")
+	return nil
+}
+
+func (te *CLClusterTestEnv) returnFunds() error {
+	te.l.Info().Msg("Attempting to return Chainlink node funds to default network wallets")
+	for _, chainlinkNode := range te.CLNodes {
+		fundedKeys, err := chainlinkNode.API.ExportEVMKeysForChain(te.EVMClient.GetChainID().String())
+		if err != nil {
+			return err
+		}
+		for _, key := range fundedKeys {
+			keyToDecrypt, err := json.Marshal(key)
+			if err != nil {
+				return err
+			}
+			// This can take up a good bit of RAM and time. When running on the remote-test-runner, this can lead to OOM
+			// issues. So we avoid running in parallel; slower, but safer.
+			decryptedKey, err := keystore.DecryptKey(keyToDecrypt, client.ChainlinkKeyPassword)
+			if err != nil {
+				return err
+			}
+			if err = te.EVMClient.ReturnFunds(decryptedKey.PrivateKey); err != nil {
+				// If we fail to return funds from one, go on to try the others anyway
+				te.l.Error().Err(err).Str("Node", chainlinkNode.ContainerName).Msg("Error returning funds from node")
 			}
 		}
 	}
 
+	te.l.Info().Msg("Returned funds from Chainlink nodes")
 	return nil
 }

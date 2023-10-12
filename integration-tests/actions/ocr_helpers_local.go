@@ -3,6 +3,7 @@ package actions
 import (
 	"fmt"
 	"math/big"
+	"net/http"
 	"strings"
 
 	"github.com/ethereum/go-ethereum"
@@ -13,7 +14,8 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -35,7 +37,10 @@ func FundChainlinkNodesLocal(
 		if err != nil {
 			return err
 		}
-		gasEstimates, err := client.EstimateGas(ethereum.CallMsg{})
+		toAddr := common.HexToAddress(toAddress)
+		gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
+			To: &toAddr,
+		})
 		if err != nil {
 			return err
 		}
@@ -142,7 +147,7 @@ func CreateOCRJobsLocal(
 	bootstrapNode *client.ChainlinkClient,
 	workerNodes []*client.ChainlinkClient,
 	mockValue int,
-	mockserver *ctfClient.MockserverClient,
+	mockAdapter *test_env.Killgrave,
 	evmChainID string,
 ) error {
 	for _, ocrInstance := range ocrInstances {
@@ -185,9 +190,9 @@ func CreateOCRJobsLocal(
 			}
 			bta := &client.BridgeTypeAttributes{
 				Name: nodeContractPairID,
-				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, strings.TrimPrefix(nodeContractPairID, "/")),
+				URL:  fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, strings.TrimPrefix(nodeContractPairID, "/")),
 			}
-			err = SetAdapterResponseLocal(mockValue, ocrInstance, node, mockserver)
+			err = SetAdapterResponseLocal(mockValue, ocrInstance, node, mockAdapter)
 			if err != nil {
 				return fmt.Errorf("setting adapter response for OCR node failed: %w", err)
 			}
@@ -268,16 +273,16 @@ func SetAdapterResponseLocal(
 	response int,
 	ocrInstance contracts.OffchainAggregator,
 	chainlinkNode *client.ChainlinkClient,
-	mockserver *ctfClient.MockserverClient,
+	mockAdapter *test_env.Killgrave,
 ) error {
 	nodeContractPairID, err := BuildNodeContractPairIDLocal(chainlinkNode, ocrInstance)
 	if err != nil {
 		return err
 	}
 	path := fmt.Sprintf("/%s", nodeContractPairID)
-	err = mockserver.SetValuePath(path, response)
+	err = mockAdapter.SetAdapterBasedIntValuePath(path, []string{http.MethodGet, http.MethodPost}, response)
 	if err != nil {
-		return fmt.Errorf("setting mockserver value path failed: %w", err)
+		return fmt.Errorf("setting mock adapter value path failed: %w", err)
 	}
 	return nil
 }
@@ -286,7 +291,7 @@ func SetAllAdapterResponsesToTheSameValueLocal(
 	response int,
 	ocrInstances []contracts.OffchainAggregator,
 	chainlinkNodes []*client.ChainlinkClient,
-	mockserver *ctfClient.MockserverClient,
+	mockAdapter *test_env.Killgrave,
 ) error {
 	eg := &errgroup.Group{}
 	for _, o := range ocrInstances {
@@ -294,7 +299,7 @@ func SetAllAdapterResponsesToTheSameValueLocal(
 		for _, n := range chainlinkNodes {
 			node := n
 			eg.Go(func() error {
-				return SetAdapterResponseLocal(response, ocrInstance, node, mockserver)
+				return SetAdapterResponseLocal(response, ocrInstance, node, mockAdapter)
 			})
 		}
 	}
@@ -392,7 +397,7 @@ func CreateOCRJobsWithForwarderLocal(
 	bootstrapNode *client.ChainlinkClient,
 	workerNodes []*client.ChainlinkClient,
 	mockValue int,
-	mockserver *ctfClient.MockserverClient,
+	mockAdapter *test_env.Killgrave,
 	evmChainID string,
 ) error {
 	for _, ocrInstance := range ocrInstances {
@@ -435,9 +440,9 @@ func CreateOCRJobsWithForwarderLocal(
 			}
 			bta := &client.BridgeTypeAttributes{
 				Name: nodeContractPairID,
-				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, strings.TrimPrefix(nodeContractPairID, "/")),
+				URL:  fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, strings.TrimPrefix(nodeContractPairID, "/")),
 			}
-			err = SetAdapterResponseLocal(mockValue, ocrInstance, node, mockserver)
+			err = SetAdapterResponseLocal(mockValue, ocrInstance, node, mockAdapter)
 			if err != nil {
 				return err
 			}

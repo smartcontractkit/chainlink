@@ -27,7 +27,6 @@ import (
 
 	evmClientMocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -40,8 +39,6 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 	addr := common.HexToAddress("0x6cA639822c6C241Fa9A7A6b5032F6F7F1C513CAD")
 	keeperRegistryABI, err := abi.JSON(strings.NewReader(i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMasterABI))
 	require.Nil(t, err, "need registry abi")
-	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
-	require.Nil(t, err, "need utils abi")
 	streamsLookupCompatibleABI, err := abi.JSON(strings.NewReader(streams_lookup_compatible_interface.StreamsLookupCompatibleInterfaceABI))
 	require.Nil(t, err, "need mercury abi")
 	var logPoller logpoller.LogPoller
@@ -58,7 +55,7 @@ func setupEVMRegistry(t *testing.T) *EvmRegistry {
 		registry:     mockReg,
 		abi:          keeperRegistryABI,
 		active:       NewActiveUpkeepList(),
-		packer:       encoding.NewAbiPacker(keeperRegistryABI, utilsABI),
+		packer:       encoding.NewAbiPacker(),
 		headFunc:     func(ocr2keepers.BlockKey) {},
 		chLog:        make(chan logpoller.Log, 1000),
 		mercury: &MercuryConfig{
@@ -257,44 +254,6 @@ func TestEvmRegistry_StreamsLookup(t *testing.T) {
 	}
 }
 
-func TestEvmRegistry_DecodeStreamsLookup(t *testing.T) {
-	tests := []struct {
-		name     string
-		data     []byte
-		expected *StreamsLookup
-		state    encoding.PipelineExecutionState
-		err      error
-	}{
-		{
-			name: "success - decode to streams lookup",
-			data: hexutil.MustDecode("0xf055e4a200000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002400000000000000000000000000000000000000000000000000000000002435eb50000000000000000000000000000000000000000000000000000000000000280000000000000000000000000000000000000000000000000000000000000000966656564496448657800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000423078343535343438326435353533343432643431353234323439353435323535346432643534343535333534346534353534303030303030303030303030303030300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000042307834323534343332643535353334343264343135323432343935343532353534643264353434353533353434653435353430303030303030303030303030303030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b626c6f636b4e756d62657200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000064000000000000000000000000"),
-			expected: &StreamsLookup{
-				feedParamKey: feedIdHex,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: blockNumber,
-				time:         big.NewInt(37969589),
-				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
-			},
-		},
-		{
-			name: "failure - unpack error",
-			data: []byte{1, 2, 3, 4},
-			err:  errors.New("unpack error: invalid data for unpacking"),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := setupEVMRegistry(t)
-			fl, err := r.decodeStreamsLookup(tt.data)
-			assert.Equal(t, tt.expected, fl)
-			if tt.err != nil {
-				assert.Equal(t, tt.err.Error(), err.Error())
-			}
-		})
-	}
-}
-
 func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 	upkeepId, ok := new(big.Int).SetString("71022726777042968814359024671382968091267501884371696415772139504780367423725", 10)
 	assert.True(t, ok, t.Name())
@@ -431,12 +390,14 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 		{
 			name: "success",
 			lookup: &StreamsLookup{
-				feedParamKey: feedIdHex,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: blockNumber,
-				time:         big.NewInt(25880526),
-				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(25880526),
+					ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				},
+				upkeepId: upkeepId,
 			},
 			mockHttpStatusCode: http.StatusOK,
 			mockChainlinkBlobs: []string{"0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000081401000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000289ad8d367000000000000000000000000000000000000000000000000000000289acf0b38000000000000000000000000000000000000000000000000000000289b3da40000000000000000000000000000000000000000000000000000000000018ae7ce74d9fa252a8983976eab600dc7590c778d04813430841bc6e765c34cd81a168d00000000000000000000000000000000000000000000000000000000018ae7cb0000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000000000000260412b94e525ca6cedc9f544fd86f77606d52fe731a5d069dbe836a8bfc0fb8c911963b0ae7a14971f3b4621bffb802ef0605392b9a6c89c7fab1df8633a5ade00000000000000000000000000000000000000000000000000000000000000024500c2f521f83fba5efc2bf3effaaedde43d0a4adff785c1213b712a3aed0d8157642a84324db0cf9695ebd27708d4608eb0337e0dd87b0e43f0fa70c700d911"},
@@ -447,12 +408,14 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 		{
 			name: "failure - retryable",
 			lookup: &StreamsLookup{
-				feedParamKey: feedIdHex,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: blockNumber,
-				time:         big.NewInt(25880526),
-				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(25880526),
+					ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				},
+				upkeepId: upkeepId,
 			},
 			mockHttpStatusCode: http.StatusInternalServerError,
 			mockChainlinkBlobs: []string{"0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000081401000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000289ad8d367000000000000000000000000000000000000000000000000000000289acf0b38000000000000000000000000000000000000000000000000000000289b3da40000000000000000000000000000000000000000000000000000000000018ae7ce74d9fa252a8983976eab600dc7590c778d04813430841bc6e765c34cd81a168d00000000000000000000000000000000000000000000000000000000018ae7cb0000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000000000000260412b94e525ca6cedc9f544fd86f77606d52fe731a5d069dbe836a8bfc0fb8c911963b0ae7a14971f3b4621bffb802ef0605392b9a6c89c7fab1df8633a5ade00000000000000000000000000000000000000000000000000000000000000024500c2f521f83fba5efc2bf3effaaedde43d0a4adff785c1213b712a3aed0d8157642a84324db0cf9695ebd27708d4608eb0337e0dd87b0e43f0fa70c700d911"},
@@ -464,12 +427,14 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 		{
 			name: "failure - not retryable",
 			lookup: &StreamsLookup{
-				feedParamKey: feedIdHex,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: blockNumber,
-				time:         big.NewInt(25880526),
-				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(25880526),
+					ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				},
+				upkeepId: upkeepId,
 			},
 			mockHttpStatusCode: http.StatusBadGateway,
 			mockChainlinkBlobs: []string{"0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000081401000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000289ad8d367000000000000000000000000000000000000000000000000000000289acf0b38000000000000000000000000000000000000000000000000000000289b3da40000000000000000000000000000000000000000000000000000000000018ae7ce74d9fa252a8983976eab600dc7590c778d04813430841bc6e765c34cd81a168d00000000000000000000000000000000000000000000000000000000018ae7cb0000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000000000000260412b94e525ca6cedc9f544fd86f77606d52fe731a5d069dbe836a8bfc0fb8c911963b0ae7a14971f3b4621bffb802ef0605392b9a6c89c7fab1df8633a5ade00000000000000000000000000000000000000000000000000000000000000024500c2f521f83fba5efc2bf3effaaedde43d0a4adff785c1213b712a3aed0d8157642a84324db0cf9695ebd27708d4608eb0337e0dd87b0e43f0fa70c700d911"},
@@ -481,12 +446,14 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 		{
 			name: "failure - no feeds",
 			lookup: &StreamsLookup{
-				feedParamKey: feedIdHex,
-				feeds:        []string{},
-				timeParamKey: blockNumber,
-				time:         big.NewInt(25880526),
-				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIdHex,
+					Feeds:        []string{},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(25880526),
+					ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				},
+				upkeepId: upkeepId,
 			},
 			expectedValues: [][]byte{},
 			reason:         encoding.UpkeepFailureReasonInvalidRevertDataInput,
@@ -494,12 +461,14 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 		{
 			name: "failure - invalid revert data",
 			lookup: &StreamsLookup{
-				feedParamKey: feedIDs,
-				feeds:        []string{},
-				timeParamKey: blockNumber,
-				time:         big.NewInt(25880526),
-				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIDs,
+					Feeds:        []string{},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(25880526),
+					ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				},
+				upkeepId: upkeepId,
 			},
 			expectedValues: [][]byte{},
 			reason:         encoding.UpkeepFailureReasonInvalidRevertDataInput,
@@ -557,11 +526,13 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			name:  "success - mercury responds in the first try",
 			index: 0,
 			lookup: &StreamsLookup{
-				feedParamKey: feedIdHex,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: blockNumber,
-				time:         big.NewInt(123456),
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
 			},
 			blob: "0xab2123dc00000012",
 		},
@@ -569,11 +540,13 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			name:  "success - retry for 404",
 			index: 0,
 			lookup: &StreamsLookup{
-				feedParamKey: feedIdHex,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: blockNumber,
-				time:         big.NewInt(123456),
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
 			},
 			blob:           "0xab2123dcbabbad",
 			retryNumber:    1,
@@ -584,11 +557,13 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			name:  "success - retry for 500",
 			index: 0,
 			lookup: &StreamsLookup{
-				feedParamKey: feedIdHex,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: blockNumber,
-				time:         big.NewInt(123456),
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
 			},
 			blob:           "0xab2123dcbbabad",
 			retryNumber:    2,
@@ -599,11 +574,13 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			name:  "failure - returns retryable",
 			index: 0,
 			lookup: &StreamsLookup{
-				feedParamKey: feedIdHex,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: blockNumber,
-				time:         big.NewInt(123456),
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
 			},
 			blob:         "0xab2123dc",
 			retryNumber:  totalAttempt,
@@ -615,11 +592,13 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			name:  "failure - returns retryable and then non-retryable",
 			index: 0,
 			lookup: &StreamsLookup{
-				feedParamKey: feedIdHex,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: blockNumber,
-				time:         big.NewInt(123456),
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
 			},
 			blob:           "0xab2123dc",
 			retryNumber:    1,
@@ -631,11 +610,13 @@ func TestEvmRegistry_SingleFeedRequest(t *testing.T) {
 			name:  "failure - returns not retryable",
 			index: 0,
 			lookup: &StreamsLookup{
-				feedParamKey: feedIdHex,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: blockNumber,
-				time:         big.NewInt(123456),
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
 			},
 			blob:         "0xab2123dc",
 			statusCode:   http.StatusBadGateway,
@@ -722,11 +703,13 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		{
 			name: "success - mercury responds in the first try",
 			lookup: &StreamsLookup{
-				feedParamKey: feedIDs,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: timestamp,
-				time:         big.NewInt(123456),
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: timestamp,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
 			},
 			response: &MercuryV03Response{
 				Reports: []MercuryV03Report{
@@ -749,11 +732,13 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		{
 			name: "success - retry for 500",
 			lookup: &StreamsLookup{
-				feedParamKey: feedIDs,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: timestamp,
-				time:         big.NewInt(123456),
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: timestamp,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
 			},
 			retryNumber:    2,
 			statusCode:     http.StatusInternalServerError,
@@ -778,11 +763,13 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		{
 			name: "failure - fail to decode reportBlob",
 			lookup: &StreamsLookup{
-				feedParamKey: feedIDs,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: timestamp,
-				time:         big.NewInt(123456),
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: timestamp,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
 			},
 			response: &MercuryV03Response{
 				Reports: []MercuryV03Report{
@@ -807,11 +794,13 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		{
 			name: "failure - returns retryable",
 			lookup: &StreamsLookup{
-				feedParamKey: feedIDs,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: timestamp,
-				time:         big.NewInt(123456),
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: timestamp,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
 			},
 			retryNumber:  totalAttempt,
 			statusCode:   http.StatusInternalServerError,
@@ -821,11 +810,13 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		{
 			name: "failure - returns retryable and then non-retryable",
 			lookup: &StreamsLookup{
-				feedParamKey: feedIDs,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: timestamp,
-				time:         big.NewInt(123456),
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: timestamp,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
 			},
 			retryNumber:    1,
 			statusCode:     http.StatusInternalServerError,
@@ -835,11 +826,13 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		{
 			name: "failure - returns status code 420 not retryable",
 			lookup: &StreamsLookup{
-				feedParamKey: feedIDs,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: timestamp,
-				time:         big.NewInt(123456),
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: timestamp,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
 			},
 			statusCode:   420,
 			errorMessage: "All attempts fail:\n#1: at timestamp 123456 upkeep 123456789 received status code 420 from mercury v0.3, most likely this is caused by missing/malformed query args, missing or bad required headers, non-existent feeds, or no permissions for feeds",
@@ -847,11 +840,13 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		{
 			name: "failure - returns status code 502 not retryable",
 			lookup: &StreamsLookup{
-				feedParamKey: feedIDs,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: timestamp,
-				time:         big.NewInt(123456),
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: timestamp,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
 			},
 			statusCode:   http.StatusBadGateway,
 			errorMessage: "All attempts fail:\n#1: at timestamp 123456 upkeep 123456789 received status code 502 from mercury v0.3",
@@ -859,11 +854,13 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 		{
 			name: "success - retry when reports length does not match feeds length",
 			lookup: &StreamsLookup{
-				feedParamKey: feedIDs,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: timestamp,
-				time:         big.NewInt(123456),
-				upkeepId:     upkeepId,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: timestamp,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
 			},
 			firstResponse: &MercuryV03Response{
 				Reports: []MercuryV03Report{
@@ -992,13 +989,15 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 		{
 			name: "success - empty extra data",
 			lookup: &StreamsLookup{
-				feedParamKey: feedIdHex,
-				feeds:        []string{"ETD-USD", "BTC-ETH"},
-				timeParamKey: blockNumber,
-				time:         big.NewInt(100),
-				extraData:    []byte{48, 120, 48, 48},
-				upkeepId:     upkeepId,
-				block:        bn,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIdHex,
+					Feeds:        []string{"ETD-USD", "BTC-ETH"},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(100),
+					ExtraData:    []byte{48, 120, 48, 48},
+				},
+				upkeepId: upkeepId,
+				block:    bn,
 			},
 			values:       values,
 			statusCode:   http.StatusOK,
@@ -1010,14 +1009,16 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 		{
 			name: "success - with extra data",
 			lookup: &StreamsLookup{
-				feedParamKey: feedIdHex,
-				feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
-				timeParamKey: blockNumber,
-				time:         big.NewInt(18952430),
-				// this is the address of precompile contract ArbSys(0x0000000000000000000000000000000000000064)
-				extraData: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
-				upkeepId:  upkeepId,
-				block:     bn,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIdHex,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(18952430),
+					// this is the address of precompile contract ArbSys(0x0000000000000000000000000000000000000064)
+					ExtraData: []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				},
+				upkeepId: upkeepId,
+				block:    bn,
 			},
 			values:       values,
 			statusCode:   http.StatusOK,
@@ -1029,13 +1030,15 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 		{
 			name: "failure - bad response",
 			lookup: &StreamsLookup{
-				feedParamKey: feedIdHex,
-				feeds:        []string{"ETD-USD", "BTC-ETH"},
-				timeParamKey: blockNumber,
-				time:         big.NewInt(100),
-				extraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-				upkeepId:     upkeepId,
-				block:        bn,
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIdHex,
+					Feeds:        []string{"ETD-USD", "BTC-ETH"},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(100),
+					ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 48, 120, 48, 48, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				},
+				upkeepId: upkeepId,
+				block:    bn,
 			},
 			values:       values,
 			statusCode:   http.StatusOK,
@@ -1051,7 +1054,7 @@ func TestEvmRegistry_CheckCallback(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := new(evmClientMocks.Client)
 			r := setupEVMRegistry(t)
-			payload, err := r.abi.Pack("checkCallback", tt.lookup.upkeepId, values, tt.lookup.extraData)
+			payload, err := r.abi.Pack("checkCallback", tt.lookup.upkeepId, values, tt.lookup.ExtraData)
 			require.Nil(t, err)
 			args := map[string]interface{}{
 				"to":   r.addr.Hex(),

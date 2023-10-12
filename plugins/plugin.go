@@ -3,8 +3,6 @@ package plugins
 import (
 	"sync"
 
-	"golang.org/x/exp/maps"
-
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -32,7 +30,7 @@ func (p *Base) HealthReport() map[string]error {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 	for _, s := range p.srvs {
-		maps.Copy(hr, s.HealthReport())
+		services.CopyHealth(hr, s.HealthReport())
 	}
 	return hr
 }

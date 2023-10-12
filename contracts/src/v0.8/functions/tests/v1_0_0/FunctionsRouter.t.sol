@@ -1127,7 +1127,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
     emit RequestProcessed({
       requestId: requestId,
       subscriptionId: s_subscriptionId,
-      totalCostJuels: _getExpectedCost(1379), // gasUsed is manually taken
+      totalCostJuels: _getExpectedCost(1822), // gasUsed is manually taken
       transmitter: NOP_TRANSMITTER_ADDRESS_1,
       resultCode: FunctionsResponse.FulfillResult.USER_CALLBACK_ERROR,
       response: bytes(response),
@@ -1237,7 +1237,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
     emit RequestProcessed({
       requestId: s_requests[requestToFulfill].requestId,
       subscriptionId: s_subscriptionId,
-      totalCostJuels: _getExpectedCost(5371), // gasUsed is manually taken
+      totalCostJuels: _getExpectedCost(5393), // gasUsed is manually taken
       transmitter: NOP_TRANSMITTER_ADDRESS_1,
       resultCode: FunctionsResponse.FulfillResult.FULFILLED,
       response: bytes(response),

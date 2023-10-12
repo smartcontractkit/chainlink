@@ -591,6 +591,20 @@ func (_m *Node) SubscribeFilterLogs(ctx context.Context, q ethereum.FilterQuery,
 	return r0, r1
 }
 
+// SubscribersCount provides a mock function with given fields:
+func (_m *Node) SubscribersCount() int32 {
+	ret := _m.Called()
+
+	var r0 int32
+	if rf, ok := ret.Get(0).(func() int32); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(int32)
+	}
+
+	return r0
+}
+
 // SuggestGasPrice provides a mock function with given fields: ctx
 func (_m *Node) SuggestGasPrice(ctx context.Context) (*big.Int, error) {
 	ret := _m.Called(ctx)
@@ -693,6 +707,11 @@ func (_m *Node) TransactionReceipt(ctx context.Context, txHash common.Hash) (*ty
 	}
 
 	return r0, r1
+}
+
+// UnsubscribeAllExceptAliveLoop provides a mock function with given fields:
+func (_m *Node) UnsubscribeAllExceptAliveLoop() {
+	_m.Called()
 }
 
 type mockConstructorTestingTNewNode interface {

@@ -3,13 +3,13 @@ package cosmos
 import (
 	"fmt"
 	"net/url"
+	"slices"
 	"time"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/shopspring/decimal"
 	"go.uber.org/multierr"
-	"golang.org/x/exp/slices"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"

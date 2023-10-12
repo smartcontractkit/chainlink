@@ -4,6 +4,7 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
+	"net/http"
 	"strings"
 	"time"
 
@@ -12,13 +13,13 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
 
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -31,9 +32,9 @@ func CreateOCRv2JobsLocal(
 	ocrInstances []contracts.OffchainAggregatorV2,
 	bootstrapNode *client.ChainlinkClient,
 	workerChainlinkNodes []*client.ChainlinkClient,
-	mockserver *ctfClient.MockserverClient,
-	mockServerPath string, // Path on the mock server for the Chainlink nodes to query
-	mockServerValue int, // Value to get from the mock server when querying the path
+	mockAdapter *test_env.Killgrave,
+	mockAdapterPath string, // Path on the mock server for the Chainlink nodes to query
+	mockAdapterValue int, // Value to get from the mock server when querying the path
 	chainId uint64, // EVM chain ID
 	forwardingAllowed bool,
 ) error {
@@ -44,12 +45,12 @@ func CreateOCRv2JobsLocal(
 	}
 	p2pV2Bootstrapper := fmt.Sprintf("%s@%s:%d", bootstrapP2PIds.Data[0].Attributes.PeerID, bootstrapNode.InternalIP(), 6690)
 	// Set the value for the jobs to report on
-	err = mockserver.SetValuePath(mockServerPath, mockServerValue)
+	err = mockAdapter.SetAdapterBasedIntValuePath(mockAdapterPath, []string{http.MethodGet, http.MethodPost}, mockAdapterValue)
 	if err != nil {
 		return err
 	}
 	// Set the juelsPerFeeCoinSource config value
-	err = mockserver.SetValuePath(fmt.Sprintf("%s/juelsPerFeeCoinSource", mockServerPath), mockServerValue)
+	err = mockAdapter.SetAdapterBasedIntValuePath(fmt.Sprintf("%s/juelsPerFeeCoinSource", mockAdapterPath), []string{http.MethodGet, http.MethodPost}, mockAdapterValue)
 	if err != nil {
 		return err
 	}
@@ -64,7 +65,7 @@ func CreateOCRv2JobsLocal(
 				RelayConfig: map[string]interface{}{
 					"chainID": chainId,
 				},
-				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, mockServerPath)),
+				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, mockAdapterPath)),
 				ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
 			},
 		}
@@ -85,12 +86,12 @@ func CreateOCRv2JobsLocal(
 			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
 
 			bta := &client.BridgeTypeAttributes{
-				Name: fmt.Sprintf("%s-%s", mockServerPath, uuid.NewString()),
-				URL:  fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, mockServerPath),
+				Name: fmt.Sprintf("%s-%s", mockAdapterPath, uuid.NewString()),
+				URL:  fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, mockAdapterPath),
 			}
 			juelsBridge := &client.BridgeTypeAttributes{
 				Name: fmt.Sprintf("juels-%s", uuid.NewString()),
-				URL:  fmt.Sprintf("%s/%s/juelsPerFeeCoinSource", mockserver.Config.ClusterURL, mockServerPath),
+				URL:  fmt.Sprintf("%s/%s/juelsPerFeeCoinSource", mockAdapter.InternalEndpoint, mockAdapterPath),
 			}
 			err = chainlinkNode.MustCreateBridge(bta)
 			if err != nil {

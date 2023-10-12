@@ -1,0 +1,116 @@
+name: On Demand VRFV2 Plus Load Test
+on:
+  workflow_dispatch:
+    inputs:
+      network:
+        description: Network to run tests on
+        type: choice
+        options:
+          - "ETHEREUM_MAINNET"
+          - "SIMULATED"
+          - "SEPOLIA"
+          - "OPTIMISM_MAINNET"
+          - "OPTIMISM_GOERLI"
+          - "ARBITRUM_MAINNET"
+          - "ARBITRUM_GOERLI"
+          - "BSC_MAINNET"
+          - "BSC_TESTNET"
+          - "POLYGON_MAINNET"
+          - "MUMBAI"
+          - "AVALANCHE_FUJI"
+          - "AVALANCHE_MAINNET"
+      fundingPrivateKey:
+        description: Private funding key (Skip for Simulated)
+        required: false
+        type: string
+      wsURL:
+        description: WS URL for the network (Skip for Simulated)
+        required: false
+        type: string
+      httpURL:
+        description: HTTP URL for the network (Skip for Simulated)
+        required: false
+        type: string
+      chainlinkImage:
+        description: Container image location for the Chainlink nodes
+        required: true
+        default: public.ecr.aws/chainlink/chainlink
+      chainlinkVersion:
+        description: Container image version for the Chainlink nodes
+        required: true
+        default: "2.5.0"
+      testDuration:
+        description: Duration of the test (time string)
+        required: false
+        default: 1m
+      chainlinkNodeFunding:
+        description: How much to fund each Chainlink node (in ETH)
+        required: false
+        default: ".1"
+      rps:
+        description: Requests Per Second
+        required: false
+        default: 1
+      rateLimitDuration:
+        description: How long to wait between requests
+        required: false
+        default: 1m
+      randomnessRequestCountPerRequest:
+        description: Randomness request Count per one TX request
+        required: false
+        default: 1
+jobs:
+  vrfv2plus_load_test:
+    name: ${{ inputs.network }} VRFV2 Plus Load Test
+    environment: integration
+    runs-on: ubuntu20.04-8cores-32GB
+    permissions:
+      checks: write
+      pull-requests: write
+      id-token: write
+      contents: read
+    env:
+      SELECTED_NETWORKS: ${{ inputs.network }}
+      VRFV2PLUS_TEST_DURATION: ${{ inputs.testDuration }}
+      VRFV2PLUS_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
+      VRFV2PLUS_RATE_LIMIT_UNIT_DURATION: ${{ inputs.rateLimitDuration }}
+      VRFV2PLUS_RPS: ${{ inputs.rps }}
+      VRFV2PLUS_RANDOMNESS_REQUEST_COUNT_PER_REQUEST: ${{ inputs.randomnessRequestCountPerRequest }}
+
+      TEST_LOG_LEVEL: debug
+      REF_NAME: ${{ github.head_ref || github.ref_name }}
+      ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
+
+      WASP_LOG_LEVEL: info
+    steps:
+      - name: Collect Metrics
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: ${{ inputs.network }} VRFV2 Plus Load Test
+        continue-on-error: true
+      - name: Get Inputs
+        run: |
+          EVM_URLS=$(jq -r '.inputs.wsURL' $GITHUB_EVENT_PATH)
+          EVM_HTTP_URLS=$(jq -r '.inputs.httpURL' $GITHUB_EVENT_PATH)
+          EVM_KEYS=$(jq -r '.inputs.fundingPrivateKey' $GITHUB_EVENT_PATH)
+
+          echo ::add-mask::$EVM_URLS
+          echo ::add-mask::$EVM_HTTP_URLS
+          echo ::add-mask::$EVM_KEYS
+
+          echo EVM_URLS=$EVM_URLS >> $GITHUB_ENV
+          echo EVM_HTTP_URLS=$EVM_HTTP_URLS >> $GITHUB_ENV
+          echo EVM_KEYS=$EVM_KEYS >> $GITHUB_ENV
+
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Run E2E soak tests
+        run: |
+          cd integration-tests/load/vrfv2plus
+          go test -v -timeout 8h -run TestVRFV2PlusLoad/vrfv2plus_soak_test
+

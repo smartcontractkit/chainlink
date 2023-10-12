@@ -142,6 +142,7 @@ contract VRF {
 
   // (base^exponent) % FIELD_SIZE
   // Cribbed from https://medium.com/@rbkhmrcr/precompiles-solidity-e5d29bd428c4
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function bigModExp(uint256 base, uint256 exponent) internal view returns (uint256 exponentiation) {
     uint256 callResult;
     uint256[6] memory bigModExpContractInputs;
@@ -153,7 +154,6 @@ contract VRF {
     bigModExpContractInputs[5] = FIELD_SIZE;
     uint256[1] memory output;
     assembly {
-      // solhint-disable-line no-inline-assembly
       callResult := staticcall(
         not(0), // Gas cost: no limit
         0x05, // Bigmodexp contract address
@@ -164,6 +164,7 @@ contract VRF {
       )
     }
     if (callResult == 0) {
+      // solhint-disable-next-line custom-errors
       revert("bigModExp failure!");
     }
     return output[0];
@@ -174,11 +175,13 @@ contract VRF {
   uint256 private constant SQRT_POWER = (FIELD_SIZE + 1) >> 2;
 
   // Computes a s.t. a^2 = x in the field. Assumes a exists
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function squareRoot(uint256 x) internal view returns (uint256) {
     return bigModExp(x, SQRT_POWER);
   }
 
   // The value of y^2 given that (x,y) is on secp256k1.
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function ySquared(uint256 x) internal pure returns (uint256) {
     // Curve is y^2=x^3+7. See section 2.4.1 of https://www.secg.org/sec2-v2.pdf
     uint256 xCubed = mulmod(x, mulmod(x, x, FIELD_SIZE), FIELD_SIZE);
@@ -186,15 +189,19 @@ contract VRF {
   }
 
   // True iff p is on secp256k1
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function isOnCurve(uint256[2] memory p) internal pure returns (bool) {
     // Section 2.3.6. in https://www.secg.org/sec1-v2.pdf
     // requires each ordinate to be in [0, ..., FIELD_SIZE-1]
+    // solhint-disable-next-line custom-errors
     require(p[0] < FIELD_SIZE, "invalid x-ordinate");
+    // solhint-disable-next-line custom-errors
     require(p[1] < FIELD_SIZE, "invalid y-ordinate");
     return ySquared(p[0]) == mulmod(p[1], p[1], FIELD_SIZE);
   }
 
   // Hash x uniformly into {0, ..., FIELD_SIZE-1}.
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fieldHash(bytes memory b) internal pure returns (uint256 x_) {
     x_ = uint256(keccak256(b));
     // Rejecting if x >= FIELD_SIZE corresponds to step 2.1 in section 2.3.4 of
@@ -211,6 +218,7 @@ contract VRF {
   // step 5.C, which references arbitrary_string_to_point, defined in
   // https://datatracker.ietf.org/doc/html/draft-irtf-cfrg-vrf-05#section-5.5 as
   // returning the point with given x ordinate, and even y ordinate.
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function newCandidateSecp256k1Point(bytes memory b) internal view returns (uint256[2] memory p) {
     unchecked {
       p[0] = fieldHash(b);
@@ -241,6 +249,7 @@ contract VRF {
   //
   // This would greatly simplify the analysis in "OTHER SECURITY CONSIDERATIONS"
   // https://www.pivotaltracker.com/story/show/171120900
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function hashToCurve(uint256[2] memory pk, uint256 input) internal view returns (uint256[2] memory rv) {
     rv = newCandidateSecp256k1Point(abi.encodePacked(HASH_TO_CURVE_HASH_PREFIX, pk, input));
     while (!isOnCurve(rv)) {
@@ -258,11 +267,13 @@ contract VRF {
    * @param product: secp256k1 expected to be multiplier * multiplicand
    * @return verifies true iff product==scalar*multiplicand, with cryptographically high probability
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function ecmulVerify(
     uint256[2] memory multiplicand,
     uint256 scalar,
     uint256[2] memory product
   ) internal pure returns (bool verifies) {
+    // solhint-disable-next-line custom-errors
     require(scalar != 0, "zero scalar"); // Rules out an ecrecover failure case
     uint256 x = multiplicand[0]; // x ordinate of multiplicand
     uint8 v = multiplicand[1] % 2 == 0 ? 27 : 28; // parity of y ordinate
@@ -278,6 +289,7 @@ contract VRF {
   }
 
   // Returns x1/z1-x2/z2=(x1z2-x2z1)/(z1z2) in projective coordinates on P¹(𝔽ₙ)
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function projectiveSub(
     uint256 x1,
     uint256 z1,
@@ -294,6 +306,7 @@ contract VRF {
   }
 
   // Returns x1/z1*x2/z2=(x1x2)/(z1z2), in projective coordinates on P¹(𝔽ₙ)
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function projectiveMul(
     uint256 x1,
     uint256 z1,
@@ -335,6 +348,7 @@ contract VRF {
         @return sy
         @return sz
     */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function projectiveECAdd(
     uint256 px,
     uint256 py,
@@ -391,6 +405,7 @@ contract VRF {
   //
   // p1 and p2 must be distinct, because projectiveECAdd doesn't handle
   // point doubling.
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function affineECAdd(
     uint256[2] memory p1,
     uint256[2] memory p2,
@@ -400,6 +415,7 @@ contract VRF {
     uint256 y;
     uint256 z;
     (x, y, z) = projectiveECAdd(p1[0], p1[1], p2[0], p2[1]);
+    // solhint-disable-next-line custom-errors
     require(mulmod(z, invZ, FIELD_SIZE) == 1, "invZ must be inverse of z");
     // Clear the z ordinate of the projective representation by dividing through
     // by it, to obtain the affine representation
@@ -408,6 +424,7 @@ contract VRF {
 
   // True iff address(c*p+s*g) == lcWitness, where g is generator. (With
   // cryptographically high probability.)
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function verifyLinearCombinationWithGenerator(
     uint256 c,
     uint256[2] memory p,
@@ -416,6 +433,7 @@ contract VRF {
   ) internal pure returns (bool) {
     // Rule out ecrecover failure modes which return address 0.
     unchecked {
+      // solhint-disable-next-line custom-errors
       require(lcWitness != address(0), "bad witness");
       uint8 v = (p[1] % 2 == 0) ? 27 : 28; // parity of y-ordinate of p
       // Note this cannot wrap (X - Y % X), but we use unchecked to save
@@ -440,6 +458,7 @@ contract VRF {
   // a proof with equal c*p1 and s*p2, they should retry with a different
   // proof nonce.) Assumes that all points are on secp256k1
   // (which is checked in verifyVRFProof below.)
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function linearCombination(
     uint256 c,
     uint256[2] memory p1,
@@ -451,8 +470,11 @@ contract VRF {
   ) internal pure returns (uint256[2] memory) {
     unchecked {
       // Note we are relying on the wrap around here
+      // solhint-disable-next-line custom-errors
       require((cp1Witness[0] % FIELD_SIZE) != (sp2Witness[0] % FIELD_SIZE), "points in sum must be distinct");
+      // solhint-disable-next-line custom-errors
       require(ecmulVerify(p1, c, cp1Witness), "First mul check failed");
+      // solhint-disable-next-line custom-errors
       require(ecmulVerify(p2, s, sp2Witness), "Second mul check failed");
       return affineECAdd(cp1Witness, sp2Witness, zInv);
     }
@@ -473,6 +495,7 @@ contract VRF {
   // using the compressed representation of the points, if we collated the y
   // parities into a single bytes32.
   // https://www.pivotaltracker.com/story/show/171120588
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function scalarFromCurvePoints(
     uint256[2] memory hash,
     uint256[2] memory pk,
@@ -492,6 +515,7 @@ contract VRF {
   // the x ordinate, and the parity of the y ordinate in the top bit of uWitness
   // (which I could make a uint256 without using any extra space.) Would save
   // about 2000 gas. https://www.pivotaltracker.com/story/show/170828567
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function verifyVRFProof(
     uint256[2] memory pk,
     uint256[2] memory gamma,
@@ -504,15 +528,20 @@ contract VRF {
     uint256 zInv
   ) internal view {
     unchecked {
+      // solhint-disable-next-line custom-errors
       require(isOnCurve(pk), "public key is not on curve");
+      // solhint-disable-next-line custom-errors
       require(isOnCurve(gamma), "gamma is not on curve");
+      // solhint-disable-next-line custom-errors
       require(isOnCurve(cGammaWitness), "cGammaWitness is not on curve");
+      // solhint-disable-next-line custom-errors
       require(isOnCurve(sHashWitness), "sHashWitness is not on curve");
       // Step 5. of IETF draft section 5.3 (pk corresponds to 5.3's Y, and here
       // we use the address of u instead of u itself. Also, here we add the
       // terms instead of taking the difference, and in the proof construction in
       // vrf.GenerateProof, we correspondingly take the difference instead of
       // taking the sum as they do in step 7 of section 5.1.)
+      // solhint-disable-next-line custom-errors
       require(verifyLinearCombinationWithGenerator(c, pk, s, uWitness), "addr(c*pk+s*g)!=_uWitness");
       // Step 4. of IETF draft section 5.3 (pk corresponds to Y, seed to alpha_string)
       uint256[2] memory hash = hashToCurve(pk, seed);
@@ -520,6 +549,7 @@ contract VRF {
       uint256[2] memory v = linearCombination(c, gamma, cGammaWitness, s, hash, sHashWitness, zInv);
       // Steps 7. and 8. of IETF draft section 5.3
       uint256 derivedC = scalarFromCurvePoints(hash, pk, gamma, uWitness, v);
+      // solhint-disable-next-line custom-errors
       require(c == derivedC, "invalid proof");
     }
   }
@@ -550,6 +580,7 @@ contract VRF {
      * @return output i.e., the random output implied by the proof
      * ***************************************************************************
      */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function randomValueFromVRFProof(Proof memory proof, uint256 seed) internal view returns (uint256 output) {
     verifyVRFProof(
       proof.pk,

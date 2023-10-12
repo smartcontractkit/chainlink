@@ -19,16 +19,11 @@ func TestOCRBasic(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
 		WithGeth().
-		WithMockServer(1).
+		WithMockAdapter().
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.1)).
 		Build()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := env.Cleanup(t); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 
 	env.ParallelTransactions(true)
 
@@ -43,7 +38,7 @@ func TestOCRBasic(t *testing.T) {
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockServer.Client, env.EVMClient.GetChainID().String())
+	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, env.EVMClient.GetChainID().String())
 	require.NoError(t, err)
 
 	err = actions.StartNewRound(1, ocrInstances, env.EVMClient, l)
@@ -53,7 +48,7 @@ func TestOCRBasic(t *testing.T) {
 	require.NoError(t, err, "Getting latest answer from OCR contract shouldn't fail")
 	require.Equal(t, int64(5), answer.Int64(), "Expected latest answer from OCR contract to be 5 but got %d", answer.Int64())
 
-	err = actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockServer.Client)
+	err = actions.SetAllAdapterResponsesToTheSameValueLocal(10, ocrInstances, workerNodes, env.MockAdapter)
 	require.NoError(t, err)
 	err = actions.StartNewRound(2, ocrInstances, env.EVMClient, l)
 	require.NoError(t, err)
