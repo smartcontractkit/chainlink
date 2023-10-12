@@ -28,6 +28,8 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 
+	"github.com/smartcontractkit/chainlink/v2/common/txmgr"
+	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -44,6 +46,7 @@ type Txm struct {
 	eb              pg.EventBroadcaster
 	sub             pg.Subscription
 	orm             *ORM
+	reaper          *txmgr.Reaper
 	lggr            logger.Logger
 	tc              func() (cosmosclient.ReaderWriter, error)
 	keystoreAdapter *KeystoreAdapter
@@ -56,10 +59,20 @@ type Txm struct {
 func NewTxm(db *sqlx.DB, tc func() (cosmosclient.ReaderWriter, error), gpe cosmosclient.ComposedGasPriceEstimator, chainID string, cfg coscfg.Config, ks loop.Keystore, lggr logger.Logger, logCfg pg.QConfig, eb pg.EventBroadcaster) *Txm {
 	lggr = logger.Named(lggr, "Txm")
 	keystoreAdapter := NewKeystoreAdapter(ks, cfg.Bech32Prefix())
+	orm := NewORM(chainID, db, lggr, logCfg)
+	corelggr, _ := corelogger.NewLogger()
+	reaper := txmgr.NewReaper(
+		corelggr.Named("Txm"),
+		orm,
+		/* finalityDepth= */ 0,
+		/* reaperInterval= */ 60*time.Minute,
+		/* reaperThreshold= */ 24*time.Hour)
+	reaper.SetLatestBlockNum(0)
 	return &Txm{
 		starter:         utils.StartStopOnce{},
 		eb:              eb,
-		orm:             NewORM(chainID, db, lggr, logCfg),
+		orm:             orm,
+		reaper:          reaper,
 		lggr:            lggr,
 		tc:              tc,
 		keystoreAdapter: keystoreAdapter,
@@ -77,6 +90,7 @@ func (txm *Txm) Start(context.Context) error {
 		if err != nil {
 			return err
 		}
+		txm.reaper.Start()
 		txm.sub = sub
 		go txm.run()
 		return nil

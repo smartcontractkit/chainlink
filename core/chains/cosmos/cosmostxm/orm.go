@@ -1,6 +1,9 @@
 package cosmostxm
 
 import (
+	"context"
+	"time"
+
 	"database/sql"
 
 	"github.com/pkg/errors"
@@ -101,4 +104,9 @@ func (o *ORM) UpdateMsgs(ids []int64, state db.State, txHash *string, qopts ...p
 		return errors.Errorf("expected %d records updated, got %d", len(ids), count)
 	}
 	return nil
+}
+
+func (o *ORM) ReapTxHistory(ctx context.Context, minBlockNumberToKeep int64, timeThreshold time.Time) error {
+	_, err := o.q.Exec(`DELETE FROM cosmos_msgs WHERE state = $1 AND updated_at < $2`, db.Confirmed, timeThreshold)
+	return err
 }
