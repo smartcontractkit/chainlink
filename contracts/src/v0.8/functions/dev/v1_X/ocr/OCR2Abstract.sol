@@ -61,37 +61,6 @@ abstract contract OCR2Abstract is ITypeAndVersion {
     virtual
     returns (uint32 configCount, uint32 blockNumber, bytes32 configDigest);
 
-  function _configDigestFromConfigData(
-    uint256 chainId,
-    address contractAddress,
-    uint64 configCount,
-    address[] memory signers,
-    address[] memory transmitters,
-    uint8 f,
-    bytes memory onchainConfig,
-    uint64 offchainConfigVersion,
-    bytes memory offchainConfig
-  ) internal pure returns (bytes32) {
-    uint256 h = uint256(
-      keccak256(
-        abi.encode(
-          chainId,
-          contractAddress,
-          configCount,
-          signers,
-          transmitters,
-          f,
-          onchainConfig,
-          offchainConfigVersion,
-          offchainConfig
-        )
-      )
-    );
-    uint256 prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
-    uint256 prefix = 0x0001 << (256 - 16); // 0x000100..00
-    return bytes32((prefix & prefixMask) | (h & ~prefixMask));
-  }
-
   /**
     * @notice optionally emited to indicate the latest configDigest and epoch for
      which a report was successfully transmited. Alternatively, the contract may

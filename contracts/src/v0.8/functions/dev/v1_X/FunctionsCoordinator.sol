@@ -16,6 +16,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
   using FunctionsResponse for FunctionsResponse.FulfillResult;
 
   /// @inheritdoc ITypeAndVersion
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "Functions Coordinator v1.0.0";
 
   event OracleRequest(
@@ -98,6 +99,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
     emit OracleRequest(
       commitment.requestId,
       request.requestingContract,
+      // solhint-disable-next-line avoid-tx-origin
       tx.origin,
       request.subscriptionId,
       request.subscriptionOwner,

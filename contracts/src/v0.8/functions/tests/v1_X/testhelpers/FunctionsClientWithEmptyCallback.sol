@@ -19,13 +19,13 @@ contract FunctionsClientWithEmptyCallback is FunctionsClient {
     uint32 callbackGasLimit
   ) public returns (bytes32 requestId) {
     FunctionsRequest.Request memory request;
-    request.initializeRequestForInlineJavaScript(sourceCode);
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    request._initializeRequestForInlineJavaScript(sourceCode);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
     requestId = _sendRequest(requestData, subscriptionId, callbackGasLimit, donId);
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
   }
 
-  function fulfillRequest(bytes32 /*requestId*/, bytes memory /*response*/, bytes memory /*err*/) internal override {
+  function _fulfillRequest(bytes32 /*requestId*/, bytes memory /*response*/, bytes memory /*err*/) internal override {
     // Do nothing
   }
 }

@@ -102,13 +102,13 @@ contract Gas_SendRequest is FunctionsSubscriptionSetup {
       // Create minimum viable request data
       FunctionsRequest.Request memory minimalRequest;
       string memory minimalSourceCode = "return Functions.encodeString('hello world');";
-      FunctionsRequest.initializeRequest(
+      FunctionsRequest._initializeRequest(
         minimalRequest,
         FunctionsRequest.Location.Inline,
         FunctionsRequest.CodeLanguage.JavaScript,
         minimalSourceCode
       );
-      s_minimalRequestData = FunctionsRequest.encodeCBOR(minimalRequest);
+      s_minimalRequestData = FunctionsRequest._encodeCBOR(minimalRequest);
     }
 
     {
@@ -117,13 +117,13 @@ contract Gas_SendRequest is FunctionsSubscriptionSetup {
 
       // Create maximum viable request data - 30 KB encoded data
       string memory maximalSourceCode = _makeStringOfBytesSize(29_898); // CBOR size without source code is 102 bytes
-      FunctionsRequest.initializeRequest(
+      FunctionsRequest._initializeRequest(
         maxmimalRequest,
         FunctionsRequest.Location.Inline,
         FunctionsRequest.CodeLanguage.JavaScript,
         maximalSourceCode
       );
-      s_maximalRequestData = FunctionsRequest.encodeCBOR(maxmimalRequest);
+      s_maximalRequestData = FunctionsRequest._encodeCBOR(maxmimalRequest);
       assertEq(s_maximalRequestData.length, 30_000);
     }
   }

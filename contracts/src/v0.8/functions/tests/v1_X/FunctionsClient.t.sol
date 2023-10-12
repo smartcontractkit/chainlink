@@ -22,13 +22,13 @@ contract FunctionsClient__SendRequest is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     uint8 MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX = 0;
     bytes32 subscriptionFlags = s_functionsRouter.getFlags(s_subscriptionId);

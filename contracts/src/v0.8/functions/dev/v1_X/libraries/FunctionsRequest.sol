@@ -39,7 +39,7 @@ library FunctionsRequest {
   /// @notice Encodes a Request to CBOR encoded bytes
   /// @param self The request to encode
   /// @return CBOR encoded bytes
-  function encodeCBOR(Request memory self) internal pure returns (bytes memory) {
+  function _encodeCBOR(Request memory self) internal pure returns (bytes memory) {
     CBOR.CBORBuffer memory buffer = CBOR.create(DEFAULT_BUFFER_SIZE);
 
     buffer.writeString("codeLocation");
@@ -88,7 +88,7 @@ library FunctionsRequest {
   /// @param codeLocation The user provided source code location
   /// @param language The programming language of the user code
   /// @param source The user provided source code or a url
-  function initializeRequest(
+  function _initializeRequest(
     Request memory self,
     Location codeLocation,
     CodeLanguage language,
@@ -105,14 +105,14 @@ library FunctionsRequest {
   /// @dev Simplified version of initializeRequest for PoC
   /// @param self The uninitialized request
   /// @param javaScriptSource The user provided JS code (must not be empty)
-  function initializeRequestForInlineJavaScript(Request memory self, string memory javaScriptSource) internal pure {
-    initializeRequest(self, Location.Inline, CodeLanguage.JavaScript, javaScriptSource);
+  function _initializeRequestForInlineJavaScript(Request memory self, string memory javaScriptSource) internal pure {
+    _initializeRequest(self, Location.Inline, CodeLanguage.JavaScript, javaScriptSource);
   }
 
   /// @notice Adds Remote user encrypted secrets to a Request
   /// @param self The initialized request
   /// @param encryptedSecretsReference Encrypted comma-separated string of URLs pointing to off-chain secrets
-  function addSecretsReference(Request memory self, bytes memory encryptedSecretsReference) internal pure {
+  function _addSecretsReference(Request memory self, bytes memory encryptedSecretsReference) internal pure {
     if (encryptedSecretsReference.length == 0) revert EmptySecrets();
 
     self.secretsLocation = Location.Remote;
@@ -123,7 +123,7 @@ library FunctionsRequest {
   /// @param self The initialized request
   /// @param slotID Slot ID of the user's secrets hosted on DON
   /// @param version User data version (for the slotID)
-  function addDONHostedSecrets(Request memory self, uint8 slotID, uint64 version) internal pure {
+  function _addDONHostedSecrets(Request memory self, uint8 slotID, uint64 version) internal pure {
     CBOR.CBORBuffer memory buffer = CBOR.create(DEFAULT_BUFFER_SIZE);
 
     buffer.writeString("slotID");
@@ -138,7 +138,7 @@ library FunctionsRequest {
   /// @notice Sets args for the user run function
   /// @param self The initialized request
   /// @param args The array of string args (must not be empty)
-  function setArgs(Request memory self, string[] memory args) internal pure {
+  function _setArgs(Request memory self, string[] memory args) internal pure {
     if (args.length == 0) revert EmptyArgs();
 
     self.args = args;
@@ -147,7 +147,7 @@ library FunctionsRequest {
   /// @notice Sets bytes args for the user run function
   /// @param self The initialized request
   /// @param args The array of bytes args (must not be empty)
-  function setBytesArgs(Request memory self, bytes[] memory args) internal pure {
+  function _setBytesArgs(Request memory self, bytes[] memory args) internal pure {
     if (args.length == 0) revert EmptyArgs();
 
     self.bytesArgs = args;

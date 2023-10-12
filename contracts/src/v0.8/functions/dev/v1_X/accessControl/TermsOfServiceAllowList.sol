@@ -16,6 +16,7 @@ contract TermsOfServiceAllowList is ITermsOfServiceAllowList, IAccessController,
   using EnumerableSet for EnumerableSet.AddressSet;
 
   /// @inheritdoc ITypeAndVersion
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "Functions Terms of Service Allow List v1.0.0";
 
   EnumerableSet.AddressSet private s_allowedSenders;

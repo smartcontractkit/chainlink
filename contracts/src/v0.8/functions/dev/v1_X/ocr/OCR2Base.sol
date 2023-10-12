@@ -19,6 +19,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     i_uniqueReports = uniqueReports;
   }
 
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   uint256 private constant maxUint32 = (1 << 32) - 1;
 
   // incremented each time a new config is posted. This count is incorporated
@@ -144,8 +145,10 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     // Bounded by MAX_NUM_ORACLES in OCR2Abstract.sol
     for (uint256 i = 0; i < args.signers.length; i++) {
       // add new signer/transmitter addresses
+      // solhint-disable-next-line custom-errors
       require(s_oracles[args.signers[i]].role == Role.Unset, "repeated signer address");
       s_oracles[args.signers[i]] = Oracle(uint8(i), Role.Signer);
+      // solhint-disable-next-line custom-errors
       require(s_oracles[args.transmitters[i]].role == Role.Unset, "repeated transmitter address");
       s_oracles[args.transmitters[i]] = Oracle(uint8(i), Role.Transmitter);
       s_signers.push(args.signers[i]);
@@ -156,7 +159,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     s_latestConfigBlockNumber = uint32(block.number);
     s_configCount += 1;
     {
-      s_configInfo.latestConfigDigest = configDigestFromConfigData(
+      s_configInfo.latestConfigDigest = _configDigestFromConfigData(
         block.chainid,
         address(this),
         s_configCount,
@@ -183,7 +186,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     );
   }
 
-  function configDigestFromConfigData(
+  function _configDigestFromConfigData(
     uint256 _chainId,
     address _contractAddress,
     uint64 _configCount,
@@ -218,7 +221,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
    * @notice information about current offchain reporting protocol configuration
    * @return configCount ordinal number of current config, out of all configs applied to this contract so far
    * @return blockNumber block at which this config was set
-   * @return configDigest domain-separation tag for current config (see configDigestFromConfigData)
+   * @return configDigest domain-separation tag for current config (see __configDigestFromConfigData)
    */
   function latestConfigDetails()
     external
@@ -271,7 +274,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       32 + // word containing length of ss
       0; // placeholder
 
-  function requireExpectedMsgDataLength(
+  function _requireExpectedMsgDataLength(
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss
@@ -284,6 +287,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       ss.length *
       32 + // 32 bytes per entry in _ss
       0; // placeholder
+    // solhint-disable-next-line custom-errors
     require(msg.data.length == expected, "calldata length mismatch");
   }
 
@@ -316,9 +320,10 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       emit Transmitted(configDigest, uint32(epochAndRound >> 8));
 
       ConfigInfo memory configInfo = s_configInfo;
+      // solhint-disable-next-line custom-errors
       require(configInfo.latestConfigDigest == configDigest, "configDigest mismatch");
 
-      requireExpectedMsgDataLength(report, rs, ss);
+      _requireExpectedMsgDataLength(report, rs, ss);
 
       uint256 expectedNumSignatures;
       if (i_uniqueReports) {
@@ -327,10 +332,13 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
         expectedNumSignatures = configInfo.f + 1;
       }
 
+      // solhint-disable-next-line custom-errors
       require(rs.length == expectedNumSignatures, "wrong number of signatures");
+      // solhint-disable-next-line custom-errors
       require(rs.length == ss.length, "signatures out of registration");
 
       Oracle memory transmitter = s_oracles[msg.sender];
+      // solhint-disable-next-line custom-errors
       require( // Check that sender is authorized to report
         transmitter.role == Role.Transmitter && msg.sender == s_transmitters[transmitter.index],
         "unauthorized transmitter"
@@ -349,7 +357,9 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       for (uint256 i = 0; i < rs.length; ++i) {
         address signer = ecrecover(h, uint8(rawVs[i]) + 27, rs[i], ss[i]);
         o = s_oracles[signer];
+        // solhint-disable-next-line custom-errors
         require(o.role == Role.Signer, "address not authorized to sign");
+        // solhint-disable-next-line custom-errors
         require(signed[o.index] == address(0), "non-unique signature");
         signed[o.index] = signer;
         signerCount += 1;

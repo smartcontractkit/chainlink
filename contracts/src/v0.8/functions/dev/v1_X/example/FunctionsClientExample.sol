@@ -34,10 +34,10 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
     bytes32 jobId
   ) external onlyOwner {
     FunctionsRequest.Request memory req;
-    req.initializeRequestForInlineJavaScript(source);
-    if (encryptedSecretsReferences.length > 0) req.addSecretsReference(encryptedSecretsReferences);
-    if (args.length > 0) req.setArgs(args);
-    s_lastRequestId = _sendRequest(req.encodeCBOR(), subscriptionId, MAX_CALLBACK_GAS, jobId);
+    req._initializeRequestForInlineJavaScript(source);
+    if (encryptedSecretsReferences.length > 0) req._addSecretsReference(encryptedSecretsReferences);
+    if (args.length > 0) req._setArgs(args);
+    s_lastRequestId = _sendRequest(req._encodeCBOR(), subscriptionId, MAX_CALLBACK_GAS, jobId);
   }
 
   /// @notice Store latest result/error
@@ -45,18 +45,18 @@ contract FunctionsClientExample is FunctionsClient, ConfirmedOwner {
   /// @param response Aggregated response from the user code
   /// @param err Aggregated error from the user code or from the execution pipeline
   /// @dev Either response or error parameter will be set, but never both
-  function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
+  function _fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
     if (s_lastRequestId != requestId) {
       revert UnexpectedRequestID(requestId);
     }
     // Save only the first 32 bytes of response/error to always fit within MAX_CALLBACK_GAS
-    s_lastResponse = bytesToBytes32(response);
+    s_lastResponse = _bytesToBytes32(response);
     s_lastResponseLength = uint32(response.length);
-    s_lastError = bytesToBytes32(err);
+    s_lastError = _bytesToBytes32(err);
     s_lastErrorLength = uint32(err.length);
   }
 
-  function bytesToBytes32(bytes memory b) private pure returns (bytes32 out) {
+  function _bytesToBytes32(bytes memory b) private pure returns (bytes32 out) {
     uint256 maxLen = 32;
     if (b.length < 32) {
       maxLen = b.length;

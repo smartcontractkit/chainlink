@@ -206,13 +206,13 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     bytes32 invalidDonId = bytes32("this does not exist");
 
@@ -230,13 +230,13 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     bytes32 incorrectDonId = s_functionsRouter.getAllowListId();
 
@@ -257,13 +257,13 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     vm.expectRevert("Pausable: paused");
     s_functionsRouter.sendRequest(s_subscriptionId, requestData, FunctionsRequest.REQUEST_DATA_VERSION, 5000, s_donId);
@@ -273,13 +273,13 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     uint64 invalidSubscriptionId = 123456789;
 
@@ -300,13 +300,13 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     vm.expectRevert(FunctionsSubscriptions.InvalidConsumer.selector);
     s_functionsRouter.sendRequest(s_subscriptionId, requestData, FunctionsRequest.REQUEST_DATA_VERSION, 5000, s_donId);
@@ -316,13 +316,13 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     uint8 MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX = 0;
     bytes32 subscriptionFlags = s_functionsRouter.getFlags(s_subscriptionId);
@@ -364,13 +364,13 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     uint32 callbackGasLimit = 5000;
     vm.expectRevert(FunctionsBilling.InsufficientBalance.selector);
@@ -388,14 +388,14 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
     uint32 callbackGasLimit = 5_000;
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     // Send a first request that will remain pending
     bytes32 requestId = s_functionsRouter.sendRequest(
@@ -454,13 +454,13 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     uint32 callbackGasLimit = 5000;
 
@@ -542,13 +542,13 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     bytes32 invalidDonId = bytes32("this does not exist");
 
@@ -566,13 +566,13 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     bytes32 incorrectDonId = s_functionsRouter.getAllowListId();
 
@@ -593,13 +593,13 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     vm.expectRevert("Pausable: paused");
     s_functionsRouter.sendRequestToProposed(
@@ -615,13 +615,13 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     uint64 invalidSubscriptionId = 123456789;
 
@@ -642,13 +642,13 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     vm.expectRevert(FunctionsSubscriptions.InvalidConsumer.selector);
     s_functionsRouter.sendRequestToProposed(
@@ -664,13 +664,13 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     uint8 MAX_CALLBACK_GAS_LIMIT_FLAGS_INDEX = 0;
     bytes32 subscriptionFlags = s_functionsRouter.getFlags(s_subscriptionId);
@@ -712,13 +712,13 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     uint32 callbackGasLimit = 5000;
     vm.expectRevert(FunctionsBilling.InsufficientBalance.selector);
@@ -749,13 +749,13 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     uint32 callbackGasLimit = 5000;
 

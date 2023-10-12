@@ -33,12 +33,12 @@ contract FunctionsClientUpgradeHelper is FunctionsClient, ConfirmedOwner {
     uint32 callbackGasLimit
   ) public onlyOwner returns (bytes32) {
     FunctionsRequest.Request memory req;
-    req.initializeRequestForInlineJavaScript(source);
-    if (secrets.length > 0) req.addSecretsReference(secrets);
-    if (args.length > 0) req.setArgs(args);
-    if (bytesArgs.length > 0) req.setBytesArgs(bytesArgs);
+    req._initializeRequestForInlineJavaScript(source);
+    if (secrets.length > 0) req._addSecretsReference(secrets);
+    if (args.length > 0) req._setArgs(args);
+    if (bytesArgs.length > 0) req._setBytesArgs(bytesArgs);
 
-    return _sendRequest(FunctionsRequest.encodeCBOR(req), subscriptionId, callbackGasLimit, donId);
+    return _sendRequest(FunctionsRequest._encodeCBOR(req), subscriptionId, callbackGasLimit, donId);
   }
 
   function sendRequestBytes(
@@ -63,12 +63,12 @@ contract FunctionsClientUpgradeHelper is FunctionsClient, ConfirmedOwner {
     uint32 callbackGasLimit
   ) public onlyOwner returns (bytes32) {
     FunctionsRequest.Request memory req;
-    req.initializeRequestForInlineJavaScript(source);
-    req.addDONHostedSecrets(slotId, slotVersion);
+    req._initializeRequestForInlineJavaScript(source);
+    req._addDONHostedSecrets(slotId, slotVersion);
 
-    if (args.length > 0) req.setArgs(args);
+    if (args.length > 0) req._setArgs(args);
 
-    return _sendRequest(FunctionsRequest.encodeCBOR(req), subscriptionId, callbackGasLimit, donId);
+    return _sendRequest(FunctionsRequest._encodeCBOR(req), subscriptionId, callbackGasLimit, donId);
   }
 
   // @notice Sends a Chainlink Functions request
@@ -114,12 +114,12 @@ contract FunctionsClientUpgradeHelper is FunctionsClient, ConfirmedOwner {
     uint32 callbackGasLimit
   ) public onlyOwner returns (bytes32) {
     FunctionsRequest.Request memory req;
-    req.initializeRequestForInlineJavaScript(source);
-    if (secrets.length > 0) req.addSecretsReference(secrets);
-    if (args.length > 0) req.setArgs(args);
-    if (bytesArgs.length > 0) req.setBytesArgs(bytesArgs);
+    req._initializeRequestForInlineJavaScript(source);
+    if (secrets.length > 0) req._addSecretsReference(secrets);
+    if (args.length > 0) req._setArgs(args);
+    if (bytesArgs.length > 0) req._setBytesArgs(bytesArgs);
 
-    return _sendRequestToProposed(FunctionsRequest.encodeCBOR(req), subscriptionId, callbackGasLimit, donId);
+    return _sendRequestToProposed(FunctionsRequest._encodeCBOR(req), subscriptionId, callbackGasLimit, donId);
   }
 
   /**
@@ -135,12 +135,12 @@ contract FunctionsClientUpgradeHelper is FunctionsClient, ConfirmedOwner {
     uint32 callbackGasLimit
   ) public onlyOwner returns (bytes32) {
     FunctionsRequest.Request memory req;
-    req.initializeRequestForInlineJavaScript(source);
-    req.addDONHostedSecrets(slotId, slotVersion);
+    req._initializeRequestForInlineJavaScript(source);
+    req._addDONHostedSecrets(slotId, slotVersion);
 
-    if (args.length > 0) req.setArgs(args);
+    if (args.length > 0) req._setArgs(args);
 
-    return _sendRequestToProposed(FunctionsRequest.encodeCBOR(req), subscriptionId, callbackGasLimit, donId);
+    return _sendRequestToProposed(FunctionsRequest._encodeCBOR(req), subscriptionId, callbackGasLimit, donId);
   }
 
   /**
@@ -151,7 +151,7 @@ contract FunctionsClientUpgradeHelper is FunctionsClient, ConfirmedOwner {
    * @param err Aggregated error from the user code or from the execution pipeline
    * Either response or error parameter will be set, but never both
    */
-  function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
+  function _fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
     emit ResponseReceived(requestId, response, err);
   }
 }

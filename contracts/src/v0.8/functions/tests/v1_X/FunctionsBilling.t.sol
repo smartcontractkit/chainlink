@@ -72,13 +72,13 @@ contract FunctionsBilling_EstimateCost is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     uint32 callbackGasLimit = 5_500;
     uint256 gasPriceWei = REASONABLE_GAS_PRICE_CEILING + 1;
@@ -92,13 +92,13 @@ contract FunctionsBilling_EstimateCost is FunctionsSubscriptionSetup {
     // Build minimal valid request data
     string memory sourceCode = "return 'hello world';";
     FunctionsRequest.Request memory request;
-    FunctionsRequest.initializeRequest(
+    FunctionsRequest._initializeRequest(
       request,
       FunctionsRequest.Location.Inline,
       FunctionsRequest.CodeLanguage.JavaScript,
       sourceCode
     );
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
 
     uint32 callbackGasLimit = 5_500;
     uint256 gasPriceWei = 1;

@@ -11,25 +11,25 @@ contract FunctionsTestHelper {
   event RequestData(bytes data);
 
   function closeEvent() public {
-    emit RequestData(s_req.encodeCBOR());
+    emit RequestData(s_req._encodeCBOR());
   }
 
   function initializeRequestForInlineJavaScript(string memory sourceCode) public {
     FunctionsRequest.Request memory r;
-    r.initializeRequestForInlineJavaScript(sourceCode);
+    r._initializeRequestForInlineJavaScript(sourceCode);
     storeRequest(r);
   }
 
   function addSecretsReference(bytes memory secrets) public {
     FunctionsRequest.Request memory r = s_req;
-    r.addSecretsReference(secrets);
+    r._addSecretsReference(secrets);
     storeRequest(r);
   }
 
   function addEmptyArgs() public pure {
     FunctionsRequest.Request memory r;
     string[] memory args;
-    r.setArgs(args);
+    r._setArgs(args);
   }
 
   function addTwoArgs(string memory arg1, string memory arg2) public {
@@ -37,7 +37,7 @@ contract FunctionsTestHelper {
     args[0] = arg1;
     args[1] = arg2;
     FunctionsRequest.Request memory r = s_req;
-    r.setArgs(args);
+    r._setArgs(args);
     storeRequest(r);
   }
 

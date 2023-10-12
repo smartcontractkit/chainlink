@@ -34,12 +34,12 @@ contract FunctionsClientTestHelper is FunctionsClient {
     uint32 callbackGasLimit
   ) public returns (bytes32 requestId) {
     FunctionsRequest.Request memory req;
-    req.initializeRequestForInlineJavaScript(source);
-    if (secrets.length > 0) req.addSecretsReference(secrets);
-    if (args.length > 0) req.setArgs(args);
-    if (bytesArgs.length > 0) req.setBytesArgs(bytesArgs);
+    req._initializeRequestForInlineJavaScript(source);
+    if (secrets.length > 0) req._addSecretsReference(secrets);
+    if (args.length > 0) req._setArgs(args);
+    if (bytesArgs.length > 0) req._setBytesArgs(bytesArgs);
 
-    return _sendRequest(FunctionsRequest.encodeCBOR(req), subscriptionId, callbackGasLimit, donId);
+    return _sendRequest(FunctionsRequest._encodeCBOR(req), subscriptionId, callbackGasLimit, donId);
   }
 
   function sendSimpleRequestWithJavaScript(
@@ -49,8 +49,8 @@ contract FunctionsClientTestHelper is FunctionsClient {
     uint32 callbackGasLimit
   ) public returns (bytes32 requestId) {
     FunctionsRequest.Request memory request;
-    request.initializeRequestForInlineJavaScript(sourceCode);
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    request._initializeRequestForInlineJavaScript(sourceCode);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
     requestId = _sendRequest(requestData, subscriptionId, callbackGasLimit, donId);
     emit SendRequestInvoked(requestId, sourceCode, subscriptionId);
   }
@@ -62,8 +62,8 @@ contract FunctionsClientTestHelper is FunctionsClient {
   ) public returns (bytes32 requestId) {
     FunctionsRequest.Request memory request;
     uint32 callbackGasLimit = 20_000;
-    request.initializeRequestForInlineJavaScript(sourceCode);
-    bytes memory requestData = FunctionsRequest.encodeCBOR(request);
+    request._initializeRequestForInlineJavaScript(sourceCode);
+    bytes memory requestData = FunctionsRequest._encodeCBOR(request);
     requestId = i_router.sendRequestToProposed(
       subscriptionId,
       requestData,
@@ -85,7 +85,7 @@ contract FunctionsClientTestHelper is FunctionsClient {
     IFunctionsSubscriptions(address(i_router)).acceptSubscriptionOwnerTransfer(subscriptionId);
   }
 
-  function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
+  function _fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
     if (s_revertFulfillRequest) {
       revert(s_revertFulfillRequestMessage);
     }

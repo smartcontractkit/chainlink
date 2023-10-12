@@ -41,12 +41,12 @@ contract FunctionsLoadTestClient is FunctionsClient, ConfirmedOwner {
     bytes32 donId
   ) external onlyOwner {
     FunctionsRequest.Request memory req;
-    req.initializeRequestForInlineJavaScript(source);
-    if (encryptedSecretsReferences.length > 0) req.addSecretsReference(encryptedSecretsReferences);
-    if (args.length > 0) req.setArgs(args);
+    req._initializeRequestForInlineJavaScript(source);
+    if (encryptedSecretsReferences.length > 0) req._addSecretsReference(encryptedSecretsReferences);
+    if (args.length > 0) req._setArgs(args);
     uint i = 0;
     for (i = 0; i < times; i++) {
-      lastRequestID = _sendRequest(req.encodeCBOR(), subscriptionId, MAX_CALLBACK_GAS, donId);
+      lastRequestID = _sendRequest(req._encodeCBOR(), subscriptionId, MAX_CALLBACK_GAS, donId);
       totalRequests += 1;
     }
   }
@@ -71,12 +71,12 @@ contract FunctionsLoadTestClient is FunctionsClient, ConfirmedOwner {
     bytes32 donId
   ) public onlyOwner {
     FunctionsRequest.Request memory req;
-    req.initializeRequestForInlineJavaScript(source);
-    req.addDONHostedSecrets(slotId, slotVersion);
-    if (args.length > 0) req.setArgs(args);
+    req._initializeRequestForInlineJavaScript(source);
+    req._addDONHostedSecrets(slotId, slotVersion);
+    if (args.length > 0) req._setArgs(args);
     uint i = 0;
     for (i = 0; i < times; i++) {
-      lastRequestID = _sendRequest(req.encodeCBOR(), subscriptionId, MAX_CALLBACK_GAS, donId);
+      lastRequestID = _sendRequest(req._encodeCBOR(), subscriptionId, MAX_CALLBACK_GAS, donId);
       totalRequests += 1;
     }
   }
@@ -135,7 +135,7 @@ contract FunctionsLoadTestClient is FunctionsClient, ConfirmedOwner {
    * @param err Aggregated error from the user code or from the execution pipeline
    * Either response or error parameter will be set, but never both
    */
-  function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
+  function _fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal override {
     lastRequestID = requestId;
     lastResponse = response;
     lastError = err;

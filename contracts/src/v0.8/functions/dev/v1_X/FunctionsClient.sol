@@ -49,14 +49,14 @@ abstract contract FunctionsClient is IFunctionsClient {
   /// @param response Aggregated response from the execution of the user's source code
   /// @param err Aggregated error from the execution of the user code or from the execution pipeline
   /// @dev Either response or error parameter will be set, but never both
-  function fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal virtual;
+  function _fulfillRequest(bytes32 requestId, bytes memory response, bytes memory err) internal virtual;
 
   /// @inheritdoc IFunctionsClient
   function handleOracleFulfillment(bytes32 requestId, bytes memory response, bytes memory err) external override {
     if (msg.sender != address(i_router)) {
       revert OnlyRouterCanFulfill();
     }
-    fulfillRequest(requestId, response, err);
+    _fulfillRequest(requestId, response, err);
     emit RequestFulfilled(requestId);
   }
 }
