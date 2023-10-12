@@ -4,6 +4,7 @@
 
 - Moved `VRFCoordinatorV2Mock.sol` to src/v0.8/vrf/mocks
 - Moved `VRFCoordinatorMock.sol` to src/v0.8/vrf/mocks
+- Add minimumEstimateGasPrice to Functions Coordinator config (#10916)
 
 ## 0.8.0 - 2023-10-04
 
