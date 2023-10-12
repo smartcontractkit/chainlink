@@ -2,9 +2,9 @@
 pragma solidity ^0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
-import {FunctionsRouter} from "../../dev/v1_0_0/FunctionsRouter.sol";
-import {FunctionsSubscriptions} from "../../dev/v1_0_0/FunctionsSubscriptions.sol";
-import {FunctionsResponse} from "../../dev/v1_0_0/libraries/FunctionsResponse.sol";
+import {FunctionsRouter} from "../../dev/v1_X/FunctionsRouter.sol";
+import {FunctionsSubscriptions} from "../../dev/v1_X/FunctionsSubscriptions.sol";
+import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
 

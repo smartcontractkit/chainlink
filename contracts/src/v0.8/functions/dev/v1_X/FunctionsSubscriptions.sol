@@ -12,7 +12,6 @@ import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/
 
 /// @title Functions Subscriptions contract
 /// @notice Contract that coordinates payment from users to the nodes of the Decentralized Oracle Network (DON).
-/// @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
 abstract contract FunctionsSubscriptions is IFunctionsSubscriptions, IERC677Receiver {
   using SafeERC20 for IERC20;
   using FunctionsResponse for FunctionsResponse.Commitment;

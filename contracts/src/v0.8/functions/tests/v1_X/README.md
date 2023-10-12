@@ -12,7 +12,7 @@ forge test -vv
 
 To run a specific file use:
 ```
-forge test -vv --mp src/v0.8/functions/tests/v1_0_0/[File Name].t.sol 
+forge test -vv --mp src/v0.8/functions/tests/v1_X/[File Name].t.sol 
 ```
 
 To see coverage:

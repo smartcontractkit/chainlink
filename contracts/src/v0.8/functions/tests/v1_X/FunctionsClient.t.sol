@@ -2,10 +2,10 @@
 pragma solidity ^0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
-import {FunctionsRouter} from "../../dev/v1_0_0/FunctionsRouter.sol";
-import {FunctionsSubscriptions} from "../../dev/v1_0_0/FunctionsSubscriptions.sol";
-import {FunctionsRequest} from "../../dev/v1_0_0/libraries/FunctionsRequest.sol";
-import {FunctionsResponse} from "../../dev/v1_0_0/libraries/FunctionsResponse.sol";
+import {FunctionsRouter} from "../../dev/v1_X/FunctionsRouter.sol";
+import {FunctionsSubscriptions} from "../../dev/v1_X/FunctionsSubscriptions.sol";
+import {FunctionsRequest} from "../../dev/v1_X/libraries/FunctionsRequest.sol";
+import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol";
 
 import {FunctionsSubscriptionSetup} from "./Setup.t.sol";
 

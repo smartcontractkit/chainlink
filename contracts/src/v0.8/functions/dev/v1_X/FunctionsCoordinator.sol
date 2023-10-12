@@ -10,7 +10,6 @@ import {FunctionsResponse} from "./libraries/FunctionsResponse.sol";
 
 /// @title Functions Coordinator contract
 /// @notice Contract that nodes of a Decentralized Oracle Network (DON) interact with
-/// @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
 contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilling {
   using FunctionsResponse for FunctionsResponse.RequestMeta;
   using FunctionsResponse for FunctionsResponse.Commitment;

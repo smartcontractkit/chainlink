@@ -2,12 +2,12 @@
 pragma solidity ^0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
-import {FunctionsRouter} from "../../dev/v1_0_0/FunctionsRouter.sol";
+import {FunctionsRouter} from "../../dev/v1_X/FunctionsRouter.sol";
 import {FunctionsCoordinatorTestHelper} from "./testhelpers/FunctionsCoordinatorTestHelper.sol";
-import {FunctionsBilling} from "../../dev/v1_0_0/FunctionsBilling.sol";
-import {FunctionsResponse} from "../../dev/v1_0_0/libraries/FunctionsResponse.sol";
+import {FunctionsBilling} from "../../dev/v1_X/FunctionsBilling.sol";
+import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
-import {TermsOfServiceAllowList} from "../../dev/v1_0_0/accessControl/TermsOfServiceAllowList.sol";
+import {TermsOfServiceAllowList} from "../../dev/v1_X/accessControl/TermsOfServiceAllowList.sol";
 import {FunctionsClientUpgradeHelper} from "./testhelpers/FunctionsClientUpgradeHelper.sol";
 import {MockLinkToken} from "../../../mocks/MockLinkToken.sol";
 

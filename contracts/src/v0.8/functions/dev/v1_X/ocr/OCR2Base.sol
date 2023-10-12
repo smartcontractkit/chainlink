@@ -6,13 +6,8 @@ import {OCR2Abstract} from "./OCR2Abstract.sol";
 
 /**
  * @notice Onchain verification of reports from the offchain reporting protocol
- * @dev THIS CONTRACT HAS NOT GONE THROUGH ANY SECURITY REVIEW. DO NOT USE IN PROD.
  * @dev For details on its operation, see the offchain reporting protocol design
  * doc, which refers to this contract as simply the "contract".
- * @dev This contract is meant to aid rapid development of new applications based on OCR2.
- * However, for actual production contracts, it is expected that most of the logic of this contract
- * will be folded directly into the application contract. Inheritance prevents us from doing lots
- * of juicy storage layout optimizations, leading to a substantial increase in gas cost.
  */
 abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
   error ReportInvalid();

@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {FunctionsCoordinator} from "../../dev/v1_0_0/FunctionsCoordinator.sol";
-import {FunctionsBilling} from "../../dev/v1_0_0/FunctionsBilling.sol";
-import {FunctionsRequest} from "../../dev/v1_0_0/libraries/FunctionsRequest.sol";
+import {FunctionsCoordinator} from "../../dev/v1_X/FunctionsCoordinator.sol";
+import {FunctionsBilling} from "../../dev/v1_X/FunctionsBilling.sol";
+import {FunctionsRequest} from "../../dev/v1_X/libraries/FunctionsRequest.sol";
 
 import {FunctionsRouterSetup, FunctionsSubscriptionSetup, FunctionsMultipleFulfillmentsSetup} from "./Setup.t.sol";
 

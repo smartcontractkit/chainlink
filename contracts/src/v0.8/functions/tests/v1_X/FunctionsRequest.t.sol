@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {FunctionsRequest} from "../../dev/v1_0_0/libraries/FunctionsRequest.sol";
+import {FunctionsRequest} from "../../dev/v1_X/libraries/FunctionsRequest.sol";
 
 import {Test} from "forge-std/Test.sol";
 

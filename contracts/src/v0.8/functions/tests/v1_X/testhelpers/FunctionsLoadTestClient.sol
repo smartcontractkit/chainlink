@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {FunctionsClient} from "../../../dev/v1_0_0/FunctionsClient.sol";
+import {FunctionsClient} from "../../../dev/v1_X/FunctionsClient.sol";
 import {ConfirmedOwner} from "../../../../shared/access/ConfirmedOwner.sol";
-import {FunctionsRequest} from "../../../dev/v1_0_0/libraries/FunctionsRequest.sol";
+import {FunctionsRequest} from "../../../dev/v1_X/libraries/FunctionsRequest.sol";
 
 /**
  * @title Chainlink Functions load test client implementation

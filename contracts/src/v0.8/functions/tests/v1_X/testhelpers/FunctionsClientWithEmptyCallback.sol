@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {FunctionsRequest} from "../../../dev/v1_0_0/libraries/FunctionsRequest.sol";
-import {FunctionsClient} from "../../../dev/v1_0_0/FunctionsClient.sol";
+import {FunctionsRequest} from "../../../dev/v1_X/libraries/FunctionsRequest.sol";
+import {FunctionsClient} from "../../../dev/v1_X/FunctionsClient.sol";
 
 contract FunctionsClientWithEmptyCallback is FunctionsClient {
   using FunctionsRequest for FunctionsRequest.Request;

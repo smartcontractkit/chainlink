@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {TermsOfServiceAllowList} from "../../dev/v1_0_0/accessControl/TermsOfServiceAllowList.sol";
+import {TermsOfServiceAllowList} from "../../dev/v1_X/accessControl/TermsOfServiceAllowList.sol";
 import {FunctionsClientTestHelper} from "./testhelpers/FunctionsClientTestHelper.sol";
 
 import {FunctionsRoutesSetup, FunctionsOwnerAcceptTermsOfServiceSetup} from "./Setup.t.sol";

@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
 
-import {FunctionsRouter} from "../../dev/v1_0_0/FunctionsRouter.sol";
-import {FunctionsSubscriptions} from "../../dev/v1_0_0/FunctionsSubscriptions.sol";
-import {FunctionsCoordinator} from "../../dev/v1_0_0/FunctionsCoordinator.sol";
-import {FunctionsBilling} from "../../dev/v1_0_0/FunctionsBilling.sol";
-import {FunctionsRequest} from "../../dev/v1_0_0/libraries/FunctionsRequest.sol";
-import {FunctionsResponse} from "../../dev/v1_0_0/libraries/FunctionsResponse.sol";
+import {FunctionsRouter} from "../../dev/v1_X/FunctionsRouter.sol";
+import {FunctionsSubscriptions} from "../../dev/v1_X/FunctionsSubscriptions.sol";
+import {FunctionsCoordinator} from "../../dev/v1_X/FunctionsCoordinator.sol";
+import {FunctionsBilling} from "../../dev/v1_X/FunctionsBilling.sol";
+import {FunctionsRequest} from "../../dev/v1_X/libraries/FunctionsRequest.sol";
+import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol";
 import {FunctionsCoordinatorTestHelper} from "./testhelpers/FunctionsCoordinatorTestHelper.sol";
 import {FunctionsClientTestHelper} from "./testhelpers/FunctionsClientTestHelper.sol";
 

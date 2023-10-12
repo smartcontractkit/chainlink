@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import {FunctionsCoordinator} from "../../../dev/v1_0_0/FunctionsCoordinator.sol";
-import {FunctionsBilling} from "../../../dev/v1_0_0/FunctionsBilling.sol";
+import {FunctionsCoordinator} from "../../../dev/v1_X/FunctionsCoordinator.sol";
+import {FunctionsBilling} from "../../../dev/v1_X/FunctionsBilling.sol";
 
 contract FunctionsCoordinatorTestHelper is FunctionsCoordinator {
   constructor(
