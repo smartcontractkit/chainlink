@@ -137,13 +137,13 @@ func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Regist
 	_m.Called(fn)
 }
 
-// Reset provides a mock function with given fields: f, addr, abandon
-func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Reset(f func(), addr ADDR, abandon bool) error {
-	ret := _m.Called(f, addr, abandon)
+// Reset provides a mock function with given fields: addr, abandon
+func (_m *TxManager[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]) Reset(addr ADDR, abandon bool) error {
+	ret := _m.Called(addr, abandon)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(func(), ADDR, bool) error); ok {
-		r0 = rf(f, addr, abandon)
+	if rf, ok := ret.Get(0).(func(ADDR, bool) error); ok {
+		r0 = rf(addr, abandon)
 	} else {
 		r0 = ret.Error(0)
 	}

@@ -5,6 +5,11 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
+	"math/big"
+	"os"
+	"strings"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/shopspring/decimal"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
@@ -17,10 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 	"github.com/urfave/cli"
-	"io"
-	"math/big"
-	"os"
-	"strings"
 )
 
 func newApp(remoteNodeURL string, writer io.Writer) (*clcmd.Shell, *cli.App) {
@@ -377,7 +378,6 @@ func printETHKeyData(ethKeys []presenters.ETHKeyResource) {
 		fmt.Println("Address: ", ethKey.Address)
 		fmt.Println("MaxGasPriceWei: ", ethKey.MaxGasPriceWei)
 		fmt.Println("EthBalance: ", ethKey.EthBalance)
-		fmt.Println("NextNonce: ", ethKey.NextNonce)
 		fmt.Println("-----------------------------")
 	}
 }

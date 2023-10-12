@@ -6,18 +6,18 @@ import "../../ChainSpecificUtil.sol";
 /// @dev A helper contract that exposes ChainSpecificUtil methods for testing
 contract ChainSpecificUtilHelper {
   function getBlockhash(uint64 blockNumber) external view returns (bytes32) {
-    return ChainSpecificUtil.getBlockhash(blockNumber);
+    return ChainSpecificUtil._getBlockhash(blockNumber);
   }
 
   function getBlockNumber() external view returns (uint256) {
-    return ChainSpecificUtil.getBlockNumber();
+    return ChainSpecificUtil._getBlockNumber();
   }
 
   function getCurrentTxL1GasFees(string memory txCallData) external view returns (uint256) {
-    return ChainSpecificUtil.getCurrentTxL1GasFees(bytes(txCallData));
+    return ChainSpecificUtil._getCurrentTxL1GasFees(bytes(txCallData));
   }
 
   function getL1CalldataGasCost(uint256 calldataSize) external view returns (uint256) {
-    return ChainSpecificUtil.getL1CalldataGasCost(calldataSize);
+    return ChainSpecificUtil._getL1CalldataGasCost(calldataSize);
   }
 }

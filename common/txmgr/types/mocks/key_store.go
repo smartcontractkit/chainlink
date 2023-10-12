@@ -3,7 +3,6 @@
 package mocks
 
 import (
-	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	mock "github.com/stretchr/testify/mock"
 
 	types "github.com/smartcontractkit/chainlink/v2/common/types"
@@ -47,58 +46,6 @@ func (_m *KeyStore[ADDR, CHAIN_ID, SEQ]) EnabledAddressesForChain(chainId CHAIN_
 
 	if rf, ok := ret.Get(1).(func(CHAIN_ID) error); ok {
 		r1 = rf(chainId)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
-// IncrementNextSequence provides a mock function with given fields: address, chainID, currentSequence, qopts
-func (_m *KeyStore[ADDR, CHAIN_ID, SEQ]) IncrementNextSequence(address ADDR, chainID CHAIN_ID, currentSequence SEQ, qopts ...pg.QOpt) error {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, address, chainID, currentSequence)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(ADDR, CHAIN_ID, SEQ, ...pg.QOpt) error); ok {
-		r0 = rf(address, chainID, currentSequence, qopts...)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// NextSequence provides a mock function with given fields: address, chainID, qopts
-func (_m *KeyStore[ADDR, CHAIN_ID, SEQ]) NextSequence(address ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) (SEQ, error) {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, address, chainID)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	var r0 SEQ
-	var r1 error
-	if rf, ok := ret.Get(0).(func(ADDR, CHAIN_ID, ...pg.QOpt) (SEQ, error)); ok {
-		return rf(address, chainID, qopts...)
-	}
-	if rf, ok := ret.Get(0).(func(ADDR, CHAIN_ID, ...pg.QOpt) SEQ); ok {
-		r0 = rf(address, chainID, qopts...)
-	} else {
-		r0 = ret.Get(0).(SEQ)
-	}
-
-	if rf, ok := ret.Get(1).(func(ADDR, CHAIN_ID, ...pg.QOpt) error); ok {
-		r1 = rf(address, chainID, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
