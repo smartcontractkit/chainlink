@@ -698,7 +698,7 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 			return "", nil, errors.Wrap(err, "failed to fetch encrypted secrets")
 		}
 		if len(userError) != 0 {
-			l.logger.Debugw("no valid threshold encrypted secrets detected, falling back to legacy secrets", "requestID", requestIDStr, "err", string(userError))
+			return "", errors.New(string(userError)), nil
 		}
 		secrets = thresholdEncSecrets
 	case LocationDONHosted:

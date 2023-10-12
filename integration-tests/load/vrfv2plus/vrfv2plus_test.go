@@ -6,17 +6,18 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 	"math/big"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/actions"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 
 func TestVRFV2PlusLoad(t *testing.T) {
@@ -86,11 +87,6 @@ func TestVRFV2PlusLoad(t *testing.T) {
 			Build()
 
 		require.NoError(t, err, "error creating test env")
-		t.Cleanup(func() {
-			if err := env.Cleanup(t); err != nil {
-				l.Error().Err(err).Msg("Error cleaning up test environment")
-			}
-		})
 
 		env.ParallelTransactions(true)
 

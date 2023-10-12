@@ -1355,13 +1355,13 @@ type KeeperConsumerBenchmarkRoundConfirmer struct {
 	context  context.Context
 	cancel   context.CancelFunc
 
-	firstBlockNum      uint64                                     // Records the number of the first block that came in
-	lastBlockNum       uint64                                     // Records the number of the last block that came in
-	blockRange         int64                                      // How many blocks to watch upkeeps for
-	upkeepSLA          int64                                      // SLA after which an upkeep is counted as 'missed'
-	metricsReporter    *testreporters.KeeperBenchmarkTestReporter // Testreporter to track results
-	upkeepIndex        int64
-	firstEligibleuffer int64
+	firstBlockNum       uint64                                     // Records the number of the first block that came in
+	lastBlockNum        uint64                                     // Records the number of the last block that came in
+	blockRange          int64                                      // How many blocks to watch upkeeps for
+	upkeepSLA           int64                                      // SLA after which an upkeep is counted as 'missed'
+	metricsReporter     *testreporters.KeeperBenchmarkTestReporter // Testreporter to track results
+	upkeepIndex         int64
+	firstEligibleBuffer int64
 
 	// State variables, changes as we get blocks
 	blocksSinceSubscription int64   // How many blocks have passed since subscribing
@@ -1384,7 +1384,7 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 	upkeepSLA int64,
 	metricsReporter *testreporters.KeeperBenchmarkTestReporter,
 	upkeepIndex int64,
-	firstEligibleuffer int64,
+	firstEligibleBuffer int64,
 	logger zerolog.Logger,
 ) *KeeperConsumerBenchmarkRoundConfirmer {
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -1406,7 +1406,7 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 		lastBlockNum:            0,
 		upkeepIndex:             upkeepIndex,
 		firstBlockNum:           0,
-		firstEligibleuffer:      firstEligibleuffer,
+		firstEligibleBuffer:     firstEligibleBuffer,
 		l:                       logger,
 	}
 }
@@ -1457,7 +1457,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 		o.blocksSinceEligible = 0
 	}
 
-	isEligible, err := o.instance.CheckEligible(context.Background(), big.NewInt(o.upkeepIndex), big.NewInt(o.blockRange), big.NewInt(o.firstEligibleuffer))
+	isEligible, err := o.instance.CheckEligible(context.Background(), big.NewInt(o.upkeepIndex), big.NewInt(o.blockRange), big.NewInt(o.firstEligibleBuffer))
 	if err != nil {
 		return err
 	}

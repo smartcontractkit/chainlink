@@ -8,8 +8,6 @@ import (
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
 	time "time"
 
 	txmgrtypes "github.com/smartcontractkit/chainlink/v2/common/txmgr/types"
@@ -141,6 +139,30 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) DeleteInPro
 	}
 
 	return r0
+}
+
+// FindLatestSequence provides a mock function with given fields: ctx, fromAddress, chainId
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) FindLatestSequence(ctx context.Context, fromAddress ADDR, chainId CHAIN_ID) (SEQ, error) {
+	ret := _m.Called(ctx, fromAddress, chainId)
+
+	var r0 SEQ
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, ADDR, CHAIN_ID) (SEQ, error)); ok {
+		return rf(ctx, fromAddress, chainId)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, ADDR, CHAIN_ID) SEQ); ok {
+		r0 = rf(ctx, fromAddress, chainId)
+	} else {
+		r0 = ret.Get(0).(SEQ)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, ADDR, CHAIN_ID) error); ok {
+		r1 = rf(ctx, fromAddress, chainId)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // FindNextUnstartedTransactionFromAddress provides a mock function with given fields: ctx, etx, fromAddress, chainID
@@ -673,41 +695,13 @@ func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateBroad
 	return r0
 }
 
-// UpdateKeyNextSequence provides a mock function with given fields: newNextSequence, currentNextSequence, address, chainID, qopts
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateKeyNextSequence(newNextSequence SEQ, currentNextSequence SEQ, address ADDR, chainID CHAIN_ID, qopts ...pg.QOpt) error {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, newNextSequence, currentNextSequence, address, chainID)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
+// UpdateTxAttemptInProgressToBroadcast provides a mock function with given fields: ctx, etx, attempt, NewAttemptState
+func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxAttemptInProgressToBroadcast(ctx context.Context, etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], NewAttemptState txmgrtypes.TxAttemptState) error {
+	ret := _m.Called(ctx, etx, attempt, NewAttemptState)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(SEQ, SEQ, ADDR, CHAIN_ID, ...pg.QOpt) error); ok {
-		r0 = rf(newNextSequence, currentNextSequence, address, chainID, qopts...)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// UpdateTxAttemptInProgressToBroadcast provides a mock function with given fields: etx, attempt, NewAttemptState, incrNextSequenceCallback, qopts
-func (_m *TxStore[ADDR, CHAIN_ID, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) UpdateTxAttemptInProgressToBroadcast(etx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], attempt txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], NewAttemptState txmgrtypes.TxAttemptState, incrNextSequenceCallback func(pg.Queryer) error, qopts ...pg.QOpt) error {
-	_va := make([]interface{}, len(qopts))
-	for _i := range qopts {
-		_va[_i] = qopts[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, etx, attempt, NewAttemptState, incrNextSequenceCallback)
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(*txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], txmgrtypes.TxAttemptState, func(pg.Queryer) error, ...pg.QOpt) error); ok {
-		r0 = rf(etx, attempt, NewAttemptState, incrNextSequenceCallback, qopts...)
+	if rf, ok := ret.Get(0).(func(context.Context, *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], txmgrtypes.TxAttempt[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], txmgrtypes.TxAttemptState) error); ok {
+		r0 = rf(ctx, etx, attempt, NewAttemptState)
 	} else {
 		r0 = ret.Error(0)
 	}
