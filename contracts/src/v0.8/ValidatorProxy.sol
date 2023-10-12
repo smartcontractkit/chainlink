@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./shared/access/ConfirmedOwner.sol";
-import "./interfaces/AggregatorValidatorInterface.sol";
-import "./interfaces/TypeAndVersionInterface.sol";
+import {ConfirmedOwner} from "./shared/access/ConfirmedOwner.sol";
+import {AggregatorValidatorInterface} from "./interfaces/AggregatorValidatorInterface.sol";
+import {TypeAndVersionInterface} from "./interfaces/TypeAndVersionInterface.sol";
 
+// solhint-disable custom-errors
 contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface, ConfirmedOwner {
   /// @notice Uses a single storage slot to store the current address
   struct AggregatorConfiguration {
@@ -97,6 +98,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
     ValidatorConfiguration memory currentValidator = s_currentValidator;
     address currentValidatorAddress = address(currentValidator.target);
     require(currentValidatorAddress != address(0), "No validator set");
+    // solhint-disable-next-line avoid-low-level-calls
     currentValidatorAddress.call(
       abi.encodeWithSelector(
         AggregatorValidatorInterface.validate.selector,
@@ -108,6 +110,7 @@ contract ValidatorProxy is AggregatorValidatorInterface, TypeAndVersionInterface
     );
     // If there is a new proposed validator, send the validate call to that validator also
     if (currentValidator.hasNewProposal) {
+      // solhint-disable-next-line avoid-low-level-calls
       address(s_proposedValidator).call(
         abi.encodeWithSelector(
           AggregatorValidatorInterface.validate.selector,

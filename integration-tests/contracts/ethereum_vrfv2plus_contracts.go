@@ -343,6 +343,18 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) RequestRandomness(keyHash [32]byte, 
 	return tx, v.client.ProcessTransaction(tx)
 }
 
+func (v *EthereumVRFv2PlusLoadTestConsumer) ResetMetrics() error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.consumer.Reset(opts)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
 func (v *EthereumVRFv2PlusLoadTestConsumer) GetCoordinator(ctx context.Context) (common.Address, error) {
 	return v.consumer.SVrfCoordinator(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),

@@ -49,7 +49,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
       uint256 requestId = requestRandomness(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs);
       s_lastRequestId = requestId;
 
-      uint256 requestBlockNumber = ChainSpecificUtil.getBlockNumber();
+      uint256 requestBlockNumber = ChainSpecificUtil._getBlockNumber();
       uint256 paid = VRF_V2_PLUS_WRAPPER.calculateRequestPrice(_callbackGasLimit);
       s_requests[requestId] = RequestStatus({
         paid: paid,
@@ -78,7 +78,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
       uint256 requestId = requestRandomnessPayInNative(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs);
       s_lastRequestId = requestId;
 
-      uint256 requestBlockNumber = ChainSpecificUtil.getBlockNumber();
+      uint256 requestBlockNumber = ChainSpecificUtil._getBlockNumber();
       uint256 paid = VRF_V2_PLUS_WRAPPER.calculateRequestPriceNative(_callbackGasLimit);
       s_requests[requestId] = RequestStatus({
         paid: paid,
@@ -100,7 +100,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
     // solhint-disable-next-line custom-errors
     require(s_requests[_requestId].paid > 0, "request not found");
-    uint256 fulfilmentBlockNumber = ChainSpecificUtil.getBlockNumber();
+    uint256 fulfilmentBlockNumber = ChainSpecificUtil._getBlockNumber();
     uint256 requestDelay = fulfilmentBlockNumber - requestHeights[_requestId];
     uint256 requestDelayInMillions = requestDelay * 1_000_000;
 
