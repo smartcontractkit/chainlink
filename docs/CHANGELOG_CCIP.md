@@ -49,9 +49,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - The revert threshold is `destBytesOverhead` in **TokenTransferFeeConfig**.
 
 
-
 ### Removed
-
+- All onramp allowlist functionality is removed:
+  - events AllowListAdd(address sender), AllowListRemove(address sender), AllowListEnabledSet(bool enabled)
+  - applyAllowListUpdates / getAllowList
+  - setAllowListEnabled / getAllowListEnabled
 
 
 ## 1.1.0 - Unreleased
