@@ -37,7 +37,16 @@ func TestOCRZKSync(t *testing.T) {
 	timeBetweenRounds, isSet := os.LookupEnv("OCR_TIME_BETWEEN_ROUNDS")
 	require.Equal(t, isSet, true, "OCR_TIME_BETWEEN_ROUNDS should be defined")
 
+	gauntletBinary, isSet := os.LookupEnv("GAUNTLET_LOCAL_BINARY")
+	require.Equal(t, isSet, true, "GAUNTLET_LOCAL_BINARY should be defined")
+
 	testEnvironment, testNetwork := DeployEnvironment(t)
+	pl, err := testEnvironment.Client.ListPods(testEnvironment.Cfg.Namespace, "job-name=remote-test-runner")
+	require.NoError(t, err)
+
+	fmt.Println(pl)
+	_, _, _, err = testEnvironment.Client.CopyToPod(testEnvironment.Cfg.Namespace, gauntletBinary, fmt.Sprintf("%s/%s:/gauntlet-evm-zksync-linux-x64", testEnvironment.Cfg.Namespace, pl.Items[0].Name), "remote-test-runner-node")
+	require.NoError(t, err, "Error uploading to pod")
 
 	if testEnvironment.WillUseRemoteRunner() {
 		return
