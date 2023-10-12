@@ -198,6 +198,9 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 			txm.lggr.Errorw("unable to read unstarted msgs", "err", err)
 			return err
 		}
+		for _, msg := range started {
+			msgs.add(msg)
+		}
 		if limit := txm.cfg.MaxMsgsPerBatch() - int64(len(started)); limit > 0 {
 			// Use the remaining batch budget for Unstarted
 			unstarted, err := txm.orm.GetMsgsState(db.Unstarted, limit, pg.WithQueryer(tx)) //nolint
@@ -215,9 +218,6 @@ func (txm *Txm) sendMsgBatch(ctx context.Context) {
 				txm.lggr.Errorw("unable to mark unstarted txes as started", "err", err)
 				return err
 			}
-		}
-		for _, msg := range started {
-			msgs.add(msg)
 		}
 		// Update expired messages (Unstarted or Started) to Errored
 		err = txm.orm.UpdateMsgs(msgs.expired.GetIDs(), db.Errored, nil, pg.WithQueryer(tx))
