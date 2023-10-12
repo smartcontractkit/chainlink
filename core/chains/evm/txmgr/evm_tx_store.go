@@ -72,6 +72,7 @@ type TestEvmTxStore interface {
 }
 
 type evmTxStore struct {
+	chainID   *big.Int
 	q         pg.Q
 	logger    logger.Logger
 	ctx       context.Context
@@ -320,6 +321,7 @@ func dbEthTxAttemptsToEthTxAttempts(dbEthTxAttempt []DbEthTxAttempt) []TxAttempt
 }
 
 func NewTxStore(
+	chainID *big.Int,
 	db *sqlx.DB,
 	lggr logger.Logger,
 	cfg pg.QConfig,
@@ -328,6 +330,7 @@ func NewTxStore(
 	ctx, cancel := context.WithCancel(context.Background())
 	q := pg.NewQ(db, namedLogger, cfg, pg.WithParentCtx(ctx))
 	return &evmTxStore{
+		chainID:   chainID,
 		q:         q,
 		logger:    namedLogger,
 		ctx:       ctx,
@@ -663,7 +666,7 @@ func loadConfirmedAttemptsReceipts(q pg.Queryer, attempts []TxAttempt) error {
 
 // FindTxAttemptsRequiringResend returns the highest priced attempt for each
 // eth_tx that was last sent before or at the given time (up to limit)
-func (o *evmTxStore) FindTxAttemptsRequiringResend(ctx context.Context, olderThan time.Time, maxInFlightTransactions uint32, chainID *big.Int, address common.Address) (attempts []TxAttempt, err error) {
+func (o *evmTxStore) FindTxAttemptsRequiringResend(ctx context.Context, olderThan time.Time, maxInFlightTransactions uint32, address common.Address) (attempts []TxAttempt, err error) {
 	var cancel context.CancelFunc
 	ctx, cancel = o.mergeContexts(ctx)
 	defer cancel()
@@ -682,7 +685,7 @@ JOIN evm.txes ON evm.txes.id = evm.tx_attempts.eth_tx_id AND evm.txes.state IN (
 WHERE evm.tx_attempts.state <> 'in_progress' AND evm.txes.broadcast_at <= $1 AND evm_chain_id = $2 AND from_address = $3
 ORDER BY evm.txes.nonce ASC, evm.tx_attempts.gas_price DESC, evm.tx_attempts.gas_tip_cap DESC
 LIMIT $4
-`, olderThan, chainID.String(), address, limit)
+`, olderThan, o.chainID.String(), address, limit)
 
 	attempts = dbEthTxAttemptsToEthTxAttempts(dbAttempts)
 	return attempts, pkgerrors.Wrap(err, "FindEthTxAttemptsRequiringResend failed to load evm.tx_attempts")

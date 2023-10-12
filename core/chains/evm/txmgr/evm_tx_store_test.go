@@ -247,7 +247,7 @@ func TestORM_FindTxAttemptsRequiringResend(t *testing.T) {
 
 	t.Run("returns nothing if there are no transactions", func(t *testing.T) {
 		olderThan := time.Now()
-		attempts, err := txStore.FindTxAttemptsRequiringResend(testutils.Context(t), olderThan, 10, &cltest.FixtureChainID, fromAddress)
+		attempts, err := txStore.FindTxAttemptsRequiringResend(testutils.Context(t), olderThan, 10, fromAddress)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 0)
 	})
@@ -290,14 +290,14 @@ func TestORM_FindTxAttemptsRequiringResend(t *testing.T) {
 
 	t.Run("returns nothing if there are transactions from a different key", func(t *testing.T) {
 		olderThan := time.Now()
-		attempts, err := txStore.FindTxAttemptsRequiringResend(testutils.Context(t), olderThan, 10, &cltest.FixtureChainID, utils.RandomAddress())
+		attempts, err := txStore.FindTxAttemptsRequiringResend(testutils.Context(t), olderThan, 10, utils.RandomAddress())
 		require.NoError(t, err)
 		assert.Len(t, attempts, 0)
 	})
 
 	t.Run("returns the highest price attempt for each transaction that was last broadcast before or on the given time", func(t *testing.T) {
 		olderThan := time.Unix(1616509200, 0)
-		attempts, err := txStore.FindTxAttemptsRequiringResend(testutils.Context(t), olderThan, 0, &cltest.FixtureChainID, fromAddress)
+		attempts, err := txStore.FindTxAttemptsRequiringResend(testutils.Context(t), olderThan, 0, fromAddress)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 2)
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)
@@ -306,7 +306,7 @@ func TestORM_FindTxAttemptsRequiringResend(t *testing.T) {
 
 	t.Run("returns the highest price attempt for EIP-1559 transactions", func(t *testing.T) {
 		olderThan := time.Unix(1616509400, 0)
-		attempts, err := txStore.FindTxAttemptsRequiringResend(testutils.Context(t), olderThan, 0, &cltest.FixtureChainID, fromAddress)
+		attempts, err := txStore.FindTxAttemptsRequiringResend(testutils.Context(t), olderThan, 0, fromAddress)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 4)
 		assert.Equal(t, attempt4_4.ID, attempts[3].ID)
@@ -314,7 +314,7 @@ func TestORM_FindTxAttemptsRequiringResend(t *testing.T) {
 
 	t.Run("applies limit", func(t *testing.T) {
 		olderThan := time.Unix(1616509200, 0)
-		attempts, err := txStore.FindTxAttemptsRequiringResend(testutils.Context(t), olderThan, 1, &cltest.FixtureChainID, fromAddress)
+		attempts, err := txStore.FindTxAttemptsRequiringResend(testutils.Context(t), olderThan, 1, fromAddress)
 		require.NoError(t, err)
 		assert.Len(t, attempts, 1)
 		assert.Equal(t, attempt1_2.ID, attempts[0].ID)

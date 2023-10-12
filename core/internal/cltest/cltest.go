@@ -1628,11 +1628,11 @@ func MustGetStateForKey(t testing.TB, kst keystore.Eth, key ethkey.KeyV2) ethkey
 }
 
 func NewTxStore(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.EvmTxStore {
-	return txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	return txmgr.NewTxStore(&FixtureChainID, db, logger.TestLogger(t), cfg)
 }
 
 func NewTestTxStore(t *testing.T, db *sqlx.DB, cfg pg.QConfig) txmgr.TestEvmTxStore {
-	return txmgr.NewTxStore(db, logger.TestLogger(t), cfg)
+	return txmgr.NewTxStore(&FixtureChainID, db, logger.TestLogger(t), cfg)
 }
 
 // ClearDBTables deletes all rows from the given tables

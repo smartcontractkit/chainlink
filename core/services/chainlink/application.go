@@ -269,7 +269,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		mercuryORM     = mercury.NewORM(db, globalLogger, cfg.Database())
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(db, legacyEVMChains, pipelineORM, bridgeORM, keyStore, globalLogger, cfg.Database())
-		txmORM         = txmgr.NewTxStore(db, globalLogger, cfg.Database())
+		txmORM         = txmgr.NewTxStore(big.NewInt(0), db, globalLogger, cfg.Database())
 	)
 
 	for _, chain := range legacyEVMChains.Slice() {
