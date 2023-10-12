@@ -664,24 +664,6 @@ func (ks *eth) add(key ethkey.KeyV2, chainIDs ...*big.Int) (err error) {
 	return err
 }
 
-func (ks *eth) addWithNonce(key ethkey.KeyV2, chainID *big.Int, nonce int64, isDisabled bool) (err error) {
-	ks.lock.Lock()
-	defer ks.lock.Unlock()
-	err = ks.safeAddKey(key, func(tx pg.Queryer) (merr error) {
-		state := new(ethkey.State)
-		sql := `INSERT INTO evm.key_states (address, next_nonce, disabled, evm_chain_id, created_at, updated_at)
-VALUES ($1, $2, $3, $4, NOW(), NOW()) RETURNING *;`
-		if err = ks.orm.q.Get(state, sql, key.Address, nonce, isDisabled, chainID); err != nil {
-			return errors.Wrap(err, "failed to insert evm_key_state")
-		}
-
-		ks.keyStates.add(state)
-		return nil
-	})
-	ks.notify()
-	return err
-}
-
 // notify notifies subscribers that eth keys have changed
 func (ks *eth) notify() {
 	ks.subscribersMu.RLock()

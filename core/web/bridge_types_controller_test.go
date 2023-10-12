@@ -140,7 +140,7 @@ func BenchmarkBridgeTypesController_Index(b *testing.B) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		resp, cleanup := client.Get("/v2/bridge_types")
-		defer cleanup()
+		b.Cleanup(cleanup)
 		assert.Equal(b, http.StatusOK, resp.StatusCode, "Response should be successful")
 	}
 }

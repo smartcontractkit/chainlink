@@ -2,7 +2,7 @@
 pragma solidity ^0.8.0;
 
 import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
-import {VRFV2WrapperInterface} from "../interfaces/VRFV2WrapperInterface.sol";
+import {VRFV2WrapperInterface} from "./interfaces/VRFV2WrapperInterface.sol";
 
 /** *******************************************************************************
  * @notice Interface for contracts using VRF randomness through the VRF V2 wrapper

@@ -100,7 +100,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 
-	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth(), 0)
+	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
 	toAddress := testutils.NewAddress()
 	gasLimit := uint32(1000)
 	payload := []byte{1, 2, 3}
@@ -512,8 +512,8 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	etKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	thisKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
-	otherKey, _ := cltest.MustInsertRandomKey(t, etKeyStore, 1)
+	thisKey, _ := cltest.RandomKey{Nonce: 1}.MustInsert(t, etKeyStore)
+	otherKey, _ := cltest.RandomKey{Nonce: 1}.MustInsert(t, etKeyStore)
 
 	fromAddress := thisKey.Address
 	evmFromAddress := fromAddress
@@ -674,8 +674,8 @@ func TestTxm_Reset(t *testing.T) {
 	cfg := evmtest.NewChainScopedConfig(t, gcfg)
 	kst := cltest.NewKeyStore(t, db, cfg.Database())
 
-	_, addr := cltest.MustInsertRandomKey(t, kst.Eth(), 5)
-	_, addr2 := cltest.MustInsertRandomKey(t, kst.Eth(), 3)
+	_, addr := cltest.RandomKey{Nonce: 5}.MustInsert(t, kst.Eth())
+	_, addr2 := cltest.RandomKey{Nonce: 3}.MustInsert(t, kst.Eth())
 	txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 	// 4 confirmed tx from addr1
 	for i := int64(0); i < 4; i++ {

@@ -138,7 +138,7 @@ func fakeIntermittentlyFailingPriceResponder(t *testing.T, requestData map[strin
 		if reqBody.Meta["shouldFail"].(bool) {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusBadGateway)
-			require.NoError(t, json.NewEncoder(w).Encode(errors.New("EA failure!")))
+			require.NoError(t, json.NewEncoder(w).Encode(errors.New("EA failure")))
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
