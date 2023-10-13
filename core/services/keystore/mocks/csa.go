@@ -165,32 +165,6 @@ func (_m *CSA) GetAll() ([]csakey.KeyV2, error) {
 	return r0, r1
 }
 
-// GetV1KeysAsV2 provides a mock function with given fields:
-func (_m *CSA) GetV1KeysAsV2() ([]csakey.KeyV2, error) {
-	ret := _m.Called()
-
-	var r0 []csakey.KeyV2
-	var r1 error
-	if rf, ok := ret.Get(0).(func() ([]csakey.KeyV2, error)); ok {
-		return rf()
-	}
-	if rf, ok := ret.Get(0).(func() []csakey.KeyV2); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]csakey.KeyV2)
-		}
-	}
-
-	if rf, ok := ret.Get(1).(func() error); ok {
-		r1 = rf()
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // Import provides a mock function with given fields: keyJSON, password
 func (_m *CSA) Import(keyJSON []byte, password string) (csakey.KeyV2, error) {
 	ret := _m.Called(keyJSON, password)
