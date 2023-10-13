@@ -49,9 +49,9 @@ func (c *CCIPContracts) CreateDefaultExecOnchainConfig(t *testing.T) []byte {
 		PermissionLessExecutionThresholdSeconds: PermissionLessExecutionThresholdSeconds,
 		Router:                                  c.Dest.Router.Address(),
 		PriceRegistry:                           c.Dest.PriceRegistry.Address(),
-		MaxDataSize:                             1e5,
-		MaxTokensLength:                         5,
-		MaxPoolGas:                              200_000,
+		MaxDataBytes:                            1e5,
+		MaxNumberOfTokensPerMsg:                 5,
+		MaxPoolReleaseOrMintGas:                 200_000,
 	})
 	require.NoError(t, err)
 	return config

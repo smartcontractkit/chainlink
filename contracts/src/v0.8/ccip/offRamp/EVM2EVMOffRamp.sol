@@ -89,10 +89,10 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
   struct DynamicConfig {
     uint32 permissionLessExecutionThresholdSeconds; // ─╮ Waiting time before manual execution is enabled
     address router; // ─────────────────────────────────╯ Router address
-    address priceRegistry; // ─────╮ Price registry address
-    uint16 maxTokensLength; //     │ Maximum number of ERC20 token transfers that can be included per message
-    uint32 maxDataSize; //         │ Maximum payload data size
-    uint32 maxPoolGas; // ─────────╯ Maximum amount of gas passed on to token pool when calling releaseOrMint
+    address priceRegistry; // ──────────╮ Price registry address
+    uint16 maxNumberOfTokensPerMsg; //  │ Maximum number of ERC20 token transfers that can be included per message
+    uint32 maxDataBytes; //             │ Maximum payload data size in bytes
+    uint32 maxPoolReleaseOrMintGas; // ─╯ Maximum amount of gas passed on to token pool when calling releaseOrMint
   }
 
   // STATIC CONFIG
@@ -374,10 +374,11 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
     uint256 offchainTokenDataLength
   ) private view {
     if (sourceChainSelector != i_sourceChainSelector) revert InvalidSourceChain(sourceChainSelector);
-    if (numberOfTokens > uint256(s_dynamicConfig.maxTokensLength)) revert UnsupportedNumberOfTokens(sequenceNumber);
+    if (numberOfTokens > uint256(s_dynamicConfig.maxNumberOfTokensPerMsg))
+      revert UnsupportedNumberOfTokens(sequenceNumber);
     if (numberOfTokens != offchainTokenDataLength) revert TokenDataMismatch(sequenceNumber);
-    if (dataLength > uint256(s_dynamicConfig.maxDataSize))
-      revert MessageTooLarge(uint256(s_dynamicConfig.maxDataSize), dataLength);
+    if (dataLength > uint256(s_dynamicConfig.maxDataBytes))
+      revert MessageTooLarge(uint256(s_dynamicConfig.maxDataBytes), dataLength);
   }
 
   /// @notice Try executing a message.
@@ -608,7 +609,7 @@ contract EVM2EVMOffRamp is IAny2EVMOffRamp, AggregateRateLimiter, ITypeAndVersio
           abi.encode(sourceTokenData[i], offchainTokenData[i])
         ),
         address(pool),
-        s_dynamicConfig.maxPoolGas,
+        s_dynamicConfig.maxPoolReleaseOrMintGas,
         Internal.MAX_RET_BYTES,
         Internal.GAS_FOR_CALL_EXACT_CHECK
       );

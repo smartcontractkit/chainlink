@@ -208,8 +208,8 @@ contract EVM2EVMOffRampSetup is TokenSetup, PriceRegistrySetup, OCR2BaseSetup {
     assertEq(a.permissionLessExecutionThresholdSeconds, b.permissionLessExecutionThresholdSeconds);
     assertEq(a.router, b.router);
     assertEq(a.priceRegistry, b.priceRegistry);
-    assertEq(a.maxTokensLength, b.maxTokensLength);
-    assertEq(a.maxDataSize, b.maxDataSize);
-    assertEq(a.maxPoolGas, b.maxPoolGas);
+    assertEq(a.maxNumberOfTokensPerMsg, b.maxNumberOfTokensPerMsg);
+    assertEq(a.maxDataBytes, b.maxDataBytes);
+    assertEq(a.maxPoolReleaseOrMintGas, b.maxPoolReleaseOrMintGas);
   }
 }

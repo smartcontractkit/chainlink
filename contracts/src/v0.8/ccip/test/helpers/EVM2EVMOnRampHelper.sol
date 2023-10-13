@@ -25,19 +25,14 @@ contract EVM2EVMOnRampHelper is EVM2EVMOnRamp, IgnoreContractSize {
     )
   {}
 
-  function getDataAvailabilityCostUSD(
+  function getDataAvailabilityCost(
     uint112 dataAvailabilityGasPrice,
     uint256 messageDataLength,
     uint256 numberOfTokens,
     uint32 tokenTransferBytesOverhead
   ) external view returns (uint256) {
     return
-      _getDataAvailabilityCostUSD(
-        dataAvailabilityGasPrice,
-        messageDataLength,
-        numberOfTokens,
-        tokenTransferBytesOverhead
-      );
+      _getDataAvailabilityCost(dataAvailabilityGasPrice, messageDataLength, numberOfTokens, tokenTransferBytesOverhead);
   }
 
   function getTokenTransferCost(

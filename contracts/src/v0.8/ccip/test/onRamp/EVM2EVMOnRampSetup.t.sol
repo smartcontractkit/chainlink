@@ -39,18 +39,18 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
     s_feeTokenConfigArgs.push(
       EVM2EVMOnRamp.FeeTokenConfigArgs({
         token: s_sourceFeeToken,
-        networkFeeUSD: 1_00, // 1 USD
-        gasMultiplier: 1e18, // 1x
-        premiumMultiplier: 5e17, // 0.5x
+        networkFeeUSDCents: 1_00, // 1 USD
+        gasMultiplierWeiPerEth: 1e18, // 1x
+        premiumMultiplierWeiPerEth: 5e17, // 0.5x
         enabled: true
       })
     );
     s_feeTokenConfigArgs.push(
       EVM2EVMOnRamp.FeeTokenConfigArgs({
         token: WETH,
-        networkFeeUSD: 5_00, // 5 USD
-        gasMultiplier: 2e18, // 2x
-        premiumMultiplier: 2e18, // 2x
+        networkFeeUSDCents: 5_00, // 5 USD
+        gasMultiplierWeiPerEth: 2e18, // 2x
+        premiumMultiplierWeiPerEth: 2e18, // 2x
         enabled: true
       })
     );
@@ -58,9 +58,9 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
     s_tokenTransferFeeConfigArgs.push(
       EVM2EVMOnRamp.TokenTransferFeeConfigArgs({
         token: s_sourceFeeToken,
-        minFeeUSD: 1_00, // 1 USD
-        maxFeeUSD: 1000_00, // 1,000 USD
-        ratio: 2_5, // 2.5 bps, or 0.025%
+        minFeeUSDCents: 1_00, // 1 USD
+        maxFeeUSDCents: 1000_00, // 1,000 USD
+        deciBps: 2_5, // 2.5 bps, or 0.025%
         destGasOverhead: 40_000,
         destBytesOverhead: 0
       })
@@ -68,9 +68,9 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
     s_tokenTransferFeeConfigArgs.push(
       EVM2EVMOnRamp.TokenTransferFeeConfigArgs({
         token: s_sourceRouter.getWrappedNative(),
-        minFeeUSD: 50, // 0.5 USD
-        maxFeeUSD: 500_00, // 500 USD
-        ratio: 5_0, // 5 bps, or 0.05%
+        minFeeUSDCents: 50, // 0.5 USD
+        maxFeeUSDCents: 500_00, // 500 USD
+        deciBps: 5_0, // 5 bps, or 0.05%
         destGasOverhead: 10_000,
         destBytesOverhead: 100
       })
@@ -78,9 +78,9 @@ contract EVM2EVMOnRampSetup is TokenSetup, PriceRegistrySetup {
     s_tokenTransferFeeConfigArgs.push(
       EVM2EVMOnRamp.TokenTransferFeeConfigArgs({
         token: CUSTOM_TOKEN,
-        minFeeUSD: 2_00, // 1 USD
-        maxFeeUSD: 2000_00, // 1,000 USD
-        ratio: 10_0, // 10 bps, or 0.1%
+        minFeeUSDCents: 2_00, // 1 USD
+        maxFeeUSDCents: 2000_00, // 1,000 USD
+        deciBps: 10_0, // 10 bps, or 0.1%
         destGasOverhead: 1,
         destBytesOverhead: 200
       })

@@ -106,8 +106,8 @@ contract StructFactory {
       (32 * 34 + 4) *
       DEST_GAS_PER_DATA_AVAILABILITY_BYTE; // OffRamp transmission excluding EVM2EVMMessage takes up about 34 slots, plus selector.
 
-  // Multiples of 0.0001, use 6840 for OP, same as OP mainnet 0.684.
-  uint16 internal constant DEST_GAS_DATA_AVAILABILITY_MULTIPLIER = 6840;
+  // Multiples of bps, or 0.0001, use 6840 to be same as OP mainnet compression factor of 0.684.
+  uint16 internal constant DEST_GAS_DATA_AVAILABILITY_MULTIPLIER_BPS = 6840;
 
   // OffRamp
   uint256 internal constant POOL_BALANCE = 1e25;
@@ -132,9 +132,9 @@ contract StructFactory {
         permissionLessExecutionThresholdSeconds: PERMISSION_LESS_EXECUTION_THRESHOLD_SECONDS,
         router: router,
         priceRegistry: priceRegistry,
-        maxTokensLength: MAX_TOKENS_LENGTH,
-        maxDataSize: MAX_DATA_SIZE,
-        maxPoolGas: MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS
+        maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
+        maxDataBytes: MAX_DATA_SIZE,
+        maxPoolReleaseOrMintGas: MAX_TOKEN_POOL_RELEASE_OR_MINT_GAS
       });
   }
 
@@ -145,15 +145,15 @@ contract StructFactory {
     return
       EVM2EVMOnRamp.DynamicConfig({
         router: router,
-        maxTokensLength: MAX_TOKENS_LENGTH,
+        maxNumberOfTokensPerMsg: MAX_TOKENS_LENGTH,
         destGasOverhead: DEST_GAS_OVERHEAD,
         destGasPerPayloadByte: DEST_GAS_PER_PAYLOAD_BYTE,
         destDataAvailabilityOverheadGas: DEST_DATA_AVAILABILITY_OVERHEAD_GAS,
         destGasPerDataAvailabilityByte: DEST_GAS_PER_DATA_AVAILABILITY_BYTE,
-        destDataAvailabilityMultiplier: DEST_GAS_DATA_AVAILABILITY_MULTIPLIER,
+        destDataAvailabilityMultiplierBps: DEST_GAS_DATA_AVAILABILITY_MULTIPLIER_BPS,
         priceRegistry: priceRegistry,
-        maxDataSize: MAX_DATA_SIZE,
-        maxGasLimit: MAX_GAS_LIMIT
+        maxDataBytes: MAX_DATA_SIZE,
+        maxPerMsgGasLimit: MAX_GAS_LIMIT
       });
   }
 

@@ -34,9 +34,9 @@ func (d ExecOnchainConfigV1_2_0) AbiString() string {
 				{"name": "permissionLessExecutionThresholdSeconds", "type": "uint32"},
 				{"name": "router", "type": "address"},
 				{"name": "priceRegistry", "type": "address"},
-				{"name": "maxTokensLength", "type": "uint16"},
-				{"name": "maxDataSize", "type": "uint32"},
-				{"name": "maxPoolGas", "type": "uint32"}
+				{"name": "maxNumberOfTokensPerMsg", "type": "uint16"},
+				{"name": "maxDataBytes", "type": "uint32"},
+				{"name": "maxPoolReleaseOrMintGas", "type": "uint32"}
 			],
 			"type": "tuple"
 		}
@@ -53,14 +53,14 @@ func (d ExecOnchainConfigV1_2_0) Validate() error {
 	if d.PriceRegistry == (common.Address{}) {
 		return errors.New("must set PriceRegistry address")
 	}
-	if d.MaxTokensLength == 0 {
-		return errors.New("must set MaxTokensLength")
+	if d.MaxNumberOfTokensPerMsg == 0 {
+		return errors.New("must set MaxNumberOfTokensPerMsg")
 	}
-	if d.MaxDataSize == 0 {
-		return errors.New("must set MaxDataSize")
+	if d.MaxDataBytes == 0 {
+		return errors.New("must set MaxDataBytes")
 	}
-	if d.MaxPoolGas == 0 {
-		return errors.New("must set MaxPoolGas")
+	if d.MaxPoolReleaseOrMintGas == 0 {
+		return errors.New("must set MaxPoolReleaseOrMintGas")
 	}
 	return nil
 }

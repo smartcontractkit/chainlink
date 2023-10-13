@@ -40,7 +40,7 @@ type CCIPE2ELoad struct {
 	CallTimeOut               time.Duration // max time to wait for various on-chain events
 	reports                   *testreporters.CCIPLaneStats
 	msg                       router.ClientEVM2AnyMessage
-	MaxDataSize               uint32
+	MaxDataBytes              uint32
 	SendMaxDataIntermittently bool
 	LastFinalizedTxBlock      atomic.Uint64
 	LastFinalizedTimestamp    atomic.Time
@@ -114,7 +114,7 @@ func (c *CCIPE2ELoad) BeforeAllCall(msgType string) {
 	if c.SendMaxDataIntermittently {
 		dCfg, err := sourceCCIP.OnRamp.Instance.GetDynamicConfig(nil)
 		require.NoError(c.t, err, "failed to fetch dynamic config")
-		c.MaxDataSize = dCfg.MaxDataSize
+		c.MaxDataBytes = dCfg.MaxDataBytes
 	}
 
 	// wait for any pending txs before moving on
@@ -156,10 +156,10 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.CallResult {
 
 	if c.SendMaxDataIntermittently {
 		lggr.Info().Msg("sending max data intermittently")
-		// every 10th message will have extra data with almost MaxDataSize
+		// every 10th message will have extra data with almost MaxDataBytes
 		if msgSerialNo%10 == 0 {
-			length := c.MaxDataSize - 1
-			b := make([]byte, c.MaxDataSize-1)
+			length := c.MaxDataBytes - 1
+			b := make([]byte, c.MaxDataBytes-1)
 			_, err := rand.Read(b)
 			if err != nil {
 				res.Error = err.Error()
