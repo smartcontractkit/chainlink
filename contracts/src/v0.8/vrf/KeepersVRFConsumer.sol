@@ -84,6 +84,7 @@ contract KeepersVRFConsumer is KeeperCompatibleInterface, VRFConsumerBaseV2 {
    * @param requestId the VRF V2 request ID, provided at request time.
    * @param randomWords the randomness provided by Chainlink VRF.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
     // Check that the request exists. If not, revert.
     RequestRecord memory record = s_requests[requestId];
