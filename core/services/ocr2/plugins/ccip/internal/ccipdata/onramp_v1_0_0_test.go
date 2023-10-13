@@ -3,10 +3,8 @@ package ccipdata
 import (
 	"encoding/hex"
 	"math/big"
-	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/require"
@@ -19,8 +17,7 @@ import (
 func TestHasherV1_0_0(t *testing.T) {
 	sourceChainSelector, destChainSelector := uint64(1), uint64(4)
 	onRampAddress := common.HexToAddress("0x5550000000000000000000000000000000000001")
-	onRampABI, err := abi.JSON(strings.NewReader(evm_2_evm_onramp_1_0_0.EVM2EVMOnRampABI))
-	require.NoError(t, err)
+	onRampABI := abihelpers.MustParseABI(evm_2_evm_onramp_1_0_0.EVM2EVMOnRampABI)
 
 	ramp, err := evm_2_evm_onramp_1_0_0.NewEVM2EVMOnRamp(onRampAddress, nil)
 	require.NoError(t, err)

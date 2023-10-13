@@ -131,9 +131,9 @@ func NewOffRampReader(lggr logger.Logger, addr common.Address, destClient client
 		return nil, err
 	}
 	switch version.String() {
-	case v1_0_0, v1_1_0:
+	case V1_0_0, V1_1_0:
 		return NewOffRampV1_0_0(lggr, addr, destClient, lp, estimator)
-	case v1_2_0:
+	case V1_2_0:
 		return NewOffRampV1_2_0(lggr, addr, destClient, lp, estimator)
 	default:
 		return nil, errors.Errorf("unsupported offramp version %v", version.String())
@@ -146,7 +146,7 @@ func ExecReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (fun
 		return nil, errors.Errorf("expected %v got %v", ccipconfig.EVM2EVMOffRamp, typ)
 	}
 	switch ver.String() {
-	case v1_0_0, v1_1_0:
+	case V1_0_0, V1_1_0:
 		offRampABI := abihelpers.MustParseABI(evm_2_evm_offramp_1_0_0.EVM2EVMOffRampABI)
 		return func(report []byte) (*txmgr.TxMeta, error) {
 			execReport, err := decodeExecReportV1_0_0(abihelpers.MustGetMethodInputs(ManuallyExecute, offRampABI)[:1], report)
@@ -155,7 +155,7 @@ func ExecReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (fun
 			}
 			return execReportToEthTxMeta(execReport)
 		}, nil
-	case v1_2_0:
+	case V1_2_0:
 		offRampABI := abihelpers.MustParseABI(evm_2_evm_offramp.EVM2EVMOffRampABI)
 		return func(report []byte) (*txmgr.TxMeta, error) {
 			execReport, err := decodeExecReportV1_2_0(abihelpers.MustGetMethodInputs(ManuallyExecute, offRampABI)[:1], report)

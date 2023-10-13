@@ -34,9 +34,9 @@ const (
 )
 
 var (
-	_                                OffRampReader = &OffRampV1_0_0{}
-	ExecutionStateChangedEventV1_0_0               = abihelpers.MustGetEventID("ExecutionStateChanged", abihelpers.MustParseABI(evm_2_evm_offramp_1_0_0.EVM2EVMOffRampABI))
-	ExecutionStateChangedSeqNrV1_0_0               = 1
+	_                                     OffRampReader = &OffRampV1_0_0{}
+	ExecutionStateChangedEventV1_0_0                    = abihelpers.MustGetEventID("ExecutionStateChanged", abihelpers.MustParseABI(evm_2_evm_offramp_1_0_0.EVM2EVMOffRampABI))
+	ExecutionStateChangedSeqNrIndexV1_0_0               = 1
 )
 
 type ExecOnchainConfigV1_0_0 evm_2_evm_offramp_1_0_0.EVM2EVMOffRampDynamicConfig
@@ -281,7 +281,7 @@ func decodeExecReportV1_0_0(args abi.Arguments, report []byte) (ExecReport, erro
 	if !ok {
 		return ExecReport{}, fmt.Errorf("got %T", unpacked[0])
 	}
-	var messages []internal.EVM2EVMMessage
+	messages := []internal.EVM2EVMMessage{}
 	for _, msg := range erStruct.Messages {
 		var tokensAndAmounts []internal.TokenAmount
 		for _, tokenAndAmount := range msg.TokenAmounts {

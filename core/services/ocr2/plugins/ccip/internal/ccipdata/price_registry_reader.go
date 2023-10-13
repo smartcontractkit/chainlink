@@ -3,6 +3,7 @@ package ccipdata
 import (
 	"context"
 	"math/big"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -10,9 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
@@ -21,10 +20,7 @@ const (
 	COMMIT_PRICE_UPDATES = "Commit price updates"
 	FEE_TOKEN_ADDED      = "Fee token added"
 	FEE_TOKEN_REMOVED    = "Fee token removed"
-)
-
-var (
-	UsdPerUnitGasUpdatedV1_0_0 = abihelpers.MustGetEventID("UsdPerUnitGasUpdated", abihelpers.MustParseABI(price_registry.PriceRegistryABI))
+	ExecPluginLabel      = "exec"
 )
 
 type TokenPrice struct {
@@ -34,7 +30,7 @@ type TokenPrice struct {
 
 type TokenPriceUpdate struct {
 	TokenPrice
-	Timestamp *big.Int
+	TimestampUnixSec *big.Int
 }
 
 type GasPrice struct {
@@ -44,15 +40,17 @@ type GasPrice struct {
 
 type GasPriceUpdate struct {
 	GasPrice
-	Timestamp *big.Int
+	TimestampUnixSec *big.Int
 }
 
 //go:generate mockery --quiet --name PriceRegistryReader --output . --filename price_registry_reader_mock.go --inpackage --case=underscore
 type PriceRegistryReader interface {
 	Close(qopts ...pg.QOpt) error
 	// GetTokenPriceUpdatesCreatedAfter returns all the token price updates that happened after the provided timestamp.
+	// The returned updates are sorted by timestamp in ascending order.
 	GetTokenPriceUpdatesCreatedAfter(ctx context.Context, ts time.Time, confs int) ([]Event[TokenPriceUpdate], error)
 	// GetGasPriceUpdatesCreatedAfter returns all the gas price updates that happened after the provided timestamp.
+	// The returned updates are sorted by timestamp in ascending order.
 	GetGasPriceUpdatesCreatedAfter(ctx context.Context, chainSelector uint64, ts time.Time, confs int) ([]Event[GasPriceUpdate], error)
 	Address() common.Address
 	FeeTokenEvents() []common.Hash
@@ -64,15 +62,17 @@ type PriceRegistryReader interface {
 func NewPriceRegistryReader(lggr logger.Logger, priceRegistryAddress common.Address, lp logpoller.LogPoller, cl client.Client) (PriceRegistryReader, error) {
 	_, version, err := ccipconfig.TypeAndVersion(priceRegistryAddress, cl)
 	if err != nil {
-		// TODO: would this always through a method not found?
-		// Unfortunately the v1 price registry doesn't have a method to get the version so assume if it errors
-		// its v1.
-		return NewPriceRegistryV1_0_0(lggr, priceRegistryAddress, lp, cl)
+		if strings.Contains(err.Error(), "execution reverted") {
+			lggr.Infof("Assuming %v is 1.0.0 price registry, got %v", priceRegistryAddress.String(), err)
+			// Unfortunately the v1 price registry doesn't have a method to get the version so assume if it reverts
+			// its v1.
+			return NewPriceRegistryV1_0_0(lggr, priceRegistryAddress, lp, cl)
+		}
+		return nil, err
 	}
 	switch version.String() {
-	case v1_2_0:
-		// TODO: ABI is same now but will break shortly with multigas price updates
-		return NewPriceRegistryV1_0_0(lggr, priceRegistryAddress, lp, cl)
+	case V1_2_0:
+		return NewPriceRegistryV1_2_0(lggr, priceRegistryAddress, lp, cl)
 	default:
 		return nil, errors.Errorf("got unexpected version %v", version.String())
 	}
