@@ -261,6 +261,12 @@ func (te *CLClusterTestEnv) Cleanup() error {
 		}
 	}
 
+	// close EVMClient connections
+	if te.EVMClient != nil {
+		err := te.EVMClient.Close()
+		return err
+	}
+
 	return nil
 }
 
