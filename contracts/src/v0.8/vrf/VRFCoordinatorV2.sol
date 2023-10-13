@@ -2,9 +2,9 @@
 pragma solidity ^0.8.4;
 
 import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
-import {BlockhashStoreInterface} from "../interfaces/BlockhashStoreInterface.sol";
+import {BlockhashStoreInterface} from "./interfaces/BlockhashStoreInterface.sol";
 import {AggregatorV3Interface} from "../interfaces/AggregatorV3Interface.sol";
-import {VRFCoordinatorV2Interface} from "../interfaces/VRFCoordinatorV2Interface.sol";
+import {VRFCoordinatorV2Interface} from "./interfaces/VRFCoordinatorV2Interface.sol";
 import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
 import {IERC677Receiver} from "../shared/interfaces/IERC677Receiver.sol";
 import {VRF} from "./VRF.sol";
@@ -390,7 +390,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     (uint256 requestId, uint256 preSeed) = computeRequestId(keyHash, msg.sender, subId, nonce);
 
     s_requestCommitments[requestId] = keccak256(
-      abi.encode(requestId, ChainSpecificUtil.getBlockNumber(), subId, callbackGasLimit, numWords, msg.sender)
+      abi.encode(requestId, ChainSpecificUtil._getBlockNumber(), subId, callbackGasLimit, numWords, msg.sender)
     );
     emit RandomWordsRequested(
       keyHash,
@@ -483,7 +483,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
       revert IncorrectCommitment();
     }
 
-    bytes32 blockHash = ChainSpecificUtil.getBlockhash(rc.blockNum);
+    bytes32 blockHash = ChainSpecificUtil._getBlockhash(rc.blockNum);
     if (blockHash == bytes32(0)) {
       blockHash = BLOCKHASH_STORE.getBlockhash(rc.blockNum);
       if (blockHash == bytes32(0)) {
@@ -587,7 +587,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
     // Will return non-zero on chains that have this enabled
-    uint256 l1CostWei = ChainSpecificUtil.getCurrentTxL1GasFees(msg.data);
+    uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
     // (1e18 juels/link) ((wei/gas * gas) + l1wei) / (wei/link) = juels
     uint256 paymentNoFee = (1e18 * (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft()) + l1CostWei)) /
       uint256(weiPerUnitLink);

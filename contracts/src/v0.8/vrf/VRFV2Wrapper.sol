@@ -7,8 +7,8 @@ import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol
 import {VRFConsumerBaseV2} from "./VRFConsumerBaseV2.sol";
 import {LinkTokenInterface} from "../shared/interfaces/LinkTokenInterface.sol";
 import {AggregatorV3Interface} from "../interfaces/AggregatorV3Interface.sol";
-import {VRFCoordinatorV2Interface} from "../interfaces/VRFCoordinatorV2Interface.sol";
-import {VRFV2WrapperInterface} from "../interfaces/VRFV2WrapperInterface.sol";
+import {VRFCoordinatorV2Interface} from "./interfaces/VRFCoordinatorV2Interface.sol";
+import {VRFV2WrapperInterface} from "./interfaces/VRFV2WrapperInterface.sol";
 import {VRFV2WrapperConsumerBase} from "./VRFV2WrapperConsumerBase.sol";
 import {ChainSpecificUtil} from "../ChainSpecificUtil.sol";
 
@@ -253,7 +253,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     // transaction, if we are on an L2.
     uint256 costWei = (_requestGasPrice *
       (_gas + s_wrapperGasOverhead + s_coordinatorGasOverhead) +
-      ChainSpecificUtil.getL1CalldataGasCost(s_fulfillmentTxSizeBytes));
+      ChainSpecificUtil._getL1CalldataGasCost(s_fulfillmentTxSizeBytes));
     // (1e18 juels/link) * ((wei/gas * (gas)) + l1wei) / (wei/link) == 1e18 juels * wei/link / (wei/link) == 1e18 juels * wei/link * link/wei == juels
     // baseFee is the base fee denominated in juels (link)
     uint256 baseFee = (1e18 * costWei) / uint256(_weiPerUnitLink);

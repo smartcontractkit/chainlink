@@ -59,7 +59,7 @@ func Test_PromReporter_OnNewLongestChain(t *testing.T) {
 		cfg := configtest.NewGeneralConfig(t, nil)
 		txStore := cltest.NewTestTxStore(t, db, cfg.Database())
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-		_, fromAddress := cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+		_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		var subscribeCalls atomic.Int32
 

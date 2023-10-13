@@ -26,6 +26,10 @@ These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.Serve
 
 - Starting in 2.8.0, chainlink nodes will no longer allow `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
 
+### Removed
+
+- Removed the ability to set a next nonce value for an address through CLI
+
 ## 2.6.0 - UNRELEASED
 
 ### Added

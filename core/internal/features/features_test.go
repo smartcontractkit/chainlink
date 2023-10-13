@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -670,7 +671,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 	return owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress
 }
 
-func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 uint16, dbName string,
+func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbName string,
 	b *backends.SimulatedBackend, ns ocrnetworking.NetworkingStack, overrides func(c *chainlink.Config, s *chainlink.Secrets),
 ) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2) {
 	p2pKey, err := p2pkey.NewV2()
@@ -743,7 +744,7 @@ func setupForwarderEnabledNode(
 	t *testing.T,
 	owner *bind.TransactOpts,
 	portV1,
-	portV2 uint16,
+	portV2 int,
 	dbName string,
 	b *backends.SimulatedBackend,
 	ns ocrnetworking.NetworkingStack,
@@ -856,8 +857,9 @@ func TestIntegration_OCR(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			bootstrapNodePortV1 := testutils.GetFreePort(t)
-			bootstrapNodePortV2 := testutils.GetFreePort(t)
+			t.Parallel()
+			bootstrapNodePortV1 := freeport.GetOne(t)
+			bootstrapNodePortV2 := freeport.GetOne(t)
 			g := gomega.NewWithT(t)
 			owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress := setupOCRContracts(t)
 
@@ -870,9 +872,10 @@ func TestIntegration_OCR(t *testing.T) {
 				keys         []ocrkey.KeyV2
 				apps         []*cltest.TestApplication
 			)
+			ports := freeport.GetN(t, 2*numOracles)
 			for i := 0; i < numOracles; i++ {
-				portV1 := testutils.GetFreePort(t)
-				portV2 := testutils.GetFreePort(t)
+				portV1 := ports[2*i]
+				portV2 := ports[2*i+1]
 				app, peerID, transmitter, key := setupNode(t, owner, portV1, portV2, fmt.Sprintf("o%d_%d", i, test.id), b, test.ns, func(c *chainlink.Config, s *chainlink.Secrets) {
 					c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
 					c.EVM[0].GasEstimator.EIP1559DynamicFees = ptr(test.eip1559)
@@ -891,10 +894,10 @@ func TestIntegration_OCR(t *testing.T) {
 					OracleIdentity: confighelper.OracleIdentity{
 						OnChainSigningAddress: ocrtypes.OnChainSigningAddress(key.OnChainSigning.Address()),
 						TransmitAddress:       transmitter,
-						OffchainPublicKey:     ocrtypes.OffchainPublicKey(key.PublicKeyOffChain()),
+						OffchainPublicKey:     key.PublicKeyOffChain(),
 						PeerID:                peerID,
 					},
-					SharedSecretEncryptionPublicKey: ocrtypes.SharedSecretEncryptionPublicKey(key.PublicKeyConfig()),
+					SharedSecretEncryptionPublicKey: key.PublicKeyConfig(),
 				})
 			}
 
@@ -1080,8 +1083,8 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 	t.Parallel()
 	numOracles := 4
 	t.Run("ocr_forwarder_flow", func(t *testing.T) {
-		bootstrapNodePortV1 := testutils.GetFreePort(t)
-		bootstrapNodePortV2 := testutils.GetFreePort(t)
+		bootstrapNodePortV1 := freeport.GetOne(t)
+		bootstrapNodePortV2 := freeport.GetOne(t)
 		g := gomega.NewWithT(t)
 		owner, b, ocrContractAddress, ocrContract, flagsContract, flagsContractAddress := setupOCRContracts(t)
 
@@ -1096,9 +1099,10 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 			keys                []ocrkey.KeyV2
 			apps                []*cltest.TestApplication
 		)
+		ports := freeport.GetN(t, 2*numOracles)
 		for i := 0; i < numOracles; i++ {
-			portV1 := testutils.GetFreePort(t)
-			portV2 := testutils.GetFreePort(t)
+			portV1 := ports[2*i]
+			portV2 := ports[2*i+1]
 			app, peerID, transmitter, forwarder, key := setupForwarderEnabledNode(t, owner, portV1, portV2, fmt.Sprintf("o%d_%d", i, 1), b, ocrnetworking.NetworkingStackV2, func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.Feature.LogPoller = ptr(true)
 				c.EVM[0].FlagsContractAddress = ptr(ethkey.EIP55AddressFromAddress(flagsContractAddress))
@@ -1117,10 +1121,10 @@ func TestIntegration_OCR_ForwarderFlow(t *testing.T) {
 				OracleIdentity: confighelper.OracleIdentity{
 					OnChainSigningAddress: ocrtypes.OnChainSigningAddress(key.OnChainSigning.Address()),
 					TransmitAddress:       forwarder,
-					OffchainPublicKey:     ocrtypes.OffchainPublicKey(key.PublicKeyOffChain()),
+					OffchainPublicKey:     key.PublicKeyOffChain(),
 					PeerID:                peerID,
 				},
-				SharedSecretEncryptionPublicKey: ocrtypes.SharedSecretEncryptionPublicKey(key.PublicKeyConfig()),
+				SharedSecretEncryptionPublicKey: key.PublicKeyConfig(),
 			})
 		}
 

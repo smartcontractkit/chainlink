@@ -232,12 +232,16 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	if err != nil {
 		return err
 	}
-	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{})
+	toAddr := common.HexToAddress(toAddress)
+	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{
+		To: &toAddr,
+	})
 	if err != nil {
 		return err
 	}
 	return evmClient.Fund(toAddress, amount, gasEstimates)
 }
+
 func (n *ClNode) StartContainer() error {
 	err := n.PostgresDb.StartContainer()
 	if err != nil {
@@ -248,7 +252,7 @@ func (n *ClNode) StartContainer() error {
 	nodeSecretsToml, err := templates.NodeSecretsTemplate{
 		PgDbName:      n.PostgresDb.DbName,
 		PgHost:        n.PostgresDb.ContainerName,
-		PgPort:        n.PostgresDb.Port,
+		PgPort:        n.PostgresDb.InternalPort,
 		PgPassword:    n.PostgresDb.Password,
 		CustomSecrets: n.NodeSecretsConfigTOML,
 	}.String()

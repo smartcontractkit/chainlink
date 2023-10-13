@@ -18,30 +18,33 @@ const (
 	ErrLokiPush   = "failed to push monitoring metrics to Loki"
 )
 
-func MonitorLoadStats(t *testing.T, vrfv2PlusContracts *vrfv2plus.VRFV2_5Contracts, labels map[string]string) {
+func MonitorLoadStats(lc *wasp.LokiClient, vrfv2PlusContracts *vrfv2plus.VRFV2_5Contracts, labels map[string]string) {
 	go func() {
-		updatedLabels := make(map[string]string)
-		for k, v := range labels {
-			updatedLabels[k] = v
-		}
-		updatedLabels["type"] = LokiTypeLabel
-		updatedLabels["go_test_name"] = t.Name()
-		updatedLabels["gen_name"] = "performance"
-		lc, err := wasp.NewLokiClient(wasp.NewEnvLokiConfig())
-		if err != nil {
-			log.Error().Err(err).Msg(ErrLokiClient)
-			return
-		}
 		for {
 			time.Sleep(1 * time.Second)
-			//todo - should work with multiple consumers and consumers having different keyhashes and wallets
-			metrics, err := vrfv2PlusContracts.LoadTestConsumers[0].GetLoadTestMetrics(context.Background())
-			if err != nil {
-				log.Error().Err(err).Msg(ErrMetrics)
-			}
-			if err := lc.HandleStruct(wasp.LabelsMapToModel(updatedLabels), time.Now(), metrics); err != nil {
-				log.Error().Err(err).Msg(ErrLokiPush)
-			}
+			SendLoadTestMetricsToLoki(vrfv2PlusContracts, lc, labels)
 		}
 	}()
+}
+
+func UpdateLabels(labels map[string]string, t *testing.T) map[string]string {
+	updatedLabels := make(map[string]string)
+	for k, v := range labels {
+		updatedLabels[k] = v
+	}
+	updatedLabels["type"] = LokiTypeLabel
+	updatedLabels["go_test_name"] = t.Name()
+	updatedLabels["gen_name"] = "performance"
+	return updatedLabels
+}
+
+func SendLoadTestMetricsToLoki(vrfv2PlusContracts *vrfv2plus.VRFV2_5Contracts, lc *wasp.LokiClient, updatedLabels map[string]string) {
+	//todo - should work with multiple consumers and consumers having different keyhashes and wallets
+	metrics, err := vrfv2PlusContracts.LoadTestConsumers[0].GetLoadTestMetrics(context.Background())
+	if err != nil {
+		log.Error().Err(err).Msg(ErrMetrics)
+	}
+	if err := lc.HandleStruct(wasp.LabelsMapToModel(updatedLabels), time.Now(), metrics); err != nil {
+		log.Error().Err(err).Msg(ErrLokiPush)
+	}
 }

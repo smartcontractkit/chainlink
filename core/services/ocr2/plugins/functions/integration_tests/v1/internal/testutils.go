@@ -21,8 +21,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/onsi/gomega"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/commontypes"
@@ -300,7 +300,7 @@ type Node struct {
 func StartNewNode(
 	t *testing.T,
 	owner *bind.TransactOpts,
-	port uint16,
+	port int,
 	dbName string,
 	b *backends.SimulatedBackend,
 	maxGas uint32,
@@ -494,9 +494,9 @@ func mockEALambdaExecutionResponse(t *testing.T, request map[string]any) []byte 
 	data := request["data"].(map[string]any)
 	require.Equal(t, functions.LanguageJavaScript, int(data["language"].(float64)))
 	require.Equal(t, functions.LocationInline, int(data["codeLocation"].(float64)))
-	require.Equal(t, functions.LocationRemote, int(data["secretsLocation"].(float64)))
-	if data["secrets"] != DefaultSecretsBase64 && request["nodeProvidedSecrets"] != fmt.Sprintf(`{"0x0":"%s"}`, DefaultSecretsBase64) {
-		assert.Fail(t, "expected secrets or nodeProvidedSecrets to be '%s'", DefaultSecretsBase64)
+	if len(request["nodeProvidedSecrets"].(string)) > 0 {
+		require.Equal(t, functions.LocationRemote, int(data["secretsLocation"].(float64)))
+		require.Equal(t, fmt.Sprintf(`{"0x0":"%s"}`, DefaultSecretsBase64), request["nodeProvidedSecrets"].(string))
 	}
 	args := data["args"].([]interface{})
 	require.Equal(t, 2, len(args))
@@ -549,11 +549,12 @@ func CreateFunctionsNodes(
 		require.Fail(t, "ocr2Keystores and thresholdKeyShares must have the same length")
 	}
 
-	bootstrapPort := testutils.GetFreePort(t)
+	bootstrapPort := freeport.GetOne(t)
 	bootstrapNode = StartNewNode(t, owner, bootstrapPort, "bootstrap", b, uint32(maxGas), nil, nil, "")
 	AddBootstrapJob(t, bootstrapNode.App, routerAddress)
 
 	// oracle nodes with jobs, bridges and mock EAs
+	ports := freeport.GetN(t, nOracleNodes)
 	for i := 0; i < nOracleNodes; i++ {
 		var thresholdKeyShare string
 		if len(thresholdKeyShares) == 0 {
@@ -567,8 +568,7 @@ func CreateFunctionsNodes(
 		} else {
 			ocr2Keystore = ocr2Keystores[i]
 		}
-		nodePort := testutils.GetFreePort(t)
-		oracleNode := StartNewNode(t, owner, nodePort, fmt.Sprintf("oracle%d", i), b, uint32(maxGas), []commontypes.BootstrapperLocator{
+		oracleNode := StartNewNode(t, owner, ports[i], fmt.Sprintf("oracle%d", i), b, uint32(maxGas), []commontypes.BootstrapperLocator{
 			{PeerID: bootstrapNode.PeerID, Addrs: []string{fmt.Sprintf("127.0.0.1:%d", bootstrapPort)}},
 		}, ocr2Keystore, thresholdKeyShare)
 		oracleNodes = append(oracleNodes, oracleNode.App)
