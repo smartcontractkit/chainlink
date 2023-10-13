@@ -119,8 +119,8 @@ jobs:
 #          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
 #          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -v -count=1 -timeout 6h -run TestVRFV2PlusLoad/vrfv2plus_soak_test ./load/vrfv2plus
-#          2>&1 | tee /tmp/gotest.log | gotestfmt
+          test_command_to_run: cd ./integration-tests && go test -v -count=1 -timeout 6h -run TestVRFV2PlusLoad/vrfv2plus_soak_test ./load/vrfv2plus 2>&1 | tee /tmp/gotest.log | gotestfmt
+#
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ inputs.chainlinkImage }}
           cl_image_tag: ${{ inputs.chainlinkVersion }}
