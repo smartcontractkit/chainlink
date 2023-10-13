@@ -142,12 +142,12 @@ func TestExecutionReportingPlugin_Observation(t *testing.T) {
 
 			destPriceRegReader := ccipdata.NewMockPriceRegistryReader(t)
 			destPriceRegReader.On("GetTokenPrices", ctx, mock.Anything).Return(
-				[]ccipdata.TokenPriceUpdate{{TokenPrice: ccipdata.TokenPrice{Token: common.HexToAddress("0x1"), Value: big.NewInt(123)}, Timestamp: big.NewInt(time.Now().Unix())}}, nil).Maybe()
+				[]ccipdata.TokenPriceUpdate{{TokenPrice: ccipdata.TokenPrice{Token: common.HexToAddress("0x1"), Value: big.NewInt(123)}, TimestampUnixSec: big.NewInt(time.Now().Unix())}}, nil).Maybe()
 			destPriceRegReader.On("Address").Return(utils.RandomAddress()).Maybe()
 			sourcePriceRegReader := ccipdata.NewMockPriceRegistryReader(t)
 			sourcePriceRegReader.On("Address").Return(utils.RandomAddress()).Maybe()
 			sourcePriceRegReader.On("GetTokenPrices", ctx, mock.Anything).Return(
-				[]ccipdata.TokenPriceUpdate{{TokenPrice: ccipdata.TokenPrice{Token: common.HexToAddress("0x1"), Value: big.NewInt(123)}, Timestamp: big.NewInt(time.Now().Unix())}}, nil).Maybe()
+				[]ccipdata.TokenPriceUpdate{{TokenPrice: ccipdata.TokenPrice{Token: common.HexToAddress("0x1"), Value: big.NewInt(123)}, TimestampUnixSec: big.NewInt(time.Now().Unix())}}, nil).Maybe()
 			p.destPriceRegistry = destPriceRegReader
 			p.config.sourcePriceRegistry = sourcePriceRegReader
 

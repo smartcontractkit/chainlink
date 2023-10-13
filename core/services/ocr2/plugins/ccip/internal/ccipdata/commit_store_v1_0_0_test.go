@@ -35,7 +35,7 @@ func TestCommitReportEncodingV1_0_0(t *testing.T) {
 	lp := mocks.NewLogPoller(t)
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
 
-	c, err := NewCommitStoreV1_0_0(logger.TestLogger(t), randomAddress(), nil, lp, nil)
+	c, err := NewCommitStoreV1_0_0(logger.TestLogger(t), utils.RandomAddress(), nil, lp, nil)
 	assert.NoError(t, err)
 
 	encodedReport, err := c.EncodeCommitReport(report)

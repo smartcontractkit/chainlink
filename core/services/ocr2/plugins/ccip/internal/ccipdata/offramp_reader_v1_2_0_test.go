@@ -1,4 +1,4 @@
-package ccipdata
+package ccipdata_test
 
 import (
 	"math/big"
@@ -13,13 +13,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestExecutionReportEncodingV120(t *testing.T) {
 	// Note could consider some fancier testing here (fuzz/property)
 	// but I think that would essentially be testing geth's abi library
 	// as our encode/decode is a thin wrapper around that.
-	report := ExecReport{
+	report := ccipdata.ExecReport{
 		Messages:          []internal.EVM2EVMMessage{},
 		OffchainTokenData: [][][]byte{{}},
 		Proofs:            [][32]byte{testutils.Random32Byte()},
@@ -28,7 +30,7 @@ func TestExecutionReportEncodingV120(t *testing.T) {
 
 	lp := lpmocks.NewLogPoller(t)
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
-	offRamp, err := NewOffRampV1_2_0(logger.TestLogger(t), randomAddress(), nil, lp, nil)
+	offRamp, err := ccipdata.NewOffRampV1_2_0(logger.TestLogger(t), utils.RandomAddress(), nil, lp, nil)
 	require.NoError(t, err)
 
 	encodeExecutionReport, err := offRamp.EncodeExecutionReport(report)
@@ -36,12 +38,12 @@ func TestExecutionReportEncodingV120(t *testing.T) {
 	decodeCommitReport, err := offRamp.DecodeExecutionReport(encodeExecutionReport)
 	require.NoError(t, err)
 	require.Equal(t, report.Proofs, decodeCommitReport.Proofs)
-	// require.Equal(t, report, decodeCommitReport) // TODO: fails because some fields are not supported on v1_0_0
+	require.Equal(t, report, decodeCommitReport)
 }
 
 func TestOffRampFiltersV120(t *testing.T) {
-	assertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) Closer {
-		c, err := NewOffRampV1_2_0(logger.TestLogger(t), addr, new(mocks.Client), lp, nil)
+	assertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
+		c, err := ccipdata.NewOffRampV1_2_0(logger.TestLogger(t), addr, new(mocks.Client), lp, nil)
 		require.NoError(t, err)
 		return c
 	}, 3)

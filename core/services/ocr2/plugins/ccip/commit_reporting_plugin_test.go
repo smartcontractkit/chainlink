@@ -217,7 +217,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 							DestChainSelector: sourceChainSelector,
 							Value:             big.NewInt(1),
 						},
-						Timestamp: big.NewInt(time.Now().Add(-2 * gasPriceHeartBeat.Duration()).Unix()),
+						TimestampUnixSec: big.NewInt(time.Now().Add(-2 * gasPriceHeartBeat.Duration()).Unix()),
 					},
 				},
 			},
@@ -243,7 +243,7 @@ func TestCommitReportingPlugin_Report(t *testing.T) {
 							DestChainSelector: sourceChainSelector,
 							Value:             big.NewInt(1),
 						},
-						Timestamp: big.NewInt(time.Now().Add(-gasPriceHeartBeat.Duration() / 2).Unix()),
+						TimestampUnixSec: big.NewInt(time.Now().Add(-gasPriceHeartBeat.Duration() / 2).Unix()),
 					},
 				},
 			},
@@ -1408,8 +1408,8 @@ func TestCommitReportingPlugin_getLatestGasPriceUpdate(t *testing.T) {
 				for _, u := range tc.destGasPriceUpdates {
 					events = append(events, ccipdata.Event[ccipdata.GasPriceUpdate]{
 						Data: ccipdata.GasPriceUpdate{
-							GasPrice:  ccipdata.GasPrice{Value: u.value},
-							Timestamp: big.NewInt(u.timestamp.Unix()),
+							GasPrice:         ccipdata.GasPrice{Value: u.value},
+							TimestampUnixSec: big.NewInt(u.timestamp.Unix()),
 						},
 					})
 				}
@@ -1452,14 +1452,14 @@ func TestCommitReportingPlugin_getLatestTokenPriceUpdates(t *testing.T) {
 						Token: tk1,
 						Value: big.NewInt(1000),
 					},
-					Timestamp: big.NewInt(now.Add(1 * time.Minute).Unix()),
+					TimestampUnixSec: big.NewInt(now.Add(1 * time.Minute).Unix()),
 				},
 				{
 					TokenPrice: ccipdata.TokenPrice{
 						Token: tk2,
 						Value: big.NewInt(2000),
 					},
-					Timestamp: big.NewInt(now.Add(2 * time.Minute).Unix()),
+					TimestampUnixSec: big.NewInt(now.Add(2 * time.Minute).Unix()),
 				},
 			},
 			checkInflight: false,
@@ -1477,14 +1477,14 @@ func TestCommitReportingPlugin_getLatestTokenPriceUpdates(t *testing.T) {
 						Token: tk1,
 						Value: big.NewInt(1000),
 					},
-					Timestamp: big.NewInt(now.Add(1 * time.Minute).Unix()),
+					TimestampUnixSec: big.NewInt(now.Add(1 * time.Minute).Unix()),
 				},
 				{
 					TokenPrice: ccipdata.TokenPrice{
 						Token: tk2,
 						Value: big.NewInt(2000),
 					},
-					Timestamp: big.NewInt(now.Add(2 * time.Minute).Unix()),
+					TimestampUnixSec: big.NewInt(now.Add(2 * time.Minute).Unix()),
 				},
 			},
 			checkInflight: true,
@@ -1696,7 +1696,7 @@ func TestCommitReportToEthTxMeta(t *testing.T) {
 			txMeta, err := fn(out)
 			require.NoError(t, err)
 			require.NotNil(t, txMeta)
-			//require.EqualValues(t, tc.expectedRange, txMeta.SeqNumbers) // TODO: the commit store intervals are not decoded
+			require.EqualValues(t, tc.expectedRange, txMeta.SeqNumbers)
 		})
 	}
 }

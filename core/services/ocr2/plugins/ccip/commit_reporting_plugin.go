@@ -375,7 +375,7 @@ func (r *CommitReportingPlugin) getLatestTokenPriceUpdates(ctx context.Context, 
 	for _, tokenUpdate := range tokenPriceUpdates {
 		priceUpdate := tokenUpdate.Data
 		// Ordered by ascending timestamps
-		timestamp := time.Unix(priceUpdate.Timestamp.Int64(), 0)
+		timestamp := time.Unix(priceUpdate.TimestampUnixSec.Int64(), 0)
 		if priceUpdate.Value != nil && !timestamp.Before(latestUpdates[priceUpdate.Token].timestamp) {
 			latestUpdates[priceUpdate.Token] = update{
 				timestamp: timestamp,
@@ -428,7 +428,7 @@ func (r *CommitReportingPlugin) getLatestGasPriceUpdate(ctx context.Context, now
 
 	for _, priceUpdate := range gasPriceUpdates {
 		// Ordered by ascending timestamps
-		timestamp := time.Unix(priceUpdate.Data.Timestamp.Int64(), 0)
+		timestamp := time.Unix(priceUpdate.Data.TimestampUnixSec.Int64(), 0)
 		if !timestamp.Before(gasUpdate.timestamp) {
 			gasUpdate = update{
 				timestamp: timestamp,
