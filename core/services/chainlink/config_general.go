@@ -510,8 +510,3 @@ func (g *generalConfig) Tracing() coreconfig.Tracing {
 }
 
 var zeroSha256Hash = models.Sha256Hash{}
-
-var (
-	zeroURL        = url.URL{}
-	zeroSha256Hash = models.Sha256Hash{}
-)
