@@ -1497,6 +1497,12 @@ github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687 h1:NwC3SO
 github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687/go.mod h1:YYZq52t4wcHoMQeITksYsorD+tZcOyuVU5+lvot3VFM=
 github.com/smartcontractkit/spike-stream-lookup v0.0.0-20231012175240-93f082906389 h1:FObMUMKbBrZPm0AW5GGS/p+aMkmUZDUvGl98QElfFFE=
 github.com/smartcontractkit/spike-stream-lookup v0.0.0-20231012175240-93f082906389/go.mod h1:jNSFthjwARSBoD3imYL7oT4ysfG4YTBeFV5fzSH9fTs=
+github.com/smartcontractkit/spike-stream-lookup v0.0.0-20231013160354-5f557e9c47e6 h1:BiSqNNvVuVhkfqQqUCZ1RF2bJSx02aDWeJQ62U8eYk0=
+github.com/smartcontractkit/spike-stream-lookup v0.0.0-20231013160354-5f557e9c47e6/go.mod h1:9imYWsyE+KA7Hj0bFPreQdEasR82J4wnmGa2FAs9k28=
+github.com/smartcontractkit/spike-stream-lookup v0.0.0-20231013173225-13d2c3dc9f24 h1:xr+00b2NsnaUT/swjrSN9EdlY6UXANKiLft29w8TLeg=
+github.com/smartcontractkit/spike-stream-lookup v0.0.0-20231013173225-13d2c3dc9f24/go.mod h1:9imYWsyE+KA7Hj0bFPreQdEasR82J4wnmGa2FAs9k28=
+github.com/smartcontractkit/spike-stream-lookup v0.0.0-20231013175056-3414acc8bb86 h1:QL5pZVghngHtNTzcfYy+eSudrTfaH+EAHQVk8WCdq0w=
+github.com/smartcontractkit/spike-stream-lookup v0.0.0-20231013175056-3414acc8bb86/go.mod h1:9imYWsyE+KA7Hj0bFPreQdEasR82J4wnmGa2FAs9k28=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb h1:OMaBUb4X9IFPLbGbCHsMU+kw/BPCrewaVwWGIBc0I4A=
 github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb/go.mod h1:HNUu4cJekUdsJbwRBCiOybtkPJEfGRELQPe2tkoDEyk=
 github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1 h1:yiKnypAqP8l0OX0P3klzZ7SCcBUxy5KqTAKZmQOvSQE=
