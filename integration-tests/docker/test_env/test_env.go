@@ -40,7 +40,7 @@ type CLClusterTestEnv struct {
 	LogWatch *logwatch.LogWatch
 
 	/* components */
-	ClCluster        *test_env.ClCluster
+	ClCluster        *ClCluster
 	Geth             *test_env.Geth          // for tests using --dev networks
 	PrivateChain     []test_env.PrivateChain // for tests using non-dev networks
 	MockAdapter      *test_env.Killgrave
@@ -140,10 +140,10 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 	if te.Cfg != nil && te.Cfg.ClCluster != nil {
 		te.ClCluster = te.Cfg.ClCluster
 	} else {
-		te.ClCluster = &test_env.ClCluster{}
+		te.ClCluster = &ClCluster{}
 		for i := 0; i < count; i++ {
-			ocrNode := test_env.NewClNode([]string{te.Network.Name}, nodeConfig,
-				test_env.WithSecrets(secretsConfig),
+			ocrNode := NewClNode([]string{te.Network.Name}, nodeConfig,
+				WithSecrets(secretsConfig),
 			)
 			te.ClCluster.Nodes = append(te.ClCluster.Nodes, ocrNode)
 		}
