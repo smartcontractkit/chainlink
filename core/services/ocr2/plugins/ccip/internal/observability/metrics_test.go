@@ -2,30 +2,27 @@ package observability
 
 import (
 	"fmt"
-	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
 	io_prometheus_client "github.com/prometheus/client_model/go"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 )
 
 func TestProperLabelsArePassed(t *testing.T) {
-	histogram := evm2evmOffRampHistogram
+	histogram := offRampHistogram
 	successCounter := 10
 	failedCounter := 5
 
 	details := metricDetails{
 		histogram:  histogram,
 		pluginName: "plugin",
-		chainId:    big.NewInt(123),
+		chainId:    123,
 	}
 
 	for i := 0; i < successCounter; i++ {
@@ -47,22 +44,24 @@ func TestProperLabelsArePassed(t *testing.T) {
 
 func TestMetricsSendFromContractDirectly(t *testing.T) {
 	expectedCounter := 4
-	evmClient := mocks.NewClient(t)
-	evmClient.On("ConfiguredChainID").Return(big.NewInt(420), nil)
-	evmClient.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return([]byte{}, fmt.Errorf("error"))
+	ctx := testutils.Context(t)
+	chainId := int64(420)
 
-	ramp, err := NewObservedEvm2EvmOffRamp(common.HexToAddress("0xa"), "plugin", evmClient)
-	require.NoError(t, err)
+	mockedOfframp := ccipdata.NewMockOffRampReader(t)
+	mockedOfframp.On("GetSupportedTokens", ctx).Return([]common.Address{}, nil)
+	mockedOfframp.On("GetDestinationTokens", ctx).Return(nil, fmt.Errorf("execution error"))
+
+	observedOfframp := NewObservedOffRampReader(mockedOfframp, chainId, "plugin")
 
 	for i := 0; i < expectedCounter; i++ {
-		_, _ = ramp.GetSupportedTokens(&bind.CallOpts{Context: testutils.Context(t)})
-		_, _ = ramp.CurrentRateLimiterState(&bind.CallOpts{Context: testutils.Context(t)})
+		_, _ = observedOfframp.GetSupportedTokens(ctx)
+		_, _ = observedOfframp.GetDestinationTokens(ctx)
 	}
 
-	assert.Equal(t, expectedCounter, counterFromHistogramByLabels(t, ramp.metric.histogram, "420", "plugin", "GetSupportedTokens", "false"))
-	assert.Equal(t, expectedCounter, counterFromHistogramByLabels(t, ramp.metric.histogram, "420", "plugin", "CurrentRateLimiterState", "false"))
-	assert.Equal(t, 0, counterFromHistogramByLabels(t, ramp.metric.histogram, "420", "plugin", "GetDestinationTokens", "false"))
-	assert.Equal(t, 0, counterFromHistogramByLabels(t, ramp.metric.histogram, "420", "plugin", "GetDestinationTokens", "true"))
+	assert.Equal(t, expectedCounter, counterFromHistogramByLabels(t, observedOfframp.metric.histogram, "420", "plugin", "GetSupportedTokens", "true"))
+	assert.Equal(t, expectedCounter, counterFromHistogramByLabels(t, observedOfframp.metric.histogram, "420", "plugin", "GetDestinationTokens", "false"))
+	assert.Equal(t, 0, counterFromHistogramByLabels(t, observedOfframp.metric.histogram, "420", "plugin", "GetPoolByDestToken", "false"))
+	assert.Equal(t, 0, counterFromHistogramByLabels(t, observedOfframp.metric.histogram, "420", "plugin", "GetPoolByDestToken", "true"))
 }
 
 func counterFromHistogramByLabels(t *testing.T, histogramVec *prometheus.HistogramVec, labels ...string) int {
