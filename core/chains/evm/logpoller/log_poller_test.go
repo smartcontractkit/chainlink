@@ -1152,3 +1152,63 @@ func TestTooManyLogResults(t *testing.T) {
 	require.Len(t, crit, 1)
 	assert.Contains(t, crit[0].Message, "Too many log results in a single block")
 }
+
+func Test_CreatedAfterQueriesWithBackfill(t *testing.T) {
+	emittedLogs := 60
+	finalityDepth := 10
+	ctx := testutils.Context(t)
+	th := SetupTH(t, int64(finalityDepth), 3, 2)
+
+	header, err := th.Client.HeaderByNumber(ctx, nil)
+	require.NoError(t, err)
+
+	genesisBlockTime := time.UnixMilli(int64(header.Time))
+
+	// Emit some logs in blocks
+	for i := 0; i < emittedLogs; i++ {
+		_, err = th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		require.NoError(t, err)
+		th.Client.Commit()
+	}
+
+	// First PollAndSave, no filters are registered
+	currentBlock := th.PollAndSaveLogs(ctx, 1)
+
+	err = th.LogPoller.RegisterFilter(logpoller.Filter{
+		Name:      "Test Emitter",
+		EventSigs: []common.Hash{EmitterABI.Events["Log1"].ID},
+		Addresses: []common.Address{th.EmitterAddress1},
+	})
+	require.NoError(t, err)
+
+	// Emit blocks to cover finality depth, because backup always backfill up to the one block before last finalized
+	for i := 0; i < finalityDepth+1; i++ {
+		th.Client.Commit()
+	}
+
+	// LogPoller should backfill entire history
+	th.LogPoller.BackupPollAndSaveLogs(ctx, 100)
+	require.NoError(t, err)
+
+	// Make sure that all logs are backfilled
+	logs, err := th.LogPoller.Logs(
+		0,
+		currentBlock,
+		EmitterABI.Events["Log1"].ID,
+		th.EmitterAddress1,
+		pg.WithParentCtx(testutils.Context(t)),
+	)
+	require.NoError(t, err)
+	require.Len(t, logs, emittedLogs)
+
+	// We should get all the logs by the block_timestamp
+	logs, err = th.LogPoller.LogsCreatedAfter(
+		EmitterABI.Events["Log1"].ID,
+		th.EmitterAddress1,
+		genesisBlockTime,
+		0,
+		pg.WithParentCtx(testutils.Context(t)),
+	)
+	require.NoError(t, err)
+	require.Len(t, logs, emittedLogs)
+}

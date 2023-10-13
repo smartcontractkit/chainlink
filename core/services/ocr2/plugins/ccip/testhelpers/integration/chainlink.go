@@ -185,7 +185,7 @@ func (node *Node) EventuallyHasExecutedSeqNums(t *testing.T, ccipContracts *CCIP
 		lgs, err := c.LogPoller().IndexedLogsTopicRange(
 			ccipdata.ExecutionStateChangedEventV1_0_0,
 			offRamp,
-			ccipdata.ExecutionStateChangedSeqNrV1_0_0,
+			ccipdata.ExecutionStateChangedSeqNrIndexV1_0_0,
 			abihelpers.EvmWord(uint64(minSeqNum)),
 			abihelpers.EvmWord(uint64(maxSeqNum)),
 			1,
@@ -213,7 +213,7 @@ func (node *Node) ConsistentlySeqNumHasNotBeenExecuted(t *testing.T, ccipContrac
 		lgs, err := c.LogPoller().IndexedLogsTopicRange(
 			ccipdata.ExecutionStateChangedEventV1_0_0,
 			offRamp,
-			ccipdata.ExecutionStateChangedSeqNrV1_0_0,
+			ccipdata.ExecutionStateChangedSeqNrIndexV1_0_0,
 			abihelpers.EvmWord(uint64(seqNum)),
 			abihelpers.EvmWord(uint64(seqNum)),
 			1,

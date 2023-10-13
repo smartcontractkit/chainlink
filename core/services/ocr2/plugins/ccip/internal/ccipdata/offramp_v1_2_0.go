@@ -121,7 +121,6 @@ func (o *OffRampV1_2_0) ChangeConfig(onchainConfig []byte, offchainConfig []byte
 	return onchainConfigParsed.PriceRegistry, destWrappedNative, nil
 }
 
-// TODO probably a way to reuse 1.0.0
 func (o *OffRampV1_2_0) OffchainConfig() ExecOffchainConfig {
 	o.configMu.RLock()
 	defer o.configMu.RUnlock()
@@ -215,7 +214,7 @@ func decodeExecReportV1_2_0(args abi.Arguments, report []byte) (ExecReport, erro
 	if !ok {
 		return ExecReport{}, fmt.Errorf("got %T", unpacked[0])
 	}
-	var messages []internal.EVM2EVMMessage
+	messages := []internal.EVM2EVMMessage{}
 	for _, msg := range erStruct.Messages {
 		var tokensAndAmounts []internal.TokenAmount
 		for _, tokenAndAmount := range msg.TokenAmounts {

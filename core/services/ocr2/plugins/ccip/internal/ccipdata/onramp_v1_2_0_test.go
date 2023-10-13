@@ -4,10 +4,8 @@ import (
 	"context"
 	"encoding/hex"
 	"math/big"
-	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
@@ -27,8 +25,7 @@ import (
 func TestHasherV1_2_0(t *testing.T) {
 	sourceChainSelector, destChainSelector := uint64(1), uint64(4)
 	onRampAddress := common.HexToAddress("0x5550000000000000000000000000000000000001")
-	onRampABI, err := abi.JSON(strings.NewReader(evm_2_evm_onramp.EVM2EVMOnRampABI))
-	require.NoError(t, err)
+	onRampABI := abihelpers.MustParseABI(evm_2_evm_onramp.EVM2EVMOnRampABI)
 
 	hashingCtx := hashlib.NewKeccakCtx()
 	ramp, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(onRampAddress, nil)

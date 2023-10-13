@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -93,9 +92,6 @@ func TestNewTokenPools(t *testing.T) {
 				}
 			}
 			offRamp.On("GetDestinationTokens", mock.Anything).Return(destTokens, nil)
-
-			priceReg, _ := testhelpers.NewFakePriceRegistry(t)
-			priceReg.SetFeeTokens(tc.feeTokens)
 
 			c := NewTokenPools(logger.TestLogger(t), mockLp, offRamp, 0, 5)
 

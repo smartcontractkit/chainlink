@@ -40,6 +40,12 @@ func GenLog(chainID *big.Int, logIndex int64, blockNum int64, blockHash string, 
 	}
 }
 
+func GenLogWithTimestamp(chainID *big.Int, logIndex int64, blockNum int64, blockHash string, topic1 []byte, address common.Address, ts time.Time) logpoller.Log {
+	lg := GenLog(chainID, logIndex, blockNum, blockHash, topic1, address)
+	lg.BlockTimestamp = ts
+	return lg
+}
+
 func TestLogPoller_Batching(t *testing.T) {
 	t.Parallel()
 	th := SetupTH(t, 2, 3, 2)
@@ -1177,19 +1183,19 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 	event := EmitterABI.Events["Log1"].ID
 	address := utils.RandomAddress()
 
-	past := time.Date(2010, 1, 1, 12, 12, 12, 0, time.UTC)
-	now := time.Date(2020, 1, 1, 12, 12, 12, 0, time.UTC)
-	future := time.Date(2030, 1, 1, 12, 12, 12, 0, time.UTC)
+	block1 := time.Date(2010, 1, 1, 12, 12, 12, 0, time.UTC)
+	block2 := time.Date(2020, 1, 1, 12, 12, 12, 0, time.UTC)
+	block3 := time.Date(2030, 1, 1, 12, 12, 12, 0, time.UTC)
 
 	require.NoError(t, th.ORM.InsertLogs([]logpoller.Log{
-		GenLog(th.ChainID, 1, 1, utils.RandomAddress().String(), event[:], address),
-		GenLog(th.ChainID, 1, 2, utils.RandomAddress().String(), event[:], address),
-		GenLog(th.ChainID, 2, 2, utils.RandomAddress().String(), event[:], address),
-		GenLog(th.ChainID, 1, 3, utils.RandomAddress().String(), event[:], address),
+		GenLogWithTimestamp(th.ChainID, 1, 1, utils.RandomAddress().String(), event[:], address, block1),
+		GenLogWithTimestamp(th.ChainID, 1, 2, utils.RandomAddress().String(), event[:], address, block2),
+		GenLogWithTimestamp(th.ChainID, 2, 2, utils.RandomAddress().String(), event[:], address, block2),
+		GenLogWithTimestamp(th.ChainID, 1, 3, utils.RandomAddress().String(), event[:], address, block3),
 	}))
-	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 1, past))
-	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 2, now))
-	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 3, future))
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 1, block1))
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 2, block2))
+	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 3, block3))
 
 	type expectedLog struct {
 		block int64
@@ -1205,7 +1211,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		{
 			name:  "picks logs after block 1",
 			confs: 0,
-			after: past.Add(-time.Hour),
+			after: block1.Add(time.Hour),
 			expectedLogs: []expectedLog{
 				{block: 2, log: 1},
 				{block: 2, log: 2},
@@ -1215,7 +1221,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		{
 			name:  "skips blocks with not enough confirmations",
 			confs: 1,
-			after: past.Add(-time.Hour),
+			after: block1.Add(time.Hour),
 			expectedLogs: []expectedLog{
 				{block: 2, log: 1},
 				{block: 2, log: 2},
@@ -1224,7 +1230,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		{
 			name:  "limits number of blocks by block_timestamp",
 			confs: 0,
-			after: now.Add(-time.Hour),
+			after: block2.Add(time.Hour),
 			expectedLogs: []expectedLog{
 				{block: 3, log: 1},
 			},
@@ -1232,13 +1238,13 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		{
 			name:         "returns empty dataset for future timestamp",
 			confs:        0,
-			after:        future,
+			after:        block3,
 			expectedLogs: []expectedLog{},
 		},
 		{
 			name:         "returns empty dataset when too many confirmations are required",
 			confs:        3,
-			after:        past.Add(-time.Hour),
+			after:        block1.Add(-time.Hour),
 			expectedLogs: []expectedLog{},
 		},
 	}

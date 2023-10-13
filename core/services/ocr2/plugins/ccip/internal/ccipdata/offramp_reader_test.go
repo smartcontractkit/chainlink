@@ -1,24 +1,43 @@
-package ccipdata
+package ccipdata_test
 
 import (
 	"math/rand"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
+	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
+
+func TestOffRampFilters(t *testing.T) {
+	assertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
+		c, err := ccipdata.NewOffRampV1_0_0(logger.TestLogger(t), addr, new(mocks.Client), lp, nil)
+		require.NoError(t, err)
+		return c
+	}, 3)
+	assertFilterRegistration(t, new(lpmocks.LogPoller), func(lp *lpmocks.LogPoller, addr common.Address) ccipdata.Closer {
+		c, err := ccipdata.NewOffRampV1_2_0(logger.TestLogger(t), addr, new(mocks.Client), lp, nil)
+		require.NoError(t, err)
+		return c
+	}, 3)
+}
 
 func TestExecOffchainConfig_Encoding(t *testing.T) {
 	tests := map[string]struct {
-		want      ExecOffchainConfig
+		want      ccipdata.ExecOffchainConfig
 		expectErr bool
 	}{
 		"encodes and decodes config with all fields set": {
-			want: ExecOffchainConfig{
+			want: ccipdata.ExecOffchainConfig{
 				SourceFinalityDepth:         3,
 				DestOptimisticConfirmations: 6,
 				DestFinalityDepth:           3,
@@ -30,7 +49,7 @@ func TestExecOffchainConfig_Encoding(t *testing.T) {
 			},
 		},
 		"fails decoding when all fields present but with 0 values": {
-			want: ExecOffchainConfig{
+			want: ccipdata.ExecOffchainConfig{
 				SourceFinalityDepth:         0,
 				DestFinalityDepth:           0,
 				DestOptimisticConfirmations: 0,
@@ -43,11 +62,11 @@ func TestExecOffchainConfig_Encoding(t *testing.T) {
 			expectErr: true,
 		},
 		"fails decoding when all fields are missing": {
-			want:      ExecOffchainConfig{},
+			want:      ccipdata.ExecOffchainConfig{},
 			expectErr: true,
 		},
 		"fails decoding when some fields are missing": {
-			want: ExecOffchainConfig{
+			want: ccipdata.ExecOffchainConfig{
 				SourceFinalityDepth: 99999999,
 				InflightCacheExpiry: models.MustMakeDuration(64 * time.Second),
 			},
@@ -59,7 +78,7 @@ func TestExecOffchainConfig_Encoding(t *testing.T) {
 			exp := tc.want
 			encode, err := ccipconfig.EncodeOffchainConfig(&exp)
 			require.NoError(t, err)
-			got, err := ccipconfig.DecodeOffchainConfig[ExecOffchainConfig](encode)
+			got, err := ccipconfig.DecodeOffchainConfig[ccipdata.ExecOffchainConfig](encode)
 
 			if tc.expectErr {
 				require.ErrorContains(t, err, "must set")
@@ -74,22 +93,22 @@ func TestExecOffchainConfig_Encoding(t *testing.T) {
 func TestExecOnchainConfig100(t *testing.T) {
 	tests := []struct {
 		name      string
-		want      ExecOnchainConfigV1_0_0
+		want      ccipdata.ExecOnchainConfigV1_0_0
 		expectErr bool
 	}{
 		{
 			name: "encodes and decodes config with all fields set",
-			want: ExecOnchainConfigV1_0_0{
+			want: ccipdata.ExecOnchainConfigV1_0_0{
 				PermissionLessExecutionThresholdSeconds: rand.Uint32(),
-				Router:                                  randomAddress(),
-				PriceRegistry:                           randomAddress(),
+				Router:                                  utils.RandomAddress(),
+				PriceRegistry:                           utils.RandomAddress(),
 				MaxTokensLength:                         uint16(rand.Uint32()),
 				MaxDataSize:                             rand.Uint32(),
 			},
 		},
 		{
 			name: "encodes and fails decoding config with missing fields",
-			want: ExecOnchainConfigV1_0_0{
+			want: ccipdata.ExecOnchainConfigV1_0_0{
 				PermissionLessExecutionThresholdSeconds: rand.Uint32(),
 				MaxDataSize:                             rand.Uint32(),
 			},
@@ -101,7 +120,7 @@ func TestExecOnchainConfig100(t *testing.T) {
 			encoded, err := abihelpers.EncodeAbiStruct(tt.want)
 			require.NoError(t, err)
 
-			decoded, err := abihelpers.DecodeAbiStruct[ExecOnchainConfigV1_0_0](encoded)
+			decoded, err := abihelpers.DecodeAbiStruct[ccipdata.ExecOnchainConfigV1_0_0](encoded)
 			if tt.expectErr {
 				require.ErrorContains(t, err, "must set")
 			} else {
@@ -115,15 +134,15 @@ func TestExecOnchainConfig100(t *testing.T) {
 func TestExecOnchainConfig120(t *testing.T) {
 	tests := []struct {
 		name      string
-		want      ExecOnchainConfigV1_2_0
+		want      ccipdata.ExecOnchainConfigV1_2_0
 		expectErr bool
 	}{
 		{
 			name: "encodes and decodes config with all fields set",
-			want: ExecOnchainConfigV1_2_0{
+			want: ccipdata.ExecOnchainConfigV1_2_0{
 				PermissionLessExecutionThresholdSeconds: rand.Uint32(),
-				Router:                                  randomAddress(),
-				PriceRegistry:                           randomAddress(),
+				Router:                                  utils.RandomAddress(),
+				PriceRegistry:                           utils.RandomAddress(),
 				MaxNumberOfTokensPerMsg:                 uint16(rand.Uint32()),
 				MaxDataBytes:                            rand.Uint32(),
 				MaxPoolReleaseOrMintGas:                 rand.Uint32(),
@@ -131,7 +150,7 @@ func TestExecOnchainConfig120(t *testing.T) {
 		},
 		{
 			name: "encodes and fails decoding config with missing fields",
-			want: ExecOnchainConfigV1_2_0{
+			want: ccipdata.ExecOnchainConfigV1_2_0{
 				PermissionLessExecutionThresholdSeconds: rand.Uint32(),
 				MaxDataBytes:                            rand.Uint32(),
 			},
@@ -143,7 +162,7 @@ func TestExecOnchainConfig120(t *testing.T) {
 			encoded, err := abihelpers.EncodeAbiStruct(tt.want)
 			require.NoError(t, err)
 
-			decoded, err := abihelpers.DecodeAbiStruct[ExecOnchainConfigV1_2_0](encoded)
+			decoded, err := abihelpers.DecodeAbiStruct[ccipdata.ExecOnchainConfigV1_2_0](encoded)
 			if tt.expectErr {
 				require.ErrorContains(t, err, "must set")
 			} else {

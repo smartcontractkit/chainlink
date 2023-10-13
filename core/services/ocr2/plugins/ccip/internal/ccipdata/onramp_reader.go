@@ -45,11 +45,11 @@ func NewOnRampReader(lggr logger.Logger, sourceSelector, destSelector uint64, on
 		return nil, errors.Errorf("expected %v got %v", ccipconfig.EVM2EVMOnRamp, contractType)
 	}
 	switch version.String() {
-	case v1_0_0:
+	case V1_0_0:
 		return NewOnRampV1_0_0(lggr, sourceSelector, destSelector, onRampAddress, sourceLP, source, finalityTags)
-	case v1_1_0:
+	case V1_1_0:
 		return NewOnRampV1_1_0(lggr, sourceSelector, destSelector, onRampAddress, sourceLP, source, finalityTags)
-	case v1_2_0:
+	case V1_2_0:
 		return NewOnRampV1_2_0(lggr, sourceSelector, destSelector, onRampAddress, sourceLP, source, finalityTags)
 	default:
 		return nil, errors.Errorf("got unexpected version %v", version.String())

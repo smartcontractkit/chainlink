@@ -63,12 +63,32 @@ type CommitOffchainConfig struct {
 	DestFinalityDepth      uint32
 }
 
+func NewCommitOffchainConfig(
+	sourceFinalityDepth uint32,
+	gasPriceDeviationPPB uint32,
+	gasPriceHeartBeat time.Duration,
+	tokenPriceDeviationPPB uint32,
+	tokenPriceHeartBeat time.Duration,
+	inflightCacheExpiry time.Duration,
+	destFinalityDepth uint32,
+) CommitOffchainConfig {
+	return CommitOffchainConfig{
+		SourceFinalityDepth:    sourceFinalityDepth,
+		GasPriceDeviationPPB:   gasPriceDeviationPPB,
+		GasPriceHeartBeat:      gasPriceHeartBeat,
+		TokenPriceDeviationPPB: tokenPriceDeviationPPB,
+		TokenPriceHeartBeat:    tokenPriceHeartBeat,
+		InflightCacheExpiry:    inflightCacheExpiry,
+		DestFinalityDepth:      destFinalityDepth,
+	}
+}
+
 //go:generate mockery --quiet --name CommitStoreReader --output . --filename commit_store_reader_mock.go --inpackage --case=underscore
 type CommitStoreReader interface {
 	Closer
 	GetExpectedNextSequenceNumber(context context.Context) (uint64, error)
 	GetLatestPriceEpochAndRound(context context.Context) (uint64, error)
-	// GetAcceptedCommitReportsGteSeqNum returns all the accepted commit reports that have sequence number greater than or equal to the provided.
+	// GetAcceptedCommitReportsGteSeqNum returns all the accepted commit reports that have max sequence number greater than or equal to the provided.
 	GetAcceptedCommitReportsGteSeqNum(ctx context.Context, seqNum uint64, confs int) ([]Event[CommitStoreReport], error)
 	// GetAcceptedCommitReportsGteTimestamp returns all the commit reports with timestamp greater than or equal to the provided.
 	GetAcceptedCommitReportsGteTimestamp(ctx context.Context, ts time.Time, confs int) ([]Event[CommitStoreReport], error)
@@ -89,9 +109,10 @@ func NewCommitStoreReader(lggr logger.Logger, address common.Address, ec client.
 		return nil, errors.Errorf("expected %v got %v", ccipconfig.EVM2EVMOnRamp, contractType)
 	}
 	switch version.String() {
-	case v1_0_0, v1_1_0:
+	case V1_0_0, V1_1_0:
+		// Versions are identical
 		return NewCommitStoreV1_0_0(lggr, address, ec, lp, estimator)
-	case v1_2_0:
+	case V1_2_0:
 		return NewCommitStoreV1_2_0(lggr, address, ec, lp, estimator)
 	default:
 		return nil, errors.Errorf("got unexpected version %v", version.String())
@@ -110,7 +131,7 @@ func CommitReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (f
 		return nil, errors.Errorf("expected %v got %v", ccipconfig.CommitStore, typ)
 	}
 	switch ver.String() {
-	case v1_0_0, v1_1_0:
+	case V1_0_0, V1_1_0:
 		commitStoreABI := abihelpers.MustParseABI(commit_store_1_0_0.CommitStoreABI)
 		return func(report []byte) (*txmgr.TxMeta, error) {
 			commitReport, err := decodeCommitReportV1_0_0(abihelpers.MustGetEventInputs(ReportAccepted, commitStoreABI), report)
@@ -119,7 +140,7 @@ func CommitReportToEthTxMeta(typ ccipconfig.ContractType, ver semver.Version) (f
 			}
 			return commitReportToEthTxMeta(commitReport)
 		}, nil
-	case v1_2_0:
+	case V1_2_0:
 		commitStoreABI := abihelpers.MustParseABI(commit_store.CommitStoreABI)
 		return func(report []byte) (*txmgr.TxMeta, error) {
 			commitReport, err := decodeCommitReportV1_2_0(abihelpers.MustGetEventInputs(ReportAccepted, commitStoreABI), report)
