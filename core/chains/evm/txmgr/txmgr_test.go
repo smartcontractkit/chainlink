@@ -522,9 +522,8 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	config, dbConfig, evmConfig := makeConfigs(t)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	kst := cltest.NewKeyStore(t, db, dbConfig)
 	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
-	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth(), nil)
+	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), etKeyStore, nil)
 	require.NoError(t, err)
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
