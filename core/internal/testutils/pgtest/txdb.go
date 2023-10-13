@@ -150,8 +150,9 @@ func (c *conn) Begin() (driver.Tx, error) {
 }
 
 // Implement the "ConnBeginTx" interface
-func (c *conn) BeginTx(ctx context.Context, opts driver.TxOptions) (driver.Tx, error) {
-	// TODO: Fix context handling
+func (c *conn) BeginTx(_ context.Context, opts driver.TxOptions) (driver.Tx, error) {
+	// Context is ignored, because single transaction is shared by all callers, thus caller should not be able to
+	// control it with local context
 	return c.Begin()
 }
 
@@ -182,6 +183,8 @@ func (c *conn) PrepareContext(ctx context.Context, query string) (driver.Stmt, e
 // IsValid is called prior to placing the connection into the
 // connection pool by database/sql. The connection will be discarded if false is returned.
 func (c *conn) IsValid() bool {
+	c.Lock()
+	defer c.Unlock()
 	return !c.closed
 }
 
@@ -189,6 +192,8 @@ func (c *conn) ResetSession(ctx context.Context) error {
 	// Ensure bad connections are reported: From database/sql/driver:
 	// If a connection is never returned to the connection pool but immediately reused, then
 	// ResetSession is called prior to reuse but IsValid is not called.
+	c.Lock()
+	defer c.Unlock()
 	if c.closed {
 		return driver.ErrBadConn
 	}
