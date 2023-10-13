@@ -77,7 +77,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	prm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, cfg.Database())
 	txm := txmmocks.NewMockEvmTxManager(t)
-	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	jrm := job.NewORM(db, legacyChains, prm, btORM, ks, lggr, cfg.Database())
@@ -565,7 +565,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
+		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 		require.NoError(t, ks.Unlock(testutils.Password))
 
 		var fromAddresses []string
@@ -593,7 +593,7 @@ func Test_CheckFromAddressesExist(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		cfg := configtest.NewTestGeneralConfig(t)
 		lggr := logger.TestLogger(t)
-		ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
+		ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 		require.NoError(t, ks.Unlock(testutils.Password))
 
 		var fromAddresses []string

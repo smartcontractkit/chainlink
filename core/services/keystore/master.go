@@ -74,8 +74,10 @@ func New(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg p
 }
 
 func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger, cfg pg.QConfig) *master {
+	orm := NewORM(db, lggr, cfg)
 	km := &keyManager{
-		orm:          NewORM(db, lggr, cfg),
+		orm:          orm,
+		keystateORM:  orm,
 		scryptParams: scryptParams,
 		lock:         &sync.RWMutex{},
 		logger:       lggr.Named("KeyStore"),
@@ -85,7 +87,7 @@ func newMaster(db *sqlx.DB, scryptParams utils.ScryptParams, lggr logger.Logger,
 		keyManager: km,
 		cosmos:     newCosmosKeyStore(km),
 		csa:        newCSAKeyStore(km),
-		eth:        newEthKeyStore(km),
+		eth:        newEthKeyStore(km, orm, orm.q),
 		ocr:        newOCRKeyStore(km),
 		ocr2:       newOCR2KeyStore(km),
 		p2p:        newP2PKeyStore(km),
@@ -141,23 +143,29 @@ func (ks *master) VRF() VRF {
 	return ks.vrf
 }
 
-func (ks *master) IsEmpty() (bool, error) {
-	var count int64
-	err := ks.orm.q.QueryRow("SELECT count(*) FROM encrypted_key_rings").Scan(&count)
-	if err != nil {
-		return false, err
-	}
-	return count == 0, nil
+type ORM interface {
+	isEmpty() (bool, error)
+	saveEncryptedKeyRing(*encryptedKeyRing, ...func(pg.Queryer) error) error
+	getEncryptedKeyRing() (encryptedKeyRing, error)
+}
+
+type keystateORM interface {
+	loadKeyStates() (*keyStates, error)
 }
 
 type keyManager struct {
-	orm          ksORM
+	orm          ORM
+	keystateORM  keystateORM
 	scryptParams utils.ScryptParams
 	keyRing      *keyRing
 	keyStates    *keyStates
 	lock         *sync.RWMutex
 	password     string
 	logger       logger.Logger
+}
+
+func (km *keyManager) IsEmpty() (bool, error) {
+	return km.orm.isEmpty()
 }
 
 func (km *keyManager) Unlock(password string) error {
@@ -181,7 +189,7 @@ func (km *keyManager) Unlock(password string) error {
 	kr.logPubKeys(km.logger)
 	km.keyRing = kr
 
-	ks, err := km.orm.loadKeyStates()
+	ks, err := km.keystateORM.loadKeyStates()
 	if err != nil {
 		return errors.Wrap(err, "unable to load key states")
 	}

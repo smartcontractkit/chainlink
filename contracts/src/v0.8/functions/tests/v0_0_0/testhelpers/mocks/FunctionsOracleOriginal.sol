@@ -5,7 +5,7 @@ import {FunctionsOracleInterface} from "./FunctionsOracleInterface.sol";
 import {FunctionsBillingRegistryInterface} from "./FunctionsBillingRegistryInterface.sol";
 import {OCR2BaseUpgradeable} from "./OCR2BaseUpgradeable.sol";
 import {AuthorizedOriginReceiverUpgradeable} from "./AuthorizedOriginReceiverUpgradeable.sol";
-import {Initializable} from "../../../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * @title Functions Oracle contract

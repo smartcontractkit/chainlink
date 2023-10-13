@@ -270,13 +270,13 @@ Logging toggles verbose logging of the raw telemetry messages being sent.
 ```toml
 ServerPubKey = 'test-pub-key' # Example
 ```
-ServerPubKey is the public key of the telemetry server.
+ServerPubKey is the public key of the telemetry server. This field will be removed in a furture version
 
 ### URL
 ```toml
 URL = 'https://prom.test' # Example
 ```
-URL is where to send telemetry.
+URL is where to send telemetry. This field will be removed in a furture version
 
 ### BufferSize
 ```toml
@@ -307,6 +307,40 @@ SendTimeout is the max duration to wait for the request to complete when sending
 UseBatchSend = true # Default
 ```
 UseBatchSend toggles sending telemetry to the ingress server using the batch client.
+
+## TelemetryIngress.Endpoints
+```toml
+[[TelemetryIngress.Endpoints]] # Example
+Network = 'EVM' # Example
+ChainID = '111551111' # Example
+ServerPubKey = 'test-pub-key-111551111-evm' # Example
+URL = 'localhost-111551111-evm:9000' # Example
+```
+
+
+### Network
+```toml
+Network = 'EVM' # Example
+```
+Network aka EVM, Solana, Starknet
+
+### ChainID
+```toml
+ChainID = '111551111' # Example
+```
+ChainID of the network
+
+### ServerPubKey
+```toml
+ServerPubKey = 'test-pub-key-111551111-evm' # Example
+```
+ServerPubKey is the public key of the telemetry server.
+
+### URL
+```toml
+URL = 'localhost-111551111-evm:9000' # Example
+```
+URL is where to send telemetry.
 
 ## AuditLogger
 ```toml
