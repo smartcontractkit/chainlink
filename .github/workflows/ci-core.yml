@@ -212,7 +212,7 @@ jobs:
   clean:
     name: Clean Go Tidy & Generate
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-8cores-32GB
     defaults:
       run:
         shell: bash

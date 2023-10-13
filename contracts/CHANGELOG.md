@@ -6,6 +6,10 @@
 - Moved `VRFCoordinatorMock.sol` to src/v0.8/vrf/mocks
 - Add minimumEstimateGasPriceWei to Functions Coordinator config (#10916)
 
+### Removed
+
+- Removed all code related to versions prior to Solidity 0.8.0 (#10931)
+
 ## 0.8.0 - 2023-10-04
 
 ### Changed

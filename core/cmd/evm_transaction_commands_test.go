@@ -140,6 +140,7 @@ func TestShell_SendEther_From_Txm(t *testing.T) {
 
 	ethMock.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 	ethMock.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(0), nil).Maybe()
+	ethMock.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)
@@ -199,6 +200,7 @@ func TestShell_SendEther_From_Txm_WEI(t *testing.T) {
 
 	ethMock.On("BalanceAt", mock.Anything, key.Address, (*big.Int)(nil)).Return(balance.ToInt(), nil)
 	ethMock.On("SequenceAt", mock.Anything, mock.Anything, mock.Anything).Return(evmtypes.Nonce(0), nil).Maybe()
+	ethMock.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(0), nil).Once()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].Enabled = ptr(true)

@@ -37,7 +37,7 @@ contract VRFV2LoadTestWithMetrics is VRFConsumerBaseV2, ConfirmedOwner {
   }
 
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
-    uint256 fulfilmentBlockNumber = ChainSpecificUtil.getBlockNumber();
+    uint256 fulfilmentBlockNumber = ChainSpecificUtil._getBlockNumber();
     uint256 requestDelay = fulfilmentBlockNumber - requestHeights[_requestId];
     uint256 requestDelayInMillions = requestDelay * 1_000_000;
 
@@ -74,7 +74,7 @@ contract VRFV2LoadTestWithMetrics is VRFConsumerBaseV2, ConfirmedOwner {
         _numWords
       );
       s_lastRequestId = requestId;
-      uint256 requestBlockNumber = ChainSpecificUtil.getBlockNumber();
+      uint256 requestBlockNumber = ChainSpecificUtil._getBlockNumber();
       s_requests[requestId] = RequestStatus({
         randomWords: new uint256[](0),
         fulfilled: false,

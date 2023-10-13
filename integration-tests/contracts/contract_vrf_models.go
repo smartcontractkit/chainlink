@@ -170,6 +170,7 @@ type VRFv2PlusLoadTestConsumer interface {
 	GetLastRequestId(ctx context.Context) (*big.Int, error)
 	GetLoadTestMetrics(ctx context.Context) (*VRFLoadTestMetrics, error)
 	GetCoordinator(ctx context.Context) (common.Address, error)
+	ResetMetrics() error
 }
 
 type VRFv2PlusWrapperLoadTestConsumer interface {
