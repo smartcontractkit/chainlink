@@ -137,7 +137,7 @@ func (te *CLClusterTestEnv) StartMockAdapter() error {
 }
 
 func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count int, secretsConfig string) error {
-	if te.Cfg.ClCluster != nil {
+	if te.Cfg != nil && te.Cfg.ClCluster != nil {
 		te.ClCluster = te.Cfg.ClCluster
 	} else {
 		te.ClCluster = &test_env.ClCluster{}
@@ -182,7 +182,7 @@ func (te *CLClusterTestEnv) Cleanup() error {
 	if te.t == nil {
 		return errors.New("cannot cleanup test environment without a testing.T")
 	}
-	if len(te.ClCluster.Nodes) == 0 {
+	if te.ClCluster == nil || len(te.ClCluster.Nodes) == 0 {
 		return errors.New("chainlink nodes are nil, unable cleanup chainlink nodes")
 	}
 
