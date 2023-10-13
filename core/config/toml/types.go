@@ -426,13 +426,22 @@ func (d *DatabaseBackup) setFrom(f *DatabaseBackup) {
 type TelemetryIngress struct {
 	UniConn      *bool
 	Logging      *bool
-	ServerPubKey *string
-	URL          *models.URL
 	BufferSize   *uint16
 	MaxBatchSize *uint16
 	SendInterval *models.Duration
 	SendTimeout  *models.Duration
 	UseBatchSend *bool
+	Endpoints    []TelemetryIngressEndpoint `toml:",omitempty"`
+
+	URL          *models.URL `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.URL instead, this field will be removed in future versions
+	ServerPubKey *string     `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.ServerPubKey instead, this field will be removed in future versions
+}
+
+type TelemetryIngressEndpoint struct {
+	Network      *string
+	ChainID      *string
+	URL          *models.URL
+	ServerPubKey *string
 }
 
 func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
@@ -441,12 +450,6 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	}
 	if v := f.Logging; v != nil {
 		t.Logging = v
-	}
-	if v := f.ServerPubKey; v != nil {
-		t.ServerPubKey = v
-	}
-	if v := f.URL; v != nil {
-		t.URL = v
 	}
 	if v := f.BufferSize; v != nil {
 		t.BufferSize = v
@@ -463,6 +466,29 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	if v := f.UseBatchSend; v != nil {
 		t.UseBatchSend = v
 	}
+	if v := f.Endpoints; v != nil {
+		t.Endpoints = v
+	}
+	if v := f.ServerPubKey; v != nil {
+		t.ServerPubKey = v
+	}
+	if v := f.URL; v != nil {
+		t.URL = v
+	}
+}
+
+func (t *TelemetryIngress) ValidateConfig() (err error) {
+	if (!t.URL.IsZero() || *t.ServerPubKey != "") && len(t.Endpoints) > 0 {
+		return configutils.ErrInvalid{Name: "URL", Value: t.URL.String(),
+			Msg: `Cannot set both TelemetryIngress.URL and TelemetryIngress.ServerPubKey alongside TelemetryIngress.Endpoints. Please use only TelemetryIngress.Endpoints:
+			[[TelemetryIngress.Endpoints]]
+			Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
+			ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
+			URL = '...'
+			ServerPubKey = '...'`}
+	}
+
+	return nil
 }
 
 type AuditLogger struct {

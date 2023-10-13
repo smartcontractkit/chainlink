@@ -52,7 +52,7 @@ type FunctionsListenerUniverse struct {
 	eaClient         *functions_mocks.ExternalAdapterClient
 	pluginORM        *functions_mocks.ORM
 	logBroadcaster   *log_mocks.Broadcaster
-	ingressClient    *sync_mocks.TelemetryIngressClient
+	ingressClient    *sync_mocks.TelemetryService
 	decryptor        *threshold_mocks.Decryptor
 	logPollerWrapper *evmrelay_mocks.LogPollerWrapper
 	contractVersion  uint32
@@ -128,9 +128,9 @@ func NewFunctionsListenerUniverse(t *testing.T, timeoutSec int, pruneFrequencySe
 
 	contractAddress := "0xa"
 
-	ingressClient := sync_mocks.NewTelemetryIngressClient(t)
+	ingressClient := sync_mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
-	monEndpoint := ingressAgent.GenMonitoringEndpoint(contractAddress, synchronization.FunctionsRequests)
+	monEndpoint := ingressAgent.GenMonitoringEndpoint(contractAddress, synchronization.FunctionsRequests, "test-network", "test-chainID")
 
 	s4Storage := s4_mocks.NewStorage(t)
 	client := chain.Client()
@@ -287,8 +287,8 @@ func TestFunctionsListener_ReportSourceCodeDomains(t *testing.T) {
 	}).Return(nil)
 
 	var sentMessage []byte
-	uni.ingressClient.On("Send", mock.Anything).Return().Run(func(args mock.Arguments) {
-		sentMessage = args[0].(synchronization.TelemPayload).Telemetry
+	uni.ingressClient.On("Send", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
+		sentMessage = args[1].([]byte)
 	})
 
 	uni.service.HandleLog(log)
