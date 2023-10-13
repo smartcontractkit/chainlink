@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/observability"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/prices"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/mathutil"
@@ -122,6 +123,7 @@ func (rf *CommitReportingPluginFactory) UpdateDynamicReaders(newPriceRegAddr com
 	if err != nil {
 		return err
 	}
+	destPriceRegistryReader = observability.NewPriceRegistryReader(destPriceRegistryReader, rf.config.destClient.ConfiguredChainID().Int64(), CommitPluginLabel)
 	rf.destPriceRegReader = destPriceRegistryReader
 	rf.destPriceRegAddr = newPriceRegAddr
 	return nil
