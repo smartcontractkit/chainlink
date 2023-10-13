@@ -54,6 +54,10 @@ type BlockSubscriber struct {
 	lggr             logger.Logger
 }
 
+func (s *BlockSubscriber) LatestBlock() *ocr2keepers.BlockKey {
+	return s.latestBlock.Load()
+}
+
 var _ ocr2keepers.BlockSubscriber = &BlockSubscriber{}
 
 func NewBlockSubscriber(hb httypes.HeadBroadcaster, lp logpoller.LogPoller, finalityDepth uint32, lggr logger.Logger) *BlockSubscriber {

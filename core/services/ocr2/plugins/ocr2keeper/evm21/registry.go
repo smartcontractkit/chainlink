@@ -15,6 +15,7 @@ import (
 	coreTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
+	spike_stream_lookup "github.com/smartcontractkit/spike-stream-lookup"
 	"go.uber.org/multierr"
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
@@ -84,29 +85,34 @@ func NewEvmRegistry(
 	blockSub *BlockSubscriber,
 	finalityDepth uint32,
 ) *EvmRegistry {
+	mercuryConfig := &MercuryConfig{
+		cred:           mc,
+		abi:            core.StreamsCompatibleABI,
+		allowListCache: cache.New(defaultAllowListExpiration, allowListCleanupInterval),
+	}
+
+	hc := http.DefaultClient
+
 	return &EvmRegistry{
-		ctx:          context.Background(),
-		threadCtrl:   utils.NewThreadControl(),
-		lggr:         lggr.Named(RegistryServiceName),
-		poller:       client.LogPoller(),
-		addr:         addr,
-		client:       client.Client(),
-		logProcessed: make(map[string]bool),
-		registry:     registry,
-		abi:          core.RegistryABI,
-		active:       al,
-		packer:       packer,
-		headFunc:     func(ocr2keepers.BlockKey) {},
-		chLog:        make(chan logpoller.Log, 1000),
-		mercury: &MercuryConfig{
-			cred:           mc,
-			abi:            core.StreamsCompatibleABI,
-			allowListCache: cache.New(defaultAllowListExpiration, allowListCleanupInterval),
-		},
-		hc:               http.DefaultClient,
+		ctx:              context.Background(),
+		threadCtrl:       utils.NewThreadControl(),
+		lggr:             lggr.Named(RegistryServiceName),
+		poller:           client.LogPoller(),
+		addr:             addr,
+		client:           client.Client(),
+		logProcessed:     make(map[string]bool),
+		registry:         registry,
+		abi:              core.RegistryABI,
+		active:           al,
+		packer:           packer,
+		headFunc:         func(ocr2keepers.BlockKey) {},
+		chLog:            make(chan logpoller.Log, 1000),
+		mercury:          mercuryConfig,
+		hc:               hc,
 		logEventProvider: logEventProvider,
 		bs:               blockSub,
 		finalityDepth:    finalityDepth,
+		streams:          spike_stream_lookup.NewStreamsLookup(lggr, packer, mercuryConfig, core.RegistryABI, blockSub, addr, client.Client(), hc),
 	}
 }
 
@@ -125,6 +131,10 @@ type MercuryConfig struct {
 	abi  abi.ABI
 	// allowListCache stores the upkeeps privileges. In 2.1, this only includes a JSON bytes for allowed to use mercury
 	allowListCache *cache.Cache
+}
+
+func (c *MercuryConfig) Credentials() *models.MercuryCredentials {
+	return c.cred
 }
 
 type EvmRegistry struct {
@@ -150,6 +160,7 @@ type EvmRegistry struct {
 	bs               *BlockSubscriber
 	logEventProvider logprovider.LogEventProvider
 	finalityDepth    uint32
+	streams          spike_stream_lookup.Lookup
 }
 
 func (r *EvmRegistry) Name() string {
