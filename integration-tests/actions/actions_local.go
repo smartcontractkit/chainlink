@@ -4,7 +4,7 @@ package actions
 import (
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
 )
 
 // UpgradeChainlinkNodeVersions upgrades all Chainlink nodes to a new version, and then runs the test environment
