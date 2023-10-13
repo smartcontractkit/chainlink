@@ -78,16 +78,16 @@ contracts/test/v0.8/functions @smartcontractkit/functions
 /contracts/src/v0.8/llo-feeds @austinborn @Fletch153
 
 # Tests
-/integration-tests/**/*ccip* @smartcontractkit/test-tooling-team
+/integration-tests/**/*ccip* @smartcontractkit/test-tooling-team @jasonmci
 /integration-tests/**/*keeper* @smartcontractkit/keepers
 /integration-tests/**/*automation* @smartcontractkit/keepers
 
 # CI/CD
 /.github/** @chainchad @javuto @jkongie @jmank88 @samsondav
-/.github/workflows/integration-tests.yml @smartcontractkit/test-tooling-team
-/.github/workflows/integration-chaos-tests.yml @smartcontractkit/test-tooling-team
-/.github/workflows/integration-tests-publish.yml @smartcontractkit/test-tooling-team
-/.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
+/.github/workflows/integration-tests.yml @smartcontractkit/test-tooling-team @jasonmci
+/.github/workflows/integration-chaos-tests.yml @smartcontractkit/test-tooling-team @jasonmci
+/.github/workflows/integration-tests-publish.yml @smartcontractkit/test-tooling-team @jasonmci
+/.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team @jasonmci
 
 /core/chainlink.Dockerfile @smartcontractkit/prodsec-public
 
