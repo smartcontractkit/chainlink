@@ -182,7 +182,7 @@ func (te *CLClusterTestEnv) Cleanup() error {
 	if te.t == nil {
 		return errors.New("cannot cleanup test environment without a testing.T")
 	}
-	if te.ClCluster.Nodes == nil {
+	if len(te.ClCluster.Nodes) == 0 {
 		return errors.New("chainlink nodes are nil, unable cleanup chainlink nodes")
 	}
 
