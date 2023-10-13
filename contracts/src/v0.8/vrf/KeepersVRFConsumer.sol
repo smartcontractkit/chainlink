@@ -6,7 +6,6 @@ import {VRFConsumerBaseV2} from "./VRFConsumerBaseV2.sol";
 import {VRFCoordinatorV2Interface} from "./interfaces/VRFCoordinatorV2Interface.sol";
 
 // solhint-disable chainlink-solidity/prefix-immutable-variables-with-i
-// solhint-disable chainlink-solidity/prefix-internal-functions-with-underscore
 
 /**
  * @title KeepersVRFConsumer
@@ -76,7 +75,7 @@ contract KeepersVRFConsumer is KeeperCompatibleInterface, VRFConsumerBaseV2 {
     if ((block.timestamp - s_lastTimeStamp) > UPKEEP_INTERVAL) {
       s_lastTimeStamp = block.timestamp;
 
-      requestRandomWords();
+      _requestRandomWords();
     }
   }
 
@@ -99,7 +98,7 @@ contract KeepersVRFConsumer is KeeperCompatibleInterface, VRFConsumerBaseV2 {
   /**
    * @notice Requests random words from Chainlink VRF.
    */
-  function requestRandomWords() internal {
+  function _requestRandomWords() internal {
     uint256 requestId = COORDINATOR.requestRandomWords(
       KEY_HASH,
       SUBSCRIPTION_ID,

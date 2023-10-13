@@ -16,18 +16,18 @@ contract ExposedVRFCoordinatorV2_5 is VRFCoordinatorV2_5 {
     uint256 subId,
     uint64 nonce
   ) external pure returns (uint256, uint256) {
-    return computeRequestId(keyHash, sender, subId, nonce);
+    return _computeRequestId(keyHash, sender, subId, nonce);
   }
 
   function isTargetRegisteredExternal(address target) external view returns (bool) {
-    return isTargetRegistered(target);
+    return _isTargetRegistered(target);
   }
 
   function getRandomnessFromProofExternal(
     Proof calldata proof,
     RequestCommitment calldata rc
   ) external view returns (Output memory) {
-    return getRandomnessFromProof(proof, rc);
+    return _getRandomnessFromProof(proof, rc);
   }
 
   function getActiveSubscriptionIdsLength() external view returns (uint256) {
