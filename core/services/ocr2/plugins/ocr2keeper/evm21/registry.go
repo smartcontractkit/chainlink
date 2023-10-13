@@ -16,6 +16,7 @@ import (
 	"github.com/patrickmn/go-cache"
 	"github.com/pkg/errors"
 	spike_stream_lookup "github.com/smartcontractkit/spike-stream-lookup"
+	"github.com/smartcontractkit/spike-stream-lookup/mercury"
 	"go.uber.org/multierr"
 
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
@@ -107,12 +108,11 @@ func NewEvmRegistry(
 		packer:           packer,
 		headFunc:         func(ocr2keepers.BlockKey) {},
 		chLog:            make(chan logpoller.Log, 1000),
-		mercury:          mercuryConfig,
 		hc:               hc,
 		logEventProvider: logEventProvider,
 		bs:               blockSub,
 		finalityDepth:    finalityDepth,
-		streams:          spike_stream_lookup.NewStreamsLookup(lggr, packer, mercuryConfig, core.RegistryABI, blockSub, addr, client.Client(), hc),
+		streams:          spike_stream_lookup.NewStreamsLookup(packer, mercuryConfig, core.RegistryABI, blockSub, addr, client.Client(), hc),
 	}
 }
 
@@ -133,8 +133,16 @@ type MercuryConfig struct {
 	allowListCache *cache.Cache
 }
 
-func (c *MercuryConfig) Credentials() *models.MercuryCredentials {
+func (c *MercuryConfig) Credentials() mercury.MercuryCredentials {
 	return c.cred
+}
+
+func (c *MercuryConfig) IsUpkeepAllowed(k string) (interface{}, bool) {
+	return c.allowListCache.Get(k)
+}
+
+func (c *MercuryConfig) SetUpkeepAllowed(k string, v interface{}, d time.Duration) {
+	c.allowListCache.Set(k, v, d)
 }
 
 type EvmRegistry struct {
