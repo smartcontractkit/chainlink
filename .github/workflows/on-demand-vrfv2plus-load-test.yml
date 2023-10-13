@@ -106,57 +106,19 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-#    - name: Run E2E soak tests
-#      run: |
-#        cd integration-tests/load/vrfv2plus
-#        go test -v -timeout 8h -run TestVRFV2PlusLoad/vrfv2plus_soak_test
-
-     ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
-#        env:
-#          PYROSCOPE_SERVER: ${{ matrix.product.pyroscope_env == '' && '' || !startsWith(github.ref, 'refs/tags/') && '' || secrets.QA_PYROSCOPE_INSTANCE }} # Avoid sending blank envs https://github.com/orgs/community/discussions/25725
-#          PYROSCOPE_ENVIRONMENT: ${{ matrix.product.pyroscope_env }}
-#          PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
         with:
-          test_command_to_run: cd ./integration-tests && go test -v -count=1 -timeout 6h -run TestVRFV2PlusLoad/vrfv2plus_soak_test ./load/vrfv2plus 2>&1 | tee /tmp/gotest.log | gotestfmt
-#
+          test_command_to_run: cd ./integration-tests && go test -v -count=1 -timeout 6h -run TestVRFV2PlusLoad/vrfv2plus_soak_test ./load/vrfv2plus
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ inputs.chainlinkImage }}
           cl_image_tag: ${{ inputs.chainlinkVersion }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
-#          artifacts_name: vrf-test-logs
-#          artifacts_location: ./integration-tests/load/logs/
+          artifacts_name: vrf-test-logs
+          artifacts_location: ./integration-tests/load/logs/
           token: ${{ secrets.GITHUB_TOKEN }}
           go_mod_path: ./integration-tests/go.mod
           should_cleanup: false
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-
-
-#         ocr ondemand
-#                  with:
-#          test_command_to_run: cd ./integration-tests && go test -v -count=1 -run ^TestOCRSoak$ ./soak
-#          test_download_vendor_packages_command: make gomod
-#          cl_repo: ${{ inputs.chainlinkImage }}
-#          cl_image_tag: ${{ inputs.chainlinkVersion }}
-#          token: ${{ secrets.GITHUB_TOKEN }}
-#          should_cleanup: false
-#          go_mod_path: ./integration-tests/go.mod
-#          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
-#          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
-#          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-
-#gh workflow run 'On Demand VRFV2 Plus Load Test' --ref develop \
-#  -f network="SIMULATED" \
-#      -f fundingPrivateKey= \
-#      -f wsURL= \
-#       -f chainlinkImage= \
-#      -f chainlinkVersion= \
-#      -f testDuration=5m \
-#      -f randomnessRequestCountPerRequest=1 \
-#      -f useExistingEnv=false \
-#      -f configBase64="" \
-#
-#
