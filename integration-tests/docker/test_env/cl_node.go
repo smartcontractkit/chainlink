@@ -286,7 +286,7 @@ func (n *ClNode) StartContainer() error {
 			return err
 		}
 	}
-	clEndpoint, err := container.Endpoint(context.Background(), "http")
+	clEndpoint, err := test_env.GetEndpoint(context.Background(), container, "http")
 	if err != nil {
 		return err
 	}
