@@ -1,6 +1,9 @@
 #!/bin/bash
 
 count=0
+if [ "$1" == "FIX" ]; then
+  echo "Testing patched version"
+fi
 while true; do
   ((count++))
   echo "Iteration: $count"
