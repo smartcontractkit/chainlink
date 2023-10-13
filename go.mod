@@ -73,7 +73,7 @@ require (
 	github.com/smartcontractkit/libocr v0.0.0-20230922131214-122accb19ea6
 	github.com/smartcontractkit/ocr2keepers v0.7.27
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
-	github.com/smartcontractkit/spike-stream-lookup v0.0.0-20231013181341-00627d862830
+	github.com/smartcontractkit/spike-stream-lookup v0.0.0-20231013184332-4895ba029ea4
 	github.com/smartcontractkit/sqlx v1.3.5-0.20210805004948-4be295aacbeb
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20230906073235-9e478e5e19f1
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20230906073235-9e478e5e19f1
