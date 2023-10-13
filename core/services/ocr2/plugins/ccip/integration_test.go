@@ -515,9 +515,9 @@ merge [type=merge left="{}" right="{\\\"%s\\\":$(link_parse), \\\"%s\\\":$(eth_p
 				PermissionLessExecutionThresholdSeconds: testhelpers.PermissionLessExecutionThresholdSeconds,
 				Router:                                  ccipTH.Dest.Router.Address(),
 				PriceRegistry:                           ccipTH.Dest.PriceRegistry.Address(),
-				MaxDataSize:                             1e5,
-				MaxTokensLength:                         5,
-				MaxPoolGas:                              200_000,
+				MaxDataBytes:                            1e5,
+				MaxNumberOfTokensPerMsg:                 5,
+				MaxPoolReleaseOrMintGas:                 200_000,
 			})
 			node.EventuallyNodeUsesUpdatedPriceRegistry(t, ccipTH)
 		}

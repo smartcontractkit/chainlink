@@ -122,17 +122,17 @@ func NewExecOnchainConfig(
 	PermissionLessExecutionThresholdSeconds uint32,
 	Router common.Address,
 	PriceRegistry common.Address,
-	MaxTokensLength uint16,
-	MaxDataSize uint32,
-	MaxPoolGas uint32,
+	MaxNumberOfTokensPerMsg uint16,
+	MaxDataBytes uint32,
+	MaxPoolReleaseOrMintGas uint32,
 ) ExecOnchainConfig {
 	return ExecOnchainConfig{ccipdata.ExecOnchainConfigV1_2_0{
 		PermissionLessExecutionThresholdSeconds: PermissionLessExecutionThresholdSeconds,
 		Router:                                  Router,
 		PriceRegistry:                           PriceRegistry,
-		MaxTokensLength:                         MaxTokensLength,
-		MaxDataSize:                             MaxDataSize,
-		MaxPoolGas:                              MaxPoolGas,
+		MaxNumberOfTokensPerMsg:                 MaxNumberOfTokensPerMsg,
+		MaxDataBytes:                            MaxDataBytes,
+		MaxPoolReleaseOrMintGas:                 MaxPoolReleaseOrMintGas,
 	}}
 }
 
@@ -321,16 +321,16 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 			ArmProxy:          c.Source.ARM.Address(), // ARM
 		},
 		evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
-			Router:                          c.Source.Router.Address(),
-			MaxTokensLength:                 5,
-			DestGasOverhead:                 350_000,
-			DestGasPerPayloadByte:           16,
-			DestDataAvailabilityOverheadGas: 33_596,
-			DestGasPerDataAvailabilityByte:  16,
-			DestDataAvailabilityMultiplier:  6840, // 0.684
-			PriceRegistry:                   c.Source.PriceRegistry.Address(),
-			MaxDataSize:                     1e5,
-			MaxGasLimit:                     4_000_000,
+			Router:                            c.Source.Router.Address(),
+			MaxNumberOfTokensPerMsg:           5,
+			DestGasOverhead:                   350_000,
+			DestGasPerPayloadByte:             16,
+			DestDataAvailabilityOverheadGas:   33_596,
+			DestGasPerDataAvailabilityByte:    16,
+			DestDataAvailabilityMultiplierBps: 6840, // 0.684
+			PriceRegistry:                     c.Source.PriceRegistry.Address(),
+			MaxDataBytes:                      1e5,
+			MaxPerMsgGasLimit:                 4_000_000,
 		},
 		[]evm_2_evm_onramp.InternalPoolUpdate{
 			{
@@ -345,26 +345,26 @@ func (c *CCIPContracts) DeployNewOnRamp(t *testing.T) {
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfigArgs{
 			{
-				Token:             c.Source.LinkToken.Address(),
-				NetworkFeeUSD:     1_00,
-				GasMultiplier:     1e18,
-				PremiumMultiplier: 9e17,
-				Enabled:           true,
+				Token:                      c.Source.LinkToken.Address(),
+				NetworkFeeUSDCents:         1_00,
+				GasMultiplierWeiPerEth:     1e18,
+				PremiumMultiplierWeiPerEth: 9e17,
+				Enabled:                    true,
 			},
 			{
-				Token:             c.Source.WrappedNative.Address(),
-				NetworkFeeUSD:     1_00,
-				GasMultiplier:     1e18,
-				PremiumMultiplier: 1e18,
-				Enabled:           true,
+				Token:                      c.Source.WrappedNative.Address(),
+				NetworkFeeUSDCents:         1_00,
+				GasMultiplierWeiPerEth:     1e18,
+				PremiumMultiplierWeiPerEth: 1e18,
+				Enabled:                    true,
 			},
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
 			{
 				Token:             c.Source.LinkToken.Address(),
-				MinFeeUSD:         50,           // $0.5
-				MaxFeeUSD:         1_000_000_00, // $ 1 million
-				Ratio:             5_0,          // 5 bps
+				MinFeeUSDCents:    50,           // $0.5
+				MaxFeeUSDCents:    1_000_000_00, // $ 1 million
+				DeciBps:           5_0,          // 5 bps
 				DestGasOverhead:   34_000,
 				DestBytesOverhead: 0,
 			},
@@ -1019,16 +1019,16 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 			ArmProxy:          armProxySourceAddress, // ARM
 		},
 		evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
-			Router:                          sourceRouterAddress,
-			MaxTokensLength:                 5,
-			DestGasOverhead:                 350_000,
-			DestGasPerPayloadByte:           16,
-			DestDataAvailabilityOverheadGas: 33_596,
-			DestGasPerDataAvailabilityByte:  16,
-			DestDataAvailabilityMultiplier:  6840, // 0.684
-			PriceRegistry:                   sourcePricesAddress,
-			MaxDataSize:                     1e5,
-			MaxGasLimit:                     4_000_000,
+			Router:                            sourceRouterAddress,
+			MaxNumberOfTokensPerMsg:           5,
+			DestGasOverhead:                   350_000,
+			DestGasPerPayloadByte:             16,
+			DestDataAvailabilityOverheadGas:   33_596,
+			DestGasPerDataAvailabilityByte:    16,
+			DestDataAvailabilityMultiplierBps: 6840, // 0.684
+			PriceRegistry:                     sourcePricesAddress,
+			MaxDataBytes:                      1e5,
+			MaxPerMsgGasLimit:                 4_000_000,
 		},
 		[]evm_2_evm_onramp.InternalPoolUpdate{
 			{
@@ -1047,26 +1047,26 @@ func SetupCCIPContracts(t *testing.T, sourceChainID, sourceChainSelector, destCh
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampFeeTokenConfigArgs{
 			{
-				Token:             sourceLinkTokenAddress,
-				NetworkFeeUSD:     1_00,
-				GasMultiplier:     1e18,
-				PremiumMultiplier: 9e17,
-				Enabled:           true,
+				Token:                      sourceLinkTokenAddress,
+				NetworkFeeUSDCents:         1_00,
+				GasMultiplierWeiPerEth:     1e18,
+				PremiumMultiplierWeiPerEth: 9e17,
+				Enabled:                    true,
 			},
 			{
-				Token:             sourceWeth9addr,
-				NetworkFeeUSD:     1_00,
-				GasMultiplier:     1e18,
-				PremiumMultiplier: 1e18,
-				Enabled:           true,
+				Token:                      sourceWeth9addr,
+				NetworkFeeUSDCents:         1_00,
+				GasMultiplierWeiPerEth:     1e18,
+				PremiumMultiplierWeiPerEth: 1e18,
+				Enabled:                    true,
 			},
 		},
 		[]evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
 			{
 				Token:             sourceLinkTokenAddress,
-				MinFeeUSD:         50,           // $0.5
-				MaxFeeUSD:         1_000_000_00, // $ 1 million
-				Ratio:             5_0,          // 5 bps
+				MinFeeUSDCents:    50,           // $0.5
+				MaxFeeUSDCents:    1_000_000_00, // $ 1 million
+				DeciBps:           5_0,          // 5 bps
 				DestGasOverhead:   34_000,
 				DestBytesOverhead: 0,
 			},
