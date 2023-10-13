@@ -7,6 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
+	"github.com/smartcontractkit/spike-stream-lookup/mercury"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
@@ -161,16 +162,8 @@ func (p *abiPacker) UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistr
 	return report, nil
 }
 
-type StreamsLookupError struct {
-	FeedParamKey string
-	Feeds        []string
-	TimeParamKey string
-	Time         *big.Int
-	ExtraData    []byte
-}
-
 // DecodeStreamsLookupRequest decodes the revert error StreamsLookup(string feedParamKey, string[] feeds, string feedParamKey, uint256 time, byte[] extraData)
-func (p *abiPacker) DecodeStreamsLookupRequest(data []byte) (*StreamsLookupError, error) {
+func (p *abiPacker) DecodeStreamsLookupRequest(data []byte) (*mercury.StreamsLookupError, error) {
 	e := p.streamsABI.Errors["StreamsLookup"]
 	unpack, err := e.Unpack(data)
 	if err != nil {
@@ -178,7 +171,7 @@ func (p *abiPacker) DecodeStreamsLookupRequest(data []byte) (*StreamsLookupError
 	}
 	errorParameters := unpack.([]interface{})
 
-	return &StreamsLookupError{
+	return &mercury.StreamsLookupError{
 		FeedParamKey: *abi.ConvertType(errorParameters[0], new(string)).(*string),
 		Feeds:        *abi.ConvertType(errorParameters[1], new([]string)).(*[]string),
 		TimeParamKey: *abi.ConvertType(errorParameters[2], new(string)).(*string),
