@@ -186,7 +186,7 @@ func setupSolanaChainsControllerTestV2(t *testing.T, cfgs ...*solana.SolanaConfi
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	return &TestSolanaChainsController{
 		app:    app,
