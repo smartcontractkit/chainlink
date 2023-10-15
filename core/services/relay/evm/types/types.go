@@ -13,7 +13,6 @@ import (
 
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -41,7 +40,7 @@ type RelayOpts struct {
 
 var ErrBadRelayConfig = errors.New("bad relay config")
 
-func NewRelayOpts(args types.RelayArgs) *RelayOpts {
+func NewRelayOpts(args relaytypes.RelayArgs) *RelayOpts {
 	return &RelayOpts{
 		RelayArgs: args,
 		c:         nil, // lazy initialization
