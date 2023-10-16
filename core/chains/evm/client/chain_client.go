@@ -72,7 +72,7 @@ func NewChainClient(
 		chainID,
 		chainType,
 		"EVM",
-		NewSendOnlyErrorReturnCode,
+		SendOnlyErrorParse,
 	)
 	return &chainClient{
 		multiNode: multiNode,
@@ -215,7 +215,7 @@ func (c *chainClient) SendTransaction(ctx context.Context, tx *types.Transaction
 
 func (c *chainClient) SendTransactionReturnCode(ctx context.Context, tx *types.Transaction, fromAddress common.Address) (commontypes.SendTxReturnCode, error) {
 	err := c.SendTransaction(ctx, tx)
-	return NewSendErrorReturnCode(err, c.logger, tx, fromAddress, c.IsL2())
+	return SendErrorParse(err, c.logger, tx, fromAddress, c.IsL2())
 }
 
 func (c *chainClient) SequenceAt(ctx context.Context, account common.Address, blockNumber *big.Int) (evmtypes.Nonce, error) {

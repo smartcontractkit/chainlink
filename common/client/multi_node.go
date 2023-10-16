@@ -120,7 +120,7 @@ type multiNode[
 	chStop utils.StopChan
 	wg     sync.WaitGroup
 
-	sendOnlyErrorParser func(err error) (client.SendTxReturnCode, error)
+	sendOnlyErrorParser func(err error) client.SendTxReturnCode
 }
 
 func NewMultiNode[
@@ -146,7 +146,7 @@ func NewMultiNode[
 	chainID CHAIN_ID,
 	chainType config.ChainType,
 	chainFamily string,
-	sendOnlyErrorParser func(err error) (client.SendTxReturnCode, error),
+	sendOnlyErrorParser func(err error) client.SendTxReturnCode,
 ) MultiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT] {
 	nodeSelector := func() NodeSelector[CHAIN_ID, HEAD, RPC_CLIENT] {
 		switch selectionMode {
@@ -603,13 +603,10 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 
 				txErr := n.RPC().SendTransaction(ctx, tx)
 				c.logger.Debugw("Sendonly node sent transaction", "name", n.String(), "tx", tx, "err", txErr)
-				sendOnlyError, err := c.sendOnlyErrorParser(txErr)
+				sendOnlyError := c.sendOnlyErrorParser(txErr)
 				if sendOnlyError != client.Successful {
-					c.logger.Warnw("RPC returned error", "name", n.String(), "err", err, "tx", tx)
-					return
+					c.logger.Warnw("RPC returned error", "name", n.String(), "tx", tx, "err", txErr)
 				}
-
-				c.logger.Warnw("RPC returned error", "name", n.String(), "err", err, "tx", tx)
 			}(n)
 		})
 		if !ok {
