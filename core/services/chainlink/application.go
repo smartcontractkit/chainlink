@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	relayservices "github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -386,7 +387,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Off-chain reporting v2 disabled")
 	}
 
-	healthChecker := services.NewChecker()
+	healthChecker := relayservices.NewChecker()
 
 	var lbs []utils.DependentAwaiter
 	for _, c := range legacyEVMChains.Slice() {

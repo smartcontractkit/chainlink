@@ -57,16 +57,12 @@ chainlink-test: operator-ui ## Build a test build of chainlink binary.
 chainlink-local-start:
 	./chainlink -c /etc/node-secrets-volume/default.toml -c /etc/node-secrets-volume/overrides.toml -secrets /etc/node-secrets-volume/secrets.toml node start -d -p /etc/node-secrets-volume/node-password -a /etc/node-secrets-volume/apicredentials --vrfpassword=/etc/node-secrets-volume/apicredentials
 
-.PHONY: install-solana
-install-solana: ## Build & install the chainlink-solana binary.
-	go install $(GOFLAGS) ./plugins/cmd/chainlink-solana
-
 .PHONY: install-median
 install-median: ## Build & install the chainlink-median binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-median
 
 .PHONY: install-starknet
-install-starknet: ## Build & install the chainlink-solana binary.
+install-starknet: ## Build & install the chainlink-starknet binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-starknet
 
 .PHONY: docker ## Build the chainlink docker image

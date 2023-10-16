@@ -6,6 +6,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
@@ -85,7 +86,7 @@ func (m *mockRelayer) NewMercuryProvider(rargs types.RelayArgs, pargs types.Plug
 }
 
 type mockRelayerExt struct {
-	RelayerExt
+	loop.RelayerExt
 }
 
 func isType[T any](p any) bool {
@@ -95,7 +96,7 @@ func isType[T any](p any) bool {
 
 func TestRelayerServerAdapter(t *testing.T) {
 	r := &mockRelayer{}
-	sa := NewRelayerServerAdapter(r, mockRelayerExt{})
+	sa := NewServerAdapter(r, mockRelayerExt{})
 
 	testCases := []struct {
 		ProviderType string
