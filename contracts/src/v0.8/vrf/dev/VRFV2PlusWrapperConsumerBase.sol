@@ -117,7 +117,7 @@ abstract contract VRFV2PlusWrapperConsumerBase {
 
   function rawFulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) external {
     address vrfWrapperAddr = address(VRF_V2_PLUS_WRAPPER);
-    if(msg.sender != vrfWrapperAddr) {
+    if (msg.sender != vrfWrapperAddr) {
       revert OnlyVRFWrapperCanFulfill(msg.sender, vrfWrapperAddr);
     }
     fulfillRandomWords(_requestId, _randomWords);
