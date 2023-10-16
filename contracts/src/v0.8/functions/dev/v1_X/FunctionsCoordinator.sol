@@ -17,7 +17,7 @@ contract FunctionsCoordinator is OCR2Base, IFunctionsCoordinator, FunctionsBilli
 
   /// @inheritdoc ITypeAndVersion
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "Functions Coordinator v1.0.0";
+  string public constant override typeAndVersion = "Functions Coordinator v1.1.0";
 
   event OracleRequest(
     bytes32 indexed requestId,
