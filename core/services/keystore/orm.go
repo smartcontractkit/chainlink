@@ -4,11 +4,7 @@ import (
 	"database/sql"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 
 	"github.com/pkg/errors"
@@ -26,6 +22,15 @@ func NewORM(db *sqlx.DB, lggr logger.Logger, cfg pg.QConfig) ksORM {
 type ksORM struct {
 	q    pg.Q
 	lggr logger.Logger
+}
+
+func (orm ksORM) isEmpty() (bool, error) {
+	var count int64
+	err := orm.q.QueryRow("SELECT count(*) FROM encrypted_key_rings").Scan(&count)
+	if err != nil {
+		return false, err
+	}
+	return count == 0, nil
 }
 
 func (orm ksORM) saveEncryptedKeyRing(kr *encryptedKeyRing, callbacks ...func(pg.Queryer) error) error {
@@ -72,26 +77,4 @@ func (orm ksORM) loadKeyStates() (*keyStates, error) {
 		ks.add(state)
 	}
 	return ks, nil
-}
-
-// ~~~~~~~~~~~~~~~~~~~~ LEGACY FUNCTIONS FOR V1 MIGRATION ~~~~~~~~~~~~~~~~~~~~
-
-func (orm ksORM) GetEncryptedV1CSAKeys() (retrieved []csakey.Key, err error) {
-	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM csa_keys`)
-}
-
-func (orm ksORM) GetEncryptedV1EthKeys() (retrieved []ethkey.Key, err error) {
-	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM keys WHERE deleted_at IS NULL`)
-}
-
-func (orm ksORM) GetEncryptedV1OCRKeys() (retrieved []ocrkey.EncryptedKeyBundle, err error) {
-	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM encrypted_ocr_key_bundles WHERE deleted_at IS NULL`)
-}
-
-func (orm ksORM) GetEncryptedV1P2PKeys() (retrieved []p2pkey.EncryptedP2PKey, err error) {
-	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM encrypted_p2p_keys WHERE deleted_at IS NULL`)
-}
-
-func (orm ksORM) GetEncryptedV1VRFKeys() (retrieved []vrfkey.EncryptedVRFKey, err error) {
-	return retrieved, orm.q.Select(&retrieved, `SELECT * FROM encrypted_vrf_keys WHERE deleted_at IS NULL`)
 }
