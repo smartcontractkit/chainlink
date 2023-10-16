@@ -45,15 +45,13 @@ var (
 
 type ClNode struct {
 	test_env.EnvComponent
-	API                   *client.ChainlinkClient
-	NodeConfig            *chainlink.Config
-	NodeSecretsConfigTOML string
-	PostgresDb            *test_env.PostgresDb
-	lw                    *logwatch.LogWatch
-	ContainerImage        string
-	ContainerVersion      string
+	API                   *client.ChainlinkClient `json:"-"`
+	NodeConfig            *chainlink.Config       `json:"-"`
+	NodeSecretsConfigTOML string                  `json:"-"`
+	PostgresDb            *test_env.PostgresDb    `json:"postgresDb"`
 	t                     *testing.T
 	l                     zerolog.Logger
+	lw                    *logwatch.LogWatch
 }
 
 type ClNodeOption = func(c *ClNode)
@@ -107,11 +105,10 @@ func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOp
 	return n
 }
 
-func (n *ClNode) WithTestLogger(t *testing.T) *ClNode {
+func (n *ClNode) SetTestLogger(t *testing.T) {
 	n.l = logging.GetTestLogger(t)
 	n.t = t
 	n.PostgresDb.WithTestLogger(t)
-	return n
 }
 
 // Restart restarts only CL node, DB container is reused
