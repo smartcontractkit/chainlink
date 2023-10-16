@@ -201,7 +201,7 @@ func TestAutomationReorg(t *testing.T) {
 
 			// Use the name to determine if this is a log trigger or not
 			isLogTrigger := name == "registry_2_1_logtrigger"
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, isLogTrigger)
+			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, isLogTrigger, false)
 
 			l.Info().Msg("Waiting for all upkeeps to be performed")
 
