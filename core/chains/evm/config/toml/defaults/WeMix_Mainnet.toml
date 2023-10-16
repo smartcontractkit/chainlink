@@ -1,4 +1,4 @@
-ChainID = '1112'
+ChainID = '1111'
 ChainType = 'wemix'
 FinalityDepth = 1
 MinIncomingConfirmations = 1

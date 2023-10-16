@@ -42,5 +42,12 @@ func chainSpecificIsUsable(tx evmtypes.Transaction, baseFee *assets.Wei, chainTy
 			return false
 		}
 	}
+	if chainType == config.ChainWeMix {
+		// WeMix specific transaction types that enables fee delegation.
+		// https://docs.wemix.com/v/en/design/fee-delegation
+		if tx.Type == 0x16 {
+			return false
+		}
+	}
 	return true
 }

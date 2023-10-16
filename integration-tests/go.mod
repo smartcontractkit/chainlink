@@ -359,7 +359,6 @@ require (
 	github.com/opentracing-contrib/go-grpc v0.0.0-20210225150812-73cb765af46e // indirect
 	github.com/opentracing-contrib/go-stdlib v1.0.0 // indirect
 	github.com/opentracing/opentracing-go v1.2.0 // indirect
-	github.com/otiai10/copy v1.14.0 // indirect
 	github.com/patrickmn/go-cache v2.1.0+incompatible // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect

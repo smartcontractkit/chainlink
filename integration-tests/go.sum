@@ -2187,10 +2187,6 @@ github.com/opentracing/opentracing-go v1.2.0 h1:uEJPy/1a5RIPAJ0Ov+OIO8OxWu77jEv+
 github.com/opentracing/opentracing-go v1.2.0/go.mod h1:GxEUsuufX4nBwe+T+Wl9TAgYrxe9dPLANfrWvHYVTgc=
 github.com/ory/dockertest v3.3.5+incompatible h1:iLLK6SQwIhcbrG783Dghaaa3WPzGc+4Emza6EbVUUGA=
 github.com/ory/dockertest v3.3.5+incompatible/go.mod h1:1vX4m9wsvi00u5bseYwXaSnhNrne+V0E6LAcBILJdPs=
-github.com/otiai10/copy v1.14.0 h1:dCI/t1iTdYGtkvCuBG2BgR6KZa83PTclw4U5n2wAllU=
-github.com/otiai10/copy v1.14.0/go.mod h1:ECfuL02W+/FkTWZWgQqXPWZgW9oeKCSQ5qVfSc4qc4w=
-github.com/otiai10/mint v1.5.1 h1:XaPLeE+9vGbuyEHem1JNk3bYc7KKqyI/na0/mLd/Kks=
-github.com/otiai10/mint v1.5.1/go.mod h1:MJm72SBthJjz8qhefc4z1PYEieWmy8Bku7CjcAqyUSM=
 github.com/ovh/go-ovh v1.3.0 h1:mvZaddk4E4kLcXhzb+cxBsMPYp2pHqiQpWYkInsuZPQ=
 github.com/ovh/go-ovh v1.3.0/go.mod h1:AxitLZ5HBRPyUd+Zl60Ajaag+rNTdVXWIkzfrVuTXWA=
 github.com/pascaldekloe/goe v0.0.0-20180627143212-57f6aae5913c/go.mod h1:lzWF7FIEvWOWxwDKqyGYQf6ZUaNfKdP144TG7ZOy1lc=
@@ -2283,8 +2279,8 @@ github.com/prometheus/procfs v0.12.0/go.mod h1:pcuDEFsWDnvcgNzo4EEweacyhjeA9Zk3c
 github.com/prometheus/prometheus v0.43.1-0.20230327151049-211ae4f1f0a2 h1:i5hmbBzR+VeL5pPl1ZncsJ1bpg3SO66bwkE1msJBsMA=
 github.com/prometheus/prometheus v0.43.1-0.20230327151049-211ae4f1f0a2/go.mod h1:Mm42Acga98xgA+u5yTaC3ki3i0rJEJWFpbdHN7q2trk=
 github.com/prometheus/tsdb v0.7.1/go.mod h1:qhTCs0VvXwvX/y3TZrWD7rabWM+ijKTux40TwIPHuXU=
-github.com/pyroscope-io/client v0.7.1 h1:yFRhj3vbgjBxehvxQmedmUWJQ4CAfCHhn+itPsuWsHw=
-github.com/pyroscope-io/client v0.7.1/go.mod h1:4h21iOU4pUOq0prKyDlvYRL+SCKsBc5wKiEtV+rJGqU=
+github.com/pyroscope-io/client v0.6.0 h1:rcUFgcnfmuyVYDYT+4d0zfqc8YedOyruHSsUb9ImaBw=
+github.com/pyroscope-io/client v0.6.0/go.mod h1:4h21iOU4pUOq0prKyDlvYRL+SCKsBc5wKiEtV+rJGqU=
 github.com/pyroscope-io/godeltaprof v0.1.2 h1:MdlEmYELd5w+lvIzmZvXGNMVzW2Qc9jDMuJaPOR75g4=
 github.com/pyroscope-io/godeltaprof v0.1.2/go.mod h1:psMITXp90+8pFenXkKIpNhrfmI9saQnPbba27VIaiQE=
 github.com/rakyll/statik v0.1.7 h1:OF3QCZUuyPxuGEP7B4ypUa7sB/iHtqOTDYZXGM8KOdQ=
