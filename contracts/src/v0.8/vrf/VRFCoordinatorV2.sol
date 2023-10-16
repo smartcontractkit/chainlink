@@ -315,7 +315,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    cancelSubscriptionHelper(subId, s_subscriptionConfigs[subId].owner);
+    _cancelSubscriptionHelper(subId, s_subscriptionConfigs[subId].owner);
   }
 
   /**
@@ -387,7 +387,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     // The consequence for users is that they can send requests
     // for invalid keyHashes which will simply not be fulfilled.
     uint64 nonce = currentNonce + 1;
-    (uint256 requestId, uint256 preSeed) = computeRequestId(keyHash, msg.sender, subId, nonce);
+    (uint256 requestId, uint256 preSeed) = _computeRequestId(keyHash, msg.sender, subId, nonce);
 
     s_requestCommitments[requestId] = keccak256(
       abi.encode(requestId, ChainSpecificUtil._getBlockNumber(), subId, callbackGasLimit, numWords, msg.sender)
@@ -416,8 +416,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     return s_requestCommitments[requestId];
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
-  function computeRequestId(
+  function _computeRequestId(
     bytes32 keyHash,
     address sender,
     uint64 subId,
@@ -431,8 +430,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    */
-  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
-  function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
+  function _callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
     assembly {
       let g := gas()
       // Compute g -= GAS_FOR_CALL_EXACT_CHECK and check for underflow
@@ -461,8 +459,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     return success;
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
-  function getRandomnessFromProof(
+  function _getRandomnessFromProof(
     Proof memory proof,
     RequestCommitment memory rc
   ) private view returns (bytes32 keyHash, uint256 requestId, uint256 randomness) {
@@ -493,7 +490,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
 
     // The seed actually used by the VRF machinery, mixing in the blockhash
     uint256 actualSeed = uint256(keccak256(abi.encodePacked(proof.seed, blockHash)));
-    randomness = VRF.randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
+    randomness = VRF._randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
   }
 
   /*
@@ -527,7 +524,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
    */
   function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
-    (bytes32 keyHash, uint256 requestId, uint256 randomness) = getRandomnessFromProof(proof, rc);
+    (bytes32 keyHash, uint256 requestId, uint256 randomness) = _getRandomnessFromProof(proof, rc);
 
     uint256[] memory randomWords = new uint256[](rc.numWords);
     for (uint256 i = 0; i < rc.numWords; i++) {
@@ -541,10 +538,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     // Important to not let them exhaust the gas budget and avoid oracle payment.
     // Do not allow any non-view/non-pure coordinator functions to be called
     // during the consumers callback code via reentrancyLock.
-    // Note that callWithExactGas will revert if we do not have sufficient gas
+    // Note that _callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
     s_config.reentrancyLock = true;
-    bool success = callWithExactGas(rc.callbackGasLimit, rc.sender, resp);
+    bool success = _callWithExactGas(rc.callbackGasLimit, rc.sender, resp);
     s_config.reentrancyLock = false;
 
     // Increment the req count for fee tier selection.
@@ -557,7 +554,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     // We also add the flat link fee to the payment amount.
     // Its specified in millionths of link, if s_config.fulfillmentFlatFeeLinkPPM = 1
     // 1 link / 1e6 = 1e18 juels / 1e6 = 1e12 juels.
-    uint96 payment = calculatePaymentAmount(
+    uint96 payment = _calculatePaymentAmount(
       startGas,
       s_config.gasAfterPaymentCalculation,
       getFeeTier(reqCount),
@@ -574,15 +571,14 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
   }
 
   // Get the amount of gas used for fulfillment
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function calculatePaymentAmount(
+  function _calculatePaymentAmount(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
     uint32 fulfillmentFlatFeeLinkPPM,
     uint256 weiPerUnitGas
   ) internal view returns (uint96) {
     int256 weiPerUnitLink;
-    weiPerUnitLink = getFeedData();
+    weiPerUnitLink = _getFeedData();
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
@@ -598,8 +594,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     return uint96(paymentNoFee + fee);
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
-  function getFeedData() private view returns (int256) {
+  function _getFeedData() private view returns (int256) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
@@ -770,11 +765,10 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     if (pendingRequestExists(subId)) {
       revert PendingRequestExists();
     }
-    cancelSubscriptionHelper(subId, to);
+    _cancelSubscriptionHelper(subId, to);
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
-  function cancelSubscriptionHelper(uint64 subId, address to) private nonReentrant {
+  function _cancelSubscriptionHelper(uint64 subId, address to) private nonReentrant {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     Subscription memory sub = s_subscriptions[subId];
     uint96 balance = sub.balance;
@@ -801,7 +795,7 @@ contract VRFCoordinatorV2 is VRF, ConfirmedOwner, TypeAndVersionInterface, VRFCo
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
       for (uint256 j = 0; j < s_provingKeyHashes.length; j++) {
-        (uint256 reqId, ) = computeRequestId(
+        (uint256 reqId, ) = _computeRequestId(
           s_provingKeyHashes[j],
           subConfig.consumers[i],
           subId,
