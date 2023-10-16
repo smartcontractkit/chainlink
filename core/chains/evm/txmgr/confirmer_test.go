@@ -2251,7 +2251,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// No new tx attempts
 		require.Len(t, etx3.TxAttempts, 4)
-		attempt3_4 := etx3.TxAttempts[0]
+		attempt3_4 = etx3.TxAttempts[0]
 		assert.Equal(t, gasPrice.Int64(), attempt3_4.TxFee.Legacy.ToInt().Int64())
 	})
 
@@ -2319,9 +2319,8 @@ func TestEthConfirmer_RebroadcastWhereNecessary(t *testing.T) {
 
 		// No new tx attempts
 		require.Len(t, etx4.TxAttempts, 2)
-		attempt4_2 := etx4.TxAttempts[0]
-		assert.Equal(t, assets.GWei(999).Int64(), attempt4_2.TxFee.DynamicTipCap.ToInt().Int64())
-		assert.Equal(t, assets.GWei(1000).Int64(), attempt4_2.TxFee.DynamicFeeCap.ToInt().Int64())
+		assert.Equal(t, assets.GWei(999).Int64(), etx4.TxAttempts[0].TxFee.DynamicTipCap.ToInt().Int64())
+		assert.Equal(t, assets.GWei(1000).Int64(), etx4.TxAttempts[0].TxFee.DynamicFeeCap.ToInt().Int64())
 	})
 
 	require.NoError(t, db.Get(&dbAttempt, `UPDATE evm.tx_attempts SET broadcast_before_block_num=$1, gas_tip_cap=$2, gas_fee_cap=$3 WHERE id=$4 RETURNING *`,

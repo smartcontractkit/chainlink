@@ -50,11 +50,11 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		require.Equal(t, key, retrievedKey)
 
 		t.Run("prevents creating more than one key", func(t *testing.T) {
-			k, err := ks.Create()
+			k, err2 := ks.Create()
 
 			assert.Zero(t, k)
-			assert.Error(t, err)
-			assert.True(t, errors.Is(err, keystore.ErrCSAKeyExists))
+			assert.Error(t, err2)
+			assert.True(t, errors.Is(err2, keystore.ErrCSAKeyExists))
 		})
 	})
 
@@ -76,18 +76,18 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		require.Equal(t, importedKey, retrievedKey)
 
 		t.Run("prevents importing more than one key", func(t *testing.T) {
-			k, err := ks.Import(exportJSON, cltest.Password)
+			k, err2 := ks.Import(exportJSON, cltest.Password)
 
 			assert.Zero(t, k)
-			assert.Error(t, err)
-			assert.Equal(t, fmt.Sprintf("key with ID %s already exists", key.ID()), err.Error())
+			assert.Error(t, err2)
+			assert.Equal(t, fmt.Sprintf("key with ID %s already exists", key.ID()), err2.Error())
 		})
 
 		t.Run("fails to import malformed key", func(t *testing.T) {
-			k, err := ks.Import([]byte(""), cltest.Password)
+			k, err2 := ks.Import([]byte(""), cltest.Password)
 
 			assert.Zero(t, k)
-			assert.Error(t, err)
+			assert.Error(t, err2)
 		})
 
 		t.Run("fails to export non-existent key", func(t *testing.T) {
@@ -126,10 +126,10 @@ func Test_CSAKeyStore_E2E(t *testing.T) {
 		})
 
 		t.Run("fails to delete non-existent key", func(t *testing.T) {
-			k, err := ks.Delete("non-existent")
+			k, err2 := ks.Delete("non-existent")
 
 			assert.Zero(t, k)
-			assert.Error(t, err)
+			assert.Error(t, err2)
 		})
 	})
 
