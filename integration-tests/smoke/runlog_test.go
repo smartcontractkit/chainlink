@@ -51,7 +51,7 @@ func TestRunLogBasic(t *testing.T) {
 		Name: fmt.Sprintf("five-%s", jobUUID.String()),
 		URL:  fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
 	}
-	err = env.CLNodes[0].API.MustCreateBridge(&bta)
+	err = env.ClCluster.Nodes[0].API.MustCreateBridge(&bta)
 	require.NoError(t, err, "Creating bridge shouldn't fail")
 
 	os := &client.DirectRequestTxPipelineSpec{
@@ -61,7 +61,7 @@ func TestRunLogBasic(t *testing.T) {
 	ost, err := os.String()
 	require.NoError(t, err, "Building observation source spec shouldn't fail")
 
-	_, err = env.CLNodes[0].API.MustCreateJob(&client.DirectRequestJobSpec{
+	_, err = env.ClCluster.Nodes[0].API.MustCreateJob(&client.DirectRequestJobSpec{
 		Name:                     fmt.Sprintf("direct-request-%s", uuid.NewString()),
 		MinIncomingConfirmations: "1",
 		ContractAddress:          oracle.Address(),

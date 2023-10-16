@@ -20,12 +20,12 @@ import (
 // the JSON value of errors.
 func jsonAPIError(c *gin.Context, statusCode int, err error) {
 	_ = c.Error(err).SetType(gin.ErrorTypePublic)
-	switch v := err.(type) {
-	case *models.JSONAPIErrors:
-		c.JSON(statusCode, v)
-	default:
-		c.JSON(statusCode, models.NewJSONAPIErrorsWith(err.Error()))
+	var jsonErr *models.JSONAPIErrors
+	if errors.As(err, &jsonErr) {
+		c.JSON(statusCode, jsonErr)
+		return
 	}
+	c.JSON(statusCode, models.NewJSONAPIErrorsWith(err.Error()))
 }
 
 func paginatedResponse(

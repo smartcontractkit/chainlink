@@ -34,8 +34,7 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
     return resp.randomWords[idx];
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function subscribe() internal returns (uint256) {
+  function _subscribe() internal returns (uint256) {
     if (s_subId == 0) {
       s_subId = s_vrfCoordinatorApiV1.createSubscription();
       s_vrfCoordinatorApiV1.addConsumer(s_subId, address(this));
@@ -44,12 +43,12 @@ contract VRFV2PlusConsumerExample is ConfirmedOwner, VRFConsumerBaseV2Plus {
   }
 
   function createSubscriptionAndFundNative() external payable {
-    subscribe();
+    _subscribe();
     s_vrfCoordinatorApiV1.fundSubscriptionWithNative{value: msg.value}(s_subId);
   }
 
   function createSubscriptionAndFund(uint96 amount) external {
-    subscribe();
+    _subscribe();
     // Approve the link transfer.
     s_linkToken.transferAndCall(address(s_vrfCoordinator), amount, abi.encode(s_subId));
   }

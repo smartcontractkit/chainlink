@@ -221,8 +221,8 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   function calculateRequestPrice(
     uint32 _callbackGasLimit
   ) external view override onlyConfiguredNotDisabled returns (uint256) {
-    int256 weiPerUnitLink = getFeedData();
-    return calculateRequestPriceInternal(_callbackGasLimit, tx.gasprice, weiPerUnitLink);
+    int256 weiPerUnitLink = _getFeedData();
+    return _calculateRequestPrice(_callbackGasLimit, tx.gasprice, weiPerUnitLink);
   }
 
   /**
@@ -238,12 +238,11 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     uint32 _callbackGasLimit,
     uint256 _requestGasPriceWei
   ) external view override onlyConfiguredNotDisabled returns (uint256) {
-    int256 weiPerUnitLink = getFeedData();
-    return calculateRequestPriceInternal(_callbackGasLimit, _requestGasPriceWei, weiPerUnitLink);
+    int256 weiPerUnitLink = _getFeedData();
+    return _calculateRequestPrice(_callbackGasLimit, _requestGasPriceWei, weiPerUnitLink);
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function calculateRequestPriceInternal(
+  function _calculateRequestPrice(
     uint256 _gas,
     uint256 _requestGasPrice,
     int256 _weiPerUnitLink
@@ -286,9 +285,9 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
       _data,
       (uint32, uint16, uint32)
     );
-    uint32 eip150Overhead = getEIP150Overhead(callbackGasLimit);
-    int256 weiPerUnitLink = getFeedData();
-    uint256 price = calculateRequestPriceInternal(callbackGasLimit, tx.gasprice, weiPerUnitLink);
+    uint32 eip150Overhead = _getEIP150Overhead(callbackGasLimit);
+    int256 weiPerUnitLink = _getFeedData();
+    uint256 price = _calculateRequestPrice(callbackGasLimit, tx.gasprice, weiPerUnitLink);
     // solhint-disable-next-line custom-errors
     require(_amount >= price, "fee too low");
     // solhint-disable-next-line custom-errors
@@ -347,14 +346,13 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
     VRFV2WrapperConsumerBase c;
     bytes memory resp = abi.encodeWithSelector(c.rawFulfillRandomWords.selector, _requestId, _randomWords);
 
-    bool success = callWithExactGas(callback.callbackGasLimit, callback.callbackAddress, resp);
+    bool success = _callWithExactGas(callback.callbackGasLimit, callback.callbackAddress, resp);
     if (!success) {
       emit WrapperFulfillmentFailed(_requestId, callback.callbackAddress);
     }
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
-  function getFeedData() private view returns (int256) {
+  function _getFeedData() private view returns (int256) {
     bool staleFallback = s_stalenessSeconds > 0;
     uint256 timestamp;
     int256 weiPerUnitLink;
@@ -371,8 +369,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
   /**
    * @dev Calculates extra amount of gas required for running an assembly call() post-EIP150.
    */
-  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
-  function getEIP150Overhead(uint32 gas) private pure returns (uint32) {
+  function _getEIP150Overhead(uint32 gas) private pure returns (uint32) {
     return gas / 63 + 1;
   }
 
@@ -380,8 +377,7 @@ contract VRFV2Wrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsumerBas
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    */
-  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
-  function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
+  function _callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
     assembly {
       let g := gas()
       // Compute g -= GAS_FOR_CALL_EXACT_CHECK and check for underflow

@@ -256,6 +256,7 @@ func (q Q) Get(dest interface{}, query string, args ...interface{}) error {
 
 	return ql.withLogError(q.Queryer.GetContext(ctx, dest, query, args...))
 }
+
 func (q Q) GetNamed(sql string, dest interface{}, arg interface{}) error {
 	query, args, err := q.BindNamed(sql, arg)
 	if err != nil {

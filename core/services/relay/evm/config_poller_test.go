@@ -87,7 +87,7 @@ func TestConfigPoller(t *testing.T) {
 		ethClient = evmclient.NewSimulatedBackendClient(t, b, testutils.SimulatedChainID)
 		ctx := testutils.Context(t)
 		lorm := logpoller.NewORM(testutils.SimulatedChainID, db, lggr, cfg)
-		lp = logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
+		lp = logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, false, 1, 2, 2, 1000)
 		require.NoError(t, lp.Start(ctx))
 		t.Cleanup(func() { lp.Close() })
 	}
