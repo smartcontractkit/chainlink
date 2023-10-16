@@ -119,4 +119,16 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     require(msg.sender == address(VRF_V2_PLUS_WRAPPER), "only VRF V2 Plus wrapper can fulfill");
     fulfillRandomWords(_requestId, _randomWords);
   }
+
+  /// @notice getWrapper returns the Wrapper object used for accessing VRF service using direct billing
+  function getWrapper() external view returns (IVRFV2PlusWrapper) {
+    return VRF_V2_PLUS_WRAPPER;
+  }
+
+  receive() external payable {}
+
+  /// @notice getBalance returns the native balance of the consumer contract
+  function getBalance() public view returns (uint256) {
+    return address(this).balance;
+  }
 }
