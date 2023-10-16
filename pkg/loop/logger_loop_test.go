@@ -45,7 +45,7 @@ type GRPCPluginLoggerTest struct {
 func (g *GRPCPluginLoggerTest) GRPCServer(*plugin.GRPCBroker, *grpc.Server) (err error) {
 	err = errors.New("test error")
 	g.Logger.Errorw("Error!", "err", err)
-	g.Logger.Sync()
+	err = errors.Join(err, g.Logger.Sync())
 	time.Sleep(time.Second)
 	return err
 }

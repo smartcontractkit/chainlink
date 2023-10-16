@@ -53,15 +53,6 @@ func (rc testReportCodec) ObservationTimestampFromReport(ocrtypes.Report) (uint3
 	return rc.observationTimestamp, rc.err
 }
 
-func newAttributedObservation(t *testing.T, p *MercuryObservationProto) ocrtypes.AttributedObservation {
-	marshalledObs, err := proto.Marshal(p)
-	require.NoError(t, err)
-	return ocrtypes.AttributedObservation{
-		Observation: ocrtypes.Observation(marshalledObs),
-		Observer:    commontypes.OracleID(42),
-	}
-}
-
 func newTestReportPlugin(t *testing.T, codec *testReportCodec, ds *testDataSource) *reportingPlugin {
 	offchainConfig := mercury.OffchainConfig{
 		ExpirationWindow: 1,

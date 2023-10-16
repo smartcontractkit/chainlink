@@ -74,7 +74,7 @@ func helperProcess(s ...string) *exec.Cmd {
 		"GO_WANT_HELPER_PROCESS=1",
 	}
 
-	cmd := exec.Command(os.Args[0], cs...)
+	cmd := exec.Command(os.Args[0], cs...) //nolint:gosec
 	cmd.Env = append(env, os.Environ()...)
 	return cmd
 }
