@@ -26,7 +26,7 @@ before(async () => {
     roles.defaultAccount,
   )
   forwarderFactory = await ethers.getContractFactory(
-    'src/v0.8/AuthorizedForwarder.sol:AuthorizedForwarder',
+    'src/v0.8/operatorforwarder/dev/AuthorizedForwarder.sol:AuthorizedForwarder',
     roles.defaultAccount,
   )
   linkTokenFactory = await ethers.getContractFactory(
