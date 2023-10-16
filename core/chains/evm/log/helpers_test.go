@@ -194,10 +194,10 @@ func (helper *broadcasterHelper) stop() {
 	assert.NoError(helper.t, err)
 }
 
-func newMockContract() *logmocks.AbigenContract {
+func newMockContract(t *testing.T) *logmocks.AbigenContract {
 	addr := testutils.NewAddress()
-	contract := new(logmocks.AbigenContract)
-	contract.On("Address").Return(addr)
+	contract := logmocks.NewAbigenContract(t)
+	contract.On("Address").Return(addr).Maybe()
 	return contract
 }
 
@@ -329,15 +329,10 @@ func (listener *simpleLogListener) getUniqueLogsBlockNumbers() []uint64 {
 
 func (listener *simpleLogListener) requireAllReceived(t *testing.T, expectedState *received) {
 	received := listener.received
+	defer func() { assert.EqualValues(t, expectedState.getUniqueLogs(), received.getUniqueLogs()) }()
 	require.Eventually(t, func() bool {
 		return len(received.getUniqueLogs()) == len(expectedState.getUniqueLogs())
 	}, testutils.WaitTimeout(t), time.Second, "len(received.uniqueLogs): %v is not equal len(expectedState.uniqueLogs): %v", len(received.getUniqueLogs()), len(expectedState.getUniqueLogs()))
-
-	received.Lock()
-	defer received.Unlock()
-	for i, ul := range expectedState.getUniqueLogs() {
-		assert.Equal(t, ul, received.uniqueLogs[i])
-	}
 }
 
 func (listener *simpleLogListener) handleLogBroadcast(lb log.Broadcast) bool {

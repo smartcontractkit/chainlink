@@ -971,7 +971,6 @@ func getLocalNextNonce(t *testing.T, eb *txmgr.Broadcaster, fromAddress gethComm
 // This in order to more deeply test ProcessUnstartedEthTxs over
 // multiple runs with previous errors in the database.
 func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
-	var err error
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 	value := big.Int(assets.NewEthValue(142))
 	gasLimit := uint32(242)
@@ -999,11 +998,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		}), fromAddress).Return(clienttypes.Successful, errors.New("replacement transaction underpriced")).Once()
 
 		// Do the thing
-		{
-			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
-			assert.NoError(t, err)
-			assert.False(t, retryable)
-		}
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
+		assert.NoError(t, err)
+		assert.False(t, retryable)
 
 		// Check that the transaction was saved correctly with its attempt
 		// We assume success and hand off to eth confirmer to eventually mark it as failed
@@ -1037,11 +1034,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 				return tx.Nonce() == localNextNonce
 			}), fromAddress).Return(clienttypes.Fatal, errors.New(fatalErrorExample)).Once()
 
-			{
-				retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
-				assert.NoError(t, err)
-				assert.False(t, retryable)
-			}
+			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
+			assert.NoError(t, err)
+			assert.False(t, retryable)
 
 			// Check it was saved correctly with its attempt
 			etx, err = txStore.FindTxWithAttempts(etx.ID)
@@ -1125,15 +1120,13 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 					lggr := logger.TestLogger(t)
 					estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(evmcfg.EVM().GasEstimator(), evmcfg.EVM().GasEstimator().BlockHistory(), lggr), evmcfg.EVM().GasEstimator().EIP1559DynamicFees(), nil)
 					txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), evmcfg.EVM().GasEstimator(), ethKeyStore, estimator)
-					localNextNonce := getLocalNextNonce(t, eb, fromAddress)
+					localNextNonce = getLocalNextNonce(t, eb, fromAddress)
 					ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(localNextNonce), nil).Once()
 					eb2 := txmgr.NewEvmBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), evmcfg.Database().Listener(), ethKeyStore, eventBroadcaster, txBuilder, nil, lggr, &testCheckerFactory{}, false)
 					require.NoError(t, err)
-					{
-						retryable, err := eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
-						assert.NoError(t, err)
-						assert.False(t, retryable)
-					}
+					retryable, err := eb2.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
+					assert.NoError(t, err)
+					assert.False(t, retryable)
 				})
 			})
 		})
@@ -1153,13 +1146,11 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// another node even if the primary one returns "exceeds the configured
 		// cap"
 
-		{
-			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
-			require.Error(t, err)
-			assert.Contains(t, err.Error(), "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")
-			assert.Contains(t, err.Error(), "error while sending transaction")
-			assert.True(t, retryable)
-		}
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "tx fee (1.10 ether) exceeds the configured cap (1.00 ether)")
+		assert.Contains(t, err.Error(), "error while sending transaction")
+		assert.True(t, retryable)
 
 		// Check it was saved with its attempt
 		etx, err = txStore.FindTxWithAttempts(etx.ID)
@@ -1184,11 +1175,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		// On the second try, the tx has been accepted into the mempool
 		ethClient.On("PendingNonceAt", mock.Anything, fromAddress).Return(uint64(localNextNonce+1), nil).Once()
 
-		{
-			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
-			assert.NoError(t, err)
-			assert.False(t, retryable)
-		}
+		retryable, err = eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
+		assert.NoError(t, err)
+		assert.False(t, retryable)
 
 		// Check it was saved with its attempt
 		etx, err = txStore.FindTxWithAttempts(etx.ID)
@@ -1237,11 +1226,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			return tx.Nonce() == localNextNonce
 		}), fromAddress).Return(clienttypes.Successful, nil).Once()
 
-		{
-			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
-			assert.NoError(t, err)
-			assert.False(t, retryable)
-		}
+		retryable, err = eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
+		assert.NoError(t, err)
+		assert.False(t, retryable)
 
 		// Check it was saved correctly with its attempt
 		etx, err = txStore.FindTxWithAttempts(etx.ID)
@@ -1291,11 +1278,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 			return tx.Nonce() == localNextNonce
 		}), fromAddress).Return(clienttypes.Successful, nil).Once()
 
-		{
-			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
-			assert.NoError(t, err)
-			assert.False(t, retryable)
-		}
+		retryable, err = eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
+		assert.NoError(t, err)
+		assert.False(t, retryable)
 
 		// Check it was saved correctly with its attempt
 		etx, err = txStore.FindTxWithAttempts(etx.ID)
@@ -1364,11 +1349,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		}), fromAddress).Return(clienttypes.Successful, nil).Once()
 
 		// Do the thing
-		{
-			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
-			require.NoError(t, err)
-			assert.False(t, retryable)
-		}
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
+		require.NoError(t, err)
+		assert.False(t, retryable)
 
 		// Check it was saved correctly with its attempt
 		etx, err = txStore.FindTxWithAttempts(etx.ID)
@@ -1433,11 +1416,9 @@ func TestEthBroadcaster_ProcessUnstartedEthTxs_Errors(t *testing.T) {
 		}), fromAddress).Return(clienttypes.Successful, errors.New(temporarilyUnderpricedError)).Once()
 
 		// Do the thing
-		{
-			retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
-			assert.NoError(t, err)
-			assert.False(t, retryable)
-		}
+		retryable, err := eb.ProcessUnstartedTxs(testutils.Context(t), fromAddress)
+		assert.NoError(t, err)
+		assert.False(t, retryable)
 
 		// Check it was saved correctly with its attempt
 		etx, err := txStore.FindTxWithAttempts(etxUnfinished.ID)
