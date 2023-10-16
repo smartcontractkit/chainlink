@@ -53,12 +53,18 @@ func removeArg(args []interface{}, key string) ([]interface{}, string) {
 }
 
 func (h *hclSinkAdapter) Accept(_ string, level hclog.Level, msg string, args ...interface{}) {
+	if level == hclog.Off {
+		return
+	}
+
 	l := h.l
 	var name string
 	if args, name = removeArg(args, "logger"); name != "" {
 		l = h.named(name)
 	}
 	switch level {
+	case hclog.Off:
+		return // unreachable, but satisfies linter
 	case hclog.NoLevel:
 	case hclog.Debug, hclog.Trace:
 		l.Debugw(msg, args...)

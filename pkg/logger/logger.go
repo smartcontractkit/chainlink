@@ -62,18 +62,18 @@ func NewWith(cfgFn func(*zap.Config)) (Logger, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &logger{core.Sugar(), ""}, nil
+	return &logger{core.Sugar()}, nil
 }
 
 // Test returns a new test Logger for tb.
 func Test(tb testing.TB) Logger {
-	return &logger{zaptest.NewLogger(tb).Sugar(), ""}
+	return &logger{zaptest.NewLogger(tb).Sugar()}
 }
 
 // TestObserved returns a new test Logger for tb and ObservedLogs at the given Level.
 func TestObserved(tb testing.TB, lvl zapcore.Level) (Logger, *observer.ObservedLogs) {
 	sl, logs := testObserved(tb, lvl)
-	return &logger{sl, ""}, logs
+	return &logger{sl}, logs
 }
 
 func testObserved(tb testing.TB, lvl zapcore.Level) (*zap.SugaredLogger, *observer.ObservedLogs) {
@@ -86,38 +86,29 @@ func testObserved(tb testing.TB, lvl zapcore.Level) (*zap.SugaredLogger, *observ
 
 // Nop returns a no-op Logger.
 func Nop() Logger {
-	return &logger{zap.New(zapcore.NewNopCore()).Sugar(), ""}
+	return &logger{zap.New(zapcore.NewNopCore()).Sugar()}
 }
 
 type logger struct {
 	*zap.SugaredLogger
-	name string
 }
 
 func (l *logger) with(args ...interface{}) Logger {
-	return &logger{l.SugaredLogger.With(args...), ""}
-}
-
-func joinName(old, new string) string {
-	if old == "" {
-		return new
-	}
-	return old + "." + new
+	return &logger{l.SugaredLogger.With(args...)}
 }
 
 func (l *logger) named(name string) Logger {
 	newLogger := *l
-	newLogger.name = joinName(l.name, name)
 	newLogger.SugaredLogger = l.SugaredLogger.Named(name)
 	return &newLogger
 }
 
 func (l *logger) Name() string {
-	return l.name
+	return l.Desugar().Name()
 }
 
 func (l *logger) helper(skip int) Logger {
-	return &logger{l.sugaredHelper(skip), l.name}
+	return &logger{l.sugaredHelper(skip)}
 }
 
 func (l *logger) sugaredHelper(skip int) *zap.SugaredLogger {

@@ -35,15 +35,15 @@ func TestWith(t *testing.T) {
 		},
 		{
 			name:   "other",
-			logger: &other{zaptest.NewLogger(t).Sugar(), ""},
+			logger: &other{zaptest.NewLogger(t).Sugar()},
 		},
 		{
 			name:   "different",
-			logger: &different{zaptest.NewLogger(t).Sugar(), ""},
+			logger: &different{zaptest.NewLogger(t).Sugar()},
 		},
 		{
 			name:   "missing",
-			logger: &mismatch{zaptest.NewLogger(t).Sugar(), ""},
+			logger: &mismatch{zaptest.NewLogger(t).Sugar()},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -78,15 +78,15 @@ func TestNamed(t *testing.T) {
 		},
 		{
 			expectedName: "initialized",
-			logger:       &other{zaptest.NewLogger(t).Sugar(), "initialized"},
+			logger:       &other{zaptest.NewLogger(t).Sugar().Named("initialized")},
 		},
 		{
 			expectedName: "different.should_still_work",
-			logger:       Named(&different{zaptest.NewLogger(t).Sugar(), "different"}, "should_still_work"),
+			logger:       Named(&different{zaptest.NewLogger(t).Named("different").Sugar()}, "should_still_work"),
 		},
 		{
 			expectedName: "mismatch",
-			logger:       Named(&mismatch{zaptest.NewLogger(t).Sugar(), "mismatch"}, "should_not_work"),
+			logger:       Named(&mismatch{zaptest.NewLogger(t).Named("mismatch").Sugar()}, "should_not_work"),
 		},
 	} {
 		t.Run(fmt.Sprintf("test_logger_name_expect_%s", tt.expectedName), func(t *testing.T) {
@@ -118,15 +118,15 @@ func TestHelper(t *testing.T) {
 		},
 		{
 			name:   "other",
-			logger: &other{zaptest.NewLogger(t).Sugar(), ""},
+			logger: &other{zaptest.NewLogger(t).Sugar()},
 		},
 		{
 			name:   "different",
-			logger: &different{zaptest.NewLogger(t).Sugar(), ""},
+			logger: &different{zaptest.NewLogger(t).Sugar()},
 		},
 		{
 			name:   "missing",
-			logger: &mismatch{zaptest.NewLogger(t).Sugar(), ""},
+			logger: &mismatch{zaptest.NewLogger(t).Sugar()},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -144,11 +144,11 @@ func TestCritical(t *testing.T) {
 
 	var sl *zap.SugaredLogger
 	sl, observed = testObserved(t, zap.DebugLevel)
-	lggr = &other{sl, ""}
+	lggr = &other{sl}
 	testCritical(t, lggr, observed, "foobar", zap.DPanicLevel)
 
 	sl, observed = testObserved(t, zap.DebugLevel)
-	lggr = &mismatch{sl, ""}
+	lggr = &mismatch{sl}
 	testCritical(t, lggr, observed, "[crit] foobar", zap.ErrorLevel)
 }
 
@@ -167,11 +167,11 @@ func TestCriticalw(t *testing.T) {
 
 	var sl *zap.SugaredLogger
 	sl, observed = testObserved(t, zap.DebugLevel)
-	lggr = &other{sl, ""}
+	lggr = &other{sl}
 	testCriticalw(t, lggr, observed, "msg", zap.DPanicLevel)
 
 	sl, observed = testObserved(t, zap.DebugLevel)
-	lggr = &mismatch{sl, ""}
+	lggr = &mismatch{sl}
 	testCriticalw(t, lggr, observed, "[crit] msg", zap.ErrorLevel)
 }
 
@@ -191,11 +191,11 @@ func TestCriticalf(t *testing.T) {
 
 	var sl *zap.SugaredLogger
 	sl, observed = testObserved(t, zap.DebugLevel)
-	lggr = &other{sl, ""}
+	lggr = &other{sl}
 	testCriticalf(t, lggr, observed, "foo: bar", zap.DPanicLevel)
 
 	sl, observed = testObserved(t, zap.DebugLevel)
-	lggr = &mismatch{sl, ""}
+	lggr = &mismatch{sl}
 	testCriticalf(t, lggr, observed, "[crit] foo: bar", zap.ErrorLevel)
 }
 
@@ -210,24 +210,22 @@ func testCriticalf(t *testing.T, lggr Logger, observed *observer.ObservedLogs, m
 
 type other struct {
 	*zap.SugaredLogger
-	name string
 }
 
 func (o *other) With(args ...interface{}) Logger {
-	return &other{o.SugaredLogger.With(args...), ""}
+	return &other{o.SugaredLogger.With(args...)}
 }
 
 func (o *other) Helper(skip int) Logger {
-	return &other{o.SugaredLogger.With(zap.AddCallerSkip(skip)), ""}
+	return &other{o.SugaredLogger.With(zap.AddCallerSkip(skip))}
 }
 
 func (o *other) Name() string {
-	return o.name
+	return o.Desugar().Name()
 }
 
 func (o *other) Named(name string) Logger {
 	newLogger := *o
-	newLogger.name = joinName(o.name, name)
 	newLogger.SugaredLogger = o.SugaredLogger.Named(name)
 	return &newLogger
 }
@@ -238,43 +236,40 @@ func (o *other) Criticalw(msg string, keysAndValues ...interface{}) { o.DPanicw(
 
 type different struct {
 	*zap.SugaredLogger
-	name string
 }
 
 func (d *different) With(args ...interface{}) differentLogger {
-	return &different{d.SugaredLogger.With(args...), ""}
+	return &different{d.SugaredLogger.With(args...)}
 }
 
 func (d *different) Helper(skip int) differentLogger {
-	return &other{d.SugaredLogger.With(zap.AddCallerSkip(skip)), ""}
+	return &other{d.SugaredLogger.With(zap.AddCallerSkip(skip))}
 }
 
 func (d *different) Name() string {
-	return d.name
+	return d.Desugar().Name()
 }
 
 func (d *different) Named(name string) Logger {
 	newLogger := *d
-	newLogger.name = joinName(d.name, name)
 	newLogger.SugaredLogger = d.SugaredLogger.Named(name)
 	return &newLogger
 }
 
 type mismatch struct {
 	*zap.SugaredLogger
-	name string
 }
 
 func (m *mismatch) With(args ...interface{}) interface{} {
-	return &mismatch{m.SugaredLogger.With(args...), ""}
+	return &mismatch{m.SugaredLogger.With(args...)}
 }
 
 func (m *mismatch) Helper(skip int) interface{} {
-	return &other{m.SugaredLogger.With(zap.AddCallerSkip(skip)), ""}
+	return &other{m.SugaredLogger.With(zap.AddCallerSkip(skip))}
 }
 
 func (m *mismatch) Name() string {
-	return m.name
+	return m.Desugar().Name()
 }
 
 type differentLogger interface {
