@@ -171,4 +171,6 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
     // solhint-disable-next-line custom-errors
     require(success, "withdrawNative failed");
   }
+
+  receive() external payable {}
 }

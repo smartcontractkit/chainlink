@@ -30,11 +30,12 @@ import {IVRFV2PlusWrapper} from "./interfaces/IVRFV2PlusWrapper.sol";
  */
 abstract contract VRFV2PlusWrapperConsumerBase {
   error LINKAlreadySet();
+  error OnlyVRFWrapperCanFulfill(address have, address want);
 
   // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
   LinkTokenInterface internal LINK;
   // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
-  IVRFV2PlusWrapper internal VRF_V2_PLUS_WRAPPER;
+  IVRFV2PlusWrapper public immutable VRF_V2_PLUS_WRAPPER;
 
   /**
    * @param _link is the address of LinkToken
@@ -115,17 +116,12 @@ abstract contract VRFV2PlusWrapperConsumerBase {
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal virtual;
 
   function rawFulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) external {
-    // solhint-disable-next-line custom-errors
-    require(msg.sender == address(VRF_V2_PLUS_WRAPPER), "only VRF V2 Plus wrapper can fulfill");
+    address vrfWrapperAddr = address(VRF_V2_PLUS_WRAPPER);
+    if(msg.sender != vrfWrapperAddr) {
+      revert OnlyVRFWrapperCanFulfill(msg.sender, vrfWrapperAddr);
+    }
     fulfillRandomWords(_requestId, _randomWords);
   }
-
-  /// @notice getWrapper returns the Wrapper object used for accessing VRF service using direct billing
-  function getWrapper() external view returns (IVRFV2PlusWrapper) {
-    return VRF_V2_PLUS_WRAPPER;
-  }
-
-  receive() external payable {}
 
   /// @notice getBalance returns the native balance of the consumer contract
   function getBalance() public view returns (uint256) {
