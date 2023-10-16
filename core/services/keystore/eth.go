@@ -53,15 +53,19 @@ type Eth interface {
 
 type eth struct {
 	*keyManager
+	keystateORM
+	q             pg.Q
 	subscribers   [](chan struct{})
 	subscribersMu *sync.RWMutex
 }
 
 var _ Eth = &eth{}
 
-func newEthKeyStore(km *keyManager) *eth {
+func newEthKeyStore(km *keyManager, orm keystateORM, q pg.Q) *eth {
 	return &eth{
+		keystateORM:   orm,
 		keyManager:    km,
+		q:             q,
 		subscribers:   make([](chan struct{}), 0),
 		subscribersMu: new(sync.RWMutex),
 	}
@@ -193,7 +197,7 @@ func (ks *eth) addKey(address common.Address, chainID *big.Int, qopts ...pg.QOpt
 	sql := `INSERT INTO evm.key_states (address, disabled, evm_chain_id, created_at, updated_at)
 			VALUES ($1, false, $2, NOW(), NOW()) 
 			RETURNING *;`
-	q := ks.orm.q.WithOpts(qopts...)
+	q := ks.q.WithOpts(qopts...)
 	if err := q.Get(state, sql, address, chainID.String()); err != nil {
 		return errors.Wrap(err, "failed to insert evm_key_state")
 	}
@@ -216,7 +220,7 @@ func (ks *eth) Enable(address common.Address, chainID *big.Int, qopts ...pg.QOpt
 // caller must hold lock!
 func (ks *eth) enable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
 	state := new(ethkey.State)
-	q := ks.orm.q.WithOpts(qopts...)
+	q := ks.q.WithOpts(qopts...)
 	sql := `UPDATE evm.key_states SET disabled = false, updated_at = NOW() WHERE address = $1 AND evm_chain_id = $2
 			RETURNING *;`
 	if err := q.Get(state, sql, address, chainID.String()); err != nil {
@@ -240,7 +244,7 @@ func (ks *eth) Disable(address common.Address, chainID *big.Int, qopts ...pg.QOp
 
 func (ks *eth) disable(address common.Address, chainID *big.Int, qopts ...pg.QOpt) error {
 	state := new(ethkey.State)
-	q := ks.orm.q.WithOpts(qopts...)
+	q := ks.q.WithOpts(qopts...)
 	sql := `UPDATE evm.key_states SET disabled = false, updated_at = NOW() WHERE address = $1 AND evm_chain_id = $2
 			RETURNING id, address, evm_chain_id, disabled, created_at, updated_at;`
 	if err := q.Get(state, sql, address, chainID.String()); err != nil {
@@ -480,26 +484,6 @@ func (ks *eth) EnabledAddressesForChain(chainID *big.Int) (addresses []common.Ad
 	return
 }
 
-func (ks *eth) getV1KeysAsV2() (keys []ethkey.KeyV2, fundings []bool, _ error) {
-	v1Keys, err := ks.orm.GetEncryptedV1EthKeys()
-	if err != nil {
-		return nil, nil, errors.Wrap(err, "failed to get encrypted v1 eth keys")
-	}
-	if len(v1Keys) == 0 {
-		return nil, nil, nil
-	}
-	for _, keyV1 := range v1Keys {
-		dKey, err := keystore.DecryptKey(keyV1.JSON, ks.password)
-		if err != nil {
-			return nil, nil, errors.Wrapf(err, "could not decrypt eth key %s", keyV1.Address.Hex())
-		}
-		keyV2 := ethkey.FromPrivateKey(dKey.PrivateKey)
-		keys = append(keys, keyV2)
-		fundings = append(fundings, keyV1.IsFunding)
-	}
-	return keys, fundings, nil
-}
-
 // XXXTestingOnlySetState is only used in tests to manually update a key's state
 func (ks *eth) XXXTestingOnlySetState(state ethkey.State) {
 	ks.lock.Lock()
@@ -514,7 +498,7 @@ func (ks *eth) XXXTestingOnlySetState(state ethkey.State) {
 	*existingState = state
 	sql := `UPDATE evm.key_states SET address = :address, is_disabled = :is_disabled, evm_chain_id = :evm_chain_id, updated_at = NOW()
 	WHERE address = :address;`
-	_, err := ks.orm.q.NamedExec(sql, state)
+	_, err := ks.q.NamedExec(sql, state)
 	if err != nil {
 		panic(err.Error())
 	}
