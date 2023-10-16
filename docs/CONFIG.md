@@ -2677,7 +2677,7 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'BlockHistory'
+Mode = 'BlockHistorySize'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
@@ -3150,7 +3150,7 @@ ResendAfterThreshold = '1m0s'
 Enabled = true
 
 [GasEstimator]
-Mode = 'BlockHistory'
+Mode = 'BlockHistorySize'
 PriceDefault = '20 gwei'
 PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
 PriceMin = '1 gwei'
