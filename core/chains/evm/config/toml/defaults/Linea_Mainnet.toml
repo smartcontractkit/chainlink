@@ -15,6 +15,3 @@ ResendAfterThreshold = '3m'
 # set greater than finality depth
 [HeadTracker]
 HistoryDepth = 350
-
-[GasEstimator.BlockHistory]
-BlockHistorySize = 25
