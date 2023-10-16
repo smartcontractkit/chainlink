@@ -20,7 +20,7 @@ require (
 	github.com/rs/zerolog v1.30.0
 	github.com/slack-go/slack v0.12.2
 	github.com/smartcontractkit/chainlink-env v0.38.3
-	github.com/smartcontractkit/chainlink-testing-framework v1.17.11-0.20231013153656-55715222823e
+	github.com/smartcontractkit/chainlink-testing-framework v1.17.11-0.20231013155435-bcd70d60bfbb
 	github.com/smartcontractkit/chainlink/v2 v2.5.1-0.20230929115051-eff698d75523
 	github.com/smartcontractkit/libocr v0.0.0-20230922131214-122accb19ea6
 	github.com/smartcontractkit/ocr2keepers v0.7.27
@@ -368,7 +368,6 @@ require (
 	github.com/prometheus/exporter-toolkit v0.10.0 // indirect
 	github.com/prometheus/procfs v0.12.0 // indirect
 	github.com/prometheus/prometheus v0.46.0 // indirect
-	github.com/pyroscope-io/client v0.7.1 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20201227073835-cf1acfcdf475 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/robfig/cron/v3 v3.0.1 // indirect
