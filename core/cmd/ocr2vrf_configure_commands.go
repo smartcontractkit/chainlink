@@ -351,8 +351,7 @@ func (s *Shell) authorizeForwarder(c *cli.Context, db *sqlx.DB, lggr logger.Logg
 }
 
 func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Master) error {
-	err := cli.KeyStoreAuthenticator.authenticate(keyStore, cli.Config.Password())
-	if err != nil {
+	if err := cli.KeyStoreAuthenticator.authenticate(keyStore, cli.Config.Password()); err != nil {
 		return errors.Wrap(err, "error authenticating keystore")
 	}
 
@@ -382,19 +381,19 @@ func setupKeystore(cli *Shell, app chainlink.Application, keyStore keystore.Mast
 		enabledChains = append(enabledChains, chaintype.StarkNet)
 	}
 
-	if err = keyStore.OCR2().EnsureKeys(enabledChains...); err != nil {
+	if err := keyStore.OCR2().EnsureKeys(enabledChains...); err != nil {
 		return errors.Wrap(err, "failed to ensure ocr key")
 	}
 
-	if err = keyStore.DKGSign().EnsureKey(); err != nil {
+	if err := keyStore.DKGSign().EnsureKey(); err != nil {
 		return errors.Wrap(err, "failed to ensure dkgsign key")
 	}
 
-	if err = keyStore.DKGEncrypt().EnsureKey(); err != nil {
+	if err := keyStore.DKGEncrypt().EnsureKey(); err != nil {
 		return errors.Wrap(err, "failed to ensure dkgencrypt key")
 	}
 
-	if err = keyStore.P2P().EnsureKey(); err != nil {
+	if err := keyStore.P2P().EnsureKey(); err != nil {
 		return errors.Wrap(err, "failed to ensure p2p key")
 	}
 

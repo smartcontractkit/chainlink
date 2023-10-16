@@ -62,8 +62,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -674,8 +674,7 @@ func setupOCRContracts(t *testing.T) (*bind.TransactOpts, *backends.SimulatedBac
 func setupNode(t *testing.T, owner *bind.TransactOpts, portV1, portV2 int, dbName string,
 	b *backends.SimulatedBackend, ns ocrnetworking.NetworkingStack, overrides func(c *chainlink.Config, s *chainlink.Secrets),
 ) (*cltest.TestApplication, string, common.Address, ocrkey.KeyV2) {
-	p2pKey, err := p2pkey.NewV2()
-	require.NoError(t, err)
+	p2pKey := keystest.NewP2PKeyV2(t)
 	config, _ := heavyweight.FullTestDBV2(t, dbName, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 
@@ -756,8 +755,7 @@ func setupForwarderEnabledNode(
 	common.Address,
 	ocrkey.KeyV2,
 ) {
-	p2pKey, err := p2pkey.NewV2()
-	require.NoError(t, err)
+	p2pKey := keystest.NewP2PKeyV2(t)
 	config, _ := heavyweight.FullTestDBV2(t, dbName, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Insecure.OCRDevelopmentMode = ptr(true) // Disables ocr spec validation so we can have fast polling for the test.
 

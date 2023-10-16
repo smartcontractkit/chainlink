@@ -148,8 +148,7 @@ func TestLogPoller_Integration(t *testing.T) {
 	th := SetupTH(t, false, 2, 3, 2)
 	th.Client.Commit() // Block 2. Ensure we have finality number of blocks
 
-	err := th.LogPoller.RegisterFilter(logpoller.Filter{"Integration test", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1}, 0})
-	require.NoError(t, err)
+	require.NoError(t, th.LogPoller.RegisterFilter(logpoller.Filter{"Integration test", []common.Hash{EmitterABI.Events["Log1"].ID}, []common.Address{th.EmitterAddress1}, 0}))
 	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Addresses, 1)
 	require.Len(t, th.LogPoller.Filter(nil, nil, nil).Topics, 1)
 
@@ -180,9 +179,9 @@ func TestLogPoller_Integration(t *testing.T) {
 
 	// Once the backup poller runs we should also have the log from block 3
 	testutils.AssertEventually(t, func() bool {
-		logs, err := th.LogPoller.Logs(3, 3, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
-		require.NoError(t, err)
-		return len(logs) == 1
+		l, err2 := th.LogPoller.Logs(3, 3, EmitterABI.Events["Log1"].ID, th.EmitterAddress1)
+		require.NoError(t, err2)
+		return len(l) == 1
 	})
 
 	// Now let's update the Filter and replay to get Log2 logs.
