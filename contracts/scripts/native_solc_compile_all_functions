@@ -51,15 +51,15 @@ solc-select install $SOLC_VERSION
 solc-select use $SOLC_VERSION
 export SOLC_VERSION=$SOLC_VERSION
 
-compileContract v1_0_0 dev/v1_0_0/libraries/FunctionsRequest.sol
-compileContract v1_0_0 dev/v1_0_0/FunctionsRouter.sol
-compileContract v1_0_0 dev/v1_0_0/FunctionsCoordinator.sol
-compileContract v1_0_0 dev/v1_0_0/accessControl/TermsOfServiceAllowList.sol
-compileContract v1_0_0 dev/v1_0_0/example/FunctionsClientExample.sol
+compileContract v1_X dev/v1_X/libraries/FunctionsRequest.sol
+compileContract v1_X dev/v1_X/FunctionsRouter.sol
+compileContract v1_X dev/v1_X/FunctionsCoordinator.sol
+compileContract v1_X dev/v1_X/accessControl/TermsOfServiceAllowList.sol
+compileContract v1_X dev/v1_X/example/FunctionsClientExample.sol
 
 # Test helpers
-compileContract v1_0_0 tests/v1_0_0/testhelpers/FunctionsCoordinatorTestHelper.sol
-compileContract v1_0_0 tests/v1_0_0/testhelpers/FunctionsLoadTestClient.sol
+compileContract v1_X tests/v1_X/testhelpers/FunctionsCoordinatorTestHelper.sol
+compileContract v1_X tests/v1_X/testhelpers/FunctionsLoadTestClient.sol
 
 # Mocks
-compileContract v1_0_0 dev/v1_0_0/mocks/FunctionsV1EventsMock.sol
+compileContract v1_X dev/v1_X/mocks/FunctionsV1EventsMock.sol

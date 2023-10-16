@@ -4,6 +4,7 @@
 
 - Moved `VRFCoordinatorV2Mock.sol` to src/v0.8/vrf/mocks
 - Moved `VRFCoordinatorMock.sol` to src/v0.8/vrf/mocks
+- Release Functions v1.0.0 contracts. Start dev folder for v1.X (#10941)
 
 ### Removed
 
