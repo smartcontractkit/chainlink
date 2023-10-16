@@ -391,7 +391,7 @@ func NewCCIPTestConfig(t *testing.T, lggr zerolog.Logger, tType string) *CCIPTes
 	var allError error
 	nodeMem, _ := utils.GetEnv("CCIP_NODE_MEM")
 	nodeCPU, _ := utils.GetEnv("CCIP_NODE_CPU")
-	DONResourceProfile["resources"] = SetResourceProfile("2", "4Gi", nodeCPU, nodeMem)
+	DONResourceProfile = SetResourceProfile("2", "4Gi", nodeCPU, nodeMem)
 
 	dbMem, _ := utils.GetEnv("CCIP_DB_MEM")
 	dbCPU, _ := utils.GetEnv("CCIP_DB_CPU")
