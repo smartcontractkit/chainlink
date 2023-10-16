@@ -1,6 +1,7 @@
 package keystore
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/smartcontractkit/sqlx"
@@ -26,14 +27,14 @@ func (o *memoryORM) isEmpty() (bool, error) {
 	return false, nil
 }
 
-func (o *memoryORM) saveEncryptedKeyRing(kr *encryptedKeyRing, callbacks ...func(pg.Queryer) error) error {
+func (o *memoryORM) saveEncryptedKeyRing(kr *encryptedKeyRing, callbacks ...func(pg.Queryer) error) (err error) {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	o.keyRing = kr
 	for _, c := range callbacks {
-		c(o.q)
+		err = errors.Join(err, c(o.q))
 	}
-	return nil
+	return
 }
 
 func (o *memoryORM) getEncryptedKeyRing() (encryptedKeyRing, error) {
