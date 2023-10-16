@@ -547,6 +547,8 @@ Enabled = false # Default
 CollectorTarget = "localhost:4317" # Example
 # NodeID is an unique name for this node relative to any other node traces are collected for.
 NodeID = "NodeID" # Example
+# SamplingRatio is the ratio of traces to sample for this node.
+SamplingRatio = 1.0 # Example
 
 # Tracing.Attributes are user specified key-value pairs to associate in the context of the traces
 [Tracing.Attributes]

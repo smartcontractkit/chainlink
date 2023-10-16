@@ -137,6 +137,7 @@ func WithTracing() NodeConfigOpt {
 			Attributes:      utils2.Ptr(map[string]string{
 				"env": "soak",
 			}),
+			SamplingRatio:  utils2.Ptr(1.0),
 		}
 	}
 }

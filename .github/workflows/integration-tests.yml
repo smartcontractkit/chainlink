@@ -324,7 +324,7 @@ jobs:
             echo "trace=true" >> $GITHUB_OUTPUT
           else
             echo "Enable tracing label not found."
-            echo "trace=true" >> $GITHUB_OUTPUT
+            echo "trace=false" >> $GITHUB_OUTPUT
           fi
           echo "$PWD"
       - name: Setup Grafana and OpenTelemetry

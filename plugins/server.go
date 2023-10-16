@@ -59,6 +59,7 @@ func newServer(loggerName string) (*Server, error) {
 			Enabled: envCfg.TracingEnabled(),
 			CollectorTarget: envCfg.TracingCollectorTarget(),
 			NodeAttributes: envCfg.TracingAttributes(),
+			SamplingRatio: envCfg.TracingSamplingRatio(),
 		}),
 	}
 

@@ -56,6 +56,9 @@ type EnvConfig interface {
 
 	// Attributes to be added to the node's tracing context
 	TracingAttributes() map[string]string
+
+	// The sampling ratio for the node's tracing context
+	TracingSamplingRatio() float64
 }
 
 // SetCmdEnvFromConfig sets LOOP-specific vars in the env of the given cmd.
@@ -67,6 +70,7 @@ func SetCmdEnvFromConfig(cmd *exec.Cmd, cfg EnvConfig) {
 		"CL_PROMETHEUS_PORT":       strconv.Itoa(cfg.PrometheusPort()),
 		"TRACING_ENABLED":          strconv.FormatBool(cfg.TracingEnabled()),
 		"TRACING_COLLECTOR_TARGET": cfg.TracingCollectorTarget(),
+		"TRACING_SAMPLING_RATIO":   strconv.FormatFloat(cfg.TracingSamplingRatio(), 'f', -1, 64),
 	}
 
 	for k, v := range cfg.TracingAttributes() {
@@ -108,6 +112,20 @@ func getTracingAttributes() map[string]string {
 	return tracingAttributes
 }
 
+// getTracingSamplingRatio parses the TRACING_SAMPLING_RATIO environment variable.
+// Any errors in parsing result in a sampling ratio of 0.0.
+func getTracingSamplingRatio() float64 {
+	tracingSamplingRatio := os.Getenv("TRACING_SAMPLING_RATIO")
+	if tracingSamplingRatio == "" {
+		return 0.0
+	}
+	samplingRatio, err := strconv.ParseFloat(tracingSamplingRatio, 64)
+	if err != nil {
+		return 0.0
+	}
+	return samplingRatio
+}
+
 // GetEnvConfig deserializes LOOP-specific environment variables to an EnvConfig.
 func GetEnvConfig() (EnvConfig, error) {
 	promPortStr := os.Getenv("CL_PROMETHEUS_PORT")
@@ -123,12 +141,14 @@ func GetEnvConfig() (EnvConfig, error) {
 
 	var tracingCollectorTarget string
 	var tracingAttributes map[string]string
+	var tracingSamplingRatio float64
 	if tracingEnabled {
 		tracingCollectorTarget, err = getValidCollectorTarget()
 		if err != nil {
 			return nil, err
 		}
 		tracingAttributes = getTracingAttributes()
+		tracingSamplingRatio = getTracingSamplingRatio()
 	}
 
 	return &envConfig{
@@ -136,6 +156,7 @@ func GetEnvConfig() (EnvConfig, error) {
 		tracingEnabled:         tracingEnabled,
 		tracingCollectorTarget: tracingCollectorTarget,
 		tracingAttributes:      tracingAttributes,
+		tracingSamplingRatio:	tracingSamplingRatio,
 	}, nil
 }
 
@@ -145,6 +166,7 @@ type envConfig struct {
 	tracingEnabled         bool
 	tracingCollectorTarget string
 	tracingAttributes      map[string]string
+	tracingSamplingRatio   float64
 }
 
 func (e *envConfig) PrometheusPort() int {
@@ -161,4 +183,8 @@ func (e *envConfig) TracingCollectorTarget() string {
 
 func (e *envConfig) TracingAttributes() map[string]string {
 	return e.tracingAttributes
+}
+
+func (e *envConfig) TracingSamplingRatio() float64 {
+	return e.tracingSamplingRatio
 }

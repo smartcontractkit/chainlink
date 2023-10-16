@@ -12,6 +12,7 @@ func TestGetEnvConfig(t *testing.T) {
 		expectedPrometheusPort         int
 		expectedTracingEnabled         bool
 		expectedTracingCollectorTarget string
+		expectedTracingSamplingRatio   float64
 	}{
 		{
 			name: "All variables set correctly",
@@ -19,12 +20,14 @@ func TestGetEnvConfig(t *testing.T) {
 				"CL_PROMETHEUS_PORT":       "8080",
 				"TRACING_ENABLED":          "true",
 				"TRACING_COLLECTOR_TARGET": "some:target",
+				"TRACING_SAMPLING_RATIO":   "1.0",
 				"TRACING_ATTRIBUTE_XYZ":    "value",
 			},
 			expectError:                    false,
 			expectedPrometheusPort:         8080,
 			expectedTracingEnabled:         true,
 			expectedTracingCollectorTarget: "some:target",
+			expectedTracingSamplingRatio:   1.0,
 		},
 		{
 			name: "CL_PROMETHEUS_PORT parse error",
@@ -67,6 +70,9 @@ func TestGetEnvConfig(t *testing.T) {
 					}
 					if config.TracingCollectorTarget() != tc.expectedTracingCollectorTarget {
 						t.Errorf("Expected tracingCollectorTarget %s, got %s", tc.expectedTracingCollectorTarget, config.TracingCollectorTarget())
+					}
+					if config.TracingSamplingRatio() != tc.expectedTracingSamplingRatio {
+						t.Errorf("Expected tracingSamplingRatio %f, got %f", tc.expectedTracingSamplingRatio, config.TracingSamplingRatio())
 					}
 				}
 			}

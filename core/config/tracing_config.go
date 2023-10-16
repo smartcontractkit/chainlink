@@ -5,4 +5,5 @@ type Tracing interface {
 	CollectorTarget() string
 	NodeID() string
 	Attributes() map[string]string
+	SamplingRatio() float64
 }

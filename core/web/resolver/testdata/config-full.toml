@@ -217,6 +217,7 @@ DisableRateLimiting = false
 Enabled = false
 CollectorTarget = 'localhost:4317'
 NodeID = 'NodeID'
+SamplingRatio = 1.0
 
 [Tracing.Attributes]
 user = 'test'

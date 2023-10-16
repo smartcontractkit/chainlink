@@ -1309,6 +1309,7 @@ type Tracing struct {
 	CollectorTarget *string
 	NodeID          *string
 	Attributes      *map[string]string
+	SamplingRatio   *float64
 }
 
 func (t *Tracing) setFrom(f *Tracing) {
@@ -1323,5 +1324,8 @@ func (t *Tracing) setFrom(f *Tracing) {
 	}
 	if v := f.Attributes; v != nil {
 		t.Attributes = f.Attributes
+	}
+	if v := f.SamplingRatio; v != nil {
+		t.SamplingRatio = f.SamplingRatio
 	}
 }

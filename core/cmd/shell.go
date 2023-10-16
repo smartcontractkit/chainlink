@@ -68,6 +68,7 @@ func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing) {
 			Enabled:         cfgTracing.Enabled(),
 			CollectorTarget: cfgTracing.CollectorTarget(),
 			NodeAttributes:  cfgTracing.Attributes(),
+			SamplingRatio: cfgTracing.SamplingRatio(),
 		}) // default prometheus.Registerer
 	})
 }

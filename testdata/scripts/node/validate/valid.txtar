@@ -264,6 +264,7 @@ DisableRateLimiting = false
 Enabled = false
 CollectorTarget = ''
 NodeID = ''
+SamplingRatio = 0.0
 
 [Tracing.Attributes]
 

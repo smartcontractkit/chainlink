@@ -232,6 +232,7 @@ func TestConfig_Marshal(t *testing.T) {
 					"test": "load",
 					"user": "chainlink-user",
 				},
+				SamplingRatio: ptr(1.0),
 			},
 		},
 	}
@@ -667,6 +668,7 @@ DisableRateLimiting = false
 Enabled = true
 CollectorTarget = 'localhost:4317'
 NodeID = 'clc-ocr-sol-devnet-node-1'
+SamplingRatio = 1.0
 
 [Tracing.Attributes]
 test = 'load'

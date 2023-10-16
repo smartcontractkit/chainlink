@@ -1462,6 +1462,7 @@ DisableRateLimiting skips ratelimiting on asset requests.
 Enabled = false # Default
 CollectorTarget = "localhost:4317" # Example
 NodeID = "NodeID" # Example
+SamplingRatio = 1.0 # Example
 ```
 
 
@@ -1482,6 +1483,12 @@ CollectorTarget is the logical address of the OTEL Tracing Collector.
 NodeID = "NodeID" # Example
 ```
 NodeID is an unique name for this node relative to any other node traces are collected for.
+
+### SamplingRatio
+```toml
+SamplingRatio = 1.0 # Example
+```
+SamplingRatio is the ratio of traces to sample for this node.
 
 ## Tracing.Attributes
 ```toml
