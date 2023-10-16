@@ -17,5 +17,4 @@ ResendAfterThreshold = '3m'
 HistoryDepth = 350
 
 [GasEstimator.BlockHistory]
-
 BlockHistorySize = 0
