@@ -53,6 +53,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		require.NoError(t, pw.Start(testutils.Context(t)), "foo")
 		require.Equal(t, k.PeerID(), pw.PeerID)
+		require.NoError(t, pw.Close())
 	})
 
 	t.Run("with one p2p key and mismatching P2P.PeerID returns error", func(t *testing.T) {
@@ -87,6 +88,7 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 		require.NoError(t, pw.Start(testutils.Context(t)), "foo")
 		require.Equal(t, k2.PeerID(), pw.PeerID)
+		require.NoError(t, pw.Close())
 	})
 
 	t.Run("with multiple p2p keys and mismatching P2P.PeerID returns error", func(t *testing.T) {
@@ -134,14 +136,14 @@ func Test_SingletonPeerWrapper_Close(t *testing.T) {
 
 	require.NoError(t, pw.Start(testutils.Context(t)))
 	require.True(t, pw.IsStarted(), "Should have started successfully")
-	pw.Close()
+	require.NoError(t, pw.Close())
 
 	/* If peer is still stuck in listenLoop, we will get a bind error trying to start on the same port */
 	require.False(t, pw.IsStarted())
 	pw = ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, logger.TestLogger(t))
 	require.NoError(t, pw.Start(testutils.Context(t)), "Should have shut down gracefully, and be able to re-use same port")
 	require.True(t, pw.IsStarted(), "Should have started successfully")
-	pw.Close()
+	require.NoError(t, pw.Close())
 }
 
 func TestSingletonPeerWrapper_PeerConfig(t *testing.T) {
