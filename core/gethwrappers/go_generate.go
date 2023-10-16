@@ -13,7 +13,6 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/VRFRequestIDBaseTestHelper.abi ../../contracts/solc/v0.6/VRFRequestIDBaseTestHelper.bin VRFRequestIDBaseTestHelper solidity_vrf_request_id
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/Flags.abi ../../contracts/solc/v0.6/Flags.bin Flags flags_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/Oracle.abi ../../contracts/solc/v0.6/Oracle.bin Oracle oracle_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/BlockhashStore.abi ../../contracts/solc/v0.6/BlockhashStore.bin BlockhashStore blockhash_store
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/TestAPIConsumer.abi ../../contracts/solc/v0.6/TestAPIConsumer.bin TestAPIConsumer test_api_consumer_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/MockETHLINKAggregator.abi ../../contracts/solc/v0.6/MockETHLINKAggregator.bin MockETHLINKAggregator mock_ethlink_aggregator_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/MockGASAggregator.abi ../../contracts/solc/v0.6/MockGASAggregator.bin MockGASAggregator mock_gas_aggregator_wrapper
@@ -24,8 +23,6 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.7/OperatorFactory.abi ../../contracts/solc/v0.7/OperatorFactory.bin OperatorFactory operator_factory
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.7/AuthorizedForwarder.abi ../../contracts/solc/v0.7/AuthorizedForwarder.bin AuthorizedForwarder authorized_forwarder
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.7/AuthorizedReceiver.abi ../../contracts/solc/v0.7/AuthorizedReceiver.bin AuthorizedReceiver authorized_receiver
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/BatchBlockhashStore.abi ../../contracts/solc/v0.8.6/BatchBlockhashStore.bin BatchBlockhashStore batch_blockhash_store
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2.abi ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2.bin BatchVRFCoordinatorV2 batch_vrf_coordinator_v2
 //go:generate go run ./generation/generate/wrap.go OffchainAggregator/OffchainAggregator.abi - OffchainAggregator offchain_aggregator_wrapper
 
 // Automation
@@ -78,6 +75,9 @@ package gethwrappers
 //go:generate go run ./generation/generate_link/wrap_link.go
 
 // VRF V2
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/BlockhashStore.abi ../../contracts/solc/v0.8.6/BlockhashStore.bin BlockhashStore blockhash_store
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/BatchBlockhashStore.abi ../../contracts/solc/v0.8.6/BatchBlockhashStore.bin BatchBlockhashStore batch_blockhash_store
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2.abi ../../contracts/solc/v0.8.6/BatchVRFCoordinatorV2.bin BatchVRFCoordinatorV2 batch_vrf_coordinator_v2
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFOwner.abi ../../contracts/solc/v0.8.6/VRFOwner.bin VRFOwner vrf_owner
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFCoordinatorV2.abi ../../contracts/solc/v0.8.6/VRFCoordinatorV2.bin VRFCoordinatorV2 vrf_coordinator_v2
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFConsumerV2.abi ../../contracts/solc/v0.8.6/VRFConsumerV2.bin VRFConsumerV2 vrf_consumer_v2
