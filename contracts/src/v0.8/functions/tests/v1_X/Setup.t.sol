@@ -74,7 +74,8 @@ contract FunctionsRouterSetup is BaseTest {
         donFee: s_donFee,
         maxSupportedRequestDataVersion: 1,
         fulfillmentGasPriceOverEstimationBP: 5000,
-        fallbackNativePerUnitLink: 5000000000000000
+        fallbackNativePerUnitLink: 5000000000000000,
+        minimumEstimateGasPriceWei: 1000000000 // 1 gwei
       });
   }
 
