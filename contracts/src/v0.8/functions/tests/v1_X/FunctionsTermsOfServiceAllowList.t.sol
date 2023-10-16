@@ -154,6 +154,26 @@ contract FunctionsTermsOfServiceAllowList_AcceptTermsOfService is FunctionsRoute
     s_termsOfServiceAllowList.acceptTermsOfService(STRANGER_ADDRESS, address(s_functionsClientHelper), r, s, v);
   }
 
+  function testAcceptTermsOfService_InvalidSigner_vuln() public {
+    // Set the signer as the zero address
+    TermsOfServiceAllowList.Config memory allowListConfig;
+    allowListConfig.enabled = true;
+    allowListConfig.signerPublicKey = address(0);
+    s_termsOfServiceAllowList.updateConfig(allowListConfig);
+
+    // Provide garbage data (v cannot be 29) to generate an invalid signature
+    uint8 v = 29;
+    bytes32 r = 0x0101010000000000000000000000000000000000000000000000000000000000;
+    bytes32 s = 0x0101010000000000000000000000000000000000000000000000000000000000;
+
+    // Expect a revert on invalid signature but the call is successful
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+    // vm.expectRevert(TermsOfServiceAllowList.InvalidSignature.selector);
+    // TODO: Add validation to setConfig to prevent empty signer
+    s_termsOfServiceAllowList.acceptTermsOfService(STRANGER_ADDRESS, STRANGER_ADDRESS, r, s, v);
+  }
+
   event AddedAccess(address user);
 
   function test_AcceptTermsOfService_SuccessIfAcceptingForSelf() public {
@@ -175,7 +195,14 @@ contract FunctionsTermsOfServiceAllowList_AcceptTermsOfService is FunctionsRoute
 
     s_termsOfServiceAllowList.acceptTermsOfService(STRANGER_ADDRESS, STRANGER_ADDRESS, r, s, v);
 
-    assertEq(s_termsOfServiceAllowList.hasAccess(STRANGER_ADDRESS, new bytes(0)), true);
+    assertTrue(s_termsOfServiceAllowList.hasAccess(STRANGER_ADDRESS, new bytes(0)));
+
+    // Event emitted even though adding existing item into EnumerableSet set does nothing
+    // TODO: handle differently in contract
+    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
+    emit AddedAccess(STRANGER_ADDRESS);
+    s_termsOfServiceAllowList.acceptTermsOfService(STRANGER_ADDRESS, STRANGER_ADDRESS, r, s, v);
+    assertTrue(s_termsOfServiceAllowList.hasAccess(STRANGER_ADDRESS, new bytes(0)));
   }
 
   function test_AcceptTermsOfService_SuccessIfAcceptingForContract() public {
@@ -279,6 +306,8 @@ contract FunctionsTermsOfServiceAllowList_BlockSender is FunctionsRoutesSetup {
   event BlockedAccess(address user);
 
   function test_BlockSender_Success() public {
+    assertFalse(s_termsOfServiceAllowList.isBlockedSender(STRANGER_ADDRESS));
+
     // topic0 (function signature, always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
     bool checkTopic1 = false;
     bool checkTopic2 = false;
@@ -288,8 +317,8 @@ contract FunctionsTermsOfServiceAllowList_BlockSender is FunctionsRoutesSetup {
     emit BlockedAccess(STRANGER_ADDRESS);
 
     s_termsOfServiceAllowList.blockSender(STRANGER_ADDRESS);
-    assertEq(s_termsOfServiceAllowList.hasAccess(STRANGER_ADDRESS, new bytes(0)), false);
-    assertEq(s_termsOfServiceAllowList.isBlockedSender(STRANGER_ADDRESS), true);
+    assertFalse(s_termsOfServiceAllowList.hasAccess(STRANGER_ADDRESS, new bytes(0)));
+    assertTrue(s_termsOfServiceAllowList.isBlockedSender(STRANGER_ADDRESS));
 
     // Account can no longer accept Terms of Service
     bytes32 message = s_termsOfServiceAllowList.getMessage(STRANGER_ADDRESS, STRANGER_ADDRESS);
