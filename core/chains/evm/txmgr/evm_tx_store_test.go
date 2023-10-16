@@ -1210,12 +1210,10 @@ func TestORM_UpdateTxAttemptInProgressToBroadcast(t *testing.T) {
 		i := int16(0)
 		etx.BroadcastAt = &time1
 		etx.InitialBroadcastAt = &time1
-		err := txStore.UpdateTxAttemptInProgressToBroadcast(&etx, attempt, txmgrtypes.TxAttemptBroadcast, func(_ pg.Queryer) error {
-			// dummy function because tests do not use keystore as source of truth for next nonce number
-			i++
-			return nil
-		})
+		err := txStore.UpdateTxAttemptInProgressToBroadcast(testutils.Context(t), &etx, attempt, txmgrtypes.TxAttemptBroadcast)
 		require.NoError(t, err)
+		// Increment sequence
+		i++
 
 		attemptResult, err := txStore.FindTxAttempt(attempt.Hash)
 		require.NoError(t, err)
@@ -1362,32 +1360,6 @@ func TestORM_HasInProgressTransaction(t *testing.T) {
 		exists, err := txStore.HasInProgressTransaction(testutils.Context(t), fromAddress, ethClient.ConfiguredChainID())
 		require.NoError(t, err)
 		require.True(t, exists)
-	})
-}
-
-func TestORM_UpdateEthKeyNextNonce(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := newTestChainScopedConfig(t)
-	txStore := cltest.NewTxStore(t, db, cfg.Database())
-	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	ethKeyState, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-
-	t.Run("update next nonce", func(t *testing.T) {
-		assert.Equal(t, int64(0), ethKeyState.NextNonce)
-		err := txStore.UpdateKeyNextSequence(evmtypes.Nonce(24), evmtypes.Nonce(0), fromAddress, ethClient.ConfiguredChainID())
-		require.NoError(t, err)
-
-		newNextNonce, err := ethKeyStore.NextSequence(fromAddress, ethClient.ConfiguredChainID())
-		require.NoError(t, err)
-		assert.Equal(t, int64(24), newNextNonce.Int64())
-	})
-
-	t.Run("no rows found", func(t *testing.T) {
-		err := txStore.UpdateKeyNextSequence(evmtypes.Nonce(100), evmtypes.Nonce(123), fromAddress, ethClient.ConfiguredChainID())
-		require.Error(t, err)
 	})
 }
 

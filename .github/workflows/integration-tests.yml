@@ -679,7 +679,7 @@ jobs:
           - name: (plugins)
             tag-suffix: -plugins
     name: Solana Smoke Tests ${{ matrix.image.name }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-16cores-64GB
     needs:
       [
         build-chainlink,

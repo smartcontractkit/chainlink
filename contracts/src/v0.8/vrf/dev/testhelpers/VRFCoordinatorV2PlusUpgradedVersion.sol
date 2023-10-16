@@ -267,7 +267,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     s_requestCommitments[requestId] = keccak256(
       abi.encode(
         requestId,
-        ChainSpecificUtil.getBlockNumber(),
+        ChainSpecificUtil._getBlockNumber(),
         req.subId,
         req.callbackGasLimit,
         req.numWords,
@@ -365,7 +365,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       revert IncorrectCommitment();
     }
 
-    bytes32 blockHash = ChainSpecificUtil.getBlockhash(rc.blockNum);
+    bytes32 blockHash = ChainSpecificUtil._getBlockhash(rc.blockNum);
     if (blockHash == bytes32(0)) {
       blockHash = BLOCKHASH_STORE.getBlockhash(rc.blockNum);
       if (blockHash == bytes32(0)) {
@@ -479,7 +479,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
     uint256 weiPerUnitGas
   ) internal view returns (uint96) {
     // Will return non-zero on chains that have this enabled
-    uint256 l1CostWei = ChainSpecificUtil.getCurrentTxL1GasFees(msg.data);
+    uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
     // calculate the payment without the premium
     uint256 baseFeeWei = weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft());
     // calculate the flat fee in wei
@@ -502,7 +502,7 @@ contract VRFCoordinatorV2PlusUpgradedVersion is
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
     // Will return non-zero on chains that have this enabled
-    uint256 l1CostWei = ChainSpecificUtil.getCurrentTxL1GasFees(msg.data);
+    uint256 l1CostWei = ChainSpecificUtil._getCurrentTxL1GasFees(msg.data);
     // (1e18 juels/link) ((wei/gas * gas) + l1wei) / (wei/link) = juels
     uint256 paymentNoFee = (1e18 * (weiPerUnitGas * (gasAfterPaymentCalculation + startGas - gasleft()) + l1CostWei)) /
       uint256(weiPerUnitLink);

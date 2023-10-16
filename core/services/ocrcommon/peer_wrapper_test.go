@@ -25,8 +25,6 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 
 	db := pgtest.NewSqlxDB(t)
 
-	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM encrypted_key_rings`)))
-
 	peerID, err := p2ppeer.Decode("12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X")
 	require.NoError(t, err)
 
@@ -51,8 +49,6 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 			c.P2P.V1.Enabled = ptr(true)
 			c.P2P.PeerID = ptr(k.PeerID())
 		})
-		keyStore = cltest.NewKeyStore(t, db, cfg.Database())
-
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, logger.TestLogger(t))
 
 		require.NoError(t, pw.Start(testutils.Context(t)), "foo")
@@ -65,6 +61,9 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 			c.P2P.PeerID = ptr(p2pkey.PeerID(peerID))
 		})
 		keyStore := cltest.NewKeyStore(t, db, cfg.Database())
+
+		_, err := keyStore.P2P().Create()
+		require.NoError(t, err)
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, logger.TestLogger(t))
 
@@ -83,7 +82,6 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 			c.P2P.V1.Enabled = ptr(true)
 			c.P2P.PeerID = ptr(k2.PeerID())
 		})
-		keyStore = cltest.NewKeyStore(t, db, cfg.Database())
 
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, logger.TestLogger(t))
 
@@ -98,6 +96,9 @@ func Test_SingletonPeerWrapper_Start(t *testing.T) {
 		})
 		keyStore := cltest.NewKeyStore(t, db, cfg.Database())
 
+		_, err := keyStore.P2P().Create()
+		require.NoError(t, err)
+
 		pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, logger.TestLogger(t))
 
 		require.Contains(t, pw.Start(testutils.Context(t)).Error(), "unable to find P2P key with id")
@@ -108,8 +109,6 @@ func Test_SingletonPeerWrapper_Close(t *testing.T) {
 	t.Parallel()
 
 	db := pgtest.NewSqlxDB(t)
-
-	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM encrypted_key_rings`)))
 
 	cfg := configtest.NewGeneralConfig(t, nil)
 	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
@@ -130,7 +129,6 @@ func Test_SingletonPeerWrapper_Close(t *testing.T) {
 		c.P2P.V2.AnnounceAddresses = ptr(p2paddresses)
 
 	})
-	keyStore = cltest.NewKeyStore(t, db, cfg.Database())
 
 	pw := ocrcommon.NewSingletonPeerWrapper(keyStore, cfg.P2P(), cfg.OCR(), cfg.Database(), db, logger.TestLogger(t))
 

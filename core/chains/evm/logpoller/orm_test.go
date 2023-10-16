@@ -27,16 +27,21 @@ type block struct {
 }
 
 func GenLog(chainID *big.Int, logIndex int64, blockNum int64, blockHash string, topic1 []byte, address common.Address) logpoller.Log {
+	return GenLogWithTimestamp(chainID, logIndex, blockNum, blockHash, topic1, address, time.Now())
+}
+
+func GenLogWithTimestamp(chainID *big.Int, logIndex int64, blockNum int64, blockHash string, topic1 []byte, address common.Address, blockTimestamp time.Time) logpoller.Log {
 	return logpoller.Log{
-		EvmChainId:  utils.NewBig(chainID),
-		LogIndex:    logIndex,
-		BlockHash:   common.HexToHash(blockHash),
-		BlockNumber: blockNum,
-		EventSig:    common.BytesToHash(topic1),
-		Topics:      [][]byte{topic1, topic1},
-		Address:     address,
-		TxHash:      common.HexToHash("0x1234"),
-		Data:        append([]byte("hello "), byte(blockNum)),
+		EvmChainId:     utils.NewBig(chainID),
+		LogIndex:       logIndex,
+		BlockHash:      common.HexToHash(blockHash),
+		BlockNumber:    blockNum,
+		EventSig:       common.BytesToHash(topic1),
+		Topics:         [][]byte{topic1, topic1},
+		Address:        address,
+		TxHash:         common.HexToHash("0x1234"),
+		Data:           append([]byte("hello "), byte(blockNum)),
+		BlockTimestamp: blockTimestamp,
 	}
 }
 
@@ -1182,10 +1187,10 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 	future := time.Date(2030, 1, 1, 12, 12, 12, 0, time.UTC)
 
 	require.NoError(t, th.ORM.InsertLogs([]logpoller.Log{
-		GenLog(th.ChainID, 1, 1, utils.RandomAddress().String(), event[:], address),
-		GenLog(th.ChainID, 1, 2, utils.RandomAddress().String(), event[:], address),
-		GenLog(th.ChainID, 2, 2, utils.RandomAddress().String(), event[:], address),
-		GenLog(th.ChainID, 1, 3, utils.RandomAddress().String(), event[:], address),
+		GenLogWithTimestamp(th.ChainID, 1, 1, utils.RandomAddress().String(), event[:], address, past),
+		GenLogWithTimestamp(th.ChainID, 1, 2, utils.RandomAddress().String(), event[:], address, now),
+		GenLogWithTimestamp(th.ChainID, 2, 2, utils.RandomAddress().String(), event[:], address, now),
+		GenLogWithTimestamp(th.ChainID, 1, 3, utils.RandomAddress().String(), event[:], address, future),
 	}))
 	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 1, past))
 	require.NoError(t, th.ORM.InsertBlock(utils.RandomAddress().Hash(), 2, now))
@@ -1205,7 +1210,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		{
 			name:  "picks logs after block 1",
 			confs: 0,
-			after: past.Add(-time.Hour),
+			after: past,
 			expectedLogs: []expectedLog{
 				{block: 2, log: 1},
 				{block: 2, log: 2},
@@ -1215,7 +1220,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		{
 			name:  "skips blocks with not enough confirmations",
 			confs: 1,
-			after: past.Add(-time.Hour),
+			after: past,
 			expectedLogs: []expectedLog{
 				{block: 2, log: 1},
 				{block: 2, log: 2},
@@ -1224,7 +1229,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		{
 			name:  "limits number of blocks by block_timestamp",
 			confs: 0,
-			after: now.Add(-time.Hour),
+			after: now,
 			expectedLogs: []expectedLog{
 				{block: 3, log: 1},
 			},
@@ -1238,7 +1243,7 @@ func TestSelectLogsCreatedAfter(t *testing.T) {
 		{
 			name:         "returns empty dataset when too many confirmations are required",
 			confs:        3,
-			after:        past.Add(-time.Hour),
+			after:        past,
 			expectedLogs: []expectedLog{},
 		},
 	}
