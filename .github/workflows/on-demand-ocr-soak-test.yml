@@ -20,6 +20,8 @@ on:
           - "SCROLL_MAINNET"
           - "MUMBAI"
           - "POLYGON_MAINNET"   
+          - "FANTOM_TESTNET"   
+          - "FANTOM_MAINNET"   
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
