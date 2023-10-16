@@ -6,8 +6,8 @@ import "./LinkTokenReceiver.sol";
 import "../../shared/access/ConfirmedOwner.sol";
 import "../../shared/interfaces/LinkTokenInterface.sol";
 import "../../interfaces/OperatorInterface.sol";
-import "../shared/interfaces/OwnableInterface.sol";
-import "../shared/interfaces/WithdrawalInterface.sol";
+import "../../dev/shared/interfaces/OwnableInterface.sol";
+import "../../dev/shared/interfaces/WithdrawalInterface.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import {SafeCast} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/SafeCast.sol";
 
