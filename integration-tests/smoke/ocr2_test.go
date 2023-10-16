@@ -47,7 +47,7 @@ func TestOCRv2Basic(t *testing.T) {
 
 	env.ParallelTransactions(true)
 
-	nodeClients := env.GetAPIs()
+	nodeClients := env.ClCluster.NodeAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
 
 	linkToken, err := env.ContractDeployer.DeployLinkTokenContract()

@@ -3,10 +3,11 @@ package vrfv2plus
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/assets"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
 	"math/big"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -288,13 +289,13 @@ func SetupVRFV2_5Environment(
 		return nil, nil, nil, err
 	}
 
-	vrfKey, err := env.GetAPIs()[0].MustCreateVRFKey()
+	vrfKey, err := env.ClCluster.NodeAPIs()[0].MustCreateVRFKey()
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrCreatingVRFv2PlusKey)
 	}
 	pubKeyCompressed := vrfKey.Data.ID
 
-	nativeTokenPrimaryKeyAddress, err := env.GetAPIs()[0].PrimaryEthAddress()
+	nativeTokenPrimaryKeyAddress, err := env.ClCluster.NodeAPIs()[0].PrimaryEthAddress()
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrNodePrimaryKey)
 	}
@@ -310,7 +311,7 @@ func SetupVRFV2_5Environment(
 	chainID := env.EVMClient.GetChainID()
 
 	job, err := CreateVRFV2PlusJob(
-		env.GetAPIs()[0],
+		env.ClCluster.NodeAPIs()[0],
 		vrfv2_5Contracts.Coordinator.Address(),
 		nativeTokenPrimaryKeyAddress,
 		pubKeyCompressed,
@@ -324,14 +325,14 @@ func SetupVRFV2_5Environment(
 	// this part is here because VRFv2 can work with only a specific key
 	// [[EVM.KeySpecific]]
 	//	Key = '...'
-	addr, err := env.CLNodes[0].API.PrimaryEthAddress()
+	addr, err := env.ClCluster.Nodes[0].API.PrimaryEthAddress()
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrGetPrimaryKey)
 	}
-	nodeConfig := node.NewConfig(env.CLNodes[0].NodeConfig,
+	nodeConfig := node.NewConfig(env.ClCluster.Nodes[0].NodeConfig,
 		node.WithVRFv2EVMEstimator(addr),
 	)
-	err = env.CLNodes[0].Restart(nodeConfig)
+	err = env.ClCluster.Nodes[0].Restart(nodeConfig)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrRestartCLNode)
 	}

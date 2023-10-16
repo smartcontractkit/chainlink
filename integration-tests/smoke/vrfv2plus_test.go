@@ -57,7 +57,7 @@ func TestVRFv2Plus(t *testing.T) {
 		var isNativeBilling = false
 		subBalanceBeforeRequest := subscription.Balance
 
-		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
+		jobRunsBeforeTest, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
 		require.NoError(t, err, "error reading job runs")
 
 		// test and assert
@@ -78,7 +78,7 @@ func TestVRFv2Plus(t *testing.T) {
 		subBalanceAfterRequest := subscription.Balance
 		require.Equal(t, expectedSubBalanceJuels, subBalanceAfterRequest)
 
-		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
+		jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
 		require.NoError(t, err, "error reading job runs")
 		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 
@@ -98,7 +98,7 @@ func TestVRFv2Plus(t *testing.T) {
 		var isNativeBilling = true
 		subNativeTokenBalanceBeforeRequest := subscription.NativeBalance
 
-		jobRunsBeforeTest, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
+		jobRunsBeforeTest, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
 		require.NoError(t, err, "error reading job runs")
 
 		// test and assert
@@ -118,7 +118,7 @@ func TestVRFv2Plus(t *testing.T) {
 		subBalanceAfterRequest := subscription.NativeBalance
 		require.Equal(t, expectedSubBalanceWei, subBalanceAfterRequest)
 
-		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
+		jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(vrfv2PlusData.VRFJob.Data.ID)
 		require.NoError(t, err, "error reading job runs")
 		require.Equal(t, len(jobRunsBeforeTest.Data)+1, len(jobRuns.Data))
 
@@ -309,7 +309,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	require.NoError(t, err, vrfv2plus.ErrWaitTXsComplete)
 
 	_, err = vrfv2plus.CreateVRFV2PlusJob(
-		env.GetAPIs()[0],
+		env.ClCluster.NodeAPIs()[0],
 		newCoordinator.Address(),
 		vrfv2PlusData.PrimaryEthAddress,
 		vrfv2PlusData.VRFKey.Data.ID,
