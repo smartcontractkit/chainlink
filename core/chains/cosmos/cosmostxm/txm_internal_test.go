@@ -52,7 +52,7 @@ func newReaderWriterMock(t *testing.T) *tcmocks.ReaderWriter {
 func TestTxm(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := testutils.LoggerAssertMaxLevel(t, zapcore.ErrorLevel)
-	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewQConfig(true))
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, pgtest.NewQConfig(true))
 	require.NoError(t, ks.Unlock("blah"))
 
 	for i := 0; i < 4; i++ {
