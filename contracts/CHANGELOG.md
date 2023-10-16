@@ -6,6 +6,7 @@
 - Moved `VRFCoordinatorMock.sol` to src/v0.8/vrf/mocks
 - Release Functions v1.0.0 contracts. Start dev folder for v1.X (#10941)
 - Add minimumEstimateGasPriceWei to Functions Coordinator config (#10916)
+- Remove redundant Functions Coordinator commitment & request id checks (#10975)
 
 ### Removed
 
