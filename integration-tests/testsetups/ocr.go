@@ -24,6 +24,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -34,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -120,8 +121,7 @@ func NewOCRSoakTest(t *testing.T, forwarderFlow bool) (*OCRSoakTest, error) {
 		ocrRoundStates: make([]*testreporters.OCRRoundState, 0),
 		ocrInstanceMap: make(map[string]contracts.OffchainAggregator),
 	}
-	test.ensureInputValues()
-	return test, nil
+	return test, test.ensureInputValues()
 }
 
 // DeployEnvironment deploys the test environment, starting all Chainlink nodes and other components for the test
