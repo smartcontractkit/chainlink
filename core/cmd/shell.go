@@ -181,8 +181,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 	if cfg.SolanaEnabled() {
 		solanaCfg := chainlink.SolanaFactoryConfig{
-			Keystore:      keyStore.Solana(),
-			SolanaConfigs: cfg.SolanaConfigs(),
+			Keystore:    keyStore.Solana(),
+			TOMLConfigs: cfg.SolanaConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitSolana(ctx, relayerFactory, solanaCfg))
 	}

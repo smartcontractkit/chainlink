@@ -89,7 +89,7 @@ func Test_Peerstore_WriteToDB(t *testing.T) {
 	err = wrapper.WriteToDB()
 	require.NoError(t, err)
 
-	peers := make([]ocrcommon.P2PPeer, 0)
+	var peers []ocrcommon.P2PPeer
 	err = db.Select(&peers, `SELECT * FROM p2p_peers`)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(peers))

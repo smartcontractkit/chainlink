@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
@@ -23,8 +24,8 @@ type RegisteredLoop struct {
 // LoopRegistry is responsible for assigning ports to plugins that are to be used for the
 // plugin's prometheus HTTP server, and for passing the tracing configuration to the plugin.
 type LoopRegistry struct {
-	mu         sync.Mutex
-	registry   map[string]*RegisteredLoop
+	mu       sync.Mutex
+	registry map[string]*RegisteredLoop
 
 	lggr       logger.Logger
 	cfgTracing config.Tracing
