@@ -329,7 +329,9 @@ func TestLegacyMode(t *testing.T) {
 	e2.SendLog([]byte("endpoint-2-message-1"))
 	e2.SendLog([]byte("endpoint-2-message-2"))
 	e2.SendLog([]byte("endpoint-2-message-3"))
-	require.Len(t, clientSent, 6)
+	if len(clientSent) != 6 {
+		t.Fatalf("expected length 6 but got %d", len(clientSent))
+	}
 
 	require.Equal(t, 1, obsLogs.Len()) // Deprecation warning for TelemetryIngress.URL and TelemetryIngress.ServerPubKey
 	require.Equal(t, []byte("endpoint-1-message-1"), clientSent[0].Telemetry)

@@ -529,13 +529,6 @@ func (ks *eth) getByID(id string) (ethkey.KeyV2, error) {
 	return key, nil
 }
 
-func (ks *eth) exists(address common.Address) bool {
-	ks.lock.RLock()
-	defer ks.lock.RUnlock()
-	_, found := ks.keyRing.Eth[address.Hex()]
-	return found
-}
-
 // caller must hold lock!
 func (ks *eth) enabledKeysForChain(chainID *big.Int) (keys []ethkey.KeyV2) {
 	return ks.keysForChain(chainID, false)
