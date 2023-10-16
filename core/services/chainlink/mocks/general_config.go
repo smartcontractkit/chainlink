@@ -8,7 +8,7 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	solana "github.com/smartcontractkit/chainlink/v2/core/chains/solana"
+	solana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
 
 	starknet "github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 
@@ -484,15 +484,15 @@ func (_m *GeneralConfig) ShutdownGracePeriod() time.Duration {
 }
 
 // SolanaConfigs provides a mock function with given fields:
-func (_m *GeneralConfig) SolanaConfigs() solana.SolanaConfigs {
+func (_m *GeneralConfig) SolanaConfigs() solana.TOMLConfigs {
 	ret := _m.Called()
 
-	var r0 solana.SolanaConfigs
-	if rf, ok := ret.Get(0).(func() solana.SolanaConfigs); ok {
+	var r0 solana.TOMLConfigs
+	if rf, ok := ret.Get(0).(func() solana.TOMLConfigs); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(solana.SolanaConfigs)
+			r0 = ret.Get(0).(solana.TOMLConfigs)
 		}
 	}
 
