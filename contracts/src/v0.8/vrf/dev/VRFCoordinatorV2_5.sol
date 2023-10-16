@@ -269,7 +269,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     // The consequence for users is that they can send requests
     // for invalid keyHashes which will simply not be fulfilled.
     uint64 nonce = currentNonce + 1;
-    (uint256 requestId, uint256 preSeed) = computeRequestId(req.keyHash, msg.sender, req.subId, nonce);
+    (uint256 requestId, uint256 preSeed) = _computeRequestId(req.keyHash, msg.sender, req.subId, nonce);
 
     VRFV2PlusClient.ExtraArgsV1 memory extraArgs = _fromBytes(req.extraArgs);
     bytes memory extraArgsBytes = VRFV2PlusClient._argsToBytes(extraArgs);
@@ -300,8 +300,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     return requestId;
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function computeRequestId(
+  function _computeRequestId(
     bytes32 keyHash,
     address sender,
     uint256 subId,
@@ -315,8 +314,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    * @dev calls target address with exactly gasAmount gas and data as calldata
    * or reverts if at least gasAmount gas is not available.
    */
-  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
-  function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
+  function _callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
     assembly {
       let g := gas()
       // Compute g -= GAS_FOR_CALL_EXACT_CHECK and check for underflow
@@ -351,8 +349,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint256 randomness;
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function getRandomnessFromProof(
+  function _getRandomnessFromProof(
     Proof memory proof,
     RequestCommitment memory rc
   ) internal view returns (Output memory) {
@@ -384,7 +381,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
 
     // The seed actually used by the VRF machinery, mixing in the blockhash
     uint256 actualSeed = uint256(keccak256(abi.encodePacked(proof.seed, blockHash)));
-    uint256 randomness = VRF.randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
+    uint256 randomness = VRF._randomValueFromVRFProof(proof, actualSeed); // Reverts on failure
     return Output(keyHash, requestId, randomness);
   }
 
@@ -397,7 +394,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
    */
   function fulfillRandomWords(Proof memory proof, RequestCommitment memory rc) external nonReentrant returns (uint96) {
     uint256 startGas = gasleft();
-    Output memory output = getRandomnessFromProof(proof, rc);
+    Output memory output = _getRandomnessFromProof(proof, rc);
 
     uint256[] memory randomWords = new uint256[](rc.numWords);
     for (uint256 i = 0; i < rc.numWords; i++) {
@@ -411,10 +408,10 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     // Important to not let them exhaust the gas budget and avoid oracle payment.
     // Do not allow any non-view/non-pure coordinator functions to be called
     // during the consumers callback code via reentrancyLock.
-    // Note that callWithExactGas will revert if we do not have sufficient gas
+    // Note that _callWithExactGas will revert if we do not have sufficient gas
     // to give the callee their requested amount.
     s_config.reentrancyLock = true;
-    bool success = callWithExactGas(rc.callbackGasLimit, rc.sender, resp);
+    bool success = _callWithExactGas(rc.callbackGasLimit, rc.sender, resp);
     s_config.reentrancyLock = false;
 
     // Increment the req count for the subscription.
@@ -427,7 +424,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       // We want to charge users exactly for how much gas they use in their callback.
       // The gasAfterPaymentCalculation is meant to cover these additional operations where we
       // decrement the subscription balance and increment the oracles withdrawable balance.
-      uint96 payment = calculatePaymentAmount(
+      uint96 payment = _calculatePaymentAmount(
         startGas,
         s_config.gasAfterPaymentCalculation,
         tx.gasprice,
@@ -455,8 +452,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     }
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function calculatePaymentAmount(
+  function _calculatePaymentAmount(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
     uint256 weiPerUnitGas,
@@ -464,7 +460,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   ) internal view returns (uint96) {
     if (nativePayment) {
       return
-        calculatePaymentAmountNative(
+        _calculatePaymentAmountNative(
           startGas,
           gasAfterPaymentCalculation,
           s_feeConfig.fulfillmentFlatFeeNativePPM,
@@ -472,7 +468,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
         );
     }
     return
-      calculatePaymentAmountLink(
+      _calculatePaymentAmountLink(
         startGas,
         gasAfterPaymentCalculation,
         s_feeConfig.fulfillmentFlatFeeLinkPPM,
@@ -480,8 +476,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       );
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function calculatePaymentAmountNative(
+  function _calculatePaymentAmountNative(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
     uint32 fulfillmentFlatFeePPM,
@@ -498,15 +493,14 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   }
 
   // Get the amount of gas used for fulfillment
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function calculatePaymentAmountLink(
+  function _calculatePaymentAmountLink(
     uint256 startGas,
     uint256 gasAfterPaymentCalculation,
     uint32 fulfillmentFlatFeeLinkPPM,
     uint256 weiPerUnitGas
   ) internal view returns (uint96) {
     int256 weiPerUnitLink;
-    weiPerUnitLink = getFeedData();
+    weiPerUnitLink = _getFeedData();
     if (weiPerUnitLink <= 0) {
       revert InvalidLinkWeiPrice(weiPerUnitLink);
     }
@@ -522,8 +516,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     return uint96(paymentNoFee + fee);
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
-  function getFeedData() private view returns (int256) {
+  function _getFeedData() private view returns (int256) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
@@ -543,7 +536,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     for (uint256 i = 0; i < subConfig.consumers.length; i++) {
       for (uint256 j = 0; j < s_provingKeyHashes.length; j++) {
-        (uint256 reqId, ) = computeRequestId(
+        (uint256 reqId, ) = _computeRequestId(
           s_provingKeyHashes[j],
           subConfig.consumers[i],
           subId,
@@ -591,7 +584,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     if (pendingRequestExists(subId)) {
       revert PendingRequestExists();
     }
-    cancelSubscriptionHelper(subId, to);
+    _cancelSubscriptionHelper(subId, to);
   }
 
   /***************************************************************************
@@ -627,8 +620,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
     uint96 nativeBalance;
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function isTargetRegistered(address target) internal view returns (bool) {
+  function _isTargetRegistered(address target) internal view returns (bool) {
     for (uint256 i = 0; i < s_migrationTargets.length; i++) {
       if (s_migrationTargets[i] == target) {
         return true;
@@ -638,7 +630,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   }
 
   function registerMigratableCoordinator(address target) external onlyOwner {
-    if (isTargetRegistered(target)) {
+    if (_isTargetRegistered(target)) {
       revert CoordinatorAlreadyRegistered(target);
     }
     s_migrationTargets.push(target);
@@ -660,7 +652,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
   }
 
   function migrate(uint256 subId, address newCoordinator) external nonReentrant {
-    if (!isTargetRegistered(newCoordinator)) {
+    if (!_isTargetRegistered(newCoordinator)) {
       revert CoordinatorNotRegistered(newCoordinator);
     }
     (uint96 balance, uint96 nativeBalance, , address owner, address[] memory consumers) = getSubscription(subId);
@@ -678,7 +670,7 @@ contract VRFCoordinatorV2_5 is VRF, SubscriptionAPI, IVRFCoordinatorV2Plus {
       nativeBalance: nativeBalance
     });
     bytes memory encodedData = abi.encode(migrationData);
-    deleteSubscription(subId);
+    _deleteSubscription(subId);
     IVRFCoordinatorV2PlusMigration(newCoordinator).onMigration{value: nativeBalance}(encodedData);
 
     // Only transfer LINK if the token is active and there is a balance.

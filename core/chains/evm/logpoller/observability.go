@@ -78,9 +78,9 @@ func (o *ObservedORM) InsertLogs(logs []Log, qopts ...pg.QOpt) error {
 	})
 }
 
-func (o *ObservedORM) InsertBlock(h common.Hash, n int64, t time.Time, qopts ...pg.QOpt) error {
+func (o *ObservedORM) InsertBlock(hash common.Hash, blockNumber int64, blockTimestamp time.Time, lastFinalizedBlock int64, qopts ...pg.QOpt) error {
 	return withObservedExec(o, "InsertBlock", func() error {
-		return o.ORM.InsertBlock(h, n, t, qopts...)
+		return o.ORM.InsertBlock(hash, blockNumber, blockTimestamp, lastFinalizedBlock, qopts...)
 	})
 }
 
@@ -219,12 +219,6 @@ func (o *ObservedORM) SelectLogsDataWordRange(address common.Address, eventSig c
 func (o *ObservedORM) SelectLogsDataWordGreaterThan(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin common.Hash, confs Confirmations, qopts ...pg.QOpt) ([]Log, error) {
 	return withObservedQueryAndResults(o, "SelectLogsDataWordGreaterThan", func() ([]Log, error) {
 		return o.ORM.SelectLogsDataWordGreaterThan(address, eventSig, wordIndex, wordValueMin, confs, qopts...)
-	})
-}
-
-func (o *ObservedORM) SelectLogsUntilBlockHashDataWordGreaterThan(address common.Address, eventSig common.Hash, wordIndex int, wordValueMin common.Hash, untilBlockHash common.Hash, qopts ...pg.QOpt) ([]Log, error) {
-	return withObservedQueryAndResults(o, "SelectLogsUntilBlockHashDataWordGreaterThan", func() ([]Log, error) {
-		return o.ORM.SelectLogsUntilBlockHashDataWordGreaterThan(address, eventSig, wordIndex, wordValueMin, untilBlockHash, qopts...)
 	})
 }
 
