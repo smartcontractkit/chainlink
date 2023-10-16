@@ -258,10 +258,12 @@ type JobProposalCounts struct {
 // toMetrics transforms JobProposalCounts into a map with float64 values for setting metrics
 // in prometheus.
 func (jpc *JobProposalCounts) toMetrics() map[JobProposalStatus]float64 {
-	metrics := make(map[JobProposalStatus]float64, 4)
+	metrics := make(map[JobProposalStatus]float64, 6)
 	metrics[JobProposalStatusPending] = float64(jpc.Pending)
 	metrics[JobProposalStatusApproved] = float64(jpc.Approved)
 	metrics[JobProposalStatusCancelled] = float64(jpc.Cancelled)
 	metrics[JobProposalStatusRejected] = float64(jpc.Rejected)
+	metrics[JobProposalStatusRevoked] = float64(jpc.Revoked)
+	metrics[JobProposalStatusDeleted] = float64(jpc.Deleted)
 	return metrics
 }

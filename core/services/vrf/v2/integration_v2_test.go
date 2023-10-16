@@ -2004,7 +2004,7 @@ func TestStartingCountsV1(t *testing.T) {
 	finalityDepth := 3
 	counts := vrf.GetStartingResponseCountsV1(q, lggr, 1337, uint32(finalityDepth))
 	assert.Equal(t, 0, len(counts))
-	ks := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 	err = ks.Unlock(testutils.Password)
 	require.NoError(t, err)
 	k, err := ks.Eth().Create(big.NewInt(1337))
