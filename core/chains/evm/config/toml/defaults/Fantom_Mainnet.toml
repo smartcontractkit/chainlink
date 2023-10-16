@@ -9,8 +9,7 @@ RPCBlockQueryDelay = 2
 Enabled = true
 
 [GasEstimator]
-PriceDefault = '15 gwei'
-PriceMax = '115792089237316195423570985008687907853269984665.640564039457584007913129639935 tether'
+Mode = 'L2Suggested'
 
 [OCR2.Automation]
 GasLimit = 3800000
