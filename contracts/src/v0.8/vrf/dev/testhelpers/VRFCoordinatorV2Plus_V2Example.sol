@@ -135,11 +135,10 @@ contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration {
   function requestRandomWords(VRFV2PlusClient.RandomWordsRequest calldata req) external returns (uint256 requestId) {
     Subscription memory sub = s_subscriptions[req.subId];
     sub.reqCount = sub.reqCount + 1;
-    return handleRequest(msg.sender);
+    return _handleRequest(msg.sender);
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-private-functions-with-underscore
-  function handleRequest(address requester) private returns (uint256) {
+  function _handleRequest(address requester) private returns (uint256) {
     s_requestId = s_requestId + 1;
     uint256 requestId = s_requestId;
     s_requestConsumerMapping[s_requestId] = requester;
