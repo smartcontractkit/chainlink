@@ -50,7 +50,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
       s_lastRequestId = requestId;
 
       uint256 requestBlockNumber = ChainSpecificUtil._getBlockNumber();
-      uint256 paid = VRF_V2_PLUS_WRAPPER.calculateRequestPrice(_callbackGasLimit);
+      uint256 paid = i_vrfV2PlusWrapper.calculateRequestPrice(_callbackGasLimit);
       s_requests[requestId] = RequestStatus({
         paid: paid,
         fulfilled: false,
@@ -79,7 +79,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
       s_lastRequestId = requestId;
 
       uint256 requestBlockNumber = ChainSpecificUtil._getBlockNumber();
-      uint256 paid = VRF_V2_PLUS_WRAPPER.calculateRequestPriceNative(_callbackGasLimit);
+      uint256 paid = i_vrfV2PlusWrapper.calculateRequestPriceNative(_callbackGasLimit);
       s_requests[requestId] = RequestStatus({
         paid: paid,
         fulfilled: false,
@@ -161,7 +161,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
   /// @notice withdrawLink withdraws the amount specified in amount to the owner
   /// @param amount the amount to withdraw, in juels
   function withdrawLink(uint256 amount) external onlyOwner {
-    LINK.transfer(owner(), amount);
+    s_linkToken.transfer(owner(), amount);
   }
 
   /// @notice withdrawNative withdraws the amount specified in amount to the owner

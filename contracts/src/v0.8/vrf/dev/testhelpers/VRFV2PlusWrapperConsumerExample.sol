@@ -30,7 +30,7 @@ contract VRFV2PlusWrapperConsumerExample is VRFV2PlusWrapperConsumerBase, Confir
   ) external onlyOwner returns (uint256 requestId) {
     bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}));
     requestId = requestRandomness(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs);
-    uint256 paid = VRF_V2_PLUS_WRAPPER.calculateRequestPrice(_callbackGasLimit);
+    uint256 paid = i_vrfV2PlusWrapper.calculateRequestPrice(_callbackGasLimit);
     s_requests[requestId] = RequestStatus({paid: paid, randomWords: new uint256[](0), fulfilled: false, native: false});
     emit WrapperRequestMade(requestId, paid);
     return requestId;
@@ -43,7 +43,7 @@ contract VRFV2PlusWrapperConsumerExample is VRFV2PlusWrapperConsumerBase, Confir
   ) external onlyOwner returns (uint256 requestId) {
     bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}));
     requestId = requestRandomnessPayInNative(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs);
-    uint256 paid = VRF_V2_PLUS_WRAPPER.calculateRequestPriceNative(_callbackGasLimit);
+    uint256 paid = i_vrfV2PlusWrapper.calculateRequestPriceNative(_callbackGasLimit);
     s_requests[requestId] = RequestStatus({paid: paid, randomWords: new uint256[](0), fulfilled: false, native: true});
     emit WrapperRequestMade(requestId, paid);
     return requestId;
@@ -70,7 +70,7 @@ contract VRFV2PlusWrapperConsumerExample is VRFV2PlusWrapperConsumerBase, Confir
   /// @notice withdrawLink withdraws the amount specified in amount to the owner
   /// @param amount the amount to withdraw, in juels
   function withdrawLink(uint256 amount) external onlyOwner {
-    LINK.transfer(owner(), amount);
+    s_linkToken.transfer(owner(), amount);
   }
 
   /// @notice withdrawNative withdraws the amount specified in amount to the owner
