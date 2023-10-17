@@ -220,6 +220,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
         request.callbackGasLimit,
         estimatedTotalCostJuels,
         timeoutTimestamp,
+        // solhint-disable-next-line avoid-tx-origin
         tx.origin
       )
     );
