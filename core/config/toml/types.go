@@ -1309,7 +1309,7 @@ type Tracing struct {
 	CollectorTarget *string
 	NodeID          *string
 	SamplingRatio   *float64
-	Attributes      *map[string]string `toml:",omitempty"`
+	Attributes      *map[string]string
 }
 
 func (t *Tracing) setFrom(f *Tracing) {
@@ -1328,4 +1328,36 @@ func (t *Tracing) setFrom(f *Tracing) {
 	if v := f.SamplingRatio; v != nil {
 		t.SamplingRatio = f.SamplingRatio
 	}
+}
+
+func (t *Tracing) ValidateConfig() (err error) {
+	if t.CollectorTarget == nil || *t.CollectorTarget == "" {
+		return nil
+	}
+
+	ok := isValidURI(*t.CollectorTarget)
+	if !ok {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})
+	}
+
+	return err
+}
+
+func isValidURI(uri string) bool {
+	host, port, err := net.SplitHostPort(uri)
+	if err != nil {
+		return false
+	}
+
+	// Validate host
+	if len(host) == 0 {
+		return false
+	}
+
+	// Validate port
+	if _, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, port)); err != nil {
+		return false
+	}
+
+	return true
 }

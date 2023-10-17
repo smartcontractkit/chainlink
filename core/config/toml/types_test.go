@@ -180,3 +180,55 @@ func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
 		})
 	}
 }
+func TestTracing_ValidateCollectorTarget(t *testing.T) {
+	tests := []struct {
+		name            string
+		collectorTarget *string
+		wantErr         bool
+		errMsg          string
+	}{
+		{
+			name:            "valid localhost address",
+			collectorTarget: stringPtr("localhost:4317"),
+			wantErr:         false,
+		},
+		{
+			name:            "valid IP address",
+			collectorTarget: stringPtr("192.168.1.1:4317"),
+			wantErr:         false,
+		},
+		{
+			name:            "invalid address",
+			collectorTarget: stringPtr("invalid address"),
+			wantErr:         true,
+			errMsg:          "CollectorTarget: invalid value (invalid address): must be a valid URI",
+		},
+		{
+			name:            "nil CollectorTarget",
+			collectorTarget: nil,
+			wantErr:         false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tracing := &Tracing{
+				CollectorTarget: tt.collectorTarget,
+			}
+
+			err := tracing.ValidateConfig()
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Equal(t, tt.errMsg, err.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// stringPtr is a utility function for converting a string to a string pointer.
+func stringPtr(s string) *string {
+	return &s
+}
