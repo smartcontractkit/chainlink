@@ -77,13 +77,14 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     uint16 _requestConfirmations,
     uint32 _numWords,
     bytes memory extraArgs
-  ) internal returns (uint256 requestId) {
+  ) internal returns (uint256 requestId, uint256 reqPrice) {
+    reqPrice = i_vrfV2PlusWrapper.calculateRequestPrice(_callbackGasLimit);
     s_linkToken.transferAndCall(
       address(i_vrfV2PlusWrapper),
-      i_vrfV2PlusWrapper.calculateRequestPrice(_callbackGasLimit),
+      reqPrice,
       abi.encode(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs)
     );
-    return i_vrfV2PlusWrapper.lastRequestId();
+    return (i_vrfV2PlusWrapper.lastRequestId(), reqPrice);
   }
 
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
@@ -92,15 +93,17 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     uint16 _requestConfirmations,
     uint32 _numWords,
     bytes memory extraArgs
-  ) internal returns (uint256 requestId) {
-    uint256 requestPrice = i_vrfV2PlusWrapper.calculateRequestPriceNative(_callbackGasLimit);
-    return
+  ) internal returns (uint256 requestId, uint256 requestPrice) {
+    requestPrice = i_vrfV2PlusWrapper.calculateRequestPriceNative(_callbackGasLimit);
+    return (
       i_vrfV2PlusWrapper.requestRandomWordsInNative{value: requestPrice}(
         _callbackGasLimit,
         _requestConfirmations,
         _numWords,
         extraArgs
-      );
+      ),
+      requestPrice
+    );
   }
 
   /**
