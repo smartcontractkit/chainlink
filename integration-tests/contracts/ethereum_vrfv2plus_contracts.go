@@ -848,7 +848,7 @@ func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) GetLastRequestId(ctx context.
 }
 
 func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) GetWrapper(ctx context.Context) (common.Address, error) {
-	return v.consumer.GetWrapper(&bind.CallOpts{
+	return v.consumer.IVrfV2PlusWrapper(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})
