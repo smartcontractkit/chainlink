@@ -32,7 +32,6 @@ abstract contract VRFV2PlusWrapperConsumerBase {
   error LINKAlreadySet();
   error OnlyVRFWrapperCanFulfill(address have, address want);
 
-  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
   LinkTokenInterface internal s_linkToken;
   // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
   IVRFV2PlusWrapper public immutable i_vrfV2PlusWrapper;
