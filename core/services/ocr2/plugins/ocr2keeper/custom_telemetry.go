@@ -2,6 +2,7 @@ package ocr2keeper
 
 import (
 	"context"
+	"encoding/hex"
 	"time"
 
 	"cosmossdk.io/errors"
@@ -11,26 +12,20 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-const (
-	customTelemChanSize = 100
-)
-
 type AutomationCustomTelemetryService struct {
 	utils.StartStopOnce
 	monitoringEndpoint commontypes.MonitoringEndpoint
-	headBroadcaster    httypes.HeadBroadcaster
-	headCh             chan blockKey
-	unsubscribe        func()
-	chDone             chan struct{}
+	blockSubscriber    *evm21.BlockSubscriber
+	blockSubChanID     int
+	threadCtrl         utils.ThreadControl
 	lggr               logger.Logger
 	configDigest       [32]byte
 	latestConfigDigest latestConfigDigestGetter
@@ -41,19 +36,18 @@ type latestConfigDigestGetter interface {
 }
 
 // NewAutomationCustomTelemetryService creates a telemetry service for new blocks and node version
-func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint, hb httypes.HeadBroadcaster,
-	lggr logger.Logger, chain evm.Chain, rAddr common.Address) (*AutomationCustomTelemetryService, error) {
+func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint,
+	lggr logger.Logger, chain evm.Chain, rAddr common.Address, blocksub *evm21.BlockSubscriber) (*AutomationCustomTelemetryService, error) {
 	registry, rErr := keeper_registry_wrapper2_0.NewKeeperRegistry(rAddr, chain.Client())
 	if rErr != nil {
 		return nil, errors.Wrap(rErr, "error creating new Registry Wrapper for customTelemService")
 	}
 	return &AutomationCustomTelemetryService{
 		monitoringEndpoint: me,
-		headBroadcaster:    hb,
-		headCh:             make(chan blockKey, customTelemChanSize),
-		chDone:             make(chan struct{}),
+		threadCtrl:         utils.NewThreadControl(),
 		lggr:               lggr.Named("Automation Custom Telem"),
 		latestConfigDigest: registry,
+		blockSubscriber:    blocksub,
 	}, nil
 }
 
@@ -69,7 +63,7 @@ func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 			e.configDigest = configDetails.ConfigDigest
 			e.sendNodeVersionMsg()
 		}
-		go func() {
+		e.threadCtrl.Go(func(ctx context.Context) {
 			ticker := time.NewTicker(1 * time.Minute)
 			defer ticker.Stop()
 			for {
@@ -90,17 +84,27 @@ func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 					return
 				}
 			}
-		}()
-		_, e.unsubscribe = e.headBroadcaster.Subscribe(&headWrapper{e.headCh})
-		go func() {
+		})
+
+		chanID, blockSubscriberChan, blockSubErr := e.blockSubscriber.Subscribe()
+		if blockSubErr != nil {
+			e.lggr.Errorf("Block Subscriber Error: Subscribe(): %s", blockSubErr)
+		}
+		e.blockSubChanID = chanID
+		e.threadCtrl.Go(func(ctx context.Context) {
 			e.lggr.Infof("Started: Sending BlockNumber Messages")
 			for {
 				select {
-				case blockInfo := <-e.headCh:
+				case blockHistory := <-blockSubscriberChan:
+					latestBlockKey, err := blockHistory.Latest()
+					if err != nil {
+						e.lggr.Errorf("BlockSubscriber BlockHistory.Latest() failed: %s", err)
+						continue
+					}
 					blockNumMsg := &telem.BlockNumber{
 						Timestamp:    uint64(time.Now().UTC().UnixMilli()),
-						BlockNumber:  uint64(blockInfo.block),
-						BlockHash:    blockInfo.hash,
+						BlockNumber:  uint64(latestBlockKey.Number),
+						BlockHash:    hex.EncodeToString(latestBlockKey.Hash[:]),
 						ConfigDigest: e.configDigest[:],
 					}
 					wrappedBlockNumMsg := &telem.AutomationTelemWrapper{
@@ -115,23 +119,22 @@ func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 						e.monitoringEndpoint.SendLog(b)
 						e.lggr.Infof("BlockNumber Message Sent to Endpoint: %d", blockNumMsg.Timestamp)
 					}
-				case <-e.chDone:
+				case <-ctx.Done():
 					return
 				}
 			}
-		}()
+		})
 		return nil
 	})
 }
 
 // Close stops go routines and closes channels
 func (e *AutomationCustomTelemetryService) Close() error {
+	// use utils
 	return e.StopOnce("AutomationCustomTelemetryService", func() error {
 		e.lggr.Infof("Stopping: custom telemetry service")
-		e.unsubscribe()
-		e.chDone <- struct{}{}
-		close(e.headCh)
-		close(e.chDone)
+		e.threadCtrl.Close()
+		e.blockSubscriber.Unsubscribe(e.blockSubChanID)
 		e.lggr.Infof("Stopped: Custom telemetry service")
 		return nil
 	})
@@ -154,26 +157,5 @@ func (e *AutomationCustomTelemetryService) sendNodeVersionMsg() {
 	} else {
 		e.monitoringEndpoint.SendLog(bytes)
 		e.lggr.Infof("NodeVersion Message Sent to Endpoint: %d", vMsg.Timestamp)
-	}
-}
-
-// blockKey contains block and hash info for BlockNumber telemetry message
-type blockKey struct {
-	block int64
-	hash  string
-}
-
-// headWrapper is passed into HeadBroadcaster's subscribe() function, must implement OnNewLongestChain(_ context.Context, head *evmtypes.Head)
-type headWrapper struct {
-	headCh chan blockKey
-}
-
-// OnNewLongestChain sends block number and hash to head channel where message will be sent to monitoring endpoint
-func (hw *headWrapper) OnNewLongestChain(_ context.Context, head *evmtypes.Head) {
-	if head != nil {
-		hw.headCh <- blockKey{
-			block: head.Number,
-			hash:  head.BlockHash().Hex(),
-		}
 	}
 }

@@ -59,6 +59,7 @@ type PluginConfig struct {
 	// ContractVersion is the contract version
 	ContractVersion string `json:"contractVersion"`
 	// CaptureAutomationCustomTelemetry is a bool flag to toggle Custom Telemetry Service
+	// HERE
 	CaptureAutomationCustomTelemetry bool `json:"captureAutomationCustomTelemetry"`
 }
 

@@ -196,7 +196,8 @@ type OffChainReporting2Spec struct {
 	CreatedAt                         time.Time              `json:"createdAt"`
 	UpdatedAt                         time.Time              `json:"updatedAt"`
 	CollectTelemetry                  bool                   `json:"collectTelemetry"`
-	CaptureAutomationCustomTelemetry  bool                   `json:"captureAutomationCustomTelemetry"`
+	//HERE REMOVE THIS
+	CaptureAutomationCustomTelemetry bool `json:"captureAutomationCustomTelemetry"`
 }
 
 // NewOffChainReporting2Spec initializes a new OffChainReportingSpec from a
@@ -215,7 +216,8 @@ func NewOffChainReporting2Spec(spec *job.OCR2OracleSpec) *OffChainReporting2Spec
 		CreatedAt:                         spec.CreatedAt,
 		UpdatedAt:                         spec.UpdatedAt,
 		CollectTelemetry:                  spec.CaptureEATelemetry,
-		CaptureAutomationCustomTelemetry:  spec.CaptureAutomationCustomTelemetry,
+		//HERE REMOVE THIS
+		CaptureAutomationCustomTelemetry: spec.CaptureAutomationCustomTelemetry,
 	}
 }
 

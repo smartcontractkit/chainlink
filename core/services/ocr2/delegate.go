@@ -64,6 +64,7 @@ import (
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 
+	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -1013,15 +1014,14 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	}
 
 	if cfg.CaptureAutomationCustomTelemetry {
-		hb := chain.HeadBroadcaster()
 		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
 		rAddr := ethkey.MustEIP55Address(spec.ContractID).Address()
 		customTelemService, custErr := ocr2keeper.NewAutomationCustomTelemetryService(
 			endpoint,
-			hb,
 			lggr,
 			chain,
 			rAddr,
+			services.BlockSubscriber(),
 		)
 		if custErr != nil {
 			return nil, custErr
@@ -1165,16 +1165,16 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		pluginService,
 	}
 
+	//var services evm.AutomationServices
 	if cfg.CaptureAutomationCustomTelemetry {
-		hb := chain.HeadBroadcaster()
 		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
 		rAddr := ethkey.MustEIP55Address(spec.ContractID).Address()
 		customTelemService, custErr := ocr2keeper.NewAutomationCustomTelemetryService(
 			endpoint,
-			hb,
 			lggr,
 			chain,
 			rAddr,
+			evm21.NewBlockSubscriber(chain.HeadBroadcaster(), chain.LogPoller(), lggr),
 		)
 		if custErr != nil {
 			return nil, custErr
