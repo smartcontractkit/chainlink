@@ -80,7 +80,7 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	lggr := logger.TestLogger(t)
 	ctx := testutils.Context(t)
 	lorm := logpoller.NewORM(big.NewInt(1337), db, lggr, cfg)
-	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, 1, 2, 2, 1000)
+	lp := logpoller.NewLogPoller(lorm, ethClient, lggr, 100*time.Millisecond, false, 1, 2, 2, 1000)
 	defer lp.Close()
 	require.NoError(t, lp.Start(ctx))
 	configPoller, err := functions.NewFunctionsConfigPoller(pluginType, lp, lggr)

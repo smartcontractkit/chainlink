@@ -372,9 +372,9 @@ func (s *Shell) runNode(c *cli.Context) error {
 	legacyEVMChains := app.GetRelayers().LegacyEVMChains()
 
 	if s.Config.EVMEnabled() {
-		chainList, err := legacyEVMChains.List()
-		if err != nil {
-			return fmt.Errorf("error listing legacy evm chains: %w", err)
+		chainList, err2 := legacyEVMChains.List()
+		if err2 != nil {
+			return fmt.Errorf("error listing legacy evm chains: %w", err2)
 		}
 		for _, ch := range chainList {
 			if ch.Config().EVM().AutoCreateKey() {
@@ -499,8 +499,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 	// Ensure tls sub directory (and children) permissions are <= `ownerPermsMask``
 	tlsDir := filepath.Join(rootDir, "tls")
-	_, err := os.Stat(tlsDir)
-	if err != nil && !os.IsNotExist(err) {
+	if _, err := os.Stat(tlsDir); err != nil && !os.IsNotExist(err) {
 		lggr.Errorf("error checking perms of 'tls' directory: %v", err)
 	} else if err == nil {
 		err := utils.EnsureDirAndMaxPerms(tlsDir, ownerPermsMask)
@@ -609,9 +608,9 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 
 	if c.IsSet("password") {
-		pwd, err := utils.PasswordFromFile(c.String("password"))
-		if err != nil {
-			return s.errorOut(fmt.Errorf("error reading password: %+v", err))
+		pwd, err2 := utils.PasswordFromFile(c.String("password"))
+		if err2 != nil {
+			return s.errorOut(fmt.Errorf("error reading password: %+v", err2))
 		}
 		s.Config.SetPasswords(&pwd, nil)
 	}

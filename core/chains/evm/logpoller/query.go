@@ -51,33 +51,27 @@ func (q *queryArgs) withEventSig(eventSig common.Hash) *queryArgs {
 }
 
 func (q *queryArgs) withEventSigArray(eventSigs []common.Hash) *queryArgs {
-	q.args["event_sig_array"] = concatBytes(eventSigs)
-	return q
+	return q.withCustomArg("event_sig_array", concatBytes(eventSigs))
 }
 
 func (q *queryArgs) withAddress(address common.Address) *queryArgs {
-	q.args["address"] = address
-	return q
+	return q.withCustomArg("address", address)
 }
 
 func (q *queryArgs) withAddressArray(addresses []common.Address) *queryArgs {
-	q.args["address_array"] = concatBytes(addresses)
-	return q
+	return q.withCustomArg("address_array", concatBytes(addresses))
 }
 
 func (q *queryArgs) withStartBlock(startBlock int64) *queryArgs {
-	q.args["start_block"] = startBlock
-	return q
+	return q.withCustomArg("start_block", startBlock)
 }
 
 func (q *queryArgs) withEndBlock(endBlock int64) *queryArgs {
-	q.args["end_block"] = endBlock
-	return q
+	return q.withCustomArg("end_block", endBlock)
 }
 
 func (q *queryArgs) withWordIndex(wordIndex int) *queryArgs {
-	q.args["word_index"] = wordIndex
-	return q
+	return q.withCustomArg("word_index", wordIndex)
 }
 
 func (q *queryArgs) withWordValueMin(wordValueMin common.Hash) *queryArgs {
@@ -89,8 +83,7 @@ func (q *queryArgs) withWordValueMax(wordValueMax common.Hash) *queryArgs {
 }
 
 func (q *queryArgs) withConfs(confs Confirmations) *queryArgs {
-	q.args["confs"] = confs
-	return q
+	return q.withCustomArg("confs", confs)
 }
 
 func (q *queryArgs) withTopicIndex(index int) *queryArgs {
@@ -99,8 +92,7 @@ func (q *queryArgs) withTopicIndex(index int) *queryArgs {
 		q.err = append(q.err, fmt.Errorf("invalid index for topic: %d", index))
 	}
 	// Add 1 since postgresql arrays are 1-indexed.
-	q.args["topic_index"] = index + 1
-	return q
+	return q.withCustomArg("topic_index", index+1)
 }
 
 func (q *queryArgs) withTopicValueMin(valueMin common.Hash) *queryArgs {
@@ -112,13 +104,11 @@ func (q *queryArgs) withTopicValueMax(valueMax common.Hash) *queryArgs {
 }
 
 func (q *queryArgs) withTopicValues(values []common.Hash) *queryArgs {
-	q.args["topic_values"] = concatBytes(values)
-	return q
+	return q.withCustomArg("topic_values", concatBytes(values))
 }
 
 func (q *queryArgs) withBlockTimestampAfter(after time.Time) *queryArgs {
-	q.args["block_timestamp_after"] = after
-	return q
+	return q.withCustomArg("block_timestamp_after", after)
 }
 
 func (q *queryArgs) withTxHash(hash common.Hash) *queryArgs {
@@ -126,8 +116,7 @@ func (q *queryArgs) withTxHash(hash common.Hash) *queryArgs {
 }
 
 func (q *queryArgs) withCustomHashArg(name string, arg common.Hash) *queryArgs {
-	q.args[name] = arg.Bytes()
-	return q
+	return q.withCustomArg(name, arg.Bytes())
 }
 
 func (q *queryArgs) withCustomArg(name string, arg any) *queryArgs {

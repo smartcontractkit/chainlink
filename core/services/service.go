@@ -72,6 +72,8 @@ import "context"
 //		}
 //
 //	}
+//
+// Deprecated: use chainlink-relay/pkg/services.Service
 type ServiceCtx interface {
 	// Start the service. Must quit immediately if the context is cancelled.
 	// The given context applies to Start function only and must not be retained.

@@ -358,9 +358,9 @@ func (s *Shell) Profile(c *cli.Context) error {
 				// best effort to interpret the underlying problem
 				pprofVersion := resp.Header.Get("X-Go-Pprof")
 				if pprofVersion == "1" {
-					b, err := io.ReadAll(resp.Body)
-					if err != nil {
-						errs <- fmt.Errorf("error collecting %s: %w", vt, errBadRequest)
+					b, err2 := io.ReadAll(resp.Body)
+					if err2 != nil {
+						errs <- fmt.Errorf("error collecting %s: %w", vt, err2)
 						return
 					}
 					respContent := string(b)
