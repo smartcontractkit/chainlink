@@ -44,7 +44,7 @@ contract Flags is ITypeAndVersion, FlagsInterface, SimpleReadAccessController {
    * - Flags 1.1.0: upgraded to solc 0.8, added lowering access controller
    * - Flags 1.0.0: initial release
    *
-   * @inheritdoc TypeAndVersionInterface
+   * @inheritdoc ITypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "Flags 1.1.0";
