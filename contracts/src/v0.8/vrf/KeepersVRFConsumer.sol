@@ -6,7 +6,6 @@ import {VRFConsumerBaseV2} from "./VRFConsumerBaseV2.sol";
 import {VRFCoordinatorV2Interface} from "./interfaces/VRFCoordinatorV2Interface.sol";
 
 // solhint-disable chainlink-solidity/prefix-immutable-variables-with-i
-// solhint-disable chainlink-solidity/prefix-internal-functions-with-underscore
 
 /**
  * @title KeepersVRFConsumer
@@ -76,7 +75,7 @@ contract KeepersVRFConsumer is KeeperCompatibleInterface, VRFConsumerBaseV2 {
     if ((block.timestamp - s_lastTimeStamp) > UPKEEP_INTERVAL) {
       s_lastTimeStamp = block.timestamp;
 
-      requestRandomWords();
+      _requestRandomWords();
     }
   }
 
@@ -85,6 +84,7 @@ contract KeepersVRFConsumer is KeeperCompatibleInterface, VRFConsumerBaseV2 {
    * @param requestId the VRF V2 request ID, provided at request time.
    * @param randomWords the randomness provided by Chainlink VRF.
    */
+  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
   function fulfillRandomWords(uint256 requestId, uint256[] memory randomWords) internal override {
     // Check that the request exists. If not, revert.
     RequestRecord memory record = s_requests[requestId];
@@ -99,7 +99,7 @@ contract KeepersVRFConsumer is KeeperCompatibleInterface, VRFConsumerBaseV2 {
   /**
    * @notice Requests random words from Chainlink VRF.
    */
-  function requestRandomWords() internal {
+  function _requestRandomWords() internal {
     uint256 requestId = COORDINATOR.requestRandomWords(
       KEY_HASH,
       SUBSCRIPTION_ID,

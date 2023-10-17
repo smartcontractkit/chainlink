@@ -27,8 +27,8 @@ import (
 	jobmocks "github.com/smartcontractkit/chainlink/v2/core/services/job/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
@@ -1116,8 +1116,7 @@ answer1      [type=median index=0];
 }
 
 func Test_Service_SyncNodeInfo(t *testing.T) {
-	p2pKey, err := p2pkey.NewV2()
-	require.NoError(t, err)
+	p2pKey := keystest.NewP2PKeyV2(t)
 
 	ocrKey, err := ocrkey.NewV2()
 	require.NoError(t, err)

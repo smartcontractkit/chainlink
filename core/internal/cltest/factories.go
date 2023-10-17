@@ -490,8 +490,6 @@ func (r RandomKey) MustInsert(t testing.TB, keystore keystore.Eth) (ethkey.KeyV2
 	for _, cid := range r.chainIDs {
 		require.NoError(t, keystore.Add(key.Address, cid.ToInt()))
 		require.NoError(t, keystore.Enable(key.Address, cid.ToInt()))
-		err := keystore.Reset(key.Address, cid.ToInt(), r.Nonce)
-		require.NoError(t, err)
 		if r.Disabled {
 			require.NoError(t, keystore.Disable(key.Address, cid.ToInt()))
 		}

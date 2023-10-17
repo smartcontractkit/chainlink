@@ -5,7 +5,6 @@ import {VRFV2PlusWrapperConsumerBase} from "../VRFV2PlusWrapperConsumerBase.sol"
 import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 import {ChainSpecificUtil} from "../../../ChainSpecificUtil.sol";
 import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
-import {IVRFV2PlusWrapper} from "../interfaces/IVRFV2PlusWrapper.sol";
 
 contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, ConfirmedOwner {
   uint256 public s_responseCount;
@@ -49,8 +48,8 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
       uint256 requestId = requestRandomness(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs);
       s_lastRequestId = requestId;
 
-      uint256 requestBlockNumber = ChainSpecificUtil.getBlockNumber();
-      uint256 paid = VRF_V2_PLUS_WRAPPER.calculateRequestPrice(_callbackGasLimit);
+      uint256 requestBlockNumber = ChainSpecificUtil._getBlockNumber();
+      uint256 paid = i_vrfV2PlusWrapper.calculateRequestPrice(_callbackGasLimit);
       s_requests[requestId] = RequestStatus({
         paid: paid,
         fulfilled: false,
@@ -78,8 +77,8 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
       uint256 requestId = requestRandomnessPayInNative(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs);
       s_lastRequestId = requestId;
 
-      uint256 requestBlockNumber = ChainSpecificUtil.getBlockNumber();
-      uint256 paid = VRF_V2_PLUS_WRAPPER.calculateRequestPriceNative(_callbackGasLimit);
+      uint256 requestBlockNumber = ChainSpecificUtil._getBlockNumber();
+      uint256 paid = i_vrfV2PlusWrapper.calculateRequestPriceNative(_callbackGasLimit);
       s_requests[requestId] = RequestStatus({
         paid: paid,
         fulfilled: false,
@@ -100,7 +99,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
     // solhint-disable-next-line custom-errors
     require(s_requests[_requestId].paid > 0, "request not found");
-    uint256 fulfilmentBlockNumber = ChainSpecificUtil.getBlockNumber();
+    uint256 fulfilmentBlockNumber = ChainSpecificUtil._getBlockNumber();
     uint256 requestDelay = fulfilmentBlockNumber - requestHeights[_requestId];
     uint256 requestDelayInMillions = requestDelay * 1_000_000;
 
@@ -161,7 +160,7 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
   /// @notice withdrawLink withdraws the amount specified in amount to the owner
   /// @param amount the amount to withdraw, in juels
   function withdrawLink(uint256 amount) external onlyOwner {
-    LINK.transfer(owner(), amount);
+    s_linkToken.transfer(owner(), amount);
   }
 
   /// @notice withdrawNative withdraws the amount specified in amount to the owner
@@ -172,13 +171,5 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
     require(success, "withdrawNative failed");
   }
 
-  function getWrapper() external view returns (IVRFV2PlusWrapper) {
-    return VRF_V2_PLUS_WRAPPER;
-  }
-
   receive() external payable {}
-
-  function getBalance() public view returns (uint256) {
-    return address(this).balance;
-  }
 }

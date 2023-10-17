@@ -36,15 +36,10 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		WithFunding(big.NewFloat(.1)).
 		Build()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := env.Cleanup(t); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 
 	env.ParallelTransactions(true)
 
-	nodeClients := env.GetAPIs()
+	nodeClients := env.ClCluster.NodeAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
 
 	workerNodeAddresses, err := actions.ChainlinkNodeAddressesLocal(workerNodes)

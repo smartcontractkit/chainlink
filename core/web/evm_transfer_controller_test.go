@@ -334,13 +334,13 @@ func TestTransfersController_CreateSuccess_eip1559(t *testing.T) {
 }
 
 func TestTransfersController_FindTxAttempt(t *testing.T) {
-	ctx := testutils.Context(t)
 	tx := txmgr.Tx{ID: 1}
 	attempt := txmgr.TxAttempt{ID: 2}
 	txWithAttempt := txmgr.Tx{ID: 1, TxAttempts: []txmgr.TxAttempt{attempt}}
 
 	// happy path
 	t.Run("happy_path", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		timeout := 5 * time.Second
 		var done bool
 		find := func(_ int64) (txmgr.Tx, error) {
@@ -358,6 +358,7 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 
 	// failed to find tx
 	t.Run("failed to find tx", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		find := func(_ int64) (txmgr.Tx, error) {
 			return txmgr.Tx{}, fmt.Errorf("ERRORED")
 		}
@@ -367,6 +368,7 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 
 	// timeout
 	t.Run("timeout", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		find := func(_ int64) (txmgr.Tx, error) {
 			return tx, nil
 		}
@@ -376,6 +378,7 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 
 	// context canceled
 	t.Run("context canceled", func(t *testing.T) {
+		ctx := testutils.Context(t)
 		find := func(_ int64) (txmgr.Tx, error) {
 			return tx, nil
 		}

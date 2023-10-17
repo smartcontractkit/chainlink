@@ -26,11 +26,6 @@ func TestCronBasic(t *testing.T) {
 		WithCLNodes(1).
 		Build()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := env.Cleanup(t); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 
 	err = env.MockAdapter.SetAdapterBasedIntValuePath("/variable", []string{http.MethodGet, http.MethodPost}, 5)
 	require.NoError(t, err, "Setting value path in mock adapter shouldn't fail")
@@ -40,10 +35,10 @@ func TestCronBasic(t *testing.T) {
 		URL:         fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
 		RequestData: "{}",
 	}
-	err = env.CLNodes[0].API.MustCreateBridge(bta)
+	err = env.ClCluster.Nodes[0].API.MustCreateBridge(bta)
 	require.NoError(t, err, "Creating bridge in chainlink node shouldn't fail")
 
-	job, err := env.CLNodes[0].API.MustCreateJob(&client.CronJobSpec{
+	job, err := env.ClCluster.Nodes[0].API.MustCreateJob(&client.CronJobSpec{
 		Schedule:          "CRON_TZ=UTC * * * * * *",
 		ObservationSource: client.ObservationSourceSpecBridge(bta),
 	})
@@ -51,7 +46,7 @@ func TestCronBasic(t *testing.T) {
 
 	gom := gomega.NewGomegaWithT(t)
 	gom.Eventually(func(g gomega.Gomega) {
-		jobRuns, err := env.CLNodes[0].API.MustReadRunsByJob(job.Data.ID)
+		jobRuns, err := env.ClCluster.Nodes[0].API.MustReadRunsByJob(job.Data.ID)
 		if err != nil {
 			l.Info().Err(err).Msg("error while waiting for job runs")
 		}

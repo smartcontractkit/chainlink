@@ -1,9 +1,8 @@
 package chainlink
 
 import (
-	"fmt"
-
 	"errors"
+	"fmt"
 
 	"go.uber.org/multierr"
 
@@ -14,8 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"

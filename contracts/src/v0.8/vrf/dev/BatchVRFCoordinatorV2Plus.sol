@@ -32,10 +32,10 @@ contract BatchVRFCoordinatorV2Plus {
       try COORDINATOR.fulfillRandomWords(proofs[i], rcs[i]) returns (uint96 /* payment */) {
         continue;
       } catch Error(string memory reason) {
-        uint256 requestId = getRequestIdFromProof(proofs[i]);
+        uint256 requestId = _getRequestIdFromProof(proofs[i]);
         emit ErrorReturned(requestId, reason);
       } catch (bytes memory lowLevelData) {
-        uint256 requestId = getRequestIdFromProof(proofs[i]);
+        uint256 requestId = _getRequestIdFromProof(proofs[i]);
         emit RawErrorReturned(requestId, lowLevelData);
       }
     }
@@ -45,8 +45,7 @@ contract BatchVRFCoordinatorV2Plus {
    * @notice Returns the proving key hash associated with this public key.
    * @param publicKey the key to return the hash of.
    */
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function hashOfKey(uint256[2] memory publicKey) internal pure returns (bytes32) {
+  function _hashOfKey(uint256[2] memory publicKey) internal pure returns (bytes32) {
     return keccak256(abi.encode(publicKey));
   }
 
@@ -54,9 +53,8 @@ contract BatchVRFCoordinatorV2Plus {
    * @notice Returns the request ID of the request associated with the given proof.
    * @param proof the VRF proof provided by the VRF oracle.
    */
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function getRequestIdFromProof(VRFTypes.Proof memory proof) internal pure returns (uint256) {
-    bytes32 keyHash = hashOfKey(proof.pk);
+  function _getRequestIdFromProof(VRFTypes.Proof memory proof) internal pure returns (uint256) {
+    bytes32 keyHash = _hashOfKey(proof.pk);
     return uint256(keccak256(abi.encode(keyHash, proof.seed)));
   }
 }

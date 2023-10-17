@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -45,7 +44,7 @@ import (
 func makeTestEvmTxm(
 	t *testing.T, db *sqlx.DB, ethClient evmclient.Client, estimator gas.EvmFeeEstimator, ccfg txmgr.ChainConfig, fcfg txmgr.FeeConfig, txConfig evmconfig.Transactions, dbConfig txmgr.DatabaseConfig, listenerConfig txmgr.ListenerConfig, keyStore keystore.Eth, eventBroadcaster pg.EventBroadcaster) (txmgr.TxManager, error) {
 	lggr := logger.TestLogger(t)
-	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, 2, 3, 2, 1000)
+	lp := logpoller.NewLogPoller(logpoller.NewORM(testutils.FixtureChainID, db, lggr, pgtest.NewQConfig(true)), ethClient, lggr, 100*time.Millisecond, false, 2, 3, 2, 1000)
 
 	// logic for building components (from evm/evm_txm.go) -------
 	lggr.Infow("Initializing EVM transaction manager",
@@ -523,9 +522,8 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 	config, dbConfig, evmConfig := makeConfigs(t)
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	kst := cltest.NewKeyStore(t, db, dbConfig)
 	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, config, evmConfig.GasEstimator())
-	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth(), nil)
+	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), etKeyStore, nil)
 	require.NoError(t, err)
 
 	t.Run("if another key has any transactions with insufficient eth errors, transmits as normal", func(t *testing.T) {
@@ -648,23 +646,6 @@ func TestTxm_Lifecycle(t *testing.T) {
 	unsub.AwaitOrFail(t, 1*time.Second)
 }
 
-type fnMock struct{ called atomic.Bool }
-
-func (fm *fnMock) Fn() {
-	swapped := fm.called.CompareAndSwap(false, true)
-	if !swapped {
-		panic("func called more than once")
-	}
-}
-
-func (fm *fnMock) AssertNotCalled(t *testing.T) {
-	assert.False(t, fm.called.Load())
-}
-
-func (fm *fnMock) AssertCalled(t *testing.T) {
-	assert.True(t, fm.called.Load())
-}
-
 func TestTxm_Reset(t *testing.T) {
 	t.Parallel()
 
@@ -687,8 +668,6 @@ func TestTxm_Reset(t *testing.T) {
 	}
 
 	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
-	ethClient.On("PendingNonceAt", mock.Anything, addr).Return(uint64(0), nil)
-	ethClient.On("PendingNonceAt", mock.Anything, addr2).Return(uint64(0), nil)
 	ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(nil, nil)
 	ethClient.On("BatchCallContextAll", mock.Anything, mock.Anything).Return(nil).Maybe()
 	eventBroadcaster := pgmocks.NewEventBroadcaster(t)
@@ -707,34 +686,22 @@ func TestTxm_Reset(t *testing.T) {
 	}
 
 	t.Run("returns error if not started", func(t *testing.T) {
-		f := new(fnMock)
-
-		err := txm.Reset(f.Fn, addr, false)
+		err := txm.Reset(addr, false)
 		require.Error(t, err)
 		assert.EqualError(t, err, "not started")
-
-		f.AssertNotCalled(t)
 	})
 
 	require.NoError(t, txm.Start(testutils.Context(t)))
 	defer func() { assert.NoError(t, txm.Close()) }()
 
-	t.Run("calls function if started", func(t *testing.T) {
-		f := new(fnMock)
-
-		err := txm.Reset(f.Fn, addr, false)
+	t.Run("returns no error if started", func(t *testing.T) {
+		err := txm.Reset(addr, false)
 		require.NoError(t, err)
-
-		f.AssertCalled(t)
 	})
 
-	t.Run("calls function and deletes relevant evm.txes if abandon=true", func(t *testing.T) {
-		f := new(fnMock)
-
-		err := txm.Reset(f.Fn, addr, true)
+	t.Run("deletes relevant evm.txes if abandon=true", func(t *testing.T) {
+		err := txm.Reset(addr, true)
 		require.NoError(t, err)
-
-		f.AssertCalled(t)
 
 		var s string
 		err = db.Get(&s, `SELECT error FROM evm.txes WHERE from_address = $1 AND state = 'fatal_error'`, addr)

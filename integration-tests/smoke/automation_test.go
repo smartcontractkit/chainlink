@@ -17,6 +17,10 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
+	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -24,9 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
-	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var utilsABI = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -161,7 +162,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				expect := 5
 				// Upgrade the nodes one at a time and check that the upkeeps are still being performed
 				for i := 0; i < 5; i++ {
-					actions.UpgradeChainlinkNodeVersionsLocal(upgradeImage, upgradeVersion, testEnv.CLNodes[i])
+					actions.UpgradeChainlinkNodeVersionsLocal(upgradeImage, upgradeVersion, testEnv.ClCluster.Nodes[i])
 					time.Sleep(time.Second * 10)
 					expect = expect + 5
 					gom.Eventually(func(g gomega.Gomega) {
@@ -1027,7 +1028,7 @@ func setupAutomationTestDocker(
 
 	txCost, err := env.EVMClient.EstimateCostForChainlinkOperations(1000)
 	require.NoError(t, err, "Error estimating cost for Chainlink Operations")
-	nodeClients := env.GetAPIs()
+	nodeClients := env.ClCluster.NodeAPIs()
 	workerNodes := nodeClients[1:]
 	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, txCost)
 	require.NoError(t, err, "Error funding Chainlink nodes")

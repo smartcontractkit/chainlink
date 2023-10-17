@@ -4,6 +4,7 @@ package testsetups
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"math/rand"
 	"os"
@@ -23,6 +24,8 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
+
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
@@ -31,10 +34,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
-	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
-	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
-
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+	reportModel "github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
@@ -120,8 +121,7 @@ func NewOCRSoakTest(t *testing.T, forwarderFlow bool) (*OCRSoakTest, error) {
 		ocrRoundStates: make([]*testreporters.OCRRoundState, 0),
 		ocrInstanceMap: make(map[string]contracts.OffchainAggregator),
 	}
-	test.ensureInputValues()
-	return test, nil
+	return test, test.ensureInputValues()
 }
 
 // DeployEnvironment deploys the test environment, starting all Chainlink nodes and other components for the test
@@ -133,9 +133,10 @@ func (o *OCRSoakTest) DeployEnvironment(customChainlinkNetworkTOML string) {
 	}
 	nsPre = fmt.Sprintf("%s%s", nsPre, strings.ReplaceAll(strings.ToLower(network.Name), " ", "-"))
 	baseEnvironmentConfig := &environment.Config{
-		TTL:             time.Hour * 720, // 30 days,
-		NamespacePrefix: nsPre,
-		Test:            o.t,
+		TTL:                time.Hour * 720, // 30 days,
+		NamespacePrefix:    nsPre,
+		Test:               o.t,
+		PreventPodEviction: true,
 	}
 
 	cd := chainlink.New(0, map[string]any{
@@ -584,14 +585,20 @@ func (o *OCRSoakTest) observeOCREvents() error {
 					Int64("Answer", answerUpdated.Current.Int64()).
 					Msg("Answer Updated Event")
 			case err = <-eventSub.Err():
+				backoff := time.Second
 				for err != nil {
 					o.log.Info().
 						Err(err).
+						Str("Backoff", backoff.String()).
 						Interface("Query", o.filterQuery).
 						Msg("Error while subscribed to OCR Logs. Resubscribing")
-					ctx, cancel = context.WithTimeout(context.Background(), 5*time.Second)
+					ctx, cancel = context.WithTimeout(context.Background(), backoff)
 					eventSub, err = o.chainClient.SubscribeFilterLogs(ctx, o.filterQuery, eventLogs)
 					cancel()
+					if err != nil {
+						time.Sleep(backoff)
+						backoff = time.Duration(math.Min(float64(backoff)*2, float64(30*time.Second)))
+					}
 				}
 			}
 		}
