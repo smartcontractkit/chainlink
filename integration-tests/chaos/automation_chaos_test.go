@@ -257,8 +257,8 @@ func TestAutomationChaos(t *testing.T) {
 					require.NoError(t, err, "Registry config should be be set successfully")
 					require.NoError(t, chainClient.WaitForEvents(), "Waiting for config to be set")
 
-					consumers_conditional, upkeepIDs_conditional := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false)
-					consumers_logtrigger, upkeepIDs_logtrigger := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true)
+					consumers_conditional, upkeepIDs_conditional := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, false, false)
+					consumers_logtrigger, upkeepIDs_logtrigger := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, numberOfUpkeeps, big.NewInt(defaultLinkFunds), defaultUpkeepGasLimit, true, false)
 
 					consumers := append(consumers_conditional, consumers_logtrigger...)
 					upkeepIDs := append(upkeepIDs_conditional, upkeepIDs_logtrigger...)
