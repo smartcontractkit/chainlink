@@ -215,7 +215,7 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
         request.requestingContract,
         request.subscriptionId,
         request.initiatedRequests + 1,
-        request.data,
+        keccak256(request.data),
         request.dataVersion,
         request.callbackGasLimit,
         estimatedTotalCostJuels,
