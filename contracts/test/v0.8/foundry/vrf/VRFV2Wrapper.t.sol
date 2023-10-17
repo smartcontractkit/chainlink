@@ -79,6 +79,7 @@ contract VRFV2PlusWrapperTest is BaseTest {
       ,
       ,
       ,
+      ,
       uint32 _wrapperGasOverhead,
       uint32 _coordinatorGasOverhead,
       uint8 _wrapperPremiumPercentage,
