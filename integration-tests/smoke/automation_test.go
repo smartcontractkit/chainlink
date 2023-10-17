@@ -1022,6 +1022,7 @@ func setupAutomationTestDocker(
 		WithCLNodeConfig(clNodeConfig).
 		WithSecretsConfig(secretsConfig).
 		WithFunding(big.NewFloat(.5)).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 	env.ParallelTransactions(true)
