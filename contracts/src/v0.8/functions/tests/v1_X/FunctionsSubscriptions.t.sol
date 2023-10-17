@@ -349,11 +349,14 @@ contract FunctionsSubscriptions_OnTokenTransfer is FunctionsSubscriptionSetup {
   }
 
   function test_OnTokenTransfer_Success(uint96 fundingAmount) public {
+    uint96 subscriptionBalanceBefore = s_functionsRouter.getSubscription(s_subscriptionId).balance;
+
     // Funding amount must be less than LINK total supply
-    vm.assume(fundingAmount < 1_000_000_000 * 1e18);
+    uint96 TOTAL_LINK = 1_000_000_000 * 1e18;
+    // Some of the total supply is already in the subscription account
+    vm.assume(fundingAmount < TOTAL_LINK - subscriptionBalanceBefore);
     vm.assume(fundingAmount > 0);
 
-    uint96 subscriptionBalanceBefore = s_functionsRouter.getSubscription(s_subscriptionId).balance;
     s_linkToken.transferAndCall(address(s_functionsRouter), fundingAmount, abi.encode(s_subscriptionId));
     uint96 subscriptionBalanceAfter = s_functionsRouter.getSubscription(s_subscriptionId).balance;
     assertEq(subscriptionBalanceBefore + fundingAmount, subscriptionBalanceAfter);
