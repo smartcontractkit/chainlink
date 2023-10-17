@@ -187,37 +187,6 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     _afterSetConfig(args.f, args.onchainConfig);
   }
 
-  function _configDigestFromConfigData(
-    uint256 _chainId,
-    address _contractAddress,
-    uint64 _configCount,
-    address[] memory _signers,
-    address[] memory _transmitters,
-    uint8 _f,
-    bytes memory _onchainConfig,
-    uint64 _encodedConfigVersion,
-    bytes memory _encodedConfig
-  ) internal pure returns (bytes32) {
-    uint256 h = uint256(
-      keccak256(
-        abi.encode(
-          _chainId,
-          _contractAddress,
-          _configCount,
-          _signers,
-          _transmitters,
-          _f,
-          _onchainConfig,
-          _encodedConfigVersion,
-          _encodedConfig
-        )
-      )
-    );
-    uint256 prefixMask = type(uint256).max << (256 - 16); // 0xFFFF00..00
-    uint256 prefix = 0x0001 << (256 - 16); // 0x000100..00
-    return bytes32((prefix & prefixMask) | (h & ~prefixMask));
-  }
-
   /**
    * @notice information about current offchain reporting protocol configuration
    * @return configCount ordinal number of current config, out of all configs applied to this contract so far
