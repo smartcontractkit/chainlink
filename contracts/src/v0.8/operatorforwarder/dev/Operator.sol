@@ -1,21 +1,23 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./AuthorizedReceiver.sol";
-import "./LinkTokenReceiver.sol";
-import "../../shared/access/ConfirmedOwner.sol";
-import "../../shared/interfaces/LinkTokenInterface.sol";
-import "../../interfaces/AuthorizedReceiverInterface.sol";
-import "../../interfaces/OperatorInterface.sol";
-import "../../shared/interfaces/IOwnable.sol";
-import "../../dev/shared/interfaces/WithdrawalInterface.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
+import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
+import {LinkTokenReceiver} from "./LinkTokenReceiver.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {LinkTokenInterface} from "../../shared/interfaces/LinkTokenInterface.sol";
+import {AuthorizedReceiverInterface} from "../../interfaces/AuthorizedReceiverInterface.sol";
+import {OperatorInterface} from "../../interfaces/OperatorInterface.sol";
+import {IOwnable} from "../../shared/interfaces/IOwnable.sol";
+import {WithdrawalInterface} from "../../dev/shared/interfaces/WithdrawalInterface.sol";
+import {OracleInterface} from "../../interfaces/OracleInterface.sol";
+import {Address} from "@openzeppelin/contracts/utils/Address.sol";
 import {SafeCast} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/SafeCast.sol";
 
 /**
  * @title The Chainlink Operator contract
  * @notice Node operators can deploy this contract to fulfill requests sent to them
  */
+// solhint-disable custom-errors
 contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, OperatorInterface, WithdrawalInterface {
   using Address for address;
 
@@ -24,7 +26,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     uint8 dataVersion;
   }
 
-  uint256 public constant getExpiryTime = 5 minutes;
+  uint256 public constant EXPIRYTIME = 5 minutes;
   uint256 private constant MAXIMUM_DATA_VERSION = 256;
   uint256 private constant MINIMUM_CONSUMER_GAS_LIMIT = 400000;
   uint256 private constant SELECTOR_LENGTH = 4;
@@ -38,7 +40,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   // operatorRequest is intended for version 2, enabling multi-word responses
   bytes4 private constant OPERATOR_REQUEST_SELECTOR = this.operatorRequest.selector;
 
-  LinkTokenInterface internal immutable linkToken;
+  LinkTokenInterface internal immutable i_linkToken;
   mapping(bytes32 => Commitment) private s_commitments;
   mapping(address => bool) private s_owned;
   // Tokens sent for requests that have not been fulfilled yet
@@ -71,7 +73,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
    * @param owner The address of the owner
    */
   constructor(address link, address owner) ConfirmedOwner(owner) {
-    linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
+    i_linkToken = LinkTokenInterface(link); // external but already deployed and unalterable
   }
 
   /**
@@ -296,7 +298,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     address recipient,
     uint256 amount
   ) external override(OracleInterface, WithdrawalInterface) onlyOwner validateAvailableFunds(amount) {
-    assert(linkToken.transfer(recipient, amount));
+    assert(i_linkToken.transfer(recipient, amount));
   }
 
   /**
@@ -316,6 +318,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
    */
   function ownerForward(address to, bytes calldata data) external onlyOwner validateNotToLINK(to) {
     require(to.isContract(), "Must forward to a contract");
+    // solhint-disable-next-line avoid-low-level-calls
     (bool status, ) = to.call(data);
     require(status, "Forwarded call failed");
   }
@@ -332,7 +335,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     uint256 value,
     bytes calldata data
   ) external override onlyOwner validateAvailableFunds(value) returns (bool success) {
-    return linkToken.transferAndCall(to, value, data);
+    return i_linkToken.transferAndCall(to, value, data);
   }
 
   /**
@@ -379,7 +382,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     delete s_commitments[requestId];
     emit CancelOracleRequest(requestId);
 
-    linkToken.transfer(msg.sender, payment);
+    i_linkToken.transfer(msg.sender, payment);
   }
 
   /**
@@ -407,7 +410,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     delete s_commitments[requestId];
     emit CancelOracleRequest(requestId);
 
-    linkToken.transfer(msg.sender, payment);
+    i_linkToken.transfer(msg.sender, payment);
   }
 
   /**
@@ -416,7 +419,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
    * an internal method of the ChainlinkClient contract
    */
   function getChainlinkToken() public view override returns (address) {
-    return address(linkToken);
+    return address(i_linkToken);
   }
 
   /**
@@ -450,7 +453,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     requestId = keccak256(abi.encodePacked(sender, nonce));
     require(s_commitments[requestId].paramsHash == 0, "Must use a unique ID");
     // solhint-disable-next-line not-rely-on-time
-    expiration = block.timestamp + getExpiryTime;
+    expiration = block.timestamp + EXPIRYTIME;
     bytes31 paramsHash = _buildParamsHash(payment, callbackAddress, callbackFunctionId, expiration);
     s_commitments[requestId] = Commitment(paramsHash, SafeCast.toUint8(dataVersion));
     s_tokensInEscrow = s_tokensInEscrow + payment;
@@ -503,7 +506,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
    */
   function _fundsAvailable() private view returns (uint256) {
     uint256 inEscrow = s_tokensInEscrow - ONE_FOR_CONSISTENT_GAS_COST;
-    return linkToken.balanceOf(address(this)) - inEscrow;
+    return i_linkToken.balanceOf(address(this)) - inEscrow;
   }
 
   /**
@@ -554,7 +557,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
    * @param to The callback address
    */
   modifier validateNotToLINK(address to) {
-    require(to != address(linkToken), "Cannot call to LINK");
+    require(to != address(i_linkToken), "Cannot call to LINK");
     _;
   }
 

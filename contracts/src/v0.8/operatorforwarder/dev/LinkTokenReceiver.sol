@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
+// solhint-disable custom-errors
 abstract contract LinkTokenReceiver {
   /**
    * @notice Called when LINK is sent to the contract via `transferAndCall`

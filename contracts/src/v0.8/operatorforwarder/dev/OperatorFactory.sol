@@ -1,14 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./Operator.sol";
-import "./AuthorizedForwarder.sol";
+import {Operator} from "./Operator.sol";
+import {AuthorizedForwarder} from "./AuthorizedForwarder.sol";
 
 /**
  * @title Operator Factory
  * @notice Creates Operator contracts for node operators
  */
+ // solhint-disable custom-errors
 contract OperatorFactory {
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable getChainlinkToken;
   mapping(address => bool) private s_created;
 

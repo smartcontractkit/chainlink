@@ -121,7 +121,7 @@ describe('Operator', () => {
       'fulfillOracleRequest2',
       'getAuthorizedSenders',
       'getChainlinkToken',
-      'getExpiryTime',
+      'EXPIRYTIME',
       'isAuthorizedSender',
       'onTokenTransfer',
       'operatorRequest',

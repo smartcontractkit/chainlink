@@ -80,7 +80,7 @@ describe('AuthorizedForwarder', () => {
 
   describe('deployment', () => {
     it('sets the correct link token', async () => {
-      assert.equal(await forwarder.getChainlinkToken(), link.address)
+      assert.equal(await forwarder.i_chainlinkToken(), link.address)
     })
 
     it('reverts on zeroAddress value for link token', async () => {
