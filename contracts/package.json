@@ -45,7 +45,7 @@
     "@openzeppelin/hardhat-upgrades": "1.28.0",
     "@openzeppelin/test-helpers": "^0.5.11",
     "@typechain/ethers-v5": "^7.0.1",
-    "@typechain/hardhat": "^3.0.0",
+    "@typechain/hardhat": "^4.0.0",
     "@types/cbor": "5.0.1",
     "@types/chai": "^4.3.8",
     "@types/debug": "^4.1.9",
