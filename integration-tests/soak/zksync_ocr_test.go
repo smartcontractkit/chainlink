@@ -86,6 +86,7 @@ func TestOCRZKSync(t *testing.T) {
 		answer, err := zkClient.RequestOCRRound(int64(round), 10, l)
 		if err != nil {
 			l.Error().Err(err)
+			continue
 		}
 		if answer.Int64() != int64(10) {
 			l.Error().Int64("Expected answer to be 10 but got", answer.Int64())
