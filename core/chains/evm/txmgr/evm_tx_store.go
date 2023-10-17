@@ -184,6 +184,7 @@ type DbEthTx struct {
 
 func (db *DbEthTx) FromTx(tx *Tx) {
 	db.ID = tx.ID
+	db.IdempotencyKey = tx.IdempotencyKey
 	db.FromAddress = tx.FromAddress
 	db.ToAddress = tx.ToAddress
 	db.EncodedPayload = tx.EncodedPayload
@@ -511,8 +512,8 @@ func (o *evmTxStore) InsertTx(etx *Tx) error {
 	if etx.CreatedAt == (time.Time{}) {
 		etx.CreatedAt = time.Now()
 	}
-	const insertEthTxSQL = `INSERT INTO evm.txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, error, broadcast_at, initial_broadcast_at, created_at, state, meta, subject, pipeline_task_run_id, min_confirmations, evm_chain_id, transmit_checker) VALUES (
-:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :error, :broadcast_at, :initial_broadcast_at, :created_at, :state, :meta, :subject, :pipeline_task_run_id, :min_confirmations, :evm_chain_id, :transmit_checker
+	const insertEthTxSQL = `INSERT INTO evm.txes (nonce, from_address, to_address, encoded_payload, value, gas_limit, error, broadcast_at, initial_broadcast_at, created_at, state, meta, subject, pipeline_task_run_id, min_confirmations, evm_chain_id, transmit_checker, idempotency_key) VALUES (
+:nonce, :from_address, :to_address, :encoded_payload, :value, :gas_limit, :error, :broadcast_at, :initial_broadcast_at, :created_at, :state, :meta, :subject, :pipeline_task_run_id, :min_confirmations, :evm_chain_id, :transmit_checker, :idempotency_key
 ) RETURNING *`
 	var dbTx DbEthTx
 	dbTx.FromTx(etx)
@@ -548,14 +549,14 @@ func (o *evmTxStore) FindTxWithAttempts(etxID int64) (etx Tx, err error) {
 	err = o.q.Transaction(func(tx pg.Queryer) error {
 		var dbEtx DbEthTx
 		if err = tx.Get(&dbEtx, `SELECT * FROM evm.txes WHERE id = $1 ORDER BY created_at ASC, id ASC`, etxID); err != nil {
-			return pkgerrors.Wrapf(err, "failed to find eth_tx with id %d", etxID)
+			return pkgerrors.Wrapf(err, "failed to find evm.tx with id %d", etxID)
 		}
 		dbEtx.ToTx(&etx)
 		if err = o.loadTxAttemptsAtomic(&etx, pg.WithQueryer(tx)); err != nil {
-			return pkgerrors.Wrapf(err, "failed to load evm.tx_attempts for eth_tx with id %d", etxID)
+			return pkgerrors.Wrapf(err, "failed to load evm.tx_attempts for evm.tx with id %d", etxID)
 		}
 		if err = loadEthTxAttemptsReceipts(tx, &etx); err != nil {
-			return pkgerrors.Wrapf(err, "failed to load evm.receipts for eth_tx with id %d", etxID)
+			return pkgerrors.Wrapf(err, "failed to load evm.receipts for evm.tx with id %d", etxID)
 		}
 		return nil
 	}, pg.OptReadOnlyTx())
@@ -1774,6 +1775,68 @@ func (o *evmTxStore) Abandon(ctx context.Context, chainID *big.Int, addr common.
 	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
 	_, err := qq.Exec(`UPDATE evm.txes SET state='fatal_error', nonce = NULL, error = 'abandoned' WHERE state IN ('unconfirmed', 'in_progress', 'unstarted') AND evm_chain_id = $1 AND from_address = $2`, chainID.String(), addr)
 	return err
+}
+
+// Find transactions by a field in the TxMeta blob and transaction states
+func (o *evmTxStore) FindTxesByMetaFieldAndStates(ctx context.Context, metaField string, metaValue string, states []txmgrtypes.TxState, chainID *big.Int) ([]*Tx, error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	var dbEtxs []DbEthTx
+	sql := fmt.Sprintf("SELECT * FROM evm.txes WHERE evm_chain_id = $1 AND meta->>'%s' = $2 AND state = ANY($3)", metaField)
+	err := qq.Select(&dbEtxs, sql, chainID.String(), metaValue, pq.Array(states))
+	txes := make([]*Tx, len(dbEtxs))
+	dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+	return txes, pkgerrors.Wrap(err, "failed to FindTxesByMetaFieldAndStates")
+}
+
+// Find transactions with a non-null TxMeta field that was provided by transaction states
+func (o *evmTxStore) FindTxesWithMetaFieldByStates(ctx context.Context, metaField string, states []txmgrtypes.TxState, chainID *big.Int) (txes []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	var dbEtxs []DbEthTx
+	sql := fmt.Sprintf("SELECT * FROM evm.txes WHERE meta->'%s' IS NOT NULL AND state = ANY($1) AND evm_chain_id = $2", metaField)
+	err = qq.Select(&dbEtxs, sql, pq.Array(states), chainID.String())
+	txes = make([]*Tx, len(dbEtxs))
+	dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+	return txes, pkgerrors.Wrap(err, "failed to FindTxesWithMetaFieldByStates")
+}
+
+// Find transactions with a non-null TxMeta field that was provided and a receipt block number greater than or equal to the one provided
+func (o *evmTxStore) FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context, metaField string, blockNum int64, chainID *big.Int) (txes []*Tx, err error) {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	var dbEtxs []DbEthTx
+	sql := fmt.Sprintf("SELECT et.* FROM evm.txes et JOIN evm.tx_attempts eta on et.id = eta.eth_tx_id JOIN evm.receipts er on eta.hash = er.tx_hash WHERE et.meta->'%s' IS NOT NULL AND er.block_number >= $1 AND et.evm_chain_id = $2", metaField)
+	err = qq.Select(&dbEtxs, sql, blockNum, chainID.String())
+	txes = make([]*Tx, len(dbEtxs))
+	dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+	return txes, pkgerrors.Wrap(err, "failed to FindTxesWithMetaFieldByReceiptBlockNum")
+}
+
+// Find transactions loaded with transaction attempts and receipts by transaction IDs and states
+func (o *evmTxStore) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []txmgrtypes.TxState, chainID *big.Int) (txes []*Tx, err error) {
+	err = o.q.Transaction(func(tx pg.Queryer) error {
+		var dbEtxs []DbEthTx
+		if err = tx.Select(&dbEtxs, `SELECT * FROM evm.txes WHERE id = ANY($1) AND state = ANY($2) AND evm_chain_id = $3`, pq.Array(ids), pq.Array(states), chainID.String()); err != nil {
+			return pkgerrors.Wrapf(err, "failed to find evm.txes")
+		}
+		txes = make([]*Tx, len(dbEtxs))
+		dbEthTxsToEvmEthTxPtrs(dbEtxs, txes)
+		if err = o.LoadTxesAttempts(txes, pg.WithQueryer(tx)); err != nil {
+			return pkgerrors.Wrapf(err, "failed to load evm.tx_attempts for evm.tx")
+		}
+		if err = loadEthTxesAttemptsReceipts(tx, txes); err != nil {
+			return pkgerrors.Wrapf(err, "failed to load evm.receipts for evm.tx")
+		}
+		return nil
+	})
+	return txes, pkgerrors.Wrap(err, "FindTxesWithAttemptsAndReceiptsByIdsAndState failed")
 }
 
 // Returns a context that contains the values of the provided context,

@@ -17,9 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
@@ -58,7 +58,7 @@ type vrfUniverse struct {
 	ks           keystore.Master
 	vrfkey       vrfkey.KeyV2
 	submitter    common.Address
-	txm          *txmmocks.MockEvmTxManager
+	txm          *txmgr.Txm
 	hb           httypes.HeadBroadcaster
 	legacyChains evm.LegacyChainContainer
 	cid          big.Int
@@ -68,16 +68,25 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	// Mock all chain interactions
 	lb := log_mocks.NewBroadcaster(t)
 	lb.On("AddDependents", 1).Maybe()
+	lb.On("Register", mock.Anything, mock.Anything).Return(func() {}).Maybe()
 	ec := evmclimocks.NewClient(t)
 	ec.On("ConfiguredChainID").Return(testutils.FixtureChainID)
+	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(51), nil).Maybe()
 	lggr := logger.TestLogger(t)
 	hb := headtracker.NewHeadBroadcaster(lggr)
 
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg.Database(), cfg.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, lggr, cfg.Database())
-	txm := txmmocks.NewMockEvmTxManager(t)
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
+	_, _, evmConfig := txmgr.MakeTestConfigs(t)
+	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
+	qcfg := pgtest.NewQConfig(false)
+	txStore := txmgr.NewTxStore(db, logger.TestLogger(t), qcfg)
+	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), ks.Eth(), logger.TestLogger(t), nil, nil,
+		nil, txStore, nil, nil, nil, nil)
+	orm := headtracker.NewORM(db, lggr, cfg.Database(), *testutils.FixtureChainID)
+	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(51)))
 	jrm := job.NewORM(db, prm, btORM, ks, lggr, cfg.Database())
 	t.Cleanup(func() { assert.NoError(t, jrm.Close()) })
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{LogBroadcaster: lb, KeyStore: ks.Eth(), Client: ec, DB: db, GeneralConfig: cfg, TxManager: txm})
@@ -172,6 +181,7 @@ func setup(t *testing.T) (vrfUniverse, *v1.Listener, job.Job) {
 		listener.RunHeadListener(func() {})
 	}()
 	t.Cleanup(func() { listener.Stop(t) })
+	require.NoError(t, listener.Start(testutils.Context(t)))
 	return vuni, listener, jb
 }
 
@@ -301,20 +311,6 @@ func TestDelegate_ValidLog(t *testing.T) {
 		}).Return(nil).Once()
 		// Expect a call to check if the req is already fulfilled.
 		vuni.ec.On("CallContract", mock.Anything, mock.Anything, mock.Anything).Return(generateCallbackReturnValues(t, false), nil)
-
-		// Ensure we queue up a valid eth transaction
-		// Linked to requestID
-		vuni.txm.On("CreateTransaction",
-			mock.Anything,
-			mock.MatchedBy(func(txRequest txmgr.TxRequest) bool {
-				meta := txRequest.Meta
-				return txRequest.FromAddress == vuni.submitter &&
-					txRequest.ToAddress == common.HexToAddress(jb.VRFSpec.CoordinatorAddress.String()) &&
-					txRequest.FeeLimit == uint32(500000) &&
-					meta.JobID != nil && meta.RequestID != nil && meta.RequestTxHash != nil &&
-					(*meta.JobID > 0 && *meta.RequestID == tc.reqID && *meta.RequestTxHash == txHash)
-			}),
-		).Once().Return(txmgr.Tx{}, nil)
 
 		listener.HandleLog(log.NewLogBroadcast(tc.log, vuni.cid, nil))
 		// Wait until the log is present
