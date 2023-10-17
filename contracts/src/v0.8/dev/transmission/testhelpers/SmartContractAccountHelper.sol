@@ -1,11 +1,12 @@
-import "../ERC-4337/SCA.sol";
-import "../ERC-4337/SmartContractAccountFactory.sol";
-import "../ERC-4337/SCALibrary.sol";
-
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
+import {SCA} from "../ERC-4337/SCA.sol";
+import {SmartContractAccountFactory} from "../ERC-4337/SmartContractAccountFactory.sol";
+import {SCALibrary} from "../ERC-4337/SCALibrary.sol";
+
 library SmartContractAccountHelper {
-  bytes constant initailizeCode = type(SCA).creationCode;
+  bytes internal constant INITIALIZE_CODE = type(SCA).creationCode;
 
   function getFullEndTxEncoding(
     address endContract,
@@ -20,14 +21,14 @@ library SmartContractAccountHelper {
   }
 
   function getFullHashForSigning(bytes32 userOpHash, address scaAddress) public view returns (bytes32) {
-    return SCALibrary.getUserOpFullHash(userOpHash, scaAddress);
+    return SCALibrary._getUserOpFullHash(userOpHash, scaAddress);
   }
 
   function getSCAInitCodeWithConstructor(
     address owner,
     address entryPoint
   ) public pure returns (bytes memory initCode) {
-    initCode = bytes.concat(initailizeCode, abi.encode(owner, entryPoint));
+    initCode = bytes.concat(INITIALIZE_CODE, abi.encode(owner, entryPoint));
   }
 
   function getInitCode(
@@ -36,7 +37,7 @@ library SmartContractAccountHelper {
     address entryPoint
   ) external pure returns (bytes memory initCode) {
     bytes32 salt = bytes32(uint256(uint160(owner)) << 96);
-    bytes memory initializeCodeWithConstructor = bytes.concat(initailizeCode, abi.encode(owner, entryPoint));
+    bytes memory initializeCodeWithConstructor = bytes.concat(INITIALIZE_CODE, abi.encode(owner, entryPoint));
     initCode = bytes.concat(
       bytes20(address(factory)),
       abi.encodeWithSelector(
@@ -54,7 +55,7 @@ library SmartContractAccountHelper {
     address factory
   ) external pure returns (address) {
     bytes32 salt = bytes32(uint256(uint160(owner)) << 96);
-    bytes memory initializeCodeWithConstructor = bytes.concat(initailizeCode, abi.encode(owner, entryPoint));
+    bytes memory initializeCodeWithConstructor = bytes.concat(INITIALIZE_CODE, abi.encode(owner, entryPoint));
     bytes32 initializeCodeHash = keccak256(initializeCodeWithConstructor);
     return address(uint160(uint256(keccak256(abi.encodePacked(hex"ff", address(factory), salt, initializeCodeHash)))));
   }

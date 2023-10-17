@@ -1,10 +1,9 @@
 // SPDX-License-Identifier: MIT
-import "../../../vendor/entrypoint/interfaces/IAccount.sol";
-import "./SCALibrary.sol";
-import "../../../vendor/entrypoint/core/Helpers.sol";
-
 /// TODO: decide on a compiler version. Must not be dynamic, and must be > 0.8.12.
 pragma solidity 0.8.15;
+
+import {IAccount} from "../../../vendor/entrypoint/interfaces/IAccount.sol";
+import {SCALibrary} from "./SCALibrary.sol";
 
 /// @dev Smart Contract Account, a contract deployed for a single user and that allows
 /// @dev them to invoke meta-transactions.
@@ -39,9 +38,9 @@ contract SCA is IAccount {
     }
 
     // Verify signature on hash.
-    bytes32 fullHash = SCALibrary.getUserOpFullHash(userOpHash, address(this));
+    bytes32 fullHash = SCALibrary._getUserOpFullHash(userOpHash, address(this));
     bytes memory signature = userOp.signature;
-    if (SCALibrary.recoverSignature(signature, fullHash) != i_owner) {
+    if (SCALibrary._recoverSignature(signature, fullHash) != i_owner) {
       return _packValidationData(true, 0, 0); // signature error
     }
     s_nonce++;

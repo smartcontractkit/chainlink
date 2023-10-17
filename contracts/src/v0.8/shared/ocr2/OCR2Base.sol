@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../shared/access/ConfirmedOwner.sol";
-import "./OCR2Abstract.sol";
+import {ConfirmedOwner} from "../access/ConfirmedOwner.sol";
+import {OCR2Abstract} from "./OCR2Abstract.sol";
 
 /**
  * @notice Onchain verification of reports from the offchain reporting protocol
@@ -14,6 +14,7 @@ import "./OCR2Abstract.sol";
  * will be folded directly into the application contract. Inheritance prevents us from doing lots
  * of juicy storage layout optimizations, leading to a substantial increase in gas cost.
  */
+// solhint-disable custom-errors
 abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
   error ReportInvalid();
 
@@ -22,8 +23,6 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
   constructor(bool uniqueReports) ConfirmedOwner(msg.sender) {
     i_uniqueReports = uniqueReports;
   }
-
-  uint256 private constant maxUint32 = (1 << 32) - 1;
 
   // Storing these fields used on the hot path in a ConfigInfo variable reduces the
   // retrieval of all of them to a single SLOAD. If any further fields are
@@ -159,7 +158,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     s_latestConfigBlockNumber = uint32(block.number);
     s_configCount += 1;
     {
-      s_configInfo.latestConfigDigest = configDigestFromConfigData(
+      s_configInfo.latestConfigDigest = _configDigestFromConfigData(
         block.chainid,
         address(this),
         s_configCount,
@@ -188,7 +187,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
     _afterSetConfig(args.f, args.onchainConfig);
   }
 
-  function configDigestFromConfigData(
+  function _configDigestFromConfigData(
     uint256 _chainId,
     address _contractAddress,
     uint64 _configCount,
@@ -290,7 +289,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       32 + // word containing length of ss
       0; // placeholder
 
-  function requireExpectedMsgDataLength(
+  function _requireExpectedMsgDataLength(
     bytes calldata report,
     bytes32[] calldata rs,
     bytes32[] calldata ss
@@ -341,7 +340,7 @@ abstract contract OCR2Base is ConfirmedOwner, OCR2Abstract {
       ConfigInfo memory configInfo = s_configInfo;
       require(configInfo.latestConfigDigest == configDigest, "configDigest mismatch");
 
-      requireExpectedMsgDataLength(report, rs, ss);
+      _requireExpectedMsgDataLength(report, rs, ss);
 
       uint256 expectedNumSignatures;
       if (i_uniqueReports) {
