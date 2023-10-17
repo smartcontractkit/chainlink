@@ -30,11 +30,10 @@ import {IVRFV2PlusWrapper} from "./interfaces/IVRFV2PlusWrapper.sol";
  */
 abstract contract VRFV2PlusWrapperConsumerBase {
   error LINKAlreadySet();
+  error OnlyVRFWrapperCanFulfill(address have, address want);
 
-  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
-  LinkTokenInterface internal LINK;
-  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
-  IVRFV2PlusWrapper internal VRF_V2_PLUS_WRAPPER;
+  LinkTokenInterface internal s_linkToken;
+  IVRFV2PlusWrapper public immutable i_vrfV2PlusWrapper;
 
   /**
    * @param _link is the address of LinkToken
@@ -42,10 +41,10 @@ abstract contract VRFV2PlusWrapperConsumerBase {
    */
   constructor(address _link, address _vrfV2PlusWrapper) {
     if (_link != address(0)) {
-      LINK = LinkTokenInterface(_link);
+      s_linkToken = LinkTokenInterface(_link);
     }
 
-    VRF_V2_PLUS_WRAPPER = IVRFV2PlusWrapper(_vrfV2PlusWrapper);
+    i_vrfV2PlusWrapper = IVRFV2PlusWrapper(_vrfV2PlusWrapper);
   }
 
   /**
@@ -53,11 +52,11 @@ abstract contract VRFV2PlusWrapperConsumerBase {
    * @param _link is the address of the new LINK token contract
    */
   function setLinkToken(address _link) external {
-    if (address(LINK) != address(0)) {
+    if (address(s_linkToken) != address(0)) {
       revert LINKAlreadySet();
     }
 
-    LINK = LinkTokenInterface(_link);
+    s_linkToken = LinkTokenInterface(_link);
   }
 
   /**
@@ -79,12 +78,12 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     uint32 _numWords,
     bytes memory extraArgs
   ) internal returns (uint256 requestId) {
-    LINK.transferAndCall(
-      address(VRF_V2_PLUS_WRAPPER),
-      VRF_V2_PLUS_WRAPPER.calculateRequestPrice(_callbackGasLimit),
+    s_linkToken.transferAndCall(
+      address(i_vrfV2PlusWrapper),
+      i_vrfV2PlusWrapper.calculateRequestPrice(_callbackGasLimit),
       abi.encode(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs)
     );
-    return VRF_V2_PLUS_WRAPPER.lastRequestId();
+    return i_vrfV2PlusWrapper.lastRequestId();
   }
 
   // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
@@ -94,9 +93,9 @@ abstract contract VRFV2PlusWrapperConsumerBase {
     uint32 _numWords,
     bytes memory extraArgs
   ) internal returns (uint256 requestId) {
-    uint256 requestPrice = VRF_V2_PLUS_WRAPPER.calculateRequestPriceNative(_callbackGasLimit);
+    uint256 requestPrice = i_vrfV2PlusWrapper.calculateRequestPriceNative(_callbackGasLimit);
     return
-      VRF_V2_PLUS_WRAPPER.requestRandomWordsInNative{value: requestPrice}(
+      i_vrfV2PlusWrapper.requestRandomWordsInNative{value: requestPrice}(
         _callbackGasLimit,
         _requestConfirmations,
         _numWords,
@@ -115,8 +114,20 @@ abstract contract VRFV2PlusWrapperConsumerBase {
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal virtual;
 
   function rawFulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) external {
-    // solhint-disable-next-line custom-errors
-    require(msg.sender == address(VRF_V2_PLUS_WRAPPER), "only VRF V2 Plus wrapper can fulfill");
+    address vrfWrapperAddr = address(i_vrfV2PlusWrapper);
+    if (msg.sender != vrfWrapperAddr) {
+      revert OnlyVRFWrapperCanFulfill(msg.sender, vrfWrapperAddr);
+    }
     fulfillRandomWords(_requestId, _randomWords);
+  }
+
+  /// @notice getBalance returns the native balance of the consumer contract
+  function getBalance() public view returns (uint256) {
+    return address(this).balance;
+  }
+
+  /// @notice getLinkToken returns the link token contract
+  function getLinkToken() public view returns (LinkTokenInterface) {
+    return s_linkToken;
   }
 }
