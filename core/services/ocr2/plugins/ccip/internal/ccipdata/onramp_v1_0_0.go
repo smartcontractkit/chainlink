@@ -133,6 +133,7 @@ func NewOnRampV1_0_0(lggr logger.Logger, sourceSelector, destSelector uint64, on
 		lggr:         lggr,
 		address:      onRampAddress,
 		onRamp:       onRamp,
+		client:       source,
 		lp:           sourceLP,
 		finalityTags: finalityTags,
 		leafHasher:   NewLeafHasherV1_0_0(sourceSelector, destSelector, onRampAddress, hashlib.NewKeccakCtx(), onRamp),
