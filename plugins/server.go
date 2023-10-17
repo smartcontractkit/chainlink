@@ -49,18 +49,9 @@ type Server struct {
 }
 
 func newServer(loggerName string) (*Server, error) {
-	envCfg, err := GetEnvConfig()
-	if err != nil {
-		return nil, fmt.Errorf("error getting environment configuration: %w", err)
-	}
 	s := &Server{
 		// default prometheus.Registerer
-		GRPCOpts: loop.SetupTelemetry(nil, loop.TracingConfig{
-			Enabled: envCfg.TracingEnabled(),
-			CollectorTarget: envCfg.TracingCollectorTarget(),
-			NodeAttributes: envCfg.TracingAttributes(),
-			SamplingRatio: envCfg.TracingSamplingRatio(),
-		}),
+		GRPCOpts: loop.NewGRPCOpts(nil),
 	}
 
 	lggr, err := loop.NewLogger()
@@ -77,6 +68,18 @@ func (s *Server) start() error {
 	if err != nil {
 		return fmt.Errorf("error getting environment configuration: %w", err)
 	}
+
+	err = loop.SetupTracing(loop.TracingConfig{
+		Enabled:         envCfg.TracingEnabled(),
+		CollectorTarget: envCfg.TracingCollectorTarget(),
+		NodeAttributes:  envCfg.TracingAttributes(),
+		SamplingRatio:   envCfg.TracingSamplingRatio(),
+	})
+	if err != nil {
+		// non blocking to server start
+		s.lggr.Errorf("Failed to setup tracing: %s", err)
+	}
+
 	s.PromServer = NewPromServer(envCfg.PrometheusPort(), s.Logger)
 	err = s.PromServer.Start()
 	if err != nil {

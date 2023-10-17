@@ -221,7 +221,7 @@ SamplingRatio = 1.0
 
 [Tracing.Attributes]
 test = 'load'
-user = 'chainlink-user'
+env = 'dev'
 
 [[EVM]]
 ChainID = '1'

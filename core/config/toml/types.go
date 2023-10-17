@@ -1308,8 +1308,8 @@ type Tracing struct {
 	Enabled         *bool
 	CollectorTarget *string
 	NodeID          *string
-	Attributes      *map[string]string
 	SamplingRatio   *float64
+	Attributes      *map[string]string `toml:",omitempty"`
 }
 
 func (t *Tracing) setFrom(f *Tracing) {

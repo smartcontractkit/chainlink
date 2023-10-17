@@ -230,7 +230,7 @@ func TestConfig_Marshal(t *testing.T) {
 				NodeID:          ptr("clc-ocr-sol-devnet-node-1"),
 				Attributes: &map[string]string{
 					"test": "load",
-					"user": "chainlink-user",
+					"env":  "dev",
 				},
 				SamplingRatio: ptr(1.0),
 			},
@@ -672,7 +672,7 @@ SamplingRatio = 1.0
 
 [Tracing.Attributes]
 test = 'load'
-user = 'chainlink-user'
+env = 'dev'
 `},
 		{"AuditLogger", Config{Core: toml.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
 Enabled = true

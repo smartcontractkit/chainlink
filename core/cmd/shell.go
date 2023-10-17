@@ -61,15 +61,17 @@ var (
 )
 
 func initGlobals(cfgProm config.Prometheus, cfgTracing config.Tracing) {
-	// Avoid double initializations, but does not prevent SetupTelemetry from being called multiple times.
+	// Avoid double initializations, but does not prevent relay methods from being called multiple times.
 	initGlobalsOnce.Do(func() {
 		prometheus = ginprom.New(ginprom.Namespace("service"), ginprom.Token(cfgProm.AuthToken()))
-		grpcOpts = loop.SetupTelemetry(nil, loop.TracingConfig{
+		grpcOpts = loop.NewGRPCOpts(nil) // default prometheus.Registerer
+		err := loop.SetupTracing(loop.TracingConfig{
 			Enabled:         cfgTracing.Enabled(),
 			CollectorTarget: cfgTracing.CollectorTarget(),
 			NodeAttributes:  cfgTracing.Attributes(),
-			SamplingRatio: cfgTracing.SamplingRatio(),
-		}) // default prometheus.Registerer
+			SamplingRatio:   cfgTracing.SamplingRatio(),
+		})
+		fmt.Printf("Failed tracing setup %v", err)
 	})
 }
 
