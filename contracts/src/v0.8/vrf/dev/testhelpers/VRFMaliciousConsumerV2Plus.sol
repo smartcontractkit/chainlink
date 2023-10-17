@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
-import {IVRFCoordinatorV2Plus} from "../interfaces/IVRFCoordinatorV2Plus.sol";
 import {VRFConsumerBaseV2Plus} from "../VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 
@@ -10,15 +9,12 @@ contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2Plus {
   uint256[] public s_randomWords;
   uint256 public s_requestId;
   // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
-  IVRFCoordinatorV2Plus internal COORDINATOR;
-  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
   LinkTokenInterface internal LINKTOKEN;
   uint256 public s_gasAvailable;
   uint256 internal s_subId;
   bytes32 internal s_keyHash;
 
   constructor(address vrfCoordinator, address link) VRFConsumerBaseV2Plus(vrfCoordinator) {
-    COORDINATOR = IVRFCoordinatorV2Plus(vrfCoordinator);
     LINKTOKEN = LinkTokenInterface(link);
   }
 
@@ -36,23 +32,23 @@ contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2Plus {
       extraArgs: "" // empty extraArgs defaults to link payment
     });
     // Should revert
-    COORDINATOR.requestRandomWords(req);
+    s_vrfCoordinator.requestRandomWords(req);
   }
 
   function createSubscriptionAndFund(uint96 amount) external {
     if (s_subId == 0) {
-      s_subId = COORDINATOR.createSubscription();
-      COORDINATOR.addConsumer(s_subId, address(this));
+      s_subId = s_vrfCoordinator.createSubscription();
+      s_vrfCoordinator.addConsumer(s_subId, address(this));
     }
     // Approve the link transfer.
-    LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_subId));
+    LINKTOKEN.transferAndCall(address(s_vrfCoordinator), amount, abi.encode(s_subId));
   }
 
   function updateSubscription(address[] memory consumers) external {
     // solhint-disable-next-line custom-errors
     require(s_subId != 0, "subID not set");
     for (uint256 i = 0; i < consumers.length; i++) {
-      COORDINATOR.addConsumer(s_subId, consumers[i]);
+      s_vrfCoordinator.addConsumer(s_subId, consumers[i]);
     }
   }
 
@@ -66,6 +62,6 @@ contract VRFMaliciousConsumerV2Plus is VRFConsumerBaseV2Plus {
       numWords: 1,
       extraArgs: "" // empty extraArgs defaults to link payment
     });
-    return COORDINATOR.requestRandomWords(req);
+    return s_vrfCoordinator.requestRandomWords(req);
   }
 }
