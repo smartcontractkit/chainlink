@@ -210,8 +210,12 @@ abstract contract FunctionsBilling is Routable, IFunctionsBilling {
         request.requestingContract,
         request.subscriptionId,
         request.initiatedRequests + 1,
+        request.data,
+        request.dataVersion,
+        request.callbackGasLimit,
         estimatedTotalCostJuels,
-        timeoutTimestamp
+        timeoutTimestamp,
+        tx.origin
       )
     );
 
