@@ -32,7 +32,7 @@ func setupEVMForwardersControllerTest(t *testing.T, overrideFn func(c *chainlink
 	app := cltest.NewApplicationWithConfig(t, configtest.NewGeneralConfig(t, overrideFn))
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	return &TestEVMForwardersController{
 		app:    app,

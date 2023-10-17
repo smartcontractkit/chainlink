@@ -19,7 +19,7 @@ library SCALibrary {
     uint256 topupAmount;
   }
 
-  function getUserOpFullHash(bytes32 userOpHash, address scaAddress) internal view returns (bytes32 fullHash) {
+  function _getUserOpFullHash(bytes32 userOpHash, address scaAddress) internal view returns (bytes32 fullHash) {
     bytes32 hashOfEncoding = keccak256(abi.encode(SCALibrary.TYPEHASH, userOpHash));
     fullHash = keccak256(
       abi.encodePacked(
@@ -33,7 +33,7 @@ library SCALibrary {
     );
   }
 
-  function recoverSignature(bytes memory signature, bytes32 fullHash) internal pure returns (address) {
+  function _recoverSignature(bytes memory signature, bytes32 fullHash) internal pure returns (address) {
     bytes32 r;
     bytes32 s;
     assembly {

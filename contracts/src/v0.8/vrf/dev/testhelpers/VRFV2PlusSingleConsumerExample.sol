@@ -3,14 +3,11 @@
 pragma solidity ^0.8.0;
 
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
-import {IVRFCoordinatorV2Plus} from "../interfaces/IVRFCoordinatorV2Plus.sol";
 import {VRFConsumerBaseV2Plus} from "../VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 
 /// @notice This contract is used for testing only and should not be used for production.
 contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
-  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
-  IVRFCoordinatorV2Plus internal COORDINATOR;
   // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
   LinkTokenInterface internal LINKTOKEN;
 
@@ -36,7 +33,6 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
     bytes32 keyHash,
     bool nativePayment
   ) VRFConsumerBaseV2Plus(vrfCoordinator) {
-    COORDINATOR = IVRFCoordinatorV2Plus(vrfCoordinator);
     LINKTOKEN = LinkTokenInterface(link);
     s_owner = msg.sender;
     s_requestConfig = RequestConfig({
@@ -69,7 +65,7 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
       extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: rc.nativePayment}))
     });
     // Will revert if subscription is not set and funded.
-    s_requestId = COORDINATOR.requestRandomWords(req);
+    s_requestId = s_vrfCoordinator.requestRandomWords(req);
   }
 
   // Assumes this contract owns link
@@ -78,7 +74,7 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
   // with different link costs).
   function fundAndRequestRandomWords(uint256 amount) external onlyOwner {
     RequestConfig memory rc = s_requestConfig;
-    LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_requestConfig.subId));
+    LINKTOKEN.transferAndCall(address(s_vrfCoordinator), amount, abi.encode(s_requestConfig.subId));
     VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
       keyHash: rc.keyHash,
       subId: rc.subId,
@@ -88,12 +84,12 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
       extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: rc.nativePayment}))
     });
     // Will revert if subscription is not set and funded.
-    s_requestId = COORDINATOR.requestRandomWords(req);
+    s_requestId = s_vrfCoordinator.requestRandomWords(req);
   }
 
   // Assumes this contract owns link
   function topUpSubscription(uint256 amount) external onlyOwner {
-    LINKTOKEN.transferAndCall(address(COORDINATOR), amount, abi.encode(s_requestConfig.subId));
+    LINKTOKEN.transferAndCall(address(s_vrfCoordinator), amount, abi.encode(s_requestConfig.subId));
   }
 
   function withdraw(uint256 amount, address to) external onlyOwner {
@@ -102,7 +98,7 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
 
   function unsubscribe(address to) external onlyOwner {
     // Returns funds to this address
-    COORDINATOR.cancelSubscription(s_requestConfig.subId, to);
+    s_vrfCoordinator.cancelSubscription(s_requestConfig.subId, to);
     s_requestConfig.subId = 0;
   }
 
@@ -112,7 +108,7 @@ contract VRFV2PlusSingleConsumerExample is VRFConsumerBaseV2Plus {
     // Create a subscription, current subId
     address[] memory consumers = new address[](1);
     consumers[0] = address(this);
-    s_requestConfig.subId = COORDINATOR.createSubscription();
-    COORDINATOR.addConsumer(s_requestConfig.subId, consumers[0]);
+    s_requestConfig.subId = s_vrfCoordinator.createSubscription();
+    s_vrfCoordinator.addConsumer(s_requestConfig.subId, consumers[0]);
   }
 }
