@@ -58,7 +58,8 @@ function multiForward(address[] calldata tos, bytes[] calldata datas) external v
     for (uint256 i = 0; i < tos.length; i++) {
         address to = tos[i];
         bytes calldata data = datas[i];
-        
+        require(to != getChainlinkToken, "Cannot forward to Link token");
+
         // Perform the forward operation
         _forward(to, data);
     }

@@ -314,6 +314,270 @@ describe('AuthorizedForwarder', () => {
     })
   })
 
+  describe('#multiForward', () => {
+    let bytes: string
+    let payload: string
+    let mock: Contract
+
+    beforeEach(async () => {
+      mock = await getterSetterFactory.connect(roles.defaultAccount).deploy()
+      bytes = ethers.utils.hexlify(ethers.utils.randomBytes(100))
+      payload = getterSetterFactory.interface.encodeFunctionData(
+        getterSetterFactory.interface.getFunction('setBytes'),
+        [bytes],
+      )
+    })
+
+    describe('when called by an unauthorized node', () => {
+      it('reverts', async () => {
+        await evmRevert(
+          forwarder.connect(roles.stranger).multiForward([mock.address], [payload]),
+        )
+      })
+    })
+
+    describe('when it receives a single call by an authorized node', () => {
+      beforeEach(async () => {
+        await forwarder
+          .connect(roles.defaultAccount)
+          .setAuthorizedSenders([await roles.defaultAccount.getAddress()])
+      })
+
+      describe('when destination call reverts', () => {
+        let brokenMock: Contract
+        let brokenPayload: string
+        let brokenMsgPayload: string
+
+        beforeEach(async () => {
+          brokenMock = await brokenFactory
+            .connect(roles.defaultAccount)
+            .deploy()
+          brokenMsgPayload = brokenFactory.interface.encodeFunctionData(
+            brokenFactory.interface.getFunction('revertWithMessage'),
+            ['Failure message'],
+          )
+
+          brokenPayload = brokenFactory.interface.encodeFunctionData(
+            brokenFactory.interface.getFunction('revertSilently'),
+            [],
+          )
+        })
+
+        describe('when reverts with message', () => {
+          it('return revert message', async () => {
+            await evmRevert(
+              forwarder
+                .connect(roles.defaultAccount)
+                .multiForward([brokenMock.address], [brokenMsgPayload]),
+              "reverted with reason string 'Failure message'",
+            )
+          })
+        })
+
+        describe('when reverts without message', () => {
+          it('return silent failure message', async () => {
+            await evmRevert(
+              forwarder
+                .connect(roles.defaultAccount)
+                .multiForward([brokenMock.address], [brokenPayload]),
+              'Forwarded call reverted without reason',
+            )
+          })
+        })
+      })
+
+      describe('when sending to a non-contract address', () => {
+        it('reverts', async () => {
+          await evmRevert(
+            forwarder
+              .connect(roles.defaultAccount)
+              .multiForward([zeroAddress], [payload]),
+            'Must forward to a contract',
+          )
+        })
+      })
+
+      describe('when attempting to forward to the link token', () => {
+        it('reverts', async () => {
+          const sighash = linkTokenFactory.interface.getSighash('name') // any Link Token function
+          await evmRevert(
+            forwarder
+              .connect(roles.defaultAccount)
+              .multiForward([link.address], [sighash]),
+          )
+        })
+      })
+
+      describe('when forwarding to any other address', () => {
+        it('forwards the data', async () => {
+          const tx = await forwarder
+            .connect(roles.defaultAccount)
+            .multiForward([mock.address], [payload])
+          await tx.wait()
+          assert.equal(await mock.getBytes(), bytes)
+        })
+
+        it('perceives the message is sent by the AuthorizedForwarder', async () => {
+          const tx = await forwarder
+            .connect(roles.defaultAccount)
+            .multiForward([mock.address], [payload])
+          await expect(tx)
+            .to.emit(mock, 'SetBytes')
+            .withArgs(forwarder.address, bytes)
+        })
+      })
+    })
+
+    describe('when its called by an authorized node', () => {
+      beforeEach(async () => {
+        await forwarder
+          .connect(roles.defaultAccount)
+          .setAuthorizedSenders([await roles.defaultAccount.getAddress()])
+      })
+
+      describe('when 1/1 calls reverts', () => {
+        let brokenMock: Contract
+        let brokenPayload: string
+        let brokenMsgPayload: string
+
+        beforeEach(async () => {
+          brokenMock = await brokenFactory
+            .connect(roles.defaultAccount)
+            .deploy()
+          brokenMsgPayload = brokenFactory.interface.encodeFunctionData(
+            brokenFactory.interface.getFunction('revertWithMessage'),
+            ['Failure message'],
+          )
+
+          brokenPayload = brokenFactory.interface.encodeFunctionData(
+            brokenFactory.interface.getFunction('revertSilently'),
+            [],
+          )
+        })
+
+        describe('when reverts with message', () => {
+          it('return revert message', async () => {
+            await evmRevert(
+              forwarder
+                .connect(roles.defaultAccount)
+                .multiForward([brokenMock.address], [brokenMsgPayload]),
+              "reverted with reason string 'Failure message'",
+            )
+          })
+        })
+
+        describe('when reverts without message', () => {
+          it('return silent failure message', async () => {
+            await evmRevert(
+              forwarder
+                .connect(roles.defaultAccount)
+                .multiForward([brokenMock.address], [brokenPayload]),
+              'Forwarded call reverted without reason',
+            )
+          })
+        })
+      })
+
+      describe('when 1/many calls revert', () => {
+        let brokenMock: Contract
+        let brokenPayload: string
+        let brokenMsgPayload: string
+
+        beforeEach(async () => {
+          brokenMock = await brokenFactory
+            .connect(roles.defaultAccount)
+            .deploy()
+          brokenMsgPayload = brokenFactory.interface.encodeFunctionData(
+            brokenFactory.interface.getFunction('revertWithMessage'),
+            ['Failure message'],
+          )
+
+          brokenPayload = brokenFactory.interface.encodeFunctionData(
+            brokenFactory.interface.getFunction('revertSilently'),
+            [],
+          )
+        })
+
+        describe('when reverts with message', () => {
+          it('return revert message', async () => {
+            await evmRevert(
+              forwarder
+                .connect(roles.defaultAccount)
+                .multiForward([brokenMock.address, mock.address], [brokenMsgPayload, payload]),
+              "reverted with reason string 'Failure message'",
+            )
+
+                        await evmRevert(
+              forwarder
+                .connect(roles.defaultAccount)
+                .multiForward([mock.address, brokenMock.address], [payload, brokenMsgPayload]),
+              "reverted with reason string 'Failure message'",
+            )
+          })
+        })
+
+        describe('when reverts without message', () => {
+          it('return silent failure message', async () => {
+            await evmRevert( // first
+              forwarder
+                .connect(roles.defaultAccount)
+                .multiForward([brokenMock.address, mock.address], [brokenPayload, payload]),
+              'Forwarded call reverted without reason',
+            )
+
+            await evmRevert(
+            forwarder
+              .connect(roles.defaultAccount)
+              .multiForward([mock.address, brokenMock.address,], [payload, brokenPayload]),
+            'Forwarded call reverted without reason',
+          )
+          })
+        })
+      })
+
+      describe('when sending to a non-contract address', () => {
+        it('reverts', async () => {
+          await evmRevert(
+            forwarder
+              .connect(roles.defaultAccount)
+              .multiForward([zeroAddress], [payload]),
+            'Must forward to a contract',
+          )
+        })
+      })
+
+      describe('when attempting to forward to the link token', () => {
+        it('reverts', async () => {
+          const sighash = linkTokenFactory.interface.getSighash('name') // any Link Token function
+          await evmRevert(
+            forwarder
+              .connect(roles.defaultAccount)
+              .multiForward([link.address], [sighash]),
+          )
+        })
+      })
+
+      describe('when forwarding to any other address', () => {
+        it('forwards the data', async () => {
+          const tx = await forwarder
+            .connect(roles.defaultAccount)
+            .multiForward([mock.address], [payload])
+          await tx.wait()
+          assert.equal(await mock.getBytes(), bytes)
+        })
+
+        it('perceives the message is sent by the AuthorizedForwarder', async () => {
+          const tx = await forwarder
+            .connect(roles.defaultAccount)
+            .multiForward([mock.address], [payload])
+          await expect(tx)
+            .to.emit(mock, 'SetBytes')
+            .withArgs(forwarder.address, bytes)
+        })
+      })
+    })
+  })
+
   describe('#transferOwnershipWithMessage', () => {
     const message = '0x42'
 
