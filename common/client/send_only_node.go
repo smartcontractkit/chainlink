@@ -6,12 +6,13 @@ import (
 	"net/url"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/v2/common/chains/client"
 	"github.com/smartcontractkit/chainlink/v2/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-type SendOnlyClient[
+type sendOnlyClient[
 	CHAIN_ID types.ID,
 ] interface {
 	Close()
@@ -22,7 +23,7 @@ type SendOnlyClient[
 // SendOnlyNode represents one node used as a sendonly
 type SendOnlyNode[
 	CHAIN_ID types.ID,
-	RPC SendOnlyClient[CHAIN_ID],
+	RPC sendOnlyClient[CHAIN_ID],
 ] interface {
 	// Start may attempt to connect to the node, but should only return error for misconfiguration - never for temporary errors.
 	Start(context.Context) error
@@ -42,7 +43,7 @@ type SendOnlyNode[
 // It must use an http(s) url
 type sendOnlyNode[
 	CHAIN_ID types.ID,
-	RPC SendOnlyClient[CHAIN_ID],
+	RPC sendOnlyClient[CHAIN_ID],
 ] struct {
 	utils.StartStopOnce
 
@@ -61,7 +62,7 @@ type sendOnlyNode[
 // NewSendOnlyNode returns a new sendonly node
 func NewSendOnlyNode[
 	CHAIN_ID types.ID,
-	RPC SendOnlyClient[CHAIN_ID],
+	RPC sendOnlyClient[CHAIN_ID],
 ](
 	lggr logger.Logger,
 	httpuri url.URL,
@@ -156,7 +157,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) RPC() RPC {
 }
 
 func (s *sendOnlyNode[CHAIN_ID, RPC]) String() string {
-	return fmt.Sprintf("(secondary)%s:%s", s.name, s.uri.Redacted())
+	return fmt.Sprintf("(%s)%s:%s", client.Secondary.String(), s.name, s.uri.Redacted())
 }
 
 func (s *sendOnlyNode[CHAIN_ID, RPC]) setState(state nodeState) (changed bool) {

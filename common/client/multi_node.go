@@ -314,11 +314,11 @@ func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OP
 		}
 	}
 
+	c.activeMu.Lock()
 	if bestNode != c.activeNode {
-		c.activeMu.Lock()
 		c.activeNode = bestNode
-		c.activeMu.Unlock()
 	}
+	c.activeMu.Unlock()
 }
 
 func (c *multiNode[CHAIN_ID, SEQ, ADDR, BLOCK_HASH, TX, TX_HASH, EVENT, EVENT_OPS, TX_RECEIPT, FEE, HEAD, RPC_CLIENT]) checkLeaseLoop() {
