@@ -28,6 +28,8 @@ import (
 func TestOCRZKSync(t *testing.T) {
 	l := logging.GetTestLogger(t)
 
+	_, insideRunner := os.LookupEnv("INSIDE_REMOTE_RUNNER")
+
 	l1RpcUrl, isSet := os.LookupEnv("L1_RPC_URL")
 	require.Equal(t, isSet, true, "L1_RPC_URL should be defined")
 
@@ -45,8 +47,10 @@ func TestOCRZKSync(t *testing.T) {
 	require.NoError(t, err)
 
 	fmt.Println(pl)
-	_, _, _, err = testEnvironment.Client.CopyToPod(testEnvironment.Cfg.Namespace, gauntletBinary, fmt.Sprintf("%s/%s:/gauntlet-evm-zksync-linux-x64", testEnvironment.Cfg.Namespace, pl.Items[0].Name), "remote-test-runner-node")
-	require.NoError(t, err, "Error uploading to pod")
+	if !insideRunner {
+		_, _, _, err = testEnvironment.Client.CopyToPod(testEnvironment.Cfg.Namespace, gauntletBinary, fmt.Sprintf("%s/%s:/gauntlet-evm-zksync-linux-x64", testEnvironment.Cfg.Namespace, pl.Items[0].Name), "remote-test-runner-node")
+		require.NoError(t, err, "Error uploading to pod")
+	}
 
 	if testEnvironment.WillUseRemoteRunner() {
 		return
