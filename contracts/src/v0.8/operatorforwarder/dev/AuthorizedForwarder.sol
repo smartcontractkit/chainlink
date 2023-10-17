@@ -6,7 +6,6 @@ import "../../shared/access/ConfirmedOwnerWithProposal.sol";
 import "./AuthorizedReceiver.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 
-
 contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
   using Address for address;
 
@@ -47,24 +46,23 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
   }
 
   /**
- * @notice Forward multiple calls to other contracts in a multicall style
- * @dev Only callable by an authorized sender
- * @param tos An array of addresses to forward the calls to
- * @param datas An array of data to forward to each corresponding address
- */
-function multiForward(address[] calldata tos, bytes[] calldata datas) external validateAuthorizedSender {
+   * @notice Forward multiple calls to other contracts in a multicall style
+   * @dev Only callable by an authorized sender
+   * @param tos An array of addresses to forward the calls to
+   * @param datas An array of data to forward to each corresponding address
+   */
+  function multiForward(address[] calldata tos, bytes[] calldata datas) external validateAuthorizedSender {
     require(tos.length == datas.length, "Arrays must have the same length");
-    
+
     for (uint256 i = 0; i < tos.length; i++) {
-        address to = tos[i];
-        bytes calldata data = datas[i];
-        require(to != getChainlinkToken, "Cannot forward to Link token");
+      address to = tos[i];
+      bytes calldata data = datas[i];
+      require(to != getChainlinkToken, "Cannot forward to Link token");
 
-        // Perform the forward operation
-        _forward(to, data);
+      // Perform the forward operation
+      _forward(to, data);
     }
-}
-
+  }
 
   /**
    * @notice Forward a call to another contract

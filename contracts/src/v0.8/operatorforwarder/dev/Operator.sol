@@ -12,7 +12,6 @@ import "../../dev/shared/interfaces/WithdrawalInterface.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import {SafeCast} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/SafeCast.sol";
 
-
 /**
  * @title The Chainlink Operator contract
  * @notice Node operators can deploy this contract to fulfill requests sent to them
@@ -260,10 +259,10 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
    * @param targets The addresses to set permissions on
    * @param senders The addresses that are allowed to send updates
    */
-  function setAuthorizedSendersOn(address[] calldata targets, address[] calldata senders)
-    public
-    validateAuthorizedSenderSetter
-  {
+  function setAuthorizedSendersOn(
+    address[] calldata targets,
+    address[] calldata senders
+  ) public validateAuthorizedSenderSetter {
     emit TargetsUpdatedAuthorizedSenders(targets, senders, msg.sender);
 
     for (uint256 i = 0; i < targets.length; i++) {
@@ -279,10 +278,10 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
    * @param targets The addresses to set permissions on
    * @param senders The addresses that are allowed to send updates
    */
-  function acceptAuthorizedReceivers(address[] calldata targets, address[] calldata senders)
-    external
-    validateAuthorizedSenderSetter
-  {
+  function acceptAuthorizedReceivers(
+    address[] calldata targets,
+    address[] calldata senders
+  ) external validateAuthorizedSenderSetter {
     acceptOwnableContracts(targets);
     setAuthorizedSendersOn(targets, senders);
   }
@@ -293,12 +292,10 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
    * @param recipient The address to send the LINK token to
    * @param amount The amount to send (specified in wei)
    */
-  function withdraw(address recipient, uint256 amount)
-    external
-    override(OracleInterface, WithdrawalInterface)
-    onlyOwner
-    validateAvailableFunds(amount)
-  {
+  function withdraw(
+    address recipient,
+    uint256 amount
+  ) external override(OracleInterface, WithdrawalInterface) onlyOwner validateAvailableFunds(amount) {
     assert(linkToken.transfer(recipient, amount));
   }
 

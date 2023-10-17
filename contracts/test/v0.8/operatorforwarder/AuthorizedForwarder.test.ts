@@ -331,7 +331,9 @@ describe('AuthorizedForwarder', () => {
     describe('when called by an unauthorized node', () => {
       it('reverts', async () => {
         await evmRevert(
-          forwarder.connect(roles.stranger).multiForward([mock.address], [payload]),
+          forwarder
+            .connect(roles.stranger)
+            .multiForward([mock.address], [payload]),
         )
       })
     })
@@ -503,14 +505,20 @@ describe('AuthorizedForwarder', () => {
             await evmRevert(
               forwarder
                 .connect(roles.defaultAccount)
-                .multiForward([brokenMock.address, mock.address], [brokenMsgPayload, payload]),
+                .multiForward(
+                  [brokenMock.address, mock.address],
+                  [brokenMsgPayload, payload],
+                ),
               "reverted with reason string 'Failure message'",
             )
 
-                        await evmRevert(
+            await evmRevert(
               forwarder
                 .connect(roles.defaultAccount)
-                .multiForward([mock.address, brokenMock.address], [payload, brokenMsgPayload]),
+                .multiForward(
+                  [mock.address, brokenMock.address],
+                  [payload, brokenMsgPayload],
+                ),
               "reverted with reason string 'Failure message'",
             )
           })
@@ -518,19 +526,26 @@ describe('AuthorizedForwarder', () => {
 
         describe('when reverts without message', () => {
           it('return silent failure message', async () => {
-            await evmRevert( // first
+            await evmRevert(
+              // first
               forwarder
                 .connect(roles.defaultAccount)
-                .multiForward([brokenMock.address, mock.address], [brokenPayload, payload]),
+                .multiForward(
+                  [brokenMock.address, mock.address],
+                  [brokenPayload, payload],
+                ),
               'Forwarded call reverted without reason',
             )
 
             await evmRevert(
-            forwarder
-              .connect(roles.defaultAccount)
-              .multiForward([mock.address, brokenMock.address,], [payload, brokenPayload]),
-            'Forwarded call reverted without reason',
-          )
+              forwarder
+                .connect(roles.defaultAccount)
+                .multiForward(
+                  [mock.address, brokenMock.address],
+                  [payload, brokenPayload],
+                ),
+              'Forwarded call reverted without reason',
+            )
           })
         })
       })
