@@ -5,7 +5,6 @@ import {VRFV2PlusWrapperConsumerBase} from "../VRFV2PlusWrapperConsumerBase.sol"
 import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
 import {ChainSpecificUtil} from "../../../ChainSpecificUtil.sol";
 import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
-import {IVRFV2PlusWrapper} from "../interfaces/IVRFV2PlusWrapper.sol";
 
 contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, ConfirmedOwner {
   uint256 public s_responseCount;
