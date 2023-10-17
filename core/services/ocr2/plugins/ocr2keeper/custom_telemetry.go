@@ -5,49 +5,38 @@ import (
 	"encoding/hex"
 	"time"
 
-	"cosmossdk.io/errors"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/commontypes"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/protobuf/proto"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 )
 
 type AutomationCustomTelemetryService struct {
 	utils.StartStopOnce
-	monitoringEndpoint commontypes.MonitoringEndpoint
-	blockSubscriber    *evm21.BlockSubscriber
-	blockSubChanID     int
-	threadCtrl         utils.ThreadControl
-	lggr               logger.Logger
-	configDigest       [32]byte
-	latestConfigDigest latestConfigDigestGetter
-}
-
-type latestConfigDigestGetter interface {
-	LatestConfigDetails(opts *bind.CallOpts) (keeper_registry_wrapper2_0.LatestConfigDetails, error)
+	monitoringEndpoint    commontypes.MonitoringEndpoint
+	blockSubscriber       *evm21.BlockSubscriber
+	blockSubChanID        int
+	threadCtrl            utils.ThreadControl
+	lggr                  logger.Logger
+	configDigest          [32]byte
+	contractConfigTracker types.ContractConfigTracker
 }
 
 // NewAutomationCustomTelemetryService creates a telemetry service for new blocks and node version
 func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint,
-	lggr logger.Logger, chain evm.Chain, rAddr common.Address, blocksub *evm21.BlockSubscriber) (*AutomationCustomTelemetryService, error) {
-	registry, rErr := keeper_registry_wrapper2_0.NewKeeperRegistry(rAddr, chain.Client())
-	if rErr != nil {
-		return nil, errors.Wrap(rErr, "error creating new Registry Wrapper for customTelemService")
-	}
+	lggr logger.Logger, blocksub *evm21.BlockSubscriber, configTracker types.ContractConfigTracker) (*AutomationCustomTelemetryService, error) {
 	return &AutomationCustomTelemetryService{
-		monitoringEndpoint: me,
-		threadCtrl:         utils.NewThreadControl(),
-		lggr:               lggr.Named("Automation Custom Telem"),
-		latestConfigDigest: registry,
-		blockSubscriber:    blocksub,
+		monitoringEndpoint:    me,
+		threadCtrl:            utils.NewThreadControl(),
+		lggr:                  lggr.Named("AutomationCustomTelem"),
+		contractConfigTracker: configTracker,
+		blockSubscriber:       blocksub,
 	}, nil
 }
 
@@ -55,12 +44,11 @@ func NewAutomationCustomTelemetryService(me commontypes.MonitoringEndpoint,
 func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 	return e.StartOnce("AutomationCustomTelemetryService", func() error {
 		e.lggr.Infof("Starting: Custom Telemetry Service")
-		callOpt := &bind.CallOpts{Context: ctx}
-		configDetails, cdErr0 := e.latestConfigDigest.LatestConfigDetails(callOpt)
-		if cdErr0 != nil {
-			e.lggr.Errorf("Error occurred while getting newestConfigDetails for initialization %v", cdErr0)
+		_, configDetails, err := e.contractConfigTracker.LatestConfigDetails(ctx)
+		if err != nil {
+			e.lggr.Errorf("Error occurred while getting newestConfigDetails for initialization %s", err)
 		} else {
-			e.configDigest = configDetails.ConfigDigest
+			e.configDigest = configDetails
 			e.sendNodeVersionMsg()
 		}
 		e.threadCtrl.Go(func(ctx context.Context) {
@@ -69,13 +57,10 @@ func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 			for {
 				select {
 				case <-ticker.C:
-					callOpt := &bind.CallOpts{Context: ctx}
-					newConfigDetails, cdErr := e.latestConfigDigest.LatestConfigDetails(callOpt)
-					if cdErr != nil {
-						e.lggr.Errorf("Error occurred while getting newestConfigDetails  %v", cdErr)
-						continue
+					_, newConfigDigest, err := e.contractConfigTracker.LatestConfigDetails(ctx)
+					if err != nil {
+						e.lggr.Errorf("Error occurred while getting newestConfigDetails in configDigest loop %s", err)
 					}
-					newConfigDigest := newConfigDetails.ConfigDigest
 					if newConfigDigest != e.configDigest {
 						e.configDigest = newConfigDigest
 						e.sendNodeVersionMsg()
@@ -89,41 +74,26 @@ func (e *AutomationCustomTelemetryService) Start(ctx context.Context) error {
 		chanID, blockSubscriberChan, blockSubErr := e.blockSubscriber.Subscribe()
 		if blockSubErr != nil {
 			e.lggr.Errorf("Block Subscriber Error: Subscribe(): %s", blockSubErr)
-		}
-		e.blockSubChanID = chanID
-		e.threadCtrl.Go(func(ctx context.Context) {
-			e.lggr.Infof("Started: Sending BlockNumber Messages")
-			for {
-				select {
-				case blockHistory := <-blockSubscriberChan:
-					latestBlockKey, err := blockHistory.Latest()
-					if err != nil {
-						e.lggr.Errorf("BlockSubscriber BlockHistory.Latest() failed: %s", err)
-						continue
+
+		} else {
+			e.blockSubChanID = chanID
+			e.threadCtrl.Go(func(ctx context.Context) {
+				e.lggr.Infof("Started: Sending BlockNumber Messages")
+				for {
+					select {
+					case blockHistory := <-blockSubscriberChan:
+						latestBlockKey, err := blockHistory.Latest()
+						if err != nil {
+							e.lggr.Errorf("BlockSubscriber BlockHistory.Latest() failed: %s", err)
+							continue
+						}
+						e.sendBlockNumberMsg(latestBlockKey)
+					case <-ctx.Done():
+						return
 					}
-					blockNumMsg := &telem.BlockNumber{
-						Timestamp:    uint64(time.Now().UTC().UnixMilli()),
-						BlockNumber:  uint64(latestBlockKey.Number),
-						BlockHash:    hex.EncodeToString(latestBlockKey.Hash[:]),
-						ConfigDigest: e.configDigest[:],
-					}
-					wrappedBlockNumMsg := &telem.AutomationTelemWrapper{
-						Msg: &telem.AutomationTelemWrapper_BlockNumber{
-							BlockNumber: blockNumMsg,
-						},
-					}
-					b, err := proto.Marshal(wrappedBlockNumMsg)
-					if err != nil {
-						e.lggr.Errorf("Error occurred while marshalling the Block Num Message %s: %v", wrappedBlockNumMsg.String(), err)
-					} else {
-						e.monitoringEndpoint.SendLog(b)
-						e.lggr.Infof("BlockNumber Message Sent to Endpoint: %d", blockNumMsg.Timestamp)
-					}
-				case <-ctx.Done():
-					return
 				}
-			}
-		})
+			})
+		}
 		return nil
 	})
 }
@@ -157,5 +127,26 @@ func (e *AutomationCustomTelemetryService) sendNodeVersionMsg() {
 	} else {
 		e.monitoringEndpoint.SendLog(bytes)
 		e.lggr.Infof("NodeVersion Message Sent to Endpoint: %d", vMsg.Timestamp)
+	}
+}
+
+func (e *AutomationCustomTelemetryService) sendBlockNumberMsg(blockKey ocr2keepers.BlockKey) {
+	blockNumMsg := &telem.BlockNumber{
+		Timestamp:    uint64(time.Now().UTC().UnixMilli()),
+		BlockNumber:  uint64(blockKey.Number),
+		BlockHash:    hex.EncodeToString(blockKey.Hash[:]),
+		ConfigDigest: e.configDigest[:],
+	}
+	wrappedBlockNumMsg := &telem.AutomationTelemWrapper{
+		Msg: &telem.AutomationTelemWrapper_BlockNumber{
+			BlockNumber: blockNumMsg,
+		},
+	}
+	b, err := proto.Marshal(wrappedBlockNumMsg)
+	if err != nil {
+		e.lggr.Errorf("Error occurred while marshalling the Block Num Message %s: %v", wrappedBlockNumMsg.String(), err)
+	} else {
+		e.monitoringEndpoint.SendLog(b)
+		e.lggr.Infof("BlockNumber Message Sent to Endpoint: %d", blockNumMsg.Timestamp)
 	}
 }

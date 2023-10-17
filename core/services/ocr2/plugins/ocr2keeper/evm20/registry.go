@@ -64,7 +64,6 @@ type Registry interface {
 	GetState(opts *bind.CallOpts) (keeper_registry_wrapper2_0.GetState, error)
 	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
 	ParseLog(log coreTypes.Log) (generated.AbigenLog, error)
-	LatestConfigDetails(opts *bind.CallOpts) (keeper_registry_wrapper2_0.LatestConfigDetails, error)
 }
 
 type LatestBlockGetter interface {

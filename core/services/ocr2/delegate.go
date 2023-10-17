@@ -38,7 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/dkg"
@@ -64,7 +63,6 @@ import (
 	evmmercury "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 
-	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -1015,15 +1013,15 @@ func (d *Delegate) newServicesOCR2Keepers21(
 
 	if cfg.CaptureAutomationCustomTelemetry {
 		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
-		rAddr := ethkey.MustEIP55Address(spec.ContractID).Address()
 		customTelemService, custErr := ocr2keeper.NewAutomationCustomTelemetryService(
 			endpoint,
 			lggr,
-			chain,
-			rAddr,
 			services.BlockSubscriber(),
+			keeperProvider.ContractConfigTracker(),
 		)
 		if custErr != nil {
+			fmt.Errorf("keeper2 services: %w", custErr)
+			errors.Wrap(custErr, "Error when creating AutomationCustomTelemetryService")
 			return nil, custErr
 		}
 		automationServices = append(automationServices, customTelemService)
@@ -1163,23 +1161,6 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		rgstry,
 		logProvider,
 		pluginService,
-	}
-
-	//var services evm.AutomationServices
-	if cfg.CaptureAutomationCustomTelemetry {
-		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
-		rAddr := ethkey.MustEIP55Address(spec.ContractID).Address()
-		customTelemService, custErr := ocr2keeper.NewAutomationCustomTelemetryService(
-			endpoint,
-			lggr,
-			chain,
-			rAddr,
-			evm21.NewBlockSubscriber(chain.HeadBroadcaster(), chain.LogPoller(), lggr),
-		)
-		if custErr != nil {
-			return nil, custErr
-		}
-		automationServices = append(automationServices, customTelemService)
 	}
 
 	return automationServices, nil
