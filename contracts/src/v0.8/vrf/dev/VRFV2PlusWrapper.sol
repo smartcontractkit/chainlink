@@ -185,6 +185,18 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @param _wrapperPremiumPercentage is the premium ratio in percentage for wrapper requests.
    *
    * @param _keyHash to use for requesting randomness.
+   * @param _maxNumWords is the max number of words that can be requested in a single wrapped VRF request
+   * @param _stalenessSeconds is the number of seconds before we consider the feed price to be stale
+   *        and fallback to fallbackWeiPerUnitLink.
+   *
+   * @param _fallbackWeiPerUnitLink is the backup LINK exchange rate used when the LINK/NATIVE feed
+   *        is stale.
+   *
+   * @param _fulfillmentFlatFeeLinkPPM is the flat fee in millionths of LINK that VRFCoordinatorV2Plus
+   *        charges.
+   *
+   * @param _fulfillmentFlatFeeNativePPM is the flat fee in millionths of native that VRFCoordinatorV2Plus
+   *        charges.
    */
   function setConfig(
     uint32 _wrapperGasOverhead,
@@ -192,10 +204,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     uint8 _wrapperPremiumPercentage,
     bytes32 _keyHash,
     uint8 _maxNumWords,
-    uint32 stalenessSeconds,
-    int256 fallbackWeiPerUnitLink,
-    uint32 fulfillmentFlatFeeLinkPPM,
-    uint32 fulfillmentFlatFeeNativePPM
+    uint32 _stalenessSeconds,
+    int256 _fallbackWeiPerUnitLink,
+    uint32 _fulfillmentFlatFeeLinkPPM,
+    uint32 _fulfillmentFlatFeeNativePPM
   ) external onlyOwner {
     s_wrapperGasOverhead = _wrapperGasOverhead;
     s_coordinatorGasOverhead = _coordinatorGasOverhead;
@@ -205,10 +217,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     s_configured = true;
 
     // Get other configuration from coordinator
-    s_stalenessSeconds = stalenessSeconds;
-    s_fallbackWeiPerUnitLink = fallbackWeiPerUnitLink;
-    s_fulfillmentFlatFeeLinkPPM = fulfillmentFlatFeeLinkPPM;
-    s_fulfillmentFlatFeeNativePPM = fulfillmentFlatFeeNativePPM;
+    s_stalenessSeconds = _stalenessSeconds;
+    s_fallbackWeiPerUnitLink = _fallbackWeiPerUnitLink;
+    s_fulfillmentFlatFeeLinkPPM = _fulfillmentFlatFeeLinkPPM;
+    s_fulfillmentFlatFeeNativePPM = _fulfillmentFlatFeeNativePPM;
   }
 
   /**
@@ -221,6 +233,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    *         and fallback to fallbackWeiPerUnitLink.
    *
    * @return fulfillmentFlatFeeLinkPPM is the flat fee in millionths of LINK that VRFCoordinatorV2Plus
+   *         charges.
+   *
+   * @return fulfillmentFlatFeeNativePPM is the flat fee in millionths of native that VRFCoordinatorV2Plus
    *         charges.
    *
    * @return wrapperGasOverhead reflects the gas overhead of the wrapper's fulfillRandomWords
@@ -245,6 +260,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       int256 fallbackWeiPerUnitLink,
       uint32 stalenessSeconds,
       uint32 fulfillmentFlatFeeLinkPPM,
+      uint32 fulfillmentFlatFeeNativePPM,
       uint32 wrapperGasOverhead,
       uint32 coordinatorGasOverhead,
       uint8 wrapperPremiumPercentage,
@@ -256,6 +272,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
       s_fallbackWeiPerUnitLink,
       s_stalenessSeconds,
       s_fulfillmentFlatFeeLinkPPM,
+      s_fulfillmentFlatFeeNativePPM,
       s_wrapperGasOverhead,
       s_coordinatorGasOverhead,
       s_wrapperPremiumPercentage,
