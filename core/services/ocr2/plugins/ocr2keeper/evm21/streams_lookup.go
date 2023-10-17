@@ -132,7 +132,7 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 				checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryAccessNotAllowed)
 				continue
 			}
-		} else if l.FeedParamKey != feedIDs || l.TimeParamKey != timestamp {
+		} else if l.FeedParamKey != feedIDs {
 			// if mercury version cannot be determined, set failure reason
 			lggr.Debugf("at block %d upkeep %s NOT allowed to query Mercury server", block, upkeepId)
 			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
