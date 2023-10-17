@@ -59,8 +59,8 @@ devDependencies:
     specifier: ^7.2.0
     version: 7.2.0(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(ethers@5.7.2)(typechain@8.2.0)(typescript@5.2.2)
   '@typechain/hardhat':
-    specifier: ^4.0.0
-    version: 4.0.0(hardhat@2.18.1)(lodash@4.17.21)(typechain@8.2.0)
+    specifier: ^5.0.0
+    version: 5.0.0(hardhat@2.18.1)(lodash@4.17.21)(typechain@8.2.0)
   '@types/cbor':
     specifier: 5.0.1
     version: 5.0.1
@@ -1645,8 +1645,8 @@ packages:
       typescript: 5.2.2
     dev: true
 
-  /@typechain/hardhat@4.0.0(hardhat@2.18.1)(lodash@4.17.21)(typechain@8.2.0):
-    resolution: {integrity: sha512-SeEKtiHu4Io3LHhE8VV3orJbsj7dwJZX8pzSTv7WQR38P18vOLm2M52GrykVinMpkLK0uVc88ICT58emvfn74w==}
+  /@typechain/hardhat@5.0.0(hardhat@2.18.1)(lodash@4.17.21)(typechain@8.2.0):
+    resolution: {integrity: sha512-Pqk+KdREbU6Uk3en1Z5caQpWt2bKU+KTOi+6dZwcIXJpF1wKoAwF1cbaYSQEzrG4BSUTM1rHQhW5JHSfeqpsAg==}
     peerDependencies:
       hardhat: ^2.0.10
       lodash: ^4.17.15
