@@ -2,14 +2,11 @@
 pragma solidity ^0.8.0;
 
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
-import {IVRFCoordinatorV2Plus} from "../interfaces/IVRFCoordinatorV2Plus.sol";
 import {VRFConsumerBaseV2Plus} from "../VRFConsumerBaseV2Plus.sol";
 import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 
 /// @notice This contract is used for testing only and should not be used for production.
 contract VRFV2PlusExternalSubOwnerExample is VRFConsumerBaseV2Plus {
-  // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
-  IVRFCoordinatorV2Plus internal COORDINATOR;
   // solhint-disable-next-line chainlink-solidity/prefix-storage-variables-with-s-underscore
   LinkTokenInterface internal LINKTOKEN;
 
@@ -18,7 +15,6 @@ contract VRFV2PlusExternalSubOwnerExample is VRFConsumerBaseV2Plus {
   address internal s_owner;
 
   constructor(address vrfCoordinator, address link) VRFConsumerBaseV2Plus(vrfCoordinator) {
-    COORDINATOR = IVRFCoordinatorV2Plus(vrfCoordinator);
     LINKTOKEN = LinkTokenInterface(link);
     s_owner = msg.sender;
   }
@@ -47,6 +43,6 @@ contract VRFV2PlusExternalSubOwnerExample is VRFConsumerBaseV2Plus {
       extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: nativePayment}))
     });
     // Will revert if subscription is not funded.
-    s_requestId = COORDINATOR.requestRandomWords(req);
+    s_requestId = s_vrfCoordinator.requestRandomWords(req);
   }
 }
