@@ -103,6 +103,8 @@ abstract contract VRFConsumerBaseV2Plus is IVRFMigratableConsumerV2Plus, Confirm
   error OnlyOwnerOrCoordinator(address have, address owner, address coordinator);
   error ZeroAddress();
 
+  // s_vrfCoordinator should be used by consumers to make requests to vrfCoordinator
+  // so that coordinator reference is updated after migration
   IVRFCoordinatorV2Plus public s_vrfCoordinator;
 
   /**

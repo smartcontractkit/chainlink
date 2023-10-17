@@ -9,8 +9,10 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	relaychains "github.com/smartcontractkit/chainlink-relay/pkg/chains"
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 	starkChain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
 	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
@@ -20,9 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/starknet"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -107,8 +106,8 @@ func (c *chain) Reader() (starknet.Reader, error) {
 	return c.getClient()
 }
 
-func (c *chain) ChainID() relay.ChainID {
-	return relay.ChainID(c.id)
+func (c *chain) ChainID() string {
+	return c.id
 }
 
 // getClient returns a client, randomly selecting one from available and valid nodes
@@ -185,7 +184,7 @@ func (c *chain) GetChainStatus(ctx context.Context) (relaytypes.ChainStatus, err
 }
 
 func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (stats []relaytypes.NodeStatus, nextPageToken string, total int, err error) {
-	return internal.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
+	return relaychains.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
 }
 
 func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
@@ -201,7 +200,7 @@ func (c *chain) listNodeStatuses(start, end int) ([]relaytypes.NodeStatus, int, 
 	stats := make([]relaytypes.NodeStatus, 0)
 	total := len(c.cfg.Nodes)
 	if start >= total {
-		return stats, total, internal.ErrOutOfRange
+		return stats, total, relaychains.ErrOutOfRange
 	}
 	if end <= 0 || end > total {
 		end = total

@@ -151,7 +151,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     if (s_subscriptionConfigs[subId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    cancelSubscriptionHelper(subId, s_subscriptionConfigs[subId].owner);
+    _cancelSubscriptionHelper(subId, s_subscriptionConfigs[subId].owner);
   }
 
   /**
@@ -392,8 +392,7 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     emit SubscriptionConsumerAdded(subId, consumer);
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function deleteSubscription(uint256 subId) internal returns (uint96 balance, uint96 nativeBalance) {
+  function _deleteSubscription(uint256 subId) internal returns (uint96 balance, uint96 nativeBalance) {
     SubscriptionConfig memory subConfig = s_subscriptionConfigs[subId];
     Subscription memory sub = s_subscriptions[subId];
     balance = sub.balance;
@@ -411,9 +410,8 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     return (balance, nativeBalance);
   }
 
-  // solhint-disable-next-line chainlink-solidity/prefix-internal-functions-with-underscore
-  function cancelSubscriptionHelper(uint256 subId, address to) internal {
-    (uint96 balance, uint96 nativeBalance) = deleteSubscription(subId);
+  function _cancelSubscriptionHelper(uint256 subId, address to) internal {
+    (uint96 balance, uint96 nativeBalance) = _deleteSubscription(subId);
 
     // Only withdraw LINK if the token is active and there is a balance.
     if (address(LINK) != address(0) && balance != 0) {

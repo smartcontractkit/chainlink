@@ -15,9 +15,9 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -334,25 +334,30 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			cr, err := chainlink.NewCoreRelayerChainInteroperators(tt.initFuncs...)
-			require.NoError(t, err)
 
-			expectedChainCnt := tt.expectedEVMChainCnt + tt.expectedCosmosChainCnt + tt.expectedSolanaChainCnt + tt.expectedStarknetChainCnt
-			allChainsStats, cnt, err := cr.ChainStatuses(testctx, 0, 0)
-			assert.NoError(t, err)
-			assert.Len(t, allChainsStats, expectedChainCnt)
-			assert.Equal(t, cnt, len(allChainsStats))
-			assert.Len(t, cr.Slice(), expectedChainCnt)
+			var cr *chainlink.CoreRelayerChainInteroperators
+			{
+				var err error
+				cr, err = chainlink.NewCoreRelayerChainInteroperators(tt.initFuncs...)
+				require.NoError(t, err)
 
-			// should be one relayer per chain and one service per relayer
-			assert.Len(t, cr.Slice(), expectedChainCnt)
-			assert.Len(t, cr.Services(), expectedChainCnt)
+				expectedChainCnt := tt.expectedEVMChainCnt + tt.expectedCosmosChainCnt + tt.expectedSolanaChainCnt + tt.expectedStarknetChainCnt
+				allChainsStats, cnt, err := cr.ChainStatuses(testctx, 0, 0)
+				assert.NoError(t, err)
+				assert.Len(t, allChainsStats, expectedChainCnt)
+				assert.Equal(t, cnt, len(allChainsStats))
+				assert.Len(t, cr.Slice(), expectedChainCnt)
 
-			expectedNodeCnt := tt.expectedEVMNodeCnt + tt.expectedCosmosNodeCnt + tt.expectedSolanaNodeCnt + tt.expectedStarknetNodeCnt
-			allNodeStats, cnt, err := cr.NodeStatuses(testctx, 0, 0)
-			assert.NoError(t, err)
-			assert.Len(t, allNodeStats, expectedNodeCnt)
-			assert.Equal(t, cnt, len(allNodeStats))
+				// should be one relayer per chain and one service per relayer
+				assert.Len(t, cr.Slice(), expectedChainCnt)
+				assert.Len(t, cr.Services(), expectedChainCnt)
+
+				expectedNodeCnt := tt.expectedEVMNodeCnt + tt.expectedCosmosNodeCnt + tt.expectedSolanaNodeCnt + tt.expectedStarknetNodeCnt
+				allNodeStats, cnt, err := cr.NodeStatuses(testctx, 0, 0)
+				assert.NoError(t, err)
+				assert.Len(t, allNodeStats, expectedNodeCnt)
+				assert.Equal(t, cnt, len(allNodeStats))
+			}
 
 			gotRelayerNetworks := make(map[relay.Network]struct{})
 			for relayNetwork := range relay.SupportedRelays {

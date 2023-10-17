@@ -307,7 +307,7 @@ func TestRBAC_Routemap_Admin(t *testing.T) {
 
 	// Assert all admin routes
 	// no endpoint should return StatusUnauthorized
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 	for _, route := range routesRolesMap {
 		func() {
 			var resp *http.Response

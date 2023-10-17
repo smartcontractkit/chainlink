@@ -1,7 +1,6 @@
 package keystore_test
 
 import (
-	"database/sql"
 	"fmt"
 	"math/big"
 	"sort"
@@ -15,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
@@ -613,140 +611,6 @@ func Test_EthKeyStore_EnsureKeys(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, state.Disabled)
 	})
-}
-
-func Test_EthKeyStore_Reset(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewTestGeneralConfig(t)
-	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-	ks := keyStore.Eth()
-
-	k1, addr1 := cltest.MustInsertRandomKey(t, ks)
-	cltest.MustInsertRandomKey(t, ks)
-	cltest.MustInsertRandomKey(t, ks, *utils.NewBig(testutils.SimulatedChainID))
-
-	newNonce := testutils.NewRandomPositiveInt64()
-
-	t.Run("when no state matches address/chain ID", func(t *testing.T) {
-		addr := utils.RandomAddress()
-		cid := testutils.NewRandomEVMChainID()
-		err := ks.Reset(addr, cid, newNonce)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), fmt.Sprintf("key state not found with address %s and chainID %s", addr.Hex(), cid.String()))
-	})
-	t.Run("when no state matches address", func(t *testing.T) {
-		addr := utils.RandomAddress()
-		err := ks.Reset(addr, testutils.FixtureChainID, newNonce)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), fmt.Sprintf("key state not found with address %s and chainID 0", addr.Hex()))
-	})
-	t.Run("when no state matches chain ID", func(t *testing.T) {
-		cid := testutils.NewRandomEVMChainID()
-		err := ks.Reset(addr1, cid, newNonce)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), fmt.Sprintf("key state not found with address %s and chainID %s", addr1.Hex(), cid.String()))
-	})
-	t.Run("resets key with given address and chain ID to the given nonce", func(t *testing.T) {
-		err := ks.Reset(k1.Address, testutils.FixtureChainID, newNonce)
-		assert.NoError(t, err)
-
-		nonce, err := ks.NextSequence(k1.Address, testutils.FixtureChainID)
-		require.NoError(t, err)
-
-		assert.Equal(t, nonce.Int64(), newNonce)
-
-		state, err := ks.GetState(k1.Address.Hex(), testutils.FixtureChainID)
-		require.NoError(t, err)
-		assert.Equal(t, nonce.Int64(), state.NextNonce)
-
-		keys, err := ks.GetAll()
-		require.NoError(t, err)
-		require.Len(t, keys, 3)
-		states, err := ks.GetStatesForKeys(keys)
-		require.NoError(t, err)
-		require.Len(t, states, 3)
-		for _, state = range states {
-			if state.Address.Address() == k1.Address {
-				assert.Equal(t, nonce.Int64(), state.NextNonce)
-			} else {
-				// the other states didn't get updated
-				assert.Equal(t, int64(0), state.NextNonce)
-			}
-		}
-	})
-}
-
-func Test_NextSequence(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewTestGeneralConfig(t)
-	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-	ks := keyStore.Eth()
-	randNonce := testutils.NewRandomPositiveInt64()
-
-	_, addr1 := cltest.RandomKey{Nonce: randNonce}.MustInsert(t, ks)
-	cltest.MustInsertRandomKey(t, ks)
-
-	nonce, err := ks.NextSequence(addr1, testutils.FixtureChainID)
-	require.NoError(t, err)
-	assert.Equal(t, randNonce, nonce.Int64())
-
-	_, err = ks.NextSequence(addr1, testutils.SimulatedChainID)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), fmt.Sprintf("NextSequence failed: key with address %s is not enabled for chain %s: sql: no rows in result set", addr1.Hex(), testutils.SimulatedChainID.String()))
-
-	randAddr1 := utils.RandomAddress()
-	_, err = ks.NextSequence(randAddr1, testutils.FixtureChainID)
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr1.Hex()))
-
-	randAddr2 := utils.RandomAddress()
-	_, err = ks.NextSequence(randAddr2, testutils.NewRandomEVMChainID())
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr2.Hex()))
-}
-
-func Test_IncrementNextSequence(t *testing.T) {
-	t.Parallel()
-
-	db := pgtest.NewSqlxDB(t)
-	cfg := configtest.NewTestGeneralConfig(t)
-	keyStore := cltest.NewKeyStore(t, db, cfg.Database())
-	ks := keyStore.Eth()
-	randNonce := testutils.NewRandomPositiveInt64()
-
-	_, addr1 := cltest.RandomKey{Nonce: randNonce}.MustInsert(t, ks)
-	evmAddr1 := addr1
-	cltest.MustInsertRandomKey(t, ks)
-
-	err := ks.IncrementNextSequence(evmAddr1, testutils.FixtureChainID, evmtypes.Nonce(randNonce-1))
-	assert.ErrorIs(t, err, sql.ErrNoRows)
-
-	err = ks.IncrementNextSequence(evmAddr1, testutils.FixtureChainID, evmtypes.Nonce(randNonce))
-	require.NoError(t, err)
-	var nonce int64
-	require.NoError(t, db.Get(&nonce, `SELECT next_nonce FROM evm.key_states WHERE address = $1 AND evm_chain_id = $2`, addr1, testutils.FixtureChainID.String()))
-	assert.Equal(t, randNonce+1, nonce)
-
-	err = ks.IncrementNextSequence(evmAddr1, testutils.SimulatedChainID, evmtypes.Nonce(randNonce+1))
-	assert.ErrorIs(t, err, sql.ErrNoRows)
-
-	randAddr1 := utils.RandomAddress()
-	err = ks.IncrementNextSequence(randAddr1, testutils.FixtureChainID, evmtypes.Nonce(randNonce+1))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr1.Hex()))
-
-	randAddr2 := utils.RandomAddress()
-	err = ks.IncrementNextSequence(randAddr2, testutils.NewRandomEVMChainID(), evmtypes.Nonce(randNonce+1))
-	require.Error(t, err)
-	assert.Contains(t, err.Error(), fmt.Sprintf("key with address %s does not exist", randAddr2.Hex()))
-
-	// verify it didnt get changed by any erroring calls
-	require.NoError(t, db.Get(&nonce, `SELECT next_nonce FROM evm.key_states WHERE address = $1 AND evm_chain_id = $2`, addr1, testutils.FixtureChainID.String()))
-	assert.Equal(t, randNonce+1, nonce)
 }
 
 func Test_EthKeyStore_Delete(t *testing.T) {

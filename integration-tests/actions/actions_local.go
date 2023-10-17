@@ -3,7 +3,6 @@ package actions
 
 import (
 	"github.com/pkg/errors"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 

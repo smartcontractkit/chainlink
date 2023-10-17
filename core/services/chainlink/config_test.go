@@ -10,21 +10,22 @@ import (
 
 	"github.com/kylelemons/godebug/diff"
 	"github.com/shopspring/decimal"
-	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
@@ -272,14 +273,21 @@ func TestConfig_Marshal(t *testing.T) {
 	full.TelemetryIngress = toml.TelemetryIngress{
 		UniConn:      ptr(true),
 		Logging:      ptr(true),
-		ServerPubKey: ptr("test-pub-key"),
-		URL:          mustURL("https://prom.test"),
 		BufferSize:   ptr[uint16](1234),
 		MaxBatchSize: ptr[uint16](4321),
 		SendInterval: models.MustNewDuration(time.Minute),
 		SendTimeout:  models.MustNewDuration(5 * time.Second),
 		UseBatchSend: ptr(true),
+		URL:          ptr(models.URL{}),
+		ServerPubKey: ptr(""),
+		Endpoints: []toml.TelemetryIngressEndpoint{{
+			Network:      ptr("EVM"),
+			ChainID:      ptr("1"),
+			ServerPubKey: ptr("test-pub-key"),
+			URL:          mustURL("prom.test")},
+		},
 	}
+
 	full.Log = toml.Log{
 		Level:       ptr(toml.LogLevel(zapcore.DPanicLevel)),
 		JSONConsole: ptr(true),
@@ -685,14 +693,21 @@ LeaseRefreshInterval = '1s'
 		{"TelemetryIngress", Config{Core: toml.Core{TelemetryIngress: full.TelemetryIngress}}, `[TelemetryIngress]
 UniConn = true
 Logging = true
-ServerPubKey = 'test-pub-key'
-URL = 'https://prom.test'
 BufferSize = 1234
 MaxBatchSize = 4321
 SendInterval = '1m0s'
 SendTimeout = '5s'
 UseBatchSend = true
+URL = ''
+ServerPubKey = ''
+
+[[TelemetryIngress.Endpoints]]
+Network = 'EVM'
+ChainID = '1'
+URL = 'prom.test'
+ServerPubKey = 'test-pub-key'
 `},
+
 		{"Log", Config{Core: toml.Core{Log: full.Log}}, `[Log]
 Level = 'crit'
 JSONConsole = true
@@ -1060,6 +1075,17 @@ func TestConfig_full(t *testing.T) {
 				got.EVM[c].Nodes[n].Order = ptr(int32(100))
 			}
 		}
+	}
+
+	// Except for TelemetryIngress.ServerPubKey as this will be removed in the future
+	// and its only use is to signal to NOPs that these fields are no longer allowed
+	if got.TelemetryIngress.ServerPubKey == nil {
+		got.TelemetryIngress.ServerPubKey = ptr("")
+	}
+	// Except for TelemetryIngress.URL as this will be removed in the future
+	// and its only use is to signal to NOPs that these fields are no longer allowed
+	if got.TelemetryIngress.URL == nil {
+		got.TelemetryIngress.URL = new(models.URL)
 	}
 
 	cfgtest.AssertFieldsNotNil(t, got)

@@ -38,27 +38,22 @@ on:
       chainlinkVersion:
         description: Container image version for the Chainlink nodes
         required: true
-        default: "2.5.0"
+        default: "2.6.0-beta0"
       testDuration:
         description: Duration of the test (time string)
-        required: false
-        default: 1m
-      chainlinkNodeFunding:
-        description: How much to fund each Chainlink node (in ETH)
-        required: false
-        default: ".1"
-      rps:
-        description: Requests Per Second
-        required: false
-        default: 1
-      rateLimitDuration:
-        description: How long to wait between requests
         required: false
         default: 1m
       randomnessRequestCountPerRequest:
         description: Randomness request Count per one TX request
         required: false
         default: 1
+      useExistingEnv:
+        description: Whether to deploy a new contracts or use an existing one
+        required: false
+        default: false
+      configBase64:
+        description: TOML config in base64
+        required: false
 jobs:
   vrfv2plus_load_test:
     name: ${{ inputs.network }} VRFV2 Plus Load Test
@@ -70,17 +65,19 @@ jobs:
       id-token: write
       contents: read
     env:
+      LOKI_URL: ${{ secrets.LOKI_URL }}
+      LOKI_TOKEN: ${{ secrets.LOKI_TOKEN }}
       SELECTED_NETWORKS: ${{ inputs.network }}
       VRFV2PLUS_TEST_DURATION: ${{ inputs.testDuration }}
-      VRFV2PLUS_CHAINLINK_NODE_FUNDING: ${{ inputs.chainlinkNodeFunding }}
-      VRFV2PLUS_RATE_LIMIT_UNIT_DURATION: ${{ inputs.rateLimitDuration }}
-      VRFV2PLUS_RPS: ${{ inputs.rps }}
+      VRFV2PLUS_RATE_LIMIT_UNIT_DURATION: 1m
+      VRFV2PLUS_RPS: 1
       VRFV2PLUS_RANDOMNESS_REQUEST_COUNT_PER_REQUEST: ${{ inputs.randomnessRequestCountPerRequest }}
-
+      VRFV2PLUS_USE_EXISTING_ENV: ${{ inputs.useExistingEnv }}
+      CONFIG: ${{ inputs.configBase64 }}
       TEST_LOG_LEVEL: debug
       REF_NAME: ${{ github.head_ref || github.ref_name }}
-      ENV_JOB_IMAGE_BASE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests
-
+      CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
+      CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
       WASP_LOG_LEVEL: info
     steps:
       - name: Collect Metrics
@@ -109,8 +106,19 @@ jobs:
         uses: actions/checkout@v3
         with:
           fetch-depth: 0
-      - name: Run E2E soak tests
-        run: |
-          cd integration-tests/load/vrfv2plus
-          go test -v -timeout 8h -run TestVRFV2PlusLoad/vrfv2plus_soak_test
-
+      - name: Run Tests
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        with:
+          test_command_to_run: cd ./integration-tests && go test -v -count=1 -timeout 6h -run TestVRFV2PlusLoad/vrfv2plus_soak_test ./load/vrfv2plus
+          test_download_vendor_packages_command: cd ./integration-tests && go mod download
+          cl_repo: ${{ inputs.chainlinkImage }}
+          cl_image_tag: ${{ inputs.chainlinkVersion }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          artifacts_name: vrf-test-logs
+          artifacts_location: ./integration-tests/load/logs/
+          token: ${{ secrets.GITHUB_TOKEN }}
+          go_mod_path: ./integration-tests/go.mod
+          should_cleanup: false
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}

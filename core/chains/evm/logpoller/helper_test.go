@@ -45,7 +45,7 @@ type TestHarness struct {
 	EthDB                            ethdb.Database
 }
 
-func SetupTH(t testing.TB, finalityDepth, backfillBatchSize, rpcBatchSize int64) TestHarness {
+func SetupTH(t testing.TB, useFinalityTag bool, finalityDepth, backfillBatchSize, rpcBatchSize int64) TestHarness {
 	lggr := logger.TestLogger(t)
 	chainID := testutils.NewRandomEVMChainID()
 	chainID2 := testutils.NewRandomEVMChainID()
@@ -63,7 +63,10 @@ func SetupTH(t testing.TB, finalityDepth, backfillBatchSize, rpcBatchSize int64)
 	// Poll period doesn't matter, we intend to call poll and save logs directly in the test.
 	// Set it to some insanely high value to not interfere with any tests.
 	esc := client.NewSimulatedBackendClient(t, ec, chainID)
-	lp := logpoller.NewLogPoller(o, esc, lggr, 1*time.Hour, finalityDepth, backfillBatchSize, rpcBatchSize, 1000)
+	// Mark genesis block as finalized to avoid any nulls in the tests
+	head := esc.Backend().Blockchain().CurrentHeader()
+	esc.Backend().Blockchain().SetFinalized(head)
+	lp := logpoller.NewLogPoller(o, esc, lggr, 1*time.Hour, useFinalityTag, finalityDepth, backfillBatchSize, rpcBatchSize, 1000)
 	emitterAddress1, _, emitter1, err := log_emitter.DeployLogEmitter(owner, ec)
 	require.NoError(t, err)
 	emitterAddress2, _, emitter2, err := log_emitter.DeployLogEmitter(owner, ec)

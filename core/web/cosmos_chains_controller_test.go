@@ -185,7 +185,7 @@ func setupCosmosChainsControllerTestV2(t *testing.T, cfgs ...*cosmos.CosmosConfi
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	return &TestCosmosChainsController{
 		app:    app,

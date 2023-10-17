@@ -109,7 +109,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
 
   // Extracted from `checkUpkeep` for batching purposes.
   function revertForFeedLookup(string[] memory feeds) public view returns (bool, bytes memory) {
-    uint256 blockNumber = ChainSpecificUtil.getBlockNumber();
+    uint256 blockNumber = ChainSpecificUtil._getBlockNumber();
     revert StreamsLookup(c_feedParamKey, feeds, c_timeParamKey, blockNumber, "");
   }
 

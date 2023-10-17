@@ -232,9 +232,9 @@ func TestORM(t *testing.T) {
 		"""
 		`, uuid.New())
 
-		jb, err := directrequest.ValidatedDirectRequestSpec(drSpec)
+		drJob, err := directrequest.ValidatedDirectRequestSpec(drSpec)
 		require.NoError(t, err)
-		err = orm.CreateJob(&jb)
+		err = orm.CreateJob(&drJob)
 		require.NoError(t, err)
 	})
 
@@ -257,64 +257,64 @@ func TestORM(t *testing.T) {
 	})
 
 	t.Run("it creates and deletes records for blockhash store jobs", func(t *testing.T) {
-		jb, err := blockhashstore.ValidatedSpec(
+		bhsJob, err := blockhashstore.ValidatedSpec(
 			testspecs.GenerateBlockhashStoreSpec(testspecs.BlockhashStoreSpecParams{}).Toml())
 		require.NoError(t, err)
 
-		err = orm.CreateJob(&jb)
+		err = orm.CreateJob(&bhsJob)
 		require.NoError(t, err)
-		savedJob, err := orm.FindJob(testutils.Context(t), jb.ID)
+		savedJob, err := orm.FindJob(testutils.Context(t), bhsJob.ID)
 		require.NoError(t, err)
-		require.Equal(t, jb.ID, savedJob.ID)
-		require.Equal(t, jb.Type, savedJob.Type)
-		require.Equal(t, jb.BlockhashStoreSpec.ID, savedJob.BlockhashStoreSpec.ID)
-		require.Equal(t, jb.BlockhashStoreSpec.CoordinatorV1Address, savedJob.BlockhashStoreSpec.CoordinatorV1Address)
-		require.Equal(t, jb.BlockhashStoreSpec.CoordinatorV2Address, savedJob.BlockhashStoreSpec.CoordinatorV2Address)
-		require.Equal(t, jb.BlockhashStoreSpec.CoordinatorV2PlusAddress, savedJob.BlockhashStoreSpec.CoordinatorV2PlusAddress)
-		require.Equal(t, jb.BlockhashStoreSpec.WaitBlocks, savedJob.BlockhashStoreSpec.WaitBlocks)
-		require.Equal(t, jb.BlockhashStoreSpec.LookbackBlocks, savedJob.BlockhashStoreSpec.LookbackBlocks)
-		require.Equal(t, jb.BlockhashStoreSpec.HeartbeatPeriod, savedJob.BlockhashStoreSpec.HeartbeatPeriod)
-		require.Equal(t, jb.BlockhashStoreSpec.BlockhashStoreAddress, savedJob.BlockhashStoreSpec.BlockhashStoreAddress)
-		require.Equal(t, jb.BlockhashStoreSpec.TrustedBlockhashStoreAddress, savedJob.BlockhashStoreSpec.TrustedBlockhashStoreAddress)
-		require.Equal(t, jb.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize, savedJob.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize)
-		require.Equal(t, jb.BlockhashStoreSpec.PollPeriod, savedJob.BlockhashStoreSpec.PollPeriod)
-		require.Equal(t, jb.BlockhashStoreSpec.RunTimeout, savedJob.BlockhashStoreSpec.RunTimeout)
-		require.Equal(t, jb.BlockhashStoreSpec.EVMChainID, savedJob.BlockhashStoreSpec.EVMChainID)
-		require.Equal(t, jb.BlockhashStoreSpec.FromAddresses, savedJob.BlockhashStoreSpec.FromAddresses)
-		err = orm.DeleteJob(jb.ID)
+		require.Equal(t, bhsJob.ID, savedJob.ID)
+		require.Equal(t, bhsJob.Type, savedJob.Type)
+		require.Equal(t, bhsJob.BlockhashStoreSpec.ID, savedJob.BlockhashStoreSpec.ID)
+		require.Equal(t, bhsJob.BlockhashStoreSpec.CoordinatorV1Address, savedJob.BlockhashStoreSpec.CoordinatorV1Address)
+		require.Equal(t, bhsJob.BlockhashStoreSpec.CoordinatorV2Address, savedJob.BlockhashStoreSpec.CoordinatorV2Address)
+		require.Equal(t, bhsJob.BlockhashStoreSpec.CoordinatorV2PlusAddress, savedJob.BlockhashStoreSpec.CoordinatorV2PlusAddress)
+		require.Equal(t, bhsJob.BlockhashStoreSpec.WaitBlocks, savedJob.BlockhashStoreSpec.WaitBlocks)
+		require.Equal(t, bhsJob.BlockhashStoreSpec.LookbackBlocks, savedJob.BlockhashStoreSpec.LookbackBlocks)
+		require.Equal(t, bhsJob.BlockhashStoreSpec.HeartbeatPeriod, savedJob.BlockhashStoreSpec.HeartbeatPeriod)
+		require.Equal(t, bhsJob.BlockhashStoreSpec.BlockhashStoreAddress, savedJob.BlockhashStoreSpec.BlockhashStoreAddress)
+		require.Equal(t, bhsJob.BlockhashStoreSpec.TrustedBlockhashStoreAddress, savedJob.BlockhashStoreSpec.TrustedBlockhashStoreAddress)
+		require.Equal(t, bhsJob.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize, savedJob.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize)
+		require.Equal(t, bhsJob.BlockhashStoreSpec.PollPeriod, savedJob.BlockhashStoreSpec.PollPeriod)
+		require.Equal(t, bhsJob.BlockhashStoreSpec.RunTimeout, savedJob.BlockhashStoreSpec.RunTimeout)
+		require.Equal(t, bhsJob.BlockhashStoreSpec.EVMChainID, savedJob.BlockhashStoreSpec.EVMChainID)
+		require.Equal(t, bhsJob.BlockhashStoreSpec.FromAddresses, savedJob.BlockhashStoreSpec.FromAddresses)
+		err = orm.DeleteJob(bhsJob.ID)
 		require.NoError(t, err)
-		_, err = orm.FindJob(testutils.Context(t), jb.ID)
+		_, err = orm.FindJob(testutils.Context(t), bhsJob.ID)
 		require.Error(t, err)
 	})
 
 	t.Run("it creates and deletes records for blockheaderfeeder jobs", func(t *testing.T) {
-		jb, err := blockheaderfeeder.ValidatedSpec(
+		bhsJob, err := blockheaderfeeder.ValidatedSpec(
 			testspecs.GenerateBlockHeaderFeederSpec(testspecs.BlockHeaderFeederSpecParams{}).Toml())
 		require.NoError(t, err)
 
-		err = orm.CreateJob(&jb)
+		err = orm.CreateJob(&bhsJob)
 		require.NoError(t, err)
-		savedJob, err := orm.FindJob(testutils.Context(t), jb.ID)
+		savedJob, err := orm.FindJob(testutils.Context(t), bhsJob.ID)
 		require.NoError(t, err)
-		require.Equal(t, jb.ID, savedJob.ID)
-		require.Equal(t, jb.Type, savedJob.Type)
-		require.Equal(t, jb.BlockHeaderFeederSpec.ID, savedJob.BlockHeaderFeederSpec.ID)
-		require.Equal(t, jb.BlockHeaderFeederSpec.CoordinatorV1Address, savedJob.BlockHeaderFeederSpec.CoordinatorV1Address)
-		require.Equal(t, jb.BlockHeaderFeederSpec.CoordinatorV2Address, savedJob.BlockHeaderFeederSpec.CoordinatorV2Address)
-		require.Equal(t, jb.BlockHeaderFeederSpec.CoordinatorV2PlusAddress, savedJob.BlockHeaderFeederSpec.CoordinatorV2PlusAddress)
-		require.Equal(t, jb.BlockHeaderFeederSpec.WaitBlocks, savedJob.BlockHeaderFeederSpec.WaitBlocks)
-		require.Equal(t, jb.BlockHeaderFeederSpec.LookbackBlocks, savedJob.BlockHeaderFeederSpec.LookbackBlocks)
-		require.Equal(t, jb.BlockHeaderFeederSpec.BlockhashStoreAddress, savedJob.BlockHeaderFeederSpec.BlockhashStoreAddress)
-		require.Equal(t, jb.BlockHeaderFeederSpec.BatchBlockhashStoreAddress, savedJob.BlockHeaderFeederSpec.BatchBlockhashStoreAddress)
-		require.Equal(t, jb.BlockHeaderFeederSpec.PollPeriod, savedJob.BlockHeaderFeederSpec.PollPeriod)
-		require.Equal(t, jb.BlockHeaderFeederSpec.RunTimeout, savedJob.BlockHeaderFeederSpec.RunTimeout)
-		require.Equal(t, jb.BlockHeaderFeederSpec.EVMChainID, savedJob.BlockHeaderFeederSpec.EVMChainID)
-		require.Equal(t, jb.BlockHeaderFeederSpec.FromAddresses, savedJob.BlockHeaderFeederSpec.FromAddresses)
-		require.Equal(t, jb.BlockHeaderFeederSpec.GetBlockhashesBatchSize, savedJob.BlockHeaderFeederSpec.GetBlockhashesBatchSize)
-		require.Equal(t, jb.BlockHeaderFeederSpec.StoreBlockhashesBatchSize, savedJob.BlockHeaderFeederSpec.StoreBlockhashesBatchSize)
-		err = orm.DeleteJob(jb.ID)
+		require.Equal(t, bhsJob.ID, savedJob.ID)
+		require.Equal(t, bhsJob.Type, savedJob.Type)
+		require.Equal(t, bhsJob.BlockHeaderFeederSpec.ID, savedJob.BlockHeaderFeederSpec.ID)
+		require.Equal(t, bhsJob.BlockHeaderFeederSpec.CoordinatorV1Address, savedJob.BlockHeaderFeederSpec.CoordinatorV1Address)
+		require.Equal(t, bhsJob.BlockHeaderFeederSpec.CoordinatorV2Address, savedJob.BlockHeaderFeederSpec.CoordinatorV2Address)
+		require.Equal(t, bhsJob.BlockHeaderFeederSpec.CoordinatorV2PlusAddress, savedJob.BlockHeaderFeederSpec.CoordinatorV2PlusAddress)
+		require.Equal(t, bhsJob.BlockHeaderFeederSpec.WaitBlocks, savedJob.BlockHeaderFeederSpec.WaitBlocks)
+		require.Equal(t, bhsJob.BlockHeaderFeederSpec.LookbackBlocks, savedJob.BlockHeaderFeederSpec.LookbackBlocks)
+		require.Equal(t, bhsJob.BlockHeaderFeederSpec.BlockhashStoreAddress, savedJob.BlockHeaderFeederSpec.BlockhashStoreAddress)
+		require.Equal(t, bhsJob.BlockHeaderFeederSpec.BatchBlockhashStoreAddress, savedJob.BlockHeaderFeederSpec.BatchBlockhashStoreAddress)
+		require.Equal(t, bhsJob.BlockHeaderFeederSpec.PollPeriod, savedJob.BlockHeaderFeederSpec.PollPeriod)
+		require.Equal(t, bhsJob.BlockHeaderFeederSpec.RunTimeout, savedJob.BlockHeaderFeederSpec.RunTimeout)
+		require.Equal(t, bhsJob.BlockHeaderFeederSpec.EVMChainID, savedJob.BlockHeaderFeederSpec.EVMChainID)
+		require.Equal(t, bhsJob.BlockHeaderFeederSpec.FromAddresses, savedJob.BlockHeaderFeederSpec.FromAddresses)
+		require.Equal(t, bhsJob.BlockHeaderFeederSpec.GetBlockhashesBatchSize, savedJob.BlockHeaderFeederSpec.GetBlockhashesBatchSize)
+		require.Equal(t, bhsJob.BlockHeaderFeederSpec.StoreBlockhashesBatchSize, savedJob.BlockHeaderFeederSpec.StoreBlockhashesBatchSize)
+		err = orm.DeleteJob(bhsJob.ID)
 		require.NoError(t, err)
-		_, err = orm.FindJob(testutils.Context(t), jb.ID)
+		_, err = orm.FindJob(testutils.Context(t), bhsJob.ID)
 		require.Error(t, err)
 	})
 }
@@ -900,12 +900,16 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 	keyStore := cltest.NewKeyStore(t, pgtest.NewSqlxDB(t), config.Database())
 	require.NoError(t, keyStore.OCR2().Add(cltest.DefaultOCR2Key))
 
-	jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
-	require.NoError(t, err)
+	var jb job.Job
+	{
+		var err error
+		jb, err = ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
+		require.NoError(t, err)
+	}
 
 	t.Run("test ETH key validation", func(t *testing.T) {
 		jb.OCR2OracleSpec.Relay = relay.EVM
-		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		err := job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no EVM key matching: \"bad key\"")
 
 		_, evmKey := cltest.MustInsertRandomKey(t, keyStore.Eth())
@@ -915,7 +919,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test Cosmos key validation", func(t *testing.T) {
 		jb.OCR2OracleSpec.Relay = relay.Cosmos
-		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		err := job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Cosmos key matching: \"bad key\"")
 
 		cosmosKey, err := keyStore.Cosmos().Create()
@@ -927,7 +931,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 	t.Run("test Solana key validation", func(t *testing.T) {
 		jb.OCR2OracleSpec.Relay = relay.Solana
 
-		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		err := job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Solana key matching: \"bad key\"")
 
 		solanaKey, err := keyStore.Solana().Create()
@@ -938,7 +942,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test Starknet key validation", func(t *testing.T) {
 		jb.OCR2OracleSpec.Relay = relay.StarkNet
-		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		err := job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no Starknet key matching: \"bad key\"")
 
 		starkNetKey, err := keyStore.StarkNet().Create()
@@ -949,7 +953,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 
 	t.Run("test Mercury ETH key validation", func(t *testing.T) {
 		jb.OCR2OracleSpec.PluginType = types.Mercury
-		err = job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
+		err := job.ValidateKeyStoreMatch(jb.OCR2OracleSpec, keyStore, "bad key")
 		require.EqualError(t, err, "no CSA key matching: \"bad key\"")
 
 		csaKey, err := keyStore.CSA().Create()
@@ -1000,8 +1004,8 @@ func Test_FindJobs(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("jobs are ordered by latest first", func(t *testing.T) {
-		jobs, count, err := orm.FindJobs(0, 2)
-		require.NoError(t, err)
+		jobs, count, err2 := orm.FindJobs(0, 2)
+		require.NoError(t, err2)
 		require.Len(t, jobs, 2)
 		assert.Equal(t, count, 2)
 
@@ -1013,8 +1017,8 @@ func Test_FindJobs(t *testing.T) {
 	})
 
 	t.Run("jobs respect pagination", func(t *testing.T) {
-		jobs, count, err := orm.FindJobs(0, 1)
-		require.NoError(t, err)
+		jobs, count, err2 := orm.FindJobs(0, 1)
+		require.NoError(t, err2)
 		require.Len(t, jobs, 1)
 		assert.Equal(t, count, 2)
 
@@ -1133,8 +1137,8 @@ func Test_FindJob(t *testing.T) {
 	t.Run("by id", func(t *testing.T) {
 		ctx, cancel := context.WithTimeout(testutils.Context(t), 5*time.Second)
 		defer cancel()
-		jb, err := orm.FindJob(ctx, job.ID)
-		require.NoError(t, err)
+		jb, err2 := orm.FindJob(ctx, job.ID)
+		require.NoError(t, err2)
 
 		assert.Equal(t, jb.ID, job.ID)
 		assert.Equal(t, jb.Name, job.Name)
@@ -1146,8 +1150,8 @@ func Test_FindJob(t *testing.T) {
 	})
 
 	t.Run("by external job id", func(t *testing.T) {
-		jb, err := orm.FindJobByExternalJobID(externalJobID)
-		require.NoError(t, err)
+		jb, err2 := orm.FindJobByExternalJobID(externalJobID)
+		require.NoError(t, err2)
 
 		assert.Equal(t, jb.ID, job.ID)
 		assert.Equal(t, jb.Name, job.Name)
@@ -1159,28 +1163,28 @@ func Test_FindJob(t *testing.T) {
 	})
 
 	t.Run("by address", func(t *testing.T) {
-		jbID, err := orm.FindJobIDByAddress(job.OCROracleSpec.ContractAddress, job.OCROracleSpec.EVMChainID)
-		require.NoError(t, err)
+		jbID, err2 := orm.FindJobIDByAddress(job.OCROracleSpec.ContractAddress, job.OCROracleSpec.EVMChainID)
+		require.NoError(t, err2)
 
 		assert.Equal(t, job.ID, jbID)
 
-		_, err = orm.FindJobIDByAddress("not-existing", utils.NewBigI(0))
-		require.Error(t, err)
-		require.ErrorIs(t, err, sql.ErrNoRows)
+		_, err2 = orm.FindJobIDByAddress("not-existing", utils.NewBigI(0))
+		require.Error(t, err2)
+		require.ErrorIs(t, err2, sql.ErrNoRows)
 	})
 
 	t.Run("by address yet chain scoped", func(t *testing.T) {
 		commonAddr := jobSameAddress.OCROracleSpec.ContractAddress
 
 		// Find job ID for job on chain 1337 with common address.
-		jbID, err := orm.FindJobIDByAddress(commonAddr, jobSameAddress.OCROracleSpec.EVMChainID)
-		require.NoError(t, err)
+		jbID, err2 := orm.FindJobIDByAddress(commonAddr, jobSameAddress.OCROracleSpec.EVMChainID)
+		require.NoError(t, err2)
 
 		assert.Equal(t, jobSameAddress.ID, jbID)
 
 		// Find job ID for job on default evm chain with common address.
-		jbID, err = orm.FindJobIDByAddress(commonAddr, job.OCROracleSpec.EVMChainID)
-		require.NoError(t, err)
+		jbID, err2 = orm.FindJobIDByAddress(commonAddr, job.OCROracleSpec.EVMChainID)
+		require.NoError(t, err2)
 
 		assert.Equal(t, job.ID, jbID)
 	})
@@ -1189,8 +1193,8 @@ func Test_FindJob(t *testing.T) {
 		contractID := "0x613a38AC1659769640aaE063C651F48E0250454C"
 
 		// Find job ID for ocr2 job without feedID.
-		jbID, err := orm.FindOCR2JobIDByAddress(contractID, nil)
-		require.NoError(t, err)
+		jbID, err2 := orm.FindOCR2JobIDByAddress(contractID, nil)
+		require.NoError(t, err2)
 
 		assert.Equal(t, jobOCR2.ID, jbID)
 	})
@@ -1200,8 +1204,8 @@ func Test_FindJob(t *testing.T) {
 		feedID := common.HexToHash(ocr2WithFeedID1)
 
 		// Find job ID for ocr2 job with feed ID
-		jbID, err := orm.FindOCR2JobIDByAddress(contractID, &feedID)
-		require.NoError(t, err)
+		jbID, err2 := orm.FindOCR2JobIDByAddress(contractID, &feedID)
+		require.NoError(t, err2)
 
 		assert.Equal(t, jobOCR2WithFeedID1.ID, jbID)
 	})
@@ -1211,8 +1215,8 @@ func Test_FindJob(t *testing.T) {
 		feedID := common.HexToHash(ocr2WithFeedID2)
 
 		// Find job ID for ocr2 job with feed ID
-		jbID, err := orm.FindOCR2JobIDByAddress(contractID, &feedID)
-		require.NoError(t, err)
+		jbID, err2 := orm.FindOCR2JobIDByAddress(contractID, &feedID)
+		require.NoError(t, err2)
 
 		assert.Equal(t, jobOCR2WithFeedID2.ID, jbID)
 	})
@@ -1240,8 +1244,8 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("with jobs", func(t *testing.T) {
-		jbs, err := orm.FindJobsByPipelineSpecIDs([]int32{jb.PipelineSpecID})
-		require.NoError(t, err)
+		jbs, err2 := orm.FindJobsByPipelineSpecIDs([]int32{jb.PipelineSpecID})
+		require.NoError(t, err2)
 		assert.Len(t, jbs, 1)
 
 		assert.Equal(t, jb.ID, jbs[0].ID)
@@ -1253,8 +1257,8 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 	})
 
 	t.Run("without jobs", func(t *testing.T) {
-		jbs, err := orm.FindJobsByPipelineSpecIDs([]int32{-1})
-		require.NoError(t, err)
+		jbs, err2 := orm.FindJobsByPipelineSpecIDs([]int32{-1})
+		require.NoError(t, err2)
 		assert.Len(t, jbs, 0)
 	})
 
@@ -1274,8 +1278,8 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 
 		orm2 := NewTestORM(t, db, legacyChains2, pipelineORM, bridgesORM, keyStore, config.Database())
 
-		jbs, err := orm2.FindJobsByPipelineSpecIDs([]int32{jb.PipelineSpecID})
-		require.NoError(t, err)
+		jbs, err2 := orm2.FindJobsByPipelineSpecIDs([]int32{jb.PipelineSpecID})
+		require.NoError(t, err2)
 		assert.Len(t, jbs, 1)
 	})
 }
@@ -1314,8 +1318,8 @@ func Test_FindPipelineRuns(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("with no pipeline runs", func(t *testing.T) {
-		runs, count, err := orm.PipelineRuns(nil, 0, 10)
-		require.NoError(t, err)
+		runs, count, err2 := orm.PipelineRuns(nil, 0, 10)
+		require.NoError(t, err2)
 		assert.Equal(t, count, 0)
 		assert.Empty(t, runs)
 	})
@@ -1323,8 +1327,8 @@ func Test_FindPipelineRuns(t *testing.T) {
 	t.Run("with a pipeline run", func(t *testing.T) {
 		run := mustInsertPipelineRun(t, pipelineORM, jb)
 
-		runs, count, err := orm.PipelineRuns(nil, 0, 10)
-		require.NoError(t, err)
+		runs, count, err2 := orm.PipelineRuns(nil, 0, 10)
+		require.NoError(t, err2)
 
 		assert.Equal(t, count, 1)
 		actual := runs[0]
@@ -1375,8 +1379,8 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("with no pipeline runs", func(t *testing.T) {
-		runs, count, err := orm.PipelineRuns(&jb.ID, 0, 10)
-		require.NoError(t, err)
+		runs, count, err2 := orm.PipelineRuns(&jb.ID, 0, 10)
+		require.NoError(t, err2)
 		assert.Equal(t, count, 0)
 		assert.Empty(t, runs)
 	})
@@ -1384,8 +1388,8 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 	t.Run("with a pipeline run", func(t *testing.T) {
 		run := mustInsertPipelineRun(t, pipelineORM, jb)
 
-		runs, count, err := orm.PipelineRuns(&jb.ID, 0, 10)
-		require.NoError(t, err)
+		runs, count, err2 := orm.PipelineRuns(&jb.ID, 0, 10)
+		require.NoError(t, err2)
 
 		assert.Equal(t, 1, count)
 		actual := runs[0]
@@ -1544,16 +1548,16 @@ func Test_FindPipelineRunsByIDs(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("with no pipeline runs", func(t *testing.T) {
-		runs, err := orm.FindPipelineRunsByIDs([]int64{-1})
-		require.NoError(t, err)
+		runs, err2 := orm.FindPipelineRunsByIDs([]int64{-1})
+		require.NoError(t, err2)
 		assert.Empty(t, runs)
 	})
 
 	t.Run("with a pipeline run", func(t *testing.T) {
 		run := mustInsertPipelineRun(t, pipelineORM, jb)
 
-		actual, err := orm.FindPipelineRunsByIDs([]int64{run.ID})
-		require.NoError(t, err)
+		actual, err2 := orm.FindPipelineRunsByIDs([]int64{run.ID})
+		require.NoError(t, err2)
 		require.Len(t, actual, 1)
 
 		actualRun := actual[0]
@@ -1590,16 +1594,16 @@ func Test_FindPipelineRunByID(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("with no pipeline run", func(t *testing.T) {
-		run, err := orm.FindPipelineRunByID(-1)
+		run, err2 := orm.FindPipelineRunByID(-1)
 		assert.Equal(t, run, pipeline.Run{})
-		require.ErrorIs(t, err, sql.ErrNoRows)
+		require.ErrorIs(t, err2, sql.ErrNoRows)
 	})
 
 	t.Run("with a pipeline run", func(t *testing.T) {
 		run := mustInsertPipelineRun(t, pipelineORM, jb)
 
-		actual, err := orm.FindPipelineRunByID(run.ID)
-		require.NoError(t, err)
+		actual, err2 := orm.FindPipelineRunByID(run.ID)
+		require.NoError(t, err2)
 
 		actualRun := actual
 		// Test pipeline run fields
@@ -1722,16 +1726,16 @@ func Test_CountPipelineRunsByJobID(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("with no pipeline runs", func(t *testing.T) {
-		count, err := orm.CountPipelineRunsByJobID(jb.ID)
-		require.NoError(t, err)
+		count, err2 := orm.CountPipelineRunsByJobID(jb.ID)
+		require.NoError(t, err2)
 		assert.Equal(t, int32(0), count)
 	})
 
 	t.Run("with a pipeline run", func(t *testing.T) {
 		mustInsertPipelineRun(t, pipelineORM, jb)
 
-		count, err := orm.CountPipelineRunsByJobID(jb.ID)
-		require.NoError(t, err)
+		count, err2 := orm.CountPipelineRunsByJobID(jb.ID)
+		require.NoError(t, err2)
 		require.Equal(t, int32(1), count)
 	})
 }

@@ -46,7 +46,7 @@ contract TrustedBlockhashStore is ConfirmedOwner, BlockhashStore {
     uint256 recentBlockNumber,
     bytes32 recentBlockhash
   ) external {
-    bytes32 onChainHash = ChainSpecificUtil.getBlockhash(uint64(recentBlockNumber));
+    bytes32 onChainHash = ChainSpecificUtil._getBlockhash(uint64(recentBlockNumber));
     if (onChainHash != recentBlockhash) {
       revert InvalidRecentBlockhash();
     }
