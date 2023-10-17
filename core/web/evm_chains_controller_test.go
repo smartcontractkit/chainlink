@@ -204,7 +204,7 @@ func setupEVMChainsControllerTest(t *testing.T, cfg chainlink.GeneralConfig) *Te
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	return &TestEVMChainsController{
 		app:    app,
