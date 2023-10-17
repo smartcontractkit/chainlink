@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import "../../../vendor/entrypoint/interfaces/IPaymaster.sol";
-import "./SCALibrary.sol";
-import "../../../vendor/entrypoint/core/Helpers.sol";
-import "../../../shared/interfaces/LinkTokenInterface.sol";
-import "../../../interfaces/AggregatorV3Interface.sol";
-import "./SCALibrary.sol";
-import "../../../shared/access/ConfirmedOwner.sol";
+import {IPaymaster} from "../../../vendor/entrypoint/interfaces/IPaymaster.sol";
+import {SCALibrary} from "./SCALibrary.sol";
+import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
+import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
+import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
+import {UserOperation} from "../../../vendor/entrypoint/interfaces/UserOperation.sol";
+import {_packValidationData} from "../../../vendor/entrypoint/core/Helpers.sol";
 
 /// @dev LINK token paymaster implementation.
 /// TODO: more documentation.
@@ -28,8 +28,8 @@ contract Paymaster is IPaymaster, ConfirmedOwner {
   }
   Config public s_config;
 
-  mapping(bytes32 => bool) userOpHashMapping;
-  mapping(address => uint256) subscriptions;
+  mapping(bytes32 => bool) internal s_userOpHashMapping;
+  mapping(address => uint256) internal s_subscriptions;
 
   constructor(
     LinkTokenInterface linkToken,
@@ -54,7 +54,7 @@ contract Paymaster is IPaymaster, ConfirmedOwner {
     }
 
     address subscription = abi.decode(_data, (address));
-    subscriptions[subscription] += _amount;
+    s_subscriptions[subscription] += _amount;
   }
 
   function validatePaymasterUserOp(
@@ -65,24 +65,24 @@ contract Paymaster is IPaymaster, ConfirmedOwner {
     if (msg.sender != i_entryPoint) {
       revert Unauthorized(msg.sender, i_entryPoint);
     }
-    if (userOpHashMapping[userOpHash]) {
+    if (s_userOpHashMapping[userOpHash]) {
       revert UserOperationAlreadyTried(userOpHash);
     }
 
-    uint256 extraCostJuels = handleExtraCostJuels(userOp);
-    uint256 costJuels = getCostJuels(maxCost) + extraCostJuels;
-    if (subscriptions[userOp.sender] < costJuels) {
-      revert InsufficientFunds(costJuels, subscriptions[userOp.sender]);
+    uint256 extraCostJuels = _handleExtraCostJuels(userOp);
+    uint256 costJuels = _getCostJuels(maxCost) + extraCostJuels;
+    if (s_subscriptions[userOp.sender] < costJuels) {
+      revert InsufficientFunds(costJuels, s_subscriptions[userOp.sender]);
     }
 
-    userOpHashMapping[userOpHash] = true;
+    s_userOpHashMapping[userOpHash] = true;
     return (abi.encode(userOp.sender, extraCostJuels), _packValidationData(false, 0, 0)); // success
   }
 
   /// @dev Calculates any extra LINK cost for the user operation, based on the funding type passed to the
   /// @dev paymaster. Handles funding the LINK token funding described in the user operation.
   /// TODO: add logic for subscription top-up.
-  function handleExtraCostJuels(UserOperation calldata userOp) internal returns (uint256 extraCost) {
+  function _handleExtraCostJuels(UserOperation calldata userOp) internal returns (uint256 extraCost) {
     if (userOp.paymasterAndData.length == 20) {
       return 0; // no extra data, stop here
     }
@@ -111,14 +111,14 @@ contract Paymaster is IPaymaster, ConfirmedOwner {
       revert Unauthorized(msg.sender, i_entryPoint);
     }
     (address sender, uint256 extraCostJuels) = abi.decode(context, (address, uint256));
-    subscriptions[sender] -= (getCostJuels(actualGasCost) + extraCostJuels);
+    s_subscriptions[sender] -= (_getCostJuels(actualGasCost) + extraCostJuels);
   }
 
-  function getCostJuels(uint256 costWei) internal view returns (uint256 costJuels) {
-    costJuels = (1e18 * costWei) / uint256(getFeedData());
+  function _getCostJuels(uint256 costWei) internal view returns (uint256 costJuels) {
+    costJuels = (1e18 * costWei) / uint256(_getFeedData());
   }
 
-  function getFeedData() internal view returns (int256) {
+  function _getFeedData() internal view returns (int256) {
     uint32 stalenessSeconds = s_config.stalenessSeconds;
     bool staleFallback = stalenessSeconds > 0;
     uint256 timestamp;
