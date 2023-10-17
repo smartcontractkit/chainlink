@@ -54,6 +54,7 @@ describe('AuthorizedForwarder', () => {
   it('has a limited public interface [ @skip-coverage ]', () => {
     publicAbi(forwarder, [
       'forward',
+      'multiForward',
       'getAuthorizedSenders',
       'getChainlinkToken',
       'isAuthorizedSender',

@@ -5,8 +5,9 @@ import "./AuthorizedReceiver.sol";
 import "./LinkTokenReceiver.sol";
 import "../../shared/access/ConfirmedOwner.sol";
 import "../../shared/interfaces/LinkTokenInterface.sol";
+import "../../interfaces/AuthorizedReceiverInterface.sol";
 import "../../interfaces/OperatorInterface.sol";
-import "../../dev/shared/interfaces/OwnableInterface.sol";
+import "../../shared/interfaces/IOwnable.sol";
 import "../../dev/shared/interfaces/WithdrawalInterface.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import {SafeCast} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/SafeCast.sol";
@@ -17,7 +18,7 @@ import {SafeCast} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/util
  * @notice Node operators can deploy this contract to fulfill requests sent to them
  */
 contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, OperatorInterface, WithdrawalInterface {
-  using SafeMathChainlink for uint256;
+  using Address for address;
 
   struct Commitment {
     bytes31 paramsHash;
@@ -235,7 +236,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   function transferOwnableContracts(address[] calldata ownable, address newOwner) external onlyOwner {
     for (uint256 i = 0; i < ownable.length; i++) {
       s_owned[ownable[i]] = false;
-      OwnableInterface(ownable[i]).transferOwnership(newOwner);
+      IOwnable(ownable[i]).transferOwnership(newOwner);
     }
   }
 
@@ -250,7 +251,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     for (uint256 i = 0; i < ownable.length; i++) {
       s_owned[ownable[i]] = true;
       emit OwnableContractAccepted(ownable[i]);
-      OwnableInterface(ownable[i]).acceptOwnership();
+      IOwnable(ownable[i]).acceptOwnership();
     }
   }
 
@@ -263,7 +264,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     public
     validateAuthorizedSenderSetter
   {
-    TargetsUpdatedAuthorizedSenders(targets, senders, msg.sender);
+    emit TargetsUpdatedAuthorizedSenders(targets, senders, msg.sender);
 
     for (uint256 i = 0; i < targets.length; i++) {
       AuthorizedReceiverInterface(targets[i]).setAuthorizedSenders(senders);
@@ -351,7 +352,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     uint256 valueRemaining = msg.value;
     for (uint256 i = 0; i < receivers.length; i++) {
       uint256 sendAmount = amounts[i];
-      valueRemaining = valueRemaining.sub(sendAmount);
+      valueRemaining = valueRemaining - sendAmount;
       receivers[i].transfer(sendAmount);
     }
     require(valueRemaining == 0, "Too much ETH sent");
@@ -452,10 +453,10 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     requestId = keccak256(abi.encodePacked(sender, nonce));
     require(s_commitments[requestId].paramsHash == 0, "Must use a unique ID");
     // solhint-disable-next-line not-rely-on-time
-    expiration = block.timestamp.add(getExpiryTime);
+    expiration = block.timestamp + getExpiryTime;
     bytes31 paramsHash = _buildParamsHash(payment, callbackAddress, callbackFunctionId, expiration);
-    s_commitments[requestId] = Commitment(paramsHash, SafeCast.toInt8(dataVersion));
-    s_tokensInEscrow = s_tokensInEscrow.add(payment);
+    s_commitments[requestId] = Commitment(paramsHash, SafeCast.toUint8(dataVersion));
+    s_tokensInEscrow = s_tokensInEscrow + payment;
     return (requestId, expiration);
   }
 
@@ -477,8 +478,8 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   ) internal {
     bytes31 paramsHash = _buildParamsHash(payment, callbackAddress, callbackFunctionId, expiration);
     require(s_commitments[requestId].paramsHash == paramsHash, "Params do not match request ID");
-    require(s_commitments[requestId].dataVersion <= SafeCast.toInt8(dataVersion), "Data versions must match");
-    s_tokensInEscrow = s_tokensInEscrow.sub(payment);
+    require(s_commitments[requestId].dataVersion <= SafeCast.toUint8(dataVersion), "Data versions must match");
+    s_tokensInEscrow = s_tokensInEscrow - payment;
     delete s_commitments[requestId];
   }
 
@@ -504,8 +505,8 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
    * @return uint256 LINK tokens available
    */
   function _fundsAvailable() private view returns (uint256) {
-    uint256 inEscrow = s_tokensInEscrow.sub(ONE_FOR_CONSISTENT_GAS_COST);
-    return linkToken.balanceOf(address(this)).sub(inEscrow);
+    uint256 inEscrow = s_tokensInEscrow - ONE_FOR_CONSISTENT_GAS_COST;
+    return linkToken.balanceOf(address(this)) - inEscrow;
   }
 
   /**

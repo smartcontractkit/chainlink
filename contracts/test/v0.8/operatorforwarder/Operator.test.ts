@@ -316,7 +316,7 @@ describe('Operator', () => {
                 value: ethSent,
               },
             ),
-          'SafeMath: subtraction overflow',
+          'Arithmetic operation underflowed or overflowed outside of an unchecked block',
         )
       })
     })
