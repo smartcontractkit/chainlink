@@ -64,7 +64,7 @@ library SmartContractAccountHelper {
     address recipient,
     uint256 topupThreshold,
     uint256 topupAmount
-  ) external view returns (bytes memory) {
+  ) external pure returns (bytes memory) {
     SCALibrary.DirectFundingData memory data = SCALibrary.DirectFundingData({
       recipient: recipient,
       topupThreshold: topupThreshold,

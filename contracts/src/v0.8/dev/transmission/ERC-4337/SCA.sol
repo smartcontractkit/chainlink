@@ -4,6 +4,8 @@ pragma solidity 0.8.15;
 
 import {IAccount} from "../../../vendor/entrypoint/interfaces/IAccount.sol";
 import {SCALibrary} from "./SCALibrary.sol";
+import {UserOperation} from "../../../vendor/entrypoint/interfaces/UserOperation.sol";
+import {_packValidationData} from "../../../vendor/entrypoint/core/Helpers.sol";
 
 /// @dev Smart Contract Account, a contract deployed for a single user and that allows
 /// @dev them to invoke meta-transactions.

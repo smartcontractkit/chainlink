@@ -6,6 +6,8 @@ import {SCALibrary} from "./SCALibrary.sol";
 import {LinkTokenInterface} from "../../../shared/interfaces/LinkTokenInterface.sol";
 import {AggregatorV3Interface} from "../../../interfaces/AggregatorV3Interface.sol";
 import {ConfirmedOwner} from "../../../shared/access/ConfirmedOwner.sol";
+import {UserOperation} from "../../../vendor/entrypoint/interfaces/UserOperation.sol";
+import {_packValidationData} from "../../../vendor/entrypoint/core/Helpers.sol";
 
 /// @dev LINK token paymaster implementation.
 /// TODO: more documentation.
