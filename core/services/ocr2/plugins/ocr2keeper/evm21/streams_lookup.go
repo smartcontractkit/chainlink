@@ -289,7 +289,7 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, l
 		for i := range sl.Feeds {
 			go r.singleFeedRequest(ctx, ch, i, sl, lggr)
 		}
-	} else if sl.FeedParamKey == feedIDs && sl.TimeParamKey == timestamp {
+	} else if sl.FeedParamKey == feedIDs {
 		// only mercury v0.3
 		resultLen = 1
 		isMercuryV03 = true
@@ -441,7 +441,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 	//	feedIDs:   {strings.Join(sl.Feeds, ",")},
 	//	timestamp: {sl.Time.String()},
 	//}
-	params := fmt.Sprintf("%s=%s&%s=%s", feedIDs, strings.Join(sl.Feeds, ","), timestamp, sl.Time.String())
+	params := fmt.Sprintf("%s=%s&%s=%s", feedIDs, strings.Join(sl.Feeds, ","), sl.TimeParamKey, sl.Time.String())
 	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV03, params)
 	lggr.Debugf("request URL for upkeep %s userId %s: %s", sl.upkeepId.String(), r.mercury.cred.Username, reqUrl)
 

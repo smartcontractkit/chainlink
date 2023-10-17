@@ -373,7 +373,7 @@ func TestEvmRegistry_AllowedToUseMercury(t *testing.T) {
 	}
 }
 
-func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
+func TestEvmRegistry_DoMercuryRequestV02(t *testing.T) {
 	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
 
 	tests := []struct {
@@ -494,6 +494,81 @@ func TestEvmRegistry_DoMercuryRequest(t *testing.T) {
 				} else {
 					hc.On("Do", mock.Anything).Return(resp, nil).Once()
 				}
+			}
+			r.hc = hc
+
+			state, reason, values, retryable, reqErr := r.doMercuryRequest(context.Background(), tt.lookup, r.lggr)
+			assert.Equal(t, tt.expectedValues, values)
+			assert.Equal(t, tt.expectedRetryable, retryable)
+			assert.Equal(t, tt.state, state)
+			assert.Equal(t, tt.reason, reason)
+			if tt.expectedError != nil {
+				assert.Equal(t, tt.expectedError.Error(), reqErr.Error())
+			}
+		})
+	}
+}
+
+func TestEvmRegistry_DoMercuryRequestV03(t *testing.T) {
+	upkeepId, _ := new(big.Int).SetString("88786950015966611018675766524283132478093844178961698330929478019253453382042", 10)
+
+	tests := []struct {
+		name               string
+		lookup             *StreamsLookup
+		mockHttpStatusCode int
+		mockChainlinkBlobs []string
+		expectedValues     [][]byte
+		expectedRetryable  bool
+		expectedError      error
+		state              encoding.PipelineExecutionState
+		reason             encoding.UpkeepFailureReason
+	}{
+		{
+			name: "success v0.3",
+			lookup: &StreamsLookup{
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: blockNumber,
+					Time:         big.NewInt(25880526),
+					ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+				},
+				upkeepId: upkeepId,
+			},
+			mockHttpStatusCode: http.StatusOK,
+			mockChainlinkBlobs: []string{"0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000081401000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000289ad8d367000000000000000000000000000000000000000000000000000000289acf0b38000000000000000000000000000000000000000000000000000000289b3da40000000000000000000000000000000000000000000000000000000000018ae7ce74d9fa252a8983976eab600dc7590c778d04813430841bc6e765c34cd81a168d00000000000000000000000000000000000000000000000000000000018ae7cb0000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000000000000260412b94e525ca6cedc9f544fd86f77606d52fe731a5d069dbe836a8bfc0fb8c911963b0ae7a14971f3b4621bffb802ef0605392b9a6c89c7fab1df8633a5ade00000000000000000000000000000000000000000000000000000000000000024500c2f521f83fba5efc2bf3effaaedde43d0a4adff785c1213b712a3aed0d8157642a84324db0cf9695ebd27708d4608eb0337e0dd87b0e43f0fa70c700d911"},
+			expectedValues:     [][]byte{{0, 6, 109, 252, 209, 237, 45, 149, 177, 140, 148, 141, 188, 91, 214, 76, 104, 122, 254, 147, 228, 202, 125, 102, 61, 222, 193, 76, 32, 9, 10, 216, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 8, 20, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 224, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 128, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 32, 69, 84, 72, 45, 85, 83, 68, 45, 65, 82, 66, 73, 84, 82, 85, 77, 45, 84, 69, 83, 84, 78, 69, 84, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 137, 28, 152, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 40, 154, 216, 211, 103, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 40, 154, 207, 11, 56, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 40, 155, 61, 164, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 138, 231, 206, 116, 217, 250, 37, 42, 137, 131, 151, 110, 171, 96, 13, 199, 89, 12, 119, 141, 4, 129, 52, 48, 132, 27, 198, 231, 101, 195, 76, 216, 26, 22, 141, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 138, 231, 203, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100, 137, 28, 152, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 96, 65, 43, 148, 229, 37, 202, 108, 237, 201, 245, 68, 253, 134, 247, 118, 6, 213, 47, 231, 49, 165, 208, 105, 219, 232, 54, 168, 191, 192, 251, 140, 145, 25, 99, 176, 174, 122, 20, 151, 31, 59, 70, 33, 191, 251, 128, 46, 240, 96, 83, 146, 185, 166, 200, 156, 127, 171, 29, 248, 99, 58, 90, 222, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 69, 0, 194, 245, 33, 248, 63, 186, 94, 252, 43, 243, 239, 250, 174, 221, 228, 61, 10, 74, 223, 247, 133, 193, 33, 59, 113, 42, 58, 237, 13, 129, 87, 100, 42, 132, 50, 77, 176, 207, 150, 149, 235, 210, 119, 8, 212, 96, 142, 176, 51, 126, 13, 216, 123, 14, 67, 240, 250, 112, 199, 0, 217, 17}},
+			expectedRetryable:  false,
+			expectedError:      nil,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := setupEVMRegistry(t)
+			hc := mocks.NewHttpClient(t)
+
+			mr := MercuryV03Response{}
+			for i, blob := range tt.mockChainlinkBlobs {
+				r := MercuryV03Report{
+					FeedID:                tt.lookup.Feeds[i],
+					ValidFromTimestamp:    0,
+					ObservationsTimestamp: 0,
+					FullReport:            blob,
+				}
+				mr.Reports = append(mr.Reports, r)
+			}
+
+			b, err := json.Marshal(mr)
+			assert.Nil(t, err)
+			resp := &http.Response{
+				StatusCode: tt.mockHttpStatusCode,
+				Body:       io.NopCloser(bytes.NewReader(b)),
+			}
+			if tt.expectedError != nil && tt.expectedRetryable {
+				hc.On("Do", mock.Anything).Return(resp, nil).Times(totalAttempt)
+			} else {
+				hc.On("Do", mock.Anything).Return(resp, nil).Once()
 			}
 			r.hc = hc
 
@@ -707,6 +782,35 @@ func TestEvmRegistry_MultiFeedRequest(t *testing.T) {
 					FeedParamKey: feedIDs,
 					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
 					TimeParamKey: timestamp,
+					Time:         big.NewInt(123456),
+				},
+				upkeepId: upkeepId,
+			},
+			response: &MercuryV03Response{
+				Reports: []MercuryV03Report{
+					{
+						FeedID:                "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123456,
+						ObservationsTimestamp: 123456,
+						FullReport:            "0xab2123dc00000012",
+					},
+					{
+						FeedID:                "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000",
+						ValidFromTimestamp:    123458,
+						ObservationsTimestamp: 123458,
+						FullReport:            "0xab2123dc00000016",
+					},
+				},
+			},
+			statusCode: http.StatusOK,
+		},
+		{
+			name: "success - mercury responds in the first try with blocknumber",
+			lookup: &StreamsLookup{
+				StreamsLookupError: &encoding.StreamsLookupError{
+					FeedParamKey: feedIDs,
+					Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+					TimeParamKey: blockNumber,
 					Time:         big.NewInt(123456),
 				},
 				upkeepId: upkeepId,
