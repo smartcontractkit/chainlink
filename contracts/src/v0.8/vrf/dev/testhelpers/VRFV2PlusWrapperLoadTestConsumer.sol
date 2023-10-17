@@ -45,11 +45,15 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
   ) external onlyOwner {
     for (uint16 i = 0; i < _requestCount; i++) {
       bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: false}));
-      uint256 requestId = requestRandomness(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs);
+      (uint256 requestId, uint256 paid) = requestRandomness(
+        _callbackGasLimit,
+        _requestConfirmations,
+        _numWords,
+        extraArgs
+      );
       s_lastRequestId = requestId;
 
       uint256 requestBlockNumber = ChainSpecificUtil._getBlockNumber();
-      uint256 paid = i_vrfV2PlusWrapper.calculateRequestPrice(_callbackGasLimit);
       s_requests[requestId] = RequestStatus({
         paid: paid,
         fulfilled: false,
@@ -74,11 +78,15 @@ contract VRFV2PlusWrapperLoadTestConsumer is VRFV2PlusWrapperConsumerBase, Confi
   ) external onlyOwner {
     for (uint16 i = 0; i < _requestCount; i++) {
       bytes memory extraArgs = VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: true}));
-      uint256 requestId = requestRandomnessPayInNative(_callbackGasLimit, _requestConfirmations, _numWords, extraArgs);
+      (uint256 requestId, uint256 paid) = requestRandomnessPayInNative(
+        _callbackGasLimit,
+        _requestConfirmations,
+        _numWords,
+        extraArgs
+      );
       s_lastRequestId = requestId;
 
       uint256 requestBlockNumber = ChainSpecificUtil._getBlockNumber();
-      uint256 paid = i_vrfV2PlusWrapper.calculateRequestPriceNative(_callbackGasLimit);
       s_requests[requestId] = RequestStatus({
         paid: paid,
         fulfilled: false,
