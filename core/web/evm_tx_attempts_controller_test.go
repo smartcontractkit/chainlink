@@ -21,7 +21,7 @@ func TestTxAttemptsController_Index_Success(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	txStore := cltest.NewTestTxStore(t, app.GetSqlxDB(), app.GetConfig().Database())
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	_, from := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
@@ -51,7 +51,7 @@ func TestTxAttemptsController_Index_Error(t *testing.T) {
 	app := cltest.NewApplicationWithKey(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Get("/v2/tx_attempts?size=TrainingDay")
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, resp, 422)
