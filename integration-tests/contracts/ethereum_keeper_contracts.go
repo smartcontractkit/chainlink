@@ -18,6 +18,7 @@ import (
 	goabi "github.com/umbracle/ethgo/abi"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
@@ -240,6 +241,7 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registr
 			Registrars:             []common.Address{common.HexToAddress(registrar)},
 			UpkeepPrivilegeManager: registryOwnerAddress,
 		}
+
 		encodedOnchainConfig, err := utilsABI.Methods["_onChainConfig"].Inputs.Pack(&onchainConfigStruct)
 
 		return encodedOnchainConfig, err
@@ -265,6 +267,19 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registr
 }
 
 func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
+	callOpts := &bind.CallOpts{
+		Pending: false,
+	}
+
+	switch v.version {
+	case ethereum.RegistryVersion_2_1:
+		ownerAddress, _ := v.registry2_1.Owner(callOpts)
+		return ownerAddress
+	case ethereum.RegistryVersion_2_0:
+		ownerAddress, _ := v.registry2_0.Owner(callOpts)
+		return ownerAddress
+	}
+
 	return common.HexToAddress(v.client.GetDefaultWallet().Address())
 }
 
