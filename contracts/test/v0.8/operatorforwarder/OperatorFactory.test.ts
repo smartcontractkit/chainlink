@@ -56,7 +56,7 @@ describe('OperatorFactory', () => {
       'deployNewOperatorAndForwarder',
       'deployNewForwarder',
       'deployNewForwarderAndTransferOwnership',
-      'getChainlinkToken',
+      'linkToken',
       'typeAndVersion',
     ])
   })

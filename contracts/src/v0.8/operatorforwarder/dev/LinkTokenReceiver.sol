@@ -1,16 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.19;
 
 // solhint-disable custom-errors
 abstract contract LinkTokenReceiver {
-  /**
-   * @notice Called when LINK is sent to the contract via `transferAndCall`
-   * @dev The data payload's first 2 words will be overwritten by the `sender` and `amount`
-   * values to ensure correctness. Calls oracleRequest.
-   * @param sender Address of the sender
-   * @param amount Amount of LINK sent (specified in wei)
-   * @param data Payload of the transaction
-   */
+  
+  // @notice Called when LINK is sent to the contract via `transferAndCall`
+  // @dev The data payload's first 2 words will be overwritten by the `sender` and `amount`
+  // values to ensure correctness. Calls oracleRequest.
+  // @param sender Address of the sender
+  // @param amount Amount of LINK sent (specified in wei)
+  // @param data Payload of the transaction
   function onTokenTransfer(
     address sender,
     uint256 amount,
@@ -28,24 +27,18 @@ abstract contract LinkTokenReceiver {
   }
 
   function getChainlinkToken() public view virtual returns (address);
-
-  /**
-   * @notice Validate the function called on token transfer
-   */
+  
+  // @notice Validate the function called on token transfer
   function _validateTokenTransferAction(bytes4 funcSelector, bytes memory data) internal virtual;
 
-  /**
-   * @dev Reverts if not sent from the LINK token
-   */
+  // @dev Reverts if not sent from the LINK token
   modifier validateFromLINK() {
     require(msg.sender == getChainlinkToken(), "Must use LINK token");
     _;
   }
-
-  /**
-   * @dev Reverts if the given data does not begin with the `oracleRequest` function selector
-   * @param data The data payload of the request
-   */
+  
+  // @dev Reverts if the given data does not begin with the `oracleRequest` function selector
+  // @param data The data payload of the request   
   modifier permittedFunctionsForLINK(bytes memory data) {
     bytes4 funcSelector;
     assembly {

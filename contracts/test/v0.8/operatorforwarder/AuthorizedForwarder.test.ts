@@ -56,7 +56,7 @@ describe('AuthorizedForwarder', () => {
       'forward',
       'multiForward',
       'getAuthorizedSenders',
-      'getChainlinkToken',
+      'linkToken',
       'isAuthorizedSender',
       'ownerForward',
       'setAuthorizedSenders',
@@ -80,7 +80,7 @@ describe('AuthorizedForwarder', () => {
 
   describe('deployment', () => {
     it('sets the correct link token', async () => {
-      assert.equal(await forwarder.i_chainlinkToken(), link.address)
+      assert.equal(await forwarder.linkToken(), link.address)
     })
 
     it('reverts on zeroAddress value for link token', async () => {

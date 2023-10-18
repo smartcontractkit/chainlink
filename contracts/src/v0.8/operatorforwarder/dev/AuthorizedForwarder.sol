@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.19;
 
 import {ConfirmedOwnerWithProposal} from "../../shared/access/ConfirmedOwnerWithProposal.sol";
 import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
@@ -10,7 +10,7 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
   using Address for address;
 
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
-  address public immutable getChainlinkToken;
+  address public immutable linkToken;
 
   event OwnershipTransferRequestedWithMessage(address indexed from, address indexed to, bytes message);
 
@@ -21,81 +21,63 @@ contract AuthorizedForwarder is ConfirmedOwnerWithProposal, AuthorizedReceiver {
     bytes memory message
   ) ConfirmedOwnerWithProposal(owner, recipient) {
     require(link != address(0), "Link token cannot be a zero address");
-    getChainlinkToken = link;
+    linkToken = link;
     if (recipient != address(0)) {
       emit OwnershipTransferRequestedWithMessage(owner, recipient, message);
     }
   }
 
-  /**
-   * @notice The type and version of this contract
-   * @return Type and version string
-   */
-  function typeAndVersion() external pure virtual returns (string memory) {
-    return "AuthorizedForwarder 1.0.0";
-  }
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
+  string public constant typeAndVersion = "AuthorizedForwarder 1.0.0";
 
-  /**
-   * @notice Forward a call to another contract
-   * @dev Only callable by an authorized sender
-   * @param to address
-   * @param data to forward
-   */
+  // @notice Forward a call to another contract
+  // @dev Only callable by an authorized sender
+  // @param to address
+  // @param data to forward
   function forward(address to, bytes calldata data) external validateAuthorizedSender {
-    require(to != getChainlinkToken, "Cannot forward to Link token");
+    require(to != linkToken, "Cannot forward to Link token");
     _forward(to, data);
   }
 
-  /**
-   * @notice Forward multiple calls to other contracts in a multicall style
-   * @dev Only callable by an authorized sender
-   * @param tos An array of addresses to forward the calls to
-   * @param datas An array of data to forward to each corresponding address
-   */
+  //  @notice Forward multiple calls to other contracts in a multicall style
+  //  @dev Only callable by an authorized sender
+  //  @param tos An array of addresses to forward the calls to
+  //  @param datas An array of data to forward to each corresponding address
   function multiForward(address[] calldata tos, bytes[] calldata datas) external validateAuthorizedSender {
     require(tos.length == datas.length, "Arrays must have the same length");
 
-    for (uint256 i = 0; i < tos.length; i++) {
+    for (uint256 i = 0; i < tos.length; ++i) {
       address to = tos[i];
-      bytes calldata data = datas[i];
-      require(to != getChainlinkToken, "Cannot forward to Link token");
+      require(to != linkToken, "Cannot forward to Link token");
 
       // Perform the forward operation
-      _forward(to, data);
+      _forward(to, datas[i]);
     }
   }
 
-  /**
-   * @notice Forward a call to another contract
-   * @dev Only callable by the owner
-   * @param to address
-   * @param data to forward
-   */
+  // @notice Forward a call to another contract
+  // @dev Only callable by the owner
+  // @param to address
+  // @param data to forward
   function ownerForward(address to, bytes calldata data) external onlyOwner {
     _forward(to, data);
   }
 
-  /**
-   * @notice Transfer ownership with instructions for recipient
-   * @param to address proposed recipient of ownership
-   * @param message instructions for recipient upon accepting ownership
-   */
+  // @notice Transfer ownership with instructions for recipient
+  // @param to address proposed recipient of ownership
+  // @param message instructions for recipient upon accepting ownership
   function transferOwnershipWithMessage(address to, bytes calldata message) external {
     transferOwnership(to);
     emit OwnershipTransferRequestedWithMessage(msg.sender, to, message);
   }
 
-  /**
-   * @notice concrete implementation of AuthorizedReceiver
-   * @return bool of whether sender is authorized
-   */
+  // @notice concrete implementation of AuthorizedReceiver
+  // @return bool of whether sender is authorized
   function _canSetAuthorizedSenders() internal view override returns (bool) {
     return owner() == msg.sender;
   }
 
-  /**
-   * @notice common forwarding functionality and validation
-   */
+  // @notice common forwarding functionality and validation
   function _forward(address to, bytes calldata data) private {
     require(to.isContract(), "Must forward to a contract");
     // solhint-disable-next-line avoid-low-level-calls
