@@ -1011,7 +1011,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 		pluginService,
 	}
 
-	if cfg.CaptureAutomationCustomTelemetry {
+	if d.cfg.OCR2().CaptureAutomationCustomTelemetry() {
 		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom)
 		customTelemService, custErr := ocr2keeper.NewAutomationCustomTelemetryService(
 			endpoint,
@@ -1020,9 +1020,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 			keeperProvider.ContractConfigTracker(),
 		)
 		if custErr != nil {
-			fmt.Errorf("keeper2 services: %w", custErr)
-			errors.Wrap(custErr, "Error when creating AutomationCustomTelemetryService")
-			return nil, custErr
+			return nil, errors.Wrap(custErr, "Error when creating AutomationCustomTelemetryService")
 		}
 		automationServices = append(automationServices, customTelemService)
 	}
