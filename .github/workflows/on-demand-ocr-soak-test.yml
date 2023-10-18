@@ -10,6 +10,8 @@ on:
           - "GOERLI"
           - "OPTIMISM_GOERLI"
           - "ARBITRUM_GOERLI"
+          - "ARBITRUM_SEPOLIA"
+          - "ARBITRUM_MAINNET"
           - "CELO_ALFAJORES"
           - "CELO_MAINNET"
           - "BASE_GOERLI"
