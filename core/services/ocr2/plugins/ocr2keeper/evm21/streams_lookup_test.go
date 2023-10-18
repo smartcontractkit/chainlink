@@ -244,43 +244,44 @@ func TestEvmRegistry_StreamsLookup(t *testing.T) {
 					}).Once()
 			}
 
-			if len(tt.blobs) > 0 && !tt.v3 {
-				hc := mocks.NewHttpClient(t)
-				mr1 := MercuryV02Response{ChainlinkBlob: tt.blobs["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"]}
-				b1, err := json.Marshal(mr1)
-				assert.Nil(t, err)
-				resp1 := &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(bytes.NewReader(b1)),
-				}
-				mr2 := MercuryV02Response{ChainlinkBlob: tt.blobs["0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"]}
-				b2, err := json.Marshal(mr2)
-				assert.Nil(t, err)
-				resp2 := &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(bytes.NewReader(b2)),
-				}
-				hc.On("Do", mock.MatchedBy(func(req *http.Request) bool {
-					return strings.Contains(req.URL.String(), "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000")
-				})).Return(resp2, nil).Once()
+			if len(tt.blobs) > 0 {
+				if tt.v3 {
+					hc := mocks.NewHttpClient(t)
+					mr1 := MercuryV03Response{
+						Reports: []MercuryV03Report{{FullReport: tt.blobs["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"]}, {FullReport: tt.blobs["0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"]}}}
+					b1, err := json.Marshal(mr1)
+					assert.Nil(t, err)
+					resp1 := &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewReader(b1)),
+					}
+					hc.On("Do", mock.Anything).Return(resp1, nil).Once()
+					r.hc = hc
+				} else {
+					hc := mocks.NewHttpClient(t)
+					mr1 := MercuryV02Response{ChainlinkBlob: tt.blobs["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"]}
+					b1, err := json.Marshal(mr1)
+					assert.Nil(t, err)
+					resp1 := &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewReader(b1)),
+					}
+					mr2 := MercuryV02Response{ChainlinkBlob: tt.blobs["0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"]}
+					b2, err := json.Marshal(mr2)
+					assert.Nil(t, err)
+					resp2 := &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(bytes.NewReader(b2)),
+					}
+					hc.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+						return strings.Contains(req.URL.String(), "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000")
+					})).Return(resp2, nil).Once()
 
-				hc.On("Do", mock.MatchedBy(func(req *http.Request) bool {
-					return strings.Contains(req.URL.String(), "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000")
-				})).Return(resp1, nil).Once()
-				r.hc = hc
-			}
-			if len(tt.blobs) > 0 && tt.v3 {
-				hc := mocks.NewHttpClient(t)
-				mr1 := MercuryV03Response{
-					Reports: []MercuryV03Report{{FullReport: tt.blobs["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"]}, {FullReport: tt.blobs["0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"]}}}
-				b1, err := json.Marshal(mr1)
-				assert.Nil(t, err)
-				resp1 := &http.Response{
-					StatusCode: http.StatusOK,
-					Body:       io.NopCloser(bytes.NewReader(b1)),
+					hc.On("Do", mock.MatchedBy(func(req *http.Request) bool {
+						return strings.Contains(req.URL.String(), "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000")
+					})).Return(resp1, nil).Once()
+					r.hc = hc
 				}
-				hc.On("Do", mock.Anything).Return(resp1, nil).Once()
-				r.hc = hc
 			}
 
 			if tt.callbackNeeded {
