@@ -143,6 +143,8 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 		return nil, types.ReportingPluginInfo{}, err
 	}
 
+	pluginOffChainConfig := rf.config.commitStore.OffchainConfig()
+
 	return &CommitReportingPlugin{
 			sourceChainSelector:     rf.config.sourceChainSelector,
 			sourceNative:            rf.config.sourceNative,
@@ -162,6 +164,7 @@ func (rf *CommitReportingPluginFactory) NewReportingPlugin(config types.Reportin
 				int64(rf.config.commitStore.OffchainConfig().DestFinalityDepth),
 			),
 			gasPriceEstimator: rf.config.commitStore.GasPriceEstimator(),
+			offchainConfig:    pluginOffChainConfig,
 		},
 		types.ReportingPluginInfo{
 			Name:          "CCIPCommit",
