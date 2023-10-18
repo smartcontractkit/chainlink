@@ -730,7 +730,7 @@ ContractTransmitterTransmitTimeout = '10s' # Default
 DatabaseTimeout = '10s' # Default
 KeyBundleID = '7a5f66bbe6594259325bf2b4f5b1a9c900000000000000000000000000000000' # Example
 CaptureEATelemetry = false # Default
-CaptureAutomationCustomTelemetry = false # Default
+CaptureAutomationCustomTelemetry = true # Default
 DefaultTransactionQueueDepth = 1 # Default
 SimulateTransactions = false # Default
 TraceLogging = false # Default
@@ -827,7 +827,7 @@ CaptureEATelemetry toggles collecting extra information from External Adaptares
 
 ### CaptureAutomationCustomTelemetry
 ```toml
-CaptureAutomationCustomTelemetry = false # Default
+CaptureAutomationCustomTelemetry = true # Default
 ```
 CaptureAutomationCustomTelemetry toggles collecting automation specific telemetry
 

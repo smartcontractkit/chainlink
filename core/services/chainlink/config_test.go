@@ -348,7 +348,7 @@ func TestConfig_Marshal(t *testing.T) {
 		DatabaseTimeout:                    models.MustNewDuration(8 * time.Second),
 		KeyBundleID:                        ptr(models.MustSha256HashFromHex("7a5f66bbe6594259325bf2b4f5b1a9c9")),
 		CaptureEATelemetry:                 ptr(false),
-		CaptureAutomationCustomTelemetry:   ptr(false),
+		CaptureAutomationCustomTelemetry:   ptr(true),
 		DefaultTransactionQueueDepth:       ptr[uint32](1),
 		SimulateTransactions:               ptr(false),
 		TraceLogging:                       ptr(false),
@@ -363,7 +363,7 @@ func TestConfig_Marshal(t *testing.T) {
 		KeyBundleID:                  ptr(models.MustSha256HashFromHex("acdd42797a8b921b2910497badc50006")),
 		SimulateTransactions:         ptr(true),
 		TransmitterAddress:           ptr(ethkey.MustEIP55Address("0xa0788FC17B1dEe36f057c42B6F373A34B014687e")),
-		CaptureEATelemetry:           ptr(false),
+		CaptureEATelemetry:           ptr(true),
 		TraceLogging:                 ptr(false),
 	}
 	full.P2P = toml.P2P{
