@@ -1331,10 +1331,15 @@ func (t *Tracing) setFrom(f *Tracing) {
 }
 
 func (t *Tracing) ValidateConfig() (err error) {
-	if t.CollectorTarget == nil || *t.CollectorTarget == "" {
-		return nil
+	if t.SamplingRatio != nil {
+		if *t.SamplingRatio < 0 || *t.SamplingRatio > 1 {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "SamplingRatio", Value: *t.SamplingRatio, Msg: "must be between 0 and 1"})
+		}
 	}
 
+	if t.CollectorTarget == nil || *t.CollectorTarget == ""  {
+		return nil
+	}
 	ok := isValidURI(*t.CollectorTarget)
 	if !ok {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})

@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 func TestMercurySecrets_valid(t *testing.T) {
@@ -205,8 +206,9 @@ func TestTracing_ValidateCollectorTarget(t *testing.T) {
 		},
 		{
 			name:            "nil CollectorTarget",
-			collectorTarget: nil,
-			wantErr:         false,
+			collectorTarget: stringPtr(""),
+			wantErr:         true,
+			errMsg:          "CollectorTarget: invalid value (): must be a valid URI",
 		},
 	}
 
@@ -231,4 +233,69 @@ func TestTracing_ValidateCollectorTarget(t *testing.T) {
 // stringPtr is a utility function for converting a string to a string pointer.
 func stringPtr(s string) *string {
 	return &s
+}
+
+func TestTracing_ValidateSamplingRatio(t *testing.T) {
+	tests := []struct {
+		name          string
+		samplingRatio *float64
+		wantErr       bool
+		errMsg        string
+	}{
+		{
+			name: "valid lower bound",
+			samplingRatio: float64Ptr(0),
+			wantErr: false,
+		},
+		{
+			name: "valid upper bound",
+			samplingRatio: float64Ptr(1),
+			wantErr: false,
+		},
+		{
+			name: "valid value",
+			samplingRatio: float64Ptr(0.5),
+			wantErr: false,
+		},
+		{
+			name: "invalid negative value",
+			samplingRatio: float64Ptr(-0.1),
+			wantErr: true,
+			errMsg: configutils.ErrInvalid{Name: "SamplingRatio", Value: -0.1, Msg: "must be between 0 and 1"}.Error(),
+		},
+		{
+			name: "invalid value greater than 1",
+			samplingRatio: float64Ptr(1.1),
+			wantErr: true,
+			errMsg: configutils.ErrInvalid{Name: "SamplingRatio", Value: 1.1, Msg: "must be between 0 and 1"}.Error(),
+		},
+		{
+			name: "nil SamplingRatio",
+			samplingRatio: nil,
+			wantErr: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tracing := Tracing{
+				SamplingRatio: tt.samplingRatio,
+				// initialize other fields as necessary
+			}
+
+			err := tracing.ValidateConfig()
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Equal(t, tt.errMsg, err.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// float64Ptr is a utility function for converting a float64 to a pointer to a float64.
+func float64Ptr(f float64) *float64 {
+	return &f
 }
