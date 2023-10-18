@@ -377,5 +377,10 @@ func NewCommitStoreV1_2_0(lggr logger.Logger, addr common.Address, ec client.Cli
 		reportAcceptedSig: eventSig,
 		// offset || priceUpdatesOffset || minSeqNum || maxSeqNum || merkleRoot
 		reportAcceptedMaxSeqIndex: 3,
+		configMu:                  sync.RWMutex{},
+
+		// The fields below are initially empty and set on ChangeConfig method
+		offchainConfig:    CommitOffchainConfig{},
+		gasPriceEstimator: prices.DAGasPriceEstimator{},
 	}, nil
 }

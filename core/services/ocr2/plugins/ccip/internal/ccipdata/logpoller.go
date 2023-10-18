@@ -30,9 +30,10 @@ type LogPollerReader struct {
 
 func NewLogPollerReader(lp logpoller.LogPoller, lggr logger.Logger, client evmclient.Client) *LogPollerReader {
 	return &LogPollerReader{
-		lp:     lp,
-		lggr:   lggr,
-		client: client,
+		lp:              lp,
+		lggr:            lggr,
+		client:          client,
+		dependencyCache: sync.Map{},
 	}
 }
 

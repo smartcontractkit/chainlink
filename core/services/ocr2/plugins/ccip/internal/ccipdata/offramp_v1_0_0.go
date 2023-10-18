@@ -368,5 +368,11 @@ func NewOffRampV1_0_0(lggr logger.Logger, addr common.Address, ec client.Client,
 		executionReportArgs: executionReportArgs,
 		eventSig:            ExecutionStateChangedEventV1_0_0,
 		eventIndex:          executionStateChangedSequenceNumberIndex,
+		configMu:            sync.RWMutex{},
+
+		// values set on the fly after ChangeConfig is called
+		gasPriceEstimator: prices.ExecGasPriceEstimator{},
+		offchainConfig:    ExecOffchainConfig{},
+		onchainConfig:     ExecOnchainConfig{},
 	}, nil
 }
