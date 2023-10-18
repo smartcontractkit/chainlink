@@ -59,8 +59,8 @@ devDependencies:
     specifier: ^7.2.0
     version: 7.2.0(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(ethers@5.7.2)(typechain@8.2.0)(typescript@5.2.2)
   '@typechain/hardhat':
-    specifier: ^5.0.0
-    version: 5.0.0(hardhat@2.18.1)(lodash@4.17.21)(typechain@8.2.0)
+    specifier: ^6.1.6
+    version: 6.1.6(@ethersproject/abi@5.7.0)(@ethersproject/providers@5.7.2)(@typechain/ethers-v5@7.2.0)(ethers@5.7.2)(hardhat@2.18.1)(typechain@8.2.0)
   '@types/cbor':
     specifier: 5.0.1
     version: 5.0.1
@@ -1645,16 +1645,22 @@ packages:
       typescript: 5.2.2
     dev: true
 
-  /@typechain/hardhat@5.0.0(hardhat@2.18.1)(lodash@4.17.21)(typechain@8.2.0):
-    resolution: {integrity: sha512-Pqk+KdREbU6Uk3en1Z5caQpWt2bKU+KTOi+6dZwcIXJpF1wKoAwF1cbaYSQEzrG4BSUTM1rHQhW5JHSfeqpsAg==}
+  /@typechain/hardhat@6.1.6(@ethersproject/abi@5.7.0)(@ethersproject/providers@5.7.2)(@typechain/ethers-v5@7.2.0)(ethers@5.7.2)(hardhat@2.18.1)(typechain@8.2.0):
+    resolution: {integrity: sha512-BiVnegSs+ZHVymyidtK472syodx1sXYlYJJixZfRstHVGYTi8V1O7QG4nsjyb0PC/LORcq7sfBUcHto1y6UgJA==}
     peerDependencies:
-      hardhat: ^2.0.10
-      lodash: ^4.17.15
-      typechain: ^7.0.0
+      '@ethersproject/abi': ^5.4.7
+      '@ethersproject/providers': ^5.4.7
+      '@typechain/ethers-v5': ^10.2.1
+      ethers: ^5.4.7
+      hardhat: ^2.9.9
+      typechain: ^8.1.1
     dependencies:
+      '@ethersproject/abi': 5.7.0
+      '@ethersproject/providers': 5.7.2
+      '@typechain/ethers-v5': 7.2.0(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.7.0)(@ethersproject/providers@5.7.2)(ethers@5.7.2)(typechain@8.2.0)(typescript@5.2.2)
+      ethers: 5.7.2
       fs-extra: 9.1.0
       hardhat: 2.18.1(ts-node@10.9.1)(typescript@5.2.2)
-      lodash: 4.17.21
       typechain: 8.2.0(typescript@5.2.2)
     dev: true
 
