@@ -188,8 +188,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 	if cfg.StarkNetEnabled() {
 		starkCfg := chainlink.StarkNetFactoryConfig{
-			Keystore:        keyStore.StarkNet(),
-			StarknetConfigs: cfg.StarknetConfigs(),
+			Keystore:    keyStore.StarkNet(),
+			TOMLConfigs: cfg.StarknetConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitStarknet(ctx, relayerFactory, starkCfg))
 
