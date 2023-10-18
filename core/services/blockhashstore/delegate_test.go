@@ -55,7 +55,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	})
 	db := pgtest.NewSqlxDB(t)
 	kst := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
-	sendingKey, _ := cltest.MustAddRandomKeyToKeystore(t, kst)
+	sendingKey, _ := cltest.MustInsertRandomKey(t, kst)
 	lp := &mocklp.LogPoller{}
 	lp.On("RegisterFilter", mock.Anything).Return(nil)
 	lp.On("LatestBlock", mock.Anything, mock.Anything).Return(int64(0), nil)
@@ -89,7 +89,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 	defaultWaitBlocks := (int32)(testData.legacyChains.Slice()[0].Config().EVM().FinalityDepth())
 
 	t.Run("happy", func(t *testing.T) {
-		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks}}
+		spec := job.Job{BlockhashStoreSpec: &job.BlockhashStoreSpec{WaitBlocks: defaultWaitBlocks, EVMChainID: (*utils.Big)(testutils.FixtureChainID)}}
 		services, err := delegate.ServicesForSpec(spec)
 
 		require.NoError(t, err)
@@ -106,6 +106,7 @@ func TestDelegate_ServicesForSpec(t *testing.T) {
 			CoordinatorV1Address:     &coordinatorV1,
 			CoordinatorV2Address:     &coordinatorV2,
 			CoordinatorV2PlusAddress: &coordinatorV2Plus,
+			EVMChainID:               (*utils.Big)(testutils.FixtureChainID),
 		}}
 		services, err := delegate.ServicesForSpec(spec)
 
@@ -150,6 +151,7 @@ func TestDelegate_StartStop(t *testing.T) {
 		WaitBlocks: defaultWaitBlocks,
 		PollPeriod: time.Second,
 		RunTimeout: testutils.WaitTimeout(t),
+		EVMChainID: (*utils.Big)(testutils.FixtureChainID),
 	}}
 	services, err := delegate.ServicesForSpec(spec)
 

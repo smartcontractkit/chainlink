@@ -17,7 +17,9 @@ on:
           - "BSC_MAINNET"
           - "BSC_TESTNET"
           - "SCROLL_SEPOLIA"
-          - "SCROLL_MAINNET"   
+          - "SCROLL_MAINNET"
+          - "MUMBAI"
+          - "POLYGON_MAINNET"   
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
@@ -121,7 +123,7 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
       - name: Run Tests
-        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@00c6214deb10a3f374c6d3430c32c5202015d463 # v2.2.12
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
         env:
           DETACH_RUNNER: true
           TEST_SUITE: soak

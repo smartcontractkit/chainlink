@@ -18,8 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -82,7 +81,7 @@ LimitDefault = 5_000_000`
 			},
 		},
 		"stateful": true,
-		"capacity": "1Gi",
+		"capacity": "10Gi",
 	}
 
 	soakChainlinkResources = map[string]interface{}{
@@ -109,7 +108,7 @@ LimitDefault = 5_000_000`
 			},
 		},
 		"stateful": true,
-		"capacity": "1Gi",
+		"capacity": "10Gi",
 	}
 )
 
@@ -142,7 +141,7 @@ type NetworkConfig struct {
 }
 
 func TestAutomationBenchmark(t *testing.T) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	testEnvironment, benchmarkNetwork := SetupAutomationBenchmarkEnv(t)
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -154,25 +153,25 @@ func TestAutomationBenchmark(t *testing.T) {
 
 	l.Info().Str("Namespace", testEnvironment.Cfg.Namespace).Msg("Connected to Keepers Benchmark Environment")
 
-	chainClient, err := blockchain.NewEVMClient(benchmarkNetwork, testEnvironment)
+	chainClient, err := blockchain.NewEVMClient(benchmarkNetwork, testEnvironment, l)
 	require.NoError(t, err, "Error connecting to blockchain")
 	registryVersions := addRegistry(RegistryToTest)
-	keeperBenchmarkTest := testsetups.NewKeeperBenchmarkTest(
+	keeperBenchmarkTest := testsetups.NewKeeperBenchmarkTest(t,
 		testsetups.KeeperBenchmarkTestInputs{
 			BlockchainClient: chainClient,
 			RegistryVersions: registryVersions,
 			KeeperRegistrySettings: &contracts.KeeperRegistrySettings{
 				PaymentPremiumPPB:    uint32(0),
 				BlockCountPerTurn:    big.NewInt(100),
-				CheckGasLimit:        uint32(45000000), //45M
-				StalenessSeconds:     big.NewInt(90000),
+				CheckGasLimit:        uint32(45_000_000), //45M
+				StalenessSeconds:     big.NewInt(90_000),
 				GasCeilingMultiplier: uint16(2),
 				MaxPerformGas:        uint32(MaxPerformGas),
 				MinUpkeepSpend:       big.NewInt(0),
 				FallbackGasPrice:     big.NewInt(2e11),
 				FallbackLinkPrice:    big.NewInt(2e18),
-				MaxCheckDataSize:     uint32(5000),
-				MaxPerformDataSize:   uint32(5000),
+				MaxCheckDataSize:     uint32(5_000),
+				MaxPerformDataSize:   uint32(5_000),
 			},
 			Upkeeps: &testsetups.UpkeepConfig{
 				NumberOfUpkeeps:     NumberOfUpkeeps,
@@ -203,8 +202,8 @@ func TestAutomationBenchmark(t *testing.T) {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
 		}
 	})
-	keeperBenchmarkTest.Setup(t, testEnvironment)
-	keeperBenchmarkTest.Run(t)
+	keeperBenchmarkTest.Setup(testEnvironment)
+	keeperBenchmarkTest.Run()
 }
 
 func addRegistry(registryToTest string) []eth_contracts.KeeperRegistryVersion {
@@ -299,7 +298,7 @@ func getEnv(key, fallback string) string {
 }
 
 func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockchain.EVMNetwork) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	testNetwork := networks.SelectedNetwork // Environment currently being used to run benchmark test on
 	blockTime := "1"
 	networkDetailTOML := `MinIncomingConfirmations = 1`
@@ -317,7 +316,8 @@ func SetupAutomationBenchmarkEnv(t *testing.T) (*environment.Environment, blockc
 			strings.ReplaceAll(strings.ToLower(testNetwork.Name), " ", "-"),
 			strings.ReplaceAll(strings.ToLower(RegistryToTest), "_", "-"),
 		),
-		Test: t,
+		Test:               t,
+		PreventPodEviction: true,
 	})
 	// propagate TEST_INPUTS to remote runner
 	if testEnvironment.WillUseRemoteRunner() {

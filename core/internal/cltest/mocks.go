@@ -27,6 +27,7 @@ import (
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // MockSubscription a mock subscription
@@ -308,35 +309,16 @@ func MustRandomUser(t testing.TB) sessions.User {
 	return r
 }
 
-// CreateUserWithRole inserts a new user with specified role and associated test DB email into the test DB
-func CreateUserWithRole(t testing.TB, role sessions.UserRole) sessions.User {
-	email := ""
-	switch role {
-	case sessions.UserRoleAdmin:
-		email = APIEmailAdmin
-	case sessions.UserRoleEdit:
-		email = APIEmailEdit
-	case sessions.UserRoleRun:
-		email = APIEmailRun
-	case sessions.UserRoleView:
-		email = APIEmailViewOnly
-	default:
-		t.Fatal("Unexpected role for CreateUserWithRole")
-	}
+func NewUserWithSession(t testing.TB, orm sessions.ORM) sessions.User {
+	u := MustRandomUser(t)
+	require.NoError(t, orm.CreateUser(&u))
 
-	r, err := sessions.NewUser(email, Password, role)
-	if err != nil {
-		logger.TestLogger(t).Panic(err)
-	}
-	return r
-}
-
-func MustNewUser(t *testing.T, email, password string) sessions.User {
-	r, err := sessions.NewUser(email, password, sessions.UserRoleAdmin)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return r
+	_, err := orm.CreateSession(sessions.SessionRequest{
+		Email:    u.Email,
+		Password: Password,
+	})
+	require.NoError(t, err)
+	return u
 }
 
 type MockAPIInitializer struct {
@@ -429,7 +411,5 @@ func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg 
 
 func NewLegacyChainsWithChain(ch evm.Chain, cfg evm.AppConfig) evm.LegacyChainContainer {
 	m := map[string]evm.Chain{ch.ID().String(): ch}
-	legacyChains := evm.NewLegacyChains(m, cfg.EVMConfigs())
-	legacyChains.SetDefault(ch)
-	return legacyChains
+	return evm.NewLegacyChains(m, cfg.EVMConfigs())
 }

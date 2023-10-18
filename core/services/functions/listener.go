@@ -142,6 +142,12 @@ type FunctionsListener struct {
 	logPollerWrapper   evmrelayTypes.LogPollerWrapper
 }
 
+func (l *FunctionsListener) HealthReport() map[string]error {
+	return map[string]error{l.Name(): l.Healthy()}
+}
+
+func (l *FunctionsListener) Name() string { return l.logger.Name() }
+
 func formatRequestId(requestId [32]byte) string {
 	return fmt.Sprintf("0x%x", requestId)
 }
@@ -484,15 +490,6 @@ func (l *FunctionsListener) handleRequest(ctx context.Context, requestID Request
 	requestIDStr := formatRequestId(requestID)
 	l.logger.Infow("processing request", "requestID", requestIDStr)
 
-	if l.pluginConfig.ContractVersion == 1 && l.pluginConfig.EnableRequestSignatureCheck {
-		err := VerifyRequestSignature(subscriptionOwner, requestData)
-		if err != nil {
-			l.logger.Errorw("invalid request signature", "requestID", requestIDStr, "err", err)
-			l.setError(ctx, requestID, USER_ERROR, []byte(err.Error()))
-			return
-		}
-	}
-
 	eaClient, err := l.bridgeAccessor.NewExternalAdapterClient()
 	if err != nil {
 		l.logger.Errorw("failed to create ExternalAdapterClient", "requestID", requestIDStr, "err", err)
@@ -689,7 +686,11 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 
 	switch requestData.SecretsLocation {
 	case LocationInline:
-		l.logger.Warnw("request used Inline secrets location, processing with no secrets", "requestID", requestIDStr)
+		if len(requestData.Secrets) > 0 {
+			l.logger.Warnw("request used Inline secrets location, processing with no secrets", "requestID", requestIDStr)
+		} else {
+			l.logger.Debugw("request does not use any secrets", "requestID", requestIDStr)
+		}
 		return "", nil, nil
 	case LocationRemote:
 		thresholdEncSecrets, userError, err := eaClient.FetchEncryptedSecrets(ctx, requestData.Secrets, requestIDStr, l.job.Name.ValueOrZero())
@@ -697,7 +698,7 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 			return "", nil, errors.Wrap(err, "failed to fetch encrypted secrets")
 		}
 		if len(userError) != 0 {
-			l.logger.Debugw("no valid threshold encrypted secrets detected, falling back to legacy secrets", "requestID", requestIDStr, "err", string(userError))
+			return "", errors.New(string(userError)), nil
 		}
 		secrets = thresholdEncSecrets
 	case LocationDONHosted:
@@ -714,7 +715,7 @@ func (l *FunctionsListener) getSecrets(ctx context.Context, eaClient ExternalAda
 			Version: donSecrets.Version,
 		})
 		if err != nil {
-			return "", errors.Wrap(err, "failed to fetch S4 record for a secret"), nil
+			return "", errors.Wrap(err, "failed to fetch DONHosted secrets"), nil
 		}
 		secrets = record.Payload
 	}

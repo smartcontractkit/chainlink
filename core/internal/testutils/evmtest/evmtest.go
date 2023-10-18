@@ -3,6 +3,7 @@ package evmtest
 import (
 	"fmt"
 	"math/big"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -12,7 +13,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slices"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
@@ -45,7 +45,7 @@ func NewChainScopedConfig(t testing.TB, cfg evm.AppConfig) evmconfig.ChainScoped
 	if len(cfg.EVMConfigs()) > 0 {
 		evmCfg = cfg.EVMConfigs()[0]
 	} else {
-		chainID := utils.NewBigI(0)
+		var chainID = (*utils.Big)(testutils.FixtureChainID)
 		evmCfg = &evmtoml.EVMConfig{
 			ChainID: chainID,
 			Chain:   evmtoml.Defaults(chainID),
@@ -82,20 +82,20 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayEx
 	require.NotNil(t, testopts.KeyStore)
 	opts := evm.ChainRelayExtenderConfig{
 		Logger:   logger.TestLogger(t),
-		DB:       testopts.DB,
 		KeyStore: testopts.KeyStore,
-		RelayerConfig: &evm.RelayerConfig{
+		ChainOpts: evm.ChainOpts{
 			AppConfig:        testopts.GeneralConfig,
 			EventBroadcaster: pg.NewNullEventBroadcaster(),
 			MailMon:          testopts.MailMon,
 			GasEstimator:     testopts.GasEstimator,
+			DB:               testopts.DB,
 		},
 	}
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
 		if testopts.Client != nil {
 			return testopts.Client
 		}
-		return evmclient.NewNullClient(testopts.GeneralConfig.DefaultChainID(), logger.TestLogger(t))
+		return evmclient.NewNullClient(MustGetDefaultChainID(t, testopts.GeneralConfig.EVMConfigs()), logger.TestLogger(t))
 	}
 	if testopts.LogBroadcaster != nil {
 		opts.GenLogBroadcaster = func(*big.Int) log.Broadcaster {
@@ -129,10 +129,21 @@ func NewChainRelayExtOpts(t testing.TB, testopts TestChainOpts) evm.ChainRelayEx
 	return opts
 }
 
+// Deprecated, this is a replacement function for tests for now removed default evmChainID logic
+func MustGetDefaultChainID(t testing.TB, evmCfgs evmtoml.EVMConfigs) *big.Int {
+	if len(evmCfgs) == 0 {
+		t.Fatalf("at least one evm chain config must be defined")
+	}
+	return evmCfgs[0].ChainID.ToInt()
+}
+
+// Deprecated, this is a replacement function for tests for now removed default chain logic
 func MustGetDefaultChain(t testing.TB, cc evm.LegacyChainContainer) evm.Chain {
-	chain, err := cc.Default()
-	require.NoError(t, err)
-	return chain
+	if len(cc.Slice()) == 0 {
+		t.Fatalf("at least one evm chain container must be defined")
+	}
+
+	return cc.Slice()[0]
 }
 
 type TestConfigs struct {

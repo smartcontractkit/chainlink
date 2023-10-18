@@ -292,12 +292,8 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	s.Config.LogConfiguration(lggr.Debugf)
 
-	err := s.Config.Validate()
-	if err != nil {
-		if err.Error() != "invalid secrets: Database.AllowSimplePasswords: invalid value (true): insecure configs are not allowed on secure builds" {
-			return errors.Wrap(err, "config validation failed")
-		}
-		lggr.Errorf("Notification for upcoming configuration change: %v", err)
+	if err := s.Config.Validate(); err != nil {
+		return errors.Wrap(err, "config validation failed")
 	}
 
 	lggr.Infow(fmt.Sprintf("Starting Chainlink Node %s at commit %s", static.Version, static.Sha), "Version", static.Version, "SHA", static.Sha)
@@ -375,25 +371,10 @@ func (s *Shell) runNode(c *cli.Context) error {
 
 	legacyEVMChains := app.GetRelayers().LegacyEVMChains()
 
-	// By passing in a function we can be lazy trying to look up a default
-	// chain - if there are no existing keys, there is no need to check for
-	// a chain ID
-	DefaultEVMChainIDFunc := func() (*big.Int, error) {
-		def, err2 := legacyEVMChains.Default()
-		if err2 != nil {
-			return nil, errors.Wrap(err2, "cannot get default EVM chain ID; no default EVM chain available")
-		}
-		return def.ID(), nil
-	}
-	err = keyStore.Migrate(s.Config.Password().VRF(), DefaultEVMChainIDFunc)
-
 	if s.Config.EVMEnabled() {
-		if err != nil {
-			return errors.Wrap(err, "error migrating keystore")
-		}
-		chainList, err := legacyEVMChains.List()
-		if err != nil {
-			return fmt.Errorf("error listing legacy evm chains: %w", err)
+		chainList, err2 := legacyEVMChains.List()
+		if err2 != nil {
+			return fmt.Errorf("error listing legacy evm chains: %w", err2)
 		}
 		for _, ch := range chainList {
 			if ch.Config().EVM().AutoCreateKey() {
@@ -518,8 +499,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 func checkFilePermissions(lggr logger.Logger, rootDir string) error {
 	// Ensure tls sub directory (and children) permissions are <= `ownerPermsMask``
 	tlsDir := filepath.Join(rootDir, "tls")
-	_, err := os.Stat(tlsDir)
-	if err != nil && !os.IsNotExist(err) {
+	if _, err := os.Stat(tlsDir); err != nil && !os.IsNotExist(err) {
 		lggr.Errorf("error checking perms of 'tls' directory: %v", err)
 	} else if err == nil {
 		err := utils.EnsureDirAndMaxPerms(tlsDir, ownerPermsMask)
@@ -628,19 +608,16 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	}
 
 	if c.IsSet("password") {
-		pwd, err := utils.PasswordFromFile(c.String("password"))
-		if err != nil {
-			return s.errorOut(fmt.Errorf("error reading password: %+v", err))
+		pwd, err2 := utils.PasswordFromFile(c.String("password"))
+		if err2 != nil {
+			return s.errorOut(fmt.Errorf("error reading password: %+v", err2))
 		}
 		s.Config.SetPasswords(&pwd, nil)
 	}
 
 	err = s.Config.Validate()
 	if err != nil {
-		if err.Error() != "invalid secrets: Database.AllowSimplePasswords: invalid value (true): insecure configs are not allowed on secure builds" {
-			return s.errorOut(fmt.Errorf("error validating configuration: %+v", err))
-		}
-		lggr.Errorf("Notification for required upcoming configuration change: %v", err)
+		return s.errorOut(fmt.Errorf("error validating configuration: %+v", err))
 	}
 
 	err = keyStore.Unlock(s.Config.Password().Keystore())
@@ -727,7 +704,7 @@ func (s *Shell) validateDB(c *cli.Context) error {
 }
 
 // ResetDatabase drops, creates and migrates the database specified by CL_DATABASE_URL or Database.URL
-// in secrets TOML. This is useful to setup the database for testing
+// in secrets TOML. This is useful to set up the database for testing
 func (s *Shell) ResetDatabase(c *cli.Context) error {
 	cfg := s.Config.Database()
 	parsed := cfg.URL()
@@ -834,7 +811,7 @@ func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
 	return
 }
 
-// PrepareTestDatabase calls ResetDatabase then loads fixtures required for local
+// PrepareTestDatabaseUserOnly calls ResetDatabase then loads only user fixtures required for local
 // testing against testnets. Does not include fake chain fixtures.
 func (s *Shell) PrepareTestDatabaseUserOnly(c *cli.Context) error {
 	if err := s.ResetDatabase(c); err != nil {
@@ -855,6 +832,11 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 		return s.errorOut(errDBURLMissing)
 	}
 
+	err := migrate.SetMigrationENVVars(s.Config)
+	if err != nil {
+		return err
+	}
+
 	s.Logger.Infof("Migrating database: %#v", parsed.String())
 	if err := migrateDB(cfg, s.Logger); err != nil {
 		return s.errorOut(err)
@@ -862,7 +844,7 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 	return nil
 }
 
-// VersionDatabase displays the current database version.
+// RollbackDatabase rolls back the database via down migrations.
 func (s *Shell) RollbackDatabase(c *cli.Context) error {
 	var version null.Int
 	if c.Args().Present() {
@@ -1038,6 +1020,7 @@ func migrateDB(config dbConfig, lggr logger.Logger) error {
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
+
 	if err = migrate.Migrate(db.DB, lggr); err != nil {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}

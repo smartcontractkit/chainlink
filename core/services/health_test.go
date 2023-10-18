@@ -1,8 +1,6 @@
 package services_test
 
 import (
-	"fmt"
-	"io"
 	"net/http"
 	"testing"
 	"time"
@@ -22,6 +20,8 @@ type boolCheck struct {
 	name    string
 	healthy bool
 }
+
+func (b boolCheck) Name() string { return b.name }
 
 func (b boolCheck) Ready() error {
 	if b.healthy {
@@ -58,8 +58,8 @@ func TestCheck(t *testing.T) {
 		}},
 	} {
 		c := services.NewChecker()
-		for i, check := range test.checks {
-			require.NoError(t, c.Register(fmt.Sprint(i), check))
+		for _, check := range test.checks {
+			require.NoError(t, c.Register(check))
 		}
 
 		require.NoError(t, c.Start())
@@ -81,11 +81,7 @@ func TestNewInBackupHealthReport(t *testing.T) {
 
 	res, err := http.Get("http://localhost:1234/health")
 	require.NoError(t, err)
-	require.Equal(t, http.StatusServiceUnavailable, res.StatusCode)
-
-	resBody, err := io.ReadAll(res.Body)
-	require.NoError(t, err)
-	require.Equal(t, "Database backup in progress...", string(resBody))
+	require.Equal(t, http.StatusNoContent, res.StatusCode)
 
 	ibhr.Stop()
 	require.Eventually(t, func() bool { return observed.Len() >= 1 }, time.Second*5, time.Millisecond*100)

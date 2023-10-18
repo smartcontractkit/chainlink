@@ -75,7 +75,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 	tests := []struct {
 		name        string
 		checkBlock  *big.Int
-		latestBlock ocr2keepers.BlockKey
+		latestBlock *ocr2keepers.BlockKey
 		upkeepId    *big.Int
 		checkHash   common.Hash
 		payload     ocr2keepers.UpkeepPayload
@@ -88,7 +88,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		{
 			name:        "for an invalid check block number, if hash does not match the check hash, return CheckBlockInvalid",
 			checkBlock:  big.NewInt(500),
-			latestBlock: ocr2keepers.BlockKey{Number: 560},
+			latestBlock: &ocr2keepers.BlockKey{Number: 560},
 			upkeepId:    big.NewInt(12345),
 			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
 			payload: ocr2keepers.UpkeepPayload{
@@ -112,7 +112,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		{
 			name:        "for an invalid check block number, if hash does match the check hash, return NoPipelineError",
 			checkBlock:  big.NewInt(500),
-			latestBlock: ocr2keepers.BlockKey{Number: 560},
+			latestBlock: &ocr2keepers.BlockKey{Number: 560},
 			upkeepId:    big.NewInt(12345),
 			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
 			payload: ocr2keepers.UpkeepPayload{
@@ -136,13 +136,22 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		{
 			name:        "check block hash does not match",
 			checkBlock:  big.NewInt(500),
-			latestBlock: ocr2keepers.BlockKey{Number: 560},
+			latestBlock: &ocr2keepers.BlockKey{Number: 560},
 			upkeepId:    big.NewInt(12345),
 			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
 			payload: ocr2keepers.UpkeepPayload{
 				UpkeepID: upkeepId,
 				Trigger:  ocr2keepers.NewTrigger(500, common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83")),
 				WorkID:   "work",
+			},
+			poller: &mockLogPoller{
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
+					return []logpoller.LogPollerBlock{
+						{
+							BlockHash: common.HexToHash("0xcba5cf9e2bb32373c76015384e1098912d9510a72481c78057fcb088209167de"),
+						},
+					}, nil
+				},
 			},
 			blocks: map[int64]string{
 				500: "0xa518faeadcc423338c62572da84dda35fe44b34f521ce88f6081b703b250cca4",
@@ -152,7 +161,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 		{
 			name:        "check block is valid",
 			checkBlock:  big.NewInt(500),
-			latestBlock: ocr2keepers.BlockKey{Number: 560},
+			latestBlock: &ocr2keepers.BlockKey{Number: 560},
 			upkeepId:    big.NewInt(12345),
 			checkHash:   common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
 			payload: ocr2keepers.UpkeepPayload{
@@ -173,7 +182,7 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				latestBlock: atomic.Pointer[ocr2keepers.BlockKey]{},
 				blocks:      tc.blocks,
 			}
-			bs.latestBlock.Store(&tc.latestBlock)
+			bs.latestBlock.Store(tc.latestBlock)
 			e := &EvmRegistry{
 				lggr:   lggr,
 				bs:     bs,
@@ -195,14 +204,14 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 type mockLogPoller struct {
 	logpoller.LogPoller
 	GetBlocksRangeFn func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error)
-	IndexedLogsFn    func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error)
+	IndexedLogsFn    func(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error)
 }
 
 func (p *mockLogPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
 	return p.GetBlocksRangeFn(ctx, numbers, qopts...)
 }
 
-func (p *mockLogPoller) IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs int, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+func (p *mockLogPoller) IndexedLogs(eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs logpoller.Confirmations, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 	return p.IndexedLogsFn(eventSig, address, topicIndex, topicValues, confs, qopts...)
 }
 
@@ -383,11 +392,12 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 		name          string
 		inputs        []ocr2keepers.UpkeepPayload
 		blocks        map[int64]string
-		latestBlock   ocr2keepers.BlockKey
+		latestBlock   *ocr2keepers.BlockKey
 		results       []ocr2keepers.CheckResult
 		err           error
 		ethCalls      map[string]bool
 		receipts      map[string]*types.Receipt
+		poller        logpoller.LogPoller
 		ethCallErrors map[string]error
 	}{
 		{
@@ -417,7 +427,7 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 				570: "0x1222d75217e2dd461cc77e4091c37abe76277430d97f1963a822b4e94ebb83fc",
 				575: "0x9840e5b709bfccf6a1b44f34c884bc39403f57923f3f5ead6243cc090546b857",
 			},
-			latestBlock: ocr2keepers.BlockKey{Number: 580},
+			latestBlock: &ocr2keepers.BlockKey{Number: 580},
 			results: []ocr2keepers.CheckResult{
 				{
 					PipelineExecutionState: uint8(encoding.CheckBlockInvalid),
@@ -463,6 +473,15 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 				uid1.String(): true,
 			},
 			receipts: map[string]*types.Receipt{},
+			poller: &mockLogPoller{
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64, qopts ...pg.QOpt) ([]logpoller.LogPollerBlock, error) {
+					return []logpoller.LogPollerBlock{
+						{
+							BlockHash: common.HexToHash("0xcba5cf9e2bb32373c76015384e1098912d9510a72481c78057fcb088209167de"),
+						},
+					}, nil
+				},
+			},
 			ethCallErrors: map[string]error{
 				uid1.String(): fmt.Errorf("error"),
 			},
@@ -475,10 +494,11 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 				latestBlock: atomic.Pointer[ocr2keepers.BlockKey]{},
 				blocks:      tc.blocks,
 			}
-			bs.latestBlock.Store(&tc.latestBlock)
+			bs.latestBlock.Store(tc.latestBlock)
 			e := &EvmRegistry{
-				lggr: lggr,
-				bs:   bs,
+				lggr:   lggr,
+				bs:     bs,
+				poller: tc.poller,
 			}
 			client := new(evmClientMocks.Client)
 			for _, i := range tc.inputs {

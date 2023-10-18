@@ -1,7 +1,6 @@
 # ALL_FOUNDRY_PRODUCTS contains a list of all products that have a foundry
-# profile defined. Adding a product to this list will make it available for
-# snapshotting.
-ALL_FOUNDRY_PRODUCTS = vrf automation llo-feeds functions shared
+# profile defined and use the Foundry snapshots. 
+ALL_FOUNDRY_PRODUCTS = llo-feeds functions shared
 
 # To make a snapshot for a specific product, either set the `FOUNDRY_PROFILE` env var
 # or call the target with `FOUNDRY_PROFILE=product`
@@ -37,9 +36,12 @@ abigen: ## Build & install abigen.
 mockery: $(mockery) ## Install mockery.
 	go install github.com/vektra/mockery/v2@v2.28.1
 
+.PHONY: foundry
+foundry: ## Install foundry.
+	foundryup --version nightly-5be158ba6dc7c798a6f032026fe60fc01686b33b
+
 .PHONY: foundry-refresh
-foundry-refresh:
-	foundryup
+foundry-refresh: foundry
 	git submodule deinit -f .
 	git submodule update --init --recursive
 

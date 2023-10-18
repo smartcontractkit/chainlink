@@ -40,8 +40,8 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		db := pgtest.NewSqlxDB(t)
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		ethClient := newEthClientMock(t)
-		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer func() { assert.NoError(t, bm.Close()) }()
@@ -69,7 +69,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		ethClient := newEthClientMock(t)
 
-		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer func() { assert.NoError(t, bm.Close()) }()
@@ -89,7 +89,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		ethClient := newEthClientMock(t)
 
-		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer func() { assert.NoError(t, bm.Close()) }()
@@ -119,7 +119,7 @@ func TestBalanceMonitor_Start(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		ethClient := newEthClientMock(t)
 
-		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		defer func() { assert.NoError(t, bm.Close()) }()
@@ -146,8 +146,8 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 		ethClient := newEthClientMock(t)
 
-		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
-		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+		_, k0Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
+		_, k1Addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 		bm := monitor.NewBalanceMonitor(ethClient, ethKeyStore, logger.TestLogger(t))
 		k0bal := big.NewInt(42)
@@ -169,12 +169,9 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 		// Do the thing
 		bm.OnNewLongestChain(testutils.Context(t), head)
 
-		gomega.NewWithT(t).Eventually(func() *big.Int {
-			return bm.GetEthBalance(k0Addr).ToInt()
-		}).Should(gomega.Equal(k0bal))
-		gomega.NewWithT(t).Eventually(func() *big.Int {
-			return bm.GetEthBalance(k1Addr).ToInt()
-		}).Should(gomega.Equal(k1bal))
+		<-bm.WorkDone()
+		assert.Equal(t, k0bal, bm.GetEthBalance(k0Addr).ToInt())
+		assert.Equal(t, k1bal, bm.GetEthBalance(k1Addr).ToInt())
 
 		// Do it again
 		k0bal2 := big.NewInt(142)
@@ -187,12 +184,9 @@ func TestBalanceMonitor_OnNewLongestChain_UpdatesBalance(t *testing.T) {
 
 		bm.OnNewLongestChain(testutils.Context(t), head)
 
-		gomega.NewWithT(t).Eventually(func() *big.Int {
-			return bm.GetEthBalance(k0Addr).ToInt()
-		}).Should(gomega.Equal(k0bal2))
-		gomega.NewWithT(t).Eventually(func() *big.Int {
-			return bm.GetEthBalance(k1Addr).ToInt()
-		}).Should(gomega.Equal(k1bal2))
+		<-bm.WorkDone()
+		assert.Equal(t, k0bal2, bm.GetEthBalance(k0Addr).ToInt())
+		assert.Equal(t, k1bal2, bm.GetEthBalance(k1Addr).ToInt())
 	})
 }
 
@@ -203,7 +197,7 @@ func TestBalanceMonitor_FewerRPCCallsWhenBehind(t *testing.T) {
 	cfg := configtest.NewGeneralConfig(t, nil)
 	ethKeyStore := cltest.NewKeyStore(t, db, cfg.Database()).Eth()
 
-	cltest.MustAddRandomKeyToKeystore(t, ethKeyStore)
+	cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	ethClient := newEthClientMock(t)
 

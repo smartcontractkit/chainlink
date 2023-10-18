@@ -1,0 +1,14 @@
+
+[Common]
+node_funds = 0.1
+is_native_payment = false
+minimum_confirmations = 3
+sub_funds_link = 10
+sub_funds_native = 1
+
+[ExistingEnvConfig]
+coordinator_address = "0x4931Ce2e341398c8eD8A5D0F6ADb920476D6DaBb"
+consumer_address = "0x087F232165D9bA1A602f148025e5D0666953F64a"
+sub_id = "52116875585187328970776211988181422347535732407068188096422095950800466618218"
+key_hash = "0x4c422465ed6a06cfc84575a5437fef7b9dc6263133f648afbe6ae7b2c694d3b3"
+

@@ -21,6 +21,7 @@ jobs:
           filters: |
             src:
               - 'contracts/src/v0.8/**/*'
+              - 'contracts/test/v0.8/foundry/**/*'
               - '.github/workflows/solidity-foundry.yml'
               - 'contracts/foundry.toml'
               - 'contracts/gas-snapshots/*.gas-snapshot'
@@ -29,6 +30,7 @@ jobs:
 
   tests:
     strategy:
+      fail-fast: false
       matrix:
         product: [vrf, automation, llo-feeds, functions, shared]
     needs: [changes]
@@ -52,7 +54,8 @@ jobs:
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
         with:
-          version: nightly
+          # Has to match the `make foundry` version.
+          version: nightly-5be158ba6dc7c798a6f032026fe60fc01686b33b
 
       - name: Run Forge build
         run: |
