@@ -109,6 +109,10 @@ func (c *dkgProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return c.contractTransmitter
 }
 
+func (c *dkgProvider) ChainReader() relaytypes.ChainReader {
+	return nil
+}
+
 type ocr2vrfProvider struct {
 	*configWatcher
 	contractTransmitter ContractTransmitter
@@ -116,6 +120,10 @@ type ocr2vrfProvider struct {
 
 func (c *ocr2vrfProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
 	return c.contractTransmitter
+}
+
+func (c *ocr2vrfProvider) ChainReader() relaytypes.ChainReader {
+	return nil
 }
 
 func newOCR2VRFConfigProvider(lggr logger.Logger, chain evm.Chain, rargs relaytypes.RelayArgs) (*configWatcher, error) {

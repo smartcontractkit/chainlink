@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -83,6 +84,10 @@ func (p *functionsProvider) HealthReport() map[string]error {
 
 func (p *functionsProvider) Name() string {
 	return p.configWatcher.Name()
+}
+
+func (p *functionsProvider) ChainReader() relaytypes.ChainReader {
+	return nil
 }
 
 func NewFunctionsProvider(chain evm.Chain, rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (evmRelayTypes.FunctionsProvider, error) {

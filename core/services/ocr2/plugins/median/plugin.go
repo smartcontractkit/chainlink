@@ -3,6 +3,7 @@ package median
 import (
 	"context"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -27,8 +28,9 @@ func (p *Plugin) NewMedianFactory(ctx context.Context, provider types.MedianProv
 	var ctxVals loop.ContextValues
 	ctxVals.SetValues(ctx)
 	lggr := logger.With(p.Logger, ctxVals.Args()...)
+	medianContract := newMedianContract(provider.ChainReader(), common.Address{ /* TODO: fill in address of median contract from somewhere? */ })
 	factory := median.NumericalMedianFactory{
-		ContractTransmitter:       provider.MedianContract(),
+		ContractTransmitter:       medianContract,
 		DataSource:                dataSource,
 		JuelsPerFeeCoinDataSource: juelsPerFeeCoin,
 		Logger: logger.NewOCRWrapper(lggr, true, func(msg string) {
