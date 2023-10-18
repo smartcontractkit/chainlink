@@ -5,7 +5,7 @@ import {AuthorizedReceiverInterface} from "../../interfaces/AuthorizedReceiverIn
 
 // solhint-disable custom-errors
 abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
-  mapping(address => bool) private s_authorizedSenders;
+  mapping(address sender => bool authorized) private s_authorizedSenders;
   address[] private s_authorizedSenderList;
 
   event AuthorizedSendersChanged(address[] senders, address changedBy);
