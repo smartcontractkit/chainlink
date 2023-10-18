@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
 import {LinkTokenReceiver} from "./LinkTokenReceiver.sol";
@@ -63,7 +63,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   event OwnableContractAccepted(address indexed acceptedContract);
 
   event TargetsUpdatedAuthorizedSenders(address[] targets, address[] senders, address changedBy);
-
+  
   // @notice Deploy with the address of the LINK token
   // @dev Sets the LinkToken address for the imported LinkTokenInterface
   // @param link The address of the LINK token
@@ -75,6 +75,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant typeAndVersion = "Operator 1.0.0";
 
+  
   // @notice Creates the Chainlink request. This is a backwards compatible API
   // with the Oracle.sol contract, but the behavior changes because
   // callbackAddress is assumed to be the same as the request sender.
@@ -106,7 +107,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     );
     emit OracleRequest(specId, sender, requestId, payment, sender, callbackFunctionId, expiration, dataVersion, data);
   }
-
+  
   // @notice Creates the Chainlink request
   // @dev Stores the hash of the params as the on-chain commitment for the request.
   // Emits OracleRequest event for the Chainlink node to detect.
@@ -136,7 +137,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     );
     emit OracleRequest(specId, sender, requestId, payment, sender, callbackFunctionId, expiration, dataVersion, data);
   }
-
+  
   // @notice Called by the Chainlink node to fulfill requests
   // @dev Given params must hash back to the commitment stored from `oracleRequest`.
   // Will call the callback address' callback function without bubbling up error
@@ -172,7 +173,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     (bool success, ) = callbackAddress.call(abi.encodeWithSelector(callbackFunctionId, requestId, data)); // solhint-disable-line avoid-low-level-calls
     return success;
   }
-
+  
   // @notice Called by the Chainlink node to fulfill requests with multi-word support
   // @dev Given params must hash back to the commitment stored from `oracleRequest`.
   // Will call the callback address' callback function without bubbling up error
@@ -209,7 +210,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     (bool success, ) = callbackAddress.call(abi.encodePacked(callbackFunctionId, data)); // solhint-disable-line avoid-low-level-calls
     return success;
   }
-
+  
   // @notice Transfer the ownership of ownable contracts. This is primarily
   // intended for Authorized Forwarders but could possibly be extended to work
   // with future contracts.OracleInterface
@@ -254,7 +255,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   // primarily intended for Authorized Forwarders but could possibly be
   // extended to work with future contracts.
   // @param targets The addresses to set permissions on
-  // @param senders The addresses that are allowed to send updates
+  // @param senders The addresses that are allowed to send updates 
   function acceptAuthorizedReceivers(
     address[] calldata targets,
     address[] calldata senders
@@ -262,7 +263,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     acceptOwnableContracts(targets);
     setAuthorizedSendersOn(targets, senders);
   }
-
+  
   // @notice Allows the node operator to withdraw earned LINK to a given address
   // @dev The owner of the contract can be another wallet and does not have to be a Chainlink node
   // @param recipient The address to send the LINK token to
@@ -291,7 +292,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     (bool status, ) = to.call(data);
     require(status, "Forwarded call failed");
   }
-
+  
   // @notice Interact with other LinkTokenReceiver contracts by calling transferAndCall
   // @param to The address to transfer to.
   // @param value The amount to be transferred.
@@ -304,7 +305,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   ) external override onlyOwner validateAvailableFunds(value) returns (bool success) {
     return i_linkToken.transferAndCall(to, value, data);
   }
-
+  
   // @notice Distribute funds to multiple addresses using ETH send
   // to this payable function.
   // @dev Array length must be equal, ETH sent must equal the sum of amounts.
@@ -322,7 +323,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     }
     require(valueRemaining == 0, "Too much ETH sent");
   }
-
+  
   // @notice Allows recipient to cancel requests sent to this oracle contract.
   // Will transfer the LINK sent for the request back to the recipient address.
   // @dev Given params must hash to a commitment stored on the contract in order
@@ -435,7 +436,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     s_tokensInEscrow = s_tokensInEscrow - payment;
     delete s_commitments[requestId];
   }
-
+  
   // @notice Build the bytes31 hash from the payment, callback and expiration.
   // @param payment The payment amount that will be released for the oracle (specified in wei)
   // @param callbackAddress The callback address to call for fulfillment
@@ -451,12 +452,14 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     return bytes31(keccak256(abi.encodePacked(payment, callbackAddress, callbackFunctionId, expiration)));
   }
 
+  
   // @notice Returns the LINK available in this contract, not locked in escrow
   // @return uint256 LINK tokens available
   function _fundsAvailable() private view returns (uint256) {
     return i_linkToken.balanceOf(address(this)) - (s_tokensInEscrow - ONE_FOR_CONSISTENT_GAS_COST);
   }
 
+  
   // @notice concrete implementation of AuthorizedReceiver
   // @return bool of whether sender is authorized
   function _canSetAuthorizedSenders() internal view override returns (bool) {
@@ -465,6 +468,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
 
   // MODIFIERS
 
+  
   // @dev Reverts if the first 32 bytes of the bytes array is not equal to requestId
   // @param requestId bytes32
   // @param data bytes
@@ -478,13 +482,14 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     _;
   }
 
+  
   // @dev Reverts if amount requested is greater than withdrawable balance
   // @param amount The given amount to compare to `s_withdrawableTokens`
   modifier validateAvailableFunds(uint256 amount) {
     require(_fundsAvailable() >= amount, "Amount requested is greater than withdrawable balance");
     _;
   }
-
+  
   // @dev Reverts if request ID does not exist
   // @param requestId The given request ID to check in stored `commitments`
   modifier validateRequestId(bytes32 requestId) {
@@ -499,7 +504,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
     _;
   }
 
-  // @dev Reverts if the target address is owned by the operator
+  // @dev Reverts if the target address is owned by the operator   
   modifier validateCallbackAddress(address callbackAddress) {
     require(!s_owned[callbackAddress], "Cannot call owned contract");
     _;

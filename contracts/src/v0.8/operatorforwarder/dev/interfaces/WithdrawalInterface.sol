@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.0;
 
 interface WithdrawalInterface {
   // @notice transfer LINK held by the contract belonging to msg.sender to

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity 0.8.19;
 
 import {AuthorizedReceiverInterface} from "../../interfaces/AuthorizedReceiverInterface.sol";
 
@@ -32,7 +32,6 @@ abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
 
   // @notice Retrieve a list of authorized senders
   // @return array of addresses
-
   function getAuthorizedSenders() external view override returns (address[] memory) {
     return s_authorizedSenderList;
   }
@@ -40,18 +39,15 @@ abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
   // @notice Use this to check if a node is authorized for fulfilling requests
   // @param sender The address of the Chainlink node
   // @return The authorization status of the node
-
   function isAuthorizedSender(address sender) public view override returns (bool) {
     return s_authorizedSenders[sender];
   }
 
   // @notice customizable guard of who can update the authorized sender list
   // @return bool whether sender can update authorized sender list
-
   function _canSetAuthorizedSenders() internal virtual returns (bool);
 
   // @notice validates the sender is an authorized sender
-
   function _validateIsAuthorizedSender() internal view {
     require(isAuthorizedSender(msg.sender), "Not authorized sender");
   }
