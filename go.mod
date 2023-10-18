@@ -130,7 +130,6 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
-	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
@@ -201,7 +200,6 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.0-rc.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
-	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0 // indirect
 	github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c // indirect
 	github.com/gtank/merlin v0.1.1 // indirect
 	github.com/gtank/ristretto255 v0.1.2 // indirect
@@ -351,12 +349,9 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.45.0 // indirect
 	go.opentelemetry.io/otel v1.19.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.18.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.18.0 // indirect
 	go.opentelemetry.io/otel/metric v1.19.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.19.0 // indirect
 	go.opentelemetry.io/otel/trace v1.19.0 // indirect
-	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.uber.org/ratelimit v0.2.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/net v0.17.0 // indirect
@@ -386,4 +381,8 @@ replace (
 
 	// until merged upstream: https://github.com/mwitkow/grpc-proxy/pull/69
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
+	github.com/smartcontractkit/chainlink-cosmos => github.com/smartcontractkit/chainlink-cosmos v0.0.0-20231018003459-2fa437214ddb
+	github.com/smartcontractkit/chainlink-relay => github.com/smartcontractkit/chainlink-relay v0.0.0-20231018050128-98f7b4b7cb43
+	github.com/smartcontractkit/chainlink-solana => github.com/smartcontractkit/chainlink-solana v0.0.0-20231018005728-a71a9ad18cc9
+	github.com/smartcontractkit/chainlink-starknet/relayer => github.com/smartcontractkit/chainlink-starknet/relayer v0.0.0-20231018010624-0802db9a01a7
 )
