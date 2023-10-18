@@ -38,18 +38,18 @@
     "@ethersproject/contracts": "~5.7.0",
     "@ethersproject/providers": "~5.7.2",
     "@ethersproject/random": "~5.7.0",
-    "@nomicfoundation/hardhat-network-helpers": "^1.0.8",
+    "@nomicfoundation/hardhat-network-helpers": "^1.0.9",
     "@nomiclabs/hardhat-ethers": "^2.2.3",
     "@nomiclabs/hardhat-etherscan": "^3.1.0",
     "@nomiclabs/hardhat-waffle": "2.0.6",
     "@openzeppelin/hardhat-upgrades": "1.28.0",
-    "@openzeppelin/test-helpers": "^0.5.11",
+    "@openzeppelin/test-helpers": "^0.5.16",
     "@typechain/ethers-v5": "^7.2.0",
     "@typechain/hardhat": "^5.0.0",
     "@types/cbor": "5.0.1",
-    "@types/chai": "^4.3.8",
-    "@types/debug": "^4.1.9",
-    "@types/deep-equal-in-any-order": "^1.0.1",
+    "@types/chai": "^4.3.9",
+    "@types/debug": "^4.1.10",
+    "@types/deep-equal-in-any-order": "^1.0.2",
     "@types/mocha": "^10.0.2",
     "@types/node": "^16.18.58",
     "@typescript-eslint/eslint-plugin": "^6.8.0",
@@ -83,8 +83,8 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@eth-optimism/contracts": "~0.5.21",
-    "@openzeppelin/contracts": "~4.9.3",
-    "@openzeppelin/contracts-upgradeable": "~4.9.3"
+    "@eth-optimism/contracts": "0.5.37",
+    "@openzeppelin/contracts": "4.9.3",
+    "@openzeppelin/contracts-upgradeable": "4.9.3"
   }
 }
