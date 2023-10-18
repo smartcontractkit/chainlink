@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../shared/access/SimpleReadAccessController.sol";
-import "../shared/interfaces/AccessControllerInterface.sol";
-import "../interfaces/TypeAndVersionInterface.sol";
+import {SimpleReadAccessController} from "../../shared/access/SimpleReadAccessController.sol";
+import {AccessControllerInterface} from "../../shared/interfaces/AccessControllerInterface.sol";
+import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
 
 /* dev dependencies - to be re/moved after audit */
-import "./interfaces/FlagsInterface.sol";
+import {FlagsInterface} from "./interfaces/FlagsInterface.sol";
 
 /**
  * @title The Flags contract
@@ -17,11 +17,12 @@ import "./interfaces/FlagsInterface.sol";
  * An expected pattern is to allow addresses to raise flags on themselves, so if you are subscribing to
  * FlagOn events you should filter for addresses you care about.
  */
-contract Flags is TypeAndVersionInterface, FlagsInterface, SimpleReadAccessController {
+// solhint-disable custom-errors
+contract Flags is ITypeAndVersion, FlagsInterface, SimpleReadAccessController {
   AccessControllerInterface public raisingAccessController;
   AccessControllerInterface public loweringAccessController;
 
-  mapping(address => bool) private flags;
+  mapping(address => bool) private s_flags;
 
   event FlagRaised(address indexed subject);
   event FlagLowered(address indexed subject);
@@ -43,7 +44,7 @@ contract Flags is TypeAndVersionInterface, FlagsInterface, SimpleReadAccessContr
    * - Flags 1.1.0: upgraded to solc 0.8, added lowering access controller
    * - Flags 1.0.0: initial release
    *
-   * @inheritdoc TypeAndVersionInterface
+   * @inheritdoc ITypeAndVersion
    */
   function typeAndVersion() external pure virtual override returns (string memory) {
     return "Flags 1.1.0";
@@ -56,7 +57,7 @@ contract Flags is TypeAndVersionInterface, FlagsInterface, SimpleReadAccessContr
    * false value indicates that no flag was raised.
    */
   function getFlag(address subject) external view override checkAccess returns (bool) {
-    return flags[subject];
+    return s_flags[subject];
   }
 
   /**
@@ -68,7 +69,7 @@ contract Flags is TypeAndVersionInterface, FlagsInterface, SimpleReadAccessContr
   function getFlags(address[] calldata subjects) external view override checkAccess returns (bool[] memory) {
     bool[] memory responses = new bool[](subjects.length);
     for (uint256 i = 0; i < subjects.length; i++) {
-      responses[i] = flags[subjects[i]];
+      responses[i] = s_flags[subjects[i]];
     }
     return responses;
   }
@@ -161,15 +162,15 @@ contract Flags is TypeAndVersionInterface, FlagsInterface, SimpleReadAccessContr
   }
 
   function _tryToRaiseFlag(address subject) private {
-    if (!flags[subject]) {
-      flags[subject] = true;
+    if (!s_flags[subject]) {
+      s_flags[subject] = true;
       emit FlagRaised(subject);
     }
   }
 
   function _tryToLowerFlag(address subject) private {
-    if (flags[subject]) {
-      flags[subject] = false;
+    if (s_flags[subject]) {
+      s_flags[subject] = false;
       emit FlagLowered(subject);
     }
   }

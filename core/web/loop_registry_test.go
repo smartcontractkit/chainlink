@@ -96,7 +96,7 @@ func TestLoopRegistry(t *testing.T) {
 	defer mockLoop.close()
 	mockLoop.run()
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	t.Run("discovery endpoint", func(t *testing.T) {
 		// under the covers this is routing thru the app into loop registry
