@@ -95,6 +95,10 @@ func NewExecutionReportingPluginFactory(config ExecutionPluginStaticConfig) *Exe
 	return &ExecutionReportingPluginFactory{
 		config:    config,
 		readersMu: &sync.Mutex{},
+
+		// the fields below are initially empty and populated on demand
+		destPriceRegReader: nil,
+		destPriceRegAddr:   common.Address{},
 	}
 }
 
