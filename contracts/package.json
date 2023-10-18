@@ -50,7 +50,7 @@
     "@types/chai": "^4.3.9",
     "@types/debug": "^4.1.10",
     "@types/deep-equal-in-any-order": "^1.0.2",
-    "@types/mocha": "^10.0.2",
+    "@types/mocha": "^10.0.3",
     "@types/node": "^16.18.58",
     "@typescript-eslint/eslint-plugin": "^6.8.0",
     "@typescript-eslint/parser": "^6.8.0",
