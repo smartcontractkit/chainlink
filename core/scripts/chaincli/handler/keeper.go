@@ -598,13 +598,17 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 					k.cfg.CrossChainRPCUrl,
 				)
 			} else if k.cfg.UseComposer {
+				var deviations []*big.Int
+				for _, d := range k.cfg.MercuryFeedDeviations {
+					deviations = append(deviations, big.NewInt(int64(d)))
+				}
 				upkeepAddr, deployUpkeepTx, _, err = mercury_registry_composer.DeployMercuryRegistryComposer(
 					k.buildTxOpts(ctx),
 					k.client,
-					[]string{"0x4254432d5553442d415242495452554d2d544553544e45540000000000000000", "0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"},
-					[]string{"BTC/USD Feed", "ETH/USD Feed"},
-					[]*big.Int{big.NewInt(0).SetUint64(10_000), big.NewInt(0).SetUint64(10_000)},
-					[]uint32{30, 30},
+					k.cfg.MercuryFeeds,
+					k.cfg.MercuryFeedNames,
+					deviations,
+					k.cfg.MercuryFeedStaleness,
 					common.HexToAddress("0x09DFf56A4fF44e0f4436260A04F5CFa65636A481"), // merc verifier
 					k.cfg.ComposerScriptHash,
 				)

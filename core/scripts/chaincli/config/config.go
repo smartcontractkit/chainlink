@@ -82,6 +82,10 @@ type Config struct {
 	UpkeepType                      UpkeepType             `mapstructure:"UPKEEP_TYPE"`
 	UseComposer                     bool                   `mapstructure:"USE_COMPOSER"`
 	UseCrossChainComposer           bool                   `mapstructure:"USE_CROSS_CHAIN_COMPOSER"`
+	MercuryFeeds                    []string               `mapstructure:"MERCURY_FEEDS"`
+	MercuryFeedNames                []string               `mapstructure:"MERCURY_FEED_NAMES"`
+	MercuryFeedStaleness            []uint32               `mapstructure:"MERCURY_FEED_STALENESS"`
+	MercuryFeedDeviations           []uint64               `mapstructure:"MERCURY_FEED_DEVIATION"`
 	ComposerScriptHash              string                 `mapstructure:"COMPOSER_SCRIPT_HASH"`
 	CrossChainBnMCoin               string                 `mapstructure:"CROSS_CHAIN_BNM_COIN"`
 	CrossChainRouter                string                 `mapstructure:"CROSS_CHAIN_ROUTER"`
