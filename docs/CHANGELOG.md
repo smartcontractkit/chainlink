@@ -11,7 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ...
 
-## 2.6.0 - UNRELEASED
+<!-- unreleasedstop -->
+
+## 2.6.0 - 2023-10-18
 
 ### Added
 
@@ -41,8 +43,6 @@ All nodes will have to remove the following configuration field: `ExplorerURL`
 - Fixed a bug where `evmChainId` is requested instead of `id` or `evm-chain-id` in CLI error verbatim
 - Fixed a bug that would cause the node to shut down while performing backup
 - Fixed health checker to include more services in the prometheus `health` metric and HTTP `/health` endpoint
-
-<!-- unreleasedstop -->
 
 ## 2.5.0 - 2023-09-13
 
