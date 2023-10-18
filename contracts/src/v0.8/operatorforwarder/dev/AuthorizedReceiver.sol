@@ -12,7 +12,6 @@ abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
 
   // @notice Sets the fulfillment permission for a given node. Use `true` to allow, `false` to disallow.
   // @param senders The addresses of the authorized Chainlink node
-
   function setAuthorizedSenders(address[] calldata senders) external override validateAuthorizedSenderSetter {
     require(senders.length > 0, "Must have at least 1 sender");
     // Set previous authorized senders to false
@@ -53,14 +52,12 @@ abstract contract AuthorizedReceiver is AuthorizedReceiverInterface {
   }
 
   // @notice prevents non-authorized addresses from calling this method
-
   modifier validateAuthorizedSender() {
     _validateIsAuthorizedSender();
     _;
   }
 
   // @notice prevents non-authorized addresses from calling this method
-
   modifier validateAuthorizedSenderSetter() {
     require(_canSetAuthorizedSenders(), "Cannot set authorized senders");
     _;
