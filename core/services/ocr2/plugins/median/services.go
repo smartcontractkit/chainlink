@@ -5,9 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math/big"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	libocr "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
@@ -151,4 +155,54 @@ func NewMedianServices(ctx context.Context,
 		lggr.Infof("Enhanced EA telemetry is disabled for job %s", jb.Name.ValueOrZero())
 	}
 	return
+}
+
+type medianContract struct {
+	chainReader types.ChainReader
+	contract    types.BoundContract
+}
+
+type latestTransmissionDetailsResponse struct {
+	configDigest    ocr2types.ConfigDigest
+	epoch           uint32
+	round           uint8
+	latestAnswer    *big.Int
+	latestTimestamp time.Time
+}
+
+func (m *medianContract) LatestTransmissionDetails(ctx context.Context) (configDigest ocr2types.ConfigDigest, epoch uint32, round uint8, latestAnswer *big.Int, latestTimestamp time.Time, err error) {
+	retValues := []string{"epoch", "round", "latestAnswer", "latestTimestamp"}
+
+	res, err := m.chainReader.GetLatestValue(ctx, m.contract, "LatestTransmissionDetails", map[string]string{}, retValues)
+	if err != nil {
+		return // TODO: wrap
+	}
+
+	ret := latestTransmissionDetailsResponse{}
+	if err = json.Unmarshal(res, &ret); err != nil {
+		return // TODO: wrap
+	}
+
+	return ret.configDigest, ret.epoch, ret.round, ret.latestAnswer, ret.latestTimestamp, err
+}
+
+func (m *medianContract) LatestRoundRequested(ctx context.Context, lookback time.Duration) (configDigest ocr2types.ConfigDigest, epoch uint32, round uint8, err error) {
+	retValues := []string{"epoch", "round", "latestAnswer", "latestTimestamp"}
+
+	res, err := m.chainReader.GetLatestValue(ctx, m.contract, "LatestRoundReported", map[string]string{}, retValues)
+	if err != nil {
+		return // TODO: wrap
+	}
+
+	var ret latestTransmissionDetailsResponse
+	if err = json.Unmarshal(res, &ret); err != nil {
+		return // TODO: wrap
+	}
+
+	return ret.configDigest, ret.epoch, ret.round, err
+}
+
+func newMedianContract(chainReader types.ChainReader, address common.Address) median.MedianContract {
+	contract := types.BoundContract{Address: address.String(), Name: "median", Pending: true}
+	return &medianContract{chainReader, contract}
 }
