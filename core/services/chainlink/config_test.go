@@ -340,7 +340,8 @@ func TestConfig_Marshal(t *testing.T) {
 			ReadUserGroupCN:             ptr("NodeReadOnly'"),
 			UserApiTokenEnabled:         ptr(false),
 			UserAPITokenDuration:        models.MustNewDuration(240 * time.Hour),
-			UpstreamSyncInterval:        models.MustNewDuration(2 * time.Minute),
+			UpstreamSyncInterval:        models.MustNewDuration(0 * time.Second),
+			UpstreamSyncRateLimit:       models.MustNewDuration(2 * time.Minute),
 		},
 		RateLimit: toml.WebServerRateLimit{
 			Authenticated:         ptr[int64](42),
@@ -1139,6 +1140,7 @@ func TestConfig_Validate(t *testing.T) {
 	}{
 		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 5 errors:
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
+	- WebServer.LDAP.BaseDN: FAIL
 	- EVM: 8 errors:
 		- 1.ChainID: invalid value (1): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (foo): duplicate - must be unique

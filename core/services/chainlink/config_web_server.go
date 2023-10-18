@@ -306,3 +306,10 @@ func (l *ldapConfig) UpstreamSyncInterval() models.Duration {
 	}
 	return *l.c.UpstreamSyncInterval
 }
+
+func (l *ldapConfig) UpstreamSyncRateLimit() models.Duration {
+	if l.c.UpstreamSyncRateLimit == nil {
+		return models.Duration{}
+	}
+	return *l.c.UpstreamSyncRateLimit
+}

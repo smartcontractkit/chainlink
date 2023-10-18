@@ -771,6 +771,7 @@ type WebServerLDAP struct {
 	UserApiTokenEnabled         *bool
 	UserAPITokenDuration        *models.Duration
 	UpstreamSyncInterval        *models.Duration
+	UpstreamSyncRateLimit       *models.Duration
 }
 
 func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
@@ -824,6 +825,9 @@ func (w *WebServerLDAP) setFrom(f *WebServerLDAP) {
 	}
 	if v := f.UpstreamSyncInterval; v != nil {
 		w.UpstreamSyncInterval = v
+	}
+	if v := f.UpstreamSyncRateLimit; v != nil {
+		w.UpstreamSyncRateLimit = v
 	}
 }
 

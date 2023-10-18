@@ -226,8 +226,10 @@ ReadUserGroupCN = 'NodeReadOnly' # Default
 UserApiTokenEnabled = false # Default
 # UserAPITokenDuration is the duration of time an API token is active for before expiring
 UserAPITokenDuration = '240h0m0s' # Default
-# UpstreamSyncInterval is the interval at which the background sync task validates that sessions stored in the local ldap tables are still valid with the upstream state of the ldap server
-UpstreamSyncInterval = '2m0s' # Default
+# UpstreamSyncInterval is the interval at which the background sync task will be called, in addition to reacting to auth events, validating that all sessions and API tokens stored in the local ldap tables are still valid with the upstream state of the ldap server
+UpstreamSyncInterval = '0s' # Default
+# UpstreamSyncRateLimit defines a duration to limit the number of query/API calls to the upstream LDAP provider. It prevents the sync functionality from being called multiple times within the defined duration
+UpstreamSyncRateLimit = '2m0s' # Default
 
 [WebServer.RateLimit]
 # Authenticated defines the threshold to which authenticated requests get limited. More than this many authenticated requests per `AuthenticatedRateLimitPeriod` will be rejected.

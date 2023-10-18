@@ -16,9 +16,10 @@ import (
 )
 
 type LDAPServerStateSyncer struct {
-	q      pg.Q
-	config config.LDAP
-	lggr   logger.Logger
+	q            pg.Q
+	config       config.LDAP
+	lggr         logger.Logger
+	nextSyncTime time.Time
 }
 
 // NewLDAPServerStateSync creates a reaper that cleans stale sessions from the store.
@@ -29,29 +30,61 @@ func NewLDAPServerStateSync(
 	lggr logger.Logger,
 ) utils.SleeperTask {
 	namedLogger := lggr.Named("LDAPServerStateSync")
-	return utils.NewSleeperTask(&LDAPServerStateSyncer{
-		pg.NewQ(db, namedLogger, pgCfg),
-		config,
-		namedLogger,
-	})
+	serverSync := LDAPServerStateSyncer{
+		q:            pg.NewQ(db, namedLogger, pgCfg),
+		config:       config,
+		lggr:         namedLogger,
+		nextSyncTime: time.Time{},
+	}
+	// If enabled, start a background task that calls the Sync/Work function on an
+	// interval without needing an auth event to trigger it
+	// Use IsInstant to check 0 value to omit functionality.
+	if !config.UpstreamSyncInterval().IsInstant() {
+		lggr.Info("LDAP Config UpstreamSyncInterval is non-zero, sync functionality will be called on a timer, respecting the UpstreamSyncRateLimit value")
+		serverSync.StartWorkOnTimer()
+	} else {
+		// Ensure upstream server state is synced on startup manually if interval check not set
+		serverSync.Work()
+	}
+
+	// Start background Sync call task reactive to auth related events
+	serverSyncSleeperTask := utils.NewSleeperTask(&serverSync)
+	return serverSyncSleeperTask
 }
 
 func (ldSync *LDAPServerStateSyncer) Name() string {
 	return "LDAPServerStateSync"
 }
 
+func (ldSync *LDAPServerStateSyncer) StartWorkOnTimer() {
+	time.AfterFunc(ldSync.config.UpstreamSyncInterval().Duration(), ldSync.StartWorkOnTimer)
+	ldSync.Work()
+}
+
 func (ldSync *LDAPServerStateSyncer) Work() {
 	// Purge expired ldap_sessions and ldap_user_api_tokens
-	recordCreationStaleThreshold := ldSync.config.UpstreamSyncInterval().Before(ldSync.config.SessionTimeout().Before(time.Now()))
+	recordCreationStaleThreshold := ldSync.config.SessionTimeout().Before(time.Now())
 	err := ldSync.deleteStaleSessions(recordCreationStaleThreshold)
 	if err != nil {
 		ldSync.lggr.Error("unable to expire local LDAP sessions: ", err)
 	}
-	recordCreationStaleThreshold = ldSync.config.UserAPITokenDuration().Before(ldSync.config.SessionTimeout().Before(time.Now()))
+	recordCreationStaleThreshold = ldSync.config.UserAPITokenDuration().Before(time.Now())
 	err = ldSync.deleteStaleAPITokens(recordCreationStaleThreshold)
 	if err != nil {
 		ldSync.lggr.Error("unable to expire user API tokens: ", err)
 	}
+
+	// Optional rate limiting check to limit the amount of upstream LDAP server queries performed
+	if !ldSync.config.UpstreamSyncRateLimit().IsInstant() {
+		if !time.Now().After(ldSync.nextSyncTime) {
+			return
+		}
+
+		// Enough time has elapsed to sync again, store the time for when next sync is allowed and begin sync
+		ldSync.nextSyncTime = time.Now().Add(ldSync.config.UpstreamSyncRateLimit().Duration())
+	}
+
+	ldSync.lggr.Info("Begin Upstream LDAP provider state sync after checking time against config UpstreamSyncInterval and UpstreamSyncRateLimit")
 
 	// For each defined role/group, query for the list of group members to gather the full list of possible users
 	users := []sessions.User{}
@@ -102,6 +135,11 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 			upstreamUserStateMap[user.Email] = user
 		}
 	}
+
+	// For each unique user in list of active sessions, check for 'Is Active' propery. Some LDAP providers
+	// list group members that are no longer marked as active
+
+	// ActiveAttributeAllowedValue
 
 	// upstreamUserStateMap is now the most up to date source of truth
 	// Now sync database sessions and roles with new data
@@ -206,6 +244,7 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 	if err != nil {
 		ldSync.lggr.Errorf("Error syncing local database state: ", err)
 	}
+	ldSync.lggr.Info("Upstream LDAP sync complete")
 }
 
 // deleteStaleSessions deletes all ldap_sessions before the passed time.

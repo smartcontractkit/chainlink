@@ -21,7 +21,8 @@ RunUserGroupCN = ''
 ReadUserGroupCN = ''
 UserApiTokenEnabled = false
 UserAPITokenDuration = '240h0m0s'
-UpstreamSyncInterval = '2m0s'
+UpstreamSyncInterval = '0s'
+UpstreamSyncRateLimit = '2m0s'
 
 [[EVM]]
 ChainID = '1'

@@ -52,6 +52,7 @@ type LDAP interface {
 	UserApiTokenEnabled() bool
 	UserAPITokenDuration() models.Duration
 	UpstreamSyncInterval() models.Duration
+	UpstreamSyncRateLimit() models.Duration
 }
 
 type WebServer interface {
