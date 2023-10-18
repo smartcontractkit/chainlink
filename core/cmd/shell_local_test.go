@@ -42,7 +42,7 @@ import (
 func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtenderConfig, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
 	f := chainlink.RelayerFactory{
 		Logger:       opts.Logger,
-		LoopRegistry: plugins.NewLoopRegistry(opts.Logger),
+		LoopRegistry: plugins.NewLoopRegistry(opts.Logger, nil),
 	}
 
 	relayers, err := chainlink.NewCoreRelayerChainInteroperators(chainlink.InitEVM(testutils.Context(t), f, chainlink.EVMFactoryConfig{

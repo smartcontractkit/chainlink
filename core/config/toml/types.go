@@ -1377,7 +1377,6 @@ func isValidURI(uri string) bool {
 
 		return true
 	}
-
 	return false
 }
 
