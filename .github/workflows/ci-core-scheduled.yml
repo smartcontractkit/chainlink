@@ -1,11 +1,8 @@
 name: CI Core (Experiment - Running tests serially)
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 # Run on key branches to make sure integration is good, otherwise run on all PR's
 on:
+  pull_request:
   schedule:
     - cron: "50 * * * *"
 
