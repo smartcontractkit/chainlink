@@ -1724,6 +1724,7 @@ func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Start() error {
 		return err
 	}
 
+	// The default values of ParamKeys are "feedIDs" and "timestamp" which are for v0.3
 	tx, err := v.consumer.SetParamKeys(txOpts, "feedIdHex", "blockNumber")
 	if err != nil {
 		return err
