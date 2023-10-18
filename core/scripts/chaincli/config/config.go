@@ -81,7 +81,13 @@ type Config struct {
 	VerifiableLoadContractAddress   string                 `mapstructure:"VERIFIABLE_LOAD_CONTRACT_ADDRESS"`
 	UpkeepType                      UpkeepType             `mapstructure:"UPKEEP_TYPE"`
 	UseComposer                     bool                   `mapstructure:"USE_COMPOSER"`
+	UseCrossChainComposer           bool                   `mapstructure:"USE_CROSS_CHAIN_COMPOSER"`
 	ComposerScriptHash              string                 `mapstructure:"COMPOSER_SCRIPT_HASH"`
+	CrossChainBnMCoin               string                 `mapstructure:"CROSS_CHAIN_BNM_COIN"`
+	CrossChainRouter                string                 `mapstructure:"CROSS_CHAIN_ROUTER"`
+	CrossChainSelector              uint64                 `mapstructure:"CROSS_CHAIN_SELECTOR"`
+	CrossChainReceiver              string                 `mapstructure:"CROSS_CHAIN_RECEIVER"`
+	CrossChainRPCUrl                string                 `mapstructure:"CROSS_CHAIN_RPC_URL"`
 
 	// Node config scraping and verification
 	NodeConfigURL string `mapstructure:"NODE_CONFIG_URL"`

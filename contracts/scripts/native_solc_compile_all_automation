@@ -65,6 +65,7 @@ compileContract automation/testhelpers/DummyProtocol.sol
 compileContract automation/interfaces/StreamsLookupCompatibleInterface.sol
 compileContract automation/dev/interfaces/ComposerCompatibleInterfaceV1.sol
 compileContract automation/dev/MercuryRegistryComposer.sol
+compileContract automation/dev/ComposerCrossChain/ComposerCrossChainSend.sol
 
 compileContract tests/VerifiableLoadUpkeep.sol
 compileContract tests/VerifiableLoadStreamsLookupUpkeep.sol

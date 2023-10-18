@@ -202,6 +202,35 @@ func (k *Keeper) sendEth(ctx context.Context, to common.Address, amount *big.Int
 	return nil
 }
 
+func (k *Keeper) dripBnm(ctx context.Context, to common.Address, bnm common.Address) error {
+	txOpts := k.buildTxOpts(ctx)
+
+	toHash := [32]byte(to.Hash())
+	tx := ethtypes.NewTx(&ethtypes.LegacyTx{
+		Nonce:    txOpts.Nonce.Uint64(),
+		To:       &bnm,
+		Value:    big.NewInt(0),
+		Gas:      txOpts.GasLimit,
+		GasPrice: txOpts.GasPrice,
+		Data:     append(common.Hex2Bytes("67a5cd06"), toHash[:]...), // drip to recipient
+	})
+	signedTx, err := ethtypes.SignTx(tx, ethtypes.NewEIP155Signer(big.NewInt(k.cfg.ChainID)), k.privateKey)
+	if err != nil {
+		return fmt.Errorf("failed to sign tx: %w", err)
+	}
+
+	if err = k.client.SendTransaction(ctx, signedTx); err != nil {
+		return fmt.Errorf("failed to send tx: %w", err)
+	}
+
+	if err := k.waitTx(ctx, signedTx); err != nil {
+		log.Fatalf("Drip failed, error is %s", err.Error())
+	}
+	log.Println("Dripped successfully")
+
+	return nil
+}
+
 func (h *baseHandler) waitDeployment(ctx context.Context, tx *ethtypes.Transaction) {
 	if _, err := bind.WaitDeployed(ctx, h.client, tx); err != nil {
 		log.Fatal("WaitDeployed failed: ", err, " ", helpers.ExplorerLink(h.cfg.ChainID, tx.Hash()))

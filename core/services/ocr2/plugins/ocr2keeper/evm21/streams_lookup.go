@@ -493,8 +493,7 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 	}
 
 	// Make Functions request with user arguments, formatted mercury data, raw mercury reports, and the Functions script.
-	var finalReports []string
-	functionsResponse, err := r.functionsRequest(ctx, string(mercuryArg), string(userArgs), string(rawReportsArg), *script)
+	functionsResponse, err := r.functionsRequest(ctx, request.block, string(mercuryArg), string(userArgs), string(rawReportsArg), *script)
 	if err != nil {
 		lggr.Errorf("upkeep %s getting functions response: %v, %s", request.upkeepId, request.functionsArguments, err.Error())
 		checkResults[i].Retryable = true
@@ -502,22 +501,17 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonSimulationFailed)
 		return
 	}
-
-	// TODO START: Remove this custom logic once the Functions DON returns reports larger than 256 bytes
-	bs, err := hex.DecodeString((*functionsResponse)[2:])
+	decodedResult, err := hex.DecodeString((*functionsResponse)[2:])
 	if err != nil {
-		panic(err)
+		lggr.Errorf("upkeep %s decoding functions response: %s, %s", request.upkeepId, *functionsResponse, err.Error())
+		checkResults[i].Retryable = false
+		checkResults[i].PipelineExecutionState = uint8(encoding.PackUnpackDecodeFailed)
+		checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
+		return
 	}
-	decodedStrings := strings.Split(string(bs), ",")
-	for _, s := range decodedStrings {
-		numericIndex, _ := strconv.Atoi(s)
-		finalReports = append(finalReports, rawReports[numericIndex])
-	}
-	concatenatedReports := strings.Join(finalReports, ",")
-	// TODO END
 
 	// Encode the result into a string.
-	encodedFunctionsResult, err := utils.ABIEncode(`[{"type":"string"},{"type":"bytes"}]`, concatenatedReports, request.extraData)
+	encodedFunctionsResult, err := utils.ABIEncode(`[{"type":"string"}]`, string(decodedResult))
 	if err != nil {
 		lggr.Errorf("upkeep %s retryable %v abi encode packing: %s", request.upkeepId, retryable, err.Error())
 		checkResults[i].Retryable = false
@@ -663,17 +657,17 @@ type ResponsePayload struct {
 }
 
 // functionsScriptRequest fetches a functions script to run.
-func (r *EvmRegistry) functionsRequest(ctx context.Context, mercuryArgs, userArgs, rawReports, script string) (*string, error) {
+func (r *EvmRegistry) functionsRequest(ctx context.Context, block uint64, mercuryArgs, userArgs, rawReports, script string) (*string, error) {
 
 	// TODO: move this to TOML/env
-	url := "[ENTER_GATEWAY_URL_HERE]"
+	url := "[INSERT_GATEWAY_URL]"
 
 	r.lggr.Infof("upkeepcomposerRequest Functions args: %s, %s, %s, %s",
 		rawReports, mercuryArgs, userArgs, script)
 
 	requestBody := RequestBody{
 		Jsonrpc: "2.0",
-		Id:      utils.RandUint256().String(),
+		Id:      fmt.Sprintf("%d", block),
 		Method:  "request",
 		Params: Params{
 			Body: Body{

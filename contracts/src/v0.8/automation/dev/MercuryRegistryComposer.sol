@@ -147,7 +147,7 @@ contract MercuryRegistryComposer is ConfirmedOwner, AutomationCompatibleInterfac
     bytes memory lookupData
   ) external view override returns (bool, bytes memory) {
     require(data.length == 1, "should only have one item for abi-decoding");
-    (string memory values /* bytes memory lookupData */, ) = abi.decode(data[0], (string, bytes));
+    string memory values = abi.decode(data[0], (string));
 
     // Parse the comma separated string of hex-encoded mercury proofs.
     strings.slice memory s = strings.toSlice(values);

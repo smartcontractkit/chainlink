@@ -16,7 +16,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/core/scripts/chaincli/config"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
+	composer_cross_chain "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/automation/generated/composer_cross_chain"
 	mercury_registry_composer "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/automation/generated/mercury_registry_composer"
 	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -584,6 +586,17 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 					common.HexToAddress(k.cfg.Registrar),
 					k.cfg.UseArbBlockNumber,
 				)
+			} else if k.cfg.UseCrossChainComposer {
+				upkeepAddr, deployUpkeepTx, _, err = composer_cross_chain.DeployComposerCrossChainSend(
+					k.buildTxOpts(ctx),
+					k.client,
+					k.cfg.ComposerScriptHash,
+					common.HexToAddress(k.cfg.CrossChainRouter),  // CCIP router
+					k.cfg.CrossChainSelector,                     // CCIP selector
+					common.HexToAddress(k.cfg.CrossChainBnMCoin), // CCIP-BnM
+					k.cfg.CrossChainReceiver,
+					k.cfg.CrossChainRPCUrl,
+				)
 			} else if k.cfg.UseComposer {
 				upkeepAddr, deployUpkeepTx, _, err = mercury_registry_composer.DeployMercuryRegistryComposer(
 					k.buildTxOpts(ctx),
@@ -592,7 +605,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 					[]string{"BTC/USD Feed", "ETH/USD Feed"},
 					[]*big.Int{big.NewInt(0).SetUint64(10_000), big.NewInt(0).SetUint64(10_000)},
 					[]uint32{30, 30},
-					common.HexToAddress("0x09DFf56A4fF44e0f4436260A04F5CFa65636A481"),
+					common.HexToAddress("0x09DFf56A4fF44e0f4436260A04F5CFa65636A481"), // merc verifier
 					k.cfg.ComposerScriptHash,
 				)
 			} else {
@@ -616,6 +629,16 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 			)
 			if err != nil {
 				log.Fatal(i, upkeepAddr.Hex(), ": RegisterUpkeep failed - ", err)
+			}
+			if k.cfg.UseCrossChainComposer {
+				err = k.sendEth(ctx, upkeepAddr, (*big.Int)(assets.GWei(10000000)))
+				if err != nil {
+					log.Fatal(i, upkeepAddr.Hex(), ": Send eth to upkeep failed - ", err)
+				}
+				err = k.dripBnm(ctx, upkeepAddr, common.HexToAddress(k.cfg.CrossChainBnMCoin))
+				if err != nil {
+					log.Fatal(i, upkeepAddr.Hex(), ": Drip BnM to upkeep failed - ", err)
+				}
 			}
 		case config.LogTrigger:
 			upkeepAddr, deployUpkeepTx, logUpkeepCounter, err = log_upkeep_counter_wrapper.DeployLogUpkeepCounter(
