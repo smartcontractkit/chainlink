@@ -65,13 +65,13 @@ jobs:
         env:
           GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          USE_TEE: false
+          USE_TEE: true
           OUTPUT_FILE: ./output.txt
         run: |
           ./runner \
             -grafana_auth=$GRAFANA_CLOUD_BASIC_AUTH \
             -grafana_host=$GRAFANA_CLOUD_HOST \
-            -count=8 \
+            -count=1 \
       - name: Print Filtered Test Results
         if: ${{ failure() && matrix.cmd == 'go_core_tests' }}
         uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13

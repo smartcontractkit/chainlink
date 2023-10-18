@@ -11,7 +11,7 @@ echo ""
 GO_LDFLAGS=$(bash tools/bin/ldflags)
 use_tee() {
   if [ "$USE_TEE" = "true" ]; then
-    tee -a "$@"
+    tee "$@"
   else
     cat > "$@"
   fi
