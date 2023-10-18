@@ -95,7 +95,7 @@ contract FunctionsSubscriptions_OwnerCancelSubscription is FunctionsSubscription
     string[] memory args = new string[](0);
     bytes[] memory bytesArgs = new bytes[](0);
 
-    s_functionsClient.sendRequest(s_donId, sourceCode, secrets, args, bytesArgs, s_subscriptionId, 5000);
+    s_functionsClient.sendRequest(s_donId, sourceCode, secrets, args, bytesArgs, s_subscriptionId, 5500);
     s_functionsRouter.ownerCancelSubscription(s_subscriptionId);
   }
 
@@ -130,8 +130,12 @@ contract FunctionsSubscriptions_OwnerCancelSubscription is FunctionsSubscription
 contract FunctionsSubscriptions_RecoverFunds is FunctionsRouterSetup {
   event FundsRecovered(address to, uint256 amount);
 
-  function test_RecoverFunds_Success() public {
-    uint256 fundsTransferred = 1 * 1e18; // 1 LINK
+  function test_RecoverFunds_Success(uint64 fundsTransferred) public {
+    //amount must be less than LINK total supply
+    vm.assume(fundsTransferred < 1_000_000_000 * 1e18);
+    vm.assume(fundsTransferred > 0);
+
+    // uint256 fundsTransferred = 1 * 1e18; // 1 LINK
     s_linkToken.transfer(address(s_functionsRouter), fundsTransferred);
 
     // topic0 (function signature, always checked), NOT topic1 (false), NOT topic2 (false), NOT topic3 (false), and data (true).
@@ -268,6 +272,14 @@ contract FunctionsSubscriptions_OwnerWithdraw is FunctionsFulfillmentSetup {
     // s_functionsRouter.ownerWithdraw(OWNER_ADDRESS, amountToWithdraw);
   }
 
+  function test_OwnerWithdraw_SuccessIfRecipientAddressZero() public {
+    uint256 balanceBefore = s_linkToken.balanceOf(address(0));
+    uint96 amountToWithdraw = s_fulfillmentRouterOwnerBalance;
+    s_functionsRouter.ownerWithdraw(address(0), amountToWithdraw);
+    uint256 balanceAfter = s_linkToken.balanceOf(address(0));
+    assertEq(balanceBefore + s_fulfillmentRouterOwnerBalance, balanceAfter);
+  }
+
   function test_OwnerWithdraw_SuccessIfNoAmount() public {
     uint256 balanceBefore = s_linkToken.balanceOf(OWNER_ADDRESS);
     uint96 amountToWithdraw = 0;
@@ -298,35 +310,53 @@ contract FunctionsSubscriptions_OwnerWithdraw is FunctionsFulfillmentSetup {
 
 /// @notice #onTokenTransfer
 contract FunctionsSubscriptions_OnTokenTransfer is FunctionsSubscriptionSetup {
-  function test_OnTokenTransfer_RevertIfPaused() public {
+  function test_OnTokenTransfer_RevertIfPaused(uint96 fundingAmount) public {
+    // Funding amount must be less than LINK total supply
+    vm.assume(fundingAmount < 1_000_000_000 * 1e18);
+    vm.assume(fundingAmount > 0);
+
     s_functionsRouter.pause();
     vm.expectRevert("Pausable: paused");
-    uint96 fundingAmount = 100;
     s_linkToken.transferAndCall(address(s_functionsRouter), fundingAmount, abi.encode(s_subscriptionId));
   }
 
-  function test_OnTokenTransfer_RevertIfCallerIsNotLink() public {
+  function test_OnTokenTransfer_RevertIfCallerIsNotLink(uint96 fundingAmount) public {
+    // Funding amount must be less than LINK total supply
+    vm.assume(fundingAmount < 1_000_000_000 * 1e18);
+    vm.assume(fundingAmount > 0);
+
     vm.expectRevert(FunctionsSubscriptions.OnlyCallableFromLink.selector);
-    uint96 fundingAmount = 100;
     s_functionsRouter.onTokenTransfer(address(s_functionsRouter), fundingAmount, abi.encode(s_subscriptionId));
   }
 
-  function test_OnTokenTransfer_RevertIfCallerIsNoCalldata() public {
+  function test_OnTokenTransfer_RevertIfCallerIsNoCalldata(uint96 fundingAmount) public {
+    // Funding amount must be less than LINK total supply
+    vm.assume(fundingAmount < 1_000_000_000 * 1e18);
+    vm.assume(fundingAmount > 0);
+
     vm.expectRevert(FunctionsSubscriptions.InvalidCalldata.selector);
-    uint96 fundingAmount = 100;
     s_linkToken.transferAndCall(address(s_functionsRouter), fundingAmount, new bytes(0));
   }
 
-  function test_OnTokenTransfer_RevertIfCallerIsNoSubscription() public {
+  function test_OnTokenTransfer_RevertIfCallerIsNoSubscription(uint96 fundingAmount) public {
+    // Funding amount must be less than LINK total supply
+    vm.assume(fundingAmount < 1_000_000_000 * 1e18);
+    vm.assume(fundingAmount > 0);
+
     vm.expectRevert(FunctionsSubscriptions.InvalidSubscription.selector);
-    uint96 fundingAmount = 100;
     uint64 invalidSubscriptionId = 123456789;
     s_linkToken.transferAndCall(address(s_functionsRouter), fundingAmount, abi.encode(invalidSubscriptionId));
   }
 
-  function test_OnTokenTransfer_Success() public {
-    uint96 fundingAmount = 100;
+  function test_OnTokenTransfer_Success(uint96 fundingAmount) public {
     uint96 subscriptionBalanceBefore = s_functionsRouter.getSubscription(s_subscriptionId).balance;
+
+    // Funding amount must be less than LINK total supply
+    uint96 TOTAL_LINK = 1_000_000_000 * 1e18;
+    // Some of the total supply is already in the subscription account
+    vm.assume(fundingAmount < TOTAL_LINK - subscriptionBalanceBefore);
+    vm.assume(fundingAmount > 0);
+
     s_linkToken.transferAndCall(address(s_functionsRouter), fundingAmount, abi.encode(s_subscriptionId));
     uint96 subscriptionBalanceAfter = s_functionsRouter.getSubscription(s_subscriptionId).balance;
     assertEq(subscriptionBalanceBefore + fundingAmount, subscriptionBalanceAfter);
@@ -541,13 +571,14 @@ contract FunctionsSubscriptions_CreateSubscriptionWithConsumer is FunctionsClien
     assertEq(firstCallSubscriptionId, 1);
     assertEq(s_functionsRouter.getSubscription(firstCallSubscriptionId).consumers[0], address(s_functionsClient));
 
+    // Consumer can be address(0)
     vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
     emit SubscriptionCreated(2, OWNER_ADDRESS);
     vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
-    emit SubscriptionConsumerAdded(2, address(s_functionsClient));
-    uint64 secondCallSubscriptionId = s_functionsRouter.createSubscriptionWithConsumer(address(s_functionsClient));
+    emit SubscriptionConsumerAdded(2, address(0));
+    uint64 secondCallSubscriptionId = s_functionsRouter.createSubscriptionWithConsumer(address(0));
     assertEq(secondCallSubscriptionId, 2);
-    assertEq(s_functionsRouter.getSubscription(secondCallSubscriptionId).consumers[0], address(s_functionsClient));
+    assertEq(s_functionsRouter.getSubscription(secondCallSubscriptionId).consumers[0], address(0));
 
     vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
     emit SubscriptionCreated(3, OWNER_ADDRESS);
@@ -579,19 +610,35 @@ contract FunctionsSubscriptions_CreateSubscriptionWithConsumer is FunctionsClien
 contract FunctionsSubscriptions_ProposeSubscriptionOwnerTransfer is FunctionsSubscriptionSetup {
   uint256 internal NEW_OWNER_PRIVATE_KEY_WITH_TOS = 0x3;
   address internal NEW_OWNER_ADDRESS_WITH_TOS = vm.addr(NEW_OWNER_PRIVATE_KEY_WITH_TOS);
-  uint256 internal NEW_OWNER_PRIVATE_KEY_WITHOUT_TOS = 0x4;
+  uint256 internal NEW_OWNER_PRIVATE_KEY_WITH_TOS2 = 0x4;
+  address internal NEW_OWNER_ADDRESS_WITH_TOS2 = vm.addr(NEW_OWNER_PRIVATE_KEY_WITH_TOS2);
+  uint256 internal NEW_OWNER_PRIVATE_KEY_WITHOUT_TOS = 0x5;
   address internal NEW_OWNER_ADDRESS_WITHOUT_TOS = vm.addr(NEW_OWNER_PRIVATE_KEY_WITHOUT_TOS);
 
   function setUp() public virtual override {
     FunctionsSubscriptionSetup.setUp();
 
-    // Accept ToS as new owner
+    // Accept ToS as new owner #1
     vm.stopPrank();
     vm.startPrank(NEW_OWNER_ADDRESS_WITH_TOS);
     bytes32 message = s_termsOfServiceAllowList.getMessage(NEW_OWNER_ADDRESS_WITH_TOS, NEW_OWNER_ADDRESS_WITH_TOS);
     bytes32 prefixedMessage = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", message));
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(TOS_SIGNER_PRIVATE_KEY, prefixedMessage);
     s_termsOfServiceAllowList.acceptTermsOfService(NEW_OWNER_ADDRESS_WITH_TOS, NEW_OWNER_ADDRESS_WITH_TOS, r, s, v);
+
+    // Accept ToS as new owner #2
+    vm.stopPrank();
+    vm.startPrank(NEW_OWNER_ADDRESS_WITH_TOS2);
+    bytes32 message2 = s_termsOfServiceAllowList.getMessage(NEW_OWNER_ADDRESS_WITH_TOS2, NEW_OWNER_ADDRESS_WITH_TOS2);
+    bytes32 prefixedMessage2 = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", message2));
+    (uint8 v2, bytes32 r2, bytes32 s2) = vm.sign(TOS_SIGNER_PRIVATE_KEY, prefixedMessage2);
+    s_termsOfServiceAllowList.acceptTermsOfService(
+      NEW_OWNER_ADDRESS_WITH_TOS2,
+      NEW_OWNER_ADDRESS_WITH_TOS2,
+      r2,
+      s2,
+      v2
+    );
 
     vm.stopPrank();
     vm.startPrank(OWNER_ADDRESS);
@@ -652,6 +699,24 @@ contract FunctionsSubscriptions_ProposeSubscriptionOwnerTransfer is FunctionsSub
     emit SubscriptionOwnerTransferRequested(s_subscriptionId, OWNER_ADDRESS, NEW_OWNER_ADDRESS_WITH_TOS);
     s_functionsRouter.proposeSubscriptionOwnerTransfer(s_subscriptionId, NEW_OWNER_ADDRESS_WITH_TOS);
     assertEq(s_functionsRouter.getSubscription(s_subscriptionId).proposedOwner, NEW_OWNER_ADDRESS_WITH_TOS);
+  }
+
+  function test_ProposeSubscriptionOwnerTransfer_SuccessChangeProposedOwner() public {
+    // topic0 (function signature, always checked), topic1 (true), NOT topic2 (false), NOT topic3 (false), and data (true).
+    bool checkTopic1 = true;
+    bool checkTopic2 = false;
+    bool checkTopic3 = false;
+    bool checkData = true;
+
+    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
+    emit SubscriptionOwnerTransferRequested(s_subscriptionId, OWNER_ADDRESS, NEW_OWNER_ADDRESS_WITH_TOS);
+    s_functionsRouter.proposeSubscriptionOwnerTransfer(s_subscriptionId, NEW_OWNER_ADDRESS_WITH_TOS);
+    assertEq(s_functionsRouter.getSubscription(s_subscriptionId).proposedOwner, NEW_OWNER_ADDRESS_WITH_TOS);
+
+    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
+    emit SubscriptionOwnerTransferRequested(s_subscriptionId, OWNER_ADDRESS, NEW_OWNER_ADDRESS_WITH_TOS2);
+    s_functionsRouter.proposeSubscriptionOwnerTransfer(s_subscriptionId, NEW_OWNER_ADDRESS_WITH_TOS2);
+    assertEq(s_functionsRouter.getSubscription(s_subscriptionId).proposedOwner, NEW_OWNER_ADDRESS_WITH_TOS2);
   }
 }
 
@@ -735,6 +800,13 @@ contract FunctionsSubscriptions_AcceptSubscriptionOwnerTransfer is FunctionsSubs
   event SubscriptionOwnerTransferred(uint64 indexed subscriptionId, address from, address to);
 
   function test_AcceptSubscriptionOwnerTransfer_Success() public {
+    // Can transfer ownership with a pending request
+    string memory sourceCode = "return 'hello world';";
+    bytes memory secrets;
+    string[] memory args = new string[](0);
+    bytes[] memory bytesArgs = new bytes[](0);
+    s_functionsClient.sendRequest(s_donId, sourceCode, secrets, args, bytesArgs, s_subscriptionId, 5500);
+
     s_functionsRouter.proposeSubscriptionOwnerTransfer(s_subscriptionId, NEW_OWNER_ADDRESS_WITH_TOS);
 
     // Send as new owner, who has accepted Terms of Service
@@ -1184,7 +1256,18 @@ contract FunctionsSubscriptions_SetFlags is FunctionsSubscriptionSetup {
 
 /// @notice #getFlags
 contract FunctionsSubscriptions_GetFlags is FunctionsSubscriptionSetup {
-  function test_GetFlags_Success() public {
+  function test_GetFlags_SuccessInvalidSubscription() public {
+    // Send as stranger
+    vm.stopPrank();
+    vm.startPrank(STRANGER_ADDRESS);
+
+    uint64 invalidSubscriptionId = 999999;
+
+    bytes32 flags = s_functionsRouter.getFlags(invalidSubscriptionId);
+    assertEq(flags, bytes32(0));
+  }
+
+  function test_GetFlags_SuccessValidSubscription() public {
     // Set flags
     bytes32 flagsToSet = bytes32("1");
     s_functionsRouter.setFlags(s_subscriptionId, flagsToSet);

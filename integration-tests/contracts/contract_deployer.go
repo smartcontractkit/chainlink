@@ -45,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
@@ -82,6 +83,7 @@ type ContractDeployer interface {
 	LoadKeeperRegistry(address common.Address, registryVersion eth_contracts.KeeperRegistryVersion) (KeeperRegistry, error)
 	DeployKeeperConsumer(updateInterval *big.Int) (KeeperConsumer, error)
 	DeployAutomationLogTriggerConsumer(testInterval *big.Int) (KeeperConsumer, error)
+	DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error)
 	DeployKeeperConsumerPerformance(
 		testBlockRange,
 		averageCadence,
@@ -754,8 +756,10 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion eth_con
 		) (common.Address, *types.Transaction, interface{}, error) {
 			// set default TriggerType to 0(conditional), AutoApproveConfigType to 2(auto approve enabled), AutoApproveMaxAllowed to 1000
 			triggerConfigs := []registrar21.AutomationRegistrar21InitialTriggerConfig{
-				{TriggerType: 0, AutoApproveType: 2, AutoApproveMaxAllowed: 1000},
-				{TriggerType: 1, AutoApproveType: 2, AutoApproveMaxAllowed: 1000},
+				{TriggerType: 0, AutoApproveType: registrarSettings.AutoApproveConfigType,
+					AutoApproveMaxAllowed: uint32(registrarSettings.AutoApproveMaxAllowed)},
+				{TriggerType: 1, AutoApproveType: registrarSettings.AutoApproveConfigType,
+					AutoApproveMaxAllowed: uint32(registrarSettings.AutoApproveMaxAllowed)},
 			}
 
 			return registrar21.DeployAutomationRegistrar(
@@ -1242,6 +1246,25 @@ func (e *EthereumContractDeployer) DeployAutomationLogTriggerConsumer(testInterv
 	return &EthereumAutomationLogCounterConsumer{
 		client:   e.client,
 		consumer: instance.(*log_upkeep_counter_wrapper.LogUpkeepCounter),
+		address:  address,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error) {
+	address, _, instance, err := e.client.DeployContract("StreamsLookupUpkeep", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return streams_lookup_upkeep_wrapper.DeployStreamsLookupUpkeep(
+			auth, backend, testRange, interval, useArbBlock, staging, verify,
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumAutomationStreamsLookupUpkeepConsumer{
+		client:   e.client,
+		consumer: instance.(*streams_lookup_upkeep_wrapper.StreamsLookupUpkeep),
 		address:  address,
 	}, err
 }
