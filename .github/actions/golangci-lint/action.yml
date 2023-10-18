@@ -69,7 +69,7 @@ runs:
         path: ${{ inputs.go-directory }}/golangci-lint-report.xml
     - name: Collect Metrics
       if: always()
-      uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+      uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
       with:
         basic-auth: ${{ inputs.gc-basic-auth }}
         hostname: ${{ inputs.gc-host }}

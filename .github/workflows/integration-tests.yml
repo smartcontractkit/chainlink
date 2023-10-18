@@ -45,7 +45,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -75,7 +75,7 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -123,7 +123,7 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -229,7 +229,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -351,7 +351,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -368,15 +368,18 @@ jobs:
     steps:
       - name: Check smoke test matrix status
         if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-automation.result != 'success'
-        run: exit 1
+        run: |
+          echo "${{ needs.eth-smoke-tests-matrix.result }}"
+          exit 1
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: ETH Smoke Tests
+          matrix-aggregator-status: ${{ needs.eth-smoke-tests-matrix.result }}
         continue-on-error: true
 
   cleanup:
@@ -399,7 +402,7 @@ jobs:
       - name: Collect Metrics
         if: ${{ github.event_name == 'pull_request' }}
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -494,7 +497,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -600,7 +603,7 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -639,7 +642,7 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -697,7 +700,7 @@ jobs:
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true'
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
@@ -775,11 +778,12 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
           this-job-name: Solana Smoke Tests
+          matrix-aggregator-status: ${{ needs.solana-smoke-tests-matrix.result }}
         continue-on-error: true
   ### End Solana Section
 
@@ -846,7 +850,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

@@ -26,7 +26,7 @@ jobs:
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@af69d6e484ae38a1b5ca0dba693c133896ee58ce # v2
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
