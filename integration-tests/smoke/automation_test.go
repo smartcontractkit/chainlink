@@ -121,8 +121,8 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 
 			// Use the name to determine if this is a log trigger or mercury
 			isLogTrigger := name == "registry_2_1_logtrigger"
-			isMercuryV02 := name == "registry_2_1_conditional_with_mercury_v02"
-			isMercuryV03 := name == "registry_2_1_conditional_with_mercury_v03"
+			isMercuryV02 := name == "registry_2_1_with_mercury_v02"
+			isMercuryV03 := name == "registry_2_1_with_mercury_v03"
 			isMercury := isMercuryV02 || isMercuryV03
 
 			chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupAutomationTestDocker(
