@@ -3,7 +3,6 @@ pragma solidity ^0.8.19;
 
 // solhint-disable custom-errors
 abstract contract LinkTokenReceiver {
-  
   // @notice Called when LINK is sent to the contract via `transferAndCall`
   // @dev The data payload's first 2 words will be overwritten by the `sender` and `amount`
   // values to ensure correctness. Calls oracleRequest.
@@ -27,7 +26,7 @@ abstract contract LinkTokenReceiver {
   }
 
   function getChainlinkToken() public view virtual returns (address);
-  
+
   // @notice Validate the function called on token transfer
   function _validateTokenTransferAction(bytes4 funcSelector, bytes memory data) internal virtual;
 
@@ -36,9 +35,9 @@ abstract contract LinkTokenReceiver {
     require(msg.sender == getChainlinkToken(), "Must use LINK token");
     _;
   }
-  
+
   // @dev Reverts if the given data does not begin with the `oracleRequest` function selector
-  // @param data The data payload of the request   
+  // @param data The data payload of the request
   modifier permittedFunctionsForLINK(bytes memory data) {
     bytes4 funcSelector;
     assembly {
