@@ -291,9 +291,12 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return err
 	}
-	n.l.Info().Str("containerName", n.ContainerName).
+	n.l.Info().
 		Str("clEndpoint", clEndpoint).
 		Str("clInternalIP", ip).
+		Str("containerName", n.ContainerName).
+		Str("containerImage", n.ContainerImage).
+		Str("containerVersion", n.ContainerVersion).
 		Msg("Started Chainlink Node container")
 	clClient, err := client.NewChainlinkClient(&client.ChainlinkConfig{
 		URL:        clEndpoint,
