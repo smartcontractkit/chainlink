@@ -79,6 +79,8 @@ func NewL1GasPriceOracle(lggr logger.Logger, ethClient ethClient, chainType conf
 		panic(fmt.Sprintf("Received unspported chaintype %s", chainType))
 	}
 
+	lggr.Infow("Initializing L1GasPriceOracle with address and callargs", "address", address, "callArgs", callArgs)
+
 	return &l1GasPriceOracle{
 		client:        ethClient,
 		pollPeriod:    PollPeriod,
@@ -153,6 +155,8 @@ func (o *l1GasPriceOracle) refresh() (t *time.Timer) {
 		return
 	}
 	price := new(big.Int).SetBytes(b)
+
+	o.logger.Infow("Fetching l1GasPrice", "l1GasPrice", price.String())
 
 	o.l1GasPriceMu.Lock()
 	defer o.l1GasPriceMu.Unlock()

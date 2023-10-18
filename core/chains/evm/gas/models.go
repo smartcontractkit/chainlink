@@ -69,6 +69,7 @@ func NewEstimator(lggr logger.Logger, ethClient evmclient.Client, cfg Config, ge
 
 	// create l1Oracle only if it is supported for the chain
 	var l1Oracle rollups.L1Oracle
+	lggr.Infow("Checking if chain type is roll up", "chainType", cfg.ChainType(), "isRollUp", rollups.IsRollupWithL1Support(cfg.ChainType()))
 	if rollups.IsRollupWithL1Support(cfg.ChainType()) {
 		l1Oracle = rollups.NewL1GasPriceOracle(lggr, ethClient, cfg.ChainType())
 	}
