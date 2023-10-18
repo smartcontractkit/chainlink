@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"regexp"
 	"strings"
 
 	"github.com/google/uuid"
@@ -1331,14 +1332,16 @@ func (t *Tracing) setFrom(f *Tracing) {
 }
 
 func (t *Tracing) ValidateConfig() (err error) {
+	fmt.Printf("tracing collector target %v ", *t.CollectorTarget)
+	
 	if t.SamplingRatio != nil {
 		if *t.SamplingRatio < 0 || *t.SamplingRatio > 1 {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "SamplingRatio", Value: *t.SamplingRatio, Msg: "must be between 0 and 1"})
 		}
 	}
 
-	if t.CollectorTarget == nil || *t.CollectorTarget == ""  {
-		return nil
+	if t.CollectorTarget == nil || *t.CollectorTarget == "" {
+		return err
 	}
 	ok := isValidURI(*t.CollectorTarget)
 	if !ok {
@@ -1348,21 +1351,36 @@ func (t *Tracing) ValidateConfig() (err error) {
 	return err
 }
 
+var hostnameRegex = regexp.MustCompile(`^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*$`)
+
 func isValidURI(uri string) bool {
-	host, port, err := net.SplitHostPort(uri)
-	if err != nil {
-		return false
+	if strings.Contains(uri, "://") {
+		// Standard URI check
+		_, err := url.ParseRequestURI(uri)
+		return err == nil
+	}
+	
+	// For URIs like "otel-collector:4317"
+	parts := strings.Split(uri, ":")
+	if len(parts) == 2 {
+		host, port := parts[0], parts[1]
+		
+		// Validating hostname
+		if !isValidHostname(host) {
+			return false
+		}
+
+		// Validating port
+		if _, err := net.LookupPort("tcp", port); err != nil {
+			return false
+		}
+
+		return true
 	}
 
-	// Validate host
-	if len(host) == 0 {
-		return false
-	}
+	return false
+}
 
-	// Validate port
-	if _, err := net.ResolveTCPAddr("tcp", net.JoinHostPort(host, port)); err != nil {
-		return false
-	}
-
-	return true
+func isValidHostname(hostname string) bool {
+	return hostnameRegex.MatchString(hostname)
 }

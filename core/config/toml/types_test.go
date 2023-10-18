@@ -194,6 +194,11 @@ func TestTracing_ValidateCollectorTarget(t *testing.T) {
 			wantErr:         false,
 		},
 		{
+			name:            "valid docker address",
+			collectorTarget: stringPtr("otel-collector:4317"),
+			wantErr:         false,
+		},
+		{
 			name:            "valid IP address",
 			collectorTarget: stringPtr("192.168.1.1:4317"),
 			wantErr:         false,
