@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"net/http"
 	"testing"
 	"time"
 
@@ -25,7 +26,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithTestLogger(t).
 		WithGeth().
-		WithMockServer(1).
+		WithMockAdapter().
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
 			node.WithOCR2(),
 			node.WithP2Pv2(),
@@ -35,15 +36,10 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		WithFunding(big.NewFloat(.1)).
 		Build()
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		if err := env.Cleanup(t); err != nil {
-			l.Error().Err(err).Msg("Error cleaning up test environment")
-		}
-	})
 
 	env.ParallelTransactions(true)
 
-	nodeClients := env.GetAPIs()
+	nodeClients := env.ClCluster.NodeAPIs()
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
 
 	workerNodeAddresses, err := actions.ChainlinkNodeAddressesLocal(workerNodes)
@@ -80,7 +76,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
-	err = actions.CreateOCRv2JobsLocal(ocrInstances, bootstrapNode, workerNodes, env.MockServer.Client, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), true)
+	err = actions.CreateOCRv2JobsLocal(ocrInstances, bootstrapNode, workerNodes, env.MockAdapter, "ocr2", 5, env.EVMClient.GetChainID().Uint64(), true)
 	require.NoError(t, err, "Error creating OCRv2 jobs with forwarders")
 	err = env.EVMClient.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
@@ -101,7 +97,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 
 	for i := 2; i <= 3; i++ {
 		ocrRoundVal := (5 + i) % 10
-		err = env.MockServer.Client.SetValuePath("ocr2", ocrRoundVal)
+		err = env.MockAdapter.SetAdapterBasedIntValuePath("ocr2", []string{http.MethodGet, http.MethodPost}, ocrRoundVal)
 		require.NoError(t, err)
 		err = actions.StartNewOCR2Round(int64(i), ocrInstances, env.EVMClient, time.Minute*10, l)
 		require.NoError(t, err)

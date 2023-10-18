@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -23,21 +22,20 @@ import (
 )
 
 type CLTestEnvBuilder struct {
-	hasLogWatch          bool
-	hasGeth              bool
-	hasMockServer        bool
-	hasForwarders        bool
-	clNodeConfig         *chainlink.Config
-	secretsConfig        string
-	nonDevGethNetworks   []blockchain.EVMNetwork
-	clNodesCount         int
-	externalAdapterCount int
-	customNodeCsaKeys    []string
-	defaultNodeCsaKeys   []string
-	l                    zerolog.Logger
-	t                    *testing.T
-	te                   *CLClusterTestEnv
-	isNonEVM             bool
+	hasLogWatch        bool
+	hasGeth            bool
+	hasKillgrave       bool
+	hasForwarders      bool
+	clNodeConfig       *chainlink.Config
+	secretsConfig      string
+	nonDevGethNetworks []blockchain.EVMNetwork
+	clNodesCount       int
+	customNodeCsaKeys  []string
+	defaultNodeCsaKeys []string
+	l                  zerolog.Logger
+	t                  *testing.T
+	te                 *CLClusterTestEnv
+	isNonEVM           bool
 
 	/* funding */
 	ETHFunds *big.Float
@@ -45,8 +43,7 @@ type CLTestEnvBuilder struct {
 
 func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	return &CLTestEnvBuilder{
-		externalAdapterCount: 1,
-		l:                    log.Logger,
+		l: log.Logger,
 	}
 }
 
@@ -128,9 +125,8 @@ func (b *CLTestEnvBuilder) WithSecretsConfig(secrets string) *CLTestEnvBuilder {
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithMockServer(externalAdapterCount int) *CLTestEnvBuilder {
-	b.hasMockServer = true
-	b.externalAdapterCount = externalAdapterCount
+func (b *CLTestEnvBuilder) WithMockAdapter() *CLTestEnvBuilder {
+	b.hasKillgrave = true
 	return b
 }
 
@@ -150,8 +146,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 	b.l.Info().
 		Bool("hasGeth", b.hasGeth).
-		Bool("hasMockServer", b.hasMockServer).
-		Int("externalAdapterCount", b.externalAdapterCount).
+		Bool("hasKillgrave", b.hasKillgrave).
 		Int("clNodesCount", b.clNodesCount).
 		Strs("customNodeCsaKeys", b.customNodeCsaKeys).
 		Strs("defaultNodeCsaKeys", b.defaultNodeCsaKeys).
@@ -169,16 +164,19 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 	}
 
-	if b.hasMockServer {
-		err = b.te.StartMockServer()
-		if err != nil {
-			return nil, err
-		}
-		err = b.te.MockServer.SetExternalAdapterMocks(b.externalAdapterCount)
+	if b.hasKillgrave {
+		err = b.te.StartMockAdapter()
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	b.t.Cleanup(func() {
+		if err := b.te.Cleanup(); err != nil {
+			b.l.Error().Err(err).Msg("Error cleaning up test environment")
+		}
+	})
+
 	if b.nonDevGethNetworks != nil {
 		b.te.WithPrivateChain(b.nonDevGethNetworks)
 		err := b.te.StartPrivateChain()
@@ -198,11 +196,10 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		if nonDevNetworks == nil {
 			return nil, errors.New("cannot create nodes with custom config without nonDevNetworks")
 		}
-		if b.clNodesCount > 0 {
-			err = b.te.StartClNodes(b.clNodeConfig, b.clNodesCount, b.secretsConfig)
-			if err != nil {
-				return nil, err
-			}
+
+		err = b.te.StartClCluster(b.clNodeConfig, b.clNodesCount, b.secretsConfig)
+		if err != nil {
+			return nil, err
 		}
 		return b.te, nil
 	}
@@ -264,12 +261,12 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			node.SetChainConfig(cfg, wsUrls, httpUrls, networkConfig, b.hasForwarders)
 		}
 
-		err := b.te.StartClNodes(cfg, b.clNodesCount, b.secretsConfig)
+		err := b.te.StartClCluster(cfg, b.clNodesCount, b.secretsConfig)
 		if err != nil {
 			return nil, err
 		}
 
-		nodeCsaKeys, err = b.te.GetNodeCSAKeys()
+		nodeCsaKeys, err = b.te.ClCluster.NodeCSAKeys()
 		if err != nil {
 			return nil, err
 		}

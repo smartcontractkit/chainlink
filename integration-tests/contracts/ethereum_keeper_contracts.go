@@ -11,13 +11,13 @@ import (
 
 	geth "github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	goabi "github.com/umbracle/ethgo/abi"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
@@ -77,6 +78,8 @@ type KeeperRegistry interface {
 	UnpauseUpkeep(id *big.Int) error
 	UpdateCheckData(id *big.Int, newCheckData []byte) error
 	SetUpkeepTriggerConfig(id *big.Int, triggerConfig []byte) error
+	SetUpkeepPrivilegeConfig(id *big.Int, privilegeConfig []byte) error
+	RegistryOwnerAddress() common.Address
 }
 
 type KeeperConsumer interface {
@@ -219,7 +222,7 @@ func (v *EthereumKeeperRegistry) Fund(ethAmount *big.Float) error {
 	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
-func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string) ([]byte, error) {
+func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string, registryOwnerAddress common.Address) ([]byte, error) {
 	if rcs.RegistryVersion == ethereum.RegistryVersion_2_1 {
 		onchainConfigStruct := registry21.KeeperRegistryBase21OnchainConfig{
 			PaymentPremiumPPB:      rcs.PaymentPremiumPPB,
@@ -236,8 +239,9 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string) ([]byte
 			FallbackLinkPrice:      rcs.FallbackLinkPrice,
 			Transcoder:             common.Address{},
 			Registrars:             []common.Address{common.HexToAddress(registrar)},
-			UpkeepPrivilegeManager: common.Address{},
+			UpkeepPrivilegeManager: registryOwnerAddress,
 		}
+
 		encodedOnchainConfig, err := utilsABI.Methods["_onChainConfig"].Inputs.Pack(&onchainConfigStruct)
 
 		return encodedOnchainConfig, err
@@ -260,6 +264,23 @@ func (rcs *KeeperRegistrySettings) EncodeOnChainConfig(registrar string) ([]byte
 		}, configType)
 		return onchainConfig, err
 	}
+}
+
+func (v *EthereumKeeperRegistry) RegistryOwnerAddress() common.Address {
+	callOpts := &bind.CallOpts{
+		Pending: false,
+	}
+
+	switch v.version {
+	case ethereum.RegistryVersion_2_1:
+		ownerAddress, _ := v.registry2_1.Owner(callOpts)
+		return ownerAddress
+	case ethereum.RegistryVersion_2_0:
+		ownerAddress, _ := v.registry2_0.Owner(callOpts)
+		return ownerAddress
+	}
+
+	return common.HexToAddress(v.client.GetDefaultWallet().Address())
 }
 
 func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrConfig OCRv2Config) error {
@@ -925,6 +946,26 @@ func (v *EthereumKeeperRegistry) SetUpkeepTriggerConfig(id *big.Int, triggerConf
 	}
 }
 
+// SetUpkeepPrivilegeConfig sets the privilege config of an upkeep (only for version 2.1)
+func (v *EthereumKeeperRegistry) SetUpkeepPrivilegeConfig(id *big.Int, privilegeConfig []byte) error {
+
+	switch v.version {
+	case ethereum.RegistryVersion_2_1:
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry2_1.SetUpkeepPrivilegeConfig(opts, id, privilegeConfig)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	default:
+		return fmt.Errorf("SetUpkeepPrivilegeConfig is not supported by keeper registry version %d", v.version)
+	}
+}
+
 // PauseUpkeep stops an upkeep from an upkeep
 func (v *EthereumKeeperRegistry) PauseUpkeep(id *big.Int) error {
 	switch v.version {
@@ -1356,13 +1397,13 @@ type KeeperConsumerBenchmarkRoundConfirmer struct {
 	context  context.Context
 	cancel   context.CancelFunc
 
-	firstBlockNum      uint64                                     // Records the number of the first block that came in
-	lastBlockNum       uint64                                     // Records the number of the last block that came in
-	blockRange         int64                                      // How many blocks to watch upkeeps for
-	upkeepSLA          int64                                      // SLA after which an upkeep is counted as 'missed'
-	metricsReporter    *testreporters.KeeperBenchmarkTestReporter // Testreporter to track results
-	upkeepIndex        int64
-	firstEligibleuffer int64
+	firstBlockNum       uint64                                     // Records the number of the first block that came in
+	lastBlockNum        uint64                                     // Records the number of the last block that came in
+	blockRange          int64                                      // How many blocks to watch upkeeps for
+	upkeepSLA           int64                                      // SLA after which an upkeep is counted as 'missed'
+	metricsReporter     *testreporters.KeeperBenchmarkTestReporter // Testreporter to track results
+	upkeepIndex         int64
+	firstEligibleBuffer int64
 
 	// State variables, changes as we get blocks
 	blocksSinceSubscription int64   // How many blocks have passed since subscribing
@@ -1385,7 +1426,7 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 	upkeepSLA int64,
 	metricsReporter *testreporters.KeeperBenchmarkTestReporter,
 	upkeepIndex int64,
-	firstEligibleuffer int64,
+	firstEligibleBuffer int64,
 	logger zerolog.Logger,
 ) *KeeperConsumerBenchmarkRoundConfirmer {
 	ctx, cancelFunc := context.WithCancel(context.Background())
@@ -1407,7 +1448,7 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 		lastBlockNum:            0,
 		upkeepIndex:             upkeepIndex,
 		firstBlockNum:           0,
-		firstEligibleuffer:      firstEligibleuffer,
+		firstEligibleBuffer:     firstEligibleBuffer,
 		l:                       logger,
 	}
 }
@@ -1458,7 +1499,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 		o.blocksSinceEligible = 0
 	}
 
-	isEligible, err := o.instance.CheckEligible(context.Background(), big.NewInt(o.upkeepIndex), big.NewInt(o.blockRange), big.NewInt(o.firstEligibleuffer))
+	isEligible, err := o.instance.CheckEligible(context.Background(), big.NewInt(o.upkeepIndex), big.NewInt(o.blockRange), big.NewInt(o.firstEligibleBuffer))
 	if err != nil {
 		return err
 	}
@@ -1655,6 +1696,50 @@ func (v *EthereumKeeperConsumer) Fund(ethAmount *big.Float) error {
 }
 
 func (v *EthereumKeeperConsumer) Counter(ctx context.Context) (*big.Int, error) {
+	opts := &bind.CallOpts{
+		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
+		Context: ctx,
+	}
+	cnt, err := v.consumer.Counter(opts)
+	if err != nil {
+		return nil, err
+	}
+	return cnt, nil
+}
+
+type EthereumAutomationStreamsLookupUpkeepConsumer struct {
+	client   blockchain.EVMClient
+	consumer *streams_lookup_upkeep_wrapper.StreamsLookupUpkeep
+	address  *common.Address
+}
+
+func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Address() string {
+	return v.address.Hex()
+}
+
+func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Start() error {
+	// For this consumer upkeep, we use this Start() function to set ParamKeys so as to run mercury v0.2
+	txOpts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+
+	tx, err := v.consumer.SetParamKeys(txOpts, "feedIdHex", "blockNumber")
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Fund(ethAmount *big.Float) error {
+	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
+	if err != nil {
+		return err
+	}
+	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
+}
+
+func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Counter(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,

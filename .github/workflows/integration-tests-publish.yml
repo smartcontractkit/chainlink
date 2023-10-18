@@ -2,6 +2,10 @@ name: Integration Tests Publish
 # Publish the compiled integration tests
 on:
   push:
+    tags:
+      - "v*"
+    branches:
+      - ccip-develop
   workflow_dispatch:
 
 env:

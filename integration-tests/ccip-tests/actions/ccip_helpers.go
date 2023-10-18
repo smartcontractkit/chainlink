@@ -2231,7 +2231,7 @@ func (c *CCIPTestEnv) SetUpNodesAndKeys(
 	//var err error
 	if c.LocalCluster != nil {
 		// for local cluster, fetch the values from the local cluster
-		for _, chainlinkNode := range c.LocalCluster.CLNodes {
+		for _, chainlinkNode := range c.LocalCluster.ClCluster.Nodes {
 			chainlinkNodes = append(chainlinkNodes, chainlinkNode.API)
 			c.nodeMutexes = append(c.nodeMutexes, &sync.Mutex{})
 		}
@@ -2247,8 +2247,6 @@ func (c *CCIPTestEnv) SetUpNodesAndKeys(
 		}
 
 		for _, chainlinkNode := range chainlinkK8sNodes {
-			chainlinkNode.ChainlinkClient.SetLogger(logger)
-			chainlinkNode.ChainlinkClient.AddRetryAttempt(3)
 			chainlinkNodes = append(chainlinkNodes, chainlinkNode.ChainlinkClient)
 			c.nodeMutexes = append(c.nodeMutexes, &sync.Mutex{})
 		}
