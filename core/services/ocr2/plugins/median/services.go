@@ -115,6 +115,11 @@ func NewMedianServices(ctx context.Context,
 		CreatedAt:    time.Now(),
 	}, lggr)
 
+	medianContract := medianProvider.MedianContract()
+	if provider.ChainReader() != nil {
+		medianContract = newMedianContract(provider.ChainReader(), common.HexToAddress(spec.ContractID))
+	}
+
 	if cmdName := env.MedianPluginCmd.Get(); cmdName != "" {
 
 		// use unique logger names so we can use it to register a loop
@@ -129,7 +134,7 @@ func NewMedianServices(ctx context.Context,
 		argsNoPlugin.ReportingPluginFactory = median
 		srvs = append(srvs, median)
 	} else {
-		argsNoPlugin.ReportingPluginFactory, err = NewPlugin(lggr).NewMedianFactory(ctx, medianProvider, dataSource, juelsPerFeeCoinSource, errorLog)
+		argsNoPlugin.ReportingPluginFactory, err = NewPlugin(lggr).NewMedianFactory(ctx, medianContract, medianProvider, dataSource, juelsPerFeeCoinSource, errorLog)
 		if err != nil {
 			err = fmt.Errorf("failed to create median factory: %w", err)
 			abort()

@@ -2,17 +2,50 @@ package evm
 
 import (
 	"context"
+	"fmt"
 
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
+
+// constructor for ChainReader, returns nil if there is any error
+func newChainReader(lggr logger.Logger, chain evm.Chain, ropts *types.RelayOpts) *chainReader {
+	relayConfig, err := ropts.RelayConfig()
+	if err != nil {
+		lggr.Errorf("Failed parsing RelayConfig: %w", err.Error())
+		return nil
+	}
+
+	if relayConfig.ChainReader == nil {
+		return nil
+	}
+
+	if err = validateChainReaderConfig(*relayConfig.ChainReader); err != nil {
+		lggr.Errorf("Invalid ChainReader configuration: %w", err.Error())
+		return nil
+	}
+
+	return &chainReader{lggr, chain.LogPoller()}
+}
+
+func validateChainReaderConfig(cfg types.ChainReaderConfig) error {
+	// Validate config (check ABI from job spec against imported gethwrappers, etc.)
+	return nil
+}
+
+func (cr *chainReader) initialize() error {
+	// Initialize chain reader, start cache polling loop, etc.
+	return nil
+}
 
 type ChainReaderService interface {
 	services.ServiceCtx
-	types.ChainReader
+	relaytypes.ChainReader
 }
 
 type chainReader struct {
@@ -25,15 +58,20 @@ func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller) (*chainRe
 	return &chainReader{lggr, lp}, nil
 }
 
-func (cr *chainReader) GetLatestValue(ctx context.Context, bc types.BoundContract, method string, params any, returnVal any) ([]byte, error) {
+func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundContract, method string, params any, returnVal any) ([]byte, error) {
 
 	// TODO: implement GetLatestValue
 
 	return nil, nil
 }
 
-func (cr *chainReader) Start(ctx context.Context) error { return nil }
-func (cr *chainReader) Close() error                    { return nil }
+func (cr *chainReader) Start(ctx context.Context) error {
+	if err := cr.initialize(); err != nil {
+		return fmt.Errorf("Failed to initialize ChainReader: %w", err)
+	}
+	return nil
+}
+func (cr *chainReader) Close() error { return nil }
 
 func (cr *chainReader) Ready() error { return nil }
 func (cr *chainReader) HealthReport() map[string]error {
