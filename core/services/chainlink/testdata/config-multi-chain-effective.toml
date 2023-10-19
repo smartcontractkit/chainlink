@@ -211,9 +211,7 @@ DisableRateLimiting = false
 Enabled = false
 CollectorTarget = ''
 NodeID = ''
-SamplingRatio = 1.0
-
-[Tracing.Attributes]
+SamplingRatio = 0.0
 
 [[EVM]]
 ChainID = '1'

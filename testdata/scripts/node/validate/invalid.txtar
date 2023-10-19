@@ -259,8 +259,6 @@ CollectorTarget = ''
 NodeID = ''
 SamplingRatio = 0.0
 
-[Tracing.Attributes]
-
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true

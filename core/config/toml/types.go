@@ -1310,7 +1310,7 @@ type Tracing struct {
 	CollectorTarget *string
 	NodeID          *string
 	SamplingRatio   *float64
-	Attributes      *map[string]string
+	Attributes      map[string]string
 }
 
 func (t *Tracing) setFrom(f *Tracing) {
@@ -1332,20 +1332,21 @@ func (t *Tracing) setFrom(f *Tracing) {
 }
 
 func (t *Tracing) ValidateConfig() (err error) {
-	fmt.Printf("tracing collector target %v ", *t.CollectorTarget)
-	
+	if t.Enabled == nil || !*t.Enabled {
+		return err
+	}
+
 	if t.SamplingRatio != nil {
 		if *t.SamplingRatio < 0 || *t.SamplingRatio > 1 {
 			err = multierr.Append(err, configutils.ErrInvalid{Name: "SamplingRatio", Value: *t.SamplingRatio, Msg: "must be between 0 and 1"})
 		}
 	}
 
-	if t.CollectorTarget == nil || *t.CollectorTarget == "" {
-		return err
-	}
-	ok := isValidURI(*t.CollectorTarget)
-	if !ok {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})
+	if t.CollectorTarget != nil {
+		ok := isValidURI(*t.CollectorTarget)
+		if !ok {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "CollectorTarget", Value: *t.CollectorTarget, Msg: "must be a valid URI"})
+		}
 	}
 
 	return err
@@ -1359,12 +1360,12 @@ func isValidURI(uri string) bool {
 		_, err := url.ParseRequestURI(uri)
 		return err == nil
 	}
-	
+
 	// For URIs like "otel-collector:4317"
 	parts := strings.Split(uri, ":")
 	if len(parts) == 2 {
 		host, port := parts[0], parts[1]
-		
+
 		// Validating hostname
 		if !isValidHostname(host) {
 			return false

@@ -228,7 +228,7 @@ func TestConfig_Marshal(t *testing.T) {
 				Enabled:         ptr(true),
 				CollectorTarget: ptr("localhost:4317"),
 				NodeID:          ptr("clc-ocr-sol-devnet-node-1"),
-				Attributes: &map[string]string{
+				Attributes: map[string]string{
 					"test": "load",
 					"env":  "dev",
 				},
@@ -671,8 +671,8 @@ NodeID = 'clc-ocr-sol-devnet-node-1'
 SamplingRatio = 1.0
 
 [Tracing.Attributes]
-test = 'load'
 env = 'dev'
+test = 'load'
 `},
 		{"AuditLogger", Config{Core: toml.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
 Enabled = true
@@ -1412,6 +1412,7 @@ func TestConfig_setDefaults(t *testing.T) {
 	c.Cosmos = cosmos.CosmosConfigs{{ChainID: ptr("unknown cosmos chain")}}
 	c.Solana = solana.SolanaConfigs{{ChainID: ptr("unknown solana chain")}}
 	c.Starknet = starknet.StarknetConfigs{{ChainID: ptr("unknown starknet chain")}}
+	c.Tracing.Attributes = make(map[string]string)
 	c.setDefaults()
 	if s, err := c.TOMLString(); assert.NoError(t, err) {
 		t.Log(s, err)

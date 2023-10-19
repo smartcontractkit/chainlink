@@ -220,8 +220,8 @@ NodeID = 'clc-ocr-sol-devnet-node-1'
 SamplingRatio = 1.0
 
 [Tracing.Attributes]
-test = 'load'
 env = 'dev'
+test = 'load'
 
 [[EVM]]
 ChainID = '1'

@@ -19,7 +19,7 @@ func (t tracingConfig) NodeID() string {
 }
 
 func (t tracingConfig) Attributes() map[string]string {
-	return *t.s.Attributes
+	return t.s.Attributes
 }
 
 func (t tracingConfig) SamplingRatio() float64 {

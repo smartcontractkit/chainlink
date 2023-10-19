@@ -225,8 +225,6 @@ CollectorTarget = ''
 NodeID = ''
 SamplingRatio = 0.0
 
-[Tracing.Attributes]
-
 Invalid configuration: invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
 	- Password.Keystore: empty: must be provided and non-empty

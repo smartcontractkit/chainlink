@@ -220,7 +220,8 @@ NodeID = 'NodeID'
 SamplingRatio = 1.0
 
 [Tracing.Attributes]
-user = 'test'
+env = 'dev'
+test = 'load'
 
 [[EVM]]
 ChainID = '1'
