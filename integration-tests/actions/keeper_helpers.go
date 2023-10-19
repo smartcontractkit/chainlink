@@ -146,7 +146,7 @@ func DeployKeeperContracts(
 	}
 	registrar := DeployKeeperRegistrar(t, registryVersion, linkToken, registrarSettings, contractDeployer, client, registry)
 
-	upkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfUpkeeps, false)
+	upkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfUpkeeps, false, false)
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
@@ -397,7 +397,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, linkToken contracts.Link
 	return upkeepIds
 }
 
-func DeployKeeperConsumers(t *testing.T, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfContracts int, isLogTrigger bool) []contracts.KeeperConsumer {
+func DeployKeeperConsumers(t *testing.T, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfContracts int, isLogTrigger bool, isMercury bool) []contracts.KeeperConsumer {
 	l := logging.GetTestLogger(t)
 	keeperConsumerContracts := make([]contracts.KeeperConsumer, 0)
 
@@ -406,7 +406,9 @@ func DeployKeeperConsumers(t *testing.T, contractDeployer contracts.ContractDepl
 		var keeperConsumerInstance contracts.KeeperConsumer
 		var err error
 
-		if isLogTrigger {
+		if isMercury {
+			keeperConsumerInstance, err = contractDeployer.DeployAutomationStreamsLookupUpkeepConsumer(big.NewInt(1000), big.NewInt(5), false, true, false) // 1000 block test range
+		} else if isLogTrigger {
 			keeperConsumerInstance, err = contractDeployer.DeployAutomationLogTriggerConsumer(big.NewInt(1000)) // 1000 block test range
 		} else {
 			keeperConsumerInstance, err = contractDeployer.DeployKeeperConsumer(big.NewInt(5))
@@ -581,7 +583,7 @@ func RegisterNewUpkeeps(
 	upkeepGasLimit uint32,
 	numberOfNewUpkeeps int,
 ) ([]contracts.KeeperConsumer, []*big.Int) {
-	newlyDeployedUpkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfNewUpkeeps, false)
+	newlyDeployedUpkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfNewUpkeeps, false, false)
 
 	var addressesOfNewUpkeeps []string
 	for _, upkeep := range newlyDeployedUpkeeps {
