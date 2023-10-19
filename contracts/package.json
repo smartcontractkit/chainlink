@@ -44,7 +44,7 @@
     "@nomiclabs/hardhat-waffle": "2.0.6",
     "@openzeppelin/hardhat-upgrades": "1.28.0",
     "@openzeppelin/test-helpers": "^0.5.16",
-    "@typechain/ethers-v5": "^7.2.0",
+    "@typechain/ethers-v5": "^8.0.5",
     "@typechain/hardhat": "^7.0.0",
     "@types/cbor": "5.0.1",
     "@types/chai": "^4.3.9",
