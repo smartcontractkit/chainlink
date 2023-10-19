@@ -999,6 +999,13 @@ func TestUpdateCheckData(t *testing.T) {
 	}
 }
 
+func getEnv(key, fallback string) string {
+	if val, ok := os.LookupEnv(key); ok {
+		return val
+	}
+	return fallback
+}
+
 func setupAutomationTestDocker(
 	t *testing.T,
 	testName string,
@@ -1022,6 +1029,7 @@ func setupAutomationTestDocker(
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
 	network := networks.SelectedNetwork
+	fundingAmount, _ := strconv.ParseFloat(getEnv("FUNDING_AMOUNT", "0.5"), 64)
 
 	// build the node config
 	clNodeConfig := node.NewConfig(node.NewBaseConfig())
@@ -1044,7 +1052,7 @@ func setupAutomationTestDocker(
 			WithTestLogger(t).
 			WithGeth().
 			WithMockAdapter().
-			WithFunding(big.NewFloat(.5)).
+			WithFunding(big.NewFloat(fundingAmount)).
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
 
@@ -1086,7 +1094,7 @@ func setupAutomationTestDocker(
 			WithMockAdapter().
 			WithCLNodes(clNodesCount).
 			WithCLNodeConfig(clNodeConfig).
-			WithFunding(big.NewFloat(.5)).
+			WithFunding(big.NewFloat(fundingAmount)).
 			Build()
 		require.NoError(t, err, "Error deploying test environment")
 	}
@@ -1094,8 +1102,6 @@ func setupAutomationTestDocker(
 	env.ParallelTransactions(true)
 	nodeClients := env.ClCluster.NodeAPIs()
 	workerNodes := nodeClients[1:]
-	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, big.NewFloat(1.0))
-	require.NoError(t, err, "Error funding Chainlink nodes")
 
 	linkToken, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Error deploying LINK token")
