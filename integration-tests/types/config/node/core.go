@@ -134,9 +134,9 @@ func WithTracing() NodeConfigOpt {
 			CollectorTarget: utils2.Ptr("otel-collector:4317"),
 			// ksortable unique id
 			NodeID: 		 utils2.Ptr(ksuid.New().String()),
-			Attributes:      utils2.Ptr(map[string]string{
-				"env": "soak",
-			}),
+			Attributes:      map[string]string{
+				"env": "smoke",
+			},
 			SamplingRatio:  utils2.Ptr(1.0),
 		}
 	}
