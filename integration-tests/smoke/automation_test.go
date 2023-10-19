@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/kelseyhightower/envconfig"
 	"math/big"
 	"net/http"
 	"os"
@@ -999,11 +1000,8 @@ func TestUpdateCheckData(t *testing.T) {
 	}
 }
 
-func getEnv(key, fallback string) string {
-	if val, ok := os.LookupEnv(key); ok {
-		return val
-	}
-	return fallback
+type TestConfig struct {
+	ChainlinkNodeFunding float64 `envconfig:"CHAINLINK_NODE_FUNDING" default:".1"`
 }
 
 func setupAutomationTestDocker(
@@ -1029,7 +1027,6 @@ func setupAutomationTestDocker(
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
 	network := networks.SelectedNetwork
-	fundingAmount, _ := strconv.ParseFloat(getEnv("FUNDING_AMOUNT", "0.5"), 64)
 
 	// build the node config
 	clNodeConfig := node.NewConfig(node.NewBaseConfig())
@@ -1046,15 +1043,20 @@ func setupAutomationTestDocker(
 	//launch the environment
 	var env *test_env.CLClusterTestEnv
 	var err error
+	var testConfig TestConfig
+	err = envconfig.Process("AUTOMATION", &testConfig)
+	require.NoError(t, err)
+	l.Debug().Msgf("Funding amount: %f", testConfig.ChainlinkNodeFunding)
 	clNodesCount := 5
 	if isMercuryV02 || isMercuryV03 {
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestLogger(t).
 			WithGeth().
 			WithMockAdapter().
-			WithFunding(big.NewFloat(fundingAmount)).
+			WithFunding(big.NewFloat(testConfig.ChainlinkNodeFunding)).
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
+		env.ParallelTransactions(true)
 
 		secretsConfig := `
 		[Mercury.Credentials.cred1]
@@ -1078,6 +1080,8 @@ func setupAutomationTestDocker(
 
 		err = env.StartClCluster(clNodeConfig, clNodesCount, secretsConfig)
 		require.NoError(t, err, "Error starting CL nodes test environment for Mercury")
+		err = env.FundChainlinkNodes(big.NewFloat(testConfig.ChainlinkNodeFunding))
+		require.NoError(t, err, "Error funding CL nodes")
 
 		if isMercuryV02 {
 			output := `{"chainlinkBlob":"0x0001c38d71fed6c320b90e84b6f559459814d068e2a1700adc931ca9717d4fe70000000000000000000000000000000000000000000000000000000001a80b52b4bf1233f9cb71144a253a1791b202113c4ab4a92fa1b176d684b4959666ff8200000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001004254432d5553442d415242495452554d2d544553544e4554000000000000000000000000000000000000000000000000000000000000000000000000645570be000000000000000000000000000000000000000000000000000002af2b818dc5000000000000000000000000000000000000000000000000000002af2426faf3000000000000000000000000000000000000000000000000000002af32dc209700000000000000000000000000000000000000000000000000000000012130f8df0a9745bb6ad5e2df605e158ba8ad8a33ef8a0acf9851f0f01668a3a3f2b68600000000000000000000000000000000000000000000000000000000012130f60000000000000000000000000000000000000000000000000000000000000002c4a7958dce105089cf5edb68dad7dcfe8618d7784eb397f97d5a5fade78c11a58275aebda478968e545f7e3657aba9dcbe8d44605e4c6fde3e24edd5e22c94270000000000000000000000000000000000000000000000000000000000000002459c12d33986018a8959566d145225f0c4a4e61a9a3f50361ccff397899314f0018162cf10cd89897635a0bb62a822355bd199d09f4abe76e4d05261bb44733d"}`
@@ -1094,7 +1098,7 @@ func setupAutomationTestDocker(
 			WithMockAdapter().
 			WithCLNodes(clNodesCount).
 			WithCLNodeConfig(clNodeConfig).
-			WithFunding(big.NewFloat(fundingAmount)).
+			WithFunding(big.NewFloat(testConfig.ChainlinkNodeFunding)).
 			Build()
 		require.NoError(t, err, "Error deploying test environment")
 	}
