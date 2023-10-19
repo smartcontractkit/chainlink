@@ -3,6 +3,7 @@ package features_test
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -337,87 +338,11 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 	}
 }
 
-const singleWordSpecTemplate = `
-type                = "directrequest"
-schemaVersion       = 1
-name                = "%s"
-contractAddress     = "%s"
-externalJobID       = "%s"
-evmChainID          = 1337
-observationSource   = """
-    decode_log   [type=ethabidecodelog
-                  abi="OracleRequest(bytes32 indexed specId, address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes data)"
-                  data="$(jobRun.logData)"
-                  topics="$(jobRun.logTopics)"]
-    decode_cbor  [type=cborparse data="$(decode_log.data)"]
-    ds1          [type=http method=GET url="$(decode_cbor.urlUSD)" allowunrestrictednetworkaccess="true"];
-    ds1_parse    [type=jsonparse path="$(decode_cbor.pathUSD)"];
-    ds1_multiply [type=multiply value="$(ds1_parse)" times=100];
-    encode_data [type=ethabiencode abi="(uint256 value)" data=<{"value": $(ds1_multiply)}>]
-    encode_tx [type=ethabiencode
-            abi="fulfillOracleRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes32 data)"
-            data=<{"requestId": $(decode_log.requestId),
-                   "payment": $(decode_log.payment),
-                   "callbackAddress": $(decode_log.callbackAddr),
-                   "callbackFunctionId": $(decode_log.callbackFunctionId),
-                   "expiration": $(decode_log.cancelExpiration),
-                   "data": $(encode_data)}>]
-    submit [type=ethtx to="%s" data="$(encode_tx)" minConfirmations="2"]
-    decode_log->decode_cbor->ds1 -> ds1_parse -> ds1_multiply->encode_data->encode_tx->submit;
-"""
-`
+//go:embed singleword-spec-template.yml
+var singleWordSpecTemplate string
 
-const multiWordSpecTemplate = `
-type                = "directrequest"
-schemaVersion       = 1
-name                = "%s"
-contractAddress     = "%s"
-evmChainID          = 1337
-externalJobID       = "%s"
-observationSource   = """
-    decode_log   [type=ethabidecodelog
-                  abi="OracleRequest(bytes32 indexed specId, address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes data)"
-                  data="$(jobRun.logData)"
-                  topics="$(jobRun.logTopics)"]
-    decode_cbor  [type=cborparse data="$(decode_log.data)"]
-    decode_log -> decode_cbor
-    decode_cbor -> usd
-    decode_cbor -> eur
-    decode_cbor -> jpy
-    usd          [type=http method=GET url="$(decode_cbor.urlUSD)" allowunrestrictednetworkaccess="true"]
-    usd_parse    [type=jsonparse path="$(decode_cbor.pathUSD)"]
-    usd_multiply [type=multiply value="$(usd_parse)", times="100"]
-    usd -> usd_parse -> usd_multiply
-    eur          [type=http method=GET url="$(decode_cbor.urlEUR)" allowunrestrictednetworkaccess="true"]
-    eur_parse    [type=jsonparse path="$(decode_cbor.pathEUR)"]
-    eur_multiply [type=multiply value="$(eur_parse)", times="100"]
-    eur -> eur_parse -> eur_multiply
-    jpy          [type=http method=GET url="$(decode_cbor.urlJPY)" allowunrestrictednetworkaccess="true"]
-    jpy_parse    [type=jsonparse path="$(decode_cbor.pathJPY)"]
-    jpy_multiply [type=multiply value="$(jpy_parse)", times="100"]
-    jpy -> jpy_parse -> jpy_multiply
-    usd_multiply -> encode_mwr
-    eur_multiply -> encode_mwr
-    jpy_multiply -> encode_mwr
-    encode_mwr [type=ethabiencode
-                abi="(bytes32 requestId, uint256 usd, uint256 eur, uint256 jpy)"
-                data=<{
-                    "requestId": $(decode_log.requestId),
-                    "usd": $(usd_multiply),
-                    "eur": $(eur_multiply),
-                    "jpy": $(jpy_multiply)}>]
-    encode_tx  [type=ethabiencode
-                abi="fulfillOracleRequest2(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes calldata data)"
-                data=<{"requestId": $(decode_log.requestId),
-                       "payment":   $(decode_log.payment),
-                       "callbackAddress": $(decode_log.callbackAddr),
-                       "callbackFunctionId": $(decode_log.callbackFunctionId),
-                       "expiration": $(decode_log.cancelExpiration),
-                       "data": $(encode_mwr)}>]
-    submit_tx  [type=ethtx to="%s" data="$(encode_tx)" minConfirmations="2"]
-    encode_mwr -> encode_tx -> submit_tx
-"""
-`
+//go:embed multiword-spec-template.yml
+var multiWordSpecTemplate string
 
 // Tests both single and multiple word responses -
 // i.e. both fulfillOracleRequest2 and fulfillOracleRequest.

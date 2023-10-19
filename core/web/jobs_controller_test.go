@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -379,20 +380,8 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	require.NoError(t, err)
 }
 
-const webhookSpec = `
-type            = "webhook"
-schemaVersion   = 1
-externalJobID   = "%s"
-name            = "%s"
-observationSource   = """
-    fetch          [type=bridge name="fetch_bridge"]
-    parse_request  [type=jsonparse path="data,result"];
-    multiply       [type=multiply times="100"];
-    submit         [type=bridge name="submit_bridge" includeInputAtKey="result", data=<{}>];
-
-    fetch -> parse_request -> multiply -> submit;
-"""
-`
+//go:embed webhook-spec-template.yml
+var webhookSpecTemplate string
 
 func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
@@ -401,7 +390,7 @@ func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 	client := app.NewHTTPClient(nil)
 
 	nameAndExternalJobID := uuid.New()
-	spec := fmt.Sprintf(webhookSpec, nameAndExternalJobID, nameAndExternalJobID)
+	spec := fmt.Sprintf(webhookSpecTemplate, nameAndExternalJobID, nameAndExternalJobID)
 	body, err := json.Marshal(web.CreateJobRequest{
 		TOML: spec,
 	})
