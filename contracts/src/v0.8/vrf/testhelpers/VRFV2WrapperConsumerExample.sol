@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.6;
 
-import "../VRFV2WrapperConsumerBase.sol";
-import "../../shared/access/ConfirmedOwner.sol";
+import {VRFV2WrapperConsumerBase} from "../VRFV2WrapperConsumerBase.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
 
 contract VRFV2WrapperConsumerExample is VRFV2WrapperConsumerBase, ConfirmedOwner {
   event WrappedRequestFulfilled(uint256 requestId, uint256[] randomWords, uint256 payment);
@@ -33,6 +33,7 @@ contract VRFV2WrapperConsumerExample is VRFV2WrapperConsumerBase, ConfirmedOwner
   }
 
   function fulfillRandomWords(uint256 _requestId, uint256[] memory _randomWords) internal override {
+    // solhint-disable-next-line custom-errors
     require(s_requests[_requestId].paid > 0, "request not found");
     s_requests[_requestId].fulfilled = true;
     s_requests[_requestId].randomWords = _randomWords;
@@ -42,6 +43,7 @@ contract VRFV2WrapperConsumerExample is VRFV2WrapperConsumerBase, ConfirmedOwner
   function getRequestStatus(
     uint256 _requestId
   ) external view returns (uint256 paid, bool fulfilled, uint256[] memory randomWords) {
+    // solhint-disable-next-line custom-errors
     require(s_requests[_requestId].paid > 0, "request not found");
     RequestStatus memory request = s_requests[_requestId];
     return (request.paid, request.fulfilled, request.randomWords);

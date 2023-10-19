@@ -45,18 +45,22 @@ var (
 
 type ClNode struct {
 	test_env.EnvComponent
-	API                   *client.ChainlinkClient
-	NodeConfig            *chainlink.Config
-	NodeSecretsConfigTOML string
-	PostgresDb            *test_env.PostgresDb
-	lw                    *logwatch.LogWatch
-	ContainerImage        string
-	ContainerVersion      string
+	API                   *client.ChainlinkClient `json:"-"`
+	NodeConfig            *chainlink.Config       `json:"-"`
+	NodeSecretsConfigTOML string                  `json:"-"`
+	PostgresDb            *test_env.PostgresDb    `json:"postgresDb"`
 	t                     *testing.T
 	l                     zerolog.Logger
+	lw                    *logwatch.LogWatch
 }
 
 type ClNodeOption = func(c *ClNode)
+
+func WithSecrets(secretsTOML string) ClNodeOption {
+	return func(c *ClNode) {
+		c.NodeSecretsConfigTOML = secretsTOML
+	}
+}
 
 // Sets custom node container name if name is not empty
 func WithNodeContainerName(name string) ClNodeOption {
@@ -101,11 +105,10 @@ func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOp
 	return n
 }
 
-func (n *ClNode) WithTestLogger(t *testing.T) *ClNode {
+func (n *ClNode) SetTestLogger(t *testing.T) {
 	n.l = logging.GetTestLogger(t)
 	n.t = t
 	n.PostgresDb.WithTestLogger(t)
-	return n
 }
 
 // Restart restarts only CL node, DB container is reused
@@ -226,28 +229,35 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	if err != nil {
 		return err
 	}
-	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{})
+	toAddr := common.HexToAddress(toAddress)
+	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{
+		To: &toAddr,
+	})
 	if err != nil {
 		return err
 	}
 	return evmClient.Fund(toAddress, amount, gasEstimates)
 }
+
 func (n *ClNode) StartContainer() error {
 	err := n.PostgresDb.StartContainer()
 	if err != nil {
 		return err
 	}
+
+	// If the node secrets TOML is not set, generate it with the default template
 	nodeSecretsToml, err := templates.NodeSecretsTemplate{
-		PgDbName:   n.PostgresDb.DbName,
-		PgHost:     n.PostgresDb.ContainerName,
-		PgPort:     n.PostgresDb.Port,
-		PgPassword: n.PostgresDb.Password,
+		PgDbName:      n.PostgresDb.DbName,
+		PgHost:        n.PostgresDb.ContainerName,
+		PgPort:        n.PostgresDb.InternalPort,
+		PgPassword:    n.PostgresDb.Password,
+		CustomSecrets: n.NodeSecretsConfigTOML,
 	}.String()
 	if err != nil {
 		return err
 	}
-	n.NodeSecretsConfigTOML = nodeSecretsToml
-	cReq, err := n.getContainerRequest()
+
+	cReq, err := n.getContainerRequest(nodeSecretsToml)
 	if err != nil {
 		return err
 	}
@@ -273,7 +283,7 @@ func (n *ClNode) StartContainer() error {
 			return err
 		}
 	}
-	clEndpoint, err := container.Endpoint(context.Background(), "http")
+	clEndpoint, err := test_env.GetEndpoint(context.Background(), container, "http")
 	if err != nil {
 		return err
 	}
@@ -302,7 +312,7 @@ func (n *ClNode) StartContainer() error {
 	return nil
 }
 
-func (n *ClNode) getContainerRequest() (
+func (n *ClNode) getContainerRequest(secrets string) (
 	*tc.ContainerRequest, error) {
 	configFile, err := os.CreateTemp("", "node_config")
 	if err != nil {
@@ -320,7 +330,7 @@ func (n *ClNode) getContainerRequest() (
 	if err != nil {
 		return nil, err
 	}
-	_, err = secretsFile.WriteString(n.NodeSecretsConfigTOML)
+	_, err = secretsFile.WriteString(secrets)
 	if err != nil {
 		return nil, err
 	}

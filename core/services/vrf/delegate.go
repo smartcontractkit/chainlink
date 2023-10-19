@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/theodesp/go-heaps/pairing"
@@ -58,7 +60,7 @@ func NewDelegate(
 		pr:           pr,
 		porm:         porm,
 		legacyChains: legacyChains,
-		lggr:         lggr,
+		lggr:         lggr.Named("VRF"),
 		mailMon:      mailMon,
 	}
 }
@@ -73,7 +75,7 @@ func (d *Delegate) BeforeJobDeleted(spec job.Job)                {}
 func (d *Delegate) OnDeleteJob(spec job.Job, q pg.Queryer) error { return nil }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceCtx, error) {
+func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 	if jb.VRFSpec == nil || jb.PipelineSpec == nil {
 		return nil, errors.Errorf("vrf.Delegate expects a VRFSpec and PipelineSpec to be present, got %+v", jb)
 	}
@@ -119,7 +121,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 		}
 	}
 
-	l := d.lggr.With(
+	l := d.lggr.Named(jb.ExternalJobID.String()).With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
 		"coordinatorAddress", jb.VRFSpec.CoordinatorAddress,
@@ -144,10 +146,19 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 			if vrfOwner != nil {
 				return nil, errors.New("VRF Owner is not supported for VRF V2 Plus")
 			}
-			linkNativeFeedAddress, err := coordinatorV2Plus.LINKNATIVEFEED(nil)
+
+			// Get the LINKNATIVEFEED address with retries
+			// This is needed because the RPC endpoint may be down so we need to
+			// switch over to another one.
+			var linkNativeFeedAddress common.Address
+			err = retry.Do(func() error {
+				linkNativeFeedAddress, err = coordinatorV2Plus.LINKNATIVEFEED(nil)
+				return err
+			}, retry.Attempts(10), retry.Delay(500*time.Millisecond))
 			if err != nil {
-				return nil, errors.Wrap(err, "LINKNATIVEFEED")
+				return nil, errors.Wrap(err, "can't call LINKNATIVEFEED")
 			}
+
 			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkNativeFeedAddress, chain.Client())
 			if err != nil {
 				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
@@ -189,7 +200,14 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 				return nil, err
 			}
 
-			linkEthFeedAddress, err := coordinatorV2.LINKETHFEED(nil)
+			// Get the LINKETHFEED address with retries
+			// This is needed because the RPC endpoint may be down so we need to
+			// switch over to another one.
+			var linkEthFeedAddress common.Address
+			err = retry.Do(func() error {
+				linkEthFeedAddress, err = coordinatorV2.LINKETHFEED(nil)
+				return err
+			}, retry.Attempts(10), retry.Delay(500*time.Millisecond))
 			if err != nil {
 				return nil, errors.Wrap(err, "LINKETHFEED")
 			}

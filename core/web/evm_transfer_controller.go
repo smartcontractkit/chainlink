@@ -39,13 +39,11 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 	}
 
 	chain, err := getChain(tc.App.GetRelayers().LegacyEVMChains(), tr.EVMChainID.String())
-	switch err {
-	case ErrInvalidChainID, ErrMultipleChains, ErrMissingChainID:
-		jsonAPIError(c, http.StatusUnprocessableEntity, err)
-		return
-	case nil:
-		break
-	default:
+	if err != nil {
+		if errors.Is(err, ErrInvalidChainID) || errors.Is(err, ErrMultipleChains) || errors.Is(err, ErrMissingChainID) {
+			jsonAPIError(c, http.StatusUnprocessableEntity, err)
+			return
+		}
 		jsonAPIError(c, http.StatusInternalServerError, err)
 		return
 	}
@@ -63,7 +61,7 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 		}
 	}
 
-	etx, err := chain.TxManager().SendNativeToken(chain.ID(), tr.FromAddress, tr.DestinationAddress, *tr.Amount.ToInt(), chain.Config().EVM().GasEstimator().LimitTransfer())
+	etx, err := chain.TxManager().SendNativeToken(c, chain.ID(), tr.FromAddress, tr.DestinationAddress, *tr.Amount.ToInt(), chain.Config().EVM().GasEstimator().LimitTransfer())
 	if err != nil {
 		jsonAPIError(c, http.StatusBadRequest, errors.Errorf("transaction failed: %v", err))
 		return

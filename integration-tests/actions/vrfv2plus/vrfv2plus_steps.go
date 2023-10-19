@@ -6,13 +6,16 @@ import (
 	"math/big"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/assets"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrfv2plus_wrapper_load_test_consumer"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
-	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_constants"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
@@ -231,6 +234,7 @@ func FundVRFCoordinatorV2_5Subscription(linkToken contracts.LinkToken, coordinat
 
 func SetupVRFV2_5Environment(
 	env *test_env.CLClusterTestEnv,
+	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.MockETHLINKFeed,
 	consumerContractsAmount int,
@@ -242,12 +246,15 @@ func SetupVRFV2_5Environment(
 	}
 
 	err = vrfv2_5Contracts.Coordinator.SetConfig(
-		vrfv2plus_constants.MinimumConfirmations,
-		vrfv2plus_constants.MaxGasLimitVRFCoordinatorConfig,
-		vrfv2plus_constants.StalenessSeconds,
-		vrfv2plus_constants.GasAfterPaymentCalculation,
-		vrfv2plus_constants.LinkNativeFeedResponse,
-		vrfv2plus_constants.VRFCoordinatorV2_5FeeConfig,
+		vrfv2PlusConfig.MinimumConfirmations,
+		vrfv2PlusConfig.MaxGasLimitCoordinatorConfig,
+		vrfv2PlusConfig.StalenessSeconds,
+		vrfv2PlusConfig.GasAfterPaymentCalculation,
+		big.NewInt(vrfv2PlusConfig.LinkNativeFeedResponse),
+		vrf_coordinator_v2_5.VRFCoordinatorV25FeeConfig{
+			FulfillmentFlatFeeLinkPPM:   vrfv2PlusConfig.FulfillmentFlatFeeLinkPPM,
+			FulfillmentFlatFeeNativePPM: vrfv2PlusConfig.FulfillmentFlatFeeNativePPM,
+		},
 	)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrSetVRFCoordinatorConfig)
@@ -277,18 +284,18 @@ func SetupVRFV2_5Environment(
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
-	err = FundSubscription(env, linkToken, vrfv2_5Contracts.Coordinator, subID)
+	err = FundSubscription(env, vrfv2PlusConfig, linkToken, vrfv2_5Contracts.Coordinator, subID)
 	if err != nil {
 		return nil, nil, nil, err
 	}
 
-	vrfKey, err := env.GetAPIs()[0].MustCreateVRFKey()
+	vrfKey, err := env.ClCluster.NodeAPIs()[0].MustCreateVRFKey()
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrCreatingVRFv2PlusKey)
 	}
 	pubKeyCompressed := vrfKey.Data.ID
 
-	nativeTokenPrimaryKeyAddress, err := env.GetAPIs()[0].PrimaryEthAddress()
+	nativeTokenPrimaryKeyAddress, err := env.ClCluster.NodeAPIs()[0].PrimaryEthAddress()
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrNodePrimaryKey)
 	}
@@ -304,12 +311,12 @@ func SetupVRFV2_5Environment(
 	chainID := env.EVMClient.GetChainID()
 
 	job, err := CreateVRFV2PlusJob(
-		env.GetAPIs()[0],
+		env.ClCluster.NodeAPIs()[0],
 		vrfv2_5Contracts.Coordinator.Address(),
 		nativeTokenPrimaryKeyAddress,
 		pubKeyCompressed,
 		chainID.String(),
-		vrfv2plus_constants.MinimumConfirmations,
+		vrfv2PlusConfig.MinimumConfirmations,
 	)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrCreateVRFV2PlusJobs)
@@ -318,14 +325,14 @@ func SetupVRFV2_5Environment(
 	// this part is here because VRFv2 can work with only a specific key
 	// [[EVM.KeySpecific]]
 	//	Key = '...'
-	addr, err := env.CLNodes[0].API.PrimaryEthAddress()
+	addr, err := env.ClCluster.Nodes[0].API.PrimaryEthAddress()
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrGetPrimaryKey)
 	}
-	nodeConfig := node.NewConfig(env.CLNodes[0].NodeConfig,
+	nodeConfig := node.NewConfig(env.ClCluster.Nodes[0].NodeConfig,
 		node.WithVRFv2EVMEstimator(addr),
 	)
-	err = env.CLNodes[0].Restart(nodeConfig)
+	err = env.ClCluster.Nodes[0].Restart(nodeConfig)
 	if err != nil {
 		return nil, nil, nil, errors.Wrap(err, ErrRestartCLNode)
 	}
@@ -348,6 +355,7 @@ func SetupVRFV2_5Environment(
 
 func SetupVRFV2PlusWrapperEnvironment(
 	env *test_env.CLClusterTestEnv,
+	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
 	linkToken contracts.LinkToken,
 	mockNativeLINKFeed contracts.MockETHLINKFeed,
 	coordinator contracts.VRFCoordinatorV2_5,
@@ -372,13 +380,16 @@ func SetupVRFV2PlusWrapperEnvironment(
 	if err != nil {
 		return nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
-
 	err = wrapperContracts.VRFV2PlusWrapper.SetConfig(
-		vrfv2plus_constants.WrapperGasOverhead,
-		vrfv2plus_constants.CoordinatorGasOverhead,
-		vrfv2plus_constants.WrapperPremiumPercentage,
+		vrfv2PlusConfig.WrapperGasOverhead,
+		vrfv2PlusConfig.CoordinatorGasOverhead,
+		vrfv2PlusConfig.WrapperPremiumPercentage,
 		keyHash,
-		vrfv2plus_constants.WrapperMaxNumberOfWords,
+		vrfv2PlusConfig.WrapperMaxNumberOfWords,
+		vrfv2PlusConfig.StalenessSeconds,
+		big.NewInt(vrfv2PlusConfig.FallbackWeiPerUnitLink),
+		vrfv2PlusConfig.FulfillmentFlatFeeLinkPPM,
+		vrfv2PlusConfig.FulfillmentFlatFeeNativePPM,
 	)
 	if err != nil {
 		return nil, nil, err
@@ -400,7 +411,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 		return nil, nil, errors.Wrap(err, ErrWaitTXsComplete)
 	}
 
-	err = FundSubscription(env, linkToken, coordinator, wrapperSubID)
+	err = FundSubscription(env, vrfv2PlusConfig, linkToken, coordinator, wrapperSubID)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -408,7 +419,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 	//fund consumer with Link
 	err = linkToken.Transfer(
 		wrapperContracts.LoadTestConsumers[0].Address(),
-		big.NewInt(0).Mul(big.NewInt(1e18), vrfv2plus_constants.WrapperConsumerFundingAmountLink),
+		big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(vrfv2PlusConfig.WrapperConsumerFundingAmountLink)),
 	)
 	if err != nil {
 		return nil, nil, err
@@ -419,7 +430,7 @@ func SetupVRFV2PlusWrapperEnvironment(
 	}
 
 	//fund consumer with Eth
-	err = wrapperContracts.LoadTestConsumers[0].Fund(vrfv2plus_constants.WrapperConsumerFundingAmountNativeToken)
+	err = wrapperContracts.LoadTestConsumers[0].Fund(big.NewFloat(vrfv2PlusConfig.WrapperConsumerFundingAmountNativeToken))
 	if err != nil {
 		return nil, nil, err
 	}
@@ -469,14 +480,20 @@ func GetCoordinatorTotalBalance(coordinator contracts.VRFCoordinatorV2_5) (linkT
 	return
 }
 
-func FundSubscription(env *test_env.CLClusterTestEnv, linkAddress contracts.LinkToken, coordinator contracts.VRFCoordinatorV2_5, subID *big.Int) error {
+func FundSubscription(
+	env *test_env.CLClusterTestEnv,
+	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
+	linkAddress contracts.LinkToken,
+	coordinator contracts.VRFCoordinatorV2_5,
+	subID *big.Int,
+) error {
 	//Native Billing
-	err := coordinator.FundSubscriptionWithNative(subID, big.NewInt(0).Mul(vrfv2plus_constants.VRFSubscriptionFundingAmountNativeToken, big.NewInt(1e18)))
+	err := coordinator.FundSubscriptionWithNative(subID, big.NewInt(0).Mul(big.NewInt(vrfv2PlusConfig.SubscriptionFundingAmountNative), big.NewInt(1e18)))
 	if err != nil {
 		return errors.Wrap(err, ErrFundSubWithNativeToken)
 	}
 
-	err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, env.EVMClient, subID, vrfv2plus_constants.VRFSubscriptionFundingAmountLink)
+	err = FundVRFCoordinatorV2_5Subscription(linkAddress, coordinator, env.EVMClient, subID, big.NewInt(vrfv2PlusConfig.SubscriptionFundingAmountLink))
 	if err != nil {
 		return errors.Wrap(err, ErrFundSubWithLinkToken)
 	}
@@ -494,22 +511,24 @@ func RequestRandomnessAndWaitForFulfillment(
 	vrfv2PlusData *VRFV2PlusData,
 	subID *big.Int,
 	isNativeBilling bool,
+	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error) {
+	logRandRequest(consumer.Address(), coordinator.Address(), subID, isNativeBilling, vrfv2PlusConfig, l)
 	_, err := consumer.RequestRandomness(
 		vrfv2PlusData.KeyHash,
 		subID,
-		vrfv2plus_constants.MinimumConfirmations,
-		vrfv2plus_constants.CallbackGasLimit,
+		vrfv2PlusConfig.MinimumConfirmations,
+		vrfv2PlusConfig.CallbackGasLimit,
 		isNativeBilling,
-		vrfv2plus_constants.NumberOfWords,
-		vrfv2plus_constants.RandomnessRequestCountPerRequest,
+		vrfv2PlusConfig.NumberOfWords,
+		vrfv2PlusConfig.RandomnessRequestCountPerRequest,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, ErrRequestRandomness)
 	}
 
-	return WaitForRequestAndFulfillmentEvents(consumer.Address(), coordinator, vrfv2PlusData, subID, l)
+	return WaitForRequestAndFulfillmentEvents(consumer.Address(), coordinator, vrfv2PlusData, subID, isNativeBilling, l)
 }
 
 func RequestRandomnessAndWaitForFulfillmentUpgraded(
@@ -518,16 +537,18 @@ func RequestRandomnessAndWaitForFulfillmentUpgraded(
 	vrfv2PlusData *VRFV2PlusData,
 	subID *big.Int,
 	isNativeBilling bool,
+	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
 	l zerolog.Logger,
 ) (*vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsFulfilled, error) {
+	logRandRequest(consumer.Address(), coordinator.Address(), subID, isNativeBilling, vrfv2PlusConfig, l)
 	_, err := consumer.RequestRandomness(
 		vrfv2PlusData.KeyHash,
 		subID,
-		vrfv2plus_constants.MinimumConfirmations,
-		vrfv2plus_constants.CallbackGasLimit,
+		vrfv2PlusConfig.MinimumConfirmations,
+		vrfv2PlusConfig.CallbackGasLimit,
 		isNativeBilling,
-		vrfv2plus_constants.NumberOfWords,
-		vrfv2plus_constants.RandomnessRequestCountPerRequest,
+		vrfv2PlusConfig.NumberOfWords,
+		vrfv2PlusConfig.RandomnessRequestCountPerRequest,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, ErrRequestRandomness)
@@ -543,15 +564,7 @@ func RequestRandomnessAndWaitForFulfillmentUpgraded(
 		return nil, errors.Wrap(err, ErrWaitRandomWordsRequestedEvent)
 	}
 
-	l.Debug().
-		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
-		Str("Subscription ID", randomWordsRequestedEvent.SubId.String()).
-		Str("Sender Address", randomWordsRequestedEvent.Sender.String()).
-		Interface("Keyhash", randomWordsRequestedEvent.KeyHash).
-		Uint32("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
-		Uint32("Number of Words", randomWordsRequestedEvent.NumWords).
-		Uint16("Minimum Request Confirmations", randomWordsRequestedEvent.MinimumRequestConfirmations).
-		Msg("RandomnessRequested Event")
+	LogRandomnessRequestedEventUpgraded(l, coordinator, randomWordsRequestedEvent)
 
 	randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
 		[]*big.Int{subID},
@@ -561,14 +574,8 @@ func RequestRandomnessAndWaitForFulfillmentUpgraded(
 	if err != nil {
 		return nil, errors.Wrap(err, ErrWaitRandomWordsFulfilledEvent)
 	}
+	LogRandomWordsFulfilledEventUpgraded(l, coordinator, randomWordsFulfilledEvent)
 
-	l.Debug().
-		Str("Total Payment in Juels", randomWordsFulfilledEvent.Payment.String()).
-		Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
-		Str("Subscription ID", randomWordsFulfilledEvent.SubID.String()).
-		Str("Request ID", randomWordsFulfilledEvent.RequestId.String()).
-		Bool("Success", randomWordsFulfilledEvent.Success).
-		Msg("RandomWordsFulfilled Event (TX metadata)")
 	return randomWordsFulfilledEvent, err
 }
 
@@ -578,24 +585,26 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 	vrfv2PlusData *VRFV2PlusData,
 	subID *big.Int,
 	isNativeBilling bool,
+	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error) {
+	logRandRequest(consumer.Address(), coordinator.Address(), subID, isNativeBilling, vrfv2PlusConfig, l)
 	if isNativeBilling {
 		_, err := consumer.RequestRandomnessNative(
-			vrfv2plus_constants.MinimumConfirmations,
-			vrfv2plus_constants.CallbackGasLimit,
-			vrfv2plus_constants.NumberOfWords,
-			vrfv2plus_constants.RandomnessRequestCountPerRequest,
+			vrfv2PlusConfig.MinimumConfirmations,
+			vrfv2PlusConfig.CallbackGasLimit,
+			vrfv2PlusConfig.NumberOfWords,
+			vrfv2PlusConfig.RandomnessRequestCountPerRequest,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, ErrRequestRandomnessDirectFundingNativePayment)
 		}
 	} else {
 		_, err := consumer.RequestRandomness(
-			vrfv2plus_constants.MinimumConfirmations,
-			vrfv2plus_constants.CallbackGasLimit,
-			vrfv2plus_constants.NumberOfWords,
-			vrfv2plus_constants.RandomnessRequestCountPerRequest,
+			vrfv2PlusConfig.MinimumConfirmations,
+			vrfv2PlusConfig.CallbackGasLimit,
+			vrfv2PlusConfig.NumberOfWords,
+			vrfv2PlusConfig.RandomnessRequestCountPerRequest,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, ErrRequestRandomnessDirectFundingLinkPayment)
@@ -605,7 +614,7 @@ func DirectFundingRequestRandomnessAndWaitForFulfillment(
 	if err != nil {
 		return nil, errors.Wrap(err, "error getting wrapper address")
 	}
-	return WaitForRequestAndFulfillmentEvents(wrapperAddress.String(), coordinator, vrfv2PlusData, subID, l)
+	return WaitForRequestAndFulfillmentEvents(wrapperAddress.String(), coordinator, vrfv2PlusData, subID, isNativeBilling, l)
 }
 
 func WaitForRequestAndFulfillmentEvents(
@@ -613,6 +622,7 @@ func WaitForRequestAndFulfillmentEvents(
 	coordinator contracts.VRFCoordinatorV2_5,
 	vrfv2PlusData *VRFV2PlusData,
 	subID *big.Int,
+	isNativeBilling bool,
 	l zerolog.Logger,
 ) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error) {
 	randomWordsRequestedEvent, err := coordinator.WaitForRandomWordsRequestedEvent(
@@ -625,15 +635,7 @@ func WaitForRequestAndFulfillmentEvents(
 		return nil, errors.Wrap(err, ErrWaitRandomWordsRequestedEvent)
 	}
 
-	l.Debug().
-		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
-		Str("Subscription ID", randomWordsRequestedEvent.SubId.String()).
-		Str("Sender Address", randomWordsRequestedEvent.Sender.String()).
-		Interface("Keyhash", randomWordsRequestedEvent.KeyHash).
-		Uint32("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
-		Uint32("Number of Words", randomWordsRequestedEvent.NumWords).
-		Uint16("Minimum Request Confirmations", randomWordsRequestedEvent.MinimumRequestConfirmations).
-		Msg("RandomnessRequested Event")
+	LogRandomnessRequestedEvent(l, coordinator, randomWordsRequestedEvent, isNativeBilling)
 
 	randomWordsFulfilledEvent, err := coordinator.WaitForRandomWordsFulfilledEvent(
 		[]*big.Int{subID},
@@ -644,12 +646,163 @@ func WaitForRequestAndFulfillmentEvents(
 		return nil, errors.Wrap(err, ErrWaitRandomWordsFulfilledEvent)
 	}
 
+	LogRandomWordsFulfilledEvent(l, coordinator, randomWordsFulfilledEvent, isNativeBilling)
+	return randomWordsFulfilledEvent, err
+}
+
+func LogSubDetails(l zerolog.Logger, subscription vrf_coordinator_v2_5.GetSubscription, subID *big.Int, coordinator contracts.VRFCoordinatorV2_5) {
 	l.Debug().
+		Str("Coordinator", coordinator.Address()).
+		Str("Link Balance", (*assets.Link)(subscription.Balance).Link()).
+		Str("Native Token Balance", assets.FormatWei(subscription.NativeBalance)).
+		Str("Subscription ID", subID.String()).
+		Str("Subscription Owner", subscription.Owner.String()).
+		Interface("Subscription Consumers", subscription.Consumers).
+		Msg("Subscription Data")
+}
+
+func LogRandomnessRequestedEventUpgraded(
+	l zerolog.Logger,
+	coordinator contracts.VRFCoordinatorV2PlusUpgradedVersion,
+	randomWordsRequestedEvent *vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsRequested,
+) {
+	l.Debug().
+		Str("Coordinator", coordinator.Address()).
+		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
+		Str("Subscription ID", randomWordsRequestedEvent.SubId.String()).
+		Str("Sender Address", randomWordsRequestedEvent.Sender.String()).
+		Interface("Keyhash", randomWordsRequestedEvent.KeyHash).
+		Uint32("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
+		Uint32("Number of Words", randomWordsRequestedEvent.NumWords).
+		Uint16("Minimum Request Confirmations", randomWordsRequestedEvent.MinimumRequestConfirmations).
+		Msg("RandomnessRequested Event")
+}
+
+func LogRandomWordsFulfilledEventUpgraded(
+	l zerolog.Logger,
+	coordinator contracts.VRFCoordinatorV2PlusUpgradedVersion,
+	randomWordsFulfilledEvent *vrf_v2plus_upgraded_version.VRFCoordinatorV2PlusUpgradedVersionRandomWordsFulfilled,
+) {
+	l.Debug().
+		Str("Coordinator", coordinator.Address()).
 		Str("Total Payment in Juels", randomWordsFulfilledEvent.Payment.String()).
+		Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
+		Str("Subscription ID", randomWordsFulfilledEvent.SubID.String()).
+		Str("Request ID", randomWordsFulfilledEvent.RequestId.String()).
+		Bool("Success", randomWordsFulfilledEvent.Success).
+		Msg("RandomWordsFulfilled Event (TX metadata)")
+}
+
+func LogRandomnessRequestedEvent(
+	l zerolog.Logger,
+	coordinator contracts.VRFCoordinatorV2_5,
+	randomWordsRequestedEvent *vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsRequested,
+	isNativeBilling bool,
+) {
+	l.Debug().
+		Str("Coordinator", coordinator.Address()).
+		Bool("Native Billing", isNativeBilling).
+		Str("Request ID", randomWordsRequestedEvent.RequestId.String()).
+		Str("Subscription ID", randomWordsRequestedEvent.SubId.String()).
+		Str("Sender Address", randomWordsRequestedEvent.Sender.String()).
+		Interface("Keyhash", randomWordsRequestedEvent.KeyHash).
+		Uint32("Callback Gas Limit", randomWordsRequestedEvent.CallbackGasLimit).
+		Uint32("Number of Words", randomWordsRequestedEvent.NumWords).
+		Uint16("Minimum Request Confirmations", randomWordsRequestedEvent.MinimumRequestConfirmations).
+		Msg("RandomnessRequested Event")
+}
+
+func LogRandomWordsFulfilledEvent(
+	l zerolog.Logger,
+	coordinator contracts.VRFCoordinatorV2_5,
+	randomWordsFulfilledEvent *vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled,
+	isNativeBilling bool,
+) {
+	l.Debug().
+		Bool("Native Billing", isNativeBilling).
+		Str("Coordinator", coordinator.Address()).
+		Str("Total Payment", randomWordsFulfilledEvent.Payment.String()).
 		Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
 		Str("Subscription ID", randomWordsFulfilledEvent.SubId.String()).
 		Str("Request ID", randomWordsFulfilledEvent.RequestId.String()).
 		Bool("Success", randomWordsFulfilledEvent.Success).
 		Msg("RandomWordsFulfilled Event (TX metadata)")
-	return randomWordsFulfilledEvent, err
+}
+
+func LogMigrationCompletedEvent(l zerolog.Logger, migrationCompletedEvent *vrf_coordinator_v2_5.VRFCoordinatorV25MigrationCompleted, vrfv2PlusContracts *VRFV2_5Contracts) {
+	l.Debug().
+		Str("Subscription ID", migrationCompletedEvent.SubId.String()).
+		Str("Migrated From Coordinator", vrfv2PlusContracts.Coordinator.Address()).
+		Str("Migrated To Coordinator", migrationCompletedEvent.NewCoordinator.String()).
+		Msg("MigrationCompleted Event")
+}
+
+func LogSubDetailsAfterMigration(l zerolog.Logger, newCoordinator contracts.VRFCoordinatorV2PlusUpgradedVersion, subID *big.Int, migratedSubscription vrf_v2plus_upgraded_version.GetSubscription) {
+	l.Debug().
+		Str("New Coordinator", newCoordinator.Address()).
+		Str("Subscription ID", subID.String()).
+		Str("Juels Balance", migratedSubscription.Balance.String()).
+		Str("Native Token Balance", migratedSubscription.NativeBalance.String()).
+		Str("Subscription Owner", migratedSubscription.Owner.String()).
+		Interface("Subscription Consumers", migratedSubscription.Consumers).
+		Msg("Subscription Data After Migration to New Coordinator")
+}
+
+func LogFulfillmentDetailsLinkBilling(
+	l zerolog.Logger,
+	wrapperConsumerJuelsBalanceBeforeRequest *big.Int,
+	wrapperConsumerJuelsBalanceAfterRequest *big.Int,
+	consumerStatus vrfv2plus_wrapper_load_test_consumer.GetRequestStatus,
+	randomWordsFulfilledEvent *vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled,
+) {
+	l.Debug().
+		Str("Consumer Balance Before Request (Link)", (*assets.Link)(wrapperConsumerJuelsBalanceBeforeRequest).Link()).
+		Str("Consumer Balance After Request (Link)", (*assets.Link)(wrapperConsumerJuelsBalanceAfterRequest).Link()).
+		Bool("Fulfilment Status", consumerStatus.Fulfilled).
+		Str("Paid by Consumer Contract (Link)", (*assets.Link)(consumerStatus.Paid).Link()).
+		Str("Paid by Coordinator Sub (Link)", (*assets.Link)(randomWordsFulfilledEvent.Payment).Link()).
+		Str("RequestTimestamp", consumerStatus.RequestTimestamp.String()).
+		Str("FulfilmentTimestamp", consumerStatus.FulfilmentTimestamp.String()).
+		Str("RequestBlockNumber", consumerStatus.RequestBlockNumber.String()).
+		Str("FulfilmentBlockNumber", consumerStatus.FulfilmentBlockNumber.String()).
+		Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
+		Msg("Random Words Fulfilment Details For Link Billing")
+}
+
+func LogFulfillmentDetailsNativeBilling(
+	l zerolog.Logger,
+	wrapperConsumerBalanceBeforeRequestWei *big.Int,
+	wrapperConsumerBalanceAfterRequestWei *big.Int,
+	consumerStatus vrfv2plus_wrapper_load_test_consumer.GetRequestStatus,
+	randomWordsFulfilledEvent *vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled,
+) {
+	l.Debug().
+		Str("Consumer Balance Before Request", assets.FormatWei(wrapperConsumerBalanceBeforeRequestWei)).
+		Str("Consumer Balance After Request", assets.FormatWei(wrapperConsumerBalanceAfterRequestWei)).
+		Bool("Fulfilment Status", consumerStatus.Fulfilled).
+		Str("Paid by Consumer Contract", assets.FormatWei(consumerStatus.Paid)).
+		Str("Paid by Coordinator Sub", assets.FormatWei(randomWordsFulfilledEvent.Payment)).
+		Str("RequestTimestamp", consumerStatus.RequestTimestamp.String()).
+		Str("FulfilmentTimestamp", consumerStatus.FulfilmentTimestamp.String()).
+		Str("RequestBlockNumber", consumerStatus.RequestBlockNumber.String()).
+		Str("FulfilmentBlockNumber", consumerStatus.FulfilmentBlockNumber.String()).
+		Str("TX Hash", randomWordsFulfilledEvent.Raw.TxHash.String()).
+		Msg("Random Words Request Fulfilment Details For Native Billing")
+}
+
+func logRandRequest(
+	consumer string,
+	coordinator string,
+	subID *big.Int,
+	isNativeBilling bool,
+	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
+	l zerolog.Logger) {
+	l.Debug().
+		Str("Consumer", consumer).
+		Str("Coordinator", coordinator).
+		Str("subID", subID.String()).
+		Bool("IsNativePayment", isNativeBilling).
+		Uint16("MinimumConfirmations", vrfv2PlusConfig.MinimumConfirmations).
+		Uint16("RandomnessRequestCountPerRequest", vrfv2PlusConfig.RandomnessRequestCountPerRequest).
+		Msg("Requesting randomness")
 }

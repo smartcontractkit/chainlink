@@ -10,6 +10,8 @@ on:
           - "GOERLI"
           - "OPTIMISM_GOERLI"
           - "ARBITRUM_GOERLI"
+          - "ARBITRUM_SEPOLIA"
+          - "ARBITRUM_MAINNET"
           - "CELO_ALFAJORES"
           - "CELO_MAINNET"
           - "BASE_GOERLI"
@@ -17,7 +19,9 @@ on:
           - "BSC_MAINNET"
           - "BSC_TESTNET"
           - "SCROLL_SEPOLIA"
-          - "SCROLL_MAINNET"   
+          - "SCROLL_MAINNET"
+          - "MUMBAI"
+          - "POLYGON_MAINNET"   
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false

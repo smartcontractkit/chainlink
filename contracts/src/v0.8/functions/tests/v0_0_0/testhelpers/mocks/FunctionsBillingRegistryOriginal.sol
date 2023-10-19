@@ -6,14 +6,13 @@ import {AggregatorV3Interface} from "../../../../../interfaces/AggregatorV3Inter
 import {FunctionsOracleInterface} from "./FunctionsOracleInterface.sol";
 import {FunctionsBillingRegistryInterface} from "./FunctionsBillingRegistryInterface.sol";
 import {FunctionsClientInterface} from "./FunctionsClientInterface.sol";
-import {TypeAndVersionInterface} from "../../../../../interfaces/TypeAndVersionInterface.sol";
 import {IERC677Receiver} from "../../../../../shared/interfaces/IERC677Receiver.sol";
 import {AuthorizedOriginReceiverInterface} from "./AuthorizedOriginReceiverInterface.sol";
 import {ConfirmedOwnerUpgradeable} from "./ConfirmedOwnerUpgradeable.sol";
 import {AuthorizedReceiver} from "./AuthorizedReceiver.sol";
 import {SafeCast} from "../../../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/SafeCast.sol";
-import {PausableUpgradeable} from "../../../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/security/PausableUpgradeable.sol";
-import {Initializable} from "../../../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * @title Functions Billing Registry contract
@@ -372,7 +371,6 @@ contract FunctionsBillingRegistryOriginal is
    * or reverts if at least gasAmount gas is not available.
    */
   function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
-    // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
       // GAS_FOR_CALL_EXACT_CHECK = 5000

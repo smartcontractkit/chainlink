@@ -98,7 +98,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			// Ensure the eth transaction gets confirmed on chain.
 			gomega.NewWithT(t).Eventually(func() bool {
 				orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
-				uc, err2 := orm.CountUnconfirmedTransactions(key1.Address, testutils.SimulatedChainID)
+				uc, err2 := orm.CountUnconfirmedTransactions(testutils.Context(t), key1.Address, testutils.SimulatedChainID)
 				require.NoError(t, err2)
 				return uc == 0
 			}, testutils.WaitTimeout(t), 100*time.Millisecond).Should(gomega.BeTrue())
@@ -106,8 +106,8 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 			// Assert the request was fulfilled on-chain.
 			var rf []*solidity_vrf_coordinator_interface.VRFCoordinatorRandomnessRequestFulfilled
 			gomega.NewWithT(t).Eventually(func() bool {
-				rfIterator, err := cu.RootContract.FilterRandomnessRequestFulfilled(nil)
-				require.NoError(t, err, "failed to subscribe to RandomnessRequest logs")
+				rfIterator, err2 := cu.RootContract.FilterRandomnessRequestFulfilled(nil)
+				require.NoError(t, err2, "failed to subscribe to RandomnessRequest logs")
 				rf = nil
 				for rfIterator.Next() {
 					rf = append(rf, rfIterator.Event)
@@ -150,7 +150,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 
 	// Create BHS Job and start it
 	bhsJob := vrftesthelpers.CreateAndStartBHSJob(t, sendingKeys, app, cu.BHSContractAddress.String(),
-		cu.RootContractAddress.String(), "", "", "", 0, 200, 0)
+		cu.RootContractAddress.String(), "", "", "", 0, 200, 0, 100)
 
 	// Ensure log poller is ready and has all logs.
 	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
@@ -172,18 +172,18 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	// Wait for the blockhash to be stored
 	gomega.NewGomegaWithT(t).Eventually(func() bool {
 		cu.Backend.Commit()
-		_, err := cu.BHSContract.GetBlockhash(&bind.CallOpts{
+		_, err2 := cu.BHSContract.GetBlockhash(&bind.CallOpts{
 			Pending:     false,
 			From:        common.Address{},
 			BlockNumber: nil,
 			Context:     nil,
 		}, requestBlock)
-		if err == nil {
+		if err2 == nil {
 			return true
-		} else if strings.Contains(err.Error(), "execution reverted") {
+		} else if strings.Contains(err2.Error(), "execution reverted") {
 			return false
 		} else {
-			t.Fatal(err)
+			t.Fatal(err2)
 			return false
 		}
 	}, testutils.WaitTimeout(t), time.Second).Should(gomega.BeTrue())
@@ -215,7 +215,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 	// Ensure the eth transaction gets confirmed on chain.
 	gomega.NewWithT(t).Eventually(func() bool {
 		orm := txmgr.NewTxStore(app.GetSqlxDB(), app.GetLogger(), app.GetConfig().Database())
-		uc, err2 := orm.CountUnconfirmedTransactions(key.Address, testutils.SimulatedChainID)
+		uc, err2 := orm.CountUnconfirmedTransactions(testutils.Context(t), key.Address, testutils.SimulatedChainID)
 		require.NoError(t, err2)
 		return uc == 0
 	}, 5*time.Second, 100*time.Millisecond).Should(gomega.BeTrue())

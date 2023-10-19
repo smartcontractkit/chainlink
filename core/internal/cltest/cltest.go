@@ -33,13 +33,14 @@ import (
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/manyminds/api2go/jsonapi"
 	"github.com/onsi/gomega"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 	"github.com/urfave/cli"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 
@@ -209,8 +210,7 @@ func NewEventBroadcaster(t testing.TB, dbURL url.URL) pg.EventBroadcaster {
 	return pg.NewEventBroadcaster(dbURL, 0, 0, lggr, uuid.New())
 }
 
-func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, fn txmgrcommon.ResumeCallback) (*txmgr.Confirmer, error) {
-	t.Helper()
+func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient.Client, config evmconfig.ChainScopedConfig, ks keystore.Eth, fn txmgrcommon.ResumeCallback) *txmgr.Confirmer {
 	lggr := logger.TestLogger(t)
 	ge := config.EVM().GasEstimator()
 	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(ge, ge.BlockHistory(), lggr), ge.EIP1559DynamicFees(), nil)
@@ -218,7 +218,7 @@ func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient
 	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), config.Database(), ks, txBuilder, lggr)
 	ec.SetResumeCallback(fn)
 	require.NoError(t, ec.Start(testutils.Context(t)))
-	return ec, nil
+	return ec
 }
 
 // TestApplication holds the test application and test servers
@@ -271,8 +271,6 @@ func NewApplicationWithKey(t *testing.T, flagsAndDeps ...interface{}) *TestAppli
 // NewApplicationWithConfigAndKey creates a new TestApplication with the given testorm
 // it will also provide an unlocked account on the keystore
 func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, flagsAndDeps ...interface{}) *TestApplication {
-	t.Helper()
-
 	app := NewApplicationWithConfig(t, c, flagsAndDeps...)
 
 	chainID := *utils.NewBig(&FixtureChainID)
@@ -284,12 +282,14 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 	}
 
 	if len(app.Keys) == 0 {
-		k, _ := MustInsertRandomKey(t, app.KeyStore.Eth(), 0, chainID)
+		k, _ := MustInsertRandomKey(t, app.KeyStore.Eth(), chainID)
 		app.Keys = []ethkey.KeyV2{k}
 	} else {
 		id, ks := chainID.ToInt(), app.KeyStore.Eth()
 		for _, k := range app.Keys {
-			MustAddKeyToKeystore(t, k, id, ks)
+			ks.XXXTestingOnlyAdd(k)
+			require.NoError(t, ks.Add(k.Address, id))
+			require.NoError(t, ks.Enable(k.Address, id))
 		}
 	}
 
@@ -379,7 +379,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
-	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
+	keyStore := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
 	loopRegistry := plugins.NewLoopRegistry(lggr)
@@ -619,6 +619,10 @@ type User struct {
 func (ta *TestApplication) NewHTTPClient(user *User) HTTPClientCleaner {
 	ta.t.Helper()
 
+	if user == nil {
+		user = &User{}
+	}
+
 	if user.Email == "" {
 		user.Email = fmt.Sprintf("%s@chainlink.test", uuid.New())
 	}
@@ -647,7 +651,7 @@ func (ta *TestApplication) NewClientOpts() cmd.ClientOpts {
 
 // NewShellAndRenderer creates a new cmd.Shell for the test application
 func (ta *TestApplication) NewShellAndRenderer() (*cmd.Shell, *RendererMock) {
-	hc := ta.NewHTTPClient(&User{})
+	hc := ta.NewHTTPClient(nil)
 	r := &RendererMock{}
 	lggr := logger.TestLogger(ta.t)
 	client := &cmd.Shell{
@@ -687,7 +691,7 @@ func (ta *TestApplication) NewAuthenticatingShell(prompter cmd.Prompter) *cmd.Sh
 
 // NewKeyStore returns a new, unlocked keystore
 func NewKeyStore(t testing.TB, db *sqlx.DB, cfg pg.QConfig) keystore.Master {
-	keystore := keystore.New(db, utils.FastScryptParams, logger.TestLogger(t), cfg)
+	keystore := keystore.NewInMemory(db, utils.FastScryptParams, logger.TestLogger(t), cfg)
 	require.NoError(t, keystore.Unlock(Password))
 	return keystore
 }
@@ -809,7 +813,7 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
 	t.Helper()
 
-	client := app.NewHTTPClient(&User{})
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBuffer(request))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
@@ -823,7 +827,7 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job
 func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresenters.JobResource {
 	t.Helper()
 
-	client := app.NewHTTPClient(&User{})
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
@@ -837,7 +841,7 @@ func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresen
 func DeleteJobViaWeb(t testing.TB, app *TestApplication, jobID int32) {
 	t.Helper()
 
-	client := app.NewHTTPClient(&User{})
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Delete(fmt.Sprintf("/v2/jobs/%v", jobID))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusNoContent)
@@ -886,7 +890,7 @@ func CreateJobRunViaUser(
 	t.Helper()
 
 	bodyBuf := bytes.NewBufferString(body)
-	client := app.NewHTTPClient(&User{})
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/jobs/"+jobID.String()+"/runs", bodyBuf)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
@@ -905,7 +909,7 @@ func CreateExternalInitiatorViaWeb(
 ) *webpresenters.ExternalInitiatorAuthentication {
 	t.Helper()
 
-	client := app.NewHTTPClient(&User{})
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post(
 		"/v2/external_initiators",
 		bytes.NewBufferString(payload),
@@ -1331,26 +1335,9 @@ func BatchElemMustMatchParams(t *testing.T, req rpc.BatchElem, hash common.Hash,
 	}
 }
 
-type SimulateIncomingHeadsArgs struct {
-	StartBlock, EndBlock int64
-	HeadTrackables       []httypes.HeadTrackable
-	Blocks               *Blocks
-}
-
 // SimulateIncomingHeads spawns a goroutine which sends a stream of heads and closes the returned channel when finished.
-func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (done chan struct{}) {
-	t.Helper()
-	lggr := logger.TestLogger(t).Named("SimulateIncomingHeads")
-	lggr.Infof("Simulating incoming heads from %v to %v...", args.StartBlock, args.EndBlock)
-
-	if args.EndBlock > args.StartBlock {
-		if l := 1 + args.EndBlock - args.StartBlock; l > int64(len(args.Blocks.Heads)) {
-			t.Fatalf("invalid configuration: too few blocks %d for range length %d", len(args.Blocks.Heads), l)
-		}
-	}
-
+func SimulateIncomingHeads(t *testing.T, heads []*evmtypes.Head, headTrackables ...httypes.HeadTrackable) (done chan struct{}) {
 	// Build the full chain of heads
-	heads := args.Blocks.Heads
 	ctx, cancel := context.WithTimeout(context.Background(), testutils.WaitTimeout(t))
 	t.Cleanup(cancel)
 	done = make(chan struct{})
@@ -1359,23 +1346,14 @@ func SimulateIncomingHeads(t *testing.T, args SimulateIncomingHeadsArgs) (done c
 		ticker := time.NewTicker(250 * time.Millisecond)
 		defer ticker.Stop()
 
-		for current := args.StartBlock; ; current++ {
+		for _, h := range heads {
 			select {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
-				_, exists := heads[current]
-				if !exists {
-					lggr.Infof("Out of heads: %d does not exist", current)
-					return
-				}
-
-				lggr.Infof("Sending head: %d", current)
-				for _, ht := range args.HeadTrackables {
-					ht.OnNewLongestChain(ctx, heads[current])
-				}
-				if args.EndBlock >= 0 && current == args.EndBlock {
-					return
+				t.Logf("Sending head: %d", h.Number)
+				for _, ht := range headTrackables {
+					ht.OnNewLongestChain(ctx, h)
 				}
 			}
 		}
@@ -1450,6 +1428,33 @@ func (b *Blocks) NewHead(number uint64) *evmtypes.Head {
 		EVMChainID: utils.NewBig(&FixtureChainID),
 	}
 	return head
+}
+
+// Slice returns a slice of heads from number i to j. Set j < 0 for all remaining.
+func (b *Blocks) Slice(i, j int) []*evmtypes.Head {
+	b.t.Logf("Slicing heads from %v to %v...", i, j)
+
+	if j > 0 && j-i > len(b.Heads) {
+		b.t.Fatalf("invalid configuration: too few blocks %d for range length %d", len(b.Heads), j-i)
+	}
+	return b.slice(i, j)
+}
+
+func (b *Blocks) slice(i, j int) (heads []*evmtypes.Head) {
+	if j > 0 {
+		heads = make([]*evmtypes.Head, 0, j-i)
+	}
+	for n := i; j < 0 || n < j; n++ {
+		h, ok := b.Heads[int64(n)]
+		if !ok {
+			if j < 0 {
+				break // done
+			}
+			b.t.Fatalf("invalid configuration: block %d not found", n)
+		}
+		heads = append(heads, h)
+	}
+	return
 }
 
 func NewBlocks(t *testing.T, numHashes int) *Blocks {

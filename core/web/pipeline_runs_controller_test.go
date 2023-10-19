@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -69,7 +70,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 
 	// Make the request
 	{
-		client := app.NewHTTPClient(&cltest.User{})
+		client := app.NewHTTPClient(nil)
 		body := strings.NewReader(`{"data":{"result":"123.45"}}`)
 		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", body)
 		defer cleanup()
@@ -130,7 +131,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 
 	// Make the request (authorized as user)
 	{
-		client := app.NewHTTPClient(&cltest.User{})
+		client := app.NewHTTPClient(nil)
 		response, cleanup := client.Post("/v2/jobs/"+uuid.String()+"/runs", nil)
 		defer cleanup()
 		cltest.AssertServerResponse(t, response, http.StatusOK)
@@ -243,7 +244,7 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 	t.Parallel()
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	response, cleanup := client.Get("/v2/jobs/1/runs/invalid-run-ID")
 	defer cleanup()
@@ -253,6 +254,7 @@ func TestPipelineRunsController_ShowRun_InvalidID(t *testing.T) {
 func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, int32, []int64) {
 	t.Parallel()
 	ethClient := cltest.NewEthMocksWithStartupAssertions(t)
+	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil)
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.OCR.Enabled = ptr(true)
 		c.P2P.V1.Enabled = ptr(true)
@@ -263,7 +265,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, ethClient, cltest.DefaultP2PKey)
 	require.NoError(t, app.Start(testutils.Context(t)))
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 

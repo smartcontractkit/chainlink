@@ -232,12 +232,6 @@ func TestRunner_RootLevelTest(t *testing.T) {
 	assert.True(t, ok)
 }
 
-type exitError struct{}
-
-func (e *exitError) ExitCode() int { return 1 }
-
-func (e *exitError) Error() string { return "exit code: 1" }
-
 func TestRunner_RerunFailsWithNonzeroExitCode(t *testing.T) {
 	output := `{"Time":"2023-09-07T15:39:46.378315+01:00","Action":"fail","Package":"github.com/smartcontractkit/chainlink/v2/core/assets","Test":"TestLink","Elapsed":0}`
 

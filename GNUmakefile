@@ -51,7 +51,7 @@ chainlink-dev: operator-ui ## Build a dev build of chainlink binary.
 	go build -tags dev $(GOFLAGS) .
 
 chainlink-test: operator-ui ## Build a test build of chainlink binary.
-	go build -tags test $(GOFLAGS) .
+	go build $(GOFLAGS) .
 
 .PHONY: chainlink-local-start
 chainlink-local-start:
@@ -105,11 +105,11 @@ testscripts-update: ## Update testdata/scripts/* files via testscript.
 
 .PHONY: testdb
 testdb: ## Prepares the test database.
-	go run -tags test . local db preparetest
+	go run . local db preparetest
 
 .PHONY: testdb
 testdb-user-only: ## Prepares the test database with user only.
-	go run -tags test . local db preparetest --user-only
+	go run . local db preparetest --user-only
 
 # Format for CI
 .PHONY: presubmit
@@ -120,7 +120,7 @@ presubmit: ## Format go files and imports.
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.28.1
+	go install github.com/vektra/mockery/v2@v2.35.4
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen

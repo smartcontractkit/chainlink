@@ -8,25 +8,24 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
-
-var utilsABI = types.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
 
 // triggerWrapper is a wrapper for the different trigger types (log and condition triggers).
 // NOTE: we use log trigger because it extends condition trigger,
 type triggerWrapper = automation_utils_2_1.KeeperRegistryBase21LogTrigger
 
 type abiPacker struct {
-	abi      abi.ABI
-	utilsAbi abi.ABI
+	registryABI abi.ABI
+	utilsABI    abi.ABI
+	streamsABI  abi.ABI
 }
 
 var _ Packer = (*abiPacker)(nil)
 
-func NewAbiPacker(abi abi.ABI, utilsAbi abi.ABI) *abiPacker {
-	return &abiPacker{abi: abi, utilsAbi: utilsAbi}
+func NewAbiPacker() *abiPacker {
+	return &abiPacker{registryABI: core.RegistryABI, utilsABI: core.UtilsABI, streamsABI: core.StreamsCompatibleABI}
 }
 
 func (p *abiPacker) UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw string) (ocr2keepers.CheckResult, error) {
@@ -37,7 +36,7 @@ func (p *abiPacker) UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw str
 			fmt.Errorf("upkeepId %s failed to decode checkUpkeep result %s: %s", payload.UpkeepID.String(), raw, err)
 	}
 
-	out, err := p.abi.Methods["checkUpkeep"].Outputs.UnpackValues(b)
+	out, err := p.registryABI.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		// unpack failed, not retryable
 		return GetIneligibleCheckResultWithoutPerformData(payload, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false),
@@ -67,11 +66,11 @@ func (p *abiPacker) UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw str
 }
 
 func (p *abiPacker) PackGetUpkeepPrivilegeConfig(upkeepId *big.Int) ([]byte, error) {
-	return p.abi.Pack("getUpkeepPrivilegeConfig", upkeepId)
+	return p.registryABI.Pack("getUpkeepPrivilegeConfig", upkeepId)
 }
 
 func (p *abiPacker) UnpackGetUpkeepPrivilegeConfig(resp []byte) ([]byte, error) {
-	out, err := p.abi.Methods["getUpkeepPrivilegeConfig"].Outputs.UnpackValues(resp)
+	out, err := p.registryABI.Methods["getUpkeepPrivilegeConfig"].Outputs.UnpackValues(resp)
 	if err != nil {
 		return nil, fmt.Errorf("%w: unpack getUpkeepPrivilegeConfig return", err)
 	}
@@ -82,7 +81,7 @@ func (p *abiPacker) UnpackGetUpkeepPrivilegeConfig(resp []byte) ([]byte, error) 
 }
 
 func (p *abiPacker) UnpackCheckCallbackResult(callbackResp []byte) (PipelineExecutionState, bool, []byte, uint8, *big.Int, error) {
-	out, err := p.abi.Methods["checkCallback"].Outputs.UnpackValues(callbackResp)
+	out, err := p.registryABI.Methods["checkCallback"].Outputs.UnpackValues(callbackResp)
 	if err != nil {
 		return PackUnpackDecodeFailed, false, nil, 0, nil, fmt.Errorf("%w: unpack checkUpkeep return: %s", err, hexutil.Encode(callbackResp))
 	}
@@ -101,7 +100,7 @@ func (p *abiPacker) UnpackPerformResult(raw string) (PipelineExecutionState, boo
 		return PackUnpackDecodeFailed, false, err
 	}
 
-	out, err := p.abi.Methods["simulatePerformUpkeep"].Outputs.UnpackValues(b)
+	out, err := p.registryABI.Methods["simulatePerformUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		return PackUnpackDecodeFailed, false, err
 	}
@@ -113,7 +112,7 @@ func (p *abiPacker) UnpackPerformResult(raw string) (PipelineExecutionState, boo
 func (p *abiPacker) UnpackLogTriggerConfig(raw []byte) (automation_utils_2_1.LogTriggerConfig, error) {
 	var cfg automation_utils_2_1.LogTriggerConfig
 
-	out, err := utilsABI.Methods["_logTriggerConfig"].Inputs.UnpackValues(raw)
+	out, err := core.UtilsABI.Methods["_logTriggerConfig"].Inputs.UnpackValues(raw)
 	if err != nil {
 		return cfg, fmt.Errorf("%w: unpack _logTriggerConfig return: %s", err, raw)
 	}
@@ -127,7 +126,7 @@ func (p *abiPacker) UnpackLogTriggerConfig(raw []byte) (automation_utils_2_1.Log
 
 // PackReport packs the report with abi definitions from the contract.
 func (p *abiPacker) PackReport(report automation_utils_2_1.KeeperRegistryBase21Report) ([]byte, error) {
-	bts, err := p.utilsAbi.Methods["_report"].Inputs.Pack(&report)
+	bts, err := p.utilsABI.Methods["_report"].Inputs.Pack(&report)
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to pack report", err)
 	}
@@ -136,7 +135,7 @@ func (p *abiPacker) PackReport(report automation_utils_2_1.KeeperRegistryBase21R
 
 // UnpackReport unpacks the report from the given raw data.
 func (p *abiPacker) UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistryBase21Report, error) {
-	unpacked, err := p.utilsAbi.Methods["_report"].Inputs.Unpack(raw)
+	unpacked, err := p.utilsABI.Methods["_report"].Inputs.Unpack(raw)
 	if err != nil {
 		return automation_utils_2_1.KeeperRegistryBase21Report{}, fmt.Errorf("%w: failed to unpack report", err)
 	}
@@ -160,6 +159,32 @@ func (p *abiPacker) UnpackReport(raw []byte) (automation_utils_2_1.KeeperRegistr
 	}
 
 	return report, nil
+}
+
+type StreamsLookupError struct {
+	FeedParamKey string
+	Feeds        []string
+	TimeParamKey string
+	Time         *big.Int
+	ExtraData    []byte
+}
+
+// DecodeStreamsLookupRequest decodes the revert error StreamsLookup(string feedParamKey, string[] feeds, string feedParamKey, uint256 time, byte[] extraData)
+func (p *abiPacker) DecodeStreamsLookupRequest(data []byte) (*StreamsLookupError, error) {
+	e := p.streamsABI.Errors["StreamsLookup"]
+	unpack, err := e.Unpack(data)
+	if err != nil {
+		return nil, fmt.Errorf("unpack error: %w", err)
+	}
+	errorParameters := unpack.([]interface{})
+
+	return &StreamsLookupError{
+		FeedParamKey: *abi.ConvertType(errorParameters[0], new(string)).(*string),
+		Feeds:        *abi.ConvertType(errorParameters[1], new([]string)).(*[]string),
+		TimeParamKey: *abi.ConvertType(errorParameters[2], new(string)).(*string),
+		Time:         *abi.ConvertType(errorParameters[3], new(*big.Int)).(**big.Int),
+		ExtraData:    *abi.ConvertType(errorParameters[4], new([]byte)).(*[]byte),
+	}, nil
 }
 
 // GetIneligibleCheckResultWithoutPerformData returns an ineligible check result with ineligibility reason and pipeline execution state but without perform data

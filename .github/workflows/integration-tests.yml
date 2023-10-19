@@ -111,7 +111,7 @@ jobs:
           echo "\`${GITHUB_SHA}\`" >>$GITHUB_STEP_SUMMARY
 
   build-test-image:
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')) || contains(join(github.event.pull_request.labels.*.name, ' '), 'build-test-image')
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'schedule' || contains(join(github.event.pull_request.labels.*.name, ' '), 'build-test-image')
     environment: integration
     permissions:
       id-token: write
@@ -449,8 +449,8 @@ jobs:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       CHAINLINK_IMAGE: public.ecr.aws/chainlink/chainlink
-      TEST_UPGRADE_VERSION: ${{ github.sha }}
-      TEST_UPGRADE_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
+      UPGRADE_VERSION: ${{ github.sha }}
+      UPGRADE_IMAGE: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink
       TEST_LOG_LEVEL: debug
       TEST_SUITE: migration
     steps:
@@ -663,7 +663,7 @@ jobs:
       - run: echo "this exists so we don't have to run anything else if the build is skipped"
         if: needs.changes.outputs.src == 'false' || needs.solana-test-image-exists.outputs.exists == 'true'
 
-  solana-smoke-tests:
+  solana-smoke-tests-matrix:
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
     environment: integration
     permissions:
@@ -674,12 +674,12 @@ jobs:
     strategy:
       matrix:
         image:
-          - name: ""
+          - name: (legacy)
             tag-suffix: ""
           - name: (plugins)
             tag-suffix: -plugins
     name: Solana Smoke Tests ${{ matrix.image.name }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-16cores-64GB
     needs:
       [
         build-chainlink,
@@ -709,6 +709,33 @@ jobs:
         with:
           repository: smartcontractkit/chainlink-solana
           ref: ${{ needs.get_solana_sha.outputs.sha }}
+      - name: Run Setup
+        if: needs.changes.outputs.src == 'true'
+        uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/setup-run-tests-environment@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
+        with:
+          go_mod_path: ./integration-tests/go.mod
+          cache_restore_only: true
+          cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+          QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
+          QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
+          QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+      - name: Pull Artfacts
+        if: needs.changes.outputs.src == 'true'
+        run: |
+          IMAGE_NAME=${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-solana-tests:${{ needs.get_solana_sha.outputs.sha }}
+          # Pull the Docker image
+          docker pull "$IMAGE_NAME"
+
+          # Create a container without starting it
+          CONTAINER_ID=$(docker create "$IMAGE_NAME")
+
+          # Copy the artifacts from the container
+          mkdir -p ./${{env.CONTRACT_ARTIFACTS_PATH}}/
+          docker cp "$CONTAINER_ID:/go/testdir/${{env.CONTRACT_ARTIFACTS_PATH}}/" "./${{env.CONTRACT_ARTIFACTS_PATH}}/../"
+
+          # Remove the created container
+          docker rm "$CONTAINER_ID"
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
         uses: smartcontractkit/chainlink-github-actions/chainlink-testing-framework/run-tests@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
@@ -721,9 +748,11 @@ jobs:
           go_mod_path: ./integration-tests/go.mod
           cache_key_id: core-solana-e2e-${{ env.MOD_CACHE_VERSION }}
           token: ${{ secrets.GITHUB_TOKEN }}
+          aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
+          run_setup: false
       - name: Upload test log
         uses: actions/upload-artifact@0b7f8abb1508181956e8e162db84b466c27e18ce # v3.1.2
         if: failure()
@@ -731,6 +760,26 @@ jobs:
           name: test-log-solana
           path: /tmp/gotest.log
           retention-days: 7
+        continue-on-error: true
+
+  ### Used to check the required checks box when the matrix completes
+  solana-smoke-tests:
+    if: always()
+    runs-on: ubuntu-latest
+    name: Solana Smoke Tests
+    needs: [solana-smoke-tests-matrix]
+    steps:
+      - name: Check smoke test matrix status
+        if: needs.solana-smoke-tests-matrix.result != 'success'
+        run: exit 1
+      - name: Collect Metrics
+        if: always()
+        id: collect-gha-metrics
+        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        with:
+          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
+          this-job-name: Solana Smoke Tests
         continue-on-error: true
   ### End Solana Section
 

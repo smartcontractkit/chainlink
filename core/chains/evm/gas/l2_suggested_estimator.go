@@ -2,12 +2,12 @@ package gas
 
 import (
 	"context"
+	"slices"
 	"sync"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
-	"golang.org/x/exp/slices"
 
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
@@ -76,7 +76,7 @@ func (o *l2SuggestedPriceEstimator) Close() error {
 }
 
 func (o *l2SuggestedPriceEstimator) HealthReport() map[string]error {
-	return map[string]error{o.Name(): o.StartStopOnce.Healthy()}
+	return map[string]error{o.Name(): o.Healthy()}
 }
 
 func (o *l2SuggestedPriceEstimator) run() {

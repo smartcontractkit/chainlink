@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
@@ -340,6 +341,18 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) RequestRandomness(keyHash [32]byte, 
 	}
 
 	return tx, v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVRFv2PlusLoadTestConsumer) ResetMetrics() error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.consumer.Reset(opts)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
 }
 
 func (v *EthereumVRFv2PlusLoadTestConsumer) GetCoordinator(ctx context.Context) (common.Address, error) {
@@ -745,7 +758,16 @@ func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32, coordinatorGasOverhead uint32, wrapperPremiumPercentage uint8, keyHash [32]byte, maxNumWords uint8) error {
+func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32,
+	coordinatorGasOverhead uint32,
+	wrapperPremiumPercentage uint8,
+	keyHash [32]byte,
+	maxNumWords uint8,
+	stalenessSeconds uint32,
+	fallbackWeiPerUnitLink *big.Int,
+	fulfillmentFlatFeeLinkPPM uint32,
+	fulfillmentFlatFeeNativePPM uint32,
+) error {
 	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
 	if err != nil {
 		return err
@@ -757,6 +779,10 @@ func (v *EthereumVRFV2PlusWrapper) SetConfig(wrapperGasOverhead uint32, coordina
 		wrapperPremiumPercentage,
 		keyHash,
 		maxNumWords,
+		stalenessSeconds,
+		fallbackWeiPerUnitLink,
+		fulfillmentFlatFeeLinkPPM,
+		fulfillmentFlatFeeNativePPM,
 	)
 	if err != nil {
 		return err
@@ -772,7 +798,9 @@ func (v *EthereumVRFV2PlusWrapper) GetSubID(ctx context.Context) (*big.Int, erro
 }
 
 func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{
+		To: v.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -820,7 +848,7 @@ func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) GetLastRequestId(ctx context.
 }
 
 func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) GetWrapper(ctx context.Context) (common.Address, error) {
-	return v.consumer.GetWrapper(&bind.CallOpts{
+	return v.consumer.IVrfV2PlusWrapper(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})

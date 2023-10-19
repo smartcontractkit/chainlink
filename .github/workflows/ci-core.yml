@@ -23,36 +23,11 @@ jobs:
     runs-on: ubuntu20.04-8cores-32GB
     steps:
       - uses: actions/checkout@v4
-      - name: Setup Go
-        uses: ./.github/actions/setup-go
-      - name: Touching core/web/assets/index.html
-        run: mkdir -p core/web/assets && touch core/web/assets/index.html
-      - name: Build binary
-        run: go build ./...
-      - name: golangci-lint
-        uses: golangci/golangci-lint-action@3a919529898de77ec3da873e3063ca4b10e7f5cc # v3.7.0
+      - name: Golang Lint
+        uses: ./.github/actions/golangci-lint
         with:
-          version: v1.54.2
-          # We already cache these directories in setup-go
-          skip-pkg-cache: true
-          skip-build-cache: true
-          # only-new-issues is only applicable to PRs, otherwise it is always set to false
-          only-new-issues: true
-          args: --out-format colored-line-number,checkstyle:golangci-lint-report.xml
-      - name: Store lint report artifact
-        if: always()
-        uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
-        with:
-          name: golangci-lint-report
-          path: golangci-lint-report.xml
-      - name: Collect Metrics
-        if: always()
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
-        with:
-          basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
-          hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}
-          this-job-name: lint
-        continue-on-error: true
+          gc-basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
+          gc-host: ${{ secrets.GRAFANA_CLOUD_HOST }}
 
   core:
     strategy:
@@ -85,7 +60,7 @@ jobs:
       - name: Download Go vendor packages
         run: go mod download
       - name: Build binary
-        run: go build -tags test -o chainlink.test .
+        run: go build -o chainlink.test .
       - name: Setup DB
         run: ./chainlink.test local db preparetest
       - name: Increase Race Timeout
@@ -100,11 +75,18 @@ jobs:
           USE_TEE: false
         run: ./tools/bin/${{ matrix.cmd }} ./...
       - name: Print Filtered Test Results
-        if: failure()
+        if: ${{ failure() && matrix.cmd == 'go_core_tests' }}
         uses: smartcontractkit/chainlink-github-actions/go/go-test-results-parsing@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
         with:
           results-file: ./output.txt
           output-file: ./output-short.txt
+      - name: Print Races
+        if: ${{ failure() && matrix.cmd == 'go_core_race_tests' }}
+        run: find race.* | xargs cat
+      - name: Print postgres logs
+        if: always()
+        run: docker compose logs postgres | tee ../../../postgres_logs.txt
+        working-directory: ./.github/actions/setup-postgres
       - name: Store logs artifacts
         if: always()
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
@@ -115,10 +97,7 @@ jobs:
             ./output-short.txt
             ./race.*
             ./coverage.txt
-      - name: Print postgres logs
-        if: always()
-        run: docker compose logs postgres
-        working-directory: ./.github/actions/setup-postgres
+            ./postgres_logs.txt
       - name: Notify Slack
         if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && github.event.schedule != '' }}
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0
@@ -163,7 +142,7 @@ jobs:
       - name: Download Go vendor packages
         run: go mod download
       - name: Build binary
-        run: go build -tags test -o chainlink.test .
+        run: go build -o chainlink.test .
       - name: Setup DB
         run: ./chainlink.test local db preparetest
       - name: Load test outputs
@@ -234,7 +213,7 @@ jobs:
   clean:
     name: Clean Go Tidy & Generate
     if: ${{ !contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu20.04-8cores-32GB
     defaults:
       run:
         shell: bash
