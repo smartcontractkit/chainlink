@@ -1497,7 +1497,7 @@ func (o *evmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx,
 			if err != nil {
 				return pkgerrors.Wrap(err, "UpdateTxUnstartedToInProgress failed to count deleted rows")
 			}
-			o.logger.Debugf("$1 rows were deleted", count)
+			o.logger.Debugf("%d rows were deleted", count)
 		} else if errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
