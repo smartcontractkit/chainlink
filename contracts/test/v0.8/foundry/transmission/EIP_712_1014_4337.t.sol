@@ -135,7 +135,7 @@ contract EIP_712_1014_4337 is BaseTest {
 
     // Sign user operation.
     bytes32 userOpHash = entryPoint.getUserOpHash(op);
-    bytes32 fullHash = SCALibrary.getUserOpFullHash(userOpHash, toDeployAddress);
+    bytes32 fullHash = SCALibrary._getUserOpFullHash(userOpHash, toDeployAddress);
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(END_USER_PKEY, fullHash);
     op.signature = abi.encodePacked(r, s, v - 27);
 
@@ -195,7 +195,7 @@ contract EIP_712_1014_4337 is BaseTest {
 
     // Sign user operation.
     bytes32 userOpHash = entryPoint.getUserOpHash(op);
-    bytes32 fullHash = SCALibrary.getUserOpFullHash(userOpHash, toDeployAddress);
+    bytes32 fullHash = SCALibrary._getUserOpFullHash(userOpHash, toDeployAddress);
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(END_USER_PKEY, fullHash);
     op.signature = abi.encodePacked(r, s, v - 27);
 
@@ -260,7 +260,7 @@ contract EIP_712_1014_4337 is BaseTest {
 
     // Sign user operation.
     bytes32 userOpHash = entryPoint.getUserOpHash(op);
-    bytes32 fullHash = SCALibrary.getUserOpFullHash(userOpHash, toDeployAddress);
+    bytes32 fullHash = SCALibrary._getUserOpFullHash(userOpHash, toDeployAddress);
     (uint8 v, bytes32 r, bytes32 s) = vm.sign(END_USER_PKEY, fullHash);
     op.signature = abi.encodePacked(r, s, v - 27);
 
@@ -338,7 +338,7 @@ contract EIP_712_1014_4337 is BaseTest {
     });
 
     // Sign user operation.
-    bytes32 fullHash = SCALibrary.getUserOpFullHash(entryPoint.getUserOpHash(op), toDeployAddress);
+    bytes32 fullHash = SCALibrary._getUserOpFullHash(entryPoint.getUserOpHash(op), toDeployAddress);
     op.signature = getSignature(fullHash);
 
     // Deposit funds for the transaction.

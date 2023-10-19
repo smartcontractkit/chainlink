@@ -17,9 +17,10 @@ import (
 	"github.com/google/uuid"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pelletier/go-toml"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -359,7 +360,7 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBody, fetchBridge.Name.String(), submitBridge.Name.String())
 	body, _ := json.Marshal(web.CreateJobRequest{
@@ -382,7 +383,7 @@ func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/webhook-job-spec-with-empty-json.toml")
 	body, _ := json.Marshal(web.CreateJobRequest{
@@ -493,7 +494,7 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	var jb job.Job
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
@@ -555,7 +556,7 @@ func TestJobsController_Update_NonExistentID(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	var jb job.Job
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
@@ -635,7 +636,7 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 	vrfKeyStore := app.GetKeyStore().VRF()
 	_, err := vrfKeyStore.Create()
 	require.NoError(t, err)
@@ -656,7 +657,7 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
-	client := app.NewHTTPClient(&cltest.User{})
+	client := app.NewHTTPClient(nil)
 
 	var jb job.Job
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String(), EVMChainID: testutils.FixtureChainID.String()})

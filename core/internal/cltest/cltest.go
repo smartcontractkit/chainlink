@@ -619,6 +619,10 @@ type User struct {
 func (ta *TestApplication) NewHTTPClient(user *User) HTTPClientCleaner {
 	ta.t.Helper()
 
+	if user == nil {
+		user = &User{}
+	}
+
 	if user.Email == "" {
 		user.Email = fmt.Sprintf("%s@chainlink.test", uuid.New())
 	}
@@ -647,7 +651,7 @@ func (ta *TestApplication) NewClientOpts() cmd.ClientOpts {
 
 // NewShellAndRenderer creates a new cmd.Shell for the test application
 func (ta *TestApplication) NewShellAndRenderer() (*cmd.Shell, *RendererMock) {
-	hc := ta.NewHTTPClient(&User{})
+	hc := ta.NewHTTPClient(nil)
 	r := &RendererMock{}
 	lggr := logger.TestLogger(ta.t)
 	client := &cmd.Shell{
@@ -809,7 +813,7 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
 	t.Helper()
 
-	client := app.NewHTTPClient(&User{})
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBuffer(request))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
@@ -823,7 +827,7 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job
 func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresenters.JobResource {
 	t.Helper()
 
-	client := app.NewHTTPClient(&User{})
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
@@ -837,7 +841,7 @@ func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresen
 func DeleteJobViaWeb(t testing.TB, app *TestApplication, jobID int32) {
 	t.Helper()
 
-	client := app.NewHTTPClient(&User{})
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Delete(fmt.Sprintf("/v2/jobs/%v", jobID))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusNoContent)
@@ -886,7 +890,7 @@ func CreateJobRunViaUser(
 	t.Helper()
 
 	bodyBuf := bytes.NewBufferString(body)
-	client := app.NewHTTPClient(&User{})
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/jobs/"+jobID.String()+"/runs", bodyBuf)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
@@ -905,7 +909,7 @@ func CreateExternalInitiatorViaWeb(
 ) *webpresenters.ExternalInitiatorAuthentication {
 	t.Helper()
 
-	client := app.NewHTTPClient(&User{})
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post(
 		"/v2/external_initiators",
 		bytes.NewBufferString(payload),
