@@ -1486,12 +1486,18 @@ func (o *evmTxStore) UpdateTxUnstartedToInProgress(ctx context.Context, etx *Tx,
 		// Note:  the record of the original abandoned transaction will remain in evm.txes, only the attempt is replaced.  (Any receipt
 		// associated with the abandoned attempt would also be lost, although this shouldn't happen since only unconfirmed transactions
 		// can be abandoned.)
-		_, err := tx.Exec(`DELETE FROM evm.tx_attempts a USING evm.txes t
+		result, err := tx.Exec(`DELETE FROM evm.tx_attempts a USING evm.txes t
 			WHERE t.id = a.eth_tx_id AND a.hash = $1 AND t.state = $2 AND t.error = 'abandoned'`,
 			attempt.Hash, txmgr.TxFatalError,
 		)
 		if err == nil {
 			o.logger.Debugf("Replacing abandoned tx with tx hash %s with tx_id=%d with identical tx hash", attempt.Hash, attempt.TxID)
+			o.logger.Debugf("Debugging statement test")
+			count, err := result.RowsAffected()
+			if err != nil {
+				return pkgerrors.Wrap(err, "UpdateTxUnstartedToInProgress failed to count deleted rows")
+			}
+			o.logger.Debugf("$1 rows were deleted", count)
 		} else if errors.Is(err, sql.ErrNoRows) {
 			return err
 		}
