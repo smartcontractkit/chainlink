@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"google.golang.org/grpc"
@@ -10,6 +11,8 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
 	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 )
+
+var ErrPluginUnavailable = errors.New("plugin unavailable")
 
 var _ services.Service = (*serviceClient)(nil)
 

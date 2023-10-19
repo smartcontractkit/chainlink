@@ -27,6 +27,8 @@ type Keystore = types.Keystore
 
 type Relayer = internal.Relayer
 
+type BrokerConfig = internal.BrokerConfig
+
 var _ plugin.GRPCPlugin = (*GRPCPluginRelayer)(nil)
 
 // GRPCPluginRelayer implements [plugin.GRPCPlugin] for [types.PluginRelayer].

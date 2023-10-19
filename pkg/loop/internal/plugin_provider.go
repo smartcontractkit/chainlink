@@ -5,6 +5,7 @@ import (
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
 type pluginProviderClient struct {
@@ -22,4 +23,11 @@ func newPluginProviderClient(b *brokerExt, cc grpc.ClientConnInterface) *pluginP
 
 func (p *pluginProviderClient) ContractTransmitter() libocr.ContractTransmitter {
 	return p.contractTransmitter
+}
+
+type PluginProviderServer struct{}
+
+func (p PluginProviderServer) ConnToProvider(conn grpc.ClientConnInterface, broker Broker, brokerCfg BrokerConfig) types.PluginProvider {
+	be := &brokerExt{broker: broker, BrokerConfig: brokerCfg}
+	return newPluginProviderClient(be, conn)
 }

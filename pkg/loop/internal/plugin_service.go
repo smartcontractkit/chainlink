@@ -1,4 +1,4 @@
-package loop
+package internal
 
 import (
 	"context"
@@ -13,14 +13,11 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
 	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
-const keepAliveTickDuration = 5 * time.Second //TODO from config
-
-type BrokerConfig = internal.BrokerConfig
+const KeepAliveTickDuration = 5 * time.Second //TODO from config
 
 type grpcPlugin interface {
 	plugin.Plugin
@@ -30,7 +27,7 @@ type grpcPlugin interface {
 
 // pluginService is a [types.Service] wrapper that maintains an internal [types.Service] created from a [grpcPlugin]
 // client instance by launching and re-launching as necessary.
-type pluginService[P grpcPlugin, S services.Service] struct {
+type PluginService[P grpcPlugin, S services.Service] struct {
 	utils.StartStopOnce
 
 	pluginName string
@@ -49,12 +46,12 @@ type pluginService[P grpcPlugin, S services.Service] struct {
 	newService func(context.Context, any) (S, error)
 
 	serviceCh chan struct{} // closed when service is available
-	service   S
+	Service   S
 
-	testInterrupt chan func(*pluginService[P, S]) // tests only (via TestHook) to enable access to internals without racing
+	testInterrupt chan func(*PluginService[P, S]) // tests only (via TestHook) to enable access to internals without racing
 }
 
-func (s *pluginService[P, S]) init(pluginName string, p P, newService func(context.Context, any) (S, error), lggr logger.Logger, cmd func() *exec.Cmd, stopCh chan struct{}) {
+func (s *PluginService[P, S]) Init(pluginName string, p P, newService func(context.Context, any) (S, error), lggr logger.Logger, cmd func() *exec.Cmd, stopCh chan struct{}) {
 	s.pluginName = pluginName
 	s.lggr = lggr
 	s.cmd = cmd
@@ -64,10 +61,10 @@ func (s *pluginService[P, S]) init(pluginName string, p P, newService func(conte
 	s.serviceCh = make(chan struct{})
 }
 
-func (s *pluginService[P, S]) keepAlive() {
+func (s *PluginService[P, S]) keepAlive() {
 	defer s.wg.Done()
 
-	s.lggr.Debugw("Starting keepAlive", "tick", keepAliveTickDuration)
+	s.lggr.Debugw("Starting keepAlive", "tick", KeepAliveTickDuration)
 
 	check := func() {
 		c := s.client
@@ -87,7 +84,7 @@ func (s *pluginService[P, S]) keepAlive() {
 
 	check() // no delay
 
-	t := time.NewTicker(keepAliveTickDuration)
+	t := time.NewTicker(KeepAliveTickDuration)
 	defer t.Stop()
 	for {
 		select {
@@ -101,7 +98,7 @@ func (s *pluginService[P, S]) keepAlive() {
 	}
 }
 
-func (s *pluginService[P, S]) tryLaunch(old plugin.ClientProtocol) (err error) {
+func (s *PluginService[P, S]) tryLaunch(old plugin.ClientProtocol) (err error) {
 	if old != nil && s.clientProtocol != old {
 		// already replaced by another routine
 		return nil
@@ -113,7 +110,7 @@ func (s *pluginService[P, S]) tryLaunch(old plugin.ClientProtocol) (err error) {
 	return
 }
 
-func (s *pluginService[P, S]) launch() (*plugin.Client, plugin.ClientProtocol, error) {
+func (s *PluginService[P, S]) launch() (*plugin.Client, plugin.ClientProtocol, error) {
 	ctx, cancelFn := utils.ContextFromChan(s.stopCh)
 	defer cancelFn()
 
@@ -143,7 +140,7 @@ func (s *pluginService[P, S]) launch() (*plugin.Client, plugin.ClientProtocol, e
 	case <-s.serviceCh:
 		// s.service already set
 	default:
-		s.service, err = s.newService(ctx, i)
+		s.Service, err = s.newService(ctx, i)
 		if err != nil {
 			abort()
 			return nil, nil, fmt.Errorf("failed to create service: %w", err)
@@ -153,7 +150,7 @@ func (s *pluginService[P, S]) launch() (*plugin.Client, plugin.ClientProtocol, e
 	return client, cp, nil
 }
 
-func (s *pluginService[P, S]) Start(context.Context) error {
+func (s *PluginService[P, S]) Start(context.Context) error {
 	return s.StartOnce("PluginService", func() error {
 		s.wg.Add(1)
 		go s.keepAlive()
@@ -161,36 +158,36 @@ func (s *pluginService[P, S]) Start(context.Context) error {
 	})
 }
 
-func (s *pluginService[P, S]) Ready() error {
+func (s *PluginService[P, S]) Ready() error {
 	select {
 	case <-s.serviceCh:
-		return s.service.Ready()
+		return s.Service.Ready()
 	default:
 		return ErrPluginUnavailable
 	}
 }
 
-func (s *pluginService[P, S]) Name() string { return s.lggr.Name() }
+func (s *PluginService[P, S]) Name() string { return s.lggr.Name() }
 
-func (s *pluginService[P, S]) HealthReport() map[string]error {
+func (s *PluginService[P, S]) HealthReport() map[string]error {
 	select {
 	case <-s.serviceCh:
 		hr := map[string]error{s.Name(): s.Healthy()}
-		services.CopyHealth(hr, s.service.HealthReport())
+		services.CopyHealth(hr, s.Service.HealthReport())
 		return hr
 	default:
 		return map[string]error{s.Name(): ErrPluginUnavailable}
 	}
 }
 
-func (s *pluginService[P, S]) Close() error {
+func (s *PluginService[P, S]) Close() error {
 	return s.StopOnce("PluginService", func() (err error) {
 		close(s.stopCh)
 		s.wg.Wait()
 
 		select {
 		case <-s.serviceCh:
-			if cerr := s.service.Close(); !errors.Is(cerr, context.Canceled) && status.Code(cerr) != codes.Canceled {
+			if cerr := s.Service.Close(); !errors.Is(cerr, context.Canceled) && status.Code(cerr) != codes.Canceled {
 				err = errors.Join(err, cerr)
 			}
 		default:
@@ -200,7 +197,7 @@ func (s *pluginService[P, S]) Close() error {
 	})
 }
 
-func (s *pluginService[P, S]) closeClient() (err error) {
+func (s *PluginService[P, S]) closeClient() (err error) {
 	if s.clientProtocol != nil {
 		if cerr := s.clientProtocol.Close(); !errors.Is(cerr, context.Canceled) {
 			err = cerr
@@ -212,11 +209,50 @@ func (s *pluginService[P, S]) closeClient() (err error) {
 	return
 }
 
-func (s *pluginService[P, S]) wait(ctx context.Context) error {
+// WaitCtx waits for the service to start up until `ctx.Done` is triggered
+// or it receives the stop signal.
+func (s *PluginService[P, S]) WaitCtx(ctx context.Context) error {
 	select {
 	case <-ctx.Done():
 		return context.Cause(ctx)
 	case <-s.serviceCh:
 		return nil
+	case <-s.stopCh:
+		return fmt.Errorf("service was stoped while waiting: %w", context.Canceled)
 	}
+}
+
+// Wait is the context-ignorant version of WaitCtx above.
+func (s *PluginService[P, S]) Wait() error {
+	return s.WaitCtx(context.Background())
+}
+
+// XXXTestHook returns a TestPluginService.
+// It must only be called once, and before Start.
+func (s *PluginService[P, S]) XXXTestHook() TestPluginService[P, S] {
+	s.testInterrupt = make(chan func(*PluginService[P, S]))
+	return s.testInterrupt
+}
+
+// TestPluginService supports Killing & Resetting a running *pluginService.
+type TestPluginService[P grpcPlugin, S services.Service] chan<- func(*PluginService[P, S])
+
+func (ch TestPluginService[P, S]) Kill() {
+	done := make(chan struct{})
+	ch <- func(s *PluginService[P, S]) {
+		defer close(done)
+		_ = s.closeClient()
+	}
+	<-done
+}
+
+func (ch TestPluginService[P, S]) Reset() {
+	done := make(chan struct{})
+	ch <- func(r *PluginService[P, S]) {
+		defer close(done)
+		_ = r.closeClient()
+		r.client = nil
+		r.clientProtocol = nil
+	}
+	<-done
 }

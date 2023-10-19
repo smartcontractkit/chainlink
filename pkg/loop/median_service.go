@@ -9,15 +9,15 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 )
 
 var _ ocrtypes.ReportingPluginFactory = (*MedianService)(nil)
 
 // MedianService is a [types.Service] that maintains an internal [types.PluginMedian].
 type MedianService struct {
-	pluginService[*GRPCPluginMedian, types.ReportingPluginFactory]
+	internal.PluginService[*GRPCPluginMedian, types.ReportingPluginFactory]
 }
 
 // NewMedianService returns a new [*MedianService].
@@ -34,15 +34,13 @@ func NewMedianService(lggr logger.Logger, grpcOpts GRPCOpts, cmd func() *exec.Cm
 	lggr = logger.Named(lggr, "MedianService")
 	var ms MedianService
 	broker := BrokerConfig{StopCh: stopCh, Logger: lggr, GRPCOpts: grpcOpts}
-	ms.init(PluginMedianName, &GRPCPluginMedian{BrokerConfig: broker}, newService, lggr, cmd, stopCh)
+	ms.Init(PluginMedianName, &GRPCPluginMedian{BrokerConfig: broker}, newService, lggr, cmd, stopCh)
 	return &ms
 }
 
 func (m *MedianService) NewReportingPlugin(config ocrtypes.ReportingPluginConfig) (ocrtypes.ReportingPlugin, ocrtypes.ReportingPluginInfo, error) {
-	ctx, cancel := utils.ContextFromChan(m.pluginService.stopCh)
-	defer cancel()
-	if err := m.wait(ctx); err != nil {
+	if err := m.Wait(); err != nil {
 		return nil, ocrtypes.ReportingPluginInfo{}, err
 	}
-	return m.service.NewReportingPlugin(config)
+	return m.Service.NewReportingPlugin(config)
 }

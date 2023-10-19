@@ -437,3 +437,10 @@ func (o *onchainConfigCodecServer) Decode(ctx context.Context, request *pb.Decod
 		Max: pb.NewBigIntFromInt(oc.Max),
 	}}, nil
 }
+
+type MedianProviderServer struct{}
+
+func (m MedianProviderServer) ConnToProvider(conn grpc.ClientConnInterface, broker Broker, brokerCfg BrokerConfig) types.MedianProvider {
+	be := &brokerExt{broker: broker, BrokerConfig: brokerCfg}
+	return newMedianProviderClient(be, conn)
+}

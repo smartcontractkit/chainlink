@@ -2,22 +2,20 @@ package loop
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"os/exec"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
-
-var ErrPluginUnavailable = errors.New("plugin unavailable")
 
 var _ Relayer = (*RelayerService)(nil)
 
 // RelayerService is a [types.Service] that maintains an internal [Relayer].
 type RelayerService struct {
-	pluginService[*GRPCPluginRelayer, Relayer]
+	internal.PluginService[*GRPCPluginRelayer, Relayer]
 }
 
 // NewRelayerService returns a new [*RelayerService].
@@ -38,41 +36,41 @@ func NewRelayerService(lggr logger.Logger, grpcOpts GRPCOpts, cmd func() *exec.C
 	lggr = logger.Named(lggr, "RelayerService")
 	var rs RelayerService
 	broker := BrokerConfig{StopCh: stopCh, Logger: lggr, GRPCOpts: grpcOpts}
-	rs.init(PluginRelayerName, &GRPCPluginRelayer{BrokerConfig: broker}, newService, lggr, cmd, stopCh)
+	rs.Init(PluginRelayerName, &GRPCPluginRelayer{BrokerConfig: broker}, newService, lggr, cmd, stopCh)
 	return &rs
 }
 
 func (r *RelayerService) NewConfigProvider(ctx context.Context, args types.RelayArgs) (types.ConfigProvider, error) {
-	if err := r.wait(ctx); err != nil {
+	if err := r.WaitCtx(ctx); err != nil {
 		return nil, err
 	}
-	return r.service.NewConfigProvider(ctx, args)
+	return r.Service.NewConfigProvider(ctx, args)
 }
 
 func (r *RelayerService) NewPluginProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
-	if err := r.wait(ctx); err != nil {
+	if err := r.WaitCtx(ctx); err != nil {
 		return nil, err
 	}
-	return r.service.NewPluginProvider(ctx, rargs, pargs)
+	return r.Service.NewPluginProvider(ctx, rargs, pargs)
 }
 
 func (r *RelayerService) GetChainStatus(ctx context.Context) (types.ChainStatus, error) {
-	if err := r.wait(ctx); err != nil {
+	if err := r.WaitCtx(ctx); err != nil {
 		return types.ChainStatus{}, err
 	}
-	return r.service.GetChainStatus(ctx)
+	return r.Service.GetChainStatus(ctx)
 }
 
 func (r *RelayerService) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken string) (nodes []types.NodeStatus, nextPageToken string, total int, err error) {
-	if err := r.wait(ctx); err != nil {
+	if err := r.WaitCtx(ctx); err != nil {
 		return nil, "", -1, err
 	}
-	return r.service.ListNodeStatuses(ctx, pageSize, pageToken)
+	return r.Service.ListNodeStatuses(ctx, pageSize, pageToken)
 }
 
 func (r *RelayerService) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
-	if err := r.wait(ctx); err != nil {
+	if err := r.WaitCtx(ctx); err != nil {
 		return err
 	}
-	return r.service.Transact(ctx, from, to, amount, balanceCheck)
+	return r.Service.Transact(ctx, from, to, amount, balanceCheck)
 }

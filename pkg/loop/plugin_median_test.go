@@ -19,13 +19,13 @@ func TestPluginMedian(t *testing.T) {
 	t.Parallel()
 
 	stopCh := newStopCh(t)
-	testPlugin(t, loop.PluginMedianName, &loop.GRPCPluginMedian{PluginServer: test.StaticPluginMedian{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, test.TestPluginMedian)
+	test.PluginTest(t, loop.PluginMedianName, &loop.GRPCPluginMedian{PluginServer: test.StaticPluginMedian{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, test.TestPluginMedian)
 
 	t.Run("proxy", func(t *testing.T) {
-		testPlugin(t, loop.PluginRelayerName, &loop.GRPCPluginRelayer{PluginServer: test.StaticPluginRelayer{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, func(t *testing.T, pr loop.PluginRelayer) {
+		test.PluginTest(t, loop.PluginRelayerName, &loop.GRPCPluginRelayer{PluginServer: test.StaticPluginRelayer{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, func(t *testing.T, pr loop.PluginRelayer) {
 			p := newMedianProvider(t, pr)
 			pm := test.PluginMedianTest{MedianProvider: p}
-			testPlugin(t, loop.PluginMedianName, &loop.GRPCPluginMedian{PluginServer: test.StaticPluginMedian{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, pm.TestPluginMedian)
+			test.PluginTest(t, loop.PluginMedianName, &loop.GRPCPluginMedian{PluginServer: test.StaticPluginMedian{}, BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}, pm.TestPluginMedian)
 		})
 	})
 }
@@ -35,7 +35,7 @@ func TestPluginMedianExec(t *testing.T) {
 	stopCh := newStopCh(t)
 	median := loop.GRPCPluginMedian{BrokerConfig: loop.BrokerConfig{Logger: logger.Test(t), StopCh: stopCh}}
 	cc := median.ClientConfig()
-	cc.Cmd = helperProcess(loop.PluginMedianName)
+	cc.Cmd = NewHelperProcessCommand(loop.PluginMedianName)
 	c := plugin.NewClient(cc)
 	t.Cleanup(c.Kill)
 	client, err := c.Client()

@@ -1,118 +1,39 @@
-package loop_test
+package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
-	"os/exec"
-	"strconv"
-	"testing"
-	"time"
 
 	"github.com/hashicorp/go-plugin"
-	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/test"
-	"github.com/smartcontractkit/chainlink-relay/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop/reportingplugins"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 )
 
-func testPlugin[I any](t *testing.T, name string, p plugin.Plugin, testFn func(*testing.T, I)) {
-	ctx, cancel := context.WithCancel(tests.Context(t))
-	defer cancel()
+func main() {
+	cmdS := ""
+	flag.StringVar(&cmdS, "cmd", "", "the name of the service to run")
 
-	ch := make(chan *plugin.ReattachConfig, 1)
-	closeCh := make(chan struct{})
-	go plugin.Serve(&plugin.ServeConfig{
-		Test: &plugin.ServeTestConfig{
-			Context:          ctx,
-			ReattachConfigCh: ch,
-			CloseCh:          closeCh,
-		},
-		GRPCServer: plugin.DefaultGRPCServer,
-		Plugins:    map[string]plugin.Plugin{name: p},
-	})
+	limitI := 0
+	flag.IntVar(&limitI, "limit", 0, "the number of services to run")
 
-	// We should get a config
-	var config *plugin.ReattachConfig
-	select {
-	case config = <-ch:
-	case <-time.After(5 * time.Second):
-		t.Fatal("should've received reattach")
-	}
-	require.NotNil(t, config)
-
-	c := plugin.NewClient(&plugin.ClientConfig{
-		Reattach: config,
-		Plugins:  map[string]plugin.Plugin{name: p},
-	})
-	t.Cleanup(c.Kill)
-	clientProtocol, err := c.Client()
-	require.NoError(t, err)
-	defer clientProtocol.Close()
-	i, err := clientProtocol.Dispense(name)
-	require.NoError(t, err)
-
-	testFn(t, i.(I))
-
-	// stop plugin
-	cancel()
-	select {
-	case <-closeCh:
-	case <-time.After(5 * time.Second):
-		t.Fatal("should've stopped")
-	}
-	require.Error(t, clientProtocol.Ping())
-}
-
-func helperProcess(s ...string) *exec.Cmd {
-	cs := []string{"-test.run=TestHelperProcess", "--"}
-	cs = append(cs, s...)
-	env := []string{
-		"GO_WANT_HELPER_PROCESS=1",
-	}
-
-	cmd := exec.Command(os.Args[0], cs...) //nolint:gosec
-	cmd.Env = append(env, os.Environ()...)
-	return cmd
-}
-
-// This is not a real test. This is just a helper process kicked off by
-// tests.
-func TestHelperProcess(t *testing.T) {
-	if os.Getenv("GO_WANT_HELPER_PROCESS") != "1" {
-		return
-	}
-
+	flag.Parse()
 	defer os.Exit(0)
 
-	args := os.Args
-	for len(args) > 0 {
-		if args[0] == "--" {
-			args = args[1:]
-			break
-		}
-
-		args = args[1:]
-	}
-
-	if len(args) == 0 {
+	if cmdS == "" {
 		fmt.Fprintf(os.Stderr, "No command\n")
 		os.Exit(2)
 	}
 
-	cmd, args := args[0], args[1:]
-
 	limit := -1
-	if len(args) > 0 {
-		var err error
-		limit, err = strconv.Atoi(args[0])
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Failed to parse integer limit: %s\n", err)
-			os.Exit(2)
-		}
+	if limitI != 0 {
+		limit = limitI
 	}
 
 	grpcServer := func(opts []grpc.ServerOption) *grpc.Server { return grpc.NewServer(opts...) }
@@ -132,7 +53,7 @@ func TestHelperProcess(t *testing.T) {
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
-	switch cmd {
+	switch cmdS {
 	case loop.PluginRelayerName:
 		plugin.Serve(&plugin.ServeConfig{
 			HandshakeConfig: loop.PluginRelayerHandshakeConfig(),
@@ -153,18 +74,50 @@ func TestHelperProcess(t *testing.T) {
 		})
 		os.Exit(0)
 
-	case PluginLoggerTestName:
-		loggerTest := &GRPCPluginLoggerTest{Logger: logger.Named(lggr, LoggerTestName)}
+	case test.PluginLoggerTestName:
+		loggerTest := &test.GRPCPluginLoggerTest{Logger: logger.Named(lggr, test.LoggerTestName)}
 		plugin.Serve(&plugin.ServeConfig{
-			HandshakeConfig: PluginLoggerTestHandshakeConfig(),
+			HandshakeConfig: test.PluginLoggerTestHandshakeConfig(),
 			Plugins: map[string]plugin.Plugin{
-				PluginLoggerTestName: loggerTest,
+				test.PluginLoggerTestName: loggerTest,
 			},
 			GRPCServer: grpcServer,
 		})
 
+	case reportingplugins.PluginServiceName:
+		plugin.Serve(&plugin.ServeConfig{
+			HandshakeConfig: reportingplugins.ReportingPluginHandshakeConfig(),
+			Plugins: map[string]plugin.Plugin{
+				reportingplugins.PluginServiceName: &reportingplugins.GRPCService[types.PluginProvider]{
+					PluginServer: test.StaticReportingPluginWithPluginProvider{},
+					BrokerConfig: loop.BrokerConfig{
+						Logger: lggr,
+						StopCh: stopCh,
+					},
+				},
+			},
+			GRPCServer: grpcServer,
+		})
+		os.Exit(0)
+
+	case test.ReportingPluginWithMedianProviderName:
+		plugin.Serve(&plugin.ServeConfig{
+			HandshakeConfig: reportingplugins.ReportingPluginHandshakeConfig(),
+			Plugins: map[string]plugin.Plugin{
+				reportingplugins.PluginServiceName: &reportingplugins.GRPCService[types.MedianProvider]{
+					PluginServer: test.StaticReportingPluginWithMedianProvider{},
+					BrokerConfig: loop.BrokerConfig{
+						Logger: lggr,
+						StopCh: stopCh,
+					},
+				},
+			},
+			GRPCServer: grpcServer,
+		})
+		os.Exit(0)
+
 	default:
-		fmt.Fprintf(os.Stderr, "Unknown command: %q\n", cmd)
+		fmt.Fprintf(os.Stderr, "Unknown command: %q\n", cmdS)
 		os.Exit(2)
 	}
 }

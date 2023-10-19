@@ -2,7 +2,6 @@ package loop_test
 
 import (
 	"os/exec"
-	"strconv"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -12,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/test"
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils/tests"
 )
@@ -19,9 +19,9 @@ import (
 func TestMedianService(t *testing.T) {
 	t.Parallel()
 	median := loop.NewMedianService(logger.Test(t), loop.GRPCOpts{}, func() *exec.Cmd {
-		return helperProcess(loop.PluginMedianName)
+		return NewHelperProcessCommand(loop.PluginMedianName)
 	}, test.StaticMedianProvider{}, test.StaticDataSource(), test.StaticJuelsPerFeeCoinDataSource(), &test.StaticErrorLog{})
-	hook := median.TestHook()
+	hook := median.PluginService.XXXTestHook()
 	require.NoError(t, median.Start(tests.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, median.Close()) })
 
@@ -33,7 +33,7 @@ func TestMedianService(t *testing.T) {
 		hook.Kill()
 
 		// wait for relaunch
-		time.Sleep(2 * loop.KeepAliveTickDuration)
+		time.Sleep(2 * internal.KeepAliveTickDuration)
 
 		test.TestReportingPluginFactory(t, median)
 	})
@@ -42,7 +42,7 @@ func TestMedianService(t *testing.T) {
 		hook.Reset()
 
 		// wait for relaunch
-		time.Sleep(2 * loop.KeepAliveTickDuration)
+		time.Sleep(2 * internal.KeepAliveTickDuration)
 
 		test.TestReportingPluginFactory(t, median)
 	})
@@ -52,7 +52,11 @@ func TestMedianService_recovery(t *testing.T) {
 	t.Parallel()
 	var limit atomic.Int32
 	median := loop.NewMedianService(logger.Test(t), loop.GRPCOpts{}, func() *exec.Cmd {
-		return helperProcess(loop.PluginMedianName, strconv.Itoa(int(limit.Add(1))))
+		h := HelperProcessCommand{
+			Command: loop.PluginMedianName,
+			Limit:   int(limit.Add(1)),
+		}
+		return h.New()
 	}, test.StaticMedianProvider{}, test.StaticDataSource(), test.StaticJuelsPerFeeCoinDataSource(), &test.StaticErrorLog{})
 	require.NoError(t, median.Start(tests.Context(t)))
 	t.Cleanup(func() { assert.NoError(t, median.Close()) })
