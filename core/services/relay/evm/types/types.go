@@ -20,24 +20,54 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+type RelayOpts struct {
+	// TODO BCF-2508 -- should anyone ever get the raw config bytes that are embedded in args? if not,
+	// make this private and wrap the arg fields with funcs on RelayOpts
+	relaytypes.RelayArgs
+	c *RelayConfig
+}
+
+type ChainReaderConfig struct {
+	// key being contract name
+	ChainContractReaders map[string]ChainContractReader `json:"chainContractReaders"`
+
+	// ..reserved for any global config options chainreader might need..
+}
+
+type ChainContractReader struct {
+	ContractName string `json:"contractName""`
+	ContractABI  []byte `json:"contractABI"`
+	// key is genericName from config
+	ChainReaderDefinitions map[string]ChainReaderDefinition `json:"chainReaderDefinitions"`
+}
+
+type ChainReaderDefinition struct {
+	ChainSpecificName string   `json:"chainSpecificName"` // chain specific contract method name or event type.
+	Params            []string `json:"params"`
+	ReturnValues      []string `json:"returnValues"`
+	CacheEnabled      bool     `json:"cacheEnabled"`
+	ReadType          `json:"readType"`
+}
+
+type ReadType int64
+
+const (
+	Method ReadType = 0
+	Event  ReadType = 1
+)
+
 type RelayConfig struct {
-	ChainID                *utils.Big      `json:"chainID"`
-	FromBlock              uint64          `json:"fromBlock"`
-	EffectiveTransmitterID null.String     `json:"effectiveTransmitterID"`
-	ConfigContractAddress  *common.Address `json:"configContractAddress"`
+	ChainID                *utils.Big         `json:"chainID"`
+	FromBlock              uint64             `json:"fromBlock"`
+	EffectiveTransmitterID null.String        `json:"effectiveTransmitterID"`
+	ConfigContractAddress  *common.Address    `json:"configContractAddress"`
+	ChainReader            *ChainReaderConfig `json:"chainReader"`
 
 	// Contract-specific
 	SendingKeys pq.StringArray `json:"sendingKeys"`
 
 	// Mercury-specific
 	FeedID *common.Hash `json:"feedID"`
-}
-
-type RelayOpts struct {
-	// TODO BCF-2508 -- should anyone ever get the raw config bytes that are embedded in args? if not,
-	// make this private and wrap the arg fields with funcs on RelayOpts
-	relaytypes.RelayArgs
-	c *RelayConfig
 }
 
 var ErrBadRelayConfig = errors.New("bad relay config")

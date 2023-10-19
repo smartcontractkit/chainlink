@@ -25,7 +25,6 @@ import (
 
 	txmgrcommon "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -374,13 +373,6 @@ func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpt
 	return newConfigWatcher(lggr, aggregatorAddress, contractABI, offchainConfigDigester, cp, chain, relayConfig.FromBlock, opts.New), nil
 }
 
-func newChainReader(lggr logger.Logger, rargs relaytypes.RelayArgs) (*chainReader, error) {
-
-	var lp logpoller.LogPoller // TODO: Find chain from RelayArgs, get pointer to LogPoller for that chain, handle errors
-
-	return &chainReader{lggr, lp}, nil
-}
-
 func newContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth) (*contractTransmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
@@ -525,12 +517,12 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 	if err != nil {
 		return nil, err
 	}
-	chainReader, err := newChainReader(lggr, rargs)
+
 	return &medianProvider{
 		configWatcher:       configWatcher,
 		reportCodec:         reportCodec,
 		contractTransmitter: contractTransmitter,
-		chainReader:         chainReader,
+		chainReader:         newChainReader(lggr, r.chain, relayOpts),
 	}, nil
 }
 
