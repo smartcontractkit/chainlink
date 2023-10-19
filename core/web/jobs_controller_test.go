@@ -402,9 +402,10 @@ func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 
 	nameAndExternalJobID := uuid.New()
 	spec := fmt.Sprintf(webhookSpec, nameAndExternalJobID, nameAndExternalJobID)
-	body, _ := json.Marshal(web.CreateJobRequest{
+	body, err := json.Marshal(web.CreateJobRequest{
 		TOML: spec,
 	})
+	require.NoError(t, err)
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
 
