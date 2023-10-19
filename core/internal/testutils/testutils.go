@@ -427,7 +427,7 @@ func AssertCount(t *testing.T, db *sqlx.DB, tableName string, expected int64) {
 func AssertCountPerSubject(t *testing.T, db *sqlx.DB, expected int64, subject uuid.UUID) {
 	t.Helper()
 	var count int64
-	err := db.Get(&count, `SELECT COUNT(*) FROM eth_txes
+	err := db.Get(&count, `SELECT COUNT(*) FROM evm.txes
 		WHERE state = 'unstarted' AND subject = $1;`, subject)
 	require.NoError(t, err)
 	require.Equal(t, expected, count)

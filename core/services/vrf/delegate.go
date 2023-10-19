@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -94,7 +94,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 	if err != nil {
 		return nil, err
 	}
-	coordinatorV2Plus, err := vrf_coordinator_v2plus.NewVRFCoordinatorV2Plus(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
+	coordinatorV2Plus, err := vrf_coordinator_v2_5.NewVRFCoordinatorV25(jb.VRFSpec.CoordinatorAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, err
 	}
@@ -144,11 +144,11 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 			if vrfOwner != nil {
 				return nil, errors.New("VRF Owner is not supported for VRF V2 Plus")
 			}
-			linkEthFeedAddress, err := coordinatorV2Plus.LINKETHFEED(nil)
+			linkNativeFeedAddress, err := coordinatorV2Plus.LINKNATIVEFEED(nil)
 			if err != nil {
-				return nil, errors.Wrap(err, "LINKETHFEED")
+				return nil, errors.Wrap(err, "LINKNATIVEFEED")
 			}
-			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkEthFeedAddress, chain.Client())
+			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkNativeFeedAddress, chain.Client())
 			if err != nil {
 				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
 			}
@@ -161,7 +161,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) ([]job.ServiceC
 				chain.ID(),
 				chain.LogBroadcaster(),
 				d.q,
-				v2.NewCoordinatorV2Plus(coordinatorV2Plus),
+				v2.NewCoordinatorV2_5(coordinatorV2Plus),
 				batchCoordinatorV2,
 				vrfOwner,
 				aggregator,
@@ -367,24 +367,24 @@ func getRespCounts(q pg.Q, chainID uint64, evmFinalityDepth uint32) (
 		RequestID string
 		Count     int
 	}{}
-	// This query should use the idx_eth_txes_state_from_address_evm_chain_id
+	// This query should use the idx_evm.txes_state_from_address_evm_chain_id
 	// index, since the quantity of unconfirmed/unstarted/in_progress transactions _should_ be small
 	// relative to the rest of the data.
 	unconfirmedQuery := `
 SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') AS count
-FROM eth_txes et
+FROM evm.txes et
 WHERE et.meta->'RequestID' IS NOT NULL
 AND et.state IN ('unconfirmed', 'unstarted', 'in_progress')
 GROUP BY meta->'RequestID'
 	`
 	// Fetch completed transactions only as far back as the given cutoffBlockNumber. This avoids
-	// a table scan of the eth_txes table, which could be large if it is unpruned.
+	// a table scan of the evm.txes table, which could be large if it is unpruned.
 	confirmedQuery := `
 SELECT meta->'RequestID' AS request_id, count(meta->'RequestID') AS count
-FROM eth_txes et JOIN eth_tx_attempts eta on et.id = eta.eth_tx_id
-	join eth_receipts er on eta.hash = er.tx_hash
+FROM evm.txes et JOIN evm.tx_attempts eta on et.id = eta.eth_tx_id
+	join evm.receipts er on eta.hash = er.tx_hash
 WHERE et.meta->'RequestID' is not null
-AND er.block_number >= (SELECT number FROM evm_heads WHERE evm_chain_id = $1 ORDER BY number DESC LIMIT 1) - $2
+AND er.block_number >= (SELECT number FROM evm.heads WHERE evm_chain_id = $1 ORDER BY number DESC LIMIT 1) - $2
 GROUP BY meta->'RequestID'
 	`
 	query := unconfirmedQuery + "\nUNION ALL\n" + confirmedQuery

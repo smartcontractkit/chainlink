@@ -48,7 +48,7 @@ BlockRate = '6s'
 BlocksUntilTxTimeout = 30
 ConfirmPollPeriod = '1s'
 FallbackGasPrice = '9.999'
-FeeToken = 'ucosm'
+GasToken = 'ucosm'
 GasLimitMultiplier = '1.55555'
 MaxMsgsPerBatch = 100
 OCR2CachePollPeriod = '4s'
@@ -185,7 +185,7 @@ func setupCosmosChainsControllerTestV2(t *testing.T, cfgs ...*cosmos.CosmosConfi
 	app := cltest.NewApplicationWithConfig(t, cfg)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	return &TestCosmosChainsController{
 		app:    app,

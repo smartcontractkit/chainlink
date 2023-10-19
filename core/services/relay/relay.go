@@ -4,9 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 	"regexp"
-	"strconv"
 
 	"golang.org/x/exp/maps"
 
@@ -15,7 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 )
 
-type Network string
+type Network = string
+type ChainID = string
 
 var (
 	EVM             Network = "evm"
@@ -37,29 +36,14 @@ type ID struct {
 }
 
 func (i *ID) Name() string {
-	return fmt.Sprintf("%s.%s", i.Network, i.ChainID.String())
+	return fmt.Sprintf("%s.%s", i.Network, i.ChainID)
 }
 
 func (i *ID) String() string {
 	return i.Name()
 }
-func NewID(n Network, c ChainID) (ID, error) {
-	id := ID{Network: n, ChainID: c}
-	err := id.validate()
-	if err != nil {
-		return ID{}, err
-	}
-	return id, nil
-}
-func (i *ID) validate() error {
-	// the only validation is to ensure that EVM chain ids are compatible with int64
-	if i.Network == EVM {
-		_, err := i.ChainID.Int64()
-		if err != nil {
-			return fmt.Errorf("RelayIdentifier invalid: EVM relayer must have integer-compatible chain ID: %w", err)
-		}
-	}
-	return nil
+func NewID(n Network, c ChainID) ID {
+	return ID{Network: n, ChainID: c}
 }
 
 var idRegex = regexp.MustCompile(
@@ -89,29 +73,10 @@ func (i *ID) UnmarshalString(s string) error {
 	return nil
 }
 
-type ChainID string
-
-func (c ChainID) String() string {
-	return string(c)
-}
-func (c ChainID) Int64() (int64, error) {
-	i, err := strconv.Atoi(c.String())
-	if err != nil {
-		return int64(0), err
-	}
-	return int64(i), nil
-}
-
-// RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a ChainSet. See [relayerAdapter].
+// RelayerExt is a subset of [loop.Relayer] for adapting [types.Relayer], typically with a Chain. See [relayerAdapter].
 type RelayerExt interface {
-	services.ServiceCtx
-
-	ChainStatus(ctx context.Context, id string) (types.ChainStatus, error)
-	ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
-
-	NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, count int, err error)
-
-	SendTx(ctx context.Context, chainID, from, to string, amount *big.Int, balanceCheck bool) error
+	types.ChainService
+	ID() string
 }
 
 var _ loop.Relayer = (*relayerAdapter)(nil)
@@ -123,6 +88,8 @@ type relayerAdapter struct {
 }
 
 // NewRelayerAdapter returns a [loop.Relayer] adapted from a [types.Relayer] and [RelayerExt].
+// Unlike NewRelayerServerAdapter which is used to adapt non-LOOPP relayers, this is used to adapt
+// LOOPP-based relayer which are then server over GRPC (by the relayerServer).
 func NewRelayerAdapter(r types.Relayer, e RelayerExt) loop.Relayer {
 	return &relayerAdapter{Relayer: r, RelayerExt: e}
 }
@@ -141,6 +108,10 @@ func (r *relayerAdapter) NewMercuryProvider(ctx context.Context, rargs types.Rel
 
 func (r *relayerAdapter) NewFunctionsProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.FunctionsProvider, error) {
 	return r.Relayer.NewFunctionsProvider(rargs, pargs)
+}
+
+func (r *relayerAdapter) NewPluginProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
+	return nil, fmt.Errorf("unexpected call to NewPluginProvider: did you forget to wrap relayerAdapter in a relayerServerAdapter?")
 }
 
 func (r *relayerAdapter) Start(ctx context.Context) error {
@@ -162,7 +133,60 @@ func (r *relayerAdapter) Ready() (err error) {
 
 func (r *relayerAdapter) HealthReport() map[string]error {
 	hr := make(map[string]error)
-	maps.Copy(r.Relayer.HealthReport(), hr)
-	maps.Copy(r.RelayerExt.HealthReport(), hr)
+	maps.Copy(hr, r.Relayer.HealthReport())
+	maps.Copy(hr, r.RelayerExt.HealthReport())
 	return hr
+}
+
+func (r *relayerAdapter) NodeStatuses(ctx context.Context, offset, limit int, chainIDs ...string) (nodes []types.NodeStatus, total int, err error) {
+	if len(chainIDs) > 1 {
+		return nil, 0, fmt.Errorf("internal error: node statuses expects at most one chain id got %v", chainIDs)
+	}
+	if len(chainIDs) == 1 && chainIDs[0] != r.ID() {
+		return nil, 0, fmt.Errorf("node statuses unexpected chain id got %s want %s", chainIDs[0], r.ID())
+	}
+
+	nodes, _, total, err = r.ListNodeStatuses(ctx, int32(limit), "")
+	if err != nil {
+		return nil, 0, err
+	}
+	if len(nodes) < offset {
+		return []types.NodeStatus{}, 0, fmt.Errorf("out of range")
+	}
+	if limit <= 0 {
+		limit = len(nodes)
+	} else if len(nodes) < limit {
+		limit = len(nodes)
+	}
+	return nodes[offset:limit], total, nil
+}
+
+type relayerServerAdapter struct {
+	*relayerAdapter
+}
+
+func (r *relayerServerAdapter) NewPluginProvider(ctx context.Context, rargs types.RelayArgs, pargs types.PluginArgs) (types.PluginProvider, error) {
+	switch types.OCR2PluginType(rargs.ProviderType) {
+	case types.Median:
+		return r.NewMedianProvider(ctx, rargs, pargs)
+	case types.Functions:
+		return r.NewFunctionsProvider(ctx, rargs, pargs)
+	case types.Mercury:
+		return r.NewMercuryProvider(ctx, rargs, pargs)
+	case types.DKG, types.OCR2VRF, types.OCR2Keeper, types.GenericPlugin:
+		return r.relayerAdapter.NewPluginProvider(ctx, rargs, pargs)
+	}
+
+	return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)
+}
+
+// NewRelayerServerAdapter returns a [loop.Relayer] adapted from a [types.Relayer] and [RelayerExt].
+// Unlike NewRelayerAdapter, this behaves like the loop `RelayerServer` and dispatches calls
+// to `NewPluginProvider` according to the passed in `RelayArgs.ProviderType`.
+// This should only be used to adapt relayers not running via GRPC in a LOOPP.
+//
+// nolint:staticcheck // SA1019
+func NewRelayerServerAdapter(r types.Relayer, e RelayerExt) loop.Relayer {
+	ra := &relayerAdapter{Relayer: r, RelayerExt: e}
+	return &relayerServerAdapter{relayerAdapter: ra}
 }

@@ -37,7 +37,7 @@ type upkeepInfo struct {
 }
 
 type verifiableLoad interface {
-	GetActiveUpkeepIDs(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
+	GetAllActiveUpkeepIDsOnRegistry(opts *bind.CallOpts, startIndex *big.Int, maxCount *big.Int) ([]*big.Int, error)
 	Counters(opts *bind.CallOpts, upkeepId *big.Int) (*big.Int, error)
 	GetBucketedDelays(opts *bind.CallOpts, upkeepId *big.Int, bucket uint16) ([]*big.Int, error)
 	Buckets(opts *bind.CallOpts, arg0 *big.Int) (uint16, error)
@@ -79,7 +79,7 @@ func (k *Keeper) GetVerifiableLoadStats(ctx context.Context) {
 	}
 
 	// get all active upkeep IDs on this verifiable load contract
-	upkeepIds, err := v.GetActiveUpkeepIDs(opts, big.NewInt(0), big.NewInt(0))
+	upkeepIds, err := v.GetAllActiveUpkeepIDsOnRegistry(opts, big.NewInt(0), big.NewInt(0))
 	if err != nil {
 		log.Fatalf("failed to get active upkeep IDs from %s: %v", k.cfg.VerifiableLoadContractAddress, err)
 	}

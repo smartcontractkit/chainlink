@@ -11,11 +11,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 )
 
+var (
+	_ PerformedLogsScanner = &performedEventsScanner{}
+
+	workIDsBatchSize = 25
+)
+
 type PerformedLogsScanner interface {
-	WorkIDsInRange(ctx context.Context, start, end int64) ([]string, error)
+	ScanWorkIDs(ctx context.Context, workIDs ...string) ([]string, error)
 
 	Start(context.Context) error
 	io.Closer
@@ -25,17 +32,21 @@ type performedEventsScanner struct {
 	lggr            logger.Logger
 	poller          logpoller.LogPoller
 	registryAddress common.Address
+
+	finalityDepth uint32
 }
 
 func NewPerformedEventsScanner(
 	lggr logger.Logger,
 	poller logpoller.LogPoller,
 	registryAddress common.Address,
+	finalityDepth uint32,
 ) *performedEventsScanner {
 	return &performedEventsScanner{
-		lggr:            lggr,
+		lggr:            lggr.Named("EventsScanner"),
 		poller:          poller,
 		registryAddress: registryAddress,
+		finalityDepth:   finalityDepth,
 	}
 }
 
@@ -47,26 +58,32 @@ func (s *performedEventsScanner) Start(_ context.Context) error {
 			iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(),
 		},
 		Addresses: []common.Address{s.registryAddress},
+		Retention: logprovider.LogRetention,
 	})
 }
 
-// implements io.Closer, does nothing upon close
+// Close implements io.Closer and does nothing
 func (s *performedEventsScanner) Close() error {
 	return nil
 }
 
-func (s *performedEventsScanner) WorkIDsInRange(ctx context.Context, start, end int64) ([]string, error) {
-	logs, err := s.poller.LogsWithSigs(
-		start,
-		end,
-		[]common.Hash{
-			iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(),
-		},
-		s.registryAddress,
-		pg.WithParentCtx(ctx),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("error fetching logs: %w", err)
+func (s *performedEventsScanner) ScanWorkIDs(ctx context.Context, workID ...string) ([]string, error) {
+	var ids []common.Hash
+	for _, id := range workID {
+		ids = append(ids, common.HexToHash(id))
+	}
+	logs := make([]logpoller.Log, 0)
+	for i := 0; i < len(ids); i += workIDsBatchSize {
+		end := i + workIDsBatchSize
+		if end > len(ids) {
+			end = len(ids)
+		}
+		batch := ids[i:end]
+		batchLogs, err := s.poller.IndexedLogs(iregistry21.IKeeperRegistryMasterDedupKeyAdded{}.Topic(), s.registryAddress, 1, batch, int(s.finalityDepth), pg.WithParentCtx(ctx))
+		if err != nil {
+			return nil, fmt.Errorf("error fetching logs: %w", err)
+		}
+		logs = append(logs, batchLogs...)
 	}
 
 	return s.logsToWorkIDs(logs), nil

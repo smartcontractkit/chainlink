@@ -3,13 +3,13 @@ package logprovider
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"sort"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
 	"github.com/stretchr/testify/assert"
@@ -19,6 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core/mocks"
@@ -29,7 +31,9 @@ import (
 func TestLogRecoverer_GetRecoverables(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, nil, time.Millisecond*10, 0)
+	lp := &lpmocks.LogPoller{}
+	lp.On("LatestBlock", mock.Anything).Return(int64(100), nil)
+	r := NewLogRecoverer(logger.TestLogger(t), lp, nil, nil, nil, nil, NewOptions(200))
 
 	tests := []struct {
 		name    string
@@ -95,6 +99,119 @@ func TestLogRecoverer_GetRecoverables(t *testing.T) {
 	}
 }
 
+func TestLogRecoverer_Clean(t *testing.T) {
+	oldLogsOffset := int64(20)
+
+	tests := []struct {
+		name        string
+		pending     []ocr2keepers.UpkeepPayload
+		visited     map[string]visitedRecord
+		states      []ocr2keepers.UpkeepState
+		wantPending []ocr2keepers.UpkeepPayload
+		wantVisited []string
+	}{
+		{
+			"empty",
+			[]ocr2keepers.UpkeepPayload{},
+			map[string]visitedRecord{},
+			[]ocr2keepers.UpkeepState{},
+			[]ocr2keepers.UpkeepPayload{},
+			[]string{},
+		},
+		{
+			"clean expired",
+			[]ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+				{WorkID: "3", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "3")},
+			},
+			map[string]visitedRecord{
+				"1": visitedRecord{time.Now(), ocr2keepers.UpkeepPayload{
+					WorkID: "1",
+					Trigger: ocr2keepers.Trigger{
+						LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+							BlockNumber: ocr2keepers.BlockNumber(oldLogsOffset * 2),
+						},
+					},
+				}},
+				"2": visitedRecord{time.Now(), ocr2keepers.UpkeepPayload{
+					WorkID: "2",
+					Trigger: ocr2keepers.Trigger{
+						LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+							BlockNumber: ocr2keepers.BlockNumber(oldLogsOffset * 2),
+						},
+					},
+				}},
+				"3": visitedRecord{time.Now().Add(-time.Hour), ocr2keepers.UpkeepPayload{
+					WorkID: "3",
+					Trigger: ocr2keepers.Trigger{
+						LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+							BlockNumber: ocr2keepers.BlockNumber(oldLogsOffset - 10),
+						},
+					},
+				}},
+				"4": visitedRecord{time.Now().Add(-time.Hour), ocr2keepers.UpkeepPayload{
+					WorkID: "4",
+					Trigger: ocr2keepers.Trigger{
+						LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+							BlockNumber: ocr2keepers.BlockNumber(oldLogsOffset + 10),
+						},
+					},
+				}},
+			},
+			[]ocr2keepers.UpkeepState{
+				ocr2keepers.UnknownState,
+				ocr2keepers.UnknownState,
+			},
+			[]ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+				{WorkID: "4", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "4")},
+			},
+			[]string{"1", "2", "4"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(testutils.Context(t))
+			defer cancel()
+
+			lookbackBlocks := int64(100)
+			r, _, lp, statesReader := setupTestRecoverer(t, time.Millisecond*50, lookbackBlocks)
+			start, _ := r.getRecoveryWindow(0)
+			block24h := int64(math.Abs(float64(start)))
+
+			lp.On("LatestBlock", mock.Anything).Return(block24h+oldLogsOffset, nil)
+			statesReader.On("SelectByWorkIDs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, nil)
+
+			r.lock.Lock()
+			r.pending = tc.pending
+			r.visited = tc.visited
+			r.lock.Unlock()
+
+			r.clean(ctx)
+
+			r.lock.RLock()
+			defer r.lock.RUnlock()
+
+			pending := r.pending
+			require.Equal(t, len(tc.wantPending), len(pending))
+			sort.Slice(pending, func(i, j int) bool {
+				return pending[i].WorkID < pending[j].WorkID
+			})
+			for i := range pending {
+				require.Equal(t, tc.wantPending[i].WorkID, pending[i].WorkID)
+			}
+			require.Equal(t, len(tc.wantVisited), len(r.visited))
+			for _, id := range tc.wantVisited {
+				_, ok := r.visited[id]
+				require.True(t, ok)
+			}
+		})
+	}
+}
+
 func TestLogRecoverer_Recover(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -111,6 +228,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 		logsErr          error
 		recoverErr       error
 		proposalsWorkIDs []string
+		lastRePollBlocks []int64
 	}{
 		{
 			"no filters",
@@ -124,6 +242,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			nil,
 			nil,
 			[]string{},
+			[]int64{},
 		},
 		{
 			"latest block error",
@@ -137,6 +256,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			nil,
 			fmt.Errorf("test error"),
 			[]string{},
+			[]int64{},
 		},
 		{
 			"states error",
@@ -165,6 +285,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			nil,
 			nil,
 			[]string{},
+			[]int64{0},
 		},
 		{
 			"get logs error",
@@ -186,11 +307,12 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			fmt.Errorf("test error"),
 			nil,
 			[]string{},
+			[]int64{0},
 		},
 		{
 			"happy flow",
 			100,
-			200,
+			500,
 			nil,
 			[]upkeepFilter{
 				{
@@ -206,7 +328,15 @@ func TestLogRecoverer_Recover(t *testing.T) {
 					topics: []common.Hash{
 						common.HexToHash("0x2"),
 					},
-					configUpdateBlock: 150, // should be filtered out
+					configUpdateBlock: 450, // should be filtered out
+				},
+				{
+					upkeepID: big.NewInt(3),
+					addr:     common.HexToAddress("0x2").Bytes(),
+					topics: []common.Hash{
+						common.HexToHash("0x2"),
+					},
+					lastRePollBlock: 450, // should be filtered out, as its higher than latest-lookback
 				},
 			},
 			[]ocr2keepers.UpkeepState{ocr2keepers.UnknownState},
@@ -221,7 +351,69 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			},
 			nil,
 			nil,
-			[]string{"84c83c79c2be2c3eabd8d35986a2a798d9187564d7f4f8f96c5a0f40f50bed3f"},
+			[]string{"c207451fa897f9bb13b09d54d8655edf0644e027c53521b4a92eafbb64ba4d14"},
+			[]int64{201, 0, 450},
+		},
+		{
+			"lastRePollBlock updated with burst when lagging behind",
+			100,
+			50000,
+			nil,
+			[]upkeepFilter{
+				{
+					upkeepID: big.NewInt(1),
+					addr:     common.HexToAddress("0x1").Bytes(),
+					topics: []common.Hash{
+						common.HexToHash("0x1"),
+					},
+					lastRePollBlock: 99, // Should be updated with burst
+				},
+			},
+			[]ocr2keepers.UpkeepState{ocr2keepers.UnknownState},
+			nil,
+			[]logpoller.Log{
+				{
+					BlockNumber: 2,
+					TxHash:      common.HexToHash("0x111"),
+					LogIndex:    1,
+					BlockHash:   common.HexToHash("0x2"),
+				},
+			},
+			nil,
+			nil,
+			[]string{"c207451fa897f9bb13b09d54d8655edf0644e027c53521b4a92eafbb64ba4d14"},
+			[]int64{600},
+		},
+		{
+			"recovery starts at configUpdateBlock if higher than lastRePollBlock",
+			100,
+			5000,
+			nil,
+			[]upkeepFilter{
+				{
+					upkeepID: big.NewInt(1),
+					addr:     common.HexToAddress("0x1").Bytes(),
+					topics: []common.Hash{
+						common.HexToHash("0x1"),
+					},
+					lastRePollBlock:   100,
+					configUpdateBlock: 500,
+				},
+			},
+			[]ocr2keepers.UpkeepState{ocr2keepers.UnknownState},
+			nil,
+			[]logpoller.Log{
+				{
+					BlockNumber: 2,
+					TxHash:      common.HexToHash("0x111"),
+					LogIndex:    1,
+					BlockHash:   common.HexToHash("0x2"),
+				},
+			},
+			nil,
+			nil,
+			[]string{"c207451fa897f9bb13b09d54d8655edf0644e027c53521b4a92eafbb64ba4d14"},
+			[]int64{700}, // should be configUpdateBlock + recoveryLogsBuffer
 		},
 	}
 
@@ -233,7 +425,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			filterStore.AddActiveUpkeeps(tc.active...)
 			lp.On("LatestBlock", mock.Anything).Return(tc.latestBlock, tc.latestBlockErr)
 			lp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.logs, tc.logsErr)
-			statesReader.On("SelectByWorkIDsInRange", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, tc.statesErr)
+			statesReader.On("SelectByWorkIDs", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(tc.states, tc.statesErr)
 
 			err := recoverer.recover(ctx)
 			if tc.recoverErr != nil {
@@ -241,6 +433,13 @@ func TestLogRecoverer_Recover(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
+			for i, active := range tc.active {
+				filters := filterStore.GetFilters(func(f upkeepFilter) bool {
+					return f.upkeepID.String() == active.upkeepID.String()
+				})
+				require.Equal(t, 1, len(filters))
+				require.Equal(t, tc.lastRePollBlocks[i], filters[0].lastRePollBlock)
+			}
 
 			proposals, err := recoverer.GetRecoveryProposals(ctx)
 			require.NoError(t, err)
@@ -258,7 +457,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 }
 
 func TestLogRecoverer_SelectFilterBatch(t *testing.T) {
-	n := (recoveryBatchSize*2 + 2)
+	n := recoveryBatchSize*2 + 2
 	filters := []upkeepFilter{}
 	for i := 0; i < n; i++ {
 		filters = append(filters, upkeepFilter{
@@ -435,8 +634,8 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				TransactionReceiptFn: func(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-					return nil, errors.New("tx receipt boom")
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					return errors.New("tx receipt boom")
 				},
 			},
 			expectErr: true,
@@ -463,8 +662,8 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				TransactionReceiptFn: func(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-					return &types.Receipt{}, nil
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					return nil
 				},
 			},
 			expectErr: true,
@@ -491,10 +690,10 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				},
 			},
 			client: &mockClient{
-				TransactionReceiptFn: func(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-					return &types.Receipt{
-						BlockNumber: big.NewInt(200),
-					}, nil
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(200)
+					return nil
 				},
 			},
 			expectErr: true,
@@ -520,8 +719,47 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					return 100, nil
 				},
 			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(200)
+					return nil
+				},
+			},
 			expectErr: true,
 			wantErr:   errors.New("log block is not recoverable"),
+		},
+		{
+			name: "if a log block has does not match, an error is returned",
+			proposal: ocr2keepers.CoordinatedBlockProposal{
+				UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123"),
+				Trigger: ocr2keepers.Trigger{
+					LogTriggerExtension: &ocr2keepers.LogTriggerExtension{
+						BlockNumber: 200,
+						BlockHash:   common.HexToHash("0x2"),
+					},
+				},
+			},
+			filterStore: &mockFilterStore{
+				HasFn: func(id *big.Int) bool {
+					return true
+				},
+			},
+			logPoller: &mockLogPoller{
+				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
+					return 100, nil
+				},
+			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(200)
+					receipt.BlockHash = common.HexToHash("0x1")
+					return nil
+				},
+			},
+			expectErr: true,
+			wantErr:   errors.New("log tx reorged"),
 		},
 		{
 			name: "if a log block is recoverable, when the upkeep state reader errors, an error is returned",
@@ -540,12 +778,19 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
-					return 100, nil
+					return 300, nil
 				},
 			},
 			stateReader: &mockStateReader{
-				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+				SelectByWorkIDsFn: func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 					return nil, errors.New("upkeep state boom")
+				},
+			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(80)
+					return nil
 				},
 			},
 			expectErr: true,
@@ -568,11 +813,18 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
-					return 100, nil
+					return 300, nil
+				},
+			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(80)
+					return nil
 				},
 			},
 			stateReader: &mockStateReader{
-				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+				SelectByWorkIDsFn: func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 					return []ocr2keepers.UpkeepState{
 						ocr2keepers.Ineligible,
 					}, nil
@@ -601,11 +853,18 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
-					return 100, nil
+					return 300, nil
+				},
+			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(80)
+					return nil
 				},
 			},
 			stateReader: &mockStateReader{
-				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+				SelectByWorkIDsFn: func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 					return []ocr2keepers.UpkeepState{
 						ocr2keepers.UnknownState,
 					}, nil
@@ -626,14 +885,21 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
-					return 100, nil
+					return 300, nil
 				},
 				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 					return nil, errors.New("logs with sigs boom")
 				},
 			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(80)
+					return nil
+				},
+			},
 			stateReader: &mockStateReader{
-				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+				SelectByWorkIDsFn: func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 					return []ocr2keepers.UpkeepState{
 						ocr2keepers.UnknownState,
 					}, nil
@@ -654,7 +920,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
-					return 100, nil
+					return 300, nil
 				},
 				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 					return []logpoller.Log{
@@ -664,8 +930,15 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					}, nil
 				},
 			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(80)
+					return nil
+				},
+			},
 			stateReader: &mockStateReader{
-				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+				SelectByWorkIDsFn: func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 					return []ocr2keepers.UpkeepState{
 						ocr2keepers.UnknownState,
 					}, nil
@@ -691,11 +964,11 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					}
 					return t
 				}(),
-				WorkID: "d91c6f090b8477f434cf775182e4ff12c90618ba4da5b8ec06aa719768b7743a",
+				WorkID: "7f775793422d178c90e99c3bbdf05181bc6bb6ce13170e87c92ac396bb7ddda0",
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
-					return 100, nil
+					return 300, nil
 				},
 				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 					return []logpoller.Log{
@@ -708,8 +981,16 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					}, nil
 				},
 			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(80)
+					receipt.BlockHash = [32]byte{1}
+					return nil
+				},
+			},
 			stateReader: &mockStateReader{
-				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+				SelectByWorkIDsFn: func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 					return []ocr2keepers.UpkeepState{
 						ocr2keepers.UnknownState,
 					}, nil
@@ -734,11 +1015,11 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					}
 					return t
 				}(),
-				WorkID: "d91c6f090b8477f434cf775182e4ff12c90618ba4da5b8ec06aa719768b7743a",
+				WorkID: "7f775793422d178c90e99c3bbdf05181bc6bb6ce13170e87c92ac396bb7ddda0",
 			},
 			logPoller: &mockLogPoller{
 				LatestBlockFn: func(qopts ...pg.QOpt) (int64, error) {
-					return 100, nil
+					return 300, nil
 				},
 				LogsWithSigsFn: func(start, end int64, eventSigs []common.Hash, address common.Address, qopts ...pg.QOpt) ([]logpoller.Log, error) {
 					return []logpoller.Log{
@@ -756,8 +1037,16 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 					}, nil
 				},
 			},
+			client: &mockClient{
+				CallContextFn: func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error {
+					receipt.Status = 1
+					receipt.BlockNumber = big.NewInt(80)
+					receipt.BlockHash = [32]byte{1}
+					return nil
+				},
+			},
 			stateReader: &mockStateReader{
-				SelectByWorkIDsInRangeFn: func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+				SelectByWorkIDsFn: func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 					return []ocr2keepers.UpkeepState{
 						ocr2keepers.UnknownState,
 					}, nil
@@ -772,6 +1061,7 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 			if !tc.skipFilter {
 				filterStore.AddActiveUpkeeps(upkeepFilter{
 					addr:     []byte("test"),
+					topics:   []common.Hash{common.HexToHash("0x1"), common.HexToHash("0x2"), common.HexToHash("0x3"), common.HexToHash("0x4")},
 					upkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "123").BigInt(),
 				})
 			}
@@ -797,6 +1087,98 @@ func TestLogRecoverer_GetProposalData(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Equal(t, tc.wantBytes, b)
 			}
+		})
+	}
+}
+
+func TestLogRecoverer_pending(t *testing.T) {
+	tests := []struct {
+		name         string
+		maxPerUpkeep int
+		exist        []ocr2keepers.UpkeepPayload
+		new          []ocr2keepers.UpkeepPayload
+		errored      []bool
+		want         []ocr2keepers.UpkeepPayload
+	}{
+		{
+			name:         "empty",
+			maxPerUpkeep: 10,
+			exist:        []ocr2keepers.UpkeepPayload{},
+			new:          []ocr2keepers.UpkeepPayload{},
+			errored:      []bool{},
+			want:         []ocr2keepers.UpkeepPayload{},
+		},
+		{
+			name:         "add new and existing",
+			maxPerUpkeep: 10,
+			exist: []ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+			},
+			new: []ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+			},
+			errored: []bool{false, false},
+			want: []ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "2")},
+			},
+		},
+		{
+			name:         "exceed limits for upkeep",
+			maxPerUpkeep: 3,
+			exist: []ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "3", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+			},
+			new: []ocr2keepers.UpkeepPayload{
+				{WorkID: "4", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+			},
+			errored: []bool{true},
+			want: []ocr2keepers.UpkeepPayload{
+				{WorkID: "1", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "2", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+				{WorkID: "3", UpkeepID: core.GenUpkeepID(ocr2keepers.LogTrigger, "1")},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			origMaxPendingPayloadsPerUpkeep := maxPendingPayloadsPerUpkeep
+			maxPendingPayloadsPerUpkeep = tc.maxPerUpkeep
+			defer func() {
+				maxPendingPayloadsPerUpkeep = origMaxPendingPayloadsPerUpkeep
+			}()
+
+			r := NewLogRecoverer(logger.TestLogger(t), nil, nil, nil, nil, nil, NewOptions(200))
+			r.lock.Lock()
+			r.pending = tc.exist
+			for i, p := range tc.new {
+				err := r.addPending(p)
+				if tc.errored[i] {
+					require.Error(t, err)
+					continue
+				}
+				require.NoError(t, err)
+			}
+			pending := r.pending
+			require.GreaterOrEqual(t, len(pending), len(tc.new))
+			require.Equal(t, len(tc.want), len(pending))
+			sort.Slice(pending, func(i, j int) bool {
+				return pending[i].WorkID < pending[j].WorkID
+			})
+			for i := range pending {
+				require.Equal(t, tc.want[i].WorkID, pending[i].WorkID)
+			}
+			r.lock.Unlock()
+			for _, p := range tc.want {
+				r.removePending(p.WorkID)
+			}
+			r.lock.Lock()
+			defer r.lock.Unlock()
+			require.Equal(t, 0, len(r.pending))
 		})
 	}
 }
@@ -830,25 +1212,29 @@ func (p *mockLogPoller) LatestBlock(qopts ...pg.QOpt) (int64, error) {
 
 type mockClient struct {
 	client.Client
-	TransactionReceiptFn func(ctx context.Context, txHash common.Hash) (*types.Receipt, error)
+	CallContextFn func(ctx context.Context, receipt *types.Receipt, method string, args ...interface{}) error
 }
 
-func (c *mockClient) TransactionReceipt(ctx context.Context, txHash common.Hash) (*types.Receipt, error) {
-	return c.TransactionReceiptFn(ctx, txHash)
+func (c *mockClient) CallContext(ctx context.Context, r interface{}, method string, args ...interface{}) error {
+	receipt := r.(*types.Receipt)
+	return c.CallContextFn(ctx, receipt, method, args)
 }
 
 type mockStateReader struct {
-	SelectByWorkIDsInRangeFn func(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error)
+	SelectByWorkIDsFn func(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error)
 }
 
-func (r *mockStateReader) SelectByWorkIDsInRange(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
-	return r.SelectByWorkIDsInRangeFn(ctx, start, end, workIDs...)
+func (r *mockStateReader) SelectByWorkIDs(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+	return r.SelectByWorkIDsFn(ctx, workIDs...)
 }
 
 func setupTestRecoverer(t *testing.T, interval time.Duration, lookbackBlocks int64) (*logRecoverer, UpkeepFilterStore, *lpmocks.LogPoller, *mocks.UpkeepStateReader) {
 	lp := new(lpmocks.LogPoller)
 	statesReader := new(mocks.UpkeepStateReader)
 	filterStore := NewUpkeepFilterStore()
-	recoverer := NewLogRecoverer(logger.TestLogger(t), lp, nil, statesReader, &mockedPacker{}, filterStore, interval, lookbackBlocks)
+	opts := NewOptions(lookbackBlocks)
+	opts.ReadInterval = interval / 5
+	opts.LookbackBlocks = lookbackBlocks
+	recoverer := NewLogRecoverer(logger.TestLogger(t), lp, nil, statesReader, &mockedPacker{}, filterStore, opts)
 	return recoverer, filterStore, lp, statesReader
 }

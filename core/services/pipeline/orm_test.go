@@ -522,8 +522,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 	bridgeORM := bridges.NewORM(db, lggr, config.Database())
 
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	jorm := job.NewORM(db, legacyChains, porm, bridgeORM, keyStore, lggr, config.Database())
 	defer func() { assert.NoError(t, jorm.Close()) }()
 
@@ -548,7 +547,7 @@ func Test_GetUnfinishedRuns_Keepers(t *testing.T) {
 		MaxTaskDuration: models.Interval(1 * time.Minute),
 	}
 
-	err = jorm.CreateJob(&keeperJob)
+	err := jorm.CreateJob(&keeperJob)
 	require.NoError(t, err)
 	require.Equal(t, job.Keeper, keeperJob.Type)
 
@@ -625,8 +624,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 	bridgeORM := bridges.NewORM(db, lggr, config.Database())
 
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth()})
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	jorm := job.NewORM(db, legacyChains, porm, bridgeORM, keyStore, lggr, config.Database())
 	defer func() { assert.NoError(t, jorm.Close()) }()
 
@@ -650,7 +648,7 @@ func Test_GetUnfinishedRuns_DirectRequest(t *testing.T) {
 		MaxTaskDuration: models.Interval(1 * time.Minute),
 	}
 
-	err = jorm.CreateJob(&drJob)
+	err := jorm.CreateJob(&drJob)
 	require.NoError(t, err)
 	require.Equal(t, job.DirectRequest, drJob.Type)
 

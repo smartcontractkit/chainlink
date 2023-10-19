@@ -17,21 +17,35 @@ const (
 )
 
 type PerformanceConfig struct {
-	Soak       *Soak       `toml:"Soak"`
-	Load       *Load       `toml:"Load"`
-	SoakVolume *SoakVolume `toml:"SoakVolume"`
-	LoadVolume *LoadVolume `toml:"LoadVolume"`
-	Common     *Common     `toml:"Common"`
+	Soak             *Soak            `toml:"Soak"`
+	SecretsSoak      *SecretsSoak     `toml:"SecretsSoak"`
+	RealSoak         *RealSoak        `toml:"RealSoak"`
+	Stress           *Stress          `toml:"Stress"`
+	SecretsStress    *SecretsStress   `toml:"SecretsStress"`
+	RealStress       *RealStress      `toml:"RealStress"`
+	GatewayListSoak  *GatewayListSoak `toml:"GatewayListSoak"`
+	GatewaySetSoak   *GatewaySetSoak  `toml:"GatewaySetSoak"`
+	Common           *Common          `toml:"Common"`
+	MumbaiPrivateKey string
 }
 
 type Common struct {
 	Funding
-	LINKTokenAddr  string `toml:"link_token_addr"`
-	Coordinator    string `toml:"coordinator_addr"`
-	Router         string `toml:"router_addr"`
-	LoadTestClient string `toml:"client_example_addr"`
-	SubscriptionID uint64 `toml:"subscription_id"`
-	DONID          string `toml:"don_id"`
+	LINKTokenAddr                   string `toml:"link_token_addr"`
+	Coordinator                     string `toml:"coordinator_addr"`
+	Router                          string `toml:"router_addr"`
+	LoadTestClient                  string `toml:"client_addr"`
+	SubscriptionID                  uint64 `toml:"subscription_id"`
+	DONID                           string `toml:"don_id"`
+	GatewayURL                      string `toml:"gateway_url"`
+	Receiver                        string `toml:"receiver"`
+	FunctionsCallPayloadHTTP        string `toml:"functions_call_payload_http"`
+	FunctionsCallPayloadWithSecrets string `toml:"functions_call_payload_with_secrets"`
+	FunctionsCallPayloadReal        string `toml:"functions_call_payload_real"`
+	SecretsSlotID                   uint8  `toml:"secrets_slot_id"`
+	SecretsVersionID                uint64 `toml:"secrets_version_id"`
+	// Secrets these are for CI secrets
+	Secrets string `toml:"secrets"`
 }
 
 type Funding struct {
@@ -40,29 +54,49 @@ type Funding struct {
 }
 
 type Soak struct {
+	RPS             int64            `toml:"rps"`
+	RequestsPerCall uint32           `toml:"requests_per_call"`
+	Duration        *models.Duration `toml:"duration"`
+}
+
+type SecretsSoak struct {
+	RPS             int64            `toml:"rps"`
+	RequestsPerCall uint32           `toml:"requests_per_call"`
+	Duration        *models.Duration `toml:"duration"`
+}
+
+type RealSoak struct {
+	RPS             int64            `toml:"rps"`
+	RequestsPerCall uint32           `toml:"requests_per_call"`
+	Duration        *models.Duration `toml:"duration"`
+}
+
+type Stress struct {
+	RPS             int64            `toml:"rps"`
+	RequestsPerCall uint32           `toml:"requests_per_call"`
+	Duration        *models.Duration `toml:"duration"`
+}
+
+type SecretsStress struct {
+	RPS             int64            `toml:"rps"`
+	RequestsPerCall uint32           `toml:"requests_per_call"`
+	Duration        *models.Duration `toml:"duration"`
+}
+
+type RealStress struct {
+	RPS             int64            `toml:"rps"`
+	RequestsPerCall uint32           `toml:"requests_per_call"`
+	Duration        *models.Duration `toml:"duration"`
+}
+
+type GatewayListSoak struct {
 	RPS      int64            `toml:"rps"`
 	Duration *models.Duration `toml:"duration"`
 }
 
-type SoakVolume struct {
-	Products int64            `toml:"products"`
-	Pace     *models.Duration `toml:"pace"`
+type GatewaySetSoak struct {
+	RPS      int64            `toml:"rps"`
 	Duration *models.Duration `toml:"duration"`
-}
-
-type Load struct {
-	RPSFrom     int64            `toml:"rps_from"`
-	RPSIncrease int64            `toml:"rps_increase"`
-	RPSSteps    int              `toml:"rps_steps"`
-	Duration    *models.Duration `toml:"duration"`
-}
-
-type LoadVolume struct {
-	ProductsFrom     int64            `toml:"products_from"`
-	ProductsIncrease int64            `toml:"products_increase"`
-	ProductsSteps    int              `toml:"products_steps"`
-	Pace             *models.Duration `toml:"pace"`
-	Duration         *models.Duration `toml:"duration"`
 }
 
 func ReadConfig() (*PerformanceConfig, error) {
@@ -76,5 +110,15 @@ func ReadConfig() (*PerformanceConfig, error) {
 		return nil, errors.Wrap(err, ErrUnmarshalPerfConfig)
 	}
 	log.Debug().Interface("PerformanceConfig", cfg).Msg("Parsed performance config")
+	mpk := os.Getenv("MUMBAI_KEYS")
+	murls := os.Getenv("MUMBAI_URLS")
+	snet := os.Getenv("SELECTED_NETWORKS")
+	if mpk == "" || murls == "" || snet == "" {
+		return nil, errors.New(
+			"ensure variables are set:\nMUMBAI_KEYS variable, private keys, comma separated\nSELECTED_NETWORKS=MUMBAI\nMUMBAI_URLS variable, websocket urls, comma separated",
+		)
+	} else {
+		cfg.MumbaiPrivateKey = mpk
+	}
 	return cfg, nil
 }

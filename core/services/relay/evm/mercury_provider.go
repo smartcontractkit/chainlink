@@ -4,13 +4,15 @@ import (
 	"context"
 	"errors"
 
+	"golang.org/x/exp/maps"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
 	relaymercuryv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
 	relaymercuryv2 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
 	relaymercuryv3 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v3"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -96,6 +98,10 @@ func (p *mercuryProvider) ReportCodecV3() relaymercuryv3.ReportCodec {
 	return p.reportCodecV3
 }
 
-func (p *mercuryProvider) ContractTransmitter() relaymercury.Transmitter {
+func (p *mercuryProvider) ContractTransmitter() ocrtypes.ContractTransmitter {
+	return p.transmitter
+}
+
+func (p *mercuryProvider) MercuryServerFetcher() relaymercury.MercuryServerFetcher {
 	return p.transmitter
 }

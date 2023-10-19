@@ -11,8 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/google/uuid"
+	"github.com/grafana/pyroscope-go"
 	"github.com/pkg/errors"
-	"github.com/pyroscope-io/client/pyroscope"
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
@@ -125,7 +125,6 @@ type ChainlinkApplication struct {
 	ExternalInitiatorManager webhook.ExternalInitiatorManager
 	SessionReaper            utils.SleeperTask
 	shutdownOnce             sync.Once
-	explorerClient           synchronization.ExplorerClient
 	srvcs                    []services.ServiceCtx
 	HealthChecker            services.Checker
 	Nurse                    *services.Nurse
@@ -179,13 +178,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	restrictedHTTPClient := opts.RestrictedHTTPClient
 	unrestrictedHTTPClient := opts.UnrestrictedHTTPClient
 
-	// LOOPs can be be created as options, in the  case of LOOP relayers, or
+	// LOOPs can be created as options, in the  case of LOOP relayers, or
 	// as OCR2 job implementations, in the case of Median today.
 	// We will have a non-nil registry here in LOOP relayers are being used, otherwise
 	// we need to initialize in case we serve OCR2 LOOPs
 	loopRegistry := opts.LoopRegistry
 	if loopRegistry == nil {
-		loopRegistry = plugins.NewLoopRegistry(globalLogger.Named("LoopRegistry"))
+		loopRegistry = plugins.NewLoopRegistry(globalLogger)
 	}
 
 	// If the audit logger is enabled
@@ -218,25 +217,12 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Info("Nurse service (automatic pprof profiling) is disabled")
 	}
 
-	healthChecker := services.NewChecker()
-
 	telemetryIngressClient := synchronization.TelemetryIngressClient(&synchronization.NoopTelemetryIngressClient{})
 	telemetryIngressBatchClient := synchronization.TelemetryIngressBatchClient(&synchronization.NoopTelemetryIngressBatchClient{})
-	explorerClient := synchronization.ExplorerClient(&synchronization.NoopExplorerClient{})
 	monitoringEndpointGen := telemetry.MonitoringEndpointGenerator(&telemetry.NoopAgent{})
 
-	if cfg.Explorer().URL() != nil && cfg.TelemetryIngress().URL() != nil {
-		globalLogger.Warn("Both ExplorerUrl and TelemetryIngress.Url are set, defaulting to Explorer")
-	}
-
-	if cfg.Explorer().URL() != nil {
-		explorerClient = synchronization.NewExplorerClient(cfg.Explorer().URL(), cfg.Explorer().AccessKey(), cfg.Explorer().Secret(), globalLogger)
-		monitoringEndpointGen = telemetry.NewExplorerAgent(explorerClient)
-	}
-
 	ticfg := cfg.TelemetryIngress()
-	// Use Explorer over TelemetryIngress if both URLs are set
-	if cfg.Explorer().URL() == nil && ticfg.URL() != nil {
+	if ticfg.URL() != nil {
 		if ticfg.UseBatchSend() {
 			telemetryIngressBatchClient = synchronization.NewTelemetryIngressBatchClient(ticfg.URL(),
 				ticfg.ServerPubKey(), keyStore.CSA(), ticfg.Logging(), globalLogger, ticfg.BufferSize(), ticfg.MaxBatchSize(), ticfg.SendInterval(), ticfg.SendTimeout(), ticfg.UniConn())
@@ -248,7 +234,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 			monitoringEndpointGen = telemetry.NewIngressAgentWrapper(telemetryIngressClient)
 		}
 	}
-	srvcs = append(srvcs, explorerClient, telemetryIngressClient, telemetryIngressBatchClient)
+	srvcs = append(srvcs, telemetryIngressClient, telemetryIngressBatchClient)
 
 	backupCfg := cfg.Database().Backup()
 	if backupCfg.Mode() != config.DatabaseBackupModeNone && backupCfg.Frequency() > 0 {
@@ -418,11 +404,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		globalLogger.Debug("Off-chain reporting v2 disabled")
 	}
 
+	healthChecker := services.NewChecker()
+
 	var lbs []utils.DependentAwaiter
 	for _, c := range legacyEVMChains.Slice() {
 		lbs = append(lbs, c.LogBroadcaster())
 	}
-	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), delegates, db, globalLogger, lbs)
+	jobSpawner := job.NewSpawner(jobORM, cfg.Database(), healthChecker, delegates, db, globalLogger, lbs)
 	srvcs = append(srvcs, jobSpawner, pipelineRunner)
 
 	// We start the log poller after the job spawner
@@ -455,7 +443,13 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		feedsService = &feeds.NullService{}
 	}
 
-	app := &ChainlinkApplication{
+	for _, s := range srvcs {
+		if err := healthChecker.Register(s); err != nil {
+			return nil, err
+		}
+	}
+
+	return &ChainlinkApplication{
 		relayers:                 opts.RelayerChainInteroperators,
 		EventBroadcaster:         eventBroadcaster,
 		jobORM:                   jobORM,
@@ -471,7 +465,6 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		KeyStore:                 keyStore,
 		SessionReaper:            sessions.NewSessionReaper(db.DB, cfg.WebServer(), globalLogger),
 		ExternalInitiatorManager: externalInitiatorManager,
-		explorerClient:           explorerClient,
 		HealthChecker:            healthChecker,
 		Nurse:                    nurse,
 		logger:                   globalLogger,
@@ -485,27 +478,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 		// NOTE: Can keep things clean by putting more things in srvcs instead of manually start/closing
 		srvcs: srvcs,
-	}
-
-	for _, service := range app.srvcs {
-		checkable := service.(services.Checkable)
-		if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
-			return nil, err
-		}
-	}
-
-	// To avoid subscribing chain services twice, we only subscribe them if OCR2 is not enabled.
-	// If it's enabled, they are going to be registered with relayers by default.
-	if !cfg.OCR2().Enabled() {
-		for _, service := range app.relayers.Services() {
-			checkable := service.(services.Checkable)
-			if err := app.HealthChecker.Register(service.Name(), checkable); err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	return app, nil
+	}, nil
 }
 
 func (app *ChainlinkApplication) SetLogLevel(lvl zapcore.Level) error {
@@ -750,6 +723,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					"externalJobID": jb.ExternalJobID,
 					"name":          jb.Name.ValueOrZero(),
 					"publicKey":     jb.VRFSpec.PublicKey[:],
+					"evmChainID":    jb.VRFSpec.EVMChainID.String(),
 				},
 				"jobRun": map[string]interface{}{
 					"meta":           meta,

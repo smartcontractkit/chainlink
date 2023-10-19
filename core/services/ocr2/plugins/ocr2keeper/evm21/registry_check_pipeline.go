@@ -16,9 +16,9 @@ import (
 )
 
 const (
-	// validCheckBlockRange decides the max distance between the check block and the current block
-	// allowed in checkPipeline
-	validCheckBlockRange = 128
+	// checkBlockTooOldRange is the number of blocks that can be behind the latest block before
+	// we return a CheckBlockTooOld error
+	checkBlockTooOldRange = 128
 )
 
 type checkResult struct {
@@ -31,6 +31,9 @@ func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.Upke
 	for i := range keys {
 		if keys[i].Trigger.BlockNumber == 0 { // check block was not populated, use latest
 			latest := r.bs.latestBlock.Load()
+			if latest == nil {
+				return nil, fmt.Errorf("no latest block available")
+			}
 			copy(keys[i].Trigger.BlockHash[:], latest.Hash[:])
 			keys[i].Trigger.BlockNumber = latest.Number
 			r.lggr.Debugf("Check upkeep key had no trigger block number, using latest block %v", keys[i].Trigger.BlockNumber)
@@ -64,7 +67,7 @@ func (r *EvmRegistry) doCheck(ctx context.Context, keys []ocr2keepers.UpkeepPayl
 		return
 	}
 
-	upkeepResults = r.feedLookup(ctx, upkeepResults)
+	upkeepResults = r.streamsLookup(ctx, upkeepResults)
 
 	upkeepResults, err = r.simulatePerformUpkeeps(ctx, upkeepResults)
 	if err != nil {
@@ -97,40 +100,23 @@ func (r *EvmRegistry) getBlockHash(blockNumber *big.Int) (common.Hash, error) {
 	return blocks[0].BlockHash, nil
 }
 
-func (r *EvmRegistry) getTxBlock(txHash common.Hash) (*big.Int, common.Hash, error) {
-	// TODO: do manual eth_getTransactionReceipt call to get block number and hash
-	txr, err := r.client.TransactionReceipt(r.ctx, txHash)
-	if err != nil {
-		return nil, common.Hash{}, err
-	}
-
-	return txr.BlockNumber, txr.BlockHash, nil
-}
-
 // verifyCheckBlock checks that the check block and hash are valid, returns the pipeline execution state and retryable
-func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
-	// verify check block number is not too old
-	latestBlock := r.bs.latestBlock.Load()
-	if int64(latestBlock.Number)-checkBlock.Int64() > validCheckBlockRange {
-		r.lggr.Warnf("latest block is %d, check block number %s is too old for upkeepId %s", r.bs.latestBlock.Load(), checkBlock, upkeepId)
-		return encoding.CheckBlockTooOld, false
-	}
-	r.lggr.Warnf("latestBlock=%d checkBlock=%d", r.bs.latestBlock.Load(), checkBlock.Int64())
-
-	var h string
-	var ok bool
+func (r *EvmRegistry) verifyCheckBlock(_ context.Context, checkBlock, upkeepId *big.Int, checkHash common.Hash) (state encoding.PipelineExecutionState, retryable bool) {
 	// verify check block number and hash are valid
-	h, ok = r.bs.queryBlocksMap(checkBlock.Int64())
-	if !ok {
-		r.lggr.Warnf("check block %s does not exist in block subscriber for upkeepId %s, querying eth client", checkBlock, upkeepId)
-		b, err := r.getBlockHash(checkBlock)
-		if err != nil {
-			r.lggr.Warnf("failed to query block %s: %s", checkBlock, err.Error())
-			return encoding.RpcFlakyFailure, true
-		}
-		h = b.Hex()
+	h, ok := r.bs.queryBlocksMap(checkBlock.Int64())
+	// if this block number/hash combo exists in block subscriber, this check block and hash still exist on chain and are valid
+	// the block hash in block subscriber might be slightly outdated, if it doesn't match then we fetch the latest from RPC.
+	if ok && h == checkHash.Hex() {
+		r.lggr.Debugf("check block hash %s exists on chain at block number %d for upkeepId %s", checkHash.Hex(), checkBlock, upkeepId)
+		return encoding.NoPipelineError, false
 	}
-	if checkHash.Hex() != h {
+	r.lggr.Warnf("check block %s does not exist in block subscriber or hash does not match for upkeepId %s. this may be caused by block subscriber outdated due to re-org, querying eth client to confirm", checkBlock, upkeepId)
+	b, err := r.getBlockHash(checkBlock)
+	if err != nil {
+		r.lggr.Warnf("failed to query block %s: %s", checkBlock, err.Error())
+		return encoding.RpcFlakyFailure, true
+	}
+	if checkHash.Hex() != b.Hex() {
 		r.lggr.Warnf("check block %s hash do not match. %s from block subscriber vs %s from trigger for upkeepId %s", checkBlock, h, checkHash.Hex(), upkeepId)
 		return encoding.CheckBlockInvalid, false
 	}
@@ -141,19 +127,30 @@ func (r *EvmRegistry) verifyCheckBlock(ctx context.Context, checkBlock, upkeepId
 func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPayload) (encoding.UpkeepFailureReason, encoding.PipelineExecutionState, bool) {
 	logBlockNumber := int64(p.Trigger.LogTriggerExtension.BlockNumber)
 	logBlockHash := common.BytesToHash(p.Trigger.LogTriggerExtension.BlockHash[:])
+	checkBlockHash := common.BytesToHash(p.Trigger.BlockHash[:])
+	if checkBlockHash.String() == logBlockHash.String() {
+		// log verification would be covered by checkBlock verification as they are the same. Return early from
+		// log verificaion. This also helps in preventing some racy conditions when rpc does not return the tx receipt
+		// for a very new log
+		return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
+	}
 	// if log block number is populated, check log block number and block hash
 	if logBlockNumber != 0 {
 		h, ok := r.bs.queryBlocksMap(logBlockNumber)
+		// if this block number/hash combo exists in block subscriber, this block and tx still exists on chain and is valid
+		// the block hash in block subscriber might be slightly outdated, if it doesn't match then we fetch the latest from RPC.
 		if ok && h == logBlockHash.Hex() {
-			r.lggr.Debugf("tx hash %s exists on chain at block number %d for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockNumber, upkeepId)
+			r.lggr.Debugf("tx hash %s exists on chain at block number %d, block hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockHash.Hex(), logBlockNumber, upkeepId)
 			return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
 		}
-		r.lggr.Debugf("log block %d does not exist in block subscriber for upkeepId %s, querying eth client", logBlockNumber, upkeepId)
+		// if this block does not exist in the block subscriber, the block which this log lived on was probably re-orged
+		// hence, check eth client for this log's tx hash to confirm
+		r.lggr.Debugf("log block %d does not exist in block subscriber or block hash does not match for upkeepId %s. this may be caused by block subscriber outdated due to re-org, querying eth client to confirm", logBlockNumber, upkeepId)
 	} else {
 		r.lggr.Debugf("log block not provided, querying eth client for tx hash %s for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 	}
 	// query eth client as a fallback
-	bn, _, err := r.getTxBlock(p.Trigger.LogTriggerExtension.TxHash)
+	bn, bh, err := core.GetTxBlock(r.ctx, r.client, p.Trigger.LogTriggerExtension.TxHash)
 	if err != nil {
 		// primitive way of checking errors
 		if strings.Contains(err.Error(), "missing required field") || strings.Contains(err.Error(), "not found") {
@@ -165,6 +162,10 @@ func (r *EvmRegistry) verifyLogExists(upkeepId *big.Int, p ocr2keepers.UpkeepPay
 	if bn == nil {
 		r.lggr.Warnf("tx hash %s does not exist on chain for upkeepId %s.", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 		return encoding.UpkeepFailureReasonTxHashNoLongerExists, encoding.NoPipelineError, false
+	}
+	if bh.Hex() != logBlockHash.Hex() {
+		r.lggr.Warnf("tx hash %s reorged from expected blockhash %s to %s for upkeepId %s.", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), logBlockHash.Hex(), bh.Hex(), upkeepId)
+		return encoding.UpkeepFailureReasonTxHashReorged, encoding.NoPipelineError, false
 	}
 	r.lggr.Debugf("tx hash %s exists on chain for upkeepId %s", hexutil.Encode(p.Trigger.LogTriggerExtension.TxHash[:]), upkeepId)
 	return encoding.UpkeepFailureReasonNone, encoding.NoPipelineError, false
@@ -251,10 +252,25 @@ func (r *EvmRegistry) checkUpkeeps(ctx context.Context, payloads []ocr2keepers.U
 	for i, req := range checkReqs {
 		index := indices[i]
 		if req.Error != nil {
-			// individual upkeep failed in a batch call, retryable
-			r.lggr.Warnf("error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
-			results[index].Retryable = true
-			results[index].PipelineExecutionState = uint8(encoding.RpcFlakyFailure)
+			latestBlockNumber := int64(0)
+			latestBlock := r.bs.latestBlock.Load()
+			if latestBlock != nil {
+				latestBlockNumber = int64(latestBlock.Number)
+			}
+			checkBlock, _, _ := r.getBlockAndUpkeepId(payloads[index].UpkeepID, payloads[index].Trigger)
+			// Exploratory: remove reliance on primitive way of checking errors
+			blockNotFound := (strings.Contains(req.Error.Error(), "header not found") || strings.Contains(req.Error.Error(), "missing trie node"))
+			if blockNotFound && latestBlockNumber-checkBlock.Int64() > checkBlockTooOldRange {
+				// Check block not found in RPC and it is too old, non-retryable error
+				r.lggr.Warnf("block not found error encountered in check result for upkeepId %s, check block %d, latest block %d: %s", results[index].UpkeepID.String(), checkBlock.Int64(), latestBlockNumber, req.Error)
+				results[index].Retryable = false
+				results[index].PipelineExecutionState = uint8(encoding.CheckBlockTooOld)
+			} else {
+				// individual upkeep failed in a batch call, likely a flay RPC error, consider retryable
+				r.lggr.Warnf("rpc error encountered in check result for upkeepId %s: %s", results[index].UpkeepID.String(), req.Error)
+				results[index].Retryable = true
+				results[index].PipelineExecutionState = uint8(encoding.RpcFlakyFailure)
+			}
 		} else {
 			var err error
 			results[index], err = r.packer.UnpackCheckResult(payloads[index], *checkResults[i])
@@ -341,6 +357,7 @@ func (r *EvmRegistry) simulatePerformUpkeeps(ctx context.Context, checkResults [
 		if !simulatePerformSuccess {
 			r.lggr.Warnf("upkeepId %s is not eligible after simulation of perform", checkResults[idx].UpkeepID.String())
 			checkResults[performToKeyIdx[i]].Eligible = false
+			checkResults[performToKeyIdx[i]].IneligibilityReason = uint8(encoding.UpkeepFailureReasonSimulationFailed)
 		}
 	}
 

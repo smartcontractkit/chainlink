@@ -143,6 +143,16 @@ func TestMercury_Observe(t *testing.T) {
 			assert.EqualError(t, obs.MaxFinalizedBlockNumber.Err, "something exploded")
 			assert.Zero(t, obs.MaxFinalizedBlockNumber.Val)
 		})
+		t.Run("if decoding latest report fails", func(t *testing.T) {
+			orm.report = []byte{1, 2, 3}
+			orm.err = nil
+
+			obs, err := ds.Observe(ctx, repts, true)
+			assert.NoError(t, err)
+
+			assert.EqualError(t, obs.MaxFinalizedBlockNumber.Err, "failed to decode report: abi: cannot marshal in to go type: length insufficient 3 require 32")
+			assert.Zero(t, obs.MaxFinalizedBlockNumber.Val)
+		})
 
 		orm.report = nil
 		orm.err = nil
@@ -298,8 +308,8 @@ func TestMercury_Observe(t *testing.T) {
 				trrs[i].Result.Value = "123"
 				trrs[i].Result.Error = nil
 			}
+			ch := make(chan *pipeline.Run, 1)
 
-			ch := make(chan pipeline.Run, 1)
 			ds.runResults = ch
 
 			_, err := ds.Observe(ctx, repts, false)

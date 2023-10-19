@@ -7,6 +7,8 @@ import (
 )
 
 func NewEVMNodesController(app chainlink.Application) NodesController {
+	scopedNodeStatuser := NewNetworkScopedNodeStatuser(app.GetRelayers(), relay.EVM)
+
 	return newNodesController[presenters.EVMNodeResource](
-		app.GetRelayers().List(chainlink.FilterRelayersByType(relay.EVM)), ErrEVMNotEnabled, presenters.NewEVMNodeResource, app.GetAuditLogger())
+		scopedNodeStatuser, ErrEVMNotEnabled, presenters.NewEVMNodeResource, app.GetAuditLogger())
 }

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -45,12 +46,11 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	txManager := txmmocks.NewMockEvmTxManager(t)
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, GeneralConfig: config, KeyStore: keyStore.Eth(), TxManager: txManager})
 	require.True(t, relayExtenders.Len() > 0)
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 
 	type testCase struct {
 		name                  string
-		pluginType            job.OCR2PluginType
+		pluginType            types.OCR2PluginType
 		transmitterID         null.String
 		sendingKeys           []any
 		expectedError         bool
@@ -76,7 +76,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 	testCases := []testCase{
 		{
 			name:                  "mercury plugin should just return transmitterID",
-			pluginType:            job.Mercury,
+			pluginType:            types.Mercury,
 			transmitterID:         null.StringFrom("Mercury transmitterID"),
 			expectedTransmitterID: "Mercury transmitterID",
 		},
@@ -92,7 +92,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		},
 		{
 			name:                  "when transmitterID is not defined and plugin is ocr2vrf, it should allow>1 sendingKeys and set transmitterID to the first one",
-			pluginType:            job.OCR2VRF,
+			pluginType:            types.OCR2VRF,
 			sendingKeys:           []any{"0x7e57000000000000000000000000000000000000", "0x7e57000000000000000000000000000000000001", "0x7e57000000000000000000000000000000000002"},
 			expectedTransmitterID: "0x7e57000000000000000000000000000000000000",
 		},
@@ -110,7 +110,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		},
 		{
 			name:                  "when forwarders are enabled and when transmitterID is not defined, it should use first sendingKey to retrieve forwarder address",
-			pluginType:            job.OCR2VRF,
+			pluginType:            types.OCR2VRF,
 			forwardingEnabled:     true,
 			sendingKeys:           []any{"0x7e57000000000000000000000000000000000001", "0x7e57000000000000000000000000000000000002"},
 			getForwarderForEOAArg: common.HexToAddress("0x7e57000000000000000000000000000000000001"),
@@ -118,7 +118,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		},
 		{
 			name:                  "when forwarders are enabled but forwarder address fails to be retrieved and when transmitterID is not defined, it should default to using first sendingKey",
-			pluginType:            job.OCR2VRF,
+			pluginType:            types.OCR2VRF,
 			forwardingEnabled:     true,
 			sendingKeys:           []any{"0x7e57000000000000000000000000000000000001", "0x7e57000000000000000000000000000000000002"},
 			getForwarderForEOAArg: common.HexToAddress("0x7e57000000000000000000000000000000000001"),
@@ -172,7 +172,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		})
 	}
 
-	t.Run("when forwarders are enabled and chainset retrieval fails, error should be handled", func(t *testing.T) {
+	t.Run("when forwarders are enabled and chain retrieval fails, error should be handled", func(t *testing.T) {
 		jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
 		require.NoError(t, err)
 		jb.ForwardingAllowed = true

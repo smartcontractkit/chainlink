@@ -56,10 +56,6 @@ func TestLogPoller_RegisterFilter(t *testing.T) {
 
 	orm := NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
 
-	db.Close()
-	db = pgtest.NewSqlxDB(t)
-	orm = NewORM(chainID, db, lggr, pgtest.NewQConfig(true))
-
 	// Set up a test chain with a log emitting contract deployed.
 	lp := NewLogPoller(orm, nil, lggr, time.Hour, 1, 1, 2, 1000)
 

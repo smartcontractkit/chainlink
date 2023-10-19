@@ -17,12 +17,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
+	mercurytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/types"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 type Runner interface {
-	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run pipeline.Run, trrs pipeline.TaskRunResults, err error)
+	ExecuteRun(ctx context.Context, spec pipeline.Spec, vars pipeline.Vars, l logger.Logger) (run *pipeline.Run, trrs pipeline.TaskRunResults, err error)
 }
 
 type LatestReportFetcher interface {
@@ -36,7 +39,9 @@ type datasource struct {
 	spec           pipeline.Spec
 	feedID         mercuryutils.FeedID
 	lggr           logger.Logger
-	runResults     chan<- pipeline.Run
+	runResults     chan<- *pipeline.Run
+	orm            types.DataSourceORM
+	codec          reportcodec.ReportCodec
 
 	fetcher      LatestReportFetcher
 	linkFeedID   mercuryutils.FeedID
@@ -49,8 +54,8 @@ type datasource struct {
 
 var _ relaymercuryv2.DataSource = &datasource{}
 
-func NewDataSource(pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID mercuryutils.FeedID, lggr logger.Logger, rr chan pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID mercuryutils.FeedID) *datasource {
-	return &datasource{pr, jb, spec, feedID, lggr, rr, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
+func NewDataSource(orm types.DataSourceORM, pr pipeline.Runner, jb job.Job, spec pipeline.Spec, feedID mercuryutils.FeedID, lggr logger.Logger, rr chan *pipeline.Run, enhancedTelemChan chan ocrcommon.EnhancedTelemetryMercuryData, fetcher LatestReportFetcher, linkFeedID, nativeFeedID mercuryutils.FeedID) *datasource {
+	return &datasource{pr, jb, spec, feedID, lggr, rr, orm, reportcodec.ReportCodec{}, fetcher, linkFeedID, nativeFeedID, sync.RWMutex{}, enhancedTelemChan}
 }
 
 func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestamp, fetchMaxFinalizedTimestamp bool) (obs relaymercuryv2.Observation, err error) {
@@ -61,6 +66,16 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
+			latest, dbErr := ds.orm.LatestReport(ctx, ds.feedID)
+			if dbErr != nil {
+				obs.MaxFinalizedTimestamp.Err = dbErr
+				return
+			}
+			if latest != nil {
+				maxFinalizedBlockNumber, decodeErr := ds.codec.ObservationTimestampFromReport(latest)
+				obs.MaxFinalizedTimestamp.Val, obs.MaxFinalizedTimestamp.Err = int64(maxFinalizedBlockNumber), decodeErr
+				return
+			}
 			obs.MaxFinalizedTimestamp.Val, obs.MaxFinalizedTimestamp.Err = ds.fetcher.LatestTimestamp(ctx)
 		}()
 	}
@@ -69,7 +84,7 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 	go func() {
 		defer wg.Done()
 		var trrs pipeline.TaskRunResults
-		var run pipeline.Run
+		var run *pipeline.Run
 		run, trrs, err = ds.executeRun(ctx)
 		if err != nil {
 			cancel()
@@ -103,8 +118,12 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			defer wg.Done()
 			obs.LinkPrice.Val, obs.LinkPrice.Err = ds.fetcher.LatestPrice(ctx, ds.linkFeedID)
 			if obs.LinkPrice.Val == nil && obs.LinkPrice.Err == nil {
-				ds.lggr.Warnw("Mercury server was missing LINK feed, falling back to max int192", "linkFeedID", ds.linkFeedID)
-				obs.LinkPrice.Val = relaymercury.MaxInt192
+				mercurytypes.PriceFeedMissingCount.WithLabelValues(ds.linkFeedID.String()).Inc()
+				ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing LINK feed, using sentinel value of %s", relaymercuryv2.MissingPrice), "linkFeedID", ds.linkFeedID)
+				obs.LinkPrice.Val = relaymercuryv2.MissingPrice
+			} else if obs.LinkPrice.Err != nil {
+				mercurytypes.PriceFeedErrorCount.WithLabelValues(ds.linkFeedID.String()).Inc()
+				ds.lggr.Errorw("Mercury server returned error querying LINK price feed", "err", obs.LinkPrice.Err, "linkFeedID", ds.linkFeedID)
 			}
 		}()
 	}
@@ -117,8 +136,12 @@ func (ds *datasource) Observe(ctx context.Context, repts ocrtypes.ReportTimestam
 			defer wg.Done()
 			obs.NativePrice.Val, obs.NativePrice.Err = ds.fetcher.LatestPrice(ctx, ds.nativeFeedID)
 			if obs.NativePrice.Val == nil && obs.NativePrice.Err == nil {
-				ds.lggr.Warnw("Mercury server was missing native feed, falling back to max int192", "nativeFeedID", ds.nativeFeedID)
-				obs.NativePrice.Val = relaymercury.MaxInt192
+				mercurytypes.PriceFeedMissingCount.WithLabelValues(ds.nativeFeedID.String()).Inc()
+				ds.lggr.Warnw(fmt.Sprintf("Mercury server was missing native feed, using sentinel value of %s", relaymercuryv2.MissingPrice), "nativeFeedID", ds.nativeFeedID)
+				obs.NativePrice.Val = relaymercuryv2.MissingPrice
+			} else if obs.NativePrice.Err != nil {
+				mercurytypes.PriceFeedErrorCount.WithLabelValues(ds.nativeFeedID.String()).Inc()
+				ds.lggr.Errorw("Mercury server returned error querying native price feed", "err", obs.NativePrice.Err, "nativeFeedID", ds.nativeFeedID)
 			}
 		}()
 	}
@@ -195,7 +218,7 @@ func setBenchmarkPrice(o *parseOutput, res pipeline.Result) error {
 
 // The context passed in here has a timeout of (ObservationTimeout + ObservationGracePeriod).
 // Upon context cancellation, its expected that we return any usable values within ObservationGracePeriod.
-func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.TaskRunResults, error) {
+func (ds *datasource) executeRun(ctx context.Context) (*pipeline.Run, pipeline.TaskRunResults, error) {
 	vars := pipeline.NewVarsFrom(map[string]interface{}{
 		"jb": map[string]interface{}{
 			"databaseID":    ds.jb.ID,
@@ -206,7 +229,7 @@ func (ds *datasource) executeRun(ctx context.Context) (pipeline.Run, pipeline.Ta
 
 	run, trrs, err := ds.pipelineRunner.ExecuteRun(ctx, ds.spec, vars, ds.lggr)
 	if err != nil {
-		return pipeline.Run{}, nil, pkgerrors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
+		return nil, nil, pkgerrors.Wrapf(err, "error executing run for spec ID %v", ds.spec.ID)
 	}
 
 	return run, trrs, err

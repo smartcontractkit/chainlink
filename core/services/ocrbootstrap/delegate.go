@@ -76,10 +76,10 @@ func (d *Delegate) BeforeJobCreated(spec job.Job) {
 }
 
 // ServicesForSpec satisfies the job.Delegate interface.
-func (d *Delegate) ServicesForSpec(jobSpec job.Job, qopts ...pg.QOpt) (services []job.ServiceCtx, err error) {
-	spec := jobSpec.BootstrapSpec
+func (d *Delegate) ServicesForSpec(jb job.Job, qopts ...pg.QOpt) (services []job.ServiceCtx, err error) {
+	spec := jb.BootstrapSpec
 	if spec == nil {
-		return nil, errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", jobSpec)
+		return nil, errors.Errorf("Bootstrap.Delegate expects an *job.BootstrapSpec to be present, got %v", jb)
 	}
 	if d.peerWrapper == nil {
 		return nil, errors.New("cannot setup OCR2 job service, libp2p peer was missing")
@@ -101,8 +101,8 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job, qopts ...pg.QOpt) (services 
 	}
 
 	ctxVals := loop.ContextValues{
-		JobID:      jobSpec.ID,
-		JobName:    jobSpec.Name.ValueOrZero(),
+		JobID:      jb.ID,
+		JobName:    jb.Name.ValueOrZero(),
 		ContractID: spec.ContractID,
 		FeedID:     spec.FeedID,
 	}
@@ -118,14 +118,15 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job, qopts ...pg.QOpt) (services 
 		if routerFields.ContractVersion != 1 || routerFields.ContractUpdateCheckFrequencySec == 0 {
 			return nil, errors.New("invalid router contract config")
 		}
-		configProvider, err = relayer.NewFunctionsProvider(
+		configProvider, err = relayer.NewPluginProvider(
 			ctx,
 			types.RelayArgs{
-				ExternalJobID: jobSpec.ExternalJobID,
-				JobID:         spec.ID,
+				ExternalJobID: jb.ExternalJobID,
+				JobID:         jb.ID,
 				ContractID:    spec.ContractID,
 				RelayConfig:   spec.RelayConfig.Bytes(),
 				New:           d.isNewlyCreatedJob,
+				ProviderType:  string(types.Functions),
 			},
 			types.PluginArgs{
 				PluginConfig: spec.RelayConfig.Bytes(), // contains all necessary fields for config provider
@@ -133,8 +134,8 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job, qopts ...pg.QOpt) (services 
 		)
 	} else {
 		configProvider, err = relayer.NewConfigProvider(ctx, types.RelayArgs{
-			ExternalJobID: jobSpec.ExternalJobID,
-			JobID:         spec.ID,
+			ExternalJobID: jb.ExternalJobID,
+			JobID:         jb.ID,
 			ContractID:    spec.ContractID,
 			New:           d.isNewlyCreatedJob,
 			RelayConfig:   spec.RelayConfig.Bytes(),
@@ -165,7 +166,7 @@ func (d *Delegate) ServicesForSpec(jobSpec job.Job, qopts ...pg.QOpt) (services 
 		Database:              NewDB(d.db.DB, spec.ID, lggr),
 		LocalConfig:           lc,
 		Logger: relaylogger.NewOCRWrapper(lggr.Named("OCRBootstrap"), d.ocr2Cfg.TraceLogging(), func(msg string) {
-			logger.Sugared(lggr).ErrorIf(d.jobORM.RecordError(jobSpec.ID, msg), "unable to record error")
+			logger.Sugared(lggr).ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
 		}),
 		OffchainConfigDigester: configProvider.OffchainConfigDigester(),
 	}

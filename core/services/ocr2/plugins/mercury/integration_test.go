@@ -25,7 +25,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	ocr3confighelper "github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/wsrpc/credentials"
 	"github.com/stretchr/testify/assert"
@@ -34,6 +34,9 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	relaycodecv1 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v1"
+	relaycodecv2 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v2"
+	relaycodecv3 "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury/v3"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -64,7 +67,7 @@ var (
 	}
 	rawReportingPluginConfig = relaymercury.OffchainConfig{
 		ExpirationWindow: 1,
-		BaseUSDFeeCents:  100,
+		BaseUSDFee:       decimal.NewFromInt(100),
 	}
 )
 
@@ -149,7 +152,13 @@ func TestIntegration_MercuryV1(t *testing.T) {
 	reqs := make(chan request)
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
-	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
+	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs, func() []byte {
+		report, err := (&reportcodecv1.ReportCodec{}).BuildReport(relaycodecv1.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), CurrentBlockHash: make([]byte, 32)})
+		if err != nil {
+			panic(err)
+		}
+		return report
+	})
 	clientCSAKeys := make([]csakey.KeyV2, n+1)
 	clientPubKeys := make([]ed25519.PublicKey, n+1)
 	for i := 0; i < n+1; i++ {
@@ -494,7 +503,13 @@ func TestIntegration_MercuryV2(t *testing.T) {
 	reqs := make(chan request)
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
-	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
+	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs, func() []byte {
+		report, err := (&reportcodecv2.ReportCodec{}).BuildReport(relaycodecv2.ReportFields{BenchmarkPrice: big.NewInt(234567), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
+		if err != nil {
+			panic(err)
+		}
+		return report
+	})
 	clientCSAKeys := make([]csakey.KeyV2, n+1)
 	clientPubKeys := make([]ed25519.PublicKey, n+1)
 	for i := 0; i < n+1; i++ {
@@ -686,7 +701,7 @@ func TestIntegration_MercuryV2(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			expectedFee := relaymercury.CalculateFee(big.NewInt(123456789), rawReportingPluginConfig.BaseUSDFeeCents)
+			expectedFee := relaymercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
 			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))
@@ -766,7 +781,13 @@ func TestIntegration_MercuryV3(t *testing.T) {
 	reqs := make(chan request)
 	serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(-1))
 	serverPubKey := serverKey.PublicKey
-	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs)
+	srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), reqs, func() []byte {
+		report, err := (&reportcodecv3.ReportCodec{}).BuildReport(relaycodecv3.ReportFields{BenchmarkPrice: big.NewInt(234567), Bid: big.NewInt(1), Ask: big.NewInt(1), LinkFee: big.NewInt(1), NativeFee: big.NewInt(1)})
+		if err != nil {
+			panic(err)
+		}
+		return report
+	})
 	clientCSAKeys := make([]csakey.KeyV2, n+1)
 	clientPubKeys := make([]ed25519.PublicKey, n+1)
 	for i := 0; i < n+1; i++ {
@@ -962,7 +983,7 @@ func TestIntegration_MercuryV3(t *testing.T) {
 				continue // already saw all oracles for this feed
 			}
 
-			expectedFee := relaymercury.CalculateFee(big.NewInt(123456789), rawReportingPluginConfig.BaseUSDFeeCents)
+			expectedFee := relaymercury.CalculateFee(big.NewInt(234567), rawReportingPluginConfig.BaseUSDFee)
 			expectedExpiresAt := reportElems["observationsTimestamp"].(uint32) + rawReportingPluginConfig.ExpirationWindow
 
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp))

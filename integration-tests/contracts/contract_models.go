@@ -286,6 +286,21 @@ type KeeperGasWrapperMock interface {
 	SetMeasureCheckGasResult(result bool, payload []byte, gas *big.Int) error
 }
 
+type FunctionsV1EventsMock interface {
+	Address() string
+	EmitRequestProcessed(requestId [32]byte, subscriptionId uint64, totalCostJuels *big.Int, transmitter common.Address, resultCode uint8, response []byte, errByte []byte, callbackReturnData []byte) error
+	EmitRequestStart(requestId [32]byte, donId [32]byte, subscriptionId uint64, subscriptionOwner common.Address, requestingContract common.Address, requestInitiator common.Address, data []byte, dataVersion uint16, callbackGasLimit uint32, estimatedTotalCostJuels *big.Int) error
+	EmitSubscriptionCanceled(subscriptionId uint64, fundsRecipient common.Address, fundsAmount *big.Int) error
+	EmitSubscriptionConsumerAdded(subscriptionId uint64, consumer common.Address) error
+	EmitSubscriptionConsumerRemoved(subscriptionId uint64, consumer common.Address) error
+	EmitSubscriptionCreated(subscriptionId uint64, owner common.Address) error
+	EmitSubscriptionFunded(subscriptionId uint64, oldBalance *big.Int, newBalance *big.Int) error
+	EmitSubscriptionOwnerTransferred(subscriptionId uint64, from common.Address, to common.Address) error
+	EmitSubscriptionOwnerTransferRequested(subscriptionId uint64, from common.Address, to common.Address) error
+	EmitRequestNotProcessed(requestId [32]byte, coordinator common.Address, transmitter common.Address, resultCode uint8) error
+	EmitContractUpdated(id [32]byte, from common.Address, to common.Address) error
+}
+
 type MockAggregatorProxy interface {
 	Address() string
 	UpdateAggregator(aggregator common.Address) error
@@ -336,6 +351,8 @@ type AuthorizedForwarder interface {
 
 type FunctionsCoordinator interface {
 	Address() string
+	GetThresholdPublicKey() ([]byte, error)
+	GetDONPublicKey() ([]byte, error)
 }
 
 type FunctionsRouter interface {
@@ -345,5 +362,19 @@ type FunctionsRouter interface {
 
 type FunctionsLoadTestClient interface {
 	Address() string
-	SendRequest(source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error
+	ResetStats() error
+	GetStats() (*EthereumFunctionsLoadStats, error)
+	SendRequest(times uint32, source string, encryptedSecretsReferences []byte, args []string, subscriptionId uint64, jobId [32]byte) error
+	SendRequestWithDONHostedSecrets(times uint32, source string, slotID uint8, slotVersion uint64, args []string, subscriptionId uint64, donID [32]byte) error
+}
+
+type MercuryVerifier interface {
+	Address() string
+	Verify(signedReport []byte, sender common.Address) error
+}
+
+type MercuryVerifierProxy interface {
+	Address() string
+	Verify(signedReport []byte, parameterPayload []byte, value *big.Int) (*types.Transaction, error)
+	VerifyBulk(signedReports [][]byte, parameterPayload []byte, value *big.Int) (*types.Transaction, error)
 }

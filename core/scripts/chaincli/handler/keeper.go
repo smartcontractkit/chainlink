@@ -27,10 +27,10 @@ import (
 	registry20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mercury_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 	upkeep "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_mercury_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/verifiable_load_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
@@ -577,19 +577,21 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 				log.Fatal(err)
 			}
 			if k.cfg.VerifiableLoadTest {
-				upkeepAddr, deployUpkeepTx, _, err = verifiable_load_mercury_upkeep_wrapper.DeployVerifiableLoadMercuryUpkeep(
+				upkeepAddr, deployUpkeepTx, _, err = verifiable_load_streams_lookup_upkeep_wrapper.DeployVerifiableLoadStreamsLookupUpkeep(
 					k.buildTxOpts(ctx),
 					k.client,
 					common.HexToAddress(k.cfg.Registrar),
 					k.cfg.UseArbBlockNumber,
 				)
 			} else {
-				upkeepAddr, deployUpkeepTx, _, err = mercury_upkeep_wrapper.DeployMercuryUpkeep(
+				upkeepAddr, deployUpkeepTx, _, err = streams_lookup_upkeep_wrapper.DeployStreamsLookupUpkeep(
 					k.buildTxOpts(ctx),
 					k.client,
 					big.NewInt(k.cfg.UpkeepTestRange),
 					big.NewInt(k.cfg.UpkeepInterval),
-					false,
+					true,  /* useArbBlock */
+					true,  /* staging */
+					false, /* verify mercury response */
 				)
 			}
 			if err != nil {
@@ -717,7 +719,7 @@ func (k *Keeper) deployUpkeeps(ctx context.Context, registryAddr common.Address,
 		log.Printf("registry version is %s", v)
 		log.Printf("active upkeep ids: %v", activeUpkeepIds)
 
-		adminBytes, err := json.Marshal(evm.AdminOffchainConfig{
+		adminBytes, err := json.Marshal(evm.UpkeepPrivilegeConfig{
 			MercuryEnabled: true,
 		})
 		if err != nil {

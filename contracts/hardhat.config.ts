@@ -54,6 +54,7 @@ let config = {
       allowUnlimitedContractSize: Boolean(
         process.env.ALLOW_UNLIMITED_CONTRACT_SIZE,
       ),
+      hardfork: 'merge',
     },
   },
   solidity: {

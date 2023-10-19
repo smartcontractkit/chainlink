@@ -1,14 +1,19 @@
 package web
 
 import (
+	"context"
+	"fmt"
 	"math/big"
 	"net/http"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	commontxmgr "github.com/smartcontractkit/chainlink/v2/common/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
@@ -68,7 +73,24 @@ func (tc *EVMTransfersController) Create(c *gin.Context) {
 		"ethTX": etx,
 	})
 
-	jsonAPIResponse(c, presenters.NewEthTxResource(etx), "eth_tx")
+	// skip waiting for txmgr to create TxAttempt
+	if tr.SkipWaitTxAttempt {
+		jsonAPIResponse(c, presenters.NewEthTxResource(etx), "eth_tx")
+		return
+	}
+
+	timeout := 10 * time.Second // default
+	if tr.WaitAttemptTimeout != nil {
+		timeout = *tr.WaitAttemptTimeout
+	}
+
+	// wait and retrieve tx attempt matching tx ID
+	attempt, err := FindTxAttempt(c, timeout, etx, tc.App.TxmStorageService().FindTxWithAttempts)
+	if err != nil {
+		jsonAPIError(c, http.StatusGatewayTimeout, fmt.Errorf("failed to find transaction within timeout: %w", err))
+		return
+	}
+	jsonAPIResponse(c, presenters.NewEthTxResourceFromAttempt(attempt), "eth_tx")
 }
 
 // ValidateEthBalanceForTransfer validates that the current balance can cover the transaction amount
@@ -106,4 +128,34 @@ func ValidateEthBalanceForTransfer(c *gin.Context, chain evm.Chain, fromAddr com
 	}
 
 	return nil
+}
+
+func FindTxAttempt(ctx context.Context, timeout time.Duration, etx txmgr.Tx, FindTxWithAttempts func(int64) (txmgr.Tx, error)) (attempt txmgr.TxAttempt, err error) {
+	recheckTime := time.Second
+	tick := time.After(0)
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	for {
+		select {
+		case <-ctx.Done():
+			return attempt, fmt.Errorf("%w - tx may still have been broadcast", ctx.Err())
+		case <-tick:
+			etx, err = FindTxWithAttempts(etx.ID)
+			if err != nil {
+				return attempt, fmt.Errorf("failed to find transaction: %w", err)
+			}
+		}
+
+		// exit if tx attempts are found
+		// also validate etx.State != unstarted (ensure proper tx state for tx with attempts)
+		if len(etx.TxAttempts) > 0 && etx.State != commontxmgr.TxUnstarted {
+			break
+		}
+		tick = time.After(recheckTime)
+	}
+
+	// attach original tx to attempt
+	attempt = etx.TxAttempts[0]
+	attempt.Tx = etx
+	return attempt, nil
 }

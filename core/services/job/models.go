@@ -14,8 +14,10 @@ import (
 	"github.com/pkg/errors"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
 	clnull "github.com/smartcontractkit/chainlink/v2/core/null"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -310,28 +312,7 @@ func (r JSONConfig) MercuryCredentialName() (string, error) {
 	return name, nil
 }
 
-var ForwardersSupportedPlugins = []OCR2PluginType{Median, DKG, OCR2VRF, OCR2Keeper, OCR2Functions}
-
-// OCR2PluginType defines supported OCR2 plugin types.
-type OCR2PluginType string
-
-const (
-	// Median refers to the median.Median type
-	Median OCR2PluginType = "median"
-
-	DKG OCR2PluginType = "dkg"
-
-	OCR2VRF OCR2PluginType = "ocr2vrf"
-
-	// Keeper was rebranded to automation. For now the plugin type required in job spec points
-	// to the new name (automation) but in code we refer it to keepers
-	// TODO: sc-55296 to rename ocr2keeper to ocr2automation in code
-	OCR2Keeper OCR2PluginType = "ocr2automation"
-
-	OCR2Functions OCR2PluginType = "functions"
-
-	Mercury OCR2PluginType = "mercury"
-)
+var ForwardersSupportedPlugins = []types.OCR2PluginType{types.Median, types.DKG, types.OCR2VRF, types.OCR2Keeper, types.Functions}
 
 // OCR2OracleSpec defines the job spec for OCR2 jobs.
 // Relay config is chain specific config for a relay (chain adapter).
@@ -341,21 +322,32 @@ type OCR2OracleSpec struct {
 	FeedID     *common.Hash  `toml:"feedID"`
 	Relay      relay.Network `toml:"relay"`
 	// TODO BCF-2442 implement ChainID as top level parameter rathe than buried in RelayConfig.
-	ChainID                           string          `toml:"chainID"`
-	RelayConfig                       JSONConfig      `toml:"relayConfig"`
-	P2PV2Bootstrappers                pq.StringArray  `toml:"p2pv2Bootstrappers"`
-	OCRKeyBundleID                    null.String     `toml:"ocrKeyBundleID"`
-	MonitoringEndpoint                null.String     `toml:"monitoringEndpoint"`
-	TransmitterID                     null.String     `toml:"transmitterID"`
-	BlockchainTimeout                 models.Interval `toml:"blockchainTimeout"`
-	ContractConfigTrackerPollInterval models.Interval `toml:"contractConfigTrackerPollInterval"`
-	ContractConfigConfirmations       uint16          `toml:"contractConfigConfirmations"`
-	PluginConfig                      JSONConfig      `toml:"pluginConfig"`
-	PluginType                        OCR2PluginType  `toml:"pluginType"`
-	CreatedAt                         time.Time       `toml:"-"`
-	UpdatedAt                         time.Time       `toml:"-"`
-	CaptureEATelemetry                bool            `toml:"captureEATelemetry"`
-	CaptureAutomationCustomTelemetry  bool            `toml:"captureAutomationCustomTelemetry"`
+	ChainID                           string               `toml:"chainID"`
+	RelayConfig                       JSONConfig           `toml:"relayConfig"`
+	P2PV2Bootstrappers                pq.StringArray       `toml:"p2pv2Bootstrappers"`
+	OCRKeyBundleID                    null.String          `toml:"ocrKeyBundleID"`
+	MonitoringEndpoint                null.String          `toml:"monitoringEndpoint"`
+	TransmitterID                     null.String          `toml:"transmitterID"`
+	BlockchainTimeout                 models.Interval      `toml:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval models.Interval      `toml:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       uint16               `toml:"contractConfigConfirmations"`
+	PluginConfig                      JSONConfig           `toml:"pluginConfig"`
+	PluginType                        types.OCR2PluginType `toml:"pluginType"`
+	CreatedAt                         time.Time            `toml:"-"`
+	UpdatedAt                         time.Time            `toml:"-"`
+	CaptureEATelemetry                bool                 `toml:"captureEATelemetry"`
+	CaptureAutomationCustomTelemetry  bool                 `toml:"captureAutomationCustomTelemetry"`
+}
+
+func validateRelayID(id relay.ID) error {
+	// only the EVM has specific requirements
+	if id.Network == relay.EVM {
+		_, err := toml.ChainIDInt64(id.ChainID)
+		if err != nil {
+			return fmt.Errorf("invalid EVM chain id %s: %w", id.ChainID, err)
+		}
+	}
+	return nil
 }
 
 func (s *OCR2OracleSpec) RelayID() (relay.ID, error) {
@@ -363,7 +355,12 @@ func (s *OCR2OracleSpec) RelayID() (relay.ID, error) {
 	if err != nil {
 		return relay.ID{}, err
 	}
-	return relay.NewID(s.Relay, cid)
+	rid := relay.NewID(s.Relay, cid)
+	err = validateRelayID(rid)
+	if err != nil {
+		return relay.ID{}, err
+	}
+	return rid, nil
 }
 
 func (s *OCR2OracleSpec) getChainID() (relay.ChainID, error) {
@@ -575,6 +572,12 @@ type BlockhashStoreSpec struct {
 
 	// WaitBlocks defines the minimum age of blocks whose hashes should be stored.
 	WaitBlocks int32 `toml:"waitBlocks"`
+
+	// HeartbeatPeriodTime defines the number of seconds by which we "heartbeat store"
+	// a blockhash into the blockhash store contract.
+	// This is so that we always have a blockhash to anchor to in the event we need to do a
+	// backwards mode on the contract.
+	HeartbeatPeriod time.Duration `toml:"heartbeatPeriod"`
 
 	// BlockhashStoreAddress is the address of the BlockhashStore contract to store blockhashes
 	// into.

@@ -8,13 +8,13 @@ import {IVerifier} from "../../interfaces/IVerifier.sol";
 import {ErroredVerifier} from "../mocks/ErroredVerifier.sol";
 import {Verifier} from "../../Verifier.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {AccessControllerInterface} from "../../../interfaces/AccessControllerInterface.sol";
-import {FeeManager} from "../../dev/FeeManager.sol";
+import {AccessControllerInterface} from "../../../shared/interfaces/AccessControllerInterface.sol";
+import {FeeManager} from "../../FeeManager.sol";
 import {Common} from "../../../libraries/Common.sol";
 import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/mocks/ERC20Mock.sol";
 import {WERC20Mock} from "../../../shared/mocks/WERC20Mock.sol";
-import {FeeManager} from "../../dev/FeeManager.sol";
-import {RewardManager} from "../../dev/RewardManager.sol";
+import {FeeManager} from "../../FeeManager.sol";
+import {RewardManager} from "../../RewardManager.sol";
 
 contract BaseTest is Test {
   uint256 internal constant MAX_ORACLES = 31;
@@ -63,7 +63,7 @@ contract BaseTest is Test {
     address signerAddress;
   }
 
-  struct V0Report {
+  struct V1Report {
     // The feed ID the report has data for
     bytes32 feedId;
     // The time the median value was observed on
@@ -148,12 +148,27 @@ contract BaseTest is Test {
     return (rs, ss, bytes32(vs));
   }
 
-  function _generateEncodedBlob(
-    V0Report memory report,
+  function _encodeReport(V1Report memory report) internal pure returns (bytes memory) {
+    return
+      abi.encode(
+        report.feedId,
+        report.observationsTimestamp,
+        report.median,
+        report.bid,
+        report.ask,
+        report.blocknumberUpperBound,
+        report.upperBlockhash,
+        report.blocknumberLowerBound,
+        report.currentBlockTimestamp
+      );
+  }
+
+  function _generateV1EncodedBlob(
+    V1Report memory report,
     bytes32[3] memory reportContext,
     Signer[] memory signers
   ) internal pure returns (bytes memory) {
-    bytes memory reportBytes = abi.encode(report);
+    bytes memory reportBytes = _encodeReport(report);
     (bytes32[] memory rs, bytes32[] memory ss, bytes32 rawVs) = _generateSignerSignatures(
       reportBytes,
       reportContext,
@@ -173,7 +188,7 @@ contract BaseTest is Test {
     bytes memory onchainConfig,
     uint64 offchainConfigVersion,
     bytes memory offchainConfig
-  ) internal view returns (bytes32) {
+  ) internal pure returns (bytes32) {
     uint256 h = uint256(
       keccak256(
         abi.encode(
@@ -195,7 +210,7 @@ contract BaseTest is Test {
     return bytes32((prefix & prefixMask) | (h & ~prefixMask));
   }
 
-  function _createV0Report(
+  function _createV1Report(
     bytes32 feedId,
     uint32 observationsTimestamp,
     int192 median,
@@ -205,9 +220,9 @@ contract BaseTest is Test {
     bytes32 upperBlockhash,
     uint64 blocknumberLowerBound,
     uint32 currentBlockTimestamp
-  ) internal pure returns (V0Report memory) {
+  ) internal pure returns (V1Report memory) {
     return
-      V0Report({
+      V1Report({
         feedId: feedId,
         observationsTimestamp: observationsTimestamp,
         median: median,
@@ -243,21 +258,24 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
   uint256 internal constant DEFAULT_REPORT_LINK_FEE = 1e10;
   uint256 internal constant DEFAULT_REPORT_NATIVE_FEE = 1e12;
 
-  struct V2Report {
+  bytes32 internal v1ConfigDigest;
+  bytes32 internal v3ConfigDigest;
+
+  struct V3Report {
     // The feed ID the report has data for
     bytes32 feedId;
     // The time the median value was observed on
     uint32 observationsTimestamp;
     // The timestamp the report is valid from
     uint32 validFromTimestamp;
-    // The median value agreed in an OCR round
-    int192 benchmarkPrice;
     // The link fee
     uint192 linkFee;
     // The native fee
     uint192 nativeFee;
     // The expiry of the report
     uint32 expiresAt;
+    // The median value agreed in an OCR round
+    int192 benchmarkPrice;
     // The best bid value agreed in an OCR round
     int192 bid;
     // The best ask value agreed in an OCR round
@@ -279,6 +297,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
       bytes(""),
       new Common.AddressAndWeight[](0)
     );
+    (, , v1ConfigDigest) = s_verifier.latestConfigDetails(FEED_ID);
 
     s_verifier.setConfig(
       FEED_ID_V3,
@@ -290,6 +309,7 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
       bytes(""),
       new Common.AddressAndWeight[](0)
     );
+    (, , v3ConfigDigest) = s_verifier.latestConfigDetails(FEED_ID_V3);
 
     link = new ERC20Mock("LINK", "LINK", ADMIN, 0);
     native = new WERC20Mock();
@@ -301,26 +321,25 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     rewardManager.setFeeManager(address(feeManager));
   }
 
-  function _encodeReport(V2Report memory report) internal pure returns (bytes memory) {
+  function _encodeReport(V3Report memory report) internal pure returns (bytes memory) {
     return
       abi.encode(
         report.feedId,
         report.observationsTimestamp,
         report.validFromTimestamp,
-        report.benchmarkPrice,
-        report.linkFee,
         report.nativeFee,
+        report.linkFee,
         report.expiresAt,
+        report.benchmarkPrice,
         report.bid,
         report.ask
       );
   }
 
-  function _generateEncodedBlobWithQuote(
-    V2Report memory report,
+  function _generateV3EncodedBlob(
+    V3Report memory report,
     bytes32[3] memory reportContext,
-    Signer[] memory signers,
-    bytes memory quote
+    Signer[] memory signers
   ) internal pure returns (bytes memory) {
     bytes memory reportBytes = _encodeReport(report);
     (bytes32[] memory rs, bytes32[] memory ss, bytes32 rawVs) = _generateSignerSignatures(
@@ -328,33 +347,42 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
       reportContext,
       signers
     );
-
-    return abi.encode(reportContext, reportBytes, rs, ss, rawVs, quote);
+    return abi.encode(reportContext, reportBytes, rs, ss, rawVs);
   }
 
-  function _generateQuote(address billingAddress) internal pure returns (bytes memory) {
-    return abi.encode(billingAddress);
-  }
-
-  function _generateV2Report() internal view returns (V2Report memory) {
+  function _generateV1Report() internal view returns (V1Report memory) {
     return
-      V2Report({
+      _createV1Report(
+        FEED_ID,
+        OBSERVATIONS_TIMESTAMP,
+        MEDIAN,
+        BID,
+        ASK,
+        BLOCKNUMBER_UPPER_BOUND,
+        bytes32(blockhash(BLOCKNUMBER_UPPER_BOUND)),
+        BLOCKNUMBER_LOWER_BOUND,
+        uint32(block.timestamp)
+      );
+  }
+
+  function _generateV3Report() internal view returns (V3Report memory) {
+    return
+      V3Report({
         feedId: FEED_ID_V3,
         observationsTimestamp: OBSERVATIONS_TIMESTAMP,
         validFromTimestamp: uint32(block.timestamp),
-        benchmarkPrice: MEDIAN,
-        linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
         nativeFee: uint192(DEFAULT_REPORT_NATIVE_FEE),
+        linkFee: uint192(DEFAULT_REPORT_LINK_FEE),
         expiresAt: uint32(block.timestamp),
+        benchmarkPrice: MEDIAN,
         bid: BID,
         ask: ASK
       });
   }
 
-  function _generateReportContext(bytes32 feedId) internal view returns (bytes32[3] memory) {
-    (, , bytes32 latestConfigDigest) = s_verifier.latestConfigDetails(feedId);
+  function _generateReportContext(bytes32 configDigest) internal pure returns (bytes32[3] memory) {
     bytes32[3] memory reportContext;
-    reportContext[0] = latestConfigDigest;
+    reportContext[0] = configDigest;
     reportContext[1] = bytes32(abi.encode(uint32(5), uint8(1)));
     return reportContext;
   }
@@ -375,11 +403,25 @@ contract BaseTestWithConfiguredVerifierAndFeeManager is BaseTest {
     changePrank(originalAddr);
   }
 
-  function _verify(bytes memory payload, uint256 wrappedNativeValue, address sender) internal {
+  function _verify(bytes memory payload, address feeAddress, uint256 wrappedNativeValue, address sender) internal {
     address originalAddr = msg.sender;
     changePrank(sender);
 
-    s_verifierProxy.verify{value: wrappedNativeValue}(payload);
+    s_verifierProxy.verify{value: wrappedNativeValue}(payload, abi.encode(feeAddress));
+
+    changePrank(originalAddr);
+  }
+
+  function _verifyBulk(
+    bytes[] memory payload,
+    address feeAddress,
+    uint256 wrappedNativeValue,
+    address sender
+  ) internal {
+    address originalAddr = msg.sender;
+    changePrank(sender);
+
+    s_verifierProxy.verifyBulk{value: wrappedNativeValue}(payload, abi.encode(feeAddress));
 
     changePrank(originalAddr);
   }

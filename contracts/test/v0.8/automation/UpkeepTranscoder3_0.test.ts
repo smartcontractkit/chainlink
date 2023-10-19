@@ -164,9 +164,8 @@ async function deployLegacyRegistry1_2(
 ) {
   const mock = await upkeepMockFactory.deploy()
   // @ts-ignore bug in autogen file
-  const keeperRegistryFactory = await ethers.getContractFactory(
-    'KeeperRegistry1_2',
-  )
+  const keeperRegistryFactory =
+    await ethers.getContractFactory('KeeperRegistry1_2')
   transcoder = await upkeepTranscoderFactory.connect(owner).deploy()
   const legacyRegistry = await keeperRegistryFactory
     .connect(owner)

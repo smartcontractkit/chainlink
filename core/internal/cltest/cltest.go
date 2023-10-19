@@ -213,7 +213,7 @@ func NewEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient evmclient
 	t.Helper()
 	lggr := logger.TestLogger(t)
 	ge := config.EVM().GasEstimator()
-	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(ge, ge.BlockHistory(), lggr), ge.EIP1559DynamicFees())
+	estimator := gas.NewWrappedEvmEstimator(gas.NewFixedPriceEstimator(ge, ge.BlockHistory(), lggr), ge.EIP1559DynamicFees(), nil)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ks, estimator)
 	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient), txmgr.NewEvmTxmConfig(config.EVM()), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), config.Database(), ks, txBuilder, lggr)
 	ec.SetResumeCallback(fn)
@@ -378,37 +378,39 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 
 		}
 	}
-	if ethClient == nil {
-		ethClient = evmclient.NewNullClient(cfg.DefaultChainID(), lggr)
-	}
 
 	keyStore := keystore.New(db, utils.FastScryptParams, lggr, cfg.Database())
 
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
-	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"))
+	loopRegistry := plugins.NewLoopRegistry(lggr)
 
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:       lggr,
-		DB:           db,
-		QConfig:      cfg.Database(),
 		LoopRegistry: loopRegistry,
 		GRPCOpts:     loop.GRPCOpts{},
 	}
 
-	chainId := ethClient.ConfiguredChainID()
 	evmOpts := chainlink.EVMFactoryConfig{
-		RelayerConfig: evm.RelayerConfig{
+		ChainOpts: evm.ChainOpts{
 			AppConfig:        cfg,
 			EventBroadcaster: eventBroadcaster,
 			MailMon:          mailMon,
-			GenEthClient: func(_ *big.Int) evmclient.Client {
-				if chainId.Cmp(cfg.DefaultChainID()) != 0 {
-					t.Fatalf("expected eth client ChainID %d to match configured DefaultChainID %d", chainId, cfg.DefaultChainID())
-				}
-				return ethClient
-			},
+			DB:               db,
 		},
 		CSAETHKeystore: keyStore,
+	}
+
+	if cfg.EVMEnabled() {
+		if ethClient == nil {
+			ethClient = evmclient.NewNullClient(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), lggr)
+		}
+		chainId := ethClient.ConfiguredChainID()
+		evmOpts.GenEthClient = func(_ *big.Int) evmclient.Client {
+			if chainId.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
+				t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainId, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+			}
+			return ethClient
+		}
 	}
 
 	testCtx := testutils.Context(t)
@@ -420,6 +422,8 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 			Keystore:         keyStore.Cosmos(),
 			CosmosConfigs:    cfg.CosmosConfigs(),
 			EventBroadcaster: eventBroadcaster,
+			DB:               db,
+			QConfig:          cfg.Database(),
 		}
 		initOps = append(initOps, chainlink.InitCosmos(testCtx, relayerFactory, cosmosCfg))
 	}
@@ -530,15 +534,19 @@ func NewEthMocksWithTransactionsOnBlocksAssertions(t testing.TB) *evmclimocks.Cl
 	c.On("HeadByHash", mock.Anything, h0.Hash).Maybe().Return(h0, nil)
 	c.On("BatchCallContext", mock.Anything, mock.Anything).Maybe().Return(nil).Run(func(args mock.Arguments) {
 		elems := args.Get(1).([]rpc.BatchElem)
-		elems[0].Result = &evmtypes.Block{
-			Number:       42,
-			Hash:         utils.NewHash(),
-			Transactions: LegacyTransactionsFromGasPrices(9001, 9002),
+		if len(elems) > 0 {
+			elems[0].Result = &evmtypes.Block{
+				Number:       42,
+				Hash:         utils.NewHash(),
+				Transactions: LegacyTransactionsFromGasPrices(9001, 9002),
+			}
 		}
-		elems[1].Result = &evmtypes.Block{
-			Number:       41,
-			Hash:         utils.NewHash(),
-			Transactions: LegacyTransactionsFromGasPrices(9003, 9004),
+		if len(elems) > 1 {
+			elems[1].Result = &evmtypes.Block{
+				Number:       41,
+				Hash:         utils.NewHash(),
+				Transactions: LegacyTransactionsFromGasPrices(9003, 9004),
+			}
 		}
 	})
 	c.On("ConfiguredChainID").Maybe().Return(&FixtureChainID)
@@ -588,10 +596,10 @@ func (ta *TestApplication) Stop() error {
 	return err
 }
 
-func (ta *TestApplication) MustSeedNewSession(roleFixtureUserAPIEmail string) (id string) {
+func (ta *TestApplication) MustSeedNewSession(email string) (id string) {
 	session := NewSession()
-	ta.Logger.Infof("TestApplication creating session (id: %s, email: %s, last used: %s)", session.ID, roleFixtureUserAPIEmail, session.LastUsed.String())
-	err := ta.GetSqlxDB().Get(&id, `INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id`, session.ID, roleFixtureUserAPIEmail, session.LastUsed)
+	ta.Logger.Infof("TestApplication creating session (id: %s, email: %s, last used: %s)", session.ID, email, session.LastUsed.String())
+	err := ta.GetSqlxDB().Get(&id, `INSERT INTO sessions (id, email, last_used, created_at) VALUES ($1, $2, $3, NOW()) RETURNING id`, session.ID, email, session.LastUsed)
 	require.NoError(ta.t, err)
 	return id
 }
@@ -603,10 +611,29 @@ func (ta *TestApplication) Import(content string) {
 	require.NoError(ta.t, err)
 }
 
-func (ta *TestApplication) NewHTTPClient(roleFixtureUserAPIEmail string) HTTPClientCleaner {
+type User struct {
+	Email string
+	Role  clsessions.UserRole
+}
+
+func (ta *TestApplication) NewHTTPClient(user *User) HTTPClientCleaner {
 	ta.t.Helper()
 
-	sessionID := ta.MustSeedNewSession(roleFixtureUserAPIEmail)
+	if user.Email == "" {
+		user.Email = fmt.Sprintf("%s@chainlink.test", uuid.New())
+	}
+
+	if user.Role == "" {
+		user.Role = clsessions.UserRoleAdmin
+	}
+
+	u, err := clsessions.NewUser(user.Email, Password, user.Role)
+	require.NoError(ta.t, err)
+
+	err = ta.SessionORM().CreateUser(&u)
+	require.NoError(ta.t, err)
+
+	sessionID := ta.MustSeedNewSession(user.Email)
 
 	return HTTPClientCleaner{
 		HTTPClient: NewMockAuthenticatedHTTPClient(ta.Logger, ta.NewClientOpts(), sessionID),
@@ -620,7 +647,7 @@ func (ta *TestApplication) NewClientOpts() cmd.ClientOpts {
 
 // NewShellAndRenderer creates a new cmd.Shell for the test application
 func (ta *TestApplication) NewShellAndRenderer() (*cmd.Shell, *RendererMock) {
-	sessionID := ta.MustSeedNewSession(APIEmailAdmin)
+	hc := ta.NewHTTPClient(&User{})
 	r := &RendererMock{}
 	lggr := logger.TestLogger(ta.t)
 	client := &cmd.Shell{
@@ -630,7 +657,7 @@ func (ta *TestApplication) NewShellAndRenderer() (*cmd.Shell, *RendererMock) {
 		AppFactory:                     seededAppFactory{ta.ChainlinkApplication},
 		FallbackAPIInitializer:         NewMockAPIInitializer(ta.t),
 		Runner:                         EmptyRunner{},
-		HTTP:                           NewMockAuthenticatedHTTPClient(ta.Logger, ta.NewClientOpts(), sessionID),
+		HTTP:                           hc.HTTPClient,
 		CookieAuthenticator:            MockCookieAuthenticator{t: ta.t},
 		FileSessionRequestBuilder:      &MockSessionRequestBuilder{},
 		PromptingSessionRequestBuilder: &MockSessionRequestBuilder{},
@@ -782,7 +809,7 @@ func ParseJSONAPIResponseMetaCount(input []byte) (int, error) {
 func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job {
 	t.Helper()
 
-	client := app.NewHTTPClient(APIEmailAdmin)
+	client := app.NewHTTPClient(&User{})
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBuffer(request))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
@@ -796,7 +823,7 @@ func CreateJobViaWeb(t testing.TB, app *TestApplication, request []byte) job.Job
 func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresenters.JobResource {
 	t.Helper()
 
-	client := app.NewHTTPClient(APIEmailAdmin)
+	client := app.NewHTTPClient(&User{})
 	resp, cleanup := client.Post("/v2/jobs", bytes.NewBufferString(spec))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusOK)
@@ -810,7 +837,7 @@ func CreateJobViaWeb2(t testing.TB, app *TestApplication, spec string) webpresen
 func DeleteJobViaWeb(t testing.TB, app *TestApplication, jobID int32) {
 	t.Helper()
 
-	client := app.NewHTTPClient(APIEmailAdmin)
+	client := app.NewHTTPClient(&User{})
 	resp, cleanup := client.Delete(fmt.Sprintf("/v2/jobs/%v", jobID))
 	defer cleanup()
 	AssertServerResponse(t, resp, http.StatusNoContent)
@@ -859,7 +886,7 @@ func CreateJobRunViaUser(
 	t.Helper()
 
 	bodyBuf := bytes.NewBufferString(body)
-	client := app.NewHTTPClient(APIEmailAdmin)
+	client := app.NewHTTPClient(&User{})
 	resp, cleanup := client.Post("/v2/jobs/"+jobID.String()+"/runs", bodyBuf)
 	defer cleanup()
 	AssertServerResponse(t, resp, 200)
@@ -878,7 +905,7 @@ func CreateExternalInitiatorViaWeb(
 ) *webpresenters.ExternalInitiatorAuthentication {
 	t.Helper()
 
-	client := app.NewHTTPClient(APIEmailAdmin)
+	client := app.NewHTTPClient(&User{})
 	resp, cleanup := client.Post(
 		"/v2/external_initiators",
 		bytes.NewBufferString(payload),
@@ -983,7 +1010,7 @@ func AssertEthTxAttemptCountStays(t testing.TB, db *sqlx.DB, want int) []int64 {
 	var err error
 	g.Consistently(func() []int64 {
 		txaIds = make([]int64, 0)
-		err = db.Select(&txaIds, `SELECT ID FROM eth_tx_attempts ORDER BY id ASC`)
+		err = db.Select(&txaIds, `SELECT ID FROM evm.tx_attempts ORDER BY id ASC`)
 		assert.NoError(t, err)
 		return txaIds
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.HaveLen(want))
@@ -1286,7 +1313,7 @@ func MockApplicationEthCalls(t *testing.T, app *TestApplication, ethClient *evmc
 	// Start
 	ethClient.On("Dial", mock.Anything).Return(nil)
 	ethClient.On("SubscribeNewHead", mock.Anything, mock.Anything).Return(sub, nil).Maybe()
-	ethClient.On("ConfiguredChainID", mock.Anything).Return(app.GetConfig().DefaultChainID(), nil)
+	ethClient.On("ConfiguredChainID", mock.Anything).Return(evmtest.MustGetDefaultChainID(t, app.GetConfig().EVMConfigs()), nil)
 	ethClient.On("PendingNonceAt", mock.Anything, mock.Anything).Return(uint64(0), nil).Maybe()
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(nil, nil).Maybe()
 	ethClient.On("Close").Return().Maybe()
@@ -1536,7 +1563,7 @@ func AssertCountStays(t testing.TB, db *sqlx.DB, tableName string, want int64) {
 	var count int64
 	var err error
 	g.Consistently(func() int64 {
-		err = db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %q`, tableName))
+		err = db.Get(&count, fmt.Sprintf(`SELECT count(*) FROM %s`, tableName))
 		assert.NoError(t, err)
 		return count
 	}, AssertNoActionTimeout, DBPollingInterval).Should(gomega.Equal(want))
@@ -1634,10 +1661,8 @@ func FlagSetApplyFromAction(action interface{}, flagSet *flag.FlagSet, parentCom
 	for _, command := range app.Commands {
 		flags := recursiveFindFlagsWithName(actionFuncName, command, parentCommand, foundName)
 
-		if flags != nil {
-			for _, flag := range flags {
-				flag.Apply(flagSet)
-			}
+		for _, flag := range flags {
+			flag.Apply(flagSet)
 		}
 	}
 

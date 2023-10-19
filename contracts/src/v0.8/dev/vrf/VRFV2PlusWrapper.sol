@@ -19,9 +19,10 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   event WrapperFulfillmentFailed(uint256 indexed requestId, address indexed consumer);
 
   error LinkAlreadySet();
+  error FailedToTransferLink();
 
   LinkTokenInterface public s_link;
-  AggregatorV3Interface public s_linkEthFeed;
+  AggregatorV3Interface public s_linkNativeFeed;
   ExtendedVRFCoordinatorV2PlusInterface public immutable COORDINATOR;
   uint256 public immutable SUBSCRIPTION_ID;
   /// @dev this is the size of a VRF v2 fulfillment's calldata abi-encoded in bytes.
@@ -64,7 +65,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
 
   // s_fulfillmentFlatFeeLinkPPM is the flat fee in millionths of LINK that VRFCoordinatorV2
   // charges.
-  uint32 private s_fulfillmentFlatFeeEthPPM;
+  uint32 private s_fulfillmentFlatFeeNativePPM;
 
   // Other configuration
 
@@ -96,12 +97,12 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   }
   mapping(uint256 => Callback) /* requestID */ /* callback */ public s_callbacks;
 
-  constructor(address _link, address _linkEthFeed, address _coordinator) VRFConsumerBaseV2Plus(_coordinator) {
+  constructor(address _link, address _linkNativeFeed, address _coordinator) VRFConsumerBaseV2Plus(_coordinator) {
     if (_link != address(0)) {
       s_link = LinkTokenInterface(_link);
     }
-    if (_linkEthFeed != address(0)) {
-      s_linkEthFeed = AggregatorV3Interface(_linkEthFeed);
+    if (_linkNativeFeed != address(0)) {
+      s_linkNativeFeed = AggregatorV3Interface(_linkNativeFeed);
     }
     COORDINATOR = ExtendedVRFCoordinatorV2PlusInterface(_coordinator);
 
@@ -124,11 +125,11 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
   }
 
   /**
-   * @notice set the link eth feed to be used by this wrapper
-   * @param linkEthFeed address of the link eth feed
+   * @notice set the link native feed to be used by this wrapper
+   * @param linkNativeFeed address of the link native feed
    */
-  function setLinkEthFeed(address linkEthFeed) external onlyOwner {
-    s_linkEthFeed = AggregatorV3Interface(linkEthFeed);
+  function setLinkNativeFeed(address linkNativeFeed) external onlyOwner {
+    s_linkNativeFeed = AggregatorV3Interface(linkNativeFeed);
   }
 
   /**
@@ -172,7 +173,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // Get other configuration from coordinator
     (, , s_stalenessSeconds, ) = COORDINATOR.s_config();
     s_fallbackWeiPerUnitLink = COORDINATOR.s_fallbackWeiPerUnitLink();
-    (s_fulfillmentFlatFeeLinkPPM, s_fulfillmentFlatFeeEthPPM) = COORDINATOR.s_feeConfig();
+    (s_fulfillmentFlatFeeLinkPPM, s_fulfillmentFlatFeeNativePPM) = COORDINATOR.s_feeConfig();
   }
 
   /**
@@ -287,7 +288,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     // feeWithPremium is the fee after the percentage premium is applied
     uint256 feeWithPremium = (baseFee * (s_wrapperPremiumPercentage + 100)) / 100;
     // feeWithFlatFee is the fee after the flat fee is applied on top of the premium
-    uint256 feeWithFlatFee = feeWithPremium + (1e12 * uint256(s_fulfillmentFlatFeeEthPPM));
+    uint256 feeWithFlatFee = feeWithPremium + (1e12 * uint256(s_fulfillmentFlatFeeNativePPM));
 
     return feeWithFlatFee;
   }
@@ -391,7 +392,9 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
    * @param _amount is the amount of LINK in Juels that should be withdrawn.
    */
   function withdraw(address _recipient, uint256 _amount) external onlyOwner {
-    s_link.transfer(_recipient, _amount);
+    if (!s_link.transfer(_recipient, _amount)) {
+      revert FailedToTransferLink();
+    }
   }
 
   /**
@@ -439,7 +442,7 @@ contract VRFV2PlusWrapper is ConfirmedOwner, TypeAndVersionInterface, VRFConsume
     bool staleFallback = s_stalenessSeconds > 0;
     uint256 timestamp;
     int256 weiPerUnitLink;
-    (, weiPerUnitLink, , timestamp, ) = s_linkEthFeed.latestRoundData();
+    (, weiPerUnitLink, , timestamp, ) = s_linkNativeFeed.latestRoundData();
     // solhint-disable-next-line not-rely-on-time
     if (staleFallback && s_stalenessSeconds < block.timestamp - timestamp) {
       weiPerUnitLink = s_fallbackWeiPerUnitLink;
@@ -513,5 +516,5 @@ interface ExtendedVRFCoordinatorV2PlusInterface is IVRFCoordinatorV2Plus {
 
   function s_fallbackWeiPerUnitLink() external view returns (int256);
 
-  function s_feeConfig() external view returns (uint32 fulfillmentFlatFeeLinkPPM, uint32 fulfillmentFlatFeeEthPPM);
+  function s_feeConfig() external view returns (uint32 fulfillmentFlatFeeLinkPPM, uint32 fulfillmentFlatFeeNativePPM);
 }

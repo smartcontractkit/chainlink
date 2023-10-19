@@ -10,7 +10,9 @@ import (
 var ErrCosmosNotEnabled = errChainDisabled{name: "Cosmos", tomlKey: "Cosmos.Enabled"}
 
 func NewCosmosNodesController(app chainlink.Application) NodesController {
+	scopedNodeStatuser := NewNetworkScopedNodeStatuser(app.GetRelayers(), relay.Cosmos)
+
 	return newNodesController[presenters.CosmosNodeResource](
-		app.GetRelayers().List(chainlink.FilterRelayersByType(relay.Cosmos)), ErrCosmosNotEnabled, presenters.NewCosmosNodeResource, app.GetAuditLogger(),
+		scopedNodeStatuser, ErrCosmosNotEnabled, presenters.NewCosmosNodeResource, app.GetAuditLogger(),
 	)
 }

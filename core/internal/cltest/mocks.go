@@ -27,7 +27,6 @@ import (
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/robfig/cron/v3"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // MockSubscription a mock subscription
@@ -424,14 +423,11 @@ func NewLegacyChainsWithMockChain(t testing.TB, ethClient evmclient.Client, cfg 
 	ch.On("ID").Return(scopedCfg.EVM().ChainID())
 	ch.On("Config").Return(scopedCfg)
 
-	return NewLegacyChainsWithChain(t, ch, cfg)
+	return NewLegacyChainsWithChain(ch, cfg)
 
 }
 
-func NewLegacyChainsWithChain(t testing.TB, ch evm.Chain, cfg evm.AppConfig) evm.LegacyChainContainer {
+func NewLegacyChainsWithChain(ch evm.Chain, cfg evm.AppConfig) evm.LegacyChainContainer {
 	m := map[string]evm.Chain{ch.ID().String(): ch}
-	legacyChains, err := evm.NewLegacyChains(cfg, m)
-	require.NoError(t, err)
-	legacyChains.SetDefault(ch)
-	return legacyChains
+	return evm.NewLegacyChains(m, cfg.EVMConfigs())
 }

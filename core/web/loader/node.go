@@ -20,15 +20,15 @@ func (b *nodeBatcher) loadByChainIDs(ctx context.Context, keys dataloader.Keys) 
 	keyOrder := make(map[string]int, len(keys))
 	// Collect the keys to search for
 	// note backward compatibility -- this only ever supported evm chains
-	var evmrelayIdStrs []string
+	evmrelayIDs := make([]relay.ID, 0, len(keys))
 
 	for ix, key := range keys {
 		rid := relay.ID{Network: relay.EVM, ChainID: relay.ChainID(key.String())}
-		evmrelayIdStrs = append(evmrelayIdStrs, rid.String())
+		evmrelayIDs = append(evmrelayIDs, rid)
 		keyOrder[key.String()] = ix
 	}
 
-	allNodes, _, err := b.app.GetRelayers().NodeStatuses(ctx, 0, -1, evmrelayIdStrs...)
+	allNodes, _, err := b.app.GetRelayers().NodeStatuses(ctx, 0, -1, evmrelayIDs...)
 	if err != nil {
 		return []*dataloader.Result{{Data: nil, Error: err}}
 	}

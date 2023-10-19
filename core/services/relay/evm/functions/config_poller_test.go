@@ -21,6 +21,7 @@ import (
 	ocrtypes2 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	functionsConfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
@@ -89,6 +90,8 @@ func runTest(t *testing.T, pluginType functions.FunctionsPluginType, expectedDig
 	_, config, err := configPoller.LatestConfigDetails(testutils.Context(t))
 	require.NoError(t, err)
 	require.Equal(t, ocrtypes2.ConfigDigest{}, config)
+	_, err = configPoller.LatestConfig(testutils.Context(t), 0)
+	require.Error(t, err)
 
 	pluginConfig := &functionsConfig.ReportingPluginConfigWrapper{
 		Config: &functionsConfig.ReportingPluginConfig{
@@ -168,6 +171,9 @@ func setFunctionsConfig(t *testing.T, pluginConfig *functionsConfig.ReportingPlu
 	pluginConfigBytes, err := functionsConfig.EncodeReportingPluginConfig(pluginConfig)
 	require.NoError(t, err)
 
+	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(big.NewInt(0), big.NewInt(10))
+	require.NoError(t, err)
+
 	signers, transmitters, threshold, onchainConfig, offchainConfigVersion, offchainConfig, err := confighelper2.ContractSetConfigArgsForTests(
 		2*time.Second,        // deltaProgress
 		1*time.Second,        // deltaResend
@@ -184,7 +190,7 @@ func setFunctionsConfig(t *testing.T, pluginConfig *functionsConfig.ReportingPlu
 		50*time.Millisecond,
 		50*time.Millisecond,
 		1, // faults
-		nil,
+		onchainConfig,
 	)
 
 	require.NoError(t, err)

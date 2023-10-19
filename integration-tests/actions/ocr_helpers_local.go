@@ -2,18 +2,20 @@ package actions
 
 import (
 	"fmt"
+	"math/big"
+	"strings"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"golang.org/x/sync/errgroup"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
-	"golang.org/x/sync/errgroup"
-	"math/big"
-	"strings"
 )
 
 /*
@@ -140,6 +142,7 @@ func CreateOCRJobsLocal(
 	workerNodes []*client.ChainlinkClient,
 	mockValue int,
 	mockserver *ctfClient.MockserverClient,
+	evmChainID string,
 ) error {
 	for _, ocrInstance := range ocrInstances {
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -150,6 +153,7 @@ func CreateOCRJobsLocal(
 		bootstrapSpec := &client.OCRBootstrapJobSpec{
 			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
 			ContractAddress: ocrInstance.Address(),
+			EVMChainID:      evmChainID,
 			P2PPeerID:       bootstrapP2PId,
 			IsBootstrapPeer: true,
 		}
@@ -194,6 +198,7 @@ func CreateOCRJobsLocal(
 			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode}
 			ocrSpec := &client.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
+				EVMChainID:         evmChainID,
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
 				KeyBundleID:        nodeOCRKeyId,
@@ -266,13 +271,14 @@ func TrackForwarderLocal(
 	chainClient blockchain.EVMClient,
 	authorizedForwarder common.Address,
 	node *client.ChainlinkClient,
+	logger zerolog.Logger,
 ) error {
 	chainID := chainClient.GetChainID()
 	_, _, err := node.TrackForwarder(chainID, authorizedForwarder)
 	if err != nil {
 		return errors.Wrap(err, "failed to track forwarder")
 	}
-	log.Info().Str("NodeURL", node.Config.URL).
+	logger.Info().Str("NodeURL", node.Config.URL).
 		Str("ForwarderAddress", authorizedForwarder.Hex()).
 		Str("ChaindID", chainID.String()).
 		Msg("Forwarder tracked")
@@ -353,6 +359,7 @@ func CreateOCRJobsWithForwarderLocal(
 	workerNodes []*client.ChainlinkClient,
 	mockValue int,
 	mockserver *ctfClient.MockserverClient,
+	evmChainID string,
 ) error {
 	for _, ocrInstance := range ocrInstances {
 		bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
@@ -363,6 +370,7 @@ func CreateOCRJobsWithForwarderLocal(
 		bootstrapSpec := &client.OCRBootstrapJobSpec{
 			Name:            fmt.Sprintf("bootstrap-%s", uuid.New().String()),
 			ContractAddress: ocrInstance.Address(),
+			EVMChainID:      evmChainID,
 			P2PPeerID:       bootstrapP2PId,
 			IsBootstrapPeer: true,
 		}
@@ -407,6 +415,7 @@ func CreateOCRJobsWithForwarderLocal(
 			bootstrapPeers := []*client.ChainlinkClient{bootstrapNode}
 			ocrSpec := &client.OCRTaskJobSpec{
 				ContractAddress:    ocrInstance.Address(),
+				EVMChainID:         evmChainID,
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
 				KeyBundleID:        nodeOCRKeyId,

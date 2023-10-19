@@ -109,15 +109,9 @@ func (s *Shell) errorOut(err error) cli.ExitCoder {
 func (s *Shell) configExitErr(validateFn func() error) cli.ExitCoder {
 	err := validateFn()
 	if err != nil {
-		if err.Error() != "invalid secrets: Database.AllowSimplePasswords: invalid value (true): insecure configs are not allowed on secure builds" {
-			fmt.Println("Invalid configuration:", err)
-			fmt.Println()
-			return s.errorOut(errors.New("invalid configuration"))
-		} else {
-			fmt.Printf("Notification for upcoming configuration change: %v\n", err)
-			fmt.Println("This configuration will be disallowed in future production releases.")
-			fmt.Println()
-		}
+		fmt.Println("Invalid configuration:", err)
+		fmt.Println()
+		return s.errorOut(errors.New("invalid configuration"))
 	}
 	return nil
 }
@@ -134,6 +128,11 @@ type ChainlinkAppFactory struct{}
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, db *sqlx.DB) (app chainlink.Application, err error) {
 	initGlobals(cfg.Prometheus())
 
+	err = migrate.SetMigrationENVVars(cfg)
+	if err != nil {
+		return nil, err
+	}
+
 	err = handleNodeVersioning(db, appLggr, cfg.RootDir(), cfg.Database(), cfg.WebServer().HTTPPort())
 	if err != nil {
 		return nil, err
@@ -144,20 +143,18 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	dbListener := cfg.Database().Listener()
 	eventBroadcaster := pg.NewEventBroadcaster(cfg.Database().URL(), dbListener.MinReconnectInterval(), dbListener.MaxReconnectDuration(), appLggr, cfg.AppID())
-	loopRegistry := plugins.NewLoopRegistry(appLggr.Named("LoopRegistry"))
+	loopRegistry := plugins.NewLoopRegistry(appLggr)
 
 	// create the relayer-chain interoperators from application configuration
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:       appLggr,
-		DB:           db,
-		QConfig:      cfg.Database(),
 		LoopRegistry: loopRegistry,
 		GRPCOpts:     grpcOpts,
 	}
 
 	evmFactoryCfg := chainlink.EVMFactoryConfig{
 		CSAETHKeystore: keyStore,
-		RelayerConfig:  evm.RelayerConfig{AppConfig: cfg, EventBroadcaster: eventBroadcaster, MailMon: mailMon},
+		ChainOpts:      evm.ChainOpts{AppConfig: cfg, EventBroadcaster: eventBroadcaster, MailMon: mailMon, DB: db},
 	}
 	// evm always enabled for backward compatibility
 	// TODO BCF-2510 this needs to change in order to clear the path for EVM extraction

@@ -517,7 +517,7 @@ func (ec *Confirmer[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) bat
 		}
 	}
 
-	lggr := ec.lggr.Named("batchFetchReceipts").With("blockNum", blockNum)
+	lggr := ec.lggr.Named("BatchFetchReceipts").With("blockNum", blockNum)
 
 	txReceipts, txErrs, err := ec.client.BatchGetReceipts(ctx, attempts)
 	if err != nil {

@@ -1,8 +1,10 @@
 package functions
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"sync/atomic"
@@ -99,6 +101,9 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	var rs [][32]byte
 	var ss [][32]byte
 	var vs [32]byte
+	if len(signatures) > 32 {
+		return errors.New("too many signatures, maximum is 32")
+	}
 	for i, as := range signatures {
 		r, s, v, err := evmutil.SplitSignature(as.Signature)
 		if err != nil {
@@ -134,9 +139,20 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 		if len(requests[0].CoordinatorContract) != common.AddressLength {
 			return fmt.Errorf("FunctionsContractTransmitter: incorrect length of CoordinatorContract field: %d", len(requests[0].CoordinatorContract))
 		}
-		// NOTE: this is incorrect if batch contains requests destined for different contracts (unlikely)
-		// it will be fixed when we get rid of batching
 		destinationContract.SetBytes(requests[0].CoordinatorContract)
+		if destinationContract == (common.Address{}) {
+			return errors.New("FunctionsContractTransmitter: destination coordinator contract is zero")
+		}
+		// Sanity check - every report should contain requests with the same coordinator contract.
+		for _, req := range requests[1:] {
+			if !bytes.Equal(req.CoordinatorContract, destinationContract.Bytes()) {
+				oc.lggr.Errorw("FunctionsContractTransmitter: non-uniform coordinator addresses in a batch - still sending to a single destination",
+					"requestID", hex.EncodeToString(req.RequestID),
+					"destinationContract", destinationContract,
+					"requestCoordinator", hex.EncodeToString(req.CoordinatorContract),
+				)
+			}
+		}
 		oc.lggr.Debugw("FunctionsContractTransmitter: ready", "nRequests", len(requests), "coordinatorContract", destinationContract.Hex())
 	} else {
 		return fmt.Errorf("unsupported contract version: %d", oc.contractVersion)
@@ -168,6 +184,9 @@ func parseTransmitted(log []byte) ([32]byte, uint32, error) {
 	transmitted, err := args.Unpack(log)
 	if err != nil {
 		return [32]byte{}, 0, err
+	}
+	if len(transmitted) < 2 {
+		return [32]byte{}, 0, errors.New("transmitted event log has too few arguments")
 	}
 	configDigest := *abi.ConvertType(transmitted[0], new([32]byte)).(*[32]byte)
 	epoch := *abi.ConvertType(transmitted[1], new(uint32)).(*uint32)

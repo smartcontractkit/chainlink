@@ -80,6 +80,7 @@ type NodeKeys struct {
 	OCR2OnchainPublicKey  string // ocr2on_evm_<key>
 	OCR2OffchainPublicKey string // ocr2off_evm_<key>
 	OCR2ConfigPublicKey   string // ocr2cfg_evm_<key>
+	CSAPublicKey          string
 }
 
 type orc2drOracleConfig struct {

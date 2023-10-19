@@ -18,13 +18,13 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver"
 	mockservercfg "github.com/smartcontractkit/chainlink-env/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 	"github.com/smartcontractkit/chainlink/integration-tests/testsetups"
 )
 
@@ -44,7 +44,7 @@ var keeperDefaultRegistryConfig = contracts.KeeperRegistrySettings{
 }
 
 func TestKeeperPerformance(t *testing.T) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	testEnvironment, chainClient, chainlinkNodes, contractDeployer, linkToken := setupKeeperTest(t, "basic-smoke")
 	if testEnvironment.WillUseRemoteRunner() {
 		return
@@ -67,7 +67,7 @@ func TestKeeperPerformance(t *testing.T) {
 			// Not the last node, hence not all nodes started profiling yet.
 			return
 		}
-		actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{})
+		actions.CreateKeeperJobs(t, chainlinkNodes, registry, contracts.OCRv2Config{}, chainClient.GetChainID().String())
 		err := chainClient.WaitForEvents()
 		require.NoError(t, err, "Error creating keeper jobs")
 
@@ -173,9 +173,10 @@ PerformGasOverhead = 150_000`
 		return testEnvironment, nil, nil, nil, nil
 	}
 
-	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
+	l := logging.GetTestLogger(t)
+	chainClient, err := blockchain.NewEVMClient(network, testEnvironment, l)
 	require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Deploying contracts shouldn't fail")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Connecting to chainlink nodes shouldn't fail")

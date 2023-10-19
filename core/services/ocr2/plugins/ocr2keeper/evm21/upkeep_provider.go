@@ -26,7 +26,7 @@ func NewUpkeepProvider(activeUpkeeps ActiveUpkeepList, bs *BlockSubscriber, lp l
 	}
 }
 
-func (p *upkeepProvider) GetActiveUpkeeps(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
+func (p *upkeepProvider) GetActiveUpkeeps(_ context.Context) ([]ocr2keepers.UpkeepPayload, error) {
 	latestBlock := p.bs.latestBlock.Load()
 	if latestBlock == nil {
 		return nil, fmt.Errorf("no latest block found when fetching active upkeeps")
@@ -35,7 +35,7 @@ func (p *upkeepProvider) GetActiveUpkeeps(ctx context.Context) ([]ocr2keepers.Up
 	for _, uid := range p.activeUpkeeps.View(ocr2keepers.ConditionTrigger) {
 		payload, err := core.NewUpkeepPayload(
 			uid,
-			ocr2keepers.NewTrigger(ocr2keepers.BlockNumber(latestBlock.Number), latestBlock.Hash),
+			ocr2keepers.NewTrigger(latestBlock.Number, latestBlock.Hash),
 			nil,
 		)
 		if err != nil {

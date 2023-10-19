@@ -2,8 +2,10 @@ package contracts
 
 import (
 	"errors"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/rs/zerolog"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
@@ -12,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 )
 
 // ContractLoader is an interface for abstracting the contract loading methods across network implementations
@@ -24,23 +28,27 @@ type ContractLoader interface {
 	LoadFunctionsCoordinator(addr string) (FunctionsCoordinator, error)
 	LoadFunctionsRouter(addr string) (FunctionsRouter, error)
 	LoadFunctionsLoadTestClient(addr string) (FunctionsLoadTestClient, error)
+
+	// Mercury
+	LoadMercuryVerifier(addr string) (MercuryVerifier, error)
+	LoadMercuryVerifierProxy(addr string) (MercuryVerifierProxy, error)
 }
 
 // NewContractLoader returns an instance of a contract Loader based on the client type
-func NewContractLoader(bcClient blockchain.EVMClient) (ContractLoader, error) {
+func NewContractLoader(bcClient blockchain.EVMClient, logger zerolog.Logger) (ContractLoader, error) {
 	switch clientImpl := bcClient.Get().(type) {
 	case *blockchain.EthereumClient:
-		return NewEthereumContractLoader(clientImpl), nil
+		return NewEthereumContractLoader(clientImpl, logger), nil
 	case *blockchain.KlaytnClient:
-		return &KlaytnContractLoader{NewEthereumContractLoader(clientImpl)}, nil
+		return &KlaytnContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	case *blockchain.MetisClient:
-		return &MetisContractLoader{NewEthereumContractLoader(clientImpl)}, nil
+		return &MetisContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	case *blockchain.ArbitrumClient:
-		return &ArbitrumContractLoader{NewEthereumContractLoader(clientImpl)}, nil
+		return &ArbitrumContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	case *blockchain.PolygonClient:
-		return &PolygonContractLoader{NewEthereumContractLoader(clientImpl)}, nil
+		return &PolygonContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	case *blockchain.OptimismClient:
-		return &OptimismContractLoader{NewEthereumContractLoader(clientImpl)}, nil
+		return &OptimismContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract Loader, register blockchain client in NewContractLoader")
 }
@@ -48,6 +56,7 @@ func NewContractLoader(bcClient blockchain.EVMClient) (ContractLoader, error) {
 // EthereumContractLoader provides the implementations for deploying ETH (EVM) based contracts
 type EthereumContractLoader struct {
 	client blockchain.EVMClient
+	l      zerolog.Logger
 }
 
 // KlaytnContractLoader wraps ethereum contract deployments for Klaytn
@@ -76,9 +85,10 @@ type OptimismContractLoader struct {
 }
 
 // NewEthereumContractLoader returns an instantiated instance of the ETH contract Loader
-func NewEthereumContractLoader(ethClient blockchain.EVMClient) *EthereumContractLoader {
+func NewEthereumContractLoader(ethClient blockchain.EVMClient, logger zerolog.Logger) *EthereumContractLoader {
 	return &EthereumContractLoader{
 		client: ethClient,
+		l:      logger,
 	}
 }
 
@@ -97,6 +107,7 @@ func (e *EthereumContractLoader) LoadLINKToken(addr string) (LinkToken, error) {
 		client:   e.client,
 		instance: instance.(*link_token_interface.LinkToken),
 		address:  common.HexToAddress(addr),
+		l:        e.l,
 	}, err
 }
 
@@ -133,6 +144,7 @@ func (e *EthereumContractLoader) LoadFunctionsRouter(addr string) (FunctionsRout
 		client:   e.client,
 		instance: instance.(*functions_router.FunctionsRouter),
 		address:  common.HexToAddress(addr),
+		l:        e.l,
 	}, err
 }
 
@@ -169,6 +181,7 @@ func (e *EthereumContractLoader) LoadOperatorContract(address common.Address) (O
 		address:  address,
 		client:   e.client,
 		operator: instance.(*operator_wrapper.Operator),
+		l:        e.l,
 	}, err
 }
 
@@ -187,5 +200,41 @@ func (e *EthereumContractLoader) LoadAuthorizedForwarder(address common.Address)
 		address:             address,
 		client:              e.client,
 		authorizedForwarder: instance.(*authorized_forwarder.AuthorizedForwarder),
+	}, err
+}
+
+// LoadMercuryVerifier returns Verifier contract deployed on given address
+func (e *EthereumContractLoader) LoadMercuryVerifier(addr string) (MercuryVerifier, error) {
+	instance, err := e.client.LoadContract("Mercury Verifier", common.HexToAddress(addr), func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return verifier.NewVerifier(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumMercuryVerifier{
+		client:   e.client,
+		instance: instance.(*verifier.Verifier),
+		address:  common.HexToAddress(addr),
+	}, err
+}
+
+// LoadMercuryVerifierProxy returns VerifierProxy contract deployed on given address
+func (e *EthereumContractLoader) LoadMercuryVerifierProxy(addr string) (MercuryVerifierProxy, error) {
+	instance, err := e.client.LoadContract("Mercury Verifier Proxy", common.HexToAddress(addr), func(
+		address common.Address,
+		backend bind.ContractBackend,
+	) (interface{}, error) {
+		return verifier_proxy.NewVerifierProxy(address, backend)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumMercuryVerifierProxy{
+		client:   e.client,
+		instance: instance.(*verifier_proxy.VerifierProxy),
+		address:  common.HexToAddress(addr),
 	}, err
 }

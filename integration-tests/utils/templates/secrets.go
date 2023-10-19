@@ -1,6 +1,9 @@
 package templates
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils/templates"
+)
 
 // NodeSecretsTemplate are used as text templates because of secret redacted fields of chainlink.Secrets
 // secret fields can't be marshalled as a plain text
@@ -25,5 +28,5 @@ URL = 'localhost:1338'
 Username = 'node'
 Password = 'nodepass'
 `
-	return MarshalTemplate(c, uuid.NewString(), tpl)
+	return templates.MarshalTemplate(c, uuid.NewString(), tpl)
 }

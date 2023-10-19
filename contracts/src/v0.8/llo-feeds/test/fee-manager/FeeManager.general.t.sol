@@ -2,7 +2,7 @@
 pragma solidity 0.8.16;
 
 import {Test} from "forge-std/Test.sol";
-import {FeeManager} from "../../dev/FeeManager.sol";
+import {FeeManager} from "../../FeeManager.sol";
 import {Common} from "../../../libraries/Common.sol";
 import "./BaseFeeManager.t.sol";
 
@@ -28,7 +28,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     uint256 withdrawAmount = contractBalance / 2;
 
     //withdraw some balance
-    withdraw(getLinkAddress(), withdrawAmount, ADMIN);
+    withdraw(address(link), ADMIN, withdrawAmount, ADMIN);
 
     //check the balance has been reduced
     uint256 newContractBalance = getLinkBalance(address(feeManager));
@@ -54,7 +54,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     uint256 withdrawAmount = contractBalance / 2;
 
     //withdraw some balance
-    withdraw(NATIVE_WITHDRAW_ADDRESS, withdrawAmount, ADMIN);
+    withdraw(NATIVE_WITHDRAW_ADDRESS, ADMIN, withdrawAmount, ADMIN);
 
     //check the balance has been reduced
     uint256 newContractBalance = getNativeUnwrappedBalance(address(feeManager));
@@ -76,12 +76,12 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     vm.expectRevert(ONLY_CALLABLE_BY_OWNER_ERROR);
 
     //withdraw some balance
-    withdraw(getLinkAddress(), DEFAULT_LINK_MINT_QUANTITY, USER);
+    withdraw(address(link), ADMIN, DEFAULT_LINK_MINT_QUANTITY, USER);
   }
 
   function test_eventIsEmittedAfterSurchargeIsSet() public {
     //native surcharge
-    uint256 nativeSurcharge = FEE_SCALAR / 5;
+    uint64 nativeSurcharge = FEE_SCALAR / 5;
 
     //expect an emit
     vm.expectEmit();
@@ -95,16 +95,16 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_subscriberDiscountEventIsEmittedOnUpdate() public {
     //native surcharge
-    uint256 discount = FEE_SCALAR / 3;
+    uint64 discount = FEE_SCALAR / 3;
 
     //an event should be emitted
     vm.expectEmit();
 
     //emit the event that is expected to be emitted
-    emit SubscriberDiscountUpdated(USER, DEFAULT_FEED_1_V3, getNativeAddress(), discount);
+    emit SubscriberDiscountUpdated(USER, DEFAULT_FEED_1_V3, address(native), discount);
 
     //set the surcharge
-    setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, getNativeAddress(), discount, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(native), discount, ADMIN);
   }
 
   function test_eventIsEmittedUponWithdraw() public {
@@ -112,16 +112,16 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     mintLink(address(feeManager), DEFAULT_LINK_MINT_QUANTITY);
 
     //the amount to withdraw
-    uint256 withdrawAmount = 1;
+    uint192 withdrawAmount = 1;
 
     //expect an emit
     vm.expectEmit();
 
     //the event to be emitted
-    emit Withdraw(ADMIN, getLinkAddress(), withdrawAmount);
+    emit Withdraw(ADMIN, ADMIN, address(link), withdrawAmount);
 
     //withdraw some balance
-    withdraw(getLinkAddress(), withdrawAmount, ADMIN);
+    withdraw(address(link), ADMIN, withdrawAmount, ADMIN);
   }
 
   function test_linkAvailableForPaymentReturnsLinkBalance() public {
@@ -137,16 +137,20 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_payLinkDeficit() public {
     //get the default payload
-    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3));
 
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
 
     //not enough funds in the reward pool should trigger an insufficient link event
     vm.expectEmit();
-    emit InsufficientLink(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE, DEFAULT_REPORT_NATIVE_FEE);
+
+    IRewardManager.FeePayment[] memory contractFees = new IRewardManager.FeePayment[](1);
+    contractFees[0] = IRewardManager.FeePayment(DEFAULT_CONFIG_DIGEST, uint192(DEFAULT_REPORT_LINK_FEE));
+
+    emit InsufficientLink(contractFees);
 
     //process the fee
-    processFee(payload, USER, 0, ADMIN);
+    processFee(payload, USER, address(native), 0);
 
     //double check the rewardManager balance is 0
     assertEq(getLinkBalance(address(rewardManager)), 0);
@@ -166,16 +170,21 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_payLinkDeficitTwice() public {
     //get the default payload
-    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3));
 
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
 
     //not enough funds in the reward pool should trigger an insufficient link event
     vm.expectEmit();
-    emit InsufficientLink(DEFAULT_CONFIG_DIGEST, DEFAULT_REPORT_LINK_FEE, DEFAULT_REPORT_NATIVE_FEE);
+
+    IRewardManager.FeePayment[] memory contractFees = new IRewardManager.FeePayment[](1);
+    contractFees[0] = IRewardManager.FeePayment(DEFAULT_CONFIG_DIGEST, uint192(DEFAULT_REPORT_LINK_FEE));
+
+    //emit the event that is expected to be emitted
+    emit InsufficientLink(contractFees);
 
     //process the fee
-    processFee(payload, USER, 0, ADMIN);
+    processFee(payload, USER, address(native), 0);
 
     //double check the rewardManager balance is 0
     assertEq(getLinkBalance(address(rewardManager)), 0);
@@ -200,14 +209,14 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_payLinkDeficitPaysAllFeesProcessed() public {
     //get the default payload
-    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3));
 
     //approve the native to be transferred from the user
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * 2, USER);
 
     //processing the fee will transfer the native from the user to the feeManager
-    processFee(payload, USER, 0, ADMIN);
-    processFee(payload, USER, 0, ADMIN);
+    processFee(payload, USER, address(native), 0);
+    processFee(payload, USER, address(native), 0);
 
     //check the deficit has been increased twice
     assertEq(getLinkDeficit(DEFAULT_CONFIG_DIGEST), DEFAULT_REPORT_LINK_FEE * 2);

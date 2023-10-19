@@ -31,15 +31,15 @@ compileContract () {
 # Version 0 (Testnet Beta)
 ##########################
 
-compileContract 0_0_0 dev/0_0_0/Functions.sol
-compileContract 0_0_0 dev/0_0_0/FunctionsBillingRegistry.sol
-compileContract 0_0_0 dev/0_0_0/FunctionsClient.sol
-compileContract 0_0_0 dev/0_0_0/FunctionsOracle.sol
-compileContract 0_0_0 dev/0_0_0/example/FunctionsClientExample.sol
+compileContract v0_0_0 dev/v0_0_0/Functions.sol
+compileContract v0_0_0 dev/v0_0_0/FunctionsBillingRegistry.sol
+compileContract v0_0_0 dev/v0_0_0/FunctionsClient.sol
+compileContract v0_0_0 dev/v0_0_0/FunctionsOracle.sol
+compileContract v0_0_0 dev/v0_0_0/example/FunctionsClientExample.sol
 
 # Test helpers
-compileContract 0_0_0 tests/0_0_0/testhelpers/FunctionsBillingRegistryWithInit.sol
-compileContract 0_0_0 tests/0_0_0/testhelpers/FunctionsOracleWithInit.sol
+compileContract v0_0_0 tests/v0_0_0/testhelpers/FunctionsBillingRegistryWithInit.sol
+compileContract v0_0_0 tests/v0_0_0/testhelpers/FunctionsOracleWithInit.sol
 
 ############################
 # Version 1 (Mainnet Preview)
@@ -50,11 +50,15 @@ solc-select install $SOLC_VERSION
 solc-select use $SOLC_VERSION
 export SOLC_VERSION=$SOLC_VERSION
 
-compileContract 1_0_0 dev/1_0_0/libraries/FunctionsRequest.sol
-compileContract 1_0_0 dev/1_0_0/FunctionsRouter.sol
-compileContract 1_0_0 dev/1_0_0/FunctionsCoordinator.sol
-compileContract 1_0_0 dev/1_0_0/accessControl/TermsOfServiceAllowList.sol
-compileContract 1_0_0 dev/1_0_0/example/FunctionsClientExample.sol
-## Test helpers
-compileContract 1_0_0 tests/1_0_0/testhelpers/FunctionsCoordinatorTestHelper.sol
-compileContract 1_0_0 tests/1_0_0/testhelpers/FunctionsLoadTestClient.sol
+compileContract v1_0_0 dev/v1_0_0/libraries/FunctionsRequest.sol
+compileContract v1_0_0 dev/v1_0_0/FunctionsRouter.sol
+compileContract v1_0_0 dev/v1_0_0/FunctionsCoordinator.sol
+compileContract v1_0_0 dev/v1_0_0/accessControl/TermsOfServiceAllowList.sol
+compileContract v1_0_0 dev/v1_0_0/example/FunctionsClientExample.sol
+
+# Test helpers
+compileContract v1_0_0 tests/v1_0_0/testhelpers/FunctionsCoordinatorTestHelper.sol
+compileContract v1_0_0 tests/v1_0_0/testhelpers/FunctionsLoadTestClient.sol
+
+# Mocks
+compileContract v1_0_0 dev/v1_0_0/mocks/FunctionsV1EventsMock.sol

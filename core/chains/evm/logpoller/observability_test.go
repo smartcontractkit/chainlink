@@ -36,8 +36,9 @@ func TestMultipleMetricsArePublished(t *testing.T) {
 	_, _ = lp.LatestLogByEventSigWithConfs(common.Hash{}, common.Address{}, 0, pg.WithParentCtx(ctx))
 	_, _ = lp.LatestLogEventSigsAddrsWithConfs(0, []common.Hash{{}}, []common.Address{{}}, 1, pg.WithParentCtx(ctx))
 	_, _ = lp.IndexedLogsCreatedAfter(common.Hash{}, common.Address{}, 0, []common.Hash{}, time.Now(), 0, pg.WithParentCtx(ctx))
+	_, _ = lp.LogsUntilBlockHashDataWordGreaterThan(common.Hash{}, common.Address{}, 0, common.Hash{}, common.Hash{}, pg.WithParentCtx(ctx))
 
-	require.Equal(t, 11, testutil.CollectAndCount(lp.queryDuration))
+	require.Equal(t, 12, testutil.CollectAndCount(lp.queryDuration))
 	require.Equal(t, 10, testutil.CollectAndCount(lp.datasetSize))
 	resetMetrics(*lp)
 }

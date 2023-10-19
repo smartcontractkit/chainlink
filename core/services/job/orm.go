@@ -19,7 +19,10 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
+	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -164,6 +167,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 		switch jb.Type {
 		case DirectRequest:
+			if jb.DirectRequestSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
 			var specID int32
 			sql := `INSERT INTO direct_request_specs (contract_address, min_incoming_confirmations, requesters, min_contract_payment, evm_chain_id, created_at, updated_at)
 			VALUES (:contract_address, :min_incoming_confirmations, :requesters, :min_contract_payment, :evm_chain_id, now(), now())
@@ -173,6 +179,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			jb.DirectRequestSpecID = &specID
 		case FluxMonitor:
+			if jb.FluxMonitorSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
 			var specID int32
 			sql := `INSERT INTO flux_monitor_specs (contract_address, threshold, absolute_threshold, poll_timer_period, poll_timer_disabled, idle_timer_period, idle_timer_disabled,
 					drumbeat_schedule, drumbeat_random_delay, drumbeat_enabled, min_payment, evm_chain_id, created_at, updated_at)
@@ -184,6 +193,10 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			jb.FluxMonitorSpecID = &specID
 		case OffchainReporting:
+			if jb.OCROracleSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
+
 			var specID int32
 			if jb.OCROracleSpec.EncryptedOCRKeyBundleID != nil {
 				_, err := o.keyStore.OCR().Get(jb.OCROracleSpec.EncryptedOCRKeyBundleID.String())
@@ -198,16 +211,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
-			if jb.OCROracleSpec.EVMChainID == nil {
-				// If unspecified, assume we're creating a job intended to run on default chain id
-				newChain, err := o.legacyChains.Default()
-				if err != nil {
-					return err
-				}
-				jb.OCROracleSpec.EVMChainID = utils.NewBig(newChain.ID())
-			}
 			newChainID := jb.OCROracleSpec.EVMChainID
-
 			existingSpec := new(OCROracleSpec)
 			err := tx.Get(existingSpec, `SELECT * FROM ocr_oracle_specs WHERE contract_address = $1 and (evm_chain_id = $2 or evm_chain_id IS NULL) LIMIT 1;`,
 				jb.OCROracleSpec.ContractAddress, newChainID,
@@ -267,7 +271,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				return errors.Errorf("forwarding is not currently supported for %s jobs", jb.OCR2OracleSpec.PluginType)
 			}
 
-			if jb.OCR2OracleSpec.PluginType == Mercury {
+			if jb.OCR2OracleSpec.PluginType == types.Mercury {
 				if jb.OCR2OracleSpec.FeedID == nil {
 					return errors.New("feed ID is required for mercury plugin type")
 				}
@@ -277,7 +281,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 
-			if jb.OCR2OracleSpec.PluginType == Median {
+			if jb.OCR2OracleSpec.PluginType == types.Median {
 				var cfg medianconfig.PluginConfig
 				err = json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &cfg)
 				if err != nil {
@@ -305,6 +309,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			jb.OCR2OracleSpecID = &specID
 		case Keeper:
+			if jb.KeeperSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
 			var specID int32
 			sql := `INSERT INTO keeper_specs (contract_address, from_address, evm_chain_id, created_at, updated_at)
 			VALUES (:contract_address, :from_address, :evm_chain_id, NOW(), NOW())
@@ -323,6 +330,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			jb.CronSpecID = &specID
 		case VRF:
+			if jb.VRFSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
 			var specID int32
 			sql := `INSERT INTO vrf_specs (
 				coordinator_address, public_key, min_incoming_confirmations,
@@ -374,15 +384,21 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 				}
 			}
 		case BlockhashStore:
+			if jb.BlockhashStoreSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
 			var specID int32
-			sql := `INSERT INTO blockhash_store_specs (coordinator_v1_address, coordinator_v2_address, coordinator_v2_plus_address, trusted_blockhash_store_address, trusted_blockhash_store_batch_size, wait_blocks, lookback_blocks, blockhash_store_address, poll_period, run_timeout, evm_chain_id, from_addresses, created_at, updated_at)
-			VALUES (:coordinator_v1_address, :coordinator_v2_address, :coordinator_v2_plus_address, :trusted_blockhash_store_address, :trusted_blockhash_store_batch_size, :wait_blocks, :lookback_blocks, :blockhash_store_address, :poll_period, :run_timeout, :evm_chain_id, :from_addresses, NOW(), NOW())
+			sql := `INSERT INTO blockhash_store_specs (coordinator_v1_address, coordinator_v2_address, coordinator_v2_plus_address, trusted_blockhash_store_address, trusted_blockhash_store_batch_size, wait_blocks, lookback_blocks, heartbeat_period, blockhash_store_address, poll_period, run_timeout, evm_chain_id, from_addresses, created_at, updated_at)
+			VALUES (:coordinator_v1_address, :coordinator_v2_address, :coordinator_v2_plus_address, :trusted_blockhash_store_address, :trusted_blockhash_store_batch_size, :wait_blocks, :lookback_blocks, :heartbeat_period, :blockhash_store_address, :poll_period, :run_timeout, :evm_chain_id, :from_addresses, NOW(), NOW())
 			RETURNING id;`
 			if err := pg.PrepareQueryRowx(tx, sql, &specID, toBlockhashStoreSpecRow(jb.BlockhashStoreSpec)); err != nil {
 				return errors.Wrap(err, "failed to create BlockhashStore spec")
 			}
 			jb.BlockhashStoreSpecID = &specID
 		case BlockHeaderFeeder:
+			if jb.BlockHeaderFeederSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
 			var specID int32
 			sql := `INSERT INTO block_header_feeder_specs (coordinator_v1_address, coordinator_v2_address, coordinator_v2_plus_address, wait_blocks, lookback_blocks, blockhash_store_address, batch_blockhash_store_address, poll_period, run_timeout, evm_chain_id, from_addresses, get_blockhashes_batch_size, store_blockhashes_batch_size, created_at, updated_at)
 			VALUES (:coordinator_v1_address, :coordinator_v2_address, :coordinator_v2_plus_address, :wait_blocks, :lookback_blocks, :blockhash_store_address, :batch_blockhash_store_address, :poll_period, :run_timeout, :evm_chain_id, :from_addresses,  :get_blockhashes_batch_size, :store_blockhashes_batch_size, NOW(), NOW())
@@ -392,6 +408,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			jb.BlockHeaderFeederSpecID = &specID
 		case LegacyGasStationServer:
+			if jb.LegacyGasStationServerSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
 			var specID int32
 			sql := `INSERT INTO legacy_gas_station_server_specs (forwarder_address, evm_chain_id, ccip_chain_selector, from_addresses, created_at, updated_at)
 			VALUES (:forwarder_address, :evm_chain_id, :ccip_chain_selector, :from_addresses, NOW(), NOW())
@@ -401,6 +420,9 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 			}
 			jb.LegacyGasStationServerSpecID = &specID
 		case LegacyGasStationSidecar:
+			if jb.LegacyGasStationSidecarSpec.EVMChainID == nil {
+				return errors.New("evm chain id must be defined")
+			}
 			var specID int32
 			sql := `INSERT INTO legacy_gas_station_sidecar_specs (forwarder_address, off_ramp_address, lookback_blocks, poll_period, run_timeout, evm_chain_id, ccip_chain_selector, created_at, updated_at)
 			VALUES (:forwarder_address, :off_ramp_address, :lookback_blocks, :poll_period, :run_timeout, :evm_chain_id, :ccip_chain_selector, NOW(), NOW())
@@ -455,7 +477,7 @@ func (o *orm) CreateJob(jb *Job, qopts ...pg.QOpt) error {
 
 // ValidateKeyStoreMatch confirms that the key has a valid match in the keystore
 func ValidateKeyStoreMatch(spec *OCR2OracleSpec, keyStore keystore.Master, key string) error {
-	if spec.PluginType == Mercury {
+	if spec.PluginType == types.Mercury {
 		_, err := keyStore.CSA().Get(key)
 		if err != nil {
 			return errors.Errorf("no CSA key matching: %q", key)
@@ -1185,7 +1207,8 @@ func (o *orm) FindJobsByPipelineSpecIDs(ids []int32) ([]Job, error) {
 		}
 		for i := range jbs {
 			err = o.LoadEnvConfigVars(&jbs[i])
-			if err != nil {
+			//We must return the jobs even if the chainID is disabled
+			if err != nil && !errors.Is(err, chains.ErrNoSuchChainID) {
 				return err
 			}
 		}

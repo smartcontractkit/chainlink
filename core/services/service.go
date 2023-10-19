@@ -81,8 +81,5 @@ type ServiceCtx interface {
 	// again, you need to build a new Service to do so.
 	Close() error
 
-	// Name returns the fully qualified name of the service
-	Name() string
-
 	Checkable
 }

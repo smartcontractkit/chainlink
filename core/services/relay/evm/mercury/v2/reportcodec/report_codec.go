@@ -67,3 +67,11 @@ func (r *ReportCodec) ObservationTimestampFromReport(report ocrtypes.Report) (ui
 func (r *ReportCodec) Decode(report ocrtypes.Report) (*reporttypes.Report, error) {
 	return reporttypes.Decode(report)
 }
+
+func (r *ReportCodec) BenchmarkPriceFromReport(report ocrtypes.Report) (*big.Int, error) {
+	decoded, err := r.Decode(report)
+	if err != nil {
+		return nil, err
+	}
+	return decoded.BenchmarkPrice, nil
+}

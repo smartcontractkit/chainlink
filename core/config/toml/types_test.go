@@ -27,6 +27,12 @@ func TestMercurySecrets_valid(t *testing.T) {
 				Username: models.NewSecret("new user1"),
 				Password: models.NewSecret("new password2"),
 			},
+			"cred3": {
+				LegacyURL: models.MustSecretURL("https://abc.com"),
+				URL:       models.MustSecretURL("HTTPS://GOOGLE1.COM"),
+				Username:  models.NewSecret("new user1"),
+				Password:  models.NewSecret("new password2"),
+			},
 		},
 	}
 

@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -8,6 +9,9 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/prometheus/common/model"
+	"github.com/prometheus/prometheus/discovery/targetgroup"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -67,7 +71,13 @@ func TestLoopRegistry(t *testing.T) {
 	// shim a reference to the promserver that is running in our mock loop
 	// this ensures the client.Get calls below have a reference to mock loop impl
 
-	expectedEndPoint := "/plugins/mockLoopImpl/metrics"
+	expectedLooppEndPoint, expectedCoreEndPoint := "/plugins/mockLoopImpl/metrics", "/metrics"
+
+	// note we expect this to be an ordered result
+	expectedLabels := []model.LabelSet{
+		model.LabelSet{"__metrics_path__": model.LabelValue(expectedCoreEndPoint)},
+		model.LabelSet{"__metrics_path__": model.LabelValue(expectedLooppEndPoint)},
+	}
 
 	require.NoError(t, app.KeyStore.OCR().Add(cltest.DefaultOCRKey))
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -86,7 +96,7 @@ func TestLoopRegistry(t *testing.T) {
 	defer mockLoop.close()
 	mockLoop.run()
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(&cltest.User{})
 
 	t.Run("discovery endpoint", func(t *testing.T) {
 		// under the covers this is routing thru the app into loop registry
@@ -97,12 +107,22 @@ func TestLoopRegistry(t *testing.T) {
 		b, err := io.ReadAll(resp.Body)
 		require.NoError(t, err)
 		t.Logf("discovery response %s", b)
-		require.Contains(t, string(b), expectedEndPoint)
+		var got []*targetgroup.Group
+		require.NoError(t, json.Unmarshal(b, &got))
+
+		gotLabels := make([]model.LabelSet, 0)
+		for _, ls := range got {
+			gotLabels = append(gotLabels, ls.Labels)
+		}
+		assert.Equal(t, len(expectedLabels), len(gotLabels))
+		for i := range expectedLabels {
+			assert.EqualValues(t, expectedLabels[i], gotLabels[i])
+		}
 	})
 
 	t.Run("plugin metrics OK", func(t *testing.T) {
 		// plugin name `mockLoopImpl` matches key in PluginConfigs
-		resp, cleanup := client.Get(expectedEndPoint)
+		resp, cleanup := client.Get(expectedLooppEndPoint)
 		t.Cleanup(cleanup)
 		cltest.AssertServerResponse(t, resp, http.StatusOK)
 
@@ -115,6 +135,17 @@ func TestLoopRegistry(t *testing.T) {
 			expectedMetric = fmt.Sprintf("%s %d", testMetricName, exceptedCount)
 		)
 		require.Contains(t, string(b), expectedMetric)
+	})
+
+	t.Run("core metrics OK", func(t *testing.T) {
+		// core node metrics endpoint
+		resp, cleanup := client.Get(expectedCoreEndPoint)
+		t.Cleanup(cleanup)
+		cltest.AssertServerResponse(t, resp, http.StatusOK)
+
+		b, err := io.ReadAll(resp.Body)
+		require.NoError(t, err)
+		t.Logf("core metrics response %s", b)
 	})
 
 	t.Run("no existent plugin metrics ", func(t *testing.T) {

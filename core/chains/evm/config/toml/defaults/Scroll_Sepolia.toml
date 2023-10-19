@@ -1,14 +1,10 @@
 ChainID = '534351'
 FinalityDepth = 1
-# extended time setting, due to sporadic block production rate
-LogPollInterval = '30s'
+LogPollInterval = '3s'
 MinIncomingConfirmations = 1
 # Scroll only emits blocks when a new tx is received, so this method of liveness detection is not useful
 NoNewHeadsThreshold = '0'
 OCR.ContractConfirmations = 1
-
-[Transactions]
-ResendAfterThreshold = '2m'
 
 [GasEstimator]
 Mode = 'L2Suggested'

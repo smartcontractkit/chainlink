@@ -10,7 +10,7 @@ import (
 	cosmos "github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 
 	evm "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-
+	
 	// Manually edited. mockery generates the wrong dependency.  edited to use `loop` rather than `loop/internal`
 	// seems to caused by incorrect alias resolution of the relayer dep
 	internal "github.com/smartcontractkit/chainlink-relay/pkg/loop"
@@ -160,11 +160,11 @@ func (_m *RelayerChainInteroperators) List(filter chainlink.FilterFn) chainlink.
 	return r0
 }
 
-// NodeStatuses provides a mock function with given fields: ctx, offset, limit, chainIDs
-func (_m *RelayerChainInteroperators) NodeStatuses(ctx context.Context, offset int, limit int, chainIDs ...string) ([]types.NodeStatus, int, error) {
-	_va := make([]interface{}, len(chainIDs))
-	for _i := range chainIDs {
-		_va[_i] = chainIDs[_i]
+// NodeStatuses provides a mock function with given fields: ctx, offset, limit, relayIDs
+func (_m *RelayerChainInteroperators) NodeStatuses(ctx context.Context, offset int, limit int, relayIDs ...relay.ID) ([]types.NodeStatus, int, error) {
+	_va := make([]interface{}, len(relayIDs))
+	for _i := range relayIDs {
+		_va[_i] = relayIDs[_i]
 	}
 	var _ca []interface{}
 	_ca = append(_ca, ctx, offset, limit)
@@ -174,25 +174,25 @@ func (_m *RelayerChainInteroperators) NodeStatuses(ctx context.Context, offset i
 	var r0 []types.NodeStatus
 	var r1 int
 	var r2 error
-	if rf, ok := ret.Get(0).(func(context.Context, int, int, ...string) ([]types.NodeStatus, int, error)); ok {
-		return rf(ctx, offset, limit, chainIDs...)
+	if rf, ok := ret.Get(0).(func(context.Context, int, int, ...relay.ID) ([]types.NodeStatus, int, error)); ok {
+		return rf(ctx, offset, limit, relayIDs...)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, int, int, ...string) []types.NodeStatus); ok {
-		r0 = rf(ctx, offset, limit, chainIDs...)
+	if rf, ok := ret.Get(0).(func(context.Context, int, int, ...relay.ID) []types.NodeStatus); ok {
+		r0 = rf(ctx, offset, limit, relayIDs...)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]types.NodeStatus)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, int, int, ...string) int); ok {
-		r1 = rf(ctx, offset, limit, chainIDs...)
+	if rf, ok := ret.Get(1).(func(context.Context, int, int, ...relay.ID) int); ok {
+		r1 = rf(ctx, offset, limit, relayIDs...)
 	} else {
 		r1 = ret.Get(1).(int)
 	}
 
-	if rf, ok := ret.Get(2).(func(context.Context, int, int, ...string) error); ok {
-		r2 = rf(ctx, offset, limit, chainIDs...)
+	if rf, ok := ret.Get(2).(func(context.Context, int, int, ...relay.ID) error); ok {
+		r2 = rf(ctx, offset, limit, relayIDs...)
 	} else {
 		r2 = ret.Error(2)
 	}

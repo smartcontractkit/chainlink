@@ -6,13 +6,15 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"os"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 
 func TestVersionUpgrade(t *testing.T) {
 	t.Parallel()
 	env, err := test_env.NewCLTestEnvBuilder().
+		WithTestLogger(t).
 		WithGeth().
 		WithCLNodes(1).
 		Build()

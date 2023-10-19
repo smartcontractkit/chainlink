@@ -644,6 +644,7 @@ type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "%s"
+evmChainID  	  = "%s"
 threshold = 0.5
 absoluteThreshold = 0.0
 
@@ -661,7 +662,7 @@ ds1 -> ds1_parse
 """
 	`
 
-	s = fmt.Sprintf(s, fa.aggregatorContractAddress, pollTimerPeriod, mockServer.URL)
+	s = fmt.Sprintf(s, fa.aggregatorContractAddress, testutils.SimulatedChainID.String(), pollTimerPeriod, mockServer.URL)
 
 	// raise flags to disable polling
 	_, err = fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
@@ -752,6 +753,7 @@ type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "%s"
+evmChainID        = "%s"
 threshold = 0.5
 absoluteThreshold = 0.0
 
@@ -769,7 +771,7 @@ ds1 -> ds1_parse
 """
 	`
 
-	s = fmt.Sprintf(s, fa.aggregatorContractAddress, "1000ms", mockServer.URL)
+	s = fmt.Sprintf(s, fa.aggregatorContractAddress, testutils.SimulatedChainID.String(), "1000ms", mockServer.URL)
 
 	// raise flags
 	_, err = fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
@@ -862,6 +864,7 @@ type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "%s"
+evmChainID		  = "%s"
 threshold = 0.5
 absoluteThreshold = 0.01
 
@@ -879,7 +882,7 @@ ds1 -> ds1_parse
 """
 `
 
-	s := fmt.Sprintf(toml, fa.aggregatorContractAddress, "100ms", mockServer.URL)
+	s := fmt.Sprintf(toml, fa.aggregatorContractAddress, testutils.SimulatedChainID.String(), "100ms", mockServer.URL)
 
 	// raise flags
 	_, err = fa.flagsContract.RaiseFlag(fa.sergey, utils.ZeroAddress) // global kill switch
@@ -963,6 +966,7 @@ type              = "fluxmonitor"
 schemaVersion     = 1
 name              = "example flux monitor spec"
 contractAddress   = "%s"
+evmChainID		  = "%s"
 threshold = 0.5
 absoluteThreshold = 0.0
 
@@ -981,7 +985,7 @@ ds1 -> ds1_parse -> ds1_multiply
 """
 	`
 
-	s = fmt.Sprintf(s, fa.aggregatorContractAddress, "200ms", mockServer.URL)
+	s = fmt.Sprintf(s, fa.aggregatorContractAddress, testutils.SimulatedChainID.String(), "200ms", mockServer.URL)
 	requestBody, err := json.Marshal(web.CreateJobRequest{
 		TOML: string(s),
 	})

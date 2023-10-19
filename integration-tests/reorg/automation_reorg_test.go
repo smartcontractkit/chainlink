@@ -17,13 +17,14 @@ import (
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/networks"
 )
 
 var (
@@ -123,7 +124,7 @@ const (
  * normal pace after the event.
  */
 func TestAutomationReorg(t *testing.T) {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	network := networks.SelectedNetwork
 
 	cd, err := chainlink.NewDeployment(numberOfNodes, defaultAutomationSettings)
@@ -146,9 +147,9 @@ func TestAutomationReorg(t *testing.T) {
 		return
 	}
 
-	chainClient, err := blockchain.NewEVMClient(network, testEnvironment)
+	chainClient, err := blockchain.NewEVMClient(network, testEnvironment, l)
 	require.NoError(t, err, "Error connecting to blockchain")
-	contractDeployer, err := contracts.NewContractDeployer(chainClient)
+	contractDeployer, err := contracts.NewContractDeployer(chainClient, l)
 	require.NoError(t, err, "Error building contract deployer")
 	chainlinkNodes, err := client.ConnectChainlinkNodes(testEnvironment)
 	require.NoError(t, err, "Error connecting to Chainlink nodes")
@@ -172,15 +173,18 @@ func TestAutomationReorg(t *testing.T) {
 		t,
 		ethereum.RegistryVersion_2_0,
 		defaultOCRRegistryConfig,
-		numberOfUpkeeps,
 		linkToken,
 		contractDeployer,
 		chainClient,
 	)
 
+	// Fund the registry with LINK
+	err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(numberOfUpkeeps))))
+	require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
+
 	actions.CreateOCRKeeperJobs(t, chainlinkNodes, registry.Address(), network.ChainID, 0, ethereum.RegistryVersion_2_0)
 	nodesWithoutBootstrap := chainlinkNodes[1:]
-	ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 5*time.Second)
+	ocrConfig, err := actions.BuildAutoOCR2ConfigVars(t, nodesWithoutBootstrap, defaultOCRRegistryConfig, registrar.Address(), 30*time.Second)
 	require.NoError(t, err, "OCR2 config should be built successfully")
 	err = registry.SetConfig(defaultOCRRegistryConfig, ocrConfig)
 	require.NoError(t, err, "Registry config should be be set successfully")

@@ -15,7 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/rs/zerolog/log"
+	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	goabi "github.com/umbracle/ethgo/abi"
 
@@ -68,6 +68,7 @@ type KeeperRegistry interface {
 	CancelUpkeep(id *big.Int) error
 	SetUpkeepGasLimit(id *big.Int, gas uint32) error
 	ParseUpkeepPerformedLog(log *types.Log) (*UpkeepPerformedLog, error)
+	ParseStaleUpkeepReportLog(log *types.Log) (*StaleUpkeepReportLog, error)
 	ParseUpkeepIdFromRegisteredLog(log *types.Log) (*big.Int, error)
 	Pause() error
 	Migrate(upkeepIDs []*big.Int, destinationAddress common.Address) error
@@ -75,6 +76,7 @@ type KeeperRegistry interface {
 	PauseUpkeep(id *big.Int) error
 	UnpauseUpkeep(id *big.Int) error
 	UpdateCheckData(id *big.Int, newCheckData []byte) error
+	SetUpkeepTriggerConfig(id *big.Int, triggerConfig []byte) error
 }
 
 type KeeperConsumer interface {
@@ -128,6 +130,10 @@ type UpkeepPerformedLog struct {
 	Id      *big.Int
 	Success bool
 	From    common.Address
+}
+
+type StaleUpkeepReportLog struct {
+	Id *big.Int
 }
 
 // KeeperRegistryOpts opts to deploy keeper registry version
@@ -198,6 +204,7 @@ type EthereumKeeperRegistry struct {
 	registry2_0 *keeper_registry_wrapper2_0.KeeperRegistry
 	registry2_1 *i_keeper_registry_master_wrapper_2_1.IKeeperRegistryMaster
 	address     *common.Address
+	l           zerolog.Logger
 }
 
 func (v *EthereumKeeperRegistry) Address() string {
@@ -396,6 +403,12 @@ func (v *EthereumKeeperRegistry) Pause() error {
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		tx, err = v.registry2_1.Pause(txOpts)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
 	}
 
 	return fmt.Errorf("keeper registry version %d is not supported", v.version)
@@ -507,6 +520,8 @@ func (v *EthereumKeeperRegistry) AddUpkeepFunds(id *big.Int, amount *big.Int) er
 		tx, err = v.registry1_3.AddFunds(opts, id, amount)
 	case ethereum.RegistryVersion_2_0:
 		tx, err = v.registry2_0.AddFunds(opts, id, amount)
+	case ethereum.RegistryVersion_2_1:
+		tx, err = v.registry2_1.AddFunds(opts, id, amount)
 	}
 
 	if err != nil {
@@ -578,6 +593,23 @@ func (v *EthereumKeeperRegistry) GetUpkeepInfo(ctx context.Context, id *big.Int)
 			Admin:                  uk.Admin.Hex(),
 			MaxValidBlocknumber:    uk.MaxValidBlocknumber,
 			LastPerformBlockNumber: uk.LastPerformBlockNumber,
+			AmountSpent:            uk.AmountSpent,
+			Paused:                 uk.Paused,
+			OffchainConfig:         uk.OffchainConfig,
+		}, nil
+	case ethereum.RegistryVersion_2_1:
+		uk, err := v.registry2_1.GetUpkeep(opts, id)
+		if err != nil {
+			return nil, err
+		}
+		return &UpkeepInfo{
+			Target:                 uk.Target.Hex(),
+			ExecuteGas:             uk.PerformGas,
+			CheckData:              uk.CheckData,
+			Balance:                uk.Balance,
+			Admin:                  uk.Admin.Hex(),
+			MaxValidBlocknumber:    uk.MaxValidBlocknumber,
+			LastPerformBlockNumber: uk.LastPerformedBlockNumber,
 			AmountSpent:            uk.AmountSpent,
 			Paused:                 uk.Paused,
 			OffchainConfig:         uk.OffchainConfig,
@@ -746,7 +778,7 @@ func (v *EthereumKeeperRegistry) CancelUpkeep(id *big.Int) error {
 		}
 	}
 
-	log.Info().
+	v.l.Info().
 		Str("Upkeep ID", strconv.FormatInt(id.Int64(), 10)).
 		Str("From", v.client.GetDefaultWallet().Address()).
 		Str("TX Hash", tx.Hash().String()).
@@ -775,6 +807,11 @@ func (v *EthereumKeeperRegistry) SetUpkeepGasLimit(id *big.Int, gas uint32) erro
 		}
 	case ethereum.RegistryVersion_2_0:
 		tx, err = v.registry2_0.SetUpkeepGasLimit(opts, id, gas)
+		if err != nil {
+			return err
+		}
+	case ethereum.RegistryVersion_2_1:
+		tx, err = v.registry2_1.SetUpkeepGasLimit(opts, id, gas)
 		if err != nil {
 			return err
 		}
@@ -852,8 +889,39 @@ func (v *EthereumKeeperRegistry) UpdateCheckData(id *big.Int, newCheckData []byt
 			return err
 		}
 		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry2_1.SetUpkeepCheckData(opts, id, newCheckData)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
 	default:
 		return fmt.Errorf("UpdateCheckData is not supported by keeper registry version %d", v.version)
+	}
+}
+
+// SetUpkeepTriggerConfig updates the trigger config of an upkeep (only for version 2.1)
+func (v *EthereumKeeperRegistry) SetUpkeepTriggerConfig(id *big.Int, triggerConfig []byte) error {
+
+	switch v.version {
+	case ethereum.RegistryVersion_2_1:
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry2_1.SetUpkeepTriggerConfig(opts, id, triggerConfig)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	default:
+		return fmt.Errorf("SetUpkeepTriggerConfig is not supported by keeper registry version %d", v.version)
 	}
 }
 
@@ -878,6 +946,17 @@ func (v *EthereumKeeperRegistry) PauseUpkeep(id *big.Int) error {
 		}
 
 		tx, err := v.registry2_0.PauseUpkeep(opts, id)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry2_1.PauseUpkeep(opts, id)
 		if err != nil {
 			return err
 		}
@@ -908,6 +987,17 @@ func (v *EthereumKeeperRegistry) UnpauseUpkeep(id *big.Int) error {
 		}
 
 		tx, err := v.registry2_0.UnpauseUpkeep(opts, id)
+		if err != nil {
+			return err
+		}
+		return v.client.ProcessTransaction(tx)
+	case ethereum.RegistryVersion_2_1:
+		opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+		if err != nil {
+			return err
+		}
+
+		tx, err := v.registry2_1.UnpauseUpkeep(opts, id)
 		if err != nil {
 			return err
 		}
@@ -960,6 +1050,40 @@ func (v *EthereumKeeperRegistry) ParseUpkeepPerformedLog(log *types.Log) (*Upkee
 			Success: parsedLog.Success,
 			From:    utils.ZeroAddress,
 		}, nil
+	case ethereum.RegistryVersion_2_1:
+		parsedLog, err := v.registry2_1.ParseUpkeepPerformed(*log)
+		if err != nil {
+			return nil, err
+		}
+		return &UpkeepPerformedLog{
+			Id:      parsedLog.Id,
+			Success: parsedLog.Success,
+			From:    utils.ZeroAddress,
+		}, nil
+	}
+	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
+}
+
+// ParseStaleUpkeepReportLog Parses Stale upkeep report log
+func (v *EthereumKeeperRegistry) ParseStaleUpkeepReportLog(log *types.Log) (*StaleUpkeepReportLog, error) {
+	switch v.version {
+	case ethereum.RegistryVersion_2_0:
+		parsedLog, err := v.registry2_0.ParseStaleUpkeepReport(*log)
+		if err != nil {
+			return nil, err
+		}
+		return &StaleUpkeepReportLog{
+			Id: parsedLog.Id,
+		}, nil
+	case ethereum.RegistryVersion_2_1:
+		parsedLog, err := v.registry2_1.ParseStaleUpkeepReport(*log)
+		if err != nil {
+			return nil, err
+		}
+		return &StaleUpkeepReportLog{
+			Id: parsedLog.Id,
+		}, nil
+
 	}
 	return nil, fmt.Errorf("keeper registry version %d is not supported", v.version)
 }
@@ -1009,6 +1133,7 @@ type KeeperConsumerRoundConfirmer struct {
 	doneChan     chan struct{}
 	context      context.Context
 	cancel       context.CancelFunc
+	l            zerolog.Logger
 }
 
 // NewKeeperConsumerRoundConfirmer provides a new instance of a KeeperConsumerRoundConfirmer
@@ -1016,6 +1141,7 @@ func NewKeeperConsumerRoundConfirmer(
 	contract KeeperConsumer,
 	counterValue int,
 	timeout time.Duration,
+	logger zerolog.Logger,
 ) *KeeperConsumerRoundConfirmer {
 	ctx, ctxCancel := context.WithTimeout(context.Background(), timeout)
 	return &KeeperConsumerRoundConfirmer{
@@ -1024,6 +1150,7 @@ func NewKeeperConsumerRoundConfirmer(
 		doneChan:     make(chan struct{}),
 		context:      ctx,
 		cancel:       ctxCancel,
+		l:            logger,
 	}
 }
 
@@ -1033,7 +1160,7 @@ func (o *KeeperConsumerRoundConfirmer) ReceiveHeader(_ blockchain.NodeHeader) er
 	if err != nil {
 		return err
 	}
-	l := log.Info().
+	l := o.l.Info().
 		Str("Contract Address", o.instance.Address()).
 		Int64("Upkeeps", upkeeps.Int64()).
 		Int("Required upkeeps", o.upkeepsValue)
@@ -1077,6 +1204,7 @@ type KeeperConsumerPerformanceRoundConfirmer struct {
 
 	metricsReporter *testreporters.KeeperBlockTimeTestReporter // Testreporter to track results
 	complete        bool
+	l               zerolog.Logger
 }
 
 // NewKeeperConsumerPerformanceRoundConfirmer provides a new instance of a KeeperConsumerPerformanceRoundConfirmer
@@ -1086,6 +1214,7 @@ func NewKeeperConsumerPerformanceRoundConfirmer(
 	expectedBlockCadence int64, // Expected to upkeep every 5/10/20 blocks, for example
 	blockRange int64,
 	metricsReporter *testreporters.KeeperBlockTimeTestReporter,
+	logger zerolog.Logger,
 ) *KeeperConsumerPerformanceRoundConfirmer {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &KeeperConsumerPerformanceRoundConfirmer{
@@ -1103,6 +1232,7 @@ func NewKeeperConsumerPerformanceRoundConfirmer(
 		metricsReporter:             metricsReporter,
 		complete:                    false,
 		lastBlockNum:                0,
+		l:                           logger,
 	}
 }
 
@@ -1125,22 +1255,22 @@ func (o *KeeperConsumerPerformanceRoundConfirmer) ReceiveHeader(receivedHeader b
 		return err
 	}
 	if isEligible {
-		log.Trace().
+		o.l.Trace().
 			Str("Contract Address", o.instance.Address()).
 			Int64("Upkeeps Performed", upkeepCount.Int64()).
 			Msg("Upkeep Now Eligible")
 	}
 	if upkeepCount.Int64() >= o.expectedUpkeepCount { // Upkeep was successful
 		if o.blocksSinceSuccessfulUpkeep < o.blockCadence { // If there's an early upkeep, that's weird
-			log.Error().
+			o.l.Error().
 				Str("Contract Address", o.instance.Address()).
 				Int64("Upkeeps Performed", upkeepCount.Int64()).
 				Int64("Expected Cadence", o.blockCadence).
 				Int64("Actual Cadence", o.blocksSinceSuccessfulUpkeep).
-				Err(errors.New("Found an early Upkeep"))
-			return fmt.Errorf("Found an early Upkeep on contract %s", o.instance.Address())
+				Err(errors.New("found an early Upkeep"))
+			return fmt.Errorf("found an early Upkeep on contract %s", o.instance.Address())
 		} else if o.blocksSinceSuccessfulUpkeep == o.blockCadence { // Perfectly timed upkeep
-			log.Info().
+			o.l.Info().
 				Str("Contract Address", o.instance.Address()).
 				Int64("Upkeeps Performed", upkeepCount.Int64()).
 				Int64("Expected Cadence", o.blockCadence).
@@ -1148,7 +1278,7 @@ func (o *KeeperConsumerPerformanceRoundConfirmer) ReceiveHeader(receivedHeader b
 				Msg("Successful Upkeep on Expected Cadence")
 			o.totalSuccessfulUpkeeps++
 		} else { // Late upkeep
-			log.Warn().
+			o.l.Warn().
 				Str("Contract Address", o.instance.Address()).
 				Int64("Upkeeps Performed", upkeepCount.Int64()).
 				Int64("Expected Cadence", o.blockCadence).
@@ -1163,7 +1293,7 @@ func (o *KeeperConsumerPerformanceRoundConfirmer) ReceiveHeader(receivedHeader b
 
 	if o.blocksSinceSubscription > o.blockRange {
 		if o.blocksSinceSuccessfulUpkeep > o.blockCadence {
-			log.Warn().
+			o.l.Warn().
 				Str("Contract Address", o.instance.Address()).
 				Int64("Upkeeps Performed", upkeepCount.Int64()).
 				Int64("Expected Cadence", o.blockCadence).
@@ -1173,7 +1303,7 @@ func (o *KeeperConsumerPerformanceRoundConfirmer) ReceiveHeader(receivedHeader b
 				Msg("Finished Watching for Upkeeps While Waiting on a Late Upkeep")
 			o.allMissedUpkeeps = append(o.allMissedUpkeeps, o.blocksSinceSuccessfulUpkeep-o.blockCadence)
 		} else {
-			log.Info().
+			o.l.Info().
 				Str("Contract Address", o.instance.Address()).
 				Int64("Upkeeps Performed", upkeepCount.Int64()).
 				Int64("Total Blocks Watched", o.blocksSinceSubscription).
@@ -1242,6 +1372,7 @@ type KeeperConsumerBenchmarkRoundConfirmer struct {
 	upkeepCount             int64   // The count of upkeeps done so far
 	allCheckDelays          []int64 // Tracks the amount of blocks missed before an upkeep since it became eligible
 	complete                bool
+	l                       zerolog.Logger
 }
 
 // NewKeeperConsumerBenchmarkRoundConfirmer provides a new instance of a KeeperConsumerBenchmarkRoundConfirmer
@@ -1255,6 +1386,7 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 	metricsReporter *testreporters.KeeperBenchmarkTestReporter,
 	upkeepIndex int64,
 	firstEligibleuffer int64,
+	logger zerolog.Logger,
 ) *KeeperConsumerBenchmarkRoundConfirmer {
 	ctx, cancelFunc := context.WithCancel(context.Background())
 	return &KeeperConsumerBenchmarkRoundConfirmer{
@@ -1276,6 +1408,7 @@ func NewKeeperConsumerBenchmarkRoundConfirmer(
 		upkeepIndex:             upkeepIndex,
 		firstBlockNum:           0,
 		firstEligibleuffer:      firstEligibleuffer,
+		l:                       logger,
 	}
 }
 
@@ -1300,7 +1433,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 		if upkeepCount.Int64() != o.upkeepCount+1 {
 			return errors.New("upkeep count increased by more than 1 in a single block")
 		}
-		log.Info().
+		o.l.Info().
 			Uint64("Block_Number", receivedHeader.Number.Uint64()).
 			Str("Upkeep_ID", o.upkeepID.String()).
 			Str("Contract_Address", o.instance.Address()).
@@ -1310,7 +1443,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 			Msg("Upkeep Performed")
 
 		if o.blocksSinceEligible > o.upkeepSLA {
-			log.Warn().
+			o.l.Warn().
 				Uint64("Block_Number", receivedHeader.Number.Uint64()).
 				Str("Upkeep_ID", o.upkeepID.String()).
 				Str("Contract_Address", o.instance.Address()).
@@ -1333,7 +1466,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 		if o.blocksSinceEligible == 0 {
 			// First time this upkeep became eligible
 			o.countEligible++
-			log.Info().
+			o.l.Info().
 				Uint64("Block_Number", receivedHeader.Number.Uint64()).
 				Str("Upkeep_ID", o.upkeepID.String()).
 				Str("Contract_Address", o.instance.Address()).
@@ -1346,7 +1479,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 	if o.blocksSinceSubscription >= o.blockRange || int64(o.lastBlockNum-o.firstBlockNum) >= o.blockRange {
 		if o.blocksSinceEligible > 0 {
 			if o.blocksSinceEligible > o.upkeepSLA {
-				log.Warn().
+				o.l.Warn().
 					Uint64("Block_Number", receivedHeader.Number.Uint64()).
 					Str("Upkeep_ID", o.upkeepID.String()).
 					Str("Contract_Address", o.instance.Address()).
@@ -1355,7 +1488,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 					Msg("Upkeep remained eligible at end of test and missed SLA")
 				o.countMissed++
 			} else {
-				log.Info().
+				o.l.Info().
 					Uint64("Block_Number", receivedHeader.Number.Uint64()).
 					Str("Upkeep_ID", o.upkeepID.String()).
 					Str("Contract_Address", o.instance.Address()).
@@ -1367,7 +1500,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) ReceiveHeader(receivedHeader blo
 			o.allCheckDelays = append(o.allCheckDelays, o.blocksSinceEligible)
 		}
 
-		log.Info().
+		o.l.Info().
 			Uint64("Block_Number", receivedHeader.Number.Uint64()).
 			Str("Upkeep_ID", o.upkeepID.String()).
 			Str("Contract_Address", o.instance.Address()).

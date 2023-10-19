@@ -22,13 +22,13 @@ func NewLogEventsPacker(utilsABI abi.ABI) *logEventsPacker {
 }
 
 func (p *logEventsPacker) PackLogData(log logpoller.Log) ([]byte, error) {
-	topics := [][32]byte{}
+	var topics [][32]byte
 	for _, topic := range log.GetTopics() {
 		topics = append(topics, topic)
 	}
 	b, err := p.abi.Pack("_log", &automation_utils_2_1.Log{
 		Index:       big.NewInt(log.LogIndex),
-		TxIndex:     big.NewInt(0), // TODO: Add this to the logpoller
+		Timestamp:   big.NewInt(log.BlockTimestamp.Unix()),
 		TxHash:      log.TxHash,
 		BlockNumber: big.NewInt(log.BlockNumber),
 		BlockHash:   log.BlockHash,

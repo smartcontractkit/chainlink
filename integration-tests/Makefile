@@ -78,30 +78,6 @@ run: # Need to set network first in case it's unset. Doesn't matter for the runn
 ## All commands will use 16 threads to run tests in parallel. To change this, use -test.parallel n
 
 # Smoke
-.PHONY: test_smoke_raw # Run smoke tests without any gotestfmt or default args
-test_smoke_raw:
-	go test $(args) ./smoke
-
-.PHONY: test_smoke
-test_smoke: install_gotestfmt ## Run all smoke tests
-	TEST_LOG_LEVEL="disabled" \
-	go test -timeout 24h -count=1 -json $(args) ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-
-.PHONY: test_smoke_simulated
-test_smoke_simulated: install_gotestfmt ## Run all smoke tests on simulated blockchain
-	TEST_LOG_LEVEL="disabled" \
-	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
-	go test -timeout 1h -count=1 -json $(args) ./smoke 2>&1 | tee /tmp/gotest.log | gotestfmt
-
-.PHONY: test_smoke_verbose
-test_smoke_verbose: ## Run all smoke tests with verbose logging
-	go test -timeout 24h -count=1 -v $(args) ./smoke
-
-.PHONY: test_smoke_simulated_verbose
-test_smoke_simulated_verbose: ## Run all smoke tests with verbose logging
-	SELECTED_NETWORKS="SIMULATED,SIMULATED_1,SIMULATED_2" \
-	go test -timeout 24h -count=1 -v $(args) ./smoke
-
 .PHONY: test_smoke_product
 test_smoke_product: ## Run smoke tests for specific product ex: make test_smoke_product product="cron" args="--focus @cron -p"
 	ARGS="$(args)" PRODUCT=$(product) ./scripts/run_product_tests

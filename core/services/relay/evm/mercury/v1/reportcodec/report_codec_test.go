@@ -161,3 +161,22 @@ func Test_ReportCodec_ValidFromBlockNumFromReport(t *testing.T) {
 		assert.Contains(t, err.Error(), "ValidFromBlockNum=18446744073709551615 overflows max int64")
 	})
 }
+
+func Test_ReportCodec_BenchmarkPriceFromReport(t *testing.T) {
+	r := ReportCodec{}
+	feedID := utils.NewHash()
+
+	t.Run("BenchmarkPriceFromReport extracts the benchmark price from valid report", func(t *testing.T) {
+		report := buildSampleReport(42, 999, feedID)
+
+		bp, err := r.BenchmarkPriceFromReport(report)
+		require.NoError(t, err)
+
+		assert.Equal(t, big.NewInt(242), bp)
+	})
+	t.Run("BenchmarkPriceFromReport errors on invalid report", func(t *testing.T) {
+		_, err := r.BenchmarkPriceFromReport([]byte{1, 2, 3})
+		require.Error(t, err)
+		assert.EqualError(t, err, "failed to decode report: abi: cannot marshal in to go type: length insufficient 3 require 32")
+	})
+}

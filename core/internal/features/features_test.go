@@ -505,13 +505,14 @@ observationSource   = """
             data="%s"
             minConfirmations="2"
 			failOnRevert=false
+			evmChainID="%s"
             from="[\\"%s\\"]"
 			]
 """
 `
 		// This succeeds for whatever reason
 		revertingData := "0xdeadbeef"
-		tomlSpec = fmt.Sprintf(tomlSpec, operatorContracts.linkTokenAddress.String(), revertingData, sendingAddr)
+		tomlSpec = fmt.Sprintf(tomlSpec, operatorContracts.linkTokenAddress.String(), revertingData, testutils.SimulatedChainID.String(), sendingAddr)
 		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
@@ -550,13 +551,14 @@ observationSource   = """
             data="%s"
             minConfirmations="2"
 			failOnRevert=true
+			evmChainID="%s"
             from="[\\"%s\\"]"
 			]
 """
 `
 		// This data is a call to link token's `transfer` function and will revert due to insufficient LINK on the sender address
 		revertingData := "0xa9059cbb000000000000000000000000526485b5abdd8ae9c6a63548e0215a83e7135e6100000000000000000000000000000000000000000000000db069932ea4fe1400"
-		tomlSpec = fmt.Sprintf(tomlSpec, operatorContracts.linkTokenAddress.String(), revertingData, sendingAddr)
+		tomlSpec = fmt.Sprintf(tomlSpec, operatorContracts.linkTokenAddress.String(), revertingData, testutils.SimulatedChainID.String(), sendingAddr)
 		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
@@ -587,13 +589,14 @@ observationSource   = """
             data="%s"
             minConfirmations="2"
 			failOnRevert=false
+			evmChainID="%s"
             from="[\\"%s\\"]"
 			]
 """
 `
 		// This data is a call to link token's `transfer` function and will revert due to insufficient LINK on the sender address
 		revertingData := "0xa9059cbb000000000000000000000000526485b5abdd8ae9c6a63548e0215a83e7135e6100000000000000000000000000000000000000000000000db069932ea4fe1400"
-		tomlSpec = fmt.Sprintf(tomlSpec, operatorContracts.linkTokenAddress.String(), revertingData, sendingAddr)
+		tomlSpec = fmt.Sprintf(tomlSpec, operatorContracts.linkTokenAddress.String(), revertingData, testutils.SimulatedChainID.String(), sendingAddr)
 		j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: tomlSpec})))
 		cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, testutils.WaitTimeout(t))
 
@@ -929,8 +932,9 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
 contractAddress    = "%s"
+evmChainID		   = "%s"
 isBootstrapPeer    = true
-`, ocrContractAddress))
+`, ocrContractAddress, testutils.SimulatedChainID.String()))
 			require.NoError(t, err)
 			jb.Name = null.NewString("boot", true)
 			err = appBootstrap.AddJobV2(testutils.Context(t), &jb)
@@ -997,6 +1001,7 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"
 contractAddress    = "%s"
+evmChainID		   = "%s"
 isBootstrapPeer    = false
 p2pBootstrapPeers  = [
     "/ip4/127.0.0.1/tcp/%d/p2p/%s"
@@ -1022,7 +1027,7 @@ observationSource = """
 
 	answer1 [type=median index=0];
 """
-`, ocrContractAddress, bootstrapNodePortV1, bootstrapPeerID, keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
+`, ocrContractAddress, testutils.SimulatedChainID.String(), bootstrapNodePortV1, bootstrapPeerID, keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 				require.NoError(t, err)
 				jb.Name = null.NewString("testocr", true)
 				err = apps[i].AddJobV2(testutils.Context(t), &jb)
@@ -1157,9 +1162,10 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name               = "boot"
 contractAddress    = "%s"
+evmChainID		   = "%s"
 forwardingAllowed  = true
 isBootstrapPeer    = true
-`, ocrContractAddress))
+`, ocrContractAddress, testutils.SimulatedChainID.String()))
 		require.NoError(t, err)
 		jb.Name = null.NewString("boot", true)
 		err = appBootstrap.AddJobV2(testutils.Context(t), &jb)
@@ -1227,6 +1233,7 @@ type               = "offchainreporting"
 schemaVersion      = 1
 name               = "web oracle spec"
 contractAddress    = "%s"
+evmChainID         = "%s"
 forwardingAllowed  = true
 isBootstrapPeer    = false
 p2pBootstrapPeers  = [
@@ -1253,7 +1260,7 @@ observationSource = """
 
 	answer1 [type=median index=0];
 """
-`, ocrContractAddress, bootstrapNodePortV1, bootstrapPeerID, keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
+`, ocrContractAddress, testutils.SimulatedChainID.String(), bootstrapNodePortV1, bootstrapPeerID, keys[i].ID(), transmitters[i], fmt.Sprintf("bridge%d", i), i, slowServers[i].URL, i))
 			require.NoError(t, err)
 			jb.Name = null.NewString("testocr", true)
 			err = apps[i].AddJobV2(testutils.Context(t), &jb)
@@ -1342,7 +1349,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		Transactions: cltest.LegacyTransactionsFromGasPrices(48_000_000_000, 49_000_000_000, 31_000_000_000),
 	}
 
-	evmChainID := utils.NewBig(cfg.DefaultChainID())
+	evmChainID := utils.NewBig(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
 	h40 := evmtypes.Head{Hash: utils.NewHash(), Number: 40, EVMChainID: evmChainID}
 	h41 := evmtypes.Head{Hash: b41.Hash, ParentHash: h40.Hash, Number: 41, EVMChainID: evmChainID}
 	h42 := evmtypes.Head{Hash: b42.Hash, ParentHash: h41.Hash, Number: 42, EVMChainID: evmChainID}
@@ -1373,15 +1380,14 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	})
 
 	ethClient.On("Dial", mock.Anything).Return(nil)
-	ethClient.On("ConfiguredChainID", mock.Anything).Return(cfg.DefaultChainID(), nil)
+	ethClient.On("ConfiguredChainID", mock.Anything).Return(*evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), nil)
 	ethClient.On("BalanceAt", mock.Anything, mock.Anything, mock.Anything).Maybe().Return(oneETH.ToInt(), nil)
 	// HeadTracker backfill
 	ethClient.On("HeadByHash", mock.Anything, h40.Hash).Return(&h40, nil).Maybe()
 	ethClient.On("HeadByHash", mock.Anything, h41.Hash).Return(&h41, nil).Maybe()
 	ethClient.On("HeadByHash", mock.Anything, h42.Hash).Return(&h42, nil).Maybe()
 
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
 	for _, re := range cc.Slice() {
 		require.NoError(t, re.Start(testutils.Context(t)))
 	}

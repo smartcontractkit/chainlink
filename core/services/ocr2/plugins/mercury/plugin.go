@@ -32,7 +32,7 @@ func NewServices(
 	jb job.Job,
 	ocr2Provider relaytypes.MercuryProvider,
 	pipelineRunner pipeline.Runner,
-	runResults chan pipeline.Run,
+	runResults chan *pipeline.Run,
 	lggr logger.Logger,
 	argsNoPlugin libocr2.MercuryOracleArgs,
 	cfg Config,
@@ -67,7 +67,7 @@ func NewServices(
 			runResults,
 			chEnhancedTelem,
 			chainHeadTracker,
-			ocr2Provider.ContractTransmitter(),
+			ocr2Provider.MercuryServerFetcher(),
 			pluginConfig.InitialBlockNumber.Ptr(),
 			feedID,
 		)
@@ -79,7 +79,7 @@ func NewServices(
 		)
 	case 2:
 		ds := mercuryv2.NewDataSource(
-			// TODO: Needs ORM to carry timestamps over
+			orm,
 			pipelineRunner,
 			jb,
 			*jb.PipelineSpec,
@@ -87,7 +87,7 @@ func NewServices(
 			lggr,
 			runResults,
 			chEnhancedTelem,
-			ocr2Provider.ContractTransmitter(),
+			ocr2Provider.MercuryServerFetcher(),
 			*pluginConfig.LinkFeedID,
 			*pluginConfig.NativeFeedID,
 		)
@@ -99,6 +99,7 @@ func NewServices(
 		)
 	case 3:
 		ds := mercuryv3.NewDataSource(
+			orm,
 			pipelineRunner,
 			jb,
 			*jb.PipelineSpec,
@@ -106,7 +107,7 @@ func NewServices(
 			lggr,
 			runResults,
 			chEnhancedTelem,
-			ocr2Provider.ContractTransmitter(),
+			ocr2Provider.MercuryServerFetcher(),
 			*pluginConfig.LinkFeedID,
 			*pluginConfig.NativeFeedID,
 		)

@@ -195,11 +195,14 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
 
   /// @inheritdoc TypeAndVersionInterface
   function typeAndVersion() external pure override returns (string memory) {
-    return "Verifier 1.1.0";
+    return "Verifier 1.2.0";
   }
 
   /// @inheritdoc IVerifier
-  function verify(bytes calldata signedReport, address sender) external override returns (bytes memory response) {
+  function verify(
+    bytes calldata signedReport,
+    address sender
+  ) external override returns (bytes memory verifierResponse) {
     if (msg.sender != i_verifierProxyAddr) revert AccessForbidden();
     (
       bytes32[3] memory reportContext,
@@ -320,6 +323,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       feedId,
       block.chainid,
       address(this),
+      0, // 0 defaults to feedConfig.configCount + 1
       signers,
       offchainTransmitters,
       f,
@@ -335,6 +339,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     bytes32 feedId,
     uint256 sourceChainId,
     address sourceAddress,
+    uint32 newConfigCount,
     address[] memory signers,
     bytes32[] memory offchainTransmitters,
     uint8 f,
@@ -347,6 +352,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
       feedId,
       sourceChainId,
       sourceAddress,
+      newConfigCount,
       signers,
       offchainTransmitters,
       f,
@@ -361,6 +367,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
   /// @param feedId Feed ID to set config for
   /// @param sourceChainId Chain ID of source config
   /// @param sourceAddress Address of source config Verifier
+  /// @param newConfigCount Optional param to force the new config count
   /// @param signers addresses with which oracles sign the reports
   /// @param offchainTransmitters CSA key for the ith Oracle
   /// @param f number of faulty oracles the system can tolerate
@@ -372,6 +379,7 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     bytes32 feedId,
     uint256 sourceChainId,
     address sourceAddress,
+    uint32 newConfigCount,
     address[] memory signers,
     bytes32[] memory offchainTransmitters,
     uint8 f,
@@ -383,7 +391,8 @@ contract Verifier is IVerifier, ConfirmedOwner, TypeAndVersionInterface {
     VerifierState storage feedVerifierState = s_feedVerifierStates[feedId];
 
     // Increment the number of times a config has been set first
-    feedVerifierState.configCount++;
+    if (newConfigCount > 0) feedVerifierState.configCount = newConfigCount;
+    else feedVerifierState.configCount++;
 
     bytes32 configDigest = _configDigestFromConfigData(
       feedId,

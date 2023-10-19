@@ -21,13 +21,13 @@ const (
 )
 
 func main() {
-	s := plugins.StartServer(loggerName)
+	s := plugins.MustNewStartedServer(loggerName)
 	defer s.Stop()
 
 	p := &pluginRelayer{Base: plugins.Base{Logger: s.Logger}}
 	defer s.Logger.ErrorIfFn(p.Close, "Failed to close")
 
-	s.MustRegister(p.Name(), p)
+	s.MustRegister(p)
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)
@@ -60,21 +60,22 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, loopKs lo
 	d := toml.NewDecoder(strings.NewReader(config))
 	d.DisallowUnknownFields()
 	var cfg struct {
-		Starknet starknet.StarknetConfigs
+		Starknet starknet.StarknetConfig
 	}
 	if err := d.Decode(&cfg); err != nil {
-		return nil, fmt.Errorf("failed to decode config toml: %w", err)
+		return nil, fmt.Errorf("failed to decode config toml: %w:\n\t%s", err, config)
 	}
 
-	chainSet, err := starknet.NewChainSet(starknet.ChainSetOpts{
+	opts := starknet.ChainOpts{
 		Logger:   c.Logger,
 		KeyStore: loopKs,
-		Configs:  starknet.NewConfigs(cfg.Starknet),
-	}, cfg.Starknet)
+	}
+
+	chain, err := starknet.NewChain(&cfg.Starknet, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain: %w", err)
 	}
-	ra := relay.NewRelayerAdapter(pkgstarknet.NewRelayer(c.Logger, chainSet), chainSet)
+	ra := relay.NewRelayerAdapter(pkgstarknet.NewRelayer(c.Logger, chain), chain)
 
 	c.SubService(ra)
 

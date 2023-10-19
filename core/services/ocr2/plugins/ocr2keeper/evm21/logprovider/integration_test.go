@@ -52,17 +52,19 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 	db := setupDB(t)
 	defer db.Close()
 
-	opts := &logprovider.LogEventProviderOptions{
-		ReadInterval: time.Second / 2,
-	}
+	opts := logprovider.NewOptions(200)
+	opts.ReadInterval = time.Second / 2
 	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
 	filterStore := logprovider.NewUpkeepFilterStore()
-	provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
+	provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, &opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	n := 10
 
-	ids, addrs, contracts := deployUpkeepCounter(t, n, ethClient, backend, carrol, logProvider)
+	backend.Commit()
+	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
+
+	ids, addrs, contracts := deployUpkeepCounter(ctx, t, n, ethClient, backend, carrol, logProvider)
 	lp.PollAndSaveLogs(ctx, int64(n))
 
 	go func() {
@@ -109,7 +111,7 @@ func TestIntegration_LogEventProvider(t *testing.T) {
 
 		// re-register filters
 		for i, id := range ids {
-			err = logProvider2.RegisterFilter(logprovider.FilterOptions{
+			err = logProvider2.RegisterFilter(ctx, logprovider.FilterOptions{
 				UpkeepID:      id,
 				TriggerConfig: newPlainLogTriggerConfig(addrs[i]),
 				// using block number at which the upkeep was registered,
@@ -139,7 +141,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	db := setupDB(t)
 	defer db.Close()
 
-	opts := &logprovider.LogEventProviderOptions{
+	opts := &logprovider.LogTriggersOptions{
 		ReadInterval: time.Second / 2,
 	}
 	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
@@ -147,7 +149,9 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 	provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
-	_, addrs, contracts := deployUpkeepCounter(t, 1, ethClient, backend, carrol, logProvider)
+	backend.Commit()
+	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
+	_, addrs, contracts := deployUpkeepCounter(ctx, t, 1, ethClient, backend, carrol, logProvider)
 	lp.PollAndSaveLogs(ctx, int64(5))
 	require.Equal(t, 1, len(contracts))
 	require.Equal(t, 1, len(addrs))
@@ -159,14 +163,14 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 		b, err := ethClient.BlockByHash(ctx, backend.Commit())
 		require.NoError(t, err)
 		bn := b.Number()
-		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+		err = logProvider.RegisterFilter(ctx, logprovider.FilterOptions{
 			UpkeepID:      id,
 			TriggerConfig: cfg,
 			UpdateBlock:   bn.Uint64(),
 		})
 		require.NoError(t, err)
 		// old block
-		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+		err = logProvider.RegisterFilter(ctx, logprovider.FilterOptions{
 			UpkeepID:      id,
 			TriggerConfig: cfg,
 			UpdateBlock:   bn.Uint64() - 1,
@@ -176,7 +180,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 		b, err = ethClient.BlockByHash(ctx, backend.Commit())
 		require.NoError(t, err)
 		bn = b.Number()
-		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+		err = logProvider.RegisterFilter(ctx, logprovider.FilterOptions{
 			UpkeepID:      id,
 			TriggerConfig: cfg,
 			UpdateBlock:   bn.Uint64(),
@@ -191,7 +195,7 @@ func TestIntegration_LogEventProvider_UpdateConfig(t *testing.T) {
 		b, err := ethClient.BlockByHash(ctx, backend.Commit())
 		require.NoError(t, err)
 		bn := b.Number()
-		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+		err = logProvider.RegisterFilter(ctx, logprovider.FilterOptions{
 			UpkeepID:      id,
 			TriggerConfig: cfg,
 			UpdateBlock:   bn.Uint64(),
@@ -211,17 +215,18 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 	db := setupDB(t)
 	defer db.Close()
 
-	opts := &logprovider.LogEventProviderOptions{
-		ReadInterval: time.Second / 4,
-	}
+	opts := logprovider.NewOptions(200)
+	opts.ReadInterval = time.Second / 4
 	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
 	filterStore := logprovider.NewUpkeepFilterStore()
-	provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
+	provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, &opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
 	n := 10
 
-	_, _, contracts := deployUpkeepCounter(t, n, ethClient, backend, carrol, logProvider)
+	backend.Commit()
+	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
+	_, _, contracts := deployUpkeepCounter(ctx, t, n, ethClient, backend, carrol, logProvider)
 
 	poll := pollFn(ctx, t, lp, ethClient)
 
@@ -252,7 +257,7 @@ func TestIntegration_LogEventProvider_Backfill(t *testing.T) {
 func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 	setupTest := func(
 		t *testing.T,
-		opts *logprovider.LogEventProviderOptions,
+		opts *logprovider.LogTriggersOptions,
 	) (
 		context.Context,
 		*backends.SimulatedBackend,
@@ -275,6 +280,8 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 		filterStore := logprovider.NewUpkeepFilterStore()
 		provider, _ := setup(logger.TestLogger(t), lp, nil, utilsABI, nil, filterStore, opts)
 		logProvider := provider.(logprovider.LogEventProviderTest)
+		backend.Commit()
+		lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
 
 		rounds := 5
 		numberOfUserContracts := 10
@@ -282,6 +289,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 
 		// deployUpkeepCounter creates 'n' blocks and 'n' contracts
 		ids, _, contracts := deployUpkeepCounter(
+			ctx,
 			t,
 			numberOfUserContracts,
 			ethClient,
@@ -325,7 +333,8 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 	// polling for logs at approximately the same rate as a chain produces
 	// blocks should not encounter rate limits
 	t.Run("should allow constant polls within the rate and burst limit", func(t *testing.T) {
-		ctx, backend, poll, logProvider, ids, deferFunc := setupTest(t, &logprovider.LogEventProviderOptions{
+		ctx, backend, poll, logProvider, ids, deferFunc := setupTest(t, &logprovider.LogTriggersOptions{
+			LookbackBlocks: 200,
 			// BlockRateLimit is set low to ensure the test does not exceed the
 			// rate limit
 			BlockRateLimit: rate.Every(50 * time.Millisecond),
@@ -361,7 +370,8 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 	})
 
 	t.Run("should produce a rate limit error for over burst limit", func(t *testing.T) {
-		ctx, backend, poll, logProvider, ids, deferFunc := setupTest(t, &logprovider.LogEventProviderOptions{
+		ctx, backend, poll, logProvider, ids, deferFunc := setupTest(t, &logprovider.LogTriggersOptions{
+			LookbackBlocks: 200,
 			// BlockRateLimit is set low to ensure the test does not exceed the
 			// rate limit
 			BlockRateLimit: rate.Every(50 * time.Millisecond),
@@ -399,7 +409,7 @@ func TestIntegration_LogEventProvider_RateLimit(t *testing.T) {
 	})
 
 	t.Run("should allow polling after lookback number of blocks have passed", func(t *testing.T) {
-		ctx, backend, poll, logProvider, ids, deferFunc := setupTest(t, &logprovider.LogEventProviderOptions{
+		ctx, backend, poll, logProvider, ids, deferFunc := setupTest(t, &logprovider.LogTriggersOptions{
 			// BlockRateLimit is set low to ensure the test does not exceed the
 			// rate limit
 			BlockRateLimit: rate.Every(50 * time.Millisecond),
@@ -462,23 +472,25 @@ func TestIntegration_LogRecoverer_Backfill(t *testing.T) {
 	defer db.Close()
 
 	lookbackBlocks := int64(200)
-	opts := &logprovider.LogEventProviderOptions{
+	opts := &logprovider.LogTriggersOptions{
 		ReadInterval:   time.Second / 4,
 		LookbackBlocks: lookbackBlocks,
 	}
 	lp, ethClient, utilsABI := setupDependencies(t, db, backend)
 	filterStore := logprovider.NewUpkeepFilterStore()
-	origDefaultRecoveryInterval := logprovider.DefaultRecoveryInterval
-	logprovider.DefaultRecoveryInterval = time.Millisecond * 200
+	origDefaultRecoveryInterval := logprovider.RecoveryInterval
+	logprovider.RecoveryInterval = time.Millisecond * 200
 	defer func() {
-		logprovider.DefaultRecoveryInterval = origDefaultRecoveryInterval
+		logprovider.RecoveryInterval = origDefaultRecoveryInterval
 	}()
 	provider, recoverer := setup(logger.TestLogger(t), lp, nil, utilsABI, &mockUpkeepStateStore{}, filterStore, opts)
 	logProvider := provider.(logprovider.LogEventProviderTest)
 
-	n := 10
+	backend.Commit()
+	lp.PollAndSaveLogs(ctx, 1) // Ensure log poller has a latest block
 
-	_, _, contracts := deployUpkeepCounter(t, n, ethClient, backend, carrol, logProvider)
+	n := 10
+	_, _, contracts := deployUpkeepCounter(ctx, t, n, ethClient, backend, carrol, logProvider)
 
 	poll := pollFn(ctx, t, lp, ethClient)
 
@@ -603,6 +615,7 @@ func triggerEvents(
 }
 
 func deployUpkeepCounter(
+	ctx context.Context,
 	t *testing.T,
 	n int,
 	ethClient *evmclient.SimulatedBackendClient,
@@ -631,7 +644,7 @@ func deployUpkeepCounter(
 		b, err := ethClient.BlockByHash(context.Background(), backend.Commit())
 		require.NoError(t, err)
 		bn := b.Number()
-		err = logProvider.RegisterFilter(logprovider.FilterOptions{
+		err = logProvider.RegisterFilter(ctx, logprovider.FilterOptions{
 			UpkeepID:      id,
 			TriggerConfig: newPlainLogTriggerConfig(upkeepAddr),
 			UpdateBlock:   bn.Uint64(),
@@ -662,14 +675,14 @@ func setupDependencies(t *testing.T, db *sqlx.DB, backend *backends.SimulatedBac
 	return lp, ethClient, utilsABI
 }
 
-func setup(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, utilsABI abi.ABI, stateStore kevmcore.UpkeepStateReader, filterStore logprovider.UpkeepFilterStore, opts *logprovider.LogEventProviderOptions) (logprovider.LogEventProvider, logprovider.LogRecoverer) {
+func setup(lggr logger.Logger, poller logpoller.LogPoller, c client.Client, utilsABI abi.ABI, stateStore kevmcore.UpkeepStateReader, filterStore logprovider.UpkeepFilterStore, opts *logprovider.LogTriggersOptions) (logprovider.LogEventProvider, logprovider.LogRecoverer) {
 	packer := logprovider.NewLogEventsPacker(utilsABI)
 	if opts == nil {
-		opts = new(logprovider.LogEventProviderOptions)
-		opts.Defaults()
+		o := logprovider.NewOptions(200)
+		opts = &o
 	}
-	provider := logprovider.NewLogProvider(lggr, poller, packer, filterStore, opts)
-	recoverer := logprovider.NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, 0, opts.LookbackBlocks)
+	provider := logprovider.NewLogProvider(lggr, poller, packer, filterStore, *opts)
+	recoverer := logprovider.NewLogRecoverer(lggr, poller, c, stateStore, packer, filterStore, *opts)
 
 	return provider, recoverer
 }
@@ -706,7 +719,7 @@ func setupDB(t *testing.T) *sqlx.DB {
 type mockUpkeepStateStore struct {
 }
 
-func (m *mockUpkeepStateStore) SelectByWorkIDsInRange(ctx context.Context, start, end int64, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
+func (m *mockUpkeepStateStore) SelectByWorkIDs(ctx context.Context, workIDs ...string) ([]ocr2keepers.UpkeepState, error) {
 	states := make([]ocr2keepers.UpkeepState, len(workIDs))
 	for i := range workIDs {
 		states[i] = ocr2keepers.UnknownState

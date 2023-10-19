@@ -53,19 +53,19 @@ var monitoringEndpoint = telemetry.MonitoringEndpointGenerator(&telemetry.NoopAg
 func TestRunner(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	keyStore := cltest.NewKeyStore(t, db, pgtest.NewQConfig(true))
-	kb, err := keyStore.OCR().Create()
-	require.NoError(t, err)
+
 	ethKeyStore := keyStore.Eth()
 	_, transmitterAddress := cltest.MustInsertRandomKey(t, ethKeyStore, 0)
 	require.NoError(t, keyStore.OCR().Add(cltest.DefaultOCRKey))
 
 	config := configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		t := true
-		c.P2P.V1.Enabled = &t
+		c.P2P.V1.Enabled = ptr(true)
 		c.P2P.V1.DefaultBootstrapPeers = &[]string{
 			"/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 			"/dns4/chain.link/tcp/1235/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
 		}
+		kb, err := keyStore.OCR().Create()
+		require.NoError(t, err)
 		kbid := models.MustSha256HashFromHex(kb.ID())
 		c.OCR.KeyBundleID = &kbid
 		taddress := ethkey.EIP55AddressFromAddress(transmitterAddress)
@@ -82,8 +82,7 @@ func TestRunner(t *testing.T) {
 	pipelineORM := pipeline.NewORM(db, logger.TestLogger(t), config.Database(), config.JobPipeline().MaxSuccessfulRuns())
 	btORM := bridges.NewORM(db, logger.TestLogger(t), config.Database())
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: db, Client: ethClient, GeneralConfig: config, KeyStore: ethKeyStore})
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 
 	runner := pipeline.NewRunner(pipelineORM, btORM, config.JobPipeline(), config.WebServer(), legacyChains, nil, nil, logger.TestLogger(t), c, c)
@@ -119,8 +118,7 @@ func TestRunner(t *testing.T) {
 
 		// Need a job in order to create a run
 		jb := MakeVoterTurnoutOCRJobSpecWithHTTPURL(t, transmitterAddress, httpURL, bridgeVT.Name.String(), bridgeER.Name.String())
-		err = jobORM.CreateJob(jb)
-		require.NoError(t, err)
+		require.NoError(t, jobORM.CreateJob(jb))
 		require.NotNil(t, jb.PipelineSpec)
 
 		m, err := bridges.MarshalBridgeMetaData(big.NewInt(10), big.NewInt(100))
@@ -171,12 +169,12 @@ func TestRunner(t *testing.T) {
 		jb := makeOCRJobSpecFromToml(t, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
+			evmChainID		   = "0"
 			observationSource = """
 				ds1          [type=bridge name="%s"];
 			"""
 		`, bridge.Name.String()))
-		err = jobORM.CreateJob(jb)
-		require.NoError(t, err)
+		require.NoError(t, jobORM.CreateJob(jb))
 		// Should not be able to delete a bridge in use.
 		jids, err := jobORM.FindJobIDsWithBridge(bridge.Name.String())
 		require.NoError(t, err)
@@ -196,7 +194,7 @@ func TestRunner(t *testing.T) {
 		// Reference a different one
 		legacyChains := cltest.NewLegacyChainsWithMockChain(t, nil, config)
 
-		jb, err2 := ocr.ValidatedOracleSpecToml(legacyChains, fmt.Sprintf(`
+		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, fmt.Sprintf(`
 			type               = "offchainreporting"
 			schemaVersion      = 1
 			evmChainID         = 0
@@ -219,7 +217,7 @@ func TestRunner(t *testing.T) {
 			answer1      [type=median index=0];
 			"""
 		`, placeHolderAddress.String()))
-		require.NoError(t, err2)
+		require.NoError(t, err)
 		// Should error creating it
 		err = jobORM.CreateJob(&jb)
 		require.Error(t, err)
@@ -437,6 +435,7 @@ answer1      [type=median index=0];
 		schemaVersion      = 1
 		contractAddress    = "%s"
 		isBootstrapPeer    = false
+		evmChainID		   = "0"
 		observationSource = """
 ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
 ds1_parse    [type=jsonparse path="USD" lax=true];
@@ -474,6 +473,7 @@ ds1 -> ds1_parse;
 		schemaVersion      = 1
 		contractAddress    = "%s"
 		isBootstrapPeer    = true
+		evmChainID		   = "0"
 `
 		s = fmt.Sprintf(s, cltest.NewEIP55Address())
 		jb, err := ocr.ValidatedOracleSpecToml(legacyChains, s)
@@ -512,6 +512,7 @@ ds1 -> ds1_parse;
 		contractAddress    = "%s"
 		isBootstrapPeer    = false
 		observationTimeout = "15s"
+		evmChainID		   = "0"
 		observationSource = """
 ds1          [type=http method=GET url="%s" allowunrestrictednetworkaccess="true" %s];
 ds1_parse    [type=jsonparse path="USD" lax=true];
@@ -689,7 +690,7 @@ ds1 -> ds1_parse;
 		serv := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 			time.Sleep(1 * time.Millisecond)
 			res.WriteHeader(http.StatusOK)
-			_, err = res.Write([]byte(`{"USD":10.1}`))
+			_, err := res.Write([]byte(`{"USD":10.1}`))
 			require.NoError(t, err)
 		}))
 		defer serv.Close()
@@ -767,8 +768,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 	keyStore := cltest.NewKeyStore(t, app.GetSqlxDB(), pgtest.NewQConfig(true))
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	var (
@@ -911,7 +911,7 @@ func TestRunner_Success_Callback_AsyncJob(t *testing.T) {
 		{
 			url, err := url.Parse(responseURL)
 			require.NoError(t, err)
-			client := app.NewHTTPClient(cltest.APIEmailAdmin)
+			client := app.NewHTTPClient(&cltest.User{})
 			body := strings.NewReader(`{"value": {"data":{"result":"123.45"}}}`)
 			response, cleanup := client.Patch(url.Path, body)
 			defer cleanup()
@@ -950,8 +950,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 	app := cltest.NewApplicationWithConfig(t, cfg, ethClient, cltest.UseRealExternalInitiatorManager)
 	keyStore := cltest.NewKeyStore(t, app.GetSqlxDB(), pgtest.NewQConfig(true))
 	relayExtenders := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{DB: app.GetSqlxDB(), Client: ethClient, GeneralConfig: cfg, KeyStore: keyStore.Eth()})
-	legacyChains, err := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
-	require.NoError(t, err)
+	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 
 	require.NoError(t, app.Start(testutils.Context(t)))
 
@@ -1093,7 +1092,7 @@ func TestRunner_Error_Callback_AsyncJob(t *testing.T) {
 		{
 			url, err := url.Parse(responseURL)
 			require.NoError(t, err)
-			client := app.NewHTTPClient(cltest.APIEmailAdmin)
+			client := app.NewHTTPClient(&cltest.User{})
 			body := strings.NewReader(`{"error": "something exploded in EA"}`)
 			response, cleanup := client.Patch(url.Path, body)
 			defer cleanup()

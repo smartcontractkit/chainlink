@@ -137,10 +137,10 @@ func TestTxm_CreateTransaction(t *testing.T) {
 		assert.Equal(t, big.Int(assets.NewEthValue(0)), etx.Value)
 		assert.Equal(t, subject, etx.Subject.UUID)
 
-		cltest.AssertCount(t, db, "eth_txes", 1)
+		cltest.AssertCount(t, db, "evm.txes", 1)
 
 		var dbEtx txmgr.DbEthTx
-		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM evm.txes ORDER BY id ASC LIMIT 1`))
 
 		assert.Equal(t, etx.State, txmgrcommon.TxUnstarted)
 		assert.Equal(t, gasLimit, etx.FeeLimit)
@@ -219,7 +219,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	})
 
 	t.Run("simulate transmit checker", func(t *testing.T) {
-		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
+		pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
 
 		checker := txmgr.TransmitCheckerSpec{
 			CheckerType: txmgr.TransmitCheckerTypeSimulate,
@@ -234,9 +234,9 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			Checker:        checker,
 		})
 		assert.NoError(t, err)
-		cltest.AssertCount(t, db, "eth_txes", 1)
+		cltest.AssertCount(t, db, "evm.txes", 1)
 		var dbEtx txmgr.DbEthTx
-		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM evm.txes ORDER BY id ASC LIMIT 1`))
 
 		var c txmgr.TransmitCheckerSpec
 		require.NotNil(t, etx.TransmitChecker)
@@ -245,7 +245,7 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	})
 
 	t.Run("meta and vrf checker", func(t *testing.T) {
-		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
+		pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
 		testDefaultSubID := uint64(2)
 		testDefaultMaxLink := "1000000000000000000"
 		testDefaultMaxEth := "2000000000000000000"
@@ -278,9 +278,9 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			Checker:        checker,
 		})
 		assert.NoError(t, err)
-		cltest.AssertCount(t, db, "eth_txes", 1)
+		cltest.AssertCount(t, db, "evm.txes", 1)
 		var dbEtx txmgr.DbEthTx
-		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM evm.txes ORDER BY id ASC LIMIT 1`))
 
 		m, err := etx.GetMeta()
 		require.NoError(t, err)
@@ -293,8 +293,8 @@ func TestTxm_CreateTransaction(t *testing.T) {
 	})
 
 	t.Run("forwards tx when a proper forwarder is set up", func(t *testing.T) {
-		pgtest.MustExec(t, db, `DELETE FROM eth_txes`)
-		pgtest.MustExec(t, db, `DELETE FROM evm_forwarders`)
+		pgtest.MustExec(t, db, `DELETE FROM evm.txes`)
+		pgtest.MustExec(t, db, `DELETE FROM evm.forwarders`)
 		evmConfig.maxQueued = uint64(1)
 
 		// Create mock forwarder, mock authorizedsenders call.
@@ -313,15 +313,60 @@ func TestTxm_CreateTransaction(t *testing.T) {
 			Strategy:         txmgrcommon.NewSendEveryStrategy(),
 		})
 		assert.NoError(t, err)
-		cltest.AssertCount(t, db, "eth_txes", 1)
+		cltest.AssertCount(t, db, "evm.txes", 1)
 
 		var dbEtx txmgr.DbEthTx
-		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM eth_txes ORDER BY id ASC LIMIT 1`))
+		require.NoError(t, db.Get(&dbEtx, `SELECT * FROM evm.txes ORDER BY id ASC LIMIT 1`))
 
 		m, err := etx.GetMeta()
 		require.NoError(t, err)
 		require.NotNil(t, m.FwdrDestAddress)
 		require.Equal(t, etx.ToAddress.String(), fwdrAddr.String())
+	})
+
+	t.Run("insert Tx successfully with a IdempotencyKey", func(t *testing.T) {
+		evmConfig.maxQueued = uint64(3)
+		id := uuid.New()
+		idempotencyKey := "1"
+		_, err := txm.CreateTransaction(txmgr.TxRequest{
+			IdempotencyKey:    &idempotencyKey,
+			FromAddress:       fromAddress,
+			ToAddress:         testutils.NewAddress(),
+			EncodedPayload:    []byte{1, 2, 3},
+			FeeLimit:          21000,
+			PipelineTaskRunID: &id,
+			Strategy:          txmgrcommon.NewSendEveryStrategy(),
+		})
+		assert.NoError(t, err)
+	})
+
+	t.Run("doesn't insert eth_tx if a matching tx already exists for that IdempotencyKey", func(t *testing.T) {
+		evmConfig.maxQueued = uint64(3)
+		id := uuid.New()
+		idempotencyKey := "2"
+		tx1, err := txm.CreateTransaction(txmgr.TxRequest{
+			IdempotencyKey:    &idempotencyKey,
+			FromAddress:       fromAddress,
+			ToAddress:         testutils.NewAddress(),
+			EncodedPayload:    []byte{1, 2, 3},
+			FeeLimit:          21000,
+			PipelineTaskRunID: &id,
+			Strategy:          txmgrcommon.NewSendEveryStrategy(),
+		})
+		assert.NoError(t, err)
+
+		tx2, err := txm.CreateTransaction(txmgr.TxRequest{
+			IdempotencyKey:    &idempotencyKey,
+			FromAddress:       fromAddress,
+			ToAddress:         testutils.NewAddress(),
+			EncodedPayload:    []byte{1, 2, 3},
+			FeeLimit:          21000,
+			PipelineTaskRunID: &id,
+			Strategy:          txmgrcommon.NewSendEveryStrategy(),
+		})
+		assert.NoError(t, err)
+
+		assert.Equal(t, tx1.GetID(), tx2.GetID())
 	})
 }
 
@@ -401,7 +446,7 @@ func (g *gasEstimatorConfig) PriceMax() *assets.Wei                { return asse
 func (g *gasEstimatorConfig) PriceMin() *assets.Wei                { return assets.NewWeiI(42) }
 func (g *gasEstimatorConfig) Mode() string                         { return "FixedPrice" }
 func (g *gasEstimatorConfig) LimitJobType() evmconfig.LimitJobType { return &limitJobTypeConfig{} }
-func (e *gasEstimatorConfig) PriceMaxKey(addr common.Address) *assets.Wei {
+func (g *gasEstimatorConfig) PriceMaxKey(addr common.Address) *assets.Wei {
 	return assets.NewWeiI(42)
 }
 
@@ -505,7 +550,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 
-	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM eth_txes WHERE from_address = $1`, thisKey.Address)))
+	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM evm.txes WHERE from_address = $1`, thisKey.Address)))
 
 	t.Run("if this key has any transactions with insufficient eth errors, inserts it anyway", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
@@ -528,7 +573,7 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 		require.Equal(t, payload, etx.EncodedPayload)
 	})
 
-	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM eth_txes WHERE from_address = $1`, thisKey.Address)))
+	require.NoError(t, utils.JustError(db.Exec(`DELETE FROM evm.txes WHERE from_address = $1`, thisKey.Address)))
 
 	t.Run("if this key has transactions but no insufficient eth errors, transmits as normal", func(t *testing.T) {
 		payload := cltest.MustRandomBytes(t, 100)
@@ -581,7 +626,7 @@ func TestTxm_Lifecycle(t *testing.T) {
 
 	sub := pgmocks.NewSubscription(t)
 	sub.On("Events").Return(make(<-chan pg.Event))
-	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
+	eventBroadcaster.On("Subscribe", "evm.insert_on_txes", "").Return(sub, nil)
 	evmConfig.bumpThreshold = uint64(1)
 
 	require.NoError(t, txm.Start(testutils.Context(t)))
@@ -650,7 +695,7 @@ func TestTxm_Reset(t *testing.T) {
 	sub := pgmocks.NewSubscription(t)
 	sub.On("Events").Return(make(<-chan pg.Event))
 	sub.On("Close")
-	eventBroadcaster.On("Subscribe", "insert_on_eth_txes", "").Return(sub, nil)
+	eventBroadcaster.On("Subscribe", "evm.insert_on_txes", "").Return(sub, nil)
 
 	estimator := gas.NewEstimator(logger.TestLogger(t), ethClient, cfg.EVM(), cfg.EVM().GasEstimator())
 	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, cfg.EVM(), cfg.EVM().GasEstimator(), cfg.EVM().Transactions(), cfg.Database(), cfg.Database().Listener(), kst.Eth(), eventBroadcaster)
@@ -683,7 +728,7 @@ func TestTxm_Reset(t *testing.T) {
 		f.AssertCalled(t)
 	})
 
-	t.Run("calls function and deletes relevant eth_txes if abandon=true", func(t *testing.T) {
+	t.Run("calls function and deletes relevant evm.txes if abandon=true", func(t *testing.T) {
 		f := new(fnMock)
 
 		err := txm.Reset(f.Fn, addr, true)
@@ -692,13 +737,13 @@ func TestTxm_Reset(t *testing.T) {
 		f.AssertCalled(t)
 
 		var s string
-		err = db.Get(&s, `SELECT error FROM eth_txes WHERE from_address = $1 AND state = 'fatal_error'`, addr)
+		err = db.Get(&s, `SELECT error FROM evm.txes WHERE from_address = $1 AND state = 'fatal_error'`, addr)
 		require.NoError(t, err)
 		assert.Equal(t, "abandoned", s)
 
 		// the other address didn't get touched
 		var count int
-		err = db.Get(&count, `SELECT count(*) FROM eth_txes WHERE from_address = $1 AND state = 'fatal_error'`, addr2)
+		err = db.Get(&count, `SELECT count(*) FROM evm.txes WHERE from_address = $1 AND state = 'fatal_error'`, addr2)
 		require.NoError(t, err)
 		assert.Equal(t, 0, count)
 	})

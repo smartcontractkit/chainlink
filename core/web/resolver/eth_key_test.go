@@ -8,7 +8,6 @@ import (
 	gqlerrors "github.com/graph-gophers/graphql-go/errors"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/mock"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -91,8 +90,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 
 				cfg := configtest.NewGeneralConfig(t, nil)
 				m := map[string]evm.Chain{states[0].EVMChainID.String(): f.Mocks.chain}
-				legacyEVMChains, err := evm.NewLegacyChains(cfg, m)
-				require.NoError(t, err)
+				legacyEVMChains := evm.NewLegacyChains(m, cfg.EVMConfigs())
 
 				f.Mocks.ethKs.On("GetStatesForKeys", keys).Return(states, nil)
 				f.Mocks.ethKs.On("Get", keys[0].Address.Hex()).Return(keys[0], nil)
@@ -252,7 +250,7 @@ func TestResolver_ETHKeys(t *testing.T) {
 		},
 
 		{
-			name:          "Empty set on #chainSet.Get()",
+			name:          "Empty set on legacy evm chains",
 			authenticated: true,
 			before: func(f *gqlTestFramework) {
 				states := []ethkey.State{

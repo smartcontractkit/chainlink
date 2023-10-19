@@ -502,6 +502,72 @@ func TestORM_IndexedLogs(t *testing.T) {
 	assert.Equal(t, 1, len(lgs))
 }
 
+func TestORM_SelectIndexedLogsByTxHash(t *testing.T) {
+	th := SetupTH(t, 0, 3, 2)
+	o1 := th.ORM
+	eventSig := common.HexToHash("0x1599")
+	txHash := common.HexToHash("0x1888")
+	addr := common.HexToAddress("0x1234")
+
+	require.NoError(t, o1.InsertBlock(common.HexToHash("0x1"), 1, time.Now()))
+	logs := []logpoller.Log{
+		{
+			EvmChainId:  utils.NewBig(th.ChainID),
+			LogIndex:    int64(0),
+			BlockHash:   common.HexToHash("0x1"),
+			BlockNumber: int64(1),
+			EventSig:    eventSig,
+			Topics:      [][]byte{eventSig[:]},
+			Address:     addr,
+			TxHash:      txHash,
+			Data:        logpoller.EvmWord(1).Bytes(),
+		},
+		{
+			EvmChainId:  utils.NewBig(th.ChainID),
+			LogIndex:    int64(1),
+			BlockHash:   common.HexToHash("0x1"),
+			BlockNumber: int64(1),
+			EventSig:    eventSig,
+			Topics:      [][]byte{eventSig[:]},
+			Address:     addr,
+			TxHash:      txHash,
+			Data:        append(logpoller.EvmWord(2).Bytes(), logpoller.EvmWord(3).Bytes()...),
+		},
+		// Different txHash
+		{
+			EvmChainId:  utils.NewBig(th.ChainID),
+			LogIndex:    int64(2),
+			BlockHash:   common.HexToHash("0x1"),
+			BlockNumber: int64(1),
+			EventSig:    eventSig,
+			Topics:      [][]byte{eventSig[:]},
+			Address:     addr,
+			TxHash:      common.HexToHash("0x1889"),
+			Data:        append(logpoller.EvmWord(2).Bytes(), logpoller.EvmWord(3).Bytes()...),
+		},
+		// Different eventSig
+		{
+			EvmChainId:  utils.NewBig(th.ChainID),
+			LogIndex:    int64(3),
+			BlockHash:   common.HexToHash("0x1"),
+			BlockNumber: int64(1),
+			EventSig:    common.HexToHash("0x1600"),
+			Topics:      [][]byte{eventSig[:]},
+			Address:     addr,
+			TxHash:      txHash,
+			Data:        append(logpoller.EvmWord(2).Bytes(), logpoller.EvmWord(3).Bytes()...),
+		},
+	}
+	require.NoError(t, o1.InsertLogs(logs))
+
+	retrievedLogs, err := o1.SelectIndexedLogsByTxHash(eventSig, txHash)
+	require.NoError(t, err)
+
+	require.Equal(t, 2, len(retrievedLogs))
+	require.Equal(t, retrievedLogs[0].LogIndex, logs[0].LogIndex)
+	require.Equal(t, retrievedLogs[1].LogIndex, logs[1].LogIndex)
+}
+
 func TestORM_DataWords(t *testing.T) {
 	th := SetupTH(t, 2, 3, 2)
 	o1 := th.ORM
@@ -561,6 +627,21 @@ func TestORM_DataWords(t *testing.T) {
 
 	// Check greater than 1 yields both logs.
 	lgs, err = o1.SelectDataWordGreaterThan(addr, eventSig, 0, logpoller.EvmWord(1), 0)
+	require.NoError(t, err)
+	assert.Equal(t, 2, len(lgs))
+
+	// Unknown hash should an error
+	lgs, err = o1.SelectUntilBlockHashDataWordGreaterThan(addr, eventSig, 0, logpoller.EvmWord(1), common.HexToHash("0x3"))
+	require.Error(t, err)
+	assert.Equal(t, 0, len(lgs))
+
+	// 1 block should include first log
+	lgs, err = o1.SelectUntilBlockHashDataWordGreaterThan(addr, eventSig, 0, logpoller.EvmWord(1), common.HexToHash("0x1"))
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(lgs))
+
+	// 2 block should include both
+	lgs, err = o1.SelectUntilBlockHashDataWordGreaterThan(addr, eventSig, 0, logpoller.EvmWord(1), common.HexToHash("0x2"))
 	require.NoError(t, err)
 	assert.Equal(t, 2, len(lgs))
 }

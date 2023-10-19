@@ -10,7 +10,6 @@ AllowSimplePasswords = false
 # Input Configuration:
 
 # Effective Configuration, with defaults applied:
-ExplorerURL = ''
 InsecureFastScrypt = false
 RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'

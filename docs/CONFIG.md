@@ -20,18 +20,11 @@ HTTPURL = 'https://foo.bar' # Required
 
 ## Global
 ```toml
-ExplorerURL = 'ws://explorer.url' # Example
 InsecureFastScrypt = false # Default
 RootDir = '~/.chainlink' # Default
 ShutdownGracePeriod = '5s' # Default
 ```
 
-
-### ExplorerURL
-```toml
-ExplorerURL = 'ws://explorer.url' # Example
-```
-ExplorerURL is the websocket URL used by the node to push stats. This variable is required to deliver telemetry.
 
 ### InsecureFastScrypt
 :warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
@@ -3378,7 +3371,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 14500000
 ```
 
 </p></details>
@@ -4004,7 +3997,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 5300000
+GasLimit = 14500000
 ```
 
 </p></details>
@@ -4018,7 +4011,7 @@ BlockBackfillSkip = false
 FinalityDepth = 1
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
-LogPollInterval = '30s'
+LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
@@ -4033,7 +4026,7 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '2m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -4095,7 +4088,7 @@ BlockBackfillSkip = false
 FinalityDepth = 1
 FinalityTagEnabled = false
 LogBackfillBatchSize = 1000
-LogPollInterval = '30s'
+LogPollInterval = '3s'
 LogKeepBlocksDepth = 100000
 MinIncomingConfirmations = 1
 MinContractPayment = '0.00001 link'
@@ -4110,7 +4103,7 @@ MaxInFlight = 16
 MaxQueued = 250
 ReaperInterval = '1h0m0s'
 ReaperThreshold = '168h0m0s'
-ResendAfterThreshold = '2m0s'
+ResendAfterThreshold = '1m0s'
 
 [BalanceMonitor]
 Enabled = true
@@ -5140,7 +5133,7 @@ BlockRate = '6s' # Default
 BlocksUntilTxTimeout = 30 # Default
 ConfirmPollPeriod = '1s' # Default
 FallbackGasPrice = '0.015' # Default
-FeeToken = 'ucosm' # Default
+GasToken = 'ucosm' # Default
 GasLimitMultiplier = '1.5' # Default
 MaxMsgsPerBatch = 100 # Default
 OCR2CachePollPeriod = '4s' # Default
@@ -5191,11 +5184,11 @@ FallbackGasPrice = '0.015' # Default
 ```
 FallbackGasPrice sets a fallback gas price to use when the estimator is not available.
 
-### FeeToken
+### GasToken
 ```toml
-FeeToken = 'ucosm' # Default
+GasToken = 'ucosm' # Default
 ```
-FeeToken is the token denomination which is being used to pay gas fees on this chain.
+GasToken is the token denomination which is being used to pay gas fees on this chain.
 
 ### GasLimitMultiplier
 ```toml

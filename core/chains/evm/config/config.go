@@ -38,6 +38,9 @@ type EVM interface {
 	OperatorFactoryAddress() string
 	RPCDefaultBatchSize() uint32
 	NodeNoNewHeadsThreshold() time.Duration
+
+	IsEnabled() bool
+	TOMLString() (string, error)
 }
 
 type OCR interface {

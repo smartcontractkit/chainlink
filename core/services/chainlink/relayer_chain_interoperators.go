@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
@@ -52,17 +53,21 @@ type LegacyChainer interface {
 	LegacyCosmosChains() cosmos.LegacyChainContainer
 }
 
-// Similar to [chains.ChainStatuser] but keyed by relay identifier instead of string
-// TODO BCF-2441 remove this comment when chains.ChainStatus is no longer keyed.
 type ChainStatuser interface {
 	ChainStatus(ctx context.Context, id relay.ID) (types.ChainStatus, error)
 	ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error)
 }
 
+// NodesStatuser is an interface for node configuration and state.
+// TODO BCF-2440, BCF-2511 may need Node(ctx,name) to get a node status by name
+type NodesStatuser interface {
+	NodeStatuses(ctx context.Context, offset, limit int, relayIDs ...relay.ID) (nodes []types.NodeStatus, count int, err error)
+}
+
 // ChainsNodesStatuser report statuses about chains and nodes
 type ChainsNodesStatuser interface {
 	ChainStatuser
-	chains.NodesStatuser
+	NodesStatuser
 }
 
 var _ RelayerChainInteroperators = &CoreRelayerChainInteroperators{}
@@ -85,9 +90,9 @@ func NewCoreRelayerChainInteroperators(initFuncs ...CoreRelayerChainInitFunc) (*
 		srvs:         make([]services.ServiceCtx, 0),
 	}
 	for _, initFn := range initFuncs {
-		err2 := initFn(cr)
-		if err2 != nil {
-			return nil, err2
+		err := initFn(cr)
+		if err != nil {
+			return nil, err
 		}
 	}
 	return cr, nil
@@ -105,26 +110,13 @@ func InitEVM(ctx context.Context, factory RelayerFactory, config EVMFactoryConfi
 		}
 
 		legacyMap := make(map[string]evm.Chain)
-		var defaultChain evm.Chain
 		for id, a := range adapters {
 			// adapter is a service
 			op.srvs = append(op.srvs, a)
 			op.loopRelayers[id] = a
-			legacyMap[id.ChainID.String()] = a.Chain()
-			if a.Default() {
-				defaultChain = a.Chain()
-			}
-
+			legacyMap[id.ChainID] = a.Chain()
 		}
-		legacy, err := evm.NewLegacyChains(config.AppConfig, legacyMap)
-		if err != nil {
-			return err
-		}
-		op.legacyChains.EVMChains = legacy
-		// TODO BCF-2510 this may not be necessary if EVM is not enabled by default
-		if defaultChain != nil {
-			op.legacyChains.EVMChains.SetDefault(defaultChain)
-		}
+		op.legacyChains.EVMChains = evm.NewLegacyChains(legacyMap, config.AppConfig.EVMConfigs())
 		return nil
 	}
 }
@@ -137,10 +129,11 @@ func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactor
 			return fmt.Errorf("failed to setup Cosmos relayer: %w", err2)
 		}
 		legacyMap := make(map[string]cosmos.Chain)
+
 		for id, a := range adapters {
 			op.srvs = append(op.srvs, a)
 			op.loopRelayers[id] = a
-			legacyMap[id.ChainID.String()] = a.Chain()
+			legacyMap[id.ChainID] = a.Chain()
 		}
 		op.legacyChains.CosmosChains = cosmos.NewLegacyChains(legacyMap)
 
@@ -155,6 +148,7 @@ func InitSolana(ctx context.Context, factory RelayerFactory, config SolanaFactor
 		if err2 != nil {
 			return fmt.Errorf("failed to setup Solana relayer: %w", err2)
 		}
+
 		for id, relayer := range solRelayers {
 			op.srvs = append(op.srvs, relayer)
 			op.loopRelayers[id] = relayer
@@ -171,10 +165,12 @@ func InitStarknet(ctx context.Context, factory RelayerFactory, config StarkNetFa
 		if err2 != nil {
 			return fmt.Errorf("failed to setup StarkNet relayer: %w", err2)
 		}
+
 		for id, relayer := range starkRelayers {
 			op.srvs = append(op.srvs, relayer)
 			op.loopRelayers[id] = relayer
 		}
+
 		return nil
 	}
 }
@@ -211,16 +207,13 @@ func (rs *CoreRelayerChainInteroperators) ChainStatus(ctx context.Context, id re
 
 	lr, err := rs.Get(id)
 	if err != nil {
-		return types.ChainStatus{}, fmt.Errorf("%w: error getting chainstatus: %w", chains.ErrNotFound, err)
+		return types.ChainStatus{}, fmt.Errorf("%w: error getting chain status: %w", chains.ErrNotFound, err)
 	}
-	// this call is weird because the [loop.Relayer] interface still requires id
-	// but in this context the `relayer` should only have only id
-	// moreover, the `relayer` here is pinned to one chain we need to pass the chain id
-	return lr.ChainStatus(ctx, id.ChainID.String())
+
+	return lr.GetChainStatus(ctx)
 }
 
 func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, offset, limit int) ([]types.ChainStatus, int, error) {
-	// chain statuses are not dynamic; the call would be better named as ChainConfig or such.
 
 	var (
 		stats    []types.ChainStatus
@@ -238,8 +231,7 @@ func (rs *CoreRelayerChainInteroperators) ChainStatuses(ctx context.Context, off
 	})
 	for _, rid := range relayerIds {
 		lr := rs.loopRelayers[rid]
-		// the relayer is chain specific; use the chain id and not the relayer id
-		stat, err := lr.ChainStatus(ctx, rid.ChainID.String())
+		stat, err := lr.GetChainStatus(ctx)
 		if err != nil {
 			totalErr = errors.Join(totalErr, err)
 			continue
@@ -273,51 +265,46 @@ func (rs *CoreRelayerChainInteroperators) Node(ctx context.Context, name string)
 }
 
 // ids must be a string representation of relay.Identifier
-// ids are a filter; if none are specificied, all are returned.
-// TODO: BCF-2440/1 this signature can be changed to id relay.Identifier which is a much better API
-func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, relayerIDs ...string) (nodes []types.NodeStatus, count int, err error) {
+// ids are a filter; if none are specified, all are returned.
+func (rs *CoreRelayerChainInteroperators) NodeStatuses(ctx context.Context, offset, limit int, relayerIDs ...relay.ID) (nodes []types.NodeStatus, count int, err error) {
 	var (
 		totalErr error
 		result   []types.NodeStatus
 	)
 	if len(relayerIDs) == 0 {
-		for rid, lr := range rs.loopRelayers {
-			stats, _, err := lr.NodeStatuses(ctx, offset, limit, rid.ChainID.String())
+		for _, lr := range rs.loopRelayers {
+			stats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "")
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)
 				continue
 			}
 			result = append(result, stats...)
+			count += total
 		}
 	} else {
-		for _, idStr := range relayerIDs {
-			rid := new(relay.ID)
-			err := rid.UnmarshalString(idStr)
-			if err != nil {
-				totalErr = errors.Join(totalErr, err)
-				continue
-			}
-			lr, exist := rs.loopRelayers[*rid]
+		for _, rid := range relayerIDs {
+			lr, exist := rs.loopRelayers[rid]
 			if !exist {
 				totalErr = errors.Join(totalErr, fmt.Errorf("relayer %s does not exist", rid.Name()))
 				continue
 			}
-			nodeStats, _, err := lr.NodeStatuses(ctx, offset, limit, rid.ChainID.String())
+			nodeStats, _, total, err := lr.ListNodeStatuses(ctx, int32(limit), "")
 
 			if err != nil {
 				totalErr = errors.Join(totalErr, err)
 				continue
 			}
 			result = append(result, nodeStats...)
+			count += total
 		}
 	}
 	if totalErr != nil {
 		return nil, 0, totalErr
 	}
 	if len(result) > limit && limit > 0 {
-		return result[offset : offset+limit], limit, nil
+		return result[offset : offset+limit], count, nil
 	}
-	return result[offset:], len(result[offset:]), nil
+	return result[offset:], count, nil
 }
 
 type FilterFn func(id relay.ID) bool

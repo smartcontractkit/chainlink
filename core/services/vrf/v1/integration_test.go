@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestIntegration_VRF_JPV2(t *testing.T) {
@@ -47,6 +48,7 @@ func TestIntegration_VRF_JPV2(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			config, _ := heavyweight.FullTestDBV2(t, fmt.Sprintf("vrf_jpv2_%v", test.eip1559), func(c *chainlink.Config, s *chainlink.Secrets) {
 				c.EVM[0].GasEstimator.EIP1559DynamicFees = &test.eip1559
+				c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
 			})
 			key1 := cltest.MustGenerateRandomKey(t)
 			key2 := cltest.MustGenerateRandomKey(t)
@@ -133,6 +135,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 		c.Feature.LogPoller = ptr(true)
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
 		c.EVM[0].LogPollInterval = models.MustNewDuration(time.Second)
+		c.EVM[0].ChainID = (*utils.Big)(testutils.SimulatedChainID)
 	})
 	key := cltest.MustGenerateRandomKey(t)
 	cu := vrftesthelpers.NewVRFCoordinatorUniverse(t, key)
@@ -147,7 +150,7 @@ func TestIntegration_VRF_WithBHS(t *testing.T) {
 
 	// Create BHS Job and start it
 	bhsJob := vrftesthelpers.CreateAndStartBHSJob(t, sendingKeys, app, cu.BHSContractAddress.String(),
-		cu.RootContractAddress.String(), "", "", "", 0, 200)
+		cu.RootContractAddress.String(), "", "", "", 0, 200, 0)
 
 	// Ensure log poller is ready and has all logs.
 	require.NoError(t, app.GetRelayers().LegacyEVMChains().Slice()[0].LogPoller().Ready())
@@ -241,7 +244,9 @@ func createVRFJobRegisterKey(t *testing.T, u vrftesthelpers.CoordinatorUniverse,
 		Name:                     "vrf-primary",
 		CoordinatorAddress:       u.RootContractAddress.String(),
 		MinIncomingConfirmations: incomingConfs,
-		PublicKey:                vrfKey.PublicKey.String()}).Toml()
+		PublicKey:                vrfKey.PublicKey.String(),
+		EVMChainID:               testutils.SimulatedChainID.String(),
+	}).Toml()
 	jb, err := vrfcommon.ValidatedVRFSpec(s)
 	require.NoError(t, err)
 	assert.Equal(t, expectedOnChainJobID, jb.ExternalIDEncodeStringToTopic().Bytes())

@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -81,7 +80,7 @@ func Test_Queue(t *testing.T) {
 	})
 
 	t.Run("transmit queue is more than 50% full", func(t *testing.T) {
-		transmitQueue.Push(testTransmissions[2].tr, testTransmissions[0].ctx)
+		transmitQueue.Push(testTransmissions[2].tr, testTransmissions[2].ctx)
 		report := transmitQueue.HealthReport()
 		assert.Equal(t, report[transmitQueue.Name()].Error(), "transmit priority queue is greater than 50% full (4/7)")
 	})
@@ -92,21 +91,18 @@ func Test_Queue(t *testing.T) {
 	})
 
 	t.Run("transmit queue is full and evicts the oldest transmission", func(t *testing.T) {
-		// There is a bug with queue eviction where the evicted transmission is NOT the oldest.
-		// TODO: MERC-1049 Once this bug is fixed, replace the expectation with the one below.
-		//   deleter.On("AsyncDelete", testTransmissions[0].tr).Once()
-		deleter.On("AsyncDelete", mock.Anything).Once()
+		deleter.On("AsyncDelete", testTransmissions[0].tr).Once()
 
-		// add 5 more transmissions to overflow the queue
+		// add 5 more transmissions to overflow the queue by 1
 		for i := 0; i < 5; i++ {
 			transmitQueue.Push(testTransmissions[1].tr, testTransmissions[1].ctx)
 		}
+
 		// expecting testTransmissions[0] to get evicted and not present in the queue anymore
 		testutils.WaitForLogMessage(t, observedLogs, "Transmit queue is full; dropping oldest transmission (reached max length of 7)")
 		for i := 0; i < 7; i++ {
 			tr := transmitQueue.BlockingPop()
-			// TODO: Should be tr.Req instead of tr.
-			assert.NotEqual(t, tr, testTransmissions[0].tr)
+			assert.NotEqual(t, tr.Req, testTransmissions[0].tr)
 		}
 	})
 

@@ -213,7 +213,6 @@ func TestConfig_Marshal(t *testing.T) {
 
 	global := Config{
 		Core: toml.Core{
-			ExplorerURL:         mustURL("http://explorer.url"),
 			InsecureFastScrypt:  ptr(true),
 			RootDir:             ptr("test/root/dir"),
 			ShutdownGracePeriod: models.MustNewDuration(10 * time.Second),
@@ -614,7 +613,7 @@ func TestConfig_Marshal(t *testing.T) {
 				BlocksUntilTxTimeout: ptr[int64](12),
 				ConfirmPollPeriod:    relayutils.MustNewDuration(time.Second),
 				FallbackGasPrice:     mustDecimal("0.001"),
-				FeeToken:             ptr("ucosm"),
+				GasToken:             ptr("ucosm"),
 				GasLimitMultiplier:   mustDecimal("1.2"),
 				MaxMsgsPerBatch:      ptr[int64](17),
 				OCR2CachePollPeriod:  relayutils.MustNewDuration(time.Minute),
@@ -635,8 +634,7 @@ func TestConfig_Marshal(t *testing.T) {
 		exp    string
 	}{
 		{"empty", Config{}, ``},
-		{"global", global, `ExplorerURL = 'http://explorer.url'
-InsecureFastScrypt = true
+		{"global", global, `InsecureFastScrypt = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
 
@@ -962,7 +960,7 @@ BlockRate = '1m0s'
 BlocksUntilTxTimeout = 12
 ConfirmPollPeriod = '1s'
 FallbackGasPrice = '0.001'
-FeeToken = 'ucosm'
+GasToken = 'ucosm'
 GasLimitMultiplier = '1.2'
 MaxMsgsPerBatch = 17
 OCR2CachePollPeriod = '1m0s'
@@ -1303,9 +1301,7 @@ func TestSecrets_Validate(t *testing.T) {
 	}{
 		{name: "partial",
 			toml: `
-Database.AllowSimplePasswords = true
-Explorer.AccessKey = "access_key"
-Explorer.Secret = "secret"`,
+Database.AllowSimplePasswords = true`,
 			exp: `invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
 	- Password.Keystore: empty: must be provided and non-empty`},

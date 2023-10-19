@@ -56,7 +56,7 @@ func NewDecryptionQueue(maxQueueLength int, maxCiphertextBytes int, maxCiphertex
 		make(map[string]pendingRequest),
 		make(map[string]completedRequest),
 		sync.RWMutex{},
-		lggr.Named("decryptionQueue"),
+		lggr.Named("DecryptionQueue"),
 	}
 	return &dq
 }
@@ -148,7 +148,7 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit in
 		pendingRequest, exists := dq.pendingRequests[string(ciphertextId)]
 
 		if !exists {
-			dq.lggr.Debugf("pending decryption request for ciphertextId %s expired", ciphertextId)
+			dq.lggr.Debugf("decryption request for ciphertextId %s already processed or expired", ciphertextId)
 			indicesToRemove[i] = struct{}{}
 			continue
 		}
@@ -171,7 +171,11 @@ func (dq *decryptionQueue) GetRequests(requestCountLimit int, totalBytesLimit in
 
 	dq.pendingRequestQueue = removeMultipleIndices(dq.pendingRequestQueue, indicesToRemove)
 
-	dq.lggr.Debugf("returning first %d of %d total requests awaiting decryption", len(requests), len(dq.pendingRequestQueue))
+	if len(dq.pendingRequestQueue) > 0 {
+		dq.lggr.Debugf("returning first %d of %d total requests awaiting decryption", len(requests), len(dq.pendingRequestQueue))
+	} else {
+		dq.lggr.Debug("no requests awaiting decryption")
+	}
 
 	return requests
 }
@@ -194,7 +198,7 @@ func (dq *decryptionQueue) GetCiphertext(ciphertextId decryptionPlugin.Ciphertex
 
 	req, ok := dq.pendingRequests[string(ciphertextId)]
 	if !ok {
-		return nil, fmt.Errorf("ciphertextID %s not found", ciphertextId)
+		return nil, decryptionPlugin.ErrNotFound
 	}
 
 	return req.ciphertext, nil
@@ -228,7 +232,7 @@ func (dq *decryptionQueue) SetResult(ciphertextId decryptionPlugin.CiphertextId,
 
 		// Cache plaintext result in completedRequests map for cacheTimeoutMs to account for delayed Decrypt() calls
 		timer := time.AfterFunc(dq.completedRequestsCacheTimeout, func() {
-			dq.lggr.Debugf("expired decryption result for ciphertextId %s from completedRequests cache", ciphertextId)
+			dq.lggr.Debugf("removing completed decryption result for ciphertextId %s from cache", ciphertextId)
 			dq.mu.Lock()
 			delete(dq.completedRequests, string(ciphertextId))
 			dq.mu.Unlock()

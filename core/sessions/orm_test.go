@@ -59,9 +59,9 @@ func TestORM_AuthorizedUserWithSession(t *testing.T) {
 		wantEmail       string
 	}{
 		{"authorized", "correctID", cltest.MustParseDuration(t, "3m"), "", "have@email"},
-		{"expired", "correctID", cltest.MustParseDuration(t, "0m"), "session missing or expired, please login again", ""},
-		{"incorrect", "wrong", cltest.MustParseDuration(t, "3m"), "no matching user for provided session token: sql: no rows in result set", ""},
-		{"empty", "", cltest.MustParseDuration(t, "3m"), "Session ID cannot be empty", ""},
+		{"expired", "correctID", cltest.MustParseDuration(t, "0m"), sessions.ErrUserSessionExpired.Error(), ""},
+		{"incorrect", "wrong", cltest.MustParseDuration(t, "3m"), sessions.ErrUserSessionExpired.Error(), ""},
+		{"empty", "", cltest.MustParseDuration(t, "3m"), sessions.ErrEmptySessionID.Error(), ""},
 	}
 
 	for _, test := range tests {

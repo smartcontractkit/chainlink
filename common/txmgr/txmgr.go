@@ -2,6 +2,7 @@ package txmgr
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"math/big"
 	"sync"
@@ -435,6 +436,20 @@ func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) Trigger(ad
 
 // CreateTransaction inserts a new transaction
 func (b *Txm[CHAIN_ID, HEAD, ADDR, TX_HASH, BLOCK_HASH, R, SEQ, FEE]) CreateTransaction(txRequest txmgrtypes.TxRequest[ADDR, TX_HASH], qs ...pg.QOpt) (tx txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE], err error) {
+	// Check for existing Tx with IdempotencyKey. If found, return the Tx and do nothing
+	// Skipping CreateTransaction to avoid double send
+	if txRequest.IdempotencyKey != nil {
+		var existingTx *txmgrtypes.Tx[CHAIN_ID, ADDR, TX_HASH, BLOCK_HASH, SEQ, FEE]
+		existingTx, err = b.txStore.FindTxWithIdempotencyKey(*txRequest.IdempotencyKey, b.chainID)
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return tx, errors.Wrap(err, "Failed to search for transaction with IdempotencyKey")
+		}
+		if existingTx != nil {
+			b.logger.Infow("Found a Tx with IdempotencyKey. Returning existing Tx without creating a new one.", "IdempotencyKey", *txRequest.IdempotencyKey)
+			return *existingTx, nil
+		}
+	}
+
 	if err = b.checkEnabled(txRequest.FromAddress); err != nil {
 		return tx, err
 	}

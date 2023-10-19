@@ -42,13 +42,11 @@ import (
 func genTestEVMRelayers(t *testing.T, opts evm.ChainRelayExtenderConfig, ks evmrelayer.CSAETHKeystore) *chainlink.CoreRelayerChainInteroperators {
 	f := chainlink.RelayerFactory{
 		Logger:       opts.Logger,
-		DB:           opts.DB,
-		QConfig:      opts.AppConfig.Database(),
 		LoopRegistry: plugins.NewLoopRegistry(opts.Logger),
 	}
 
 	relayers, err := chainlink.NewCoreRelayerChainInteroperators(chainlink.InitEVM(testutils.Context(t), f, chainlink.EVMFactoryConfig{
-		RelayerConfig:  opts.RelayerConfig,
+		ChainOpts:      opts.ChainOpts,
 		CSAETHKeystore: ks,
 	}))
 	if err != nil {
@@ -87,12 +85,12 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 
 			opts := evm.ChainRelayExtenderConfig{
 				Logger:   lggr,
-				DB:       db,
 				KeyStore: keyStore.Eth(),
-				RelayerConfig: evm.RelayerConfig{
+				ChainOpts: evm.ChainOpts{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
 					MailMon:          &utils.MailboxMonitor{},
+					DB:               db,
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)
@@ -136,10 +134,7 @@ func TestShell_RunNodeWithPasswords(t *testing.T) {
 				if err := cli.Before(c); err != nil {
 					return err
 				}
-				if err := client.RunNode(c); err != nil {
-					return err
-				}
-				return nil
+				return client.RunNode(c)
 			}
 
 			if test.wantUnlocked {
@@ -194,13 +189,12 @@ func TestShell_RunNodeWithAPICredentialsFile(t *testing.T) {
 			lggr := logger.TestLogger(t)
 			opts := evm.ChainRelayExtenderConfig{
 				Logger:   lggr,
-				DB:       db,
 				KeyStore: keyStore.Eth(),
-				RelayerConfig: evm.RelayerConfig{
+				ChainOpts: evm.ChainOpts{
 					AppConfig:        cfg,
 					EventBroadcaster: pg.NewNullEventBroadcaster(),
-
-					MailMon: &utils.MailboxMonitor{},
+					MailMon:          &utils.MailboxMonitor{},
+					DB:               db,
 				},
 			}
 			testRelayers := genTestEVMRelayers(t, opts, keyStore)
@@ -326,6 +320,7 @@ func TestShell_RebroadcastTransactions_Txm(t *testing.T) {
 	set := flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
 
+	require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 	require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(beginningNonce, 10)))
 	require.NoError(t, set.Set("endingNonce", strconv.FormatUint(endingNonce, 10)))
 	require.NoError(t, set.Set("gasPriceWei", "100000000000"))
@@ -405,6 +400,7 @@ func TestShell_RebroadcastTransactions_OutsideRange_Txm(t *testing.T) {
 			set := flag.NewFlagSet("test", 0)
 			cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
 
+			require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 			require.NoError(t, set.Set("beginningNonce", strconv.FormatUint(uint64(beginningNonce), 10)))
 			require.NoError(t, set.Set("endingNonce", strconv.FormatUint(uint64(endingNonce), 10)))
 			require.NoError(t, set.Set("gasPriceWei", gasPrice.String()))
@@ -483,9 +479,9 @@ func TestShell_RebroadcastTransactions_AddressCheck(t *testing.T) {
 			}
 
 			set := flag.NewFlagSet("test", 0)
-			set.Set("evmChainID", testutils.SimulatedChainID.String())
 			cltest.FlagSetApplyFromAction(client.RebroadcastTransactions, set, "")
 
+			require.NoError(t, set.Set("evmChainID", testutils.FixtureChainID.String()))
 			require.NoError(t, set.Set("address", fromAddress.Hex()))
 			require.NoError(t, set.Set("password", "../internal/fixtures/correct_password.txt"))
 			c := cli.NewContext(nil, set, nil)

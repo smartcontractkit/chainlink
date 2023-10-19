@@ -68,6 +68,20 @@ func (_m *LogPoller) GetBlocksRange(ctx context.Context, numbers []uint64, qopts
 	return r0, r1
 }
 
+// HasFilter provides a mock function with given fields: name
+func (_m *LogPoller) HasFilter(name string) bool {
+	ret := _m.Called(name)
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func(string) bool); ok {
+		r0 = rf(name)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
 // HealthReport provides a mock function with given fields:
 func (_m *LogPoller) HealthReport() map[string]error {
 	ret := _m.Called()
@@ -143,6 +157,39 @@ func (_m *LogPoller) IndexedLogsByBlockRange(start int64, end int64, eventSig co
 
 	if rf, ok := ret.Get(1).(func(int64, int64, common.Hash, common.Address, int, []common.Hash, ...pg.QOpt) error); ok {
 		r1 = rf(start, end, eventSig, address, topicIndex, topicValues, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// IndexedLogsByTxHash provides a mock function with given fields: eventSig, txHash, qopts
+func (_m *LogPoller) IndexedLogsByTxHash(eventSig common.Hash, txHash common.Hash, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, eventSig, txHash)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 []logpoller.Log
+	var r1 error
+	if rf, ok := ret.Get(0).(func(common.Hash, common.Hash, ...pg.QOpt) ([]logpoller.Log, error)); ok {
+		return rf(eventSig, txHash, qopts...)
+	}
+	if rf, ok := ret.Get(0).(func(common.Hash, common.Hash, ...pg.QOpt) []logpoller.Log); ok {
+		r0 = rf(eventSig, txHash, qopts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]logpoller.Log)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(common.Hash, common.Hash, ...pg.QOpt) error); ok {
+		r1 = rf(eventSig, txHash, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -534,6 +581,39 @@ func (_m *LogPoller) LogsDataWordRange(eventSig common.Hash, address common.Addr
 
 	if rf, ok := ret.Get(1).(func(common.Hash, common.Address, int, common.Hash, common.Hash, int, ...pg.QOpt) error); ok {
 		r1 = rf(eventSig, address, wordIndex, wordValueMin, wordValueMax, confs, qopts...)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// LogsUntilBlockHashDataWordGreaterThan provides a mock function with given fields: eventSig, address, wordIndex, wordValueMin, untilBlockHash, qopts
+func (_m *LogPoller) LogsUntilBlockHashDataWordGreaterThan(eventSig common.Hash, address common.Address, wordIndex int, wordValueMin common.Hash, untilBlockHash common.Hash, qopts ...pg.QOpt) ([]logpoller.Log, error) {
+	_va := make([]interface{}, len(qopts))
+	for _i := range qopts {
+		_va[_i] = qopts[_i]
+	}
+	var _ca []interface{}
+	_ca = append(_ca, eventSig, address, wordIndex, wordValueMin, untilBlockHash)
+	_ca = append(_ca, _va...)
+	ret := _m.Called(_ca...)
+
+	var r0 []logpoller.Log
+	var r1 error
+	if rf, ok := ret.Get(0).(func(common.Hash, common.Address, int, common.Hash, common.Hash, ...pg.QOpt) ([]logpoller.Log, error)); ok {
+		return rf(eventSig, address, wordIndex, wordValueMin, untilBlockHash, qopts...)
+	}
+	if rf, ok := ret.Get(0).(func(common.Hash, common.Address, int, common.Hash, common.Hash, ...pg.QOpt) []logpoller.Log); ok {
+		r0 = rf(eventSig, address, wordIndex, wordValueMin, untilBlockHash, qopts...)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]logpoller.Log)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(common.Hash, common.Address, int, common.Hash, common.Hash, ...pg.QOpt) error); ok {
+		r1 = rf(eventSig, address, wordIndex, wordValueMin, untilBlockHash, qopts...)
 	} else {
 		r1 = ret.Error(1)
 	}
