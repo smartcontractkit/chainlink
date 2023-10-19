@@ -1459,8 +1459,8 @@ github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704 h1:T3lFWumv
 github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704/go.mod h1:2QuJdEouTWjh5BDy5o/vgGXQtR4Gz8yH1IYB5eT7u4M=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230913032705-f924d753cc47 h1:vdieOW3CZGdD2R5zvCSMS+0vksyExPN3/Fa1uVfld/A=
 github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230913032705-f924d753cc47/go.mod h1:xMwqRdj5vqYhCJXgKVqvyAwdcqM6ZAEhnwEQ4Khsop8=
-github.com/smartcontractkit/chainlink-relay v0.1.7-0.20231017213049-62756e248b24 h1:DWnu0KOuTpsj7W/QtVOQZtS8RAVZ14fOAHBcVy6hR80=
-github.com/smartcontractkit/chainlink-relay v0.1.7-0.20231017213049-62756e248b24/go.mod h1:M9U1JV7IQi8Sfj4JR1qSi1tIh6omgW78W/8SHN/8BUQ=
+github.com/smartcontractkit/chainlink-relay v0.1.7-0.20231019174706-1fe98aa4c74c h1:s4XPExnT8yU3kRoE6H1gswJiDRNSbcVGXTOh/oHiAOk=
+github.com/smartcontractkit/chainlink-relay v0.1.7-0.20231019174706-1fe98aa4c74c/go.mod h1:M9U1JV7IQi8Sfj4JR1qSi1tIh6omgW78W/8SHN/8BUQ=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231016152201-a10a460e67d8 h1:EYo1yJAwBt2RcK45vaExh5cnEJ3nk2RwF0tdNjMoWNI=
 github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231016152201-a10a460e67d8/go.mod h1:S17dRqwSFSrMdueQ3clPI6XWZWKJjTvqTZVd0F05Ugc=
 github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230901115736-bbabe542a918 h1:ByVauKFXphRlSNG47lNuxZ9aicu+r8AoNp933VRPpCw=
