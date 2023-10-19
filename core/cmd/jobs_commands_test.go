@@ -371,6 +371,19 @@ func TestShell_ShowJob(t *testing.T) {
 	assert.Equal(t, createOutput.ID, job.ID)
 }
 
+const ocrBootstrapSpec = `
+type               = "offchainreporting"
+schemaVersion      = 1
+contractAddress    = "0x27548a32b9aD5D64c5945EaE9Da5337bc3169D15"
+externalJobID      = "%s"
+name               = "%s"
+evmChainID         = "0"
+p2pBootstrapPeers  = [
+    "/dns4/chain.link/tcp/1234/p2p/16Uiu2HAm58SP7UL8zsnpeuwHfytLocaqgnyaYKP8wu7qRdrixLju",
+]
+isBootstrapPeer = true
+`
+
 func TestShell_CreateJobV2(t *testing.T) {
 	t.Parallel()
 
@@ -393,7 +406,9 @@ func TestShell_CreateJobV2(t *testing.T) {
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	cltest.FlagSetApplyFromAction(client.CreateJob, fs, "")
 
-	require.NoError(t, fs.Parse([]string{"../testdata/tomlspecs/ocr-bootstrap-spec.toml"}))
+	nameAndExternalJobID := uuid.New()
+	spec := fmt.Sprintf(ocrBootstrapSpec, nameAndExternalJobID, nameAndExternalJobID)
+	require.NoError(t, fs.Parse([]string{spec}))
 
 	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)

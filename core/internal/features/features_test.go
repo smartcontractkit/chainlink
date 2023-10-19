@@ -337,6 +337,88 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 	}
 }
 
+const singleWordSpecTemplate = `
+type                = "directrequest"
+schemaVersion       = 1
+name                = "%s"
+contractAddress     = "%s"
+externalJobID       = "%s"
+evmChainID          = 1337
+observationSource   = """
+    decode_log   [type=ethabidecodelog
+                  abi="OracleRequest(bytes32 indexed specId, address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes data)"
+                  data="$(jobRun.logData)"
+                  topics="$(jobRun.logTopics)"]
+    decode_cbor  [type=cborparse data="$(decode_log.data)"]
+    ds1          [type=http method=GET url="$(decode_cbor.urlUSD)" allowunrestrictednetworkaccess="true"];
+    ds1_parse    [type=jsonparse path="$(decode_cbor.pathUSD)"];
+    ds1_multiply [type=multiply value="$(ds1_parse)" times=100];
+    encode_data [type=ethabiencode abi="(uint256 value)" data=<{"value": $(ds1_multiply)}>]
+    encode_tx [type=ethabiencode
+            abi="fulfillOracleRequest(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes32 data)"
+            data=<{"requestId": $(decode_log.requestId),
+                   "payment": $(decode_log.payment),
+                   "callbackAddress": $(decode_log.callbackAddr),
+                   "callbackFunctionId": $(decode_log.callbackFunctionId),
+                   "expiration": $(decode_log.cancelExpiration),
+                   "data": $(encode_data)}>]
+    submit [type=ethtx to="%s" data="$(encode_tx)" minConfirmations="2"]
+    decode_log->decode_cbor->ds1 -> ds1_parse -> ds1_multiply->encode_data->encode_tx->submit;
+"""
+`
+
+const multiWordSpecTemplate = `
+type                = "directrequest"
+schemaVersion       = 1
+name                = "%s"
+contractAddress     = "%s"
+evmChainID          = 1337
+externalJobID       = "%s"
+observationSource   = """
+    decode_log   [type=ethabidecodelog
+                  abi="OracleRequest(bytes32 indexed specId, address requester, bytes32 requestId, uint256 payment, address callbackAddr, bytes4 callbackFunctionId, uint256 cancelExpiration, uint256 dataVersion, bytes data)"
+                  data="$(jobRun.logData)"
+                  topics="$(jobRun.logTopics)"]
+    decode_cbor  [type=cborparse data="$(decode_log.data)"]
+    decode_log -> decode_cbor
+    decode_cbor -> usd
+    decode_cbor -> eur
+    decode_cbor -> jpy
+    usd          [type=http method=GET url="$(decode_cbor.urlUSD)" allowunrestrictednetworkaccess="true"]
+    usd_parse    [type=jsonparse path="$(decode_cbor.pathUSD)"]
+    usd_multiply [type=multiply value="$(usd_parse)", times="100"]
+    usd -> usd_parse -> usd_multiply
+    eur          [type=http method=GET url="$(decode_cbor.urlEUR)" allowunrestrictednetworkaccess="true"]
+    eur_parse    [type=jsonparse path="$(decode_cbor.pathEUR)"]
+    eur_multiply [type=multiply value="$(eur_parse)", times="100"]
+    eur -> eur_parse -> eur_multiply
+    jpy          [type=http method=GET url="$(decode_cbor.urlJPY)" allowunrestrictednetworkaccess="true"]
+    jpy_parse    [type=jsonparse path="$(decode_cbor.pathJPY)"]
+    jpy_multiply [type=multiply value="$(jpy_parse)", times="100"]
+    jpy -> jpy_parse -> jpy_multiply
+    usd_multiply -> encode_mwr
+    eur_multiply -> encode_mwr
+    jpy_multiply -> encode_mwr
+    encode_mwr [type=ethabiencode
+                abi="(bytes32 requestId, uint256 usd, uint256 eur, uint256 jpy)"
+                data=<{
+                    "requestId": $(decode_log.requestId),
+                    "usd": $(usd_multiply),
+                    "eur": $(eur_multiply),
+                    "jpy": $(jpy_multiply)}>]
+    encode_tx  [type=ethabiencode
+                abi="fulfillOracleRequest2(bytes32 requestId, uint256 payment, address callbackAddress, bytes4 callbackFunctionId, uint256 expiration, bytes calldata data)"
+                data=<{"requestId": $(decode_log.requestId),
+                       "payment":   $(decode_log.payment),
+                       "callbackAddress": $(decode_log.callbackAddr),
+                       "callbackFunctionId": $(decode_log.callbackFunctionId),
+                       "expiration": $(decode_log.cancelExpiration),
+                       "data": $(encode_mwr)}>]
+    submit_tx  [type=ethtx to="%s" data="$(encode_tx)" minConfirmations="2"]
+    encode_mwr -> encode_tx -> submit_tx
+"""
+`
+
 // Tests both single and multiple word responses -
 // i.e. both fulfillOracleRequest2 and fulfillOracleRequest.
 func TestIntegration_DirectRequest(t *testing.T) {
@@ -352,7 +434,6 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
 			// in a single callback.
 			config := configtest2.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -388,9 +469,9 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			mockServerEUR := cltest.NewHTTPMockServer(t, 200, "GET", `{"EUR": 507.07}`)
 			mockServerJPY := cltest.NewHTTPMockServer(t, 200, "GET", `{"JPY": 63818.86}`)
 
-			spec := string(cltest.MustReadFile(t, "../../testdata/tomlspecs/multiword-response-spec.toml"))
-			spec = strings.ReplaceAll(spec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorContracts.operatorAddress.Hex())
-			spec = strings.ReplaceAll(spec, "example", "example 1") // make the name unique
+			nameAndExternalJobID := uuid.New()
+			addr := operatorContracts.operatorAddress.Hex()
+			spec := fmt.Sprintf(multiWordSpecTemplate, nameAndExternalJobID, addr, nameAndExternalJobID, addr)
 			j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: spec})))
 			cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, 5*time.Second)
 
@@ -426,10 +507,8 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 			assertPricesUint256(t, big.NewInt(61464), big.NewInt(50707), big.NewInt(6381886), operatorContracts.multiWord)
 
-			// Do a single word request
-			singleWordSpec := string(cltest.MustReadFile(t, "../../testdata/tomlspecs/direct-request-spec-cbor.toml"))
-			singleWordSpec = strings.ReplaceAll(singleWordSpec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorContracts.operatorAddress.Hex())
-			singleWordSpec = strings.ReplaceAll(singleWordSpec, "example", "example 2") // make the name unique
+			nameAndExternalJobID = uuid.New()
+			singleWordSpec := fmt.Sprintf(singleWordSpecTemplate, nameAndExternalJobID, addr, nameAndExternalJobID, addr)
 			jobSingleWord := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: singleWordSpec})))
 			cltest.AwaitJobActive(t, app.JobSpawner(), jobSingleWord.ID, 5*time.Second)
 

@@ -379,15 +379,31 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	require.NoError(t, err)
 }
 
+const webhookSpec = `
+type            = "webhook"
+schemaVersion   = 1
+externalJobID   = "%s"
+name            = "%s"
+observationSource   = """
+    fetch          [type=bridge name="fetch_bridge"]
+    parse_request  [type=jsonparse path="data,result"];
+    multiply       [type=multiply times="100"];
+    submit         [type=bridge name="submit_bridge" includeInputAtKey="result", data=<{}>];
+
+    fetch -> parse_request -> multiply -> submit;
+"""
+`
+
 func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(nil)
 
-	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/webhook-job-spec-with-empty-json.toml")
+	nameAndExternalJobID := uuid.New()
+	spec := fmt.Sprintf(webhookSpec, nameAndExternalJobID, nameAndExternalJobID)
 	body, _ := json.Marshal(web.CreateJobRequest{
-		TOML: string(tomlBytes),
+		TOML: spec,
 	})
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
