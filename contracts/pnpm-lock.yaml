@@ -122,8 +122,8 @@ devDependencies:
     specifier: ^2.10.1
     version: 2.10.1(hardhat@2.18.1)
   hardhat-contract-sizer:
-    specifier: ^2.5.1
-    version: 2.5.1(hardhat@2.18.1)
+    specifier: ^2.10.0
+    version: 2.10.0(hardhat@2.18.1)
   hardhat-gas-reporter:
     specifier: ^1.0.9
     version: 1.0.9(hardhat@2.18.1)
@@ -6311,14 +6311,15 @@ packages:
       hardhat: 2.18.1(ts-node@10.9.1)(typescript@5.2.2)
     dev: true
 
-  /hardhat-contract-sizer@2.5.1(hardhat@2.18.1):
-    resolution: {integrity: sha512-28yRb73e30aBVaZOOHTlHZFIdIasA/iFunIehrUviIJTubvdQjtSiQUo2wexHFtt71mQeMPP8qjw2sdbgatDnQ==}
+  /hardhat-contract-sizer@2.10.0(hardhat@2.18.1):
+    resolution: {integrity: sha512-QiinUgBD5MqJZJh1hl1jc9dNnpJg7eE/w4/4GEnrcmZJJTDbVFNe3+/3Ep24XqISSkYxRz36czcPHKHd/a0dwA==}
     peerDependencies:
       hardhat: ^2.0.0
     dependencies:
       chalk: 4.1.2
       cli-table3: 0.6.3
       hardhat: 2.18.1(ts-node@10.9.1)(typescript@5.2.2)
+      strip-ansi: 6.0.1
     dev: true
 
   /hardhat-gas-reporter@1.0.9(hardhat@2.18.1):
