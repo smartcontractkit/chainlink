@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.6;
+pragma solidity ^0.8.19;
 
 import {FunctionsRequest} from "../../../dev/v1_X/libraries/FunctionsRequest.sol";
 import {FunctionsClient} from "../../../dev/v1_X/FunctionsClient.sol";
