@@ -64,6 +64,8 @@ func NewContractLoader(bcClient blockchain.EVMClient, logger zerolog.Logger) (Co
 		return &OptimismContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	case *blockchain.PolygonZkEvmClient:
 		return &PolygonZkEvmContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
+	case *blockchain.ScrollClient:
+		return &ScrollContractLoader{NewEthereumContractLoader(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract Loader, register blockchain client in NewContractLoader")
 }
@@ -104,6 +106,11 @@ type PolygonZkEvmContractLoader struct {
 
 // PolygonZKEVMContractLoader wraps for Polygon zkEVM
 type PolygonZKEVMContractLoader struct {
+	*EthereumContractLoader
+}
+
+// ScrollContractLoader wraps for Polygon zkEVM
+type ScrollContractLoader struct {
 	*EthereumContractLoader
 }
 

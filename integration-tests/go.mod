@@ -510,4 +510,6 @@ replace (
 
 	github.com/prometheus/prometheus => github.com/prometheus/prometheus v0.43.1-0.20230327151049-211ae4f1f0a2
 	github.com/sercand/kuberesolver v2.4.0+incompatible => github.com/sercand/kuberesolver/v5 v5.1.1
+
+	github.com/smartcontractkit/chainlink-testing-framework => ../../chainlink-testing-framework
 )
