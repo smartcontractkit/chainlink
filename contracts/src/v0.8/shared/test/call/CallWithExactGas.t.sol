@@ -69,7 +69,7 @@ contract CallWithExactGas_callWithExactGas is BaseTest {
     allowedGas += 100; // 17,870 + 100 = 17,970
 
     // Extra padding to handle e.g. calldata cost
-    allowedGas += 559; // Magic padding required = 18,529
+    allowedGas += 536; // Magic padding required = 18,529
 
     // Due to EIP-150 we expect to lose 1/64, so we compensate for this
     allowedGas = (allowedGas * 64) / 63; // 18,529   * 64 / 63 = 18,823
