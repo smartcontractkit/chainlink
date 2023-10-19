@@ -77,7 +77,7 @@ func (s *Server) start() error {
 	})
 	if err != nil {
 		// non blocking to server start
-		s.lggr.Errorf("Failed to setup tracing: %s", err)
+		s.Logger.Errorf("Failed to setup tracing: %s", err)
 	}
 
 	s.PromServer = NewPromServer(envCfg.PrometheusPort(), s.Logger)
