@@ -28,20 +28,21 @@ import (
 )
 
 const (
-	applicationJson     = "application/json"
-	blockNumber         = "blockNumber" // valid for v0.2
-	feedIDs             = "feedIDs"     // valid for v0.3
-	feedIdHex           = "feedIdHex"   // valid for v0.2
-	headerAuthorization = "Authorization"
-	headerContentType   = "Content-Type"
-	headerTimestamp     = "X-Authorization-Timestamp"
-	headerSignature     = "X-Authorization-Signature-SHA256"
-	headerUpkeepId      = "X-Authorization-Upkeep-Id"
-	mercuryPathV02      = "/client?"              // only used to access mercury v0.2 server
-	mercuryBatchPathV03 = "/api/v1/reports/bulk?" // only used to access mercury v0.3 server
-	retryDelay          = 500 * time.Millisecond
-	timestamp           = "timestamp" // valid for v0.3
-	totalAttempt        = 3
+	applicationJson                = "application/json"
+	blockNumber                    = "blockNumber" // valid for v0.2
+	feedIDs                        = "feedIDs"     // valid for v0.3
+	feedIdHex                      = "feedIdHex"   // valid for v0.2
+	headerAuthorization            = "Authorization"
+	headerContentType              = "Content-Type"
+	headerTimestamp                = "X-Authorization-Timestamp"
+	headerSignature                = "X-Authorization-Signature-SHA256"
+	headerUpkeepId                 = "X-Authorization-Upkeep-Id"
+	mercuryPathV02                 = "/client?"                 // only used to access mercury v0.2 server
+	mercuryBatchPathV03            = "/api/v1/reports/bulk?"    // only used to access mercury v0.3 server
+	mercuryBatchPathV03BlockNumber = "/api/v1gmx/reports/bulk?" // only used to access mercury v0.3 server with blockNumber
+	retryDelay                     = 500 * time.Millisecond
+	timestamp                      = "timestamp" // valid for v0.3
+	totalAttempt                   = 3
 )
 
 type StreamsLookup struct {
@@ -132,7 +133,7 @@ func (r *EvmRegistry) streamsLookup(ctx context.Context, checkResults []ocr2keep
 				checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonMercuryAccessNotAllowed)
 				continue
 			}
-		} else if l.FeedParamKey != feedIDs || l.TimeParamKey != timestamp {
+		} else if l.FeedParamKey != feedIDs {
 			// if mercury version cannot be determined, set failure reason
 			lggr.Debugf("at block %d upkeep %s NOT allowed to query Mercury server", block, upkeepId)
 			checkResults[i].IneligibilityReason = uint8(encoding.UpkeepFailureReasonInvalidRevertDataInput)
@@ -289,7 +290,7 @@ func (r *EvmRegistry) doMercuryRequest(ctx context.Context, sl *StreamsLookup, l
 		for i := range sl.Feeds {
 			go r.singleFeedRequest(ctx, ch, i, sl, lggr)
 		}
-	} else if sl.FeedParamKey == feedIDs && sl.TimeParamKey == timestamp {
+	} else if sl.FeedParamKey == feedIDs {
 		// only mercury v0.3
 		resultLen = 1
 		isMercuryV03 = true
@@ -441,8 +442,12 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 	//	feedIDs:   {strings.Join(sl.Feeds, ",")},
 	//	timestamp: {sl.Time.String()},
 	//}
-	params := fmt.Sprintf("%s=%s&%s=%s", feedIDs, strings.Join(sl.Feeds, ","), timestamp, sl.Time.String())
-	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV03, params)
+	params := fmt.Sprintf("%s=%s&%s=%s", feedIDs, strings.Join(sl.Feeds, ","), sl.TimeParamKey, sl.Time.String())
+	batchPathV03 := mercuryBatchPathV03
+	if sl.TimeParamKey == blockNumber {
+		batchPathV03 = mercuryBatchPathV03BlockNumber
+	}
+	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, batchPathV03, params)
 	lggr.Debugf("request URL for upkeep %s userId %s: %s", sl.upkeepId.String(), r.mercury.cred.Username, reqUrl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
@@ -450,17 +455,6 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 		ch <- MercuryData{Index: 0, Error: err, Retryable: false, State: encoding.InvalidMercuryRequest}
 		return
 	}
-
-	ts := time.Now().UTC().UnixMilli()
-	signature := r.generateHMAC(http.MethodGet, mercuryBatchPathV03+params, []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
-	req.Header.Set(headerContentType, applicationJson)
-	// username here is often referred to as user id
-	req.Header.Set(headerAuthorization, r.mercury.cred.Username)
-	req.Header.Set(headerTimestamp, strconv.FormatInt(ts, 10))
-	req.Header.Set(headerSignature, signature)
-	// mercury will inspect authorization headers above to make sure this user (in automation's context, this node) is eligible to access mercury
-	// and if it has an automation role. it will then look at this upkeep id to check if it has access to all the requested feeds.
-	req.Header.Set(headerUpkeepId, sl.upkeepId.String())
 
 	// in the case of multiple retries here, use the last attempt's data
 	state := encoding.NoPipelineError
