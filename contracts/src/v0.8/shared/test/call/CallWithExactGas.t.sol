@@ -57,71 +57,65 @@ contract CallWithExactGas_callWithExactGas is BaseTest {
     uint256 allowedGas = (gasLimit + (gasLimit / 64)); // 10,156
     // We call `extcodesize` which costs 2600 gas
     allowedGas += 2600; //  10,156 + 2,600 = 12,756
+
     // Add DEFAULT_GAS_FOR_CALL_EXACT_CHECK
     allowedGas += gasForCallExactCheck; // 12,756 + 5,000 = 17,756
 
+    // Add gas to init the retData field, calculated to be 114 gas for 0 length
+    allowedGas += 114; // 17,756 + 114 = 17,870
+
     // Add some margin for 5 mstore's, 1 gas() call, a function call, 3 slots of func args
     // and some basic arithmetic. Rough estimate of ~100 total.
-    allowedGas += 100;
-    // Add gas to init the retData field, calculated to be 114 gas for 0 length
-    allowedGas += 114;
+    allowedGas += 100; // 17,870 + 100 = 17,970
 
     // Extra padding to handle e.g. calldata cost
-    allowedGas += 559;
+    allowedGas += 559; // Magic padding required = 18,529
 
     // Due to EIP-150 we expect to lose 1/64, so we compensate for this
-    allowedGas = (allowedGas * 64) / 63; // 17,756  * 64 / 63 = 18,037
+    allowedGas = (allowedGas * 64) / 63; // 18,529   * 64 / 63 = 18,823
 
-    (bool success, bytes memory retData) = address(s_caller).call{gas: allowedGas}(payload);
+    (bool success, ) = address(s_caller).call{gas: allowedGas}(payload);
 
     assertTrue(success);
-    //    assertEq(abi.encodeWithSelector(CallWithExactGas.NotEnoughGasForCall.selector), retData);
   }
 
-  //
-  //  function testFuzz_CallWithExactGasReceiverErrorSuccess(uint16 testRetBytes) public {
-  //    // Bound with upper limit, otherwise the test runs out of gas.
-  //    testRetBytes = uint16(bound(testRetBytes, 0, Internal.MAX_RET_BYTES * 10));
-  //
-  //    Client.Any2EVMMessage memory message = Client.Any2EVMMessage({
-  //      messageId: "1",
-  //      sourceChainSelector: 1,
-  //      sender: "",
-  //      data: "",
-  //      destTokenAmounts: new Client.EVMTokenAmount[](0)
-  //    });
-  //    bytes memory data = abi.encodeWithSelector(IAny2EVMMessageReceiver.ccipReceive.selector, message);
-  //
-  //    bytes memory errorData = new bytes(testRetBytes);
-  //    for (uint256 i = 0; i < errorData.length; ++i) {
-  //      errorData[i] = 0x01;
-  //    }
-  //    s_reverting_receiver.setErr(errorData);
-  //
-  //    vm.expectCall(address(s_reverting_receiver), data);
-  //
-  //    (bool success, bytes memory retData) = s_caller.callWithExactGas(
-  //      data,
-  //      address(s_reverting_receiver),
-  //      100_000,
-  //      Internal.MAX_RET_BYTES,
-  //      Internal.GAS_FOR_CALL_EXACT_CHECK
-  //    );
-  //
-  //    assertFalse(success);
-  //
-  //    bytes memory totalReturnData = abi.encodeWithSelector(MaybeRevertMessageReceiver.CustomError.selector, errorData);
-  //    bytes memory expectedReturnData = totalReturnData;
-  //
-  //    // If expected return data is longer than MAX_RET_BYTES, truncate it to MAX_RET_BYTES
-  //    if (expectedReturnData.length > Internal.MAX_RET_BYTES) {
-  //      expectedReturnData = new bytes(Internal.MAX_RET_BYTES);
-  //      for (uint256 i = 0; i < Internal.MAX_RET_BYTES; ++i) {
-  //        expectedReturnData[i] = totalReturnData[i];
-  //      }
-  //    }
-  //    assertEq(expectedReturnData, retData);
-  //  }
+  function testFuzz_CallWithExactGasReceiverErrorSuccess(uint16 testRetBytes) public {
+    uint16 maxReturnBytes = 500;
+    // Bound with upper limit, otherwise the test runs out of gas.
+    testRetBytes = uint16(bound(testRetBytes, 0, maxReturnBytes * 10));
+
+    bytes memory data = abi.encode("0x52656E73");
+
+    bytes memory errorData = new bytes(testRetBytes);
+    for (uint256 i = 0; i < errorData.length; ++i) {
+      errorData[i] = 0x01;
+    }
+    s_receiver.setErr(errorData);
+    s_receiver.setRevert(true);
+
+    vm.expectCall(address(s_receiver), data);
+
+    (bool success, bytes memory retData) = s_caller.callWithExactGasSafeReturnData(
+      data,
+      address(s_receiver),
+      DEFAULT_GAS_LIMIT * 10,
+      maxReturnBytes,
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+    );
+
+    assertFalse(success);
+
+    bytes memory expectedReturnData = errorData;
+
+    // If expected return data is longer than MAX_RET_BYTES, truncate it to MAX_RET_BYTES
+    if (expectedReturnData.length > maxReturnBytes) {
+      expectedReturnData = new bytes(maxReturnBytes);
+      for (uint256 i = 0; i < maxReturnBytes; ++i) {
+        expectedReturnData[i] = errorData[i];
+      }
+    }
+    assertEq(expectedReturnData, retData);
+  }
 
   function test_NoContractReverts() public {
     address addressWithoutContract = address(1337);
