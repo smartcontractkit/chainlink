@@ -157,13 +157,6 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		b.te.WithTestLogger(b.t)
 	}
 
-	if b.hasLogWatch {
-		b.te.LogWatch, err = logwatch.NewLogWatch(nil, nil)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	if b.hasKillgrave {
 		err = b.te.StartMockAdapter()
 		if err != nil {
@@ -175,7 +168,20 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		if err := b.te.Cleanup(); err != nil {
 			b.l.Error().Err(err).Msg("Error cleaning up test environment")
 		}
+
+		if b.te.LogWatch != nil {
+			b.l.Warn().Msg("Shutting down logwatch")
+			b.te.LogWatch.Shutdown()
+			b.te.LogWatch.PrintLogTargetsLocations()
+		}
 	})
+
+	if b.hasLogWatch {
+		b.te.LogWatch, err = logwatch.NewLogWatch(b.t, nil)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	if b.nonDevGethNetworks != nil {
 		b.te.WithPrivateChain(b.nonDevGethNetworks)

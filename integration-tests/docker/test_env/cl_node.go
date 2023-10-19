@@ -278,11 +278,7 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return errors.Wrap(err, ErrStartCLNodeContainer)
 	}
-	if n.lw != nil {
-		if err := n.lw.ConnectContainer(context.Background(), container, "cl-node", true); err != nil {
-			return err
-		}
-	}
+
 	clEndpoint, err := test_env.GetEndpoint(context.Background(), container, "http")
 	if err != nil {
 		return err
@@ -412,6 +408,24 @@ func (n *ClNode) getContainerRequest(secrets string) (
 				ContainerFilePath: apiCredsPath,
 				FileMode:          0644,
 			},
+		},
+		LifecycleHooks: []tc.ContainerLifecycleHooks{
+			{PostStarts: []tc.ContainerHook{
+				func(ctx context.Context, c tc.Container) error {
+					if n.lw != nil {
+						n.lw.ConnectContainer(ctx, c, "")
+					}
+					return nil
+				},
+			},
+				PostStops: []tc.ContainerHook{
+					func(ctx context.Context, c tc.Container) error {
+						if n.lw != nil {
+							n.lw.DisconnectContainer(c)
+						}
+						return nil
+					},
+				}},
 		},
 	}, nil
 }
