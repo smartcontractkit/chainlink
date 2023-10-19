@@ -795,7 +795,7 @@ func (t *promptingAPIInitializer) Initialize(orm sessions.LocalAdminUsersORM, lg
 	// Load list of users to determine which to assume, or if a user needs to be created
 	dbUsers, err := orm.ListUsers()
 	if err != nil {
-		return sessions.User{}, err
+		return sessions.User{}, errors.Wrap(err, "Unable to List users for initialization")
 	}
 
 	// If there are no users in the database, prompt for initial admin user creation
@@ -854,7 +854,7 @@ func (f fileAPIInitializer) Initialize(orm sessions.LocalAdminUsersORM, lggr log
 	// Load list of users to determine which to assume, or if a user needs to be created
 	dbUsers, err := orm.ListUsers()
 	if err != nil {
-		return sessions.User{}, err
+		return sessions.User{}, errors.Wrap(err, "Unable to List users for initialization")
 	}
 
 	// If there are no users in the database, create initial admin user from session request from file creds

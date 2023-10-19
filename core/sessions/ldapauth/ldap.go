@@ -27,8 +27,10 @@ for a blocking auth call while the user responds to a potential push notificatio
 
 import (
 	"crypto/subtle"
+	"database/sql"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/go-ldap/ldap/v3"
 	"github.com/pkg/errors"
@@ -113,10 +115,24 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 	email = strings.ToLower(email)
 	foundUser := sessions.User{}
 
+	// First check for the supported local admin users table
+	var foundLocalAdminUser sessions.User
+	if err := l.q.Transaction(func(tx pg.Queryer) error {
+		sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
+		return tx.Get(&foundLocalAdminUser, sql, email)
+	}); err != nil {
+		if !errors.Is(err, sql.ErrNoRows) {
+			l.lggr.Errorf("Error searching users table: %v", err)
+			return sessions.User{}, errors.New("Error Finding user")
+		}
+	} else {
+		return foundLocalAdminUser, nil
+	}
+
 	// First query for user "is active" property if defined
 	usersActive, err := l.validateUsersActive([]string{email})
 	if err != nil {
-		return foundUser, errors.New("Error running query to validate user")
+		return foundUser, errors.New("Error running query to validate user active")
 	}
 	if usersActive[0] == false {
 		return foundUser, errors.New("User not active")
@@ -235,7 +251,7 @@ func (l *ldapAuthenticator) FindUserByAPIToken(apiToken string) (sessions.User, 
 	return foundUser, nil
 }
 
-// ListUsers will load and return all user rows from the db.
+// ListUsers will load and return all active users in applicable LDAP groups, extended with local admin users as well
 func (l *ldapAuthenticator) ListUsers() ([]sessions.User, error) {
 	// For each defined role/group, query for the list of group members to gather the full list of possible users
 	users := []sessions.User{}
@@ -314,34 +330,30 @@ func (l *ldapAuthenticator) ListUsers() ([]sessions.User, error) {
 		}
 	}
 
+	// Extend with local admin users
+	var localAdminUsers []sessions.User
+	if err := l.q.Transaction(func(tx pg.Queryer) error {
+		sql := "SELECT * FROM users ORDER BY email ASC;"
+		return tx.Select(&localAdminUsers, sql)
+	}); err != nil {
+		l.lggr.Errorf("Error extending upstream LDAP users with local admin users in users table: ", err)
+	} else {
+		returnUsers = append(returnUsers, localAdminUsers...)
+	}
+
 	return returnUsers, nil
 }
 
 // ldapGroupMembersListToUser queries the LDAP server given a conn for a list of uniqueMember who are part of the parameterized group
 func (l *ldapAuthenticator) ldapGroupMembersListToUser(conn *ldap.Conn, groupNameCN string, roleToAssign sessions.UserRole) ([]sessions.User, error) {
-	users := []sessions.User{}
-	// Prepare and query the GroupsDN for the specified group name
-	searchBaseDN := fmt.Sprintf("%s, %s", l.config.GroupsDN(), l.config.BaseDN())
-	filterQuery := fmt.Sprintf("(&(cn=%s))", groupNameCN)
-	searchRequest := ldap.NewSearchRequest(
-		searchBaseDN,
-		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases,
-		0, int(l.config.QueryTimeout().Seconds()), false,
-		filterQuery,
-		[]string{LDAPUniqueMemberAttribute},
-		nil,
+	users, err := ldapGroupMembersListToUser(
+		conn, groupNameCN, roleToAssign, l.config.GroupsDN(),
+		l.config.BaseDN(), l.config.QueryTimeout(),
+		l.lggr,
 	)
-	result, err := conn.Search(searchRequest)
 	if err != nil {
-		l.lggr.Errorf("Error searching group members in LDAP query: %v", err)
+		l.lggr.Errorf("Error listing members of group (%s): %v", groupNameCN, err)
 		return users, errors.New("Error searching group members in LDAP directory")
-	}
-	// Resulting entries are unique members for the group, map each user to the sessions.User struct
-	for _, user := range result.Entries {
-		users = append(users, sessions.User{
-			Email: user.GetAttributeValue(l.config.BaseUserAttr()),
-			Role:  roleToAssign,
-		})
 	}
 	return users, nil
 }
@@ -489,9 +501,32 @@ func (l *ldapAuthenticator) UpdateRole(email, newRole string) (sessions.User, er
 	return sessions.User{}, sessions.ErrNotSupported
 }
 
-// SetPassword is not supported for read only LDAP
+// SetPassword for remote users is not supported via the read only LDAP implementation, however change password
+// in the context of updating a local admin user's password is required
 func (l *ldapAuthenticator) SetPassword(user *sessions.User, newPassword string) error {
-	return sessions.ErrNotSupported
+	// Ensure specified user is part of the local admins user table
+	var localAdminUser sessions.User
+	if err := l.q.Transaction(func(tx pg.Queryer) error {
+		sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
+		return tx.Get(&localAdminUser, sql, user.Email)
+	}); err != nil {
+		l.lggr.Infof("Can not change password, local user with email not found in users table: %s, err: %v", user.Email, err)
+		return sessions.ErrNotSupported
+	}
+
+	// User is local admin, save new password
+	hashedPassword, err := utils.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	if err := l.q.Transaction(func(tx pg.Queryer) error {
+		sql := "UPDATE users SET hashed_password = $1, updated_at = now() WHERE email = $2 RETURNING *"
+		return tx.Get(user, sql, hashedPassword, user.Email)
+	}); err != nil {
+		l.lggr.Errorf("Unable to set password for user: %s, err: %v", user.Email, err)
+		return errors.New("unable to save password")
+	}
+	return nil
 }
 
 // TestPassword tests if an LDAP login bind can be performed with provided credentials, returns nil if success
@@ -651,14 +686,15 @@ func (l *ldapAuthenticator) dialAndConnect() (*ldap.Conn, error) {
 	return conn, nil
 }
 
-// validateUsersActive performs an additional LDAP server query for the supplied email, checking the
-// return user data for an 'active' property defined optionally in the config. Returns same length bool array
+// validateUsersActive performs an additional LDAP server query for the supplied emails, checking the
+// returned user data for an 'active' property defined optionally in the config.
+// Returns same length bool 'valid' array, indexed by sorted email
 func (l *ldapAuthenticator) validateUsersActive(emails []string) ([]bool, error) {
 	validUsers := make([]bool, len(emails))
 	// If active attribute to check is not defined in config, skip
-	if l.config.ActiveAttribute() != "" {
+	if l.config.ActiveAttribute() == "" {
 		// fill with valids
-		for i, _ := range emails {
+		for i := range emails {
 			validUsers[i] = true
 		}
 		return validUsers, nil
@@ -672,20 +708,20 @@ func (l *ldapAuthenticator) validateUsersActive(emails []string) ([]bool, error)
 	}
 	defer conn.Close()
 
-	// Build the full or "|" query to pull all information for each user specified in one query
-	orQuery := ""
+	// Build the full email list query to pull all 'isActive' information for each user specified in one query
+	filterQuery := "(|"
 	for _, email := range emails {
 		escapedEmail := ldap.EscapeFilter(email)
-		orQuery += fmt.Sprintf("(uniquemember=%s=%s,%s,%s)", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDN(), l.config.BaseDN())
+		filterQuery = fmt.Sprintf("%s(%s=%s)", filterQuery, l.config.BaseUserAttr(), escapedEmail)
 	}
-	searchBaseDN := fmt.Sprintf("%s, %s", l.config.GroupsDN(), l.config.BaseDN())
-	filterQuery := fmt.Sprintf("(|%s)", orQuery)
+	filterQuery = fmt.Sprintf("(&%s))", filterQuery)
+	searchBaseDN := fmt.Sprintf("%s,%s", l.config.UsersDN(), l.config.BaseDN())
 	searchRequest := ldap.NewSearchRequest(
 		searchBaseDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases,
 		0, int(l.config.QueryTimeout().Seconds()), false,
 		filterQuery,
-		[]string{l.config.ActiveAttribute()},
+		[]string{l.config.BaseUserAttr(), l.config.ActiveAttribute()},
 		nil,
 	)
 	// Query LDAP server for the ActiveAttribute property of each specified user
@@ -694,21 +730,89 @@ func (l *ldapAuthenticator) validateUsersActive(emails []string) ([]bool, error)
 		l.lggr.Errorf("Error searching user in LDAP query: %v", err)
 		return validUsers, errors.New("Error searching users in LDAP directory")
 	}
-
 	// Ensure user response entries
 	if len(results.Entries) == 0 {
 		return validUsers, errors.New("No users matching email query")
 	}
 
 	// Pull expected ActiveAttribute value from list of string possible values
-	// and set return bool array with Active truthiness value
-	for i, result := range results.Entries {
-		attributeValues := result.GetAttributeValue(l.config.ActiveAttribute())
-		if attributeValues == l.config.ActiveAttributeAllowedValue() {
+	// keyed on email for final step to return flag bool list where order is preserved
+	emailToActiveMap := make(map[string]bool)
+	for _, result := range results.Entries {
+		isActiveAttribute := result.GetAttributeValue(l.config.ActiveAttribute())
+		uidAttribute := result.GetAttributeValue(l.config.BaseUserAttr())
+		emailToActiveMap[uidAttribute] = isActiveAttribute == l.config.ActiveAttributeAllowedValue()
+	}
+	for i, email := range emails {
+		active, ok := emailToActiveMap[email]
+		if ok && active {
 			validUsers[i] = true
 		}
 	}
+
 	return validUsers, nil
+}
+
+// ldapGroupMembersListToUser queries the LDAP server given a conn for a list of uniqueMember who are part of the parameterized group. Reused by sync.go
+func ldapGroupMembersListToUser(
+	conn *ldap.Conn,
+	groupNameCN string,
+	roleToAssign sessions.UserRole,
+	groupsDN string,
+	baseDN string,
+	queryTimeout time.Duration,
+	lggr logger.Logger,
+) ([]sessions.User, error) {
+	users := []sessions.User{}
+	// Prepare and query the GroupsDN for the specified group name
+	searchBaseDN := fmt.Sprintf("%s, %s", groupsDN, baseDN)
+	filterQuery := fmt.Sprintf("(&(cn=%s))", groupNameCN)
+	searchRequest := ldap.NewSearchRequest(
+		searchBaseDN,
+		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases,
+		0, int(queryTimeout.Seconds()), false,
+		filterQuery,
+		[]string{LDAPUniqueMemberAttribute},
+		nil,
+	)
+	result, err := conn.Search(searchRequest)
+	if err != nil {
+		lggr.Errorf("Error searching group members in LDAP query: %v", err)
+		return users, errors.New("Error searching group members in LDAP directory")
+	}
+
+	// The result.Entry query response here is for the 'group' type of LDAP resource. The result should be a single entry, containing
+	// a single Attribute named 'uniqueMember' containing a list of string Values. These Values are strings that should be returned in
+	// the format "uid=test.user@example.com,ou=users,dc=example,dc=com". The 'uid' is then manually parsed here as the library does
+	// not expose the functionality
+	if len(result.Entries) != 1 {
+		lggr.Errorf("Unexpected length of query results for group user members, expected one got %d", len(result.Entries))
+		return users, errors.New("Error searching group members in LDAP directory")
+	}
+
+	// Get string list of members from 'uniqueMember' attribute
+	uniqueMemberValues := result.Entries[0].GetAttributeValues(LDAPUniqueMemberAttribute)
+	for _, uniqueMemberEntry := range uniqueMemberValues {
+		parts := strings.Split(uniqueMemberEntry, ",") // Split attribute value on comma (uid, ou, dc parts)
+		uidComponent := ""
+		for _, part := range parts { // Iterate parts for "uid="
+			if strings.HasPrefix(part, "uid=") {
+				uidComponent = part
+				break
+			}
+		}
+		if uidComponent == "" {
+			lggr.Errorf("Unexpected LDAP group query response for unique members - expected list of LDAP Values for uniqueMember containing LDAP strings in format uid=test.user@example.com,ou=users,dc=example,dc=com. Got %s", uniqueMemberEntry)
+			continue
+		}
+		// Map each user email to the sessions.User struct
+		userEmail := strings.TrimPrefix(uidComponent, "uid=")
+		users = append(users, sessions.User{
+			Email: userEmail,
+			Role:  roleToAssign,
+		})
+	}
+	return users, nil
 }
 
 // groupSearchResultsToUserRole takes a list of LDAP group search result entries and returns the associated

@@ -210,7 +210,7 @@ BaseDN = 'dc=custom,dc=example,dc=com' # Example
 UsersDN = 'ou=users' # Default
 # GroupsDN defines the 'dn' query to use when querying for the 'groups' 'ou' group
 GroupsDN = 'ou=groups' # Default
-# ActiveAttribute is an optional user field to check truthiness for if a user is valid/active 
+# ActiveAttribute is an optional user field to check truthiness for if a user is valid/active. This is only required if the LDAP provider lists inactive users as members of groups
 ActiveAttribute = 'organizationalStatus' # Default
 # ActiveAttributeAllowedValue is the value to check against for the above optional user attribute
 ActiveAttributeAllowedValue = 'ACTIVE' # Default

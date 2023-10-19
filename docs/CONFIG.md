@@ -623,7 +623,7 @@ GroupsDN defines the 'dn' query to use when querying for the 'groups' 'ou' group
 ```toml
 ActiveAttribute = 'organizationalStatus' # Default
 ```
-ActiveAttribute is an optional user field to check truthiness for if a user is valid/active
+ActiveAttribute is an optional user field to check truthiness for if a user is valid/active. This is only required if the LDAP provider lists inactive users as members of groups
 
 ### ActiveAttributeAllowedValue
 ```toml

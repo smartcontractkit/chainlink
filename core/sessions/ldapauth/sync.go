@@ -130,16 +130,26 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 	// Dedupe preserving order of highest role (sorted)
 	// Preserve members as a map for future lookup
 	upstreamUserStateMap := make(map[string]sessions.User)
+	dedupedEmails := []string{}
 	for _, user := range users {
 		if _, ok := upstreamUserStateMap[user.Email]; !ok {
 			upstreamUserStateMap[user.Email] = user
+			dedupedEmails = append(dedupedEmails, user.Email)
 		}
 	}
 
-	// For each unique user in list of active sessions, check for 'Is Active' propery. Some LDAP providers
+	// For each unique user in list of active sessions, check for 'Is Active' propery if defined in the config. Some LDAP providers
 	// list group members that are no longer marked as active
-
-	// ActiveAttributeAllowedValue
+	usersActiveFlags, err := ldSync.validateUsersActive(dedupedEmails, conn)
+	if err != nil {
+		ldSync.lggr.Errorf("Error validating supplied user list: ", err)
+	}
+	// Remove users in the upstreamUserStateMap source of truth who are part of groups but marked as deactivated/no-active
+	for i, active := range usersActiveFlags {
+		if !active {
+			delete(upstreamUserStateMap, dedupedEmails[i])
+		}
+	}
 
 	// upstreamUserStateMap is now the most up to date source of truth
 	// Now sync database sessions and roles with new data
@@ -224,18 +234,21 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 			queryWhenClause += fmt.Sprintf("WHEN user_email = $%d THEN '%s' ", len(emailValues), user.Role)
 		}
 
-		// Set new role state for all rows in single Exec
-		query := fmt.Sprintf("UPDATE ldap_sessions SET user_role = CASE %s ELSE user_role END", queryWhenClause)
-		_, err := ldSync.q.Exec(query, emailValues...)
-		if err != nil {
-			return err
-		}
+		// If there are remaining user entries to update
+		if len(emailValues) != 0 {
+			// Set new role state for all rows in single Exec
+			query := fmt.Sprintf("UPDATE ldap_sessions SET user_role = CASE %s ELSE user_role END", queryWhenClause)
+			_, err := ldSync.q.Exec(query, emailValues...)
+			if err != nil {
+				return err
+			}
 
-		// Update role of API tokens as well
-		query = fmt.Sprintf("UPDATE ldap_user_api_tokens SET user_role = CASE %s ELSE user_role END", queryWhenClause)
-		_, err = ldSync.q.Exec(query, emailValues...)
-		if err != nil {
-			return err
+			// Update role of API tokens as well
+			query = fmt.Sprintf("UPDATE ldap_user_api_tokens SET user_role = CASE %s ELSE user_role END", queryWhenClause)
+			_, err = ldSync.q.Exec(query, emailValues...)
+			if err != nil {
+				return err
+			}
 		}
 
 		ldSync.lggr.Info("local ldap_sessions and ldap_user_api_tokens table successfully synced with upstream LDAP state")
@@ -260,55 +273,74 @@ func (ldSync *LDAPServerStateSyncer) deleteStaleAPITokens(before time.Time) erro
 }
 
 // ldapGroupMembersListToUser queries the LDAP server given a conn for a list of uniqueMember who are part of the parameterized group
-func (l *LDAPServerStateSyncer) ldapGroupMembersListToUser(conn *ldap.Conn, groupNameCN string, roleToAssign sessions.UserRole) ([]sessions.User, error) {
-	users := []sessions.User{}
-	// Prepare and query the GroupsDN for the specified group name
-	searchBaseDN := fmt.Sprintf("%s, %s", l.config.GroupsDN(), l.config.BaseDN())
-	filterQuery := fmt.Sprintf("(&(cn=%s))", groupNameCN)
+func (ldSync *LDAPServerStateSyncer) ldapGroupMembersListToUser(conn *ldap.Conn, groupNameCN string, roleToAssign sessions.UserRole) ([]sessions.User, error) {
+	users, err := ldapGroupMembersListToUser(
+		conn, groupNameCN, roleToAssign, ldSync.config.GroupsDN(),
+		ldSync.config.BaseDN(), ldSync.config.QueryTimeout(),
+		ldSync.lggr,
+	)
+	if err != nil {
+		ldSync.lggr.Errorf("Error listing members of group (%s): %v", groupNameCN, err)
+		return users, errors.New("Error searching group members in LDAP directory")
+	}
+	return users, nil
+}
+
+// validateUsersActive performs an additional LDAP server query for the supplied emails, checking the
+// returned user data for an 'active' property defined optionally in the config.
+// Returns same length bool 'valid' array, order preserved
+func (ldSync *LDAPServerStateSyncer) validateUsersActive(emails []string, conn *ldap.Conn) ([]bool, error) {
+	validUsers := make([]bool, len(emails))
+	// If active attribute to check is not defined in config, skip
+	if ldSync.config.ActiveAttribute() == "" {
+		// pre fill with valids
+		for i := range emails {
+			validUsers[i] = true
+		}
+		return validUsers, nil
+	}
+
+	// Build the full email list query to pull all 'isActive' information for each user specified in one query
+	filterQuery := "(|"
+	for _, email := range emails {
+		escapedEmail := ldap.EscapeFilter(email)
+		filterQuery = fmt.Sprintf("%s(%s=%s)", filterQuery, ldSync.config.BaseUserAttr(), escapedEmail)
+	}
+	filterQuery = fmt.Sprintf("(&%s))", filterQuery)
+	searchBaseDN := fmt.Sprintf("%s,%s", ldSync.config.UsersDN(), ldSync.config.BaseDN())
 	searchRequest := ldap.NewSearchRequest(
 		searchBaseDN,
 		ldap.ScopeWholeSubtree, ldap.NeverDerefAliases,
-		0, int(l.config.QueryTimeout().Seconds()), false,
+		0, int(ldSync.config.QueryTimeout().Seconds()), false,
 		filterQuery,
-		[]string{LDAPUniqueMemberAttribute},
+		[]string{ldSync.config.BaseUserAttr(), ldSync.config.ActiveAttribute()},
 		nil,
 	)
-	result, err := conn.Search(searchRequest)
+	// Query LDAP server for the ActiveAttribute property of each specified user
+	results, err := conn.Search(searchRequest)
 	if err != nil {
-		l.lggr.Errorf("Error searching group members in LDAP query: %v", err)
-		return users, errors.New("Error searching group members in LDAP directory")
+		ldSync.lggr.Errorf("Error searching user in LDAP query: %v", err)
+		return validUsers, errors.New("Error searching users in LDAP directory")
+	}
+	// Ensure user response entries
+	if len(results.Entries) == 0 {
+		return validUsers, errors.New("No users matching email query")
 	}
 
-	// The result.Entry query response here is for the 'group' type of LDAP resource. The result should be a single entry, containing
-	// a single Attribute named 'uniqueMember' containing a list of string Values. These Values are strings that should be returned in
-	// the format "uid=test.user@example.com,ou=users,dc=example,dc=com". The 'uid' is then manually parsed here as the library does
-	// not expose the functionality
-	if len(result.Entries) != 1 {
-		l.lggr.Errorf("Unexpected length of query results for group user members, expected one got %d", len(result.Entries))
-		return users, errors.New("Error searching group members in LDAP directory")
+	// Pull expected ActiveAttribute value from list of string possible values
+	// keyed on email for final step to return flag bool list where order is preserved
+	emailToActiveMap := make(map[string]bool)
+	for _, result := range results.Entries {
+		isActiveAttribute := result.GetAttributeValue(ldSync.config.ActiveAttribute())
+		uidAttribute := result.GetAttributeValue(ldSync.config.BaseUserAttr())
+		emailToActiveMap[uidAttribute] = isActiveAttribute == ldSync.config.ActiveAttributeAllowedValue()
+	}
+	for i, email := range emails {
+		active, ok := emailToActiveMap[email]
+		if ok && active {
+			validUsers[i] = true
+		}
 	}
 
-	// Get string list of members from 'uniqueMember' attribute
-	uniqueMemberValues := result.Entries[0].GetAttributeValues(LDAPUniqueMemberAttribute)
-	for _, uniqueMemberEntry := range uniqueMemberValues {
-		parts := strings.Split(uniqueMemberEntry, ",") // Split attribute value on comma (uid, ou, dc parts)
-		uidComponent := ""
-		for _, part := range parts { // Iterate parts for "uid="
-			if strings.HasPrefix(part, "uid=") {
-				uidComponent = part
-				break
-			}
-		}
-		if uidComponent == "" {
-			l.lggr.Errorf("Unexpected LDAP group query response for unique members - expected list of LDAP Values for uniqueMember containing LDAP strings in format uid=test.user@example.com,ou=users,dc=example,dc=com. Got %s", uniqueMemberEntry)
-			continue
-		}
-		// Map each user email to the sessions.User struct
-		userEmail := strings.TrimPrefix(uidComponent, "uid=")
-		users = append(users, sessions.User{
-			Email: userEmail,
-			Role:  roleToAssign,
-		})
-	}
-	return users, nil
+	return validUsers, nil
 }

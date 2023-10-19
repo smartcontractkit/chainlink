@@ -362,7 +362,8 @@ func (s *Shell) runNode(c *cli.Context) error {
 		return s.errorOut(errors.Wrap(err, "fatal error instantiating application"))
 	}
 
-	authProviderORM := app.AuthenticationProvider()
+	// Local shell initialization always uses local auth users table for admin auth
+	authProviderORM := app.LocalAdminUsersORM()
 	keyStore := app.GetKeyStore()
 	err = s.KeyStoreAuthenticator.authenticate(keyStore, s.Config.Password())
 	if err != nil {
