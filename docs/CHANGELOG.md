@@ -30,7 +30,9 @@ These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.Serve
 
 - Removed the ability to set a next nonce value for an address through CLI
 
-## 2.6.0 - UNRELEASED
+<!-- unreleasedstop -->
+
+## 2.6.0 - 2023-10-18
 
 ### Added
 
@@ -61,8 +63,6 @@ All nodes will have to remove the following configuration field: `ExplorerURL`
 - Fixed a bug that would cause the node to shut down while performing backup
 - Fixed health checker to include more services in the prometheus `health` metric and HTTP `/health` endpoint
 - Fixed a bug where prices would not be parsed correctly in telemetry data
-
-<!-- unreleasedstop -->
 
 ## 2.5.0 - 2023-09-13
 
