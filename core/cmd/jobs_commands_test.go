@@ -299,7 +299,7 @@ const directRequestSpecTemplate = `
 type                = "directrequest"
 schemaVersion       = 1
 evmChainID          = "0"
-name                = "example eth request event spec"
+name                = "%s"
 contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
 externalJobID       = "%s"
 observationSource   = """
@@ -312,7 +312,7 @@ observationSource   = """
 `
 
 func getDirectRequestSpec() string {
-	return fmt.Sprintf(directRequestSpecTemplate, uuid.New())
+	return fmt.Sprintf(directRequestSpecTemplate, uuid.New(), uuid.New())
 }
 
 func TestShell_ListFindJobs(t *testing.T) {
