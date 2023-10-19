@@ -456,6 +456,17 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 		return
 	}
 
+	ts := time.Now().UTC().UnixMilli()
+	signature := r.generateHMAC(http.MethodGet, batchPathV03+params, []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
+	req.Header.Set(headerContentType, applicationJson)
+	// username here is often referred to as user id
+	req.Header.Set(headerAuthorization, r.mercury.cred.Username)
+	req.Header.Set(headerTimestamp, strconv.FormatInt(ts, 10))
+	req.Header.Set(headerSignature, signature)
+	// mercury will inspect authorization headers above to make sure this user (in automation's context, this node) is eligible to access mercury
+	// and if it has an automation role. it will then look at this upkeep id to check if it has access to all the requested feeds.
+	req.Header.Set(headerUpkeepId, sl.upkeepId.String())
+
 	// in the case of multiple retries here, use the last attempt's data
 	state := encoding.NoPipelineError
 	retryable := false
