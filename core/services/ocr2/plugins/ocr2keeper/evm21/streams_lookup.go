@@ -503,7 +503,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			} else if resp.StatusCode == http.StatusBadRequest {
 				retryable = false
 				state = encoding.InvalidMercuryRequest
-				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by invalid format of timestamp", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode)
+				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode)
 			} else if resp.StatusCode == http.StatusInternalServerError {
 				retryable = true
 				state = encoding.MercuryFlakyFailure
