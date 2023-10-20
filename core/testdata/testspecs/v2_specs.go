@@ -170,6 +170,27 @@ chainID			= 1337
 `
 )
 
+func GetOCRBootstrapSpec() string {
+	return fmt.Sprintf(OCRBootstrapSpec, uuid.New())
+}
+
+func GetDirectRequestSpec() string {
+	uuid := uuid.New()
+	return GetDirectRequestSpecWithUUID(uuid)
+}
+
+func GetDirectRequestSpecWithUUID(u uuid.UUID) string {
+	return fmt.Sprintf(DirectRequestSpecTemplate, u, u)
+}
+
+func GetOCR2EVMSpecMinimal() string {
+	return fmt.Sprintf(OCR2EVMSpecMinimalTemplate, uuid.New())
+}
+
+func GetWebhookSpecNoBody(u uuid.UUID, fetchBridge, submitBridge string) string {
+	return fmt.Sprintf(WebhookSpecNoBodyTemplate, u, fetchBridge, submitBridge)
+}
+
 type KeeperSpecParams struct {
 	Name              string
 	ContractAddress   string
@@ -445,9 +466,9 @@ func (os OCRSpec) Toml() string {
 }
 
 func GenerateOCRSpec(params OCRSpecParams) OCRSpec {
-	jobID := "123e4567-e89b-12d3-a456-426655440001"
-	if params.JobID != "" {
-		jobID = params.JobID
+	jobID := params.JobID
+	if jobID == "" {
+		jobID = uuid.New().String()
 	}
 	transmitterAddress := "0xF67D0290337bca0847005C7ffD1BC75BA9AAE6e4"
 	if params.TransmitterAddress != "" {
@@ -457,9 +478,9 @@ func GenerateOCRSpec(params OCRSpecParams) OCRSpec {
 	if params.ContractAddress != "" {
 		contractAddress = params.ContractAddress
 	}
-	name := "web oracle spec"
-	if params.Name != "" {
-		name = params.Name
+	name := params.Name
+	if params.Name == "" {
+		name = jobID
 	}
 	ds1BridgeName := fmt.Sprintf("automatically_generated_bridge_%s", uuid.New().String())
 	if params.DS1BridgeName != "" {

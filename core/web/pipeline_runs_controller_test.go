@@ -113,7 +113,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	// Add the job
 	uuid := uuid.New()
 	{
-		tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBodyTemplate, uuid, bridge.Name.String(), submitBridge.Name.String())
+		tomlStr := testspecs.GetWebhookSpecNoBody(uuid, bridge.Name.String(), submitBridge.Name.String())
 		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
@@ -265,10 +265,12 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
+	nameAndExternalJobID := uuid.New()
 	sp := fmt.Sprintf(`
 	type               = "offchainreporting"
 	schemaVersion      = 1
-	externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+	externalJobID       = "%s"
+	name               = "%s"
 	contractAddress    = "%s"
 	evmChainID		   = "0"
 	p2pBootstrapPeers  = [
@@ -295,7 +297,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 
 		answer [type=median index=0];
 	"""
-	`, testutils.NewAddress().Hex(), cltest.DefaultOCRKeyBundleID, key.Address.Hex())
+	`, nameAndExternalJobID, nameAndExternalJobID, testutils.NewAddress().Hex(), cltest.DefaultOCRKeyBundleID, key.Address.Hex())
 	var jb job.Job
 	err := toml.Unmarshal([]byte(sp), &jb)
 	require.NoError(t, err)

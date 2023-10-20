@@ -260,7 +260,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 		{
 			name: "directrequest",
 			tomlTemplate: func(nameAndExternalJobID string) string {
-				return fmt.Sprintf(testspecs.DirectRequestSpecTemplate, nameAndExternalJobID, nameAndExternalJobID)
+				return testspecs.GetDirectRequestSpecWithUUID(uuid.MustParse(nameAndExternalJobID))
 			},
 			assertion: func(t *testing.T, nameAndExternalJobID string, r *http.Response) {
 				require.Equal(t, http.StatusOK, r.StatusCode)
@@ -381,7 +381,7 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 
 	client := app.NewHTTPClient(nil)
 
-	tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBodyTemplate, uuid.New(), fetchBridge.Name.String(), submitBridge.Name.String())
+	tomlStr := testspecs.GetWebhookSpecNoBody(uuid.New(), fetchBridge.Name.String(), submitBridge.Name.String())
 	body, _ := json.Marshal(web.CreateJobRequest{
 		TOML: tomlStr,
 	})
