@@ -12,8 +12,9 @@ import (
 const (
 	DefaultConfigFilename = "config.toml"
 
-	ErrReadPerfConfig      = "failed to read TOML config for performance tests"
-	ErrUnmarshalPerfConfig = "failed to unmarshal TOML config for performance tests"
+	ErrReadPerfConfig                    = "failed to read TOML config for performance tests"
+	ErrUnmarshalPerfConfig               = "failed to unmarshal TOML config for performance tests"
+	ErrDeviationShouldBeLessThanOriginal = "`RandomnessRequestCountPerRequestDeviation` should be less than `RandomnessRequestCountPerRequest`"
 )
 
 type PerformanceConfig struct {
@@ -23,6 +24,7 @@ type PerformanceConfig struct {
 	LoadVolume        *LoadVolume        `toml:"LoadVolume"`
 	Common            *Common            `toml:"Common"`
 	ExistingEnvConfig *ExistingEnvConfig `toml:"ExistingEnvConfig"`
+	NewEnvConfig      *NewEnvConfig      `toml:"NewEnvConfig"`
 }
 
 type ExistingEnvConfig struct {
@@ -32,8 +34,12 @@ type ExistingEnvConfig struct {
 	KeyHash            string `toml:"key_hash"`
 }
 
-type Common struct {
+type NewEnvConfig struct {
 	Funding
+	NumberOfSubToCreate int `toml:"number_of_sub_to_create"`
+}
+
+type Common struct {
 	IsNativePayment      bool   `toml:"is_native_payment"`
 	MinimumConfirmations uint16 `toml:"minimum_confirmations"`
 }
@@ -45,8 +51,12 @@ type Funding struct {
 }
 
 type Soak struct {
-	RPS      int64            `toml:"rps"`
-	Duration *models.Duration `toml:"duration"`
+	RPS int64 `toml:"rps"`
+	//Duration *models.Duration `toml:"duration"`
+	RateLimitUnitDuration *models.Duration `toml:"rate_limit_unit_duration"`
+
+	RandomnessRequestCountPerRequest          uint16 `toml:"randomness_request_count_per_request"`
+	RandomnessRequestCountPerRequestDeviation uint16 `toml:"randomness_request_count_per_request_deviation"`
 }
 
 type SoakVolume struct {
@@ -86,6 +96,10 @@ func ReadConfig() (*PerformanceConfig, error) {
 	err = toml.Unmarshal(d, &cfg)
 	if err != nil {
 		return nil, errors.Wrap(err, ErrUnmarshalPerfConfig)
+	}
+
+	if cfg.Soak.RandomnessRequestCountPerRequest <= cfg.Soak.RandomnessRequestCountPerRequestDeviation {
+		return nil, errors.Wrap(err, ErrDeviationShouldBeLessThanOriginal)
 	}
 
 	log.Debug().Interface("Config", cfg).Msg("Parsed config")
