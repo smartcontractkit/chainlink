@@ -211,9 +211,9 @@ UsersDN = 'ou=users' # Default
 # GroupsDN defines the 'dn' query to use when querying for the 'groups' 'ou' group
 GroupsDN = 'ou=groups' # Default
 # ActiveAttribute is an optional user field to check truthiness for if a user is valid/active. This is only required if the LDAP provider lists inactive users as members of groups
-ActiveAttribute = 'organizationalStatus' # Default
+ActiveAttribute = '' # Default
 # ActiveAttributeAllowedValue is the value to check against for the above optional user attribute
-ActiveAttributeAllowedValue = 'ACTIVE' # Default
+ActiveAttributeAllowedValue = '' # Default
 # AdminUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Admin' role
 AdminUserGroupCN = 'NodeAdmins' # Default
 # EditUserGroupCN is the LDAP 'cn' of the LDAP group that maps the core node's 'Edit' role

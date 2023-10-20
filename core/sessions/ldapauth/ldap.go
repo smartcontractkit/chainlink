@@ -117,12 +117,15 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 
 	// First check for the supported local admin users table
 	var foundLocalAdminUser sessions.User
-	if err := l.q.Transaction(func(tx pg.Queryer) error {
+	var checkErr error
+	l.q.Transaction(func(tx pg.Queryer) error {
 		sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
-		return tx.Get(&foundLocalAdminUser, sql, email)
-	}); err != nil {
-		if !errors.Is(err, sql.ErrNoRows) {
-			l.lggr.Errorf("Error searching users table: %v", err)
+		checkErr = tx.Get(&foundLocalAdminUser, sql, email)
+		return nil
+	})
+	if checkErr != nil {
+		if !errors.Is(checkErr, sql.ErrNoRows) {
+			l.lggr.Errorf("Error searching users table: %v", checkErr)
 			return sessions.User{}, errors.New("Error Finding user")
 		}
 	} else {

@@ -563,8 +563,8 @@ BaseUserAttr = 'uid' # Default
 BaseDN = 'dc=custom,dc=example,dc=com' # Example
 UsersDN = 'ou=users' # Default
 GroupsDN = 'ou=groups' # Default
-ActiveAttribute = 'organizationalStatus' # Default
-ActiveAttributeAllowedValue = 'ACTIVE' # Default
+ActiveAttribute = '' # Default
+ActiveAttributeAllowedValue = '' # Default
 AdminUserGroupCN = 'NodeAdmins' # Default
 EditUserGroupCN = 'NodeEditors' # Default
 RunUserGroupCN = 'NodeRunners' # Default
@@ -621,13 +621,13 @@ GroupsDN defines the 'dn' query to use when querying for the 'groups' 'ou' group
 
 ### ActiveAttribute
 ```toml
-ActiveAttribute = 'organizationalStatus' # Default
+ActiveAttribute = '' # Default
 ```
 ActiveAttribute is an optional user field to check truthiness for if a user is valid/active. This is only required if the LDAP provider lists inactive users as members of groups
 
 ### ActiveAttributeAllowedValue
 ```toml
-ActiveAttributeAllowedValue = 'ACTIVE' # Default
+ActiveAttributeAllowedValue = '' # Default
 ```
 ActiveAttributeAllowedValue is the value to check against for the above optional user attribute
 
