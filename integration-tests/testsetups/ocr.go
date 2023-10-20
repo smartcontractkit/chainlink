@@ -546,6 +546,7 @@ func (o *OCRSoakTest) setFilterQuery() {
 	o.filterQuery = geth.FilterQuery{
 		Addresses: ocrAddresses,
 		Topics:    [][]common.Hash{{contractABI.Events["AnswerUpdated"].ID}},
+		FromBlock: big.NewInt(0).SetUint64(o.startingBlockNum),
 	}
 	o.log.Debug().
 		Interface("Addresses", ocrAddresses).
