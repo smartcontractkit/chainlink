@@ -34,6 +34,7 @@ func TestVRFv2Plus(t *testing.T) {
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err, "error creating test env")
 
@@ -255,6 +256,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err, "error creating test env")
 	env.ParallelTransactions(true)
