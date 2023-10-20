@@ -24,8 +24,7 @@ func TestSmokeCCIPForBidirectionalLane(t *testing.T) {
 	}
 	l := logging.GetTestLogger(t)
 	TestCfg := testsetups.NewCCIPTestConfig(t, l, testsetups.Smoke)
-	transferAmounts := []*big.Int{big.NewInt(1e14), big.NewInt(1e14)}
-	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, l, "smoke-ccip", 6, transferAmounts, nil, 5, true, true, TestCfg)
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, l, "smoke-ccip", 6, nil, 5, true, true, TestCfg)
 	var tcs []subtestInput
 	if len(setUpOutput.Lanes) == 0 {
 		return
@@ -79,9 +78,8 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	TestCfg := testsetups.NewCCIPTestConfig(t, l, testsetups.Smoke)
 	require.Equal(t, actions.TokenTransfer, TestCfg.MsgType, "Test config should have token transfer message type")
-	transferAmounts := []*big.Int{big.NewInt(1e14)}
 	setUpOutput := testsetups.CCIPDefaultTestSetUp(
-		t, l, "smoke-ccip", 6, transferAmounts, nil,
+		t, l, "smoke-ccip", 6, nil,
 		5, true, true, TestCfg)
 	var tcs []subtestInput
 	if len(setUpOutput.Lanes) == 0 {
@@ -114,6 +112,18 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 		t.Run(fmt.Sprintf("%s - Rate Limit", tc.testName), func(t *testing.T) {
 			tc.lane.Test = t
 			src := tc.lane.Source
+			// add liquidity to pools on both networks
+			if !TestCfg.ExistingDeployment {
+				addFund := func(ccipCommon *actions.CCIPCommon) {
+					for i, btp := range ccipCommon.BridgeTokenPools {
+						token := ccipCommon.BridgeTokens[i]
+						err := btp.AddLiquidity(token.Approve, token.Address(), new(big.Int).Mul(AggregatedRateLimitCapacity, big.NewInt(20)))
+						require.NoError(t, err)
+					}
+				}
+				addFund(src.Common)
+				addFund(tc.lane.Dest.Common)
+			}
 			l.Info().
 				Str("Source", tc.lane.SourceNetworkName).
 				Str("Destination", tc.lane.DestNetworkName).

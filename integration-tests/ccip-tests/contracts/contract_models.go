@@ -519,7 +519,7 @@ func (r *Router) CCIPSend(destChainSelector uint64, msg router.ClientEVM2AnyMess
 	if valueForNative != nil {
 		opts.Value = valueForNative
 	}
-
+	log.Info().Interface("msg", msg).Msg("Sending msg")
 	return r.Instance.CcipSend(opts, destChainSelector, msg)
 }
 
@@ -598,6 +598,40 @@ func (onRamp *OnRamp) SetNops() error {
 	if err != nil {
 		return err
 	}
+	return onRamp.client.ProcessTransaction(tx)
+}
+
+func (onRamp *OnRamp) SetTokenTransferFeeConfig(tokenTransferFeeConfig []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs) error {
+	opts, err := onRamp.client.TransactionOpts(onRamp.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := onRamp.Instance.SetTokenTransferFeeConfig(opts, tokenTransferFeeConfig)
+	if err != nil {
+		return err
+	}
+	log.Info().
+		Interface("tokenTransferFeeConfig", tokenTransferFeeConfig).
+		Str("onRamp", onRamp.Address()).
+		Str("Network Name", onRamp.client.GetNetworkConfig().Name).
+		Msg("TokenTransferFeeConfig set in OnRamp")
+	return onRamp.client.ProcessTransaction(tx)
+}
+
+func (onRamp *OnRamp) ApplyPoolUpdates(poolUpdates []evm_2_evm_onramp.InternalPoolUpdate) error {
+	opts, err := onRamp.client.TransactionOpts(onRamp.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := onRamp.Instance.ApplyPoolUpdates(opts, []evm_2_evm_onramp.InternalPoolUpdate{}, poolUpdates)
+	if err != nil {
+		return err
+	}
+	log.Info().
+		Interface("poolUpdates", poolUpdates).
+		Str("onRamp", onRamp.Address()).
+		Str("Network Name", onRamp.client.GetNetworkConfig().Name).
+		Msg("poolUpdates set in OnRamp")
 	return onRamp.client.ProcessTransaction(tx)
 }
 
@@ -688,5 +722,29 @@ func (offRamp *OffRamp) SetOCR2Config(
 	if err != nil {
 		return err
 	}
+	return offRamp.client.ProcessTransaction(tx)
+}
+
+func (offRamp *OffRamp) SyncTokensAndPools(sourceTokens, pools []common.Address) error {
+	opts, err := offRamp.client.TransactionOpts(offRamp.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	var tokenUpdates []evm_2_evm_offramp.InternalPoolUpdate
+	for i, srcToken := range sourceTokens {
+		tokenUpdates = append(tokenUpdates, evm_2_evm_offramp.InternalPoolUpdate{
+			Token: srcToken,
+			Pool:  pools[i],
+		})
+	}
+	tx, err := offRamp.Instance.ApplyPoolUpdates(opts, []evm_2_evm_offramp.InternalPoolUpdate{}, tokenUpdates)
+	if err != nil {
+		return err
+	}
+	log.Info().
+		Interface("tokenUpdates", tokenUpdates).
+		Str("offRamp", offRamp.Address()).
+		Str("Network Name", offRamp.client.GetNetworkConfig().Name).
+		Msg("tokenUpdates set in OffRamp")
 	return offRamp.client.ProcessTransaction(tx)
 }

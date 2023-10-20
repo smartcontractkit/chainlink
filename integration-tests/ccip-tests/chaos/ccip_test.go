@@ -1,7 +1,6 @@
 package chaos_test
 
 import (
-	"math/big"
 	"testing"
 	"time"
 
@@ -108,7 +107,7 @@ func TestChaosCCIP(t *testing.T) {
 			)
 
 			setUpArgs := testsetups.CCIPDefaultTestSetUp(
-				t, l, "chaos-ccip", 12, []*big.Int{big.NewInt(1e8)},
+				t, l, "chaos-ccip", 12,
 				nil, numOfCommitNodes, false, false, testCfg)
 
 			if len(setUpArgs.Lanes) == 0 {

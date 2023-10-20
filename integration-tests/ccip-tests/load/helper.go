@@ -47,7 +47,6 @@ type loadArgs struct {
 }
 
 func (l *loadArgs) Setup(sameCommitAndExec bool, noOfcommit, noOfExec int) {
-	transferAmounts := []*big.Int{big.NewInt(1)}
 	lggr := l.lggr
 	var setUpArgs *testsetups.CCIPTestSetUpOutputs
 	if !l.TestCfg.ExistingDeployment {
@@ -56,9 +55,9 @@ func (l *loadArgs) Setup(sameCommitAndExec bool, noOfcommit, noOfExec int) {
 			replicas = noOfcommit + noOfExec + 2
 		}
 		setUpArgs = testsetups.CCIPDefaultTestSetUp(l.TestCfg.Test, lggr, "load-ccip",
-			replicas, transferAmounts, nil, noOfcommit, sameCommitAndExec, true, l.TestCfg)
+			replicas, nil, noOfcommit, sameCommitAndExec, true, l.TestCfg)
 	} else {
-		setUpArgs = testsetups.CCIPExistingDeploymentTestSetUp(l.TestCfg.Test, lggr, transferAmounts, true, l.TestCfg)
+		setUpArgs = testsetups.CCIPExistingDeploymentTestSetUp(l.TestCfg.Test, lggr, true, l.TestCfg)
 	}
 	l.TestSetupArgs = setUpArgs
 }

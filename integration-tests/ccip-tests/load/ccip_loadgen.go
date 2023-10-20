@@ -3,10 +3,10 @@ package load
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
 	"encoding/base64"
 	"fmt"
 	"math/big"
+	"math/rand"
 	"strconv"
 	"testing"
 	"time"
@@ -170,8 +170,16 @@ func (c *CCIPE2ELoad) Call(_ *wasp.Generator) *wasp.CallResult {
 			msgStr = randomString[:length]
 		}
 	}
-
 	msg := c.msg
+	// if msg contains more than 2 tokens, selectively choose random 2 tokens
+	if len(msg.TokenAmounts) > 2 {
+		// randomize the order of elements in the slice
+		rand.Shuffle(len(msg.TokenAmounts), func(i, j int) {
+			msg.TokenAmounts[i], msg.TokenAmounts[j] = msg.TokenAmounts[j], msg.TokenAmounts[i]
+		})
+		// select first 2 tokens
+		msg.TokenAmounts = msg.TokenAmounts[:2]
+	}
 	msg.Data = []byte(msgStr)
 
 	feeToken := sourceCCIP.Common.FeeToken.EthAddress

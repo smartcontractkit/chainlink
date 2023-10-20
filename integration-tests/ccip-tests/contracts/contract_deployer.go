@@ -112,7 +112,7 @@ func (e *CCIPContractsDeployer) NewERC20TokenContract(addr common.Address) (*ERC
 	}
 	log.Info().
 		Str("Contract Address", addr.Hex()).
-		Str("Contract Name", "Link Token").
+		Str("Contract Name", "ERC20 Token").
 		Str("From", e.evmClient.GetDefaultWallet().Address()).
 		Str("Network Name", e.evmClient.GetNetworkConfig().Name).
 		Msg("New contract")
@@ -409,7 +409,7 @@ func (e *CCIPContractsDeployer) DeployOnRamp(
 			},
 			evm_2_evm_onramp.EVM2EVMOnRampDynamicConfig{
 				Router:                            router,
-				MaxNumberOfTokensPerMsg:           5,
+				MaxNumberOfTokensPerMsg:           50,
 				DestGasOverhead:                   350_000,
 				DestGasPerPayloadByte:             16,
 				DestDataAvailabilityOverheadGas:   33_596,

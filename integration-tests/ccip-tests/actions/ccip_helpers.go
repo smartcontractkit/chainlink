@@ -60,6 +60,8 @@ const (
 	// The higher the load/throughput, the higher value we might need here to guarantee that nonces are not blocked
 	// 1 day should be enough for most of the cases
 	PermissionlessExecThreshold = 60 * 60 * 24 // 1 day
+
+	MaxNoOfTokensInMsg = 50
 	// we keep the finality timeout high as it's out of our control
 	FinalityTimeout        = 1 * time.Hour
 	TokenTransfer   string = "WithToken"
@@ -105,21 +107,6 @@ type CCIPCommon struct {
 	gasUpdateWatcherMu *sync.Mutex
 	gasUpdateWatcher   map[uint64]*big.Int // key - destchain id; value - timestamp of update
 	priceUpdateSubs    []event.Subscription
-	connectionIssues   *atomic.Bool
-	connectionRestored *atomic.Bool
-}
-
-func (ccipModule *CCIPCommon) ConnectionRestored() {
-	for {
-		select {
-		case <-ccipModule.ChainClient.ConnectionRestored():
-			ccipModule.connectionRestored.Store(true)
-			ccipModule.connectionIssues.Store(false)
-		case <-ccipModule.ChainClient.ConnectionIssue():
-			ccipModule.connectionIssues.Store(true)
-			ccipModule.connectionRestored.Store(false)
-		}
-	}
 }
 
 func (ccipModule *CCIPCommon) StopWatchingPriceUpdates() {
@@ -429,7 +416,8 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		ccipModule.FeeToken = token
 	}
 
-	if len(ccipModule.BridgeTokens) == 0 {
+	// number of deployed bridge tokens does not match noOfTokens; deploy rest of the tokens
+	if len(ccipModule.BridgeTokens) < noOfTokens {
 		// deploy bridge token.
 		for i := len(ccipModule.BridgeTokens); i < noOfTokens; i++ {
 			var token *contracts.ERC20Token
@@ -455,20 +443,20 @@ func (ccipModule *CCIPCommon) DeployContracts(noOfTokens int,
 		if err != nil {
 			return fmt.Errorf("error in waiting for bridge token deployment %+v", err)
 		}
-	} else {
-		var tokens []*contracts.ERC20Token
-		for _, token := range ccipModule.BridgeTokens {
-			newToken, err := cd.NewERC20TokenContract(common.HexToAddress(token.Address()))
-			if err != nil {
-				return fmt.Errorf("getting new bridge token contract shouldn't fail %+v", err)
-			}
-			tokens = append(tokens, newToken)
-		}
-		ccipModule.BridgeTokens = tokens
 	}
-	if len(ccipModule.BridgeTokenPools) == 0 {
+
+	var tokens []*contracts.ERC20Token
+	for _, token := range ccipModule.BridgeTokens {
+		newToken, err := cd.NewERC20TokenContract(common.HexToAddress(token.Address()))
+		if err != nil {
+			return fmt.Errorf("getting new bridge token contract shouldn't fail %+v", err)
+		}
+		tokens = append(tokens, newToken)
+	}
+	ccipModule.BridgeTokens = tokens
+	if len(ccipModule.BridgeTokenPools) != len(ccipModule.BridgeTokens) {
 		// deploy native token pool
-		for i := len(ccipModule.BridgeTokenPools); i < noOfTokens; i++ {
+		for i := len(ccipModule.BridgeTokenPools); i < len(ccipModule.BridgeTokens); i++ {
 			token := ccipModule.BridgeTokens[i]
 			btp, err := cd.DeployLockReleaseTokenPoolContract(token.Address(), *ccipModule.ARMContract)
 			if err != nil {
@@ -563,7 +551,7 @@ func DefaultCCIPModule(logger zerolog.Logger, chainClient blockchain.EVMClient, 
 			Capacity: contracts.HundredCoins,
 		},
 		ExistingDeployment: existingDeployment,
-		poolFunds:          testhelpers.Link(1000),
+		poolFunds:          testhelpers.Link(5),
 		gasUpdateWatcherMu: &sync.Mutex{},
 		gasUpdateWatcher:   make(map[uint64]*big.Int),
 	}, nil
@@ -618,6 +606,34 @@ func (sourceCCIP *SourceCCIPModule) LoadContracts(conf *laneconfig.LaneConfig) {
 	}
 }
 
+func (sourceCCIP *SourceCCIPModule) SyncPoolsAndTokens() error {
+	var tokensAndPools []evm_2_evm_onramp.InternalPoolUpdate
+	var tokenTransferFeeConfig []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs
+	for i, token := range sourceCCIP.Common.BridgeTokens {
+		tokensAndPools = append(tokensAndPools, evm_2_evm_onramp.InternalPoolUpdate{
+			Token: token.ContractAddress,
+			Pool:  sourceCCIP.Common.BridgeTokenPools[i].EthAddress,
+		})
+		tokenTransferFeeConfig = append(tokenTransferFeeConfig, evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
+			Token:             token.ContractAddress,
+			MinFeeUSDCents:    50,           // $0.5
+			MaxFeeUSDCents:    1_000_000_00, // $ 1 million
+			DeciBps:           5_0,          // 5 bps
+			DestGasOverhead:   34_000,
+			DestBytesOverhead: 0,
+		})
+	}
+	err := sourceCCIP.OnRamp.SetTokenTransferFeeConfig(tokenTransferFeeConfig)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	err = sourceCCIP.OnRamp.ApplyPoolUpdates(tokensAndPools)
+	if err != nil {
+		return errors.WithStack(err)
+	}
+	return nil
+}
+
 // DeployContracts deploys all CCIP contracts specific to the source chain
 func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig) error {
 	var err error
@@ -630,11 +646,6 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 	}
 
 	sourceCCIP.LoadContracts(lane)
-	// update transfer amount array length to be equal to the number of tokens
-	// each index in TransferAmount array corresponds to the amount to be transferred for the token at the same index in BridgeTokens array
-	if len(sourceCCIP.TransferAmount) != len(sourceCCIP.Common.BridgeTokens) && len(sourceCCIP.TransferAmount) > 0 {
-		sourceCCIP.TransferAmount = sourceCCIP.TransferAmount[:len(sourceCCIP.Common.BridgeTokens)]
-	}
 	sourceChainSelector, err := chainselectors.SelectorFromChainId(sourceCCIP.Common.ChainClient.GetChainID().Uint64())
 	if err != nil {
 		return errors.WithStack(err)
@@ -647,26 +658,11 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 	if sourceCCIP.OnRamp == nil {
 		var tokensAndPools []evm_2_evm_onramp.InternalPoolUpdate
 		var tokenTransferFeeConfig []evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs
-		for i, token := range sourceCCIP.Common.BridgeTokens {
-			tokensAndPools = append(tokensAndPools, evm_2_evm_onramp.InternalPoolUpdate{
-				Token: token.ContractAddress,
-				Pool:  sourceCCIP.Common.BridgeTokenPools[i].EthAddress,
-			})
-			tokenTransferFeeConfig = append(tokenTransferFeeConfig, evm_2_evm_onramp.EVM2EVMOnRampTokenTransferFeeConfigArgs{
-				Token:             token.ContractAddress,
-				MinFeeUSDCents:    50,           // $0.5
-				MaxFeeUSDCents:    1_000_000_00, // $ 1 million
-				DeciBps:           5_0,          // 5 bps
-				DestGasOverhead:   34_000,
-				DestBytesOverhead: 0,
-			})
-		}
 
 		sourceCCIP.SrcStartBlock, err = sourceCCIP.Common.ChainClient.LatestBlockNumber(context.Background())
 		if err != nil {
 			return fmt.Errorf("getting latest block number shouldn't fail %+v", err)
 		}
-
 		sourceCCIP.OnRamp, err = contractDeployer.DeployOnRamp(
 			sourceChainSelector,
 			destChainSelector,
@@ -708,6 +704,12 @@ func (sourceCCIP *SourceCCIPModule) DeployContracts(lane *laneconfig.LaneConfig)
 		err = sourceCCIP.Common.Router.SetOnRamp(destChainSelector, sourceCCIP.OnRamp.EthAddress)
 		if err != nil {
 			return fmt.Errorf("setting onramp on the router shouldn't fail %+v", err)
+		}
+
+		// now sync the pools and tokens
+		err := sourceCCIP.SyncPoolsAndTokens()
+		if err != nil {
+			return err
 		}
 
 		err = sourceCCIP.Common.ChainClient.WaitForEvents()
@@ -785,7 +787,8 @@ func (sourceCCIP *SourceCCIPModule) UpdateBalance(
 	balances *BalanceSheet,
 ) {
 	if len(sourceCCIP.TransferAmount) > 0 {
-		for i, token := range sourceCCIP.Common.BridgeTokens {
+		for i := range sourceCCIP.TransferAmount {
+			token := sourceCCIP.Common.BridgeTokens[i]
 			name := fmt.Sprintf("BridgeToken-%s-Address-%s", token.Address(), sourceCCIP.Sender.Hex())
 			balances.Update(name, BalanceItem{
 				Address:  sourceCCIP.Sender,
@@ -793,7 +796,8 @@ func (sourceCCIP *SourceCCIPModule) UpdateBalance(
 				AmtToSub: bigmath.Mul(big.NewInt(noOfReq), sourceCCIP.TransferAmount[i]),
 			})
 		}
-		for i, pool := range sourceCCIP.Common.BridgeTokenPools {
+		for i := range sourceCCIP.TransferAmount {
+			pool := sourceCCIP.Common.BridgeTokenPools[i]
 			name := fmt.Sprintf("BridgeToken-%s-TokenPool-%s", sourceCCIP.Common.BridgeTokens[i].Address(), pool.Address())
 			balances.Update(name, BalanceItem{
 				Address:  pool.EthAddress,
@@ -896,7 +900,8 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 ) (common.Hash, time.Duration, *big.Int, error) {
 	var tokenAndAmounts []router.ClientEVMTokenAmount
 	if msgType == TokenTransfer {
-		for i, token := range sourceCCIP.Common.BridgeTokens {
+		for i := range sourceCCIP.TransferAmount {
+			token := sourceCCIP.Common.BridgeTokens[i]
 			tokenAndAmounts = append(tokenAndAmounts, router.ClientEVMTokenAmount{
 				Token: common.HexToAddress(token.Address()), Amount: sourceCCIP.TransferAmount[i],
 			})
@@ -908,7 +913,7 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 		return common.Hash{}, d, nil, fmt.Errorf("failed encoding the receiver address: %+v", err)
 	}
 
-	extraArgsV1, err := testhelpers.GetEVMExtraArgsV1(big.NewInt(100_000), false)
+	extraArgsV1, err := testhelpers.GetEVMExtraArgsV1(big.NewInt(600_000), false)
 	if err != nil {
 		return common.Hash{}, d, nil, fmt.Errorf("failed encoding the options field: %+v", err)
 	}
@@ -924,7 +929,7 @@ func (sourceCCIP *SourceCCIPModule) SendRequest(
 		FeeToken:     feeToken,
 		ExtraArgs:    extraArgsV1,
 	}
-	log.Info().Interface("msg details", msg).Msg("ccip message to be sent")
+
 	fee, err := sourceCCIP.Common.Router.GetFee(destChainSelector, msg)
 	if err != nil {
 		reason, _ := blockchain.RPCErrorFromError(err)
@@ -1011,6 +1016,20 @@ func (destCCIP *DestCCIPModule) LoadContracts(conf *laneconfig.LaneConfig) {
 	}
 }
 
+func (destCCIP *DestCCIPModule) SyncTokensAndPools(srcTokens []*contracts.ERC20Token) error {
+	var sourceTokens, pools []common.Address
+
+	for _, token := range srcTokens {
+		sourceTokens = append(sourceTokens, common.HexToAddress(token.Address()))
+	}
+
+	for i := range destCCIP.Common.BridgeTokenPools {
+		pools = append(pools, destCCIP.Common.BridgeTokenPools[i].EthAddress)
+	}
+
+	return destCCIP.OffRamp.SyncTokensAndPools(sourceTokens, pools)
+}
+
 // DeployContracts deploys all CCIP contracts specific to the destination chain
 func (destCCIP *DestCCIPModule) DeployContracts(
 	sourceCCIP SourceCCIPModule,
@@ -1059,23 +1078,11 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 		}
 	}
 
-	var sourceTokens, destTokens, pools []common.Address
-
-	for _, token := range sourceCCIP.Common.BridgeTokens {
-		sourceTokens = append(sourceTokens, common.HexToAddress(token.Address()))
-	}
-
-	for i, token := range destCCIP.Common.BridgeTokens {
-		destTokens = append(destTokens, common.HexToAddress(token.Address()))
-		pool := destCCIP.Common.BridgeTokenPools[i]
-		pools = append(pools, pool.EthAddress)
-	}
-
 	if destCCIP.OffRamp == nil {
 		destCCIP.OffRamp, err = contractDeployer.DeployOffRamp(
 			sourceChainSelector, destChainSelector,
 			destCCIP.CommitStore.EthAddress, sourceCCIP.OnRamp.EthAddress,
-			sourceTokens, pools, destCCIP.Common.RateLimiterConfig, *destCCIP.Common.ARMContract)
+			[]common.Address{}, []common.Address{}, destCCIP.Common.RateLimiterConfig, *destCCIP.Common.ARMContract)
 		if err != nil {
 			return fmt.Errorf("deploying offramp shouldn't fail %+v", err)
 		}
@@ -1088,6 +1095,11 @@ func (destCCIP *DestCCIPModule) DeployContracts(
 		_, err = destCCIP.Common.Router.AddOffRamp(destCCIP.OffRamp.EthAddress, sourceChainSelector)
 		if err != nil {
 			return fmt.Errorf("setting offramp as fee updater shouldn't fail %+v", err)
+		}
+
+		err = destCCIP.SyncTokensAndPools(sourceCCIP.Common.BridgeTokens)
+		if err != nil {
+			return fmt.Errorf("syncing tokens and pools shouldn't fail %+v", err)
 		}
 		err = destCCIP.Common.ChainClient.WaitForEvents()
 		if err != nil {
@@ -1168,7 +1180,8 @@ func (destCCIP *DestCCIPModule) UpdateBalance(
 	balance *BalanceSheet,
 ) {
 	if len(transferAmount) > 0 {
-		for i, token := range destCCIP.Common.BridgeTokens {
+		for i := range transferAmount {
+			token := destCCIP.Common.BridgeTokens[i]
 			name := fmt.Sprintf("BridgeToken-%s-Address-%s", token.Address(), destCCIP.ReceiverDapp.Address())
 			balance.Update(name, BalanceItem{
 				Address:  destCCIP.ReceiverDapp.EthAddress,
@@ -1176,7 +1189,8 @@ func (destCCIP *DestCCIPModule) UpdateBalance(
 				AmtToAdd: bigmath.Mul(big.NewInt(noOfReq), transferAmount[i]),
 			})
 		}
-		for i, pool := range destCCIP.Common.BridgeTokenPools {
+		for i := range transferAmount {
+			pool := destCCIP.Common.BridgeTokenPools[i]
 			name := fmt.Sprintf("BridgeToken-%s-TokenPool-%s", destCCIP.Common.BridgeTokens[i].Address(), pool.Address())
 			balance.Update(name, BalanceItem{
 				Address:  pool.EthAddress,
@@ -1994,7 +2008,7 @@ func SetOCR2Configs(commitNodes, execNodes []*client.CLNodesWithKeys, destCCIP D
 				PermissionlessExecThreshold,
 				destCCIP.Common.Router.EthAddress,
 				destCCIP.Common.PriceRegistry.EthAddress,
-				5,
+				MaxNoOfTokensInMsg,
 				50000,
 				200_000,
 			), contracts.OCR2ParamsForExec, 3*time.Minute)

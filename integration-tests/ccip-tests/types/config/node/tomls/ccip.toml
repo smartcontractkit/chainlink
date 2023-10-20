@@ -22,8 +22,9 @@ Unauthenticated = 1000
 HTTPSPort = 0
 
 [Database]
-MaxIdleConns = 10
-MaxOpenConns = 20
+MaxIdleConns = 20
+MaxOpenConns = 40
+MigrateOnStartup = true
 
 [OCR2]
 Enabled = true
