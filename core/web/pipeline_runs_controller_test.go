@@ -52,16 +52,14 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig().Database())
 
 	// Add the job
-	var uuid uuid.UUID
+	uuid := uuid.New()
 	{
-		tomlStr := fmt.Sprintf(testspecs.WebhookSpecWithBody, bridge.Name.String())
+		tomlStr := fmt.Sprintf(testspecs.WebhookSpecWithBodyTemplate, uuid, bridge.Name.String())
 		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
 		err = app.AddJobV2(testutils.Context(t), &jb)
 		require.NoError(t, err)
-
-		uuid = jb.ExternalJobID
 	}
 
 	// Give the job.Spawner ample time to discover the job and start its service
@@ -113,16 +111,14 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig().Database())
 
 	// Add the job
-	var uuid uuid.UUID
+	uuid := uuid.New()
 	{
-		tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBody, bridge.Name.String(), submitBridge.Name.String())
+		tomlStr := testspecs.GetWebhookSpecNoBody(uuid, bridge.Name.String(), submitBridge.Name.String())
 		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
 		err = app.AddJobV2(testutils.Context(t), &jb)
 		require.NoError(t, err)
-
-		uuid = jb.ExternalJobID
 	}
 
 	// Give the job.Spawner ample time to discover the job and start its service
@@ -269,10 +265,12 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 
 	key, _ := cltest.MustInsertRandomKey(t, app.KeyStore.Eth())
 
+	nameAndExternalJobID := uuid.New()
 	sp := fmt.Sprintf(`
 	type               = "offchainreporting"
 	schemaVersion      = 1
-	externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F46"
+	externalJobID       = "%s"
+	name               = "%s"
 	contractAddress    = "%s"
 	evmChainID		   = "0"
 	p2pBootstrapPeers  = [
@@ -299,7 +297,7 @@ func setupPipelineRunsControllerTests(t *testing.T) (cltest.HTTPClientCleaner, i
 
 		answer [type=median index=0];
 	"""
-	`, testutils.NewAddress().Hex(), cltest.DefaultOCRKeyBundleID, key.Address.Hex())
+	`, nameAndExternalJobID, nameAndExternalJobID, testutils.NewAddress().Hex(), cltest.DefaultOCRKeyBundleID, key.Address.Hex())
 	var jb job.Job
 	err := toml.Unmarshal([]byte(sp), &jb)
 	require.NoError(t, err)
