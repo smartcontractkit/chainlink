@@ -11,8 +11,6 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/automation/generated/composer_compatible_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
@@ -37,24 +35,6 @@ type AutomationServices interface {
 }
 
 func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, keyring ocrtypes.OnchainKeyring, lggr logger.Logger, db *sqlx.DB, dbCfg pg.QConfig) (AutomationServices, error) {
-	streamsLookupCompatibleABI, err := abi.JSON(strings.NewReader(streams_lookup_compatible_interface.StreamsLookupCompatibleInterfaceABI))
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
-	}
-
-	composerCompatibleABI, err := abi.JSON(strings.NewReader(composer_compatible_interface.ComposerCompatibleInterfaceV1ABI))
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
-	}
-
-	keeperRegistryABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
-	}
-	utilsABI, err := abi.JSON(strings.NewReader(automation_utils_2_1.AutomationUtilsABI))
-	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
-	}
 	registryContract, err := iregistry21.NewIKeeperRegistryMaster(addr, client.Client())
 	if err != nil {
 		return nil, fmt.Errorf("%w: failed to create caller for address and backend", ErrInitializationFailure)
@@ -89,8 +69,6 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 	al := NewActiveUpkeepList()
 	services.payloadBuilder = NewPayloadBuilder(al, logRecoverer, lggr)
 
-	services.reg = NewEvmRegistry(lggr, addr, client, streamsLookupCompatibleABI, composerCompatibleABI,
-		keeperRegistryABI, registryContract, mc, al, services.logProvider,
 	services.reg = NewEvmRegistry(lggr, addr, client,
 		registryContract, mc, al, services.logProvider,
 		packer, services.blockSub, finalityDepth)

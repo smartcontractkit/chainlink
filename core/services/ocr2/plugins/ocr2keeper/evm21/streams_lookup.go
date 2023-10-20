@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"github.com/avast/retry-go/v4"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -295,24 +296,6 @@ func (r *EvmRegistry) allowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int
 	return encoding.NoPipelineError, encoding.UpkeepFailureReasonNone, false, privilegeConfig.MercuryEnabled, nil
 }
 
-// decodeStreamsLookup decodes the revert error StreamsLookup(string feedParamKey, string[] feeds, string feedParamKey, uint256 time, byte[] extraData)
-func (r *EvmRegistry) decodeStreamsLookup(data []byte) (*StreamsLookup, error) {
-	e := r.mercury.abi.Errors["StreamsLookup"]
-	unpack, err := e.Unpack(data)
-	if err != nil {
-		return nil, fmt.Errorf("unpack error: %w", err)
-	}
-	errorParameters := unpack.([]interface{})
-
-	return &StreamsLookup{
-		feedParamKey: *abi.ConvertType(errorParameters[0], new(string)).(*string),
-		feeds:        *abi.ConvertType(errorParameters[1], new([]string)).(*[]string),
-		timeParamKey: *abi.ConvertType(errorParameters[2], new(string)).(*string),
-		time:         *abi.ConvertType(errorParameters[3], new(*big.Int)).(**big.Int),
-		extraData:    *abi.ConvertType(errorParameters[4], new([]byte)).(*[]byte),
-	}, nil
-}
-
 // streamsLookup looks through check upkeep results looking for any that need off chain lookup
 func (r *EvmRegistry) composerRequest(ctx context.Context, checkResults []ocr2keepers.CheckResult) []ocr2keepers.CheckResult {
 	lggr := r.lggr.With("where", "ComposerRequest")
@@ -399,14 +382,17 @@ func (r *EvmRegistry) doComposerRequest(ctx context.Context, wg *sync.WaitGroup,
 	var err error
 
 	// Used for checkCallback, and if specified a mercury request.
+	lookupError := &encoding.StreamsLookupError{
+		FeedParamKey: request.feedParamKey,
+		Feeds:        request.feeds,
+		TimeParamKey: request.timeParamKey,
+		Time:         request.time,
+		ExtraData:    request.extraData,
+	}
 	lookup := &StreamsLookup{
-		feedParamKey: request.feedParamKey,
-		feeds:        request.feeds,
-		timeParamKey: request.timeParamKey,
-		time:         request.time,
-		extraData:    request.extraData,
-		upkeepId:     request.upkeepId,
-		block:        request.block,
+		StreamsLookupError: lookupError,
+		upkeepId:           request.upkeepId,
+		block:              request.block,
 	}
 
 	// Fetch mercury data if requested.

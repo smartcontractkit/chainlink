@@ -1,4 +1,4 @@
 GETH_VERSION: 1.12.0
 composer_compatible_interface: ../../../contracts/solc/v0.8.16/ComposerCompatibleInterfaceV1.abi ../../../contracts/solc/v0.8.16/ComposerCompatibleInterfaceV1.bin cc888e2d0b6e6ca8b83cc5de95e1f0a8e61588c64ff56b04a61dd39e1749bc2e
-composer_cross_chain: ../../../contracts/solc/v0.8.16/ComposerCrossChainSend.abi ../../../contracts/solc/v0.8.16/ComposerCrossChainSend.bin 9bf0a7528c6a48db6d7168a99db8b0d8c834f0a9a4080afd0091b0995357bbdf
-mercury_registry_composer: ../../../contracts/solc/v0.8.16/MercuryRegistryComposer.abi ../../../contracts/solc/v0.8.16/MercuryRegistryComposer.bin 2a57771f89b632d784e7d104b5285b7645ef7a72f133f62a84c49d0f719bd716
+composer_cross_chain: ../../../contracts/solc/v0.8.16/ComposerCrossChainSend.abi ../../../contracts/solc/v0.8.16/ComposerCrossChainSend.bin 1b35edd6e1836361287273b8a3c3f2dec576978376f77b34f01b3bd88f608be4
+mercury_registry_composer: ../../../contracts/solc/v0.8.16/MercuryRegistryComposer.abi ../../../contracts/solc/v0.8.16/MercuryRegistryComposer.bin 904e01f36ec8690fc7c3614ae35cb8ecb38db024ba8bd63d5836f12553cbf33c

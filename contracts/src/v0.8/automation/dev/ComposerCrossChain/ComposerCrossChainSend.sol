@@ -50,7 +50,7 @@ contract ComposerCrossChainSend is
 
     // Pass the addresses to watch and top-up, and the public RPC URL to be invoked from Functions.
     function revertForFeedLookup() public view returns (bool, bytes memory) {
-        uint256 blockNumber = ChainSpecificUtil.getBlockNumber();
+        uint256 blockNumber = ChainSpecificUtil._getBlockNumber();
         string[] memory functionsArguments = new string[](2);
 
         functionsArguments[0] = s_receivers;

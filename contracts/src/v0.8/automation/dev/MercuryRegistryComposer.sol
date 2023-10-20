@@ -103,7 +103,7 @@ contract MercuryRegistryComposer is ConfirmedOwner, AutomationCompatibleInterfac
 
   // Extracted from `checkUpkeep` for batching purposes.
   function revertForFeedLookup(string[] memory feeds) public view returns (bool, bytes memory) {
-    uint256 blockNumber = ChainSpecificUtil.getBlockNumber();
+    uint256 blockNumber = ChainSpecificUtil._getBlockNumber();
     string[] memory functionsArguments = new string[](1);
 
     // Pass current on-chain data as an argument to the Functions DON.
