@@ -1412,7 +1412,6 @@ func TestConfig_setDefaults(t *testing.T) {
 	c.Cosmos = cosmos.CosmosConfigs{{ChainID: ptr("unknown cosmos chain")}}
 	c.Solana = solana.SolanaConfigs{{ChainID: ptr("unknown solana chain")}}
 	c.Starknet = starknet.StarknetConfigs{{ChainID: ptr("unknown starknet chain")}}
-	c.Tracing.Attributes = make(map[string]string)
 	c.setDefaults()
 	if s, err := c.TOMLString(); assert.NoError(t, err) {
 		t.Log(s, err)
