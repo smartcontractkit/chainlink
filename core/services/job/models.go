@@ -786,10 +786,6 @@ type EALSpec struct {
 	// EVMChainID defines the chain ID from which the meta-transaction request originates.
 	EVMChainID *utils.Big `toml:"evmChainID"`
 
-	// CCIPChainSelector is the CCIP chain selector that corresponds to EVMChainID param.
-	// This selector is equivalent to (source) chainID specified in SendTransaction request
-	CCIPChainSelector *utils.Big `toml:"ccipChainSelector"`
-
 	// FromAddress is the sender address that should be used to send meta-transactions
 	FromAddresses []ethkey.EIP55Address `toml:"fromAddresses"`
 
