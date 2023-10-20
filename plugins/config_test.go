@@ -1,7 +1,11 @@
 package plugins
 
 import (
+	"os/exec"
+	"strconv"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestGetEnvConfig(t *testing.T) {
@@ -78,4 +82,43 @@ func TestGetEnvConfig(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Mock EnvConfig
+type MockEnvConfig struct{}
+
+func (m *MockEnvConfig) PrometheusPort() int { return 9090 }
+func (m *MockEnvConfig) TracingEnabled() bool { return true }
+func (m *MockEnvConfig) TracingCollectorTarget() string { return "http://localhost:9000" }
+func (m *MockEnvConfig) TracingSamplingRatio() float64 { return 0.1 }
+func (m *MockEnvConfig) TracingAttributes() map[string]string { return map[string]string{"key": "value"} }
+
+func TestSetCmdEnvFromConfig(t *testing.T) {
+	mockConfig := &MockEnvConfig{}
+	cmd := exec.Command("ls") // Dummy command
+	SetCmdEnvFromConfig(cmd, mockConfig)
+
+	envMap := make(map[string]string)
+	for _, e := range cmd.Env {
+		pair := splitEnv(e)
+		if pair != nil {
+			envMap[pair[0]] = pair[1]
+		}
+	}
+
+	assert.Equal(t, strconv.Itoa(9090), envMap["CL_PROMETHEUS_PORT"])
+	assert.Equal(t, "true", envMap["TRACING_ENABLED"])
+	assert.Equal(t, "http://localhost:9000", envMap["TRACING_COLLECTOR_TARGET"])
+	assert.Equal(t, "0.1", envMap["TRACING_SAMPLING_RATIO"])
+	assert.Equal(t, "value", envMap["TRACING_ATTRIBUTE_key"])
+}
+
+// Helper function to split environment variables into key-value pairs
+func splitEnv(env string) []string {
+	for i := 0; i < len(env); i++ {
+		if env[i] == '=' {
+			return []string{env[:i], env[i+1:]}
+		}
+	}
+	return nil
 }
