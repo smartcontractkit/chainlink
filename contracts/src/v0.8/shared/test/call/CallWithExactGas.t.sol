@@ -23,10 +23,13 @@ contract CallWithExactGasSetup is BaseTest {
 
 contract CallWithExactGas__callWithExactGas is CallWithExactGasSetup {
   function test_callWithExactGasSuccess(bytes memory payload, bytes4 funcSelector) public {
+    vm.pauseGasMetering();
+
     bytes memory data = abi.encodeWithSelector(funcSelector, payload);
     vm.assume(funcSelector != GenericReceiver.setRevert.selector && funcSelector != GenericReceiver.setErr.selector);
 
     vm.expectCall(address(s_receiver), data);
+    vm.resumeGasMetering();
 
     bool success = s_caller.callWithExactGas(
       data,
@@ -151,12 +154,14 @@ contract CallWithExactGas__callWithExactGas is CallWithExactGasSetup {
 
 contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSetup {
   function test_CallWithExactGasSafeReturnDataSuccess(bytes memory payload, bytes4 funcSelector) public {
+    vm.pauseGasMetering();
     bytes memory data = abi.encodeWithSelector(funcSelector, payload);
     vm.assume(funcSelector != GenericReceiver.setRevert.selector && funcSelector != GenericReceiver.setErr.selector);
 
     uint16 maxRetBytes = 0;
 
     vm.expectCall(address(s_receiver), data);
+    vm.resumeGasMetering();
 
     (bool success, ) = s_caller.callWithExactGasSafeReturnData(
       data,
@@ -309,10 +314,12 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
 
 contract CallWithExactGas__callWithExactGasEvenIfTargetIsNoContract is CallWithExactGasSetup {
   function test_CallWithExactGasEvenIfTargetIsNoContractSuccess(bytes memory payload, bytes4 funcSelector) public {
+    vm.pauseGasMetering();
     bytes memory data = abi.encodeWithSelector(funcSelector, payload);
     vm.assume(funcSelector != GenericReceiver.setRevert.selector && funcSelector != GenericReceiver.setErr.selector);
 
     vm.expectCall(address(s_receiver), data);
+    vm.resumeGasMetering();
 
     bool sufficientGas = s_caller.callWithExactGasEvenIfTargetIsNoContract(
       data,
