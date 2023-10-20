@@ -48,6 +48,23 @@ func (m *medianConfig) JobPipelineMaxSuccessfulRuns() uint64 {
 	return m.jobPipelineMaxSuccessfulRuns
 }
 
+// This wrapper avoids the need to modify the signature of NewMedianFactory in all of the non-evm
+// relay repos as well as its primary definition in chainlink-relay. Once ChainReader is implemented
+// and working on all 4 blockchain families, we can remove the original MedianContract() method from
+// MedianProvider and pass medianContract as a separate param to NewMedianFactory
+type medianProviderWrapper struct {
+	types.MedianProvider
+	contract median.MedianContract
+}
+
+// Override relay's implementation of MedianContract with product plugin's implementation of
+// MedianContract, making use of product-agnostic ChainReader to read the contract
+//
+//	instead of relay MedianContract
+func (m medianProviderWrapper) MedianContract() median.MedianContract {
+	return m.contract
+}
+
 func NewMedianServices(ctx context.Context,
 	jb job.Job,
 	isNewlyCreatedJob bool,
@@ -115,9 +132,11 @@ func NewMedianServices(ctx context.Context,
 		CreatedAt:    time.Now(),
 	}, lggr)
 
-	medianContract := medianProvider.MedianContract()
 	if provider.ChainReader() != nil {
-		medianContract = newMedianContract(provider.ChainReader(), common.HexToAddress(spec.ContractID))
+		medianProvider = medianProviderWrapper{
+			medianProvider, // attach newer MedianContract which uses ChainReader
+			newMedianContract(provider.ChainReader(), common.HexToAddress(spec.ContractID)),
+		}
 	}
 
 	if cmdName := env.MedianPluginCmd.Get(); cmdName != "" {
@@ -134,7 +153,7 @@ func NewMedianServices(ctx context.Context,
 		argsNoPlugin.ReportingPluginFactory = median
 		srvs = append(srvs, median)
 	} else {
-		argsNoPlugin.ReportingPluginFactory, err = NewPlugin(lggr).NewMedianFactory(ctx, medianContract, medianProvider, dataSource, juelsPerFeeCoinSource, errorLog)
+		argsNoPlugin.ReportingPluginFactory, err = NewPlugin(lggr).NewMedianFactory(ctx, medianProvider, dataSource, juelsPerFeeCoinSource, errorLog)
 		if err != nil {
 			err = fmt.Errorf("failed to create median factory: %w", err)
 			abort()
