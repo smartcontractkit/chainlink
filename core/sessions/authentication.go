@@ -1,7 +1,9 @@
 package sessions
 
 import (
-	"github.com/pkg/errors"
+	"errors"
+	"fmt"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 )
@@ -18,7 +20,7 @@ const (
 var ErrUserSessionExpired = errors.New("session missing or expired, please login again")
 
 // ErrNotSupported defines the error where interface functionality doesn't align with the underlying Auth Provider
-var ErrNotSupported = errors.New("functionality not supported with current authentication provider")
+var ErrNotSupported = fmt.Errorf("functionality not supported with current authentication provider: %w", errors.ErrUnsupported)
 
 // ErrEmptySessionID captures the empty case error message
 var ErrEmptySessionID = errors.New("session ID cannot be empty")

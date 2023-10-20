@@ -661,28 +661,28 @@ func (w *WebServer) ValidateConfig() (err error) {
 	// Validate WebServer config, assert LDAP fields when AuthMethod set to LDAP
 	if *w.AuthenticationMethod == string(sessions.LDAPAuth) {
 		if *w.LDAP.BaseDN == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseDN", Value: "", Msg: "LDAP BaseDN can not be empty"})
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseDN", Msg: "LDAP BaseDN can not be empty"})
 		}
 		if *w.LDAP.BaseUserAttr == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseUserAttr", Value: "", Msg: "LDAP BaseUserAttr can not be empty"})
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseUserAttr", Msg: "LDAP BaseUserAttr can not be empty"})
 		}
 		if *w.LDAP.UsersDN == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.UsersDN", Value: "", Msg: "LDAP UsersDN can not be empty"})
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.UsersDN", Msg: "LDAP UsersDN can not be empty"})
 		}
 		if *w.LDAP.GroupsDN == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.GroupsDN", Value: "", Msg: "LDAP GroupsDN can not be empty"})
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.GroupsDN", Msg: "LDAP GroupsDN can not be empty"})
 		}
 		if *w.LDAP.AdminUserGroupCN == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.AdminUserGroupCN", Value: "", Msg: "LDAP AdminUserGroupCN can not be empty"})
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.AdminUserGroupCN", Msg: "LDAP AdminUserGroupCN can not be empty"})
 		}
 		if *w.LDAP.EditUserGroupCN == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Value: "", Msg: "LDAP ReadUserGroupCN can not be empty"})
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
 		}
 		if *w.LDAP.RunUserGroupCN == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Value: "", Msg: "LDAP RunUserGroupCN can not be empty"})
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP RunUserGroupCN can not be empty"})
 		}
 		if *w.LDAP.ReadUserGroupCN == "" {
-			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.ReadUserGroupCN", Value: "", Msg: "LDAP ReadUserGroupCN can not be empty"})
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.ReadUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
 		}
 	}
 	return err

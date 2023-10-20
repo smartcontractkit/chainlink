@@ -1,12 +1,12 @@
 package ldapauth
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
 	"github.com/lib/pq"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -161,11 +161,11 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 		}
 		var existingSessions []LDAPSession
 		if err := tx.Select(&existingSessions, "SELECT user_email, user_role FROM ldap_sessions WHERE localauth_user = false"); err != nil {
-			return errors.Wrap(err, "Unable to query ldap_sessions table")
+			return fmt.Errorf("unable to query ldap_sessions table: %w", err)
 		}
 		var existingAPITokens []LDAPSession
 		if err := tx.Select(&existingAPITokens, "SELECT user_email, user_role FROM ldap_user_api_tokens WHERE localauth_user = false"); err != nil {
-			return errors.Wrap(err, "Unable to query ldap_user_api_tokens table")
+			return fmt.Errorf("unable to query ldap_user_api_tokens table: %w", err)
 		}
 
 		// Create existing sessions and API tokens lookup map for later
@@ -271,7 +271,7 @@ func (ldSync *LDAPServerStateSyncer) ldapGroupMembersListToUser(conn *ldap.Conn,
 	)
 	if err != nil {
 		ldSync.lggr.Errorf("Error listing members of group (%s): %v", groupNameCN, err)
-		return users, errors.New("Error searching group members in LDAP directory")
+		return users, errors.New("error searching group members in LDAP directory")
 	}
 	return users, nil
 }
@@ -310,11 +310,11 @@ func (ldSync *LDAPServerStateSyncer) validateUsersActive(emails []string, conn *
 	results, err := conn.Search(searchRequest)
 	if err != nil {
 		ldSync.lggr.Errorf("Error searching user in LDAP query: %v", err)
-		return validUsers, errors.New("Error searching users in LDAP directory")
+		return validUsers, errors.New("error searching users in LDAP directory")
 	}
 	// Ensure user response entries
 	if len(results.Entries) == 0 {
-		return validUsers, errors.New("No users matching email query")
+		return validUsers, errors.New("no users matching email query")
 	}
 
 	// Pull expected ActiveAttribute value from list of string possible values

@@ -1,7 +1,6 @@
 package localauth_test
 
 import (
-	"database/sql"
 	"testing"
 	"time"
 
@@ -56,7 +55,8 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Cleanup(func() {
-				clearSessions(t, db.DB)
+				_, err2 := db.Exec("DELETE FROM sessions where email = $1", cltest.APIEmailAdmin)
+				require.NoError(t, err2)
 			})
 
 			_, err := db.Exec("INSERT INTO sessions (last_used, email, id, created_at) VALUES ($1, $2, $3, now())", test.lastUsed, cltest.APIEmailAdmin, test.name)
@@ -79,10 +79,4 @@ func TestSessionReaper_ReapSessions(t *testing.T) {
 			}
 		})
 	}
-}
-
-// clearSessions removes all sessions.
-func clearSessions(t *testing.T, db *sql.DB) {
-	_, err := db.Exec("DELETE FROM sessions")
-	require.NoError(t, err)
 }

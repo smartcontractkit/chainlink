@@ -28,12 +28,12 @@ for a blocking auth call while the user responds to a potential push notificatio
 import (
 	"crypto/subtle"
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
-	"github.com/pkg/errors"
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
@@ -102,7 +102,7 @@ func NewLDAPAuthenticator(
 	lggr.Infof("Attempting initial connection to configured LDAP server with bind as API user")
 	conn, err := ldapAuth.dialAndConnect()
 	if err != nil {
-		return nil, errors.Errorf("Unable to establish connection to LDAP server with provided URL and credentials: %v", err)
+		return nil, fmt.Errorf("unable to establish connection to LDAP server with provided URL and credentials: %w", err)
 	}
 	conn.Close()
 
@@ -125,8 +125,8 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 	})
 	if checkErr != nil {
 		if !errors.Is(checkErr, sql.ErrNoRows) {
-			l.lggr.Errorf("Error searching users table: %v", checkErr)
-			return sessions.User{}, errors.New("Error Finding user")
+			l.lggr.Errorf("error searching users table: %v", checkErr)
+			return sessions.User{}, errors.New("error Finding user")
 		}
 	} else {
 		return foundLocalAdminUser, nil
@@ -135,17 +135,17 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 	// First query for user "is active" property if defined
 	usersActive, err := l.validateUsersActive([]string{email})
 	if err != nil {
-		return foundUser, errors.New("Error running query to validate user active")
+		return foundUser, errors.New("error running query to validate user active")
 	}
 	if usersActive[0] == false {
-		return foundUser, errors.New("User not active")
+		return foundUser, errors.New("user not active")
 	}
 
 	// Establish ephemeral connection
 	conn, err := l.dialAndConnect()
 	if err != nil {
-		l.lggr.Errorf("Error in LDAP dial: ", err)
-		return foundUser, errors.New("Unable to establish connection to LDAP server with provided URL and credentials")
+		l.lggr.Errorf("error in LDAP dial: ", err)
+		return foundUser, errors.New("unable to establish connection to LDAP server with provided URL and credentials")
 	}
 	defer conn.Close()
 
@@ -167,8 +167,8 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 	// Query the server
 	result, err := conn.Search(searchRequest)
 	if err != nil {
-		l.lggr.Errorf("Error searching users in LDAP query: %v", err)
-		return foundUser, errors.New("Error searching users in LDAP directory")
+		l.lggr.Errorf("error searching users in LDAP query: %v", err)
+		return foundUser, errors.New("error searching users in LDAP directory")
 	}
 
 	if len(result.Entries) == 0 {
@@ -192,7 +192,7 @@ func (l *ldapAuthenticator) FindUser(email string) (sessions.User, error) {
 		}
 
 		l.lggr.Warnf("No local users table user found with email %s", email)
-		return foundUser, errors.New("No users found with provided email")
+		return foundUser, errors.New("no users found with provided email")
 	}
 
 	// Populate found user by email and role based on matched group names
@@ -246,7 +246,7 @@ func (l *ldapAuthenticator) FindUserByAPIToken(apiToken string) (sessions.User, 
 		if err == sessions.ErrUserSessionExpired {
 			// API Token expired, purge
 			if _, err := l.q.Exec("DELETE FROM ldap_user_api_tokens WHERE token_key = $1", apiToken); err != nil {
-				l.lggr.Errorf("Error purging stale ldap API token session: %v", err)
+				l.lggr.Errorf("error purging stale ldap API token session: %v", err)
 			}
 		}
 		return sessions.User{}, err
@@ -263,34 +263,34 @@ func (l *ldapAuthenticator) ListUsers() ([]sessions.User, error) {
 	// Establish ephemeral connection
 	conn, err := l.dialAndConnect()
 	if err != nil {
-		l.lggr.Errorf("Error in LDAP dial: ", err)
-		return users, errors.New("Unable to establish connection to LDAP server with provided URL and credentials")
+		l.lggr.Errorf("error in LDAP dial: ", err)
+		return users, errors.New("unable to establish connection to LDAP server with provided URL and credentials")
 	}
 	defer conn.Close()
 
 	// Query for list of uniqueMember IDs present in Admin group
 	adminUsers, err := l.ldapGroupMembersListToUser(conn, l.config.AdminUserGroupCN(), sessions.UserRoleAdmin)
 	if err != nil {
-		l.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
-		return users, errors.New("Unable to list group users")
+		l.lggr.Errorf("error in ldapGroupMembersListToUser: ", err)
+		return users, errors.New("unable to list group users")
 	}
 	// Query for list of uniqueMember IDs present in Edit group
 	editUsers, err := l.ldapGroupMembersListToUser(conn, l.config.EditUserGroupCN(), sessions.UserRoleEdit)
 	if err != nil {
-		l.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
-		return users, errors.New("Unable to list group users")
+		l.lggr.Errorf("error in ldapGroupMembersListToUser: ", err)
+		return users, errors.New("unable to list group users")
 	}
 	// Query for list of uniqueMember IDs present in Edit group
 	runUsers, err := l.ldapGroupMembersListToUser(conn, l.config.RunUserGroupCN(), sessions.UserRoleRun)
 	if err != nil {
-		l.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
-		return users, errors.New("Unable to list group users")
+		l.lggr.Errorf("error in ldapGroupMembersListToUser: ", err)
+		return users, errors.New("unable to list group users")
 	}
 	// Query for list of uniqueMember IDs present in Edit group
 	readUsers, err := l.ldapGroupMembersListToUser(conn, l.config.ReadUserGroupCN(), sessions.UserRoleView)
 	if err != nil {
-		l.lggr.Errorf("Error in ldapGroupMembersListToUser: ", err)
-		return users, errors.New("Unable to list group users")
+		l.lggr.Errorf("error in ldapGroupMembersListToUser: ", err)
+		return users, errors.New("unable to list group users")
 	}
 
 	// Aggregate full list
@@ -321,8 +321,8 @@ func (l *ldapAuthenticator) ListUsers() ([]sessions.User, error) {
 	}
 	activeUsers, err := l.validateUsersActive(emails)
 	if err != nil {
-		l.lggr.Errorf("Error validating supplied user list: ", err)
-		return users, errors.New("Error validating supplied user list")
+		l.lggr.Errorf("error validating supplied user list: ", err)
+		return users, errors.New("error validating supplied user list")
 	}
 
 	// Filter non active users
@@ -339,7 +339,7 @@ func (l *ldapAuthenticator) ListUsers() ([]sessions.User, error) {
 		sql := "SELECT * FROM users ORDER BY email ASC;"
 		return tx.Select(&localAdminUsers, sql)
 	}); err != nil {
-		l.lggr.Errorf("Error extending upstream LDAP users with local admin users in users table: ", err)
+		l.lggr.Errorf("error extending upstream LDAP users with local admin users in users table: ", err)
 	} else {
 		returnUsers = append(returnUsers, localAdminUsers...)
 	}
@@ -355,8 +355,8 @@ func (l *ldapAuthenticator) ldapGroupMembersListToUser(conn *ldap.Conn, groupNam
 		l.lggr,
 	)
 	if err != nil {
-		l.lggr.Errorf("Error listing members of group (%s): %v", groupNameCN, err)
-		return users, errors.New("Error searching group members in LDAP directory")
+		l.lggr.Errorf("error listing members of group (%s): %v", groupNameCN, err)
+		return users, errors.New("error searching group members in LDAP directory")
 	}
 	return users, nil
 }
@@ -366,7 +366,7 @@ func (l *ldapAuthenticator) ldapGroupMembersListToUser(conn *ldap.Conn, groupNam
 // is polled and synced at the defined interval via a SleeperTask
 func (l *ldapAuthenticator) AuthorizedUserWithSession(sessionID string) (sessions.User, error) {
 	if len(sessionID) == 0 {
-		return sessions.User{}, errors.New("Session ID cannot be empty")
+		return sessions.User{}, errors.New("session ID cannot be empty")
 	}
 	var foundUser sessions.User
 	err := l.q.Transaction(func(tx pg.Queryer) error {
@@ -396,7 +396,7 @@ func (l *ldapAuthenticator) AuthorizedUserWithSession(sessionID string) (session
 	if err != nil {
 		if err == sessions.ErrUserSessionExpired {
 			if _, err := l.q.Exec("DELETE FROM ldap_sessions WHERE id = $1", sessionID); err != nil {
-				l.lggr.Errorf("Error purging stale ldap session: %v", err)
+				l.lggr.Errorf("error purging stale ldap session: %v", err)
 			}
 		}
 		return sessions.User{}, err
@@ -429,7 +429,7 @@ func (l *ldapAuthenticator) CreateSession(sr sessions.SessionRequest) (string, e
 	// Establish ephemeral connection
 	conn, err := l.dialAndConnect()
 	if err != nil {
-		return "", errors.New("Unable to establish connection to LDAP server with provided URL and credentials")
+		return "", errors.New("unable to establish connection to LDAP server with provided URL and credentials")
 	}
 	defer conn.Close()
 
@@ -440,7 +440,7 @@ func (l *ldapAuthenticator) CreateSession(sr sessions.SessionRequest) (string, e
 	searchBaseDN := fmt.Sprintf("%s=%s,%s,%s", l.config.BaseUserAttr(), escapedEmail, l.config.UsersDN(), l.config.BaseDN())
 	if err := conn.Bind(searchBaseDN, sr.Password); err != nil {
 		l.lggr.Infof("Error binding user authentication request in LDAP Bind: %v", err)
-		returnErr = errors.New("Unable to log in with LDAP server. Check credentials")
+		returnErr = errors.New("unable to log in with LDAP server. Check credentials")
 	}
 
 	// Bind was successful meaning user and credentials are present in LDAP directory
@@ -449,7 +449,7 @@ func (l *ldapAuthenticator) CreateSession(sr sessions.SessionRequest) (string, e
 	foundUser, err := l.FindUser(escapedEmail)
 	if err != nil {
 		l.lggr.Infof("Successful user login, but error querying for user groups: user: %s, error %v", escapedEmail, err)
-		returnErr = errors.New("Log in successful, but no assigned groups to assume role")
+		returnErr = errors.New("log in successful, but no assigned groups to assume role")
 	}
 
 	isLocalUser := false
@@ -480,7 +480,7 @@ func (l *ldapAuthenticator) CreateSession(sr sessions.SessionRequest) (string, e
 	)
 	if err != nil {
 		l.lggr.Errorf("unable to create new session in ldap_sessions table %v", err)
-		return "", errors.Wrap(err, "Error creating local LDAP session")
+		return "", fmt.Errorf("error creating local LDAP session: %w", err)
 	}
 
 	l.auditLogger.Audit(audit.AuthLoginSuccessNo2FA, map[string]interface{}{"email": sr.Email})
@@ -526,7 +526,7 @@ func (l *ldapAuthenticator) SetPassword(user *sessions.User, newPassword string)
 		sql := "UPDATE users SET hashed_password = $1, updated_at = now() WHERE email = $2 RETURNING *"
 		return tx.Get(user, sql, hashedPassword, user.Email)
 	}); err != nil {
-		l.lggr.Errorf("Unable to set password for user: %s, err: %v", user.Email, err)
+		l.lggr.Errorf("unable to set password for user: %s, err: %v", user.Email, err)
 		return errors.New("unable to save password")
 	}
 	return nil
@@ -537,7 +537,7 @@ func (l *ldapAuthenticator) TestPassword(email string, password string) error {
 	// Establish ephemeral connection
 	conn, err := l.dialAndConnect()
 	if err != nil {
-		return errors.New("Unable to establish connection to LDAP server with provided URL and credentials")
+		return errors.New("unable to establish connection to LDAP server with provided URL and credentials")
 	}
 	defer conn.Close()
 
@@ -555,10 +555,10 @@ func (l *ldapAuthenticator) TestPassword(email string, password string) error {
 	// Fall back to test local users table in case of supported local CLI users as well
 	var hashedPassword string
 	if err := l.q.Get(&hashedPassword, "SELECT hashed_password FROM users WHERE lower(email) = lower($1)", email); err != nil {
-		return errors.New("Invalid credentials")
+		return errors.New("invalid credentials")
 	}
 	if !utils.CheckPasswordHash(password, hashedPassword) {
-		return errors.New("Invalid credentials")
+		return errors.New("invalid credentials")
 	}
 
 	return nil
@@ -585,7 +585,7 @@ func (l *ldapAuthenticator) SetAuthToken(user *sessions.User, token *auth.Token)
 	salt := utils.NewSecret(utils.DefaultSecretSize)
 	hashedSecret, err := auth.HashedSecret(token, salt)
 	if err != nil {
-		return errors.Wrap(err, "LDAPAuth SetAuthToken hashed secret error")
+		return fmt.Errorf("LDAPAuth SetAuthToken hashed secret error: %w", err)
 	}
 
 	err = l.q.Transaction(func(tx pg.Queryer) error {
@@ -595,12 +595,12 @@ func (l *ldapAuthenticator) SetAuthToken(user *sessions.User, token *auth.Token)
 		isLocalCLIAdmin := false
 		err := l.q.QueryRow("SELECT EXISTS (SELECT 1 FROM users WHERE email = $1)", user.Email).Scan(&isLocalCLIAdmin)
 		if err != nil {
-			return errors.Wrap(err, "Error checking user presence in users table")
+			return fmt.Errorf("error checking user presence in users table: %w", err)
 		}
 
 		// Remove any existing API tokens
 		if _, err := l.q.Exec("DELETE FROM ldap_user_api_tokens WHERE user_email = $1", user.Email); err != nil {
-			return errors.Wrap(err, "Error executing DELETE FROM ldap_user_api_tokens")
+			return fmt.Errorf("error executing DELETE FROM ldap_user_api_tokens: %w", err)
 		}
 		// Create new API token for user
 		_, err = l.q.Exec(
@@ -613,12 +613,12 @@ func (l *ldapAuthenticator) SetAuthToken(user *sessions.User, token *auth.Token)
 			hashedSecret,
 		)
 		if err != nil {
-			return errors.Wrap(err, "Failed insert into ldap_user_api_tokens")
+			return fmt.Errorf("failed insert into ldap_user_api_tokens: %w", err)
 		}
 		return nil
 	})
 	if err != nil {
-		return errors.New("Error creating API token")
+		return errors.New("error creating API token")
 	}
 
 	l.auditLogger.Audit(audit.APITokenCreated, map[string]interface{}{"user": user.Email})
@@ -664,12 +664,12 @@ func (l *ldapAuthenticator) localLoginFallback(sr sessions.SessionRequest) (sess
 	}
 	if !constantTimeEmailCompare(strings.ToLower(sr.Email), strings.ToLower(user.Email)) {
 		l.auditLogger.Audit(audit.AuthLoginFailedEmail, map[string]interface{}{"email": sr.Email})
-		return user, errors.New("Invalid email")
+		return user, errors.New("invalid email")
 	}
 
 	if !utils.CheckPasswordHash(sr.Password, user.HashedPassword) {
 		l.auditLogger.Audit(audit.AuthLoginFailedPassword, map[string]interface{}{"email": sr.Email})
-		return user, errors.New("Invalid password")
+		return user, errors.New("invalid password")
 	}
 
 	return user, nil
@@ -679,12 +679,12 @@ func (l *ldapAuthenticator) localLoginFallback(sr sessions.SessionRequest) (sess
 func (l *ldapAuthenticator) dialAndConnect() (*ldap.Conn, error) {
 	conn, err := ldap.DialURL(l.config.ServerAddress())
 	if err != nil {
-		return nil, errors.Wrap(err, "Failed to Dial LDAP Server")
+		return nil, fmt.Errorf("failed to Dial LDAP Server: %w", err)
 	}
 	// Root level root user auth with credentials provided from config
 	bindStr := l.config.BaseUserAttr() + "=" + l.config.ReadOnlyUserLogin() + "," + l.config.BaseDN()
 	if err := conn.Bind(bindStr, l.config.ReadOnlyUserPass()); err != nil {
-		return nil, errors.Wrap(err, "Unable to login as initial root LDAP user")
+		return nil, fmt.Errorf("unable to login as initial root LDAP user: %w", err)
 	}
 	return conn, nil
 }
@@ -706,8 +706,8 @@ func (l *ldapAuthenticator) validateUsersActive(emails []string) ([]bool, error)
 	// Establish ephemeral connection
 	conn, err := l.dialAndConnect()
 	if err != nil {
-		l.lggr.Errorf("Error in LDAP dial: ", err)
-		return validUsers, errors.New("Unable to establish connection to LDAP server with provided URL and credentials")
+		l.lggr.Errorf("error in LDAP dial: ", err)
+		return validUsers, errors.New("unable to establish connection to LDAP server with provided URL and credentials")
 	}
 	defer conn.Close()
 
@@ -730,12 +730,12 @@ func (l *ldapAuthenticator) validateUsersActive(emails []string) ([]bool, error)
 	// Query LDAP server for the ActiveAttribute property of each specified user
 	results, err := conn.Search(searchRequest)
 	if err != nil {
-		l.lggr.Errorf("Error searching user in LDAP query: %v", err)
-		return validUsers, errors.New("Error searching users in LDAP directory")
+		l.lggr.Errorf("error searching user in LDAP query: %v", err)
+		return validUsers, errors.New("error searching users in LDAP directory")
 	}
 	// Ensure user response entries
 	if len(results.Entries) == 0 {
-		return validUsers, errors.New("No users matching email query")
+		return validUsers, errors.New("no users matching email query")
 	}
 
 	// Pull expected ActiveAttribute value from list of string possible values
@@ -780,8 +780,8 @@ func ldapGroupMembersListToUser(
 	)
 	result, err := conn.Search(searchRequest)
 	if err != nil {
-		lggr.Errorf("Error searching group members in LDAP query: %v", err)
-		return users, errors.New("Error searching group members in LDAP directory")
+		lggr.Errorf("error searching group members in LDAP query: %v", err)
+		return users, errors.New("error searching group members in LDAP directory")
 	}
 
 	// The result.Entry query response here is for the 'group' type of LDAP resource. The result should be a single entry, containing
@@ -789,8 +789,8 @@ func ldapGroupMembersListToUser(
 	// the format "uid=test.user@example.com,ou=users,dc=example,dc=com". The 'uid' is then manually parsed here as the library does
 	// not expose the functionality
 	if len(result.Entries) != 1 {
-		lggr.Errorf("Unexpected length of query results for group user members, expected one got %d", len(result.Entries))
-		return users, errors.New("Error searching group members in LDAP directory")
+		lggr.Errorf("unexpected length of query results for group user members, expected one got %d", len(result.Entries))
+		return users, errors.New("error searching group members in LDAP directory")
 	}
 
 	// Get string list of members from 'uniqueMember' attribute
@@ -805,7 +805,7 @@ func ldapGroupMembersListToUser(
 			}
 		}
 		if uidComponent == "" {
-			lggr.Errorf("Unexpected LDAP group query response for unique members - expected list of LDAP Values for uniqueMember containing LDAP strings in format uid=test.user@example.com,ou=users,dc=example,dc=com. Got %s", uniqueMemberEntry)
+			lggr.Errorf("unexpected LDAP group query response for unique members - expected list of LDAP Values for uniqueMember containing LDAP strings in format uid=test.user@example.com,ou=users,dc=example,dc=com. Got %s", uniqueMemberEntry)
 			continue
 		}
 		// Map each user email to the sessions.User struct
@@ -846,7 +846,7 @@ func (l *ldapAuthenticator) groupSearchResultsToUserRole(ldapGroups []*ldap.Entr
 		}
 	}
 	// No role group found, error
-	return sessions.UserRoleView, errors.New("User present in directory, but matching no role groups assigned")
+	return sessions.UserRoleView, errors.New("user present in directory, but matching no role groups assigned")
 }
 
 const constantTimeEmailLength = 256
