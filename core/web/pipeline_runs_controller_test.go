@@ -52,16 +52,14 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig().Database())
 
 	// Add the job
-	var uuid uuid.UUID
+	uuid := uuid.New()
 	{
-		tomlStr := fmt.Sprintf(testspecs.WebhookSpecWithBody, bridge.Name.String())
+		tomlStr := fmt.Sprintf(testspecs.WebhookSpecWithBodyTemplate, uuid, bridge.Name.String())
 		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
 		err = app.AddJobV2(testutils.Context(t), &jb)
 		require.NoError(t, err)
-
-		uuid = jb.ExternalJobID
 	}
 
 	// Give the job.Spawner ample time to discover the job and start its service
@@ -113,16 +111,14 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{URL: mockServer.URL}, app.GetConfig().Database())
 
 	// Add the job
-	var uuid uuid.UUID
+	uuid := uuid.New()
 	{
-		tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBody, bridge.Name.String(), submitBridge.Name.String())
+		tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBodyTemplate, uuid, bridge.Name.String(), submitBridge.Name.String())
 		jb, err := webhook.ValidatedWebhookSpec(tomlStr, app.GetExternalInitiatorManager())
 		require.NoError(t, err)
 
 		err = app.AddJobV2(testutils.Context(t), &jb)
 		require.NoError(t, err)
-
-		uuid = jb.ExternalJobID
 	}
 
 	// Give the job.Spawner ample time to discover the job and start its service

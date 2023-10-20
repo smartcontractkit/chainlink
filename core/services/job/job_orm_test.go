@@ -603,7 +603,7 @@ func TestORM_CreateJob_OCRBootstrap(t *testing.T) {
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
-	jb, err := ocrbootstrap.ValidatedBootstrapSpecToml(testspecs.OCRBootstrapSpec)
+	jb, err := ocrbootstrap.ValidatedBootstrapSpecToml(fmt.Sprintf(testspecs.OCRBootstrapSpec, uuid.New()))
 	require.NoError(t, err)
 
 	err = jobORM.CreateJob(&jb)
@@ -800,7 +800,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 
 	_, address := cltest.MustInsertRandomKey(t, keyStore.Eth())
 
-	jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
+	jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), fmt.Sprintf(testspecs.OCR2EVMSpecMinimalTemplate, uuid.New()))
 	require.NoError(t, err)
 
 	const juelsPerFeeCoinSource = `
@@ -816,7 +816,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	err = jobORM.CreateJob(&jb)
 	require.NoError(t, err)
 
-	jb2, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
+	jb2, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), fmt.Sprintf(testspecs.OCR2EVMSpecMinimalTemplate, uuid.New()))
 	require.NoError(t, err)
 
 	jb2.Name = null.StringFrom("Job with same chain id & contract address")
@@ -826,7 +826,7 @@ func TestORM_CreateJob_OCR2_DuplicatedContractAddress(t *testing.T) {
 	err = jobORM.CreateJob(&jb2)
 	require.Error(t, err)
 
-	jb3, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
+	jb3, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), fmt.Sprintf(testspecs.OCR2EVMSpecMinimalTemplate, uuid.New()))
 	require.NoError(t, err)
 	jb3.Name = null.StringFrom("Job with different chain id & same contract address")
 	jb3.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
@@ -862,7 +862,7 @@ func TestORM_CreateJob_OCR2_Sending_Keys_Transmitter_Keys_Validations(t *testing
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	jobORM := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
-	jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
+	jb, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), fmt.Sprintf(testspecs.OCR2EVMSpecMinimalTemplate, uuid.New()))
 	require.NoError(t, err)
 
 	t.Run("sending keys or transmitterID must be defined", func(t *testing.T) {
@@ -903,7 +903,7 @@ func TestORM_ValidateKeyStoreMatch(t *testing.T) {
 	var jb job.Job
 	{
 		var err error
-		jb, err = ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
+		jb, err = ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), fmt.Sprintf(testspecs.OCR2EVMSpecMinimalTemplate, uuid.New()))
 		require.NoError(t, err)
 	}
 
@@ -995,8 +995,9 @@ func Test_FindJobs(t *testing.T) {
 	err = orm.CreateJob(&jb1)
 	require.NoError(t, err)
 
+	uuid := uuid.New()
 	jb2, err := directrequest.ValidatedDirectRequestSpec(
-		testspecs.DirectRequestSpec,
+		fmt.Sprintf(testspecs.DirectRequestSpecTemplate, uuid, uuid),
 	)
 	require.NoError(t, err)
 
@@ -1088,7 +1089,7 @@ func Test_FindJob(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	jobOCR2, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), testspecs.OCR2EVMSpecMinimal)
+	jobOCR2, err := ocr2validate.ValidatedOracleSpecToml(config.OCR2(), config.Insecure(), fmt.Sprintf(testspecs.OCR2EVMSpecMinimalTemplate, uuid.New()))
 	require.NoError(t, err)
 	jobOCR2.OCR2OracleSpec.TransmitterID = null.StringFrom(address.String())
 
@@ -1236,7 +1237,8 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
-	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
+	uuid := uuid.New()
+	jb, err := directrequest.ValidatedDirectRequestSpec(fmt.Sprintf(testspecs.DirectRequestSpecTemplate, uuid, uuid))
 	require.NoError(t, err)
 	jb.DirectRequestSpec.EVMChainID = utils.NewBigI(0)
 
@@ -1587,7 +1589,8 @@ func Test_FindPipelineRunByID(t *testing.T) {
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
-	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
+	uuid := uuid.New()
+	jb, err := directrequest.ValidatedDirectRequestSpec(fmt.Sprintf(testspecs.DirectRequestSpecTemplate, uuid, uuid))
 	require.NoError(t, err)
 
 	err = orm.CreateJob(&jb)
@@ -1632,7 +1635,8 @@ func Test_FindJobWithoutSpecErrors(t *testing.T) {
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
-	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
+	uuid := uuid.New()
+	jb, err := directrequest.ValidatedDirectRequestSpec(fmt.Sprintf(testspecs.DirectRequestSpecTemplate, uuid, uuid))
 	require.NoError(t, err)
 
 	err = orm.CreateJob(&jb)
@@ -1671,7 +1675,8 @@ func Test_FindSpecErrorsByJobIDs(t *testing.T) {
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(relayExtenders)
 	orm := NewTestORM(t, db, legacyChains, pipelineORM, bridgesORM, keyStore, config.Database())
 
-	jb, err := directrequest.ValidatedDirectRequestSpec(testspecs.DirectRequestSpec)
+	uuid := uuid.New()
+	jb, err := directrequest.ValidatedDirectRequestSpec(fmt.Sprintf(testspecs.DirectRequestSpecTemplate, uuid, uuid))
 	require.NoError(t, err)
 
 	err = orm.CreateJob(&jb)
