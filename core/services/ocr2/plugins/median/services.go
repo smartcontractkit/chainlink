@@ -194,36 +194,32 @@ type latestTransmissionDetailsResponse struct {
 	latestTimestamp time.Time
 }
 
+type latestRoundRequested struct {
+	configDigest ocr2types.ConfigDigest
+	epoch        uint32
+	round        uint8
+}
+
 func (m *medianContract) LatestTransmissionDetails(ctx context.Context) (configDigest ocr2types.ConfigDigest, epoch uint32, round uint8, latestAnswer *big.Int, latestTimestamp time.Time, err error) {
-	retValues := []string{"epoch", "round", "latestAnswer", "latestTimestamp"}
+	var resp latestTransmissionDetailsResponse
 
-	res, err := m.chainReader.GetLatestValue(ctx, m.contract, "LatestTransmissionDetails", map[string]string{}, retValues)
+	err = m.chainReader.GetLatestValue(ctx, m.contract, "LatestTransmissionDetails", map[string]string{}, &resp)
 	if err != nil {
-		return // TODO: wrap
+		return
 	}
 
-	ret := latestTransmissionDetailsResponse{}
-	if err = json.Unmarshal(res, &ret); err != nil {
-		return // TODO: wrap
-	}
-
-	return ret.configDigest, ret.epoch, ret.round, ret.latestAnswer, ret.latestTimestamp, err
+	return resp.configDigest, resp.epoch, resp.round, resp.latestAnswer, resp.latestTimestamp, err
 }
 
 func (m *medianContract) LatestRoundRequested(ctx context.Context, lookback time.Duration) (configDigest ocr2types.ConfigDigest, epoch uint32, round uint8, err error) {
-	retValues := []string{"epoch", "round", "latestAnswer", "latestTimestamp"}
+	var resp latestRoundRequested
 
-	res, err := m.chainReader.GetLatestValue(ctx, m.contract, "LatestRoundReported", map[string]string{}, retValues)
+	err = m.chainReader.GetLatestValue(ctx, m.contract, "LatestRoundReported", map[string]string{}, &resp)
 	if err != nil {
 		return // TODO: wrap
 	}
 
-	var ret latestTransmissionDetailsResponse
-	if err = json.Unmarshal(res, &ret); err != nil {
-		return // TODO: wrap
-	}
-
-	return ret.configDigest, ret.epoch, ret.round, err
+	return resp.configDigest, resp.epoch, resp.round, err
 }
 
 func newMedianContract(chainReader types.ChainReader, address common.Address) median.MedianContract {
