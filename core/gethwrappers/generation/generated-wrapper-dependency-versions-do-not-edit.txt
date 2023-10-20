@@ -1,8 +1,8 @@
 GETH_VERSION: 1.12.0
 aggregator_v2v3_interface: ../../contracts/solc/v0.8.6/AggregatorV2V3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV2V3Interface.bin 95e8814b408bb05bf21742ef580d98698b7db6a9bac6a35c3de12b23aec4ee28
 aggregator_v3_interface: ../../contracts/solc/v0.8.6/AggregatorV3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV3Interface.bin 351b55d3b0f04af67db6dfb5c92f1c64479400ca1fec77afc20bc0ce65cb49ab
-authorized_forwarder: ../../contracts/solc/v0.7/AuthorizedForwarder.abi ../../contracts/solc/v0.7/AuthorizedForwarder.bin 426d0866a294c77b27a526265f98c688326eb3dec3b7a698180c5f1921ebdf56
-authorized_receiver: ../../contracts/solc/v0.7/AuthorizedReceiver.abi ../../contracts/solc/v0.7/AuthorizedReceiver.bin 18e8969ba3234b027e1b16c11a783aca58d0ea5c2361010ec597f134b7bf1c4f
+authorized_forwarder: ../../contracts/solc/v0.8.19/AuthorizedForwarder.abi ../../contracts/solc/v0.8.19/AuthorizedForwarder.bin 30407c9237e9444b58b11e30bce50edfee340da9757681f90c5f2dc72b4d54d9
+authorized_receiver: ../../contracts/solc/v0.8.19/AuthorizedReceiver.abi ../../contracts/solc/v0.8.19/AuthorizedReceiver.bin 18e8969ba3234b027e1b16c11a783aca58d0ea5c2361010ec597f134b7bf1c4f
 automation_consumer_benchmark: ../../contracts/solc/v0.8.16/AutomationConsumerBenchmark.abi ../../contracts/solc/v0.8.16/AutomationConsumerBenchmark.bin f52c76f1aaed4be541d82d97189d70f5aa027fc9838037dd7a7d21910c8c488e
 automation_forwarder_logic: ../../contracts/solc/v0.8.16/AutomationForwarderLogic.abi ../../contracts/solc/v0.8.16/AutomationForwarderLogic.bin 15ae0c367297955fdab4b552dbb10e1f2be80a8fde0efec4a4d398693e9d72b5
 automation_registrar_wrapper2_1: ../../contracts/solc/v0.8.16/AutomationRegistrar2_1.abi ../../contracts/solc/v0.8.16/AutomationRegistrar2_1.bin eb06d853aab39d3196c593b03e555851cbe8386e0fe54a74c2479f62d14b3c42
@@ -46,8 +46,8 @@ mock_ethlink_aggregator_wrapper: ../../contracts/solc/v0.6/MockETHLINKAggregator
 mock_gas_aggregator_wrapper: ../../contracts/solc/v0.6/MockGASAggregator.abi ../../contracts/solc/v0.6/MockGASAggregator.bin bacbb1ea4dc6beac0db8a13ca5c75e2fd61b903d70feea9b3b1c8b10fe8df4f3
 multiwordconsumer_wrapper: ../../contracts/solc/v0.7/MultiWordConsumer.abi ../../contracts/solc/v0.7/MultiWordConsumer.bin 6e68abdf614e3ed0f5066c1b5f9d7c1199f1e7c5c5251fe8a471344a59afc6ba
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5c8d6562e94166d4790f1ee6e4321d359d9f7262e6c5452a712b1f1c896f45cf
-operator_factory: ../../contracts/solc/v0.7/OperatorFactory.abi ../../contracts/solc/v0.7/OperatorFactory.bin 0bbac9ac2e45f988b8365a83a36dff97534c14d315ebe5a1fc725d87f00c15d5
-operator_wrapper: ../../contracts/solc/v0.7/Operator.abi ../../contracts/solc/v0.7/Operator.bin 45036dc5046de66ba03f57b48ef8b629700e863af388cb509b2fa259989762e8
+operator_factory: ../../contracts/solc/v0.8.19/OperatorFactory.abi ../../contracts/solc/v0.8.19/OperatorFactory.bin 6ced94aba2fa1313be996b65fc96484092a484fa9eb90c2b841d1dd907fb3167
+operator_wrapper: ../../contracts/solc/v0.8.19/Operator.abi ../../contracts/solc/v0.8.19/Operator.bin 3513eeb7de568a1690ec4dfdb5e67a7be392189f4bc94b65670f12512f421715
 oracle_wrapper: ../../contracts/solc/v0.6/Oracle.abi ../../contracts/solc/v0.6/Oracle.bin 7af2fbac22a6e8c2847e8e685a5400cac5101d72ddf5365213beb79e4dede43a
 solidity_vrf_consumer_interface: ../../contracts/solc/v0.6/VRFConsumer.abi ../../contracts/solc/v0.6/VRFConsumer.bin ecc99378aa798014de9db42b2eb81320778b0663dbe208008dad75ccdc1d4366
 solidity_vrf_consumer_interface_v08: ../../contracts/solc/v0.8.6/VRFConsumer.abi ../../contracts/solc/v0.8.6/VRFConsumer.bin b14f9136b15e3dc9d6154d5700f3ed4cf88ddc4f70f20c3bb57fc46050904c8f
