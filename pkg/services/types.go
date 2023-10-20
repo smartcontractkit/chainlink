@@ -81,12 +81,18 @@ type Service interface {
 	// again, you need to build a new Service to do so.
 	Close() error
 
+	HealthReporter
+}
+
+// HealthReporter should be implemented by any type requiring health checks.
+type HealthReporter interface {
 	// Ready should return nil if ready, or an error message otherwise. From the k8s docs:
 	// > ready means it’s initialized and healthy means that it can accept traffic in kubernetes
 	// See: https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/
 	Ready() error
-	// HealthReport returns a full health report of the callee including it's dependencies.
+	// HealthReport returns a full health report of the callee including its dependencies.
 	// key is the dep name, value is nil if healthy, or error message otherwise.
+	// Use CopyHealth to collect reports from sub-services.
 	HealthReport() map[string]error
 	// Name returns the fully qualified name of the component. Usually the logger name.
 	Name() string
