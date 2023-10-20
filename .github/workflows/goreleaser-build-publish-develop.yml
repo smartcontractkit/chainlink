@@ -5,6 +5,9 @@ on:
     branches:
       - develop
 
+permissions:
+  contents: read
+
 jobs:
   push-chainlink-develop-goreleaser:
     runs-on:
@@ -17,6 +20,11 @@ jobs:
       id-token: write
       contents: read
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout repository
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Configure aws credentials
@@ -54,6 +62,11 @@ jobs:
       id-token: write
       contents: read
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout repository
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Configure aws credentials
@@ -64,7 +77,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
       - name: Get Github Token
         id: get-gh-token
-        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@main
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@fb742b800161a410141cc3c681a52275ed73d8f6 # main
         with:
           url: ${{ secrets.GATI_LAMBDA_FUNCTION_URL }}
       - name: 'Dispatch Workflow: E2E Functional Tests'

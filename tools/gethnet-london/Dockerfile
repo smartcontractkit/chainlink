@@ -1,4 +1,4 @@
-FROM ethereum/client-go:v1.10.8
+FROM ethereum/client-go:v1.10.8@sha256:6f6d3afe9bfad024c9a14248441eec76e570bb2e0e254b00e279dff9c13ee86d
 # docker build . -t smartcontract/gethnet:london
 WORKDIR /gethnet
 COPY node_password .

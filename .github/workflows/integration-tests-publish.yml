@@ -9,6 +9,9 @@ on:
 env:
   ECR_TAG: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}.dkr.ecr.${{ secrets.QA_AWS_REGION }}.amazonaws.com/chainlink-tests:develop
 
+permissions:
+  contents: read
+
 jobs:
   publish-integration-test-image:
     environment: integration
@@ -18,6 +21,11 @@ jobs:
     name: Publish Integration Test Image
     runs-on: ubuntu-latest
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Collect Metrics
         id: collect-gha-metrics
         uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec

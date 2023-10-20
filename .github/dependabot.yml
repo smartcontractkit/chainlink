@@ -28,3 +28,43 @@ updates:
     schedule:
       interval: daily
     open-pull-requests-limit: 10
+
+  - package-ecosystem: npm
+    directory: /.github/actions/delete-deployments
+    schedule:
+      interval: daily
+
+  - package-ecosystem: npm
+    directory: /.github/actions/split-tests
+    schedule:
+      interval: daily
+
+  - package-ecosystem: npm
+    directory: /contracts
+    schedule:
+      interval: daily
+
+  - package-ecosystem: pip
+    directory: /contracts/scripts
+    schedule:
+      interval: daily
+
+  - package-ecosystem: gomod
+    directory: /core/scripts
+    schedule:
+      interval: daily
+
+  - package-ecosystem: gomod
+    directory: /integration-tests
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /tools/gethnet-london
+    schedule:
+      interval: daily
+
+  - package-ecosystem: docker
+    directory: /tools/gethnet
+    schedule:
+      interval: daily

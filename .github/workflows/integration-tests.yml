@@ -29,6 +29,11 @@ jobs:
     name: Check Paths That Require Tests To Run
     runs-on: ubuntu-latest
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
@@ -72,6 +77,11 @@ jobs:
     runs-on: ubuntu20.04-16cores-64GB
     needs: [changes]
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true'
         id: collect-gha-metrics
@@ -120,6 +130,11 @@ jobs:
     runs-on: ubuntu20.04-16cores-64GB
     needs: [changes]
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true'
         id: collect-gha-metrics
@@ -148,6 +163,11 @@ jobs:
     outputs:
       matrix: ${{ env.MATRIX_JSON }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Check for Skip Tests Label
         if: contains(join(github.event.pull_request.labels.*.name, ' '), 'skip-smoke-tests')
         run: |
@@ -190,6 +210,11 @@ jobs:
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
@@ -298,6 +323,11 @@ jobs:
     runs-on: ${{ matrix.product.os }}
     name: ETH Smoke Tests ${{ matrix.product.name }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
@@ -366,6 +396,11 @@ jobs:
     name: ETH Smoke Tests
     needs: [eth-smoke-tests-matrix, eth-smoke-tests-matrix-automation]
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Check smoke test matrix status
         if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-automation.result != 'success'
         run: exit 1
@@ -385,9 +420,14 @@ jobs:
     needs: [eth-smoke-tests]
     runs-on: ubuntu-latest
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout repo
         if: ${{ github.event_name == 'pull_request' }}
-        uses: actions/checkout@v4
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
 
       - name: 🧼 Clean up Environment
         if: ${{ github.event_name == 'pull_request' }}
@@ -415,6 +455,11 @@ jobs:
     name: ETH Smoke Tests Go Mod Cache
     continue-on-error: true
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
@@ -454,6 +499,11 @@ jobs:
       TEST_LOG_LEVEL: debug
       TEST_SUITE: migration
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
@@ -510,6 +560,11 @@ jobs:
     outputs:
       sha: ${{ steps.getsha.outputs.sha }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
@@ -544,6 +599,11 @@ jobs:
     outputs:
       projectserum_version: ${{ steps.psversion.outputs.projectserum_version }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout the solana repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
@@ -566,6 +626,11 @@ jobs:
     outputs:
       exists: ${{ steps.check-image.outputs.exists }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Check if image exists
         id: check-image
         uses: smartcontractkit/chainlink-github-actions/docker/image-exists@eccde1970eca69f079d3efb3409938a72ade8497 # v2.2.13
@@ -597,6 +662,11 @@ jobs:
         RUSTUP_HOME: "/root/.rustup"
         FORCE_COLOR: 1
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true'
         id: collect-gha-metrics
@@ -636,6 +706,11 @@ jobs:
     env:
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true' && needs.solana-test-image-exists.outputs.exists == 'false'
         id: collect-gha-metrics
@@ -694,6 +769,11 @@ jobs:
       TEST_LOG_LEVEL: debug
       CONTRACT_ARTIFACTS_PATH: contracts/target/deploy
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Collect Metrics
         if: needs.changes.outputs.src == 'true'
         id: collect-gha-metrics
@@ -769,6 +849,11 @@ jobs:
     name: Solana Smoke Tests
     needs: [solana-smoke-tests-matrix]
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Check smoke test matrix status
         if: needs.solana-smoke-tests-matrix.result != 'success'
         run: exit 1
@@ -816,6 +901,11 @@ jobs:
     name: Live Testnet Smoke Tests ${{ matrix.testnet }}
     runs-on: ubuntu-latest
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
@@ -868,6 +958,11 @@ jobs:
     runs-on: ubuntu-latest
     needs: testnet-smoke-tests-matrix
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Debug Result
         run: echo ${{needs.testnet-smoke-tests-matrix.result}}
       - name: Main Slack Notification
@@ -925,6 +1020,11 @@ jobs:
         # https://github.com/orgs/community/discussions/26284#discussioncomment-3251198
         testnet: [OPTIMISM_GOERLI, ARBITRUM_GOERLI]
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Get Results
         id: test-results
         run: |

@@ -14,6 +14,11 @@ jobs:
     name: Readme checker
     runs-on: ubuntu-latest
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Check for changed files
         id: changedfiles
         uses: umani/changed-files@d7f842d11479940a6036e3aacc6d35523e6ba978 # Version 4.1.0

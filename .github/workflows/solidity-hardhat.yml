@@ -18,6 +18,11 @@ jobs:
     outputs:
       changes: ${{ steps.changes.outputs.src }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
@@ -38,6 +43,11 @@ jobs:
     outputs:
       splits: ${{ steps.split.outputs.splits }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Generate splits
@@ -64,6 +74,11 @@ jobs:
         split: ${{ fromJson(needs.split-tests.outputs.splits) }}
     runs-on: ubuntu20.04-4cores-16GB
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup NodeJS
@@ -83,7 +98,7 @@ jobs:
       - name: Rename coverage
         run: mv ./contracts/coverage.json ./contracts/coverage-${{ matrix.split.idx }}.json
       - name: Upload coverage
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@a8a3f3ad30e3422c9c7b888a15615d19a852ae32 # v3.1.3
         with:
           name: solidity-coverage-${{ matrix.split.idx }}
           path: ./contracts/coverage-${{ matrix.split.idx }}.json
@@ -102,6 +117,11 @@ jobs:
     name: Solidity Coverage ${{ fromJSON('["(skipped)", ""]')[needs.changes.outputs.changes == 'true'] }}
     runs-on: ubuntu-latest
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup NodeJS
@@ -109,7 +129,7 @@ jobs:
       - name: Make coverage directory
         run: mkdir ./contracts/coverage-reports
       - name: Download coverage
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@9bc31d5ccc31df68ecc42ccf4149144866c47d8a # v3.0.2
         with:
           path: ./contracts/coverage-reports
       - name: Display structure of downloaded files
@@ -129,6 +149,11 @@ jobs:
         split: ${{ fromJson(needs.split-tests.outputs.splits) }}
     runs-on: ubuntu20.04-4cores-16GB
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Setup NodeJS
@@ -157,6 +182,11 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - run: echo 'Solidity tests finished!'
       - name: Check test results
         run: |

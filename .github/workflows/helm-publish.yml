@@ -9,9 +9,14 @@ jobs:
     if: ${{ github.event.label.name == 'helm_release' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
+      - uses: actions/checkout@50fbc622fc4ef5163becd7fab6573eac35f8462e # v1.2.0
       - name: Release helm chart
-        uses: J12934/helm-gh-pages-action@master
+        uses: J12934/helm-gh-pages-action@f93d7e61ce55cc48cbbd16f528bac9e2dbadedfc # master
         with:
           charts-folder: charts
           deploy-branch: helm-release

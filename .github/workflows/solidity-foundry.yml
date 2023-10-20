@@ -11,6 +11,11 @@ jobs:
     outputs:
       changes: ${{ steps.changes.outputs.src }}
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - uses: dorny/paths-filter@4512585405083f25c027a35db413c2b3b9006d50 # v2.11.1
@@ -40,6 +45,11 @@ jobs:
     runs-on: ubuntu-22.04
 
     steps:
+      - name: Harden Runner
+        uses: step-security/harden-runner@1b05615854632b887b69ae1be8cbefe72d3ae423 # v2.6.0
+        with:
+          egress-policy: audit
+
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
         with:
@@ -52,7 +62,7 @@ jobs:
         uses: ./.github/actions/setup-nodejs
 
       - name: Install Foundry
-        uses: foundry-rs/foundry-toolchain@v1
+        uses: foundry-rs/foundry-toolchain@cb603ca0abb544f301eaed59ac0baf579aa6aecf # v1.0.10
         with:
           # Has to match the `make foundry` version.
           version: nightly-5be158ba6dc7c798a6f032026fe60fc01686b33b

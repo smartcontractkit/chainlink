@@ -1,4 +1,4 @@
-FROM ethereum/client-go:v1.9.16
+FROM ethereum/client-go:v1.9.16@sha256:549952077ecc5054408402c45ee9de44abc6c6ca3a37c6273c5b7b6dacd6971b
 
 WORKDIR /gethnet
 COPY datadir datadir/
