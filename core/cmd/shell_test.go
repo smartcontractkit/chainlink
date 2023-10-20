@@ -34,7 +34,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithoutSession(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationEVMDisabled(t)
-	u := cltest.NewUserWithSession(t, app.SessionORM())
+	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
 
 	tests := []struct {
 		name, email, pwd string
@@ -66,7 +66,7 @@ func TestTerminalCookieAuthenticator_AuthenticateWithSession(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	u := cltest.NewUserWithSession(t, app.SessionORM())
+	u := cltest.NewUserWithSession(t, app.AuthenticationProvider())
 
 	tests := []struct {
 		name, email, pwd string

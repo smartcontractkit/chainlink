@@ -17,8 +17,11 @@ const (
 // ErrUserSessionExpired defines the error triggered when the user session has expired
 var ErrUserSessionExpired = errors.New("session missing or expired, please login again")
 
-// ErrNotSupported defines the error where interface functionality doesn't align with a Read Only LDAP server
-var ErrNotSupported = errors.New("functionality not supported with read only LDAP server")
+// ErrNotSupported defines the error where interface functionality doesn't align with the underlying Auth Provider
+var ErrNotSupported = errors.New("functionality not supported with current authentication provider")
+
+// ErrEmptySessionID captures the empty case error message
+var ErrEmptySessionID = errors.New("session ID cannot be empty")
 
 //go:generate mockery --quiet --name LocalAdminUsersORM --output ./mocks/ --case=underscore
 

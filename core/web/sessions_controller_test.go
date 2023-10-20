@@ -27,7 +27,7 @@ func TestSessionsController_Create(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.SessionORM().CreateUser(&user))
+	require.NoError(t, app.AuthenticationProvider().CreateUser(&user))
 
 	client := clhttptest.NewTestLocalOnlyHTTPClient()
 	tests := []struct {
@@ -90,7 +90,7 @@ func TestSessionsController_Create_ReapSessions(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.SessionORM().CreateUser(&user))
+	require.NoError(t, app.AuthenticationProvider().CreateUser(&user))
 
 	staleSession := cltest.NewSession()
 	staleSession.LastUsed = time.Now().Add(-cltest.MustParseDuration(t, "241h"))
@@ -124,7 +124,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.SessionORM().CreateUser(&user))
+	require.NoError(t, app.AuthenticationProvider().CreateUser(&user))
 
 	correctSession := sessions.NewSession()
 	correctSession.Email = user.Email
@@ -170,7 +170,7 @@ func TestSessionsController_Destroy_ReapSessions(t *testing.T) {
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	user := cltest.MustRandomUser(t)
-	require.NoError(t, app.SessionORM().CreateUser(&user))
+	require.NoError(t, app.AuthenticationProvider().CreateUser(&user))
 
 	correctSession := sessions.NewSession()
 	correctSession.Email = user.Email

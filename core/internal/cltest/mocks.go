@@ -309,7 +309,7 @@ func MustRandomUser(t testing.TB) sessions.User {
 	return r
 }
 
-func NewUserWithSession(t testing.TB, orm sessions.ORM) sessions.User {
+func NewUserWithSession(t testing.TB, orm sessions.AuthenticationProvider) sessions.User {
 	u := MustRandomUser(t)
 	require.NoError(t, orm.CreateUser(&u))
 

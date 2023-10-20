@@ -758,6 +758,7 @@ MaxAgeDays = 17
 MaxBackups = 9
 `},
 		{"WebServer", Config{Core: toml.Core{WebServer: full.WebServer}}, `[WebServer]
+AuthenticationMethod = 'local'
 AllowOrigins = '*'
 BridgeResponseURL = 'https://bridge.response'
 BridgeCacheTTL = '10s'
@@ -769,6 +770,25 @@ SessionReaperExpiration = '168h0m0s'
 HTTPMaxSize = '32.77kb'
 StartTimeout = '15s'
 ListenIP = '192.158.1.37'
+
+[WebServer.LDAP]
+ServerTLS = true
+SessionTimeout = '15m0s'
+QueryTimeout = '2m0s'
+BaseUserAttr = 'uid'
+BaseDN = 'dc=custom,dc=example,dc=com'
+UsersDN = 'ou=users'
+GroupsDN = 'ou=groups'
+ActiveAttribute = ''
+ActiveAttributeAllowedValue = ''
+AdminUserGroupCN = 'NodeAdmins'
+EditUserGroupCN = 'NodeEditors'
+RunUserGroupCN = 'NodeRunners'
+ReadUserGroupCN = 'NodeReadOnly'
+UserApiTokenEnabled = false
+UserAPITokenDuration = '240h0m0s'
+UpstreamSyncInterval = '0s'
+UpstreamSyncRateLimit = '2m0s'
 
 [WebServer.MFA]
 RPID = 'test-rpid'
@@ -1138,9 +1158,17 @@ func TestConfig_Validate(t *testing.T) {
 		toml string
 		exp  string
 	}{
-		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 5 errors:
+		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 6 errors:
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
-	- WebServer.LDAP.BaseDN: FAIL
+	- WebServer: 8 errors:
+		- LDAP.BaseDN: invalid value (): LDAP BaseDN can not be empty
+		- LDAP.BaseUserAttr: invalid value (): LDAP BaseUserAttr can not be empty
+		- LDAP.UsersDN: invalid value (): LDAP UsersDN can not be empty
+		- LDAP.GroupsDN: invalid value (): LDAP GroupsDN can not be empty
+		- LDAP.AdminUserGroupCN: invalid value (): LDAP AdminUserGroupCN can not be empty
+		- LDAP.RunUserGroupCN: invalid value (): LDAP ReadUserGroupCN can not be empty
+		- LDAP.RunUserGroupCN: invalid value (): LDAP RunUserGroupCN can not be empty
+		- LDAP.ReadUserGroupCN: invalid value (): LDAP ReadUserGroupCN can not be empty
 	- EVM: 8 errors:
 		- 1.ChainID: invalid value (1): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (foo): duplicate - must be unique

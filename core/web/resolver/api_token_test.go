@@ -211,6 +211,7 @@ func TestResolver_DeleteAPIToken(t *testing.T) {
 
 				f.Mocks.authProvider.On("FindUser", session.User.Email).Return(*session.User, nil)
 				f.Mocks.authProvider.On("DeleteAuthToken", session.User).Return(nil)
+				f.Mocks.authProvider.On("TestPassword", session.User.Email, pwd).Return(nil)
 				f.App.On("AuthenticationProvider").Return(f.Mocks.authProvider)
 			},
 			query:     mutation,
