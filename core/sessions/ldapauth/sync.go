@@ -2,10 +2,10 @@ package ldapauth
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
 	"github.com/go-ldap/ldap/v3"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -195,12 +195,7 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 
 		// Remove any active sessions this user may have
 		if len(emailsToPurge) > 0 {
-			placeholders := make([]string, len(emailsToPurge))
-			for i := range emailsToPurge {
-				placeholders[i] = fmt.Sprintf("$%d", i+1)
-			}
-			query := fmt.Sprintf("DELETE FROM ldap_sessions WHERE user_email IN (%s)", strings.Join(placeholders, ", "))
-			_, err := ldSync.q.Exec(query, emailsToPurge...)
+			_, err := ldSync.q.Exec("DELETE FROM ldap_sessions WHERE user_email = ANY($1)", pq.Array(emailsToPurge))
 			if err != nil {
 				return err
 			}
@@ -208,12 +203,7 @@ func (ldSync *LDAPServerStateSyncer) Work() {
 
 		// Remove any active API tokens this user may have
 		if len(apiTokenEmailsToPurge) > 0 {
-			placeholders := make([]string, len(apiTokenEmailsToPurge))
-			for i := range apiTokenEmailsToPurge {
-				placeholders[i] = fmt.Sprintf("$%d", i+1)
-			}
-			query := fmt.Sprintf("DELETE FROM ldap_user_api_tokens WHERE user_email IN (%s)", strings.Join(placeholders, ", "))
-			_, err = ldSync.q.Exec(query, apiTokenEmailsToPurge...)
+			_, err := ldSync.q.Exec("DELETE FROM ldap_user_api_tokens WHERE user_email = ANY($1)", pq.Array(apiTokenEmailsToPurge))
 			if err != nil {
 				return err
 			}
