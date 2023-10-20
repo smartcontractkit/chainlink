@@ -13,6 +13,64 @@ library CallWithExactGas {
   error NoGasForCallExactCheck();
   error NotEnoughGasForCall();
 
+  // @notice calls target address with exactly gasAmount gas and payload as calldata.
+  // Account for gasForCallExactCheck gas that will be used by this function. Will revert
+  // if the target is not a contact. Will revert when there is not enough gas to call the
+  // target with gasAmount gas.
+  // @dev Ignores the return data, which makes it immune to gas bomb attacks.
+  // @return success whether the call succeeded
+  function _callWithExactGas(
+    bytes memory payload,
+    address target,
+    uint256 gasLimit,
+    uint16 gasForCallExactCheck
+  ) internal returns (bool success) {
+    bytes4 noContract = NoContract.selector;
+    bytes4 noGasForCallExactCheck = NoGasForCallExactCheck.selector;
+    bytes4 notEnoughGasForCall = NotEnoughGasForCall.selector;
+
+    assembly {
+      // solidity calls check that a contract actually exists at the destination, so we do the same
+      // Note we do this check prior to measuring gas so gasForCallExactCheck (our "cushion")
+      // doesn't need to account for it.
+      if iszero(extcodesize(target)) {
+        mstore(0, noContract)
+        revert(0, 0x4)
+      }
+
+      let g := gas()
+      // Compute g -= gasForCallExactCheck and check for underflow
+      // The gas actually passed to the callee is _min(gasAmount, 63//64*gas available).
+      // We want to ensure that we revert if gasAmount >  63//64*gas available
+      // as we do not want to provide them with less, however that check itself costs
+      // gas. gasForCallExactCheck ensures we have at least enough gas to be able
+      // to revert if gasAmount >  63//64*gas available.
+      if lt(g, gasForCallExactCheck) {
+        mstore(0, noGasForCallExactCheck)
+        revert(0, 0x4)
+      }
+      g := sub(g, gasForCallExactCheck)
+      // if g - g//64 <= gasAmount, revert
+      // (we subtract g//64 because of EIP-150)
+      if iszero(gt(sub(g, div(g, 64)), gasLimit)) {
+        mstore(0, notEnoughGasForCall)
+        revert(0, 0x4)
+      }
+
+      // call and return whether we succeeded. ignore return data
+      // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
+      success := call(gasLimit, target, 0, add(payload, 0x20), mload(payload), 0, 0)
+    }
+    return success;
+  }
+
+  // @notice calls target address with exactly gasAmount gas and payload as calldata.
+  // Account for gasForCallExactCheck gas that will be used by this function. Will revert
+  // if the target is not a contact. Will revert when there is not enough gas to call the
+  // target with gasAmount gas.
+  // @dev Caps the return data length, which makes it immune to gas bomb attacks.
+  // @return success whether the call succeeded
+  // @return retData the return data from the call, capped at maxReturnBytes bytes
   function _callWithExactGasSafeReturnData(
     bytes memory payload,
     address target,
@@ -72,51 +130,11 @@ library CallWithExactGas {
     return (success, retData);
   }
 
-  function _callWithExactGas(
-    bytes memory payload,
-    address target,
-    uint256 gasLimit,
-    uint16 gasForCallExactCheck
-  ) internal returns (bool success) {
-    bytes4 noContract = NoContract.selector;
-    bytes4 noGasForCallExactCheck = NoGasForCallExactCheck.selector;
-    bytes4 notEnoughGasForCall = NotEnoughGasForCall.selector;
-
-    assembly {
-      // solidity calls check that a contract actually exists at the destination, so we do the same
-      // Note we do this check prior to measuring gas so gasForCallExactCheck (our "cushion")
-      // doesn't need to account for it.
-      if iszero(extcodesize(target)) {
-        mstore(0, noContract)
-        revert(0, 0x4)
-      }
-
-      let g := gas()
-      // Compute g -= gasForCallExactCheck and check for underflow
-      // The gas actually passed to the callee is _min(gasAmount, 63//64*gas available).
-      // We want to ensure that we revert if gasAmount >  63//64*gas available
-      // as we do not want to provide them with less, however that check itself costs
-      // gas. gasForCallExactCheck ensures we have at least enough gas to be able
-      // to revert if gasAmount >  63//64*gas available.
-      if lt(g, gasForCallExactCheck) {
-        mstore(0, noGasForCallExactCheck)
-        revert(0, 0x4)
-      }
-      g := sub(g, gasForCallExactCheck)
-      // if g - g//64 <= gasAmount, revert
-      // (we subtract g//64 because of EIP-150)
-      if iszero(gt(sub(g, div(g, 64)), gasLimit)) {
-        mstore(0, notEnoughGasForCall)
-        revert(0, 0x4)
-      }
-
-      // call and return whether we succeeded. ignore return data
-      // call(gas,addr,value,argsOffset,argsLength,retOffset,retLength)
-      success := call(gasLimit, target, 0, add(payload, 0x20), mload(payload), 0, 0)
-    }
-    return success;
-  }
-
+  // @notice calls target address with exactly gasAmount gas and payload as calldata
+  // or reverts if at least gasLimit gas is not available.
+  // @dev does not check if target is a contract. If it is not a contract, the low-level
+  // call will still be made and it will succeed.
+  // TODO check with tests
   function _callWithExactGasEvenIfTargetIsNoContract(
     bytes memory payload,
     address target,
