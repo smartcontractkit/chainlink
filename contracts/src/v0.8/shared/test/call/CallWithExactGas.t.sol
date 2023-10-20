@@ -33,8 +33,8 @@ contract CallWithExactGas_callWithExactGas is BaseTest {
       data,
       address(s_receiver),
       DEFAULT_GAS_LIMIT,
-      maxRetBytes,
-      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
+      maxRetBytes
     );
 
     assertTrue(success);
@@ -49,8 +49,8 @@ contract CallWithExactGas_callWithExactGas is BaseTest {
       "", // empty payload as it will revert well before needing it
       address(s_receiver),
       gasLimit,
-      0,
-      gasForCallExactCheck
+      gasForCallExactCheck,
+      0
     );
 
     // Since only 63/64th of the gas gets passed, we compensate
@@ -99,8 +99,8 @@ contract CallWithExactGas_callWithExactGas is BaseTest {
       data,
       address(s_receiver),
       DEFAULT_GAS_LIMIT * 10,
-      maxReturnBytes,
-      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
+      maxReturnBytes
     );
 
     assertFalse(success);
@@ -126,8 +126,8 @@ contract CallWithExactGas_callWithExactGas is BaseTest {
       "", // empty payload as it will revert well before needing it
       addressWithoutContract,
       DEFAULT_GAS_LIMIT,
-      0,
-      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
+      0
     );
   }
 
@@ -137,8 +137,8 @@ contract CallWithExactGas_callWithExactGas is BaseTest {
       "", // empty payload as it will revert well before needing it
       address(s_receiver),
       DEFAULT_GAS_LIMIT,
-      0,
-      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
+      0
     );
 
     (bool success, bytes memory retData) = address(s_caller).call{gas: DEFAULT_GAS_FOR_CALL_EXACT_CHECK - 1}(payload);
@@ -154,8 +154,8 @@ contract CallWithExactGas_callWithExactGas is BaseTest {
     //      "",
     //      address(s_receiver),
     //      type(uint256).max,
-    //      0,
-    //      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+    //      DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
+    //      0
     //    );
 
     bytes memory payload = abi.encodeWithSelector(
@@ -163,8 +163,8 @@ contract CallWithExactGas_callWithExactGas is BaseTest {
       "", // empty payload as it will revert well before needing it
       address(s_receiver),
       DEFAULT_GAS_LIMIT,
-      0,
-      DEFAULT_GAS_FOR_CALL_EXACT_CHECK
+      DEFAULT_GAS_FOR_CALL_EXACT_CHECK,
+      0
     );
 
     uint256 allowedGas = (DEFAULT_GAS_LIMIT + (DEFAULT_GAS_LIMIT / 64)) + DEFAULT_GAS_FOR_CALL_EXACT_CHECK;

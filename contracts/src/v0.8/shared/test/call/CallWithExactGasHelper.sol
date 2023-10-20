@@ -17,15 +17,24 @@ contract CallWithExactGasHelper {
     bytes memory payload,
     address target,
     uint256 gasLimit,
-    uint16 maxReturnBytes,
-    uint16 gasForCallExactCheck
+    uint16 gasForCallExactCheck,
+    uint16 maxReturnBytes
   ) public returns (bool success, bytes memory retData) {
     (success, retData) = CallWithExactGas._callWithExactGasSafeReturnData(
       payload,
       target,
       gasLimit,
-      maxReturnBytes,
-      gasForCallExactCheck
+      gasForCallExactCheck,
+      maxReturnBytes
     );
+  }
+
+  function callWithExactGasEvenIfTargetIsNoContract(
+    bytes memory payload,
+    address target,
+    uint256 gasLimit,
+    uint16 gasForCallExactCheck
+  ) public returns (bool sufficientGas) {
+    return CallWithExactGas._callWithExactGasEvenIfTargetIsNoContract(payload, target, gasLimit, gasForCallExactCheck);
   }
 }

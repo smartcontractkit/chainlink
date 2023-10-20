@@ -17,8 +17,8 @@ library CallWithExactGas {
     bytes memory payload,
     address target,
     uint256 gasLimit,
-    uint16 maxReturnBytes,
-    uint16 gasForCallExactCheck
+    uint16 gasForCallExactCheck,
+    uint16 maxReturnBytes
   ) internal returns (bool success, bytes memory retData) {
     // allocate retData memory ahead of time
     retData = new bytes(maxReturnBytes);
@@ -119,8 +119,9 @@ library CallWithExactGas {
 
   function _callWithExactGasEvenIfTargetIsNoContract(
     bytes memory payload,
+    address target,
     uint256 gasLimit,
-    address target
+    uint16 gasForCallExactCheck
   ) internal returns (bool sufficientGas) {
     assembly {
       let g := gas()
@@ -128,11 +129,11 @@ library CallWithExactGas {
       // need the cushion since the logic following the above call to gas also
       // costs gas which we cannot account for exactly. So cushion is a
       // conservative upper bound for the cost of this logic.
-      if iszero(lt(g, CALL_WITH_EXACT_GAS_CUSHION)) {
-        g := sub(g, CALL_WITH_EXACT_GAS_CUSHION)
+      if iszero(lt(g, gasForCallExactCheck)) {
+        g := sub(g, gasForCallExactCheck)
         // If g - g//64 <= gasAmount, we don't have enough gas. (We subtract g//64
         // because of EIP-150.)
-        if gt(sub(g, div(g, 64)), gasAmount) {
+        if gt(sub(g, div(g, 64)), gasLimit) {
           // Call and ignore success/return data. Note that we did not check
           // whether a contract actually exists at the target address.
           pop(call(gasLimit, target, 0, add(payload, 0x20), mload(payload), 0, 0))
