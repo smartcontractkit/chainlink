@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: BUSL-1.1
+// SPDX-License-Identifier: MIT
 pragma solidity 0.8.19;
 
 import {CallWithExactGas} from "../../call/CallWithExactGas.sol";
@@ -153,7 +153,7 @@ contract CallWithExactGas__callWithExactGas is CallWithExactGasSetup {
 }
 
 contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSetup {
-  function test_CallWithExactGasSafeReturnDataSuccess(bytes memory payload, bytes4 funcSelector) public {
+  function testFuzz_CallWithExactGasSafeReturnDataSuccess(bytes memory payload, bytes4 funcSelector) public {
     vm.pauseGasMetering();
     bytes memory data = abi.encodeWithSelector(funcSelector, payload);
     vm.assume(funcSelector != GenericReceiver.setRevert.selector && funcSelector != GenericReceiver.setErr.selector);
