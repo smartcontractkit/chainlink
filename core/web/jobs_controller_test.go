@@ -2,6 +2,7 @@ package web_test
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -379,16 +380,21 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	require.NoError(t, err)
 }
 
+//go:embed webhook-spec-template.yml
+var webhookSpecTemplate string
+
 func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
 	client := app.NewHTTPClient(nil)
 
-	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/webhook-job-spec-with-empty-json.toml")
-	body, _ := json.Marshal(web.CreateJobRequest{
-		TOML: string(tomlBytes),
+	nameAndExternalJobID := uuid.New()
+	spec := fmt.Sprintf(webhookSpecTemplate, nameAndExternalJobID, nameAndExternalJobID)
+	body, err := json.Marshal(web.CreateJobRequest{
+		TOML: spec,
 	})
+	require.NoError(t, err)
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
 
