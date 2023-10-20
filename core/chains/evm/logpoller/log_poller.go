@@ -73,6 +73,7 @@ type LogPollerTest interface {
 	BackupPollAndSaveLogs(ctx context.Context, backupPollerBlockDelay int64)
 	Filter(from, to *big.Int, bh *common.Hash) ethereum.FilterQuery
 	GetReplayFromBlock(ctx context.Context, requested int64) (int64, error)
+	PruneOldBlocks(ctx context.Context) error
 }
 
 type Client interface {
@@ -535,7 +536,7 @@ func (lp *logPoller) run() {
 			lp.BackupPollAndSaveLogs(lp.ctx, backupPollerBlockDelay)
 		case <-blockPruneTick:
 			blockPruneTick = time.After(utils.WithJitter(lp.pollPeriod * 1000))
-			if err := lp.pruneOldBlocks(lp.ctx); err != nil {
+			if err := lp.PruneOldBlocks(lp.ctx); err != nil {
 				lp.lggr.Errorw("Unable to prune old blocks", "err", err)
 			}
 		case <-logPruneTick:
@@ -944,19 +945,23 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 	return nil, rerr
 }
 
-// pruneOldBlocks removes blocks that are > lp.ancientBlockDepth behind the latest finalized block.
-func (lp *logPoller) pruneOldBlocks(ctx context.Context) error {
-	_, latestFinalizedBlock, err := lp.latestBlocks(ctx)
+// PruneOldBlocks removes blocks that are > lp.ancientBlockDepth behind the latest finalized block.
+func (lp *logPoller) PruneOldBlocks(ctx context.Context) error {
+	latestBlock, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
 		return err
 	}
-	if latestFinalizedBlock <= lp.keepFinalizedBlocksDepth {
+	if latestBlock == nil {
+		// No blocks saved yet.
+		return nil
+	}
+	if latestBlock.FinalizedBlockNumber <= lp.keepFinalizedBlocksDepth {
 		// No-op, keep all blocks
 		return nil
 	}
 	// 1-2-3-4-5(finalized)-6-7(latest), keepFinalizedBlocksDepth=3
 	// Remove <= 2
-	return lp.orm.DeleteBlocksBefore(latestFinalizedBlock-lp.keepFinalizedBlocksDepth, pg.WithParentCtx(ctx))
+	return lp.orm.DeleteBlocksBefore(latestBlock.FinalizedBlockNumber-lp.keepFinalizedBlocksDepth, pg.WithParentCtx(ctx))
 }
 
 // Logs returns logs matching topics and address (exactly) in the given block range,

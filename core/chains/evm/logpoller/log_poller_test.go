@@ -3,6 +3,7 @@ package logpoller_test
 import (
 	"context"
 	"fmt"
+	"math"
 	"math/big"
 	"testing"
 	"time"
@@ -1647,6 +1648,54 @@ func Test_CreatedAfterQueriesWithBackfill(t *testing.T) {
 			)
 			require.NoError(t, err)
 			require.Len(t, logs, emittedLogs)
+		})
+	}
+}
+
+func Test_PruneOldBlocks(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	tests := []struct {
+		name          string
+		blockToCreate int
+		blocksLeft    int
+		wantErr       bool
+	}{
+		{
+			name:          "returns error if no blocks yet",
+			blockToCreate: 0,
+			wantErr:       true,
+		},
+		{
+			name:          "returns if there is not enough blocks in the db",
+			blockToCreate: 10,
+			blocksLeft:    10,
+		},
+		{
+			name:          "prunes matching blocks",
+			blockToCreate: 2000,
+			blocksLeft:    1010, // last finalized block is 10 block behind
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			th := SetupTH(t, true, 0, 3, 2)
+
+			for i := 1; i <= tt.blockToCreate; i++ {
+				err := th.ORM.InsertBlock(utils.RandomBytes32(), int64(i+10), time.Now(), int64(i))
+				require.NoError(t, err)
+			}
+
+			if tt.wantErr {
+				require.Error(t, th.LogPoller.PruneOldBlocks(ctx))
+				return
+			}
+
+			require.NoError(t, th.LogPoller.PruneOldBlocks(ctx))
+			blocks, err := th.ORM.GetBlocksRange(0, math.MaxInt64, pg.WithParentCtx(ctx))
+			require.NoError(t, err)
+			assert.Len(t, blocks, tt.blocksLeft)
 		})
 	}
 }
