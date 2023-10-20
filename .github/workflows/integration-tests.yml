@@ -318,15 +318,21 @@ jobs:
       - name: Check for "enable tracing" label
         id: check-label
         run: |
-          label=$(jq -r '.pull_request.labels[].name' "$GITHUB_EVENT_PATH")
-          if [[ "$label" == "enable tracing" ]]; then
-            echo "Enable tracing label found."
-            echo "trace=true" >> $GITHUB_OUTPUT
+          label=$(jq -r '.pull_request.labels[]?.name // empty' "$GITHUB_EVENT_PATH")
+
+          if [[ -n "$label" ]]; then
+            if [[ "$label" == "enable tracing" ]]; then
+              echo "Enable tracing label found."
+              echo "trace=true" >> $GITHUB_OUTPUT
+            else
+              echo "Enable tracing label not found."
+              echo "trace=false" >> $GITHUB_OUTPUT
+            fi
           else
-            echo "Enable tracing label not found."
+            echo "No labels present or labels are null."
             echo "trace=false" >> $GITHUB_OUTPUT
           fi
-          echo "$PWD"
+
       - name: Setup Grafana and OpenTelemetry
         id: docker-setup
         if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.image.tag-suffix == '-plugins'
