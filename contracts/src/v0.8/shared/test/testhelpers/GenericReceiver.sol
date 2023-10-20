@@ -17,6 +17,7 @@ contract GenericReceiver {
     s_err = err;
   }
 
+  // solhint-disable-next-line payable-fallback
   fallback() external {
     if (s_toRevert) {
       bytes memory reason = s_err;

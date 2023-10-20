@@ -27,7 +27,6 @@ library CallWithExactGas {
     bytes4 noGasForCallExactCheck = NoGasForCallExactCheck.selector;
     bytes4 notEnoughGasForCall = NotEnoughGasForCall.selector;
 
-    // solhint-disable-next-line no-inline-assembly
     assembly {
       // solidity calls check that a contract actually exists at the destination, so we do the same
       // Note we do this check prior to measuring gas so gasForCallExactCheck (our "cushion")
@@ -83,7 +82,6 @@ library CallWithExactGas {
     bytes4 noGasForCallExactCheck = NoGasForCallExactCheck.selector;
     bytes4 notEnoughGasForCall = NotEnoughGasForCall.selector;
 
-    // solhint-disable-next-line no-inline-assembly
     assembly {
       // solidity calls check that a contract actually exists at the destination, so we do the same
       // Note we do this check prior to measuring gas so gasForCallExactCheck (our "cushion")
@@ -119,9 +117,29 @@ library CallWithExactGas {
     return success;
   }
 
-  function _preCallChecks(address target, uint256 gasLimit, uint16 gasForCallExactCheck) private view {
-    bytes4 noContract = NoContract.selector;
-    bytes4 noGasForCallExactCheck = NoGasForCallExactCheck.selector;
-    bytes4 notEnoughGasForCall = NotEnoughGasForCall.selector;
+  function _callWithExactGasEvenIfTargetIsNoContract(
+    bytes memory payload,
+    uint256 gasLimit,
+    address target
+  ) internal returns (bool sufficientGas) {
+    assembly {
+      let g := gas()
+      // Compute g -= CALL_WITH_EXACT_GAS_CUSHION and check for underflow. We
+      // need the cushion since the logic following the above call to gas also
+      // costs gas which we cannot account for exactly. So cushion is a
+      // conservative upper bound for the cost of this logic.
+      if iszero(lt(g, CALL_WITH_EXACT_GAS_CUSHION)) {
+        g := sub(g, CALL_WITH_EXACT_GAS_CUSHION)
+        // If g - g//64 <= gasAmount, we don't have enough gas. (We subtract g//64
+        // because of EIP-150.)
+        if gt(sub(g, div(g, 64)), gasAmount) {
+          // Call and ignore success/return data. Note that we did not check
+          // whether a contract actually exists at the target address.
+          pop(call(gasLimit, target, 0, add(payload, 0x20), mload(payload), 0, 0))
+          sufficientGas := true
+        }
+      }
+    }
+    return sufficientGas;
   }
 }
