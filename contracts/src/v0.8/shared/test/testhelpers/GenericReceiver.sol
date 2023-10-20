@@ -21,7 +21,6 @@ contract GenericReceiver {
   fallback() external {
     if (s_toRevert) {
       bytes memory reason = s_err;
-      // solhint-disable-next-line no-inline-assembly
       assembly {
         revert(add(32, reason), mload(reason))
       }

@@ -134,7 +134,6 @@ library CallWithExactGas {
   // or reverts if at least gasLimit gas is not available.
   // @dev does not check if target is a contract. If it is not a contract, the low-level
   // call will still be made and it will succeed.
-  // TODO check with tests
   function _callWithExactGasEvenIfTargetIsNoContract(
     bytes memory payload,
     address target,

@@ -44,36 +44,31 @@ contract CallWithExactGas__callWithExactGas is CallWithExactGasSetup {
 
     bytes memory payload = abi.encodeWithSelector(
       s_caller.callWithExactGas.selector,
-      "", // empty payload as it will revert well before needing it
+      "",
       address(s_receiver),
       gasLimit,
       gasForCallExactCheck
     );
 
     // Since only 63/64th of the gas gets passed, we compensate
-    uint256 allowedGas = (gasLimit + (gasLimit / 64)); // 10,156
+    uint256 allowedGas = (gasLimit + (gasLimit / 64));
     // We call `extcodesize` which costs 2600 gas
-    allowedGas += 2600; //  10,156 + 2,600 = 12,756
+    allowedGas += 2600;
 
     // Add DEFAULT_GAS_FOR_CALL_EXACT_CHECK
-    allowedGas += gasForCallExactCheck; // 12,756 + 5,000 = 17,756
+    allowedGas += gasForCallExactCheck;
 
-    // Add gas to init the retData field, calculated to be 114 gas for 0 length
-    allowedGas += 114; // 17,756 + 114 = 17,870
-
-    // Add some margin for 5 mstore's, 1 gas() call, a function call, 3 slots of func args
-    // and some basic arithmetic. Rough estimate of ~100 total.
-    allowedGas += 100; // 17,870 + 100 = 17,970
-
-    // Extra padding to handle e.g. calldata cost
-    allowedGas += 536; // Magic padding required = 18,529
+    // Add some margin for mstore's, gas() call, a function call, 3 slots of func args,
+    // some basic arithmetic and calldata cost.
+    allowedGas += 519;
 
     // Due to EIP-150 we expect to lose 1/64, so we compensate for this
-    allowedGas = (allowedGas * 64) / 63; // 18,529   * 64 / 63 = 18,823
+    allowedGas = (allowedGas * 64) / 63;
 
-    (bool success, ) = address(s_caller).call{gas: allowedGas}(payload);
+    (bool success, bytes memory retData) = address(s_caller).call{gas: allowedGas}(payload);
 
     assertTrue(success);
+    assertEq(abi.encode(true), retData);
   }
 
   function test_CallWithExactGasReceiverErrorSuccess() public {
@@ -155,7 +150,6 @@ contract CallWithExactGas__callWithExactGas is CallWithExactGasSetup {
 }
 
 contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSetup {
-  /// forge-config: shared.fuzz.runs = 3200
   function test_CallWithExactGasSafeReturnDataSuccess(bytes memory payload, bytes4 funcSelector) public {
     bytes memory data = abi.encodeWithSelector(funcSelector, payload);
     vm.assume(funcSelector != GenericReceiver.setRevert.selector && funcSelector != GenericReceiver.setErr.selector);
@@ -181,7 +175,7 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
 
     bytes memory payload = abi.encodeWithSelector(
       s_caller.callWithExactGasSafeReturnData.selector,
-      "", // empty payload as it will revert well before needing it
+      "",
       address(s_receiver),
       gasLimit,
       gasForCallExactCheck,
@@ -189,29 +183,31 @@ contract CallWithExactGas__callWithExactGasSafeReturnData is CallWithExactGasSet
     );
 
     // Since only 63/64th of the gas gets passed, we compensate
-    uint256 allowedGas = (gasLimit + (gasLimit / 64)); // 10,156
+    uint256 allowedGas = (gasLimit + (gasLimit / 64));
     // We call `extcodesize` which costs 2600 gas
-    allowedGas += 2600; //  10,156 + 2,600 = 12,756
+    allowedGas += 2600;
 
     // Add DEFAULT_GAS_FOR_CALL_EXACT_CHECK
-    allowedGas += gasForCallExactCheck; // 12,756 + 5,000 = 17,756
+    allowedGas += gasForCallExactCheck;
 
     // Add gas to init the retData field, calculated to be 114 gas for 0 length
-    allowedGas += 114; // 17,756 + 114 = 17,870
+    allowedGas += 114;
 
-    // Add some margin for 5 mstore's, 1 gas() call, a function call, 3 slots of func args
-    // and some basic arithmetic. Rough estimate of ~100 total.
-    allowedGas += 100; // 17,870 + 100 = 17,970
-
-    // Extra padding to handle e.g. calldata cost
-    allowedGas += 536; // Magic padding required = 18,529
+    // Add some margin for mstore's, gas() call, a function call, 3 slots of func args,
+    // some basic arithmetic and calldata cost.
+    allowedGas += 636;
 
     // Due to EIP-150 we expect to lose 1/64, so we compensate for this
-    allowedGas = (allowedGas * 64) / 63; // 18,529   * 64 / 63 = 18,823
+    allowedGas = (allowedGas * 64) / 63;
 
-    (bool success, ) = address(s_caller).call{gas: allowedGas}(payload);
+    vm.expectCall(address(s_receiver), "");
+    (bool success, bytes memory retData) = address(s_caller).call{gas: allowedGas}(payload);
 
     assertTrue(success);
+    (bool innerSuccess, bytes memory innerRetData) = abi.decode(retData, (bool, bytes));
+
+    assertTrue(innerSuccess);
+    assertEq(innerRetData.length, 0);
   }
 
   function testFuzz_CallWithExactGasReceiverErrorSuccess(uint16 testRetBytes) public {
@@ -328,13 +324,14 @@ contract CallWithExactGas__callWithExactGasEvenIfTargetIsNoContract is CallWithE
     assertTrue(sufficientGas);
   }
 
-  function test_CallWithExactGasEvenIfTargetIsNoContractExactGas() public {
+  function test_CallWithExactGasEvenIfTargetIsNoContractExactGasSuccess() public {
+    bytes memory data = abi.encode("0x52656E73");
     uint256 gasLimit = 10_000;
     uint16 gasForCallExactCheck = 5_000;
 
     bytes memory payload = abi.encodeWithSelector(
       s_caller.callWithExactGasEvenIfTargetIsNoContract.selector,
-      "", // empty payload as it will revert well before needing it
+      data,
       address(s_receiver),
       gasLimit,
       gasForCallExactCheck
@@ -345,19 +342,20 @@ contract CallWithExactGas__callWithExactGasEvenIfTargetIsNoContract is CallWithE
     // Add DEFAULT_GAS_FOR_CALL_EXACT_CHECK
     allowedGas += gasForCallExactCheck;
 
-    // Add some margin for 5 mstore's, 1 gas() call, a function call, 3 slots of func args
-    // and some basic arithmetic. Rough estimate of ~100 total.
-    allowedGas += 100;
-
-    // Extra padding to handle e.g. calldata cost
-    allowedGas += 536;
+    // Add some margin for  mstore's, gas() call, a function call, 3 slots of func args,
+    // some basic arithmetic and calldata cost
+    allowedGas += 595;
 
     // Due to EIP-150 we expect to lose 1/64, so we compensate for this
     allowedGas = (allowedGas * 64) / 63;
 
-    (bool sufficientGas, ) = address(s_caller).call{gas: allowedGas}(payload);
+    vm.expectCall(address(s_receiver), data);
+    (bool success, bytes memory sufficientGas) = address(s_caller).call{gas: allowedGas}(payload);
 
-    assertTrue(sufficientGas);
+    // The call succeeds
+    assertTrue(success);
+    // It returns true
+    assertEq(abi.encode(true), sufficientGas);
   }
 
   function test_CallWithExactGasEvenIfTargetIsNoContractReceiverErrorSuccess() public {
@@ -384,10 +382,11 @@ contract CallWithExactGas__callWithExactGasEvenIfTargetIsNoContract is CallWithE
   }
 
   function test_NoContractSuccess() public {
+    bytes memory data = abi.encode("0x52656E73");
     address addressWithoutContract = address(1337);
 
     bool sufficientGas = s_caller.callWithExactGasEvenIfTargetIsNoContract(
-      abi.encodeWithSelector(s_caller.callWithExactGasEvenIfTargetIsNoContract.selector),
+      data,
       addressWithoutContract,
       DEFAULT_GAS_LIMIT,
       DEFAULT_GAS_FOR_CALL_EXACT_CHECK
@@ -408,13 +407,14 @@ contract CallWithExactGas__callWithExactGasEvenIfTargetIsNoContract is CallWithE
     (bool success, bytes memory sufficientGas) = address(s_caller).call{gas: DEFAULT_GAS_FOR_CALL_EXACT_CHECK - 1}(
       payload
     );
+
     // The call succeeds
     assertTrue(success);
     // It returns false
     assertEq(sufficientGas, abi.encode(false));
   }
 
-  function test_NotEnoughGasForCallReverts() public {
+  function test_NotEnoughGasForCallReturnsFalseSuccess() public {
     bytes memory payload = abi.encodeWithSelector(
       s_caller.callWithExactGasEvenIfTargetIsNoContract.selector,
       "", // empty payload as it will revert well before needing it
@@ -433,7 +433,9 @@ contract CallWithExactGas__callWithExactGasEvenIfTargetIsNoContract is CallWithE
     // Expect this call to fail due to not having enough gas for the final call
     (bool success, bytes memory sufficientGas) = address(s_caller).call{gas: allowedGas}(payload);
 
+    // The call succeeds
     assertTrue(success);
+    // It returns false
     assertEq(sufficientGas, abi.encode(false));
   }
 }
