@@ -189,6 +189,13 @@ func TestTracing_ValidateCollectorTarget(t *testing.T) {
 		errMsg          string
 	}{
 		{
+			name:            "valid http address",
+			collectorTarget: ptr("https://localhost:4317"),
+			// TODO: BCF-2703. Re-enable when we have secure transport to otel collectors in external networks
+			wantErr: true,
+			errMsg:  "CollectorTarget: invalid value (https://localhost:4317): must be a valid URI",
+		},
+		{
 			name:            "valid localhost address",
 			collectorTarget: ptr("localhost:4317"),
 			wantErr:         false,
@@ -202,6 +209,12 @@ func TestTracing_ValidateCollectorTarget(t *testing.T) {
 			name:            "valid IP address",
 			collectorTarget: ptr("192.168.1.1:4317"),
 			wantErr:         false,
+		},
+		{
+			name:            "invalid port",
+			collectorTarget: ptr("localhost:invalid"),
+			wantErr:         true,
+			errMsg:          "CollectorTarget: invalid value (localhost:invalid): must be a valid URI",
 		},
 		{
 			name:            "invalid address",

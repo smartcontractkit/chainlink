@@ -1358,7 +1358,13 @@ func isValidURI(uri string) bool {
 	if strings.Contains(uri, "://") {
 		// Standard URI check
 		_, err := url.ParseRequestURI(uri)
-		return err == nil
+		if err != nil {
+			// TODO: BCF-2703. All external addresses currently fail validation until we have secure transport to external networks.
+			return false
+		} else {
+			return false
+		}
+
 	}
 
 	// For URIs like "otel-collector:4317"

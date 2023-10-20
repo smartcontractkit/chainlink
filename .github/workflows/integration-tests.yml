@@ -381,7 +381,7 @@ jobs:
             # R: remote port forwarding
             ssh -o StrictHostKeyChecking=no -f -N -R $REMOTE_PORT:localhost:3000 user-gha@$TRACING_SSH_SERVER
             echo "To view Grafana locally:"
-            echo "ssh -N -L 8000:localhost:$REMOTE_PORT user-gha@$TRACING_SSH_SERVER"
+            echo "ssh -N -L 8000:127.0.0.1:$REMOTE_PORT user-gha@$TRACING_SSH_SERVER"
             echo "Then visit http://localhost:8000 in a browser."
             echo "If you are unable to connect, check with the security team that you have access to the tracing server."
       - name: Show Grafana Logs
