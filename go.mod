@@ -68,7 +68,7 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/caigo v0.0.0-20230621050857-b29a4ca8c704
 	github.com/smartcontractkit/chainlink-cosmos v0.4.1-0.20230913032705-f924d753cc47
-	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20231016132219-9c6fdb379595
+	github.com/smartcontractkit/chainlink-relay v0.1.7-0.20231019215252-bcced69e26a6
 	github.com/smartcontractkit/chainlink-solana v1.0.3-0.20231016152201-a10a460e67d8
 	github.com/smartcontractkit/chainlink-starknet/relayer v0.0.1-beta-test.0.20230901115736-bbabe542a918
 	github.com/smartcontractkit/libocr v0.0.0-20230925165524-ffa38fe11ef8
@@ -131,6 +131,7 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.0.1 // indirect
 	github.com/bytedance/sonic v1.9.1 // indirect
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
+	github.com/cenkalti/backoff/v4 v4.2.1 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
@@ -201,6 +202,7 @@ require (
 	github.com/grpc-ecosystem/go-grpc-middleware/providers/prometheus v1.0.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.0.0-rc.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0 // indirect
+	github.com/grpc-ecosystem/grpc-gateway/v2 v2.16.0 // indirect
 	github.com/gsterjov/go-libsecret v0.0.0-20161001094733-a6f4afe4910c // indirect
 	github.com/gtank/merlin v0.1.1 // indirect
 	github.com/gtank/ristretto255 v0.1.2 // indirect
@@ -350,9 +352,12 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.45.0 // indirect
 	go.opentelemetry.io/otel v1.19.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.18.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.18.0 // indirect
 	go.opentelemetry.io/otel/metric v1.19.0 // indirect
 	go.opentelemetry.io/otel/sdk v1.19.0 // indirect
 	go.opentelemetry.io/otel/trace v1.19.0 // indirect
+	go.opentelemetry.io/proto/otlp v1.0.0 // indirect
 	go.uber.org/ratelimit v0.2.0 // indirect
 	golang.org/x/arch v0.3.0 // indirect
 	golang.org/x/sys v0.13.0 // indirect
