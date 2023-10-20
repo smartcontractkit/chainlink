@@ -58,11 +58,11 @@ func NewChainReaderService(lggr logger.Logger, lp logpoller.LogPoller) (*chainRe
 	return &chainReader{lggr, lp}, nil
 }
 
-func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundContract, method string, params any, returnVal any) ([]byte, error) {
+func (cr *chainReader) GetLatestValue(ctx context.Context, bc relaytypes.BoundContract, method string, params any, returnVal any) error {
 
 	// TODO: implement GetLatestValue
 
-	return nil, nil
+	return fmt.Errorf("Unimplemented method")
 }
 
 func (cr *chainReader) Start(ctx context.Context) error {
