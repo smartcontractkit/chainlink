@@ -72,20 +72,19 @@ func EVMDependencies20(
 	lggr logger.Logger,
 	chain evm.Chain,
 	pr pipeline.Runner,
-) (evmrelay.OCR2KeeperProvider, *kevm20.EvmRegistry, Encoder20, *kevm20.LogProvider, error) {
+) (*kevm20.EvmRegistry, Encoder20, *kevm20.LogProvider, error) {
 	var err error
 
-	var keeperProvider evmrelay.OCR2KeeperProvider
 	var registry *kevm20.EvmRegistry
 
 	// the provider will be returned as a dependency
-	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, pr); err != nil {
-		return nil, nil, nil, nil, err
-	}
+	//if keeperProvider, err = EVMProvider(db, chain, lggr, spec, pr); err != nil {
+	//	return nil, nil, nil, nil, err
+	//}
 
 	rAddr := ethkey.MustEIP55Address(spec.OCR2OracleSpec.ContractID).Address()
 	if registry, err = kevm20.NewEVMRegistryService(rAddr, chain, lggr); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	encoder := kevm20.EVMAutomationEncoder20{}
@@ -96,7 +95,7 @@ func EVMDependencies20(
 	// TODO: accept a version of the registry contract and use the correct interfaces
 	logProvider, err := kevm20.NewLogProvider(lggr, chain.LogPoller(), rAddr, chain.Client(), lookbackBlocks)
 
-	return keeperProvider, registry, encoder, logProvider, err
+	return registry, encoder, logProvider, err
 }
 
 func FilterNamesFromSpec20(spec *job.OCR2OracleSpec) (names []string, err error) {
@@ -116,23 +115,22 @@ func EVMDependencies21(
 	mc *models.MercuryCredentials,
 	keyring ocrtypes.OnchainKeyring,
 	dbCfg pg.QConfig,
-) (evmrelay.OCR2KeeperProvider, kevm21.AutomationServices, error) {
+) (kevm21.AutomationServices, error) {
 	var err error
-	var keeperProvider evmrelay.OCR2KeeperProvider
 
 	oSpec := spec.OCR2OracleSpec
 	// the provider will be returned as a dependency
-	if keeperProvider, err = EVMProvider(db, chain, lggr, spec, pr); err != nil {
-		return nil, nil, err
-	}
+	//if keeperProvider, err = EVMProvider(db, chain, lggr, spec, pr); err != nil {
+	//	return nil, nil, err
+	//}
 
 	rAddr := ethkey.MustEIP55Address(oSpec.ContractID).Address()
 	services, err := kevm21.New(rAddr, chain, mc, keyring, lggr, db, dbCfg)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return keeperProvider, services, err
+	return services, err
 }
 
 func FilterNamesFromSpec21(spec *job.OCR2OracleSpec) (names []string, err error) {

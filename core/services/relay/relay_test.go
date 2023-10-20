@@ -95,6 +95,10 @@ type staticMercuryProvider struct {
 	types.MercuryProvider
 }
 
+type staticOCR2KeepersProvider struct {
+	types.OCR2KeepersProvider
+}
+
 type mockRelayer struct {
 	types.Relayer
 }
@@ -109,6 +113,10 @@ func (m *mockRelayer) NewFunctionsProvider(rargs types.RelayArgs, pargs types.Pl
 
 func (m *mockRelayer) NewMercuryProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.MercuryProvider, error) {
 	return staticMercuryProvider{}, nil
+}
+
+func (m *mockRelayer) NewOCR2KeepersProvider(rargs types.RelayArgs, pargs types.PluginArgs) (types.OCR2KeepersProvider, error) {
+	return staticOCR2KeepersProvider{}, nil
 }
 
 type mockRelayerExt struct {

@@ -23,7 +23,7 @@ require (
 	github.com/shopspring/decimal v1.3.1
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-00010101000000-000000000000
 	github.com/smartcontractkit/libocr v0.0.0-20231107151413-13e0202ae8d7
-	github.com/smartcontractkit/ocr2keepers v0.7.28
+	github.com/smartcontractkit/ocr2keepers v0.7.27
 	github.com/smartcontractkit/ocr2vrf v0.0.0-20230804151440-2f1eb1e20687
 	github.com/spf13/cobra v1.6.1
 	github.com/spf13/viper v1.15.0
@@ -398,3 +398,9 @@ replace (
 	github.com/mwitkow/grpc-proxy => github.com/smartcontractkit/grpc-proxy v0.0.0-20230731113816-f1be6620749f
 
 )
+
+replace github.com/smartcontractkit/chainlink-starknet => github.com/ferglor/chainlink-starknet v0.0.0-20231110152807-cce55b086cfa
+
+replace github.com/smartcontractkit/chainlink-solana => github.com/ferglor/chainlink-solana v0.0.0-20231110160953-1a0a057ae940
+
+replace github.com/smartcontractkit/chainlink-comos => github.com/ferglor/chainlink-cosmos v0.0.0-20231110161127-a269495f02c3
