@@ -42,6 +42,7 @@ func TestOCRv2Basic(t *testing.T) {
 		)).
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.1)).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
 

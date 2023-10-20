@@ -1112,6 +1112,7 @@ func setupKeeperTest(t *testing.T) (
 		WithCLNodes(5).
 		WithCLNodeConfig(clNodeConfig).
 		WithFunding(big.NewFloat(.5)).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err, "Error deploying test environment")
 
