@@ -253,6 +253,12 @@ OCRDevelopmentMode = false
 InfiniteDepthQueries = false
 DisableRateLimiting = false
 
+[Tracing]
+Enabled = false
+CollectorTarget = ''
+NodeID = ''
+SamplingRatio = 0.0
+
 [[EVM]]
 ChainID = '1'
 AutoCreateKey = true

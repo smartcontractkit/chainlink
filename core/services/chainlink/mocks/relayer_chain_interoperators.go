@@ -10,7 +10,7 @@ import (
 	cosmos "github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 
 	evm "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	
+
 	// Manually edited. mockery generates the wrong dependency.  edited to use `loop` rather than `loop/internal`
 	// seems to caused by incorrect alias resolution of the relayer dep
 	internal "github.com/smartcontractkit/chainlink-relay/pkg/loop"
