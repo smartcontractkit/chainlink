@@ -95,30 +95,6 @@ func (_m *Registry) GetUpkeep(opts *bind.CallOpts, id *big.Int) (keeper_registry
 	return r0, r1
 }
 
-// LatestConfigDetails provides a mock function with given fields: opts
-func (_m *Registry) LatestConfigDetails(opts *bind.CallOpts) (keeper_registry_wrapper2_0.LatestConfigDetails, error) {
-	ret := _m.Called(opts)
-
-	var r0 keeper_registry_wrapper2_0.LatestConfigDetails
-	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) (keeper_registry_wrapper2_0.LatestConfigDetails, error)); ok {
-		return rf(opts)
-	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) keeper_registry_wrapper2_0.LatestConfigDetails); ok {
-		r0 = rf(opts)
-	} else {
-		r0 = ret.Get(0).(keeper_registry_wrapper2_0.LatestConfigDetails)
-	}
-
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
-		r1 = rf(opts)
-	} else {
-		r1 = ret.Error(1)
-	}
-
-	return r0, r1
-}
-
 // ParseLog provides a mock function with given fields: log
 func (_m *Registry) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	ret := _m.Called(log)
