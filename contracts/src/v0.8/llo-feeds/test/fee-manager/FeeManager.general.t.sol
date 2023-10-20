@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: UNLICENSED
 pragma solidity 0.8.16;
 
-import {Test} from "forge-std/Test.sol";
-import {FeeManager} from "../../dev/FeeManager.sol";
-import {Common} from "../../../libraries/Common.sol";
 import "./BaseFeeManager.t.sol";
 
 /**
@@ -28,7 +25,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     uint256 withdrawAmount = contractBalance / 2;
 
     //withdraw some balance
-    withdraw(getLinkAddress(), ADMIN, withdrawAmount, ADMIN);
+    withdraw(address(link), ADMIN, withdrawAmount, ADMIN);
 
     //check the balance has been reduced
     uint256 newContractBalance = getLinkBalance(address(feeManager));
@@ -76,7 +73,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     vm.expectRevert(ONLY_CALLABLE_BY_OWNER_ERROR);
 
     //withdraw some balance
-    withdraw(getLinkAddress(), ADMIN, DEFAULT_LINK_MINT_QUANTITY, USER);
+    withdraw(address(link), ADMIN, DEFAULT_LINK_MINT_QUANTITY, USER);
   }
 
   function test_eventIsEmittedAfterSurchargeIsSet() public {
@@ -101,10 +98,10 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     vm.expectEmit();
 
     //emit the event that is expected to be emitted
-    emit SubscriberDiscountUpdated(USER, DEFAULT_FEED_1_V3, getNativeAddress(), discount);
+    emit SubscriberDiscountUpdated(USER, DEFAULT_FEED_1_V3, address(native), discount);
 
     //set the surcharge
-    setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, getNativeAddress(), discount, ADMIN);
+    setSubscriberDiscount(USER, DEFAULT_FEED_1_V3, address(native), discount, ADMIN);
   }
 
   function test_eventIsEmittedUponWithdraw() public {
@@ -118,10 +115,10 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     vm.expectEmit();
 
     //the event to be emitted
-    emit Withdraw(ADMIN, ADMIN, getLinkAddress(), withdrawAmount);
+    emit Withdraw(ADMIN, ADMIN, address(link), withdrawAmount);
 
     //withdraw some balance
-    withdraw(getLinkAddress(), ADMIN, withdrawAmount, ADMIN);
+    withdraw(address(link), ADMIN, withdrawAmount, ADMIN);
   }
 
   function test_linkAvailableForPaymentReturnsLinkBalance() public {
@@ -137,7 +134,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_payLinkDeficit() public {
     //get the default payload
-    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3));
 
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
 
@@ -150,7 +147,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     emit InsufficientLink(contractFees);
 
     //process the fee
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(native), 0);
 
     //double check the rewardManager balance is 0
     assertEq(getLinkBalance(address(rewardManager)), 0);
@@ -170,7 +167,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_payLinkDeficitTwice() public {
     //get the default payload
-    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3));
 
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE, USER);
 
@@ -184,7 +181,7 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
     emit InsufficientLink(contractFees);
 
     //process the fee
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(native), 0);
 
     //double check the rewardManager balance is 0
     assertEq(getLinkBalance(address(rewardManager)), 0);
@@ -209,14 +206,14 @@ contract FeeManagerProcessFeeTest is BaseFeeManagerTest {
 
   function test_payLinkDeficitPaysAllFeesProcessed() public {
     //get the default payload
-    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3), getQuotePayload(getNativeAddress()));
+    bytes memory payload = getPayload(getV2Report(DEFAULT_FEED_1_V3));
 
     //approve the native to be transferred from the user
     approveNative(address(feeManager), DEFAULT_REPORT_NATIVE_FEE * 2, USER);
 
     //processing the fee will transfer the native from the user to the feeManager
-    processFee(payload, USER, 0);
-    processFee(payload, USER, 0);
+    processFee(payload, USER, address(native), 0);
+    processFee(payload, USER, address(native), 0);
 
     //check the deficit has been increased twice
     assertEq(getLinkDeficit(DEFAULT_CONFIG_DIGEST), DEFAULT_REPORT_LINK_FEE * 2);

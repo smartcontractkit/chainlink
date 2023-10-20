@@ -76,9 +76,9 @@ func (n *nodesController[R]) Index(c *gin.Context, size, page, offset int) {
 		// fetch nodes for chain ID
 		// backward compatibility
 		var rid relay.ID
-		err := rid.UnmarshalString(id)
+		err = rid.UnmarshalString(id)
 		if err != nil {
-			rid.ChainID = relay.ChainID(id)
+			rid.ChainID = id
 			rid.Network = n.nodeSet.network
 		}
 		nodes, count, err = n.nodeSet.NodeStatuses(c, offset, size, rid)

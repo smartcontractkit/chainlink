@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
@@ -23,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestORM_MostRecentFluxMonitorRoundID(t *testing.T) {
@@ -161,6 +163,7 @@ func makeJob(t *testing.T) *job.Job {
 			IdleTimerDisabled: false,
 			CreatedAt:         time.Now(),
 			UpdatedAt:         time.Now(),
+			EVMChainID:        (*utils.Big)(testutils.FixtureChainID),
 		},
 	}
 }
@@ -178,13 +181,14 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		txm = txmmocks.NewMockEvmTxManager(t)
 		orm = fluxmonitorv2.NewORM(db, logger.TestLogger(t), cfg, txm, strategy, txmgr.TransmitCheckerSpec{})
 
-		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore, 0)
+		_, from  = cltest.MustInsertRandomKey(t, ethKeyStore)
 		to       = testutils.NewAddress()
 		payload  = []byte{1, 0, 0}
 		gasLimit = uint32(21000)
 	)
-
-	txm.On("CreateTransaction", txmgr.TxRequest{
+	idempotencyKey := uuid.New().String()
+	txm.On("CreateTransaction", mock.Anything, txmgr.TxRequest{
+		IdempotencyKey: &idempotencyKey,
 		FromAddress:    from,
 		ToAddress:      to,
 		EncodedPayload: payload,
@@ -193,5 +197,5 @@ func TestORM_CreateEthTransaction(t *testing.T) {
 		Strategy:       strategy,
 	}).Return(txmgr.Tx{}, nil).Once()
 
-	require.NoError(t, orm.CreateEthTransaction(from, to, payload, gasLimit))
+	require.NoError(t, orm.CreateEthTransaction(testutils.Context(t), from, to, payload, gasLimit, &idempotencyKey))
 }

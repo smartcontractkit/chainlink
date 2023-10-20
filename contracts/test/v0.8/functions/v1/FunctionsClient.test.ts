@@ -178,7 +178,7 @@ describe('Faulty Functions Client', () => {
   it('can complete requests with an empty callback', async () => {
     const clientWithEmptyCallbackTestHelperFactory =
       await ethers.getContractFactory(
-        'src/v0.8/functions/tests/1_0_0/testhelpers/FunctionsClientWithEmptyCallback.sol:FunctionsClientWithEmptyCallback',
+        'src/v0.8/functions/tests/v1_X/testhelpers/FunctionsClientWithEmptyCallback.sol:FunctionsClientWithEmptyCallback',
         roles.consumer,
       )
 

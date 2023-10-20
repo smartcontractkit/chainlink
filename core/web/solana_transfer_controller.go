@@ -61,16 +61,12 @@ func (tc *SolanaTransfersController) Create(c *gin.Context) {
 
 	err = relayer.Transact(c, tr.From.String(), tr.To.String(), amount, !tr.AllowHigherAmounts)
 	if err != nil {
-		switch err {
-		case chains.ErrNotFound, chains.ErrChainIDEmpty:
+		if errors.Is(err, chains.ErrNotFound) || errors.Is(err, chains.ErrChainIDEmpty) {
 			jsonAPIError(c, http.StatusBadRequest, err)
 			return
-		case nil:
-			break
-		default:
-			jsonAPIError(c, http.StatusInternalServerError, err)
-			return
 		}
+		jsonAPIError(c, http.StatusInternalServerError, err)
+		return
 	}
 
 	resource := presenters.NewSolanaMsgResource("sol_transfer_"+uuid.New().String(), tr.SolanaChainID)

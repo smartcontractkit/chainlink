@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "./ConfirmedOwnerWithProposal.sol";
+import {ConfirmedOwnerWithProposal} from "./ConfirmedOwnerWithProposal.sol";
 
 /**
  * @title The ConfirmedOwner contract

@@ -2,6 +2,7 @@ package evm
 
 import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
@@ -10,7 +11,6 @@ import (
 type LoopRelayAdapter interface {
 	loop.Relayer
 	Chain() evm.Chain
-	Default() bool
 }
 type LoopRelayer struct {
 	loop.Relayer
@@ -29,8 +29,4 @@ func NewLoopRelayServerAdapter(r *Relayer, cs EVMChainRelayerExtender) *LoopRela
 
 func (la *LoopRelayer) Chain() evm.Chain {
 	return la.ext.Chain()
-}
-
-func (la *LoopRelayer) Default() bool {
-	return la.ext.Default()
 }

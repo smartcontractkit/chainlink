@@ -32,7 +32,6 @@ var ErrUnsupported = errors.New("unsupported with config v2")
 type Core struct {
 	// General/misc
 	AppID               uuid.UUID `toml:"-"` // random or test
-	ExplorerURL         *models.URL
 	InsecureFastScrypt  *bool
 	RootDir             *string
 	ShutdownGracePeriod *models.Duration
@@ -57,9 +56,6 @@ type Core struct {
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
 func (c *Core) SetFrom(f *Core) {
-	if v := f.ExplorerURL; v != nil {
-		c.ExplorerURL = v
-	}
 	if v := f.InsecureFastScrypt; v != nil {
 		c.InsecureFastScrypt = v
 	}
@@ -102,7 +98,6 @@ func (c *Core) ValidateConfig() (err error) {
 
 type Secrets struct {
 	Database   DatabaseSecrets          `toml:",omitempty"`
-	Explorer   ExplorerSecrets          `toml:",omitempty"`
 	Password   Passwords                `toml:",omitempty"`
 	Pyroscope  PyroscopeSecrets         `toml:",omitempty"`
 	Prometheus PrometheusSecrets        `toml:",omitempty"`
@@ -146,9 +141,13 @@ func validateDBURL(dbURI url.URL) error {
 }
 
 func (d *DatabaseSecrets) ValidateConfig() (err error) {
+	return d.validateConfig(build.Mode())
+}
+
+func (d *DatabaseSecrets) validateConfig(buildMode string) (err error) {
 	if d.URL == nil || (*url.URL)(d.URL).String() == "" {
 		err = multierr.Append(err, configutils.ErrEmpty{Name: "URL", Msg: "must be provided and non-empty"})
-	} else if *d.AllowSimplePasswords && build.IsProd() {
+	} else if *d.AllowSimplePasswords && buildMode == build.Prod {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "AllowSimplePasswords", Value: true, Msg: "insecure configs are not allowed on secure builds"})
 	} else if !*d.AllowSimplePasswords {
 		if verr := validateDBURL((url.URL)(*d.URL)); verr != nil {
@@ -192,39 +191,6 @@ func (d *DatabaseSecrets) validateMerge(f *DatabaseSecrets) (err error) {
 
 	if d.URL != nil && f.URL != nil {
 		err = multierr.Append(err, configutils.ErrOverride{Name: "URL"})
-	}
-
-	return err
-}
-
-type ExplorerSecrets struct {
-	AccessKey *models.Secret
-	Secret    *models.Secret
-}
-
-func (e *ExplorerSecrets) SetFrom(f *ExplorerSecrets) (err error) {
-	err = e.validateMerge(f)
-	if err != nil {
-		return err
-	}
-
-	if v := f.AccessKey; v != nil {
-		e.AccessKey = v
-	}
-	if v := f.Secret; v != nil {
-		e.Secret = v
-	}
-
-	return nil
-}
-
-func (e *ExplorerSecrets) validateMerge(f *ExplorerSecrets) (err error) {
-	if e.AccessKey != nil && f.AccessKey != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "AccessKey"})
-	}
-
-	if e.Secret != nil && f.Secret != nil {
-		err = multierr.Append(err, configutils.ErrOverride{Name: "Secret"})
 	}
 
 	return err
@@ -460,13 +426,22 @@ func (d *DatabaseBackup) setFrom(f *DatabaseBackup) {
 type TelemetryIngress struct {
 	UniConn      *bool
 	Logging      *bool
-	ServerPubKey *string
-	URL          *models.URL
 	BufferSize   *uint16
 	MaxBatchSize *uint16
 	SendInterval *models.Duration
 	SendTimeout  *models.Duration
 	UseBatchSend *bool
+	Endpoints    []TelemetryIngressEndpoint `toml:",omitempty"`
+
+	URL          *models.URL `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.URL instead, this field will be removed in future versions
+	ServerPubKey *string     `toml:",omitempty"` // Deprecated: Use TelemetryIngressEndpoint.ServerPubKey instead, this field will be removed in future versions
+}
+
+type TelemetryIngressEndpoint struct {
+	Network      *string
+	ChainID      *string
+	URL          *models.URL
+	ServerPubKey *string
 }
 
 func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
@@ -475,12 +450,6 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	}
 	if v := f.Logging; v != nil {
 		t.Logging = v
-	}
-	if v := f.ServerPubKey; v != nil {
-		t.ServerPubKey = v
-	}
-	if v := f.URL; v != nil {
-		t.URL = v
 	}
 	if v := f.BufferSize; v != nil {
 		t.BufferSize = v
@@ -497,6 +466,29 @@ func (t *TelemetryIngress) setFrom(f *TelemetryIngress) {
 	if v := f.UseBatchSend; v != nil {
 		t.UseBatchSend = v
 	}
+	if v := f.Endpoints; v != nil {
+		t.Endpoints = v
+	}
+	if v := f.ServerPubKey; v != nil {
+		t.ServerPubKey = v
+	}
+	if v := f.URL; v != nil {
+		t.URL = v
+	}
+}
+
+func (t *TelemetryIngress) ValidateConfig() (err error) {
+	if (!t.URL.IsZero() || *t.ServerPubKey != "") && len(t.Endpoints) > 0 {
+		return configutils.ErrInvalid{Name: "URL", Value: t.URL.String(),
+			Msg: `Cannot set both TelemetryIngress.URL and TelemetryIngress.ServerPubKey alongside TelemetryIngress.Endpoints. Please use only TelemetryIngress.Endpoints:
+			[[TelemetryIngress.Endpoints]]
+			Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
+			ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
+			URL = '...'
+			ServerPubKey = '...'`}
+	}
+
+	return nil
 }
 
 type AuditLogger struct {
@@ -1180,14 +1172,18 @@ type Insecure struct {
 }
 
 func (ins *Insecure) ValidateConfig() (err error) {
-	if build.IsDev() {
+	return ins.validateConfig(build.Mode())
+}
+
+func (ins *Insecure) validateConfig(buildMode string) (err error) {
+	if buildMode == build.Dev {
 		return
 	}
 	if ins.DevWebServer != nil && *ins.DevWebServer {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "DevWebServer", Value: *ins.DevWebServer, Msg: "insecure configs are not allowed on secure builds"})
 	}
-	// OCRDevelopmentMode is allowed on test builds.
-	if ins.OCRDevelopmentMode != nil && *ins.OCRDevelopmentMode && !build.IsTest() {
+	// OCRDevelopmentMode is allowed on dev/test builds.
+	if ins.OCRDevelopmentMode != nil && *ins.OCRDevelopmentMode && buildMode == build.Prod {
 		err = multierr.Append(err, configutils.ErrInvalid{Name: "OCRDevelopmentMode", Value: *ins.OCRDevelopmentMode, Msg: "insecure configs are not allowed on secure builds"})
 	}
 	if ins.InfiniteDepthQueries != nil && *ins.InfiniteDepthQueries {

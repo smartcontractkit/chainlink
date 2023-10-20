@@ -21,13 +21,13 @@ const (
 )
 
 func main() {
-	s := plugins.StartServer(loggerName)
+	s := plugins.MustNewStartedServer(loggerName)
 	defer s.Stop()
 
 	p := &pluginRelayer{Base: plugins.Base{Logger: s.Logger}}
 	defer s.Logger.ErrorIfFn(p.Close, "Failed to close")
 
-	s.MustRegister(p.Name(), p)
+	s.MustRegister(p)
 
 	stopCh := make(chan struct{})
 	defer close(stopCh)

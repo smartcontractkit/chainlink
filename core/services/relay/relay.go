@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"regexp"
 
-	"golang.org/x/exp/maps"
-
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -133,8 +131,7 @@ func (r *relayerAdapter) Ready() (err error) {
 
 func (r *relayerAdapter) HealthReport() map[string]error {
 	hr := make(map[string]error)
-	maps.Copy(r.Relayer.HealthReport(), hr)
-	maps.Copy(r.RelayerExt.HealthReport(), hr)
+	services.CopyHealth(hr, r.Relayer.HealthReport())
 	return hr
 }
 

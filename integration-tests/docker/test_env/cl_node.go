@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -17,6 +18,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	tc "github.com/testcontainers/testcontainers-go"
 	tcwait "github.com/testcontainers/testcontainers-go/wait"
@@ -24,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker"
 	"github.com/smartcontractkit/chainlink-testing-framework/docker/test_env"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/logwatch"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -42,16 +45,22 @@ var (
 
 type ClNode struct {
 	test_env.EnvComponent
-	API                   *client.ChainlinkClient
-	NodeConfig            *chainlink.Config
-	NodeSecretsConfigTOML string
-	PostgresDb            *test_env.PostgresDb
+	API                   *client.ChainlinkClient `json:"-"`
+	NodeConfig            *chainlink.Config       `json:"-"`
+	NodeSecretsConfigTOML string                  `json:"-"`
+	PostgresDb            *test_env.PostgresDb    `json:"postgresDb"`
+	t                     *testing.T
+	l                     zerolog.Logger
 	lw                    *logwatch.LogWatch
-	ContainerImage        string
-	ContainerVersion      string
 }
 
 type ClNodeOption = func(c *ClNode)
+
+func WithSecrets(secretsTOML string) ClNodeOption {
+	return func(c *ClNode) {
+		c.NodeSecretsConfigTOML = secretsTOML
+	}
+}
 
 // Sets custom node container name if name is not empty
 func WithNodeContainerName(name string) ClNodeOption {
@@ -88,11 +97,18 @@ func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOp
 		},
 		NodeConfig: nodeConfig,
 		PostgresDb: pgDb,
+		l:          log.Logger,
 	}
 	for _, opt := range opts {
 		opt(n)
 	}
 	return n
+}
+
+func (n *ClNode) SetTestLogger(t *testing.T) {
+	n.l = logging.GetTestLogger(t)
+	n.t = t
+	n.PostgresDb.WithTestLogger(t)
 }
 
 // Restart restarts only CL node, DB container is reused
@@ -152,8 +168,8 @@ func (n *ClNode) AddMercuryOCRJob(verifierAddr common.Address, fromBlock uint64,
 	}
 
 	bridges := utils.BuildBridges(eaUrls)
-	for _, b := range bridges {
-		err = n.API.MustCreateBridge(&b)
+	for index := range bridges {
+		err = n.API.MustCreateBridge(&bridges[index])
 		if err != nil {
 			return nil, err
 		}
@@ -213,35 +229,51 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	if err != nil {
 		return err
 	}
-	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{})
+	toAddr := common.HexToAddress(toAddress)
+	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{
+		To: &toAddr,
+	})
 	if err != nil {
 		return err
 	}
 	return evmClient.Fund(toAddress, amount, gasEstimates)
 }
+
 func (n *ClNode) StartContainer() error {
 	err := n.PostgresDb.StartContainer()
 	if err != nil {
 		return err
 	}
+
+	// If the node secrets TOML is not set, generate it with the default template
 	nodeSecretsToml, err := templates.NodeSecretsTemplate{
-		PgDbName:   n.PostgresDb.DbName,
-		PgHost:     n.PostgresDb.ContainerName,
-		PgPort:     n.PostgresDb.Port,
-		PgPassword: n.PostgresDb.Password,
+		PgDbName:      n.PostgresDb.DbName,
+		PgHost:        n.PostgresDb.ContainerName,
+		PgPort:        n.PostgresDb.InternalPort,
+		PgPassword:    n.PostgresDb.Password,
+		CustomSecrets: n.NodeSecretsConfigTOML,
 	}.String()
 	if err != nil {
 		return err
 	}
-	n.NodeSecretsConfigTOML = nodeSecretsToml
-	cReq, err := n.getContainerRequest()
+
+	cReq, err := n.getContainerRequest(nodeSecretsToml)
 	if err != nil {
 		return err
 	}
-	container, err := docker.StartContainerWithRetry(tc.GenericContainerRequest{
+
+	l := tc.Logger
+	if n.t != nil {
+		l = logging.CustomT{
+			T: n.t,
+			L: n.l,
+		}
+	}
+	container, err := docker.StartContainerWithRetry(n.l, tc.GenericContainerRequest{
 		ContainerRequest: *cReq,
 		Started:          true,
 		Reuse:            true,
+		Logger:           l,
 	})
 	if err != nil {
 		return errors.Wrap(err, ErrStartCLNodeContainer)
@@ -251,7 +283,7 @@ func (n *ClNode) StartContainer() error {
 			return err
 		}
 	}
-	clEndpoint, err := container.Endpoint(context.Background(), "http")
+	clEndpoint, err := test_env.GetEndpoint(context.Background(), container, "http")
 	if err != nil {
 		return err
 	}
@@ -259,7 +291,7 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return err
 	}
-	log.Info().Str("containerName", n.ContainerName).
+	n.l.Info().Str("containerName", n.ContainerName).
 		Str("clEndpoint", clEndpoint).
 		Str("clInternalIP", ip).
 		Msg("Started Chainlink Node container")
@@ -268,11 +300,11 @@ func (n *ClNode) StartContainer() error {
 		Email:      "local@local.com",
 		Password:   "localdevpassword",
 		InternalIP: ip,
-	})
+	},
+		n.l)
 	if err != nil {
 		return errors.Wrap(err, ErrConnectNodeClient)
 	}
-
 	clClient.Config.InternalIP = n.ContainerName
 	n.Container = container
 	n.API = clClient
@@ -280,7 +312,7 @@ func (n *ClNode) StartContainer() error {
 	return nil
 }
 
-func (n *ClNode) getContainerRequest() (
+func (n *ClNode) getContainerRequest(secrets string) (
 	*tc.ContainerRequest, error) {
 	configFile, err := os.CreateTemp("", "node_config")
 	if err != nil {
@@ -298,7 +330,7 @@ func (n *ClNode) getContainerRequest() (
 	if err != nil {
 		return nil, err
 	}
-	_, err = secretsFile.WriteString(n.NodeSecretsConfigTOML)
+	_, err = secretsFile.WriteString(secrets)
 	if err != nil {
 		return nil, err
 	}

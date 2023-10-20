@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 
@@ -71,7 +72,10 @@ func FundChainlinkNodesAddress(
 		if err != nil {
 			return err
 		}
-		gasEstimates, err := client.EstimateGas(ethereum.CallMsg{})
+		toAddr := common.HexToAddress(toAddress[keyIndex])
+		gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
+			To: &toAddr,
+		})
 		if err != nil {
 			return err
 		}
@@ -95,7 +99,10 @@ func FundChainlinkNodesAddresses(
 			return err
 		}
 		for _, addr := range toAddress {
-			gasEstimates, err := client.EstimateGas(ethereum.CallMsg{})
+			toAddr := common.HexToAddress(addr)
+			gasEstimates, err := client.EstimateGas(ethereum.CallMsg{
+				To: &toAddr,
+			})
 			if err != nil {
 				return err
 			}
@@ -251,7 +258,7 @@ func TeardownSuite(
 	failingLogLevel zapcore.Level, // Examines logs after the test, and fails the test if any Chainlink logs are found at or above provided level
 	clients ...blockchain.EVMClient,
 ) error {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	if err := testreporters.WriteTeardownLogs(t, env, optionalTestReporter, failingLogLevel); err != nil {
 		return errors.Wrap(err, "Error dumping environment logs, leaving environment running for manual retrieval")
 	}
@@ -295,7 +302,7 @@ func TeardownRemoteSuite(
 	optionalTestReporter testreporters.TestReporter, // Optionally pass in a test reporter to log further metrics
 	client blockchain.EVMClient,
 ) error {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	var err error
 	if err = testreporters.SendReport(t, namespace, "./", optionalTestReporter); err != nil {
 		l.Warn().Err(err).Msg("Error writing test report")
@@ -368,7 +375,7 @@ func ReturnFunds(chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient b
 			}
 			err = blockchainClient.ReturnFunds(decryptedKey.PrivateKey)
 			if err != nil {
-				return err
+				log.Error().Err(err).Str("Address", fundedKeys[0].Address).Msg("Error returning funds from Chainlink node")
 			}
 		}
 	}
@@ -378,7 +385,10 @@ func ReturnFunds(chainlinkNodes []*client.ChainlinkK8sClient, blockchainClient b
 // FundAddresses will fund a list of addresses with an amount of native currency
 func FundAddresses(blockchain blockchain.EVMClient, amount *big.Float, addresses ...string) error {
 	for _, address := range addresses {
-		gasEstimates, err := blockchain.EstimateGas(ethereum.CallMsg{})
+		toAddr := common.HexToAddress(address)
+		gasEstimates, err := blockchain.EstimateGas(ethereum.CallMsg{
+			To: &toAddr,
+		})
 		if err != nil {
 			return err
 		}

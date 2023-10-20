@@ -2,8 +2,6 @@
 pragma solidity 0.8.16;
 
 import {BaseTest, BaseTestWithMultipleConfiguredDigests} from "./BaseVerifierTest.t.sol";
-import {Verifier} from "../../Verifier.sol";
-import {VerifierProxy} from "../../VerifierProxy.sol";
 import {Common} from "../../../libraries/Common.sol";
 
 contract VerifierSetConfigFromSourceTest is BaseTest {
@@ -20,6 +18,7 @@ contract VerifierSetConfigFromSourceTest is BaseTest {
       FEED_ID,
       12345,
       address(12345),
+      0,
       _getSignerAddresses(signers),
       s_offchaintransmitters,
       FAULT_TOLERANCE,
@@ -39,6 +38,7 @@ contract VerifierSetConfigFromSourceMultipleDigestsTest is BaseTestWithMultipleC
       FEED_ID,
       12345,
       address(12345),
+      0,
       _getSignerAddresses(newSigners),
       s_offchaintransmitters,
       4,
@@ -60,6 +60,7 @@ contract VerifierSetConfigFromSourceMultipleDigestsTest is BaseTestWithMultipleC
       FEED_ID_2,
       12345,
       address(12345),
+      0,
       _getSignerAddresses(newSigners),
       s_offchaintransmitters,
       4,
@@ -77,6 +78,7 @@ contract VerifierSetConfigFromSourceMultipleDigestsTest is BaseTestWithMultipleC
       FEED_ID_3,
       12345,
       address(12345),
+      0,
       _getSignerAddresses(newSigners),
       s_offchaintransmitters,
       4,
@@ -100,6 +102,7 @@ contract VerifierSetConfigFromSourceMultipleDigestsTest is BaseTestWithMultipleC
       FEED_ID,
       12345,
       address(s_verifier),
+      0,
       _getSignerAddresses(newSigners),
       s_offchaintransmitters,
       4,

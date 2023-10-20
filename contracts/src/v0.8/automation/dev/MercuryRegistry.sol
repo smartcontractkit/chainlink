@@ -22,6 +22,9 @@ import "../../ChainSpecificUtil.sol";
 |   - `MercuryRegistryBatchUpkeep.sol` - enables batching for the registry.                                           |
 |   - `MercuryRegistry.t.sol` - contains foundry tests to demonstrate various flows.                                  |
 |                                                                                                                     |
+| NOTE: This contract uses Mercury v0.2. Automation will likely upgrade to v0.3 eventually, which may change some     |
+| components such as the Report struct, verification, and the StreamsLookup revert.                                   |
+|                                                                                                                     |
 | TODO:                                                                                                               |
 |   - Optimize gas consumption.                                                                                       |
 -+---------------------------------------------------------------------------------------------------------------------*/
@@ -106,7 +109,7 @@ contract MercuryRegistry is ConfirmedOwner, AutomationCompatibleInterface, Strea
 
   // Extracted from `checkUpkeep` for batching purposes.
   function revertForFeedLookup(string[] memory feeds) public view returns (bool, bytes memory) {
-    uint256 blockNumber = ChainSpecificUtil.getBlockNumber();
+    uint256 blockNumber = ChainSpecificUtil._getBlockNumber();
     revert StreamsLookup(c_feedParamKey, feeds, c_timeParamKey, blockNumber, "");
   }
 

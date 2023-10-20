@@ -1,7 +1,7 @@
 pragma solidity 0.8.6;
 
 import "../BaseTest.t.sol";
-import {TrustedBlockhashStore} from "../../../../src/v0.8/dev/vrf/TrustedBlockhashStore.sol";
+import {TrustedBlockhashStore} from "../../../../src/v0.8/vrf/dev/TrustedBlockhashStore.sol";
 import {console} from "forge-std/console.sol";
 
 contract TrustedBlockhashStoreTest is BaseTest {

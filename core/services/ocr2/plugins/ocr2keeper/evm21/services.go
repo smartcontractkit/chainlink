@@ -2,9 +2,7 @@ package evm
 
 import (
 	"fmt"
-	"strings"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -16,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/automation/generated/composer_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/models"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/encoding"
@@ -73,7 +70,7 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 	services := new(automationServices)
 	services.transmitEventProvider = transmitEventProvider
 
-	packer := encoding.NewAbiPacker(keeperRegistryABI, utilsABI)
+	packer := encoding.NewAbiPacker()
 	services.encoder = encoding.NewReportEncoder(packer)
 
 	finalityDepth := client.Config().EVM().FinalityDepth()
@@ -82,10 +79,10 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 	scanner := upkeepstate.NewPerformedEventsScanner(lggr, client.LogPoller(), addr, finalityDepth)
 	services.upkeepState = upkeepstate.NewUpkeepStateStore(orm, lggr, scanner)
 
-	logProvider, logRecoverer := logprovider.New(lggr, client.LogPoller(), client.Client(), utilsABI, services.upkeepState, finalityDepth)
+	logProvider, logRecoverer := logprovider.New(lggr, client.LogPoller(), client.Client(), services.upkeepState, finalityDepth)
 	services.logProvider = logProvider
 	services.logRecoverer = logRecoverer
-	services.blockSub = NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), lggr)
+	services.blockSub = NewBlockSubscriber(client.HeadBroadcaster(), client.LogPoller(), finalityDepth, lggr)
 
 	services.keyring = NewOnchainKeyringV3Wrapper(keyring)
 
@@ -94,6 +91,8 @@ func New(addr common.Address, client evm.Chain, mc *models.MercuryCredentials, k
 
 	services.reg = NewEvmRegistry(lggr, addr, client, streamsLookupCompatibleABI, composerCompatibleABI,
 		keeperRegistryABI, registryContract, mc, al, services.logProvider,
+	services.reg = NewEvmRegistry(lggr, addr, client,
+		registryContract, mc, al, services.logProvider,
 		packer, services.blockSub, finalityDepth)
 
 	services.upkeepProvider = NewUpkeepProvider(al, services.blockSub, client.LogPoller())

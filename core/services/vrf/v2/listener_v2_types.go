@@ -41,7 +41,7 @@ func newBatchFulfillment(result vrfPipelineResult, fromAddress common.Address, v
 		},
 		totalGasLimit: result.gasLimit,
 		runs: []*pipeline.Run{
-			&result.run,
+			result.run,
 		},
 		reqIDs: []*big.Int{
 			result.req.req.RequestID(),
@@ -95,7 +95,7 @@ func (b *batchFulfillments) addRun(result vrfPipelineResult, fromAddress common.
 			currBatch.proofs = append(currBatch.proofs, result.proof)
 			currBatch.commitments = append(currBatch.commitments, result.reqCommitment)
 			currBatch.totalGasLimit += result.gasLimit
-			currBatch.runs = append(currBatch.runs, &result.run)
+			currBatch.runs = append(currBatch.runs, result.run)
 			currBatch.reqIDs = append(currBatch.reqIDs, result.req.req.RequestID())
 			currBatch.lbs = append(currBatch.lbs, result.req.lb)
 			currBatch.maxFees = append(currBatch.maxFees, result.maxFee)
@@ -113,6 +113,8 @@ func (lsn *listenerV2) processBatch(
 	fromAddress common.Address,
 ) (processedRequestIDs []string) {
 	start := time.Now()
+	ctx, cancel := lsn.chStop.NewCtx()
+	defer cancel()
 
 	// Enqueue a single batch tx for requests that we're able to fulfill based on whether
 	// they passed simulation or not.
@@ -179,7 +181,7 @@ func (lsn *listenerV2) processBatch(
 		for _, reqID := range batch.reqIDs {
 			reqIDHashes = append(reqIDHashes, common.BytesToHash(reqID.Bytes()))
 		}
-		ethTX, err = lsn.txm.CreateTransaction(txmgr.TxRequest{
+		ethTX, err = lsn.txm.CreateTransaction(ctx, txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      lsn.batchCoordinator.Address(),
 			EncodedPayload: payload,
@@ -193,7 +195,7 @@ func (lsn *listenerV2) processBatch(
 				GlobalSubID:     txMetaGlobalSubID,
 				RequestTxHashes: txHashes,
 			},
-		}, pg.WithQueryer(tx))
+		})
 
 		return errors.Wrap(err, "create batch fulfillment eth transaction")
 	})

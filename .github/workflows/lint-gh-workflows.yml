@@ -9,7 +9,7 @@ jobs:
       - name: Check out Code
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Run actionlint
-        uses: reviewdog/action-actionlint@7485c2136bd093d2317a854c72910eebaee35238 # v1.37.1
+        uses: reviewdog/action-actionlint@82693e9e3b239f213108d6e412506f8b54003586 # v1.39.1
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics

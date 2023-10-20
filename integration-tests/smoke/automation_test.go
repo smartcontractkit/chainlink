@@ -2,34 +2,38 @@ package smoke
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
+	"net/http"
 	"os"
 	"strconv"
 	"testing"
 	"time"
 
+	"github.com/kelseyhightower/envconfig"
+
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-env/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
-
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
+
+	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
+
+	evm21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 	it_utils "github.com/smartcontractkit/chainlink/integration-tests/utils"
-	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 var utilsABI = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -88,9 +92,11 @@ func TestAutomationBasic(t *testing.T) {
 func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 	t.Parallel()
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0":             ethereum.RegistryVersion_2_0,
-		"registry_2_1_conditional": ethereum.RegistryVersion_2_1,
-		"registry_2_1_logtrigger":  ethereum.RegistryVersion_2_1,
+		"registry_2_0":                  ethereum.RegistryVersion_2_0,
+		"registry_2_1_conditional":      ethereum.RegistryVersion_2_1,
+		"registry_2_1_logtrigger":       ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_mercury_v02": ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_mercury_v03": ethereum.RegistryVersion_2_1,
 	}
 
 	for n, rv := range registryVersions {
@@ -98,7 +104,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			l := utils.GetTestLogger(t)
+			l := logging.GetTestLogger(t)
 
 			var (
 				upgradeImage   string
@@ -107,18 +113,23 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				testName       = "basic-upkeep"
 			)
 			if nodeUpgrade {
-				upgradeImage, err = utils.GetEnv("UPGRADE_IMAGE")
-				require.NoError(t, err, "Error getting upgrade image")
-				upgradeVersion, err = utils.GetEnv("UPGRADE_VERSION")
-				require.NoError(t, err, "Error getting upgrade version")
+				upgradeImage = os.Getenv("UPGRADE_IMAGE")
+				upgradeVersion = os.Getenv("UPGRADE_VERSION")
+				if len(upgradeImage) == 0 || len(upgradeVersion) == 0 {
+					t.Fatal("UPGRADE_IMAGE and UPGRADE_VERSION must be set to upgrade nodes")
+				}
 				testName = "node-upgrade"
 			}
-			chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupAutomationTestDocker(
-				t, testName, registryVersion, defaultOCRRegistryConfig, nodeUpgrade,
-			)
 
-			// Use the name to determine if this is a log trigger or not
+			// Use the name to determine if this is a log trigger or mercury
 			isLogTrigger := name == "registry_2_1_logtrigger"
+			isMercuryV02 := name == "registry_2_1_with_mercury_v02"
+			isMercuryV03 := name == "registry_2_1_with_mercury_v03"
+			isMercury := isMercuryV02 || isMercuryV03
+
+			chainClient, _, contractDeployer, linkToken, registry, registrar, testEnv := setupAutomationTestDocker(
+				t, testName, registryVersion, defaultOCRRegistryConfig, nodeUpgrade, isMercuryV02, isMercuryV03,
+			)
 
 			consumers, upkeepIDs := actions.DeployConsumers(
 				t,
@@ -131,18 +142,31 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				big.NewInt(automationDefaultLinkFunds),
 				automationDefaultUpkeepGasLimit,
 				isLogTrigger,
+				isMercury,
 			)
 
-			l.Info().Msg("Waiting for all upkeeps to be performed")
-			gom := gomega.NewGomegaWithT(t)
-
 			for i := 0; i < len(upkeepIDs); i++ {
-				err := consumers[i].Start()
-				if err != nil {
-					return
+				if isLogTrigger || isMercuryV02 {
+					if err := consumers[i].Start(); err != nil {
+						l.Error().Msg("Error when starting consumer")
+						return
+					}
+				}
+
+				if isMercury {
+					// Set privilege config to enable mercury
+					privilegeConfigBytes, _ := json.Marshal(evm21.UpkeepPrivilegeConfig{
+						MercuryEnabled: true,
+					})
+					if err := registry.SetUpkeepPrivilegeConfig(upkeepIDs[i], privilegeConfigBytes); err != nil {
+						l.Error().Msg("Error when setting upkeep privilege config")
+						return
+					}
 				}
 			}
 
+			l.Info().Msg("Waiting for all upkeeps to be performed")
+			gom := gomega.NewGomegaWithT(t)
 			startTime := time.Now()
 			// TODO Tune this timeout window after stress testing
 			gom.Eventually(func(g gomega.Gomega) {
@@ -163,7 +187,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 				expect := 5
 				// Upgrade the nodes one at a time and check that the upkeeps are still being performed
 				for i := 0; i < 5; i++ {
-					actions.UpgradeChainlinkNodeVersionsLocal(upgradeImage, upgradeVersion, testEnv.CLNodes[i])
+					actions.UpgradeChainlinkNodeVersionsLocal(upgradeImage, upgradeVersion, testEnv.ClCluster.Nodes[i])
 					time.Sleep(time.Second * 10)
 					expect = expect + 5
 					gom.Eventually(func(g gomega.Gomega) {
@@ -214,10 +238,10 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 
 func TestSetUpkeepTriggerConfig(t *testing.T) {
 	t.Parallel()
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 
 	chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-		t, "set-trigger-config", ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, false,
+		t, "set-trigger-config", ethereum.RegistryVersion_2_1, defaultOCRRegistryConfig, false, false, false,
 	)
 
 	consumers, upkeepIDs := actions.DeployConsumers(
@@ -231,6 +255,7 @@ func TestSetUpkeepTriggerConfig(t *testing.T) {
 		big.NewInt(automationDefaultLinkFunds),
 		automationDefaultUpkeepGasLimit,
 		true,
+		false,
 	)
 
 	// Start log trigger based upkeeps for all consumers
@@ -391,10 +416,10 @@ func TestAutomationAddFunds(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "add-funds", registryVersion, defaultOCRRegistryConfig, false,
+				t, "add-funds", registryVersion, defaultOCRRegistryConfig, false, false, false,
 			)
 
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(1), automationDefaultUpkeepGasLimit, false)
+			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(1), automationDefaultUpkeepGasLimit, false, false)
 
 			gom := gomega.NewGomegaWithT(t)
 			// Since the upkeep is currently underfunded, check that it doesn't get executed
@@ -440,12 +465,12 @@ func TestAutomationPauseUnPause(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			l := utils.GetTestLogger(t)
+			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "pause-unpause", registryVersion, defaultOCRRegistryConfig, false,
+				t, "pause-unpause", registryVersion, defaultOCRRegistryConfig, false, false, false,
 			)
 
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
+			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
 
 			gom := gomega.NewGomegaWithT(t)
 			gom.Eventually(func(g gomega.Gomega) {
@@ -523,12 +548,12 @@ func TestAutomationRegisterUpkeep(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			l := utils.GetTestLogger(t)
+			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "register-upkeep", registryVersion, defaultOCRRegistryConfig, false,
+				t, "register-upkeep", registryVersion, defaultOCRRegistryConfig, false, false, false,
 			)
 
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
+			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
 
 			var initialCounters = make([]*big.Int, len(upkeepIDs))
 			gom := gomega.NewGomegaWithT(t)
@@ -596,10 +621,10 @@ func TestAutomationPauseRegistry(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "pause-registry", registryVersion, defaultOCRRegistryConfig, false,
+				t, "pause-registry", registryVersion, defaultOCRRegistryConfig, false, false, false,
 			)
 
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
+			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
 			gom := gomega.NewGomegaWithT(t)
 
 			// Observe that the upkeeps which are initially registered are performing
@@ -652,12 +677,12 @@ func TestAutomationKeeperNodesDown(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			l := utils.GetTestLogger(t)
+			l := logging.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "keeper-nodes-down", registryVersion, defaultOCRRegistryConfig, false,
+				t, "keeper-nodes-down", registryVersion, defaultOCRRegistryConfig, false, false, false,
 			)
 
-			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false)
+			consumers, upkeepIDs := actions.DeployConsumers(t, registry, registrar, linkToken, contractDeployer, chainClient, defaultAmountOfUpkeeps, big.NewInt(automationDefaultLinkFunds), automationDefaultUpkeepGasLimit, false, false)
 			gom := gomega.NewGomegaWithT(t)
 			nodesWithoutBootstrap := chainlinkNodes[1:]
 
@@ -739,7 +764,7 @@ func TestAutomationPerformSimulation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "perform-simulation", registryVersion, defaultOCRRegistryConfig, false,
+				t, "perform-simulation", registryVersion, defaultOCRRegistryConfig, false, false, false,
 			)
 
 			consumersPerformance, _ := actions.DeployPerformanceConsumers(
@@ -801,9 +826,9 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			l := utils.GetTestLogger(t)
+			l := logging.GetTestLogger(t)
 			chainClient, chainlinkNodes, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "gas-limit", registryVersion, defaultOCRRegistryConfig, false,
+				t, "gas-limit", registryVersion, defaultOCRRegistryConfig, false, false, false,
 			)
 
 			consumersPerformance, upkeepIDs := actions.DeployPerformanceConsumers(
@@ -882,7 +907,8 @@ func TestAutomationCheckPerformGasLimit(t *testing.T) {
 			highCheckGasLimit := automationDefaultRegistryConfig
 			highCheckGasLimit.CheckGasLimit = uint32(5000000)
 			highCheckGasLimit.RegistryVersion = registryVersion
-			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(t, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 30*time.Second)
+
+			ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, nodesWithoutBootstrap, highCheckGasLimit, registrar.Address(), 30*time.Second, registry.RegistryOwnerAddress())
 			require.NoError(t, err, "Error building OCR config")
 
 			err = registry.SetConfig(highCheckGasLimit, ocrConfig)
@@ -914,9 +940,9 @@ func TestUpdateCheckData(t *testing.T) {
 		registryVersion := rv
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			l := utils.GetTestLogger(t)
+			l := logging.GetTestLogger(t)
 			chainClient, _, contractDeployer, linkToken, registry, registrar, _ := setupAutomationTestDocker(
-				t, "update-check-data", registryVersion, defaultOCRRegistryConfig, false,
+				t, "update-check-data", registryVersion, defaultOCRRegistryConfig, false, false, false,
 			)
 
 			performDataChecker, upkeepIDs := actions.DeployPerformDataCheckerConsumers(
@@ -975,12 +1001,18 @@ func TestUpdateCheckData(t *testing.T) {
 	}
 }
 
+type TestConfig struct {
+	ChainlinkNodeFunding float64 `envconfig:"CHAINLINK_NODE_FUNDING" default:"1"`
+}
+
 func setupAutomationTestDocker(
 	t *testing.T,
 	testName string,
 	registryVersion ethereum.KeeperRegistryVersion,
 	registryConfig contracts.KeeperRegistrySettings,
 	statefulDb bool,
+	isMercuryV02 bool,
+	isMercuryV03 bool,
 ) (
 	blockchain.EVMClient,
 	[]*client.ChainlinkClient,
@@ -990,6 +1022,9 @@ func setupAutomationTestDocker(
 	contracts.KeeperRegistrar,
 	*test_env.CLClusterTestEnv,
 ) {
+	require.False(t, isMercuryV02 && isMercuryV03, "Cannot run test with both Mercury V02 and V03 on")
+
+	l := logging.GetTestLogger(t)
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
 	network := networks.SelectedNetwork
@@ -1006,23 +1041,74 @@ func setupAutomationTestDocker(
 	clNodeConfig.P2P.V2.AnnounceAddresses = &[]string{"0.0.0.0:6690"}
 	clNodeConfig.P2P.V2.ListenAddresses = &[]string{"0.0.0.0:6690"}
 
-	// launch the environment
-	env, err := test_env.NewCLTestEnvBuilder().
-		WithGeth().
-		WithMockServer(1).
-		WithCLNodes(5).
-		WithCLNodeConfig(clNodeConfig).
-		WithFunding(big.NewFloat(.5)).
-		Build()
-	require.NoError(t, err, "Error deploying test environment")
-	env.ParallelTransactions(true)
+	//launch the environment
+	var env *test_env.CLClusterTestEnv
+	var err error
+	var testConfig TestConfig
+	err = envconfig.Process("AUTOMATION", &testConfig)
+	require.NoError(t, err)
+	l.Debug().Msgf("Funding amount: %f", testConfig.ChainlinkNodeFunding)
+	clNodesCount := 5
+	if isMercuryV02 || isMercuryV03 {
+		env, err = test_env.NewCLTestEnvBuilder().
+			WithTestLogger(t).
+			WithGeth().
+			WithMockAdapter().
+			WithFunding(big.NewFloat(testConfig.ChainlinkNodeFunding)).
+			WithStandardCleanup().
+			Build()
+		require.NoError(t, err, "Error deploying test environment for Mercury")
+		env.ParallelTransactions(true)
 
-	txCost, err := env.EVMClient.EstimateCostForChainlinkOperations(1000)
-	require.NoError(t, err, "Error estimating cost for Chainlink Operations")
-	nodeClients := env.GetAPIs()
+		secretsConfig := `
+		[Mercury.Credentials.cred1]
+		LegacyURL = '%s'
+		URL = '%s'
+		Username = 'node'
+		Password = 'nodepass'`
+		secretsConfig = fmt.Sprintf(secretsConfig, env.MockAdapter.InternalEndpoint, env.MockAdapter.InternalEndpoint)
+
+		var httpUrls []string
+		var wsUrls []string
+		if network.Simulated {
+			httpUrls = []string{env.Geth.InternalHttpUrl}
+			wsUrls = []string{env.Geth.InternalWsUrl}
+		} else {
+			httpUrls = network.HTTPURLs
+			wsUrls = network.URLs
+		}
+
+		node.SetChainConfig(clNodeConfig, wsUrls, httpUrls, network, false)
+
+		err = env.StartClCluster(clNodeConfig, clNodesCount, secretsConfig)
+		require.NoError(t, err, "Error starting CL nodes test environment for Mercury")
+		err = env.FundChainlinkNodes(big.NewFloat(testConfig.ChainlinkNodeFunding))
+		require.NoError(t, err, "Error funding CL nodes")
+
+		if isMercuryV02 {
+			output := `{"chainlinkBlob":"0x0001c38d71fed6c320b90e84b6f559459814d068e2a1700adc931ca9717d4fe70000000000000000000000000000000000000000000000000000000001a80b52b4bf1233f9cb71144a253a1791b202113c4ab4a92fa1b176d684b4959666ff8200000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001004254432d5553442d415242495452554d2d544553544e4554000000000000000000000000000000000000000000000000000000000000000000000000645570be000000000000000000000000000000000000000000000000000002af2b818dc5000000000000000000000000000000000000000000000000000002af2426faf3000000000000000000000000000000000000000000000000000002af32dc209700000000000000000000000000000000000000000000000000000000012130f8df0a9745bb6ad5e2df605e158ba8ad8a33ef8a0acf9851f0f01668a3a3f2b68600000000000000000000000000000000000000000000000000000000012130f60000000000000000000000000000000000000000000000000000000000000002c4a7958dce105089cf5edb68dad7dcfe8618d7784eb397f97d5a5fade78c11a58275aebda478968e545f7e3657aba9dcbe8d44605e4c6fde3e24edd5e22c94270000000000000000000000000000000000000000000000000000000000000002459c12d33986018a8959566d145225f0c4a4e61a9a3f50361ccff397899314f0018162cf10cd89897635a0bb62a822355bd199d09f4abe76e4d05261bb44733d"}`
+			env.MockAdapter.SetStringValuePath("/client", []string{http.MethodGet, http.MethodPost}, map[string]string{"Content-Type": "application/json"}, output)
+		}
+		if isMercuryV03 {
+			output := `{"reports":[{"feedID":"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000","validFromTimestamp":0,"observationsTimestamp":0,"fullReport":"0x00066dfcd1ed2d95b18c948dbc5bd64c687afe93e4ca7d663ddec14c20090ad80000000000000000000000000000000000000000000000000000000000081401000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000280000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001204554482d5553442d415242495452554d2d544553544e455400000000000000000000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000289ad8d367000000000000000000000000000000000000000000000000000000289acf0b38000000000000000000000000000000000000000000000000000000289b3da40000000000000000000000000000000000000000000000000000000000018ae7ce74d9fa252a8983976eab600dc7590c778d04813430841bc6e765c34cd81a168d00000000000000000000000000000000000000000000000000000000018ae7cb0000000000000000000000000000000000000000000000000000000064891c98000000000000000000000000000000000000000000000000000000000000000260412b94e525ca6cedc9f544fd86f77606d52fe731a5d069dbe836a8bfc0fb8c911963b0ae7a14971f3b4621bffb802ef0605392b9a6c89c7fab1df8633a5ade00000000000000000000000000000000000000000000000000000000000000024500c2f521f83fba5efc2bf3effaaedde43d0a4adff785c1213b712a3aed0d8157642a84324db0cf9695ebd27708d4608eb0337e0dd87b0e43f0fa70c700d911"}]}`
+			env.MockAdapter.SetStringValuePath("/api/v1/reports/bulk", []string{http.MethodGet, http.MethodPost}, map[string]string{"Content-Type": "application/json"}, output)
+		}
+	} else {
+		env, err = test_env.NewCLTestEnvBuilder().
+			WithTestLogger(t).
+			WithGeth().
+			WithMockAdapter().
+			WithCLNodes(clNodesCount).
+			WithCLNodeConfig(clNodeConfig).
+			WithFunding(big.NewFloat(testConfig.ChainlinkNodeFunding)).
+			WithStandardCleanup().
+			Build()
+		require.NoError(t, err, "Error deploying test environment")
+	}
+
+	env.ParallelTransactions(true)
+	nodeClients := env.ClCluster.NodeAPIs()
 	workerNodes := nodeClients[1:]
-	err = actions.FundChainlinkNodesLocal(workerNodes, env.EVMClient, txCost)
-	require.NoError(t, err, "Error funding Chainlink nodes")
 
 	linkToken, err := env.ContractDeployer.DeployLinkTokenContract()
 	require.NoError(t, err, "Error deploying LINK token")
@@ -1040,9 +1126,9 @@ func setupAutomationTestDocker(
 	err = linkToken.Transfer(registry.Address(), big.NewInt(0).Mul(big.NewInt(1e18), big.NewInt(int64(defaultAmountOfUpkeeps))))
 	require.NoError(t, err, "Funding keeper registry contract shouldn't fail")
 
-	err = actions.CreateOCRKeeperJobsLocal(nodeClients, registry.Address(), network.ChainID, 0, registryVersion)
+	err = actions.CreateOCRKeeperJobsLocal(l, nodeClients, registry.Address(), network.ChainID, 0, registryVersion)
 	require.NoError(t, err, "Error creating OCR Keeper Jobs")
-	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(t, workerNodes, registryConfig, registrar.Address(), 30*time.Second)
+	ocrConfig, err := actions.BuildAutoOCR2ConfigVarsLocal(l, workerNodes, registryConfig, registrar.Address(), 30*time.Second, registry.RegistryOwnerAddress())
 	require.NoError(t, err, "Error building OCR config vars")
 	err = registry.SetConfig(automationDefaultRegistryConfig, ocrConfig)
 	require.NoError(t, err, "Registry config should be set successfully")

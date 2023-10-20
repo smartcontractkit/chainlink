@@ -39,7 +39,7 @@ func TestTokenAuthRequired_SessionCredentials(t *testing.T) {
 	ts := httptest.NewServer(router)
 	defer ts.Close()
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 	resp, cleanup := client.Post("/v2/bridge_types/", nil)
 	defer cleanup()
 

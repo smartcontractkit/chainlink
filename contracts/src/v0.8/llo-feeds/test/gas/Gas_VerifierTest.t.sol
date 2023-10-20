@@ -2,10 +2,9 @@
 pragma solidity 0.8.16;
 
 import {BaseTest, BaseTestWithConfiguredVerifierAndFeeManager} from "../verifier/BaseVerifierTest.t.sol";
-import {Verifier} from "../../Verifier.sol";
 import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
 import {Common} from "../../../libraries/Common.sol";
-import {IRewardManager} from "../../dev/interfaces/IRewardManager.sol";
+import {IRewardManager} from "../../interfaces/IRewardManager.sol";
 
 contract Verifier_setConfig is BaseTest {
   address[] internal s_signerAddrs;
@@ -69,25 +68,23 @@ contract Verifier_verifyWithFee is BaseTestWithConfiguredVerifierAndFeeManager {
   }
 
   function testVerifyProxyWithLinkFeeSuccess_gas() public {
-    bytes memory signedLinkPayload = _generateEncodedBlobWithQuote(
+    bytes memory signedLinkPayload = _generateV3EncodedBlob(
       _generateV3Report(),
       _generateReportContext(v3ConfigDigest),
-      _getSigners(FAULT_TOLERANCE + 1),
-      _generateQuote(address(link))
+      _getSigners(FAULT_TOLERANCE + 1)
     );
 
-    s_verifierProxy.verify(signedLinkPayload);
+    s_verifierProxy.verify(signedLinkPayload, abi.encode(link));
   }
 
   function testVerifyProxyWithNativeFeeSuccess_gas() public {
-    bytes memory signedNativePayload = _generateEncodedBlobWithQuote(
+    bytes memory signedNativePayload = _generateV3EncodedBlob(
       _generateV3Report(),
       _generateReportContext(v3ConfigDigest),
-      _getSigners(FAULT_TOLERANCE + 1),
-      _generateQuote(address(native))
+      _getSigners(FAULT_TOLERANCE + 1)
     );
 
-    s_verifierProxy.verify(signedNativePayload);
+    s_verifierProxy.verify(signedNativePayload, abi.encode(native));
   }
 }
 
@@ -130,11 +127,10 @@ contract Verifier_bulkVerifyWithFee is BaseTestWithConfiguredVerifierAndFeeManag
   }
 
   function testBulkVerifyProxyWithLinkFeeSuccess_gas() public {
-    bytes memory signedLinkPayload = _generateEncodedBlobWithQuote(
+    bytes memory signedLinkPayload = _generateV3EncodedBlob(
       _generateV3Report(),
       _generateReportContext(v3ConfigDigest),
-      _getSigners(FAULT_TOLERANCE + 1),
-      _generateQuote(address(link))
+      _getSigners(FAULT_TOLERANCE + 1)
     );
 
     bytes[] memory signedLinkPayloads = new bytes[](NUMBER_OF_REPORTS_TO_VERIFY);
@@ -142,15 +138,14 @@ contract Verifier_bulkVerifyWithFee is BaseTestWithConfiguredVerifierAndFeeManag
       signedLinkPayloads[i] = signedLinkPayload;
     }
 
-    s_verifierProxy.verifyBulk(signedLinkPayloads);
+    s_verifierProxy.verifyBulk(signedLinkPayloads, abi.encode(link));
   }
 
   function testBulkVerifyProxyWithNativeFeeSuccess_gas() public {
-    bytes memory signedNativePayload = _generateEncodedBlobWithQuote(
+    bytes memory signedNativePayload = _generateV3EncodedBlob(
       _generateV3Report(),
       _generateReportContext(v3ConfigDigest),
-      _getSigners(FAULT_TOLERANCE + 1),
-      _generateQuote(address(native))
+      _getSigners(FAULT_TOLERANCE + 1)
     );
 
     bytes[] memory signedNativePayloads = new bytes[](NUMBER_OF_REPORTS_TO_VERIFY);
@@ -158,7 +153,7 @@ contract Verifier_bulkVerifyWithFee is BaseTestWithConfiguredVerifierAndFeeManag
       signedNativePayloads[i] = signedNativePayload;
     }
 
-    s_verifierProxy.verifyBulk(signedNativePayloads);
+    s_verifierProxy.verifyBulk(signedNativePayloads, abi.encode(native));
   }
 }
 
@@ -183,7 +178,7 @@ contract Verifier_verify is BaseTestWithConfiguredVerifierAndFeeManager {
     bytes32[3] memory reportContext;
     reportContext[0] = s_configDigest;
     reportContext[1] = bytes32(abi.encode(uint32(5), uint8(1)));
-    s_signedReport = _generateEncodedBlob(s_testReportOne, reportContext, _getSigners(FAULT_TOLERANCE + 1));
+    s_signedReport = _generateV1EncodedBlob(s_testReportOne, reportContext, _getSigners(FAULT_TOLERANCE + 1));
   }
 
   function testVerifySuccess_gas() public {
@@ -193,7 +188,7 @@ contract Verifier_verify is BaseTestWithConfiguredVerifierAndFeeManager {
   }
 
   function testVerifyProxySuccess_gas() public {
-    s_verifierProxy.verify(s_signedReport);
+    s_verifierProxy.verify(s_signedReport, abi.encode(native));
   }
 }
 
@@ -222,7 +217,7 @@ contract Verifier_accessControlledVerify is BaseTestWithConfiguredVerifierAndFee
     bytes32[3] memory reportContext;
     reportContext[0] = s_configDigest;
     reportContext[1] = bytes32(abi.encode(uint32(5), uint8(1)));
-    s_signedReport = _generateEncodedBlob(s_testReportOne, reportContext, _getSigners(FAULT_TOLERANCE + 1));
+    s_signedReport = _generateV1EncodedBlob(s_testReportOne, reportContext, _getSigners(FAULT_TOLERANCE + 1));
     s_accessController = new SimpleWriteAccessController();
     s_verifierProxy.setAccessController(s_accessController);
     s_accessController.addAccess(CLIENT);
@@ -230,6 +225,6 @@ contract Verifier_accessControlledVerify is BaseTestWithConfiguredVerifierAndFee
 
   function testVerifyWithAccessControl_gas() public {
     changePrank(CLIENT);
-    s_verifierProxy.verify(s_signedReport);
+    s_verifierProxy.verify(s_signedReport, abi.encode(native));
   }
 }

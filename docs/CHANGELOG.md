@@ -9,25 +9,69 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [dev]
 
+### Added
+
+- Added new configuration field named `LeaseDuration` for `EVM.NodePool` that will periodically check if internal subscriptions are connected to the "best" (as defined by the `SelectionMode`) node and switch to it if necessary. Setting this value to `0s` will disable this feature.
+- Added multichain telemetry support. Each network/chainID pair must be configured using the new fields:
+```toml
+[[TelemetryIngress.Endpoints]]
+Network = '...' # e.g. EVM. Solana, Starknet, Cosmos
+ChainID = '...' # e.g. 1, 5, devnet, mainnet-beta
+URL = '...'
+ServerPubKey = '...'
+```
+These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Setting `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` alongside `[[TelemetryIngress.Endpoints]]` will prevent the node from booting. Only one way of configuring telemetry endpoints is supported.
+
+### Upcoming Required Configuration Change
+
+- Starting in 2.8.0, chainlink nodes will no longer allow `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
+
+### Removed
+
+- Removed the ability to set a next nonce value for an address through CLI
+
+<!-- unreleasedstop -->
+
+## 2.6.0 - 2023-10-18
+
+### Added
+
+- Simple password use in production builds is now disallowed - nodes with this configuration will not boot and will not pass config validation.
+- Helper migrations function for injecting env vars into goose migrations. This was done to inject chainID into evm chain id not null in specs migrations.
+- OCR2 jobs now support querying the state contract for configurations if it has been deployed. This can help on chains such as BSC which "manage" state bloat by arbitrarily deleting logs older than a certain date. In this case, if logs are missing we will query the contract directly and retrieve the latest config from chain state. Chainlink will perform no extra RPC calls unless the job spec has this feature explicitly enabled. On chains that require this, nops may see an increase in RPC calls. This can be enabled for OCR2 jobs by specifying `ConfigContractAddress` in the relay config TOML.
+
+### Removed
+
+- Removed support for sending telemetry to the deprecated Explorer service. All nodes will have to remove `Explorer` related keys from TOML configuration and env vars.
+- Removed default evmChainID logic where evmChainID was implicitly injected into the jobspecs based on node EVM chainID toml configuration. All newly created jobs(that have evmChainID field) will have to explicitly define evmChainID in the jobspec.
+- Removed keyset migration that migrated v1 keys to v2 keys. All keys should've been migrated by now, and we don't permit creation of new v1 keys anymore
+
+All nodes will have to remove the following secret configurations:
+
+- `Explorer.AccessKey`
+- `Explorer.Secret`
+
+All nodes will have to remove the following configuration field: `ExplorerURL`
+
 ### Fixed
 
 - Unauthenticated users executing CLI commands previously generated a confusing error log, which is now removed:
-  ```
-  [ERROR] Error in transaction, rolling back: session missing or expired, please login again pg/transaction.go:118
-  ```
+  `[ERROR] Error in transaction, rolling back: session missing or expired, please login again pg/transaction.go:118 `
 - Fixed a bug that was preventing job runs to be displayed when the job `chainID` was disabled.
-- `chainlink txs evm create` returns a transaction hash for the attempted transaction in the CLI. Previously only the sender, receipient and `unstarted` state were returned.
+- `chainlink txs evm create` returns a transaction hash for the attempted transaction in the CLI. Previously only the sender, recipient and `unstarted` state were returned.
+- Fixed a bug where `evmChainId` is requested instead of `id` or `evm-chain-id` in CLI error verbatim
+- Fixed a bug that would cause the node to shut down while performing backup
+- Fixed health checker to include more services in the prometheus `health` metric and HTTP `/health` endpoint
+- Fixed a bug where prices would not be parsed correctly in telemetry data
+
+## 2.5.0 - 2023-09-13
 
 ### Added
 
 - New prometheus metrics for mercury:
-    - `mercury_price_feed_missing`
-    - `mercury_price_feed_errors`
-  Nops may wish to add alerting on these.
-
-<!-- unreleasedstop -->
-
-## 2.5.0 - 2023-09-13
+  - `mercury_price_feed_missing`
+  - `mercury_price_feed_errors`
+    Nops may wish to add alerting on these.
 
 ### Upcoming Required Configuration Change
 

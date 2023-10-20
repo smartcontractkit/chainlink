@@ -186,13 +186,13 @@ func TestGetJsonParsedValue(t *testing.T) {
 
 func TestSendEATelemetry(t *testing.T) {
 	wg := sync.WaitGroup{}
-	ingressClient := mocks.NewTelemetryIngressClient(t)
+	ingressClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
-	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA)
+	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA, "test-network", "test-chainID")
 
 	var sentMessage []byte
-	ingressClient.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
-		sentMessage = args[0].(synchronization.TelemPayload).Telemetry
+	ingressClient.On("Send", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
+		sentMessage = args[1].([]byte)
 		wg.Done()
 	})
 
@@ -302,10 +302,10 @@ func TestGetObservation(t *testing.T) {
 
 func TestCollectAndSend(t *testing.T) {
 	wg := sync.WaitGroup{}
-	ingressClient := mocks.NewTelemetryIngressClient(t)
+	ingressClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
-	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA)
-	ingressClient.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
+	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEA, "test-network", "test-chainID")
+	ingressClient.On("Send", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
 		wg.Done()
 	})
 
@@ -416,7 +416,7 @@ var trrsMercury = pipeline.TaskRunResults{
 			BaseTask: pipeline.NewBaseTask(3, "ds3_ask", nil, nil, 3),
 		},
 		Result: pipeline.Result{
-			Value: float64(123456789.1),
+			Value: int64(321123),
 		},
 	},
 }
@@ -461,7 +461,7 @@ func TestGetPricesFromResults(t *testing.T) {
 	benchmarkPrice, bid, ask := e.getPricesFromResults(trrsMercury[0], &trrsMercury)
 	require.Equal(t, 123456.123456, benchmarkPrice)
 	require.Equal(t, 1234567.1234567, bid)
-	require.Equal(t, 123456789.1, ask)
+	require.Equal(t, float64(321123), ask)
 
 	benchmarkPrice, bid, ask = e.getPricesFromResults(trrsMercury[0], &pipeline.TaskRunResults{})
 	require.Equal(t, float64(0), benchmarkPrice)
@@ -549,13 +549,13 @@ func TestGetAssetSymbolFromRequestData(t *testing.T) {
 
 func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 	wg := sync.WaitGroup{}
-	ingressClient := mocks.NewTelemetryIngressClient(t)
+	ingressClient := mocks.NewTelemetryService(t)
 	ingressAgent := telemetry.NewIngressAgentWrapper(ingressClient)
-	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEAMercury)
+	monitoringEndpoint := ingressAgent.GenMonitoringEndpoint("0xa", synchronization.EnhancedEAMercury, "test-network", "test-chainID")
 
 	var sentMessage []byte
-	ingressClient.On("Send", mock.AnythingOfType("synchronization.TelemPayload")).Return().Run(func(args mock.Arguments) {
-		sentMessage = args[0].(synchronization.TelemPayload).Telemetry
+	ingressClient.On("Send", mock.Anything, mock.AnythingOfType("[]uint8"), mock.AnythingOfType("string"), mock.AnythingOfType("TelemetryType")).Return().Run(func(args mock.Arguments) {
+		sentMessage = args[1].([]byte)
 		wg.Done()
 	})
 
@@ -601,7 +601,7 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 		DataSource:                    "data-source-name",
 		DpBenchmarkPrice:              123456.123456,
 		DpBid:                         1234567.1234567,
-		DpAsk:                         123456789.1,
+		DpAsk:                         321123,
 		CurrentBlockNumber:            123456789,
 		CurrentBlockHash:              common.HexToHash("0x123321").String(),
 		CurrentBlockTimestamp:         987654321,

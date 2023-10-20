@@ -25,13 +25,13 @@ compileContract () {
 }
 
 # Contracts
-compileContract dev/transmission/4337/SCA.sol
-compileContract dev/transmission/4337/Paymaster.sol
-compileContract dev/transmission/4337/SmartContractAccountFactory.sol
+compileContract transmission/dev/ERC-4337/SCA.sol
+compileContract transmission/dev/ERC-4337/Paymaster.sol
+compileContract transmission/dev/ERC-4337/SmartContractAccountFactory.sol
 
 # Testhelpers
-compileContract dev/transmission/testhelpers/SmartContractAccountHelper.sol
-compileContract dev/transmission/testhelpers/Greeter.sol
+compileContract transmission/dev/testhelpers/SmartContractAccountHelper.sol
+compileContract transmission/dev/testhelpers/Greeter.sol
 
 # Vendor
 compileContract vendor/entrypoint/core/EntryPoint.sol

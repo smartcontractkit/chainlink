@@ -108,21 +108,21 @@ func TestBlockHistoryEstimator_Start(t *testing.T) {
 	})
 
 	t.Run("starts and loads partial history if fetch context times out", func(t *testing.T) {
-		geCfg := &gas.MockGasEstimatorConfig{}
-		geCfg.EIP1559DynamicFeesF = true
-		geCfg.LimitMultiplierF = float32(1)
-		geCfg.PriceMinF = minGasPrice
+		geCfg2 := &gas.MockGasEstimatorConfig{}
+		geCfg2.EIP1559DynamicFeesF = true
+		geCfg2.LimitMultiplierF = float32(1)
+		geCfg2.PriceMinF = minGasPrice
 
-		bhCfg := newBlockHistoryConfig()
-		bhCfg.BatchSizeF = uint32(1)
-		bhCfg.BlockDelayF = blockDelay
-		bhCfg.BlockHistorySizeF = historySize
-		bhCfg.TransactionPercentileF = percentile
+		bhCfg2 := newBlockHistoryConfig()
+		bhCfg2.BatchSizeF = uint32(1)
+		bhCfg2.BlockDelayF = blockDelay
+		bhCfg2.BlockHistorySizeF = historySize
+		bhCfg2.TransactionPercentileF = percentile
 
-		cfg := gas.NewMockConfig()
+		cfg2 := gas.NewMockConfig()
 		ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
 
-		bhe := newBlockHistoryEstimator(t, ethClient, cfg, geCfg, bhCfg)
+		bhe := newBlockHistoryEstimator(t, ethClient, cfg2, geCfg2, bhCfg2)
 
 		h := &evmtypes.Head{Hash: utils.NewHash(), Number: 42, BaseFeePerGas: assets.NewWeiI(420)}
 		ethClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(h, nil)
@@ -1316,13 +1316,17 @@ func TestBlockHistoryEstimator_IsUsable(t *testing.T) {
 		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
 	})
 
-	t.Run("returns false if transaction is of type 0x7c only on Celo", func(t *testing.T) {
+	t.Run("returns false if transaction is of type 0x7c or 0x7b only on Celo", func(t *testing.T) {
 		cfg.ChainTypeF = "celo"
 		tx := evmtypes.Transaction{Type: 0x7c, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
 		assert.Equal(t, false, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
 
+		tx2 := evmtypes.Transaction{Type: 0x7b, GasPrice: assets.NewWeiI(10), GasLimit: 42, Hash: utils.NewHash()}
+		assert.Equal(t, false, bhe.IsUsable(tx2, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+
 		cfg.ChainTypeF = ""
 		assert.Equal(t, true, bhe.IsUsable(tx, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
+		assert.Equal(t, true, bhe.IsUsable(tx2, block, cfg.ChainType(), geCfg.PriceMin(), logger.TestLogger(t)))
 	})
 
 	t.Run("returns false if transaction has base fee higher than the gas price only on Celo", func(t *testing.T) {

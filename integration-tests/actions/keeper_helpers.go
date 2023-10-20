@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/utils"
+	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/client"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -27,6 +27,7 @@ func CreateKeeperJobs(
 	chainlinkNodes []*client.ChainlinkK8sClient,
 	keeperRegistry contracts.KeeperRegistry,
 	ocrConfig contracts.OCRv2Config,
+	evmChainID string,
 ) {
 	// Send keeper jobs to registry and chainlink nodes
 	primaryNode := chainlinkNodes[0]
@@ -49,6 +50,7 @@ func CreateKeeperJobs(
 			Name:                     fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
 			ContractAddress:          keeperRegistry.Address(),
 			FromAddress:              chainlinkNodeAddress,
+			EVMChainID:               evmChainID,
 			MinIncomingConfirmations: 1,
 		})
 		require.NoError(t, err, "Creating KeeperV2 Job shouldn't fail")
@@ -61,6 +63,7 @@ func CreateKeeperJobsWithKeyIndex(
 	keeperRegistry contracts.KeeperRegistry,
 	keyIndex int,
 	ocrConfig contracts.OCRv2Config,
+	evmChainID string,
 ) {
 	// Send keeper jobs to registry and chainlink nodes
 	primaryNode := chainlinkNodes[0]
@@ -83,6 +86,7 @@ func CreateKeeperJobsWithKeyIndex(
 			Name:                     fmt.Sprintf("keeper-test-%s", keeperRegistry.Address()),
 			ContractAddress:          keeperRegistry.Address(),
 			FromAddress:              chainlinkNodeAddress[keyIndex],
+			EVMChainID:               evmChainID,
 			MinIncomingConfirmations: 1,
 		})
 		require.NoError(t, err, "Creating KeeperV2 Job shouldn't fail")
@@ -142,7 +146,7 @@ func DeployKeeperContracts(
 	}
 	registrar := DeployKeeperRegistrar(t, registryVersion, linkToken, registrarSettings, contractDeployer, client, registry)
 
-	upkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfUpkeeps, false)
+	upkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfUpkeeps, false, false)
 	var upkeepsAddresses []string
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
@@ -335,7 +339,7 @@ func RegisterUpkeepContracts(t *testing.T, linkToken contracts.LinkToken, linkFu
 }
 
 func RegisterUpkeepContractsWithCheckData(t *testing.T, linkToken contracts.LinkToken, linkFunds *big.Int, client blockchain.EVMClient, upkeepGasLimit uint32, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, numberOfContracts int, upkeepAddresses []string, checkData [][]byte, isLogTrigger bool) []*big.Int {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	registrationTxHashes := make([]common.Hash, 0)
 	upkeepIds := make([]*big.Int, 0)
 	for contractCount, upkeepAddress := range upkeepAddresses {
@@ -393,8 +397,8 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, linkToken contracts.Link
 	return upkeepIds
 }
 
-func DeployKeeperConsumers(t *testing.T, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfContracts int, isLogTrigger bool) []contracts.KeeperConsumer {
-	l := utils.GetTestLogger(t)
+func DeployKeeperConsumers(t *testing.T, contractDeployer contracts.ContractDeployer, client blockchain.EVMClient, numberOfContracts int, isLogTrigger bool, isMercury bool) []contracts.KeeperConsumer {
+	l := logging.GetTestLogger(t)
 	keeperConsumerContracts := make([]contracts.KeeperConsumer, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
@@ -402,7 +406,9 @@ func DeployKeeperConsumers(t *testing.T, contractDeployer contracts.ContractDepl
 		var keeperConsumerInstance contracts.KeeperConsumer
 		var err error
 
-		if isLogTrigger {
+		if isMercury {
+			keeperConsumerInstance, err = contractDeployer.DeployAutomationStreamsLookupUpkeepConsumer(big.NewInt(1000), big.NewInt(5), false, true, false) // 1000 block test range
+		} else if isLogTrigger {
 			keeperConsumerInstance, err = contractDeployer.DeployAutomationLogTriggerConsumer(big.NewInt(1000)) // 1000 block test range
 		} else {
 			keeperConsumerInstance, err = contractDeployer.DeployKeeperConsumer(big.NewInt(5))
@@ -437,7 +443,7 @@ func DeployKeeperConsumersPerformance(
 	checkGasToBurn, // How much gas should be burned on checkUpkeep() calls
 	performGasToBurn int64, // How much gas should be burned on performUpkeep() calls
 ) []contracts.KeeperConsumerPerformance {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	upkeeps := make([]contracts.KeeperConsumerPerformance, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
@@ -474,7 +480,7 @@ func DeployPerformDataChecker(
 	numberOfContracts int,
 	expectedData []byte,
 ) []contracts.KeeperPerformDataChecker {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	upkeeps := make([]contracts.KeeperPerformDataChecker, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
@@ -506,7 +512,7 @@ func DeployUpkeepCounters(
 	testRange *big.Int,
 	interval *big.Int,
 ) []contracts.UpkeepCounter {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	upkeepCounters := make([]contracts.UpkeepCounter, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
@@ -539,7 +545,7 @@ func DeployUpkeepPerformCounterRestrictive(
 	testRange *big.Int,
 	averageEligibilityCadence *big.Int,
 ) []contracts.UpkeepPerformCounterRestrictive {
-	l := utils.GetTestLogger(t)
+	l := logging.GetTestLogger(t)
 	upkeepCounters := make([]contracts.UpkeepPerformCounterRestrictive, 0)
 
 	for contractCount := 0; contractCount < numberOfContracts; contractCount++ {
@@ -577,7 +583,7 @@ func RegisterNewUpkeeps(
 	upkeepGasLimit uint32,
 	numberOfNewUpkeeps int,
 ) ([]contracts.KeeperConsumer, []*big.Int) {
-	newlyDeployedUpkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfNewUpkeeps, false)
+	newlyDeployedUpkeeps := DeployKeeperConsumers(t, contractDeployer, client, numberOfNewUpkeeps, false, false)
 
 	var addressesOfNewUpkeeps []string
 	for _, upkeep := range newlyDeployedUpkeeps {

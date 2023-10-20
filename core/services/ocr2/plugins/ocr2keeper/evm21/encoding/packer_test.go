@@ -2,12 +2,11 @@ package encoding
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
-	"strings"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ocr2keepers "github.com/smartcontractkit/ocr2keepers/pkg/v3/types"
@@ -16,7 +15,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
 	automation21Utils "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_utils_2_1"
-	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 )
 
@@ -106,8 +104,7 @@ func TestPacker_PackReport(t *testing.T) {
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			packer, err := newPacker()
-			assert.NoError(t, err)
+			packer := NewAbiPacker()
 			bytes, err := packer.PackReport(tc.report)
 			if tc.expectsErr {
 				assert.Error(t, err)
@@ -192,8 +189,7 @@ func TestPacker_UnpackCheckResults(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			packer, err := newPacker()
-			assert.NoError(t, err)
+			packer := NewAbiPacker()
 			rs, err := packer.UnpackCheckResult(test.Payload, test.RawData)
 			if test.ExpectedError != nil {
 				assert.Equal(t, test.ExpectedError.Error(), err.Error())
@@ -224,8 +220,7 @@ func TestPacker_UnpackPerformResult(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			packer, err := newPacker()
-			assert.NoError(t, err)
+			packer := NewAbiPacker()
 			state, rs, err := packer.UnpackPerformResult(test.RawData)
 			assert.Nil(t, err)
 			assert.True(t, rs)
@@ -272,8 +267,7 @@ func TestPacker_UnpackCheckCallbackResult(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
-			packer, err := newPacker()
-			assert.NoError(t, err)
+			packer := NewAbiPacker()
 
 			state, needed, pd, failureReason, gasUsed, err := packer.UnpackCheckCallbackResult(test.CallbackResp)
 
@@ -323,8 +317,7 @@ func TestPacker_UnpackLogTriggerConfig(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			packer, err := newPacker()
-			assert.NoError(t, err)
+			packer := NewAbiPacker()
 			res, err := packer.UnpackLogTriggerConfig(tc.raw)
 			if tc.errored {
 				assert.Error(t, err)
@@ -345,8 +338,7 @@ func TestPacker_PackReport_UnpackReport(t *testing.T) {
 		Triggers:     [][]byte{{1, 2, 3, 4}, {5, 6, 7, 8}},
 		PerformDatas: [][]byte{{5, 6, 7, 8}, {1, 2, 3, 4}},
 	}
-	packer, err := newPacker()
-	require.NoError(t, err)
+	packer := NewAbiPacker()
 	res, err := packer.PackReport(report)
 	require.NoError(t, err)
 	report2, err := packer.UnpackReport(res)
@@ -381,8 +373,7 @@ func TestPacker_PackGetUpkeepPrivilegeConfig(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			packer, err := newPacker()
-			require.NoError(t, err, "valid packer required for test")
+			packer := NewAbiPacker()
 
 			b, err := packer.PackGetUpkeepPrivilegeConfig(test.upkeepId)
 
@@ -425,8 +416,7 @@ func TestPacker_UnpackGetUpkeepPrivilegeConfig(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			packer, err := newPacker()
-			require.NoError(t, err, "valid packer required for test")
+			packer := NewAbiPacker()
 
 			b, err := packer.UnpackGetUpkeepPrivilegeConfig(test.raw)
 
@@ -447,14 +437,40 @@ func TestPacker_UnpackGetUpkeepPrivilegeConfig(t *testing.T) {
 	}
 }
 
-func newPacker() (*abiPacker, error) {
-	keepersABI, err := abi.JSON(strings.NewReader(iregistry21.IKeeperRegistryMasterABI))
-	if err != nil {
-		return nil, err
+func TestPacker_DecodeStreamsLookupRequest(t *testing.T) {
+	tests := []struct {
+		name     string
+		data     []byte
+		expected *StreamsLookupError
+		state    PipelineExecutionState
+		err      error
+	}{
+		{
+			name: "success - decode to streams lookup",
+			data: hexutil.MustDecode("0xf055e4a200000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002400000000000000000000000000000000000000000000000000000000002435eb50000000000000000000000000000000000000000000000000000000000000280000000000000000000000000000000000000000000000000000000000000000966656564496448657800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000004000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000000423078343535343438326435353533343432643431353234323439353435323535346432643534343535333534346534353534303030303030303030303030303030300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000042307834323534343332643535353334343264343135323432343935343532353534643264353434353533353434653435353430303030303030303030303030303030000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000b626c6f636b4e756d62657200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000140000000000000000000000000000000000000064000000000000000000000000"),
+			expected: &StreamsLookupError{
+				FeedParamKey: "feedIdHex",
+				Feeds:        []string{"0x4554482d5553442d415242495452554d2d544553544e45540000000000000000", "0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"},
+				TimeParamKey: "blockNumber",
+				Time:         big.NewInt(37969589),
+				ExtraData:    []byte{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 100},
+			},
+		},
+		{
+			name: "failure - unpack error",
+			data: []byte{1, 2, 3, 4},
+			err:  errors.New("unpack error: invalid data for unpacking"),
+		},
 	}
-	utilsABI, err := abi.JSON(strings.NewReader(automation21Utils.AutomationUtilsABI))
-	if err != nil {
-		return nil, err
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			packer := NewAbiPacker()
+			fl, err := packer.DecodeStreamsLookupRequest(tt.data)
+			assert.Equal(t, tt.expected, fl)
+			if tt.err != nil {
+				assert.Equal(t, tt.err.Error(), err.Error())
+			}
+		})
 	}
-	return NewAbiPacker(keepersABI, utilsABI), nil
 }

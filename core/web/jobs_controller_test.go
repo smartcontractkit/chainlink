@@ -2,11 +2,13 @@ package web_test
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"sync"
 	"testing"
@@ -16,9 +18,10 @@ import (
 	"github.com/google/uuid"
 	p2ppeer "github.com/libp2p/go-libp2p-core/peer"
 	"github.com/pelletier/go-toml"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -186,7 +189,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
                                   name                        = "example keeper spec"
                                   contractAddress             = "0x9E40733cC9df84636505f4e6Db28DCa0dC5D1bba"
                                   fromAddress                 = "0xa8037A20989AFcBC51798de9762b351D63ff462e"
-                                  evmChainId                  = 4
+                                  evmChainID                  = 0
                                   minIncomingConfigurations   = 1
                                   externalJobID               = "123e4567-e89b-12d3-a456-426655440002"
                              `,
@@ -358,7 +361,7 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	_, fetchBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 	_, submitBridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	tomlStr := fmt.Sprintf(testspecs.WebhookSpecNoBody, fetchBridge.Name.String(), submitBridge.Name.String())
 	body, _ := json.Marshal(web.CreateJobRequest{
@@ -377,16 +380,21 @@ func TestJobsController_Create_WebhookSpec(t *testing.T) {
 	require.NoError(t, err)
 }
 
+//go:embed webhook-spec-template.yml
+var webhookSpecTemplate string
+
 func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 	app := cltest.NewApplicationEVMDisabled(t)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
-	tomlBytes := cltest.MustReadFile(t, "../testdata/tomlspecs/webhook-job-spec-with-empty-json.toml")
-	body, _ := json.Marshal(web.CreateJobRequest{
-		TOML: string(tomlBytes),
+	nameAndExternalJobID := uuid.New()
+	spec := fmt.Sprintf(webhookSpecTemplate, nameAndExternalJobID, nameAndExternalJobID)
+	body, err := json.Marshal(web.CreateJobRequest{
+		TOML: spec,
 	})
+	require.NoError(t, err)
 	response, cleanup := client.Post("/v2/jobs", bytes.NewReader(body))
 	defer cleanup()
 
@@ -398,7 +406,12 @@ func TestJobsController_FailToCreate_EmptyJsonAttribute(t *testing.T) {
 func TestJobsController_Index_HappyPath(t *testing.T) {
 	_, client, ocrJobSpecFromFile, _, ereJobSpecFromFile, _ := setupJobSpecsControllerTestsWithJobs(t)
 
-	response, cleanup := client.Get("/v2/jobs")
+	url := url.URL{Path: "/v2/jobs"}
+	query := url.Query()
+	query.Set("evmChainID", cltest.FixtureChainID.String())
+	url.RawQuery = query.Encode()
+
+	response, cleanup := client.Get(url.String())
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -487,7 +500,7 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	var jb job.Job
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
@@ -549,7 +562,7 @@ func TestJobsController_Update_NonExistentID(t *testing.T) {
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	var jb job.Job
 	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{
@@ -629,7 +642,7 @@ func setupJobsControllerTests(t *testing.T) (ta *cltest.TestApplication, cc clte
 	app := cltest.NewApplicationWithConfigAndKey(t, cfg, cltest.DefaultP2PKey)
 	require.NoError(t, app.Start(testutils.Context(t)))
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 	vrfKeyStore := app.GetKeyStore().VRF()
 	_, err := vrfKeyStore.Create()
 	require.NoError(t, err)
@@ -650,10 +663,10 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	_, bridge := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 	_, bridge2 := cltest.MustCreateBridge(t, app.GetSqlxDB(), cltest.BridgeOpts{}, app.GetConfig().Database())
 
-	client := app.NewHTTPClient(cltest.APIEmailAdmin)
+	client := app.NewHTTPClient(nil)
 
 	var jb job.Job
-	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String()})
+	ocrspec := testspecs.GenerateOCRSpec(testspecs.OCRSpecParams{DS1BridgeName: bridge.Name.String(), DS2BridgeName: bridge2.Name.String(), EVMChainID: testutils.FixtureChainID.String()})
 	err := toml.Unmarshal([]byte(ocrspec.Toml()), &jb)
 	require.NoError(t, err)
 	var ocrSpec job.OCROracleSpec
@@ -664,7 +677,23 @@ func setupJobSpecsControllerTestsWithJobs(t *testing.T) (*cltest.TestApplication
 	err = app.AddJobV2(testutils.Context(t), &jb)
 	require.NoError(t, err)
 
-	erejb, err := directrequest.ValidatedDirectRequestSpec(string(cltest.MustReadFile(t, "../testdata/tomlspecs/direct-request-spec.toml")))
+	drSpec := fmt.Sprintf(`
+		type                = "directrequest"
+		schemaVersion       = 1
+		evmChainID          = "0"
+		name                = "example eth request event spec"
+		contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
+		externalJobID       = "%s"
+		observationSource   = """
+		    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
+		    ds1_merge    [type=merge left="{}"]
+		    ds1_parse    [type=jsonparse path="USD"];
+		    ds1_multiply [type=multiply times=100];
+		    ds1 -> ds1_parse -> ds1_multiply;
+		"""
+		`, uuid.New())
+
+	erejb, err := directrequest.ValidatedDirectRequestSpec(drSpec)
 	require.NoError(t, err)
 	err = app.AddJobV2(testutils.Context(t), &erejb)
 	require.NoError(t, err)
