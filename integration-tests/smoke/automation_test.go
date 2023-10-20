@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/kelseyhightower/envconfig"
 	"math/big"
 	"net/http"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/kelseyhightower/envconfig"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
@@ -1054,6 +1055,7 @@ func setupAutomationTestDocker(
 			WithGeth().
 			WithMockAdapter().
 			WithFunding(big.NewFloat(testConfig.ChainlinkNodeFunding)).
+			WithStandardCleanup().
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
 		env.ParallelTransactions(true)
@@ -1099,6 +1101,7 @@ func setupAutomationTestDocker(
 			WithCLNodes(clNodesCount).
 			WithCLNodeConfig(clNodeConfig).
 			WithFunding(big.NewFloat(testConfig.ChainlinkNodeFunding)).
+			WithStandardCleanup().
 			Build()
 		require.NoError(t, err, "Error deploying test environment")
 	}
