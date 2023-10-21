@@ -5,6 +5,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog/log"
+	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"os"
 )
@@ -12,17 +13,20 @@ import (
 const (
 	DefaultConfigFilename = "config.toml"
 
-	ErrReadPerfConfig      = "failed to read TOML config for performance tests"
-	ErrUnmarshalPerfConfig = "failed to unmarshal TOML config for performance tests"
+	ErrReadPerfConfig                    = "failed to read TOML config for performance tests"
+	ErrUnmarshalPerfConfig               = "failed to unmarshal TOML config for performance tests"
+	ErrDeviationShouldBeLessThanOriginal = "`RandomnessRequestCountPerRequestDeviation` should be less than `RandomnessRequestCountPerRequest`"
 )
 
 type PerformanceConfig struct {
-	Soak              *Soak              `toml:"Soak"`
-	Load              *Load              `toml:"Load"`
-	SoakVolume        *SoakVolume        `toml:"SoakVolume"`
-	LoadVolume        *LoadVolume        `toml:"LoadVolume"`
+	Soak   *Soak   `toml:"Soak"`
+	Load   *Load   `toml:"Load"`
+	Stress *Stress `toml:"Stress"`
+	Spike  *Spike  `toml:"Spike"`
+
 	Common            *Common            `toml:"Common"`
 	ExistingEnvConfig *ExistingEnvConfig `toml:"ExistingEnvConfig"`
+	NewEnvConfig      *NewEnvConfig      `toml:"NewEnvConfig"`
 }
 
 type ExistingEnvConfig struct {
@@ -32,9 +36,12 @@ type ExistingEnvConfig struct {
 	KeyHash            string `toml:"key_hash"`
 }
 
-type Common struct {
+type NewEnvConfig struct {
 	Funding
-	IsNativePayment      bool   `toml:"is_native_payment"`
+	NumberOfSubToCreate int `toml:"number_of_sub_to_create"`
+}
+
+type Common struct {
 	MinimumConfirmations uint16 `toml:"minimum_confirmations"`
 }
 
@@ -45,29 +52,27 @@ type Funding struct {
 }
 
 type Soak struct {
-	RPS      int64            `toml:"rps"`
-	Duration *models.Duration `toml:"duration"`
-}
-
-type SoakVolume struct {
-	Products int64            `toml:"products"`
-	Pace     *models.Duration `toml:"pace"`
-	Duration *models.Duration `toml:"duration"`
+	PerformanceTestConfig
 }
 
 type Load struct {
-	RPSFrom     int64            `toml:"rps_from"`
-	RPSIncrease int64            `toml:"rps_increase"`
-	RPSSteps    int              `toml:"rps_steps"`
-	Duration    *models.Duration `toml:"duration"`
+	PerformanceTestConfig
 }
 
-type LoadVolume struct {
-	ProductsFrom     int64            `toml:"products_from"`
-	ProductsIncrease int64            `toml:"products_increase"`
-	ProductsSteps    int              `toml:"products_steps"`
-	Pace             *models.Duration `toml:"pace"`
-	Duration         *models.Duration `toml:"duration"`
+type Stress struct {
+	PerformanceTestConfig
+}
+
+type Spike struct {
+	PerformanceTestConfig
+}
+
+type PerformanceTestConfig struct {
+	RPS int64 `toml:"rps"`
+	//Duration *models.Duration `toml:"duration"`
+	RateLimitUnitDuration                     *models.Duration `toml:"rate_limit_unit_duration"`
+	RandomnessRequestCountPerRequest          uint16           `toml:"randomness_request_count_per_request"`
+	RandomnessRequestCountPerRequestDeviation uint16           `toml:"randomness_request_count_per_request_deviation"`
 }
 
 func ReadConfig() (*PerformanceConfig, error) {
@@ -88,6 +93,35 @@ func ReadConfig() (*PerformanceConfig, error) {
 		return nil, errors.Wrap(err, ErrUnmarshalPerfConfig)
 	}
 
+	if cfg.Soak.RandomnessRequestCountPerRequest <= cfg.Soak.RandomnessRequestCountPerRequestDeviation {
+		return nil, errors.Wrap(err, ErrDeviationShouldBeLessThanOriginal)
+	}
+
 	log.Debug().Interface("Config", cfg).Msg("Parsed config")
 	return cfg, nil
+}
+
+func SetPerformanceTestConfig(vrfv2PlusConfig *vrfv2plus_config.VRFV2PlusConfig, cfg *PerformanceConfig) {
+	switch os.Getenv("TEST_TYPE") {
+	case "Soak":
+		vrfv2PlusConfig.RPS = cfg.Soak.RPS
+		vrfv2PlusConfig.RateLimitUnitDuration = cfg.Soak.RateLimitUnitDuration.Duration()
+		vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Soak.RandomnessRequestCountPerRequest
+		vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation = cfg.Soak.RandomnessRequestCountPerRequestDeviation
+	case "Load":
+		vrfv2PlusConfig.RPS = cfg.Load.RPS
+		vrfv2PlusConfig.RateLimitUnitDuration = cfg.Load.RateLimitUnitDuration.Duration()
+		vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Load.RandomnessRequestCountPerRequest
+		vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation = cfg.Load.RandomnessRequestCountPerRequestDeviation
+	case "Stress":
+		vrfv2PlusConfig.RPS = cfg.Stress.RPS
+		vrfv2PlusConfig.RateLimitUnitDuration = cfg.Stress.RateLimitUnitDuration.Duration()
+		vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Stress.RandomnessRequestCountPerRequest
+		vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation = cfg.Stress.RandomnessRequestCountPerRequestDeviation
+	case "Spike":
+		vrfv2PlusConfig.RPS = cfg.Spike.RPS
+		vrfv2PlusConfig.RateLimitUnitDuration = cfg.Spike.RateLimitUnitDuration.Duration()
+		vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Spike.RandomnessRequestCountPerRequest
+		vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation = cfg.Spike.RandomnessRequestCountPerRequestDeviation
+	}
 }

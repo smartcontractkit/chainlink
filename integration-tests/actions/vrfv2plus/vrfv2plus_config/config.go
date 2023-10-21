@@ -18,7 +18,8 @@ type VRFV2PlusConfig struct {
 	FulfillmentFlatFeeLinkPPM       uint32  `envconfig:"FULFILLMENT_FLAT_FEE_LINK_PPM" default:"500"`             // Flat fee in ppm for LINK for the VRF Coordinator config
 	FulfillmentFlatFeeNativePPM     uint32  `envconfig:"FULFILLMENT_FLAT_FEE_NATIVE_PPM" default:"500"`           // Flat fee in ppm for native currency for the VRF Coordinator config
 
-	RandomnessRequestCountPerRequest uint16 `envconfig:"RANDOMNESS_REQUEST_COUNT_PER_REQUEST" default:"1"` // How many randomness requests to send per request
+	RandomnessRequestCountPerRequest          uint16 `envconfig:"RANDOMNESS_REQUEST_COUNT_PER_REQUEST" default:"1"`           // How many randomness requests to send per request
+	RandomnessRequestCountPerRequestDeviation uint16 `envconfig:"RANDOMNESS_REQUEST_COUNT_PER_REQUEST_DEVIATION" default:"0"` // How many randomness requests to send per request
 
 	//Wrapper Config
 	WrapperGasOverhead                      uint32  `envconfig:"WRAPPER_GAS_OVERHEAD" default:"50000"`
