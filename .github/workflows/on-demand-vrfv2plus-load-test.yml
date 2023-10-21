@@ -56,7 +56,7 @@ on:
         required: false
         default: false
       configBase64:
-        description: TOML config in base64 (Needed when overriding config or providing contract addresses for exisiting env)
+        description: TOML config in base64 (Needed when overriding config or providing contract addresses for existing env)
         required: false
 jobs:
   vrfv2plus_load_test:
@@ -72,7 +72,7 @@ jobs:
       LOKI_URL: ${{ secrets.LOKI_URL }}
       LOKI_TOKEN: ${{ secrets.LOKI_TOKEN }}
       SELECTED_NETWORKS: ${{ inputs.network }}
-      VRFV2PLUS_TEST_TYPE: ${{ inputs.performanceTestType }}
+      TEST_TYPE: ${{ inputs.performanceTestType }}
       VRFV2PLUS_TEST_DURATION: ${{ inputs.testDuration }}
       VRFV2PLUS_USE_EXISTING_ENV: ${{ inputs.useExistingEnv }}
       CONFIG: ${{ inputs.configBase64 }}
