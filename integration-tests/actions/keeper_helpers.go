@@ -151,7 +151,7 @@ func DeployKeeperContracts(
 	for _, upkeep := range upkeeps {
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
-	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, false)
+	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfUpkeeps, upkeepsAddresses, false, false)
 	err = client.WaitForEvents()
 	require.NoError(t, err, "Error waiting for events")
 
@@ -214,7 +214,7 @@ func DeployPerformanceKeeperContracts(
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
 
-	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfContracts, upkeepsAddresses, false)
+	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfContracts, upkeepsAddresses, false, false)
 
 	return registry, registrar, upkeeps, upkeepIds
 }
@@ -270,7 +270,7 @@ func DeployPerformDataCheckerContracts(
 		upkeepsAddresses = append(upkeepsAddresses, upkeep.Address())
 	}
 
-	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfContracts, upkeepsAddresses, false)
+	upkeepIds := RegisterUpkeepContracts(t, linkToken, linkFundsForEachUpkeep, client, upkeepGasLimit, registry, registrar, numberOfContracts, upkeepsAddresses, false, false)
 
 	return registry, registrar, upkeeps, upkeepIds
 }
@@ -328,17 +328,17 @@ func DeployUpkeepTranscoder(
 	return transcoder
 }
 
-func RegisterUpkeepContracts(t *testing.T, linkToken contracts.LinkToken, linkFunds *big.Int, client blockchain.EVMClient, upkeepGasLimit uint32, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, numberOfContracts int, upkeepAddresses []string, isLogTrigger bool) []*big.Int {
+func RegisterUpkeepContracts(t *testing.T, linkToken contracts.LinkToken, linkFunds *big.Int, client blockchain.EVMClient, upkeepGasLimit uint32, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, numberOfContracts int, upkeepAddresses []string, isLogTrigger bool, isMercury bool) []*big.Int {
 	checkData := make([][]byte, 0)
 	for i := 0; i < numberOfContracts; i++ {
 		checkData = append(checkData, []byte("0"))
 	}
 	return RegisterUpkeepContractsWithCheckData(
 		t, linkToken, linkFunds, client, upkeepGasLimit, registry, registrar,
-		numberOfContracts, upkeepAddresses, checkData, isLogTrigger)
+		numberOfContracts, upkeepAddresses, checkData, isLogTrigger, isMercury)
 }
 
-func RegisterUpkeepContractsWithCheckData(t *testing.T, linkToken contracts.LinkToken, linkFunds *big.Int, client blockchain.EVMClient, upkeepGasLimit uint32, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, numberOfContracts int, upkeepAddresses []string, checkData [][]byte, isLogTrigger bool) []*big.Int {
+func RegisterUpkeepContractsWithCheckData(t *testing.T, linkToken contracts.LinkToken, linkFunds *big.Int, client blockchain.EVMClient, upkeepGasLimit uint32, registry contracts.KeeperRegistry, registrar contracts.KeeperRegistrar, numberOfContracts int, upkeepAddresses []string, checkData [][]byte, isLogTrigger bool, isMercury bool) []*big.Int {
 	l := logging.GetTestLogger(t)
 	registrationTxHashes := make([]common.Hash, 0)
 	upkeepIds := make([]*big.Int, 0)
@@ -354,6 +354,7 @@ func RegisterUpkeepContractsWithCheckData(t *testing.T, linkToken contracts.Link
 			0,
 			client.GetDefaultWallet().Address(),
 			isLogTrigger,
+			isMercury,
 		)
 		require.NoError(t, err, "Encoding the register request shouldn't fail")
 		tx, err := linkToken.TransferAndCall(registrar.Address(), linkFunds, req)
@@ -406,11 +407,17 @@ func DeployKeeperConsumers(t *testing.T, contractDeployer contracts.ContractDepl
 		var keeperConsumerInstance contracts.KeeperConsumer
 		var err error
 
-		if isMercury {
+		if isMercury && isLogTrigger {
+			// v2.1 only: Log triggered based contract with Mercury enabled
+			keeperConsumerInstance, err = contractDeployer.DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer()
+		} else if isMercury {
+			// v2.1 only: Conditional based contract with Mercury enabled
 			keeperConsumerInstance, err = contractDeployer.DeployAutomationStreamsLookupUpkeepConsumer(big.NewInt(1000), big.NewInt(5), false, true, false) // 1000 block test range
 		} else if isLogTrigger {
+			// v2.1 only: Log triggered based contract without Mercury
 			keeperConsumerInstance, err = contractDeployer.DeployAutomationLogTriggerConsumer(big.NewInt(1000)) // 1000 block test range
 		} else {
+			// v2.0 and v2.1: Conditional based contract without Mercury
 			keeperConsumerInstance, err = contractDeployer.DeployKeeperConsumer(big.NewInt(5))
 		}
 
@@ -590,7 +597,7 @@ func RegisterNewUpkeeps(
 		addressesOfNewUpkeeps = append(addressesOfNewUpkeeps, upkeep.Address())
 	}
 
-	newUpkeepIDs := RegisterUpkeepContracts(t, linkToken, big.NewInt(9e18), client, upkeepGasLimit, registry, registrar, numberOfNewUpkeeps, addressesOfNewUpkeeps, false)
+	newUpkeepIDs := RegisterUpkeepContracts(t, linkToken, big.NewInt(9e18), client, upkeepGasLimit, registry, registrar, numberOfNewUpkeeps, addressesOfNewUpkeeps, false, false)
 
 	return newlyDeployedUpkeeps, newUpkeepIDs
 }

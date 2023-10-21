@@ -382,7 +382,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	keyStore := keystore.NewInMemory(db, utils.FastScryptParams, lggr, cfg.Database())
 
 	mailMon := utils.NewMailboxMonitor(cfg.AppID().String())
-	loopRegistry := plugins.NewLoopRegistry(lggr)
+	loopRegistry := plugins.NewLoopRegistry(lggr, nil)
 
 	relayerFactory := chainlink.RelayerFactory{
 		Logger:       lggr,
@@ -461,7 +461,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		RestrictedHTTPClient:       c,
 		UnrestrictedHTTPClient:     c,
 		SecretGenerator:            MockSecretGenerator{},
-		LoopRegistry:               plugins.NewLoopRegistry(lggr),
+		LoopRegistry:               plugins.NewLoopRegistry(lggr, nil),
 	})
 	require.NoError(t, err)
 	app := appInstance.(*chainlink.ChainlinkApplication)
