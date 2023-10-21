@@ -109,17 +109,17 @@ func SetPerformanceTestConfig(vrfv2PlusConfig *vrfv2plus_config.VRFV2PlusConfig,
 		vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Soak.RandomnessRequestCountPerRequest
 		vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation = cfg.Soak.RandomnessRequestCountPerRequestDeviation
 	case "Load":
-		vrfv2PlusConfig.RPS = cfg.Soak.RPS
+		vrfv2PlusConfig.RPS = cfg.Load.RPS
 		vrfv2PlusConfig.RateLimitUnitDuration = cfg.Load.RateLimitUnitDuration.Duration()
 		vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Load.RandomnessRequestCountPerRequest
 		vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation = cfg.Load.RandomnessRequestCountPerRequestDeviation
 	case "Stress":
-		vrfv2PlusConfig.RPS = cfg.Soak.RPS
+		vrfv2PlusConfig.RPS = cfg.Stress.RPS
 		vrfv2PlusConfig.RateLimitUnitDuration = cfg.Stress.RateLimitUnitDuration.Duration()
 		vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Stress.RandomnessRequestCountPerRequest
 		vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation = cfg.Stress.RandomnessRequestCountPerRequestDeviation
 	case "Spike":
-		vrfv2PlusConfig.RPS = cfg.Soak.RPS
+		vrfv2PlusConfig.RPS = cfg.Spike.RPS
 		vrfv2PlusConfig.RateLimitUnitDuration = cfg.Spike.RateLimitUnitDuration.Duration()
 		vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Spike.RandomnessRequestCountPerRequest
 		vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation = cfg.Spike.RandomnessRequestCountPerRequestDeviation

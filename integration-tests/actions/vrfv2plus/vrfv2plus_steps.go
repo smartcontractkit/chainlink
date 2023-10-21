@@ -406,7 +406,6 @@ func AddConsumersToSubs(
 ) error {
 	for subID, consumers := range subToConsumerMap {
 		for _, consumer := range consumers {
-			fmt.Println("Adding consumer:", consumer.Address(), " to sub:", subID)
 			err := coordinator.AddConsumer(subID, consumer.Address())
 			if err != nil {
 				return errors.Wrap(err, ErrAddConsumerToSub)
