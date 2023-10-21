@@ -52,11 +52,11 @@ on:
         required: false
         default: 1m
       useExistingEnv:
-        description: Set `true` to use existing environment or `false` to deploy CL node and all contracts (Skip for Simulated)
+        description: Set `true` to use existing environment or `false` to deploy CL node and all contracts
         required: false
         default: false
       configBase64:
-        description: TOML config in base64
+        description: TOML config in base64 (Needed when overriding config or providing contract addresses for exisiting env)
         required: false
 jobs:
   vrfv2plus_load_test:
