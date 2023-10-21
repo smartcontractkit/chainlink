@@ -15,7 +15,7 @@ type SingleHashGun struct {
 	contracts       *vrfv2plus.VRFV2_5Contracts
 	keyHash         [32]byte
 	subIDs          []*big.Int
-	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig
+	vrfv2PlusConfig *vrfv2plus_config.VRFV2PlusConfig
 	logger          zerolog.Logger
 }
 
@@ -23,7 +23,7 @@ func NewSingleHashGun(
 	contracts *vrfv2plus.VRFV2_5Contracts,
 	keyHash [32]byte,
 	subIDs []*big.Int,
-	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
+	vrfv2PlusConfig *vrfv2plus_config.VRFV2PlusConfig,
 	logger zerolog.Logger,
 ) *SingleHashGun {
 	return &SingleHashGun{

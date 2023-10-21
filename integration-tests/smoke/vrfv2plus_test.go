@@ -46,7 +46,7 @@ func TestVRFv2Plus(t *testing.T) {
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(env, vrfv2PlusConfig, linkToken, mockETHLinkFeed, 1, 1)
+	vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(env, &vrfv2PlusConfig, linkToken, mockETHLinkFeed, 1, 1)
 	require.NoError(t, err, "error setting up VRF v2_5 env")
 
 	subID := subIDs[0]
@@ -71,7 +71,7 @@ func TestVRFv2Plus(t *testing.T) {
 			subID,
 			isNativeBilling,
 			vrfv2PlusConfig.RandomnessRequestCountPerRequest,
-			vrfv2PlusConfig,
+			&vrfv2PlusConfig,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -113,7 +113,7 @@ func TestVRFv2Plus(t *testing.T) {
 			subID,
 			isNativeBilling,
 			vrfv2PlusConfig.RandomnessRequestCountPerRequest,
-			vrfv2PlusConfig,
+			&vrfv2PlusConfig,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -141,7 +141,7 @@ func TestVRFv2Plus(t *testing.T) {
 
 	wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
 		env,
-		vrfv2PlusConfig,
+		&vrfv2PlusConfig,
 		linkToken,
 		mockETHLinkFeed,
 		vrfv2PlusContracts.Coordinator,
@@ -166,7 +166,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			wrapperSubID,
 			isNativeBilling,
-			vrfv2PlusConfig,
+			&vrfv2PlusConfig,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -214,7 +214,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			wrapperSubID,
 			isNativeBilling,
-			vrfv2PlusConfig,
+			&vrfv2PlusConfig,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -251,7 +251,7 @@ func TestVRFv2Plus(t *testing.T) {
 func TestVRFv2PlusMigration(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
-	var vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig
+	var vrfv2PlusConfig *vrfv2plus_config.VRFV2PlusConfig
 	err := envconfig.Process("VRFV2PLUS", &vrfv2PlusConfig)
 	require.NoError(t, err)
 

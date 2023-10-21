@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 	"math/big"
+	"os"
 	"sync"
 	"testing"
 	"time"
@@ -26,23 +27,21 @@ func TestVRFV2PlusLoad(t *testing.T) {
 	err = envconfig.Process("VRFV2PLUS", &vrfv2PlusConfig)
 	require.NoError(t, err)
 
+	SetPerformanceTestConfig(&vrfv2PlusConfig, cfg)
+
 	l := logging.GetTestLogger(t)
 	//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
 	vrfv2PlusConfig.MinimumConfirmations = cfg.Common.MinimumConfirmations
 
-	vrfv2PlusConfig.RPS = cfg.Soak.RPS
-	vrfv2PlusConfig.RateLimitUnitDuration = cfg.Soak.RateLimitUnitDuration.Duration()
-	vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Soak.RandomnessRequestCountPerRequest
-	vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation = cfg.Soak.RandomnessRequestCountPerRequestDeviation
-
 	l.Info().
+		Str("Test Type", os.Getenv("TEST_TYPE")).
 		Str("Test Duration", vrfv2PlusConfig.TestDuration.Truncate(time.Second).String()).
 		Int64("RPS", vrfv2PlusConfig.RPS).
 		Str("RateLimitUnitDuration", vrfv2PlusConfig.RateLimitUnitDuration.String()).
 		Uint16("RandomnessRequestCountPerRequest", vrfv2PlusConfig.RandomnessRequestCountPerRequest).
 		Uint16("RandomnessRequestCountPerRequestDeviation", vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation).
 		Bool("UseExistingEnv", vrfv2PlusConfig.UseExistingEnv).
-		Msg("Load Test Configs")
+		Msg("Performance Test Configuration")
 
 	var env *test_env.CLClusterTestEnv
 	var vrfv2PlusContracts *vrfv2plus.VRFV2_5Contracts
@@ -58,6 +57,7 @@ func TestVRFV2PlusLoad(t *testing.T) {
 
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestLogger(t).
+			WithoutCleanup().
 			Build()
 
 		require.NoError(t, err, "error creating test env")
@@ -99,6 +99,7 @@ func TestVRFV2PlusLoad(t *testing.T) {
 			WithGeth().
 			WithCLNodes(1).
 			WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
+			WithStandardCleanup().
 			WithLogWatcher().
 			Build()
 
@@ -112,7 +113,7 @@ func TestVRFV2PlusLoad(t *testing.T) {
 		linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 		require.NoError(t, err, "error deploying LINK contract")
 
-		vrfv2PlusContracts, subIDs, vrfv2PlusData, err = vrfv2plus.SetupVRFV2_5Environment(env, vrfv2PlusConfig, linkToken, mockETHLinkFeed, 1, numberOfSubToCreate)
+		vrfv2PlusContracts, subIDs, vrfv2PlusData, err = vrfv2plus.SetupVRFV2_5Environment(env, &vrfv2PlusConfig, linkToken, mockETHLinkFeed, 1, numberOfSubToCreate)
 		require.NoError(t, err, "error setting up VRF v2_5 env")
 	}
 
@@ -144,7 +145,7 @@ func TestVRFV2PlusLoad(t *testing.T) {
 			vrfv2PlusContracts,
 			vrfv2PlusData.KeyHash,
 			subIDs,
-			vrfv2PlusConfig,
+			&vrfv2PlusConfig,
 			l,
 		),
 		Labels:      labels,
