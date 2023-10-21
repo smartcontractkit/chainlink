@@ -30,12 +30,14 @@ type UpdatePasswordRequest struct {
 	NewPassword string `json:"newPassword"`
 }
 
+var errUnsupportedForAuth = errors.New("action is unsupported with configured authentication provider")
+
 // Index lists all API users
 func (c *UserController) Index(ctx *gin.Context) {
 	users, err := c.App.AuthenticationProvider().ListUsers()
 	if err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
-			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
+			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
 		c.App.GetLogger().Errorf("Unable to list users", "err", err)
@@ -90,7 +92,7 @@ func (c *UserController) Create(ctx *gin.Context) {
 			}
 		}
 		if errors.Is(err, clsession.ErrNotSupported) {
-			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
+			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
 		c.App.GetLogger().Errorf("Error creating new API user", "err", err)
@@ -143,7 +145,7 @@ func (c *UserController) UpdateRole(ctx *gin.Context) {
 	user, err := c.App.AuthenticationProvider().UpdateRole(request.Email, request.NewRole)
 	if err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
-			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
+			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
 		jsonAPIError(ctx, http.StatusInternalServerError, errors.Wrap(err, "error updating API user"))
@@ -161,7 +163,7 @@ func (c *UserController) Delete(ctx *gin.Context) {
 	user, err := c.App.AuthenticationProvider().FindUser(email)
 	if err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
-			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
+			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
 		jsonAPIError(ctx, http.StatusBadRequest, errors.Errorf("Unable to find user: %s, %s", email, err))
@@ -181,7 +183,7 @@ func (c *UserController) Delete(ctx *gin.Context) {
 
 	if err = c.App.AuthenticationProvider().DeleteUser(email); err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
-			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
+			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
 		c.App.GetLogger().Errorf("Error deleting API user", "err", err)
@@ -208,7 +210,7 @@ func (c *UserController) UpdatePassword(ctx *gin.Context) {
 	user, err := c.App.AuthenticationProvider().FindUser(sessionUser.Email)
 	if err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
-			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
+			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
 		c.App.GetLogger().Errorf("failed to obtain current user record: %s", err)
@@ -249,7 +251,7 @@ func (c *UserController) NewAPIToken(ctx *gin.Context) {
 	user, err := c.App.AuthenticationProvider().FindUser(sessionUser.Email)
 	if err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
-			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
+			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
 		c.App.GetLogger().Errorf("failed to obtain current user record: %s", err)
@@ -266,7 +268,7 @@ func (c *UserController) NewAPIToken(ctx *gin.Context) {
 	newToken := auth.NewToken()
 	if err := c.App.AuthenticationProvider().SetAuthToken(&user, newToken); err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
-			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
+			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
@@ -293,7 +295,7 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 	user, err := c.App.AuthenticationProvider().FindUser(sessionUser.Email)
 	if err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
-			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
+			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
 		c.App.GetLogger().Errorf("failed to obtain current user record: %s", err)
@@ -308,7 +310,7 @@ func (c *UserController) DeleteAPIToken(ctx *gin.Context) {
 	}
 	if err := c.App.AuthenticationProvider().DeleteAuthToken(&user); err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
-			jsonAPIError(ctx, http.StatusBadRequest, errors.New("Action is unsupported with configured authentication provider"))
+			jsonAPIError(ctx, http.StatusBadRequest, errUnsupportedForAuth)
 			return
 		}
 		jsonAPIError(ctx, http.StatusInternalServerError, err)
@@ -341,7 +343,7 @@ func (c *UserController) updateUserPassword(ctx *gin.Context, user *clsession.Us
 	}
 	if err := orm.SetPassword(user, newPassword); err != nil {
 		if errors.Is(err, clsession.ErrNotSupported) {
-			return errors.New("Action is unsupported with configured authentication provider")
+			return errUnsupportedForAuth
 		}
 		c.App.GetLogger().Errorf("failed to update current user password: %s", err)
 		return errors.New("unable to update password")
