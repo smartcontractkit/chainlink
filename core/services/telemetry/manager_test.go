@@ -332,10 +332,14 @@ func TestLegacyMode(t *testing.T) {
 	require.Len(t, clientSent, 6)
 
 	require.Equal(t, 1, obsLogs.Len()) // Deprecation warning for TelemetryIngress.URL and TelemetryIngress.ServerPubKey
-	require.Equal(t, []byte("endpoint-1-message-1"), clientSent[0].Telemetry)
-	require.Equal(t, []byte("endpoint-1-message-2"), clientSent[1].Telemetry)
-	require.Equal(t, []byte("endpoint-1-message-3"), clientSent[2].Telemetry)
-	require.Equal(t, []byte("endpoint-2-message-1"), clientSent[3].Telemetry)
-	require.Equal(t, []byte("endpoint-2-message-2"), clientSent[4].Telemetry)
-	require.Equal(t, []byte("endpoint-2-message-3"), clientSent[5].Telemetry)
+	// disable false positive linter, it misses the size check above
+	// nolint: gosec
+	if len(clientSent) >= 6 {
+		require.Equal(t, []byte("endpoint-1-message-1"), clientSent[0].Telemetry)
+		require.Equal(t, []byte("endpoint-1-message-2"), clientSent[1].Telemetry)
+		require.Equal(t, []byte("endpoint-1-message-3"), clientSent[2].Telemetry)
+		require.Equal(t, []byte("endpoint-2-message-1"), clientSent[3].Telemetry)
+		require.Equal(t, []byte("endpoint-2-message-2"), clientSent[4].Telemetry)
+		require.Equal(t, []byte("endpoint-2-message-3"), clientSent[5].Telemetry)
+	}
 }
