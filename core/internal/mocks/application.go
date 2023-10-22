@@ -23,8 +23,6 @@ import (
 
 	mock "github.com/stretchr/testify/mock"
 
-	pg "github.com/smartcontractkit/chainlink/v2/core/services/pg"
-
 	pipeline "github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 
 	plugins "github.com/smartcontractkit/chainlink/v2/plugins"
@@ -137,22 +135,6 @@ func (_m *Application) GetConfig() chainlink.GeneralConfig {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(chainlink.GeneralConfig)
-		}
-	}
-
-	return r0
-}
-
-// GetEventBroadcaster provides a mock function with given fields:
-func (_m *Application) GetEventBroadcaster() pg.EventBroadcaster {
-	ret := _m.Called()
-
-	var r0 pg.EventBroadcaster
-	if rf, ok := ret.Get(0).(func() pg.EventBroadcaster); ok {
-		r0 = rf()
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(pg.EventBroadcaster)
 		}
 	}
 
