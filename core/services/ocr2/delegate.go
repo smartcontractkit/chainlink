@@ -1359,10 +1359,15 @@ func (d *Delegate) newServicesCCIPCommit(lggr logger.SugaredLogger, jb job.Job, 
 		ContractConfigTracker:        ccipProvider.ContractConfigTracker(),
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2CCIP),
-		OffchainConfigDigester:       ccipProvider.OffchainConfigDigester(),
-		OffchainKeyring:              kb,
-		OnchainKeyring:               kb,
+		MonitoringEndpoint: d.monitoringEndpointGen.GenMonitoringEndpoint(
+			spec.ContractID,
+			synchronization.OCR2CCIP,
+			rid.Network,
+			rid.ChainID,
+		),
+		OffchainConfigDigester: ccipProvider.OffchainConfigDigester(),
+		OffchainKeyring:        kb,
+		OnchainKeyring:         kb,
 	}
 	logError := func(msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
@@ -1407,10 +1412,15 @@ func (d *Delegate) newServicesCCIPExecution(lggr logger.SugaredLogger, jb job.Jo
 		ContractConfigTracker:        ccipProvider.ContractConfigTracker(),
 		Database:                     ocrDB,
 		LocalConfig:                  lc,
-		MonitoringEndpoint:           d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.OCR2CCIP),
-		OffchainConfigDigester:       ccipProvider.OffchainConfigDigester(),
-		OffchainKeyring:              kb,
-		OnchainKeyring:               kb,
+		MonitoringEndpoint: d.monitoringEndpointGen.GenMonitoringEndpoint(
+			spec.ContractID,
+			synchronization.OCR2CCIP,
+			rid.Network,
+			rid.ChainID,
+		),
+		OffchainConfigDigester: ccipProvider.OffchainConfigDigester(),
+		OffchainKeyring:        kb,
+		OnchainKeyring:         kb,
 	}
 	logError := func(msg string) {
 		lggr.ErrorIf(d.jobORM.RecordError(jb.ID, msg), "unable to record error")
