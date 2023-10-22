@@ -4,6 +4,7 @@ import (
 	"cmp"
 	"context"
 	"encoding/hex"
+	"fmt"
 	"slices"
 	"strings"
 	"time"
@@ -327,7 +328,13 @@ func (txm *Txm) sendMsgBatchFromAddress(ctx context.Context, gasPrice sdk.DecCoi
 		// Assume transient api issue and retry.
 		return err
 	}
-	timeoutHeight := uint64(lb.Block.Header.Height) + uint64(txm.cfg.BlocksUntilTxTimeout())
+	header, timeout := lb.SdkBlock.Header.Height, txm.cfg.BlocksUntilTxTimeout()
+	if header < 0 {
+		return fmt.Errorf("invalid negative header height: %d", header)
+	} else if timeout < 0 {
+		return fmt.Errorf("invalid negative blocks until tx timeout: %d", timeout)
+	}
+	timeoutHeight := uint64(header) + uint64(timeout)
 	signedTx, err := tc.CreateAndSign(simResults.Succeeded.GetMsgs(), an, sn, gasLimit, txm.cfg.GasLimitMultiplier(),
 		gasPrice, NewKeyWrapper(txm.keystoreAdapter, sender.String()), timeoutHeight)
 	if err != nil {

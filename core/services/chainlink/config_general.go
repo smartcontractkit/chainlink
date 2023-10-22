@@ -197,7 +197,7 @@ func (g *generalConfig) CosmosConfigs() cosmos.CosmosConfigs {
 	return g.c.Cosmos
 }
 
-func (g *generalConfig) SolanaConfigs() solana.SolanaConfigs {
+func (g *generalConfig) SolanaConfigs() solana.TOMLConfigs {
 	return g.c.Solana
 }
 

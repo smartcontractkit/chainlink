@@ -56,7 +56,7 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, keystore 
 	d := toml.NewDecoder(strings.NewReader(config))
 	d.DisallowUnknownFields()
 	var cfg struct {
-		Solana solana.SolanaConfig
+		Solana solana.TOMLConfig
 	}
 
 	if err := d.Decode(&cfg); err != nil {

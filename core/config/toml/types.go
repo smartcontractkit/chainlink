@@ -1,7 +1,6 @@
 package toml
 
 import (
-	_ "embed"
 	"errors"
 	"fmt"
 	"net"
@@ -1357,14 +1356,9 @@ var hostnameRegex = regexp.MustCompile(`^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*$`)
 func isValidURI(uri string) bool {
 	if strings.Contains(uri, "://") {
 		// Standard URI check
-		_, err := url.ParseRequestURI(uri)
-		if err != nil {
-			// TODO: BCF-2703. All external addresses currently fail validation until we have secure transport to external networks.
-			return false
-		} else {
-			return false
-		}
-
+		_, _ = url.ParseRequestURI(uri)
+		// TODO: BCF-2703. Handle error. All external addresses currently fail validation until we have secure transport to external networks.
+		return false
 	}
 
 	// For URIs like "otel-collector:4317"

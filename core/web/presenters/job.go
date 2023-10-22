@@ -525,6 +525,8 @@ func NewJobResource(j job.Job) *JobResource {
 		resource.BootstrapSpec = NewBootstrapSpec(j.BootstrapSpec)
 	case job.Gateway:
 		resource.GatewaySpec = NewGatewaySpec(j.GatewaySpec)
+	case job.LegacyGasStationServer, job.LegacyGasStationSidecar:
+		// unsupported
 	}
 
 	jes := []JobError{}
