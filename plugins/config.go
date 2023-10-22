@@ -156,7 +156,7 @@ func GetEnvConfig() (EnvConfig, error) {
 		tracingEnabled:         tracingEnabled,
 		tracingCollectorTarget: tracingCollectorTarget,
 		tracingAttributes:      tracingAttributes,
-		tracingSamplingRatio:	tracingSamplingRatio,
+		tracingSamplingRatio:   tracingSamplingRatio,
 	}, nil
 }
 

@@ -144,7 +144,7 @@ func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactor
 // InitSolana is a option for instantiating Solana relayers
 func InitSolana(ctx context.Context, factory RelayerFactory, config SolanaFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) error {
-		solRelayers, err := factory.NewSolana(config.Keystore, config.SolanaConfigs)
+		solRelayers, err := factory.NewSolana(config.Keystore, config.TOMLConfigs)
 		if err != nil {
 			return fmt.Errorf("failed to setup Solana relayer: %w", err)
 		}

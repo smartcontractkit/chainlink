@@ -351,20 +351,20 @@ func TestSetupSolanaRelayer(t *testing.T) {
 	// config 3 chains but only enable 2 => should only be 2 relayer
 	nEnabledChains := 2
 	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Solana = solana.SolanaConfigs{
-			&solana.SolanaConfig{
+		c.Solana = solana.TOMLConfigs{
+			&solana.TOMLConfig{
 				ChainID: ptr[string]("solana-id-1"),
 				Enabled: ptr(true),
 				Chain:   solcfg.Chain{},
 				Nodes:   []*solcfg.Node{},
 			},
-			&solana.SolanaConfig{
+			&solana.TOMLConfig{
 				ChainID: ptr[string]("solana-id-2"),
 				Enabled: ptr(true),
 				Chain:   solcfg.Chain{},
 				Nodes:   []*solcfg.Node{},
 			},
-			&solana.SolanaConfig{
+			&solana.TOMLConfig{
 				ChainID: ptr[string]("disabled-solana-id-1"),
 				Enabled: ptr(false),
 				Chain:   solcfg.Chain{},
@@ -401,14 +401,14 @@ func TestSetupSolanaRelayer(t *testing.T) {
 
 	// test that duplicate enabled chains is an error when
 	duplicateConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Solana = solana.SolanaConfigs{
-			&solana.SolanaConfig{
+		c.Solana = solana.TOMLConfigs{
+			&solana.TOMLConfig{
 				ChainID: ptr[string]("dupe"),
 				Enabled: ptr(true),
 				Chain:   solcfg.Chain{},
 				Nodes:   []*solcfg.Node{},
 			},
-			&solana.SolanaConfig{
+			&solana.TOMLConfig{
 				ChainID: ptr[string]("dupe"),
 				Enabled: ptr(true),
 				Chain:   solcfg.Chain{},

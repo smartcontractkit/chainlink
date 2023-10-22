@@ -19,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func solanaStartNewApplication(t *testing.T, cfgs ...*solana.SolanaConfig) *cltest.TestApplication {
+func solanaStartNewApplication(t *testing.T, cfgs ...*solana.TOMLConfig) *cltest.TestApplication {
 	for i := range cfgs {
 		cfgs[i].SetDefaults()
 	}
@@ -41,7 +41,7 @@ func TestShell_IndexSolanaNodes(t *testing.T) {
 		Name: ptr("second"),
 		URL:  utils.MustParseURL("https://solana2.example"),
 	}
-	chain := solana.SolanaConfig{
+	chain := solana.TOMLConfig{
 		ChainID: &id,
 		Nodes:   solana.SolanaNodes{&node1, &node2},
 	}

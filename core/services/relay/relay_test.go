@@ -115,8 +115,16 @@ func TestRelayerServerAdapter(t *testing.T) {
 			Test:         isType[types.MercuryProvider],
 		},
 		{
-			ProviderType: "unknown",
+			ProviderType: string(types.CCIPCommit),
 			Error:        "provider type not supported",
+		},
+		{
+			ProviderType: string(types.CCIPExecution),
+			Error:        "provider type not supported",
+		},
+		{
+			ProviderType: "unknown",
+			Error:        "provider type not recognized",
 		},
 		{
 			ProviderType: string(types.GenericPlugin),
