@@ -11,13 +11,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	env_client "github.com/smartcontractkit/chainlink-env/client"
-	"github.com/smartcontractkit/chainlink-env/environment"
-	"github.com/smartcontractkit/chainlink-env/pkg/cdk8s/blockscout"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-env/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	env_client "github.com/smartcontractkit/chainlink-testing-framework/env/client"
+	"github.com/smartcontractkit/chainlink-testing-framework/env/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/env/pkg/cdk8s/blockscout"
+	"github.com/smartcontractkit/chainlink-testing-framework/env/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/env/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/env/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 

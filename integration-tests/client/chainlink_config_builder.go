@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/smartcontractkit/chainlink-env/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/env/config"
 )
 
 const (
