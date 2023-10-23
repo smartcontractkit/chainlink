@@ -83,6 +83,10 @@ jobs:
       - name: Print Races
         if: ${{ failure() && matrix.cmd == 'go_core_race_tests' }}
         run: find race.* | xargs cat
+      - name: Print postgres logs
+        if: always()
+        run: docker compose logs postgres | tee ../../../postgres_logs.txt
+        working-directory: ./.github/actions/setup-postgres
       - name: Store logs artifacts
         if: always()
         uses: actions/upload-artifact@3cea5372237819ed00197afe530f5a7ea3e805c8 # v3.1.0
@@ -93,10 +97,7 @@ jobs:
             ./output-short.txt
             ./race.*
             ./coverage.txt
-      - name: Print postgres logs
-        if: always()
-        run: docker compose logs postgres
-        working-directory: ./.github/actions/setup-postgres
+            ./postgres_logs.txt
       - name: Notify Slack
         if: ${{ failure() && matrix.cmd == 'go_core_race_tests' && github.event.schedule != '' }}
         uses: slackapi/slack-github-action@e28cf165c92ffef168d23c5c9000cffc8a25e117 # v1.24.0

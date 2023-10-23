@@ -30,6 +30,7 @@ func TestFluxBasic(t *testing.T) {
 		WithGeth().
 		WithMockAdapter().
 		WithCLNodes(3).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
 

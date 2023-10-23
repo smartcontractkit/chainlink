@@ -34,6 +34,7 @@ func TestVRFv2Plus(t *testing.T) {
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err, "error creating test env")
 
@@ -45,8 +46,10 @@ func TestVRFv2Plus(t *testing.T) {
 	linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	vrfv2PlusContracts, subID, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(env, vrfv2PlusConfig, linkToken, mockETHLinkFeed, 1)
+	vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(env, &vrfv2PlusConfig, linkToken, mockETHLinkFeed, 1, 1)
 	require.NoError(t, err, "error setting up VRF v2_5 env")
+
+	subID := subIDs[0]
 
 	subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
 	require.NoError(t, err, "error getting subscription information")
@@ -67,7 +70,8 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			isNativeBilling,
-			vrfv2PlusConfig,
+			vrfv2PlusConfig.RandomnessRequestCountPerRequest,
+			&vrfv2PlusConfig,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -108,7 +112,8 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			subID,
 			isNativeBilling,
-			vrfv2PlusConfig,
+			vrfv2PlusConfig.RandomnessRequestCountPerRequest,
+			&vrfv2PlusConfig,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -136,7 +141,7 @@ func TestVRFv2Plus(t *testing.T) {
 
 	wrapperContracts, wrapperSubID, err := vrfv2plus.SetupVRFV2PlusWrapperEnvironment(
 		env,
-		vrfv2PlusConfig,
+		&vrfv2PlusConfig,
 		linkToken,
 		mockETHLinkFeed,
 		vrfv2PlusContracts.Coordinator,
@@ -161,7 +166,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			wrapperSubID,
 			isNativeBilling,
-			vrfv2PlusConfig,
+			&vrfv2PlusConfig,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -209,7 +214,7 @@ func TestVRFv2Plus(t *testing.T) {
 			vrfv2PlusData,
 			wrapperSubID,
 			isNativeBilling,
-			vrfv2PlusConfig,
+			&vrfv2PlusConfig,
 			l,
 		)
 		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -255,6 +260,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err, "error creating test env")
 	env.ParallelTransactions(true)
@@ -265,8 +271,10 @@ func TestVRFv2PlusMigration(t *testing.T) {
 	linkAddress, err := actions.DeployLINKToken(env.ContractDeployer)
 	require.NoError(t, err, "error deploying LINK contract")
 
-	vrfv2PlusContracts, subID, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(env, vrfv2PlusConfig, linkAddress, mockETHLinkFeedAddress, 2)
+	vrfv2PlusContracts, subIDs, vrfv2PlusData, err := vrfv2plus.SetupVRFV2_5Environment(env, &vrfv2PlusConfig, linkAddress, mockETHLinkFeedAddress, 2, 1)
 	require.NoError(t, err, "error setting up VRF v2_5 env")
+
+	subID := subIDs[0]
 
 	subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
 	require.NoError(t, err, "error getting subscription information")
@@ -400,7 +408,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		vrfv2PlusData,
 		subID,
 		false,
-		vrfv2PlusConfig,
+		&vrfv2PlusConfig,
 		l,
 	)
 	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
@@ -412,7 +420,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		vrfv2PlusData,
 		subID,
 		true,
-		vrfv2PlusConfig,
+		&vrfv2PlusConfig,
 		l,
 	)
 	require.NoError(t, err, "error requesting randomness and waiting for fulfilment")

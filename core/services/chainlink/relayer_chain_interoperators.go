@@ -144,9 +144,9 @@ func InitCosmos(ctx context.Context, factory RelayerFactory, config CosmosFactor
 // InitSolana is a option for instantiating Solana relayers
 func InitSolana(ctx context.Context, factory RelayerFactory, config SolanaFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) error {
-		solRelayers, err2 := factory.NewSolana(config.Keystore, config.SolanaConfigs)
-		if err2 != nil {
-			return fmt.Errorf("failed to setup Solana relayer: %w", err2)
+		solRelayers, err := factory.NewSolana(config.Keystore, config.TOMLConfigs)
+		if err != nil {
+			return fmt.Errorf("failed to setup Solana relayer: %w", err)
 		}
 
 		for id, relayer := range solRelayers {
@@ -161,9 +161,9 @@ func InitSolana(ctx context.Context, factory RelayerFactory, config SolanaFactor
 // InitStarknet is a option for instantiating Starknet relayers
 func InitStarknet(ctx context.Context, factory RelayerFactory, config StarkNetFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
-		starkRelayers, err2 := factory.NewStarkNet(config.Keystore, config.StarknetConfigs)
-		if err2 != nil {
-			return fmt.Errorf("failed to setup StarkNet relayer: %w", err2)
+		starkRelayers, err := factory.NewStarkNet(config.Keystore, config.StarknetConfigs)
+		if err != nil {
+			return fmt.Errorf("failed to setup StarkNet relayer: %w", err)
 		}
 
 		for id, relayer := range starkRelayers {

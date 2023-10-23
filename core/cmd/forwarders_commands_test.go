@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
@@ -23,7 +22,7 @@ func TestEVMForwarderPresenter_RenderTable(t *testing.T) {
 
 	var (
 		id         = "1"
-		address    = common.HexToAddress("0x5431F5F973781809D18643b87B44921b11355d81")
+		address    = utils.RandomAddress()
 		evmChainID = utils.NewBigI(4)
 		createdAt  = time.Now()
 		updatedAt  = time.Now().Add(time.Second)
@@ -76,7 +75,7 @@ func TestShell_TrackEVMForwarder(t *testing.T) {
 	set := flag.NewFlagSet("test", 0)
 	cltest.FlagSetApplyFromAction(client.TrackForwarder, set, "")
 
-	require.NoError(t, set.Set("address", "0x5431F5F973781809D18643b87B44921b11355d81"))
+	require.NoError(t, set.Set("address", utils.RandomAddress().Hex()))
 	require.NoError(t, set.Set("evm-chain-id", id.String()))
 
 	err := client.TrackForwarder(cli.NewContext(nil, set, nil))

@@ -58,20 +58,10 @@ type broadcasterHelper struct {
 	pipelineHelper cltest.JobPipelineV2TestHelper
 }
 
-func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int, overridesFn func(*chainlink.Config, *chainlink.Secrets)) *broadcasterHelper {
-	return broadcasterHelperCfg{}.new(t, blockHeight, timesSubscribe, nil, overridesFn)
-}
+func newBroadcasterHelper(t *testing.T, blockHeight int64, timesSubscribe int, filterLogsResult []types.Log, overridesFn func(*chainlink.Config, *chainlink.Secrets)) *broadcasterHelper {
+	// ensure we check before registering any mock Cleanup assertions
+	testutils.SkipShortDB(t)
 
-type broadcasterHelperCfg struct {
-	highestSeenHead *evmtypes.Head
-	db              *sqlx.DB
-}
-
-func (c broadcasterHelperCfg) new(t *testing.T, blockHeight int64, timesSubscribe int, filterLogsResult []types.Log, overridesFn func(*chainlink.Config, *chainlink.Secrets)) *broadcasterHelper {
-	if c.db == nil {
-		// ensure we check before registering any mock Cleanup assertions
-		testutils.SkipShortDB(t)
-	}
 	expectedCalls := mockEthClientExpectedCalls{
 		SubscribeFilterLogs: timesSubscribe,
 		HeaderByNumber:      1,
@@ -81,21 +71,13 @@ func (c broadcasterHelperCfg) new(t *testing.T, blockHeight int64, timesSubscrib
 
 	chchRawLogs := make(chan evmtest.RawSub[types.Log], timesSubscribe)
 	mockEth := newMockEthClient(t, chchRawLogs, blockHeight, expectedCalls)
-	helper := c.newWithEthClient(t, mockEth.EthClient, overridesFn)
+	helper := newBroadcasterHelperWithEthClient(t, mockEth.EthClient, nil, overridesFn)
 	helper.chchRawLogs = chchRawLogs
 	helper.mockEth = mockEth
 	return helper
 }
 
 func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client, highestSeenHead *evmtypes.Head, overridesFn func(*chainlink.Config, *chainlink.Secrets)) *broadcasterHelper {
-	return broadcasterHelperCfg{highestSeenHead: highestSeenHead}.newWithEthClient(t, ethClient, overridesFn)
-}
-
-func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient.Client, overridesFn func(*chainlink.Config, *chainlink.Secrets)) *broadcasterHelper {
-	if c.db == nil {
-		c.db = pgtest.NewSqlxDB(t)
-	}
-
 	globalConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.LogQueries = ptr(true)
 		finality := uint32(10)
@@ -109,25 +91,26 @@ func (c broadcasterHelperCfg) newWithEthClient(t *testing.T, ethClient evmclient
 	lggr := logger.TestLogger(t)
 	mailMon := srvctest.Start(t, utils.NewMailboxMonitor(t.Name()))
 
-	orm := log.NewORM(c.db, lggr, config.Database(), cltest.FixtureChainID)
-	lb := log.NewTestBroadcaster(orm, ethClient, config.EVM(), lggr, c.highestSeenHead, mailMon)
-	kst := cltest.NewKeyStore(t, c.db, globalConfig.Database())
+	db := pgtest.NewSqlxDB(t)
+	orm := log.NewORM(db, lggr, config.Database(), cltest.FixtureChainID)
+	lb := log.NewTestBroadcaster(orm, ethClient, config.EVM(), lggr, highestSeenHead, mailMon)
+	kst := cltest.NewKeyStore(t, db, globalConfig.Database())
 
 	cc := evmtest.NewChainRelayExtenders(t, evmtest.TestChainOpts{
 		Client:         ethClient,
 		GeneralConfig:  globalConfig,
-		DB:             c.db,
+		DB:             db,
 		KeyStore:       kst.Eth(),
 		LogBroadcaster: &log.NullBroadcaster{},
 		MailMon:        mailMon,
 	})
 	legacyChains := evmrelay.NewLegacyChainsFromRelayerExtenders(cc)
-	pipelineHelper := cltest.NewJobPipelineV2(t, config.WebServer(), config.JobPipeline(), config.Database(), legacyChains, c.db, kst, nil, nil)
+	pipelineHelper := cltest.NewJobPipelineV2(t, config.WebServer(), config.JobPipeline(), config.Database(), legacyChains, db, kst, nil, nil)
 
 	return &broadcasterHelper{
 		t:              t,
 		lb:             lb,
-		db:             c.db,
+		db:             db,
 		globalConfig:   globalConfig,
 		config:         config,
 		pipelineHelper: pipelineHelper,

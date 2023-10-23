@@ -5,9 +5,10 @@ import (
 	"time"
 
 	"github.com/onsi/gomega"
-	"github.com/smartcontractkit/sqlx"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/sqlx"
 
 	evmclimocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
@@ -59,6 +60,8 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	case keeper.RegistryVersion_1_3:
 		registryMock := cltest.NewContractMockReceiver(t, ethClient, keeper.Registry1_3ABI, contractAddress)
 		registryMock.MockResponse("typeAndVersion", "KeeperRegistry 1.3.0").Once()
+	case keeper.RegistryVersion_2_0, keeper.RegistryVersion_2_1:
+		t.Fatalf("Unsupported version: %s", version)
 	}
 
 	registryWrapper, err := keeper.NewRegistryWrapper(j.KeeperSpec.ContractAddress, ethClient)

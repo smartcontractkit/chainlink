@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	configutils "github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
 func TestMercurySecrets_valid(t *testing.T) {
@@ -180,3 +181,133 @@ func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
 		})
 	}
 }
+func TestTracing_ValidateCollectorTarget(t *testing.T) {
+	tests := []struct {
+		name            string
+		collectorTarget *string
+		wantErr         bool
+		errMsg          string
+	}{
+		{
+			name:            "valid http address",
+			collectorTarget: ptr("https://localhost:4317"),
+			// TODO: BCF-2703. Re-enable when we have secure transport to otel collectors in external networks
+			wantErr: true,
+			errMsg:  "CollectorTarget: invalid value (https://localhost:4317): must be a valid URI",
+		},
+		{
+			name:            "valid localhost address",
+			collectorTarget: ptr("localhost:4317"),
+			wantErr:         false,
+		},
+		{
+			name:            "valid docker address",
+			collectorTarget: ptr("otel-collector:4317"),
+			wantErr:         false,
+		},
+		{
+			name:            "valid IP address",
+			collectorTarget: ptr("192.168.1.1:4317"),
+			wantErr:         false,
+		},
+		{
+			name:            "invalid port",
+			collectorTarget: ptr("localhost:invalid"),
+			wantErr:         true,
+			errMsg:          "CollectorTarget: invalid value (localhost:invalid): must be a valid URI",
+		},
+		{
+			name:            "invalid address",
+			collectorTarget: ptr("invalid address"),
+			wantErr:         true,
+			errMsg:          "CollectorTarget: invalid value (invalid address): must be a valid URI",
+		},
+		{
+			name:            "nil CollectorTarget",
+			collectorTarget: ptr(""),
+			wantErr:         true,
+			errMsg:          "CollectorTarget: invalid value (): must be a valid URI",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tracing := &Tracing{
+				Enabled:         ptr(true),
+				CollectorTarget: tt.collectorTarget,
+			}
+
+			err := tracing.ValidateConfig()
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Equal(t, tt.errMsg, err.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestTracing_ValidateSamplingRatio(t *testing.T) {
+	tests := []struct {
+		name          string
+		samplingRatio *float64
+		wantErr       bool
+		errMsg        string
+	}{
+		{
+			name:          "valid lower bound",
+			samplingRatio: ptr(0.0),
+			wantErr:       false,
+		},
+		{
+			name:          "valid upper bound",
+			samplingRatio: ptr(1.0),
+			wantErr:       false,
+		},
+		{
+			name:          "valid value",
+			samplingRatio: ptr(0.5),
+			wantErr:       false,
+		},
+		{
+			name:          "invalid negative value",
+			samplingRatio: ptr(-0.1),
+			wantErr:       true,
+			errMsg:        configutils.ErrInvalid{Name: "SamplingRatio", Value: -0.1, Msg: "must be between 0 and 1"}.Error(),
+		},
+		{
+			name:          "invalid value greater than 1",
+			samplingRatio: ptr(1.1),
+			wantErr:       true,
+			errMsg:        configutils.ErrInvalid{Name: "SamplingRatio", Value: 1.1, Msg: "must be between 0 and 1"}.Error(),
+		},
+		{
+			name:          "nil SamplingRatio",
+			samplingRatio: nil,
+			wantErr:       false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tracing := Tracing{
+				SamplingRatio: tt.samplingRatio,
+				Enabled:       ptr(true),
+			}
+
+			err := tracing.ValidateConfig()
+
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Equal(t, tt.errMsg, err.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+// ptr is a utility function for converting a value to a pointer to the value.
+func ptr[T any](t T) *T { return &t }
