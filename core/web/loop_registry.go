@@ -85,7 +85,7 @@ func metricTarget(hostName string, port int, path string) *targetgroup.Group {
 	}
 }
 
-// pluginMetricHandlers routes from endpoints published in service discovery to the the backing LOOP endpoint
+// pluginMetricHandlers routes from endpoints published in service discovery to the backing LOOP endpoint
 func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
 	pluginName := gc.Param("name")
 	p, ok := l.registry.Get(pluginName)
@@ -95,7 +95,7 @@ func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
 	}
 
 	// unlike discovery, this endpoint is internal btw the node and plugin
-	pluginURL := fmt.Sprintf("http://%s:%d/metrics", l.loopHostName, p.EnvCfg.PrometheusPort())
+	pluginURL := fmt.Sprintf("http://%s:%d/metrics", l.loopHostName, p.EnvCfg.PrometheusPort)
 	res, err := l.client.Get(pluginURL) //nolint
 	if err != nil {
 		msg := fmt.Sprintf("plugin metric handler failed to get plugin url %s", html.EscapeString(pluginURL))

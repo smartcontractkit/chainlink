@@ -144,7 +144,7 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.TOMLConf
 			if err != nil {
 				return nil, err
 			}
-			solanaRelayers[relayID] = relay.NewRelayerServerAdapter(pkgsolana.NewRelayer(lggr, chain), chain)
+			solanaRelayers[relayID] = relay.NewServerAdapter(pkgsolana.NewRelayer(lggr, chain), chain)
 		}
 	}
 	return solanaRelayers, nil
@@ -214,7 +214,7 @@ func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs starknet.St
 				return nil, err
 			}
 
-			starknetRelayers[relayID] = relay.NewRelayerServerAdapter(pkgstarknet.NewRelayer(lggr, chain), chain)
+			starknetRelayers[relayID] = relay.NewServerAdapter(pkgstarknet.NewRelayer(lggr, chain), chain)
 		}
 	}
 	return starknetRelayers, nil

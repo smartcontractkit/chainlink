@@ -152,9 +152,8 @@ func (a *onchainAllowlist) UpdateFromContract(ctx context.Context) error {
 		return a.updateFromContractV0(ctx, blockNum)
 	} else if a.config.ContractVersion == 1 {
 		return a.updateFromContractV1(ctx, blockNum)
-	} else {
-		return fmt.Errorf("unknown contract version %d", a.config.ContractVersion)
 	}
+	return fmt.Errorf("unknown contract version %d", a.config.ContractVersion)
 }
 
 func (a *onchainAllowlist) updateFromContractV0(ctx context.Context, blockNum *big.Int) error {
