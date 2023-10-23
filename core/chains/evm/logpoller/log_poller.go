@@ -945,7 +945,7 @@ func (lp *logPoller) findBlockAfterLCA(ctx context.Context, current *evmtypes.He
 	return nil, rerr
 }
 
-// PruneOldBlocks removes blocks that are > lp.ancientBlockDepth behind the latest finalized block.
+// PruneOldBlocks removes blocks that are > lp.keepFinalizedBlocksDepth behind the latest finalized block.
 func (lp *logPoller) PruneOldBlocks(ctx context.Context) error {
 	latestBlock, err := lp.orm.SelectLatestBlock(pg.WithParentCtx(ctx))
 	if err != nil {
