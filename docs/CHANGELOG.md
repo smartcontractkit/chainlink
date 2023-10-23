@@ -31,6 +31,10 @@ These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.Serve
 
 - Removed the ability to set a next nonce value for an address through CLI
 
+### Changed
+
+- AllowSimplePasswords will fail both configuration validation and node boot if set on production builds.
+
 <!-- unreleasedstop -->
 
 ## 2.6.0 - 2023-10-18

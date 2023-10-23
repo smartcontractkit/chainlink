@@ -139,13 +139,22 @@ func TestDatabaseSecrets_ValidateConfig(t *testing.T) {
 			expectedErrContains: []string{"URL: empty: must be provided and non-empty"},
 		},
 		{
-			name: "Insecure Password in Production",
+			name: "Allow Simple Passwords set to true in Production",
 			input: &DatabaseSecrets{
 				URL:                  &validSecretURL,
-				AllowSimplePasswords: &[]bool{true}[0],
+				AllowSimplePasswords: ptr(true),
 			},
 			buildMode:           build.Prod,
-			expectedErrContains: []string{"insecure configs are not allowed on secure builds"},
+			expectedErrContains: []string{"AllowSimplePasswords is not allowed on secure builds"},
+		},
+		{
+			name: "Allow Simple Passwords set to false in Production",
+			input: &DatabaseSecrets{
+				URL:                  &validSecretURL,
+				AllowSimplePasswords: ptr(false),
+			},
+			buildMode:           build.Prod,
+			expectedErrContains: []string{"AllowSimplePasswords is not allowed on secure builds"},
 		},
 		{
 			name: "Invalid Backup URL with Simple Passwords Not Allowed",
