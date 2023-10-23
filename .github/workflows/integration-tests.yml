@@ -53,7 +53,6 @@ jobs:
         continue-on-error: true
     outputs:
       src: ${{ steps.changes.outputs.src }}
-
   build-chainlink:
     environment: integration
     permissions:
@@ -254,6 +253,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        image:
+          - name: (legacy)
+            tag-suffix: ""
+          - name: (plugins)
+            tag-suffix: -plugins
         product:
           - name: cron
             nodes: 1
@@ -296,7 +300,7 @@ jobs:
             os: ubuntu20.04-8cores-32GB
             pyroscope_env: ci-smoke-forwarder-ocr-evm-simulated
     runs-on: ${{ matrix.product.os }}
-    name: ETH Smoke Tests ${{ matrix.product.name }}
+    name: ETH Smoke Tests ${{ matrix.product.name }}${{ matrix.image.tag-suffix }}
     steps:
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
@@ -311,6 +315,97 @@ jobs:
           else
             echo "run_command=./smoke/${{ matrix.product.name }}_test.go" >> "$GITHUB_OUTPUT"
           fi
+      - name: Check for "enable tracing" label
+        id: check-label
+        run: |
+          label=$(jq -r '.pull_request.labels[]?.name // empty' "$GITHUB_EVENT_PATH")
+
+          if [[ -n "$label" ]]; then
+            if [[ "$label" == "enable tracing" ]]; then
+              echo "Enable tracing label found."
+              echo "trace=true" >> $GITHUB_OUTPUT
+            else
+              echo "Enable tracing label not found."
+              echo "trace=false" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "No labels present or labels are null."
+            echo "trace=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Setup Grafana and OpenTelemetry
+        id: docker-setup
+        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.image.tag-suffix == '-plugins'
+        run: |
+          # Create network
+          docker network create --driver bridge tracing
+
+          # Start Grafana
+          cd ./.github/tracing
+          docker run -d --network=tracing --name=grafana -p 3000:3000 -v $PWD/grafana-datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml -e GF_AUTH_ANONYMOUS_ENABLED=true -e GF_AUTH_ANONYMOUS_ORG_ROLE=Admin -e GF_AUTH_DISABLE_LOGIN_FORM=true -e GF_FEATURE_TOGGLES_ENABLE=traceqlEditor grafana/grafana:9.4.3
+
+          # Start Tempo
+          docker run -d --network=tracing --name=tempo -v ./tempo.yaml:/etc/tempo.yaml -v $PWD/tempo-data:/tmp/tempo grafana/tempo:latest -config.file=/etc/tempo.yaml
+
+          # Start OpenTelemetry Collector
+          docker run -d --network=tracing --name=otel-collector -v $PWD/otel-collector.yaml:/etc/otel-collector.yaml -p 4317:4317 otel/opentelemetry-collector:0.61.0 --config=/etc/otel-collector.yaml
+
+      - name: Generate port
+        id: generate-port
+        env:
+          GITHUB_PR_NUMBER: ${{ github.event.number }}
+        run: |
+          PORT_BASE=3001
+          MAX_PORT=8000 
+  
+          # Use PR number as offset. Given GitHub PRs are incremental, this guarantees uniqueness for at least 5000 PRs.
+          OFFSET=$GITHUB_PR_NUMBER
+          echo "PR Number: $OFFSET"
+  
+          # Ensure that we don't exceed the max port
+          if (( OFFSET > (MAX_PORT - PORT_BASE) )); then
+              OFFSET=$((OFFSET % (MAX_PORT - PORT_BASE)))
+          fi
+  
+          # Map the offset to the port range
+          REMOTE_PORT=$((PORT_BASE + OFFSET))
+          echo "REMOTE_PORT=$REMOTE_PORT" >> $GITHUB_OUTPUT
+      - name: Reverse SSH Tunneling
+        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.image.tag-suffix == '-plugins'
+        env:
+          TRACING_SSH_KEY: ${{ secrets.TRACING_SSH_KEY }}
+          TRACING_SSH_SERVER: ${{ secrets.TRACING_SSH_SERVER }}
+          REMOTE_PORT: ${{ steps.generate-port.outputs.REMOTE_PORT }}
+        run: |
+            eval $(ssh-agent)
+            echo "test"
+            echo "$TRACING_SSH_KEY" | wc -c
+            echo "$TRACING_SSH_KEY" | tr -d '\r' | wc -c
+            echo "$TRACING_SSH_KEY" | tr -d '\r' | base64 --decode | ssh-add -
+            # f: background process
+            # N: do not execute a remote command
+            # R: remote port forwarding
+            ssh -o StrictHostKeyChecking=no -f -N -R $REMOTE_PORT:127.0.0.1:3000 user-gha@$TRACING_SSH_SERVER
+            echo "To view Grafana locally:"
+            echo "ssh -N -L 8000:localhost:$REMOTE_PORT user-gha@$TRACING_SSH_SERVER"
+            echo "Then visit http://localhost:8000 in a browser."
+            echo "If you are unable to connect, check with the security team that you have access to the tracing server."
+      - name: Show Grafana Logs
+        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.image.tag-suffix == '-plugins'
+        run: |
+            docker logs grafana
+      - name: Show Tempo Logs
+        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.image.tag-suffix == '-plugins'
+        run: |
+            docker logs tempo
+      - name: Show OpenTelemetry Collector Logs
+        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.image.tag-suffix == '-plugins'
+        run: |
+            docker logs otel-collector
+      - name: Set sleep time to use in future steps
+        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.image.tag-suffix == '-plugins'
+        run: |
+          echo "SLEEP_TIME=2400" >> "$GITHUB_ENV"
       ## Run this step when changes that require tests to be run are made
       - name: Run Tests
         if: needs.changes.outputs.src == 'true'
@@ -323,7 +418,7 @@ jobs:
           test_command_to_run: make test_need_operator_assets && cd ./integration-tests && go test -timeout 30m -count=1 -json -test.parallel=${{ matrix.product.nodes }} ${{ steps.build-go-test-command.outputs.run_command }} 2>&1 | tee /tmp/gotest.log | gotestfmt
           test_download_vendor_packages_command: cd ./integration-tests && go mod download
           cl_repo: ${{ env.CHAINLINK_IMAGE }}
-          cl_image_tag: ${{ github.sha }}
+          cl_image_tag: ${{ github.sha }}${{ matrix.image.tag-suffix }}
           aws_registries: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
           artifacts_name: ${{ matrix.product.name }}-test-logs
           artifacts_location: ./integration-tests/smoke/logs/
@@ -347,7 +442,6 @@ jobs:
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_KUBECONFIG: ${{ secrets.QA_KUBECONFIG }}
-
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
@@ -358,6 +452,11 @@ jobs:
           this-job-name: ETH Smoke Tests ${{ matrix.product.name }}
           test-results-file: '{"testType":"go","filePath":"/tmp/gotest.log"}'
         continue-on-error: true
+      - name: Keep action running to view traces
+        if: steps.check-label.outputs.trace == 'true' && matrix.product.name == 'ocr2' && matrix.image.tag-suffix == '-plugins'
+        run: |
+          echo "Sleeping for $SLEEP_TIME seconds..."
+          sleep $SLEEP_TIME
 
   ### Used to check the required checks box when the matrix completes
   eth-smoke-tests:

@@ -16,7 +16,7 @@ func TestShell_IndexSolanaChains(t *testing.T) {
 	t.Parallel()
 
 	id := solanatest.RandomChainID()
-	cfg := solana.SolanaConfig{
+	cfg := solana.TOMLConfig{
 		ChainID: &id,
 		Enabled: ptr(true),
 	}

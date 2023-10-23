@@ -393,8 +393,8 @@ func TestLogPoller_BackupPollAndSaveLogsWithPollerNotWorking(t *testing.T) {
 
 	// Emit some logs in blocks
 	for i := 0; i < emittedLogs; i++ {
-		_, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
-		require.NoError(t, err)
+		_, err2 := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
+		require.NoError(t, err2)
 		th.Client.Commit()
 	}
 
@@ -1601,8 +1601,8 @@ func Test_CreatedAfterQueriesWithBackfill(t *testing.T) {
 
 			// Emit some logs in blocks
 			for i := 0; i < emittedLogs; i++ {
-				_, err := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
-				require.NoError(t, err)
+				_, err2 := th.Emitter1.EmitLog1(th.Owner, []*big.Int{big.NewInt(int64(i))})
+				require.NoError(t, err2)
 				th.Client.Commit()
 			}
 

@@ -83,10 +83,10 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 
 type SolanaFactoryConfig struct {
 	Keystore keystore.Solana
-	solana.SolanaConfigs
+	solana.TOMLConfigs
 }
 
-func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaConfigs) (map[relay.ID]loop.Relayer, error) {
+func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.TOMLConfigs) (map[relay.ID]loop.Relayer, error) {
 	solanaRelayers := make(map[relay.ID]loop.Relayer)
 	var (
 		solLggr = r.Logger.Named("Solana")
@@ -116,7 +116,7 @@ func (r *RelayerFactory) NewSolana(ks keystore.Solana, chainCfgs solana.SolanaCo
 
 			// setup the solana relayer to be a LOOP
 			cfgTOML, err := toml.Marshal(struct {
-				Solana solana.SolanaConfig
+				Solana solana.TOMLConfig
 			}{Solana: *chainCfg})
 
 			if err != nil {

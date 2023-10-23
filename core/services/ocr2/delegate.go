@@ -92,7 +92,6 @@ type Delegate struct {
 	RelayGetter
 	isNewlyCreatedJob bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon           *utils.MailboxMonitor
-	eventBroadcaster  pg.EventBroadcaster
 
 	legacyChains evm.LegacyChainContainer // legacy: use relayers instead
 }
@@ -221,7 +220,6 @@ func NewDelegate(
 		RelayGetter:           relayers,
 		isNewlyCreatedJob:     false,
 		mailMon:               mailMon,
-		eventBroadcaster:      eventBroadcaster,
 	}
 }
 
