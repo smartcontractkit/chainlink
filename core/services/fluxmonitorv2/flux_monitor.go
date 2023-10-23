@@ -1040,7 +1040,7 @@ func (fm *FluxMonitor) isValidSubmission(l logger.Logger, answer decimal.Decimal
 	pipeline.PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", jobId), jobName, "", job.FluxMonitor.String()).Set(float64(elapsed))
 	pipeline.PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", jobId), jobName).Inc()
 	pipeline.PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", jobId), jobName).Set(float64(elapsed))
-	pipeline.PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", jobId), jobName, "", job.FluxMonitor.String(), "error").Inc()
+	pipeline.PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", jobId), jobName, "", job.FluxMonitor.String(), "", "error").Inc()
 	return false
 }
 
