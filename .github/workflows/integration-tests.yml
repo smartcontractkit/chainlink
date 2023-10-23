@@ -31,7 +31,11 @@ jobs:
       - name: Checkout the repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
       - name: Try to compile integration tests
-        run: cd integration-tests && go mod download && go build ./...
+        run: |
+          # we need to download dependencies of the root go.mod as well for the chainlink code used by tests to compile
+          go mod download
+          cd integration-tests
+          go build ./...
   changes:
     environment: integration
     name: Check Paths That Require Tests To Run
@@ -472,7 +476,7 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     name: ETH Smoke Tests
-    needs: [eth-smoke-tests-matrix, eth-smoke-tests-matrix-automation]
+    needs: [compiles, eth-smoke-tests-matrix, eth-smoke-tests-matrix-automation]
     steps:
       - name: Check smoke test matrix status
         if: needs.eth-smoke-tests-matrix.result != 'success' || needs.eth-smoke-tests-matrix-automation.result != 'success'
@@ -876,7 +880,7 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     name: Solana Smoke Tests
-    needs: [solana-smoke-tests-matrix]
+    needs: [compiles, solana-smoke-tests-matrix]
     steps:
       - name: Check smoke test matrix status
         if: needs.solana-smoke-tests-matrix.result != 'success'
