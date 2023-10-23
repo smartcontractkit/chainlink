@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -43,7 +45,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 	}
 	eir_url := cltest.WebURL(t, "http://localhost:8888")
 	eir := &bridges.ExternalInitiatorRequest{
-		Name: "bitcoin",
+		Name: uuid.New().String(),
 		URL:  &eir_url,
 	}
 
