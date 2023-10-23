@@ -798,6 +798,12 @@ type EALSpec struct {
 	// RunTimeout defines the timeout for a single run of EAL status tracker
 	RunTimeout time.Duration `toml:"runTimeout"`
 
+	// ClientCertificate is the x.509 certificate used for TLS connection
+	ClientCertificate *string `toml:"clientCertificate"`
+
+	// ClientCertificate is the x.509 key used for TLS connection
+	ClientKey *string `toml:"clientKey"`
+
 	// CreatedAt is the time this job was created.
 	CreatedAt time.Time `toml:"-"`
 
