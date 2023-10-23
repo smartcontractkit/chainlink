@@ -59,6 +59,4 @@ secrets:
     file: ../secrets/0xb90c7E3F7815F59EAD74e7543eB6D9E8538455D6.json
   config:
     file: config.toml
-  secrets:
-    file: dev-secrets.toml
 
