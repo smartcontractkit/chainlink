@@ -98,7 +98,7 @@ var (
 		Name: "pipeline_tasks_total_finished",
 		Help: "The total number of pipeline tasks which have finished",
 	},
-		[]string{"job_id", "job_name", "task_id", "task_type", "status"},
+		[]string{"job_id", "job_name", "task_id", "task_type", "bridge_name", "status"},
 	)
 )
 
@@ -488,7 +488,13 @@ func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 	} else {
 		status = "completed"
 	}
-	PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, trr.Task.DotID(), string(trr.Task.Type()), status).Inc()
+
+	bridgeName := ""
+	if bridgeTask, ok := trr.Task.(*BridgeTask); ok {
+		bridgeName = bridgeTask.Name
+	}
+
+	PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, trr.Task.DotID(), string(trr.Task.Type()), bridgeName, status).Inc()
 }
 
 // ExecuteAndInsertFinishedRun executes a run in memory then inserts the finished run/task run records, returning the final result
