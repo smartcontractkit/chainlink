@@ -1,24 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-/// @dev Handles the edge case where we want to pass a specific amount of gas,
-/// @dev but EIP-150 sends all but 1/64 of the remaining gas instead so the user gets
-/// @dev less gas than they paid for. The other 2 parts of EIP-150 do not apply since
-/// @dev a) we hard code value=0 and b) we ensure code already exists.
-/// @dev If we revert instead, then that will never happen.
-/// @dev Separately we capture the return data up to a maximum size to avoid return bombs,
-/// @dev borrowed from https://github.com/nomad-xyz/ExcessivelySafeCall/blob/main/src/ExcessivelySafeCall.sol.
+/// @notice This library contains various callWithExactGas functions. All of them are
+/// safe from gas bomb attacks.
+/// @dev There is code duplication in this library. This is done to not leave the assembly
+/// the blocks.
 library CallWithExactGas {
   error NoContract();
   error NoGasForCallExactCheck();
   error NotEnoughGasForCall();
 
-  // @notice calls target address with exactly gasAmount gas and payload as calldata.
-  // Account for gasForCallExactCheck gas that will be used by this function. Will revert
-  // if the target is not a contact. Will revert when there is not enough gas to call the
-  // target with gasAmount gas.
-  // @dev Ignores the return data, which makes it immune to gas bomb attacks.
-  // @return success whether the call succeeded
+  /// @notice calls target address with exactly gasAmount gas and payload as calldata.
+  /// Accounts for gasForCallExactCheck gas that will be used by this function. Will revert
+  /// if the target is not a contact. Will revert when there is not enough gas to call the
+  /// target with gasAmount gas.
+  /// @dev Ignores the return data, which makes it immune to gas bomb attacks.
+  /// @return success whether the call succeeded
   function _callWithExactGas(
     bytes memory payload,
     address target,
@@ -50,8 +47,7 @@ library CallWithExactGas {
         revert(0, 0x4)
       }
       g := sub(g, gasForCallExactCheck)
-      // if g - g//64 <= gasAmount, revert
-      // (we subtract g//64 because of EIP-150)
+      // if g - g//64 <= gasAmount, revert. We subtract g//64 because of EIP-150
       if iszero(gt(sub(g, div(g, 64)), gasLimit)) {
         mstore(0, notEnoughGasForCall)
         revert(0, 0x4)
@@ -64,13 +60,15 @@ library CallWithExactGas {
     return success;
   }
 
-  // @notice calls target address with exactly gasAmount gas and payload as calldata.
-  // Account for gasForCallExactCheck gas that will be used by this function. Will revert
-  // if the target is not a contact. Will revert when there is not enough gas to call the
-  // target with gasAmount gas.
-  // @dev Caps the return data length, which makes it immune to gas bomb attacks.
-  // @return success whether the call succeeded
-  // @return retData the return data from the call, capped at maxReturnBytes bytes
+  /// @notice calls target address with exactly gasAmount gas and payload as calldata.
+  /// Account for gasForCallExactCheck gas that will be used by this function. Will revert
+  /// if the target is not a contact. Will revert when there is not enough gas to call the
+  /// target with gasAmount gas.
+  /// @dev Caps the return data length, which makes it immune to gas bomb attacks.
+  /// @dev Return data cap logic borrowed from
+  /// https://github.com/nomad-xyz/ExcessivelySafeCall/blob/main/src/ExcessivelySafeCall.sol.
+  /// @return success whether the call succeeded
+  /// @return retData the return data from the call, capped at maxReturnBytes bytes
   function _callWithExactGasSafeReturnData(
     bytes memory payload,
     address target,
@@ -106,8 +104,7 @@ library CallWithExactGas {
         revert(0, 0x4)
       }
       g := sub(g, gasForCallExactCheck)
-      // if g - g//64 <= gasAmount, revert
-      // (we subtract g//64 because of EIP-150)
+      // if g - g//64 <= gasAmount, revert. We subtract g//64 because of EIP-150
       if iszero(gt(sub(g, div(g, 64)), gasLimit)) {
         mstore(0, notEnoughGasForCall)
         revert(0, 0x4)
@@ -130,10 +127,12 @@ library CallWithExactGas {
     return (success, retData);
   }
 
-  // @notice calls target address with exactly gasAmount gas and payload as calldata
-  // or reverts if at least gasLimit gas is not available.
-  // @dev does not check if target is a contract. If it is not a contract, the low-level
-  // call will still be made and it will succeed.
+  /// @notice Calls target address with exactly gasAmount gas and payload as calldata
+  /// or reverts if at least gasLimit gas is not available.
+  /// @dev Does not check if target is a contract. If it is not a contract, the low-level
+  /// call will still be made and it will succeed.
+  /// @dev Ignores the return data, which makes it immune to gas bomb attacks.
+  /// @return sufficientGas Whether there was enough gas to make the call
   function _callWithExactGasEvenIfTargetIsNoContract(
     bytes memory payload,
     address target,
@@ -148,8 +147,7 @@ library CallWithExactGas {
       // conservative upper bound for the cost of this logic.
       if iszero(lt(g, gasForCallExactCheck)) {
         g := sub(g, gasForCallExactCheck)
-        // If g - g//64 <= gasAmount, we don't have enough gas. (We subtract g//64
-        // because of EIP-150.)
+        // If g - g//64 <= gasAmount, we don't have enough gas. We subtract g//64 because of EIP-150.
         if gt(sub(g, div(g, 64)), gasLimit) {
           // Call and ignore success/return data. Note that we did not check
           // whether a contract actually exists at the target address.

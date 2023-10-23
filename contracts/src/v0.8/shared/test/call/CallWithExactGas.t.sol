@@ -16,7 +16,6 @@ contract CallWithExactGasSetup is BaseTest {
     BaseTest.setUp();
 
     s_receiver = new GenericReceiver(false);
-
     s_caller = new CallWithExactGasHelper();
   }
 }
