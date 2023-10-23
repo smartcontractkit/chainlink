@@ -38,7 +38,7 @@ type Config struct {
 
 	Cosmos cosmos.CosmosConfigs `toml:",omitempty"`
 
-	Solana solana.SolanaConfigs `toml:",omitempty"`
+	Solana solana.TOMLConfigs `toml:",omitempty"`
 
 	Starknet starknet.StarknetConfigs `toml:",omitempty"`
 }
@@ -82,7 +82,7 @@ func (c *Config) setDefaults() {
 
 	for i := range c.Solana {
 		if c.Solana[i] == nil {
-			c.Solana[i] = new(solana.SolanaConfig)
+			c.Solana[i] = new(solana.TOMLConfig)
 		}
 		c.Solana[i].Chain.SetDefaults()
 	}

@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	relaychains "github.com/smartcontractkit/chainlink-relay/pkg/chains"
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
@@ -31,7 +32,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"

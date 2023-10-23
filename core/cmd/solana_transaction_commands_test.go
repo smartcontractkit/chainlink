@@ -31,7 +31,7 @@ func TestShell_SolanaSendSol(t *testing.T) {
 		Name: ptr(t.Name()),
 		URL:  utils.MustParseURL(url),
 	}
-	cfg := solana.SolanaConfig{
+	cfg := solana.TOMLConfig{
 		ChainID: &chainID,
 		Nodes:   solana.SolanaNodes{&node},
 		Enabled: ptr(true),

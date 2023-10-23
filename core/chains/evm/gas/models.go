@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	commonfee "github.com/smartcontractkit/chainlink/v2/common/fee"
 	feetypes "github.com/smartcontractkit/chainlink/v2/common/fee/types"
 	commontypes "github.com/smartcontractkit/chainlink/v2/common/types"
@@ -20,7 +22,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
@@ -29,7 +30,7 @@ import (
 //
 //go:generate mockery --quiet --name EvmFeeEstimator --output ./mocks/ --case=underscore
 type EvmFeeEstimator interface {
-	services.ServiceCtx
+	services.Service
 	commontypes.HeadTrackable[*evmtypes.Head, common.Hash]
 
 	// L1Oracle returns the L1 gas price oracle only if the chain has one, e.g. OP stack L2s and Arbitrum.
@@ -106,7 +107,7 @@ type EvmPriorAttempt struct {
 //go:generate mockery --quiet --name EvmEstimator --output ./mocks/ --case=underscore
 type EvmEstimator interface {
 	commontypes.HeadTrackable[*evmtypes.Head, common.Hash]
-	services.ServiceCtx
+	services.Service
 
 	// GetLegacyGas Calculates initial gas fee for non-EIP1559 transaction
 	// maxGasPriceWei parameter is the highest possible gas fee cap that the function will return

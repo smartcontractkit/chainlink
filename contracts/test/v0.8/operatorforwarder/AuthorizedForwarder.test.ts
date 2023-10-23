@@ -73,7 +73,7 @@ describe('AuthorizedForwarder', () => {
     it('describes the authorized forwarder', async () => {
       assert.equal(
         await forwarder.typeAndVersion(),
-        'AuthorizedForwarder 1.0.0',
+        'AuthorizedForwarder 1.1.0',
       )
     })
   })

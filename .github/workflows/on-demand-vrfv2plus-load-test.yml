@@ -38,21 +38,25 @@ on:
       chainlinkVersion:
         description: Container image version for the Chainlink nodes
         required: true
-        default: "2.6.0-beta0"
+        default: "2.6.0"
+      performanceTestType:
+        description: Performance Test Type of test to run
+        type: choice
+        options:
+          - "Soak"
+          - "Load"
+          - "Stress"
+          - "Spike"
       testDuration:
         description: Duration of the test (time string)
         required: false
         default: 1m
-      randomnessRequestCountPerRequest:
-        description: Randomness request Count per one TX request
-        required: false
-        default: 1
       useExistingEnv:
-        description: Whether to deploy a new contracts or use an existing one
+        description: Set `true` to use existing environment or `false` to deploy CL node and all contracts
         required: false
         default: false
       configBase64:
-        description: TOML config in base64
+        description: TOML config in base64 (Needed when overriding config or providing contract addresses for existing env)
         required: false
 jobs:
   vrfv2plus_load_test:
@@ -68,10 +72,8 @@ jobs:
       LOKI_URL: ${{ secrets.LOKI_URL }}
       LOKI_TOKEN: ${{ secrets.LOKI_TOKEN }}
       SELECTED_NETWORKS: ${{ inputs.network }}
+      TEST_TYPE: ${{ inputs.performanceTestType }}
       VRFV2PLUS_TEST_DURATION: ${{ inputs.testDuration }}
-      VRFV2PLUS_RATE_LIMIT_UNIT_DURATION: 1m
-      VRFV2PLUS_RPS: 1
-      VRFV2PLUS_RANDOMNESS_REQUEST_COUNT_PER_REQUEST: ${{ inputs.randomnessRequestCountPerRequest }}
       VRFV2PLUS_USE_EXISTING_ENV: ${{ inputs.useExistingEnv }}
       CONFIG: ${{ inputs.configBase64 }}
       TEST_LOG_LEVEL: debug
@@ -82,7 +84,7 @@ jobs:
     steps:
       - name: Collect Metrics
         id: collect-gha-metrics
-        uses: smartcontractkit/push-gha-metrics-action@d2c2b7bdc9012651230b2608a1bcb0c48538b6ec
+        uses: smartcontractkit/push-gha-metrics-action@f4d2fcbe12e9e44921e0171d24085ab7d2a30bc9 # v2.0.1
         with:
           basic-auth: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           hostname: ${{ secrets.GRAFANA_CLOUD_HOST }}

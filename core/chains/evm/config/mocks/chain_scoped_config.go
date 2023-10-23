@@ -497,6 +497,22 @@ func (_m *ChainScopedConfig) Threshold() coreconfig.Threshold {
 	return r0
 }
 
+// Tracing provides a mock function with given fields:
+func (_m *ChainScopedConfig) Tracing() coreconfig.Tracing {
+	ret := _m.Called()
+
+	var r0 coreconfig.Tracing
+	if rf, ok := ret.Get(0).(func() coreconfig.Tracing); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(coreconfig.Tracing)
+		}
+	}
+
+	return r0
+}
+
 // Validate provides a mock function with given fields:
 func (_m *ChainScopedConfig) Validate() error {
 	ret := _m.Called()

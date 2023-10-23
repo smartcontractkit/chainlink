@@ -1,7 +1,6 @@
 package docs_test
 
 import (
-	_ "embed"
 	"strings"
 	"testing"
 
@@ -99,7 +98,7 @@ func TestDoc(t *testing.T) {
 	})
 
 	t.Run("Solana", func(t *testing.T) {
-		var fallbackDefaults solana.SolanaConfig
+		var fallbackDefaults solana.TOMLConfig
 		fallbackDefaults.SetDefaults()
 
 		assertTOML(t, fallbackDefaults.Chain, defaults.Solana[0].Chain)
