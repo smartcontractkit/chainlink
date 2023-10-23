@@ -197,7 +197,7 @@ func (g *generalConfig) CosmosConfigs() cosmos.CosmosConfigs {
 	return g.c.Cosmos
 }
 
-func (g *generalConfig) SolanaConfigs() solana.SolanaConfigs {
+func (g *generalConfig) SolanaConfigs() solana.TOMLConfigs {
 	return g.c.Solana
 }
 
@@ -503,6 +503,10 @@ func (g *generalConfig) Mercury() coreconfig.Mercury {
 
 func (g *generalConfig) Threshold() coreconfig.Threshold {
 	return &thresholdConfig{s: g.secrets.Threshold}
+}
+
+func (g *generalConfig) Tracing() coreconfig.Tracing {
+	return &tracingConfig{s: g.c.Tracing}
 }
 
 var zeroSha256Hash = models.Sha256Hash{}

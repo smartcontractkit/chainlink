@@ -27,6 +27,7 @@ func TestVRFv2Basic(t *testing.T) {
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(vrfConst.ChainlinkNodeFundingAmountEth).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
 	env.ParallelTransactions(true)

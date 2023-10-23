@@ -14,7 +14,7 @@ type GeneralConfig interface {
 	config.AppConfig
 	toml.HasEVMConfigs
 	CosmosConfigs() cosmos.CosmosConfigs
-	SolanaConfigs() solana.SolanaConfigs
+	SolanaConfigs() solana.TOMLConfigs
 	StarknetConfigs() starknet.StarknetConfigs
 	// ConfigTOML returns both the user provided and effective configuration as TOML.
 	ConfigTOML() (user, effective string)

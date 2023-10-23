@@ -213,6 +213,16 @@ OCRDevelopmentMode = false
 InfiniteDepthQueries = false
 DisableRateLimiting = false
 
+[Tracing]
+Enabled = true
+CollectorTarget = 'localhost:4317'
+NodeID = 'clc-ocr-sol-devnet-node-1'
+SamplingRatio = 1.0
+
+[Tracing.Attributes]
+env = 'dev'
+test = 'load'
+
 [[EVM]]
 ChainID = '1'
 Enabled = false

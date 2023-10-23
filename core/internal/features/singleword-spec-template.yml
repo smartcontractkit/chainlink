@@ -1,8 +1,8 @@
 type                = "directrequest"
 schemaVersion       = 1
-name                = "example eth request event spec"
-contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
-externalJobID       = "0EEC7E1D-D0D2-476C-A1A8-72DFB6633F90"
+name                = "%s"
+contractAddress     = "%s"
+externalJobID       = "%s"
 evmChainID          = 1337
 observationSource   = """
     decode_log   [type=ethabidecodelog
@@ -22,6 +22,6 @@ observationSource   = """
                    "callbackFunctionId": $(decode_log.callbackFunctionId),
                    "expiration": $(decode_log.cancelExpiration),
                    "data": $(encode_data)}>]
-    submit [type=ethtx to="0x613a38AC1659769640aaE063C651F48E0250454C" data="$(encode_tx)" minConfirmations="2"]
+    submit [type=ethtx to="%s" data="$(encode_tx)" minConfirmations="2"]
     decode_log->decode_cbor->ds1 -> ds1_parse -> ds1_multiply->encode_data->encode_tx->submit;
 """

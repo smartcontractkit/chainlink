@@ -25,6 +25,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 		WithForwarders().
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.1)).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
 

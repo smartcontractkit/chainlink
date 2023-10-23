@@ -24,9 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/srvctest"
@@ -37,7 +35,7 @@ func TestBroadcaster_AwaitsInitialSubscribersOnStartup(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	const blockHeight int64 = 123
-	helper := newBroadcasterHelper(t, blockHeight, 1, nil)
+	helper := newBroadcasterHelper(t, blockHeight, 1, nil, nil)
 	helper.lb.AddDependents(2)
 
 	var listener = helper.newLogListenerWithJob("A")
@@ -248,13 +246,6 @@ func TestBroadcaster_ReplaysLogs(t *testing.T) {
 }
 
 func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
-	db := pgtest.NewSqlxDB(t)
-	lggr := logger.TestLogger(t)
-	cfg := configtest.NewGeneralConfig(t, nil)
-
-	orm := log.NewORM(db, lggr, cfg.Database(), cltest.FixtureChainID)
-
-	helperCfg := broadcasterHelperCfg{db: db}
 	contract1 := newMockContract(t)
 	contract2 := newMockContract(t)
 
@@ -271,92 +262,102 @@ func TestBroadcaster_BackfillUnconsumedAfterCrash(t *testing.T) {
 
 	contract1.On("ParseLog", log1).Return(flux_aggregator_wrapper.FluxAggregatorNewRound{}, nil)
 	contract2.On("ParseLog", log2).Return(flux_aggregator_wrapper.FluxAggregatorAnswerUpdated{}, nil)
+	t.Run("pool two logs from subscription, then shut down", func(t *testing.T) {
+		helper := newBroadcasterHelper(t, 0, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].FinalityDepth = ptr[uint32](confs)
+		})
+		lggr := logger.TestLogger(t)
+		orm := log.NewORM(helper.db, lggr, helper.config.Database(), cltest.FixtureChainID)
 
-	// Pool two logs from subscription, then shut down
-	helper := helperCfg.new(t, 0, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](confs)
+		listener := helper.newLogListenerWithJob("one")
+		listener.SkipMarkingConsumed(true)
+		listener2 := helper.newLogListenerWithJob("two")
+		listener2.SkipMarkingConsumed(true)
+		expBlock := int64(log1.BlockNumber)
+		helper.simulateHeads(t, listener, listener2, contract1, contract2, confs, blocks.Slice(0, 2), orm, &expBlock, func() {
+			chRawLogs := <-helper.chchRawLogs
+			chRawLogs.TrySend(log1)
+			chRawLogs.TrySend(log2)
+		})
+		// Pool min block in DB and neither listener received a broadcast
+		blockNum, err := orm.GetPendingMinBlock()
+		require.NoError(t, err)
+		require.NotNil(t, blockNum)
+		require.Equal(t, int64(log1.BlockNumber), *blockNum)
+		require.Empty(t, listener.getUniqueLogs())
+		require.Empty(t, listener2.getUniqueLogs())
+		helper.requireBroadcastCount(0)
 	})
-	listener := helper.newLogListenerWithJob("one")
-	listener.SkipMarkingConsumed(true)
-	listener2 := helper.newLogListenerWithJob("two")
-	listener2.SkipMarkingConsumed(true)
-	expBlock := int64(log1.BlockNumber)
-	helper.simulateHeads(t, listener, listener2, contract1, contract2, confs, blocks.Slice(0, 2), orm, &expBlock, func() {
-		chRawLogs := <-helper.chchRawLogs
-		chRawLogs.TrySend(log1)
-		chRawLogs.TrySend(log2)
+	t.Run("backfill pool with both, then broadcast one, but don't consume", func(t *testing.T) {
+		helper := newBroadcasterHelper(t, 2, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].FinalityDepth = ptr[uint32](confs)
+		})
+		lggr := logger.TestLogger(t)
+		orm := log.NewORM(helper.db, lggr, helper.config.Database(), cltest.FixtureChainID)
+
+		listener := helper.newLogListenerWithJob("one")
+		listener.SkipMarkingConsumed(true)
+		listener2 := helper.newLogListenerWithJob("two")
+		listener2.SkipMarkingConsumed(true)
+		expBlock := int64(log2.BlockNumber)
+		helper.simulateHeads(t, listener, listener2, contract1, contract2, confs, blocks.Slice(2, 5), orm, &expBlock, nil)
+
+		// Pool min block in DB and one listener received but didn't consume
+		blockNum, err := orm.GetPendingMinBlock()
+		require.NoError(t, err)
+		require.NotNil(t, blockNum)
+		require.Equal(t, int64(log2.BlockNumber), *blockNum)
+		require.NotEmpty(t, listener.getUniqueLogs())
+		require.Empty(t, listener2.getUniqueLogs())
+		c, err := orm.WasBroadcastConsumed(log1.BlockHash, log1.Index, listener.JobID())
+		require.NoError(t, err)
+		require.False(t, c)
 	})
+	t.Run("backfill pool and broadcast two, but only consume one", func(t *testing.T) {
+		helper := newBroadcasterHelper(t, 4, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].FinalityDepth = ptr[uint32](confs)
+		})
+		lggr := logger.TestLogger(t)
+		orm := log.NewORM(helper.db, lggr, helper.config.Database(), cltest.FixtureChainID)
 
-	// Pool min block in DB and neither listener received a broadcast
-	blockNum, err := orm.GetPendingMinBlock()
-	require.NoError(t, err)
-	require.NotNil(t, blockNum)
-	require.Equal(t, int64(log1.BlockNumber), *blockNum)
-	require.Empty(t, listener.getUniqueLogs())
-	require.Empty(t, listener2.getUniqueLogs())
-	helper.requireBroadcastCount(0)
+		listener := helper.newLogListenerWithJob("one")
+		listener2 := helper.newLogListenerWithJob("two")
+		listener2.SkipMarkingConsumed(true)
+		helper.simulateHeads(t, listener, listener2, contract1, contract2, confs, blocks.Slice(5, 8), orm, nil, nil)
 
-	// Backfill pool with both, then broadcast one, but don't consume
-	helper = helperCfg.new(t, 2, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](confs)
+		// Pool empty and one consumed but other didn't
+		blockNum, err := orm.GetPendingMinBlock()
+		require.NoError(t, err)
+		require.Nil(t, blockNum)
+		require.NotEmpty(t, listener.getUniqueLogs())
+		require.NotEmpty(t, listener2.getUniqueLogs())
+		c, err := orm.WasBroadcastConsumed(log1.BlockHash, log1.Index, listener.JobID())
+		require.NoError(t, err)
+		require.True(t, c)
+		c, err = orm.WasBroadcastConsumed(log2.BlockHash, log2.Index, listener2.JobID())
+		require.NoError(t, err)
+		require.False(t, c)
 	})
-	listener = helper.newLogListenerWithJob("one")
-	listener.SkipMarkingConsumed(true)
-	listener2 = helper.newLogListenerWithJob("two")
-	listener2.SkipMarkingConsumed(true)
-	expBlock = int64(log2.BlockNumber)
-	helper.simulateHeads(t, listener, listener2, contract1, contract2, confs, blocks.Slice(2, 5), orm, &expBlock, nil)
+	t.Run("backfill pool, broadcast and consume one", func(t *testing.T) {
+		helper := newBroadcasterHelper(t, 7, 1, logs[1:], func(c *chainlink.Config, s *chainlink.Secrets) {
+			c.EVM[0].FinalityDepth = ptr[uint32](confs)
+		})
+		lggr := logger.TestLogger(t)
+		orm := log.NewORM(helper.db, lggr, helper.config.Database(), cltest.FixtureChainID)
+		listener := helper.newLogListenerWithJob("one")
+		listener2 := helper.newLogListenerWithJob("two")
+		helper.simulateHeads(t, listener, listener2, contract1, contract2, confs, blocks.Slice(8, 9), orm, nil, nil)
 
-	// Pool min block in DB and one listener received but didn't consume
-	blockNum, err = orm.GetPendingMinBlock()
-	require.NoError(t, err)
-	require.NotNil(t, blockNum)
-	require.Equal(t, int64(log2.BlockNumber), *blockNum)
-	require.NotEmpty(t, listener.getUniqueLogs())
-	require.Empty(t, listener2.getUniqueLogs())
-	c, err := orm.WasBroadcastConsumed(log1.BlockHash, log1.Index, listener.JobID())
-	require.NoError(t, err)
-	require.False(t, c)
-
-	// Backfill pool and broadcast two, but only consume one
-	helper = helperCfg.new(t, 4, 1, logs, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](confs)
+		// Pool empty, one broadcasted and consumed
+		blockNum, err := orm.GetPendingMinBlock()
+		require.NoError(t, err)
+		require.Nil(t, blockNum)
+		require.Empty(t, listener.getUniqueLogs())
+		require.NotEmpty(t, listener2.getUniqueLogs())
+		c, err := orm.WasBroadcastConsumed(log2.BlockHash, log2.Index, listener2.JobID())
+		require.NoError(t, err)
+		require.True(t, c)
 	})
-	listener = helper.newLogListenerWithJob("one")
-	listener2 = helper.newLogListenerWithJob("two")
-	listener2.SkipMarkingConsumed(true)
-	helper.simulateHeads(t, listener, listener2, contract1, contract2, confs, blocks.Slice(5, 8), orm, nil, nil)
-
-	// Pool empty and one consumed but other didn't
-	blockNum, err = orm.GetPendingMinBlock()
-	require.NoError(t, err)
-	require.Nil(t, blockNum)
-	require.NotEmpty(t, listener.getUniqueLogs())
-	require.NotEmpty(t, listener2.getUniqueLogs())
-	c, err = orm.WasBroadcastConsumed(log1.BlockHash, log1.Index, listener.JobID())
-	require.NoError(t, err)
-	require.True(t, c)
-	c, err = orm.WasBroadcastConsumed(log2.BlockHash, log2.Index, listener2.JobID())
-	require.NoError(t, err)
-	require.False(t, c)
-
-	// Backfill pool, broadcast and consume one
-	helper = helperCfg.new(t, 7, 1, logs[1:], func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.EVM[0].FinalityDepth = ptr[uint32](confs)
-	})
-	listener = helper.newLogListenerWithJob("one")
-	listener2 = helper.newLogListenerWithJob("two")
-	helper.simulateHeads(t, listener, listener2, contract1, contract2, confs, blocks.Slice(8, 9), orm, nil, nil)
-
-	// Pool empty, one broadcasted and consumed
-	blockNum, err = orm.GetPendingMinBlock()
-	require.NoError(t, err)
-	require.Nil(t, blockNum)
-	require.Empty(t, listener.getUniqueLogs())
-	require.NotEmpty(t, listener2.getUniqueLogs())
-	c, err = orm.WasBroadcastConsumed(log2.BlockHash, log2.Index, listener2.JobID())
-	require.NoError(t, err)
-	require.True(t, c)
 }
 
 func (helper *broadcasterHelper) simulateHeads(t *testing.T, listener, listener2 *simpleLogListener,
@@ -556,7 +557,7 @@ func TestBroadcaster_BackfillALargeNumberOfLogs(t *testing.T) {
 
 func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1, nil)
+	helper := newBroadcasterHelper(t, blockHeight, 1, nil, nil)
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
 	require.NoError(t, err)
@@ -615,7 +616,7 @@ func TestBroadcaster_BroadcastsToCorrectRecipients(t *testing.T) {
 
 func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1, nil)
+	helper := newBroadcasterHelper(t, blockHeight, 1, nil, nil)
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
@@ -691,7 +692,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeights(t *testing.T) {
 
 func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1, func(c *chainlink.Config, s *chainlink.Secrets) {
+	helper := newBroadcasterHelper(t, blockHeight, 1, nil, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].FinalityDepth = ptr[uint32](1)
 	})
 	helper.start()
@@ -742,7 +743,7 @@ func TestBroadcaster_DeletesOldLogsAfterNumberOfHeads(t *testing.T) {
 
 func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1, func(c *chainlink.Config, s *chainlink.Secrets) {
+	helper := newBroadcasterHelper(t, blockHeight, 1, nil, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].FinalityDepth = ptr[uint32](4)
 	})
 	helper.start()
@@ -793,7 +794,7 @@ func TestBroadcaster_DeletesOldLogsOnlyAfterFinalityDepth(t *testing.T) {
 
 func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1, func(c *chainlink.Config, s *chainlink.Secrets) {
+	helper := newBroadcasterHelper(t, blockHeight, 1, nil, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].FinalityDepth = ptr[uint32](3)
 	})
 	helper.start()
@@ -873,7 +874,7 @@ func TestBroadcaster_FilterByTopicValues(t *testing.T) {
 
 func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1, func(c *chainlink.Config, s *chainlink.Secrets) {
+	helper := newBroadcasterHelper(t, blockHeight, 1, nil, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
 	})
 	helper.start()
@@ -912,7 +913,7 @@ func TestBroadcaster_BroadcastsWithOneDelayedLog(t *testing.T) {
 
 func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1, nil)
+	helper := newBroadcasterHelper(t, blockHeight, 1, nil, nil)
 	helper.start()
 
 	contract1, err := flux_aggregator_wrapper.NewFluxAggregator(testutils.NewAddress(), nil)
@@ -953,7 +954,7 @@ func TestBroadcaster_BroadcastsAtCorrectHeightsWithLogsEarlierThanHeads(t *testi
 
 func TestBroadcaster_BroadcastsAtCorrectHeightsWithHeadsEarlierThanLogs(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1, func(c *chainlink.Config, s *chainlink.Secrets) {
+	helper := newBroadcasterHelper(t, blockHeight, 1, nil, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].FinalityDepth = ptr[uint32](2)
 	})
 	helper.start()
@@ -1214,7 +1215,7 @@ func TestBroadcaster_ReceivesAllLogsWhenResubscribing(t *testing.T) {
 		test := test
 		t.Run(test.name, func(t *testing.T) {
 			const backfillDepth = 5
-			helper := newBroadcasterHelper(t, int64(test.blockHeight1), 2, func(c *chainlink.Config, s *chainlink.Secrets) {
+			helper := newBroadcasterHelper(t, int64(test.blockHeight1), 2, nil, func(c *chainlink.Config, s *chainlink.Secrets) {
 				// something other than default
 				c.EVM[0].BlockBackfillDepth = ptr[uint32](backfillDepth)
 			})
@@ -1359,7 +1360,7 @@ func TestBroadcaster_AppendLogChannel(t *testing.T) {
 
 func TestBroadcaster_InjectsBroadcastRecordFunctions(t *testing.T) {
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 1, nil)
+	helper := newBroadcasterHelper(t, blockHeight, 1, nil, nil)
 	helper.start()
 	defer helper.stop()
 
@@ -1390,7 +1391,7 @@ func TestBroadcaster_ProcessesLogsFromReorgsAndMissedHead(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	const startBlockHeight int64 = 0
-	helper := newBroadcasterHelper(t, startBlockHeight, 1, nil)
+	helper := newBroadcasterHelper(t, startBlockHeight, 1, nil, nil)
 	helper.start()
 	defer helper.stop()
 
@@ -1473,7 +1474,7 @@ func TestBroadcaster_BackfillsForNewListeners(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	const blockHeight int64 = 0
-	helper := newBroadcasterHelper(t, blockHeight, 2, nil)
+	helper := newBroadcasterHelper(t, blockHeight, 2, nil, nil)
 	helper.mockEth.EthClient.On("HeadByNumber", mock.Anything, (*big.Int)(nil)).Return(&evmtypes.Head{Number: blockHeight}, nil).Times(1)
 	helper.mockEth.EthClient.On("FilterLogs", mock.Anything, mock.Anything).Return(nil, nil).Times(1)
 
