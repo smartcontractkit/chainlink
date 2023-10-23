@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -100,8 +99,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			},
 		}
 
-		c.Starknet = starknet.StarknetConfigs{
-			&starknet.StarknetConfig{
+		c.Starknet = stkcfg.TOMLConfigs{
+			&stkcfg.TOMLConfig{
 				ChainID: &starknetChainID1,
 				Enabled: ptr(true),
 				Chain:   stkcfg.Chain{},
@@ -120,7 +119,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					},
 				},
 			},
-			&starknet.StarknetConfig{
+			&stkcfg.TOMLConfig{
 				ChainID: &starknetChainID2,
 				Enabled: ptr(true),
 				Chain:   stkcfg.Chain{},
@@ -243,8 +242,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitStarknet(testctx, factory, chainlink.StarkNetFactoryConfig{
-					Keystore:        keyStore.StarkNet(),
-					StarknetConfigs: cfg.StarknetConfigs()}),
+					Keystore:    keyStore.StarkNet(),
+					TOMLConfigs: cfg.StarknetConfigs()}),
 			},
 			expectedStarknetChainCnt: 2,
 			expectedStarknetNodeCnt:  4,
@@ -289,8 +288,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					CSAETHKeystore: keyStore,
 				}),
 				chainlink.InitStarknet(testctx, factory, chainlink.StarkNetFactoryConfig{
-					Keystore:        keyStore.StarkNet(),
-					StarknetConfigs: cfg.StarknetConfigs()}),
+					Keystore:    keyStore.StarkNet(),
+					TOMLConfigs: cfg.StarknetConfigs()}),
 				chainlink.InitCosmos(testctx, factory, chainlink.CosmosFactoryConfig{
 					Keystore:         keyStore.Cosmos(),
 					CosmosConfigs:    cfg.CosmosConfigs(),
