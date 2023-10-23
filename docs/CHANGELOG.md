@@ -23,6 +23,10 @@ ServerPubKey = '...'
 These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Setting `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey` alongside `[[TelemetryIngress.Endpoints]]` will prevent the node from booting. Only one way of configuring telemetry endpoints is supported.
 - Added bridge_name label to `pipeline_tasks_total_finished` prometheus metric. This should make it easier to see directly what bridge was failing out from the CL NODE perspective.
 
+### Required Configuration Change
+
+- Starting in 2.7.0, chainlink nodes will no longer allow `Database.AllowSimplePasswords` to be set. Any TOML configuration that sets this field will prevent the node from booting, and will fail configuration validation.
+
 ### Upcoming Required Configuration Change
 
 - Starting in 2.8.0, chainlink nodes will no longer allow `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
@@ -30,10 +34,6 @@ These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.Serve
 ### Removed
 
 - Removed the ability to set a next nonce value for an address through CLI
-
-### Changed
-
-- AllowSimplePasswords will fail both configuration validation and node boot if set on production builds.
 
 <!-- unreleasedstop -->
 
