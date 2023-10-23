@@ -12,8 +12,6 @@ import (
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 const (
@@ -21,10 +19,10 @@ const (
 )
 
 func main() {
-	s := plugins.MustNewStartedServer(loggerName)
+	s := loop.MustNewStartedServer(loggerName)
 	defer s.Stop()
 
-	p := &pluginRelayer{Base: plugins.Base{Logger: s.Logger}}
+	p := &pluginRelayer{Plugin: loop.Plugin{Logger: s.Logger}}
 	defer s.Logger.ErrorIfFn(p.Close, "Failed to close")
 
 	s.MustRegister(p)
@@ -49,7 +47,7 @@ func main() {
 }
 
 type pluginRelayer struct {
-	plugins.Base
+	loop.Plugin
 }
 
 // NewRelayer implements the Loopp factory method used by the Loopp server to instantiate a starknet relayer
@@ -75,7 +73,7 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, loopKs lo
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain: %w", err)
 	}
-	ra := relay.NewRelayerAdapter(pkgstarknet.NewRelayer(c.Logger, chain), chain)
+	ra := &loop.RelayerAdapter{Relayer: pkgstarknet.NewRelayer(c.Logger, chain), RelayerExt: chain}
 
 	c.SubService(ra)
 

@@ -3,7 +3,7 @@
 package mocks
 
 import (
-	services "github.com/smartcontractkit/chainlink/v2/core/services"
+	pkgservices "github.com/smartcontractkit/chainlink-relay/pkg/services"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -79,11 +79,11 @@ func (_m *Checker) IsReady() (bool, map[string]error) {
 }
 
 // Register provides a mock function with given fields: service
-func (_m *Checker) Register(service services.Checkable) error {
+func (_m *Checker) Register(service pkgservices.HealthReporter) error {
 	ret := _m.Called(service)
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(services.Checkable) error); ok {
+	if rf, ok := ret.Get(0).(func(pkgservices.HealthReporter) error); ok {
 		r0 = rf(service)
 	} else {
 		r0 = ret.Error(0)
