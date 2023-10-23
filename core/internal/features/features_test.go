@@ -264,15 +264,16 @@ func TestIntegration_AuthToken(t *testing.T) {
 
 	// set up user
 	mockUser := cltest.MustRandomUser(t)
-	apiToken := auth.Token{AccessKey: cltest.APIKey, Secret: cltest.APISecret}
+	key, secret := uuid.New().String(), uuid.New().String()
+	apiToken := auth.Token{AccessKey: key, Secret: secret}
 	orm := app.SessionORM()
 	require.NoError(t, orm.CreateUser(&mockUser))
 	require.NoError(t, orm.SetAuthToken(&mockUser, &apiToken))
 
 	url := app.Server.URL + "/users"
 	headers := make(map[string]string)
-	headers[webauth.APIKey] = cltest.APIKey
-	headers[webauth.APISecret] = cltest.APISecret
+	headers[webauth.APIKey] = key
+	headers[webauth.APISecret] = secret
 
 	resp, cleanup := cltest.UnauthenticatedGet(t, url, headers)
 	defer cleanup()
