@@ -575,6 +575,22 @@ func (_m *GeneralConfig) Threshold() config.Threshold {
 	return r0
 }
 
+// Tracing provides a mock function with given fields:
+func (_m *GeneralConfig) Tracing() config.Tracing {
+	ret := _m.Called()
+
+	var r0 config.Tracing
+	if rf, ok := ret.Get(0).(func() config.Tracing); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Tracing)
+		}
+	}
+
+	return r0
+}
+
 // Validate provides a mock function with given fields:
 func (_m *GeneralConfig) Validate() error {
 	ret := _m.Called()

@@ -216,7 +216,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   // @param ownable list of addresses to transfer
   // @param newOwner address to transfer ownership to
   function transferOwnableContracts(address[] calldata ownable, address newOwner) external onlyOwner {
-    for (uint256 i = 0; i < ownable.length; i++) {
+    for (uint256 i = 0; i < ownable.length; ++i) {
       s_owned[ownable[i]] = false;
       IOwnable(ownable[i]).transferOwnership(newOwner);
     }
@@ -228,7 +228,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   // @dev Must be the pending owner on the contract
   // @param ownable list of addresses of Ownable contracts to accept
   function acceptOwnableContracts(address[] calldata ownable) public validateAuthorizedSenderSetter {
-    for (uint256 i = 0; i < ownable.length; i++) {
+    for (uint256 i = 0; i < ownable.length; ++i) {
       s_owned[ownable[i]] = true;
       emit OwnableContractAccepted(ownable[i]);
       IOwnable(ownable[i]).acceptOwnership();
@@ -244,7 +244,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   ) public validateAuthorizedSenderSetter {
     emit TargetsUpdatedAuthorizedSenders(targets, senders, msg.sender);
 
-    for (uint256 i = 0; i < targets.length; i++) {
+    for (uint256 i = 0; i < targets.length; ++i) {
       AuthorizedReceiverInterface(targets[i]).setAuthorizedSenders(senders);
     }
   }
@@ -315,7 +315,7 @@ contract Operator is AuthorizedReceiver, ConfirmedOwner, LinkTokenReceiver, Oper
   function distributeFunds(address payable[] calldata receivers, uint256[] calldata amounts) external payable {
     require(receivers.length > 0 && receivers.length == amounts.length, "Invalid array length(s)");
     uint256 valueRemaining = msg.value;
-    for (uint256 i = 0; i < receivers.length; i++) {
+    for (uint256 i = 0; i < receivers.length; ++i) {
       uint256 sendAmount = amounts[i];
       valueRemaining = valueRemaining - sendAmount;
       receivers[i].transfer(sendAmount);

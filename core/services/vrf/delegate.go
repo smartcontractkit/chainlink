@@ -132,16 +132,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2Plus); ok {
-			if err := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
-				return nil, err
+			if err2 := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
+				return nil, err2
 			}
 
 			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().GasEstimator().PriceMaxKey) {
 				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
 			}
 
-			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
-				return nil, err
+			if err2 := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
+				return nil, err2
 			}
 			if vrfOwner != nil {
 				return nil, errors.New("VRF Owner is not supported for VRF V2 Plus")
@@ -159,9 +159,9 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				return nil, errors.Wrap(err, "can't call LINKNATIVEFEED")
 			}
 
-			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkNativeFeedAddress, chain.Client())
-			if err != nil {
-				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
+			aggregator, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkNativeFeedAddress, chain.Client())
+			if err2 != nil {
+				return nil, errors.Wrap(err2, "NewAggregatorV3Interface")
 			}
 
 			return []job.ServiceCtx{v2.New(
@@ -188,16 +188,16 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
-			if err := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
-				return nil, err
+			if err2 := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
+				return nil, err2
 			}
 
 			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().GasEstimator().PriceMaxKey) {
 				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
 			}
 
-			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
-				return nil, err
+			if err2 := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
+				return nil, err2
 			}
 
 			// Get the LINKETHFEED address with retries

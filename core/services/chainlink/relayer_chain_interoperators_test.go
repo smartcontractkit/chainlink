@@ -79,8 +79,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 			Nodes:   evmcfg.EVMNodes{&node2_1},
 		})
 
-		c.Solana = solana.SolanaConfigs{
-			&solana.SolanaConfig{
+		c.Solana = solana.TOMLConfigs{
+			&solana.TOMLConfig{
 				ChainID: &solanaChainID1,
 				Enabled: ptr(true),
 				Chain:   solcfg.Chain{},
@@ -89,7 +89,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 					URL:  ((*relayutils.URL)(models.MustParseURL("http://localhost:8547").URL())),
 				}},
 			},
-			&solana.SolanaConfig{
+			&solana.TOMLConfig{
 				ChainID: &solanaChainID2,
 				Enabled: ptr(true),
 				Chain:   solcfg.Chain{},
@@ -174,7 +174,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 	factory := chainlink.RelayerFactory{
 		Logger:       lggr,
-		LoopRegistry: plugins.NewLoopRegistry(lggr),
+		LoopRegistry: plugins.NewLoopRegistry(lggr, nil),
 		GRPCOpts:     loop.GRPCOpts{},
 	}
 
@@ -227,8 +227,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
 				chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
-					Keystore:      keyStore.Solana(),
-					SolanaConfigs: cfg.SolanaConfigs()}),
+					Keystore:    keyStore.Solana(),
+					TOMLConfigs: cfg.SolanaConfigs()}),
 			},
 			expectedSolanaChainCnt: 2,
 			expectedSolanaNodeCnt:  2,
@@ -277,8 +277,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		{name: "all chains",
 
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
-				Keystore:      keyStore.Solana(),
-				SolanaConfigs: cfg.SolanaConfigs()}),
+				Keystore:    keyStore.Solana(),
+				TOMLConfigs: cfg.SolanaConfigs()}),
 				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
 					ChainOpts: evm.ChainOpts{
 						AppConfig:        cfg,

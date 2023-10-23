@@ -39,6 +39,7 @@ func TestOCRv2Basic(t *testing.T) {
 		WithCLNodeConfig(node.NewConfig(node.NewBaseConfig(),
 			node.WithOCR2(),
 			node.WithP2Pv2(),
+			node.WithTracing(),
 		)).
 		WithCLNodes(6).
 		WithFunding(big.NewFloat(.1)).
