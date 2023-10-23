@@ -9,18 +9,18 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 var _ Checker = (*services.HealthChecker)(nil)
 
 // Checker provides a service which can be probed for system health.
-// Deprecated: use services.HealthChecker
 //
 //go:generate mockery --quiet --name Checker --output ./mocks/ --case=underscore
 type Checker interface {
 	// Register a service for health checks.
-	Register(service Checkable) error
+	Register(service services.HealthReporter) error
 	// Unregister a service.
 	Unregister(name string) error
 	// IsReady returns the current readiness of the system.
