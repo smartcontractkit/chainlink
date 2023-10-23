@@ -83,9 +83,8 @@ func (hl *HeadListener[HTH, S, ID, BLOCK_HASH]) ListenForNewHeads(handleNewHead 
 		} else if err != nil {
 			hl.logger.Errorw("Error in new head subscription, unsubscribed", "err", err)
 			continue
-		} else {
-			break
 		}
+		break
 	}
 }
 
