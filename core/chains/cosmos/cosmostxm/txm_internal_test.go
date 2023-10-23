@@ -15,6 +15,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
+	tcmocks "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client/mocks"
+	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
+	cosmosdb "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
@@ -25,11 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
-	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
-	tcmocks "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client/mocks"
-	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	. "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
 )
 
 func generateExecuteMsg(t *testing.T, msg []byte, from, to cosmostypes.AccAddress) cosmostypes.Msg {
@@ -125,7 +124,7 @@ func TestTxm(t *testing.T) {
 		completed, err := txm.ORM().GetMsgs(id1)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(completed))
-		assert.Equal(t, completed[0].State, Confirmed)
+		assert.Equal(t, completed[0].State, cosmosdb.Confirmed)
 	})
 
 	t.Run("two msgs different accounts", func(t *testing.T) {
@@ -180,8 +179,8 @@ func TestTxm(t *testing.T) {
 		completed, err := txm.ORM().GetMsgs(id1, id2)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(completed))
-		assert.Equal(t, Errored, completed[0].State) // cancelled
-		assert.Equal(t, Confirmed, completed[1].State)
+		assert.Equal(t, cosmosdb.Errored, completed[0].State) // cancelled
+		assert.Equal(t, cosmosdb.Confirmed, completed[1].State)
 	})
 
 	t.Run("two msgs different contracts", func(t *testing.T) {
@@ -240,8 +239,8 @@ func TestTxm(t *testing.T) {
 		completed, err := txm.ORM().GetMsgs(id1, id2)
 		require.NoError(t, err)
 		require.Equal(t, 2, len(completed))
-		assert.Equal(t, Confirmed, completed[0].State)
-		assert.Equal(t, Confirmed, completed[1].State)
+		assert.Equal(t, cosmosdb.Confirmed, completed[0].State)
+		assert.Equal(t, cosmosdb.Confirmed, completed[1].State)
 	})
 
 	t.Run("failed to confirm", func(t *testing.T) {
@@ -256,14 +255,14 @@ func TestTxm(t *testing.T) {
 		i, err := txm.ORM().InsertMsg("blah", "", []byte{0x01})
 		require.NoError(t, err)
 		txh := "0x123"
-		require.NoError(t, txm.ORM().UpdateMsgs([]int64{i}, Started, &txh))
-		require.NoError(t, txm.ORM().UpdateMsgs([]int64{i}, Broadcasted, &txh))
+		require.NoError(t, txm.ORM().UpdateMsgs([]int64{i}, cosmosdb.Started, &txh))
+		require.NoError(t, txm.ORM().UpdateMsgs([]int64{i}, cosmosdb.Broadcasted, &txh))
 		err = txm.ConfirmTx(testutils.Context(t), tc, txh, []int64{i}, 2, 1*time.Millisecond)
 		require.NoError(t, err)
 		m, err := txm.ORM().GetMsgs(i)
 		require.NoError(t, err)
 		require.Equal(t, 1, len(m))
-		assert.Equal(t, Errored, m[0].State)
+		assert.Equal(t, cosmosdb.Errored, m[0].State)
 	})
 
 	t.Run("confirm any unconfirmed", func(t *testing.T) {
@@ -292,17 +291,17 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 		id3, err := txm.ORM().InsertMsg("blah", "", []byte{0x03})
 		require.NoError(t, err)
-		err = txm.ORM().UpdateMsgs([]int64{id1}, Started, &txHash1)
+		err = txm.ORM().UpdateMsgs([]int64{id1}, cosmosdb.Started, &txHash1)
 		require.NoError(t, err)
-		err = txm.ORM().UpdateMsgs([]int64{id2}, Started, &txHash2)
+		err = txm.ORM().UpdateMsgs([]int64{id2}, cosmosdb.Started, &txHash2)
 		require.NoError(t, err)
-		err = txm.ORM().UpdateMsgs([]int64{id3}, Started, &txHash3)
+		err = txm.ORM().UpdateMsgs([]int64{id3}, cosmosdb.Started, &txHash3)
 		require.NoError(t, err)
-		err = txm.ORM().UpdateMsgs([]int64{id1}, Broadcasted, &txHash1)
+		err = txm.ORM().UpdateMsgs([]int64{id1}, cosmosdb.Broadcasted, &txHash1)
 		require.NoError(t, err)
-		err = txm.ORM().UpdateMsgs([]int64{id2}, Broadcasted, &txHash2)
+		err = txm.ORM().UpdateMsgs([]int64{id2}, cosmosdb.Broadcasted, &txHash2)
 		require.NoError(t, err)
-		err = txm.ORM().UpdateMsgs([]int64{id3}, Broadcasted, &txHash3)
+		err = txm.ORM().UpdateMsgs([]int64{id3}, cosmosdb.Broadcasted, &txHash3)
 		require.NoError(t, err)
 
 		// Confirm them as in a restart while confirming scenario
@@ -310,9 +309,9 @@ func TestTxm(t *testing.T) {
 		msgs, err := txm.ORM().GetMsgs(id1, id2, id3)
 		require.NoError(t, err)
 		require.Equal(t, 3, len(msgs))
-		assert.Equal(t, Confirmed, msgs[0].State)
-		assert.Equal(t, Confirmed, msgs[1].State)
-		assert.Equal(t, Confirmed, msgs[2].State)
+		assert.Equal(t, cosmosdb.Confirmed, msgs[0].State)
+		assert.Equal(t, cosmosdb.Confirmed, msgs[1].State)
+		assert.Equal(t, cosmosdb.Confirmed, msgs[2].State)
 	})
 
 	t.Run("expired msgs", func(t *testing.T) {
@@ -337,7 +336,7 @@ func TestTxm(t *testing.T) {
 		// Should be marked errored
 		m, err := txm.ORM().GetMsgs(id1)
 		require.NoError(t, err)
-		assert.Equal(t, Errored, m[0].State)
+		assert.Equal(t, cosmosdb.Errored, m[0].State)
 
 		// Send a batch which is all expired
 		id2, err := txm.ORM().InsertMsg("blah", "", []byte{0x03})
@@ -349,8 +348,8 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 		ms, err := txm.ORM().GetMsgs(id2, id3)
 		require.NoError(t, err)
-		assert.Equal(t, Errored, ms[0].State)
-		assert.Equal(t, Errored, ms[1].State)
+		assert.Equal(t, cosmosdb.Errored, ms[0].State)
+		assert.Equal(t, cosmosdb.Errored, ms[1].State)
 	})
 
 	t.Run("started msgs", func(t *testing.T) {
@@ -378,7 +377,7 @@ func TestTxm(t *testing.T) {
 		// Leftover started is processed
 		msg1 := generateExecuteMsg(t, []byte{0x03}, sender1, contract)
 		id1 := mustInsertMsg(t, txm, contract.String(), msg1)
-		require.NoError(t, txm.ORM().UpdateMsgs([]int64{id1}, Started, nil))
+		require.NoError(t, txm.ORM().UpdateMsgs([]int64{id1}, cosmosdb.Started, nil))
 		msgs := cosmosclient.SimMsgs{{ID: id1, Msg: &wasmtypes.MsgExecuteContract{
 			Sender:   sender1.String(),
 			Msg:      []byte{0x03},
@@ -390,13 +389,13 @@ func TestTxm(t *testing.T) {
 		txm.SendMsgBatch(testutils.Context(t))
 		m, err := txm.ORM().GetMsgs(id1)
 		require.NoError(t, err)
-		assert.Equal(t, Confirmed, m[0].State)
+		assert.Equal(t, cosmosdb.Confirmed, m[0].State)
 
 		// Leftover started is not cancelled
 		msg2 := generateExecuteMsg(t, []byte{0x04}, sender1, contract)
 		msg3 := generateExecuteMsg(t, []byte{0x05}, sender1, contract)
 		id2 := mustInsertMsg(t, txm, contract.String(), msg2)
-		require.NoError(t, txm.ORM().UpdateMsgs([]int64{id2}, Started, nil))
+		require.NoError(t, txm.ORM().UpdateMsgs([]int64{id2}, cosmosdb.Started, nil))
 		time.Sleep(time.Millisecond) // ensure != CreatedAt
 		id3 := mustInsertMsg(t, txm, contract.String(), msg3)
 		msgs = cosmosclient.SimMsgs{{ID: id2, Msg: &wasmtypes.MsgExecuteContract{
@@ -415,8 +414,8 @@ func TestTxm(t *testing.T) {
 		require.NoError(t, err)
 		ms, err := txm.ORM().GetMsgs(id2, id3)
 		require.NoError(t, err)
-		assert.Equal(t, Confirmed, ms[0].State)
-		assert.Equal(t, Confirmed, ms[1].State)
+		assert.Equal(t, cosmosdb.Confirmed, ms[0].State)
+		assert.Equal(t, cosmosdb.Confirmed, ms[1].State)
 	})
 }
 
