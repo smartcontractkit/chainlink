@@ -11,6 +11,8 @@ import (
 
 	"github.com/smartcontractkit/sqlx"
 
+	relayservices "github.com/smartcontractkit/chainlink-relay/pkg/services"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -168,7 +170,7 @@ func (js *spawner) stopService(jobID int32) {
 	for i := len(aj.services) - 1; i >= 0; i-- {
 		service := aj.services[i]
 		sLggr := lggr.With("subservice", i, "serviceType", reflect.TypeOf(service))
-		if c, ok := service.(services.Checkable); ok {
+		if c, ok := service.(relayservices.HealthReporter); ok {
 			if err := js.checker.Unregister(c.Name()); err != nil {
 				sLggr.Warnw("Failed to unregister service from health checker", "err", err)
 			}
@@ -228,7 +230,7 @@ func (js *spawner) StartService(ctx context.Context, jb Job, qopts ...pg.QOpt) e
 			lggr.Criticalw("Error starting service for job", "err", err)
 			return err
 		}
-		if c, ok := srv.(services.Checkable); ok {
+		if c, ok := srv.(relayservices.HealthReporter); ok {
 			err = js.checker.Register(c)
 			if err != nil {
 				lggr.Errorw("Error registering service with health checker", "err", err)

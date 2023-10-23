@@ -18,11 +18,10 @@ import (
 	cosmosclient "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/client"
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	"github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/db"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
-
 	relaychains "github.com/smartcontractkit/chainlink-relay/pkg/chains"
 	"github.com/smartcontractkit/chainlink-relay/pkg/logger"
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
