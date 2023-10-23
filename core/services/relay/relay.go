@@ -76,7 +76,7 @@ type ServerAdapter struct {
 }
 
 // NewServerAdapter returns a new ServerAdapter.
-func NewServerAdapter(r types.Relayer, e loop.RelayerExt) *ServerAdapter {
+func NewServerAdapter(r types.Relayer, e loop.RelayerExt) *ServerAdapter { //nolint:staticcheck
 	return &ServerAdapter{RelayerAdapter: loop.RelayerAdapter{Relayer: r, RelayerExt: e}}
 }
 

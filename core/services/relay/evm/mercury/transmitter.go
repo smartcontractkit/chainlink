@@ -21,9 +21,9 @@ import (
 	"github.com/smartcontractkit/sqlx"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
@@ -70,7 +70,7 @@ var (
 
 type Transmitter interface {
 	relaymercury.Transmitter
-	services.ServiceCtx
+	services.Service
 }
 
 type ConfigTracker interface {
