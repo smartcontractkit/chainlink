@@ -155,9 +155,10 @@ func SetupLocalLoadTestEnv(nodesFunding *big.Float, subFundingLINK *big.Int) (*t
 	env, err := test_env.NewCLTestEnvBuilder().
 		WithGeth().
 		WithLogWatcher().
-		WithMockServer(1).
+		WithMockAdapter().
 		WithCLNodes(1).
 		WithFunding(nodesFunding).
+		WithLogWatcher().
 		Build()
 	if err != nil {
 		return nil, nil, [32]byte{}, err
@@ -211,21 +212,21 @@ func SetupLocalLoadTestEnv(nodesFunding *big.Float, subFundingLINK *big.Int) (*t
 	if err != nil {
 		return nil, nil, [32]byte{}, err
 	}
-	jobs, err := CreateVRFV2Jobs(env.GetAPIs(), vrfv2Contracts.Coordinator, env.EVMClient, vrfConst.MinimumConfirmations)
+	jobs, err := CreateVRFV2Jobs(env.ClCluster.NodeAPIs(), vrfv2Contracts.Coordinator, env.EVMClient, vrfConst.MinimumConfirmations)
 	if err != nil {
 		return nil, nil, [32]byte{}, err
 	}
 	// this part is here because VRFv2 can work with only a specific key
 	// [[EVM.KeySpecific]]
 	//	Key = '...'
-	addr, err := env.CLNodes[0].API.PrimaryEthAddress()
+	addr, err := env.ClCluster.Nodes[0].API.PrimaryEthAddress()
 	if err != nil {
 		return nil, nil, [32]byte{}, err
 	}
-	nodeConfig := node.NewConfig(env.CLNodes[0].NodeConfig,
+	nodeConfig := node.NewConfig(env.ClCluster.Nodes[0].NodeConfig,
 		node.WithVRFv2EVMEstimator(addr),
 	)
-	err = env.CLNodes[0].Restart(nodeConfig)
+	err = env.ClCluster.Nodes[0].Restart(nodeConfig)
 	if err != nil {
 		return nil, nil, [32]byte{}, err
 	}

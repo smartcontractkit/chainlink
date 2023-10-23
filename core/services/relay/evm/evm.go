@@ -11,14 +11,14 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	pkgerrors "github.com/pkg/errors"
+	"go.uber.org/multierr"
+
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median/evmreportcodec"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/sqlx"
-	"go.uber.org/multierr"
-	"golang.org/x/exp/maps"
 
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
@@ -45,7 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
-var _ relaytypes.Relayer = &Relayer{}
+var _ relaytypes.Relayer = &Relayer{} //nolint:staticcheck
 
 type Relayer struct {
 	db               *sqlx.DB
@@ -127,11 +127,12 @@ func (r *Relayer) Ready() error {
 
 func (r *Relayer) HealthReport() (report map[string]error) {
 	report = make(map[string]error)
-	maps.Copy(report, r.mercuryPool.HealthReport())
+	services.CopyHealth(report, r.mercuryPool.HealthReport())
 	return
 }
 
 func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MercuryProvider, error) {
+	lggr := r.lggr.Named("MercuryProvider").Named(rargs.ExternalJobID.String())
 	relayOpts := types.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
@@ -139,7 +140,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	}
 
 	var mercuryConfig mercuryconfig.PluginConfig
-	if err := json.Unmarshal(pargs.PluginConfig, &mercuryConfig); err != nil {
+	if err = json.Unmarshal(pargs.PluginConfig, &mercuryConfig); err != nil {
 		return nil, pkgerrors.WithStack(err)
 	}
 
@@ -151,7 +152,7 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	if relayConfig.ChainID.String() != r.chain.ID().String() {
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
-	configWatcher, err := newConfigProvider(r.lggr, r.chain, relayOpts, r.eventBroadcaster)
+	cw, err := newConfigProvider(lggr, r.chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
 		return nil, pkgerrors.WithStack(err)
 	}
@@ -172,9 +173,9 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	// FIXME: We actually know the version here since it's in the feed ID, can
 	// we use generics to avoid passing three of this?
 	// https://smartcontract-it.atlassian.net/browse/MERC-1414
-	reportCodecV1 := reportcodecv1.NewReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodecV1"))
-	reportCodecV2 := reportcodecv2.NewReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodecV2"))
-	reportCodecV3 := reportcodecv3.NewReportCodec(*relayConfig.FeedID, r.lggr.Named("ReportCodecV3"))
+	reportCodecV1 := reportcodecv1.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV1"))
+	reportCodecV2 := reportcodecv2.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV2"))
+	reportCodecV3 := reportcodecv3.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV3"))
 
 	var transmitterCodec mercury.TransmitterReportDecoder
 	switch feedID.Version() {
@@ -187,17 +188,19 @@ func (r *Relayer) NewMercuryProvider(rargs relaytypes.RelayArgs, pargs relaytype
 	default:
 		return nil, fmt.Errorf("invalid feed version %d", feedID.Version())
 	}
-	transmitter := mercury.NewTransmitter(r.lggr, configWatcher.ContractConfigTracker(), client, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.db, r.pgCfg, transmitterCodec)
+	transmitter := mercury.NewTransmitter(lggr, cw.ContractConfigTracker(), client, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.db, r.pgCfg, transmitterCodec)
 
-	return NewMercuryProvider(configWatcher, transmitter, reportCodecV1, reportCodecV2, reportCodecV3, r.lggr), nil
+	return NewMercuryProvider(cw, transmitter, reportCodecV1, reportCodecV2, reportCodecV3, lggr), nil
 }
 
 func (r *Relayer) NewFunctionsProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.FunctionsProvider, error) {
+	lggr := r.lggr.Named("FunctionsProvider").Named(rargs.ExternalJobID.String())
 	// TODO(FUN-668): Not ready yet (doesn't implement FunctionsEvents() properly)
-	return NewFunctionsProvider(r.chain, rargs, pargs, r.lggr, r.ks.Eth(), functions.FunctionsPlugin)
+	return NewFunctionsProvider(r.chain, rargs, pargs, lggr, r.ks.Eth(), functions.FunctionsPlugin)
 }
 
 func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.ConfigProvider, error) {
+	lggr := r.lggr.Named("ConfigProvider").Named(args.ExternalJobID.String())
 	relayOpts := types.NewRelayOpts(args)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
@@ -208,7 +211,7 @@ func (r *Relayer) NewConfigProvider(args relaytypes.RelayArgs) (relaytypes.Confi
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
 
-	configProvider, err := newConfigProvider(r.lggr, r.chain, relayOpts, r.eventBroadcaster)
+	configProvider, err := newConfigProvider(lggr, r.chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
 		// Never return (*configProvider)(nil)
 		return nil, err
@@ -261,7 +264,7 @@ func newConfigWatcher(lggr logger.Logger,
 	replayCtx, replayCancel := context.WithCancel(context.Background())
 	return &configWatcher{
 		StartStopOnce:    utils.StartStopOnce{},
-		lggr:             lggr,
+		lggr:             lggr.Named("ConfigWatcher").Named(contractAddress.String()),
 		contractAddress:  contractAddress,
 		contractABI:      contractABI,
 		offchainDigester: offchainDigester,
@@ -338,7 +341,7 @@ func newConfigProvider(lggr logger.Logger, chain evm.Chain, opts *types.RelayOpt
 	}
 	if relayConfig.FeedID != nil {
 		cp, err = mercury.NewConfigPoller(
-			lggr,
+			lggr.Named(relayConfig.FeedID.String()),
 			chain.LogPoller(),
 			aggregatorAddress,
 			*relayConfig.FeedID,
@@ -491,6 +494,7 @@ func newPipelineContractTransmitter(lggr logger.Logger, rargs relaytypes.RelayAr
 }
 
 func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes.PluginArgs) (relaytypes.MedianProvider, error) {
+	lggr := r.lggr.Named("MedianProvider").Named(rargs.ExternalJobID.String())
 	relayOpts := types.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
@@ -501,18 +505,18 @@ func (r *Relayer) NewMedianProvider(rargs relaytypes.RelayArgs, pargs relaytypes
 		return nil, fmt.Errorf("internal error: chain id in spec does not match this relayer's chain: have %s expected %s", relayConfig.ChainID.String(), r.chain.ID().String())
 	}
 
-	configWatcher, err := newConfigProvider(r.lggr, r.chain, relayOpts, r.eventBroadcaster)
+	configWatcher, err := newConfigProvider(lggr, r.chain, relayOpts, r.eventBroadcaster)
 	if err != nil {
 		return nil, err
 	}
 
 	reportCodec := evmreportcodec.ReportCodec{}
-	contractTransmitter, err := newContractTransmitter(r.lggr, rargs, pargs.TransmitterID, configWatcher, r.ks.Eth())
+	contractTransmitter, err := newContractTransmitter(lggr, rargs, pargs.TransmitterID, configWatcher, r.ks.Eth())
 	if err != nil {
 		return nil, err
 	}
 
-	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.db, r.lggr)
+	medianContract, err := newMedianContract(configWatcher.ContractConfigTracker(), configWatcher.contractAddress, configWatcher.chain, rargs.JobID, r.db, lggr)
 	if err != nil {
 		return nil, err
 	}
@@ -553,7 +557,7 @@ func (p *medianProvider) Ready() error {
 
 func (p *medianProvider) HealthReport() map[string]error {
 	report := p.configWatcher.HealthReport()
-	maps.Copy(report, p.contractTransmitter.HealthReport())
+	services.CopyHealth(report, p.contractTransmitter.HealthReport())
 	return report
 }
 

@@ -21,22 +21,31 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 )
 
+type CleanUpType string
+
+const (
+	CleanUpTypeNone     CleanUpType = "none"
+	CleanUpTypeStandard CleanUpType = "standard"
+	CleanUpTypeCustom   CleanUpType = "custom"
+)
+
 type CLTestEnvBuilder struct {
-	hasLogWatch          bool
-	hasGeth              bool
-	hasMockServer        bool
-	hasForwarders        bool
-	clNodeConfig         *chainlink.Config
-	secretsConfig        string
-	nonDevGethNetworks   []blockchain.EVMNetwork
-	clNodesCount         int
-	externalAdapterCount int
-	customNodeCsaKeys    []string
-	defaultNodeCsaKeys   []string
-	l                    zerolog.Logger
-	t                    *testing.T
-	te                   *CLClusterTestEnv
-	isNonEVM             bool
+	hasLogWatch        bool
+	hasGeth            bool
+	hasKillgrave       bool
+	hasForwarders      bool
+	clNodeConfig       *chainlink.Config
+	secretsConfig      string
+	nonDevGethNetworks []blockchain.EVMNetwork
+	clNodesCount       int
+	customNodeCsaKeys  []string
+	defaultNodeCsaKeys []string
+	l                  zerolog.Logger
+	t                  *testing.T
+	te                 *CLClusterTestEnv
+	isNonEVM           bool
+	cleanUpType        CleanUpType
+	cleanUpCustomFn    func()
 
 	/* funding */
 	ETHFunds *big.Float
@@ -44,8 +53,7 @@ type CLTestEnvBuilder struct {
 
 func NewCLTestEnvBuilder() *CLTestEnvBuilder {
 	return &CLTestEnvBuilder{
-		externalAdapterCount: 1,
-		l:                    log.Logger,
+		l: log.Logger,
 	}
 }
 
@@ -127,15 +135,30 @@ func (b *CLTestEnvBuilder) WithSecretsConfig(secrets string) *CLTestEnvBuilder {
 	return b
 }
 
-func (b *CLTestEnvBuilder) WithMockServer(externalAdapterCount int) *CLTestEnvBuilder {
-	b.hasMockServer = true
-	b.externalAdapterCount = externalAdapterCount
+func (b *CLTestEnvBuilder) WithMockAdapter() *CLTestEnvBuilder {
+	b.hasKillgrave = true
 	return b
 }
 
 // WithNonEVM sets the test environment to not use EVM when built.
 func (b *CLTestEnvBuilder) WithNonEVM() *CLTestEnvBuilder {
 	b.isNonEVM = true
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithStandardCleanup() *CLTestEnvBuilder {
+	b.cleanUpType = CleanUpTypeStandard
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithoutCleanup() *CLTestEnvBuilder {
+	b.cleanUpType = CleanUpTypeNone
+	return b
+}
+
+func (b *CLTestEnvBuilder) WithCustomCleanup(customFn func()) *CLTestEnvBuilder {
+	b.cleanUpType = CleanUpTypeCustom
+	b.cleanUpCustomFn = customFn
 	return b
 }
 
@@ -149,8 +172,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 	}
 	b.l.Info().
 		Bool("hasGeth", b.hasGeth).
-		Bool("hasMockServer", b.hasMockServer).
-		Int("externalAdapterCount", b.externalAdapterCount).
+		Bool("hasKillgrave", b.hasKillgrave).
 		Int("clNodesCount", b.clNodesCount).
 		Strs("customNodeCsaKeys", b.customNodeCsaKeys).
 		Strs("defaultNodeCsaKeys", b.defaultNodeCsaKeys).
@@ -168,16 +190,28 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 		}
 	}
 
-	if b.hasMockServer {
-		err = b.te.StartMockServer()
-		if err != nil {
-			return nil, err
-		}
-		err = b.te.MockServer.SetExternalAdapterMocks(b.externalAdapterCount)
+	if b.hasKillgrave {
+		err = b.te.StartMockAdapter()
 		if err != nil {
 			return nil, err
 		}
 	}
+
+	switch b.cleanUpType {
+	case CleanUpTypeStandard:
+		b.t.Cleanup(func() {
+			if err := b.te.Cleanup(); err != nil {
+				b.l.Error().Err(err).Msg("Error cleaning up test environment")
+			}
+		})
+	case CleanUpTypeCustom:
+		b.t.Cleanup(b.cleanUpCustomFn)
+	case CleanUpTypeNone:
+		b.l.Warn().Msg("test environment won't be cleaned up")
+	case "":
+		return b.te, errors.WithMessage(errors.New("explicit cleanup type must be set when building test environment"), "test environment builder failed")
+	}
+
 	if b.nonDevGethNetworks != nil {
 		b.te.WithPrivateChain(b.nonDevGethNetworks)
 		err := b.te.StartPrivateChain()
@@ -198,7 +232,7 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			return nil, errors.New("cannot create nodes with custom config without nonDevNetworks")
 		}
 
-		err = b.te.StartClNodes(b.clNodeConfig, b.clNodesCount, b.secretsConfig)
+		err = b.te.StartClCluster(b.clNodeConfig, b.clNodesCount, b.secretsConfig)
 		if err != nil {
 			return nil, err
 		}
@@ -262,12 +296,12 @@ func (b *CLTestEnvBuilder) Build() (*CLClusterTestEnv, error) {
 			node.SetChainConfig(cfg, wsUrls, httpUrls, networkConfig, b.hasForwarders)
 		}
 
-		err := b.te.StartClNodes(cfg, b.clNodesCount, b.secretsConfig)
+		err := b.te.StartClCluster(cfg, b.clNodesCount, b.secretsConfig)
 		if err != nil {
 			return nil, err
 		}
 
-		nodeCsaKeys, err = b.te.GetNodeCSAKeys()
+		nodeCsaKeys, err = b.te.ClCluster.NodeCSAKeys()
 		if err != nil {
 			return nil, err
 		}

@@ -56,7 +56,7 @@ func TestTxm_Integration(t *testing.T) {
 	eb := pg.NewEventBroadcaster(cfg.Database().URL(), 0, 0, lggr, uuid.New())
 	require.NoError(t, eb.Start(testutils.Context(t)))
 	t.Cleanup(func() { require.NoError(t, eb.Close()) })
-	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewQConfig(true))
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, pgtest.NewQConfig(true))
 	zeConfig := sdk.GetConfig()
 	fmt.Println(zeConfig)
 	accounts, testdir, tendermintURL := cosmosclient.SetupLocalCosmosNode(t, chainID, *cosmosChain.GasToken)

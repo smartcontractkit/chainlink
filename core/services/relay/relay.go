@@ -6,8 +6,6 @@ import (
 	"fmt"
 	"regexp"
 
-	"golang.org/x/exp/maps"
-
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -90,7 +88,7 @@ type relayerAdapter struct {
 // NewRelayerAdapter returns a [loop.Relayer] adapted from a [types.Relayer] and [RelayerExt].
 // Unlike NewRelayerServerAdapter which is used to adapt non-LOOPP relayers, this is used to adapt
 // LOOPP-based relayer which are then server over GRPC (by the relayerServer).
-func NewRelayerAdapter(r types.Relayer, e RelayerExt) loop.Relayer {
+func NewRelayerAdapter(r types.Relayer, e RelayerExt) loop.Relayer { //nolint:staticcheck
 	return &relayerAdapter{Relayer: r, RelayerExt: e}
 }
 
@@ -133,8 +131,7 @@ func (r *relayerAdapter) Ready() (err error) {
 
 func (r *relayerAdapter) HealthReport() map[string]error {
 	hr := make(map[string]error)
-	maps.Copy(hr, r.Relayer.HealthReport())
-	maps.Copy(hr, r.RelayerExt.HealthReport())
+	services.CopyHealth(hr, r.Relayer.HealthReport())
 	return hr
 }
 
@@ -175,9 +172,10 @@ func (r *relayerServerAdapter) NewPluginProvider(ctx context.Context, rargs type
 		return r.NewMercuryProvider(ctx, rargs, pargs)
 	case types.DKG, types.OCR2VRF, types.OCR2Keeper, types.GenericPlugin:
 		return r.relayerAdapter.NewPluginProvider(ctx, rargs, pargs)
+	case types.CCIPCommit, types.CCIPExecution:
+		return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)
 	}
-
-	return nil, fmt.Errorf("provider type not supported: %s", rargs.ProviderType)
+	return nil, fmt.Errorf("provider type not recognized: %s", rargs.ProviderType)
 }
 
 // NewRelayerServerAdapter returns a [loop.Relayer] adapted from a [types.Relayer] and [RelayerExt].

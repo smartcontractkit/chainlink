@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/theodesp/go-heaps/pairing"
@@ -58,7 +60,7 @@ func NewDelegate(
 		pr:           pr,
 		porm:         porm,
 		legacyChains: legacyChains,
-		lggr:         lggr,
+		lggr:         lggr.Named("VRF"),
 		mailMon:      mailMon,
 	}
 }
@@ -119,7 +121,7 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 		}
 	}
 
-	l := d.lggr.With(
+	l := d.lggr.Named(jb.ExternalJobID.String()).With(
 		"jobID", jb.ID,
 		"externalJobID", jb.ExternalJobID,
 		"coordinatorAddress", jb.VRFSpec.CoordinatorAddress,
@@ -130,27 +132,36 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 
 	for _, task := range pl.Tasks {
 		if _, ok := task.(*pipeline.VRFTaskV2Plus); ok {
-			if err := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
-				return nil, err
+			if err2 := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
+				return nil, err2
 			}
 
 			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().GasEstimator().PriceMaxKey) {
 				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
 			}
 
-			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
-				return nil, err
+			if err2 := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
+				return nil, err2
 			}
 			if vrfOwner != nil {
 				return nil, errors.New("VRF Owner is not supported for VRF V2 Plus")
 			}
-			linkNativeFeedAddress, err := coordinatorV2Plus.LINKNATIVEFEED(nil)
+
+			// Get the LINKNATIVEFEED address with retries
+			// This is needed because the RPC endpoint may be down so we need to
+			// switch over to another one.
+			var linkNativeFeedAddress common.Address
+			err = retry.Do(func() error {
+				linkNativeFeedAddress, err = coordinatorV2Plus.LINKNATIVEFEED(nil)
+				return err
+			}, retry.Attempts(10), retry.Delay(500*time.Millisecond))
 			if err != nil {
-				return nil, errors.Wrap(err, "LINKNATIVEFEED")
+				return nil, errors.Wrap(err, "can't call LINKNATIVEFEED")
 			}
-			aggregator, err := aggregator_v3_interface.NewAggregatorV3Interface(linkNativeFeedAddress, chain.Client())
-			if err != nil {
-				return nil, errors.Wrap(err, "NewAggregatorV3Interface")
+
+			aggregator, err2 := aggregator_v3_interface.NewAggregatorV3Interface(linkNativeFeedAddress, chain.Client())
+			if err2 != nil {
+				return nil, errors.Wrap(err2, "NewAggregatorV3Interface")
 			}
 
 			return []job.ServiceCtx{v2.New(
@@ -177,19 +188,26 @@ func (d *Delegate) ServicesForSpec(jb job.Job) ([]job.ServiceCtx, error) {
 				vrfcommon.NewLogDeduper(int(chain.Config().EVM().FinalityDepth())))}, nil
 		}
 		if _, ok := task.(*pipeline.VRFTaskV2); ok {
-			if err := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
-				return nil, err
+			if err2 := CheckFromAddressesExist(jb, d.ks.Eth()); err != nil {
+				return nil, err2
 			}
 
 			if !FromAddressMaxGasPricesAllEqual(jb, chain.Config().EVM().GasEstimator().PriceMaxKey) {
 				return nil, errors.New("key-specific max gas prices of all fromAddresses are not equal, please set them to equal values")
 			}
 
-			if err := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
-				return nil, err
+			if err2 := CheckFromAddressMaxGasPrices(jb, chain.Config().EVM().GasEstimator().PriceMaxKey); err != nil {
+				return nil, err2
 			}
 
-			linkEthFeedAddress, err := coordinatorV2.LINKETHFEED(nil)
+			// Get the LINKETHFEED address with retries
+			// This is needed because the RPC endpoint may be down so we need to
+			// switch over to another one.
+			var linkEthFeedAddress common.Address
+			err = retry.Do(func() error {
+				linkEthFeedAddress, err = coordinatorV2.LINKETHFEED(nil)
+				return err
+			}, retry.Attempts(10), retry.Delay(500*time.Millisecond))
 			if err != nil {
 				return nil, errors.Wrap(err, "LINKETHFEED")
 			}

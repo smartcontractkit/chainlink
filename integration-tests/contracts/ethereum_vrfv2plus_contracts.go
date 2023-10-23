@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2_5"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_v2plus_load_test_with_metrics"
@@ -266,6 +267,26 @@ func (v *EthereumVRFCoordinatorV2_5) FindSubscriptionID() (*big.Int, error) {
 	return subscriptionIterator.Event.SubId, nil
 }
 
+func (v *EthereumVRFCoordinatorV2_5) WaitForSubscriptionCreatedEvent(timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCreated, error) {
+	eventsChannel := make(chan *vrf_coordinator_v2_5.VRFCoordinatorV25SubscriptionCreated)
+	subscription, err := v.coordinator.WatchSubscriptionCreated(nil, eventsChannel, nil)
+	if err != nil {
+		return nil, err
+	}
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case err := <-subscription.Err():
+			return nil, err
+		case <-time.After(timeout):
+			return nil, fmt.Errorf("timeout waiting for SubscriptionCreated event")
+		case sub := <-eventsChannel:
+			return sub, nil
+		}
+	}
+}
+
 func (v *EthereumVRFCoordinatorV2_5) WaitForRandomWordsFulfilledEvent(subID []*big.Int, requestID []*big.Int, timeout time.Duration) (*vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled, error) {
 	randomWordsFulfilledEventsChannel := make(chan *vrf_coordinator_v2_5.VRFCoordinatorV25RandomWordsFulfilled)
 	subscription, err := v.coordinator.WatchRandomWordsFulfilled(nil, randomWordsFulfilledEventsChannel, requestID, subID)
@@ -340,6 +361,18 @@ func (v *EthereumVRFv2PlusLoadTestConsumer) RequestRandomness(keyHash [32]byte, 
 	}
 
 	return tx, v.client.ProcessTransaction(tx)
+}
+
+func (v *EthereumVRFv2PlusLoadTestConsumer) ResetMetrics() error {
+	opts, err := v.client.TransactionOpts(v.client.GetDefaultWallet())
+	if err != nil {
+		return err
+	}
+	tx, err := v.consumer.Reset(opts)
+	if err != nil {
+		return err
+	}
+	return v.client.ProcessTransaction(tx)
 }
 
 func (v *EthereumVRFv2PlusLoadTestConsumer) GetCoordinator(ctx context.Context) (common.Address, error) {
@@ -785,7 +818,9 @@ func (v *EthereumVRFV2PlusWrapper) GetSubID(ctx context.Context) (*big.Int, erro
 }
 
 func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{})
+	gasEstimates, err := v.client.EstimateGas(ethereum.CallMsg{
+		To: v.address,
+	})
 	if err != nil {
 		return err
 	}
@@ -833,7 +868,7 @@ func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) GetLastRequestId(ctx context.
 }
 
 func (v *EthereumVRFV2PlusWrapperLoadTestConsumer) GetWrapper(ctx context.Context) (common.Address, error) {
-	return v.consumer.GetWrapper(&bind.CallOpts{
+	return v.consumer.IVrfV2PlusWrapper(&bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
 		Context: ctx,
 	})

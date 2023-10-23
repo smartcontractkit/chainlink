@@ -11,8 +11,8 @@ import {IAuthorizedOriginReceiver} from "./accessControl/interfaces/IAuthorizedO
 import {ConfirmedOwnerUpgradeable} from "./accessControl/ConfirmedOwnerUpgradeable.sol";
 import {AuthorizedReceiver} from "./accessControl/AuthorizedReceiver.sol";
 import {SafeCast} from "../../../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/math/SafeCast.sol";
-import {PausableUpgradeable} from "../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/security/PausableUpgradeable.sol";
-import {Initializable} from "../../../vendor/openzeppelin-contracts-upgradeable/v4.8.1/proxy/utils/Initializable.sol";
+import {PausableUpgradeable} from "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
+import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 
 /**
  * @title Functions Billing Registry contract
@@ -377,7 +377,6 @@ contract FunctionsBillingRegistry is
    * or reverts if at least gasAmount gas is not available.
    */
   function callWithExactGas(uint256 gasAmount, address target, bytes memory data) private returns (bool success) {
-    // solhint-disable-next-line no-inline-assembly
     assembly {
       let g := gas()
       // GAS_FOR_CALL_EXACT_CHECK = 5000

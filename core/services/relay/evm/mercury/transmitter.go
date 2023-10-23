@@ -15,12 +15,13 @@ import (
 	pkgerrors "github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/smartcontractkit/sqlx"
-	"golang.org/x/exp/maps"
 
 	relaymercury "github.com/smartcontractkit/chainlink-relay/pkg/reportingplugins/mercury"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -182,14 +183,12 @@ func (mt *mercuryTransmitter) Close() error {
 	})
 }
 
-func (mt *mercuryTransmitter) Ready() error { return mt.StartStopOnce.Ready() }
-
 func (mt *mercuryTransmitter) Name() string { return mt.lggr.Name() }
 
 func (mt *mercuryTransmitter) HealthReport() map[string]error {
-	report := map[string]error{mt.Name(): mt.StartStopOnce.Healthy()}
-	maps.Copy(report, mt.rpcClient.HealthReport())
-	maps.Copy(report, mt.queue.HealthReport())
+	report := map[string]error{mt.Name(): mt.Healthy()}
+	services.CopyHealth(report, mt.rpcClient.HealthReport())
+	services.CopyHealth(report, mt.queue.HealthReport())
 	return report
 }
 

@@ -11,12 +11,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 	ocrConfigHelper "github.com/smartcontractkit/libocr/offchainreporting/confighelper"
 
-	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_load_test_client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_v1_events_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
@@ -43,12 +43,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_triggered_streams_lookup_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_aggregator_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
@@ -56,6 +58,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/werc20_mock"
+
+	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 )
 
 // ContractDeployer is an interface for abstracting the contract deployment methods across network implementations
@@ -81,6 +85,8 @@ type ContractDeployer interface {
 	LoadKeeperRegistry(address common.Address, registryVersion eth_contracts.KeeperRegistryVersion) (KeeperRegistry, error)
 	DeployKeeperConsumer(updateInterval *big.Int) (KeeperConsumer, error)
 	DeployAutomationLogTriggerConsumer(testInterval *big.Int) (KeeperConsumer, error)
+	DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error)
+	DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (KeeperConsumer, error)
 	DeployKeeperConsumerPerformance(
 		testBlockRange,
 		averageCadence,
@@ -154,6 +160,10 @@ func NewContractDeployer(bcClient blockchain.EVMClient, logger zerolog.Logger) (
 		return &BSCContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	case *blockchain.ScrollClient:
 		return &ScrollContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+	case *blockchain.PolygonZkEvmClient:
+		return &PolygonZkEvmContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
+	case *blockchain.LineaClient:
+		return &LineaContractDeployer{NewEthereumContractDeployer(clientImpl, logger)}, nil
 	}
 	return nil, errors.New("unknown blockchain client implementation for contract deployer, register blockchain client in NewContractDeployer")
 }
@@ -206,6 +216,14 @@ type BSCContractDeployer struct {
 }
 
 type ScrollContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type PolygonZkEvmContractDeployer struct {
+	*EthereumContractDeployer
+}
+
+type LineaContractDeployer struct {
 	*EthereumContractDeployer
 }
 
@@ -747,8 +765,10 @@ func (e *EthereumContractDeployer) DeployKeeperRegistrar(registryVersion eth_con
 		) (common.Address, *types.Transaction, interface{}, error) {
 			// set default TriggerType to 0(conditional), AutoApproveConfigType to 2(auto approve enabled), AutoApproveMaxAllowed to 1000
 			triggerConfigs := []registrar21.AutomationRegistrar21InitialTriggerConfig{
-				{TriggerType: 0, AutoApproveType: 2, AutoApproveMaxAllowed: 1000},
-				{TriggerType: 1, AutoApproveType: 2, AutoApproveMaxAllowed: 1000},
+				{TriggerType: 0, AutoApproveType: registrarSettings.AutoApproveConfigType,
+					AutoApproveMaxAllowed: uint32(registrarSettings.AutoApproveMaxAllowed)},
+				{TriggerType: 1, AutoApproveType: registrarSettings.AutoApproveConfigType,
+					AutoApproveMaxAllowed: uint32(registrarSettings.AutoApproveMaxAllowed)},
 			}
 
 			return registrar21.DeployAutomationRegistrar(
@@ -1235,6 +1255,44 @@ func (e *EthereumContractDeployer) DeployAutomationLogTriggerConsumer(testInterv
 	return &EthereumAutomationLogCounterConsumer{
 		client:   e.client,
 		consumer: instance.(*log_upkeep_counter_wrapper.LogUpkeepCounter),
+		address:  address,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployAutomationStreamsLookupUpkeepConsumer(testRange *big.Int, interval *big.Int, useArbBlock bool, staging bool, verify bool) (KeeperConsumer, error) {
+	address, _, instance, err := e.client.DeployContract("StreamsLookupUpkeep", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return streams_lookup_upkeep_wrapper.DeployStreamsLookupUpkeep(
+			auth, backend, testRange, interval, useArbBlock, staging, verify,
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumAutomationStreamsLookupUpkeepConsumer{
+		client:   e.client,
+		consumer: instance.(*streams_lookup_upkeep_wrapper.StreamsLookupUpkeep),
+		address:  address,
+	}, err
+}
+
+func (e *EthereumContractDeployer) DeployAutomationLogTriggeredStreamsLookupUpkeepConsumer() (KeeperConsumer, error) {
+	address, _, instance, err := e.client.DeployContract("LogTriggeredStreamsLookupUpkeep", func(
+		auth *bind.TransactOpts,
+		backend bind.ContractBackend,
+	) (common.Address, *types.Transaction, interface{}, error) {
+		return log_triggered_streams_lookup_wrapper.DeployLogTriggeredStreamsLookup(
+			auth, backend, false, false,
+		)
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer{
+		client:   e.client,
+		consumer: instance.(*log_triggered_streams_lookup_wrapper.LogTriggeredStreamsLookup),
 		address:  address,
 	}, err
 }

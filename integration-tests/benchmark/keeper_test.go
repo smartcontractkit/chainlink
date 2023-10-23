@@ -81,7 +81,7 @@ LimitDefault = 5_000_000`
 			},
 		},
 		"stateful": true,
-		"capacity": "1Gi",
+		"capacity": "10Gi",
 	}
 
 	soakChainlinkResources = map[string]interface{}{
@@ -108,7 +108,7 @@ LimitDefault = 5_000_000`
 			},
 		},
 		"stateful": true,
-		"capacity": "1Gi",
+		"capacity": "10Gi",
 	}
 )
 
@@ -156,22 +156,22 @@ func TestAutomationBenchmark(t *testing.T) {
 	chainClient, err := blockchain.NewEVMClient(benchmarkNetwork, testEnvironment, l)
 	require.NoError(t, err, "Error connecting to blockchain")
 	registryVersions := addRegistry(RegistryToTest)
-	keeperBenchmarkTest := testsetups.NewKeeperBenchmarkTest(
+	keeperBenchmarkTest := testsetups.NewKeeperBenchmarkTest(t,
 		testsetups.KeeperBenchmarkTestInputs{
 			BlockchainClient: chainClient,
 			RegistryVersions: registryVersions,
 			KeeperRegistrySettings: &contracts.KeeperRegistrySettings{
 				PaymentPremiumPPB:    uint32(0),
 				BlockCountPerTurn:    big.NewInt(100),
-				CheckGasLimit:        uint32(45000000), //45M
-				StalenessSeconds:     big.NewInt(90000),
+				CheckGasLimit:        uint32(45_000_000), //45M
+				StalenessSeconds:     big.NewInt(90_000),
 				GasCeilingMultiplier: uint16(2),
 				MaxPerformGas:        uint32(MaxPerformGas),
 				MinUpkeepSpend:       big.NewInt(0),
 				FallbackGasPrice:     big.NewInt(2e11),
 				FallbackLinkPrice:    big.NewInt(2e18),
-				MaxCheckDataSize:     uint32(5000),
-				MaxPerformDataSize:   uint32(5000),
+				MaxCheckDataSize:     uint32(5_000),
+				MaxPerformDataSize:   uint32(5_000),
 			},
 			Upkeeps: &testsetups.UpkeepConfig{
 				NumberOfUpkeeps:     NumberOfUpkeeps,
@@ -202,8 +202,8 @@ func TestAutomationBenchmark(t *testing.T) {
 			l.Error().Err(err).Msg("Error when tearing down remote suite")
 		}
 	})
-	keeperBenchmarkTest.Setup(t, testEnvironment)
-	keeperBenchmarkTest.Run(t)
+	keeperBenchmarkTest.Setup(testEnvironment)
+	keeperBenchmarkTest.Run()
 }
 
 func addRegistry(registryToTest string) []eth_contracts.KeeperRegistryVersion {

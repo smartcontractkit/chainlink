@@ -45,15 +45,13 @@ var (
 
 type ClNode struct {
 	test_env.EnvComponent
-	API                   *client.ChainlinkClient
-	NodeConfig            *chainlink.Config
-	NodeSecretsConfigTOML string
-	PostgresDb            *test_env.PostgresDb
-	lw                    *logwatch.LogWatch
-	ContainerImage        string
-	ContainerVersion      string
+	API                   *client.ChainlinkClient `json:"-"`
+	NodeConfig            *chainlink.Config       `json:"-"`
+	NodeSecretsConfigTOML string                  `json:"-"`
+	PostgresDb            *test_env.PostgresDb    `json:"postgresDb"`
 	t                     *testing.T
 	l                     zerolog.Logger
+	lw                    *logwatch.LogWatch
 }
 
 type ClNodeOption = func(c *ClNode)
@@ -107,11 +105,10 @@ func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOp
 	return n
 }
 
-func (n *ClNode) WithTestLogger(t *testing.T) *ClNode {
+func (n *ClNode) SetTestLogger(t *testing.T) {
 	n.l = logging.GetTestLogger(t)
 	n.t = t
 	n.PostgresDb.WithTestLogger(t)
-	return n
 }
 
 // Restart restarts only CL node, DB container is reused
@@ -232,12 +229,16 @@ func (n *ClNode) Fund(evmClient blockchain.EVMClient, amount *big.Float) error {
 	if err != nil {
 		return err
 	}
-	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{})
+	toAddr := common.HexToAddress(toAddress)
+	gasEstimates, err := evmClient.EstimateGas(ethereum.CallMsg{
+		To: &toAddr,
+	})
 	if err != nil {
 		return err
 	}
 	return evmClient.Fund(toAddress, amount, gasEstimates)
 }
+
 func (n *ClNode) StartContainer() error {
 	err := n.PostgresDb.StartContainer()
 	if err != nil {
@@ -248,7 +249,7 @@ func (n *ClNode) StartContainer() error {
 	nodeSecretsToml, err := templates.NodeSecretsTemplate{
 		PgDbName:      n.PostgresDb.DbName,
 		PgHost:        n.PostgresDb.ContainerName,
-		PgPort:        n.PostgresDb.Port,
+		PgPort:        n.PostgresDb.InternalPort,
 		PgPassword:    n.PostgresDb.Password,
 		CustomSecrets: n.NodeSecretsConfigTOML,
 	}.String()
@@ -282,7 +283,7 @@ func (n *ClNode) StartContainer() error {
 			return err
 		}
 	}
-	clEndpoint, err := container.Endpoint(context.Background(), "http")
+	clEndpoint, err := test_env.GetEndpoint(context.Background(), container, "http")
 	if err != nil {
 		return err
 	}
@@ -385,7 +386,7 @@ func (n *ClNode) getContainerRequest(secrets string) (
 			"-p", adminCredsPath,
 			"-a", apiCredsPath,
 		},
-		Networks: n.Networks,
+		Networks: append(n.Networks, "tracing"),
 		WaitingFor: tcwait.ForHTTP("/health").
 			WithPort("6688/tcp").
 			WithStartupTimeout(90 * time.Second).

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	wasmtypes "github.com/CosmWasm/wasmd/x/wasm/types"
-	tmtypes "github.com/cometbft/cometbft/proto/tendermint/types"
 	tmservicetypes "github.com/cosmos/cosmos-sdk/client/grpc/tmservice"
 	cosmostypes "github.com/cosmos/cosmos-sdk/types"
 	txtypes "github.com/cosmos/cosmos-sdk/types/tx"
@@ -52,7 +51,7 @@ func newReaderWriterMock(t *testing.T) *tcmocks.ReaderWriter {
 func TestTxm(t *testing.T) {
 	db := pgtest.NewSqlxDB(t)
 	lggr := testutils.LoggerAssertMaxLevel(t, zapcore.ErrorLevel)
-	ks := keystore.New(db, utils.FastScryptParams, lggr, pgtest.NewQConfig(true))
+	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr, pgtest.NewQConfig(true))
 	require.NoError(t, ks.Unlock("blah"))
 
 	for i := 0; i < 4; i++ {
@@ -112,8 +111,8 @@ func TestTxm(t *testing.T) {
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 			GasUsed: 1_000_000,
 		}}, nil)
-		tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{Block: &tmtypes.Block{
-			Header: tmtypes.Header{Height: 1},
+		tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{SdkBlock: &tmservicetypes.Block{
+			Header: tmservicetypes.Header{Height: 1},
 		}}, nil)
 		tc.On("CreateAndSign", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte{0x01}, nil)
 
@@ -168,8 +167,8 @@ func TestTxm(t *testing.T) {
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 			GasUsed: 1_000_000,
 		}}, nil).Once()
-		tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{Block: &tmtypes.Block{
-			Header: tmtypes.Header{Height: 1},
+		tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{SdkBlock: &tmservicetypes.Block{
+			Header: tmservicetypes.Header{Height: 1},
 		}}, nil).Once()
 		tc.On("CreateAndSign", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte{0x01}, nil).Once()
 		txResp := &cosmostypes.TxResponse{TxHash: "4BF5122F344554C53BDE2EBB8CD2B7E3D1600AD631C385A5D7CCE23C7785459A"}
@@ -227,8 +226,8 @@ func TestTxm(t *testing.T) {
 			tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 				GasUsed: 1_000_000,
 			}}, nil).Once()
-			tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{Block: &tmtypes.Block{
-				Header: tmtypes.Header{Height: 1},
+			tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{SdkBlock: &tmservicetypes.Block{
+				Header: tmservicetypes.Header{Height: 1},
 			}}, nil).Once()
 			tc.On("CreateAndSign", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte{0x01}, nil).Once()
 		}
@@ -360,8 +359,8 @@ func TestTxm(t *testing.T) {
 		tc.On("SimulateUnsigned", mock.Anything, mock.Anything).Return(&txtypes.SimulateResponse{GasInfo: &cosmostypes.GasInfo{
 			GasUsed: 1_000_000,
 		}}, nil)
-		tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{Block: &tmtypes.Block{
-			Header: tmtypes.Header{Height: 1},
+		tc.On("LatestBlock").Return(&tmservicetypes.GetLatestBlockResponse{SdkBlock: &tmservicetypes.Block{
+			Header: tmservicetypes.Header{Height: 1},
 		}}, nil)
 		tc.On("CreateAndSign", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]byte{0x01}, nil)
 		txResp := &cosmostypes.TxResponse{TxHash: "4BF5122F344554C53BDE2EBB8CD2B7E3D1600AD631C385A5D7CCE23C7785459A"}

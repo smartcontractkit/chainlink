@@ -1,7 +1,6 @@
 package docs_test
 
 import (
-	_ "embed"
 	"strings"
 	"testing"
 
@@ -11,15 +10,16 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
@@ -36,6 +36,12 @@ func TestDoc(t *testing.T) {
 	} else {
 		require.NoError(t, err)
 	}
+
+	// Except for TelemetryIngress.ServerPubKey and TelemetryIngress.URL as this will be removed in the future
+	// and its only use is to signal to NOPs that these fields are no longer allowed
+	emptyString := ""
+	c.TelemetryIngress.ServerPubKey = &emptyString
+	c.TelemetryIngress.URL = new(models.URL)
 
 	cfgtest.AssertFieldsNotNil(t, c)
 
@@ -92,7 +98,7 @@ func TestDoc(t *testing.T) {
 	})
 
 	t.Run("Solana", func(t *testing.T) {
-		var fallbackDefaults solana.SolanaConfig
+		var fallbackDefaults solana.TOMLConfig
 		fallbackDefaults.SetDefaults()
 
 		assertTOML(t, fallbackDefaults.Chain, defaults.Solana[0].Chain)

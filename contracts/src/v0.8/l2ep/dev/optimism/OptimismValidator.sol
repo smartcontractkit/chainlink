@@ -1,15 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "../../../interfaces/AggregatorValidatorInterface.sol";
-import "../../../interfaces/TypeAndVersionInterface.sol";
-import "../../../shared/interfaces/AccessControllerInterface.sol";
-import "../../../interfaces/AggregatorV3Interface.sol";
-import "../../../shared/access/SimpleWriteAccessController.sol";
+import {AggregatorValidatorInterface} from "../../../interfaces/AggregatorValidatorInterface.sol";
+import {TypeAndVersionInterface} from "../../../interfaces/TypeAndVersionInterface.sol";
+import {OptimismSequencerUptimeFeedInterface} from "./../interfaces/OptimismSequencerUptimeFeedInterface.sol";
 
-import "./../interfaces/OptimismSequencerUptimeFeedInterface.sol";
-import "@eth-optimism/contracts/L1/messaging/IL1CrossDomainMessenger.sol";
-import "../../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/Address.sol";
+import {SimpleWriteAccessController} from "../../../shared/access/SimpleWriteAccessController.sol";
+
+import {IL1CrossDomainMessenger} from "@eth-optimism/contracts/L1/messaging/IL1CrossDomainMessenger.sol";
 
 /**
  * @title OptimismValidator - makes cross chain call to update the Sequencer Uptime Feed on L2
@@ -18,7 +16,9 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   int256 private constant ANSWER_SEQ_OFFLINE = 1;
   uint32 private s_gasLimit;
 
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable L1_CROSS_DOMAIN_MESSENGER_ADDRESS;
+  // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i
   address public immutable L2_UPTIME_FEED_ADDR;
 
   /**
@@ -33,7 +33,9 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
    * @param gasLimit the gasLimit to use for sending a message from L1 to L2
    */
   constructor(address l1CrossDomainMessengerAddress, address l2UptimeFeedAddr, uint32 gasLimit) {
+    // solhint-disable-next-line custom-errors
     require(l1CrossDomainMessengerAddress != address(0), "Invalid xDomain Messenger address");
+    // solhint-disable-next-line custom-errors
     require(l2UptimeFeedAddr != address(0), "Invalid OptimismSequencerUptimeFeed contract address");
     L1_CROSS_DOMAIN_MESSENGER_ADDRESS = l1CrossDomainMessengerAddress;
     L2_UPTIME_FEED_ADDR = l2UptimeFeedAddr;
@@ -73,12 +75,11 @@ contract OptimismValidator is TypeAndVersionInterface, AggregatorValidatorInterf
   /**
    * @notice validate method sends an xDomain L2 tx to update Uptime Feed contract on L2.
    * @dev A message is sent using the L1CrossDomainMessenger. This method is accessed controlled.
-   * @param previousAnswer previous aggregator answer
    * @param currentAnswer new aggregator answer - value of 1 considers the sequencer offline.
    */
   function validate(
     uint256 /* previousRoundId */,
-    int256 previousAnswer,
+    int256 /* previousAnswer */,
     uint256 /* currentRoundId */,
     int256 currentAnswer
   ) external override checkAccess returns (bool) {
