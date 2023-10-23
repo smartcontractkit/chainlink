@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -57,7 +59,7 @@ func TestTokenAuthRequired_TokenCredentials(t *testing.T) {
 	eia := auth.NewToken()
 	url := cltest.WebURL(t, "http://localhost:8888")
 	eir := &bridges.ExternalInitiatorRequest{
-		Name: "bitcoin",
+		Name: uuid.New().String(),
 		URL:  &url,
 	}
 	ea, err := bridges.NewExternalInitiator(eia, eir)
@@ -89,7 +91,7 @@ func TestTokenAuthRequired_BadTokenCredentials(t *testing.T) {
 	eia := auth.NewToken()
 	url := cltest.WebURL(t, "http://localhost:8888")
 	eir := &bridges.ExternalInitiatorRequest{
-		Name: "bitcoin",
+		Name: uuid.New().String(),
 		URL:  &url,
 	}
 	ea, err := bridges.NewExternalInitiator(eia, eir)
