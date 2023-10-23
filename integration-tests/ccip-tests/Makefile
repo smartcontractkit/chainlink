@@ -1,11 +1,11 @@
-# example usage: make test_load_ccip_simulated_k8 image=chainlink-ccip tag=latest testimage=chainlink-ccip-tests:latest
+# example usage: make test_load_ccip_simulated_k8 image=chainlink-ccip tag=latest testimage=chainlink-ccip-tests:latest testname=TestLoadCCIPStableRequestTriggeringWithNetworkChaos
 .PHONY: test_load_ccip_simulated_k8
 test_load_ccip_simulated_k8:
 	source ./load-test.env && \
     CHAINLINK_IMAGE=$(image)  \
     CHAINLINK_VERSION=$(tag)  \
     ENV_JOB_IMAGE=$(testimage)  \
-	go test -timeout 24h -count=1 -v -run ^TestLoadCCIPStableRequestTriggeringWithNetworkChaos$$ ./load
+	go test -timeout 24h -count=1 -v -run ^$(testname)$$ ./load
 
 
 # example usage: make test_load_ccip_simulated_k8 image=chainlink-ccip tag=latest testimage=chainlink-ccip-tests:latest
@@ -28,7 +28,7 @@ test_smoke_ccip_simulated_local:
     CCIP_DEPLOY_ON_LOCAL=True  \
     CCIP_NETWORK_PAIRS="" \
     CCIP_NO_OF_NETWORKS=2  \
-    CCIP_NO_OF_LANES_PER_PAIR=1  \
+    CCIP_NO_OF_ROUTERS_PER_PAIR=1  \
     CCIP_MSG_TYPE=WithToken \
     CHAINLINK_IMAGE=$(image)  \
     CHAINLINK_VERSION=$(tag)  \

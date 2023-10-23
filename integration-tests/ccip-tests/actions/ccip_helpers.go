@@ -52,11 +52,14 @@ const (
 	ChaosGroupCommitFaulty        = "CommitMinority"         //  f number of nodes
 	ChaosGroupExecutionFaultyPlus = "ExecutionNodesMajority" // > f number of nodes
 	ChaosGroupExecutionFaulty     = "ExecutionNodesMinority" //  f number of nodes
-	ChaosGroupCCIPGeth            = "CCIPGeth"               // both source and destination simulated geth networks
-	ChaosGroupNetworkACCIPGeth    = "CCIPNetworkAGeth"
-	ChaosGroupNetworkBCCIPGeth    = "CCIPNetworkBGeth"
-	RootSnoozeTimeSimulated       = 3 * time.Minute
-	InflightExpirySimulated       = 3 * time.Minute
+
+	ChaosGroupCommitAndExecFaulty     = "CommitAndExecutionNodesMinority" //  f number of nodes
+	ChaosGroupCommitAndExecFaultyPlus = "CommitAndExecutionNodesMajority" // >f number of nodes
+	ChaosGroupCCIPGeth                = "CCIPGeth"                        // both source and destination simulated geth networks
+	ChaosGroupNetworkACCIPGeth        = "CCIPNetworkAGeth"
+	ChaosGroupNetworkBCCIPGeth        = "CCIPNetworkBGeth"
+	RootSnoozeTimeSimulated           = 3 * time.Minute
+	InflightExpirySimulated           = 3 * time.Minute
 	// The higher the load/throughput, the higher value we might need here to guarantee that nonces are not blocked
 	// 1 day should be enough for most of the cases
 	PermissionlessExecThreshold = 60 * 60 * 24 // 1 day
@@ -1852,10 +1855,8 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	var bootstrapExec *client.CLNodesWithKeys
 	var execNodes []*client.CLNodesWithKeys
 	commitNodes := clNodes[1:]
-	env.commitNodeStartIndex = 1
-	env.execNodeStartIndex = 1
-	env.numOfAllowedFaultyExec = 1
-	env.numOfAllowedFaultyCommit = 1
+	env.commitNodeStartIndex = 2
+	env.execNodeStartIndex = 2
 	env.numOfCommitNodes = numOfCommitNodes
 	env.numOfExecNodes = numOfCommitNodes
 	if !commitAndExecOnSameDON {
@@ -1865,13 +1866,16 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		bootstrapExec = clNodes[1] // for a set-up of different commit and execution nodes second node is the bootstrapper for execution nodes
 		commitNodes = clNodes[2 : 2+numOfCommitNodes]
 		execNodes = clNodes[2+numOfCommitNodes:]
-		env.commitNodeStartIndex = 2
-		env.execNodeStartIndex = 7
+		env.commitNodeStartIndex = 3
+		env.execNodeStartIndex = 3 + numOfCommitNodes
 		env.numOfCommitNodes = len(commitNodes)
 		env.numOfExecNodes = len(execNodes)
 	} else {
 		execNodes = commitNodes
 	}
+	env.numOfAllowedFaultyExec = (len(execNodes) - 1) / 3
+	env.numOfAllowedFaultyCommit = (len(commitNodes) - 1) / 3
+
 	// save the current block numbers. If there is a delay between job start up and ocr config set up, the jobs will
 	// replay the log polling from these mentioned block number. The dest block number should ideally be the block number on which
 	// contract config is set and the source block number should be the one on which the ccip send request is performed.
@@ -2201,11 +2205,21 @@ func (c *CCIPTestEnv) ChaosLabelForAllGeth(t *testing.T, gethNetworksLabels []st
 }
 
 func (c *CCIPTestEnv) ChaosLabelForCLNodes(t *testing.T) {
+	allowedFaulty := c.numOfAllowedFaultyCommit
 	for i := c.commitNodeStartIndex; i < len(c.CLNodes); i++ {
 		labelSelector := map[string]string{
 			"app":      "chainlink-0",
 			"instance": fmt.Sprintf("node-%d", i),
 		}
+		if i >= c.commitNodeStartIndex && i < c.commitNodeStartIndex+allowedFaulty+1 {
+			err := c.K8Env.Client.LabelChaosGroupByLabels(c.K8Env.Cfg.Namespace, labelSelector, ChaosGroupCommitAndExecFaultyPlus)
+			require.NoError(t, err)
+		}
+		if i >= c.commitNodeStartIndex && i < c.commitNodeStartIndex+allowedFaulty {
+			err := c.K8Env.Client.LabelChaosGroupByLabels(c.K8Env.Cfg.Namespace, labelSelector, ChaosGroupCommitAndExecFaulty)
+			require.NoError(t, err)
+		}
+
 		// commit node starts from index 2
 		if i >= c.commitNodeStartIndex && i < c.commitNodeStartIndex+c.numOfCommitNodes {
 			err := c.K8Env.Client.LabelChaosGroupByLabels(c.K8Env.Cfg.Namespace, labelSelector, ChaosGroupCommit)
@@ -2246,7 +2260,7 @@ func (c *CCIPTestEnv) SetUpNodesAndKeys(
 	if c.LocalCluster != nil {
 		// for local cluster, fetch the values from the local cluster
 		for _, chainlinkNode := range c.LocalCluster.ClCluster.Nodes {
-			chainlinkNodes = append(chainlinkNodes, chainlinkNode.API)
+			chainlinkNodes = append(chainlinkNodes, chainlinkNode.API.WithRetryCount(3))
 			c.nodeMutexes = append(c.nodeMutexes, &sync.Mutex{})
 		}
 	} else {
@@ -2261,7 +2275,7 @@ func (c *CCIPTestEnv) SetUpNodesAndKeys(
 		}
 
 		for _, chainlinkNode := range chainlinkK8sNodes {
-			chainlinkNodes = append(chainlinkNodes, chainlinkNode.ChainlinkClient)
+			chainlinkNodes = append(chainlinkNodes, chainlinkNode.ChainlinkClient.WithRetryCount(3))
 			c.nodeMutexes = append(c.nodeMutexes, &sync.Mutex{})
 		}
 		c.CLNodes = chainlinkK8sNodes

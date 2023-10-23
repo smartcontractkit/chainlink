@@ -134,12 +134,12 @@ func (l *Lanes) CopyCommonContracts(fromNetwork, toNetwork string, reuse, isToke
 		DestContractsMu: &sync.Mutex{},
 		DestContracts:   make(map[string]DestContracts),
 		CommonContracts: CommonContracts{
-			FeeToken:      existing.FeeToken,
 			WrappedNative: existing.WrappedNative,
 		},
 	}
 	// if reuse is set to true, it copies all the common contracts except the router
 	if reuse {
+		cfg.CommonContracts.FeeToken = existing.FeeToken
 		cfg.CommonContracts.PriceRegistry = existing.PriceRegistry
 		cfg.CommonContracts.ARM = existing.ARM
 		cfg.CommonContracts.IsMockARM = existing.IsMockARM

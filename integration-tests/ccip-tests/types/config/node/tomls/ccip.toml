@@ -13,6 +13,7 @@ MaxSize = '0b'
 AllowOrigins = '*'
 HTTPPort = 6688
 SecureCookies = false
+HTTPWriteTimeout = '1m'
 
 [WebServer.RateLimit]
 Authenticated = 2000
@@ -23,7 +24,7 @@ HTTPSPort = 0
 
 [Database]
 MaxIdleConns = 20
-MaxOpenConns = 40
+MaxOpenConns = 20
 MigrateOnStartup = true
 
 [OCR2]

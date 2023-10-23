@@ -11,9 +11,9 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/smartcontractkit/chainlink-env/chaos"
+	"github.com/smartcontractkit/chainlink-testing-framework/utils"
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/assert"
-
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
@@ -26,9 +26,36 @@ type laneLoadCfg struct {
 }
 
 type ChaosConfig struct {
-	ChaosName  string
-	ChaosFunc  chaos.ManifestFunc
-	ChaosProps *chaos.Props
+	ChaosName        string
+	ChaosFunc        chaos.ManifestFunc
+	ChaosProps       *chaos.Props
+	WaitBetweenChaos time.Duration
+}
+
+func (chaos *ChaosConfig) SetInput() (time.Duration, error) {
+	var totalDuration time.Duration
+	chaosDurationStr, _ := utils.GetEnv("CCIP_CHAOS_DURATION")
+	if chaosDurationStr != "" {
+		chaosDuration, err := time.ParseDuration(chaosDurationStr)
+		if err != nil {
+			return 0, err
+		} else {
+			chaos.ChaosProps.DurationStr = chaosDuration.String()
+			totalDuration += chaosDuration
+		}
+	}
+	chaosGapStr, _ := utils.GetEnv("CCIP_WAIT_BETWEEN_NEXT_CHAOS")
+	if chaosGapStr != "" {
+		chaosGap, err := time.ParseDuration(chaosGapStr)
+		if err != nil {
+			return 0, err
+		} else {
+			chaos.WaitBetweenChaos = chaosGap
+			totalDuration += chaosGap
+		}
+	}
+
+	return totalDuration, nil
 }
 
 type loadArgs struct {
@@ -250,6 +277,10 @@ func (l *loadArgs) ApplyChaos() {
 	testEnv.ChaosLabelForCLNodes(l.TestCfg.Test)
 
 	for _, exp := range l.ChaosExps {
+		if exp.WaitBetweenChaos > 0 {
+			l.lggr.Info().Msgf("sleeping for %s after chaos %s", exp.WaitBetweenChaos, exp.ChaosName)
+			time.Sleep(exp.WaitBetweenChaos)
+		}
 		l.lggr.Info().Msgf("Starting to apply chaos %s at %s", exp.ChaosName, time.Now().UTC())
 		// apply chaos
 		chaosId, err := testEnv.K8Env.Chaos.Run(exp.ChaosFunc(testEnv.K8Env.Cfg.Namespace, exp.ChaosProps))

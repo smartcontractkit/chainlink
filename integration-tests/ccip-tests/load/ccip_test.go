@@ -98,9 +98,116 @@ func TestLoadCCIPStableRequestTriggeringWithNetworkChaos(t *testing.T) {
 	testArgs.Wait()
 }
 
+// This test applies pod chaos to the CL nodes asynchronously and sequentially while the load is running
+// the pod chaos is applied at a regular interval throughout the test duration
+// this test needs to be run for a longer duration to see the effects of pod chaos
+// in this test commit and execution are set up to be on the same node
+func TestLoadCCIPStableWithMajorityNodeFailure(t *testing.T) {
+	t.Parallel()
+
+	inputs := []ChaosConfig{
+		{
+			ChaosName: "CCIP works after majority of CL nodes are recovered from pod failure @pod-chaos",
+			ChaosFunc: chaos.NewFailPods,
+			ChaosProps: &chaos.Props{
+				LabelsSelector: &map[string]*string{actions.ChaosGroupCommitFaultyPlus: a.Str("1")},
+				DurationStr:    "2m",
+			},
+		},
+	}
+
+	var allChaosDur time.Duration
+	// to override the default duration of chaos with test input
+	for _, ch := range inputs {
+		dur, err := ch.SetInput()
+		require.NoError(t, err)
+		allChaosDur += dur
+	}
+
+	lggr := logging.GetTestLogger(t)
+	testArgs := NewLoadArgs(t, lggr, context.Background(), inputs...)
+
+	// the duration of load test should be greater than the duration of chaos
+	if testArgs.TestCfg.TestDuration < allChaosDur+2*time.Minute {
+		t.Fatalf("Skipping the test as the test duration is less than the chaos duration")
+	}
+
+	testArgs.Setup(true, 16, 16)
+	// if the test runs on remote runner
+	if len(testArgs.TestSetupArgs.Lanes) == 0 {
+		return
+	}
+	t.Cleanup(func() {
+		log.Info().Msg("Tearing down the environment")
+		require.NoError(t, testArgs.TestSetupArgs.TearDown())
+	})
+
+	testEnv := testArgs.TestSetupArgs.Env
+	require.NotNil(t, testEnv)
+	require.NotNil(t, testEnv.K8Env)
+
+	testArgs.TriggerLoad()
+	testArgs.ApplyChaos()
+	testArgs.Wait()
+}
+
+// This test applies pod chaos to the CL nodes asynchronously and sequentially while the load is running
+// the pod chaos is applied at a regular interval throughout the test duration
+// this test needs to be run for a longer duration to see the effects of pod chaos
+// in this test commit and execution are set up to be on the same node
+func TestLoadCCIPStableWithMinorityNodeFailure(t *testing.T) {
+	t.Parallel()
+
+	inputs := []ChaosConfig{
+		{
+			ChaosName: "CCIP works while minority of CL nodes are in failed state for pod failure @pod-chaos",
+			ChaosFunc: chaos.NewFailPods,
+			ChaosProps: &chaos.Props{
+				LabelsSelector: &map[string]*string{actions.ChaosGroupCommitFaulty: a.Str("1")},
+				DurationStr:    "4m",
+			},
+		},
+	}
+
+	var allChaosDur time.Duration
+	// to override the default duration of chaos with test input
+	for _, ch := range inputs {
+		dur, err := ch.SetInput()
+		require.NoError(t, err)
+		allChaosDur += dur
+	}
+
+	lggr := logging.GetTestLogger(t)
+	testArgs := NewLoadArgs(t, lggr, context.Background(), inputs...)
+
+	// the duration of load test should be greater than the duration of chaos
+	if testArgs.TestCfg.TestDuration < allChaosDur+2*time.Minute {
+		t.Fatalf("Skipping the test as the test duration is less than the chaos duration")
+	}
+
+	testArgs.Setup(true, 16, 16)
+	// if the test runs on remote runner
+	if len(testArgs.TestSetupArgs.Lanes) == 0 {
+		return
+	}
+	t.Cleanup(func() {
+		log.Info().Msg("Tearing down the environment")
+		require.NoError(t, testArgs.TestSetupArgs.TearDown())
+	})
+
+	testEnv := testArgs.TestSetupArgs.Env
+	require.NotNil(t, testEnv)
+	require.NotNil(t, testEnv.K8Env)
+
+	testArgs.TriggerLoad()
+	testArgs.ApplyChaos()
+	testArgs.Wait()
+}
+
 // This test applies pod chaos to the CL nodes asynchronously and sequentially  while the load is running
 // the pod chaos is applied at a regular interval throughout the test duration
-func TestLoadCCIPStableRequestTriggeringWithPodChaos(t *testing.T) {
+// in this test commit and execution are set up to be on different node
+func TestLoadCCIPStableWithPodChaosDiffCommitAndExec(t *testing.T) {
 	t.Parallel()
 	inputs := []ChaosConfig{
 		{
