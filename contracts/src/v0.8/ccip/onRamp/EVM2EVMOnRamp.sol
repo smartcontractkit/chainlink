@@ -6,6 +6,7 @@ import {IPool} from "../interfaces/pools/IPool.sol";
 import {IARM} from "../interfaces/IARM.sol";
 import {IPriceRegistry} from "../interfaces/IPriceRegistry.sol";
 import {IEVM2AnyOnRamp} from "../interfaces/IEVM2AnyOnRamp.sol";
+import {IEVM2AnyOnRampClient} from "../interfaces/IEVM2AnyOnRampClient.sol";
 import {ILinkAvailable} from "../interfaces/automation/ILinkAvailable.sol";
 
 import {AggregateRateLimiter} from "../AggregateRateLimiter.sol";
@@ -56,6 +57,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   error NotAFeeToken(address token);
   error CannotSendZeroTokens();
   error SourceTokenDataTooLarge(address token);
+  error InvalidChainSelector(uint64 chainSelector);
 
   event ConfigSet(StaticConfig staticConfig, DynamicConfig dynamicConfig);
   event NopPaid(address indexed nop, uint256 amount);
@@ -252,8 +254,9 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     return uint64(senderNonce);
   }
 
-  /// @inheritdoc IEVM2AnyOnRamp
+  /// @inheritdoc IEVM2AnyOnRampClient
   function forwardFromRouter(
+    uint64 destChainSelector,
     Client.EVM2AnyMessage calldata message,
     uint256 feeTokenAmount,
     address originalSender
@@ -262,6 +265,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     if (originalSender == address(0)) revert RouterMustSetOriginalSender();
     // Router address may be zero intentionally to pause.
     if (msg.sender != s_dynamicConfig.router) revert MustBeCalledByRouter();
+    if (destChainSelector != i_destChainSelector) revert InvalidChainSelector(destChainSelector);
 
     // EVM destination addresses should be abi encoded and therefore always 32 bytes long
     // Not duplicately validated in `getFee`. Invalid address is uncommon, gas cost outweighs UX gain.
@@ -272,7 +276,6 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
 
     uint256 gasLimit = _fromBytes(message.extraArgs).gasLimit;
     // Validate the message with various checks
-
     uint256 numberOfTokens = message.tokenAmounts.length;
     _validateMessage(message.data.length, gasLimit, numberOfTokens);
 
@@ -324,7 +327,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     // There should be no state changes after external call to TokenPools.
     for (uint256 i = 0; i < numberOfTokens; ++i) {
       Client.EVMTokenAmount memory tokenAndAmount = message.tokenAmounts[i];
-      bytes memory tokenData = getPoolBySourceToken(IERC20(tokenAndAmount.token)).lockOrBurn(
+      bytes memory tokenData = getPoolBySourceToken(destChainSelector, IERC20(tokenAndAmount.token)).lockOrBurn(
         originalSender,
         message.receiver,
         tokenAndAmount.amount,
@@ -433,8 +436,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   // │                      Tokens and pools                        │
   // ================================================================
 
-  /// @inheritdoc IEVM2AnyOnRamp
-  function getSupportedTokens() external view returns (address[] memory) {
+  /// @inheritdoc IEVM2AnyOnRampClient
+  function getSupportedTokens(uint64 /*destChainSelector*/) external view returns (address[] memory) {
     address[] memory sourceTokens = new address[](s_poolsBySourceToken.length());
     for (uint256 i = 0; i < sourceTokens.length; ++i) {
       (sourceTokens[i], ) = s_poolsBySourceToken.at(i);
@@ -442,8 +445,8 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     return sourceTokens;
   }
 
-  /// @inheritdoc IEVM2AnyOnRamp
-  function getPoolBySourceToken(IERC20 sourceToken) public view returns (IPool) {
+  /// @inheritdoc IEVM2AnyOnRampClient
+  function getPoolBySourceToken(uint64 /*destChainSelector*/, IERC20 sourceToken) public view returns (IPool) {
     if (!s_poolsBySourceToken.contains(address(sourceToken))) revert UnsupportedToken(sourceToken);
     return IPool(s_poolsBySourceToken.get(address(sourceToken)));
   }
@@ -489,20 +492,26 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
   // │                             Fees                             │
   // ================================================================
 
-  /// @inheritdoc IEVM2AnyOnRamp
+  /// @inheritdoc IEVM2AnyOnRampClient
   /// @dev getFee MUST revert if the feeToken is not listed in the fee token config, as the router assumes it does.
+  /// @param destChainSelector The destination chain selector.
   /// @param message The message to get quote for.
   /// @return feeTokenAmount The amount of fee token needed for the fee, in smallest denomination of the fee token.
-  function getFee(Client.EVM2AnyMessage calldata message) external view returns (uint256 feeTokenAmount) {
-    Client.EVMExtraArgsV1 memory extraArgs = _fromBytes(message.extraArgs);
+  function getFee(
+    uint64 destChainSelector,
+    Client.EVM2AnyMessage calldata message
+  ) external view returns (uint256 feeTokenAmount) {
+    if (destChainSelector != i_destChainSelector) revert InvalidChainSelector(destChainSelector);
+
+    uint256 gasLimit = _fromBytes(message.extraArgs).gasLimit;
     // Validate the message with various checks
-    _validateMessage(message.data.length, extraArgs.gasLimit, message.tokenAmounts.length);
+    _validateMessage(message.data.length, gasLimit, message.tokenAmounts.length);
 
     FeeTokenConfig memory feeTokenConfig = s_feeTokenConfig[message.feeToken];
     if (!feeTokenConfig.enabled) revert NotAFeeToken(message.feeToken);
 
     (uint224 feeTokenPrice, uint224 packedGasPrice) = IPriceRegistry(s_dynamicConfig.priceRegistry)
-      .getTokenAndGasPrices(message.feeToken, i_destChainSelector);
+      .getTokenAndGasPrices(message.feeToken, destChainSelector);
     uint112 executionGasPrice = uint112(packedGasPrice);
 
     // Calculate premiumFee in USD with 18 decimals precision first.
@@ -530,7 +539,7 @@ contract EVM2EVMOnRamp is IEVM2AnyOnRamp, ILinkAvailable, AggregateRateLimiter, 
     // We add the message gas limit, the overhead gas, and the data availability gas together.
     // We then multiply this destination gas total with the gas multiplier and convert it into USD.
     uint256 executionCost = executionGasPrice *
-      ((extraArgs.gasLimit +
+      ((gasLimit +
         s_dynamicConfig.destGasOverhead +
         (message.data.length * s_dynamicConfig.destGasPerPayloadByte) +
         tokenTransferGas) * feeTokenConfig.gasMultiplierWeiPerEth);

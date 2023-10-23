@@ -14,7 +14,7 @@ import {Internal} from "./libraries/Internal.sol";
 import {CallWithExactGas} from "./libraries/CallWithExactGas.sol";
 import {OwnerIsCreator} from "./../shared/access/OwnerIsCreator.sol";
 
-import {EnumerableMap} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableMap.sol";
+import {EnumerableSet} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/utils/structs/EnumerableSet.sol";
 import {SafeERC20} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IERC20} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
 
@@ -23,11 +23,11 @@ import {IERC20} from "../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC
 /// @dev This contract is used as a router for both on-ramps and off-ramps
 contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
   using SafeERC20 for IERC20;
-  using EnumerableMap for EnumerableMap.AddressToUintMap;
+  using EnumerableSet for EnumerableSet.UintSet;
 
   error FailedToSendValue();
   error InvalidRecipientAddress(address to);
-  error OffRampMismatch();
+  error OffRampMismatch(uint64 chainSelector, address offRamp);
   error BadARMSignal();
 
   event OnRampSet(uint64 indexed destChainSelector, address onRamp);
@@ -46,7 +46,7 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
   }
 
   // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
-  string public constant override typeAndVersion = "Router 1.0.0";
+  string public constant override typeAndVersion = "Router 1.2.0";
   // We limit return data to a selector plus 4 words. This is to avoid
   // malicious contracts from returning large amounts of data and causing
   // repeated out-of-gas scenarios.
@@ -60,10 +60,9 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
   // destChainSelector => onRamp address
   // Only ever one onRamp enabled at a time for a given destChainSelector.
   mapping(uint256 destChainSelector => address onRamp) private s_onRamps;
-  // Mapping of offRamps to source chain ids
-  // Can be multiple offRamps enabled at a time for a given sourceChainSelector,
-  // for example during an no downtime upgrade while v1 messages are being flushed.
-  EnumerableMap.AddressToUintMap private s_offRamps;
+  // Stores [sourceChainSelector << 160 + offramp] as a pair to allow for
+  // lookups for specific chain/offramp pairs.
+  EnumerableSet.UintSet private s_chainSelectorAndOffRamps;
 
   constructor(address wrappedNative, address armProxy) {
     // Zero address indicates unsupported auto-wrapping, therefore, unsupported
@@ -87,7 +86,7 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     }
     address onRamp = s_onRamps[destinationChainSelector];
     if (onRamp == address(0)) revert UnsupportedDestinationChain(destinationChainSelector);
-    return IEVM2AnyOnRamp(onRamp).getFee(message);
+    return IEVM2AnyOnRamp(onRamp).getFee(destinationChainSelector, message);
   }
 
   /// @inheritdoc IRouterClient
@@ -95,7 +94,7 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     if (!isChainSupported(chainSelector)) {
       return new address[](0);
     }
-    return IEVM2AnyOnRamp(s_onRamps[uint256(chainSelector)]).getSupportedTokens();
+    return IEVM2AnyOnRamp(s_onRamps[uint256(chainSelector)]).getSupportedTokens(chainSelector);
   }
 
   /// @inheritdoc IRouterClient
@@ -117,7 +116,7 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
       // as part of the native fee coin payment.
       message.feeToken = s_wrappedNative;
       // We rely on getFee to validate that the feeToken is whitelisted.
-      feeTokenAmount = IEVM2AnyOnRamp(onRamp).getFee(message);
+      feeTokenAmount = IEVM2AnyOnRamp(onRamp).getFee(destinationChainSelector, message);
       // Ensure sufficient native.
       if (msg.value < feeTokenAmount) revert InsufficientFeeTokenAmount();
       // Wrap and send native payment.
@@ -128,7 +127,7 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     } else {
       if (msg.value > 0) revert InvalidMsgValue();
       // We rely on getFee to validate that the feeToken is whitelisted.
-      feeTokenAmount = IEVM2AnyOnRamp(onRamp).getFee(message);
+      feeTokenAmount = IEVM2AnyOnRamp(onRamp).getFee(destinationChainSelector, message);
       IERC20(message.feeToken).safeTransferFrom(msg.sender, onRamp, feeTokenAmount);
     }
 
@@ -138,12 +137,12 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
       // We rely on getPoolBySourceToken to validate that the token is whitelisted.
       token.safeTransferFrom(
         msg.sender,
-        address(IEVM2AnyOnRamp(onRamp).getPoolBySourceToken(token)),
+        address(IEVM2AnyOnRamp(onRamp).getPoolBySourceToken(destinationChainSelector, token)),
         message.tokenAmounts[i].amount
       );
     }
 
-    return IEVM2AnyOnRamp(onRamp).forwardFromRouter(message, feeTokenAmount, msg.sender);
+    return IEVM2AnyOnRamp(onRamp).forwardFromRouter(destinationChainSelector, message, feeTokenAmount, msg.sender);
   }
 
   // ================================================================
@@ -157,13 +156,12 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     uint16 gasForCallExactCheck,
     uint256 gasLimit,
     address receiver
-  )
-    external
-    override
-    onlyOffRamp(message.sourceChainSelector)
-    whenHealthy
-    returns (bool success, bytes memory retData)
-  {
+  ) external override whenHealthy returns (bool success, bytes memory retData) {
+    // We only permit offRamps to call this function. We have to encode the sourceChainSelector
+    // and msg.sender into a uint256 to use as a key in the set.
+    if (!s_chainSelectorAndOffRamps.contains(_mergeChainSelectorAndOffRamp(message.sourceChainSelector, msg.sender)))
+      revert OnlyOffRamp();
+
     // We encode here instead of the offRamps to constrain specifically what functions
     // can be called from the router.
     bytes memory data = abi.encodeWithSelector(IAny2EVMMessageReceiver.ccipReceive.selector, message);
@@ -178,6 +176,15 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
 
     emit MessageExecuted(message.messageId, message.sourceChainSelector, msg.sender, keccak256(data));
     return (success, retData);
+  }
+
+  // @notice Merges a chain selector and offRamp address into a single uint256 by shifting the
+  // chain selector 160 bits to the left.
+  function _mergeChainSelectorAndOffRamp(
+    uint64 sourceChainSelector,
+    address offRampAddress
+  ) internal pure returns (uint256) {
+    return (uint256(sourceChainSelector) << 160) + uint160(offRampAddress);
   }
 
   // ================================================================
@@ -209,21 +216,21 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
     return s_onRamps[destChainSelector];
   }
 
-  /// @notice Return a full list of configured offRamps.
   function getOffRamps() external view returns (OffRamp[] memory) {
-    OffRamp[] memory offRamps = new OffRamp[](s_offRamps.length());
-    for (uint256 i = 0; i < offRamps.length; ++i) {
-      (address offRamp, uint256 sourceChainSelector) = s_offRamps.at(i);
-      offRamps[i] = OffRamp({sourceChainSelector: uint64(sourceChainSelector), offRamp: offRamp});
+    uint256[] memory encodedOffRamps = s_chainSelectorAndOffRamps.values();
+    OffRamp[] memory offRamps = new OffRamp[](encodedOffRamps.length);
+    for (uint256 i = 0; i < encodedOffRamps.length; ++i) {
+      uint256 encodedOffRamp = encodedOffRamps[i];
+      offRamps[i] = OffRamp({
+        sourceChainSelector: uint64(encodedOffRamp >> 160),
+        offRamp: address(uint160(encodedOffRamp))
+      });
     }
     return offRamps;
   }
 
-  /// @notice Returns true if the given address is a permissioned offRamp
-  /// and sourceChainSelector if so.
-  function isOffRamp(address offRamp) external view returns (bool, uint64) {
-    (bool exists, uint256 sourceChainSelector) = s_offRamps.tryGet(offRamp);
-    return (exists, uint64(sourceChainSelector));
+  function isOffRamp(uint64 sourceChainSelector, address offRamp) external view returns (bool) {
+    return s_chainSelectorAndOffRamps.contains(_mergeChainSelectorAndOffRamp(sourceChainSelector, offRamp));
   }
 
   /// @notice applyRampUpdates applies a set of ramp changes which provides
@@ -240,24 +247,25 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
       s_onRamps[onRampUpdate.destChainSelector] = onRampUpdate.onRamp;
       emit OnRampSet(onRampUpdate.destChainSelector, onRampUpdate.onRamp);
     }
+
     // Apply ingress updates.
-    // We permit an empty list as a way to disable ingress.
     for (uint256 i = 0; i < offRampRemoves.length; ++i) {
-      uint64 rampSelector = offRampRemoves[i].sourceChainSelector;
-      address rampAddress = offRampRemoves[i].offRamp;
+      uint64 sourceChainSelector = offRampRemoves[i].sourceChainSelector;
+      address offRampAddress = offRampRemoves[i].offRamp;
 
-      if (s_offRamps.get(rampAddress) != uint256(rampSelector)) revert OffRampMismatch();
+      // If the selector-offRamp pair does not exist, revert.
+      if (!s_chainSelectorAndOffRamps.remove(_mergeChainSelectorAndOffRamp(sourceChainSelector, offRampAddress)))
+        revert OffRampMismatch(sourceChainSelector, offRampAddress);
 
-      if (s_offRamps.remove(rampAddress)) {
-        emit OffRampRemoved(rampSelector, rampAddress);
-      }
+      emit OffRampRemoved(sourceChainSelector, offRampAddress);
     }
-    for (uint256 i = 0; i < offRampAdds.length; ++i) {
-      uint64 rampSelector = offRampAdds[i].sourceChainSelector;
-      address rampAddress = offRampAdds[i].offRamp;
 
-      if (s_offRamps.set(rampAddress, rampSelector)) {
-        emit OffRampAdded(rampSelector, rampAddress);
+    for (uint256 i = 0; i < offRampAdds.length; ++i) {
+      uint64 sourceChainSelector = offRampAdds[i].sourceChainSelector;
+      address offRampAddress = offRampAdds[i].offRamp;
+
+      if (s_chainSelectorAndOffRamps.add(_mergeChainSelectorAndOffRamp(sourceChainSelector, offRampAddress))) {
+        emit OffRampAdded(sourceChainSelector, offRampAddress);
       }
     }
   }
@@ -281,14 +289,6 @@ contract Router is IRouter, IRouterClient, ITypeAndVersion, OwnerIsCreator {
   // ================================================================
   // │                           Access                             │
   // ================================================================
-
-  /// @notice only lets permissioned offRamps execute
-  /// @dev We additionally restrict offRamps to specific source chains for defense in depth.
-  modifier onlyOffRamp(uint64 expectedSourceChainSelector) {
-    (bool exists, uint256 sourceChainSelector) = s_offRamps.tryGet(msg.sender);
-    if (!exists || expectedSourceChainSelector != uint64(sourceChainSelector)) revert OnlyOffRamp();
-    _;
-  }
 
   /// @notice Ensure that the ARM has not emitted a bad signal, and that the latest heartbeat is not stale.
   modifier whenHealthy() {

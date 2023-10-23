@@ -20,7 +20,7 @@ block_number = 12345
 solc_version = '0.8.19'
 src = 'src/v0.8/ccip'
 test = 'src/v0.8/ccip/test'
-optimizer_runs = 26_000
+optimizer_runs = 10_000
 
 [profile.metatx]
 solc_version = '0.8.15'

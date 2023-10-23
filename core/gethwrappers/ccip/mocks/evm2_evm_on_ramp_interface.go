@@ -402,25 +402,25 @@ func (_m *EVM2EVMOnRampInterface) FilterTokenTransferFeeConfigSet(opts *bind.Fil
 	return r0, r1
 }
 
-// ForwardFromRouter provides a mock function with given fields: opts, message, feeTokenAmount, originalSender
-func (_m *EVM2EVMOnRampInterface) ForwardFromRouter(opts *bind.TransactOpts, message evm_2_evm_onramp.ClientEVM2AnyMessage, feeTokenAmount *big.Int, originalSender common.Address) (*types.Transaction, error) {
-	ret := _m.Called(opts, message, feeTokenAmount, originalSender)
+// ForwardFromRouter provides a mock function with given fields: opts, destChainSelector, message, feeTokenAmount, originalSender
+func (_m *EVM2EVMOnRampInterface) ForwardFromRouter(opts *bind.TransactOpts, destChainSelector uint64, message evm_2_evm_onramp.ClientEVM2AnyMessage, feeTokenAmount *big.Int, originalSender common.Address) (*types.Transaction, error) {
+	ret := _m.Called(opts, destChainSelector, message, feeTokenAmount, originalSender)
 
 	var r0 *types.Transaction
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_onramp.ClientEVM2AnyMessage, *big.Int, common.Address) (*types.Transaction, error)); ok {
-		return rf(opts, message, feeTokenAmount, originalSender)
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, uint64, evm_2_evm_onramp.ClientEVM2AnyMessage, *big.Int, common.Address) (*types.Transaction, error)); ok {
+		return rf(opts, destChainSelector, message, feeTokenAmount, originalSender)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, evm_2_evm_onramp.ClientEVM2AnyMessage, *big.Int, common.Address) *types.Transaction); ok {
-		r0 = rf(opts, message, feeTokenAmount, originalSender)
+	if rf, ok := ret.Get(0).(func(*bind.TransactOpts, uint64, evm_2_evm_onramp.ClientEVM2AnyMessage, *big.Int, common.Address) *types.Transaction); ok {
+		r0 = rf(opts, destChainSelector, message, feeTokenAmount, originalSender)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*types.Transaction)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, evm_2_evm_onramp.ClientEVM2AnyMessage, *big.Int, common.Address) error); ok {
-		r1 = rf(opts, message, feeTokenAmount, originalSender)
+	if rf, ok := ret.Get(1).(func(*bind.TransactOpts, uint64, evm_2_evm_onramp.ClientEVM2AnyMessage, *big.Int, common.Address) error); ok {
+		r1 = rf(opts, destChainSelector, message, feeTokenAmount, originalSender)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -476,25 +476,25 @@ func (_m *EVM2EVMOnRampInterface) GetExpectedNextSequenceNumber(opts *bind.CallO
 	return r0, r1
 }
 
-// GetFee provides a mock function with given fields: opts, message
-func (_m *EVM2EVMOnRampInterface) GetFee(opts *bind.CallOpts, message evm_2_evm_onramp.ClientEVM2AnyMessage) (*big.Int, error) {
-	ret := _m.Called(opts, message)
+// GetFee provides a mock function with given fields: opts, destChainSelector, message
+func (_m *EVM2EVMOnRampInterface) GetFee(opts *bind.CallOpts, destChainSelector uint64, message evm_2_evm_onramp.ClientEVM2AnyMessage) (*big.Int, error) {
+	ret := _m.Called(opts, destChainSelector, message)
 
 	var r0 *big.Int
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, evm_2_evm_onramp.ClientEVM2AnyMessage) (*big.Int, error)); ok {
-		return rf(opts, message)
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64, evm_2_evm_onramp.ClientEVM2AnyMessage) (*big.Int, error)); ok {
+		return rf(opts, destChainSelector, message)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, evm_2_evm_onramp.ClientEVM2AnyMessage) *big.Int); ok {
-		r0 = rf(opts, message)
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64, evm_2_evm_onramp.ClientEVM2AnyMessage) *big.Int); ok {
+		r0 = rf(opts, destChainSelector, message)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(*big.Int)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts, evm_2_evm_onramp.ClientEVM2AnyMessage) error); ok {
-		r1 = rf(opts, message)
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, uint64, evm_2_evm_onramp.ClientEVM2AnyMessage) error); ok {
+		r1 = rf(opts, destChainSelector, message)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -576,25 +576,25 @@ func (_m *EVM2EVMOnRampInterface) GetNops(opts *bind.CallOpts) (evm_2_evm_onramp
 	return r0, r1
 }
 
-// GetPoolBySourceToken provides a mock function with given fields: opts, sourceToken
-func (_m *EVM2EVMOnRampInterface) GetPoolBySourceToken(opts *bind.CallOpts, sourceToken common.Address) (common.Address, error) {
-	ret := _m.Called(opts, sourceToken)
+// GetPoolBySourceToken provides a mock function with given fields: opts, arg0, sourceToken
+func (_m *EVM2EVMOnRampInterface) GetPoolBySourceToken(opts *bind.CallOpts, arg0 uint64, sourceToken common.Address) (common.Address, error) {
+	ret := _m.Called(opts, arg0, sourceToken)
 
 	var r0 common.Address
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, common.Address) (common.Address, error)); ok {
-		return rf(opts, sourceToken)
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64, common.Address) (common.Address, error)); ok {
+		return rf(opts, arg0, sourceToken)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts, common.Address) common.Address); ok {
-		r0 = rf(opts, sourceToken)
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64, common.Address) common.Address); ok {
+		r0 = rf(opts, arg0, sourceToken)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(common.Address)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts, common.Address) error); ok {
-		r1 = rf(opts, sourceToken)
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, uint64, common.Address) error); ok {
+		r1 = rf(opts, arg0, sourceToken)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -650,25 +650,25 @@ func (_m *EVM2EVMOnRampInterface) GetStaticConfig(opts *bind.CallOpts) (evm_2_ev
 	return r0, r1
 }
 
-// GetSupportedTokens provides a mock function with given fields: opts
-func (_m *EVM2EVMOnRampInterface) GetSupportedTokens(opts *bind.CallOpts) ([]common.Address, error) {
-	ret := _m.Called(opts)
+// GetSupportedTokens provides a mock function with given fields: opts, arg0
+func (_m *EVM2EVMOnRampInterface) GetSupportedTokens(opts *bind.CallOpts, arg0 uint64) ([]common.Address, error) {
+	ret := _m.Called(opts, arg0)
 
 	var r0 []common.Address
 	var r1 error
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) ([]common.Address, error)); ok {
-		return rf(opts)
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64) ([]common.Address, error)); ok {
+		return rf(opts, arg0)
 	}
-	if rf, ok := ret.Get(0).(func(*bind.CallOpts) []common.Address); ok {
-		r0 = rf(opts)
+	if rf, ok := ret.Get(0).(func(*bind.CallOpts, uint64) []common.Address); ok {
+		r0 = rf(opts, arg0)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]common.Address)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(*bind.CallOpts) error); ok {
-		r1 = rf(opts)
+	if rf, ok := ret.Get(1).(func(*bind.CallOpts, uint64) error); ok {
+		r1 = rf(opts, arg0)
 	} else {
 		r1 = ret.Error(1)
 	}

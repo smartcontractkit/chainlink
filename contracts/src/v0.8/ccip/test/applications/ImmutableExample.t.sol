@@ -28,7 +28,10 @@ contract CCIPClientExample_sanity is EVM2EVMOnRampSetup {
     exampleContract.sendDataPayFeeToken(DEST_CHAIN_ID, abi.encode(toAddress), bytes("hello"));
 
     // Can send data tokens
-    assertEq(address(s_onRamp.getPoolBySourceToken(IERC20(s_sourceTokens[1]))), address(s_sourcePools[1]));
+    assertEq(
+      address(s_onRamp.getPoolBySourceToken(DEST_CHAIN_ID, IERC20(s_sourceTokens[1]))),
+      address(s_sourcePools[1])
+    );
     deal(s_sourceTokens[1], OWNER, 100 ether);
     IERC20(s_sourceTokens[1]).approve(address(exampleContract), 1 ether);
     Client.EVMTokenAmount[] memory tokenAmounts = new Client.EVMTokenAmount[](1);

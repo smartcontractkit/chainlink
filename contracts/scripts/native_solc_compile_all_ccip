@@ -4,6 +4,7 @@ set -e
 
 SOLC_VERSION="0.8.19"
 OPTIMIZE_RUNS=26000
+OPTIMIZE_RUNS_LOW=10000
 
 
 SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
@@ -21,8 +22,15 @@ compileContract () {
       $ROOT/contracts/src/v0.8/$1
 }
 
+compileContractLowOpts () {
+  solc --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS_LOW --metadata-hash none \
+      -o $ROOT/contracts/solc/v$SOLC_VERSION \
+      --abi --bin --allow-paths $ROOT/contracts/src/v0.8 \
+      $ROOT/contracts/src/v0.8/$1
+}
+
 compileContract ccip/Router.sol
-compileContract ccip/onRamp/EVM2EVMOnRamp.sol
+compileContractLowOpts ccip/onRamp/EVM2EVMOnRamp.sol
 compileContract ccip/CommitStore.sol
 compileContract ccip/offRamp/EVM2EVMOffRamp.sol
 compileContract ccip/ARM.sol
