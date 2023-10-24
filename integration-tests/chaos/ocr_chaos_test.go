@@ -13,13 +13,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/client"
-	"github.com/smartcontractkit/chainlink-testing-framework/env/chaos"
-	"github.com/smartcontractkit/chainlink-testing-framework/env/environment"
-	a "github.com/smartcontractkit/chainlink-testing-framework/env/pkg/alias"
-	"github.com/smartcontractkit/chainlink-testing-framework/env/pkg/helm/chainlink"
-	"github.com/smartcontractkit/chainlink-testing-framework/env/pkg/helm/ethereum"
-	"github.com/smartcontractkit/chainlink-testing-framework/env/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/env/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/chaos"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
+	a "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/alias"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/chainlink"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/ethereum"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver"
+	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/k8s/pkg/helm/mockserver-cfg"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/utils"
@@ -75,7 +75,7 @@ func TestOCRChaos(t *testing.T) {
 		// and chaos.NewNetworkPartition method (https://chaos-mesh.org/docs/simulate-network-chaos-on-kubernetes/)
 		// in order to regenerate Go bindings if k8s version will be updated
 		// you can pull new CRD spec from your current cluster and check README here
-		// https://github.com/smartcontractkit/chainlink-testing-framework/env/blob/master/README.md
+		// https://github.com/smartcontractkit/chainlink-testing-framework/k8s/blob/master/README.md
 		NetworkChaosFailMajorityNetwork: {
 			ethereum.New(nil),
 			chainlink.New(0, defaultOCRSettings),

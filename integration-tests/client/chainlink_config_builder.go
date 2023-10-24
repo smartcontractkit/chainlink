@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
-	"github.com/smartcontractkit/chainlink-testing-framework/env/config"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/config"
 )
 
 const (

@@ -8,7 +8,7 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/env/environment"
+	"github.com/smartcontractkit/chainlink-testing-framework/k8s/environment"
 )
 
 type ChainlinkK8sClient struct {

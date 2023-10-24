@@ -9,10 +9,18 @@ jobs:
     if: ${{ github.event.label.name == 'helm_release' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
-      - name: Release helm chart
-        uses: J12934/helm-gh-pages-action@master
+      - name: Checkout repo
+        uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
+
+      - name: Install Helm
+        uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
+
+      - name: Run chart-releaser
+        uses: helm/chart-releaser-action@be16258da8010256c6e82849661221415f031968 # v1.5.0
         with:
-          charts-folder: charts
-          deploy-branch: helm-release
-          access-token: ${{ secrets.HELM_PUSH_TOKEN }}
+          charts_dir: charts
+          pages_branch: helm-release
+          mark_as_latest: false
+          packages_with_index: true
+        env:
+          CR_TOKEN: "${{ secrets.HELM_PUSH_TOKEN }}"

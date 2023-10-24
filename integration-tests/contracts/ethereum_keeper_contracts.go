@@ -85,7 +85,6 @@ type KeeperRegistry interface {
 
 type KeeperConsumer interface {
 	Address() string
-	Fund(ethAmount *big.Float) error
 	Counter(ctx context.Context) (*big.Int, error)
 	Start() error
 }
@@ -1688,14 +1687,6 @@ func (v *EthereumKeeperConsumer) Address() string {
 	return v.address.Hex()
 }
 
-func (v *EthereumKeeperConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
-	if err != nil {
-		return err
-	}
-	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
-}
-
 func (v *EthereumKeeperConsumer) Counter(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
@@ -1731,14 +1722,6 @@ func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Start() error {
 		return err
 	}
 	return v.client.ProcessTransaction(tx)
-}
-
-func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
-	if err != nil {
-		return err
-	}
-	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Counter(ctx context.Context) (*big.Int, error) {
@@ -1777,14 +1760,6 @@ func (v *EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer) Start() erro
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
-	if err != nil {
-		return err
-	}
-	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
-}
-
 func (v *EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer) Counter(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
@@ -1818,14 +1793,6 @@ func (v *EthereumAutomationLogCounterConsumer) Start() error {
 		return err
 	}
 	return v.client.ProcessTransaction(tx)
-}
-
-func (v *EthereumAutomationLogCounterConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
-	if err != nil {
-		return err
-	}
-	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (v *EthereumAutomationLogCounterConsumer) Counter(ctx context.Context) (*big.Int, error) {

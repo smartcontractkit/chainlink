@@ -161,7 +161,7 @@ func InitSolana(ctx context.Context, factory RelayerFactory, config SolanaFactor
 // InitStarknet is a option for instantiating Starknet relayers
 func InitStarknet(ctx context.Context, factory RelayerFactory, config StarkNetFactoryConfig) CoreRelayerChainInitFunc {
 	return func(op *CoreRelayerChainInteroperators) (err error) {
-		starkRelayers, err := factory.NewStarkNet(config.Keystore, config.StarknetConfigs)
+		starkRelayers, err := factory.NewStarkNet(config.Keystore, config.TOMLConfigs)
 		if err != nil {
 			return fmt.Errorf("failed to setup StarkNet relayer: %w", err)
 		}
