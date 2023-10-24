@@ -12,16 +12,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 )
 
-type respCountEntry struct {
+type RespCountEntry struct {
 	RequestID string
 	Count     int
 }
 
 func GetRespCounts(ctx context.Context, txm txmgr.TxManager, chainID *big.Int, confirmedBlockNum int64) (
-	[]respCountEntry,
+	[]RespCountEntry,
 	error,
 ) {
-	counts := []respCountEntry{}
+	counts := []RespCountEntry{}
 	metaField := "RequestID"
 	states := []txmgrtypes.TxState{txmgrcommon.TxUnconfirmed, txmgrcommon.TxUnstarted, txmgrcommon.TxInProgress}
 	// Search for txes with a non-null meta field in the provided states
@@ -29,7 +29,7 @@ func GetRespCounts(ctx context.Context, txm txmgr.TxManager, chainID *big.Int, c
 	if err != nil {
 		return nil, errors.Wrap(err, "getRespCounts failed due to error in FindTxesWithMetaFieldByStates")
 	}
-	// Fetch completed transactions only as far back as the given cutoffBlockNumber. This avoids
+	// Fetch completed transactions only as far back as the given confirmedBlockNum. This avoids
 	// a table scan of the whole table, which could be large if it is unpruned.
 	var confirmedTxes []*txmgr.Tx
 	confirmedTxes, err = txm.FindTxesWithMetaFieldByReceiptBlockNum(ctx, metaField, confirmedBlockNum, chainID)
@@ -45,18 +45,18 @@ func GetRespCounts(ctx context.Context, txm txmgr.TxManager, chainID *big.Int, c
 		if err != nil {
 			return nil, errors.Wrap(err, "getRespCounts failed parsing tx meta field")
 		}
-		// Query ensures the field is non-nil in the tx
-		requestId := meta.RequestID.String()
-		if _, exists := respCountMap[requestId]; !exists {
-			respCountMap[requestId] = 0
+		if meta != nil && meta.RequestID != nil {
+			requestId := meta.RequestID.String()
+			if _, exists := respCountMap[requestId]; !exists {
+				respCountMap[requestId] = 0
+			}
+			respCountMap[requestId]++
 		}
-		count := respCountMap[requestId]
-		respCountMap[requestId] = count + 1
 	}
 
 	// Parse response count map into output
 	for key, value := range respCountMap {
-		respCountEntry := respCountEntry{
+		respCountEntry := RespCountEntry{
 			RequestID: key,
 			Count:     value,
 		}

@@ -638,6 +638,8 @@ func loadEthTxesAttemptsReceipts(q pg.Queryer, etxs []*Tx) (err error) {
 
 	for _, receipt := range receipts {
 		attempt := attemptHashM[receipt.TxHash]
+		// Although the attempts struct supports multiple receipts, the expectation for EVM is that there is only one receipt
+		// per tx and therefore attempt too. 
 		attempt.Receipts = append(attempt.Receipts, receipt)
 	}
 	return nil
@@ -1821,7 +1823,11 @@ func (o *evmTxStore) FindTxesWithMetaFieldByReceiptBlockNum(ctx context.Context,
 
 // Find transactions loaded with transaction attempts and receipts by transaction IDs and states
 func (o *evmTxStore) FindTxesWithAttemptsAndReceiptsByIdsAndState(ctx context.Context, ids []big.Int, states []txmgrtypes.TxState, chainID *big.Int) (txes []*Tx, err error) {
-	err = o.q.Transaction(func(tx pg.Queryer) error {
+	var cancel context.CancelFunc
+	ctx, cancel = o.mergeContexts(ctx)
+	defer cancel()
+	qq := o.q.WithOpts(pg.WithParentCtx(ctx))
+	err = qq.Transaction(func(tx pg.Queryer) error {
 		var dbEtxs []DbEthTx
 		if err = tx.Select(&dbEtxs, `SELECT * FROM evm.txes WHERE id = ANY($1) AND state = ANY($2) AND evm_chain_id = $3`, pq.Array(ids), pq.Array(states), chainID.String()); err != nil {
 			return pkgerrors.Wrapf(err, "failed to find evm.txes")

@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	heaps "github.com/theodesp/go-heaps"
@@ -158,7 +159,13 @@ func (lsn *Listener) Start(ctx context.Context) error {
 
 func (lsn *Listener) GetStartingResponseCountsV1(ctx context.Context) (respCount map[[32]byte]uint64, err error) {
 	respCounts := make(map[[32]byte]uint64)
-	latestBlockNum, err := lsn.Chain.Client().LatestBlockHeight(ctx)
+	var latestBlockNum *big.Int
+	// Retry client call for LatestBlockHeight if fails
+	// Want to avoid failing startup due to potential faulty RPC call
+	err = retry.Do(func() error {
+		latestBlockNum, err = lsn.Chain.Client().LatestBlockHeight(ctx)
+		return err
+	}, retry.Attempts(10), retry.Delay(500*time.Millisecond))
 	if err != nil {
 		return nil, err
 	}
@@ -167,7 +174,8 @@ func (lsn *Listener) GetStartingResponseCountsV1(ctx context.Context) (respCount
 	}
 	confirmedBlockNum := latestBlockNum.Int64() - int64(lsn.Chain.Config().EVM().FinalityDepth())
 	// Only check as far back as the evm finality depth for completed transactions.
-	counts, err := vrfcommon.GetRespCounts(ctx, lsn.Chain.TxManager(), lsn.Chain.Client().ConfiguredChainID(), confirmedBlockNum)
+	var counts []vrfcommon.RespCountEntry
+	counts, err = vrfcommon.GetRespCounts(ctx, lsn.Chain.TxManager(), lsn.Chain.Client().ConfiguredChainID(), confirmedBlockNum)
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
 		lsn.L.Errorw("Unable to read previous confirmed fulfillments", "err", err)

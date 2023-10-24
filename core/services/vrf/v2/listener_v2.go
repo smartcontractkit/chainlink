@@ -13,6 +13,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -56,6 +57,7 @@ var (
 	batchCoordinatorV2ABI                    = evmtypes.MustGetABI(batch_vrf_coordinator_v2.BatchVRFCoordinatorV2ABI)
 	batchCoordinatorV2PlusABI                = evmtypes.MustGetABI(batch_vrf_coordinator_v2plus.BatchVRFCoordinatorV2PlusABI)
 	vrfOwnerABI                              = evmtypes.MustGetABI(vrf_owner.VRFOwnerMetaData.ABI)
+	// These are the transaction states used when summing up already reserved subscription funds that are about to be used in in-flight transactions
 	reserveEthLinkQueryStates                = []txmgrtypes.TxState{txmgrcommon.TxUnconfirmed, txmgrcommon.TxUnstarted, txmgrcommon.TxInProgress}
 )
 
@@ -74,8 +76,8 @@ const (
 	// backoffFactor is the factor by which to increase the delay each time a request fails.
 	backoffFactor = 1.3
 
-	SubId       = "SubId"
-	GlobalSubId = "GlobalSubId"
+	txMetaFieldSubId  = "SubId"
+	txMetaGlobalSubId = "GlobalSubId"
 
 	CouldNotDetermineIfLogConsumedMsg = "Could not determine if log was already consumed"
 )
@@ -286,7 +288,13 @@ func (lsn *listenerV2) Start(ctx context.Context) error {
 
 func (lsn *listenerV2) GetStartingResponseCountsV2(ctx context.Context) (respCount map[string]uint64, err error) {
 	respCounts := map[string]uint64{}
-	latestBlockNum, err := lsn.chain.Client().LatestBlockHeight(ctx)
+	var latestBlockNum *big.Int
+	// Retry client call for LatestBlockHeight if fails
+	// Want to avoid failing startup due to potential faulty RPC call
+	err = retry.Do(func() error {
+		latestBlockNum, err = lsn.chain.Client().LatestBlockHeight(ctx)
+		return err
+	}, retry.Attempts(10), retry.Delay(500*time.Millisecond))
 	if err != nil {
 		return nil, err
 	}
@@ -295,7 +303,8 @@ func (lsn *listenerV2) GetStartingResponseCountsV2(ctx context.Context) (respCou
 	}
 	confirmedBlockNum := latestBlockNum.Int64() - int64(lsn.chain.Config().EVM().FinalityDepth())
 	// Only check as far back as the evm finality depth for completed transactions.
-	counts, err := vrfcommon.GetRespCounts(ctx, lsn.chain.TxManager(), lsn.chainID, confirmedBlockNum)
+	var counts []vrfcommon.RespCountEntry
+	counts, err = vrfcommon.GetRespCounts(ctx, lsn.chain.TxManager(), lsn.chainID, confirmedBlockNum)
 	if err != nil {
 		// Continue with an empty map, do not block job on this.
 		lsn.l.Errorw("Unable to read previous confirmed fulfillments", "err", err)
@@ -534,9 +543,9 @@ func (lsn *listenerV2) processPendingVRFRequests(ctx context.Context) {
 func (lsn *listenerV2) MaybeSubtractReservedLink(ctx context.Context, startBalance *big.Int, chainID *big.Int, subID *big.Int, vrfVersion vrfcommon.Version) (*big.Int, error) {
 	var metaField string
 	if vrfVersion == vrfcommon.V2Plus {
-		metaField = GlobalSubId
+		metaField = txMetaGlobalSubId
 	} else if vrfVersion == vrfcommon.V2 {
-		metaField = SubId
+		metaField = txMetaFieldSubId
 	} else {
 		return nil, errors.Errorf("unsupported vrf version %s", vrfVersion)
 	}
@@ -554,7 +563,7 @@ func (lsn *listenerV2) MaybeSubtractReservedLink(ctx context.Context, startBalan
 		if err != nil {
 			return nil, errors.Wrap(err, "GetMeta for Tx failed")
 		}
-		if meta.MaxLink != nil {
+		if meta != nil && meta.MaxLink != nil {
 			txMaxLink, success := new(big.Int).SetString(*meta.MaxLink, 10)
 			if !success {
 				return nil, fmt.Errorf("converting reserved LINK %s", *meta.MaxLink)
@@ -573,7 +582,7 @@ func (lsn *listenerV2) MaybeSubtractReservedLink(ctx context.Context, startBalan
 func (lsn *listenerV2) MaybeSubtractReservedEth(ctx context.Context, startBalance *big.Int, chainID *big.Int, subID *big.Int, vrfVersion vrfcommon.Version) (*big.Int, error) {
 	var metaField string
 	if vrfVersion == vrfcommon.V2Plus {
-		metaField = GlobalSubId
+		metaField = txMetaGlobalSubId
 	} else if vrfVersion == vrfcommon.V2 {
 		// native payment is not supported for v2, so returning 0 reserved ETH
 		return big.NewInt(0), nil
@@ -593,7 +602,7 @@ func (lsn *listenerV2) MaybeSubtractReservedEth(ctx context.Context, startBalanc
 		if err != nil {
 			return nil, errors.Wrap(err, "GetMeta for Tx failed")
 		}
-		if meta.MaxEth != nil {
+		if meta != nil && meta.MaxEth != nil {
 			txMaxEth, success := new(big.Int).SetString(*meta.MaxEth, 10)
 			if !success {
 				return nil, fmt.Errorf("converting reserved ETH %s", *meta.MaxEth)
