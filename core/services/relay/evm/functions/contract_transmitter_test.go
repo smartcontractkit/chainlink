@@ -52,7 +52,7 @@ func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 
 	functionsTransmitter, err := functions.NewFunctionsContractTransmitter(c, contractABI, &mockTransmitter{}, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
 		return &txmgr.TxMeta{}, nil
-	}, 0)
+	}, 1)
 	require.NoError(t, err)
 	require.NoError(t, functionsTransmitter.UpdateRoutes(gethcommon.Address{}, gethcommon.Address{}))
 
@@ -60,29 +60,6 @@ func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, digestStr, hex.EncodeToString(digest[:]))
 	assert.Equal(t, uint32(2), epoch)
-}
-
-func TestContractTransmitter_Transmit_V0(t *testing.T) {
-	t.Parallel()
-
-	contractVersion := uint32(0)
-	destAddress := testutils.NewAddress()
-	lggr := logger.TestLogger(t)
-	c := evmclimocks.NewClient(t)
-	lp := lpmocks.NewLogPoller(t)
-	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
-	require.NoError(t, err)
-	lp.On("RegisterFilter", mock.Anything).Return(nil)
-
-	ocrTransmitter := mockTransmitter{}
-	ot, err := functions.NewFunctionsContractTransmitter(c, contractABI, &ocrTransmitter, lp, lggr, func(b []byte) (*txmgr.TxMeta, error) {
-		return &txmgr.TxMeta{}, nil
-	}, contractVersion)
-	require.NoError(t, err)
-	require.NoError(t, ot.UpdateRoutes(destAddress, destAddress))
-
-	require.NoError(t, ot.Transmit(testutils.Context(t), ocrtypes.ReportContext{}, []byte("bar"), []ocrtypes.AttributedOnchainSignature{}))
-	require.Equal(t, destAddress, ocrTransmitter.toAddress)
 }
 
 func TestContractTransmitter_Transmit_V1(t *testing.T) {
