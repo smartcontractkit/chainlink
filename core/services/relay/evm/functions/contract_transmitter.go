@@ -76,6 +76,10 @@ func NewFunctionsContractTransmitter(
 		return nil, errors.New("invalid ABI, missing transmitted")
 	}
 
+	if contractVersion != 1 {
+		return nil, fmt.Errorf("unsupported contract version: %d", contractVersion)
+	}
+
 	if reportToEvmTxMeta == nil {
 		reportToEvmTxMeta = reportToEvmTxMetaNoop
 	}
@@ -121,13 +125,7 @@ func (oc *contractTransmitter) Transmit(ctx context.Context, reportCtx ocrtypes.
 	}
 
 	var destinationContract common.Address
-	if oc.contractVersion == 0 {
-		destinationContractPtr := oc.contractAddress.Load()
-		if destinationContractPtr == nil {
-			return errors.New("destination contract address not set")
-		}
-		destinationContract = *destinationContractPtr
-	} else if oc.contractVersion == 1 {
+	if oc.contractVersion == 1 {
 		oc.lggr.Debugw("FunctionsContractTransmitter: start", "reportLenBytes", len(report))
 		requests, err2 := oc.reportCodec.DecodeReport(report)
 		if err2 != nil {

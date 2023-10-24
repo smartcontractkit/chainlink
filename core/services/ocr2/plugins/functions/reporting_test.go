@@ -22,14 +22,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
 )
 
-func preparePlugin(t *testing.T, batchSize uint32, contractVersion uint32, maxTotalGasLimit uint32) (types.ReportingPlugin, *functions_mocks.ORM, encoding.ReportCodec) {
+func preparePlugin(t *testing.T, batchSize uint32, maxTotalGasLimit uint32) (types.ReportingPlugin, *functions_mocks.ORM, encoding.ReportCodec) {
 	lggr := logger.TestLogger(t)
 	ocrLogger := relaylogger.NewOCRWrapper(lggr, true, func(msg string) {})
 	orm := functions_mocks.NewORM(t)
 	factory := functions.FunctionsReportingPluginFactory{
 		Logger:          ocrLogger,
 		PluginORM:       orm,
-		ContractVersion: contractVersion,
+		ContractVersion: 1,
 	}
 
 	pluginConfig := config.ReportingPluginConfigWrapper{
@@ -46,7 +46,7 @@ func preparePlugin(t *testing.T, batchSize uint32, contractVersion uint32, maxTo
 		OffchainConfig: pluginConfigBytes,
 	})
 	require.NoError(t, err)
-	codec, err := encoding.NewReportCodec(contractVersion)
+	codec, err := encoding.NewReportCodec(1)
 	require.NoError(t, err)
 	return plugin, orm, codec
 }
@@ -56,23 +56,33 @@ func newRequestID() functions_srv.RequestID {
 }
 
 func newRequest() functions_srv.Request {
-	return functions_srv.Request{RequestID: newRequestID(), State: functions_srv.IN_PROGRESS}
+	var gasLimit uint32 = 100000
+	return functions_srv.Request{RequestID: newRequestID(), State: functions_srv.IN_PROGRESS, CoordinatorContractAddress: &common.Address{1}, CallbackGasLimit: &gasLimit}
 }
 
 func newRequestWithResult(result []byte) functions_srv.Request {
-	return functions_srv.Request{RequestID: newRequestID(), State: functions_srv.RESULT_READY, Result: result}
+	req := newRequest()
+	req.State = functions_srv.RESULT_READY
+	req.Result = result
+	return req
 }
 
 func newRequestFinalized() functions_srv.Request {
-	return functions_srv.Request{RequestID: newRequestID(), State: functions_srv.FINALIZED}
+	req := newRequest()
+	req.State = functions_srv.FINALIZED
+	return req
 }
 
 func newRequestTimedOut() functions_srv.Request {
-	return functions_srv.Request{RequestID: newRequestID(), State: functions_srv.TIMED_OUT}
+	req := newRequest()
+	req.State = functions_srv.TIMED_OUT
+	return req
 }
 
 func newRequestConfirmed() functions_srv.Request {
-	return functions_srv.Request{RequestID: newRequestID(), State: functions_srv.CONFIRMED}
+	req := newRequest()
+	req.State = functions_srv.CONFIRMED
+	return req
 }
 
 func newMarshalledQuery(t *testing.T, reqIDs ...functions_srv.RequestID) []byte {
@@ -89,9 +99,10 @@ func newMarshalledQuery(t *testing.T, reqIDs ...functions_srv.RequestID) []byte 
 
 func newProcessedRequest(requestId functions_srv.RequestID, compResult []byte, compError []byte) *encoding.ProcessedRequest {
 	return &encoding.ProcessedRequest{
-		RequestID: requestId[:],
-		Result:    compResult,
-		Error:     compError,
+		RequestID:           requestId[:],
+		Result:              compResult,
+		Error:               compError,
+		CoordinatorContract: []byte{1},
 	}
 }
 
@@ -119,7 +130,7 @@ func newObservation(t *testing.T, observerId uint8, requests ...*encoding.Proces
 func TestFunctionsReporting_Query(t *testing.T) {
 	t.Parallel()
 	const batchSize = 10
-	plugin, orm, _ := preparePlugin(t, batchSize, 0, 0)
+	plugin, orm, _ := preparePlugin(t, batchSize, 0)
 	reqs := []functions_srv.Request{newRequest(), newRequest()}
 	orm.On("FindOldestEntriesByState", functions_srv.RESULT_READY, uint32(batchSize), mock.Anything).Return(reqs, nil)
 
@@ -137,7 +148,7 @@ func TestFunctionsReporting_Query(t *testing.T) {
 func TestFunctionsReporting_Query_HandleCoordinatorMismatch(t *testing.T) {
 	t.Parallel()
 	const batchSize = 10
-	plugin, orm, _ := preparePlugin(t, batchSize, 1, 1000000)
+	plugin, orm, _ := preparePlugin(t, batchSize, 1000000)
 	reqs := []functions_srv.Request{newRequest(), newRequest()}
 	reqs[0].CoordinatorContractAddress = &common.Address{1}
 	reqs[1].CoordinatorContractAddress = &common.Address{2}
@@ -156,7 +167,7 @@ func TestFunctionsReporting_Query_HandleCoordinatorMismatch(t *testing.T) {
 
 func TestFunctionsReporting_Observation(t *testing.T) {
 	t.Parallel()
-	plugin, orm, _ := preparePlugin(t, 10, 0, 0)
+	plugin, orm, _ := preparePlugin(t, 10, 0)
 
 	req1 := newRequestWithResult([]byte("abc"))
 	req2 := newRequest()
@@ -191,7 +202,7 @@ func TestFunctionsReporting_Observation(t *testing.T) {
 
 func TestFunctionsReporting_Observation_IncorrectQuery(t *testing.T) {
 	t.Parallel()
-	plugin, orm, _ := preparePlugin(t, 10, 0, 0)
+	plugin, orm, _ := preparePlugin(t, 10, 0)
 
 	req1 := newRequestWithResult([]byte("abc"))
 	invalidId := []byte("invalid")
@@ -218,7 +229,7 @@ func TestFunctionsReporting_Observation_IncorrectQuery(t *testing.T) {
 
 func TestFunctionsReporting_Report(t *testing.T) {
 	t.Parallel()
-	plugin, _, codec := preparePlugin(t, 10, 0, 0)
+	plugin, _, codec := preparePlugin(t, 10, 1000000)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
 	compResult := []byte("aaa")
 	procReq1 := newProcessedRequest(reqId1, compResult, []byte{})
@@ -255,7 +266,7 @@ func TestFunctionsReporting_Report(t *testing.T) {
 
 func TestFunctionsReporting_Report_WithGasLimitAndMetadata(t *testing.T) {
 	t.Parallel()
-	plugin, _, codec := preparePlugin(t, 10, 1, 300000)
+	plugin, _, codec := preparePlugin(t, 10, 300000)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
 	compResult := []byte("aaa")
 	gasLimit1, gasLimit2 := uint32(100_000), uint32(200_000)
@@ -296,7 +307,7 @@ func TestFunctionsReporting_Report_WithGasLimitAndMetadata(t *testing.T) {
 
 func TestFunctionsReporting_Report_HandleCoordinatorMismatch(t *testing.T) {
 	t.Parallel()
-	plugin, _, codec := preparePlugin(t, 10, 1, 300000)
+	plugin, _, codec := preparePlugin(t, 10, 300000)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
 	compResult, meta := []byte("aaa"), []byte("meta")
 	coordinatorContractA, coordinatorContractB := common.Address{1}, common.Address{2}
@@ -326,7 +337,7 @@ func TestFunctionsReporting_Report_HandleCoordinatorMismatch(t *testing.T) {
 
 func TestFunctionsReporting_Report_CallbackGasLimitExceeded(t *testing.T) {
 	t.Parallel()
-	plugin, _, codec := preparePlugin(t, 10, 1, 200000)
+	plugin, _, codec := preparePlugin(t, 10, 200000)
 	reqId1, reqId2 := newRequestID(), newRequestID()
 	compResult := []byte("aaa")
 	gasLimit1, gasLimit2 := uint32(100_000), uint32(200_000)
@@ -357,7 +368,7 @@ func TestFunctionsReporting_Report_CallbackGasLimitExceeded(t *testing.T) {
 
 func TestFunctionsReporting_Report_DeterministicOrderOfRequests(t *testing.T) {
 	t.Parallel()
-	plugin, _, codec := preparePlugin(t, 10, 0, 0)
+	plugin, _, codec := preparePlugin(t, 10, 0)
 	reqId1, reqId2, reqId3 := newRequestID(), newRequestID(), newRequestID()
 	compResult := []byte("aaa")
 
@@ -386,7 +397,7 @@ func TestFunctionsReporting_Report_DeterministicOrderOfRequests(t *testing.T) {
 
 func TestFunctionsReporting_Report_IncorrectObservation(t *testing.T) {
 	t.Parallel()
-	plugin, _, _ := preparePlugin(t, 10, 0, 0)
+	plugin, _, _ := preparePlugin(t, 10, 0)
 	reqId1 := newRequestID()
 	compResult := []byte("aaa")
 
@@ -414,7 +425,7 @@ func getReportBytes(t *testing.T, codec encoding.ReportCodec, reqs ...functions_
 
 func TestFunctionsReporting_ShouldAcceptFinalizedReport(t *testing.T) {
 	t.Parallel()
-	plugin, orm, codec := preparePlugin(t, 10, 0, 0)
+	plugin, orm, codec := preparePlugin(t, 10, 0)
 
 	req1 := newRequestWithResult([]byte("xxx")) // nonexistent
 	req2 := newRequestWithResult([]byte("abc"))
@@ -453,7 +464,7 @@ func TestFunctionsReporting_ShouldAcceptFinalizedReport(t *testing.T) {
 
 func TestFunctionsReporting_ShouldTransmitAcceptedReport(t *testing.T) {
 	t.Parallel()
-	plugin, orm, codec := preparePlugin(t, 10, 0, 0)
+	plugin, orm, codec := preparePlugin(t, 10, 0)
 
 	req1 := newRequestWithResult([]byte("xxx")) // nonexistent
 	req2 := newRequestWithResult([]byte("abc"))
