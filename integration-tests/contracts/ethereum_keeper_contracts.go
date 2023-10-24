@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
@@ -33,12 +34,16 @@ import (
 	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_triggered_streams_lookup_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/perform_data_checker_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_performance_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 )
 
 var utilsABI = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -1593,7 +1598,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) logDetails() {
 // EthereumUpkeepCounter represents keeper consumer (upkeep) counter contract
 type EthereumUpkeepCounter struct {
 	client   blockchain.EVMClient
-	consumer *ethereum.UpkeepCounter
+	consumer *upkeep_counter_wrapper.UpkeepCounter
 	address  *common.Address
 }
 
@@ -1635,7 +1640,7 @@ func (v *EthereumUpkeepCounter) SetSpread(testRange *big.Int, interval *big.Int)
 // EthereumUpkeepPerformCounterRestrictive represents keeper consumer (upkeep) counter contract
 type EthereumUpkeepPerformCounterRestrictive struct {
 	client   blockchain.EVMClient
-	consumer *ethereum.UpkeepPerformCounterRestrictive
+	consumer *upkeep_perform_counter_restrictive_wrapper.UpkeepPerformCounterRestrictive
 	address  *common.Address
 }
 
@@ -1674,7 +1679,7 @@ func (v *EthereumUpkeepPerformCounterRestrictive) SetSpread(testRange *big.Int, 
 // EthereumKeeperConsumer represents keeper consumer (upkeep) contract
 type EthereumKeeperConsumer struct {
 	client   blockchain.EVMClient
-	consumer *ethereum.KeeperConsumer
+	consumer *keeper_consumer_wrapper.KeeperConsumer
 	address  *common.Address
 }
 
@@ -1811,7 +1816,7 @@ func (v *EthereumAutomationLogCounterConsumer) Counter(ctx context.Context) (*bi
 // performance tests.
 type EthereumKeeperConsumerPerformance struct {
 	client   blockchain.EVMClient
-	consumer *ethereum.KeeperConsumerPerformance
+	consumer *keeper_consumer_performance_wrapper.KeeperConsumerPerformance
 	address  *common.Address
 }
 
@@ -1872,7 +1877,7 @@ func (v *EthereumKeeperConsumerPerformance) SetPerformGasToBurn(ctx context.Cont
 // EthereumKeeperPerformDataCheckerConsumer represents keeper perform data checker contract
 type EthereumKeeperPerformDataCheckerConsumer struct {
 	client             blockchain.EVMClient
-	performDataChecker *ethereum.PerformDataChecker
+	performDataChecker *perform_data_checker_wrapper.PerformDataChecker
 	address            *common.Address
 }
 

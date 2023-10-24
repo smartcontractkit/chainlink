@@ -1,4 +1,4 @@
-pragma solidity 0.7.6;
+pragma solidity 0.8.16;
 
 contract KeeperConsumerPerformance {
   event PerformingUpkeep(bool eligible, address from, uint256 initialCall, uint256 nextEligible, uint256 blockNumber);
@@ -13,7 +13,12 @@ contract KeeperConsumerPerformance {
 
   uint256 public count = 0;
 
-  constructor(uint256 _testRange, uint256 _averageEligibilityCadence, uint256 _checkGasToBurn, uint256 _performGasToBurn) {
+  constructor(
+    uint256 _testRange,
+    uint256 _averageEligibilityCadence,
+    uint256 _checkGasToBurn,
+    uint256 _performGasToBurn
+  ) {
     testRange = _testRange;
     averageEligibilityCadence = _averageEligibilityCadence;
     checkGasToBurn = _checkGasToBurn;

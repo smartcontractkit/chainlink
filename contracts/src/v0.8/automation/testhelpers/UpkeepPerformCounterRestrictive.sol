@@ -1,4 +1,4 @@
-pragma solidity 0.7.6;
+pragma solidity 0.8.16;
 
 contract UpkeepPerformCounterRestrictive {
   event PerformingUpkeep(bool eligible, address from, uint256 initialCall, uint256 nextEligible, uint256 blockNumber);
