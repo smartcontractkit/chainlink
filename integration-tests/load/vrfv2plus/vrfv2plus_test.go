@@ -5,6 +5,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
+	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	"github.com/smartcontractkit/wasp"
 	"github.com/stretchr/testify/require"
 	"math/big"
@@ -27,14 +28,20 @@ func TestVRFV2PlusLoad(t *testing.T) {
 	err = envconfig.Process("VRFV2PLUS", &vrfv2PlusConfig)
 	require.NoError(t, err)
 
-	SetPerformanceTestConfig(&vrfv2PlusConfig, cfg)
+	testType := os.Getenv("TEST_TYPE")
+	testReporter := &testreporters.VRFV2PlusTestReporter{
+		StartTime: time.Now(),
+		TestType:  testType,
+	}
+
+	SetPerformanceTestConfig(testType, &vrfv2PlusConfig, cfg)
 
 	l := logging.GetTestLogger(t)
 	//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
 	vrfv2PlusConfig.MinimumConfirmations = cfg.Common.MinimumConfirmations
 
 	l.Info().
-		Str("Test Type", os.Getenv("TEST_TYPE")).
+		Str("Test Type", testType).
 		Str("Test Duration", vrfv2PlusConfig.TestDuration.Truncate(time.Second).String()).
 		Int64("RPS", vrfv2PlusConfig.RPS).
 		Str("RateLimitUnitDuration", vrfv2PlusConfig.RateLimitUnitDuration.String()).
@@ -57,7 +64,13 @@ func TestVRFV2PlusLoad(t *testing.T) {
 
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestLogger(t).
-			WithoutCleanup().
+			WithCustomCleanup(
+				func() {
+					err = testReporter.SendSlackNotification(t, nil)
+					if err != nil {
+						l.Warn().Err(err).Msg("Error sending Slack notification")
+					}
+				}).
 			Build()
 
 		require.NoError(t, err, "error creating test env")
@@ -93,13 +106,22 @@ func TestVRFV2PlusLoad(t *testing.T) {
 		vrfv2PlusConfig.ChainlinkNodeFunding = cfg.NewEnvConfig.NodeFunds
 		vrfv2PlusConfig.SubscriptionFundingAmountLink = cfg.NewEnvConfig.Funding.SubFundsLink
 		vrfv2PlusConfig.SubscriptionFundingAmountNative = cfg.NewEnvConfig.Funding.SubFundsNative
-		numberOfSubToCreate := cfg.NewEnvConfig.NumberOfSubToCreate
 		env, err = test_env.NewCLTestEnvBuilder().
 			WithTestLogger(t).
 			WithGeth().
 			WithCLNodes(1).
 			WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
-			WithStandardCleanup().
+			WithCustomCleanup(
+				func() {
+					if err := env.Cleanup(); err != nil {
+						l.Error().Err(err).Msg("Error cleaning up test environment")
+					}
+
+					err = testReporter.SendSlackNotification(t, nil)
+					if err != nil {
+						l.Warn().Err(err).Msg("Error sending Slack notification")
+					}
+				}).
 			WithLogWatcher().
 			Build()
 
@@ -113,7 +135,14 @@ func TestVRFV2PlusLoad(t *testing.T) {
 		linkToken, err := actions.DeployLINKToken(env.ContractDeployer)
 		require.NoError(t, err, "error deploying LINK contract")
 
-		vrfv2PlusContracts, subIDs, vrfv2PlusData, err = vrfv2plus.SetupVRFV2_5Environment(env, &vrfv2PlusConfig, linkToken, mockETHLinkFeed, 1, numberOfSubToCreate)
+		vrfv2PlusContracts, subIDs, vrfv2PlusData, err = vrfv2plus.SetupVRFV2_5Environment(
+			env,
+			&vrfv2PlusConfig,
+			linkToken,
+			mockETHLinkFeed,
+			1,
+			vrfv2PlusConfig.NumberOfSubToCreate,
+		)
 		require.NoError(t, err, "error setting up VRF v2_5 env")
 	}
 
@@ -123,6 +152,8 @@ func TestVRFV2PlusLoad(t *testing.T) {
 		require.NoError(t, err, "error getting subscription information for subscription %s", subID.String())
 		vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
 	}
+
+	testReporter.Vrfv2PlusConfig = &vrfv2PlusConfig
 
 	labels := map[string]string{
 		"branch": "vrfv2Plus_healthcheck",
@@ -182,7 +213,8 @@ func TestVRFV2PlusLoad(t *testing.T) {
 		require.NoError(t, err)
 		wg.Wait()
 		//send final results
-		SendLoadTestMetricsToLoki(vrfv2PlusContracts, lc, updatedLabels)
+		testReporter.Metrics = SendLoadTestMetricsToLoki(vrfv2PlusContracts, lc, updatedLabels)
+
 	})
 
 }

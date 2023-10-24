@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus"
+	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
 	"github.com/smartcontractkit/wasp"
 	"testing"
 	"time"
@@ -38,7 +39,7 @@ func UpdateLabels(labels map[string]string, t *testing.T) map[string]string {
 	return updatedLabels
 }
 
-func SendLoadTestMetricsToLoki(vrfv2PlusContracts *vrfv2plus.VRFV2_5Contracts, lc *wasp.LokiClient, updatedLabels map[string]string) {
+func SendLoadTestMetricsToLoki(vrfv2PlusContracts *vrfv2plus.VRFV2_5Contracts, lc *wasp.LokiClient, updatedLabels map[string]string) *contracts.VRFLoadTestMetrics {
 	//todo - should work with multiple consumers and consumers having different keyhashes and wallets
 	metrics, err := vrfv2PlusContracts.LoadTestConsumers[0].GetLoadTestMetrics(context.Background())
 	if err != nil {
@@ -47,4 +48,5 @@ func SendLoadTestMetricsToLoki(vrfv2PlusContracts *vrfv2plus.VRFV2_5Contracts, l
 	if err := lc.HandleStruct(wasp.LabelsMapToModel(updatedLabels), time.Now(), metrics); err != nil {
 		log.Error().Err(err).Msg(ErrLokiPush)
 	}
+	return metrics
 }

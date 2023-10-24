@@ -12,6 +12,10 @@ import (
 
 const (
 	DefaultConfigFilename = "config.toml"
+	SoakTestType          = "Soak"
+	LoadTestType          = "Load"
+	StressTestType        = "Stress"
+	SpikeTestType         = "Spike"
 
 	ErrReadPerfConfig                    = "failed to read TOML config for performance tests"
 	ErrUnmarshalPerfConfig               = "failed to unmarshal TOML config for performance tests"
@@ -38,7 +42,6 @@ type ExistingEnvConfig struct {
 
 type NewEnvConfig struct {
 	Funding
-	NumberOfSubToCreate int `toml:"number_of_sub_to_create"`
 }
 
 type Common struct {
@@ -68,6 +71,8 @@ type Spike struct {
 }
 
 type PerformanceTestConfig struct {
+	NumberOfSubToCreate int `toml:"number_of_sub_to_create"`
+
 	RPS int64 `toml:"rps"`
 	//Duration *models.Duration `toml:"duration"`
 	RateLimitUnitDuration                     *models.Duration `toml:"rate_limit_unit_duration"`
@@ -101,24 +106,28 @@ func ReadConfig() (*PerformanceConfig, error) {
 	return cfg, nil
 }
 
-func SetPerformanceTestConfig(vrfv2PlusConfig *vrfv2plus_config.VRFV2PlusConfig, cfg *PerformanceConfig) {
-	switch os.Getenv("TEST_TYPE") {
-	case "Soak":
+func SetPerformanceTestConfig(testType string, vrfv2PlusConfig *vrfv2plus_config.VRFV2PlusConfig, cfg *PerformanceConfig) {
+	switch testType {
+	case SoakTestType:
+		vrfv2PlusConfig.NumberOfSubToCreate = cfg.Soak.NumberOfSubToCreate
 		vrfv2PlusConfig.RPS = cfg.Soak.RPS
 		vrfv2PlusConfig.RateLimitUnitDuration = cfg.Soak.RateLimitUnitDuration.Duration()
 		vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Soak.RandomnessRequestCountPerRequest
 		vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation = cfg.Soak.RandomnessRequestCountPerRequestDeviation
-	case "Load":
+	case LoadTestType:
+		vrfv2PlusConfig.NumberOfSubToCreate = cfg.Load.NumberOfSubToCreate
 		vrfv2PlusConfig.RPS = cfg.Load.RPS
 		vrfv2PlusConfig.RateLimitUnitDuration = cfg.Load.RateLimitUnitDuration.Duration()
 		vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Load.RandomnessRequestCountPerRequest
 		vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation = cfg.Load.RandomnessRequestCountPerRequestDeviation
-	case "Stress":
+	case StressTestType:
+		vrfv2PlusConfig.NumberOfSubToCreate = cfg.Stress.NumberOfSubToCreate
 		vrfv2PlusConfig.RPS = cfg.Stress.RPS
 		vrfv2PlusConfig.RateLimitUnitDuration = cfg.Stress.RateLimitUnitDuration.Duration()
 		vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Stress.RandomnessRequestCountPerRequest
 		vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation = cfg.Stress.RandomnessRequestCountPerRequestDeviation
-	case "Spike":
+	case SpikeTestType:
+		vrfv2PlusConfig.NumberOfSubToCreate = cfg.Spike.NumberOfSubToCreate
 		vrfv2PlusConfig.RPS = cfg.Spike.RPS
 		vrfv2PlusConfig.RateLimitUnitDuration = cfg.Spike.RateLimitUnitDuration.Duration()
 		vrfv2PlusConfig.RandomnessRequestCountPerRequest = cfg.Spike.RandomnessRequestCountPerRequest

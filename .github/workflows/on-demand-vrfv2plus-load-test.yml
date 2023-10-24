@@ -49,8 +49,8 @@ on:
           - "Spike"
       testDuration:
         description: Duration of the test (time string)
-        required: false
-        default: 1m
+        required: true
+        default: 5m
       useExistingEnv:
         description: Set `true` to use existing environment or `false` to deploy CL node and all contracts
         required: false
@@ -80,6 +80,8 @@ jobs:
       REF_NAME: ${{ github.head_ref || github.ref_name }}
       CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
       CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
+      SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
+      SLACK_CHANNEL: C0629GXEB0D
       WASP_LOG_LEVEL: info
     steps:
       - name: Collect Metrics
