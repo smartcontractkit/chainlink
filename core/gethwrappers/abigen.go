@@ -264,6 +264,41 @@ func addContractStructFields(contractName string, fileNode *ast.File) *ast.File 
 		return false
 	}, nil).(*ast.File)
 
+	// Add the address and abi fields to the returned struct in the 'Deploy<contractName>' method.
+	fileNode = astutil.Apply(fileNode, func(cursor *astutil.Cursor) bool {
+		x, is := cursor.Node().(*ast.FuncDecl)
+		if !is {
+			return true
+		} else if x.Name.Name != "Deploy"+contractName {
+			return false
+		}
+
+		for _, stmt := range x.Body.List {
+			returnStmt, is := stmt.(*ast.ReturnStmt)
+			if !is {
+				continue
+			}
+			if len(returnStmt.Results) < 3 {
+				continue
+			}
+			lit, is := returnStmt.Results[2].(*ast.UnaryExpr).X.(*ast.CompositeLit)
+			if !is {
+				continue
+			}
+			addressExpr := &ast.KeyValueExpr{
+				Key:   ast.NewIdent("address"),
+				Value: ast.NewIdent("address"),
+			}
+			abiExpr := &ast.KeyValueExpr{
+				Key:   ast.NewIdent("abi"),
+				Value: ast.NewIdent("*parsed"),
+			}
+			lit.Elts = append([]ast.Expr{addressExpr, abiExpr}, lit.Elts...)
+		}
+
+		return false
+	}, nil).(*ast.File)
+
 	return fileNode
 }
 
