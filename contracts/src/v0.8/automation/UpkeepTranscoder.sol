@@ -2,8 +2,9 @@
 
 pragma solidity ^0.8.0;
 
-import "./interfaces/UpkeepTranscoderInterface.sol";
-import "../interfaces/TypeAndVersionInterface.sol";
+import {UpkeepTranscoderInterface} from "./interfaces/UpkeepTranscoderInterface.sol";
+import {TypeAndVersionInterface} from "../interfaces/TypeAndVersionInterface.sol";
+import {UpkeepFormat} from "./UpkeepFormat.sol";
 
 /**
  * @notice Transcoder for converting upkeep data from one keeper
@@ -16,6 +17,7 @@ contract UpkeepTranscoder is UpkeepTranscoderInterface, TypeAndVersionInterface 
    * @notice versions:
    * - UpkeepTranscoder 1.0.0: placeholder to allow new formats in the future
    */
+  // solhint-disable-next-line chainlink-solidity/all-caps-constant-storage-variables
   string public constant override typeAndVersion = "UpkeepTranscoder 1.0.0";
 
   /**
