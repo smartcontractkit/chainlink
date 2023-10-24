@@ -16,7 +16,6 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -437,20 +436,20 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 	// config 3 chains but only enable 2 => should only be 2 relayer
 	nEnabledChains := 2
 	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Starknet = starknet.StarknetConfigs{
-			&starknet.StarknetConfig{
+		c.Starknet = stkcfg.TOMLConfigs{
+			&stkcfg.TOMLConfig{
 				ChainID: ptr[string]("starknet-id-1"),
 				Enabled: ptr(true),
 				Chain:   stkcfg.Chain{},
 				Nodes:   []*config.Node{},
 			},
-			&starknet.StarknetConfig{
+			&stkcfg.TOMLConfig{
 				ChainID: ptr[string]("starknet-id-2"),
 				Enabled: ptr(true),
 				Chain:   stkcfg.Chain{},
 				Nodes:   []*config.Node{},
 			},
-			&starknet.StarknetConfig{
+			&stkcfg.TOMLConfig{
 				ChainID: ptr[string]("disabled-starknet-id-1"),
 				Enabled: ptr(false),
 				Chain:   stkcfg.Chain{},
@@ -486,14 +485,14 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 
 	// test that duplicate enabled chains is an error when
 	duplicateConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Starknet = starknet.StarknetConfigs{
-			&starknet.StarknetConfig{
+		c.Starknet = stkcfg.TOMLConfigs{
+			&stkcfg.TOMLConfig{
 				ChainID: ptr[string]("dupe"),
 				Enabled: ptr(true),
 				Chain:   stkcfg.Chain{},
 				Nodes:   []*config.Node{},
 			},
-			&starknet.StarknetConfig{
+			&stkcfg.TOMLConfig{
 				ChainID: ptr[string]("dupe"),
 				Enabled: ptr(true),
 				Chain:   stkcfg.Chain{},

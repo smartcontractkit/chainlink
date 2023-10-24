@@ -188,8 +188,8 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	}
 	if cfg.StarkNetEnabled() {
 		starkCfg := chainlink.StarkNetFactoryConfig{
-			Keystore:        keyStore.StarkNet(),
-			StarknetConfigs: cfg.StarknetConfigs(),
+			Keystore:    keyStore.StarkNet(),
+			TOMLConfigs: cfg.StarknetConfigs(),
 		}
 		initOps = append(initOps, chainlink.InitStarknet(ctx, relayerFactory, starkCfg))
 
@@ -1008,8 +1008,7 @@ func confirmAction(c *cli.Context) bool {
 			return true
 		} else if answer == "no" {
 			return false
-		} else {
-			fmt.Printf("%s is not valid. Please type yes or no\n", answer)
 		}
+		fmt.Printf("%s is not valid. Please type yes or no\n", answer)
 	}
 }

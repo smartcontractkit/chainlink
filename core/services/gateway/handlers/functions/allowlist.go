@@ -16,7 +16,6 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_allow_list"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/ocr2dr_oracle"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -51,7 +50,6 @@ type onchainAllowlist struct {
 	config             OnchainAllowlistConfig
 	allowlist          atomic.Pointer[map[common.Address]struct{}]
 	client             evmclient.Client
-	contractV0         *ocr2dr_oracle.OCR2DROracle
 	contractV1         *functions_router.FunctionsRouter
 	blockConfirmations *big.Int
 	lggr               logger.Logger
@@ -66,9 +64,8 @@ func NewOnchainAllowlist(client evmclient.Client, config OnchainAllowlistConfig,
 	if lggr == nil {
 		return nil, errors.New("logger is nil")
 	}
-	contractV0, err := ocr2dr_oracle.NewOCR2DROracle(config.ContractAddress, client)
-	if err != nil {
-		return nil, fmt.Errorf("unexpected error during NewOCR2DROracle: %s", err)
+	if config.ContractVersion != 1 {
+		return nil, fmt.Errorf("unsupported contract version %d", config.ContractVersion)
 	}
 	contractV1, err := functions_router.NewFunctionsRouter(config.ContractAddress, client)
 	if err != nil {
@@ -77,7 +74,6 @@ func NewOnchainAllowlist(client evmclient.Client, config OnchainAllowlistConfig,
 	allowlist := &onchainAllowlist{
 		config:             config,
 		client:             client,
-		contractV0:         contractV0,
 		contractV1:         contractV1,
 		blockConfirmations: big.NewInt(int64(config.BlockConfirmations)),
 		lggr:               lggr.Named("OnchainAllowlist"),
@@ -148,26 +144,7 @@ func (a *onchainAllowlist) UpdateFromContract(ctx context.Context) error {
 		return errors.New("LatestBlockHeight returned nil")
 	}
 	blockNum := big.NewInt(0).Sub(latestBlockHeight, a.blockConfirmations)
-	if a.config.ContractVersion == 0 {
-		return a.updateFromContractV0(ctx, blockNum)
-	} else if a.config.ContractVersion == 1 {
-		return a.updateFromContractV1(ctx, blockNum)
-	} else {
-		return fmt.Errorf("unknown contract version %d", a.config.ContractVersion)
-	}
-}
-
-func (a *onchainAllowlist) updateFromContractV0(ctx context.Context, blockNum *big.Int) error {
-	addrList, err := a.contractV0.GetAuthorizedSenders(&bind.CallOpts{
-		Pending:     false,
-		BlockNumber: blockNum,
-		Context:     ctx,
-	})
-	if err != nil {
-		return errors.Wrap(err, "error calling GetAuthorizedSenders")
-	}
-	a.update(addrList)
-	return nil
+	return a.updateFromContractV1(ctx, blockNum)
 }
 
 func (a *onchainAllowlist) updateFromContractV1(ctx context.Context, blockNum *big.Int) error {

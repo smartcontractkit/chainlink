@@ -19,6 +19,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	cltypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_consumer_benchmark"
 	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
@@ -33,12 +34,16 @@ import (
 	registry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_triggered_streams_lookup_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/perform_data_checker_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_upkeep_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_perform_counter_restrictive_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_transcoder"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
-	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_performance_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/upkeep_counter_wrapper"
 )
 
 var utilsABI = cltypes.MustGetABI(automation_utils_2_1.AutomationUtilsABI)
@@ -85,7 +90,6 @@ type KeeperRegistry interface {
 
 type KeeperConsumer interface {
 	Address() string
-	Fund(ethAmount *big.Float) error
 	Counter(ctx context.Context) (*big.Int, error)
 	Start() error
 }
@@ -1594,7 +1598,7 @@ func (o *KeeperConsumerBenchmarkRoundConfirmer) logDetails() {
 // EthereumUpkeepCounter represents keeper consumer (upkeep) counter contract
 type EthereumUpkeepCounter struct {
 	client   blockchain.EVMClient
-	consumer *ethereum.UpkeepCounter
+	consumer *upkeep_counter_wrapper.UpkeepCounter
 	address  *common.Address
 }
 
@@ -1636,7 +1640,7 @@ func (v *EthereumUpkeepCounter) SetSpread(testRange *big.Int, interval *big.Int)
 // EthereumUpkeepPerformCounterRestrictive represents keeper consumer (upkeep) counter contract
 type EthereumUpkeepPerformCounterRestrictive struct {
 	client   blockchain.EVMClient
-	consumer *ethereum.UpkeepPerformCounterRestrictive
+	consumer *upkeep_perform_counter_restrictive_wrapper.UpkeepPerformCounterRestrictive
 	address  *common.Address
 }
 
@@ -1675,7 +1679,7 @@ func (v *EthereumUpkeepPerformCounterRestrictive) SetSpread(testRange *big.Int, 
 // EthereumKeeperConsumer represents keeper consumer (upkeep) contract
 type EthereumKeeperConsumer struct {
 	client   blockchain.EVMClient
-	consumer *ethereum.KeeperConsumer
+	consumer *keeper_consumer_wrapper.KeeperConsumer
 	address  *common.Address
 }
 
@@ -1686,14 +1690,6 @@ func (v *EthereumKeeperConsumer) Start() error {
 
 func (v *EthereumKeeperConsumer) Address() string {
 	return v.address.Hex()
-}
-
-func (v *EthereumKeeperConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
-	if err != nil {
-		return err
-	}
-	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (v *EthereumKeeperConsumer) Counter(ctx context.Context) (*big.Int, error) {
@@ -1733,14 +1729,6 @@ func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Start() error {
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
-	if err != nil {
-		return err
-	}
-	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
-}
-
 func (v *EthereumAutomationStreamsLookupUpkeepConsumer) Counter(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
@@ -1775,14 +1763,6 @@ func (v *EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer) Start() erro
 		return err
 	}
 	return v.client.ProcessTransaction(tx)
-}
-
-func (v *EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
-	if err != nil {
-		return err
-	}
-	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
 }
 
 func (v *EthereumAutomationLogTriggeredStreamsLookupUpkeepConsumer) Counter(ctx context.Context) (*big.Int, error) {
@@ -1820,14 +1800,6 @@ func (v *EthereumAutomationLogCounterConsumer) Start() error {
 	return v.client.ProcessTransaction(tx)
 }
 
-func (v *EthereumAutomationLogCounterConsumer) Fund(ethAmount *big.Float) error {
-	gasEstimates, err := v.client.EstimateGas(geth.CallMsg{})
-	if err != nil {
-		return err
-	}
-	return v.client.Fund(v.address.Hex(), ethAmount, gasEstimates)
-}
-
 func (v *EthereumAutomationLogCounterConsumer) Counter(ctx context.Context) (*big.Int, error) {
 	opts := &bind.CallOpts{
 		From:    common.HexToAddress(v.client.GetDefaultWallet().Address()),
@@ -1844,7 +1816,7 @@ func (v *EthereumAutomationLogCounterConsumer) Counter(ctx context.Context) (*bi
 // performance tests.
 type EthereumKeeperConsumerPerformance struct {
 	client   blockchain.EVMClient
-	consumer *ethereum.KeeperConsumerPerformance
+	consumer *keeper_consumer_performance_wrapper.KeeperConsumerPerformance
 	address  *common.Address
 }
 
@@ -1905,7 +1877,7 @@ func (v *EthereumKeeperConsumerPerformance) SetPerformGasToBurn(ctx context.Cont
 // EthereumKeeperPerformDataCheckerConsumer represents keeper perform data checker contract
 type EthereumKeeperPerformDataCheckerConsumer struct {
 	client             blockchain.EVMClient
-	performDataChecker *ethereum.PerformDataChecker
+	performDataChecker *perform_data_checker_wrapper.PerformDataChecker
 	address            *common.Address
 }
 
