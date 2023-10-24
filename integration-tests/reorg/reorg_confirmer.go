@@ -58,7 +58,7 @@ type ReorgController struct {
 	initConsensusReady    chan struct{}
 	reorgStarted          chan struct{}
 	depthReached          chan struct{}
-	once                  *sync.Once
+	once                  sync.Once
 	mutex                 sync.Mutex
 	ctx                   context.Context
 	cancel                context.CancelFunc
@@ -82,11 +82,8 @@ func NewReorgController(cfg *ReorgConfig) (*ReorgController, error) {
 		initConsensusReady: make(chan struct{}, 100),
 		reorgStarted:       make(chan struct{}, 100),
 		depthReached:       make(chan struct{}, 100),
-		once:               &sync.Once{},
-		mutex:              sync.Mutex{},
 		ctx:                ctx,
 		cancel:             ctxCancel,
-		complete:           false,
 	}
 	rc.networkStep.Store(InitConsensus)
 	for _, c := range cfg.Network.GetClients() {
