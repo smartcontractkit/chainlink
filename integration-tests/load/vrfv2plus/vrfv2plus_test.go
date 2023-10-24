@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/kelseyhightower/envconfig"
+	"github.com/rs/zerolog/log"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
 	"github.com/smartcontractkit/wasp"
@@ -21,14 +22,27 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 )
 
-func TestVRFV2PlusLoad(t *testing.T) {
+var (
+	env                *test_env.CLClusterTestEnv
+	vrfv2PlusContracts *vrfv2plus.VRFV2_5Contracts
+	vrfv2PlusData      *vrfv2plus.VRFV2PlusData
+	subIDs             []*big.Int
+
+	labels = map[string]string{
+		"branch": "vrfv2Plus_healthcheck",
+		"commit": "vrfv2Plus_healthcheck",
+	}
+
+	testType = os.Getenv("TEST_TYPE")
+)
+
+func TestVRFV2PlusPerformance(t *testing.T) {
 	cfg, err := ReadConfig()
 	require.NoError(t, err)
 	var vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig
 	err = envconfig.Process("VRFV2PLUS", &vrfv2PlusConfig)
 	require.NoError(t, err)
 
-	testType := os.Getenv("TEST_TYPE")
 	testReporter := &testreporters.VRFV2PlusTestReporter{}
 
 	SetPerformanceTestConfig(testType, &vrfv2PlusConfig, cfg)
@@ -36,6 +50,15 @@ func TestVRFV2PlusLoad(t *testing.T) {
 	l := logging.GetTestLogger(t)
 	//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
 	vrfv2PlusConfig.MinimumConfirmations = cfg.Common.MinimumConfirmations
+
+	lokiConfig := wasp.NewEnvLokiConfig()
+	lc, err := wasp.NewLokiClient(lokiConfig)
+	if err != nil {
+		l.Error().Err(err).Msg(ErrLokiClient)
+		return
+	}
+
+	updatedLabels := UpdateLabels(labels, t)
 
 	l.Info().
 		Str("Test Type", testType).
@@ -46,11 +69,6 @@ func TestVRFV2PlusLoad(t *testing.T) {
 		Uint16("RandomnessRequestCountPerRequestDeviation", vrfv2PlusConfig.RandomnessRequestCountPerRequestDeviation).
 		Bool("UseExistingEnv", vrfv2PlusConfig.UseExistingEnv).
 		Msg("Performance Test Configuration")
-
-	var env *test_env.CLClusterTestEnv
-	var vrfv2PlusContracts *vrfv2plus.VRFV2_5Contracts
-	var vrfv2PlusData *vrfv2plus.VRFV2PlusData
-	var subIDs []*big.Int
 
 	if vrfv2PlusConfig.UseExistingEnv {
 		//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
@@ -63,10 +81,7 @@ func TestVRFV2PlusLoad(t *testing.T) {
 			WithTestLogger(t).
 			WithCustomCleanup(
 				func() {
-					err = testReporter.SendSlackNotification(t, nil)
-					if err != nil {
-						l.Warn().Err(err).Msg("Error sending Slack notification")
-					}
+					teardown(t, vrfv2PlusContracts.LoadTestConsumers[0], lc, updatedLabels, testReporter, testType, vrfv2PlusConfig)
 				}).
 			Build()
 
@@ -110,13 +125,9 @@ func TestVRFV2PlusLoad(t *testing.T) {
 			WithFunding(big.NewFloat(vrfv2PlusConfig.ChainlinkNodeFunding)).
 			WithCustomCleanup(
 				func() {
+					teardown(t, vrfv2PlusContracts.LoadTestConsumers[0], lc, updatedLabels, testReporter, testType, vrfv2PlusConfig)
 					if err := env.Cleanup(); err != nil {
 						l.Error().Err(err).Msg("Error cleaning up test environment")
-					}
-
-					err = testReporter.SendSlackNotification(t, nil)
-					if err != nil {
-						l.Warn().Err(err).Msg("Error sending Slack notification")
 					}
 				}).
 			WithLogWatcher().
@@ -143,23 +154,11 @@ func TestVRFV2PlusLoad(t *testing.T) {
 		require.NoError(t, err, "error setting up VRF v2_5 env")
 	}
 
-	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs Involved in Load Test")
+	l.Debug().Int("Number of Subs", len(subIDs)).Msg("Subs involved in the test")
 	for _, subID := range subIDs {
 		subscription, err := vrfv2PlusContracts.Coordinator.GetSubscription(context.Background(), subID)
 		require.NoError(t, err, "error getting subscription information for subscription %s", subID.String())
 		vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
-	}
-
-	labels := map[string]string{
-		"branch": "vrfv2Plus_healthcheck",
-		"commit": "vrfv2Plus_healthcheck",
-	}
-
-	lokiConfig := wasp.NewEnvLokiConfig()
-	lc, err := wasp.NewLokiClient(lokiConfig)
-	if err != nil {
-		l.Error().Err(err).Msg(ErrLokiClient)
-		return
 	}
 
 	singleFeedConfig := &wasp.Config{
@@ -182,13 +181,10 @@ func TestVRFV2PlusLoad(t *testing.T) {
 	consumer := vrfv2PlusContracts.LoadTestConsumers[0]
 	err = consumer.ResetMetrics()
 	require.NoError(t, err)
-	updatedLabels := UpdateLabels(labels, t)
-	MonitorLoadStats(lc, vrfv2PlusContracts, updatedLabels)
+	MonitorLoadStats(lc, consumer, updatedLabels)
 
 	// is our "job" stable at all, no memory leaks, no flaking performance under some RPS?
-	t.Run("vrfv2plus soak test", func(t *testing.T) {
-
-		testStartTimeStamp := time.Now()
+	t.Run("vrfv2plus performance test", func(t *testing.T) {
 
 		singleFeedConfig.Schedule = wasp.Plain(
 			vrfv2PlusConfig.RPS,
@@ -200,36 +196,44 @@ func TestVRFV2PlusLoad(t *testing.T) {
 		require.NoError(t, err)
 
 		var wg sync.WaitGroup
-
 		wg.Add(1)
+		//todo - timeout should be configurable depending on the perf test type
 		requestCount, fulfilmentCount, err := vrfv2plus.WaitForRequestCountEqualToFulfilmentCount(consumer, 30*time.Second, &wg)
+		require.NoError(t, err)
+		wg.Wait()
+
 		l.Info().
 			Interface("Request Count", requestCount).
 			Interface("Fulfilment Count", fulfilmentCount).
 			Msg("Final Request/Fulfilment Stats")
-		require.NoError(t, err)
-		wg.Wait()
-		//send final results
-		metrics := SendLoadTestMetricsToLoki(vrfv2PlusContracts, lc, updatedLabels)
-
-		setReportData(testReporter, testStartTimeStamp, testType, metrics, vrfv2PlusConfig)
-
 	})
-
 }
 
-func setReportData(testReporter *testreporters.VRFV2PlusTestReporter,
-	testStartTimeStamp time.Time,
+func teardown(
+	t *testing.T,
+	consumer contracts.VRFv2PlusLoadTestConsumer,
+	lc *wasp.LokiClient, updatedLabels map[string]string,
+	testReporter *testreporters.VRFV2PlusTestReporter,
 	testType string,
-	metrics *contracts.VRFLoadTestMetrics,
 	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
 ) {
-	testReporter.StartTime = testStartTimeStamp
-	testReporter.TestType = testType
-	testReporter.RequestCount = metrics.RequestCount
-	testReporter.FulfilmentCount = metrics.FulfilmentCount
-	testReporter.AverageFulfillmentInMillions = metrics.AverageFulfillmentInMillions
-	testReporter.SlowestFulfillment = metrics.SlowestFulfillment
-	testReporter.FastestFulfillment = metrics.FastestFulfillment
-	testReporter.Vrfv2PlusConfig = &vrfv2PlusConfig
+	//send final results to Loki
+	metrics := GetLoadTestMetrics(consumer)
+	SendMetricsToLoki(metrics, lc, updatedLabels)
+	//set report data for Slack notification
+	testReporter.SetReportData(
+		testType,
+		metrics.RequestCount,
+		metrics.FulfilmentCount,
+		metrics.AverageFulfillmentInMillions,
+		metrics.SlowestFulfillment,
+		metrics.FastestFulfillment,
+		vrfv2PlusConfig,
+	)
+
+	// send Slack notification
+	err := testReporter.SendSlackNotification(t, nil)
+	if err != nil {
+		log.Warn().Err(err).Msg("Error sending Slack notification")
+	}
 }

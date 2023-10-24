@@ -14,7 +14,6 @@ import (
 )
 
 type VRFV2PlusTestReporter struct {
-	StartTime                    time.Time
 	TestType                     string
 	RequestCount                 *big.Int
 	FulfilmentCount              *big.Int
@@ -22,6 +21,24 @@ type VRFV2PlusTestReporter struct {
 	SlowestFulfillment           *big.Int
 	FastestFulfillment           *big.Int
 	Vrfv2PlusConfig              *vrfv2plus_config.VRFV2PlusConfig
+}
+
+func (o *VRFV2PlusTestReporter) SetReportData(
+	testType string,
+	RequestCount *big.Int,
+	FulfilmentCount *big.Int,
+	AverageFulfillmentInMillions *big.Int,
+	SlowestFulfillment *big.Int,
+	FastestFulfillment *big.Int,
+	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
+) {
+	o.TestType = testType
+	o.RequestCount = RequestCount
+	o.FulfilmentCount = FulfilmentCount
+	o.AverageFulfillmentInMillions = AverageFulfillmentInMillions
+	o.SlowestFulfillment = SlowestFulfillment
+	o.FastestFulfillment = FastestFulfillment
+	o.Vrfv2PlusConfig = &vrfv2PlusConfig
 }
 
 // SendSlackNotification sends a slack message to a slack webhook
@@ -36,7 +53,7 @@ func (o *VRFV2PlusTestReporter) SendSlackNotification(t *testing.T, slackClient 
 		headerText = fmt.Sprintf(":x: VRF %s Test FAILED :x:", o.TestType)
 	}
 
-	messageBlocks := testreporters.SlackNotifyBlocks(headerText, fmt.Sprintf("%s | Test took: %s", os.Getenv("SELECTED_NETWORKS"), time.Since(o.StartTime).Truncate(time.Second).String()), []string{
+	messageBlocks := testreporters.SlackNotifyBlocks(headerText, fmt.Sprintf("%s", os.Getenv("SELECTED_NETWORKS")), []string{
 		fmt.Sprintf(
 			"Summary\n"+
 				"Perf Test Type: %s\n"+
