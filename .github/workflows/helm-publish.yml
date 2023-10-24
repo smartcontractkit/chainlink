@@ -1,6 +1,7 @@
 name: Helm Publish
 
 on:
+  push:
   workflow_dispatch:
 
 jobs:
