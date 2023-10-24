@@ -1,32 +1,31 @@
 name: Helm Publish
 
 on:
-  push:
   workflow_dispatch:
 
 jobs:
   helm_release:
     runs-on: ubuntu-latest
-    # environment: build-develop
-    # permissions:
-    #   id-token: write
-    #   contents: read
+    environment: build-develop
+    permissions:
+      id-token: write
+      contents: read
     steps:
       - name: Checkout repo
         uses: actions/checkout@f43a0e5ff2bd294095638e18286ca9a3d1956744 # v3.6.0
 
-      # - name: Configure aws credentials
-      #   uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3.0.2
-      #   with:
-      #     role-to-assume: ${{ secrets.AWS_ROLE_ARN_GATI }}
-      #     role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
-      #     aws-region: ${{ secrets.AWS_REGION }}
+      - name: Configure aws credentials
+        uses: aws-actions/configure-aws-credentials@50ac8dd1e1b10d09dac7b8727528b91bed831ac0 # v3.0.2
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_GATI }}
+          role-duration-seconds: ${{ secrets.AWS_ROLE_DURATION_SECONDS }}
+          aws-region: ${{ secrets.AWS_REGION }}
 
-      # - name: Get Github Token
-      #   id: get-gh-token
-      #   uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@main
-      #   with:
-      #     url: ${{ secrets.GATI_LAMBDA_FUNCTION_URL }}
+      - name: Get Github Token
+        id: get-gh-token
+        uses: smartcontractkit/chainlink-github-actions/github-app-token-issuer@main
+        with:
+          url: ${{ secrets.GATI_LAMBDA_FUNCTION_URL }}
 
       - name: Install Helm
         uses: azure/setup-helm@5119fcb9089d432beecbf79bb2c7915207344b78 # v3.5
@@ -37,5 +36,4 @@ jobs:
           charts_dir: charts
           config: .github/cr.yaml
         env:
-          # CR_TOKEN: "${{ steps.get-gh-token.outputs.access-token }}"
-          CR_TOKEN: "${{ secrets.HELM_PUSH_TOKEN }}"
+          CR_TOKEN: "${{ steps.get-gh-token.outputs.access-token }}"
