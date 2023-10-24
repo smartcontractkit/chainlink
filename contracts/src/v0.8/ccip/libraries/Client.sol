@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 // End consumer library.
 library Client {
+  /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct EVMTokenAmount {
     address token; // token address on the local chain.
     uint256 amount; // Amount of tokens.

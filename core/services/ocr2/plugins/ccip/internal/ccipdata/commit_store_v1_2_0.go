@@ -178,9 +178,6 @@ func (c CommitOffchainConfigV1_2_0) Validate() error {
 	if c.GasPriceHeartBeat.Duration() == 0 {
 		return errors.New("must set GasPriceHeartBeat")
 	}
-	if c.DAGasPriceDeviationPPB == 0 {
-		return errors.New("must set DAGasPriceDeviationPPB")
-	}
 	if c.ExecGasPriceDeviationPPB == 0 {
 		return errors.New("must set ExecGasPriceDeviationPPB")
 	}
@@ -196,6 +193,7 @@ func (c CommitOffchainConfigV1_2_0) Validate() error {
 	if c.InflightCacheExpiry.Duration() == 0 {
 		return errors.New("must set InflightCacheExpiry")
 	}
+	// DAGasPriceDeviationPPB is not validated because it can be 0 on non-rollups
 
 	return nil
 }
