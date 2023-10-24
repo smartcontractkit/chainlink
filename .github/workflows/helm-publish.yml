@@ -8,6 +8,7 @@ jobs:
   helm_release:
     if: ${{ github.event.label.name == 'helm_release' }}
     runs-on: ubuntu-latest
+    environment: build-develop
     permissions:
       id-token: write
       contents: read
