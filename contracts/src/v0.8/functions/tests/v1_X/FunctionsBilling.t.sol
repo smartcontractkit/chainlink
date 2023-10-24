@@ -258,14 +258,8 @@ contract FunctionsBilling_DeleteCommitment is FunctionsClientRequestSetup {
 /// @notice #oracleWithdraw
 contract FunctionsBilling_OracleWithdraw is FunctionsMultipleFulfillmentsSetup {
   function test_OracleWithdraw_RevertWithNoBalance() public {
-    uint256 transmitter1BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_1);
-    assertEq(transmitter1BalanceBefore, 0);
-    uint256 transmitter2BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_2);
-    assertEq(transmitter2BalanceBefore, 0);
-    uint256 transmitter3BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_3);
-    assertEq(transmitter3BalanceBefore, 0);
-    uint256 transmitter4BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_4);
-    assertEq(transmitter4BalanceBefore, 0);
+    uint256[4] memory transmitterBalancesBefore = _getTransmitterBalances();
+    _assertTransmittersAllHaveBalance(transmitterBalancesBefore, 0);
 
     // Send as stranger, which has no balance
     vm.stopPrank();
@@ -276,16 +270,8 @@ contract FunctionsBilling_OracleWithdraw is FunctionsMultipleFulfillmentsSetup {
     // Attempt to withdraw with no amount, which would withdraw the full balance
     s_functionsCoordinator.oracleWithdraw(STRANGER_ADDRESS, 0);
 
-    uint96 expectedTransmitterBalance = 0;
-
-    uint256 transmitter1BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_1);
-    assertEq(transmitter1BalanceAfter, expectedTransmitterBalance);
-    uint256 transmitter2BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_2);
-    assertEq(transmitter2BalanceAfter, expectedTransmitterBalance);
-    uint256 transmitter3BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_3);
-    assertEq(transmitter3BalanceAfter, expectedTransmitterBalance);
-    uint256 transmitter4BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_4);
-    assertEq(transmitter4BalanceAfter, expectedTransmitterBalance);
+    uint256[4] memory transmitterBalancesAfter = _getTransmitterBalances();
+    _assertTransmittersAllHaveBalance(transmitterBalancesAfter, 0);
   }
 
   function test_OracleWithdraw_RevertIfInsufficientBalance() public {
@@ -300,14 +286,8 @@ contract FunctionsBilling_OracleWithdraw is FunctionsMultipleFulfillmentsSetup {
   }
 
   function test_OracleWithdraw_SuccessTransmitterWithBalanceValidAmountGiven() public {
-    uint256 transmitter1BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_1);
-    assertEq(transmitter1BalanceBefore, 0);
-    uint256 transmitter2BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_2);
-    assertEq(transmitter2BalanceBefore, 0);
-    uint256 transmitter3BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_3);
-    assertEq(transmitter3BalanceBefore, 0);
-    uint256 transmitter4BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_4);
-    assertEq(transmitter4BalanceBefore, 0);
+    uint256[4] memory transmitterBalancesBefore = _getTransmitterBalances();
+    _assertTransmittersAllHaveBalance(transmitterBalancesBefore, 0);
 
     // Send as transmitter 1, which has transmitted 1 report
     vm.stopPrank();
@@ -319,25 +299,16 @@ contract FunctionsBilling_OracleWithdraw is FunctionsMultipleFulfillmentsSetup {
     uint96 halfBalance = expectedTransmitterBalance / 2;
     s_functionsCoordinator.oracleWithdraw(NOP_TRANSMITTER_ADDRESS_1, halfBalance);
 
-    uint256 transmitter1BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_1);
-    assertEq(transmitter1BalanceAfter, halfBalance);
-    uint256 transmitter2BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_2);
-    assertEq(transmitter2BalanceAfter, 0);
-    uint256 transmitter3BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_3);
-    assertEq(transmitter3BalanceAfter, 0);
-    uint256 transmitter4BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_4);
-    assertEq(transmitter4BalanceAfter, 0);
+    uint256[4] memory transmitterBalancesAfter = _getTransmitterBalances();
+    assertEq(transmitterBalancesAfter[0], halfBalance);
+    assertEq(transmitterBalancesAfter[1], 0);
+    assertEq(transmitterBalancesAfter[2], 0);
+    assertEq(transmitterBalancesAfter[3], 0);
   }
 
   function test_OracleWithdraw_SuccessTransmitterWithBalanceNoAmountGiven() public {
-    uint256 transmitter1BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_1);
-    assertEq(transmitter1BalanceBefore, 0);
-    uint256 transmitter2BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_2);
-    assertEq(transmitter2BalanceBefore, 0);
-    uint256 transmitter3BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_3);
-    assertEq(transmitter3BalanceBefore, 0);
-    uint256 transmitter4BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_4);
-    assertEq(transmitter4BalanceBefore, 0);
+    uint256[4] memory transmitterBalancesBefore = _getTransmitterBalances();
+    _assertTransmittersAllHaveBalance(transmitterBalancesBefore, 0);
 
     // Send as transmitter 1, which has transmitted 1 report
     vm.stopPrank();
@@ -352,14 +323,11 @@ contract FunctionsBilling_OracleWithdraw is FunctionsMultipleFulfillmentsSetup {
     uint96 donFeeShare = totalDonFees / 4;
     uint96 expectedTransmitterBalance = ((s_fulfillmentCoordinatorBalance - totalDonFees) / 3) + donFeeShare;
 
-    uint256 transmitter1BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_1);
-    assertEq(transmitter1BalanceAfter, expectedTransmitterBalance);
-    uint256 transmitter2BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_2);
-    assertEq(transmitter2BalanceAfter, 0);
-    uint256 transmitter3BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_3);
-    assertEq(transmitter3BalanceAfter, 0);
-    uint256 transmitter4BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_4);
-    assertEq(transmitter4BalanceAfter, 0);
+    uint256[4] memory transmitterBalancesAfter = _getTransmitterBalances();
+    assertEq(transmitterBalancesAfter[0], expectedTransmitterBalance);
+    assertEq(transmitterBalancesAfter[1], 0);
+    assertEq(transmitterBalancesAfter[2], 0);
+    assertEq(transmitterBalancesAfter[3], 0);
   }
 }
 
@@ -382,28 +350,19 @@ contract FunctionsBilling_OracleWithdrawAll is FunctionsMultipleFulfillmentsSetu
   }
 
   function test_OracleWithdrawAll_SuccessPaysTransmittersWithBalance() public {
-    uint256 transmitter1BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_1);
-    assertEq(transmitter1BalanceBefore, 0);
-    uint256 transmitter2BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_2);
-    assertEq(transmitter2BalanceBefore, 0);
-    uint256 transmitter3BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_3);
-    assertEq(transmitter3BalanceBefore, 0);
-    uint256 transmitter4BalanceBefore = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_4);
-    assertEq(transmitter4BalanceBefore, 0);
+    uint256[4] memory transmitterBalancesBefore = _getTransmitterBalances();
+    _assertTransmittersAllHaveBalance(transmitterBalancesBefore, 0);
 
     s_functionsCoordinator.oracleWithdrawAll();
 
     uint96 expectedTransmitterBalance = s_fulfillmentCoordinatorBalance / 3;
 
-    uint256 transmitter1BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_1);
-    assertEq(transmitter1BalanceAfter, expectedTransmitterBalance);
-    uint256 transmitter2BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_2);
-    assertEq(transmitter2BalanceAfter, expectedTransmitterBalance);
-    uint256 transmitter3BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_3);
-    assertEq(transmitter3BalanceAfter, expectedTransmitterBalance);
+    uint256[4] memory transmitterBalancesAfter = _getTransmitterBalances();
+    assertEq(transmitterBalancesAfter[0], expectedTransmitterBalance);
+    assertEq(transmitterBalancesAfter[1], expectedTransmitterBalance);
+    assertEq(transmitterBalancesAfter[2], expectedTransmitterBalance);
     // Transmitter 4 has no balance
-    uint256 transmitter4BalanceAfter = s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_4);
-    assertEq(transmitter4BalanceAfter, 0);
+    assertEq(transmitterBalancesAfter[3], 0);
   }
 }
 

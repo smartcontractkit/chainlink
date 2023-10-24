@@ -145,6 +145,22 @@ contract FunctionsDONSetup is FunctionsRouterSetup {
       s_offchainConfig
     );
   }
+
+  function _getTransmitterBalances() internal view returns (uint256[4] memory balances) {
+    return [
+      s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_1),
+      s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_2),
+      s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_3),
+      s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_4)
+    ];
+  }
+
+  function _assertTransmittersAllHaveBalance(uint256[4] memory balances, uint256 expectedBalance) internal {
+    assertEq(balances[0], expectedBalance);
+    assertEq(balances[1], expectedBalance);
+    assertEq(balances[2], expectedBalance);
+    assertEq(balances[3], expectedBalance);
+  }
 }
 
 /// @notice Set up to add the Coordinator and ToS Allow Contract as routes on the Router contract
