@@ -31,8 +31,9 @@ type logPollerWrapper struct {
 	subscribers         map[string]evmRelayTypes.RouteUpdateSubscriber
 	activeCoordinator   common.Address
 	proposedCoordinator common.Address
+	responseBlockOffset int64
+	requestBlockOffset  int64
 	pastBlocksToPoll    int64
-	blockOffset         int64
 	mu                  sync.Mutex
 	closeWait           sync.WaitGroup
 	stopCh              utils.StopChan
@@ -48,19 +49,32 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 	}
 	blockOffset := int64(pluginConfig.MinIncomingConfirmations) - 1
 	if blockOffset < 0 {
+		lggr.Warnw("invalid minIncomingConfirmations, using 0 instead", "minIncomingConfirmations", pluginConfig.MinIncomingConfirmations)
 		blockOffset = 0
+	}
+	// Use MinIncomingConfirmations if RequestFinalityBlocks or ResponseFinalityBlocks are not correctly set
+	requestBlockOffset := int64(pluginConfig.MinRequestConfirmations) - 1
+	if requestBlockOffset < 0 {
+		lggr.Warnw("invalid minRequestConfirmations, using minIncomingConfirmations instead", "minRequestConfirmations", pluginConfig.MinRequestConfirmations)
+		requestBlockOffset = blockOffset
+	}
+	responseBlockOffset := int64(pluginConfig.MinResponseConfirmations) - 1
+	if responseBlockOffset < 0 {
+		lggr.Warnw("invalid minResponseConfirmations, using minIncomingConfirmations instead", "minResponseConfirmations", pluginConfig.MinResponseConfirmations)
+		responseBlockOffset = blockOffset
 	}
 
 	return &logPollerWrapper{
-		routerContract:   routerContract,
-		pluginConfig:     pluginConfig,
-		pastBlocksToPoll: int64(pluginConfig.PastBlocksToPoll),
-		blockOffset:      blockOffset,
-		logPoller:        logPoller,
-		client:           client,
-		subscribers:      make(map[string]evmRelayTypes.RouteUpdateSubscriber),
-		stopCh:           make(utils.StopChan),
-		lggr:             lggr,
+		routerContract:      routerContract,
+		pluginConfig:        pluginConfig,
+		requestBlockOffset:  requestBlockOffset,
+		responseBlockOffset: responseBlockOffset,
+		pastBlocksToPoll:    int64(pluginConfig.PastBlocksToPoll),
+		logPoller:           logPoller,
+		client:              client,
+		subscribers:         make(map[string]evmRelayTypes.RouteUpdateSubscriber),
+		stopCh:              make(utils.StopChan),
+		lggr:                lggr,
 	}, nil
 }
 
@@ -69,13 +83,11 @@ func (l *logPollerWrapper) Start(context.Context) error {
 		l.lggr.Infow("starting LogPollerWrapper", "routerContract", l.routerContract.Address().Hex(), "contractVersion", l.pluginConfig.ContractVersion)
 		l.mu.Lock()
 		defer l.mu.Unlock()
-		if l.pluginConfig.ContractVersion == 0 {
-			l.activeCoordinator = l.routerContract.Address()
-			l.proposedCoordinator = l.routerContract.Address()
-		} else if l.pluginConfig.ContractVersion == 1 {
-			l.closeWait.Add(1)
-			go l.checkForRouteUpdates()
+		if l.pluginConfig.ContractVersion != 1 {
+			return errors.New("only contract version 1 is supported")
 		}
+		l.closeWait.Add(1)
+		go l.checkForRouteUpdates()
 		return nil
 	})
 }
