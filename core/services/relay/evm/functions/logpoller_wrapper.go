@@ -35,8 +35,8 @@ type logPollerWrapper struct {
 	requestBlockOffset        int64
 	pastBlocksToPoll          int64
 	logPollerCacheDurationSec int64
-	detectedRequests          map[[32]byte]time.Time // Maps from request ID from a request event to the time at which it was detected
-	detectedResponses         map[[32]byte]time.Time // Maps from request ID from a response event to the time at which it was detected
+	detectedRequests          map[[32]byte]time.Time // Maps request ID to the time it was detected
+	detectedResponses         map[[32]byte]time.Time // Maps request ID to the time the response was detected
 	mu                        sync.Mutex
 	closeWait                 sync.WaitGroup
 	stopCh                    utils.StopChan
@@ -52,7 +52,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 	}
 	blockOffset := int64(pluginConfig.MinIncomingConfirmations) - 1
 	if blockOffset < 0 {
-		lggr.Warnw("invalid minIncomingConfirmations, using 0 instead", "minIncomingConfirmations", pluginConfig.MinIncomingConfirmations)
+		lggr.Warnw("invalid minIncomingConfirmations, using 1 instead", "minIncomingConfirmations", pluginConfig.MinIncomingConfirmations)
 		blockOffset = 0
 	}
 	requestBlockOffset := int64(pluginConfig.MinRequestConfirmations) - 1
@@ -65,9 +65,15 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 		lggr.Warnw("invalid minResponseConfirmations, using minIncomingConfirmations instead", "minResponseConfirmations", pluginConfig.MinResponseConfirmations)
 		responseBlockOffset = blockOffset
 	}
-	if pluginConfig.LogPollerCacheDurationSec == 0 {
-		lggr.Warnw("invalid logPollerCacheDuration, using 300 instead", "logPollerCacheDurationSec", pluginConfig.LogPollerCacheDurationSec)
-		pluginConfig.LogPollerCacheDurationSec = 300
+	logPollerCacheDurationSec := int64(pluginConfig.LogPollerCacheDurationSec)
+	if logPollerCacheDurationSec <= 0 {
+		lggr.Warnw("invalid logPollerCacheDuration, using 300 instead", "logPollerCacheDurationSec", logPollerCacheDurationSec)
+		logPollerCacheDurationSec = 300
+	}
+	pastBlocksToPoll := int64(pluginConfig.PastBlocksToPoll)
+	if pastBlocksToPoll <= 0 {
+		lggr.Warnw("invalid pastBlocksToPoll, using 50 instead", "pastBlocksToPoll", pastBlocksToPoll)
+		pastBlocksToPoll = 50
 	}
 
 	return &logPollerWrapper{
@@ -76,7 +82,7 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 		requestBlockOffset:        requestBlockOffset,
 		responseBlockOffset:       responseBlockOffset,
 		pastBlocksToPoll:          int64(pluginConfig.PastBlocksToPoll),
-		logPollerCacheDurationSec: int64(pluginConfig.LogPollerCacheDurationSec),
+		logPollerCacheDurationSec: logPollerCacheDurationSec,
 		logPoller:                 logPoller,
 		client:                    client,
 		subscribers:               make(map[string]evmRelayTypes.RouteUpdateSubscriber),
