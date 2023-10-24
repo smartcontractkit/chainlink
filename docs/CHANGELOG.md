@@ -25,7 +25,7 @@ These will eventually replace `TelemetryIngress.URL` and `TelemetryIngress.Serve
 
 ### Upcoming Required Configuration Change
 
-- Starting in 2.8.0, chainlink nodes will no longer allow `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
+- Starting in 2.9.0, chainlink nodes will no longer allow `TelemetryIngress.URL` and `TelemetryIngress.ServerPubKey`. Any TOML configuration that sets this fields will prevent the node from booting. These fields will be replaced by `[[TelemetryIngress.Endpoints]]`
 
 ### Removed
 

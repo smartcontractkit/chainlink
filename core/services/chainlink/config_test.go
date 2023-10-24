@@ -26,7 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -177,7 +176,7 @@ var (
 				},
 			},
 		},
-		Starknet: []*starknet.StarknetConfig{
+		Starknet: []*stkcfg.TOMLConfig{
 			{
 				ChainID: ptr("foobar"),
 				Chain: stkcfg.Chain{
@@ -607,7 +606,7 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 	}
-	full.Starknet = []*starknet.StarknetConfig{
+	full.Starknet = []*stkcfg.TOMLConfig{
 		{
 			ChainID: ptr("foobar"),
 			Enabled: ptr(true),
@@ -1411,7 +1410,7 @@ func TestConfig_setDefaults(t *testing.T) {
 	c.EVM = evmcfg.EVMConfigs{{ChainID: utils.NewBigI(99999133712345)}}
 	c.Cosmos = cosmos.CosmosConfigs{{ChainID: ptr("unknown cosmos chain")}}
 	c.Solana = solana.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
-	c.Starknet = starknet.StarknetConfigs{{ChainID: ptr("unknown starknet chain")}}
+	c.Starknet = stkcfg.TOMLConfigs{{ChainID: ptr("unknown starknet chain")}}
 	c.setDefaults()
 	if s, err := c.TOMLString(); assert.NoError(t, err) {
 		t.Log(s, err)

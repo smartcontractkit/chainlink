@@ -7,8 +7,8 @@ separate processes, plug-in via [github.com/hashicorp/go-plugin](https://github.
 communicate via [GRPC](https://grpc.io).
 
 There are currently two kinds of plugins: Relayer plugins, and a Median product plugin. The [cmd](cmd) directory contains
-some `package main`s for now, and they can be built via `make install-starknet` and `make install-median`. Solana has been 
-moved to the `chainlink-solana` repo, and these will soon be moved too.
+some `package main`s while we transition, and they can be built via `make install-<plugin>`. Solana & Starknet has been 
+moved to their respective repos, and all must be moved out of this module eventually.
 
 ## How to use
 
