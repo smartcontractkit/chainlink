@@ -10,8 +10,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	pkgstarknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
+	starkchain "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/chain"
+	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 )
 
 const (
@@ -58,18 +58,18 @@ func (c *pluginRelayer) NewRelayer(ctx context.Context, config string, loopKs lo
 	d := toml.NewDecoder(strings.NewReader(config))
 	d.DisallowUnknownFields()
 	var cfg struct {
-		Starknet starknet.StarknetConfig
+		Starknet stkcfg.TOMLConfig
 	}
 	if err := d.Decode(&cfg); err != nil {
 		return nil, fmt.Errorf("failed to decode config toml: %w:\n\t%s", err, config)
 	}
 
-	opts := starknet.ChainOpts{
+	opts := starkchain.ChainOpts{
 		Logger:   c.Logger,
 		KeyStore: loopKs,
 	}
 
-	chain, err := starknet.NewChain(&cfg.Starknet, opts)
+	chain, err := starkchain.NewChain(&cfg.Starknet, opts)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain: %w", err)
 	}
