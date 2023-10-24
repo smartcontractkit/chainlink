@@ -29,10 +29,7 @@ func TestVRFV2PlusLoad(t *testing.T) {
 	require.NoError(t, err)
 
 	testType := os.Getenv("TEST_TYPE")
-	testReporter := &testreporters.VRFV2PlusTestReporter{
-		StartTime: time.Now(),
-		TestType:  testType,
-	}
+	testReporter := &testreporters.VRFV2PlusTestReporter{}
 
 	SetPerformanceTestConfig(testType, &vrfv2PlusConfig, cfg)
 
@@ -153,8 +150,6 @@ func TestVRFV2PlusLoad(t *testing.T) {
 		vrfv2plus.LogSubDetails(l, subscription, subID, vrfv2PlusContracts.Coordinator)
 	}
 
-	testReporter.Vrfv2PlusConfig = &vrfv2PlusConfig
-
 	labels := map[string]string{
 		"branch": "vrfv2Plus_healthcheck",
 		"commit": "vrfv2Plus_healthcheck",
@@ -193,6 +188,8 @@ func TestVRFV2PlusLoad(t *testing.T) {
 	// is our "job" stable at all, no memory leaks, no flaking performance under some RPS?
 	t.Run("vrfv2plus soak test", func(t *testing.T) {
 
+		testStartTimeStamp := time.Now()
+
 		singleFeedConfig.Schedule = wasp.Plain(
 			vrfv2PlusConfig.RPS,
 			vrfv2PlusConfig.TestDuration,
@@ -213,8 +210,26 @@ func TestVRFV2PlusLoad(t *testing.T) {
 		require.NoError(t, err)
 		wg.Wait()
 		//send final results
-		testReporter.Metrics = SendLoadTestMetricsToLoki(vrfv2PlusContracts, lc, updatedLabels)
+		metrics := SendLoadTestMetricsToLoki(vrfv2PlusContracts, lc, updatedLabels)
+
+		setReportData(testReporter, testStartTimeStamp, testType, metrics, vrfv2PlusConfig)
 
 	})
 
+}
+
+func setReportData(testReporter *testreporters.VRFV2PlusTestReporter,
+	testStartTimeStamp time.Time,
+	testType string,
+	metrics *contracts.VRFLoadTestMetrics,
+	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
+) {
+	testReporter.StartTime = testStartTimeStamp
+	testReporter.TestType = testType
+	testReporter.RequestCount = metrics.RequestCount
+	testReporter.FulfilmentCount = metrics.FulfilmentCount
+	testReporter.AverageFulfillmentInMillions = metrics.AverageFulfillmentInMillions
+	testReporter.SlowestFulfillment = metrics.SlowestFulfillment
+	testReporter.FastestFulfillment = metrics.FastestFulfillment
+	testReporter.Vrfv2PlusConfig = &vrfv2PlusConfig
 }

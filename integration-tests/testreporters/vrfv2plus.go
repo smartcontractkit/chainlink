@@ -3,7 +3,7 @@ package testreporters
 import (
 	"fmt"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/vrfv2plus/vrfv2plus_config"
-	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
+	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -14,10 +14,14 @@ import (
 )
 
 type VRFV2PlusTestReporter struct {
-	StartTime       time.Time
-	TestType        string
-	Metrics         *contracts.VRFLoadTestMetrics
-	Vrfv2PlusConfig *vrfv2plus_config.VRFV2PlusConfig
+	StartTime                    time.Time
+	TestType                     string
+	RequestCount                 *big.Int
+	FulfilmentCount              *big.Int
+	AverageFulfillmentInMillions *big.Int
+	SlowestFulfillment           *big.Int
+	FastestFulfillment           *big.Int
+	Vrfv2PlusConfig              *vrfv2plus_config.VRFV2PlusConfig
 }
 
 // SendSlackNotification sends a slack message to a slack webhook
@@ -50,11 +54,11 @@ func (o *VRFV2PlusTestReporter) SendSlackNotification(t *testing.T, slackClient 
 			o.TestType,
 			o.Vrfv2PlusConfig.TestDuration.Truncate(time.Second).String(),
 			o.Vrfv2PlusConfig.UseExistingEnv,
-			o.Metrics.RequestCount.String(),
-			o.Metrics.FulfilmentCount.String(),
-			o.Metrics.AverageFulfillmentInMillions.String(),
-			o.Metrics.SlowestFulfillment.String(),
-			o.Metrics.FastestFulfillment.String(),
+			o.RequestCount.String(),
+			o.FulfilmentCount.String(),
+			o.AverageFulfillmentInMillions.String(),
+			o.SlowestFulfillment.String(),
+			o.FastestFulfillment.String(),
 			o.Vrfv2PlusConfig.RPS,
 			o.Vrfv2PlusConfig.RateLimitUnitDuration.String(),
 			o.Vrfv2PlusConfig.RandomnessRequestCountPerRequest,
