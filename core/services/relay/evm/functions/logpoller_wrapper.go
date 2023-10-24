@@ -24,20 +24,23 @@ import (
 type logPollerWrapper struct {
 	services.StateMachine
 
-	routerContract      *functions_router.FunctionsRouter
-	pluginConfig        config.PluginConfig
-	client              client.Client
-	logPoller           logpoller.LogPoller
-	subscribers         map[string]evmRelayTypes.RouteUpdateSubscriber
-	activeCoordinator   common.Address
-	proposedCoordinator common.Address
-	responseBlockOffset int64
-	requestBlockOffset  int64
-	pastBlocksToPoll    int64
-	mu                  sync.Mutex
-	closeWait           sync.WaitGroup
-	stopCh              utils.StopChan
-	lggr                logger.Logger
+	routerContract            *functions_router.FunctionsRouter
+	pluginConfig              config.PluginConfig
+	client                    client.Client
+	logPoller                 logpoller.LogPoller
+	subscribers               map[string]evmRelayTypes.RouteUpdateSubscriber
+	activeCoordinator         common.Address
+	proposedCoordinator       common.Address
+	responseBlockOffset       int64
+	requestBlockOffset        int64
+	pastBlocksToPoll          int64
+	logPollerCacheDurationSec int64
+	detectedRequests          map[[32]byte]time.Time // Maps from request ID from a request event to the time at which it was detected
+	detectedResponses         map[[32]byte]time.Time // Maps from request ID from a response event to the time at which it was detected
+	mu                        sync.Mutex
+	closeWait                 sync.WaitGroup
+	stopCh                    utils.StopChan
+	lggr                      logger.Logger
 }
 
 var _ evmRelayTypes.LogPollerWrapper = &logPollerWrapper{}
@@ -52,7 +55,6 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 		lggr.Warnw("invalid minIncomingConfirmations, using 0 instead", "minIncomingConfirmations", pluginConfig.MinIncomingConfirmations)
 		blockOffset = 0
 	}
-	// Use MinIncomingConfirmations if RequestFinalityBlocks or ResponseFinalityBlocks are not correctly set
 	requestBlockOffset := int64(pluginConfig.MinRequestConfirmations) - 1
 	if requestBlockOffset < 0 {
 		lggr.Warnw("invalid minRequestConfirmations, using minIncomingConfirmations instead", "minRequestConfirmations", pluginConfig.MinRequestConfirmations)
@@ -63,18 +65,23 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 		lggr.Warnw("invalid minResponseConfirmations, using minIncomingConfirmations instead", "minResponseConfirmations", pluginConfig.MinResponseConfirmations)
 		responseBlockOffset = blockOffset
 	}
+	if pluginConfig.LogPollerCacheDurationSec == 0 {
+		lggr.Warnw("invalid logPollerCacheDuration, using 300 instead", "logPollerCacheDurationSec", pluginConfig.LogPollerCacheDurationSec)
+		pluginConfig.LogPollerCacheDurationSec = 300
+	}
 
 	return &logPollerWrapper{
-		routerContract:      routerContract,
-		pluginConfig:        pluginConfig,
-		requestBlockOffset:  requestBlockOffset,
-		responseBlockOffset: responseBlockOffset,
-		pastBlocksToPoll:    int64(pluginConfig.PastBlocksToPoll),
-		logPoller:           logPoller,
-		client:              client,
-		subscribers:         make(map[string]evmRelayTypes.RouteUpdateSubscriber),
-		stopCh:              make(utils.StopChan),
-		lggr:                lggr,
+		routerContract:            routerContract,
+		pluginConfig:              pluginConfig,
+		requestBlockOffset:        requestBlockOffset,
+		responseBlockOffset:       responseBlockOffset,
+		pastBlocksToPoll:          int64(pluginConfig.PastBlocksToPoll),
+		logPollerCacheDurationSec: int64(pluginConfig.LogPollerCacheDurationSec),
+		logPoller:                 logPoller,
+		client:                    client,
+		subscribers:               make(map[string]evmRelayTypes.RouteUpdateSubscriber),
+		stopCh:                    make(utils.StopChan),
+		lggr:                      lggr,
 	}, nil
 }
 
@@ -242,9 +249,49 @@ func (l *logPollerWrapper) LatestEvents() ([]evmRelayTypes.OracleRequest, []evmR
 			})
 		}
 	}
+	resultsReq = l.FilterPreviouslyDetectedRequests(resultsReq)
+	resultsResp = l.FilterPreviouslyDetectedResponses(resultsResp)
 
 	l.lggr.Debugw("LatestEvents: done", "nRequestLogs", len(resultsReq), "nResponseLogs", len(resultsResp), "startBlock", startBlockNum, "endBlock", latestBlockNum)
 	return resultsReq, resultsResp, nil
+}
+
+func (l *logPollerWrapper) FilterPreviouslyDetectedRequests(requests []evmRelayTypes.OracleRequest) []evmRelayTypes.OracleRequest {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	filteredRequests := []evmRelayTypes.OracleRequest{}
+	for _, request := range requests {
+		if _, ok := l.detectedRequests[request.RequestId]; !ok {
+			filteredRequests = append(filteredRequests, request)
+			l.detectedRequests[request.RequestId] = time.Now()
+		}
+	}
+	// Expire old requests if they are older than logPollerCacheDurationSec
+	for requestId, timeDetected := range l.detectedRequests {
+		if timeDetected.Unix() < time.Now().Unix()-l.logPollerCacheDurationSec {
+			delete(l.detectedRequests, requestId)
+		}
+	}
+	return filteredRequests
+}
+
+func (l *logPollerWrapper) FilterPreviouslyDetectedResponses(responses []evmRelayTypes.OracleResponse) []evmRelayTypes.OracleResponse {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	filteredResponses := []evmRelayTypes.OracleResponse{}
+	for _, response := range responses {
+		if _, ok := l.detectedResponses[response.RequestId]; !ok {
+			filteredResponses = append(filteredResponses, response)
+			l.detectedResponses[response.RequestId] = time.Now()
+		}
+	}
+	// Expire old responses if they are older than logPollerCacheDurationSec
+	for requestId, timeDetected := range l.detectedResponses {
+		if timeDetected.Unix() < time.Now().Unix()-l.logPollerCacheDurationSec {
+			delete(l.detectedResponses, requestId)
+		}
+	}
+	return filteredResponses
 }
 
 // "internal" method called only by EVM relayer components

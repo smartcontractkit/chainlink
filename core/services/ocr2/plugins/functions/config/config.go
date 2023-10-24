@@ -26,6 +26,7 @@ type PluginConfig struct {
 	MinRequestConfirmations            uint32                                `json:"minRequestConfirmations"`
 	MinResponseConfirmations           uint32                                `json:"minResponseConfirmations"`
 	PastBlocksToPoll                   uint32                                `json:"pastBlocksToPoll"`
+	LogPollerCacheDurationSec          uint32                                `json:"logPollerCacheDurationSec"`
 	MinIncomingConfirmations           uint32                                `json:"minIncomingConfirmations"`
 	RequestTimeoutSec                  uint32                                `json:"requestTimeoutSec"`
 	RequestTimeoutCheckFrequencySec    uint32                                `json:"requestTimeoutCheckFrequencySec"`
