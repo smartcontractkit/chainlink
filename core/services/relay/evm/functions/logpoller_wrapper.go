@@ -31,8 +31,8 @@ type logPollerWrapper struct {
 	subscribers               map[string]evmRelayTypes.RouteUpdateSubscriber
 	activeCoordinator         common.Address
 	proposedCoordinator       common.Address
-	responseBlockOffset       int64
 	requestBlockOffset        int64
+	responseBlockOffset       int64
 	pastBlocksToPoll          int64
 	logPollerCacheDurationSec int64
 	detectedRequests          map[[32]byte]time.Time // Maps request ID to the time it was detected
@@ -81,8 +81,10 @@ func NewLogPollerWrapper(routerContractAddress common.Address, pluginConfig conf
 		pluginConfig:              pluginConfig,
 		requestBlockOffset:        requestBlockOffset,
 		responseBlockOffset:       responseBlockOffset,
-		pastBlocksToPoll:          int64(pluginConfig.PastBlocksToPoll),
+		pastBlocksToPoll:          pastBlocksToPoll,
 		logPollerCacheDurationSec: logPollerCacheDurationSec,
+		detectedRequests:          make(map[[32]byte]time.Time),
+		detectedResponses:         make(map[[32]byte]time.Time),
 		logPoller:                 logPoller,
 		client:                    client,
 		subscribers:               make(map[string]evmRelayTypes.RouteUpdateSubscriber),
