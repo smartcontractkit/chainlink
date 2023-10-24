@@ -14,6 +14,7 @@ import (
 	"math/big"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"sync"
@@ -644,6 +645,10 @@ func (r *EvmRegistry) functionsRequest(ctx context.Context, block uint64, mercur
 
 	// TODO: move this to TOML/env
 	url := "[INSERT_GATEWAY_URL]"
+	if gatewayURL := os.Getenv("COMPOSER_GATEWAY_URL"); gatewayURL != "" {
+		fmt.Printf("Using COMPOSER_GATEWAY_URL shell env variable passed in\n")
+		url = gatewayURL
+	}
 
 	r.lggr.Infof("upkeepcomposerRequest Functions args: %s, %s, %s, %s",
 		rawReports, mercuryArgs, userArgs, script)

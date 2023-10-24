@@ -372,6 +372,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 	}
 	// Create container with mounted files
 	portStr := fmt.Sprintf("%d", port)
+	gatewayURL := os.Getenv("COMPOSER_GATEWAY_URL")
 	nodeContainerResp, err := dockerClient.ContainerCreate(ctx, &container.Config{
 		Image: h.cfg.ChainlinkDockerImage,
 		Cmd:   []string{"-s", "/run/secrets/01-secret.toml", "-c", "/run/secrets/01-config.toml", "local", "n", "-a", "/run/secrets/chainlink-node-api"},
@@ -379,6 +380,7 @@ func (h *baseHandler) launchChainlinkNode(ctx context.Context, port int, contain
 			"CL_CONFIG=" + extraTOML,
 			"CL_PASSWORD_KEYSTORE=" + defaultChainlinkNodePassword,
 			"CL_DATABASE_URL=postgresql://postgres:verylongdatabasepassword@" + postgresContainerName + ":5432/postgres?sslmode=disable",
+			"COMPOSER_GATEWAY_URL=" + gatewayURL,
 		},
 		ExposedPorts: map[nat.Port]struct{}{
 			nat.Port(portStr): {},
