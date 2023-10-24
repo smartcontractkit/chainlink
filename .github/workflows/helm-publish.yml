@@ -19,8 +19,6 @@ jobs:
         uses: helm/chart-releaser-action@be16258da8010256c6e82849661221415f031968 # v1.5.0
         with:
           charts_dir: charts
-          pages_branch: helm-release
-          mark_as_latest: false
-          packages_with_index: true
+          config: .github/cr.yaml
         env:
           CR_TOKEN: "${{ secrets.HELM_PUSH_TOKEN }}"
