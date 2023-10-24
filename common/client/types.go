@@ -45,12 +45,16 @@ type RPC[
 }
 
 // Head is the interface required by the NodeClient
+//
+//go:generate mockery --quiet --name Head --structname mockHead --inpackage --case=underscore
 type Head interface {
 	BlockNumber() int64
 	BlockDifficulty() *utils.Big
 }
 
 // NodeClient includes all the necessary RPC methods required by a node.
+//
+//go:generate mockery --quiet --name NodeClient --structname mockNodeClient --inpackage --case=underscore
 type NodeClient[
 	CHAIN_ID types.ID,
 	HEAD Head,
