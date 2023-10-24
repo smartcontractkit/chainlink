@@ -18,15 +18,14 @@ import (
 
 	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
 	relayutils "github.com/smartcontractkit/chainlink-relay/pkg/utils"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/client"
 	evmcfg "github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	legacy "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -157,7 +156,7 @@ var (
 					{Name: ptr("secondary"), TendermintURL: relayutils.MustParseURL("http://bombay.cosmos.com")},
 				}},
 		},
-		Solana: []*solana.SolanaConfig{
+		Solana: []*solana.TOMLConfig{
 			{
 				ChainID: ptr("mainnet"),
 				Chain: solcfg.Chain{
@@ -177,7 +176,7 @@ var (
 				},
 			},
 		},
-		Starknet: []*starknet.StarknetConfig{
+		Starknet: []*stkcfg.TOMLConfig{
 			{
 				ChainID: ptr("foobar"),
 				Chain: stkcfg.Chain{
@@ -223,6 +222,16 @@ func TestConfig_Marshal(t *testing.T) {
 				OCRDevelopmentMode:   ptr(false),
 				InfiniteDepthQueries: ptr(false),
 				DisableRateLimiting:  ptr(false),
+			},
+			Tracing: toml.Tracing{
+				Enabled:         ptr(true),
+				CollectorTarget: ptr("localhost:4317"),
+				NodeID:          ptr("clc-ocr-sol-devnet-node-1"),
+				Attributes: map[string]string{
+					"test": "load",
+					"env":  "dev",
+				},
+				SamplingRatio: ptr(1.0),
 			},
 		},
 	}
@@ -569,7 +578,7 @@ func TestConfig_Marshal(t *testing.T) {
 				},
 			}},
 	}
-	full.Solana = []*solana.SolanaConfig{
+	full.Solana = []*solana.TOMLConfig{
 		{
 			ChainID: ptr("mainnet"),
 			Enabled: ptr(false),
@@ -597,7 +606,7 @@ func TestConfig_Marshal(t *testing.T) {
 			},
 		},
 	}
-	full.Starknet = []*starknet.StarknetConfig{
+	full.Starknet = []*stkcfg.TOMLConfig{
 		{
 			ChainID: ptr("foobar"),
 			Enabled: ptr(true),
@@ -653,6 +662,16 @@ DevWebServer = false
 OCRDevelopmentMode = false
 InfiniteDepthQueries = false
 DisableRateLimiting = false
+
+[Tracing]
+Enabled = true
+CollectorTarget = 'localhost:4317'
+NodeID = 'clc-ocr-sol-devnet-node-1'
+SamplingRatio = 1.0
+
+[Tracing.Attributes]
+env = 'dev'
+test = 'load'
 `},
 		{"AuditLogger", Config{Core: toml.Core{AuditLogger: full.AuditLogger}}, `[AuditLogger]
 Enabled = true
@@ -1390,8 +1409,8 @@ func TestConfig_setDefaults(t *testing.T) {
 	var c Config
 	c.EVM = evmcfg.EVMConfigs{{ChainID: utils.NewBigI(99999133712345)}}
 	c.Cosmos = cosmos.CosmosConfigs{{ChainID: ptr("unknown cosmos chain")}}
-	c.Solana = solana.SolanaConfigs{{ChainID: ptr("unknown solana chain")}}
-	c.Starknet = starknet.StarknetConfigs{{ChainID: ptr("unknown starknet chain")}}
+	c.Solana = solana.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
+	c.Starknet = stkcfg.TOMLConfigs{{ChainID: ptr("unknown starknet chain")}}
 	c.setDefaults()
 	if s, err := c.TOMLString(); assert.NoError(t, err) {
 		t.Log(s, err)

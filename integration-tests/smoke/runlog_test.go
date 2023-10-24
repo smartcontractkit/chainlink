@@ -28,6 +28,7 @@ func TestRunLogBasic(t *testing.T) {
 		WithMockAdapter().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
 

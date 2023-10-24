@@ -4,13 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/kelseyhightower/envconfig"
 	"math/big"
 	"net/http"
 	"os"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/kelseyhightower/envconfig"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
@@ -91,11 +92,12 @@ func TestAutomationBasic(t *testing.T) {
 func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 	t.Parallel()
 	registryVersions := map[string]ethereum.KeeperRegistryVersion{
-		"registry_2_0":                  ethereum.RegistryVersion_2_0,
-		"registry_2_1_conditional":      ethereum.RegistryVersion_2_1,
-		"registry_2_1_logtrigger":       ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_mercury_v02": ethereum.RegistryVersion_2_1,
-		"registry_2_1_with_mercury_v03": ethereum.RegistryVersion_2_1,
+		"registry_2_0":                                 ethereum.RegistryVersion_2_0,
+		"registry_2_1_conditional":                     ethereum.RegistryVersion_2_1,
+		"registry_2_1_logtrigger":                      ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_mercury_v02":                ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_mercury_v03":                ethereum.RegistryVersion_2_1,
+		"registry_2_1_with_logtrigger_and_mercury_v02": ethereum.RegistryVersion_2_1,
 	}
 
 	for n, rv := range registryVersions {
@@ -121,8 +123,8 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 			}
 
 			// Use the name to determine if this is a log trigger or mercury
-			isLogTrigger := name == "registry_2_1_logtrigger"
-			isMercuryV02 := name == "registry_2_1_with_mercury_v02"
+			isLogTrigger := name == "registry_2_1_logtrigger" || name == "registry_2_1_with_logtrigger_and_mercury_v02"
+			isMercuryV02 := name == "registry_2_1_with_mercury_v02" || name == "registry_2_1_with_logtrigger_and_mercury_v02"
 			isMercuryV03 := name == "registry_2_1_with_mercury_v03"
 			isMercury := isMercuryV02 || isMercuryV03
 
@@ -1054,6 +1056,7 @@ func setupAutomationTestDocker(
 			WithGeth().
 			WithMockAdapter().
 			WithFunding(big.NewFloat(testConfig.ChainlinkNodeFunding)).
+			WithStandardCleanup().
 			Build()
 		require.NoError(t, err, "Error deploying test environment for Mercury")
 		env.ParallelTransactions(true)
@@ -1099,6 +1102,7 @@ func setupAutomationTestDocker(
 			WithCLNodes(clNodesCount).
 			WithCLNodeConfig(clNodeConfig).
 			WithFunding(big.NewFloat(testConfig.ChainlinkNodeFunding)).
+			WithStandardCleanup().
 			Build()
 		require.NoError(t, err, "Error deploying test environment")
 	}

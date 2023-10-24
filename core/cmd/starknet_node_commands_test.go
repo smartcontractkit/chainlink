@@ -12,13 +12,12 @@ import (
 	"github.com/smartcontractkit/chainlink-relay/pkg/utils"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func starknetStartNewApplication(t *testing.T, cfgs ...*starknet.StarknetConfig) *cltest.TestApplication {
+func starknetStartNewApplication(t *testing.T, cfgs ...*config.TOMLConfig) *cltest.TestApplication {
 	for i := range cfgs {
 		cfgs[i].SetDefaults()
 	}
@@ -41,9 +40,9 @@ func TestShell_IndexStarkNetNodes(t *testing.T) {
 		Name: ptr("second"),
 		URL:  utils.MustParseURL("https://starknet2.example"),
 	}
-	chain := starknet.StarknetConfig{
+	chain := config.TOMLConfig{
 		ChainID: &id,
-		Nodes:   starknet.StarknetNodes{&node1, &node2},
+		Nodes:   config.Nodes{&node1, &node2},
 	}
 	app := starknetStartNewApplication(t, &chain)
 	client, r := app.NewShellAndRenderer()

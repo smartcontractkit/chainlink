@@ -28,6 +28,7 @@ func TestVRFBasic(t *testing.T) {
 		WithGeth().
 		WithCLNodes(1).
 		WithFunding(big.NewFloat(.1)).
+		WithStandardCleanup().
 		Build()
 	require.NoError(t, err)
 	env.ParallelTransactions(true)

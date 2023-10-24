@@ -70,6 +70,17 @@ build_test_image:
 build_push_docker_image:
 	docker build -f ../core/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t localhost:5000/chainlink:develop ../ ; docker push localhost:5000/chainlink:develop
 
+#Build a chainlink docker image in plugin mode for local testing and push to k3d registry
+.PHONY: build_push_plugin_docker_image
+build_push_plugin_docker_image:
+	docker build -f ../plugins/chainlink.Dockerfile --build-arg COMMIT_SHA=$(git rev-parse HEAD) --build-arg CHAINLINK_USER=chainlink -t localhost:5000/chainlink:develop ../ ; docker push localhost:5000/chainlink:develop
+
+# Spins up containers needed to collect traces for local testing
+.PHONY: run_tracing
+run_tracing:
+	cd ../.github/tracing
+	docker compose -f ../.github/tracing/local-smoke-docker-compose.yaml up
+
 ## Test Runner
 .PHONY: run
 run: # Need to set network first in case it's unset. Doesn't matter for the runner

@@ -28,20 +28,21 @@ import (
 )
 
 const (
-	applicationJson     = "application/json"
-	blockNumber         = "blockNumber" // valid for v0.2
-	feedIDs             = "feedIDs"     // valid for v0.3
-	feedIdHex           = "feedIdHex"   // valid for v0.2
-	headerAuthorization = "Authorization"
-	headerContentType   = "Content-Type"
-	headerTimestamp     = "X-Authorization-Timestamp"
-	headerSignature     = "X-Authorization-Signature-SHA256"
-	headerUpkeepId      = "X-Authorization-Upkeep-Id"
-	mercuryPathV02      = "/client?"              // only used to access mercury v0.2 server
-	mercuryBatchPathV03 = "/api/v1/reports/bulk?" // only used to access mercury v0.3 server
-	retryDelay          = 500 * time.Millisecond
-	timestamp           = "timestamp" // valid for v0.3
-	totalAttempt        = 3
+	applicationJson                = "application/json"
+	blockNumber                    = "blockNumber" // valid for v0.2
+	feedIDs                        = "feedIDs"     // valid for v0.3
+	feedIdHex                      = "feedIdHex"   // valid for v0.2
+	headerAuthorization            = "Authorization"
+	headerContentType              = "Content-Type"
+	headerTimestamp                = "X-Authorization-Timestamp"
+	headerSignature                = "X-Authorization-Signature-SHA256"
+	headerUpkeepId                 = "X-Authorization-Upkeep-Id"
+	mercuryPathV02                 = "/client?"                 // only used to access mercury v0.2 server
+	mercuryBatchPathV03            = "/api/v1/reports/bulk?"    // only used to access mercury v0.3 server
+	mercuryBatchPathV03BlockNumber = "/api/v1gmx/reports/bulk?" // only used to access mercury v0.3 server with blockNumber
+	retryDelay                     = 500 * time.Millisecond
+	timestamp                      = "timestamp" // valid for v0.3
+	totalAttempt                   = 3
 )
 
 type StreamsLookup struct {
@@ -442,7 +443,11 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 	//	timestamp: {sl.Time.String()},
 	//}
 	params := fmt.Sprintf("%s=%s&%s=%s", feedIDs, strings.Join(sl.Feeds, ","), sl.TimeParamKey, sl.Time.String())
-	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, mercuryBatchPathV03, params)
+	batchPathV03 := mercuryBatchPathV03
+	if sl.TimeParamKey == blockNumber {
+		batchPathV03 = mercuryBatchPathV03BlockNumber
+	}
+	reqUrl := fmt.Sprintf("%s%s%s", r.mercury.cred.URL, batchPathV03, params)
 	lggr.Debugf("request URL for upkeep %s userId %s: %s", sl.upkeepId.String(), r.mercury.cred.Username, reqUrl)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqUrl, nil)
@@ -452,7 +457,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 	}
 
 	ts := time.Now().UTC().UnixMilli()
-	signature := r.generateHMAC(http.MethodGet, mercuryBatchPathV03+params, []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
+	signature := r.generateHMAC(http.MethodGet, batchPathV03+params, []byte{}, r.mercury.cred.Username, r.mercury.cred.Password, ts)
 	req.Header.Set(headerContentType, applicationJson)
 	// username here is often referred to as user id
 	req.Header.Set(headerAuthorization, r.mercury.cred.Username)
@@ -498,7 +503,7 @@ func (r *EvmRegistry) multiFeedsRequest(ctx context.Context, ch chan<- MercuryDa
 			} else if resp.StatusCode == http.StatusBadRequest {
 				retryable = false
 				state = encoding.InvalidMercuryRequest
-				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by invalid format of timestamp", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode)
+				return fmt.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3 with message: %s", sl.Time.String(), sl.upkeepId.String(), resp.StatusCode, string(body))
 			} else if resp.StatusCode == http.StatusInternalServerError {
 				retryable = true
 				state = encoding.MercuryFlakyFailure

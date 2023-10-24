@@ -2,6 +2,7 @@ package cmd_test
 
 import (
 	"bytes"
+	_ "embed"
 	"flag"
 	"fmt"
 	"testing"
@@ -295,21 +296,8 @@ func TestJob_ToRows(t *testing.T) {
 	}, job.ToRows())
 }
 
-const directRequestSpecTemplate = `
-type                = "directrequest"
-schemaVersion       = 1
-evmChainID          = "0"
-name                = "%s"
-contractAddress     = "0x613a38AC1659769640aaE063C651F48E0250454C"
-externalJobID       = "%s"
-observationSource   = """
-    ds1          [type=http method=GET url="http://example.com" allowunrestrictednetworkaccess="true"];
-    ds1_merge    [type=merge left="{}"]
-    ds1_parse    [type=jsonparse path="USD"];
-    ds1_multiply [type=multiply times=100];
-    ds1 -> ds1_parse -> ds1_multiply;
-"""
-`
+//go:embed direct-request-spec-template.yml
+var directRequestSpecTemplate string
 
 func getDirectRequestSpec() string {
 	return fmt.Sprintf(directRequestSpecTemplate, uuid.New(), uuid.New())
@@ -371,6 +359,9 @@ func TestShell_ShowJob(t *testing.T) {
 	assert.Equal(t, createOutput.ID, job.ID)
 }
 
+//go:embed ocr-bootstrap-spec.yml
+var ocrBootstrapSpec string
+
 func TestShell_CreateJobV2(t *testing.T) {
 	t.Parallel()
 
@@ -393,7 +384,9 @@ func TestShell_CreateJobV2(t *testing.T) {
 	fs := flag.NewFlagSet("", flag.ExitOnError)
 	cltest.FlagSetApplyFromAction(client.CreateJob, fs, "")
 
-	require.NoError(t, fs.Parse([]string{"../testdata/tomlspecs/ocr-bootstrap-spec.toml"}))
+	nameAndExternalJobID := uuid.New()
+	spec := fmt.Sprintf(ocrBootstrapSpec, nameAndExternalJobID, nameAndExternalJobID)
+	require.NoError(t, fs.Parse([]string{spec}))
 
 	err := client.CreateJob(cli.NewContext(nil, fs, nil))
 	require.NoError(t, err)

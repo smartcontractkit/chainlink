@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync/atomic"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services"
+	"github.com/smartcontractkit/chainlink-relay/pkg/services"
 
 	"github.com/gorilla/websocket"
 
@@ -30,7 +30,7 @@ import (
 // All methods are thread-safe.
 type WSConnectionWrapper interface {
 	job.ServiceCtx
-	services.Checkable
+	services.HealthReporter
 
 	// Update underlying connection object. Return a channel that gets an error on connection close.
 	// Cannot be called after Close().

@@ -16,7 +16,6 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -345,26 +344,26 @@ func TestNewUserCache(t *testing.T) {
 
 func TestSetupSolanaRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	reg := plugins.NewLoopRegistry(lggr)
+	reg := plugins.NewLoopRegistry(lggr, nil)
 	ks := mocks.NewSolana(t)
 
 	// config 3 chains but only enable 2 => should only be 2 relayer
 	nEnabledChains := 2
 	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Solana = solana.SolanaConfigs{
-			&solana.SolanaConfig{
+		c.Solana = solana.TOMLConfigs{
+			&solana.TOMLConfig{
 				ChainID: ptr[string]("solana-id-1"),
 				Enabled: ptr(true),
 				Chain:   solcfg.Chain{},
 				Nodes:   []*solcfg.Node{},
 			},
-			&solana.SolanaConfig{
+			&solana.TOMLConfig{
 				ChainID: ptr[string]("solana-id-2"),
 				Enabled: ptr(true),
 				Chain:   solcfg.Chain{},
 				Nodes:   []*solcfg.Node{},
 			},
-			&solana.SolanaConfig{
+			&solana.TOMLConfig{
 				ChainID: ptr[string]("disabled-solana-id-1"),
 				Enabled: ptr(false),
 				Chain:   solcfg.Chain{},
@@ -401,14 +400,14 @@ func TestSetupSolanaRelayer(t *testing.T) {
 
 	// test that duplicate enabled chains is an error when
 	duplicateConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Solana = solana.SolanaConfigs{
-			&solana.SolanaConfig{
+		c.Solana = solana.TOMLConfigs{
+			&solana.TOMLConfig{
 				ChainID: ptr[string]("dupe"),
 				Enabled: ptr(true),
 				Chain:   solcfg.Chain{},
 				Nodes:   []*solcfg.Node{},
 			},
-			&solana.SolanaConfig{
+			&solana.TOMLConfig{
 				ChainID: ptr[string]("dupe"),
 				Enabled: ptr(true),
 				Chain:   solcfg.Chain{},
@@ -432,25 +431,25 @@ func TestSetupSolanaRelayer(t *testing.T) {
 
 func TestSetupStarkNetRelayer(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	reg := plugins.NewLoopRegistry(lggr)
+	reg := plugins.NewLoopRegistry(lggr, nil)
 	ks := mocks.NewStarkNet(t)
 	// config 3 chains but only enable 2 => should only be 2 relayer
 	nEnabledChains := 2
 	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Starknet = starknet.StarknetConfigs{
-			&starknet.StarknetConfig{
+		c.Starknet = stkcfg.TOMLConfigs{
+			&stkcfg.TOMLConfig{
 				ChainID: ptr[string]("starknet-id-1"),
 				Enabled: ptr(true),
 				Chain:   stkcfg.Chain{},
 				Nodes:   []*config.Node{},
 			},
-			&starknet.StarknetConfig{
+			&stkcfg.TOMLConfig{
 				ChainID: ptr[string]("starknet-id-2"),
 				Enabled: ptr(true),
 				Chain:   stkcfg.Chain{},
 				Nodes:   []*config.Node{},
 			},
-			&starknet.StarknetConfig{
+			&stkcfg.TOMLConfig{
 				ChainID: ptr[string]("disabled-starknet-id-1"),
 				Enabled: ptr(false),
 				Chain:   stkcfg.Chain{},
@@ -486,14 +485,14 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 
 	// test that duplicate enabled chains is an error when
 	duplicateConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Starknet = starknet.StarknetConfigs{
-			&starknet.StarknetConfig{
+		c.Starknet = stkcfg.TOMLConfigs{
+			&stkcfg.TOMLConfig{
 				ChainID: ptr[string]("dupe"),
 				Enabled: ptr(true),
 				Chain:   stkcfg.Chain{},
 				Nodes:   []*config.Node{},
 			},
-			&starknet.StarknetConfig{
+			&stkcfg.TOMLConfig{
 				ChainID: ptr[string]("dupe"),
 				Enabled: ptr(true),
 				Chain:   stkcfg.Chain{},
