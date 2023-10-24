@@ -13,6 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
+	"github.com/smartcontractkit/chainlink-relay/pkg/types"
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -28,10 +31,6 @@ import (
 	"github.com/smartcontractkit/ocr2vrf/ocr2vrf"
 	"github.com/smartcontractkit/sqlx"
 
-	relaylogger "github.com/smartcontractkit/chainlink-relay/pkg/logger"
-	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
-	"github.com/smartcontractkit/chainlink-relay/pkg/types"
-
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -46,6 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/autotelemetry21"
 	ocr2keeper21core "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evm21/core"
 	ocr2vrfconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/config"
 	ocr2coordinator "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2vrf/coordinator"
@@ -1016,7 +1016,7 @@ func (d *Delegate) newServicesOCR2Keepers21(
 	if cfg.CaptureAutomationCustomTelemetry != nil && *cfg.CaptureAutomationCustomTelemetry ||
 		cfg.CaptureAutomationCustomTelemetry == nil && d.cfg.OCR2().CaptureAutomationCustomTelemetry() {
 		endpoint := d.monitoringEndpointGen.GenMonitoringEndpoint(spec.ContractID, synchronization.AutomationCustom, rid.Network, rid.ChainID)
-		customTelemService, custErr := ocr2keeper.NewAutomationCustomTelemetryService(
+		customTelemService, custErr := autotelemetry21.NewAutomationCustomTelemetryService(
 			endpoint,
 			lggr,
 			services.BlockSubscriber(),
@@ -1155,16 +1155,14 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		d.cfg.JobPipeline().MaxSuccessfulRuns(),
 	)
 
-	automationServices := []job.ServiceCtx{
+	return []job.ServiceCtx{
 		job.NewServiceAdapter(runr),
 		runResultSaver,
 		keeperProvider,
 		rgstry,
 		logProvider,
 		pluginService,
-	}
-
-	return automationServices, nil
+	}, nil
 }
 
 func (d *Delegate) newServicesOCR2Functions(
