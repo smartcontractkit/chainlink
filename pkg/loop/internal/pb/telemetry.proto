@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink-relay/pkg/loop/internal/pb";
+
+package loop;
+
+import "google/protobuf/empty.proto";
+
+message RelayID {
+  string network = 1;
+  string chainId = 2;
+}
+
+message TelemetryMessage {
+  RelayID relayID = 1;
+  string contractID = 2;
+  string telemetryType = 3;
+  bytes payload  = 4;
+}
+
+service Telemetry  {
+  rpc Send(TelemetryMessage) returns (google.protobuf.Empty);
+}
