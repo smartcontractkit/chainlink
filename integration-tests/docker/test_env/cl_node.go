@@ -86,14 +86,16 @@ func WithLogWatch(lw *logwatch.LogWatch) ClNodeOption {
 	}
 }
 
-func NewClNode(networks []string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
+func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *chainlink.Config, opts ...ClNodeOption) *ClNode {
 	nodeDefaultCName := fmt.Sprintf("%s-%s", "cl-node", uuid.NewString()[0:8])
 	pgDefaultCName := fmt.Sprintf("pg-%s", nodeDefaultCName)
 	pgDb := test_env.NewPostgresDb(networks, test_env.WithPostgresDbContainerName(pgDefaultCName))
 	n := &ClNode{
 		EnvComponent: test_env.EnvComponent{
-			ContainerName: nodeDefaultCName,
-			Networks:      networks,
+			ContainerName:    nodeDefaultCName,
+			ContainerImage:   imageName,
+			ContainerVersion: imageVersion,
+			Networks:         networks,
 		},
 		NodeConfig: nodeConfig,
 		PostgresDb: pgDb,
@@ -126,7 +128,7 @@ func (n *ClNode) UpgradeVersion(cfg *chainlink.Config, newImage, newVersion stri
 		return fmt.Errorf("new version is empty")
 	}
 	if newImage == "" {
-		newImage = os.Getenv("CHAINLINK_IMAGE")
+		return fmt.Errorf("new image name is empty")
 	}
 	n.ContainerImage = newImage
 	n.ContainerVersion = newVersion
@@ -359,21 +361,6 @@ func (n *ClNode) getContainerRequest(secrets string) (
 	secretsPath := "/home/cl-node-secrets.toml"
 	adminCredsPath := "/home/admin-credentials.txt"
 	apiCredsPath := "/home/api-credentials.txt"
-
-	if n.ContainerImage == "" {
-		image, ok := os.LookupEnv("CHAINLINK_IMAGE")
-		if !ok {
-			return nil, errors.New("CHAINLINK_IMAGE env must be set")
-		}
-		n.ContainerImage = image
-	}
-	if n.ContainerVersion == "" {
-		version, ok := os.LookupEnv("CHAINLINK_VERSION")
-		if !ok {
-			return nil, errors.New("CHAINLINK_VERSION env must be set")
-		}
-		n.ContainerVersion = version
-	}
 
 	return &tc.ContainerRequest{
 		Name:         n.ContainerName,
