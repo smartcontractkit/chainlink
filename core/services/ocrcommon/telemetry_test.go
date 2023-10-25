@@ -433,17 +433,17 @@ func TestGetFinalValues(t *testing.T) {
 	}
 
 	benchmarkPrice, bid, ask, blockNr, blockHash, blockTimestamp := e.getFinalValues(o)
-	require.Equal(t, benchmarkPrice, int64(111111))
-	require.Equal(t, bid, int64(222222))
-	require.Equal(t, ask, int64(333333))
+	require.Equal(t, benchmarkPrice, big.NewInt(111111))
+	require.Equal(t, bid, big.NewInt(222222))
+	require.Equal(t, ask, big.NewInt(333333))
 	require.Equal(t, blockNr, int64(123456789))
 	require.Equal(t, blockHash, common.HexToHash("0x123321").Bytes())
 	require.Equal(t, blockTimestamp, uint64(987654321))
 
 	benchmarkPrice, bid, ask, blockNr, blockHash, blockTimestamp = e.getFinalValues(mercuryv1.Observation{})
-	require.Equal(t, benchmarkPrice, int64(0))
-	require.Equal(t, bid, int64(0))
-	require.Equal(t, ask, int64(0))
+	require.Equal(t, benchmarkPrice, big.NewInt(0))
+	require.Equal(t, bid, big.NewInt(0))
+	require.Equal(t, ask, big.NewInt(0))
 	require.Equal(t, blockNr, int64(0))
 	require.Nil(t, blockHash)
 	require.Equal(t, blockTimestamp, uint64(0))
@@ -598,27 +598,30 @@ func TestCollectMercuryEnhancedTelemetry(t *testing.T) {
 	}
 
 	expectedTelemetry := telem.EnhancedEAMercury{
-		DataSource:                    "data-source-name",
-		DpBenchmarkPrice:              123456.123456,
-		DpBid:                         1234567.1234567,
-		DpAsk:                         321123,
-		CurrentBlockNumber:            123456789,
-		CurrentBlockHash:              common.HexToHash("0x123321").String(),
-		CurrentBlockTimestamp:         987654321,
-		BridgeTaskRunStartedTimestamp: trrsMercury[0].CreatedAt.UnixMilli(),
-		BridgeTaskRunEndedTimestamp:   trrsMercury[0].FinishedAt.Time.UnixMilli(),
-		ProviderRequestedTimestamp:    92233720368547760,
-		ProviderReceivedTimestamp:     -92233720368547760,
-		ProviderDataStreamEstablished: 1,
-		ProviderIndicatedTime:         -123456789,
-		Feed:                          common.HexToHash("0x111").String(),
-		ObservationBenchmarkPrice:     111111,
-		ObservationBid:                222222,
-		ObservationAsk:                333333,
-		ConfigDigest:                  "0200000000000000000000000000000000000000000000000000000000000000",
-		Round:                         22,
-		Epoch:                         11,
-		AssetSymbol:                   "USD/LINK",
+		DataSource:                      "data-source-name",
+		DpBenchmarkPrice:                123456.123456,
+		DpBid:                           1234567.1234567,
+		DpAsk:                           321123,
+		CurrentBlockNumber:              123456789,
+		CurrentBlockHash:                common.HexToHash("0x123321").String(),
+		CurrentBlockTimestamp:           987654321,
+		BridgeTaskRunStartedTimestamp:   trrsMercury[0].CreatedAt.UnixMilli(),
+		BridgeTaskRunEndedTimestamp:     trrsMercury[0].FinishedAt.Time.UnixMilli(),
+		ProviderRequestedTimestamp:      92233720368547760,
+		ProviderReceivedTimestamp:       -92233720368547760,
+		ProviderDataStreamEstablished:   1,
+		ProviderIndicatedTime:           -123456789,
+		Feed:                            common.HexToHash("0x111").String(),
+		ObservationBenchmarkPrice:       111111,
+		ObservationBid:                  222222,
+		ObservationAsk:                  333333,
+		ConfigDigest:                    "0200000000000000000000000000000000000000000000000000000000000000",
+		Round:                           22,
+		Epoch:                           11,
+		AssetSymbol:                     "USD/LINK",
+		ObservationBenchmarkPriceString: "111111",
+		ObservationBidString:            "222222",
+		ObservationAskString:            "333333",
 	}
 
 	expectedMessage, _ := proto.Marshal(&expectedTelemetry)

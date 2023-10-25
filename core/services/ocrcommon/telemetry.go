@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -290,27 +291,30 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(obs relaym
 		benchmarkPrice, bidPrice, askPrice := e.getPricesFromResults(trr, &trrs)
 
 		t := &telem.EnhancedEAMercury{
-			DataSource:                    eaTelem.DataSource,
-			DpBenchmarkPrice:              benchmarkPrice,
-			DpBid:                         bidPrice,
-			DpAsk:                         askPrice,
-			CurrentBlockNumber:            obsBlockNum,
-			CurrentBlockHash:              common.BytesToHash(obsBlockHash).String(),
-			CurrentBlockTimestamp:         obsBlockTimestamp,
-			BridgeTaskRunStartedTimestamp: trr.CreatedAt.UnixMilli(),
-			BridgeTaskRunEndedTimestamp:   trr.FinishedAt.Time.UnixMilli(),
-			ProviderRequestedTimestamp:    eaTelem.ProviderRequestedTimestamp,
-			ProviderReceivedTimestamp:     eaTelem.ProviderReceivedTimestamp,
-			ProviderDataStreamEstablished: eaTelem.ProviderDataStreamEstablished,
-			ProviderIndicatedTime:         eaTelem.ProviderIndicatedTime,
-			Feed:                          e.job.OCR2OracleSpec.FeedID.Hex(),
-			ObservationBenchmarkPrice:     obsBenchmarkPrice,
-			ObservationBid:                obsBid,
-			ObservationAsk:                obsAsk,
-			ConfigDigest:                  repts.ConfigDigest.Hex(),
-			Round:                         int64(repts.Round),
-			Epoch:                         int64(repts.Epoch),
-			AssetSymbol:                   assetSymbol,
+			DataSource:                      eaTelem.DataSource,
+			DpBenchmarkPrice:                benchmarkPrice,
+			DpBid:                           bidPrice,
+			DpAsk:                           askPrice,
+			CurrentBlockNumber:              obsBlockNum,
+			CurrentBlockHash:                common.BytesToHash(obsBlockHash).String(),
+			CurrentBlockTimestamp:           obsBlockTimestamp,
+			BridgeTaskRunStartedTimestamp:   trr.CreatedAt.UnixMilli(),
+			BridgeTaskRunEndedTimestamp:     trr.FinishedAt.Time.UnixMilli(),
+			ProviderRequestedTimestamp:      eaTelem.ProviderRequestedTimestamp,
+			ProviderReceivedTimestamp:       eaTelem.ProviderReceivedTimestamp,
+			ProviderDataStreamEstablished:   eaTelem.ProviderDataStreamEstablished,
+			ProviderIndicatedTime:           eaTelem.ProviderIndicatedTime,
+			Feed:                            e.job.OCR2OracleSpec.FeedID.Hex(),
+			ObservationBenchmarkPrice:       obsBenchmarkPrice.Int64(), //Deprecated: observation value will not fit in int64, we will use the string equivalent field below
+			ObservationBid:                  obsBid.Int64(),            //Deprecated: observation value will not fit in int64, we will use the string equivalent field below
+			ObservationAsk:                  obsAsk.Int64(),            //Deprecated: observation value will not fit in int64, we will use the string equivalent field below
+			ConfigDigest:                    repts.ConfigDigest.Hex(),
+			Round:                           int64(repts.Round),
+			Epoch:                           int64(repts.Epoch),
+			AssetSymbol:                     assetSymbol,
+			ObservationBenchmarkPriceString: obsBenchmarkPrice.String(),
+			ObservationBidString:            obsBid.String(),
+			ObservationAskString:            obsAsk.String(),
 		}
 
 		bytes, err := proto.Marshal(t)
@@ -408,17 +412,19 @@ func (e *EnhancedTelemetryService[T]) getPricesFromResults(startTask pipeline.Ta
 }
 
 // getFinalValues runs a parse on the pipeline.TaskRunResults and returns the values
-func (e *EnhancedTelemetryService[T]) getFinalValues(obs relaymercuryv1.Observation) (int64, int64, int64, int64, []byte, uint64) {
-	var benchmarkPrice, bid, ask int64
+func (e *EnhancedTelemetryService[T]) getFinalValues(obs relaymercuryv1.Observation) (*big.Int, *big.Int, *big.Int, int64, []byte, uint64) {
+	benchmarkPrice := big.NewInt(0)
+	bid := big.NewInt(0)
+	ask := big.NewInt(0)
 
 	if obs.BenchmarkPrice.Val != nil {
-		benchmarkPrice = obs.BenchmarkPrice.Val.Int64()
+		benchmarkPrice = obs.BenchmarkPrice.Val
 	}
 	if obs.Bid.Val != nil {
-		bid = obs.Bid.Val.Int64()
+		bid = obs.Bid.Val
 	}
 	if obs.Ask.Val != nil {
-		ask = obs.Ask.Val.Int64()
+		ask = obs.Ask.Val
 	}
 
 	return benchmarkPrice, bid, ask, obs.CurrentBlockNum.Val, obs.CurrentBlockHash.Val, obs.CurrentBlockTimestamp.Val
