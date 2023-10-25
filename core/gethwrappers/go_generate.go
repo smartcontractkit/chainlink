@@ -62,6 +62,12 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/LogTriggeredStreamsLookup.abi ../../contracts/solc/v0.8.16/LogTriggeredStreamsLookup.bin LogTriggeredStreamsLookup log_triggered_streams_lookup_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/DummyProtocol.abi ../../contracts/solc/v0.8.16/DummyProtocol.bin DummyProtocol dummy_protocol_wrapper
 
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/KeeperConsumer.abi ../../contracts/solc/v0.8.16/KeeperConsumer.bin KeeperConsumer keeper_consumer_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/KeeperConsumerPerformance.abi ../../contracts/solc/v0.8.16/KeeperConsumerPerformance.bin KeeperConsumerPerformance keeper_consumer_performance_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/PerformDataChecker.abi ../../contracts/solc/v0.8.16/PerformDataChecker.bin PerformDataChecker perform_data_checker_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/UpkeepCounter.abi ../../contracts/solc/v0.8.16/UpkeepCounter.bin UpkeepCounter upkeep_counter_wrapper
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.16/UpkeepPerformCounterRestrictive.abi ../../contracts/solc/v0.8.16/UpkeepPerformCounterRestrictive.bin UpkeepPerformCounterRestrictive upkeep_perform_counter_restrictive_wrapper
+
 // v0.8.6 VRFConsumer
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFCoordinatorMock.abi ../../contracts/solc/v0.8.6/VRFCoordinatorMock.bin VRFCoordinatorMock vrf_coordinator_mock
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFConsumer.abi ../../contracts/solc/v0.8.6/VRFConsumer.bin VRFConsumer solidity_vrf_consumer_interface_v08
@@ -71,6 +77,7 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFLoadTestExternalSubOwner.abi ../../contracts/solc/v0.8.6/VRFLoadTestExternalSubOwner.bin VRFLoadTestExternalSubOwner vrf_load_test_external_sub_owner
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2LoadTestWithMetrics.abi ../../contracts/solc/v0.8.6/VRFV2LoadTestWithMetrics.bin VRFV2LoadTestWithMetrics vrf_load_test_with_metrics
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFV2OwnerTestConsumer.abi ../../contracts/solc/v0.8.6/VRFV2OwnerTestConsumer.bin VRFV2OwnerTestConsumer vrf_owner_test_consumer
+//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/VRFv2Consumer.abi ../../contracts/solc/v0.8.6/VRFv2Consumer.bin VRFv2Consumer vrf_v2_consumer_wrapper
 
 //go:generate go run ./generation/generate_link/wrap_link.go
 
@@ -148,11 +155,7 @@ package gethwrappers
 // 2. Generate events mock .sol files based on ABI of compiled contracts.
 // 3. Compile events mock contracts. ./generation/compile_event_mock_contract.sh calls contracts/scripts/native_solc_compile_all_events_mock to compile events mock contracts.
 // 4. Generate wrappers for events mock contracts.
-//go:generate go run ./generation/generate_events_mock/create_events_mock_contract.go ../../contracts/solc/v0.8.6/functions/v0_0_0/FunctionsOracle.abi ../../contracts/src/v0.8/mocks/FunctionsOracleEventsMock.sol FunctionsOracleEventsMock
-//go:generate go run ./generation/generate_events_mock/create_events_mock_contract.go ../../contracts/solc/v0.8.6/functions/v0_0_0/FunctionsBillingRegistry.abi ../../contracts/src/v0.8/mocks/FunctionsBillingRegistryEventsMock.sol FunctionsBillingRegistryEventsMock
 //go:generate ./generation/compile_event_mock_contract.sh
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/FunctionsOracleEventsMock.abi ../../contracts/solc/v0.8.6/FunctionsOracleEventsMock.bin FunctionsOracleEventsMock functions_oracle_events_mock
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/FunctionsBillingRegistryEventsMock.abi ../../contracts/solc/v0.8.6/FunctionsBillingRegistryEventsMock.bin FunctionsBillingRegistryEventsMock functions_billing_registry_events_mock
 
 // Transmission
 //go:generate go generate ./transmission

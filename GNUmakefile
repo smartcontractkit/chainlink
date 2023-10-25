@@ -61,10 +61,6 @@ chainlink-local-start:
 install-median: ## Build & install the chainlink-median binary.
 	go install $(GOFLAGS) ./plugins/cmd/chainlink-median
 
-.PHONY: install-starknet
-install-starknet: ## Build & install the chainlink-starknet binary.
-	go install $(GOFLAGS) ./plugins/cmd/chainlink-starknet
-
 .PHONY: docker ## Build the chainlink docker image
 docker:
 	docker buildx build \

@@ -98,10 +98,6 @@ import (
 )
 
 const (
-	// APIKey of the fixture API user
-	APIKey = "2d25e62eaf9143e993acaf48691564b2"
-	// APISecret of the fixture API user.
-	APISecret = "1eCP/w0llVkchejFaoBpfIGaLRxZK54lTXBCT22YLW+pdzE4Fafy/XO5LoJ2uwHi"
 	// Collection of test fixture DB user emails per role
 	APIEmailAdmin    = "apiuser@chainlink.test"
 	APIEmailEdit     = "apiuser-edit@chainlink.test"
