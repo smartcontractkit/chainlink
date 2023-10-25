@@ -35,7 +35,6 @@ const zeroLINK = ethers.utils.parseEther('0')
 const oneLINK = ethers.utils.parseEther('1')
 const twoLINK = ethers.utils.parseEther('2')
 const fiveLINK = ethers.utils.parseEther('5')
-const sixLINK = ethers.utils.parseEther('6')
 const tenLINK = ethers.utils.parseEther('10')
 const oneHundredLINK = ethers.utils.parseEther('100')
 
@@ -142,8 +141,12 @@ const setup = async () => {
     owner,
   )
 
-  lt = await ltFactory.deploy()
-  labm = await labmFactory.deploy(lt.address, twoLINK)
+  // New parameters needed by the constructor
+  const maxPerform = 5
+  const maxCheck = 20
+
+  lt = (await ltFactory.deploy()) as LinkToken
+  labm = await labmFactory.deploy(lt.address, twoLINK, maxPerform, maxCheck)
   await labm.deployed()
 
   for (let i = 1; i <= 4; i++) {
@@ -471,8 +474,8 @@ describe('LinkAvailableBalanceMonitor', () => {
       let aggregators: MockContract[]
 
       beforeEach(async () => {
-        MAX_PERFORM = (await labm.MAX_PERFORM()).toNumber()
-        MAX_CHECK = (await labm.MAX_CHECK()).toNumber()
+        MAX_PERFORM = (await labm.getMaxPerform()).toNumber()
+        MAX_CHECK = (await labm.getMaxCheck()).toNumber()
         proxyAddresses = []
         minBalances = []
         aggregators = []
@@ -577,7 +580,7 @@ describe('LinkAvailableBalanceMonitor', () => {
 
     it('Can handle MAX_PERFORM proxies within gas limit', async () => {
       // add MAX_PERFORM number of proxies
-      const MAX_PERFORM = (await labm.MAX_PERFORM()).toNumber()
+      const MAX_PERFORM = (await labm.getMaxPerform()).toNumber()
       const proxyAddresses = []
       const minBalances = []
       for (let idx = 0; idx < MAX_PERFORM; idx++) {
