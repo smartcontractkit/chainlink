@@ -49,6 +49,8 @@ type ClNode struct {
 	NodeConfig            *chainlink.Config       `json:"-"`
 	NodeSecretsConfigTOML string                  `json:"-"`
 	PostgresDb            *test_env.PostgresDb    `json:"postgresDb"`
+	UserEmail             string                  `json:"userEmail"`
+	UserPassword          string                  `json:"userPassword"`
 	t                     *testing.T
 	l                     zerolog.Logger
 	lw                    *logwatch.LogWatch
@@ -97,9 +99,11 @@ func NewClNode(networks []string, imageName, imageVersion string, nodeConfig *ch
 			ContainerVersion: imageVersion,
 			Networks:         networks,
 		},
-		NodeConfig: nodeConfig,
-		PostgresDb: pgDb,
-		l:          log.Logger,
+		UserEmail:    "local@local.com",
+		UserPassword: "localdevpassword",
+		NodeConfig:   nodeConfig,
+		PostgresDb:   pgDb,
+		l:            log.Logger,
 	}
 	for _, opt := range opts {
 		opt(n)
@@ -293,14 +297,18 @@ func (n *ClNode) StartContainer() error {
 	if err != nil {
 		return err
 	}
-	n.l.Info().Str("containerName", n.ContainerName).
+	n.l.Info().
+		Str("containerName", n.ContainerName).
+		Str("containerImage", n.ContainerImage).
+		Str("containerVersion", n.ContainerVersion).
 		Str("clEndpoint", clEndpoint).
 		Str("clInternalIP", ip).
+		Str("userEmail", n.UserEmail).
+		Str("userPassword", n.UserPassword).
 		Msg("Started Chainlink Node container")
 	clClient, err := client.NewChainlinkClient(&client.ChainlinkConfig{
 		URL:        clEndpoint,
-		Email:      "local@local.com",
-		Password:   "localdevpassword",
+		Email:      n.UserEmail,
 		InternalIP: ip,
 	},
 		n.l)
