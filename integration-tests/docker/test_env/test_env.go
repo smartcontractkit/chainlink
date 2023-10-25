@@ -142,7 +142,7 @@ func (te *CLClusterTestEnv) StartClCluster(nodeConfig *chainlink.Config, count i
 	} else {
 		te.ClCluster = &ClCluster{}
 		for i := 0; i < count; i++ {
-			ocrNode := NewClNode([]string{te.Network.Name}, os.Getenv("CHAINLINK_IMAGE"), os.Getenv("CHAINLINK_IMAGE"), nodeConfig,
+			ocrNode := NewClNode([]string{te.Network.Name}, os.Getenv("CHAINLINK_IMAGE"), os.Getenv("CHAINLINK_VERSION"), nodeConfig,
 				WithSecrets(secretsConfig),
 			)
 			te.ClCluster.Nodes = append(te.ClCluster.Nodes, ocrNode)

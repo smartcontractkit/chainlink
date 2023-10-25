@@ -309,6 +309,7 @@ func (n *ClNode) StartContainer() error {
 	clClient, err := client.NewChainlinkClient(&client.ChainlinkConfig{
 		URL:        clEndpoint,
 		Email:      n.UserEmail,
+		Password:   n.UserPassword,
 		InternalIP: ip,
 	},
 		n.l)
