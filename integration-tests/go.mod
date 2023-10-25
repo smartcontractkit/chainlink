@@ -6,6 +6,7 @@ go 1.21
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
 require (
+	github.com/AlekSi/pointer v1.1.0
 	github.com/K-Phoen/grabana v0.21.17
 	github.com/cli/go-gh/v2 v2.0.0
 	github.com/ethereum/go-ethereum v1.12.0

@@ -6,10 +6,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AlekSi/pointer"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/ccip/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
@@ -23,15 +25,15 @@ func TestSmokeCCIPForBidirectionalLane(t *testing.T) {
 		lane     *actions.CCIPLane
 	}
 	l := logging.GetTestLogger(t)
-	TestCfg := testsetups.NewCCIPTestConfig(t, l, testsetups.Smoke)
-	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, l, "smoke-ccip", 6, nil, 5, true, true, TestCfg)
+	TestCfg := testsetups.NewCCIPTestConfig(t, l, testconfig.Smoke)
+	setUpOutput := testsetups.CCIPDefaultTestSetUp(t, l, "smoke-ccip", nil, TestCfg)
 	var tcs []subtestInput
 	if len(setUpOutput.Lanes) == 0 {
 		return
 	}
 
 	t.Cleanup(func() {
-		if TestCfg.MsgType == actions.TokenTransfer {
+		if TestCfg.TestGroupInput.MsgType == actions.TokenTransfer {
 			setUpOutput.Balance.Verify(t)
 		}
 		require.NoError(t, setUpOutput.TearDown())
@@ -62,7 +64,7 @@ func TestSmokeCCIPForBidirectionalLane(t *testing.T) {
 				Msgf("Starting lane %s -> %s", tc.lane.SourceNetworkName, tc.lane.DestNetworkName)
 
 			tc.lane.RecordStateBeforeTransfer()
-			err := tc.lane.SendRequests(1, TestCfg.MsgType)
+			err := tc.lane.SendRequests(1, TestCfg.TestGroupInput.MsgType)
 			require.NoError(t, err)
 			tc.lane.ValidateRequests()
 		})
@@ -76,11 +78,10 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 		lane     *actions.CCIPLane
 	}
 	l := logging.GetTestLogger(t)
-	TestCfg := testsetups.NewCCIPTestConfig(t, l, testsetups.Smoke)
-	require.Equal(t, actions.TokenTransfer, TestCfg.MsgType, "Test config should have token transfer message type")
+	TestCfg := testsetups.NewCCIPTestConfig(t, l, testconfig.Smoke)
+	require.Equal(t, actions.TokenTransfer, TestCfg.TestGroupInput.MsgType, "Test config should have token transfer message type")
 	setUpOutput := testsetups.CCIPDefaultTestSetUp(
-		t, l, "smoke-ccip", 6, nil,
-		5, true, true, TestCfg)
+		t, l, "smoke-ccip", nil, TestCfg)
 	var tcs []subtestInput
 	if len(setUpOutput.Lanes) == 0 {
 		return
@@ -113,7 +114,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			tc.lane.Test = t
 			src := tc.lane.Source
 			// add liquidity to pools on both networks
-			if !TestCfg.ExistingDeployment {
+			if !pointer.GetBool(TestCfg.TestGroupInput.ExistingDeployment) {
 				addFund := func(ccipCommon *actions.CCIPCommon) {
 					for i, btp := range ccipCommon.BridgeTokenPools {
 						token := ccipCommon.BridgeTokens[i]
@@ -244,7 +245,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			tc.lane.Logger.Info().Str("tokensTobeSent", tokensTobeSent.String()).Msg("99% of Aggregated Capacity")
 			tc.lane.RecordStateBeforeTransfer()
 			src.TransferAmount[0] = tokensTobeSent
-			err = tc.lane.SendRequests(1, TestCfg.MsgType)
+			err = tc.lane.SendRequests(1, TestCfg.TestGroupInput.MsgType)
 			require.NoError(t, err)
 
 			// try to send again with amount more than the amount refilled by rate and
@@ -327,7 +328,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			src.TransferAmount[0] = tokensTobeSent
 			tc.lane.Logger.Info().Str("tokensTobeSent", tokensTobeSent.String()).Msg("99% of Token Pool Capacity")
 			tc.lane.RecordStateBeforeTransfer()
-			err = tc.lane.SendRequests(1, TestCfg.MsgType)
+			err = tc.lane.SendRequests(1, TestCfg.TestGroupInput.MsgType)
 			require.NoError(t, err)
 
 			// try to send again with amount more than the amount refilled by token pool rate and

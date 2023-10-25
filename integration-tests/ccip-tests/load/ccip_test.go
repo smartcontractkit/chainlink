@@ -11,14 +11,16 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/ccip/integration-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 func TestLoadCCIPStableRPS(t *testing.T) {
 	t.Parallel()
 	lggr := logging.GetTestLogger(t)
 	testArgs := NewLoadArgs(t, lggr, context.Background())
-	testArgs.Setup(true, 5, 5)
+	testArgs.Setup()
 	// if the test runs on remote runner
 	if len(testArgs.TestSetupArgs.Lanes) == 0 {
 		return
@@ -36,11 +38,11 @@ func TestLoadCCIPSequentialLaneAdd(t *testing.T) {
 	t.Skipf("test needs maintenance")
 	lggr := logging.GetTestLogger(t)
 	testArgs := NewLoadArgs(t, lggr, context.Background())
-	testArgs.TestCfg.SequentialLaneAddition = true
+	testArgs.TestCfg.TestGroupInput.SequentialLaneAddition = utils.Ptr(true)
 	if len(testArgs.TestCfg.NetworkPairs) <= 1 {
 		t.Skip("Skipping the test as there are not enough network pairs to run the test")
 	}
-	testArgs.Setup(true, 5, 5)
+	testArgs.Setup()
 	// if the test runs on remote runner
 	if len(testArgs.TestSetupArgs.Lanes) == 0 {
 		return
@@ -58,7 +60,7 @@ func TestLoadCCIPStableRequestTriggeringWithNetworkChaos(t *testing.T) {
 	t.Parallel()
 	lggr := logging.GetTestLogger(t)
 	testArgs := NewLoadArgs(t, lggr, context.Background())
-	testArgs.Setup(true, 16, 16)
+	testArgs.Setup()
 	// if the test runs on remote runner
 	if len(testArgs.TestSetupArgs.Lanes) == 0 {
 		return
@@ -82,7 +84,7 @@ func TestLoadCCIPStableRequestTriggeringWithNetworkChaos(t *testing.T) {
 			testEnv.K8Env.Cfg.Namespace, &chaos.Props{
 				FromLabels:  &map[string]*string{"geth": a.Str(actions.ChaosGroupCCIPGeth)},
 				ToLabels:    &map[string]*string{"app": a.Str("chainlink-0")},
-				DurationStr: testArgs.TestCfg.TestDuration.String(),
+				DurationStr: testArgs.TestCfg.TestGroupInput.TestDuration.String(),
 				Delay:       "300ms",
 			}))
 	require.NoError(t, err)
@@ -116,23 +118,24 @@ func TestLoadCCIPStableWithMajorityNodeFailure(t *testing.T) {
 		},
 	}
 
-	var allChaosDur time.Duration
-	// to override the default duration of chaos with test input
-	for _, ch := range inputs {
-		dur, err := ch.SetInput()
-		require.NoError(t, err)
-		allChaosDur += dur
-	}
-
 	lggr := logging.GetTestLogger(t)
 	testArgs := NewLoadArgs(t, lggr, context.Background(), inputs...)
 
+	var allChaosDur time.Duration
+	// to override the default duration of chaos with test input
+	for i := range inputs {
+		inputs[i].ChaosProps.DurationStr = testArgs.TestCfg.TestGroupInput.ChaosDuration.String()
+		allChaosDur += testArgs.TestCfg.TestGroupInput.ChaosDuration.Duration()
+		inputs[i].WaitBetweenChaos = testArgs.TestCfg.TestGroupInput.WaitBetweenChaosDuringLoad.Duration()
+		allChaosDur += inputs[i].WaitBetweenChaos
+	}
+
 	// the duration of load test should be greater than the duration of chaos
-	if testArgs.TestCfg.TestDuration < allChaosDur+2*time.Minute {
+	if testArgs.TestCfg.TestGroupInput.TestDuration.Duration() < allChaosDur+2*time.Minute {
 		t.Fatalf("Skipping the test as the test duration is less than the chaos duration")
 	}
 
-	testArgs.Setup(true, 16, 16)
+	testArgs.Setup()
 	// if the test runs on remote runner
 	if len(testArgs.TestSetupArgs.Lanes) == 0 {
 		return
@@ -169,23 +172,24 @@ func TestLoadCCIPStableWithMinorityNodeFailure(t *testing.T) {
 		},
 	}
 
-	var allChaosDur time.Duration
-	// to override the default duration of chaos with test input
-	for _, ch := range inputs {
-		dur, err := ch.SetInput()
-		require.NoError(t, err)
-		allChaosDur += dur
-	}
-
 	lggr := logging.GetTestLogger(t)
 	testArgs := NewLoadArgs(t, lggr, context.Background(), inputs...)
 
+	var allChaosDur time.Duration
+	// to override the default duration of chaos with test input
+	for i := range inputs {
+		inputs[i].ChaosProps.DurationStr = testArgs.TestCfg.TestGroupInput.ChaosDuration.String()
+		allChaosDur += testArgs.TestCfg.TestGroupInput.ChaosDuration.Duration()
+		inputs[i].WaitBetweenChaos = testArgs.TestCfg.TestGroupInput.WaitBetweenChaosDuringLoad.Duration()
+		allChaosDur += inputs[i].WaitBetweenChaos
+	}
+
 	// the duration of load test should be greater than the duration of chaos
-	if testArgs.TestCfg.TestDuration < allChaosDur+2*time.Minute {
+	if testArgs.TestCfg.TestGroupInput.TestDuration.Duration() < allChaosDur+2*time.Minute {
 		t.Fatalf("Skipping the test as the test duration is less than the chaos duration")
 	}
 
-	testArgs.Setup(true, 16, 16)
+	testArgs.Setup()
 	// if the test runs on remote runner
 	if len(testArgs.TestSetupArgs.Lanes) == 0 {
 		return
@@ -249,11 +253,11 @@ func TestLoadCCIPStableWithPodChaosDiffCommitAndExec(t *testing.T) {
 			t.Parallel()
 			lggr := logging.GetTestLogger(t)
 			testArgs := NewLoadArgs(t, lggr, context.Background(), in)
-			testArgs.TestCfg.TestDuration = 5 * time.Minute
-			testArgs.TestCfg.Load.TimeUnit = 1 * time.Second
-			testArgs.TestCfg.Load.RequestPerUnitTime = []int64{2}
+			testArgs.TestCfg.TestGroupInput.TestDuration = models.MustNewDuration(5 * time.Minute)
+			testArgs.TestCfg.TestGroupInput.TimeUnit = models.MustNewDuration(1 * time.Second)
+			testArgs.TestCfg.TestGroupInput.RequestPerUnitTime = []int64{2}
 
-			testArgs.Setup(false, 5, 5)
+			testArgs.Setup()
 			// if the test runs on remote runner
 			if len(testArgs.TestSetupArgs.Lanes) == 0 {
 				return

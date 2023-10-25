@@ -9,6 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/logging"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/ccip/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
 )
@@ -100,15 +101,11 @@ func TestChaosCCIP(t *testing.T) {
 		t.Run(in.testName, func(t *testing.T) {
 			t.Parallel()
 			l := logging.GetTestLogger(t)
-			testCfg := testsetups.NewCCIPTestConfig(t, l, testsetups.Chaos)
-			var (
-				numOfCommitNodes = 5
-				numOfRequests    = 3
-			)
+			testCfg := testsetups.NewCCIPTestConfig(t, l, testconfig.Chaos)
+			var numOfRequests = 3
 
 			setUpArgs := testsetups.CCIPDefaultTestSetUp(
-				t, l, "chaos-ccip", 12,
-				nil, numOfCommitNodes, false, false, testCfg)
+				t, l, "chaos-ccip", nil, testCfg)
 
 			if len(setUpArgs.Lanes) == 0 {
 				return
@@ -125,7 +122,7 @@ func TestChaosCCIP(t *testing.T) {
 
 			lane.RecordStateBeforeTransfer()
 			// Send the ccip-request and verify ocr2 is running
-			err := lane.SendRequests(1, testCfg.MsgType)
+			err := lane.SendRequests(1, testCfg.TestGroupInput.MsgType)
 			require.NoError(t, err)
 			lane.ValidateRequests()
 
@@ -140,7 +137,7 @@ func TestChaosCCIP(t *testing.T) {
 			})
 			lane.RecordStateBeforeTransfer()
 			// Now send the ccip-request while the chaos is at play
-			err = lane.SendRequests(numOfRequests, testCfg.MsgType)
+			err = lane.SendRequests(numOfRequests, testCfg.TestGroupInput.MsgType)
 			require.NoError(t, err)
 			if in.waitForChaosRecovery {
 				// wait for chaos to be recovered before further validation

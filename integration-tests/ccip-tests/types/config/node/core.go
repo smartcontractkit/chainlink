@@ -19,9 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/config"
 )
 
-//go:embed tomls/ccip.toml
-var CCIPTOML []byte
-
 func NewConfigFromToml(tomlConfig []byte, opts ...node.NodeConfigOpt) (*chainlink.Config, error) {
 	var cfg chainlink.Config
 	err := config.DecodeTOML(bytes.NewReader(tomlConfig), &cfg)

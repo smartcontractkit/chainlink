@@ -1,0 +1,130 @@
+[CCIP]
+[CCIP.Env]
+Networks = ['SIMULATED_1', 'SIMULATED_2']
+
+[CCIP.Env.Chainlink]
+NoOfNodes = 6
+NodeMemory = '4Gi'
+NodeCPU = '2'
+DBMemory = '4Gi'
+DBCPU = '2'
+DBCapacity = '10Gi'
+IsStateful = true
+DBArgs = ['shared_buffers=1536MB', 'effective_cache_size=4096MB', 'work_mem=64MB']
+
+
+[CCIP.Env.Chainlink.Common]
+Name = 'node1'
+DBImage = 'postgres'
+DBTag = '13.12'
+NodeConfig = """
+[Feature]
+LogPoller = true
+CCIP = true
+
+[Log]
+Level = 'debug'
+JSONConsole = true
+
+[Log.File]
+MaxSize = '0b'
+
+[WebServer]
+AllowOrigins = '*'
+HTTPPort = 6688
+SecureCookies = false
+HTTPWriteTimeout = '1m'
+
+[WebServer.RateLimit]
+Authenticated = 2000
+Unauthenticated = 1000
+
+[WebServer.TLS]
+HTTPSPort = 0
+
+[Database]
+MaxIdleConns = 50
+MaxOpenConns = 50
+MigrateOnStartup = true
+
+[OCR2]
+Enabled = true
+DefaultTransactionQueueDepth = 0
+
+[OCR]
+Enabled = false
+DefaultTransactionQueueDepth = 0
+
+[P2P.V1]
+Enabled = false
+ListenPort = 0
+
+[P2P]
+[P2P.V2]
+Enabled = true
+ListenAddresses = ['0.0.0.0:6690']
+AnnounceAddresses = ['0.0.0.0:6690']
+DeltaDial = '500ms'
+DeltaReconcile = '5s'
+"""
+
+
+[CCIP.Groups]
+[CCIP.Groups.smoke]
+KeepEnvAlive = false
+BiDirectionalLane = true
+CommitAndExecuteOnSameDON = true
+NumberOfCommitNodes = 5
+MsgType = 'WithToken'
+PhaseTimeout = '10m'
+LocalCluster = true
+ExistingDeployment = false
+ReuseContracts = true
+SequentialLaneAddition = false
+NodeFunding = 1.0
+NoOfRoutersPerPair = 1
+NoOfTokensPerChain = 2
+NoOfTokensInMsg = 2
+AmountPerToken = 1
+
+[CCIP.Groups.load]
+KeepEnvAlive = false
+BiDirectionalLane = true
+CommitAndExecuteOnSameDON = true
+NumberOfCommitNodes = 5
+MsgType = 'WithToken'
+PhaseTimeout = '50m'
+TestDuration = '10m'
+LocalCluster = false
+ExistingDeployment = false
+ReuseContracts = true
+SequentialLaneAddition = false
+NodeFunding = 20.0
+RequestPerUnitTime = [2]
+TimeUnit = '1s'
+NoOfRoutersPerPair = 1
+NoOfTokensPerChain = 2
+NoOfTokensInMsg = 2
+AmountPerToken = 1
+
+[CCIP.Groups.chaos]
+KeepEnvAlive = false
+BiDirectionalLane = true
+CommitAndExecuteOnSameDON = false
+NumberOfCommitNodes = 5
+MsgType = 'WithToken'
+PhaseTimeout = '50m'
+TestDuration = '10m'
+LocalCluster = false
+ExistingDeployment = false
+ReuseContracts = true
+SequentialLaneAddition = false
+NodeFunding = 20.0
+RequestPerUnitTime = [2]
+TimeUnit = '1s'
+NoOfRoutersPerPair = 1
+NoOfTokensPerChain = 2
+NoOfTokensInMsg = 2
+AmountPerToken = 1
+WaitBetweenChaosDuringLoad = '2m'
+ChaosDuration = '10m'

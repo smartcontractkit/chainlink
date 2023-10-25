@@ -253,7 +253,6 @@ jobs:
       CHAINLINK_COMMIT_SHA: ${{ github.sha }}
       CHAINLINK_ENV_USER: ${{ github.actor }}
       TEST_LOG_LEVEL: debug
-      CCIP_DEPLOY_ON_LOCAL: true
     strategy:
       fail-fast: false
       matrix:

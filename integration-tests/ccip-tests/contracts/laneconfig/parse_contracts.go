@@ -168,9 +168,13 @@ func (l *Lanes) WriteLaneConfig(networkA string, cfg *LaneConfig) error {
 	return nil
 }
 
-func ReadLanesFromExistingDeployment() (*Lanes, error) {
+func ReadLanesFromExistingDeployment(contracts []byte) (*Lanes, error) {
+	// if contracts is empty, use the existing contracts from contracts.json
+	if len(contracts) == 0 {
+		contracts = ExistingContracts
+	}
 	var lanes Lanes
-	if err := json.Unmarshal(ExistingContracts, &lanes); err != nil {
+	if err := json.Unmarshal(contracts, &lanes); err != nil {
 		return nil, err
 	}
 	return &lanes, nil

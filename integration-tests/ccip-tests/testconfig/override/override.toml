@@ -1,3 +1,7 @@
+[CCIP]
+[CCIP.Env]
+[CCIP.Env.Chainlink.Common]
+NodeConfig = """
 [Feature]
 LogPoller = true
 CCIP = true
@@ -23,7 +27,7 @@ Unauthenticated = 1000
 HTTPSPort = 0
 
 [Database]
-MaxIdleConns = 20
+MaxIdleConns = 10
 MaxOpenConns = 20
 MigrateOnStartup = true
 
@@ -46,3 +50,4 @@ ListenAddresses = ['0.0.0.0:6690']
 AnnounceAddresses = ['0.0.0.0:6690']
 DeltaDial = '500ms'
 DeltaReconcile = '5s'
+"""
