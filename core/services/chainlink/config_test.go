@@ -332,8 +332,8 @@ func TestConfig_Marshal(t *testing.T) {
 			BaseDN:                      ptr("dc=custom,dc=example,dc=com"),
 			UsersDN:                     ptr("ou=users"),
 			GroupsDN:                    ptr("ou=groups"),
-			ActiveAttribute:             ptr(""),
-			ActiveAttributeAllowedValue: ptr(""),
+			ActiveAttribute:             ptr("organizationalStatus"),
+			ActiveAttributeAllowedValue: ptr("ACTIVE"),
 			AdminUserGroupCN:            ptr("NodeAdmins"),
 			EditUserGroupCN:             ptr("NodeEditors"),
 			RunUserGroupCN:              ptr("NodeRunners"),
@@ -1161,14 +1161,14 @@ func TestConfig_Validate(t *testing.T) {
 		{name: "invalid", toml: invalidTOML, exp: `invalid configuration: 6 errors:
 	- Database.Lock.LeaseRefreshInterval: invalid value (6s): must be less than or equal to half of LeaseDuration (10s)
 	- WebServer: 8 errors:
-		- LDAP.BaseDN: invalid value (): LDAP BaseDN can not be empty
-		- LDAP.BaseUserAttr: invalid value (): LDAP BaseUserAttr can not be empty
-		- LDAP.UsersDN: invalid value (): LDAP UsersDN can not be empty
-		- LDAP.GroupsDN: invalid value (): LDAP GroupsDN can not be empty
-		- LDAP.AdminUserGroupCN: invalid value (): LDAP AdminUserGroupCN can not be empty
-		- LDAP.RunUserGroupCN: invalid value (): LDAP ReadUserGroupCN can not be empty
-		- LDAP.RunUserGroupCN: invalid value (): LDAP RunUserGroupCN can not be empty
-		- LDAP.ReadUserGroupCN: invalid value (): LDAP ReadUserGroupCN can not be empty
+		- LDAP.BaseDN: invalid value (<nil>): LDAP BaseDN can not be empty
+		- LDAP.BaseUserAttr: invalid value (<nil>): LDAP BaseUserAttr can not be empty
+		- LDAP.UsersDN: invalid value (<nil>): LDAP UsersDN can not be empty
+		- LDAP.GroupsDN: invalid value (<nil>): LDAP GroupsDN can not be empty
+		- LDAP.AdminUserGroupCN: invalid value (<nil>): LDAP AdminUserGroupCN can not be empty
+		- LDAP.RunUserGroupCN: invalid value (<nil>): LDAP ReadUserGroupCN can not be empty
+		- LDAP.RunUserGroupCN: invalid value (<nil>): LDAP RunUserGroupCN can not be empty
+		- LDAP.ReadUserGroupCN: invalid value (<nil>): LDAP ReadUserGroupCN can not be empty
 	- EVM: 8 errors:
 		- 1.ChainID: invalid value (1): duplicate - must be unique
 		- 0.Nodes.1.Name: invalid value (foo): duplicate - must be unique
