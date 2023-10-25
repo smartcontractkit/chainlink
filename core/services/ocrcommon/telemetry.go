@@ -231,7 +231,7 @@ func (e *EnhancedTelemetryService[T]) collectAndSend(trrs *pipeline.TaskRunResul
 		}
 		eaTelem, err := parseEATelemetry([]byte(bridgeRawResponse))
 		if err != nil {
-			e.lggr.Warnf("cannot parse EA telemetry, job %d, id %s", e.job.ID, trr.Task.DotID())
+			e.lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry, job %d, id %s", e.job.ID, trr.Task.DotID()), "err", err)
 		}
 		value := e.getParsedValue(trrs, trr)
 
@@ -279,12 +279,12 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(obs relaym
 
 		bridgeRawResponse, ok := trr.Result.Value.(string)
 		if !ok {
-			e.lggr.Warnf("cannot get bridge response from bridge task, job %d, id %s", e.job.ID, trr.Task.DotID())
+			e.lggr.Warnf("cannot get bridge response from bridge task, job %d, id %s, expected string got %T", e.job.ID, trr.Task.DotID(), trr.Result.Value)
 			continue
 		}
 		eaTelem, err := parseEATelemetry([]byte(bridgeRawResponse))
 		if err != nil {
-			e.lggr.Warnf("cannot parse EA telemetry, job %d, id %s", e.job.ID, trr.Task.DotID())
+			e.lggr.Warnw(fmt.Sprintf("cannot parse EA telemetry, job %d, id %s", e.job.ID, trr.Task.DotID()), "err", err)
 		}
 
 		assetSymbol := e.getAssetSymbolFromRequestData(bridgeTask.RequestData)
@@ -305,9 +305,9 @@ func (e *EnhancedTelemetryService[T]) collectMercuryEnhancedTelemetry(obs relaym
 			ProviderDataStreamEstablished:   eaTelem.ProviderDataStreamEstablished,
 			ProviderIndicatedTime:           eaTelem.ProviderIndicatedTime,
 			Feed:                            e.job.OCR2OracleSpec.FeedID.Hex(),
-			ObservationBenchmarkPrice:       obsBenchmarkPrice.Int64(), //Deprecated: observation value will not fit in int64, we will use the string equivalent field below
-			ObservationBid:                  obsBid.Int64(),            //Deprecated: observation value will not fit in int64, we will use the string equivalent field below
-			ObservationAsk:                  obsAsk.Int64(),            //Deprecated: observation value will not fit in int64, we will use the string equivalent field below
+			ObservationBenchmarkPrice:       obsBenchmarkPrice.Int64(), //Deprecated: observation value will not fit in int64, we will use the string equivalent field ObservationBenchmarkPriceString
+			ObservationBid:                  obsBid.Int64(),            //Deprecated: observation value will not fit in int64, we will use the string equivalent field ObservationBidString
+			ObservationAsk:                  obsAsk.Int64(),            //Deprecated: observation value will not fit in int64, we will use the string equivalent field ObservationAskString
 			ConfigDigest:                    repts.ConfigDigest.Hex(),
 			Round:                           int64(repts.Round),
 			Epoch:                           int64(repts.Epoch),
