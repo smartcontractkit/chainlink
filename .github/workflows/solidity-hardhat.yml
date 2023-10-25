@@ -28,6 +28,7 @@ jobs:
               - 'contracts/src/!(v0.8/(llo-feeds|ccip)/**)/**/*'
               - 'contracts/test/**/*'
               - 'contracts/package.json'
+              - 'contracts/pnpm-lock.yaml'
               - 'contracts/hardhat.config.ts'
               - 'contracts/ci.json'
               - '.github/workflows/solidity-hardhat.yml'
