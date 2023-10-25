@@ -156,12 +156,16 @@ jobs:
           GRAFANA_CLOUD_BASIC_AUTH: ${{ secrets.GRAFANA_CLOUD_BASIC_AUTH }}
           GRAFANA_CLOUD_HOST: ${{ secrets.GRAFANA_CLOUD_HOST }}
           GITHUB_EVENT_PATH: ${{ github.event_path }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_REPO: ${{ github.repository }}
         run: |
           ./runner \
             -grafana_auth=$GRAFANA_CLOUD_BASIC_AUTH \
             -grafana_host=$GRAFANA_CLOUD_HOST \
             -gh_sha=$GITHUB_SHA \
             -gh_event_path=$GITHUB_EVENT_PATH \
+            -gh_event_name=$GITHUB_EVENT_NAME \
+            -gh_repo=$GITHUB_REPO \
             -command=./tools/bin/go_core_tests \
             `ls -R ./artifacts/go_core_tests*/output.txt`
       - name: Store logs artifacts

@@ -1,4 +1,4 @@
-package testtomlutils
+package configtest
 
 import (
 	"os"
