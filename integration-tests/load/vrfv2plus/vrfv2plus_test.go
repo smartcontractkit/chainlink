@@ -233,10 +233,6 @@ func teardown(
 	testType string,
 	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
 ) {
-	if lc == nil || testReporter == nil {
-		log.Warn().Msg("Quiting teardown as test setup was not successful")
-		return
-	}
 	//send final results to Loki
 	metrics := GetLoadTestMetrics(consumer)
 	SendMetricsToLoki(metrics, lc, updatedLabels)
