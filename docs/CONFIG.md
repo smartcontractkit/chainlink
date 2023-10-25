@@ -270,13 +270,13 @@ Logging toggles verbose logging of the raw telemetry messages being sent.
 ```toml
 ServerPubKey = 'test-pub-key' # Example
 ```
-ServerPubKey is the public key of the telemetry server. This field will be removed in a furture version
+ServerPubKey is the public key of the telemetry server. This field will be removed in a future version
 
 ### URL
 ```toml
 URL = 'https://prom.test' # Example
 ```
-URL is where to send telemetry. This field will be removed in a furture version
+URL is where to send telemetry. This field will be removed in a future version
 
 ### BufferSize
 ```toml
@@ -1109,7 +1109,7 @@ OutgoingMessageBufferSize = 10 # Default
 PeerID = '12D3KooWMoejJznyDuEk5aX6GvbjaG12UzeornPCBNzMRqdwrFJw' # Example
 TraceLogging = false # Default
 ```
-P2P has a versioned networking stack. Currenly only `[P2P.V2]` is supported.
+P2P has a versioned networking stack. Currently only `[P2P.V2]` is supported.
 All nodes in the OCR network should share the same networking stack.
 
 ### IncomingMessageBufferSize
@@ -5799,7 +5799,7 @@ In EIP-1559 mode, the following changes occur to how configuration works:
 - All new transactions will be sent as type 0x2 transactions specifying a TipCap and FeeCap. Be aware that existing pending legacy transactions will continue to be gas bumped in legacy mode.
 - `BlockHistoryEstimator` will apply its calculations (gas percentile etc) to the TipCap and this value will be used for new transactions (GasPrice will be ignored)
 - `FixedPriceEstimator` will use `GasTipCapDefault` instead of `GasPriceDefault` for the tip cap
-- `FixedPriceEstimator` will use `GasFeeCapDefault` instaed of `GasPriceDefault` for the fee cap
+- `FixedPriceEstimator` will use `GasFeeCapDefault` instead of `GasPriceDefault` for the fee cap
 - `PriceMin` is ignored for new transactions and `GasTipCapMinimum` is used instead (default 0)
 - `PriceMax` still represents that absolute upper limit that Chainlink will ever spend (total) on a single tx
 - `Keeper.GasTipCapBufferPercent` is ignored in EIP-1559 mode and `Keeper.GasTipCapBufferPercent` is used instead
@@ -6240,7 +6240,7 @@ GasLimitMultiplier scales the estimated gas limit.
 ```toml
 MaxMsgsPerBatch = 100 # Default
 ```
-MaxMsgsPerBatch limits the numbers of mesages per transaction batch.
+MaxMsgsPerBatch limits the numbers of messages per transaction batch.
 
 ### OCR2CachePollPeriod
 ```toml
