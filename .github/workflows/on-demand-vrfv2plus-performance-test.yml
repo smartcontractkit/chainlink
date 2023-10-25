@@ -81,7 +81,7 @@ jobs:
       CHAINLINK_IMAGE: ${{ inputs.chainlinkImage }}
       CHAINLINK_VERSION: ${{ inputs.chainlinkVersion }}
       SLACK_API_KEY: ${{ secrets.QA_SLACK_API_KEY }}
-      SLACK_CHANNEL: C0629GXEB0D
+      SLACK_CHANNEL: ${{ secrets.QA_VRF_SLACK_CHANNEL }}
       WASP_LOG_LEVEL: info
     steps:
       - name: Collect Metrics
