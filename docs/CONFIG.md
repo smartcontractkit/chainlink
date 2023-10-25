@@ -981,6 +981,8 @@ If both are configured, then for each link with another peer, V2 networking will
 automatically fall back to V1. If V2 starts working again later, it will automatically be preferred again. This is useful
 for migrating networks without downtime. Note that the two networking stacks _must not_ be configured to bind to the same IP/port.
 
+Note: P2P.V1 is deprecated will be removed in the future.
+
 All nodes in the OCR network should share the same networking stack.
 
 ### IncomingMessageBufferSize
@@ -1017,7 +1019,7 @@ TraceLogging enables trace level logging.
 ## P2P.V1
 ```toml
 [P2P.V1]
-Enabled = true # Default
+Enabled = false # Default
 AnnounceIP = '1.2.3.4' # Example
 AnnouncePort = 1337 # Example
 BootstrapCheckInterval = '20s' # Default
@@ -1029,11 +1031,11 @@ ListenPort = 1337 # Example
 NewStreamTimeout = '10s' # Default
 PeerstoreWriteInterval = '5m' # Default
 ```
-
+P2P.V1 is deprecated and will be removed in a future version.
 
 ### Enabled
 ```toml
-Enabled = true # Default
+Enabled = false # Default
 ```
 Enabled enables P2P V1.
 
@@ -1119,7 +1121,7 @@ PeerstoreWriteInterval controls how often the peerstore for the OCR V1 networkin
 ## P2P.V2
 ```toml
 [P2P.V2]
-Enabled = false # Default
+Enabled = true # Default
 AnnounceAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 DefaultBootstrappers = ['12D3KooWMHMRLQkgPbFSYHwD3NBuwtS1AmxhvKVUrcfyaGDASR4U@1.2.3.4:9999', '12D3KooWM55u5Swtpw9r8aFLQHEtw7HR4t44GdNs654ej5gRs2Dh@example.com:1234'] # Example
 DeltaDial = '15s' # Default
@@ -1130,7 +1132,7 @@ ListenAddresses = ['1.2.3.4:9999', '[a52d:0:a88:1274::abcd]:1337'] # Example
 
 ### Enabled
 ```toml
-Enabled = false # Default
+Enabled = true # Default
 ```
 Enabled enables P2P V2.
 Note: V1.Enabled is true by default, so it must be set false in order to run V2 only.
