@@ -464,10 +464,6 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
 
     uint32 callbackGasLimit = 5000;
 
-    bytes32 expectedRequestId = keccak256(
-      abi.encode(address(s_functionsCoordinator), OWNER_ADDRESS, s_subscriptionId, 1)
-    );
-
     uint96 costEstimate = s_functionsCoordinator.estimateCost(
       s_subscriptionId,
       requestData,
@@ -476,25 +472,6 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
     );
 
     vm.recordLogs();
-
-    // topic0 (function signature, always checked), topic1 (true), topic2 (true), topic3 (true), and data (true).
-    bool checkTopic1 = true;
-    bool checkTopic2 = true;
-    bool checkTopic3 = true;
-    bool checkData = true;
-    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
-    emit RequestStart({
-      requestId: expectedRequestId,
-      donId: s_donId,
-      subscriptionId: s_subscriptionId,
-      subscriptionOwner: OWNER_ADDRESS,
-      requestingContract: OWNER_ADDRESS,
-      requestInitiator: OWNER_ADDRESS,
-      data: requestData,
-      dataVersion: FunctionsRequest.REQUEST_DATA_VERSION,
-      callbackGasLimit: callbackGasLimit,
-      estimatedTotalCostJuels: costEstimate
-    });
 
     bytes32 requestIdFromReturn = s_functionsRouter.sendRequest(
       s_subscriptionId,
@@ -506,9 +483,24 @@ contract FunctionsRouter_SendRequest is FunctionsSubscriptionSetup {
 
     // Get requestId from RequestStart event log topic 1
     Vm.Log[] memory entries = vm.getRecordedLogs();
-    bytes32 requestIdFromEvent = entries[2].topics[1];
+    bytes32 requestIdFromEvent = entries[1].topics[1];
+    bytes32 donIdFromEvent = entries[1].topics[2];
+    bytes32 subscriptionIdFromEvent = entries[1].topics[3];
+
+    bytes memory expectedRequestData = abi.encode(
+      OWNER_ADDRESS,
+      OWNER_ADDRESS,
+      OWNER_ADDRESS,
+      requestData,
+      FunctionsRequest.REQUEST_DATA_VERSION,
+      callbackGasLimit,
+      costEstimate
+    );
 
     assertEq(requestIdFromReturn, requestIdFromEvent);
+    assertEq(donIdFromEvent, s_donId);
+    assertEq(subscriptionIdFromEvent, bytes32(uint256(s_subscriptionId)));
+    assertEq(expectedRequestData, entries[1].data);
   }
 }
 
@@ -759,10 +751,6 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
 
     uint32 callbackGasLimit = 5000;
 
-    bytes32 expectedRequestId = keccak256(
-      abi.encode(address(s_functionsCoordinator2), OWNER_ADDRESS, s_subscriptionId, 1)
-    );
-
     uint96 costEstimate = s_functionsCoordinator2.estimateCost(
       s_subscriptionId,
       requestData,
@@ -771,25 +759,6 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
     );
 
     vm.recordLogs();
-
-    // topic0 (function signature, always checked), topic1 (true), topic2 (true), topic3 (true), and data (true).
-    bool checkTopic1 = true;
-    bool checkTopic2 = true;
-    bool checkTopic3 = true;
-    bool checkData = true;
-    vm.expectEmit(checkTopic1, checkTopic2, checkTopic3, checkData);
-    emit RequestStart({
-      requestId: expectedRequestId,
-      donId: s_donId,
-      subscriptionId: s_subscriptionId,
-      subscriptionOwner: OWNER_ADDRESS,
-      requestingContract: OWNER_ADDRESS,
-      requestInitiator: OWNER_ADDRESS,
-      data: requestData,
-      dataVersion: FunctionsRequest.REQUEST_DATA_VERSION,
-      callbackGasLimit: callbackGasLimit,
-      estimatedTotalCostJuels: costEstimate
-    });
 
     bytes32 requestIdFromReturn = s_functionsRouter.sendRequestToProposed(
       s_subscriptionId,
@@ -801,9 +770,24 @@ contract FunctionsRouter_SendRequestToProposed is FunctionsSubscriptionSetup {
 
     // Get requestId from RequestStart event log topic 1
     Vm.Log[] memory entries = vm.getRecordedLogs();
-    bytes32 requestIdFromEvent = entries[2].topics[1];
+    bytes32 requestIdFromEvent = entries[1].topics[1];
+    bytes32 donIdFromEvent = entries[1].topics[2];
+    bytes32 subscriptionIdFromEvent = entries[1].topics[3];
+
+    bytes memory expectedRequestData = abi.encode(
+      OWNER_ADDRESS,
+      OWNER_ADDRESS,
+      OWNER_ADDRESS,
+      requestData,
+      FunctionsRequest.REQUEST_DATA_VERSION,
+      callbackGasLimit,
+      costEstimate
+    );
 
     assertEq(requestIdFromReturn, requestIdFromEvent);
+    assertEq(donIdFromEvent, s_donId);
+    assertEq(subscriptionIdFromEvent, bytes32(uint256(s_subscriptionId)));
+    assertEq(expectedRequestData, entries[1].data);
   }
 }
 
@@ -954,7 +938,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
 
     uint32 callbackGasLimit = s_requests[requestToFulfill].requestData.callbackGasLimit;
     // Coordinator sends enough gas that would get through callback and payment, but fail after
-    uint256 gasToUse = getCoordinatorConfig().gasOverheadBeforeCallback + callbackGasLimit + 100000;
+    uint256 gasToUse = getCoordinatorConfig().gasOverheadBeforeCallback + callbackGasLimit + 10_000;
 
     // topic0 (function signature, always checked), topic1 (true), NOT topic2 (false), NOT topic3 (false), and data (true).
     bool checkTopic1RequestId = true;
@@ -1237,7 +1221,7 @@ contract FunctionsRouter_Fulfill is FunctionsClientRequestSetup {
     emit RequestProcessed({
       requestId: s_requests[requestToFulfill].requestId,
       subscriptionId: s_subscriptionId,
-      totalCostJuels: _getExpectedCost(5393), // gasUsed is manually taken
+      totalCostJuels: _getExpectedCost(5416), // gasUsed is manually taken
       transmitter: NOP_TRANSMITTER_ADDRESS_1,
       resultCode: FunctionsResponse.FulfillResult.FULFILLED,
       response: bytes(response),

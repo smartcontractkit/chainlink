@@ -8,19 +8,19 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
+	"github.com/smartcontractkit/chainlink-relay/pkg/loop"
 	relaytypes "github.com/smartcontractkit/chainlink-relay/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	evmchain "github.com/smartcontractkit/chainlink/v2/core/chains/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 // ErrNoChains indicates that no EVM chains have been started
 var ErrNoChains = errors.New("no EVM chains loaded")
 
 type EVMChainRelayerExtender interface {
-	relay.RelayerExt
+	loop.RelayerExt
 	Chain() evmchain.Chain
 }
 

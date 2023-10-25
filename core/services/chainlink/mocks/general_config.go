@@ -3,14 +3,14 @@
 package mocks
 
 import (
-	cosmos "github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
+	chainlinkconfig "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
 	config "github.com/smartcontractkit/chainlink/v2/core/config"
+
+	cosmos "github.com/smartcontractkit/chainlink/v2/core/chains/cosmos"
 
 	mock "github.com/stretchr/testify/mock"
 
 	solana "github.com/smartcontractkit/chainlink-solana/pkg/solana"
-
-	starknet "github.com/smartcontractkit/chainlink/v2/core/chains/starknet"
 
 	time "time"
 
@@ -528,15 +528,15 @@ func (_m *GeneralConfig) StarkNetEnabled() bool {
 }
 
 // StarknetConfigs provides a mock function with given fields:
-func (_m *GeneralConfig) StarknetConfigs() starknet.StarknetConfigs {
+func (_m *GeneralConfig) StarknetConfigs() chainlinkconfig.TOMLConfigs {
 	ret := _m.Called()
 
-	var r0 starknet.StarknetConfigs
-	if rf, ok := ret.Get(0).(func() starknet.StarknetConfigs); ok {
+	var r0 chainlinkconfig.TOMLConfigs
+	if rf, ok := ret.Get(0).(func() chainlinkconfig.TOMLConfigs); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(starknet.StarknetConfigs)
+			r0 = ret.Get(0).(chainlinkconfig.TOMLConfigs)
 		}
 	}
 
@@ -569,6 +569,22 @@ func (_m *GeneralConfig) Threshold() config.Threshold {
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(config.Threshold)
+		}
+	}
+
+	return r0
+}
+
+// Tracing provides a mock function with given fields:
+func (_m *GeneralConfig) Tracing() config.Tracing {
+	ret := _m.Called()
+
+	var r0 config.Tracing
+	if rf, ok := ret.Get(0).(func() config.Tracing); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(config.Tracing)
 		}
 	}
 

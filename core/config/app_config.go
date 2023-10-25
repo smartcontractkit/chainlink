@@ -53,6 +53,7 @@ type AppConfig interface {
 	TelemetryIngress() TelemetryIngress
 	Threshold() Threshold
 	WebServer() WebServer
+	Tracing() Tracing
 }
 
 type DatabaseBackupMode string

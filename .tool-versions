@@ -4,4 +4,4 @@ nodejs 16.16.0
 postgres 13.3
 helm 3.10.3
 zig 0.10.1
-golangci-lint 1.54.2
+golangci-lint 1.55.0

@@ -1122,62 +1122,14 @@ contract FunctionsSubscriptions_CancelSubscription is FunctionsSubscriptionSetup
     uint256 balanceAfterWithdraw = s_linkToken.balanceOf(STRANGER_ADDRESS);
     assertEq(balanceBeforeWithdraw + expectedDepositWithheld, balanceAfterWithdraw);
   }
+}
+
+/// @notice #cancelSubscription
+contract FunctionsSubscriptions_CancelSubscription_ReceiveDeposit is FunctionsFulfillmentSetup {
+  event SubscriptionCanceled(uint64 indexed subscriptionId, address fundsRecipient, uint256 fundsAmount);
 
   function test_CancelSubscription_SuccessRecieveDeposit() public {
-    // Complete 1 request = subscriptionDepositMinimumRequests
-    vm.recordLogs();
-    bytes32 requestId = s_functionsClient.sendRequest(
-      s_donId,
-      "return 'hello world';",
-      new bytes(0),
-      new string[](0),
-      new bytes[](0),
-      s_subscriptionId,
-      5500
-    );
-
-    // Get commitment data from OracleRequest event log
-    Vm.Log[] memory entries = vm.getRecordedLogs();
-    (, , , , , , , FunctionsResponse.Commitment memory commitment) = abi.decode(
-      entries[0].data,
-      (address, uint64, address, bytes, uint16, bytes32, uint64, FunctionsResponse.Commitment)
-    );
-
-    // Send as transmitter 1
-    vm.stopPrank();
-    vm.startPrank(NOP_TRANSMITTER_ADDRESS_1);
-
-    // Build report
-    bytes32[] memory requestIds = new bytes32[](1);
-    requestIds[0] = requestId;
-    bytes[] memory results = new bytes[](1);
-    results[0] = bytes("hello world!");
-    bytes[] memory errors = new bytes[](1);
-    // No error
-    bytes[] memory onchainMetadata = new bytes[](1);
-    onchainMetadata[0] = abi.encode(commitment);
-    bytes[] memory offchainMetadata = new bytes[](1);
-    // No offchain metadata
-    bytes memory report = abi.encode(requestIds, results, errors, onchainMetadata, offchainMetadata);
-
-    // Build signers
-    address[31] memory signers;
-    signers[0] = NOP_SIGNER_ADDRESS_1;
-
-    // Send report
-    vm.recordLogs();
-    s_functionsCoordinator.callReportWithSigners(report, signers);
-
-    // Get actual cost from RequestProcessed event log
-    Vm.Log[] memory entries2 = vm.getRecordedLogs();
-    (uint96 totalCostJuels, , , , , ) = abi.decode(
-      entries2[2].data,
-      (uint96, address, FunctionsResponse.FulfillResult, bytes, bytes, bytes)
-    );
-
-    // Return to sending as owner
-    vm.stopPrank();
-    vm.startPrank(OWNER_ADDRESS);
+    uint96 totalCostJuels = s_fulfillmentRouterOwnerBalance + s_fulfillmentCoordinatorBalance;
 
     uint256 subscriptionOwnerBalanceBefore = s_linkToken.balanceOf(OWNER_ADDRESS);
 

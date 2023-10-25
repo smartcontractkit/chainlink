@@ -2,21 +2,21 @@
 pragma solidity ^0.8.19;
 
 import {BaseTest} from "./BaseTest.t.sol";
-import {FunctionsRouter} from "../../dev/v1_X/FunctionsRouter.sol";
-import {FunctionsCoordinatorTestHelper} from "./testhelpers/FunctionsCoordinatorTestHelper.sol";
+import {FunctionsClientHarness} from "./testhelpers/FunctionsClientHarness.sol";
+import {FunctionsRouterHarness, FunctionsRouter} from "./testhelpers/FunctionsRouterHarness.sol";
+import {FunctionsCoordinatorHarness} from "./testhelpers/FunctionsCoordinatorHarness.sol";
 import {FunctionsBilling} from "../../dev/v1_X/FunctionsBilling.sol";
 import {FunctionsResponse} from "../../dev/v1_X/libraries/FunctionsResponse.sol";
 import {MockV3Aggregator} from "../../../tests/MockV3Aggregator.sol";
 import {TermsOfServiceAllowList} from "../../dev/v1_X/accessControl/TermsOfServiceAllowList.sol";
-import {FunctionsClientUpgradeHelper} from "./testhelpers/FunctionsClientUpgradeHelper.sol";
 import {MockLinkToken} from "../../../mocks/MockLinkToken.sol";
 
 import "forge-std/Vm.sol";
 
 /// @notice Set up to deploy the following contracts: FunctionsRouter, FunctionsCoordinator, LINK/ETH Feed, ToS Allow List, and LINK token
 contract FunctionsRouterSetup is BaseTest {
-  FunctionsRouter internal s_functionsRouter;
-  FunctionsCoordinatorTestHelper internal s_functionsCoordinator; // TODO: use actual FunctionsCoordinator instead of helper
+  FunctionsRouterHarness internal s_functionsRouter;
+  FunctionsCoordinatorHarness internal s_functionsCoordinator;
   MockV3Aggregator internal s_linkEthFeed;
   TermsOfServiceAllowList internal s_termsOfServiceAllowList;
   MockLinkToken internal s_linkToken;
@@ -36,9 +36,9 @@ contract FunctionsRouterSetup is BaseTest {
   function setUp() public virtual override {
     BaseTest.setUp();
     s_linkToken = new MockLinkToken();
-    s_functionsRouter = new FunctionsRouter(address(s_linkToken), getRouterConfig());
+    s_functionsRouter = new FunctionsRouterHarness(address(s_linkToken), getRouterConfig());
     s_linkEthFeed = new MockV3Aggregator(0, LINK_ETH_RATE);
-    s_functionsCoordinator = new FunctionsCoordinatorTestHelper(
+    s_functionsCoordinator = new FunctionsCoordinatorHarness(
       address(s_functionsRouter),
       getCoordinatorConfig(),
       address(s_linkEthFeed)
@@ -68,8 +68,8 @@ contract FunctionsRouterSetup is BaseTest {
     return
       FunctionsBilling.Config({
         feedStalenessSeconds: 24 * 60 * 60, // 1 day
-        gasOverheadAfterCallback: 50_000, // TODO: update
-        gasOverheadBeforeCallback: 100_00, // TODO: update
+        gasOverheadAfterCallback: 93_942,
+        gasOverheadBeforeCallback: 105_000,
         requestTimeoutSeconds: 60 * 5, // 5 minutes
         donFee: s_donFee,
         maxSupportedRequestDataVersion: 1,
@@ -111,6 +111,15 @@ contract FunctionsDONSetup is FunctionsRouterSetup {
   uint64 internal s_offchainConfigVersion = 1;
   bytes internal s_offchainConfig = new bytes(0);
 
+  bytes s_thresholdKey =
+    vm.parseBytes(
+      "0x7b2247726f7570223a2250323536222c22475f626172223a22424f2f344358424575792f64547a436a612b614e774d666c2b645a77346d325036533246536b4966472f6633527547327337392b494e79642b4639326a346f586e67433657427561556a752b4a637a32377834484251343d222c2248223a224250532f72485065377941467232416c447a79395549466258776d46384666756632596d514177666e3342373844336f474845643247474536466e616f34552b4c6a4d4d5756792b464f7075686e77554f6a75427a64773d222c22484172726179223a5b22424d75546862414473337768316e67764e56792f6e3841316d42674b5a4b4c475259385937796a39695769337242502f316a32347571695869534531437554384c6f51446a386248466d384345477667517158494e62383d222c224248687974716d6e34314373322f4658416f43737548687151486236382f597930524b2b41354c6647654f645a78466f4e386c442b45656e4b587a544943784f6d3231636d535447364864484a6e336342645663714c673d222c22424d794e7a4534616e596258474d72694f52664c52634e7239766c347878654279316432452f4464335a744630546372386267567435582b2b42355967552b4b7875726e512f4d656b6857335845782b79506e4e4f584d3d222c22424d6a753272375a657a4a45545539413938746a6b6d547966796a79493735345742555835505174724a6578346d6766366130787373426d50325a7472412b55576d504e592b6d4664526b46674f7944694c53614e59453d225d7d"
+    );
+  bytes s_donKey =
+    vm.parseBytes(
+      "0xf2f9c47363202d89aa9fa70baf783d70006fe493471ac8cfa82f1426fd09f16a5f6b32b7c4b5d5165cd147a6e513ba4c0efd39d969d6b20a8a21126f0411b9c6"
+    );
+
   function setUp() public virtual override {
     FunctionsRouterSetup.setUp();
 
@@ -135,6 +144,22 @@ contract FunctionsDONSetup is FunctionsRouterSetup {
       s_offchainConfigVersion,
       s_offchainConfig
     );
+  }
+
+  function _getTransmitterBalances() internal view returns (uint256[4] memory balances) {
+    return [
+      s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_1),
+      s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_2),
+      s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_3),
+      s_linkToken.balanceOf(NOP_TRANSMITTER_ADDRESS_4)
+    ];
+  }
+
+  function _assertTransmittersAllHaveBalance(uint256[4] memory balances, uint256 expectedBalance) internal {
+    assertEq(balances[0], expectedBalance);
+    assertEq(balances[1], expectedBalance);
+    assertEq(balances[2], expectedBalance);
+    assertEq(balances[3], expectedBalance);
   }
 }
 
@@ -172,12 +197,12 @@ contract FunctionsOwnerAcceptTermsOfServiceSetup is FunctionsRoutesSetup {
 
 /// @notice Set up to deploy a consumer contract
 contract FunctionsClientSetup is FunctionsOwnerAcceptTermsOfServiceSetup {
-  FunctionsClientUpgradeHelper internal s_functionsClient;
+  FunctionsClientHarness internal s_functionsClient;
 
   function setUp() public virtual override {
     FunctionsOwnerAcceptTermsOfServiceSetup.setUp();
 
-    s_functionsClient = new FunctionsClientUpgradeHelper(address(s_functionsRouter));
+    s_functionsClient = new FunctionsClientHarness(address(s_functionsRouter));
   }
 }
 
@@ -261,7 +286,7 @@ contract FunctionsClientRequestSetup is FunctionsSubscriptionSetup {
 
     vm.recordLogs();
 
-    bytes32 requestId = FunctionsClientUpgradeHelper(client).sendRequest(
+    bytes32 requestId = FunctionsClientHarness(client).sendRequest(
       s_donId,
       sourceCode,
       secrets,

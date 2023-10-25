@@ -206,3 +206,9 @@ DevWebServer = false
 OCRDevelopmentMode = false
 InfiniteDepthQueries = false
 DisableRateLimiting = false
+
+[Tracing]
+Enabled = false
+CollectorTarget = ''
+NodeID = ''
+SamplingRatio = 0.0

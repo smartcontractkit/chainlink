@@ -13,6 +13,7 @@ import (
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	gethTypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/sqlx"
 
 	"github.com/smartcontractkit/libocr/gethwrappers/offchainaggregator"
@@ -399,7 +400,7 @@ func (t *OCRContractTracker) LatestBlockHeight(ctx context.Context) (blockheight
 		// care about the block height; we have no way of getting the L1 block
 		// height anyway
 		return 0, nil
-	case "", config.ChainArbitrum, config.ChainXDai:
+	case "", config.ChainArbitrum, config.ChainCelo, config.ChainOptimismBedrock, config.ChainXDai:
 		// continue
 	}
 	latestBlockHeight := t.getLatestBlockHeight()

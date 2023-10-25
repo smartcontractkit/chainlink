@@ -3,6 +3,7 @@ package features_test
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -264,15 +265,16 @@ func TestIntegration_AuthToken(t *testing.T) {
 
 	// set up user
 	mockUser := cltest.MustRandomUser(t)
-	apiToken := auth.Token{AccessKey: cltest.APIKey, Secret: cltest.APISecret}
+	key, secret := uuid.New().String(), uuid.New().String()
+	apiToken := auth.Token{AccessKey: key, Secret: secret}
 	orm := app.SessionORM()
 	require.NoError(t, orm.CreateUser(&mockUser))
 	require.NoError(t, orm.SetAuthToken(&mockUser, &apiToken))
 
 	url := app.Server.URL + "/users"
 	headers := make(map[string]string)
-	headers[webauth.APIKey] = cltest.APIKey
-	headers[webauth.APISecret] = cltest.APISecret
+	headers[webauth.APIKey] = key
+	headers[webauth.APISecret] = secret
 
 	resp, cleanup := cltest.UnauthenticatedGet(t, url, headers)
 	defer cleanup()
@@ -337,6 +339,12 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 	}
 }
 
+//go:embed singleword-spec-template.yml
+var singleWordSpecTemplate string
+
+//go:embed multiword-spec-template.yml
+var multiWordSpecTemplate string
+
 // Tests both single and multiple word responses -
 // i.e. both fulfillOracleRequest2 and fulfillOracleRequest.
 func TestIntegration_DirectRequest(t *testing.T) {
@@ -352,7 +360,6 @@ func TestIntegration_DirectRequest(t *testing.T) {
 	for _, tt := range tests {
 		test := tt
 		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
 			// Simulate a consumer contract calling to obtain ETH quotes in 3 different currencies
 			// in a single callback.
 			config := configtest2.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -388,9 +395,9 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			mockServerEUR := cltest.NewHTTPMockServer(t, 200, "GET", `{"EUR": 507.07}`)
 			mockServerJPY := cltest.NewHTTPMockServer(t, 200, "GET", `{"JPY": 63818.86}`)
 
-			spec := string(cltest.MustReadFile(t, "../../testdata/tomlspecs/multiword-response-spec.toml"))
-			spec = strings.ReplaceAll(spec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorContracts.operatorAddress.Hex())
-			spec = strings.ReplaceAll(spec, "example", "example 1") // make the name unique
+			nameAndExternalJobID := uuid.New()
+			addr := operatorContracts.operatorAddress.Hex()
+			spec := fmt.Sprintf(multiWordSpecTemplate, nameAndExternalJobID, addr, nameAndExternalJobID, addr)
 			j := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: spec})))
 			cltest.AwaitJobActive(t, app.JobSpawner(), j.ID, 5*time.Second)
 
@@ -426,10 +433,8 @@ func TestIntegration_DirectRequest(t *testing.T) {
 			cltest.AssertPipelineTaskRunsSuccessful(t, pipelineRun.PipelineTaskRuns)
 			assertPricesUint256(t, big.NewInt(61464), big.NewInt(50707), big.NewInt(6381886), operatorContracts.multiWord)
 
-			// Do a single word request
-			singleWordSpec := string(cltest.MustReadFile(t, "../../testdata/tomlspecs/direct-request-spec-cbor.toml"))
-			singleWordSpec = strings.ReplaceAll(singleWordSpec, "0x613a38AC1659769640aaE063C651F48E0250454C", operatorContracts.operatorAddress.Hex())
-			singleWordSpec = strings.ReplaceAll(singleWordSpec, "example", "example 2") // make the name unique
+			nameAndExternalJobID = uuid.New()
+			singleWordSpec := fmt.Sprintf(singleWordSpecTemplate, nameAndExternalJobID, addr, nameAndExternalJobID, addr)
 			jobSingleWord := cltest.CreateJobViaWeb(t, app, []byte(cltest.MustJSONMarshal(t, web.CreateJobRequest{TOML: singleWordSpec})))
 			cltest.AwaitJobActive(t, app.JobSpawner(), jobSingleWord.ID, 5*time.Second)
 
