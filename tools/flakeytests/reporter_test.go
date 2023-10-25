@@ -23,8 +23,8 @@ func TestMakeRequest_SingleTest(t *testing.T) {
 	assert.Len(t, pr.Streams, 1)
 	assert.Equal(t, pr.Streams[0].Stream, map[string]string{"command": "go_core_tests", "app": "flakey-test-reporter"})
 	assert.ElementsMatch(t, pr.Streams[0].Values, [][]string{
-		{ts, "{\"package\":\"core/assets\",\"test_name\":\"TestLink\",\"fq_test_name\":\"core/assets:TestLink\",\"commit_sha\":\"\",\"repository\":\"\",\"event_type\":\"\"}"},
-		{ts, "{\"num_flakes\":1,\"commit_sha\":\"\",\"repository\":\"\",\"event_type\":\"\"}"},
+		{ts, `{"package":"core/assets","test_name":"TestLink","fq_test_name":"core/assets:TestLink","commit_sha":"","repository":"","event_type":""}`},
+		{ts, `{"num_flakes":1,"commit_sha":"","repository":"","event_type":""}`},
 	})
 }
 
@@ -44,9 +44,9 @@ func TestMakeRequest_MultipleTests(t *testing.T) {
 	assert.Equal(t, pr.Streams[0].Stream, map[string]string{"command": "go_core_tests", "app": "flakey-test-reporter"})
 
 	assert.ElementsMatch(t, pr.Streams[0].Values, [][]string{
-		{ts, "{\"package\":\"core/assets\",\"test_name\":\"TestLink\",\"fq_test_name\":\"core/assets:TestLink\",\"commit_sha\":\"\",\"repository\":\"\",\"event_type\":\"\"}"},
-		{ts, "{\"package\":\"core/assets\",\"test_name\":\"TestCore\",\"fq_test_name\":\"core/assets:TestCore\",\"commit_sha\":\"\",\"repository\":\"\",\"event_type\":\"\"}"},
-		{ts, "{\"num_flakes\":2,\"commit_sha\":\"\",\"repository\":\"\",\"event_type\":\"\"}"},
+		{ts, `{"package":"core/assets","test_name":"TestLink","fq_test_name":"core/assets:TestLink","commit_sha":"","repository":"","event_type":""}`},
+		{ts, `{"package":"core/assets","test_name":"TestCore","fq_test_name":"core/assets:TestCore","commit_sha":"","repository":"","event_type":""}`},
+		{ts, `{"num_flakes":2,"commit_sha":"","repository":"","event_type":""}`},
 	})
 }
 
@@ -60,7 +60,7 @@ func TestMakeRequest_NoTests(t *testing.T) {
 	assert.Len(t, pr.Streams, 1)
 	assert.Equal(t, pr.Streams[0].Stream, map[string]string{"command": "go_core_tests", "app": "flakey-test-reporter"})
 	assert.ElementsMatch(t, pr.Streams[0].Values, [][]string{
-		{ts, "{\"num_flakes\":0,\"commit_sha\":\"\",\"repository\":\"\",\"event_type\":\"\"}"},
+		{ts, `{"num_flakes":0,"commit_sha":"","repository":"","event_type":""}`},
 	})
 }
 
@@ -74,6 +74,6 @@ func TestMakeRequest_WithContext(t *testing.T) {
 	assert.Len(t, pr.Streams, 1)
 	assert.Equal(t, pr.Streams[0].Stream, map[string]string{"command": "go_core_tests", "app": "flakey-test-reporter"})
 	assert.ElementsMatch(t, pr.Streams[0].Values, [][]string{
-		{ts, "{\"num_flakes\":0,\"commit_sha\":\"42\",\"repository\":\"\",\"event_type\":\"\"}"},
+		{ts, `{"num_flakes":0,"commit_sha":"42","repository":"","event_type":""}`},
 	})
 }
