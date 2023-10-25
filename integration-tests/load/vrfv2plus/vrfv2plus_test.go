@@ -74,6 +74,9 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
 		vrfv2PlusConfig.CoordinatorAddress = cfg.ExistingEnvConfig.CoordinatorAddress
 		vrfv2PlusConfig.ConsumerAddress = cfg.ExistingEnvConfig.ConsumerAddress
+		vrfv2PlusConfig.LinkAddress = cfg.ExistingEnvConfig.LinkAddress
+		vrfv2PlusConfig.SubscriptionFundingAmountLink = cfg.ExistingEnvConfig.SubFunding.SubFundsLink
+		vrfv2PlusConfig.SubscriptionFundingAmountNative = cfg.ExistingEnvConfig.SubFunding.SubFundsNative
 		vrfv2PlusConfig.SubID = cfg.ExistingEnvConfig.SubID
 		vrfv2PlusConfig.KeyHash = cfg.ExistingEnvConfig.KeyHash
 
@@ -90,17 +93,29 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 		coordinator, err := env.ContractLoader.LoadVRFCoordinatorV2_5(vrfv2PlusConfig.CoordinatorAddress)
 		require.NoError(t, err)
 
-		consumer, err := env.ContractLoader.LoadVRFv2PlusLoadTestConsumer(vrfv2PlusConfig.ConsumerAddress)
-		require.NoError(t, err)
+		var consumers []contracts.VRFv2PlusLoadTestConsumer
+		if cfg.ExistingEnvConfig.CreateFundSubsAndAddConsumers {
+			linkToken, err := env.ContractLoader.LoadLINKToken(vrfv2PlusConfig.LinkAddress)
+			require.NoError(t, err)
+			consumers, err = vrfv2plus.DeployVRFV2PlusConsumers(env.ContractDeployer, coordinator, 1)
+			require.NoError(t, err)
+			subIDs, err = vrfv2plus.CreateFundSubsAndAddConsumers(env, &vrfv2PlusConfig, linkToken, coordinator, consumers, vrfv2PlusConfig.NumberOfSubToCreate)
+			require.NoError(t, err)
+		} else {
+			consumer, err := env.ContractLoader.LoadVRFv2PlusLoadTestConsumer(vrfv2PlusConfig.ConsumerAddress)
+			require.NoError(t, err)
+			consumers = append(consumers, consumer)
+			var ok bool
+			subID, ok := new(big.Int).SetString(vrfv2PlusConfig.SubID, 10)
+			require.True(t, ok)
+			subIDs = append(subIDs, subID)
+		}
 
 		vrfv2PlusContracts = &vrfv2plus.VRFV2_5Contracts{
 			Coordinator:       coordinator,
-			LoadTestConsumers: []contracts.VRFv2PlusLoadTestConsumer{consumer},
+			LoadTestConsumers: consumers,
 			BHS:               nil,
 		}
-		var ok bool
-		subID, ok := new(big.Int).SetString(vrfv2PlusConfig.SubID, 10)
-		require.True(t, ok)
 
 		vrfv2PlusData = &vrfv2plus.VRFV2PlusData{
 			VRFV2PlusKeyData: vrfv2plus.VRFV2PlusKeyData{
@@ -112,7 +127,7 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 			PrimaryEthAddress: "",
 			ChainID:           nil,
 		}
-		subIDs = append(subIDs, subID)
+
 	} else {
 		//todo: temporary solution with envconfig and toml config until VRF-662 is implemented
 		vrfv2PlusConfig.ChainlinkNodeFunding = cfg.NewEnvConfig.NodeFunds
@@ -212,11 +227,16 @@ func TestVRFV2PlusPerformance(t *testing.T) {
 func teardown(
 	t *testing.T,
 	consumer contracts.VRFv2PlusLoadTestConsumer,
-	lc *wasp.LokiClient, updatedLabels map[string]string,
+	lc *wasp.LokiClient,
+	updatedLabels map[string]string,
 	testReporter *testreporters.VRFV2PlusTestReporter,
 	testType string,
 	vrfv2PlusConfig vrfv2plus_config.VRFV2PlusConfig,
 ) {
+	if lc == nil || testReporter == nil {
+		log.Warn().Msg("Quiting teardown as test setup was not successful")
+		return
+	}
 	//send final results to Loki
 	metrics := GetLoadTestMetrics(consumer)
 	SendMetricsToLoki(metrics, lc, updatedLabels)
