@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -24,7 +25,7 @@ func TestP2PKeyPresenter_RenderTable(t *testing.T) {
 
 	var (
 		id     = "1"
-		peerID = "12D3KooWPjceQrSwdWXPyLLeABRXmuqt69Rg3sBYbU1Nft9HyQ6X"
+		peerID = configtest.DefaultPeerID
 		pubKey = "somepubkey"
 		buffer = bytes.NewBufferString("")
 		r      = cmd.RendererTable{Writer: buffer}

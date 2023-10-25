@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	configtest2 "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest/v2"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -69,7 +69,7 @@ func TestExternalInitiatorsController_Index(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
-		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -135,7 +135,7 @@ func TestExternalInitiatorsController_Create_success(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
-		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -163,7 +163,7 @@ func TestExternalInitiatorsController_Create_without_URL(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
-		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -191,7 +191,7 @@ func TestExternalInitiatorsController_Create_invalid(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
-		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -209,7 +209,7 @@ func TestExternalInitiatorsController_Delete(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
-		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))
@@ -231,7 +231,7 @@ func TestExternalInitiatorsController_DeleteNotFound(t *testing.T) {
 	t.Parallel()
 
 	app := cltest.NewApplicationWithConfig(t,
-		configtest2.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 			c.JobPipeline.ExternalInitiatorsEnabled = ptr(true)
 		}))
 	require.NoError(t, app.Start(testutils.Context(t)))

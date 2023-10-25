@@ -83,6 +83,7 @@ compileContract vrf/VRFV2Wrapper.sol
 compileContract vrf/interfaces/VRFV2WrapperInterface.sol
 compileContract vrf/VRFV2WrapperConsumerBase.sol
 compileContract vrf/testhelpers/VRFV2WrapperConsumerExample.sol
+compileContract vrf/testhelpers/VRFv2Consumer.sol
 
 # VRF Consumers and Mocks
 compileContract vrf/testhelpers/VRFExternalSubOwnerExample.sol

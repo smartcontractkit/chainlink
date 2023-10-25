@@ -34,6 +34,13 @@ jobs:
         uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11 # v4.1.1
         with:
           ref: ${{ env.GIT_REF }}
+      # When this is ran from manual workflow_dispatch, the github.sha may be
+      # different than the checked out commit sha. The core build uses this
+      # commit sha as build metadata, so we need to make sure it's correct.
+      - name: Get checked out git ref
+        if: github.event.inputs.git_ref
+        id: git-ref
+        run: echo "checked-out=$(git rev-parse HEAD)" | tee -a "${GITHUB_OUTPUT}"
       - name: Build, sign and publish chainlink image
         uses: ./.github/actions/build-sign-publish-chainlink
         with:
@@ -45,6 +52,7 @@ jobs:
           ecr-image-name: chainlink
           ecr-tag-suffix: ${{ matrix.image.tag-suffix }}
           dockerfile: ${{ matrix.image.dockerfile }}
+          git-commit-sha: ${{ steps.git-ref.outputs.checked-out || github.sha }}
       - name: Collect Metrics
         if: always()
         id: collect-gha-metrics
