@@ -782,7 +782,10 @@ func (r *EvmRegistry) singleFeedRequest(ctx context.Context, ch chan<- MercuryDa
 		sl.FeedParamKey: {sl.Feeds[index]},
 		sl.TimeParamKey: {sl.Time.String()},
 	}
-	mercuryURL := r.mercury.cred.URL
+	mercuryURL := r.mercury.cred.LegacyURL
+	if mercuryURL == "" {
+		mercuryURL = r.mercury.cred.URL
+	}
 	reqUrl := fmt.Sprintf("%s%s%s", mercuryURL, mercuryPathV02, q.Encode())
 	lggr.Debugf("request URL for upkeep %s feed %s: %s", sl.upkeepId.String(), sl.Feeds[index], reqUrl)
 
