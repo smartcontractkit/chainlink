@@ -59,6 +59,15 @@ compileContract automation/v2_1/AutomationUtils2_1.sol
 compileContract automation/v2_1/AutomationForwarderLogic.sol
 compileContract automation/testhelpers/LogTriggeredStreamsLookup.sol
 compileContract automation/testhelpers/DummyProtocol.sol
+
+compileContract automation/testhelpers/KeeperBase.sol
+compileContract automation/testhelpers/KeeperCompatibleInterface.sol
+compileContract automation/testhelpers/KeeperConsumer.sol
+compileContract automation/testhelpers/KeeperConsumerPerformance.sol
+compileContract automation/testhelpers/PerformDataChecker.sol
+compileContract automation/testhelpers/UpkeepPerformCounterRestrictive.sol
+compileContract automation/testhelpers/UpkeepCounter.sol
+
 compileContract automation/interfaces/StreamsLookupCompatibleInterface.sol
 
 compileContract tests/VerifiableLoadUpkeep.sol
