@@ -2,11 +2,11 @@
 
 pragma solidity 0.8.6;
 
-import "../../shared/access/ConfirmedOwner.sol";
-import "../interfaces/KeeperCompatibleInterface.sol";
-import "../../vendor/openzeppelin-solidity/v4.8.0/contracts/security/Pausable.sol";
-import "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
-import "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableMap.sol";
+import {AutomationCompatibleInterface} from "../interfaces/AutomationCompatibleInterface.sol";
+import {ConfirmedOwner} from "../../shared/access/ConfirmedOwner.sol";
+import {EnumerableMap} from "../../vendor/openzeppelin-solidity/v4.7.3/contracts/utils/structs/EnumerableMap.sol";
+import {IERC20} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/token/ERC20/IERC20.sol";
+import {Pausable} from "../../vendor/openzeppelin-solidity/v4.8.0/contracts/security/Pausable.sol";
 
 interface IAggregatorProxy {
   function aggregator() external view returns (address);
@@ -22,11 +22,11 @@ interface ILinkAvailable {
  * function linkAvailableForPayment() and funds them with LINK if it falls below a defined
  * threshold. Also supports aggregator proxy contracts monitoring which require fetching the actual
  * target contract through a predefined interface.
- * @dev with 30 addresses as the MAX_PERFORM, the measured max gas usage of performUpkeep is around 2M
+ * @dev with 30 addresses as the s_maxPerform, the measured max gas usage of performUpkeep is around 2M
  * therefore, we recommend an upkeep gas limit of 3M (this has a 33% margin of safety). Although, nothing
- * prevents us from using 5M gas and increasing MAX_PERFORM, 30 seems like a reasonable batch size that
+ * prevents us from using 5M gas and increasing s_maxPerform, 30 seems like a reasonable batch size that
  * is probably plenty for most needs.
- * @dev with 130 addresses as the MAX_CHECK, the measured max gas usage of checkUpkeep is around 3.5M,
+ * @dev with 130 addresses as the s_maxCheck, the measured max gas usage of checkUpkeep is around 3.5M,
  * which is 30% below the 5M limit.
  * Note that testing conditions DO NOT match live chain gas usage, hence the margins. Change
  * at your own risk!!!
@@ -36,33 +36,43 @@ interface ILinkAvailable {
      we could save a fair amount of gas and re-write this upkeep for use with Automation v2.0+,
      which has significantly different trust assumptions
  */
-contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatibleInterface {
+contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationCompatibleInterface {
   using EnumerableMap for EnumerableMap.AddressToUintMap;
 
   event FundsWithdrawn(uint256 amountWithdrawn, address payee);
   event TopUpSucceeded(address indexed topUpAddress);
   event TopUpBlocked(address indexed topUpAddress);
   event WatchlistUpdated();
+  event MaxPerformUpdated(uint256 oldMaxPerform, uint256 newMaxPerform);
+  event MaxCheckUpdated(uint256 oldMaxCheck, uint256 newMaxCheck);
 
   error InvalidWatchList();
   error DuplicateAddress(address duplicate);
 
-  uint256 public constant MAX_PERFORM = 5; // max number to addresses to top up in a single batch
-  uint256 public constant MAX_CHECK = 20; // max number of upkeeps to check (need to fit in 5M gas limit)
   IERC20 public immutable LINK_TOKEN;
 
   EnumerableMap.AddressToUintMap private s_watchList;
   uint256 private s_topUpAmount;
+  uint256 private s_maxPerform; // max number to addresses to top up in a single batch
+  uint256 private s_maxCheck; // max number of upkeeps to check (need to fit in 5M gas limit)
+  uint256 private s_minWaitPeriodSeconds;
 
   /**
    * @param linkTokenAddress the LINK token address
    * @param topUpAmount the amount of LINK to top up an aggregator with at once
    */
-  constructor(address linkTokenAddress, uint256 topUpAmount) ConfirmedOwner(msg.sender) {
+  constructor(
+    address linkTokenAddress,
+    uint256 topUpAmount,
+    uint256 maxPerform,
+    uint256 maxCheck
+  ) ConfirmedOwner(msg.sender) {
     require(linkTokenAddress != address(0));
     require(topUpAmount > 0);
     LINK_TOKEN = IERC20(linkTokenAddress);
     s_topUpAmount = topUpAmount;
+    s_maxPerform = maxPerform;
+    s_maxCheck = maxCheck;
   }
 
   /**
@@ -128,32 +138,32 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
   }
 
   /**
-   * @notice Gets a list of proxies that are underfunded, up to the MAX_PERFORM size
+   * @notice Gets a list of proxies that are underfunded, up to the s_maxPerform size
    * @dev the function starts at a random index in the list to avoid biasing the first
    * addresses in the list over latter ones.
-   * @dev the function will check at most MAX_CHECK proxies in a single call
-   * @dev the function returns a list with a max length of MAX_PERFORM
+   * @dev the function will check at most s_maxCheck proxies in a single call
+   * @dev the function returns a list with a max length of s_maxPerform
    * @return list of target addresses which are underfunded
    */
   function sampleUnderfundedAddresses() public view returns (address[] memory) {
     uint256 numTargets = s_watchList.length();
     uint256 numChecked = 0;
     uint256 idx = uint256(blockhash(block.number - 1)) % numTargets; // start at random index, to distribute load
-    uint256 numToCheck = numTargets < MAX_CHECK ? numTargets : MAX_CHECK;
+    uint256 numToCheck = numTargets < s_maxCheck ? numTargets : s_maxCheck;
     uint256 numFound = 0;
-    address[] memory targetsToFund = new address[](MAX_PERFORM);
+    address[] memory targetsToFund = new address[](s_maxPerform);
     for (; numChecked < numToCheck; (idx, numChecked) = ((idx + 1) % numTargets, numChecked + 1)) {
       (address target, uint256 minBalance) = s_watchList.at(idx);
       (bool needsFunding, ) = _needsFunding(target, minBalance);
       if (needsFunding) {
         targetsToFund[numFound] = target;
         numFound++;
-        if (numFound == MAX_PERFORM) {
+        if (numFound == s_maxPerform) {
           break; // max number of addresses in batch reached
         }
       }
     }
-    if (numFound != MAX_PERFORM) {
+    if (numFound != s_maxPerform) {
       assembly {
         mstore(targetsToFund, numFound) // resize array to number of valid targets
       }
@@ -248,17 +258,33 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
   }
 
   /**
-   * @notice Pause the contract, which prevents executing performUpkeep
+   * @notice Update s_maxPerform
    */
-  function pause() external onlyOwner {
-    _pause();
+  function setMaxPerform(uint256 maxPerform) external onlyOwner {
+    emit MaxPerformUpdated(s_maxPerform, maxPerform);
+    s_maxPerform = maxPerform;
   }
 
   /**
-   * @notice Unpause the contract
+   * @notice Update s_maxCheck
    */
-  function unpause() external onlyOwner {
-    _unpause();
+  function setMaxCheck(uint256 maxCheck) external onlyOwner {
+    emit MaxCheckUpdated(s_maxCheck, maxCheck);
+    s_maxCheck = maxCheck;
+  }
+
+  /**
+   * @notice Gets maxPerform
+   */
+  function getMaxPerform() external view returns (uint256) {
+    return s_maxPerform;
+  }
+
+  /**
+   * @notice Gets maxCheck
+   */
+  function getMaxCheck() external view returns (uint256) {
+    return s_maxCheck;
   }
 
   /**
@@ -292,6 +318,20 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, KeeperCompatib
       revert InvalidWatchList();
     }
     return minBalance;
+  }
+
+  /**
+   * @notice Pause the contract, which prevents executing performUpkeep
+   */
+  function pause() external onlyOwner {
+    _pause();
+  }
+
+  /**
+   * @notice Unpause the contract
+   */
+  function unpause() external onlyOwner {
+    _unpause();
   }
 
   /**
