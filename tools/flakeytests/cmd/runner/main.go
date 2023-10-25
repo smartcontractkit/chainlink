@@ -18,6 +18,8 @@ func main() {
 	command := flag.String("command", "", "test command being rerun; used to tag metrics")
 	ghSHA := flag.String("gh_sha", "", "commit sha for which we're rerunning tests")
 	ghEventPath := flag.String("gh_event_path", "", "path to associated gh event")
+	ghEventName := flag.String("gh_event_name", "", "type of associated gh event")
+	ghRepo := flag.String("gh_repo", "", "name of gh repository")
 	flag.Parse()
 
 	if *grafanaHost == "" {
@@ -45,7 +47,7 @@ func main() {
 		readers = append(readers, r)
 	}
 
-	ctx := flakeytests.GetGithubMetadata(*ghSHA, *ghEventPath)
+	ctx := flakeytests.GetGithubMetadata(*ghRepo, *ghEventName, *ghSHA, *ghEventPath)
 	rep := flakeytests.NewLokiReporter(*grafanaHost, *grafanaAuth, *command, ctx)
 	r := flakeytests.NewRunner(readers, rep, numReruns)
 	err := r.Run()
