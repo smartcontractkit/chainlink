@@ -1,7 +1,16 @@
+# this file contains the deafult configuration for the test
+# all secrets must be stored in .env file and sourced before running the test
 [CCIP]
+# all variables to set up the test environment
 [CCIP.Env]
+# networks between which lanes will be set up and  the messages will be sent
+# if more than 2 networks are specified, then lanes will be set up between all possible pairs of networks
+# default value is ['SIMULATED_1', 'SIMULATED_2'] which means that test will create two private geth networks from scratch and set up lanes between them
 Networks = ['SIMULATED_1', 'SIMULATED_2']
 
+# these values will be used to set up chainlink DON
+# along with these values, the secrets needs to be specified as part of .env variables
+#
 [CCIP.Env.Chainlink]
 NoOfNodes = 6
 NodeMemory = '4Gi'

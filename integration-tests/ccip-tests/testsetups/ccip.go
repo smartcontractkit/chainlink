@@ -16,6 +16,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-env/config"
 	"github.com/smartcontractkit/chainlink-env/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/networks"
@@ -646,6 +647,13 @@ func CCIPDefaultTestSetUp(
 	configureCLNode := !pointer.GetBool(inputs.TestGroupInput.ExistingDeployment)
 	var deployCL func() error
 	var local *test_env.CLClusterTestEnv
+	envConfig := &environment.Config{
+		NamespacePrefix: envName,
+		Test:            t,
+	}
+	if inputs.EnvInput.TTL != nil {
+		envConfig.TTL = inputs.EnvInput.TTL.Duration()
+	}
 	if configureCLNode {
 		if pointer.GetBool(inputs.TestGroupInput.LocalCluster) {
 			local, deployCL = DeployLocalCluster(t, inputs)
@@ -654,13 +662,7 @@ func CCIPDefaultTestSetUp(
 			}
 		} else {
 			// deploy the env if configureCLNode is true
-			k8Env = DeployEnvironments(
-				t,
-				&environment.Config{
-					TTL:             inputs.EnvInput.TTL.Duration(),
-					NamespacePrefix: envName,
-					Test:            t,
-				}, inputs)
+			k8Env = DeployEnvironments(t, envConfig, inputs)
 			ccipEnv = &actions.CCIPTestEnv{K8Env: k8Env}
 		}
 
@@ -671,17 +673,14 @@ func CCIPDefaultTestSetUp(
 		}
 	} else {
 		// if configureCLNode is false, use a placeholder env to create remote runner
-		k8Env = environment.New(
-			&environment.Config{
-				TTL:             inputs.EnvInput.TTL.Duration(),
-				NamespacePrefix: envName,
-				Test:            t,
-			})
-		err = k8Env.Run()
-		require.NoErrorf(t, err, "error creating environment remote runner")
-		setUpArgs.Env = &actions.CCIPTestEnv{K8Env: k8Env}
-		if k8Env.WillUseRemoteRunner() {
-			return setUpArgs
+		if value, set := os.LookupEnv(config.EnvVarJobImage); set && value != "" {
+			k8Env = environment.New(envConfig)
+			err = k8Env.Run()
+			require.NoErrorf(t, err, "error creating environment remote runner")
+			setUpArgs.Env = &actions.CCIPTestEnv{K8Env: k8Env}
+			if k8Env.WillUseRemoteRunner() {
+				return setUpArgs
+			}
 		}
 	}
 
@@ -699,7 +698,12 @@ func CCIPDefaultTestSetUp(
 			if _, ok := chainByChainID[n.ChainID]; ok {
 				continue
 			}
-			ec, err := blockchain.NewEVMClient(n, k8Env, lggr)
+			var ec blockchain.EVMClient
+			if k8Env == nil {
+				ec, err = blockchain.ConnectEVMClient(n, lggr)
+			} else {
+				ec, err = blockchain.NewEVMClient(n, k8Env, lggr)
+			}
 			require.NoError(t, err, "Connecting to blockchain nodes shouldn't fail")
 			chains = append(chains, ec)
 			chainByChainID[n.ChainID] = ec

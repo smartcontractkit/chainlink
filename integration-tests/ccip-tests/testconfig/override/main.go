@@ -46,7 +46,11 @@ func main() {
 		os.Exit(1)
 	}
 	defer envFile.Close()
-	_, err = envFile.WriteString("export BASE64_TEST_CONFIG_OVERRIDE=" + encoded)
+	envVars := fmt.Sprintf(`
+export BASE64_TEST_CONFIG_OVERRIDE=%s
+export TEST_BASE64_TEST_CONFIG_OVERRIDE=%s
+`, encoded, encoded)
+	_, err = envFile.WriteString(envVars)
 	if err != nil {
 		log.Println("unable to write to .env file - ", err)
 		os.Exit(1)

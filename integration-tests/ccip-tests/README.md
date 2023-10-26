@@ -1,271 +1,71 @@
-# Integration Tests
+# CCIP Tests
 
-Here lives the integration tests for chainlink, utilizing our [chainlink-testing-framework](https://github.com/smartcontractkit/chainlink-testing-framework).
+Here lives the integration tests for ccip, utilizing our [chainlink-testing-framework](https://github.com/smartcontractkit/chainlink-testing-framework) and [integration-tests](https://github.com/smartcontractkit/ccip/integration-tests)
 
-## Full Setup
+## Running the tests
 
-Prerequisites to run the tests from your local machine. Best for debugging and developing new tests, or checking changes to the framework. This can be a bit complex however, so if you just want to run the tests, see the [Just Run](#just-run) section.
+### Setting up test inputs :
 
-<details>
-  <summary>Details</summary>
+In order to run the tests the first step is to set up the test inputs. There are two kinds of inputs -
+1. Generic test input - set via TOML - If no specific input is set; the tests will run with default inputs mentioned in [default.toml](./testconfig/tomls/default.toml)
+2. Secrets - set via env variables. Please refer to [secrets.toml](./testconfig/secrets.env) for the list of env variables that need to be set.
 
-### Install Dependencies
+If you want to override the default inputs, you need to set an env var `BASE64_TEST_CONFIG_OVERRIDE` containing the base64 encoded TOML file content.
+For example, if you want to override the `Networks` input in test and want to run your test on `avalanche testnet` and `arbitrum goerli` network, you can create a TOML file with the following content:
+```toml
+[CCIP]
 
-Run the below command to install all dependencies.
-
-```sh
-make install_qa_tools
+[CCIP.Env]
+Networks = ['AVALANCHE_FUJI', 'ARBITRUM_GOERLI']
+```
+and then encode it using `base64` command and set the env var `BASE64_TEST_CONFIG_OVERRIDE` with the encoded content.
+```bash
+export BASE64_TEST_CONFIG_OVERRIDE=$(base64 -w 0 < path-to-toml-file)
 ```
 
-Or you can choose to do it manually.
-
-<details>
-  <summary>Install Go</summary>
-
-  [Install](https://go.dev/doc/install)
-</details>
-
-<details>
-  <summary>Install NodeJS</summary>
-
-  [Install](https://nodejs.org/en/download/)
-</details>
-
-<details>
-  <summary>Install Helm Charts</summary>
-
-  [Install Helm](https://helm.sh/docs/intro/install/#through-package-managers) if you don't already have it. Then add necessary charts with the below commands.
-
-  ```sh
-  helm repo add chainlink-qa https://raw.githubusercontent.com/smartcontractkit/qa-charts/gh-pages/
-  helm repo add bitnami https://charts.bitnami.com/bitnami
-  helm repo update
-  ```
-
-</details>
-
-## Connect to a Kubernetes Cluster
-
-Integration tests require a connection to an actively running kubernetes cluster. [Minikube](https://minikube.sigs.k8s.io/docs/start/)
-can work fine for some tests, but in order to run more rigorous tests, or to run with any parallelism, you'll need to either
-increase minikube's resources significantly, or get a more substantial cluster.
-This is necessary to deploy ephemeral testing environments, which include external adapters, chainlink nodes and their DBs,
-as well as some simulated blockchains, all depending on the types of tests and networks being used.
-
-
-### Setup Kubernetes Cluster using k3d
-
-[k3d](https://k3d.io/) is a lightweight wrapper to run k3s (a lightweight kubernetes distribution) in docker. It's a great way to run a local kubernetes cluster for testing.
-To create a new cluster you can run:
-
-```sh
-k3d cluster create test-k8s --registry-create test-k8s-registry:0.0.0.0:5000
+Alternatively, you can also use the make command to invoke a go script to do the same.
+```bash
+## if overridestring is set, override_toml is ignored
+make override_config overridestring="<overridden config string>" override_toml="<the toml file with overridden config string>" env="<.env file with BASE64_TEST_CONFIG_OVERRIDE value>"
 ```
 
-This will create a cluster with a local registry running on port 5000. You can then use the registry to push images to and pull images from.
-
-To build and push chainlink image to the registry you can run:
-
-```sh
-make build_push_docker_image
-````
-
-To stop the cluster you can run:
-
-```sh
-k3d cluster stop test-k8s
+In order to set the secrets, you need to set the env vars mentioned in [secrets.toml](./testconfig/secrets.env) file and source the file.  
+```bash
+source ./testconfig/secrets.env
 ```
 
-To start an existing cluster you can run:
-
-```sh
-k3d cluster start test-k8s
+Please note that the secrets.env should not be checked in to the repo and should be kept locally.
+You can run the command to ignore the changes to the file.
+```bash
+git update-index --skip-worktree ./testconfig/secrets.env
 ```
 
-## Configure Environment
+### Triggering the tests
+There are two ways to run the tests:
+1. Using local docker containers
+2. Using remote kubernetes cluster
 
-See the [example.env](./example.env) file and use it as a template for your own `.env` file. This allows you to configure general settings like what name to associate with your tests, and which Chainlink version to use when running them.
+### Using local docker containers
 
-You can also specify `EVM_KEYS` and `EVM_URLS` for running on live chains, or use specific identifiers as shown in the [example.env](./example.env) file.
-
-Other `EVM_*` variables are retrieved when running with the `@general` tag, and is helpful for doing quick sanity checks on new chains or when tweaking variables.
-
-**The tests will not automatically load your .env file. Remember to run `source .env` for changes to take effect.**
-## How to Run
-
-Most of the time, you'll want to run tests on a simulated chain, for the purposes of speed and cost.
-
-### Smoke
-
-Run all smoke tests with the below command. Will use your `SELECTED_NETWORKS` env var for which network to run on.
-
-```sh
-make test_smoke # Run all smoke tests on the chosen SELECTED_NETWORKS
-SELECTED_NETWORKS="GOERLI" make test_smoke # Run all smoke tests on GOERLI network
-make test_smoke_simulated # Run all smoke tests on a simulated network
+In order to run the tests locally, you need to have docker installed and running on your machine.
+You can use a specific chainlink image and tag (if you already have one) for the tests. Otherwise, you can build the image using the following command:
+```bash
+make build_ccip_image image=chainlink-ccip tag=latest-dev # please choose the image and tag name as per your choice
 ```
 
-Run all smoke tests in parallel, only using simulated blockchains. *Note: As of now, you can only run tests in parallel on simulated chains, not on live ones. Running on parallel tests on live chains will give errors*
+Currently, for local run the tests creates two new private geth networks and runs the tests on them. Running tests on testnet and mainnet is not supported yet for local run.
+Please refer to [Using remote kubernetes cluster](#using-remote-kubernetes-cluster) section for running the tests on live networks like testnet and mainnet.
 
-```sh
-make test_smoke_simulated args="-test.parallel=<number-of-parallel-tests>"
+You can use the following command to run the tests locally with your specific chainlink image.
+
+#### Smoke Tests
+```bash
+# if overridestring is set, override_toml is ignored
+# mark the testimage as empty for running the tests in local docker containers
+make test_smoke_ccip image=chainlink-ccip tag=latest-dev testimage="" testname=TestSmokeCCIPForBidirectionalLane overridestring="<overridden config string>" override_toml="<the toml file with overridden config string>" env="<.env file with BASE64_TEST_CONFIG_OVERRIDE value>"
 ```
+Currently other types of tests like load and chaos can only be run using remote kubernetes cluster.
 
-You can also run specific tests and debug tests in vscode by setting up your .vscode/settings.json with this information. Just replace all the "<put your ...>" with your information before running a test.
+### Using remote kubernetes cluster
 
-```json
-{
-    "makefile.extensionOutputFolder": "./.vscode",
-    "go.testEnvVars": {
-        "LOG_LEVEL": "debug",
-        "SELECTED_NETWORKS": "SIMULATED,SIMULATED_1,SIMULATED_2",
-        "CHAINLINK_IMAGE":"<put your account number here>.dkr.ecr.us-west-2.amazonaws.com/chainlink",
-        "CHAINLINK_VERSION":"develop",
-        "CHAINLINK_ENV_USER":"<put your name>",
-        "TEST_LOG_LEVEL":"debug",
-        "AWS_ACCESS_KEY_ID":"<put your access key id here>",
-        "AWS_SECRET_ACCESS_KEY":"<put your access key here>",
-        "AWS_SESSION_TOKEN":"<put your token here>"
-    },
-    "go.testTimeout": "900s"
-}
-```
-
-You can also run your tests inside of kubernetes instead of from locally to reduce local resource usage and the number of ports that get forwarded to the cluster. This is not recommended for normal developement since building and pushing the image can be time heavy depending on your internet upload speeds. To do this you will want to either pull down an already built chainlink-tests image or build one yourself. To build and push one yourself you can run:
-
-```sh
-make build_test_image tag=<a tag for your image> base_tag=latest suite="smoke soak chaos reorg migration performance" push=true
-```
-
-Once that is done building you can add this to your go.testEnvVars in .vscode/settings.json with the correct account number and tag filled out.
-
-```json
-  "TEST_SUITE": "smoke",
-  "TEST_ARGS": "-test.timeout 30m",
-  "ENV_JOB_IMAGE":"<account number>.dkr.ecr.us-west-2.amazonaws.com/chainlink-env-tests:<tag you used in the build step>",
-```
-
-Once that is done you can run/debug your test using the vscode test view just like normal.
-
-### Soak
-
-Currently we have 2 soak tests, both can be triggered using make commands.
-
-```sh
-make test_soak_ocr
-make test_soak_keeper
-```
-
-Soak tests will pull all their network information from the env vars that you can set in the `.env` file. *Reminder to run `source .env` for changes to take effect.*
-
-To configure specific parameters of how the soak tests run (e.g. test length, number of contracts), adjust the values in your `.env` file, you can use `example.env` as reference
-
-
-#### Running with custom image
-On each PR navigate to the `integration-tests` job, here you will find the images for both chainlink-tests and core. In your env file you need to replace:
-
-`ENV_JOB_IMAGE="image-location/chainlink-tests:<IMAGE_SHA>"`
-
-`CHAINLINK_IMAGE="public.ecr.aws/chainlink/chainlink"`
-
-`export CHAINLINK_VERSION="<IMAGE_SHA>"`
-
-After all the env vars are exported, run the tests. This will kick off a remote runner that will be in charge of running the tests. Locally the test should pass quickly and a namespace will be displayed in the output e.g
-`INF Creating new namespace Namespace=soak-ocr-goerli-testnet-957b2`
-
-#### Logs and monitoring
-- Pod logs: `kubectl logs -n soak-ocr-goerli-testnet-957b2 -c node -f chainlink-0-1`
-- Remote runner logs: `kubectl logs -n soak-ocr-goerli-testnet-957b2 -f remote-runner-cs2as`
-- Navigate to Grafana chainlink testing insights for all logs
-
-### Performance
-
-Currently, all performance tests are only run on simulated blockchains.
-
-```sh
-make test_perf
-```
-
-## CCIP Tests
-
-### Configure Environment for CCIP
-
-> CCIP tests follow some additional set up as it needs multi-chain set-up to run the tests. 
-> To run any kind of CCIP tests you need to provide the some mandatory and optional env variables. 
-> See the [ccip-example.env](ccip/ccip-example.env) file and use it as a template for your own .env file.
-> The tests will not automatically load your .env file. Remember to run source .env for changes to take effect.
-
-
-
-### How to Run CCIP Tests
-
->After following the instructions [Install Dependencies](#setup) , [K8 Setup](#connect-to-a-kubernetes-cluster) 
->and [Configure Environment](#configure-environment-for-ccip) , you can run the tests using the following commands.
-
-#### Smoke tests   
-Mostly you would run tests on simulated networks for cost and speed-
-```sh
-make test_smoke_ccip_simulated
-```
-On specific networks (set up according to envionment variables) -
-```sh
-make test_smoke_ccip
-```
-
-#### Load tests
-On simulated networks -
-```sh
-make test_load_ccip_simulated
-```
-On specific networks (set up according to envionment variables) -
-```sh
-make test_load_ccip
-```
-
-#### Soak tests
-Soak tests are just load tests run with long duration and lesser rate of request triggering.
-```sh
-make test_soak_ccip
-```
-
-#### Chaos tests
-Chaos tests can only be run in simulated networks to inject specific chaos events in custom environments.
-You need to trigger podchaos tests and network chaos tests separately.
-
-```sh
-make test_chaos_ccip_pods_raw
-```
-
-```sh
-make test_chaos_ccip_network_raw
-```
-#### Soak/Load/Smoke tests on Existing Deployments
-> Tests can be run on existing deployments by setting the env var CCIP_TESTS_ON_EXISTING_DEPLOYMENT to true.
-> 1. Create a branch out of the code ref using which the contracts were deployed. (This is to ensure that the gethwrappers are compatible with the deployed contracts)
-> 2. Update [contracts.json](ccip/contracts/laneconfig/contracts.json) file with the contract addresses of the deployment under test.
-> 3. Set the env var CCIP_TESTS_ON_EXISTING_DEPLOYMENT to true in the .env file.
-> 4. Set up other env vars denoting the network and other load config parameters in .env file as mentioned in [Configure Environment](#configure-environment-for-ccip) section.
-> 5. Run the tests in same branch using the following command -
-> ```sh
-> source <your .env file>
-> make test_soak_ccip # Or the corresponding make <test_type>_test command for load or smoke tests
-> ```
-
-## Common Issues
-
-- When upgrading to a new version, it's possible the helm charts have changed. There are a myriad of errors that can result from this, so it's best to just try running `helm repo update` when encountering an error you're unsure of.
-- Docker failing to pull image, make sure you are referencing the correct ECR repo in AWS since develop images are not pushed to the public one.
-  - If tests hang for some time this is usually the case, so make sure to check the logs each time tests are failing to start
-
-</details>
-
-
-## Just Run
-
-If you're making changes to chainlink code, or just want to run some tests without a complex setup, follow the below steps.
-
-1. [Install Go](https://go.dev/doc/install)
-2. [Install GitHub CLI](https://cli.github.com/)
-3. Authenticate with GitHub CLI: `gh auth login`
-4. `make run`
-5. Follow the setup wizard and watch your tests run in the GitHub Action.
+These tests remain bound to a Kubernetes run environment, and require more complex setup and running instructions. We endeavor to make these easier to run and configure, but for the time being please seek a member of the QA/Test Tooling team if you want to run these.
