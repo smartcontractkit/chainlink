@@ -52,7 +52,7 @@ func DeployVRFV2TransparentUpgradeableProxy(auth *bind.TransactOpts, backend bin
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &VRFV2TransparentUpgradeableProxy{VRFV2TransparentUpgradeableProxyCaller: VRFV2TransparentUpgradeableProxyCaller{contract: contract}, VRFV2TransparentUpgradeableProxyTransactor: VRFV2TransparentUpgradeableProxyTransactor{contract: contract}, VRFV2TransparentUpgradeableProxyFilterer: VRFV2TransparentUpgradeableProxyFilterer{contract: contract}}, nil
+	return address, tx, &VRFV2TransparentUpgradeableProxy{address: address, abi: *parsed, VRFV2TransparentUpgradeableProxyCaller: VRFV2TransparentUpgradeableProxyCaller{contract: contract}, VRFV2TransparentUpgradeableProxyTransactor: VRFV2TransparentUpgradeableProxyTransactor{contract: contract}, VRFV2TransparentUpgradeableProxyFilterer: VRFV2TransparentUpgradeableProxyFilterer{contract: contract}}, nil
 }
 
 type VRFV2TransparentUpgradeableProxy struct {

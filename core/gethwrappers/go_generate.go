@@ -2,7 +2,7 @@
 // golang packages, using abigen.
 package gethwrappers
 
-// Make sure solidity compiler artifacts are up to date. Only output stdout on failure.
+// Make sure solidity compiler artifacts are up-to-date. Only output stdout on failure.
 //go:generate ./generation/compile_contracts.sh
 
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.6/FluxAggregator.abi ../../contracts/solc/v0.6/FluxAggregator.bin FluxAggregator flux_aggregator_wrapper
