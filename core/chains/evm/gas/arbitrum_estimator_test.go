@@ -152,7 +152,7 @@ func TestArbitrumEstimator(t *testing.T) {
 		t.Cleanup(func() { assert.NoError(t, o.Close()) })
 
 		_, _, err := o.GetLegacyGas(testutils.Context(t), calldata, gasLimit, maxGasPrice)
-		assert.EqualError(t, err, "failed to estimate l2 gas; gas price not set")
+		assert.EqualError(t, err, "failed to estimate gas; gas price not set")
 	})
 
 	t.Run("limit computes", func(t *testing.T) {
