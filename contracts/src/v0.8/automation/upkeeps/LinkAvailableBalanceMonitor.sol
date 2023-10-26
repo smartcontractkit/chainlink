@@ -305,6 +305,13 @@ contract LinkAvailableBalanceMonitor is ConfirmedOwner, Pausable, AutomationComp
   function _needsFunding(address targetAddress, uint256 minBalance) private view returns (bool, address) {
     ILinkAvailable target;
     IAggregatorProxy proxy = IAggregatorProxy(targetAddress);
+    // Explicitly check if the targetAddress is the zero address
+    // or if it's not a contract. In both cases return with false,
+    // to prevent target.linkAvailableForPayment from running,
+    // which would revert the operation.
+    if (targetAddress == address(0) || !(targetAddress.code.length > 0)) {
+      return (false, address(0));
+    }
     try proxy.aggregator() returns (address aggregatorAddress) {
       target = ILinkAvailable(aggregatorAddress);
     } catch {
