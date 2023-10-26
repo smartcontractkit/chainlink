@@ -24,6 +24,8 @@ on:
           - "POLYGON_MAINNET"   
           - "LINEA_GOERLI"
           - "LINEA_MAINNET"  
+          - "FANTOM_TESTNET"   
+          - "FANTOM_MAINNET"   
       fundingPrivateKey:
         description: Private funding key (Skip for Simulated)
         required: false
