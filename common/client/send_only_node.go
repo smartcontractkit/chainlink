@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
+//go:generate mockery --quiet --name sendOnlyClient --structname mockSendOnlyClient --inpackage --case=underscore
 type sendOnlyClient[
 	CHAIN_ID types.ID,
 ] interface {
@@ -143,6 +144,7 @@ func (s *sendOnlyNode[CHAIN_ID, RPC]) start(startCtx context.Context) {
 func (s *sendOnlyNode[CHAIN_ID, RPC]) Close() error {
 	return s.StopOnce(s.name, func() error {
 		s.rpc.Close()
+		close(s.chStop)
 		s.wg.Wait()
 		s.setState(nodeStateClosed)
 		return nil

@@ -3,21 +3,21 @@ package client
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/smartcontractkit/chainlink/v2/common/types"
+	"github.com/smartcontractkit/chainlink/v2/core/utils"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestHighestHeadNodeSelectorName(t *testing.T) {
-	selector := NewHighestHeadNodeSelector[types.ID, Head, NodeClient[types.ID, Head]](nil)
-	assert.Equal(t, selector.Name(), NodeSelectionMode_HighestHead)
+func TestTotalDifficultyNodeSelectorName(t *testing.T) {
+	selector := NewTotalDifficultyNodeSelector[types.ID, Head, NodeClient[types.ID, Head]](nil)
+	assert.Equal(t, selector.Name(), NodeSelectionMode_TotalDifficulty)
 }
 
-func TestHighestHeadNodeSelector(t *testing.T) {
+func TestTotalDifficultyNodeSelector(t *testing.T) {
 	t.Parallel()
 
 	type nodeClient NodeClient[types.ID, Head]
-
 	var nodes []Node[types.ID, Head, nodeClient]
 
 	for i := 0; i < 3; i++ {
@@ -26,54 +26,56 @@ func TestHighestHeadNodeSelector(t *testing.T) {
 			// first node is out of sync
 			node.On("StateAndLatest").Return(nodeStateOutOfSync, int64(-1), nil)
 		} else if i == 1 {
-			// second node is alive, LatestReceivedBlockNumber = 1
-			node.On("StateAndLatest").Return(nodeStateAlive, int64(1), nil)
+			// second node is alive
+			node.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(7))
 		} else {
-			// third node is alive, LatestReceivedBlockNumber = 2 (best node)
-			node.On("StateAndLatest").Return(nodeStateAlive, int64(2), nil)
+			// third node is alive and best
+			node.On("StateAndLatest").Return(nodeStateAlive, int64(2), utils.NewBigI(8))
 		}
 		node.On("Order").Maybe().Return(int32(1))
 		nodes = append(nodes, node)
 	}
 
-	selector := NewHighestHeadNodeSelector[types.ID, Head, nodeClient](nodes)
+	selector := NewTotalDifficultyNodeSelector(nodes)
 	assert.Same(t, nodes[2], selector.Select())
 
 	t.Run("stick to the same node", func(t *testing.T) {
 		node := newMockNode[types.ID, Head, nodeClient](t)
-		// fourth node is alive, LatestReceivedBlockNumber = 2 (same as 3rd)
-		node.On("StateAndLatest").Return(nodeStateAlive, int64(2), nil)
-		node.On("Order").Return(int32(1))
+		// fourth node is alive (same as 3rd)
+		node.On("StateAndLatest").Return(nodeStateAlive, int64(2), utils.NewBigI(8))
+		node.On("Order").Maybe().Return(int32(1))
 		nodes = append(nodes, node)
 
-		selector := NewHighestHeadNodeSelector(nodes)
+		selector := NewTotalDifficultyNodeSelector(nodes)
 		assert.Same(t, nodes[2], selector.Select())
 	})
 
 	t.Run("another best node", func(t *testing.T) {
 		node := newMockNode[types.ID, Head, nodeClient](t)
-		// fifth node is alive, LatestReceivedBlockNumber = 3 (better than 3rd and 4th)
-		node.On("StateAndLatest").Return(nodeStateAlive, int64(3), nil)
-		node.On("Order").Return(int32(1))
+		// fifth node is alive (better than 3rd and 4th)
+		node.On("StateAndLatest").Return(nodeStateAlive, int64(3), utils.NewBigI(11))
+		node.On("Order").Maybe().Return(int32(1))
 		nodes = append(nodes, node)
 
-		selector := NewHighestHeadNodeSelector(nodes)
+		selector := NewTotalDifficultyNodeSelector(nodes)
 		assert.Same(t, nodes[4], selector.Select())
 	})
 
 	t.Run("nodes never update latest block number", func(t *testing.T) {
 		node1 := newMockNode[types.ID, Head, nodeClient](t)
 		node1.On("StateAndLatest").Return(nodeStateAlive, int64(-1), nil)
-		node1.On("Order").Return(int32(1))
+		node1.On("Order").Maybe().Return(int32(1))
 		node2 := newMockNode[types.ID, Head, nodeClient](t)
 		node2.On("StateAndLatest").Return(nodeStateAlive, int64(-1), nil)
-		node2.On("Order").Return(int32(1))
-		selector := NewHighestHeadNodeSelector([]Node[types.ID, Head, nodeClient]{node1, node2})
+		node2.On("Order").Maybe().Return(int32(1))
+		nodes := []Node[types.ID, Head, nodeClient]{node1, node2}
+
+		selector := NewTotalDifficultyNodeSelector(nodes)
 		assert.Same(t, node1, selector.Select())
 	})
 }
 
-func TestHighestHeadNodeSelector_None(t *testing.T) {
+func TestTotalDifficultyNodeSelector_None(t *testing.T) {
 	t.Parallel()
 
 	type nodeClient NodeClient[types.ID, Head]
@@ -86,91 +88,91 @@ func TestHighestHeadNodeSelector_None(t *testing.T) {
 			node.On("StateAndLatest").Return(nodeStateOutOfSync, int64(-1), nil)
 		} else {
 			// others are unreachable
-			node.On("StateAndLatest").Return(nodeStateUnreachable, int64(1), nil)
+			node.On("StateAndLatest").Return(nodeStateUnreachable, int64(1), utils.NewBigI(7))
 		}
 		nodes = append(nodes, node)
 	}
 
-	selector := NewHighestHeadNodeSelector(nodes)
+	selector := NewTotalDifficultyNodeSelector(nodes)
 	assert.Nil(t, selector.Select())
 }
 
-func TestHighestHeadNodeSelectorWithOrder(t *testing.T) {
+func TestTotalDifficultyNodeSelectorWithOrder(t *testing.T) {
 	t.Parallel()
 
 	type nodeClient NodeClient[types.ID, Head]
 	var nodes []Node[types.ID, Head, nodeClient]
 
-	t.Run("same head and order", func(t *testing.T) {
+	t.Run("same td and order", func(t *testing.T) {
 		for i := 0; i < 3; i++ {
 			node := newMockNode[types.ID, Head, nodeClient](t)
-			node.On("StateAndLatest").Return(nodeStateAlive, int64(1), nil)
+			node.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(10))
 			node.On("Order").Return(int32(2))
 			nodes = append(nodes, node)
 		}
-		selector := NewHighestHeadNodeSelector(nodes)
+		selector := NewTotalDifficultyNodeSelector(nodes)
 		//Should select the first node because all things are equal
 		assert.Same(t, nodes[0], selector.Select())
 	})
 
-	t.Run("same head but different order", func(t *testing.T) {
+	t.Run("same td but different order", func(t *testing.T) {
 		node1 := newMockNode[types.ID, Head, nodeClient](t)
-		node1.On("StateAndLatest").Return(nodeStateAlive, int64(3), nil)
+		node1.On("StateAndLatest").Return(nodeStateAlive, int64(3), utils.NewBigI(10))
 		node1.On("Order").Return(int32(3))
 
 		node2 := newMockNode[types.ID, Head, nodeClient](t)
-		node2.On("StateAndLatest").Return(nodeStateAlive, int64(3), nil)
+		node2.On("StateAndLatest").Return(nodeStateAlive, int64(3), utils.NewBigI(10))
 		node2.On("Order").Return(int32(1))
 
 		node3 := newMockNode[types.ID, Head, nodeClient](t)
-		node3.On("StateAndLatest").Return(nodeStateAlive, int64(3), nil)
+		node3.On("StateAndLatest").Return(nodeStateAlive, int64(3), utils.NewBigI(10))
 		node3.On("Order").Return(int32(2))
 
 		nodes := []Node[types.ID, Head, nodeClient]{node1, node2, node3}
-		selector := NewHighestHeadNodeSelector(nodes)
+		selector := NewTotalDifficultyNodeSelector(nodes)
 		//Should select the second node as it has the highest priority
 		assert.Same(t, nodes[1], selector.Select())
 	})
 
-	t.Run("different head but same order", func(t *testing.T) {
+	t.Run("different td but same order", func(t *testing.T) {
 		node1 := newMockNode[types.ID, Head, nodeClient](t)
-		node1.On("StateAndLatest").Return(nodeStateAlive, int64(1), nil)
+		node1.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(10))
 		node1.On("Order").Maybe().Return(int32(3))
 
 		node2 := newMockNode[types.ID, Head, nodeClient](t)
-		node2.On("StateAndLatest").Return(nodeStateAlive, int64(2), nil)
+		node2.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(11))
 		node2.On("Order").Maybe().Return(int32(3))
 
 		node3 := newMockNode[types.ID, Head, nodeClient](t)
-		node3.On("StateAndLatest").Return(nodeStateAlive, int64(3), nil)
+		node3.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(12))
 		node3.On("Order").Return(int32(3))
 
 		nodes := []Node[types.ID, Head, nodeClient]{node1, node2, node3}
-		selector := NewHighestHeadNodeSelector(nodes)
-		//Should select the third node as it has the highest head
+		selector := NewTotalDifficultyNodeSelector(nodes)
+		//Should select the third node as it has the highest td
 		assert.Same(t, nodes[2], selector.Select())
 	})
 
 	t.Run("different head and different order", func(t *testing.T) {
 		node1 := newMockNode[types.ID, Head, nodeClient](t)
-		node1.On("StateAndLatest").Return(nodeStateAlive, int64(10), nil)
-		node1.On("Order").Maybe().Return(int32(3))
+		node1.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(100))
+		node1.On("Order").Maybe().Return(int32(4))
 
 		node2 := newMockNode[types.ID, Head, nodeClient](t)
-		node2.On("StateAndLatest").Return(nodeStateAlive, int64(11), nil)
-		node2.On("Order").Maybe().Return(int32(4))
+		node2.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(110))
+		node2.On("Order").Maybe().Return(int32(5))
 
 		node3 := newMockNode[types.ID, Head, nodeClient](t)
-		node3.On("StateAndLatest").Return(nodeStateAlive, int64(11), nil)
-		node3.On("Order").Maybe().Return(int32(3))
+		node3.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(110))
+		node3.On("Order").Maybe().Return(int32(1))
 
 		node4 := newMockNode[types.ID, Head, nodeClient](t)
-		node4.On("StateAndLatest").Return(nodeStateAlive, int64(10), nil)
-		node4.On("Order").Maybe().Return(int32(1))
+		node4.On("StateAndLatest").Return(nodeStateAlive, int64(1), utils.NewBigI(105))
+		node4.On("Order").Maybe().Return(int32(2))
 
 		nodes := []Node[types.ID, Head, nodeClient]{node1, node2, node3, node4}
-		selector := NewHighestHeadNodeSelector(nodes)
-		//Should select the third node as it has the highest head and will win the priority tie-breaker
+		selector := NewTotalDifficultyNodeSelector(nodes)
+		//Should select the third node as it has the highest td and will win the priority tie-breaker
 		assert.Same(t, nodes[2], selector.Select())
 	})
 }

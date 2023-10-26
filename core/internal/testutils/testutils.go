@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -31,8 +30,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	// NOTE: To avoid circular dependencies, this package MUST NOT import
 	// anything from "github.com/smartcontractkit/chainlink/v2/core"
+
+	"github.com/smartcontractkit/chainlink/v2/core/testutils"
 )
 
 const (
@@ -116,17 +118,13 @@ func RandomizeName(n string) string {
 }
 
 // DefaultWaitTimeout is the default wait timeout. If you have a *testing.T, use WaitTimeout instead.
-const DefaultWaitTimeout = 30 * time.Second
+const DefaultWaitTimeout = testutils.DefaultWaitTimeout
 
 // WaitTimeout returns a timeout based on the test's Deadline, if available.
 // Especially important to use in parallel tests, as their individual execution
 // can get paused for arbitrary amounts of time.
 func WaitTimeout(t *testing.T) time.Duration {
-	if d, ok := t.Deadline(); ok {
-		// 10% buffer for cleanup and scheduling delay
-		return time.Until(d) * 9 / 10
-	}
-	return DefaultWaitTimeout
+	return testutils.WaitTimeout(t)
 }
 
 // AfterWaitTimeout returns a channel that will send a time value when the
@@ -137,19 +135,7 @@ func AfterWaitTimeout(t *testing.T) <-chan time.Time {
 
 // Context returns a context with the test's deadline, if available.
 func Context(tb testing.TB) context.Context {
-	ctx := context.Background()
-	var cancel func()
-	switch t := tb.(type) {
-	case *testing.T:
-		if d, ok := t.Deadline(); ok {
-			ctx, cancel = context.WithDeadline(ctx, d)
-		}
-	}
-	if cancel == nil {
-		ctx, cancel = context.WithCancel(ctx)
-	}
-	tb.Cleanup(cancel)
-	return ctx
+	return testutils.Context(tb)
 }
 
 // MustParseURL parses the URL or fails the test
@@ -350,22 +336,16 @@ func IntToHex(n int) string {
 
 // TestInterval is just a sensible poll interval that gives fast tests without
 // risk of spamming
-const TestInterval = 100 * time.Millisecond
+const TestInterval = testutils.TestInterval
 
 // AssertEventually waits for f to return true
 func AssertEventually(t *testing.T, f func() bool) {
-	assert.Eventually(t, f, WaitTimeout(t), TestInterval/2)
+	testutils.AssertEventually(t, f)
 }
 
 // RequireLogMessage fails the test if emitted logs don't contain the given message
 func RequireLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg string) {
-	for _, l := range observedLogs.All() {
-		if strings.Contains(l.Message, msg) {
-			return
-		}
-	}
-	t.Log("observed logs", observedLogs.All())
-	t.Fatalf("expected observed logs to contain msg %q, but it didn't", msg)
+	testutils.RequireLogMessage(t, observedLogs, msg)
 }
 
 // WaitForLogMessage waits until at least one log message containing the
@@ -378,31 +358,13 @@ func RequireLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg st
 //	observedZapCore, observedLogs := observer.New(zap.DebugLevel)
 //	lggr := logger.TestLogger(t, observedZapCore)
 func WaitForLogMessage(t *testing.T, observedLogs *observer.ObservedLogs, msg string) {
-	AssertEventually(t, func() bool {
-		for _, l := range observedLogs.All() {
-			if strings.Contains(l.Message, msg) {
-				return true
-			}
-		}
-		return false
-	})
+	testutils.WaitForLogMessage(t, observedLogs, msg)
 }
 
 // WaitForLogMessageCount waits until at least count log message containing the
 // specified msg is emitted
 func WaitForLogMessageCount(t *testing.T, observedLogs *observer.ObservedLogs, msg string, count int) {
-	AssertEventually(t, func() bool {
-		i := 0
-		for _, l := range observedLogs.All() {
-			if strings.Contains(l.Message, msg) {
-				i++
-				if i >= count {
-					return true
-				}
-			}
-		}
-		return false
-	})
+	testutils.WaitForLogMessageCount(t, observedLogs, msg, count)
 }
 
 // SkipShort skips tb during -short runs, and notes why.
