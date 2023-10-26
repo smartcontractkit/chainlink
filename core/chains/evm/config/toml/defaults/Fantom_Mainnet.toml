@@ -9,6 +9,8 @@ RPCBlockQueryDelay = 2
 Enabled = true
 
 [GasEstimator]
+# Fantom network has been slow to include txs at times when using the BlockHistory estimator, and the recommendation is to use L2Suggested mode.
+# There is work under way to improve L2Suggested mode's name so that its use on non-L2 chains will be less confusing in the future.
 Mode = 'L2Suggested'
 
 [OCR2.Automation]
